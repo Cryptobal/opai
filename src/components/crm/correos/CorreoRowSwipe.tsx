@@ -195,7 +195,7 @@ export function CorreoRowSwipe({
   return (
     <div
       ref={rowRef}
-      className={`relative overflow-hidden transition-all duration-200 ${
+      className={`relative overflow-hidden transition-[max-height,opacity] duration-200 ease-out ${
         leaving ? "max-h-0 opacity-0" : "max-h-[240px] opacity-100"
       }`}
     >

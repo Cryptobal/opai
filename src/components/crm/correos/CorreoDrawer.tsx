@@ -15,6 +15,7 @@ import { CorreoSnoozeSheet } from "./CorreoSnoozeSheet";
 import { snoozeThread } from "./correo-thread-action-client";
 import { useMarkCorreoRead } from "./useMarkCorreoRead";
 import { parseSender } from "./correo-sender";
+import { loadOfflineDetail } from "./offline-store";
 import type { CorreoDetail } from "@/modules/crm/email/correos.types";
 
 type ThreadPreview = {
@@ -95,13 +96,21 @@ export function CorreoDrawer({
     }
   }, [threadId]);
 
-  // Carga inicial / cambio de hilo: descartamos el detalle del hilo anterior
-  // de inmediato (el header usa `preview` de la lista) y evitamos el spinner
-  // a pantalla completa que hacía sentir la app lenta.
+  // Carga inicial / cambio de hilo: pintamos al instante desde IndexedDB
+  // (si hay) y pedimos la red en paralelo. El header ya usa `preview` de la lista.
   useEffect(() => {
     setDetail((prev) => (prev?.thread.id === threadId ? prev : null));
     setAiOpen(false);
+    if (!threadId) return;
+    let cancelled = false;
+    void loadOfflineDetail(threadId).then((cached) => {
+      if (cancelled || !cached) return;
+      setDetail((prev) => (prev?.thread.id === threadId ? prev : cached));
+    });
     void load();
+    return () => {
+      cancelled = true;
+    };
   }, [load, threadId]);
   // Refresh en vivo: recarga en segundo plano sin vaciar ni parpadear el
   // lector. Se omite la primera ejecución (el efecto de arriba ya cargó) para

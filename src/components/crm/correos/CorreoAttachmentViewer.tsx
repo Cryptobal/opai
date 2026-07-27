@@ -50,7 +50,7 @@ export function CorreoAttachmentViewer({
   if (!file) return null;
 
   return (
-    <div className="fixed inset-0 z-[60] flex flex-col bg-ds-surface-1">
+    <div className="fixed inset-0 z-[60] flex flex-col bg-ds-surface-1 animate-in fade-in slide-in-from-bottom-2 duration-200 ease-out">
       <header className="flex items-center gap-1.5 border-b border-ds-border-subtle px-3 py-2 pt-[calc(env(safe-area-inset-top)+0.5rem)]">
         <p className="min-w-0 flex-1 truncate text-[13px] font-medium text-ds-text-1" title={file.filename}>
           {file.filename}

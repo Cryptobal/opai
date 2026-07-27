@@ -23,6 +23,7 @@ import {
 export type { CorreoSwipeSide } from "./row-swipe-gesture";
 export { SWIPE_LONG_RATIO, SWIPE_OPEN_WIDTH } from "./row-swipe-gesture";
 
+/** Umbral de main (#742): un poco más alto evita robar scroll vertical. */
 const AXIS_LOCK = 10;
 const LONG_PRESS_MS = 450;
 const LONG_PRESS_MOVE = 10;
@@ -177,6 +178,8 @@ export function useRowSwipe(opts: {
     const next = Math.max(Math.min(start.current.base + rawDx, width), -width);
     rawDxRef.current = next;
     x.set(toVisualDx(next));
+    // Actualizar lado si el usuario invierte el gesto a mitad de camino.
+    setDragSide(next >= 0 ? "right" : "left");
 
     const absRaw = Math.abs(next);
     const nowArmed = isSwipeArmed(absRaw, width);
@@ -230,6 +233,7 @@ export function useRowSwipe(opts: {
       rawDxRef.current = 0;
       resetFeedback();
       animateTo(0, 0);
+      void triggerHaptic("light");
       onButtonSwipe?.(outcome.side, outcome.buttonIndex);
       return;
     }
