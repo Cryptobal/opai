@@ -78,12 +78,32 @@ function AppLayoutClientInner({
   }, []);
 
   useEffect(() => {
-    fetchOtherCounters();
-    const interval = setInterval(fetchOtherCounters, 30000);
+    let interval: ReturnType<typeof setInterval> | undefined;
+    const start = () => {
+      fetchOtherCounters();
+      interval = setInterval(fetchOtherCounters, 30000);
+    };
+    const ric = (
+      window as unknown as {
+        requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number;
+        cancelIdleCallback?: (id: number) => void;
+      }
+    ).requestIdleCallback;
+    let idleId: number | undefined;
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+    if (ric) {
+      idleId = ric(start, { timeout: 1200 });
+    } else {
+      timeoutId = setTimeout(start, 1200);
+    }
     const onRefresh = () => fetchOtherCounters();
     window.addEventListener('opai-note-seen', onRefresh as EventListener);
     return () => {
-      clearInterval(interval);
+      if (interval) clearInterval(interval);
+      if (idleId != null) {
+        (window as unknown as { cancelIdleCallback?: (id: number) => void }).cancelIdleCallback?.(idleId);
+      }
+      if (timeoutId) clearTimeout(timeoutId);
       window.removeEventListener('opai-note-seen', onRefresh as EventListener);
     };
   }, [fetchOtherCounters]);
