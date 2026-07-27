@@ -29,6 +29,10 @@ type Props = {
   onOpen: () => void;
   canModify: boolean;
   onChanged?: () => void;
+  onRemoveDone?: () => void;
+  onUndoDone?: () => void;
+  /** Remoción optimista + avance (archivar/eliminar desde hover). */
+  onRemove?: (id: string) => void;
   onSnooze?: () => void;
   selected?: boolean;
   focused?: boolean;
@@ -44,7 +48,7 @@ type Props = {
  * Densidad compacta (previewLines=1): 36px y sin avatar.
  */
 export function CorreoRowDesktop({
-  thread, onOpen, canModify, onChanged, onSnooze,
+  thread, onOpen, canModify, onChanged, onRemoveDone, onUndoDone, onRemove, onSnooze,
   selected = false, focused = false, checked, onToggleCheck, previewLines = 2,
 }: Props) {
   const unread = thread.isUnread;
@@ -53,16 +57,27 @@ export function CorreoRowDesktop({
   const sender = parseSender(thread.fromEmail);
   const senderLabel = sender.name || sender.email || "—";
   const starred = Boolean(thread.starredAt);
+  // Gmail Pro: fila activa (abierta o enfocada con j/k) con tint azulado.
+  // El border-l siempre ocupa 2px (transparent) para no desplazar el contenido
+  // al cambiar de fila — eso causaba el "tiritón" al archivar/navegar.
+  const active = selected || focused;
 
   return (
     <div
       data-correo-row={thread.id}
       data-density={compact ? "compact" : "comfortable"}
-      className={`group relative flex w-full items-center gap-2 border-b border-ds-border-subtle pl-2 pr-3 last:border-0 hover:bg-ds-surface-2 ${
+      data-active={active ? "true" : undefined}
+      className={`group relative flex w-full items-center gap-2 border-b border-l-2 border-ds-border-subtle pl-2 pr-3 last:border-b-0 hover:bg-ds-surface-2 ${
         compact ? "h-9" : "h-11"
-      } ${selected ? "border-l-2 border-l-primary bg-primary/5" : ""} ${
-        focused ? "ring-2 ring-inset ring-primary/60" : ""
-      } ${unread && !selected ? "bg-ds-surface-2/40" : ""}`}
+      } ${
+        selected
+          ? "border-l-primary bg-primary/15"
+          : focused
+            ? "border-l-primary/80 bg-primary/10"
+            : "border-l-transparent"
+      } ${unread && !active ? "bg-ds-surface-2/40" : ""} ${
+        checked && !active ? "bg-primary/10" : ""
+      }`}
     >
       {onToggleCheck && (
         <CorreoCheckbox
@@ -166,6 +181,9 @@ export function CorreoRowDesktop({
             archived={Boolean(thread.archivedAt)}
             canModify={canModify}
             onDone={onChanged}
+            onRemoveDone={onRemoveDone}
+            onUndoDone={onUndoDone}
+            onRemove={onRemove}
             onSnooze={onSnooze}
           />
         </div>

@@ -21,6 +21,9 @@ type Props = {
   onAssociate: (p: { accountId: string | null; dealId: string | null; sharedWithAccount?: boolean }) => void;
   onRefresh: () => void;
   onClose?: () => void;
+  onRemove?: (threadId: string) => void;
+  onRemoveDone?: () => void;
+  onUndoDone?: () => void;
   onReply?: () => void;
   onSnooze?: () => void;
   alwaysShowImages?: boolean;
@@ -37,6 +40,9 @@ export function CorreoDrawerContent({
   onAssociate,
   onRefresh,
   onClose,
+  onRemove,
+  onRemoveDone,
+  onUndoDone,
   onReply,
   onSnooze,
   alwaysShowImages,
@@ -72,7 +78,10 @@ export function CorreoDrawerContent({
               variant="drawer"
               compact
               onDone={onRefresh}
+              onRemoveDone={onRemoveDone}
+              onUndoDone={onUndoDone}
               onClose={onClose}
+              onRemove={onRemove}
               onReply={onReply}
               onSnooze={onSnooze}
             />

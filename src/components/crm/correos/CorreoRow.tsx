@@ -23,6 +23,9 @@ export function CorreoRow({
   onOpen,
   canModify,
   onChanged,
+  onRemoveDone,
+  onUndoDone,
+  onRemove,
   onSnooze,
   selected = false,
   focused = false,
@@ -36,6 +39,10 @@ export function CorreoRow({
   onOpen: () => void;
   canModify: boolean;
   onChanged?: () => void;
+  onRemoveDone?: () => void;
+  onUndoDone?: () => void;
+  /** Remoción optimista + avance (archivar/eliminar). */
+  onRemove?: (id: string) => void;
   /** Abre el sheet de posponer (hover desktop / swipe móvil). */
   onSnooze?: () => void;
   selected?: boolean;
@@ -68,6 +75,9 @@ export function CorreoRow({
       onOpen={onOpen}
       canModify={canModify}
       onChanged={onChanged}
+      onRemoveDone={onRemoveDone}
+      onUndoDone={onUndoDone}
+      onRemove={onRemove}
       onSnooze={onSnooze}
       selected={selected}
       focused={focused}

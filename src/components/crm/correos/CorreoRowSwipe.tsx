@@ -39,6 +39,8 @@ type Props = {
   canModify: boolean;
   onOpen: () => void;
   onChanged?: () => void;
+  onRemoveDone?: () => void;
+  onUndoDone?: () => void;
   onRemove?: (id: string) => void;
   onSnooze?: () => void;
   selected?: boolean;
@@ -57,7 +59,7 @@ type Props = {
  * la secundaria; largo o flick ejecuta la principal. Motion values + spring.
  */
 export function CorreoRowSwipe({
-  thread, canModify, onOpen, onChanged, onRemove, onSnooze,
+  thread, canModify, onOpen, onChanged, onRemoveDone, onUndoDone, onRemove, onSnooze,
   selected, focused, checked, onToggleCheck, previewLines, swipeConfig,
   onAvatarPress, onLongPress, selectionMode = false,
 }: Props) {
@@ -121,6 +123,7 @@ export function CorreoRowSwipe({
   if (!coarse) {
     return (
       <CorreoRow thread={thread} canModify={canModify} onOpen={onOpen} onChanged={onChanged}
+        onRemoveDone={onRemoveDone} onUndoDone={onUndoDone} onRemove={onRemove}
         onSnooze={onSnooze} selected={selected} focused={focused} checked={checked}
         onToggleCheck={onToggleCheck} previewLines={previewLines} />
     );
@@ -131,19 +134,21 @@ export function CorreoRowSwipe({
       if (leaving) return;
       setLeaving(true);
       const undo = action === "archive" ? "unarchive" : undefined;
+      // Remoción inmediata (avanza el lector en desktop); soft refresh al
+      // confirmar; hard refresh al Deshacer para rehidratar la fila.
+      onRemove?.(thread.id);
       void runCorreoAction(
         thread.id,
         action,
         action === "archive" ? "Archivado" : "Movido a la Papelera",
-        () => {
-          onRemove?.(thread.id);
-          onChanged?.();
-        },
+        onRemoveDone ?? onChanged,
         undo,
+        onUndoDone,
       ).then((ok) => {
         if (!ok) {
           setLeaving(false);
-          onChanged?.();
+          if (onUndoDone) onUndoDone();
+          else onChanged?.();
         }
       });
       return;

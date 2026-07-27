@@ -44,7 +44,7 @@ describe("CorreoRow (desktop denso)", () => {
   });
 
   it("marca el hilo seleccionado", () => {
-    render(
+    const { container } = render(
       <CorreoRow thread={thread} canModify={false} onOpen={vi.fn()} selected />,
     );
     expect(
@@ -52,6 +52,19 @@ describe("CorreoRow (desktop denso)", () => {
         .getByRole("button", { name: /Propuesta comercial/i })
         .getAttribute("aria-current"),
     ).toBe("true");
+    const row = container.querySelector("[data-correo-row]");
+    expect(row?.getAttribute("data-active")).toBe("true");
+    expect(row?.className).toMatch(/bg-primary\/15/);
+    expect(row?.className).toMatch(/border-l-primary/);
+  });
+
+  it("tinte azulado en fila enfocada (j/k) sin abrir", () => {
+    const { container } = render(
+      <CorreoRow thread={thread} canModify={false} onOpen={vi.fn()} focused />,
+    );
+    const row = container.querySelector("[data-correo-row]");
+    expect(row?.getAttribute("data-active")).toBe("true");
+    expect(row?.className).toMatch(/bg-primary\/10/);
   });
 
   it("muestra clip en desktop cuando hay adjuntos", () => {

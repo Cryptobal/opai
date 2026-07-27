@@ -67,6 +67,11 @@ export async function runCorreoAction(
   okMsg: string,
   onDone?: () => void,
   undo?: CorreoAction,
+  /**
+   * Refresh al deshacer. Si no se pasa, usa `onDone`. Sirve para archivar con
+   * refresh suave (preserveItems) y al deshacer sí rehidratar la lista.
+   */
+  onUndoDone?: () => void,
 ): Promise<boolean> {
   try {
     await postAction(threadId, action);
@@ -74,7 +79,8 @@ export async function runCorreoAction(
       showUndo({
         message: okMsg,
         durationMs: correoUndoDurationMs(),
-        onUndo: () => void postAction(threadId, undo).then(() => onDone?.()),
+        onUndo: () =>
+          void postAction(threadId, undo).then(() => (onUndoDone ?? onDone)?.()),
       });
     } else {
       toast.success(okMsg);
