@@ -24,6 +24,10 @@ type SpeechRecognitionEventLike = {
 
 type SpeechRecognitionCtor = new () => SpeechRecognitionLike;
 
+const MAX_MS = 120_000;
+const SILENCE_MS = 8_000;
+const MAX_RESTARTS = 3;
+
 function getSpeechRecognitionCtor(): SpeechRecognitionCtor | null {
   if (typeof window === "undefined") return null;
   const w = window as unknown as {
@@ -37,30 +41,59 @@ export function isSpeechDictationSupported(): boolean {
   return getSpeechRecognitionCtor() !== null;
 }
 
+export type SpeechDictationApi = {
+  supported: boolean;
+  listening: boolean;
+  error: string | null;
+  silent: boolean;
+  elapsedMs: number;
+  interimText: string;
+  finalText: string;
+  start: () => void;
+  cancel: () => void;
+  finish: () => Promise<string>;
+  finishAndSend: () => Promise<void>;
+};
+
 /**
- * Dictado en vivo (Web Speech API): mientras habla, el texto aparece en el
- * composer (interim + final), estilo Claude Code.
+ * Dictado en vivo (Web Speech API) con cancel / finish / finishAndSend.
  */
 export function useSpeechDictation(opts: {
   value: string;
   onChange: (next: string) => void;
+  onSubmit?: () => void | Promise<void>;
   lang?: string;
   disabled?: boolean;
-}) {
-  const { value, onChange, lang = "es-CL", disabled } = opts;
+}): SpeechDictationApi {
+  const { value, onChange, onSubmit, lang = "es-CL", disabled } = opts;
   const [listening, setListening] = useState(false);
   const [supported, setSupported] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [silent, setSilent] = useState(false);
+  const [elapsedMs, setElapsedMs] = useState(0);
+  const [interimText, setInterimText] = useState("");
+  const [finalText, setFinalText] = useState("");
 
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const baseTextRef = useRef("");
   const finalChunkRef = useRef("");
   const onChangeRef = useRef(onChange);
+  const onSubmitRef = useRef(onSubmit);
   const valueRef = useRef(value);
+  const listeningRef = useRef(false);
+  const restartCountRef = useRef(0);
+  const startedAtRef = useRef(0);
+  const lastResultAtRef = useRef(0);
+  const maxTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const tickTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const endWaitersRef = useRef<Array<() => void>>([]);
 
   useEffect(() => {
     onChangeRef.current = onChange;
   }, [onChange]);
+  useEffect(() => {
+    onSubmitRef.current = onSubmit;
+  }, [onSubmit]);
   useEffect(() => {
     valueRef.current = value;
   }, [value]);
@@ -69,21 +102,82 @@ export function useSpeechDictation(opts: {
     setSupported(isSpeechDictationSupported());
   }, []);
 
-  const stop = useCallback(() => {
-    const rec = recognitionRef.current;
-    if (rec) {
-      try {
-        rec.onresult = null;
-        rec.onerror = null;
-        rec.onend = null;
-        rec.stop();
-      } catch {
-        // noop
-      }
-      recognitionRef.current = null;
+  const clearTimers = useCallback(() => {
+    if (maxTimerRef.current) {
+      clearTimeout(maxTimerRef.current);
+      maxTimerRef.current = null;
     }
-    setListening(false);
+    if (tickTimerRef.current) {
+      clearInterval(tickTimerRef.current);
+      tickTimerRef.current = null;
+    }
   }, []);
+
+  const flushEndWaiters = useCallback(() => {
+    const waiters = endWaitersRef.current;
+    endWaitersRef.current = [];
+    for (const w of waiters) w();
+  }, []);
+
+  const detach = useCallback(
+    (mode: "stop" | "abort") => {
+      const rec = recognitionRef.current;
+      if (rec) {
+        try {
+          rec.onresult = null;
+          rec.onerror = null;
+          rec.onend = null;
+          if (mode === "abort") rec.abort();
+          else rec.stop();
+        } catch {
+          // noop
+        }
+        recognitionRef.current = null;
+      }
+      listeningRef.current = false;
+      setListening(false);
+      clearTimers();
+      flushEndWaiters();
+    },
+    [clearTimers, flushEndWaiters],
+  );
+
+  const cancel = useCallback(() => {
+    detach("abort");
+    finalChunkRef.current = "";
+    setInterimText("");
+    setFinalText("");
+    setSilent(false);
+    setElapsedMs(0);
+    onChangeRef.current(baseTextRef.current);
+  }, [detach]);
+
+  const finish = useCallback((): Promise<string> => {
+    return new Promise((resolve) => {
+      if (!listeningRef.current) {
+        resolve(valueRef.current);
+        return;
+      }
+      let settled = false;
+      const settle = () => {
+        if (settled) return;
+        settled = true;
+        setInterimText("");
+        setSilent(false);
+        setElapsedMs(0);
+        resolve(valueRef.current);
+      };
+      endWaitersRef.current.push(settle);
+      detach("stop");
+      // Espera breve por el último interim → final (P3 / casos límite).
+      setTimeout(settle, 400);
+    });
+  }, [detach]);
+
+  const finishAndSend = useCallback(async () => {
+    await finish();
+    await onSubmitRef.current?.();
+  }, [finish]);
 
   const start = useCallback(() => {
     if (disabled) return;
@@ -93,7 +187,8 @@ export function useSpeechDictation(opts: {
       return;
     }
     setError(null);
-    stop();
+    setSilent(false);
+    detach("abort");
 
     const rec = new Ctor();
     rec.continuous = true;
@@ -101,22 +196,38 @@ export function useSpeechDictation(opts: {
     rec.lang = lang;
     baseTextRef.current = valueRef.current.trimEnd();
     finalChunkRef.current = "";
+    restartCountRef.current = 0;
+    startedAtRef.current = Date.now();
+    lastResultAtRef.current = Date.now();
+    setFinalText("");
+    setInterimText("");
+    setElapsedMs(0);
+
+    const applyTranscript = (finals: string, interim: string) => {
+      finalChunkRef.current = finals;
+      setFinalText(finals);
+      setInterimText(interim);
+      const prefix = baseTextRef.current;
+      const joined = [prefix, `${finals}${interim}`.trim()]
+        .filter(Boolean)
+        .join(prefix ? " " : "");
+      onChangeRef.current(joined);
+    };
 
     rec.onresult = (ev) => {
+      lastResultAtRef.current = Date.now();
+      setSilent(false);
       let interim = "";
       let finals = finalChunkRef.current;
       for (let i = ev.resultIndex; i < ev.results.length; i += 1) {
         const piece = ev.results[i][0]?.transcript ?? "";
         if (ev.results[i].isFinal) {
           finals = `${finals}${piece}`;
-          finalChunkRef.current = finals;
         } else {
           interim += piece;
         }
       }
-      const prefix = baseTextRef.current;
-      const joined = [prefix, `${finals}${interim}`.trim()].filter(Boolean).join(prefix ? " " : "");
-      onChangeRef.current(joined);
+      applyTranscript(finals, interim);
     };
 
     rec.onerror = (ev) => {
@@ -127,45 +238,88 @@ export function useSpeechDictation(opts: {
           ? "Permiso de micrófono denegado"
           : "No se pudo dictar. Intenta de nuevo.",
       );
+      listeningRef.current = false;
       setListening(false);
       recognitionRef.current = null;
+      clearTimers();
+      flushEndWaiters();
     };
 
     rec.onend = () => {
-      // Si el usuario sigue en modo listening, algunos browsers cortan solos:
-      // reiniciamos para mantener el dictado continuo.
-      if (recognitionRef.current === rec) {
+      if (recognitionRef.current !== rec) {
+        flushEndWaiters();
+        return;
+      }
+      // Reinicio acotado para dictado continuo (máx. 3 en ventana del dictado).
+      if (
+        listeningRef.current &&
+        restartCountRef.current < MAX_RESTARTS &&
+        Date.now() - startedAtRef.current < MAX_MS
+      ) {
+        restartCountRef.current += 1;
         try {
           rec.start();
           return;
         } catch {
-          recognitionRef.current = null;
-          setListening(false);
+          // cae a stop
         }
       }
+      recognitionRef.current = null;
+      listeningRef.current = false;
+      setListening(false);
+      clearTimers();
+      flushEndWaiters();
     };
 
     recognitionRef.current = rec;
     try {
       rec.start();
+      listeningRef.current = true;
       setListening(true);
+      maxTimerRef.current = setTimeout(() => {
+        void finish();
+      }, MAX_MS);
+      tickTimerRef.current = setInterval(() => {
+        const elapsed = Date.now() - startedAtRef.current;
+        setElapsedMs(elapsed);
+        if (Date.now() - lastResultAtRef.current >= SILENCE_MS) {
+          setSilent(true);
+        }
+      }, 250);
     } catch {
       setError("No se pudo iniciar el micrófono");
       recognitionRef.current = null;
+      listeningRef.current = false;
       setListening(false);
     }
-  }, [disabled, lang, stop]);
+  }, [disabled, lang, detach, clearTimers, flushEndWaiters, finish]);
 
-  const toggle = useCallback(() => {
-    if (listening) stop();
-    else start();
-  }, [listening, start, stop]);
-
-  useEffect(() => () => stop(), [stop]);
+  useEffect(() => () => detach("abort"), [detach]);
 
   useEffect(() => {
-    if (disabled && listening) stop();
-  }, [disabled, listening, stop]);
+    if (disabled && listening) void finish();
+  }, [disabled, listening, finish]);
 
-  return { supported, listening, error, start, stop, toggle };
+  useEffect(() => {
+    if (!listening) return;
+    const onVis = () => {
+      if (document.visibilityState === "hidden") void finish();
+    };
+    document.addEventListener("visibilitychange", onVis);
+    return () => document.removeEventListener("visibilitychange", onVis);
+  }, [listening, finish]);
+
+  return {
+    supported,
+    listening,
+    error,
+    silent,
+    elapsedMs,
+    interimText,
+    finalText,
+    start,
+    cancel,
+    finish,
+    finishAndSend,
+  };
 }
