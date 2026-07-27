@@ -31,6 +31,7 @@ import {
   SheetDescription,
 } from '@/components/ui/sheet';
 import { DEFAULT_SURFACE, type Surface } from '@/lib/surface';
+import { SurfaceSwitcher } from './SurfaceSwitcher';
 
 /** Tracks BottomNav real height and exposes it as --bottom-nav-height CSS variable */
 function useBottomNavHeight(ref: React.RefObject<HTMLElement | null>) {
@@ -239,6 +240,9 @@ export function BottomNav({ userRole, surface = DEFAULT_SURFACE }: BottomNavProp
           )}
         >
           <div className="opai-glass-strong flex h-14 min-w-0 flex-1 items-center justify-around overflow-hidden px-1">
+            <div className="shrink-0 pl-0.5">
+              <SurfaceSwitcher surface={surface} compact dropUp />
+            </div>
             <ModuleSubNav
               items={productividadItems}
               activeModule="productividad"
@@ -280,6 +284,9 @@ export function BottomNav({ userRole, surface = DEFAULT_SURFACE }: BottomNavProp
         )}
       >
         <div className="opai-glass-strong flex h-14 min-w-0 flex-1 items-center justify-around overflow-hidden px-1">
+          <div className="shrink-0 pl-0.5">
+            <SurfaceSwitcher surface={surface} compact dropUp />
+          </div>
           {isInModule ? (
             <ModuleSubNav
               items={moduleItems}

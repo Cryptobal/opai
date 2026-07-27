@@ -30,6 +30,7 @@ import {
 } from '@/components/opai-ds';
 import { resolveNavContext } from '@/lib/nav/resolve-context';
 import { DEFAULT_SURFACE, type Surface } from '@/lib/surface';
+import { SurfaceReturnBar } from './SurfaceReturnBar';
 
 export interface AppShellProps {
   sidebar?: ReactNode;
@@ -277,6 +278,7 @@ function AppShellInner({
                 )}
                 role="region"
               >
+                <SurfaceReturnBar surface={surface} className="mb-2 -mx-4 sm:-mx-6 lg:mx-0" />
                 {children}
               </div>
             )}

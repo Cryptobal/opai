@@ -10,6 +10,7 @@ import { pathMatchesNode } from '@/lib/nav/registry';
 import { DEFAULT_SURFACE, type Surface } from '@/lib/surface';
 import { ThemeLogo } from './ThemeLogo';
 import { SignOutDialog } from './SignOutDialog';
+import { SurfaceSwitcher } from './SurfaceSwitcher';
 
 export interface NavSubItem {
   href: string;
@@ -65,11 +66,12 @@ export function AppSidebar({
   className,
   showCloseButton,
   onClose,
-  surface: _surface = DEFAULT_SURFACE,
+  surface = DEFAULT_SURFACE,
 }: AppSidebarProps) {
   const pathname = usePathname();
   const chatCtx = useChatSidePanelContext();
   const collapsed = !isSidebarOpen;
+  const homeHref = surface === 'productividad' ? '/productividad' : '/hub';
   const [flyout, setFlyout] = useState<FlyoutState | null>(null);
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
   // N3 expansion state removido: sidebar limita a N1+N2.
@@ -144,44 +146,57 @@ export function AppSidebar({
         className
       )}
     >
-      {/* Logo */}
+      {/* Logo + selector de superficie */}
       <div
         className={cn(
-          "flex h-14 items-center border-b border-transparent shrink-0 transition-[padding] duration-200 relative after:absolute after:bottom-0 after:left-3 after:right-3 after:h-px after:bg-gradient-to-r after:from-primary/30 after:via-border after:to-transparent",
-          collapsed ? "justify-center px-0" : "gap-2.5 px-4",
-          showCloseButton && "justify-between pr-2"
+          "flex flex-col border-b border-transparent shrink-0 transition-[padding] duration-200 relative after:absolute after:bottom-0 after:left-3 after:right-3 after:h-px after:bg-gradient-to-r after:from-primary/30 after:via-border after:to-transparent",
+          collapsed ? "px-1.5 pt-2 pb-1.5" : "px-3 pt-2 pb-2",
         )}
       >
-        {logo || (
-          <Link
-            href="/hub"
-            className={cn("flex items-center", collapsed ? "justify-center" : "gap-2.5")}
-            onClick={onNavigate}
-            title={collapsed ? "OPAI" : undefined}
-          >
-            <ThemeLogo width={28} height={28} className="h-7 w-7" />
-            {!collapsed && (
-              <span
-                className={cn(
-                  "font-semibold tracking-tight",
-                  showCloseButton ? "text-base" : "text-sm"
-                )}
-              >
-                OPAI
-              </span>
-            )}
-          </Link>
-        )}
-        {showCloseButton && onClose && (
-          <button
-            type="button"
-            onClick={onClose}
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-            aria-label="Cerrar menú"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        )}
+        <div
+          className={cn(
+            "flex h-11 items-center",
+            collapsed ? "justify-center" : "gap-2.5",
+            showCloseButton && "justify-between",
+          )}
+        >
+          {logo || (
+            <Link
+              href={homeHref}
+              className={cn("flex min-w-0 items-center", collapsed ? "justify-center" : "gap-2.5")}
+              onClick={onNavigate}
+              title={collapsed ? (surface === 'productividad' ? 'Productividad' : 'OPAI') : undefined}
+            >
+              <ThemeLogo width={28} height={28} className="h-7 w-7" />
+              {!collapsed && (
+                <span
+                  className={cn(
+                    "font-semibold tracking-tight truncate",
+                    showCloseButton ? "text-base" : "text-sm"
+                  )}
+                >
+                  {surface === 'productividad' ? 'Productividad' : 'OPAI'}
+                </span>
+              )}
+            </Link>
+          )}
+          {showCloseButton && onClose && (
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              aria-label="Cerrar menú"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          )}
+        </div>
+        <SurfaceSwitcher
+          surface={surface}
+          compact={collapsed && !showCloseButton}
+          className={cn(collapsed && !showCloseButton ? "mx-auto" : "mt-1")}
+          onSwitched={onNavigate}
+        />
       </div>
 
       {/* Navigation */}
