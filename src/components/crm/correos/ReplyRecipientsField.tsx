@@ -142,7 +142,7 @@ export function ReplyRecipientsField({
     <div ref={rootRef} className="relative">
       <div
         className={cn(
-          "flex min-h-10 flex-wrap items-center gap-1.5 border-b border-ds-border-default py-1.5",
+          "flex min-h-10 flex-wrap items-center gap-1.5 border-b border-ds-border-subtle py-1.5 pr-16",
           "focus-within:border-primary",
         )}
         onClick={() => inputRef.current?.focus()}
@@ -157,19 +157,13 @@ export function ReplyRecipientsField({
               key={v}
               title={email}
               className={cn(
-                "inline-flex max-w-full items-center gap-1.5 rounded-full py-0.5 pl-0.5 pr-1.5 text-[12px]",
+                "inline-flex max-w-full items-center gap-1 rounded-md py-0.5 pl-1.5 pr-1 text-[12px]",
                 ok
-                  ? "bg-ds-surface-2 text-ds-text-1"
+                  ? "bg-ds-surface-2/80 text-ds-text-1"
                   : "bg-status-danger-soft text-status-danger-fg",
               )}
             >
-              <span
-                aria-hidden
-                className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/15 text-[12px] font-semibold text-primary"
-              >
-                {initials(labelText)}
-              </span>
-              <span className="max-w-[10rem] truncate">{labelText}</span>
+              <span className="max-w-[12rem] truncate">{labelText}</span>
               <button
                 type="button"
                 aria-label={`Quitar ${email}`}
@@ -177,7 +171,7 @@ export function ReplyRecipientsField({
                   e.stopPropagation();
                   onChange(values.filter((x) => x !== v));
                 }}
-                className="rounded-full p-0.5 text-ds-text-3 ds-tap hover:bg-ds-surface-3 hover:text-ds-text-1"
+                className="rounded-md p-0.5 text-ds-text-3 ds-tap hover:bg-ds-surface-3 hover:text-ds-text-1"
               >
                 <X className="h-3 w-3" />
               </button>

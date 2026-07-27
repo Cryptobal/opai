@@ -135,32 +135,32 @@ export function CorreoComposerBox(props: Props) {
 
   const inner = (
     <>
-      <div className="flex items-center gap-1.5">
-        <div className="flex items-center gap-1 rounded-lg bg-ds-surface-1 p-0.5">
-          <ModeTab active={mode === "reply"} onClick={() => switchMode("reply")}>Responder</ModeTab>
-          {replyAll && <ModeTab active={mode === "all"} onClick={() => switchMode("all")}>A todos</ModeTab>}
-          <ModeTab active={mode === "forward"} onClick={() => switchMode("forward")}>Reenviar</ModeTab>
-        </div>
+      <div className="flex items-center gap-1 border-b border-ds-border-subtle pb-1">
+        <ModeTab active={mode === "reply"} onClick={() => switchMode("reply")}>Responder</ModeTab>
+        {replyAll && <ModeTab active={mode === "all"} onClick={() => switchMode("all")}>A todos</ModeTab>}
+        <ModeTab active={mode === "forward"} onClick={() => switchMode("forward")}>Reenviar</ModeTab>
         {!isForward && (
           <button
             type="button"
             onClick={toggleAi}
             aria-pressed={ai}
-            className={`inline-flex h-9 items-center gap-1 rounded-lg px-2.5 text-[12px] font-medium ds-tap ${
-              ai ? "bg-tint-violet/25 text-tint-violet-fg" : "border border-ds-border-default text-ds-text-2 hover:text-ds-text-1"
+            className={`ml-1 inline-flex h-9 items-center gap-1 rounded-md px-2 text-[12px] font-medium ds-tap ${
+              ai
+                ? "text-tint-violet-fg"
+                : "text-ds-text-3 hover:text-ds-text-1"
             }`}
           >
             <Sparkles className="h-3.5 w-3.5" /> IA
           </button>
         )}
-        <div className="ml-auto flex items-center gap-1">
+        <div className="ml-auto flex items-center">
           {isDesktop && (
             <button
               type="button"
               aria-label={asModal ? "Contraer" : "Expandir"}
               title={asModal ? "Contraer" : "Expandir"}
               onClick={toggleExpand}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-ds-text-3 ds-tap hover:bg-ds-surface-3 hover:text-ds-text-1"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-md text-ds-text-3 ds-tap hover:bg-ds-surface-2 hover:text-ds-text-1"
             >
               {asModal ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
             </button>
@@ -169,7 +169,7 @@ export function CorreoComposerBox(props: Props) {
             type="button"
             aria-label="Cerrar"
             onClick={props.onClose}
-            className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-ds-text-3 ds-tap hover:bg-ds-surface-3 hover:text-ds-text-1"
+            className="inline-flex h-9 w-9 items-center justify-center rounded-md text-ds-text-3 ds-tap hover:bg-ds-surface-2 hover:text-ds-text-1"
           >
             <X className="h-4 w-4" />
           </button>
@@ -177,7 +177,8 @@ export function CorreoComposerBox(props: Props) {
       </div>
 
       {ai && !isForward && (
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 border-b border-ds-border-subtle pb-1">
+          <Sparkles className="h-3.5 w-3.5 shrink-0 text-tint-violet-fg" />
           <input
             value={instructions}
             onChange={(e) => setInstructions(e.target.value)}
@@ -187,16 +188,16 @@ export function CorreoComposerBox(props: Props) {
                 if (!generating) void generate();
               }
             }}
-            placeholder="Indicaciones para la IA (opcional): ej. proponé reunión el jueves…"
-            className="h-9 min-w-0 flex-1 rounded-lg border border-ds-border-default bg-ds-surface-1 px-2 text-[16px] text-ds-text-1 sm:text-[13px]"
+            placeholder="Indicaciones para la IA (opcional)…"
+            className="h-9 min-w-0 flex-1 bg-transparent px-0 text-[16px] text-ds-text-1 outline-none placeholder:text-ds-text-4 sm:text-[13px]"
           />
           <button
             type="button"
             onClick={() => void generate()}
             disabled={generating}
-            className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg border border-ds-border-default px-3 text-[13px] ds-tap disabled:opacity-50"
+            className="inline-flex h-9 shrink-0 items-center gap-1 px-1.5 text-[12px] text-ds-text-2 ds-tap hover:text-ds-text-1 disabled:opacity-50"
           >
-            <Sparkles className="h-4 w-4" /> {generating ? "Generando…" : "Regenerar"}
+            {generating ? "Generando…" : "Regenerar"}
           </button>
         </div>
       )}
@@ -239,7 +240,7 @@ export function CorreoComposerBox(props: Props) {
     return createPortal(
       <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Redactar correo">
         <div className="absolute inset-0 bg-black/40" onClick={toggleExpand} aria-hidden />
-        <div className="relative z-10 flex h-[min(84dvh,780px)] w-[min(820px,94vw)] flex-col gap-2 overflow-y-auto rounded-2xl border border-ds-border-default bg-ds-surface-2 p-3 shadow-2xl">
+        <div className="relative z-10 flex h-[min(84dvh,780px)] w-[min(820px,94vw)] flex-col gap-1 overflow-y-auto bg-background px-4 py-3 shadow-2xl">
           {inner}
         </div>
       </div>,
@@ -247,8 +248,9 @@ export function CorreoComposerBox(props: Props) {
     );
   }
 
+  // Inline reply: sin card — solo el fondo del lector + divisores sutiles.
   return (
-    <div id="correo-suggested-reply" className="space-y-2 rounded-xl border border-ds-border-subtle bg-ds-surface-2 p-2.5">
+    <div id="correo-suggested-reply" className="space-y-1 border-t border-ds-border-subtle pt-2">
       {inner}
     </div>
   );
@@ -260,8 +262,10 @@ function ModeTab({ active, onClick, children }: { active: boolean; onClick: () =
       type="button"
       onClick={onClick}
       aria-pressed={active}
-      className={`h-9 rounded-md px-3 text-[13px] font-medium ds-tap ${
-        active ? "bg-ds-surface-3 text-ds-text-1" : "text-ds-text-3 hover:text-ds-text-1"
+      className={`h-9 border-b-2 px-2.5 text-[13px] font-medium ds-tap ${
+        active
+          ? "border-primary text-ds-text-1"
+          : "border-transparent text-ds-text-3 hover:text-ds-text-1"
       }`}
     >
       {children}

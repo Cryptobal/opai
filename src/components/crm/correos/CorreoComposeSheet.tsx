@@ -40,30 +40,30 @@ export function CorreoComposeSheet({ open, onClose, onSent }: Props) {
 
   return (
     <div
-      className="fixed inset-0 z-[60] flex items-stretch justify-center bg-black/40 md:items-center md:p-4"
+      className="fixed inset-0 z-[60] flex items-stretch justify-center bg-black/40 md:items-end md:justify-end md:p-0 md:pb-0 md:pr-4 md:pt-16"
       onClick={confirmClose}
     >
       <Surface
-        elevation={2}
+        elevation={1}
         padding="none"
-        className="flex h-dvh w-full flex-col overflow-hidden rounded-none md:h-auto md:max-h-[92dvh] md:max-w-2xl md:rounded-2xl"
+        className="flex h-dvh w-full flex-col overflow-hidden rounded-none border-0 bg-background md:h-[min(720px,calc(100dvh-5rem))] md:max-w-xl md:rounded-t-2xl md:shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex shrink-0 items-center justify-between border-b border-ds-border-subtle px-4 py-3 pt-[calc(env(safe-area-inset-top,0px)+0.75rem)] md:pt-3">
+        <div className="flex shrink-0 items-center justify-between px-4 py-2.5 pt-[calc(env(safe-area-inset-top,0px)+0.625rem)] md:pt-2.5">
           <div className="flex items-center gap-2">
-            <PenLine className="h-4 w-4 text-tint-violet-fg" />
-            <p className="font-display text-sm font-semibold text-ds-text-1">Redactar correo</p>
+            <PenLine className="h-4 w-4 text-ds-text-3" />
+            <p className="text-sm font-medium text-ds-text-1">Mensaje nuevo</p>
           </div>
           <button
             type="button"
             aria-label="Cerrar"
             onClick={confirmClose}
-            className="flex h-11 w-11 items-center justify-center text-ds-text-3 ds-tap"
+            className="flex h-11 w-11 items-center justify-center rounded-full text-ds-text-3 ds-tap hover:bg-ds-surface-2"
           >
             <X className="h-5 w-5" />
           </button>
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto p-4 pb-[calc(env(safe-area-inset-bottom,0px)+1rem)]">
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-[calc(env(safe-area-inset-bottom,0px)+1rem)]">
           <EmailComposer
             mode="new"
             onSent={onSent}

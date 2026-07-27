@@ -373,9 +373,9 @@ export function EmailComposer({
   }
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-0">
       {!isReply && identityOptions.length > 1 && (
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 border-b border-ds-border-subtle focus-within:border-primary">
           <span className="w-10 shrink-0 text-[12px] text-ds-text-3">De</span>
           <select
             value={identity ? `${identity.accountId}:${identity.alias ?? ""}` : ""}
@@ -385,7 +385,7 @@ export function EmailComposer({
               );
               if (option) setIdentity({ accountId: option.accountId, alias: option.alias });
             }}
-            className="h-9 min-w-0 flex-1 rounded-lg border border-ds-border-default bg-ds-surface-1 px-2 text-[13px] text-ds-text-1"
+            className="h-9 min-w-0 flex-1 bg-transparent px-0 text-[13px] text-ds-text-1 outline-none"
             aria-label="Casilla remitente"
           >
             {identityOptions.map((option) => (
@@ -396,33 +396,35 @@ export function EmailComposer({
           </select>
         </div>
       )}
-      <ReplyRecipientsField label="Para" values={to} onChange={setTo} />
-      <div className="flex items-center gap-3">
-        {replyAll &&
-          (replyAll.cc.length > 0 ||
-            replyAll.to.some((e) => !to.includes(e)) ||
-            replyAll.to.length !== to.length) && (
+      <div className="relative">
+        <ReplyRecipientsField label="Para" values={to} onChange={setTo} />
+        <div className="absolute right-0 top-2 flex items-center gap-2">
+          {replyAll &&
+            (replyAll.cc.length > 0 ||
+              replyAll.to.some((e) => !to.includes(e)) ||
+              replyAll.to.length !== to.length) && (
+              <button
+                type="button"
+                onClick={() => {
+                  setTo(replyAll.to);
+                  setCc(replyAll.cc);
+                  if (replyAll.cc.length > 0) setShowCcBcc(true);
+                }}
+                className="text-[12px] text-ds-text-3 hover:text-ds-text-1 ds-tap"
+              >
+                A todos
+              </button>
+            )}
+          {!showCcBcc && (
             <button
               type="button"
-              onClick={() => {
-                setTo(replyAll.to);
-                setCc(replyAll.cc);
-                if (replyAll.cc.length > 0) setShowCcBcc(true);
-              }}
-              className="text-[12px] text-ds-text-2 underline underline-offset-2 ds-tap"
+              onClick={() => setShowCcBcc(true)}
+              className="text-[12px] text-ds-text-3 hover:text-ds-text-1 ds-tap"
             >
-              Responder a todos
+              Cc/Cco
             </button>
           )}
-        {!showCcBcc && (
-          <button
-            type="button"
-            onClick={() => setShowCcBcc(true)}
-            className="text-[12px] text-ds-text-3 underline underline-offset-2 ds-tap"
-          >
-            CC/CCO
-          </button>
-        )}
+        </div>
       </div>
       {showCcBcc && (
         <>
@@ -430,7 +432,7 @@ export function EmailComposer({
           <ReplyRecipientsField label="CCO" values={bcc} onChange={setBcc} />
         </>
       )}
-      <div className="flex items-center gap-2 border-b border-ds-border-default focus-within:border-primary">
+      <div className="flex items-center gap-2 border-b border-ds-border-subtle focus-within:border-primary">
         <span className="w-10 shrink-0 text-[12px] text-ds-text-3">Asunto</span>
         <input
           value={subject}
@@ -442,24 +444,23 @@ export function EmailComposer({
           className="h-9 min-w-0 flex-1 bg-transparent text-[16px] text-ds-text-1 outline-none sm:text-[13px]"
         />
       </div>
-      <div className="overflow-hidden rounded-lg border border-ds-border-default bg-ds-surface-1">
-        <ContractEditor
-          content={content ?? undefined}
-          onChange={(next) => {
-            setContent(next);
-            onBodyChange?.(next);
-          }}
-          editable={!busy}
-          placeholder="Escribí tu mensaje… (pegá imágenes directo)"
-          showPagePreview={false}
-          enableImages
-          enableTokens={false}
-          compact
-          renderToolbar={(editor) => <EmailToolbar editor={editor} />}
-        />
-      </div>
+      <ContractEditor
+        content={content ?? undefined}
+        onChange={(next) => {
+          setContent(next);
+          onBodyChange?.(next);
+        }}
+        editable={!busy}
+        placeholder="Escribí tu mensaje… (pegá imágenes directo)"
+        showPagePreview={false}
+        enableImages
+        enableTokens={false}
+        compact
+        className="min-h-[200px]"
+        renderToolbar={(editor) => <EmailToolbar editor={editor} />}
+      />
       {quotedHtml && (
-        <p className="text-[12px] text-ds-text-3">
+        <p className="py-1.5 text-[12px] text-ds-text-3">
           Se incluirá el mensaje original citado al final{forwardAttachments.length > 0
             ? ` · ${forwardAttachments.length} adjunto(s) original(es) se re-adjuntan`
             : ""}.
@@ -471,13 +472,14 @@ export function EmailComposer({
         onRemove={attachments.remove}
         onRetry={attachments.retry}
         disabled={busy}
+        className="rounded-none border-0 border-t border-ds-border-subtle bg-transparent px-0 py-2"
       />
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1.5 pt-1">
         <button
           type="button"
           onClick={() => void send()}
           disabled={busy || !canSend}
-          className="inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-lg bg-primary px-3 text-[13px] font-medium text-primary-foreground ds-tap disabled:opacity-50"
+          className="inline-flex h-9 items-center justify-center gap-1.5 rounded-full bg-primary px-4 text-[13px] font-medium text-primary-foreground ds-tap disabled:opacity-50"
         >
           {busy ? <Spinner className="h-4 w-4" /> : <Send className="h-4 w-4" />}
           {busy ? "Enviando…" : "Enviar"}
@@ -488,7 +490,7 @@ export function EmailComposer({
           aria-label="Programar envío"
           onClick={() => setScheduleOpen((v) => !v)}
           disabled={busy || !canSend}
-          className="inline-flex h-9 items-center justify-center rounded-lg border border-ds-border-default px-2.5 ds-tap disabled:opacity-50"
+          className="inline-flex h-9 w-9 items-center justify-center rounded-full text-ds-text-2 ds-tap hover:bg-ds-surface-2 disabled:opacity-50"
         >
           <CalendarClock className="h-4 w-4" />
         </button>
@@ -498,7 +500,7 @@ export function EmailComposer({
           aria-label="Descartar borrador"
           onClick={() => void discardDraft()}
           disabled={busy}
-          className="inline-flex h-9 items-center justify-center rounded-lg border border-ds-border-default px-2.5 text-status-danger-fg ds-tap disabled:opacity-50"
+          className="inline-flex h-9 w-9 items-center justify-center rounded-full text-ds-text-3 ds-tap hover:bg-ds-surface-2 hover:text-status-danger-fg disabled:opacity-50"
         >
           <Trash2 className="h-4 w-4" />
         </button>
@@ -510,7 +512,7 @@ export function EmailComposer({
         )}
       </div>
       {scheduleOpen && (
-        <div className="space-y-2 rounded-lg border border-ds-border-subtle bg-ds-surface-1 p-2">
+        <div className="space-y-2 border-t border-ds-border-subtle py-2">
           <p className="text-[12px] text-ds-text-3">Programar envío</p>
           <div className="flex flex-wrap items-center gap-2">
             {scheduleSendPresets().map((preset) => (
@@ -518,7 +520,7 @@ export function EmailComposer({
                 key={preset.key}
                 type="button"
                 onClick={() => void send(preset.date)}
-                className="h-9 rounded-full bg-ds-surface-2 px-3 text-[12px] text-ds-text-2 ds-tap"
+                className="h-9 rounded-full px-3 text-[12px] text-ds-text-2 ds-tap hover:bg-ds-surface-2"
               >
                 {preset.label}
               </button>
@@ -527,7 +529,7 @@ export function EmailComposer({
               type="datetime-local"
               value={customSchedule}
               onChange={(e) => setCustomSchedule(e.target.value)}
-              className="h-9 rounded-lg border border-ds-border-default bg-ds-surface-1 px-2 text-[12px] text-ds-text-1"
+              className="h-9 border-b border-ds-border-subtle bg-transparent px-1 text-[12px] text-ds-text-1 outline-none focus:border-primary"
               aria-label="Fecha y hora personalizada"
             />
             <button
@@ -541,7 +543,7 @@ export function EmailComposer({
                 }
                 void send(date);
               }}
-              className="h-9 rounded-lg border border-ds-border-default px-3 text-[12px] ds-tap disabled:opacity-50"
+              className="h-9 px-2 text-[12px] text-primary ds-tap disabled:opacity-50"
             >
               Programar
             </button>
