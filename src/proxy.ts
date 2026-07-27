@@ -25,6 +25,12 @@ import {
   type RolePermissions,
   type ModuleKey,
 } from '@/lib/permissions';
+import {
+  parseProductividadLandingCookie,
+  PRODUCTIVIDAD_LANDING_COOKIE,
+  SURFACE_COOKIE,
+  surfaceCookieOptions,
+} from '@/lib/surface';
 
 // Bots que arman link previews de OG (no son navegadores de usuarios reales).
 // Usado para el preview de cotizaciones privadas en WhatsApp y similares.
@@ -243,6 +249,21 @@ export default auth(async (req) => {
   // Authenticated user on /welcome → skip to hub
   if (pathname === '/welcome' && req.auth) {
     return Response.redirect(new URL('/hub', req.nextUrl.origin));
+  }
+
+  // PWA Productividad (H4): un solo viaje si ya conocemos la landing.
+  // Sin cookie → cae a la page (loading.tsx cubre el hop frío).
+  if (pathname === '/productividad' && req.auth) {
+    const landing = parseProductividadLandingCookie(
+      req.cookies.get(PRODUCTIVIDAD_LANDING_COOKIE)?.value,
+    );
+    if (landing) {
+      const res = NextResponse.redirect(new URL(landing, req.nextUrl.origin));
+      const opts = surfaceCookieOptions();
+      res.cookies.set(SURFACE_COOKIE, 'productividad', opts);
+      res.cookies.set(PRODUCTIVIDAD_LANDING_COOKIE, landing, opts);
+      return res;
+    }
   }
 
   // ── Portal-aware session isolation ──

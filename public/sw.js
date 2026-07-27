@@ -1,16 +1,18 @@
+// v17 (2026-07-27): /productividad en ERP_APP_PREFIXES (HTML auth no cacheable).
 // v16 (2026-07-27): navigationPreload + clients.claim en waitUntil.
 // Acelera el arranque PWA: la petición de navegación arranca en paralelo
 // al boot del worker. Conserva network-only para ERP y la purga por chunk 404.
 //
 // v15 (2026-07-27): fix PWA iPhone ERP — pantalla negra→blanca al abrir.
 // v14–v6: ver historial git.
-const CACHE_NAME = 'opai-v16';
+const CACHE_NAME = 'opai-v17';
 
 // Prefijos de la app ERP autenticada. Cachear su HTML en el SW es peligroso:
 // tras un deploy, el shell apunta a chunks ya borrados y iOS PWA queda en
 // blanco (start_url=/hub). Portales públicos sí se benefician del cache.
 const ERP_APP_PREFIXES = [
   '/hub',
+  '/productividad',
   '/crm',
   '/cpq',
   '/ops',

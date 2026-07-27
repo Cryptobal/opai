@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { useSwipeGesture } from "@/components/chat/hooks/useSwipeGesture";
 import { useKeyboardOffset } from "@/hooks/useKeyboardOffset";
+import { startNavProgress } from "../nav-progress-bus";
 import { ChatHeader } from "./ChatHeader";
 import { ChatComposer } from "./ChatComposer";
 import { ChatMessageList } from "./ChatMessageList";
@@ -89,7 +90,18 @@ export function ChatSheetMobile(props: ChatPanelSharedProps) {
             onClearPageContext={props.onClearPageContext}
             onSendStarter={props.onSendStarter}
             onAction={props.onAction}
-            onNavigateInternal={props.onNavigateInternal}
+            onNavigateInternal={(path) => {
+              // Cierre animado antes de desmontar (mismo gesto que ✕).
+              if (closing) return;
+              startNavProgress();
+              setClosing(true);
+              const el = sheetRef.current;
+              if (el) {
+                el.style.transition = "transform 180ms ease-out";
+                el.style.transform = "translate3d(0, 110%, 0)";
+              }
+              window.setTimeout(() => props.onNavigateInternal(path), 180);
+            }}
             onRegenerate={props.onRegenerate}
             onConfirmResolved={props.onConfirmResolved}
             onFeedback={props.onFeedback}
