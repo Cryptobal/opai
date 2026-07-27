@@ -41,9 +41,9 @@ export interface TenantCompanyConfig {
   brandingLogoWhite: string;     // Logo para fondos oscuros
   brandingLogoDark: string;      // Logo para fondos claros
   brandingFavicon: string;       // Favicon URL
-  brandingPrimaryColor: string;  // Color principal (#0a1628)
+  brandingPrimaryColor: string;  // Color principal / fondos dark (#142033)
   brandingSecondaryColor: string;// Color secundario (#0d9488)
-  brandingAccentColor: string;   // Color accent (#2dd4bf)
+  brandingAccentColor: string;   // Color accent CTAs (#14a88a)
   brandingAppName: string;       // Nombre de la app ("OPAI")
   brandingTagline: string;       // Subtítulo ("Plataforma de Operaciones")
 
@@ -120,7 +120,7 @@ const DEFAULTS: TenantCompanyConfig = {
   brandingLogoWhite: "",
   brandingLogoDark: "",
   brandingFavicon: "",
-  brandingPrimaryColor: "#0056E0",
+  brandingPrimaryColor: "#142033",
   brandingSecondaryColor: "#1DB990",
   brandingAccentColor: "#FF6B35",
   brandingAppName: "OPAI",
