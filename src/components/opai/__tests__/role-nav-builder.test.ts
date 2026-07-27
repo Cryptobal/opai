@@ -143,4 +143,58 @@ describe("buildNavItems — sidebar back-compat", () => {
     const childLabels = crm?.children?.map((c) => c.label) ?? [];
     expect(childLabels).not.toContain("Cotizaciones");
   });
+
+  it("surface productividad solo expone hijos del portal (sin Hub/ERP)", () => {
+    const items = buildNavItems({
+      permissions: getDefaultPermissions("owner"),
+      isAdmin: true,
+      isComplianceVisible: true,
+      isModuleEnabled: allEnabled,
+      surface: "productividad",
+    });
+    const labels = items.map((i) => i.label);
+    expect(labels).toContain("Correos");
+    expect(labels).toContain("Tareas");
+    expect(labels).toContain("Agenda");
+    expect(labels).toContain("Tickets");
+    expect(labels).toContain("Auditoría");
+    expect(labels).not.toContain("Inicio");
+    expect(labels).not.toContain("Comercial");
+    expect(labels).not.toContain("Operaciones");
+    expect(labels).not.toContain("Finanzas");
+    expect(labels).not.toContain("Personas");
+  });
+
+  it("surface productividad respeta adminOnly y tenantModule", () => {
+    const nonAdmin = buildNavItems({
+      permissions: getDefaultPermissions("owner"),
+      isAdmin: false,
+      isComplianceVisible: false,
+      isModuleEnabled: allEnabled,
+      surface: "productividad",
+    });
+    expect(nonAdmin.map((i) => i.label)).not.toContain("Auditoría");
+
+    const noCrm = buildNavItems({
+      permissions: getDefaultPermissions("owner"),
+      isAdmin: true,
+      isComplianceVisible: false,
+      isModuleEnabled: (k) => k !== "crm",
+      surface: "productividad",
+    });
+    expect(noCrm.map((i) => i.label)).not.toContain("Correos");
+    expect(noCrm.map((i) => i.label)).toContain("Tareas");
+  });
+
+  it("sin surface produce el mismo resultado que surface erp (regresión)", () => {
+    const base = {
+      permissions: getDefaultPermissions("owner"),
+      isAdmin: true,
+      isComplianceVisible: true,
+      isModuleEnabled: allEnabled,
+    };
+    const without = buildNavItems(base);
+    const withErp = buildNavItems({ ...base, surface: "erp" });
+    expect(without).toEqual(withErp);
+  });
 });
