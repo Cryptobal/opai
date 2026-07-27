@@ -67,14 +67,14 @@ export function CorreoRowDesktop({
       data-correo-row={thread.id}
       data-density={compact ? "compact" : "comfortable"}
       data-active={active ? "true" : undefined}
-      className={`group relative flex w-full items-center gap-2 border-b border-l-2 border-ds-border-subtle pl-2 pr-3 last:border-b-0 hover:bg-ds-surface-2 ${
+      className={`group relative flex w-full items-center gap-2 border-b border-l-2 border-ds-border-subtle pl-2 pr-3 last:border-b-0 ${
         compact ? "h-9" : "h-11"
       } ${
         selected
-          ? "border-l-primary bg-primary/15"
+          ? "border-l-primary bg-primary/15 hover:bg-primary/20"
           : focused
-            ? "border-l-primary/80 bg-primary/10"
-            : "border-l-transparent"
+            ? "border-l-primary/80 bg-primary/10 hover:bg-primary/15"
+            : "border-l-transparent hover:bg-ds-surface-2"
       } ${unread && !active ? "bg-ds-surface-2/40" : ""} ${
         checked && !active ? "bg-primary/10" : ""
       }`}

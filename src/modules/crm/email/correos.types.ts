@@ -29,6 +29,8 @@ export type CorreoThreadDTO = {
 
 export type CorreoMessageDTO = {
   id: string;
+  /** Id del mensaje en Gmail (para URLs de adjuntos / cid). */
+  providerMessageId?: string | null;
   direction: string;
   fromEmail: string;
   toEmails: string[];
@@ -45,6 +47,8 @@ export type CorreoAttachmentDTO = {
   filename: string;
   mimeType: string;
   size: number;
+  /** Content-ID MIME (sin <>). Sirve para reescribir `src="cid:…"` en el HTML. */
+  contentId?: string | null;
   /** B5: id del CrmFile si el adjunto ya fue guardado a una ficha desde este
    *  hilo (chip "Guardado"). Se resuelve por consulta fresca en cada detalle,
    *  fuera de `attachmentsMeta`, para no invalidar el caché C18. */

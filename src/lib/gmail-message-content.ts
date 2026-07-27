@@ -3,6 +3,7 @@ export type GmailMessagePart = {
   filename?: string | null;
   body?: { data?: string | null; attachmentId?: string | null; size?: number | null } | null;
   parts?: GmailMessagePart[] | null;
+  headers?: Array<{ name?: string | null; value?: string | null }> | null;
 };
 
 export type GmailAttachmentMeta = {
@@ -10,7 +11,19 @@ export type GmailAttachmentMeta = {
   filename: string;
   mimeType: string;
   size: number;
+  /** Content-ID sin <>, para resolver `src="cid:…"` en el HTML del correo. */
+  contentId?: string | null;
 };
+
+/** Extrae Content-ID de headers MIME (`<foo@bar>` → `foo@bar`). */
+export function contentIdFromPartHeaders(
+  headers?: Array<{ name?: string | null; value?: string | null }> | null,
+): string | null {
+  if (!headers?.length) return null;
+  const raw = headers.find((h) => (h.name || "").toLowerCase() === "content-id")?.value;
+  if (!raw) return null;
+  return raw.replace(/^<|>$/g, "").trim() || null;
+}
 
 /** Recorre el árbol de partes y devuelve los adjuntos (con attachmentId). */
 export function extractGmailAttachments(payload?: GmailMessagePart): GmailAttachmentMeta[] {
@@ -26,6 +39,7 @@ export function extractGmailAttachments(payload?: GmailMessagePart): GmailAttach
         filename: part.filename,
         mimeType: part.mimeType || "application/octet-stream",
         size: part.body.size ?? 0,
+        contentId: contentIdFromPartHeaders(part.headers),
       });
     }
     if (part.parts?.length) stack.push(...part.parts);

@@ -2,7 +2,10 @@
 
 import { useState } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
-import type { CorreoMessageDTO } from "@/modules/crm/email/correos.types";
+import type {
+  CorreoAttachmentDTO,
+  CorreoMessageDTO,
+} from "@/modules/crm/email/correos.types";
 import { emailPlainFallback } from "@/lib/sanitize-email-html";
 import { EmailHtmlBody } from "./EmailHtmlBody";
 import { parseSender } from "./correo-sender";
@@ -19,11 +22,13 @@ function fmtDate(iso: string | null): string {
 type ImagePrefs = {
   alwaysShowImages?: boolean;
   onAlwaysShowImages?: () => void;
+  threadId?: string | null;
+  attachments?: CorreoAttachmentDTO[];
 };
 
 /** Tarjeta de mensaje: cabecera siempre visible (tap = abrir/cerrar) + cuerpo. */
 function MessageCard({
-  m, open, onToggle, alwaysShowImages, onAlwaysShowImages,
+  m, open, onToggle, alwaysShowImages, onAlwaysShowImages, threadId, attachments,
 }: { m: CorreoMessageDTO; open: boolean; onToggle: () => void } & ImagePrefs) {
   const sender = parseSender(m.fromEmail);
   const who =
@@ -76,6 +81,9 @@ function MessageCard({
             textBody={m.textBody}
             defaultShowImages={alwaysShowImages}
             onAlwaysShowImages={onAlwaysShowImages}
+            threadId={threadId}
+            messageId={m.providerMessageId || m.id}
+            attachments={attachments}
           />
         </div>
       )}
@@ -85,7 +93,7 @@ function MessageCard({
 
 /** Cadena del hilo: por defecto el último abierto; todos se abren y cierran. */
 export function CorreoMessages({
-  messages, alwaysShowImages, onAlwaysShowImages,
+  messages, alwaysShowImages, onAlwaysShowImages, threadId, attachments,
 }: { messages: CorreoMessageDTO[] } & ImagePrefs) {
   const lastId = messages[messages.length - 1]?.id;
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set(lastId ? [lastId] : []));
@@ -104,7 +112,8 @@ export function CorreoMessages({
     <div className="space-y-2">
       {messages.map((m) => (
         <MessageCard key={m.id} m={m} open={expanded.has(m.id)} onToggle={() => toggle(m.id)}
-          alwaysShowImages={alwaysShowImages} onAlwaysShowImages={onAlwaysShowImages} />
+          alwaysShowImages={alwaysShowImages} onAlwaysShowImages={onAlwaysShowImages}
+          threadId={threadId} attachments={attachments} />
       ))}
     </div>
   );

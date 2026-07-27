@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  contentIdFromPartHeaders,
   decodeBase64Url,
+  extractGmailAttachments,
   extractGmailMessageBodies,
   extractGmailMessageBodiesAsync,
   payloadHasMessageBody,
@@ -97,5 +99,33 @@ describe("decodeBase64Url", () => {
   it("decodifica y tolera padding faltante", () => {
     expect(decodeBase64Url(b64url("opai"))).toBe("opai");
     expect(decodeBase64Url(null)).toBe("");
+  });
+});
+
+describe("extractGmailAttachments + Content-ID", () => {
+  it("extrae contentId de headers de la parte", () => {
+    expect(contentIdFromPartHeaders([{ name: "Content-ID", value: "<image001.jpg@01D>" }])).toBe(
+      "image001.jpg@01D",
+    );
+    const atts = extractGmailAttachments({
+      mimeType: "multipart/related",
+      parts: [
+        {
+          mimeType: "image/jpeg",
+          filename: "image001.jpg",
+          headers: [{ name: "Content-ID", value: "<image001.jpg@01D>" }],
+          body: { attachmentId: "att-1", size: 100 },
+        },
+      ],
+    });
+    expect(atts).toEqual([
+      {
+        attachmentId: "att-1",
+        filename: "image001.jpg",
+        mimeType: "image/jpeg",
+        size: 100,
+        contentId: "image001.jpg@01D",
+      },
+    ]);
   });
 });

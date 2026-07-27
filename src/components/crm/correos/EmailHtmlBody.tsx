@@ -7,6 +7,10 @@ import {
   sanitizeEmailHtml,
 } from "@/lib/sanitize-email-html";
 import { setEmailNightMode, useEmailNightMode } from "./email-night-mode";
+import {
+  rewriteCidImages,
+  type CidAttachmentRef,
+} from "./rewrite-cid-images";
 import styles from "./email-html-body.module.css";
 
 type Props = {
@@ -16,6 +20,10 @@ type Props = {
   defaultShowImages?: boolean;
   /** Persiste "mostrar siempre las imágenes" (firmas/logos). */
   onAlwaysShowImages?: () => void;
+  /** Hilo + adjuntos para resolver firmas `cid:` → URL del API. */
+  threadId?: string | null;
+  messageId?: string | null;
+  attachments?: CidAttachmentRef[];
 };
 
 /**
@@ -64,6 +72,9 @@ export function EmailHtmlBody({
   textBody,
   defaultShowImages = false,
   onAlwaysShowImages,
+  threadId = null,
+  messageId = null,
+  attachments = [],
 }: Props) {
   const hasHtml = Boolean(htmlBody?.trim());
   const [mode, setMode] = useState<"html" | "text">(hasHtml ? "html" : "text");
@@ -72,15 +83,30 @@ export function EmailHtmlBody({
   // del hilo; misma en móvil y desktop). Ver email-night-mode.ts.
   const night = useEmailNightMode();
 
+  // Firmas Outlook/Gmail: cid: → endpoint autenticado (antes del sanitize).
+  const htmlWithCid = useMemo(() => {
+    if (!htmlBody?.trim()) return htmlBody;
+    if (!threadId || attachments.length === 0) return htmlBody;
+    return rewriteCidImages(htmlBody, threadId, attachments, messageId ?? undefined);
+  }, [htmlBody, threadId, messageId, attachments]);
+
   const safeHtml = useMemo(
-    () => (hasHtml ? sanitizeEmailHtml(htmlBody!, { blockRemoteImages: !showImages }) : ""),
-    [hasHtml, htmlBody, showImages],
+    () =>
+      hasHtml
+        ? sanitizeEmailHtml(htmlWithCid!, { blockRemoteImages: !showImages })
+        : "",
+    [hasHtml, htmlWithCid, showImages],
   );
   // Se detecta sobre la versión bloqueada para que el botón no desaparezca
   // del layout al restaurar (pasa a "Ocultar imágenes").
+  // Las imgs ya reescritas a /api/... cuentan como remotas http(s) y entran
+  // en el toggle "Mostrar imágenes" (privacidad: no se piden hasta el click).
   const blockedAvailable = useMemo(
-    () => (hasHtml ? hasBlockedImages(sanitizeEmailHtml(htmlBody!, { blockRemoteImages: true })) : false),
-    [hasHtml, htmlBody],
+    () =>
+      hasHtml
+        ? hasBlockedImages(sanitizeEmailHtml(htmlWithCid!, { blockRemoteImages: true }))
+        : false,
+    [hasHtml, htmlWithCid],
   );
   const plain = useMemo(
     () => emailPlainFallback(htmlBody, textBody),
@@ -176,7 +202,6 @@ export function EmailHtmlBody({
             // sandbox ya es la mitigación y sin `style` el HTML real de
             // correo (newsletters, firmas) se degrada demasiado.
             sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"
-            referrerPolicy="no-referrer"
             title="Contenido del correo"
             onLoad={measure}
             className={styles.frame}

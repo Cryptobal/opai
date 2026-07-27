@@ -1,12 +1,21 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { Briefcase, Building2, Check, Download, FolderPlus, Link2, X } from "lucide-react";
 import { toast } from "sonner";
 import { Spinner } from "@/components/opai-ds";
 import { Switch } from "@/components/ui/switch";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import type { SaveAttachmentResult } from "@/modules/crm/email/save-attachments";
 import { useCloseOnBack } from "./useCloseOnBack";
+import { useCorreoReaderOverlayHost } from "./CorreoReaderOverlayContext";
 
 export type SaveSheetItem = { messageId: string; attachmentId: string; filename: string; size: number };
 type DealOpt = { id: string; title: string };
@@ -30,10 +39,9 @@ type Props = {
 };
 
 /**
- * Hoja de destino para guardar N adjuntos a una ficha CRM: elige entidad
- * (cuenta o negocio), carpeta y visibilidad en portal. Sin cuenta CRM
- * asociada, explica la diferencia Gmail vs CRM y ofrece "Asociar y guardar".
- * También permite descargar al teléfono sin asociar.
+ * Hoja de destino para guardar N adjuntos a una ficha CRM. En desktop se
+ * monta dentro del visor (mismo ancho del mailbox); en móvil también dentro
+ * del lector fullscreen — nunca cruza el sidebar de la app.
  */
 export function CorreoAttachmentSave({
   open,
@@ -48,6 +56,7 @@ export function CorreoAttachmentSave({
   onSaved,
   onRequestAssociate,
 }: Props) {
+  const overlayHost = useCorreoReaderOverlayHost();
   const [deals, setDeals] = useState<DealOpt[]>([]);
   const [dest, setDest] = useState<Dest | null>(null);
   const [folders, setFolders] = useState<FolderOpt[]>([]);
@@ -108,15 +117,21 @@ export function CorreoAttachmentSave({
     }
   }
 
-  const destLabel = (d: Dest) => (d.type === "account" ? accountName || "la cuenta" : deals.find((x) => x.id === d.id)?.title || dealTitle || "el negocio");
+  const destLabel = (d: Dest) =>
+    d.type === "account"
+      ? accountName || "la cuenta"
+      : deals.find((x) => x.id === d.id)?.title || dealTitle || "el negocio";
 
-  return (
-    <div className="fixed inset-0 z-[70] flex flex-col justify-end bg-black/40" onClick={onClose}>
+  const sheet = (
+    <div
+      className="pointer-events-auto absolute inset-0 z-50 flex flex-col justify-end bg-black/50"
+      onClick={onClose}
+    >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="max-h-[85vh] overflow-auto rounded-t-2xl border-t border-ds-border-subtle bg-ds-surface-1 pb-[calc(env(safe-area-inset-bottom)+0.75rem)]"
+        className="flex max-h-[85%] flex-col overflow-hidden rounded-t-2xl border-t border-ds-border-subtle bg-ds-surface-1 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] shadow-ds-lg"
       >
-        <div className="flex items-center gap-2 border-b border-ds-border-subtle px-4 py-3">
+        <div className="flex shrink-0 items-center gap-2 border-b border-ds-border-subtle px-4 py-3">
           <div className="min-w-0 flex-1">
             <h3 className="text-[15px] font-semibold text-ds-text-1">
               Guardar {items.length} adjunto{items.length !== 1 ? "s" : ""}
@@ -127,127 +142,159 @@ export function CorreoAttachmentSave({
               </p>
             )}
           </div>
-          <button type="button" onClick={onClose} aria-label="Cerrar" className="flex h-9 w-9 items-center justify-center rounded-lg text-ds-text-3 ds-tap">
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Cerrar"
+            className="flex h-9 w-9 items-center justify-center rounded-lg text-ds-text-3 ds-tap"
+          >
             <X className="h-4 w-4" />
           </button>
         </div>
 
-        {!accountId ? (
-          <div className="space-y-3 p-4">
-            <p className="text-[13px] text-ds-text-2">
-              Este correo de Gmail{mailboxEmail ? ` (${mailboxEmail})` : ""} aún no está vinculado a un{" "}
-              <span className="font-medium text-ds-text-1">cliente / cuenta CRM</span> en OPAI.
-              Asociarlo permite guardar los adjuntos en Documentos de esa ficha.
-            </p>
-            <button
-              type="button"
-              onClick={() => { onRequestAssociate?.(); onClose(); }}
-              className="inline-flex h-11 w-full items-center justify-center gap-1.5 rounded-lg bg-primary px-4 text-[13px] font-medium text-primary-fg ds-tap"
-            >
-              <Link2 className="h-4 w-4" /> Asociar a cuenta CRM y guardar
-            </button>
-            <p className="text-center text-[12px] text-ds-text-4">
-              También podés descargar el archivo al teléfono con el ícono de descarga, sin asociar.
-            </p>
-          </div>
-        ) : results ? (
-          <div className="space-y-1.5 p-4">
-            {results.map((r, i) => (
-              <div key={i} className="flex items-center gap-2 rounded-lg border border-ds-border-subtle px-3 py-2 text-[13px]">
-                <span className="min-w-0 flex-1 truncate text-ds-text-1">{r.filename}</span>
-                <span className={r.status === "error" ? "text-status-danger-fg" : "text-status-ok-fg"}>
-                  {r.status === "saved" ? "Guardado" : r.status === "already" ? "Ya existía" : r.error || "Error"}
-                </span>
-              </div>
-            ))}
-            <button type="button" onClick={onClose} className="mt-2 h-11 w-full rounded-lg border border-ds-border-default text-[13px] ds-tap">
-              Listo
-            </button>
-          </div>
-        ) : (
-          <div className="space-y-4 p-4">
-            <div className="space-y-2">
-              <p className="text-[12px] font-medium text-ds-text-3">Guardar en OPAI (Documentos CRM)</p>
-              <p className="text-[12px] text-ds-text-4">
-                Para IA y seguimiento comercial, preferí el{" "}
-                <span className="font-medium text-ds-text-2">negocio</span>.
-                La cuenta es para documentos transversales del cliente.
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          {!accountId ? (
+            <div className="space-y-3 p-4">
+              <p className="text-[13px] text-ds-text-2">
+                Este correo de Gmail{mailboxEmail ? ` (${mailboxEmail})` : ""} aún no está vinculado a un{" "}
+                <span className="font-medium text-ds-text-1">cliente / cuenta CRM</span> en OPAI.
+                Asociarlo permite guardar los adjuntos en Documentos de esa ficha.
               </p>
-              <div className="space-y-2">
-                <div className="flex flex-wrap items-center gap-1.5">
-                  <span className="inline-flex items-center gap-1 text-[12px] text-ds-text-4">
-                    <Building2 className="h-3.5 w-3.5" /> Cuenta
+              <button
+                type="button"
+                onClick={() => {
+                  onRequestAssociate?.();
+                  onClose();
+                }}
+                className="inline-flex h-11 w-full items-center justify-center gap-1.5 rounded-lg bg-primary px-4 text-[13px] font-medium text-primary-fg ds-tap"
+              >
+                <Link2 className="h-4 w-4" /> Asociar a cuenta CRM y guardar
+              </button>
+              <p className="text-center text-[12px] text-ds-text-4">
+                También podés descargar el archivo al teléfono con el ícono de descarga, sin asociar.
+              </p>
+            </div>
+          ) : results ? (
+            <div className="space-y-1.5 p-4">
+              {results.map((r, i) => (
+                <div
+                  key={i}
+                  className="flex items-center gap-2 rounded-lg border border-ds-border-subtle px-3 py-2 text-[13px]"
+                >
+                  <span className="min-w-0 flex-1 truncate text-ds-text-1">{r.filename}</span>
+                  <span className={r.status === "error" ? "text-status-danger-fg" : "text-status-ok-fg"}>
+                    {r.status === "saved" ? "Guardado" : r.status === "already" ? "Ya existía" : r.error || "Error"}
                   </span>
-                  <DestChip
-                    active={dest?.type === "account" && dest.id === accountId}
-                    onClick={() => setDest({ type: "account", id: accountId })}
-                    label={accountName || "Cuenta"}
-                  />
                 </div>
-                {deals.length > 0 && (
+              ))}
+              <button
+                type="button"
+                onClick={onClose}
+                className="mt-2 h-11 w-full rounded-lg border border-ds-border-default text-[13px] ds-tap"
+              >
+                Listo
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-4 p-4">
+              <div className="space-y-2">
+                <p className="text-[12px] font-medium text-ds-text-3">Guardar en OPAI (Documentos CRM)</p>
+                <p className="text-[12px] text-ds-text-4">
+                  Para IA y seguimiento comercial, preferí el{" "}
+                  <span className="font-medium text-ds-text-2">negocio</span>.
+                  La cuenta es para documentos transversales del cliente.
+                </p>
+                <div className="space-y-2">
                   <div className="flex flex-wrap items-center gap-1.5">
                     <span className="inline-flex items-center gap-1 text-[12px] text-ds-text-4">
-                      <Briefcase className="h-3.5 w-3.5" /> Negocio
+                      <Building2 className="h-3.5 w-3.5" /> Cuenta
                     </span>
-                    {deals.map((d) => (
-                      <DestChip
-                        key={d.id}
-                        active={dest?.type === "deal" && dest.id === d.id}
-                        onClick={() => setDest({ type: "deal", id: d.id })}
-                        label={d.title}
-                      />
-                    ))}
+                    <DestChip
+                      active={dest?.type === "account" && dest.id === accountId}
+                      onClick={() => setDest({ type: "account", id: accountId })}
+                      label={accountName || "Cuenta"}
+                    />
                   </div>
-                )}
+                  {deals.length > 0 && (
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="inline-flex items-center gap-1 text-[12px] text-ds-text-4">
+                        <Briefcase className="h-3.5 w-3.5" /> Negocio
+                      </span>
+                      {deals.map((d) => (
+                        <DestChip
+                          key={d.id}
+                          active={dest?.type === "deal" && dest.id === d.id}
+                          onClick={() => setDest({ type: "deal", id: d.id })}
+                          label={d.title}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
 
-            <div className="space-y-1.5">
-              <p className="text-[12px] font-medium text-ds-text-3">Carpeta</p>
-              <select
-                value={folderId ?? ""}
-                onChange={(e) => setFolderId(e.target.value || null)}
-                className="h-11 w-full rounded-lg border border-ds-border-default bg-ds-surface-2 px-3 text-[13px] text-ds-text-1"
+              <div className="space-y-1.5">
+                <p className="text-[12px] font-medium text-ds-text-3">Carpeta</p>
+                <Select
+                  value={folderId ?? "__none__"}
+                  onValueChange={(v) => setFolderId(v === "__none__" ? null : v)}
+                >
+                  <SelectTrigger className="h-11 w-full rounded-lg border-ds-border-default bg-ds-surface-2 text-[13px] text-ds-text-1 sm:h-11">
+                    <SelectValue placeholder="Sin carpeta" />
+                  </SelectTrigger>
+                  <SelectContent className="z-[80] border-ds-border-default bg-ds-surface-1 text-ds-text-1">
+                    <SelectItem value="__none__">Sin carpeta</SelectItem>
+                    {folders.map((f) => (
+                      <SelectItem key={f.id} value={f.id}>
+                        {f.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex items-center justify-between gap-3 rounded-xl border border-ds-border-subtle bg-ds-surface-2 px-3 py-2.5">
+                <div className="min-w-0">
+                  <p className="text-[13px] font-medium text-ds-text-1">Visible en portal cliente</p>
+                  <p className="text-[12px] text-ds-text-4">
+                    El cliente podrá ver este archivo en su portal.
+                  </p>
+                </div>
+                <Switch
+                  checked={portalVisible}
+                  onCheckedChange={setPortalVisible}
+                  aria-label="Visible en portal cliente"
+                />
+              </div>
+
+              <button
+                type="button"
+                disabled={saving || !dest}
+                onClick={() => void save()}
+                className="flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-primary text-[14px] font-medium text-primary-fg ds-tap disabled:opacity-50"
               >
-                <option value="">Sin carpeta</option>
-                {folders.map((f) => (
-                  <option key={f.id} value={f.id}>{f.name}</option>
-                ))}
-              </select>
+                {saving ? <Spinner className="h-4 w-4" /> : <FolderPlus className="h-4 w-4" />}
+                Guardar en {dest ? `${dest.type === "deal" ? "negocio" : "cuenta"} · ${destLabel(dest)}` : "…"}
+              </button>
+
+              <p className="flex items-center justify-center gap-1.5 text-[12px] text-ds-text-4">
+                <Download className="h-3.5 w-3.5" />
+                Para el teléfono usá Descargar / Compartir en el archivo
+              </p>
             </div>
-
-            <div className="flex items-center justify-between gap-3 rounded-xl border border-ds-border-subtle bg-ds-surface-2 px-3 py-2.5">
-              <div className="min-w-0">
-                <p className="text-[13px] font-medium text-ds-text-1">Visible en portal cliente</p>
-                <p className="text-[12px] text-ds-text-4">
-                  El cliente podrá ver este archivo en su portal.
-                </p>
-              </div>
-              <Switch
-                checked={portalVisible}
-                onCheckedChange={setPortalVisible}
-                aria-label="Visible en portal cliente"
-              />
-            </div>
-
-            <button
-              type="button"
-              disabled={saving || !dest}
-              onClick={() => void save()}
-              className="flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-primary text-[14px] font-medium text-primary-fg ds-tap disabled:opacity-50"
-            >
-              {saving ? <Spinner className="h-4 w-4" /> : <FolderPlus className="h-4 w-4" />}
-              Guardar en {dest ? `${dest.type === "deal" ? "negocio" : "cuenta"} · ${destLabel(dest)}` : "…"}
-            </button>
-
-            <p className="flex items-center justify-center gap-1.5 text-[12px] text-ds-text-4">
-              <Download className="h-3.5 w-3.5" />
-              Para el teléfono usá Descargar / Compartir en el archivo
-            </p>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </div>
+  );
+
+  // Preferir el host del lector (ancho del visor). Fallback: body fullscreen
+  // (p. ej. si el sheet se abre fuera del shell — no debería pasar).
+  if (overlayHost) return createPortal(sheet, overlayHost);
+  if (typeof document === "undefined") return null;
+  return createPortal(
+    <div className="fixed inset-0 z-[70]">{sheet}</div>,
+    document.body,
   );
 }
 

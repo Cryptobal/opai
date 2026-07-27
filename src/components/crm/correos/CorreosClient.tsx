@@ -87,6 +87,9 @@ export function CorreosClient() {
   const [loading, setLoading] = useState(true);
   /** Refresh en background: no dimmea la lista ni muestra spinner a pantalla. */
   const [refreshing, setRefreshing] = useState(false);
+  // La barrita primary solo aparece si el refresh tarda (>350ms). Evita el
+  // pestañeo verde al abrir/enfocar la primera fila.
+  const [showRefreshBar, setShowRefreshBar] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const itemsRef = useRef<CorreoThreadDTO[]>([]);
   itemsRef.current = items;
@@ -449,6 +452,15 @@ export function CorreosClient() {
   // client-side (filtran metadata de asociación ya presente en la página).
   const filtered = items.filter((t) => matchesChip(t, chip));
   const searching = debouncedQuery.length > 0;
+  const listBusy = refreshing || (loading && !searching);
+  useEffect(() => {
+    if (!listBusy) {
+      setShowRefreshBar(false);
+      return;
+    }
+    const t = window.setTimeout(() => setShowRefreshBar(true), 350);
+    return () => window.clearTimeout(t);
+  }, [listBusy]);
   const filteredFocusKey = useMemo(() => {
     if (filtered.length === 0) return "empty";
     return `${filtered.length}:${filtered[0]?.id}:${filtered[filtered.length - 1]?.id}`;
@@ -947,8 +959,8 @@ export function CorreosClient() {
                 setCtxMenu({ thread: t, x: e.clientX, y: e.clientY });
               }}
             >
-              {/* Overlay absoluto: no empuja filas (evita micro-salto al refrescar). */}
-              {(refreshing || (loading && !searching)) && (
+              {/* Overlay absoluto: no empuja filas. Solo si el refresh se demora. */}
+              {showRefreshBar && (
                 <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-0.5 overflow-hidden bg-ds-surface-3">
                   <div className="h-full w-1/3 animate-pulse bg-primary" />
                 </div>

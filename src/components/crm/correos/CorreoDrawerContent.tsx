@@ -156,6 +156,8 @@ export function CorreoDrawerContent({
           messages={detail.messages}
           alwaysShowImages={alwaysShowImages}
           onAlwaysShowImages={onAlwaysShowImages}
+          threadId={t.id}
+          attachments={detail.attachments}
         />
         <CorreoAttachments
           items={detail.attachments}
