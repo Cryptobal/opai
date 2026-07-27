@@ -169,6 +169,21 @@ export async function getCorreoDetail(params: {
       : null,
   ]);
 
+  // B5: chip "Guardado" — se resuelve SIEMPRE con consulta fresca (no vive en
+  // attachmentsMeta), para que un guardado posterior al cacheo aparezca sin
+  // invalidar C18. Match por messageId + fileName (+ size cuando desempata).
+  const savedFiles = await prisma.crmFile.findMany({
+    where: { tenantId, sourceThreadId: thread.id },
+    select: { id: true, fileName: true, size: true, sourceMessageId: true },
+  });
+  const attachmentsWithSaved: CorreoAttachmentDTO[] = attachments.map((a) => {
+    const candidates = savedFiles.filter(
+      (f) => f.sourceMessageId === a.messageId && f.fileName === a.filename,
+    );
+    const match = candidates.find((f) => f.size === a.size) ?? candidates[0];
+    return { ...a, savedFileId: match?.id ?? null };
+  });
+
   // Métrica simple para el antes/después del p95 (C18).
   console.log(
     `[correos] detail ${cacheFresh ? "cache-hit" : "cache-miss"} thread=${thread.id} ms=${Date.now() - startedAt}`,
@@ -191,7 +206,7 @@ export async function getCorreoDetail(params: {
       sharedWithAccount: thread.sharedWithAccount,
     },
     messages: messages.map((m) => ({ ...m, sentAt: m.sentAt?.toISOString() ?? null })),
-    attachments,
+    attachments: attachmentsWithSaved,
     degraded,
   };
 }
