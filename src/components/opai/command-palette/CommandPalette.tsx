@@ -219,7 +219,7 @@ export function CommandPalette({ userRole, onOpenChat }: CommandPaletteProps) {
   const pathname = usePathname();
   const isMobile = useIsMobile();
   const isIOS = useIsIOS();
-  const { isOpen, close, addRecent, getRecents, externalCommands } = useCommandPalette();
+  const { isOpen, close, addRecent, getRecents, externalCommands, initialQuery } = useCommandPalette();
   const [query, setQuery] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
   const [apiResults, setApiResults] = useState<ApiSearchResult[]>([]);
@@ -377,16 +377,20 @@ export function CommandPalette({ userRole, onOpenChat }: CommandPaletteProps) {
     [close, router, addRecent],
   );
 
-  // Reset on open + focus input
+  // Seed query on open (initialQuery from isla móvil / atajo sin args → vacío)
   useEffect(() => {
     if (isOpen) {
-      setQuery('');
+      const seed = initialQuery ?? '';
+      setQuery(seed);
       setApiResults([]);
       requestAnimationFrame(() => {
-        inputRef.current?.focus();
+        const el = inputRef.current;
+        if (!el) return;
+        el.focus();
+        if (seed) el.select();
       });
     }
-  }, [isOpen]);
+  }, [isOpen, initialQuery]);
 
   // Lock body scroll while open (prevents background scroll on iOS)
   useEffect(() => {

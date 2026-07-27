@@ -8,16 +8,16 @@
  *     Sin acceso a Productividad: logo/ícono + título (sin segmento).
  *  B. Detalle: chevron back + trailing (+ acción primaria); sin segmento
  *  C. Condensación al scroll (useScrollDirection, respeta reduced-motion)
- *  D. Búsqueda: cambio de modo dentro de la isla (bloque 4)
+ *  D. Búsqueda: cambio de modo — [←] [campo] [✕]; sin capas ni overlays
  *
- * Regla de no solapamiento: un único flex-1 min-w-0 (bloque título);
+ * Regla de no solapamiento: un único flex-1 min-w-0 (bloque título / campo);
  * segmento y botones son shrink-0 con ancho declarado.
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Bell, ChevronLeft, MessageCircle, Search } from "lucide-react";
+import { ArrowLeft, Bell, ChevronLeft, MessageCircle, Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ThemeLogo } from "./ThemeLogo";
 import { IconBubble, useBreadcrumbTrailing, useIslandAction } from "@/components/opai-ds";
@@ -34,7 +34,8 @@ import { SurfaceSegment } from "./SurfaceSegment";
 
 interface MobileIslandProps {
   surface?: Surface;
-  onSearch: () => void;
+  /** Abre el Command Palette; acepta query inicial (retrocompatible). */
+  onSearch: (initialQuery?: string) => void;
   onToggleChat: () => void;
   onToggleNotifications: () => void;
   chatUnread: number;
@@ -57,10 +58,13 @@ export function MobileIsland({
   const permissions = usePermissions();
   const { isModuleEnabled } = useTenantModules();
 
-  // Evita mismatch de hidratación: el contexto (título/ícono) es puramente de
-  // cliente; en el primer render mostramos el estado base (logo).
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
+
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchValue, setSearchValue] = useState("");
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const ctx = mounted ? resolveNavContext(pathname) : null;
   const isHub = pathname === "/hub" || pathname.startsWith("/hub/");
@@ -82,6 +86,56 @@ export function MobileIsland({
 
   const title = isHub || !ctx ? "OPAI" : ctx.shortTitle;
 
+  const exitSearch = () => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    setSearchOpen(false);
+    setSearchValue("");
+  };
+
+  const commitSearch = (value: string) => {
+    const q = value.trim();
+    if (!q) return;
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    onSearch(q);
+    exitSearch();
+  };
+
+  // Autofocus al entrar en modo búsqueda
+  useEffect(() => {
+    if (!searchOpen) return;
+    requestAnimationFrame(() => searchInputRef.current?.focus());
+  }, [searchOpen]);
+
+  // Escape / gesto atrás conceptual: salir del modo búsqueda
+  useEffect(() => {
+    if (!searchOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        exitSearch();
+      }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchOpen]);
+
+  // Al navegar, salir del modo búsqueda
+  useEffect(() => {
+    if (searchOpen) exitSearch();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname]);
+
+  const onSearchChange = (value: string) => {
+    setSearchValue(value);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (value.trim().length >= 2) {
+      debounceRef.current = setTimeout(() => {
+        commitSearch(value);
+      }, 200);
+    }
+  };
+
   return (
     <header
       className="fixed top-0 left-0 right-0 z-30 lg:hidden pointer-events-none"
@@ -97,8 +151,57 @@ export function MobileIsland({
           condensed ? "min-h-[36px] rounded-[17px] pl-2 pr-1" : "min-h-12 rounded-[22px] pl-3 pr-1",
         )}
       >
-        {/* ── Left: contexto (A / B) — único bloque elástico ── */}
-        {isDetail ? (
+        {searchOpen ? (
+          /* ── Modo búsqueda: cambio de árbol, sin overlay ── */
+          <>
+            <button
+              type="button"
+              onClick={exitSearch}
+              className={cn(btnBase, "h-10 w-10")}
+              aria-label="Salir de búsqueda"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </button>
+            <input
+              ref={searchInputRef}
+              type="search"
+              value={searchValue}
+              onChange={(e) => onSearchChange(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  commitSearch(searchValue);
+                }
+              }}
+              onBlur={() => {
+                if (!searchValue.trim()) exitSearch();
+              }}
+              placeholder="Buscar…"
+              inputMode="search"
+              enterKeyHint="search"
+              autoComplete="off"
+              autoCorrect="off"
+              className={cn(
+                "min-w-0 flex-1 bg-transparent text-[13px] text-ds-text-1 placeholder:text-ds-text-4",
+                "outline-none border-0 focus:ring-0",
+              )}
+              aria-label="Buscar en OPAI"
+            />
+            {searchValue.length > 0 && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchValue("");
+                  searchInputRef.current?.focus();
+                }}
+                className="inline-flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-xl text-ds-text-3 hover:bg-ds-surface-2 hover:text-ds-text-1"
+                aria-label="Limpiar búsqueda"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </>
+        ) : isDetail ? (
           <div className="flex min-w-0 flex-1 items-center gap-1">
             <button type="button" onClick={back} className={cn(btnBase, "shrink-0")} aria-label="Volver">
               <ChevronLeft className="h-5 w-5" />
@@ -147,57 +250,63 @@ export function MobileIsland({
           </div>
         )}
 
-        {/* ── Right: acción de detalle o botones estándar (shrink-0) ── */}
-        {isDetail && islandAction ? (
-          <div className="shrink-0 pl-1">
-            {islandAction.href ? (
-              <Link
-                href={islandAction.href}
-                className="inline-flex h-10 items-center gap-1.5 rounded-full bg-primary px-3.5 text-[13px] font-semibold text-primary-foreground active:scale-95"
-              >
-                {islandAction.icon && <islandAction.icon className="h-4 w-4" />}
-                <span className="truncate max-w-[8rem]">{islandAction.label}</span>
-              </Link>
-            ) : (
+        {/* Derecha: oculta en modo búsqueda (salen del árbol) */}
+        {!searchOpen &&
+          (isDetail && islandAction ? (
+            <div className="shrink-0 pl-1">
+              {islandAction.href ? (
+                <Link
+                  href={islandAction.href}
+                  className="inline-flex h-10 items-center gap-1.5 rounded-full bg-primary px-3.5 text-[13px] font-semibold text-primary-foreground active:scale-95"
+                >
+                  {islandAction.icon && <islandAction.icon className="h-4 w-4" />}
+                  <span className="truncate max-w-[8rem]">{islandAction.label}</span>
+                </Link>
+              ) : (
+                <button
+                  type="button"
+                  onClick={islandAction.onClick}
+                  className="inline-flex h-10 items-center gap-1.5 rounded-full bg-primary px-3.5 text-[13px] font-semibold text-primary-foreground active:scale-95"
+                >
+                  {islandAction.icon && <islandAction.icon className="h-4 w-4" />}
+                  <span className="truncate max-w-[8rem]">{islandAction.label}</span>
+                </button>
+              )}
+            </div>
+          ) : (
+            <div
+              className={cn(
+                "flex shrink-0 items-center gap-px transition-opacity duration-[250ms] ease-out motion-reduce:transition-none",
+                condensed && "opacity-70",
+              )}
+            >
               <button
                 type="button"
-                onClick={islandAction.onClick}
-                className="inline-flex h-10 items-center gap-1.5 rounded-full bg-primary px-3.5 text-[13px] font-semibold text-primary-foreground active:scale-95"
+                className={btnBase}
+                onClick={() => setSearchOpen(true)}
+                aria-label="Buscar"
               >
-                {islandAction.icon && <islandAction.icon className="h-4 w-4" />}
-                <span className="truncate max-w-[8rem]">{islandAction.label}</span>
+                <Search className="h-5 w-5" />
               </button>
-            )}
-          </div>
-        ) : (
-          <div
-            className={cn(
-              "flex shrink-0 items-center gap-px transition-opacity duration-[250ms] ease-out motion-reduce:transition-none",
-              condensed && "opacity-70",
-            )}
-          >
-            <button type="button" className={btnBase} onClick={onSearch} aria-label="Buscar">
-              <Search className="h-5 w-5" />
-            </button>
-            <button type="button" className={btnBase} onClick={onToggleChat} aria-label="Abrir chat">
-              <MessageCircle className="h-5 w-5" />
-              {chatUnread > 0 && (
-                <span className="absolute right-1.5 top-1.5 h-2.5 w-2.5 rounded-full bg-status-danger ring-2 ring-background" />
-              )}
-            </button>
-            <button
-              type="button"
-              className={btnBase}
-              onClick={onToggleNotifications}
-              aria-label="Notificaciones"
-            >
-              <Bell className="h-5 w-5" />
-              {notifUnread > 0 && (
-                <span className="absolute right-1.5 top-1.5 h-2.5 w-2.5 rounded-full bg-status-danger ring-2 ring-background" />
-              )}
-            </button>
-          </div>
-        )}
+              <button type="button" className={btnBase} onClick={onToggleChat} aria-label="Abrir chat">
+                <MessageCircle className="h-5 w-5" />
+                {chatUnread > 0 && (
+                  <span className="absolute right-1.5 top-1.5 h-2.5 w-2.5 rounded-full bg-status-danger ring-2 ring-background" />
+                )}
+              </button>
+              <button
+                type="button"
+                className={btnBase}
+                onClick={onToggleNotifications}
+                aria-label="Notificaciones"
+              >
+                <Bell className="h-5 w-5" />
+                {notifUnread > 0 && (
+                  <span className="absolute right-1.5 top-1.5 h-2.5 w-2.5 rounded-full bg-status-danger ring-2 ring-background" />
+                )}
+              </button>
+            </div>
+          ))}
       </div>
     </header>
   );

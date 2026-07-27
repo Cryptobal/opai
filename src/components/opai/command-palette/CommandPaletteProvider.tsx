@@ -14,7 +14,7 @@ interface CommandPaletteProviderProps {
  * Maneja el atajo Cmd+K / Ctrl+K para abrir/cerrar.
  */
 export function CommandPaletteProvider({ children }: CommandPaletteProviderProps) {
-  const { value, isOpen, setIsOpen } = useCommandPaletteState();
+  const { value, isOpen, open, close } = useCommandPaletteState();
 
   // Cmd+K / Ctrl+K global shortcut
   const handleKeyDown = useCallback(
@@ -22,17 +22,18 @@ export function CommandPaletteProvider({ children }: CommandPaletteProviderProps
       if (e.key === 'k' && (e.metaKey || e.ctrlKey)) {
         e.preventDefault();
         e.stopPropagation();
-        setIsOpen((prev) => !prev);
+        if (isOpen) close();
+        else open();
         return;
       }
 
       // Close on Escape
       if (e.key === 'Escape' && isOpen) {
         e.preventDefault();
-        setIsOpen(false);
+        close();
       }
     },
-    [isOpen, setIsOpen],
+    [isOpen, open, close],
   );
 
   useEffect(() => {

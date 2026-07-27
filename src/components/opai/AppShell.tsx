@@ -179,7 +179,7 @@ function AppShellInner({
         {sidebar && !isImmersiveMobile && (
           <MobileIsland
             surface={surface}
-            onSearch={() => openCommandPalette()}
+            onSearch={(q) => openCommandPalette(q)}
             onToggleChat={handleToggleChat}
             onToggleNotifications={handleToggleNotifications}
             chatUnread={chatCtx.totalUnread}
