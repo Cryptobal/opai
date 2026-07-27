@@ -155,7 +155,7 @@ export function ContractEditor({
     editorProps: {
       attributes: {
         class: compact
-          ? "prose prose-invert prose-sm max-w-none focus:outline-none min-h-[160px] px-3 py-2"
+          ? "prose prose-invert prose-sm max-w-none focus:outline-none min-h-[160px] px-0 py-2"
           : "prose prose-invert prose-sm sm:prose-base max-w-none focus:outline-none min-h-[500px] px-8 py-6",
       },
       ...(enableImages
@@ -231,10 +231,19 @@ export function ContractEditor({
 
   if (!editor) return null;
 
+  // compact (correo): sin marco — el host (EmailComposer) ya aporta la
+  // composición. Docs (no compact) conserva la card con borde.
+  const shellClass = compact
+    ? `flex min-h-[160px] flex-col overflow-hidden bg-transparent ${className}`
+    : `flex max-h-[calc(100vh-160px)] min-h-[400px] flex-col overflow-hidden rounded-lg border border-border bg-card ${className}`;
+  const toolbarShellClass = compact
+    ? "z-10 shrink-0"
+    : "z-10 shrink-0 border-b border-border bg-card";
+
   return (
-    <div className={`border border-border rounded-lg bg-card flex flex-col max-h-[calc(100vh-160px)] min-h-[400px] overflow-hidden ${className}`}>
+    <div className={shellClass}>
       {editable && (
-        <div className="shrink-0 border-b border-border bg-card z-10">
+        <div className={toolbarShellClass}>
           {renderToolbar ? (
             renderToolbar(editor)
           ) : (

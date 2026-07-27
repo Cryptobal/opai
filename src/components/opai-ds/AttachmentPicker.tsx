@@ -64,7 +64,7 @@ export function AttachmentPicker({
     <div
       className={cn(
         "space-y-2 rounded-ds-md border border-ds-border-subtle bg-ds-surface-2 p-2.5",
-        dragging && "border-primary bg-primary/5",
+        dragging && "border-primary/40 bg-primary/5",
         className,
       )}
       onDragEnter={(event) => {
@@ -97,7 +97,7 @@ export function AttachmentPicker({
           type="button"
           onClick={() => inputRef.current?.click()}
           disabled={disabled}
-          className="inline-flex h-11 items-center gap-2 rounded-xl border border-ds-border-default bg-ds-surface-1 px-3 text-[13px] font-medium text-ds-text-1 ds-tap disabled:opacity-50 sm:h-10"
+          className="inline-flex h-11 items-center gap-2 rounded-full px-2.5 text-[13px] font-medium text-ds-text-2 ds-tap hover:bg-ds-surface-2 hover:text-ds-text-1 disabled:opacity-50 sm:h-10"
         >
           <Paperclip className="h-4 w-4" />
           Adjuntar archivos
