@@ -702,6 +702,7 @@ const TOOL_LABELS: Record<string, string> = {
   summarize_email_thread: "Resumiendo el hilo...",
   read_email_attachments: "Analizando adjuntos del correo...",
   create_lead_from_email: "Extrayendo lead del correo...",
+  create_crm_from_email: "Estructurando CRM y cobertura del correo...",
   search_emails_semantic: "Buscando en tus correos...",
 };
 
@@ -772,10 +773,10 @@ function getQuickStarters(
         ];
       case "crm_email_thread":
         return [
-          "Crea cuenta, instalación, contacto y deal desde este mail",
+          "Muéstrame qué crearías (cuenta, contacto, instalaciones, cobertura y dotación)",
+          "Crea CRM completo desde este mail",
           "Resume este correo y sus adjuntos",
           "¿Qué pide el cliente en este hilo?",
-          "Analiza el PDF adjunto",
         ];
       default:
         break;
@@ -840,7 +841,7 @@ function getQuickStarters(
     return [
       "Busca correos sobre licitaciones de seguridad",
       "Resume el correo que estoy viendo",
-      "Crea CRM desde este mail",
+      "Muéstrame qué crearías desde este mail (CRM + dotación)",
       "¿Qué adjuntos tiene este hilo?",
     ];
   }
