@@ -1,6 +1,6 @@
 "use client";
 
-import { Mail, Menu, PenLine, RefreshCw, Wifi, WifiOff } from "lucide-react";
+import { Mail, Menu, PenLine, RefreshCw, Settings, Wifi, WifiOff, Keyboard } from "lucide-react";
 import {
   CHIPS, TABS, VERTICAL_LABELS,
   type CorreoChipKey, type CorreoFolderCounts, type CorreoFolderTab,
@@ -25,6 +25,9 @@ type Props = {
   /** Contraído (persistente); con hover hace peek overlay, como Gmail. */
   collapsed: boolean;
   onToggleCollapsed: () => void;
+  /** Abre configuración de gestos de deslizar (móvil) y atajos de teclado. */
+  onOpenSwipeSettings?: () => void;
+  onOpenShortcuts?: () => void;
 };
 
 /** Riel de carpetas desktop (reemplaza a las filas de pills): Redactar,
@@ -33,7 +36,7 @@ type Props = {
 export function CorreosDesktopRail({
   folder, onFolder, chip, onChip, vertical, onVertical, counts,
   onCompose, onSync, syncing, realtimeStatus, lastSyncAt, mailboxEmail,
-  collapsed, onToggleCollapsed,
+  collapsed, onToggleCollapsed, onOpenSwipeSettings, onOpenShortcuts,
 }: Props) {
   const live = realtimeStatus === "live";
   const lastSyncLabel = lastSyncAt
@@ -142,6 +145,26 @@ export function CorreosDesktopRail({
             </button>
           ))}
         </div>
+
+        {(onOpenSwipeSettings || onOpenShortcuts) && (
+          <div className={collapsed ? "hidden group-hover/rail:block" : ""}>
+            <p className="px-3.5 pb-1 pt-4 text-[11px] font-mono uppercase tracking-[0.08em] text-ds-text-4">
+              Configuración
+            </p>
+            {onOpenSwipeSettings && (
+              <button type="button" onClick={onOpenSwipeSettings} className={item(false)}>
+                <Settings className="h-4 w-4 shrink-0" />
+                <span className={`${lbl} min-w-0 flex-1`}>Gestos de deslizar</span>
+              </button>
+            )}
+            {onOpenShortcuts && (
+              <button type="button" onClick={onOpenShortcuts} className={item(false)}>
+                <Keyboard className="h-4 w-4 shrink-0" />
+                <span className={`${lbl} min-w-0 flex-1`}>Atajos de teclado</span>
+              </button>
+            )}
+          </div>
+        )}
 
         <div className={`mt-auto flex items-center gap-2 border-t border-ds-border-subtle pt-2 text-[12px] ${collapsed ? "justify-center px-0 group-hover/rail:justify-start group-hover/rail:px-3.5" : "px-3.5"}`}>
           <span className={live ? "text-status-ok-fg" : "text-ds-text-4"}

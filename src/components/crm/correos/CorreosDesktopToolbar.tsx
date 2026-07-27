@@ -1,7 +1,7 @@
 "use client";
 
 import {
-  AlignJustify, Archive, CheckSquare, Clock, Mail, MailOpen, RefreshCw,
+  AlignJustify, Archive, CheckSquare, Clock, Keyboard, Mail, MailOpen, RefreshCw,
   Search, ShieldAlert, Sparkles, Star, Trash2, X,
 } from "lucide-react";
 import type { CorreoAction } from "@/modules/crm/email/gmail-thread-actions";
@@ -30,6 +30,8 @@ type Props = {
   onClear: () => void;
   onAction: (action: CorreoAction, okMsg: string, opts?: { undo?: CorreoAction; removes?: boolean }) => void;
   onSnooze: () => void;
+  /** Abre el sheet de atajos de teclado configurables. */
+  onOpenShortcuts?: () => void;
 };
 
 const BTN = "flex h-8 w-8 items-center justify-center rounded-lg text-ds-text-3 ds-tap hover:bg-ds-surface-2 hover:text-ds-text-1 disabled:opacity-40";
@@ -40,7 +42,7 @@ const BTN = "flex h-8 w-8 items-center justify-center rounded-lg text-ds-text-3 
 export function CorreosDesktopToolbar({
   canModify, allChecked, onToggleAll, onRefresh, syncing, query, onQuery, semantic, onSemantic,
   shownCount, totalCount, previewLines, onPreviewLines,
-  selectedCount, allReadSelected, onClear, onAction, onSnooze,
+  selectedCount, allReadSelected, onClear, onAction, onSnooze, onOpenShortcuts,
 }: Props) {
   const compact = previewLines === 1;
 
@@ -154,6 +156,16 @@ export function CorreosDesktopToolbar({
       >
         <AlignJustify className="h-4 w-4" />
       </button>
+      {onOpenShortcuts && (
+        <button
+          type="button"
+          title="Atajos de teclado (?)"
+          onClick={onOpenShortcuts}
+          className={BTN}
+        >
+          <Keyboard className="h-4 w-4" />
+        </button>
+      )}
     </div>
   );
 }

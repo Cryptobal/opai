@@ -3,6 +3,7 @@
 import {
   useCallback,
   useEffect,
+  useMemo,
   useState,
   type KeyboardEvent,
   type PointerEvent,
@@ -199,7 +200,10 @@ function defaultWidth(containerWidth: number): number {
 export function useCorreosViewPreferences(
   containerRef: RefObject<HTMLElement | null>,
 ) {
-  const [panelWidth, setPanelWidth] = useState(560);
+  /** Ancho elegido por el usuario (persistido). El ancho visible se clampéa al
+   *  workspace actual sin sobrescribir la preferencia guardada. */
+  const [preferredPanelWidth, setPreferredPanelWidth] = useState(560);
+  const [workspaceWidth, setWorkspaceWidth] = useState(0);
   const [previewLines, setPreviewLines] = useState<CorreoPreviewLines>(2);
   const [swipeConfig, setSwipeConfig] = useState<CorreoSwipeConfig>(
     DEFAULT_CORREO_SWIPE_CONFIG,
@@ -219,6 +223,11 @@ export function useCorreosViewPreferences(
     [containerRef],
   );
 
+  const panelWidth = useMemo(() => {
+    const basis = workspaceWidth > 0 ? workspaceWidth : containerWidth();
+    return clampCorreoPanelWidth(preferredPanelWidth, basis);
+  }, [preferredPanelWidth, workspaceWidth, containerWidth]);
+
   useEffect(() => {
     let raw: string | null = null;
     try {
@@ -228,13 +237,11 @@ export function useCorreosViewPreferences(
     }
     const stored = parseCorreosViewPreferences(raw);
     const width = containerWidth();
-    setPanelWidth(
-      clampCorreoPanelWidth(
-        typeof stored.panelWidth === "number"
-          ? stored.panelWidth
-          : defaultWidth(width),
-        width,
-      ),
+    setWorkspaceWidth(width);
+    setPreferredPanelWidth(
+      typeof stored.panelWidth === "number"
+        ? stored.panelWidth
+        : defaultWidth(width),
     );
     if (
       stored.previewLines === 1 ||
@@ -268,7 +275,7 @@ export function useCorreosViewPreferences(
         localStorage.setItem(
           STORAGE_KEY,
           JSON.stringify({
-            panelWidth, previewLines, swipeConfig, railCollapsed,
+            panelWidth: preferredPanelWidth, previewLines, swipeConfig, railCollapsed,
             shortcuts, alwaysShowImages, undoSeconds,
           }),
         );
@@ -277,7 +284,7 @@ export function useCorreosViewPreferences(
       }
     }, 120);
     return () => window.clearTimeout(timer);
-  }, [hydrated, panelWidth, previewLines, swipeConfig, railCollapsed, shortcuts, alwaysShowImages, undoSeconds]);
+  }, [hydrated, preferredPanelWidth, previewLines, swipeConfig, railCollapsed, shortcuts, alwaysShowImages, undoSeconds]);
 
   useEffect(() => {
     const node = containerRef.current;
@@ -285,14 +292,14 @@ export function useCorreosViewPreferences(
     const observer = new ResizeObserver(([entry]) => {
       const width = entry?.contentRect.width;
       if (!width) return;
-      setPanelWidth((current) => clampCorreoPanelWidth(current, width));
+      setWorkspaceWidth(width);
     });
     observer.observe(node);
     return () => observer.disconnect();
   }, [containerRef]);
 
   const resetPanelWidth = useCallback(() => {
-    setPanelWidth(defaultWidth(containerWidth()));
+    setPreferredPanelWidth(defaultWidth(containerWidth()));
   }, [containerWidth]);
 
   const onResizePointerDown = useCallback(
@@ -309,7 +316,7 @@ export function useCorreosViewPreferences(
 
       const move = (moveEvent: globalThis.PointerEvent) => {
         const next = startWidth + startX - moveEvent.clientX;
-        setPanelWidth(clampCorreoPanelWidth(next, containerWidth()));
+        setPreferredPanelWidth(clampCorreoPanelWidth(next, containerWidth()));
       };
       const stop = () => {
         window.removeEventListener("pointermove", move);
@@ -329,12 +336,12 @@ export function useCorreosViewPreferences(
     (event: KeyboardEvent<HTMLElement>) => {
       if (event.key === "ArrowLeft") {
         event.preventDefault();
-        setPanelWidth((width) =>
+        setPreferredPanelWidth((width) =>
           clampCorreoPanelWidth(width + KEYBOARD_STEP, containerWidth()),
         );
       } else if (event.key === "ArrowRight") {
         event.preventDefault();
-        setPanelWidth((width) =>
+        setPreferredPanelWidth((width) =>
           clampCorreoPanelWidth(width - KEYBOARD_STEP, containerWidth()),
         );
       } else if (event.key === "Home") {

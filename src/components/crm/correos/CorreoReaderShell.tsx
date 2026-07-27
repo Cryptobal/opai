@@ -52,7 +52,11 @@ export function CorreoReaderShell({
   // C19: en móvil (y overlay desktop) el lector es un modal real — focus-trap
   // + Escape; en split desktop solo Escape (no atrapa el foco del workspace).
   const panelRef = useRef<HTMLDivElement | null>(null);
-  const [isMobile, setIsMobile] = useState(false);
+  const [isMobile, setIsMobile] = useState(
+    () =>
+      typeof window !== "undefined" &&
+      window.matchMedia("(max-width: 1023px)").matches,
+  );
   useEffect(() => {
     const media = window.matchMedia("(max-width: 1023px)");
     const update = () => setIsMobile(media.matches);
@@ -159,5 +163,8 @@ export function CorreoReaderShell({
   // dejando un `fixed` anclado al workspace y por debajo de la BottomNav
   // (z-40 a nivel body). Portaleado, el z-50 cubre isla, FAB y top inmersivo.
   // Desktop (split/overlay) queda inline, como siempre.
-  return isMobile ? createPortal(overlay, document.body) : overlay;
+  if (isMobile && typeof document !== "undefined") {
+    return createPortal(overlay, document.body);
+  }
+  return overlay;
 }
