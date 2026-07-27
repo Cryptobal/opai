@@ -85,6 +85,14 @@ export async function hydrateMissingThreadMessages(params: {
     const rawFrom = header(m, "From");
     const fromEmail = formatFromHeaderForStorage(rawFrom, params.ownEmail);
     const fromAddr = extractEmailAddresses(rawFrom)[0] || "";
+    const rawReplyTo = header(m, "Reply-To");
+    const replyToParsed = extractEmailAddresses(rawReplyTo)[0] || null;
+    const replyToEmail =
+      replyToParsed &&
+      fromAddr &&
+      normalizeEmailAddress(replyToParsed) !== normalizeEmailAddress(fromAddr)
+        ? formatFromHeaderForStorage(rawReplyTo, replyToParsed)
+        : null;
     const direction =
       labelIds.includes("SENT") || (fromAddr && normalizeEmailAddress(fromAddr) === own)
         ? "out"
@@ -98,6 +106,7 @@ export async function hydrateMissingThreadMessages(params: {
     const common = {
       direction,
       fromEmail,
+      replyToEmail,
       toEmails: extractEmailAddresses(header(m, "To")),
       ccEmails: extractEmailAddresses(header(m, "Cc")),
       bccEmails: [] as string[],

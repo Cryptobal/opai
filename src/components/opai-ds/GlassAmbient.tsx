@@ -19,9 +19,9 @@ const NOISE =
   );
 
 const BLOBS = [
-  { c: "hsl(166 76% 47% / 0.30)", top: "-10%", left: "-12%", size: "64vw", dur: "30s", delay: "0s" },
-  { c: "hsl(152 70% 45% / 0.22)", top: "36%", left: "56%", size: "72vw", dur: "38s", delay: "-7s" },
-  { c: "hsl(214 82% 42% / 0.26)", top: "70%", left: "-8%", size: "60vw", dur: "26s", delay: "-14s" },
+  { c: "hsl(168 78% 38% / 0.30)", top: "-10%", left: "-12%", size: "64vw", dur: "30s", delay: "0s" },
+  { c: "hsl(152 70% 42% / 0.22)", top: "36%", left: "56%", size: "72vw", dur: "38s", delay: "-7s" },
+  { c: "hsl(222 70% 42% / 0.28)", top: "70%", left: "-8%", size: "60vw", dur: "26s", delay: "-14s" },
 ];
 
 export function GlassAmbient() {

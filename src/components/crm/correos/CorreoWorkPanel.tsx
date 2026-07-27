@@ -12,7 +12,7 @@ import { CorreoContactPanel } from "./CorreoContactPanel";
 import { CorreoTicketPanel } from "./CorreoTicketPanel";
 import { CorreoMeetingPanel } from "./CorreoMeetingPanel";
 import { CorreoWorkSummary } from "./CorreoWorkSummary";
-import { WORK_TABS, type WorkTab } from "./work-panel-tabs";
+import { WORK_TABS, resolveWorkTab, type WorkTab } from "./work-panel-tabs";
 import type { CorreoDetail } from "@/modules/crm/email/correos.types";
 
 type Props = {
@@ -28,18 +28,15 @@ type Props = {
 
 /**
  * Panel de trabajo transversal (Bloque 4): slide-over derecha en desktop /
- * bottom-sheet en móvil. Visible para todo usuario con Productividad; los chips
- * de módulo y las acciones se muestran por unión (gating client) y cada acción
- * valida su módulo server-side. Cinco pestañas en una línea (icono + etiqueta,
- * sin scroll horizontal): Resumen · Cuenta · Vínculos · Trabajo · Reunión.
- * "Contacto" vive dentro de "Cuenta".
+ * bottom-sheet en móvil. Cuatro pestañas: Resumen · Cuenta · Vínculos · Trabajo
+ * (Trabajo unifica ticket + tareas + reunión).
  */
 export function CorreoWorkPanel({ open, onClose, initialTab, detail, aiOpen, setAiOpen, onAssociate, onRefresh }: Props) {
-  const [tab, setTab] = useState<WorkTab>(initialTab);
+  const [tab, setTab] = useState(() => resolveWorkTab(initialTab));
   const perms = useEffectivePermissions();
 
   useEffect(() => {
-    if (open) setTab(initialTab);
+    if (open) setTab(resolveWorkTab(initialTab));
   }, [open, initialTab]);
 
   useEffect(() => {
@@ -73,7 +70,6 @@ export function CorreoWorkPanel({ open, onClose, initialTab, detail, aiOpen, set
         className="flex h-full w-full flex-col overflow-hidden border-ds-border-default bg-ds-surface-1 shadow-2xl sm:w-[430px] sm:border-l max-lg:mt-auto max-lg:h-[88dvh] max-lg:rounded-t-2xl max-lg:border-t"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Handle móvil */}
         <div className="mx-auto mt-2 h-1 w-10 shrink-0 rounded-full bg-ds-surface-3 lg:hidden" />
         <header className="shrink-0 border-b border-ds-border-subtle px-3 py-2.5">
           <div className="flex items-center gap-2">
@@ -131,7 +127,7 @@ export function CorreoWorkPanel({ open, onClose, initialTab, detail, aiOpen, set
               aiOpen={aiOpen}
               setAiOpen={setAiOpen}
               onRefresh={onRefresh}
-              onGoTo={setTab}
+              onGoTo={(next) => setTab(resolveWorkTab(next))}
             />
           )}
           {tab === "cuenta" && (
@@ -146,18 +142,17 @@ export function CorreoWorkPanel({ open, onClose, initialTab, detail, aiOpen, set
                 sharedWithAccount={t.sharedWithAccount}
                 onAssociate={onAssociate}
               />
-              {/* Contacto integrado en Cuenta: ficha + últimas conversaciones. */}
               <CorreoContactPanel threadId={t.id} />
             </>
           )}
           {tab === "vinculos" && <CorreoLinksPanel threadId={t.id} />}
           {tab === "productividad" && (
             <>
+              <CorreoMeetingPanel threadId={t.id} subject={t.subject} />
               <CorreoTicketPanel threadId={t.id} subject={t.subject} />
               <CorreoTasksPanel threadId={t.id} subject={t.subject} />
             </>
           )}
-          {tab === "reunion" && <CorreoMeetingPanel threadId={t.id} subject={t.subject} />}
         </div>
       </div>
     </div>,

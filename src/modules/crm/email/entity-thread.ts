@@ -22,8 +22,9 @@ export async function getEntityThreadDetail(params: {
     where: { threadId, tenantId },
     orderBy: { sentAt: "asc" },
     select: {
-      id: true, direction: true, fromEmail: true, toEmails: true, ccEmails: true,
-      subject: true, htmlBody: true, textBody: true, sentAt: true,
+      id: true, direction: true, fromEmail: true, replyToEmail: true,
+      toEmails: true, ccEmails: true, subject: true, htmlBody: true,
+      textBody: true, sentAt: true,
     },
   });
 

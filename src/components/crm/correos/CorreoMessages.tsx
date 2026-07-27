@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { ChevronDown, ChevronRight, Paperclip } from "lucide-react";
+import { ChevronDown, ChevronRight, Copy, Paperclip } from "lucide-react";
+import { toast } from "sonner";
 import type {
   CorreoAttachmentDTO,
   CorreoMessageDTO,
@@ -11,6 +12,51 @@ import { EmailHtmlBody } from "./EmailHtmlBody";
 import { CorreoAttachments } from "./CorreoAttachments";
 import { attachmentsForMessage } from "./correo-attachments-scope";
 import { parseSender } from "./correo-sender";
+
+async function copyText(value: string, label: string) {
+  try {
+    await navigator.clipboard.writeText(value);
+    toast.success(`${label} copiado`);
+  } catch {
+    toast.error("No se pudo copiar");
+  }
+}
+
+function CopyableEmail({
+  raw,
+  label,
+}: {
+  raw: string;
+  label: string;
+}) {
+  const sender = parseSender(raw);
+  const email = sender.email || raw;
+  const name = sender.name;
+  if (!email) return <span>—</span>;
+  return (
+    <button
+      type="button"
+      title={`Copiar ${email}`}
+      onClick={(e) => {
+        e.stopPropagation();
+        void copyText(email, label);
+      }}
+      className="group inline-flex max-w-full items-center gap-1 rounded-md text-left ds-tap hover:bg-ds-surface-2"
+    >
+      <span className="truncate">
+        {name ? (
+          <>
+            <span className="font-medium text-ds-text-2">{name}</span>
+            <span className="text-ds-text-4"> &lt;{email}&gt;</span>
+          </>
+        ) : (
+          <span className="text-ds-text-2">{email}</span>
+        )}
+      </span>
+      <Copy className="h-3.5 w-3.5 shrink-0 text-ds-text-4 opacity-0 transition-opacity group-hover:opacity-100" />
+    </button>
+  );
+}
 
 function snippet(m: CorreoMessageDTO): string {
   const plain = emailPlainFallback(m.htmlBody, m.textBody);
@@ -123,23 +169,38 @@ function MessageCard({
       </button>
       {open && (
         <div className="border-t border-ds-border-subtle px-3 py-2">
-          <div className="mb-2 space-y-0.5 text-[12px] text-ds-text-4">
-            <p className="truncate">
-              <span className="font-medium text-ds-text-3">De:</span>{" "}
-              {sender.name || sender.email || m.fromEmail || "—"}
-              {sender.name && sender.email ? (
-                <span className="text-ds-text-4"> &lt;{sender.email}&gt;</span>
-              ) : null}
-            </p>
+          <div className="mb-2 space-y-1 text-[12px] text-ds-text-4">
+            <div className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5">
+              <span className="shrink-0 font-medium text-ds-text-3">De:</span>
+              <CopyableEmail raw={m.fromEmail} label="Remitente" />
+            </div>
+            {m.replyToEmail && parseSender(m.replyToEmail).email !== sender.email && (
+              <div className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5">
+                <span className="shrink-0 font-medium text-ds-text-3">Responder a:</span>
+                <CopyableEmail raw={m.replyToEmail} label="Reply-To" />
+              </div>
+            )}
             {m.toEmails.length > 0 && (
-              <p className="truncate">
-                <span className="font-medium text-ds-text-3">Para:</span> {m.toEmails.join(", ")}
-              </p>
+              <div className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5">
+                <span className="shrink-0 font-medium text-ds-text-3">Para:</span>
+                {m.toEmails.map((addr, i) => (
+                  <span key={addr} className="inline-flex min-w-0 items-center">
+                    {i > 0 && <span className="mr-1 text-ds-text-4">,</span>}
+                    <CopyableEmail raw={addr} label="Destinatario" />
+                  </span>
+                ))}
+              </div>
             )}
             {m.ccEmails.length > 0 && (
-              <p className="truncate">
-                <span className="font-medium text-ds-text-3">CC:</span> {m.ccEmails.join(", ")}
-              </p>
+              <div className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5">
+                <span className="shrink-0 font-medium text-ds-text-3">CC:</span>
+                {m.ccEmails.map((addr, i) => (
+                  <span key={addr} className="inline-flex min-w-0 items-center">
+                    {i > 0 && <span className="mr-1 text-ds-text-4">,</span>}
+                    <CopyableEmail raw={addr} label="CC" />
+                  </span>
+                ))}
+              </div>
             )}
           </div>
           <EmailHtmlBody

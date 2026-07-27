@@ -50,6 +50,8 @@ type Props = {
   alwaysShowImages?: boolean;
   onAlwaysShowImages?: () => void;
   shortcuts?: CorreoShortcuts;
+  workTabIntent?: { tab: import("./work-panel-tabs").WorkTab; nonce: number } | null;
+  composeIntent?: import("./correo-reader-intent").ComposeIntent | null;
 };
 
 export function CorreoDrawer({
@@ -73,6 +75,8 @@ export function CorreoDrawer({
   alwaysShowImages,
   onAlwaysShowImages,
   shortcuts,
+  workTabIntent = null,
+  composeIntent = null,
 }: Props) {
   const [detail, setDetail] = useState<CorreoDetail | null>(null);
   const [loading, setLoading] = useState(false);
@@ -242,6 +246,8 @@ export function CorreoDrawer({
           alwaysShowImages={alwaysShowImages}
           onAlwaysShowImages={onAlwaysShowImages}
           shortcuts={shortcuts}
+          workTabIntent={workTabIntent}
+          composeIntent={composeIntent}
         />
       )}
       <CorreoSnoozeSheet

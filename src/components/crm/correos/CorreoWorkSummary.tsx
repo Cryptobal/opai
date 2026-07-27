@@ -53,7 +53,7 @@ export function CorreoWorkSummary({ threadId, accountId, hasLead, aiOpen, setAiO
     <div className="space-y-3">
       <div className="grid grid-cols-2 gap-2">
         <Tile tone="violet" icon={TicketPlus} title="Crear ticket" subtitle="✦ con IA" onClick={() => onGoTo("productividad")} />
-        <Tile tone="violet" icon={CalendarPlus} title="Proponer reunión" subtitle="✦ con IA" onClick={() => onGoTo("reunion")} />
+        <Tile tone="violet" icon={CalendarPlus} title="Proponer reunión" subtitle="✦ con IA" onClick={() => onGoTo("productividad")} />
         <Tile tone="emerald" icon={ListTodo} title="Crear tarea" subtitle="Seguimiento" onClick={() => onGoTo("productividad")} />
         {hasCrm &&
           (hasLead ? (
@@ -69,7 +69,7 @@ export function CorreoWorkSummary({ threadId, accountId, hasLead, aiOpen, setAiO
         <p className="px-3 pt-2 text-[12px] font-medium text-ds-text-3">Estado del hilo</p>
         <StatusRow icon={Building2} label="Cuenta" value={accountId ? "Cuenta asociada" : "Sin cuenta"} onClick={() => onGoTo("cuenta")} />
         <StatusRow icon={Link2} label="Vínculos" value="Ver relaciones" onClick={() => onGoTo("vinculos")} />
-        <StatusRow icon={ListChecks} label="Seguimiento" value="Tareas y tickets" onClick={() => onGoTo("productividad")} />
+        <StatusRow icon={ListChecks} label="Trabajo" value="Tareas, tickets y reunión" onClick={() => onGoTo("productividad")} />
       </div>
 
       {hasCrm && !hasLead && aiOpen && (

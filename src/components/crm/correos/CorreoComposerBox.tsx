@@ -181,6 +181,12 @@ export function CorreoComposerBox(props: Props) {
           <input
             value={instructions}
             onChange={(e) => setInstructions(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                if (!generating) void generate();
+              }
+            }}
             placeholder="Indicaciones para la IA (opcional): ej. proponé reunión el jueves…"
             className="h-9 min-w-0 flex-1 rounded-lg border border-ds-border-default bg-ds-surface-1 px-2 text-[16px] text-ds-text-1 sm:text-[13px]"
           />

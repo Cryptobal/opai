@@ -5,15 +5,23 @@
  * CRM enriquecida con las estadísticas de frecuencia.
  */
 import { prisma } from "@/lib/prisma";
-import { normalizeEmailAddress } from "@/lib/email-address";
+import { extractEmailAddresses, normalizeEmailAddress } from "@/lib/email-address";
 import { captureEmailError } from "./email-observability";
 
 export type RecipientSuggestion = {
   email: string;
   name: string | null;
-  source: "crm" | "recent";
+  source: "crm" | "recent" | "mailbox";
   contactId: string | null;
 };
+
+/** Extrae display name de headers tipo `Nombre Apellido <mail@x.cl>`. */
+export function parseAddressName(raw: string): { email: string; name: string | null } {
+  const email = extractEmailAddresses(raw)[0] ?? normalizeEmailAddress(raw);
+  const match = raw.trim().match(/^"?([^"<]*)"?\s*<([^>]+)>\s*$/);
+  const name = (match?.[1] ?? "").replace(/"/g, "").trim() || null;
+  return { email, name };
+}
 
 /**
  * Ranking (documentación de la fórmula):
@@ -68,6 +76,8 @@ export function mergeRecipientSuggestions(params: {
   limit: number;
   crmContacts: Array<{ id: string; email: string; name: string | null }>;
   recents: Array<{ email: string; displayName: string | null; sendCount: number; lastSentAt: Date; contactId: string | null }>;
+  /** Remitentes/destinatarios vistos en la bandeja sincronizada (Gmail). */
+  mailbox?: Array<{ email: string; name: string | null; lastSeenAt: Date | null }>;
   now?: number;
 }): RecipientSuggestion[] {
   const { q, limit } = params;
@@ -122,6 +132,25 @@ export function mergeRecipientSuggestions(params: {
     });
   }
 
+  for (const m of params.mailbox ?? []) {
+    const email = normalizeEmailAddress(m.email);
+    if (!email || byEmail.has(email)) continue;
+    const quality = matchQuality(q, email, m.name);
+    if (quality === 0) continue;
+    byEmail.set(email, {
+      email,
+      name: m.name,
+      source: "mailbox",
+      contactId: null,
+      score: scoreRecipient({
+        sendCount: 1,
+        lastSentAt: m.lastSeenAt,
+        matchQuality: quality,
+        now: params.now,
+      }),
+    });
+  }
+
   return [...byEmail.values()]
     .sort((a, b) => b.score - a.score || a.email.localeCompare(b.email))
     .slice(0, limit)
@@ -136,7 +165,14 @@ export async function suggestRecipients(
   const limit = Math.min(Math.max(opts.limit ?? 8, 1), 25);
   const query = q.trim();
 
-  const [contacts, recents] = await Promise.all([
+  const accounts = await prisma.crmEmailAccount.findMany({
+    where: { tenantId: opts.tenantId, userId: opts.userId, status: "active" },
+    select: { id: true },
+    take: 5,
+  });
+  const accountIds = accounts.map((a) => a.id);
+
+  const [contacts, recents, mailboxRows] = await Promise.all([
     query
       ? prisma.crmContact.findMany({
           where: {
@@ -168,7 +204,50 @@ export async function suggestRecipients(
       orderBy: [{ sendCount: "desc" }, { lastSentAt: "desc" }],
       take: 50,
     }),
+    accountIds.length > 0
+      ? prisma.crmEmailMessage.findMany({
+          where: {
+            tenantId: opts.tenantId,
+            isDraft: false,
+            thread: { emailAccountId: { in: accountIds } },
+            ...(query
+              ? {
+                  OR: [
+                    { fromEmail: { contains: query, mode: "insensitive" } },
+                    { toEmails: { has: query.toLowerCase() } },
+                  ],
+                }
+              : {}),
+          },
+          select: {
+            fromEmail: true,
+            toEmails: true,
+            sentAt: true,
+            receivedAt: true,
+            direction: true,
+          },
+          orderBy: [{ sentAt: "desc" }],
+          take: query ? 80 : 40,
+        })
+      : Promise.resolve([]),
   ]);
+
+  const mailboxMap = new Map<string, { email: string; name: string | null; lastSeenAt: Date | null }>();
+  for (const row of mailboxRows) {
+    const seenAt = row.sentAt ?? row.receivedAt ?? null;
+    if (row.direction !== "out") {
+      const parsed = parseAddressName(row.fromEmail);
+      if (parsed.email && !mailboxMap.has(parsed.email)) {
+        mailboxMap.set(parsed.email, { ...parsed, lastSeenAt: seenAt });
+      }
+    }
+    for (const raw of row.toEmails) {
+      const parsed = parseAddressName(raw);
+      if (parsed.email && !mailboxMap.has(parsed.email)) {
+        mailboxMap.set(parsed.email, { ...parsed, lastSeenAt: seenAt });
+      }
+    }
+  }
 
   return mergeRecipientSuggestions({
     q: query,
@@ -181,6 +260,7 @@ export async function suggestRecipients(
         name: `${c.firstName} ${c.lastName}`.trim() || null,
       })),
     recents,
+    mailbox: [...mailboxMap.values()],
   });
 }
 
