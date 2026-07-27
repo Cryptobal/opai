@@ -159,8 +159,8 @@ export async function getCorreoDetail(params: {
       orderBy: { sentAt: "asc" },
       select: {
         id: true, providerMessageId: true, direction: true, fromEmail: true,
-        toEmails: true, ccEmails: true, subject: true, htmlBody: true,
-        textBody: true, sentAt: true,
+        replyToEmail: true, toEmails: true, ccEmails: true, subject: true,
+        htmlBody: true, textBody: true, sentAt: true,
       },
     }),
     thread.accountId

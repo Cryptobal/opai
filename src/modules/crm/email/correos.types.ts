@@ -33,6 +33,8 @@ export type CorreoMessageDTO = {
   providerMessageId?: string | null;
   direction: string;
   fromEmail: string;
+  /** Reply-To si difiere del From (listas / grupos Google). */
+  replyToEmail?: string | null;
   toEmails: string[];
   ccEmails: string[];
   subject: string;

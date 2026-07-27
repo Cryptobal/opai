@@ -2,8 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  Archive, Building2, CheckSquare, Clock, Forward, Link2, Mail, MailOpen,
-  PenLine, Reply, Sparkles, Star, Trash2,
+  Archive, Building2, CalendarPlus, CheckSquare, Clock, Forward, Link2,
+  ListTodo, Mail, MailOpen, PenLine, Reply, ReplyAll, Sparkles, Star,
+  TicketPlus, Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Surface, EmptyState, Spinner } from "@/components/opai-ds";
@@ -48,6 +49,9 @@ import { nextThreadAfterRemove } from "./correo-list-advance";
 import { useCloseOnBack } from "./useCloseOnBack";
 import { isUuid } from "@/lib/utils/uuid";
 import { useRegisterChatPageContext } from "@/components/opai/ChatPageContextProvider";
+import { nextIntentNonce, type ComposeIntent, type ReaderOpenOpts } from "./correo-reader-intent";
+import type { WorkTab } from "./work-panel-tabs";
+import type { ComposerMode } from "./CorreoComposerBox";
 
 /** Alto visual de la isla (pt-2 + min-h-12). El safe-area lo aporta AppShell. */
 const CORREOS_MOBILE_TOP_SPACER = "h-14 shrink-0 lg:hidden";
@@ -100,6 +104,8 @@ export function CorreosClient() {
   const [vertical, setVertical] = useState<string | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
   const [autoExtract, setAutoExtract] = useState(false);
+  const [workTabIntent, setWorkTabIntent] = useState<{ tab: WorkTab; nonce: number } | null>(null);
+  const [composeIntent, setComposeIntent] = useState<ComposeIntent | null>(null);
   const [snoozeId, setSnoozeId] = useState<string | null>(null);
   const [composeOpen, setComposeOpen] = useState(false);
   // Opción C: drawer lateral móvil (carpetas + filtros + acciones).
@@ -515,10 +521,18 @@ export function CorreosClient() {
     }
   }
 
-  function openThread(id: string, opts?: { extract?: boolean }) {
+  function openThread(id: string, opts?: ReaderOpenOpts) {
     openCorreoThreadInHistory(id, openId !== null);
     setOpenId(id);
     setAutoExtract(opts?.extract === true);
+    setWorkTabIntent(
+      opts?.workTab ? { tab: opts.workTab, nonce: nextIntentNonce() } : null,
+    );
+    setComposeIntent(
+      opts?.compose
+        ? { mode: opts.compose.mode, ai: opts.compose.ai, nonce: nextIntentNonce() }
+        : null,
+    );
     setItems((prev) =>
       prev.map((t) => (t.id === id && t.isUnread ? { ...t, isUnread: false } : t)),
     );
@@ -526,10 +540,20 @@ export function CorreosClient() {
     if (idx >= 0) setFocusIndex(idx);
   }
 
+  function openCompose(id: string, mode: ComposerMode, ai = false) {
+    openThread(id, { compose: { mode, ai } });
+  }
+
+  function openWork(id: string, tab: WorkTab) {
+    openThread(id, { workTab: tab });
+  }
+
   function closeThread() {
     if (closeCorreoThreadInHistory() === "replaced") {
       setOpenId(null);
       setAutoExtract(false);
+      setWorkTabIntent(null);
+      setComposeIntent(null);
     }
   }
 
@@ -701,13 +725,19 @@ export function CorreosClient() {
     },
     onReply: () => {
       const t = resolveThread();
-      if (!t) return;
-      openThread(t.id);
-      window.setTimeout(() => {
-        document
-          .getElementById("correo-suggested-reply")
-          ?.scrollIntoView({ block: "center" });
-      }, 600);
+      if (t) openCompose(t.id, "reply", false);
+    },
+    onReplyAll: () => {
+      const t = resolveThread();
+      if (t) openCompose(t.id, "all", false);
+    },
+    onForward: () => {
+      const t = resolveThread();
+      if (t) openCompose(t.id, "forward", false);
+    },
+    onReplyAi: () => {
+      const t = resolveThread();
+      if (t) openCompose(t.id, "reply", true);
     },
     onTrash: () => {
       if (selectedIds.size > 0) {
@@ -747,16 +777,25 @@ export function CorreosClient() {
   function contextItems(t: CorreoThreadDTO): CorreoMenuItem[] {
     const items: CorreoMenuItem[] = [
       {
-        icon: <Reply className="h-4 w-4" />, label: "Responder",
-        onClick: () => {
-          openThread(t.id);
-          window.setTimeout(
-            () => document.getElementById("correo-suggested-reply")?.scrollIntoView({ block: "center" }),
-            600,
-          );
-        },
+        icon: <Reply className="h-4 w-4" />,
+        label: "Responder",
+        onClick: () => openCompose(t.id, "reply"),
       },
-      { icon: <Forward className="h-4 w-4" />, label: "Reenviar", onClick: () => openThread(t.id) },
+      {
+        icon: <ReplyAll className="h-4 w-4" />,
+        label: "Responder a todos",
+        onClick: () => openCompose(t.id, "all"),
+      },
+      {
+        icon: <Forward className="h-4 w-4" />,
+        label: "Reenviar",
+        onClick: () => openCompose(t.id, "forward"),
+      },
+      {
+        icon: <Sparkles className="h-4 w-4" />,
+        label: "Responder con IA",
+        onClick: () => openCompose(t.id, "reply", true),
+      },
     ];
     if (canModify) {
       const unread = t.isUnread;
@@ -798,10 +837,42 @@ export function CorreosClient() {
       );
     }
     items.push(
-      { divider: true, icon: <Sparkles className="h-4 w-4" />, label: "Crear lead con IA", onClick: () => openThread(t.id, { extract: true }) },
-      { icon: <Building2 className="h-4 w-4" />, label: "Asociar cuenta", onClick: () => openThread(t.id) },
-      { icon: <Link2 className="h-4 w-4" />, label: "Vincular instalación/factura", onClick: () => openThread(t.id) },
-      { icon: <CheckSquare className="h-4 w-4" />, label: "Tareas", onClick: () => openThread(t.id) },
+      {
+        divider: true,
+        icon: <CalendarPlus className="h-4 w-4" />,
+        label: "Agendar reunión",
+        onClick: () => openWork(t.id, "productividad"),
+      },
+      {
+        icon: <ListTodo className="h-4 w-4" />,
+        label: "Crear tarea",
+        onClick: () => openWork(t.id, "productividad"),
+      },
+      {
+        icon: <TicketPlus className="h-4 w-4" />,
+        label: "Crear ticket",
+        onClick: () => openWork(t.id, "productividad"),
+      },
+      {
+        icon: <Sparkles className="h-4 w-4" />,
+        label: "Crear lead con IA",
+        onClick: () => openThread(t.id, { extract: true }),
+      },
+      {
+        icon: <Building2 className="h-4 w-4" />,
+        label: "Asociar cuenta",
+        onClick: () => openWork(t.id, "cuenta"),
+      },
+      {
+        icon: <Link2 className="h-4 w-4" />,
+        label: "Vincular instalación/factura",
+        onClick: () => openWork(t.id, "vinculos"),
+      },
+      {
+        icon: <CheckSquare className="h-4 w-4" />,
+        label: "Panel de trabajo",
+        onClick: () => openWork(t.id, "resumen"),
+      },
     );
     return items;
   }
@@ -1038,6 +1109,8 @@ export function CorreosClient() {
           mailboxEmail={mailboxEmail}
           shortcuts={shortcuts}
           autoExtract={autoExtract}
+          workTabIntent={workTabIntent}
+          composeIntent={composeIntent}
           canModify={canModify}
           refreshToken={realtimeRevision}
           desktopWidth={panelWidth}

@@ -65,6 +65,9 @@ export type CorreoShortcutAction =
   | "archive"
   | "trash"
   | "reply"
+  | "replyAll"
+  | "forward"
+  | "replyAi"
   | "star"
   | "snooze"
   | "toggleRead"
@@ -73,10 +76,11 @@ export type CorreoShortcuts = Record<CorreoShortcutAction, string>;
 
 const SHORTCUT_ACTIONS: readonly CorreoShortcutAction[] = [
   "down", "up", "open", "toggleSelect", "archive", "trash",
-  "reply", "star", "snooze", "toggleRead", "focusSearch",
+  "reply", "replyAll", "forward", "replyAi",
+  "star", "snooze", "toggleRead", "focusSearch",
 ];
 
-/** Defaults estilo Gmail (s = destacar, b = posponer, como Gmail). */
+/** Defaults estilo Gmail (s = destacar, b = posponer; a/f/i = lector). */
 export const DEFAULT_CORREO_SHORTCUTS: CorreoShortcuts = {
   down: "j",
   up: "k",
@@ -85,11 +89,22 @@ export const DEFAULT_CORREO_SHORTCUTS: CorreoShortcuts = {
   archive: "e",
   trash: "#",
   reply: "r",
+  replyAll: "a",
+  forward: "f",
+  replyAi: "i",
   star: "s",
   snooze: "b",
   toggleRead: "u",
   focusSearch: "/",
 };
+
+/** Atajos del composer/lector: con el hilo abierto los maneja CorreoReplyBox. */
+export const COMPOSE_SHORTCUT_ACTIONS: readonly CorreoShortcutAction[] = [
+  "reply",
+  "replyAll",
+  "forward",
+  "replyAi",
+];
 
 /** Normaliza teclas grabadas/comparadas: letras en minúscula; especiales intactos. */
 export function normalizeShortcutKey(key: string): string {
@@ -107,6 +122,15 @@ export function focusCorreosSearch(): void {
   document.getElementById("correos-search-input-mobile")?.focus();
 }
 
+function firstFreeShortcutKey(config: CorreoShortcuts, preferred: string): string {
+  const taken = new Set(Object.values(config));
+  if (!taken.has(preferred)) return preferred;
+  for (const ch of "abcdefghijklmnopqrstuvwxyz") {
+    if (!taken.has(ch)) return ch;
+  }
+  return preferred;
+}
+
 /** Asigna un atajo y libera duplicados (restaura default en la otra acción). */
 export function assignCorreoShortcut(
   config: CorreoShortcuts,
@@ -117,7 +141,9 @@ export function assignCorreoShortcut(
   const next: CorreoShortcuts = { ...config, [action]: normalized };
   for (const other of SHORTCUT_ACTIONS) {
     if (other !== action && next[other] === normalized) {
-      next[other] = DEFAULT_CORREO_SHORTCUTS[other];
+      // Quitar temporalmente para buscar tecla libre.
+      const without = { ...next, [other]: "\0" };
+      next[other] = firstFreeShortcutKey(without, DEFAULT_CORREO_SHORTCUTS[other]);
     }
   }
   return next;
@@ -130,15 +156,30 @@ function parseShortcuts(value: unknown): CorreoShortcuts | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   const candidate = value as Record<string, unknown>;
   const merged: CorreoShortcuts = { ...DEFAULT_CORREO_SHORTCUTS };
-  let touched = false;
+  const touched = new Set<CorreoShortcutAction>();
   for (const action of SHORTCUT_ACTIONS) {
     const key = candidate[action];
     if (typeof key === "string" && key.length > 0 && key.length <= 12) {
       merged[action] = normalizeShortcutKey(key);
-      touched = true;
+      touched.add(action);
     }
   }
-  return touched ? merged : null;
+  if (touched.size === 0) return null;
+
+  // Preferir teclas guardadas; reasignar defaults que colisionen.
+  const claimed = new Set<string>();
+  for (const action of SHORTCUT_ACTIONS) {
+    if (touched.has(action)) claimed.add(merged[action]);
+  }
+  for (const action of SHORTCUT_ACTIONS) {
+    if (touched.has(action)) continue;
+    if (claimed.has(merged[action])) {
+      const without = { ...merged, [action]: "\0" };
+      merged[action] = firstFreeShortcutKey(without, DEFAULT_CORREO_SHORTCUTS[action]);
+    }
+    claimed.add(merged[action]);
+  }
+  return merged;
 }
 
 const STORAGE_KEY = "opai.crm.correos.view.v1";

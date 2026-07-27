@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 export type RecipientSuggestion = {
   email: string;
   name: string | null;
-  source: "crm" | "recent";
+  source: "crm" | "recent" | "mailbox";
   contactId?: string | null;
 };
 

@@ -74,7 +74,7 @@ export async function upsertGmailMessage(params: {
         userId: "me",
         id: messageId,
         format: existing && !shouldBackfill ? "metadata" : "full",
-        metadataHeaders: ["Subject", "From", "To", "Cc", "Bcc", "Date"],
+        metadataHeaders: ["Subject", "From", "Reply-To", "To", "Cc", "Bcc", "Date"],
       });
   const payload = full.data.payload;
   const headers = payload?.headers || [];
@@ -115,6 +115,18 @@ export async function upsertGmailMessage(params: {
   }
   const rawFrom = getHeader(headers, "From");
   const fromEmail = formatFromHeaderForStorage(rawFrom, emailAccount.email);
+  const rawReplyTo = getHeader(headers, "Reply-To");
+  const replyToParsed = extractEmailAddresses(rawReplyTo)[0] || null;
+  const fromParsed = extractEmailAddresses(rawFrom)[0] || null;
+  // Solo persistimos Reply-To si apunta a otra casilla (listas / "via grupo").
+  const replyToEmail =
+    replyToParsed &&
+    fromParsed &&
+    normalizeEmailAddress(replyToParsed) !== normalizeEmailAddress(fromParsed)
+      ? formatFromHeaderForStorage(rawReplyTo, replyToParsed)
+      : replyToParsed && !fromParsed
+        ? formatFromHeaderForStorage(rawReplyTo, replyToParsed)
+        : null;
   const toEmails = extractEmailAddresses(getHeader(headers, "To"));
   const ccEmails = extractEmailAddresses(getHeader(headers, "Cc"));
   const bccEmails = extractEmailAddresses(getHeader(headers, "Bcc"));
@@ -140,6 +152,7 @@ export async function upsertGmailMessage(params: {
   const common = {
     direction,
     fromEmail,
+    replyToEmail,
     toEmails,
     ccEmails,
     bccEmails,
