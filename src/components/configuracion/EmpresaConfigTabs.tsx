@@ -65,9 +65,24 @@ const BRANDING_IMAGE_FIELDS = [
 ];
 
 const BRANDING_COLOR_FIELDS = [
-  { key: "empresa.branding.primaryColor", label: "Color principal", help: "Navy principal de la marca.", placeholder: "#0a1628" },
-  { key: "empresa.branding.secondaryColor", label: "Color secundario", help: "Color secundario de la marca.", placeholder: "#0d9488" },
-  { key: "empresa.branding.accentColor", label: "Color accent", help: "Para CTAs y elementos destacados.", placeholder: "#2dd4bf" },
+  {
+    key: "empresa.branding.primaryColor",
+    label: "Color principal (fondos dark)",
+    help: "Navy/azul de marca. En dark mode tiñe el fondo de la app (evita negro puro). Recomendado: #142033 o similar.",
+    placeholder: "#142033",
+  },
+  {
+    key: "empresa.branding.secondaryColor",
+    label: "Color secundario",
+    help: "Reserva / fallback del accent si no hay accent.",
+    placeholder: "#0d9488",
+  },
+  {
+    key: "empresa.branding.accentColor",
+    label: "Color accent (CTAs)",
+    help: "Botones primarios, foco y acentos de la app entera (no solo correo).",
+    placeholder: "#14a88a",
+  },
 ];
 
 const BRANDING_TEXT_FIELDS = [

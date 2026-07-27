@@ -2,6 +2,7 @@
 
 import { ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 import { AppShell, AppSidebar } from '@/components/opai';
+import { BrandThemeSync } from '@/components/opai/BrandThemeSync';
 import { type RolePermissions } from '@/lib/permissions';
 import { RoleSimulationProvider, useRoleSimulation } from '@/contexts/RoleSimulationContext';
 import { NotificationProvider } from '@/contexts/NotificationContext';
@@ -109,6 +110,7 @@ function AppLayoutClientInner({
       <NotificationSidePanelProvider>
       <IntelligenceSidePanelProvider>
       <ChatSidePanelProvider currentUserId={currentUserId ?? ''} userRole={userRole}>
+        <BrandThemeSync />
         <AppShell
           sidebar={
             <AppSidebar

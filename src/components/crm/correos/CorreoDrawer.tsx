@@ -120,16 +120,25 @@ export function CorreoDrawer({
     }
   }, [threadId]);
 
-  // Carga inicial / cambio de hilo: pintamos al instante desde IndexedDB
-  // (si hay) y pedimos la red en paralelo. El header ya usa `preview` de la lista.
+  // Carga inicial / cambio de hilo: header desde `preview`; cuerpo desde
+  // IndexedDB (si hay) + red. No vaciamos el detalle del hilo anterior con
+  // un null intermedio si ya estamos pidiendo el mismo id; al cambiar de id
+  // limpiamos para no mostrar el HTML del correo previo (evita “pestañeo”
+  // de un pedazo de correo sobre otro).
   useEffect(() => {
-    setDetail((prev) => (prev?.thread.id === threadId ? prev : null));
     setAiOpen(false);
-    if (!threadId) return;
+    if (!threadId) {
+      setDetail(null);
+      return;
+    }
+    setDetail((prev) => (prev?.thread.id === threadId ? prev : null));
     let cancelled = false;
     void loadOfflineDetail(threadId).then((cached) => {
       if (cancelled || !cached) return;
-      setDetail((prev) => (prev?.thread.id === threadId ? prev : cached));
+      setDetail((prev) => {
+        if (prev?.thread.id === threadId) return prev;
+        return cached;
+      });
     });
     void load();
     return () => {

@@ -155,39 +155,40 @@
   .dark {
     /* ============================================
        OPAI Design System v2 — Dark Theme
-       Azul pizarra (no negro puro) + teal de marca más profundo.
+       Azul pizarra legible (no negro): hue ~218, L≥11%.
+       Overrideable por empresa vía BrandThemeSync.
        ============================================ */
 
     /* Background & Foreground */
-    --background: 222 28% 7%;              /* #0f1520 */
+    --background: 218 36% 12%;             /* #142033 */
     --foreground: 210 40% 98%;             /* #f8fafc */
 
     /* Cards & Surfaces */
-    --card: 222 24% 11%;                   /* #161d2b */
+    --card: 218 32% 15%;                   /* #1a2940 */
     --card-foreground: 210 40% 98%;        /* #f8fafc */
 
     /* Popovers & Dropdowns (elevated) */
-    --popover: 222 22% 13%;               /* #1c2436 */
+    --popover: 218 30% 17%;               /* #1f304a */
     --popover-foreground: 210 40% 98%;    /* #f8fafc */
 
     /* Borders & Inputs */
-    --border: 222 16% 20%;                /* #2a3345 */
-    --input: 222 16% 22%;                 /* #2f394c */
+    --border: 218 24% 26%;                /* #334861 */
+    --input: 218 24% 28%;                 /* #384d68 */
 
     /* Muted (secondary text, disabled) */
-    --muted: 222 16% 16%;                 /* #222a38 */
-    --muted-foreground: 215 16% 60%;      /* #8b9bb0 */
+    --muted: 218 26% 18%;                 /* #223048 */
+    --muted-foreground: 214 22% 68%;      /* #9aadc4 */
 
     /* Accent (hover, active states) */
-    --accent: 222 16% 18%;                /* #262f40 */
+    --accent: 218 26% 20%;                /* #263652 */
     --accent-foreground: 210 40% 98%;     /* #f8fafc */
 
     /* Primary — Teal (main CTA, menos neón) */
     --primary: 168 78% 38%;               /* #14a88a */
-    --primary-foreground: 222 28% 7%;     /* dark text on teal */
+    --primary-foreground: 218 36% 10%;    /* dark text on teal */
 
     /* Secondary — Muted action */
-    --secondary: 222 16% 20%;             /* same as border, subtle */
+    --secondary: 218 24% 26%;             /* same as border, subtle */
     --secondary-foreground: 210 40% 98%;  /* #f8fafc */
 
     /* Destructive — Red */
@@ -205,20 +206,20 @@
     --chart-5: 340 82% 52%;
 
     /* OPAI DS v3 — Dark surfaces */
-    --ds-surface-0: 222 28% 7%;            /* page bg = same as --background */
-    --ds-surface-1: 222 24% 10%;           /* card primary */
-    --ds-surface-2: 222 22% 12%;           /* elevated */
-    --ds-surface-3: 222 20% 15%;           /* dialog top */
-    --ds-surface-4: 222 18% 18%;           /* tooltip / menu */
+    --ds-surface-0: 218 36% 12%;           /* page bg = same as --background */
+    --ds-surface-1: 218 32% 14%;           /* card primary */
+    --ds-surface-2: 218 30% 17%;           /* elevated */
+    --ds-surface-3: 218 28% 20%;           /* dialog top */
+    --ds-surface-4: 218 26% 23%;           /* tooltip / menu */
 
     --ds-text-1: 210 40% 98%;
-    --ds-text-2: 215 20% 82%;
-    --ds-text-3: 215 16% 62%;
-    --ds-text-4: 215 14% 44%;
+    --ds-text-2: 214 24% 84%;
+    --ds-text-3: 214 18% 66%;
+    --ds-text-4: 214 14% 48%;
 
-    --ds-border-subtle: 222 16% 17%;
-    --ds-border-default: 222 16% 22%;
-    --ds-border-strong: 222 16% 30%;
+    --ds-border-subtle: 218 24% 20%;
+    --ds-border-default: 218 24% 26%;
+    --ds-border-strong: 218 24% 34%;
 
     --ds-ok: 160 76% 42%;
     --ds-ok-fg: 160 76% 60%;

@@ -115,14 +115,38 @@ export function EmailHtmlBody({
 
   const useIframe = iframeSandboxEnabled();
   const iframeRef = useRef<HTMLIFrameElement>(null);
-  const [height, setHeight] = useState(80);
+  // Altura estable: no arrancar en 80px (causaba "pestañeo" — pedazo corto
+  // y luego salto al alto real). Reservamos el último alto medido y ocultamos
+  // el iframe hasta la primera medición del documento nuevo.
+  const [height, setHeight] = useState(320);
+  const [frameReady, setFrameReady] = useState(false);
+  const lastHeightRef = useRef(320);
+
+  const srcDoc = useMemo(
+    () => (useIframe && safeHtml ? buildEmailSrcDoc(safeHtml, night) : ""),
+    [useIframe, safeHtml, night],
+  );
+
+  // Nuevo documento → ocultar hasta medir (evita flash del top del HTML).
+  useEffect(() => {
+    if (!useIframe || mode !== "html" || !srcDoc) {
+      setFrameReady(true);
+      return;
+    }
+    setFrameReady(false);
+    setHeight(lastHeightRef.current);
+  }, [srcDoc, useIframe, mode]);
 
   // Con allow-same-origin (mismo origen vía srcDoc) el padre puede medir la
   // altura del contenido; un ResizeObserver sigue los cambios (imágenes lazy).
   const measure = useCallback(() => {
     const doc = iframeRef.current?.contentDocument;
     const next = doc?.documentElement?.scrollHeight ?? doc?.body?.scrollHeight;
-    if (next && next > 0) setHeight(next + 4);
+    if (!next || next <= 0) return;
+    const h = next + 4;
+    lastHeightRef.current = h;
+    setHeight(h);
+    setFrameReady(true);
   }, []);
 
   useEffect(() => {
@@ -133,11 +157,6 @@ export function EmailHtmlBody({
     ro.observe(doc.body);
     return () => ro.disconnect();
   }, [useIframe, mode, safeHtml, measure]);
-
-  const srcDoc = useMemo(
-    () => (useIframe && safeHtml ? buildEmailSrcDoc(safeHtml, night) : ""),
-    [useIframe, safeHtml, night],
-  );
 
   return (
     <div className="space-y-1.5">
@@ -205,7 +224,11 @@ export function EmailHtmlBody({
             title="Contenido del correo"
             onLoad={measure}
             className={styles.frame}
-            style={{ height: `${height}px` }}
+            style={{
+              height: `${height}px`,
+              opacity: frameReady ? 1 : 0,
+              transition: frameReady ? "opacity 80ms ease-out" : undefined,
+            }}
           />
         ) : (
           <div
