@@ -61,6 +61,18 @@ export function MobileIsland({
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
+  // Plan B (H2): en viewports ≤360 px el título baja de ~90 px utilizables
+  // con segmento + 3 botones. El chat ya está en BottomNav (OpaiOrb).
+  const [hideChatInIsland, setHideChatInIsland] = useState(false);
+  useEffect(() => {
+    if (typeof window.matchMedia !== "function") return;
+    const mq = window.matchMedia("(max-width: 360px)");
+    const apply = () => setHideChatInIsland(mq.matches);
+    apply();
+    mq.addEventListener("change", apply);
+    return () => mq.removeEventListener("change", apply);
+  }, []);
+
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchValue, setSearchValue] = useState("");
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -288,12 +300,14 @@ export function MobileIsland({
               >
                 <Search className="h-5 w-5" />
               </button>
-              <button type="button" className={btnBase} onClick={onToggleChat} aria-label="Abrir chat">
-                <MessageCircle className="h-5 w-5" />
-                {chatUnread > 0 && (
-                  <span className="absolute right-1.5 top-1.5 h-2.5 w-2.5 rounded-full bg-status-danger ring-2 ring-background" />
-                )}
-              </button>
+              {!hideChatInIsland && (
+                <button type="button" className={btnBase} onClick={onToggleChat} aria-label="Abrir chat">
+                  <MessageCircle className="h-5 w-5" />
+                  {chatUnread > 0 && (
+                    <span className="absolute right-1.5 top-1.5 h-2.5 w-2.5 rounded-full bg-status-danger ring-2 ring-background" />
+                  )}
+                </button>
+              )}
               <button
                 type="button"
                 className={btnBase}
