@@ -1,14 +1,15 @@
 "use client";
 
 import { type ReactNode, useEffect, useState } from "react";
-import { Download, File as FileIcon, RefreshCw } from "lucide-react";
+import { Download, File as FileIcon, RefreshCw, Share2 } from "lucide-react";
 import { Spinner } from "@/components/opai-ds";
 import { PdfCanvas } from "./PdfCanvas";
 
-/** Tope de bytes que leemos para previsualizar texto plano. */
+/** Tope de bytes que leemos para previsualizar texto plano / docx. */
 const TEXT_MAX = 512 * 1024;
+const DOCX_MAX = 8 * 1024 * 1024;
 
-type Kind = "pdf" | "image" | "text" | "other";
+type Kind = "pdf" | "image" | "text" | "docx" | "other";
 
 /** Clasifica el adjunto por MIME/extensión. HTML/XML/SVG nunca se renderizan
  *  inline (riesgo XSS: el endpoint ya los fuerza a descarga). */
@@ -20,6 +21,15 @@ function classify(mimeType: string, filename: string): Kind {
   }
   if (mt.includes("pdf") || ext === "pdf") return "pdf";
   if (mt.startsWith("image/")) return "image";
+  if (
+    mt.includes("wordprocessingml") ||
+    mt === "application/msword" ||
+    ext === "docx"
+  ) {
+    // .doc (binario legacy) no lo convierte mammoth; solo docx/OOXML.
+    if (ext === "doc" && !mt.includes("wordprocessingml")) return "other";
+    return "docx";
+  }
   if (mt.startsWith("text/") || mt === "application/json" || ["txt", "csv", "md", "log", "json"].includes(ext)) {
     return "text";
   }
@@ -39,14 +49,39 @@ type State =
   | { phase: "pdf"; buffer: ArrayBuffer }
   | { phase: "image"; objectUrl: string }
   | { phase: "text"; text: string; truncated: boolean }
+  | { phase: "docx"; html: string }
   | { phase: "other" };
+
+async function shareOrDownload(url: string, filename: string, mimeType: string) {
+  try {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error("download failed");
+    const blob = await res.blob();
+    const type = mimeType || blob.type || "application/octet-stream";
+    const file = new File([blob], filename, { type });
+    if (typeof navigator !== "undefined" && navigator.canShare?.({ files: [file] })) {
+      await navigator.share({ files: [file], title: filename });
+      return;
+    }
+  } catch {
+    // Caemos a descarga directa.
+  }
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.rel = "noopener";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
 
 /**
  * Cuerpo compartido de previsualización de adjuntos (lector de correo y
  * documentos CRM): baja el binario con la sesión (misma-origen) y lo pinta —
- * PDF en canvas (pdf.js), imagen, texto plano — o muestra una tarjeta tipada
- * con descarga (+ slot de guardado opcional) para el resto. Nunca deja una
- * pantalla en blanco: siempre loading / contenido / error con reintento.
+ * PDF en canvas (pdf.js), imagen, texto plano, DOCX (mammoth) — o muestra una
+ * tarjeta tipada con descarga/compartir (+ slot de guardado opcional) para el
+ * resto. Nunca deja una pantalla en blanco: siempre loading / contenido / error
+ * con reintento.
  */
 export function AttachmentPreview({
   url,
@@ -64,6 +99,7 @@ export function AttachmentPreview({
 }) {
   const [state, setState] = useState<State>({ phase: "loading" });
   const [attempt, setAttempt] = useState(0);
+  const [sharing, setSharing] = useState(false);
   const kind = classify(mimeType, filename);
 
   useEffect(() => {
@@ -90,6 +126,17 @@ export function AttachmentPreview({
         } else if (kind === "image") {
           objectUrl = URL.createObjectURL(blob);
           setState({ phase: "image", objectUrl });
+        } else if (kind === "docx") {
+          if (blob.size > DOCX_MAX) {
+            setState({ phase: "other" });
+            return;
+          }
+          const mammoth = await import("mammoth");
+          const arrayBuffer = await blob.arrayBuffer();
+          const result = await mammoth.convertToHtml({ arrayBuffer });
+          const DOMPurify = (await import("isomorphic-dompurify")).default;
+          const html = DOMPurify.sanitize(result.value || "<p>(Documento vacío)</p>");
+          if (alive) setState({ phase: "docx", html });
         } else {
           const truncated = blob.size > TEXT_MAX;
           const text = await blob.slice(0, TEXT_MAX).text();
@@ -105,6 +152,30 @@ export function AttachmentPreview({
     };
   }, [url, kind, attempt]);
 
+  const actions = (
+    <div className="flex flex-wrap items-center justify-center gap-2">
+      <a
+        href={url}
+        download={filename}
+        className="inline-flex h-11 items-center gap-1.5 rounded-lg border border-ds-border-default px-3 text-[13px] ds-tap"
+      >
+        <Download className="h-4 w-4" /> Descargar
+      </a>
+      <button
+        type="button"
+        disabled={sharing}
+        onClick={() => {
+          setSharing(true);
+          void shareOrDownload(url, filename, mimeType).finally(() => setSharing(false));
+        }}
+        className="inline-flex h-11 items-center gap-1.5 rounded-lg border border-ds-border-default px-3 text-[13px] ds-tap disabled:opacity-50"
+      >
+        <Share2 className="h-4 w-4" /> {sharing ? "…" : "Compartir"}
+      </button>
+      {saveSlot}
+    </div>
+  );
+
   if (state.phase === "loading") return <Spinner className="mx-auto mt-12" />;
 
   if (state.phase === "error") {
@@ -118,6 +189,7 @@ export function AttachmentPreview({
         >
           <RefreshCw className="h-4 w-4" /> Reintentar
         </button>
+        {actions}
       </div>
     );
   }
@@ -144,6 +216,19 @@ export function AttachmentPreview({
     );
   }
 
+  if (state.phase === "docx") {
+    return (
+      <div className="flex h-full flex-col">
+        <div
+          className="min-h-0 flex-1 overflow-auto bg-ds-surface-1 p-4 text-[13px] leading-relaxed text-ds-text-1 [&_h1]:mb-2 [&_h1]:text-lg [&_h1]:font-semibold [&_h2]:mb-2 [&_h2]:text-base [&_h2]:font-semibold [&_li]:ml-4 [&_li]:list-disc [&_p]:mb-2 [&_table]:mb-3 [&_table]:w-full [&_td]:border [&_td]:border-ds-border-subtle [&_td]:p-1.5 [&_th]:border [&_th]:border-ds-border-subtle [&_th]:p-1.5 [&_th]:text-left"
+          // HTML sanitizado con DOMPurify arriba.
+          dangerouslySetInnerHTML={{ __html: state.html }}
+        />
+        <div className="shrink-0 border-t border-ds-border-subtle px-3 py-2">{actions}</div>
+      </div>
+    );
+  }
+
   // other → tarjeta tipada
   return (
     <div className="mx-auto mt-12 flex max-w-xs flex-col items-center gap-3 px-4 text-center">
@@ -155,17 +240,11 @@ export function AttachmentPreview({
         <p className="text-[12px] text-ds-text-4">
           Vista previa no disponible{size ? ` · ${fmtSize(size)}` : ""}
         </p>
+        <p className="text-[12px] text-ds-text-3">
+          Descargalo al teléfono o compartilo con otra app.
+        </p>
       </div>
-      <div className="flex flex-wrap items-center justify-center gap-2">
-        <a
-          href={url}
-          download={filename}
-          className="inline-flex h-11 items-center gap-1.5 rounded-lg border border-ds-border-default px-3 text-[13px] ds-tap"
-        >
-          <Download className="h-4 w-4" /> Descargar
-        </a>
-        {saveSlot}
-      </div>
+      {actions}
     </div>
   );
 }

@@ -44,6 +44,8 @@ type Props = {
   syncing: boolean;
   realtimeStatus: CorreosRealtimeStatus;
   lastSyncAt: string | null;
+  /** Casilla Gmail conectada (se muestra en el encabezado del drawer). */
+  mailboxEmail?: string | null;
   /** Abre el sheet de configuración de gestos (Bloque 6). */
   onOpenSwipeSettings?: () => void;
   /** Abre el sheet de atajos de teclado configurables. */
@@ -72,7 +74,7 @@ function SectionTitle({ children }: { children: ReactNode }) {
 export function CorreosMobileDrawer({
   open, onClose, folder, onFolder, chip, onChip, vertical, onVertical, counts,
   previewLines, onPreviewLines, onSync, syncing, realtimeStatus, lastSyncAt,
-  onOpenSwipeSettings, onOpenShortcuts,
+  mailboxEmail, onOpenSwipeSettings, onOpenShortcuts,
 }: Props) {
   const panelRef = useRef<HTMLDivElement | null>(null);
   useCloseOnBack(open, onClose);
@@ -96,9 +98,18 @@ export function CorreosMobileDrawer({
         tabIndex={-1}
         className="absolute inset-y-0 left-0 flex w-[82%] max-w-[340px] flex-col overflow-y-auto bg-ds-surface-1 pb-[env(safe-area-inset-bottom,0px)] pt-[env(safe-area-inset-top,0px)] shadow-ds-lg animate-in slide-in-from-left duration-200"
       >
-        <div className="flex items-center justify-between px-4 pb-1 pt-3">
-          <p className="font-display text-sm font-semibold text-ds-text-1">Correos</p>
-          <button type="button" aria-label="Cerrar menú" onClick={onClose} className="flex h-10 w-10 items-center justify-center rounded-xl text-ds-text-3 ds-tap">
+        <div className="flex items-center justify-between gap-2 px-4 pb-1 pt-3">
+          <div className="min-w-0 flex-1">
+            <p className="font-display text-sm font-semibold text-ds-text-1">Correos</p>
+            {mailboxEmail ? (
+              <p className="truncate text-[12px] text-ds-text-3" title={mailboxEmail}>
+                Gmail · {mailboxEmail}
+              </p>
+            ) : (
+              <p className="text-[12px] text-ds-text-4">Cuenta Gmail</p>
+            )}
+          </div>
+          <button type="button" aria-label="Cerrar menú" onClick={onClose} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-ds-text-3 ds-tap">
             <X className="h-5 w-5" />
           </button>
         </div>

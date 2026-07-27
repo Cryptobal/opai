@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Check, FolderPlus, Link2, X } from "lucide-react";
+import { Check, Download, FolderPlus, Link2, X } from "lucide-react";
 import { toast } from "sonner";
 import { Spinner } from "@/components/opai-ds";
 import type { SaveAttachmentResult } from "@/modules/crm/email/save-attachments";
@@ -21,16 +21,18 @@ type Props = {
   accountName: string | null;
   dealId: string | null;
   dealTitle: string | null;
+  /** Casilla Gmail de la que salió el correo (solo informativo). */
+  mailboxEmail?: string | null;
   onSaved: () => void;
-  /** Abre el panel de asociación del hilo (cuando no hay cuenta). */
+  /** Abre el panel de asociación del hilo (cuando no hay cuenta CRM). */
   onRequestAssociate?: () => void;
 };
 
 /**
- * Hoja de destino para guardar N adjuntos a una ficha: elige entidad (cuenta o
- * uno de sus negocios), carpeta y visibilidad en portal, en una sola acción.
- * Sin cuenta asociada, ofrece "Asociar y guardar". Reporta el resultado por
- * archivo (guardado / ya existía / error).
+ * Hoja de destino para guardar N adjuntos a una ficha CRM: elige entidad
+ * (cuenta o negocio), carpeta y visibilidad en portal. Sin cuenta CRM
+ * asociada, explica la diferencia Gmail vs CRM y ofrece "Asociar y guardar".
+ * También permite descargar al teléfono sin asociar.
  */
 export function CorreoAttachmentSave({
   open,
@@ -41,6 +43,7 @@ export function CorreoAttachmentSave({
   accountName,
   dealId,
   dealTitle,
+  mailboxEmail,
   onSaved,
   onRequestAssociate,
 }: Props) {
@@ -94,7 +97,7 @@ export function CorreoAttachmentSave({
       const saved = list.filter((r) => r.status === "saved").length;
       const already = list.filter((r) => r.status === "already").length;
       const errored = list.filter((r) => r.status === "error").length;
-      if (errored === 0) toast.success(saved > 0 ? `${saved} adjunto(s) guardado(s)` : `${already} ya estaban guardados`);
+      if (errored === 0) toast.success(saved > 0 ? `${saved} adjunto(s) guardado(s) en OPAI` : `${already} ya estaban guardados`);
       else toast.message(`${saved} guardado(s), ${errored} con error`);
       if (errored === 0) onSaved();
     } catch (e) {
@@ -113,22 +116,38 @@ export function CorreoAttachmentSave({
         className="max-h-[85vh] overflow-auto rounded-t-2xl border-t border-ds-border-subtle bg-ds-surface-1 pb-[calc(env(safe-area-inset-bottom)+0.75rem)]"
       >
         <div className="flex items-center gap-2 border-b border-ds-border-subtle px-4 py-3">
-          <h3 className="flex-1 text-[15px] font-semibold text-ds-text-1">Guardar {items.length} adjunto{items.length !== 1 ? "s" : ""}</h3>
+          <div className="min-w-0 flex-1">
+            <h3 className="text-[15px] font-semibold text-ds-text-1">
+              Guardar {items.length} adjunto{items.length !== 1 ? "s" : ""}
+            </h3>
+            {mailboxEmail && (
+              <p className="truncate text-[12px] text-ds-text-3">
+                Casilla Gmail · {mailboxEmail}
+              </p>
+            )}
+          </div>
           <button type="button" onClick={onClose} aria-label="Cerrar" className="flex h-9 w-9 items-center justify-center rounded-lg text-ds-text-3 ds-tap">
             <X className="h-4 w-4" />
           </button>
         </div>
 
         {!accountId ? (
-          <div className="space-y-3 p-4 text-center">
-            <p className="text-[13px] text-ds-text-2">Este correo no está asociado a una cuenta.</p>
+          <div className="space-y-3 p-4">
+            <p className="text-[13px] text-ds-text-2">
+              Este correo de Gmail{mailboxEmail ? ` (${mailboxEmail})` : ""} aún no está vinculado a un{" "}
+              <span className="font-medium text-ds-text-1">cliente / cuenta CRM</span> en OPAI.
+              Asociarlo permite guardar los adjuntos en Documentos de esa ficha.
+            </p>
             <button
               type="button"
               onClick={() => { onRequestAssociate?.(); onClose(); }}
-              className="inline-flex h-11 items-center gap-1.5 rounded-lg bg-primary px-4 text-[13px] font-medium text-primary-fg ds-tap"
+              className="inline-flex h-11 w-full items-center justify-center gap-1.5 rounded-lg bg-primary px-4 text-[13px] font-medium text-primary-fg ds-tap"
             >
-              <Link2 className="h-4 w-4" /> Asociar y guardar
+              <Link2 className="h-4 w-4" /> Asociar a cuenta CRM y guardar
             </button>
+            <p className="text-center text-[12px] text-ds-text-4">
+              También podés descargar el archivo al teléfono con el ícono de descarga, sin asociar.
+            </p>
           </div>
         ) : results ? (
           <div className="space-y-1.5 p-4">
@@ -147,7 +166,7 @@ export function CorreoAttachmentSave({
         ) : (
           <div className="space-y-4 p-4">
             <div className="space-y-1.5">
-              <p className="text-[12px] font-medium text-ds-text-3">Destino</p>
+              <p className="text-[12px] font-medium text-ds-text-3">Guardar en OPAI (Documentos CRM)</p>
               <div className="flex flex-wrap gap-1.5">
                 <DestChip active={dest?.type === "account" && dest.id === accountId} onClick={() => setDest({ type: "account", id: accountId })} label={accountName || "Cuenta"} />
                 {deals.map((d) => (
@@ -184,6 +203,11 @@ export function CorreoAttachmentSave({
               {saving ? <Spinner className="h-4 w-4" /> : <FolderPlus className="h-4 w-4" />}
               Guardar en {dest ? destLabel(dest) : "…"}
             </button>
+
+            <p className="flex items-center justify-center gap-1.5 text-[12px] text-ds-text-4">
+              <Download className="h-3.5 w-3.5" />
+              Para el teléfono usá Descargar / Compartir en el archivo
+            </p>
           </div>
         )}
       </div>

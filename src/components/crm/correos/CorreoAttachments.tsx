@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Check, ChevronDown, ChevronRight, Download, File, FileText, FolderPlus, Image as ImageIcon, Paperclip, Square } from "lucide-react";
 import type { CorreoAttachmentDTO } from "@/modules/crm/email/correos.types";
@@ -35,6 +35,7 @@ export function CorreoAttachments({
   dealTitle,
   accountId,
   accountName,
+  mailboxEmail,
   degraded,
   onSaved,
   onRequestAssociate,
@@ -45,16 +46,21 @@ export function CorreoAttachments({
   dealTitle: string | null;
   accountId: string | null;
   accountName?: string | null;
+  /** Casilla Gmail conectada (para aclarar destino al guardar). */
+  mailboxEmail?: string | null;
   /** Gmail caído: no se permite seleccionar/guardar metadata incompleta. */
   degraded?: boolean;
   onSaved?: () => void;
   onRequestAssociate?: () => void;
 }) {
   const [viewer, setViewer] = useState<ViewerFile | null>(null);
-  // Plegados por defecto (como Gmail): con muchos adjuntos la lista se comía la ventana.
-  const [open, setOpen] = useState(false);
+  const [viewerKey, setViewerKey] = useState<string | null>(null);
+  // Abiertos por defecto: en móvil el usuario necesita ver los archivos sin
+  // un tap extra; con muchos adjuntos el scroll cubre el resto.
+  const [open, setOpen] = useState(true);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [sheetOpen, setSheetOpen] = useState(false);
+  const rowRefs = useRef<Map<string, HTMLLIElement>>(new Map());
 
   if (items.length === 0) return null;
 
@@ -75,6 +81,29 @@ export function CorreoAttachments({
 
   const destHref = dealId ? `/crm/deals/${dealId}` : accountId ? `/crm/accounts/${accountId}` : null;
   const canSelect = !degraded;
+
+  function openViewer(a: CorreoAttachmentDTO) {
+    const k = keyOf(a);
+    setViewerKey(k);
+    setViewer({
+      url: attachmentUrl(threadId, a),
+      filename: a.filename,
+      mimeType: a.mimeType,
+      size: a.size,
+    });
+  }
+
+  function closeViewer() {
+    const k = viewerKey;
+    setViewer(null);
+    // Volver al adjunto que se estaba viendo (scroll + sección abierta).
+    setOpen(true);
+    if (k) {
+      requestAnimationFrame(() => {
+        rowRefs.current.get(k)?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+      });
+    }
+  }
 
   return (
     <div className="space-y-1.5">
@@ -105,6 +134,10 @@ export function CorreoAttachments({
             return (
               <li
                 key={k}
+                ref={(el) => {
+                  if (el) rowRefs.current.set(k, el);
+                  else rowRefs.current.delete(k);
+                }}
                 className="flex items-center gap-1 rounded-lg border border-ds-border-subtle bg-ds-surface-1 px-1.5 text-[13px] text-ds-text-2"
               >
                 {canSelect && (
@@ -121,7 +154,7 @@ export function CorreoAttachments({
                 )}
                 <button
                   type="button"
-                  onClick={() => setViewer({ url, filename: a.filename, mimeType: a.mimeType, size: a.size })}
+                  onClick={() => openViewer(a)}
                   className="flex min-h-11 min-w-0 flex-1 items-center gap-2 text-left ds-tap"
                   title={a.filename}
                 >
@@ -176,6 +209,7 @@ export function CorreoAttachments({
         accountName={accountName ?? null}
         dealId={dealId}
         dealTitle={dealTitle}
+        mailboxEmail={mailboxEmail}
         onRequestAssociate={onRequestAssociate}
         onSaved={() => {
           setSelected(new Set());
@@ -183,7 +217,7 @@ export function CorreoAttachments({
           onSaved?.();
         }}
       />
-      <CorreoAttachmentViewer file={viewer} onClose={() => setViewer(null)} />
+      <CorreoAttachmentViewer file={viewer} onClose={closeViewer} />
     </div>
   );
 }
