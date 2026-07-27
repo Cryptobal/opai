@@ -104,7 +104,7 @@ export function ChatComposer({
         </div>
       ) : null}
 
-      <div className="rounded-[19px] border border-ds-border-default bg-ds-surface-2 focus-within:ring-1 focus-within:ring-primary/50">
+      <div className="rounded-[19px] border border-ds-border-subtle bg-ds-surface-2 focus-within:border-primary/40">
         <input
           ref={fileRef}
           type="file"
@@ -142,7 +142,15 @@ export function ChatComposer({
             onSend();
           }}
           autoComplete="off"
-          className="max-h-[120px] min-h-[44px] w-full resize-none bg-transparent px-3.5 py-2.5 text-[13px] text-ds-text-1 placeholder:text-ds-text-4 focus-visible:outline-none leading-snug"
+          className={cn(
+            "max-h-[120px] min-h-[44px] w-full resize-none appearance-none border-0",
+            "bg-transparent px-3.5 py-2.5 text-[13px] leading-snug text-ds-text-1",
+            "placeholder:text-ds-text-4 shadow-none outline-none",
+            /* Anula el :focus-visible global (ring + ring-offset) que pinta
+               un rectángulo claro sobre el vidrio del sheet. */
+            "focus:outline-none focus:ring-0 focus:ring-offset-0",
+            "focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0",
+          )}
         />
         <div className="flex h-[38px] items-center gap-1 px-2 pb-2">
           <button

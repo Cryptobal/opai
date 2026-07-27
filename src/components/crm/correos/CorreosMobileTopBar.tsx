@@ -1,6 +1,8 @@
 "use client";
 
 import { Menu, Search, Sparkles, X } from "lucide-react";
+import { SurfaceSegment } from "@/components/opai/SurfaceSegment";
+import { useClientSurface } from "@/hooks/useClientSurface";
 
 type Props = {
   /** Abre el drawer lateral del módulo (carpetas + filtros + acciones). */
@@ -14,10 +16,8 @@ type Props = {
 };
 
 /**
- * Top móvil tipo Gmail (Opción C): píldora de búsqueda (menú + input + IA).
- * `fixed` (no sticky): en PWA el overscroll rubber-band despega sticky y
- * arrastra la barra; fixed + preventDefault del pull-to-refresh la mantiene
- * pegada al viewport, igual que MobileIsland en el resto del ERP.
+ * Top móvil tipo Gmail: misma isla Liquid Glass que el resto del ERP, con el
+ * SurfaceSegment a la izquierda (Correos es inmersivo y no monta MobileIsland).
  */
 export function CorreosMobileTopBar({
   onOpenNav,
@@ -27,6 +27,7 @@ export function CorreosMobileTopBar({
   onSemantic,
   inboxUnread,
 }: Props) {
+  const surface = useClientSurface();
   const unreadLabel = inboxUnread > 99 ? "99+" : String(inboxUnread);
 
   return (
@@ -36,10 +37,9 @@ export function CorreosMobileTopBar({
         paddingTop: "env(safe-area-inset-top, 0px)",
       }}
     >
-      {/* Isla flotante Liquid Glass (misma familia que la isla del AppShell):
-          la lista se desliza por debajo, nada de barras cuadradas. */}
       <div className="px-3 pt-2">
-        <div className="pointer-events-auto opai-glass-strong flex min-h-12 min-w-0 items-center rounded-[22px] pl-1 pr-1.5">
+        <div className="pointer-events-auto opai-glass-strong flex min-h-12 min-w-0 items-center gap-1 rounded-[22px] pl-1.5 pr-1.5">
+          <SurfaceSegment surface={surface} variant="compact" className="shrink-0" />
           <button
             type="button"
             onClick={onOpenNav}
@@ -60,7 +60,7 @@ export function CorreosMobileTopBar({
               </span>
             )}
           </button>
-          <Search aria-hidden className="mx-1 h-4 w-4 shrink-0 text-ds-text-4" />
+          <Search aria-hidden className="mx-0.5 h-4 w-4 shrink-0 text-ds-text-4" />
           <input
             id="correos-search-input-mobile"
             className="h-11 min-w-0 flex-1 appearance-none border-0 bg-transparent text-[15px] text-ds-text-1 shadow-none outline-none ring-0 placeholder:text-ds-text-4 focus:ring-0"
@@ -85,7 +85,7 @@ export function CorreosMobileTopBar({
             onClick={() => onSemantic(!semantic)}
             aria-pressed={semantic}
             title="Buscar por significado (búsqueda semántica con IA)"
-            className={`ml-1 inline-flex h-9 shrink-0 items-center gap-1 rounded-full px-2.5 text-[12px] ds-tap ${
+            className={`ml-0.5 inline-flex h-9 shrink-0 items-center gap-1 rounded-full px-2.5 text-[12px] ds-tap ${
               semantic ? "bg-primary text-primary-foreground" : "text-ds-text-3"
             }`}
           >
