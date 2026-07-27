@@ -109,6 +109,8 @@ export function CorreoReaderShell({
           "flex h-full w-full flex-col overflow-hidden lg:border lg:border-ds-border-default",
           desktopMode === "overlay" &&
             "lg:w-[var(--correo-panel-width)] lg:shrink-0",
+          // Entrada suave en móvil: slide desde la derecha (estilo Gmail/iOS).
+          isMobile && "animate-in slide-in-from-right duration-200 ease-out",
         )}
         onClick={(e: MouseEvent) => e.stopPropagation()}
       >

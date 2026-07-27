@@ -84,7 +84,11 @@ export function CorreosClient() {
   const [syncParked, setSyncParked] = useState(false);
   const [syncParkedReason, setSyncParkedReason] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  /** Refresh en background: no dimmea la lista ni muestra spinner a pantalla. */
+  const [refreshing, setRefreshing] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const itemsRef = useRef<CorreoThreadDTO[]>([]);
+  itemsRef.current = items;
   const [folder, setFolder] = useState<CorreoFolderTab>("inbox");
   const [chip, setChip] = useState<CorreoChipKey>("todos");
   const [query, setQuery] = useState("");
@@ -142,8 +146,18 @@ export function CorreosClient() {
     cur: string | null,
     reset: boolean,
     nextFolder?: CorreoFolderTab,
+    opts?: { silent?: boolean },
   ) => {
-    setLoading(true);
+    // Si ya hay filas en pantalla (snapshot o carga previa), refrescar en
+    // silencio: sin spinner ni opacity-70. Cambio de carpeta, búsqueda o
+    // primera pintura siguen con loading visible.
+    const hasRows = itemsRef.current.length > 0;
+    const folderSwitch = nextFolder != null; // el effect de carpeta siempre pasa nextFolder
+    const silent =
+      opts?.silent ??
+      (Boolean(reset) && hasRows && !debouncedQuery && !folderSwitch && !cur);
+    if (silent) setRefreshing(true);
+    else setLoading(true);
     try {
       const f = nextFolder ?? folder;
       const qs = new URLSearchParams();
@@ -213,8 +227,22 @@ export function CorreosClient() {
       }
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   }, [folder, debouncedQuery, semantic, vertical]);
+
+  // Pintura instantánea: snapshot IndexedDB antes de que llegue la red.
+  useEffect(() => {
+    let cancelled = false;
+    void loadInboxSnapshot().then((snap) => {
+      if (cancelled || !snap?.items?.length) return;
+      setItems((prev) => (prev.length === 0 ? snap.items : prev));
+      setLoading(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // C22b: al reconectar, reconciliar acciones y envíos encolados offline.
   useEffect(() => {
@@ -282,6 +310,7 @@ export function CorreosClient() {
   }, []);
 
   useEffect(() => {
+    // Siempre pasa `folder` como nextFolder → loading visible al cambiar carpeta.
     void fetchPage(null, true, folder);
   }, [fetchPage, folder]);
 
@@ -774,9 +803,7 @@ export function CorreosClient() {
             <Surface
               elevation={1}
               padding="none"
-              className={`overflow-hidden max-lg:-mx-4 max-lg:rounded-none max-lg:border-x-0 ${
-                loading && !searching ? "opacity-70 transition-opacity" : ""
-              }`}
+              className="overflow-hidden max-lg:-mx-4 max-lg:rounded-none max-lg:border-x-0"
               onContextMenu={(e) => {
                 // Click derecho sobre una fila (desktop): menú contextual.
                 const rowEl = (e.target as HTMLElement).closest?.("[data-correo-row]");
@@ -787,7 +814,7 @@ export function CorreosClient() {
                 setCtxMenu({ thread: t, x: e.clientX, y: e.clientY });
               }}
             >
-              {loading && !searching && (
+              {(refreshing || (loading && !searching)) && (
                 <div className="h-0.5 w-full overflow-hidden bg-ds-surface-3">
                   <div className="h-full w-1/3 animate-pulse bg-primary" />
                 </div>

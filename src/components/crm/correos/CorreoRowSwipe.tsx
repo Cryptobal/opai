@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { motion, useTransform } from "framer-motion";
 import { Archive, Clock, Mail, MailOpen, Reply, Star, Trash2, type LucideIcon } from "lucide-react";
 import { CorreoRow } from "./CorreoRow";
 import { runCorreoAction } from "./correo-thread-action-client";
@@ -10,11 +11,7 @@ import type {
   CorreoSwipeAction,
   CorreoSwipeConfig,
 } from "./useCorreosViewPreferences";
-import {
-  SWIPE_OPEN_WIDTH,
-  useRowSwipe,
-  type CorreoSwipeSide,
-} from "./useRowSwipe";
+import { SWIPE_LONG_RATIO, useRowSwipe, type CorreoSwipeSide } from "./useRowSwipe";
 
 /** Colores por acción — solo tokens de estado/categóricos del DS. */
 const ACTION_STYLE: Record<CorreoSwipeAction, { bg: string; fg: string }> = {
@@ -63,9 +60,9 @@ type Props = {
 };
 
 /**
- * Swipe de dos niveles (sólo pointer coarse): el swipe corto revela 2 botones
- * del lado correspondiente y el largo (>55% del ancho) ejecuta la acción
- * principal. En desktop la fila queda como hoy (acciones hover).
+ * Swipe de dos niveles (sólo pointer coarse): corto revela 2 botones o ejecuta
+ * la secundaria; largo o flick ejecuta la principal. Motion values + spring —
+ * sin setState por frame, sensación nativa.
  */
 export function CorreoRowSwipe({
   thread, canModify, onOpen, onChanged, onRemove, onSnooze,
@@ -75,24 +72,59 @@ export function CorreoRowSwipe({
   const [coarse, setCoarse] = useState(false);
   const [leaving, setLeaving] = useState(false);
   const lastSide = useRef<CorreoSwipeSide>("right");
+  const rowWidthRef = useRef(360);
 
   useEffect(() => {
     setCoarse(typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches);
   }, []);
 
   const {
-    dx, openSide, dragging, progress, armed, touchAction,
-    rowRef, close, wasDragged, handlers,
+    x,
+    openSide,
+    dragging,
+    dragSide,
+    touchAction,
+    rowRef,
+    close,
+    wasDragged,
+    handlers,
   } = useRowSwipe({
     enabled: coarse && canModify && !leaving && !selectionMode,
     onLongSwipe: (side) => execute(side === "right" ? swipeConfig.right[0] : swipeConfig.left[0]),
+    onButtonSwipe: (side, buttonIndex) => {
+      const actions = side === "right" ? swipeConfig.right : swipeConfig.left;
+      execute(actions[buttonIndex]);
+    },
     onLongPress: coarse && canModify ? onLongPress : undefined,
   });
 
-  // Entrar en selección repliega cualquier fila con botones revelados.
   useEffect(() => {
     if (selectionMode) close();
   }, [selectionMode, close]);
+
+  useEffect(() => {
+    const node = rowRef.current;
+    if (!node) return;
+    rowWidthRef.current = node.offsetWidth;
+    const ro = new ResizeObserver(([entry]) => {
+      rowWidthRef.current = entry.contentRect.width;
+    });
+    ro.observe(node);
+    return () => ro.disconnect();
+  }, [rowRef, coarse]);
+
+  const actionStripWidth = useTransform(x, (value) => Math.abs(value));
+  const armedOverlayOpacity = useTransform(x, (value) => {
+    const abs = Math.abs(value);
+    const threshold = rowWidthRef.current * SWIPE_LONG_RATIO;
+    if (abs < threshold) return 0;
+    const progress = Math.min(1, abs / threshold);
+    return 0.35 + 0.65 * progress;
+  });
+  const hideActionButtons = useTransform(x, (value) => {
+    const abs = Math.abs(value);
+    return abs >= rowWidthRef.current * SWIPE_LONG_RATIO ? 0 : 1;
+  });
 
   if (!coarse) {
     return (
@@ -158,49 +190,42 @@ export function CorreoRowSwipe({
     onOpen();
   }
 
-  if (dx !== 0) lastSide.current = dx > 0 ? "right" : "left";
-  const side: CorreoSwipeSide = dx !== 0 ? (dx > 0 ? "right" : "left") : openSide ?? lastSide.current;
+  const side = dragSide ?? openSide ?? lastSide.current;
+  if (openSide) lastSide.current = openSide;
+  if (dragSide) lastSide.current = dragSide;
+
   const actions = side === "right" ? swipeConfig.right : swipeConfig.left;
   const primary = actions[0];
   const primaryMeta = actionMeta(primary, thread);
   const PrimaryIcon = primaryMeta.icon;
-  // El botón principal (índice 0) queda pegado al borde de la pantalla.
   const shown = side === "left" ? [actions[1], actions[0]] : actions;
-  const revealed = openSide !== null || dx !== 0;
+  const revealed = openSide !== null || dragging;
 
   return (
     <div
       ref={rowRef}
-      className={`relative overflow-hidden transition-all duration-200 ${
+      className={`relative overflow-hidden transition-[max-height,opacity] duration-200 ease-out ${
         leaving ? "max-h-0 opacity-0" : "max-h-[240px] opacity-100"
       }`}
     >
-      {/* Swipe largo armado: fondo pleno del color de la acción principal con
-          el icono anclado al borde, escala + vibración — "esto se ejecuta". */}
-      {dragging && armed && (
-        <div
-          aria-hidden
-          className={`absolute inset-0 flex items-center ${
-            side === "right" ? "justify-start" : "justify-end"
-          } ${ACTION_STYLE[primary].bg}`}
-          style={{ opacity: 0.35 + 0.65 * progress }}
-        >
-          <PrimaryIcon
-            className={`mx-6 h-6 w-6 scale-125 transition-transform duration-150 ${ACTION_STYLE[primary].fg}`}
-          />
-        </div>
-      )}
-      {/* Los 2 botones del lado (desde swipeConfig). Durante el arrastre el
-          contenedor mide EXACTAMENTE lo expuesto (|dx|), así ambos botones
-          (flex-1) se revelan JUNTOS y crecen con el gesto — antes el ancho
-          mínimo 148px dejaba solo el primero asomando hasta arrastrar >74px.
-          Al soltar en el rango corto, se fija a SWIPE_OPEN_WIDTH (74px c/u). */}
-      <div
+      <motion.div
+        aria-hidden
+        className={`pointer-events-none absolute inset-0 flex items-center ${
+          side === "right" ? "justify-start" : "justify-end"
+        } ${ACTION_STYLE[primary].bg}`}
+        style={{ opacity: armedOverlayOpacity }}
+      >
+        <PrimaryIcon
+          className={`mx-6 h-6 w-6 scale-125 ${ACTION_STYLE[primary].fg}`}
+        />
+      </motion.div>
+      <motion.div
         aria-hidden={!revealed}
-        className={`absolute inset-y-0 flex ${side === "right" ? "left-0" : "right-0"} ${
-          dragging ? (armed ? "invisible" : "") : "transition-[width] duration-150"
-        }`}
-        style={{ width: dragging ? Math.abs(dx) : SWIPE_OPEN_WIDTH }}
+        className={`absolute inset-y-0 flex ${side === "right" ? "left-0" : "right-0"}`}
+        style={{
+          width: actionStripWidth,
+          opacity: hideActionButtons,
+        }}
       >
         {shown.map((action) => {
           const meta = actionMeta(action, thread);
@@ -219,24 +244,19 @@ export function CorreoRowSwipe({
             </button>
           );
         })}
-      </div>
-      <div
-        className="relative bg-ds-surface-1"
-        style={{
-          transform: `translateX(${dx}px)`,
-          transition: dragging ? "none" : "transform 150ms",
-          touchAction,
-        }}
+      </motion.div>
+      <motion.div
+        className="relative bg-ds-surface-1 will-change-transform"
+        style={{ x, touchAction }}
         {...handlers}
       >
         {/* Variante Gmail móvil: sin kebab (swipe + long-press + detalle lo
-            cubren) y con avatar como toggle de selección. El guard wasDragged
-            evita que el click fantasma tras un long-press vuelva a alternar. */}
+            cubren) y con avatar como toggle de selección. */}
         <CorreoRow thread={thread} canModify={canModify} onOpen={handleOpen} onChanged={onChanged}
           mobileGmail checked={checked}
           onAvatarPress={onAvatarPress ? () => { if (!wasDragged()) onAvatarPress(); } : undefined}
           previewLines={previewLines} />
-      </div>
+      </motion.div>
     </div>
   );
 }

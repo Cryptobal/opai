@@ -2,12 +2,26 @@
 
 import { type ReactNode, useEffect, useState } from "react";
 import { Download, File as FileIcon, RefreshCw, Share2 } from "lucide-react";
-import { Spinner } from "@/components/opai-ds";
+import { MediaZoom } from "./MediaZoom";
 import { PdfCanvas } from "./PdfCanvas";
 
 /** Tope de bytes que leemos para previsualizar texto plano / docx. */
 const TEXT_MAX = 512 * 1024;
 const DOCX_MAX = 8 * 1024 * 1024;
+
+/** Cache en memoria de blobs ya bajados (sesión). Reabrir un adjunto = instantáneo. */
+const blobCache = new Map<string, Blob>();
+const BLOB_CACHE_MAX = 24;
+
+function cacheBlob(url: string, blob: Blob) {
+  if (blobCache.has(url)) blobCache.delete(url);
+  blobCache.set(url, blob);
+  while (blobCache.size > BLOB_CACHE_MAX) {
+    const oldest = blobCache.keys().next().value;
+    if (oldest == null) break;
+    blobCache.delete(oldest);
+  }
+}
 
 type Kind = "pdf" | "image" | "text" | "docx" | "other";
 
@@ -54,9 +68,12 @@ type State =
 
 async function shareOrDownload(url: string, filename: string, mimeType: string) {
   try {
-    const res = await fetch(url);
-    if (!res.ok) throw new Error("download failed");
-    const blob = await res.blob();
+    const cached = blobCache.get(url);
+    const blob = cached ?? (await fetch(url).then((r) => {
+      if (!r.ok) throw new Error("download failed");
+      return r.blob();
+    }));
+    if (!cached) cacheBlob(url, blob);
     const type = mimeType || blob.type || "application/octet-stream";
     const file = new File([blob], filename, { type });
     if (typeof navigator !== "undefined" && navigator.canShare?.({ files: [file] })) {
@@ -75,13 +92,33 @@ async function shareOrDownload(url: string, filename: string, mimeType: string) 
   a.remove();
 }
 
+async function blobToState(blob: Blob, kind: Kind): Promise<State> {
+  if (kind === "pdf") {
+    return { phase: "pdf", buffer: await blob.arrayBuffer() };
+  }
+  if (kind === "image") {
+    return { phase: "image", objectUrl: URL.createObjectURL(blob) };
+  }
+  if (kind === "docx") {
+    if (blob.size > DOCX_MAX) return { phase: "other" };
+    const mammoth = await import("mammoth");
+    const arrayBuffer = await blob.arrayBuffer();
+    const result = await mammoth.convertToHtml({ arrayBuffer });
+    const DOMPurify = (await import("isomorphic-dompurify")).default;
+    const html = DOMPurify.sanitize(result.value || "<p>(Documento vacío)</p>");
+    return { phase: "docx", html };
+  }
+  const truncated = blob.size > TEXT_MAX;
+  const text = await blob.slice(0, TEXT_MAX).text();
+  return { phase: "text", text, truncated };
+}
+
 /**
  * Cuerpo compartido de previsualización de adjuntos (lector de correo y
  * documentos CRM): baja el binario con la sesión (misma-origen) y lo pinta —
- * PDF en canvas (pdf.js), imagen, texto plano, DOCX (mammoth) — o muestra una
- * tarjeta tipada con descarga/compartir (+ slot de guardado opcional) para el
- * resto. Nunca deja una pantalla en blanco: siempre loading / contenido / error
- * con reintento.
+ * PDF en canvas (pdf.js), imagen con pinch-zoom, texto plano, DOCX (mammoth) —
+ * o muestra una tarjeta tipada con descarga/compartir. Cachea blobs en memoria
+ * para reabrir sin latencia. Nunca deja pantalla en blanco.
  */
 export function AttachmentPreview({
   url,
@@ -111,41 +148,33 @@ export function AttachmentPreview({
     let alive = true;
     let objectUrl: string | null = null;
     setState({ phase: "loading" });
-    fetch(url)
-      .then(async (r) => {
-        if (!r.ok) {
-          const data = (await r.json().catch(() => null)) as { error?: string } | null;
-          throw new Error(data?.error || `No se pudo cargar (error ${r.status})`);
-        }
-        return r.blob();
-      })
-      .then(async (blob) => {
-        if (!alive) return;
-        if (kind === "pdf") {
-          setState({ phase: "pdf", buffer: await blob.arrayBuffer() });
-        } else if (kind === "image") {
-          objectUrl = URL.createObjectURL(blob);
-          setState({ phase: "image", objectUrl });
-        } else if (kind === "docx") {
-          if (blob.size > DOCX_MAX) {
-            setState({ phase: "other" });
-            return;
+
+    void (async () => {
+      try {
+        let blob = blobCache.get(url) ?? null;
+        if (!blob) {
+          const r = await fetch(url);
+          if (!r.ok) {
+            const data = (await r.json().catch(() => null)) as { error?: string } | null;
+            throw new Error(data?.error || `No se pudo cargar (error ${r.status})`);
           }
-          const mammoth = await import("mammoth");
-          const arrayBuffer = await blob.arrayBuffer();
-          const result = await mammoth.convertToHtml({ arrayBuffer });
-          const DOMPurify = (await import("isomorphic-dompurify")).default;
-          const html = DOMPurify.sanitize(result.value || "<p>(Documento vacío)</p>");
-          if (alive) setState({ phase: "docx", html });
-        } else {
-          const truncated = blob.size > TEXT_MAX;
-          const text = await blob.slice(0, TEXT_MAX).text();
-          setState({ phase: "text", text, truncated });
+          blob = await r.blob();
+          cacheBlob(url, blob);
         }
-      })
-      .catch((err: Error) => {
-        if (alive) setState({ phase: "error", message: err.message || "No se pudo cargar el adjunto" });
-      });
+        if (!alive) return;
+        const next = await blobToState(blob, kind);
+        if (next.phase === "image") objectUrl = next.objectUrl;
+        if (alive) setState(next);
+      } catch (err) {
+        if (alive) {
+          setState({
+            phase: "error",
+            message: err instanceof Error ? err.message : "No se pudo cargar el adjunto",
+          });
+        }
+      }
+    })();
+
     return () => {
       alive = false;
       if (objectUrl) URL.revokeObjectURL(objectUrl);
@@ -176,7 +205,16 @@ export function AttachmentPreview({
     </div>
   );
 
-  if (state.phase === "loading") return <Spinner className="mx-auto mt-12" />;
+  if (state.phase === "loading") {
+    return (
+      <div className="flex flex-col items-center gap-2 py-12">
+        <div className="h-1 w-24 overflow-hidden rounded-full bg-ds-surface-3">
+          <div className="h-full w-1/2 animate-pulse rounded-full bg-primary" />
+        </div>
+        <p className="text-[12px] text-ds-text-4">Cargando archivo…</p>
+      </div>
+    );
+  }
 
   if (state.phase === "error") {
     return (
@@ -198,16 +236,21 @@ export function AttachmentPreview({
 
   if (state.phase === "image") {
     return (
-      <div className="h-full overflow-auto">
+      <MediaZoom>
         {/* eslint-disable-next-line @next/next/no-img-element -- blob local, next/image no aplica */}
-        <img src={state.objectUrl} alt={filename} className="mx-auto max-w-full p-2" />
-      </div>
+        <img
+          src={state.objectUrl}
+          alt={filename}
+          className="max-h-[min(100dvh,900px)] max-w-[100vw] object-contain p-2"
+          draggable={false}
+        />
+      </MediaZoom>
     );
   }
 
   if (state.phase === "text") {
     return (
-      <div className="h-full overflow-auto p-3">
+      <div className="h-full overflow-auto p-3 animate-in fade-in duration-150">
         <pre className="whitespace-pre-wrap break-words rounded-lg bg-ds-surface-2 p-3 font-mono text-[12px] leading-relaxed text-ds-text-1">
           {state.text}
           {state.truncated && "\n\n… (vista previa truncada — descargá el archivo para verlo completo)"}
@@ -218,9 +261,9 @@ export function AttachmentPreview({
 
   if (state.phase === "docx") {
     return (
-      <div className="flex h-full flex-col">
+      <div className="flex h-full flex-col animate-in fade-in duration-150">
         <div
-          className="min-h-0 flex-1 overflow-auto bg-ds-surface-1 p-4 text-[13px] leading-relaxed text-ds-text-1 [&_h1]:mb-2 [&_h1]:text-lg [&_h1]:font-semibold [&_h2]:mb-2 [&_h2]:text-base [&_h2]:font-semibold [&_li]:ml-4 [&_li]:list-disc [&_p]:mb-2 [&_table]:mb-3 [&_table]:w-full [&_td]:border [&_td]:border-ds-border-subtle [&_td]:p-1.5 [&_th]:border [&_th]:border-ds-border-subtle [&_th]:p-1.5 [&_th]:text-left"
+          className="min-h-0 flex-1 overflow-auto bg-ds-surface-1 p-4 text-[13px] leading-relaxed text-ds-text-1 [-webkit-overflow-scrolling:touch] [&_h1]:mb-2 [&_h1]:text-lg [&_h1]:font-semibold [&_h2]:mb-2 [&_h2]:text-base [&_h2]:font-semibold [&_li]:ml-4 [&_li]:list-disc [&_p]:mb-2 [&_table]:mb-3 [&_table]:w-full [&_td]:border [&_td]:border-ds-border-subtle [&_td]:p-1.5 [&_th]:border [&_th]:border-ds-border-subtle [&_th]:p-1.5 [&_th]:text-left"
           // HTML sanitizado con DOMPurify arriba.
           dangerouslySetInnerHTML={{ __html: state.html }}
         />
@@ -231,7 +274,7 @@ export function AttachmentPreview({
 
   // other → tarjeta tipada
   return (
-    <div className="mx-auto mt-12 flex max-w-xs flex-col items-center gap-3 px-4 text-center">
+    <div className="mx-auto mt-12 flex max-w-xs flex-col items-center gap-3 px-4 text-center animate-in fade-in duration-150">
       <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-ds-surface-2">
         <FileIcon className="h-7 w-7 text-ds-text-3" />
       </div>
