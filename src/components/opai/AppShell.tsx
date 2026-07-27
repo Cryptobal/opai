@@ -16,6 +16,7 @@ import { useChatSidePanelContext } from '@/components/chat/ChatFloatingProvider'
 import { ChatSidePanel } from '@/components/chat/ChatSidePanel';
 import { useNotificationSidePanelContext } from '@/components/notifications/NotificationSidePanelContext';
 import { NotificationSidePanel } from '@/components/notifications/NotificationSidePanel';
+import { useIntelligenceSidePanelContext } from '@/components/opai/IntelligenceSidePanelContext';
 import { useNotifications } from '@/contexts/NotificationContext';
 import { PlatformDataAttribute } from '@/components/opai/portal-shell';
 import { useIsIOS } from '@/hooks/usePlatform';
@@ -93,21 +94,29 @@ function AppShellInner({
   const isImmersiveMobile = IMMERSIVE_MOBILE_PREFIXES.some((p) => pathname.startsWith(p));
   const chatCtx = useChatSidePanelContext();
   const notifCtx = useNotificationSidePanelContext();
+  const intelCtx = useIntelligenceSidePanelContext();
   const { unreadCount: notifUnreadCount } = useNotifications();
   const { open: openCommandPalette } = useCommandPalette();
   const isIOS = useIsIOS();
 
-  // Close notification panel when chat opens and vice versa
+  // Close sibling docks when one opens (chat / notif / intelligence)
   const handleToggleChat = useCallback(() => {
-    if (!chatCtx.isPanelOpen) notifCtx.closePanel();
+    if (!chatCtx.isPanelOpen) {
+      notifCtx.closePanel();
+      intelCtx.closePanel();
+    }
     chatCtx.togglePanel();
-  }, [chatCtx, notifCtx]);
+  }, [chatCtx, notifCtx, intelCtx]);
   const handleToggleNotifications = useCallback(() => {
-    if (!notifCtx.isPanelOpen) chatCtx.closePanel();
+    if (!notifCtx.isPanelOpen) {
+      chatCtx.closePanel();
+      intelCtx.closePanel();
+    }
     notifCtx.togglePanel();
-  }, [chatCtx, notifCtx]);
+  }, [chatCtx, notifCtx, intelCtx]);
 
-  const anyPanelOpen = chatCtx.isPanelOpen || notifCtx.isPanelOpen;
+  const anyPanelOpen =
+    chatCtx.isPanelOpen || notifCtx.isPanelOpen || intelCtx.isPanelOpen;
   // "Sheet focus" (route-scoped): la planilla del flujo de caja es una hoja de
   // cálculo a pantalla completa en mobile — sin breadcrumbs ni padding
   // horizontal, solo topbar + hoja + bottom nav. Desktop conserva el shell
@@ -279,8 +288,6 @@ function AppShellInner({
           }}
         />
 
-        {/* ── Asistente IA ── */}
-        <AiHelpChatWidget />
       </div>
 
       {/* ── Bottom Nav and Side Panels (outside overflow-x-hidden to avoid fixed clipping on iOS) ── */}
@@ -290,6 +297,8 @@ function AppShellInner({
       <BottomNavPortal>
         <BottomNav userRole={userRole} />
       </BottomNavPortal>
+      {/* Intelligence dock al mismo nivel que Chat/Notif para fixed right-0 correcto. */}
+      <AiHelpChatWidget />
       <ChatSidePanel userRole={userRole} />
       <NotificationSidePanel />
       </IslandActionProvider>

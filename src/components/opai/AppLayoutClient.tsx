@@ -8,6 +8,7 @@ import { NotificationProvider } from '@/contexts/NotificationContext';
 import { useTenantModules } from '@/contexts/TenantModulesContext';
 import { ChatSidePanelProvider } from '@/components/chat/ChatFloatingProvider';
 import { NotificationSidePanelProvider } from '@/components/notifications/NotificationSidePanelContext';
+import { IntelligenceSidePanelProvider } from '@/components/opai/IntelligenceSidePanelContext';
 import { PushPermissionPrompt } from '@/components/pwa/PushPermissionPrompt';
 import { InAppNotificationProvider } from '@/components/notifications/InAppNotificationProvider';
 import { PanicAlertProvider } from '@/components/ops/PanicAlertProvider';
@@ -106,6 +107,7 @@ function AppLayoutClientInner({
     >
       <PanicAlertProvider tenantId={tenantId ?? ""}>
       <NotificationSidePanelProvider>
+      <IntelligenceSidePanelProvider>
       <ChatSidePanelProvider currentUserId={currentUserId ?? ''} userRole={userRole}>
         <AppShell
           sidebar={
@@ -130,6 +132,7 @@ function AppLayoutClientInner({
           {children}
         </AppShell>
       </ChatSidePanelProvider>
+      </IntelligenceSidePanelProvider>
       </NotificationSidePanelProvider>
       </PanicAlertProvider>
     </InAppNotificationProvider>
