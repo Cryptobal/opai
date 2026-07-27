@@ -4,6 +4,7 @@ import { extractGmailAttachments, type GmailMessagePart } from "@/lib/gmail-mess
 import { gmailClientForAccount } from "./gmail-account-client";
 import { hydrateMissingThreadMessages } from "./correos-detail-hydrate";
 import { captureEmailError } from "./email-observability";
+import { attachSavedFileIds } from "./attachment-saved";
 import type { CorreoDetail, CorreoAttachmentDTO } from "./correos.types";
 
 /** TTL del caché de detalle; la invalidación real es updatedAt del sync. */
@@ -169,20 +170,9 @@ export async function getCorreoDetail(params: {
       : null,
   ]);
 
-  // B5: chip "Guardado" — se resuelve SIEMPRE con consulta fresca (no vive en
-  // attachmentsMeta), para que un guardado posterior al cacheo aparezca sin
-  // invalidar C18. Match por messageId + fileName (+ size cuando desempata).
-  const savedFiles = await prisma.crmFile.findMany({
-    where: { tenantId, sourceThreadId: thread.id },
-    select: { id: true, fileName: true, size: true, sourceMessageId: true },
-  });
-  const attachmentsWithSaved: CorreoAttachmentDTO[] = attachments.map((a) => {
-    const candidates = savedFiles.filter(
-      (f) => f.sourceMessageId === a.messageId && f.fileName === a.filename,
-    );
-    const match = candidates.find((f) => f.size === a.size) ?? candidates[0];
-    return { ...a, savedFileId: match?.id ?? null };
-  });
+  // B5: chip "Guardado" — consulta fresca (fuera de attachmentsMeta) para no
+  // invalidar el caché C18.
+  const attachmentsWithSaved = await attachSavedFileIds(tenantId, thread.id, attachments);
 
   // Métrica simple para el antes/después del p95 (C18).
   console.log(

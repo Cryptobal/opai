@@ -51,6 +51,18 @@ export type CorreoAttachmentDTO = {
   savedFileId?: string | null;
 };
 
+/**
+ * Detalle de un hilo servido a una ficha (Bloque 5): solo lectura, 100% desde
+ * el espejo local — NUNCA toca Gmail. Autorizado por la entidad, no por la
+ * casilla. `synced=false` cuando el hilo aún no tiene mensajes espejados.
+ */
+export type EntityThreadDetail = {
+  thread: { id: string; subject: string };
+  messages: CorreoMessageDTO[];
+  attachments: CorreoAttachmentDTO[];
+  synced: boolean;
+};
+
 export type CorreoDetail = {
   thread: {
     id: string;

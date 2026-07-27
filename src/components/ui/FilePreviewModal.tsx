@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Download, X, Maximize2, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { AttachmentPreview } from "@/components/crm/correos/AttachmentPreview";
 
 const IMAGE_MIMES = new Set([
     "image/jpeg",
@@ -19,6 +20,13 @@ interface FilePreviewModalProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     url: string;
+    /**
+     * URL misma-origen (endpoint autenticado) para leer los bytes: habilita el
+     * visor pdf.js compartido (PDF en canvas, imagen, texto, tarjeta tipada) —
+     * arregla el PDF en blanco del WebView móvil. Sin previewUrl se conserva el
+     * render legacy (iframe/img) para consumidores cross-origin (ops/cpq).
+     */
+    previewUrl?: string;
     fileName: string;
     mimeType?: string;
 }
@@ -27,6 +35,7 @@ export function FilePreviewModal({
     open,
     onOpenChange,
     url,
+    previewUrl,
     fileName,
     mimeType = "",
 }: FilePreviewModalProps) {
@@ -113,9 +122,16 @@ export function FilePreviewModal({
 
             {/* ── Content ── */}
             <div
-                className="flex-1 flex items-center justify-center overflow-auto p-4"
+                className={cn(
+                    "flex-1 min-h-0 overflow-hidden",
+                    !previewUrl && "flex items-center justify-center overflow-auto p-4"
+                )}
                 onClick={(e) => e.stopPropagation()}
             >
+                {previewUrl ? (
+                    <AttachmentPreview url={previewUrl} filename={fileName} mimeType={mimeType} />
+                ) : (
+                <>
                 {isImage && (
                     <img
                         src={url}
@@ -158,6 +174,8 @@ export function FilePreviewModal({
                             </Button>
                         </div>
                     </div>
+                )}
+                </>
                 )}
             </div>
         </div>

@@ -41,6 +41,9 @@ export type FileAttachmentItem = {
   mimeType: string;
   size: number;
   createdAt: string;
+  /** Endpoint autenticado misma-origen: preview/descarga sin exponer R2 público. */
+  downloadUrl?: string | null;
+  /** @deprecated Preferir `downloadUrl`. */
   publicUrl: string | null;
   folderId?: string | null;
   folderName?: string | null;
@@ -157,6 +160,7 @@ export function FileAttachments({
               mimeType: data.data.mimeType,
               size: data.data.size,
               createdAt: data.data.createdAt,
+              downloadUrl: data.data.id ? `/api/crm/files/${data.data.id}/download` : null,
               publicUrl: data.data.publicUrl ?? null,
               folderId: selectedFolderId,
               folderName: folders.find((f) => f.id === selectedFolderId)?.name ?? null,
@@ -355,26 +359,30 @@ export function FileAttachments({
     {} as Record<string, FileAttachmentItem[]>
   );
 
+  // Preferir el endpoint autenticado misma-origen; publicUrl queda de fallback
+  // legacy hasta migrar todos los consumidores.
+  const fileHref = (f: FileAttachmentItem) => f.downloadUrl ?? f.publicUrl;
+
   const renderFileRow = (file: FileAttachmentItem) => (
     <li
       key={file.id}
       className="flex items-center gap-3 rounded-lg border border-border bg-muted/30 p-3"
     >
-      {IMAGE_MIMES.has(file.mimeType) && file.publicUrl ? (
+      {IMAGE_MIMES.has(file.mimeType) && fileHref(file) ? (
         <button
           type="button"
           onClick={() => setPreviewFile(file)}
           className="shrink-0 w-10 h-10 rounded overflow-hidden border bg-muted cursor-pointer hover:ring-2 hover:ring-primary/50 transition-shadow"
         >
-          <img src={file.publicUrl} alt="" className="w-full h-full object-cover" />
+          <img src={fileHref(file) ?? undefined} alt="" className="w-full h-full object-cover" />
         </button>
       ) : (
         <button
           type="button"
-          onClick={() => file.publicUrl && setPreviewFile(file)}
+          onClick={() => fileHref(file) && setPreviewFile(file)}
           className={cn(
             "shrink-0 w-10 h-10 rounded flex items-center justify-center bg-muted",
-            file.publicUrl && "cursor-pointer hover:ring-2 hover:ring-primary/50 transition-shadow"
+            fileHref(file) && "cursor-pointer hover:ring-2 hover:ring-primary/50 transition-shadow"
           )}
         >
           <FileText className="h-5 w-5 text-muted-foreground" />
@@ -406,7 +414,7 @@ export function FileAttachments({
             )}
           </Button>
         )}
-        {file.publicUrl && (
+        {fileHref(file) && (
           <>
             <Button
               variant="ghost"
@@ -419,7 +427,7 @@ export function FileAttachments({
             </Button>
             <Button variant="ghost" size="icon" className="h-8 w-8" asChild>
               <a
-                href={`${file.publicUrl}?download=true`}
+                href={fileHref(file) ?? undefined}
                 download={file.fileName}
                 title="Descargar"
               >
@@ -717,11 +725,12 @@ export function FileAttachments({
         </CardContent>
       </Card>
 
-      {previewFile?.publicUrl && (
+      {previewFile && fileHref(previewFile) && (
         <FilePreviewModal
           open={!!previewFile}
           onOpenChange={(open) => !open && setPreviewFile(null)}
-          url={previewFile.publicUrl}
+          url={fileHref(previewFile) as string}
+          previewUrl={previewFile.downloadUrl ?? undefined}
           fileName={previewFile.fileName}
           mimeType={previewFile.mimeType}
         />
