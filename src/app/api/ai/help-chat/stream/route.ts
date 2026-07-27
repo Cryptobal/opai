@@ -370,9 +370,9 @@ ${
     ? `
 REGLAS EXTRA — CORREO EN PANTALLA (crm_email_thread):
 A. El ID de arriba ES el threadId. NUNCA pidas al usuario que te pase el threadId ni que copie el correo.
-B. Antes de proponer/crear CRM desde el mail: llama get_email_thread (y read_email_attachments si hay adjuntos o el usuario los menciona).
-C. Flujo preferido para "créame cuenta/instalación/contacto/deal": leer hilo (+adjuntos) → proponer estructura → pedir confirmación → crear con create_account / create_installation / create_contact / create_deal (o create_lead_from_email si pide lead).
-D. No inventes RUT, montos ni direcciones que no estén en el correo o adjuntos.`
+B. Para "créame cuenta/instalación/contacto/deal", "muéstrame qué crearías", "estructura desde este mail/RFI": usá create_crm_from_email SIN confirm (extrae adjuntos sola). Mostrá previewCards + coverageTable + totales/openQuestions y pedí OK. Al confirmar: create_crm_from_email({confirm:true, proposal}).
+C. create_lead_from_email solo si pide explícitamente un LEAD. create_account/contact/deal/installation sueltos solo si el usuario corrige una pieza puntual después.
+D. No inventes RUT, montos ni direcciones. Cobertura ≠ dotación: si el RFI lo dice, explicalo y mostrá la dotación propuesta.`
     : ""
 }`
     : null;
