@@ -10,6 +10,7 @@ import {
   ChevronRight,
   Link2,
   Loader2,
+  Mail,
   MessageCircle,
   Paperclip,
   Plus,
@@ -37,6 +38,9 @@ import {
   useClearChatPageContext,
   type ChatPageContextValue,
 } from "./ChatPageContextProvider";
+import { useIntelligenceSidePanelContext } from "./IntelligenceSidePanelContext";
+import { useChatSidePanelContext } from "@/components/chat/ChatFloatingProvider";
+import { useNotificationSidePanelContext } from "@/components/notifications/NotificationSidePanelContext";
 
 type ConversationItem = {
   id: string;
@@ -694,6 +698,11 @@ const TOOL_LABELS: Record<string, string> = {
   manage_quote_includes: "Editando bullets Incluye...",
   preview_send_quote_proposal: "Previsualizando envío al cliente...",
   send_quote_proposal: "Enviando propuesta por portal/correo...",
+  get_email_thread: "Leyendo el correo...",
+  summarize_email_thread: "Resumiendo el hilo...",
+  read_email_attachments: "Analizando adjuntos del correo...",
+  create_lead_from_email: "Extrayendo lead del correo...",
+  search_emails_semantic: "Buscando en tus correos...",
 };
 
 function friendlyToolLabel(name: string): string {
@@ -761,6 +770,13 @@ function getQuickStarters(
           "¿A qué cuenta pertenece?",
           "Abre el correo para escribirle",
         ];
+      case "crm_email_thread":
+        return [
+          "Crea cuenta, instalación, contacto y deal desde este mail",
+          "Resume este correo y sus adjuntos",
+          "¿Qué pide el cliente en este hilo?",
+          "Analiza el PDF adjunto",
+        ];
       default:
         break;
     }
@@ -818,6 +834,14 @@ function getQuickStarters(
       "¿Cómo doy de alta una instalación?",
       "Instalaciones con alertas recientes",
       "Buscar instalación por nombre o dirección",
+    ];
+  }
+  if (p.startsWith("/crm/correos")) {
+    return [
+      "Busca correos sobre licitaciones de seguridad",
+      "Resume el correo que estoy viendo",
+      "Crea CRM desde este mail",
+      "¿Qué adjuntos tiene este hilo?",
     ];
   }
   if (p.startsWith("/crm")) {
@@ -1109,7 +1133,19 @@ function getQuickStarters(
 }
 
 export function AiHelpChatWidgetV2() {
-  const [open, setOpen] = useState(false);
+  const intelCtx = useIntelligenceSidePanelContext();
+  const chatCtx = useChatSidePanelContext();
+  const notifCtx = useNotificationSidePanelContext();
+  const open = intelCtx.isPanelOpen;
+  const setOpen = (next: boolean) => {
+    if (next) {
+      chatCtx.closePanel();
+      notifCtx.closePanel();
+      intelCtx.openPanel();
+    } else {
+      intelCtx.closePanel();
+    }
+  };
   const [loadingConfig, setLoadingConfig] = useState(true);
   const [canAccess, setCanAccess] = useState(false);
   const [conversations, setConversations] = useState<ConversationItem[]>([]);
@@ -1128,10 +1164,24 @@ export function AiHelpChatWidgetV2() {
 
   // Trigger externo (mobile): el orbe OPAI de la isla nav emite `opai-ai-open`.
   useEffect(() => {
-    const open = () => setOpen(true);
-    window.addEventListener("opai-ai-open", open);
-    return () => window.removeEventListener("opai-ai-open", open);
-  }, []);
+    const openEvt = () => {
+      chatCtx.closePanel();
+      notifCtx.closePanel();
+      intelCtx.openPanel();
+    };
+    window.addEventListener("opai-ai-open", openEvt);
+    return () => window.removeEventListener("opai-ai-open", openEvt);
+  }, [chatCtx, notifCtx, intelCtx]);
+
+  // Escape cierra el dock (desktop Notion-like).
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") intelCtx.closePanel();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [open, intelCtx]);
 
   const pageContext = useChatPageContext();
   const clearPageContext = useClearChatPageContext();
@@ -1529,10 +1579,21 @@ export function AiHelpChatWidgetV2() {
       {pageContext ? (
         <div className="border-b border-[hsl(var(--primary)/0.28)] px-3 py-2 bg-[hsl(var(--primary)/0.08)]">
           <div className="flex items-center gap-2">
-            <Sparkles className="h-3.5 w-3.5 shrink-0 text-primary" />
+            {pageContext.entityType === "crm_email_thread" ? (
+              <Mail className="h-3.5 w-3.5 shrink-0 text-primary" />
+            ) : (
+              <Sparkles className="h-3.5 w-3.5 shrink-0 text-primary" />
+            )}
             <div className="min-w-0 flex-1">
-              <p className="text-[10px] uppercase tracking-wide text-primary/70">Hablando sobre</p>
+              <p className="text-[12px] uppercase tracking-wide text-primary/70">
+                {pageContext.entityType === "crm_email_thread" ? "Correo en pantalla" : "Hablando sobre"}
+              </p>
               <p className="text-xs font-medium text-white truncate" title={pageContext.entityName}>{pageContext.entityName}</p>
+              {pageContext.entityType === "crm_email_thread" && pageContext.extra ? (
+                <p className="text-[12px] text-ds-text-3 truncate" title={pageContext.extra}>
+                  {pageContext.extra}
+                </p>
+              ) : null}
             </div>
             <button
               type="button"
@@ -1750,26 +1811,36 @@ export function AiHelpChatWidgetV2() {
 
   return (
     <>
-      {/* FAB — sólo desktop (mobile usa el orbe OPAI de la isla nav). */}
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="hidden lg:flex items-center justify-center fixed right-6 z-40 h-12 w-12 rounded-full bg-gradient-to-br from-primary via-primary to-primary/80 text-white shadow-[0_10px_30px_hsl(var(--primary)/0.4)] transition-transform hover:scale-[1.05] lg:bottom-6"
-        aria-label="Abrir OPAI Intelligence"
-      >
-        <MessageCircle className="h-5 w-5" />
-      </button>
+      {/* FAB — sólo desktop y sólo cuando el dock está cerrado (mobile: orbe OPAI). */}
+      {!open ? (
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="hidden lg:flex items-center justify-center fixed right-6 z-40 h-12 w-12 rounded-full bg-gradient-to-br from-primary via-primary to-primary/80 text-white shadow-[0_10px_30px_hsl(var(--primary)/0.4)] transition-transform hover:scale-[1.05] lg:bottom-6"
+          aria-label="Abrir OPAI Intelligence"
+        >
+          <MessageCircle className="h-5 w-5" />
+        </button>
+      ) : null}
 
       {open ? (
         <>
+          {/* Overlay solo bajo xl: en desktop el dock empuja el layout (sin gris). */}
           <div
-            className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm"
+            className="xl:hidden fixed inset-0 z-40 bg-black/50 backdrop-blur-sm"
             onClick={() => setOpen(false)}
             aria-hidden="true"
           />
 
+          {/* Desktop xl+: dock derecho tipo Notion / ChatSidePanel */}
           <div
-            className={`hidden md:flex fixed right-6 bottom-24 z-50 w-[440px] h-[72vh] max-h-[720px] flex-col rounded-2xl border border-ds-border-default bg-ds-surface-3 backdrop-blur-xl shadow-2xl overflow-hidden text-white ${isDragging ? "ring-2 ring-primary/50" : ""}`}
+            className={cn(
+              "hidden xl:flex fixed top-0 right-0 z-40 h-full w-[400px] flex-col overflow-hidden text-white",
+              "border-l border-ds-border-default bg-ds-surface-3 shadow-[-8px_0_30px_-12px_rgba(0,0,0,0.25)]",
+              isDragging && "ring-2 ring-primary/50",
+            )}
+            role="dialog"
+            aria-label="OPAI Intelligence"
             onDragOver={(e) => {
               e.preventDefault();
               if (!isDragging) setIsDragging(true);
@@ -1785,15 +1856,18 @@ export function AiHelpChatWidgetV2() {
           >
             {panelShell(false)}
             {isDragging ? (
-              <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-2xl border-2 border-dashed border-primary/40 bg-ds-surface-3/80 backdrop-blur-sm">
+              <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center border-2 border-dashed border-primary/40 bg-ds-surface-3/80 backdrop-blur-sm">
                 <span className="text-sm font-medium text-white/90">Suelta para adjuntar</span>
               </div>
             ) : null}
           </div>
 
+          {/* Mobile / tablet (< xl): bottom sheet con overlay */}
           <div
-            className="md:hidden fixed inset-x-0 bottom-0 z-50 flex h-[88dvh] flex-col overflow-hidden text-white opai-glass-strong"
+            className="xl:hidden fixed inset-x-0 bottom-0 z-50 flex h-[88dvh] flex-col overflow-hidden text-white opai-glass-strong"
             style={{ borderTopLeftRadius: 26, borderTopRightRadius: 26 }}
+            role="dialog"
+            aria-label="OPAI Intelligence"
           >
             <span
               aria-hidden

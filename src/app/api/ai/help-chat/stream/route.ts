@@ -64,6 +64,7 @@ function describeModule(pathname: string): string {
   if (p.startsWith("/crm/deals")) return "CRM > Deals / Pipeline comercial";
   if (p.startsWith("/crm/cotizaciones") || p.startsWith("/cpq")) return "CRM > Cotizaciones (CPQ)";
   if (p.startsWith("/crm/installations")) return "CRM > Instalaciones";
+  if (p.startsWith("/crm/correos")) return "CRM > Correos (bandeja Gmail)";
   if (p.startsWith("/crm")) return "CRM — gestión comercial";
   if (p.startsWith("/ops/rondas/monitoreo")) return "Operaciones > Rondas > Monitoreo en vivo";
   if (p.startsWith("/ops/rondas")) return "Operaciones > Rondas de vigilancia";
@@ -359,11 +360,21 @@ export async function POST(request: NextRequest) {
 - Nombre: ${pageContext.entityName}${pageContext.entityUrl ? `\n- URL: ${pageContext.entityUrl}` : ""}${pageContext.extra ? `\n- Detalle: ${pageContext.extra}` : ""}
 
 REGLAS DE CONTEXTO DE PÁGINA (críticas):
-1. Cuando el usuario use referencias ambiguas como "este cliente", "este deal", "esta cotización", "este contrato", "el cliente", "resúmeme esto", asume que se refiere a la entidad de arriba.
+1. Cuando el usuario use referencias ambiguas como "este cliente", "este deal", "esta cotización", "este contrato", "este correo", "este mail", "el mail en pantalla", "el cliente", "resúmeme esto", asume que se refiere a la entidad de arriba.
 2. Si el usuario pide ver/listar/resumir documentos sin especificar de qué entidad, llama get_entity_documents con el entityType e entityId del contexto de página.
 3. Si el usuario pide resumir un documento específico (contrato, orden de compra, anexo, protocolo), primero llama get_entity_documents para obtener el documentId más relevante, luego read_document para obtener su texto, y produce un resumen estructurado en 4-6 puntos clave (partes, objeto, vigencia, montos, obligaciones críticas).
 4. NO repitas el nombre de la entidad en cada respuesta — el usuario ya sabe qué está viendo. Sé natural.
-5. Si el usuario pregunta algo claramente NO relacionado a esta entidad (ej: "qué es UF"), responde normalmente sin forzar el contexto.`
+5. Si el usuario pregunta algo claramente NO relacionado a esta entidad (ej: "qué es UF"), responde normalmente sin forzar el contexto.
+${
+  pageContext.entityType === "crm_email_thread"
+    ? `
+REGLAS EXTRA — CORREO EN PANTALLA (crm_email_thread):
+A. El ID de arriba ES el threadId. NUNCA pidas al usuario que te pase el threadId ni que copie el correo.
+B. Antes de proponer/crear CRM desde el mail: llama get_email_thread (y read_email_attachments si hay adjuntos o el usuario los menciona).
+C. Flujo preferido para "créame cuenta/instalación/contacto/deal": leer hilo (+adjuntos) → proponer estructura → pedir confirmación → crear con create_account / create_installation / create_contact / create_deal (o create_lead_from_email si pide lead).
+D. No inventes RUT, montos ni direcciones que no estén en el correo o adjuntos.`
+    : ""
+}`
     : null;
 
   const moduleContextSystemMessage = currentPathname

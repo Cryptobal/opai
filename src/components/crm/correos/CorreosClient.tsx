@@ -47,6 +47,7 @@ import {
 import { nextThreadAfterRemove } from "./correo-list-advance";
 import { useCloseOnBack } from "./useCloseOnBack";
 import { isUuid } from "@/lib/utils/uuid";
+import { useRegisterChatPageContext } from "@/components/opai/ChatPageContextProvider";
 
 /** Alto visual de la isla (pt-2 + min-h-12). El safe-area lo aporta AppShell. */
 const CORREOS_MOBILE_TOP_SPACER = "h-14 shrink-0 lg:hidden";
@@ -449,6 +450,38 @@ export function CorreosClient() {
     if (filtered.length === 0) return "empty";
     return `${filtered.length}:${filtered[0]?.id}:${filtered[filtered.length - 1]?.id}`;
   }, [filtered]);
+
+  // OPAI Intelligence: inyecta el hilo abierto como page context (threadId
+  // implícito para tools get_email_thread / create_lead_from_email / etc.).
+  const openThreadPreview = openId
+    ? items.find((t) => t.id === openId) ?? null
+    : null;
+  useRegisterChatPageContext(
+    openThreadPreview
+      ? {
+          entityType: "crm_email_thread",
+          entityId: openThreadPreview.id,
+          entityName: openThreadPreview.subject?.trim() || "(sin asunto)",
+          entityUrl: `/crm/correos?thread=${openThreadPreview.id}`,
+          extra: [
+            openThreadPreview.fromEmail ? `De: ${openThreadPreview.fromEmail}` : null,
+            openThreadPreview.accountId
+              ? `Cuenta: ${openThreadPreview.accountName ?? openThreadPreview.accountId}`
+              : "Sin cuenta asociada",
+            openThreadPreview.dealId
+              ? `Deal: ${openThreadPreview.dealTitle ?? openThreadPreview.dealId}`
+              : null,
+            openThreadPreview.leadId ? `Lead: ${openThreadPreview.leadId}` : null,
+            `Adjuntos: ${openThreadPreview.attachmentCount}`,
+            openThreadPreview.snippet
+              ? `Snippet: ${openThreadPreview.snippet.slice(0, 180)}`
+              : null,
+          ]
+            .filter(Boolean)
+            .join(" · "),
+        }
+      : null,
+  );
 
   /**
    * Archivar / papelera / snooze: saca el hilo y, si el lector lo mostraba (o
