@@ -5,7 +5,16 @@ import { requireCorreosAccess } from "@/lib/api-auth-productividad";
 import { prisma } from "@/lib/prisma";
 import { generateDraftReply } from "@/modules/crm/email/radar-classify-ai";
 import { stripHtml } from "@/modules/crm/email/radar-util";
-import { computeReplyAllRecipients } from "@/modules/crm/email/reply-recipients";
+import {
+  computeReplyAllRecipients,
+  preferredReplyAddress,
+} from "@/modules/crm/email/reply-recipients";
+import {
+  extractEmailAddresses,
+  formatFromHeaderForStorage,
+  normalizeEmailAddress,
+} from "@/lib/email-address";
+import { gmailClientForAccount } from "@/modules/crm/email/gmail-account-client";
 
 export const maxDuration = 60;
 type Ctx = { params: Promise<{ threadId: string }> };
@@ -20,7 +29,17 @@ async function loadThreadReply(tenantId: string, threadId: string) {
     prisma.crmEmailMessage.findFirst({
       where: { threadId, tenantId, direction: "in" },
       orderBy: { sentAt: "desc" },
-      select: { fromEmail: true, toEmails: true, ccEmails: true, textBody: true, htmlBody: true },
+      select: {
+        id: true,
+        providerMessageId: true,
+        fromEmail: true,
+        replyToEmail: true,
+        toEmails: true,
+        ccEmails: true,
+        textBody: true,
+        htmlBody: true,
+        emailAccountId: true,
+      },
     }),
     prisma.crmRadarItem.findMany({
       where: { tenantId, threadId, kind: { in: ["nuevo_lead", "compromiso"] } },
@@ -45,6 +64,67 @@ function pickDraft(radars: { id: string; payload: unknown }[]): { draft: string 
   return { draft: null, radarItemId: radars[0]?.id ?? null };
 }
 
+/**
+ * Backfill Reply-To desde Gmail para mensajes viejos (antes de persistir el
+ * header). Best-effort: si falla, seguimos con From.
+ */
+async function ensureReplyTo(params: {
+  tenantId: string;
+  message: {
+    id: string;
+    providerMessageId: string | null;
+    fromEmail: string;
+    replyToEmail: string | null;
+    emailAccountId: string | null;
+  };
+  emailAccountId: string | null;
+}): Promise<string | null> {
+  if (params.message.replyToEmail) return params.message.replyToEmail;
+  const accountId = params.message.emailAccountId || params.emailAccountId;
+  const providerMessageId = params.message.providerMessageId;
+  if (!accountId || !providerMessageId) return null;
+  try {
+    const account = await prisma.crmEmailAccount.findFirst({
+      where: { id: accountId, tenantId: params.tenantId },
+      select: {
+        id: true,
+        accessTokenEncrypted: true,
+        refreshTokenEncrypted: true,
+      },
+    });
+    if (!account) return null;
+    const gmail = gmailClientForAccount(account);
+    if (!gmail) return null;
+    const full = await gmail.users.messages.get({
+      userId: "me",
+      id: providerMessageId,
+      format: "metadata",
+      metadataHeaders: ["From", "Reply-To"],
+    });
+    const headers = full.data.payload?.headers ?? [];
+    const get = (name: string) =>
+      headers.find((h) => h.name?.toLowerCase() === name.toLowerCase())?.value || "";
+    const rawReplyTo = get("Reply-To");
+    const replyToParsed = extractEmailAddresses(rawReplyTo)[0] || null;
+    const fromParsed = extractEmailAddresses(get("From") || params.message.fromEmail)[0] || null;
+    if (
+      !replyToParsed ||
+      (fromParsed &&
+        normalizeEmailAddress(replyToParsed) === normalizeEmailAddress(fromParsed))
+    ) {
+      return null;
+    }
+    const replyToEmail = formatFromHeaderForStorage(rawReplyTo, replyToParsed);
+    await prisma.crmEmailMessage.update({
+      where: { id: params.message.id },
+      data: { replyToEmail },
+    });
+    return replyToEmail;
+  } catch {
+    return null;
+  }
+}
+
 export async function GET(_req: NextRequest, { params }: Ctx) {
   const mod = await requireCorreosAccess();
   if (!mod.authorized) return mod.response;
@@ -55,8 +135,6 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
   if (!data) return NextResponse.json({ error: "Hilo no encontrado" }, { status: 404 });
   const { draft, radarItemId } = pickDraft(data.radars);
 
-  // Casilla propia (para excluirla del "Responder a todos"): la del hilo o la
-  // activa del usuario como fallback.
   let ownEmail = "";
   const account = data.thread.emailAccountId
     ? await prisma.crmEmailAccount.findFirst({
@@ -69,9 +147,27 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
       });
   if (account?.email) ownEmail = account.email;
 
+  let replyToEmail = data.lastInbound?.replyToEmail ?? null;
+  if (data.lastInbound) {
+    replyToEmail =
+      (await ensureReplyTo({
+        tenantId: ctx.tenantId,
+        message: data.lastInbound,
+        emailAccountId: data.thread.emailAccountId,
+      })) ?? replyToEmail;
+  }
+
+  const replyTo = data.lastInbound
+    ? preferredReplyAddress({
+        fromEmail: data.lastInbound.fromEmail,
+        replyToEmail,
+      })
+    : null;
+
   const replyAll = data.lastInbound
     ? computeReplyAllRecipients({
         fromEmail: data.lastInbound.fromEmail,
+        replyToEmail,
         toEmails: data.lastInbound.toEmails ?? [],
         ccEmails: data.lastInbound.ccEmails ?? [],
         ownEmail,
@@ -81,7 +177,7 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
   return NextResponse.json({
     draft,
     radarItemId,
-    to: data.lastInbound?.fromEmail ?? null,
+    to: replyTo,
     replyAll,
     subject: data.thread.subject,
   });
@@ -99,13 +195,23 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   const instructions =
     typeof payload.instructions === "string" ? payload.instructions.slice(0, 1000) : null;
   const body = (data.lastInbound.textBody || stripHtml(data.lastInbound.htmlBody)).trim();
+  const replyToEmail =
+    (await ensureReplyTo({
+      tenantId: ctx.tenantId,
+      message: data.lastInbound,
+      emailAccountId: data.thread.emailAccountId,
+    })) ?? data.lastInbound.replyToEmail;
+  const replyAddress = preferredReplyAddress({
+    fromEmail: data.lastInbound.fromEmail,
+    replyToEmail,
+  });
   const draft = await generateDraftReply({
     tenantId: ctx.tenantId,
     subject: data.thread.subject,
-    fromEmail: data.lastInbound.fromEmail,
+    fromEmail: replyAddress || data.lastInbound.fromEmail,
     body,
     resumen: "",
     instructions,
   });
-  return NextResponse.json({ draft, to: data.lastInbound.fromEmail });
+  return NextResponse.json({ draft, to: replyAddress });
 }

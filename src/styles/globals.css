@@ -155,38 +155,39 @@
   .dark {
     /* ============================================
        OPAI Design System v2 — Dark Theme
+       Azul pizarra (no negro puro) + teal de marca más profundo.
        ============================================ */
 
     /* Background & Foreground */
-    --background: 220 20% 6%;              /* #0d1017 */
+    --background: 222 28% 7%;              /* #0f1520 */
     --foreground: 210 40% 98%;             /* #f8fafc */
 
     /* Cards & Surfaces */
-    --card: 220 18% 10%;                   /* #151a23 */
+    --card: 222 24% 11%;                   /* #161d2b */
     --card-foreground: 210 40% 98%;        /* #f8fafc */
 
     /* Popovers & Dropdowns (elevated) */
-    --popover: 220 18% 12%;               /* #1a1f2a */
+    --popover: 222 22% 13%;               /* #1c2436 */
     --popover-foreground: 210 40% 98%;    /* #f8fafc */
 
     /* Borders & Inputs */
-    --border: 220 13% 18%;                /* #262d3a */
-    --input: 220 13% 20%;                 /* #2b3341 */
+    --border: 222 16% 20%;                /* #2a3345 */
+    --input: 222 16% 22%;                 /* #2f394c */
 
     /* Muted (secondary text, disabled) */
-    --muted: 220 13% 15%;                 /* #212735 */
-    --muted-foreground: 215 16% 57%;      /* #8493a8 */
+    --muted: 222 16% 16%;                 /* #222a38 */
+    --muted-foreground: 215 16% 60%;      /* #8b9bb0 */
 
     /* Accent (hover, active states) */
-    --accent: 220 13% 17%;                /* #252c38 */
+    --accent: 222 16% 18%;                /* #262f40 */
     --accent-foreground: 210 40% 98%;     /* #f8fafc */
 
-    /* Primary — Teal (main CTA) */
-    --primary: 166 76% 47%;               /* #1db990 */
-    --primary-foreground: 220 20% 6%;     /* dark text on teal */
+    /* Primary — Teal (main CTA, menos neón) */
+    --primary: 168 78% 38%;               /* #14a88a */
+    --primary-foreground: 222 28% 7%;     /* dark text on teal */
 
     /* Secondary — Muted action */
-    --secondary: 220 13% 18%;             /* same as border, subtle */
+    --secondary: 222 16% 20%;             /* same as border, subtle */
     --secondary-foreground: 210 40% 98%;  /* #f8fafc */
 
     /* Destructive — Red */
@@ -194,30 +195,30 @@
     --destructive-foreground: 210 40% 98%;
 
     /* Ring (focus indicators) */
-    --ring: 166 76% 47%;                  /* same as primary */
+    --ring: 168 78% 38%;                  /* same as primary */
 
     /* Chart Colors */
-    --chart-1: 166 76% 47%;
+    --chart-1: 168 78% 42%;
     --chart-2: 217 91% 60%;
     --chart-3: 142 71% 45%;
     --chart-4: 38 92% 50%;
     --chart-5: 340 82% 52%;
 
     /* OPAI DS v3 — Dark surfaces */
-    --ds-surface-0: 220 20% 6%;            /* page bg = same as --background */
-    --ds-surface-1: 220 18% 9%;            /* card primary */
-    --ds-surface-2: 220 18% 11%;           /* elevated */
-    --ds-surface-3: 220 18% 13%;           /* dialog top */
-    --ds-surface-4: 220 18% 15%;           /* tooltip / menu */
+    --ds-surface-0: 222 28% 7%;            /* page bg = same as --background */
+    --ds-surface-1: 222 24% 10%;           /* card primary */
+    --ds-surface-2: 222 22% 12%;           /* elevated */
+    --ds-surface-3: 222 20% 15%;           /* dialog top */
+    --ds-surface-4: 222 18% 18%;           /* tooltip / menu */
 
     --ds-text-1: 210 40% 98%;
-    --ds-text-2: 215 20% 80%;
-    --ds-text-3: 215 16% 60%;
-    --ds-text-4: 215 14% 42%;
+    --ds-text-2: 215 20% 82%;
+    --ds-text-3: 215 16% 62%;
+    --ds-text-4: 215 14% 44%;
 
-    --ds-border-subtle: 220 13% 16%;
-    --ds-border-default: 220 13% 20%;
-    --ds-border-strong: 220 13% 28%;
+    --ds-border-subtle: 222 16% 17%;
+    --ds-border-default: 222 16% 22%;
+    --ds-border-strong: 222 16% 30%;
 
     --ds-ok: 160 76% 42%;
     --ds-ok-fg: 160 76% 60%;

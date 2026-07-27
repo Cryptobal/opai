@@ -21,7 +21,11 @@ import { AttachmentPicker, Spinner } from "@/components/opai-ds";
 import { ContractEditor } from "@/components/docs/ContractEditor";
 import { EmailToolbar } from "./EmailToolbar";
 import { tiptapToEmailHtml } from "@/lib/docs/tiptap-to-html";
-import { ReplyRecipientsField, isValidEmail } from "./ReplyRecipientsField";
+import {
+  ReplyRecipientsField,
+  isValidEmail,
+  normalizeRecipientList,
+} from "./ReplyRecipientsField";
 import { useEmailAttachments } from "./useEmailAttachments";
 import {
   newEmailIdempotencyKey,
@@ -123,10 +127,10 @@ export function EmailComposer({
   onDraftIdChange,
 }: Props) {
   const attachments = useEmailAttachments();
-  const [to, setTo] = useState<string[]>(initialTo);
-  const [cc, setCc] = useState<string[]>(initialCc);
+  const [to, setTo] = useState<string[]>(() => normalizeRecipientList(initialTo));
+  const [cc, setCc] = useState<string[]>(() => normalizeRecipientList(initialCc));
   const [bcc, setBcc] = useState<string[]>([]);
-  const [showCcBcc, setShowCcBcc] = useState(initialCc.length > 0);
+  const [showCcBcc, setShowCcBcc] = useState(() => normalizeRecipientList(initialCc).length > 0);
   const [subject, setSubject] = useState(initialSubject);
   const [content, setContent] = useState<object | null>(initialContent);
   const [busy, setBusy] = useState(false);
@@ -299,9 +303,12 @@ export function EmailComposer({
     onClose?.();
   }
 
+  const toNorm = normalizeRecipientList(to);
+  const ccNorm = normalizeRecipientList(cc);
+  const bccNorm = normalizeRecipientList(bcc);
   const allValid = [...to, ...cc, ...bcc].every(isValidEmail);
   const canSend =
-    to.length > 0 &&
+    toNorm.length > 0 &&
     allValid &&
     subject.trim().length > 0 &&
     (!isDocEmpty(content) || Boolean(quotedHtml)) &&
@@ -318,9 +325,9 @@ export function EmailComposer({
       }
       const { html: finalHtml, inlineImages } = await extractInlineImages(html);
       const result = await sendCrmEmail({
-        to,
-        cc,
-        bcc,
+        to: toNorm,
+        cc: ccNorm,
+        bcc: bccNorm,
         subject: subject.trim(),
         html: finalHtml,
         attachments: attachments.readyAttachments,
@@ -423,7 +430,7 @@ export function EmailComposer({
           <ReplyRecipientsField label="CCO" values={bcc} onChange={setBcc} />
         </>
       )}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 border-b border-ds-border-default focus-within:border-primary">
         <span className="w-10 shrink-0 text-[12px] text-ds-text-3">Asunto</span>
         <input
           value={subject}
@@ -432,7 +439,7 @@ export function EmailComposer({
             onSubjectChange?.(e.target.value);
           }}
           placeholder="Asunto"
-          className="h-9 min-w-0 flex-1 rounded-lg border border-ds-border-default bg-ds-surface-1 px-2 text-[16px] text-ds-text-1 sm:text-[13px]"
+          className="h-9 min-w-0 flex-1 bg-transparent text-[16px] text-ds-text-1 outline-none sm:text-[13px]"
         />
       </div>
       <div className="overflow-hidden rounded-lg border border-ds-border-default bg-ds-surface-1">

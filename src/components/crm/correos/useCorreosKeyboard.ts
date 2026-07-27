@@ -15,6 +15,7 @@
 
 import { useEffect, useRef } from "react";
 import {
+  COMPOSE_SHORTCUT_ACTIONS,
   normalizeShortcutKey,
   type CorreoShortcuts,
 } from "./useCorreosViewPreferences";
@@ -26,6 +27,9 @@ export type CorreoKeyboardHandlers = {
   onToggleSelect: () => void;
   onArchive: () => void;
   onReply: () => void;
+  onReplyAll: () => void;
+  onForward: () => void;
+  onReplyAi: () => void;
   onTrash: () => void;
   onStar: () => void;
   onSnooze: () => void;
@@ -37,7 +41,7 @@ export type CorreoKeyboardHandlers = {
   shortcuts: CorreoShortcuts;
   /** false desactiva todo (p.ej. composer abierto). */
   enabled?: boolean;
-  /** true cuando el lector está abierto: reply lo maneja CorreoReplyBox. */
+  /** true cuando el lector está abierto: compose lo maneja CorreoReplyBox. */
   replyHandledExternally?: boolean;
 };
 
@@ -82,6 +86,10 @@ export function useCorreosKeyboard(handlers: CorreoKeyboardHandlers): void {
       if (key === "ArrowUp") return run(h.onUp);
 
       const sc = h.shortcuts;
+      const composeKeys = new Set(
+        COMPOSE_SHORTCUT_ACTIONS.map((action) => normalizeShortcutKey(sc[action])),
+      );
+
       const map: Array<[string, () => void]> = [
         [sc.down, h.onDown],
         [sc.up, h.onUp],
@@ -89,12 +97,31 @@ export function useCorreosKeyboard(handlers: CorreoKeyboardHandlers): void {
         [sc.toggleSelect, h.onToggleSelect],
         [sc.archive, h.onArchive],
         [sc.trash, h.onTrash],
-        ...(h.replyHandledExternally ? [] : [[sc.reply, h.onReply] as [string, () => void]]),
         [sc.star, h.onStar],
         [sc.snooze, h.onSnooze],
         [sc.toggleRead, h.onToggleRead],
         [sc.focusSearch, h.onFocusSearch],
       ];
+
+      // Con lector cerrado: R/A/F/I abren hilo + composer.
+      // Con lector abierto: los maneja CorreoReplyBox (evita archivar con A).
+      if (!h.replyHandledExternally) {
+        map.push(
+          [sc.reply, h.onReply],
+          [sc.replyAll, h.onReplyAll],
+          [sc.forward, h.onForward],
+          [sc.replyAi, h.onReplyAi],
+        );
+      } else {
+        // Si una acción de bandeja choca con un atajo de compose, no la dispares.
+        for (let i = map.length - 1; i >= 0; i--) {
+          const bound = map[i]?.[0];
+          if (bound && composeKeys.has(normalizeShortcutKey(bound))) {
+            map.splice(i, 1);
+          }
+        }
+      }
+
       for (const [bound, fn] of map) {
         if (keysMatch(key, bound)) return run(fn);
       }

@@ -2942,6 +2942,8 @@ model CrmEmailMessage {
   providerMessageId String?   @map("provider_message_id")
   direction         String    @default("out")
   fromEmail         String    @map("from_email")
+  /// Header Reply-To (si difiere del From — típico en listas/grupos Google).
+  replyToEmail      String?   @map("reply_to_email")
   toEmails          String[]  @map("to_emails")
   ccEmails          String[]  @default([]) @map("cc_emails")
   bccEmails         String[]  @default([]) @map("bcc_emails")

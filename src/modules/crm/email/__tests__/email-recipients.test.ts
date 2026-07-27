@@ -11,6 +11,11 @@ const mocks = vi.hoisted(() => ({
   captureEmailError: vi.fn(),
 }));
 
+const mailboxMocks = vi.hoisted(() => ({
+  accountFindMany: vi.fn(),
+  messageFindMany: vi.fn(),
+}));
+
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     crmContact: { findMany: mocks.contactFindMany },
@@ -18,6 +23,8 @@ vi.mock("@/lib/prisma", () => ({
       findMany: mocks.recipientFindMany,
       upsert: mocks.recipientUpsert,
     },
+    crmEmailAccount: { findMany: mailboxMocks.accountFindMany },
+    crmEmailMessage: { findMany: mailboxMocks.messageFindMany },
   },
 }));
 vi.mock("../email-observability", () => ({
@@ -40,6 +47,8 @@ beforeEach(() => {
   mocks.contactFindMany.mockResolvedValue([]);
   mocks.recipientFindMany.mockResolvedValue([]);
   mocks.recipientUpsert.mockResolvedValue({});
+  mailboxMocks.accountFindMany.mockResolvedValue([]);
+  mailboxMocks.messageFindMany.mockResolvedValue([]);
 });
 
 describe("matchQuality", () => {
