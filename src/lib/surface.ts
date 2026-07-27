@@ -22,6 +22,13 @@ export type Surface = "productividad" | "erp";
 export const SURFACE_COOKIE = "opai-surface";
 export const DEFAULT_SURFACE: Surface = "erp";
 
+/**
+ * Última landing resuelta del portal Productividad.
+ * La lee el middleware en `/productividad` para evitar el doble viaje
+ * (auth+queries → redirect) en arranques PWA en caliente.
+ */
+export const PRODUCTIVIDAD_LANDING_COOKIE = "opai-prod-landing";
+
 /** Opciones de cookie de superficie (sesión de presentación, no auth). */
 export function surfaceCookieOptions(maxAgeSeconds = 60 * 60 * 24 * 365) {
   return {
@@ -34,11 +41,21 @@ export function surfaceCookieOptions(maxAgeSeconds = 60 * 60 * 24 * 365) {
 }
 
 /** Orden de landing del portal Productividad (Correos → Tareas → Agenda). */
-const PRODUCTIVIDAD_LANDING_HREFS = [
+export const PRODUCTIVIDAD_LANDING_HREFS = [
   "/crm/correos",
   "/opai/tareas",
   "/opai/agenda",
 ] as const;
+
+/** ¿Cookie de landing usable por el middleware (sin tocar BD)? */
+export function parseProductividadLandingCookie(
+  value: string | undefined | null,
+): (typeof PRODUCTIVIDAD_LANDING_HREFS)[number] | null {
+  if (!value) return null;
+  return (PRODUCTIVIDAD_LANDING_HREFS as readonly string[]).includes(value)
+    ? (value as (typeof PRODUCTIVIDAD_LANDING_HREFS)[number])
+    : null;
+}
 
 export function parseSurface(value: string | undefined | null): Surface {
   if (value === "productividad" || value === "erp") return value;

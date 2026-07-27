@@ -17,6 +17,7 @@ import type { ChatMessage, HistoryConversation } from "./types";
 import { MAX_VISIBLE_MESSAGES } from "./types";
 import type { VisualBlock, VisualCardItem, VisualSuggestionItem } from "@/lib/ai/help-chat-visual-types";
 import type { PendingConfirmationClient } from "./PendingConfirmCards";
+import { startNavProgress } from "../nav-progress-bus";
 
 const POLISH_KEY = "opai-dictado-pulido";
 const MOTOR_KEY = "opai-dictado-motor";
@@ -99,6 +100,7 @@ export function useHelpChatController(opts: {
 
   const navigateInternal = useCallback(
     (path: string) => {
+      startNavProgress();
       setOpen(false);
       router.push(path);
     },

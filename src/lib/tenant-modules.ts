@@ -5,6 +5,7 @@
  * Cache in-memory de 5 minutos (mismo patrón que tenant-config.ts).
  */
 
+import { cache } from "react";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 
@@ -143,13 +144,15 @@ export async function isTenantModuleEnabled(
 
 /**
  * Retorna los módulos habilitados como array (útil para UI).
+ * React.cache evita repetir la query cuando layout + page la piden
+ * en la misma request (p.ej. `/productividad`).
  */
-export async function getTenantModulesList(
+export const getTenantModulesList = cache(async function getTenantModulesList(
   tenantId: string,
 ): Promise<string[]> {
   const modules = await getTenantEnabledModules(tenantId);
   return Array.from(modules);
-}
+});
 
 // ── Feature flags finos por tenant (TenantModule.config JSONB) ──
 // Un flag es una key con valor truthy dentro del `config` de cualquier fila

@@ -1,17 +1,14 @@
 import type { Metadata } from "next";
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
-import { auth } from '@/lib/auth';
 import { AppLayoutClient } from '@/components/opai/AppLayoutClient';
-import { resolvePermissions } from '@/lib/permissions-server';
 import { PermissionsProvider } from '@/lib/permissions-context';
 import { ImpersonateBanner } from '@/components/platform/ImpersonateBanner';
-import { getTenantModulesList, getTenantFeatureFlagsList } from '@/lib/tenant-modules';
 import { TenantModulesProvider } from '@/contexts/TenantModulesContext';
 import { DpaConsentBanner } from '@/components/DpaConsentBanner';
 import { parseSurface, SURFACE_COOKIE } from '@/lib/surface';
-import { getTenantCompanyConfig } from '@/lib/tenant-config';
 import { brandCssVars } from '@/lib/branding/brand-css-vars';
+import { getAppRequestContext } from '@/lib/app-request-context';
 
 /** Evita pre-render en build; todas las rutas requieren auth/DB */
 export const dynamic = 'force-dynamic';
@@ -31,27 +28,12 @@ export default async function AppLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const session = await auth();
-  if (!session?.user) {
+  const ctx = await getAppRequestContext();
+  if (!ctx?.session?.user) {
     redirect('/opai/login');
   }
 
-  const [permissions, tenantModules, tenantFlags, companyConfig] = await Promise.all([
-    resolvePermissions({
-      role: session.user.role,
-      roleTemplateId: session.user.roleTemplateId,
-    }),
-    session.user.tenantId
-      ? getTenantModulesList(session.user.tenantId)
-      : Promise.resolve([] as string[]),
-    session.user.tenantId
-      ? getTenantFeatureFlagsList(session.user.tenantId)
-      : Promise.resolve([] as string[]),
-    session.user.tenantId
-      ? getTenantCompanyConfig(session.user.tenantId)
-      : Promise.resolve(null),
-  ]);
-
+  const { session, permissions, tenantModules, tenantFlags, companyConfig } = ctx;
   const isImpersonating = (session as { impersonating?: boolean }).impersonating === true;
 
   const cookieStore = await cookies();

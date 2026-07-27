@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { getDefaultPermissions, type RolePermissions } from "@/lib/permissions";
 import {
   isProductividadPath,
+  parseProductividadLandingCookie,
   parseSurface,
   resolveProductividadLanding,
 } from "@/lib/surface";
@@ -73,6 +74,21 @@ describe("resolveProductividadLanding", () => {
     expect(
       resolveProductividadLanding(stripProductividad(getDefaultPermissions("owner")), allEnabled),
     ).toBeNull();
+  });
+});
+
+describe("parseProductividadLandingCookie", () => {
+  it("acepta solo landings canónicas", () => {
+    expect(parseProductividadLandingCookie("/crm/correos")).toBe("/crm/correos");
+    expect(parseProductividadLandingCookie("/opai/tareas")).toBe("/opai/tareas");
+    expect(parseProductividadLandingCookie("/opai/agenda")).toBe("/opai/agenda");
+  });
+
+  it("rechaza valores ajenos", () => {
+    expect(parseProductividadLandingCookie(undefined)).toBeNull();
+    expect(parseProductividadLandingCookie("/hub")).toBeNull();
+    expect(parseProductividadLandingCookie("/crm/leads")).toBeNull();
+    expect(parseProductividadLandingCookie("https://evil.example")).toBeNull();
   });
 });
 
