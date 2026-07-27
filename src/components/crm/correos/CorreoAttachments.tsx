@@ -66,7 +66,7 @@ export function CorreoAttachments({
             >
               <button
                 type="button"
-                onClick={() => setViewer({ url, filename: a.filename, mimeType: a.mimeType })}
+                onClick={() => setViewer({ url, filename: a.filename, mimeType: a.mimeType, size: a.size })}
                 className="flex min-h-11 min-w-0 flex-1 items-center gap-2 text-left ds-tap"
                 title={a.filename}
               >
