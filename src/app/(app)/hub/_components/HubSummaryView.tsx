@@ -32,10 +32,11 @@ interface HubSummaryViewProps {
 /**
  * Inicio del Hub — mobile-first.
  *
- * Orden móvil (DOM): accesos directos → selector del Centro de Control →
- * Mi día (agenda + correos recientes) → Requiere atención → Pulso →
- * Actividad reciente. En desktop se recompone con `lg:order-*` para
- * mantener la lectura ejecutiva (pulso y alertas arriba).
+ * Orden móvil (DOM): selector del Centro de Control → Mi día (agenda +
+ * correos recientes) → Requiere atención → Pulso → Actividad reciente.
+ * Los accesos rápidos (Calendario/Correo/Tareas) solo en desktop: en móvil
+ * están en la isla inferior o en «Mi día». En desktop se recompone con
+ * `lg:order-*` para mantener la lectura ejecutiva (pulso y alertas arriba).
  */
 export function HubSummaryView({
   hubPerms,
@@ -50,12 +51,12 @@ export function HubSummaryView({
   return (
     <HubEmailProvider enabled={hubPerms.hasCorreos}>
       <div className="ds-page-enter flex min-w-0 flex-col gap-5">
-        {/* 1. Accesos directos */}
-        <div className="min-w-0 lg:order-1">
+        {/* Accesos directos (solo desktop; móvil usa isla inferior + Mi día) */}
+        <div className="hidden min-w-0 lg:order-1 lg:block">
           <HubQuickActions perms={hubPerms} />
         </div>
 
-        {/* 2. Selector del Centro de Control (solo mobile) */}
+        {/* Selector del Centro de Control (solo mobile) */}
         <div className="min-w-0 lg:order-1 lg:hidden">
           <HubMobileViewPicker />
         </div>

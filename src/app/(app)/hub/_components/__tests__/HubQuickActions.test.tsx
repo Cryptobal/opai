@@ -33,35 +33,42 @@ function perms(overrides: Partial<HubPerms> = {}): HubPerms {
 }
 
 describe("HubQuickActions", () => {
-  it("orden canónico: Calendario → Correo → Tareas → Crear", () => {
+  it("orden canónico desktop: Calendario → Correo → Tareas → acciones", () => {
     const { container } = render(<HubQuickActions perms={perms()} />);
-    const mobile = container.querySelector(".lg\\:hidden");
-    expect(mobile).toBeTruthy();
-    const labels = Array.from(
-      mobile!.querySelectorAll("a span:last-child, button span:last-child"),
-    ).map((el) => el.textContent?.trim());
-    expect(labels).toEqual(["Calendario", "Correo", "Tareas", "Crear"]);
+    const desktop = container.querySelector(".hidden.lg\\:flex");
+    expect(desktop).toBeTruthy();
+    const hrefs = Array.from(desktop!.querySelectorAll("a")).map((a) =>
+      a.getAttribute("href"),
+    );
+    expect(hrefs).toEqual([
+      "/opai/agenda",
+      "/crm/correos",
+      "/opai/tareas",
+      "/personas/guardias/ingreso-te",
+      "/ops/pauta-diaria",
+    ]);
   });
 
-  it("Calendario visible directo en móvil con destino /opai/agenda", () => {
+  it("no renderiza fila móvil (accesos viven en bottom nav / Mi día)", () => {
     const { container } = render(<HubQuickActions perms={perms()} />);
-    const links = Array.from(container.querySelectorAll('a[href="/opai/agenda"]'));
-    // Tile móvil + botón desktop
-    expect(links.length).toBeGreaterThanOrEqual(2);
-    expect(screen.getAllByText("Calendario").length).toBeGreaterThanOrEqual(1);
+    expect(container.querySelector(".lg\\:hidden")).toBeNull();
+  });
+
+  it("Calendario visible en desktop con destino /opai/agenda", () => {
+    const { container } = render(<HubQuickActions perms={perms()} />);
+    const links = container.querySelectorAll('a[href="/opai/agenda"]');
+    expect(links.length).toBe(1);
+    expect(screen.getByText("Calendario")).toBeTruthy();
   });
 
   it("Correo visible con destino /crm/correos", () => {
     const { container } = render(<HubQuickActions perms={perms()} />);
-    expect(container.querySelectorAll('a[href="/crm/correos"]').length)
-      .toBeGreaterThanOrEqual(2);
+    expect(container.querySelectorAll('a[href="/crm/correos"]').length).toBe(1);
   });
 
   it("Tareas visible después de Correo con destino /opai/tareas", () => {
     const { container } = render(<HubQuickActions perms={perms()} />);
-    expect(container.querySelectorAll('a[href="/opai/tareas"]').length)
-      .toBeGreaterThanOrEqual(2);
-    // Desktop: Correo aparece antes que Tareas en el row inline
+    expect(container.querySelectorAll('a[href="/opai/tareas"]').length).toBe(1);
     const desktop = container.querySelector(".hidden.lg\\:flex");
     const desktopHrefs = Array.from(desktop!.querySelectorAll("a")).map((a) =>
       a.getAttribute("href"),
@@ -72,12 +79,9 @@ describe("HubQuickActions", () => {
     expect(tareasIdx).toBeGreaterThan(correoIdx);
   });
 
-  it("Crear abre el sheet existente (acciones secundarias no visibles directo)", () => {
+  it("acciones secundarias visibles inline en desktop", () => {
     render(<HubQuickActions perms={perms()} />);
-    expect(screen.getByText("Crear")).toBeTruthy();
-    // La acción secundaria vive en el sheet (cerrado) y en el row desktop.
-    const marcar = screen.getAllByText("Marcar Asistencia");
-    expect(marcar.length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText("Marcar Asistencia")).toBeTruthy();
   });
 
   it("sin acceso productividad no muestra Calendario, Correo ni Tareas", () => {
