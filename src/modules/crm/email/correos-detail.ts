@@ -4,6 +4,7 @@ import { extractGmailAttachments, type GmailMessagePart } from "@/lib/gmail-mess
 import { gmailClientForAccount } from "./gmail-account-client";
 import { hydrateMissingThreadMessages } from "./correos-detail-hydrate";
 import { captureEmailError } from "./email-observability";
+import { attachSavedFileIds } from "./attachment-saved";
 import type { CorreoDetail, CorreoAttachmentDTO } from "./correos.types";
 
 /** TTL del caché de detalle; la invalidación real es updatedAt del sync. */
@@ -169,6 +170,10 @@ export async function getCorreoDetail(params: {
       : null,
   ]);
 
+  // B5: chip "Guardado" — consulta fresca (fuera de attachmentsMeta) para no
+  // invalidar el caché C18.
+  const attachmentsWithSaved = await attachSavedFileIds(tenantId, thread.id, attachments);
+
   // Métrica simple para el antes/después del p95 (C18).
   console.log(
     `[correos] detail ${cacheFresh ? "cache-hit" : "cache-miss"} thread=${thread.id} ms=${Date.now() - startedAt}`,
@@ -191,7 +196,7 @@ export async function getCorreoDetail(params: {
       sharedWithAccount: thread.sharedWithAccount,
     },
     messages: messages.map((m) => ({ ...m, sentAt: m.sentAt?.toISOString() ?? null })),
-    attachments,
+    attachments: attachmentsWithSaved,
     degraded,
   };
 }

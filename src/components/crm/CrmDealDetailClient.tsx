@@ -45,6 +45,7 @@ import {
 import { RecipientTypeaheadInput } from "@/components/crm/RecipientTypeaheadInput";
 import { ContractEditor } from "@/components/docs/ContractEditor";
 import { EntityDetailLayout, useEntityTabs, type EntityTab, type EntityHeaderAction } from "./EntityDetailLayout";
+import { EntityConversationsPanel } from "./EntityConversationsPanel";
 import { CrmRelatedRecordCard, CrmRelatedRecordGrid } from "./CrmRelatedRecordCard";
 import { AssociatedTicketsSection } from "./AssociatedTicketsSection";
 import { DealChecklistSection } from "./deal/DealChecklistSection";
@@ -1934,10 +1935,12 @@ export function CrmDealDetailClient({
   // "Documentos". Notas y Actividad quedaron absorbidos por el centro del deal.
   const tabs: EntityTab[] = [
     { id: "general", label: "Actividad", icon: History, count: activityEvents.length },
+    { id: "conversaciones", label: "Conversaciones", icon: Mail },
     { id: "files", label: "Documentos", icon: FileText, count: fileCount },
   ];
   // Fallback silencioso: cualquier ?tab= antiguo (notes/activity) cae en general.
-  const effectiveTab = activeTab === "files" ? "files" : "general";
+  const effectiveTab =
+    activeTab === "files" ? "files" : activeTab === "conversaciones" ? "conversaciones" : "general";
 
   const handleOpenOnboarding = async () => {
     try {
@@ -2220,6 +2223,7 @@ export function CrmDealDetailClient({
             />
           </div>
         )}
+        {effectiveTab === "conversaciones" && <EntityConversationsPanel dealId={deal.id} />}
         {effectiveTab === "files" && <div className="rounded-lg border border-border bg-card p-4 sm:p-5">{filesSection.children}</div>}
       </EntityDetailLayout>
 

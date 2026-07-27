@@ -66,6 +66,11 @@ export async function GET(request: NextRequest) {
       mimeType: link.file.mimeType,
       size: link.file.size,
       createdAt: link.file.createdAt,
+      // Endpoint autenticado (misma-origen): cierra la exposición sin sesión de
+      // documentos CRM (Ley 21.719) y habilita el visor pdf.js (fetch de bytes).
+      downloadUrl: `/api/crm/files/${link.file.id}/download`,
+      // @deprecated Preferir `downloadUrl`. Se conserva solo para consumidores
+      // que aún lo requieran; se migran uno a uno.
       publicUrl: publicUrlBase ? `${publicUrlBase}/${link.file.storageKey}` : null,
       folderId: link.folderId,
       folderName: link.folder?.name ?? null,

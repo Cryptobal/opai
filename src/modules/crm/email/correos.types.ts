@@ -45,6 +45,22 @@ export type CorreoAttachmentDTO = {
   filename: string;
   mimeType: string;
   size: number;
+  /** B5: id del CrmFile si el adjunto ya fue guardado a una ficha desde este
+   *  hilo (chip "Guardado"). Se resuelve por consulta fresca en cada detalle,
+   *  fuera de `attachmentsMeta`, para no invalidar el caché C18. */
+  savedFileId?: string | null;
+};
+
+/**
+ * Detalle de un hilo servido a una ficha (Bloque 5): solo lectura, 100% desde
+ * el espejo local — NUNCA toca Gmail. Autorizado por la entidad, no por la
+ * casilla. `synced=false` cuando el hilo aún no tiene mensajes espejados.
+ */
+export type EntityThreadDetail = {
+  thread: { id: string; subject: string };
+  messages: CorreoMessageDTO[];
+  attachments: CorreoAttachmentDTO[];
+  synced: boolean;
 };
 
 export type CorreoDetail = {

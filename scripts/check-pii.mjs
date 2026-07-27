@@ -77,6 +77,14 @@ const SKIP_FILES = new Set([
   "package-lock.json", "yarn.lock", "pnpm-lock.yaml", "bun.lockb",
 ]);
 
+// Assets de terceros minificados/vendorizados: no son código propio ni PII.
+// El worker de pdf.js (pdf.worker.min.mjs) tiene literales numéricos largos
+// que disparan un falso positivo de "tarjeta". Se copian desde node_modules
+// (versión fija) para servir el visor de PDF sin CDN.
+const SKIP_PATH_PREFIXES = [
+  "public/pdf/",
+];
+
 const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024;
 
 // ───────────────────────────────────────────────────────────────────
@@ -104,6 +112,7 @@ function shouldSkipFile(path) {
   const name = basename(path);
   if (SKIP_EXTENSIONS.has(ext)) return true;
   if (SKIP_FILES.has(name)) return true;
+  if (SKIP_PATH_PREFIXES.some((prefix) => path.startsWith(prefix))) return true;
   if (path === "scripts/check-pii.mjs") return true;
   try {
     const size = statSync(path).size;

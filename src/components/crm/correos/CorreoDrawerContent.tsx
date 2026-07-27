@@ -120,6 +120,10 @@ export function CorreoDrawerContent({
         dealId={t.dealId}
         dealTitle={t.dealTitle}
         accountId={t.accountId}
+        accountName={t.accountName}
+        degraded={detail.degraded}
+        onSaved={onRefresh}
+        onRequestAssociate={() => openPanel("cuenta")}
       />
 
       {/* Responder — barra Gmail / composer bajo demanda. Nada debajo (el panel

@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => ({
   messagesCount: vi.fn(),
   crmAccountFindFirst: vi.fn(),
   crmDealFindFirst: vi.fn(),
+  crmFileFindMany: vi.fn(),
   gmailClientForAccount: vi.fn(),
   hydrateMissingThreadMessages: vi.fn(),
   captureEmailError: vi.fn(),
@@ -28,6 +29,7 @@ vi.mock("@/lib/prisma", () => ({
     },
     crmAccount: { findFirst: mocks.crmAccountFindFirst },
     crmDeal: { findFirst: mocks.crmDealFindFirst },
+    crmFile: { findMany: mocks.crmFileFindMany },
   },
 }));
 vi.mock("../gmail-account-client", () => ({
@@ -84,6 +86,7 @@ beforeEach(() => {
   // Probe (cuerpos) + listado final: por defecto hilo vacío → fuerza repair.
   mocks.messagesFindMany.mockResolvedValue([]);
   mocks.messagesCount.mockResolvedValue(0);
+  mocks.crmFileFindMany.mockResolvedValue([]);
   mocks.hydrateMissingThreadMessages.mockResolvedValue(undefined);
 });
 

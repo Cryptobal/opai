@@ -1,12 +1,13 @@
 /**
- * GET /api/crm/conversaciones?accountId=… | ?installationId=…
+ * GET /api/crm/conversaciones?accountId=… | ?dealId=… | ?installationId=…
  *
  * Lista los hilos de correo VISIBLES en la ficha de una entidad (Bloque 5,
  * "asociar = compartir"). El acceso se deriva de la entidad (no del dueño de la
  * casilla): se filtra por tenant + entidad + flag de visibilidad. Nunca expone
- * hilos privados ni de otros tenants.
+ * hilos privados ni de otros tenants. El detalle se abre con el lector embebido
+ * (GET /api/crm/conversaciones/[threadId]); ya NO se enlaza al módulo Correos.
  *
- *  - Cuenta: hilos con accountId = X y sharedWithAccount = true.
+ *  - Cuenta/Negocio: hilos con accountId|dealId = X y sharedWithAccount = true.
  *  - Instalación (u otra entidad vinculada): hilos con un CrmEmailThreadLink
  *    {entityType, entityId} y visibleOnEntity = true.
  */
@@ -30,7 +31,6 @@ function toDTO(rows: ThreadRow[]) {
     subject: t.subject,
     fromEmail: t.messages[0]?.fromEmail ?? null,
     lastMessageAt: t.lastMessageAt?.toISOString() ?? null,
-    href: `/crm/correos?thread=${t.id}`,
   }));
 }
 
@@ -48,6 +48,7 @@ export async function GET(req: NextRequest) {
   const perms = await resolveApiPerms(ctx);
 
   const accountId = req.nextUrl.searchParams.get("accountId");
+  const dealId = req.nextUrl.searchParams.get("dealId");
   const installationId = req.nextUrl.searchParams.get("installationId");
 
   if (accountId) {
@@ -63,6 +64,26 @@ export async function GET(req: NextRequest) {
 
     const threads = await prisma.crmEmailThread.findMany({
       where: { tenantId, accountId, sharedWithAccount: true },
+      orderBy: { lastMessageAt: "desc" },
+      take: 50,
+      select: THREAD_SELECT,
+    });
+    return NextResponse.json({ threads: toDTO(threads) });
+  }
+
+  if (dealId) {
+    // Acceso derivado del negocio (módulo CRM · negocios).
+    if (!canView(perms, "crm", "deals")) {
+      return NextResponse.json({ error: "Sin acceso al negocio" }, { status: 403 });
+    }
+    const deal = await prisma.crmDeal.findFirst({
+      where: { id: dealId, tenantId },
+      select: { id: true },
+    });
+    if (!deal) return NextResponse.json({ error: "Negocio no encontrado" }, { status: 404 });
+
+    const threads = await prisma.crmEmailThread.findMany({
+      where: { tenantId, dealId, sharedWithAccount: true },
       orderBy: { lastMessageAt: "desc" },
       take: 50,
       select: THREAD_SELECT,
@@ -91,5 +112,5 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ threads: toDTO(threads) });
   }
 
-  return NextResponse.json({ error: "Falta accountId o installationId" }, { status: 400 });
+  return NextResponse.json({ error: "Falta accountId, dealId o installationId" }, { status: 400 });
 }

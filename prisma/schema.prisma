@@ -3028,6 +3028,12 @@ model CrmFile {
   portalVisible   Boolean  @default(false) @map("portal_visible")
   createdBy       String?  @map("created_by")
   driveFileId     String?  @map("drive_file_id") // origen Drive (import bilateral)
+  // Procedencia (B5): de qué correo salió el archivo. Aditivo/nullable; los
+  // CrmFile previos quedan con procedencia nula y siguen funcionando.
+  sourceType      String?  @map("source_type") // "email" | null
+  sourceThreadId  String?  @map("source_thread_id") @db.Uuid
+  sourceMessageId String?  @map("source_message_id")
+  contentHash     String?  @map("content_hash") // sha256 hex del binario (dedupe por tenant)
   createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
   links CrmFileLink[]
@@ -3035,6 +3041,8 @@ model CrmFile {
   @@index([tenantId], map: "idx_crm_files_tenant")
   @@index([createdAt(sort: Desc)], map: "idx_crm_files_created_desc")
   @@index([driveFileId], map: "idx_crm_files_drive_file")
+  @@index([tenantId, sourceThreadId], map: "idx_crm_files_source_thread")
+  @@index([tenantId, contentHash], map: "idx_crm_files_content_hash")
   @@map("files")
   @@schema("crm")
 }
