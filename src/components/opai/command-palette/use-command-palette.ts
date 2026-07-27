@@ -16,7 +16,9 @@ const MAX_RECENTS = 8;
 
 interface CommandPaletteContextValue {
   isOpen: boolean;
-  open: () => void;
+  /** Query inicial opcional (p. ej. desde la isla móvil). Retrocompatible. */
+  initialQuery?: string;
+  open: (initialQuery?: string) => void;
   close: () => void;
   toggle: () => void;
   /** Comandos adicionales registrados dinámicamente */
@@ -52,6 +54,7 @@ export const CommandPaletteContext = createContext<CommandPaletteContextValue | 
  */
 const NOOP_PALETTE: CommandPaletteContextValue = {
   isOpen: false,
+  initialQuery: undefined,
   open: () => {},
   close: () => {},
   toggle: () => {},
@@ -94,11 +97,23 @@ function writeRecents(items: RecentItem[]) {
 
 export function useCommandPaletteState() {
   const [isOpen, setIsOpen] = useState(false);
+  const [initialQuery, setInitialQuery] = useState<string | undefined>(undefined);
   const [externalCommands, setExternalCommands] = useState<CommandItem[]>([]);
 
-  const open = useCallback(() => setIsOpen(true), []);
-  const close = useCallback(() => setIsOpen(false), []);
-  const toggle = useCallback(() => setIsOpen((prev) => !prev), []);
+  const open = useCallback((query?: string) => {
+    setInitialQuery(query);
+    setIsOpen(true);
+  }, []);
+  const close = useCallback(() => {
+    setIsOpen(false);
+    setInitialQuery(undefined);
+  }, []);
+  const toggle = useCallback(() => {
+    setIsOpen((prev) => {
+      if (prev) setInitialQuery(undefined);
+      return !prev;
+    });
+  }, []);
 
   const registerCommands = useCallback((commands: CommandItem[]) => {
     setExternalCommands((prev) => {
@@ -129,6 +144,7 @@ export function useCommandPaletteState() {
   const value = useMemo<CommandPaletteContextValue>(
     () => ({
       isOpen,
+      initialQuery,
       open,
       close,
       toggle,
@@ -139,8 +155,8 @@ export function useCommandPaletteState() {
       getRecents,
       clearRecents,
     }),
-    [isOpen, open, close, toggle, externalCommands, registerCommands, unregisterCommands, addRecent, getRecents, clearRecents],
+    [isOpen, initialQuery, open, close, toggle, externalCommands, registerCommands, unregisterCommands, addRecent, getRecents, clearRecents],
   );
 
-  return { value, isOpen, setIsOpen };
+  return { value, isOpen, setIsOpen, open, close };
 }

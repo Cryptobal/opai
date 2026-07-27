@@ -21,7 +21,6 @@ export { ThemeLogo } from './ThemeLogo';
 
 // Topbar Components
 export { TopbarActions } from './TopbarActions';
-export { DocumentosTopbar } from './DocumentosTopbar';
 export { ReloadButton } from './ReloadButton';
 
 // Navigation

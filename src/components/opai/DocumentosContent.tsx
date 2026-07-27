@@ -10,6 +10,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { PresentationsList } from '@/components/admin/PresentationsList';
+import { useSetBreadcrumbTrailing } from '@/components/opai-ds';
 
 interface Stats {
   total: number;
@@ -38,7 +39,7 @@ export function DocumentosContent({ presentations, stats, conversionRate }: Docu
     setActiveFilter(activeFilter === filter ? 'all' : filter);
   };
 
-  // Mobile: colapsar métricas al scroll
+  // Mobile: colapsar métricas al scroll → resumen en la isla (trailing)
   useEffect(() => {
     const observer = new IntersectionObserver(
       ([entry]) => setIsCollapsed(!entry.isIntersecting),
@@ -47,6 +48,11 @@ export function DocumentosContent({ presentations, stats, conversionRate }: Docu
     if (metricsRef.current) observer.observe(metricsRef.current);
     return () => observer.disconnect();
   }, []);
+
+  const islandSummary = isCollapsed
+    ? `${stats.total} propuestas · ${stats.totalViews} vistas · ${stats.pending} sin leer`
+    : null;
+  useSetBreadcrumbTrailing(islandSummary);
 
   const conversionDisplay = stats.sent > 0
     ? `${(stats.viewed / stats.sent).toFixed(1)}:1`
@@ -61,17 +67,6 @@ export function DocumentosContent({ presentations, stats, conversionRate }: Docu
 
   return (
     <>
-      {/* Collapsed sticky summary — mobile only */}
-      {isCollapsed && (
-        <div className="lg:hidden sticky top-0 z-20 px-4 py-2 bg-background/80 backdrop-blur-xl border-b border-border text-xs text-muted-foreground">
-          <span className="font-semibold text-foreground">{stats.total}</span> propuestas
-          <span className="mx-1.5 text-muted-foreground/30">·</span>
-          <span className="font-semibold text-blue-400">{stats.totalViews}</span> vistas
-          <span className="mx-1.5 text-muted-foreground/30">·</span>
-          <span className="font-semibold text-amber-400">{stats.pending}</span> sin leer
-        </div>
-      )}
-
       {/* KPI Metrics */}
       <div ref={metricsRef} className="mb-4">
         {/* Desktop: fila horizontal con separadores */}
