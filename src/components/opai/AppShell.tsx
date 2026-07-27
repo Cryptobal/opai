@@ -29,6 +29,7 @@ import {
   TopbarSubNav,
 } from '@/components/opai-ds';
 import { resolveNavContext } from '@/lib/nav/resolve-context';
+import { DEFAULT_SURFACE, type Surface } from '@/lib/surface';
 
 export interface AppShellProps {
   sidebar?: ReactNode;
@@ -37,6 +38,8 @@ export interface AppShellProps {
   userEmail?: string;
   userRole?: string;
   className?: string;
+  /** Superficie activa (erp | productividad). Solo presentación. */
+  surface?: Surface;
 }
 
 /** Rutas que en móvil toman la pantalla completa: sin isla topbar,
@@ -89,6 +92,7 @@ function AppShellInner({
   userEmail,
   userRole,
   className,
+  surface = DEFAULT_SURFACE,
 }: AppShellProps) {
   const pathname = usePathname();
   const isImmersiveMobile = IMMERSIVE_MOBILE_PREFIXES.some((p) => pathname.startsWith(p));
@@ -295,7 +299,7 @@ function AppShellInner({
           creates a containing block (transform/filter/backdrop-filter) and
           breaks `position: fixed`. */}
       <BottomNavPortal>
-        <BottomNav userRole={userRole} />
+        <BottomNav userRole={userRole} surface={surface} />
       </BottomNavPortal>
       {/* Intelligence dock al mismo nivel que Chat/Notif para fixed right-0 correcto. */}
       <AiHelpChatWidget />

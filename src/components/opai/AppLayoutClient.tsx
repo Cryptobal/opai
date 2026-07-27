@@ -14,6 +14,7 @@ import { PushPermissionPrompt } from '@/components/pwa/PushPermissionPrompt';
 import { InAppNotificationProvider } from '@/components/notifications/InAppNotificationProvider';
 import { PanicAlertProvider } from '@/components/ops/PanicAlertProvider';
 import { buildNavItems } from '@/components/opai/role-nav-builder';
+import { DEFAULT_SURFACE, type Surface } from '@/lib/surface';
 
 interface AppLayoutClientProps {
   children: ReactNode;
@@ -23,6 +24,8 @@ interface AppLayoutClientProps {
   permissions: RolePermissions;
   currentUserId?: string;
   tenantId?: string;
+  /** Superficie activa leída en el server layout (cookie). Default erp. */
+  surface?: Surface;
 }
 
 export function AppLayoutClient(props: AppLayoutClientProps) {
@@ -43,6 +46,7 @@ function AppLayoutClientInner({
   userRole,
   permissions: realPermissions,
   currentUserId,
+  surface = DEFAULT_SURFACE,
 }: AppLayoutClientProps) {
   const { isSimulating, effectivePermissions } = useRoleSimulation();
   // Use simulated permissions when active, otherwise real permissions
@@ -92,8 +96,9 @@ function AppLayoutClientInner({
         isModuleEnabled,
         hasTenantFlag: hasFeatureFlag,
         badges: { unreadMentionNotesCount, notesByModule },
+        surface,
       }),
-    [permissions, isAdmin, isComplianceVisible, isModuleEnabled, hasFeatureFlag, unreadMentionNotesCount, notesByModule],
+    [permissions, isAdmin, isComplianceVisible, isModuleEnabled, hasFeatureFlag, unreadMentionNotesCount, notesByModule, surface],
   );
 
   return (
@@ -117,11 +122,13 @@ function AppLayoutClientInner({
               navItems={navItems}
               userName={userName ?? undefined}
               userEmail={userEmail ?? undefined}
+              surface={surface}
             />
           }
           userName={userName ?? undefined}
           userEmail={userEmail ?? undefined}
           userRole={userRole}
+          surface={surface}
         >
           {currentUserId && tenantId && (
             <PushPermissionPrompt

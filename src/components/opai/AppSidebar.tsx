@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils';
 import { ChevronRight, LogOut, LucideIcon, PanelLeftClose, PanelLeftOpen, X } from 'lucide-react';
 import { useChatSidePanelContext } from '@/components/chat/ChatFloatingProvider';
 import { pathMatchesNode } from '@/lib/nav/registry';
+import { DEFAULT_SURFACE, type Surface } from '@/lib/surface';
 import { ThemeLogo } from './ThemeLogo';
 import { SignOutDialog } from './SignOutDialog';
 
@@ -43,6 +44,8 @@ export interface AppSidebarProps {
   className?: string;
   showCloseButton?: boolean;
   onClose?: () => void;
+  /** Superficie activa — el switcher se monta en el bloque 5. */
+  surface?: Surface;
 }
 
 interface FlyoutState {
@@ -62,6 +65,7 @@ export function AppSidebar({
   className,
   showCloseButton,
   onClose,
+  surface: _surface = DEFAULT_SURFACE,
 }: AppSidebarProps) {
   const pathname = usePathname();
   const chatCtx = useChatSidePanelContext();
