@@ -45,6 +45,7 @@ import {
   closeCorreoThreadInHistory,
   openCorreoThreadInHistory,
 } from "./correo-thread-history";
+import { setCorreoComposeInHistory } from "./correo-compose-history";
 import { nextThreadAfterRemove } from "./correo-list-advance";
 import { useCloseOnBack } from "./useCloseOnBack";
 import { isUuid } from "@/lib/utils/uuid";
@@ -338,7 +339,9 @@ export function CorreosClient() {
       setAutoExtract(current.get("extract") === "1");
     };
     syncThreadFromUrl();
-    // Deep-link del command palette: abrir el composer directo.
+    // Deep-link del command palette / productividad: abrir el composer.
+    // La URL se mantiene en sync con open/close vía setCorreoComposeInHistory
+    // — cerrar o descartar quita ?compose=1 para que un refresh no lo reabra.
     if (sp.get("compose") === "1") setComposeOpen(true);
     // Deep-links: "archived" ya no es pestaña → normalizar a "Todos".
     const f = sp.get("folder");
@@ -1114,7 +1117,10 @@ export function CorreosClient() {
         <button
           type="button"
           aria-label="Redactar correo"
-          onClick={() => setComposeOpen(true)}
+          onClick={() => {
+            setComposeOpen(true);
+            setCorreoComposeInHistory(true);
+          }}
           className="fixed bottom-[calc(5.5rem+env(safe-area-inset-bottom,0px))] right-4 z-40 inline-flex h-12 items-center gap-2 rounded-full bg-primary px-4 text-[13px] font-medium text-primary-foreground shadow-lg ds-tap lg:hidden"
         >
           <PenLine className="h-4 w-4" /> Redactar
@@ -1131,7 +1137,10 @@ export function CorreosClient() {
           chip={chip} onChip={setChip}
           vertical={vertical} onVertical={setVertical}
           counts={counts}
-          onCompose={() => setComposeOpen(true)}
+          onCompose={() => {
+            setComposeOpen(true);
+            setCorreoComposeInHistory(true);
+          }}
           onSync={syncNow} syncing={syncing}
           realtimeStatus={realtimeStatus} lastSyncAt={lastSyncAt}
           mailboxEmail={mailboxEmail}
@@ -1302,7 +1311,10 @@ export function CorreosClient() {
           de ds-page-enter (FAB de compose, posponer masivo, etc.). */}
       <CorreoComposeSheet
         open={composeOpen}
-        onClose={() => setComposeOpen(false)}
+        onClose={() => {
+          setComposeOpen(false);
+          setCorreoComposeInHistory(false);
+        }}
         onSent={() => void fetchPage(null, true)}
       />
 
