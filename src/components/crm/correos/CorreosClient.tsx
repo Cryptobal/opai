@@ -1274,10 +1274,14 @@ export function CorreosClient() {
             const t = openId ? items.find((x) => x.id === openId) : null;
             if (t) openAiPanel(t, "lead");
           }}
-          onOpenAiAnalizar={() => {
-            const t = openId ? items.find((x) => x.id === openId) : null;
-            if (t) openAiPanel(t, "analizar");
-          }}
+          onOpenAiAnalizar={
+            capsFromPerms(perms).has("radar_comercial")
+              ? () => {
+                  const t = openId ? items.find((x) => x.id === openId) : null;
+                  if (t) openAiPanel(t, "analizar");
+                }
+              : undefined
+          }
           onOpenAiMenu={
             hasRadarCaps
               ? () => {
