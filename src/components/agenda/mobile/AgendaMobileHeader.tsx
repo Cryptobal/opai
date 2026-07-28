@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ChevronDown, SlidersHorizontal } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useSetIslandModuleMenu } from "@/components/opai-ds";
 import { addDaysChile, todayInChile, ymdInChile } from "@/lib/dates-cl";
 import { dateAtChileSlot } from "../agenda-calendar-utils";
 import { dayParts, monthTitle, type AgendaMobileView } from "./agenda-mobile-utils";
@@ -39,6 +40,14 @@ export function AgendaMobileHeader({
   const stripRef = useRef<HTMLDivElement>(null);
   const headerRef = useRef<HTMLElement>(null);
   const [collapsed, setCollapsed] = useState(false);
+
+  // Filtros viven en la isla global (Zona C'), no en el header local.
+  useSetIslandModuleMenu({
+    icon: SlidersHorizontal,
+    label: "Filtros",
+    badge: filterCount > 0 ? filterCount : undefined,
+    onOpen: onOpenFilters,
+  });
 
   // Publica la altura real del header para los day-headers sticky de la lista.
   useEffect(() => {
@@ -113,19 +122,6 @@ export function AgendaMobileHeader({
             className="h-11 rounded-full border border-ds-border-default px-3 text-[13px] font-medium text-ds-text-2 ds-tap"
           >
             Hoy
-          </button>
-          <button
-            type="button"
-            onClick={onOpenFilters}
-            aria-label="Filtros"
-            className="relative inline-flex h-11 w-11 items-center justify-center rounded-xl border border-ds-border-default text-ds-text-2 ds-tap"
-          >
-            <SlidersHorizontal className="h-4 w-4" />
-            {filterCount > 0 && (
-              <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1 text-[12px] font-semibold text-primary-foreground">
-                {filterCount}
-              </span>
-            )}
           </button>
         </div>
       </div>

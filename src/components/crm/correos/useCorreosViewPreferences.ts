@@ -122,14 +122,22 @@ export function normalizeShortcutKey(key: string): string {
   return key;
 }
 
-/** Resuelve el input de búsqueda activo (desktop toolbar o top bar móvil). */
+/** Resuelve el input de búsqueda activo (desktop toolbar o isla móvil). */
 export function focusCorreosSearch(): void {
   const desktop = document.getElementById("correos-search-input");
   if (desktop) {
     desktop.focus();
     return;
   }
-  document.getElementById("correos-search-input-mobile")?.focus();
+  const mobile = document.getElementById("correos-search-input-mobile");
+  if (mobile) {
+    mobile.focus();
+    return;
+  }
+  // Isla: abrir modo búsqueda del módulo y enfocar el campo.
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent("opai:island-open-search"));
+  }
 }
 
 function firstFreeShortcutKey(config: CorreoShortcuts, preferred: string): string {

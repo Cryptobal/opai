@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { memo, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { motion, useTransform } from "framer-motion";
 import { Archive, Clock, Mail, MailOpen, Reply, Star, Trash2, type LucideIcon } from "lucide-react";
 import { CorreoRow } from "./CorreoRow";
@@ -17,7 +17,6 @@ import {
   SWIPE_COMMIT_RATIO,
   SWIPE_OPEN_WIDTH,
   useRowSwipe,
-  type CorreoSwipeSide,
 } from "./useRowSwipe";
 
 /** Colores por acción — solo tokens de estado/categóricos del DS. */
@@ -44,40 +43,77 @@ function actionMeta(action: CorreoSwipeAction, thread: CorreoThreadDTO): { icon:
 type Props = {
   thread: CorreoThreadDTO;
   canModify: boolean;
-  onOpen: () => void;
+  onOpen: (id: string) => void;
   onChanged?: () => void;
+  /** Patch optimista local (read/star) antes del round-trip. */
+  onPatch?: (id: string, partial: Partial<CorreoThreadDTO>) => void;
   onRemoveDone?: () => void;
   onUndoDone?: () => void;
   onRemove?: (id: string) => void;
-  onSnooze?: () => void;
-  onAiMenu?: (anchor: { x: number; y: number }) => void;
+  onSnooze?: (id: string) => void;
+  onAiMenu?: (id: string, anchor: { x: number; y: number }) => void;
   selected?: boolean;
   focused?: boolean;
   checked?: boolean;
-  onToggleCheck?: () => void;
+  onToggleCheck?: (id: string) => void;
   previewLines?: CorreoPreviewLines;
   swipeConfig: CorreoSwipeConfig;
-  onAvatarPress?: () => void;
-  onLongPress?: () => void;
+  onAvatarPress?: (id: string) => void;
+  onLongPress?: (id: string) => void;
   selectionMode?: boolean;
   caps?: Set<RadarCapability>;
 };
 
 const LEAVE_MS = 200;
 
+function SwipeActionStrip({
+  actions,
+  thread,
+  revealed,
+  onExecute,
+}: {
+  actions: CorreoSwipeAction[];
+  thread: CorreoThreadDTO;
+  revealed: boolean;
+  onExecute: (action: CorreoSwipeAction) => void;
+}) {
+  return (
+    <>
+      {actions.map((action) => {
+        const meta = actionMeta(action, thread);
+        const Icon = meta.icon;
+        const style = ACTION_STYLE[action];
+        return (
+          <button
+            key={action}
+            type="button"
+            tabIndex={revealed ? 0 : -1}
+            onClick={() => onExecute(action)}
+            className={`flex h-full flex-col items-center justify-center gap-0.5 px-1 ds-tap ${style.bg} ${style.fg}`}
+            style={{ width: SWIPE_BUTTON_WIDTH }}
+          >
+            <Icon className="h-5 w-5" />
+            <span className="w-full truncate text-center text-[12px] font-medium">{meta.label}</span>
+          </button>
+        );
+      })}
+    </>
+  );
+}
+
 /**
  * Swipe de dos niveles (sólo pointer coarse): snap revela 2 botones (tap);
  * commit o flick ejecuta la principal. Botones de ancho fijo; overlay de commit.
+ * Sin lecturas de layout ni re-renders durante el arrastre.
  */
-export function CorreoRowSwipe({
-  thread, canModify, onOpen, onChanged, onRemoveDone, onUndoDone, onRemove, onSnooze,
+function CorreoRowSwipeInner({
+  thread, canModify, onOpen, onChanged, onPatch, onRemoveDone, onUndoDone, onRemove, onSnooze,
   onAiMenu,
   selected, focused, checked, onToggleCheck, previewLines, swipeConfig,
   onAvatarPress, onLongPress, selectionMode = false, caps,
 }: Props) {
   const [coarse, setCoarse] = useState(false);
   const [leaving, setLeaving] = useState(false);
-  const lastSide = useRef<CorreoSwipeSide>("right");
   const leaveTimer = useRef<number | null>(null);
 
   useEffect(() => {
@@ -91,10 +127,9 @@ export function CorreoRowSwipe({
   const {
     x,
     openSide,
-    dragging,
-    dragSide,
     touchAction,
     rowRef,
+    rowWidthRef,
     measureWidth,
     close,
     wasDragged,
@@ -103,7 +138,7 @@ export function CorreoRowSwipe({
   } = useRowSwipe({
     enabled: coarse && canModify && !leaving && !selectionMode,
     onCommitSwipe: (side) => execute(side === "right" ? swipeConfig.right[0] : swipeConfig.left[0]),
-    onLongPress: coarse && onLongPress ? onLongPress : undefined,
+    onLongPress: coarse && onLongPress ? () => onLongPress(thread.id) : undefined,
   });
 
   useEffect(() => {
@@ -122,44 +157,57 @@ export function CorreoRowSwipe({
     return () => ro.disconnect();
   }, [rowRef, coarse, measureWidth]);
 
-  const armedOverlayOpacity = useTransform(x, (value) => {
+  // Transforms leen rowWidthRef (memoizado) — cero offsetWidth por frame.
+  const rightStripOpacity = useTransform(x, (value) => {
+    if (value <= 0) return 0;
+    const abs = value;
+    const width = rowWidthRef.current || 360;
+    return abs >= width * SWIPE_COMMIT_RATIO ? 0 : 1;
+  });
+
+  const leftStripOpacity = useTransform(x, (value) => {
+    if (value >= 0) return 0;
     const abs = Math.abs(value);
-    const width = rowRef.current?.offsetWidth || 360;
+    const width = rowWidthRef.current || 360;
+    return abs >= width * SWIPE_COMMIT_RATIO ? 0 : 1;
+  });
+
+  const rightCommitOpacity = useTransform(x, (value) => {
+    if (value <= 0) return 0;
+    const abs = value;
+    const width = rowWidthRef.current || 360;
     const threshold = width * SWIPE_COMMIT_RATIO;
     if (abs < threshold) return 0;
     const progress = Math.min(1, (abs - threshold) / Math.max(threshold * 0.35, 1));
     return 0.45 + 0.55 * progress;
   });
 
-  const commitIconLeft = useTransform(x, (value) => {
-    const width = rowRef.current?.offsetWidth || 360;
-    // Anclado al borde interior de la fila que sigue al dedo.
-    if (value >= 0) return Math.max(12, value - 36);
+  const leftCommitOpacity = useTransform(x, (value) => {
+    if (value >= 0) return 0;
+    const abs = Math.abs(value);
+    const width = rowWidthRef.current || 360;
+    const threshold = width * SWIPE_COMMIT_RATIO;
+    if (abs < threshold) return 0;
+    const progress = Math.min(1, (abs - threshold) / Math.max(threshold * 0.35, 1));
+    return 0.45 + 0.55 * progress;
+  });
+
+  const rightCommitIconLeft = useTransform(x, (value) => {
+    if (value < 0) return 12;
+    return Math.max(12, value - 36);
+  });
+
+  const leftCommitIconLeft = useTransform(x, (value) => {
+    const width = rowWidthRef.current || 360;
+    if (value >= 0) return 12;
     return Math.max(12, width + value + 12);
   });
-
-  const hideActionButtons = useTransform(x, (value) => {
-    const abs = Math.abs(value);
-    const width = rowRef.current?.offsetWidth || 360;
-    return abs >= width * SWIPE_COMMIT_RATIO ? 0 : 1;
-  });
-
-  if (!coarse) {
-    return (
-      <CorreoRow thread={thread} canModify={canModify} onOpen={onOpen} onChanged={onChanged}
-        onRemoveDone={onRemoveDone} onUndoDone={onUndoDone} onRemove={onRemove}
-        onSnooze={onSnooze} onAiMenu={onAiMenu}
-        selected={selected} focused={focused} checked={checked}
-        onToggleCheck={onToggleCheck} previewLines={previewLines} caps={caps} />
-    );
-  }
 
   function execute(action: CorreoSwipeAction) {
     if (action === "archive" || action === "trash") {
       if (leaving) return;
       setLeaving(true);
       const undo = action === "archive" ? "unarchive" : "untrash";
-      // Esperar la animación de colapso antes de desmontar la fila.
       leaveTimer.current = window.setTimeout(() => {
         leaveTimer.current = null;
         onRemove?.(thread.id);
@@ -185,27 +233,34 @@ export function CorreoRowSwipe({
       return;
     }
     close();
-    if (action === "snooze") { onSnooze?.(); return; }
+    if (action === "snooze") { onSnooze?.(thread.id); return; }
     if (action === "read") {
       const wasUnread = thread.isUnread;
+      onPatch?.(thread.id, { isUnread: !wasUnread });
       void runCorreoAction(
         thread.id, wasUnread ? "markRead" : "markUnread",
         wasUnread ? "Marcado como leído" : "Marcado como no leído",
         onChanged,
         wasUnread ? "markUnread" : "markRead",
-      );
+      ).then((ok) => {
+        if (!ok) onPatch?.(thread.id, { isUnread: wasUnread });
+      });
       return;
     }
     if (action === "star") {
       const starred = Boolean(thread.starredAt);
+      const nextStarredAt = starred ? null : new Date().toISOString();
+      onPatch?.(thread.id, { starredAt: nextStarredAt });
       void runCorreoAction(
         thread.id, starred ? "unstar" : "star",
         starred ? "Quitado de destacados" : "Destacado",
         onChanged, starred ? "star" : "unstar",
-      );
+      ).then((ok) => {
+        if (!ok) onPatch?.(thread.id, { starredAt: thread.starredAt });
+      });
       return;
     }
-    onOpen();
+    onOpen(thread.id);
     window.setTimeout(() => {
       document.getElementById("correo-suggested-reply")?.scrollIntoView({ block: "center" });
     }, 600);
@@ -214,19 +269,40 @@ export function CorreoRowSwipe({
   function handleOpen() {
     if (wasDragged()) return;
     if (openSide) { close(); return; }
-    onOpen();
+    onOpen(thread.id);
   }
 
-  const side = dragSide ?? openSide ?? lastSide.current;
-  if (openSide) lastSide.current = openSide;
-  if (dragSide) lastSide.current = dragSide;
+  if (!coarse) {
+    return (
+      <CorreoRow
+        thread={thread}
+        canModify={canModify}
+        onOpen={() => onOpen(thread.id)}
+        onChanged={onChanged}
+        onRemoveDone={onRemoveDone}
+        onUndoDone={onUndoDone}
+        onRemove={onRemove}
+        onSnooze={onSnooze ? () => onSnooze(thread.id) : undefined}
+        onAiMenu={onAiMenu ? (anchor) => onAiMenu(thread.id, anchor) : undefined}
+        selected={selected}
+        focused={focused}
+        checked={checked}
+        onToggleCheck={onToggleCheck ? () => onToggleCheck(thread.id) : undefined}
+        previewLines={previewLines}
+        caps={caps}
+      />
+    );
+  }
 
-  const actions = side === "right" ? swipeConfig.right : swipeConfig.left;
-  const primary = actions[0];
-  const primaryMeta = actionMeta(primary, thread);
-  const PrimaryIcon = primaryMeta.icon;
-  const shown = side === "left" ? [actions[1], actions[0]] : actions;
-  const revealed = openSide !== null || dragging;
+  const rightActions = swipeConfig.right;
+  const leftActions = swipeConfig.left;
+  // Lado izquierdo: visualmente [secundaria, primaria] anclado a la derecha.
+  const leftShown: CorreoSwipeAction[] = [leftActions[1], leftActions[0]];
+  const revealed = openSide !== null;
+  const rightPrimary = rightActions[0];
+  const leftPrimary = leftActions[0];
+  const RightPrimaryIcon = actionMeta(rightPrimary, thread).icon;
+  const LeftPrimaryIcon = actionMeta(leftPrimary, thread).icon;
 
   return (
     <div
@@ -236,48 +312,57 @@ export function CorreoRowSwipe({
         leaving ? "max-h-0 opacity-0" : "max-h-[240px] opacity-100"
       }`}
     >
-      {/* Strip de acciones: ancho fijo, anclado al borde, revelado por traslación. */}
+      {/* Strip derecho (swipe →): anclado a la izquierda. */}
       <motion.div
-        aria-hidden={!revealed}
-        className={`absolute inset-y-0 flex ${side === "right" ? "left-0" : "right-0"}`}
-        style={{
-          width: SWIPE_OPEN_WIDTH,
-          opacity: hideActionButtons,
-        }}
+        aria-hidden={!revealed || openSide !== "right"}
+        className="absolute inset-y-0 left-0 flex"
+        style={{ width: SWIPE_OPEN_WIDTH, opacity: rightStripOpacity }}
       >
-        {shown.map((action) => {
-          const meta = actionMeta(action, thread);
-          const Icon = meta.icon;
-          const style = ACTION_STYLE[action];
-          return (
-            <button
-              key={action}
-              type="button"
-              tabIndex={revealed ? 0 : -1}
-              onClick={() => execute(action)}
-              className={`flex h-full flex-col items-center justify-center gap-0.5 px-1 ds-tap ${style.bg} ${style.fg}`}
-              style={{ width: SWIPE_BUTTON_WIDTH }}
-            >
-              <Icon className="h-5 w-5" />
-              <span className="w-full truncate text-center text-[12px] font-medium">{meta.label}</span>
-            </button>
-          );
-        })}
+        <SwipeActionStrip
+          actions={rightActions}
+          thread={thread}
+          revealed={revealed && openSide === "right"}
+          onExecute={execute}
+        />
       </motion.div>
 
-      {/* Overlay de commit: llena el strip con el color de la acción principal. */}
+      {/* Strip izquierdo (swipe ←): anclado a la derecha. */}
+      <motion.div
+        aria-hidden={!revealed || openSide !== "left"}
+        className="absolute inset-y-0 right-0 flex"
+        style={{ width: SWIPE_OPEN_WIDTH, opacity: leftStripOpacity }}
+      >
+        <SwipeActionStrip
+          actions={leftShown}
+          thread={thread}
+          revealed={revealed && openSide === "left"}
+          onExecute={execute}
+        />
+      </motion.div>
+
+      {/* Overlays de commit — uno por lado, sin re-render al cruzar cero. */}
       <motion.div
         aria-hidden
-        className={`pointer-events-none absolute inset-0 ${ACTION_STYLE[primary].bg}`}
-        style={{ opacity: armedOverlayOpacity }}
+        className={`pointer-events-none absolute inset-0 ${ACTION_STYLE[rightPrimary].bg}`}
+        style={{ opacity: rightCommitOpacity }}
       >
         <motion.div
           className="absolute inset-y-0 flex items-center"
-          style={{ left: commitIconLeft }}
+          style={{ left: rightCommitIconLeft }}
         >
-          <PrimaryIcon
-            className={`h-6 w-6 scale-125 ${ACTION_STYLE[primary].fg}`}
-          />
+          <RightPrimaryIcon className={`h-6 w-6 scale-125 ${ACTION_STYLE[rightPrimary].fg}`} />
+        </motion.div>
+      </motion.div>
+      <motion.div
+        aria-hidden
+        className={`pointer-events-none absolute inset-0 ${ACTION_STYLE[leftPrimary].bg}`}
+        style={{ opacity: leftCommitOpacity }}
+      >
+        <motion.div
+          className="absolute inset-y-0 flex items-center"
+          style={{ left: leftCommitIconLeft }}
+        >
+          <LeftPrimaryIcon className={`h-6 w-6 scale-125 ${ACTION_STYLE[leftPrimary].fg}`} />
         </motion.div>
       </motion.div>
 
@@ -287,11 +372,54 @@ export function CorreoRowSwipe({
         {...longPressHandlers}
         {...dragProps}
       >
-        <CorreoRow thread={thread} canModify={canModify} onOpen={handleOpen} onChanged={onChanged}
-          mobileGmail checked={checked}
-          onAvatarPress={onAvatarPress ? () => { if (!wasDragged()) onAvatarPress(); } : undefined}
-          previewLines={previewLines} caps={caps} />
+        <CorreoRow
+          thread={thread}
+          canModify={canModify}
+          onOpen={handleOpen}
+          onChanged={onChanged}
+          mobileGmail
+          checked={checked}
+          onAvatarPress={
+            onAvatarPress
+              ? () => {
+                  if (!wasDragged()) {
+                    if (openSide) { close(); return; }
+                    onAvatarPress(thread.id);
+                  }
+                }
+              : undefined
+          }
+          previewLines={previewLines}
+          caps={caps}
+        />
       </motion.div>
     </div>
   );
 }
+
+function propsAreEqual(prev: Props, next: Props): boolean {
+  return (
+    prev.thread === next.thread &&
+    prev.canModify === next.canModify &&
+    prev.selected === next.selected &&
+    prev.focused === next.focused &&
+    prev.checked === next.checked &&
+    prev.selectionMode === next.selectionMode &&
+    prev.previewLines === next.previewLines &&
+    prev.swipeConfig === next.swipeConfig &&
+    prev.caps === next.caps &&
+    prev.onOpen === next.onOpen &&
+    prev.onChanged === next.onChanged &&
+    prev.onPatch === next.onPatch &&
+    prev.onRemoveDone === next.onRemoveDone &&
+    prev.onUndoDone === next.onUndoDone &&
+    prev.onRemove === next.onRemove &&
+    prev.onSnooze === next.onSnooze &&
+    prev.onAiMenu === next.onAiMenu &&
+    prev.onToggleCheck === next.onToggleCheck &&
+    prev.onAvatarPress === next.onAvatarPress &&
+    prev.onLongPress === next.onLongPress
+  );
+}
+
+export const CorreoRowSwipe = memo(CorreoRowSwipeInner, propsAreEqual);

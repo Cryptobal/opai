@@ -39,8 +39,9 @@ export function CorreoSelectionBar({
   const run = (fn: () => void) => () => { setMenuOpen(false); fn(); };
 
   return (
-    // fixed (no sticky): mismo criterio que CorreosMobileTopBar / MobileIsland —
+    // fixed (no sticky): mismo criterio que MobileIsland —
     // en PWA el rubber-band despega sticky y arrastra la barra.
+    // La isla se suprime mientras hay selección (useSetIslandSuppressed).
     <div
       className="fixed inset-x-0 top-0 z-30 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/85 animate-in fade-in slide-in-from-top-2 duration-150 lg:hidden"
       style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}

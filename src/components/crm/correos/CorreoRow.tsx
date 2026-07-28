@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import type { CorreoThreadDTO } from "@/modules/crm/email/correos.types";
 import type { RadarCapability } from "@/modules/crm/email/radar-types";
 import { CorreoRowDesktop } from "./CorreoRowDesktop";
@@ -13,31 +14,7 @@ export const PREVIEW_LINE_CLASS: Record<CorreoPreviewLines, string> = {
   3: "line-clamp-3",
 };
 
-/**
- * Fila de correo — dispatcher de variantes: móvil Gmail (avatar + swipe,
- * activada por CorreoRowSwipe en pointer coarse) o desktop densa (una línea,
- * hover actions). El layout desktop antiguo (multi-línea con tags grandes)
- * fue reemplazado por CorreoRowDesktop.
- */
-export function CorreoRow({
-  thread,
-  onOpen,
-  canModify,
-  onChanged,
-  onRemoveDone,
-  onUndoDone,
-  onRemove,
-  onSnooze,
-  onAiMenu,
-  selected = false,
-  focused = false,
-  checked,
-  onToggleCheck,
-  previewLines = 2,
-  mobileGmail = false,
-  onAvatarPress,
-  caps,
-}: {
+type Props = {
   thread: CorreoThreadDTO;
   onOpen: () => void;
   canModify: boolean;
@@ -61,7 +38,33 @@ export function CorreoRow({
   /** Tap en el avatar alterna selección (solo variante móvil). */
   onAvatarPress?: () => void;
   caps?: Set<RadarCapability>;
-}) {
+};
+
+/**
+ * Fila de correo — dispatcher de variantes: móvil Gmail (avatar + swipe,
+ * activada por CorreoRowSwipe en pointer coarse) o desktop densa (una línea,
+ * hover actions). El layout desktop antiguo (multi-línea con tags grandes)
+ * fue reemplazado por CorreoRowDesktop.
+ */
+function CorreoRowInner({
+  thread,
+  onOpen,
+  canModify,
+  onChanged,
+  onRemoveDone,
+  onUndoDone,
+  onRemove,
+  onSnooze,
+  onAiMenu,
+  selected = false,
+  focused = false,
+  checked,
+  onToggleCheck,
+  previewLines = 2,
+  mobileGmail = false,
+  onAvatarPress,
+  caps,
+}: Props) {
   if (mobileGmail) {
     return (
       <CorreoRowMobile
@@ -95,3 +98,5 @@ export function CorreoRow({
     />
   );
 }
+
+export const CorreoRow = memo(CorreoRowInner);

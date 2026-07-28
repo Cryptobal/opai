@@ -3,18 +3,24 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Archive, Building2, CalendarPlus, CheckSquare, Clock, Forward, Link2,
-  ListTodo, Mail, MailOpen, PenLine, Reply, ReplyAll, Sparkles, Star,
+  ListTodo, Mail, MailOpen, Menu, PenLine, Reply, ReplyAll, Sparkles, Star,
   Tag, TicketPlus, Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
-import { Surface, EmptyState, Spinner } from "@/components/opai-ds";
+import {
+  Surface,
+  EmptyState,
+  Spinner,
+  useSetIslandModuleMenu,
+  useSetIslandSearch,
+  useSetIslandSuppressed,
+} from "@/components/opai-ds";
 import {
   type CorreoChipKey,
   type CorreoFolderTab,
 } from "./CorreosFilters";
 import { CorreosDesktopRail } from "./CorreosDesktopRail";
 import { CorreosDesktopToolbar } from "./CorreosDesktopToolbar";
-import { CorreosMobileTopBar } from "./CorreosMobileTopBar";
 import { CorreoSearchChips } from "./CorreoSearchChips";
 import {
   CorreoIndexCoverageBar,
@@ -72,7 +78,7 @@ import { getCorreoAiCommand } from "@/modules/crm/email/correo-ai-commands";
 import { dispatchAiCommand } from "@/lib/ai/ai-command-event";
 import type { RadarVertical } from "@/modules/crm/email/radar-types";
 
-/** Alto visual de la isla (pt-2 + min-h-12). El safe-area lo aporta AppShell. */
+/** Alto visual de la isla global (8px gap + min-h-12). El safe-area lo aporta AppShell. */
 const CORREOS_MOBILE_TOP_SPACER = "h-14 shrink-0 lg:hidden";
 
 function matchesChip(t: CorreoThreadDTO, f: CorreoChipKey): boolean {
@@ -293,6 +299,13 @@ export function CorreosClient() {
   const hardRefresh = useCallback(() => {
     void fetchPage(null, true);
   }, [fetchPage]);
+
+  /** Patch local por id (acciones optimistas read/star). */
+  const patchThread = useCallback((id: string, partial: Partial<CorreoThreadDTO>) => {
+    setItems((prev) =>
+      prev.map((t) => (t.id === id ? { ...t, ...partial } : t)),
+    );
+  }, []);
 
   /** Corrige la vertical del hilo (optimista + POST). */
   async function applyVerticalOverride(
@@ -701,14 +714,14 @@ export function CorreosClient() {
   }
 
   // ── C12: selección múltiple + acciones masivas ──
-  function toggleSelect(id: string) {
+  const toggleSelect = useCallback((id: string) => {
     setSelectedIds((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
       return next;
     });
-  }
+  }, []);
   const clearSelection = useCallback(() => {
     setSelectedIds(new Set());
   }, []);
@@ -718,6 +731,24 @@ export function CorreosClient() {
   // Gesto/botón atrás en móvil limpia la selección antes de salir de la vista
   // (misma pila LIFO que usa el lector). En desktop no se toca el historial.
   useCloseOnBack(isCoarse && selectionMode, clearSelection);
+
+  // Isla global: menú de carpetas, búsqueda del módulo y supresión en selección.
+  useSetIslandModuleMenu({
+    icon: Menu,
+    label: "Carpetas y filtros",
+    badge: counts?.inboxUnread ?? 0,
+    onOpen: () => setMobileNavOpen(true),
+  });
+  useSetIslandSearch({
+    placeholder: "Buscá lo que recordás",
+    value: query,
+    onChange: setQuery,
+    onExit: () => {
+      setQuery("");
+      setDebouncedQuery("");
+    },
+  });
+  useSetIslandSuppressed(selectionMode);
   function bulkAction(
     action: CorreoAction,
     okMsg: string,
@@ -965,6 +996,50 @@ export function CorreosClient() {
     setCtxMenu({ thread: t, x: anchor.x, y: anchor.y });
   }
 
+  // Callbacks estables por id — evitan re-render de todas las filas en cada paint.
+  const handleRowOpen = useCallback(
+    (id: string) => {
+      if (selectionMode && isCoarse) toggleSelect(id);
+      else openThread(id);
+    },
+    // openThread cierra sobre setters + filtered; selectionMode/isCoarse bastan.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [selectionMode, isCoarse, toggleSelect, openId, filtered],
+  );
+  const handleRowLongPress = useCallback(
+    (id: string) => {
+      const t = itemsRef.current.find((x) => x.id === id);
+      if (!t) return;
+      if (selectionMode) {
+        if (canModify) toggleSelect(id);
+        return;
+      }
+      if (canModify && hasRadarCaps) {
+        setVerticalPicker({ thread: t, anchor: null });
+        return;
+      }
+      const aiItems = buildAiMenuItems(t, perms, { onCommand: handleAiCommand });
+      if (aiItems.length > 0) {
+        setAiMenuSheet(t);
+        return;
+      }
+      if (canModify) toggleSelect(id);
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [selectionMode, canModify, hasRadarCaps, toggleSelect, perms],
+  );
+  const handleRowAiMenu = useCallback(
+    (id: string, anchor: { x: number; y: number }) => {
+      const t = itemsRef.current.find((x) => x.id === id);
+      if (t) openAiMenuForThread(t, anchor);
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [isCoarse, perms],
+  );
+  const handleRowSnooze = useCallback((id: string) => {
+    setSnoozeId(id);
+  }, []);
+
   function openAiMenuSheetForThread(t: CorreoThreadDTO) {
     const aiItems = buildAiMenuItems(t, perms, { onCommand: handleAiCommand });
     if (aiItems.length === 0) return;
@@ -1092,9 +1167,9 @@ export function CorreosClient() {
 
   return (
     <>
-      {/* Top móvil fijo (tipo MobileIsland): fuera del root animado. Con
-          selección activa, la barra contextual ocupa el mismo slot. */}
-      {selectionMode ? (
+      {/* Con selección, la isla se suprime (useSetIslandSuppressed) y esta
+          barra ocupa el mismo slot fijo. */}
+      {selectionMode && (
         <CorreoSelectionBar
           count={selectedIds.size}
           allRead={items
@@ -1105,18 +1180,11 @@ export function CorreosClient() {
           onSnooze={() => setSnoozeId("__bulk__")}
           onSelectAllVisible={() => setSelectedIds(new Set(filtered.map((t) => t.id)))}
         />
-      ) : (
-        <CorreosMobileTopBar
-          onOpenNav={() => setMobileNavOpen(true)}
-          query={query}
-          onQuery={setQuery}
-          inboxUnread={counts?.inboxUnread ?? 0}
-        />
       )}
-      {/* Reserva el alto de la barra fija para que la lista no quede debajo. */}
+      {/* Reserva el alto de la isla / barra de selección. */}
       <div aria-hidden className={CORREOS_MOBILE_TOP_SPACER} />
       <div className="space-y-1 px-4 lg:hidden">
-        {searching && <CorreoSearchChips query={query} onQuery={setQuery} />}
+        {query.trim().length > 0 && <CorreoSearchChips query={query} onQuery={setQuery} />}
         <CorreoIndexCoverageBar
           coverage={coverage}
           compact
@@ -1308,7 +1376,7 @@ export function CorreosClient() {
             onOpenShortcuts={() => setShortcutsSheetOpen(true)}
           />
           <div className="hidden space-y-2 lg:block">
-            {searching && <CorreoSearchChips query={query} onQuery={setQuery} />}
+            {query.trim().length > 0 && <CorreoSearchChips query={query} onQuery={setQuery} />}
             <CorreoIndexCoverageBar
               coverage={coverage}
               onIndexed={setCoverage}
@@ -1363,50 +1431,29 @@ export function CorreosClient() {
                 </div>
               )}
               {filtered.map((t, index) => (
-                <CorreoRowSwipe key={t.id} thread={t} canModify={canModify}
+                <CorreoRowSwipe
+                  key={t.id}
+                  thread={t}
+                  canModify={canModify}
                   selected={openId === t.id}
                   focused={focusIndex === index}
                   checked={selectedIds.has(t.id)}
-                  onToggleCheck={canModify ? () => toggleSelect(t.id) : undefined}
-                  onAvatarPress={canModify ? () => toggleSelect(t.id) : undefined}
-                  onLongPress={() => {
-                    if (selectionMode) {
-                      if (canModify) toggleSelect(t.id);
-                      return;
-                    }
-                    if (canModify && hasRadarCaps) {
-                      setVerticalPicker({ thread: t, anchor: null });
-                      return;
-                    }
-                    const aiItems = buildAiMenuItems(t, perms, {
-                      onCommand: handleAiCommand,
-                    });
-                    if (aiItems.length > 0) {
-                      setAiMenuSheet(t);
-                      return;
-                    }
-                    if (canModify) toggleSelect(t.id);
-                  }}
+                  onToggleCheck={canModify ? toggleSelect : undefined}
+                  onAvatarPress={canModify ? toggleSelect : undefined}
+                  onLongPress={handleRowLongPress}
                   selectionMode={selectionMode}
                   previewLines={previewLines}
                   swipeConfig={swipeConfig}
-                  onChanged={hardRefresh}
+                  onChanged={softRefresh}
+                  onPatch={patchThread}
                   onRemoveDone={softRefresh}
                   onUndoDone={hardRefresh}
                   onRemove={removeThreadAndAdvance}
-                  onSnooze={() => setSnoozeId(t.id)}
+                  onSnooze={handleRowSnooze}
                   caps={radarCaps}
-                  onAiMenu={
-                    hasRadarCaps
-                      ? (anchor) => openAiMenuForThread(t, anchor)
-                      : undefined
-                  }
-                  onOpen={() =>
-                    // Solo táctil: en selección el tap alterna. En desktop el
-                    // click sigue abriendo el hilo aunque haya checkboxes
-                    // marcados (comportamiento histórico intacto).
-                    selectionMode && isCoarse ? toggleSelect(t.id) : openThread(t.id)
-                  } />
+                  onAiMenu={hasRadarCaps ? handleRowAiMenu : undefined}
+                  onOpen={handleRowOpen}
+                />
               ))}
             </Surface>
           )}

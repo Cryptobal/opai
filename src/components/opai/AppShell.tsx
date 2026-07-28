@@ -27,6 +27,7 @@ import {
   FxIndicator,
   GlassAmbient,
   IslandActionProvider,
+  IslandModuleProvider,
   TopbarSubNav,
 } from '@/components/opai-ds';
 import { resolveNavContext } from '@/lib/nav/resolve-context';
@@ -45,8 +46,8 @@ export interface AppShellProps {
   surface?: Surface;
 }
 
-/** Rutas que en móvil toman la pantalla completa: sin isla topbar,
- *  sin breadcrumbs, sin padding de página. BottomNav se mantiene. */
+/** Rutas full-bleed en móvil: sin breadcrumbs ni padding de página.
+ *  La isla global SÍ se monta; el módulo reserva su spacer. BottomNav se mantiene. */
 const IMMERSIVE_MOBILE_PREFIXES = ['/crm/correos'];
 
 /**
@@ -169,13 +170,15 @@ function AppShellInner({
   return (
     <BreadcrumbTrailingProvider>
       <IslandActionProvider>
+      <IslandModuleProvider>
       <DocumentTitle />
       <PlatformDataAttribute />
       <GlassAmbient />
       {/* Isla fuera de overflow-x-clip: un ancestro con overflow rompe
           backdrop-filter (Liquid Glass) del header flotante. Mismo criterio
-          que BottomNavPortal. */}
-      {sidebar && !isImmersiveMobile && (
+          que BottomNavPortal. Un módulo puede suprimirla vía
+          useSetIslandSuppressed (p. ej. modo selección de Correos). */}
+      {sidebar && (
         <MobileIsland
           surface={surface}
           onSearch={(q) => openCommandPalette(q)}
@@ -209,7 +212,7 @@ function AppShellInner({
           className={cn(
             'transition-[padding,margin] duration-300 ease-out min-w-0',
             // isla flotante (safe + 8px + 48px + 8px gap) en mobile; desktop 3rem.
-            // Inmersivo: sin isla → solo safe-area arriba en móvil.
+            // Inmersivo: el módulo reserva el spacer de la isla; solo safe-area aquí.
             isImmersiveMobile
               ? 'pt-[env(safe-area-inset-top,0px)] lg:pt-12'
               : 'pt-[calc(4rem+env(safe-area-inset-top,0px))] lg:pt-12',
@@ -270,8 +273,8 @@ function AppShellInner({
                 data-layout-mode={isSheetFocus ? 'sheet-focus' : undefined}
                 className={cn(
                   'w-full max-w-full animate-in-page min-w-0 lg:pt-0 lg:pb-6 lg:px-8 xl:px-10 2xl:px-12',
-                  // Inmersivo móvil (correos): el módulo ocupa todo el ancho
-                  // sin paddings de página y pinta su propio top móvil.
+                  // Inmersivo móvil (correos): full-bleed; la isla global
+                  // sigue montada y el módulo reserva su spacer.
                   isImmersiveMobile && 'overflow-x-clip pt-0 pb-0 px-0',
                   // Sheet focus (planilla flujo de caja): full-bleed móvil
                   // entre topbar y bottom nav; sin overflow-x-clip en móvil
@@ -318,6 +321,7 @@ function AppShellInner({
       <AiHelpChatWidget />
       <ChatSidePanel userRole={userRole} />
       <NotificationSidePanel />
+      </IslandModuleProvider>
       </IslandActionProvider>
     </BreadcrumbTrailingProvider>
   );
