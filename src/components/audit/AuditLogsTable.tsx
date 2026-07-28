@@ -16,10 +16,17 @@ export interface AuditLogRow {
   entity: string;
   entityId: string | null;
   ipAddress: string | null;
+  /** Detalle legible (título u otros campos de `details`). */
+  detail?: string | null;
 }
 
 interface AuditLogsTableProps {
   logs: AuditLogRow[];
+}
+
+function detailFromRow(row: AuditLogRow): string {
+  if (row.detail && row.detail.trim()) return row.detail;
+  return row.entityId || "—";
 }
 
 const COLUMNS: DataTableColumn<AuditLogRow>[] = [
@@ -43,14 +50,21 @@ const COLUMNS: DataTableColumn<AuditLogRow>[] = [
     cell: (row) => row.action,
   },
   {
+    id: "detail",
+    header: "Detalle",
+    cell: (row) => (
+      <span className="min-w-0">
+        <span className="block truncate text-[13px] text-ds-text-1">{detailFromRow(row)}</span>
+        {row.detail && row.entityId && (
+          <span className="block truncate font-mono text-[12px] text-ds-text-4">{row.entityId}</span>
+        )}
+      </span>
+    ),
+  },
+  {
     id: "entity",
     header: "Entidad",
     cell: (row) => row.entity,
-  },
-  {
-    id: "entityId",
-    header: "ID ficha",
-    cell: (row) => row.entityId || "—",
     hideOnMobile: true,
   },
   {

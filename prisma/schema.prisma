@@ -723,6 +723,7 @@ model AuditLog {
   @@index([entity])
   @@index([createdAt])
   @@index([tenantId])
+  @@index([tenantId, action, createdAt])
   @@schema("public")
 }
 
