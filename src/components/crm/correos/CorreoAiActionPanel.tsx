@@ -2,10 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import Link from "next/link";
 import {
   AlertTriangle,
-  ExternalLink,
   Loader2,
   Sparkles,
   X,
@@ -18,7 +16,8 @@ import type { CrmStructureProposal } from "@/modules/crm/email/email-to-crm-stru
 import type { CreateCrmStructureResult } from "@/modules/crm/email/email-to-crm-structure.types";
 import { LeadFromEmailPanel } from "./LeadFromEmailPanel";
 import { CorreoAiPlanCard, type PlanAction } from "./CorreoAiPlanCard";
-import { CorreoAiCoverageTable } from "./CorreoAiCoverageTable";
+import { CorreoAiPlanSections, TraceBlock } from "./CorreoAiPlanSections";
+import { CorreoAiResultList } from "./CorreoAiResultList";
 
 export type AiPanelCommand =
   | "analizar"
@@ -64,13 +63,18 @@ const TRACE_STEPS = [
   "Armando el plan de acciones…",
 ];
 
+function isPastDate(iso: string | null | undefined): boolean {
+  if (!iso) return false;
+  return iso < new Date().toISOString().slice(0, 10);
+}
+
 function buildStructureActions(
   proposal: CrmStructureProposal,
   accountReusedHint: boolean,
   existingDealId: string | null | undefined,
 ): PlanAction[] {
   const noInstallations = proposal.installations.length === 0;
-  return [
+  const actions: PlanAction[] = [
     {
       id: "account",
       label: accountReusedHint
@@ -78,7 +82,8 @@ function buildStructureActions(
         : `Crear cuenta: ${proposal.account.name ?? "—"}`,
       detail: [proposal.account.rut, proposal.account.industry].filter(Boolean).join(" · ") || undefined,
       tag: accountReusedHint ? "reutiliza" : "nueva",
-      disabled: true, // la cuenta siempre se crea/reutiliza
+      disabled: true,
+      group: "comercial",
     },
     {
       id: "contact",
@@ -88,6 +93,7 @@ function buildStructureActions(
           .filter(Boolean)
           .join(" ") || "Sin datos de contacto",
       tag: "nueva",
+      group: "comercial",
     },
     {
       id: "deal",
@@ -96,6 +102,7 @@ function buildStructureActions(
         : proposal.deal.title ?? "Crear negocio",
       detail: proposal.deal.isLicitacion ? "Licitación / RFI" : undefined,
       tag: existingDealId ? "reutiliza" : "nueva",
+      group: "comercial",
     },
     {
       id: "installations",
@@ -103,11 +110,31 @@ function buildStructureActions(
       detail: proposal.installations.map((i) => i.name).slice(0, 3).join(", ") || undefined,
       tag: "nueva",
       disabled: noInstallations,
+      group: "operacion",
     },
+  ];
+
+  if (proposal.deal.isLicitacion && proposal.deal.fechaLimite) {
+    const past = isPastDate(proposal.deal.fechaLimite);
+    actions.push({
+      id: "agendaDeadline",
+      label: "Plazo en agenda",
+      detail: past
+        ? `Fecha ${proposal.deal.fechaLimite} ya pasó — no se sincroniza`
+        : `Hasta ${proposal.deal.fechaLimite} · se sincroniza al crear el negocio`,
+      tag: "automatico",
+      locked: !past,
+      disabled: past,
+      group: "calendario",
+    });
+  }
+
+  actions.push(
     {
       id: "attachments",
       label: "Guardar adjuntos en el negocio",
       tag: "calculado",
+      group: "calendario",
     },
     {
       id: "followUpTask",
@@ -117,8 +144,11 @@ function buildStructureActions(
         : "En 3 días hábiles",
       tag: "opcional",
       optional: true,
+      group: "calendario",
     },
-  ];
+  );
+
+  return actions;
 }
 
 function verticalActions(command: AiPanelCommand, proposal: VerticalProposal): PlanAction[] {
@@ -461,44 +491,14 @@ export function CorreoAiActionPanel({
           )}
 
           {(phase === "structure" || phase === "executing") && proposal && (
-            <div className="ds-page-enter space-y-4">
-              <TraceBlock
-                sources={sources}
-                durationMs={durationMs}
-                attachmentHint={sources.length}
-              />
-              <section>
-                <h3 className="mb-2 text-[12px] font-medium uppercase tracking-wide text-ds-text-3">
-                  Acciones
-                </h3>
-                <CorreoAiPlanCard
-                  actions={structureActions}
-                  selected={selected}
-                  onToggle={toggle}
-                />
-              </section>
-              <section>
-                <h3 className="mb-2 text-[12px] font-medium uppercase tracking-wide text-ds-text-3">
-                  Cobertura y dotación
-                </h3>
-                <CorreoAiCoverageTable proposal={proposal} />
-              </section>
-              {proposal.openQuestions.length > 0 && (
-                <section className="rounded-xl border border-status-warn-border bg-status-warn-soft px-3 py-2.5">
-                  <h3 className="mb-1.5 text-[12px] font-medium uppercase tracking-wide text-status-warn-fg">
-                    Antes de crear
-                  </h3>
-                  <ul className="list-disc space-y-1 pl-4 text-[13px] text-status-warn-fg">
-                    {proposal.openQuestions.map((q) => (
-                      <li key={q}>{q}</li>
-                    ))}
-                  </ul>
-                </section>
-              )}
-              {error && (
-                <p className="text-[13px] text-status-danger-fg">{error}</p>
-              )}
-            </div>
+            <CorreoAiPlanSections
+              proposal={proposal}
+              actions={structureActions}
+              selected={selected}
+              onToggle={toggle}
+              sources={sources}
+              durationMs={durationMs}
+            />
           )}
 
           {phase === "vertical" && verticalProposal && (
@@ -514,31 +514,15 @@ export function CorreoAiActionPanel({
           )}
 
           {phase === "done" && (
-            <div className="ds-page-enter space-y-3">
-              {result ? (
-                <>
-                  <p className="text-[13px] text-status-ok-fg">
-                    {result.note ?? "Creado correctamente."}
-                  </p>
-                  <ul className="space-y-2">
-                    {result.accountUrl && (
-                      <ResultLink href={result.accountUrl} label="Cuenta" />
-                    )}
-                    {result.contactUrl && (
-                      <ResultLink href={result.contactUrl} label="Contacto" />
-                    )}
-                    {result.dealUrl && <ResultLink href={result.dealUrl} label="Negocio" />}
-                    {result.installations?.map((i) => (
-                      <ResultLink key={i.id} href={i.url} label={i.name} />
-                    ))}
-                  </ul>
-                </>
-              ) : command === "cobranza" && verticalProposal ? (
+            result ? (
+              <CorreoAiResultList result={result} />
+            ) : command === "cobranza" && verticalProposal ? (
+              <div className="ds-page-enter space-y-3">
                 <VerticalPreview command="cobranza" proposal={verticalProposal} />
-              ) : (
-                <p className="text-[13px] text-ds-text-2">Listo.</p>
-              )}
-            </div>
+              </div>
+            ) : (
+              <p className="text-[13px] text-ds-text-2">Listo.</p>
+            )
           )}
         </div>
 
@@ -560,52 +544,17 @@ export function CorreoAiActionPanel({
               className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary text-[13px] font-medium text-primary-foreground ds-tap disabled:opacity-50 sm:h-10"
             >
               {phase === "executing" && <Loader2 className="h-4 w-4 animate-spin" />}
-              {isStructure ? "Crear seleccionadas" : command === "cobranza" ? "Entendido" : "Continuar"}
+              {isStructure
+                ? `Crear ${selectedCount} acción${selectedCount === 1 ? "" : "es"}`
+                : command === "cobranza"
+                  ? "Entendido"
+                  : "Continuar"}
             </button>
           </footer>
         )}
       </div>
     </div>,
     document.body,
-  );
-}
-
-function TraceBlock({
-  sources,
-  durationMs,
-  attachmentHint,
-}: {
-  sources: string[];
-  durationMs: number | null;
-  attachmentHint: number;
-}) {
-  return (
-    <div className="rounded-xl border border-ds-border-subtle bg-ds-surface-2 px-3 py-2 text-[12px] text-ds-text-3">
-      <p>
-        Traza: hilo leído
-        {attachmentHint > 0 ? ` · ${attachmentHint} fuente(s) de adjuntos` : " · sin adjuntos útiles"}
-        {durationMs != null ? ` · ${(durationMs / 1000).toFixed(1)}s` : ""}
-      </p>
-      {sources.length > 0 && (
-        <p className="mt-1 truncate text-ds-text-4" title={sources.join(", ")}>
-          {sources.slice(0, 4).join(" · ")}
-          {sources.length > 4 ? ` +${sources.length - 4}` : ""}
-        </p>
-      )}
-    </div>
-  );
-}
-
-function ResultLink({ href, label }: { href: string; label: string }) {
-  return (
-    <li>
-      <Link
-        href={href}
-        className="inline-flex min-h-10 items-center gap-1.5 text-[13px] text-primary ds-tap"
-      >
-        {label} <ExternalLink className="h-3.5 w-3.5" />
-      </Link>
-    </li>
   );
 }
 

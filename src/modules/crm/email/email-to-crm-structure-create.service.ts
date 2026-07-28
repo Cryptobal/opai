@@ -229,6 +229,7 @@ export async function createCrmStructureFromProposal(params: {
   }
 
   let dealId: string | undefined;
+  let agendaSync: CreateCrmStructureResult["agendaSync"];
   let dealUrl: string | undefined;
   const createdInstallations: Array<{ id: string; name: string; url: string }> = [];
 
@@ -288,10 +289,34 @@ export async function createCrmStructureFromProposal(params: {
       dealUrl = `/crm/deals/${deal.id}`;
 
       if (proposal.deal.isLicitacion) {
-        const { syncLicitacionToCalendar } = await import("@/modules/agenda/agenda-sync");
-        await syncLicitacionToCalendar(tenantId, deal.id).catch((e) =>
-          console.error("[email-to-crm-structure] sync licitación:", e),
-        );
+        const pastDeadline =
+          proposal.deal.fechaLimite &&
+          proposal.deal.fechaLimite < new Date().toISOString().slice(0, 10);
+        if (pastDeadline) {
+          agendaSync = {
+            attempted: false,
+            ok: false,
+            skippedReason: "fecha_pasada",
+          };
+        } else if (!proposal.deal.fechaLimite) {
+          agendaSync = {
+            attempted: false,
+            ok: false,
+            skippedReason: "sin_fecha",
+          };
+        } else {
+          const { syncLicitacionToCalendar } = await import("@/modules/agenda/agenda-sync");
+          try {
+            const sync = await syncLicitacionToCalendar(tenantId, deal.id);
+            agendaSync = {
+              attempted: true,
+              ok: sync.syncStatus !== "ERROR",
+            };
+          } catch (e) {
+            console.error("[email-to-crm-structure] sync licitación:", e);
+            agendaSync = { attempted: true, ok: false, skippedReason: "error" };
+          }
+        }
       }
     }
 
@@ -397,6 +422,7 @@ export async function createCrmStructureFromProposal(params: {
     installations: createdInstallations,
     taskId,
     skipped: skipped.length ? skipped : undefined,
+    agendaSync,
     note:
       noteParts.join(", ") +
       ". La cotización (puestos CPQ) es el siguiente paso — aún no se creó.",

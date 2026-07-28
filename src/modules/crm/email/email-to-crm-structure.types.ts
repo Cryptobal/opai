@@ -58,6 +58,11 @@ export type CrmStructureProposal = {
   installations: CrmStructureInstallation[];
   openQuestions: string[];
   assumptions: string[];
+  /**
+   * Origen de cada supuesto (índice paralelo a `assumptions`).
+   * `inference` = IA; `user` = confirmado/corregido en refinamiento.
+   */
+  assumptionOrigins?: Array<"inference" | "user">;
   staffingTotals: {
     weeklyHH: number;
     headcountBase: number;
@@ -66,6 +71,12 @@ export type CrmStructureProposal = {
     legalMinimum: number;
   };
   requerimiento: string | null;
+};
+
+/** Respuesta de refinamiento acumulada (máx. 10, answer ≤ 500). */
+export type CrmStructureRefineAnswer = {
+  question: string;
+  answer: string;
 };
 
 export type CrmStructureExtractionResult = {
@@ -96,6 +107,14 @@ export type CreateCrmStructureResult = {
   taskId?: string;
   skipped?: string[];
   note?: string;
+  /** Estado del sync de plazo de licitación a agenda (si aplica). */
+  agendaSync?: {
+    attempted: boolean;
+    ok: boolean;
+    skippedReason?: string;
+  };
+  /** Conversación anclada (Fase 2); opcional. */
+  conversationId?: string;
 };
 
 export { WEEKDAYS_FULL };
