@@ -26,11 +26,12 @@ const LABELS: Record<CorreoShortcutAction, string> = {
   snooze: "Posponer",
   toggleRead: "Leído / No leído",
   focusSearch: "Buscar",
+  aiMenu: "Acciones IA",
 };
 
 const ORDER_BANDEJA: CorreoShortcutAction[] = [
   "down", "up", "open", "toggleSelect", "archive", "trash",
-  "star", "snooze", "toggleRead", "focusSearch",
+  "star", "snooze", "toggleRead", "focusSearch", "aiMenu",
 ];
 
 const ORDER_LECTOR: CorreoShortcutAction[] = [

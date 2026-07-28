@@ -43,6 +43,7 @@ type Props = {
   onUndoDone?: () => void;
   onRemove?: (id: string) => void;
   onSnooze?: () => void;
+  onAiMenu?: (anchor: { x: number; y: number }) => void;
   selected?: boolean;
   focused?: boolean;
   checked?: boolean;
@@ -60,6 +61,7 @@ type Props = {
  */
 export function CorreoRowSwipe({
   thread, canModify, onOpen, onChanged, onRemoveDone, onUndoDone, onRemove, onSnooze,
+  onAiMenu,
   selected, focused, checked, onToggleCheck, previewLines, swipeConfig,
   onAvatarPress, onLongPress, selectionMode = false,
 }: Props) {
@@ -124,7 +126,8 @@ export function CorreoRowSwipe({
     return (
       <CorreoRow thread={thread} canModify={canModify} onOpen={onOpen} onChanged={onChanged}
         onRemoveDone={onRemoveDone} onUndoDone={onUndoDone} onRemove={onRemove}
-        onSnooze={onSnooze} selected={selected} focused={focused} checked={checked}
+        onSnooze={onSnooze} onAiMenu={onAiMenu}
+        selected={selected} focused={focused} checked={checked}
         onToggleCheck={onToggleCheck} previewLines={previewLines} />
     );
   }

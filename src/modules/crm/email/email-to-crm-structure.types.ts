@@ -74,6 +74,14 @@ export type CrmStructureExtractionResult = {
   sources: string[];
 };
 
+export type CreateCrmStructureInclude = {
+  contact?: boolean;
+  deal?: boolean;
+  installations?: boolean;
+  attachments?: boolean;
+  followUpTask?: boolean;
+};
+
 export type CreateCrmStructureResult = {
   ok: boolean;
   error?: string;
@@ -85,6 +93,8 @@ export type CreateCrmStructureResult = {
   dealId?: string;
   dealUrl?: string;
   installations?: Array<{ id: string; name: string; url: string }>;
+  taskId?: string;
+  skipped?: string[];
   note?: string;
 };
 

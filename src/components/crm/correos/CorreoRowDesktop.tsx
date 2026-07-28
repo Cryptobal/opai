@@ -1,6 +1,6 @@
 "use client";
 
-import { Paperclip, Star } from "lucide-react";
+import { Paperclip, Sparkles, Star } from "lucide-react";
 import type { CorreoThreadDTO } from "@/modules/crm/email/correos.types";
 import { CorreoCheckbox } from "./CorreoCheckbox";
 import { CorreoSenderAvatar } from "./CorreoSenderAvatar";
@@ -34,6 +34,8 @@ type Props = {
   /** Remoción optimista + avance (archivar/eliminar desde hover). */
   onRemove?: (id: string) => void;
   onSnooze?: () => void;
+  /** Abre el menú de Acciones IA anclado a esta fila. */
+  onAiMenu?: (anchor: { x: number; y: number }) => void;
   selected?: boolean;
   focused?: boolean;
   checked?: boolean;
@@ -49,6 +51,7 @@ type Props = {
  */
 export function CorreoRowDesktop({
   thread, onOpen, canModify, onChanged, onRemoveDone, onUndoDone, onRemove, onSnooze,
+  onAiMenu,
   selected = false, focused = false, checked, onToggleCheck, previewLines = 2,
 }: Props) {
   const unread = thread.isUnread;
@@ -161,20 +164,35 @@ export function CorreoRowDesktop({
         )}
       </span>
       <span
-        className={`w-24 flex-none text-right text-[12px] tabular-nums ${
+        className={`w-24 flex-none text-right text-[12px] tabular-nums transition-opacity ${
           thread.snoozedUntil
             ? "text-status-warn-fg"
             : unread
               ? "font-semibold text-primary"
               : "text-ds-text-4"
-        } ${canModify ? "group-hover:invisible" : ""}`}
+        } ${canModify || onAiMenu ? "group-hover:opacity-0" : ""}`}
       >
         {thread.snoozedUntil
           ? `hasta ${snoozeShort(thread.snoozedUntil)}`
           : formatGmailDateChile(thread.lastMessageAt)}
       </span>
-      {canModify && (
-        <div className="absolute right-2 top-1/2 hidden -translate-y-1/2 items-center rounded-lg bg-ds-surface-2 pl-1 group-hover:flex">
+      <div className="absolute right-2 top-1/2 hidden -translate-y-1/2 items-center rounded-lg bg-ds-surface-2 pl-1 group-hover:flex">
+        {onAiMenu && (
+          <button
+            type="button"
+            aria-label="Acciones IA"
+            title="Acciones IA"
+            onClick={(e) => {
+              e.stopPropagation();
+              const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+              onAiMenu({ x: rect.left, y: rect.bottom + 4 });
+            }}
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-tint-violet-fg ds-tap hover:bg-tint-violet/10"
+          >
+            <Sparkles className="h-3.5 w-3.5" />
+          </button>
+        )}
+        {canModify && (
           <CorreoThreadActions
             threadId={thread.id}
             isUnread={unread}
@@ -186,8 +204,8 @@ export function CorreoRowDesktop({
             onRemove={onRemove}
             onSnooze={onSnooze}
           />
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }

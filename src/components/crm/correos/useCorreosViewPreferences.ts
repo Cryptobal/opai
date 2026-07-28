@@ -71,16 +71,17 @@ export type CorreoShortcutAction =
   | "star"
   | "snooze"
   | "toggleRead"
-  | "focusSearch";
+  | "focusSearch"
+  | "aiMenu";
 export type CorreoShortcuts = Record<CorreoShortcutAction, string>;
 
 const SHORTCUT_ACTIONS: readonly CorreoShortcutAction[] = [
   "down", "up", "open", "toggleSelect", "archive", "trash",
   "reply", "replyAll", "forward", "replyAi",
-  "star", "snooze", "toggleRead", "focusSearch",
+  "star", "snooze", "toggleRead", "focusSearch", "aiMenu",
 ];
 
-/** Defaults estilo Gmail (s = destacar, b = posponer; a/f/i = lector). */
+/** Defaults estilo Gmail (s = destacar, b = posponer; a/f/i = lector; . = Acciones IA). */
 export const DEFAULT_CORREO_SHORTCUTS: CorreoShortcuts = {
   down: "j",
   up: "k",
@@ -96,6 +97,7 @@ export const DEFAULT_CORREO_SHORTCUTS: CorreoShortcuts = {
   snooze: "b",
   toggleRead: "u",
   focusSearch: "/",
+  aiMenu: ".",
 };
 
 /** Atajos del composer/lector: con el hilo abierto los maneja CorreoReplyBox. */

@@ -27,6 +27,7 @@ export function CorreoRow({
   onUndoDone,
   onRemove,
   onSnooze,
+  onAiMenu,
   selected = false,
   focused = false,
   checked,
@@ -45,6 +46,7 @@ export function CorreoRow({
   onRemove?: (id: string) => void;
   /** Abre el sheet de posponer (hover desktop / swipe móvil). */
   onSnooze?: () => void;
+  onAiMenu?: (anchor: { x: number; y: number }) => void;
   selected?: boolean;
   /** Fila enfocada por navegación j/k (C20). */
   focused?: boolean;
@@ -79,6 +81,7 @@ export function CorreoRow({
       onUndoDone={onUndoDone}
       onRemove={onRemove}
       onSnooze={onSnooze}
+      onAiMenu={onAiMenu}
       selected={selected}
       focused={focused}
       checked={checked}

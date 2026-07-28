@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Briefcase, ExternalLink, Eye, Plus } from "lucide-react";
+import { Briefcase, ExternalLink, Eye, Plus, Sparkles } from "lucide-react";
 import { CorreoMessages } from "./CorreoMessages";
 import { CorreoReplyBox } from "./CorreoReplyBox";
 import { CorreoThreadActions } from "./CorreoThreadActions";
@@ -16,8 +16,8 @@ type Props = {
   detail: CorreoDetail;
   mailboxEmail?: string | null;
   canModify?: boolean;
-  aiOpen: boolean;
-  setAiOpen: (v: boolean) => void;
+  onOpenAiLead: () => void;
+  onOpenAiMenu?: () => void;
   onAssociate: (p: { accountId: string | null; dealId: string | null; sharedWithAccount?: boolean }) => void;
   onRefresh: () => void;
   onClose?: () => void;
@@ -38,8 +38,8 @@ export function CorreoDrawerContent({
   detail,
   mailboxEmail,
   canModify,
-  aiOpen,
-  setAiOpen,
+  onOpenAiLead,
+  onOpenAiMenu,
   onAssociate,
   onRefresh,
   onClose,
@@ -57,10 +57,6 @@ export function CorreoDrawerContent({
   const t = detail.thread;
   const [panel, setPanel] = useState<{ tab: WorkTab } | null>(null);
   const gmailUrl = t.providerThreadId ? `https://mail.google.com/mail/u/0/#all/${t.providerThreadId}` : null;
-
-  useEffect(() => {
-    if (aiOpen) setPanel({ tab: "resumen" });
-  }, [aiOpen]);
 
   useEffect(() => {
     if (!workTabIntent) return;
@@ -146,6 +142,16 @@ export function CorreoDrawerContent({
           >
             <Briefcase className="h-3.5 w-3.5 text-tint-violet-fg" /> Panel de trabajo
           </button>
+          {onOpenAiMenu && (
+            <button
+              type="button"
+              onClick={onOpenAiMenu}
+              aria-label="Acciones IA"
+              className="inline-flex min-h-8 items-center gap-1.5 rounded-full border border-tint-violet/30 bg-tint-violet/10 px-2.5 text-[12px] font-medium text-tint-violet-fg ds-tap lg:hidden"
+            >
+              <Sparkles className="h-3.5 w-3.5" /> IA
+            </button>
+          )}
           <CorreoSummaryPanel key={`summary-${t.id}`} threadId={t.id} variant="inline" />
         </div>
       </div>
@@ -185,13 +191,11 @@ export function CorreoDrawerContent({
         open={panel !== null}
         initialTab={panel?.tab ?? "resumen"}
         detail={detail}
-        aiOpen={aiOpen}
-        setAiOpen={setAiOpen}
+        onOpenAiLead={onOpenAiLead}
         onAssociate={onAssociate}
         onRefresh={onRefresh}
         onClose={() => {
           setPanel(null);
-          setAiOpen(false);
         }}
       />
     </div>
