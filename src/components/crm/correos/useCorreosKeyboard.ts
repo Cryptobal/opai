@@ -43,7 +43,11 @@ export type CorreoKeyboardHandlers = {
   shortcuts: CorreoShortcuts;
   /** false desactiva todo (p.ej. composer abierto). */
   enabled?: boolean;
-  /** true cuando el lector está abierto: compose lo maneja CorreoReplyBox. */
+  /**
+   * true cuando el lector está abierto: prioriza atajos de compose ante
+   * colisiones con acciones de bandeja. Los atajos R/T/F/I siguen
+   * despachándose por onReply/onReplyAll/onForward/onReplyAi.
+   */
   replyHandledExternally?: boolean;
 };
 
@@ -106,17 +110,12 @@ export function useCorreosKeyboard(handlers: CorreoKeyboardHandlers): void {
         [sc.aiMenu, h.onAiMenu],
       ];
 
-      // Con lector cerrado: R/A/F/I abren hilo + composer.
-      // Con lector abierto: los maneja CorreoReplyBox (evita archivar con A).
-      if (!h.replyHandledExternally) {
-        map.push(
-          [sc.reply, h.onReply],
-          [sc.replyAll, h.onReplyAll],
-          [sc.forward, h.onForward],
-          [sc.replyAi, h.onReplyAi],
-        );
-      } else {
-        // Si una acción de bandeja choca con un atajo de compose, no la dispares.
+      // Con lector abierto: si una acción de bandeja choca con un atajo de
+      // compose (p.ej. Archivar=A y Responder a todos=A), no dispares la de
+      // bandeja. Los atajos de lector se manejan SIEMPRE aquí (vía onReply/…)
+      // — no depender de CorreoReplyBox, que puede no estar montado aún o
+      // perder el evento cuando el foco está en el iframe del cuerpo.
+      if (h.replyHandledExternally) {
         for (let i = map.length - 1; i >= 0; i--) {
           const bound = map[i]?.[0];
           if (bound && composeKeys.has(normalizeShortcutKey(bound))) {
@@ -124,6 +123,13 @@ export function useCorreosKeyboard(handlers: CorreoKeyboardHandlers): void {
           }
         }
       }
+
+      map.push(
+        [sc.reply, h.onReply],
+        [sc.replyAll, h.onReplyAll],
+        [sc.forward, h.onForward],
+        [sc.replyAi, h.onReplyAi],
+      );
 
       for (const [bound, fn] of map) {
         if (keysMatch(key, bound)) return run(fn);
