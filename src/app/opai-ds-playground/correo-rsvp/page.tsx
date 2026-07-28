@@ -6,7 +6,7 @@
  * Ruta: /opai-ds-playground/correo-rsvp
  */
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   Archive,
@@ -217,9 +217,12 @@ export default function CorreoRsvpMockupPage() {
   const [rsvp, setRsvp] = useState<Rsvp>("needs_action");
   const [variant, setVariant] = useState<"gmail" | "compact">("gmail");
 
-  if (typeof document !== "undefined") {
+  useEffect(() => {
     document.documentElement.classList.toggle("dark", theme === "dark");
-  }
+    return () => {
+      document.documentElement.classList.remove("dark");
+    };
+  }, [theme]);
 
   return (
     <div className="ds-page-enter min-h-dvh bg-ds-surface-0 text-ds-text-1">
