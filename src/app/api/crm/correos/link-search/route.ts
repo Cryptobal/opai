@@ -1,7 +1,4 @@
-/**
- * GET /api/crm/correos/link-search?type=installation&q=… (O01):
- * candidatos tenant-scoped para el picker de vinculación del hilo.
- */
+/** GET /api/crm/correos/link-search?type=&q=&accountId= — candidatos del picker de vínculos. */
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { requireCorreosAccess } from "@/lib/api-auth-productividad";
@@ -21,10 +18,12 @@ export async function GET(req: NextRequest) {
   if (!isThreadLinkEntityType(type)) {
     return NextResponse.json({ error: "type inválido" }, { status: 400 });
   }
-  const candidates = await searchThreadLinkCandidates({
+  const accountId = req.nextUrl.searchParams.get("accountId");
+  const result = await searchThreadLinkCandidates({
     tenantId: session.user.tenantId,
     type,
     q: req.nextUrl.searchParams.get("q") ?? "",
+    accountId,
   });
-  return NextResponse.json({ candidates });
+  return NextResponse.json(result);
 }

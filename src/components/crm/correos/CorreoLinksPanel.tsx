@@ -1,10 +1,8 @@
 "use client";
 
 /**
- * Panel operacional del hilo (O01-O04): entidades vinculadas con estado y
- * deep-link (instalación, guardia, postulante, proveedor, factura,
- * incidente), picker para vincular manualmente y sugerencias por IA con
- * confirmación humana (linked_via='ai').
+ * Panel operacional del hilo: entidades vinculadas, picker con alcance por
+ * cuenta (De esta cuenta / Resto del tenant) y sugerencias IA.
  */
 
 import { useCallback, useEffect, useState } from "react";
@@ -13,9 +11,12 @@ import { Link2, Plus, Sparkles, X } from "lucide-react";
 import { toast } from "sonner";
 import { Spinner, Tag } from "@/components/opai-ds";
 import { SimpleSelect } from "@/components/ui/simple-select";
+import { confirmDialog } from "@/components/ui/confirm-service";
 
 const TYPE_LABELS: Record<string, string> = {
   installation: "Instalación",
+  quote: "Cotización",
+  contract: "Contrato",
   guardia: "Guardia",
   postulante: "Postulante",
   proveedor: "Proveedor",
@@ -33,7 +34,14 @@ type ResolvedLink = {
   href: string | null;
 };
 
-type Candidate = { id: string; label: string; sublabel: string | null; status: string | null };
+type Candidate = {
+  id: string;
+  label: string;
+  sublabel: string | null;
+  status: string | null;
+  scope: "account" | "tenant";
+};
+
 type Suggestion = { entityType: string; entityId: string; label: string; motivo: string };
 
 export function CorreoLinksPanel({
@@ -41,15 +49,15 @@ export function CorreoLinksPanel({
   accountId = null,
 }: {
   threadId: string;
-  /** Cuenta del hilo: acota el picker (Bloque 2). */
+  /** Cuenta del hilo: acota el picker en dos grupos. */
   accountId?: string | null;
 }) {
-  void accountId;
   const [links, setLinks] = useState<ResolvedLink[] | null>(null);
   const [adding, setAdding] = useState(false);
   const [type, setType] = useState("installation");
   const [q, setQ] = useState("");
   const [candidates, setCandidates] = useState<Candidate[]>([]);
+  const [accountScopeApplies, setAccountScopeApplies] = useState(false);
   const [suggestions, setSuggestions] = useState<Suggestion[] | null>(null);
   const [suggesting, setSuggesting] = useState(false);
 
@@ -67,15 +75,38 @@ export function CorreoLinksPanel({
   useEffect(() => {
     if (!adding) return;
     const timer = setTimeout(() => {
-      fetch(`/api/crm/correos/link-search?type=${type}&q=${encodeURIComponent(q)}`)
+      const params = new URLSearchParams({ type, q });
+      if (accountId) params.set("accountId", accountId);
+      fetch(`/api/crm/correos/link-search?${params}`)
         .then((r) => r.json())
-        .then((d) => setCandidates(Array.isArray(d.candidates) ? d.candidates : []))
-        .catch(() => setCandidates([]));
+        .then((d) => {
+          setCandidates(Array.isArray(d.candidates) ? d.candidates : []);
+          setAccountScopeApplies(Boolean(d.accountScopeApplies));
+        })
+        .catch(() => {
+          setCandidates([]);
+          setAccountScopeApplies(false);
+        });
     }, 250);
     return () => clearTimeout(timer);
-  }, [adding, type, q]);
+  }, [adding, type, q, accountId]);
 
-  async function createLink(entityType: string, entityId: string, linkedVia?: string) {
+  async function createLink(
+    entityType: string,
+    entityId: string,
+    linkedVia?: string,
+    scope?: "account" | "tenant",
+  ) {
+    if (accountScopeApplies && scope === "tenant") {
+      const ok = await confirmDialog({
+        title: "Vincular fuera de la cuenta",
+        description:
+          "Esta entidad no pertenece a la cuenta del hilo. ¿Confirmás el vínculo de todos modos?",
+        confirmLabel: "Vincular igual",
+        cancelLabel: "Cancelar",
+      });
+      if (!ok) return;
+    }
     const res = await fetch(`/api/crm/correos/${threadId}/links`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -123,6 +154,9 @@ export function CorreoLinksPanel({
     }
   }
 
+  const accountCandidates = candidates.filter((c) => c.scope === "account");
+  const tenantCandidates = candidates.filter((c) => c.scope === "tenant");
+
   return (
     <section
       aria-label="Entidades vinculadas"
@@ -131,6 +165,15 @@ export function CorreoLinksPanel({
       <div className="flex items-center gap-2">
         <Link2 className="h-4 w-4 text-tint-violet-fg" />
         <p className="text-[13px] font-semibold text-ds-text-1">Vinculado a</p>
+        {accountId ? (
+          <Tag variant="brand" size="sm">
+            Alcance: cuenta
+          </Tag>
+        ) : (
+          <Tag variant="neutral" size="sm">
+            Sin cuenta — todo el tenant
+          </Tag>
+        )}
         <div className="ml-auto flex items-center gap-1.5">
           <button
             type="button"
@@ -156,13 +199,15 @@ export function CorreoLinksPanel({
         <Spinner className="mx-auto" />
       ) : links.length === 0 ? (
         <p className="text-[12px] text-ds-text-4">
-          Sin vínculos operacionales. Vinculá una instalación, factura o incidente.
+          Sin vínculos. Vinculá una instalación, cotización, contrato o factura.
         </p>
       ) : (
         <ul className="space-y-1">
           {links.map((link) => (
             <li key={link.id} className="flex items-center gap-2">
-              <Tag variant="neutral" size="sm">{TYPE_LABELS[link.entityType] ?? link.entityType}</Tag>
+              <Tag variant="neutral" size="sm">
+                {TYPE_LABELS[link.entityType] ?? link.entityType}
+              </Tag>
               {link.href ? (
                 <Link
                   href={link.href}
@@ -171,11 +216,15 @@ export function CorreoLinksPanel({
                   {link.label}
                 </Link>
               ) : (
-                <span className="min-w-0 flex-1 truncate text-[13px] text-ds-text-2">{link.label}</span>
+                <span className="min-w-0 flex-1 truncate text-[13px] text-ds-text-2">
+                  {link.label}
+                </span>
               )}
               {link.status && <Tag variant="info" size="sm">{link.status}</Tag>}
               {link.linkedVia !== "manual" && (
-                <Tag variant="brand" size="sm">{link.linkedVia === "ai" ? "IA" : "regla"}</Tag>
+                <Tag variant="brand" size="sm">
+                  {link.linkedVia === "ai" ? "IA" : "regla"}
+                </Tag>
               )}
               <button
                 type="button"
@@ -192,10 +241,14 @@ export function CorreoLinksPanel({
 
       {suggestions !== null && suggestions.length > 0 && (
         <div className="space-y-1 rounded-lg border border-ds-border-subtle bg-ds-surface-1 p-2">
-          <p className="text-[12px] font-medium text-ds-text-3">Sugerencias de la IA (confirmá para vincular)</p>
+          <p className="text-[12px] font-medium text-ds-text-3">
+            Sugerencias de la IA (confirmá para vincular)
+          </p>
           {suggestions.map((s) => (
             <div key={`${s.entityType}:${s.entityId}`} className="flex items-center gap-2">
-              <Tag variant="neutral" size="sm">{TYPE_LABELS[s.entityType] ?? s.entityType}</Tag>
+              <Tag variant="neutral" size="sm">
+                {TYPE_LABELS[s.entityType] ?? s.entityType}
+              </Tag>
               <span className="min-w-0 flex-1 truncate text-[13px] text-ds-text-2" title={s.motivo}>
                 {s.label}
               </span>
@@ -231,31 +284,101 @@ export function CorreoLinksPanel({
               value={q}
               onChange={(e) => setQ(e.target.value)}
               placeholder="Buscar…"
-              className="h-9 min-w-0 flex-1 rounded-lg border border-ds-border-default bg-ds-surface-1 px-2 text-[13px] text-ds-text-1"
+              className="h-10 min-w-0 flex-1 rounded-lg border border-ds-border-default bg-ds-surface-1 px-2 text-[13px] text-ds-text-1 sm:h-9"
             />
           </div>
-          <ul className="max-h-44 space-y-0.5 overflow-y-auto">
-            {candidates.map((candidate) => (
-              <li key={candidate.id}>
-                <button
-                  type="button"
-                  onClick={() => void createLink(type, candidate.id)}
-                  className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[13px] text-ds-text-2 ds-tap hover:bg-ds-surface-2"
-                >
-                  <span className="min-w-0 flex-1 truncate">{candidate.label}</span>
-                  {candidate.sublabel && (
-                    <span className="shrink-0 text-[12px] text-ds-text-4">{candidate.sublabel}</span>
-                  )}
-                  {candidate.status && <Tag variant="info" size="sm">{candidate.status}</Tag>}
-                </button>
-              </li>
-            ))}
-            {candidates.length === 0 && (
-              <li className="px-2 py-1.5 text-[12px] text-ds-text-4">Sin resultados</li>
-            )}
-          </ul>
+          <CandidateList
+            accountScopeApplies={accountScopeApplies}
+            accountCandidates={accountCandidates}
+            tenantCandidates={tenantCandidates}
+            flatCandidates={candidates}
+            onPick={(c) => void createLink(type, c.id, undefined, c.scope)}
+          />
         </div>
       )}
     </section>
+  );
+}
+
+function CandidateList({
+  accountScopeApplies,
+  accountCandidates,
+  tenantCandidates,
+  flatCandidates,
+  onPick,
+}: {
+  accountScopeApplies: boolean;
+  accountCandidates: Candidate[];
+  tenantCandidates: Candidate[];
+  flatCandidates: Candidate[];
+  onPick: (c: Candidate) => void;
+}) {
+  if (!accountScopeApplies) {
+    return (
+      <ul className="max-h-44 space-y-0.5 overflow-y-auto">
+        {flatCandidates.map((c) => (
+          <CandidateRow key={c.id} candidate={c} muted={false} onPick={onPick} />
+        ))}
+        {flatCandidates.length === 0 && (
+          <li className="px-2 py-1.5 text-[12px] text-ds-text-4">Sin resultados</li>
+        )}
+      </ul>
+    );
+  }
+
+  return (
+    <ul className="max-h-52 space-y-0.5 overflow-y-auto">
+      {accountCandidates.length > 0 && (
+        <>
+          <li className="px-2 pt-1 text-[12px] font-medium text-ds-text-3">
+            De esta cuenta ({accountCandidates.length})
+          </li>
+          {accountCandidates.map((c) => (
+            <CandidateRow key={c.id} candidate={c} muted={false} onPick={onPick} />
+          ))}
+        </>
+      )}
+      {tenantCandidates.length > 0 && (
+        <>
+          <li className="px-2 pt-2 text-[12px] font-medium text-ds-text-4">
+            Resto del tenant ({tenantCandidates.length})
+          </li>
+          {tenantCandidates.map((c) => (
+            <CandidateRow key={c.id} candidate={c} muted onPick={onPick} />
+          ))}
+        </>
+      )}
+      {accountCandidates.length === 0 && tenantCandidates.length === 0 && (
+        <li className="px-2 py-1.5 text-[12px] text-ds-text-4">Sin resultados</li>
+      )}
+    </ul>
+  );
+}
+
+function CandidateRow({
+  candidate,
+  muted,
+  onPick,
+}: {
+  candidate: Candidate;
+  muted: boolean;
+  onPick: (c: Candidate) => void;
+}) {
+  return (
+    <li>
+      <button
+        type="button"
+        onClick={() => onPick(candidate)}
+        className={`flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[13px] ds-tap hover:bg-ds-surface-2 ${
+          muted ? "text-ds-text-3 opacity-70" : "text-ds-text-2"
+        }`}
+      >
+        <span className="min-w-0 flex-1 truncate">{candidate.label}</span>
+        {candidate.sublabel && (
+          <span className="shrink-0 text-[12px] text-ds-text-4">{candidate.sublabel}</span>
+        )}
+        {candidate.status && <Tag variant="info" size="sm">{String(candidate.status)}</Tag>}
+      </button>
+    </li>
   );
 }
