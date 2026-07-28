@@ -61,6 +61,8 @@ export async function POST(req: NextRequest, ctx: Ctx) {
       emailAccountId: account.id,
       threadId,
       answers: parsed.answers,
+      baseProposal: parsed.baseProposal,
+      locks: parsed.locks,
     });
     if (!result) return NextResponse.json({ error: "Hilo no encontrado" }, { status: 404 });
 

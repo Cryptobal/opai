@@ -8,11 +8,17 @@ import type {
   CreateCrmStructureInclude,
   CreateCrmStructureResult,
   CrmStructureProposal,
+  PlanAttachmentSelection,
+  PlanMilestone,
+  PlanQuoteInput,
+  PlanTaskOverride,
 } from "./email-to-crm-structure.types";
 import { coerceCrmStructureProposal } from "./email-to-crm-structure.service";
+import { syncAssumptionArrays } from "./email-to-crm-structure.types";
 import { createThreadTask } from "./correos-tasks";
 import { anchorStructureConversation } from "./anchor-structure-conversation";
 import type { CrmStructureRefineAnswer } from "./email-to-crm-structure.types";
+import { clearPlanDraft } from "./plan-draft";
 
 async function attach(
   tenantId: string,
@@ -48,22 +54,30 @@ async function attach(
   });
 }
 
-function buildDealNotes(proposal: CrmStructureProposal): string {
+/** Exportado para tests: filtra supuestos eliminados. */
+export function buildDealNotes(proposal: CrmStructureProposal): string {
+  const synced = syncAssumptionArrays(proposal);
+  const activeAssumptions =
+    synced.assumptionItems?.filter((a) => !a.removed).map((a) => a.text) ??
+    synced.assumptions;
   const lines: string[] = [];
-  if (proposal.requerimiento) lines.push(proposal.requerimiento);
-  if (proposal.coverageIsRequirementNotStaffing) {
+  if (synced.requerimiento) lines.push(synced.requerimiento);
+  if (synced.coverageIsRequirementNotStaffing) {
     lines.push(
       "Documento define COBERTURA (no dotación). Dotación propuesta Gard calculada a " +
-        `${proposal.weeklyHoursPerWorker} h/sem.`,
+        `${synced.weeklyHoursPerWorker} h/sem.`,
     );
   }
-  const t = proposal.staffingTotals;
+  const t = synced.staffingTotals;
+  const reserveLabel = synced.reservePct ?? 10;
   lines.push(
     `Dotación propuesta: ${t.headcountBase} base` +
-      (t.reserveHeadcount ? ` + ${t.reserveHeadcount} reserva (~10%) = ${t.headcountWithReserve}` : "") +
-      ` · HH/sem ${t.weeklyHH} · mínimo legal ceil(HH/${proposal.weeklyHoursPerWorker})=${t.legalMinimum}`,
+      (t.reserveHeadcount
+        ? ` + ${t.reserveHeadcount} reserva (~${reserveLabel}%) = ${t.headcountWithReserve}`
+        : "") +
+      ` · HH/sem ${t.weeklyHH} · mínimo legal ceil(HH/${synced.weeklyHoursPerWorker})=${t.legalMinimum}`,
   );
-  for (const inst of proposal.installations) {
+  for (const inst of synced.installations) {
     const slots = inst.coverageSlots
       .map(
         (s) =>
@@ -72,11 +86,11 @@ function buildDealNotes(proposal: CrmStructureProposal): string {
       .join("\n");
     lines.push(`Instalación ${inst.name}:\n${slots || "  (sin slots)"}`);
   }
-  if (proposal.assumptions.length) {
-    lines.push("Supuestos: " + proposal.assumptions.join(" · "));
+  if (activeAssumptions.length) {
+    lines.push("Supuestos: " + activeAssumptions.join(" · "));
   }
-  if (proposal.openQuestions.length) {
-    lines.push("Pendientes: " + proposal.openQuestions.join(" · "));
+  if (synced.openQuestions.length) {
+    lines.push("Pendientes: " + synced.openQuestions.join(" · "));
   }
   return lines.join("\n\n").slice(0, 8000);
 }
@@ -106,10 +120,19 @@ export function resolveCreateInclude(
     installations: include?.installations !== false,
     attachments: include?.attachments !== false,
     followUpTask: include?.followUpTask === true,
+    quote: include?.quote === true,
+    milestones: include?.milestones === true,
   };
 }
 
-function followUpDueAt(fechaLimite: string | null): Date {
+export function followUpDueAt(
+  fechaLimite: string | null,
+  overrideDueAt?: string | null,
+): Date {
+  if (overrideDueAt) {
+    const d = new Date(overrideDueAt);
+    if (!Number.isNaN(d.getTime())) return d;
+  }
   if (fechaLimite) {
     const limit = new Date(`${fechaLimite}T12:00:00Z`);
     if (!Number.isNaN(limit.getTime())) {
@@ -131,6 +154,13 @@ export async function createCrmStructureFromProposal(params: {
   include?: CreateCrmStructureInclude;
   /** Respuestas de refinamiento a persistir en la conversación anclada. */
   refineAnswers?: CrmStructureRefineAnswer[];
+  taskOverride?: PlanTaskOverride;
+  attachmentSelection?: PlanAttachmentSelection;
+  quoteInput?: PlanQuoteInput;
+  milestones?: PlanMilestone[];
+  /** Permisos resueltos en la ruta; sin ellos se reporta skipped. */
+  canCreateQuote?: boolean;
+  canCreateMilestones?: boolean;
 }): Promise<CreateCrmStructureResult> {
   const { tenantId, userId, emailAccountId, threadId } = params;
   const proposal = coerceCrmStructureProposal(params.proposal);
@@ -151,9 +181,15 @@ export async function createCrmStructureFromProposal(params: {
   });
   if (!thread) return { ok: false, error: "Hilo no encontrado" };
 
-  const files = params.stagedFiles.filter(
+  let files = params.stagedFiles.filter(
     (f) => f.storageKey.startsWith(`${tenantId}/`) && f.storageKey.includes("chat-staged"),
   );
+  // Intersección con selección del cliente (nunca reemplazo).
+  if (params.attachmentSelection?.storageKeys?.length) {
+    const allowed = new Set(params.attachmentSelection.storageKeys);
+    files = files.filter((f) => allowed.has(f.storageKey));
+  }
+  const attachTarget = params.attachmentSelection?.target ?? "deal";
 
   // Exigir etapa antes de escribir la cuenta si puede hacer falta crear un deal
   // (comportamiento histórico de la tool del chat).
@@ -235,6 +271,10 @@ export async function createCrmStructureFromProposal(params: {
   let dealId: string | undefined;
   let agendaSync: CreateCrmStructureResult["agendaSync"];
   let dealUrl: string | undefined;
+  let quoteId: string | undefined;
+  let quoteUrl: string | undefined;
+  let milestoneResults: NonNullable<CreateCrmStructureResult["milestones"]> = [];
+  let createdNewDeal = false;
   const createdInstallations: Array<{ id: string; name: string; url: string }> = [];
 
   if (!flags.deal) {
@@ -242,6 +282,8 @@ export async function createCrmStructureFromProposal(params: {
     if (flags.installations) skipped.push("installations");
     if (flags.attachments) skipped.push("attachments");
     if (flags.followUpTask) skipped.push("followUpTask");
+    if (flags.quote) skipped.push("quote");
+    if (flags.milestones) skipped.push("milestones");
   } else {
     // Solo en el Command Layer (include explícito): reutilizar deal del hilo.
     // La tool del chat (include undefined) siempre crea un deal nuevo.
@@ -291,37 +333,7 @@ export async function createCrmStructureFromProposal(params: {
       });
       dealId = deal.id;
       dealUrl = `/crm/deals/${deal.id}`;
-
-      if (proposal.deal.isLicitacion) {
-        const pastDeadline =
-          proposal.deal.fechaLimite &&
-          proposal.deal.fechaLimite < new Date().toISOString().slice(0, 10);
-        if (pastDeadline) {
-          agendaSync = {
-            attempted: false,
-            ok: false,
-            skippedReason: "fecha_pasada",
-          };
-        } else if (!proposal.deal.fechaLimite) {
-          agendaSync = {
-            attempted: false,
-            ok: false,
-            skippedReason: "sin_fecha",
-          };
-        } else {
-          const { syncLicitacionToCalendar } = await import("@/modules/agenda/agenda-sync");
-          try {
-            const sync = await syncLicitacionToCalendar(tenantId, deal.id);
-            agendaSync = {
-              attempted: true,
-              ok: sync.syncStatus !== "ERROR",
-            };
-          } catch (e) {
-            console.error("[email-to-crm-structure] sync licitación:", e);
-            agendaSync = { attempted: true, ok: false, skippedReason: "error" };
-          }
-        }
-      }
+      createdNewDeal = true;
     }
 
     if (flags.installations) {
@@ -354,9 +366,118 @@ export async function createCrmStructureFromProposal(params: {
       skipped.push("installations");
     }
 
+    // Hitos de licitación (antes de banda all-day para alinear fechaEntrega).
+    if (flags.milestones) {
+      if (!params.canCreateMilestones) {
+        skipped.push("milestones");
+      } else if (!dealId || !proposal.deal.isLicitacion) {
+        skipped.push("milestones");
+      } else {
+        const { createDealMilestoneEvent, milestoneRangeFromPlan } = await import(
+          "@/modules/agenda/deal-milestones"
+        );
+        const today = new Date().toISOString().slice(0, 10);
+        for (const m of params.milestones ?? []) {
+          if (m.enabled === false) continue;
+          if (m.date < today) continue;
+          const range = milestoneRangeFromPlan(m);
+          if (!range) continue;
+          if (m.kind === "entrega" && m.date !== proposal.deal.fechaLimite) {
+            await prisma.crmDeal.update({
+              where: { id: dealId },
+              data: { fechaEntrega: new Date(`${m.date}T12:00:00Z`) },
+            });
+            proposal.deal.fechaLimite = m.date;
+          }
+          try {
+            const created = await createDealMilestoneEvent({
+              tenantId,
+              actorUserId: userId,
+              dealId,
+              accountId: account.id,
+              installationId: createdInstallations[0]?.id ?? null,
+              kind: m.kind,
+              startAt: range.startAt,
+              endAt: range.endAt,
+              notes: m.notes,
+              participantIds: m.participantIds,
+              externalEmails: m.externalEmails,
+            });
+            milestoneResults.push({
+              kind: m.kind,
+              eventId: created.eventId,
+              syncStatus: created.syncStatus,
+            });
+            if (m.kind === "visita_tecnica") {
+              await prisma.crmDeal.update({
+                where: { id: dealId },
+                data: { technicalVisitDate: new Date(`${m.date}T12:00:00Z`) },
+              });
+            }
+          } catch (e) {
+            console.error("[email-to-crm-structure] hito:", m.kind, e);
+          }
+        }
+      }
+    }
+
+    // Banda all-day de licitación (solo en deal nuevo, igual que antes).
+    if (proposal.deal.isLicitacion && dealId && createdNewDeal) {
+      const pastDeadline =
+        proposal.deal.fechaLimite &&
+        proposal.deal.fechaLimite < new Date().toISOString().slice(0, 10);
+      if (pastDeadline) {
+        agendaSync = { attempted: false, ok: false, skippedReason: "fecha_pasada" };
+      } else if (!proposal.deal.fechaLimite) {
+        agendaSync = { attempted: false, ok: false, skippedReason: "sin_fecha" };
+      } else {
+        const { syncLicitacionToCalendar } = await import("@/modules/agenda/agenda-sync");
+        try {
+          const sync = await syncLicitacionToCalendar(tenantId, dealId);
+          agendaSync = { attempted: true, ok: sync.syncStatus !== "ERROR" };
+        } catch (e) {
+          console.error("[email-to-crm-structure] sync licitación:", e);
+          agendaSync = { attempted: true, ok: false, skippedReason: "error" };
+        }
+      }
+    }
+
+    // Cotización CPQ borrador.
+    if (flags.quote) {
+      if (!params.canCreateQuote) {
+        skipped.push("quote");
+      } else if (!dealId) {
+        skipped.push("quote");
+      } else {
+        try {
+          const { createPlanQuote } = await import("./plan-create-quote");
+          const q = await createPlanQuote({
+            tenantId,
+            userId,
+            dealId,
+            accountId: account.id,
+            contactId,
+            installationId: createdInstallations[0]?.id,
+            proposal,
+            quoteInput: params.quoteInput,
+          });
+          quoteId = q.quoteId;
+          quoteUrl = q.quoteUrl;
+        } catch (e) {
+          console.error("[email-to-crm-structure] quote:", e);
+          skipped.push("quote");
+        }
+      }
+    }
+
     if (flags.attachments && dealId) {
       for (const f of files) {
-        await attach(tenantId, userId, f, "deal", dealId);
+        if (attachTarget === "account" || attachTarget === "both") {
+          await attach(tenantId, userId, f, "account", account.id);
+        }
+        if (attachTarget === "deal" || attachTarget === "both") {
+          await attach(tenantId, userId, f, "deal", dealId);
+        }
       }
     } else if (!flags.attachments) {
       skipped.push("attachments");
@@ -374,19 +495,39 @@ export async function createCrmStructureFromProposal(params: {
 
   let taskId: string | undefined;
   if (flags.followUpTask && dealId) {
-    const dueAt = followUpDueAt(proposal.deal.fechaLimite);
-    const title = proposal.deal.isLicitacion
-      ? `Seguimiento licitación — ${accountName}`
-      : `Seguimiento oportunidad — ${accountName}`;
+    const ov = params.taskOverride;
+    const dueAt = followUpDueAt(proposal.deal.fechaLimite, ov?.dueAt);
+    const title =
+      ov?.title?.trim() ||
+      (proposal.deal.isLicitacion
+        ? `Seguimiento licitación — ${accountName}`
+        : `Seguimiento oportunidad — ${accountName}`);
+    const allDay = ov?.allDay ?? true;
     const task = await createThreadTask({
       tenantId,
       userId,
       threadId: thread.id,
       title,
       dueAt,
-      allDay: true,
+      allDay,
     });
     taskId = task?.id;
+    if (taskId && ov?.assigneeIds?.length) {
+      const valid = await prisma.admin.findMany({
+        where: { tenantId, id: { in: ov.assigneeIds }, status: "active" },
+        select: { id: true },
+      });
+      if (valid.length) {
+        await prisma.crmTaskAssignee.createMany({
+          data: valid.map((a) => ({ taskId: taskId!, userId: a.id })),
+          skipDuplicates: true,
+        });
+        await prisma.crmTask.update({
+          where: { id: taskId },
+          data: { assignedTo: valid[0].id },
+        });
+      }
+    }
   } else if (flags.followUpTask && !dealId) {
     skipped.push("followUpTask");
   }
@@ -401,14 +542,18 @@ export async function createCrmStructureFromProposal(params: {
 
   let conversationId: string | undefined;
   if (dealId) {
+    // Anclar conversación con supuestos no eliminados.
+    const forAnchor = syncAssumptionArrays(proposal);
     conversationId = await anchorStructureConversation({
       tenantId,
       userId,
       dealId,
-      proposal,
+      proposal: forAnchor,
       answers: params.refineAnswers,
     });
   }
+
+  await clearPlanDraft({ tenantId, threadId, emailAccountId }).catch(() => undefined);
 
   const noteParts = [
     `Estructura: ${accountReused ? "cuenta reutilizada" : "cuenta nueva"}`,
@@ -423,6 +568,7 @@ export async function createCrmStructureFromProposal(params: {
     flags.deal
       ? `dotación base ${proposal.staffingTotals.headcountBase}`
       : null,
+    quoteId ? "cotización borrador creada" : null,
   ].filter(Boolean);
 
   return {
@@ -436,11 +582,12 @@ export async function createCrmStructureFromProposal(params: {
     dealUrl,
     installations: createdInstallations,
     taskId,
+    quoteId,
+    quoteUrl,
+    milestones: milestoneResults.length ? milestoneResults : undefined,
     skipped: skipped.length ? skipped : undefined,
     agendaSync,
     conversationId,
-    note:
-      noteParts.join(", ") +
-      ". La cotización (puestos CPQ) es el siguiente paso — aún no se creó.",
+    note: noteParts.join(", ") + (quoteId ? "." : ". Cotización CPQ: armar puestos en el workspace."),
   };
 }

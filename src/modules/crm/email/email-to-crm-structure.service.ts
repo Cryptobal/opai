@@ -13,12 +13,43 @@ import { prepareThreadAttachments, type PreparedAttachments } from "./email-to-l
 import { WEEKDAYS_FULL } from "./email-to-lead.types";
 import {
   emptyCrmStructureProposal,
+  syncAssumptionArrays,
+  type CrmStructureAssumption,
   type CrmStructureCoverageSlot,
   type CrmStructureExtractionResult,
   type CrmStructureInstallation,
   type CrmStructureProposal,
   type CrmStructureRefineAnswer,
 } from "./email-to-crm-structure.types";
+
+/** Hash corto estable para ids de supuestos. */
+function shortHash(text: string): string {
+  let h = 0;
+  for (let i = 0; i < text.length; i++) h = (Math.imul(31, h) + text.charCodeAt(i)) | 0;
+  return (h >>> 0).toString(36).slice(0, 6);
+}
+
+export function buildAssumptionItems(
+  assumptions: string[],
+  origins?: Array<"inference" | "user">,
+  existing?: CrmStructureAssumption[],
+): CrmStructureAssumption[] {
+  if (Array.isArray(existing) && existing.length > 0) {
+    return existing.map((a, i) => ({
+      id: a.id || `a-${i}-${shortHash(a.text || a.originalText || "")}`,
+      text: a.text,
+      originalText: a.originalText || a.text,
+      origin: a.origin === "user" || a.origin === "edited" ? a.origin : "inference",
+      removed: a.removed === true ? true : undefined,
+    }));
+  }
+  return assumptions.map((text, i) => ({
+    id: `a-${i}-${shortHash(text)}`,
+    text,
+    originalText: text,
+    origin: origins?.[i] === "user" ? "user" : "inference",
+  }));
+}
 
 const SYSTEM = `Eres un asistente comercial de una empresa de seguridad privada en Chile.
 Extraes del correo + adjuntos (RFI, bases, SoW, consulta al mercado) la ESTRUCTURA CRM + COBERTURA para proponer alta en OPAI.
@@ -160,6 +191,12 @@ export function normalizeCrmStructureProposal(raw: Record<string, unknown>): Crm
   }
 
   const weeklyHours = num(raw.weeklyHoursPerWorker) ?? 42;
+  // reservePct en propuesta = porcentaje 0–100; sumStaffing espera fracción 0–1.
+  const reservePctRaw = Number(raw.reservePct);
+  const reservePct =
+    Number.isFinite(reservePctRaw) && reservePctRaw >= 0 && reservePctRaw <= 100
+      ? Math.round(reservePctRaw)
+      : 10;
   const installations = (Array.isArray(raw.installations) ? raw.installations : [])
     .map((i) => enrichInstallation(i, weeklyHours))
     .filter((i): i is CrmStructureInstallation => !!i);
@@ -189,7 +226,7 @@ export function normalizeCrmStructureProposal(raw: Record<string, unknown>): Crm
       rationale: s.staffingRationale,
     })),
   );
-  const totals = sumStaffing(allStaff, weeklyHours, 0.1);
+  const totals = sumStaffing(allStaff, weeklyHours, reservePct / 100);
 
   const openQuestions = Array.isArray(raw.openQuestions)
     ? raw.openQuestions.filter((q): q is string => typeof q === "string" && !!q.trim()).slice(0, 5)
@@ -197,8 +234,18 @@ export function normalizeCrmStructureProposal(raw: Record<string, unknown>): Crm
   const assumptions = Array.isArray(raw.assumptions)
     ? raw.assumptions.filter((q): q is string => typeof q === "string" && !!q.trim()).slice(0, 5)
     : [];
+  const existingItems = Array.isArray(raw.assumptionItems)
+    ? (raw.assumptionItems as CrmStructureAssumption[])
+    : undefined;
+  const origins = Array.isArray(raw.assumptionOrigins)
+    ? (raw.assumptionOrigins as Array<"inference" | "user">)
+    : undefined;
+  const assumptionItems = buildAssumptionItems(assumptions, origins, existingItems);
+  const locks = Array.isArray(raw.locks)
+    ? raw.locks.filter((p): p is string => typeof p === "string" && p.length > 0 && p.length <= 200).slice(0, 100)
+    : [];
 
-  return {
+  const proposal: CrmStructureProposal = {
     ...base,
     account: {
       name: str(accountRaw.name) ?? str(raw.empresa),
@@ -223,9 +270,12 @@ export function normalizeCrmStructureProposal(raw: Record<string, unknown>): Crm
     },
     coverageIsRequirementNotStaffing: bool(raw.coverageIsRequirementNotStaffing),
     weeklyHoursPerWorker: weeklyHours,
+    reservePct,
     installations,
     openQuestions,
     assumptions,
+    assumptionItems,
+    locks,
     staffingTotals: {
       weeklyHH: totals.weeklyHH,
       headcountBase: totals.headcountBase,
@@ -235,6 +285,7 @@ export function normalizeCrmStructureProposal(raw: Record<string, unknown>): Crm
     },
     requerimiento: str(raw.requerimiento),
   };
+  return syncAssumptionArrays(proposal);
 }
 
 /** Asegura shape completo si el modelo reenvía propuesta editada en confirm. */
@@ -290,8 +341,13 @@ export async function extractCrmStructureFromThread(params: {
   threadId: string;
   /** Respuestas de refinamiento (opcionales). Se inyectan como restricciones, no como system prompt. */
   answers?: CrmStructureRefineAnswer[];
+  /** Propuesta previa del cliente (con ediciones) para re-aplicar locks. */
+  baseProposal?: CrmStructureProposal | Record<string, unknown>;
+  /** Paths bloqueados por edición manual. */
+  locks?: string[];
 }): Promise<CrmStructureExtractionResult | null> {
   const { tenantId, emailAccountId, threadId } = params;
+  const { applyLocks, mergeAssumptionItems } = await import("./plan-locks");
   const answers = (params.answers ?? [])
     .filter(
       (a) =>
@@ -386,7 +442,7 @@ export async function extractCrmStructureFromThread(params: {
     throw new Error("La IA no pudo estructurar el correo. Intentá de nuevo.");
   }
 
-  const proposal = normalizeCrmStructureProposal(raw);
+  let proposal = normalizeCrmStructureProposal(raw);
   if (answers.length > 0) {
     // Marcar supuestos que coinciden con respuestas del usuario.
     const answerText = answers.map((a) => a.answer.toLowerCase()).join(" ");
@@ -401,10 +457,38 @@ export async function extractCrmStructureFromThread(params: {
     if (!proposal.assumptionOrigins.some((o) => o === "user") && proposal.assumptions.length) {
       proposal.assumptionOrigins = proposal.assumptions.map(() => "user" as const);
     }
+    proposal.assumptionItems = buildAssumptionItems(
+      proposal.assumptions,
+      proposal.assumptionOrigins,
+      proposal.assumptionItems,
+    );
+  }
+
+  const locks = (params.locks ?? []).filter(
+    (p): p is string => typeof p === "string" && p.length > 0 && p.length <= 200,
+  ).slice(0, 100);
+
+  if (params.baseProposal && locks.length > 0) {
+    const base = coerceCrmStructureProposal(params.baseProposal);
+    proposal = applyLocks(proposal, base, locks);
+    proposal.assumptionItems = mergeAssumptionItems(
+      proposal.assumptionItems,
+      base.assumptionItems,
+    );
+    proposal.locks = [...new Set([...(base.locks ?? []), ...locks])];
+    // Recalcular dotación después de aplicar locks de cobertura.
+    proposal = coerceCrmStructureProposal(proposal);
+  } else if (params.baseProposal) {
+    const base = coerceCrmStructureProposal(params.baseProposal);
+    proposal.assumptionItems = mergeAssumptionItems(
+      proposal.assumptionItems,
+      base.assumptionItems,
+    );
+    proposal = syncAssumptionArrays(proposal);
   }
 
   return {
-    proposal,
+    proposal: syncAssumptionArrays(proposal),
     stagedFiles: att.stagedFiles,
     sources: att.sources,
   };

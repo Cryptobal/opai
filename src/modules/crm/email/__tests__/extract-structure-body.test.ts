@@ -37,4 +37,24 @@ describe("parseExtractStructureBody", () => {
     });
     expect(r.ok).toBe(false);
   });
+
+  it("acepta baseProposal y locks válidos", () => {
+    const r = parseExtractStructureBody({
+      answers: [{ question: "HH?", answer: "42" }],
+      baseProposal: { account: { name: "X" } },
+      locks: ["account.name", "deal.title"],
+    });
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.locks).toEqual(["account.name", "deal.title"]);
+      expect(r.baseProposal).toEqual({ account: { name: "X" } });
+    }
+  });
+
+  it("rechaza locks inválidos (>100 o string >200)", () => {
+    expect(
+      parseExtractStructureBody({ locks: Array.from({ length: 101 }, (_, i) => `p${i}`) }).ok,
+    ).toBe(false);
+    expect(parseExtractStructureBody({ locks: ["x".repeat(201)] }).ok).toBe(false);
+  });
 });
