@@ -34,3 +34,38 @@ export function isSystemSender(fromEmail: string | null, tenantDomains: Set<stri
   const dom = domainOf(lower);
   return Boolean(dom && tenantDomains.has(dom));
 }
+
+/** Campos de company config usados para derivar dominios propios del tenant. */
+export type TenantDomainCompanyEmails = {
+  emailFromAddress?: string | null;
+  email?: string | null;
+  emailOps?: string | null;
+  emailFinance?: string | null;
+  emailContact?: string | null;
+  emailReplyTo?: string | null;
+};
+
+/**
+ * Dominios propios del tenant (company config + casilla), excluyendo
+ * proveedores públicos (gmail.com, etc.) sobre el dominio de la casilla.
+ */
+export function buildTenantDomains(
+  company: TenantDomainCompanyEmails,
+  mailboxEmail?: string | null,
+): Set<string> {
+  const tenantDomains = new Set<string>();
+  for (const e of [
+    company.emailFromAddress,
+    company.email,
+    company.emailOps,
+    company.emailFinance,
+    company.emailContact,
+    company.emailReplyTo,
+  ]) {
+    const d = domainOf(e);
+    if (d) tenantDomains.add(d);
+  }
+  const mailboxDom = domainOf(mailboxEmail ?? null);
+  if (mailboxDom && !isPublicMailDomain(mailboxDom)) tenantDomains.add(mailboxDom);
+  return tenantDomains;
+}
