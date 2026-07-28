@@ -11,6 +11,8 @@ import type {
 } from "./email-to-crm-structure.types";
 import { coerceCrmStructureProposal } from "./email-to-crm-structure.service";
 import { createThreadTask } from "./correos-tasks";
+import { anchorStructureConversation } from "./anchor-structure-conversation";
+import type { CrmStructureRefineAnswer } from "./email-to-crm-structure.types";
 
 async function attach(
   tenantId: string,
@@ -127,6 +129,8 @@ export async function createCrmStructureFromProposal(params: {
   stagedFiles: StagedFile[];
   /** Si es undefined, comportamiento idéntico al histórico (tool del chat). */
   include?: CreateCrmStructureInclude;
+  /** Respuestas de refinamiento a persistir en la conversación anclada. */
+  refineAnswers?: CrmStructureRefineAnswer[];
 }): Promise<CreateCrmStructureResult> {
   const { tenantId, userId, emailAccountId, threadId } = params;
   const proposal = coerceCrmStructureProposal(params.proposal);
@@ -395,6 +399,17 @@ export async function createCrmStructureFromProposal(params: {
     if (!check) return { ok: false, error: "No se pudo confirmar la creación del deal." };
   }
 
+  let conversationId: string | undefined;
+  if (dealId) {
+    conversationId = await anchorStructureConversation({
+      tenantId,
+      userId,
+      dealId,
+      proposal,
+      answers: params.refineAnswers,
+    });
+  }
+
   const noteParts = [
     `Estructura: ${accountReused ? "cuenta reutilizada" : "cuenta nueva"}`,
     dealId
@@ -423,6 +438,7 @@ export async function createCrmStructureFromProposal(params: {
     taskId,
     skipped: skipped.length ? skipped : undefined,
     agendaSync,
+    conversationId,
     note:
       noteParts.join(", ") +
       ". La cotización (puestos CPQ) es el siguiente paso — aún no se creó.",
