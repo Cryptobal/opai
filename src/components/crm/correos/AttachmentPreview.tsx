@@ -4,6 +4,12 @@ import { type ReactNode, useEffect, useState } from "react";
 import { Download, File as FileIcon, RefreshCw, Share2 } from "lucide-react";
 import { MediaZoom } from "./MediaZoom";
 import { PdfCanvas } from "./PdfCanvas";
+import {
+  isSpreadsheetAttachment,
+  parseXlsxPreview,
+  XLSX_PREVIEW_MAX_BYTES,
+  type XlsxPreview,
+} from "./xlsx-attachment-preview";
 
 /** Tope de bytes que leemos para previsualizar texto plano / docx. */
 const TEXT_MAX = 512 * 1024;
@@ -23,13 +29,15 @@ function cacheBlob(url: string, blob: Blob) {
   }
 }
 
-type Kind = "pdf" | "image" | "text" | "docx" | "other";
+type Kind = "pdf" | "image" | "text" | "docx" | "xlsx" | "other";
 
 /** Clasifica el adjunto por MIME/extensión. HTML/XML/SVG nunca se renderizan
  *  inline (riesgo XSS: el endpoint ya los fuerza a descarga). */
 function classify(mimeType: string, filename: string): Kind {
   const mt = (mimeType || "").toLowerCase();
   const ext = filename.toLowerCase().split(".").pop() ?? "";
+  // Excel ANTES del bloque XSS: el MIME spreadsheetml contiene "xml".
+  if (isSpreadsheetAttachment(mimeType, filename)) return "xlsx";
   if (mt.includes("html") || mt.includes("xml") || mt.includes("svg") || ["html", "htm", "xml", "svg"].includes(ext)) {
     return "other";
   }
@@ -64,6 +72,7 @@ type State =
   | { phase: "image"; objectUrl: string }
   | { phase: "text"; text: string; truncated: boolean }
   | { phase: "docx"; html: string }
+  | { phase: "xlsx"; preview: XlsxPreview }
   | { phase: "other" };
 
 async function shareOrDownload(url: string, filename: string, mimeType: string) {
@@ -109,6 +118,16 @@ async function blobToState(blob: Blob, kind: Kind): Promise<State> {
     const html = DOMPurify.sanitize(result.value || "<p>(Documento vacío)</p>");
     return { phase: "docx", html };
   }
+  if (kind === "xlsx") {
+    if (blob.size > XLSX_PREVIEW_MAX_BYTES) return { phase: "other" };
+    try {
+      const preview = await parseXlsxPreview(await blob.arrayBuffer());
+      return { phase: "xlsx", preview };
+    } catch {
+      // Variantes no-estándar / corruptos: tarjeta de descarga, no pantalla en blanco.
+      return { phase: "other" };
+    }
+  }
   const truncated = blob.size > TEXT_MAX;
   const text = await blob.slice(0, TEXT_MAX).text();
   return { phase: "text", text, truncated };
@@ -117,9 +136,9 @@ async function blobToState(blob: Blob, kind: Kind): Promise<State> {
 /**
  * Cuerpo compartido de previsualización de adjuntos (lector de correo y
  * documentos CRM): baja el binario con la sesión (misma-origen) y lo pinta —
- * PDF en canvas (pdf.js), imagen con pinch-zoom, texto plano, DOCX (mammoth) —
- * o muestra una tarjeta tipada con descarga/compartir. Cachea blobs en memoria
- * para reabrir sin latencia. Nunca deja pantalla en blanco.
+ * PDF en canvas (pdf.js), imagen con pinch-zoom, texto plano, DOCX (mammoth),
+ * Excel (exceljs) — o muestra una tarjeta tipada con descarga/compartir.
+ * Cachea blobs en memoria para reabrir sin latencia. Nunca deja pantalla en blanco.
  */
 export function AttachmentPreview({
   url,
@@ -138,9 +157,11 @@ export function AttachmentPreview({
   const [state, setState] = useState<State>({ phase: "loading" });
   const [attempt, setAttempt] = useState(0);
   const [sharing, setSharing] = useState(false);
+  const [sheetIdx, setSheetIdx] = useState(0);
   const kind = classify(mimeType, filename);
 
   useEffect(() => {
+    setSheetIdx(0);
     // Los tipos sin preview no se descargan: se muestra la tarjeta directo.
     if (kind === "other") {
       setState({ phase: "other" });
@@ -268,6 +289,78 @@ export function AttachmentPreview({
           // HTML sanitizado con DOMPurify arriba.
           dangerouslySetInnerHTML={{ __html: state.html }}
         />
+        <div className="shrink-0 border-t border-ds-border-subtle px-3 py-2">{actions}</div>
+      </div>
+    );
+  }
+
+  if (state.phase === "xlsx") {
+    const sheets = state.preview.sheets;
+    const active = sheets[Math.min(sheetIdx, sheets.length - 1)] ?? sheets[0];
+    const header = active?.rows[0] ?? [];
+    const body = active?.rows.slice(1) ?? [];
+    return (
+      <div className="flex h-full flex-col animate-in fade-in duration-150">
+        {sheets.length > 1 && (
+          <div className="flex shrink-0 gap-1 overflow-x-auto border-b border-ds-border-subtle px-2 py-1.5 scrollbar-none">
+            {sheets.map((s, i) => (
+              <button
+                key={`${s.name}-${i}`}
+                type="button"
+                onClick={() => setSheetIdx(i)}
+                className={`h-10 shrink-0 rounded-lg px-3 text-[13px] ds-tap ${
+                  i === Math.min(sheetIdx, sheets.length - 1)
+                    ? "bg-ds-surface-3 font-medium text-ds-text-1"
+                    : "text-ds-text-3"
+                }`}
+              >
+                {s.name}
+              </button>
+            ))}
+          </div>
+        )}
+        <div className="min-h-0 flex-1 overflow-auto [-webkit-overflow-scrolling:touch]">
+          {!active || active.rows.length === 0 ? (
+            <p className="p-4 text-center text-[13px] text-ds-text-3">Hoja vacía</p>
+          ) : (
+            <table className="min-w-full border-collapse text-left text-[12px] text-ds-text-1">
+              {header.length > 0 && (
+                <thead className="sticky top-0 z-[1] bg-ds-surface-2">
+                  <tr>
+                    {header.map((cell, i) => (
+                      <th
+                        key={i}
+                        className="whitespace-nowrap border-b border-ds-border-default px-2.5 py-2 font-semibold"
+                      >
+                        {cell || "\u00a0"}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+              )}
+              <tbody>
+                {(header.length > 0 ? body : active.rows).map((row, ri) => (
+                  <tr key={ri} className="odd:bg-ds-surface-1 even:bg-ds-surface-2/40">
+                    {row.map((cell, ci) => (
+                      <td
+                        key={ci}
+                        className="max-w-[16rem] truncate border-b border-ds-border-subtle px-2.5 py-1.5 align-top"
+                        title={cell || undefined}
+                      >
+                        {cell || "\u00a0"}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+          {active?.truncated && (
+            <p className="px-3 py-2 text-[12px] text-ds-text-4">
+              Vista previa truncada — descargá el archivo para verlo completo.
+            </p>
+          )}
+        </div>
         <div className="shrink-0 border-t border-ds-border-subtle px-3 py-2">{actions}</div>
       </div>
     );
