@@ -29,6 +29,7 @@ export function useServerTranscription(opts?: {
   const [state, setState] = useState<ServerTranscriptionState>("idle");
   const [error, setError] = useState<string | null>(null);
   const [elapsedMs, setElapsedMs] = useState(0);
+  const [mediaStream, setMediaStream] = useState<MediaStream | null>(null);
 
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -55,6 +56,7 @@ export function useServerTranscription(opts?: {
     }
     streamRef.current?.getTracks().forEach((t) => t.stop());
     streamRef.current = null;
+    setMediaStream(null);
     recorderRef.current = null;
     chunksRef.current = [];
   }, []);
@@ -139,6 +141,7 @@ export function useServerTranscription(opts?: {
         return;
       }
       streamRef.current = stream;
+      setMediaStream(stream);
       chunksRef.current = [];
       const rec = new MediaRecorder(stream, { mimeType: mime });
       recorderRef.current = rec;
@@ -177,6 +180,7 @@ export function useServerTranscription(opts?: {
     elapsedMs,
     recording: state === "recording",
     uploading: state === "uploading",
+    mediaStream,
     supported: typeof window !== "undefined" && typeof MediaRecorder !== "undefined",
     start,
     stop: stopAndUpload,

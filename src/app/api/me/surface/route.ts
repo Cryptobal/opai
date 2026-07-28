@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
+import { prisma } from "@/lib/prisma";
 import {
   parseSurface,
   SURFACE_COOKIE,
@@ -12,7 +13,7 @@ export const dynamic = "force-dynamic";
 /**
  * POST /api/me/surface
  * Body: { surface: "productividad" | "erp" }
- * Setea la cookie de superficie (sesión de presentación). No toca BD.
+ * Setea la cookie de superficie y persiste `landingSurface` (arranque PWA/login).
  */
 export async function POST(req: Request) {
   const ctx = await requireAuth();
@@ -34,6 +35,13 @@ export async function POST(req: Request) {
   }
 
   const surface: Surface = parseSurface(raw);
+
+  await prisma.adminPreference.upsert({
+    where: { adminId: ctx.userId },
+    create: { adminId: ctx.userId, landingSurface: surface },
+    update: { landingSurface: surface },
+  });
+
   const res = NextResponse.json({ success: true, surface });
   res.cookies.set(SURFACE_COOKIE, surface, surfaceCookieOptions());
   return res;
