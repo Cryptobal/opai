@@ -403,7 +403,7 @@ export default function CorreoRsvpMockupPage() {
               </div>
             </Surface>
 
-            <Surface elevation={0} padding="md" className="space-y-2 border border-dashed border-ds-border-default">
+            <Surface elevation={1} padding="md" className="space-y-2 border border-dashed border-ds-border-default">
               <p className="text-[12px] font-semibold uppercase tracking-wide text-ds-text-4">
                 Nota de implementación (no va en producto)
               </p>
