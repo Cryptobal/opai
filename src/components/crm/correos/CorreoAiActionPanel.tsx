@@ -16,8 +16,12 @@ import type { CrmStructureProposal } from "@/modules/crm/email/email-to-crm-stru
 import type { CreateCrmStructureResult } from "@/modules/crm/email/email-to-crm-structure.types";
 import { LeadFromEmailPanel } from "./LeadFromEmailPanel";
 import { CorreoAiPlanCard, type PlanAction } from "./CorreoAiPlanCard";
-import { CorreoAiPlanSections, TraceBlock } from "./CorreoAiPlanSections";
+import { CorreoAiPlanSections, TraceBlock, diffStaffingTotals, type StaffingDelta } from "./CorreoAiPlanSections";
 import { CorreoAiResultList } from "./CorreoAiResultList";
+import { CorreoAiRefineChat, type RefineChatMessage } from "./CorreoAiRefineChat";
+import type { CrmStructureRefineAnswer } from "@/modules/crm/email/email-to-crm-structure.types";
+import { dispatchAiCommand } from "@/lib/ai/ai-command-event";
+import { useKeyboardOffset } from "@/hooks/useKeyboardOffset";
 
 export type AiPanelCommand =
   | "analizar"
@@ -62,6 +66,8 @@ const TRACE_STEPS = [
   "Calculando cobertura y dotación…",
   "Armando el plan de acciones…",
 ];
+
+const MAX_REFINES = 5;
 
 function isPastDate(iso: string | null | undefined): boolean {
   if (!iso) return false;
@@ -205,11 +211,20 @@ export function CorreoAiActionPanel({
   const [durationMs, setDurationMs] = useState<number | null>(null);
   const [closing, setClosing] = useState(false);
   const sheetRef = useRef<HTMLDivElement | null>(null);
+  const [showRefine, setShowRefine] = useState(false);
+  const [refineBusy, setRefineBusy] = useState(false);
+  const [answers, setAnswers] = useState<CrmStructureRefineAnswer[]>([]);
+  const [refineMessages, setRefineMessages] = useState<RefineChatMessage[]>([]);
+  const [activeQuestion, setActiveQuestion] = useState("Ajuste al plan");
+  const [delta, setDelta] = useState<StaffingDelta | null | undefined>(undefined);
+  const keyboardOffset = useKeyboardOffset();
 
   const isStructure = command === "analizar" || command === "crm_completo";
   const isLead = command === "lead";
   const isVertical =
     command === "ticket_operativo" || command === "candidato" || command === "cobranza";
+
+  const remainingRefines = MAX_REFINES - answers.length;
 
   const requestClose = useCallback(() => {
     if (closing) return;
@@ -246,6 +261,11 @@ export function CorreoAiActionPanel({
     setError(null);
     setResult(null);
     setTraceIdx(0);
+    setShowRefine(false);
+    setAnswers([]);
+    setRefineMessages([]);
+    setDelta(undefined);
+    setActiveQuestion("Ajuste al plan");
     const t0 = Date.now();
 
     try {
@@ -326,6 +346,72 @@ export function CorreoAiActionPanel({
       return next;
     });
   };
+
+  async function refineWithAnswers(nextAnswers: CrmStructureRefineAnswer[]) {
+    if (!proposal) return;
+    if (nextAnswers.length > MAX_REFINES) {
+      toast.message("Abrí el asistente completo para seguir afinando");
+      dispatchAiCommand({
+        prompt:
+          "Seguí refinando el plan de acciones de este correo con más detalle.",
+        autoSend: true,
+      });
+      return;
+    }
+    const prevTotals = proposal.staffingTotals;
+    setRefineBusy(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/crm/correos/${threadId}/extract-structure`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ answers: nextAnswers }),
+      });
+      const j = (await res.json()) as StructureResponse & { error?: string };
+      if (!res.ok) throw new Error(j.error || "No se pudo refinar el plan");
+      const d = diffStaffingTotals(prevTotals, j.proposal.staffingTotals);
+      setDelta(d);
+      setProposal(j.proposal);
+      setSources(j.sources ?? []);
+      const actions = buildStructureActions(j.proposal, false, existingDealId);
+      setSelected(
+        new Set(
+          actions
+            .filter((a) => !a.optional && !a.disabled && !a.locked)
+            .map((a) => a.id)
+            .concat(["account"]),
+        ),
+      );
+      setRefineMessages((msgs) => [
+        ...msgs,
+        {
+          id: `a-${Date.now()}`,
+          role: "assistant",
+          text: d
+            ? `Plan actualizado: ${[
+                d.headcountBase && `dotación ${d.headcountBase.from}→${d.headcountBase.to}`,
+                d.weeklyHH && `HH/sem ${d.weeklyHH.from}→${d.weeklyHH.to}`,
+              ]
+                .filter(Boolean)
+                .join(", ")}`
+            : "Plan actualizado sin cambios en dotación ni HH.",
+        },
+      ]);
+      setAnswers(nextAnswers);
+      setPhase("structure");
+    } catch (e) {
+      // Conservar el plan anterior.
+      setError(e instanceof Error ? e.message : "Error al refinar");
+      toast.error("No se pudo refinar; se mantiene el plan anterior");
+    } finally {
+      setRefineBusy(false);
+    }
+  }
+
+  function openRefine(question: string) {
+    setActiveQuestion(question);
+    setShowRefine(true);
+  }
 
   async function executeStructure() {
     if (!proposal) return;
@@ -491,14 +577,23 @@ export function CorreoAiActionPanel({
           )}
 
           {(phase === "structure" || phase === "executing") && proposal && (
-            <CorreoAiPlanSections
-              proposal={proposal}
-              actions={structureActions}
-              selected={selected}
-              onToggle={toggle}
-              sources={sources}
-              durationMs={durationMs}
-            />
+            <>
+              <CorreoAiPlanSections
+                proposal={proposal}
+                actions={structureActions}
+                selected={selected}
+                onToggle={toggle}
+                sources={sources}
+                durationMs={durationMs}
+                delta={delta}
+                onRefineAssumption={(a) => openRefine(`Cambiar supuesto: ${a}`)}
+                onRefineQuestion={(q) => openRefine(q)}
+                onOpenRefine={() => openRefine("Ajuste al plan")}
+              />
+              {error && (
+                <p className="mt-2 text-[13px] text-status-danger-fg">{error}</p>
+              )}
+            </>
           )}
 
           {phase === "vertical" && verticalProposal && (
@@ -529,27 +624,78 @@ export function CorreoAiActionPanel({
         {(phase === "structure" || phase === "executing" || phase === "vertical") && (
           <footer
             className="shrink-0 border-t border-ds-border-subtle px-3 py-3"
-            style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
+            style={{
+              paddingBottom:
+                keyboardOffset > 0
+                  ? keyboardOffset + 12
+                  : "max(0.75rem, env(safe-area-inset-bottom))",
+            }}
           >
+            {isStructure && showRefine && (
+              <div className="mb-3">
+                <CorreoAiRefineChat
+                  messages={refineMessages}
+                  busy={refineBusy}
+                  remaining={remainingRefines}
+                  activeQuestion={activeQuestion}
+                  onSend={(ans) => {
+                    const next = [...answers, ans];
+                    setRefineMessages((msgs) => [
+                      ...msgs,
+                      { id: `u-${Date.now()}`, role: "user", text: ans.answer },
+                    ]);
+                    void refineWithAnswers(next);
+                  }}
+                  onOpenFullAssistant={() => {
+                    dispatchAiCommand({
+                      prompt:
+                        "Seguí refinando el plan de acciones de este correo con más detalle.",
+                      autoSend: true,
+                    });
+                    requestClose();
+                  }}
+                />
+              </div>
+            )}
             <p className="mb-2 text-[12px] text-ds-text-4">
-              {phase === "executing" ? "Creando…" : "Nada se ha creado aún"}
+              {phase === "executing"
+                ? "Creando…"
+                : refineBusy
+                  ? "Recalculando plan…"
+                  : "Nada se ha creado aún"}
             </p>
-            <button
-              type="button"
-              disabled={phase === "executing" || (isStructure ? false : selectedCount === 0)}
-              onClick={() => {
-                if (isStructure) void executeStructure();
-                else executeVertical();
-              }}
-              className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary text-[13px] font-medium text-primary-foreground ds-tap disabled:opacity-50 sm:h-10"
-            >
-              {phase === "executing" && <Loader2 className="h-4 w-4 animate-spin" />}
-              {isStructure
-                ? `Crear ${selectedCount} acción${selectedCount === 1 ? "" : "es"}`
-                : command === "cobranza"
-                  ? "Entendido"
-                  : "Continuar"}
-            </button>
+            <div className="flex gap-2">
+              {isStructure && (
+                <button
+                  type="button"
+                  disabled={phase === "executing" || refineBusy}
+                  onClick={() => setShowRefine((v) => !v)}
+                  className="flex h-11 flex-1 items-center justify-center rounded-xl border border-ds-border-default text-[13px] font-medium text-ds-text-1 ds-tap disabled:opacity-50 sm:h-10"
+                >
+                  {showRefine ? "Ocultar" : "Afinar"}
+                </button>
+              )}
+              <button
+                type="button"
+                disabled={
+                  phase === "executing" ||
+                  refineBusy ||
+                  (isStructure ? false : selectedCount === 0)
+                }
+                onClick={() => {
+                  if (isStructure) void executeStructure();
+                  else executeVertical();
+                }}
+                className="flex h-11 flex-[1.4] items-center justify-center gap-2 rounded-xl bg-primary text-[13px] font-medium text-primary-foreground ds-tap disabled:opacity-50 sm:h-10"
+              >
+                {phase === "executing" && <Loader2 className="h-4 w-4 animate-spin" />}
+                {isStructure
+                  ? `Crear ${selectedCount} acción${selectedCount === 1 ? "" : "es"}`
+                  : command === "cobranza"
+                    ? "Entendido"
+                    : "Continuar"}
+              </button>
+            </div>
           </footer>
         )}
       </div>
