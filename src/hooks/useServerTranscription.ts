@@ -1,6 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  acquireUserMediaAudio,
+  queryMicPermission,
+} from "@/lib/mic-permission";
 
 export type ServerTranscriptionState =
   | "idle"
@@ -22,6 +26,9 @@ function pickMimeType(): string {
 /**
  * MediaRecorder → POST /api/ai/help-chat/transcribe.
  * Cancelación con AbortController; resultados tardíos se descartan.
+ *
+ * El mic SOLO se pide en `start()` (gesto del usuario). No hay getUserMedia
+ * en mount ni en useEffect — eso re-prompteaba en PWA/iOS al abrir la app.
  */
 export function useServerTranscription(opts?: {
   onText?: (text: string) => void;
@@ -40,6 +47,8 @@ export function useServerTranscription(opts?: {
   const maxRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const onTextRef = useRef(opts?.onText);
   const generationRef = useRef(0);
+  /** Evita dos getUserMedia concurrentes (doble prompt en iOS). */
+  const startingRef = useRef(false);
 
   useEffect(() => {
     onTextRef.current = opts?.onText;
@@ -63,6 +72,7 @@ export function useServerTranscription(opts?: {
 
   const cancel = useCallback(() => {
     generationRef.current += 1;
+    startingRef.current = false;
     abortRef.current?.abort();
     abortRef.current = null;
     try {
@@ -121,6 +131,9 @@ export function useServerTranscription(opts?: {
   }, []);
 
   const start = useCallback(async () => {
+    if (startingRef.current || state === "recording" || state === "uploading") {
+      return;
+    }
     if (typeof MediaRecorder === "undefined") {
       setError("Tu navegador no soporta grabación de audio");
       setState("error");
@@ -132,10 +145,28 @@ export function useServerTranscription(opts?: {
       setState("error");
       return;
     }
-    cancel();
+
+    const perm = await queryMicPermission();
+    if (perm === "denied") {
+      setError(
+        "Micrófono bloqueado. Actívalo en Ajustes del teléfono para esta app.",
+      );
+      setState("error");
+      return;
+    }
+
+    // Sube generation sin abortar un stream que aún no existe (evita carrera).
+    generationRef.current += 1;
     const gen = generationRef.current;
+    startingRef.current = true;
+    abortRef.current?.abort();
+    abortRef.current = null;
+    cleanupMedia();
+    setError(null);
+
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      // Un solo getUserMedia por dictado; useAudioLevel reutiliza este stream.
+      const stream = await acquireUserMediaAudio();
       if (gen !== generationRef.current) {
         stream.getTracks().forEach((t) => t.stop());
         return;
@@ -157,7 +188,6 @@ export function useServerTranscription(opts?: {
       rec.start(250);
       startedAtRef.current = Date.now();
       setState("recording");
-      setError(null);
       setElapsedMs(0);
       tickRef.current = setInterval(() => {
         setElapsedMs(Date.now() - startedAtRef.current);
@@ -169,8 +199,10 @@ export function useServerTranscription(opts?: {
       setError("Permiso de micrófono denegado");
       setState("error");
       cleanupMedia();
+    } finally {
+      if (gen === generationRef.current) startingRef.current = false;
     }
-  }, [cancel, cleanupMedia, upload, stopAndUpload]);
+  }, [state, cleanupMedia, upload, stopAndUpload]);
 
   useEffect(() => () => cancel(), [cancel]);
 
