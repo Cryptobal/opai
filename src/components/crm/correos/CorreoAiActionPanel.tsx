@@ -1,23 +1,27 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import Link from "next/link";
 import {
   AlertTriangle,
-  ExternalLink,
   Loader2,
   Sparkles,
   X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Spinner } from "@/components/opai-ds";
+import { useSwipeGesture } from "@/components/chat/hooks/useSwipeGesture";
 import type { CorreoAiCommandId } from "@/modules/crm/email/correo-ai-commands";
 import type { CrmStructureProposal } from "@/modules/crm/email/email-to-crm-structure.types";
 import type { CreateCrmStructureResult } from "@/modules/crm/email/email-to-crm-structure.types";
 import { LeadFromEmailPanel } from "./LeadFromEmailPanel";
 import { CorreoAiPlanCard, type PlanAction } from "./CorreoAiPlanCard";
-import { CorreoAiCoverageTable } from "./CorreoAiCoverageTable";
+import { CorreoAiPlanSections, TraceBlock, diffStaffingTotals, type StaffingDelta } from "./CorreoAiPlanSections";
+import { CorreoAiResultList } from "./CorreoAiResultList";
+import { CorreoAiRefineChat, type RefineChatMessage } from "./CorreoAiRefineChat";
+import type { CrmStructureRefineAnswer } from "@/modules/crm/email/email-to-crm-structure.types";
+import { dispatchAiCommand } from "@/lib/ai/ai-command-event";
+import { useKeyboardOffset } from "@/hooks/useKeyboardOffset";
 
 export type AiPanelCommand =
   | "analizar"
@@ -63,13 +67,20 @@ const TRACE_STEPS = [
   "Armando el plan de acciones…",
 ];
 
+const MAX_REFINES = 5;
+
+function isPastDate(iso: string | null | undefined): boolean {
+  if (!iso) return false;
+  return iso < new Date().toISOString().slice(0, 10);
+}
+
 function buildStructureActions(
   proposal: CrmStructureProposal,
   accountReusedHint: boolean,
   existingDealId: string | null | undefined,
 ): PlanAction[] {
   const noInstallations = proposal.installations.length === 0;
-  return [
+  const actions: PlanAction[] = [
     {
       id: "account",
       label: accountReusedHint
@@ -77,7 +88,8 @@ function buildStructureActions(
         : `Crear cuenta: ${proposal.account.name ?? "—"}`,
       detail: [proposal.account.rut, proposal.account.industry].filter(Boolean).join(" · ") || undefined,
       tag: accountReusedHint ? "reutiliza" : "nueva",
-      disabled: true, // la cuenta siempre se crea/reutiliza
+      disabled: true,
+      group: "comercial",
     },
     {
       id: "contact",
@@ -87,6 +99,7 @@ function buildStructureActions(
           .filter(Boolean)
           .join(" ") || "Sin datos de contacto",
       tag: "nueva",
+      group: "comercial",
     },
     {
       id: "deal",
@@ -95,6 +108,7 @@ function buildStructureActions(
         : proposal.deal.title ?? "Crear negocio",
       detail: proposal.deal.isLicitacion ? "Licitación / RFI" : undefined,
       tag: existingDealId ? "reutiliza" : "nueva",
+      group: "comercial",
     },
     {
       id: "installations",
@@ -102,11 +116,31 @@ function buildStructureActions(
       detail: proposal.installations.map((i) => i.name).slice(0, 3).join(", ") || undefined,
       tag: "nueva",
       disabled: noInstallations,
+      group: "operacion",
     },
+  ];
+
+  if (proposal.deal.isLicitacion && proposal.deal.fechaLimite) {
+    const past = isPastDate(proposal.deal.fechaLimite);
+    actions.push({
+      id: "agendaDeadline",
+      label: "Plazo en agenda",
+      detail: past
+        ? `Fecha ${proposal.deal.fechaLimite} ya pasó — no se sincroniza`
+        : `Hasta ${proposal.deal.fechaLimite} · se sincroniza al crear el negocio`,
+      tag: "automatico",
+      locked: !past,
+      disabled: past,
+      group: "calendario",
+    });
+  }
+
+  actions.push(
     {
       id: "attachments",
       label: "Guardar adjuntos en el negocio",
       tag: "calculado",
+      group: "calendario",
     },
     {
       id: "followUpTask",
@@ -116,8 +150,11 @@ function buildStructureActions(
         : "En 3 días hábiles",
       tag: "opcional",
       optional: true,
+      group: "calendario",
     },
-  ];
+  );
+
+  return actions;
 }
 
 function verticalActions(command: AiPanelCommand, proposal: VerticalProposal): PlanAction[] {
@@ -172,11 +209,48 @@ export function CorreoAiActionPanel({
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [result, setResult] = useState<CreateCrmStructureResult | null>(null);
   const [durationMs, setDurationMs] = useState<number | null>(null);
+  const [closing, setClosing] = useState(false);
+  const sheetRef = useRef<HTMLDivElement | null>(null);
+  const [showRefine, setShowRefine] = useState(false);
+  const [refineBusy, setRefineBusy] = useState(false);
+  const [answers, setAnswers] = useState<CrmStructureRefineAnswer[]>([]);
+  const [refineMessages, setRefineMessages] = useState<RefineChatMessage[]>([]);
+  const [activeQuestion, setActiveQuestion] = useState("Ajuste al plan");
+  const [delta, setDelta] = useState<StaffingDelta | null | undefined>(undefined);
+  const keyboardOffset = useKeyboardOffset();
 
   const isStructure = command === "analizar" || command === "crm_completo";
   const isLead = command === "lead";
   const isVertical =
     command === "ticket_operativo" || command === "candidato" || command === "cobranza";
+
+  const remainingRefines = MAX_REFINES - answers.length;
+
+  const requestClose = useCallback(() => {
+    if (closing) return;
+    setClosing(true);
+    const el = sheetRef.current;
+    if (el && typeof window !== "undefined" && window.matchMedia("(max-width: 1023px)").matches) {
+      el.style.transition = "transform 180ms ease-out";
+      el.style.transform = "translate3d(0, 110%, 0)";
+      window.setTimeout(() => onClose(), 180);
+    } else {
+      onClose();
+    }
+  }, [closing, onClose]);
+
+  const swipe = useSwipeGesture({
+    onSwipeDown: () => requestClose(),
+    followFinger: true,
+    targetRef: sheetRef,
+    mobileOnly: true,
+    hapticOnComplete: true,
+    directionLock: true,
+  });
+
+  useEffect(() => {
+    if (open) setClosing(false);
+  }, [open]);
 
   const load = useCallback(async () => {
     if (isLead) {
@@ -187,6 +261,11 @@ export function CorreoAiActionPanel({
     setError(null);
     setResult(null);
     setTraceIdx(0);
+    setShowRefine(false);
+    setAnswers([]);
+    setRefineMessages([]);
+    setDelta(undefined);
+    setActiveQuestion("Ajuste al plan");
     const t0 = Date.now();
 
     try {
@@ -247,12 +326,12 @@ export function CorreoAiActionPanel({
       if (e.key === "Escape") {
         e.preventDefault();
         e.stopPropagation();
-        onClose();
+        requestClose();
       }
     }
     document.addEventListener("keydown", onKey, { capture: true });
     return () => document.removeEventListener("keydown", onKey, { capture: true });
-  }, [open, onClose]);
+  }, [open, requestClose]);
 
   const structureActions = useMemo(() => {
     if (!proposal) return [];
@@ -267,6 +346,72 @@ export function CorreoAiActionPanel({
       return next;
     });
   };
+
+  async function refineWithAnswers(nextAnswers: CrmStructureRefineAnswer[]) {
+    if (!proposal) return;
+    if (nextAnswers.length > MAX_REFINES) {
+      toast.message("Abrí el asistente completo para seguir afinando");
+      dispatchAiCommand({
+        prompt:
+          "Seguí refinando el plan de acciones de este correo con más detalle.",
+        autoSend: true,
+      });
+      return;
+    }
+    const prevTotals = proposal.staffingTotals;
+    setRefineBusy(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/crm/correos/${threadId}/extract-structure`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ answers: nextAnswers }),
+      });
+      const j = (await res.json()) as StructureResponse & { error?: string };
+      if (!res.ok) throw new Error(j.error || "No se pudo refinar el plan");
+      const d = diffStaffingTotals(prevTotals, j.proposal.staffingTotals);
+      setDelta(d);
+      setProposal(j.proposal);
+      setSources(j.sources ?? []);
+      const actions = buildStructureActions(j.proposal, false, existingDealId);
+      setSelected(
+        new Set(
+          actions
+            .filter((a) => !a.optional && !a.disabled && !a.locked)
+            .map((a) => a.id)
+            .concat(["account"]),
+        ),
+      );
+      setRefineMessages((msgs) => [
+        ...msgs,
+        {
+          id: `a-${Date.now()}`,
+          role: "assistant",
+          text: d
+            ? `Plan actualizado: ${[
+                d.headcountBase && `dotación ${d.headcountBase.from}→${d.headcountBase.to}`,
+                d.weeklyHH && `HH/sem ${d.weeklyHH.from}→${d.weeklyHH.to}`,
+              ]
+                .filter(Boolean)
+                .join(", ")}`
+            : "Plan actualizado sin cambios en dotación ni HH.",
+        },
+      ]);
+      setAnswers(nextAnswers);
+      setPhase("structure");
+    } catch (e) {
+      // Conservar el plan anterior.
+      setError(e instanceof Error ? e.message : "Error al refinar");
+      toast.error("No se pudo refinar; se mantiene el plan anterior");
+    } finally {
+      setRefineBusy(false);
+    }
+  }
+
+  function openRefine(question: string) {
+    setActiveQuestion(question);
+    setShowRefine(true);
+  }
 
   async function executeStructure() {
     if (!proposal) return;
@@ -345,17 +490,30 @@ export function CorreoAiActionPanel({
   return createPortal(
     <div
       className="fixed inset-0 z-[55] flex justify-end bg-black/40"
-      onClick={(e) => e.target === e.currentTarget && onClose()}
+      onClick={(e) => e.target === e.currentTarget && requestClose()}
     >
       <div
+        ref={sheetRef}
         role="dialog"
         aria-modal="true"
         aria-label={title}
         className="flex h-full w-full flex-col overflow-hidden border-ds-border-default bg-ds-surface-1 shadow-2xl sm:w-[452px] sm:border-l max-lg:mt-auto max-lg:h-[88dvh] max-lg:rounded-t-2xl max-lg:border-t"
+        style={{ transition: closing ? "transform 180ms ease-out" : undefined }}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="mx-auto mt-2 h-1 w-10 shrink-0 rounded-full bg-ds-surface-3 lg:hidden" />
-        <header className="shrink-0 border-b border-ds-border-subtle px-3 py-2.5">
+        <div
+          className="mx-auto mt-2 h-1 w-10 shrink-0 rounded-full bg-ds-surface-3 lg:hidden"
+          onTouchStart={swipe.onTouchStart}
+          onTouchMove={swipe.onTouchMove}
+          onTouchEnd={swipe.onTouchEnd}
+          aria-hidden
+        />
+        <header
+          className="shrink-0 border-b border-ds-border-subtle px-3 py-2.5"
+          onTouchStart={swipe.onTouchStart}
+          onTouchMove={swipe.onTouchMove}
+          onTouchEnd={swipe.onTouchEnd}
+        >
           <div className="flex items-center gap-2">
             <Sparkles className="h-4 w-4 shrink-0 text-tint-violet-fg" />
             <p className="font-display text-[15px] font-semibold text-ds-text-1">{title}</p>
@@ -367,8 +525,8 @@ export function CorreoAiActionPanel({
             <button
               type="button"
               aria-label="Cerrar"
-              onClick={onClose}
-              className="ml-auto inline-flex h-10 w-10 items-center justify-center rounded-lg text-ds-text-3 ds-tap hover:bg-ds-surface-3 sm:h-9 sm:w-9"
+              onClick={requestClose}
+              className="ml-auto inline-flex h-11 w-11 items-center justify-center rounded-lg text-ds-text-3 ds-tap hover:bg-ds-surface-3 sm:h-9 sm:w-9"
             >
               <X className="h-4 w-4" />
             </button>
@@ -419,44 +577,23 @@ export function CorreoAiActionPanel({
           )}
 
           {(phase === "structure" || phase === "executing") && proposal && (
-            <div className="ds-page-enter space-y-4">
-              <TraceBlock
+            <>
+              <CorreoAiPlanSections
+                proposal={proposal}
+                actions={structureActions}
+                selected={selected}
+                onToggle={toggle}
                 sources={sources}
                 durationMs={durationMs}
-                attachmentHint={sources.length}
+                delta={delta}
+                onRefineAssumption={(a) => openRefine(`Cambiar supuesto: ${a}`)}
+                onRefineQuestion={(q) => openRefine(q)}
+                onOpenRefine={() => openRefine("Ajuste al plan")}
               />
-              <section>
-                <h3 className="mb-2 text-[12px] font-medium uppercase tracking-wide text-ds-text-3">
-                  Acciones
-                </h3>
-                <CorreoAiPlanCard
-                  actions={structureActions}
-                  selected={selected}
-                  onToggle={toggle}
-                />
-              </section>
-              <section>
-                <h3 className="mb-2 text-[12px] font-medium uppercase tracking-wide text-ds-text-3">
-                  Cobertura y dotación
-                </h3>
-                <CorreoAiCoverageTable proposal={proposal} />
-              </section>
-              {proposal.openQuestions.length > 0 && (
-                <section className="rounded-xl border border-status-warn-border bg-status-warn-soft px-3 py-2.5">
-                  <h3 className="mb-1.5 text-[12px] font-medium uppercase tracking-wide text-status-warn-fg">
-                    Antes de crear
-                  </h3>
-                  <ul className="list-disc space-y-1 pl-4 text-[13px] text-status-warn-fg">
-                    {proposal.openQuestions.map((q) => (
-                      <li key={q}>{q}</li>
-                    ))}
-                  </ul>
-                </section>
-              )}
               {error && (
-                <p className="text-[13px] text-status-danger-fg">{error}</p>
+                <p className="mt-2 text-[13px] text-status-danger-fg">{error}</p>
               )}
-            </div>
+            </>
           )}
 
           {phase === "vertical" && verticalProposal && (
@@ -472,98 +609,98 @@ export function CorreoAiActionPanel({
           )}
 
           {phase === "done" && (
-            <div className="ds-page-enter space-y-3">
-              {result ? (
-                <>
-                  <p className="text-[13px] text-status-ok-fg">
-                    {result.note ?? "Creado correctamente."}
-                  </p>
-                  <ul className="space-y-2">
-                    {result.accountUrl && (
-                      <ResultLink href={result.accountUrl} label="Cuenta" />
-                    )}
-                    {result.contactUrl && (
-                      <ResultLink href={result.contactUrl} label="Contacto" />
-                    )}
-                    {result.dealUrl && <ResultLink href={result.dealUrl} label="Negocio" />}
-                    {result.installations?.map((i) => (
-                      <ResultLink key={i.id} href={i.url} label={i.name} />
-                    ))}
-                  </ul>
-                </>
-              ) : command === "cobranza" && verticalProposal ? (
+            result ? (
+              <CorreoAiResultList result={result} />
+            ) : command === "cobranza" && verticalProposal ? (
+              <div className="ds-page-enter space-y-3">
                 <VerticalPreview command="cobranza" proposal={verticalProposal} />
-              ) : (
-                <p className="text-[13px] text-ds-text-2">Listo.</p>
-              )}
-            </div>
+              </div>
+            ) : (
+              <p className="text-[13px] text-ds-text-2">Listo.</p>
+            )
           )}
         </div>
 
         {(phase === "structure" || phase === "executing" || phase === "vertical") && (
           <footer
             className="shrink-0 border-t border-ds-border-subtle px-3 py-3"
-            style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
+            style={{
+              paddingBottom:
+                keyboardOffset > 0
+                  ? keyboardOffset + 12
+                  : "max(0.75rem, env(safe-area-inset-bottom))",
+            }}
           >
+            {isStructure && showRefine && (
+              <div className="mb-3">
+                <CorreoAiRefineChat
+                  messages={refineMessages}
+                  busy={refineBusy}
+                  remaining={remainingRefines}
+                  activeQuestion={activeQuestion}
+                  onSend={(ans) => {
+                    const next = [...answers, ans];
+                    setRefineMessages((msgs) => [
+                      ...msgs,
+                      { id: `u-${Date.now()}`, role: "user", text: ans.answer },
+                    ]);
+                    void refineWithAnswers(next);
+                  }}
+                  onOpenFullAssistant={() => {
+                    dispatchAiCommand({
+                      prompt:
+                        "Seguí refinando el plan de acciones de este correo con más detalle.",
+                      autoSend: true,
+                    });
+                    requestClose();
+                  }}
+                />
+              </div>
+            )}
             <p className="mb-2 text-[12px] text-ds-text-4">
-              {phase === "executing" ? "Creando…" : "Nada se ha creado aún"}
+              {phase === "executing"
+                ? "Creando…"
+                : refineBusy
+                  ? "Recalculando plan…"
+                  : "Nada se ha creado aún"}
             </p>
-            <button
-              type="button"
-              disabled={phase === "executing" || (isStructure ? false : selectedCount === 0)}
-              onClick={() => {
-                if (isStructure) void executeStructure();
-                else executeVertical();
-              }}
-              className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary text-[13px] font-medium text-primary-foreground ds-tap disabled:opacity-50 sm:h-10"
-            >
-              {phase === "executing" && <Loader2 className="h-4 w-4 animate-spin" />}
-              {isStructure ? "Crear seleccionadas" : command === "cobranza" ? "Entendido" : "Continuar"}
-            </button>
+            <div className="flex gap-2">
+              {isStructure && (
+                <button
+                  type="button"
+                  disabled={phase === "executing" || refineBusy}
+                  onClick={() => setShowRefine((v) => !v)}
+                  className="flex h-11 flex-1 items-center justify-center rounded-xl border border-ds-border-default text-[13px] font-medium text-ds-text-1 ds-tap disabled:opacity-50 sm:h-10"
+                >
+                  {showRefine ? "Ocultar" : "Afinar"}
+                </button>
+              )}
+              <button
+                type="button"
+                disabled={
+                  phase === "executing" ||
+                  refineBusy ||
+                  (isStructure ? false : selectedCount === 0)
+                }
+                onClick={() => {
+                  if (isStructure) void executeStructure();
+                  else executeVertical();
+                }}
+                className="flex h-11 flex-[1.4] items-center justify-center gap-2 rounded-xl bg-primary text-[13px] font-medium text-primary-foreground ds-tap disabled:opacity-50 sm:h-10"
+              >
+                {phase === "executing" && <Loader2 className="h-4 w-4 animate-spin" />}
+                {isStructure
+                  ? `Crear ${selectedCount} acción${selectedCount === 1 ? "" : "es"}`
+                  : command === "cobranza"
+                    ? "Entendido"
+                    : "Continuar"}
+              </button>
+            </div>
           </footer>
         )}
       </div>
     </div>,
     document.body,
-  );
-}
-
-function TraceBlock({
-  sources,
-  durationMs,
-  attachmentHint,
-}: {
-  sources: string[];
-  durationMs: number | null;
-  attachmentHint: number;
-}) {
-  return (
-    <div className="rounded-xl border border-ds-border-subtle bg-ds-surface-2 px-3 py-2 text-[12px] text-ds-text-3">
-      <p>
-        Traza: hilo leído
-        {attachmentHint > 0 ? ` · ${attachmentHint} fuente(s) de adjuntos` : " · sin adjuntos útiles"}
-        {durationMs != null ? ` · ${(durationMs / 1000).toFixed(1)}s` : ""}
-      </p>
-      {sources.length > 0 && (
-        <p className="mt-1 truncate text-ds-text-4" title={sources.join(", ")}>
-          {sources.slice(0, 4).join(" · ")}
-          {sources.length > 4 ? ` +${sources.length - 4}` : ""}
-        </p>
-      )}
-    </div>
-  );
-}
-
-function ResultLink({ href, label }: { href: string; label: string }) {
-  return (
-    <li>
-      <Link
-        href={href}
-        className="inline-flex min-h-10 items-center gap-1.5 text-[13px] text-primary ds-tap"
-      >
-        {label} <ExternalLink className="h-3.5 w-3.5" />
-      </Link>
-    </li>
   );
 }
 

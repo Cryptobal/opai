@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Briefcase, X } from "lucide-react";
 import { hasModuleAccess } from "@/lib/permissions";
 import { useEffectivePermissions } from "@/hooks/useEffectivePermissions";
+import { useSwipeGesture } from "@/components/chat/hooks/useSwipeGesture";
 import { CorreoAssociationBar } from "./CorreoAssociationBar";
 import { CorreoLinksPanel } from "./CorreoLinksPanel";
 import { CorreoTasksPanel } from "./CorreoTasksPanel";
@@ -14,6 +15,7 @@ import { CorreoMeetingPanel } from "./CorreoMeetingPanel";
 import { CorreoWorkSummary } from "./CorreoWorkSummary";
 import { WORK_TABS, resolveWorkTab, type WorkTab } from "./work-panel-tabs";
 import type { CorreoDetail } from "@/modules/crm/email/correos.types";
+import type { CorreoAiCommandId } from "@/modules/crm/email/correo-ai-commands";
 
 type Props = {
   open: boolean;
@@ -21,25 +23,51 @@ type Props = {
   initialTab: WorkTab;
   detail: CorreoDetail;
   onOpenAiLead: () => void;
-  onOpenAiAnalizar?: () => void;
+  onAiCommand?: (commandId: CorreoAiCommandId) => void;
   onAssociate: (p: { accountId: string | null; dealId: string | null; sharedWithAccount?: boolean }) => void;
   onRefresh: () => void;
 };
 
 /**
- * Panel de trabajo transversal (Bloque 4): slide-over derecha en desktop /
- * bottom-sheet en móvil. Cuatro pestañas: Resumen · Cuenta · Vínculos · Trabajo
- * (Trabajo unifica ticket + tareas + reunión).
+ * Panel de trabajo transversal: slide-over derecha en desktop /
+ * bottom-sheet en móvil. Cuatro pestañas: Copiloto · Cuenta · Vínculos · Trabajo.
  */
 export function CorreoWorkPanel({
-  open, onClose, initialTab, detail, onOpenAiLead, onOpenAiAnalizar, onAssociate, onRefresh,
+  open, onClose, initialTab, detail, onOpenAiLead, onAiCommand, onAssociate, onRefresh,
 }: Props) {
   const [tab, setTab] = useState(() => resolveWorkTab(initialTab));
+  const [closing, setClosing] = useState(false);
+  const sheetRef = useRef<HTMLDivElement | null>(null);
   const perms = useEffectivePermissions();
 
   useEffect(() => {
-    if (open) setTab(resolveWorkTab(initialTab));
+    if (open) {
+      setTab(resolveWorkTab(initialTab));
+      setClosing(false);
+    }
   }, [open, initialTab]);
+
+  const requestClose = () => {
+    if (closing) return;
+    setClosing(true);
+    const el = sheetRef.current;
+    if (el && typeof window !== "undefined" && window.matchMedia("(max-width: 1023px)").matches) {
+      el.style.transition = "transform 180ms ease-out";
+      el.style.transform = "translate3d(0, 110%, 0)";
+      window.setTimeout(() => onClose(), 180);
+    } else {
+      onClose();
+    }
+  };
+
+  const swipe = useSwipeGesture({
+    onSwipeDown: () => requestClose(),
+    followFinger: true,
+    targetRef: sheetRef,
+    mobileOnly: true,
+    hapticOnComplete: true,
+    directionLock: true,
+  });
 
   useEffect(() => {
     if (!open) return;
@@ -47,12 +75,14 @@ export function CorreoWorkPanel({
       if (e.key === "Escape") {
         e.preventDefault();
         e.stopPropagation();
-        onClose();
+        requestClose();
       }
     }
     document.addEventListener("keydown", onKey, { capture: true });
     return () => document.removeEventListener("keydown", onKey, { capture: true });
-  }, [open, onClose]);
+    // requestClose closes over `closing`; re-bind when open/closing changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, closing, onClose]);
 
   if (!open) return null;
 
@@ -64,24 +94,40 @@ export function CorreoWorkPanel({
   ].filter((m) => m.on);
 
   return createPortal(
-    <div className="fixed inset-0 z-[55] flex justify-end bg-black/40" onClick={(e) => e.target === e.currentTarget && onClose()}>
+    <div
+      className="fixed inset-0 z-[55] flex justify-end bg-black/40"
+      onClick={(e) => e.target === e.currentTarget && requestClose()}
+    >
       <div
+        ref={sheetRef}
         role="dialog"
         aria-modal="true"
         aria-label="Panel de trabajo"
         className="flex h-full w-full flex-col overflow-hidden border-ds-border-default bg-ds-surface-1 shadow-2xl sm:w-[430px] sm:border-l max-lg:mt-auto max-lg:h-[88dvh] max-lg:rounded-t-2xl max-lg:border-t"
+        style={{ transition: closing ? "transform 180ms ease-out" : undefined }}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="mx-auto mt-2 h-1 w-10 shrink-0 rounded-full bg-ds-surface-3 lg:hidden" />
-        <header className="shrink-0 border-b border-ds-border-subtle px-3 py-2.5">
+        <div
+          className="mx-auto mt-2 h-1 w-10 shrink-0 rounded-full bg-ds-surface-3 lg:hidden"
+          onTouchStart={swipe.onTouchStart}
+          onTouchMove={swipe.onTouchMove}
+          onTouchEnd={swipe.onTouchEnd}
+          aria-hidden
+        />
+        <header
+          className="shrink-0 border-b border-ds-border-subtle px-3 py-2.5"
+          onTouchStart={swipe.onTouchStart}
+          onTouchMove={swipe.onTouchMove}
+          onTouchEnd={swipe.onTouchEnd}
+        >
           <div className="flex items-center gap-2">
             <Briefcase className="h-4 w-4 shrink-0 text-tint-violet-fg" />
             <p className="font-display text-[15px] font-semibold text-ds-text-1">Panel de trabajo</p>
             <button
               type="button"
               aria-label="Cerrar"
-              onClick={onClose}
-              className="ml-auto inline-flex h-9 w-9 items-center justify-center rounded-lg text-ds-text-3 ds-tap hover:bg-ds-surface-3"
+              onClick={requestClose}
+              className="ml-auto inline-flex h-11 w-11 items-center justify-center rounded-lg text-ds-text-3 ds-tap hover:bg-ds-surface-3 sm:h-9 sm:w-9"
             >
               <X className="h-4 w-4" />
             </button>
@@ -103,7 +149,7 @@ export function CorreoWorkPanel({
                   type="button"
                   onClick={() => setTab(wt.id)}
                   aria-pressed={active}
-                  className={`flex min-w-0 flex-1 flex-col items-center gap-0.5 rounded-xl px-1 py-1.5 ds-tap ${
+                  className={`flex min-h-11 min-w-0 flex-1 flex-col items-center gap-0.5 rounded-xl px-1 py-1.5 ds-tap sm:min-h-0 ${
                     active ? "bg-primary/10 text-primary" : "text-ds-text-3"
                   }`}
                 >
@@ -125,9 +171,20 @@ export function CorreoWorkPanel({
             <CorreoWorkSummary
               threadId={t.id}
               accountId={t.accountId}
+              accountName={t.accountName}
+              dealTitle={t.dealTitle}
               hasLead={Boolean(t.leadId)}
+              attachmentCount={detail.attachments.length}
+              attachmentsSaved={detail.attachments.filter((a) => a.savedFileId).length}
+              aiCategory={t.aiCategory}
+              aiVertical={t.aiVertical}
+              aiSummary={t.aiSummary}
+              aiUrgency={t.aiUrgency}
+              aiClassifiedAt={t.aiClassifiedAt}
+              lastMessageAt={t.lastMessageAt}
+              dealFechaEntrega={t.dealFechaEntrega}
               onOpenAiLead={onOpenAiLead}
-              onOpenAiAnalizar={onOpenAiAnalizar}
+              onAiCommand={onAiCommand}
               onGoTo={(next) => setTab(resolveWorkTab(next))}
             />
           )}

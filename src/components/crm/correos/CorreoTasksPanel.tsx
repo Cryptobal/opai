@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { CheckSquare, ListTodo, Plus, Sparkles, Square } from "lucide-react";
 import { toast } from "sonner";
 import { TaskTimePicker } from "@/components/agenda/TaskTimePicker";
+import { TaskDatePicker } from "@/components/agenda/TaskDatePicker";
 
 type Task = { id: string; title: string; status: string; dueAt: string | null; allDay: boolean };
 
@@ -131,12 +132,11 @@ export function CorreoTasksPanel({ threadId, subject }: { threadId: string; subj
         </button>
       </div>
       <div className="flex flex-wrap items-center gap-2">
-        <input
-          type="date"
+        <TaskDatePicker
           value={due}
-          onChange={(e) => setDue(e.target.value)}
-          aria-label="Fecha"
-          className="h-9 min-w-[8rem] flex-1 rounded-lg border border-ds-border-default bg-ds-surface-1 px-2 text-[13px] text-ds-text-1"
+          onChange={setDue}
+          ariaLabel="Fecha"
+          className="min-w-[8rem] flex-1"
         />
         {/* Selector no nativo en pasos de 15 min (misma UX que Agenda/Tareas).
             Se ancla a la derecha para no desbordar el panel angosto del lector. */}

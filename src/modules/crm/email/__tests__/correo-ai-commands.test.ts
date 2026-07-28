@@ -3,6 +3,8 @@ import {
   resolveCorreoAiCommands,
   radarVerticalLabel,
   CORREO_AI_COMMANDS,
+  primaryCommandForCategory,
+  resolvePrimaryCorreoAiCommand,
 } from "../correo-ai-commands";
 import type { RadarCapability } from "../radar-types";
 
@@ -102,6 +104,38 @@ describe("resolveCorreoAiCommands", () => {
     const primaryIds = new Set(primary.map((c) => c.id));
     expect(more.every((c) => !primaryIds.has(c.id))).toBe(true);
     expect(more.some((c) => c.id === "investigar")).toBe(true);
+  });
+});
+
+describe("primaryCommandForCategory", () => {
+  it("mapea categorías a comandos", () => {
+    expect(primaryCommandForCategory("licitacion")).toBe("analizar");
+    expect(primaryCommandForCategory("cotizacion")).toBe("analizar");
+    expect(primaryCommandForCategory("consulta_comercial")).toBe("lead");
+    expect(primaryCommandForCategory("operacional")).toBe("ticket_operativo");
+    expect(primaryCommandForCategory("facturacion")).toBe("cobranza");
+    expect(primaryCommandForCategory("otro")).toBe("analizar");
+    expect(primaryCommandForCategory(null)).toBe("analizar");
+  });
+});
+
+describe("resolvePrimaryCorreoAiCommand", () => {
+  it("respeta capability: sin radar_comercial no ofrece lead", () => {
+    const cmd = resolvePrimaryCorreoAiCommand(
+      "consulta_comercial",
+      "comercial",
+      caps("radar_operaciones"),
+    );
+    expect(cmd?.id).toBe("ticket_operativo");
+  });
+
+  it("sin caps no muestra acción principal", () => {
+    expect(resolvePrimaryCorreoAiCommand("licitacion", "comercial", caps())).toBeNull();
+  });
+
+  it("licitación con radar_comercial → analizar", () => {
+    const cmd = resolvePrimaryCorreoAiCommand("licitacion", "contratos", all);
+    expect(cmd?.id).toBe("analizar");
   });
 });
 

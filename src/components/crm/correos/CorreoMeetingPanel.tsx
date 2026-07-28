@@ -4,6 +4,7 @@ import { useState } from "react";
 import { CalendarCheck, CalendarPlus, Mail, Sparkles, X } from "lucide-react";
 import { toast } from "sonner";
 import { TaskTimePicker } from "@/components/agenda/TaskTimePicker";
+import { TaskDatePicker } from "@/components/agenda/TaskDatePicker";
 import { SimpleSelect } from "@/components/ui/simple-select";
 
 type Created = { id: string; title: string; startAt: string };
@@ -112,12 +113,12 @@ export function CorreoMeetingPanel({ threadId, subject }: { threadId: string; su
             className="h-10 w-full rounded-lg border border-ds-border-default bg-ds-surface-1 px-2 text-[16px] text-ds-text-1 sm:text-[13px]"
           />
           <div className="flex flex-wrap items-center gap-2">
-            <input
-              type="date"
+            <TaskDatePicker
               value={date}
-              onChange={(e) => setDate(e.target.value)}
-              aria-label="Fecha"
-              className="h-9 min-w-[8rem] flex-1 rounded-lg border border-ds-border-default bg-ds-surface-1 px-2 text-[13px] text-ds-text-1"
+              onChange={setDate}
+              ariaLabel="Fecha"
+              allowEmpty={false}
+              className="min-w-[8rem] flex-1"
             />
             <TaskTimePicker value={time} onChange={setTime} ariaLabel="Hora" menuAlign="right" className="shrink-0" />
             <SimpleSelect

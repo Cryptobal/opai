@@ -77,6 +77,9 @@ export type CorreoDetail = {
     accountName: string | null;
     dealId: string | null;
     dealTitle: string | null;
+    /** Fecha de entrega del negocio asociado (licitación), ISO date o null. */
+    dealFechaEntrega: string | null;
+    dealIsLicitacion: boolean;
     leadId: string | null;
     providerThreadId: string | null;
     isUnread: boolean;
@@ -85,6 +88,14 @@ export type CorreoDetail = {
     spamAt: string | null;
     /** Bloque 5: el hilo asociado es visible en la ficha de la cuenta. */
     sharedWithAccount: boolean;
+    lastMessageAt: string | null;
+    /** Clasificación radar persistida; null si aún no clasificado. */
+    aiCategory: string | null;
+    aiVertical: string | null;
+    aiUrgency: string | null;
+    aiSentiment: string | null;
+    aiSummary: string | null;
+    aiClassifiedAt: string | null;
   };
   messages: CorreoMessageDTO[];
   attachments: CorreoAttachmentDTO[];

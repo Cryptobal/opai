@@ -18,7 +18,7 @@ export function resolveWorkTab(tab: WorkTab): Exclude<WorkTab, "reunion"> {
  * dentro de Cuenta; ticket/tareas/reunión viven en Trabajo.
  */
 export const WORK_TABS: { id: Exclude<WorkTab, "reunion">; label: string; icon: LucideIcon }[] = [
-  { id: "resumen", label: "Resumen", icon: LayoutGrid },
+  { id: "resumen", label: "Copiloto", icon: LayoutGrid },
   { id: "cuenta", label: "Cuenta", icon: Building2 },
   { id: "vinculos", label: "Vínculos", icon: Link2 },
   { id: "productividad", label: "Trabajo", icon: Briefcase },
