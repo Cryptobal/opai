@@ -58,7 +58,9 @@ export function CorreoWorkPanel({
   const [tab, setTab] = useState(() => resolvedInitial);
   const [detent, setDetent] = useState<Detent>(() => initialDetent(resolvedInitial));
   const [closing, setClosing] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
+  const [isMobile, setIsMobile] = useState(
+    () => typeof window !== "undefined" && window.matchMedia("(max-width: 1023px)").matches,
+  );
   const sheetRef = useRef<HTMLDivElement | null>(null);
   const perms = useEffectivePermissions();
   const threadId = detail.thread.id;
