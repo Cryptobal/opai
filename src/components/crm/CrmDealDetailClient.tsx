@@ -25,7 +25,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Loader2, ExternalLink, Trash2, FileText, Mail, ChevronRight, ChevronDown, Send, MessageSquare, Star, X, Clock3, MapPin, MoreHorizontal, Check, AlertCircle, Pause, Play, RotateCcw, XCircle, Settings2, Pencil, Users, Briefcase, Phone, Link2, History, Copy, Building2, ListChecks, Ticket as TicketIcon } from "lucide-react";
+import { Loader2, ExternalLink, Trash2, FileText, Mail, ChevronRight, ChevronDown, Send, MessageSquare, Star, X, Clock3, MapPin, MoreHorizontal, Check, AlertCircle, Pause, Play, RotateCcw, XCircle, Settings2, Pencil, Users, Briefcase, Phone, Link2, History, Copy, Building2, ListChecks, Ticket as TicketIcon, Sparkles } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -45,6 +45,7 @@ import {
 import { RecipientTypeaheadInput } from "@/components/crm/RecipientTypeaheadInput";
 import { ContractEditor } from "@/components/docs/ContractEditor";
 import { EntityDetailLayout, useEntityTabs, type EntityTab, type EntityHeaderAction } from "./EntityDetailLayout";
+import { DealCopilotoPanel } from "./DealCopilotoPanel";
 import { EntityConversationsPanel } from "./EntityConversationsPanel";
 import { CrmRelatedRecordCard, CrmRelatedRecordGrid } from "./CrmRelatedRecordCard";
 import { AssociatedTicketsSection } from "./AssociatedTicketsSection";
@@ -1936,11 +1937,18 @@ export function CrmDealDetailClient({
   const tabs: EntityTab[] = [
     { id: "general", label: "Actividad", icon: History, count: activityEvents.length },
     { id: "conversaciones", label: "Conversaciones", icon: Mail },
+    { id: "copiloto", label: "Copiloto", icon: Sparkles },
     { id: "files", label: "Documentos", icon: FileText, count: fileCount },
   ];
   // Fallback silencioso: cualquier ?tab= antiguo (notes/activity) cae en general.
   const effectiveTab =
-    activeTab === "files" ? "files" : activeTab === "conversaciones" ? "conversaciones" : "general";
+    activeTab === "files"
+      ? "files"
+      : activeTab === "conversaciones"
+        ? "conversaciones"
+        : activeTab === "copiloto"
+          ? "copiloto"
+          : "general";
 
   const handleOpenOnboarding = async () => {
     try {
@@ -2224,6 +2232,9 @@ export function CrmDealDetailClient({
           </div>
         )}
         {effectiveTab === "conversaciones" && <EntityConversationsPanel dealId={deal.id} />}
+        {effectiveTab === "copiloto" && (
+          <DealCopilotoPanel dealId={deal.id} dealTitle={deal.title} />
+        )}
         {effectiveTab === "files" && <div className="rounded-lg border border-border bg-card p-4 sm:p-5">{filesSection.children}</div>}
       </EntityDetailLayout>
 
