@@ -34,7 +34,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { EmailHistoryList, type EmailMessage } from "@/components/crm/EmailHistoryList";
 import { EmailSenderSelect } from "@/components/crm/EmailSenderSelect";
 import {
   newEmailIdempotencyKey,
@@ -46,7 +45,7 @@ import { RecipientTypeaheadInput } from "@/components/crm/RecipientTypeaheadInpu
 import { ContractEditor } from "@/components/docs/ContractEditor";
 import { EntityDetailLayout, useEntityTabs, type EntityTab, type EntityHeaderAction } from "./EntityDetailLayout";
 import { DealCopilotoPanel } from "./DealCopilotoPanel";
-import { EntityConversationsPanel } from "./EntityConversationsPanel";
+import { EntityConversations } from "./EntityConversations";
 import { CrmRelatedRecordCard, CrmRelatedRecordGrid } from "./CrmRelatedRecordCard";
 import { AssociatedTicketsSection } from "./AssociatedTicketsSection";
 import { DealChecklistSection } from "./deal/DealChecklistSection";
@@ -100,12 +99,6 @@ function tiptapToEmailHtml(doc: any): string {
     }
   };
   return `<div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#333;line-height:1.6;">${renderNode(doc)}</div>`;
-}
-
-function buildReplySubject(subject?: string | null): string {
-  const normalized = (subject || "").trim();
-  if (!normalized) return "Re: Sin asunto";
-  return /^re:/i.test(normalized) ? normalized : `Re: ${normalized}`;
 }
 
 type QuoteOption = {
@@ -1084,40 +1077,6 @@ export function CrmDealDetailClient({
     finally { setSending(false); }
   };
 
-  const handleReplyFromHistory = useCallback(
-    (message: EmailMessage) => {
-      if (!gmailConnected) {
-        toast.error("Conecta Gmail para responder correos.");
-        return;
-      }
-
-      const replyTo =
-        message.direction === "in"
-          ? message.fromEmail
-          : message.toEmails?.[0] || "";
-
-      if (!replyTo) {
-        toast.error("No se encontró destinatario para responder.");
-        return;
-      }
-
-      setEmailTo(replyTo);
-      setEmailSubject(buildReplySubject(message.subject));
-      setEmailBody("");
-      setEmailTiptapContent(null);
-      setEmailCc("");
-      setEmailBcc("");
-      setShowCcBcc(false);
-      setSelectedTemplateId("");
-      // B2: responder EN el hilo — el server arma In-Reply-To/References y
-      // usa la casilla dueña del hilo.
-      setReplyThreadId(message.threadId ?? null);
-      setReplyAccountId(message.emailAccountId ?? null);
-      setEmailOpen(true);
-    },
-    [gmailConnected]
-  );
-
   const openNewEmail = useCallback(() => {
     setReplyThreadId(null);
     setReplyAccountId(null);
@@ -1671,9 +1630,7 @@ export function CrmDealDetailClient({
         )}
       </div>
     ),
-    children: (
-      <EmailHistoryList dealId={deal.id} compact onReply={gmailConnected ? handleReplyFromHistory : undefined} />
-    ),
+    children: null,
   };
 
   const filesSection = {
@@ -2212,13 +2169,7 @@ export function CrmDealDetailClient({
             <DealUnifiedTimeline
               activityEvents={activityEvents}
               followUpLogs={localFollowUpLogs}
-              emailSlot={
-                <EmailHistoryList
-                  dealId={deal.id}
-                  compact
-                  onReply={gmailConnected ? handleReplyFromHistory : undefined}
-                />
-              }
+              emailSlot={null}
               headerAction={
                 <div className="flex items-center gap-1">
                   {communicationSection.action}
@@ -2231,7 +2182,15 @@ export function CrmDealDetailClient({
             />
           </div>
         )}
-        {effectiveTab === "conversaciones" && <EntityConversationsPanel dealId={deal.id} />}
+        {effectiveTab === "conversaciones" && (
+          <EntityConversations
+            entityType="deal"
+            entityId={deal.id}
+            accountId={deal.account?.id ?? null}
+            dealId={deal.id}
+            variant="tab"
+          />
+        )}
         {effectiveTab === "copiloto" && (
           <DealCopilotoPanel dealId={deal.id} dealTitle={deal.title} />
         )}

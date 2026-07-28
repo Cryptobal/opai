@@ -23,7 +23,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { AttachmentPicker, EmptyState } from "@/components/opai-ds";
-import { EmailHistoryList, type EmailMessage } from "./EmailHistoryList";
+import { EntityConversations } from "./EntityConversations";
 import { EmailSenderSelect } from "./EmailSenderSelect";
 import {
   newEmailIdempotencyKey,
@@ -99,12 +99,6 @@ function tiptapToEmailHtml(doc: any): string {
     }
   };
   return `<div style="font-family:Arial,sans-serif;font-size:14px;color:#333;line-height:1.6;">${renderNode(doc)}</div>`;
-}
-
-function buildReplySubject(subject?: string | null): string {
-  const normalized = (subject || "").trim();
-  if (!normalized) return "Re: Sin asunto";
-  return /^re:/i.test(normalized) ? normalized : `Re: ${normalized}`;
 }
 
 type DealRow = {
@@ -264,7 +258,6 @@ export function CrmContactDetailClient({
   const [showCcBcc, setShowCcBcc] = useState(false);
   const [selectedTemplateId, setSelectedTemplateId] = useState("");
   const [signatureHtml, setSignatureHtml] = useState<string | null>(null);
-  const [emailCount, setEmailCount] = useState(initialEmailCount);
   const emailAttachments = useEmailAttachments();
 
   useEffect(() => {
@@ -387,7 +380,6 @@ export function CrmContactDetailClient({
       emailIdempotencyKeyRef.current = newEmailIdempotencyKey();
       setEmailOpen(false);
       setEmailBody(""); setEmailTiptapContent(null); setEmailSubject(""); setEmailCc(""); setEmailBcc(""); setShowCcBcc(false); setSelectedTemplateId(""); setReplyThreadId(null); setReplyAccountId(null); emailAttachments.resetAfterSend();
-      setEmailCount((prev) => prev + 1);
       if (result.queued) {
         if (result.offline) notifyEmailQueuedOffline();
         else notifyEmailQueued(result.data);
@@ -396,32 +388,6 @@ export function CrmContactDetailClient({
     } catch (error) { console.error(error); toast.error("No se pudo enviar el correo."); }
     finally { setSending(false); }
   };
-
-  const handleReplyFromHistory = useCallback(
-    (message: EmailMessage) => {
-      if (!gmailConnected) {
-        toast.error("Conecta Gmail para responder correos.");
-        return;
-      }
-      if (!contact.email) {
-        toast.error("El contacto no tiene email.");
-        return;
-      }
-
-      setEmailSubject(buildReplySubject(message.subject));
-      setEmailBody("");
-      setEmailTiptapContent(null);
-      setEmailCc("");
-      setEmailBcc("");
-      setShowCcBcc(false);
-      setSelectedTemplateId("");
-      // B2: responder EN el hilo — threading y casilla se resuelven server-side.
-      setReplyThreadId(message.threadId ?? null);
-      setReplyAccountId(message.emailAccountId ?? null);
-      setEmailOpen(true);
-    },
-    [gmailConnected, contact.email]
-  );
 
   const openNewEmail = useCallback(() => {
     setReplyThreadId(null);
@@ -495,7 +461,7 @@ export function CrmContactDetailClient({
 
   const tabs: EntityTab[] = [
     { id: "general", label: "General", icon: Info },
-    { id: "communication", label: "Comunicación", icon: Mail, count: emailCount },
+    { id: "conversaciones", label: "Conversaciones", icon: Mail },
     { id: "files", label: "Documentos", icon: FileText, count: fileCount },
     { id: "activity", label: "Actividad", icon: History, count: activityEvents.length },
   ];
@@ -849,15 +815,14 @@ export function CrmContactDetailClient({
       >
         {activeTab === "general" && generalContent}
 
-        {activeTab === "communication" && (
-          <div className="space-y-3 rounded-lg border border-border bg-card p-4 sm:p-5">
-            <EmailHistoryList
-              contactId={contact.id}
-              compact
-              onReply={gmailConnected ? handleReplyFromHistory : undefined}
-              onCountChange={setEmailCount}
-            />
-          </div>
+        {activeTab === "conversaciones" && (
+          <EntityConversations
+            entityType="contact"
+            entityId={contact.id}
+            accountId={contact.accountId}
+            contactId={contact.id}
+            variant="tab"
+          />
         )}
         {activeTab === "activity" && (
           <div className="rounded-lg border border-border bg-card p-4 sm:p-5">
