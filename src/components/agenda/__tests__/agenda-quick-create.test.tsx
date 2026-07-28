@@ -21,10 +21,10 @@ afterEach(() => {
 });
 
 describe("AgendaQuickCreate", () => {
-  it("cambia entre modo Evento y Tarea y entre tipos sin scroll interno", () => {
+  it("cambia entre modo Evento y Tarea y entre tipos", () => {
     renderPanel();
 
-    // Cuerpo de altura natural (sin caja fija con scroll interno).
+    // Cuerpo con scroll vertical contenido (sin caja fija legacy).
     const body = document.querySelector<HTMLElement>('[role="dialog"] .overflow-y-auto');
     expect(body).not.toBeNull();
     expect(body!.className).not.toContain("h-[322px]");
@@ -36,6 +36,56 @@ describe("AgendaQuickCreate", () => {
     // Cambiar a Tarea muestra los campos de tarea.
     fireEvent.click(screen.getByRole("button", { name: "tarea" }));
     expect(screen.getByText("Vence")).toBeInTheDocument();
+  });
+
+  // jsdom no calcula layout real: los asserts de clase son el contrato de
+  // regresión contra desborde horizontal y corte del footer. No borrar.
+  it("contiene el panel al viewport sin scroll horizontal", () => {
+    renderPanel();
+
+    const dialog = screen.getByRole("dialog");
+    expect(dialog.className).toContain("max-h-[calc(100dvh-16px)]");
+    expect(dialog.className).toContain("overflow-hidden");
+    expect(dialog.className).toContain("w-[min(400px,calc(100vw-16px))]");
+
+    const body = dialog.querySelector<HTMLElement>(".overflow-y-auto");
+    expect(body).not.toBeNull();
+    expect(body!.className).toContain("min-h-0");
+    expect(body!.className).toContain("flex-1");
+    expect(body!.className).toContain("overflow-y-auto");
+    expect(body!.className).toContain("overflow-x-hidden");
+    expect(body!.className).not.toContain("max-h-[calc(100dvh-8rem)]");
+  });
+
+  it("la fila Tipo envuelve chips y Reunión es clicable", () => {
+    renderPanel();
+
+    const reunion = screen.getByRole("button", { name: "Reunión" });
+    const tipoRow = reunion.parentElement;
+    expect(tipoRow).not.toBeNull();
+    expect(tipoRow!.className).toContain("flex-wrap");
+    expect(tipoRow!.className).toContain("min-h-9");
+    // Altura fija h-9 (token exacto) recortaría la 2.ª línea al envolver.
+    expect(tipoRow!.className.split(/\s+/)).not.toContain("h-9");
+
+    for (const label of ["Cliente", "Técnica", "Supervisión", "Reunión"]) {
+      expect(screen.getByRole("button", { name: label })).toBeInTheDocument();
+    }
+
+    fireEvent.click(reunion);
+    // Chip activo usa bg-primary; los demás usan bg-ds-surface-2.
+    expect(reunion.className).toContain("bg-primary");
+  });
+
+  it("la fila Vence del modo Tarea envuelve fecha y hora", () => {
+    renderPanel();
+    fireEvent.click(screen.getByRole("button", { name: "tarea" }));
+
+    const dateInput = screen.getByLabelText("Fecha de vencimiento");
+    const venceRow = dateInput.parentElement;
+    expect(venceRow).not.toBeNull();
+    expect(venceRow!.className).toContain("flex-wrap");
+    expect(venceRow!.className).toContain("min-h-9");
   });
 
   it("prefija fecha y hora del slot clickeado", () => {

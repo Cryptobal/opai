@@ -26,7 +26,7 @@ type Props = {
   onCreated: () => void;
 };
 
-/** Quick-create Notion-style: panel flotante 400px, cuerpo de altura FIJA. */
+/** Quick-create Notion-style: panel flotante ≤400px, contenido contenido al viewport. */
 export function AgendaQuickCreate({ state, users, onClose, onCreated }: Props) {
   const [mode, setMode] = useState(state.mode);
   const [title, setTitle] = useState("");
@@ -51,8 +51,8 @@ export function AgendaQuickCreate({ state, users, onClose, onCreated }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state]);
 
-  // Reposiciona clampeando por el alto REAL del panel (contenido natural, sin
-  // scroll interno): así no se sale del viewport ni se ancla raro hacia abajo.
+  // Reposiciona clampeando por el alto/ancho REAL del panel. ResizeObserver
+  // reclampa cuando el contenido crece (participantes, conflictos, etc.).
   useLayoutEffect(() => {
     const el = panelRef.current;
     if (!el) return;
@@ -60,17 +60,25 @@ export function AgendaQuickCreate({ state, users, onClose, onCreated }: Props) {
       const vw = window.innerWidth;
       const vh = window.innerHeight;
       const h = el.offsetHeight;
+      const w = el.offsetWidth || PANEL_W;
       const x = state.origin?.x ?? vw - PANEL_W - 24;
       const y = state.origin?.y ?? 96;
-      // Clamp por el alto REAL medido: nunca cuelga por debajo del viewport.
-      setPosition({
-        left: Math.max(8, Math.min(x, vw - PANEL_W - 8)),
+      const next = {
+        left: Math.max(8, Math.min(x, vw - w - 8)),
         top: Math.max(8, Math.min(y, vh - h - 8)),
-      });
+      };
+      setPosition((prev) =>
+        prev && prev.left === next.left && prev.top === next.top ? prev : next,
+      );
     };
     clamp();
     window.addEventListener("resize", clamp);
-    return () => window.removeEventListener("resize", clamp);
+    const ro = new ResizeObserver(clamp);
+    ro.observe(el);
+    return () => {
+      window.removeEventListener("resize", clamp);
+      ro.disconnect();
+    };
   }, [state.origin, mode]);
 
   const saving = mode === "evento" ? composer.saving : task.saving;
@@ -131,7 +139,7 @@ export function AgendaQuickCreate({ state, users, onClose, onCreated }: Props) {
         role="dialog"
         aria-label="Crear evento o tarea"
         onKeyDown={handleKeyDown}
-        className="fixed z-50 flex w-[400px] flex-col rounded-2xl border border-ds-border-default bg-ds-surface-1 shadow-ds-lg"
+        className="fixed z-50 flex w-[min(400px,calc(100vw-16px))] max-h-[calc(100dvh-16px)] flex-col overflow-hidden rounded-2xl border border-ds-border-default bg-ds-surface-1 shadow-ds-lg"
         style={{
           left: position?.left ?? 0,
           top: position?.top ?? 0,
@@ -182,9 +190,9 @@ export function AgendaQuickCreate({ state, users, onClose, onCreated }: Props) {
           />
         </div>
 
-        {/* Cuerpo de altura natural: el contenido se ve completo sin scroll
-            interno. En viewports muy bajos cae un scroll de seguridad (max-h). */}
-        <div className="max-h-[calc(100dvh-8rem)] overflow-y-auto px-4 pb-3">
+        {/* Cuerpo flexible: absorbe alto restante; scroll solo vertical.
+            min-h-0 permite ceder espacio al footer dentro del flex-col. */}
+        <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-4 pb-3">
           {mode === "evento" ? (
             <QuickCreateEventFields composer={composer} users={users} />
           ) : (
