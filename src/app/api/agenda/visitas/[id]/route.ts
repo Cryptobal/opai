@@ -83,6 +83,7 @@ export async function PATCH(request: NextRequest, routeCtx: Ctx) {
       action: "completed",
       visitaId: id,
       meta: { title: result.visita.title },
+      request,
     });
 
     // Nota en timeline CRM si hay deal
@@ -114,6 +115,7 @@ export async function PATCH(request: NextRequest, routeCtx: Ctx) {
       action: "cancelled",
       visitaId: id,
       meta: { title: result.visita.title },
+      request,
     });
     return NextResponse.json(result);
   }
@@ -138,6 +140,7 @@ export async function PATCH(request: NextRequest, routeCtx: Ctx) {
         startAt: body.startAt,
         endAt: body.endAt,
       },
+      request,
     });
     return NextResponse.json(result);
   }
@@ -145,7 +148,7 @@ export async function PATCH(request: NextRequest, routeCtx: Ctx) {
   return NextResponse.json({ error: "Acción no soportada" }, { status: 400 });
 }
 
-export async function DELETE(_req: NextRequest, routeCtx: Ctx) {
+export async function DELETE(request: NextRequest, routeCtx: Ctx) {
   const access = await requireAgendaAccess();
   if (!access.ok) return access.response;
   const { ctx } = access;
@@ -164,6 +167,7 @@ export async function DELETE(_req: NextRequest, routeCtx: Ctx) {
     action: "cancelled",
     visitaId: id,
     meta: { title: result.visita.title },
+    request,
   });
   return NextResponse.json(result);
 }

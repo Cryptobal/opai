@@ -55,6 +55,15 @@ export async function POST(request: NextRequest) {
       startAt,
       notes: body.notes ?? null,
     });
+    void auditAgendaAction({
+      tenantId: ctx.tenantId,
+      userId: ctx.userId,
+      userEmail: ctx.userEmail,
+      action: "created",
+      visitaId: result.visita.id,
+      meta: { title: "Visita técnica", type: "tecnica" },
+      request,
+    });
     return NextResponse.json(result, { status: 201 });
   }
 
@@ -88,6 +97,7 @@ export async function POST(request: NextRequest) {
     action: "created",
     visitaId: result.visita.id,
     meta: { title: result.visita.title, type: result.visita.type },
+    request,
   });
   return NextResponse.json(result, { status: 201 });
 }

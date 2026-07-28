@@ -171,6 +171,7 @@ export async function PATCH(
             : "updated",
       taskId: id,
       meta: { title: task.title },
+      request,
     });
 
     return NextResponse.json({ success: true, data: task });
@@ -181,7 +182,7 @@ export async function PATCH(
 }
 
 export async function DELETE(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
@@ -210,6 +211,7 @@ export async function DELETE(
       action: "deleted",
       taskId: id,
       meta: { title: existing.title },
+      request,
     });
 
     return NextResponse.json({ success: true });
