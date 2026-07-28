@@ -1,6 +1,7 @@
 "use client";
 
 import type { CorreoThreadDTO } from "@/modules/crm/email/correos.types";
+import type { RadarCapability } from "@/modules/crm/email/radar-types";
 import { CorreoRowDesktop } from "./CorreoRowDesktop";
 import { CorreoRowMobile } from "./CorreoRowMobile";
 import type { CorreoPreviewLines } from "./useCorreosViewPreferences";
@@ -35,6 +36,7 @@ export function CorreoRow({
   previewLines = 2,
   mobileGmail = false,
   onAvatarPress,
+  caps,
 }: {
   thread: CorreoThreadDTO;
   onOpen: () => void;
@@ -58,6 +60,7 @@ export function CorreoRow({
   mobileGmail?: boolean;
   /** Tap en el avatar alterna selección (solo variante móvil). */
   onAvatarPress?: () => void;
+  caps?: Set<RadarCapability>;
 }) {
   if (mobileGmail) {
     return (
@@ -67,6 +70,7 @@ export function CorreoRow({
         previewLines={previewLines}
         checked={checked}
         onAvatarPress={onAvatarPress}
+        caps={caps}
       />
     );
   }
@@ -87,6 +91,7 @@ export function CorreoRow({
       checked={checked}
       onToggleCheck={onToggleCheck}
       previewLines={previewLines}
+      caps={caps}
     />
   );
 }

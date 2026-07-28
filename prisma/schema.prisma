@@ -2926,6 +2926,13 @@ model CrmEmailThread {
   aiVertical  String? @map("ai_vertical") // operaciones|rrhh|comercial|finanzas|cobranza|contratos|incidentes|otro
   aiUrgency   String? @map("ai_urgency") // alta|media|baja
   aiSentiment String? @map("ai_sentiment") // positivo|neutral|negativo
+  /// Corrección humana de la vertical. Manda sobre aiVertical en toda la UI.
+  /// El clasificador sigue escribiendo aiVertical (medición de precisión) y
+  /// NUNCA toca estos tres campos.
+  verticalOverride     String?   @map("vertical_override")
+  /// Admin.id (cuid) del autor — sin FK, patrón de trazabilidad del módulo.
+  verticalOverrideById String?   @map("vertical_override_by_id")
+  verticalOverrideAt   DateTime? @map("vertical_override_at") @db.Timestamptz(6)
   // ── Resúmenes reales (A01/A02): caché por último mensaje + última lectura.
   aiThreadSummary Json?     @map("ai_thread_summary") // { summary, lastMessageId, generatedAt }
   // ── Plan de acciones v2: borrador editable del plan (propuesta + include + locks).

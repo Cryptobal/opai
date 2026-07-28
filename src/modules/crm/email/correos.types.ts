@@ -20,11 +20,12 @@ export type CorreoThreadDTO = {
   starredAt: string | null;
   spamAt: string | null;
   hasDraft: boolean;
-  /** A03: vertical de la clasificación v5 (operaciones|rrhh|comercial|…). */
+  /** A03: vertical cruda de la IA (para comandos / medición de precisión). */
   aiVertical: string | null;
-  /** F2: badge de radar por vertical (null si el solicitante no tiene la
-   *  capability). Calculado en servidor. */
-  radarBadge: import("./radar-types").RadarBadge | null;
+  /** Vertical efectiva visible (override ?? IA), filtrada por capability. */
+  vertical: import("./radar-types").RadarVertical | null;
+  /** true si hay corrección humana persistida. */
+  verticalFixed: boolean;
   /** Motivo de match bajo búsqueda híbrida (null fuera de búsqueda). */
   matchReason?: "lexical" | "semantic" | "both" | null;
 };
@@ -94,6 +95,9 @@ export type CorreoDetail = {
     /** Clasificación radar persistida; null si aún no clasificado. */
     aiCategory: string | null;
     aiVertical: string | null;
+    /** Vertical efectiva visible (override ?? IA), filtrada por capability. */
+    vertical: import("./radar-types").RadarVertical | null;
+    verticalFixed: boolean;
     aiUrgency: string | null;
     aiSentiment: string | null;
     aiSummary: string | null;

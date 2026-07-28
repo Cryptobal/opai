@@ -307,7 +307,10 @@ function buildStructuralConditions(parsed: ParsedCorreoSearch): Prisma.Sql[] {
   if (parsed.unread === false) conds.push(Prisma.sql`t.is_unread = false`);
   if (parsed.starred === true) conds.push(Prisma.sql`t.starred_at IS NOT NULL`);
   for (const vertical of parsed.verticals) {
-    conds.push(Prisma.sql`t.ai_vertical = ${vertical}`);
+    conds.push(Prisma.sql`(
+      t.vertical_override = ${vertical}
+      OR (t.vertical_override IS NULL AND t.ai_vertical = ${vertical})
+    )`);
   }
 
   return conds;
@@ -369,7 +372,7 @@ export function buildCorreoSearchIdsQuery(params: {
   emailAccountId: string;
   parsed: ParsedCorreoSearch;
   folder: CorreoListFilter;
-  /** A03: filtro por vertical v5 (ai_vertical). */
+  /** A03: filtro por vertical efectiva (override ?? ai_vertical). */
   vertical?: string | null;
   cursorDate: Date | null;
   take: number;
@@ -389,7 +392,14 @@ export function buildCorreoSearchIdsQuery(params: {
     Prisma.sql`t.email_account_id = ${params.emailAccountId}::uuid`,
     folderWhereSql(params.folder, now),
     ...searchConds,
-    ...(params.vertical ? [Prisma.sql`t.ai_vertical = ${params.vertical}`] : []),
+    ...(params.vertical
+      ? [
+          Prisma.sql`(
+            t.vertical_override = ${params.vertical}
+            OR (t.vertical_override IS NULL AND t.ai_vertical = ${params.vertical})
+          )`,
+        ]
+      : []),
   ];
   if (params.cursorDate) conds.push(Prisma.sql`t.last_message_at < ${params.cursorDate}`);
   const orderBy = params.orderBy ?? Prisma.sql`t.last_message_at DESC NULLS LAST`;

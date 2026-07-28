@@ -2,9 +2,9 @@ import { prisma } from "@/lib/prisma";
 import { getTenantCompanyConfig } from "@/lib/tenant-config";
 import type { CorreoThreadDTO } from "./correos.types";
 import {
-  radarBadgeFor,
+  effectiveVertical,
+  visibleVertical,
   type RadarCapability,
-  type RadarVertical,
 } from "./radar-types";
 import {
   domainOf,
@@ -87,6 +87,7 @@ const THREAD_LIST_SELECT = {
   starredAt: true,
   spamAt: true,
   aiVertical: true,
+  verticalOverride: true,
   isUnread: true,
   messages: {
     select: { fromEmail: true, textBody: true, htmlBody: true, isDraft: true },
@@ -183,7 +184,14 @@ export async function listCorreoThreads(params: {
           tenantId: params.tenantId,
           emailAccountId: params.emailAccountId,
           ...folderWhere(effectiveFolder),
-          ...(params.vertical ? { aiVertical: params.vertical } : {}),
+          ...(params.vertical
+            ? {
+                OR: [
+                  { verticalOverride: params.vertical },
+                  { verticalOverride: null, aiVertical: params.vertical },
+                ],
+              }
+            : {}),
           ...(hasCursor && cursorDate
             ? isSnoozed
               ? { snoozedUntil: { gt: cursorDate } }
@@ -262,6 +270,7 @@ type ThreadRow = {
   starredAt: Date | null;
   spamAt: Date | null;
   aiVertical: string | null;
+  verticalOverride: string | null;
   isUnread: boolean;
   messages: Array<{
     fromEmail: string;
@@ -350,10 +359,11 @@ async function mapThreadRowsInternal(
       spamAt: r.spamAt?.toISOString() ?? null,
       hasDraft: Boolean(msg?.isDraft),
       aiVertical: r.aiVertical,
-      radarBadge: radarBadgeFor(
-        r.aiVertical as RadarVertical | null,
+      vertical: visibleVertical(
+        effectiveVertical(r.aiVertical, r.verticalOverride),
         radarCaps ?? new Set<RadarCapability>(),
       ),
+      verticalFixed: Boolean(r.verticalOverride),
       matchReason: reasonById?.get(r.id) ?? null,
     };
   });

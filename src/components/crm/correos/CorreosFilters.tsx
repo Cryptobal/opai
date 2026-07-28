@@ -6,6 +6,8 @@
 // de búsqueda de acá no tenía botón de limpiar y alguien podía editarlo
 // pensando que era la UI activa).
 
+import { VERTICAL_META } from "@/modules/crm/email/radar-types";
+
 export type CorreoFolderTab =
   | "inbox"
   | "archived"
@@ -45,15 +47,12 @@ export const CHIPS: { key: CorreoChipKey; label: string }[] = [
 ];
 
 // A03: verticales de la clasificación v5 (filtro server-side).
-export const VERTICAL_LABELS: Record<string, string> = {
-  operaciones: "Operaciones",
-  rrhh: "RRHH",
-  comercial: "Comercial",
-  finanzas: "Finanzas",
-  cobranza: "Cobranza",
-  contratos: "Contratos",
-  incidentes: "Incidentes",
-};
+// Derivado de VERTICAL_META (fuente única de label + color).
+export const VERTICAL_LABELS: Record<string, string> = Object.fromEntries(
+  Object.entries(VERTICAL_META)
+    .sort(([, a], [, b]) => a.order - b.order)
+    .map(([key, meta]) => [key, meta.label]),
+);
 
 // Export: mismos contadores que consume el drawer móvil.
 export type CorreoFolderCounts = {
