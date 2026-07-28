@@ -236,8 +236,8 @@ export function MobileIsland({
               <SurfaceSegment
                 surface={surface}
                 variant="compact"
-                /* No colapsar a chip: en Productividad (Agenda/Tareas/Tickets)
-                   el chip de 24 px se percibe como “desaparecido” al scrollear. */
+                /* Compact con etiqueta corta (ERP / Prod) en el activo — ancla
+                   de ubicación sin ocupar el título. No usar condensed=chip. */
                 className="shrink-0"
               />
             )}

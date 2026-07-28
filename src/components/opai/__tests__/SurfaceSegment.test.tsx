@@ -74,4 +74,21 @@ describe("SurfaceSegment", () => {
       "false",
     );
   });
+
+  it("compact muestra etiquetas cortas ERP / Prod", () => {
+    render(<SurfaceSegment surface="productividad" variant="compact" />);
+    expect(screen.getByText("Prod")).toBeTruthy();
+    expect(screen.getByText("ERP")).toBeTruthy();
+    expect(screen.queryByText("Productividad")).toBeNull();
+  });
+
+  it("labeled muestra nombres completos en ambas opciones", () => {
+    render(<SurfaceSegment surface="erp" variant="labeled" />);
+    expect(screen.getByText("ERP")).toBeTruthy();
+    expect(screen.getByText("Productividad")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Productividad" })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
+  });
 });
