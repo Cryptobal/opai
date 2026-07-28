@@ -55,11 +55,20 @@ function isEditableTarget(target: EventTarget | null): boolean {
   const el = target as HTMLElement | null;
   if (!el) return false;
   const tag = el.tagName;
-  return (
+  if (
     tag === "INPUT" ||
     tag === "TEXTAREA" ||
     tag === "SELECT" ||
     el.isContentEditable
+  ) {
+    return true;
+  }
+  // Typeahead de destinatarios (portal listbox) y composer de correo: no
+  // dejar que ↑/↓ cambien de hilo mientras se elige un Para/CC.
+  return Boolean(
+    el.closest?.(
+      '[data-email-composer], [data-recipient-field], [role="combobox"], [role="listbox"]',
+    ),
   );
 }
 

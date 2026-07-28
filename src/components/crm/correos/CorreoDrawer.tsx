@@ -223,8 +223,23 @@ export function CorreoDrawer({
   const from = sender.name || sender.email || rawFrom;
   const headerSubject =
     (detailReady ? detail.thread.subject : null) || preview?.subject || "Correo";
-  const scrollToReply = () =>
-    document.getElementById("correo-suggested-reply")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  const scrollToReply = () => {
+    const run = () => {
+      const el = document.getElementById("correo-suggested-reply");
+      if (!el) return;
+      const scroller = el.closest(".overflow-y-auto");
+      if (scroller instanceof HTMLElement) {
+        const elRect = el.getBoundingClientRect();
+        const scRect = scroller.getBoundingClientRect();
+        const nextTop = scroller.scrollTop + (elRect.bottom - scRect.bottom) + 24;
+        scroller.scrollTo({ top: Math.max(0, nextTop), behavior: "smooth" });
+        return;
+      }
+      el.scrollIntoView({ behavior: "smooth", block: "end" });
+    };
+    window.requestAnimationFrame(() => window.requestAnimationFrame(run));
+    window.setTimeout(run, 80);
+  };
 
   const requestReply = () => {
     setLocalComposeIntent({ mode: "reply", nonce: nextIntentNonce() });

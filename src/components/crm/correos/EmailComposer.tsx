@@ -15,7 +15,8 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { CalendarClock, Check, Send, Trash2 } from "lucide-react";
+import type { Editor } from "@tiptap/react";
+import { CalendarClock, Check, Mic, Send, Square, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { AttachmentPicker, Spinner } from "@/components/opai-ds";
 import { SimpleSelect } from "@/components/ui/simple-select";
@@ -37,6 +38,18 @@ import {
 } from "./email-send-client";
 import { extractInlineImages } from "./email-inline-images";
 import { composerSnapshot, docPlainText, isComposerPristine } from "./composer-draft";
+import {
+  isSpeechDictationSupported,
+  useSpeechDictation,
+} from "@/hooks/useSpeechDictation";
+import { cn } from "@/lib/utils";
+
+/** Anula el :focus-visible global que pinta rectángulos blancos en Asunto. */
+const SUBJECT_INPUT_CLASS =
+  "h-9 min-w-0 flex-1 appearance-none border-0 bg-transparent text-[16px] text-ds-text-1 shadow-none outline-none " +
+  "placeholder:text-ds-text-4 sm:text-[13px] " +
+  "focus:outline-none focus:ring-0 focus:ring-offset-0 " +
+  "focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0";
 
 export type EmailComposerMode = "new" | "reply" | "forward";
 
@@ -147,6 +160,43 @@ export function EmailComposer({
   const savingRef = useRef(false);
   const dirtyRef = useRef(false);
   const closedRef = useRef(false);
+  const editorRef = useRef<Editor | null>(null);
+  const insertedFinalRef = useRef("");
+  const [dictValue, setDictValue] = useState("");
+  const [dictSupported, setDictSupported] = useState(false);
+
+  useEffect(() => {
+    setDictSupported(isSpeechDictationSupported());
+  }, []);
+
+  const dictation = useSpeechDictation({
+    value: dictValue,
+    onChange: setDictValue,
+    disabled: busy,
+  });
+
+  // Inserta en TipTap solo el texto final nuevo (el interim se muestra aparte).
+  useEffect(() => {
+    if (!dictation.listening) return;
+    const finals = dictation.finalText;
+    const prev = insertedFinalRef.current;
+    if (finals.length <= prev.length) return;
+    const added = finals.slice(prev.length);
+    insertedFinalRef.current = finals;
+    const editor = editorRef.current;
+    if (!editor || !added.trim()) return;
+    const needsSpace =
+      Boolean(prev) && !prev.endsWith(" ") && !added.startsWith(" ");
+    editor
+      .chain()
+      .focus()
+      .insertContent(needsSpace ? ` ${added}` : added)
+      .run();
+  }, [dictation.finalText, dictation.listening]);
+
+  useEffect(() => {
+    if (dictation.error) toast.error(dictation.error);
+  }, [dictation.error]);
   // Estado inicial del composer: un reply/forward llega con destinatarios y
   // asunto prefijados (y a veces un borrador IA). Abrir/leer un correo NO debe
   // crear un borrador en Gmail — solo autoguardamos cuando el usuario editó
@@ -373,8 +423,20 @@ export function EmailComposer({
     }
   }
 
+  async function toggleDictation() {
+    if (dictation.listening) {
+      await dictation.finish();
+      insertedFinalRef.current = "";
+      setDictValue("");
+      return;
+    }
+    insertedFinalRef.current = "";
+    setDictValue("");
+    dictation.start();
+  }
+
   return (
-    <div className="space-y-0">
+    <div className="space-y-0" data-email-composer>
       {!isReply && identityOptions.length > 1 && (
         <div className="flex items-center gap-2 border-b border-ds-border-subtle focus-within:border-primary">
           <span className="w-10 shrink-0 text-[12px] text-ds-text-3">De</span>
@@ -439,8 +501,15 @@ export function EmailComposer({
             setSubject(e.target.value);
             onSubjectChange?.(e.target.value);
           }}
+          onKeyDown={(e) => {
+            // No dejar que Enter/flechas filtren a atajos de bandeja.
+            if (e.key === "ArrowDown" || e.key === "ArrowUp" || e.key === "Enter") {
+              e.stopPropagation();
+            }
+          }}
           placeholder="Asunto"
-          className="h-9 min-w-0 flex-1 bg-transparent text-[16px] text-ds-text-1 outline-none sm:text-[13px]"
+          autoComplete="off"
+          className={SUBJECT_INPUT_CLASS}
         />
       </div>
       <ContractEditor
@@ -456,8 +525,23 @@ export function EmailComposer({
         enableTokens={false}
         compact
         className="min-h-[200px]"
-        renderToolbar={(editor) => <EmailToolbar editor={editor} />}
+        renderToolbar={(editor) => {
+          editorRef.current = editor;
+          return <EmailToolbar editor={editor} />;
+        }}
       />
+      {dictation.listening && (dictation.interimText || dictation.silent) && (
+        <p className="py-1 text-[12px] text-ds-text-3">
+          {dictation.silent
+            ? "Escuchando… (silencio detectado)"
+            : (
+              <>
+                <span className="text-ds-text-4">Dictando: </span>
+                <span className="text-ds-text-2">{dictation.interimText}</span>
+              </>
+            )}
+        </p>
+      )}
       {quotedHtml && (
         <p className="py-1.5 text-[12px] text-ds-text-3">
           Se incluirá el mensaje original citado al final{forwardAttachments.length > 0
@@ -473,23 +557,41 @@ export function EmailComposer({
         disabled={busy}
         className="rounded-none border-0 border-t border-ds-border-subtle bg-transparent px-0 py-2"
       />
-      <div className="flex items-center gap-1.5 pt-1">
+      <div className="flex flex-wrap items-center gap-1.5 pt-1">
         <button
           type="button"
           onClick={() => void send()}
           disabled={busy || !canSend}
-          className="inline-flex h-9 items-center justify-center gap-1.5 rounded-full bg-primary px-4 text-[13px] font-medium text-primary-foreground ds-tap disabled:opacity-50"
+          className="inline-flex h-10 items-center justify-center gap-1.5 rounded-full bg-primary px-4 text-[13px] font-medium text-primary-foreground ds-tap disabled:opacity-50 sm:h-9"
         >
           {busy ? <Spinner className="h-4 w-4" /> : <Send className="h-4 w-4" />}
           {busy ? "Enviando…" : "Enviar"}
         </button>
+        {dictSupported && (
+          <button
+            type="button"
+            title={dictation.listening ? "Detener dictado" : "Dictar por voz"}
+            aria-label={dictation.listening ? "Detener dictado" : "Dictar por voz"}
+            aria-pressed={dictation.listening}
+            onClick={() => void toggleDictation()}
+            disabled={busy}
+            className={cn(
+              "inline-flex h-10 w-10 items-center justify-center rounded-full ds-tap sm:h-9 sm:w-9 disabled:opacity-50",
+              dictation.listening
+                ? "bg-status-danger-soft text-status-danger-fg"
+                : "text-ds-text-2 hover:bg-ds-surface-2",
+            )}
+          >
+            {dictation.listening ? <Square className="h-4 w-4 fill-current" /> : <Mic className="h-4 w-4" />}
+          </button>
+        )}
         <button
           type="button"
           title="Programar envío"
           aria-label="Programar envío"
           onClick={() => setScheduleOpen((v) => !v)}
           disabled={busy || !canSend}
-          className="inline-flex h-9 w-9 items-center justify-center rounded-full text-ds-text-2 ds-tap hover:bg-ds-surface-2 disabled:opacity-50"
+          className="inline-flex h-10 w-10 items-center justify-center rounded-full text-ds-text-2 ds-tap hover:bg-ds-surface-2 disabled:opacity-50 sm:h-9 sm:w-9"
         >
           <CalendarClock className="h-4 w-4" />
         </button>
@@ -499,7 +601,7 @@ export function EmailComposer({
           aria-label="Descartar borrador"
           onClick={() => void discardDraft()}
           disabled={busy}
-          className="inline-flex h-9 w-9 items-center justify-center rounded-full text-ds-text-3 ds-tap hover:bg-ds-surface-2 hover:text-status-danger-fg disabled:opacity-50"
+          className="inline-flex h-10 w-10 items-center justify-center rounded-full text-ds-text-3 ds-tap hover:bg-ds-surface-2 hover:text-status-danger-fg disabled:opacity-50 sm:h-9 sm:w-9"
         >
           <Trash2 className="h-4 w-4" />
         </button>

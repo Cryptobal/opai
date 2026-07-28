@@ -113,4 +113,30 @@ describe("useCorreosKeyboard", () => {
     expect(handlers.onReply).not.toHaveBeenCalled();
     input.remove();
   });
+
+  it("no captura flechas dentro del typeahead de destinatarios", () => {
+    renderHook(() =>
+      useCorreosKeyboard({
+        ...handlers,
+        shortcuts: DEFAULT_CORREO_SHORTCUTS,
+        replyHandledExternally: true,
+        enabled: true,
+      }),
+    );
+    const wrap = document.createElement("div");
+    wrap.setAttribute("data-recipient-field", "");
+    const input = document.createElement("input");
+    input.setAttribute("role", "combobox");
+    wrap.appendChild(input);
+    document.body.appendChild(wrap);
+    input.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true, cancelable: true }),
+    );
+    input.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "ArrowUp", bubbles: true, cancelable: true }),
+    );
+    expect(handlers.onDown).not.toHaveBeenCalled();
+    expect(handlers.onUp).not.toHaveBeenCalled();
+    wrap.remove();
+  });
 });

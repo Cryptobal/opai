@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import {
   useRecipientSuggestions,
@@ -53,9 +54,17 @@ function nameFromRawHeader(raw: string): string | null {
   return name || null;
 }
 
+/** Anula el :focus-visible global (ring + ring-offset) que pinta rectángulos
+ *  blancos sobre Para/Asunto — mismo patrón que ChatComposer. */
+const INPUT_FOCUS_RESET =
+  "appearance-none border-0 bg-transparent shadow-none outline-none " +
+  "focus:border-0 focus:outline-none focus:ring-0 focus:ring-offset-0 " +
+  "focus-visible:border-0 focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0";
+
 /**
  * Campo de destinatarios estilo Gmail: fila underline + chips con avatar/nombre
- * + typeahead (CRM + recientes + participantes del mailbox).
+ * + typeahead (CRM + recientes + participantes del mailbox). Flechas/Enter
+ * navegan el listado sin filtrar a los atajos de bandeja.
  */
 export function ReplyRecipientsField({
   label,
@@ -70,8 +79,16 @@ export function ReplyRecipientsField({
   const [open, setOpen] = useState(false);
   const [highlight, setHighlight] = useState(-1);
   const [names, setNames] = useState<Record<string, string>>({});
+  const [menuBox, setMenuBox] = useState<{
+    top: number;
+    left: number;
+    width: number;
+    maxHeight: number;
+    placeAbove: boolean;
+  } | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const listRef = useRef<HTMLUListElement>(null);
 
   // Si el padre manda headers `Nombre <mail>`, normalizamos y guardamos el nombre.
   useEffect(() => {
@@ -105,11 +122,55 @@ export function ReplyRecipientsField({
   useEffect(() => {
     if (!showList) return;
     const onPointerDown = (e: PointerEvent) => {
-      if (!rootRef.current?.contains(e.target as Node)) setOpen(false);
+      if (!rootRef.current?.contains(e.target as Node) && !listRef.current?.contains(e.target as Node)) {
+        setOpen(false);
+      }
     };
     document.addEventListener("pointerdown", onPointerDown);
     return () => document.removeEventListener("pointerdown", onPointerDown);
   }, [showList]);
+
+  // Posicionar el menú en portal (evita clip del overflow del lector) y
+  // abrirlo hacia arriba si no hay espacio abajo.
+  useLayoutEffect(() => {
+    if (!showList) {
+      setMenuBox(null);
+      return;
+    }
+    const update = () => {
+      const anchor = rootRef.current;
+      if (!anchor) return;
+      const rect = anchor.getBoundingClientRect();
+      const gap = 4;
+      const spaceBelow = window.innerHeight - rect.bottom - gap;
+      const spaceAbove = rect.top - gap;
+      const placeAbove = spaceBelow < 220 && spaceAbove > spaceBelow;
+      const maxHeight = Math.max(160, Math.min(280, placeAbove ? spaceAbove - 8 : spaceBelow - 8));
+      setMenuBox({
+        top: placeAbove ? rect.top - gap : rect.bottom + gap,
+        left: rect.left,
+        width: rect.width,
+        maxHeight,
+        placeAbove,
+      });
+    };
+    update();
+    window.addEventListener("resize", update);
+    // El scroller del lector mueve el ancla — reposicionar.
+    const scroller = rootRef.current?.closest(".overflow-y-auto");
+    scroller?.addEventListener("scroll", update, { passive: true });
+    return () => {
+      window.removeEventListener("resize", update);
+      scroller?.removeEventListener("scroll", update);
+    };
+  }, [showList, visible.length, input]);
+
+  // Mantener la opción resaltada visible dentro del menú.
+  useEffect(() => {
+    if (!showList || highlight < 0) return;
+    const item = listRef.current?.querySelector<HTMLElement>(`[data-idx="${highlight}"]`);
+    item?.scrollIntoView({ block: "nearest" });
+  }, [highlight, showList]);
 
   function rememberName(email: string, name: string | null | undefined) {
     if (!name?.trim()) return;
@@ -138,8 +199,44 @@ export function ReplyRecipientsField({
     add(s.email, s.name);
   }
 
+  function onKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    // Evita que los atajos de bandeja (↑/↓ cambian de hilo) se coman el typeahead.
+    if (e.key === "ArrowDown" || e.key === "ArrowUp" || e.key === "Enter" || e.key === ",") {
+      e.stopPropagation();
+    }
+
+    if (showList && e.key === "ArrowDown") {
+      e.preventDefault();
+      setHighlight((h) => (h + 1) % visible.length);
+      return;
+    }
+    if (showList && e.key === "ArrowUp") {
+      e.preventDefault();
+      setHighlight((h) => (h - 1 + visible.length) % visible.length);
+      return;
+    }
+    if (e.key === "Escape") {
+      if (open) {
+        e.preventDefault();
+        e.stopPropagation();
+        setOpen(false);
+      }
+      return;
+    }
+    if (e.key === "Enter" || e.key === ",") {
+      e.preventDefault();
+      if (showList && highlight >= 0 && visible[highlight]) {
+        pick(visible[highlight]);
+      } else {
+        commitFreeText();
+      }
+    } else if (e.key === "Backspace" && !input && values.length) {
+      onChange(values.slice(0, -1));
+    }
+  }
+
   return (
-    <div ref={rootRef} className="relative">
+    <div ref={rootRef} className="relative" data-recipient-field>
       <div
         className={cn(
           "flex min-h-10 flex-wrap items-center gap-1.5 border-b border-ds-border-subtle py-1.5 pr-16",
@@ -157,9 +254,9 @@ export function ReplyRecipientsField({
               key={v}
               title={email}
               className={cn(
-                "inline-flex max-w-full items-center gap-1 rounded-md py-0.5 pl-1.5 pr-1 text-[12px]",
+                "inline-flex max-w-full items-center gap-1 rounded-full py-0.5 pl-2 pr-1 text-[12px]",
                 ok
-                  ? "bg-ds-surface-2/80 text-ds-text-1"
+                  ? "bg-ds-surface-2 text-ds-text-1"
                   : "bg-status-danger-soft text-status-danger-fg",
               )}
             >
@@ -171,7 +268,7 @@ export function ReplyRecipientsField({
                   e.stopPropagation();
                   onChange(values.filter((x) => x !== v));
                 }}
-                className="rounded-md p-0.5 text-ds-text-3 ds-tap hover:bg-ds-surface-3 hover:text-ds-text-1"
+                className="rounded-full p-0.5 text-ds-text-3 ds-tap hover:bg-ds-surface-3 hover:text-ds-text-1"
               >
                 <X className="h-3 w-3" />
               </button>
@@ -186,91 +283,107 @@ export function ReplyRecipientsField({
             setOpen(true);
           }}
           onFocus={() => setOpen(true)}
-          onKeyDown={(e) => {
-            if (showList && e.key === "ArrowDown") {
-              e.preventDefault();
-              setHighlight((h) => (h + 1) % visible.length);
-            } else if (showList && e.key === "ArrowUp") {
-              e.preventDefault();
-              setHighlight((h) => (h - 1 + visible.length) % visible.length);
-            } else if (e.key === "Escape") {
-              setOpen(false);
-            } else if (e.key === "Enter" || e.key === ",") {
-              e.preventDefault();
-              if (showList && highlight >= 0 && visible[highlight]) {
-                pick(visible[highlight]);
-              } else {
-                commitFreeText();
-              }
-            } else if (e.key === "Backspace" && !input && values.length) {
-              onChange(values.slice(0, -1));
-            }
-          }}
+          onKeyDown={onKeyDown}
           onBlur={() => {
             setTimeout(() => {
-              if (!rootRef.current?.contains(document.activeElement)) {
+              if (
+                !rootRef.current?.contains(document.activeElement) &&
+                !listRef.current?.contains(document.activeElement)
+              ) {
                 commitFreeText();
               }
             }, 120);
           }}
           placeholder={values.length === 0 ? "Buscar nombre o correo" : ""}
-          className="h-8 min-w-[140px] flex-1 bg-transparent text-[16px] text-ds-text-1 outline-none placeholder:text-ds-text-4 sm:text-[13px]"
+          className={cn(
+            "h-8 min-w-[140px] flex-1 text-[16px] text-ds-text-1 placeholder:text-ds-text-4 sm:text-[13px]",
+            INPUT_FOCUS_RESET,
+          )}
           type="text"
           autoComplete="off"
+          autoCorrect="off"
+          autoCapitalize="off"
+          spellCheck={false}
           role="combobox"
           aria-expanded={showList}
           aria-autocomplete="list"
+          aria-controls={showList ? `recipient-list-${label}` : undefined}
+          aria-activedescendant={
+            showList && highlight >= 0 ? `recipient-opt-${label}-${highlight}` : undefined
+          }
         />
       </div>
-      {showList && (
-        <ul
-          role="listbox"
-          className="absolute left-0 right-0 top-full z-50 mt-1 max-h-64 overflow-y-auto rounded-xl border border-ds-border-default bg-ds-surface-1 py-1 shadow-lg"
-        >
-          {visible.map((s, i) => {
-            const name = s.name?.trim() || displayName(s.email, null);
-            return (
-              <li key={s.email} role="option" aria-selected={i === highlight}>
-                <button
-                  type="button"
-                  onPointerDown={(e) => {
-                    e.preventDefault();
-                    pick(s);
-                  }}
-                  onMouseEnter={() => setHighlight(i)}
-                  className={cn(
-                    "flex w-full items-center gap-2.5 px-3 py-2 text-left",
-                    i === highlight ? "bg-ds-surface-2" : "",
-                  )}
+      {showList &&
+        menuBox &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <ul
+            ref={listRef}
+            id={`recipient-list-${label}`}
+            role="listbox"
+            style={{
+              position: "fixed",
+              top: menuBox.placeAbove ? undefined : menuBox.top,
+              bottom: menuBox.placeAbove
+                ? window.innerHeight - menuBox.top
+                : undefined,
+              left: menuBox.left,
+              width: menuBox.width,
+              maxHeight: menuBox.maxHeight,
+            }}
+            className="z-[80] overflow-y-auto rounded-xl border border-ds-border-default bg-ds-surface-1 py-1 shadow-lg"
+          >
+            {visible.map((s, i) => {
+              const name = s.name?.trim() || displayName(s.email, null);
+              return (
+                <li
+                  key={s.email}
+                  id={`recipient-opt-${label}-${i}`}
+                  role="option"
+                  aria-selected={i === highlight}
+                  data-idx={i}
                 >
-                  <span
-                    aria-hidden
-                    className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/15 text-[12px] font-semibold text-primary"
-                  >
-                    {initials(name)}
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[13px] text-ds-text-1">{name}</span>
-                    <span className="block truncate text-[12px] text-ds-text-3">{s.email}</span>
-                  </span>
-                  <span
+                  <button
+                    type="button"
+                    onPointerDown={(e) => {
+                      e.preventDefault();
+                      pick(s);
+                    }}
+                    onMouseEnter={() => setHighlight(i)}
                     className={cn(
-                      "shrink-0 rounded-full px-1.5 py-0.5 text-[12px]",
-                      s.source === "crm"
-                        ? "bg-status-info-soft text-status-info-fg"
-                        : s.source === "mailbox"
-                          ? "bg-status-ok-soft text-status-ok-fg"
-                          : "bg-ds-surface-2 text-ds-text-3",
+                      "flex w-full items-center gap-2.5 px-3 py-2 text-left",
+                      i === highlight ? "bg-ds-surface-2" : "",
                     )}
                   >
-                    {s.source === "crm" ? "CRM" : s.source === "mailbox" ? "bandeja" : "reciente"}
-                  </span>
-                </button>
-              </li>
-            );
-          })}
-        </ul>
-      )}
+                    <span
+                      aria-hidden
+                      className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/15 text-[12px] font-semibold text-primary"
+                    >
+                      {initials(name)}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[13px] text-ds-text-1">{name}</span>
+                      <span className="block truncate text-[12px] text-ds-text-3">{s.email}</span>
+                    </span>
+                    <span
+                      className={cn(
+                        "shrink-0 rounded-full px-1.5 py-0.5 text-[12px]",
+                        s.source === "crm"
+                          ? "bg-status-info-soft text-status-info-fg"
+                          : s.source === "mailbox"
+                            ? "bg-status-ok-soft text-status-ok-fg"
+                            : "bg-ds-surface-2 text-ds-text-3",
+                      )}
+                    >
+                      {s.source === "crm" ? "CRM" : s.source === "mailbox" ? "bandeja" : "reciente"}
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>,
+          document.body,
+        )}
     </div>
   );
 }

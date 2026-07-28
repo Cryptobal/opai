@@ -240,7 +240,11 @@ export function CorreoComposerBox(props: Props) {
     return createPortal(
       <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Redactar correo">
         <div className="absolute inset-0 bg-black/40" onClick={toggleExpand} aria-hidden />
-        <div className="relative z-10 flex h-[min(84dvh,780px)] w-[min(820px,94vw)] flex-col gap-1 overflow-y-auto bg-background px-4 py-3 shadow-2xl">
+        <div
+          id="correo-suggested-reply"
+          data-email-composer
+          className="relative z-10 flex h-[min(84dvh,780px)] w-[min(820px,94vw)] flex-col gap-1 overflow-y-auto rounded-2xl border border-ds-border-default bg-background px-4 py-3 shadow-2xl"
+        >
           {inner}
         </div>
       </div>,
@@ -248,9 +252,13 @@ export function CorreoComposerBox(props: Props) {
     );
   }
 
-  // Inline reply: sin card — solo el fondo del lector + divisores sutiles.
+  // Inline reply: fondo opaco del lector (sin glass) + divisores sutiles.
   return (
-    <div id="correo-suggested-reply" className="space-y-1 border-t border-ds-border-subtle pt-2">
+    <div
+      id="correo-suggested-reply"
+      data-email-composer
+      className="space-y-1 border-t border-ds-border-subtle bg-background pt-2"
+    >
       {inner}
     </div>
   );

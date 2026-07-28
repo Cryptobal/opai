@@ -44,11 +44,25 @@ function buildForwardQuote(detail: CorreoDetail): string {
 }
 
 function scrollComposerIntoView() {
+  const run = () => {
+    const el = document.getElementById("correo-suggested-reply");
+    if (!el) return;
+    // El scroller real es el panel del lector (overflow-y-auto), no la ventana.
+    const scroller = el.closest(".overflow-y-auto");
+    if (scroller instanceof HTMLElement) {
+      const elRect = el.getBoundingClientRect();
+      const scRect = scroller.getBoundingClientRect();
+      const nextTop = scroller.scrollTop + (elRect.bottom - scRect.bottom) + 24;
+      scroller.scrollTo({ top: Math.max(0, nextTop), behavior: "smooth" });
+      return;
+    }
+    el.scrollIntoView({ behavior: "smooth", block: "end" });
+  };
+  // Esperar al paint del composer (setState → mount) antes de scrollear.
   window.requestAnimationFrame(() => {
-    document
-      .getElementById("correo-suggested-reply")
-      ?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    window.requestAnimationFrame(run);
   });
+  window.setTimeout(run, 80);
 }
 
 /**
@@ -84,8 +98,14 @@ export function CorreoReplyBox({
 
   function openComposer(mode: ComposerMode, ai = false) {
     setOpen({ mode, ai, expanded: false });
-    scrollComposerIntoView();
   }
+
+  // Al abrir Responder / A todos / Reenviar / IA, bajar al composer
+  // (también cuando termina de cargar el meta y monta el box real).
+  useEffect(() => {
+    if (!open) return;
+    scrollComposerIntoView();
+  }, [open, metaReady]);
 
   useEffect(() => {
     setOpen(null);
