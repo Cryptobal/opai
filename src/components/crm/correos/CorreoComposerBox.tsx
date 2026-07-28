@@ -116,6 +116,8 @@ export function CorreoComposerBox(props: Props) {
 
   function switchMode(next: ComposerMode) {
     reseed();
+    // Responder / A todos / Reenviar apagan IA: el rectángulo de indicaciones
+    // solo vive en el tab IA (exclusivo).
     props.onModeChange(next);
   }
 
@@ -124,30 +126,34 @@ export function CorreoComposerBox(props: Props) {
     props.onToggleExpand();
   }
 
-  function toggleAi() {
-    const next = !ai;
+  /** Activa el tab IA (exclusivo). Si ya está activo, no-op; para salir usar Responder/A todos/Reenviar. */
+  function activateAi() {
+    if (ai) return;
     props.onToggleAi();
-    if (next && !bodyRef.current) {
+    if (!bodyRef.current) {
       if (props.preDraft) injectDraft(props.preDraft);
       else void generate();
     }
   }
 
+  // Rectángulo de indicaciones solo con tab IA activo (no en Responder/A todos/Reenviar).
+  const showAiInstructions = ai && !isForward;
+
   const inner = (
     <>
       <div className="flex items-center gap-1 border-b border-ds-border-subtle pb-1">
-        <ModeTab active={mode === "reply"} onClick={() => switchMode("reply")}>Responder</ModeTab>
-        {replyAll && <ModeTab active={mode === "all"} onClick={() => switchMode("all")}>A todos</ModeTab>}
-        <ModeTab active={mode === "forward"} onClick={() => switchMode("forward")}>Reenviar</ModeTab>
+        <ModeTab active={!ai && mode === "reply"} onClick={() => switchMode("reply")}>Responder</ModeTab>
+        {replyAll && <ModeTab active={!ai && mode === "all"} onClick={() => switchMode("all")}>A todos</ModeTab>}
+        <ModeTab active={!ai && mode === "forward"} onClick={() => switchMode("forward")}>Reenviar</ModeTab>
         {!isForward && (
           <button
             type="button"
-            onClick={toggleAi}
+            onClick={activateAi}
             aria-pressed={ai}
-            className={`ml-1 inline-flex h-9 items-center gap-1 rounded-md px-2 text-[12px] font-medium ds-tap ${
+            className={`ml-1 inline-flex h-9 items-center gap-1 border-b-2 px-2.5 text-[13px] font-medium ds-tap ${
               ai
-                ? "text-tint-violet-fg"
-                : "text-ds-text-3 hover:text-ds-text-1"
+                ? "border-primary text-tint-violet-fg"
+                : "border-transparent text-ds-text-3 hover:text-ds-text-1"
             }`}
           >
             <Sparkles className="h-3.5 w-3.5" /> IA
@@ -176,7 +182,7 @@ export function CorreoComposerBox(props: Props) {
         </div>
       </div>
 
-      {ai && !isForward && (
+      {showAiInstructions && (
         <div className="flex items-center gap-2 border-b border-ds-border-subtle pb-1">
           <Sparkles className="h-3.5 w-3.5 shrink-0 text-tint-violet-fg" />
           <input
