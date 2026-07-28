@@ -43,6 +43,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   const body = (await req.json().catch(() => ({}))) as {
     proposal?: CrmStructureProposal;
     include?: CreateCrmStructureInclude;
+    refineAnswers?: Array<{ question: string; answer: string }>;
   };
   if (!body.proposal) {
     return NextResponse.json({ error: "Falta la propuesta" }, { status: 400 });
@@ -71,6 +72,22 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     console.error("[create-structure] adjuntos:", err);
   }
 
+  const refineAnswers = Array.isArray(body.refineAnswers)
+    ? body.refineAnswers
+        .filter(
+          (a) =>
+            typeof a?.question === "string" &&
+            typeof a?.answer === "string" &&
+            a.question.trim() &&
+            a.answer.trim(),
+        )
+        .slice(0, 10)
+        .map((a) => ({
+          question: a.question.trim().slice(0, 300),
+          answer: a.answer.trim().slice(0, 500),
+        }))
+    : undefined;
+
   const result = await createCrmStructureFromProposal({
     tenantId: authCtx.tenantId,
     userId: authCtx.userId,
@@ -85,6 +102,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
       attachments: true,
       followUpTask: false,
     },
+    refineAnswers,
   });
 
   if (result.ok) {
