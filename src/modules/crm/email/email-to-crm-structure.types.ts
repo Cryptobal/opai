@@ -36,6 +36,15 @@ export type CrmStructureInstallation = {
   coverageSlots: CrmStructureCoverageSlot[];
 };
 
+/** Supuesto con identidad estable para edición inline sin IA. */
+export type CrmStructureAssumption = {
+  id: string;
+  text: string;
+  originalText: string;
+  origin: "inference" | "user" | "edited";
+  removed?: boolean;
+};
+
 export type CrmStructureProposal = {
   account: {
     name: string | null;
@@ -55,14 +64,21 @@ export type CrmStructureProposal = {
   /** true si el documento define cobertura y deja la dotación al oferente. */
   coverageIsRequirementNotStaffing: boolean;
   weeklyHoursPerWorker: number;
+  /** % de reserva de personal (0–100). Default tipico 15. */
+  reservePct?: number;
   installations: CrmStructureInstallation[];
   openQuestions: string[];
+  /** Retrocompat: lista plana de textos. Derivar de assumptionItems si existe. */
   assumptions: string[];
   /**
    * Origen de cada supuesto (índice paralelo a `assumptions`).
    * `inference` = IA; `user` = confirmado/corregido en refinamiento.
    */
   assumptionOrigins?: Array<"inference" | "user">;
+  /** Supuestos con identidad (Plan v2). Fuente de verdad cuando está presente. */
+  assumptionItems?: CrmStructureAssumption[];
+  /** Paths JSON editados a mano; se re-aplican tras un refine con IA. */
+  locks?: string[];
   staffingTotals: {
     weeklyHH: number;
     headcountBase: number;
@@ -91,6 +107,41 @@ export type CreateCrmStructureInclude = {
   installations?: boolean;
   attachments?: boolean;
   followUpTask?: boolean;
+  quote?: boolean;
+  milestones?: boolean;
+};
+
+export type PlanTaskOverride = {
+  title?: string;
+  dueAt?: string | null;
+  allDay?: boolean;
+  assigneeIds?: string[];
+};
+
+export type PlanAttachmentSelection = {
+  storageKeys: string[];
+  target: "deal" | "account" | "both";
+};
+
+export type PlanQuoteInput = {
+  name: string;
+  currency: string;
+  contractDuration: number;
+  isOngoingService: boolean;
+  validUntil: string | null;
+  proposalTemplateId?: string | null;
+};
+
+export type PlanMilestone = {
+  kind: "consultas" | "visita_tecnica" | "entrega";
+  date: string;
+  time: string;
+  durationMin: number;
+  participantIds: string[];
+  externalEmails: Array<{ email: string; name?: string }>;
+  notes?: string;
+  /** Si false, el hito no se crea aunque milestones esté en include. */
+  enabled?: boolean;
 };
 
 export type CreateCrmStructureResult = {
@@ -105,6 +156,13 @@ export type CreateCrmStructureResult = {
   dealUrl?: string;
   installations?: Array<{ id: string; name: string; url: string }>;
   taskId?: string;
+  quoteId?: string;
+  quoteUrl?: string;
+  milestones?: Array<{
+    kind: PlanMilestone["kind"];
+    eventId: string;
+    syncStatus?: string;
+  }>;
   skipped?: string[];
   note?: string;
   /** Estado del sync de plazo de licitación a agenda (si aplica). */
@@ -115,6 +173,19 @@ export type CreateCrmStructureResult = {
   };
   /** Conversación anclada (Fase 2); opcional. */
   conversationId?: string;
+};
+
+/** Payload persistido en CrmEmailThread.aiPlanDraft. */
+export type AiPlanDraft = {
+  proposal: CrmStructureProposal;
+  include: CreateCrmStructureInclude;
+  locks: string[];
+  taskOverride?: PlanTaskOverride;
+  attachmentSelection?: PlanAttachmentSelection;
+  quoteInput?: PlanQuoteInput;
+  milestones?: PlanMilestone[];
+  savedAt: string;
+  lastMessageId?: string | null;
 };
 
 export { WEEKDAYS_FULL };
@@ -132,9 +203,12 @@ export function emptyCrmStructureProposal(): CrmStructureProposal {
     },
     coverageIsRequirementNotStaffing: false,
     weeklyHoursPerWorker: 42,
+    reservePct: 15,
     installations: [],
     openQuestions: [],
     assumptions: [],
+    assumptionItems: [],
+    locks: [],
     staffingTotals: {
       weeklyHH: 0,
       headcountBase: 0,
@@ -143,5 +217,19 @@ export function emptyCrmStructureProposal(): CrmStructureProposal {
       legalMinimum: 0,
     },
     requerimiento: null,
+  };
+}
+
+/** Deriva assumptions + assumptionOrigins desde assumptionItems (retrocompat). */
+export function syncAssumptionArrays(proposal: CrmStructureProposal): CrmStructureProposal {
+  const items = proposal.assumptionItems;
+  if (!items) return proposal;
+  const active = items.filter((a) => !a.removed);
+  return {
+    ...proposal,
+    assumptions: active.map((a) => a.text),
+    assumptionOrigins: active.map((a) =>
+      a.origin === "inference" ? "inference" : "user",
+    ),
   };
 }

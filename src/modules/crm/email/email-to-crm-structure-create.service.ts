@@ -106,6 +106,8 @@ export function resolveCreateInclude(
     installations: include?.installations !== false,
     attachments: include?.attachments !== false,
     followUpTask: include?.followUpTask === true,
+    quote: include?.quote === true,
+    milestones: include?.milestones === true,
   };
 }
 

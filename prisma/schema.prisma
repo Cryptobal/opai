@@ -2928,6 +2928,8 @@ model CrmEmailThread {
   aiSentiment String? @map("ai_sentiment") // positivo|neutral|negativo
   // ── Resúmenes reales (A01/A02): caché por último mensaje + última lectura.
   aiThreadSummary Json?     @map("ai_thread_summary") // { summary, lastMessageId, generatedAt }
+  // ── Plan de acciones v2: borrador editable del plan (propuesta + include + locks).
+  aiPlanDraft     Json?     @map("ai_plan_draft")
   lastReadAt      DateTime? @map("last_read_at") @db.Timestamptz(6)
   firstInboundAt DateTime? @map("first_inbound_at") @db.Timestamptz(6) // primer mensaje externo del hilo
   firstReplyAt   DateTime? @map("first_reply_at") @db.Timestamptz(6) // primera respuesta interna al inbound
