@@ -16,6 +16,7 @@ import {
   buildCorreoSearchIdsQuery,
   parseCorreoSearchQuery,
 } from "./correos-search";
+import type { MatchReason } from "./correos-search-hybrid";
 
 const KEYWORDS = ["cotiz", "licitac", "servicio", "propuesta", "bases", "presupuesto"];
 
@@ -97,9 +98,9 @@ const THREAD_LIST_SELECT = {
 
 /**
  * Lista paginada (cursor por fecha) de hilos de la casilla del usuario.
- * Con `q` activo (C15) la selección de hilos corre por SQL raw contra toda la
- * casilla sincronizada (operadores from/to/domain requieren unnest de arrays,
- * imposible en el where de Prisma) y luego se hidratan los DTOs por ID.
+ * Con `q` activo y términos de texto libre: motor híbrido (léxico + semántico).
+ * Con solo operadores estructurales: léxico por recencia con cursor.
+ * `mode=semantic` se ignora (compatibilidad de deep-links).
  */
 export async function listCorreoThreads(params: {
   tenantId: string;
@@ -109,44 +110,50 @@ export async function listCorreoThreads(params: {
   limit?: number;
   folder?: CorreoListFilter;
   q?: string | null;
-  /** A07: "buscar por significado" — retrieval vectorial en vez de operadores. */
+  /** @deprecated Ignorado — la búsqueda siempre es híbrida. */
   semantic?: boolean;
   /** A03: filtra por vertical de la clasificación v5. */
   vertical?: string | null;
   /** F2: capabilities de radar del solicitante — gobiernan el badge por vertical
    *  (se calcula en servidor; sin capability no hay badge). */
   radarCaps?: Set<RadarCapability>;
-}): Promise<{ items: CorreoThreadDTO[]; nextCursor: string | null }> {
+}): Promise<{
+  items: CorreoThreadDTO[];
+  nextCursor: string | null;
+  semanticAvailable?: boolean;
+}> {
   const limit = Math.min(Math.max(params.limit ?? 30, 1), 100);
   const cursorDate = params.cursor ? new Date(params.cursor) : null;
   const folder = params.folder ?? "inbox";
+  const parsedSearch = parseCorreoSearchQuery(params.q);
+  const effectiveFolder = parsedSearch?.folderOverride ?? folder;
 
-  // Modo semántico: ranking por distancia (sin cursor — una sola página).
-  if (params.semantic && params.q?.trim()) {
-    const { semanticSearchChunks, rankThreadsFromHits } = await import(
-      "./email-embeddings"
-    );
-    const hits = await semanticSearchChunks({
+  // Búsqueda con texto libre → motor híbrido (una sola página rankeada).
+  if (parsedSearch && parsedSearch.terms.length > 0) {
+    const { hybridSearchThreadIds } = await import("./correos-search-hybrid");
+    const hybrid = await hybridSearchThreadIds({
       tenantId: params.tenantId,
       emailAccountId: params.emailAccountId,
-      query: params.q.trim(),
-      limit: 40,
+      parsed: parsedSearch,
+      folder: effectiveFolder,
+      vertical: params.vertical ?? null,
+      limit,
     });
-    const rankedIds = rankThreadsFromHits(hits, limit);
-    if (rankedIds.length === 0) return { items: [], nextCursor: null };
+    if (hybrid.ids.length === 0) {
+      return { items: [], nextCursor: null, semanticAvailable: hybrid.semanticAvailable };
+    }
     const [threads, company] = await Promise.all([
       prisma.crmEmailThread.findMany({
         where: {
           tenantId: params.tenantId,
-          id: { in: rankedIds },
-          trashedAt: null,
-          spamAt: null,
+          emailAccountId: params.emailAccountId,
+          id: { in: hybrid.ids },
         },
         select: THREAD_LIST_SELECT,
       }),
       getTenantCompanyConfig(params.tenantId),
     ]);
-    const order = new Map(rankedIds.map((id, i) => [id, i]));
+    const order = new Map(hybrid.ids.map((id, i) => [id, i]));
     const sorted = threads.sort(
       (a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0),
     );
@@ -157,15 +164,16 @@ export async function listCorreoThreads(params: {
         company,
         params.mailboxEmail,
         params.radarCaps,
+        hybrid.reasonById,
       ),
       nextCursor: null,
+      semanticAvailable: hybrid.semanticAvailable,
     };
   }
 
-  const parsedSearch = parseCorreoSearchQuery(params.q);
   // Pospuestos ordena por vencimiento ascendente (lo próximo a despertar
   // arriba); bajo búsqueda toda carpeta ordena por recencia.
-  const isSnoozed = folder === "snoozed" && !parsedSearch;
+  const isSnoozed = effectiveFolder === "snoozed" && !parsedSearch;
   const hasCursor = Boolean(cursorDate && !Number.isNaN(cursorDate.getTime()));
 
   const fetchRows = async () => {
@@ -174,7 +182,7 @@ export async function listCorreoThreads(params: {
         where: {
           tenantId: params.tenantId,
           emailAccountId: params.emailAccountId,
-          ...folderWhere(folder),
+          ...folderWhere(effectiveFolder),
           ...(params.vertical ? { aiVertical: params.vertical } : {}),
           ...(hasCursor && cursorDate
             ? isSnoozed
@@ -187,20 +195,26 @@ export async function listCorreoThreads(params: {
         select: THREAD_LIST_SELECT,
       });
     }
+    // Solo operadores estructurales: léxico + cursor de fecha.
     const idRows = await prisma.$queryRaw<Array<{ id: string; last_message_at: Date | null }>>(
       buildCorreoSearchIdsQuery({
         tenantId: params.tenantId,
         emailAccountId: params.emailAccountId,
         parsed: parsedSearch,
-        folder,
+        folder: effectiveFolder,
         vertical: params.vertical ?? null,
         cursorDate: hasCursor ? cursorDate : null,
         take: limit + 1,
+        structuralOnly: true,
       }),
     );
     if (idRows.length === 0) return [];
     const threads = await prisma.crmEmailThread.findMany({
-      where: { tenantId: params.tenantId, id: { in: idRows.map((r) => r.id) } },
+      where: {
+        tenantId: params.tenantId,
+        emailAccountId: params.emailAccountId,
+        id: { in: idRows.map((r) => r.id) },
+      },
       select: THREAD_LIST_SELECT,
     });
     const order = new Map(idRows.map((r, i) => [r.id, i]));
@@ -214,19 +228,23 @@ export async function listCorreoThreads(params: {
 
   const hasMore = rows.length > limit;
   const page = hasMore ? rows.slice(0, limit) : rows;
+  const reasonById = parsedSearch
+    ? new Map(page.map((r) => [r.id, "lexical" as MatchReason]))
+    : undefined;
   const items = await mapThreadRowsInternal(
     page,
     params.tenantId,
     company,
     params.mailboxEmail,
     params.radarCaps,
+    reasonById,
   );
 
   const last = page[page.length - 1];
   const nextCursor = hasMore
     ? (isSnoozed ? last?.snoozedUntil : last?.lastMessageAt)?.toISOString() ?? null
     : null;
-  return { items, nextCursor };
+  return { items, nextCursor, semanticAvailable: true };
 }
 
 type ThreadRow = {
@@ -262,6 +280,7 @@ async function mapThreadRowsInternal(
   company: CompanyConfig,
   mailboxEmail?: string | null,
   radarCaps?: Set<RadarCapability>,
+  reasonById?: Map<string, MatchReason>,
 ): Promise<CorreoThreadDTO[]> {
   const tenantDomains = new Set<string>();
   for (const e of [
@@ -335,6 +354,7 @@ async function mapThreadRowsInternal(
         r.aiVertical as RadarVertical | null,
         radarCaps ?? new Set<RadarCapability>(),
       ),
+      matchReason: reasonById?.get(r.id) ?? null,
     };
   });
 }

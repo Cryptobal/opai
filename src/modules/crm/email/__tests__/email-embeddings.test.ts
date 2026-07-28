@@ -1,18 +1,20 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { Prisma } from "@prisma/client";
 
 const mocks = vi.hoisted(() => ({
   embeddingsCreate: vi.fn(),
-  queryRawUnsafe: vi.fn(),
+  queryRaw: vi.fn(),
   executeRawUnsafe: vi.fn(),
   chunkFindMany: vi.fn(),
   logAiUsage: vi.fn(),
+  getTenantOpenAIClient: vi.fn(),
 }));
-vi.mock("@/lib/openai", () => ({
-  openai: { embeddings: { create: mocks.embeddingsCreate } },
+vi.mock("@/lib/ai/tenant-openai", () => ({
+  getTenantOpenAIClient: mocks.getTenantOpenAIClient,
 }));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
-    $queryRawUnsafe: mocks.queryRawUnsafe,
+    $queryRaw: mocks.queryRaw,
     $executeRawUnsafe: mocks.executeRawUnsafe,
     crmEmailChunk: { findMany: mocks.chunkFindMany },
   },
@@ -28,6 +30,11 @@ import {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  process.env.OPENAI_API_KEY = "test-key";
+  delete process.env.EMAIL_EMBEDDINGS_DISABLED;
+  mocks.getTenantOpenAIClient.mockResolvedValue({
+    embeddings: { create: mocks.embeddingsCreate },
+  });
 });
 
 describe("messagePlainText", () => {
@@ -77,7 +84,7 @@ describe("semanticSearchChunks — aislamiento tenant (A07)", () => {
       data: [{ embedding: [0.1, 0.2] }],
       usage: { total_tokens: 8 },
     });
-    mocks.queryRawUnsafe.mockResolvedValue([
+    mocks.queryRaw.mockResolvedValue([
       { thread_id: "t1", message_id: "m1", content: "hola", distance: 0.12 },
     ]);
     const hits = await semanticSearchChunks({
@@ -85,15 +92,47 @@ describe("semanticSearchChunks — aislamiento tenant (A07)", () => {
       emailAccountId: "00000000-0000-0000-0000-000000000001",
       query: "quién pidió más guardias",
     });
-    const [sql, , tenantArg, accountArg] = mocks.queryRawUnsafe.mock.calls[0];
-    expect(sql).toContain("tenant_id = $2");
-    expect(sql).toContain("email_account_id = $3::uuid");
-    expect(tenantArg).toBe("tenant-1");
-    expect(accountArg).toBe("00000000-0000-0000-0000-000000000001");
+    const sql = mocks.queryRaw.mock.calls[0][0] as Prisma.Sql;
+    expect(sql.sql).toContain("c.tenant_id =");
+    expect(sql.sql).toContain("c.email_account_id =");
+    expect(sql.values).toContain("tenant-1");
+    expect(sql.values).toContain("00000000-0000-0000-0000-000000000001");
     expect(hits[0]).toMatchObject({ threadId: "t1", distance: 0.12 });
-    // Costo de la query visible en logs de uso (A12).
     expect(mocks.logAiUsage).toHaveBeenCalledWith(
       expect.objectContaining({ feature: "correo-semantic-query", tenantId: "tenant-1" }),
     );
+  });
+
+  it("aplica folderSql y structuralSql con JOIN a threads", async () => {
+    mocks.embeddingsCreate.mockResolvedValue({
+      data: [{ embedding: [0.1, 0.2] }],
+      usage: { total_tokens: 4 },
+    });
+    mocks.queryRaw.mockResolvedValue([]);
+    const folderSql = Prisma.sql`t.trashed_at IS NULL AND t.spam_at IS NULL`;
+    const structuralSql = [Prisma.sql`t.attachment_count > 0`];
+    await semanticSearchChunks({
+      tenantId: "tenant-1",
+      emailAccountId: "00000000-0000-0000-0000-000000000001",
+      query: "factura",
+      folderSql,
+      structuralSql,
+      limit: 10,
+    });
+    const sql = mocks.queryRaw.mock.calls[0][0] as Prisma.Sql;
+    expect(sql.sql).toContain("JOIN crm.email_threads t");
+    expect(sql.sql).toContain("t.trashed_at IS NULL");
+    expect(sql.sql).toContain("t.attachment_count > 0");
+  });
+
+  it("sin OPENAI_API_KEY degrada a arreglo vacío", async () => {
+    delete process.env.OPENAI_API_KEY;
+    const hits = await semanticSearchChunks({
+      tenantId: "t",
+      emailAccountId: "00000000-0000-0000-0000-000000000001",
+      query: "x",
+    });
+    expect(hits).toEqual([]);
+    expect(mocks.embeddingsCreate).not.toHaveBeenCalled();
   });
 });

@@ -2,9 +2,11 @@ import { describe, expect, it } from "vitest";
 import {
   buildCorreoSearchConditions,
   buildCorreoSearchIdsQuery,
+  buildCorreoSearchParts,
   escapeLikePattern,
   folderWhereSql,
   parseCorreoSearchQuery,
+  parseRelativeAge,
 } from "../correos-search";
 
 describe("parseCorreoSearchQuery", () => {
@@ -116,15 +118,92 @@ describe("escapeLikePattern", () => {
   });
 });
 
+describe("operadores extendidos", () => {
+  it("subject: acumula coincidencias solo de asunto", () => {
+    expect(parseCorreoSearchQuery('subject:"orden compra"')?.subject).toEqual(["orden compra"]);
+  });
+
+  it("is:unread / is:read / is:starred", () => {
+    expect(parseCorreoSearchQuery("is:unread")?.unread).toBe(true);
+    expect(parseCorreoSearchQuery("is:read")?.unread).toBe(false);
+    expect(parseCorreoSearchQuery("is:starred")?.starred).toBe(true);
+    expect(parseCorreoSearchQuery("is:foo")).toBeNull();
+  });
+
+  it("vertical: y label: validan contra el catálogo", () => {
+    expect(parseCorreoSearchQuery("vertical:cobranza")?.verticals).toEqual(["cobranza"]);
+    expect(parseCorreoSearchQuery("label:comercial")?.verticals).toEqual(["comercial"]);
+    expect(parseCorreoSearchQuery("vertical:desconocida")).toBeNull();
+  });
+
+  it("in: sobrescribe carpeta con valores de CorreoListFilter", () => {
+    expect(parseCorreoSearchQuery("in:sent")?.folderOverride).toBe("sent");
+    expect(parseCorreoSearchQuery("in:trash")?.folderOverride).toBe("trash");
+    expect(parseCorreoSearchQuery("in:nowhere")).toBeNull();
+  });
+
+  it("newer_than / older_than resuelven d/w/m en America/Santiago", () => {
+    const now = new Date("2026-07-28T15:00:00.000Z");
+    const parsed = parseCorreoSearchQuery("newer_than:7d older_than:2w", now);
+    expect(parsed?.after?.getTime()).toBe(parseRelativeAge("7d", now)?.getTime());
+    expect(parsed?.before?.getTime()).toBe(parseRelativeAge("2w", now)?.getTime());
+    expect(parseCorreoSearchQuery("newer_than:xyz")).toBeNull();
+  });
+});
+
+describe("buildCorreoSearchParts", () => {
+  const base = {
+    terms: [],
+    from: [],
+    to: [],
+    domains: [],
+    subject: [],
+    before: null,
+    after: null,
+    hasAttachment: false,
+    unread: null,
+    starred: null,
+    verticals: [],
+    folderOverride: null,
+  };
+
+  it("separa estructurales de texto libre", () => {
+    const parts = buildCorreoSearchParts({
+      ...base,
+      terms: ["factura"],
+      from: ["bob"],
+      hasAttachment: true,
+      unread: true,
+    });
+    expect(parts.text).toHaveLength(1);
+    expect(parts.text[0].sql).toContain("m.text_body ILIKE");
+    expect(parts.structural.length).toBeGreaterThanOrEqual(3);
+    expect(parts.structural.some((c) => c.sql.includes("from_email"))).toBe(true);
+    expect(parts.structural.some((c) => c.sql.includes("attachment_count"))).toBe(true);
+    expect(parts.structural.some((c) => c.sql.includes("is_unread"))).toBe(true);
+  });
+
+  it("subject: es estructural (no texto libre)", () => {
+    const parts = buildCorreoSearchParts({ ...base, subject: ["licitación"] });
+    expect(parts.text).toHaveLength(0);
+    expect(parts.structural[0].sql).toContain("f_unaccent(t.subject)");
+  });
+});
+
 describe("buildCorreoSearchConditions", () => {
   const base = {
     terms: [],
     from: [],
     to: [],
     domains: [],
+    subject: [],
     before: null,
     after: null,
     hasAttachment: false,
+    unread: null,
+    starred: null,
+    verticals: [],
+    folderOverride: null,
   };
 
   it("texto libre genera condición sobre asunto + remitente + destinatarios + cuerpo", () => {

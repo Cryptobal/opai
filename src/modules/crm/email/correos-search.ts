@@ -1,5 +1,5 @@
 /**
- * Búsqueda server-side de la bandeja de correos (C15, PR-07).
+ * Búsqueda server-side de la bandeja de correos (C15, PR-07 + híbrida).
  *
  * Parser de operadores estilo Gmail + builder de condiciones SQL. La búsqueda
  * corre contra la BD espejo (toda la casilla sincronizada), no contra la
@@ -11,9 +11,14 @@
  *   - from:valor         → remitente de cualquier mensaje del hilo (substring)
  *   - to:valor           → destinatarios To/CC/BCC (substring)
  *   - domain:valor       → dominio de cualquier participante (con subdominios)
+ *   - subject:valor      → solo asunto
  *   - before:YYYY-MM-DD  → último mensaje anterior a la fecha (exclusivo, UTC)
  *   - after:YYYY-MM-DD   → último mensaje desde la fecha (inclusivo, UTC)
+ *   - newer_than:7d|2w|3m / older_than:… → relativos (America/Santiago)
  *   - has:attachment     → hilos con adjuntos (alias: has:adjunto)
+ *   - is:unread|read|starred
+ *   - vertical:|label:   → ai_vertical del radar
+ *   - in:inbox|sent|…    → override de carpeta
  *
  * Decisiones:
  *   - Se eligió pg_trgm (no tsvector) porque el repo ya tiene la infraestructura
@@ -22,25 +27,60 @@
  *     da (tokeniza emails completos). Los índices van en SQL manual supervisado
  *     con CREATE INDEX CONCURRENTLY (ver prisma/migrations/PENDING-email-search-indexes.sql).
  *   - Fechas inválidas en before:/after: se ignoran (comportamiento Gmail).
- *   - Tokens `has:` con valor desconocido se ignoran. Otros tokens con ":"
- *     (ej. "re:") se tratan como texto libre.
+ *   - Tokens `has:` / `vertical:` / `in:` con valor desconocido se ignoran.
+ *     Otros tokens con ":" (ej. "re:") se tratan como texto libre.
  *   - Múltiples valores del mismo operador se combinan con AND.
  */
 import { Prisma } from "@prisma/client";
+import { fromZonedTime, toZonedTime } from "date-fns-tz";
+import { addDaysChile, CHILE_TZ, startOfDayChile } from "@/lib/dates-cl";
 import type { CorreoListFilter } from "./correos-list";
+
+export const CORREO_SEARCH_VERTICALS = [
+  "operaciones",
+  "rrhh",
+  "comercial",
+  "finanzas",
+  "cobranza",
+  "contratos",
+  "incidentes",
+  "otro",
+] as const;
+
+export const CORREO_LIST_FILTERS: readonly CorreoListFilter[] = [
+  "inbox",
+  "sent",
+  "drafts",
+  "starred",
+  "spam",
+  "trash",
+  "all",
+  "snoozed",
+  "archived",
+] as const;
+
+const VERTICAL_SET = new Set<string>(CORREO_SEARCH_VERTICALS);
+const FOLDER_SET = new Set<string>(CORREO_LIST_FILTERS);
 
 export type ParsedCorreoSearch = {
   terms: string[];
   from: string[];
   to: string[];
   domains: string[];
+  subject: string[];
   before: Date | null;
   after: Date | null;
   hasAttachment: boolean;
+  unread: boolean | null;
+  starred: boolean | null;
+  verticals: string[];
+  folderOverride: CorreoListFilter | null;
 };
 
-const OPERATOR_RE = /^(from|to|domain|before|after|has):(.*)$/i;
+const OPERATOR_RE =
+  /^(from|to|domain|before|after|has|subject|is|vertical|label|in|newer_than|older_than):(.*)$/i;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const RELATIVE_RE = /^(\d+)([dwm])$/i;
 /** Longitud máxima defensiva del query completo. */
 export const MAX_CORREO_SEARCH_LENGTH = 300;
 
@@ -66,11 +106,47 @@ function parseUtcDate(value: string): Date | null {
   return date;
 }
 
+/** Resuelve 7d / 2w / 3m contra ahora en America/Santiago → instante UTC. */
+export function parseRelativeAge(value: string, now: Date = new Date()): Date | null {
+  const m = RELATIVE_RE.exec(value.trim());
+  if (!m) return null;
+  const amount = Number(m[1]);
+  if (!Number.isFinite(amount) || amount <= 0 || amount > 3650) return null;
+  const unit = m[2].toLowerCase();
+  if (unit === "d") return addDaysChile(now, -amount);
+  if (unit === "w") return addDaysChile(now, -amount * 7);
+  // Meses calendario en Chile.
+  const local = toZonedTime(startOfDayChile(now), CHILE_TZ);
+  local.setMonth(local.getMonth() - amount);
+  local.setHours(0, 0, 0, 0);
+  return fromZonedTime(local, CHILE_TZ);
+}
+
+function isActive(parsed: ParsedCorreoSearch): boolean {
+  return (
+    parsed.terms.length > 0 ||
+    parsed.from.length > 0 ||
+    parsed.to.length > 0 ||
+    parsed.domains.length > 0 ||
+    parsed.subject.length > 0 ||
+    parsed.before !== null ||
+    parsed.after !== null ||
+    parsed.hasAttachment ||
+    parsed.unread !== null ||
+    parsed.starred !== null ||
+    parsed.verticals.length > 0 ||
+    parsed.folderOverride !== null
+  );
+}
+
 /**
  * Parsea el query de búsqueda. Devuelve `null` si no hay nada buscable
  * (query vacío o solo operadores inválidos) — señal de "sin búsqueda activa".
  */
-export function parseCorreoSearchQuery(raw: string | null | undefined): ParsedCorreoSearch | null {
+export function parseCorreoSearchQuery(
+  raw: string | null | undefined,
+  now: Date = new Date(),
+): ParsedCorreoSearch | null {
   const input = (raw ?? "").slice(0, MAX_CORREO_SEARCH_LENGTH).trim();
   if (!input) return null;
 
@@ -79,9 +155,14 @@ export function parseCorreoSearchQuery(raw: string | null | undefined): ParsedCo
     from: [],
     to: [],
     domains: [],
+    subject: [],
     before: null,
     after: null,
     hasAttachment: false,
+    unread: null,
+    starred: null,
+    verticals: [],
+    folderOverride: null,
   };
 
   for (const token of tokenize(input)) {
@@ -93,30 +174,44 @@ export function parseCorreoSearchQuery(raw: string | null | undefined): ParsedCo
     }
     const name = op[1].toLowerCase();
     const value = stripQuotes(op[2]);
+
     if (name === "has") {
       const v = value.toLowerCase();
       if (v === "attachment" || v === "adjunto" || v === "adjuntos") {
         parsed.hasAttachment = true;
       }
-      continue; // has: con valor desconocido se ignora
+      continue;
     }
-    if (!value) continue; // operador sin valor se ignora
+    if (name === "is") {
+      const v = value.toLowerCase();
+      if (v === "unread") parsed.unread = true;
+      else if (v === "read") parsed.unread = false;
+      else if (v === "starred") parsed.starred = true;
+      continue;
+    }
+    if (!value) continue;
     if (name === "from") parsed.from.push(value.toLowerCase());
     else if (name === "to") parsed.to.push(value.toLowerCase());
     else if (name === "domain") parsed.domains.push(value.toLowerCase().replace(/^@/, ""));
+    else if (name === "subject") parsed.subject.push(value);
     else if (name === "before") parsed.before = parseUtcDate(value) ?? parsed.before;
     else if (name === "after") parsed.after = parseUtcDate(value) ?? parsed.after;
+    else if (name === "newer_than") {
+      const d = parseRelativeAge(value, now);
+      if (d) parsed.after = d;
+    } else if (name === "older_than") {
+      const d = parseRelativeAge(value, now);
+      if (d) parsed.before = d;
+    } else if (name === "vertical" || name === "label") {
+      const v = value.toLowerCase();
+      if (VERTICAL_SET.has(v) && !parsed.verticals.includes(v)) parsed.verticals.push(v);
+    } else if (name === "in") {
+      const v = value.toLowerCase();
+      if (FOLDER_SET.has(v)) parsed.folderOverride = v as CorreoListFilter;
+    }
   }
 
-  const active =
-    parsed.terms.length > 0 ||
-    parsed.from.length > 0 ||
-    parsed.to.length > 0 ||
-    parsed.domains.length > 0 ||
-    parsed.before !== null ||
-    parsed.after !== null ||
-    parsed.hasAttachment;
-  return active ? parsed : null;
+  return isActive(parsed) ? parsed : null;
 }
 
 /** Escapa wildcards de LIKE (% _ \) — el escape default de Postgres es backslash. */
@@ -162,34 +257,14 @@ export function folderWhereSql(folder: CorreoListFilter, now: Date): Prisma.Sql 
   return Prisma.sql`t.trashed_at IS NULL AND t.spam_at IS NULL AND t.archived_at IS NULL AND (t.snoozed_until IS NULL OR t.snoozed_until <= ${now})`;
 }
 
-/**
- * Condiciones de búsqueda sobre el alias `t` (crm.email_threads), una por
- * criterio, para combinar con AND. Los subqueries a crm.email_messages van
- * por thread_id (idx_crm_email_messages_thread).
- */
-export function buildCorreoSearchConditions(parsed: ParsedCorreoSearch): Prisma.Sql[] {
+function buildStructuralConditions(parsed: ParsedCorreoSearch): Prisma.Sql[] {
   const conds: Prisma.Sql[] = [];
 
-  for (const term of parsed.terms) {
-    const pattern = containsPattern(term);
-    // Asunto accent-insensitive (usa el índice trgm sobre LOWER(f_unaccent(subject)));
-    // participantes y cuerpo case-insensitive (emails no llevan tildes; el cuerpo
-    // se compara tal cual para no pagar f_unaccent sobre textos largos).
-    conds.push(Prisma.sql`(
-      LOWER(public.f_unaccent(t.subject)) LIKE LOWER(public.f_unaccent(${pattern}))
-      OR EXISTS (
-        SELECT 1 FROM crm.email_messages m
-        WHERE m.thread_id = t.id
-          AND (
-            LOWER(m.from_email) LIKE LOWER(${pattern})
-            OR EXISTS (
-              SELECT 1 FROM unnest(m.to_emails || m.cc_emails) AS rcpt(email)
-              WHERE LOWER(rcpt.email) LIKE LOWER(${pattern})
-            )
-            OR m.text_body ILIKE ${pattern}
-          )
-      )
-    )`);
+  for (const subject of parsed.subject) {
+    const pattern = containsPattern(subject);
+    conds.push(
+      Prisma.sql`LOWER(public.f_unaccent(t.subject)) LIKE LOWER(public.f_unaccent(${pattern}))`,
+    );
   }
 
   for (const from of parsed.from) {
@@ -213,7 +288,6 @@ export function buildCorreoSearchConditions(parsed: ParsedCorreoSearch): Prisma.
   }
 
   for (const domain of parsed.domains) {
-    // domain:acme.com matchea bob@acme.com y bob@mail.acme.com, no bob@notacme.com.
     const subdomainPattern = `%.${escapeLikePattern(domain)}`;
     conds.push(Prisma.sql`EXISTS (
       SELECT 1 FROM crm.email_messages m
@@ -229,8 +303,60 @@ export function buildCorreoSearchConditions(parsed: ParsedCorreoSearch): Prisma.
   if (parsed.before) conds.push(Prisma.sql`t.last_message_at < ${parsed.before}`);
   if (parsed.after) conds.push(Prisma.sql`t.last_message_at >= ${parsed.after}`);
   if (parsed.hasAttachment) conds.push(Prisma.sql`t.attachment_count > 0`);
+  if (parsed.unread === true) conds.push(Prisma.sql`t.is_unread = true`);
+  if (parsed.unread === false) conds.push(Prisma.sql`t.is_unread = false`);
+  if (parsed.starred === true) conds.push(Prisma.sql`t.starred_at IS NOT NULL`);
+  for (const vertical of parsed.verticals) {
+    conds.push(Prisma.sql`t.ai_vertical = ${vertical}`);
+  }
 
   return conds;
+}
+
+function buildTextConditions(parsed: ParsedCorreoSearch): Prisma.Sql[] {
+  const conds: Prisma.Sql[] = [];
+  for (const term of parsed.terms) {
+    const pattern = containsPattern(term);
+    conds.push(Prisma.sql`(
+      LOWER(public.f_unaccent(t.subject)) LIKE LOWER(public.f_unaccent(${pattern}))
+      OR EXISTS (
+        SELECT 1 FROM crm.email_messages m
+        WHERE m.thread_id = t.id
+          AND (
+            LOWER(m.from_email) LIKE LOWER(${pattern})
+            OR EXISTS (
+              SELECT 1 FROM unnest(m.to_emails || m.cc_emails) AS rcpt(email)
+              WHERE LOWER(rcpt.email) LIKE LOWER(${pattern})
+            )
+            OR m.text_body ILIKE ${pattern}
+          )
+      )
+    )`);
+  }
+  return conds;
+}
+
+/**
+ * Particiona condiciones: estructurales (léxico + vectorial) vs texto (solo léxico).
+ */
+export function buildCorreoSearchParts(parsed: ParsedCorreoSearch): {
+  structural: Prisma.Sql[];
+  text: Prisma.Sql[];
+} {
+  return {
+    structural: buildStructuralConditions(parsed),
+    text: buildTextConditions(parsed),
+  };
+}
+
+/**
+ * Condiciones de búsqueda sobre el alias `t` (crm.email_threads), una por
+ * criterio, para combinar con AND. Wrapper de compatibilidad sobre
+ * `buildCorreoSearchParts`.
+ */
+export function buildCorreoSearchConditions(parsed: ParsedCorreoSearch): Prisma.Sql[] {
+  const parts = buildCorreoSearchParts(parsed);
+  return [...parts.structural, ...parts.text];
 }
 
 /**
@@ -248,21 +374,30 @@ export function buildCorreoSearchIdsQuery(params: {
   cursorDate: Date | null;
   take: number;
   now?: Date;
+  /** Override opcional; default recencia. */
+  orderBy?: Prisma.Sql;
+  /** Si true, solo aplica condiciones estructurales (sin texto libre). */
+  structuralOnly?: boolean;
 }): Prisma.Sql {
   const now = params.now ?? new Date();
+  const parts = buildCorreoSearchParts(params.parsed);
+  const searchConds = params.structuralOnly
+    ? parts.structural
+    : [...parts.structural, ...parts.text];
   const conds: Prisma.Sql[] = [
     Prisma.sql`t.tenant_id::text = ${params.tenantId}`,
     Prisma.sql`t.email_account_id = ${params.emailAccountId}::uuid`,
     folderWhereSql(params.folder, now),
-    ...buildCorreoSearchConditions(params.parsed),
+    ...searchConds,
     ...(params.vertical ? [Prisma.sql`t.ai_vertical = ${params.vertical}`] : []),
   ];
   if (params.cursorDate) conds.push(Prisma.sql`t.last_message_at < ${params.cursorDate}`);
+  const orderBy = params.orderBy ?? Prisma.sql`t.last_message_at DESC NULLS LAST`;
   return Prisma.sql`
-    SELECT t.id, t.last_message_at
+    SELECT t.id, t.last_message_at, t.subject, t.is_unread, t.attachment_count, t.account_id
     FROM crm.email_threads t
     WHERE ${Prisma.join(conds, " AND ")}
-    ORDER BY t.last_message_at DESC NULLS LAST
+    ORDER BY ${orderBy}
     LIMIT ${params.take}
   `;
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { Menu, Search, Sparkles, X } from "lucide-react";
+import { Menu, Search, X } from "lucide-react";
 import { SurfaceSegment } from "@/components/opai/SurfaceSegment";
 import { useClientSurface } from "@/hooks/useClientSurface";
 
@@ -9,8 +9,6 @@ type Props = {
   onOpenNav: () => void;
   query: string;
   onQuery: (q: string) => void;
-  semantic: boolean;
-  onSemantic: (v: boolean) => void;
   /** No leídos de Recibidos: badge rojo sobre el menú (tres líneas). */
   inboxUnread: number;
 };
@@ -23,8 +21,6 @@ export function CorreosMobileTopBar({
   onOpenNav,
   query,
   onQuery,
-  semantic,
-  onSemantic,
   inboxUnread,
 }: Props) {
   const surface = useClientSurface();
@@ -64,7 +60,7 @@ export function CorreosMobileTopBar({
           <input
             id="correos-search-input-mobile"
             className="h-11 min-w-0 flex-1 appearance-none border-0 bg-transparent text-[15px] text-ds-text-1 shadow-none outline-none ring-0 placeholder:text-ds-text-4 focus:ring-0"
-            placeholder="Buscar en el correo"
+            placeholder="Buscá lo que recordás"
             value={query}
             onChange={(e) => onQuery(e.target.value)}
             autoComplete="off"
@@ -80,17 +76,6 @@ export function CorreosMobileTopBar({
               <X className="h-4 w-4" />
             </button>
           )}
-          <button
-            type="button"
-            onClick={() => onSemantic(!semantic)}
-            aria-pressed={semantic}
-            title="Buscar por significado (búsqueda semántica con IA)"
-            className={`ml-0.5 inline-flex h-9 shrink-0 items-center gap-1 rounded-full px-2.5 text-[12px] ds-tap ${
-              semantic ? "bg-tint-violet text-tint-violet-fg" : "text-ds-text-3"
-            }`}
-          >
-            <Sparkles className="h-3.5 w-3.5" /> IA
-          </button>
         </div>
       </div>
     </div>
