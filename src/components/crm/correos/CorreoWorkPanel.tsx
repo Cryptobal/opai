@@ -10,9 +10,11 @@ import { CorreoAssociationBar } from "./CorreoAssociationBar";
 import { CorreoLinksPanel } from "./CorreoLinksPanel";
 import { CorreoTasksPanel } from "./CorreoTasksPanel";
 import { CorreoContactPanel } from "./CorreoContactPanel";
+import { CorreoThreadContacts } from "./CorreoThreadContacts";
 import { CorreoTicketPanel } from "./CorreoTicketPanel";
 import { CorreoMeetingPanel } from "./CorreoMeetingPanel";
 import { CorreoWorkSummary } from "./CorreoWorkSummary";
+import { CorreoAttachmentsSheet } from "./CorreoAttachmentsSheet";
 import { WORK_TABS, resolveWorkTab, type WorkTab } from "./work-panel-tabs";
 import type { CorreoDetail } from "@/modules/crm/email/correos.types";
 import type { CorreoAiCommandId } from "@/modules/crm/email/correo-ai-commands";
@@ -58,6 +60,7 @@ export function CorreoWorkPanel({
   const [tab, setTab] = useState(() => resolvedInitial);
   const [detent, setDetent] = useState<Detent>(() => initialDetent(resolvedInitial));
   const [closing, setClosing] = useState(false);
+  const [attachmentsOpen, setAttachmentsOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(
     () => typeof window !== "undefined" && window.matchMedia("(max-width: 1023px)").matches,
   );
@@ -271,6 +274,7 @@ export function CorreoWorkPanel({
               onAiCommand={onAiCommand}
               onGoTo={(next) => selectTab(resolveWorkTab(next))}
               onRequestReply={onRequestReply}
+              onOpenAttachments={() => setAttachmentsOpen(true)}
             />
           )}
           {tab === "cuenta" && (
@@ -285,10 +289,16 @@ export function CorreoWorkPanel({
                 sharedWithAccount={t.sharedWithAccount}
                 onAssociate={onAssociate}
               />
+              <div className="space-y-1.5 rounded-xl border border-ds-border-subtle bg-ds-surface-2 p-2.5">
+                <p className="text-[12px] font-medium text-ds-text-3">Contactos del hilo</p>
+                <CorreoThreadContacts threadId={t.id} accountId={t.accountId} />
+              </div>
               <CorreoContactPanel threadId={t.id} />
             </>
           )}
-          {tab === "vinculos" && <CorreoLinksPanel threadId={t.id} />}
+          {tab === "vinculos" && (
+            <CorreoLinksPanel threadId={t.id} accountId={t.accountId} />
+          )}
           {tab === "productividad" && (
             <>
               <CorreoMeetingPanel threadId={t.id} subject={t.subject} />
@@ -298,6 +308,19 @@ export function CorreoWorkPanel({
           )}
         </div>
       </div>
+      <CorreoAttachmentsSheet
+        open={attachmentsOpen}
+        onClose={() => setAttachmentsOpen(false)}
+        threadId={t.id}
+        items={detail.attachments}
+        dealId={t.dealId}
+        dealTitle={t.dealTitle}
+        accountId={t.accountId}
+        accountName={t.accountName}
+        degraded={detail.degraded}
+        onSaved={onRefresh}
+        onRequestAssociate={() => selectTab("cuenta")}
+      />
     </div>,
     document.body,
   );

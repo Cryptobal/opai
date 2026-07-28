@@ -8,8 +8,13 @@ import { CorreoAttachmentViewer, type ViewerFile } from "./correos/CorreoAttachm
 import { CorreoReaderShell } from "./correos/CorreoReaderShell";
 import { parseSender } from "./correos/correo-sender";
 import type { CorreoAttachmentDTO, EntityThreadDetail } from "@/modules/crm/email/correos.types";
+import type { ConversationEntityType } from "@/modules/crm/email/entity-conversations";
+import {
+  EntityConversationActions,
+  type ComposeAction,
+} from "./entity-conversations/EntityConversationActions";
 
-type EntityType = "account" | "deal" | "installation";
+type EntityType = ConversationEntityType;
 
 function fmtSize(bytes: number): string {
   if (bytes <= 0) return "";
@@ -92,21 +97,22 @@ function EntityMessageAttachments({
 }
 
 /**
- * Lector de solo lectura de un hilo compartido, embebido en la ficha (Bloque
- * 5). Sirve 100% del espejo local vía /api/crm/conversaciones/[threadId]
- * (autorizado por entidad; Gmail no participa). Los adjuntos materializados/
- * guardados abren el visor de Fase 1 (misma-origen); el resto se lista como
- * "Pendiente de sincronizar", sin enlace muerto.
+ * Lector embebido de un hilo compartido. Sirve 100% del espejo local.
+ * Con canCompose, expone la barra de acciones (Responder / IA / …).
  */
 export function EntityThreadReader({
   threadId,
   entityType,
   entityId,
+  canCompose = false,
+  onAction,
   onClose,
 }: {
   threadId: string | null;
   entityType: EntityType;
   entityId: string;
+  canCompose?: boolean;
+  onAction?: (action: ComposeAction) => void;
   onClose: () => void;
 }) {
   const [detail, setDetail] = useState<EntityThreadDetail | null>(null);
@@ -164,13 +170,24 @@ export function EntityThreadReader({
           Conversación no sincronizada todavía.
         </div>
       ) : detail ? (
-        <CorreoMessages
-          messages={detail.messages}
-          attachments={detail.attachments}
-          renderMessageAttachments={(_m, items) => (
-            <EntityMessageAttachments items={items} onOpen={openAttachment} />
+        <>
+          <CorreoMessages
+            messages={detail.messages}
+            attachments={detail.attachments}
+            renderMessageAttachments={(_m, items) => (
+              <EntityMessageAttachments items={items} onOpen={openAttachment} />
+            )}
+          />
+          {canCompose && onAction && (
+            <div className="sticky bottom-0 border-t border-ds-border-subtle bg-ds-surface-1 p-2">
+              <EntityConversationActions
+                canCompose
+                threadId={threadId}
+                onAction={onAction}
+              />
+            </div>
           )}
-        />
+        </>
       ) : null}
       <CorreoAttachmentViewer file={viewer} onClose={() => setViewer(null)} />
     </CorreoReaderShell>

@@ -28,6 +28,7 @@ vi.mock("@/lib/prisma", () => ({
   prisma: {
     crmEmailThread: { findFirst: mocks.threadFindFirst },
     crmEmailThreadLink: { findFirst: mocks.linkFindFirst },
+    crmEmailThreadContact: { findFirst: vi.fn() },
   },
 }));
 vi.mock("@/modules/crm/email/entity-thread", () => ({

@@ -18,8 +18,7 @@ import {
 import { EmptyState } from "@/components/opai-ds";
 import { getQuoteStatus } from "@/lib/quoteStatus";
 import { CrmInstallationsClient } from "./CrmInstallationsClient";
-import { EmailHistoryList } from "./EmailHistoryList";
-import { EntityConversationsPanel } from "./EntityConversationsPanel";
+import { EntityConversations } from "./EntityConversations";
 import { EntityDetailLayout, useEntityTabs, type EntityTab, type EntityHeaderAction } from "./EntityDetailLayout";
 import { AccountBillingDocSection } from "@/components/crm/AccountBillingDocSection";
 import { DetailField } from "./DetailField";
@@ -947,7 +946,6 @@ export function CrmAccountDetailClient({
   const tabs: EntityTab[] = [
     { id: "general", label: "General", icon: Info },
     { id: "notes", label: "Notas", icon: MessageSquare },
-    { id: "communication", label: "Comunicación", icon: Mail },
     { id: "conversaciones", label: "Conversaciones", icon: Mail },
     { id: "portal", label: "Portal", icon: Shield },
     { id: "contracts", label: "Contratos", icon: ScrollText },
@@ -1651,8 +1649,14 @@ export function CrmAccountDetailClient({
             <NotesSection entityType="account" entityId={account.id} currentUserId={currentUserId} />
           </div>
         )}
-        {activeTab === "communication" && <EmailHistoryList accountId={account.id} compact />}
-        {activeTab === "conversaciones" && <EntityConversationsPanel accountId={account.id} />}
+        {activeTab === "conversaciones" && (
+          <EntityConversations
+            entityType="account"
+            entityId={account.id}
+            accountId={account.id}
+            variant="tab"
+          />
+        )}
         {activeTab === "activity" && (
           <div className="rounded-lg border border-border bg-card p-4 sm:p-5">
             <CrmActivityTimeline events={activityEvents} />
