@@ -54,6 +54,8 @@ type Props = {
   workTabIntent?: { tab: import("./work-panel-tabs").WorkTab; nonce: number } | null;
   composeIntent?: ComposeIntent | null;
   onOpenAiLead?: () => void;
+  /** Abre el panel IA con comando analizar (tile Resumen). */
+  onOpenAiAnalizar?: () => void;
   onOpenAiMenu?: () => void;
 };
 
@@ -81,6 +83,7 @@ export function CorreoDrawer({
   workTabIntent = null,
   composeIntent = null,
   onOpenAiLead,
+  onOpenAiAnalizar,
   onOpenAiMenu,
 }: Props) {
   const [detail, setDetail] = useState<CorreoDetail | null>(null);
@@ -261,6 +264,7 @@ export function CorreoDrawer({
           mailboxEmail={mailboxEmail}
           canModify={canModify}
           onOpenAiLead={() => onOpenAiLead?.()}
+          onOpenAiAnalizar={() => onOpenAiAnalizar?.()}
           onOpenAiMenu={onOpenAiMenu}
           onAssociate={associate}
           onRefresh={refresh}

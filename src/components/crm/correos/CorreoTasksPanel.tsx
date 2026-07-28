@@ -125,7 +125,7 @@ export function CorreoTasksPanel({ threadId, subject }: { threadId: string; subj
           onClick={() => void suggest()}
           disabled={busy !== null}
           title="Sugerir el próximo paso con IA"
-          className="inline-flex h-9 shrink-0 items-center gap-1 rounded-lg border border-ds-border-default px-2 text-[12px] ds-tap disabled:opacity-50"
+          className="inline-flex h-10 shrink-0 items-center gap-1 rounded-lg bg-tint-violet px-2 text-[12px] font-medium text-tint-violet-fg ds-tap disabled:opacity-50 sm:h-9"
         >
           <Sparkles className="h-4 w-4" /> {busy === "sug" ? "…" : "Sugerir"}
         </button>

@@ -86,7 +86,7 @@ export function CorreosMobileTopBar({
             aria-pressed={semantic}
             title="Buscar por significado (búsqueda semántica con IA)"
             className={`ml-0.5 inline-flex h-9 shrink-0 items-center gap-1 rounded-full px-2.5 text-[12px] ds-tap ${
-              semantic ? "bg-primary text-primary-foreground" : "text-ds-text-3"
+              semantic ? "bg-tint-violet text-tint-violet-fg" : "text-ds-text-3"
             }`}
           >
             <Sparkles className="h-3.5 w-3.5" /> IA

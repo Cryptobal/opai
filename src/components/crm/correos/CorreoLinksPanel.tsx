@@ -12,6 +12,7 @@ import Link from "next/link";
 import { Link2, Plus, Sparkles, X } from "lucide-react";
 import { toast } from "sonner";
 import { Spinner, Tag } from "@/components/opai-ds";
+import { SimpleSelect } from "@/components/ui/simple-select";
 
 const TYPE_LABELS: Record<string, string> = {
   installation: "Instalación",
@@ -127,7 +128,7 @@ export function CorreoLinksPanel({ threadId }: { threadId: string }) {
             type="button"
             onClick={() => void suggest()}
             disabled={suggesting}
-            className="inline-flex h-8 items-center gap-1 rounded-lg border border-ds-border-default px-2 text-[12px] ds-tap disabled:opacity-50"
+            className="inline-flex h-10 items-center gap-1 rounded-lg bg-tint-violet px-2 text-[12px] font-medium text-tint-violet-fg ds-tap disabled:opacity-50 sm:h-8"
           >
             {suggesting ? <Spinner className="h-3.5 w-3.5" /> : <Sparkles className="h-3.5 w-3.5" />}
             Sugerir
@@ -205,19 +206,19 @@ export function CorreoLinksPanel({ threadId }: { threadId: string }) {
       {adding && (
         <div className="space-y-2 rounded-lg border border-ds-border-subtle bg-ds-surface-1 p-2">
           <div className="flex gap-2">
-            <select
+            <SimpleSelect
               value={type}
-              onChange={(e) => {
-                setType(e.target.value);
+              onValueChange={(v) => {
+                setType(v);
                 setQ("");
               }}
-              className="h-9 rounded-lg border border-ds-border-default bg-ds-surface-1 px-2 text-[13px] text-ds-text-1"
+              className="h-10 w-[9.5rem] sm:h-9"
               aria-label="Tipo de entidad"
-            >
-              {Object.entries(TYPE_LABELS).map(([key, label]) => (
-                <option key={key} value={key}>{label}</option>
-              ))}
-            </select>
+              options={Object.entries(TYPE_LABELS).map(([key, label]) => ({
+                value: key,
+                label,
+              }))}
+            />
             <input
               value={q}
               onChange={(e) => setQ(e.target.value)}

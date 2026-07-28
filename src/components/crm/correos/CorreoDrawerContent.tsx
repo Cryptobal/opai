@@ -17,6 +17,7 @@ type Props = {
   mailboxEmail?: string | null;
   canModify?: boolean;
   onOpenAiLead: () => void;
+  onOpenAiAnalizar?: () => void;
   onOpenAiMenu?: () => void;
   onAssociate: (p: { accountId: string | null; dealId: string | null; sharedWithAccount?: boolean }) => void;
   onRefresh: () => void;
@@ -39,6 +40,7 @@ export function CorreoDrawerContent({
   mailboxEmail,
   canModify,
   onOpenAiLead,
+  onOpenAiAnalizar,
   onOpenAiMenu,
   onAssociate,
   onRefresh,
@@ -135,13 +137,6 @@ export function CorreoDrawerContent({
               <Plus className="h-3.5 w-3.5" /> Sin cuenta · Asociar
             </button>
           )}
-          <button
-            type="button"
-            onClick={() => openPanel("productividad")}
-            className="inline-flex min-h-8 items-center gap-1.5 rounded-full border border-ds-border-default bg-ds-surface-1 px-2.5 text-[12px] font-medium text-ds-text-1 ds-tap hover:border-primary"
-          >
-            <Briefcase className="h-3.5 w-3.5 text-tint-violet-fg" /> Panel de trabajo
-          </button>
           {onOpenAiMenu && (
             <button
               type="button"
@@ -149,9 +144,16 @@ export function CorreoDrawerContent({
               aria-label="Acciones IA"
               className="inline-flex min-h-8 items-center gap-1.5 rounded-full border border-tint-violet/30 bg-tint-violet/10 px-2.5 text-[12px] font-medium text-tint-violet-fg ds-tap lg:hidden"
             >
-              <Sparkles className="h-3.5 w-3.5" /> IA
+              <Sparkles className="h-3.5 w-3.5" /> ✦ Acciones IA
             </button>
           )}
+          <button
+            type="button"
+            onClick={() => openPanel("resumen")}
+            className="inline-flex min-h-8 items-center gap-1.5 rounded-full border border-ds-border-default bg-ds-surface-1 px-2.5 text-[12px] font-medium text-ds-text-1 ds-tap hover:border-primary"
+          >
+            <Briefcase className="h-3.5 w-3.5 text-tint-violet-fg" /> Panel de trabajo
+          </button>
           <CorreoSummaryPanel key={`summary-${t.id}`} threadId={t.id} variant="inline" />
         </div>
       </div>
@@ -192,6 +194,7 @@ export function CorreoDrawerContent({
         initialTab={panel?.tab ?? "resumen"}
         detail={detail}
         onOpenAiLead={onOpenAiLead}
+        onOpenAiAnalizar={onOpenAiAnalizar}
         onAssociate={onAssociate}
         onRefresh={onRefresh}
         onClose={() => {

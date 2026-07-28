@@ -60,12 +60,21 @@ export function AiHelpChatWidgetV2() {
       intelCtx.openPanel();
       c.setInput(detail.prompt);
       if (detail.autoSend) {
-        // Esperar un tick a que el panel monte y el page context esté listo.
-        window.setTimeout(() => {
+        // Esperar a que React registre el page context del hilo (openThread)
+        // antes de enviar; 50ms era insuficiente y el prompt iba sin entidad.
+        const sendWhenReady = (attempt: number) => {
           const latest = ctrlRef.current;
           if (latest.sending) return;
-          void latest.sendMessage(detail.prompt);
-        }, 50);
+          const ctx = latest.pageContext;
+          const hasThread =
+            ctx?.entityType === "crm_email_thread" && Boolean(ctx.entityId);
+          if (hasThread || attempt >= 4) {
+            void latest.sendMessage(detail.prompt);
+            return;
+          }
+          window.setTimeout(() => sendWhenReady(attempt + 1), 80);
+        };
+        window.setTimeout(() => sendWhenReady(0), 80);
       }
     };
     window.addEventListener(AI_COMMAND_EVENT, onCommand);

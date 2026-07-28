@@ -5,6 +5,7 @@ import Link from "next/link";
 import { CheckCircle2, Sparkles, TicketPlus } from "lucide-react";
 import { toast } from "sonner";
 import { TaskTimePicker } from "@/components/agenda/TaskTimePicker";
+import { SimpleSelect } from "@/components/ui/simple-select";
 
 type User = { id: string; name: string | null; email: string | null };
 type Created = { id: string; code: string; title: string; status: string };
@@ -107,7 +108,7 @@ export function CorreoTicketPanel({ threadId, subject }: { threadId: string; sub
           type="button"
           onClick={() => void suggest()}
           disabled={busy !== null}
-          className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-primary text-[13px] font-medium text-primary-foreground ds-tap disabled:opacity-50"
+          className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-tint-violet text-[13px] font-medium text-tint-violet-fg ds-tap disabled:opacity-50"
         >
           <Sparkles className="h-4 w-4" /> {busy === "sug" ? "Proponiendo…" : "✦ Crear ticket con IA"}
         </button>
@@ -142,19 +143,19 @@ export function CorreoTicketPanel({ threadId, subject }: { threadId: string; sub
               className="h-9 min-w-[8rem] flex-1 rounded-lg border border-ds-border-default bg-ds-surface-1 px-2 text-[16px] text-ds-text-1 sm:text-[13px]"
             />
             {users.length > 0 && (
-              <select
+              <SimpleSelect
                 value={assignedTo}
-                onChange={(e) => setAssignedTo(e.target.value)}
+                onValueChange={setAssignedTo}
                 aria-label="Responsable"
-                className="h-9 min-w-[8rem] flex-1 rounded-lg border border-ds-border-default bg-ds-surface-1 px-2 text-[13px] text-ds-text-1"
-              >
-                <option value="">Sin responsable</option>
-                {users.map((u) => (
-                  <option key={u.id} value={u.id}>
-                    {u.name || u.email}
-                  </option>
-                ))}
-              </select>
+                className="h-10 min-w-[8rem] flex-1 sm:h-9"
+                options={[
+                  { value: "", label: "Sin responsable" },
+                  ...users.map((u) => ({
+                    value: u.id,
+                    label: u.name || u.email || u.id,
+                  })),
+                ]}
+              />
             )}
           </div>
           <div className="flex flex-wrap items-center gap-2">

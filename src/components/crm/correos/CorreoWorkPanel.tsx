@@ -21,6 +21,7 @@ type Props = {
   initialTab: WorkTab;
   detail: CorreoDetail;
   onOpenAiLead: () => void;
+  onOpenAiAnalizar?: () => void;
   onAssociate: (p: { accountId: string | null; dealId: string | null; sharedWithAccount?: boolean }) => void;
   onRefresh: () => void;
 };
@@ -30,7 +31,9 @@ type Props = {
  * bottom-sheet en móvil. Cuatro pestañas: Resumen · Cuenta · Vínculos · Trabajo
  * (Trabajo unifica ticket + tareas + reunión).
  */
-export function CorreoWorkPanel({ open, onClose, initialTab, detail, onOpenAiLead, onAssociate, onRefresh }: Props) {
+export function CorreoWorkPanel({
+  open, onClose, initialTab, detail, onOpenAiLead, onOpenAiAnalizar, onAssociate, onRefresh,
+}: Props) {
   const [tab, setTab] = useState(() => resolveWorkTab(initialTab));
   const perms = useEffectivePermissions();
 
@@ -124,6 +127,7 @@ export function CorreoWorkPanel({ open, onClose, initialTab, detail, onOpenAiLea
               accountId={t.accountId}
               hasLead={Boolean(t.leadId)}
               onOpenAiLead={onOpenAiLead}
+              onOpenAiAnalizar={onOpenAiAnalizar}
               onGoTo={(next) => setTab(resolveWorkTab(next))}
             />
           )}

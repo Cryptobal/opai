@@ -53,7 +53,8 @@ import { nextIntentNonce, type ComposeIntent, type ReaderOpenOpts } from "./corr
 import type { WorkTab } from "./work-panel-tabs";
 import type { ComposerMode } from "./CorreoComposerBox";
 import { useEffectivePermissions } from "@/hooks/useEffectivePermissions";
-import { buildAiMenuItems } from "./CorreoAiMenu";
+import { buildAiMenuItems, capsFromPerms } from "./CorreoAiMenu";
+import { CorreoAiMenuSheet } from "./CorreoAiMenuSheet";
 import {
   CorreoAiActionPanel,
   type AiPanelCommand,
@@ -129,7 +130,10 @@ export function CorreosClient() {
     hasAccount: boolean;
     dealId: string | null;
   } | null>(null);
+  /** Bottom-sheet de Acciones IA (móvil: long-press / chip del lector). */
+  const [aiMenuSheet, setAiMenuSheet] = useState<CorreoThreadDTO | null>(null);
   const perms = useEffectivePermissions();
+  const hasRadarCaps = capsFromPerms(perms).size > 0;
   // v2: táctil (long-press/selección móvil); en desktop nada de esto aplica.
   const [isCoarse, setIsCoarse] = useState(false);
   useEffect(() => {
@@ -833,7 +837,10 @@ export function CorreosClient() {
     if (cmd.kind === "chat") {
       // Asegurar page context del hilo antes de abrir el chat.
       openThread(t.id);
-      dispatchAiCommand({ prompt: cmd.prompt ?? cmd.label, autoSend: true });
+      // Diferir el evento un frame para que useRegisterChatPageContext corra.
+      window.setTimeout(() => {
+        dispatchAiCommand({ prompt: cmd.prompt ?? cmd.label, autoSend: true });
+      }, 0);
       return;
     }
     if (
@@ -849,7 +856,19 @@ export function CorreosClient() {
   }
 
   function openAiMenuForThread(t: CorreoThreadDTO, anchor: { x: number; y: number }) {
+    const aiItems = buildAiMenuItems(t, perms, { onCommand: handleAiCommand });
+    if (aiItems.length === 0) return;
+    if (isCoarse) {
+      setAiMenuSheet(t);
+      return;
+    }
     setCtxMenu({ thread: t, x: anchor.x, y: anchor.y });
+  }
+
+  function openAiMenuSheetForThread(t: CorreoThreadDTO) {
+    const aiItems = buildAiMenuItems(t, perms, { onCommand: handleAiCommand });
+    if (aiItems.length === 0) return;
+    setAiMenuSheet(t);
   }
 
   // Ítems del menú contextual (click derecho, desktop) para un hilo. Reusa los
@@ -1028,6 +1047,15 @@ export function CorreosClient() {
         items={ctxMenu ? contextItems(ctxMenu.thread) : []}
         onClose={() => setCtxMenu(null)}
       />
+      <CorreoAiMenuSheet
+        open={aiMenuSheet !== null}
+        items={
+          aiMenuSheet
+            ? buildAiMenuItems(aiMenuSheet, perms, { onCommand: handleAiCommand })
+            : []
+        }
+        onClose={() => setAiMenuSheet(null)}
+      />
       {aiPanel && (
         <CorreoAiActionPanel
           open
@@ -1172,7 +1200,20 @@ export function CorreosClient() {
                   checked={selectedIds.has(t.id)}
                   onToggleCheck={canModify ? () => toggleSelect(t.id) : undefined}
                   onAvatarPress={canModify ? () => toggleSelect(t.id) : undefined}
-                  onLongPress={canModify ? () => toggleSelect(t.id) : undefined}
+                  onLongPress={() => {
+                    if (selectionMode) {
+                      if (canModify) toggleSelect(t.id);
+                      return;
+                    }
+                    const aiItems = buildAiMenuItems(t, perms, {
+                      onCommand: handleAiCommand,
+                    });
+                    if (aiItems.length > 0) {
+                      setAiMenuSheet(t);
+                      return;
+                    }
+                    if (canModify) toggleSelect(t.id);
+                  }}
                   selectionMode={selectionMode}
                   previewLines={previewLines}
                   swipeConfig={swipeConfig}
@@ -1181,7 +1222,11 @@ export function CorreosClient() {
                   onUndoDone={hardRefresh}
                   onRemove={removeThreadAndAdvance}
                   onSnooze={() => setSnoozeId(t.id)}
-                  onAiMenu={(anchor) => openAiMenuForThread(t, anchor)}
+                  onAiMenu={
+                    hasRadarCaps
+                      ? (anchor) => openAiMenuForThread(t, anchor)
+                      : undefined
+                  }
                   onOpen={() =>
                     // Solo táctil: en selección el tap alterna. En desktop el
                     // click sigue abriendo el hilo aunque haya checkboxes
@@ -1229,12 +1274,19 @@ export function CorreosClient() {
             const t = openId ? items.find((x) => x.id === openId) : null;
             if (t) openAiPanel(t, "lead");
           }}
-          onOpenAiMenu={() => {
+          onOpenAiAnalizar={() => {
             const t = openId ? items.find((x) => x.id === openId) : null;
-            if (!t) return;
-            // Móvil: abrir directo el plan (analizar); desktop menú ya está en fila.
-            openAiPanel(t, "analizar");
+            if (t) openAiPanel(t, "analizar");
           }}
+          onOpenAiMenu={
+            hasRadarCaps
+              ? () => {
+                  const t = openId ? items.find((x) => x.id === openId) : null;
+                  if (!t) return;
+                  openAiMenuSheetForThread(t);
+                }
+              : undefined
+          }
         />
       </div>
 

@@ -138,7 +138,7 @@ export function CorreosDesktopToolbar({
           aria-pressed={semantic}
           title="Buscar por significado (búsqueda semántica con IA)"
           className={`absolute right-1.5 top-1/2 inline-flex h-6 -translate-y-1/2 items-center gap-1 rounded-full px-2 text-[12px] ds-tap ${
-            semantic ? "bg-primary text-primary-foreground" : "text-ds-text-3 hover:bg-ds-surface-3"
+            semantic ? "bg-tint-violet text-tint-violet-fg" : "text-ds-text-3 hover:bg-ds-surface-3"
           }`}
         >
           <Sparkles className="h-3 w-3" /> IA
