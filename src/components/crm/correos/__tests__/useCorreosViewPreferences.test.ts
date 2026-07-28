@@ -5,6 +5,7 @@ import {
   normalizeShortcutKey,
   parseCorreosViewPreferences,
 } from "../useCorreosViewPreferences";
+import { DEFAULT_CORREO_SNOOZE_CONFIG } from "@/modules/crm/email/correo-snooze-presets";
 
 describe("clampCorreoPanelWidth", () => {
   it("respeta el mínimo legible", () => {
@@ -136,6 +137,31 @@ describe("clampCorreoPanelWidth", () => {
     expect(
       parseCorreosViewPreferences(JSON.stringify({ undoSeconds: "10" })),
     ).toEqual({});
+  });
+
+  it("acepta snoozeConfig y normaliza inválidos a defaults", () => {
+    expect(
+      parseCorreosViewPreferences(
+        JSON.stringify({
+          snoozeConfig: {
+            morningHour: 7,
+            afternoonHour: 16,
+            weekendDay: 0,
+            nextWeekDay: 1,
+          },
+        }),
+      ),
+    ).toEqual({
+      snoozeConfig: {
+        morningHour: 7,
+        afternoonHour: 16,
+        weekendDay: 0,
+        nextWeekDay: 1,
+      },
+    });
+    expect(
+      parseCorreosViewPreferences(JSON.stringify({ snoozeConfig: { morningHour: 99 } })),
+    ).toEqual({ snoozeConfig: DEFAULT_CORREO_SNOOZE_CONFIG });
   });
 
   it("normaliza letras de atajos a minúscula al parsear", () => {

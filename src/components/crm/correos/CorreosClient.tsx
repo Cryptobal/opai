@@ -23,6 +23,7 @@ import {
 import { CorreosMobileDrawer } from "./CorreosMobileDrawer";
 import { CorreosPullToRefresh } from "./CorreosPullToRefresh";
 import { CorreoSwipeSettingsSheet } from "./CorreoSwipeSettingsSheet";
+import { CorreoSnoozeSettingsSheet } from "./CorreoSnoozeSettingsSheet";
 import { CorreoShortcutsSheet } from "./CorreoShortcutsSheet";
 import { CorreoContextMenu, type CorreoMenuItem } from "./CorreoContextMenu";
 import { CorreoSelectionBar } from "./CorreoSelectionBar";
@@ -127,6 +128,7 @@ export function CorreosClient() {
   // Opción C: drawer lateral móvil (carpetas + filtros + acciones).
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [swipeSettingsOpen, setSwipeSettingsOpen] = useState(false);
+  const [snoozeSettingsOpen, setSnoozeSettingsOpen] = useState(false);
   const [shortcutsSheetOpen, setShortcutsSheetOpen] = useState(false);
   // Menú contextual (click derecho) desktop sobre una fila.
   const [ctxMenu, setCtxMenu] = useState<{ thread: CorreoThreadDTO; x: number; y: number } | null>(null);
@@ -169,6 +171,8 @@ export function CorreosClient() {
     setAlwaysShowImages,
     undoSeconds,
     setUndoSeconds,
+    snoozeConfig,
+    setSnoozeConfig,
     resetPanelWidth,
     onResizePointerDown,
     onResizeKeyDown,
@@ -1051,6 +1055,7 @@ export function CorreosClient() {
         lastSyncAt={lastSyncAt}
         mailboxEmail={mailboxEmail}
         onOpenSwipeSettings={() => setSwipeSettingsOpen(true)}
+        onOpenSnoozeSettings={() => setSnoozeSettingsOpen(true)}
         onOpenShortcuts={() => setShortcutsSheetOpen(true)}
         onInsertSearch={(token) => {
           setQuery((prev) => (prev.trim() ? `${prev.trim()} ${token}` : token));
@@ -1063,6 +1068,12 @@ export function CorreosClient() {
         onConfig={setSwipeConfig}
         undoSeconds={undoSeconds}
         onUndoSeconds={setUndoSeconds}
+      />
+      <CorreoSnoozeSettingsSheet
+        open={snoozeSettingsOpen}
+        onClose={() => setSnoozeSettingsOpen(false)}
+        config={snoozeConfig}
+        onConfig={setSnoozeConfig}
       />
       <CorreoShortcutsSheet
         open={shortcutsSheetOpen}
@@ -1165,6 +1176,7 @@ export function CorreosClient() {
           collapsed={railCollapsed}
           onToggleCollapsed={() => setRailCollapsed(!railCollapsed)}
           onOpenSwipeSettings={() => setSwipeSettingsOpen(true)}
+          onOpenSnoozeSettings={() => setSnoozeSettingsOpen(true)}
           onOpenShortcuts={() => setShortcutsSheetOpen(true)}
         />
         <div className="min-w-0 flex-1 space-y-4 max-lg:px-4 lg:space-y-3">
@@ -1320,6 +1332,8 @@ export function CorreosClient() {
           manageBackHistory={false}
           alwaysShowImages={alwaysShowImages}
           onAlwaysShowImages={() => setAlwaysShowImages(true)}
+          snoozeConfig={snoozeConfig}
+          onOpenSnoozeSettings={() => setSnoozeSettingsOpen(true)}
           onClose={closeThread}
           onRemove={removeThreadAndAdvance}
           onRemoveDone={softRefresh}
@@ -1360,6 +1374,8 @@ export function CorreosClient() {
       <CorreoSnoozeSheet
         open={snoozeId !== null}
         onClose={() => setSnoozeId(null)}
+        config={snoozeConfig}
+        onOpenSettings={() => setSnoozeSettingsOpen(true)}
         onConfirm={(iso, label) => {
           const id = snoozeId;
           if (!id) return;

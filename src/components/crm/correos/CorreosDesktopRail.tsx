@@ -1,6 +1,6 @@
 "use client";
 
-import { Mail, Menu, PenLine, RefreshCw, Settings, Wifi, WifiOff, Keyboard } from "lucide-react";
+import { Clock, Mail, Menu, PenLine, RefreshCw, Settings, Wifi, WifiOff, Keyboard } from "lucide-react";
 import {
   CHIPS, TABS, VERTICAL_LABELS,
   type CorreoChipKey, type CorreoFolderCounts, type CorreoFolderTab,
@@ -28,6 +28,8 @@ type Props = {
   /** Abre configuración de gestos de deslizar (móvil) y atajos de teclado. */
   onOpenSwipeSettings?: () => void;
   onOpenShortcuts?: () => void;
+  /** Abre configuración de horarios de posponer. */
+  onOpenSnoozeSettings?: () => void;
 };
 
 /** Riel de carpetas desktop (reemplaza a las filas de pills): Redactar,
@@ -37,6 +39,7 @@ export function CorreosDesktopRail({
   folder, onFolder, chip, onChip, vertical, onVertical, counts,
   onCompose, onSync, syncing, realtimeStatus, lastSyncAt, mailboxEmail,
   collapsed, onToggleCollapsed, onOpenSwipeSettings, onOpenShortcuts,
+  onOpenSnoozeSettings,
 }: Props) {
   const live = realtimeStatus === "live";
   const lastSyncLabel = lastSyncAt
@@ -146,7 +149,7 @@ export function CorreosDesktopRail({
           ))}
         </div>
 
-        {(onOpenSwipeSettings || onOpenShortcuts) && (
+        {(onOpenSwipeSettings || onOpenShortcuts || onOpenSnoozeSettings) && (
           <div className={collapsed ? "hidden group-hover/rail:block" : ""}>
             <p className="px-3.5 pb-1 pt-4 text-[11px] font-mono uppercase tracking-[0.08em] text-ds-text-4">
               Configuración
@@ -155,6 +158,12 @@ export function CorreosDesktopRail({
               <button type="button" onClick={onOpenSwipeSettings} className={item(false)}>
                 <Settings className="h-4 w-4 shrink-0" />
                 <span className={`${lbl} min-w-0 flex-1`}>Gestos de deslizar</span>
+              </button>
+            )}
+            {onOpenSnoozeSettings && (
+              <button type="button" onClick={onOpenSnoozeSettings} className={item(false)}>
+                <Clock className="h-4 w-4 shrink-0" />
+                <span className={`${lbl} min-w-0 flex-1`}>Horarios de posponer</span>
               </button>
             )}
             {onOpenShortcuts && (
