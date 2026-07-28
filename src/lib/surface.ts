@@ -29,6 +29,22 @@ export const DEFAULT_SURFACE: Surface = "erp";
  */
 export const PRODUCTIVIDAD_LANDING_COOKIE = "opai-prod-landing";
 
+/** Home de la superficie Productividad (resumen Agenda → Correos → Tareas). */
+export const PRODUCTIVIDAD_HOME_HREF = "/productividad/inicio";
+
+/** Secciones accionables del portal (orden de preferencia legacy). */
+export const PRODUCTIVIDAD_SECTION_HREFS = [
+  "/crm/correos",
+  "/opai/tareas",
+  "/opai/agenda",
+] as const;
+
+/** Orden de landing: home primero, luego secciones. */
+export const PRODUCTIVIDAD_LANDING_HREFS = [
+  PRODUCTIVIDAD_HOME_HREF,
+  ...PRODUCTIVIDAD_SECTION_HREFS,
+] as const;
+
 /** Opciones de cookie de superficie (sesión de presentación, no auth). */
 export function surfaceCookieOptions(maxAgeSeconds = 60 * 60 * 24 * 365) {
   return {
@@ -40,20 +56,20 @@ export function surfaceCookieOptions(maxAgeSeconds = 60 * 60 * 24 * 365) {
   };
 }
 
-/** Orden de landing del portal Productividad (Correos → Tareas → Agenda). */
-export const PRODUCTIVIDAD_LANDING_HREFS = [
-  "/crm/correos",
-  "/opai/tareas",
-  "/opai/agenda",
-] as const;
-
-/** ¿Cookie de landing usable por el middleware (sin tocar BD)? */
+/**
+ * ¿Cookie de landing usable por el middleware (sin tocar BD)?
+ *
+ * Acepta el home y los tres hrefs legacy de sección, pero **siempre**
+ * devuelve `PRODUCTIVIDAD_HOME_HREF`. Una cookie legacy implica que el
+ * usuario tenía al menos una sección visible → el home también lo es;
+ * así se migran dispositivos ya instalados sin escritura adicional.
+ */
 export function parseProductividadLandingCookie(
   value: string | undefined | null,
-): (typeof PRODUCTIVIDAD_LANDING_HREFS)[number] | null {
+): typeof PRODUCTIVIDAD_HOME_HREF | null {
   if (!value) return null;
   return (PRODUCTIVIDAD_LANDING_HREFS as readonly string[]).includes(value)
-    ? (value as (typeof PRODUCTIVIDAD_LANDING_HREFS)[number])
+    ? PRODUCTIVIDAD_HOME_HREF
     : null;
 }
 
@@ -64,8 +80,8 @@ export function parseSurface(value: string | undefined | null): Surface {
 
 /**
  * Primera ruta accesible del portal Productividad, o null si ninguna.
- * Lee los children del nodo `productividad` del registry (no hardcodea
- * la lista de nodos) y respeta permisos + tenantModule.
+ * Prioriza el home cuando hay al menos una sección (Agenda/Correos/Tareas)
+ * visible; si el nodo home no es visible, cae a la primera sección.
  */
 export function resolveProductividadLanding(
   permissions: RolePermissions,
@@ -88,14 +104,23 @@ export function resolveProductividadLanding(
   };
 
   const children = node.children ?? [];
-  for (const href of PRODUCTIVIDAD_LANDING_HREFS) {
+  let firstSection: string | null = null;
+  for (const href of PRODUCTIVIDAD_SECTION_HREFS) {
     const child = children.find((c) => c.href === href);
     if (!child) continue;
     if (!isNodeVisible(child, ctx)) continue;
-    return child.href;
+    firstSection = child.href;
+    break;
   }
 
-  return null;
+  if (!firstSection) return null;
+
+  const home = children.find((c) => c.href === PRODUCTIVIDAD_HOME_HREF);
+  if (home && isNodeVisible(home, ctx)) {
+    return PRODUCTIVIDAD_HOME_HREF;
+  }
+
+  return firstSection;
 }
 
 /** ¿El pathname pertenece al portal Productividad (registry)? */

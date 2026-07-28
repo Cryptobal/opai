@@ -153,12 +153,13 @@ describe("buildNavItems — sidebar back-compat", () => {
       surface: "productividad",
     });
     const labels = items.map((i) => i.label);
+    expect(labels[0]).toBe("Inicio");
     expect(labels).toContain("Correos");
     expect(labels).toContain("Tareas");
     expect(labels).toContain("Agenda");
     expect(labels).toContain("Tickets");
     expect(labels).toContain("Auditoría");
-    expect(labels).not.toContain("Inicio");
+    // Sin módulos ERP (el "Inicio" de Productividad es el home de la superficie).
     expect(labels).not.toContain("Comercial");
     expect(labels).not.toContain("Operaciones");
     expect(labels).not.toContain("Finanzas");

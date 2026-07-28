@@ -4,6 +4,7 @@ import {
   isProductividadPath,
   parseProductividadLandingCookie,
   parseSurface,
+  PRODUCTIVIDAD_HOME_HREF,
   resolveProductividadLanding,
 } from "@/lib/surface";
 
@@ -39,25 +40,25 @@ describe("parseSurface", () => {
 });
 
 describe("resolveProductividadLanding", () => {
-  it("owner con todos los módulos → Correos", () => {
+  it("owner con todos los módulos → home de Productividad", () => {
     const landing = resolveProductividadLanding(
       getDefaultPermissions("owner"),
       allEnabled,
       { isAdmin: true },
     );
-    expect(landing).toBe("/crm/correos");
+    expect(landing).toBe(PRODUCTIVIDAD_HOME_HREF);
   });
 
-  it("sin módulo crm del tenant → cae a Tareas", () => {
+  it("sin módulo crm del tenant → home (Tareas sigue visible)", () => {
     const landing = resolveProductividadLanding(
       getDefaultPermissions("owner"),
       noCrm,
       { isAdmin: true },
     );
-    expect(landing).toBe("/opai/tareas");
+    expect(landing).toBe(PRODUCTIVIDAD_HOME_HREF);
   });
 
-  it("solo agenda accesible → Agenda", () => {
+  it("solo agenda accesible → home", () => {
     const perms: RolePermissions = {
       modules: { ...getDefaultPermissions("viewer").modules, productividad: "view" },
       submodules: {
@@ -67,7 +68,7 @@ describe("resolveProductividadLanding", () => {
       },
       capabilities: {},
     };
-    expect(resolveProductividadLanding(perms, allEnabled)).toBe("/opai/agenda");
+    expect(resolveProductividadLanding(perms, allEnabled)).toBe(PRODUCTIVIDAD_HOME_HREF);
   });
 
   it("sin ningún submódulo → null", () => {
@@ -78,10 +79,13 @@ describe("resolveProductividadLanding", () => {
 });
 
 describe("parseProductividadLandingCookie", () => {
-  it("acepta solo landings canónicas", () => {
-    expect(parseProductividadLandingCookie("/crm/correos")).toBe("/crm/correos");
-    expect(parseProductividadLandingCookie("/opai/tareas")).toBe("/opai/tareas");
-    expect(parseProductividadLandingCookie("/opai/agenda")).toBe("/opai/agenda");
+  it("migra landings legacy y el home al home canónico", () => {
+    expect(parseProductividadLandingCookie("/crm/correos")).toBe(PRODUCTIVIDAD_HOME_HREF);
+    expect(parseProductividadLandingCookie("/opai/tareas")).toBe(PRODUCTIVIDAD_HOME_HREF);
+    expect(parseProductividadLandingCookie("/opai/agenda")).toBe(PRODUCTIVIDAD_HOME_HREF);
+    expect(parseProductividadLandingCookie(PRODUCTIVIDAD_HOME_HREF)).toBe(
+      PRODUCTIVIDAD_HOME_HREF,
+    );
   });
 
   it("rechaza valores ajenos", () => {
@@ -94,6 +98,7 @@ describe("parseProductividadLandingCookie", () => {
 
 describe("isProductividadPath", () => {
   it("reconoce las rutas del nodo productividad", () => {
+    expect(isProductividadPath(PRODUCTIVIDAD_HOME_HREF)).toBe(true);
     expect(isProductividadPath("/crm/correos")).toBe(true);
     expect(isProductividadPath("/crm/correos/inbox")).toBe(true);
     expect(isProductividadPath("/opai/tareas")).toBe(true);

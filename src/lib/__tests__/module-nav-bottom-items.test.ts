@@ -254,16 +254,25 @@ describe("getBottomNavItems — back-compat snapshots", () => {
     expect(hrefs).toContain("/crm/accounts");
   });
 
-  it("Productividad → Correos, Tareas, Agenda (Tareas justo después de Correos)", () => {
-    for (const path of ["/opai/agenda", "/crm/correos", "/opai/tareas"]) {
+  it("Productividad → Correos, Tareas, Agenda, Tickets (Inicio oculto en isla)", () => {
+    for (const path of [
+      "/productividad/inicio",
+      "/opai/agenda",
+      "/crm/correos",
+      "/opai/tareas",
+    ]) {
       const items = getBottomNavItems(path, "owner", ALL_ENABLED);
       const keys = items.map((i) => i.key);
+      expect(keys).not.toContain("productividad-inicio");
       expect(keys).toContain("productividad-correos");
       expect(keys).toContain("productividad-tareas");
       expect(keys).toContain("productividad-agenda");
+      expect(keys).toContain("ops-tickets");
       expect(keys.indexOf("productividad-tareas")).toBe(
         keys.indexOf("productividad-correos") + 1,
       );
+      // Tickets permanece entre los primeros 4 visibles (no empuja al overflow).
+      expect(keys.indexOf("ops-tickets")).toBeLessThan(4);
     }
   });
 });

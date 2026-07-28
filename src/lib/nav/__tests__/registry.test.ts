@@ -38,9 +38,12 @@ describe("nav registry", () => {
       expect(keys).toContain("compliance");
     });
 
-    it("Productividad ordena Tareas inmediatamente después de Correos", () => {
+    it("Productividad ordena Inicio primero y Tareas justo después de Correos", () => {
       const prod = NAV_MODULES.find((m) => m.key === "productividad")!;
       const childKeys = prod.children!.map((c) => c.key);
+      expect(childKeys[0]).toBe("productividad-inicio");
+      expect(prod.children![0].hideInBottomNav).toBe(true);
+      expect(prod.href).toBe("/productividad/inicio");
       const correoIdx = childKeys.indexOf("productividad-correos");
       const tareasIdx = childKeys.indexOf("productividad-tareas");
       expect(correoIdx).toBeGreaterThanOrEqual(0);
@@ -184,6 +187,13 @@ describe("nav registry", () => {
     });
     it("returns undefined for unknown path", () => {
       expect(findActiveModule("/unknown/path")).toBeUndefined();
+    });
+    it("Productividad gana en home y rutas compartidas (correos/tareas/tickets)", () => {
+      expect(findActiveModule("/productividad/inicio")?.key).toBe("productividad");
+      expect(findActiveModule("/crm/correos")?.key).toBe("productividad");
+      expect(findActiveModule("/opai/tareas")?.key).toBe("productividad");
+      expect(findActiveModule("/opai/agenda")?.key).toBe("productividad");
+      expect(findActiveModule("/ops/tickets")?.key).toBe("productividad");
     });
   });
 
