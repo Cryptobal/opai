@@ -50,7 +50,18 @@ type Props = {
   onOpenSwipeSettings?: () => void;
   /** Abre el sheet de atajos de teclado configurables. */
   onOpenShortcuts?: () => void;
+  /** Inserta un operador en la caja de búsqueda (ayuda móvil). */
+  onInsertSearch?: (token: string) => void;
 };
+
+const SEARCH_OPS = [
+  "from:",
+  "subject:",
+  "has:attachment",
+  "is:unread",
+  "vertical:",
+  "newer_than:7d",
+] as const;
 
 function Item({ active, onClick, children }: { active?: boolean; onClick: () => void; children: ReactNode }) {
   return (

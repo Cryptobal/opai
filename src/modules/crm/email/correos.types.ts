@@ -25,6 +25,8 @@ export type CorreoThreadDTO = {
   /** F2: badge de radar por vertical (null si el solicitante no tiene la
    *  capability). Calculado en servidor. */
   radarBadge: import("./radar-types").RadarBadge | null;
+  /** Motivo de match bajo búsqueda híbrida (null fuera de búsqueda). */
+  matchReason?: "lexical" | "semantic" | "both" | null;
 };
 
 export type CorreoMessageDTO = {

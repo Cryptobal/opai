@@ -222,7 +222,8 @@ const TOOL_LABELS: Record<string, string> = {
   read_email_attachments: "Analizando adjuntos del correo...",
   create_lead_from_email: "Extrayendo lead del correo...",
   create_crm_from_email: "Estructurando CRM y cobertura del correo...",
-  search_emails_semantic: "Buscando en tus correos...",
+  search_emails: "Buscando en tus correos…",
+  search_emails_semantic: "Buscando en tus correos…",
 };
 
 export function friendlyToolLabel(name: string): string {

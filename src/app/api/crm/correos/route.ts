@@ -77,29 +77,37 @@ export async function GET(req: NextRequest) {
   // cliente los pide (carga inicial, cambio de carpeta, invalidación realtime).
   // Load-more y tipeo de búsqueda ya no pagan los counts.
   const wantCounts = req.nextUrl.searchParams.get("counts") === "1";
-  const [{ items, nextCursor }, counts, syncParkedInfo] = await Promise.all([
-    listCorreoThreads({
-      tenantId: session.user.tenantId,
-      emailAccountId: account.id,
-      mailboxEmail: account.email,
-      cursor: req.nextUrl.searchParams.get("cursor"),
-      folder,
-      // C15: búsqueda server-side sobre toda la casilla sincronizada.
-      q: req.nextUrl.searchParams.get("q"),
-      // A07: modo "buscar por significado" (retrieval vectorial).
-      semantic: req.nextUrl.searchParams.get("mode") === "semantic",
-      // A03: filtro por vertical v5.
-      vertical: parseVertical(req.nextUrl.searchParams.get("vertical")),
-      radarCaps,
-    }),
-    wantCounts
-      ? countCorreoFolders({
-          tenantId: session.user.tenantId,
-          emailAccountId: account.id,
-        })
-      : null,
-    getGmailSyncParkedInfo(account.id),
-  ]);
+  // mode=semantic se acepta por compatibilidad de deep-links y se ignora:
+  // la búsqueda siempre corre el motor híbrido.
+  void req.nextUrl.searchParams.get("mode");
+  const [{ items, nextCursor, semanticAvailable }, counts, syncParkedInfo, coverage] =
+    await Promise.all([
+      listCorreoThreads({
+        tenantId: session.user.tenantId,
+        emailAccountId: account.id,
+        mailboxEmail: account.email,
+        cursor: req.nextUrl.searchParams.get("cursor"),
+        folder,
+        q: req.nextUrl.searchParams.get("q"),
+        vertical: parseVertical(req.nextUrl.searchParams.get("vertical")),
+        radarCaps,
+      }),
+      wantCounts
+        ? countCorreoFolders({
+            tenantId: session.user.tenantId,
+            emailAccountId: account.id,
+          })
+        : null,
+      getGmailSyncParkedInfo(account.id),
+      wantCounts
+        ? import("@/modules/crm/email/email-index-coverage").then((m) =>
+            m.getEmailIndexCoverage({
+              tenantId: session.user.tenantId,
+              emailAccountId: account.id,
+            }),
+          )
+        : null,
+    ]);
 
   const syncRaw =
     account.syncState && typeof account.syncState === "object" && !Array.isArray(account.syncState)
@@ -112,6 +120,8 @@ export async function GET(req: NextRequest) {
     items,
     nextCursor,
     counts,
+    coverage,
+    semanticAvailable: semanticAvailable ?? true,
     realtimeChannel: gmailMailboxChannel(
       session.user.tenantId,
       session.user.id,

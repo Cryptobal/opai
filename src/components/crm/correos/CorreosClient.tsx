@@ -15,6 +15,11 @@ import {
 import { CorreosDesktopRail } from "./CorreosDesktopRail";
 import { CorreosDesktopToolbar } from "./CorreosDesktopToolbar";
 import { CorreosMobileTopBar } from "./CorreosMobileTopBar";
+import { CorreoSearchChips } from "./CorreoSearchChips";
+import {
+  CorreoIndexCoverageBar,
+  type IndexCoverage,
+} from "./CorreoIndexCoverageBar";
 import { CorreosMobileDrawer } from "./CorreosMobileDrawer";
 import { CorreosPullToRefresh } from "./CorreosPullToRefresh";
 import { CorreoSwipeSettingsSheet } from "./CorreoSwipeSettingsSheet";
@@ -109,8 +114,8 @@ export function CorreosClient() {
   const [query, setQuery] = useState("");
   // C15: la búsqueda consulta al servidor (toda la casilla), con debounce.
   const [debouncedQuery, setDebouncedQuery] = useState("");
-  // A07: modo "buscar por significado" (retrieval vectorial).
-  const [semantic, setSemantic] = useState(false);
+  const [coverage, setCoverage] = useState<IndexCoverage | null>(null);
+  const [semanticAvailable, setSemanticAvailable] = useState(true);
   // A03: filtro por vertical de la clasificación v5.
   const [vertical, setVertical] = useState<string | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
@@ -193,10 +198,8 @@ export function CorreosClient() {
       if (cur) qs.set("cursor", cur);
       if (f !== "inbox") qs.set("folder", f);
       if (debouncedQuery) qs.set("q", debouncedQuery);
-      if (debouncedQuery && semantic) qs.set("mode", "semantic");
       if (vertical) qs.set("vertical", vertical);
-      // C18: counts solo en cargas "reset" sin búsqueda activa (carga inicial,
-      // cambio de carpeta, invalidación realtime) — tipear o paginar no los paga.
+      // C18: counts (+ coverage) solo en cargas "reset" sin búsqueda activa.
       const wantCounts = reset && !cur && !debouncedQuery;
       if (wantCounts) qs.set("counts", "1");
       let r: Record<string, unknown> & {
@@ -205,6 +208,8 @@ export function CorreosClient() {
         canModify?: boolean;
         realtimeChannel?: unknown;
         counts?: unknown;
+        coverage?: IndexCoverage | null;
+        semanticAvailable?: boolean;
         backfillDone?: unknown;
         lastSyncAt?: unknown;
         totalThreads?: unknown;
@@ -241,6 +246,10 @@ export function CorreosClient() {
       );
       // Sin counts en la respuesta se conservan los últimos conocidos.
       if (r.counts != null) setCounts(r.counts as Counts);
+      if (r.coverage != null) setCoverage(r.coverage);
+      if (typeof r.semanticAvailable === "boolean") {
+        setSemanticAvailable(r.semanticAvailable);
+      }
       setBackfillDone(typeof r.backfillDone === "boolean" ? r.backfillDone : null);
       setLastSyncAt(typeof r.lastSyncAt === "string" ? r.lastSyncAt : null);
       if (r.totalThreads != null) setTotalThreads(Number(r.totalThreads) || 0);
@@ -261,7 +270,7 @@ export function CorreosClient() {
     } finally {
       setLoading(false);
     }
-  }, [folder, debouncedQuery, semantic, vertical]);
+  }, [folder, debouncedQuery, vertical]);
 
   /** Refresh post-acción: counts/meta sin re-pintar la lista (anti-pestañeo). */
   const softRefresh = useCallback(() => {
@@ -1011,13 +1020,19 @@ export function CorreosClient() {
           onOpenNav={() => setMobileNavOpen(true)}
           query={query}
           onQuery={setQuery}
-          semantic={semantic}
-          onSemantic={setSemantic}
           inboxUnread={counts?.inboxUnread ?? 0}
         />
       )}
       {/* Reserva el alto de la barra fija para que la lista no quede debajo. */}
       <div aria-hidden className={CORREOS_MOBILE_TOP_SPACER} />
+      <div className="space-y-1 px-4 lg:hidden">
+        {searching && <CorreoSearchChips query={query} onQuery={setQuery} />}
+        <CorreoIndexCoverageBar
+          coverage={coverage}
+          compact
+          onIndexed={setCoverage}
+        />
+      </div>
       <CorreosMobileDrawer
         open={mobileNavOpen}
         onClose={() => setMobileNavOpen(false)}
@@ -1037,6 +1052,9 @@ export function CorreosClient() {
         mailboxEmail={mailboxEmail}
         onOpenSwipeSettings={() => setSwipeSettingsOpen(true)}
         onOpenShortcuts={() => setShortcutsSheetOpen(true)}
+        onInsertSearch={(token) => {
+          setQuery((prev) => (prev.trim() ? `${prev.trim()} ${token}` : token));
+        }}
       />
       <CorreoSwipeSettingsSheet
         open={swipeSettingsOpen}
@@ -1163,7 +1181,6 @@ export function CorreosClient() {
             onRefresh={syncNow}
             syncing={syncing}
             query={query} onQuery={setQuery}
-            semantic={semantic} onSemantic={setSemantic}
             shownCount={filtered.length}
             totalCount={counts ? ((counts as Record<string, number | undefined>)[folder] ?? null) : null}
             previewLines={previewLines} onPreviewLines={setPreviewLines}
@@ -1176,6 +1193,18 @@ export function CorreosClient() {
             onSnooze={() => setSnoozeId("__bulk__")}
             onOpenShortcuts={() => setShortcutsSheetOpen(true)}
           />
+          <div className="hidden space-y-2 lg:block">
+            {searching && <CorreoSearchChips query={query} onQuery={setQuery} />}
+            <CorreoIndexCoverageBar
+              coverage={coverage}
+              onIndexed={setCoverage}
+            />
+            {searching && !semanticAvailable && (
+              <p className="text-[12px] text-status-warn-fg">
+                Búsqueda por significado no disponible ahora; mostrando coincidencias de texto exacto.
+              </p>
+            )}
+          </div>
           {!connected ? (
             <EmptyState icon={Mail} title="Conectá tu Gmail" description="Conectá tu casilla en Integraciones." />
           ) : folder === "scheduled" ? (
@@ -1185,7 +1214,17 @@ export function CorreosClient() {
             <Spinner className="mx-auto" />
           ) : filtered.length === 0 ? (
             searching ? (
-              <EmptyState icon={Mail} title="Sin resultados" description="Nada coincide con tu búsqueda en esta carpeta. Probá otros términos u operadores (from:, to:, domain:, before:, after:, has:attachment)." />
+              <EmptyState
+                icon={Mail}
+                title="Sin resultados"
+                description={
+                  coverage && coverage.pct < 100
+                    ? `No encontramos coincidencias por texto ni por significado en esta carpeta. La casilla tiene ${coverage.pct}% indexado: correos antiguos pueden no aparecer por significado. Probá from:, is:unread o reformulá.`
+                    : !semanticAvailable
+                      ? "Nada coincide por texto exacto. La búsqueda por significado no está disponible ahora."
+                      : "Nada coincide por texto exacto ni por significado en esta carpeta. Probá from:, subject:, is:unread o has:attachment."
+                }
+              />
             ) : (
               <EmptyState icon={Mail} title="Sin correos" description="Probá sincronizar o cambiá los filtros." />
             )

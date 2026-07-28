@@ -8,6 +8,7 @@ import { parseSender } from "./correo-sender";
 import { PREVIEW_LINE_CLASS } from "./CorreoRow";
 import type { CorreoPreviewLines } from "./useCorreosViewPreferences";
 import { formatGmailDateChile } from "@/modules/crm/email/gmail-date-format";
+import { CorreoMatchReasonBadge } from "./CorreoMatchReasonBadge";
 
 type Props = {
   thread: CorreoThreadDTO;
@@ -95,6 +96,7 @@ export const CorreoRowMobile = memo(function CorreoRowMobile({
             {formatGmailDateChile(thread.lastMessageAt)}
           </span>
           <span className="flex items-center gap-1.5">
+            <CorreoMatchReasonBadge reason={thread.matchReason} />
             {hasAttachments && (
               <Paperclip
                 aria-label={`${thread.attachmentCount} adjuntos`}

@@ -11,6 +11,7 @@
  *    REALES del response de OpenAI.
  */
 import { createHash } from "node:crypto";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getTenantOpenAIClient } from "@/lib/ai/tenant-openai";
 import { logAiUsage } from "@/lib/platform-ai-service";
@@ -227,13 +228,26 @@ export type SemanticHit = {
 /**
  * Retrieval semántico SIEMPRE acotado por tenant + casilla. Devuelve los
  * chunks más cercanos con su distancia coseno.
+ *
+ * Con `folderSql` / `structuralSql` hace JOIN a `crm.email_threads t` y aplica
+ * los mismos filtros estructurales que la rama léxica. Sobre-recupera por
+ * defecto (`limit * 4`) para compensar el post-filtrado de HNSW.
  */
 export async function semanticSearchChunks(params: {
   tenantId: string;
   emailAccountId: string;
   query: string;
   limit?: number;
+  /** Condición de carpeta sobre alias `t` (folderWhereSql). */
+  folderSql?: Prisma.Sql;
+  /** Condiciones estructurales sobre alias `t`. */
+  structuralSql?: Prisma.Sql[];
+  /** Sobre-recuperación ante post-filtrado HNSW (default limit*4, techo 200). */
+  overfetch?: number;
 }): Promise<SemanticHit[]> {
+  if (emailEmbeddingsDisabled() || !process.env.OPENAI_API_KEY) {
+    return [];
+  }
   const startedAt = Date.now();
   const client = await getTenantOpenAIClient(params.tenantId);
   const response = await client.embeddings.create({
@@ -253,20 +267,47 @@ export async function semanticSearchChunks(params: {
       ((response.usage?.total_tokens ?? 0) / 1_000_000) * EMBEDDING_USD_PER_MTOKEN,
     durationMs: Date.now() - startedAt,
   });
+  const baseLimit = Math.min(params.limit ?? 24, 50);
+  const hasThreadFilters =
+    Boolean(params.folderSql) || (params.structuralSql?.length ?? 0) > 0;
+  // Con filtros, HNSW post-filtra: sobre-recuperar para no quedar cortos.
+  const fetchLimit = hasThreadFilters
+    ? Math.min(params.overfetch ?? Math.max(baseLimit * 4, baseLimit), 200)
+    : baseLimit;
   const vectorLiteral = `[${embedding.join(",")}]`;
-  const rows = await prisma.$queryRawUnsafe<
-    Array<{ thread_id: string; message_id: string; content: string; distance: number }>
-  >(
-    `SELECT thread_id, message_id, content, (embedding <=> $1::vector) AS distance
-     FROM crm.email_chunks
-     WHERE tenant_id = $2 AND email_account_id = $3::uuid AND embedding IS NOT NULL
-     ORDER BY embedding <=> $1::vector
-     LIMIT $4`,
-    vectorLiteral,
-    params.tenantId,
-    params.emailAccountId,
-    Math.min(params.limit ?? 24, 50),
-  );
+
+  const conds: Prisma.Sql[] = [
+    Prisma.sql`c.tenant_id = ${params.tenantId}`,
+    Prisma.sql`c.email_account_id = ${params.emailAccountId}::uuid`,
+    Prisma.sql`c.embedding IS NOT NULL`,
+  ];
+  if (params.folderSql) conds.push(params.folderSql);
+  if (params.structuralSql?.length) conds.push(...params.structuralSql);
+
+  // Vector como parámetro tipado (no concatenar entrada del usuario).
+  const rows = hasThreadFilters
+    ? await prisma.$queryRaw<
+        Array<{ thread_id: string; message_id: string; content: string; distance: number }>
+      >(Prisma.sql`
+        SELECT c.thread_id, c.message_id, c.content,
+               (c.embedding <=> ${vectorLiteral}::vector) AS distance
+        FROM crm.email_chunks c
+        JOIN crm.email_threads t ON t.id = c.thread_id
+        WHERE ${Prisma.join(conds, " AND ")}
+        ORDER BY c.embedding <=> ${vectorLiteral}::vector
+        LIMIT ${fetchLimit}
+      `)
+    : await prisma.$queryRaw<
+        Array<{ thread_id: string; message_id: string; content: string; distance: number }>
+      >(Prisma.sql`
+        SELECT c.thread_id, c.message_id, c.content,
+               (c.embedding <=> ${vectorLiteral}::vector) AS distance
+        FROM crm.email_chunks c
+        WHERE ${Prisma.join(conds, " AND ")}
+        ORDER BY c.embedding <=> ${vectorLiteral}::vector
+        LIMIT ${fetchLimit}
+      `);
+
   return rows.map((r) => ({
     threadId: r.thread_id,
     messageId: r.message_id,

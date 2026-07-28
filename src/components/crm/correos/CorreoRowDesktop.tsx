@@ -7,6 +7,7 @@ import { CorreoSenderAvatar } from "./CorreoSenderAvatar";
 import { parseSender } from "./correo-sender";
 import { formatGmailDateChile } from "@/modules/crm/email/gmail-date-format";
 import { CorreoThreadActions } from "./CorreoThreadActions";
+import { CorreoMatchReasonBadge } from "./CorreoMatchReasonBadge";
 import { runCorreoAction } from "./correo-thread-action-client";
 import type { CorreoPreviewLines } from "./useCorreosViewPreferences";
 
@@ -161,6 +162,7 @@ export function CorreoRowDesktop({
             Borrador
           </span>
         )}
+        <CorreoMatchReasonBadge reason={thread.matchReason} />
         {thread.attachmentCount > 0 && (
           <Paperclip aria-label={`${thread.attachmentCount} adjuntos`} className="h-3.5 w-3.5 text-ds-text-4" />
         )}

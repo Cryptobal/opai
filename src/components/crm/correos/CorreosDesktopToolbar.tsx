@@ -2,11 +2,21 @@
 
 import {
   AlignJustify, Archive, CheckSquare, Clock, Keyboard, Mail, MailOpen, RefreshCw,
-  Search, ShieldAlert, Sparkles, Star, Trash2, X,
+  Search, ShieldAlert, Star, Trash2, X,
 } from "lucide-react";
 import type { CorreoAction } from "@/modules/crm/email/gmail-thread-actions";
 import { CorreoCheckbox } from "./CorreoCheckbox";
 import type { CorreoPreviewLines } from "./useCorreosViewPreferences";
+
+const OPERATOR_HINTS = [
+  "from:",
+  "to:",
+  "subject:",
+  "has:attachment",
+  "is:unread",
+  "vertical:",
+  "newer_than:7d",
+] as const;
 
 type Props = {
   canModify: boolean;
@@ -18,8 +28,6 @@ type Props = {
   syncing: boolean;
   query: string;
   onQuery: (q: string) => void;
-  semantic: boolean;
-  onSemantic: (v: boolean) => void;
   shownCount: number;
   totalCount: number | null;
   previewLines: CorreoPreviewLines;
@@ -40,11 +48,15 @@ const BTN = "flex h-8 w-8 items-center justify-center rounded-lg text-ds-text-3 
  *  y densidad; con selección activa muta a las acciones masivas en el mismo
  *  slot (reemplaza a CorreoBulkBar en desktop). */
 export function CorreosDesktopToolbar({
-  canModify, allChecked, onToggleAll, onRefresh, syncing, query, onQuery, semantic, onSemantic,
+  canModify, allChecked, onToggleAll, onRefresh, syncing, query, onQuery,
   shownCount, totalCount, previewLines, onPreviewLines,
   selectedCount, allReadSelected, onClear, onAction, onSnooze, onOpenShortcuts,
 }: Props) {
   const compact = previewLines === 1;
+  const insertOp = (op: string) => {
+    const next = query.trim() ? `${query.trim()} ${op}` : op;
+    onQuery(next);
+  };
 
   if (selectedCount > 0) {
     return (
@@ -91,81 +103,81 @@ export function CorreosDesktopToolbar({
   }
 
   return (
-    <div className="sticky top-14 z-10 hidden h-12 items-center gap-2 rounded-xl border border-ds-border-default bg-background/95 px-3 backdrop-blur lg:flex">
-      <CorreoCheckbox
-        checked={allChecked}
-        onChange={onToggleAll}
-        disabled={!canModify}
-        ariaLabel="Seleccionar todo lo visible"
-      />
-      <button
-        type="button"
-        title={syncing ? "Sincronizando…" : "Sincronizar ahora"}
-        onClick={onRefresh}
-        disabled={syncing}
-        className={BTN}
-      >
-        <RefreshCw className={`h-4 w-4 ${syncing ? "animate-spin" : ""}`} />
-      </button>
-      <div className="relative min-w-0 max-w-xl flex-1">
-        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ds-text-4" />
-        <input
-          id="correos-search-input"
-          className="h-9 w-full rounded-full bg-ds-surface-2 pl-9 pr-24 text-[13px] text-ds-text-1 outline-none placeholder:text-ds-text-4"
-          placeholder={
-            semantic
-              ? "Buscar por significado (ej: el cliente que pidió más guardias)"
-              : "Buscar en el correo  (from:  to:  domain:  has:attachment)"
-          }
-          value={query}
-          onChange={(e) => onQuery(e.target.value)}
-          autoComplete="off"
+    <div className="sticky top-14 z-10 hidden flex-col gap-1.5 rounded-xl border border-ds-border-default bg-background/95 px-3 py-2 backdrop-blur lg:flex">
+      <div className="flex h-10 items-center gap-2">
+        <CorreoCheckbox
+          checked={allChecked}
+          onChange={onToggleAll}
+          disabled={!canModify}
+          ariaLabel="Seleccionar todo lo visible"
         />
-        {query.length > 0 && (
-          <button
-            type="button"
-            onClick={() => onQuery("")}
-            aria-label="Limpiar búsqueda"
-            title="Limpiar búsqueda"
-            className="absolute right-11 top-1/2 inline-flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full text-ds-text-3 ds-tap hover:bg-ds-surface-3 hover:text-ds-text-1"
-          >
-            <X className="h-3.5 w-3.5" />
-          </button>
-        )}
         <button
           type="button"
-          onClick={() => onSemantic(!semantic)}
-          aria-pressed={semantic}
-          title="Buscar por significado (búsqueda semántica con IA)"
-          className={`absolute right-1.5 top-1/2 inline-flex h-6 -translate-y-1/2 items-center gap-1 rounded-full px-2 text-[12px] ds-tap ${
-            semantic ? "bg-tint-violet text-tint-violet-fg" : "text-ds-text-3 hover:bg-ds-surface-3"
-          }`}
-        >
-          <Sparkles className="h-3 w-3" /> IA
-        </button>
-      </div>
-      <span className="ml-auto text-[12px] text-ds-text-4 tabular-nums">
-        {totalCount != null ? `${shownCount} de ${totalCount}` : `${shownCount} hilos`}
-      </span>
-      <button
-        type="button"
-        title={compact ? "Densidad cómoda" : "Densidad compacta"}
-        aria-pressed={compact}
-        onClick={() => onPreviewLines(compact ? 2 : 1)}
-        className={BTN}
-      >
-        <AlignJustify className="h-4 w-4" />
-      </button>
-      {onOpenShortcuts && (
-        <button
-          type="button"
-          title="Atajos de teclado (?)"
-          onClick={onOpenShortcuts}
+          title={syncing ? "Sincronizando…" : "Sincronizar ahora"}
+          onClick={onRefresh}
+          disabled={syncing}
           className={BTN}
         >
-          <Keyboard className="h-4 w-4" />
+          <RefreshCw className={`h-4 w-4 ${syncing ? "animate-spin" : ""}`} />
         </button>
-      )}
+        <div className="relative min-w-0 max-w-xl flex-1">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ds-text-4" />
+          <input
+            id="correos-search-input"
+            className="h-9 w-full rounded-full bg-ds-surface-2 pl-9 pr-10 text-[13px] text-ds-text-1 outline-none placeholder:text-ds-text-4"
+            placeholder="Buscá lo que recordás — texto, remitente o idea"
+            value={query}
+            onChange={(e) => onQuery(e.target.value)}
+            autoComplete="off"
+          />
+          {query.length > 0 && (
+            <button
+              type="button"
+              onClick={() => onQuery("")}
+              aria-label="Limpiar búsqueda"
+              title="Limpiar búsqueda"
+              className="absolute right-1.5 top-1/2 inline-flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full text-ds-text-3 ds-tap hover:bg-ds-surface-3 hover:text-ds-text-1"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
+        <span className="ml-auto text-[12px] text-ds-text-4 tabular-nums">
+          {totalCount != null ? `${shownCount} de ${totalCount}` : `${shownCount} hilos`}
+        </span>
+        <button
+          type="button"
+          title={compact ? "Densidad cómoda" : "Densidad compacta"}
+          aria-pressed={compact}
+          onClick={() => onPreviewLines(compact ? 2 : 1)}
+          className={BTN}
+        >
+          <AlignJustify className="h-4 w-4" />
+        </button>
+        {onOpenShortcuts && (
+          <button
+            type="button"
+            title="Atajos de teclado (?)"
+            onClick={onOpenShortcuts}
+            className={BTN}
+          >
+            <Keyboard className="h-4 w-4" />
+          </button>
+        )}
+      </div>
+      <div className="flex min-w-0 items-center gap-1 overflow-x-auto pl-10 scrollbar-none">
+        <span className="shrink-0 text-[12px] text-ds-text-4">Operadores</span>
+        {OPERATOR_HINTS.map((op) => (
+          <button
+            key={op}
+            type="button"
+            onClick={() => insertOp(op)}
+            className="inline-flex h-7 shrink-0 items-center rounded-full border border-ds-border-subtle bg-ds-surface-2 px-2 font-mono text-[12px] text-ds-text-3 ds-tap hover:text-ds-text-1"
+          >
+            {op}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
