@@ -22,7 +22,6 @@ type Props = {
   initialTab: WorkTab;
   detail: CorreoDetail;
   onOpenAiLead: () => void;
-  onOpenAiAnalizar?: () => void;
   onAssociate: (p: { accountId: string | null; dealId: string | null; sharedWithAccount?: boolean }) => void;
   onRefresh: () => void;
 };
@@ -32,7 +31,7 @@ type Props = {
  * bottom-sheet en móvil. Cuatro pestañas: Copiloto · Cuenta · Vínculos · Trabajo.
  */
 export function CorreoWorkPanel({
-  open, onClose, initialTab, detail, onOpenAiLead, onOpenAiAnalizar, onAssociate, onRefresh,
+  open, onClose, initialTab, detail, onOpenAiLead, onAssociate, onRefresh,
 }: Props) {
   const [tab, setTab] = useState(() => resolveWorkTab(initialTab));
   const [closing, setClosing] = useState(false);
@@ -176,7 +175,6 @@ export function CorreoWorkPanel({
               attachmentCount={detail.attachments.length}
               attachmentsSaved={detail.attachments.filter((a) => a.savedFileId).length}
               onOpenAiLead={onOpenAiLead}
-              onOpenAiAnalizar={onOpenAiAnalizar}
               onGoTo={(next) => setTab(resolveWorkTab(next))}
             />
           )}

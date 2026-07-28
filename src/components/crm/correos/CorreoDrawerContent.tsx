@@ -17,7 +17,6 @@ type Props = {
   mailboxEmail?: string | null;
   canModify?: boolean;
   onOpenAiLead: () => void;
-  onOpenAiAnalizar?: () => void;
   onOpenAiMenu?: () => void;
   onAssociate: (p: { accountId: string | null; dealId: string | null; sharedWithAccount?: boolean }) => void;
   onRefresh: () => void;
@@ -40,7 +39,6 @@ export function CorreoDrawerContent({
   mailboxEmail,
   canModify,
   onOpenAiLead,
-  onOpenAiAnalizar,
   onOpenAiMenu,
   onAssociate,
   onRefresh,
@@ -194,7 +192,6 @@ export function CorreoDrawerContent({
         initialTab={panel?.tab ?? "resumen"}
         detail={detail}
         onOpenAiLead={onOpenAiLead}
-        onOpenAiAnalizar={onOpenAiAnalizar}
         onAssociate={onAssociate}
         onRefresh={onRefresh}
         onClose={() => {

@@ -11,7 +11,6 @@ import {
   ListChecks,
   ListTodo,
   Paperclip,
-  Sparkles,
   TicketPlus,
   UserPlus,
   type LucideIcon,
@@ -30,8 +29,6 @@ type Props = {
   attachmentsSaved?: number;
   /** Abre el panel unificado de Acciones IA (comando lead). */
   onOpenAiLead: () => void;
-  /** Abre el panel con comando analizar (plan de acciones). */
-  onOpenAiAnalizar?: () => void;
   onGoTo: (tab: WorkTab) => void;
 };
 
@@ -63,7 +60,6 @@ export function CorreoWorkSummary({
   attachmentCount,
   attachmentsSaved,
   onOpenAiLead,
-  onOpenAiAnalizar,
   onGoTo,
 }: Props) {
   const perms = useEffectivePermissions();
@@ -133,15 +129,6 @@ export function CorreoWorkSummary({
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-2 gap-2">
-        {onOpenAiAnalizar && (
-          <Tile
-            tone="violet"
-            icon={Sparkles}
-            title="✦ Analizar con IA"
-            subtitle="Plan de acciones"
-            onClick={onOpenAiAnalizar}
-          />
-        )}
         <Tile tone="violet" icon={TicketPlus} title="Crear ticket" subtitle="✦ con IA" onClick={() => onGoTo("productividad")} />
         <Tile tone="violet" icon={CalendarPlus} title="Proponer reunión" subtitle="✦ con IA" onClick={() => onGoTo("productividad")} />
         <Tile tone="emerald" icon={ListTodo} title="Crear tarea" subtitle="Seguimiento" onClick={() => onGoTo("productividad")} />
