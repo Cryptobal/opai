@@ -7,6 +7,7 @@ import { getTenantCompanyConfig } from "@/lib/tenant-config";
 import { cpqQuoteListedInClientPortalWhere } from "@/lib/cpq-portal-visibility";
 import { notify } from "@/lib/notifications/notify";
 import { syncContractItemForQuote } from "@/modules/finance/cashflow/generators/sales-contract-sync";
+import { ensureInstallationChannel } from "@/lib/chat-installation-channel";
 
 export async function POST(
   request: Request,
@@ -109,20 +110,14 @@ export async function POST(
     });
 
     for (const inst of installations) {
-      // Public INSTALLATION channel (client + guards + Gard) — only if not exists
-      const existingChannel = await prisma.chatChannel.findFirst({
-        where: { installationId: inst.id },
+      // Public INSTALLATION channel (client + guards + Gard) — idempotent
+      await ensureInstallationChannel({
+        client: prisma,
+        tenantId: session.tenantId,
+        installationId: inst.id,
+        installationName: inst.name,
+        activate: true,
       });
-      if (!existingChannel) {
-        await prisma.chatChannel.create({
-          data: {
-            tenantId: session.tenantId,
-            channelType: "INSTALLATION",
-            installationId: inst.id,
-            name: inst.name,
-          },
-        });
-      }
 
       // Internal GROUP channel (Gard only)
       const internalGroupId = `internal-${inst.id}`;
