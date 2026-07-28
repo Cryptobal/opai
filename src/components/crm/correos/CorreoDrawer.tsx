@@ -54,6 +54,7 @@ type Props = {
   workTabIntent?: { tab: import("./work-panel-tabs").WorkTab; nonce: number } | null;
   composeIntent?: ComposeIntent | null;
   onOpenAiLead?: () => void;
+  onAiCommand?: (commandId: import("@/modules/crm/email/correo-ai-commands").CorreoAiCommandId) => void;
   onOpenAiMenu?: () => void;
 };
 
@@ -81,6 +82,7 @@ export function CorreoDrawer({
   workTabIntent = null,
   composeIntent = null,
   onOpenAiLead,
+  onAiCommand,
   onOpenAiMenu,
 }: Props) {
   const [detail, setDetail] = useState<CorreoDetail | null>(null);
@@ -261,7 +263,7 @@ export function CorreoDrawer({
           mailboxEmail={mailboxEmail}
           canModify={canModify}
           onOpenAiLead={() => onOpenAiLead?.()}
-          onOpenAiMenu={onOpenAiMenu}
+          onAiCommand={onAiCommand}
           onAssociate={associate}
           onRefresh={refresh}
           onClose={onClose}

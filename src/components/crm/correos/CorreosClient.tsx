@@ -1274,6 +1274,10 @@ export function CorreosClient() {
             const t = openId ? items.find((x) => x.id === openId) : null;
             if (t) openAiPanel(t, "lead");
           }}
+          onAiCommand={(commandId) => {
+            const t = openId ? items.find((x) => x.id === openId) : null;
+            if (t) handleAiCommand(commandId, t);
+          }}
           onOpenAiMenu={
             hasRadarCaps
               ? () => {

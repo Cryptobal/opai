@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from "react";
 import {
-  Briefcase,
   Building2,
   ExternalLink,
   Eye,
@@ -21,6 +20,7 @@ import { CorreoWorkPanel } from "./CorreoWorkPanel";
 import { CorreoVerdictStrip } from "./CorreoVerdictStrip";
 import { resolveWorkTab, type WorkTab } from "./work-panel-tabs";
 import type { CorreoDetail } from "@/modules/crm/email/correos.types";
+import type { CorreoAiCommandId } from "@/modules/crm/email/correo-ai-commands";
 import type { CorreoShortcuts } from "./useCorreosViewPreferences";
 import type { ComposeIntent } from "./correo-reader-intent";
 
@@ -29,7 +29,7 @@ type Props = {
   mailboxEmail?: string | null;
   canModify?: boolean;
   onOpenAiLead: () => void;
-  onOpenAiMenu?: () => void;
+  onAiCommand?: (commandId: CorreoAiCommandId) => void;
   onAssociate: (p: { accountId: string | null; dealId: string | null; sharedWithAccount?: boolean }) => void;
   onRefresh: () => void;
   onClose?: () => void;
@@ -57,7 +57,7 @@ export function CorreoDrawerContent({
   mailboxEmail,
   canModify,
   onOpenAiLead,
-  onOpenAiMenu,
+  onAiCommand,
   onAssociate,
   onRefresh,
   onClose,
@@ -192,22 +192,11 @@ export function CorreoDrawerContent({
 
           <button
             type="button"
-            onClick={() => {
-              if (onOpenAiMenu) onOpenAiMenu();
-              else openPanel("resumen");
-            }}
+            onClick={() => openPanel("resumen")}
             aria-label="Copiloto"
             className="inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-full border border-tint-violet/30 bg-tint-violet/10 px-2.5 text-[12px] font-medium text-tint-violet-fg ds-tap sm:min-h-8"
           >
             <Sparkles className="h-3.5 w-3.5" /> ✦ Copiloto
-          </button>
-
-          <button
-            type="button"
-            onClick={() => openPanel("resumen")}
-            className="hidden min-h-8 shrink-0 items-center gap-1.5 rounded-full border border-ds-border-default bg-ds-surface-1 px-2.5 text-[12px] font-medium text-ds-text-1 ds-tap hover:border-primary lg:inline-flex"
-          >
-            <Briefcase className="h-3.5 w-3.5 text-tint-violet-fg" /> Panel
           </button>
 
           <div ref={overflowRef} className="relative ml-auto shrink-0">
@@ -319,6 +308,7 @@ export function CorreoDrawerContent({
         initialTab={panel?.tab ?? "resumen"}
         detail={detail}
         onOpenAiLead={onOpenAiLead}
+        onAiCommand={onAiCommand}
         onAssociate={onAssociate}
         onRefresh={onRefresh}
         onClose={() => {

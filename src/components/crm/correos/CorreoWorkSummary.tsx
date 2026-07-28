@@ -1,8 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
-  AlertTriangle,
   Building2,
   CalendarPlus,
   CheckCircle2,
@@ -11,12 +10,21 @@ import {
   ListChecks,
   ListTodo,
   Paperclip,
+  Sparkles,
   TicketPlus,
   UserPlus,
   type LucideIcon,
 } from "lucide-react";
-import { hasModuleAccess } from "@/lib/permissions";
+import { canEdit, hasModuleAccess } from "@/lib/permissions";
 import { useEffectivePermissions } from "@/hooks/useEffectivePermissions";
+import {
+  primaryActionCopy,
+  resolveCorreoAiCommands,
+  resolvePrimaryCorreoAiCommand,
+  type CorreoAiCommandId,
+} from "@/modules/crm/email/correo-ai-commands";
+import { CorreoVerdictStrip } from "./CorreoVerdictStrip";
+import { capsFromPerms } from "./CorreoAiMenu";
 import type { WorkTab } from "./work-panel-tabs";
 
 type Props = {
@@ -27,17 +35,16 @@ type Props = {
   hasLead: boolean;
   attachmentCount?: number;
   attachmentsSaved?: number;
-  /** Abre el panel unificado de Acciones IA (comando lead). */
+  aiCategory?: string | null;
+  aiVertical?: string | null;
+  aiSummary?: string | null;
+  aiUrgency?: string | null;
+  aiClassifiedAt?: string | null;
+  lastMessageAt?: string | null;
+  dealFechaEntrega?: string | null;
   onOpenAiLead: () => void;
+  onAiCommand?: (commandId: CorreoAiCommandId) => void;
   onGoTo: (tab: WorkTab) => void;
-};
-
-type Tone = "violet" | "emerald" | "amber" | "sky";
-const TONE: Record<Tone, string> = {
-  violet: "bg-tint-violet text-tint-violet-fg",
-  emerald: "bg-tint-emerald text-tint-emerald-fg",
-  amber: "bg-tint-amber text-tint-amber-fg",
-  sky: "bg-tint-sky text-tint-sky-fg",
 };
 
 type ThreadStats = {
@@ -48,8 +55,8 @@ type ThreadStats = {
 };
 
 /**
- * Tab Resumen/Copiloto del Panel de trabajo: acciones + estado del hilo con
- * datos reales (cuenta, negocio, contacto, contadores).
+ * Tab Copiloto (id `resumen`): veredicto, acción principal por categoría,
+ * chips secundarios y estado del hilo con datos reales.
  */
 export function CorreoWorkSummary({
   threadId,
@@ -59,12 +66,32 @@ export function CorreoWorkSummary({
   hasLead,
   attachmentCount,
   attachmentsSaved,
+  aiCategory = null,
+  aiVertical = null,
+  aiSummary = null,
+  aiUrgency = null,
+  aiClassifiedAt = null,
+  lastMessageAt = null,
+  dealFechaEntrega = null,
   onOpenAiLead,
+  onAiCommand,
   onGoTo,
 }: Props) {
   const perms = useEffectivePermissions();
   const hasCrm = hasModuleAccess(perms, "crm");
   const hasOps = hasModuleAccess(perms, "ops");
+  const caps = useMemo(() => capsFromPerms(perms), [perms]);
+  const canEditCorreos = canEdit(perms, "crm", "correos");
+
+  const primary = useMemo(
+    () => resolvePrimaryCorreoAiCommand(aiCategory, aiVertical, caps, { canEditCorreos }),
+    [aiCategory, aiVertical, caps, canEditCorreos],
+  );
+  const secondary = useMemo(() => {
+    const { primary: p, more } = resolveCorreoAiCommands(aiVertical, caps, { canEditCorreos });
+    return [...p, ...more].filter((c) => c.id !== primary?.id && c.kind === "panel").slice(0, 6);
+  }, [aiVertical, caps, canEditCorreos, primary?.id]);
+
   const [stats, setStats] = useState<ThreadStats>({
     contactName: null,
     installationCount: null,
@@ -126,20 +153,72 @@ export function CorreoWorkSummary({
     workParts.push(`${stats.ticketCount} ticket${stats.ticketCount === 1 ? "" : "s"}`);
   }
 
+  const primaryCopy = primary
+    ? primaryActionCopy(aiCategory, primary.id)
+    : null;
+
+  function runCommand(id: CorreoAiCommandId) {
+    if (id === "lead") {
+      onOpenAiLead();
+      return;
+    }
+    onAiCommand?.(id);
+  }
+
   return (
-    <div className="space-y-3">
-      <div className="grid grid-cols-2 gap-2">
-        <Tile tone="violet" icon={TicketPlus} title="Crear ticket" subtitle="✦ con IA" onClick={() => onGoTo("productividad")} />
-        <Tile tone="violet" icon={CalendarPlus} title="Proponer reunión" subtitle="✦ con IA" onClick={() => onGoTo("productividad")} />
-        <Tile tone="emerald" icon={ListTodo} title="Crear tarea" subtitle="Seguimiento" onClick={() => onGoTo("productividad")} />
+    <div className="ds-page-enter space-y-3">
+      <CorreoVerdictStrip
+        data={{
+          aiCategory,
+          aiSummary,
+          aiUrgency,
+          aiClassifiedAt,
+          lastMessageAt,
+          dealFechaEntrega,
+        }}
+      />
+
+      {primary && primaryCopy && (
+        <button
+          type="button"
+          onClick={() => runCommand(primary.id)}
+          className="flex min-h-[72px] w-full flex-col items-start gap-1 rounded-2xl border border-tint-violet/40 bg-tint-violet/10 px-3.5 py-3 text-left ds-tap"
+        >
+          <span className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-tint-violet-fg">
+            <Sparkles className="h-4 w-4" /> ✦ {primaryCopy.title}
+          </span>
+          <span className="text-[12px] leading-snug text-ds-text-2">{primaryCopy.subtitle}</span>
+        </button>
+      )}
+
+      {secondary.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {secondary.map((cmd) => (
+            <button
+              key={cmd.id}
+              type="button"
+              onClick={() => runCommand(cmd.id)}
+              className="inline-flex min-h-11 items-center rounded-full border border-ds-border-default bg-ds-surface-1 px-3 text-[12px] font-medium text-ds-text-2 ds-tap hover:border-primary sm:min-h-8"
+            >
+              {cmd.shortLabel}
+            </button>
+          ))}
+        </div>
+      )}
+
+      <div className="flex flex-wrap gap-1.5">
+        <Chip icon={TicketPlus} label="Ticket" onClick={() => onGoTo("productividad")} />
+        <Chip icon={CalendarPlus} label="Reunión" onClick={() => onGoTo("productividad")} />
+        <Chip icon={ListTodo} label="Tarea" onClick={() => onGoTo("productividad")} />
         {hasCrm &&
           (hasLead ? (
-            <Tile tone="emerald" icon={CheckCircle2} title="Lead creado" subtitle="En comercial" chip="CRM" done />
+            <span className="inline-flex min-h-11 items-center gap-1 rounded-full border border-status-ok-border bg-status-ok-soft px-3 text-[12px] text-status-ok-fg sm:min-h-8">
+              <CheckCircle2 className="h-3.5 w-3.5" /> Lead creado
+            </span>
           ) : (
-            <Tile tone="emerald" icon={UserPlus} title="Crear lead" subtitle="Desde el hilo" chip="CRM" onClick={onOpenAiLead} />
+            <Chip icon={UserPlus} label="Lead" onClick={onOpenAiLead} />
           ))}
-        {hasOps && <Tile tone="amber" icon={AlertTriangle} title="Reportar incidente" subtitle="Operaciones" chip="OPS" onClick={() => onGoTo("productividad")} />}
-        {hasOps && <Tile tone="sky" icon={UserPlus} title="Crear candidato" subtitle="Postulación" chip="RRHH" href="/ops/ats" />}
+        {hasOps && <Chip icon={UserPlus} label="Candidato" href="/ops/ats" />}
       </div>
 
       <div className="overflow-hidden rounded-xl border border-ds-border-subtle bg-ds-surface-2">
@@ -184,46 +263,31 @@ export function CorreoWorkSummary({
   );
 }
 
-function Tile({
-  tone,
+function Chip({
   icon: Icon,
-  title,
-  subtitle,
-  chip,
+  label,
   onClick,
   href,
-  done,
 }: {
-  tone: Tone;
   icon: LucideIcon;
-  title: string;
-  subtitle: string;
-  chip?: string;
+  label: string;
   onClick?: () => void;
   href?: string;
-  done?: boolean;
 }) {
-  const inner = (
-    <>
-      <div className="flex items-center justify-between">
-        <span className={`grid h-7 w-7 place-items-center rounded-lg ${TONE[tone]}`}>
-          <Icon className="h-4 w-4" />
-        </span>
-        {chip && (
-          <span className="rounded-full bg-ds-surface-3 px-1.5 py-0.5 text-[12px] font-mono uppercase tracking-[0.06em] text-ds-text-3">
-            {chip}
-          </span>
-        )}
-      </div>
-      <span className="mt-1.5 text-[13px] font-medium leading-tight text-ds-text-1">{title}</span>
-      <span className="text-[12px] leading-tight text-ds-text-3">{subtitle}</span>
-    </>
+  const cls =
+    "inline-flex min-h-11 items-center gap-1.5 rounded-full border border-ds-border-default bg-ds-surface-1 px-3 text-[12px] font-medium text-ds-text-2 ds-tap hover:border-primary sm:min-h-8";
+  if (href) {
+    return (
+      <a href={href} className={cls}>
+        <Icon className="h-3.5 w-3.5" /> {label}
+      </a>
+    );
+  }
+  return (
+    <button type="button" onClick={onClick} className={cls}>
+      <Icon className="h-3.5 w-3.5" /> {label}
+    </button>
   );
-  const cls = `flex min-h-[76px] flex-col rounded-xl border p-2.5 text-left ds-tap ${
-    done ? "border-status-ok-border bg-status-ok-soft/40" : "border-ds-border-default bg-ds-surface-1"
-  }`;
-  if (href) return <a href={href} className={cls}>{inner}</a>;
-  return <button type="button" onClick={onClick} className={cls}>{inner}</button>;
 }
 
 function StatusRow({

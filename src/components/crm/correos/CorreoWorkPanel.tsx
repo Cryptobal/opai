@@ -15,6 +15,7 @@ import { CorreoMeetingPanel } from "./CorreoMeetingPanel";
 import { CorreoWorkSummary } from "./CorreoWorkSummary";
 import { WORK_TABS, resolveWorkTab, type WorkTab } from "./work-panel-tabs";
 import type { CorreoDetail } from "@/modules/crm/email/correos.types";
+import type { CorreoAiCommandId } from "@/modules/crm/email/correo-ai-commands";
 
 type Props = {
   open: boolean;
@@ -22,6 +23,7 @@ type Props = {
   initialTab: WorkTab;
   detail: CorreoDetail;
   onOpenAiLead: () => void;
+  onAiCommand?: (commandId: CorreoAiCommandId) => void;
   onAssociate: (p: { accountId: string | null; dealId: string | null; sharedWithAccount?: boolean }) => void;
   onRefresh: () => void;
 };
@@ -31,7 +33,7 @@ type Props = {
  * bottom-sheet en móvil. Cuatro pestañas: Copiloto · Cuenta · Vínculos · Trabajo.
  */
 export function CorreoWorkPanel({
-  open, onClose, initialTab, detail, onOpenAiLead, onAssociate, onRefresh,
+  open, onClose, initialTab, detail, onOpenAiLead, onAiCommand, onAssociate, onRefresh,
 }: Props) {
   const [tab, setTab] = useState(() => resolveWorkTab(initialTab));
   const [closing, setClosing] = useState(false);
@@ -174,7 +176,15 @@ export function CorreoWorkPanel({
               hasLead={Boolean(t.leadId)}
               attachmentCount={detail.attachments.length}
               attachmentsSaved={detail.attachments.filter((a) => a.savedFileId).length}
+              aiCategory={t.aiCategory}
+              aiVertical={t.aiVertical}
+              aiSummary={t.aiSummary}
+              aiUrgency={t.aiUrgency}
+              aiClassifiedAt={t.aiClassifiedAt}
+              lastMessageAt={t.lastMessageAt}
+              dealFechaEntrega={t.dealFechaEntrega}
               onOpenAiLead={onOpenAiLead}
+              onAiCommand={onAiCommand}
               onGoTo={(next) => setTab(resolveWorkTab(next))}
             />
           )}

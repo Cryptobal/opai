@@ -261,3 +261,103 @@ export function capabilityForThreadVertical(
   if (!v) return null;
   return VERTICAL_CAPABILITY[v];
 }
+
+/**
+ * Comando principal sugerido según la categoría del clasificador.
+ * Puro: no filtra por capabilities — usar `resolvePrimaryCorreoAiCommand`.
+ */
+export function primaryCommandForCategory(
+  aiCategory: string | null | undefined,
+  _aiVertical?: string | null,
+): CorreoAiCommandId {
+  switch (aiCategory) {
+    case "licitacion":
+    case "cotizacion":
+      return "analizar";
+    case "consulta_comercial":
+      return "lead";
+    case "operacional":
+      return "ticket_operativo";
+    case "facturacion":
+      return "cobranza";
+    default:
+      return "analizar";
+  }
+}
+
+const PRIMARY_LABEL: Partial<Record<CorreoAiCommandId, { title: string; subtitle: string }>> = {
+  analizar: {
+    title: "Analizar con IA",
+    subtitle: "Extrae estructura, cobertura y plan de acciones",
+  },
+  lead: {
+    title: "Crear lead",
+    subtitle: "Propone un lead comercial desde el hilo",
+  },
+  ticket_operativo: {
+    title: "Abrir ticket operativo",
+    subtitle: "Borrador de ticket para operaciones",
+  },
+  cobranza: {
+    title: "Ver contexto de cobranza",
+    subtitle: "Resume señales financieras del hilo",
+  },
+  crm_completo: {
+    title: "Crear CRM completo",
+    subtitle: "Cuenta, contacto, negocio e instalaciones",
+  },
+  candidato: {
+    title: "Crear candidato en ATS",
+    subtitle: "Extrae datos de postulación",
+  },
+};
+
+/** Etiqueta de la acción principal según categoría (UI). */
+export function primaryActionCopy(
+  aiCategory: string | null | undefined,
+  commandId: CorreoAiCommandId,
+): { title: string; subtitle: string } {
+  if (commandId === "analizar") {
+    if (aiCategory === "licitacion") {
+      return {
+        title: "Armar la licitación",
+        subtitle: "Cuenta, negocio, cobertura, dotación y plazo en agenda",
+      };
+    }
+    if (aiCategory === "cotizacion") {
+      return {
+        title: "Preparar la cotización",
+        subtitle: "Estructura comercial y plan de acciones",
+      };
+    }
+  }
+  return (
+    PRIMARY_LABEL[commandId] ?? {
+      title: getCorreoAiCommand(commandId).label,
+      subtitle: getCorreoAiCommand(commandId).shortLabel,
+    }
+  );
+}
+
+/**
+ * Resuelve el comando principal visible para el usuario: mapeo por categoría
+ * filtrado por capabilities. Si el preferido no está disponible, cae al
+ * primero de `resolveCorreoAiCommands.primary`; si no hay ninguno, null.
+ */
+export function resolvePrimaryCorreoAiCommand(
+  aiCategory: string | null | undefined,
+  aiVertical: string | null,
+  caps: Set<RadarCapability>,
+  opts?: { canEditCorreos?: boolean },
+): CorreoAiCommand | null {
+  const { primary, more } = resolveCorreoAiCommands(aiVertical, caps, opts);
+  const available = [...primary, ...more];
+  if (available.length === 0) return null;
+
+  const preferredId = primaryCommandForCategory(aiCategory, aiVertical);
+  const preferred = available.find((c) => c.id === preferredId);
+  if (preferred) return preferred;
+
+  // Fallback: siguiente disponible en el orden de resolve (primary primero).
+  return available[0] ?? null;
+}
