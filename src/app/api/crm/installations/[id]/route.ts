@@ -15,6 +15,7 @@ import { toSentenceCase } from "@/lib/text-format";
 import { computeChangedFields, createCrmHistoryLog } from "@/lib/crm-history";
 import { shutdownInstallationOperations } from "@/lib/crm/installation-operational-shutdown";
 import { requireTenantModule } from '@/lib/require-module';
+import { ensureInstallationChannel } from "@/lib/chat-installation-channel";
 
 export async function GET(
   _request: NextRequest,
@@ -242,30 +243,13 @@ export async function PATCH(
     // Auto-manage chat channels when chatEnabled changes (o al quedar inactiva)
     if (payload.chatEnabled !== undefined || chatShouldBeOff) {
       if (payload.chatEnabled && installation.status === "active") {
-        const existingChannels = await prisma.chatChannel.findMany({
-          where: { installationId: id },
+        await ensureInstallationChannel({
+          client: prisma,
+          tenantId: ctx.tenantId,
+          installationId: id,
+          installationName: installation.name,
+          activate: true,
         });
-        const hasReportes = existingChannels.some((c: any) => c.subType === "reportes");
-
-        // Reactivate existing reportes channel (interno is deprecated and stays deactivated if present)
-        if (existingChannels.length > 0) {
-          await prisma.chatChannel.updateMany({
-            where: { installationId: id, tenantId: ctx.tenantId, subType: "reportes" },
-            data: { isActive: true },
-          });
-        }
-
-        // Create missing reportes channel
-        if (!hasReportes) {
-          await prisma.chatChannel.create({
-            data: {
-              tenantId: ctx.tenantId,
-              installationId: id,
-              subType: "reportes",
-              name: `${installation.name} - Reportes`,
-            },
-          });
-        }
       } else if (chatShouldBeOff) {
         await prisma.chatChannel.updateMany({
           where: { installationId: id, tenantId: ctx.tenantId },

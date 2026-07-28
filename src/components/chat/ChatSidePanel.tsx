@@ -35,6 +35,8 @@ import { ChatNewDmModal } from "./ChatNewDmModal";
 import { usePusher } from "./hooks/usePusher";
 import { useSlackBridges, type SlackBridgeInfo } from "./useSlackBridges";
 import { ChatChannelSlackBridge } from "./ChatChannelSlackBridge";
+import { ChatChannelListItem, getChannelDisplayName as sharedDisplayName } from "./ChatChannelListItem";
+import type { ChatChannelData } from "@/lib/chat-types";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
   DropdownMenu,
@@ -53,6 +55,45 @@ type SlackBridgeCtl = {
   bridges: Record<string, SlackBridgeInfo>;
   refresh: () => void;
 };
+
+function asChannelData(ch: ChatSidePanelChannel): ChatChannelData {
+  return {
+    id: ch.id,
+    tenantId: "",
+    channelType: ch.channelType as ChatChannelData["channelType"],
+    installationId: ch.installationId,
+    subType: ch.subType,
+    groupId: ch.groupId,
+    name: ch.name,
+    isActive: true,
+    lastMessageAt: ch.lastMessageAt,
+    lastMessagePreview: ch.lastMessagePreview,
+    lastMessageSenderName: ch.lastMessageSenderName ?? null,
+    messageCount: ch.messageCount,
+    createdAt: "",
+    updatedAt: "",
+    installation: ch.installation,
+    group: ch.group,
+    dmParticipant: ch.dmParticipant,
+    account: ch.account,
+    unreadCount: ch.unreadCount,
+    notificationPreference: ch.notificationPreference,
+    isArchivedByMe: ch.isArchivedByMe,
+  };
+}
+
+function ambiguousIds(channels: ChatSidePanelChannel[], getName: (ch: ChatSidePanelChannel) => string): Set<string> {
+  const counts = new Map<string, number>();
+  for (const ch of channels) {
+    const n = getName(ch);
+    counts.set(n, (counts.get(n) ?? 0) + 1);
+  }
+  const out = new Set<string>();
+  for (const ch of channels) {
+    if ((counts.get(getName(ch)) ?? 0) > 1) out.add(ch.id);
+  }
+  return out;
+}
 
 /* ─── Side Panel Component ─── */
 
@@ -281,9 +322,7 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
 
   // Derive display name for a channel
   const getChannelDisplayName = useCallback((ch: ChatSidePanelChannel) => {
-    if (ch.channelType === "DIRECT") return ch.dmParticipant?.name ?? ch.name;
-    if (ch.channelType === "INSTALLATION") return ch.installation?.name ?? ch.name;
-    return ch.name;
+    return sharedDisplayName(asChannelData(ch));
   }, []);
 
   // Filter and section channels
@@ -375,82 +414,60 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
   /* ── Shared channel list content (used by both mobile and desktop) ── */
   const channelListContent = (
     <>
-      {/* Search bar */}
-      <div className="px-3 pt-2 border-b border-[rgba(255,255,255,0.04)] shrink-0 opai-chat-mobile-list-chrome">
+      {/* Search + segmented filter */}
+      <div className="px-3 pt-2 pb-2 border-b border-ds-border-subtle shrink-0 opai-chat-mobile-list-chrome space-y-2">
         <div className="relative">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground/60" />
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-ds-text-4" />
           <input
             type="text"
             placeholder="Buscar conversación..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full h-8 pl-8 pr-3 text-xs rounded-md border border-[rgba(255,255,255,0.06)] bg-muted/40 placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-status-info-border focus:border-status-info-border opai-chat-mobile-search"
+            className="w-full h-9 pl-8 pr-9 text-[13px] rounded-md border border-ds-border-default bg-ds-surface-2 placeholder:text-ds-text-4 focus:outline-none focus:ring-1 focus:ring-status-info-border focus:border-status-info-border opai-chat-mobile-search"
           />
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={() => setSearchQuery("")}
+              className="absolute right-2 top-1/2 -translate-y-1/2 h-7 w-7 flex items-center justify-center rounded-md text-ds-text-4 hover:text-ds-text-1"
+              aria-label="Limpiar búsqueda"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
         </div>
-        {/* Filtros + Marcar todos leídos */}
-        <div className="px-0 pb-2 pt-2 space-y-2 shrink-0">
-          <div className="flex items-center gap-1.5">
-            <button
-              type="button"
-              onClick={() => setFilter("all")}
-              className={cn(
-                "rounded-full px-3 py-1.5 text-[11px] font-medium transition-colors opai-chat-mobile-pill",
-                filter === "all"
-                  ? "bg-status-info text-white"
-                  : "bg-muted/50 text-muted-foreground hover:bg-muted"
-              )}
-            >
-              Todos
-            </button>
-            <button
-              type="button"
-              onClick={() => setFilter("unread")}
-              className={cn(
-                "rounded-full px-3 py-1.5 text-[11px] font-medium transition-colors opai-chat-mobile-pill",
-                filter === "unread"
-                  ? "bg-status-info text-white"
-                  : "bg-muted/50 text-muted-foreground hover:bg-muted"
-              )}
-            >
-              No leídos
-              {ctx.totalUnread > 0 && filter !== "unread" && (
-                <span className="ml-1 inline-flex h-4 min-w-[16px] items-center justify-center rounded-full bg-status-info-soft px-1 text-[9px] font-bold text-status-info-fg">
-                  {ctx.totalUnread > 99 ? "99+" : ctx.totalUnread}
-                </span>
-              )}
-            </button>
-            <button
-              type="button"
-              onClick={() => setShowInactiveExternal((v) => !v)}
-              className={cn(
-                "ml-auto rounded-full px-2.5 py-1 text-[10px] font-medium transition-colors border",
-                showInactiveExternal
-                  ? "bg-amber-500/10 text-amber-400 border-amber-500/30"
-                  : "text-muted-foreground border-transparent hover:text-foreground"
-              )}
-              title={showInactiveExternal ? "Ocultar canales sin actividad" : "Mostrar canales sin actividad"}
-            >
-              {showInactiveExternal ? "Ocultar inactivos" : "Mostrar inactivos"}
-            </button>
-          </div>
+        <div className="inline-flex rounded-lg border border-ds-border-default bg-ds-surface-2 p-0.5">
           <button
             type="button"
-            onClick={() => ctx.markAllChannelsAsRead()}
-            disabled={ctx.markAllChannelsAsReadLoading || ctx.totalUnread === 0}
+            onClick={() => setFilter("all")}
             className={cn(
-              "w-full flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-[11px] font-medium transition-colors",
-              ctx.totalUnread > 0
-                ? "bg-status-info-soft text-status-info-fg hover:brightness-110 border border-status-info-border"
-                : "bg-muted/30 text-muted-foreground border border-transparent cursor-default",
-              "disabled:opacity-60 disabled:cursor-not-allowed"
+              "rounded-md px-3 h-8 text-[13px] font-medium transition-colors opai-chat-mobile-pill",
+              filter === "all"
+                ? "bg-status-info text-primary-foreground"
+                : "text-ds-text-3 hover:text-ds-text-1"
             )}
           >
-            {ctx.markAllChannelsAsReadLoading ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <CheckCheck className="h-3.5 w-3.5" />
+            Todos
+          </button>
+          <button
+            type="button"
+            onClick={() => setFilter("unread")}
+            className={cn(
+              "rounded-md px-3 h-8 text-[13px] font-medium transition-colors inline-flex items-center gap-1.5 opai-chat-mobile-pill",
+              filter === "unread"
+                ? "bg-status-info text-primary-foreground"
+                : "text-ds-text-3 hover:text-ds-text-1"
             )}
-            {ctx.markAllChannelsAsReadLoading ? "Marcando..." : ctx.totalUnread > 0 ? "Marcar todos como leídos" : "Todo leído"}
+          >
+            No leídos
+            {ctx.totalUnread > 0 && (
+              <span className={cn(
+                "inline-flex h-5 min-w-[18px] items-center justify-center rounded-full px-1 text-[12px] font-bold",
+                filter === "unread" ? "bg-primary-foreground/20 text-primary-foreground" : "bg-status-info-soft text-status-info-fg"
+              )}>
+                {ctx.totalUnread > 99 ? "99+" : ctx.totalUnread}
+              </span>
+            )}
           </button>
         </div>
       </div>
@@ -458,9 +475,10 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
       {/* Channel list */}
       <div className="flex-1 overflow-y-auto min-h-0 opai-chat-mobile-scroll">
         {ctx.loading ? (
-          <div className="flex flex-col items-center gap-2 py-10">
-            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-            <p className="text-xs text-muted-foreground">Cargando conversaciones...</p>
+          <div className="px-3 py-3 space-y-2" aria-busy="true" aria-label="Cargando conversaciones">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="h-[60px] rounded-xl bg-ds-surface-2 animate-pulse" />
+            ))}
           </div>
         ) : filter === "unread" &&
           directChannels.filter(c => c.unreadCount > 0).length === 0 &&
@@ -471,7 +489,7 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
           <div className="flex flex-col items-center gap-2 py-12 text-center px-4">
             <span className="text-3xl">✓</span>
             <p className="text-sm font-medium text-muted-foreground">Todo al día</p>
-            <p className="text-[11px] text-muted-foreground/60">No tienes mensajes sin leer</p>
+            <p className="text-[12px] text-muted-foreground/60">No tienes mensajes sin leer</p>
           </div>
         ) : filteredTotal === 0 && !(isSearching && (newDmCandidates.length > 0 || newExternalCandidates.length > 0 || searchLoading)) ? (
           <div className="flex flex-col items-center gap-1.5 py-10 text-center px-4">
@@ -482,7 +500,7 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
                 : "No tienes conversaciones aún"}
             </p>
             {!searchQuery && (
-              <p className="text-[10px] text-muted-foreground/60">
+              <p className="text-[12px] text-muted-foreground/60">
                 Contacta a un administrador para unirte a un canal
               </p>
             )}
@@ -617,13 +635,13 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
             {/* Iniciar nueva conversación — solo aparece al buscar */}
             {isSearching && (newDmCandidates.length > 0 || newExternalCandidates.length > 0 || searchLoading) && (
               <div className="opai-chat-mobile-section border-t border-border/30 mt-2 pt-2">
-                <div className="px-4 py-2 text-[11px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+                <div className="px-4 py-2 text-[12px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
                   Iniciar nueva conversación
                   {searchLoading && <Loader2 className="h-3 w-3 animate-spin" />}
                 </div>
                 {newDmCandidates.length > 0 && (
                   <div className="mb-2">
-                    <div className="px-4 py-1 text-[10px] text-muted-foreground/70 uppercase">Usuarios</div>
+                    <div className="px-4 py-1 text-[12px] text-muted-foreground/70 uppercase">Usuarios</div>
                     {newDmCandidates.map((u) => (
                       <button
                         key={u.id}
@@ -631,15 +649,12 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
                         onClick={() => handleStartDmFromSearch(u)}
                         className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-accent/50 text-left"
                       >
-                        <div
-                          className="h-8 w-8 rounded-full flex items-center justify-center shrink-0 text-white text-xs font-bold"
-                          style={{ backgroundColor: "#0d9488" }}
-                        >
+                        <div className="h-8 w-8 rounded-[10px] flex items-center justify-center shrink-0 text-[13px] font-bold bg-tint-teal text-tint-teal-fg">
                           {u.name.charAt(0).toUpperCase()}
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="text-sm truncate">{u.name}</div>
-                          <div className="text-[10px] text-muted-foreground/70 truncate">{u.email}</div>
+                          <div className="text-[12px] text-muted-foreground/70 truncate">{u.email}</div>
                         </div>
                         <Plus className="h-4 w-4 text-muted-foreground shrink-0" />
                       </button>
@@ -648,7 +663,7 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
                 )}
                 {newExternalCandidates.length > 0 && (
                   <div>
-                    <div className="px-4 py-1 text-[10px] text-muted-foreground/70 uppercase">Cuentas CRM (sin chat)</div>
+                    <div className="px-4 py-1 text-[12px] text-muted-foreground/70 uppercase">Cuentas CRM (sin chat)</div>
                     {newExternalCandidates.map((a) => (
                       <button
                         key={a.id}
@@ -657,14 +672,18 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
                         className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-accent/50 text-left"
                       >
                         <div
-                          className="h-8 w-8 rounded-full flex items-center justify-center shrink-0 text-white text-xs font-bold"
-                          style={{ backgroundColor: a.status === "prospect" ? "#16a34a" : "#0284c7" }}
+                          className={cn(
+                            "h-8 w-8 rounded-[10px] flex items-center justify-center shrink-0 text-[13px] font-bold",
+                            a.status === "prospect"
+                              ? "bg-tint-emerald text-tint-emerald-fg"
+                              : "bg-tint-sky text-tint-sky-fg",
+                          )}
                         >
                           {a.name.charAt(0).toUpperCase()}
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="text-sm truncate">{a.name}</div>
-                          <div className="text-[10px] text-muted-foreground/70 truncate capitalize">{a.status.replace(/_/g, " ")}</div>
+                          <div className="text-[12px] text-muted-foreground/70 truncate capitalize">{a.status.replace(/_/g, " ")}</div>
                         </div>
                         <Plus className="h-4 w-4 text-muted-foreground shrink-0" />
                       </button>
@@ -708,7 +727,7 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
           />
           <div
             className={cn(
-              "fixed z-50 xl:hidden flex flex-col bg-[#0a0e17] opai-chat-mobile-shell transition-transform duration-300 ease-out",
+              "fixed z-50 xl:hidden flex flex-col bg-[hsl(var(--ds-surface-1))] opai-chat-mobile-shell transition-transform duration-300 ease-out",
               panelEntered && !panelClosing ? "translate-x-0" : "translate-x-full"
             )}
             style={{
@@ -727,22 +746,61 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
             {!selectedChannel && (
               <div
                 className={cn(
-                  "shrink-0 flex flex-col border-b border-[rgba(255,255,255,0.06)] opai-chat-mobile-topbar",
-                  isIOS ? "bg-transparent" : "bg-[#0d1220]",
+                  "shrink-0 flex flex-col border-b border-ds-border-subtle opai-chat-mobile-topbar",
+                  isIOS ? "bg-transparent" : "bg-[hsl(var(--ds-surface-2))]",
                 )}
                 {...swipeClose}
               >
                 <div className="flex justify-center pt-2 pb-1">
-                  <div className="w-10 h-1 rounded-full bg-[rgba(255,255,255,0.2)]" aria-hidden />
+                  <div className="w-10 h-1 rounded-full bg-ds-text-4/40" aria-hidden />
                 </div>
-                <div className="flex items-center justify-between h-12 px-4 pb-2">
-                  <div className="flex items-center gap-2">
+                <div className="flex items-center justify-between h-12 px-4 pb-2 gap-1">
+                  <div className="flex items-center gap-2 min-w-0">
                     <MessageCircle className="h-4 w-4 text-status-info-fg shrink-0" />
-                    <h3 className="text-sm font-semibold text-[rgba(255,255,255,0.88)]">Chat</h3>
+                    <h3 className="text-sm font-semibold text-ds-text-1">Chat</h3>
+                    {ctx.totalUnread > 0 && (
+                      <span className="inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-status-info px-1.5 text-[12px] font-bold text-primary-foreground">
+                        {ctx.totalUnread > 99 ? "99+" : ctx.totalUnread}
+                      </span>
+                    )}
                   </div>
-                  <button onClick={handleClosePanel} className="p-2 text-zinc-400 hover:text-zinc-200 transition-colors">
-                    <X className="h-5 w-5" />
-                  </button>
+                  <div className="flex items-center shrink-0">
+                    <button type="button" onClick={() => setShowNewDm(true)} className="p-2 text-ds-text-3 hover:text-ds-text-1" aria-label="Nueva conversación">
+                      <Plus className="h-5 w-5" />
+                    </button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button type="button" className="p-2 text-ds-text-3 hover:text-ds-text-1" aria-label="Más opciones del chat">
+                          <MoreHorizontal className="h-5 w-5" />
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="z-[70] w-56">
+                        <DropdownMenuItem
+                          disabled={ctx.markAllChannelsAsReadLoading || ctx.totalUnread === 0}
+                          onClick={() => ctx.markAllChannelsAsRead()}
+                        >
+                          <CheckCheck className="mr-2 h-4 w-4" />
+                          Marcar todo como leído
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setShowInactiveExternal((v) => !v)}>
+                          <Archive className="mr-2 h-4 w-4" />
+                          {showInactiveExternal ? "Ocultar canales inactivos" : "Mostrar canales inactivos"}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => {
+                            setCollapsedSections((prev) => ({ ...prev, archived: false }));
+                            ctx.fetchArchivedChannels();
+                          }}
+                        >
+                          <ArchiveRestore className="mr-2 h-4 w-4" />
+                          Ver archivados
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                    <button type="button" onClick={handleClosePanel} className="p-2 text-ds-text-3 hover:text-ds-text-1" aria-label="Cerrar panel">
+                      <X className="h-5 w-5" />
+                    </button>
+                  </div>
                 </div>
               </div>
             )}
@@ -752,7 +810,7 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
               {/* Channel list layer */}
               <div className={cn(
                 "absolute inset-0 flex flex-col opai-chat-mobile-shell",
-                isIOS ? "bg-transparent" : "bg-[#0a0e17]",
+                isIOS ? "bg-transparent" : "bg-[hsl(var(--ds-surface-1))]",
                 selectedChannel ? "hidden" : "flex"
               )}>
                 {channelListContent}
@@ -763,7 +821,7 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
                 ref={swipeBackRef}
                 className={cn(
                   "absolute inset-0 flex flex-col opai-chat-mobile-shell transition-transform duration-[250ms] ease-out",
-                  isIOS ? "bg-transparent" : "bg-[#0a0e17]",
+                  isIOS ? "bg-transparent" : "bg-[hsl(var(--ds-surface-1))]",
                   selectedChannel ? "translate-x-0" : "translate-x-full",
                 )}
                 {...(selectedChannel ? { onTouchStart: swipeBack.onTouchStart, onTouchMove: swipeBack.onTouchMove, onTouchEnd: swipeBack.onTouchEnd } : {})}
@@ -796,7 +854,7 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
           "hidden xl:flex fixed top-0 right-0 h-full w-[400px] z-40 flex-col",
           isIOS
             ? "opai-ios-surface-sheet-side"
-            : "bg-[#0a0e17] border-l border-[rgba(255,255,255,0.08)] shadow-[-8px_0_30px_-12px_rgba(0,0,0,0.25)]",
+            : "bg-[hsl(var(--ds-surface-1))] border-l border-ds-border-default shadow-xl",
           "transition-transform duration-300 ease-out",
           ctx.isPanelOpen ? "translate-x-0" : "translate-x-full pointer-events-none"
         )}
@@ -823,18 +881,61 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
             {/* Desktop header */}
             <div
               className={cn(
-                "flex items-center gap-2 px-4 h-12 border-b border-[rgba(255,255,255,0.06)] shrink-0",
-                isIOS ? "bg-transparent" : "bg-[#0d1220]",
+                "flex items-center gap-2 px-4 h-[54px] border-b border-ds-border-subtle shrink-0",
+                isIOS ? "bg-transparent" : "bg-[hsl(var(--ds-surface-2))]",
               )}
             >
               <MessageCircle className="h-4 w-4 text-status-info-fg shrink-0" />
-              <div className="flex-1 min-w-0">
+              <div className="flex-1 min-w-0 flex items-center gap-2">
                 <h2 className="text-sm font-semibold truncate">Chat</h2>
+                {ctx.totalUnread > 0 && (
+                  <span className="inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-status-info px-1.5 text-[12px] font-bold text-primary-foreground">
+                    {ctx.totalUnread > 99 ? "99+" : ctx.totalUnread}
+                  </span>
+                )}
               </div>
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-7 w-7 shrink-0"
+                className="h-9 w-9 shrink-0"
+                onClick={() => setShowNewDm(true)}
+                aria-label="Nueva conversación"
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0" aria-label="Más opciones del chat">
+                    <MoreHorizontal className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="z-[70] w-56">
+                  <DropdownMenuItem
+                    disabled={ctx.markAllChannelsAsReadLoading || ctx.totalUnread === 0}
+                    onClick={() => ctx.markAllChannelsAsRead()}
+                  >
+                    <CheckCheck className="mr-2 h-4 w-4" />
+                    Marcar todo como leído
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => setShowInactiveExternal((v) => !v)}>
+                    <Archive className="mr-2 h-4 w-4" />
+                    {showInactiveExternal ? "Ocultar canales inactivos" : "Mostrar canales inactivos"}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setCollapsedSections((prev) => ({ ...prev, archived: false }));
+                      ctx.fetchArchivedChannels();
+                    }}
+                  >
+                    <ArchiveRestore className="mr-2 h-4 w-4" />
+                    Ver archivados
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-9 w-9 shrink-0"
                 onClick={ctx.closePanel}
                 aria-label="Cerrar panel"
               >
@@ -941,11 +1042,11 @@ function GroupChannelsSection({
       const label = first?.group?.slug
         ? first.group.slug.charAt(0).toUpperCase() + first.group.slug.slice(1).replace(/-/g, " ")
         : first?.name ?? "Grupo";
-      const color = first?.group?.color ?? "#6B7280";
+      const color = first?.group?.color ?? "";
       result.push({ key: gid, label, color, channels });
     });
     if (noGroup.length > 0) {
-      result.push({ key: "_none", label: "Otros", color: "#6B7280", channels: noGroup });
+      result.push({ key: "_none", label: "Otros", color: "", channels: noGroup });
     }
     return result;
   }, [groupChannels]);
@@ -987,8 +1088,9 @@ function GroupChannelsSection({
   return (
     <div className="opai-chat-mobile-section">
       <div
-        className="flex items-center w-full group/section gap-1 opai-chat-mobile-section-header cursor-pointer"
+        className="sticky top-0 z-10 flex items-center w-full group/section gap-1 h-[30px] px-2 opai-chat-mobile-section-header cursor-pointer bg-[hsl(var(--ds-surface-1)/0.92)] backdrop-blur-md border-b border-ds-border-subtle"
         onClick={onToggle}
+        aria-expanded={!collapsed}
       >
         <button
           type="button"
@@ -1001,7 +1103,7 @@ function GroupChannelsSection({
             <ChevronDown className="h-3 w-3 shrink-0" />
           )}
           <Users className="h-3.5 w-3.5 text-status-warn-fg shrink-0" />
-          <span className="truncate text-[13px] font-semibold text-zinc-300">Grupos</span>
+          <span className="text-[13px] font-semibold text-ds-text-2 normal-case tracking-normal">Grupos</span>
         </button>
         <div className="flex shrink-0 items-center gap-1 pr-2">
           {showSectionNotifMenu && (
@@ -1013,11 +1115,11 @@ function GroupChannelsSection({
               {sectionPref === "ALL" && <Bell className="h-3 w-3" />}
             </span>
           )}
-          <span className="w-5 text-right text-[10px] font-normal tabular-nums text-muted-foreground/70">
+          <span className="w-5 text-right text-[12px] font-normal tabular-nums text-muted-foreground/70">
             {groupChannels.length}
           </span>
           {sectionUnread > 0 ? (
-            <span className="flex h-4 min-w-[18px] items-center justify-center rounded-full bg-status-info px-1.5 text-[9px] font-bold text-white">
+            <span className="flex h-4 min-w-[18px] items-center justify-center rounded-full bg-status-info px-1.5 text-[12px] font-bold text-white">
               {sectionUnread > 99 ? "99+" : sectionUnread}
             </span>
           ) : (
@@ -1036,7 +1138,7 @@ function GroupChannelsSection({
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="z-[70] w-52">
-                <div className="px-2 py-1.5 text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+                <div className="px-2 py-1.5 text-[12px] font-medium text-muted-foreground uppercase tracking-wider">
                   Notificaciones para todos los grupos ({groupChannels.length} canales)
                 </div>
                 <DropdownMenuSeparator />
@@ -1079,15 +1181,15 @@ function GroupChannelsSection({
                   else if (isCollapsible) toggleSubgroup(grp.key);
                 }}
               >
-                <div className="flex-1 flex items-center gap-2 px-4 py-2 pl-6 text-[11px] font-medium text-muted-foreground/80">
+                <div className="flex-1 flex items-center gap-2 px-4 py-2 pl-6 text-[12px] font-medium text-muted-foreground/80">
                   <div
                     className="h-2.5 w-2.5 rounded-full shrink-0 ring-1 ring-border/40"
                     style={{ backgroundColor: grp.color }}
                   />
                   <span className="capitalize truncate">{grp.label}</span>
-                  <span className="text-[10px] text-muted-foreground/60 tabular-nums">({grp.channels.length})</span>
+                  <span className="text-[12px] text-muted-foreground/60 tabular-nums">({grp.channels.length})</span>
                   {subUnread > 0 && (
-                    <span className="flex h-4 min-w-[16px] items-center justify-center rounded-full bg-status-info px-1 text-[9px] font-bold text-white">
+                    <span className="flex h-4 min-w-[16px] items-center justify-center rounded-full bg-status-info px-1 text-[12px] font-bold text-white">
                       {subUnread > 99 ? "99+" : subUnread}
                     </span>
                   )}
@@ -1109,7 +1211,7 @@ function GroupChannelsSection({
                     </button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="z-[70] w-52">
-                    <div className="px-2 py-1.5 text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+                    <div className="px-2 py-1.5 text-[12px] font-medium text-muted-foreground uppercase tracking-wider">
                       Notificaciones para {grp.channels.length} canal{grp.channels.length !== 1 ? "es" : ""}
                     </div>
                     <DropdownMenuSeparator />
@@ -1129,64 +1231,19 @@ function GroupChannelsSection({
                 </DropdownMenu>
               </div>
               {!isCollapsed && !isSingle && (
-                <div className="divide-y divide-border/20 opai-chat-mobile-channel-stack opai-chat-mobile-section-body">
+                <div className="opai-chat-mobile-channel-stack opai-chat-mobile-section-body px-1">
                   {grp.channels.map((ch) => (
-                    <div key={ch.id} className="relative group flex items-center">
-                      <div className="flex-1 min-w-0">
-                        <ChannelListItem
-                          channel={ch}
-                          displayName={getDisplayName(ch)}
-                          onClick={() => onSelectChannel(ch.id)}
-                        />
-                      </div>
-                      {(onMarkAsRead || onUpdateNotifPref) && (
-                        <div className="absolute right-3 top-1/2 -translate-y-1/2 z-10 pl-2">
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <button
-                                type="button"
-                                className="opacity-0 group-hover:opacity-100 h-8 w-8 flex shrink-0 items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-accent/50"
-                                onClick={(e) => e.stopPropagation()}
-                                aria-label="Más opciones"
-                              >
-                                <MoreHorizontal className="h-3.5 w-3.5" />
-                              </button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="z-[70] w-52">
-                              {onMarkAsRead && ch.unreadCount > 0 && (
-                                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onMarkAsRead(ch.id); }}>
-                                  <CheckCheck className="h-3.5 w-3.5 mr-2" />
-                                  Marcar como leído
-                                </DropdownMenuItem>
-                              )}
-                              {onUpdateNotifPref && (
-                                <>
-                                  {(onMarkAsRead && ch.unreadCount > 0) && <DropdownMenuSeparator />}
-                                  <div className="px-2 py-1.5 text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
-                                    Notificaciones
-                                  </div>
-                                  <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onUpdateNotifPref(ch.id, "ALL"); }}>
-                                    <Bell className="h-3.5 w-3.5 mr-2" />
-                                    Notificar todo
-                                    {ch.notificationPreference === "ALL" && <span className="ml-auto text-status-info-fg text-xs">✓</span>}
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onUpdateNotifPref(ch.id, "MENTIONS_ONLY"); }}>
-                                    <AtSign className="h-3.5 w-3.5 mr-2" />
-                                    Solo menciones
-                                    {ch.notificationPreference === "MENTIONS_ONLY" && <span className="ml-auto text-status-info-fg text-xs">✓</span>}
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onUpdateNotifPref(ch.id, "MUTED"); }}>
-                                    <BellOff className="h-3.5 w-3.5 mr-2" />
-                                    Silenciar
-                                    {ch.notificationPreference === "MUTED" && <span className="ml-auto text-status-info-fg text-xs">✓</span>}
-                                  </DropdownMenuItem>
-                                </>
-                              )}
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </div>
-                      )}
-                    </div>
+                    <ChatChannelListItem
+                      key={ch.id}
+                      channel={asChannelData(ch)}
+                      isSelected={false}
+                      unreadCount={ch.notificationPreference === "MUTED" ? 0 : ch.unreadCount}
+                      notifPreference={ch.notificationPreference}
+                      ambiguous={ambiguousIds(grp.channels, getDisplayName).has(ch.id)}
+                      onClick={() => onSelectChannel(ch.id)}
+                      onMarkAsRead={onMarkAsRead ? () => onMarkAsRead(ch.id) : undefined}
+                      onChangeNotifPreference={onUpdateNotifPref ? (pref) => onUpdateNotifPref(ch.id, pref) : undefined}
+                    />
                   ))}
                 </div>
               )}
@@ -1260,11 +1317,12 @@ function ChannelSection({
   const sectionPref = sectionNotifMode(channels);
   const showSectionNotifMenu = onApplySectionNotifPref && !isArchivedSection && channels.length > 0;
   const [slackFor, setSlackFor] = useState<{ channel: ChatSidePanelChannel; mode: "connect" | "disconnect" } | null>(null);
+  const ambiguous = ambiguousIds(channels, getDisplayName);
 
   return (
     <div className="opai-chat-mobile-section">
       <div
-        className="flex items-center w-full group/section gap-1 opai-chat-mobile-section-header cursor-pointer"
+        className="sticky top-0 z-10 flex items-center w-full group/section gap-1 h-[30px] px-2 opai-chat-mobile-section-header cursor-pointer bg-[hsl(var(--ds-surface-1)/0.92)] backdrop-blur-md border-b border-ds-border-subtle"
         onClick={onToggle}
       >
         <button
@@ -1278,50 +1336,37 @@ function ChannelSection({
             <ChevronDown className="h-3 w-3 shrink-0" />
           )}
           {icon}
-          <span className="truncate text-[13px] font-semibold text-zinc-300">{label}</span>
+          <span className="text-[13px] font-semibold text-ds-text-2 normal-case tracking-normal">{label}</span>
+          <span className="text-[12px] font-normal tabular-nums text-ds-text-4">
+            {channels.length}
+          </span>
+          {sectionUnread > 0 && (
+            <span className="flex h-5 min-w-[18px] items-center justify-center rounded-full bg-status-info px-1.5 text-[12px] font-bold text-primary-foreground">
+              {sectionUnread > 99 ? "99+" : sectionUnread}
+            </span>
+          )}
           {subtitle && (
-            <span className="text-[10px] font-normal text-muted-foreground/60 normal-case tracking-normal ml-1 truncate">
+            <span className="text-[12px] font-normal text-ds-text-4 normal-case tracking-normal ml-1 min-w-0 truncate">
               {subtitle}
             </span>
           )}
         </button>
-        {/* Columna derecha alineada: notif | count | badge | menu | plus */}
-        <div className="flex shrink-0 items-center gap-1 pr-2">
-          <span className="w-4 h-4 flex shrink-0 items-center justify-center text-muted-foreground/60" title={
-            showSectionNotifMenu ? (sectionPref === "ALL" ? "Notificar todo" : sectionPref === "MENTIONS_ONLY" ? "Solo menciones" : "Silenciado") : undefined
-          }>
-            {showSectionNotifMenu ? (
-              <>
-                {sectionPref === "MUTED" ? <BellOff className="h-3 w-3" /> : null}
-                {sectionPref === "MENTIONS_ONLY" ? <AtSign className="h-3 w-3" /> : null}
-                {sectionPref === "ALL" ? <Bell className="h-3 w-3" /> : null}
-              </>
-            ) : null}
-          </span>
-          <span className="w-5 text-right text-[10px] font-normal tabular-nums text-muted-foreground/70">
-            {channels.length}
-          </span>
-          {sectionUnread > 0 ? (
-            <span className="flex h-4 min-w-[18px] items-center justify-center rounded-full bg-status-info px-1.5 text-[9px] font-bold text-white">
-              {sectionUnread > 99 ? "99+" : sectionUnread}
-            </span>
-          ) : (
-            <span className="w-[18px]" />
-          )}
+        <div className="flex shrink-0 items-center gap-1 pr-1">
           {showSectionNotifMenu && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button
                   type="button"
-                  className="hidden lg:flex h-6 w-6 shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-foreground opacity-0 group-hover/section:opacity-100 transition-opacity"
+                  className="hidden lg:flex h-7 w-7 shrink-0 items-center justify-center rounded text-ds-text-3 hover:bg-ds-surface-3 hover:text-ds-text-1 opacity-0 group-hover/section:opacity-100 transition-opacity"
                   onClick={(e) => e.stopPropagation()}
                   aria-label="Notificaciones de la sección"
+                  aria-expanded={!collapsed}
                 >
                   <MoreHorizontal className="h-3.5 w-3.5" />
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="z-[70] w-52">
-                <div className="px-2 py-1.5 text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+                <div className="px-2 py-1.5 text-[12px] font-medium text-muted-foreground uppercase tracking-wider">
                   Notificaciones para {channels.length} canal{channels.length !== 1 ? "es" : ""}
                 </div>
                 <DropdownMenuSeparator />
@@ -1348,131 +1393,45 @@ function ChannelSection({
             <button
               type="button"
               onClick={(e) => { e.stopPropagation(); onNewChat(); }}
-              className="h-6 w-6 flex shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-foreground"
+              className="h-7 w-7 flex shrink-0 items-center justify-center rounded text-ds-text-3 hover:bg-ds-surface-3 hover:text-ds-text-1 opacity-0 group-hover/section:opacity-100 transition-opacity"
               aria-label="Nuevo chat"
             >
-              <Plus className="h-3 w-3" />
+              <Plus className="h-3.5 w-3.5" />
             </button>
           )}
         </div>
       </div>
       {!collapsed && channels.length === 0 && emptyHint && (
-        <div className="px-4 py-3 text-[11px] text-muted-foreground/60 opai-chat-mobile-section-body">
+        <div className="px-4 py-3 text-[12px] text-muted-foreground/60 opai-chat-mobile-section-body">
           {emptyHint}
         </div>
       )}
       {!collapsed && channels.length > 0 && (
-        <div className="divide-y divide-border/20 opai-chat-mobile-channel-stack opai-chat-mobile-section-body">
+        <div className="opai-chat-mobile-channel-stack opai-chat-mobile-section-body px-1">
           {channels.map((ch) => {
             const slackBridge = slack?.bridges[ch.id] ?? null;
             const canSlack = Boolean(slack?.enabled) && ch.channelType !== "DIRECT";
-            const hasMenu = onArchive || onUnarchive || (canDelete && onDelete) || onMarkAsRead || onUpdateNotifPref || canSlack;
             return (
-              <div key={ch.id} className="relative group flex items-center">
-                <div className="flex-1 min-w-0">
-                  <ChannelListItem
-                    channel={ch}
-                    displayName={getDisplayName(ch)}
-                    onClick={() => onSelectChannel(ch.id)}
-                    isBridged={Boolean(slackBridge)}
-                  />
-                </div>
-                {hasMenu && (
-                  <div className="absolute right-3 top-1/2 -translate-y-1/2 z-10 pl-2">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <button
-                          type="button"
-                          className="opacity-0 group-hover:opacity-100 h-8 w-8 flex shrink-0 items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-accent/50"
-                          onClick={(e) => e.stopPropagation()}
-                          aria-label="Más opciones"
-                        >
-                          <MoreHorizontal className="h-3.5 w-3.5" />
-                        </button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="z-[70] w-52">
-                        {onMarkAsRead && ch.unreadCount > 0 && (
-                          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onMarkAsRead(ch.id); }}>
-                            <CheckCheck className="h-3.5 w-3.5 mr-2" />
-                            Marcar como leído
-                          </DropdownMenuItem>
-                        )}
-                        {onUpdateNotifPref && (
-                          <>
-                            {(onMarkAsRead && ch.unreadCount > 0) && <DropdownMenuSeparator />}
-                            <div className="px-2 py-1.5 text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
-                              Notificaciones
-                            </div>
-                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onUpdateNotifPref(ch.id, "ALL"); }}>
-                              <Bell className="h-3.5 w-3.5 mr-2" />
-                              Notificar todo
-                              {ch.notificationPreference === "ALL" && <span className="ml-auto text-status-info-fg text-xs">✓</span>}
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onUpdateNotifPref(ch.id, "MENTIONS_ONLY"); }}>
-                              <AtSign className="h-3.5 w-3.5 mr-2" />
-                              Solo menciones
-                              {ch.notificationPreference === "MENTIONS_ONLY" && <span className="ml-auto text-status-info-fg text-xs">✓</span>}
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onUpdateNotifPref(ch.id, "MUTED"); }}>
-                              <BellOff className="h-3.5 w-3.5 mr-2" />
-                              Silenciar
-                              {ch.notificationPreference === "MUTED" && <span className="ml-auto text-status-info-fg text-xs">✓</span>}
-                            </DropdownMenuItem>
-                          </>
-                        )}
-                        {(onArchive || onUnarchive || (canDelete && onDelete)) && (
-                          <>
-                            <DropdownMenuSeparator />
-                            {!isArchivedSection && onArchive && (
-                              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onArchive(ch.id); }}>
-                                <Archive className="h-3.5 w-3.5 mr-2" />
-                                Archivar conversación
-                              </DropdownMenuItem>
-                            )}
-                            {isArchivedSection && onUnarchive && (
-                              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); onUnarchive(ch.id); }}>
-                                <ArchiveRestore className="h-3.5 w-3.5 mr-2" />
-                                Desarchivar
-                              </DropdownMenuItem>
-                            )}
-                            {canDelete && onDelete && (
-                              <DropdownMenuItem
-                                className="text-destructive focus:text-destructive"
-                                onClick={(e) => { e.stopPropagation(); onDelete(ch.id); }}
-                              >
-                                <Trash2 className="h-3.5 w-3.5 mr-2" />
-                                Eliminar permanentemente
-                              </DropdownMenuItem>
-                            )}
-                          </>
-                        )}
-                        {canSlack && (
-                          <>
-                            <DropdownMenuSeparator />
-                            {slackBridge ? (
-                              <>
-                                <div className="px-2 py-1 text-[10px] text-muted-foreground flex items-center gap-1.5">
-                                  <Link2 className="h-3 w-3 shrink-0" />
-                                  <span className="truncate">Conectado con #{slackBridge.slackChannelName}</span>
-                                </div>
-                                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setSlackFor({ channel: ch, mode: "disconnect" }); }}>
-                                  <Unlink className="h-3.5 w-3.5 mr-2" />
-                                  Desconectar de Slack
-                                </DropdownMenuItem>
-                              </>
-                            ) : (
-                              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setSlackFor({ channel: ch, mode: "connect" }); }}>
-                                <Link2 className="h-3.5 w-3.5 mr-2" />
-                                Vincular con Slack
-                              </DropdownMenuItem>
-                            )}
-                          </>
-                        )}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-                )}
-              </div>
+              <ChatChannelListItem
+                key={ch.id}
+                channel={asChannelData(ch)}
+                isSelected={false}
+                unreadCount={ch.notificationPreference === "MUTED" ? 0 : ch.unreadCount}
+                notifPreference={ch.notificationPreference}
+                ambiguous={ambiguous.has(ch.id)}
+                onClick={() => onSelectChannel(ch.id)}
+                onArchive={!isArchivedSection && onArchive ? () => onArchive(ch.id) : undefined}
+                onUnarchive={isArchivedSection && onUnarchive ? () => onUnarchive(ch.id) : undefined}
+                onDelete={canDelete && onDelete ? () => onDelete(ch.id) : undefined}
+                canDelete={Boolean(canDelete && onDelete)}
+                isArchived={isArchivedSection}
+                onMarkAsRead={onMarkAsRead ? () => onMarkAsRead(ch.id) : undefined}
+                onChangeNotifPreference={onUpdateNotifPref ? (pref) => onUpdateNotifPref(ch.id, pref) : undefined}
+                canManageSlack={canSlack}
+                slackBridgeName={slackBridge?.slackChannelName ?? null}
+                onSlackConnect={() => setSlackFor({ channel: ch, mode: "connect" })}
+                onSlackDisconnect={() => setSlackFor({ channel: ch, mode: "disconnect" })}
+              />
             );
           })}
         </div>
@@ -1489,95 +1448,6 @@ function ChannelSection({
         />
       )}
     </div>
-  );
-}
-
-/* ─── Channel List Item ─── */
-
-function ChannelListItem({
-  channel,
-  displayName,
-  onClick,
-  isBridged,
-}: {
-  channel: ChatSidePanelChannel;
-  displayName: string;
-  onClick: () => void;
-  isBridged?: boolean;
-}) {
-  const initial = displayName.charAt(0).toUpperCase();
-
-  // Avatar styling per channel type
-  let avatarBg = "#6B7280";
-  let avatarStyle: React.CSSProperties = {};
-  if (channel.channelType === "DIRECT") {
-    avatarBg = "#0d9488"; // teal-600
-    avatarStyle = { backgroundColor: avatarBg };
-  } else if (channel.channelType === "GROUP") {
-    avatarBg = channel.group?.color || "#6B7280";
-    avatarStyle = { backgroundColor: avatarBg };
-  } else if (channel.channelType === "INSTALLATION") {
-    avatarBg = "#4f46e5"; // indigo-600
-    avatarStyle = { backgroundColor: avatarBg };
-  }
-
-  // Subtitle for installations
-  const subtitle =
-    channel.channelType === "INSTALLATION"
-      ? channel.installation?.account?.name
-      : null;
-
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-accent/50 transition-colors duration-150 text-left opai-chat-mobile-channel-row"
-    >
-      {/* Avatar */}
-      <div
-        className="h-8 w-8 rounded-full flex items-center justify-center shrink-0 text-white text-xs font-bold opai-chat-mobile-avatar"
-        style={avatarStyle}
-      >
-        {initial}
-      </div>
-
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-1.5">
-          <span className="text-sm font-medium truncate md:text-[15px]">{displayName}</span>
-          {isBridged && (
-            <span title="Conectado con Slack" className="shrink-0 inline-flex">
-              <Link2 className="h-3 w-3 text-muted-foreground/60" />
-            </span>
-          )}
-          {channel.notificationPreference === "MENTIONS_ONLY" && (
-            <AtSign className="h-3 w-3 shrink-0 text-muted-foreground/50" />
-          )}
-          {channel.notificationPreference === "MUTED" && (
-            <BellOff className="h-3 w-3 shrink-0 text-muted-foreground/50" />
-          )}
-          {channel.unreadCount > 0 && channel.notificationPreference !== "MUTED" && (
-            <span className={cn(
-              "flex h-5 min-w-[20px] items-center justify-center rounded-full px-1.5 text-[10px] font-bold shrink-0",
-              channel.notificationPreference === "MENTIONS_ONLY"
-                ? "bg-zinc-600 text-zinc-300"
-                : "bg-status-info text-white"
-            )}>
-              {channel.unreadCount > 99 ? "99+" : channel.unreadCount}
-            </span>
-          )}
-        </div>
-        {subtitle && (
-          <p className="text-[10px] text-muted-foreground/70 truncate">
-            {subtitle}
-          </p>
-        )}
-        {channel.lastMessagePreview && (
-          <p className="text-xs text-muted-foreground truncate mt-0.5">
-            {channel.lastMessagePreview}
-          </p>
-        )}
-      </div>
-    </button>
   );
 }
 

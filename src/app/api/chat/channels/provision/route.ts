@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { requireTenantModule } from '@/lib/require-module';
+import { ensureInstallationChannel } from "@/lib/chat-installation-channel";
 
 export async function POST(request: NextRequest) {
   try {
@@ -22,37 +23,19 @@ export async function POST(request: NextRequest) {
       select: { id: true, name: true },
     });
 
-    const existingChannels = await prisma.chatChannel.findMany({
-      where: {
-        tenantId: ctx.tenantId,
-        channelType: "INSTALLATION",
-      },
-      select: { installationId: true, subType: true },
-    });
-
-    const existingSet = new Set(
-      existingChannels.map((c) => `${c.installationId}:${c.subType}`)
-    );
-
-    const toCreate: Array<{
-      tenantId: string;
-      installationId: string;
-      subType: string;
-      name: string;
-    }> = [];
-
+    let created = 0;
     for (const inst of installations) {
-      if (!existingSet.has(`${inst.id}:reportes`)) {
-        toCreate.push({
-          tenantId: ctx.tenantId,
-          installationId: inst.id,
-          subType: "reportes",
-          name: `${inst.name} - Reportes`,
-        });
-      }
+      const result = await ensureInstallationChannel({
+        client: prisma,
+        tenantId: ctx.tenantId,
+        installationId: inst.id,
+        installationName: inst.name,
+        activate: true,
+      });
+      if (result.created) created += 1;
     }
 
-    if (toCreate.length === 0) {
+    if (created === 0) {
       return NextResponse.json({
         success: true,
         data: { created: 0 },
@@ -60,15 +43,10 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    const created = await prisma.chatChannel.createMany({
-      data: toCreate,
-      skipDuplicates: true,
-    });
-
     return NextResponse.json({
       success: true,
-      data: { created: created.count },
-      meta: { message: `Se crearon ${created.count} canales de chat` },
+      data: { created },
+      meta: { message: `Se crearon ${created} canales de chat` },
     });
   } catch (err: any) {
     console.error("Error provisioning chat channels:", err);

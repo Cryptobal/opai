@@ -111,6 +111,7 @@ export async function GET(
       isActive: channel.isActive,
       lastMessageAt: channel.lastMessageAt?.toISOString() ?? null,
       lastMessagePreview: channel.lastMessagePreview,
+      lastMessageSenderName: channel.lastMessageSenderName,
       messageCount: channel.messageCount,
       createdAt: channel.createdAt.toISOString(),
       updatedAt: channel.updatedAt.toISOString(),
