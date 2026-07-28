@@ -1,18 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Mail, MailX } from "lucide-react";
 import { Skeleton, Surface, Tag } from "@/components/opai-ds";
-import { canEdit } from "@/lib/permissions";
-import { useEffectivePermissions } from "@/hooks/useEffectivePermissions";
+import { cn } from "@/lib/utils";
 import { EntityThreadReader } from "./EntityThreadReader";
-import {
-  EntityConversationActions,
-  type ComposeAction,
-} from "./entity-conversations/EntityConversationActions";
-import { EntityConversationComposer } from "./entity-conversations/EntityConversationComposer";
 import type { ConversationEntityType } from "@/modules/crm/email/entity-conversations";
-import type { CorreoMessageDTO } from "@/modules/crm/email/correos.types";
 
 type ThreadRow = {
   id: string;
@@ -49,8 +42,8 @@ function cascadeStorageKey(entityType: string, entityId: string) {
 }
 
 /**
- * Conversaciones accionables de una ficha CRM.
- * Un componente, tres variantes (tab | rail | card), un endpoint genérico.
+ * Conversaciones de una ficha CRM: lista + control de alcance.
+ * Las acciones (responder / reenviar) viven dentro del lector.
  */
 export function EntityConversations({
   entityType,
@@ -60,20 +53,10 @@ export function EntityConversations({
   dealId = null,
   contactId = null,
 }: Props) {
-  const perms = useEffectivePermissions();
-  const canWriteCorreos = canEdit(perms, "productividad", "correos");
-
   const [rows, setRows] = useState<ThreadRow[] | null>(null);
   const [error, setError] = useState<"load" | "forbidden" | null>(null);
   const [cascade, setCascade] = useState(true);
   const [openThreadId, setOpenThreadId] = useState<string | null>(null);
-  const [mailboxEmail, setMailboxEmail] = useState<string | null>(null);
-  const [compose, setCompose] = useState<{
-    threadId: string;
-    action: ComposeAction;
-    subject: string;
-    messages: CorreoMessageDTO[];
-  } | null>(null);
   const [panelOpen, setPanelOpen] = useState(false);
 
   useEffect(() => {
@@ -86,20 +69,7 @@ export function EntityConversations({
     }
   }, [entityType, entityId]);
 
-  useEffect(() => {
-    fetch("/api/crm/gmail/accounts")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => {
-        const list = Array.isArray(d?.accounts) ? d.accounts : [];
-        const active = list.find(
-          (a: { status?: string; email?: string }) => a.status === "active" && a.email,
-        ) as { email?: string } | undefined;
-        setMailboxEmail(active?.email ?? null);
-      })
-      .catch(() => setMailboxEmail(null));
-  }, []);
-
-  useEffect(() => {
+  const reloadRows = useCallback(() => {
     setRows(null);
     setError(null);
     const qs = new URLSearchParams({
@@ -124,38 +94,26 @@ export function EntityConversations({
       });
   }, [entityType, entityId, cascade]);
 
-  const canCompose = Boolean(mailboxEmail) && canWriteCorreos;
+  useEffect(() => {
+    reloadRows();
+  }, [reloadRows]);
+
   const visibleRows = useMemo(() => {
     if (!rows) return null;
     if (variant === "rail" && !panelOpen) return rows.slice(0, 3);
     return rows;
   }, [rows, variant, panelOpen]);
 
-  function toggleCascade() {
-    setCascade((prev) => {
-      const next = !prev;
-      try {
-        localStorage.setItem(cascadeStorageKey(entityType, entityId), next ? "1" : "0");
-      } catch {
-        /* ignore */
-      }
-      return next;
-    });
+  function setCascadeValue(next: boolean) {
+    setCascade(next);
+    try {
+      localStorage.setItem(cascadeStorageKey(entityType, entityId), next ? "1" : "0");
+    } catch {
+      /* ignore */
+    }
   }
 
-  async function startAction(threadId: string, action: ComposeAction, subject: string) {
-    const res = await fetch(
-      `/api/crm/conversaciones/${threadId}?entityType=${entityType}&entityId=${entityId}`,
-    );
-    if (!res.ok) return;
-    const detail = await res.json();
-    setCompose({
-      threadId,
-      action,
-      subject: detail.thread?.subject ?? subject,
-      messages: Array.isArray(detail.messages) ? detail.messages : [],
-    });
-  }
+  const openRow = rows?.find((r) => r.id === openThreadId) ?? null;
 
   const body = (
     <>
@@ -167,14 +125,38 @@ export function EntityConversations({
             {rows.length}
           </span>
         )}
-        <button
-          type="button"
-          onClick={toggleCascade}
-          className="ml-auto inline-flex h-8 items-center rounded-full border border-ds-border-default px-2.5 text-[12px] text-ds-text-2 ds-tap"
-          title="Alcance de conversaciones"
+        <div
+          className="ml-auto inline-flex h-9 items-center rounded-full border border-ds-border-default p-0.5"
+          role="group"
+          aria-label="Alcance de conversaciones"
         >
-          {cascade ? "Todo el árbol" : "Solo de esta ficha"}
-        </button>
+          <button
+            type="button"
+            aria-pressed={!cascade}
+            onClick={() => setCascadeValue(false)}
+            className={cn(
+              "h-8 rounded-full px-2.5 text-[12px] ds-tap",
+              !cascade
+                ? "bg-ds-surface-3 font-medium text-ds-text-1"
+                : "text-ds-text-3 hover:text-ds-text-2",
+            )}
+          >
+            Esta ficha
+          </button>
+          <button
+            type="button"
+            aria-pressed={cascade}
+            onClick={() => setCascadeValue(true)}
+            className={cn(
+              "h-8 rounded-full px-2.5 text-[12px] ds-tap",
+              cascade
+                ? "bg-ds-surface-3 font-medium text-ds-text-1"
+                : "text-ds-text-3 hover:text-ds-text-2",
+            )}
+          >
+            Todo el árbol
+          </button>
+        </div>
       </div>
 
       {error === "forbidden" ? (
@@ -187,21 +169,31 @@ export function EntityConversations({
           <Skeleton className="h-10 w-full" />
         </div>
       ) : rows.length === 0 ? (
-        <div className="flex items-center gap-2 rounded-xl border border-ds-border-subtle bg-ds-surface-1 px-3 py-4 text-[13px] text-ds-text-4">
-          <MailX className="h-4 w-4 shrink-0" />
-          Sin correos asociados y visibles todavía.
+        <div className="flex flex-col gap-2 rounded-xl border border-ds-border-subtle bg-ds-surface-1 px-3 py-4 text-[13px] text-ds-text-4">
+          <div className="flex items-center gap-2">
+            <MailX className="h-4 w-4 shrink-0" />
+            {cascade
+              ? "Sin correos asociados y visibles todavía."
+              : "Sin correos propios de esta ficha."}
+          </div>
+          {!cascade && (
+            <button
+              type="button"
+              onClick={() => setCascadeValue(true)}
+              className="h-10 self-start rounded-lg border border-ds-border-default px-3 text-[12px] font-medium text-ds-text-2 ds-tap"
+            >
+              Ver todo el árbol
+            </button>
+          )}
         </div>
       ) : (
         <ul className="space-y-1.5">
           {visibleRows!.map((t) => (
-            <li
-              key={t.id}
-              className="rounded-xl border border-ds-border-subtle bg-ds-surface-1 px-3 py-2"
-            >
+            <li key={t.id}>
               <button
                 type="button"
                 onClick={() => setOpenThreadId(t.id)}
-                className="flex w-full flex-col gap-0.5 text-left ds-tap"
+                className="flex w-full flex-col gap-0.5 rounded-xl border border-ds-border-subtle bg-ds-surface-1 px-3 py-2 text-left ds-tap"
               >
                 <span className="flex items-center gap-2">
                   <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-ds-text-1">
@@ -220,21 +212,6 @@ export function EntityConversations({
                   )}
                 </span>
               </button>
-              <div className="mt-1.5 sm:hidden">
-                <EntityConversationActions
-                  canCompose={canCompose}
-                  threadId={t.id}
-                  compact
-                  onAction={(a) => void startAction(t.id, a, t.subject)}
-                />
-              </div>
-              <div className="mt-1.5 hidden sm:block">
-                <EntityConversationActions
-                  canCompose={canCompose}
-                  threadId={t.id}
-                  onAction={(a) => void startAction(t.id, a, t.subject)}
-                />
-              </div>
             </li>
           ))}
         </ul>
@@ -268,43 +245,16 @@ export function EntityConversations({
         threadId={openThreadId}
         entityType={entityType}
         entityId={entityId}
-        canCompose={canCompose}
-        onAction={(a) => {
-          if (!openThreadId) return;
-          const row = rows?.find((r) => r.id === openThreadId);
-          void startAction(openThreadId, a, row?.subject ?? "");
-        }}
-        onClose={() => setOpenThreadId(null)}
-      />
-
-      <EntityConversationComposer
-        open={Boolean(compose)}
-        action={compose?.action ?? null}
-        threadId={compose?.threadId ?? ""}
-        subject={compose?.subject ?? ""}
-        messages={compose?.messages ?? []}
-        entityType={entityType}
-        entityId={entityId}
+        preview={
+          openRow
+            ? { subject: openRow.subject, fromEmail: openRow.fromEmail }
+            : undefined
+        }
         accountId={accountId}
         dealId={dealId}
         contactId={contactId}
-        mailboxEmail={mailboxEmail}
-        onClose={() => setCompose(null)}
-        onSent={() => {
-          setCompose(null);
-          setOpenThreadId(null);
-          // refresh list
-          setCascade((c) => c);
-          const qs = new URLSearchParams({
-            entityType,
-            entityId,
-            cascade: cascade ? "1" : "0",
-          });
-          fetch(`/api/crm/conversaciones?${qs}`)
-            .then((r) => r.json())
-            .then((d) => setRows(Array.isArray(d.threads) ? d.threads : []))
-            .catch(() => undefined);
-        }}
+        onChanged={reloadRows}
+        onClose={() => setOpenThreadId(null)}
       />
     </>
   );

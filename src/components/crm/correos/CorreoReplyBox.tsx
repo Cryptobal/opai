@@ -5,13 +5,26 @@ import { Spinner } from "@/components/opai-ds";
 import { CorreoActionBar } from "./CorreoActionBar";
 import { CorreoComposerBox, type ComposerMode, type ReplyAll } from "./CorreoComposerBox";
 import type { ForwardAttachmentRefClient } from "./EmailComposer";
-import type { CorreoDetail } from "@/modules/crm/email/correos.types";
+import type { CorreoAttachmentDTO, CorreoMessageDTO } from "@/modules/crm/email/correos.types";
 import {
   DEFAULT_CORREO_SHORTCUTS,
   type CorreoShortcuts,
 } from "./useCorreosViewPreferences";
 import { normalizeRecipientList } from "./ReplyRecipientsField";
 import type { ComposeIntent } from "./correo-reader-intent";
+
+/** Contrato mínimo del reply box (CorreoDetail y EntityThreadDetail lo satisfacen). */
+export type ReplyBoxDetail = {
+  thread: {
+    id: string;
+    subject: string;
+    accountId: string | null;
+    dealId: string | null;
+    contactId?: string | null;
+  };
+  messages: CorreoMessageDTO[];
+  attachments: CorreoAttachmentDTO[];
+};
 
 type Meta = { to: string[]; replyAll: ReplyAll | null; radarItemId: string | null; preDraft: string | null };
 
@@ -24,7 +37,7 @@ function normalizeReplyAll(ra: ReplyAll | null): ReplyAll | null {
 }
 
 /** HTML citado del último mensaje del hilo para reenviar (C13). */
-function buildForwardQuote(detail: CorreoDetail): string {
+function buildForwardQuote(detail: ReplyBoxDetail): string {
   const last = detail.messages[detail.messages.length - 1];
   if (!last) return "";
   const meta = [
@@ -81,7 +94,7 @@ export function CorreoReplyBox({
   composeIntent = null,
   onOpenAiStyle,
 }: {
-  detail: CorreoDetail;
+  detail: ReplyBoxDetail;
   onSent: () => void;
   shortcuts?: CorreoShortcuts;
   /** Pedido externo (atajo desde bandeja / menú contextual). */
@@ -187,6 +200,7 @@ export function CorreoReplyBox({
       subject={detail.thread.subject}
       accountId={detail.thread.accountId}
       dealId={detail.thread.dealId}
+      contactId={detail.thread.contactId ?? null}
       to={meta.to}
       replyAll={meta.replyAll}
       radarItemId={meta.radarItemId}

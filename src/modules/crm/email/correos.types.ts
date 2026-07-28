@@ -66,10 +66,25 @@ export type CorreoAttachmentDTO = {
  * casilla. `synced=false` cuando el hilo aún no tiene mensajes espejados.
  */
 export type EntityThreadDetail = {
-  thread: { id: string; subject: string };
+  thread: {
+    id: string;
+    subject: string;
+    accountId: string | null;
+    dealId: string | null;
+    contactId: string | null;
+  };
   messages: CorreoMessageDTO[];
   attachments: CorreoAttachmentDTO[];
   synced: boolean;
+  /** Calculado en servidor: casilla propia activa + canEdit correos. */
+  canReply?: boolean;
+  /** Email de la casilla propia si puede responder; null si no. */
+  ownerEmail?: string | null;
+  associations?: {
+    accountId: string | null;
+    dealId: string | null;
+    contactId: string | null;
+  };
 };
 
 export type CorreoDetail = {

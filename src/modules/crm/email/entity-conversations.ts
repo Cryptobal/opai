@@ -372,6 +372,149 @@ export async function resolveEntityConversations(
   return RESOLVERS[ctx.entityType](ctx);
 }
 
+/**
+ * Autorización puntual de un hilo ya cargado para el detalle de ficha.
+ *
+ * Toda regla agregada a un resolutor debe replicarse aquí; el test de simetría
+ * lo verifica. No depende de `cascade` (control de UI): si el hilo es visible
+ * bajo la regla del resolutor con cascade=true, el detalle lo admite.
+ */
+export async function authorizeEntityThread(ctx: {
+  prisma: PrismaClient;
+  tenantId: string;
+  perms: RolePermissions;
+  entityType: ConversationEntityType;
+  entityId: string;
+  thread: {
+    id: string;
+    accountId: string | null;
+    dealId: string | null;
+    contactId: string | null;
+    sharedWithAccount: boolean;
+  };
+}): Promise<boolean> {
+  const { prisma, tenantId, perms, entityType, entityId, thread } = ctx;
+
+  if (entityType === "account") {
+    return (
+      canView(perms, "crm", "accounts") &&
+      thread.accountId === entityId &&
+      thread.sharedWithAccount
+    );
+  }
+
+  if (entityType === "contact") {
+    if (!canView(perms, "crm", "contacts") || !thread.sharedWithAccount) return false;
+    if (thread.contactId === entityId) return true;
+    const bridge = await prisma.crmEmailThreadContact.findFirst({
+      where: { tenantId, threadId: thread.id, contactId: entityId },
+      select: { id: true },
+    });
+    if (bridge) return true;
+    const contact = await prisma.crmContact.findFirst({
+      where: { id: entityId, tenantId },
+      select: { accountId: true },
+    });
+    return Boolean(
+      contact?.accountId && thread.accountId === contact.accountId,
+    );
+  }
+
+  if (entityType === "deal") {
+    if (!canView(perms, "crm", "deals")) return false;
+    if (thread.dealId === entityId && thread.sharedWithAccount) return true;
+
+    const quoteLinks = await prisma.crmDealQuote.findMany({
+      where: { dealId: entityId },
+      select: { quoteId: true },
+      take: 50,
+    });
+    const quoteIds = quoteLinks.map((q) => q.quoteId);
+    if (quoteIds.length > 0) {
+      const link = await prisma.crmEmailThreadLink.findFirst({
+        where: {
+          tenantId,
+          threadId: thread.id,
+          entityType: "quote",
+          entityId: { in: quoteIds },
+          visibleOnEntity: true,
+        },
+        select: { id: true },
+      });
+      if (link) return true;
+    }
+
+    const deal = await prisma.crmDeal.findFirst({
+      where: { id: entityId, tenantId },
+      select: { accountId: true },
+    });
+    return Boolean(
+      deal?.accountId &&
+        thread.accountId === deal.accountId &&
+        thread.sharedWithAccount,
+    );
+  }
+
+  if (entityType === "installation") {
+    if (!canViewInstallations(perms)) return false;
+    const link = await prisma.crmEmailThreadLink.findFirst({
+      where: {
+        tenantId,
+        threadId: thread.id,
+        entityType: "installation",
+        entityId,
+        visibleOnEntity: true,
+      },
+      select: { id: true },
+    });
+    if (link) return true;
+    const installation = await prisma.crmInstallation.findFirst({
+      where: { id: entityId, tenantId },
+      select: { accountId: true },
+    });
+    return Boolean(
+      installation?.accountId &&
+        thread.accountId === installation.accountId &&
+        thread.sharedWithAccount,
+    );
+  }
+
+  if (entityType === "quote") {
+    if (!canView(perms, "crm", "quotes")) return false;
+    const link = await prisma.crmEmailThreadLink.findFirst({
+      where: {
+        tenantId,
+        threadId: thread.id,
+        entityType: "quote",
+        entityId,
+        visibleOnEntity: true,
+      },
+      select: { id: true },
+    });
+    if (link) return true;
+
+    const quote = await prisma.cpqQuote.findFirst({
+      where: { id: entityId, tenantId },
+      select: { dealId: true, accountId: true },
+    });
+    if (!quote) return false;
+    // Precedencia else-if del resolutor: deal gana sobre account.
+    if (quote.dealId) {
+      return (
+        thread.dealId === quote.dealId && thread.sharedWithAccount
+      );
+    }
+    if (quote.accountId) {
+      return (
+        thread.accountId === quote.accountId && thread.sharedWithAccount
+      );
+    }
+    return false;
+  }
+
+  return false;
+}
+
 /** Traduce parámetros legacy accountId/dealId/installationId → entityType/entityId. */
 export function legacyParamsToEntity(params: {
   accountId: string | null;

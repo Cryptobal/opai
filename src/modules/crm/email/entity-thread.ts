@@ -15,8 +15,19 @@ export async function getEntityThreadDetail(params: {
   threadId: string;
   subject: string;
   attachmentsMeta: unknown;
+  accountId?: string | null;
+  dealId?: string | null;
+  contactId?: string | null;
 }): Promise<EntityThreadDetail> {
-  const { tenantId, threadId, subject, attachmentsMeta } = params;
+  const {
+    tenantId,
+    threadId,
+    subject,
+    attachmentsMeta,
+    accountId = null,
+    dealId = null,
+    contactId = null,
+  } = params;
 
   const messages = await prisma.crmEmailMessage.findMany({
     where: { threadId, tenantId },
@@ -32,7 +43,7 @@ export async function getEntityThreadDetail(params: {
   const attachments = await attachSavedFileIds(tenantId, threadId, baseAttachments);
 
   return {
-    thread: { id: threadId, subject },
+    thread: { id: threadId, subject, accountId, dealId, contactId },
     messages: messages.map((m) => ({ ...m, sentAt: m.sentAt?.toISOString() ?? null })),
     attachments,
     synced: messages.length > 0,
