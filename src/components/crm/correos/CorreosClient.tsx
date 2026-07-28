@@ -173,6 +173,7 @@ export function CorreosClient() {
   const workspaceRef = useRef<HTMLDivElement>(null);
   const {
     panelWidth,
+    desktopReaderMode,
     previewLines,
     setPreviewLines,
     swipeConfig,
@@ -597,7 +598,10 @@ export function CorreosClient() {
           entityName: openThreadPreview.subject?.trim() || "(sin asunto)",
           entityUrl: `/crm/correos?thread=${openThreadPreview.id}`,
           extra: [
-            openThreadPreview.fromEmail ? `De: ${openThreadPreview.fromEmail}` : null,
+            openThreadPreview.fromEmail
+              ? `Header From (puede ser una casilla propia y traer el nombre del cliente delante): ${openThreadPreview.fromEmail}`
+              : null,
+            "La contraparte real se resuelve en servidor; no asumas que este header es el email del cliente.",
             openThreadPreview.accountId
               ? `Cuenta: ${openThreadPreview.accountName ?? openThreadPreview.accountId}`
               : "Sin cuenta asociada",
@@ -1349,7 +1353,7 @@ export function CorreosClient() {
           onOpenSnoozeSettings={() => setSnoozeSettingsOpen(true)}
           onOpenShortcuts={() => setShortcutsSheetOpen(true)}
         />
-        <div className="min-w-0 flex-1 space-y-4 max-lg:px-4 lg:space-y-3">
+        <div className="min-w-0 flex-1 space-y-4 max-lg:px-4 lg:min-w-[340px] lg:space-y-3">
           {/* Toolbar desktop: búsqueda/refresh/densidad; con selección muta a
               acciones masivas (reemplaza a CorreoBulkBar en desktop). */}
           <CorreosDesktopToolbar
@@ -1482,7 +1486,7 @@ export function CorreosClient() {
           onResizePointerDown={onResizePointerDown}
           onResizeKeyDown={onResizeKeyDown}
           onResizeReset={resetPanelWidth}
-          desktopMode="split"
+          desktopMode={desktopReaderMode}
           manageBackHistory={false}
           alwaysShowImages={alwaysShowImages}
           onAlwaysShowImages={() => setAlwaysShowImages(true)}

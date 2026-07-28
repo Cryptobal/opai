@@ -28,12 +28,15 @@ type Props = {
   onResizePointerDown: PointerEventHandler<HTMLElement>;
   onResizeKeyDown: KeyboardEventHandler<HTMLElement>;
   onResizeReset: () => void;
-  desktopMode?: "split" | "overlay";
+  desktopMode?: "split" | "contained" | "overlay";
   manageBackHistory?: boolean;
   children: ReactNode;
 };
 
-/** Fullscreen bajo lg; panel master-detail redimensionable en desktop. */
+/** Fullscreen bajo lg; panel master-detail redimensionable en desktop.
+ *  - split: columna sticky al lado de la lista
+ *  - contained: cubre el workspace (absolute), dock Intelligence sigue visible
+ *  - overlay: modal de viewport (Hub / Radar Comercial) */
 export function CorreoReaderShell({
   open,
   onClose,
@@ -50,8 +53,8 @@ export function CorreoReaderShell({
 }: Props) {
   useCloseOnBack(open && manageBackHistory, onClose);
 
-  // C19: en móvil (y overlay desktop) el lector es un modal real — focus-trap
-  // + Escape; en split desktop solo Escape (no atrapa el foco del workspace).
+  // C19: en móvil (y overlay/contained desktop) el lector es un modal real —
+  // focus-trap + Escape; en split desktop solo Escape.
   const panelRef = useRef<HTMLDivElement | null>(null);
   const [isMobile, setIsMobile] = useState(
     () =>
@@ -65,7 +68,8 @@ export function CorreoReaderShell({
     media.addEventListener("change", update);
     return () => media.removeEventListener("change", update);
   }, []);
-  const isOverlay = isMobile || desktopMode === "overlay";
+  const isOverlay =
+    isMobile || desktopMode === "overlay" || desktopMode === "contained";
   useFocusTrap(panelRef, { active: open, trap: isOverlay, onEscape: onClose });
   // Host para sheets absolutos (guardar adjuntos) acotados al visor.
   const [overlayHost, setOverlayHost] = useState<HTMLDivElement | null>(null);
@@ -82,6 +86,8 @@ export function CorreoReaderShell({
         "fixed inset-0 z-50 flex justify-end bg-black/40",
         desktopMode === "split" &&
           "lg:sticky lg:inset-auto lg:top-16 lg:z-20 lg:h-[calc(100dvh-5rem)] lg:w-[var(--correo-panel-width)] lg:shrink-0 lg:bg-transparent",
+        desktopMode === "contained" &&
+          "lg:absolute lg:inset-0 lg:z-40 lg:bg-ds-surface-1",
       )}
       style={style}
       onClick={(event) => {

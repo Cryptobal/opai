@@ -2,22 +2,43 @@ import { describe, expect, it } from "vitest";
 import {
   assignCorreoShortcut,
   clampCorreoPanelWidth,
+  correoReaderBudget,
   normalizeShortcutKey,
   parseCorreosViewPreferences,
 } from "../useCorreosViewPreferences";
 import { DEFAULT_CORREO_SNOOZE_CONFIG } from "@/modules/crm/email/correo-snooze-presets";
+
+describe("correoReaderBudget", () => {
+  it("1440 con riel colapsado sin dock → canSplit", () => {
+    const b = correoReaderBudget(1_440, true);
+    expect(b.canSplit).toBe(true);
+    expect(b.maxReader).toBeGreaterThanOrEqual(420);
+  });
+
+  it("728 (1280 con dock) → no alcanza para split", () => {
+    const b = correoReaderBudget(728, true);
+    // 728 − 68 − 24 − 340 = 296 < 420
+    expect(b.maxReader).toBe(296);
+    expect(b.canSplit).toBe(false);
+  });
+});
 
 describe("clampCorreoPanelWidth", () => {
   it("respeta el mínimo legible", () => {
     expect(clampCorreoPanelWidth(200, 1_200)).toBe(420);
   });
 
-  it("limita el panel al 72% del workspace", () => {
-    expect(clampCorreoPanelWidth(1_000, 1_000)).toBe(720);
+  it("reserva mínimo de lista: 1000 → maxReader 568", () => {
+    // 1000 − 68 − 24 − 340 = 568
+    expect(clampCorreoPanelWidth(1_000, 1_000)).toBe(568);
   });
 
   it("preserva un ancho dentro del rango", () => {
     expect(clampCorreoPanelWidth(580, 1_400)).toBe(580);
+  });
+
+  it("workspaceWidth=0 no clampea (SSR / primer paint)", () => {
+    expect(clampCorreoPanelWidth(560, 0)).toBe(560);
   });
 
   it("descarta preferencias corruptas o con una forma inválida", () => {

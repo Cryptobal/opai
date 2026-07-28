@@ -130,7 +130,6 @@ function AppShellInner({
   // Intelligence no tiene ese guard: empuja layout desde lg.
   const xlPanelOpen = chatCtx.isPanelOpen || notifCtx.isPanelOpen;
   const lgPanelOpen = intelCtx.isPanelOpen;
-  const anyPanelOpen = xlPanelOpen || lgPanelOpen;
   // "Sheet focus" (route-scoped): la planilla del flujo de caja es una hoja de
   // cálculo a pantalla completa en mobile — sin breadcrumbs ni padding
   // horizontal, solo topbar + hoja + bottom nav. Desktop conserva el shell
