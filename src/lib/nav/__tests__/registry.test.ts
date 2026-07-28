@@ -55,6 +55,11 @@ describe("nav registry", () => {
       expect(config.hideInSidebar).toBe(true);
     });
 
+    it("productividad is hideInSidebar (surface switcher in topbar, not ERP flyout)", () => {
+      const prod = NAV_MODULES.find((m) => m.key === "productividad")!;
+      expect(prod.hideInSidebar).toBe(true);
+    });
+
     it("hub groups command-center views as real routes", () => {
       const hub = NAV_MODULES.find((m) => m.key === "hub")!;
       expect(hub.children?.map((child) => child.href)).toEqual([

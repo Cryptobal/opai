@@ -27,6 +27,8 @@ describe("buildNavItems — sidebar back-compat", () => {
     // Configuración and Chat are NOT in the sidebar — they live in the topbar.
     expect(labels).not.toContain("Configuración");
     expect(labels).not.toContain("Chat");
+    // Productividad se cambia solo con SurfaceSegment (arriba), no en el flyout ERP.
+    expect(labels).not.toContain("Productividad");
   });
 
   it("CRM has expected children", () => {

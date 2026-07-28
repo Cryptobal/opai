@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect } from "react";
-import { usePathname } from "next/navigation";
+import { useEffect, useRef } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import { isProductividadPath, type Surface } from "@/lib/surface";
 
 /** Clave sessionStorage: última ruta visitada del portal Productividad. */
@@ -28,4 +28,45 @@ export function useTrackProductividadPath(surface: Surface) {
       /* ignore */
     }
   }, [pathname, surface]);
+}
+
+/**
+ * Si la cookie dice Productividad pero el pathname es una ruta ERP
+ * (p. ej. cotización abierta desde Correos), pasa automáticamente a ERP
+ * para que el selector, sidebar y flujos (enviar propuesta) coincidan.
+ * No navega: solo actualiza cookie + refresh del layout.
+ */
+export function useAutoSwitchSurfaceToErp(surface: Surface) {
+  const pathname = usePathname() ?? "";
+  const router = useRouter();
+  const inflightRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (surface !== "productividad") return;
+    if (!pathname || isProductividadPath(pathname)) return;
+    if (inflightRef.current === pathname) return;
+
+    inflightRef.current = pathname;
+    let cancelled = false;
+
+    void (async () => {
+      try {
+        const res = await fetch("/api/me/surface", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ surface: "erp" }),
+        });
+        if (cancelled || !res.ok) return;
+        router.refresh();
+      } catch {
+        /* red: el usuario puede cambiar superficie a mano */
+      } finally {
+        if (!cancelled) inflightRef.current = null;
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [pathname, surface, router]);
 }

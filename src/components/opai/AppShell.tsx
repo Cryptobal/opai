@@ -32,7 +32,10 @@ import {
 } from '@/components/opai-ds';
 import { resolveNavContext } from '@/lib/nav/resolve-context';
 import { DEFAULT_SURFACE, type Surface } from '@/lib/surface';
-import { useTrackProductividadPath } from '@/lib/surface-tracking';
+import {
+  useAutoSwitchSurfaceToErp,
+  useTrackProductividadPath,
+} from '@/lib/surface-tracking';
 import { SurfaceSegment } from './SurfaceSegment';
 
 export interface AppShellProps {
@@ -109,6 +112,9 @@ function AppShellInner({
 
   // Conserva la última ruta de Productividad (antes vivía en SurfaceReturnBar).
   useTrackProductividadPath(surface);
+  // Desde Correos/Agenda se abre una ficha ERP (cotización, lead, …):
+  // alinear cookie + selector a ERP sin forzar navegación.
+  useAutoSwitchSurfaceToErp(surface);
 
   // Close sibling docks when one opens (chat / notif / intelligence)
   const handleToggleChat = useCallback(() => {

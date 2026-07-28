@@ -367,6 +367,9 @@ export const NAV_MODULES: NavNode[] = [
     label: "Productividad",
     icon: Sparkles,
     module: "productividad",
+    // El cambio de superficie vive en el SurfaceSegment del topbar/isla.
+    // No duplicar el portal como ítem del sidebar ERP (flyout redundante).
+    hideInSidebar: true,
     // Home propio de la superficie. Correos/Tareas/Agenda/Tickets se
     // declaran como activePaths para que findActiveModule/breadcrumbs
     // los resuelvan a este nodo (rutas hermanas planas).

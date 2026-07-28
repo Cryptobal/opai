@@ -828,7 +828,7 @@ export function CrmLeadDetailClient({ lead: initialLead, currentUserId = "" }: {
   // ─── Approval success modal state ───
   const [approvalResult, setApprovalResult] = useState<{
     account: { id: string; name: string };
-    contact: { id: string; firstName: string; lastName: string };
+    contact: { id: string; firstName: string; lastName: string; email?: string | null };
     deal: { id: string; title: string };
     quotes: { id: string; code: string; installationName: string | null }[];
   } | null>(null);
@@ -1618,7 +1618,12 @@ export function CrmLeadDetailClient({ lead: initialLead, currentUserId = "" }: {
       if (!response.ok) throw new Error(result?.error || "Error aprobando lead");
       setApprovalResult({
         account: { id: result.data.account.id, name: result.data.account.name },
-        contact: { id: result.data.contact.id, firstName: result.data.contact.firstName, lastName: result.data.contact.lastName },
+        contact: {
+          id: result.data.contact.id,
+          firstName: result.data.contact.firstName,
+          lastName: result.data.contact.lastName,
+          email: result.data.contact.email ?? (approveForm.email.trim() || null),
+        },
         deal: { id: result.data.deal.id, title: result.data.deal.title },
         quotes: result.data.quotes || [],
       });
@@ -1667,7 +1672,12 @@ export function CrmLeadDetailClient({ lead: initialLead, currentUserId = "" }: {
           if (result.quoteId) {
             setApprovalResult({
               account: { id: result.data?.accountId || "", name: approveForm.accountName },
-              contact: { id: result.data?.contactId || "", firstName: approveForm.contactFirstName, lastName: approveForm.contactLastName },
+              contact: {
+                id: result.data?.contactId || "",
+                firstName: approveForm.contactFirstName,
+                lastName: approveForm.contactLastName,
+                email: approveForm.email.trim() || null,
+              },
               deal: { id: result.dealId, title: approveForm.dealTitle },
               quotes: [{ id: result.quoteId, code: "", installationName: null }],
             });
@@ -2518,6 +2528,15 @@ export function CrmLeadDetailClient({ lead: initialLead, currentUserId = "" }: {
                     className="w-full bg-status-ok hover:brightness-110 text-white"
                     disabled={sendingExpress}
                     onClick={async () => {
+                      const contactEmail =
+                        approvalResult!.contact.email?.trim() ||
+                        approveForm.email.trim();
+                      if (!contactEmail) {
+                        toast.error(
+                          "El contacto no tiene email. Agrégalo en el lead o en la ficha del contacto antes de enviar.",
+                        );
+                        return;
+                      }
                       setSendingExpress(true);
                       try {
                         const quoteId = approvalResult!.quotes[0].id;
