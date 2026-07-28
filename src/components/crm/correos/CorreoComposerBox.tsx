@@ -127,8 +127,8 @@ export function CorreoComposerBox(props: Props) {
     }
   }
 
-  // Al abrir el asistente (atajo / "Responder con IA" / toggle): sembrar
-  // preDraft o generar una vez. Cerrar y reabrir no regenera si ya hay cuerpo.
+  // Al abrir el asistente: si hay preDraft cacheado y el cuerpo está vacío,
+  // sembrarlo. No auto-generar (Gmail: el usuario escribe el prompt y manda ↑).
   useEffect(() => {
     if (!showAiPrompt) {
       if (!ai) aiSeededRef.current = false;
@@ -136,11 +136,8 @@ export function CorreoComposerBox(props: Props) {
     }
     if (aiSeededRef.current) return;
     aiSeededRef.current = true;
-    if (bodyRef.current) return;
-    if (props.preDraft) injectDraft(props.preDraft);
-    else void generate();
-    // Solo al abrir el panel; instructions/generate estables vía closure.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (bodyRef.current || !props.preDraft) return;
+    injectDraft(props.preDraft);
   }, [showAiPrompt, ai, props.preDraft]);
 
   function switchMode(next: ComposerMode) {
