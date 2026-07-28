@@ -5,14 +5,12 @@
  */
 
 import type { Metadata } from 'next';
-import { cookies } from 'next/headers';
 import { auth } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import { LoginPageClient } from './LoginPageClient';
 import { Suspense } from 'react';
 import LoginLoading from './loading';
 import { resolvePostLoginPath } from '@/lib/landing-surface';
-import { SURFACE_COOKIE, surfaceCookieOptions } from '@/lib/surface';
 
 export const metadata: Metadata = {
   title: 'OPAI — Iniciar Sesión',
@@ -43,9 +41,11 @@ export default async function LoginPage({
         roleTemplateId: session.user.roleTemplateId,
         tenantId: session.user.tenantId,
       });
+      // No cookies().set aquí (ilegal en RSC). Si la preferencia es
+      // Productividad, pasar por /productividad (route handler) que setea
+      // cookies y redirige a la landing.
       if (dest !== '/hub' && dest !== '/') {
-        const jar = await cookies();
-        jar.set(SURFACE_COOKIE, 'productividad', surfaceCookieOptions());
+        redirect('/productividad');
       }
       redirect(dest);
     }

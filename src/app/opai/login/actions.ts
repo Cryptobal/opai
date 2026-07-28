@@ -40,7 +40,12 @@ export async function authenticate(formData: FormData) {
       tenantId: session.user.tenantId,
       callbackUrl,
     });
-    if (dest.startsWith('/crm/correos') || dest.startsWith('/opai/tareas') || dest.startsWith('/opai/agenda') || dest === '/productividad') {
+    if (
+      dest.startsWith('/crm/correos') ||
+      dest.startsWith('/opai/tareas') ||
+      dest.startsWith('/opai/agenda') ||
+      dest.startsWith('/productividad')
+    ) {
       const jar = await cookies();
       jar.set(SURFACE_COOKIE, 'productividad', surfaceCookieOptions());
     }
