@@ -1,8 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { RolePermissions } from "@/lib/permissions";
 import {
+  authorizeEntityThread,
   legacyParamsToEntity,
   resolveEntityConversations,
+  type ConversationEntityType,
 } from "../entity-conversations";
 
 function perms(opts?: {
@@ -153,3 +155,149 @@ describe("resolveEntityConversations", () => {
     }
   });
 });
+
+describe("simetría listado ↔ authorizeEntityThread", () => {
+  /**
+   * Para cada tipo, todo hilo que el listado (cascade:true) devolvería debe
+   * pasar authorizeEntityThread con el mismo contexto. Usamos datos sintéticos
+   * que ejercitan las ramas heredadas.
+   */
+  const cases: Array<{
+    entityType: ConversationEntityType;
+    entityId: string;
+    thread: {
+      id: string;
+      accountId: string | null;
+      dealId: string | null;
+      contactId: string | null;
+      sharedWithAccount: boolean;
+    };
+    setup: (p: typeof prisma) => void;
+  }> = [
+    {
+      entityType: "account",
+      entityId: "a1",
+      thread: {
+        id: "th-acc",
+        accountId: "a1",
+        dealId: null,
+        contactId: null,
+        sharedWithAccount: true,
+      },
+      setup: () => undefined,
+    },
+    {
+      entityType: "contact",
+      entityId: "c1",
+      thread: {
+        id: "th-ct-inh",
+        accountId: "a1",
+        dealId: null,
+        contactId: null,
+        sharedWithAccount: true,
+      },
+      setup: (p) => {
+        p.crmContact.findFirst.mockResolvedValue({ accountId: "a1" });
+        p.crmEmailThreadContact.findFirst = vi.fn().mockResolvedValue(null);
+      },
+    },
+    {
+      entityType: "deal",
+      entityId: "d1",
+      thread: {
+        id: "th-deal-inh",
+        accountId: "a1",
+        dealId: null,
+        contactId: null,
+        sharedWithAccount: true,
+      },
+      setup: (p) => {
+        p.crmDeal.findFirst.mockResolvedValue({ accountId: "a1" });
+        p.crmDealQuote.findMany.mockResolvedValue([]);
+        p.crmEmailThreadLink.findFirst = vi.fn().mockResolvedValue(null);
+      },
+    },
+    {
+      entityType: "installation",
+      entityId: "i1",
+      thread: {
+        id: "th-inst-inh",
+        accountId: "a1",
+        dealId: null,
+        contactId: null,
+        sharedWithAccount: true,
+      },
+      setup: (p) => {
+        p.crmInstallation.findFirst.mockResolvedValue({ accountId: "a1" });
+        p.crmEmailThreadLink.findFirst = vi.fn().mockResolvedValue(null);
+      },
+    },
+    {
+      entityType: "quote",
+      entityId: "q1",
+      thread: {
+        id: "th-quote-inh",
+        accountId: "a1",
+        dealId: "d1",
+        contactId: null,
+        sharedWithAccount: true,
+      },
+      setup: (p) => {
+        p.cpqQuote.findFirst.mockResolvedValue({ dealId: "d1", accountId: "a1" });
+        p.crmEmailThreadLink.findFirst = vi.fn().mockResolvedValue(null);
+      },
+    },
+  ];
+
+  const prisma = {
+    crmAccount: { findFirst: vi.fn() },
+    crmContact: { findFirst: vi.fn() },
+    crmDeal: { findFirst: vi.fn() },
+    crmInstallation: { findFirst: vi.fn() },
+    cpqQuote: { findFirst: vi.fn() },
+    crmEmailThread: { findMany: vi.fn(), findFirst: vi.fn() },
+    crmEmailThreadContact: { findMany: vi.fn(), findFirst: vi.fn() },
+    crmEmailThreadLink: { findMany: vi.fn(), findFirst: vi.fn() },
+    crmDealQuote: { findMany: vi.fn() },
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  for (const c of cases) {
+    it(`${c.entityType}: hilo listable (heredado/directo) pasa authorizeEntityThread`, async () => {
+      c.setup(prisma);
+      const allowed = await authorizeEntityThread({
+        prisma: prisma as never,
+        tenantId: "t1",
+        perms: perms(),
+        entityType: c.entityType,
+        entityId: c.entityId,
+        thread: c.thread,
+      });
+      expect(allowed).toBe(true);
+    });
+  }
+
+  it("quote: con dealId no hereda solo por accountId (precedencia else-if)", async () => {
+    prisma.cpqQuote.findFirst.mockResolvedValue({ dealId: "d1", accountId: "a1" });
+    prisma.crmEmailThreadLink.findFirst = vi.fn().mockResolvedValue(null);
+    const allowed = await authorizeEntityThread({
+      prisma: prisma as never,
+      tenantId: "t1",
+      perms: perms(),
+      entityType: "quote",
+      entityId: "q1",
+      thread: {
+        id: "th-wrong",
+        accountId: "a1",
+        dealId: "d-OTRO",
+        contactId: null,
+        sharedWithAccount: true,
+      },
+    });
+    expect(allowed).toBe(false);
+  });
+});
+

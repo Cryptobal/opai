@@ -3,14 +3,17 @@
  *
  * Detalle de un hilo compartido, autorizado por la ENTIDAD. Sirve 100% desde
  * el espejo local. Incluye toEmails/ccEmails/htmlBody para armar respuestas.
+ * La autorización replica exactamente las reglas del listado (directos +
+ * heredados) vía authorizeEntityThread().
  */
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, resolveApiPerms } from "@/lib/api-auth";
 import { prisma } from "@/lib/prisma";
-import { canView, canViewInstallations } from "@/lib/permissions";
+import { canEdit } from "@/lib/permissions";
 import { getEntityThreadDetail } from "@/modules/crm/email/entity-thread";
 import {
   CONVERSATION_ENTITY_TYPES,
+  authorizeEntityThread,
   type ConversationEntityType,
 } from "@/modules/crm/email/entity-conversations";
 
@@ -43,75 +46,59 @@ export async function GET(req: NextRequest, ctx: Ctx) {
       accountId: true,
       dealId: true,
       contactId: true,
+      emailAccountId: true,
       sharedWithAccount: true,
       attachmentsMeta: true,
     },
   });
   if (!thread) return NextResponse.json({ error: "Hilo no encontrado" }, { status: 404 });
 
-  let allowed = false;
-  if (entityType === "account") {
-    allowed =
-      canView(perms, "crm", "accounts") &&
-      thread.accountId === entityId &&
-      thread.sharedWithAccount;
-  } else if (entityType === "deal") {
-    allowed =
-      canView(perms, "crm", "deals") && thread.dealId === entityId && thread.sharedWithAccount;
-  } else if (entityType === "contact") {
-    if (canView(perms, "crm", "contacts") && thread.sharedWithAccount) {
-      if (thread.contactId === entityId) {
-        allowed = true;
-      } else {
-        const bridge = await prisma.crmEmailThreadContact.findFirst({
-          where: { tenantId, threadId, contactId: entityId },
-          select: { id: true },
-        });
-        allowed = Boolean(bridge);
-      }
-    }
-  } else if (entityType === "installation") {
-    if (canViewInstallations(perms)) {
-      const link = await prisma.crmEmailThreadLink.findFirst({
-        where: {
-          tenantId,
-          threadId,
-          entityType: "installation",
-          entityId,
-          visibleOnEntity: true,
-        },
-        select: { id: true },
-      });
-      allowed = Boolean(link);
-    }
-  } else if (entityType === "quote") {
-    if (canView(perms, "crm", "quotes")) {
-      const link = await prisma.crmEmailThreadLink.findFirst({
-        where: {
-          tenantId,
-          threadId,
-          entityType: "quote",
-          entityId,
-          visibleOnEntity: true,
-        },
-        select: { id: true },
-      });
-      allowed = Boolean(link);
-    }
-  }
+  const allowed = await authorizeEntityThread({
+    prisma,
+    tenantId,
+    perms,
+    entityType,
+    entityId,
+    thread: {
+      id: thread.id,
+      accountId: thread.accountId,
+      dealId: thread.dealId,
+      contactId: thread.contactId,
+      sharedWithAccount: thread.sharedWithAccount,
+    },
+  });
 
   if (!allowed) {
     return NextResponse.json({ error: "Sin acceso a esta conversación" }, { status: 403 });
   }
+
+  const ownAccount = thread.emailAccountId
+    ? await prisma.crmEmailAccount.findFirst({
+        where: {
+          id: thread.emailAccountId,
+          tenantId,
+          userId: auth.userId,
+          provider: "gmail",
+          status: "active",
+        },
+        select: { email: true },
+      })
+    : null;
+  const canReply = Boolean(ownAccount) && canEdit(perms, "productividad", "correos");
 
   const detail = await getEntityThreadDetail({
     tenantId,
     threadId: thread.id,
     subject: thread.subject,
     attachmentsMeta: thread.attachmentsMeta,
+    accountId: thread.accountId,
+    dealId: thread.dealId,
+    contactId: thread.contactId,
   });
   return NextResponse.json({
     ...detail,
+    canReply,
+    ownerEmail: ownAccount?.email ?? null,
     associations: {
       accountId: thread.accountId,
       dealId: thread.dealId,
