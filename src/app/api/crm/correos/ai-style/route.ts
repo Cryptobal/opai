@@ -55,53 +55,75 @@ export async function PUT(req: NextRequest) {
   const style = parseCorreoAiStyle(body.style);
   const userId = scope === "user" ? ctx.userId : null;
 
-  const existing = await prisma.crmEmailAiStyle.findFirst({
-    where: { tenantId: ctx.tenantId, userId },
-  });
-
-  let saved: CorreoAiStyle;
-  if (existing) {
-    const row = await prisma.crmEmailAiStyle.update({
-      where: { id: existing.id },
-      data: {
-        closeness: style.closeness,
-        addressing: style.addressing,
-        length: style.length,
-        avoidWords: style.avoidWords,
-        guidance: style.guidance,
-      },
+  try {
+    const existing = await prisma.crmEmailAiStyle.findFirst({
+      where: { tenantId: ctx.tenantId, userId },
     });
-    saved = parseCorreoAiStyle(row);
-  } else {
-    const row = await prisma.crmEmailAiStyle.create({
-      data: {
+
+    let saved: CorreoAiStyle;
+    if (existing) {
+      const row = await prisma.crmEmailAiStyle.update({
+        where: { id: existing.id },
+        data: {
+          closeness: style.closeness,
+          addressing: style.addressing,
+          length: style.length,
+          avoidWords: style.avoidWords,
+          guidance: style.guidance,
+        },
+      });
+      saved = parseCorreoAiStyle(row);
+    } else {
+      const row = await prisma.crmEmailAiStyle.create({
+        data: {
+          tenantId: ctx.tenantId,
+          userId,
+          closeness: style.closeness,
+          addressing: style.addressing,
+          length: style.length,
+          avoidWords: style.avoidWords,
+          guidance: style.guidance,
+        },
+      });
+      saved = parseCorreoAiStyle(row);
+    }
+
+    if (scope === "tenant") {
+      await logAudit({
+        userId: ctx.userId,
+        userEmail: ctx.userEmail,
+        action: "UPDATE",
+        entity: "CrmEmailAiStyle",
+        entityId: ctx.tenantId,
         tenantId: ctx.tenantId,
-        userId,
-        closeness: style.closeness,
-        addressing: style.addressing,
-        length: style.length,
-        avoidWords: style.avoidWords,
-        guidance: style.guidance,
-      },
-    });
-    saved = parseCorreoAiStyle(row);
-  }
+        details: { scope: "tenant", style: saved },
+        request: req,
+      });
+    }
 
-  if (scope === "tenant") {
-    await logAudit({
-      userId: ctx.userId,
-      userEmail: ctx.userEmail,
-      action: "UPDATE",
-      entity: "CrmEmailAiStyle",
-      entityId: ctx.tenantId,
-      tenantId: ctx.tenantId,
-      details: { scope: "tenant", style: saved },
-      request: req,
-    });
+    const effective = await resolveCorreoAiStyle(ctx.tenantId, ctx.userId);
+    return NextResponse.json({ scope, style: saved, effective });
+  } catch (error) {
+    const code =
+      error && typeof error === "object" && "code" in error
+        ? String((error as { code: unknown }).code)
+        : null;
+    console.error("[correos] Error guardando estilo IA:", error);
+    if (code === "P2021") {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "Falta la tabla de estilo IA en la base de datos. Aplica la migración crm_email_ai_style.",
+        },
+        { status: 503 },
+      );
+    }
+    return NextResponse.json(
+      { success: false, error: "No se pudo guardar el estilo de respuesta" },
+      { status: 500 },
+    );
   }
-
-  const effective = await resolveCorreoAiStyle(ctx.tenantId, ctx.userId);
-  return NextResponse.json({ scope, style: saved, effective });
 }
 
 export async function DELETE(req: NextRequest) {

@@ -187,9 +187,12 @@ export function CorreoAiStyleSheet({ open, onClose }: Props) {
           </div>
         ) : (
           <>
-            <label className="flex min-h-11 items-center justify-between gap-3 rounded-xl border border-ds-border-subtle bg-ds-surface-1 px-3">
-              <span className="text-[13px] text-ds-text-2">Usar mi propio estilo</span>
+            <div className="flex min-h-11 items-center justify-between gap-3 rounded-xl border border-ds-border-subtle bg-ds-surface-2 px-3">
+              <label htmlFor="correo-ai-style-personal" className="min-w-0 flex-1 text-[13px] text-ds-text-2">
+                Usar mi propio estilo
+              </label>
               <input
+                id="correo-ai-style-personal"
                 type="checkbox"
                 checked={usePersonal}
                 onChange={(e) => {
@@ -204,9 +207,9 @@ export function CorreoAiStyleSheet({ open, onClose }: Props) {
                     setAvoidInput(tenantStyle.avoidWords.join(", "));
                   }
                 }}
-                className="h-5 w-5 accent-[hsl(var(--primary))]"
+                className="h-5 w-5 shrink-0 rounded border-ds-border-default accent-primary"
               />
-            </label>
+            </div>
 
             {readOnly && (
               <p className="rounded-lg bg-ds-surface-2 px-3 py-2 text-[12px] text-ds-text-3">
@@ -216,7 +219,8 @@ export function CorreoAiStyleSheet({ open, onClose }: Props) {
               </p>
             )}
 
-            <label className="flex min-h-11 items-center justify-between gap-3 rounded-xl border border-ds-border-subtle bg-ds-surface-1 pl-3 pr-2">
+            {/* div (no label): Radix Select dentro de <label> cierra al instante al abrir */}
+            <div className="flex min-h-11 items-center justify-between gap-3 rounded-xl border border-ds-border-subtle bg-ds-surface-1 pl-3 pr-2">
               <span className="text-[13px] text-ds-text-2">Cercanía</span>
               <SimpleSelect
                 value={draft.closeness}
@@ -224,15 +228,16 @@ export function CorreoAiStyleSheet({ open, onClose }: Props) {
                 disabled={readOnly}
                 aria-label="Cercanía"
                 className="h-11 min-w-0 max-w-[9rem] border-0 bg-transparent"
+                contentClassName="z-[80]"
                 options={[
                   { value: "formal", label: "Formal" },
                   { value: "cercano", label: "Cercano" },
                   { value: "directo", label: "Directo" },
                 ]}
               />
-            </label>
+            </div>
 
-            <label className="flex min-h-11 items-center justify-between gap-3 rounded-xl border border-ds-border-subtle bg-ds-surface-1 pl-3 pr-2">
+            <div className="flex min-h-11 items-center justify-between gap-3 rounded-xl border border-ds-border-subtle bg-ds-surface-1 pl-3 pr-2">
               <span className="text-[13px] text-ds-text-2">Tratamiento</span>
               <SimpleSelect
                 value={draft.addressing}
@@ -240,15 +245,16 @@ export function CorreoAiStyleSheet({ open, onClose }: Props) {
                 disabled={readOnly}
                 aria-label="Tratamiento"
                 className="h-11 min-w-0 max-w-[9rem] border-0 bg-transparent"
+                contentClassName="z-[80]"
                 options={[
                   { value: "nombre", label: "Nombre" },
                   { value: "usted", label: "Usted" },
                   { value: "tu", label: "Tú" },
                 ]}
               />
-            </label>
+            </div>
 
-            <label className="flex min-h-11 items-center justify-between gap-3 rounded-xl border border-ds-border-subtle bg-ds-surface-1 pl-3 pr-2">
+            <div className="flex min-h-11 items-center justify-between gap-3 rounded-xl border border-ds-border-subtle bg-ds-surface-1 pl-3 pr-2">
               <span className="text-[13px] text-ds-text-2">Extensión</span>
               <SimpleSelect
                 value={draft.length}
@@ -256,13 +262,14 @@ export function CorreoAiStyleSheet({ open, onClose }: Props) {
                 disabled={readOnly}
                 aria-label="Extensión"
                 className="h-11 min-w-0 max-w-[9rem] border-0 bg-transparent"
+                contentClassName="z-[80]"
                 options={[
                   { value: "breve", label: "Breve" },
                   { value: "media", label: "Media" },
                   { value: "detallada", label: "Detallada" },
                 ]}
               />
-            </label>
+            </div>
 
             <label className="block space-y-1">
               <span className="text-[12px] text-ds-text-3">Palabras a evitar</span>
