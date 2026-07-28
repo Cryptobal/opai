@@ -116,8 +116,10 @@ type Props = {
   contactId?: string | null;
   onSent?: () => void;
   onClose?: () => void;
-  /** Controles extra junto a Enviar (p.ej. IA de respuesta sugerida). */
+  /** Controles extra junto a Enviar (p.ej. toggle IA). */
   footerExtras?: React.ReactNode;
+  /** Slot sobre adjuntos/Enviar (p.ej. pill "Help me write" estilo Gmail). */
+  aboveFooter?: React.ReactNode;
   /** Sello de contenido: al cambiar, el composer resetea con initialContent. */
   contentEpoch?: number;
   /** C22b: notifica al host si hay cambios sin enviar (confirmación de cierre). */
@@ -157,6 +159,7 @@ export const EmailComposer = forwardRef<EmailComposerHandle, Props>(function Ema
     onSent,
     onClose,
     footerExtras,
+    aboveFooter,
     contentEpoch = 0,
     onDirtyChange,
     onBodyChange,
@@ -602,6 +605,7 @@ export const EmailComposer = forwardRef<EmailComposerHandle, Props>(function Ema
 
   const footerBlock = (
     <>
+      {aboveFooter}
       {dictation.listening && (dictation.interimText || dictation.silent) && (
         <p className="py-1 text-[12px] text-ds-text-3">
           {dictation.silent
@@ -667,6 +671,7 @@ export const EmailComposer = forwardRef<EmailComposerHandle, Props>(function Ema
         >
           <CalendarClock className="h-4 w-4" />
         </button>
+        {footerExtras}
         <button
           type="button"
           title="Descartar borrador"
@@ -677,7 +682,6 @@ export const EmailComposer = forwardRef<EmailComposerHandle, Props>(function Ema
         >
           <Trash2 className="h-4 w-4" />
         </button>
-        {footerExtras}
         {draftSavedAt && (
           <span className="ml-auto inline-flex items-center gap-1 text-[12px] text-ds-text-4">
             <Check className="h-3.5 w-3.5" /> Borrador guardado {draftSavedAt}

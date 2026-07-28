@@ -67,9 +67,9 @@ function scrollComposerIntoView() {
 
 /**
  * Orquesta la respuesta del lector (Bloque 2): barra de acciones Gmail (cerrado)
- * ⇄ composer con modos (abierto), en exclusividad total. Los atajos R/T/F/I
- * los dispara useCorreosKeyboard → composeIntent (también con el foco en el
- * iframe del cuerpo). Absorbe la lógica IA del antiguo SuggestedReplyPanel.
+ * ⇄ composer con modos (abierto). IA = panel tipo Gmail (pill + toggle abajo),
+ * no un tab exclusivo. Atajos R/T/F/I → composeIntent (también con foco en el
+ * iframe del cuerpo).
  *
  * La barra de acciones se muestra de inmediato (sin esperar suggest-reply): el
  * meta se hidrata en background para no bloquear la lectura con un spinner.
@@ -195,13 +195,20 @@ export function CorreoReplyBox({
       ai={open.ai}
       expanded={open.expanded}
       onModeChange={(mode) =>
-        // Al elegir Responder / A todos / Reenviar, apagar IA para ocultar el
-        // rectángulo de indicaciones (solo visible en el tab IA).
-        setOpen((o) => (o ? { ...o, mode, ai: false } : o))
+        // Responder ↔ A todos mantienen el panel IA; Reenviar lo cierra
+        // (el asistente no aplica al forward).
+        setOpen((o) => (o ? { ...o, mode, ai: mode === "forward" ? false : o.ai } : o))
       }
       onToggleAi={() =>
-        // Solo se llama al activar IA (tab exclusivo); no toggle off.
-        setOpen((o) => (o ? { ...o, ai: true, mode: o.mode === "forward" ? "reply" : o.mode } : o))
+        setOpen((o) => {
+          if (!o) return o;
+          if (o.ai) return { ...o, ai: false };
+          return {
+            ...o,
+            ai: true,
+            mode: o.mode === "forward" ? "reply" : o.mode,
+          };
+        })
       }
       onToggleExpand={() => setOpen((o) => (o ? { ...o, expanded: !o.expanded } : o))}
       onClose={() => setOpen(null)}
