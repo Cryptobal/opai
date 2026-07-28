@@ -34,7 +34,7 @@ export function CorreoCheckbox({ checked, onChange, disabled, ariaLabel, classNa
       />
       <span
         aria-hidden
-        className="flex h-4 w-4 items-center justify-center rounded-[4px] border border-ds-border-strong bg-ds-surface-2 transition-colors peer-checked:border-primary peer-checked:bg-primary peer-focus-visible:ring-2 peer-focus-visible:ring-primary/60"
+        className="flex h-4 w-4 items-center justify-center rounded-[4px] border border-ds-border-strong bg-ds-surface-2 transition-colors peer-checked:border-primary peer-checked:bg-primary peer-focus-visible:ring-2 peer-focus-visible:ring-ds-border-strong"
       >
         <Check
           className={`h-3 w-3 text-primary-foreground transition-opacity ${

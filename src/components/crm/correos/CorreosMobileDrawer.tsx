@@ -3,7 +3,7 @@
 import { useRef, type ReactNode } from "react";
 import {
   AlignJustify, CalendarClock, Clock, Inbox, Keyboard, Mail, Pencil, RefreshCw,
-  Send, Settings, ShieldAlert, Star, Trash2, Wifi, WifiOff, X,
+  Send, Settings, ShieldAlert, Star, Trash2, WandSparkles, Wifi, WifiOff, X,
   type LucideIcon,
 } from "lucide-react";
 import { VERTICAL_META } from "@/modules/crm/email/radar-types";
@@ -49,6 +49,8 @@ type Props = {
   onOpenSwipeSettings?: () => void;
   /** Abre el sheet de horarios de posponer. */
   onOpenSnoozeSettings?: () => void;
+  /** Abre el sheet de estilo de respuesta IA. */
+  onOpenAiStyle?: () => void;
   /** Abre el sheet de atajos de teclado configurables. */
   onOpenShortcuts?: () => void;
   /** Inserta un operador en la caja de búsqueda (ayuda móvil). */
@@ -86,7 +88,8 @@ function SectionTitle({ children }: { children: ReactNode }) {
 export function CorreosMobileDrawer({
   open, onClose, folder, onFolder, chip, onChip, vertical, onVertical, counts,
   previewLines, onPreviewLines, onSync, syncing, realtimeStatus, lastSyncAt,
-  mailboxEmail, onOpenSwipeSettings, onOpenSnoozeSettings, onOpenShortcuts,
+  mailboxEmail, onOpenSwipeSettings, onOpenSnoozeSettings, onOpenAiStyle,
+  onOpenShortcuts,
 }: Props) {
   const panelRef = useRef<HTMLDivElement | null>(null);
   useCloseOnBack(open, onClose);
@@ -200,6 +203,12 @@ export function CorreosMobileDrawer({
             <Item onClick={pick(onOpenSnoozeSettings)}>
               <Clock className="h-4 w-4 shrink-0" />
               <span className="min-w-0 flex-1 truncate">Horarios de posponer</span>
+            </Item>
+          )}
+          {onOpenAiStyle && (
+            <Item onClick={pick(onOpenAiStyle)}>
+              <WandSparkles className="h-4 w-4 shrink-0" />
+              <span className="min-w-0 flex-1 truncate">Estilo de respuesta</span>
             </Item>
           )}
           {onOpenShortcuts && (

@@ -4,6 +4,7 @@ import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { requireCorreosAccess } from "@/lib/api-auth-productividad";
 import { prisma } from "@/lib/prisma";
 import { generateDraftReply } from "@/modules/crm/email/radar-classify-ai";
+import { resolveCorreoAiStyle } from "@/modules/crm/email/correo-ai-style.server";
 import { isDraftRefineMode } from "@/modules/crm/email/draft-reply-refine";
 import { stripHtml } from "@/modules/crm/email/radar-util";
 import {
@@ -217,6 +218,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   // solo ve el correo crudo + indicaciones.
   const resumen =
     data.radars.map((r) => r.summary?.trim()).find((s) => Boolean(s))?.slice(0, 200) ?? "";
+  const style = await resolveCorreoAiStyle(ctx.tenantId, ctx.userId);
   const draft = await generateDraftReply({
     tenantId: ctx.tenantId,
     subject: data.thread.subject,
@@ -226,6 +228,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     instructions,
     currentDraft,
     refine,
+    style,
   });
   return NextResponse.json({ draft, to: replyAddress });
 }

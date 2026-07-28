@@ -48,6 +48,7 @@ type Props = {
   composeIntent?: ComposeIntent | null;
   /** Cursor de lectura capturado al abrir (antes del markRead). */
   readCursorAt?: string | null;
+  onOpenAiStyle?: () => void;
 };
 
 function hasCopilotoAttention(detail: CorreoDetail): boolean {
@@ -79,6 +80,7 @@ export function CorreoDrawerContent({
   workTabIntent = null,
   composeIntent = null,
   readCursorAt = null,
+  onOpenAiStyle,
 }: Props) {
   const t = detail.thread;
   const [panel, setPanel] = useState<{ tab: WorkTab } | null>(null);
@@ -270,7 +272,7 @@ export function CorreoDrawerContent({
             type="button"
             onClick={() => openPanel("resumen")}
             aria-label="Abrir Copiloto con el veredicto del hilo"
-            className="block w-full text-left ds-tap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 rounded-xl"
+            className="block w-full text-left ds-tap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ds-border-strong rounded-xl"
           >
             <CorreoVerdictStrip
               variant="compact"
@@ -315,6 +317,7 @@ export function CorreoDrawerContent({
           onSent={onRefresh}
           shortcuts={shortcuts}
           composeIntent={composeIntent}
+          onOpenAiStyle={onOpenAiStyle}
         />
       </div>
 

@@ -13,6 +13,10 @@ import {
   DRAFT_REFINE_INSTRUCTIONS,
   type DraftRefineMode,
 } from "./draft-reply-refine";
+import {
+  buildStyleGuide,
+  type CorreoAiStyle,
+} from "./correo-ai-style";
 
 /** Versión de los prompts de este módulo (trazabilidad en aiUsageLog). */
 export const RADAR_PROMPT_VERSION = "radar-v5-untrusted";
@@ -239,11 +243,15 @@ export async function generateDraftReply(input: {
   currentDraft?: string | null;
   /** Preset de tono/estilo cuando hay currentDraft. */
   refine?: DraftRefineMode | null;
+  /** Estilo de respuesta (tenant/usuario); default ≡ prompt histórico. */
+  style?: CorreoAiStyle | null;
 }): Promise<string | null> {
   const instructions = input.instructions?.trim() || "";
   const currentDraft = input.currentDraft?.trim() || "";
   const refine = input.refine ?? null;
   const isRefine = currentDraft.length > 0 && (Boolean(refine) || instructions.length > 0);
+  const styleGuide = buildStyleGuide(input.style);
+  const styleBlock = styleGuide ? `\n${styleGuide}\n` : "";
 
   let prompt: string;
   let maxTokens: number;
@@ -257,7 +265,7 @@ export async function generateDraftReply(input: {
         ? `\nDetalle adicional del vendedor (no pegar textualmente): ${clampText(instructions, 600)}`
         : "";
     prompt = `Reescribe el BORRADOR de respuesta en español chileno neutro. Conservá hechos, nombres, compromisos y datos; NO inventes precios ni información nueva. ${refineGuide}${extraGuide} Devuelve SOLO el texto revisado listo para enviar, sin asunto ni firma.
-Borrador actual:
+${styleBlock}Borrador actual:
 ${clampText(currentDraft, 3500)}
 Resumen: ${input.resumen || "(sin resumen)"}
 ${UNTRUSTED_RULES}
@@ -273,16 +281,27 @@ ${wrapUntrusted(
     const instructionsBlock = hasInstructions
       ? `\nIndicaciones del vendedor (GUÍA de hechos/posición — NO son el borrador. Incorporá su sustancia respondiendo al correo entrante; NUNCA las copies ni las pegues textualmente como cuerpo del mail): ${clampText(instructions, 1200)}`
       : "";
+    // Extensión: si hay estilo configurado, usa sus límites; si no, el cableado
+    // histórico (90 / 220) para no cambiar el comportamiento por defecto.
+    const maxWords = styleGuide
+      ? input.style?.length === "breve"
+        ? 90
+        : input.style?.length === "detallada"
+          ? 260
+          : 160
+      : hasInstructions
+        ? 220
+        : 90;
     const structure = hasInstructions
-      ? "Estructura: (1) saludo breve y acusar recibo, (2) desarrollar con claridad los puntos de las indicaciones (hechos, condiciones, respuestas a las preguntas del correo), (3) cierre con próximo paso concreto. Máx 220 palabras."
-      : "Estructura: (1) acusar recibo, (2) 1-2 preguntas clave para avanzar, (3) próximo paso claro. Máx 90 palabras.";
-    prompt = `Redacta un BORRADOR de respuesta profesional en español chileno neutro a este correo entrante de un prospecto de seguridad privada. NO inventes precios ni datos que no estén en las indicaciones o en el correo. ${structure} Devuelve SOLO el texto del correo listo para enviar, sin asunto ni firma.${instructionsBlock}
+      ? `Estructura: (1) saludo breve y acusar recibo, (2) desarrollar con claridad los puntos de las indicaciones (hechos, condiciones, respuestas a las preguntas del correo), (3) cierre con próximo paso concreto. Máx ${maxWords} palabras.`
+      : `Estructura: (1) acusar recibo, (2) 1-2 preguntas clave para avanzar, (3) próximo paso claro. Máx ${maxWords} palabras.`;
+    prompt = `Redacta un BORRADOR de respuesta profesional en español chileno neutro a este correo entrante de un prospecto de seguridad privada. NO inventes precios ni datos que no estén en las indicaciones o en el correo. ${structure} Devuelve SOLO el texto del correo listo para enviar, sin asunto ni firma.${styleBlock}${instructionsBlock}
 Resumen: ${input.resumen || "(sin resumen)"}
 ${UNTRUSTED_RULES}
 ${wrapUntrusted(
       `Correo de ${input.fromEmail} (${clampText(input.subject, 160)}):\n${clampText(input.body, 2000)}`,
     )}`;
-    maxTokens = hasInstructions ? 700 : 300;
+    maxTokens = hasInstructions || styleGuide ? 700 : 300;
   }
 
   const startedAt = Date.now();

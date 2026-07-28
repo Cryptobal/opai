@@ -1,6 +1,6 @@
 "use client";
 
-import { Clock, Mail, Menu, PenLine, RefreshCw, Settings, Wifi, WifiOff, Keyboard } from "lucide-react";
+import { Clock, Mail, Menu, PenLine, RefreshCw, Settings, Wifi, WifiOff, Keyboard, WandSparkles } from "lucide-react";
 import {
   CHIPS, TABS, VERTICAL_LABELS,
   type CorreoChipKey, type CorreoFolderCounts, type CorreoFolderTab,
@@ -30,6 +30,8 @@ type Props = {
   onOpenShortcuts?: () => void;
   /** Abre configuración de horarios de posponer. */
   onOpenSnoozeSettings?: () => void;
+  /** Abre sheet de estilo de respuesta IA. */
+  onOpenAiStyle?: () => void;
 };
 
 /** Riel de carpetas desktop (reemplaza a las filas de pills): Redactar,
@@ -39,7 +41,7 @@ export function CorreosDesktopRail({
   folder, onFolder, chip, onChip, vertical, onVertical, counts,
   onCompose, onSync, syncing, realtimeStatus, lastSyncAt, mailboxEmail,
   collapsed, onToggleCollapsed, onOpenSwipeSettings, onOpenShortcuts,
-  onOpenSnoozeSettings,
+  onOpenSnoozeSettings, onOpenAiStyle,
 }: Props) {
   const live = realtimeStatus === "live";
   const lastSyncLabel = lastSyncAt
@@ -48,13 +50,13 @@ export function CorreosDesktopRail({
   // Con el riel contraído, los textos aparecen solo durante el peek (hover).
   const lbl = collapsed ? "hidden truncate group-hover/rail:inline" : "truncate";
   const item = (active: boolean) =>
-    `relative flex h-9 w-full items-center gap-3 rounded-xl text-left text-[13px] ds-tap ${
+    `relative mb-0.5 flex h-[34px] w-full items-center gap-3 rounded-xl text-left text-[13px] ds-tap ${
       collapsed ? "justify-center px-0 group-hover/rail:justify-start group-hover/rail:px-3.5" : "px-3.5"
     } ${active ? "bg-primary/15 font-medium text-primary" : "text-ds-text-2 hover:bg-ds-surface-2"}`;
 
   return (
     <div
-      className={`relative hidden shrink-0 transition-[width] duration-150 lg:block lg:sticky lg:top-16 lg:z-30 lg:h-[calc(100dvh-5rem)] ${
+      className={`relative hidden shrink-0 transition-[width] duration-150 lg:block lg:sticky lg:top-[var(--correo-stick)] lg:z-30 lg:h-[calc(100dvh-var(--correo-stick)-1rem)] ${
         collapsed ? "w-[68px]" : "w-56"
       }`}
     >
@@ -102,35 +104,40 @@ export function CorreosDesktopRail({
           const n = counts ? (counts as Record<string, number | undefined>)[t.key] : undefined;
           const unread = t.key === "inbox" ? counts?.inboxUnread ?? 0 : 0;
           return (
-            <button key={t.key} type="button" onClick={() => onFolder(t.key)} className={item(folder === t.key)}>
-              <Icon className="h-4 w-4 shrink-0" />
-              <span className={`${lbl} min-w-0 flex-1`}>{t.label}</span>
-              {/* Riel colapsado: badge rojo de no leídos sobre el ícono (como
-                  Gmail); en el peek/expandido pasa a la píldora inline. */}
-              {unread > 0 && collapsed && (
-                <span
-                  aria-hidden
-                  className="absolute right-1.5 top-0.5 inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-status-danger px-1 text-[12px] font-semibold leading-none text-white shadow-ds-xs group-hover/rail:hidden"
-                >
-                  {unread > 99 ? "99+" : unread}
-                </span>
+            <div key={t.key}>
+              {t.key === "all" && (
+                <div className="my-2 h-px bg-ds-border-subtle" aria-hidden />
               )}
-              {unread > 0 && (
-                <span className={`rounded-full bg-status-danger px-1.5 text-[12px] font-medium text-white ${collapsed ? "hidden group-hover/rail:inline" : ""}`}>
-                  {unread}
-                </span>
-              )}
-              {typeof n === "number" && (
-                <span className={`text-[12px] tabular-nums text-ds-text-4 ${collapsed ? "hidden group-hover/rail:inline" : ""}`}>
-                  {n}
-                </span>
-              )}
-            </button>
+              <button type="button" onClick={() => onFolder(t.key)} className={item(folder === t.key)}>
+                <Icon className="h-4 w-4 shrink-0" />
+                <span className={`${lbl} min-w-0 flex-1`}>{t.label}</span>
+                {/* Riel colapsado: badge rojo de no leídos sobre el ícono (como
+                    Gmail); en el peek/expandido pasa a la píldora inline. */}
+                {unread > 0 && collapsed && (
+                  <span
+                    aria-hidden
+                    className="absolute right-1.5 top-0.5 inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-status-danger px-1 text-[12px] font-semibold leading-none text-white shadow-ds-xs group-hover/rail:hidden"
+                  >
+                    {unread > 99 ? "99+" : unread}
+                  </span>
+                )}
+                {unread > 0 && (
+                  <span className={`rounded-full bg-status-danger px-1.5 text-[12px] font-medium text-white ${collapsed ? "hidden group-hover/rail:inline" : ""}`}>
+                    {unread}
+                  </span>
+                )}
+                {typeof n === "number" && (
+                  <span className={`text-[12px] tabular-nums text-ds-text-4 ${collapsed ? "hidden group-hover/rail:inline" : ""}`}>
+                    {n}
+                  </span>
+                )}
+              </button>
+            </div>
           );
         })}
 
         <div className={collapsed ? "hidden group-hover/rail:block" : ""}>
-          <p className="px-3.5 pb-1 pt-4 text-[11px] font-mono uppercase tracking-[0.08em] text-ds-text-4">Asociación</p>
+          <p className="px-3.5 pb-1.5 pt-3.5 text-[11px] font-mono uppercase tracking-[0.08em] text-ds-text-4">Asociación</p>
           {CHIPS.filter((c) => c.key !== "todos").map((c) => (
             <button key={c.key} type="button"
               onClick={() => onChip(chip === c.key ? "todos" : c.key)}
@@ -138,7 +145,7 @@ export function CorreosDesktopRail({
               <span className={`${lbl} min-w-0 flex-1`}>{c.label}</span>
             </button>
           ))}
-          <p className="px-3.5 pb-1 pt-4 text-[11px] font-mono uppercase tracking-[0.08em] text-ds-text-4">Verticales</p>
+          <p className="px-3.5 pb-1.5 pt-3.5 text-[11px] font-mono uppercase tracking-[0.08em] text-ds-text-4">Verticales</p>
           {Object.entries(VERTICAL_LABELS).map(([key, label]) => (
             <button key={key} type="button"
               onClick={() => onVertical(vertical === key ? null : key)}
@@ -149,9 +156,9 @@ export function CorreosDesktopRail({
           ))}
         </div>
 
-        {(onOpenSwipeSettings || onOpenShortcuts || onOpenSnoozeSettings) && (
+        {(onOpenSwipeSettings || onOpenShortcuts || onOpenSnoozeSettings || onOpenAiStyle) && (
           <div className={collapsed ? "hidden group-hover/rail:block" : ""}>
-            <p className="px-3.5 pb-1 pt-4 text-[11px] font-mono uppercase tracking-[0.08em] text-ds-text-4">
+            <p className="px-3.5 pb-1.5 pt-3.5 text-[11px] font-mono uppercase tracking-[0.08em] text-ds-text-4">
               Configuración
             </p>
             {onOpenSwipeSettings && (
@@ -164,6 +171,12 @@ export function CorreosDesktopRail({
               <button type="button" onClick={onOpenSnoozeSettings} className={item(false)}>
                 <Clock className="h-4 w-4 shrink-0" />
                 <span className={`${lbl} min-w-0 flex-1`}>Horarios de posponer</span>
+              </button>
+            )}
+            {onOpenAiStyle && (
+              <button type="button" onClick={onOpenAiStyle} className={item(false)}>
+                <WandSparkles className="h-4 w-4 shrink-0" />
+                <span className={`${lbl} min-w-0 flex-1`}>Estilo de respuesta</span>
               </button>
             )}
             {onOpenShortcuts && (

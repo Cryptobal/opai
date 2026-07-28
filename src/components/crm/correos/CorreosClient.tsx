@@ -66,8 +66,9 @@ import { nextIntentNonce, type ComposeIntent, type ReaderOpenOpts } from "./corr
 import type { WorkTab } from "./work-panel-tabs";
 import type { ComposerMode } from "./CorreoComposerBox";
 import { useEffectivePermissions } from "@/hooks/useEffectivePermissions";
-import { buildAiMenuItems, capsFromPerms } from "./CorreoAiMenu";
+import { buildAiMenuItems, capsFromPerms, radarPillFor } from "./CorreoAiMenu";
 import { CorreoAiMenuSheet } from "./CorreoAiMenuSheet";
+import { CorreoAiStyleSheet } from "./CorreoAiStyleSheet";
 import {
   CorreoAiActionPanel,
   type AiPanelCommand,
@@ -137,6 +138,7 @@ export function CorreosClient() {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [swipeSettingsOpen, setSwipeSettingsOpen] = useState(false);
   const [snoozeSettingsOpen, setSnoozeSettingsOpen] = useState(false);
+  const [aiStyleSheetOpen, setAiStyleSheetOpen] = useState(false);
   const [shortcutsSheetOpen, setShortcutsSheetOpen] = useState(false);
   // Menú contextual (click derecho) desktop sobre una fila.
   const [ctxMenu, setCtxMenu] = useState<{ thread: CorreoThreadDTO; x: number; y: number } | null>(null);
@@ -902,11 +904,11 @@ export function CorreosClient() {
     },
     onReply: () => {
       const t = resolveThread();
-      if (t) openCompose(t.id, "reply", false);
+      if (t) openCompose(t.id, "reply", true);
     },
     onReplyAll: () => {
       const t = resolveThread();
-      if (t) openCompose(t.id, "all", false);
+      if (t) openCompose(t.id, "all", true);
     },
     onForward: () => {
       const t = resolveThread();
@@ -1050,9 +1052,7 @@ export function CorreosClient() {
     setAiMenuSheet(t);
   }
 
-  // Ítems del menú contextual (click derecho, desktop) para un hilo. Reusa los
-  // mismos helpers que el swipe/teclado; las acciones CRM abren el hilo (el
-  // Panel comercial vive al fondo del lector; "Crear lead con IA" → panel IA).
+  // Ítems del menú contextual (click derecho, desktop): 3 bloques + 3 submenús.
   function contextItems(
     t: CorreoThreadDTO,
     anchor?: { x: number; y: number },
@@ -1062,111 +1062,177 @@ export function CorreosClient() {
       {
         icon: <Reply className="h-4 w-4" />,
         label: "Responder",
-        onClick: () => openCompose(t.id, "reply"),
+        onClick: () => openCompose(t.id, "reply", true),
       },
       {
         icon: <ReplyAll className="h-4 w-4" />,
         label: "Responder a todos",
-        onClick: () => openCompose(t.id, "all"),
+        onClick: () => openCompose(t.id, "all", true),
       },
       {
         icon: <Forward className="h-4 w-4" />,
         label: "Reenviar",
         onClick: () => openCompose(t.id, "forward"),
       },
-      {
+    ];
+    // Sin submenú IA: conserva "Responder con IA" en el bloque de respuestas.
+    if (aiItems.length === 0) {
+      items.push({
         icon: <Sparkles className="h-4 w-4" />,
         label: "Responder con IA",
         onClick: () => openCompose(t.id, "reply", true),
-      },
-    ];
+      });
+    }
+
     if (canModify) {
       const unread = t.isUnread;
       const starred = Boolean(t.starredAt);
       items.push(
         {
-          divider: true, icon: <Archive className="h-4 w-4" />, label: "Archivar",
+          divider: true,
+          icon: <Archive className="h-4 w-4" />,
+          label: "Archivar",
           onClick: () => {
             removeThreadAndAdvance(t.id);
             runRemoveAction(t.id, "archive", "Archivado");
           },
         },
         {
-          icon: <Trash2 className="h-4 w-4" />, label: "Eliminar", danger: true,
+          icon: <Trash2 className="h-4 w-4" />,
+          label: "Eliminar",
+          danger: true,
           onClick: () => {
             removeThreadAndAdvance(t.id);
             runRemoveAction(t.id, "trash", "Movido a la Papelera");
           },
         },
         {
+          icon: <Clock className="h-4 w-4" />,
+          label: "Posponer",
+          onClick: () => setSnoozeId(t.id),
+        },
+        {
           icon: unread ? <MailOpen className="h-4 w-4" /> : <Mail className="h-4 w-4" />,
           label: unread ? "Marcar leído" : "Marcar no leído",
-          onClick: () => void runCorreoAction(
-            t.id, unread ? "markRead" : "markUnread",
-            unread ? "Marcado como leído" : "Marcado como no leído",
-            () => void fetchPage(null, true),
-            unread ? "markUnread" : "markRead",
-          ),
-        },
-        {
-          icon: <Star className="h-4 w-4" />, label: starred ? "Quitar destacado" : "Destacar",
-          onClick: () => void runCorreoAction(
-            t.id, starred ? "unstar" : "star",
-            starred ? "Quitado de Destacados" : "Destacado",
-            () => void fetchPage(null, true), starred ? "star" : "unstar",
-          ),
-        },
-        { icon: <Clock className="h-4 w-4" />, label: "Posponer", onClick: () => setSnoozeId(t.id) },
-        {
-          icon: <Tag className="h-4 w-4" />,
-          label: "Corregir vertical",
           onClick: () =>
-            setVerticalPicker({ thread: t, anchor: anchor ?? null }),
+            void runCorreoAction(
+              t.id,
+              unread ? "markRead" : "markUnread",
+              unread ? "Marcado como leído" : "Marcado como no leído",
+              () => void fetchPage(null, true),
+              unread ? "markUnread" : "markRead",
+            ),
+        },
+        {
+          icon: <Star className="h-4 w-4" />,
+          label: starred ? "Quitar destacado" : "Destacar",
+          onClick: () =>
+            void runCorreoAction(
+              t.id,
+              starred ? "unstar" : "star",
+              starred ? "Quitado de Destacados" : "Destacado",
+              () => void fetchPage(null, true),
+              starred ? "star" : "unstar",
+            ),
         },
       );
     }
+
+    if (aiItems.length > 0) {
+      const aiSubmenu: CorreoMenuItem[] = [
+        ...aiItems,
+        {
+          divider: true,
+          icon: <Sparkles className="h-4 w-4" />,
+          label: "Responder con IA",
+          onClick: () => openCompose(t.id, "reply", true),
+        },
+      ];
+      if (canModify) {
+        aiSubmenu.push({
+          icon: <Tag className="h-4 w-4" />,
+          label: "Corregir vertical",
+          onClick: () => setVerticalPicker({ thread: t, anchor: anchor ?? null }),
+        });
+      }
+      items.push({
+        divider: true,
+        icon: <Sparkles className="h-4 w-4" />,
+        label: "✦ Acciones IA",
+        headerPill: radarPillFor(t),
+        onClick: () => {},
+        submenu: aiSubmenu,
+      });
+    } else if (canModify) {
+      // Sin capabilities de Radar: Corregir vertical queda en el bloque triage.
+      items.push({
+        divider: items.length > 3,
+        icon: <Tag className="h-4 w-4" />,
+        label: "Corregir vertical",
+        onClick: () => setVerticalPicker({ thread: t, anchor: anchor ?? null }),
+      });
+    }
+
     items.push(
       {
         divider: true,
-        icon: <CalendarPlus className="h-4 w-4" />,
-        label: "Agendar reunión",
-        onClick: () => openWork(t.id, "productividad"),
-      },
-      {
         icon: <ListTodo className="h-4 w-4" />,
-        label: "Crear tarea",
-        onClick: () => openWork(t.id, "productividad"),
-      },
-      {
-        icon: <TicketPlus className="h-4 w-4" />,
-        label: "Crear ticket",
-        onClick: () => openWork(t.id, "productividad"),
-      },
-      {
-        icon: <Sparkles className="h-4 w-4" />,
-        label: "Crear lead con IA",
-        onClick: () => openAiPanel(t, "lead"),
+        label: "Trabajo",
+        onClick: () => {},
+        submenu: [
+          {
+            icon: <CalendarPlus className="h-4 w-4" />,
+            label: "Agendar reunión",
+            onClick: () => openWork(t.id, "productividad"),
+          },
+          {
+            icon: <ListTodo className="h-4 w-4" />,
+            label: "Crear tarea",
+            onClick: () => openWork(t.id, "productividad"),
+          },
+          {
+            icon: <TicketPlus className="h-4 w-4" />,
+            label: "Crear ticket",
+            onClick: () => openWork(t.id, "productividad"),
+          },
+          {
+            divider: true,
+            icon: <CheckSquare className="h-4 w-4" />,
+            label: "Panel de trabajo",
+            onClick: () => openWork(t.id, "resumen"),
+          },
+        ],
       },
       {
         icon: <Building2 className="h-4 w-4" />,
-        label: "Asociar cuenta",
-        onClick: () => openWork(t.id, "cuenta"),
-      },
-      {
-        icon: <Link2 className="h-4 w-4" />,
-        label: "Vincular instalación/factura",
-        onClick: () => openWork(t.id, "vinculos"),
-      },
-      {
-        icon: <CheckSquare className="h-4 w-4" />,
-        label: "Panel de trabajo",
-        onClick: () => openWork(t.id, "resumen"),
+        label: "CRM",
+        onClick: () => {},
+        submenu: [
+          {
+            icon: <Building2 className="h-4 w-4" />,
+            label: "Asociar cuenta",
+            onClick: () => openWork(t.id, "cuenta"),
+          },
+          {
+            icon: <Link2 className="h-4 w-4" />,
+            label: "Vincular instalación/factura",
+            onClick: () => openWork(t.id, "vinculos"),
+          },
+          // Sin Acciones IA (sin capabilities Radar): conserva el acceso previo.
+          ...(aiItems.length === 0
+            ? [
+                {
+                  icon: <Sparkles className="h-4 w-4" />,
+                  label: "Crear lead con IA",
+                  onClick: () => openAiPanel(t, "lead"),
+                } satisfies CorreoMenuItem,
+              ]
+            : []),
+        ],
       },
     );
-    if (aiItems.length === 0) return items;
-    // Grupo IA arriba; el resto del menú intacto tras separador.
-    const rest = items.map((item, i) => (i === 0 ? { ...item, divider: true } : item));
-    return [...aiItems, ...rest];
+
+    return items;
   }
 
   return (
@@ -1214,6 +1280,7 @@ export function CorreosClient() {
         mailboxEmail={mailboxEmail}
         onOpenSwipeSettings={() => setSwipeSettingsOpen(true)}
         onOpenSnoozeSettings={() => setSnoozeSettingsOpen(true)}
+        onOpenAiStyle={() => setAiStyleSheetOpen(true)}
         onOpenShortcuts={() => setShortcutsSheetOpen(true)}
         onInsertSearch={(token) => {
           setQuery((prev) => (prev.trim() ? `${prev.trim()} ${token}` : token));
@@ -1232,6 +1299,10 @@ export function CorreosClient() {
         onClose={() => setSnoozeSettingsOpen(false)}
         config={snoozeConfig}
         onConfig={setSnoozeConfig}
+      />
+      <CorreoAiStyleSheet
+        open={aiStyleSheetOpen}
+        onClose={() => setAiStyleSheetOpen(false)}
       />
       <CorreoShortcutsSheet
         open={shortcutsSheetOpen}
@@ -1332,6 +1403,7 @@ export function CorreosClient() {
 
       <div
         ref={workspaceRef}
+        data-correo-scope
         className="relative min-w-0 lg:flex lg:items-start lg:gap-3"
       >
         {/* Riel desktop contraíble (Gmail): carpetas + filtros + sync. */}
@@ -1351,6 +1423,7 @@ export function CorreosClient() {
           onToggleCollapsed={() => setRailCollapsed(!railCollapsed)}
           onOpenSwipeSettings={() => setSwipeSettingsOpen(true)}
           onOpenSnoozeSettings={() => setSnoozeSettingsOpen(true)}
+          onOpenAiStyle={() => setAiStyleSheetOpen(true)}
           onOpenShortcuts={() => setShortcutsSheetOpen(true)}
         />
         <div className="min-w-0 flex-1 space-y-4 max-lg:px-4 lg:min-w-[340px] lg:space-y-3">
@@ -1514,6 +1587,7 @@ export function CorreosClient() {
                 }
               : undefined
           }
+          onOpenAiStyle={() => setAiStyleSheetOpen(true)}
         />
       </div>
 

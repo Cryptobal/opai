@@ -505,7 +505,7 @@ export const EmailComposer = forwardRef<EmailComposerHandle, Props>(function Ema
   const headerFields = (
     <>
       {!isReply && identityOptions.length > 1 && (
-        <div className="flex items-center gap-2 border-b border-ds-border-subtle py-1 focus-within:border-primary">
+        <div className="flex items-center gap-2 border-b border-ds-border-subtle py-1 focus-within:border-ds-border-strong">
           <span className="w-10 shrink-0 text-[12px] text-ds-text-3">De</span>
           <SimpleSelect
             value={identity ? `${identity.accountId}:${identity.alias ?? ""}` : ""}
@@ -560,7 +560,7 @@ export const EmailComposer = forwardRef<EmailComposerHandle, Props>(function Ema
           <ReplyRecipientsField label="CCO" values={bcc} onChange={setBcc} />
         </>
       )}
-      <div className="flex items-center gap-2 border-b border-ds-border-subtle py-1 focus-within:border-primary">
+      <div className="flex items-center gap-2 border-b border-ds-border-subtle py-1 focus-within:border-ds-border-strong">
         <span className="w-10 shrink-0 text-[12px] text-ds-text-3">Asunto</span>
         <input
           value={subject}
@@ -706,7 +706,7 @@ export const EmailComposer = forwardRef<EmailComposerHandle, Props>(function Ema
               type="datetime-local"
               value={customSchedule}
               onChange={(e) => setCustomSchedule(e.target.value)}
-              className="h-9 border-b border-ds-border-subtle bg-transparent px-1 text-[12px] text-ds-text-1 outline-none focus:border-primary"
+              className="h-9 border-b border-ds-border-subtle bg-transparent px-1 text-[12px] text-ds-text-1 outline-none focus:border-ds-border-strong"
               aria-label="Fecha y hora personalizada"
             />
             <button

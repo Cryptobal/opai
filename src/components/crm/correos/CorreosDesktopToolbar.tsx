@@ -75,7 +75,7 @@ export function CorreosDesktopToolbar({
 
   if (selectedCount > 0) {
     return (
-      <div className="sticky top-14 z-10 hidden h-12 items-center gap-1 rounded-xl border border-primary/30 bg-primary/15 px-2 backdrop-blur lg:flex">
+      <div className="sticky top-[var(--correo-stick)] z-10 hidden h-12 items-center gap-1 rounded-xl border border-primary/30 bg-primary/15 px-2 backdrop-blur lg:flex">
         <button type="button" aria-label="Salir de la selección" onClick={onClear} className={BTN}>
           <X className="h-4 w-4" />
         </button>
@@ -118,7 +118,7 @@ export function CorreosDesktopToolbar({
   }
 
   return (
-    <div className="sticky top-14 z-10 hidden flex-col gap-1.5 rounded-xl border border-ds-border-default bg-background/95 px-3 py-2 backdrop-blur lg:flex">
+    <div className="sticky top-[var(--correo-stick)] z-10 hidden flex-col gap-1.5 rounded-xl border border-ds-border-default bg-background/95 px-3 py-2 backdrop-blur lg:flex">
       <div className="flex h-10 items-center gap-2">
         <CorreoCheckbox
           checked={allChecked}

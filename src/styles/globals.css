@@ -86,6 +86,10 @@
     --ds-border-default: 220 13% 87%;      /* cards, inputs */
     --ds-border-strong: 220 13% 78%;       /* focus, hover */
 
+    /* Correos: offset sticky compartido (rail / toolbar / lector).
+       Topbar AppShell = h-12 (48px) + aire ≈ 56px. */
+    --correo-stick: 56px;
+
     /* Semantic — OK (success / confirmed) */
     --ds-ok: 160 84% 32%;                  /* #0d9b6c — solid */
     --ds-ok-fg: 160 84% 22%;               /* text on light bg */
@@ -388,6 +392,19 @@
   /* Better focus visible ring */
   :focus-visible {
     @apply outline-none ring-1 ring-ring ring-offset-1 ring-offset-background;
+  }
+
+  /* Correos: foco sin anillos de marca — señal por borde/outline neutro. */
+  [data-correo-scope] :focus-visible {
+    outline: 2px solid hsl(var(--ds-border-strong));
+    outline-offset: 1px;
+    --tw-ring-shadow: 0 0 #0000;
+    box-shadow: none;
+  }
+  [data-correo-scope] input:focus-visible,
+  [data-correo-scope] textarea:focus-visible,
+  [data-correo-scope] [contenteditable]:focus-visible {
+    outline: none;
   }
 
   /* Scrollbar sutil y minimalista */
