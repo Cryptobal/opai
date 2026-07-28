@@ -10,6 +10,7 @@ import { CorreoAssociationBar } from "./CorreoAssociationBar";
 import { CorreoLinksPanel } from "./CorreoLinksPanel";
 import { CorreoTasksPanel } from "./CorreoTasksPanel";
 import { CorreoContactPanel } from "./CorreoContactPanel";
+import { CorreoThreadContacts } from "./CorreoThreadContacts";
 import { CorreoTicketPanel } from "./CorreoTicketPanel";
 import { CorreoMeetingPanel } from "./CorreoMeetingPanel";
 import { CorreoWorkSummary } from "./CorreoWorkSummary";
@@ -288,6 +289,10 @@ export function CorreoWorkPanel({
                 sharedWithAccount={t.sharedWithAccount}
                 onAssociate={onAssociate}
               />
+              <div className="space-y-1.5 rounded-xl border border-ds-border-subtle bg-ds-surface-2 p-2.5">
+                <p className="text-[12px] font-medium text-ds-text-3">Contactos del hilo</p>
+                <CorreoThreadContacts threadId={t.id} accountId={t.accountId} />
+              </div>
               <CorreoContactPanel threadId={t.id} />
             </>
           )}

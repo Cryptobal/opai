@@ -25,6 +25,7 @@ import {
 import { resolveContinueActions } from "@/modules/crm/email/correo-continue-actions";
 import { CorreoVerdictStrip } from "./CorreoVerdictStrip";
 import { CorreoThreadSummaryCard } from "./CorreoThreadSummaryCard";
+import { CorreoThreadContacts } from "./CorreoThreadContacts";
 import { capsFromPerms } from "./CorreoAiMenu";
 import type { WorkTab } from "./work-panel-tabs";
 import type { CorreoDetail } from "@/modules/crm/email/correos.types";
@@ -95,6 +96,7 @@ export function CorreoWorkSummary({
   });
   const [primaryExecuted, setPrimaryExecuted] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
+  const [contactsOpen, setContactsOpen] = useState(false);
   const [compact, setCompact] = useState(false);
 
   useEffect(() => {
@@ -334,13 +336,24 @@ export function CorreoWorkSummary({
             value={
               !hasAccount
                 ? "Asocia una cuenta primero"
-                : contactValue || "Sin contactos"
+                : contactValue || "Elegir contactos"
             }
             depth={1}
             actionable={hasAccount && !contactValue}
             disabled={!hasAccount}
-            onClick={() => onGoTo("cuenta")}
+            onClick={() => {
+              if (!hasAccount) {
+                onGoTo("cuenta");
+                return;
+              }
+              setContactsOpen((v) => !v);
+            }}
           />
+          {hasAccount && contactsOpen && (
+            <div className="border-b border-ds-border-subtle px-3 pb-2 pl-8">
+              <CorreoThreadContacts threadId={t.id} accountId={t.accountId} />
+            </div>
+          )}
           <CascadeRow
             icon={Briefcase}
             label="Negocio"

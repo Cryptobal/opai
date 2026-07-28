@@ -2467,6 +2467,7 @@ model CrmContact {
   companyPresentations          CrmCompanyPresentation[]
   accessControlReportRecipients AccessControlReportRecipient[]
   emailRecipients               CrmEmailRecipient[]
+  emailThreadContacts           CrmEmailThreadContact[]
 
   @@index([tenantId], map: "idx_crm_contacts_tenant")
   @@index([accountId], map: "idx_crm_contacts_account")
@@ -2879,6 +2880,28 @@ model CrmEmailThreadLink {
   @@schema("crm")
 }
 
+/// Contactos múltiples de un hilo (Copiloto v2). `CrmEmailThread.contactId`
+/// se conserva como contacto principal; esta tabla es aditiva.
+model CrmEmailThreadContact {
+  id        String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId  String   @map("tenant_id")
+  threadId  String   @map("thread_id") @db.Uuid
+  contactId String   @map("contact_id") @db.Uuid
+  /// manual | ai | backfill
+  addedVia  String   @default("manual") @map("added_via")
+  createdBy String?  @map("created_by")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  thread  CrmEmailThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  contact CrmContact     @relation(fields: [contactId], references: [id], onDelete: Cascade)
+
+  @@unique([threadId, contactId], map: "uq_crm_email_thread_contacts")
+  @@index([tenantId, contactId], map: "idx_crm_email_thread_contacts_contact")
+  @@index([threadId], map: "idx_crm_email_thread_contacts_thread")
+  @@map("email_thread_contacts")
+  @@schema("crm")
+}
+
 model CrmEmailThread {
   id               String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   tenantId         String    @map("tenant_id")
@@ -2945,6 +2968,7 @@ model CrmEmailThread {
   updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   messages CrmEmailMessage[]
+  threadContacts CrmEmailThreadContact[]
 
   @@index([tenantId], map: "idx_crm_email_threads_tenant")
   @@index([accountId], map: "idx_crm_email_threads_account")
