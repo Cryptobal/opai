@@ -114,13 +114,17 @@ export async function generateThreadRadarItems(params: {
   /** Verticales habilitadas en el tenant. Si se omite, sólo comercial (default
    *  conservador — preserva el comportamiento previo a F2). */
   enabledVerticals?: Set<string>;
+  /** Vertical efectiva (override humano). Si se omite, usa classification.vertical. */
+  verticalOverride?: RadarVertical | null;
 }): Promise<CreatedRadarItem[]> {
   const c = params.classification;
   const created: CreatedRadarItem[] = [];
   const enabled = params.enabledVerticals ?? new Set(["comercial"]);
 
   // ── Verticales no comerciales (F2) ──
-  const effectiveVertical: RadarVertical = c.vertical;
+  // La corrección humana manda sobre la clasificación IA para el enrutado.
+  const effectiveVertical: RadarVertical =
+    params.verticalOverride ?? c.vertical;
   // Flag de tenant que gobierna cada vertical (cobranza↦finanzas, incidentes↦operaciones).
   const enableKey =
     effectiveVertical === "operaciones" || effectiveVertical === "incidentes"

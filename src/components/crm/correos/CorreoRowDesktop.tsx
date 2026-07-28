@@ -2,21 +2,17 @@
 
 import { Paperclip, Sparkles, Star } from "lucide-react";
 import type { CorreoThreadDTO } from "@/modules/crm/email/correos.types";
+import type { RadarCapability } from "@/modules/crm/email/radar-types";
 import { CorreoCheckbox } from "./CorreoCheckbox";
 import { CorreoSenderAvatar } from "./CorreoSenderAvatar";
 import { parseSender } from "./correo-sender";
 import { formatGmailDateChile } from "@/modules/crm/email/gmail-date-format";
 import { CorreoThreadActions } from "./CorreoThreadActions";
 import { CorreoMatchReasonBadge } from "./CorreoMatchReasonBadge";
+import { CorreoVerticalDot } from "./CorreoVerticalDot";
+import { CorreoActionChip } from "./CorreoActionChip";
 import { runCorreoAction } from "./correo-thread-action-client";
 import type { CorreoPreviewLines } from "./useCorreosViewPreferences";
-
-const RADAR_TONE: Record<"warn" | "danger" | "info" | "ok", string> = {
-  warn: "bg-status-warn-soft text-status-warn-fg",
-  danger: "bg-status-danger-soft text-status-danger-fg",
-  info: "bg-status-info-soft text-status-info-fg",
-  ok: "bg-status-ok-soft text-status-ok-fg",
-};
 
 function snoozeShort(iso: string): string {
   return new Date(iso).toLocaleString("es-CL", {
@@ -42,11 +38,12 @@ type Props = {
   checked?: boolean;
   onToggleCheck?: () => void;
   previewLines?: CorreoPreviewLines;
+  caps?: Set<RadarCapability>;
 };
 
 /**
  * Fila desktop densa estilo Gmail (40–44px, una línea): checkbox + estrella +
- * avatar + remitente limpio + asunto — snippet inline + chips mini + hora.
+ * barra de vertical + avatar + remitente + cuenta·asunto — snippet + chip + hora.
  * El hover revela las acciones (CorreoThreadActions) superpuestas a la hora.
  * Densidad compacta (previewLines=1): 36px y sin avatar.
  */
@@ -54,6 +51,7 @@ export function CorreoRowDesktop({
   thread, onOpen, canModify, onChanged, onRemoveDone, onUndoDone, onRemove, onSnooze,
   onAiMenu,
   selected = false, focused = false, checked, onToggleCheck, previewLines = 2,
+  caps = new Set(),
 }: Props) {
   const unread = thread.isUnread;
   const compact = previewLines === 1;
@@ -115,6 +113,11 @@ export function CorreoRowDesktop({
           />
         </button>
       )}
+      <CorreoVerticalDot
+        vertical={thread.vertical}
+        fixed={thread.verticalFixed}
+        variant="bar"
+      />
       {!compact && <CorreoSenderAvatar fromEmail={thread.fromEmail} compact />}
       <button
         type="button"
@@ -135,6 +138,14 @@ export function CorreoRowDesktop({
           )}
         </span>
         <span className="min-w-0 flex-1 truncate text-[13px]" title={subject}>
+          {thread.accountName && (
+            <>
+              <span className="inline-block max-w-[130px] truncate align-bottom font-medium text-ds-text-3">
+                {thread.accountName}
+              </span>
+              <span className="mx-1.5 text-ds-border-strong">·</span>
+            </>
+          )}
           <span className={unread ? "font-semibold text-ds-text-1" : "text-ds-text-2"}>
             {subject}
           </span>
@@ -144,24 +155,7 @@ export function CorreoRowDesktop({
         </span>
       </button>
       <span className="flex shrink-0 items-center gap-1.5">
-        {thread.accountId ? (
-          <span className="max-w-36 truncate rounded-full bg-primary/10 px-2 py-0.5 text-[12px] leading-4 text-primary">
-            {thread.accountName || "Cuenta"}
-          </span>
-        ) : thread.radarBadge ? (
-          <span className={`rounded-full px-2 py-0.5 text-[12px] leading-4 ${RADAR_TONE[thread.radarBadge.tone]}`}>
-            {thread.radarBadge.label}
-          </span>
-        ) : thread.possibleLead ? (
-          <span className="rounded-full bg-status-warn-soft px-2 py-0.5 text-[12px] leading-4 text-status-warn-fg">
-            Posible lead
-          </span>
-        ) : null}
-        {thread.hasDraft && (
-          <span className="rounded-full bg-status-warn-soft px-2 py-0.5 text-[12px] leading-4 text-status-warn-fg">
-            Borrador
-          </span>
-        )}
+        <CorreoActionChip thread={thread} caps={caps} />
         <CorreoMatchReasonBadge reason={thread.matchReason} />
         {thread.attachmentCount > 0 && (
           <Paperclip aria-label={`${thread.attachmentCount} adjuntos`} className="h-3.5 w-3.5 text-ds-text-4" />

@@ -103,6 +103,40 @@ export const VERTICAL_CAPABILITY: Record<RadarVertical, RadarCapability | null> 
   otro: null,
 };
 
+/** Metadatos de presentación por vertical. Fuente ÚNICA para rail, filas y picker. */
+export const VERTICAL_META: Record<
+  Exclude<RadarVertical, "otro">,
+  { label: string; dot: string; order: number }
+> = {
+  operaciones: { label: "Operaciones", dot: "bg-tint-sky-fg", order: 1 },
+  rrhh: { label: "RRHH", dot: "bg-tint-teal-fg", order: 2 },
+  comercial: { label: "Comercial", dot: "bg-tint-violet-fg", order: 3 },
+  finanzas: { label: "Finanzas", dot: "bg-tint-emerald-fg", order: 4 },
+  cobranza: { label: "Cobranza", dot: "bg-tint-amber-fg", order: 5 },
+  contratos: { label: "Contratos", dot: "bg-tint-rose-fg", order: 6 },
+  incidentes: { label: "Incidentes", dot: "bg-status-danger", order: 7 },
+};
+
+/** Vertical efectiva del hilo: la corrección humana manda sobre la IA. */
+export function effectiveVertical(
+  aiVertical: string | null,
+  verticalOverride: string | null,
+): RadarVertical | null {
+  const raw = verticalOverride ?? aiVertical;
+  if (!raw || !(raw in VERTICAL_CAPABILITY) || raw === "otro") return null;
+  return raw as RadarVertical;
+}
+
+/** Vertical visible para el solicitante (null si no tiene la capability). */
+export function visibleVertical(
+  vertical: RadarVertical | null,
+  caps: Set<RadarCapability>,
+): RadarVertical | null {
+  if (!vertical) return null;
+  const cap = VERTICAL_CAPABILITY[vertical];
+  return cap && caps.has(cap) ? vertical : null;
+}
+
 /**
  * Kind → vertical (para kinds de vertical fija). `sugerencia` es transversal:
  * usa la vertical del propio item.
@@ -146,6 +180,10 @@ export interface RadarBadge {
   tone: "warn" | "danger" | "info" | "ok";
 }
 
+/**
+ * @deprecated Usar `visibleVertical` + `VERTICAL_META` para la bandeja.
+ * Se mantiene sin cambios de comportamiento para `help-chat-tools-v2`.
+ */
 export function radarBadgeFor(
   vertical: RadarVertical | null,
   caps: Set<RadarCapability>,

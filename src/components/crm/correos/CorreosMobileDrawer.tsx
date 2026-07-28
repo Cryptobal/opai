@@ -6,6 +6,7 @@ import {
   Send, Settings, ShieldAlert, Star, Trash2, Wifi, WifiOff, X,
   type LucideIcon,
 } from "lucide-react";
+import { VERTICAL_META } from "@/modules/crm/email/radar-types";
 import {
   CHIPS, TABS, VERTICAL_LABELS,
   type CorreoChipKey, type CorreoFolderCounts, type CorreoFolderTab,
@@ -21,12 +22,10 @@ export const FOLDER_ICONS: Partial<Record<CorreoFolderTab, LucideIcon>> = {
   scheduled: CalendarClock, starred: Star, all: Mail, spam: ShieldAlert, trash: Trash2,
 };
 
-/** Punto categórico por vertical (tokens tint/status del DS). */
-export const VERTICAL_DOTS: Record<string, string> = {
-  operaciones: "bg-tint-sky", rrhh: "bg-tint-teal", comercial: "bg-tint-violet",
-  finanzas: "bg-tint-emerald", cobranza: "bg-tint-amber", contratos: "bg-tint-rose",
-  incidentes: "bg-status-danger",
-};
+/** Punto categórico por vertical (tokens tint-*-fg / status del DS). */
+export const VERTICAL_DOTS: Record<string, string> = Object.fromEntries(
+  Object.entries(VERTICAL_META).map(([key, meta]) => [key, meta.dot]),
+);
 
 type Props = {
   open: boolean;

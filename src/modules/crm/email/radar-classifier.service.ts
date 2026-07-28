@@ -3,7 +3,11 @@ import { getRadarVerticalSettings } from "@/lib/crm/radar-settings";
 import { classifyThread, generateDraftReply } from "./radar-classify-ai";
 import { getLeadFeedbackExamples, type LeadFeedback } from "./radar-feedback";
 import { generateThreadRadarItems, isNewLeadCandidate, type CreatedRadarItem } from "./radar-items";
-import { verticalFromLegacyCategoria, type RadarClassification } from "./radar-types";
+import {
+  effectiveVertical,
+  verticalFromLegacyCategoria,
+  type RadarClassification,
+} from "./radar-types";
 import { stripHtml, hoyISO } from "./radar-util";
 import { writeSyncState } from "./gmail-sync-state";
 import { dispatchRadarAlert } from "@/lib/crm/radar-alerts";
@@ -207,6 +211,8 @@ async function classifyOne(
     where: { id: threadId, tenantId },
     select: {
       id: true, subject: true, leadId: true, dealId: true, accountId: true, aiClassifiedAt: true,
+      // Solo lectura: verticalOverride NUNCA se escribe desde este servicio.
+      verticalOverride: true,
       messages: {
         orderBy: { sentAt: "asc" },
         select: { direction: true, fromEmail: true, textBody: true, htmlBody: true, sentAt: true, receivedAt: true },
@@ -264,10 +270,14 @@ async function classifyOne(
     });
   }
 
+  // verticalOverride del hilo manda sobre la clasificación; aiVertical se
+  // sigue persistiendo arriba para medir precisión del modelo.
+  const vEff = effectiveVertical(classification.vertical, thread.verticalOverride);
   const created = await generateThreadRadarItems({
     tenantId, userId, threadId: thread.id, fromEmail: lastInbound.fromEmail,
     leadId: thread.leadId, dealId: thread.dealId, accountId: thread.accountId,
     classification, draftReply, enabledVerticals,
+    verticalOverride: vEff,
   });
 
   // Alertas Slack DM + in-app para lead nuevo / señal de compra (B3).

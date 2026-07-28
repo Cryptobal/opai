@@ -6,6 +6,7 @@ import { Archive, Clock, Mail, MailOpen, Reply, Star, Trash2, type LucideIcon } 
 import { CorreoRow } from "./CorreoRow";
 import { runCorreoAction } from "./correo-thread-action-client";
 import type { CorreoThreadDTO } from "@/modules/crm/email/correos.types";
+import type { RadarCapability } from "@/modules/crm/email/radar-types";
 import type {
   CorreoPreviewLines,
   CorreoSwipeAction,
@@ -59,6 +60,7 @@ type Props = {
   onAvatarPress?: () => void;
   onLongPress?: () => void;
   selectionMode?: boolean;
+  caps?: Set<RadarCapability>;
 };
 
 const LEAVE_MS = 200;
@@ -71,7 +73,7 @@ export function CorreoRowSwipe({
   thread, canModify, onOpen, onChanged, onRemoveDone, onUndoDone, onRemove, onSnooze,
   onAiMenu,
   selected, focused, checked, onToggleCheck, previewLines, swipeConfig,
-  onAvatarPress, onLongPress, selectionMode = false,
+  onAvatarPress, onLongPress, selectionMode = false, caps,
 }: Props) {
   const [coarse, setCoarse] = useState(false);
   const [leaving, setLeaving] = useState(false);
@@ -148,7 +150,7 @@ export function CorreoRowSwipe({
         onRemoveDone={onRemoveDone} onUndoDone={onUndoDone} onRemove={onRemove}
         onSnooze={onSnooze} onAiMenu={onAiMenu}
         selected={selected} focused={focused} checked={checked}
-        onToggleCheck={onToggleCheck} previewLines={previewLines} />
+        onToggleCheck={onToggleCheck} previewLines={previewLines} caps={caps} />
     );
   }
 
@@ -288,7 +290,7 @@ export function CorreoRowSwipe({
         <CorreoRow thread={thread} canModify={canModify} onOpen={handleOpen} onChanged={onChanged}
           mobileGmail checked={checked}
           onAvatarPress={onAvatarPress ? () => { if (!wasDragged()) onAvatarPress(); } : undefined}
-          previewLines={previewLines} />
+          previewLines={previewLines} caps={caps} />
       </motion.div>
     </div>
   );

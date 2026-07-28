@@ -4,6 +4,8 @@ import {
   radarBadgeFor,
   capabilityForItem,
   verticalForItem,
+  effectiveVertical,
+  visibleVertical,
   type RadarCapability,
 } from "../radar-types";
 
@@ -63,5 +65,35 @@ describe("radarBadgeFor — badge de bandeja por vertical", () => {
     expect(radarBadgeFor("comercial", caps("radar_comercial"))?.label).toContain("Lead");
     expect(radarBadgeFor("cobranza", caps("radar_finanzas"))?.tone).toBe("ok");
     expect(radarBadgeFor(null, caps("radar_comercial"))).toBeNull();
+  });
+});
+
+describe("effectiveVertical — override humano manda", () => {
+  it("usa override cuando existe", () => {
+    expect(effectiveVertical("comercial", "cobranza")).toBe("cobranza");
+  });
+  it("cae a aiVertical sin override", () => {
+    expect(effectiveVertical("operaciones", null)).toBe("operaciones");
+  });
+  it("otro e inválidos → null", () => {
+    expect(effectiveVertical("otro", null)).toBeNull();
+    expect(effectiveVertical("desconocido", null)).toBeNull();
+    expect(effectiveVertical(null, null)).toBeNull();
+  });
+  it("override a otro no es válido → null", () => {
+    expect(effectiveVertical("comercial", "otro")).toBeNull();
+  });
+});
+
+describe("visibleVertical — capability del solicitante", () => {
+  it("sin capability → null", () => {
+    expect(visibleVertical("comercial", caps("radar_operaciones"))).toBeNull();
+  });
+  it("cobranza requiere radar_finanzas", () => {
+    expect(visibleVertical("cobranza", caps("radar_finanzas"))).toBe("cobranza");
+    expect(visibleVertical("cobranza", caps("radar_comercial"))).toBeNull();
+  });
+  it("null se propaga", () => {
+    expect(visibleVertical(null, caps("radar_comercial"))).toBeNull();
   });
 });
