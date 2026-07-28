@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { createCrmHistoryLog } from "@/lib/crm-history";
 import { applyDefaultQuoteIncludes } from "@/lib/cpq/apply-default-quote-includes";
+import { materializeCoverageSlotsOnQuote } from "@/lib/crm/coverage-slots-to-quote-positions";
 import type { CrmStructureProposal, PlanQuoteInput } from "./email-to-crm-structure.types";
 
 function coverageServiceDetail(proposal: CrmStructureProposal): string {
@@ -19,7 +20,7 @@ function coverageServiceDetail(proposal: CrmStructureProposal): string {
   return lines.join("\n").slice(0, 4000);
 }
 
-/** Crea CpqQuote draft + CrmDealQuote. Errores se propagan al caller (skipped). */
+/** Crea CpqQuote draft + CrmDealQuote + puestos desde cobertura. Errores se propagan al caller (skipped). */
 export async function createPlanQuote(params: {
   tenantId: string;
   userId: string;
@@ -29,7 +30,7 @@ export async function createPlanQuote(params: {
   installationId?: string;
   proposal: CrmStructureProposal;
   quoteInput?: PlanQuoteInput;
-}): Promise<{ quoteId: string; quoteUrl: string; code: string }> {
+}): Promise<{ quoteId: string; quoteUrl: string; code: string; positionsCreated: number }> {
   const { tenantId, userId, dealId, accountId } = params;
   const deal = await prisma.crmDeal.findFirst({
     where: { id: dealId, tenantId },
@@ -74,6 +75,7 @@ export async function createPlanQuote(params: {
           insurancePolicyUF: 1500,
           accountId,
           dealId,
+          ...(params.contactId ? { contactId: params.contactId } : {}),
           ...(params.installationId ? { installationId: params.installationId } : {}),
           contractDuration,
           isOngoingService: input?.isOngoingService ?? true,
@@ -123,9 +125,22 @@ export async function createPlanQuote(params: {
     if (code !== "P2002") throw linkErr;
   }
 
+  let positionsCreated = 0;
+  try {
+    const mat = await materializeCoverageSlotsOnQuote({
+      tenantId,
+      quoteId: quote.id,
+      proposal: params.proposal,
+    });
+    positionsCreated = mat.positionsCreated;
+  } catch (err) {
+    console.error("[plan-create-quote] materialize positions:", err);
+  }
+
   return {
     quoteId: quote.id,
     quoteUrl: `/cpq/quotes/${quote.id}`,
     code: quote.code,
+    positionsCreated,
   };
 }

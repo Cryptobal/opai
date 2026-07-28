@@ -23,6 +23,11 @@ export type CrmStructureCoverageSlot = {
   /** Calculado server-side (no confiar en la IA). */
   weeklyHH: number;
   headcount: number;
+  /**
+   * Si true, el usuario fijó la dotación a mano: el recalc conserva `headcount`
+   * y solo actualiza HH / patrón.
+   */
+  headcountLocked?: boolean;
   pattern: string;
   staffingRationale: string;
 };
