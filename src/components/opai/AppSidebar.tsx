@@ -4,12 +4,12 @@ import { ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
-import { ChevronRight, LogOut, LucideIcon, PanelLeftClose, PanelLeftOpen, X } from 'lucide-react';
+import { ChevronRight, LucideIcon, PanelLeftClose, PanelLeftOpen, X } from 'lucide-react';
 import { useChatSidePanelContext } from '@/components/chat/ChatFloatingProvider';
 import { pathMatchesNode } from '@/lib/nav/registry';
 import { DEFAULT_SURFACE, type Surface } from '@/lib/surface';
 import { ThemeLogo } from './ThemeLogo';
-import { SignOutDialog } from './SignOutDialog';
+import { SidebarUserMenu } from './SidebarUserMenu';
 export interface NavSubItem {
   href: string;
   label: string;
@@ -37,6 +37,8 @@ export interface AppSidebarProps {
   footer?: ReactNode;
   userName?: string;
   userEmail?: string;
+  userRole?: string;
+  tenantName?: string;
   onNavigate?: () => void;
   onToggleSidebar?: () => void;
   isSidebarOpen?: boolean;
@@ -58,6 +60,8 @@ export function AppSidebar({
   footer,
   userName,
   userEmail,
+  userRole,
+  tenantName,
   onNavigate,
   onToggleSidebar,
   isSidebarOpen = true,
@@ -74,7 +78,6 @@ export function AppSidebar({
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
   // N3 expansion state removido: sidebar limita a N1+N2.
   const flyoutTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [showSignOutDialog, setShowSignOutDialog] = useState(false);
 
   const showFlyout = collapsed && !showCloseButton;
 
@@ -515,87 +518,21 @@ export function AppSidebar({
         )}
       </nav>
 
-      {/* User footer */}
+      {/* User footer — identidad única vía SidebarUserMenu */}
       <div
         className={cn(
           "border-t border-border/60 shrink-0 transition-[padding] duration-200 mt-auto",
           collapsed ? "p-2" : showCloseButton ? "p-3.5" : "p-3"
         )}
       >
-        {(userName || userEmail) && (
-          <Link
-            href="/opai/perfil"
-            onClick={onNavigate}
-            title={collapsed ? userName || userEmail : undefined}
-            className={cn(
-              "flex rounded-md transition-colors hover:bg-accent",
-              collapsed
-                ? "justify-center p-2 mb-1"
-                : showCloseButton
-                ? "items-center gap-2.5 px-2.5 py-2 mb-2"
-                : "items-center gap-2.5 px-2 py-1.5 mb-2"
-            )}
-          >
-            <div
-              className={cn(
-                "flex shrink-0 items-center justify-center rounded-full bg-primary/15 font-semibold text-primary ring-2 ring-primary/20",
-                showCloseButton ? "h-9 w-9 text-sm" : "h-7 w-7 text-xs"
-              )}
-            >
-              {userName?.charAt(0)?.toUpperCase() || userEmail?.charAt(0)?.toUpperCase() || '?'}
-            </div>
-            {!collapsed && (
-              <div className="min-w-0 flex-1">
-                {userName && (
-                  <p
-                    className={cn(
-                      "truncate font-medium text-foreground",
-                      showCloseButton ? "text-sm" : "text-xs"
-                    )}
-                  >
-                    {userName}
-                  </p>
-                )}
-                {userEmail && (
-                  <p
-                    className={cn(
-                      "truncate text-muted-foreground",
-                      showCloseButton ? "text-sm" : "text-xs"
-                    )}
-                  >
-                    {userEmail}
-                  </p>
-                )}
-              </div>
-            )}
-          </Link>
-        )}
-
-        <button
-          type="button"
-          onClick={() => setShowSignOutDialog(true)}
-          title={collapsed ? "Cerrar sesión" : undefined}
-          className={cn(
-            "flex w-full rounded-md transition-colors text-muted-foreground hover:bg-destructive/10 hover:text-destructive",
-            collapsed
-              ? "justify-center p-2 mb-1"
-              : showCloseButton
-              ? "items-center gap-2.5 px-2.5 py-2 mb-2"
-              : "items-center gap-2.5 px-2 py-1.5 mb-2"
-          )}
-        >
-          <LogOut className={cn("shrink-0", showCloseButton ? "h-4 w-4" : "h-3.5 w-3.5")} />
-          {!collapsed && (
-            <span
-              className={cn(
-                "font-medium",
-                showCloseButton ? "text-sm" : "text-xs"
-              )}
-            >
-              Cerrar sesión
-            </span>
-          )}
-        </button>
+        <SidebarUserMenu
+          userName={userName}
+          userEmail={userEmail}
+          userRole={userRole}
+          tenantName={tenantName}
+          collapsed={collapsed}
+          onNavigate={onNavigate}
+        />
 
         <div className={cn("flex gap-1 w-full", collapsed ? "flex-col items-center" : "items-center")}>
           {footer && (
@@ -622,8 +559,6 @@ export function AppSidebar({
           )}
         </div>
       </div>
-
-      <SignOutDialog open={showSignOutDialog} onOpenChange={setShowSignOutDialog} />
     </aside>
   );
 }

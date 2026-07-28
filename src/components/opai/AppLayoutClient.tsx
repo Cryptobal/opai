@@ -143,6 +143,7 @@ function AppLayoutClientInner({
               navItems={navItems}
               userName={userName ?? undefined}
               userEmail={userEmail ?? undefined}
+              userRole={userRole}
               surface={surface}
             />
           }
