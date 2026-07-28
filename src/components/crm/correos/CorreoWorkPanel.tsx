@@ -13,6 +13,7 @@ import { CorreoContactPanel } from "./CorreoContactPanel";
 import { CorreoTicketPanel } from "./CorreoTicketPanel";
 import { CorreoMeetingPanel } from "./CorreoMeetingPanel";
 import { CorreoWorkSummary } from "./CorreoWorkSummary";
+import { CorreoAttachmentsSheet } from "./CorreoAttachmentsSheet";
 import { WORK_TABS, resolveWorkTab, type WorkTab } from "./work-panel-tabs";
 import type { CorreoDetail } from "@/modules/crm/email/correos.types";
 import type { CorreoAiCommandId } from "@/modules/crm/email/correo-ai-commands";
@@ -58,6 +59,7 @@ export function CorreoWorkPanel({
   const [tab, setTab] = useState(() => resolvedInitial);
   const [detent, setDetent] = useState<Detent>(() => initialDetent(resolvedInitial));
   const [closing, setClosing] = useState(false);
+  const [attachmentsOpen, setAttachmentsOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(
     () => typeof window !== "undefined" && window.matchMedia("(max-width: 1023px)").matches,
   );
@@ -271,6 +273,7 @@ export function CorreoWorkPanel({
               onAiCommand={onAiCommand}
               onGoTo={(next) => selectTab(resolveWorkTab(next))}
               onRequestReply={onRequestReply}
+              onOpenAttachments={() => setAttachmentsOpen(true)}
             />
           )}
           {tab === "cuenta" && (
@@ -288,7 +291,9 @@ export function CorreoWorkPanel({
               <CorreoContactPanel threadId={t.id} />
             </>
           )}
-          {tab === "vinculos" && <CorreoLinksPanel threadId={t.id} />}
+          {tab === "vinculos" && (
+            <CorreoLinksPanel threadId={t.id} accountId={t.accountId} />
+          )}
           {tab === "productividad" && (
             <>
               <CorreoMeetingPanel threadId={t.id} subject={t.subject} />
@@ -298,6 +303,19 @@ export function CorreoWorkPanel({
           )}
         </div>
       </div>
+      <CorreoAttachmentsSheet
+        open={attachmentsOpen}
+        onClose={() => setAttachmentsOpen(false)}
+        threadId={t.id}
+        items={detail.attachments}
+        dealId={t.dealId}
+        dealTitle={t.dealTitle}
+        accountId={t.accountId}
+        accountName={t.accountName}
+        degraded={detail.degraded}
+        onSaved={onRefresh}
+        onRequestAssociate={() => selectTab("cuenta")}
+      />
     </div>,
     document.body,
   );

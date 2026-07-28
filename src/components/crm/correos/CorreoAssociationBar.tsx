@@ -2,14 +2,22 @@
 
 import { useEffect, useState } from "react";
 import { Eye, EyeOff, Sparkles } from "lucide-react";
-import { SimpleSelect } from "@/components/ui/simple-select";
+import { SelectGroup, SelectLabel } from "@/components/ui/select";
+import { SimpleSelect, SimpleSelectItem } from "@/components/ui/simple-select";
+import { toast } from "sonner";
 import { AsociarCuenta } from "./AsociarCuenta";
-import { QuickDealCreate } from "./QuickDealCreate";
+import { QuickDealCreate, type DealPrefill } from "./QuickDealCreate";
 
-type DealOpt = { id: string; title: string };
+type DealOpt = { id: string; title: string; status: string };
 type AccountSuggestion = { id: string; name: string; reason: string };
 
 const CREATE = "__create__";
+const CREATE_AI = "__create_ai__";
+
+const STATUS_SUFFIX: Record<string, string> = {
+  won: " · Ganado",
+  lost: " · Perdido",
+};
 
 /** Barra de asociación: cuenta + negocio opcional del drawer de correos. */
 export function CorreoAssociationBar({
@@ -30,15 +38,22 @@ export function CorreoAssociationBar({
   subject?: string;
   /** Bloque 5: el hilo asociado es visible en la ficha de la cuenta. */
   sharedWithAccount?: boolean;
-  onAssociate: (p: { accountId: string | null; dealId: string | null; sharedWithAccount?: boolean }) => void;
+  onAssociate: (p: {
+    accountId: string | null;
+    dealId: string | null;
+    sharedWithAccount?: boolean;
+  }) => void;
 }) {
   const [deals, setDeals] = useState<DealOpt[]>([]);
   const [loadingDeals, setLoadingDeals] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [prefill, setPrefill] = useState<DealPrefill | null>(null);
+  const [suggesting, setSuggesting] = useState(false);
   const [suggestions, setSuggestions] = useState<AccountSuggestion[]>([]);
 
   useEffect(() => {
     setCreating(false);
+    setPrefill(null);
     if (!accountId) {
       setDeals([]);
       return;
@@ -46,12 +61,20 @@ export function CorreoAssociationBar({
     setLoadingDeals(true);
     fetch(`/api/crm/correos/deals-for-account?accountId=${encodeURIComponent(accountId)}`)
       .then((r) => r.json())
-      .then((j) => setDeals(j.items ?? []))
+      .then((j) => {
+        const items = Array.isArray(j.items) ? j.items : [];
+        setDeals(
+          items.map((d: { id: string; title: string; status?: string }) => ({
+            id: d.id,
+            title: d.title,
+            status: d.status ?? "open",
+          })),
+        );
+      })
       .catch(() => setDeals([]))
       .finally(() => setLoadingDeals(false));
   }, [accountId]);
 
-  // Sugerencias de cuenta (IA por dominio) solo cuando el hilo no tiene cuenta.
   useEffect(() => {
     if (accountId || !threadId) {
       setSuggestions([]);
@@ -66,6 +89,39 @@ export function CorreoAssociationBar({
       alive = false;
     };
   }, [accountId, threadId]);
+
+  const openDeals = deals.filter((d) => d.status === "open");
+  const closedDeals = deals.filter((d) => d.status !== "open");
+
+  async function createWithAi() {
+    if (!threadId || !accountId || suggesting) return;
+    setSuggesting(true);
+    try {
+      const res = await fetch(`/api/crm/correos/${threadId}/suggest-deal`, { method: "POST" });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok || !body?.suggestion) {
+        throw new Error(body?.error || "No se pudo generar la propuesta");
+      }
+      const s = body.suggestion as {
+        title: string;
+        amount: number | null;
+        stageId: string | null;
+        stageName: string | null;
+      };
+      setPrefill({
+        title: s.title,
+        amount: s.amount,
+        stageId: s.stageId,
+        stageName: s.stageName,
+        fromAi: true,
+      });
+      setCreating(true);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "No se pudo generar la propuesta");
+    } finally {
+      setSuggesting(false);
+    }
+  }
 
   return (
     <div className="space-y-2 rounded-xl border border-ds-border-subtle bg-ds-surface-2 p-2.5">
@@ -98,10 +154,13 @@ export function CorreoAssociationBar({
           )}
           <span className="min-w-0 flex-1">
             <span className="block text-[13px] font-medium text-ds-text-1">
-              {sharedWithAccount ? "Visible en la ficha de la cuenta" : "Privado (no visible en la ficha)"}
+              {sharedWithAccount
+                ? "Visible en la ficha de la cuenta"
+                : "Privado (no visible en la ficha)"}
             </span>
             <span className="block text-[12px] text-ds-text-4">
-              El hilo aparece en «Conversaciones» de la cuenta para quienes tengan acceso a ella. Tu casilla sigue siendo privada.
+              El hilo aparece en «Conversaciones» de la cuenta para quienes tengan acceso a ella. Tu
+              casilla sigue siendo privada.
             </span>
           </span>
           <span
@@ -142,35 +201,69 @@ export function CorreoAssociationBar({
           <SimpleSelect
             className="h-10 rounded-xl sm:h-9"
             value={dealId ?? ""}
-            disabled={loadingDeals}
+            disabled={loadingDeals || suggesting}
             aria-label="Negocio (opcional)"
             onValueChange={(v) => {
               if (v === CREATE) {
+                setPrefill(null);
                 setCreating(true);
+                return;
+              }
+              if (v === CREATE_AI) {
+                void createWithAi();
                 return;
               }
               onAssociate({ accountId, dealId: v || null });
             }}
-            options={[
-              { value: "", label: "Sin negocio" },
-              ...(dealId && !deals.some((d) => d.id === dealId)
-                ? [{ value: dealId, label: dealTitle || "Negocio actual" }]
-                : []),
-              ...deals.map((d) => ({ value: d.id, label: d.title })),
-              { value: CREATE, label: "＋ Crear negocio…" },
-            ]}
-          />
+          >
+            <SimpleSelectItem value="">Sin negocio</SimpleSelectItem>
+            {dealId && !deals.some((d) => d.id === dealId) && (
+              <SimpleSelectItem value={dealId}>{dealTitle || "Negocio actual"}</SimpleSelectItem>
+            )}
+            {openDeals.length > 0 && (
+              <SelectGroup>
+                <SelectLabel className="text-[12px] text-ds-text-3">Abiertos</SelectLabel>
+                {openDeals.map((d) => (
+                  <SimpleSelectItem key={d.id} value={d.id}>
+                    {d.title}
+                  </SimpleSelectItem>
+                ))}
+              </SelectGroup>
+            )}
+            {closedDeals.length > 0 && (
+              <SelectGroup>
+                <SelectLabel className="text-[12px] text-ds-text-4">Cerrados</SelectLabel>
+                {closedDeals.map((d) => (
+                  <SimpleSelectItem key={d.id} value={d.id}>
+                    <span className="text-ds-text-3">
+                      {d.title}
+                      {STATUS_SUFFIX[d.status] ?? ` · ${d.status}`}
+                    </span>
+                  </SimpleSelectItem>
+                ))}
+              </SelectGroup>
+            )}
+            <SimpleSelectItem value={CREATE}>＋ Crear negocio…</SimpleSelectItem>
+            <SimpleSelectItem value={CREATE_AI}>
+              ✦ {suggesting ? "Generando propuesta…" : "Crear negocio con IA"}
+            </SimpleSelectItem>
+          </SimpleSelect>
         </label>
       )}
       {accountId && creating && (
         <QuickDealCreate
           accountId={accountId}
           defaultTitle={subject ?? ""}
+          prefill={prefill}
           onCreated={(newDealId) => {
             setCreating(false);
+            setPrefill(null);
             onAssociate({ accountId, dealId: newDealId });
           }}
-          onCancel={() => setCreating(false)}
+          onCancel={() => {
+            setCreating(false);
+            setPrefill(null);
+          }}
         />
       )}
     </div>

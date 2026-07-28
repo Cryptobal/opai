@@ -36,7 +36,15 @@ type ResolvedLink = {
 type Candidate = { id: string; label: string; sublabel: string | null; status: string | null };
 type Suggestion = { entityType: string; entityId: string; label: string; motivo: string };
 
-export function CorreoLinksPanel({ threadId }: { threadId: string }) {
+export function CorreoLinksPanel({
+  threadId,
+  accountId = null,
+}: {
+  threadId: string;
+  /** Cuenta del hilo: acota el picker (Bloque 2). */
+  accountId?: string | null;
+}) {
+  void accountId;
   const [links, setLinks] = useState<ResolvedLink[] | null>(null);
   const [adding, setAdding] = useState(false);
   const [type, setType] = useState("installation");
