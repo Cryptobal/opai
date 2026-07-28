@@ -203,7 +203,7 @@ export function emptyCrmStructureProposal(): CrmStructureProposal {
     },
     coverageIsRequirementNotStaffing: false,
     weeklyHoursPerWorker: 42,
-    reservePct: 15,
+    reservePct: 10,
     installations: [],
     openQuestions: [],
     assumptions: [],
