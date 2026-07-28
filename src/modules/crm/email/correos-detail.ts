@@ -60,6 +60,13 @@ export async function getCorreoDetail(params: {
       starredAt: true,
       spamAt: true,
       sharedWithAccount: true,
+      lastMessageAt: true,
+      aiCategory: true,
+      aiVertical: true,
+      aiUrgency: true,
+      aiSentiment: true,
+      aiSummary: true,
+      aiClassifiedAt: true,
       attachmentsMeta: true,
       detailCachedAt: true,
       updatedAt: true,
@@ -167,7 +174,10 @@ export async function getCorreoDetail(params: {
       ? prisma.crmAccount.findFirst({ where: { id: thread.accountId, tenantId }, select: { name: true } })
       : null,
     thread.dealId
-      ? prisma.crmDeal.findFirst({ where: { id: thread.dealId, tenantId }, select: { title: true } })
+      ? prisma.crmDeal.findFirst({
+          where: { id: thread.dealId, tenantId },
+          select: { title: true, fechaEntrega: true, isLicitacion: true },
+        })
       : null,
   ]);
 
@@ -188,6 +198,10 @@ export async function getCorreoDetail(params: {
       accountName: account?.name ?? null,
       dealId: thread.dealId,
       dealTitle: deal?.title ?? null,
+      dealFechaEntrega: deal?.fechaEntrega
+        ? deal.fechaEntrega.toISOString().slice(0, 10)
+        : null,
+      dealIsLicitacion: Boolean(deal?.isLicitacion),
       leadId: thread.leadId,
       providerThreadId: thread.providerThreadId,
       isUnread: thread.isUnread,
@@ -195,6 +209,13 @@ export async function getCorreoDetail(params: {
       starredAt: thread.starredAt?.toISOString() ?? null,
       spamAt: thread.spamAt?.toISOString() ?? null,
       sharedWithAccount: thread.sharedWithAccount,
+      lastMessageAt: thread.lastMessageAt?.toISOString() ?? null,
+      aiCategory: thread.aiCategory,
+      aiVertical: thread.aiVertical,
+      aiUrgency: thread.aiUrgency,
+      aiSentiment: thread.aiSentiment,
+      aiSummary: thread.aiSummary,
+      aiClassifiedAt: thread.aiClassifiedAt?.toISOString() ?? null,
     },
     messages: messages.map((m) => ({ ...m, sentAt: m.sentAt?.toISOString() ?? null })),
     attachments: attachmentsWithSaved,
