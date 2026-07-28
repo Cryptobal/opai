@@ -1,9 +1,11 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import {
   AlignJustify, Archive, CheckSquare, Clock, Keyboard, Mail, MailOpen, RefreshCw,
   Search, ShieldAlert, Star, Trash2, X,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import type { CorreoAction } from "@/modules/crm/email/gmail-thread-actions";
 import { CorreoCheckbox } from "./CorreoCheckbox";
 import type { CorreoPreviewLines } from "./useCorreosViewPreferences";
@@ -53,6 +55,19 @@ export function CorreosDesktopToolbar({
   selectedCount, allReadSelected, onClear, onAction, onSnooze, onOpenShortcuts,
 }: Props) {
   const compact = previewLines === 1;
+  const [searchFocused, setSearchFocused] = useState(false);
+  const [reduceMotion, setReduceMotion] = useState(false);
+  const showOps = searchFocused || query.trim().length > 0;
+
+  useEffect(() => {
+    if (typeof window.matchMedia !== "function") return;
+    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const apply = () => setReduceMotion(mq.matches);
+    apply();
+    mq.addEventListener("change", apply);
+    return () => mq.removeEventListener("change", apply);
+  }, []);
+
   const insertOp = (op: string) => {
     const next = query.trim() ? `${query.trim()} ${op}` : op;
     onQuery(next);
@@ -128,6 +143,8 @@ export function CorreosDesktopToolbar({
             placeholder="Buscá lo que recordás — texto, remitente o idea"
             value={query}
             onChange={(e) => onQuery(e.target.value)}
+            onFocus={() => setSearchFocused(true)}
+            onBlur={() => setSearchFocused(false)}
             autoComplete="off"
           />
           {query.length > 0 && (
@@ -165,18 +182,33 @@ export function CorreosDesktopToolbar({
           </button>
         )}
       </div>
-      <div className="flex min-w-0 items-center gap-1 overflow-x-auto pl-10 scrollbar-none">
-        <span className="shrink-0 text-[12px] text-ds-text-4">Operadores</span>
-        {OPERATOR_HINTS.map((op) => (
-          <button
-            key={op}
-            type="button"
-            onClick={() => insertOp(op)}
-            className="inline-flex h-7 shrink-0 items-center rounded-full border border-ds-border-subtle bg-ds-surface-2 px-2 font-mono text-[12px] text-ds-text-3 ds-tap hover:text-ds-text-1"
-          >
-            {op}
-          </button>
-        ))}
+      <div
+        className={cn(
+          "grid overflow-hidden",
+          reduceMotion
+            ? showOps ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
+            : "transition-[grid-template-rows,opacity] duration-[180ms] ease-out",
+          !reduceMotion && (showOps ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"),
+        )}
+        aria-hidden={!showOps}
+      >
+        <div className="min-h-0 overflow-hidden">
+          <div className="flex min-w-0 items-center gap-1 overflow-x-auto pl-10 scrollbar-none">
+            <span className="shrink-0 text-[12px] text-ds-text-4">Operadores</span>
+            {OPERATOR_HINTS.map((op) => (
+              <button
+                key={op}
+                type="button"
+                // Evita blur del input al clickear un chip (mantiene showOps).
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => insertOp(op)}
+                className="inline-flex h-7 shrink-0 items-center rounded-full border border-ds-border-subtle bg-ds-surface-2 px-2 font-mono text-[12px] text-ds-text-3 ds-tap hover:text-ds-text-1"
+              >
+                {op}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   );

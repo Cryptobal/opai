@@ -3,18 +3,18 @@
 /**
  * MobileIsland — isla contextual liquid-glass del ERP en móvil (<lg).
  *
+ * Gramática (modo normal):
+ *   [SurfaceSegment]  ·······  [🔍] [💬] [🔔]  │  [☰ módulo?]
+ *        Zona A                    Zona C           Zona C'
+ *
  * Modos:
- *  A. Normal: [SurfaceSegment] [buscar] [chat] [campana]
- *     Sin acceso a Productividad: logo/ícono + título (sin segmento).
- *  B. Detalle: chevron back + trailing (+ acción primaria); sin segmento
- *  C. Búsqueda: cambio de modo — [←] [campo] [✕]; sin capas ni overlays
+ *  A. Normal: segmento + acciones globales (+ menú de módulo opcional)
+ *  B. Detalle: chevron back + trailing (+ acción primaria); sin segmento ni C'
+ *  C. Búsqueda: [←] [campo] [✕]; sin capas ni overlays
  *
- * El tamaño de la isla y de los botones es estable (sin condensación al
- * scroll): Chat / campana / buscar mantienen h-10. El ancla de ubicación
- * es el segmento ERP/Prod — no se duplica con un título "OPAI"/"Inicio".
- *
- * Regla de no solapamiento: un único flex-1 min-w-0 (bloque título / campo);
- * segmento y botones son shrink-0 con ancho declarado.
+ * Un módulo puede publicar menú (Zona C'), override de búsqueda y supresión
+ * vía IslandModuleContext. Ningún módulo inyecta controles a la izquierda
+ * del SurfaceSegment.
  */
 
 import { useEffect, useRef, useState } from "react";
@@ -23,7 +23,13 @@ import { usePathname, useRouter } from "next/navigation";
 import { ArrowLeft, Bell, ChevronLeft, MessageCircle, Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ThemeLogo } from "./ThemeLogo";
-import { IconBubble, useBreadcrumbTrailing, useIslandAction } from "@/components/opai-ds";
+import {
+  IconBubble,
+  useBreadcrumbTrailing,
+  useIslandAction,
+  useIslandModule,
+  useIslandSearchOpenListener,
+} from "@/components/opai-ds";
 import { resolveNavContext } from "@/lib/nav/resolve-context";
 import { usePermissions } from "@/lib/permissions-context";
 import { useTenantModules } from "@/contexts/TenantModulesContext";
@@ -56,6 +62,7 @@ export function MobileIsland({
   const router = useRouter();
   const trailing = useBreadcrumbTrailing();
   const islandAction = useIslandAction();
+  const { moduleMenu, search: moduleSearch, suppressed } = useIslandModule();
   const permissions = usePermissions();
   const { isModuleEnabled } = useTenantModules();
 
@@ -65,13 +72,24 @@ export function MobileIsland({
   // Plan B (H2): en viewports ≤360 px el título baja de ~90 px utilizables
   // con segmento + 3 botones. El chat ya está en BottomNav (OpaiOrb).
   const [hideChatInIsland, setHideChatInIsland] = useState(false);
+  // En ≤320 px con menú de módulo + búsqueda propia: ocultar también Search
+  // (el módulo ya tiene acceso a búsqueda por el drawer / atajos).
+  const [hideSearchInIsland, setHideSearchInIsland] = useState(false);
   useEffect(() => {
     if (typeof window.matchMedia !== "function") return;
-    const mq = window.matchMedia("(max-width: 360px)");
-    const apply = () => setHideChatInIsland(mq.matches);
+    const mqChat = window.matchMedia("(max-width: 360px)");
+    const mqSearch = window.matchMedia("(max-width: 320px)");
+    const apply = () => {
+      setHideChatInIsland(mqChat.matches);
+      setHideSearchInIsland(mqSearch.matches);
+    };
     apply();
-    mq.addEventListener("change", apply);
-    return () => mq.removeEventListener("change", apply);
+    mqChat.addEventListener("change", apply);
+    mqSearch.addEventListener("change", apply);
+    return () => {
+      mqChat.removeEventListener("change", apply);
+      mqSearch.removeEventListener("change", apply);
+    };
   }, []);
 
   const [searchOpen, setSearchOpen] = useState(false);
@@ -90,6 +108,10 @@ export function MobileIsland({
   const homeHref =
     surface === "productividad" ? (productividadLanding ?? "/hub") : "/hub";
 
+  const usingModuleSearch = Boolean(moduleSearch);
+  const showModuleSearchBtn =
+    !hideSearchInIsland || !moduleMenu || !usingModuleSearch;
+
   const btnBase = cn(
     "relative inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-ds-text-3",
     "transition-colors hover:bg-ds-surface-2 hover:text-ds-text-1 active:scale-95",
@@ -107,6 +129,7 @@ export function MobileIsland({
     if (debounceRef.current) clearTimeout(debounceRef.current);
     setSearchOpen(false);
     setSearchValue("");
+    if (moduleSearch) moduleSearch.onExit?.();
   };
 
   const commitSearch = (value: string) => {
@@ -143,7 +166,12 @@ export function MobileIsland({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname]);
 
-  const onSearchChange = (value: string) => {
+  // Atajos de teclado del módulo: abrir modo búsqueda de la isla.
+  useIslandSearchOpenListener(() => {
+    if (moduleSearch) setSearchOpen(true);
+  });
+
+  const onPaletteSearchChange = (value: string) => {
     setSearchValue(value);
     if (debounceRef.current) clearTimeout(debounceRef.current);
     if (value.trim().length >= 2) {
@@ -152,6 +180,25 @@ export function MobileIsland({
       }, 200);
     }
   };
+
+  const fieldValue = usingModuleSearch ? (moduleSearch?.value ?? "") : searchValue;
+  const fieldPlaceholder = moduleSearch?.placeholder ?? "Buscar…";
+  const onFieldChange = (value: string) => {
+    if (usingModuleSearch) {
+      moduleSearch?.onChange(value);
+      return;
+    }
+    onPaletteSearchChange(value);
+  };
+
+  if (suppressed) return null;
+
+  const badgeLabel =
+    moduleMenu && moduleMenu.badge && moduleMenu.badge > 0
+      ? moduleMenu.badge > 99
+        ? "99+"
+        : String(moduleMenu.badge)
+      : null;
 
   return (
     <header
@@ -180,19 +227,25 @@ export function MobileIsland({
             </button>
             <input
               ref={searchInputRef}
+              id={usingModuleSearch ? "correos-search-input-mobile" : undefined}
               type="search"
-              value={searchValue}
-              onChange={(e) => onSearchChange(e.target.value)}
+              value={fieldValue}
+              onChange={(e) => onFieldChange(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
                   e.preventDefault();
+                  if (usingModuleSearch) {
+                    // Módulo: Enter solo confirma/blur; el filtro ya vive en onChange.
+                    searchInputRef.current?.blur();
+                    return;
+                  }
                   commitSearch(searchValue);
                 }
               }}
               onBlur={() => {
-                if (!searchValue.trim()) exitSearch();
+                if (!fieldValue.trim()) exitSearch();
               }}
-              placeholder="Buscar…"
+              placeholder={fieldPlaceholder}
               inputMode="search"
               enterKeyHint="search"
               autoComplete="off"
@@ -201,13 +254,13 @@ export function MobileIsland({
                 "min-w-0 flex-1 bg-transparent text-[13px] text-ds-text-1 placeholder:text-ds-text-4",
                 "outline-none border-0 focus:ring-0",
               )}
-              aria-label="Buscar en OPAI"
+              aria-label={usingModuleSearch ? fieldPlaceholder : "Buscar en OPAI"}
             />
-            {searchValue.length > 0 && (
+            {fieldValue.length > 0 && (
               <button
                 type="button"
                 onClick={() => {
-                  setSearchValue("");
+                  onFieldChange("");
                   searchInputRef.current?.focus();
                 }}
                 className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-ds-text-3 hover:bg-ds-surface-2 hover:text-ds-text-1"
@@ -289,16 +342,18 @@ export function MobileIsland({
                 </button>
               )}
             </div>
-          ) : (
+          ) : !isDetail ? (
             <div className="flex shrink-0 items-center gap-px">
-              <button
-                type="button"
-                className={btnBase}
-                onClick={() => setSearchOpen(true)}
-                aria-label="Buscar"
-              >
-                <Search className="h-5 w-5" />
-              </button>
+              {showModuleSearchBtn && (
+                <button
+                  type="button"
+                  className={btnBase}
+                  onClick={() => setSearchOpen(true)}
+                  aria-label="Buscar"
+                >
+                  <Search className="h-5 w-5" />
+                </button>
+              )}
               {!hideChatInIsland && (
                 <button type="button" className={btnBase} onClick={onToggleChat} aria-label="Abrir chat">
                   <MessageCircle className="h-5 w-5" />
@@ -318,8 +373,37 @@ export function MobileIsland({
                   <span className="absolute right-1.5 top-1.5 h-2.5 w-2.5 rounded-full bg-status-danger ring-2 ring-background" />
                 )}
               </button>
+              {/* Zona C': menú de módulo — solo modo normal */}
+              {moduleMenu && (
+                <>
+                  <span
+                    aria-hidden
+                    className="mx-0.5 h-5 w-px shrink-0 bg-[var(--glass-border)]"
+                  />
+                  <button
+                    type="button"
+                    className={btnBase}
+                    onClick={moduleMenu.onOpen}
+                    aria-label={
+                      badgeLabel
+                        ? `${moduleMenu.label} — ${moduleMenu.badge} sin leer`
+                        : moduleMenu.label
+                    }
+                  >
+                    <moduleMenu.icon className="h-5 w-5" />
+                    {badgeLabel && (
+                      <span
+                        aria-hidden
+                        className="absolute -right-0.5 -top-0.5 inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-status-danger px-1 text-[12px] font-semibold leading-none text-white shadow-ds-xs"
+                      >
+                        {badgeLabel}
+                      </span>
+                    )}
+                  </button>
+                </>
+              )}
             </div>
-          ))}
+          ) : null)}
       </div>
     </header>
   );

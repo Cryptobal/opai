@@ -1,7 +1,7 @@
 // Nota: este archivo solo exporta tipos y catálogos (TABS/CHIPS/VERTICAL_LABELS)
 // compartidos por CorreosDesktopRail y CorreosMobileDrawer. El componente
 // <CorreosFilters> (toolbar unificada pre-rediseño Gmail) fue retirado: ya no
-// se renderiza en ningún lado — CorreosDesktopToolbar/CorreosMobileTopBar lo
+// se renderiza en ningún lado — CorreosDesktopToolbar / isla móvil lo
 // reemplazaron — y mantenerlo vivo sin uso arriesgaba drift (p. ej. el input
 // de búsqueda de acá no tenía botón de limpiar y alguien podía editarlo
 // pensando que era la UI activa).

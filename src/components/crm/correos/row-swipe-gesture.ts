@@ -14,6 +14,10 @@ export const SWIPE_FLICK_VELOCITY = 1200;
 export const SWIPE_RUBBER_BAND = 0.25;
 /** Histéresis (px) para rearmar hápticas al cruzar umbrales. */
 export const SWIPE_HAPTIC_HYSTERESIS = 16;
+/** Ventana (ms) para suprimir el click sintético post-arrastre. */
+export const SUPPRESS_CLICK_MS = 280;
+/** Desplazamiento mínimo (px) para considerar que el gesto se movió de verdad. */
+export const SWIPE_DRAG_CONFIRM_PX = 4;
 
 export type SwipeReleaseOutcome =
   | { type: "close" }

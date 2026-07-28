@@ -55,6 +55,18 @@ export {
   useSetIslandAction,
   type IslandAction,
 } from "./IslandActionContext";
+export {
+  IslandModuleProvider,
+  useIslandModule,
+  useSetIslandModuleMenu,
+  useSetIslandSearch,
+  useSetIslandSuppressed,
+  useIslandSearchOpenListener,
+  requestIslandSearchOpen,
+  ISLAND_OPEN_SEARCH_EVENT,
+  type IslandModuleMenu,
+  type IslandSearch,
+} from "./IslandModuleContext";
 export { ConfigShell, useConfigCategories, type ConfigShellProps, type CategoryGroup } from "./ConfigShell";
 export { GlassAmbient } from "./GlassAmbient";
 export {
