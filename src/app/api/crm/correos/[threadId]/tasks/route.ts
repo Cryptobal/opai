@@ -37,7 +37,16 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   }
   const allDay = body.allDay === true;
 
-  const task = await createThreadTask({ tenantId: ctx.tenantId, userId: ctx.userId, threadId, title, dueAt, allDay });
+  const task = await createThreadTask({
+    tenantId: ctx.tenantId,
+    userId: ctx.userId,
+    userEmail: ctx.userEmail,
+    threadId,
+    title,
+    dueAt,
+    allDay,
+    request: req,
+  });
   if (!task) return NextResponse.json({ error: "Hilo no encontrado" }, { status: 404 });
   return NextResponse.json({ task });
 }

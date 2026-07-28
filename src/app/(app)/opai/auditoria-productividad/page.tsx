@@ -3,8 +3,7 @@ import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
 import { AuditLogsTable, type AuditLogRow } from "@/components/audit/AuditLogsTable";
-import { PageHero, Surface } from "@/components/opai-ds";
-import { FileBarChart } from "lucide-react";
+import { Surface } from "@/components/opai-ds";
 import { PRODUCTIVIDAD_AUDIT_PREFIXES } from "@/lib/audit-productividad";
 
 export const metadata = { title: "Auditoría · Productividad" };
@@ -22,6 +21,12 @@ const DOMAIN_OPTIONS = [
   { value: "task", label: "Solo tareas" },
   { value: "agenda", label: "Solo agenda" },
 ];
+
+function detailLabel(details: unknown): string | null {
+  if (!details || typeof details !== "object" || Array.isArray(details)) return null;
+  const title = (details as Record<string, unknown>).title;
+  return typeof title === "string" && title.trim() ? title.trim() : null;
+}
 
 export default async function AuditoriaProductividadPage({ searchParams }: PageProps) {
   const session = await auth();
@@ -80,6 +85,7 @@ export default async function AuditoriaProductividadPage({ searchParams }: PageP
     entity: log.entity,
     entityId: log.entityId,
     ipAddress: log.ipAddress,
+    detail: detailLabel(log.details),
   }));
 
   const actions = await prisma.auditLog.findMany({
@@ -95,13 +101,14 @@ export default async function AuditoriaProductividadPage({ searchParams }: PageP
 
   return (
     <div className="space-y-4 min-w-0">
-      <PageHero
-        icon={<FileBarChart />}
-        iconTone="teal"
-        title="Auditoría de Productividad"
-        subtitle="Tareas y agenda"
-        description="Historial de creación, cambios y eliminaciones. Solo visible para administradores del tenant."
-      />
+      <header className="min-w-0">
+        <h1 className="font-display text-lg font-semibold tracking-tight text-ds-text-1 sm:text-xl">
+          Auditoría de Productividad
+        </h1>
+        <p className="mt-0.5 text-[13px] text-ds-text-3">
+          Historial de creación, cambios y eliminaciones de tareas y agenda.
+        </p>
+      </header>
 
       <Surface elevation={1} padding="md">
         <form method="GET" className="grid gap-3 md:grid-cols-4">

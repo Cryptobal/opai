@@ -244,8 +244,6 @@ function AppShellInner({
             <div className="flex h-full items-center gap-2.5 pl-3 pr-3 shrink-0 border-l border-ds-border-subtle">
               <FxIndicator />
               <TopbarActions
-                userName={userName}
-                userEmail={userEmail}
                 userRole={userRole}
                 onSearch={() => openCommandPalette()}
               />
@@ -308,7 +306,12 @@ function AppShellInner({
           creates a containing block (transform/filter/backdrop-filter) and
           breaks `position: fixed`. */}
       <BottomNavPortal>
-        <BottomNav userRole={userRole} surface={surface} />
+        <BottomNav
+          userRole={userRole}
+          userName={userName}
+          userEmail={userEmail}
+          surface={surface}
+        />
       </BottomNavPortal>
       <NavProgress />
       {/* Intelligence dock al mismo nivel que Chat/Notif para fixed right-0 correcto. */}

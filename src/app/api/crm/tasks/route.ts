@@ -200,6 +200,7 @@ export async function POST(request: NextRequest) {
       action: "created",
       taskId: task.id,
       meta: { title: task.title, assigneeIds },
+      request,
     });
 
     return NextResponse.json({ success: true, data: { ...task, assigneeIds } }, { status: 201 });

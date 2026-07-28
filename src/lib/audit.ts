@@ -5,7 +5,10 @@ type AuditAction =
   | 'LOGIN' | 'LOGOUT' | 'LOGIN_FAILED'
   | 'EXPORT_DATA' | 'CONSENT_GRANTED' | 'CONSENT_REVOKED'
   | 'DATA_ACCESS' | 'PERMISSION_CHANGE'
-  | 'BREACH_DETECTED' | 'DATA_DELETION_REQUEST';
+  | 'BREACH_DETECTED' | 'DATA_DELETION_REQUEST'
+  // Prefijos de Productividad (task.* / agenda.*) — ver audit-productividad.ts
+  | `task.${string}`
+  | `agenda.${string}`;
 
 interface AuditLogParams {
   userId?: string | null;

@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { auditTaskAction } from "@/lib/audit-productividad";
 
 export type ThreadTaskDTO = {
   id: string;
@@ -34,10 +35,12 @@ export async function listThreadTasks(tenantId: string, threadId: string): Promi
 export async function createThreadTask(params: {
   tenantId: string;
   userId: string;
+  userEmail?: string | null;
   threadId: string;
   title: string;
   dueAt: Date | null;
   allDay?: boolean;
+  request?: Request;
 }): Promise<ThreadTaskDTO | null> {
   const thread = await prisma.crmEmailThread.findFirst({
     where: { id: params.threadId, tenantId: params.tenantId },
@@ -62,5 +65,16 @@ export async function createThreadTask(params: {
     },
     select: { id: true, title: true, status: true, dueAt: true, allDay: true },
   });
+
+  void auditTaskAction({
+    tenantId: params.tenantId,
+    userId: params.userId,
+    userEmail: params.userEmail,
+    action: "created",
+    taskId: t.id,
+    meta: { title: t.title, threadId: params.threadId },
+    request: params.request,
+  });
+
   return { id: t.id, title: t.title, status: t.status, dueAt: t.dueAt?.toISOString() ?? null, allDay: t.allDay };
 }

@@ -12,6 +12,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { requireCrmView, requireCrmEdit } from "@/lib/api-auth-crm";
 import { requireTenantModule } from "@/lib/require-module";
+import { auditTaskAction } from "@/lib/audit-productividad";
 
 async function loadDealInTenant(id: string, tenantId: string) {
   return prisma.crmDeal.findFirst({ where: { id, tenantId }, select: { id: true } });
@@ -94,6 +95,16 @@ export async function POST(
         createdBy: ctx.userId,
       },
       select: { id: true, title: true, status: true, type: true, dueAt: true, createdAt: true },
+    });
+
+    void auditTaskAction({
+      tenantId: ctx.tenantId,
+      userId: ctx.userId,
+      userEmail: ctx.userEmail,
+      action: "created",
+      taskId: task.id,
+      meta: { title: task.title, dealId: id },
+      request,
     });
 
     return NextResponse.json({ success: true, data: task });

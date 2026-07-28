@@ -3,9 +3,10 @@
  * Las acciones se escriben en AuditLog con prefijos `task.*` y `agenda.*`
  * para filtrarlas en /opai/auditoria-productividad.
  *
+ * Delega en el helper canónico `logAudit` para capturar ipAddress/userAgent.
  * Correos ya audita vía audit-email.ts (`email.*`) — no duplicar aquí.
  */
-import { prisma } from "@/lib/prisma";
+import { logAudit } from "@/lib/audit";
 
 export type TaskAuditAction = "created" | "updated" | "deleted" | "completed" | "reopened";
 
@@ -22,26 +23,18 @@ export async function auditTaskAction(params: {
   action: TaskAuditAction;
   taskId: string;
   meta?: Record<string, unknown>;
+  request?: Request;
 }): Promise<void> {
-  try {
-    await prisma.auditLog.create({
-      data: {
-        tenantId: params.tenantId,
-        userId: params.userId ?? undefined,
-        userEmail: params.userEmail ?? undefined,
-        action: `task.${params.action}`,
-        entity: "crm_task",
-        entityId: params.taskId,
-        details: (params.meta as never) ?? undefined,
-      },
-    });
-  } catch (error) {
-    console.error("[audit-productividad] task action failed", {
-      action: params.action,
-      taskId: params.taskId,
-      error,
-    });
-  }
+  await logAudit({
+    tenantId: params.tenantId,
+    userId: params.userId,
+    userEmail: params.userEmail,
+    action: `task.${params.action}`,
+    entity: "crm_task",
+    entityId: params.taskId,
+    details: params.meta,
+    request: params.request,
+  });
 }
 
 export async function auditAgendaAction(params: {
@@ -51,26 +44,18 @@ export async function auditAgendaAction(params: {
   action: AgendaAuditAction;
   visitaId: string;
   meta?: Record<string, unknown>;
+  request?: Request;
 }): Promise<void> {
-  try {
-    await prisma.auditLog.create({
-      data: {
-        tenantId: params.tenantId,
-        userId: params.userId ?? undefined,
-        userEmail: params.userEmail ?? undefined,
-        action: `agenda.${params.action}`,
-        entity: "agenda_visita",
-        entityId: params.visitaId,
-        details: (params.meta as never) ?? undefined,
-      },
-    });
-  } catch (error) {
-    console.error("[audit-productividad] agenda action failed", {
-      action: params.action,
-      visitaId: params.visitaId,
-      error,
-    });
-  }
+  await logAudit({
+    tenantId: params.tenantId,
+    userId: params.userId,
+    userEmail: params.userEmail,
+    action: `agenda.${params.action}`,
+    entity: "agenda_visita",
+    entityId: params.visitaId,
+    details: params.meta,
+    request: params.request,
+  });
 }
 
 /** Prefijos de acciones visibles en la auditoría de Productividad. */
