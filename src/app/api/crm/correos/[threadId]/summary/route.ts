@@ -1,13 +1,18 @@
 /**
  * POST /api/crm/correos/[threadId]/summary (A01/A02):
- * body { mode: "full" | "since-read" } → resumen del hilo (full cacheado por
- * último mensaje) o de lo nuevo desde la última lectura.
+ * body { mode: "full" | "since-read", since?: ISO string } → resumen del hilo
+ * (full cacheado por último mensaje) o de lo nuevo desde la última lectura.
+ * `since` es un cursor auxiliar: solo puede estrechar la ventana; si es inválido
+ * se descarta en silencio y se usa thread.lastReadAt.
  */
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { requireCorreosAccess } from "@/lib/api-auth-productividad";
-import { summarizeThread } from "@/modules/crm/email/email-summary.service";
+import {
+  parseSinceParam,
+  summarizeThread,
+} from "@/modules/crm/email/email-summary.service";
 
 export const maxDuration = 30;
 
@@ -22,8 +27,9 @@ export async function POST(
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
   const { threadId } = await ctx.params;
-  const body = (await req.json().catch(() => ({}))) as { mode?: string };
+  const body = (await req.json().catch(() => ({}))) as { mode?: string; since?: string };
   const mode = body.mode === "since-read" ? "since-read" : "full";
+  const since = mode === "since-read" ? parseSinceParam(body.since) : null;
 
   const account = await prisma.crmEmailAccount.findFirst({
     where: {
@@ -43,6 +49,7 @@ export async function POST(
     emailAccountId: account.id,
     threadId,
     mode,
+    ...(since ? { since } : {}),
   });
   if (!result.ok) {
     return NextResponse.json({ error: result.error }, { status: result.status });

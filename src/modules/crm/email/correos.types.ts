@@ -96,6 +96,10 @@ export type CorreoDetail = {
     aiSentiment: string | null;
     aiSummary: string | null;
     aiClassifiedAt: string | null;
+    /** Sello de lectura previo a abrir el hilo (para "desde lectura"). */
+    lastReadAt: string | null;
+    /** Resumen ejecutivo cacheado; null si nunca se generó. */
+    threadSummary: { text: string; generatedAt: string | null; stale: boolean } | null;
   };
   messages: CorreoMessageDTO[];
   attachments: CorreoAttachmentDTO[];

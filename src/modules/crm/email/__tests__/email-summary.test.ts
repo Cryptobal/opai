@@ -16,7 +16,7 @@ vi.mock("@/lib/prisma", () => ({
 vi.mock("@/lib/ai-service", () => ({ aiService: { generateText: mocks.generateText } }));
 vi.mock("@/lib/platform-ai-service", () => ({ logAiUsage: mocks.logAiUsage }));
 
-import { summarizeThread } from "../email-summary.service";
+import { parseSinceParam, summarizeThread } from "../email-summary.service";
 import { UNTRUSTED_OPEN } from "../ai-untrusted";
 
 const MESSAGES = [
@@ -122,4 +122,48 @@ describe("summarizeThread (A01/A02)", () => {
     const where = mocks.threadFindFirst.mock.calls[0][0].where;
     expect(where).toMatchObject({ tenantId: "t1", emailAccountId: "acc-1" });
   });
+
+  it("since válido acota el corte por encima de lastReadAt", async () => {
+    mocks.threadFindFirst.mockResolvedValue({
+      id: "th-1",
+      subject: "Dotación planta",
+      aiThreadSummary: null,
+      lastReadAt: new Date("2026-07-19T10:00:00Z"), // anterior a ambos
+    });
+    const result = await summarizeThread({
+      ...base,
+      mode: "since-read",
+      since: new Date("2026-07-20T12:00:00Z"), // posterior a m1
+    });
+    expect(result).toMatchObject({ ok: true, messagesCovered: 1 });
+    const prompt = mocks.generateText.mock.calls[0][0] as string;
+    expect(prompt).toContain("Perfecto, enviamos propuesta");
+    expect(prompt).not.toContain("Necesitamos ampliar la dotación");
+  });
+
+  it("since futuro se descarta en el caller; sin since el comportamiento es idéntico", async () => {
+    mocks.threadFindFirst.mockResolvedValue({
+      id: "th-1",
+      subject: "Dotación planta",
+      aiThreadSummary: null,
+      lastReadAt: new Date("2026-07-20T12:00:00Z"),
+    });
+    // El route ignora since inválido; aquí verificamos que sin since usa lastReadAt.
+    const result = await summarizeThread({ ...base, mode: "since-read" });
+    expect(result).toMatchObject({ ok: true, messagesCovered: 1 });
+  });
 });
+
+describe("parseSinceParam", () => {
+  it("acepta ISO válido dentro de 90 días y rechaza futuro / viejo / inválido", () => {
+    const now = Date.parse("2026-07-28T12:00:00.000Z");
+    expect(parseSinceParam("2026-07-20T10:00:00.000Z", now)?.toISOString()).toBe(
+      "2026-07-20T10:00:00.000Z",
+    );
+    expect(parseSinceParam("2026-08-01T00:00:00.000Z", now)).toBeNull();
+    expect(parseSinceParam("2026-01-01T00:00:00.000Z", now)).toBeNull();
+    expect(parseSinceParam("no-es-fecha", now)).toBeNull();
+    expect(parseSinceParam(undefined, now)).toBeNull();
+  });
+});
+
