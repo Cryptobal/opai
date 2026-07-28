@@ -2,9 +2,15 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Maximize2, Minimize2, Sparkles, X } from "lucide-react";
+import { Maximize2, Minimize2, X } from "lucide-react";
 import { EmailComposer, type ForwardAttachmentRefClient } from "./EmailComposer";
 import { plainTextToTiptapDoc } from "./email-inline-images";
+import { docPlainText } from "./composer-draft";
+import {
+  ComposerAiAssistToggle,
+  ComposerAiPromptPill,
+  type DraftRefineMode,
+} from "./ComposerAiAssist";
 
 export type ComposerMode = "reply" | "all" | "forward";
 export type ReplyAll = { to: string[]; cc: string[] };
@@ -21,6 +27,7 @@ type Props = {
   forwardQuotedHtml: string;
   forwardAttachments: ForwardAttachmentRefClient[];
   mode: ComposerMode;
+  /** Panel de prompt IA abierto (estilo Gmail; independiente del modo). */
   ai: boolean;
   expanded: boolean;
   onModeChange: (mode: ComposerMode) => void;
@@ -36,21 +43,23 @@ function defaultSubject(mode: ComposerMode, subject: string): string {
 }
 
 /**
- * Composer abierto del lector (Bloques 2/3): tabs de modo + pill ✦ IA, y
- * botón Expandir (modal grande centrado en desktop; fullscreen en móvil, donde
- * el botón se oculta). Cambiar de modo o expandir preserva cuerpo/asunto vía
- * refs (re-siembra en el re-montaje) sin duplicar el borrador de Gmail. Esc en
- * dos pasos: colapsa el modal y luego cierra el composer, sin cerrar el lector.
+ * Composer abierto del lector: tabs Responder / A todos / Reenviar + asistente
+ * IA estilo Gmail (pill sobre el footer, toggle lápiz+estrella abajo). Expandir
+ * = modal grande en desktop / fullscreen en móvil. Esc: cierra IA → colapsa
+ * modal → cierra composer.
  */
 export function CorreoComposerBox(props: Props) {
   const { threadId, subject, mode, ai, replyAll, to, expanded } = props;
   const bodyRef = useRef<object | null>(null);
   const subjectRef = useRef<string>("");
   const draftIdRef = useRef<string | null>(null);
+  const aiSeededRef = useRef(false);
   const [seed, setSeed] = useState<object | null>(null);
   const [epoch, setEpoch] = useState(0);
   const [instructions, setInstructions] = useState("");
   const [generating, setGenerating] = useState(false);
+  /** Hay borrador IA en el editor → mostrar chips de refinamiento. */
+  const [hasAiDraft, setHasAiDraft] = useState(false);
   const [isDesktop, setIsDesktop] = useState(false);
 
   useEffect(() => {
@@ -63,6 +72,8 @@ export function CorreoComposerBox(props: Props) {
 
   const isForward = mode === "forward";
   const asModal = expanded && isDesktop;
+  const showAiAssist = !isForward;
+  const showAiPrompt = showAiAssist && ai;
   const recipients =
     mode === "all" && replyAll
       ? { to: replyAll.to, cc: replyAll.cc }
@@ -70,11 +81,17 @@ export function CorreoComposerBox(props: Props) {
         ? { to: [] as string[], cc: [] as string[] }
         : { to, cc: [] as string[] };
 
-  // Esc en dos pasos: capture para preempt al focus-trap del lector (que en
-  // burbuja cerraría el lector). Primero colapsa el modal; luego cierra.
+  // Esc en tres pasos: IA → modal → cerrar. Capture para preempt al focus-trap
+  // del lector (que en burbuja cerraría el lector).
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key !== "Escape") return;
+      if (showAiPrompt) {
+        e.preventDefault();
+        e.stopPropagation();
+        props.onToggleAi();
+        return;
+      }
       if (asModal) {
         e.preventDefault();
         e.stopPropagation();
@@ -87,7 +104,7 @@ export function CorreoComposerBox(props: Props) {
     }
     document.addEventListener("keydown", onKey, { capture: true });
     return () => document.removeEventListener("keydown", onKey, { capture: true });
-  }, [asModal, props]);
+  }, [asModal, showAiPrompt, props]);
 
   function reseed() {
     setSeed(bodyRef.current);
@@ -98,26 +115,59 @@ export function CorreoComposerBox(props: Props) {
     bodyRef.current = doc;
     setSeed(doc);
     setEpoch((e) => e + 1);
+    setHasAiDraft(true);
+    setInstructions("");
   }
 
-  async function generate() {
+  async function runAi(opts?: { refine?: DraftRefineMode }) {
+    const prompt = instructions.trim();
+    const currentDraft = docPlainText(bodyRef.current).trim();
+    const refine = opts?.refine;
+    // Refine libre requiere texto; chips usan el preset. Generación inicial
+    // puede ir sin indicaciones.
+    if (refine == null && hasAiDraft && !prompt) return;
+
     setGenerating(true);
     try {
       const d = await fetch(`/api/crm/correos/${threadId}/suggest-reply`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ instructions: instructions.trim() || undefined }),
+        body: JSON.stringify({
+          instructions: prompt || undefined,
+          currentDraft:
+            refine || (hasAiDraft && currentDraft) ? currentDraft || undefined : undefined,
+          refine: refine || undefined,
+        }),
       }).then((r) => r.json());
+      // Éxito: el prompt se borra y el borrador queda en el editor (injectDraft).
       if (d.draft) injectDraft(String(d.draft));
     } finally {
       setGenerating(false);
     }
   }
 
+  // Al abrir el asistente: si hay preDraft cacheado y el cuerpo está vacío,
+  // sembrarlo. No auto-generar (Gmail: el usuario escribe el prompt y manda ↑).
+  useEffect(() => {
+    if (!showAiPrompt) {
+      if (!ai) {
+        aiSeededRef.current = false;
+        setInstructions("");
+      }
+      return;
+    }
+    if (aiSeededRef.current) return;
+    aiSeededRef.current = true;
+    if (docPlainText(bodyRef.current).trim()) {
+      setHasAiDraft(true);
+      return;
+    }
+    if (!props.preDraft) return;
+    injectDraft(props.preDraft);
+  }, [showAiPrompt, ai, props.preDraft]);
+
   function switchMode(next: ComposerMode) {
     reseed();
-    // Responder / A todos / Reenviar apagan IA: el rectángulo de indicaciones
-    // solo vive en el tab IA (exclusivo).
     props.onModeChange(next);
   }
 
@@ -126,39 +176,16 @@ export function CorreoComposerBox(props: Props) {
     props.onToggleExpand();
   }
 
-  /** Activa el tab IA (exclusivo). Si ya está activo, no-op; para salir usar Responder/A todos/Reenviar. */
-  function activateAi() {
-    if (ai) return;
-    props.onToggleAi();
-    if (!bodyRef.current) {
-      if (props.preDraft) injectDraft(props.preDraft);
-      else void generate();
-    }
+  function closeAi() {
+    if (ai) props.onToggleAi();
   }
-
-  // Rectángulo de indicaciones solo con tab IA activo (no en Responder/A todos/Reenviar).
-  const showAiInstructions = ai && !isForward;
 
   const inner = (
     <>
       <div className="flex items-center gap-1 border-b border-ds-border-subtle pb-1">
-        <ModeTab active={!ai && mode === "reply"} onClick={() => switchMode("reply")}>Responder</ModeTab>
-        {replyAll && <ModeTab active={!ai && mode === "all"} onClick={() => switchMode("all")}>A todos</ModeTab>}
-        <ModeTab active={!ai && mode === "forward"} onClick={() => switchMode("forward")}>Reenviar</ModeTab>
-        {!isForward && (
-          <button
-            type="button"
-            onClick={activateAi}
-            aria-pressed={ai}
-            className={`ml-1 inline-flex h-9 items-center gap-1 border-b-2 px-2.5 text-[13px] font-medium ds-tap ${
-              ai
-                ? "border-primary text-tint-violet-fg"
-                : "border-transparent text-ds-text-3 hover:text-ds-text-1"
-            }`}
-          >
-            <Sparkles className="h-3.5 w-3.5" /> IA
-          </button>
-        )}
+        <ModeTab active={mode === "reply"} onClick={() => switchMode("reply")}>Responder</ModeTab>
+        {replyAll && <ModeTab active={mode === "all"} onClick={() => switchMode("all")}>A todos</ModeTab>}
+        <ModeTab active={mode === "forward"} onClick={() => switchMode("forward")}>Reenviar</ModeTab>
         <div className="ml-auto flex items-center">
           {isDesktop && (
             <button
@@ -182,32 +209,6 @@ export function CorreoComposerBox(props: Props) {
         </div>
       </div>
 
-      {showAiInstructions && (
-        <div className="flex items-center gap-2 border-b border-ds-border-subtle pb-1">
-          <Sparkles className="h-3.5 w-3.5 shrink-0 text-tint-violet-fg" />
-          <input
-            value={instructions}
-            onChange={(e) => setInstructions(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                if (!generating) void generate();
-              }
-            }}
-            placeholder="Indicaciones para la IA (opcional)…"
-            className="h-9 min-w-0 flex-1 bg-transparent px-0 text-[16px] text-ds-text-1 outline-none placeholder:text-ds-text-4 sm:text-[13px]"
-          />
-          <button
-            type="button"
-            onClick={() => void generate()}
-            disabled={generating}
-            className="inline-flex h-9 shrink-0 items-center gap-1 px-1.5 text-[12px] text-ds-text-2 ds-tap hover:text-ds-text-1 disabled:opacity-50"
-          >
-            {generating ? "Generando…" : "Regenerar"}
-          </button>
-        </div>
-      )}
-
       <EmailComposer
         key={`${threadId}:${mode}`}
         mode={isForward ? "forward" : "reply"}
@@ -227,6 +228,28 @@ export function CorreoComposerBox(props: Props) {
         onBodyChange={(doc) => { bodyRef.current = doc; }}
         onSubjectChange={(s) => { subjectRef.current = s; }}
         onDraftIdChange={(id) => { draftIdRef.current = id; }}
+        aboveFooter={
+          showAiPrompt ? (
+            <ComposerAiPromptPill
+              value={instructions}
+              onChange={setInstructions}
+              onGenerate={() => void runAi()}
+              onRefine={(preset) => void runAi({ refine: preset })}
+              onClose={closeAi}
+              generating={generating}
+              hasDraft={hasAiDraft}
+            />
+          ) : null
+        }
+        footerExtras={
+          showAiAssist ? (
+            <ComposerAiAssistToggle
+              open={ai}
+              onToggle={props.onToggleAi}
+              disabled={generating}
+            />
+          ) : null
+        }
         onSent={() => {
           if (props.radarItemId) {
             void fetch(`/api/crm/radar/${props.radarItemId}`, {

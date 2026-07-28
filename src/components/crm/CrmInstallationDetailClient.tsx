@@ -6,7 +6,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useRegisterChatPageContext } from "@/components/opai/ChatPageContextProvider";
 import { MapPin, ExternalLink, Trash2, Pencil, Loader2, LayoutGrid, Plus, QrCode, Copy, RefreshCw, Moon, UserPlus, UserMinus, Search, CalendarDays, AlertTriangle, Info, Users, Briefcase, FileText, ClipboardList, Shield, ShieldAlert, ShieldCheck, Receipt, Package, UserCircle, BookOpen, History, MessageCircle, Mail, Route, Fingerprint, Clock, FileCheck, ChevronDown, Power, Wallet, CalendarClock, Ticket as TicketIcon } from "lucide-react";
-import { EntityConversationsPanel } from "./EntityConversationsPanel";
+import { EntityConversations } from "./EntityConversations";
 import { InstalacionRondasTab } from "./InstalacionRondasTab";
 import { InstalacionMarcacionesTab } from "@/components/ops/InstalacionMarcacionesTab";
 import { PuestoFormModal, type PuestoFormData } from "@/components/shared/PuestoFormModal";
@@ -3020,7 +3020,14 @@ export function CrmInstallationDetailClient({
         {activeTab === "files" && (
           <FileAttachments entityType="installation" entityId={installation.id} title="Documentos" />
         )}
-        {activeTab === "conversaciones" && <EntityConversationsPanel installationId={installation.id} />}
+        {activeTab === "conversaciones" && (
+          <EntityConversations
+            entityType="installation"
+            entityId={installation.id}
+            accountId={installation.account?.id ?? null}
+            variant="tab"
+          />
+        )}
         {activeTab === "access-control" && (
           <div className="space-y-6">
             {accessControlSubTab === "registros" && (

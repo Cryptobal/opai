@@ -73,6 +73,7 @@ import { QuoteIncludesEditor } from "@/components/cpq/QuoteIncludesEditor";
 import { MobileBottomBar } from "@/components/cpq/MobileBottomBar";
 import type { FollowUpDecision } from "@/components/cpq/FollowUpDecisionModal";
 import { CrmActivityTimeline } from "@/components/crm/CrmActivityTimeline";
+import { EntityConversations } from "@/components/crm/EntityConversations";
 import { VisitaTecnicaSolicitudModal } from "@/components/cpq/VisitaTecnicaSolicitudModal";
 import { ServiceTemplateButtons } from "@/components/cpq/ServiceTemplateButtons";
 import type { ServiceTemplate } from "@/lib/cpq/service-templates";
@@ -3170,6 +3171,16 @@ export function CpqQuoteDetail({
             </div>
 
             <div className="space-y-4 p-4">
+              {quoteId && (
+                <EntityConversations
+                  entityType="quote"
+                  entityId={quoteId}
+                  accountId={crmContext.accountId}
+                  dealId={crmContext.dealId}
+                  contactId={crmContext.contactId}
+                  variant="rail"
+                />
+              )}
               <div className="rounded-xl border border-status-ok-border bg-gradient-to-br from-emerald-500/[0.14] via-emerald-500/[0.07] to-background p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div>

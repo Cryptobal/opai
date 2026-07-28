@@ -202,7 +202,7 @@ function parseShortcuts(value: unknown): CorreoShortcuts | null {
 
 const STORAGE_KEY = "opai.crm.correos.view.v1";
 const DEFAULT_RATIO = 0.46;
-const MIN_PANEL_WIDTH = 420;
+export const MIN_PANEL_WIDTH = 420;
 /** Mínimo real de la columna de lista en split (no ratio ciego). */
 export const LIST_MIN_WIDTH = 340;
 export const RAIL_COLLAPSED = 68;

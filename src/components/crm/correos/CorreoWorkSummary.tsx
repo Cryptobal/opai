@@ -2,15 +2,16 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
+  Briefcase,
   Building2,
   ChevronDown,
   ChevronRight,
-  Link2,
-  ListChecks,
+  FileText,
+  MapPin,
   Paperclip,
   Plus,
   Sparkles,
-  UserPlus,
+  Users,
   type LucideIcon,
 } from "lucide-react";
 import { canEdit } from "@/lib/permissions";
@@ -24,6 +25,7 @@ import {
 import { resolveContinueActions } from "@/modules/crm/email/correo-continue-actions";
 import { CorreoVerdictStrip } from "./CorreoVerdictStrip";
 import { CorreoThreadSummaryCard } from "./CorreoThreadSummaryCard";
+import { CorreoThreadContacts } from "./CorreoThreadContacts";
 import { capsFromPerms } from "./CorreoAiMenu";
 import type { WorkTab } from "./work-panel-tabs";
 import type { CorreoDetail } from "@/modules/crm/email/correos.types";
@@ -38,11 +40,15 @@ type Props = {
   onAiCommand?: (commandId: CorreoAiCommandId) => void;
   onGoTo: (tab: WorkTab) => void;
   onRequestReply?: () => void;
+  /** Abre la hoja de adjuntos del hilo (no navega a Vínculos). */
+  onOpenAttachments?: () => void;
 };
 
 type ThreadStats = {
   contactName: string | null;
   installationCount: number | null;
+  installationLabel: string | null;
+  quoteLabel: string | null;
   openTaskCount: number | null;
   ticketCount: number | null;
 };
@@ -59,6 +65,7 @@ export function CorreoWorkSummary({
   onAiCommand,
   onGoTo,
   onRequestReply,
+  onOpenAttachments,
 }: Props) {
   const t = detail.thread;
   const perms = useEffectivePermissions();
@@ -82,11 +89,14 @@ export function CorreoWorkSummary({
   const [stats, setStats] = useState<ThreadStats>({
     contactName: null,
     installationCount: null,
+    installationLabel: null,
+    quoteLabel: null,
     openTaskCount: null,
     ticketCount: null,
   });
   const [primaryExecuted, setPrimaryExecuted] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
+  const [contactsOpen, setContactsOpen] = useState(false);
   const [compact, setCompact] = useState(false);
 
   useEffect(() => {
@@ -117,13 +127,31 @@ export function CorreoWorkSummary({
       const installations = links.filter(
         (l: { entityType?: string }) => l.entityType === "installation",
       );
-      const tickets = links.filter(
-        (l: { entityType?: string }) => l.entityType === "incidente",
+      const quotes = links.filter(
+        (l: { entityType?: string }) => l.entityType === "quote",
       );
+      const tickets = links.filter(
+        (l: { entityType?: string }) =>
+          l.entityType === "incidente" || l.entityType === "ops_ticket",
+      );
+      const firstInst = installations[0] as { label?: string } | undefined;
+      const firstQuote = quotes[0] as { label?: string } | undefined;
       setStats({
         contactName:
           typeof contactRes?.contact?.name === "string" ? contactRes.contact.name : null,
         installationCount: installations.length,
+        installationLabel:
+          installations.length === 0
+            ? null
+            : installations.length === 1
+              ? firstInst?.label || "1 instalación"
+              : `${installations.length} instalaciones`,
+        quoteLabel:
+          quotes.length === 0
+            ? null
+            : quotes.length === 1
+              ? firstQuote?.label || "1 cotización"
+              : `${quotes.length} cotizaciones`,
         openTaskCount: tasks.filter((t0: { status?: string }) => t0.status !== "done").length,
         ticketCount: tickets.length,
       });
@@ -195,9 +223,12 @@ export function CorreoWorkSummary({
   }
 
   const accountActionable = !t.accountId;
-  const vinculosActionable =
-    stats.installationCount != null && stats.installationCount === 0;
+  const hasAccount = Boolean(t.accountId);
   const adjuntosActionable = !detail.degraded && attachmentsPending > 0;
+  const quoteValue = stats.quoteLabel ?? (hasAccount ? "Sin cotización" : "Asocia una cuenta primero");
+  const installationValue =
+    stats.installationLabel ??
+    (hasAccount ? "Sin instalación" : "Asocia una cuenta primero");
 
   return (
     <div className="ds-page-enter space-y-3">
@@ -243,7 +274,7 @@ export function CorreoWorkSummary({
             return;
           }
           if (id === "attachments") {
-            onGoTo("vinculos");
+            onOpenAttachments?.();
             return;
           }
           if (id === "associate") {
@@ -289,79 +320,134 @@ export function CorreoWorkSummary({
 
       {!peekMode && (
         <div className="overflow-hidden rounded-xl border border-ds-border-subtle bg-ds-surface-2">
-          <p className="px-3 pt-2 text-[12px] font-medium text-ds-text-3">Estado del hilo</p>
-          <StatusRow
+          <p className="px-3 pt-2 text-[12px] font-medium text-ds-text-3">Contexto en cascada</p>
+          <CascadeRow
             icon={Building2}
             label="Cuenta"
-            value={dealValue ? `${accountValue} · ${dealValue}` : accountValue}
+            value={accountValue}
+            depth={0}
             actionable={accountActionable}
+            disabled={false}
             onClick={() => onGoTo("cuenta")}
           />
-          {contactValue && (
-            <StatusRow
-              icon={UserPlus}
-              label="Contacto"
-              value={contactValue}
-              onClick={() => onGoTo("cuenta")}
-            />
-          )}
-          <StatusRow
-            icon={Link2}
-            label="Vínculos"
+          <CascadeRow
+            icon={Users}
+            label="Contactos"
             value={
-              stats.installationCount != null
-                ? stats.installationCount === 0
-                  ? "Sin instalaciones"
-                  : `${stats.installationCount} instalación${stats.installationCount === 1 ? "" : "es"}`
-                : "Ver relaciones"
+              !hasAccount
+                ? "Asocia una cuenta primero"
+                : contactValue || "Elegir contactos"
             }
-            actionable={vinculosActionable}
+            depth={1}
+            actionable={hasAccount && !contactValue}
+            disabled={!hasAccount}
+            onClick={() => {
+              if (!hasAccount) {
+                onGoTo("cuenta");
+                return;
+              }
+              setContactsOpen((v) => !v);
+            }}
+          />
+          {hasAccount && contactsOpen && (
+            <div className="border-b border-ds-border-subtle px-3 pb-2 pl-8">
+              <CorreoThreadContacts threadId={t.id} accountId={t.accountId} />
+            </div>
+          )}
+          <CascadeRow
+            icon={Briefcase}
+            label="Negocio"
+            value={
+              !hasAccount
+                ? "Asocia una cuenta primero"
+                : dealValue || "Sin negocio"
+            }
+            depth={1}
+            actionable={hasAccount && !dealValue}
+            disabled={!hasAccount}
+            onClick={() => onGoTo("cuenta")}
+          />
+          <CascadeRow
+            icon={FileText}
+            label="Cotización"
+            value={quoteValue}
+            depth={2}
+            actionable={hasAccount && !stats.quoteLabel}
+            disabled={!hasAccount}
             onClick={() => onGoTo("vinculos")}
           />
-          {attachmentsValue != null && (
-            <StatusRow
-              icon={Paperclip}
-              label="Adjuntos"
-              value={attachmentsValue}
-              actionable={adjuntosActionable}
-              onClick={() => onGoTo("vinculos")}
-            />
-          )}
-          <StatusRow
-            icon={ListChecks}
-            label="Trabajo"
-            value={workParts.length > 0 ? workParts.join(" · ") : "Tareas y tickets"}
-            onClick={() => onGoTo("productividad")}
+          <CascadeRow
+            icon={MapPin}
+            label="Instalación"
+            value={installationValue}
+            depth={1}
+            actionable={hasAccount && (stats.installationCount ?? 0) === 0}
+            disabled={!hasAccount}
+            onClick={() => onGoTo("vinculos")}
           />
+          <CascadeRow
+            icon={Paperclip}
+            label="Adjuntos"
+            value={attachmentsValue ?? "Sin adjuntos"}
+            depth={1}
+            actionable={adjuntosActionable}
+            disabled={detail.attachments.length === 0 && !detail.degraded}
+            onClick={() => onOpenAttachments?.()}
+          />
+          {workParts.length > 0 && (
+            <p className="border-t border-ds-border-subtle px-3 py-2 text-[12px] text-ds-text-4">
+              Trabajo: {workParts.join(" · ")}
+              <button
+                type="button"
+                onClick={() => onGoTo("productividad")}
+                className="ml-2 text-primary ds-tap"
+              >
+                Ver
+              </button>
+            </p>
+          )}
         </div>
       )}
     </div>
   );
 }
 
-function StatusRow({
+function CascadeRow({
   icon: Icon,
   label,
   value,
+  depth,
   onClick,
   actionable = false,
+  disabled = false,
 }: {
   icon: LucideIcon;
   label: string;
   value: string;
+  depth: number;
   onClick: () => void;
   actionable?: boolean;
+  disabled?: boolean;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className="flex min-h-11 w-full items-center gap-2.5 px-3 py-2 text-left ds-tap hover:bg-ds-surface-3"
+      disabled={disabled}
+      className="relative flex min-h-11 w-full items-center gap-2.5 py-2 text-left ds-tap hover:bg-ds-surface-3 disabled:cursor-not-allowed disabled:opacity-50"
+      style={{ paddingLeft: `${12 + depth * 16}px`, paddingRight: 12 }}
     >
-      <Icon className="h-4 w-4 shrink-0 text-ds-text-3" />
-      <span className="text-[13px] font-medium text-ds-text-1">{label}</span>
+      {depth > 0 && (
+        <span
+          aria-hidden
+          className="pointer-events-none absolute bottom-0 top-0 border-l-2 border-primary/30"
+          style={{ left: `${12 + (depth - 1) * 16 + 7}px` }}
+        />
+      )}
+      <Icon className="relative h-4 w-4 shrink-0 text-ds-text-3" />
+      <span className="relative text-[13px] font-medium text-ds-text-1">{label}</span>
       <span
-        className={`ml-auto truncate text-[12px] ${
+        className={`relative ml-auto truncate text-[12px] ${
           actionable ? "text-status-warn-fg" : "text-ds-text-3"
         }`}
       >
@@ -369,13 +455,13 @@ function StatusRow({
       </span>
       {actionable ? (
         <span
-          className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-status-warn-border bg-status-warn-soft text-status-warn-fg"
+          className="relative inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-status-warn-border bg-status-warn-soft text-status-warn-fg"
           aria-hidden
         >
           <Plus className="h-3.5 w-3.5" />
         </span>
       ) : (
-        <ChevronRight className="h-4 w-4 shrink-0 text-ds-text-4" />
+        <ChevronRight className="relative h-4 w-4 shrink-0 text-ds-text-4" />
       )}
     </button>
   );
