@@ -490,14 +490,18 @@ export function CorreosClient() {
   }, [statusReady, connected]);
 
   const lastRefreshAtRef = useRef(0);
+  /** Lista + detalle del hilo abierto (incrementa refreshToken del drawer). */
+  const refreshOpenThread = useCallback(() => {
+    setRealtimeRevision((value) => value + 1);
+    void fetchPage(null, true);
+  }, [fetchPage]);
   const refreshMailbox = useCallback(() => {
     if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
     refreshTimerRef.current = setTimeout(() => {
       lastRefreshAtRef.current = Date.now();
-      setRealtimeRevision((value) => value + 1);
-      void fetchPage(null, true);
+      refreshOpenThread();
     }, 150);
-  }, [fetchPage]);
+  }, [refreshOpenThread]);
   const realtimeStatus = useCorreosRealtime(
     realtimeChannel,
     refreshMailbox,
@@ -1348,9 +1352,7 @@ export function CorreosClient() {
           hasAccount={aiPanel.hasAccount}
           existingDealId={aiPanel.dealId}
           onClose={() => setAiPanel(null)}
-          onCreated={() => {
-            void fetchPage(null, true);
-          }}
+          onCreated={refreshOpenThread}
         />
       )}
     <CorreosPullToRefresh

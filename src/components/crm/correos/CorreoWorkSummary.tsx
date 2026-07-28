@@ -26,6 +26,7 @@ import { resolveContinueActions } from "@/modules/crm/email/correo-continue-acti
 import { CorreoVerdictStrip } from "./CorreoVerdictStrip";
 import { CorreoThreadSummaryCard } from "./CorreoThreadSummaryCard";
 import { CorreoThreadContacts } from "./CorreoThreadContacts";
+import { useCorreoWork } from "./CorreoWorkContext";
 import { capsFromPerms } from "./CorreoAiMenu";
 import type { WorkTab } from "./work-panel-tabs";
 import type { CorreoDetail } from "@/modules/crm/email/correos.types";
@@ -42,15 +43,6 @@ type Props = {
   onRequestReply?: () => void;
   /** Abre la hoja de adjuntos del hilo (no navega a Vínculos). */
   onOpenAttachments?: () => void;
-};
-
-type ThreadStats = {
-  contactName: string | null;
-  installationCount: number | null;
-  installationLabel: string | null;
-  quoteLabel: string | null;
-  openTaskCount: number | null;
-  ticketCount: number | null;
 };
 
 /**
@@ -71,6 +63,7 @@ export function CorreoWorkSummary({
   const perms = useEffectivePermissions();
   const caps = useMemo(() => capsFromPerms(perms), [perms]);
   const canEditCorreos = canEdit(perms, "crm", "correos");
+  const { links: linksRes, tasks: tasksRes, contactContext } = useCorreoWork();
 
   const primary = useMemo(
     () =>
@@ -86,14 +79,42 @@ export function CorreoWorkSummary({
     return [...p, ...more].filter((c) => c.id !== primary?.id && c.kind === "panel");
   }, [t.aiVertical, caps, canEditCorreos, primary?.id]);
 
-  const [stats, setStats] = useState<ThreadStats>({
-    contactName: null,
-    installationCount: null,
-    installationLabel: null,
-    quoteLabel: null,
-    openTaskCount: null,
-    ticketCount: null,
-  });
+  const stats = useMemo(() => {
+    const links = linksRes.data ?? [];
+    const tasks = tasksRes.data ?? [];
+    const installations = links.filter((l) => l.entityType === "installation" && !l.orphan);
+    const quotes = links.filter((l) => l.entityType === "quote" && !l.orphan);
+    const tickets = links.filter(
+      (l) =>
+        (l.entityType === "incidente" || l.entityType === "ops_ticket") && !l.orphan,
+    );
+    return {
+      contactName: contactContext.data?.contact?.name ?? null,
+      installationCount: linksRes.data == null ? null : installations.length,
+      installationLabel:
+        linksRes.data == null
+          ? null
+          : installations.length === 0
+            ? null
+            : installations.length === 1
+              ? installations[0]?.label || "1 instalación"
+              : `${installations.length} instalaciones`,
+      quoteLabel:
+        linksRes.data == null
+          ? null
+          : quotes.length === 0
+            ? null
+            : quotes.length === 1
+              ? quotes[0]?.label || "1 cotización"
+              : `${quotes.length} cotizaciones`,
+      openTaskCount:
+        tasksRes.data == null
+          ? null
+          : tasks.filter((t0) => t0.status !== "done").length,
+      ticketCount: linksRes.data == null ? null : tickets.length,
+    };
+  }, [linksRes.data, tasksRes.data, contactContext.data]);
+
   const [primaryExecuted, setPrimaryExecuted] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const [contactsOpen, setContactsOpen] = useState(false);
@@ -112,55 +133,6 @@ export function CorreoWorkSummary({
     mq.addEventListener("change", apply);
     return () => mq.removeEventListener("change", apply);
   }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-    async function load() {
-      const [contactRes, linksRes, tasksRes] = await Promise.all([
-        fetch(`/api/crm/correos/${t.id}/contact-context`).then((r) => r.json()).catch(() => null),
-        fetch(`/api/crm/correos/${t.id}/links`).then((r) => r.json()).catch(() => null),
-        fetch(`/api/crm/correos/${t.id}/tasks`).then((r) => r.json()).catch(() => null),
-      ]);
-      if (cancelled) return;
-      const links = Array.isArray(linksRes?.links) ? linksRes.links : [];
-      const tasks = Array.isArray(tasksRes?.tasks) ? tasksRes.tasks : [];
-      const installations = links.filter(
-        (l: { entityType?: string }) => l.entityType === "installation",
-      );
-      const quotes = links.filter(
-        (l: { entityType?: string }) => l.entityType === "quote",
-      );
-      const tickets = links.filter(
-        (l: { entityType?: string }) =>
-          l.entityType === "incidente" || l.entityType === "ops_ticket",
-      );
-      const firstInst = installations[0] as { label?: string } | undefined;
-      const firstQuote = quotes[0] as { label?: string } | undefined;
-      setStats({
-        contactName:
-          typeof contactRes?.contact?.name === "string" ? contactRes.contact.name : null,
-        installationCount: installations.length,
-        installationLabel:
-          installations.length === 0
-            ? null
-            : installations.length === 1
-              ? firstInst?.label || "1 instalación"
-              : `${installations.length} instalaciones`,
-        quoteLabel:
-          quotes.length === 0
-            ? null
-            : quotes.length === 1
-              ? firstQuote?.label || "1 cotización"
-              : `${quotes.length} cotizaciones`,
-        openTaskCount: tasks.filter((t0: { status?: string }) => t0.status !== "done").length,
-        ticketCount: tickets.length,
-      });
-    }
-    void load();
-    return () => {
-      cancelled = true;
-    };
-  }, [t.id]);
 
   const primaryCopy = primary ? primaryActionCopy(t.aiCategory, primary.id) : null;
 

@@ -4,10 +4,26 @@ import { resolveContinueActions } from "../correo-continue-actions";
 const now = new Date("2026-07-28T12:00:00Z");
 
 describe("resolveContinueActions", () => {
-  it("incluye primary y reply cuando hay acción principal pendiente", () => {
+  it("por defecto no incluye primary (el CTA héroe ya la muestra)", () => {
     const actions = resolveContinueActions({
       primaryTitle: "Armar la licitación",
       primaryExecuted: false,
+      lastReadAt: null,
+      messages: [{ sentAt: "2026-07-20T10:00:00Z" }],
+      dealFechaEntrega: null,
+      attachments: [],
+      accountId: "acc-1",
+      now,
+    });
+    expect(actions.map((a) => a.id)).toEqual(["reply"]);
+    expect(actions.some((a) => a.id === "primary")).toBe(false);
+  });
+
+  it("incluye primary solo con includePrimary: true", () => {
+    const actions = resolveContinueActions({
+      primaryTitle: "Armar la licitación",
+      primaryExecuted: false,
+      includePrimary: true,
       lastReadAt: null,
       messages: [{ sentAt: "2026-07-20T10:00:00Z" }],
       dealFechaEntrega: null,
@@ -19,10 +35,11 @@ describe("resolveContinueActions", () => {
     expect(actions[0].label).toBe("Armar la licitación");
   });
 
-  it("omite primary si ya se ejecutó", () => {
+  it("omite primary si ya se ejecutó aunque includePrimary sea true", () => {
     const actions = resolveContinueActions({
       primaryTitle: "Armar la licitación",
       primaryExecuted: true,
+      includePrimary: true,
       lastReadAt: null,
       messages: [],
       dealFechaEntrega: null,
@@ -125,9 +142,29 @@ describe("resolveContinueActions", () => {
     expect(linked.some((a) => a.id === "associate")).toBe(false);
   });
 
-  it("respeta el tope de cuatro acciones", () => {
+  it("respeta el tope de cuatro acciones (sin primary por defecto)", () => {
     const actions = resolveContinueActions({
       primaryTitle: "Armar la licitación",
+      lastReadAt: "2026-07-20T12:00:00Z",
+      messages: [{ sentAt: "2026-07-21T10:00:00Z" }],
+      dealFechaEntrega: "2026-08-05",
+      attachments: [{ savedFileId: null }],
+      accountId: null,
+      now,
+    });
+    expect(actions).toHaveLength(4);
+    expect(actions.map((a) => a.id)).toEqual([
+      "since-read",
+      "deadline",
+      "attachments",
+      "associate",
+    ]);
+  });
+
+  it("con includePrimary el tope sigue siendo cuatro e incluye primary", () => {
+    const actions = resolveContinueActions({
+      primaryTitle: "Armar la licitación",
+      includePrimary: true,
       lastReadAt: "2026-07-20T12:00:00Z",
       messages: [{ sentAt: "2026-07-21T10:00:00Z" }],
       dealFechaEntrega: "2026-08-05",
@@ -147,6 +184,7 @@ describe("resolveContinueActions", () => {
   it("oculta mutaciones si canEdit es false", () => {
     const actions = resolveContinueActions({
       primaryTitle: "Armar la licitación",
+      includePrimary: true,
       lastReadAt: null,
       messages: [],
       dealFechaEntrega: null,

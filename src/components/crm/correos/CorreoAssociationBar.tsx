@@ -5,11 +5,11 @@ import { Eye, EyeOff, Sparkles } from "lucide-react";
 import { SelectGroup, SelectLabel } from "@/components/ui/select";
 import { SimpleSelect, SimpleSelectItem } from "@/components/ui/simple-select";
 import { toast } from "sonner";
+import { canEdit } from "@/lib/permissions";
+import { useEffectivePermissions } from "@/hooks/useEffectivePermissions";
 import { AsociarCuenta } from "./AsociarCuenta";
 import { QuickDealCreate, type DealPrefill } from "./QuickDealCreate";
-
-type DealOpt = { id: string; title: string; status: string };
-type AccountSuggestion = { id: string; name: string; reason: string };
+import { useCorreoWork } from "./CorreoWorkContext";
 
 const CREATE = "__create__";
 const CREATE_AI = "__create_ai__";
@@ -19,7 +19,7 @@ const STATUS_SUFFIX: Record<string, string> = {
   lost: " · Perdido",
 };
 
-/** Barra de asociación: cuenta + negocio opcional del drawer de correos. */
+/** Barra de asociación: cuenta + negocio del drawer de correos. */
 export function CorreoAssociationBar({
   threadId,
   accountId,
@@ -36,7 +36,6 @@ export function CorreoAssociationBar({
   dealId: string | null;
   dealTitle: string | null;
   subject?: string;
-  /** Bloque 5: el hilo asociado es visible en la ficha de la cuenta. */
   sharedWithAccount?: boolean;
   onAssociate: (p: {
     accountId: string | null;
@@ -44,35 +43,21 @@ export function CorreoAssociationBar({
     sharedWithAccount?: boolean;
   }) => void;
 }) {
-  const [deals, setDeals] = useState<DealOpt[]>([]);
-  const [loadingDeals, setLoadingDeals] = useState(false);
+  const { deals: dealsRes, reload } = useCorreoWork();
+  const perms = useEffectivePermissions();
+  const canMutate = canEdit(perms, "crm", "correos");
+  const deals = dealsRes.data ?? [];
+  const loadingDeals = dealsRes.loading;
   const [creating, setCreating] = useState(false);
   const [prefill, setPrefill] = useState<DealPrefill | null>(null);
   const [suggesting, setSuggesting] = useState(false);
-  const [suggestions, setSuggestions] = useState<AccountSuggestion[]>([]);
+  const [suggestions, setSuggestions] = useState<Array<{ id: string; name: string; reason: string }>>(
+    [],
+  );
 
   useEffect(() => {
     setCreating(false);
     setPrefill(null);
-    if (!accountId) {
-      setDeals([]);
-      return;
-    }
-    setLoadingDeals(true);
-    fetch(`/api/crm/correos/deals-for-account?accountId=${encodeURIComponent(accountId)}`)
-      .then((r) => r.json())
-      .then((j) => {
-        const items = Array.isArray(j.items) ? j.items : [];
-        setDeals(
-          items.map((d: { id: string; title: string; status?: string }) => ({
-            id: d.id,
-            title: d.title,
-            status: d.status ?? "open",
-          })),
-        );
-      })
-      .catch(() => setDeals([]))
-      .finally(() => setLoadingDeals(false));
   }, [accountId]);
 
   useEffect(() => {
@@ -92,6 +77,15 @@ export function CorreoAssociationBar({
 
   const openDeals = deals.filter((d) => d.status === "open");
   const closedDeals = deals.filter((d) => d.status !== "open");
+
+  function associate(p: {
+    accountId: string | null;
+    dealId: string | null;
+    sharedWithAccount?: boolean;
+  }) {
+    onAssociate(p);
+    reload("all");
+  }
 
   async function createWithAi() {
     if (!threadId || !accountId || suggesting) return;
@@ -125,25 +119,35 @@ export function CorreoAssociationBar({
 
   return (
     <div className="space-y-2 rounded-xl border border-ds-border-subtle bg-ds-surface-2 p-2.5">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-        <div className="flex min-w-0 flex-wrap items-center gap-2">
-          <span className="text-[12px] text-ds-text-3">Asociación:</span>
-          <span className="min-w-0 truncate text-[13px] text-ds-text-1">
+      <div className="flex items-start gap-2">
+        <div className="min-w-0 flex-1">
+          <span className="text-[12px] text-ds-text-3">Asociación</span>
+          <p
+            className="truncate text-[13px] font-medium text-ds-text-1"
+            title={accountName || "Sin cuenta"}
+          >
             {accountName || "Sin cuenta"}
-          </span>
+          </p>
           {dealTitle && (
-            <span className="min-w-0 truncate text-[12px] text-ds-text-3">· {dealTitle}</span>
+            <p className="truncate text-[12px] text-ds-text-3" title={dealTitle}>
+              {dealTitle}
+            </p>
           )}
         </div>
-        <div className="w-full sm:ml-auto sm:w-auto">
-          <AsociarCuenta onSelect={(id) => onAssociate({ accountId: id, dealId: null })} />
-        </div>
+        {canMutate && (
+          <AsociarCuenta
+            hasAccount={Boolean(accountId)}
+            onSelect={(id) => associate({ accountId: id, dealId: null })}
+          />
+        )}
       </div>
 
-      {accountId && (
+      {accountId && canMutate && (
         <button
           type="button"
-          onClick={() => onAssociate({ accountId, dealId, sharedWithAccount: !sharedWithAccount })}
+          onClick={() =>
+            associate({ accountId, dealId, sharedWithAccount: !sharedWithAccount })
+          }
           aria-pressed={sharedWithAccount}
           className="flex w-full items-start gap-2 rounded-lg border border-ds-border-subtle bg-ds-surface-1 px-3 py-2 text-left ds-tap"
         >
@@ -177,7 +181,7 @@ export function CorreoAssociationBar({
         </button>
       )}
 
-      {!accountId && suggestions.length > 0 && (
+      {!accountId && suggestions.length > 0 && canMutate && (
         <div className="flex flex-wrap items-center gap-1.5">
           <span className="inline-flex items-center gap-1 text-[12px] text-ds-text-3">
             <Sparkles className="h-3.5 w-3.5 text-tint-violet-fg" /> Sugerencia:
@@ -187,7 +191,7 @@ export function CorreoAssociationBar({
               key={s.id}
               type="button"
               title={s.reason}
-              onClick={() => onAssociate({ accountId: s.id, dealId: null })}
+              onClick={() => associate({ accountId: s.id, dealId: null })}
               className="inline-flex items-center rounded-full border border-ds-border-default bg-ds-surface-1 px-2.5 py-1 text-[12px] text-ds-text-1 ds-tap hover:border-primary"
             >
               {s.name}
@@ -195,14 +199,14 @@ export function CorreoAssociationBar({
           ))}
         </div>
       )}
-      {accountId && !creating && (
+      {accountId && !creating && canMutate && (
         <label className="flex flex-col gap-1">
-          <span className="text-[12px] text-ds-text-3">Negocio (opcional)</span>
+          <span className="text-[12px] text-ds-text-3">Negocio</span>
           <SimpleSelect
             className="h-10 rounded-xl sm:h-9"
             value={dealId ?? ""}
             disabled={loadingDeals || suggesting}
-            aria-label="Negocio (opcional)"
+            aria-label="Negocio"
             onValueChange={(v) => {
               if (v === CREATE) {
                 setPrefill(null);
@@ -213,7 +217,7 @@ export function CorreoAssociationBar({
                 void createWithAi();
                 return;
               }
-              onAssociate({ accountId, dealId: v || null });
+              associate({ accountId, dealId: v || null });
             }}
           >
             <SimpleSelectItem value="">Sin negocio</SimpleSelectItem>
@@ -258,7 +262,7 @@ export function CorreoAssociationBar({
           onCreated={(newDealId) => {
             setCreating(false);
             setPrefill(null);
-            onAssociate({ accountId, dealId: newDealId });
+            associate({ accountId, dealId: newDealId });
           }}
           onCancel={() => {
             setCreating(false);

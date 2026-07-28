@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { TaskTimePicker } from "@/components/agenda/TaskTimePicker";
 import { TaskDatePicker } from "@/components/agenda/TaskDatePicker";
 import { SimpleSelect } from "@/components/ui/simple-select";
+import { useCorreoWork } from "./CorreoWorkContext";
 
 type User = { id: string; name: string | null; email: string | null };
 type Created = { id: string; code: string; title: string; status: string };
@@ -24,6 +25,7 @@ const PRIORITIES = [
  * sólo confirma con ok:true y muestra el ticket creado (verdad verificada).
  */
 export function CorreoTicketPanel({ threadId, subject }: { threadId: string; subject: string }) {
+  const { reload } = useCorreoWork();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState<"sug" | "create" | null>(null);
   const [title, setTitle] = useState("");
@@ -77,6 +79,7 @@ export function CorreoTicketPanel({ threadId, subject }: { threadId: string; sub
         setCreated(d.ticket);
         setOpen(false);
         toast.success(`Ticket ${d.ticket.code} creado`);
+        reload("links");
       } else {
         toast.error(d.error || "No se pudo crear el ticket");
       }

@@ -1,95 +1,68 @@
 "use client";
 
 /**
- * Panel operacional del hilo: entidades vinculadas, picker con alcance por
- * cuenta (De esta cuenta / Resto del tenant) y sugerencias IA.
+ * Panel operacional del hilo: vínculos agrupados por origen, picker con
+ * alcance por cuenta y sugerencias IA. Lee del CorreoWorkContext.
  */
 
-import { useCallback, useEffect, useState } from "react";
-import Link from "next/link";
-import { Link2, Plus, Sparkles, X } from "lucide-react";
+import { useMemo, useState } from "react";
+import { Link2, Plus, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { Spinner, Tag } from "@/components/opai-ds";
-import { SimpleSelect } from "@/components/ui/simple-select";
 import { confirmDialog } from "@/components/ui/confirm-service";
-
-const TYPE_LABELS: Record<string, string> = {
-  installation: "Instalación",
-  quote: "Cotización",
-  contract: "Contrato",
-  guardia: "Guardia",
-  postulante: "Postulante",
-  proveedor: "Proveedor",
-  factura: "Factura",
-  incidente: "Incidente",
-};
-
-type ResolvedLink = {
-  id: string;
-  entityType: string;
-  entityId: string;
-  linkedVia: string;
-  label: string;
-  status: string | null;
-  href: string | null;
-};
-
-type Candidate = {
-  id: string;
-  label: string;
-  sublabel: string | null;
-  status: string | null;
-  scope: "account" | "tenant";
-};
+import { canEdit } from "@/lib/permissions";
+import { useEffectivePermissions } from "@/hooks/useEffectivePermissions";
+import {
+  ACCOUNT_SCOPED_LINK_TYPES,
+  THREAD_LINK_TYPE_LABELS,
+  type ResolvedThreadLink,
+  type ThreadLinkEntityType,
+} from "@/modules/crm/email/email-thread-links";
+import { useCorreoWork } from "./CorreoWorkContext";
+import { CorreoLinkRow } from "./CorreoLinkRow";
+import { CorreoLinkPicker } from "./CorreoLinkPicker";
 
 type Suggestion = { entityType: string; entityId: string; label: string; motivo: string };
 
+const CREATED_TYPES = new Set(["quote", "installation", "contract"]);
+const WORK_TYPES = new Set(["ops_ticket", "incidente", "calendar_event"]);
+const GROUP_LIMIT = 10;
+
+function typeLabel(entityType: string): string {
+  if (entityType in THREAD_LINK_TYPE_LABELS) {
+    return THREAD_LINK_TYPE_LABELS[entityType as ThreadLinkEntityType];
+  }
+  return entityType;
+}
+
 export function CorreoLinksPanel({
-  threadId,
   accountId = null,
 }: {
   threadId: string;
-  /** Cuenta del hilo: acota el picker en dos grupos. */
   accountId?: string | null;
 }) {
-  const [links, setLinks] = useState<ResolvedLink[] | null>(null);
+  const { threadId, links: linksRes, reload } = useCorreoWork();
+  const perms = useEffectivePermissions();
+  const canMutate = canEdit(perms, "crm", "correos");
   const [adding, setAdding] = useState(false);
-  const [type, setType] = useState("installation");
-  const [q, setQ] = useState("");
-  const [candidates, setCandidates] = useState<Candidate[]>([]);
-  const [accountScopeApplies, setAccountScopeApplies] = useState(false);
   const [suggestions, setSuggestions] = useState<Suggestion[] | null>(null);
   const [suggesting, setSuggesting] = useState(false);
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
-  const load = useCallback(() => {
-    fetch(`/api/crm/correos/${threadId}/links`)
-      .then((r) => r.json())
-      .then((d) => setLinks(Array.isArray(d.links) ? d.links : []))
-      .catch(() => setLinks([]));
-  }, [threadId]);
+  const links = linksRes.data;
 
-  useEffect(() => {
-    load();
-  }, [load]);
-
-  useEffect(() => {
-    if (!adding) return;
-    const timer = setTimeout(() => {
-      const params = new URLSearchParams({ type, q });
-      if (accountId) params.set("accountId", accountId);
-      fetch(`/api/crm/correos/link-search?${params}`)
-        .then((r) => r.json())
-        .then((d) => {
-          setCandidates(Array.isArray(d.candidates) ? d.candidates : []);
-          setAccountScopeApplies(Boolean(d.accountScopeApplies));
-        })
-        .catch(() => {
-          setCandidates([]);
-          setAccountScopeApplies(false);
-        });
-    }, 250);
-    return () => clearTimeout(timer);
-  }, [adding, type, q, accountId]);
+  const groups = useMemo(() => {
+    const all = links ?? [];
+    const orphans = all.filter((l) => l.orphan);
+    const rest = all.filter((l) => !l.orphan);
+    const created = rest.filter(
+      (l) => l.linkedVia !== "manual" && CREATED_TYPES.has(l.entityType),
+    );
+    const work = rest.filter((l) => WORK_TYPES.has(l.entityType));
+    const claimed = new Set([...created, ...work].map((l) => l.id));
+    const manual = rest.filter((l) => !claimed.has(l.id));
+    return { orphans, created, work, manual };
+  }, [links]);
 
   async function createLink(
     entityType: string,
@@ -97,6 +70,9 @@ export function CorreoLinksPanel({
     linkedVia?: string,
     scope?: "account" | "tenant",
   ) {
+    const accountScopeApplies =
+      Boolean(accountId) &&
+      ACCOUNT_SCOPED_LINK_TYPES.has(entityType as ThreadLinkEntityType);
     if (accountScopeApplies && scope === "tenant") {
       const ok = await confirmDialog({
         title: "Vincular fuera de la cuenta",
@@ -119,16 +95,28 @@ export function CorreoLinksPanel({
     }
     toast.success("Vinculado");
     setAdding(false);
-    setQ("");
     setSuggestions((prev) => prev?.filter((s) => s.entityId !== entityId) ?? null);
-    load();
+    reload("links");
   }
 
   async function removeLink(linkId: string) {
-    await fetch(`/api/crm/correos/${threadId}/links?linkId=${linkId}`, { method: "DELETE" }).catch(
-      () => {},
-    );
-    load();
+    await fetch(`/api/crm/correos/${threadId}/links?linkId=${linkId}`, {
+      method: "DELETE",
+    }).catch(() => {});
+    reload("links");
+  }
+
+  async function toggleVisibility(linkId: string, visibleOnEntity: boolean) {
+    const res = await fetch(`/api/crm/correos/${threadId}/links`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ linkId, visibleOnEntity }),
+    });
+    if (!res.ok) {
+      toast.error("No se pudo actualizar la visibilidad");
+      return;
+    }
+    reload("links");
   }
 
   async function suggest() {
@@ -154,9 +142,6 @@ export function CorreoLinksPanel({
     }
   }
 
-  const accountCandidates = candidates.filter((c) => c.scope === "account");
-  const tenantCandidates = candidates.filter((c) => c.scope === "tenant");
-
   return (
     <section
       aria-label="Entidades vinculadas"
@@ -174,72 +159,80 @@ export function CorreoLinksPanel({
             Sin cuenta — todo el tenant
           </Tag>
         )}
-        <div className="ml-auto flex items-center gap-1.5">
-          <button
-            type="button"
-            onClick={() => void suggest()}
-            disabled={suggesting}
-            className="inline-flex h-10 items-center gap-1 rounded-lg bg-tint-violet px-2 text-[12px] font-medium text-tint-violet-fg ds-tap disabled:opacity-50 sm:h-8"
-          >
-            {suggesting ? <Spinner className="h-3.5 w-3.5" /> : <Sparkles className="h-3.5 w-3.5" />}
-            Sugerir
-          </button>
-          <button
-            type="button"
-            onClick={() => setAdding((v) => !v)}
-            aria-label="Vincular entidad"
-            className="inline-flex h-8 items-center gap-1 rounded-lg border border-ds-border-default px-2 text-[12px] ds-tap"
-          >
-            <Plus className="h-3.5 w-3.5" /> Vincular
-          </button>
-        </div>
+        {canMutate && (
+          <div className="ml-auto flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => void suggest()}
+              disabled={suggesting}
+              className="inline-flex h-11 items-center gap-1 rounded-lg bg-tint-violet px-2 text-[12px] font-medium text-tint-violet-fg ds-tap disabled:opacity-50 sm:h-8"
+            >
+              {suggesting ? <Spinner className="h-3.5 w-3.5" /> : <Sparkles className="h-3.5 w-3.5" />}
+              Sugerir
+            </button>
+            <button
+              type="button"
+              onClick={() => setAdding((v) => !v)}
+              aria-label="Vincular entidad"
+              className="inline-flex h-11 items-center gap-1 rounded-lg border border-ds-border-default px-2 text-[12px] ds-tap sm:h-8"
+            >
+              <Plus className="h-3.5 w-3.5" /> Vincular
+            </button>
+          </div>
+        )}
       </div>
 
-      {links === null ? (
+      {links === null || linksRes.loading ? (
         <Spinner className="mx-auto" />
       ) : links.length === 0 ? (
         <p className="text-[12px] text-ds-text-4">
           Sin vínculos. Vinculá una instalación, cotización, contrato o factura.
         </p>
       ) : (
-        <ul className="space-y-1">
-          {links.map((link) => (
-            <li key={link.id} className="flex items-center gap-2">
-              <Tag variant="neutral" size="sm">
-                {TYPE_LABELS[link.entityType] ?? link.entityType}
-              </Tag>
-              {link.href ? (
-                <Link
-                  href={link.href}
-                  className="min-w-0 flex-1 truncate text-[13px] text-ds-text-2 underline-offset-2 hover:underline"
-                >
-                  {link.label}
-                </Link>
-              ) : (
-                <span className="min-w-0 flex-1 truncate text-[13px] text-ds-text-2">
-                  {link.label}
-                </span>
-              )}
-              {link.status && <Tag variant="info" size="sm">{link.status}</Tag>}
-              {link.linkedVia !== "manual" && (
-                <Tag variant="brand" size="sm">
-                  {link.linkedVia === "ai" ? "IA" : "regla"}
-                </Tag>
-              )}
-              <button
-                type="button"
-                aria-label={`Quitar vínculo ${link.label}`}
-                onClick={() => void removeLink(link.id)}
-                className="text-ds-text-4 ds-tap hover:text-status-danger-fg"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            </li>
-          ))}
-        </ul>
+        <div className="space-y-3">
+          {groups.orphans.length > 0 && (
+            <LinkGroup
+              title="Entidades eliminadas"
+              danger
+              items={groups.orphans}
+              expanded={expanded.orphans}
+              onExpand={() => setExpanded((e) => ({ ...e, orphans: true }))}
+              canEdit={canMutate}
+              onToggleVisibility={toggleVisibility}
+              onRemove={removeLink}
+            />
+          )}
+          <LinkGroup
+            title="Creado desde este correo"
+            items={groups.created}
+            expanded={expanded.created}
+            onExpand={() => setExpanded((e) => ({ ...e, created: true }))}
+            canEdit={canMutate}
+            onToggleVisibility={toggleVisibility}
+            onRemove={removeLink}
+          />
+          <LinkGroup
+            title="Trabajo del hilo"
+            items={groups.work}
+            expanded={expanded.work}
+            onExpand={() => setExpanded((e) => ({ ...e, work: true }))}
+            canEdit={canMutate}
+            onToggleVisibility={toggleVisibility}
+            onRemove={removeLink}
+          />
+          <LinkGroup
+            title="Vinculado a mano"
+            items={groups.manual}
+            expanded={expanded.manual}
+            onExpand={() => setExpanded((e) => ({ ...e, manual: true }))}
+            canEdit={canMutate}
+            onToggleVisibility={toggleVisibility}
+            onRemove={removeLink}
+          />
+        </div>
       )}
 
-      {suggestions !== null && suggestions.length > 0 && (
+      {suggestions !== null && suggestions.length > 0 && canMutate && (
         <div className="space-y-1 rounded-lg border border-ds-border-subtle bg-ds-surface-1 p-2">
           <p className="text-[12px] font-medium text-ds-text-3">
             Sugerencias de la IA (confirmá para vincular)
@@ -247,7 +240,7 @@ export function CorreoLinksPanel({
           {suggestions.map((s) => (
             <div key={`${s.entityType}:${s.entityId}`} className="flex items-center gap-2">
               <Tag variant="neutral" size="sm">
-                {TYPE_LABELS[s.entityType] ?? s.entityType}
+                {typeLabel(s.entityType)}
               </Tag>
               <span className="min-w-0 flex-1 truncate text-[13px] text-ds-text-2" title={s.motivo}>
                 {s.label}
@@ -255,7 +248,7 @@ export function CorreoLinksPanel({
               <button
                 type="button"
                 onClick={() => void createLink(s.entityType, s.entityId, "ai")}
-                className="h-8 rounded-lg bg-primary px-2 text-[12px] font-medium text-primary-foreground ds-tap"
+                className="h-11 rounded-lg bg-primary px-2 text-[12px] font-medium text-primary-foreground ds-tap sm:h-8"
               >
                 Vincular
               </button>
@@ -264,121 +257,70 @@ export function CorreoLinksPanel({
         </div>
       )}
 
-      {adding && (
-        <div className="space-y-2 rounded-lg border border-ds-border-subtle bg-ds-surface-1 p-2">
-          <div className="flex gap-2">
-            <SimpleSelect
-              value={type}
-              onValueChange={(v) => {
-                setType(v);
-                setQ("");
-              }}
-              className="h-10 w-[9.5rem] sm:h-9"
-              aria-label="Tipo de entidad"
-              options={Object.entries(TYPE_LABELS).map(([key, label]) => ({
-                value: key,
-                label,
-              }))}
-            />
-            <input
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder="Buscar…"
-              className="h-10 min-w-0 flex-1 rounded-lg border border-ds-border-default bg-ds-surface-1 px-2 text-[13px] text-ds-text-1 sm:h-9"
-            />
-          </div>
-          <CandidateList
-            accountScopeApplies={accountScopeApplies}
-            accountCandidates={accountCandidates}
-            tenantCandidates={tenantCandidates}
-            flatCandidates={candidates}
-            onPick={(c) => void createLink(type, c.id, undefined, c.scope)}
-          />
-        </div>
+      {adding && canMutate && (
+        <CorreoLinkPicker
+          accountId={accountId}
+          onPick={(entityType, entityId, scope) =>
+            void createLink(entityType, entityId, undefined, scope)
+          }
+        />
       )}
     </section>
   );
 }
 
-function CandidateList({
-  accountScopeApplies,
-  accountCandidates,
-  tenantCandidates,
-  flatCandidates,
-  onPick,
+function LinkGroup({
+  title,
+  items,
+  expanded,
+  onExpand,
+  canEdit,
+  onToggleVisibility,
+  onRemove,
+  danger = false,
 }: {
-  accountScopeApplies: boolean;
-  accountCandidates: Candidate[];
-  tenantCandidates: Candidate[];
-  flatCandidates: Candidate[];
-  onPick: (c: Candidate) => void;
+  title: string;
+  items: ResolvedThreadLink[];
+  expanded?: boolean;
+  onExpand: () => void;
+  canEdit: boolean;
+  onToggleVisibility: (linkId: string, visible: boolean) => void;
+  onRemove: (linkId: string) => void;
+  danger?: boolean;
 }) {
-  if (!accountScopeApplies) {
-    return (
-      <ul className="max-h-44 space-y-0.5 overflow-y-auto">
-        {flatCandidates.map((c) => (
-          <CandidateRow key={c.id} candidate={c} muted={false} onPick={onPick} />
-        ))}
-        {flatCandidates.length === 0 && (
-          <li className="px-2 py-1.5 text-[12px] text-ds-text-4">Sin resultados</li>
-        )}
-      </ul>
-    );
-  }
+  if (items.length === 0) return null;
+  const showAll = expanded || items.length <= GROUP_LIMIT;
+  const visible = showAll ? items : items.slice(0, GROUP_LIMIT);
 
   return (
-    <ul className="max-h-52 space-y-0.5 overflow-y-auto">
-      {accountCandidates.length > 0 && (
-        <>
-          <li className="px-2 pt-1 text-[12px] font-medium text-ds-text-3">
-            De esta cuenta ({accountCandidates.length})
-          </li>
-          {accountCandidates.map((c) => (
-            <CandidateRow key={c.id} candidate={c} muted={false} onPick={onPick} />
-          ))}
-        </>
-      )}
-      {tenantCandidates.length > 0 && (
-        <>
-          <li className="px-2 pt-2 text-[12px] font-medium text-ds-text-4">
-            Resto del tenant ({tenantCandidates.length})
-          </li>
-          {tenantCandidates.map((c) => (
-            <CandidateRow key={c.id} candidate={c} muted onPick={onPick} />
-          ))}
-        </>
-      )}
-      {accountCandidates.length === 0 && tenantCandidates.length === 0 && (
-        <li className="px-2 py-1.5 text-[12px] text-ds-text-4">Sin resultados</li>
-      )}
-    </ul>
-  );
-}
-
-function CandidateRow({
-  candidate,
-  muted,
-  onPick,
-}: {
-  candidate: Candidate;
-  muted: boolean;
-  onPick: (c: Candidate) => void;
-}) {
-  return (
-    <li>
-      <button
-        type="button"
-        onClick={() => onPick(candidate)}
-        className={`flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[13px] ds-tap hover:bg-ds-surface-2 ${
-          muted ? "text-ds-text-3 opacity-70" : "text-ds-text-2"
+    <div className="space-y-1">
+      <p
+        className={`text-[12px] font-medium uppercase tracking-wide ${
+          danger ? "text-status-danger-fg" : "text-ds-text-3"
         }`}
       >
-        <span className="min-w-0 flex-1 truncate">{candidate.label}</span>
-        {candidate.sublabel && (
-          <span className="shrink-0 text-[12px] text-ds-text-4">{candidate.sublabel}</span>
-        )}
-        {candidate.status && <Tag variant="info" size="sm">{String(candidate.status)}</Tag>}
-      </button>
-    </li>
+        {title}
+      </p>
+      <ul className="space-y-0.5">
+        {visible.map((link) => (
+          <CorreoLinkRow
+            key={link.id}
+            link={link}
+            canEdit={canEdit}
+            onToggleVisibility={(id, v) => void onToggleVisibility(id, v)}
+            onRemove={(id) => void onRemove(id)}
+          />
+        ))}
+      </ul>
+      {!showAll && (
+        <button
+          type="button"
+          onClick={onExpand}
+          className="px-1.5 text-[12px] font-medium text-primary ds-tap"
+        >
+          Ver todos ({items.length})
+        </button>
+      )}
+    </div>
   );
 }

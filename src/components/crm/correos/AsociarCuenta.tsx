@@ -9,9 +9,12 @@ type AccountOpt = { id: string; name: string; rut?: string | null };
 export function AsociarCuenta({
   onSelect,
   disabled,
+  hasAccount = false,
 }: {
   onSelect: (id: string) => void;
   disabled?: boolean;
+  /** true → etiqueta «Cambiar cuenta»; false → «Asociar a cuenta». */
+  hasAccount?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
@@ -42,9 +45,9 @@ export function AsociarCuenta({
         type="button"
         onClick={() => setOpen(true)}
         disabled={disabled}
-        className="h-9 rounded-xl border border-ds-border-default px-3 text-[13px] text-ds-text-2 ds-tap disabled:opacity-50"
+        className="h-11 shrink-0 whitespace-nowrap rounded-xl border border-ds-border-default px-3 text-[13px] text-ds-text-2 ds-tap disabled:opacity-50 sm:h-9"
       >
-        Asociar a cuenta…
+        {hasAccount ? "Cambiar cuenta" : "Asociar a cuenta"}
       </button>
     );
   }

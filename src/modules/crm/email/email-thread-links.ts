@@ -20,6 +20,20 @@ export const THREAD_LINK_ENTITY_TYPES = [
 ] as const;
 export type ThreadLinkEntityType = (typeof THREAD_LINK_ENTITY_TYPES)[number];
 
+/** Etiquetas en español para los 10 tipos del registry. */
+export const THREAD_LINK_TYPE_LABELS: Record<ThreadLinkEntityType, string> = {
+  installation: "Instalación",
+  quote: "Cotización",
+  contract: "Contrato",
+  ops_ticket: "Ticket",
+  incidente: "Incidente",
+  calendar_event: "Evento de agenda",
+  factura: "Factura",
+  guardia: "Guardia",
+  postulante: "Postulante",
+  proveedor: "Proveedor",
+};
+
 export function isThreadLinkEntityType(v: string): v is ThreadLinkEntityType {
   return (THREAD_LINK_ENTITY_TYPES as readonly string[]).includes(v);
 }
@@ -53,6 +67,10 @@ export type ResolvedThreadLink = {
   label: string;
   status: string | null;
   href: string | null;
+  /** Si false, el hilo no aparece en la ficha de la entidad. */
+  visibleOnEntity: boolean;
+  /** true cuando la entidad ya no existe (vínculo huérfano). */
+  orphan: boolean;
 };
 
 const like = (q: string) => ({ contains: q, mode: "insensitive" as const });
@@ -430,6 +448,100 @@ const HREFS: Record<ThreadLinkEntityType, (id: string) => string | null> = {
   contract: (id) => `/opai/documentos/${id}`,
 };
 
+type EntityMeta = { label: string; status: string | null };
+
+/** Carga metadatos de entidades agrupados por tipo (1 consulta por tipo). */
+async function loadEntityMetaByType(
+  tenantId: string,
+  type: ThreadLinkEntityType,
+  ids: string[],
+): Promise<Map<string, EntityMeta>> {
+  const map = new Map<string, EntityMeta>();
+  if (ids.length === 0) return map;
+  try {
+    if (type === "installation") {
+      const rows = await prisma.crmInstallation.findMany({
+        where: { tenantId, id: { in: ids } },
+        select: { id: true, name: true, status: true },
+      });
+      for (const r of rows) map.set(r.id, { label: r.name, status: r.status });
+    } else if (type === "quote") {
+      const rows = await prisma.cpqQuote.findMany({
+        where: { tenantId, id: { in: ids } },
+        select: { id: true, code: true, name: true, status: true },
+      });
+      for (const r of rows) {
+        map.set(r.id, {
+          label: r.code + (r.name ? ` · ${r.name}` : ""),
+          status: r.status,
+        });
+      }
+    } else if (type === "contract") {
+      const rows = await prisma.document.findMany({
+        where: { tenantId, id: { in: ids } },
+        select: { id: true, title: true, status: true },
+      });
+      for (const r of rows) map.set(r.id, { label: r.title, status: r.status });
+    } else if (type === "guardia" || type === "postulante") {
+      const rows = await prisma.opsGuardia.findMany({
+        where: { tenantId, id: { in: ids } },
+        select: {
+          id: true,
+          status: true,
+          lifecycleStatus: true,
+          persona: { select: { firstName: true, lastName: true } },
+        },
+      });
+      for (const r of rows) {
+        map.set(r.id, {
+          label: `${r.persona.firstName} ${r.persona.lastName}`.trim(),
+          status: type === "postulante" ? r.lifecycleStatus : r.status,
+        });
+      }
+    } else if (type === "proveedor") {
+      const rows = await prisma.financeSupplier.findMany({
+        where: { tenantId, id: { in: ids } },
+        select: { id: true, name: true },
+      });
+      for (const r of rows) map.set(r.id, { label: r.name, status: null });
+    } else if (type === "factura") {
+      const rows = await prisma.financeDte.findMany({
+        where: { tenantId, id: { in: ids } },
+        select: { id: true, folio: true, receiverName: true, siiStatus: true },
+      });
+      for (const r of rows) {
+        map.set(r.id, {
+          label: `Folio ${r.folio} · ${r.receiverName}`,
+          status: r.siiStatus,
+        });
+      }
+    } else if (type === "calendar_event") {
+      const rows = await prisma.calendarEvent.findMany({
+        where: { tenantId, id: { in: ids } },
+        select: { id: true, title: true, startAt: true },
+      });
+      for (const r of rows) {
+        map.set(r.id, {
+          label: r.title,
+          status: r.startAt.toISOString().slice(0, 10),
+        });
+      }
+    } else {
+      // ops_ticket | incidente
+      const rows = await prisma.opsTicket.findMany({
+        where: { tenantId, id: { in: ids } },
+        select: { id: true, code: true, title: true, status: true },
+      });
+      for (const r of rows) {
+        map.set(r.id, { label: `${r.code} · ${r.title}`, status: r.status });
+      }
+    }
+  } catch {
+    /* tipo no disponible en este tenant / schema: tratar como huérfanos */
+  }
+  return map;
+}
+
 /** Resuelve los links de un hilo a label + estado + deep-link. */
 export async function resolveThreadLinks(params: {
   tenantId: string;
@@ -439,98 +551,38 @@ export async function resolveThreadLinks(params: {
     where: { tenantId: params.tenantId, threadId: params.threadId },
     orderBy: { createdAt: "asc" },
   });
+
+  const byType = new Map<ThreadLinkEntityType, string[]>();
+  for (const link of links) {
+    if (!isThreadLinkEntityType(link.entityType)) continue;
+    const list = byType.get(link.entityType) ?? [];
+    list.push(link.entityId);
+    byType.set(link.entityType, list);
+  }
+
+  const metaByType = new Map<ThreadLinkEntityType, Map<string, EntityMeta>>();
+  await Promise.all(
+    [...byType.entries()].map(async ([type, ids]) => {
+      metaByType.set(type, await loadEntityMetaByType(params.tenantId, type, [...new Set(ids)]));
+    }),
+  );
+
   const resolved: ResolvedThreadLink[] = [];
   for (const link of links) {
     if (!isThreadLinkEntityType(link.entityType)) continue;
     const type = link.entityType;
-    let label = link.entityId;
-    let status: string | null = null;
-    try {
-      if (type === "installation") {
-        const row = await prisma.crmInstallation.findFirst({
-          where: { tenantId: params.tenantId, id: link.entityId },
-          select: { name: true, status: true },
-        });
-        if (row) {
-          label = row.name;
-          status = row.status;
-        }
-      } else if (type === "quote") {
-        const row = await prisma.cpqQuote.findFirst({
-          where: { tenantId: params.tenantId, id: link.entityId },
-          select: { code: true, name: true, status: true },
-        });
-        if (row) {
-          label = row.code + (row.name ? ` · ${row.name}` : "");
-          status = row.status;
-        }
-      } else if (type === "contract") {
-        const row = await prisma.document.findFirst({
-          where: { tenantId: params.tenantId, id: link.entityId },
-          select: { title: true, status: true },
-        });
-        if (row) {
-          label = row.title;
-          status = row.status;
-        }
-      } else if (type === "guardia" || type === "postulante") {
-        const row = await prisma.opsGuardia.findFirst({
-          where: { tenantId: params.tenantId, id: link.entityId },
-          select: {
-            status: true,
-            lifecycleStatus: true,
-            persona: { select: { firstName: true, lastName: true } },
-          },
-        });
-        if (row) {
-          label = `${row.persona.firstName} ${row.persona.lastName}`.trim();
-          status = type === "postulante" ? row.lifecycleStatus : row.status;
-        }
-      } else if (type === "proveedor") {
-        const row = await prisma.financeSupplier.findFirst({
-          where: { tenantId: params.tenantId, id: link.entityId },
-          select: { name: true },
-        });
-        if (row) label = row.name;
-      } else if (type === "factura") {
-        const row = await prisma.financeDte.findFirst({
-          where: { tenantId: params.tenantId, id: link.entityId },
-          select: { folio: true, receiverName: true, siiStatus: true },
-        });
-        if (row) {
-          label = `Folio ${row.folio} · ${row.receiverName}`;
-          status = row.siiStatus;
-        }
-      } else if (type === "calendar_event") {
-        const row = await prisma.calendarEvent.findFirst({
-          where: { tenantId: params.tenantId, id: link.entityId },
-          select: { title: true, startAt: true, status: true },
-        });
-        if (row) {
-          label = row.title;
-          status = row.startAt.toISOString().slice(0, 10);
-        }
-      } else {
-        const row = await prisma.opsTicket.findFirst({
-          where: { tenantId: params.tenantId, id: link.entityId },
-          select: { code: true, title: true, status: true },
-        });
-        if (row) {
-          label = `${row.code} · ${row.title}`;
-          status = row.status;
-        }
-      }
-    } catch {
-      /* entidad borrada: mostrar el id crudo */
-    }
+    const meta = metaByType.get(type)?.get(link.entityId);
+    const orphan = !meta;
     resolved.push({
       id: link.id,
       entityType: type,
       entityId: link.entityId,
       linkedVia: link.linkedVia,
-      label,
-      status,
-      href: HREFS[type](link.entityId),
+      label: meta?.label ?? "Entidad eliminada",
+      status: meta?.status ?? null,
+      href: orphan ? null : HREFS[type](link.entityId),
+      visibleOnEntity: link.visibleOnEntity,
+      orphan,
     });
   }
   return resolved;
