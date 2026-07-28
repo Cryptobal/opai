@@ -296,6 +296,7 @@ async function recalculateWinner(
       messageCount,
       lastMessageAt: lastMsg?.createdAt ?? null,
       lastMessagePreview: preview,
+      lastMessageSenderName: lastMsg?.senderName ?? null,
     },
   });
 

@@ -20,6 +20,7 @@ export type ChatChannelData = {
   isActive: boolean;
   lastMessageAt: string | null;
   lastMessagePreview: string | null;
+  lastMessageSenderName?: string | null;
   messageCount: number;
   createdAt: string;
   updatedAt: string;
