@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { rememberMicGranted } from "@/lib/mic-permission";
 
 type SpeechRecognitionLike = {
   continuous: boolean;
@@ -274,6 +275,7 @@ export function useSpeechDictation(opts: {
     recognitionRef.current = rec;
     try {
       rec.start();
+      rememberMicGranted();
       listeningRef.current = true;
       setListening(true);
       maxTimerRef.current = setTimeout(() => {

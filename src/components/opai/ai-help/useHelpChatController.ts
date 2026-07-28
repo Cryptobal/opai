@@ -11,6 +11,7 @@ import { useSpeechDictation } from "@/hooks/useSpeechDictation";
 import { useAudioLevel } from "@/hooks/useAudioLevel";
 import { useServerTranscription } from "@/hooks/useServerTranscription";
 import { isSpeechDictationSupported } from "@/hooks/useSpeechDictation";
+import { shouldForceServerDictation } from "@/lib/mic-permission";
 import { getQuickStarters } from "./quick-starters";
 import { friendlyToolLabel, resolveNavigationTarget } from "./message-render";
 import type { ChatMessage, HistoryConversation } from "./types";
@@ -126,7 +127,11 @@ export function useHelpChatController(opts: {
     },
   });
 
-  const preferServer = motor === "server" || !webSpeech.supported;
+  // iOS: Web Speech re-pide mic al abrir/usar dictado; motor servidor = 1 prompt.
+  const preferServer =
+    motor === "server" ||
+    !webSpeech.supported ||
+    shouldForceServerDictation();
   const dictationActive =
     preferServer
       ? serverTx.recording || serverTx.uploading

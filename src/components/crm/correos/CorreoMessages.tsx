@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { ChevronDown, ChevronRight, Copy, Paperclip } from "lucide-react";
+import { ChevronDown, ChevronRight, Paperclip } from "lucide-react";
 import { toast } from "sonner";
 import type {
   CorreoAttachmentDTO,
@@ -12,6 +12,11 @@ import { EmailHtmlBody } from "./EmailHtmlBody";
 import { CorreoAttachments } from "./CorreoAttachments";
 import { attachmentsForMessage } from "./correo-attachments-scope";
 import { parseSender } from "./correo-sender";
+import {
+  buildRecipientChips,
+  summarizeRecipients,
+  type RecipientChip,
+} from "./message-recipients";
 
 async function copyText(value: string, label: string) {
   try {
@@ -22,39 +27,86 @@ async function copyText(value: string, label: string) {
   }
 }
 
-function CopyableEmail({
-  raw,
-  label,
-}: {
-  raw: string;
-  label: string;
-}) {
-  const sender = parseSender(raw);
-  const email = sender.email || raw;
-  const name = sender.name;
-  if (!email) return <span>—</span>;
+function RecipientChipPill({ chip }: { chip: RecipientChip }) {
+  const email = chip.email || chip.raw;
+  const label =
+    chip.label === "De"
+      ? "Remitente"
+      : chip.label === "Responder a"
+        ? "Reply-To"
+        : chip.label === "Para"
+          ? "Destinatario"
+          : "CC";
   return (
     <button
       type="button"
-      title={`Copiar ${email}`}
+      title={`${chip.label}: ${email}`}
       onClick={(e) => {
         e.stopPropagation();
         void copyText(email, label);
       }}
-      className="group inline-flex max-w-full items-center gap-1 rounded-md text-left ds-tap hover:bg-ds-surface-2"
+      className="inline-flex max-w-[min(100%,220px)] items-center gap-1.5 rounded-full border border-ds-border-subtle bg-ds-surface-2 px-2.5 py-1 text-[12px] text-ds-text-2 ds-tap transition-colors hover:border-ds-border-default hover:bg-ds-surface-3"
     >
-      <span className="truncate">
-        {name ? (
-          <>
-            <span className="font-medium text-ds-text-2">{name}</span>
-            <span className="text-ds-text-4"> &lt;{email}&gt;</span>
-          </>
-        ) : (
-          <span className="text-ds-text-2">{email}</span>
-        )}
+      <span className="shrink-0 text-[12px] font-medium uppercase tracking-wide text-ds-text-4">
+        {chip.label === "Responder a" ? "R-To" : chip.label}
       </span>
-      <Copy className="h-3.5 w-3.5 shrink-0 text-ds-text-4 opacity-0 transition-opacity group-hover:opacity-100" />
+      <span className="min-w-0 truncate font-medium">
+        {chip.name || email.split("@")[0] || email}
+      </span>
     </button>
+  );
+}
+
+/** Cabecera De/Para/CC: una línea colapsada; chips al expandir. */
+function MessageRecipients({ m }: { m: CorreoMessageDTO }) {
+  const [expanded, setExpanded] = useState(false);
+  const summary = summarizeRecipients(m);
+  const chips = buildRecipientChips(m);
+  const canExpand = chips.length > 1;
+
+  return (
+    <div className="mb-2">
+      <button
+        type="button"
+        onClick={() => canExpand && setExpanded((v) => !v)}
+        aria-expanded={expanded}
+        className={`flex w-full min-w-0 items-start gap-2 rounded-lg px-1 py-1 text-left ds-tap ${
+          canExpand ? "hover:bg-ds-surface-2" : "cursor-default"
+        }`}
+      >
+        <div className="min-w-0 flex-1 space-y-0.5">
+          <div className="flex min-w-0 items-baseline gap-1.5 text-[13px]">
+            <span className="shrink-0 text-[12px] font-medium uppercase tracking-wide text-ds-text-4">
+              De
+            </span>
+            <span className="truncate font-medium text-ds-text-1">{summary.from}</span>
+          </div>
+          {summary.line ? (
+            <p className="truncate text-[12px] text-ds-text-3">{summary.line}</p>
+          ) : null}
+        </div>
+        {canExpand ? (
+          <span className="mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-ds-text-4">
+            {expanded ? (
+              <ChevronDown className="h-4 w-4" />
+            ) : (
+              <ChevronRight className="h-4 w-4" />
+            )}
+          </span>
+        ) : null}
+      </button>
+
+      {expanded ? (
+        <div className="mt-1.5 flex gap-1.5 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          {chips.map((chip) => (
+            <RecipientChipPill
+              key={`${chip.label}-${chip.email || chip.raw}`}
+              chip={chip}
+            />
+          ))}
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -169,40 +221,7 @@ function MessageCard({
       </button>
       {open && (
         <div className="border-t border-ds-border-subtle px-3 py-2">
-          <div className="mb-2 space-y-1 text-[12px] text-ds-text-4">
-            <div className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5">
-              <span className="shrink-0 font-medium text-ds-text-3">De:</span>
-              <CopyableEmail raw={m.fromEmail} label="Remitente" />
-            </div>
-            {m.replyToEmail && parseSender(m.replyToEmail).email !== sender.email && (
-              <div className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5">
-                <span className="shrink-0 font-medium text-ds-text-3">Responder a:</span>
-                <CopyableEmail raw={m.replyToEmail} label="Reply-To" />
-              </div>
-            )}
-            {m.toEmails.length > 0 && (
-              <div className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5">
-                <span className="shrink-0 font-medium text-ds-text-3">Para:</span>
-                {m.toEmails.map((addr, i) => (
-                  <span key={addr} className="inline-flex min-w-0 items-center">
-                    {i > 0 && <span className="mr-1 text-ds-text-4">,</span>}
-                    <CopyableEmail raw={addr} label="Destinatario" />
-                  </span>
-                ))}
-              </div>
-            )}
-            {m.ccEmails.length > 0 && (
-              <div className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5">
-                <span className="shrink-0 font-medium text-ds-text-3">CC:</span>
-                {m.ccEmails.map((addr, i) => (
-                  <span key={addr} className="inline-flex min-w-0 items-center">
-                    {i > 0 && <span className="mr-1 text-ds-text-4">,</span>}
-                    <CopyableEmail raw={addr} label="CC" />
-                  </span>
-                ))}
-              </div>
-            )}
-          </div>
+          <MessageRecipients m={m} />
           <EmailHtmlBody
             htmlBody={m.htmlBody}
             textBody={m.textBody}
