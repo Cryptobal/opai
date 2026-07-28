@@ -62,6 +62,11 @@ function isPublicPath(pathname: string): boolean {
   // Placeholders de módulos
   if (pathname === '/hub' || pathname === '/crm') return true;
 
+  // Mockup RSVP correo (solo UI; sin datos ni APIs) — revisión de diseño sin login
+  if (pathname === '/opai-ds-playground/correo-rsvp' || pathname.startsWith('/opai-ds-playground/correo-rsvp/')) {
+    return true;
+  }
+
   // Rutas públicas OPAI - presentaciones y preview (rutas reales: /p/, /preview/, /templates/)
   if (pathname.startsWith('/p/')) return true;
   if (pathname.startsWith('/preview/')) return true;

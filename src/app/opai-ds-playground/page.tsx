@@ -88,6 +88,24 @@ export default function PlaygroundPage() {
           </div>
         </div>
 
+        {/* Mockups de producto */}
+        <Section title="Mockups de producto">
+          <a
+            href="/opai-ds-playground/correo-rsvp"
+            className="block rounded-2xl border border-ds-border-default bg-ds-surface-1 p-4 transition-colors hover:border-primary/40 hover:bg-ds-surface-2"
+          >
+            <p className="text-[12px] font-mono uppercase tracking-[0.08em] text-ds-text-4">
+              Correo · Calendario
+            </p>
+            <p className="mt-1 font-display text-base font-semibold text-ds-text-1">
+              RSVP de invitaciones en el lector
+            </p>
+            <p className="mt-1 text-[13px] text-ds-text-3">
+              Card Sí / Quizás / No estilo Gmail sobre el cuerpo del mail (Teams, Outlook, Google).
+            </p>
+          </a>
+        </Section>
+
         {/* Surfaces */}
         <Section title="Surface — 4 niveles de elevación">
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
