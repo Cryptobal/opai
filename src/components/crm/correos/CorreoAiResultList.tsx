@@ -2,10 +2,17 @@
 
 import Link from "next/link";
 import { CalendarDays, ExternalLink } from "lucide-react";
+import { Tag } from "@/components/opai-ds";
 import type { CreateCrmStructureResult } from "@/modules/crm/email/email-to-crm-structure.types";
 
 type Props = {
   result: CreateCrmStructureResult;
+};
+
+const MILESTONE_LABEL: Record<string, string> = {
+  consultas: "Plazo consultas",
+  visita_tecnica: "Visita técnica",
+  entrega: "Entrega de oferta",
 };
 
 export function CorreoAiResultList({ result }: Props) {
@@ -19,6 +26,36 @@ export function CorreoAiResultList({ result }: Props) {
         {result.installations?.map((i) => (
           <ResultLink key={i.id} href={i.url} label={i.name} />
         ))}
+        {result.quoteUrl && <ResultLink href={result.quoteUrl} label="Cotización" badge="CPQ" />}
+        {result.milestones && result.milestones.length > 0 && (
+          <li className="rounded-xl border border-ds-border-subtle bg-ds-surface-2 px-3 py-2.5">
+            <p className="mb-1.5 text-[12px] font-medium uppercase tracking-wide text-ds-text-3">
+              Hitos de agenda
+            </p>
+            <ul className="space-y-1">
+              {result.milestones.map((m) => (
+                <li key={m.eventId} className="flex items-center gap-2 text-[13px] text-ds-text-2">
+                  <CalendarDays className="h-3.5 w-3.5 shrink-0 text-tint-violet-fg" />
+                  {MILESTONE_LABEL[m.kind] ?? m.kind}
+                  {m.syncStatus && (
+                    <Tag
+                      variant={m.syncStatus === "ok" ? "ok" : "warn"}
+                      size="sm"
+                    >
+                      {m.syncStatus === "ok" ? "sincronizado" : m.syncStatus}
+                    </Tag>
+                  )}
+                </li>
+              ))}
+            </ul>
+            <Link
+              href="/agenda"
+              className="mt-2 inline-flex min-h-10 items-center gap-1 text-[13px] text-primary ds-tap"
+            >
+              Abrir agenda <ExternalLink className="h-3.5 w-3.5" />
+            </Link>
+          </li>
+        )}
         {result.agendaSync && (
           <li className="rounded-xl border border-ds-border-subtle bg-ds-surface-2 px-3 py-2.5">
             <div className="flex items-start gap-2 text-[13px] text-ds-text-2">
@@ -47,18 +84,33 @@ export function CorreoAiResultList({ result }: Props) {
           </li>
         )}
       </ul>
+      {result.skipped && result.skipped.length > 0 && (
+        <p className="text-[12px] text-ds-text-4">
+          Omitido: {result.skipped.join(", ")}
+        </p>
+      )}
     </div>
   );
 }
 
-function ResultLink({ href, label }: { href: string; label: string }) {
+function ResultLink({
+  href,
+  label,
+  badge,
+}: {
+  href: string;
+  label: string;
+  badge?: string;
+}) {
   return (
     <li>
       <Link
         href={href}
         className="inline-flex min-h-10 items-center gap-1.5 text-[13px] text-primary ds-tap"
       >
-        {label} <ExternalLink className="h-3.5 w-3.5" />
+        {label}
+        {badge && <Tag variant="neutral" size="sm">{badge}</Tag>}
+        <ExternalLink className="h-3.5 w-3.5" />
       </Link>
     </li>
   );

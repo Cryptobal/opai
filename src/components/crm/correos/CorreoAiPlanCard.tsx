@@ -15,7 +15,8 @@ export type PlanAction = {
   /** Si true, el checkbox arranca desmarcado. */
   optional?: boolean;
   disabled?: boolean;
-  /** Fila bloqueada (p. ej. sync automático a agenda): no se puede desmarcar. */
+  reasonDisabled?: string;
+  /** Fila bloqueada: checkbox visible pero no se puede desmarcar. */
   locked?: boolean;
   group?: PlanActionGroup;
 };
@@ -42,6 +43,12 @@ type Props = {
   onToggle: (id: string) => void;
   /** Si true, agrupa por `group` con encabezados. */
   grouped?: boolean;
+  /** Ids de acciones actualmente expandidas (mostrar panel interno). */
+  expandedIds?: Set<string>;
+  /** Callback al hacer clic en chevron para expandir/colapsar. */
+  onExpand?: (id: string) => void;
+  /** Render de contenido expandido según id. */
+  renderExpanded?: (id: string) => React.ReactNode;
 };
 
 const GROUP_LABEL: Record<PlanActionGroup, string> = {
@@ -55,7 +62,15 @@ const GROUP_ORDER: PlanActionGroup[] = ["comercial", "operacion", "calendario"];
 /**
  * Lista de acciones del plan IA con checkboxes DS. Touch targets ≥44px.
  */
-export function CorreoAiPlanCard({ actions, selected, onToggle, grouped }: Props) {
+export function CorreoAiPlanCard({
+  actions,
+  selected,
+  onToggle,
+  grouped,
+  expandedIds,
+  onExpand,
+  renderExpanded,
+}: Props) {
   if (grouped) {
     return (
       <div className="space-y-3">
@@ -67,7 +82,14 @@ export function CorreoAiPlanCard({ actions, selected, onToggle, grouped }: Props
               <h4 className="mb-1.5 text-[12px] font-medium uppercase tracking-wide text-ds-text-3">
                 {GROUP_LABEL[g]}
               </h4>
-              <ActionList actions={items} selected={selected} onToggle={onToggle} />
+              <ActionList
+                actions={items}
+                selected={selected}
+                onToggle={onToggle}
+                expandedIds={expandedIds}
+                onExpand={onExpand}
+                renderExpanded={renderExpanded}
+              />
             </section>
           );
         })}
@@ -75,41 +97,60 @@ export function CorreoAiPlanCard({ actions, selected, onToggle, grouped }: Props
     );
   }
 
-  return <ActionList actions={actions} selected={selected} onToggle={onToggle} />;
+  return (
+    <ActionList
+      actions={actions}
+      selected={selected}
+      onToggle={onToggle}
+      expandedIds={expandedIds}
+      onExpand={onExpand}
+      renderExpanded={renderExpanded}
+    />
+  );
 }
 
 function ActionList({
   actions,
   selected,
   onToggle,
+  expandedIds,
+  onExpand,
+  renderExpanded,
 }: {
   actions: PlanAction[];
   selected: Set<string>;
   onToggle: (id: string) => void;
+  expandedIds?: Set<string>;
+  onExpand?: (id: string) => void;
+  renderExpanded?: (id: string) => React.ReactNode;
 }) {
   return (
     <ul className="ds-list-cascade space-y-1">
       {actions.map((a) => {
         const checked = a.locked || selected.has(a.id);
         const lockedOrDisabled = Boolean(a.disabled || a.locked);
+        const expanded = expandedIds?.has(a.id) ?? false;
+        const expandable = Boolean(renderExpanded);
+
         return (
-          <li key={a.id}>
+          <li key={a.id} className="overflow-hidden rounded-xl">
             <label
-              className={`flex min-h-11 cursor-pointer items-start gap-3 rounded-xl border px-3 py-2.5 ds-tap ${
+              className={`flex min-h-11 items-start gap-3 px-3 py-2.5 ds-tap ${
                 lockedOrDisabled
-                  ? "cursor-not-allowed border-ds-border-subtle bg-ds-surface-2 opacity-80"
+                  ? "cursor-not-allowed border border-ds-border-subtle bg-ds-surface-2 opacity-80"
                   : checked
-                    ? "border-tint-violet/40 bg-tint-violet/5"
-                    : "border-ds-border-subtle bg-ds-surface-1"
+                    ? "cursor-pointer border border-tint-violet/40 bg-tint-violet/5"
+                    : "cursor-pointer border border-ds-border-subtle bg-ds-surface-1"
               }`}
             >
               <Checkbox
                 className="mt-0.5 h-5 w-5 shrink-0"
                 checked={checked}
-                disabled={lockedOrDisabled}
+                disabled={a.disabled}
                 onCheckedChange={() => {
-                  if (!lockedOrDisabled) onToggle(a.id);
+                  if (!a.disabled) onToggle(a.id);
                 }}
+                onClick={(e) => e.stopPropagation()}
                 aria-label={a.label}
               />
               <span className="min-w-0 flex-1">
@@ -120,12 +161,46 @@ function ActionList({
                       {TAG_LABEL[a.tag]}
                     </Tag>
                   )}
+                  {a.locked && (
+                    <Tag variant="neutral" size="sm">bloqueado</Tag>
+                  )}
                 </span>
                 {a.detail && (
                   <span className="mt-0.5 block text-[12px] text-ds-text-3">{a.detail}</span>
                 )}
+                {a.disabled && a.reasonDisabled && (
+                  <span className="mt-0.5 block text-[12px] text-ds-text-4 italic">
+                    {a.reasonDisabled}
+                  </span>
+                )}
               </span>
+              {expandable && onExpand && (
+                <button
+                  type="button"
+                  aria-label={expanded ? "Colapsar" : "Expandir"}
+                  className="ml-auto inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-ds-text-4 ds-tap sm:h-8 sm:w-8"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    onExpand(a.id);
+                  }}
+                >
+                  <svg
+                    className={`h-4 w-4 transition-transform duration-150 ${expanded ? "rotate-90" : ""}`}
+                    viewBox="0 0 16 16"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                  >
+                    <path d="M6 4l4 4-4 4" />
+                  </svg>
+                </button>
+              )}
             </label>
+            {expanded && renderExpanded && (
+              <div className="border-t border-ds-border-subtle bg-ds-surface-2 px-3 py-3">
+                {renderExpanded(a.id)}
+              </div>
+            )}
           </li>
         );
       })}

@@ -1,9 +1,11 @@
 "use client";
 
-import { MessageSquareText, Pencil } from "lucide-react";
 import type { CrmStructureProposal } from "@/modules/crm/email/email-to-crm-structure.types";
+import type { CrmStructureRefineAnswer } from "@/modules/crm/email/email-to-crm-structure.types";
 import { CorreoAiPlanCard, type PlanAction } from "./CorreoAiPlanCard";
 import { CorreoAiCoverageTable } from "./CorreoAiCoverageTable";
+import { CorreoAiAssumptions } from "./plan/CorreoAiAssumptions";
+import { CorreoAiQuestions } from "./plan/CorreoAiQuestions";
 
 export type StaffingDelta = {
   weeklyHH?: { from: number; to: number };
@@ -19,6 +21,13 @@ type Props = {
   sources: string[];
   durationMs: number | null;
   delta?: StaffingDelta | null;
+  expandedIds?: Set<string>;
+  onExpand?: (id: string) => void;
+  renderExpanded?: (id: string) => React.ReactNode;
+  remainingRefines?: number;
+  onAnswer?: (answer: CrmStructureRefineAnswer) => void;
+  onAssumptionsChange?: (items: CrmStructureProposal["assumptionItems"]) => void;
+  /** Legacy callbacks (backward compat with CorreoAiActionPanel older usage). */
   onRefineAssumption?: (assumption: string) => void;
   onRefineQuestion?: (question: string) => void;
   onOpenRefine?: () => void;
@@ -53,11 +62,17 @@ export function CorreoAiPlanSections({
   sources,
   durationMs,
   delta,
+  expandedIds,
+  onExpand,
+  renderExpanded,
+  remainingRefines,
+  onAnswer,
+  onAssumptionsChange,
   onRefineAssumption,
   onRefineQuestion,
   onOpenRefine,
 }: Props) {
-  const origins = proposal.assumptionOrigins ?? proposal.assumptions.map(() => "inference" as const);
+  const assumptionItems = proposal.assumptionItems ?? [];
 
   return (
     <div className="ds-page-enter space-y-4">
@@ -100,6 +115,9 @@ export function CorreoAiPlanSections({
           selected={selected}
           onToggle={onToggle}
           grouped
+          expandedIds={expandedIds}
+          onExpand={onExpand}
+          renderExpanded={renderExpanded}
         />
       </section>
 
@@ -110,66 +128,114 @@ export function CorreoAiPlanSections({
         <CorreoAiCoverageTable proposal={proposal} />
       </section>
 
-      {proposal.assumptions.length > 0 && (
-        <section className="rounded-xl border border-ds-border-subtle bg-ds-surface-2 px-3 py-2.5">
-          <h3 className="mb-1.5 text-[12px] font-medium uppercase tracking-wide text-ds-text-3">
-            Supuestos que apliqué
-          </h3>
-          <ul className="space-y-1.5">
-            {proposal.assumptions.map((a, i) => (
-              <li key={`${i}-${a}`} className="flex items-start gap-2 text-[13px] text-ds-text-2">
-                <span className="min-w-0 flex-1">
-                  {a}
-                  {origins[i] === "user" && (
-                    <span className="ml-1.5 text-[12px] text-status-ok-fg">· confirmado</span>
-                  )}
-                </span>
-                {onRefineAssumption && (
-                  <button
-                    type="button"
-                    onClick={() => onRefineAssumption(a)}
-                    className="inline-flex min-h-11 shrink-0 items-center gap-1 rounded-lg px-2 text-[12px] text-primary ds-tap sm:min-h-8"
-                  >
-                    <Pencil className="h-3.5 w-3.5" /> Cambiar
-                  </button>
-                )}
-              </li>
-            ))}
-          </ul>
-        </section>
+      {/* Assumptions v2 — inline editable */}
+      {onAssumptionsChange && assumptionItems.length > 0 && (
+        <CorreoAiAssumptions items={assumptionItems} onChange={onAssumptionsChange} />
       )}
 
-      {proposal.openQuestions.length > 0 && (
-        <section className="rounded-xl border border-ds-border-subtle bg-ds-surface-1 px-3 py-2.5">
-          <h3 className="mb-1.5 text-[12px] font-medium uppercase tracking-wide text-ds-text-3">
-            Preguntas
-          </h3>
-          <ul className="space-y-1.5">
-            {proposal.openQuestions.map((q) => (
-              <li key={q}>
-                <button
-                  type="button"
-                  onClick={() => onRefineQuestion?.(q)}
-                  className="flex min-h-11 w-full items-start gap-2 rounded-lg px-1 py-1.5 text-left text-[13px] text-ds-text-2 ds-tap hover:bg-ds-surface-2 sm:min-h-9"
-                >
-                  <MessageSquareText className="mt-0.5 h-4 w-4 shrink-0 text-tint-violet-fg" />
-                  <span>{q}</span>
-                </button>
-              </li>
-            ))}
-          </ul>
-          {onOpenRefine && (
-            <button
-              type="button"
-              onClick={onOpenRefine}
-              className="mt-2 text-[12px] text-primary ds-tap"
-            >
-              Responder en el chat de refinamiento
-            </button>
-          )}
-        </section>
+      {/* Assumptions v1 legacy — read-only with refine button */}
+      {!onAssumptionsChange && proposal.assumptions.length > 0 && (
+        <LegacyAssumptions
+          assumptions={proposal.assumptions}
+          origins={proposal.assumptionOrigins}
+          onRefineAssumption={onRefineAssumption}
+        />
+      )}
+
+      {/* Questions v2 — inline answer per question */}
+      {onAnswer && proposal.openQuestions.length > 0 && (
+        <CorreoAiQuestions
+          questions={proposal.openQuestions}
+          remainingRefines={remainingRefines ?? 5}
+          onAnswer={onAnswer}
+        />
+      )}
+
+      {/* Questions v1 legacy */}
+      {!onAnswer && proposal.openQuestions.length > 0 && (
+        <LegacyQuestions
+          questions={proposal.openQuestions}
+          onRefineQuestion={onRefineQuestion}
+          onOpenRefine={onOpenRefine}
+        />
       )}
     </div>
+  );
+}
+
+function LegacyAssumptions({
+  assumptions,
+  origins,
+  onRefineAssumption,
+}: {
+  assumptions: string[];
+  origins?: Array<"inference" | "user">;
+  onRefineAssumption?: (a: string) => void;
+}) {
+  const originList = origins ?? assumptions.map(() => "inference" as const);
+  return (
+    <section className="rounded-xl border border-ds-border-subtle bg-ds-surface-2 px-3 py-2.5">
+      <h3 className="mb-1.5 text-[12px] font-medium uppercase tracking-wide text-ds-text-3">
+        Supuestos que apliqué
+      </h3>
+      <ul className="space-y-1.5">
+        {assumptions.map((a, i) => (
+          <li key={`${i}-${a}`} className="flex items-start gap-2 text-[13px] text-ds-text-2">
+            <span className="min-w-0 flex-1">
+              {a}
+              {originList[i] === "user" && (
+                <span className="ml-1.5 text-[12px] text-status-ok-fg">· confirmado</span>
+              )}
+            </span>
+            {onRefineAssumption && (
+              <button
+                type="button"
+                onClick={() => onRefineAssumption(a)}
+                className="inline-flex min-h-11 shrink-0 items-center gap-1 rounded-lg px-2 text-[12px] text-primary ds-tap sm:min-h-8"
+              >
+                Cambiar
+              </button>
+            )}
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+function LegacyQuestions({
+  questions,
+  onRefineQuestion,
+  onOpenRefine,
+}: {
+  questions: string[];
+  onRefineQuestion?: (q: string) => void;
+  onOpenRefine?: () => void;
+}) {
+  return (
+    <section className="rounded-xl border border-ds-border-subtle bg-ds-surface-1 px-3 py-2.5">
+      <h3 className="mb-1.5 text-[12px] font-medium uppercase tracking-wide text-ds-text-3">
+        Preguntas
+      </h3>
+      <ul className="space-y-1.5">
+        {questions.map((q) => (
+          <li key={q}>
+            <button
+              type="button"
+              onClick={() => onRefineQuestion?.(q)}
+              className="flex min-h-11 w-full items-start gap-2 rounded-lg px-1 py-1.5 text-left text-[13px] text-ds-text-2 ds-tap hover:bg-ds-surface-2 sm:min-h-9"
+            >
+              <span>{q}</span>
+            </button>
+          </li>
+        ))}
+      </ul>
+      {onOpenRefine && (
+        <button type="button" onClick={onOpenRefine} className="mt-2 text-[12px] text-primary ds-tap">
+          Responder en el chat de refinamiento
+        </button>
+      )}
+    </section>
   );
 }
 
