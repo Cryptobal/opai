@@ -20,6 +20,7 @@ export type EmailAuditAction =
   | "unspam"
   | "associate"
   | "create_lead"
+  | "create_structure"
   | "connect_account"
   | "disconnect_account"
   | "save_attachment";
@@ -28,7 +29,9 @@ export type EmailAuditEntityType =
   | "email_thread"
   | "email_message"
   | "email_account"
-  | "crm_lead";
+  | "crm_lead"
+  | "crm_deal"
+  | "crm_account";
 
 /** No lanza: un fallo de auditoría no interrumpe la mutación principal. */
 export async function auditEmailAction(params: {

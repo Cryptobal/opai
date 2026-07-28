@@ -53,6 +53,8 @@ type Props = {
   shortcuts?: CorreoShortcuts;
   workTabIntent?: { tab: import("./work-panel-tabs").WorkTab; nonce: number } | null;
   composeIntent?: ComposeIntent | null;
+  onOpenAiLead?: () => void;
+  onOpenAiMenu?: () => void;
 };
 
 export function CorreoDrawer({
@@ -78,10 +80,11 @@ export function CorreoDrawer({
   shortcuts,
   workTabIntent = null,
   composeIntent = null,
+  onOpenAiLead,
+  onOpenAiMenu,
 }: Props) {
   const [detail, setDetail] = useState<CorreoDetail | null>(null);
   const [loading, setLoading] = useState(false);
-  const [aiOpen, setAiOpen] = useState(false);
   const [snoozeOpen, setSnoozeOpen] = useState(false);
   /** Pedido local (barra móvil Responder) sin pasar por CorreosClient. */
   const [localComposeIntent, setLocalComposeIntent] = useState<ComposeIntent | null>(null);
@@ -129,7 +132,6 @@ export function CorreoDrawer({
   // limpiamos para no mostrar el HTML del correo previo (evita “pestañeo”
   // de un pedazo de correo sobre otro).
   useEffect(() => {
-    setAiOpen(false);
     setLocalComposeIntent(null);
     setSnoozeOpen(false);
     if (!threadId) {
@@ -166,8 +168,8 @@ export function CorreoDrawer({
   }, [refreshToken]);
 
   useEffect(() => {
-    if (autoExtract && detail && !detail.thread.leadId) setAiOpen(true);
-  }, [autoExtract, detail]);
+    if (autoExtract && detail && !detail.thread.leadId) onOpenAiLead?.();
+  }, [autoExtract, detail, onOpenAiLead]);
 
   const refresh = useCallback(() => {
     void load();
@@ -258,8 +260,8 @@ export function CorreoDrawer({
           detail={detail}
           mailboxEmail={mailboxEmail}
           canModify={canModify}
-          aiOpen={aiOpen}
-          setAiOpen={setAiOpen}
+          onOpenAiLead={() => onOpenAiLead?.()}
+          onOpenAiMenu={onOpenAiMenu}
           onAssociate={associate}
           onRefresh={refresh}
           onClose={onClose}

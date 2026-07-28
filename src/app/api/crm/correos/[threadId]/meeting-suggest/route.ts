@@ -81,10 +81,11 @@ ${wrapUntrusted(`Asunto: ${thread.subject}\n${body}`)}`;
     // Degradación: sin IA igualmente proponemos un default editable.
     raw = {};
   }
+  const active = await aiService.getActiveConfig?.({ tenantId, feature: "correo-meeting-suggest" });
   logAiUsage({
     tenantId,
-    providerType: "openai",
-    model: "json-default",
+    providerType: active?.providerType ?? "openai",
+    model: active?.modelId ?? "json-default",
     feature: "correo-meeting-suggest",
     inputTokens: Math.ceil(prompt.length / 4),
     outputTokens: Math.ceil(JSON.stringify(raw ?? {}).length / 4),

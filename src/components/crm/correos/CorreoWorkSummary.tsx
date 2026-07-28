@@ -16,16 +16,14 @@ import {
 } from "lucide-react";
 import { hasModuleAccess } from "@/lib/permissions";
 import { useEffectivePermissions } from "@/hooks/useEffectivePermissions";
-import { LeadFromEmailPanel } from "./LeadFromEmailPanel";
 import type { WorkTab } from "./work-panel-tabs";
 
 type Props = {
   threadId: string;
   accountId: string | null;
   hasLead: boolean;
-  aiOpen: boolean;
-  setAiOpen: (v: boolean) => void;
-  onRefresh: () => void;
+  /** Abre el panel unificado de Acciones IA (comando lead). */
+  onOpenAiLead: () => void;
   onGoTo: (tab: WorkTab) => void;
 };
 
@@ -44,7 +42,7 @@ const TONE: Record<Tone, string> = {
  * (CRM/OPS/RRHH) y sólo aparecen si el usuario tiene ese módulo; el gating final
  * es server-side. Debajo, tarjeta "Estado del hilo" con filas navegables.
  */
-export function CorreoWorkSummary({ threadId, accountId, hasLead, aiOpen, setAiOpen, onRefresh, onGoTo }: Props) {
+export function CorreoWorkSummary({ accountId, hasLead, onOpenAiLead, onGoTo }: Props) {
   const perms = useEffectivePermissions();
   const hasCrm = hasModuleAccess(perms, "crm");
   const hasOps = hasModuleAccess(perms, "ops");
@@ -59,7 +57,7 @@ export function CorreoWorkSummary({ threadId, accountId, hasLead, aiOpen, setAiO
           (hasLead ? (
             <Tile tone="emerald" icon={CheckCircle2} title="Lead creado" subtitle="En comercial" chip="CRM" done />
           ) : (
-            <Tile tone="emerald" icon={Sparkles} title="Crear lead" subtitle="Desde el hilo" chip="CRM" onClick={() => setAiOpen(true)} />
+            <Tile tone="emerald" icon={Sparkles} title="Crear lead" subtitle="Desde el hilo" chip="CRM" onClick={onOpenAiLead} />
           ))}
         {hasOps && <Tile tone="amber" icon={AlertTriangle} title="Reportar incidente" subtitle="Operaciones" chip="OPS" onClick={() => onGoTo("productividad")} />}
         {hasOps && <Tile tone="sky" icon={UserPlus} title="Crear candidato" subtitle="Postulación" chip="RRHH" href="/ops/ats" />}
@@ -71,18 +69,6 @@ export function CorreoWorkSummary({ threadId, accountId, hasLead, aiOpen, setAiO
         <StatusRow icon={Link2} label="Vínculos" value="Ver relaciones" onClick={() => onGoTo("vinculos")} />
         <StatusRow icon={ListChecks} label="Trabajo" value="Tareas, tickets y reunión" onClick={() => onGoTo("productividad")} />
       </div>
-
-      {hasCrm && !hasLead && aiOpen && (
-        <LeadFromEmailPanel
-          threadId={threadId}
-          hasAccount={Boolean(accountId)}
-          onClose={() => setAiOpen(false)}
-          onCreated={() => {
-            setAiOpen(false);
-            onRefresh();
-          }}
-        />
-      )}
     </div>
   );
 }

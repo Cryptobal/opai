@@ -115,10 +115,11 @@ ${wrapUntrusted(`Asunto: ${thread.subject}\n${body}`)}`;
   } catch {
     return NextResponse.json({ error: "La IA no pudo sugerir vínculos" }, { status: 502 });
   }
+  const active = await aiService.getActiveConfig?.({ tenantId, feature: "correo-link-suggest" });
   logAiUsage({
     tenantId,
-    providerType: "openai",
-    model: "json-default",
+    providerType: active?.providerType ?? "openai",
+    model: active?.modelId ?? "json-default",
     feature: "correo-link-suggest",
     inputTokens: Math.ceil(prompt.length / 4),
     outputTokens: Math.ceil(JSON.stringify(raw ?? {}).length / 4),

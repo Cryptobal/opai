@@ -35,6 +35,8 @@ export type CorreoKeyboardHandlers = {
   onSnooze: () => void;
   onToggleRead: () => void;
   onFocusSearch: () => void;
+  /** Abre el menú de Acciones IA sobre la fila enfocada. */
+  onAiMenu: () => void;
   /** Abre el overlay de ayuda de atajos (tecla fija `?`). */
   onHelp: () => void;
   /** Teclas configuradas por el usuario. */
@@ -101,6 +103,7 @@ export function useCorreosKeyboard(handlers: CorreoKeyboardHandlers): void {
         [sc.snooze, h.onSnooze],
         [sc.toggleRead, h.onToggleRead],
         [sc.focusSearch, h.onFocusSearch],
+        [sc.aiMenu, h.onAiMenu],
       ];
 
       // Con lector cerrado: R/A/F/I abren hilo + composer.

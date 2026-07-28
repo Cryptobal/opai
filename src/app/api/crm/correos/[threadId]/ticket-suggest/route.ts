@@ -59,10 +59,11 @@ ${wrapUntrusted(`Asunto: ${thread.subject}\n${body}`)}`;
   } catch {
     return NextResponse.json({ error: "La IA no pudo proponer el ticket" }, { status: 502 });
   }
+  const active = await aiService.getActiveConfig?.({ tenantId, feature: "correo-ticket-suggest" });
   logAiUsage({
     tenantId,
-    providerType: "openai",
-    model: "json-default",
+    providerType: active?.providerType ?? "openai",
+    model: active?.modelId ?? "json-default",
     feature: "correo-ticket-suggest",
     inputTokens: Math.ceil(prompt.length / 4),
     outputTokens: Math.ceil(JSON.stringify(raw ?? {}).length / 4),

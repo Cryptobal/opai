@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { MessageCircle } from "lucide-react";
 import { useIntelligenceSidePanelContext } from "./IntelligenceSidePanelContext";
 import { useChatSidePanelContext } from "@/components/chat/ChatFloatingProvider";
@@ -10,6 +10,10 @@ import { ChatDockDesktop } from "./ai-help/ChatDockDesktop";
 import { ChatSheetMobile } from "./ai-help/ChatSheetMobile";
 import { useHelpChatController } from "./ai-help/useHelpChatController";
 import type { ChatPanelSharedProps } from "./ai-help/chat-panel-props";
+import {
+  AI_COMMAND_EVENT,
+  type AiCommandDetail,
+} from "@/lib/ai/ai-command-event";
 
 export function AiHelpChatWidgetV2() {
   const intelCtx = useIntelligenceSidePanelContext();
@@ -32,6 +36,9 @@ export function AiHelpChatWidgetV2() {
     setOpen,
   });
 
+  const ctrlRef = useRef(ctrl);
+  ctrlRef.current = ctrl;
+
   useEffect(() => {
     const openEvt = () => {
       chatCtx.closePanel();
@@ -40,6 +47,29 @@ export function AiHelpChatWidgetV2() {
     };
     window.addEventListener("opai-ai-open", openEvt);
     return () => window.removeEventListener("opai-ai-open", openEvt);
+  }, [chatCtx, notifCtx, intelCtx]);
+
+  useEffect(() => {
+    const onCommand = (ev: Event) => {
+      const detail = (ev as CustomEvent<AiCommandDetail>).detail;
+      if (!detail?.prompt?.trim()) return;
+      const c = ctrlRef.current;
+      if (c.sending) return;
+      chatCtx.closePanel();
+      notifCtx.closePanel();
+      intelCtx.openPanel();
+      c.setInput(detail.prompt);
+      if (detail.autoSend) {
+        // Esperar un tick a que el panel monte y el page context esté listo.
+        window.setTimeout(() => {
+          const latest = ctrlRef.current;
+          if (latest.sending) return;
+          void latest.sendMessage(detail.prompt);
+        }, 50);
+      }
+    };
+    window.addEventListener(AI_COMMAND_EVENT, onCommand);
+    return () => window.removeEventListener(AI_COMMAND_EVENT, onCommand);
   }, [chatCtx, notifCtx, intelCtx]);
 
   useEffect(() => {
