@@ -1,12 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { CalendarDays } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 
-const MENU_WIDTH = 288;
+/** Ancho suficiente para 7×w-9 + paddings del Calendar y del menú. */
+const MENU_WIDTH = 308;
 const GAP = 4;
 const MARGIN = 8;
 
@@ -57,7 +58,8 @@ export function TaskDatePicker({
   onChange: (date: string) => void;
   className?: string;
   ariaLabel?: string;
-  menuAlign?: "left" | "right";
+  /** Ancla horizontal del menú respecto al gatillo. `center` centra bajo el botón. */
+  menuAlign?: "left" | "right" | "center";
   /** Si false, no muestra «Sin fecha». */
   allowEmpty?: boolean;
 }) {
@@ -73,11 +75,22 @@ export function TaskDatePicker({
 
   const place = useCallback(() => {
     const trigger = triggerRef.current;
+    const menu = menuRef.current;
     if (!trigger) return;
     const r = trigger.getBoundingClientRect();
-    const menuH = menuRef.current?.offsetHeight ?? 360;
-    let left = menuAlign === "right" ? r.right - MENU_WIDTH : r.left;
-    left = Math.max(MARGIN, Math.min(left, window.innerWidth - MENU_WIDTH - MARGIN));
+    const menuW = Math.max(menu?.offsetWidth || 0, MENU_WIDTH);
+    const menuH = menu?.offsetHeight || 360;
+
+    let left: number;
+    if (menuAlign === "right") {
+      left = r.right - menuW;
+    } else if (menuAlign === "center") {
+      left = r.left + r.width / 2 - menuW / 2;
+    } else {
+      left = r.left;
+    }
+    left = Math.max(MARGIN, Math.min(left, window.innerWidth - menuW - MARGIN));
+
     const spaceBelow = window.innerHeight - r.bottom - GAP - MARGIN;
     const spaceAbove = r.top - GAP - MARGIN;
     const openUp = spaceBelow < menuH && spaceAbove > spaceBelow;
@@ -85,9 +98,13 @@ export function TaskDatePicker({
     setCoords({ top, left });
   }, [menuAlign]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!open) return;
     place();
+  }, [open, place]);
+
+  useEffect(() => {
+    if (!open) return;
     const onDocClick = (e: MouseEvent) => {
       const t = e.target as Node;
       if (triggerRef.current?.contains(t) || menuRef.current?.contains(t)) return;
@@ -109,10 +126,6 @@ export function TaskDatePicker({
     };
   }, [open, place, close]);
 
-  useEffect(() => {
-    if (open) place();
-  }, [open, place]);
-
   const pick = (iso: string) => {
     onChange(iso);
     close();
@@ -131,11 +144,11 @@ export function TaskDatePicker({
         width: MENU_WIDTH,
       }}
       className={cn(
-        "z-[60] rounded-xl border border-ds-border-default bg-ds-surface-1 p-2 shadow-ds-lg",
+        "z-[80] overflow-hidden rounded-xl border border-ds-border-default bg-ds-surface-1 p-2 shadow-ds-lg",
         !coords && "pointer-events-none opacity-0",
       )}
     >
-      <div className="mb-2 flex flex-wrap gap-1">
+      <div className="mb-2 flex flex-wrap justify-center gap-1">
         <Shortcut
           label="Hoy"
           onClick={() => pick(toISODate(today))}
@@ -184,7 +197,12 @@ export function TaskDatePicker({
           }
           pick(toISODate(d));
         }}
-        className="rounded-lg"
+        className="mx-auto w-fit rounded-lg p-2"
+        classNames={{
+          months: "flex flex-col",
+          weekdays: "flex w-full justify-center",
+          week: "flex w-full justify-center mt-2",
+        }}
       />
     </div>
   );

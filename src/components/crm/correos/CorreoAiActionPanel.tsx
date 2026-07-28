@@ -18,6 +18,7 @@ import type { CorreoAiCommandId } from "@/modules/crm/email/correo-ai-commands";
 import type { CrmStructureProposal } from "@/modules/crm/email/email-to-crm-structure.types";
 import type { CreateCrmStructureResult } from "@/modules/crm/email/email-to-crm-structure.types";
 import { LeadFromEmailPanel } from "./LeadFromEmailPanel";
+import { CorreoSourcePreview } from "./CorreoSourcePreview";
 import { CorreoAiPlanCard, type PlanAction } from "./CorreoAiPlanCard";
 import {
   CorreoAiPlanSections,
@@ -670,7 +671,7 @@ export function CorreoAiActionPanel({
 
   return createPortal(
     <div
-      className="fixed inset-0 z-[55] flex justify-end bg-black/40"
+      className="fixed inset-0 z-[55] flex justify-end max-lg:bg-black/40 lg:pointer-events-none lg:bg-transparent"
       onClick={(e) => e.target === e.currentTarget && requestClose()}
     >
       <div
@@ -678,7 +679,7 @@ export function CorreoAiActionPanel({
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className="relative flex h-full w-full flex-col overflow-hidden border-ds-border-default bg-ds-surface-1 shadow-2xl sm:w-[var(--plan-sheet-width)] sm:border-l max-lg:mt-auto max-lg:h-[88dvh] max-lg:rounded-t-2xl max-lg:border-t"
+        className="relative flex h-full w-full flex-col overflow-hidden border-ds-border-default bg-ds-surface-1 shadow-2xl sm:w-[var(--plan-sheet-width)] sm:border-l max-lg:mt-auto max-lg:h-[88dvh] max-lg:rounded-t-2xl max-lg:border-t lg:pointer-events-auto"
         style={{
           transition: closing ? "transform 180ms ease-out" : undefined,
           ["--plan-sheet-width" as string]: `${sheetWidth}px`,
@@ -756,6 +757,9 @@ export function CorreoAiActionPanel({
         </header>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
+          {(phase === "lead" || phase === "structure" || phase === "executing") && (
+            <CorreoSourcePreview threadId={threadId} defaultOpen />
+          )}
           {phase === "loading" && (
             <div className="space-y-3 py-6 text-center">
               <Spinner className="mx-auto" />

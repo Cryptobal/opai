@@ -49,7 +49,16 @@ export function folderWhere(folder: CorreoListFilter) {
   const now = new Date();
   if (folder === "trash") return { trashedAt: { not: null } };
   if (folder === "snoozed") return { trashedAt: null, spamAt: null, snoozedUntil: { gt: now } };
-  if (folder === "archived") return { trashedAt: null, spamAt: null, archivedAt: { not: null } };
+  // Archivados excluye pospuestos vigentes (pueden tener archivedAt residual
+  // del sync de labels; su carpeta canónica es Pospuestos).
+  if (folder === "archived") {
+    return {
+      trashedAt: null,
+      spamAt: null,
+      archivedAt: { not: null },
+      ...notSnoozedWhere(now),
+    };
+  }
   if (folder === "all") return { trashedAt: null, spamAt: null };
   // C10: Enviados = hilos con al menos un saliente real (label SENT espejado
   // en direction); Borradores = hilos con draft vivo; Spam y Destacados por

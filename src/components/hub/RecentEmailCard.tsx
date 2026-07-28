@@ -7,13 +7,24 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { ChevronRight, Mail, Paperclip, RefreshCw, Reply } from "lucide-react";
+import {
+  CalendarClock,
+  ChevronRight,
+  Clock,
+  Mail,
+  Paperclip,
+  RefreshCw,
+  Reply,
+} from "lucide-react";
 import { EmptyState, Surface, Tag } from "@/components/opai-ds";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { formatGmailDateChile } from "@/modules/crm/email/gmail-date-format";
 import { useHubEmails } from "./hub-email-context";
-import type { HubEmailItem } from "@/modules/crm/email/hub-recent-emails";
+import type {
+  HubEmailItem,
+  HubScheduledItem,
+} from "@/modules/crm/email/hub-recent-emails";
 
 const MOBILE_VISIBLE = 3;
 
@@ -72,14 +83,26 @@ function groupEmails(items: HubEmailItem[]) {
   };
 }
 
+function fmtUntil(iso: string | null | undefined): string {
+  if (!iso) return "";
+  return new Date(iso).toLocaleString("es-CL", {
+    day: "2-digit",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 function EmailRow({
   item,
   multipleAccounts,
   dense,
+  untilLabel,
 }: {
   item: HubEmailItem;
   multipleAccounts: boolean;
   dense?: boolean;
+  untilLabel?: string | null;
 }) {
   return (
     <Link
@@ -106,7 +129,7 @@ function EmailRow({
             {senderLabel(item.fromEmail)}
           </span>
           <span className="shrink-0 text-[12px] tabular-nums text-ds-text-4">
-            {formatGmailDateChile(item.lastMessageAt)}
+            {untilLabel || formatGmailDateChile(item.lastMessageAt)}
           </span>
         </span>
         <span className="flex min-w-0 items-center gap-1.5">
@@ -121,7 +144,7 @@ function EmailRow({
           >
             {item.subject || "(sin asunto)"}
           </span>
-          {item.isUnread && (
+          {item.isUnread && !untilLabel && (
             <Tag variant="brand" size="sm" className="ml-auto shrink-0">
               Sin leer
             </Tag>
@@ -150,6 +173,33 @@ function EmailRow({
   );
 }
 
+function ScheduledRow({ item }: { item: HubScheduledItem }) {
+  const href = item.threadId
+    ? `/crm/correos?thread=${item.threadId}`
+    : "/crm/correos?folder=scheduled";
+  return (
+    <Link
+      href={href}
+      className="flex min-h-11 min-w-0 items-start gap-2.5 rounded-ds-md px-2 py-2 transition-colors hover:bg-ds-surface-2 ds-tap"
+    >
+      <CalendarClock className="mt-1 h-4 w-4 shrink-0 text-status-info-fg" />
+      <span className="min-w-0 flex-1">
+        <span className="flex min-w-0 items-baseline justify-between gap-2">
+          <span className="min-w-0 truncate text-[13px] font-medium text-ds-text-1">
+            {item.subject || "(Sin asunto)"}
+          </span>
+          <span className="shrink-0 text-[12px] tabular-nums text-ds-text-4">
+            {fmtUntil(item.scheduledAt)}
+          </span>
+        </span>
+        <span className="block min-w-0 truncate text-[12px] text-ds-text-3">
+          Para {item.to.join(", ") || "—"}
+        </span>
+      </span>
+    </Link>
+  );
+}
+
 export function RecentEmailCard({
   variant = "default",
   className,
@@ -165,6 +215,8 @@ export function RecentEmailCard({
     () => (state?.data ? groupEmails(state.data.items) : { needReply: [], recent: [] }),
     [state?.data],
   );
+  const snoozed = state?.data?.snoozed ?? [];
+  const scheduled = state?.data?.scheduled ?? [];
 
   if (!state) return null;
 
@@ -173,6 +225,8 @@ export function RecentEmailCard({
     dense ? "flex min-h-0 min-w-0 flex-col gap-3" : "space-y-3",
     className,
   );
+  const hasAny =
+    (data?.items.length ?? 0) > 0 || snoozed.length > 0 || scheduled.length > 0;
 
   if (status === "loading") {
     return (
@@ -227,11 +281,11 @@ export function RecentEmailCard({
     <Surface elevation={1} padding="md" className={cn(shell, "min-w-0")}>
       <HeaderRow unreadCount={data.unreadCount} dense={dense} />
 
-      {data.items.length === 0 ? (
+      {!hasAny ? (
         <EmptyState
           icon={Mail}
           title="Tu bandeja está al día"
-          description="No hay correos recientes en tu casilla."
+          description="No hay correos recientes, pospuestos ni programados."
           compact
         />
       ) : dense ? (
@@ -265,13 +319,46 @@ export function RecentEmailCard({
                 </ul>
               </div>
             )}
+            {snoozed.length > 0 && (
+              <div>
+                <p className="mb-1 flex items-center gap-1.5 px-1 text-[12px] uppercase tracking-wide text-ds-text-4">
+                  <Clock className="h-3.5 w-3.5" />
+                  Pospuestos
+                </p>
+                <ul className="space-y-0.5">
+                  {snoozed.map((item) => (
+                    <li key={item.id}>
+                      <EmailRow
+                        item={item}
+                        multipleAccounts={multipleAccounts}
+                        dense
+                        untilLabel={
+                          item.snoozedUntil
+                            ? `hasta ${fmtUntil(item.snoozedUntil)}`
+                            : null
+                        }
+                      />
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {scheduled.length > 0 && (
+              <div>
+                <p className="mb-1 flex items-center gap-1.5 px-1 text-[12px] uppercase tracking-wide text-ds-text-4">
+                  <CalendarClock className="h-3.5 w-3.5" />
+                  Programados
+                </p>
+                <ul className="space-y-0.5">
+                  {scheduled.map((item) => (
+                    <li key={item.id}>
+                      <ScheduledRow item={item} />
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </div>
-          <Link
-            href="/crm/correos"
-            className="flex min-h-11 shrink-0 items-center justify-center rounded-ds-md text-[13px] font-medium text-primary transition-colors hover:bg-ds-surface-2"
-          >
-            Abrir correos
-          </Link>
         </>
       ) : (
         <>

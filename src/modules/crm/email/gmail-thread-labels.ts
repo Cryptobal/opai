@@ -55,11 +55,20 @@ export async function applyThreadLabelFlags(params: {
       spamAt: true,
       isUnread: true,
       starredAt: true,
+      snoozedUntil: true,
     },
   });
   if (!current) return;
 
-  const next = deriveThreadState(flags, current);
+  // Pospuesto vigente: Gmail no tiene INBOX (lo sacamos al snoozear), pero NO
+  // es un archivo. Si seteamos archivedAt, al despertar el hilo queda atrapado
+  // en Archivados. Mantener archivedAt=null mientras snooze esté activo.
+  const snoozedActive =
+    current.snoozedUntil != null && current.snoozedUntil.getTime() > Date.now();
+
+  const next = snoozedActive && !flags.inInbox && !flags.inSpam && !flags.inTrash
+    ? { archivedAt: null, trashedAt: null, spamAt: null }
+    : deriveThreadState(flags, current);
   const data: Partial<
     ThreadStateFields & { isUnread: boolean; starredAt: Date | null }
   > = {};

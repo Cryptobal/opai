@@ -93,8 +93,6 @@ function ProductividadHomeInner({
         eventCount={todayEventCount}
         unreadCount={perms.hasCorreos ? unreadCount : 0}
         openTaskCount={perms.hasTareas ? taskCount : 0}
-        canCreateTask={perms.canEditTareas}
-        canComposeEmail={perms.hasCorreos}
       />
 
       {perms.hasAgenda && (

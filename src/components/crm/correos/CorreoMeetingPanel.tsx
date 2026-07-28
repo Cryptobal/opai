@@ -118,6 +118,7 @@ export function CorreoMeetingPanel({ threadId, subject }: { threadId: string; su
               onChange={setDate}
               ariaLabel="Fecha"
               allowEmpty={false}
+              menuAlign="center"
               className="min-w-[8rem] flex-1"
             />
             <TaskTimePicker value={time} onChange={setTime} ariaLabel="Hora" menuAlign="right" className="shrink-0" />

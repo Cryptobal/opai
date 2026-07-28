@@ -155,12 +155,6 @@ export function AgendaHubCardDense({
             );
           })}
         </ul>
-        <Link
-          href="/opai/agenda"
-          className="mt-1 flex min-h-11 items-center justify-center rounded-ds-md text-[13px] font-medium text-primary transition-colors hover:bg-ds-surface-2"
-        >
-          Abrir agenda
-        </Link>
       </div>
     </Surface>
   );
