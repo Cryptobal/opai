@@ -602,7 +602,7 @@ export function CorreoAiActionPanel({
               </span>
             )}
             {draft.draftSavedAt && (
-              <span className="ml-auto text-[11px] text-ds-text-4">
+              <span className="ml-auto text-[12px] text-ds-text-4">
                 Borrador guardado
               </span>
             )}
