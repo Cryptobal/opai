@@ -1,6 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
 import { createPortal } from "react-dom";
 import { AlertTriangle, Loader2, Sparkles, X } from "lucide-react";
 import { toast } from "sonner";
@@ -296,7 +304,7 @@ export function CorreoAiActionPanel({
     }
   }, [sheetWidth]);
 
-  const onSheetResizePointerDown = useCallback((event: PointerEvent<HTMLElement>) => {
+  const onSheetResizePointerDown = useCallback((event: ReactPointerEvent<HTMLElement>) => {
     if (event.button !== 0) return;
     event.preventDefault();
     event.currentTarget.setPointerCapture?.(event.pointerId);
@@ -322,7 +330,7 @@ export function CorreoAiActionPanel({
     window.addEventListener("pointercancel", stop, { once: true });
   }, [sheetWidth]);
 
-  const onSheetResizeKeyDown = useCallback((event: KeyboardEvent<HTMLElement>) => {
+  const onSheetResizeKeyDown = useCallback((event: ReactKeyboardEvent<HTMLElement>) => {
     if (event.key === "ArrowLeft") {
       event.preventDefault();
       setSheetWidth((w) => clampPlanSheetWidth(w + PLAN_SHEET_STEP, window.innerWidth));
