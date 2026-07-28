@@ -20,7 +20,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ChatChannelData, ChannelsResponse } from "@/lib/chat-types";
-import { ChatChannelListItem } from "./ChatChannelListItem";
+import { ChatChannelListItem, getChannelDisplayName } from "./ChatChannelListItem";
 import { applyChannelSummaryPatch, type ChatChannelSummaryPatch } from "./lib/chat-state";
 import { ChatNewDmModal } from "./ChatNewDmModal";
 import { NewExternalChatModal } from "./NewExternalChatModal";
@@ -278,12 +278,10 @@ export function ChatChannelList({
 
   const isSearching = search.trim().length > 0;
 
-  const getDisplayName = useCallback((channel: ChatChannelData) => {
-    if (channel.channelType === "DIRECT" && channel.dmParticipant) return channel.dmParticipant.name;
-    if (channel.channelType === "INSTALLATION" && channel.installation) return channel.installation.name;
-    if (channel.channelType === "EXTERNAL" && channel.account) return channel.account.name;
-    return channel.name;
-  }, []);
+  const getDisplayName = useCallback(
+    (channel: ChatChannelData) => getChannelDisplayName(channel),
+    [],
+  );
 
   const sectionUnread = (chs: ChatChannelData[]) =>
     chs.reduce((sum, ch) => sum + ((ch.notificationPreference ?? "ALL") === "ALL" ? (unreadCounts[ch.id] || 0) : 0), 0);
@@ -350,13 +348,19 @@ export function ChatChannelList({
     onSlackDisconnect: () => setSlackFor({ channel, mode: "disconnect" }),
   });
 
-  const renderChannelItems = (chs: ChatChannelData[], opts: { showArchive?: boolean; showUnarchive?: boolean; showDelete?: boolean }) =>
-    chs.map((channel) => (
+  const renderChannelItems = (chs: ChatChannelData[], opts: { showArchive?: boolean; showUnarchive?: boolean; showDelete?: boolean }) => {
+    const nameCounts = new Map<string, number>();
+    for (const ch of chs) {
+      const n = getDisplayName(ch);
+      nameCounts.set(n, (nameCounts.get(n) ?? 0) + 1);
+    }
+    return chs.map((channel) => (
       <ChatChannelListItem
         key={channel.id}
         channel={channel}
         isSelected={channel.id === selectedChannelId}
         unreadCount={unreadCounts[channel.id] || 0}
+        ambiguous={(nameCounts.get(getDisplayName(channel)) ?? 0) > 1}
         onClick={() => onSelectChannel(channel.id, getDisplayName(channel))}
         onArchive={opts.showArchive ? () => archiveChannel(channel.id) : undefined}
         onUnarchive={opts.showUnarchive ? () => unarchiveChannel(channel.id) : undefined}
@@ -366,6 +370,7 @@ export function ChatChannelList({
         {...slackItemProps(channel)}
       />
     ));
+  };
 
   // Auto-expand sections that have unread messages
   const sectionChannelsMap: Record<string, ChatChannelData[]> = useMemo(() => ({
@@ -480,10 +485,10 @@ export function ChatChannelList({
             type="button"
             onClick={() => setShowInactiveExternal((v) => !v)}
             className={cn(
-              "ml-auto rounded-full px-2.5 py-0.5 text-[11px] font-medium transition-colors border",
+              "ml-auto rounded-full px-2.5 py-0.5 text-[12px] font-medium transition-colors border",
               showInactiveExternal
-                ? "bg-amber-500/10 text-amber-400 border-amber-500/30"
-                : "text-zinc-500 hover:text-zinc-300 border-transparent"
+                ? "bg-status-warn-soft text-status-warn-fg border-status-warn-border"
+                : "text-ds-text-3 hover:text-ds-text-1 border-transparent"
             )}
             title={showInactiveExternal ? "Ocultar canales sin actividad" : "Mostrar canales sin actividad"}
           >
