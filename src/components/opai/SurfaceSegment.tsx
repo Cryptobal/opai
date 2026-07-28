@@ -25,10 +25,17 @@ interface SurfaceSegmentProps {
 const SURFACES: Array<{
   key: Surface;
   label: string;
+  /** Etiqueta corta para móvil (isla): cabe sin empujar el título. */
+  shortLabel: string;
   icon: typeof Sparkles;
 }> = [
-  { key: "erp", label: "ERP", icon: Building2 },
-  { key: "productividad", label: "Productividad", icon: Sparkles },
+  { key: "erp", label: "ERP", shortLabel: "ERP", icon: Building2 },
+  {
+    key: "productividad",
+    label: "Productividad",
+    shortLabel: "Prod",
+    icon: Sparkles,
+  },
 ];
 
 /**
@@ -147,30 +154,33 @@ export function SurfaceSegment({
       {SURFACES.map((item) => {
         const Icon = item.icon;
         const pressed = item.key === surface;
-        const showLabel = variant === "labeled" && pressed;
+        // Ambas opciones llevan nombre (corto en móvil) para anclar ubicación
+        // sin adivinar iconos; el activo se destaca con primary.
+        const labelText =
+          variant === "labeled" ? item.label : item.shortLabel;
         return (
           <button
             key={item.key}
             type="button"
             aria-pressed={pressed}
             aria-label={item.label}
+            title={item.label}
             disabled={busy}
             onClick={() => void switchTo(item.key)}
             className={cn(
-              "inline-flex items-center justify-center gap-1 rounded-full transition-colors",
+              "inline-flex h-[30px] items-center justify-center gap-1 rounded-full px-2 transition-colors",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
               "motion-reduce:transition-none",
-              variant === "compact" ? "h-[30px] w-8" : "h-[30px] min-w-[30px] px-2",
               pressed
-                ? "bg-primary/15 text-primary"
-                : "text-ds-text-3 hover:text-ds-text-1 hover:bg-ds-surface-3",
+                ? "bg-primary/15 font-medium text-primary"
+                : "text-ds-text-3 hover:bg-ds-surface-3 hover:text-ds-text-1",
               busy && !pressed && "opacity-50",
             )}
           >
-            <Icon className="h-3.5 w-3.5 shrink-0" />
-            {showLabel && (
-              <span className="text-[12px] font-medium leading-none">{item.label}</span>
-            )}
+            <Icon className="h-3.5 w-3.5 shrink-0" aria-hidden />
+            <span className="text-[12px] leading-none tracking-tight">
+              {labelText}
+            </span>
           </button>
         );
       })}
