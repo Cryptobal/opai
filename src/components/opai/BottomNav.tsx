@@ -21,7 +21,6 @@ import { useTenantModules } from '@/contexts/TenantModulesContext';
 import { useRoleSimulation } from '@/contexts/RoleSimulationContext';
 import { ChatSidePanelContext } from '@/components/chat/ChatFloatingProvider';
 import { RoleSwitcher } from '@/components/navbar/RoleSwitcher';
-import { useScrollDirection } from '@/hooks/useScrollDirection';
 import { useTheme } from './ThemeProvider';
 import {
   Sheet,
@@ -182,9 +181,8 @@ export function BottomNav({ userRole, surface = DEFAULT_SURFACE }: BottomNavProp
   const { enabledModules, featureFlags } = useTenantModules();
   const navRef = useRef<HTMLElement>(null);
   const navConfig = useNavConfig();
-  // Instagram-like: al scrollear contenido hacia arriba se CONDENSÁ (achica),
-  // no se desliza hacia abajo fuera de pantalla. El texto pasa bajo el glass.
-  const condensed = useScrollDirection(60);
+  // Tamaño estable: no escalar al scroll (rompe backdrop-filter del glass y
+  // redimensiona Chat/Pregunta/OpaiOrb). El contenido pasa bajo el glass.
   useBottomNavHeight(navRef);
 
   // State override: when user taps back in ModuleSubNav, show MainNav without navigating
@@ -230,15 +228,8 @@ export function BottomNav({ userRole, surface = DEFAULT_SURFACE }: BottomNavProp
           bottom: "calc(env(safe-area-inset-bottom) + 10px)",
         }}
       >
-        <div
-          className={cn(
-            "pointer-events-auto flex w-full items-end gap-2 origin-bottom",
-            "motion-safe:transition-transform motion-safe:duration-[380ms]",
-            "motion-safe:ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
-            condensed ? "scale-[0.86]" : "scale-100",
-          )}
-        >
-          <div className="opai-glass-strong flex h-14 min-w-0 flex-1 items-center justify-around overflow-hidden px-1">
+        <div className="pointer-events-auto flex w-full items-end gap-2">
+          <div className="opai-glass-strong opai-glass-shell flex h-14 min-w-0 flex-1 items-center justify-around overflow-hidden px-1">
             <ModuleSubNav
               items={productividadItems}
               activeModule="productividad"
@@ -269,17 +260,9 @@ export function BottomNav({ userRole, surface = DEFAULT_SURFACE }: BottomNavProp
         bottom: "calc(env(safe-area-inset-bottom) + 10px)",
       }}
     >
-      {/* Escala suave desde el borde inferior (estilo Instagram). Solo íconos —
-          sin labels — para que no haya reflow ni saltos al condensar. */}
-      <div
-        className={cn(
-          "pointer-events-auto flex w-full items-end gap-2 origin-bottom",
-          "motion-safe:transition-transform motion-safe:duration-[380ms]",
-          "motion-safe:ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
-          condensed ? "scale-[0.86]" : "scale-100",
-        )}
-      >
-        <div className="opai-glass-strong flex h-14 min-w-0 flex-1 items-center justify-around overflow-hidden px-1">
+      {/* Solo íconos — sin labels. Sin transform: scale (rompe backdrop-filter). */}
+      <div className="pointer-events-auto flex w-full items-end gap-2">
+        <div className="opai-glass-strong opai-glass-shell flex h-14 min-w-0 flex-1 items-center justify-around overflow-hidden px-1">
           {isInModule ? (
             <ModuleSubNav
               items={moduleItems}

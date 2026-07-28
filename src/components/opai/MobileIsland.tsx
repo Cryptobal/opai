@@ -4,11 +4,14 @@
  * MobileIsland — isla contextual liquid-glass del ERP en móvil (<lg).
  *
  * Modos:
- *  A. Normal: [SurfaceSegment] [título elástico] [buscar] [chat] [campana]
+ *  A. Normal: [SurfaceSegment] [buscar] [chat] [campana]
  *     Sin acceso a Productividad: logo/ícono + título (sin segmento).
  *  B. Detalle: chevron back + trailing (+ acción primaria); sin segmento
- *  C. Condensación al scroll (useScrollDirection, respeta reduced-motion)
- *  D. Búsqueda: cambio de modo — [←] [campo] [✕]; sin capas ni overlays
+ *  C. Búsqueda: cambio de modo — [←] [campo] [✕]; sin capas ni overlays
+ *
+ * El tamaño de la isla y de los botones es estable (sin condensación al
+ * scroll): Chat / campana / buscar mantienen h-10. El ancla de ubicación
+ * es el segmento ERP/Prod — no se duplica con un título "OPAI"/"Inicio".
  *
  * Regla de no solapamiento: un único flex-1 min-w-0 (bloque título / campo);
  * segmento y botones son shrink-0 con ancho declarado.
@@ -22,7 +25,6 @@ import { cn } from "@/lib/utils";
 import { ThemeLogo } from "./ThemeLogo";
 import { IconBubble, useBreadcrumbTrailing, useIslandAction } from "@/components/opai-ds";
 import { resolveNavContext } from "@/lib/nav/resolve-context";
-import { useScrollDirection } from "@/hooks/useScrollDirection";
 import { usePermissions } from "@/lib/permissions-context";
 import { useTenantModules } from "@/contexts/TenantModulesContext";
 import {
@@ -54,7 +56,6 @@ export function MobileIsland({
   const router = useRouter();
   const trailing = useBreadcrumbTrailing();
   const islandAction = useIslandAction();
-  const condensed = useScrollDirection(24);
   const permissions = usePermissions();
   const { isModuleEnabled } = useTenantModules();
 
@@ -90,10 +91,9 @@ export function MobileIsland({
     surface === "productividad" ? (productividadLanding ?? "/hub") : "/hub";
 
   const btnBase = cn(
-    "relative inline-flex shrink-0 items-center justify-center rounded-xl text-ds-text-3",
+    "relative inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-ds-text-3",
     "transition-colors hover:bg-ds-surface-2 hover:text-ds-text-1 active:scale-95",
     "motion-reduce:transition-none",
-    condensed ? "h-[34px] w-[34px]" : "h-10 w-10",
   );
 
   const back = () => {
@@ -164,8 +164,7 @@ export function MobileIsland({
     >
       <div
         className={cn(
-          "pointer-events-auto opai-glass-strong flex items-center gap-1 transition-all duration-[250ms] ease-out motion-reduce:transition-none",
-          condensed ? "min-h-[36px] rounded-[17px] pl-2 pr-1" : "min-h-12 rounded-[22px] pl-3 pr-1",
+          "pointer-events-auto opai-glass-strong opai-glass-shell flex min-h-12 items-center gap-1 rounded-[22px] pl-3 pr-1",
         )}
       >
         {searchOpen ? (
@@ -174,7 +173,7 @@ export function MobileIsland({
             <button
               type="button"
               onClick={exitSearch}
-              className={cn(btnBase, "h-10 w-10")}
+              className={btnBase}
               aria-label="Salir de búsqueda"
             >
               <ArrowLeft className="h-5 w-5" />
@@ -211,7 +210,7 @@ export function MobileIsland({
                   setSearchValue("");
                   searchInputRef.current?.focus();
                 }}
-                className="inline-flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-xl text-ds-text-3 hover:bg-ds-surface-2 hover:text-ds-text-1"
+                className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-ds-text-3 hover:bg-ds-surface-2 hover:text-ds-text-1"
                 aria-label="Limpiar búsqueda"
               >
                 <X className="h-4 w-4" />
@@ -225,46 +224,45 @@ export function MobileIsland({
             </button>
             <div key={pathname + trailing} className="min-w-0 flex-1 animate-in fade-in duration-200">
               <p className="truncate text-sm font-semibold leading-tight text-ds-text-1">{trailing}</p>
-              {ctx?.title && !condensed && (
+              {ctx?.title && (
                 <p className="truncate text-[12px] leading-tight text-ds-text-3">{ctx.title}</p>
               )}
             </div>
           </div>
         ) : (
           <div className="flex min-w-0 flex-1 items-center gap-2">
-            {showSegment && (
+            {showSegment ? (
+              /* Solo el switch ERP/Prod — el segmento ancla la ubicación. */
               <SurfaceSegment
                 surface={surface}
                 variant="compact"
-                /* Compact con etiqueta corta (ERP / Prod) en el activo — ancla
-                   de ubicación sin ocupar el título. No usar condensed=chip. */
                 className="shrink-0"
               />
-            )}
-            <Link
-              href={homeHref}
-              key={pathname}
-              className="flex min-w-0 flex-1 items-center gap-2 hover:opacity-80"
-            >
-              {!showSegment &&
-                (isHub || !ctx ? (
+            ) : (
+              <Link
+                href={homeHref}
+                key={pathname}
+                className="flex min-w-0 flex-1 items-center gap-2 hover:opacity-80"
+              >
+                {isHub || !ctx ? (
                   <ThemeLogo
                     width={28}
                     height={28}
-                    className={cn("shrink-0 transition-all", condensed ? "h-6 w-6" : "h-7 w-7")}
+                    className="h-7 w-7 shrink-0"
                   />
                 ) : (
                   <IconBubble
                     icon={ctx.icon}
                     tone={ctx.iconTone}
                     size="sm"
-                    className={cn("shrink-0 transition-all", condensed && "scale-90")}
+                    className="shrink-0"
                   />
-                ))}
-              <span className="truncate text-sm font-semibold tracking-tight text-ds-text-1">
-                {title}
-              </span>
-            </Link>
+                )}
+                <span className="truncate text-sm font-semibold tracking-tight text-ds-text-1">
+                  {title}
+                </span>
+              </Link>
+            )}
           </div>
         )}
 
@@ -292,12 +290,7 @@ export function MobileIsland({
               )}
             </div>
           ) : (
-            <div
-              className={cn(
-                "flex shrink-0 items-center gap-px transition-opacity duration-[250ms] ease-out motion-reduce:transition-none",
-                condensed && "opacity-70",
-              )}
-            >
+            <div className="flex shrink-0 items-center gap-px">
               <button
                 type="button"
                 className={btnBase}

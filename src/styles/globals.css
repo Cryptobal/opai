@@ -902,6 +902,21 @@ html {
     border-radius: 26px;
   }
 
+  /* shell — isla top + bottom nav flotantes. Underlay más bajo para que el
+     scroll se vea pasando por detrás (Liquid Glass real). Sheets/modales
+     siguen con .opai-glass-strong opaco. */
+  .opai-glass-shell {
+    background: var(--glass-fill-strong), hsl(var(--card) / 0.28);
+    backdrop-filter: var(--glass-blur-3);
+    -webkit-backdrop-filter: var(--glass-blur-3);
+  }
+
+  :root:not(.dark) .opai-glass-shell {
+    /* En claro el fill ya es blanco alto; un poco más de underlay para
+       legibilidad de íconos sin volver opaco. */
+    background: var(--glass-fill-strong), hsl(var(--card) / 0.42);
+  }
+
   /* soft — elementos internos SIN blur (filas, celdas densas, chips) */
   .opai-glass-soft {
     background: var(--glass-fill-soft);
@@ -1410,6 +1425,7 @@ html {
   @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
     .opai-glass,
     .opai-glass-strong,
+    .opai-glass-shell,
     .opai-glass-soft,
     .opai-glass-pill,
     .opai-ios-surface-sheet-bottom,
@@ -1432,6 +1448,7 @@ html {
   @media (prefers-reduced-transparency: reduce) {
     .opai-glass,
     .opai-glass-strong,
+    .opai-glass-shell,
     .opai-glass-soft,
     .opai-glass-pill,
     .opai-ios-surface-sheet-bottom,
