@@ -86,9 +86,8 @@ export function LandingSurfacePrompt() {
             ¿Dónde quieres empezar?
           </DialogTitle>
           <DialogDescription className="text-[13px] text-ds-text-3">
-            Puedes cambiar cuando quieras con el selector ERP / Productividad
-            (barra superior en desktop, isla inferior en móvil). No está en
-            Configuración: es una preferencia de sesión y de arranque.
+            Puedes cambiarlo después en Configuración → General → Modo de inicio,
+            o con el selector ERP / Productividad de la barra.
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-2 px-4 pb-5">

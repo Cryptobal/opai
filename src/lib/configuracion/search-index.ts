@@ -24,6 +24,15 @@ export const CONFIG_SEARCH_INDEX: ConfigSearchItem[] = [
   // ── SECCIONES PRINCIPALES ──
   {
     type: "section",
+    id: "inicio",
+    label: "Modo de inicio",
+    group: "General",
+    description: "Elige si al entrar abres ERP o Productividad (login y PWA)",
+    keywords:
+      "inicio landing superficie erp productividad pwa arranque preferencia modo portal",
+  },
+  {
+    type: "section",
     id: "empresa",
     label: "Datos de la Empresa",
     group: "General",
@@ -364,6 +373,7 @@ export const CONFIG_SEARCH_INDEX: ConfigSearchItem[] = [
 
 // Section ID → href mapping
 const SECTION_HREFS: Record<string, string> = {
+  inicio: "/opai/configuracion/inicio",
   empresa: "/opai/configuracion/empresa",
   usuarios: "/opai/configuracion/usuarios",
   roles: "/opai/configuracion/roles",
@@ -385,6 +395,7 @@ const SECTION_HREFS: Record<string, string> = {
 
 // Section ID → label mapping
 const SECTION_LABELS: Record<string, string> = {
+  inicio: "Modo de inicio",
   empresa: "Datos de la Empresa",
   usuarios: "Usuarios",
   roles: "Roles y Permisos",

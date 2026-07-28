@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { prisma } from "@/lib/prisma";
+import {
+  parseSurface,
+  SURFACE_COOKIE,
+  surfaceCookieOptions,
+} from "@/lib/surface";
 
 export const dynamic = "force-dynamic";
 
@@ -29,7 +34,8 @@ export async function GET() {
 /**
  * PUT /api/me/preferences/landing
  * Body: { landingSurface }. Valores inválidos se descartan en silencio
- * (mismo patrón que hub-order).
+ * (mismo patrón que hub-order). También actualiza la cookie de superficie
+ * para el próximo arranque PWA en esta sesión.
  */
 export async function PUT(req: Request) {
   const ctx = await requireAuth();
@@ -65,5 +71,8 @@ export async function PUT(req: Request) {
     update: { landingSurface },
   });
 
-  return NextResponse.json({ success: true, landingSurface });
+  const surface = parseSurface(landingSurface);
+  const res = NextResponse.json({ success: true, landingSurface });
+  res.cookies.set(SURFACE_COOKIE, surface, surfaceCookieOptions());
+  return res;
 }
