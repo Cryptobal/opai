@@ -172,21 +172,20 @@ function AppShellInner({
       <DocumentTitle />
       <PlatformDataAttribute />
       <GlassAmbient />
+      {/* Isla fuera de overflow-x-clip: un ancestro con overflow rompe
+          backdrop-filter (Liquid Glass) del header flotante. Mismo criterio
+          que BottomNavPortal. */}
+      {sidebar && !isImmersiveMobile && (
+        <MobileIsland
+          surface={surface}
+          onSearch={(q) => openCommandPalette(q)}
+          onToggleChat={handleToggleChat}
+          onToggleNotifications={handleToggleNotifications}
+          chatUnread={chatCtx.totalUnread}
+          notifUnread={notifUnreadCount}
+        />
+      )}
       <div className="relative min-h-[100dvh] overflow-x-clip">
-        {/* ── Isla contextual móvil (A/B/C/D) ── */}
-        {/* En rutas inmersivas el módulo pinta su propio top móvil (la isla
-            ya es lg:hidden, así que desktop no cambia al no renderizarla). */}
-        {sidebar && !isImmersiveMobile && (
-          <MobileIsland
-            surface={surface}
-            onSearch={(q) => openCommandPalette(q)}
-            onToggleChat={handleToggleChat}
-            onToggleNotifications={handleToggleNotifications}
-            chatUnread={chatCtx.totalUnread}
-            notifUnread={notifUnreadCount}
-          />
-        )}
-
         {/* ── Desktop sidebar (unchanged) ── */}
         {sidebar && (
           <div className="hidden lg:block">
