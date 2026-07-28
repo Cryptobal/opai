@@ -599,9 +599,9 @@ export function CorreosClient() {
           entityUrl: `/crm/correos?thread=${openThreadPreview.id}`,
           extra: [
             openThreadPreview.fromEmail
-              ? `Remitente (header, puede ser una casilla propia): ${openThreadPreview.fromEmail}`
+              ? `Header From (puede ser una casilla propia y traer el nombre del cliente delante): ${openThreadPreview.fromEmail}`
               : null,
-            "La contraparte real se resuelve en servidor; no asumas que el remitente del header es el cliente.",
+            "La contraparte real se resuelve en servidor; no asumas que este header es el email del cliente.",
             openThreadPreview.accountId
               ? `Cuenta: ${openThreadPreview.accountName ?? openThreadPreview.accountId}`
               : "Sin cuenta asociada",

@@ -39,7 +39,6 @@ import {
   type ToolCallInfo,
 } from "@/lib/ai/help-chat-provider";
 import { logAiUsage } from "@/lib/platform-ai-service";
-import { buildEmailThreadAiContext } from "@/lib/ai/help-chat-email-context";
 
 /* ── helpers ── */
 
@@ -379,10 +378,10 @@ A. El ID de arriba ES el threadId. NUNCA pidas al usuario que te pase el threadI
 B. Para "créame cuenta/instalación/contacto/deal", "muéstrame qué crearías", "estructura desde este mail/RFI": usá create_crm_from_email SIN confirm (extrae adjuntos sola). Mostrá previewCards + coverageTable + totales/openQuestions y pedí OK. Al confirmar: create_crm_from_email({confirm:true, proposal}).
 C. create_lead_from_email solo si pide explícitamente un LEAD. create_account/contact/deal/installation sueltos solo si el usuario corrige una pieza puntual después.
 D. No inventes RUT, montos ni direcciones. Cobertura ≠ dotación: si el RFI lo dice, explicalo y mostrá la dotación propuesta.
-E. Nunca pidas al usuario un dato que esté en el correo abierto (email, nombre, cargo, empresa, teléfono, sitio web, dirección). Si falta, llamá get_email_thread y, si trae adjuntos relevantes, read_email_attachments. Sólo preguntá después de haber leído.
-F. El From puede ser una dirección propia de la empresa (grupos/alias tipo "… via Comercial"). La contraparte real es counterparty; Reply-To manda sobre From. NUNCA propongas una dirección de ownAddresses/ownDomains como email de contacto ni derives de ella el dominio del cliente.
+E. Nunca pidas al usuario un dato que esté en el correo abierto (email, nombre, cargo, empresa, teléfono, sitio web, dirección). Si falta, llamá get_email_thread y, si hay adjuntos relevantes, read_email_attachments. Sólo preguntá después de haber leído.
+F. El From puede ser una dirección propia de la empresa (grupos/alias tipo "… via Comercial") y puede traer el nombre del cliente delante. La contraparte real es counterparty; Reply-To manda sobre From. NUNCA propongas una dirección de ownAddresses/ownDomains como email de contacto ni derives de ella el dominio del cliente.
 G. Prohibido inventar emails (nombre@dominio construido). Si tras leer el hilo y sus adjuntos no hay email verificable, decilo explícitamente y ofrecé crear sólo la cuenta.
-H. "Creá la cuenta y el contacto" con correo en pantalla = UNA llamada a create_crm_from_email sin confirm → una propuesta → una confirmación. No emitas create_account y create_contact como pendientes separados.`
+H. "Creá la cuenta y el contacto" con correo en pantalla = una llamada a create_crm_from_email sin confirm → una propuesta → una confirmación. No emitas create_account y create_contact como pendientes separados.`
     : ""
 }`
     : null;
@@ -400,6 +399,9 @@ REGLAS DE CONTEXTO DE MÓDULO:
   let emailThreadContextMessage: string | null = null;
   if (pageContext?.entityType === "crm_email_thread" && pageContext.entityId) {
     try {
+      const { buildEmailThreadAiContext } = await import(
+        "@/lib/ai/help-chat-email-context"
+      );
       emailThreadContextMessage = await buildEmailThreadAiContext({
         tenantId: ctx.tenantId,
         userId: ctx.userId,
@@ -414,7 +416,9 @@ REGLAS DE CONTEXTO DE MÓDULO:
     { role: "system", content: systemPrompt },
     { role: "system", content: `Contexto documental y base de conocimiento relevante:\n${docsContext || "(sin bloques relevantes encontrados)"}` },
     ...(pageContextSystemMessage ? [{ role: "system", content: pageContextSystemMessage }] : []),
-    ...(emailThreadContextMessage ? [{ role: "system", content: emailThreadContextMessage }] : []),
+    ...(emailThreadContextMessage
+      ? [{ role: "system", content: emailThreadContextMessage }]
+      : []),
     ...(moduleContextSystemMessage ? [{ role: "system", content: moduleContextSystemMessage }] : []),
     ...(attachmentsContext ? [{ role: "system", content: attachmentsContext }] : []),
     ...trimmedHistory.map(m => ({ role: m.role, content: m.content })),

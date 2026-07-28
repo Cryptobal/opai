@@ -46,7 +46,7 @@ type Props = {
   onResizePointerDown?: PointerEventHandler<HTMLElement>;
   onResizeKeyDown?: KeyboardEventHandler<HTMLElement>;
   onResizeReset?: () => void;
-  desktopMode?: "split" | "overlay";
+  desktopMode?: "split" | "contained" | "overlay";
   manageBackHistory?: boolean;
   alwaysShowImages?: boolean;
   onAlwaysShowImages?: () => void;

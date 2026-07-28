@@ -203,17 +203,18 @@ function parseShortcuts(value: unknown): CorreoShortcuts | null {
 const STORAGE_KEY = "opai.crm.correos.view.v1";
 const DEFAULT_RATIO = 0.46;
 export const MIN_PANEL_WIDTH = 420;
+/** Mínimo real de la columna de lista en split (no ratio ciego). */
 export const LIST_MIN_WIDTH = 340;
 export const RAIL_COLLAPSED = 68;
 export const RAIL_EXPANDED = 224;
+/** Gap entre riel / lista / lector (`lg:gap-3` = 12px × 2). */
 export const WORKSPACE_GAP = 12;
-/** Histéresis para evitar parpadeo split ↔ overlay al redimensionar / abrir dock. */
+/** Histéresis split ↔ contained para evitar parpadeo al redimensionar. */
 const MODE_HYSTERESIS_PX = 24;
 const KEYBOARD_STEP = 24;
 
-export type CorreoDesktopReaderMode = "split" | "overlay";
+export type CorreoDesktopReaderMode = "split" | "contained";
 
-/** Presupuesto de ancho del workspace para lista + lector en modo split. */
 export function correoReaderBudget(
   workspaceWidth: number,
   railCollapsed: boolean,
@@ -221,11 +222,7 @@ export function correoReaderBudget(
   const rail = railCollapsed ? RAIL_COLLAPSED : RAIL_EXPANDED;
   const available = workspaceWidth - rail - WORKSPACE_GAP * 2;
   const maxReader = available - LIST_MIN_WIDTH;
-  return {
-    available,
-    maxReader,
-    canSplit: maxReader >= MIN_PANEL_WIDTH,
-  };
+  return { available, maxReader, canSplit: maxReader >= MIN_PANEL_WIDTH };
 }
 
 type StoredPreferences = {
@@ -301,24 +298,21 @@ export function parseCorreosViewPreferences(
 
 /**
  * Clampa el ancho del lector reservando LIST_MIN_WIDTH para la lista.
- * Con `containerWidth <= 0` (SSR / primer paint) devuelve el valor preferido
- * sin clampear — evita el bug histórico de /crm/correos.
+ * Con `workspaceWidth <= 0` (SSR / primer paint) no clampea: devuelve el
+ * valor preferido redondeado.
  */
 export function clampCorreoPanelWidth(
   width: number,
-  containerWidth: number,
+  workspaceWidth: number,
   railCollapsed = true,
 ): number {
-  if (containerWidth <= 0) return width;
-  const { maxReader } = correoReaderBudget(containerWidth, railCollapsed);
-  if (maxReader < MIN_PANEL_WIDTH) {
-    // Modo overlay: no hay split usable; devolver preferencia acotada al max disponible.
-    return Math.round(Math.max(MIN_PANEL_WIDTH, Math.min(width, Math.max(maxReader, MIN_PANEL_WIDTH))));
-  }
-  return Math.round(Math.min(Math.max(width, MIN_PANEL_WIDTH), maxReader));
+  if (workspaceWidth <= 0) return Math.round(width);
+  const { maxReader } = correoReaderBudget(workspaceWidth, railCollapsed);
+  const upper = Math.max(MIN_PANEL_WIDTH, maxReader);
+  return Math.round(Math.min(Math.max(width, MIN_PANEL_WIDTH), upper));
 }
 
-function defaultWidth(containerWidth: number, railCollapsed: boolean): number {
+function defaultWidth(containerWidth: number, railCollapsed = true): number {
   return clampCorreoPanelWidth(
     Math.round(containerWidth * DEFAULT_RATIO),
     containerWidth,
@@ -363,23 +357,25 @@ export function useCorreosViewPreferences(
     return clampCorreoPanelWidth(preferredPanelWidth, basis, railCollapsed);
   }, [preferredPanelWidth, workspaceWidth, containerWidth, railCollapsed]);
 
+  /** Modo del lector desktop: split si hay presupuesto; contained si no.
+   *  Histéresis de 24 px sobre el umbral para evitar parpadeo. */
   const [desktopReaderMode, setDesktopReaderMode] =
     useState<CorreoDesktopReaderMode>("split");
+
   useEffect(() => {
-    // SSR / primer paint sin medida real → split por defecto.
-    if (workspaceWidth <= 0) {
+    const basis = workspaceWidth > 0 ? workspaceWidth : 0;
+    if (basis <= 0) {
       setDesktopReaderMode("split");
       return;
     }
-    const { maxReader } = correoReaderBudget(workspaceWidth, railCollapsed);
+    const { maxReader } = correoReaderBudget(basis, railCollapsed);
     setDesktopReaderMode((prev) => {
-      if (prev === "overlay") {
-        // Histéresis: solo volver a split cuando hay holgura real.
-        return maxReader >= MIN_PANEL_WIDTH + MODE_HYSTERESIS_PX
-          ? "split"
-          : "overlay";
+      if (prev === "split") {
+        return maxReader < MIN_PANEL_WIDTH ? "contained" : "split";
       }
-      return maxReader >= MIN_PANEL_WIDTH ? "split" : "overlay";
+      return maxReader >= MIN_PANEL_WIDTH + MODE_HYSTERESIS_PX
+        ? "split"
+        : "contained";
     });
   }, [workspaceWidth, railCollapsed]);
 
@@ -392,9 +388,9 @@ export function useCorreosViewPreferences(
     }
     const stored = parseCorreosViewPreferences(raw);
     const width = containerWidth();
+    setWorkspaceWidth(width);
     const initialRail =
       typeof stored.railCollapsed === "boolean" ? stored.railCollapsed : false;
-    setWorkspaceWidth(width);
     setPreferredPanelWidth(
       typeof stored.panelWidth === "number"
         ? stored.panelWidth
@@ -499,20 +495,12 @@ export function useCorreosViewPreferences(
       if (event.key === "ArrowLeft") {
         event.preventDefault();
         setPreferredPanelWidth((width) =>
-          clampCorreoPanelWidth(
-            width + KEYBOARD_STEP,
-            containerWidth(),
-            railCollapsed,
-          ),
+          clampCorreoPanelWidth(width + KEYBOARD_STEP, containerWidth(), railCollapsed),
         );
       } else if (event.key === "ArrowRight") {
         event.preventDefault();
         setPreferredPanelWidth((width) =>
-          clampCorreoPanelWidth(
-            width - KEYBOARD_STEP,
-            containerWidth(),
-            railCollapsed,
-          ),
+          clampCorreoPanelWidth(width - KEYBOARD_STEP, containerWidth(), railCollapsed),
         );
       } else if (event.key === "Home") {
         event.preventDefault();

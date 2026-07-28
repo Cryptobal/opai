@@ -281,45 +281,29 @@ describe("agent evals — runHelpChatTurn", () => {
     expect(hoisted.executeCalls.some((c) => c.name === "reassign_ticket")).toBe(false);
   });
 
-  it("correo abierto: create_crm_from_email atómico (1 pending, sin create_account/contact)", async () => {
+  it("correo abierto: primera tool es create_crm_from_email (propuesta), no create_account+create_contact", async () => {
     script(
       {
         toolCalls: [
           tc("c1", "create_crm_from_email", {
-            confirm: false,
+            threadId: "f6f24abe-133e-44b1-9a97-3fec08109075",
           }),
         ],
       },
-      { tokens: "Propuesta de cuenta + contacto lista para confirmar." },
+      { tokens: "Te propongo crear la cuenta Iplacex y el contacto Alvaro." },
     );
 
     const result = await runHelpChatTurn(
       baseInput("crea una cuenta para iplacex y crea el contacto"),
     );
 
-    const firstTool = hoisted.executeCalls[0]?.name ?? result.pendingConfirmations?.[0]?.confirmToolName;
-    expect(["create_crm_from_email", "get_email_thread"]).toContain(firstTool);
-    // create_crm_from_email sin confirm se ejecuta (preview); no emite create_account/create_contact
-    expect(hoisted.executeCalls.some((c) => c.name === "create_account")).toBe(false);
-    expect(hoisted.executeCalls.some((c) => c.name === "create_contact")).toBe(false);
-    expect(
-      (result.pendingConfirmations ?? []).filter((p) =>
-        ["create_account", "create_contact"].includes(p.confirmToolName),
-      ),
-    ).toHaveLength(0);
-  });
-
-  it("correo abierto: get_email_thread como primera tool (lectura, sin pending)", async () => {
-    script(
-      { toolCalls: [tc("c1", "get_email_thread", {})] },
-      { toolCalls: [tc("c2", "create_crm_from_email", { confirm: false })] },
-      { tokens: "Listo." },
-    );
-    const result = await runHelpChatTurn(
-      baseInput("crea la cuenta y el contacto"),
-    );
-    expect(hoisted.executeCalls[0]?.name).toBe("get_email_thread");
-    expect(hoisted.executeCalls.some((c) => c.name === "create_account")).toBe(false);
-    expect(result.text.length).toBeGreaterThan(0);
+    // Paso 1 (sin confirm): se ejecuta para armar la propuesta; no se difiere.
+    expect(hoisted.executeCalls.map((c) => c.name)).toEqual(["create_crm_from_email"]);
+    expect(hoisted.executeCalls[0]?.args.confirm).not.toBe(true);
+    // No deben aparecer altas sueltas como pendientes separados.
+    const pendingTools = (result.pendingConfirmations ?? []).map((p) => p.confirmToolName);
+    expect(pendingTools).not.toContain("create_account");
+    expect(pendingTools).not.toContain("create_contact");
+    expect(result.toolCallsUsed).toBeGreaterThanOrEqual(1);
   });
 });

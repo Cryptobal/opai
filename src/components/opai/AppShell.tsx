@@ -126,8 +126,10 @@ function AppShellInner({
     notifCtx.togglePanel();
   }, [chatCtx, notifCtx, intelCtx]);
 
-  const anyPanelOpen =
-    chatCtx.isPanelOpen || notifCtx.isPanelOpen || intelCtx.isPanelOpen;
+  // Chat y Notificaciones solo se renderizan desde xl (hidden xl:flex).
+  // Intelligence no tiene ese guard: empuja layout desde lg.
+  const xlPanelOpen = chatCtx.isPanelOpen || notifCtx.isPanelOpen;
+  const lgPanelOpen = intelCtx.isPanelOpen;
   // "Sheet focus" (route-scoped): la planilla del flujo de caja es una hoja de
   // cálculo a pantalla completa en mobile — sin breadcrumbs ni padding
   // horizontal, solo topbar + hoja + bottom nav. Desktop conserva el shell
@@ -217,7 +219,8 @@ function AppShellInner({
               ? 'pt-[env(safe-area-inset-top,0px)] lg:pt-12'
               : 'pt-[calc(4rem+env(safe-area-inset-top,0px))] lg:pt-12',
             isSidebarOpen ? 'lg:pl-64' : 'lg:pl-[72px]',
-            anyPanelOpen && 'lg:mr-[400px]',
+            lgPanelOpen && 'lg:mr-[400px]',
+            xlPanelOpen && 'xl:mr-[400px]',
             className
           )}
         >
@@ -231,7 +234,8 @@ function AppShellInner({
               ? "opai-liquid-glass-bar-top"
               : "border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80",
             isSidebarOpen ? 'left-64' : 'left-[72px]',
-            anyPanelOpen && 'right-[400px]',
+            lgPanelOpen && 'right-[400px]',
+            xlPanelOpen && 'xl:right-[400px]',
           )}>
             <div className="flex h-full shrink-0 items-center border-r border-ds-border-subtle px-3">
               <SurfaceSegment surface={surface} variant="labeled" />

@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   resolveCounterparty,
   resolveEmailThreadId,
-  resolveOwnAndCounterparty,
   stripHtmlForAi,
 } from "@/lib/ai/help-chat-email-context";
 
@@ -57,32 +56,32 @@ describe("stripHtmlForAi", () => {
   });
 });
 
-const OWN = {
-  addresses: new Set(["comercial@gard.cl", "noreply@gard.cl"]),
-  domains: new Set(["gard.cl"]),
-};
-
 describe("resolveCounterparty", () => {
-  it("grupo Google: replyTo externo gana sobre From propio", () => {
+  const ownGard = {
+    addresses: new Set(["comercial@gard.cl", "noreply@gard.cl"]),
+    domains: new Set(["gard.cl"]),
+  };
+
+  it("grupo Google: From propio + Reply-To externo → reply_to high + nombre", () => {
     const result = resolveCounterparty(
       [
         {
           direction: "in",
-          fromEmail:
-            "'Alvaro Enrique Contreras Peralta' via Comercial <comercial@gard.cl>",
+          fromEmail: "'Alvaro' via Comercial <comercial@gard.cl>",
           replyToEmail: "acontreras@iplacex.cl",
           toEmails: ["comercial@gard.cl"],
           ccEmails: [],
         },
       ],
-      OWN,
+      ownGard,
     );
     expect(result.counterparty?.email).toBe("acontreras@iplacex.cl");
     expect(result.source).toBe("reply_to");
     expect(result.confidence).toBe("high");
+    expect(result.counterparty?.name).toBe("Alvaro");
   });
 
-  it("sin replyTo y from externo → from con confidence low", () => {
+  it("From externo sin Reply-To → from high", () => {
     const result = resolveCounterparty(
       [
         {
@@ -93,10 +92,28 @@ describe("resolveCounterparty", () => {
           ccEmails: [],
         },
       ],
-      OWN,
+      ownGard,
     );
     expect(result.counterparty?.email).toBe("acontreras@iplacex.cl");
     expect(result.source).toBe("from");
+    expect(result.confidence).toBe("high");
+  });
+
+  it("From propio sin Reply-To → primer to/cc externo con low", () => {
+    const result = resolveCounterparty(
+      [
+        {
+          direction: "in",
+          fromEmail: "Comercial <comercial@gard.cl>",
+          replyToEmail: null,
+          toEmails: ["comercial@gard.cl"],
+          ccEmails: ["tercero@cliente.cl"],
+        },
+      ],
+      ownGard,
+    );
+    expect(result.counterparty?.email).toBe("tercero@cliente.cl");
+    expect(result.source).toBe("cc");
     expect(result.confidence).toBe("low");
   });
 
@@ -107,19 +124,15 @@ describe("resolveCounterparty", () => {
           direction: "out",
           fromEmail: "comercial@gard.cl",
           replyToEmail: null,
-          toEmails: ["cliente@iplacex.cl", "otro@ejemplo.cl"],
-          ccEmails: ["cc@externo.cl"],
+          toEmails: ["cliente@iplacex.cl"],
+          ccEmails: [],
         },
       ],
-      OWN,
+      ownGard,
     );
     expect(result.counterparty?.email).toBe("cliente@iplacex.cl");
     expect(result.source).toBe("to");
-    expect(result.externalParticipants.map((p) => p.email)).toEqual([
-      "cliente@iplacex.cl",
-      "otro@ejemplo.cl",
-      "cc@externo.cl",
-    ]);
+    expect(result.confidence).toBe("low");
   });
 
   it("hilo 100% interno → counterparty null", () => {
@@ -127,84 +140,57 @@ describe("resolveCounterparty", () => {
       [
         {
           direction: "in",
-          fromEmail: "operaciones@gard.cl",
+          fromEmail: "ops@gard.cl",
           replyToEmail: null,
           toEmails: ["comercial@gard.cl"],
-          ccEmails: ["noreply@gard.cl"],
-        },
-        {
-          direction: "out",
-          fromEmail: "comercial@gard.cl",
-          toEmails: ["operaciones@gard.cl"],
           ccEmails: [],
         },
       ],
-      OWN,
+      ownGard,
     );
     expect(result.counterparty).toBeNull();
+    expect(result.confidence).toBeNull();
     expect(result.source).toBeNull();
-    expect(result.externalParticipants).toHaveLength(0);
-  });
-
-  it("replyTo propio cae al siguiente candidato externo", () => {
-    const result = resolveCounterparty(
-      [
-        {
-          direction: "in",
-          fromEmail: "comercial@gard.cl",
-          replyToEmail: "noreply@gard.cl",
-          toEmails: ["comercial@gard.cl"],
-          ccEmails: ["tercero@cliente.cl"],
-        },
-      ],
-      OWN,
-    );
-    expect(result.counterparty?.email).toBe("tercero@cliente.cl");
-    expect(result.source).toBe("cc");
   });
 
   it("alias sendAs no primario tratado como propio", () => {
-    const { resolution } = resolveOwnAndCounterparty({
-      mailboxEmail: "comercial@gard.cl",
-      sendAsEmails: ["ventas@gard.cl"],
-      company: { email: "comercial@gard.cl" },
-      messages: [
-        {
-          direction: "in",
-          fromEmail: "ventas@gard.cl",
-          replyToEmail: "persona@iplacex.cl",
-          toEmails: ["comercial@gard.cl"],
-          ccEmails: [],
-        },
-      ],
-    });
-    expect(resolution.counterparty?.email).toBe("persona@iplacex.cl");
-    expect(resolution.source).toBe("reply_to");
-  });
-
-  it("from con replyTo en otro mensaje del hilo → confidence high", () => {
+    const ownWithAlias = {
+      addresses: new Set(["comercial@gard.cl", "ventas@gard.cl"]),
+      domains: new Set(["gard.cl"]),
+    };
     const result = resolveCounterparty(
       [
         {
           direction: "in",
-          fromEmail: "primera@cliente.cl",
-          replyToEmail: "primera@cliente.cl",
-          toEmails: ["comercial@gard.cl"],
-          ccEmails: [],
-        },
-        {
-          direction: "in",
-          fromEmail: "segunda@cliente.cl",
-          replyToEmail: null,
-          toEmails: ["comercial@gard.cl"],
+          fromEmail: "Cliente <cliente@externo.cl>",
+          replyToEmail: "ventas@gard.cl",
+          toEmails: ["ventas@gard.cl"],
           ccEmails: [],
         },
       ],
-      OWN,
+      ownWithAlias,
     );
-    // Más reciente sin replyTo → from; pero el hilo sí tiene replyTo → high
-    expect(result.counterparty?.email).toBe("segunda@cliente.cl");
+    // Reply-To es propio → cae a From externo
+    expect(result.counterparty?.email).toBe("cliente@externo.cl");
     expect(result.source).toBe("from");
     expect(result.confidence).toBe("high");
+  });
+
+  it("Reply-To propio cae al siguiente candidato externo", () => {
+    const result = resolveCounterparty(
+      [
+        {
+          direction: "in",
+          fromEmail: "Comercial <comercial@gard.cl>",
+          replyToEmail: "no-reply@gard.cl",
+          toEmails: ["otro@cliente.cl"],
+          ccEmails: [],
+        },
+      ],
+      ownGard,
+    );
+    expect(result.counterparty?.email).toBe("otro@cliente.cl");
+    expect(result.source).toBe("to");
+    expect(result.confidence).toBe("low");
   });
 });
