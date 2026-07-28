@@ -9416,11 +9416,13 @@ model ChatChannel {
   accountId          String?         @map("account_id") @db.Uuid
   name               String
   isActive           Boolean         @default(true) @map("is_active")
-  lastMessageAt      DateTime?       @map("last_message_at") @db.Timestamptz(6)
-  lastMessagePreview String?         @map("last_message_preview") @db.Text
-  messageCount       Int             @default(0) @map("message_count")
-  createdAt          DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt          DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
+  lastMessageAt         DateTime?       @map("last_message_at") @db.Timestamptz(6)
+  lastMessagePreview    String?         @map("last_message_preview") @db.Text
+  /// Nombre del autor del último mensaje (denormalizado para listados).
+  lastMessageSenderName String?         @map("last_message_sender_name")
+  messageCount          Int             @default(0) @map("message_count")
+  createdAt             DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   installation            CrmInstallation?             @relation(fields: [installationId], references: [id], onDelete: Cascade)
   messages                ChatMessage[]
@@ -9435,6 +9437,9 @@ model ChatChannel {
   @@index([tenantId, channelType], map: "idx_chat_channels_tenant_type")
   @@index([tenantId, lastMessageAt(sort: Desc)], map: "idx_chat_channels_tenant_last_msg")
   @@index([groupId], map: "idx_chat_channels_group")
+  // Índice parcial (solo en SQL): chat_channels_one_active_per_installation
+  // — un canal INSTALLATION activo por instalación (excluye sub_type='interno').
+  // Prisma no modela índices parciales; db push local puede descartarlo.
   @@map("channels")
   @@schema("chat")
 }

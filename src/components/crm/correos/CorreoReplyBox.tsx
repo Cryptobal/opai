@@ -194,8 +194,15 @@ export function CorreoReplyBox({
       mode={open.mode}
       ai={open.ai}
       expanded={open.expanded}
-      onModeChange={(mode) => setOpen((o) => (o ? { ...o, mode } : o))}
-      onToggleAi={() => setOpen((o) => (o ? { ...o, ai: !o.ai } : o))}
+      onModeChange={(mode) =>
+        // Al elegir Responder / A todos / Reenviar, apagar IA para ocultar el
+        // rectángulo de indicaciones (solo visible en el tab IA).
+        setOpen((o) => (o ? { ...o, mode, ai: false } : o))
+      }
+      onToggleAi={() =>
+        // Solo se llama al activar IA (tab exclusivo); no toggle off.
+        setOpen((o) => (o ? { ...o, ai: true, mode: o.mode === "forward" ? "reply" : o.mode } : o))
+      }
       onToggleExpand={() => setOpen((o) => (o ? { ...o, expanded: !o.expanded } : o))}
       onClose={() => setOpen(null)}
       onSent={onSent}

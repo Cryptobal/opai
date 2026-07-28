@@ -276,7 +276,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
 
     // Soft delete + recompute channel summary in a single transaction so that
     // lastMessagePreview / lastMessageAt / messageCount stay consistent.
-    const { lastMessagePreview, lastMessageAt, messageCount } = await prisma.$transaction(async (tx) => {
+    const { lastMessagePreview, lastMessageSenderName, lastMessageAt, messageCount } = await prisma.$transaction(async (tx) => {
       await tx.chatMessage.update({
         where: { id: messageId },
         data: {
@@ -292,18 +292,20 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
           threadRootId: null,
         },
         orderBy: { createdAt: "desc" },
-        select: { content: true, attachments: true, createdAt: true },
+        select: { content: true, attachments: true, createdAt: true, senderName: true },
       });
 
       const nextPreview = latest
         ? truncatePreview(latest.content || "[Archivo adjunto]", 100)
         : null;
+      const nextSenderName = latest?.senderName ?? null;
       const nextLastMessageAt = latest?.createdAt ?? null;
 
       const updatedChannel = await tx.chatChannel.update({
         where: { id: channelId },
         data: {
           lastMessagePreview: nextPreview,
+          lastMessageSenderName: nextSenderName,
           lastMessageAt: nextLastMessageAt,
           messageCount: { decrement: 1 },
         },
@@ -312,6 +314,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
 
       return {
         lastMessagePreview: nextPreview,
+        lastMessageSenderName: nextSenderName,
         lastMessageAt: nextLastMessageAt,
         messageCount: updatedChannel.messageCount,
       };
@@ -321,6 +324,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       id: messageId,
       channelId,
       lastMessagePreview,
+      lastMessageSenderName,
       lastMessageAt: lastMessageAt?.toISOString() ?? null,
       messageCount,
     };

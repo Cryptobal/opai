@@ -17,7 +17,7 @@ import { useMarkCorreoRead } from "./useMarkCorreoRead";
 import { parseSender } from "./correo-sender";
 import { loadOfflineDetail } from "./offline-store";
 import type { CorreoDetail } from "@/modules/crm/email/correos.types";
-import type { CorreoShortcuts } from "./useCorreosViewPreferences";
+import type { CorreoShortcuts, CorreoSnoozeConfig } from "./useCorreosViewPreferences";
 import { nextIntentNonce, type ComposeIntent } from "./correo-reader-intent";
 
 type ThreadPreview = {
@@ -50,6 +50,8 @@ type Props = {
   manageBackHistory?: boolean;
   alwaysShowImages?: boolean;
   onAlwaysShowImages?: () => void;
+  snoozeConfig?: CorreoSnoozeConfig;
+  onOpenSnoozeSettings?: () => void;
   shortcuts?: CorreoShortcuts;
   workTabIntent?: { tab: import("./work-panel-tabs").WorkTab; nonce: number } | null;
   composeIntent?: ComposeIntent | null;
@@ -78,6 +80,8 @@ export function CorreoDrawer({
   manageBackHistory = true,
   alwaysShowImages,
   onAlwaysShowImages,
+  snoozeConfig,
+  onOpenSnoozeSettings,
   shortcuts,
   workTabIntent = null,
   composeIntent = null,
@@ -316,6 +320,8 @@ export function CorreoDrawer({
       <CorreoSnoozeSheet
         open={snoozeOpen}
         onClose={() => setSnoozeOpen(false)}
+        config={snoozeConfig}
+        onOpenSettings={onOpenSnoozeSettings}
         onConfirm={(iso, label) => {
           if (!detailReady) return;
           const id = detail.thread.id;

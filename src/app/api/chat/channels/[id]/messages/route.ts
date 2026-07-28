@@ -369,6 +369,7 @@ export async function POST(
         data: {
           lastMessageAt: msg.createdAt,
           lastMessagePreview: truncatePreview(content || "[Archivo adjunto]", 100),
+          lastMessageSenderName: msg.senderName,
           messageCount: { increment: 1 },
         },
       });
@@ -566,6 +567,7 @@ export async function DELETE(
         where: { id: channelId },
         data: {
           lastMessagePreview: null,
+          lastMessageSenderName: null,
           lastMessageAt: null,
           messageCount: 0,
         },
@@ -580,6 +582,7 @@ export async function DELETE(
       clearedBy: ctx.userId,
       count: result.count,
       lastMessagePreview: null,
+      lastMessageSenderName: null,
       lastMessageAt: null,
       messageCount: 0,
     }).catch((err) =>
@@ -591,6 +594,7 @@ export async function DELETE(
       data: {
         deletedCount: result.count,
         lastMessagePreview: null,
+        lastMessageSenderName: null,
         lastMessageAt: null,
         messageCount: 0,
       },

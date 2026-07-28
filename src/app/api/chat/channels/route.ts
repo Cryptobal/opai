@@ -218,6 +218,7 @@ export async function GET(request: NextRequest) {
       isActive: ch.isActive,
       lastMessageAt: ch.lastMessageAt?.toISOString() ?? null,
       lastMessagePreview: ch.lastMessagePreview,
+      lastMessageSenderName: ch.lastMessageSenderName,
       messageCount: ch.messageCount,
       createdAt: ch.createdAt.toISOString(),
       updatedAt: ch.updatedAt.toISOString(),

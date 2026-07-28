@@ -9,6 +9,14 @@ import {
   type PointerEvent,
   type RefObject,
 } from "react";
+import {
+  DEFAULT_CORREO_SNOOZE_CONFIG,
+  parseCorreoSnoozeConfig,
+  type CorreoSnoozeConfig,
+} from "@/modules/crm/email/correo-snooze-presets";
+
+export type { CorreoSnoozeConfig };
+export { DEFAULT_CORREO_SNOOZE_CONFIG };
 
 export type CorreoPreviewLines = 1 | 2 | 3;
 /** Segundos que permanece el snackbar Deshacer tras una acción de correo. */
@@ -202,6 +210,8 @@ type StoredPreferences = {
   alwaysShowImages?: boolean;
   /** Ventana visible del snackbar Deshacer (acciones de bandeja). */
   undoSeconds?: CorreoUndoSeconds;
+  /** Horas/días de los presets de posponer (estilo Gmail). */
+  snoozeConfig?: CorreoSnoozeConfig;
 };
 
 export function parseCorreosViewPreferences(
@@ -250,6 +260,9 @@ export function parseCorreosViewPreferences(
     ) {
       preferences.undoSeconds = candidate.undoSeconds;
     }
+    if (candidate.snoozeConfig !== undefined) {
+      preferences.snoozeConfig = parseCorreoSnoozeConfig(candidate.snoozeConfig);
+    }
     return preferences;
   } catch {
     return {};
@@ -290,6 +303,9 @@ export function useCorreosViewPreferences(
   const [alwaysShowImages, setAlwaysShowImages] = useState(false);
   const [undoSeconds, setUndoSeconds] = useState<CorreoUndoSeconds>(
     DEFAULT_CORREO_UNDO_SECONDS,
+  );
+  const [snoozeConfig, setSnoozeConfig] = useState<CorreoSnoozeConfig>(
+    DEFAULT_CORREO_SNOOZE_CONFIG,
   );
   const [hydrated, setHydrated] = useState(false);
 
@@ -343,6 +359,9 @@ export function useCorreosViewPreferences(
     if (stored.undoSeconds) {
       setUndoSeconds(stored.undoSeconds);
     }
+    if (stored.snoozeConfig) {
+      setSnoozeConfig(stored.snoozeConfig);
+    }
     setHydrated(true);
   }, [containerWidth]);
 
@@ -354,7 +373,7 @@ export function useCorreosViewPreferences(
           STORAGE_KEY,
           JSON.stringify({
             panelWidth: preferredPanelWidth, previewLines, swipeConfig, railCollapsed,
-            shortcuts, alwaysShowImages, undoSeconds,
+            shortcuts, alwaysShowImages, undoSeconds, snoozeConfig,
           }),
         );
       } catch {
@@ -362,7 +381,7 @@ export function useCorreosViewPreferences(
       }
     }, 120);
     return () => window.clearTimeout(timer);
-  }, [hydrated, preferredPanelWidth, previewLines, swipeConfig, railCollapsed, shortcuts, alwaysShowImages, undoSeconds]);
+  }, [hydrated, preferredPanelWidth, previewLines, swipeConfig, railCollapsed, shortcuts, alwaysShowImages, undoSeconds, snoozeConfig]);
 
   useEffect(() => {
     const node = containerRef.current;
@@ -444,6 +463,8 @@ export function useCorreosViewPreferences(
     setAlwaysShowImages,
     undoSeconds,
     setUndoSeconds,
+    snoozeConfig,
+    setSnoozeConfig,
     resetPanelWidth,
     onResizePointerDown,
     onResizeKeyDown,

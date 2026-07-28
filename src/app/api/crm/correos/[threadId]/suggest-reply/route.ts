@@ -45,7 +45,7 @@ async function loadThreadReply(tenantId: string, threadId: string) {
       where: { tenantId, threadId, kind: { in: ["nuevo_lead", "compromiso"] } },
       orderBy: { createdAt: "desc" },
       take: 5,
-      select: { id: true, payload: true },
+      select: { id: true, payload: true, summary: true },
     }),
   ]);
   return { thread, lastInbound, radars: radar };
@@ -193,7 +193,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   if (!data?.lastInbound) return NextResponse.json({ error: "Sin correo entrante" }, { status: 404 });
   const payload = (await req.json().catch(() => ({}))) as { instructions?: unknown };
   const instructions =
-    typeof payload.instructions === "string" ? payload.instructions.slice(0, 1000) : null;
+    typeof payload.instructions === "string" ? payload.instructions.slice(0, 1200) : null;
   const body = (data.lastInbound.textBody || stripHtml(data.lastInbound.htmlBody)).trim();
   const replyToEmail =
     (await ensureReplyTo({
@@ -205,12 +205,16 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     fromEmail: data.lastInbound.fromEmail,
     replyToEmail,
   });
+  // Resumen del radar (si existe) da contexto al borrador; sin él el modelo
+  // solo ve el correo crudo + indicaciones.
+  const resumen =
+    data.radars.map((r) => r.summary?.trim()).find((s) => Boolean(s))?.slice(0, 200) ?? "";
   const draft = await generateDraftReply({
     tenantId: ctx.tenantId,
     subject: data.thread.subject,
     fromEmail: replyAddress || data.lastInbound.fromEmail,
     body,
-    resumen: "",
+    resumen,
     instructions,
   });
   return NextResponse.json({ draft, to: replyAddress });

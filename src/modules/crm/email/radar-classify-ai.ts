@@ -232,21 +232,33 @@ export async function generateDraftReply(input: {
   /** Indicaciones del usuario para guiar la respuesta (opcional). */
   instructions?: string | null;
 }): Promise<string | null> {
-  const extra = input.instructions?.trim()
-    ? `\nIndicaciones del usuario (tienen prioridad sobre la estructura anterior): ${clampText(input.instructions.trim(), 500)}`
+  const instructions = input.instructions?.trim() || "";
+  const hasInstructions = instructions.length > 0;
+  // Las indicaciones son GUÍA de contenido, no el cuerpo. Si el modelo las
+  // pega tal cual (bug histórico: "tienen prioridad" → echo), el borrador
+  // queda inutilizable. Explicitamos reescritura + anti-copia.
+  const instructionsBlock = hasInstructions
+    ? `\nIndicaciones del vendedor (GUÍA de hechos/posición — NO son el borrador. Incorporá su sustancia respondiendo al correo entrante; NUNCA las copies ni las pegues textualmente como cuerpo del mail): ${clampText(instructions, 1200)}`
     : "";
-  const prompt = `Redacta un BORRADOR de respuesta breve y profesional en español chileno neutro a este correo entrante de un prospecto de seguridad privada. NO inventes precios ni datos. Estructura: (1) acusar recibo, (2) 1-2 preguntas clave para avanzar, (3) próximo paso claro. Máx 90 palabras. Devuelve SOLO el texto del correo, sin asunto ni firma.${extra}
-Resumen: ${input.resumen}
+  const structure = hasInstructions
+    ? "Estructura: (1) saludo breve y acusar recibo, (2) desarrollar con claridad los puntos de las indicaciones (hechos, condiciones, respuestas a las preguntas del correo), (3) cierre con próximo paso concreto. Máx 220 palabras."
+    : "Estructura: (1) acusar recibo, (2) 1-2 preguntas clave para avanzar, (3) próximo paso claro. Máx 90 palabras.";
+  const prompt = `Redacta un BORRADOR de respuesta profesional en español chileno neutro a este correo entrante de un prospecto de seguridad privada. NO inventes precios ni datos que no estén en las indicaciones o en el correo. ${structure} Devuelve SOLO el texto del correo listo para enviar, sin asunto ni firma.${instructionsBlock}
+Resumen: ${input.resumen || "(sin resumen)"}
 ${UNTRUSTED_RULES}
 ${wrapUntrusted(
     `Correo de ${input.fromEmail} (${clampText(input.subject, 160)}):\n${clampText(input.body, 2000)}`,
   )}`;
   const startedAt = Date.now();
   try {
-    const txt = await aiService.generateText(prompt, { maxTokens: 300, temperature: 0.4 }, {
-      tenantId: input.tenantId,
-      feature: "correo-suggest-reply",
-    });
+    const txt = await aiService.generateText(
+      prompt,
+      { maxTokens: hasInstructions ? 700 : 300, temperature: 0.4 },
+      {
+        tenantId: input.tenantId,
+        feature: "correo-suggest-reply",
+      },
+    );
     const eff = await resolveEffectiveAI(input.tenantId, "correo-suggest-reply", "default");
     logUsage({
       tenantId: input.tenantId,

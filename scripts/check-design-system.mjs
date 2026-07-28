@@ -1014,6 +1014,12 @@ const MIGRATED_PATHS = [
   // - ChatNewDmModal (1 hex): avatar circle.
   "src/components/configuracion/MiPlanClient.tsx",
   "src/components/chat/ChatNewDmModal.tsx",
+  // Cluster chat — dedupe canales + panel/modal Slack
+  // ChatChannelListItem y ChatChannelSlackBridge quedan 100% libres de hex
+  // y tipografía <12px. ChatSidePanel / ChatChannelList conservan drift
+  // tipográfico residual y NO se agregan aún.
+  "src/components/chat/ChatChannelListItem.tsx",
+  "src/components/chat/ChatChannelSlackBridge.tsx",
   // Cluster 5F.1 — Payroll. Primer sub-step del cluster Payroll
   // (Liquidaciones y Nómina). Establece iconTone='amber' (ámbar dorado)
   // como convención visual del cluster (diferenciado de Operaciones

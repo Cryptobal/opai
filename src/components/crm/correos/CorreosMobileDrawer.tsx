@@ -47,6 +47,8 @@ type Props = {
   mailboxEmail?: string | null;
   /** Abre el sheet de configuración de gestos (Bloque 6). */
   onOpenSwipeSettings?: () => void;
+  /** Abre el sheet de horarios de posponer. */
+  onOpenSnoozeSettings?: () => void;
   /** Abre el sheet de atajos de teclado configurables. */
   onOpenShortcuts?: () => void;
   /** Inserta un operador en la caja de búsqueda (ayuda móvil). */
@@ -84,7 +86,7 @@ function SectionTitle({ children }: { children: ReactNode }) {
 export function CorreosMobileDrawer({
   open, onClose, folder, onFolder, chip, onChip, vertical, onVertical, counts,
   previewLines, onPreviewLines, onSync, syncing, realtimeStatus, lastSyncAt,
-  mailboxEmail, onOpenSwipeSettings, onOpenShortcuts,
+  mailboxEmail, onOpenSwipeSettings, onOpenSnoozeSettings, onOpenShortcuts,
 }: Props) {
   const panelRef = useRef<HTMLDivElement | null>(null);
   useCloseOnBack(open, onClose);
@@ -192,6 +194,12 @@ export function CorreosMobileDrawer({
             <Item onClick={pick(onOpenSwipeSettings)}>
               <Settings className="h-4 w-4 shrink-0" />
               <span className="min-w-0 flex-1 truncate">Gestos de deslizar</span>
+            </Item>
+          )}
+          {onOpenSnoozeSettings && (
+            <Item onClick={pick(onOpenSnoozeSettings)}>
+              <Clock className="h-4 w-4 shrink-0" />
+              <span className="min-w-0 flex-1 truncate">Horarios de posponer</span>
             </Item>
           )}
           {onOpenShortcuts && (
