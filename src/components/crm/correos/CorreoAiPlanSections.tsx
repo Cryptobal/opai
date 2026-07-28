@@ -1,6 +1,6 @@
 "use client";
 
-import type { CrmStructureProposal } from "@/modules/crm/email/email-to-crm-structure.types";
+import type { CrmStructureProposal, CrmStructureAssumption } from "@/modules/crm/email/email-to-crm-structure.types";
 import type { CrmStructureRefineAnswer } from "@/modules/crm/email/email-to-crm-structure.types";
 import { CorreoAiPlanCard, type PlanAction } from "./CorreoAiPlanCard";
 import { CorreoAiCoverageTable } from "./CorreoAiCoverageTable";
@@ -26,7 +26,7 @@ type Props = {
   renderExpanded?: (id: string) => React.ReactNode;
   remainingRefines?: number;
   onAnswer?: (answer: CrmStructureRefineAnswer) => void;
-  onAssumptionsChange?: (items: CrmStructureProposal["assumptionItems"]) => void;
+  onAssumptionsChange?: (items: CrmStructureAssumption[]) => void;
   /** Legacy callbacks (backward compat with CorreoAiActionPanel older usage). */
   onRefineAssumption?: (assumption: string) => void;
   onRefineQuestion?: (question: string) => void;
