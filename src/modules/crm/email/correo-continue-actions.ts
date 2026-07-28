@@ -38,6 +38,11 @@ export type ResolveContinueActionsInput = {
   primaryTitle?: string | null;
   /** true si la acción principal ya se ejecutó en esta sesión. */
   primaryExecuted?: boolean;
+  /**
+   * Si true, incluye la acción principal en la lista de «Continuar».
+   * Default false: el CTA héroe ya la muestra; no duplicar.
+   */
+  includePrimary?: boolean;
   /** Cursor de lectura capturado al abrir (no el sello post-markRead). */
   lastReadAt: string | null;
   messages: Array<{ sentAt: string | null }>;
@@ -58,6 +63,7 @@ export function resolveContinueActions(input: ResolveContinueActionsInput): Cont
   const {
     primaryTitle,
     primaryExecuted = false,
+    includePrimary = false,
     lastReadAt,
     messages,
     dealFechaEntrega,
@@ -70,7 +76,7 @@ export function resolveContinueActions(input: ResolveContinueActionsInput): Cont
 
   const actions: ContinueAction[] = [];
 
-  if (primaryTitle && !primaryExecuted && canEdit) {
+  if (includePrimary && primaryTitle && !primaryExecuted && canEdit) {
     actions.push({ id: "primary", label: primaryTitle, tone: "primary" });
   }
 

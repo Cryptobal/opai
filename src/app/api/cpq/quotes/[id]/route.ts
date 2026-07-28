@@ -288,6 +288,9 @@ export async function DELETE(
 
     await prisma.$transaction(async (tx) => {
       await tx.crmDealQuote.deleteMany({ where: { tenantId, quoteId: id } });
+      await tx.crmEmailThreadLink.deleteMany({
+        where: { tenantId, entityType: "quote", entityId: id },
+      });
       await tx.cpqQuote.delete({ where: { id } });
     });
     await createCrmHistoryLog({

@@ -1,7 +1,8 @@
 /**
  * Links operacionales de un hilo (O01-O04):
- *  GET    → links resueltos (label + estado + deep-link).
+ *  GET    → links resueltos (label + estado + deep-link + orphan + visibleOnEntity).
  *  POST   → crear { entityType, entityId, linkedVia? } (valida tenant).
+ *  PATCH  → { linkId, visibleOnEntity } toggle de visibilidad en ficha.
  *  DELETE → ?linkId= elimina un vínculo.
  * Auditado vía auditEmailAction; unique (thread, tipo, entidad) = idempotente.
  */
@@ -113,6 +114,50 @@ export async function POST(
     meta: { link: body.entityType, entityId: body.entityId, linkedVia },
   });
   return NextResponse.json({ success: true, linkId: link.id });
+}
+
+export async function PATCH(
+  req: NextRequest,
+  ctx: { params: Promise<{ threadId: string }> },
+) {
+  const mod = await requireCorreosAccess();
+  if (!mod.authorized) return mod.response;
+  const session = await auth();
+  if (!session?.user?.tenantId) {
+    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  }
+  const { threadId } = await ctx.params;
+  const tenantId = session.user.tenantId;
+  const thread = await threadOfUser(tenantId, session.user.id, threadId);
+  if (!thread) return NextResponse.json({ error: "Hilo no encontrado" }, { status: 404 });
+
+  const body = (await req.json().catch(() => ({}))) as {
+    linkId?: string;
+    visibleOnEntity?: boolean;
+  };
+  if (typeof body.linkId !== "string" || !body.linkId || typeof body.visibleOnEntity !== "boolean") {
+    return NextResponse.json(
+      { error: "linkId y visibleOnEntity (boolean) requeridos" },
+      { status: 400 },
+    );
+  }
+  const result = await prisma.crmEmailThreadLink.updateMany({
+    where: { id: body.linkId, tenantId, threadId },
+    data: { visibleOnEntity: body.visibleOnEntity },
+  });
+  if (result.count === 0) {
+    return NextResponse.json({ error: "Vínculo no encontrado" }, { status: 404 });
+  }
+  void auditEmailAction({
+    tenantId,
+    userId: session.user.id,
+    userEmail: session.user.email,
+    action: "associate",
+    entityType: "email_thread",
+    entityId: threadId,
+    meta: { link_visibility: body.linkId, visibleOnEntity: body.visibleOnEntity },
+  });
+  return NextResponse.json({ success: true });
 }
 
 export async function DELETE(

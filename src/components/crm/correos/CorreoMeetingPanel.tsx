@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { TaskTimePicker } from "@/components/agenda/TaskTimePicker";
 import { TaskDatePicker } from "@/components/agenda/TaskDatePicker";
 import { SimpleSelect } from "@/components/ui/simple-select";
+import { useCorreoWork } from "./CorreoWorkContext";
 
 type Created = { id: string; title: string; startAt: string };
 
@@ -20,6 +21,7 @@ function fmtDateTime(iso: string): string {
  * muestra "Correo asociado: {asunto}". Verdad verificada: sólo ok:true confirma.
  */
 export function CorreoMeetingPanel({ threadId, subject }: { threadId: string; subject: string }) {
+  const { reload } = useCorreoWork();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState<"sug" | "create" | null>(null);
   const [title, setTitle] = useState("");
@@ -68,6 +70,7 @@ export function CorreoMeetingPanel({ threadId, subject }: { threadId: string; su
         setCreated(d.event);
         setOpen(false);
         toast.success("Reunión agendada");
+        reload("links");
       } else {
         toast.error(d.error || "No se pudo agendar la reunión");
       }

@@ -48,6 +48,8 @@ type Props = {
   composeIntent?: ComposeIntent | null;
   /** Cursor de lectura capturado al abrir (antes del markRead). */
   readCursorAt?: string | null;
+  /** Token del drawer: refresca el contexto del panel de trabajo. */
+  dataRevision?: number;
   onOpenAiStyle?: () => void;
 };
 
@@ -80,6 +82,7 @@ export function CorreoDrawerContent({
   workTabIntent = null,
   composeIntent = null,
   readCursorAt = null,
+  dataRevision = 0,
   onOpenAiStyle,
 }: Props) {
   const t = detail.thread;
@@ -327,6 +330,7 @@ export function CorreoDrawerContent({
         detail={detail}
         readCursorAt={readCursorAt}
         workTabIntent={workTabIntent}
+        dataRevision={dataRevision}
         onOpenAiLead={onOpenAiLead}
         onAiCommand={onAiCommand}
         onAssociate={onAssociate}

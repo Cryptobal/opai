@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({
   quoteCount: vi.fn(),
   quoteCreate: vi.fn(),
   dealQuoteCreate: vi.fn(),
+  threadLinkUpsert: vi.fn(),
   historyLog: vi.fn(),
   applyIncludes: vi.fn(),
   materialize: vi.fn(),
@@ -15,6 +16,7 @@ vi.mock("@/lib/prisma", () => ({
     crmDeal: { findFirst: mocks.dealFindFirst },
     cpqQuote: { count: mocks.quoteCount, create: mocks.quoteCreate },
     crmDealQuote: { create: mocks.dealQuoteCreate },
+    crmEmailThreadLink: { upsert: mocks.threadLinkUpsert },
   },
 }));
 
@@ -40,6 +42,7 @@ describe("createPlanQuote contactId + positions", () => {
     mocks.quoteCount.mockResolvedValue(10);
     mocks.quoteCreate.mockResolvedValue({ id: "quote-1", code: "CPQ-2026-011" });
     mocks.dealQuoteCreate.mockResolvedValue({});
+    mocks.threadLinkUpsert.mockResolvedValue({});
     mocks.historyLog.mockResolvedValue(undefined);
     mocks.applyIncludes.mockResolvedValue(undefined);
     mocks.materialize.mockResolvedValue({ positionsCreated: 2 });
@@ -73,5 +76,60 @@ describe("createPlanQuote contactId + positions", () => {
     expect(mocks.materialize).toHaveBeenCalledWith(
       expect.objectContaining({ quoteId: "quote-1", tenantId: "t1" }),
     );
+    expect(mocks.threadLinkUpsert).not.toHaveBeenCalled();
+  });
+
+  it("con threadId crea vínculo quote linkedVia ai", async () => {
+    const proposal = emptyCrmStructureProposal();
+    proposal.account.name = "Maclean";
+
+    const result = await createPlanQuote({
+      tenantId: "t1",
+      userId: "u1",
+      dealId: "deal-1",
+      accountId: "acc-1",
+      threadId: "th-1",
+      proposal,
+    });
+
+    expect(result.quoteId).toBe("quote-1");
+    expect(mocks.threadLinkUpsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          threadId_entityType_entityId: {
+            threadId: "th-1",
+            entityType: "quote",
+            entityId: "quote-1",
+          },
+        },
+        create: expect.objectContaining({
+          tenantId: "t1",
+          threadId: "th-1",
+          entityType: "quote",
+          entityId: "quote-1",
+          linkedVia: "ai",
+          createdBy: "u1",
+        }),
+        update: {},
+      }),
+    );
+  });
+
+  it("si el upsert del vínculo falla, igual resuelve con quoteId", async () => {
+    mocks.threadLinkUpsert.mockRejectedValue(new Error("db down"));
+    const proposal = emptyCrmStructureProposal();
+    proposal.account.name = "Maclean";
+
+    const result = await createPlanQuote({
+      tenantId: "t1",
+      userId: "u1",
+      dealId: "deal-1",
+      accountId: "acc-1",
+      threadId: "th-1",
+      proposal,
+    });
+
+    expect(result.quoteId).toBe("quote-1");
+    expect(mocks.threadLinkUpsert).toHaveBeenCalled();
   });
 });

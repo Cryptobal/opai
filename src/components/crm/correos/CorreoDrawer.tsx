@@ -317,6 +317,7 @@ export function CorreoDrawer({
           workTabIntent={workTabIntent}
           composeIntent={effectiveComposeIntent}
           readCursorAt={readCursorAt}
+          dataRevision={refreshToken}
           onOpenAiStyle={onOpenAiStyle}
         />
       )}

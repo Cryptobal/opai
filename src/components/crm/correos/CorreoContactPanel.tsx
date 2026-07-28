@@ -1,57 +1,37 @@
 "use client";
 
 /**
- * Panel de contacto del lector (P11, PR-14): ficha del contacto asociado
- * (cargo, teléfono, empresa, deals abiertos) + últimas 5 conversaciones de
- * ese contacto con deep-link (?thread=). Navegable por teclado (links y
- * botones nativos). Se oculta si el hilo no tiene contacto asociado.
+ * Ficha del contacto principal del hilo: cargo, teléfono, empresa,
+ * deals abiertos y últimas conversaciones. Lee de CorreoWorkContext.
  */
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Briefcase, Building2, Contact, Mail, Phone } from "lucide-react";
-import { Tag } from "@/components/opai-ds";
+import { Briefcase, Building2, Mail, Phone } from "lucide-react";
+import { Spinner, Tag } from "@/components/opai-ds";
+import { useCorreoWork } from "./CorreoWorkContext";
 
-type ContactContext = {
-  contact: {
-    id: string;
-    name: string;
-    email: string | null;
-    phone: string | null;
-    roleTitle: string | null;
-    accountId: string | null;
-    accountName: string | null;
-  } | null;
-  openDeals?: Array<{ id: string; title: string }>;
-  recentThreads?: Array<{ id: string; subject: string; lastMessageAt: string | null }>;
-};
+export function CorreoContactPanel({ threadId: _threadId }: { threadId: string }) {
+  const { contactContext } = useCorreoWork();
 
-export function CorreoContactPanel({ threadId }: { threadId: string }) {
-  const [data, setData] = useState<ContactContext | null>(null);
+  if (contactContext.loading && !contactContext.data) {
+    return <Spinner className="mx-auto" />;
+  }
 
-  useEffect(() => {
-    let cancelled = false;
-    fetch(`/api/crm/correos/${threadId}/contact-context`)
-      .then((r) => r.json())
-      .then((d) => {
-        if (!cancelled) setData(d);
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, [threadId]);
+  const contact = contactContext.data?.contact;
+  if (!contact) {
+    return (
+      <p className="text-[12px] text-ds-text-4">
+        Sin contacto principal. Agregá contactos abajo o asociá una cuenta.
+      </p>
+    );
+  }
 
-  if (!data?.contact) return null;
-  const { contact } = data;
+  const openDeals = contactContext.data?.openDeals ?? [];
+  const recentThreads = contactContext.data?.recentThreads ?? [];
 
   return (
-    <section
-      aria-label={`Contacto ${contact.name}`}
-      className="space-y-2 rounded-xl border border-ds-border-subtle bg-ds-surface-2 p-3"
-    >
-      <div className="flex items-center gap-2">
-        <Contact className="h-4 w-4 text-tint-violet-fg" />
+    <div className="space-y-2" aria-label={`Contacto ${contact.name}`}>
+      <div className="flex flex-wrap items-center gap-2">
         <Link
           href={`/crm/contacts/${contact.id}`}
           className="text-[13px] font-semibold text-ds-text-1 underline-offset-2 hover:underline"
@@ -74,7 +54,10 @@ export function CorreoContactPanel({ threadId }: { threadId: string }) {
           </Link>
         )}
         {contact.phone && (
-          <a href={`tel:${contact.phone}`} className="inline-flex items-center gap-1 underline-offset-2 hover:underline">
+          <a
+            href={`tel:${contact.phone}`}
+            className="inline-flex items-center gap-1 underline-offset-2 hover:underline"
+          >
             <Phone className="h-3.5 w-3.5" /> {contact.phone}
           </a>
         )}
@@ -84,20 +67,22 @@ export function CorreoContactPanel({ threadId }: { threadId: string }) {
           </span>
         )}
       </div>
-      {(data.openDeals?.length ?? 0) > 0 && (
+      {openDeals.length > 0 && (
         <div className="flex flex-wrap items-center gap-1.5">
-          {data.openDeals!.map((deal) => (
+          {openDeals.map((deal) => (
             <Link key={deal.id} href={`/crm/deals/${deal.id}`}>
-              <Tag variant="info" size="sm">{deal.title}</Tag>
+              <Tag variant="info" size="sm">
+                {deal.title}
+              </Tag>
             </Link>
           ))}
         </div>
       )}
-      {(data.recentThreads?.length ?? 0) > 0 && (
+      {recentThreads.length > 0 && (
         <div className="space-y-1">
           <p className="text-[12px] font-medium text-ds-text-3">Últimas conversaciones</p>
           <ul className="space-y-0.5">
-            {data.recentThreads!.map((t) => (
+            {recentThreads.map((t) => (
               <li key={t.id}>
                 <Link
                   href={`/crm/correos?thread=${t.id}`}
@@ -118,6 +103,6 @@ export function CorreoContactPanel({ threadId }: { threadId: string }) {
           </ul>
         </div>
       )}
-    </section>
+    </div>
   );
 }

@@ -5,6 +5,7 @@ import { Plus, X } from "lucide-react";
 import { toast } from "sonner";
 import { Tag } from "@/components/opai-ds";
 import { confirmDialog } from "@/components/ui/confirm-service";
+import { useCorreoWorkOptional } from "./CorreoWorkContext";
 
 type ThreadContact = {
   id: string;
@@ -33,6 +34,7 @@ export function CorreoThreadContacts({
   threadId: string;
   accountId: string | null;
 }) {
+  const work = useCorreoWorkOptional();
   const [contacts, setContacts] = useState<ThreadContact[]>([]);
   const [accountContacts, setAccountContacts] = useState<AccountContact[]>([]);
   const [picking, setPicking] = useState(false);
@@ -84,6 +86,7 @@ export function CorreoThreadContacts({
     }
     setPicking(false);
     load();
+    work?.reload("contact");
   }
 
   async function remove(contactId: string) {
@@ -96,6 +99,7 @@ export function CorreoThreadContacts({
       return;
     }
     load();
+    work?.reload("contact");
   }
 
   if (!accountId) {

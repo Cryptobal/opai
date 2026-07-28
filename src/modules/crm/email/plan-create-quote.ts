@@ -28,6 +28,8 @@ export async function createPlanQuote(params: {
   accountId: string;
   contactId?: string;
   installationId?: string;
+  /** Si se indica, crea CrmEmailThreadLink quote↔hilo (linkedVia ai). */
+  threadId?: string;
   proposal: CrmStructureProposal;
   quoteInput?: PlanQuoteInput;
 }): Promise<{ quoteId: string; quoteUrl: string; code: string; positionsCreated: number }> {
@@ -135,6 +137,31 @@ export async function createPlanQuote(params: {
     positionsCreated = mat.positionsCreated;
   } catch (err) {
     console.error("[plan-create-quote] materialize positions:", err);
+  }
+
+  if (params.threadId) {
+    try {
+      await prisma.crmEmailThreadLink.upsert({
+        where: {
+          threadId_entityType_entityId: {
+            threadId: params.threadId,
+            entityType: "quote",
+            entityId: quote.id,
+          },
+        },
+        create: {
+          tenantId,
+          threadId: params.threadId,
+          entityType: "quote",
+          entityId: quote.id,
+          linkedVia: "ai",
+          createdBy: userId,
+        },
+        update: {},
+      });
+    } catch (err) {
+      console.error("[plan-create-quote] thread link quote:", err);
+    }
   }
 
   return {

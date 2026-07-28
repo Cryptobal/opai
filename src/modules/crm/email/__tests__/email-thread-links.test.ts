@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => ({
   supplierFindFirst: vi.fn(),
   dteFindFirst: vi.fn(),
   ticketFindFirst: vi.fn(),
+  quoteFindMany: vi.fn(),
   linkFindMany: vi.fn(),
 }));
 vi.mock("@/lib/prisma", () => ({
@@ -23,6 +24,7 @@ vi.mock("@/lib/prisma", () => ({
     financeSupplier: { findFirst: mocks.supplierFindFirst },
     financeDte: { findFirst: mocks.dteFindFirst },
     opsTicket: { findFirst: mocks.ticketFindFirst },
+    cpqQuote: { findMany: mocks.quoteFindMany },
     crmEmailThreadLink: { findMany: mocks.linkFindMany },
   },
 }));
@@ -31,6 +33,8 @@ import {
   isThreadLinkEntityType,
   resolveThreadLinks,
   threadLinkEntityExists,
+  THREAD_LINK_ENTITY_TYPES,
+  THREAD_LINK_TYPE_LABELS,
 } from "../email-thread-links";
 
 beforeEach(() => {
@@ -44,6 +48,18 @@ describe("isThreadLinkEntityType", () => {
     }
     expect(isThreadLinkEntityType("lead")).toBe(false);
     expect(isThreadLinkEntityType("")).toBe(false);
+  });
+});
+
+describe("THREAD_LINK_TYPE_LABELS", () => {
+  it("cubre los 10 tipos con etiqueta en español", () => {
+    expect(Object.keys(THREAD_LINK_TYPE_LABELS)).toHaveLength(THREAD_LINK_ENTITY_TYPES.length);
+    for (const t of THREAD_LINK_ENTITY_TYPES) {
+      expect(THREAD_LINK_TYPE_LABELS[t].length).toBeGreaterThan(0);
+    }
+    expect(THREAD_LINK_TYPE_LABELS.ops_ticket).toBe("Ticket");
+    expect(THREAD_LINK_TYPE_LABELS.calendar_event).toBe("Evento de agenda");
+    expect(THREAD_LINK_TYPE_LABELS.quote).toBe("Cotización");
   });
 });
 
@@ -80,10 +96,13 @@ describe("resolveThreadLinks", () => {
         entityType: "installation",
         entityId: "i1",
         linkedVia: "ai",
+        visibleOnEntity: true,
         createdAt: new Date(),
       },
     ]);
-    mocks.installationFindFirst.mockResolvedValue({ name: "Bodega Quilicura", status: "active" });
+    mocks.installationFindMany.mockResolvedValue([
+      { id: "i1", name: "Bodega Quilicura", status: "active" },
+    ]);
     const links = await resolveThreadLinks({ tenantId: "t1", threadId: "th1" });
     expect(links).toHaveLength(1);
     expect(links[0]).toMatchObject({
@@ -91,15 +110,48 @@ describe("resolveThreadLinks", () => {
       status: "active",
       linkedVia: "ai",
       href: "/crm/installations/i1",
+      visibleOnEntity: true,
+      orphan: false,
     });
-    // El listado de links y la resolución de la entidad van con tenantId.
     expect(mocks.linkFindMany.mock.calls[0][0].where.tenantId).toBe("t1");
-    expect(mocks.installationFindFirst.mock.calls[0][0].where.tenantId).toBe("t1");
+    expect(mocks.installationFindMany.mock.calls[0][0].where).toMatchObject({
+      tenantId: "t1",
+      id: { in: ["i1"] },
+    });
+  });
+
+  it("marca orphan cuando la entidad no existe", async () => {
+    mocks.linkFindMany.mockResolvedValue([
+      {
+        id: "l-orphan",
+        entityType: "quote",
+        entityId: "q-gone",
+        linkedVia: "ai",
+        visibleOnEntity: true,
+        createdAt: new Date(),
+      },
+    ]);
+    mocks.quoteFindMany.mockResolvedValue([]);
+    const links = await resolveThreadLinks({ tenantId: "t1", threadId: "th1" });
+    expect(links).toHaveLength(1);
+    expect(links[0]).toMatchObject({
+      orphan: true,
+      href: null,
+      label: "Entidad eliminada",
+      entityId: "q-gone",
+    });
   });
 
   it("tipos desconocidos persistidos se ignoran (no rompen el panel)", async () => {
     mocks.linkFindMany.mockResolvedValue([
-      { id: "l2", entityType: "alien", entityId: "x", linkedVia: "manual", createdAt: new Date() },
+      {
+        id: "l2",
+        entityType: "alien",
+        entityId: "x",
+        linkedVia: "manual",
+        visibleOnEntity: true,
+        createdAt: new Date(),
+      },
     ]);
     const links = await resolveThreadLinks({ tenantId: "t1", threadId: "th1" });
     expect(links).toHaveLength(0);

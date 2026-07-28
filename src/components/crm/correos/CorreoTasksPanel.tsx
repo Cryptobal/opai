@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { CheckSquare, ListTodo, Plus, Sparkles, Square } from "lucide-react";
 import { toast } from "sonner";
 import { TaskTimePicker } from "@/components/agenda/TaskTimePicker";
 import { TaskDatePicker } from "@/components/agenda/TaskDatePicker";
+import { useCorreoWork } from "./CorreoWorkContext";
 
 type Task = { id: string; title: string; status: string; dueAt: string | null; allDay: boolean };
 
@@ -22,24 +23,15 @@ function fmtDue(iso: string | null, allDay: boolean): string {
  * fecha, dispara el recordatorio por Slack del cron existente.
  */
 export function CorreoTasksPanel({ threadId, subject }: { threadId: string; subject: string }) {
-  const [tasks, setTasks] = useState<Task[]>([]);
+  const { tasks: tasksRes, reload } = useCorreoWork();
+  const tasks = tasksRes.data ?? [];
   const [title, setTitle] = useState("");
   const [due, setDue] = useState("");
   const [time, setTime] = useState("");
   const [busy, setBusy] = useState<"add" | "sug" | null>(null);
 
-  useEffect(() => {
-    fetch(`/api/crm/correos/${threadId}/tasks`)
-      .then((r) => r.json())
-      .then((d) => setTasks(d.tasks ?? []))
-      .catch(() => undefined);
-  }, [threadId]);
-
   async function add() {
     const t = title.trim() || `Seguimiento: ${subject}`;
-    // Sin fecha → tarea sin agenda. Con fecha y hora → aviso a esa hora. Con
-    // fecha sin hora → todo el día (aviso a media mañana). El ISO se arma en la
-    // zona del navegador (la del usuario) para no desfasar el recordatorio.
     let dueAt: string | undefined;
     let allDay = false;
     if (due) {
@@ -54,11 +46,11 @@ export function CorreoTasksPanel({ threadId, subject }: { threadId: string; subj
         body: JSON.stringify({ title: t, dueAt, allDay }),
       }).then((r) => r.json());
       if (d.task) {
-        setTasks((p) => [d.task, ...p]);
         setTitle("");
         setDue("");
         setTime("");
         toast.success("Tarea agendada");
+        reload("tasks");
       } else {
         toast.error(d.error || "No se pudo crear la tarea");
       }
@@ -79,12 +71,12 @@ export function CorreoTasksPanel({ threadId, subject }: { threadId: string; subj
 
   async function toggle(task: Task) {
     const next = task.status === "done" ? "open" : "done";
-    setTasks((p) => p.map((x) => (x.id === task.id ? { ...x, status: next } : x)));
     await fetch(`/api/crm/tasks/${task.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status: next }),
     }).catch(() => undefined);
+    reload("tasks");
   }
 
   return (

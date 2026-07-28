@@ -242,7 +242,7 @@ export function CorreoAttachmentSave({
                   <SelectTrigger className="h-11 w-full rounded-lg border-ds-border-default bg-ds-surface-2 text-[13px] text-ds-text-1 sm:h-11">
                     <SelectValue placeholder="Sin carpeta" />
                   </SelectTrigger>
-                  <SelectContent className="z-[80] border-ds-border-default bg-ds-surface-1 text-ds-text-1">
+                  <SelectContent className="z-[100] border-ds-border-default bg-ds-surface-1 text-ds-text-1">
                     <SelectItem value="__none__">Sin carpeta</SelectItem>
                     {folders.map((f) => (
                       <SelectItem key={f.id} value={f.id}>

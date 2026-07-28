@@ -513,6 +513,7 @@ export async function createCrmStructureFromProposal(params: {
             accountId: account.id,
             contactId,
             installationId: createdInstallations[0]?.id,
+            threadId: thread.id,
             proposal,
             quoteInput: params.quoteInput,
           });
