@@ -202,9 +202,31 @@ function parseShortcuts(value: unknown): CorreoShortcuts | null {
 
 const STORAGE_KEY = "opai.crm.correos.view.v1";
 const DEFAULT_RATIO = 0.46;
-const MIN_PANEL_WIDTH = 420;
-const MAX_PANEL_RATIO = 0.72;
+export const MIN_PANEL_WIDTH = 420;
+export const LIST_MIN_WIDTH = 340;
+export const RAIL_COLLAPSED = 68;
+export const RAIL_EXPANDED = 224;
+export const WORKSPACE_GAP = 12;
+/** Histéresis para evitar parpadeo split ↔ overlay al redimensionar / abrir dock. */
+const MODE_HYSTERESIS_PX = 24;
 const KEYBOARD_STEP = 24;
+
+export type CorreoDesktopReaderMode = "split" | "overlay";
+
+/** Presupuesto de ancho del workspace para lista + lector en modo split. */
+export function correoReaderBudget(
+  workspaceWidth: number,
+  railCollapsed: boolean,
+): { available: number; maxReader: number; canSplit: boolean } {
+  const rail = railCollapsed ? RAIL_COLLAPSED : RAIL_EXPANDED;
+  const available = workspaceWidth - rail - WORKSPACE_GAP * 2;
+  const maxReader = available - LIST_MIN_WIDTH;
+  return {
+    available,
+    maxReader,
+    canSplit: maxReader >= MIN_PANEL_WIDTH,
+  };
+}
 
 type StoredPreferences = {
   panelWidth?: number;
@@ -277,19 +299,30 @@ export function parseCorreosViewPreferences(
   }
 }
 
-export function clampCorreoPanelWidth(width: number, containerWidth: number): number {
-  const safeContainer = Math.max(containerWidth, MIN_PANEL_WIDTH);
-  const max = Math.max(
-    MIN_PANEL_WIDTH,
-    Math.floor(safeContainer * MAX_PANEL_RATIO),
-  );
-  return Math.round(Math.min(Math.max(width, MIN_PANEL_WIDTH), max));
+/**
+ * Clampa el ancho del lector reservando LIST_MIN_WIDTH para la lista.
+ * Con `containerWidth <= 0` (SSR / primer paint) devuelve el valor preferido
+ * sin clampear — evita el bug histórico de /crm/correos.
+ */
+export function clampCorreoPanelWidth(
+  width: number,
+  containerWidth: number,
+  railCollapsed = true,
+): number {
+  if (containerWidth <= 0) return width;
+  const { maxReader } = correoReaderBudget(containerWidth, railCollapsed);
+  if (maxReader < MIN_PANEL_WIDTH) {
+    // Modo overlay: no hay split usable; devolver preferencia acotada al max disponible.
+    return Math.round(Math.max(MIN_PANEL_WIDTH, Math.min(width, Math.max(maxReader, MIN_PANEL_WIDTH))));
+  }
+  return Math.round(Math.min(Math.max(width, MIN_PANEL_WIDTH), maxReader));
 }
 
-function defaultWidth(containerWidth: number): number {
+function defaultWidth(containerWidth: number, railCollapsed: boolean): number {
   return clampCorreoPanelWidth(
     Math.round(containerWidth * DEFAULT_RATIO),
     containerWidth,
+    railCollapsed,
   );
 }
 
@@ -327,8 +360,28 @@ export function useCorreosViewPreferences(
 
   const panelWidth = useMemo(() => {
     const basis = workspaceWidth > 0 ? workspaceWidth : containerWidth();
-    return clampCorreoPanelWidth(preferredPanelWidth, basis);
-  }, [preferredPanelWidth, workspaceWidth, containerWidth]);
+    return clampCorreoPanelWidth(preferredPanelWidth, basis, railCollapsed);
+  }, [preferredPanelWidth, workspaceWidth, containerWidth, railCollapsed]);
+
+  const [desktopReaderMode, setDesktopReaderMode] =
+    useState<CorreoDesktopReaderMode>("split");
+  useEffect(() => {
+    // SSR / primer paint sin medida real → split por defecto.
+    if (workspaceWidth <= 0) {
+      setDesktopReaderMode("split");
+      return;
+    }
+    const { maxReader } = correoReaderBudget(workspaceWidth, railCollapsed);
+    setDesktopReaderMode((prev) => {
+      if (prev === "overlay") {
+        // Histéresis: solo volver a split cuando hay holgura real.
+        return maxReader >= MIN_PANEL_WIDTH + MODE_HYSTERESIS_PX
+          ? "split"
+          : "overlay";
+      }
+      return maxReader >= MIN_PANEL_WIDTH ? "split" : "overlay";
+    });
+  }, [workspaceWidth, railCollapsed]);
 
   useEffect(() => {
     let raw: string | null = null;
@@ -339,11 +392,13 @@ export function useCorreosViewPreferences(
     }
     const stored = parseCorreosViewPreferences(raw);
     const width = containerWidth();
+    const initialRail =
+      typeof stored.railCollapsed === "boolean" ? stored.railCollapsed : false;
     setWorkspaceWidth(width);
     setPreferredPanelWidth(
       typeof stored.panelWidth === "number"
         ? stored.panelWidth
-        : defaultWidth(width),
+        : defaultWidth(width, initialRail),
     );
     if (
       stored.previewLines === 1 ||
@@ -404,8 +459,8 @@ export function useCorreosViewPreferences(
   }, [containerRef]);
 
   const resetPanelWidth = useCallback(() => {
-    setPreferredPanelWidth(defaultWidth(containerWidth()));
-  }, [containerWidth]);
+    setPreferredPanelWidth(defaultWidth(containerWidth(), railCollapsed));
+  }, [containerWidth, railCollapsed]);
 
   const onResizePointerDown = useCallback(
     (event: PointerEvent<HTMLElement>) => {
@@ -421,7 +476,9 @@ export function useCorreosViewPreferences(
 
       const move = (moveEvent: globalThis.PointerEvent) => {
         const next = startWidth + startX - moveEvent.clientX;
-        setPreferredPanelWidth(clampCorreoPanelWidth(next, containerWidth()));
+        setPreferredPanelWidth(
+          clampCorreoPanelWidth(next, containerWidth(), railCollapsed),
+        );
       };
       const stop = () => {
         window.removeEventListener("pointermove", move);
@@ -434,7 +491,7 @@ export function useCorreosViewPreferences(
       window.addEventListener("pointerup", stop, { once: true });
       window.addEventListener("pointercancel", stop, { once: true });
     },
-    [containerWidth, panelWidth],
+    [containerWidth, panelWidth, railCollapsed],
   );
 
   const onResizeKeyDown = useCallback(
@@ -442,23 +499,33 @@ export function useCorreosViewPreferences(
       if (event.key === "ArrowLeft") {
         event.preventDefault();
         setPreferredPanelWidth((width) =>
-          clampCorreoPanelWidth(width + KEYBOARD_STEP, containerWidth()),
+          clampCorreoPanelWidth(
+            width + KEYBOARD_STEP,
+            containerWidth(),
+            railCollapsed,
+          ),
         );
       } else if (event.key === "ArrowRight") {
         event.preventDefault();
         setPreferredPanelWidth((width) =>
-          clampCorreoPanelWidth(width - KEYBOARD_STEP, containerWidth()),
+          clampCorreoPanelWidth(
+            width - KEYBOARD_STEP,
+            containerWidth(),
+            railCollapsed,
+          ),
         );
       } else if (event.key === "Home") {
         event.preventDefault();
         resetPanelWidth();
       }
     },
-    [containerWidth, resetPanelWidth],
+    [containerWidth, railCollapsed, resetPanelWidth],
   );
 
   return {
     panelWidth,
+    workspaceWidth,
+    desktopReaderMode,
     previewLines,
     setPreviewLines,
     swipeConfig,

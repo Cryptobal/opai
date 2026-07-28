@@ -280,4 +280,46 @@ describe("agent evals — runHelpChatTurn", () => {
     expect(result.pendingConfirmations?.[0].confirmToolName).toBe("reassign_ticket");
     expect(hoisted.executeCalls.some((c) => c.name === "reassign_ticket")).toBe(false);
   });
+
+  it("correo abierto: create_crm_from_email atómico (1 pending, sin create_account/contact)", async () => {
+    script(
+      {
+        toolCalls: [
+          tc("c1", "create_crm_from_email", {
+            confirm: false,
+          }),
+        ],
+      },
+      { tokens: "Propuesta de cuenta + contacto lista para confirmar." },
+    );
+
+    const result = await runHelpChatTurn(
+      baseInput("crea una cuenta para iplacex y crea el contacto"),
+    );
+
+    const firstTool = hoisted.executeCalls[0]?.name ?? result.pendingConfirmations?.[0]?.confirmToolName;
+    expect(["create_crm_from_email", "get_email_thread"]).toContain(firstTool);
+    // create_crm_from_email sin confirm se ejecuta (preview); no emite create_account/create_contact
+    expect(hoisted.executeCalls.some((c) => c.name === "create_account")).toBe(false);
+    expect(hoisted.executeCalls.some((c) => c.name === "create_contact")).toBe(false);
+    expect(
+      (result.pendingConfirmations ?? []).filter((p) =>
+        ["create_account", "create_contact"].includes(p.confirmToolName),
+      ),
+    ).toHaveLength(0);
+  });
+
+  it("correo abierto: get_email_thread como primera tool (lectura, sin pending)", async () => {
+    script(
+      { toolCalls: [tc("c1", "get_email_thread", {})] },
+      { toolCalls: [tc("c2", "create_crm_from_email", { confirm: false })] },
+      { tokens: "Listo." },
+    );
+    const result = await runHelpChatTurn(
+      baseInput("crea la cuenta y el contacto"),
+    );
+    expect(hoisted.executeCalls[0]?.name).toBe("get_email_thread");
+    expect(hoisted.executeCalls.some((c) => c.name === "create_account")).toBe(false);
+    expect(result.text.length).toBeGreaterThan(0);
+  });
 });

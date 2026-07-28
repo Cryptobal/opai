@@ -79,9 +79,14 @@ export function CorreoReaderShell({
   const overlay = (
     <div
       className={cn(
+        // Móvil: overlay de viewport. Desktop split: sticky. Desktop overlay:
+        // anclado al workspace (relative en CorreosClient) para no tapar el
+        // dock Intelligence (fixed right z-40).
         "fixed inset-0 z-50 flex justify-end bg-black/40",
         desktopMode === "split" &&
           "lg:sticky lg:inset-auto lg:top-16 lg:z-20 lg:h-[calc(100dvh-5rem)] lg:w-[var(--correo-panel-width)] lg:shrink-0 lg:bg-transparent",
+        desktopMode === "overlay" &&
+          "lg:absolute lg:inset-0 lg:z-40 lg:bg-ds-surface-1",
       )}
       style={style}
       onClick={(event) => {
@@ -121,8 +126,8 @@ export function CorreoReaderShell({
           // Sin ring de :focus-visible global: el focus-trap enfoca este panel
           // y el anillo primary/naranja se leía como “borde rojo” del lector.
           "relative flex h-full w-full flex-col overflow-hidden bg-background outline-none focus:outline-none focus-visible:ring-0 focus-visible:ring-offset-0 lg:border lg:border-ds-border-default lg:bg-ds-surface-2",
-          desktopMode === "overlay" &&
-            "lg:w-[var(--correo-panel-width)] lg:shrink-0",
+          // Split: ancho redimensionable. Overlay desktop: ocupa el workspace.
+          desktopMode === "split" && "lg:w-full",
           // Entrada suave en móvil: slide desde la derecha (estilo Gmail/iOS).
           isMobile && "animate-in slide-in-from-right duration-200 ease-out",
         )}

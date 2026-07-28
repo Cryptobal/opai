@@ -12,12 +12,17 @@ describe("clampCorreoPanelWidth", () => {
     expect(clampCorreoPanelWidth(200, 1_200)).toBe(420);
   });
 
-  it("limita el panel al 72% del workspace", () => {
-    expect(clampCorreoPanelWidth(1_000, 1_000)).toBe(720);
+  it("reserva mínimo de lista (no ratio 72% ciego)", () => {
+    // workspace 1000, riel 68, gaps 24 → available 908 → maxReader 568
+    expect(clampCorreoPanelWidth(1_000, 1_000)).toBe(568);
   });
 
   it("preserva un ancho dentro del rango", () => {
-    expect(clampCorreoPanelWidth(580, 1_400)).toBe(580);
+    expect(clampCorreoPanelWidth(480, 1_400)).toBe(480);
+  });
+
+  it("sin medida de workspace no clampea", () => {
+    expect(clampCorreoPanelWidth(560, 0)).toBe(560);
   });
 
   it("descarta preferencias corruptas o con una forma inválida", () => {

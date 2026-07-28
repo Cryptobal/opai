@@ -217,7 +217,7 @@ function AppShellInner({
               ? 'pt-[env(safe-area-inset-top,0px)] lg:pt-12'
               : 'pt-[calc(4rem+env(safe-area-inset-top,0px))] lg:pt-12',
             isSidebarOpen ? 'lg:pl-64' : 'lg:pl-[72px]',
-            anyPanelOpen && 'xl:mr-[400px]',
+            anyPanelOpen && 'lg:mr-[400px]',
             className
           )}
         >

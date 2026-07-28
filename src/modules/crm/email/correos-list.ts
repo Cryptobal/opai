@@ -7,8 +7,7 @@ import {
   type RadarCapability,
 } from "./radar-types";
 import {
-  domainOf,
-  isPublicMailDomain,
+  buildTenantDomains,
   isSystemSender,
   snippetFromBody,
 } from "./correos-list-helpers";
@@ -291,20 +290,7 @@ async function mapThreadRowsInternal(
   radarCaps?: Set<RadarCapability>,
   reasonById?: Map<string, MatchReason>,
 ): Promise<CorreoThreadDTO[]> {
-  const tenantDomains = new Set<string>();
-  for (const e of [
-    company.emailFromAddress,
-    company.email,
-    company.emailOps,
-    company.emailFinance,
-    company.emailContact,
-    company.emailReplyTo,
-  ]) {
-    const d = domainOf(e);
-    if (d) tenantDomains.add(d);
-  }
-  const mailboxDom = domainOf(mailboxEmail ?? null);
-  if (mailboxDom && !isPublicMailDomain(mailboxDom)) tenantDomains.add(mailboxDom);
+  const tenantDomains = buildTenantDomains(company, mailboxEmail);
 
   const accountIds = Array.from(new Set(page.map((r) => r.accountId).filter(Boolean) as string[]));
   const dealIds = Array.from(new Set(page.map((r) => r.dealId).filter(Boolean) as string[]));
