@@ -170,12 +170,16 @@ export function EmailHtmlBody({
     return () => ro.disconnect();
   }, [useIframe, mode, safeHtml, measure]);
 
-  // El foco dentro del iframe no burbujea al padre: sin este puente, R/A/F/I
-  // (y el resto de atajos de bandeja) dejan de responder al leer el cuerpo.
+  // El foco dentro del iframe no burbujea al padre: sin este puente, los
+  // atajos de bandeja/lector (j/k, R/F/I, archivar…) dejan de responder al
+  // leer el cuerpo. Re-adjuntamos en `load` porque con srcDoc el
+  // contentDocument puede no estar listo en el primer effect.
   useEffect(() => {
     if (!useIframe || mode !== "html") return;
-    const doc = iframeRef.current?.contentDocument;
-    if (!doc) return;
+    const iframe = iframeRef.current;
+    if (!iframe) return;
+
+    let doc: Document | null = null;
     const onKey = (event: KeyboardEvent) => {
       if (event.metaKey || event.ctrlKey || event.altKey) return;
       const el = event.target as HTMLElement | null;
@@ -192,8 +196,21 @@ export function EmailHtmlBody({
         }),
       );
     };
-    doc.addEventListener("keydown", onKey);
-    return () => doc.removeEventListener("keydown", onKey);
+
+    const attach = () => {
+      const next = iframe.contentDocument;
+      if (!next || next === doc) return;
+      if (doc) doc.removeEventListener("keydown", onKey);
+      doc = next;
+      doc.addEventListener("keydown", onKey);
+    };
+
+    attach();
+    iframe.addEventListener("load", attach);
+    return () => {
+      iframe.removeEventListener("load", attach);
+      doc?.removeEventListener("keydown", onKey);
+    };
   }, [useIframe, mode, srcDoc]);
 
   return (

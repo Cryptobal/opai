@@ -60,7 +60,7 @@ export const CorreoRowMobile = memo(function CorreoRowMobile({
         aria-label={`Abrir correo de ${sender.name || sender.email || "remitente"}: ${subject}${
           hasAttachments ? ` (${thread.attachmentCount} adjuntos)` : ""
         }`}
-        className="flex min-w-0 flex-1 items-start gap-3 text-left ds-tap"
+        className="flex min-w-0 flex-1 items-start gap-3 text-left outline-none focus-visible:ring-0 focus-visible:ring-offset-0 ds-tap"
       >
         <span className="min-w-0 flex-1">
           <span

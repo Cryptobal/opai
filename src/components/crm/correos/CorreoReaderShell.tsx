@@ -118,7 +118,9 @@ export function CorreoReaderShell({
           // Fondo sólido de respaldo: el underlay del glass-strong + este bg
           // evitan que la lista de correos se lea detrás de chips/acciones.
           // `relative` ancla el host de overlays (guardar adjuntos) al visor.
-          "relative flex h-full w-full flex-col overflow-hidden bg-background lg:border lg:border-ds-border-default lg:bg-ds-surface-2",
+          // Sin ring de :focus-visible global: el focus-trap enfoca este panel
+          // y el anillo primary/naranja se leía como “borde rojo” del lector.
+          "relative flex h-full w-full flex-col overflow-hidden bg-background outline-none focus:outline-none focus-visible:ring-0 focus-visible:ring-offset-0 lg:border lg:border-ds-border-default lg:bg-ds-surface-2",
           desktopMode === "overlay" &&
             "lg:w-[var(--correo-panel-width)] lg:shrink-0",
           // Entrada suave en móvil: slide desde la derecha (estilo Gmail/iOS).
@@ -133,7 +135,7 @@ export function CorreoReaderShell({
                 type="button"
                 onClick={onClose}
                 aria-label="Volver"
-                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-ds-text-2 ds-tap"
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-ds-text-2 outline-none focus-visible:ring-0 focus-visible:ring-offset-0 ds-tap"
               >
                 <ChevronLeft className="h-6 w-6" />
               </button>

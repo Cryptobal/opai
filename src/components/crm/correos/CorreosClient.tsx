@@ -583,6 +583,12 @@ export function CorreosClient() {
   }
 
   function openCompose(id: string, mode: ComposerMode, ai = false) {
+    // Si el hilo ya está abierto, solo pedí el composer — no re-montar el
+    // lector ni limpiar workTab/autoExtract (atajos R/T/F/I del lector).
+    if (openId === id) {
+      setComposeIntent({ mode, ai, nonce: nextIntentNonce() });
+      return;
+    }
     openThread(id, { compose: { mode, ai } });
   }
 

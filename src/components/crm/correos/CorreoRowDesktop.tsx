@@ -119,7 +119,9 @@ export function CorreoRowDesktop({
         type="button"
         onClick={onOpen}
         aria-current={selected ? "true" : undefined}
-        className="flex h-full min-w-0 flex-1 items-center gap-3 text-left"
+        // El estado focused/selected ya pinta la fila; el ring global de
+        // :focus-visible se veía como un borde naranja alrededor del mail.
+        className="flex h-full min-w-0 flex-1 items-center gap-3 text-left outline-none focus-visible:ring-0 focus-visible:ring-offset-0"
       >
         <span
           className={`w-44 flex-none truncate text-[13px] ${

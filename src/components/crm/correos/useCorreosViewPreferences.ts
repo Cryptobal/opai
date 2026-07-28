@@ -100,7 +100,7 @@ export const DEFAULT_CORREO_SHORTCUTS: CorreoShortcuts = {
   aiMenu: ".",
 };
 
-/** Atajos del composer/lector: con el hilo abierto los maneja CorreoReplyBox. */
+/** Atajos del composer/lector (prioridad ante colisiones con bandeja). */
 export const COMPOSE_SHORTCUT_ACTIONS: readonly CorreoShortcutAction[] = [
   "reply",
   "replyAll",
