@@ -858,6 +858,7 @@ export const NAV_MODULES: NavNode[] = [
     hideInModuleTabs: true,
     children: [
       // ── General ──
+      { key: "config-inicio", href: "/opai/configuracion/inicio", label: "Modo de inicio", shortLabel: "Inicio", icon: LayoutDashboard, module: "config", category: "general", description: "Elige si al entrar abres ERP o Productividad (login y PWA)" },
       { key: "config-empresa", href: "/opai/configuracion/empresa", label: "Empresa", icon: Building2, module: "config", submodule: "empresa", category: "general", description: "Razón social, RUT, dirección, representante legal" },
       { key: "config-mi-plan", href: "/opai/configuracion/mi-plan", label: "Mi Plan", icon: Sparkles, module: "config", submodule: "mi_plan", category: "general", description: "Plan actual, módulos, add-ons y solicitar upgrade" },
       { key: "config-cumplimiento", href: "/opai/configuracion/cumplimiento", label: "Cumplimiento", icon: Shield, module: "config", submodule: "cumplimiento", category: "general", description: "Contacto del DPO y estado del DPA" },

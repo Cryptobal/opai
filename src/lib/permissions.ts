@@ -1177,6 +1177,7 @@ export function pathToPermission(
   if (pathname.startsWith("/opai/configuracion/tipos-ticket")) return { module: "config", submodule: "tipos_ticket" };
   if (pathname.startsWith("/opai/configuracion/finanzas")) return { module: "config", submodule: "finanzas" };
   if (pathname.startsWith("/opai/configuracion/inteligencia-artificial")) return { module: "config", submodule: "inteligencia_artificial" };
+  if (pathname.startsWith("/opai/configuracion/inicio")) return { module: "config" };
   if (pathname.startsWith("/opai/configuracion/empresa")) return { module: "config", submodule: "empresa" };
   if (pathname.startsWith("/opai/configuracion/roles")) return { module: "config", submodule: "roles" };
   if (pathname.startsWith("/opai/configuracion/auditoria")) return { module: "config", submodule: "auditoria" };
