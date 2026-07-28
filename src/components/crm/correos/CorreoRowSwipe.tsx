@@ -129,10 +129,11 @@ export function CorreoRowSwipe({
     return 0.45 + 0.55 * progress;
   });
 
-  const commitIconX = useTransform(x, (value) => {
-    // Icono anclado al borde interior de la fila (sigue al dedo).
-    if (value >= 0) return Math.max(0, value - 40);
-    return Math.min(0, value + 40);
+  const commitIconLeft = useTransform(x, (value) => {
+    const width = rowRef.current?.offsetWidth || 360;
+    // Anclado al borde interior de la fila que sigue al dedo.
+    if (value >= 0) return Math.max(12, value - 36);
+    return Math.max(12, width + value + 12);
   });
 
   const hideActionButtons = useTransform(x, (value) => {
