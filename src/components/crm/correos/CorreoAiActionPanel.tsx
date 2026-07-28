@@ -428,7 +428,7 @@ export function CorreoAiActionPanel({
       const res = await fetch(`/api/crm/correos/${threadId}/create-structure`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ proposal, include }),
+        body: JSON.stringify({ proposal, include, refineAnswers: answers }),
       });
       const j = (await res.json()) as CreateCrmStructureResult;
       if (!res.ok || !j.ok) throw new Error(j.error || "No se pudo crear la estructura");

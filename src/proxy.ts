@@ -251,6 +251,15 @@ export default auth(async (req) => {
     return Response.redirect(new URL('/hub', req.nextUrl.origin));
   }
 
+  // PWA ERP (start_url=/hub): si la sesión está en Productividad, redirigir.
+  // Así el icono instalado desde ERP aún abre el modo elegido (cookie).
+  if (pathname === '/hub' && req.auth) {
+    const surface = req.cookies.get(SURFACE_COOKIE)?.value;
+    if (surface === 'productividad') {
+      return NextResponse.redirect(new URL('/productividad', req.nextUrl.origin));
+    }
+  }
+
   // PWA Productividad (H4): un solo viaje si ya conocemos la landing.
   // Sin cookie → cae a la page (loading.tsx cubre el hop frío).
   if (pathname === '/productividad' && req.auth) {

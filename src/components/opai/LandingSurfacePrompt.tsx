@@ -86,7 +86,9 @@ export function LandingSurfacePrompt() {
             ¿Dónde quieres empezar?
           </DialogTitle>
           <DialogDescription className="text-[13px] text-ds-text-3">
-            Puedes cambiar de superficie cuando quieras desde el menú.
+            Puedes cambiar cuando quieras con el selector ERP / Productividad
+            (barra superior en desktop, isla inferior en móvil). No está en
+            Configuración: es una preferencia de sesión y de arranque.
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-2 px-4 pb-5">

@@ -127,8 +127,14 @@ export function useHelpChatController(opts: {
   });
 
   const preferServer = motor === "server" || !webSpeech.supported;
-  const dictationActive = preferServer ? serverTx.recording || serverTx.uploading : webSpeech.listening;
-  const levelRef = useAudioLevel(dictationActive);
+  const dictationActive =
+    preferServer
+      ? serverTx.recording || serverTx.uploading
+      : webSpeech.listening;
+  // Solo medir nivel mientras hay stream vivo (recording). No durante upload:
+  // eso re-pedía mic fuera del gesto del usuario (segundo getUserMedia).
+  const levelActive = preferServer && serverTx.recording;
+  const levelRef = useAudioLevel(levelActive, serverTx.mediaStream);
 
   useEffect(() => {
     if (webSpeech.error) toast.error(webSpeech.error);

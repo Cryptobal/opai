@@ -751,6 +751,9 @@ model AiChatConversation {
   title     String
   /// Si está fijada, aparece arriba del historial.
   pinnedAt  DateTime? @map("pinned_at")
+  /// Ancla de negocio (nullable): crm_deal | crm_account | …
+  anchorType String?  @map("anchor_type")
+  anchorId   String?  @map("anchor_id")
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 
@@ -761,6 +764,7 @@ model AiChatConversation {
   @@index([tenantId, userId], map: "idx_ai_chat_conv_tenant_user")
   @@index([updatedAt], map: "idx_ai_chat_conv_updated_at")
   @@index([tenantId, userId, pinnedAt], map: "idx_ai_chat_conv_pinned")
+  @@index([tenantId, anchorType, anchorId], map: "idx_ai_chat_conv_anchor")
   @@schema("public")
 }
 
