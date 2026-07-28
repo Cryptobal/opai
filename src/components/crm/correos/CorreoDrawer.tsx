@@ -96,6 +96,10 @@ export function CorreoDrawer({
   // archivar que llega después de avanzar al siguiente correo).
   const threadIdRef = useRef(threadId);
   threadIdRef.current = threadId;
+  /** Cursor de lectura capturado la primera vez que llega el detalle del hilo
+   *  (antes del markRead). Las recargas silenciosas no lo pisan. */
+  const [readCursorAt, setReadCursorAt] = useState<string | null>(null);
+  const readCursorCapturedRef = useRef(false);
 
   const load = useCallback(async (opts?: { silent?: boolean }) => {
     if (!threadId) return;
@@ -136,6 +140,8 @@ export function CorreoDrawer({
   useEffect(() => {
     setLocalComposeIntent(null);
     setSnoozeOpen(false);
+    setReadCursorAt(null);
+    readCursorCapturedRef.current = false;
     if (!threadId) {
       setDetail(null);
       return;
@@ -154,6 +160,17 @@ export function CorreoDrawer({
       cancelled = true;
     };
   }, [load, threadId]);
+
+  // Captura lastReadAt la primera vez que llega detalle de red para este hilo.
+  // El markRead corre después (useMarkCorreoRead espera detail !== null).
+  // Ignora caché offline incompleta (sin threadSummary) para no sellar null
+  // antes de que llegue el lastReadAt real.
+  useEffect(() => {
+    if (!detail || detail.thread.id !== threadId || readCursorCapturedRef.current) return;
+    if (!("threadSummary" in detail.thread)) return;
+    setReadCursorAt(detail.thread.lastReadAt ?? null);
+    readCursorCapturedRef.current = true;
+  }, [detail, threadId]);
   // Refresh en vivo: recarga en segundo plano sin vaciar ni parpadear el
   // lector. Se omite la primera ejecución (el efecto de arriba ya cargó) para
   // no duplicar el fetch inicial. Usa un ref a `load` para no reejecutarse
@@ -271,12 +288,14 @@ export function CorreoDrawer({
           onRemoveDone={onRemoveDone}
           onUndoDone={onUndoDone}
           onReply={scrollToReply}
+          onRequestReply={requestReply}
           onSnooze={() => setSnoozeOpen(true)}
           alwaysShowImages={alwaysShowImages}
           onAlwaysShowImages={onAlwaysShowImages}
           shortcuts={shortcuts}
           workTabIntent={workTabIntent}
           composeIntent={effectiveComposeIntent}
+          readCursorAt={readCursorAt}
         />
       )}
       <CorreoSnoozeSheet

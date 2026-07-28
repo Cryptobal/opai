@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import { Briefcase, X } from "lucide-react";
 import { hasModuleAccess } from "@/lib/permissions";
@@ -17,35 +17,76 @@ import { WORK_TABS, resolveWorkTab, type WorkTab } from "./work-panel-tabs";
 import type { CorreoDetail } from "@/modules/crm/email/correos.types";
 import type { CorreoAiCommandId } from "@/modules/crm/email/correo-ai-commands";
 
+type Detent = "peek" | "full";
+
 type Props = {
   open: boolean;
   onClose: () => void;
   initialTab: WorkTab;
   detail: CorreoDetail;
+  readCursorAt?: string | null;
+  workTabIntent?: { tab: WorkTab; nonce: number } | null;
   onOpenAiLead: () => void;
   onAiCommand?: (commandId: CorreoAiCommandId) => void;
   onAssociate: (p: { accountId: string | null; dealId: string | null; sharedWithAccount?: boolean }) => void;
   onRefresh: () => void;
+  onRequestReply?: () => void;
 };
+
+function initialDetent(tab: WorkTab): Detent {
+  return tab === "resumen" ? "peek" : "full";
+}
 
 /**
  * Panel de trabajo transversal: slide-over derecha en desktop /
- * bottom-sheet en móvil. Cuatro pestañas: Copiloto · Cuenta · Vínculos · Trabajo.
+ * bottom-sheet en móvil con dos alturas (peek 52dvh / full 90dvh).
  */
 export function CorreoWorkPanel({
-  open, onClose, initialTab, detail, onOpenAiLead, onAiCommand, onAssociate, onRefresh,
+  open,
+  onClose,
+  initialTab,
+  detail,
+  readCursorAt = null,
+  workTabIntent = null,
+  onOpenAiLead,
+  onAiCommand,
+  onAssociate,
+  onRefresh,
+  onRequestReply,
 }: Props) {
-  const [tab, setTab] = useState(() => resolveWorkTab(initialTab));
+  const resolvedInitial = resolveWorkTab(initialTab);
+  const [tab, setTab] = useState(() => resolvedInitial);
+  const [detent, setDetent] = useState<Detent>(() => initialDetent(resolvedInitial));
   const [closing, setClosing] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const sheetRef = useRef<HTMLDivElement | null>(null);
   const perms = useEffectivePermissions();
+  const threadId = detail.thread.id;
 
   useEffect(() => {
-    if (open) {
-      setTab(resolveWorkTab(initialTab));
-      setClosing(false);
-    }
-  }, [open, initialTab]);
+    if (typeof window === "undefined") return;
+    const mq = window.matchMedia("(max-width: 1023px)");
+    const apply = () => setIsMobile(mq.matches);
+    apply();
+    mq.addEventListener("change", apply);
+    return () => mq.removeEventListener("change", apply);
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    const next = resolveWorkTab(initialTab);
+    setTab(next);
+    setDetent(initialDetent(next));
+    setClosing(false);
+  }, [open, initialTab, threadId]);
+
+  useEffect(() => {
+    if (!open || !workTabIntent) return;
+    setTab(resolveWorkTab(workTabIntent.tab));
+    setDetent("full");
+    // nonce fuerza re-apertura aunque sea la misma pestaña.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [workTabIntent?.nonce, open]);
 
   const requestClose = () => {
     if (closing) return;
@@ -60,8 +101,28 @@ export function CorreoWorkPanel({
     }
   };
 
+  const onSwipeDown = () => {
+    if (typeof window !== "undefined" && window.matchMedia("(min-width: 1024px)").matches) {
+      requestClose();
+      return;
+    }
+    if (detent === "full") {
+      setDetent("peek");
+      return;
+    }
+    requestClose();
+  };
+
+  const onSwipeUp = () => {
+    if (typeof window !== "undefined" && window.matchMedia("(min-width: 1024px)").matches) {
+      return;
+    }
+    if (detent === "peek") setDetent("full");
+  };
+
   const swipe = useSwipeGesture({
-    onSwipeDown: () => requestClose(),
+    onSwipeDown,
+    onSwipeUp,
     followFinger: true,
     targetRef: sheetRef,
     mobileOnly: true,
@@ -82,38 +143,63 @@ export function CorreoWorkPanel({
     return () => document.removeEventListener("keydown", onKey, { capture: true });
     // requestClose closes over `closing`; re-bind when open/closing changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, closing, onClose]);
+  }, [open, closing, onClose, detent]);
 
   if (!open) return null;
 
   const t = detail.thread;
+  // peek solo aplica bajo lg; en desktop el slide-over siempre es "completo".
+  const peekMode = isMobile && detent === "peek";
   const modChips = [
     { label: "Productividad", on: true },
     { label: "Comercial", on: hasModuleAccess(perms, "crm") },
     { label: "Operaciones", on: hasModuleAccess(perms, "ops") },
   ].filter((m) => m.on);
 
+  function selectTab(next: WorkTab) {
+    setTab(resolveWorkTab(next));
+    if (detent === "peek") setDetent("full");
+  }
+
+  const sheetHeightStyle: CSSProperties = {
+    ["--sheet-h" as string]: detent === "full" ? "90dvh" : "52dvh",
+    transition: closing
+      ? "transform 180ms ease-out"
+      : "height 260ms ease, max-height 260ms ease",
+  };
+
   return createPortal(
     <div
-      className="fixed inset-0 z-[55] flex justify-end bg-black/40"
-      onClick={(e) => e.target === e.currentTarget && requestClose()}
+      className={
+        peekMode
+          ? "fixed inset-0 z-[55] flex justify-end pointer-events-none max-lg:items-end lg:pointer-events-auto lg:bg-black/40"
+          : "fixed inset-0 z-[55] flex justify-end bg-black/40 max-lg:items-end"
+      }
+      onClick={(e) => {
+        if (peekMode) return;
+        if (e.target === e.currentTarget) requestClose();
+      }}
     >
       <div
         ref={sheetRef}
         role="dialog"
-        aria-modal="true"
+        aria-modal={!peekMode}
         aria-label="Panel de trabajo"
-        className="flex h-full w-full flex-col overflow-hidden border-ds-border-default bg-ds-surface-1 shadow-2xl sm:w-[430px] sm:border-l max-lg:mt-auto max-lg:h-[88dvh] max-lg:rounded-t-2xl max-lg:border-t"
-        style={{ transition: closing ? "transform 180ms ease-out" : undefined }}
+        className="pointer-events-auto flex h-full w-full flex-col overflow-hidden border-ds-border-default bg-ds-surface-1 shadow-2xl sm:w-[430px] sm:border-l max-lg:mt-auto max-lg:h-[var(--sheet-h)] max-lg:max-h-[var(--sheet-h)] max-lg:rounded-t-2xl max-lg:border-t motion-reduce:transition-none"
+        style={sheetHeightStyle}
         onClick={(e) => e.stopPropagation()}
       >
-        <div
-          className="mx-auto mt-2 h-1 w-10 shrink-0 rounded-full bg-ds-surface-3 lg:hidden"
+        <button
+          type="button"
+          className="mx-auto mt-2 flex h-11 w-16 shrink-0 items-center justify-center lg:hidden"
+          aria-label={detent === "peek" ? "Expandir panel" : "Contraer panel"}
+          onClick={() => setDetent((d) => (d === "peek" ? "full" : "peek"))}
           onTouchStart={swipe.onTouchStart}
           onTouchMove={swipe.onTouchMove}
           onTouchEnd={swipe.onTouchEnd}
-          aria-hidden
-        />
+        >
+          <span className="h-1 w-10 rounded-full bg-ds-surface-3" aria-hidden />
+        </button>
         <header
           className="shrink-0 border-b border-ds-border-subtle px-3 py-2.5"
           onTouchStart={swipe.onTouchStart}
@@ -132,35 +218,42 @@ export function CorreoWorkPanel({
               <X className="h-4 w-4" />
             </button>
           </div>
-          <div className="mt-1.5 flex flex-wrap gap-1">
-            {modChips.map((m) => (
-              <span key={m.label} className="rounded-full bg-ds-surface-3 px-2 py-0.5 text-[12px] text-ds-text-3">
-                {m.label}
-              </span>
-            ))}
-          </div>
-          <div className="mt-2 flex gap-1">
-            {WORK_TABS.map((wt) => {
-              const Icon = wt.icon;
-              const active = tab === wt.id;
-              return (
-                <button
-                  key={wt.id}
-                  type="button"
-                  onClick={() => setTab(wt.id)}
-                  aria-pressed={active}
-                  className={`flex min-h-11 min-w-0 flex-1 flex-col items-center gap-0.5 rounded-xl px-1 py-1.5 ds-tap sm:min-h-0 ${
-                    active ? "bg-primary/10 text-primary" : "text-ds-text-3"
-                  }`}
-                >
-                  <Icon className="h-[18px] w-[18px] shrink-0" />
-                  <span className="max-w-full truncate text-[12px] font-medium leading-none">
-                    {wt.label}
+          {!peekMode && (
+            <>
+              <div className="mt-1.5 flex flex-wrap gap-1">
+                {modChips.map((m) => (
+                  <span
+                    key={m.label}
+                    className="rounded-full bg-ds-surface-3 px-2 py-0.5 text-[12px] text-ds-text-3"
+                  >
+                    {m.label}
                   </span>
-                </button>
-              );
-            })}
-          </div>
+                ))}
+              </div>
+              <div className="mt-2 flex gap-1">
+                {WORK_TABS.map((wt) => {
+                  const Icon = wt.icon;
+                  const active = tab === wt.id;
+                  return (
+                    <button
+                      key={wt.id}
+                      type="button"
+                      onClick={() => selectTab(wt.id)}
+                      aria-pressed={active}
+                      className={`flex min-h-11 min-w-0 flex-1 flex-col items-center gap-0.5 rounded-xl px-1 py-1.5 ds-tap sm:min-h-0 ${
+                        active ? "bg-primary/10 text-primary" : "text-ds-text-3"
+                      }`}
+                    >
+                      <Icon className="h-[18px] w-[18px] shrink-0" />
+                      <span className="max-w-full truncate text-[12px] font-medium leading-none">
+                        {wt.label}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </>
+          )}
         </header>
 
         <div
@@ -169,23 +262,13 @@ export function CorreoWorkPanel({
         >
           {tab === "resumen" && (
             <CorreoWorkSummary
-              threadId={t.id}
-              accountId={t.accountId}
-              accountName={t.accountName}
-              dealTitle={t.dealTitle}
-              hasLead={Boolean(t.leadId)}
-              attachmentCount={detail.attachments.length}
-              attachmentsSaved={detail.attachments.filter((a) => a.savedFileId).length}
-              aiCategory={t.aiCategory}
-              aiVertical={t.aiVertical}
-              aiSummary={t.aiSummary}
-              aiUrgency={t.aiUrgency}
-              aiClassifiedAt={t.aiClassifiedAt}
-              lastMessageAt={t.lastMessageAt}
-              dealFechaEntrega={t.dealFechaEntrega}
+              detail={detail}
+              readCursorAt={readCursorAt}
+              peekMode={peekMode}
               onOpenAiLead={onOpenAiLead}
               onAiCommand={onAiCommand}
-              onGoTo={(next) => setTab(resolveWorkTab(next))}
+              onGoTo={(next) => selectTab(resolveWorkTab(next))}
+              onRequestReply={onRequestReply}
             />
           )}
           {tab === "cuenta" && (
