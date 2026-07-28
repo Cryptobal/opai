@@ -164,6 +164,7 @@ export function CorreoTicketPanel({ threadId, subject }: { threadId: string; sub
               value={due}
               onChange={setDue}
               ariaLabel="Vencimiento"
+              menuAlign="center"
               className="min-w-[8rem] flex-1"
             />
             <TaskTimePicker value={time} onChange={setTime} ariaLabel="Hora de vencimiento" menuAlign="right" className="shrink-0" />

@@ -136,6 +136,7 @@ export function CorreoTasksPanel({ threadId, subject }: { threadId: string; subj
           value={due}
           onChange={setDue}
           ariaLabel="Fecha"
+          menuAlign="center"
           className="min-w-[8rem] flex-1"
         />
         {/* Selector no nativo en pasos de 15 min (misma UX que Agenda/Tareas).
