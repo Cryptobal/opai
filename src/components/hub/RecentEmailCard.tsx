@@ -1,21 +1,19 @@
 "use client";
 
 /**
- * RecentEmailCard — inbox real del usuario en el Hub (≠ Radar Comercial,
- * que muestra señales comerciales derivadas). Lee la base local vía
- * /api/hub/emails (contexto compartido); nunca consulta Gmail ni marca
- * mensajes como leídos. Tap en una fila abre el hilo en el lector
- * existente (/crm/correos?thread=<id>).
+ * RecentEmailCard — inbox real del usuario en el Hub (≠ Radar Comercial).
+ * Lee /api/hub/emails vía contexto; nunca consulta Gmail ni marca leído.
  */
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
-import { ChevronRight, Mail, Paperclip, RefreshCw } from "lucide-react";
+import { ChevronRight, Mail, Paperclip, RefreshCw, Reply } from "lucide-react";
 import { EmptyState, Surface, Tag } from "@/components/opai-ds";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { formatGmailDateChile } from "@/modules/crm/email/gmail-date-format";
 import { useHubEmails } from "./hub-email-context";
+import type { HubEmailItem } from "@/modules/crm/email/hub-recent-emails";
 
 const MOBILE_VISIBLE = 3;
 
@@ -27,14 +25,20 @@ function senderLabel(fromEmail: string | null): string {
   return fromEmail.split("@")[0] || fromEmail;
 }
 
-function HeaderRow({ unreadCount }: { unreadCount?: number }) {
+function HeaderRow({
+  unreadCount,
+  dense,
+}: {
+  unreadCount?: number;
+  dense?: boolean;
+}) {
   const badge = typeof unreadCount === "number" && unreadCount > 0 && (
-    <Tag variant="brand" size="sm" className="shrink-0">{unreadCount} sin leer</Tag>
+    <Tag variant="brand" size="sm" className="shrink-0">
+      {unreadCount} sin leer
+    </Tag>
   );
   return (
     <>
-      {/* Móvil: sin botón "Ver todos" (redundante con el pill Correos de
-          accesos rápidos) — el header completo es tocable con chevron. */}
       <Link
         href="/crm/correos"
         aria-label="Ver todos los correos"
@@ -42,20 +46,17 @@ function HeaderRow({ unreadCount }: { unreadCount?: number }) {
       >
         <Mail className="h-4 w-4 shrink-0 text-primary" />
         <p className="min-w-0 truncate font-display text-sm font-semibold text-ds-text-1">
-          Correos recientes
+          Correos
         </p>
         {badge}
         <span className="ml-auto flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-ds-border-subtle bg-ds-surface-2 text-ds-text-3">
           <ChevronRight className="h-4 w-4" />
         </span>
       </Link>
-
-      {/* Desktop: título. Sin botón "Ver todos" (redundante con el pill Correos
-          de accesos rápidos, igual que en móvil). */}
       <div className="hidden min-w-0 items-center gap-2 lg:flex">
         <Mail className="h-4 w-4 shrink-0 text-primary" />
         <p className="truncate font-display text-sm font-semibold text-ds-text-1">
-          Correos recientes
+          {dense ? "Correos" : "Correos recientes"}
         </p>
         {badge}
       </div>
@@ -63,20 +64,120 @@ function HeaderRow({ unreadCount }: { unreadCount?: number }) {
   );
 }
 
-export function RecentEmailCard() {
+/** Sin señal IA reutilizable: no leídos → requieren respuesta; leídos → recientes. */
+function groupEmails(items: HubEmailItem[]) {
+  return {
+    needReply: items.filter((i) => i.isUnread),
+    recent: items.filter((i) => !i.isUnread),
+  };
+}
+
+function EmailRow({
+  item,
+  multipleAccounts,
+  dense,
+}: {
+  item: HubEmailItem;
+  multipleAccounts: boolean;
+  dense?: boolean;
+}) {
+  return (
+    <Link
+      href={`/crm/correos?thread=${item.id}`}
+      className={cn(
+        "group relative flex min-h-11 min-w-0 items-start gap-2.5 rounded-ds-md px-2 py-2 transition-colors hover:bg-ds-surface-2 ds-tap",
+      )}
+    >
+      <span
+        aria-label={item.isUnread ? "No leído" : undefined}
+        className={cn(
+          "mt-1.5 h-2 w-2 shrink-0 rounded-full",
+          item.isUnread ? "bg-primary" : "bg-transparent",
+        )}
+      />
+      <span className="min-w-0 flex-1">
+        <span className="flex min-w-0 items-baseline justify-between gap-2">
+          <span
+            className={cn(
+              "min-w-0 truncate text-[13px]",
+              item.isUnread ? "font-semibold text-ds-text-1" : "font-medium text-ds-text-2",
+            )}
+          >
+            {senderLabel(item.fromEmail)}
+          </span>
+          <span className="shrink-0 text-[12px] tabular-nums text-ds-text-4">
+            {formatGmailDateChile(item.lastMessageAt)}
+          </span>
+        </span>
+        <span className="flex min-w-0 items-center gap-1.5">
+          {item.hasAttachment && (
+            <Paperclip className="h-3.5 w-3.5 shrink-0 text-ds-text-4" />
+          )}
+          <span
+            className={cn(
+              "min-w-0 truncate text-[13px]",
+              item.isUnread ? "text-ds-text-1" : "text-ds-text-3",
+            )}
+          >
+            {item.subject || "(sin asunto)"}
+          </span>
+          {item.isUnread && (
+            <Tag variant="brand" size="sm" className="ml-auto shrink-0">
+              Sin leer
+            </Tag>
+          )}
+        </span>
+        {!dense && item.snippet && (
+          <span className="block min-w-0 truncate text-[12px] text-ds-text-4">
+            {item.snippet}
+          </span>
+        )}
+        {multipleAccounts && (
+          <span className="block min-w-0 truncate text-[12px] font-mono text-ds-text-4">
+            {item.accountEmail}
+          </span>
+        )}
+      </span>
+      {dense && (
+        <span className="absolute right-2 top-1/2 hidden -translate-y-1/2 items-center gap-1 rounded-md bg-ds-surface-1 px-1.5 py-1 opacity-0 shadow-sm ring-1 ring-ds-border-subtle transition-opacity group-hover:flex group-hover:opacity-100">
+          <span className="inline-flex items-center gap-1 text-[12px] font-medium text-primary">
+            <Reply className="h-3.5 w-3.5" />
+            Abrir
+          </span>
+        </span>
+      )}
+    </Link>
+  );
+}
+
+export function RecentEmailCard({
+  variant = "default",
+  className,
+}: {
+  variant?: "default" | "dense";
+  className?: string;
+} = {}) {
   const state = useHubEmails();
   const [showAll, setShowAll] = useState(false);
+  const dense = variant === "dense";
 
-  // Sin provider (sin acceso CRM) la tarjeta no se renderiza.
+  const groups = useMemo(
+    () => (state?.data ? groupEmails(state.data.items) : { needReply: [], recent: [] }),
+    [state?.data],
+  );
+
   if (!state) return null;
 
   const { status, data, reload } = state;
+  const shell = cn(
+    dense ? "flex min-h-0 min-w-0 flex-col gap-3" : "space-y-3",
+    className,
+  );
 
   if (status === "loading") {
     return (
-      <Surface elevation={1} padding="md" className="space-y-3">
-        <HeaderRow />
-        {/* Skeleton con altura estable (3 filas ≈ lista real) — sin layout shift */}
+      <Surface elevation={1} padding="md" className={shell}>
+        <HeaderRow dense={dense} />
         <div className="space-y-2" aria-hidden="true">
           {Array.from({ length: MOBILE_VISIBLE }).map((_, i) => (
             <div key={i} className="h-11 animate-pulse rounded-ds-md bg-ds-surface-2" />
@@ -88,8 +189,8 @@ export function RecentEmailCard() {
 
   if (status === "disconnected") {
     return (
-      <Surface elevation={1} padding="md" className="space-y-3">
-        <HeaderRow />
+      <Surface elevation={1} padding="md" className={shell}>
+        <HeaderRow dense={dense} />
         <EmptyState
           icon={Mail}
           title="Sin casilla conectada"
@@ -107,12 +208,10 @@ export function RecentEmailCard() {
 
   if (status === "error" || !data) {
     return (
-      <Surface elevation={1} padding="md" className="space-y-3">
-        <HeaderRow />
+      <Surface elevation={1} padding="md" className={shell}>
+        <HeaderRow dense={dense} />
         <div className="flex min-w-0 items-center justify-between gap-2 rounded-ds-md bg-ds-surface-2 px-3 py-2.5">
-          <p className="min-w-0 text-[13px] text-ds-text-3">
-            No pudimos cargar tus correos.
-          </p>
+          <p className="min-w-0 text-[13px] text-ds-text-3">No pudimos cargar tus correos.</p>
           <Button variant="outline" size="sm" onClick={reload} className="shrink-0">
             <RefreshCw className="h-4 w-4" />
             <span className="ml-1.5">Reintentar</span>
@@ -125,8 +224,8 @@ export function RecentEmailCard() {
   const multipleAccounts = data.accountEmails.length > 1;
 
   return (
-    <Surface elevation={1} padding="md" className="min-w-0 space-y-3">
-      <HeaderRow unreadCount={data.unreadCount} />
+    <Surface elevation={1} padding="md" className={cn(shell, "min-w-0")}>
+      <HeaderRow unreadCount={data.unreadCount} dense={dense} />
 
       {data.items.length === 0 ? (
         <EmptyState
@@ -135,6 +234,45 @@ export function RecentEmailCard() {
           description="No hay correos recientes en tu casilla."
           compact
         />
+      ) : dense ? (
+        <>
+          <div className="min-h-0 flex-1 space-y-3 overflow-auto">
+            {groups.needReply.length > 0 && (
+              <div>
+                <p className="mb-1 px-1 text-[12px] uppercase tracking-wide text-ds-text-4">
+                  Requieren respuesta
+                </p>
+                <ul className="space-y-0.5">
+                  {groups.needReply.map((item) => (
+                    <li key={item.id}>
+                      <EmailRow item={item} multipleAccounts={multipleAccounts} dense />
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {groups.recent.length > 0 && (
+              <div>
+                <p className="mb-1 px-1 text-[12px] uppercase tracking-wide text-ds-text-4">
+                  Recientes
+                </p>
+                <ul className="space-y-0.5">
+                  {groups.recent.map((item) => (
+                    <li key={item.id}>
+                      <EmailRow item={item} multipleAccounts={multipleAccounts} dense />
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+          <Link
+            href="/crm/correos"
+            className="flex min-h-11 shrink-0 items-center justify-center rounded-ds-md text-[13px] font-medium text-primary transition-colors hover:bg-ds-surface-2"
+          >
+            Abrir correos
+          </Link>
+        </>
       ) : (
         <>
           <ul className="space-y-0.5">
@@ -146,62 +284,10 @@ export function RecentEmailCard() {
                   idx >= MOBILE_VISIBLE && !showAll && "hidden lg:block",
                 )}
               >
-                <Link
-                  href={`/crm/correos?thread=${item.id}`}
-                  className="flex min-h-11 min-w-0 items-start gap-2.5 rounded-ds-md px-2 py-2 transition-colors hover:bg-ds-surface-2 ds-tap"
-                >
-                  <span
-                    aria-label={item.isUnread ? "No leído" : undefined}
-                    className={cn(
-                      "mt-1.5 h-2 w-2 shrink-0 rounded-full",
-                      item.isUnread ? "bg-primary" : "bg-transparent",
-                    )}
-                  />
-                  <span className="min-w-0 flex-1">
-                    <span className="flex min-w-0 items-baseline justify-between gap-2">
-                      <span
-                        className={cn(
-                          "min-w-0 truncate text-[13px]",
-                          item.isUnread
-                            ? "font-semibold text-ds-text-1"
-                            : "font-medium text-ds-text-2",
-                        )}
-                      >
-                        {senderLabel(item.fromEmail)}
-                      </span>
-                      <span className="shrink-0 text-[12px] tabular-nums text-ds-text-4">
-                        {formatGmailDateChile(item.lastMessageAt)}
-                      </span>
-                    </span>
-                    <span className="flex min-w-0 items-center gap-1.5">
-                      {item.hasAttachment && (
-                        <Paperclip className="h-3.5 w-3.5 shrink-0 text-ds-text-4" />
-                      )}
-                      <span
-                        className={cn(
-                          "min-w-0 truncate text-[13px]",
-                          item.isUnread ? "text-ds-text-1" : "text-ds-text-3",
-                        )}
-                      >
-                        {item.subject || "(sin asunto)"}
-                      </span>
-                    </span>
-                    {item.snippet && (
-                      <span className="block min-w-0 truncate text-[12px] text-ds-text-4">
-                        {item.snippet}
-                      </span>
-                    )}
-                    {multipleAccounts && (
-                      <span className="block min-w-0 truncate text-[12px] font-mono text-ds-text-4">
-                        {item.accountEmail}
-                      </span>
-                    )}
-                  </span>
-                </Link>
+                <EmailRow item={item} multipleAccounts={multipleAccounts} />
               </li>
             ))}
           </ul>
-
           {data.items.length > MOBILE_VISIBLE && !showAll && (
             <button
               type="button"
