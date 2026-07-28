@@ -4,6 +4,7 @@ import { useState } from "react";
 import { CalendarCheck, CalendarPlus, Mail, Sparkles, X } from "lucide-react";
 import { toast } from "sonner";
 import { TaskTimePicker } from "@/components/agenda/TaskTimePicker";
+import { SimpleSelect } from "@/components/ui/simple-select";
 
 type Created = { id: string; title: string; startAt: string };
 
@@ -98,7 +99,7 @@ export function CorreoMeetingPanel({ threadId, subject }: { threadId: string; su
           type="button"
           onClick={() => void suggest()}
           disabled={busy !== null}
-          className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-primary text-[13px] font-medium text-primary-foreground ds-tap disabled:opacity-50"
+          className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-tint-violet text-[13px] font-medium text-tint-violet-fg ds-tap disabled:opacity-50"
         >
           <Sparkles className="h-4 w-4" /> {busy === "sug" ? "Proponiendo…" : "Proponer reunión con IA"}
         </button>
@@ -119,15 +120,16 @@ export function CorreoMeetingPanel({ threadId, subject }: { threadId: string; su
               className="h-9 min-w-[8rem] flex-1 rounded-lg border border-ds-border-default bg-ds-surface-1 px-2 text-[13px] text-ds-text-1"
             />
             <TaskTimePicker value={time} onChange={setTime} ariaLabel="Hora" menuAlign="right" className="shrink-0" />
-            <select
-              value={durationMin}
-              onChange={(e) => setDurationMin(Number(e.target.value))}
+            <SimpleSelect
+              value={String(durationMin)}
+              onValueChange={(v) => setDurationMin(Number(v))}
               aria-label="Duración"
-              className="h-9 rounded-lg border border-ds-border-default bg-ds-surface-1 px-2 text-[13px] text-ds-text-1"
-            >
-              <option value={30}>30 min</option>
-              <option value={60}>60 min</option>
-            </select>
+              className="h-10 w-[6.5rem] sm:h-9"
+              options={[
+                { value: "30", label: "30 min" },
+                { value: "60", label: "60 min" },
+              ]}
+            />
           </div>
           <div className="flex flex-wrap gap-1.5">
             {attendees.map((a) => (

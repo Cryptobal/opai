@@ -91,7 +91,9 @@ export function CorreoRowSwipe({
       const actions = side === "right" ? swipeConfig.right : swipeConfig.left;
       execute(actions[buttonIndex]);
     },
-    onLongPress: coarse && canModify ? onLongPress : undefined,
+    // Long-press abre Acciones IA (o selección si ya hay modo activo); no
+    // requiere canModify — analizar/resumir son de solo lectura.
+    onLongPress: coarse && onLongPress ? onLongPress : undefined,
   });
 
   useEffect(() => {

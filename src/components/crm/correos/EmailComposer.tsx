@@ -18,6 +18,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CalendarClock, Check, Send, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { AttachmentPicker, Spinner } from "@/components/opai-ds";
+import { SimpleSelect } from "@/components/ui/simple-select";
 import { ContractEditor } from "@/components/docs/ContractEditor";
 import { EmailToolbar } from "./EmailToolbar";
 import { tiptapToEmailHtml } from "@/lib/docs/tiptap-to-html";
@@ -377,23 +378,21 @@ export function EmailComposer({
       {!isReply && identityOptions.length > 1 && (
         <div className="flex items-center gap-2 border-b border-ds-border-subtle focus-within:border-primary">
           <span className="w-10 shrink-0 text-[12px] text-ds-text-3">De</span>
-          <select
+          <SimpleSelect
             value={identity ? `${identity.accountId}:${identity.alias ?? ""}` : ""}
-            onChange={(e) => {
+            onValueChange={(v) => {
               const option = identityOptions.find(
-                (o) => `${o.accountId}:${o.alias ?? ""}` === e.target.value,
+                (o) => `${o.accountId}:${o.alias ?? ""}` === v,
               );
               if (option) setIdentity({ accountId: option.accountId, alias: option.alias });
             }}
-            className="h-9 min-w-0 flex-1 bg-transparent px-0 text-[13px] text-ds-text-1 outline-none"
+            className="h-10 min-w-0 flex-1 border-0 bg-transparent px-0 sm:h-9"
             aria-label="Casilla remitente"
-          >
-            {identityOptions.map((option) => (
-              <option key={option.key} value={`${option.accountId}:${option.alias ?? ""}`}>
-                {option.label}
-              </option>
-            ))}
-          </select>
+            options={identityOptions.map((option) => ({
+              value: `${option.accountId}:${option.alias ?? ""}`,
+              label: option.label,
+            }))}
+          />
         </div>
       )}
       <div className="relative">

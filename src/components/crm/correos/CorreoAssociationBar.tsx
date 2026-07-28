@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Eye, EyeOff, Sparkles } from "lucide-react";
+import { SimpleSelect } from "@/components/ui/simple-select";
 import { AsociarCuenta } from "./AsociarCuenta";
 import { QuickDealCreate } from "./QuickDealCreate";
 
@@ -138,29 +139,27 @@ export function CorreoAssociationBar({
       {accountId && !creating && (
         <label className="flex flex-col gap-1">
           <span className="text-[12px] text-ds-text-3">Negocio (opcional)</span>
-          <select
-            className="h-10 rounded-xl border border-ds-border-default bg-ds-surface-1 px-3 text-[13px] text-ds-text-1 sm:h-9"
+          <SimpleSelect
+            className="h-10 rounded-xl sm:h-9"
             value={dealId ?? ""}
             disabled={loadingDeals}
-            onChange={(e) => {
-              if (e.target.value === CREATE) {
+            aria-label="Negocio (opcional)"
+            onValueChange={(v) => {
+              if (v === CREATE) {
                 setCreating(true);
                 return;
               }
-              onAssociate({ accountId, dealId: e.target.value || null });
+              onAssociate({ accountId, dealId: v || null });
             }}
-          >
-            <option value="">Sin negocio</option>
-            {dealId && !deals.some((d) => d.id === dealId) && (
-              <option value={dealId}>{dealTitle || "Negocio actual"}</option>
-            )}
-            {deals.map((d) => (
-              <option key={d.id} value={d.id}>
-                {d.title}
-              </option>
-            ))}
-            <option value={CREATE}>＋ Crear negocio…</option>
-          </select>
+            options={[
+              { value: "", label: "Sin negocio" },
+              ...(dealId && !deals.some((d) => d.id === dealId)
+                ? [{ value: dealId, label: dealTitle || "Negocio actual" }]
+                : []),
+              ...deals.map((d) => ({ value: d.id, label: d.title })),
+              { value: CREATE, label: "＋ Crear negocio…" },
+            ]}
+          />
         </label>
       )}
       {accountId && creating && (

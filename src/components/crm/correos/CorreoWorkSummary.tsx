@@ -24,6 +24,8 @@ type Props = {
   hasLead: boolean;
   /** Abre el panel unificado de Acciones IA (comando lead). */
   onOpenAiLead: () => void;
+  /** Abre el panel con comando analizar (plan de acciones). */
+  onOpenAiAnalizar?: () => void;
   onGoTo: (tab: WorkTab) => void;
 };
 
@@ -42,7 +44,7 @@ const TONE: Record<Tone, string> = {
  * (CRM/OPS/RRHH) y sólo aparecen si el usuario tiene ese módulo; el gating final
  * es server-side. Debajo, tarjeta "Estado del hilo" con filas navegables.
  */
-export function CorreoWorkSummary({ accountId, hasLead, onOpenAiLead, onGoTo }: Props) {
+export function CorreoWorkSummary({ accountId, hasLead, onOpenAiLead, onOpenAiAnalizar, onGoTo }: Props) {
   const perms = useEffectivePermissions();
   const hasCrm = hasModuleAccess(perms, "crm");
   const hasOps = hasModuleAccess(perms, "ops");
@@ -50,6 +52,15 @@ export function CorreoWorkSummary({ accountId, hasLead, onOpenAiLead, onGoTo }: 
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-2 gap-2">
+        {onOpenAiAnalizar && (
+          <Tile
+            tone="violet"
+            icon={Sparkles}
+            title="✦ Analizar con IA"
+            subtitle="Plan de acciones"
+            onClick={onOpenAiAnalizar}
+          />
+        )}
         <Tile tone="violet" icon={TicketPlus} title="Crear ticket" subtitle="✦ con IA" onClick={() => onGoTo("productividad")} />
         <Tile tone="violet" icon={CalendarPlus} title="Proponer reunión" subtitle="✦ con IA" onClick={() => onGoTo("productividad")} />
         <Tile tone="emerald" icon={ListTodo} title="Crear tarea" subtitle="Seguimiento" onClick={() => onGoTo("productividad")} />
@@ -57,7 +68,7 @@ export function CorreoWorkSummary({ accountId, hasLead, onOpenAiLead, onGoTo }: 
           (hasLead ? (
             <Tile tone="emerald" icon={CheckCircle2} title="Lead creado" subtitle="En comercial" chip="CRM" done />
           ) : (
-            <Tile tone="emerald" icon={Sparkles} title="Crear lead" subtitle="Desde el hilo" chip="CRM" onClick={onOpenAiLead} />
+            <Tile tone="emerald" icon={UserPlus} title="Crear lead" subtitle="Desde el hilo" chip="CRM" onClick={onOpenAiLead} />
           ))}
         {hasOps && <Tile tone="amber" icon={AlertTriangle} title="Reportar incidente" subtitle="Operaciones" chip="OPS" onClick={() => onGoTo("productividad")} />}
         {hasOps && <Tile tone="sky" icon={UserPlus} title="Crear candidato" subtitle="Postulación" chip="RRHH" href="/ops/ats" />}

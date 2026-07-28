@@ -2,6 +2,7 @@
 
 import { X } from "lucide-react";
 import { Surface } from "@/components/opai-ds";
+import { SimpleSelect } from "@/components/ui/simple-select";
 import type {
   CorreoSwipeAction,
   CorreoSwipeConfig,
@@ -40,15 +41,16 @@ function Selector({
   return (
     <label className="flex min-h-11 items-center justify-between gap-3 rounded-xl border border-ds-border-subtle bg-ds-surface-1 pl-3 pr-2">
       <span className="shrink-0 text-[13px] text-ds-text-2">{label}</span>
-      <select
+      <SimpleSelect
         value={value}
-        onChange={(event) => onChange(event.target.value as CorreoSwipeAction)}
-        className="h-11 min-w-0 border-0 bg-transparent text-right text-[13px] text-ds-text-1 outline-none"
-      >
-        {Object.entries(ACTION_LABELS).map(([key, actionLabel]) => (
-          <option key={key} value={key}>{actionLabel}</option>
-        ))}
-      </select>
+        onValueChange={(v) => onChange(v as CorreoSwipeAction)}
+        aria-label={label}
+        className="h-11 min-w-0 max-w-[12rem] border-0 bg-transparent"
+        options={Object.entries(ACTION_LABELS).map(([key, actionLabel]) => ({
+          value: key,
+          label: actionLabel,
+        }))}
+      />
     </label>
   );
 }
@@ -103,15 +105,16 @@ export function CorreoSwipeSettingsSheet({
 
         <label className="flex min-h-11 items-center justify-between gap-3 rounded-xl border border-ds-border-subtle bg-ds-surface-1 pl-3 pr-2">
           <span className="min-w-0 text-[13px] text-ds-text-2">Tiempo para deshacer</span>
-          <select
-            value={undoSeconds}
-            onChange={(event) => onUndoSeconds(Number(event.target.value) as CorreoUndoSeconds)}
-            className="h-11 min-w-0 border-0 bg-transparent text-right text-[13px] text-ds-text-1 outline-none"
-          >
-            {CORREO_UNDO_SECONDS_OPTIONS.map((seconds) => (
-              <option key={seconds} value={seconds}>{seconds} s</option>
-            ))}
-          </select>
+          <SimpleSelect
+            value={String(undoSeconds)}
+            onValueChange={(v) => onUndoSeconds(Number(v) as CorreoUndoSeconds)}
+            aria-label="Tiempo para deshacer"
+            className="h-11 min-w-0 max-w-[6rem] border-0 bg-transparent"
+            options={CORREO_UNDO_SECONDS_OPTIONS.map((seconds) => ({
+              value: String(seconds),
+              label: `${seconds} s`,
+            }))}
+          />
         </label>
         <p className="text-[12px] text-ds-text-3">
           Aplica a archivar, papelera, destacar y posponer. Los envíos usan la ventana del servidor (10 s por defecto).
