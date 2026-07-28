@@ -278,7 +278,8 @@ export function CorreosClient() {
     action: "archive" | "trash",
     okMsg: string,
   ) {
-    void runCorreoAction(threadId, action, okMsg, softRefresh, "unarchive", hardRefresh);
+    const undo = action === "archive" ? "unarchive" : "untrash";
+    void runCorreoAction(threadId, action, okMsg, softRefresh, undo, hardRefresh);
   }
 
   // Pintura instantánea: snapshot IndexedDB antes de que llegue la red.
@@ -783,7 +784,7 @@ export function CorreosClient() {
     },
     onTrash: () => {
       if (selectedIds.size > 0) {
-        bulkAction("trash", "Movidos a la Papelera", { undo: "unarchive", removes: true });
+        bulkAction("trash", "Movidos a la Papelera", { undo: "untrash", removes: true });
         return;
       }
       const t = resolveThread();

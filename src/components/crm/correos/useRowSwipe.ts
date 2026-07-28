@@ -1,63 +1,88 @@
 "use client";
 
-import { animate, useMotionValue } from "framer-motion";
+import {
+  animate,
+  useMotionValue,
+  type PanInfo,
+} from "framer-motion";
 import {
   useCallback,
   useEffect,
   useRef,
   useState,
-  type PointerEvent,
+  type PointerEvent as ReactPointerEvent,
 } from "react";
 import { triggerHaptic } from "@/lib/haptics";
 import { lockSwipeScroll, unlockSwipeScroll } from "@/lib/swipe-scroll-lock";
 import {
   isSwipeArmed,
+  isSwipeOpenReached,
   resolveSwipeRelease,
-  shouldHapticSnapOpen,
+  SWIPE_COMMIT_RATIO,
+  SWIPE_HAPTIC_HYSTERESIS,
   SWIPE_OPEN_WIDTH,
+  SWIPE_REDUCED_MOTION,
+  SWIPE_RUBBER_BAND,
   SWIPE_SNAP_SPRING,
-  toVisualDx,
   type CorreoSwipeSide,
 } from "./row-swipe-gesture";
 
 export type { CorreoSwipeSide } from "./row-swipe-gesture";
-export { SWIPE_LONG_RATIO, SWIPE_OPEN_WIDTH } from "./row-swipe-gesture";
+export {
+  SWIPE_COMMIT_RATIO,
+  SWIPE_OPEN_WIDTH,
+  SWIPE_BUTTON_WIDTH,
+} from "./row-swipe-gesture";
 
-/** Umbral de main (#742): un poco más alto evita robar scroll vertical. */
-const AXIS_LOCK = 10;
-const LONG_PRESS_MS = 450;
+const LONG_PRESS_MS = 400;
 const LONG_PRESS_MOVE = 10;
 
+function prefersReducedMotion(): boolean {
+  if (typeof window === "undefined") return false;
+  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
+function snapTransition() {
+  return prefersReducedMotion() ? SWIPE_REDUCED_MOTION : SWIPE_SNAP_SPRING;
+}
+
 /**
- * Swipe de dos niveles: motion values (sin re-render por frame), spring al
- * soltar, flick por velocidad, scroll lock durante arrastre horizontal y
- * háptica unificada (Capacitor + web).
+ * Swipe de dos niveles sobre `drag="x"` de framer-motion:
+ * - `dragDirectionLock` cede el eje vertical al scroll nativo
+ * - sin setState por frame (hápticas vía `x.on("change")`; lado solo al cambiar signo)
+ * - touch-action fijo `pan-y` (nunca mutado en runtime)
+ * - ≤2–3 hápticas por gesto con histéresis
  */
 export function useRowSwipe(opts: {
   enabled: boolean;
-  onLongSwipe: (side: CorreoSwipeSide) => void;
-  onButtonSwipe?: (side: CorreoSwipeSide, buttonIndex: 0 | 1) => void;
+  onCommitSwipe: (side: CorreoSwipeSide) => void;
   onLongPress?: () => void;
 }) {
-  const { enabled, onLongSwipe, onButtonSwipe, onLongPress } = opts;
+  const { enabled, onCommitSwipe, onLongPress } = opts;
   const x = useMotionValue(0);
   const [openSide, setOpenSide] = useState<CorreoSwipeSide | null>(null);
   const [dragging, setDragging] = useState(false);
   const [dragSide, setDragSide] = useState<CorreoSwipeSide | null>(null);
-  const [touchAction, setTouchAction] = useState<"pan-y" | "none">("pan-y");
 
+  const openReachedRef = useRef(false);
   const armedRef = useRef(false);
-  const snapHapticRef = useRef(false);
+  const lastSignRef = useRef(0);
   const rowRef = useRef<HTMLDivElement | null>(null);
-  const start = useRef({ x: 0, y: 0, base: 0 });
-  const lastMove = useRef({ x: 0, t: 0 });
-  const axis = useRef<"h" | "v" | null>(null);
-  const rawDxRef = useRef(0);
-  const velocityRef = useRef(0);
+  const rowWidthRef = useRef(360);
+  const openSideRef = useRef<CorreoSwipeSide | null>(null);
+  const draggingRef = useRef(false);
   const suppressClick = useRef(false);
   const longPressTimer = useRef<number | null>(null);
   const longPressed = useRef(false);
+  const longPressStart = useRef({ x: 0, y: 0 });
   const scrollLocked = useRef(false);
+  const dragBaseRef = useRef(0);
+  const onCommitRef = useRef(onCommitSwipe);
+  const onLongPressRef = useRef(onLongPress);
+
+  openSideRef.current = openSide;
+  onCommitRef.current = onCommitSwipe;
+  onLongPressRef.current = onLongPress;
 
   const clearLongPress = useCallback(() => {
     if (longPressTimer.current != null) {
@@ -70,30 +95,36 @@ export function useRowSwipe(opts: {
     if (!scrollLocked.current) return;
     scrollLocked.current = false;
     unlockSwipeScroll();
-    setTouchAction("pan-y");
   }, []);
 
   useEffect(() => clearLongPress, [clearLongPress]);
   useEffect(() => () => releaseScrollLock(), [releaseScrollLock]);
 
+  const measureWidth = useCallback(() => {
+    const node = rowRef.current;
+    if (!node) return rowWidthRef.current;
+    const w = node.getBoundingClientRect().width || node.offsetWidth;
+    if (w > 0) rowWidthRef.current = w;
+    return rowWidthRef.current;
+  }, []);
+
   const resetFeedback = useCallback(() => {
+    openReachedRef.current = false;
     armedRef.current = false;
-    snapHapticRef.current = false;
+    lastSignRef.current = 0;
   }, []);
 
   const animateTo = useCallback(
-    (target: number, rawTarget = target) => {
-      rawDxRef.current = rawTarget;
-      void animate(x, target, SWIPE_SNAP_SPRING);
+    (target: number) => {
+      void animate(x, target, snapTransition());
     },
     [x],
   );
 
   const close = useCallback(() => {
     setOpenSide(null);
-    rawDxRef.current = 0;
     resetFeedback();
-    animateTo(0, 0);
+    animateTo(0);
   }, [animateTo, resetFeedback]);
 
   useEffect(() => {
@@ -108,133 +139,130 @@ export function useRowSwipe(opts: {
     return () => document.removeEventListener("pointerdown", onDocDown);
   }, [openSide, close]);
 
-  function onPointerDown(event: PointerEvent<HTMLDivElement>) {
-    if (!enabled && !onLongPress) return;
-    start.current = {
-      x: event.clientX,
-      y: event.clientY,
-      base:
-        openSide === "right"
-          ? SWIPE_OPEN_WIDTH
-          : openSide === "left"
-            ? -SWIPE_OPEN_WIDTH
-            : 0,
-    };
-    lastMove.current = { x: event.clientX, t: event.timeStamp };
-    velocityRef.current = 0;
-    axis.current = null;
-    suppressClick.current = false;
+  // Hápticas sin setState por frame. El lado solo cambia al cruzar cero.
+  useEffect(() => {
+    return x.on("change", (value) => {
+      if (!draggingRef.current && openSideRef.current == null) return;
+      const abs = Math.abs(value);
+      const width = rowWidthRef.current || 1;
+      const sign = value === 0 ? 0 : value > 0 ? 1 : -1;
+
+      if (sign !== 0 && sign !== lastSignRef.current) {
+        lastSignRef.current = sign;
+        openReachedRef.current = false;
+        armedRef.current = false;
+        const nextSide: CorreoSwipeSide = sign > 0 ? "right" : "left";
+        setDragSide((prev) => (prev === nextSide ? prev : nextSide));
+      }
+
+      if (isSwipeOpenReached(abs)) {
+        if (!openReachedRef.current) {
+          openReachedRef.current = true;
+          void triggerHaptic("selection");
+        }
+      } else if (abs < SWIPE_OPEN_WIDTH - SWIPE_HAPTIC_HYSTERESIS) {
+        openReachedRef.current = false;
+      }
+
+      if (isSwipeArmed(abs, width)) {
+        if (!armedRef.current) {
+          armedRef.current = true;
+          void triggerHaptic("medium");
+        }
+      } else if (abs < width * SWIPE_COMMIT_RATIO - SWIPE_HAPTIC_HYSTERESIS) {
+        armedRef.current = false;
+      }
+    });
+  }, [x]);
+
+  function onPointerDown(event: ReactPointerEvent<HTMLDivElement>) {
+    if (!event.isPrimary) return;
+    if (!enabled && !onLongPressRef.current) return;
+    longPressStart.current = { x: event.clientX, y: event.clientY };
     longPressed.current = false;
-    snapHapticRef.current = false;
-    if (onLongPress) {
+    suppressClick.current = false;
+    if (onLongPressRef.current) {
       clearLongPress();
       longPressTimer.current = window.setTimeout(() => {
         longPressTimer.current = null;
         longPressed.current = true;
         suppressClick.current = true;
         void triggerHaptic("selection");
-        onLongPress();
+        onLongPressRef.current?.();
       }, LONG_PRESS_MS);
     }
   }
 
-  function onPointerMove(event: PointerEvent<HTMLDivElement>) {
-    const rawDx = event.clientX - start.current.x;
-    const rawDy = event.clientY - start.current.y;
-    const dt = Math.max(event.timeStamp - lastMove.current.t, 1);
-    velocityRef.current = ((event.clientX - lastMove.current.x) / dt) * 1000;
-    lastMove.current = { x: event.clientX, t: event.timeStamp };
-
-    if (
-      longPressTimer.current != null &&
-      (Math.abs(rawDx) > LONG_PRESS_MOVE || Math.abs(rawDy) > LONG_PRESS_MOVE)
-    ) {
+  function onPointerMove(event: ReactPointerEvent<HTMLDivElement>) {
+    if (longPressTimer.current == null) return;
+    const dx = event.clientX - longPressStart.current.x;
+    const dy = event.clientY - longPressStart.current.y;
+    if (Math.abs(dx) > LONG_PRESS_MOVE || Math.abs(dy) > LONG_PRESS_MOVE) {
       clearLongPress();
-    }
-    if (longPressed.current) return;
-    if (!enabled) return;
-
-    if (axis.current === null) {
-      if (Math.abs(rawDx) < AXIS_LOCK && Math.abs(rawDy) < AXIS_LOCK) return;
-      axis.current = Math.abs(rawDx) > Math.abs(rawDy) ? "h" : "v";
-      if (axis.current === "h") {
-        clearLongPress();
-        event.currentTarget.setPointerCapture?.(event.pointerId);
-        setDragging(true);
-        const initial = start.current.base + rawDx;
-        setDragSide(initial >= 0 ? "right" : "left");
-        setTouchAction("none");
-        if (!scrollLocked.current) {
-          scrollLocked.current = true;
-          lockSwipeScroll();
-        }
-        void triggerHaptic("light");
-      }
-    }
-    if (axis.current !== "h") return;
-    if (event.cancelable) event.preventDefault();
-
-    const width = rowRef.current?.offsetWidth ?? 360;
-    const next = Math.max(Math.min(start.current.base + rawDx, width), -width);
-    rawDxRef.current = next;
-    x.set(toVisualDx(next));
-    // Actualizar lado si el usuario invierte el gesto a mitad de camino.
-    setDragSide(next >= 0 ? "right" : "left");
-
-    const absRaw = Math.abs(next);
-    const nowArmed = isSwipeArmed(absRaw, width);
-    if (nowArmed !== armedRef.current) {
-      armedRef.current = nowArmed;
-      if (nowArmed) void triggerHaptic("medium");
-    }
-
-    if (!snapHapticRef.current && shouldHapticSnapOpen(absRaw)) {
-      snapHapticRef.current = true;
-      void triggerHaptic("light");
     }
   }
 
-  function onPointerEnd(event: PointerEvent<HTMLDivElement>) {
+  function onPointerUp() {
     clearLongPress();
-    releaseScrollLock();
-    if (longPressed.current) {
-      longPressed.current = false;
-      axis.current = null;
-      return;
-    }
-    const wasHorizontal = axis.current === "h";
-    axis.current = null;
-    if (!wasHorizontal) return;
+  }
 
+  function onDragStart() {
+    clearLongPress();
+    if (longPressed.current || !enabled) return;
+
+    measureWidth();
+    dragBaseRef.current =
+      openSideRef.current === "right"
+        ? SWIPE_OPEN_WIDTH
+        : openSideRef.current === "left"
+          ? -SWIPE_OPEN_WIDTH
+          : 0;
+
+    resetFeedback();
+    draggingRef.current = true;
+    setDragging(true);
+    const initialSide: CorreoSwipeSide =
+      dragBaseRef.current > 0 ? "right" : dragBaseRef.current < 0 ? "left" : "right";
+    lastSignRef.current =
+      dragBaseRef.current > 0 ? 1 : dragBaseRef.current < 0 ? -1 : 0;
+    setDragSide(initialSide);
+
+    if (!scrollLocked.current) {
+      scrollLocked.current = true;
+      lockSwipeScroll();
+    }
+  }
+
+  function onDragEnd(
+    _event: MouseEvent | TouchEvent | PointerEvent,
+    info: PanInfo,
+  ) {
+    releaseScrollLock();
+    draggingRef.current = false;
     setDragging(false);
     setDragSide(null);
-    event.currentTarget.releasePointerCapture?.(event.pointerId);
-    suppressClick.current = true;
 
-    const width = rowRef.current?.offsetWidth ?? 360;
-    const outcome = resolveSwipeRelease({
-      value: rawDxRef.current,
-      rowWidth: width,
-      velocityX: velocityRef.current,
-    });
-
-    if (outcome.type === "long") {
-      setOpenSide(null);
-      rawDxRef.current = 0;
-      resetFeedback();
-      animateTo(0, 0);
-      void triggerHaptic("success");
-      onLongSwipe(outcome.side);
+    if (longPressed.current) {
+      longPressed.current = false;
       return;
     }
+    if (!enabled) return;
 
-    if (outcome.type === "button") {
+    suppressClick.current = true;
+    const width = rowWidthRef.current || measureWidth() || 360;
+    const value = dragBaseRef.current + info.offset.x;
+    const outcome = resolveSwipeRelease({
+      value,
+      rowWidth: width,
+      velocityX: info.velocity.x,
+    });
+
+    if (outcome.type === "commit") {
       setOpenSide(null);
-      rawDxRef.current = 0;
       resetFeedback();
-      animateTo(0, 0);
-      void triggerHaptic("light");
-      onButtonSwipe?.(outcome.side, outcome.buttonIndex);
+      animateTo(0);
+      void triggerHaptic("success");
+      onCommitRef.current(outcome.side);
       return;
     }
 
@@ -242,10 +270,8 @@ export function useRowSwipe(opts: {
       setOpenSide(outcome.side);
       const target =
         outcome.side === "right" ? SWIPE_OPEN_WIDTH : -SWIPE_OPEN_WIDTH;
-      rawDxRef.current = target;
       resetFeedback();
-      animateTo(target, target);
-      if (!snapHapticRef.current) void triggerHaptic("light");
+      animateTo(target);
       return;
     }
 
@@ -258,20 +284,35 @@ export function useRowSwipe(opts: {
     return value;
   }, []);
 
+  const constraint = SWIPE_OPEN_WIDTH;
+
   return {
     x,
     openSide,
     dragging,
     dragSide,
-    touchAction,
+    /** Fijo: nunca mutar en runtime (WebKit evalúa touch-action al inicio). */
+    touchAction: "pan-y" as const,
     rowRef,
+    rowWidthRef,
+    measureWidth,
     close,
     wasDragged,
-    handlers: {
+    longPressHandlers: {
       onPointerDown,
       onPointerMove,
-      onPointerUp: onPointerEnd,
-      onPointerCancel: onPointerEnd,
+      onPointerUp,
+      onPointerCancel: onPointerUp,
+    },
+    dragProps: {
+      drag: enabled ? ("x" as const) : (false as const),
+      dragDirectionLock: true as const,
+      // 1:1 hasta OPEN; más allá rubber-band vía dragElastic.
+      dragConstraints: { left: -constraint, right: constraint },
+      dragElastic: SWIPE_RUBBER_BAND,
+      dragMomentum: false as const,
+      onDragStart,
+      onDragEnd,
     },
   };
 }

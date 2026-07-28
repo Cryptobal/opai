@@ -63,7 +63,7 @@ export function CorreoSelectionBar({
         <button
           type="button"
           aria-label="Mover seleccionados a la papelera"
-          onClick={run(() => onAction("trash", "Movidos a la Papelera", { undo: "unarchive", removes: true }))}
+          onClick={run(() => onAction("trash", "Movidos a la Papelera", { undo: "untrash", removes: true }))}
           className={ICON_BTN}
         >
           <Trash2 className="h-5 w-5" />

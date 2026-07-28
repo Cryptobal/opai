@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import { Paperclip, Star } from "lucide-react";
 import type { CorreoThreadDTO } from "@/modules/crm/email/correos.types";
 import { CorreoSenderAvatar } from "./CorreoSenderAvatar";
@@ -25,7 +26,7 @@ type Props = {
  * comunican. La selección vive en el avatar y el long-press; el swipe la
  * envuelve desde CorreoRowSwipe.
  */
-export function CorreoRowMobile({
+export const CorreoRowMobile = memo(function CorreoRowMobile({
   thread,
   onOpen,
   previewLines = 2,
@@ -41,6 +42,8 @@ export function CorreoRowMobile({
   return (
     <div
       data-correo-row={thread.id}
+      data-correo-swipe-row=""
+      onContextMenu={(e) => e.preventDefault()}
       className={`flex items-start gap-3 border-b border-ds-border-subtle px-4 ${
         compact ? "py-2" : "py-2.5"
       } ${checked ? "bg-primary/10" : ""}`}
@@ -109,4 +112,4 @@ export function CorreoRowMobile({
       </button>
     </div>
   );
-}
+});

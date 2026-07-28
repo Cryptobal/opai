@@ -21,6 +21,7 @@ const BULK_ACTIONS = new Set<CorreoAction>([
   "archive",
   "unarchive",
   "trash",
+  "untrash",
   "markRead",
   "markUnread",
   "snooze",

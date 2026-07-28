@@ -136,7 +136,7 @@ export function CorreoBulkBar({ count, onClear, onSelectAllVisible, onAction, on
       <button
         type="button"
         title="Mover a papelera"
-        onClick={() => onAction("trash", "Movidos a la Papelera", { undo: "unarchive", removes: true })}
+        onClick={() => onAction("trash", "Movidos a la Papelera", { undo: "untrash", removes: true })}
         className={BTN}
       >
         <Trash2 className="h-4 w-4" /> <span className="hidden sm:inline">Eliminar</span>
