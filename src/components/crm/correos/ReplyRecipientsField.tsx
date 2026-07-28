@@ -239,7 +239,7 @@ export function ReplyRecipientsField({
     <div ref={rootRef} className="relative" data-recipient-field>
       <div
         className={cn(
-          "flex min-h-10 flex-wrap items-center gap-1.5 border-b border-ds-border-subtle py-1.5 pr-16",
+          "flex min-h-11 flex-wrap items-center gap-1.5 border-b border-ds-border-subtle py-2 pr-16",
           "focus-within:border-primary",
         )}
         onClick={() => inputRef.current?.focus()}

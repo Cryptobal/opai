@@ -1,11 +1,19 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Maximize2, Minimize2, Minus, PenLine, X } from "lucide-react";
-import { confirmDialog } from "@/components/ui/confirm-service";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { EmailComposer } from "./EmailComposer";
+import { EmailComposer, type EmailComposerHandle } from "./EmailComposer";
 
 type Props = {
   open: boolean;
@@ -18,37 +26,68 @@ type WindowState = "normal" | "minimized" | "expanded";
 /**
  * Composición nueva desde la bandeja: fullscreen opaco en móvil (sin Liquid
  * Glass — el vidrio dejaba leer la bandeja detrás) y ventana tipo Gmail en
- * desktop (minimizar / expandir / cerrar). Cerrar con cambios pide
- * confirmación — el autosave a Drafts ya protege el trabajo.
+ * desktop (minimizar / expandir / cerrar).
+ *
+ * Móvil: un solo scroll en el cuerpo del mensaje (cabecera + acciones fijas)
+ * para que el caret no “viaje” con la barra de desplazamiento de la hoja.
+ * Cerrar con cambios pregunta Guardar / Descartar; minimizar deja el borrador
+ * a mano como barra inferior.
  */
 export function CorreoComposeSheet({ open, onClose, onSent }: Props) {
   const [dirty, setDirty] = useState(false);
   const [win, setWin] = useState<WindowState>("normal");
   const [mounted, setMounted] = useState(false);
+  const [closePromptOpen, setClosePromptOpen] = useState(false);
+  const [closeBusy, setCloseBusy] = useState(false);
+  const composerRef = useRef<EmailComposerHandle>(null);
 
   useEffect(() => setMounted(true), []);
 
   useEffect(() => {
-    if (open) setWin("normal");
-    else setDirty(false);
+    if (open) {
+      setWin("normal");
+      setClosePromptOpen(false);
+    } else {
+      setDirty(false);
+      setClosePromptOpen(false);
+    }
   }, [open]);
 
   if (!open || !mounted) return null;
 
-  const confirmClose = () => {
+  const finishClose = () => {
+    setDirty(false);
+    setClosePromptOpen(false);
+    setWin("normal");
+    onClose();
+  };
+
+  const requestClose = () => {
     if (!dirty) {
-      setDirty(false);
-      onClose();
+      finishClose();
       return;
     }
-    void confirmDialog({
-      description: "¿Cerrar el composer? Tu borrador queda guardado en Borradores.",
-    }).then((ok) => {
-      if (ok) {
-        setDirty(false);
-        onClose();
-      }
-    });
+    setClosePromptOpen(true);
+  };
+
+  const saveAndClose = async () => {
+    setCloseBusy(true);
+    try {
+      await composerRef.current?.flushDraft();
+      finishClose();
+    } finally {
+      setCloseBusy(false);
+    }
+  };
+
+  const discardAndClose = async () => {
+    setCloseBusy(true);
+    try {
+      await composerRef.current?.discardDraft();
+      finishClose();
+    } finally {
+      setCloseBusy(false);
+    }
   };
 
   const panel = (
@@ -59,12 +98,19 @@ export function CorreoComposeSheet({ open, onClose, onSent }: Props) {
       className={cn(
         // Opaco siempre: overlays de redacción no usan Liquid Glass.
         "flex flex-col overflow-hidden border border-ds-border-default bg-background text-ds-text-1 shadow-2xl",
-        // Móvil: fullscreen.
-        "fixed inset-0 z-[60] rounded-none",
-        // Desktop: dock abajo-derecha (Gmail).
-        "md:inset-auto md:bottom-0 md:right-4 md:z-[60]",
-        win === "minimized" &&
-          "md:h-12 md:w-[min(420px,calc(100vw-2rem))] md:rounded-t-xl md:border-b-0",
+        // Móvil: fullscreen (o barra inferior si está minimizado).
+        "fixed z-[60]",
+        win === "minimized"
+          ? [
+              // Barra dock tipo Gmail: sobre la bottom nav / safe-area.
+              "inset-x-3 bottom-[calc(5.5rem+env(safe-area-inset-bottom,0px))] h-12 rounded-2xl",
+              "md:inset-auto md:bottom-0 md:right-4 md:h-12 md:w-[min(420px,calc(100vw-2rem))] md:rounded-t-xl md:rounded-b-none md:border-b-0",
+            ]
+          : [
+              "inset-0 rounded-none",
+              // Desktop: dock abajo-derecha (Gmail).
+              "md:inset-auto md:bottom-0 md:right-4",
+            ],
         win === "normal" &&
           "md:h-[min(640px,calc(100dvh-5rem))] md:w-[min(720px,calc(100vw-2rem))] md:rounded-t-2xl",
         win === "expanded" &&
@@ -76,8 +122,9 @@ export function CorreoComposeSheet({ open, onClose, onSent }: Props) {
         className={cn(
           "flex shrink-0 items-center justify-between gap-2 border-b border-ds-border-subtle px-3",
           "bg-ds-surface-2",
-          "pt-[calc(env(safe-area-inset-top,0px)+0.5rem)] md:pt-0",
-          win === "minimized" ? "h-12" : "h-12 md:h-11",
+          win === "minimized"
+            ? "h-12 rounded-[inherit] border-b-0 pt-0"
+            : "h-12 pt-[calc(env(safe-area-inset-top,0px)+0.5rem)] md:h-11 md:pt-0",
         )}
       >
         <button
@@ -90,6 +137,9 @@ export function CorreoComposeSheet({ open, onClose, onSent }: Props) {
         >
           <PenLine className="h-4 w-4 shrink-0 text-ds-text-3" />
           <p className="truncate text-sm font-medium text-ds-text-1">Mensaje nuevo</p>
+          {win === "minimized" && dirty && (
+            <span className="shrink-0 text-[12px] text-ds-text-4">Borrador</span>
+          )}
         </button>
         <div className="flex shrink-0 items-center">
           <button
@@ -97,9 +147,13 @@ export function CorreoComposeSheet({ open, onClose, onSent }: Props) {
             aria-label={win === "minimized" ? "Restaurar" : "Minimizar"}
             title={win === "minimized" ? "Restaurar" : "Minimizar"}
             onClick={() => setWin((w) => (w === "minimized" ? "normal" : "minimized"))}
-            className="hidden h-10 w-10 items-center justify-center rounded-full text-ds-text-3 ds-tap hover:bg-ds-surface-3 hover:text-ds-text-1 md:inline-flex md:h-9 md:w-9"
+            className="inline-flex h-11 w-11 items-center justify-center rounded-full text-ds-text-3 ds-tap hover:bg-ds-surface-3 hover:text-ds-text-1 md:h-9 md:w-9"
           >
-            {win === "minimized" ? <Maximize2 className="h-4 w-4" /> : <Minus className="h-4 w-4" />}
+            {win === "minimized" ? (
+              <Maximize2 className="h-4 w-4" />
+            ) : (
+              <Minus className="h-4 w-4" />
+            )}
           </button>
           <button
             type="button"
@@ -116,7 +170,7 @@ export function CorreoComposeSheet({ open, onClose, onSent }: Props) {
             type="button"
             aria-label="Cerrar"
             title="Cerrar"
-            onClick={confirmClose}
+            onClick={requestClose}
             className="inline-flex h-11 w-11 items-center justify-center rounded-full text-ds-text-3 ds-tap hover:bg-ds-surface-3 hover:text-ds-text-1 md:h-9 md:w-9"
           >
             <X className="h-5 w-5 md:h-4 md:w-4" />
@@ -124,19 +178,27 @@ export function CorreoComposeSheet({ open, onClose, onSent }: Props) {
         </div>
       </div>
 
-      {win !== "minimized" && (
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-[calc(env(safe-area-inset-bottom,0px)+1rem)] pt-1">
-          <EmailComposer
-            mode="new"
-            onSent={onSent}
-            onClose={() => {
-              setDirty(false);
-              onClose();
-            }}
-            onDirtyChange={setDirty}
-          />
-        </div>
-      )}
+      {/* Mantener montado al minimizar para no perder el borrador en memoria. */}
+      <div
+        className={cn(
+          // Un solo eje de scroll: el cuerpo del EmailComposer (layout=sheet).
+          // Evita que el caret “Para/cuerpo” se mueva con la barra de la hoja.
+          "flex min-h-0 flex-1 flex-col overflow-hidden px-4 pb-[calc(env(safe-area-inset-bottom,0px)+0.75rem)] pt-3",
+          win === "minimized" && "hidden",
+        )}
+      >
+        <EmailComposer
+          ref={composerRef}
+          mode="new"
+          layout="sheet"
+          onSent={onSent}
+          onClose={() => {
+            setDirty(false);
+            onClose();
+          }}
+          onDirtyChange={setDirty}
+        />
+      </div>
     </div>
   );
 
@@ -150,11 +212,55 @@ export function CorreoComposeSheet({ open, onClose, onSent }: Props) {
             win === "normal" && "md:pointer-events-none md:bg-transparent",
             win === "expanded" && "md:bg-black/40",
           )}
-          onClick={win === "expanded" ? () => setWin("normal") : confirmClose}
+          onClick={win === "expanded" ? () => setWin("normal") : requestClose}
           aria-hidden
         />
       )}
       {panel}
+
+      <Dialog open={closePromptOpen} onOpenChange={(o) => !closeBusy && setClosePromptOpen(o)}>
+        <DialogContent
+          // Por encima del compose sheet (z-[60]) y su backdrop (z-[59]).
+          className="z-[70] sm:max-w-md"
+          overlayClassName="z-[69]"
+        >
+          <DialogHeader>
+            <DialogTitle>¿Guardar borrador?</DialogTitle>
+            <DialogDescription>
+              Tenés cambios sin enviar. Podés guardarlos en Borradores, descartarlos
+              o seguir escribiendo.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex-col gap-2 sm:flex-col">
+            <Button
+              type="button"
+              disabled={closeBusy}
+              onClick={() => void saveAndClose()}
+              className="w-full"
+            >
+              Guardar borrador
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={closeBusy}
+              onClick={() => setClosePromptOpen(false)}
+              className="w-full"
+            >
+              Seguir escribiendo
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={closeBusy}
+              onClick={() => void discardAndClose()}
+              className="w-full"
+            >
+              Descartar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>,
     document.body,
   );
