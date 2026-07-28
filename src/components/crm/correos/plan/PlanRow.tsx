@@ -11,6 +11,8 @@ const TAG_VARIANT: Record<PlanActionTag, "ok" | "info" | "neutral" | "warn"> = {
   calculado: "neutral",
   opcional: "warn",
   automatico: "info",
+  licitación: "info",
+  cotización: "ok",
 };
 
 const TAG_LABEL: Record<PlanActionTag, string> = {
@@ -19,6 +21,8 @@ const TAG_LABEL: Record<PlanActionTag, string> = {
   calculado: "calculado",
   opcional: "opcional",
   automatico: "automático",
+  licitación: "licitación",
+  cotización: "cotización",
 };
 
 type Props = {

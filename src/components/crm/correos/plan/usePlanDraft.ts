@@ -55,7 +55,7 @@ const defaultInclude: CreateCrmStructureInclude = {
 
 const defaultQuoteInput: PlanQuoteInput = {
   name: "",
-  currency: "CLP",
+  currency: "UF",
   contractDuration: 12,
   isOngoingService: true,
   validUntil: null,
@@ -81,13 +81,30 @@ export function usePlanDraft(threadId: string) {
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const extrasRef = useRef({
+    taskOverride,
+    attachmentSelection,
+    quoteInput,
+    milestones,
+  });
+  extrasRef.current = { taskOverride, attachmentSelection, quoteInput, milestones };
+
   const saveDraft = useCallback(
     async (p: CrmStructureProposal, inc: CreateCrmStructureInclude, lks: string[]) => {
       try {
+        const extras = extrasRef.current;
         const res = await fetch(`/api/crm/correos/${threadId}/plan-draft`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ proposal: p, include: inc, locks: lks }),
+          body: JSON.stringify({
+            proposal: p,
+            include: inc,
+            locks: lks,
+            taskOverride: extras.taskOverride,
+            attachmentSelection: extras.attachmentSelection,
+            quoteInput: extras.quoteInput,
+            milestones: extras.milestones,
+          }),
         });
         if (res.ok) {
           const j = (await res.json()) as { savedAt?: string };
@@ -161,12 +178,12 @@ export function usePlanDraft(threadId: string) {
     [],
   );
 
-  const loadDraft = useCallback(async () => {
+  const loadDraft = useCallback(async (): Promise<AiPlanDraft | null> => {
     try {
       const res = await fetch(`/api/crm/correos/${threadId}/plan-draft`);
-      if (!res.ok) return;
+      if (!res.ok) return null;
       const j = (await res.json()) as { draft?: AiPlanDraft };
-      if (!j.draft) return;
+      if (!j.draft) return null;
       const d = j.draft;
       setProposal(d.proposal);
       setInclude(d.include ?? defaultInclude);
@@ -177,8 +194,19 @@ export function usePlanDraft(threadId: string) {
       setMilestones(d.milestones ?? []);
       setDraftSavedAt(d.savedAt);
       setDirty(false);
+      // Selección por defecto desde include del borrador.
+      const ids = new Set<string>(["account"]);
+      if (d.include?.contact !== false) ids.add("contact");
+      if (d.include?.deal !== false) ids.add("deal");
+      if (d.include?.installations !== false) ids.add("installations");
+      if (d.include?.attachments !== false) ids.add("attachments");
+      if (d.include?.followUpTask) ids.add("followUpTask");
+      if (d.include?.quote) ids.add("quote");
+      if (d.include?.milestones) ids.add("milestones");
+      setSelectedIds(ids);
+      return d;
     } catch {
-      // silent
+      return null;
     }
   }, [threadId]);
 
@@ -192,16 +220,23 @@ export function usePlanDraft(threadId: string) {
     setDirty(false);
   }, [threadId]);
 
-  const recalcStaffing = useCallback(async () => {
+  const recalcStaffing = useCallback(async (override?: CrmStructureProposal) => {
+    const body = override ?? proposal;
     try {
       const res = await fetch(`/api/crm/correos/${threadId}/recalc-staffing`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ proposal }),
+        body: JSON.stringify({ proposal: body }),
       });
       if (!res.ok) return;
       const j = (await res.json()) as { proposal?: CrmStructureProposal };
-      if (j.proposal) setProposal(j.proposal);
+      if (j.proposal) {
+        setProposal((prev) => ({
+          ...j.proposal!,
+          locks: prev.locks,
+          assumptionItems: prev.assumptionItems ?? j.proposal!.assumptionItems,
+        }));
+      }
     } catch {
       // silent
     }

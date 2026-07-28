@@ -116,8 +116,18 @@ function buildStructureActions(
       label: existingDealId
         ? "Adjuntar al negocio existente"
         : `Negocio: ${proposal.deal.title ?? "—"}`,
-      detail: proposal.deal.isLicitacion ? "Licitación / RFI" : undefined,
-      tag: existingDealId ? "reutiliza" : proposal.deal.isLicitacion ? "nueva" : "nueva",
+      detail: [
+        proposal.deal.isLicitacion ? "Licitación" : "Cotización",
+        proposal.deal.fechaLimite ? `entrega ${proposal.deal.fechaLimite}` : null,
+        proposal.deal.mesesContrato != null ? `${proposal.deal.mesesContrato} meses` : null,
+      ]
+        .filter(Boolean)
+        .join(" · ") || undefined,
+      tag: existingDealId
+        ? "reutiliza"
+        : proposal.deal.isLicitacion
+          ? "licitación"
+          : "cotización",
       group: "comercial",
     },
     {
@@ -232,6 +242,8 @@ export function CorreoAiActionPanel({
   onCreated,
 }: Props) {
   const draft = usePlanDraft(threadId);
+  const draftRef = useRef(draft);
+  draftRef.current = draft;
   const [phase, setPhase] = useState<Phase>("loading");
   const [error, setError] = useState<string | null>(null);
   const [traceIdx, setTraceIdx] = useState(0);
@@ -293,26 +305,33 @@ export function CorreoAiActionPanel({
     setDelta(undefined);
     setActiveQuestion("Ajuste al plan");
     const t0 = Date.now();
+    const d = draftRef.current;
 
     try {
+      const existingDraft = await d.loadDraft();
       if (isStructure) {
         const res = await fetch(`/api/crm/correos/${threadId}/extract-structure`, { method: "POST" });
         const j = (await res.json()) as StructureResponse & { error?: string };
         if (!res.ok) throw new Error(j.error || "No se pudo analizar el correo");
-        const actions = buildStructureActions(j.proposal, false, existingDealId, true, true);
-        draft.resetToAi(j.proposal, j.stagedFiles ?? []);
-        draft.setSelectedIds(
-          new Set(actions.filter((a) => !a.optional && !a.disabled).map((a) => a.id).concat(["account"])),
-        );
-        draft.setInclude({
-          contact: true,
-          deal: true,
-          installations: j.proposal.installations.length > 0,
-          attachments: true,
-          followUpTask: false,
-          quote: Boolean(j.proposal.deal.isLicitacion),
-          milestones: Boolean(j.proposal.deal.isLicitacion),
-        });
+        if (!existingDraft) {
+          const actions = buildStructureActions(j.proposal, false, existingDealId, true, true);
+          d.resetToAi(j.proposal, j.stagedFiles ?? []);
+          d.setSelectedIds(
+            new Set(actions.filter((a) => !a.optional && !a.disabled).map((a) => a.id).concat(["account"])),
+          );
+          const hasSlots = j.proposal.installations.some((i) => i.coverageSlots.length > 0);
+          d.setInclude({
+            contact: true,
+            deal: true,
+            installations: j.proposal.installations.length > 0,
+            attachments: true,
+            followUpTask: false,
+            quote: Boolean(j.proposal.deal.isLicitacion || hasSlots),
+            milestones: Boolean(j.proposal.deal.isLicitacion),
+          });
+        } else {
+          d.setStagedFiles(j.stagedFiles ?? []);
+        }
         setSources(j.sources ?? []);
         setDurationMs(Date.now() - t0);
         setPhase("structure");
@@ -329,13 +348,13 @@ export function CorreoAiActionPanel({
       setVerticalProposal(vp);
       setDurationMs(Date.now() - t0);
       const actions = verticalActions(command, vp);
-      draft.setSelectedIds(new Set(actions.map((a) => a.id)));
+      d.setSelectedIds(new Set(actions.map((a) => a.id)));
       setPhase("vertical");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Error al analizar");
       setPhase("error");
     }
-  }, [command, existingDealId, isLead, isStructure, threadId, draft]);
+  }, [command, existingDealId, isLead, isStructure, threadId]);
 
   useEffect(() => { if (!open) return; void load(); }, [open, load]);
 
@@ -455,7 +474,9 @@ export function CorreoAiActionPanel({
       if (!res.ok) throw new Error(j.error || "No se pudo refinar el plan");
       const d = diffStaffingTotals(prevTotals, j.proposal.staffingTotals);
       setDelta(d);
-      draft.resetToAi(j.proposal);
+      // Conservar locks del refine (la IA ya los re-aplicó server-side).
+      draft.setProposal(j.proposal);
+      draft.setStagedFiles(j.stagedFiles ?? []);
       setSources(j.sources ?? []);
       const actions = buildStructureActions(j.proposal, false, existingDealId, true, true);
       draft.setSelectedIds(
@@ -601,11 +622,6 @@ export function CorreoAiActionPanel({
                 {selectedCount} seleccionada{selectedCount === 1 ? "" : "s"}
               </span>
             )}
-            {draft.draftSavedAt && (
-              <span className="ml-auto text-[12px] text-ds-text-4">
-                Borrador guardado
-              </span>
-            )}
             <button
               type="button"
               aria-label="Cerrar"
@@ -615,6 +631,28 @@ export function CorreoAiActionPanel({
               <X className="h-4 w-4" />
             </button>
           </div>
+          {draft.draftSavedAt && phase === "structure" && (
+            <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[12px] text-ds-text-3">
+              <span>
+                Borrador de hace{" "}
+                {Math.max(
+                  1,
+                  Math.round((Date.now() - new Date(draft.draftSavedAt).getTime()) / 60000),
+                )}{" "}
+                min
+              </span>
+              <button
+                type="button"
+                className="text-primary ds-tap"
+                onClick={() => {
+                  void draft.clearDraft();
+                  void load();
+                }}
+              >
+                Empezar de nuevo
+              </button>
+            </div>
+          )}
         </header>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
@@ -680,6 +718,27 @@ export function CorreoAiActionPanel({
                   void refineWithAnswers(next);
                 }}
                 onAssumptionsChange={draft.setAssumptions}
+                onCoverageChange={(inst) => {
+                  draft.setField("installations", inst);
+                  void draft.recalcStaffing({
+                    ...draft.proposal,
+                    installations: inst,
+                  });
+                }}
+                onWeeklyHoursChange={(h) => {
+                  draft.setField("weeklyHoursPerWorker", h);
+                  void draft.recalcStaffing({
+                    ...draft.proposal,
+                    weeklyHoursPerWorker: h,
+                  });
+                }}
+                onReservePctChange={(pct) => {
+                  draft.setField("reservePct", pct);
+                  void draft.recalcStaffing({
+                    ...draft.proposal,
+                    reservePct: pct,
+                  });
+                }}
                 onRefineAssumption={(a) => openRefine(`Cambiar supuesto: ${a}`)}
                 onRefineQuestion={(q) => openRefine(q)}
                 onOpenRefine={() => openRefine("Ajuste al plan")}

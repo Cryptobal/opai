@@ -3,7 +3,14 @@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tag } from "@/components/opai-ds";
 
-export type PlanActionTag = "nueva" | "reutiliza" | "calculado" | "opcional" | "automatico";
+export type PlanActionTag =
+  | "nueva"
+  | "reutiliza"
+  | "calculado"
+  | "opcional"
+  | "automatico"
+  | "licitación"
+  | "cotización";
 
 export type PlanActionGroup = "comercial" | "operacion" | "calendario";
 
@@ -27,6 +34,8 @@ const TAG_VARIANT: Record<PlanActionTag, "ok" | "info" | "neutral" | "warn"> = {
   calculado: "neutral",
   opcional: "warn",
   automatico: "info",
+  licitación: "info",
+  cotización: "ok",
 };
 
 const TAG_LABEL: Record<PlanActionTag, string> = {
@@ -35,6 +44,8 @@ const TAG_LABEL: Record<PlanActionTag, string> = {
   calculado: "calculado",
   opcional: "opcional",
   automatico: "automático",
+  licitación: "licitación",
+  cotización: "cotización",
 };
 
 type Props = {

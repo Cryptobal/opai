@@ -341,8 +341,13 @@ export async function extractCrmStructureFromThread(params: {
   threadId: string;
   /** Respuestas de refinamiento (opcionales). Se inyectan como restricciones, no como system prompt. */
   answers?: CrmStructureRefineAnswer[];
+  /** Propuesta previa del cliente (con ediciones) para re-aplicar locks. */
+  baseProposal?: CrmStructureProposal | Record<string, unknown>;
+  /** Paths bloqueados por edición manual. */
+  locks?: string[];
 }): Promise<CrmStructureExtractionResult | null> {
   const { tenantId, emailAccountId, threadId } = params;
+  const { applyLocks, mergeAssumptionItems } = await import("./plan-locks");
   const answers = (params.answers ?? [])
     .filter(
       (a) =>
@@ -437,7 +442,7 @@ export async function extractCrmStructureFromThread(params: {
     throw new Error("La IA no pudo estructurar el correo. Intentá de nuevo.");
   }
 
-  const proposal = normalizeCrmStructureProposal(raw);
+  let proposal = normalizeCrmStructureProposal(raw);
   if (answers.length > 0) {
     // Marcar supuestos que coinciden con respuestas del usuario.
     const answerText = answers.map((a) => a.answer.toLowerCase()).join(" ");
@@ -452,10 +457,38 @@ export async function extractCrmStructureFromThread(params: {
     if (!proposal.assumptionOrigins.some((o) => o === "user") && proposal.assumptions.length) {
       proposal.assumptionOrigins = proposal.assumptions.map(() => "user" as const);
     }
+    proposal.assumptionItems = buildAssumptionItems(
+      proposal.assumptions,
+      proposal.assumptionOrigins,
+      proposal.assumptionItems,
+    );
+  }
+
+  const locks = (params.locks ?? []).filter(
+    (p): p is string => typeof p === "string" && p.length > 0 && p.length <= 200,
+  ).slice(0, 100);
+
+  if (params.baseProposal && locks.length > 0) {
+    const base = coerceCrmStructureProposal(params.baseProposal);
+    proposal = applyLocks(proposal, base, locks);
+    proposal.assumptionItems = mergeAssumptionItems(
+      proposal.assumptionItems,
+      base.assumptionItems,
+    );
+    proposal.locks = [...new Set([...(base.locks ?? []), ...locks])];
+    // Recalcular dotación después de aplicar locks de cobertura.
+    proposal = coerceCrmStructureProposal(proposal);
+  } else if (params.baseProposal) {
+    const base = coerceCrmStructureProposal(params.baseProposal);
+    proposal.assumptionItems = mergeAssumptionItems(
+      proposal.assumptionItems,
+      base.assumptionItems,
+    );
+    proposal = syncAssumptionArrays(proposal);
   }
 
   return {
-    proposal,
+    proposal: syncAssumptionArrays(proposal),
     stagedFiles: att.stagedFiles,
     sources: att.sources,
   };

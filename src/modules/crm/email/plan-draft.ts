@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import type { AiPlanDraft } from "./email-to-crm-structure.types";
 
@@ -56,6 +57,6 @@ export async function clearPlanDraft(params: {
       tenantId: params.tenantId,
       ...(params.emailAccountId ? { emailAccountId: params.emailAccountId } : {}),
     },
-    data: { aiPlanDraft: null },
+    data: { aiPlanDraft: Prisma.DbNull },
   });
 }

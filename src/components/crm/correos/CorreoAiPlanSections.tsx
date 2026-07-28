@@ -1,6 +1,10 @@
 "use client";
 
-import type { CrmStructureProposal, CrmStructureAssumption } from "@/modules/crm/email/email-to-crm-structure.types";
+import type {
+  CrmStructureProposal,
+  CrmStructureAssumption,
+  CrmStructureInstallation,
+} from "@/modules/crm/email/email-to-crm-structure.types";
 import type { CrmStructureRefineAnswer } from "@/modules/crm/email/email-to-crm-structure.types";
 import { CorreoAiPlanCard, type PlanAction } from "./CorreoAiPlanCard";
 import { CorreoAiCoverageTable } from "./CorreoAiCoverageTable";
@@ -27,6 +31,10 @@ type Props = {
   remainingRefines?: number;
   onAnswer?: (answer: CrmStructureRefineAnswer) => void;
   onAssumptionsChange?: (items: CrmStructureAssumption[]) => void;
+  onCoverageChange?: (installations: CrmStructureInstallation[]) => void;
+  onCoverageRecalc?: () => void;
+  onWeeklyHoursChange?: (hours: number) => void;
+  onReservePctChange?: (pct: number) => void;
   /** Legacy callbacks (backward compat with CorreoAiActionPanel older usage). */
   onRefineAssumption?: (assumption: string) => void;
   onRefineQuestion?: (question: string) => void;
@@ -68,6 +76,10 @@ export function CorreoAiPlanSections({
   remainingRefines,
   onAnswer,
   onAssumptionsChange,
+  onCoverageChange,
+  onCoverageRecalc,
+  onWeeklyHoursChange,
+  onReservePctChange,
   onRefineAssumption,
   onRefineQuestion,
   onOpenRefine,
@@ -125,7 +137,40 @@ export function CorreoAiPlanSections({
         <h3 className="mb-2 text-[12px] font-medium uppercase tracking-wide text-ds-text-3">
           Cobertura y dotación
         </h3>
-        <CorreoAiCoverageTable proposal={proposal} />
+        {(onWeeklyHoursChange || onReservePctChange) && (
+          <div className="mb-2 flex flex-wrap gap-3">
+            <label className="flex items-center gap-2 text-[13px] text-ds-text-2">
+              Jornada
+              <select
+                className="h-10 min-w-[4.5rem] rounded-lg border border-ds-border-default bg-ds-surface-1 px-2 sm:h-9"
+                value={proposal.weeklyHoursPerWorker}
+                onChange={(e) => onWeeklyHoursChange?.(Number(e.target.value))}
+              >
+                {[42, 44, 45].map((h) => (
+                  <option key={h} value={h}>
+                    {h}h
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="flex items-center gap-2 text-[13px] text-ds-text-2">
+              Reserva %
+              <input
+                type="number"
+                min={0}
+                max={100}
+                className="h-10 w-16 rounded-lg border border-ds-border-default bg-ds-surface-1 px-2 sm:h-9"
+                value={proposal.reservePct ?? 10}
+                onChange={(e) => onReservePctChange?.(Number(e.target.value) || 0)}
+              />
+            </label>
+          </div>
+        )}
+        <CorreoAiCoverageTable
+          proposal={proposal}
+          onChange={onCoverageChange}
+          onRecalc={onCoverageRecalc}
+        />
       </section>
 
       {/* Assumptions v2 — inline editable */}
