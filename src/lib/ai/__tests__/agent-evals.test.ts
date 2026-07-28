@@ -280,4 +280,30 @@ describe("agent evals — runHelpChatTurn", () => {
     expect(result.pendingConfirmations?.[0].confirmToolName).toBe("reassign_ticket");
     expect(hoisted.executeCalls.some((c) => c.name === "reassign_ticket")).toBe(false);
   });
+
+  it("correo abierto: primera tool es create_crm_from_email (propuesta), no create_account+create_contact", async () => {
+    script(
+      {
+        toolCalls: [
+          tc("c1", "create_crm_from_email", {
+            threadId: "f6f24abe-133e-44b1-9a97-3fec08109075",
+          }),
+        ],
+      },
+      { tokens: "Te propongo crear la cuenta Iplacex y el contacto Alvaro." },
+    );
+
+    const result = await runHelpChatTurn(
+      baseInput("crea una cuenta para iplacex y crea el contacto"),
+    );
+
+    // Paso 1 (sin confirm): se ejecuta para armar la propuesta; no se difiere.
+    expect(hoisted.executeCalls.map((c) => c.name)).toEqual(["create_crm_from_email"]);
+    expect(hoisted.executeCalls[0]?.args.confirm).not.toBe(true);
+    // No deben aparecer altas sueltas como pendientes separados.
+    const pendingTools = (result.pendingConfirmations ?? []).map((p) => p.confirmToolName);
+    expect(pendingTools).not.toContain("create_account");
+    expect(pendingTools).not.toContain("create_contact");
+    expect(result.toolCallsUsed).toBeGreaterThanOrEqual(1);
+  });
 });
