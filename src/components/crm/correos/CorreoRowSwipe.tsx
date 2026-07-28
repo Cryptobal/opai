@@ -271,10 +271,10 @@ export function CorreoRowSwipe({
       >
         <motion.div
           className="absolute inset-y-0 flex items-center"
-          style={{ x: commitIconX }}
+          style={{ left: commitIconLeft }}
         >
           <PrimaryIcon
-            className={`mx-5 h-6 w-6 scale-125 ${ACTION_STYLE[primary].fg}`}
+            className={`h-6 w-6 scale-125 ${ACTION_STYLE[primary].fg}`}
           />
         </motion.div>
       </motion.div>

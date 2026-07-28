@@ -10,11 +10,12 @@ afterEach(() => {
 });
 
 describe("swipe-scroll-lock", () => {
-  it("lock/unlock con refcount", () => {
+  it("lock/unlock con refcount (sin mutar el DOM)", () => {
     expect(isSwipeScrollLocked()).toBe(false);
     lockSwipeScroll();
     expect(isSwipeScrollLocked()).toBe(true);
-    expect(document.documentElement.dataset.opaiSwipeLock).toBe("1");
+    // Ya no se escribe dataset ni se toca body.style — solo contador.
+    expect(document.documentElement.dataset.opaiSwipeLock).toBeUndefined();
     lockSwipeScroll();
     expect(isSwipeScrollLocked()).toBe(true);
     unlockSwipeScroll();
