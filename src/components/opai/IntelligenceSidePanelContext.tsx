@@ -33,8 +33,9 @@ export function useIntelligenceSidePanelContext() {
 
 /**
  * Estado abierto del dock OPAI Intelligence (desktop).
- * AppShell lo usa para empujar el layout (`xl:mr-[400px]`) sin overlay gris,
- * igual que ChatSidePanel / NotificationSidePanel.
+ * AppShell lo usa para empujar el layout (`lg:mr-[400px]`) sin overlay gris.
+ * A diferencia de Chat/Notificaciones (que solo renderizan desde xl), este
+ * dock no tiene guard xl: el margen aplica desde lg.
  */
 export function IntelligenceSidePanelProvider({
   children,
