@@ -68,9 +68,15 @@ function toMenuItem(
   };
 }
 
+/** Pill del Radar para el ítem padre del submenú Acciones IA. */
+export function radarPillFor(thread: CorreoThreadDTO): string {
+  return `Radar: ${radarVerticalLabel(thread.aiVertical)}`;
+}
+
 /**
- * Construye los ítems del grupo ✦ Acciones IA ordenados por vertical del Radar.
+ * Ítems planos del submenú ✦ Acciones IA (sin header propio).
  * Vacío si el usuario no tiene ninguna capability de radar.
+ * `primary` + divisor + `more` cuando hay ambas secciones.
  */
 export function buildAiMenuItems(
   thread: CorreoThreadDTO,
@@ -84,32 +90,17 @@ export function buildAiMenuItems(
   });
   if (primary.length === 0 && more.length === 0) return [];
 
-  const items: CorreoMenuItem[] = [
-    {
-      icon: <Sparkles className="h-4 w-4" />,
-      label: "Acciones IA",
-      onClick: () => {},
-      header: "✦ Acciones IA",
-      headerPill: `Radar: ${radarVerticalLabel(thread.aiVertical)}`,
-    },
-  ];
-
+  const items: CorreoMenuItem[] = [];
   for (const cmd of primary) {
     items.push(toMenuItem(cmd, thread, handlers.onCommand));
   }
-
   if (more.length > 0) {
-    items.push({
-      icon: <Sparkles className="h-4 w-4" />,
-      label: "Más acciones IA",
-      onClick: () => {},
-      sectionLabel: "Más acciones IA",
+    more.forEach((cmd, idx) => {
+      items.push(
+        toMenuItem(cmd, thread, handlers.onCommand, idx === 0 ? { divider: true } : undefined),
+      );
     });
-    for (const cmd of more) {
-      items.push(toMenuItem(cmd, thread, handlers.onCommand));
-    }
   }
-
   return items;
 }
 

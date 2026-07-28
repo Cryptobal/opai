@@ -240,7 +240,7 @@ export function ReplyRecipientsField({
       <div
         className={cn(
           "flex min-h-11 flex-wrap items-center gap-1.5 border-b border-ds-border-subtle py-2 pr-16",
-          "focus-within:border-primary",
+          "focus-within:border-ds-border-strong",
         )}
         onClick={() => inputRef.current?.focus()}
       >

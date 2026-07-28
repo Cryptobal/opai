@@ -79,12 +79,14 @@ export function CorreoReplyBox({
   onSent,
   shortcuts = DEFAULT_CORREO_SHORTCUTS,
   composeIntent = null,
+  onOpenAiStyle,
 }: {
   detail: CorreoDetail;
   onSent: () => void;
   shortcuts?: CorreoShortcuts;
   /** Pedido externo (atajo desde bandeja / menú contextual). */
   composeIntent?: ComposeIntent | null;
+  onOpenAiStyle?: () => void;
 }) {
   const threadId = detail.thread.id;
   const [meta, setMeta] = useState<Meta>({
@@ -162,8 +164,8 @@ export function CorreoReplyBox({
         canReply={metaReady ? canReply : true}
         replyAllAvailable={metaReady ? replyAllAvailable : false}
         shortcuts={shortcuts}
-        onReply={() => openComposer("reply", false)}
-        onReplyAll={() => openComposer("all", false)}
+        onReply={() => openComposer("reply", true)}
+        onReplyAll={() => openComposer("all", true)}
         onForward={() => openComposer("forward", false)}
         onReplyAI={() => openComposer("reply", true)}
       />
@@ -213,6 +215,7 @@ export function CorreoReplyBox({
       onToggleExpand={() => setOpen((o) => (o ? { ...o, expanded: !o.expanded } : o))}
       onClose={() => setOpen(null)}
       onSent={onSent}
+      onOpenAiStyle={onOpenAiStyle}
     />
   );
 }

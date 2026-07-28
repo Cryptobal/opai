@@ -3306,6 +3306,26 @@ model CrmEmailSignature {
   @@schema("crm")
 }
 
+/// Estilo de respuesta IA (tenant default + override personal).
+/// Ausencia de fila ≡ DEFAULT_CORREO_AI_STYLE (prompt histórico).
+model CrmEmailAiStyle {
+  id         String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId   String   @map("tenant_id")
+  userId     String?  @map("user_id")
+  closeness  String   @default("cercano") // formal | cercano | directo
+  addressing String   @default("nombre") // nombre | usted | tu
+  length     String   @default("media") // breve | media | detallada
+  avoidWords String[] @default([]) @map("avoid_words")
+  guidance   String?  @db.Text
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@unique([tenantId, userId], map: "uq_crm_email_ai_style_scope")
+  @@index([tenantId], map: "idx_crm_email_ai_style_tenant")
+  @@map("email_ai_styles")
+  @@schema("crm")
+}
+
 // ── Installation Protocols ──
 
 model ProtocolSection {

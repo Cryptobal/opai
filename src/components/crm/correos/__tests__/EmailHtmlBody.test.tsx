@@ -65,6 +65,8 @@ describe("buildEmailSrcDoc", () => {
     expect(doc).toContain("<!doctype html>");
     expect(doc).toContain("color-scheme:light");
     expect(doc).toContain('<base target="_blank">');
+    expect(doc).toContain("opai-mail-canvas");
+    expect(doc).toContain("padding:16px 20px");
     expect(doc).toContain("<p>contenido</p>");
   });
 

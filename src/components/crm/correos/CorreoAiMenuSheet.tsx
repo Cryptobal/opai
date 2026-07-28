@@ -90,21 +90,25 @@ export function CorreoAiMenuSheet({
               );
             }
             return (
-              <button
-                key={`${item.label}-${i}`}
-                type="button"
-                role="menuitem"
-                onClick={() => {
-                  item.onClick();
-                  onClose();
-                }}
-                className={`flex min-h-11 w-full items-center gap-3 px-4 text-left text-[13px] ds-tap hover:bg-ds-surface-2 ${
-                  item.danger ? "text-status-danger-fg" : "text-ds-text-1"
-                }`}
-              >
-                <span className={`shrink-0 ${item.danger ? "" : "text-ds-text-3"}`}>{item.icon}</span>
-                {item.label}
-              </button>
+              <div key={`${item.label}-${i}`}>
+                {item.divider && i > 0 && (
+                  <div className="my-1 h-px bg-ds-border-subtle" aria-hidden />
+                )}
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    item.onClick();
+                    onClose();
+                  }}
+                  className={`flex min-h-11 w-full items-center gap-3 px-4 text-left text-[13px] ds-tap hover:bg-ds-surface-2 ${
+                    item.danger ? "text-status-danger-fg" : "text-ds-text-1"
+                  }`}
+                >
+                  <span className={`shrink-0 ${item.danger ? "" : "text-ds-text-3"}`}>{item.icon}</span>
+                  {item.label}
+                </button>
+              </div>
             );
           })}
         </div>

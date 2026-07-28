@@ -82,10 +82,11 @@ export function CorreoReaderShell({
 
   const overlay = (
     <div
+      data-correo-scope
       className={cn(
         "fixed inset-0 z-50 flex justify-end bg-black/40",
         desktopMode === "split" &&
-          "lg:sticky lg:inset-auto lg:top-16 lg:z-20 lg:h-[calc(100dvh-5rem)] lg:w-[var(--correo-panel-width)] lg:shrink-0 lg:bg-transparent",
+          "lg:sticky lg:inset-auto lg:top-[var(--correo-stick)] lg:z-20 lg:h-[calc(100dvh-var(--correo-stick)-1rem)] lg:w-[var(--correo-panel-width)] lg:shrink-0 lg:bg-transparent",
         desktopMode === "contained" &&
           "lg:absolute lg:inset-0 lg:z-40 lg:bg-ds-surface-1",
       )}

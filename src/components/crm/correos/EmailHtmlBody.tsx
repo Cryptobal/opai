@@ -65,7 +65,8 @@ body blockquote{color:${quote}!important;border-left-color:${border}!important}`
 html,body{margin:0;padding:0}
 body{font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
   font-size:13px;line-height:1.55;color:${fg};background:${bg};
-  word-break:break-word;overflow-x:auto;padding:2px}
+  word-break:break-word;overflow-x:auto;padding:16px 20px}
+.opai-mail-canvas{max-width:100%;margin:0 auto}
 a{color:${link};text-decoration:underline;text-underline-offset:2px}
 img{max-width:100%;height:auto}
 table{display:block;overflow-x:auto;border-collapse:collapse;max-width:100%;margin:.5rem 0}
@@ -73,7 +74,7 @@ td,th{border:1px solid ${border};padding:.35rem .5rem;vertical-align:top}
 p,div,li{margin:.35em 0}
 blockquote{margin:.5rem 0;padding-left:.75rem;border-left:3px solid ${border};color:${quote}}
 ${nightCss}
-</style></head><body>${safeHtml}</body></html>`;
+</style></head><body><div class="opai-mail-canvas">${safeHtml}</div></body></html>`;
 }
 
 /** Cuerpo de correo: HTML sanitizado en iframe sandbox; toggle a texto plano;

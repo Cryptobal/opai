@@ -8,6 +8,7 @@ import { plainTextToTiptapDoc } from "./email-inline-images";
 import { docPlainText } from "./composer-draft";
 import {
   ComposerAiAssistToggle,
+  ComposerAiDraftSuggestion,
   ComposerAiPromptPill,
   type DraftRefineMode,
 } from "./ComposerAiAssist";
@@ -35,6 +36,8 @@ type Props = {
   onToggleExpand: () => void;
   onClose: () => void;
   onSent: () => void;
+  /** Abre el sheet de estilo de respuesta IA. */
+  onOpenAiStyle?: () => void;
 };
 
 function defaultSubject(mode: ComposerMode, subject: string): string {
@@ -54,12 +57,16 @@ export function CorreoComposerBox(props: Props) {
   const subjectRef = useRef<string>("");
   const draftIdRef = useRef<string | null>(null);
   const aiSeededRef = useRef(false);
+  /** Descarte de sugerencia Radar por hilo (no reaparece al cambiar modo). */
+  const dismissedSuggestionRef = useRef<Set<string>>(new Set());
   const [seed, setSeed] = useState<object | null>(null);
   const [epoch, setEpoch] = useState(0);
   const [instructions, setInstructions] = useState("");
   const [generating, setGenerating] = useState(false);
-  /** Hay borrador IA en el editor → mostrar chips de refinamiento. */
+  /** Hay borrador IA en el editor → kebab de refinamiento habilitado. */
   const [hasAiDraft, setHasAiDraft] = useState(false);
+  /** Borrador del Radar ofrecido como sugerencia (nunca auto-inyectado). */
+  const [suggestion, setSuggestion] = useState<string | null>(null);
   const [isDesktop, setIsDesktop] = useState(false);
 
   useEffect(() => {
@@ -146,8 +153,8 @@ export function CorreoComposerBox(props: Props) {
     }
   }
 
-  // Al abrir el asistente: si hay preDraft cacheado y el cuerpo está vacío,
-  // sembrarlo. No auto-generar (Gmail: el usuario escribe el prompt y manda ↑).
+  // Al abrir el asistente: jamás inyectar texto. Si hay preDraft del Radar y
+  // el cuerpo está vacío, ofrecer una tarjeta de sugerencia explícita.
   useEffect(() => {
     if (!showAiPrompt) {
       if (!ai) {
@@ -160,11 +167,16 @@ export function CorreoComposerBox(props: Props) {
     aiSeededRef.current = true;
     if (docPlainText(bodyRef.current).trim()) {
       setHasAiDraft(true);
+      setSuggestion(null);
       return;
     }
-    if (!props.preDraft) return;
-    injectDraft(props.preDraft);
-  }, [showAiPrompt, ai, props.preDraft]);
+    if (
+      props.preDraft &&
+      !dismissedSuggestionRef.current.has(threadId)
+    ) {
+      setSuggestion(props.preDraft);
+    }
+  }, [showAiPrompt, ai, props.preDraft, threadId]);
 
   function switchMode(next: ComposerMode) {
     reseed();
@@ -230,15 +242,31 @@ export function CorreoComposerBox(props: Props) {
         onDraftIdChange={(id) => { draftIdRef.current = id; }}
         aboveFooter={
           showAiPrompt ? (
-            <ComposerAiPromptPill
-              value={instructions}
-              onChange={setInstructions}
-              onGenerate={() => void runAi()}
-              onRefine={(preset) => void runAi({ refine: preset })}
-              onClose={closeAi}
-              generating={generating}
-              hasDraft={hasAiDraft}
-            />
+            <div className="space-y-1.5">
+              {suggestion && (
+                <ComposerAiDraftSuggestion
+                  draft={suggestion}
+                  onUse={() => {
+                    injectDraft(suggestion);
+                    setSuggestion(null);
+                  }}
+                  onDismiss={() => {
+                    dismissedSuggestionRef.current.add(threadId);
+                    setSuggestion(null);
+                  }}
+                />
+              )}
+              <ComposerAiPromptPill
+                value={instructions}
+                onChange={setInstructions}
+                onGenerate={() => void runAi()}
+                onRefine={(preset) => void runAi({ refine: preset })}
+                onClose={closeAi}
+                generating={generating}
+                hasDraft={hasAiDraft}
+                onOpenStyle={props.onOpenAiStyle}
+              />
+            </div>
           ) : null
         }
         footerExtras={
