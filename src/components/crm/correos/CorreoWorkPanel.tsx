@@ -170,7 +170,11 @@ export function CorreoWorkPanel({
             <CorreoWorkSummary
               threadId={t.id}
               accountId={t.accountId}
+              accountName={t.accountName}
+              dealTitle={t.dealTitle}
               hasLead={Boolean(t.leadId)}
+              attachmentCount={detail.attachments.length}
+              attachmentsSaved={detail.attachments.filter((a) => a.savedFileId).length}
               onOpenAiLead={onOpenAiLead}
               onOpenAiAnalizar={onOpenAiAnalizar}
               onGoTo={(next) => setTab(resolveWorkTab(next))}

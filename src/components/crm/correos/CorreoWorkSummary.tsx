@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import {
   AlertTriangle,
   Building2,
@@ -9,6 +10,7 @@ import {
   Link2,
   ListChecks,
   ListTodo,
+  Paperclip,
   Sparkles,
   TicketPlus,
   UserPlus,
@@ -21,7 +23,11 @@ import type { WorkTab } from "./work-panel-tabs";
 type Props = {
   threadId: string;
   accountId: string | null;
+  accountName?: string | null;
+  dealTitle?: string | null;
   hasLead: boolean;
+  attachmentCount?: number;
+  attachmentsSaved?: number;
   /** Abre el panel unificado de Acciones IA (comando lead). */
   onOpenAiLead: () => void;
   /** Abre el panel con comando analizar (plan de acciones). */
@@ -37,17 +43,92 @@ const TONE: Record<Tone, string> = {
   sky: "bg-tint-sky text-tint-sky-fg",
 };
 
+type ThreadStats = {
+  contactName: string | null;
+  installationCount: number | null;
+  openTaskCount: number | null;
+  ticketCount: number | null;
+};
+
 /**
- * Tab Resumen del Panel de trabajo (v3.1): grilla homogénea de celdas de acción
- * con color semántico por tipo (Ticket/Reunión violeta, Tarea/Lead verde,
- * Incidente ámbar, Candidato celeste). Las acciones por módulo llevan micro-chip
- * (CRM/OPS/RRHH) y sólo aparecen si el usuario tiene ese módulo; el gating final
- * es server-side. Debajo, tarjeta "Estado del hilo" con filas navegables.
+ * Tab Resumen/Copiloto del Panel de trabajo: acciones + estado del hilo con
+ * datos reales (cuenta, negocio, contacto, contadores).
  */
-export function CorreoWorkSummary({ accountId, hasLead, onOpenAiLead, onOpenAiAnalizar, onGoTo }: Props) {
+export function CorreoWorkSummary({
+  threadId,
+  accountId,
+  accountName,
+  dealTitle,
+  hasLead,
+  attachmentCount,
+  attachmentsSaved,
+  onOpenAiLead,
+  onOpenAiAnalizar,
+  onGoTo,
+}: Props) {
   const perms = useEffectivePermissions();
   const hasCrm = hasModuleAccess(perms, "crm");
   const hasOps = hasModuleAccess(perms, "ops");
+  const [stats, setStats] = useState<ThreadStats>({
+    contactName: null,
+    installationCount: null,
+    openTaskCount: null,
+    ticketCount: null,
+  });
+
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      const [contactRes, linksRes, tasksRes] = await Promise.all([
+        fetch(`/api/crm/correos/${threadId}/contact-context`).then((r) => r.json()).catch(() => null),
+        fetch(`/api/crm/correos/${threadId}/links`).then((r) => r.json()).catch(() => null),
+        fetch(`/api/crm/correos/${threadId}/tasks`).then((r) => r.json()).catch(() => null),
+      ]);
+      if (cancelled) return;
+      const links = Array.isArray(linksRes?.links) ? linksRes.links : [];
+      const tasks = Array.isArray(tasksRes?.tasks) ? tasksRes.tasks : [];
+      const installations = links.filter(
+        (l: { entityType?: string }) => l.entityType === "installation",
+      );
+      const tickets = links.filter(
+        (l: { entityType?: string }) => l.entityType === "incidente",
+      );
+      setStats({
+        contactName:
+          typeof contactRes?.contact?.name === "string" ? contactRes.contact.name : null,
+        installationCount: installations.length,
+        openTaskCount: tasks.filter((t: { status?: string }) => t.status !== "done").length,
+        ticketCount: tickets.length,
+      });
+    }
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, [threadId]);
+
+  const accountValue = accountId
+    ? accountName?.trim() || "Cuenta"
+    : "Sin cuenta";
+  const dealValue = dealTitle?.trim() || null;
+  const contactValue = stats.contactName;
+  const attachmentsValue =
+    attachmentCount != null
+      ? attachmentsSaved != null && attachmentsSaved > 0
+        ? `${attachmentCount} · ${attachmentsSaved} guardado${attachmentsSaved === 1 ? "" : "s"}`
+        : String(attachmentCount)
+      : null;
+  const workParts: string[] = [];
+  if (stats.openTaskCount != null) {
+    workParts.push(
+      stats.openTaskCount === 0
+        ? "Sin tareas abiertas"
+        : `${stats.openTaskCount} tarea${stats.openTaskCount === 1 ? "" : "s"}`,
+    );
+  }
+  if (stats.ticketCount != null && stats.ticketCount > 0) {
+    workParts.push(`${stats.ticketCount} ticket${stats.ticketCount === 1 ? "" : "s"}`);
+  }
 
   return (
     <div className="space-y-3">
@@ -76,9 +157,41 @@ export function CorreoWorkSummary({ accountId, hasLead, onOpenAiLead, onOpenAiAn
 
       <div className="overflow-hidden rounded-xl border border-ds-border-subtle bg-ds-surface-2">
         <p className="px-3 pt-2 text-[12px] font-medium text-ds-text-3">Estado del hilo</p>
-        <StatusRow icon={Building2} label="Cuenta" value={accountId ? "Cuenta asociada" : "Sin cuenta"} onClick={() => onGoTo("cuenta")} />
-        <StatusRow icon={Link2} label="Vínculos" value="Ver relaciones" onClick={() => onGoTo("vinculos")} />
-        <StatusRow icon={ListChecks} label="Trabajo" value="Tareas, tickets y reunión" onClick={() => onGoTo("productividad")} />
+        <StatusRow
+          icon={Building2}
+          label="Cuenta"
+          value={dealValue ? `${accountValue} · ${dealValue}` : accountValue}
+          onClick={() => onGoTo("cuenta")}
+        />
+        {contactValue && (
+          <StatusRow icon={UserPlus} label="Contacto" value={contactValue} onClick={() => onGoTo("cuenta")} />
+        )}
+        <StatusRow
+          icon={Link2}
+          label="Vínculos"
+          value={
+            stats.installationCount != null
+              ? stats.installationCount === 0
+                ? "Sin instalaciones"
+                : `${stats.installationCount} instalación${stats.installationCount === 1 ? "" : "es"}`
+              : "Ver relaciones"
+          }
+          onClick={() => onGoTo("vinculos")}
+        />
+        {attachmentsValue != null && (
+          <StatusRow
+            icon={Paperclip}
+            label="Adjuntos"
+            value={attachmentsValue}
+            onClick={() => onGoTo("vinculos")}
+          />
+        )}
+        <StatusRow
+          icon={ListChecks}
+          label="Trabajo"
+          value={workParts.length > 0 ? workParts.join(" · ") : "Tareas y tickets"}
+          onClick={() => onGoTo("productividad")}
+        />
       </div>
     </div>
   );
@@ -110,7 +223,7 @@ function Tile({
           <Icon className="h-4 w-4" />
         </span>
         {chip && (
-          <span className="rounded-full bg-ds-surface-3 px-1.5 py-0.5 text-[11px] font-mono uppercase tracking-[0.06em] text-ds-text-3">
+          <span className="rounded-full bg-ds-surface-3 px-1.5 py-0.5 text-[12px] font-mono uppercase tracking-[0.06em] text-ds-text-3">
             {chip}
           </span>
         )}
@@ -126,7 +239,17 @@ function Tile({
   return <button type="button" onClick={onClick} className={cls}>{inner}</button>;
 }
 
-function StatusRow({ icon: Icon, label, value, onClick }: { icon: LucideIcon; label: string; value: string; onClick: () => void }) {
+function StatusRow({
+  icon: Icon,
+  label,
+  value,
+  onClick,
+}: {
+  icon: LucideIcon;
+  label: string;
+  value: string;
+  onClick: () => void;
+}) {
   return (
     <button
       type="button"
