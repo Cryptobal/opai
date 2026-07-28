@@ -108,6 +108,8 @@ export async function selfHealInbox(params: {
       where: {
         ...base,
         archivedAt: null,
+        // Pospuestos salen de INBOX a propósito: no archivarlos por self-heal.
+        OR: [{ snoozedUntil: null }, { snoozedUntil: { lte: new Date() } }],
         lastMessageAt: { gte: since },
         ...(localIds.size > 0 ? { id: { notIn: Array.from(localIds) } } : {}),
       },
@@ -178,7 +180,13 @@ export async function selfHealInbox(params: {
   }
   if (toArchive.length > 0) {
     const r = await prisma.crmEmailThread.updateMany({
-      where: { tenantId, emailAccountId, id: { in: toArchive } },
+      where: {
+        tenantId,
+        emailAccountId,
+        id: { in: toArchive },
+        // No pisar pospuestos vigentes (snooze ≠ archive).
+        OR: [{ snoozedUntil: null }, { snoozedUntil: { lte: now } }],
+      },
       data: { archivedAt: now, trashedAt: null, spamAt: null },
     });
     healed += r.count;

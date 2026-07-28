@@ -47,23 +47,33 @@ export async function createThreadTask(params: {
     select: { id: true, accountId: true, dealId: true, leadId: true, contactId: true },
   });
   if (!thread) return null;
-  const t = await prisma.crmTask.create({
-    data: {
-      tenantId: params.tenantId,
-      title: params.title,
-      dueAt: params.dueAt,
-      allDay: params.dueAt ? Boolean(params.allDay) : false,
-      type: params.dueAt ? "reminder" : "followup",
-      status: "open",
-      assignedTo: params.userId,
-      createdBy: params.userId,
-      emailThreadId: thread.id,
-      accountId: thread.accountId,
-      dealId: thread.dealId,
-      leadId: thread.leadId,
-      contactId: thread.contactId,
-    },
-    select: { id: true, title: true, status: true, dueAt: true, allDay: true },
+  // Multi-responsable: la fuente de verdad es crm_task_assignees. El Hub y el
+  // filtro assigneeId de GET /api/crm/tasks leen esa tabla — sin la fila el
+  // creador no ve la tarea en "Mi día" aunque assignedTo quede seteado.
+  const t = await prisma.$transaction(async (tx) => {
+    const created = await tx.crmTask.create({
+      data: {
+        tenantId: params.tenantId,
+        title: params.title,
+        dueAt: params.dueAt,
+        allDay: params.dueAt ? Boolean(params.allDay) : false,
+        type: params.dueAt ? "reminder" : "followup",
+        status: "open",
+        assignedTo: params.userId,
+        createdBy: params.userId,
+        emailThreadId: thread.id,
+        accountId: thread.accountId,
+        dealId: thread.dealId,
+        leadId: thread.leadId,
+        contactId: thread.contactId,
+      },
+      select: { id: true, title: true, status: true, dueAt: true, allDay: true },
+    });
+    await tx.crmTaskAssignee.createMany({
+      data: [{ taskId: created.id, userId: params.userId }],
+      skipDuplicates: true,
+    });
+    return created;
   });
 
   void auditTaskAction({
@@ -72,7 +82,7 @@ export async function createThreadTask(params: {
     userEmail: params.userEmail,
     action: "created",
     taskId: t.id,
-    meta: { title: t.title, threadId: params.threadId },
+    meta: { title: t.title, threadId: params.threadId, assigneeIds: [params.userId] },
     request: params.request,
   });
 

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   HUB_RECENT_EMAILS_LIMIT,
   mergeHubEmailThreads,
+  mergeHubSnoozedThreads,
 } from "../hub-recent-emails";
 
 type Row = Parameters<typeof mergeHubEmailThreads>[0][number];
@@ -81,5 +82,22 @@ describe("mergeHubEmailThreads", () => {
     ]);
     expect(items[0].snippet!.length).toBeLessThanOrEqual(81); // 80 + elipsis
     expect(items[0].hasAttachment).toBe(true);
+  });
+});
+
+describe("mergeHubSnoozedThreads", () => {
+  it("ordena por despertar más próximo y conserva snoozedUntil", () => {
+    const items = mergeHubSnoozedThreads([
+      row({
+        id: "late",
+        snoozedUntil: new Date("2026-07-30T10:00:00Z"),
+      }),
+      row({
+        id: "soon",
+        snoozedUntil: new Date("2026-07-28T09:00:00Z"),
+      }),
+    ]);
+    expect(items.map((i) => i.id)).toEqual(["soon", "late"]);
+    expect(items[0].snoozedUntil).toBe("2026-07-28T09:00:00.000Z");
   });
 });

@@ -18,8 +18,8 @@ import {
 import type { TareaItem } from "./types";
 import { TareaHubRow } from "./TareaHubRow";
 
-const HOME_BUCKETS: TareaBucket[] = ["vencidas", "hoy", "manana", "semana"];
-const DENSE_BUCKETS: TareaBucket[] = ["hoy", "semana"];
+const HOME_BUCKETS: TareaBucket[] = ["vencidas", "hoy", "manana", "semana", "sin_fecha"];
+const DENSE_BUCKETS: TareaBucket[] = ["hoy", "semana", "sin_fecha"];
 const MOBILE_VISIBLE = 4;
 const DESKTOP_VISIBLE = 8;
 
@@ -195,7 +195,9 @@ export function TareasHubCard({
                     ? "Hoy"
                     : g.bucket === "manana"
                       ? "Mañana"
-                      : "Esta semana"}
+                      : g.bucket === "sin_fecha"
+                        ? "Sin fecha"
+                        : "Esta semana"}
                 </p>
                 <ul className="space-y-0.5">
                   {g.tasks.map((task) => (
@@ -222,12 +224,6 @@ export function TareasHubCard({
               />
             )}
           </div>
-          <Link
-            href="/opai/tareas"
-            className="flex min-h-11 shrink-0 items-center justify-center rounded-ds-md text-[13px] font-medium text-primary transition-colors hover:bg-ds-surface-2"
-          >
-            Ver todas
-          </Link>
         </>
       ) : flat.length === 0 ? (
         <EmptyState

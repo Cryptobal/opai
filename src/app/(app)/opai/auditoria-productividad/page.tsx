@@ -17,15 +17,32 @@ type PageProps = {
 };
 
 const DOMAIN_OPTIONS = [
-  { value: "", label: "Tareas y agenda" },
+  { value: "", label: "Tareas, agenda y correos" },
   { value: "task", label: "Solo tareas" },
   { value: "agenda", label: "Solo agenda" },
+  { value: "email", label: "Solo correos" },
 ];
 
 function detailLabel(details: unknown): string | null {
   if (!details || typeof details !== "object" || Array.isArray(details)) return null;
-  const title = (details as Record<string, unknown>).title;
-  return typeof title === "string" && title.trim() ? title.trim() : null;
+  const d = details as Record<string, unknown>;
+  for (const key of ["title", "subject"] as const) {
+    const v = d[key];
+    if (typeof v === "string" && v.trim()) return v.trim();
+  }
+  if (typeof d.mode === "string" && d.mode.trim()) return `Modo: ${d.mode.trim()}`;
+  if (typeof d.threadId === "string" && d.threadId.trim()) {
+    return `Hilo ${d.threadId.trim().slice(0, 8)}…`;
+  }
+  if (typeof d.snoozeUntil === "string" && d.snoozeUntil.trim()) {
+    return `Hasta ${new Date(d.snoozeUntil).toLocaleString("es-CL", {
+      day: "2-digit",
+      month: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    })}`;
+  }
+  return null;
 }
 
 export default async function AuditoriaProductividadPage({ searchParams }: PageProps) {
@@ -41,7 +58,11 @@ export default async function AuditoriaProductividadPage({ searchParams }: PageP
   }
 
   const perms = await resolvePagePerms(session.user);
-  if (!canView(perms, "productividad", "tareas") && !canView(perms, "productividad", "agenda")) {
+  const canAudit =
+    canView(perms, "productividad", "tareas") ||
+    canView(perms, "productividad", "agenda") ||
+    canView(perms, "productividad", "correos");
+  if (!canAudit) {
     redirect("/hub");
   }
 
@@ -56,7 +77,9 @@ export default async function AuditoriaProductividadPage({ searchParams }: PageP
       ? [{ action: { startsWith: "task." } }]
       : domain === "agenda"
         ? [{ action: { startsWith: "agenda." } }]
-        : PRODUCTIVIDAD_AUDIT_PREFIXES.map((prefix) => ({ action: { startsWith: prefix } }));
+        : domain === "email"
+          ? [{ action: { startsWith: "email." } }]
+          : PRODUCTIVIDAD_AUDIT_PREFIXES.map((prefix) => ({ action: { startsWith: prefix } }));
 
   const logsRaw = await prisma.auditLog.findMany({
     where: {
@@ -96,7 +119,7 @@ export default async function AuditoriaProductividadPage({ searchParams }: PageP
     distinct: ["action"],
     select: { action: true },
     orderBy: { action: "asc" },
-    take: 50,
+    take: 80,
   });
 
   return (
@@ -106,7 +129,7 @@ export default async function AuditoriaProductividadPage({ searchParams }: PageP
           Auditoría de Productividad
         </h1>
         <p className="mt-0.5 text-[13px] text-ds-text-3">
-          Historial de creación, cambios y eliminaciones de tareas y agenda.
+          Historial de creación, cambios y eliminaciones de tareas, agenda y correos.
         </p>
       </header>
 

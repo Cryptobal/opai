@@ -59,7 +59,14 @@ export async function GET(request: NextRequest) {
 
     const where: Record<string, unknown> = { tenantId: ctx.tenantId };
     if (status === "open" || status === "done") where.status = status;
-    if (assigneeId) where.assignees = { some: { userId: assigneeId } };
+    // Preferir task_assignees; fallback a assignedTo denormalizado para tareas
+    // pre-migración (p.ej. creadas desde correo sin fila en assignees).
+    if (assigneeId) {
+      where.OR = [
+        { assignees: { some: { userId: assigneeId } } },
+        { AND: [{ assignees: { none: {} } }, { assignedTo: assigneeId }] },
+      ];
+    }
     if (q && q.trim()) where.title = { contains: q.trim(), mode: "insensitive" };
     if (from || to) {
       const due: Record<string, Date> = {};
@@ -96,7 +103,11 @@ export async function GET(request: NextRequest) {
     const hasMore = rows.length > take;
     const items = (hasMore ? rows.slice(0, take) : rows).map((t) => ({
       ...t,
-      assigneeIds: t.assignees.map((a) => a.userId),
+      assigneeIds: t.assignees.length
+        ? t.assignees.map((a) => a.userId)
+        : t.assignedTo
+          ? [t.assignedTo]
+          : [],
     }));
     const nextCursor = hasMore ? items[items.length - 1]?.id ?? null : null;
 

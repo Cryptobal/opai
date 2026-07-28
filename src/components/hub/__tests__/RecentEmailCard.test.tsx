@@ -23,6 +23,8 @@ function payload(overrides: Partial<HubRecentEmails> = {}): HubRecentEmails {
     accountEmails: ["yo@empresa.cl"],
     unreadCount: 2,
     items: [item({ id: "t1", isUnread: true }), item({ id: "t2" })],
+    snoozed: [],
+    scheduled: [],
     ...overrides,
   };
 }
@@ -112,11 +114,45 @@ describe("RecentEmailCard", () => {
   });
 
   it("estado vacío: 'Tu bandeja está al día'", async () => {
-    mockFetchOnce(payload({ items: [], unreadCount: 0 }));
+    mockFetchOnce(payload({ items: [], unreadCount: 0, snoozed: [], scheduled: [] }));
     renderCard();
     await waitFor(() =>
       expect(screen.getByText("Tu bandeja está al día")).toBeTruthy(),
     );
+  });
+
+  it("en variante dense muestra secciones Pospuestos y Programados", async () => {
+    mockFetchOnce(
+      payload({
+        items: [item({ id: "t1", isUnread: true })],
+        snoozed: [
+          item({
+            id: "sz1",
+            subject: "Pospuesto demo",
+            snoozedUntil: "2026-07-29T12:00:00.000Z",
+          }),
+        ],
+        scheduled: [
+          {
+            id: "out-1",
+            subject: "Envío programado",
+            to: ["cliente@x.cl"],
+            scheduledAt: "2026-07-30T09:00:00.000Z",
+            status: "held",
+            threadId: null,
+          },
+        ],
+      }),
+    );
+    render(
+      <HubEmailProvider>
+        <RecentEmailCard variant="dense" />
+      </HubEmailProvider>,
+    );
+    await waitFor(() => expect(screen.getByText("Pospuestos")).toBeTruthy());
+    expect(screen.getByText("Programados")).toBeTruthy();
+    expect(screen.getByText("Pospuesto demo")).toBeTruthy();
+    expect(screen.getByText("Envío programado")).toBeTruthy();
   });
 
   it("sin casilla conectada ofrece 'Conectar Gmail'", async () => {

@@ -1,10 +1,10 @@
 /**
- * Audit log de Productividad (Tareas + Agenda).
- * Las acciones se escriben en AuditLog con prefijos `task.*` y `agenda.*`
- * para filtrarlas en /opai/auditoria-productividad.
+ * Audit log de Productividad (Tareas + Agenda + Correos).
+ * Las acciones se escriben en AuditLog con prefijos `task.*`, `agenda.*` y
+ * `email.*` (este último vía audit-email.ts) para filtrarlas en
+ * /opai/auditoria-productividad.
  *
  * Delega en el helper canónico `logAudit` para capturar ipAddress/userAgent.
- * Correos ya audita vía audit-email.ts (`email.*`) — no duplicar aquí.
  */
 import { logAudit } from "@/lib/audit";
 
@@ -59,4 +59,4 @@ export async function auditAgendaAction(params: {
 }
 
 /** Prefijos de acciones visibles en la auditoría de Productividad. */
-export const PRODUCTIVIDAD_AUDIT_PREFIXES = ["task.", "agenda."] as const;
+export const PRODUCTIVIDAD_AUDIT_PREFIXES = ["task.", "agenda.", "email."] as const;

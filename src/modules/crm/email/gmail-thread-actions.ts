@@ -137,9 +137,12 @@ export async function runCorreoThreadAction(params: {
         id: tid,
         requestBody: { addLabelIds: ["INBOX"] },
       });
+      // El sync puede haber seteado archivedAt mientras el hilo estuvo fuera de
+      // INBOX (pospuesto ≠ archivado). Al despertar hay que limpiarlo o el
+      // correo queda atrapado en Archivados y no vuelve a Recibidos.
       await prisma.crmEmailThread.update({
         where: { id: thread.id },
-        data: { snoozedUntil: null },
+        data: { snoozedUntil: null, archivedAt: null, trashedAt: null },
       });
       return { ok: true };
     }
