@@ -4,6 +4,8 @@ import { useState } from "react";
 import { ChevronDown, Plus, Trash2 } from "lucide-react";
 import { MapsUrlPasteInput } from "@/components/ui/MapsUrlPasteInput";
 import { SimpleSelect } from "@/components/ui/simple-select";
+import { Checkbox } from "@/components/ui/checkbox";
+import { TaskDatePicker } from "@/components/agenda/TaskDatePicker";
 import { useCpqCatalogs } from "@/lib/cpq/use-cpq-catalogs";
 import {
   WEEKDAYS_FULL,
@@ -315,15 +317,19 @@ export function LeadFields({
         </div>
         <div>
           <Label conf={p.confianza.fechaLimite}>Fecha límite</Label>
-          <input
-            type="date"
-            className={INPUT}
+          <TaskDatePicker
             value={p.fechaLimite ?? ""}
-            onChange={(e) => set({ fechaLimite: e.target.value || null })}
+            onChange={(v) => set({ fechaLimite: v || null })}
+            ariaLabel="Fecha límite"
           />
         </div>
-        <label className="col-span-2 flex items-center gap-2 text-[13px] text-ds-text-2">
-          <input type="checkbox" checked={p.esLicitacion} onChange={(e) => set({ esLicitacion: e.target.checked })} />
+        <label className="col-span-2 flex min-h-11 cursor-pointer items-center gap-3 text-[13px] text-ds-text-2">
+          <Checkbox
+            checked={p.esLicitacion}
+            onCheckedChange={(c) => set({ esLicitacion: c === true })}
+            className="h-5 w-5"
+            aria-label="Es una licitación"
+          />
           Es una licitación
         </label>
       </Section>

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { CheckCircle2, Sparkles, TicketPlus } from "lucide-react";
 import { toast } from "sonner";
 import { TaskTimePicker } from "@/components/agenda/TaskTimePicker";
+import { TaskDatePicker } from "@/components/agenda/TaskDatePicker";
 import { SimpleSelect } from "@/components/ui/simple-select";
 
 type User = { id: string; name: string | null; email: string | null };
@@ -159,12 +160,11 @@ export function CorreoTicketPanel({ threadId, subject }: { threadId: string; sub
             )}
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <input
-              type="date"
+            <TaskDatePicker
               value={due}
-              onChange={(e) => setDue(e.target.value)}
-              aria-label="Vencimiento"
-              className="h-9 min-w-[8rem] flex-1 rounded-lg border border-ds-border-default bg-ds-surface-1 px-2 text-[13px] text-ds-text-1"
+              onChange={setDue}
+              ariaLabel="Vencimiento"
+              className="min-w-[8rem] flex-1"
             />
             <TaskTimePicker value={time} onChange={setTime} ariaLabel="Hora de vencimiento" menuAlign="right" className="shrink-0" />
           </div>
