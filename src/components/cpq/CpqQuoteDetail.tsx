@@ -773,6 +773,37 @@ export function CpqQuoteDetail({
       .catch(() => {});
   }, [crmContext.installationId, crmInstallations]);
 
+  // Asegura el contacto seleccionado en la lista (email incluido). Sin esto el
+  // modal de envío no se monta y «Enviar propuesta» queda en click silencioso
+  // mientras /api/crm/contacts aún no cargó o filtró mal la fila.
+  useEffect(() => {
+    if (!crmContext.contactId) return;
+    if (crmContacts.some((c) => c.id === crmContext.contactId)) return;
+
+    fetch(`/api/crm/contacts/${crmContext.contactId}`)
+      .then((res) => res.json())
+      .then((payload) => {
+        if (!payload?.success || !payload.data) return;
+        const c = payload.data as {
+          id: string;
+          firstName?: string;
+          lastName?: string;
+          email?: string | null;
+        };
+        const normalized = {
+          id: String(c.id ?? ""),
+          firstName: String(c.firstName ?? ""),
+          lastName: String(c.lastName ?? ""),
+          email: typeof c.email === "string" ? c.email : c.email ?? null,
+        };
+        if (!normalized.id) return;
+        setCrmContacts((prev) =>
+          prev.some((item) => item.id === normalized.id) ? prev : [normalized, ...prev]
+        );
+      })
+      .catch(() => {});
+  }, [crmContext.contactId, crmContacts]);
+
   const saveCrmContext = async (patch: Partial<typeof crmContext>) => {
     const updated = { ...crmContext, ...patch };
     setCrmContext(updated);
@@ -1509,16 +1540,45 @@ export function CpqQuoteDetail({
   const selectedDealTitle =
     crmDeals.find((deal) => deal.id === crmContext.dealId)?.title ||
     "Sin negocio";
+  const contactForPortal = crmContext.contactId
+    ? crmContacts.find((x) => x.id === crmContext.contactId) ?? null
+    : null;
+  const contactHasEmail = Boolean(contactForPortal?.email?.trim());
   const canSendPortalProposal =
     Boolean(quote) &&
     (positions.length > 0 || (additionalLines?.length ?? 0) > 0) &&
-    Boolean(crmContext.accountId && crmContext.contactId && crmContext.dealId);
+    Boolean(crmContext.accountId && crmContext.contactId && crmContext.dealId) &&
+    contactHasEmail;
   const portalReadinessItems = [
     { label: "Cliente", ready: Boolean(crmContext.accountId) },
     { label: "Contacto", ready: Boolean(crmContext.contactId) },
+    { label: "Email contacto", ready: contactHasEmail },
     { label: "Negocio", ready: Boolean(crmContext.dealId) },
     { label: "Puestos o líneas", ready: positions.length > 0 || (additionalLines?.length ?? 0) > 0 },
   ];
+
+  /** Abre el modal de envío o muestra toast accionable (nunca click silencioso). */
+  const openPortalProposal = useCallback(() => {
+    if (!crmContext.contactId) {
+      toast.error("Asigna un contacto antes de enviar la propuesta.");
+      return;
+    }
+    if (!contactForPortal) {
+      toast.message("Cargando datos del contacto…", {
+        description: "Espera un segundo e inténtalo de nuevo.",
+      });
+      return;
+    }
+    if (!contactForPortal.email?.trim()) {
+      toast.error("El contacto no tiene email. Edítalo desde la sección Datos antes de enviar.");
+      return;
+    }
+    if (!crmContext.dealId) {
+      toast.error("Asigna un negocio antes de enviar la propuesta.");
+      return;
+    }
+    setPortalProposalOpen(true);
+  }, [crmContext.contactId, crmContext.dealId, contactForPortal]);
 
   const handleGeneratePdfPreview = async () => {
     setPdfPreviewLoading(true);
@@ -1628,10 +1688,6 @@ export function CpqQuoteDetail({
         <div className="flex items-center gap-1 shrink-0">
           <div className="hidden lg:flex xl:hidden items-center gap-1 border-r border-border/60 pr-2 mr-1">
             {(() => {
-              const contactForSend = crmContext.contactId
-                ? crmContacts.find((x) => x.id === crmContext.contactId)
-                : null;
-              const missingEmail = !!crmContext.contactId && !contactForSend?.email;
               const baseDisabled =
                 !quote ||
                 (positions.length === 0 && (additionalLines?.length ?? 0) === 0) ||
@@ -1644,19 +1700,13 @@ export function CpqQuoteDetail({
                   className="h-7 w-7 p-0 bg-status-ok hover:brightness-110 text-white border-0 shadow-sm"
                   disabled={baseDisabled}
                   title={
-                    missingEmail
+                    crmContext.contactId && !contactHasEmail
                       ? "El contacto no tiene email cargado"
                       : quote.status === "sent"
                         ? "Reenviar propuesta al portal"
                         : "Enviar propuesta (invitación al portal)"
                   }
-                  onClick={() => {
-                    if (missingEmail) {
-                      toast.error("El contacto no tiene email. Edítalo desde la sección Datos antes de enviar.");
-                      return;
-                    }
-                    setPortalProposalOpen(true);
-                  }}
+                  onClick={openPortalProposal}
                 >
                   <Send className="h-3.5 w-3.5" />
                 </Button>
@@ -1677,14 +1727,7 @@ export function CpqQuoteDetail({
                       className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-xs hover:bg-accent font-medium"
                       onClick={() => {
                         setOverflowMenuOpen(false);
-                        const contactForSend = crmContext.contactId
-                          ? crmContacts.find((x) => x.id === crmContext.contactId)
-                          : null;
-                        if (crmContext.contactId && !contactForSend?.email) {
-                          toast.error("El contacto no tiene email. Edítalo desde la sección Datos antes de enviar.");
-                          return;
-                        }
-                        setPortalProposalOpen(true);
+                        openPortalProposal();
                       }}
                       disabled={
                         !quote ||
@@ -3302,8 +3345,19 @@ export function CpqQuoteDetail({
                 </div>
                 <Button
                   className="h-9 w-full gap-2 bg-status-ok text-white hover:brightness-110"
-                  disabled={!canSendPortalProposal}
-                  onClick={() => setPortalProposalOpen(true)}
+                  disabled={
+                    !quote ||
+                    (positions.length === 0 && (additionalLines?.length ?? 0) === 0) ||
+                    !crmContext.accountId ||
+                    !crmContext.contactId ||
+                    !crmContext.dealId
+                  }
+                  title={
+                    crmContext.contactId && !contactHasEmail
+                      ? "El contacto no tiene email cargado"
+                      : undefined
+                  }
+                  onClick={openPortalProposal}
                 >
                   <Send className="h-4 w-4" />
                   {quote.status === "sent" ? "Reenviar propuesta" : "Enviar propuesta"}
@@ -3388,32 +3442,22 @@ export function CpqQuoteDetail({
           </>
         }
         portalButton={(() => {
-          const contactForSend = crmContext.contactId
-            ? crmContacts.find((x) => x.id === crmContext.contactId)
-            : null;
-          const missingEmail = !!crmContext.contactId && !contactForSend?.email;
           const baseDisabled =
             !quote ||
             (positions.length === 0 && (additionalLines?.length ?? 0) === 0) ||
             !crmContext.accountId ||
             !crmContext.contactId ||
             !crmContext.dealId;
-          // Click silencioso cuando el contacto no tiene email: antes el modal
-          // simplemente no se renderizaba (return null) y el botón parecía
-          // roto. Ahora el botón queda habilitado pero al click muestra un
-          // mensaje accionable explicando qué falta para enviar.
           return (
             <Button
               className="w-full h-11 gap-2 text-sm font-semibold bg-status-ok hover:brightness-110 text-white"
               disabled={baseDisabled}
-              title={missingEmail ? "El contacto no tiene email cargado" : undefined}
-              onClick={() => {
-                if (missingEmail) {
-                  toast.error("El contacto no tiene email. Edítalo desde la sección Datos antes de enviar.");
-                  return;
-                }
-                setPortalProposalOpen(true);
-              }}
+              title={
+                crmContext.contactId && !contactHasEmail
+                  ? "El contacto no tiene email cargado"
+                  : undefined
+              }
+              onClick={openPortalProposal}
             >
               <Send className="h-4 w-4" />
               {quote?.status === "sent" ? "Reenviar" : "Enviar"}
@@ -3422,12 +3466,7 @@ export function CpqQuoteDetail({
         })()}
       />
 
-      {crmContext.dealId &&
-        crmContext.contactId &&
-        (() => {
-          const qc = crmContacts.find((x) => x.id === crmContext.contactId);
-          if (!qc?.email) return null;
-          return (
+      {crmContext.dealId && contactForPortal?.email ? (
             <SendPortalProposalModal
               key="portal-proposal"
               open={portalProposalOpen}
@@ -3437,10 +3476,10 @@ export function CpqQuoteDetail({
               defaultEmailSubject={portalInviteSubjectDefault}
               dealId={crmContext.dealId}
               quoteContact={{
-                id: qc.id,
-                firstName: qc.firstName,
-                lastName: qc.lastName,
-                email: qc.email,
+                id: contactForPortal.id,
+                firstName: contactForPortal.firstName,
+                lastName: contactForPortal.lastName,
+                email: contactForPortal.email,
                 roleTitle: null,
               }}
               hasGuards={positions.length > 0}
@@ -3453,8 +3492,7 @@ export function CpqQuoteDetail({
               onBeforeSend={flushPendingSaves}
               onComplete={handlePortalProposalComplete}
             />
-          );
-        })()}
+      ) : null}
 
       {/* Modal de WhatsApp — se muestra tras envio exitoso cuando usuario eligio enviar + WhatsApp */}
       <Dialog open={whatsappModalOpen} onOpenChange={setWhatsappModalOpen}>
