@@ -269,6 +269,7 @@ export async function createCrmStructureFromProposal(params: {
   }
 
   let dealId: string | undefined;
+  let positionsCreated = 0;
   let agendaSync: CreateCrmStructureResult["agendaSync"];
   let dealUrl: string | undefined;
   let quoteId: string | undefined;
@@ -361,9 +362,63 @@ export async function createCrmStructureFromProposal(params: {
           name: row.name,
           url: `/crm/installations/${row.id}`,
         });
+        // Vínculo operacional del hilo → instalación (Copiloto "Vínculos").
+        try {
+          await prisma.crmEmailThreadLink.upsert({
+            where: {
+              threadId_entityType_entityId: {
+                threadId: thread.id,
+                entityType: "installation",
+                entityId: row.id,
+              },
+            },
+            create: {
+              tenantId,
+              threadId: thread.id,
+              entityType: "installation",
+              entityId: row.id,
+              linkedVia: "ai",
+              createdBy: userId,
+            },
+            update: {},
+          });
+        } catch (linkErr) {
+          console.error("[email-to-crm-structure] thread link installation:", linkErr);
+        }
       }
     } else {
       skipped.push("installations");
+    }
+
+    // Contacto ↔ negocio (además de primaryContactId en deals nuevos).
+    if (dealId && contactId) {
+      try {
+        await prisma.crmDealContact.create({
+          data: {
+            tenantId,
+            dealId,
+            contactId,
+            role: "primary",
+          },
+        });
+      } catch (dcErr: unknown) {
+        const code =
+          dcErr && typeof dcErr === "object" && "code" in dcErr
+            ? (dcErr as { code: string }).code
+            : "";
+        if (code !== "P2002") {
+          console.error("[email-to-crm-structure] deal contact:", dcErr);
+        }
+      }
+      // Si reutilizamos el deal, asegurar primaryContactId cuando faltaba.
+      if (!createdNewDeal) {
+        await prisma.crmDeal
+          .updateMany({
+            where: { id: dealId, tenantId, primaryContactId: null },
+            data: { primaryContactId: contactId },
+          })
+          .catch(() => undefined);
+      }
     }
 
     // Hitos de licitación (antes de banda all-day para alinear fechaEntrega).
@@ -463,6 +518,7 @@ export async function createCrmStructureFromProposal(params: {
           });
           quoteId = q.quoteId;
           quoteUrl = q.quoteUrl;
+          positionsCreated = q.positionsCreated;
         } catch (e) {
           console.error("[email-to-crm-structure] quote:", e);
           skipped.push("quote");
@@ -568,7 +624,11 @@ export async function createCrmStructureFromProposal(params: {
     flags.deal
       ? `dotación base ${proposal.staffingTotals.headcountBase}`
       : null,
-    quoteId ? "cotización borrador creada" : null,
+    quoteId
+      ? positionsCreated > 0
+        ? `cotización borrador con ${positionsCreated} puesto(s)`
+        : "cotización borrador creada"
+      : null,
   ].filter(Boolean);
 
   return {
@@ -588,6 +648,8 @@ export async function createCrmStructureFromProposal(params: {
     skipped: skipped.length ? skipped : undefined,
     agendaSync,
     conversationId,
-    note: noteParts.join(", ") + (quoteId ? "." : ". Cotización CPQ: armar puestos en el workspace."),
+    note:
+      noteParts.join(", ") +
+      (quoteId ? "." : ". Cotización CPQ: armar puestos en el workspace."),
   };
 }

@@ -131,7 +131,14 @@ function normalizeTime(v: unknown, fallback: string): string {
 function enrichSlot(raw: Record<string, unknown>, weeklyHours: number): CrmStructureCoverageSlot | null {
   const name = str(raw.name) ?? str(raw.nombre);
   if (!name) return null;
-  const dias = normalizeWeekdays(Array.isArray(raw.dias) ? raw.dias.map(String) : [...WEEKDAYS_FULL]);
+  const rawDias = Array.isArray(raw.dias) ? raw.dias.map(String) : [...WEEKDAYS_FULL];
+  const dias = normalizeWeekdays(rawDias);
+  // Preservar marcador de festivos (no forma parte del cálculo HH).
+  const hasFestivo = rawDias.some((d) => {
+    const k = d.trim().toLowerCase();
+    return k === "festivo" || k === "fer" || k === "f" || k === "feriado";
+  });
+  const diasWithFestivo = hasFestivo ? [...dias, "festivo"] : dias;
   const horaInicio = normalizeTime(raw.horaInicio, "08:00");
   const horaFin = normalizeTime(raw.horaFin, "20:00");
   const simultaneous = Math.max(1, num(raw.simultaneous) ?? num(raw.cobertura) ?? num(raw.numPuestos) ?? 1);
@@ -140,17 +147,24 @@ function enrichSlot(raw: Record<string, unknown>, weeklyHours: number): CrmStruc
     { simultaneous, dias, horaInicio, horaFin, regimen },
     weeklyHours,
   );
+  const headcountLocked = Boolean(raw.headcountLocked);
+  const manualHeadcount = num(raw.headcount);
+  const headcount =
+    headcountLocked && manualHeadcount != null && manualHeadcount > 0
+      ? Math.max(1, Math.floor(manualHeadcount))
+      : staff.headcount;
   return {
     name,
     role: str(raw.role) ?? str(raw.rol),
     regimen,
-    dias: dias.length ? dias : [...WEEKDAYS_FULL],
+    dias: diasWithFestivo.length ? diasWithFestivo : [...WEEKDAYS_FULL],
     horaInicio,
     horaFin,
     simultaneous,
     notes: str(raw.notes),
     weeklyHH: staff.weeklyHH,
-    headcount: staff.headcount,
+    headcount,
+    ...(headcountLocked ? { headcountLocked: true } : {}),
     pattern: staff.pattern,
     staffingRationale: staff.rationale,
   };

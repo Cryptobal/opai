@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
 import { createPortal } from "react-dom";
 import { AlertTriangle, Loader2, Sparkles, X } from "lucide-react";
 import { toast } from "sonner";
@@ -31,6 +31,17 @@ import { PlanAttachmentsForm } from "./plan/forms/PlanAttachmentsForm";
 import { PlanTaskForm } from "./plan/forms/PlanTaskForm";
 import { PlanQuoteForm } from "./plan/forms/PlanQuoteForm";
 import { PlanMilestonesForm } from "./plan/forms/PlanMilestonesForm";
+
+const PLAN_SHEET_WIDTH_KEY = "opai-plan-acciones-width";
+const PLAN_SHEET_DEFAULT = 452;
+const PLAN_SHEET_MIN = 380;
+const PLAN_SHEET_MAX = 820;
+const PLAN_SHEET_STEP = 24;
+
+function clampPlanSheetWidth(width: number, viewport = 1280): number {
+  const max = Math.min(PLAN_SHEET_MAX, Math.floor(viewport * 0.85));
+  return Math.max(PLAN_SHEET_MIN, Math.min(max, Math.round(width)));
+}
 
 export type AiPanelCommand =
   | "analizar"
@@ -260,7 +271,69 @@ export function CorreoAiActionPanel({
   const [activeQuestion, setActiveQuestion] = useState("Ajuste al plan");
   const [delta, setDelta] = useState<StaffingDelta | null | undefined>(undefined);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const [sheetWidth, setSheetWidth] = useState(PLAN_SHEET_DEFAULT);
   const keyboardOffset = useKeyboardOffset();
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = localStorage.getItem(PLAN_SHEET_WIDTH_KEY);
+      const n = raw ? Number(raw) : NaN;
+      if (Number.isFinite(n)) {
+        setSheetWidth(clampPlanSheetWidth(n, window.innerWidth));
+      }
+    } catch {
+      // storage bloqueado
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      localStorage.setItem(PLAN_SHEET_WIDTH_KEY, String(sheetWidth));
+    } catch {
+      // ignore
+    }
+  }, [sheetWidth]);
+
+  const onSheetResizePointerDown = useCallback((event: PointerEvent<HTMLElement>) => {
+    if (event.button !== 0) return;
+    event.preventDefault();
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+    const startX = event.clientX;
+    const startWidth = sheetWidth;
+    const priorCursor = document.body.style.cursor;
+    const priorSelect = document.body.style.userSelect;
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+    const move = (moveEvent: globalThis.PointerEvent) => {
+      const next = startWidth + (startX - moveEvent.clientX);
+      setSheetWidth(clampPlanSheetWidth(next, window.innerWidth));
+    };
+    const stop = () => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", stop);
+      window.removeEventListener("pointercancel", stop);
+      document.body.style.cursor = priorCursor;
+      document.body.style.userSelect = priorSelect;
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", stop, { once: true });
+    window.addEventListener("pointercancel", stop, { once: true });
+  }, [sheetWidth]);
+
+  const onSheetResizeKeyDown = useCallback((event: KeyboardEvent<HTMLElement>) => {
+    if (event.key === "ArrowLeft") {
+      event.preventDefault();
+      setSheetWidth((w) => clampPlanSheetWidth(w + PLAN_SHEET_STEP, window.innerWidth));
+    } else if (event.key === "ArrowRight") {
+      event.preventDefault();
+      setSheetWidth((w) => clampPlanSheetWidth(w - PLAN_SHEET_STEP, window.innerWidth));
+    } else if (event.key === "Home") {
+      event.preventDefault();
+      setSheetWidth(PLAN_SHEET_DEFAULT);
+    }
+  }, []);
 
   const isStructure = command === "analizar" || command === "crm_completo";
   const isLead = command === "lead";
@@ -597,10 +670,29 @@ export function CorreoAiActionPanel({
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className="flex h-full w-full flex-col overflow-hidden border-ds-border-default bg-ds-surface-1 shadow-2xl sm:w-[452px] sm:border-l max-lg:mt-auto max-lg:h-[88dvh] max-lg:rounded-t-2xl max-lg:border-t"
-        style={{ transition: closing ? "transform 180ms ease-out" : undefined }}
+        className="relative flex h-full w-full flex-col overflow-hidden border-ds-border-default bg-ds-surface-1 shadow-2xl sm:w-[var(--plan-sheet-width)] sm:border-l max-lg:mt-auto max-lg:h-[88dvh] max-lg:rounded-t-2xl max-lg:border-t"
+        style={{
+          transition: closing ? "transform 180ms ease-out" : undefined,
+          ["--plan-sheet-width" as string]: `${sheetWidth}px`,
+        }}
         onClick={(e) => e.stopPropagation()}
       >
+        <div
+          role="separator"
+          aria-label="Cambiar ancho del plan de acciones"
+          aria-orientation="vertical"
+          aria-valuenow={sheetWidth}
+          aria-valuemin={PLAN_SHEET_MIN}
+          aria-valuemax={PLAN_SHEET_MAX}
+          tabIndex={0}
+          onPointerDown={onSheetResizePointerDown}
+          onKeyDown={onSheetResizeKeyDown}
+          onDoubleClick={() => setSheetWidth(PLAN_SHEET_DEFAULT)}
+          className="group absolute -left-3 top-0 z-20 hidden h-full w-6 cursor-col-resize touch-none items-center justify-center outline-none sm:flex"
+          title="Arrastrá para cambiar el ancho · doble clic para restaurar"
+        >
+          <span className="h-16 w-1 rounded-full bg-ds-surface-3 transition-colors group-hover:bg-primary group-focus-visible:bg-primary" />
+        </div>
         <div
           className="mx-auto mt-2 h-1 w-10 shrink-0 rounded-full bg-ds-surface-3 lg:hidden"
           onTouchStart={swipe.onTouchStart}
