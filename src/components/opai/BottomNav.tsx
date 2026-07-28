@@ -8,19 +8,22 @@ import {
   Home, Briefcase, Shield, Users, LayoutGrid,
   ChevronLeft, ChevronDown, MoreHorizontal,
   Landmark, Wallet, FolderOpen, FileBarChart, Clock,
-  Settings, Monitor, Eye, Sun, Moon, User, LogOut,
+  Settings, Monitor, Eye, Sun, Moon, User, LogOut, Bell,
   Check, Receipt, Calculator, FileText, SlidersHorizontal, Sparkles,
   type LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getBottomNavItems, type BottomNavItem } from '@/lib/module-nav';
 import { findActiveModule, pathMatchesNode } from '@/lib/nav/registry';
-import { usePermissions } from '@/lib/permissions-context';
+import { useHasModuleAccess, usePermissions } from '@/lib/permissions-context';
 import { hasModuleAccess, canView, hasCapability } from '@/lib/permissions';
 import { useTenantModules } from '@/contexts/TenantModulesContext';
 import { useRoleSimulation } from '@/contexts/RoleSimulationContext';
+import { useNotifications } from '@/contexts/NotificationContext';
 import { ChatSidePanelContext } from '@/components/chat/ChatFloatingProvider';
 import { RoleSwitcher } from '@/components/navbar/RoleSwitcher';
+import { Avatar } from '@/components/opai-ds';
+import { ThemeToggle } from './ThemeToggle';
 import { useTheme } from './ThemeProvider';
 import {
   Sheet,
@@ -52,6 +55,8 @@ function useBottomNavHeight(ref: React.RefObject<HTMLElement | null>) {
 
 interface BottomNavProps {
   userRole?: string;
+  userName?: string;
+  userEmail?: string;
   /** Superficie activa. En `productividad` solo se muestran hijos del portal. */
   surface?: Surface;
 }
@@ -174,7 +179,12 @@ function getActiveModule(pathname: string): string | null {
 
 /* ── Main export ── */
 
-export function BottomNav({ userRole, surface = DEFAULT_SURFACE }: BottomNavProps) {
+export function BottomNav({
+  userRole,
+  userName,
+  userEmail,
+  surface = DEFAULT_SURFACE,
+}: BottomNavProps) {
   const pathname = usePathname();
   const permissions = usePermissions();
   const { effectiveRole, effectivePermissions, isSimulating } = useRoleSimulation();
@@ -271,7 +281,13 @@ export function BottomNav({ userRole, surface = DEFAULT_SURFACE }: BottomNavProp
               onBack={() => setForceMainNav(true)}
             />
           ) : (
-            <MainNav pathname={pathname} userRole={userRole} navConfig={navConfig} />
+            <MainNav
+              pathname={pathname}
+              userRole={userRole}
+              userName={userName}
+              userEmail={userEmail}
+              navConfig={navConfig}
+            />
           )}
         </div>
         <OpaiOrb />
@@ -307,10 +323,14 @@ function OpaiOrb() {
 function MainNav({
   pathname,
   userRole,
+  userName,
+  userEmail,
   navConfig,
 }: {
   pathname: string;
   userRole: string;
+  userName?: string;
+  userEmail?: string;
   navConfig: ReturnType<typeof useNavConfig>;
 }) {
   const [masOpen, setMasOpen] = useState(false);
@@ -349,7 +369,14 @@ function MainNav({
         );
       })}
 
-      <MasDrawer open={masOpen} onOpenChange={setMasOpen} userRole={userRole} navConfig={navConfig} />
+      <MasDrawer
+        open={masOpen}
+        onOpenChange={setMasOpen}
+        userRole={userRole}
+        userName={userName}
+        userEmail={userEmail}
+        navConfig={navConfig}
+      />
     </>
   );
 }
@@ -368,13 +395,30 @@ interface MasModuleItem {
   show: boolean;
 }
 
-function MasDrawer({ open, onOpenChange, userRole, navConfig }: { open: boolean; onOpenChange: (v: boolean) => void; userRole: string; navConfig: ReturnType<typeof useNavConfig> }) {
+function MasDrawer({
+  open,
+  onOpenChange,
+  userRole,
+  userName,
+  userEmail,
+  navConfig,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  userRole: string;
+  userName?: string;
+  userEmail?: string;
+  navConfig: ReturnType<typeof useNavConfig>;
+}) {
   const permissions = usePermissions();
   const router = useRouter();
-  const { theme, toggleTheme } = useTheme();
+  const { theme } = useTheme();
+  const hasConfigAccess = useHasModuleAccess("config");
+  const { unreadCount } = useNotifications();
   const [showSignOutDialog, setShowSignOutDialog] = useState(false);
 
   const isAdmin = userRole === 'owner' || userRole === 'admin';
+  const displayName = userName || userEmail || "Usuario";
 
   const modules: MasModuleItem[] = useMemo(() => [
     { key: "productividad", href: "/opai/agenda", label: "Productividad", icon: Sparkles, color: "text-primary", show: hasModuleAccess(permissions, "productividad") },
@@ -461,11 +505,10 @@ function MasDrawer({ open, onOpenChange, userRole, navConfig }: { open: boolean;
             </div>
           )}
 
-          {/* Preferencias */}
+          {/* Preferencias — paridad con SidebarUserMenu */}
           <div>
             <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2 px-1">Preferencias</p>
             <div className="space-y-0.5">
-              {/* Personalizar barra (collapsible) */}
               <BarCustomizer
                 allOptions={ALL_NAV_OPTIONS}
                 selectedKeys={navConfig.navKeys}
@@ -474,37 +517,75 @@ function MasDrawer({ open, onOpenChange, userRole, navConfig }: { open: boolean;
                 allowDeselect
               />
 
-              {/* Theme toggle */}
-              <button
-                type="button"
-                onClick={toggleTheme}
-                className="flex items-center gap-3 w-full rounded-lg px-3 py-2.5 text-sm text-foreground/80 hover:bg-muted/50 active:scale-[0.98] transition-all"
-              >
-                {theme === 'dark' ? <Moon className="h-4.5 w-4.5 text-status-info-fg" /> : <Sun className="h-4.5 w-4.5 text-status-warn-fg" />}
-                <span>{theme === 'dark' ? 'Tema oscuro' : 'Tema claro'}</span>
-              </button>
+              <div className="flex items-center gap-3 rounded-lg px-3 py-2.5">
+                <Avatar name={displayName} size="md" />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium text-foreground">{displayName}</p>
+                  {userEmail && (
+                    <p className="truncate text-[12px] text-ds-text-3">{userEmail}</p>
+                  )}
+                  {userRole && (
+                    <p className="truncate text-[12px] text-ds-text-4">{userRole}</p>
+                  )}
+                </div>
+              </div>
 
-              {/* Profile */}
               <button
                 type="button"
                 onClick={() => handleNavigate('/opai/perfil')}
-                className="flex items-center gap-3 w-full rounded-lg px-3 py-2.5 text-sm text-foreground/80 hover:bg-muted/50 active:scale-[0.98] transition-all"
+                className="flex min-h-11 items-center gap-3 w-full rounded-lg px-3 py-2.5 text-sm text-foreground/80 hover:bg-muted/50 active:scale-[0.98] transition-all"
               >
                 <User className="h-4.5 w-4.5" />
-                <span>Mi Perfil</span>
+                <span>Mi perfil</span>
               </button>
 
-              {/* Logout */}
+              <button
+                type="button"
+                onClick={() => handleNavigate('/opai/perfil/notificaciones')}
+                className="flex min-h-11 items-center gap-3 w-full rounded-lg px-3 py-2.5 text-sm text-foreground/80 hover:bg-muted/50 active:scale-[0.98] transition-all"
+              >
+                <Bell className="h-4.5 w-4.5" />
+                <span className="flex-1 text-left">Mis notificaciones</span>
+                {unreadCount > 0 && (
+                  <span className="rounded-full bg-status-danger px-1.5 text-[12px] font-medium text-primary-foreground tabular-nums">
+                    {unreadCount > 9 ? "9+" : unreadCount}
+                  </span>
+                )}
+              </button>
+
+              {hasConfigAccess && (
+                <button
+                  type="button"
+                  onClick={() => handleNavigate('/opai/configuracion')}
+                  className="flex min-h-11 items-center gap-3 w-full rounded-lg px-3 py-2.5 text-sm text-foreground/80 hover:bg-muted/50 active:scale-[0.98] transition-all"
+                >
+                  <Settings className="h-4.5 w-4.5" />
+                  <span>Configuración</span>
+                </button>
+              )}
+
+              <div className="flex min-h-11 items-center justify-between gap-3 rounded-lg px-3 py-2.5 text-sm text-foreground/80">
+                <span className="flex items-center gap-3">
+                  {theme === 'dark' ? (
+                    <Moon className="h-4.5 w-4.5 text-status-info-fg" />
+                  ) : (
+                    <Sun className="h-4.5 w-4.5 text-status-warn-fg" />
+                  )}
+                  <span>Tema</span>
+                </span>
+                <ThemeToggle compact />
+              </div>
+
               <button
                 type="button"
                 onClick={() => {
                   onOpenChange(false);
                   setShowSignOutDialog(true);
                 }}
-                className="flex items-center gap-3 w-full rounded-lg px-3 py-2.5 text-sm text-status-danger-fg hover:bg-status-danger-soft active:scale-[0.98] transition-all"
+                className="flex min-h-11 items-center gap-3 w-full rounded-lg px-3 py-2.5 text-sm text-status-danger-fg hover:bg-status-danger-soft active:scale-[0.98] transition-all"
               >
                 <LogOut className="h-4.5 w-4.5" />
-                <span>Cerrar Sesión</span>
+                <span>Cerrar sesión</span>
               </button>
             </div>
           </div>
