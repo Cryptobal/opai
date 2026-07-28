@@ -155,7 +155,7 @@ export function ContractEditor({
     editorProps: {
       attributes: {
         class: compact
-          ? "prose prose-invert prose-sm max-w-none focus:outline-none min-h-[160px] px-0 py-2"
+          ? "prose prose-invert prose-sm max-w-none focus:outline-none min-h-[160px] px-0 py-3"
           : "prose prose-invert prose-sm sm:prose-base max-w-none focus:outline-none min-h-[500px] px-8 py-6",
       },
       ...(enableImages
@@ -233,8 +233,12 @@ export function ContractEditor({
 
   // compact (correo): sin marco — el host (EmailComposer) ya aporta la
   // composición. Docs (no compact) conserva la card con borde.
+  // Con flex-1 (layout sheet) usamos min-h-0 para que el cuerpo scrollee
+  // dentro del composer y no pelee con un min-h fijo.
   const shellClass = compact
-    ? `flex min-h-[160px] flex-col overflow-hidden bg-transparent ${className}`
+    ? `flex flex-col overflow-hidden bg-transparent ${
+        className.includes("flex-1") ? "min-h-0" : "min-h-[160px]"
+      } ${className}`
     : `flex max-h-[calc(100vh-160px)] min-h-[400px] flex-col overflow-hidden rounded-lg border border-border bg-card ${className}`;
   const toolbarShellClass = compact
     ? "z-10 shrink-0"
@@ -264,8 +268,10 @@ export function ContractEditor({
 
       {editable && <ClauseBubbleMenu editor={editor} />}
 
-      {/* Contenido scrolleable — la toolbar queda fija arriba */}
-      <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
+      {/* Contenido scrolleable — la toolbar queda fija arriba.
+          overscroll-contain evita que el gesto arrastre el sheet padre
+          (caret + scrollbar “viajando” juntos en móvil). */}
+      <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain [-webkit-overflow-scrolling:touch]">
         <div
           className="relative"
           style={

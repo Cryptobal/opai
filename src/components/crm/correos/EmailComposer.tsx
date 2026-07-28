@@ -14,12 +14,21 @@
  *  - Forward re-adjunta los originales desde Gmail (server-side).
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import type { Editor } from "@tiptap/react";
 import { CalendarClock, Check, Mic, Send, Square, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { AttachmentPicker, Spinner } from "@/components/opai-ds";
 import { SimpleSelect } from "@/components/ui/simple-select";
+import { confirmDialog } from "@/components/ui/confirm-service";
 import { ContractEditor } from "@/components/docs/ContractEditor";
 import { EmailToolbar } from "./EmailToolbar";
 import { tiptapToEmailHtml } from "@/lib/docs/tiptap-to-html";
@@ -72,8 +81,20 @@ type AccountOption = {
   aliases: AccountAlias[];
 };
 
+/** API imperativa para el host (sheet): flush/discard al cerrar. */
+export type EmailComposerHandle = {
+  flushDraft: () => Promise<void>;
+  discardDraft: () => Promise<void>;
+};
+
 type Props = {
   mode: EmailComposerMode;
+  /**
+   * `sheet`: fullscreen / ventana Gmail — cabecera y acciones fijas, solo el
+   * cuerpo scrollea (evita caret + scrollbar moviéndose juntos en móvil).
+   * `inline`: reply embebido en el lector (flujo previo).
+   */
+  layout?: "sheet" | "inline";
   /** Hilo interno al que se responde (threading + casilla fija). */
   threadId?: string | null;
   initialTo?: string[];
@@ -116,30 +137,35 @@ function isDocEmpty(doc: object | null): boolean {
   return !html.replace(/<[^>]+>/g, "").replace(/&nbsp;/g, " ").trim();
 }
 
-export function EmailComposer({
-  mode,
-  threadId = null,
-  initialTo = [],
-  initialCc = [],
-  initialSubject = "",
-  replyAll = null,
-  initialContent = null,
-  quotedHtml = null,
-  forwardFromThreadId = null,
-  forwardAttachments = [],
-  resumeDraftId = null,
-  dealId = null,
-  accountId = null,
-  contactId = null,
-  onSent,
-  onClose,
-  footerExtras,
-  contentEpoch = 0,
-  onDirtyChange,
-  onBodyChange,
-  onSubjectChange,
-  onDraftIdChange,
-}: Props) {
+export const EmailComposer = forwardRef<EmailComposerHandle, Props>(function EmailComposer(
+  {
+    mode,
+    layout = "inline",
+    threadId = null,
+    initialTo = [],
+    initialCc = [],
+    initialSubject = "",
+    replyAll = null,
+    initialContent = null,
+    quotedHtml = null,
+    forwardFromThreadId = null,
+    forwardAttachments = [],
+    resumeDraftId = null,
+    dealId = null,
+    accountId = null,
+    contactId = null,
+    onSent,
+    onClose,
+    footerExtras,
+    contentEpoch = 0,
+    onDirtyChange,
+    onBodyChange,
+    onSubjectChange,
+    onDraftIdChange,
+  },
+  ref,
+) {
+  const isSheet = layout === "sheet";
   const attachments = useEmailAttachments();
   const [to, setTo] = useState<string[]>(() => normalizeRecipientList(initialTo));
   const [cc, setCc] = useState<string[]>(() => normalizeRecipientList(initialCc));
@@ -344,14 +370,52 @@ export function EmailComposer({
     [],
   );
 
-  async function discardDraft() {
-    closedRef.current = true;
-    const draftId = providerDraftIdRef.current;
-    if (draftId) {
-      await fetch(`/api/crm/gmail/drafts/${draftId}`, { method: "DELETE" }).catch(() => {});
-      toast.message("Borrador descartado");
+  const discardDraft = useCallback(
+    async (opts?: { close?: boolean }) => {
+      closedRef.current = true;
+      if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current);
+      const draftId = providerDraftIdRef.current;
+      if (draftId) {
+        await fetch(`/api/crm/gmail/drafts/${draftId}`, { method: "DELETE" }).catch(() => {});
+        providerDraftIdRef.current = null;
+        onDraftIdChange?.(null);
+        toast.message("Borrador descartado");
+      }
+      dirtyRef.current = false;
+      onDirtyChange?.(false);
+      // Via ref el host (sheet) cierra; desde la papelera cerramos aquí.
+      if (opts?.close !== false) onClose?.();
+    },
+    [onClose, onDirtyChange, onDraftIdChange],
+  );
+
+  const flushDraft = useCallback(async () => {
+    if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current);
+    await saveDraft();
+  }, [saveDraft]);
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      flushDraft,
+      discardDraft: () => discardDraft({ close: false }),
+    }),
+    [flushDraft, discardDraft],
+  );
+
+  async function requestDiscard() {
+    if (isPristine() && !providerDraftIdRef.current) {
+      onClose?.();
+      return;
     }
-    onClose?.();
+    const ok = await confirmDialog({
+      title: "¿Descartar borrador?",
+      description: "Se elimina el borrador y no se puede deshacer.",
+      confirmLabel: "Descartar",
+      cancelLabel: "Cancelar",
+      variant: "destructive",
+    });
+    if (ok) await discardDraft({ close: true });
   }
 
   const toNorm = normalizeRecipientList(to);
@@ -435,10 +499,10 @@ export function EmailComposer({
     dictation.start();
   }
 
-  return (
-    <div className="space-y-0" data-email-composer>
+  const headerFields = (
+    <>
       {!isReply && identityOptions.length > 1 && (
-        <div className="flex items-center gap-2 border-b border-ds-border-subtle focus-within:border-primary">
+        <div className="flex items-center gap-2 border-b border-ds-border-subtle py-1 focus-within:border-primary">
           <span className="w-10 shrink-0 text-[12px] text-ds-text-3">De</span>
           <SimpleSelect
             value={identity ? `${identity.accountId}:${identity.alias ?? ""}` : ""}
@@ -459,7 +523,7 @@ export function EmailComposer({
       )}
       <div className="relative">
         <ReplyRecipientsField label="Para" values={to} onChange={setTo} />
-        <div className="absolute right-0 top-2 flex items-center gap-2">
+        <div className="absolute right-0 top-2.5 flex items-center gap-2">
           {replyAll &&
             (replyAll.cc.length > 0 ||
               replyAll.to.some((e) => !to.includes(e)) ||
@@ -493,7 +557,7 @@ export function EmailComposer({
           <ReplyRecipientsField label="CCO" values={bcc} onChange={setBcc} />
         </>
       )}
-      <div className="flex items-center gap-2 border-b border-ds-border-subtle focus-within:border-primary">
+      <div className="flex items-center gap-2 border-b border-ds-border-subtle py-1 focus-within:border-primary">
         <span className="w-10 shrink-0 text-[12px] text-ds-text-3">Asunto</span>
         <input
           value={subject}
@@ -512,24 +576,32 @@ export function EmailComposer({
           className={SUBJECT_INPUT_CLASS}
         />
       </div>
-      <ContractEditor
-        content={content ?? undefined}
-        onChange={(next) => {
-          setContent(next);
-          onBodyChange?.(next);
-        }}
-        editable={!busy}
-        placeholder="Escribí tu mensaje… (pegá imágenes directo)"
-        showPagePreview={false}
-        enableImages
-        enableTokens={false}
-        compact
-        className="min-h-[200px]"
-        renderToolbar={(editor) => {
-          editorRef.current = editor;
-          return <EmailToolbar editor={editor} />;
-        }}
-      />
+    </>
+  );
+
+  const editorBlock = (
+    <ContractEditor
+      content={content ?? undefined}
+      onChange={(next) => {
+        setContent(next);
+        onBodyChange?.(next);
+      }}
+      editable={!busy}
+      placeholder="Escribí tu mensaje… (pegá imágenes directo)"
+      showPagePreview={false}
+      enableImages
+      enableTokens={false}
+      compact
+      className={isSheet ? "min-h-0 flex-1" : "min-h-[200px]"}
+      renderToolbar={(editor) => {
+        editorRef.current = editor;
+        return <EmailToolbar editor={editor} />;
+      }}
+    />
+  );
+
+  const footerBlock = (
+    <>
       {dictation.listening && (dictation.interimText || dictation.silent) && (
         <p className="py-1 text-[12px] text-ds-text-3">
           {dictation.silent
@@ -599,7 +671,7 @@ export function EmailComposer({
           type="button"
           title="Descartar borrador"
           aria-label="Descartar borrador"
-          onClick={() => void discardDraft()}
+          onClick={() => void requestDiscard()}
           disabled={busy}
           className="inline-flex h-10 w-10 items-center justify-center rounded-full text-ds-text-3 ds-tap hover:bg-ds-surface-2 hover:text-status-danger-fg disabled:opacity-50 sm:h-9 sm:w-9"
         >
@@ -651,6 +723,30 @@ export function EmailComposer({
           </div>
         </div>
       )}
+    </>
+  );
+
+  if (isSheet) {
+    return (
+      <div
+        className="flex min-h-0 flex-1 flex-col"
+        data-email-composer
+        data-layout="sheet"
+      >
+        <div className="shrink-0 space-y-0.5">{headerFields}</div>
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden pt-2">
+          {editorBlock}
+        </div>
+        <div className="shrink-0 bg-background pt-1">{footerBlock}</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-0" data-email-composer data-layout="inline">
+      {headerFields}
+      {editorBlock}
+      {footerBlock}
     </div>
   );
-}
+});
