@@ -29,6 +29,8 @@ type Props = {
   onResizeKeyDown: KeyboardEventHandler<HTMLElement>;
   onResizeReset: () => void;
   desktopMode?: "split" | "contained" | "overlay";
+  /** Default: true salvo contained. Activa el asa en split y overlay. */
+  resizable?: boolean;
   manageBackHistory?: boolean;
   children: ReactNode;
 };
@@ -36,7 +38,7 @@ type Props = {
 /** Fullscreen bajo lg; panel master-detail redimensionable en desktop.
  *  - split: columna sticky al lado de la lista
  *  - contained: cubre el workspace (absolute), dock Intelligence sigue visible
- *  - overlay: modal de viewport (Hub / Radar Comercial) */
+ *  - overlay: modal de viewport (Hub / Radar Comercial / fichas) */
 export function CorreoReaderShell({
   open,
   onClose,
@@ -48,6 +50,7 @@ export function CorreoReaderShell({
   onResizeKeyDown,
   onResizeReset,
   desktopMode = "overlay",
+  resizable,
   manageBackHistory = true,
   children,
 }: Props) {
@@ -76,9 +79,36 @@ export function CorreoReaderShell({
 
   if (!open) return null;
 
+  const canResize = resizable ?? desktopMode !== "contained";
   const style = {
     "--correo-panel-width": `${desktopWidth}px`,
   } as CSSProperties;
+
+  const resizeHandle = canResize ? (
+    <div
+      role="separator"
+      aria-label="Cambiar ancho del lector"
+      aria-orientation="vertical"
+      aria-valuenow={desktopWidth}
+      tabIndex={0}
+      onPointerDown={onResizePointerDown}
+      onKeyDown={onResizeKeyDown}
+      onDoubleClick={onResizeReset}
+      className={cn(
+        "group absolute top-0 z-20 hidden h-full w-6 cursor-col-resize touch-none items-center justify-center outline-none lg:flex",
+        desktopMode === "split" && "-left-3",
+        desktopMode === "overlay" && "translate-x-1/2",
+      )}
+      style={
+        desktopMode === "overlay"
+          ? { right: "var(--correo-panel-width)" }
+          : undefined
+      }
+      title="Arrastrá para cambiar el ancho · doble clic para restaurar"
+    >
+      <span className="h-16 w-1 rounded-full bg-ds-surface-3 transition-colors group-hover:bg-primary group-focus-visible:bg-primary" />
+    </div>
+  ) : null;
 
   const overlay = (
     <div
@@ -95,22 +125,7 @@ export function CorreoReaderShell({
         if (event.target === event.currentTarget) onClose();
       }}
     >
-      {desktopMode === "split" && (
-        <div
-          role="separator"
-          aria-label="Cambiar ancho del lector"
-          aria-orientation="vertical"
-          aria-valuenow={desktopWidth}
-          tabIndex={0}
-          onPointerDown={onResizePointerDown}
-          onKeyDown={onResizeKeyDown}
-          onDoubleClick={onResizeReset}
-          className="group absolute -left-3 top-0 z-20 hidden h-full w-6 cursor-col-resize touch-none items-center justify-center outline-none lg:flex"
-          title="Arrastrá para cambiar el ancho · doble clic para restaurar"
-        >
-          <span className="h-16 w-1 rounded-full bg-ds-surface-3 transition-colors group-hover:bg-primary group-focus-visible:bg-primary" />
-        </div>
-      )}
+      {resizeHandle}
       <Surface
         ref={panelRef}
         // elevation 3 = sheet/modal: glass-strong con underlay opaco (~0.72).
@@ -182,13 +197,12 @@ export function CorreoReaderShell({
     </div>
   );
 
-  // En móvil el lector viaja por portal a <body> (mismo patrón y razón que
-  // BottomNavPortal): los hijos animados de ds-page-enter conservan un
-  // transform con fill forwards que crea containing block + stacking context,
-  // dejando un `fixed` anclado al workspace y por debajo de la BottomNav
-  // (z-40 a nivel body). Portaleado, el z-50 cubre isla, FAB y top inmersivo.
-  // Desktop (split/overlay) queda inline, como siempre.
-  if (isMobile && typeof document !== "undefined") {
+  // En móvil (y overlay desktop) el lector viaja por portal a <body>: los
+  // hijos animados de ds-page-enter / cards con overflow-hidden / transform
+  // crean containing block + stacking context que rompen el `fixed`.
+  // Split y contained siguen inline (anclados al workspace de Correos).
+  const shouldPortal = isMobile || desktopMode === "overlay";
+  if (shouldPortal && typeof document !== "undefined") {
     return createPortal(overlay, document.body);
   }
   return overlay;

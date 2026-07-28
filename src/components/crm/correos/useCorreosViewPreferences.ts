@@ -5,8 +5,6 @@ import {
   useEffect,
   useMemo,
   useState,
-  type KeyboardEvent,
-  type PointerEvent,
   type RefObject,
 } from "react";
 import {
@@ -14,6 +12,7 @@ import {
   parseCorreoSnoozeConfig,
   type CorreoSnoozeConfig,
 } from "@/modules/crm/email/correo-snooze-presets";
+import { READER_KEYBOARD_STEP, useReaderResize } from "./useReaderResize";
 
 export type { CorreoSnoozeConfig };
 export { DEFAULT_CORREO_SNOOZE_CONFIG };
@@ -211,7 +210,7 @@ export const RAIL_EXPANDED = 224;
 export const WORKSPACE_GAP = 12;
 /** Histéresis split ↔ contained para evitar parpadeo al redimensionar. */
 const MODE_HYSTERESIS_PX = 24;
-const KEYBOARD_STEP = 24;
+const KEYBOARD_STEP = READER_KEYBOARD_STEP;
 
 export type CorreoDesktopReaderMode = "split" | "contained";
 
@@ -458,57 +457,18 @@ export function useCorreosViewPreferences(
     setPreferredPanelWidth(defaultWidth(containerWidth(), railCollapsed));
   }, [containerWidth, railCollapsed]);
 
-  const onResizePointerDown = useCallback(
-    (event: PointerEvent<HTMLElement>) => {
-      if (event.button !== 0) return;
-      event.preventDefault();
-      event.currentTarget.setPointerCapture?.(event.pointerId);
-      const startX = event.clientX;
-      const startWidth = panelWidth;
-      const priorCursor = document.body.style.cursor;
-      const priorSelect = document.body.style.userSelect;
-      document.body.style.cursor = "col-resize";
-      document.body.style.userSelect = "none";
-
-      const move = (moveEvent: globalThis.PointerEvent) => {
-        const next = startWidth + startX - moveEvent.clientX;
-        setPreferredPanelWidth(
-          clampCorreoPanelWidth(next, containerWidth(), railCollapsed),
-        );
-      };
-      const stop = () => {
-        window.removeEventListener("pointermove", move);
-        window.removeEventListener("pointerup", stop);
-        window.removeEventListener("pointercancel", stop);
-        document.body.style.cursor = priorCursor;
-        document.body.style.userSelect = priorSelect;
-      };
-      window.addEventListener("pointermove", move);
-      window.addEventListener("pointerup", stop, { once: true });
-      window.addEventListener("pointercancel", stop, { once: true });
-    },
-    [containerWidth, panelWidth, railCollapsed],
+  const clampPreferred = useCallback(
+    (next: number) => clampCorreoPanelWidth(next, containerWidth(), railCollapsed),
+    [containerWidth, railCollapsed],
   );
 
-  const onResizeKeyDown = useCallback(
-    (event: KeyboardEvent<HTMLElement>) => {
-      if (event.key === "ArrowLeft") {
-        event.preventDefault();
-        setPreferredPanelWidth((width) =>
-          clampCorreoPanelWidth(width + KEYBOARD_STEP, containerWidth(), railCollapsed),
-        );
-      } else if (event.key === "ArrowRight") {
-        event.preventDefault();
-        setPreferredPanelWidth((width) =>
-          clampCorreoPanelWidth(width - KEYBOARD_STEP, containerWidth(), railCollapsed),
-        );
-      } else if (event.key === "Home") {
-        event.preventDefault();
-        resetPanelWidth();
-      }
-    },
-    [containerWidth, railCollapsed, resetPanelWidth],
-  );
+  const { onResizePointerDown, onResizeKeyDown } = useReaderResize({
+    width: panelWidth,
+    setWidth: setPreferredPanelWidth,
+    clamp: clampPreferred,
+    onReset: resetPanelWidth,
+    step: KEYBOARD_STEP,
+  });
 
   return {
     panelWidth,

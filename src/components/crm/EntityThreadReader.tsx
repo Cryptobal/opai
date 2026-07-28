@@ -1,143 +1,61 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Clock, Download, File, FileText, Image as ImageIcon, Paperclip } from "lucide-react";
+import { useState } from "react";
+import Link from "next/link";
+import { Clock, ExternalLink } from "lucide-react";
 import { Spinner } from "@/components/opai-ds";
 import { CorreoMessages } from "./correos/CorreoMessages";
 import { CorreoAttachmentViewer, type ViewerFile } from "./correos/CorreoAttachmentViewer";
 import { CorreoReaderShell } from "./correos/CorreoReaderShell";
+import { CorreoReplyBox } from "./correos/CorreoReplyBox";
 import { parseSender } from "./correos/correo-sender";
-import type { CorreoAttachmentDTO, EntityThreadDetail } from "@/modules/crm/email/correos.types";
+import type { CorreoAttachmentDTO } from "@/modules/crm/email/correos.types";
 import type { ConversationEntityType } from "@/modules/crm/email/entity-conversations";
-import {
-  EntityConversationActions,
-  type ComposeAction,
-} from "./entity-conversations/EntityConversationActions";
-
-type EntityType = ConversationEntityType;
-
-function fmtSize(bytes: number): string {
-  if (bytes <= 0) return "";
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
-  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
-}
-function iconFor(mime: string) {
-  if (mime.includes("pdf")) return FileText;
-  if (mime.startsWith("image/")) return ImageIcon;
-  return File;
-}
-
-function EntityMessageAttachments({
-  items,
-  onOpen,
-}: {
-  items: CorreoAttachmentDTO[];
-  onOpen: (a: CorreoAttachmentDTO) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  return (
-    <div className="space-y-1.5">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="flex h-9 w-full items-center gap-1.5 rounded-lg text-left text-[12px] font-medium text-ds-text-3 ds-tap"
-      >
-        <Paperclip className="h-3.5 w-3.5" />
-        Adjuntos ({items.length})
-      </button>
-      {open && (
-        <ul className="space-y-1">
-          {items.map((a) => {
-            const Icon = iconFor(a.mimeType);
-            const saved = Boolean(a.savedFileId);
-            return (
-              <li
-                key={`${a.messageId}-${a.attachmentId}`}
-                className="flex items-center gap-2 rounded-lg border border-ds-border-subtle bg-ds-surface-1 px-2.5 py-1 text-[13px] text-ds-text-2"
-              >
-                {saved ? (
-                  <button
-                    type="button"
-                    onClick={() => onOpen(a)}
-                    className="flex min-h-11 min-w-0 flex-1 items-center gap-2 text-left ds-tap"
-                    title={a.filename}
-                  >
-                    <Icon className="h-4 w-4 shrink-0 text-ds-text-4" />
-                    <span className="min-w-0 flex-1 truncate">{a.filename}</span>
-                    <span className="shrink-0 text-[12px] text-ds-text-4">{fmtSize(a.size)}</span>
-                  </button>
-                ) : (
-                  <div className="flex min-h-11 min-w-0 flex-1 items-center gap-2" title={a.filename}>
-                    <Icon className="h-4 w-4 shrink-0 text-ds-text-4" />
-                    <span className="min-w-0 flex-1 truncate text-ds-text-4">{a.filename}</span>
-                    <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-ds-surface-3 px-2 py-0.5 text-[12px] text-ds-text-4">
-                      <Clock className="h-3 w-3" /> Pendiente
-                    </span>
-                  </div>
-                )}
-                {saved && (
-                  <a
-                    href={`/api/crm/files/${a.savedFileId}/download`}
-                    download={a.filename}
-                    aria-label="Descargar"
-                    title="Descargar"
-                    className="flex h-11 w-9 shrink-0 items-center justify-center text-ds-text-4 ds-tap hover:text-ds-text-2"
-                  >
-                    <Download className="h-4 w-4" />
-                  </a>
-                )}
-              </li>
-            );
-          })}
-        </ul>
-      )}
-    </div>
-  );
-}
+import { EntityMessageAttachments } from "./entity-conversations/EntityMessageAttachments";
+import { ensureEntityLink } from "./entity-conversations/ensure-entity-link";
+import { useEntityReaderWidth } from "./entity-conversations/useEntityReaderWidth";
+import { useEntityThreadDetail } from "./entity-conversations/useEntityThreadDetail";
 
 /**
- * Lector embebido de un hilo compartido. Sirve 100% del espejo local.
- * Con canCompose, expone la barra de acciones (Responder / IA / …).
+ * Lector de conversación en ficha: misma ventana que el módulo Correo
+ * (shell, cabecera, mensajes, adjuntos, respuesta en línea) con ancho
+ * redimensionable persistido.
  */
 export function EntityThreadReader({
   threadId,
   entityType,
   entityId,
-  canCompose = false,
-  onAction,
+  preview,
+  accountId = null,
+  dealId = null,
+  contactId = null,
+  onChanged,
   onClose,
 }: {
   threadId: string | null;
-  entityType: EntityType;
+  entityType: ConversationEntityType;
   entityId: string;
-  canCompose?: boolean;
-  onAction?: (action: ComposeAction) => void;
+  preview?: { subject: string; fromEmail: string | null };
+  accountId?: string | null;
+  dealId?: string | null;
+  contactId?: string | null;
+  onChanged?: () => void;
   onClose: () => void;
 }) {
-  const [detail, setDetail] = useState<EntityThreadDetail | null>(null);
-  const [state, setState] = useState<"loading" | "error" | "ready">("loading");
   const [viewer, setViewer] = useState<ViewerFile | null>(null);
-
-  useEffect(() => {
-    if (!threadId) return;
-    setState("loading");
-    setDetail(null);
-    const qs = new URLSearchParams({ entityType, entityId });
-    fetch(`/api/crm/conversaciones/${threadId}?${qs}`)
-      .then((r) => (r.ok ? r.json() : Promise.reject()))
-      .then((d: EntityThreadDetail) => {
-        setDetail(d);
-        setState("ready");
-      })
-      .catch(() => setState("error"));
-  }, [threadId, entityType, entityId]);
+  const { width, reset, onResizePointerDown, onResizeKeyDown } = useEntityReaderWidth();
+  const { detail, state, reload } = useEntityThreadDetail(threadId, entityType, entityId);
 
   if (!threadId) return null;
 
   const rawFrom =
-    detail?.messages.find((m) => m.direction !== "out")?.fromEmail ?? detail?.messages[0]?.fromEmail ?? "";
+    detail?.messages.find((m) => m.direction !== "out")?.fromEmail ??
+    detail?.messages[0]?.fromEmail ??
+    preview?.fromEmail ??
+    "";
   const sender = parseSender(rawFrom);
+  const headerFrom = sender.name || sender.email || rawFrom || "—";
+  const headerSubject = detail?.thread.subject || preview?.subject || "Conversación";
 
   const openAttachment = (a: CorreoAttachmentDTO) => {
     if (!a.savedFileId) return;
@@ -149,27 +67,52 @@ export function EntityThreadReader({
     });
   };
 
+  const replyDetail =
+    detail &&
+    ({
+      ...detail,
+      thread: {
+        ...detail.thread,
+        accountId: accountId ?? detail.associations?.accountId ?? detail.thread.accountId,
+        dealId: dealId ?? detail.associations?.dealId ?? detail.thread.dealId,
+        contactId: contactId ?? detail.associations?.contactId ?? detail.thread.contactId,
+      },
+    });
+
   return (
     <CorreoReaderShell
       open
       onClose={onClose}
-      headerFrom={sender.name || sender.email || rawFrom || "—"}
-      headerSubject={detail?.thread.subject || "Conversación"}
-      desktopWidth={560}
-      onResizePointerDown={() => {}}
-      onResizeKeyDown={() => {}}
-      onResizeReset={() => {}}
+      headerFrom={headerFrom}
+      headerSubject={headerSubject}
+      desktopWidth={width}
+      onResizePointerDown={onResizePointerDown}
+      onResizeKeyDown={onResizeKeyDown}
+      onResizeReset={reset}
+      desktopMode="overlay"
+      resizable
     >
       {state === "loading" ? (
         <Spinner className="mx-auto" />
+      ) : state === "forbidden" ? (
+        <p className="text-[13px] text-status-warn-fg">No tenés acceso a esta conversación.</p>
       ) : state === "error" ? (
-        <p className="text-[13px] text-status-danger-fg">No se pudo cargar la conversación.</p>
+        <div className="space-y-2 text-[13px]">
+          <p className="text-status-danger-fg">No se pudo cargar la conversación.</p>
+          <button
+            type="button"
+            className="h-10 rounded-lg border border-ds-border-default px-3 text-ds-text-2 ds-tap"
+            onClick={reload}
+          >
+            Reintentar
+          </button>
+        </div>
       ) : detail && !detail.synced ? (
         <div className="flex items-center gap-2 rounded-xl border border-ds-border-subtle bg-ds-surface-1 px-3 py-4 text-[13px] text-ds-text-4">
           <Clock className="h-4 w-4 shrink-0" />
           Conversación no sincronizada todavía.
         </div>
-      ) : detail ? (
+      ) : detail && replyDetail ? (
         <>
           <CorreoMessages
             messages={detail.messages}
@@ -178,15 +121,28 @@ export function EntityThreadReader({
               <EntityMessageAttachments items={items} onOpen={openAttachment} />
             )}
           />
-          {canCompose && onAction && (
-            <div className="sticky bottom-0 border-t border-ds-border-subtle bg-ds-surface-1 p-2">
-              <EntityConversationActions
-                canCompose
-                threadId={threadId}
-                onAction={onAction}
+          {detail.canReply ? (
+            <div className="sticky bottom-0 space-y-2 border-t border-ds-border-subtle bg-ds-surface-1 p-2">
+              <CorreoReplyBox
+                detail={replyDetail}
+                onSent={async () => {
+                  await ensureEntityLink({ threadId, entityType, entityId });
+                  onChanged?.();
+                }}
               />
+              <Link
+                href={`/crm/correos?thread=${threadId}`}
+                className="inline-flex h-10 items-center gap-1.5 px-1 text-[12px] text-ds-text-3 ds-tap hover:text-ds-text-2"
+              >
+                <ExternalLink className="h-3.5 w-3.5" />
+                Abrir en Correo
+              </Link>
             </div>
-          )}
+          ) : detail.ownerEmail ? (
+            <p className="rounded-xl border border-ds-border-subtle bg-ds-surface-1 px-3 py-3 text-[13px] text-ds-text-3">
+              Este hilo pertenece a la casilla de {detail.ownerEmail}.
+            </p>
+          ) : null}
         </>
       ) : null}
       <CorreoAttachmentViewer file={viewer} onClose={() => setViewer(null)} />

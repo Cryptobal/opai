@@ -21,6 +21,7 @@ type Props = {
   subject: string;
   accountId: string | null;
   dealId: string | null;
+  contactId?: string | null;
   to: string[];
   replyAll: ReplyAll | null;
   radarItemId: string | null;
@@ -237,6 +238,7 @@ export function CorreoComposerBox(props: Props) {
         forwardAttachments={isForward ? props.forwardAttachments : []}
         accountId={props.accountId}
         dealId={props.dealId}
+        contactId={props.contactId ?? null}
         onBodyChange={(doc) => { bodyRef.current = doc; }}
         onSubjectChange={(s) => { subjectRef.current = s; }}
         onDraftIdChange={(id) => { draftIdRef.current = id; }}

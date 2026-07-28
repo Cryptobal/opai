@@ -79,7 +79,7 @@ beforeEach(() => {
   mocks.canView.mockReturnValue(true);
   mocks.canViewInstallations.mockReturnValue(true);
   mocks.canEdit.mockReturnValue(true);
-  mocks.accountFindFirst.mockResolvedValue({ email: "yo@gard.cl" });
+  mocks.accountFindFirst.mockResolvedValue({ email: "yo@gard.cl", userId: "u1" });
   mocks.dealQuoteFindMany.mockResolvedValue([]);
   mocks.bridgeFindFirst.mockResolvedValue(null);
   mocks.contactFindFirst.mockResolvedValue(null);
@@ -213,9 +213,20 @@ describe("GET conversaciones/[threadId] — autorización por entidad", () => {
     expect(res.status).toBe(200);
   });
 
-  it("casilla de otro usuario → canReply false con ownerEmail null", async () => {
+  it("casilla de otro usuario → canReply false con ownerEmail del dueño", async () => {
     mocks.threadFindFirst.mockResolvedValue(baseThread());
-    mocks.accountFindFirst.mockResolvedValue(null);
+    mocks.accountFindFirst.mockResolvedValue({ email: "carlos@gard.cl", userId: "u-otro" });
+    const res = await GET(req("account", "acc-1"), ctx);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.canReply).toBe(false);
+    expect(body.ownerEmail).toBe("carlos@gard.cl");
+  });
+
+  it("casilla propia sin permiso de escritura → canReply false sin nota de dueño", async () => {
+    mocks.threadFindFirst.mockResolvedValue(baseThread());
+    mocks.accountFindFirst.mockResolvedValue({ email: "yo@gard.cl", userId: "u1" });
+    mocks.canEdit.mockReturnValue(false);
     const res = await GET(req("account", "acc-1"), ctx);
     expect(res.status).toBe(200);
     const body = await res.json();

@@ -72,19 +72,22 @@ export async function GET(req: NextRequest, ctx: Ctx) {
     return NextResponse.json({ error: "Sin acceso a esta conversación" }, { status: 403 });
   }
 
-  const ownAccount = thread.emailAccountId
+  const mailbox = thread.emailAccountId
     ? await prisma.crmEmailAccount.findFirst({
         where: {
           id: thread.emailAccountId,
           tenantId,
-          userId: auth.userId,
           provider: "gmail",
           status: "active",
         },
-        select: { email: true },
+        select: { email: true, userId: true },
       })
     : null;
-  const canReply = Boolean(ownAccount) && canEdit(perms, "productividad", "correos");
+  const isOwnMailbox = Boolean(mailbox && mailbox.userId === auth.userId);
+  const canReply = isOwnMailbox && canEdit(perms, "productividad", "correos");
+  // Nota de casilla ajena solo si no es propia; sin permiso de escritura → sin nota.
+  const ownerEmail =
+    canReply || !isOwnMailbox ? (mailbox?.email ?? null) : null;
 
   const detail = await getEntityThreadDetail({
     tenantId,
@@ -98,7 +101,7 @@ export async function GET(req: NextRequest, ctx: Ctx) {
   return NextResponse.json({
     ...detail,
     canReply,
-    ownerEmail: ownAccount?.email ?? null,
+    ownerEmail,
     associations: {
       accountId: thread.accountId,
       dealId: thread.dealId,
