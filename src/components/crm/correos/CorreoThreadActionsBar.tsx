@@ -43,12 +43,13 @@ export function CorreoThreadActionsBar({
     // UI primero (sacar fila / volver a bandeja); luego red + Deshacer.
     if (onRemove) onRemove(threadId);
     else onClose?.();
+    const undo = action === "archive" ? "unarchive" : "untrash";
     void runCorreoAction(
       threadId,
       action,
       okMsg,
       onRemoveDone ?? onDone,
-      "unarchive",
+      undo,
       onUndoDone,
     );
   }

@@ -10,6 +10,7 @@ export type EmailAuditAction =
   | "archive"
   | "unarchive"
   | "trash"
+  | "untrash"
   | "markRead"
   | "markUnread"
   | "snooze"

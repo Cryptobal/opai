@@ -4,21 +4,12 @@ import { useEffect, useState, type ReactNode } from "react";
 import { motion, useMotionValue, animate, type PanInfo } from "framer-motion";
 import { CheckCheck, Circle, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { triggerHaptic } from "@/lib/haptics";
 
 const ACTION_WIDTH = 80;
 const TOTAL_ACTIONS = ACTION_WIDTH * 2;
 const SNAP_THRESHOLD = 40;
 const DELETE_THRESHOLD = 200;
-
-function triggerHaptic(ms: number) {
-  if (typeof navigator !== "undefined" && "vibrate" in navigator) {
-    try {
-      navigator.vibrate(ms);
-    } catch {
-      // no-op (some browsers throw on unsupported user-gesture context)
-    }
-  }
-}
 
 type SwipeableNotificationItemProps = {
   id: string;
@@ -59,7 +50,7 @@ export function SwipeableNotificationItem({
     const offset = info.offset.x;
 
     if (offset < -DELETE_THRESHOLD) {
-      triggerHaptic(25);
+      void triggerHaptic("success");
       const width = typeof window !== "undefined" ? window.innerWidth : 400;
       animate(x, -width, {
         duration: 0.2,
@@ -69,7 +60,7 @@ export function SwipeableNotificationItem({
     }
 
     if (offset < -SNAP_THRESHOLD) {
-      triggerHaptic(10);
+      void triggerHaptic("selection");
       onOpenChange(true);
     } else {
       onOpenChange(false);
@@ -77,13 +68,13 @@ export function SwipeableNotificationItem({
   };
 
   const handleToggleRead = () => {
-    triggerHaptic(25);
+    void triggerHaptic("medium");
     onToggleRead();
     close();
   };
 
   const handleDelete = () => {
-    triggerHaptic(25);
+    void triggerHaptic("medium");
     onDelete();
     close();
   };

@@ -30,7 +30,8 @@ export function CorreoRowMenu({
 
   function remove(action: "archive" | "trash", okMsg: string) {
     onRemove?.(thread.id);
-    void runCorreoAction(thread.id, action, okMsg, onChanged, "unarchive");
+    const undo = action === "archive" ? "unarchive" : "untrash";
+    void runCorreoAction(thread.id, action, okMsg, onChanged, undo);
   }
 
   return (

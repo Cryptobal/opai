@@ -87,12 +87,14 @@ export function CorreoThreadActions({
   function removeAfter(action: "archive" | "trash" | "spam", okMsg: string) {
     // Primero UI (sacar fila / avanzar lector); luego red + undo.
     onRemove?.(threadId);
+    const undo =
+      action === "spam" ? "unspam" : action === "trash" ? "untrash" : "unarchive";
     void runCorreoAction(
       threadId,
       action,
       okMsg,
       onRemoveDone ?? onDone,
-      action === "spam" ? "unspam" : "unarchive",
+      undo,
       onUndoDone,
     );
     if (!onRemove) onClose?.();
@@ -128,7 +130,7 @@ export function CorreoThreadActions({
         title="Eliminar"
         onClick={() => {
           // Sin confirm(): como Gmail, la papelera es directa y el toast
-          // ofrece Deshacer (unarchive restaura a bandeja).
+          // ofrece Deshacer (untrash restaura a bandeja).
           removeAfter("trash", "Movido a la Papelera");
         }}
       >

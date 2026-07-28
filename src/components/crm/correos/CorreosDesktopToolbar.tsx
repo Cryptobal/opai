@@ -64,7 +64,7 @@ export function CorreosDesktopToolbar({
           <Archive className="h-4 w-4" />
         </button>
         <button type="button" title="Mover a la Papelera" className={BTN}
-          onClick={() => onAction("trash", "Movidos a la Papelera", { undo: "unarchive", removes: true })}>
+          onClick={() => onAction("trash", "Movidos a la Papelera", { undo: "untrash", removes: true })}>
           <Trash2 className="h-4 w-4" />
         </button>
         <button type="button" title={allReadSelected ? "Marcar no leídos" : "Marcar leídos"} className={BTN}

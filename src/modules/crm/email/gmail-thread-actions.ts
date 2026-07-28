@@ -7,6 +7,7 @@ export type CorreoAction =
   | "archive"
   | "unarchive"
   | "trash"
+  | "untrash"
   | "markRead"
   | "markUnread"
   | "snooze"
@@ -64,6 +65,21 @@ export async function runCorreoThreadAction(params: {
       });
       // Refrescar labelIds locales: si no, quedan con INBOX stale y el heal/
       // derive desde mensajes puede reabrir el hilo en Recibidos.
+      await refreshThreadLabelsFromGmail({
+        gmail,
+        tenantId: params.tenantId,
+        emailAccountId: account.id,
+        providerThreadId: tid,
+      }).catch(() => {});
+      return { ok: true };
+    }
+    if (params.action === "untrash") {
+      await gmail.users.threads.untrash({ userId: "me", id: tid });
+      await prisma.crmEmailThread.update({
+        where: { id: thread.id },
+        data: { trashedAt: null },
+      });
+      // No fijar archivedAt a mano: se rederiva desde labels de Gmail.
       await refreshThreadLabelsFromGmail({
         gmail,
         tenantId: params.tenantId,

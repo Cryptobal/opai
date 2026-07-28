@@ -367,6 +367,17 @@
     -webkit-user-select: none;
   }
 
+  /* Filas de lista táctil: el long-press abre el menú de la app, nunca el
+     callout nativo de iOS (Copiar / Consultar). Acotado a filas — el cuerpo
+     del correo debe seguir siendo seleccionable y copiable. */
+  [data-correo-row],
+  [data-correo-swipe-row] {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
   /* Native select vertical alignment (especially in compact h-8 controls) */
   select:not([multiple]) {
     line-height: 1.25rem;
