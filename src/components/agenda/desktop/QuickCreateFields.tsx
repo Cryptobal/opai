@@ -47,7 +47,7 @@ export function QuickCreateEventFields({
   return (
     <div className="space-y-3">
       <Row label="Tipo">
-        <div className="flex h-9 items-center gap-1.5">
+        <div className="flex min-h-9 flex-wrap items-center gap-1.5">
           {EVENT_TYPES.map((t) => (
             <button
               key={t.id}
@@ -165,7 +165,7 @@ export function QuickCreateTaskFields({
   return (
     <div className="space-y-3">
       <Row label="Vence">
-        <div className="flex items-center gap-1.5">
+        <div className="flex min-h-9 flex-wrap items-center gap-1.5">
           <input
             type="date"
             value={form.date}
