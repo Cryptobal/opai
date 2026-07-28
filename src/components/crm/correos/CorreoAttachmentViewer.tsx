@@ -33,9 +33,10 @@ async function shareFile(url: string, filename: string, mimeType: string) {
 
 /**
  * Visor de adjuntos en overlay a pantalla completa. Baja el archivo con la
- * sesión y lo previsualiza (PDF en canvas vía pdf.js, imagen, texto, DOCX) o
- * muestra una tarjeta tipada con descarga/compartir. Reemplaza el `<iframe>`
- * sobre `blob:` que dejaba el PDF en blanco en el WebView de iOS/Android.
+ * sesión y lo previsualiza (PDF en canvas vía pdf.js, imagen, texto, DOCX,
+ * Excel/xlsx) o muestra una tarjeta tipada con descarga/compartir. Reemplaza
+ * el `<iframe>` sobre `blob:` que dejaba el PDF en blanco en el WebView de
+ * iOS/Android.
  */
 export function CorreoAttachmentViewer({
   file,
