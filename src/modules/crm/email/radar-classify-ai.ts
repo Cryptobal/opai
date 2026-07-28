@@ -9,6 +9,10 @@ import {
 import type { LeadFeedback } from "./radar-feedback";
 import { clampText } from "./radar-util";
 import { UNTRUSTED_RULES, wrapUntrusted } from "./ai-untrusted";
+import {
+  DRAFT_REFINE_INSTRUCTIONS,
+  type DraftRefineMode,
+} from "./draft-reply-refine";
 
 /** Versión de los prompts de este módulo (trazabilidad en aiUsageLog). */
 export const RADAR_PROMPT_VERSION = "radar-v5-untrusted";
@@ -231,29 +235,61 @@ export async function generateDraftReply(input: {
   resumen: string;
   /** Indicaciones del usuario para guiar la respuesta (opcional). */
   instructions?: string | null;
+  /** Borrador actual a reescribir (refine / describe un cambio). */
+  currentDraft?: string | null;
+  /** Preset de tono/estilo cuando hay currentDraft. */
+  refine?: DraftRefineMode | null;
 }): Promise<string | null> {
   const instructions = input.instructions?.trim() || "";
-  const hasInstructions = instructions.length > 0;
-  // Las indicaciones son GUÍA de contenido, no el cuerpo. Si el modelo las
-  // pega tal cual (bug histórico: "tienen prioridad" → echo), el borrador
-  // queda inutilizable. Explicitamos reescritura + anti-copia.
-  const instructionsBlock = hasInstructions
-    ? `\nIndicaciones del vendedor (GUÍA de hechos/posición — NO son el borrador. Incorporá su sustancia respondiendo al correo entrante; NUNCA las copies ni las pegues textualmente como cuerpo del mail): ${clampText(instructions, 1200)}`
-    : "";
-  const structure = hasInstructions
-    ? "Estructura: (1) saludo breve y acusar recibo, (2) desarrollar con claridad los puntos de las indicaciones (hechos, condiciones, respuestas a las preguntas del correo), (3) cierre con próximo paso concreto. Máx 220 palabras."
-    : "Estructura: (1) acusar recibo, (2) 1-2 preguntas clave para avanzar, (3) próximo paso claro. Máx 90 palabras.";
-  const prompt = `Redacta un BORRADOR de respuesta profesional en español chileno neutro a este correo entrante de un prospecto de seguridad privada. NO inventes precios ni datos que no estén en las indicaciones o en el correo. ${structure} Devuelve SOLO el texto del correo listo para enviar, sin asunto ni firma.${instructionsBlock}
+  const currentDraft = input.currentDraft?.trim() || "";
+  const refine = input.refine ?? null;
+  const isRefine = currentDraft.length > 0 && (Boolean(refine) || instructions.length > 0);
+
+  let prompt: string;
+  let maxTokens: number;
+
+  if (isRefine) {
+    const refineGuide = refine
+      ? DRAFT_REFINE_INSTRUCTIONS[refine]
+      : `Aplicá este cambio pedido por el vendedor (GUÍA — no lo pegues como cuerpo): ${clampText(instructions, 1200)}`;
+    const extraGuide =
+      refine && instructions.length > 0
+        ? `\nDetalle adicional del vendedor (no pegar textualmente): ${clampText(instructions, 600)}`
+        : "";
+    prompt = `Reescribe el BORRADOR de respuesta en español chileno neutro. Conservá hechos, nombres, compromisos y datos; NO inventes precios ni información nueva. ${refineGuide}${extraGuide} Devuelve SOLO el texto revisado listo para enviar, sin asunto ni firma.
+Borrador actual:
+${clampText(currentDraft, 3500)}
 Resumen: ${input.resumen || "(sin resumen)"}
 ${UNTRUSTED_RULES}
 ${wrapUntrusted(
-    `Correo de ${input.fromEmail} (${clampText(input.subject, 160)}):\n${clampText(input.body, 2000)}`,
-  )}`;
+      `Correo original de ${input.fromEmail} (${clampText(input.subject, 160)}):\n${clampText(input.body, 1500)}`,
+    )}`;
+    maxTokens = 700;
+  } else {
+    const hasInstructions = instructions.length > 0;
+    // Las indicaciones son GUÍA de contenido, no el cuerpo. Si el modelo las
+    // pega tal cual (bug histórico: "tienen prioridad" → echo), el borrador
+    // queda inutilizable. Explicitamos reescritura + anti-copia.
+    const instructionsBlock = hasInstructions
+      ? `\nIndicaciones del vendedor (GUÍA de hechos/posición — NO son el borrador. Incorporá su sustancia respondiendo al correo entrante; NUNCA las copies ni las pegues textualmente como cuerpo del mail): ${clampText(instructions, 1200)}`
+      : "";
+    const structure = hasInstructions
+      ? "Estructura: (1) saludo breve y acusar recibo, (2) desarrollar con claridad los puntos de las indicaciones (hechos, condiciones, respuestas a las preguntas del correo), (3) cierre con próximo paso concreto. Máx 220 palabras."
+      : "Estructura: (1) acusar recibo, (2) 1-2 preguntas clave para avanzar, (3) próximo paso claro. Máx 90 palabras.";
+    prompt = `Redacta un BORRADOR de respuesta profesional en español chileno neutro a este correo entrante de un prospecto de seguridad privada. NO inventes precios ni datos que no estén en las indicaciones o en el correo. ${structure} Devuelve SOLO el texto del correo listo para enviar, sin asunto ni firma.${instructionsBlock}
+Resumen: ${input.resumen || "(sin resumen)"}
+${UNTRUSTED_RULES}
+${wrapUntrusted(
+      `Correo de ${input.fromEmail} (${clampText(input.subject, 160)}):\n${clampText(input.body, 2000)}`,
+    )}`;
+    maxTokens = hasInstructions ? 700 : 300;
+  }
+
   const startedAt = Date.now();
   try {
     const txt = await aiService.generateText(
       prompt,
-      { maxTokens: hasInstructions ? 700 : 300, temperature: 0.4 },
+      { maxTokens, temperature: 0.4 },
       {
         tenantId: input.tenantId,
         feature: "correo-suggest-reply",

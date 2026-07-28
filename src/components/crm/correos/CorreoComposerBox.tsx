@@ -5,9 +5,11 @@ import { createPortal } from "react-dom";
 import { Maximize2, Minimize2, X } from "lucide-react";
 import { EmailComposer, type ForwardAttachmentRefClient } from "./EmailComposer";
 import { plainTextToTiptapDoc } from "./email-inline-images";
+import { docPlainText } from "./composer-draft";
 import {
   ComposerAiAssistToggle,
   ComposerAiPromptPill,
+  type DraftRefineMode,
 } from "./ComposerAiAssist";
 
 export type ComposerMode = "reply" | "all" | "forward";
@@ -56,6 +58,8 @@ export function CorreoComposerBox(props: Props) {
   const [epoch, setEpoch] = useState(0);
   const [instructions, setInstructions] = useState("");
   const [generating, setGenerating] = useState(false);
+  /** Hay borrador IA en el editor → mostrar chips de refinamiento. */
+  const [hasAiDraft, setHasAiDraft] = useState(false);
   const [isDesktop, setIsDesktop] = useState(false);
 
   useEffect(() => {
@@ -111,16 +115,31 @@ export function CorreoComposerBox(props: Props) {
     bodyRef.current = doc;
     setSeed(doc);
     setEpoch((e) => e + 1);
+    setHasAiDraft(true);
+    setInstructions("");
   }
 
-  async function generate() {
+  async function runAi(opts?: { refine?: DraftRefineMode }) {
+    const prompt = instructions.trim();
+    const currentDraft = docPlainText(bodyRef.current).trim();
+    const refine = opts?.refine;
+    // Refine libre requiere texto; chips usan el preset. Generación inicial
+    // puede ir sin indicaciones.
+    if (refine == null && hasAiDraft && !prompt) return;
+
     setGenerating(true);
     try {
       const d = await fetch(`/api/crm/correos/${threadId}/suggest-reply`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ instructions: instructions.trim() || undefined }),
+        body: JSON.stringify({
+          instructions: prompt || undefined,
+          currentDraft:
+            refine || (hasAiDraft && currentDraft) ? currentDraft || undefined : undefined,
+          refine: refine || undefined,
+        }),
       }).then((r) => r.json());
+      // Éxito: el prompt se borra y el borrador queda en el editor (injectDraft).
       if (d.draft) injectDraft(String(d.draft));
     } finally {
       setGenerating(false);
@@ -131,12 +150,19 @@ export function CorreoComposerBox(props: Props) {
   // sembrarlo. No auto-generar (Gmail: el usuario escribe el prompt y manda ↑).
   useEffect(() => {
     if (!showAiPrompt) {
-      if (!ai) aiSeededRef.current = false;
+      if (!ai) {
+        aiSeededRef.current = false;
+        setInstructions("");
+      }
       return;
     }
     if (aiSeededRef.current) return;
     aiSeededRef.current = true;
-    if (bodyRef.current || !props.preDraft) return;
+    if (docPlainText(bodyRef.current).trim()) {
+      setHasAiDraft(true);
+      return;
+    }
+    if (!props.preDraft) return;
     injectDraft(props.preDraft);
   }, [showAiPrompt, ai, props.preDraft]);
 
@@ -207,9 +233,11 @@ export function CorreoComposerBox(props: Props) {
             <ComposerAiPromptPill
               value={instructions}
               onChange={setInstructions}
-              onGenerate={() => void generate()}
+              onGenerate={() => void runAi()}
+              onRefine={(preset) => void runAi({ refine: preset })}
               onClose={closeAi}
               generating={generating}
+              hasDraft={hasAiDraft}
             />
           ) : null
         }

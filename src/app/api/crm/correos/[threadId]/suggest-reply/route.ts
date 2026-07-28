@@ -4,6 +4,7 @@ import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { requireCorreosAccess } from "@/lib/api-auth-productividad";
 import { prisma } from "@/lib/prisma";
 import { generateDraftReply } from "@/modules/crm/email/radar-classify-ai";
+import { isDraftRefineMode } from "@/modules/crm/email/draft-reply-refine";
 import { stripHtml } from "@/modules/crm/email/radar-util";
 import {
   computeReplyAllRecipients,
@@ -191,9 +192,16 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   const { threadId } = await params;
   const data = await loadThreadReply(ctx.tenantId, threadId);
   if (!data?.lastInbound) return NextResponse.json({ error: "Sin correo entrante" }, { status: 404 });
-  const payload = (await req.json().catch(() => ({}))) as { instructions?: unknown };
+  const payload = (await req.json().catch(() => ({}))) as {
+    instructions?: unknown;
+    currentDraft?: unknown;
+    refine?: unknown;
+  };
   const instructions =
     typeof payload.instructions === "string" ? payload.instructions.slice(0, 1200) : null;
+  const currentDraft =
+    typeof payload.currentDraft === "string" ? payload.currentDraft.slice(0, 8000) : null;
+  const refine = isDraftRefineMode(payload.refine) ? payload.refine : null;
   const body = (data.lastInbound.textBody || stripHtml(data.lastInbound.htmlBody)).trim();
   const replyToEmail =
     (await ensureReplyTo({
@@ -216,6 +224,8 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     body,
     resumen,
     instructions,
+    currentDraft,
+    refine,
   });
   return NextResponse.json({ draft, to: replyAddress });
 }
