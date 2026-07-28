@@ -193,7 +193,10 @@ function MessageCard({
           )
           : null;
   return (
-    <div className="overflow-hidden rounded-xl border border-ds-border-subtle bg-ds-surface-1">
+    <div
+      data-correo-message
+      className="overflow-hidden rounded-xl border border-ds-border-subtle bg-ds-surface-1"
+    >
       <button
         type="button"
         onClick={onToggle}

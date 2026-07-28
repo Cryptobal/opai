@@ -6,6 +6,7 @@ import { hydrateMissingThreadMessages } from "./correos-detail-hydrate";
 import { captureEmailError } from "./email-observability";
 import { attachSavedFileIds } from "./attachment-saved";
 import type { CorreoDetail, CorreoAttachmentDTO } from "./correos.types";
+import { parseThreadSummaryCache } from "./email-summary.service";
 
 /** TTL del caché de detalle; la invalidación real es updatedAt del sync. */
 const DETAIL_CACHE_TTL_MS = 15 * 60_000;
@@ -67,6 +68,8 @@ export async function getCorreoDetail(params: {
       aiSentiment: true,
       aiSummary: true,
       aiClassifiedAt: true,
+      lastReadAt: true,
+      aiThreadSummary: true,
       attachmentsMeta: true,
       detailCachedAt: true,
       updatedAt: true,
@@ -167,7 +170,7 @@ export async function getCorreoDetail(params: {
       select: {
         id: true, providerMessageId: true, direction: true, fromEmail: true,
         replyToEmail: true, toEmails: true, ccEmails: true, subject: true,
-        htmlBody: true, textBody: true, sentAt: true,
+        htmlBody: true, textBody: true, sentAt: true, isDraft: true,
       },
     }),
     thread.accountId
@@ -184,6 +187,19 @@ export async function getCorreoDetail(params: {
   // B5: chip "Guardado" — consulta fresca (fuera de attachmentsMeta) para no
   // invalidar el caché C18.
   const attachmentsWithSaved = await attachSavedFileIds(tenantId, thread.id, attachments);
+
+  // Frescura del resumen: contra el último mensaje no borrador (un draft no
+  // debe invalidar el caché).
+  const lastNonDraftId =
+    [...messages].reverse().find((m) => !m.isDraft)?.id ?? null;
+  const cache = parseThreadSummaryCache(thread.aiThreadSummary);
+  const threadSummary = cache
+    ? {
+        text: cache.summary,
+        generatedAt: cache.generatedAt ?? null,
+        stale: cache.lastMessageId !== lastNonDraftId,
+      }
+    : null;
 
   // Métrica simple para el antes/después del p95 (C18).
   console.log(
@@ -216,8 +232,13 @@ export async function getCorreoDetail(params: {
       aiSentiment: thread.aiSentiment,
       aiSummary: thread.aiSummary,
       aiClassifiedAt: thread.aiClassifiedAt?.toISOString() ?? null,
+      lastReadAt: thread.lastReadAt?.toISOString() ?? null,
+      threadSummary,
     },
-    messages: messages.map((m) => ({ ...m, sentAt: m.sentAt?.toISOString() ?? null })),
+    messages: messages.map(({ isDraft: _isDraft, ...m }) => ({
+      ...m,
+      sentAt: m.sentAt?.toISOString() ?? null,
+    })),
     attachments: attachmentsWithSaved,
     degraded,
   };

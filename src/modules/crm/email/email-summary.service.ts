@@ -25,14 +25,26 @@ export type ThreadSummaryResult =
     }
   | { ok: false; status: number; error: string };
 
-type SummaryCache = { summary: string; lastMessageId: string; generatedAt: string };
+export type SummaryCache = { summary: string; lastMessageId: string; generatedAt: string };
 
-function parseCache(raw: unknown): SummaryCache | null {
+export function parseThreadSummaryCache(raw: unknown): SummaryCache | null {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
   const cache = raw as Partial<SummaryCache>;
   return typeof cache.summary === "string" && typeof cache.lastMessageId === "string"
     ? (cache as SummaryCache)
     : null;
+}
+
+const MS_90_DAYS = 90 * 24 * 60 * 60 * 1000;
+
+/** Valida `since` del cliente. Devuelve Date o null si debe ignorarse. */
+export function parseSinceParam(raw: unknown, now = Date.now()): Date | null {
+  if (typeof raw !== "string" || !raw.trim()) return null;
+  const t = Date.parse(raw);
+  if (Number.isNaN(t)) return null;
+  if (t > now) return null;
+  if (t < now - MS_90_DAYS) return null;
+  return new Date(t);
 }
 
 function messageText(m: { textBody: string | null; htmlBody: string | null }): string {
@@ -73,6 +85,8 @@ export async function summarizeThread(params: {
   emailAccountId: string;
   threadId: string;
   mode: "full" | "since-read";
+  /** Cursor de lectura capturado al abrir el hilo (antes del markRead). */
+  since?: Date;
 }): Promise<ThreadSummaryResult> {
   const { tenantId, threadId, mode } = params;
   const thread = await prisma.crmEmailThread.findFirst({
@@ -100,8 +114,9 @@ export async function summarizeThread(params: {
 
   let scoped = messages;
   if (mode === "since-read") {
-    scoped = thread.lastReadAt
-      ? messages.filter((m) => m.sentAt && m.sentAt > thread.lastReadAt!)
+    const cutoff = params.since ?? thread.lastReadAt;
+    scoped = cutoff
+      ? messages.filter((m) => m.sentAt && m.sentAt > cutoff)
       : messages.slice(-3);
     if (scoped.length === 0) {
       return {
@@ -114,7 +129,7 @@ export async function summarizeThread(params: {
     }
   } else {
     // Caché por último mensaje: reabrir sin cambios no re-llama al modelo.
-    const cache = parseCache(thread.aiThreadSummary);
+    const cache = parseThreadSummaryCache(thread.aiThreadSummary);
     if (cache && cache.lastMessageId === lastMessageId) {
       return {
         ok: true,

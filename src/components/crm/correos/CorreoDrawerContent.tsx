@@ -3,16 +3,16 @@
 import { useEffect, useRef, useState } from "react";
 import {
   Building2,
+  Code2,
+  Copy,
   ExternalLink,
   Eye,
-  History,
   MoreHorizontal,
   Plus,
-  ScrollText,
+  Printer,
   Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
-import { Spinner } from "@/components/opai-ds";
 import { CorreoMessages } from "./CorreoMessages";
 import { CorreoReplyBox } from "./CorreoReplyBox";
 import { CorreoThreadActions } from "./CorreoThreadActions";
@@ -37,6 +37,8 @@ type Props = {
   onRemoveDone?: () => void;
   onUndoDone?: () => void;
   onReply?: () => void;
+  /** Abre el compositor de respuesta (Continuar → Redactar). */
+  onRequestReply?: () => void;
   onSnooze?: () => void;
   alwaysShowImages?: boolean;
   onAlwaysShowImages?: () => void;
@@ -44,13 +46,17 @@ type Props = {
   /** Abrir panel en una pestaña (menú contextual / deep-link). */
   workTabIntent?: { tab: WorkTab; nonce: number } | null;
   composeIntent?: ComposeIntent | null;
+  /** Cursor de lectura capturado al abrir (antes del markRead). */
+  readCursorAt?: string | null;
 };
 
-type SummaryState = {
-  mode: "full" | "since-read";
-  summary: string;
-  cached: boolean;
-} | null;
+function hasCopilotoAttention(detail: CorreoDetail): boolean {
+  const t = detail.thread;
+  if (t.accountId == null) return true;
+  if (detail.attachments.some((a) => !a.savedFileId)) return true;
+  if (t.aiUrgency === "alta" && !t.dealId) return true;
+  return false;
+}
 
 export function CorreoDrawerContent({
   detail,
@@ -65,22 +71,23 @@ export function CorreoDrawerContent({
   onRemoveDone,
   onUndoDone,
   onReply,
+  onRequestReply,
   onSnooze,
   alwaysShowImages,
   onAlwaysShowImages,
   shortcuts,
   workTabIntent = null,
   composeIntent = null,
+  readCursorAt = null,
 }: Props) {
   const t = detail.thread;
   const [panel, setPanel] = useState<{ tab: WorkTab } | null>(null);
   const [overflowOpen, setOverflowOpen] = useState(false);
-  const [summaryBusy, setSummaryBusy] = useState<"full" | "since-read" | null>(null);
-  const [summary, setSummary] = useState<SummaryState>(null);
   const overflowRef = useRef<HTMLDivElement>(null);
   const gmailUrl = t.providerThreadId
     ? `https://mail.google.com/mail/u/0/#all/${t.providerThreadId}`
     : null;
+  const attention = hasCopilotoAttention(detail);
 
   useEffect(() => {
     if (!workTabIntent) return;
@@ -90,8 +97,6 @@ export function CorreoDrawerContent({
   }, [workTabIntent?.nonce]);
 
   useEffect(() => {
-    setSummary(null);
-    setSummaryBusy(null);
     setOverflowOpen(false);
   }, [t.id]);
 
@@ -114,30 +119,28 @@ export function CorreoDrawerContent({
 
   const openPanel = (tab: WorkTab) => setPanel({ tab: resolveWorkTab(tab) });
 
-  async function runSummary(mode: "full" | "since-read") {
+  async function copyThreadLink() {
     setOverflowOpen(false);
-    setSummaryBusy(mode);
+    const url = `${window.location.origin}/crm/correos?thread=${encodeURIComponent(t.id)}`;
     try {
-      const res = await fetch(`/api/crm/correos/${t.id}/summary`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode }),
-      });
-      const data = (await res.json().catch(() => ({}))) as {
-        summary?: string;
-        cached?: boolean;
-        error?: string;
-      };
-      if (!res.ok || !data.summary) {
-        toast.error(data.error || "No se pudo resumir el hilo");
-        return;
-      }
-      setSummary({ mode, summary: data.summary, cached: Boolean(data.cached) });
+      await navigator.clipboard.writeText(url);
+      toast.success("Enlace del hilo copiado");
     } catch {
-      toast.error("No se pudo resumir el hilo");
-    } finally {
-      setSummaryBusy(null);
+      toast.error("No se pudo copiar el enlace");
     }
+  }
+
+  function printThread() {
+    setOverflowOpen(false);
+    window.print();
+  }
+
+  function viewOriginal() {
+    setOverflowOpen(false);
+    document
+      .querySelector("[data-correo-message]")
+      ?.scrollIntoView({ behavior: "smooth", block: "start" });
+    toast.message("Desplazado al mensaje original");
   }
 
   const contextLabel = t.accountId
@@ -194,9 +197,15 @@ export function CorreoDrawerContent({
             type="button"
             onClick={() => openPanel("resumen")}
             aria-label="Copiloto"
-            className="inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-full border border-tint-violet/30 bg-tint-violet/10 px-2.5 text-[12px] font-medium text-tint-violet-fg ds-tap sm:min-h-8"
+            className="relative inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-full border border-tint-violet/30 bg-tint-violet/10 px-2.5 text-[12px] font-medium text-tint-violet-fg ds-tap sm:min-h-8"
           >
             <Sparkles className="h-3.5 w-3.5" /> ✦ Copiloto
+            {attention && (
+              <span
+                className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-status-warn"
+                aria-hidden
+              />
+            )}
           </button>
 
           <div ref={overflowRef} className="relative ml-auto shrink-0">
@@ -207,31 +216,13 @@ export function CorreoDrawerContent({
               onClick={() => setOverflowOpen((o) => !o)}
               className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-ds-border-default bg-ds-surface-1 text-ds-text-2 ds-tap sm:h-8 sm:w-8"
             >
-              {summaryBusy ? <Spinner className="h-3.5 w-3.5" /> : <MoreHorizontal className="h-4 w-4" />}
+              <MoreHorizontal className="h-4 w-4" />
             </button>
             {overflowOpen && (
               <div
                 role="menu"
                 className="absolute right-0 z-20 mt-1 w-52 overflow-hidden rounded-xl border border-ds-border-default bg-ds-surface-1 py-1 shadow-ds-lg"
               >
-                <button
-                  type="button"
-                  role="menuitem"
-                  disabled={summaryBusy !== null}
-                  onClick={() => void runSummary("full")}
-                  className="flex min-h-11 w-full items-center gap-2 px-3 text-left text-[13px] text-ds-text-1 ds-tap hover:bg-ds-surface-2 disabled:opacity-50 sm:min-h-9"
-                >
-                  <ScrollText className="h-4 w-4 text-ds-text-3" /> Resumir
-                </button>
-                <button
-                  type="button"
-                  role="menuitem"
-                  disabled={summaryBusy !== null}
-                  onClick={() => void runSummary("since-read")}
-                  className="flex min-h-11 w-full items-center gap-2 px-3 text-left text-[13px] text-ds-text-1 ds-tap hover:bg-ds-surface-2 disabled:opacity-50 sm:min-h-9"
-                >
-                  <History className="h-4 w-4 text-ds-text-3" /> Desde lectura
-                </button>
                 {gmailUrl && (
                   <a
                     role="menuitem"
@@ -244,31 +235,55 @@ export function CorreoDrawerContent({
                     <ExternalLink className="h-4 w-4 text-ds-text-3" /> Abrir en Gmail
                   </a>
                 )}
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={printThread}
+                  className="flex min-h-11 w-full items-center gap-2 px-3 text-left text-[13px] text-ds-text-1 ds-tap hover:bg-ds-surface-2 sm:min-h-9"
+                >
+                  <Printer className="h-4 w-4 text-ds-text-3" /> Imprimir
+                </button>
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={viewOriginal}
+                  className="flex min-h-11 w-full items-center gap-2 px-3 text-left text-[13px] text-ds-text-1 ds-tap hover:bg-ds-surface-2 sm:min-h-9"
+                >
+                  <Code2 className="h-4 w-4 text-ds-text-3" /> Ver original
+                </button>
+                <div className="my-1 border-t border-ds-border-subtle" role="separator" />
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={() => void copyThreadLink()}
+                  className="flex min-h-11 w-full items-center gap-2 px-3 text-left text-[13px] text-ds-text-1 ds-tap hover:bg-ds-surface-2 sm:min-h-9"
+                >
+                  <Copy className="h-4 w-4 text-ds-text-3" /> Copiar enlace del hilo
+                </button>
               </div>
             )}
           </div>
         </div>
 
-        <CorreoVerdictStrip
-          data={{
-            aiCategory: t.aiCategory,
-            aiSummary: t.aiSummary,
-            aiUrgency: t.aiUrgency,
-            aiClassifiedAt: t.aiClassifiedAt,
-            lastMessageAt: t.lastMessageAt,
-            dealFechaEntrega: t.dealFechaEntrega,
-          }}
-        />
-
-        {summary && (
-          <div className="space-y-1 rounded-xl border border-ds-border-subtle bg-ds-surface-2 p-3">
-            <p className="inline-flex items-center gap-1.5 text-[12px] font-medium text-ds-text-3">
-              <Sparkles className="h-3.5 w-3.5 text-tint-violet-fg" />
-              {summary.mode === "full" ? "Resumen del hilo" : "Desde tu última lectura"}
-              {summary.cached ? " · cacheado" : ""}
-            </p>
-            <p className="whitespace-pre-wrap text-[13px] leading-5 text-ds-text-2">{summary.summary}</p>
-          </div>
+        {t.aiClassifiedAt && (
+          <button
+            type="button"
+            onClick={() => openPanel("resumen")}
+            aria-label="Abrir Copiloto con el veredicto del hilo"
+            className="block w-full text-left ds-tap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 rounded-xl"
+          >
+            <CorreoVerdictStrip
+              variant="compact"
+              data={{
+                aiCategory: t.aiCategory,
+                aiSummary: t.aiSummary,
+                aiUrgency: t.aiUrgency,
+                aiClassifiedAt: t.aiClassifiedAt,
+                lastMessageAt: t.lastMessageAt,
+                dealFechaEntrega: t.dealFechaEntrega,
+              }}
+            />
+          </button>
         )}
       </div>
 
@@ -307,10 +322,13 @@ export function CorreoDrawerContent({
         open={panel !== null}
         initialTab={panel?.tab ?? "resumen"}
         detail={detail}
+        readCursorAt={readCursorAt}
+        workTabIntent={workTabIntent}
         onOpenAiLead={onOpenAiLead}
         onAiCommand={onAiCommand}
         onAssociate={onAssociate}
         onRefresh={onRefresh}
+        onRequestReply={onRequestReply ?? onReply}
         onClose={() => {
           setPanel(null);
         }}
