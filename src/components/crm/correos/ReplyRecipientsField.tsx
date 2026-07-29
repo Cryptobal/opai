@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import {
@@ -70,10 +70,13 @@ export function ReplyRecipientsField({
   label,
   values,
   onChange,
+  actions,
 }: {
   label: string;
   values: string[];
   onChange: (next: string[]) => void;
+  /** Controles a la derecha de la fila (modo Responder/Reenviar, Cc/Cco). */
+  actions?: ReactNode;
 }) {
   const [input, setInput] = useState("");
   const [open, setOpen] = useState(false);
@@ -239,79 +242,86 @@ export function ReplyRecipientsField({
     <div ref={rootRef} className="relative" data-recipient-field>
       <div
         className={cn(
-          "flex min-h-11 flex-wrap items-center gap-1.5 border-b border-ds-border-subtle py-2 pr-16",
+          "flex min-h-11 items-start gap-1 border-b border-ds-border-subtle",
           "focus-within:border-ds-border-strong",
         )}
-        onClick={() => inputRef.current?.focus()}
       >
-        <span className="w-10 shrink-0 text-[12px] text-ds-text-3">{label}</span>
-        {values.map((v) => {
-          const email = normalizeRecipient(v) ?? v;
-          const ok = isValidEmail(v);
-          const labelText = displayName(email, names[email]);
-          return (
-            <span
-              key={v}
-              title={email}
-              className={cn(
-                "inline-flex max-w-full items-center gap-1 rounded-full py-0.5 pl-2 pr-1 text-[12px]",
-                ok
-                  ? "bg-ds-surface-2 text-ds-text-1"
-                  : "bg-status-danger-soft text-status-danger-fg",
-              )}
-            >
-              <span className="max-w-[12rem] truncate">{labelText}</span>
-              <button
-                type="button"
-                aria-label={`Quitar ${email}`}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onChange(values.filter((x) => x !== v));
-                }}
-                className="rounded-full p-0.5 text-ds-text-3 ds-tap hover:bg-ds-surface-3 hover:text-ds-text-1"
+        <div
+          className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5 py-2"
+          onClick={() => inputRef.current?.focus()}
+        >
+          <span className="w-10 shrink-0 text-[12px] text-ds-text-3">{label}</span>
+          {values.map((v) => {
+            const email = normalizeRecipient(v) ?? v;
+            const ok = isValidEmail(v);
+            const labelText = displayName(email, names[email]);
+            return (
+              <span
+                key={v}
+                title={email}
+                className={cn(
+                  "inline-flex max-w-full items-center gap-1 rounded-full py-0.5 pl-2 pr-1 text-[12px]",
+                  ok
+                    ? "bg-ds-surface-2 text-ds-text-1"
+                    : "bg-status-danger-soft text-status-danger-fg",
+                )}
               >
-                <X className="h-3 w-3" />
-              </button>
-            </span>
-          );
-        })}
-        <input
-          ref={inputRef}
-          value={input}
-          onChange={(e) => {
-            setInput(e.target.value);
-            setOpen(true);
-          }}
-          onFocus={() => setOpen(true)}
-          onKeyDown={onKeyDown}
-          onBlur={() => {
-            setTimeout(() => {
-              if (
-                !rootRef.current?.contains(document.activeElement) &&
-                !listRef.current?.contains(document.activeElement)
-              ) {
-                commitFreeText();
-              }
-            }, 120);
-          }}
-          placeholder={values.length === 0 ? "Buscar nombre o correo" : ""}
-          className={cn(
-            "h-8 min-w-[140px] flex-1 text-[16px] text-ds-text-1 placeholder:text-ds-text-4 sm:text-[13px]",
-            INPUT_FOCUS_RESET,
-          )}
-          type="text"
-          autoComplete="off"
-          autoCorrect="off"
-          autoCapitalize="off"
-          spellCheck={false}
-          role="combobox"
-          aria-expanded={showList}
-          aria-autocomplete="list"
-          aria-controls={showList ? `recipient-list-${label}` : undefined}
-          aria-activedescendant={
-            showList && highlight >= 0 ? `recipient-opt-${label}-${highlight}` : undefined
-          }
-        />
+                <span className="max-w-[12rem] truncate">{labelText}</span>
+                <button
+                  type="button"
+                  aria-label={`Quitar ${email}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onChange(values.filter((x) => x !== v));
+                  }}
+                  className="rounded-full p-0.5 text-ds-text-3 ds-tap hover:bg-ds-surface-3 hover:text-ds-text-1"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </span>
+            );
+          })}
+          <input
+            ref={inputRef}
+            value={input}
+            onChange={(e) => {
+              setInput(e.target.value);
+              setOpen(true);
+            }}
+            onFocus={() => setOpen(true)}
+            onKeyDown={onKeyDown}
+            onBlur={() => {
+              setTimeout(() => {
+                if (
+                  !rootRef.current?.contains(document.activeElement) &&
+                  !listRef.current?.contains(document.activeElement)
+                ) {
+                  commitFreeText();
+                }
+              }, 120);
+            }}
+            placeholder={values.length === 0 ? "Buscar nombre o correo" : ""}
+            className={cn(
+              "h-8 min-w-[140px] flex-1 text-[16px] text-ds-text-1 placeholder:text-ds-text-4 sm:text-[13px]",
+              INPUT_FOCUS_RESET,
+            )}
+            type="text"
+            autoComplete="off"
+            autoCorrect="off"
+            autoCapitalize="off"
+            spellCheck={false}
+            role="combobox"
+            aria-expanded={showList}
+            aria-autocomplete="list"
+            aria-controls={showList ? `recipient-list-${label}` : undefined}
+            aria-activedescendant={
+              showList && highlight >= 0 ? `recipient-opt-${label}-${highlight}` : undefined
+            }
+          />
+        </div>
+        {actions ? (
+          <div className="flex shrink-0 items-center gap-1 self-center py-1">{actions}</div>
+        ) : null}
       </div>
       {showList &&
         menuBox &&

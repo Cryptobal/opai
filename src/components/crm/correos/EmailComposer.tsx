@@ -52,6 +52,7 @@ import {
   ComposerCrmLink,
   type ComposerCrmLinkValue,
 } from "./ComposerCrmLink";
+import { ComposerModeSwitcher, type ComposerMode } from "./ComposerModeSwitcher";
 import {
   isSpeechDictationSupported,
   useSpeechDictation,
@@ -134,6 +135,15 @@ type Props = {
   footerExtras?: React.ReactNode;
   /** Slot sobre adjuntos/Enviar (p.ej. pill "Help me write" estilo Gmail). */
   aboveFooter?: React.ReactNode;
+  /**
+   * Selector Responder / A todos / Reenviar a la derecha de Para (estilo Gmail).
+   * Solo el composer del lector lo usa; mensaje nuevo no lo pasa.
+   */
+  modeSwitcher?: {
+    mode: ComposerMode;
+    replyAllAvailable: boolean;
+    onChange: (mode: ComposerMode) => void;
+  } | null;
   /** Sello de contenido: al cambiar, el composer resetea con initialContent. */
   contentEpoch?: number;
   /** C22b: notifica al host si hay cambios sin enviar (confirmación de cierre). */
@@ -178,6 +188,7 @@ export const EmailComposer = forwardRef<EmailComposerHandle, Props>(function Ema
     onDraftDiscarded,
     footerExtras,
     aboveFooter,
+    modeSwitcher = null,
     contentEpoch = 0,
     onDirtyChange,
     onBodyChange,
@@ -530,9 +541,54 @@ export const EmailComposer = forwardRef<EmailComposerHandle, Props>(function Ema
     dictation.start();
   }
 
+  // En el lector (reply o forward de hilo) no mostramos "De": evita el salto
+  // de altura al cambiar Responder ↔ Reenviar. Mensaje nuevo sí lo muestra.
+  const showFromField =
+    !isReply && !forwardFromThreadId && identityOptions.length > 1;
+
+  const paraActions = (
+    <>
+      {modeSwitcher && (
+        <ComposerModeSwitcher
+          mode={modeSwitcher.mode}
+          replyAllAvailable={modeSwitcher.replyAllAvailable}
+          onChange={modeSwitcher.onChange}
+          disabled={busy}
+        />
+      )}
+      {!modeSwitcher &&
+        replyAll &&
+        (replyAll.cc.length > 0 ||
+          replyAll.to.some((e) => !to.includes(e)) ||
+          replyAll.to.length !== to.length) && (
+          <button
+            type="button"
+            onClick={() => {
+              setTo(replyAll.to);
+              onToChange?.(replyAll.to);
+              setCc(replyAll.cc);
+              if (replyAll.cc.length > 0) setShowCcBcc(true);
+            }}
+            className="text-[12px] text-ds-text-3 hover:text-ds-text-1 ds-tap"
+          >
+            A todos
+          </button>
+        )}
+      {!showCcBcc && (
+        <button
+          type="button"
+          onClick={() => setShowCcBcc(true)}
+          className="text-[12px] text-ds-text-3 hover:text-ds-text-1 ds-tap"
+        >
+          Cc/Cco
+        </button>
+      )}
+    </>
+  );
+
   const headerFields = (
     <>
-      {!isReply && identityOptions.length > 1 && (
+      {showFromField && (
         <div className="flex items-center gap-2 border-b border-ds-border-subtle py-1 focus-within:border-ds-border-strong">
           <span className="w-10 shrink-0 text-[12px] text-ds-text-3">De</span>
           <SimpleSelect
@@ -552,44 +608,15 @@ export const EmailComposer = forwardRef<EmailComposerHandle, Props>(function Ema
           />
         </div>
       )}
-      <div className="relative">
-        <ReplyRecipientsField
-          label="Para"
-          values={to}
-          onChange={(next) => {
-            setTo(next);
-            onToChange?.(next);
-          }}
-        />
-        <div className="absolute right-0 top-2.5 flex items-center gap-2">
-          {replyAll &&
-            (replyAll.cc.length > 0 ||
-              replyAll.to.some((e) => !to.includes(e)) ||
-              replyAll.to.length !== to.length) && (
-              <button
-                type="button"
-                onClick={() => {
-                  setTo(replyAll.to);
-                  onToChange?.(replyAll.to);
-                  setCc(replyAll.cc);
-                  if (replyAll.cc.length > 0) setShowCcBcc(true);
-                }}
-                className="text-[12px] text-ds-text-3 hover:text-ds-text-1 ds-tap"
-              >
-                A todos
-              </button>
-            )}
-          {!showCcBcc && (
-            <button
-              type="button"
-              onClick={() => setShowCcBcc(true)}
-              className="text-[12px] text-ds-text-3 hover:text-ds-text-1 ds-tap"
-            >
-              Cc/Cco
-            </button>
-          )}
-        </div>
-      </div>
+      <ReplyRecipientsField
+        label="Para"
+        values={to}
+        onChange={(next) => {
+          setTo(next);
+          onToChange?.(next);
+        }}
+        actions={paraActions}
+      />
       {showCcBcc && (
         <>
           <ReplyRecipientsField label="CC" values={cc} onChange={setCc} />

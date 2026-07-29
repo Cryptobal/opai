@@ -893,7 +893,7 @@ export function CorreosClient() {
     },
     onForward: () => {
       const t = resolveThread();
-      if (t) openCompose(t.id, "forward", false);
+      if (t) openCompose(t.id, "forward", true);
     },
     onTrash: () => {
       if (selectedIds.size > 0) {
@@ -1045,7 +1045,7 @@ export function CorreosClient() {
       {
         icon: <Forward className="h-4 w-4" />,
         label: "Reenviar",
-        onClick: () => openCompose(t.id, "forward"),
+        onClick: () => openCompose(t.id, "forward", true),
       },
     ];
 

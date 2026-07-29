@@ -53,9 +53,22 @@ export function ComposerAiPromptPill({
   const [menuOpen, setMenuOpen] = useState(false);
   const [isDesktop, setIsDesktop] = useState(false);
 
+  // Foco al abrir: caret parpadeando en el prompt (doble rAF + timeout por
+  // si el composer aún está montando tras Responder / Reenviar).
   useEffect(() => {
-    const id = window.requestAnimationFrame(() => inputRef.current?.focus());
-    return () => window.cancelAnimationFrame(id);
+    let cancelled = false;
+    const focus = () => {
+      if (!cancelled) inputRef.current?.focus({ preventScroll: true });
+    };
+    const raf = window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(focus);
+    });
+    const t = window.setTimeout(focus, 80);
+    return () => {
+      cancelled = true;
+      window.cancelAnimationFrame(raf);
+      window.clearTimeout(t);
+    };
   }, []);
 
   useEffect(() => {
@@ -129,12 +142,12 @@ export function ComposerAiPromptPill({
       <div className="flex items-center gap-1.5">
         <div
           className={cn(
-            "flex min-w-0 flex-1 items-center gap-2 rounded-full border px-2.5",
-            "border-ds-border-default bg-ds-surface-2 focus-within:border-ds-border-strong",
+            "flex min-w-0 flex-1 items-center gap-2 rounded-full px-2.5",
+            "bg-ds-surface-2",
           )}
         >
           <WandSparkles
-            className="h-4 w-4 shrink-0 text-tint-violet-fg"
+            className="h-4 w-4 shrink-0 text-ds-text-3"
             aria-hidden
           />
           <input
@@ -158,9 +171,10 @@ export function ComposerAiPromptPill({
             disabled={generating}
             aria-label={hasDraft ? "Describir cambio del borrador" : "Prompt para la IA"}
             className={cn(
-              "h-10 min-w-0 flex-1 bg-transparent text-[16px] text-ds-text-1 outline-none ring-0",
+              "h-10 min-w-0 flex-1 appearance-none border-0 bg-transparent text-[16px] text-ds-text-1 shadow-none outline-none ring-0",
               "placeholder:text-ds-text-4 disabled:opacity-60 sm:h-9 sm:text-[13px]",
-              "focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0",
+              "focus:border-0 focus:outline-none focus:ring-0 focus:ring-offset-0",
+              "focus-visible:border-0 focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0",
             )}
           />
           <div className="relative shrink-0" ref={kebabRef}>
@@ -290,7 +304,7 @@ export function ComposerAiAssistToggle({
         "inline-flex h-10 w-10 items-center justify-center rounded-full ds-tap sm:h-9 sm:w-9",
         "disabled:opacity-50",
         open
-          ? "bg-tint-violet text-tint-violet-fg"
+          ? "text-primary hover:bg-ds-surface-2"
           : "text-ds-text-2 hover:bg-ds-surface-2",
       )}
     >

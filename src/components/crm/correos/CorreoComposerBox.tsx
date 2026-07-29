@@ -13,8 +13,9 @@ import {
 } from "./ComposerAiAssist";
 import type { CorreoMessageDTO } from "@/modules/crm/email/correos.types";
 import { emailPlainFallback } from "@/lib/sanitize-email-html";
+import type { ComposerMode } from "./ComposerModeSwitcher";
 
-export type ComposerMode = "reply" | "all" | "forward";
+export type { ComposerMode };
 export type ReplyAll = { to: string[]; cc: string[] };
 
 /** Borrador del hilo a retomar en el composer (providerDraftId + cuerpo). */
@@ -56,10 +57,10 @@ function defaultSubject(mode: ComposerMode, subject: string): string {
 }
 
 /**
- * Composer abierto del lector: tabs Responder / A todos / Reenviar + asistente
- * IA estilo Gmail (pill sobre el footer, toggle lápiz+estrella abajo). Expandir
- * = modal grande en desktop / fullscreen en móvil. Esc: cierra IA → colapsa
- * modal → cierra composer.
+ * Composer abierto del lector: selector Responder / A todos / Reenviar a la
+ * derecha de Para (estilo Gmail) + asistente IA (pill sobre el footer, toggle
+ * abajo). Expandir = modal grande en desktop / fullscreen en móvil. Esc:
+ * cierra IA → colapsa modal → cierra composer.
  */
 function seedFromThreadDraft(draft: ThreadDraftSeed): {
   doc: object;
@@ -105,8 +106,13 @@ export function CorreoComposerBox(props: Props) {
 
   const isForward = mode === "forward";
   const asModal = expanded && isDesktop;
-  const showAiAssist = !isForward;
-  const showAiPrompt = showAiAssist && ai;
+  const showAiPrompt = ai;
+  const replyAllAvailable = Boolean(
+    replyAll &&
+      (replyAll.cc.length > 0 ||
+        replyAll.to.some((e) => !to.includes(e)) ||
+        replyAll.to.length !== to.length),
+  );
   const recipients =
     mode === "all" && replyAll
       ? { to: replyAll.to, cc: replyAll.cc }
@@ -213,31 +219,26 @@ export function CorreoComposerBox(props: Props) {
 
   const inner = (
     <>
-      <div className="flex items-center gap-1 border-b border-ds-border-subtle pb-1">
-        <ModeTab active={mode === "reply"} onClick={() => switchMode("reply")}>Responder</ModeTab>
-        {replyAll && <ModeTab active={mode === "all"} onClick={() => switchMode("all")}>A todos</ModeTab>}
-        <ModeTab active={mode === "forward"} onClick={() => switchMode("forward")}>Reenviar</ModeTab>
-        <div className="ml-auto flex items-center">
-          {isDesktop && (
-            <button
-              type="button"
-              aria-label={asModal ? "Contraer" : "Expandir"}
-              title={asModal ? "Contraer" : "Expandir"}
-              onClick={toggleExpand}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-md text-ds-text-3 ds-tap hover:bg-ds-surface-2 hover:text-ds-text-1"
-            >
-              {asModal ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
-            </button>
-          )}
+      <div className="flex items-center justify-end gap-0.5">
+        {isDesktop && (
           <button
             type="button"
-            aria-label="Cerrar"
-            onClick={props.onClose}
+            aria-label={asModal ? "Contraer" : "Expandir"}
+            title={asModal ? "Contraer" : "Expandir"}
+            onClick={toggleExpand}
             className="inline-flex h-9 w-9 items-center justify-center rounded-md text-ds-text-3 ds-tap hover:bg-ds-surface-2 hover:text-ds-text-1"
           >
-            <X className="h-4 w-4" />
+            {asModal ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
           </button>
-        </div>
+        )}
+        <button
+          type="button"
+          aria-label="Cerrar"
+          onClick={props.onClose}
+          className="inline-flex h-9 w-9 items-center justify-center rounded-md text-ds-text-3 ds-tap hover:bg-ds-surface-2 hover:text-ds-text-1"
+        >
+          <X className="h-4 w-4" />
+        </button>
       </div>
 
       <EmailComposer
@@ -257,6 +258,11 @@ export function CorreoComposerBox(props: Props) {
         accountId={props.accountId}
         dealId={props.dealId}
         contactId={props.contactId ?? null}
+        modeSwitcher={{
+          mode,
+          replyAllAvailable,
+          onChange: switchMode,
+        }}
         onBodyChange={(doc) => { bodyRef.current = doc; }}
         onSubjectChange={(s) => { subjectRef.current = s; }}
         onDraftIdChange={(id) => { draftIdRef.current = id; }}
@@ -271,17 +277,17 @@ export function CorreoComposerBox(props: Props) {
               generating={generating}
               hasDraft={hasAiDraft}
               onOpenStyle={props.onOpenAiStyle}
+              mode={isForward ? "compose" : "reply"}
             />
           ) : null
         }
         footerExtras={
-          showAiAssist ? (
-            <ComposerAiAssistToggle
-              open={ai}
-              onToggle={props.onToggleAi}
-              disabled={generating}
-            />
-          ) : null
+          <ComposerAiAssistToggle
+            open={ai}
+            onToggle={props.onToggleAi}
+            disabled={generating}
+            mode={isForward ? "compose" : "reply"}
+          />
         }
         onSent={() => {
           props.onSent();
@@ -320,19 +326,3 @@ export function CorreoComposerBox(props: Props) {
   );
 }
 
-function ModeTab({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={active}
-      className={`h-9 border-b-2 px-2.5 text-[13px] font-medium ds-tap ${
-        active
-          ? "border-primary text-ds-text-1"
-          : "border-transparent text-ds-text-3 hover:text-ds-text-1"
-      }`}
-    >
-      {children}
-    </button>
-  );
-}

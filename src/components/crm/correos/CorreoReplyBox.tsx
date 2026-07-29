@@ -106,8 +106,8 @@ function toThreadDraftSeed(m: CorreoMessageDTO): ThreadDraftSeed {
 /**
  * Orquesta la respuesta del lector (Bloque 2): barra de acciones Gmail (cerrado)
  * ⇄ composer con modos (abierto). IA = panel tipo Gmail (pill + toggle abajo),
- * no un tab exclusivo. Atajos R/A/F → composeIntent (también con foco en el
- * iframe del cuerpo).
+ * abierto por defecto en Responder / A todos / Reenviar. Atajos R/A/F →
+ * composeIntent (también con foco en el iframe del cuerpo).
  *
  * La barra de acciones se muestra de inmediato (sin esperar suggest-reply): el
  * meta se hidrata en background para no bloquear la lectura con un spinner.
@@ -218,7 +218,7 @@ export function CorreoReplyBox({
         shortcuts={shortcuts}
         onReply={() => openComposer("reply", true)}
         onReplyAll={() => openComposer("all", true)}
-        onForward={() => openComposer("forward", false)}
+        onForward={() => openComposer("forward", true)}
       />
     );
   }
@@ -249,20 +249,11 @@ export function CorreoReplyBox({
       ai={open.ai}
       expanded={open.expanded}
       onModeChange={(mode) =>
-        // Responder ↔ A todos mantienen el panel IA; Reenviar lo cierra
-        // (el asistente no aplica al forward).
-        setOpen((o) => (o ? { ...o, mode, ai: mode === "forward" ? false : o.ai } : o))
+        // El panel IA se mantiene en Responder / A todos / Reenviar.
+        setOpen((o) => (o ? { ...o, mode } : o))
       }
       onToggleAi={() =>
-        setOpen((o) => {
-          if (!o) return o;
-          if (o.ai) return { ...o, ai: false };
-          return {
-            ...o,
-            ai: true,
-            mode: o.mode === "forward" ? "reply" : o.mode,
-          };
-        })
+        setOpen((o) => (o ? { ...o, ai: !o.ai } : o))
       }
       onToggleExpand={() => setOpen((o) => (o ? { ...o, expanded: !o.expanded } : o))}
       onClose={() => {
