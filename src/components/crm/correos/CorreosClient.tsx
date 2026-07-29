@@ -26,6 +26,7 @@ import {
   CorreoIndexCoverageBar,
   type IndexCoverage,
 } from "./CorreoIndexCoverageBar";
+import { useCorreoFocusScope } from "./useCorreoFocusScope";
 import { CorreosMobileDrawer } from "./CorreosMobileDrawer";
 import { CorreosPullToRefresh } from "./CorreosPullToRefresh";
 import { CorreoSwipeSettingsSheet } from "./CorreoSwipeSettingsSheet";
@@ -100,6 +101,7 @@ type Counts = {
 } | null;
 
 export function CorreosClient() {
+  useCorreoFocusScope();
   const [items, setItems] = useState<CorreoThreadDTO[]>([]);
   const [cursor, setCursor] = useState<string | null>(null);
   const [counts, setCounts] = useState<Counts>(null);
@@ -700,7 +702,7 @@ export function CorreosClient() {
 
   function openCompose(id: string, mode: ComposerMode, ai = false) {
     // Si el hilo ya está abierto, solo pedí el composer — no re-montar el
-    // lector ni limpiar workTab/autoExtract (atajos R/T/F/I del lector).
+    // lector ni limpiar workTab/autoExtract (atajos R/A/F del lector).
     if (openId === id) {
       setComposeIntent({ mode, ai, nonce: nextIntentNonce() });
       return;
@@ -918,10 +920,6 @@ export function CorreosClient() {
       const t = resolveThread();
       if (t) openCompose(t.id, "forward", false);
     },
-    onReplyAi: () => {
-      const t = resolveThread();
-      if (t) openCompose(t.id, "reply", true);
-    },
     onTrash: () => {
       if (selectedIds.size > 0) {
         bulkAction("trash", "Movidos a la Papelera", { undo: "untrash", removes: true });
@@ -1079,14 +1077,6 @@ export function CorreosClient() {
         onClick: () => openCompose(t.id, "forward"),
       },
     ];
-    // Sin submenú IA: conserva "Responder con IA" en el bloque de respuestas.
-    if (aiItems.length === 0) {
-      items.push({
-        icon: <Sparkles className="h-4 w-4" />,
-        label: "Responder con IA",
-        onClick: () => openCompose(t.id, "reply", true),
-      });
-    }
 
     if (canModify) {
       const unread = t.isUnread;
@@ -1143,17 +1133,10 @@ export function CorreosClient() {
     }
 
     if (aiItems.length > 0) {
-      const aiSubmenu: CorreoMenuItem[] = [
-        ...aiItems,
-        {
-          divider: true,
-          icon: <Sparkles className="h-4 w-4" />,
-          label: "Responder con IA",
-          onClick: () => openCompose(t.id, "reply", true),
-        },
-      ];
+      const aiSubmenu: CorreoMenuItem[] = [...aiItems];
       if (canModify) {
         aiSubmenu.push({
+          divider: true,
           icon: <Tag className="h-4 w-4" />,
           label: "Corregir vertical",
           onClick: () => setVerticalPicker({ thread: t, anchor: anchor ?? null }),
@@ -1262,6 +1245,7 @@ export function CorreosClient() {
         <CorreoIndexCoverageBar
           coverage={coverage}
           compact
+          syncing={syncing}
           onIndexed={setCoverage}
         />
       </div>
@@ -1458,6 +1442,7 @@ export function CorreosClient() {
             {query.trim().length > 0 && <CorreoSearchChips query={query} onQuery={setQuery} />}
             <CorreoIndexCoverageBar
               coverage={coverage}
+              syncing={syncing}
               onIndexed={setCoverage}
             />
             {searching && !semanticAvailable && (

@@ -1,5 +1,5 @@
 /**
- * Atajos de bandeja/lector: con el lector abierto R/T/F/I deben disparar
+ * Atajos de bandeja/lector: con el lector abierto R/A/F deben disparar
  * compose (no quedar huérfanos esperando a CorreoReplyBox).
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
@@ -23,7 +23,6 @@ describe("useCorreosKeyboard", () => {
     onReply: vi.fn(),
     onReplyAll: vi.fn(),
     onForward: vi.fn(),
-    onReplyAi: vi.fn(),
     onTrash: vi.fn(),
     onStar: vi.fn(),
     onSnooze: vi.fn(),
@@ -41,7 +40,7 @@ describe("useCorreosKeyboard", () => {
     // hooks se desmontan solos al terminar cada it
   });
 
-  it("con lector abierto dispara atajos de compose (R/A/F/I)", () => {
+  it("con lector abierto dispara atajos de compose (R/A/F)", () => {
     renderHook(() =>
       useCorreosKeyboard({
         ...handlers,
@@ -54,12 +53,10 @@ describe("useCorreosKeyboard", () => {
     dispatchKey("r");
     dispatchKey("a");
     dispatchKey("f");
-    dispatchKey("i");
 
     expect(handlers.onReply).toHaveBeenCalledTimes(1);
     expect(handlers.onReplyAll).toHaveBeenCalledTimes(1);
     expect(handlers.onForward).toHaveBeenCalledTimes(1);
-    expect(handlers.onReplyAi).toHaveBeenCalledTimes(1);
   });
 
   it("con lector abierto prioriza compose ante colisión con bandeja", () => {

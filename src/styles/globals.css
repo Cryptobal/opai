@@ -394,17 +394,30 @@
     @apply outline-none ring-1 ring-ring ring-offset-1 ring-offset-background;
   }
 
-  /* Correos: foco sin anillos de marca — señal por borde/outline neutro. */
+  /* Correos: foco neutro y discreto. Cero indicador en superficies de
+     escritura; señal mínima de teclado en controles no-texto. */
   [data-correo-scope] :focus-visible {
-    outline: 2px solid hsl(var(--ds-border-strong));
-    outline-offset: 1px;
+    outline: 1px solid hsl(var(--ds-text-4) / 0.6);
+    outline-offset: 2px;
     --tw-ring-shadow: 0 0 #0000;
+    --tw-ring-offset-shadow: 0 0 #0000;
     box-shadow: none;
   }
+  [data-correo-scope] input:focus,
   [data-correo-scope] input:focus-visible,
+  [data-correo-scope] textarea:focus,
   [data-correo-scope] textarea:focus-visible,
-  [data-correo-scope] [contenteditable]:focus-visible {
+  [data-correo-scope] select:focus,
+  [data-correo-scope] select:focus-visible,
+  [data-correo-scope] [contenteditable]:focus,
+  [data-correo-scope] [contenteditable]:focus-visible,
+  [data-correo-scope] .ProseMirror:focus,
+  [data-correo-scope] .ProseMirror:focus-visible {
     outline: none;
+    outline-offset: 0;
+    --tw-ring-shadow: 0 0 #0000;
+    --tw-ring-offset-shadow: 0 0 #0000;
+    box-shadow: none;
   }
 
   /* Scrollbar sutil y minimalista */

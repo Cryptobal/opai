@@ -29,7 +29,6 @@ export type CorreoKeyboardHandlers = {
   onReply: () => void;
   onReplyAll: () => void;
   onForward: () => void;
-  onReplyAi: () => void;
   onTrash: () => void;
   onStar: () => void;
   onSnooze: () => void;
@@ -45,8 +44,8 @@ export type CorreoKeyboardHandlers = {
   enabled?: boolean;
   /**
    * true cuando el lector está abierto: prioriza atajos de compose ante
-   * colisiones con acciones de bandeja. Los atajos R/T/F/I siguen
-   * despachándose por onReply/onReplyAll/onForward/onReplyAi.
+   * colisiones con acciones de bandeja. Los atajos R/A/F siguen
+   * despachándose por onReply/onReplyAll/onForward.
    */
   replyHandledExternally?: boolean;
 };
@@ -137,7 +136,6 @@ export function useCorreosKeyboard(handlers: CorreoKeyboardHandlers): void {
         [sc.reply, h.onReply],
         [sc.replyAll, h.onReplyAll],
         [sc.forward, h.onForward],
-        [sc.replyAi, h.onReplyAi],
       );
 
       for (const [bound, fn] of map) {

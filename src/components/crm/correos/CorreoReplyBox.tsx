@@ -81,7 +81,7 @@ function scrollComposerIntoView() {
 /**
  * Orquesta la respuesta del lector (Bloque 2): barra de acciones Gmail (cerrado)
  * ⇄ composer con modos (abierto). IA = panel tipo Gmail (pill + toggle abajo),
- * no un tab exclusivo. Atajos R/T/F/I → composeIntent (también con foco en el
+ * no un tab exclusivo. Atajos R/A/F → composeIntent (también con foco en el
  * iframe del cuerpo).
  *
  * La barra de acciones se muestra de inmediato (sin esperar suggest-reply): el
@@ -180,7 +180,6 @@ export function CorreoReplyBox({
         onReply={() => openComposer("reply", true)}
         onReplyAll={() => openComposer("all", true)}
         onForward={() => openComposer("forward", false)}
-        onReplyAI={() => openComposer("reply", true)}
       />
     );
   }

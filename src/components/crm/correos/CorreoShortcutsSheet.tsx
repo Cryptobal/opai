@@ -21,7 +21,6 @@ const LABELS: Record<CorreoShortcutAction, string> = {
   reply: "Responder",
   replyAll: "Responder a todos",
   forward: "Reenviar",
-  replyAi: "Responder con IA",
   star: "Destacar",
   snooze: "Posponer",
   toggleRead: "Leído / No leído",
@@ -35,7 +34,7 @@ const ORDER_BANDEJA: CorreoShortcutAction[] = [
 ];
 
 const ORDER_LECTOR: CorreoShortcutAction[] = [
-  "reply", "replyAll", "forward", "replyAi",
+  "reply", "replyAll", "forward",
 ];
 
 /** Muestra la tecla de forma legible (Enter, Espacio, ↑…). */

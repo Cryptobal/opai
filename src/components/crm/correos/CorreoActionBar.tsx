@@ -1,6 +1,6 @@
 "use client";
 
-import { Forward, Reply, ReplyAll, Sparkles } from "lucide-react";
+import { Forward, Reply, ReplyAll } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   DEFAULT_CORREO_SHORTCUTS,
@@ -16,14 +16,13 @@ type Props = {
   onReply: () => void;
   onReplyAll: () => void;
   onForward: () => void;
-  onReplyAI: () => void;
   /** Teclas configuradas (hints del kbd); defaults estilo Gmail. */
-  shortcuts?: Pick<CorreoShortcuts, "reply" | "replyAll" | "forward" | "replyAi">;
+  shortcuts?: Pick<CorreoShortcuts, "reply" | "replyAll" | "forward">;
 };
 
 /**
  * Barra de acciones estilo Gmail bajo el último mensaje (Bloque 2).
- * Responder · Responder a todos (condicional) · Reenviar · IA.
+ * Responder · Responder a todos (condicional) · Reenviar.
  * Al abrir el composer esta barra desaparece (exclusividad total).
  * Sin scroll lateral: grid de ancho fijo con etiquetas cortas en móvil.
  */
@@ -33,10 +32,9 @@ export function CorreoActionBar({
   onReply,
   onReplyAll,
   onForward,
-  onReplyAI,
   shortcuts = DEFAULT_CORREO_SHORTCUTS,
 }: Props) {
-  const cols = !canReply ? 1 : replyAllAvailable ? 4 : 3;
+  const cols = !canReply ? 1 : replyAllAvailable ? 3 : 2;
 
   return (
     <div
@@ -44,8 +42,8 @@ export function CorreoActionBar({
       className={cn(
         "grid w-full gap-0.5 rounded-xl border border-ds-border-subtle bg-ds-surface-1 p-0.5",
         cols === 1 && "grid-cols-1",
+        cols === 2 && "grid-cols-2",
         cols === 3 && "grid-cols-3",
-        cols === 4 && "grid-cols-4",
       )}
     >
       {canReply && (
@@ -61,17 +59,6 @@ export function CorreoActionBar({
       <ActionBtn onClick={onForward} kbd={shortcuts.forward} label="Reenviar">
         <Forward className="h-4 w-4 shrink-0" />
       </ActionBtn>
-      {canReply && (
-        <ActionBtn
-          onClick={onReplyAI}
-          kbd={shortcuts.replyAi}
-          tone="accent"
-          label="Responder con IA"
-          shortLabel="IA"
-        >
-          <Sparkles className="h-4 w-4 shrink-0" />
-        </ActionBtn>
-      )}
     </div>
   );
 }

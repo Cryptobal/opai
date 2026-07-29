@@ -8,6 +8,7 @@ import { CorreoMessages } from "./correos/CorreoMessages";
 import { CorreoAttachmentViewer, type ViewerFile } from "./correos/CorreoAttachmentViewer";
 import { CorreoReaderShell } from "./correos/CorreoReaderShell";
 import { CorreoReplyBox } from "./correos/CorreoReplyBox";
+import { useCorreoFocusScope } from "./correos/useCorreoFocusScope";
 import { parseSender } from "./correos/correo-sender";
 import type { CorreoAttachmentDTO } from "@/modules/crm/email/correos.types";
 import type { ConversationEntityType } from "@/modules/crm/email/entity-conversations";
@@ -42,6 +43,7 @@ export function EntityThreadReader({
   onChanged?: () => void;
   onClose: () => void;
 }) {
+  useCorreoFocusScope(Boolean(threadId));
   const [viewer, setViewer] = useState<ViewerFile | null>(null);
   const { width, reset, onResizePointerDown, onResizeKeyDown } = useEntityReaderWidth();
   const { detail, state, reload } = useEntityThreadDetail(threadId, entityType, entityId);
