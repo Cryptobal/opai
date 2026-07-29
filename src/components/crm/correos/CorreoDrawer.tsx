@@ -305,6 +305,8 @@ export function CorreoDrawer({
             threadId={detail.thread.id}
             isUnread={detail.thread.isUnread}
             archived={Boolean(detail.thread.archivedAt)}
+            trashed={Boolean(detail.thread.trashedAt)}
+            snoozedUntil={detail.thread.snoozedUntil}
             canModify
             variant="mobile-bar"
             onReply={requestReply}

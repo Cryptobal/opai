@@ -154,6 +154,10 @@ export type CorreoDetail = {
     providerThreadId: string | null;
     isUnread: boolean;
     archivedAt: string | null;
+    /** ISO si está en Papelera (recuperable vía untrash). */
+    trashedAt: string | null;
+    /** ISO de despertar si está pospuesto; null si no. */
+    snoozedUntil: string | null;
     starredAt: string | null;
     spamAt: string | null;
     /** Bloque 5: el hilo asociado es visible en la ficha de la cuenta. */
