@@ -2,10 +2,10 @@
 
 import { memo } from "react";
 import type { CorreoThreadDTO } from "@/modules/crm/email/correos.types";
-import type { RadarCapability } from "@/modules/crm/email/radar-types";
 import { CorreoRowDesktop } from "./CorreoRowDesktop";
 import { CorreoRowMobile } from "./CorreoRowMobile";
 import type { CorreoPreviewLines } from "./useCorreosViewPreferences";
+
 
 // Compartidos por las variantes móvil (clamp del snippet) y desktop (hora).
 export const PREVIEW_LINE_CLASS: Record<CorreoPreviewLines, string> = {
@@ -37,7 +37,6 @@ type Props = {
   mobileGmail?: boolean;
   /** Tap en el avatar alterna selección (solo variante móvil). */
   onAvatarPress?: () => void;
-  caps?: Set<RadarCapability>;
 };
 
 /**
@@ -63,7 +62,6 @@ function CorreoRowInner({
   previewLines = 2,
   mobileGmail = false,
   onAvatarPress,
-  caps,
 }: Props) {
   if (mobileGmail) {
     return (
@@ -73,7 +71,6 @@ function CorreoRowInner({
         previewLines={previewLines}
         checked={checked}
         onAvatarPress={onAvatarPress}
-        caps={caps}
       />
     );
   }
@@ -94,7 +91,6 @@ function CorreoRowInner({
       checked={checked}
       onToggleCheck={onToggleCheck}
       previewLines={previewLines}
-      caps={caps}
     />
   );
 }

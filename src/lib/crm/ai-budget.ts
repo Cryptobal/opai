@@ -3,9 +3,8 @@ import { currentYearMonthInChile } from "@/lib/dates-cl";
 
 /**
  * Presupuesto mensual de tokens de IA por tenant (setting). Al superarse, los
- * extractores bajo demanda se bloquean; la clasificación base NO se ve afectada
- * (es la que sostiene la bandeja). Lectura fiable de `aiUsageLog` gracias a F0.5
- * (proveedor/modelo/tokens reales).
+ * extractores bajo demanda se bloquean. Lectura fiable de `aiUsageLog` gracias
+ * a F0.5 (proveedor/modelo/tokens reales).
  */
 const BUDGET_KEY = "ai_monthly_token_budget";
 
@@ -60,7 +59,7 @@ export async function getAiBudgetStatus(tenantId: string): Promise<AiBudgetStatu
   return { budget, used, exceeded: budget > 0 && used >= budget };
 }
 
-/** ¿Bloquear extractores bajo demanda por presupuesto? (la clasificación sigue). */
+/** ¿Bloquear extractores bajo demanda por presupuesto? */
 export async function isExtractorBudgetExceeded(tenantId: string): Promise<boolean> {
   return (await getAiBudgetStatus(tenantId)).exceeded;
 }

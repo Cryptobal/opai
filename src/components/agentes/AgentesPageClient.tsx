@@ -2,25 +2,17 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Bot, AlertTriangle } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
 import { Surface, Skeleton, Tag } from "@/components/opai-ds";
 import { cn } from "@/lib/utils";
 
-type Vertical = "comercial" | "operaciones" | "rrhh" | "finanzas";
 interface AgentesData {
   canManage: boolean;
-  verticals: Record<Vertical, boolean>;
   budget: { budget: number; used: number; exceeded: boolean };
   usage: Array<{ feature: string; totalTokens: number; estimatedCost: number; calls: number }>;
   model: { providerType: string; modelId: string } | null;
 }
 
-const VERTICAL_LABELS: Record<Vertical, string> = {
-  comercial: "⭐ Comercial (leads, señales de compra)",
-  operaciones: "⚠️ Operaciones (reclamos, solicitudes)",
-  rrhh: "👤 RRHH (postulaciones, solicitudes)",
-  finanzas: "💰 Finanzas / Cobranza",
-};
 const fmt = (n: number) => n.toLocaleString("es-CL");
 
 export function AgentesPageClient() {
@@ -65,45 +57,23 @@ export function AgentesPageClient() {
   return (
     <div className="space-y-4 min-w-0">
       <div>
-        <h2 className="text-[15px] font-semibold text-ds-text-1">Agentes IA (Radar)</h2>
+        <h2 className="text-[15px] font-semibold text-ds-text-1">Agentes IA</h2>
         <p className="text-[13px] text-ds-text-3">
-          Activa las verticales del Radar, controla el presupuesto mensual de IA y revisa el consumo por feature.
+          Controla el presupuesto mensual de IA y revisa el consumo por feature.
         </p>
       </div>
 
       {budget.exceeded && (
         <Surface className="flex items-center gap-2 border-status-danger-fg/30 p-3 text-[13px] text-status-danger-fg">
           <AlertTriangle className="h-4 w-4 shrink-0" />
-          Presupuesto mensual de IA agotado. Los extractores bajo demanda están pausados; la clasificación de la bandeja sigue activa.
+          Presupuesto mensual de IA agotado. Los extractores bajo demanda están pausados.
         </Surface>
       )}
 
       <Surface className="space-y-3 p-4">
-        <div className="flex items-center gap-2">
-          <Bot className="h-4 w-4 text-ds-text-4" />
-          <h3 className="text-[14px] font-semibold text-ds-text-1">Verticales activas</h3>
-        </div>
-        <div className="space-y-2">
-          {(Object.keys(VERTICAL_LABELS) as Vertical[]).map((v) => (
-            <label key={v} className="flex items-center justify-between gap-3 rounded-xl border border-ds-border-subtle px-3 py-2">
-              <span className="text-[13px] text-ds-text-1">{VERTICAL_LABELS[v]}</span>
-              <input
-                type="checkbox"
-                checked={data.verticals[v]}
-                disabled={!data.canManage}
-                onChange={(e) => save({ vertical: v, enabled: e.target.checked })}
-                aria-label={`Activar ${v}`}
-                className="h-5 w-9 shrink-0 accent-primary"
-              />
-            </label>
-          ))}
-        </div>
-      </Surface>
-
-      <Surface className="space-y-3 p-4">
         <h3 className="text-[14px] font-semibold text-ds-text-1">Presupuesto mensual de IA</h3>
         <p className="text-[12px] text-ds-text-4">
-          Límite de tokens por mes. Al superarse, los extractores bajo demanda se bloquean (la clasificación base no se ve afectada). 0 = sin límite.
+          Límite de tokens por mes. Al superarse, los extractores bajo demanda se bloquean. 0 = sin límite.
         </p>
         <div className="flex flex-wrap items-center gap-2">
           <input

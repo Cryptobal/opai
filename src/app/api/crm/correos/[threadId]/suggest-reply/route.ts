@@ -1,12 +1,12 @@
-/** GET → borrador existente del radar; POST → genera borrador on-demand (IA). */
+/** GET → destinatarios de respuesta; POST → genera borrador on-demand (IA). */
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { requireCorreosAccess } from "@/lib/api-auth-productividad";
 import { prisma } from "@/lib/prisma";
-import { generateDraftReply } from "@/modules/crm/email/radar-classify-ai";
+import { generateDraftReply } from "@/modules/crm/email/correo-draft-ai";
 import { resolveCorreoAiStyle } from "@/modules/crm/email/correo-ai-style.server";
 import { isDraftRefineMode } from "@/modules/crm/email/draft-reply-refine";
-import { stripHtml } from "@/modules/crm/email/radar-util";
+import { stripHtml } from "@/modules/crm/email/email-text-util";
 import {
   computeReplyAllRecipients,
   preferredReplyAddress,
@@ -27,43 +27,22 @@ async function loadThreadReply(tenantId: string, threadId: string) {
     select: { id: true, subject: true, emailAccountId: true },
   });
   if (!thread) return null;
-  const [lastInbound, radar] = await Promise.all([
-    prisma.crmEmailMessage.findFirst({
-      where: { threadId, tenantId, direction: "in" },
-      orderBy: { sentAt: "desc" },
-      select: {
-        id: true,
-        providerMessageId: true,
-        fromEmail: true,
-        replyToEmail: true,
-        toEmails: true,
-        ccEmails: true,
-        textBody: true,
-        htmlBody: true,
-        emailAccountId: true,
-      },
-    }),
-    prisma.crmRadarItem.findMany({
-      where: { tenantId, threadId, kind: { in: ["nuevo_lead", "compromiso"] } },
-      orderBy: { createdAt: "desc" },
-      take: 5,
-      select: { id: true, payload: true, summary: true },
-    }),
-  ]);
-  return { thread, lastInbound, radars: radar };
-}
-
-/** Extrae el primer borrador disponible (draftReply | draftFollowUp) + su id. */
-function pickDraft(radars: { id: string; payload: unknown }[]): { draft: string | null; radarItemId: string | null } {
-  for (const r of radars) {
-    const p = (r.payload as Record<string, unknown> | null) ?? {};
-    const d =
-      (typeof p.draftReply === "string" && p.draftReply) ||
-      (typeof p.draftFollowUp === "string" && p.draftFollowUp) ||
-      null;
-    if (d) return { draft: d as string, radarItemId: r.id };
-  }
-  return { draft: null, radarItemId: radars[0]?.id ?? null };
+  const lastInbound = await prisma.crmEmailMessage.findFirst({
+    where: { threadId, tenantId, direction: "in" },
+    orderBy: { sentAt: "desc" },
+    select: {
+      id: true,
+      providerMessageId: true,
+      fromEmail: true,
+      replyToEmail: true,
+      toEmails: true,
+      ccEmails: true,
+      textBody: true,
+      htmlBody: true,
+      emailAccountId: true,
+    },
+  });
+  return { thread, lastInbound };
 }
 
 /**
@@ -135,7 +114,6 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
   const { threadId } = await params;
   const data = await loadThreadReply(ctx.tenantId, threadId);
   if (!data) return NextResponse.json({ error: "Hilo no encontrado" }, { status: 404 });
-  const { draft, radarItemId } = pickDraft(data.radars);
 
   let ownEmail = "";
   const account = data.thread.emailAccountId
@@ -177,8 +155,6 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
     : null;
 
   return NextResponse.json({
-    draft,
-    radarItemId,
     to: replyTo,
     replyAll,
     subject: data.thread.subject,
@@ -214,17 +190,13 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     fromEmail: data.lastInbound.fromEmail,
     replyToEmail,
   });
-  // Resumen del radar (si existe) da contexto al borrador; sin él el modelo
-  // solo ve el correo crudo + indicaciones.
-  const resumen =
-    data.radars.map((r) => r.summary?.trim()).find((s) => Boolean(s))?.slice(0, 200) ?? "";
   const style = await resolveCorreoAiStyle(ctx.tenantId, ctx.userId);
   const draft = await generateDraftReply({
     tenantId: ctx.tenantId,
     subject: data.thread.subject,
     fromEmail: replyAddress || data.lastInbound.fromEmail,
     body,
-    resumen,
+    resumen: "",
     instructions,
     currentDraft,
     refine,

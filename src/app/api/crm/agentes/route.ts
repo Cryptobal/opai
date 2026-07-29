@@ -3,12 +3,6 @@ import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
 import { canView, canEdit } from "@/lib/permissions";
 import { aiService } from "@/lib/ai-service";
 import {
-  getRadarVerticalSettings,
-  setRadarVerticalEnabled,
-  CONFIGURABLE_VERTICALS,
-  type ConfigurableVertical,
-} from "@/lib/crm/radar-settings";
-import {
   getAiBudgetStatus,
   setMonthlyTokenBudget,
   getMonthlyUsageByFeature,
@@ -16,7 +10,7 @@ import {
 
 export const dynamic = "force-dynamic";
 
-/** GET — estado de los agentes: toggles por vertical, presupuesto, consumo, modelo. */
+/** GET — estado de agentes IA: presupuesto, consumo por feature, modelo activo. */
 export async function GET() {
   const ctx = await requireAuth();
   if (!ctx) return unauthorized();
@@ -25,8 +19,7 @@ export async function GET() {
     return NextResponse.json({ error: "Sin permisos" }, { status: 403 });
   }
 
-  const [verticals, budget, usage, active] = await Promise.all([
-    getRadarVerticalSettings(ctx.tenantId),
+  const [budget, usage, active] = await Promise.all([
     getAiBudgetStatus(ctx.tenantId),
     getMonthlyUsageByFeature(ctx.tenantId),
     aiService.getActiveConfig({ tenantId: ctx.tenantId }),
@@ -34,14 +27,13 @@ export async function GET() {
 
   return NextResponse.json({
     canManage: canEdit(perms, "config", "inteligencia_artificial"),
-    verticals,
     budget,
     usage,
     model: active ? { providerType: active.providerType, modelId: active.modelId } : null,
   });
 }
 
-/** PUT — activa/desactiva una vertical o fija el presupuesto mensual. */
+/** PUT — fija el presupuesto mensual de tokens de IA. */
 export async function PUT(req: NextRequest) {
   const ctx = await requireAuth();
   if (!ctx) return unauthorized();
@@ -51,17 +43,8 @@ export async function PUT(req: NextRequest) {
   }
 
   const body = (await req.json().catch(() => ({}))) as {
-    vertical?: string;
-    enabled?: boolean;
     budget?: number;
   };
-
-  if (body.vertical !== undefined) {
-    if (!CONFIGURABLE_VERTICALS.includes(body.vertical as ConfigurableVertical)) {
-      return NextResponse.json({ error: "Vertical inválida" }, { status: 400 });
-    }
-    await setRadarVerticalEnabled(ctx.tenantId, body.vertical as ConfigurableVertical, body.enabled === true);
-  }
 
   if (body.budget !== undefined) {
     if (typeof body.budget !== "number" || body.budget < 0) {

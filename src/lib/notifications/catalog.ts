@@ -44,9 +44,12 @@ const adminBell = (email = false): NotificationChannelDefaults => ({ bell: true,
 
 export const UNIFIED_NOTIFICATION_TYPES: UnifiedNotificationType[] = [
   // ── CRM - Leads ──
+  // Legacy: Radar Comercial removido (B3). Se conserva la entrada para que las
+  // preferencias históricas de typeKey `radar_comercial` sigan resolviendo en
+  // la UI de Mis Notificaciones / mute / Slack config.
   {
-    key: 'radar_comercial', label: 'Radar comercial',
-    description: 'Lead detectado, señal de compra o compromiso pendiente en tus correos',
+    key: 'radar_comercial', label: 'Radar comercial (legacy)',
+    description: 'Lead detectado, señal de compra o compromiso pendiente en tus correos (tipo histórico; el Radar ya no genera notificaciones nuevas)',
     module: 'crm', submodule: 'leads', category: 'CRM - Radar',
     audiences: ['admin'], defaults: { admin: adminBell() },
   },

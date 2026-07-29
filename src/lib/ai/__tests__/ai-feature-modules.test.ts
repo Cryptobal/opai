@@ -7,7 +7,7 @@ import {
 
 describe("moduleForFeature", () => {
   it("mapea features conocidos por match exacto", () => {
-    expect(moduleForFeature("correo-radar-classify")).toBe("crm");
+    expect(moduleForFeature("correo-radar-next-step")).toBe("crm");
     expect(moduleForFeature("correo-embeddings")).toBe("crm");
     expect(moduleForFeature("vra_vision")).toBe("ops");
     expect(moduleForFeature("help_chat")).toBe("config");

@@ -14,7 +14,6 @@ import { HubAlertsBanner } from './HubAlertsBanner';
 import { HubPulsoNegocio } from './HubPulsoNegocio';
 import { HubCrmSection } from './HubCrmSection';
 import { AgendaHubCard } from '@/components/agenda/AgendaHubCard';
-import { RadarComercialCard } from '@/components/hub/RadarComercialCard';
 import { HubContratosClienteSection } from './HubContratosClienteSection';
 import { HubOperationsSection } from './HubOperationsSection';
 import { HubInstallationHealthSection } from './HubInstallationHealthSection';
@@ -169,7 +168,6 @@ export function HubClientWrapper({
     <div className="space-y-4 min-w-0 max-w-screen-2xl">
       <HubQuickActions perms={hubPerms} />
       <HubAlertsBanner alerts={alerts} />
-      {hubPerms.hasCrm ? <RadarComercialCard /> : null}
       {hubPerms.hasAgenda ? <AgendaHubCard /> : null}
 
       {isEditing ? (

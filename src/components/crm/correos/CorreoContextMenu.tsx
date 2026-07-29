@@ -22,7 +22,7 @@ export type CorreoMenuItem = {
   divider?: boolean;
   /** Cabecera de grupo (no clickeable). */
   header?: string;
-  /** Pill junto al header (ej. Radar: Comercial). */
+  /** Pill junto al header (opcional). */
   headerPill?: string;
   /** Etiqueta de subsección (no clickeable). */
   sectionLabel?: string;

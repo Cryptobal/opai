@@ -49,7 +49,7 @@ export const AI_MODULES: AiModule[] = [
     label: "Comercial (CRM)",
     description: "Leads, cuentas, negocios, correos, cotizaciones.",
     aiSubmodules: [
-      "Correos: clasificación (radar), sugerir respuesta, resumen de hilo, email→lead",
+      "Correos: sugerir respuesta, resumen de hilo, email→lead, extractores bajo demanda",
       "Correos: búsqueda semántica (embeddings)",
       "Cuentas: notas/enriquecimiento de empresa; inferencia de costo de lead",
       "Cotizaciones: cuerpos de email y detalle de servicio (CPQ)",
@@ -128,8 +128,7 @@ export const DEFAULT_AI_MODULE: AiModuleId = "general";
 /** Mapeo explícito feature → módulo (features registrados en logAiUsage). */
 const FEATURE_MODULE: Record<string, AiModuleId> = {
   // CRM
-  "correo-radar-classify": "crm",
-  "correo-radar-next-step": "crm",
+  "correo-radar-next-step": "crm", // feature id histórico de suggestNextStepTask
   "correo-suggest-reply": "crm",
   "correo-email-to-lead": "crm",
   "correo-link-suggest": "crm",
@@ -137,8 +136,9 @@ const FEATURE_MODULE: Record<string, AiModuleId> = {
   "correo-summary-since-read": "crm",
   "correo-embeddings": "crm",
   "correo-semantic-query": "crm",
-  "correo-radar-followup": "crm",
-  "correo-radar-brief": "crm",
+  "correo-extract-operativo": "ops",
+  "correo-extract-rrhh": "ops",
+  "correo-extract-cobranza": "finance",
   "cpq-service-description": "crm",
   "proposal-content": "crm",
   // Operaciones

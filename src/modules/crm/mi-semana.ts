@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 
 export type AgendaItem = {
   id: string;
-  source: "task" | "compromiso";
+  source: "task";
   title: string;
   dueAt: string | null;
   allDay: boolean;
@@ -10,37 +10,29 @@ export type AgendaItem = {
   href: string | null;
 };
 
-/** Quita el ⏰ que arrastran los compromisos viejos (el título ya se pinta con su ícono). */
+/** Quita el ⏰ que arrastran títulos viejos (el título ya se pinta con su ícono). */
 function clean(title: string): string {
   return title.replace(/^[⏰\s]+/, "");
 }
 
 /**
- * Agenda comercial del usuario: unifica sus tareas abiertas (de correos y
- * negocios) con los compromisos del Radar que tienen fecha. Devuelve una lista
- * plana ordenada por vencimiento; el cliente la agrupa por día (zona local).
+ * Agenda comercial del usuario: tareas abiertas (de correos y negocios).
+ * Devuelve una lista plana ordenada por vencimiento; el cliente la agrupa
+ * por día (zona local).
  */
 export async function getMiSemana(tenantId: string, userId: string): Promise<AgendaItem[]> {
-  const [tasks, compromisos] = await Promise.all([
-    prisma.crmTask.findMany({
-      // 'notified'/'notified_no_slack' = recordatorio enviado pero SIGUE
-      // pendiente: mostrarlas hasta que se completen (antes desaparecían).
-      where: { tenantId, assignedTo: userId, status: { notIn: ["done", "cancelled"] } },
-      orderBy: [{ dueAt: { sort: "asc", nulls: "last" } }, { createdAt: "desc" }],
-      take: 200,
-      select: { id: true, title: true, dueAt: true, allDay: true, dealId: true, accountId: true, emailThreadId: true },
-    }),
-    prisma.crmRadarItem.findMany({
-      where: { tenantId, userId, kind: "compromiso", status: "PENDING", dueAt: { not: null } },
-      orderBy: { dueAt: "asc" },
-      take: 100,
-      select: { id: true, title: true, dueAt: true, dealId: true, accountId: true, threadId: true },
-    }),
-  ]);
+  const tasks = await prisma.crmTask.findMany({
+    // 'notified'/'notified_no_slack' = recordatorio enviado pero SIGUE
+    // pendiente: mostrarlas hasta que se completen (antes desaparecían).
+    where: { tenantId, assignedTo: userId, status: { notIn: ["done", "cancelled"] } },
+    orderBy: [{ dueAt: { sort: "asc", nulls: "last" } }, { createdAt: "desc" }],
+    take: 200,
+    select: { id: true, title: true, dueAt: true, allDay: true, dealId: true, accountId: true, emailThreadId: true },
+  });
 
   const dealIds = new Set<string>();
   const accountIds = new Set<string>();
-  for (const t of [...tasks, ...compromisos]) {
+  for (const t of tasks) {
     if (t.dealId) dealIds.add(t.dealId);
     if (t.accountId) accountIds.add(t.accountId);
   }
@@ -65,27 +57,15 @@ export async function getMiSemana(tenantId: string, userId: string): Promise<Age
     return null;
   };
 
-  const items: AgendaItem[] = [
-    ...tasks.map((t) => ({
-      id: t.id,
-      source: "task" as const,
-      title: clean(t.title),
-      dueAt: t.dueAt?.toISOString() ?? null,
-      allDay: t.allDay,
-      context: ctxLabel(t.dealId, t.accountId, Boolean(t.emailThreadId)),
-      href: link(t.emailThreadId, t.dealId, t.accountId),
-    })),
-    ...compromisos.map((c) => ({
-      id: c.id,
-      source: "compromiso" as const,
-      title: clean(c.title),
-      dueAt: c.dueAt?.toISOString() ?? null,
-      // Los compromisos del Radar son por día (sin hora): todo el día.
-      allDay: true,
-      context: ctxLabel(c.dealId, c.accountId, Boolean(c.threadId)),
-      href: link(c.threadId, c.dealId, c.accountId),
-    })),
-  ];
+  const items: AgendaItem[] = tasks.map((t) => ({
+    id: t.id,
+    source: "task" as const,
+    title: clean(t.title),
+    dueAt: t.dueAt?.toISOString() ?? null,
+    allDay: t.allDay,
+    context: ctxLabel(t.dealId, t.accountId, Boolean(t.emailThreadId)),
+    href: link(t.emailThreadId, t.dealId, t.accountId),
+  }));
 
   items.sort((a, b) => {
     if (a.dueAt && b.dueAt) return a.dueAt.localeCompare(b.dueAt);

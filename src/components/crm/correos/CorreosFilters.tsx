@@ -1,12 +1,10 @@
-// Nota: este archivo solo exporta tipos y catálogos (TABS/CHIPS/VERTICAL_LABELS)
+// Nota: este archivo solo exporta tipos y catálogos (TABS/CHIPS)
 // compartidos por CorreosDesktopRail y CorreosMobileDrawer. El componente
 // <CorreosFilters> (toolbar unificada pre-rediseño Gmail) fue retirado: ya no
 // se renderiza en ningún lado — CorreosDesktopToolbar / isla móvil lo
 // reemplazaron — y mantenerlo vivo sin uso arriesgaba drift (p. ej. el input
 // de búsqueda de acá no tenía botón de limpiar y alguien podía editarlo
 // pensando que era la UI activa).
-
-import { VERTICAL_META } from "@/modules/crm/email/radar-types";
 
 export type CorreoFolderTab =
   | "inbox"
@@ -46,14 +44,6 @@ export const CHIPS: { key: CorreoChipKey; label: string }[] = [
   { key: "leads_creados", label: "Leads creados" },
 ];
 
-// A03: verticales de la clasificación v5 (filtro server-side).
-// Derivado de VERTICAL_META (fuente única de label + color).
-export const VERTICAL_LABELS: Record<string, string> = Object.fromEntries(
-  Object.entries(VERTICAL_META)
-    .sort(([, a], [, b]) => a.order - b.order)
-    .map(([key, meta]) => [key, meta.label]),
-);
-
 // Export: mismos contadores que consume el drawer móvil.
 export type CorreoFolderCounts = {
   inbox: number;
@@ -66,4 +56,3 @@ export type CorreoFolderCounts = {
   spam?: number;
   scheduled?: number;
 } | null;
-
