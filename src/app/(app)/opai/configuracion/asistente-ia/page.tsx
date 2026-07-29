@@ -4,7 +4,6 @@ import { resolvePagePerms } from "@/lib/permissions-server";
 import { canView } from "@/lib/permissions";
 import { ConfigPageLayout } from "@/components/configuracion/ConfigPageLayout";
 import { AiHelpChatConfigClient } from "@/components/opai/AiHelpChatConfigClient";
-import { RadarComercialToggle } from "@/components/opai/RadarComercialToggle";
 import { KnowledgeBaseManager } from "@/components/knowledge/KnowledgeBaseManager";
 import { Bot } from "lucide-react";
 
@@ -25,8 +24,6 @@ export default async function AsistenteIaConfigPage() {
     >
       <div className="space-y-10">
         <AiHelpChatConfigClient />
-
-        <RadarComercialToggle />
 
         <div>
           <div className="mb-4">

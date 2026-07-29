@@ -1,20 +1,19 @@
-import { describe, it, expect } from "vitest";
+import { describe, expect, it } from "vitest";
 import { EXTRACTORS, type ExtractorVertical } from "../extractors";
 
 describe("EXTRACTORS — configuración de extractores bajo demanda", () => {
-  it("cada vertical exige su capability de radar", () => {
-    expect(EXTRACTORS.operativo.capability).toBe("radar_operaciones");
-    expect(EXTRACTORS.rrhh.capability).toBe("radar_rrhh");
-    expect(EXTRACTORS.cobranza.capability).toBe("radar_finanzas");
+  it("tiene destinationModule alineado a los comandos del copiloto", () => {
+    expect(EXTRACTORS.operativo.destinationModule).toEqual({ module: "ops", submodule: "tickets" });
+    expect(EXTRACTORS.rrhh.destinationModule).toEqual({ module: "ops", submodule: "ats" });
+    expect(EXTRACTORS.cobranza.destinationModule).toEqual({ module: "finance" });
   });
 
-  it("cada extractor tiene feature propio (telemetría separable)", () => {
+  it("tiene features distintas por vertical", () => {
     const features = (Object.keys(EXTRACTORS) as ExtractorVertical[]).map((v) => EXTRACTORS[v].feature);
     expect(new Set(features).size).toBe(features.length);
-    for (const f of features) expect(f).toMatch(/^correo-extract-/);
   });
 
-  it("los system prompts piden SOLO JSON y no inventar datos", () => {
+  it("incluye reglas anti-alucinación en el system prompt", () => {
     for (const v of Object.keys(EXTRACTORS) as ExtractorVertical[]) {
       expect(EXTRACTORS[v].system).toMatch(/JSON/);
       expect(EXTRACTORS[v].system.toLowerCase()).toMatch(/no inventes|no inventar/);

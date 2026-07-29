@@ -33,7 +33,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
 
   const perms = await resolveApiPerms(authCtx);
   if (!hasCapability(perms, "copiloto_correos")) {
-    return NextResponse.json({ error: "Sin permiso de Radar Comercial" }, { status: 403 });
+    return NextResponse.json({ error: "Sin permiso de Copiloto de correos" }, { status: 403 });
   }
 
   const account = await prisma.crmEmailAccount.findFirst({

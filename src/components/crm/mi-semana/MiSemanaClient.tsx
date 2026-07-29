@@ -2,12 +2,12 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { CalendarDays, ChevronRight, Radar, Square } from "lucide-react";
+import { CalendarDays, ChevronRight, Square } from "lucide-react";
 import { EmptyState, Spinner } from "@/components/opai-ds";
 
 type AgendaItem = {
   id: string;
-  source: "task" | "compromiso";
+  source: "task";
   title: string;
   dueAt: string | null;
   allDay: boolean;
@@ -53,12 +53,10 @@ export function MiSemanaClient() {
 
   async function complete(it: AgendaItem) {
     setItems((p) => p.filter((x) => x.id !== it.id));
-    const url = it.source === "task" ? `/api/crm/tasks/${it.id}` : `/api/crm/radar/${it.id}`;
-    const status = it.source === "task" ? "done" : "DONE";
-    await fetch(url, {
+    await fetch(`/api/crm/tasks/${it.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status }),
+      body: JSON.stringify({ status: "done" }),
     }).catch(() => undefined);
   }
 
@@ -100,7 +98,6 @@ export function MiSemanaClient() {
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-[13px] font-medium text-ds-text-1">{it.title}</p>
                       <div className="flex items-center gap-1.5 text-[12px] text-ds-text-4">
-                        {it.source === "compromiso" && <Radar className="h-3 w-3 text-tint-violet-fg" />}
                         {it.context && <span className="truncate">{it.context}</span>}
                         {it.dueAt && <span className="shrink-0">· {fmtDue(it.dueAt, it.allDay)}</span>}
                       </div>

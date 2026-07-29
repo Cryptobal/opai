@@ -209,13 +209,7 @@ export const CAPABILITY_KEYS = [
   "alerta_cobertura_config",
   "ats_publicar",
   "ats_config",
-  // Productividad — Radar multi-vertical. Cada capability habilita ver los items
-  // sugeridos y badges de esa vertical en la bandeja (filtrado en servidor).
-  "radar_comercial",
-  "radar_operaciones",
-  "radar_rrhh",
-  "radar_finanzas",
-  // Copiloto de correos (extracción bajo demanda). Misma audiencia que radar_comercial.
+  // Copiloto de correos (extracción bajo demanda desde la bandeja).
   "copiloto_correos",
 ] as const;
 export type CapabilityKey = (typeof CAPABILITY_KEYS)[number];
@@ -418,10 +412,6 @@ export const CAPABILITY_META: CapabilityMeta[] = [
   { key: "alerta_cobertura_config", label: "Configurar alertas de cobertura", description: "Puede modificar oleadas, tiempos y parámetros del módulo de alertas", moduleKey: "ops", submoduleKey: "alertas_cobertura" },
   { key: "ats_publicar", label: "Publicar avisos ATS", description: "Puede crear y publicar avisos de empleo en portales externos", moduleKey: "ops", submoduleKey: "ats" },
   { key: "ats_config", label: "Configurar ATS", description: "Puede modificar pesos de match score y config del módulo ATS", moduleKey: "ops", submoduleKey: "ats_config" },
-  { key: "radar_comercial", label: "Radar Comercial", description: "Ve sugerencias de IA de correos comerciales (leads, señales de compra) en la bandeja y puede crear leads.", moduleKey: "productividad", submoduleKey: "correos" },
-  { key: "radar_operaciones", label: "Radar Operaciones", description: "Ve sugerencias de IA de correos operativos (reclamos de cliente, solicitudes) en la bandeja.", moduleKey: "productividad", submoduleKey: "correos" },
-  { key: "radar_rrhh", label: "Radar RRHH", description: "Ve sugerencias de IA de correos de RRHH (postulaciones, solicitudes laborales) en la bandeja.", moduleKey: "productividad", submoduleKey: "correos" },
-  { key: "radar_finanzas", label: "Radar Finanzas", description: "Ve sugerencias de IA de correos de finanzas y cobranza (cobros, disputas de factura) en la bandeja.", moduleKey: "productividad", submoduleKey: "correos" },
   { key: "copiloto_correos", label: "Copiloto de correos", description: "Puede extraer estructura CRM desde correos y crear cuenta, contacto, instalación, negocio y cotización.", moduleKey: "productividad", submoduleKey: "correos" },
 ];
 
@@ -504,7 +494,6 @@ function finanzasPermissions(): RolePermissions {
       finance_reports_export: true,
       finance_reports_drilldown: true,
       contabilidad_manage: true,
-      radar_finanzas: true,
     },
   };
 }
@@ -582,7 +571,6 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, RolePermissions> = {
       rendicion_view_all: true,
       alerta_cobertura_crear: true,
       alerta_cobertura_gestionar: true,
-      radar_comercial: true,
       copiloto_correos: true,
     },
   },
@@ -618,7 +606,6 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, RolePermissions> = {
       rendicion_view_all: true,
       alerta_cobertura_crear: true,
       alerta_cobertura_gestionar: true,
-      radar_operaciones: true,
     },
   },
 
@@ -642,7 +629,6 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, RolePermissions> = {
       supervision_dashboard: true,
       alerta_cobertura_crear: true,
       alerta_cobertura_gestionar: true,
-      radar_operaciones: true,
     },
   },
 
@@ -673,7 +659,6 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, RolePermissions> = {
       rondas_resolve_alerts: true,
       alerta_cobertura_crear: true,
       alerta_cobertura_gestionar: true,
-      radar_operaciones: true,
     },
   },
 
@@ -691,14 +676,14 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, RolePermissions> = {
   rrhh: {
     modules: { hub: "view", ops: "edit", crm: "none", docs: "none", payroll: "none", cpq: "none", config: "none", finance: "view" },
     submodules: { "productividad.agenda": "view", "productividad.tareas": "view", "crm.installations": "view", "crm.dotacion": "view", "ops.installations": "view", "ops.gamificacion": "edit" },
-    capabilities: { rendicion_view_all: true, ticket_approve: true, gamificacion_bonos_aprobar: true, radar_rrhh: true },
+    capabilities: { rendicion_view_all: true, ticket_approve: true, gamificacion_bonos_aprobar: true },
   },
 
   // LEGACY
   operaciones: {
     modules: { hub: "view", ops: "edit", crm: "none", docs: "none", payroll: "none", cpq: "none", config: "none", finance: "edit" },
     submodules: { "productividad.agenda": "view", "productividad.tareas": "view", "finance.pagos": "none", "finance.configuracion": "none", "crm.installations": "view", "crm.dotacion": "edit", "ops.installations": "view" },
-    capabilities: { te_approve: true, rondas_configure: true, rondas_resolve_alerts: true, monitoreo_cerrar_turno: true, control_nocturno_approve: true, rendicion_submit: true, rendicion_approve: true, ticket_approve: true, gamificacion_bonos_aprobar: true, radar_operaciones: true },
+    capabilities: { te_approve: true, rondas_configure: true, rondas_resolve_alerts: true, monitoreo_cerrar_turno: true, control_nocturno_approve: true, rendicion_submit: true, rendicion_approve: true, ticket_approve: true, gamificacion_bonos_aprobar: true },
   },
 
   // LEGACY
@@ -722,7 +707,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, RolePermissions> = {
   solo_crm: {
     modules: { hub: "view", productividad: "edit", ops: "none", crm: "edit", docs: "none", payroll: "none", cpq: "none", config: "none", finance: "none" },
     submodules: {},
-    capabilities: { radar_comercial: true, copiloto_correos: true },
+    capabilities: { copiloto_correos: true },
   },
 
   // LEGACY

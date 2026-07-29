@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { resolveApiPerms } from "@/lib/api-auth";
-import { hasCapability } from "@/lib/permissions";
+import { canView, hasCapability, hasModuleAccess } from "@/lib/permissions";
 import { requireCorreosAccess } from "@/lib/api-auth-productividad";
 import { isExtractorBudgetExceeded } from "@/lib/crm/ai-budget";
 import {
@@ -11,8 +11,9 @@ import {
 } from "@/modules/crm/email/extractors";
 
 /**
- * Handler compartido de los extractores bajo demanda (F3). Gate: correos +
- * capability de la vertical + presupuesto. Devuelve la propuesta (no crea nada).
+ * Handler compartido de los extractores bajo demanda (F3).
+ * Gate: correos + copiloto_correos + módulo destino + presupuesto.
+ * Devuelve la propuesta (no crea nada).
  */
 export async function handleThreadExtractor(
   vertical: ExtractorVertical,
@@ -23,13 +24,20 @@ export async function handleThreadExtractor(
   const ctx = mod.ctx;
 
   const perms = await resolveApiPerms(ctx);
-  if (!hasCapability(perms, EXTRACTORS[vertical].capability)) {
+  if (!hasCapability(perms, "copiloto_correos")) {
+    return NextResponse.json({ error: "Sin permiso para este extractor" }, { status: 403 });
+  }
+  const dest = EXTRACTORS[vertical].destinationModule;
+  const destOk = dest.submodule
+    ? canView(perms, dest.module, dest.submodule)
+    : hasModuleAccess(perms, dest.module);
+  if (!destOk) {
     return NextResponse.json({ error: "Sin permiso para este extractor" }, { status: 403 });
   }
 
   if (await isExtractorBudgetExceeded(ctx.tenantId)) {
     return NextResponse.json(
-      { error: "Presupuesto mensual de IA agotado. Los extractores están pausados; la clasificación sigue activa." },
+      { error: "Presupuesto mensual de IA agotado. Los extractores están pausados." },
       { status: 429 },
     );
   }

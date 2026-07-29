@@ -411,10 +411,8 @@ Reglas OBLIGATORIAS:
     d) Estado del flujo: mantén y muestra un mini-status al cerrar cada fase ("✔ Cuenta P&G Chile · ✔ Contacto Juan Pérez · ✔ Deal Licitación P&G · ⏳ Cotización"). El usuario debe poder retomar días después: reconstruye el estado con search_* y get_quote_detail, no de memoria.
     e) Todo bajo VERDAD VERIFICADA: cada fase cierra reportando lo que las tools confirmaron, con ids/links reales. Un flujo a medias se dice a medias.
 
-26. RADAR COMERCIAL — QUÉ TENGO PENDIENTE:
-    Ante "¿qué tengo pendiente?", "¿qué debo hacer hoy?", "¿llegó algo comercial?", "¿algún lead nuevo?", "¿qué reuniones vienen?" o similares, llama get_radar_items (filtra por kind si preguntan solo por leads/compromisos/reuniones). Presenta los ítems con su título, resumen y el siguiente paso, agrupados por tipo (📡 lead · 🔥 señal · ⏰ compromiso · 📋 brief) y ordenados por urgencia (dueAt).
-    Para cada ítem propón la acción concreta con su link: lead nuevo → "crear el lead con IA" (link a la bandeja con extracción); compromiso vencido → "enviar el follow-up" (link al drawer del correo). NO crees leads ni envíes correos tú: el radar y la extracción los confirma el usuario en la bandeja (create_lead_from_email para crear el lead cuando el usuario lo pida explícitamente).
-    Para cerrar un ítem ("márcalo como hecho", "descártalo") usa resolve_radar_item (DONE/DISMISSED) — es una escritura: queda pendiente de confirmación (Verdad Verificada) y solo se ejecuta cuando el usuario confirma.
+26. PENDIENTES Y AGENDA:
+    Ante "¿qué tengo pendiente?", "¿qué debo hacer hoy?" o similares, usá get_my_reminders y list_deal_tasks / search_deals según el contexto. Presentá tareas y recordatorios con título, vencimiento y link. No inventes un feed de "radar" de correos: el Radar Comercial fue retirado.
 `.trim();
 
 function renderAgentInstructionsBlock(

@@ -26,7 +26,7 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
   const authCtx = mod.ctx;
   const perms = await resolveApiPerms(authCtx);
   if (!hasCapability(perms, "copiloto_correos")) {
-    return NextResponse.json({ error: "Sin permiso de Radar Comercial" }, { status: 403 });
+    return NextResponse.json({ error: "Sin permiso de Copiloto de correos" }, { status: 403 });
   }
   const account = await resolveAccount(authCtx.tenantId, authCtx.userId);
   if (!account) return NextResponse.json({ error: "Gmail no conectado" }, { status: 400 });
@@ -46,7 +46,7 @@ export async function PUT(req: NextRequest, ctx: Ctx) {
   const authCtx = mod.ctx;
   const perms = await resolveApiPerms(authCtx);
   if (!hasCapability(perms, "copiloto_correos")) {
-    return NextResponse.json({ error: "Sin permiso de Radar Comercial" }, { status: 403 });
+    return NextResponse.json({ error: "Sin permiso de Copiloto de correos" }, { status: 403 });
   }
   const account = await resolveAccount(authCtx.tenantId, authCtx.userId);
   if (!account) return NextResponse.json({ error: "Gmail no conectado" }, { status: 400 });
@@ -87,7 +87,7 @@ export async function DELETE(_req: NextRequest, ctx: Ctx) {
   const authCtx = mod.ctx;
   const perms = await resolveApiPerms(authCtx);
   if (!hasCapability(perms, "copiloto_correos")) {
-    return NextResponse.json({ error: "Sin permiso de Radar Comercial" }, { status: 403 });
+    return NextResponse.json({ error: "Sin permiso de Copiloto de correos" }, { status: 403 });
   }
   const account = await resolveAccount(authCtx.tenantId, authCtx.userId);
   if (!account) return NextResponse.json({ error: "Gmail no conectado" }, { status: 400 });
