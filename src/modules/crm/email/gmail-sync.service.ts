@@ -64,6 +64,8 @@ export async function syncGmailAccount(params: {
   syncedCount: number;
   fetched: number;
   mode: "backfill" | "incremental";
+  /** true si el espejo histórico ya terminó (o la corrida fue incremental). */
+  backfillDone: boolean;
   reconcile: "ok" | "partial" | "skipped";
   healed: number;
 }> {
@@ -125,11 +127,15 @@ export async function syncGmailAccount(params: {
     });
   }
 
+  const backfillDone =
+    mode === "incremental" || result.state.backfillDone === true;
+
   if (!maintenance) {
     return {
       syncedCount: result.synced,
       fetched: result.fetched,
       mode,
+      backfillDone,
       reconcile: "skipped",
       healed: 0,
     };
@@ -253,5 +259,12 @@ export async function syncGmailAccount(params: {
     });
   }
 
-  return { syncedCount: result.synced, fetched: result.fetched, mode, reconcile, healed };
+  return {
+    syncedCount: result.synced,
+    fetched: result.fetched,
+    mode,
+    backfillDone,
+    reconcile,
+    healed,
+  };
 }
