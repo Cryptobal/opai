@@ -309,6 +309,7 @@ export function CpqQuoteCosts({
     costItems.find((item) => item.catalogItemId === catalogItemId);
 
   const upsertCostItem = (catalogItem: CpqCatalogItem, patch: Partial<CpqQuoteCostItem>) => {
+    if (readOnly) return;
     setCostItems((prev) => {
       const existing = prev.find((item) => item.catalogItemId === catalogItem.id);
       if (existing) {
@@ -335,6 +336,7 @@ export function CpqQuoteCosts({
   };
 
   const updateMeal = (mealType: string, patch: Partial<CpqQuoteMeal>) => {
+    if (readOnly) return;
     setMeals((prev) => {
       const index = prev.findIndex(
         (meal) => meal.mealType.toLowerCase() === mealType.toLowerCase()
@@ -391,6 +393,7 @@ export function CpqQuoteCosts({
 
 
   const handleSave = async (options?: { close?: boolean; silent?: boolean }) => {
+    if (readOnly) return;
     setSaving(true);
     try {
       const res = await fetch(`/api/cpq/quotes/${quoteId}/costs`, {
@@ -995,9 +998,11 @@ export function CpqQuoteCosts({
     <div className="p-2.5 rounded-lg bg-card border border-border/50">
       <div className="flex items-center justify-between mb-1.5">
         <span className="text-[13px] font-semibold truncate">{item.name}</span>
-        <button type="button" onClick={onRemove} className="w-5 h-5 rounded flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 shrink-0">
-          <Trash2 className="h-3 w-3" />
-        </button>
+        {!readOnly && (
+          <button type="button" onClick={onRemove} className="w-5 h-5 rounded flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 shrink-0">
+            <Trash2 className="h-3 w-3" />
+          </button>
+        )}
       </div>
       <div
         title={calcTooltip}
@@ -1022,9 +1027,11 @@ export function CpqQuoteCosts({
           placeholder={fmtN(Number(item.basePrice))}
           value={sel?.unitPriceOverride != null ? fmtN(Number(sel.unitPriceOverride)) : ""}
           onChange={(e) => {
+            if (readOnly) return;
             const raw = e.target.value.trim();
             onOverride(raw === "" ? null : toNumber(raw));
           }}
+          disabled={readOnly}
           className={inputClass}
         />
       </div>
@@ -1038,7 +1045,8 @@ export function CpqQuoteCosts({
             placeholder="Ej: Uniforme completo incl. casaca..."
             value={sel?.technicalSpecs ?? item.defaultTechnicalSpecs ?? ""}
             onChange={(e) => onSpecsChange(e.target.value || null)}
-            className="w-full rounded-md border border-border bg-muted/30 px-2 py-1.5 text-sm text-foreground placeholder:text-muted-foreground resize-none focus:outline-none focus:ring-1 focus:ring-ring"
+            disabled={readOnly}
+            className="w-full rounded-md border border-border bg-muted/30 px-2 py-1.5 text-sm text-foreground placeholder:text-muted-foreground resize-none focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-70"
           />
         </div>
       )}
@@ -1056,9 +1064,11 @@ export function CpqQuoteCosts({
     <div key={item.id} className="p-2.5 rounded-lg bg-card border border-border/50">
       <div className="flex items-center justify-between mb-1.5">
         <span className="text-[13px] font-semibold truncate">{item.name}</span>
-        <button type="button" onClick={() => upsertCostItem(item, { isEnabled: false })} className="w-5 h-5 rounded flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 shrink-0">
-          <Trash2 className="h-3 w-3" />
-        </button>
+        {!readOnly && (
+          <button type="button" onClick={() => upsertCostItem(item, { isEnabled: false })} className="w-5 h-5 rounded flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 shrink-0">
+            <Trash2 className="h-3 w-3" />
+          </button>
+        )}
       </div>
       <div className="text-sm text-muted-foreground mb-1.5">
         Base catálogo: {formatCurrency(Number(item.basePrice))} / {unitLabel}
@@ -1078,6 +1088,7 @@ export function CpqQuoteCosts({
               unitPriceOverride: raw === "" ? null : toNumber(raw),
             });
           }}
+          disabled={readOnly}
           className={inputClass}
         />
       </div>
@@ -1090,7 +1101,8 @@ export function CpqQuoteCosts({
           placeholder="Ej: Camioneta doble cabina 4x4, motor 2.8L..."
           value={costItem?.technicalSpecs ?? item.defaultTechnicalSpecs ?? ""}
           onChange={(e) => upsertCostItem(item, { technicalSpecs: e.target.value || null })}
-          className="w-full rounded-md border border-border bg-muted/30 px-2 py-1.5 text-sm text-foreground placeholder:text-muted-foreground resize-none focus:outline-none focus:ring-1 focus:ring-ring"
+          disabled={readOnly}
+          className="w-full rounded-md border border-border bg-muted/30 px-2 py-1.5 text-sm text-foreground placeholder:text-muted-foreground resize-none focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-70"
         />
       </div>
     </div>
@@ -1127,23 +1139,25 @@ export function CpqQuoteCosts({
           <span className="text-[13px] font-semibold">{item.name}</span>
           <div className="flex items-center gap-2">
             <span className="text-sm text-muted-foreground">Por fórmula</span>
-            <button type="button" onClick={() => upsertCostItem(item, { isEnabled: false })} className="w-5 h-5 rounded flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10">
-              <Trash2 className="h-3 w-3" />
-            </button>
+            {!readOnly && (
+              <button type="button" onClick={() => upsertCostItem(item, { isEnabled: false })} className="w-5 h-5 rounded flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10">
+                <Trash2 className="h-3 w-3" />
+              </button>
+            )}
           </div>
         </div>
         <div className="grid gap-2 grid-cols-3">
           <div className="space-y-1">
             <label className="text-xs text-muted-foreground">Km/día</label>
-            <Input type="text" inputMode="numeric" placeholder="50" value={fuelParams.kmPerDay ? fmtN(fuelParams.kmPerDay) : ""} onChange={(e) => updateFuelParam("kmPerDay", toNumber(e.target.value))} className={inputClass} />
+            <Input type="text" inputMode="numeric" placeholder="50" value={fuelParams.kmPerDay ? fmtN(fuelParams.kmPerDay) : ""} onChange={(e) => updateFuelParam("kmPerDay", toNumber(e.target.value))} disabled={readOnly} className={inputClass} />
           </div>
           <div className="space-y-1">
             <label className="text-xs text-muted-foreground">Km/litro</label>
-            <Input type="text" inputMode="numeric" placeholder="10" value={fuelParams.kmPerLiter ? fmtN(fuelParams.kmPerLiter) : ""} onChange={(e) => updateFuelParam("kmPerLiter", toNumber(e.target.value))} className={inputClass} />
+            <Input type="text" inputMode="numeric" placeholder="10" value={fuelParams.kmPerLiter ? fmtN(fuelParams.kmPerLiter) : ""} onChange={(e) => updateFuelParam("kmPerLiter", toNumber(e.target.value))} disabled={readOnly} className={inputClass} />
           </div>
           <div className="space-y-1">
             <label className="text-xs text-muted-foreground">$/litro</label>
-            <Input type="text" inputMode="numeric" placeholder="1250" value={fuelParams.fuelPrice ? fmtN(fuelParams.fuelPrice) : ""} onChange={(e) => updateFuelParam("fuelPrice", toNumber(e.target.value))} className={inputClass} />
+            <Input type="text" inputMode="numeric" placeholder="1250" value={fuelParams.fuelPrice ? fmtN(fuelParams.fuelPrice) : ""} onChange={(e) => updateFuelParam("fuelPrice", toNumber(e.target.value))} disabled={readOnly} className={inputClass} />
           </div>
         </div>
         <div className="flex items-center gap-3 rounded-md bg-muted/40 px-2.5 py-1.5 mt-2 text-sm">
@@ -1170,7 +1184,8 @@ export function CpqQuoteCosts({
             placeholder="Ej: Camioneta doble cabina 4x4, motor 2.8L..."
             value={costItem?.technicalSpecs ?? item.defaultTechnicalSpecs ?? ""}
             onChange={(e) => upsertCostItem(item, { technicalSpecs: e.target.value || null })}
-            className="w-full rounded-md border border-border bg-muted/30 px-2 py-1.5 text-sm text-foreground placeholder:text-muted-foreground resize-none focus:outline-none focus:ring-1 focus:ring-ring"
+            disabled={readOnly}
+            className="w-full rounded-md border border-border bg-muted/30 px-2 py-1.5 text-sm text-foreground placeholder:text-muted-foreground resize-none focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-70"
           />
         </div>
       </div>
@@ -1285,19 +1300,21 @@ export function CpqQuoteCosts({
                 );
               })}
           </div>
-          <AddItemPopover
-            label="Uniformes"
-            items={(catalogByType.uniform || []).filter((item) => !uniforms.find((u) => u.catalogItemId === item.id && u.active))}
-            onSelect={(id) => {
-              setUniforms((prev) => {
-                const existing = prev.find((u) => u.catalogItemId === id);
-                if (existing) return prev.map((u) => u.catalogItemId === id ? { ...u, active: true } : u);
-                const catalogItem = catalogById.get(id);
-                if (!catalogItem) return prev;
-                return [...prev, { catalogItemId: id, unitPriceOverride: null, priceLogic: catalogItem.priceLogic ?? "uniform", active: true, catalogItem }];
-              });
-            }}
-          />
+          {!readOnly && (
+            <AddItemPopover
+              label="Uniformes"
+              items={(catalogByType.uniform || []).filter((item) => !uniforms.find((u) => u.catalogItemId === item.id && u.active))}
+              onSelect={(id) => {
+                setUniforms((prev) => {
+                  const existing = prev.find((u) => u.catalogItemId === id);
+                  if (existing) return prev.map((u) => u.catalogItemId === id ? { ...u, active: true } : u);
+                  const catalogItem = catalogById.get(id);
+                  if (!catalogItem) return prev;
+                  return [...prev, { catalogItemId: id, unitPriceOverride: null, priceLogic: catalogItem.priceLogic ?? "uniform", active: true, catalogItem }];
+                });
+              }}
+            />
+          )}
         </div>
       )}
 
@@ -1324,19 +1341,21 @@ export function CpqQuoteCosts({
                 );
               })}
           </div>
-          <AddItemPopover
-            label="Exámenes"
-            items={(catalogByType.exam || []).filter((item) => !exams.find((u) => u.catalogItemId === item.id && u.active))}
-            onSelect={(id) => {
-              setExams((prev) => {
-                const existing = prev.find((u) => u.catalogItemId === id);
-                if (existing) return prev.map((u) => u.catalogItemId === id ? { ...u, active: true } : u);
-                const catalogItem = catalogById.get(id);
-                if (!catalogItem) return prev;
-                return [...prev, { catalogItemId: id, unitPriceOverride: null, active: true, catalogItem }];
-              });
-            }}
-          />
+          {!readOnly && (
+            <AddItemPopover
+              label="Exámenes"
+              items={(catalogByType.exam || []).filter((item) => !exams.find((u) => u.catalogItemId === item.id && u.active))}
+              onSelect={(id) => {
+                setExams((prev) => {
+                  const existing = prev.find((u) => u.catalogItemId === id);
+                  if (existing) return prev.map((u) => u.catalogItemId === id ? { ...u, active: true } : u);
+                  const catalogItem = catalogById.get(id);
+                  if (!catalogItem) return prev;
+                  return [...prev, { catalogItemId: id, unitPriceOverride: null, active: true, catalogItem }];
+                });
+              }}
+            />
+          )}
         </div>
       )}
 
@@ -1364,9 +1383,11 @@ export function CpqQuoteCosts({
                   <div key={item.id} className="p-2.5 rounded-lg bg-card border border-border/50">
                     <div className="flex items-center justify-between mb-1.5">
                       <span className="text-[13px] font-semibold">{item.name}</span>
-                      <button type="button" onClick={() => updateMeal(item.name, { isEnabled: false })} className="w-5 h-5 rounded flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10">
-                        <Trash2 className="h-3 w-3" />
-                      </button>
+                      {!readOnly && (
+                        <button type="button" onClick={() => updateMeal(item.name, { isEnabled: false })} className="w-5 h-5 rounded flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10">
+                          <Trash2 className="h-3 w-3" />
+                        </button>
+                      )}
                     </div>
                     <div className="text-sm text-muted-foreground mb-1.5">
                       Base catálogo: {formatCurrency(Number(item.basePrice))} / {unitLabel}
@@ -1380,6 +1401,7 @@ export function CpqQuoteCosts({
                           placeholder="ej. 1"
                           value={mealsPerDay ? fmtN(mealsPerDay) : ""}
                           onChange={(e) => updateMeal(item.name, { mealsPerDay: toNumber(e.target.value) })}
+                          disabled={readOnly}
                           className={inputClass}
                         />
                       </div>
@@ -1391,6 +1413,7 @@ export function CpqQuoteCosts({
                           placeholder="ej. 30"
                           value={daysOfService ? fmtN(daysOfService) : ""}
                           onChange={(e) => updateMeal(item.name, { daysOfService: toNumber(e.target.value) })}
+                          disabled={readOnly}
                           className={inputClass}
                         />
                       </div>
@@ -1409,6 +1432,7 @@ export function CpqQuoteCosts({
                               priceOverride: raw === "" ? null : toNumber(raw),
                             });
                           }}
+                          disabled={readOnly}
                           className={inputClass}
                         />
                       </div>
@@ -1434,21 +1458,24 @@ export function CpqQuoteCosts({
                         placeholder="Ej: Almuerzo tipo ejecutivo, colación..."
                         value={meal?.technicalSpecs ?? item.defaultTechnicalSpecs ?? ""}
                         onChange={(e) => updateMeal(item.name, { technicalSpecs: e.target.value || null })}
-                        className="w-full rounded-md border border-border bg-muted/30 px-2 py-1.5 text-sm text-foreground placeholder:text-muted-foreground resize-none focus:outline-none focus:ring-1 focus:ring-ring"
+                        disabled={readOnly}
+                        className="w-full rounded-md border border-border bg-muted/30 px-2 py-1.5 text-sm text-foreground placeholder:text-muted-foreground resize-none focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-70"
                       />
                     </div>
                   </div>
                 );
               })}
           </div>
-          <AddItemPopover
-            label="Alimentación"
-            items={mealCatalog.filter((item) => !meals.find((m) => m.mealType.toLowerCase() === item.name.toLowerCase() && m.isEnabled))}
-            onSelect={(id) => {
-              const item = catalog.find((c) => c.id === id);
-              if (item) updateMeal(item.name, { isEnabled: true });
-            }}
-          />
+          {!readOnly && (
+            <AddItemPopover
+              label="Alimentación"
+              items={mealCatalog.filter((item) => !meals.find((m) => m.mealType.toLowerCase() === item.name.toLowerCase() && m.isEnabled))}
+              onSelect={(id) => {
+                const item = catalog.find((c) => c.id === id);
+                if (item) updateMeal(item.name, { isEnabled: true });
+              }}
+            />
+          )}
         </div>
       )}
 
@@ -1501,11 +1528,13 @@ export function CpqQuoteCosts({
           <div className="grid grid-cols-[repeat(auto-fill,minmax(170px,1fr))] gap-2">
             {operationalCatalog.filter((item) => findCostItem(item.id)?.isEnabled).map((item) => renderCostItemCard(item, findCostItem(item.id)))}
           </div>
-          <AddItemPopover
-            label="Equipos operativos"
-            items={operationalCatalog.filter((item) => !findCostItem(item.id)?.isEnabled)}
-            onSelect={(id) => upsertCostItem(catalogById.get(id)!, { isEnabled: true })}
-          />
+          {!readOnly && (
+            <AddItemPopover
+              label="Equipos operativos"
+              items={operationalCatalog.filter((item) => !findCostItem(item.id)?.isEnabled)}
+              onSelect={(id) => upsertCostItem(catalogById.get(id)!, { isEnabled: true })}
+            />
+          )}
         </div>
       )}
 
@@ -1517,11 +1546,13 @@ export function CpqQuoteCosts({
           <div className="grid grid-cols-[repeat(auto-fill,minmax(170px,1fr))] gap-2">
             {transportCatalog.filter((item) => findCostItem(item.id)?.isEnabled).map((item) => renderCostItemCard(item, findCostItem(item.id)))}
           </div>
-          <AddItemPopover
-            label="Transporte"
-            items={transportCatalog.filter((item) => !findCostItem(item.id)?.isEnabled)}
-            onSelect={(id) => upsertCostItem(catalogById.get(id)!, { isEnabled: true })}
-          />
+          {!readOnly && (
+            <AddItemPopover
+              label="Transporte"
+              items={transportCatalog.filter((item) => !findCostItem(item.id)?.isEnabled)}
+              onSelect={(id) => upsertCostItem(catalogById.get(id)!, { isEnabled: true })}
+            />
+          )}
         </div>
       )}
 
@@ -1537,11 +1568,13 @@ export function CpqQuoteCosts({
                 : renderCostItemCard(item, findCostItem(item.id))
             )}
           </div>
-          <AddItemPopover
-            label="Vehículos"
-            items={vehicleCatalog.filter((item) => !findCostItem(item.id)?.isEnabled)}
-            onSelect={(id) => upsertCostItem(catalogById.get(id)!, { isEnabled: true })}
-          />
+          {!readOnly && (
+            <AddItemPopover
+              label="Vehículos"
+              items={vehicleCatalog.filter((item) => !findCostItem(item.id)?.isEnabled)}
+              onSelect={(id) => upsertCostItem(catalogById.get(id)!, { isEnabled: true })}
+            />
+          )}
         </div>
       )}
 
@@ -1553,11 +1586,13 @@ export function CpqQuoteCosts({
           <div className="grid grid-cols-[repeat(auto-fill,minmax(170px,1fr))] gap-2">
             {infraCatalog.filter((item) => findCostItem(item.id)?.isEnabled).map((item) => renderCostItemCard(item, findCostItem(item.id)))}
           </div>
-          <AddItemPopover
-            label="Infraestructura"
-            items={infraCatalog.filter((item) => !findCostItem(item.id)?.isEnabled)}
-            onSelect={(id) => upsertCostItem(catalogById.get(id)!, { isEnabled: true })}
-          />
+          {!readOnly && (
+            <AddItemPopover
+              label="Infraestructura"
+              items={infraCatalog.filter((item) => !findCostItem(item.id)?.isEnabled)}
+              onSelect={(id) => upsertCostItem(catalogById.get(id)!, { isEnabled: true })}
+            />
+          )}
         </div>
       )}
 
@@ -1574,12 +1609,14 @@ export function CpqQuoteCosts({
                 <div key={item.id ?? item.catalogItemId ?? itemName} className="p-2.5 rounded-lg bg-card border border-border/50">
                   <div className="flex items-center justify-between mb-1.5">
                     <span className="text-[13px] font-semibold truncate">{itemName}</span>
-                    <button type="button" onClick={() => {
-                      if (ci) upsertCostItem(ci, { isEnabled: false });
-                      else setCostItems((prev) => prev.map((c) => c.id === item.id ? { ...c, isEnabled: false } : c));
-                    }} className="w-5 h-5 rounded flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 shrink-0">
-                      <Trash2 className="h-3 w-3" />
-                    </button>
+                    {!readOnly && (
+                      <button type="button" onClick={() => {
+                        if (ci) upsertCostItem(ci, { isEnabled: false });
+                        else setCostItems((prev) => prev.map((c) => c.id === item.id ? { ...c, isEnabled: false } : c));
+                      }} className="w-5 h-5 rounded flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 shrink-0">
+                        <Trash2 className="h-3 w-3" />
+                      </button>
+                    )}
                   </div>
                   <div className="text-sm text-muted-foreground mb-1.5">Base: {formatCurrency(Number(ci?.basePrice ?? 0))} / {ci?.unit || "mes"}</div>
                   <Input
@@ -1587,7 +1624,11 @@ export function CpqQuoteCosts({
                     inputMode="numeric"
                     placeholder="Precio mensual"
                     value={item.unitPriceOverride != null ? fmtN(Number(item.unitPriceOverride)) : ""}
-                    onChange={(e) => setCostItems((prev) => prev.map((c) => (item.id ? c.id === item.id : c.catalogItemId === item.catalogItemId) ? { ...c, unitPriceOverride: toNumber(e.target.value) } : c))}
+                    onChange={(e) => {
+                      if (readOnly) return;
+                      setCostItems((prev) => prev.map((c) => (item.id ? c.id === item.id : c.catalogItemId === item.catalogItemId) ? { ...c, unitPriceOverride: toNumber(e.target.value) } : c));
+                    }}
+                    disabled={readOnly}
                     className={inputClass}
                   />
                   <div className="mt-1.5 space-y-1">
@@ -1598,22 +1639,28 @@ export function CpqQuoteCosts({
                       rows={2}
                       placeholder="Ej: Sistema CCTV 4 cámaras IP..."
                       value={item.technicalSpecs ?? ci?.defaultTechnicalSpecs ?? ""}
-                      onChange={(e) => setCostItems((prev) => prev.map((c) => (item.id ? c.id === item.id : c.catalogItemId === item.catalogItemId) ? { ...c, technicalSpecs: e.target.value || null } : c))}
-                      className="w-full rounded-md border border-border bg-muted/30 px-2 py-1.5 text-sm text-foreground placeholder:text-muted-foreground resize-none focus:outline-none focus:ring-1 focus:ring-ring"
+                      onChange={(e) => {
+                        if (readOnly) return;
+                        setCostItems((prev) => prev.map((c) => (item.id ? c.id === item.id : c.catalogItemId === item.catalogItemId) ? { ...c, technicalSpecs: e.target.value || null } : c));
+                      }}
+                      disabled={readOnly}
+                      className="w-full rounded-md border border-border bg-muted/30 px-2 py-1.5 text-sm text-foreground placeholder:text-muted-foreground resize-none focus:outline-none focus:ring-1 focus:ring-ring disabled:opacity-70"
                     />
                   </div>
                 </div>
               );
             })}
           </div>
-          <AddItemPopover
-            label="Sistemas"
-            items={extraItemsCatalog.filter((item) => !findCostItem(item.id)?.isEnabled)}
-            onSelect={(id) => {
-              const item = catalogById.get(id);
-              if (item) upsertCostItem(item, { isEnabled: true });
-            }}
-          />
+          {!readOnly && (
+            <AddItemPopover
+              label="Sistemas"
+              items={extraItemsCatalog.filter((item) => !findCostItem(item.id)?.isEnabled)}
+              onSelect={(id) => {
+                const item = catalogById.get(id);
+                if (item) upsertCostItem(item, { isEnabled: true });
+              }}
+            />
+          )}
         </div>
       )}
 
