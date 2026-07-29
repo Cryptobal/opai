@@ -22,13 +22,15 @@ describe("help-chat-defer-writes", () => {
     expect(shouldDeferWrite("search_installations", { query: "a" }, true)).toBe(false);
   });
 
-  it("no diferir search_emails ni resolve_entity/mailbox_coverage", () => {
+  it("no diferir search_emails ni resolve_entity/mailbox_coverage/count_emails", () => {
     expect(WRITE_TOOL_NAMES.has("search_emails")).toBe(false);
     expect(WRITE_TOOL_NAMES.has("search_emails_semantic")).toBe(false);
+    expect(WRITE_TOOL_NAMES.has("count_emails")).toBe(false);
     expect(WRITE_TOOL_NAMES.has("resolve_entity")).toBe(false);
     expect(WRITE_TOOL_NAMES.has("mailbox_coverage")).toBe(false);
     expect(shouldDeferWrite("search_emails", { query: "acuda" }, true)).toBe(false);
     expect(shouldDeferWrite("search_emails_semantic", { query: "acuda" }, true)).toBe(false);
+    expect(shouldDeferWrite("count_emails", { query: "acuda" }, true)).toBe(false);
     expect(shouldDeferWrite("resolve_entity", { text: "Macronet" }, true)).toBe(false);
     expect(shouldDeferWrite("mailbox_coverage", {}, true)).toBe(false);
     expect(

@@ -6,6 +6,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import {
   toolSearchEmails,
+  toolCountEmails,
   toolResolveEntity,
   toolMailboxCoverage,
 } from "@/lib/ai/help-chat-email-search-tools";
@@ -249,7 +250,45 @@ function v2ToolDefinitions() {
                 "Carpeta: inbox|sent|drafts|starred|spam|trash|all|snoozed|archived. DEFAULT all.",
             },
             exactOnly: { type: "boolean", description: "Si true, no mezcla resultados solo-semánticos." },
-            limit: { type: "number", description: "Máximo de hilos (default 6, máx 12)." },
+            limit: { type: "number", description: "Máximo de hilos (default 6, máx 25)." },
+          },
+          required: ["query"],
+          additionalProperties: false,
+        },
+      },
+    },
+    {
+      type: "function" as const,
+      function: {
+        name: "count_emails",
+        description:
+          "Cuenta o agrega hilos de la casilla con los mismos filtros que search_emails (rama léxica, universo completo). Usala para «cuántos», volumen o frecuencia ANTES de search_emails. NUNCA extrapoles totales desde search_emails. Devuelve solo agregados (sin asuntos ni cuerpos).",
+        parameters: {
+          type: "object",
+          properties: {
+            query: {
+              type: "string",
+              description:
+                "Solo términos de texto libre. Puede ser '' si solo hay filtros.",
+            },
+            from: { type: "string", description: "Remitente (nombre o email parcial)." },
+            to: { type: "string", description: "Destinatario To/CC/BCC." },
+            domain: { type: "string", description: "Dominio de cualquier participante." },
+            subject: { type: "string", description: "Coincidencia solo en asunto." },
+            newerThan: { type: "string", description: "Antigüedad máxima relativa: 7d, 2w, 3m." },
+            olderThan: { type: "string", description: "Antigüedad mínima relativa: 7d, 2w, 3m." },
+            hasAttachment: { type: "boolean" },
+            unread: { type: "boolean" },
+            vertical: { type: "string" },
+            folder: {
+              type: "string",
+              description:
+                "Carpeta: inbox|sent|drafts|starred|spam|trash|all|snoozed|archived. DEFAULT all.",
+            },
+            groupBy: {
+              type: "string",
+              description: "Agregar por: sender|domain|month|vertical. Sin groupBy = total único.",
+            },
           },
           required: ["query"],
           additionalProperties: false,
@@ -296,7 +335,7 @@ function v2ToolDefinitions() {
           type: "object",
           properties: {
             query: { type: "string", description: "Pregunta o descripción. OBLIGATORIO." },
-            limit: { type: "number", description: "Máximo de hilos (default 6, máx 12)." },
+            limit: { type: "number", description: "Máximo de hilos (default 6, máx 25)." },
             from: { type: "string" },
             to: { type: "string" },
             domain: { type: "string" },
@@ -2299,6 +2338,7 @@ const WRITE_SECTION_READ_ONLY: ReadonlySet<string> = new Set([
   "get_quote_proposal",
   "search_emails",
   "search_emails_semantic",
+  "count_emails",
   "resolve_entity",
   "mailbox_coverage",
 ]);
@@ -8098,6 +8138,9 @@ export async function executeToolCallV2(
   }
   if (toolName === "search_emails" || toolName === "search_emails_semantic") {
     return await toolSearchEmails(tenantId, userId, args, perms);
+  }
+  if (toolName === "count_emails") {
+    return await toolCountEmails(tenantId, userId, args);
   }
   if (toolName === "resolve_entity") {
     return await toolResolveEntity(tenantId, userId, args);
