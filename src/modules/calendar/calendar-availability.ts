@@ -3,7 +3,6 @@
  * freebusy de Google por usuario conectado (best-effort, timeout corto).
  */
 import { prisma } from "@/lib/prisma";
-import { getCalendarClientForUser } from "@/lib/google-workspace/clients";
 import { mergeBusyIntervals, type BusyInterval } from "./calendar-intervals";
 
 const GOOGLE_FREEBUSY_TIMEOUT_MS = 3500;
@@ -119,7 +118,7 @@ export async function getUsersBusy(
   }));
 }
 
-/** freebusy.query del primario del usuario. Falla silenciosa → []. */
+/** freebusy.query de todas las cuentas ACTIVE del usuario. Falla silenciosa → []. */
 async function googleBusyForUser(
   tenantId: string,
   userId: string,
@@ -127,25 +126,45 @@ async function googleBusyForUser(
   to: Date,
 ): Promise<BusyInterval[]> {
   try {
-    const client = await getCalendarClientForUser(tenantId, userId);
-    if (!client) return [];
-    const res = await Promise.race([
-      client.calendar.freebusy.query({
-        requestBody: {
-          timeMin: from.toISOString(),
-          timeMax: to.toISOString(),
-          items: [{ id: client.calendarId }],
-        },
+    const { listCalendarAccounts, getCalendarClientForAccount } = await import(
+      "@/lib/google-workspace/clients"
+    );
+    const accounts = await listCalendarAccounts(tenantId, userId);
+    if (!accounts.length) return [];
+
+    const settled = await Promise.allSettled(
+      accounts.map(async (account) => {
+        const client = await getCalendarClientForAccount(tenantId, account.id);
+        if (!client) return [] as BusyInterval[];
+        const calendarId = account.calendarId || "primary";
+        const res = await Promise.race([
+          client.calendar.freebusy.query({
+            requestBody: {
+              timeMin: from.toISOString(),
+              timeMax: to.toISOString(),
+              items: [{ id: calendarId }],
+            },
+          }),
+          new Promise<null>((resolve) =>
+            setTimeout(() => resolve(null), GOOGLE_FREEBUSY_TIMEOUT_MS),
+          ),
+        ]);
+        if (!res) return [] as BusyInterval[];
+        const busy = res.data.calendars?.[calendarId]?.busy ?? [];
+        return busy
+          .filter((b) => b.start && b.end)
+          .map((b) => ({
+            start: new Date(b.start as string),
+            end: new Date(b.end as string),
+          }));
       }),
-      new Promise<null>((resolve) =>
-        setTimeout(() => resolve(null), GOOGLE_FREEBUSY_TIMEOUT_MS),
-      ),
-    ]);
-    if (!res) return [];
-    const busy = res.data.calendars?.[client.calendarId]?.busy ?? [];
-    return busy
-      .filter((b) => b.start && b.end)
-      .map((b) => ({ start: new Date(b.start as string), end: new Date(b.end as string) }));
+    );
+
+    const out: BusyInterval[] = [];
+    for (const r of settled) {
+      if (r.status === "fulfilled") out.push(...r.value);
+    }
+    return out;
   } catch {
     return [];
   }

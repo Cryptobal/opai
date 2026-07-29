@@ -10,7 +10,7 @@ import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import {
   calendarWebhookUrl,
-  getCalendarClientForUser,
+  getCalendarClientForAccount,
   tokenSecret,
 } from "@/lib/google-workspace";
 
@@ -45,7 +45,7 @@ export async function GET(req: NextRequest) {
       };
       if (prefs.expiration && prefs.expiration > horizon) continue;
 
-      const client = await getCalendarClientForUser(account.tenantId, account.userId);
+      const client = await getCalendarClientForAccount(account.tenantId, account.id);
       if (!client) continue;
 
       try {
@@ -55,8 +55,9 @@ export async function GET(req: NextRequest) {
         ).toString("base64url");
         const token = `${payload}.${createHmac("sha256", tokenSecret()).update(payload).digest("hex")}`;
 
+        const calendarId = account.calendarId || "primary";
         const watch = await client.calendar.events.watch({
-          calendarId: account.calendarId || "primary",
+          calendarId,
           requestBody: {
             id: channelId,
             type: "web_hook",
@@ -77,6 +78,35 @@ export async function GET(req: NextRequest) {
         await prisma.googleCalendarAccount.update({
           where: { id: account.id },
           data: { prefs: nextPrefs as Prisma.InputJsonValue },
+        });
+
+        // Mirror en CalendarSyncCursor (por cuenta+calendario).
+        await prisma.calendarSyncCursor.upsert({
+          where: {
+            provider_providerAccountId_providerCalendarId: {
+              provider: "google",
+              providerAccountId: account.id,
+              providerCalendarId: calendarId,
+            },
+          },
+          create: {
+            tenantId: account.tenantId,
+            provider: "google",
+            providerAccountId: account.id,
+            providerCalendarId: calendarId,
+            channelId,
+            resourceId: watch.data.resourceId ?? null,
+            channelExpiresAt: watch.data.expiration
+              ? new Date(Number(watch.data.expiration))
+              : new Date(Date.now() + 7 * 86400_000),
+          },
+          update: {
+            channelId,
+            resourceId: watch.data.resourceId ?? undefined,
+            channelExpiresAt: watch.data.expiration
+              ? new Date(Number(watch.data.expiration))
+              : undefined,
+          },
         });
         renewed++;
       } catch (err) {

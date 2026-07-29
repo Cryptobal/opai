@@ -101,6 +101,7 @@ export async function listAgendaTasks(
       status: "open",
       href,
       createdBy: t.createdBy,
+      sourceKey: "opai:tareas",
     };
   });
 }

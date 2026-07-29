@@ -59,6 +59,7 @@ export function expandLicitacionAgendaItems(params: {
       syncStatus: params.syncStatus,
       dealId: deal.id,
       status: deal.status,
+      sourceKey: "opai:licitaciones",
     });
     day = addDaysYmd(day, 1);
     guard += 1;
