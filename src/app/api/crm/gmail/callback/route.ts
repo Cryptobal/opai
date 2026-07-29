@@ -116,22 +116,21 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    const {
-      assignMailboxIdentity,
-      MAX_MAILBOXES_PER_USER,
-    } = await import("@/modules/crm/email/mailbox-identity");
+    const { assignMailboxIdentity } = await import(
+      "@/modules/crm/email/mailbox-identity"
+    );
+    const { resolveMultiAccount } = await import(
+      "@/modules/shared/multi-account"
+    );
 
-    // Tope de 5 casillas activas (solo al crear; reconexión no cuenta).
+    // Tope dinámico (1 sin multicuenta, 5 con). Solo al crear; reconexión no cuenta.
     if (!existing) {
-      const activeCount = await prisma.crmEmailAccount.count({
-        where: {
-          tenantId,
-          userId: session.user.id,
-          provider: "gmail",
-          status: "active",
-        },
+      const multi = await resolveMultiAccount({
+        tenantId,
+        userId: session.user.id,
+        scope: "correo",
       });
-      if (activeCount >= MAX_MAILBOXES_PER_USER) {
+      if (!multi.canConnect) {
         return redirectWithGmail(origin, returnPath, "limit_reached");
       }
     }
