@@ -8,6 +8,7 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import type { CorreoListFilter } from "./correos-list";
+import { snippetFromBody } from "./correos-list-helpers";
 import {
   buildCorreoSearchIdsQuery,
   buildCorreoSearchParts,
@@ -59,7 +60,14 @@ export type HybridSearchResult = {
   hasExactMatches: boolean;
   /** Semánticos descartados por distancia > SEMANTIC_MAX_DISTANCE. */
   discardedSemantic: number;
+  /** Tamaño del ranking fusionado (acotado al overfetch). */
+  totalCount: number;
+  /** true si el ranking alcanzó el techo de overfetch (puede haber más). */
+  totalIsLowerBound: boolean;
 };
+
+/** Techo de overfetch / offset de paginación por score. */
+export const HYBRID_MAX_RANK = 500;
 
 type LexicalRow = {
   id: string;
@@ -124,6 +132,8 @@ export async function hybridSearchThreadIds(params: {
   folder: CorreoListFilter;
   vertical?: string | null;
   limit: number;
+  /** Offset sobre el ranking fusionado (paginación por score). */
+  offset?: number;
   now?: Date;
   /**
    * Si true, no mezcla ni devuelve resultados solo-semánticos.
@@ -134,7 +144,11 @@ export async function hybridSearchThreadIds(params: {
   const now = params.now ?? new Date();
   const folder = params.parsed.folderOverride ?? params.folder;
   const limit = Math.min(Math.max(params.limit, 1), 100);
-  const overfetch = Math.min(limit * 4, 200);
+  const offset = Math.min(
+    Math.max(Math.floor(params.offset ?? 0), 0),
+    HYBRID_MAX_RANK,
+  );
+  const overfetch = Math.min((offset + limit) * 4, HYBRID_MAX_RANK);
   const hasTextTerms = params.parsed.terms.length > 0;
   const semanticAvailableEnv =
     !emailEmbeddingsDisabled() && Boolean(process.env.OPENAI_API_KEY);
@@ -166,6 +180,8 @@ export async function hybridSearchThreadIds(params: {
       semanticCount: 0,
       hasExactMatches: idRows.length > 0,
       discardedSemantic: 0,
+      totalCount: idRows.length,
+      totalIsLowerBound: false,
     };
   }
 
@@ -233,10 +249,13 @@ export async function hybridSearchThreadIds(params: {
     now,
   });
 
-  const ranked = Array.from(scores.entries())
+  const rankedAll = Array.from(scores.entries())
     .sort((a, b) => b[1] - a[1])
-    .slice(0, limit)
     .map(([id]) => id);
+  const totalCount = rankedAll.length;
+  const totalIsLowerBound =
+    lexicalIds.length >= overfetch || semanticIds.length >= overfetch;
+  const ranked = rankedAll.slice(offset, offset + limit);
 
   const lexicalSet = new Set(lexicalIds);
   const semanticSet = new Set(semanticIds);
@@ -254,6 +273,38 @@ export async function hybridSearchThreadIds(params: {
     }
   }
 
+  // Matches léxicos puros: poblar excerpt con snippet del último mensaje
+  // (consulta acotada a los IDs de la página — no infla la query principal).
+  const missingExcerpt = ranked.filter((id) => !excerptById.has(id));
+  if (missingExcerpt.length > 0) {
+    const bodies = await prisma.crmEmailMessage.findMany({
+      where: {
+        tenantId: params.tenantId,
+        emailAccountId: params.emailAccountId,
+        threadId: { in: missingExcerpt },
+        isDraft: false,
+      },
+      select: {
+        threadId: true,
+        textBody: true,
+        htmlBody: true,
+        sentAt: true,
+      },
+      orderBy: { sentAt: "desc" },
+    });
+    const seen = new Set<string>();
+    for (const row of bodies) {
+      if (seen.has(row.threadId)) continue;
+      seen.add(row.threadId);
+      const snippet =
+        snippetFromBody(row.textBody) ??
+        snippetFromBody(row.htmlBody?.replace(/<[^>]+>/g, " ") ?? null);
+      if (snippet) {
+        excerptById.set(row.threadId, snippet.slice(0, 240));
+      }
+    }
+  }
+
   return {
     ids: ranked,
     reasonById,
@@ -263,5 +314,7 @@ export async function hybridSearchThreadIds(params: {
     semanticCount: semanticIds.length,
     hasExactMatches,
     discardedSemantic,
+    totalCount,
+    totalIsLowerBound,
   };
 }

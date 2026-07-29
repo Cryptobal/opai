@@ -14,6 +14,14 @@ import type { MatchReason } from "./correos-search-hybrid";
 
 const KEYWORDS = ["cotiz", "licitac", "servicio", "propuesta", "bases", "presupuesto"];
 
+/** Cursor opaco de la rama híbrida: `search:{offset}` (0 ≤ offset ≤ 500). */
+function parseSearchOffsetCursor(cursor: string | null | undefined): number | null {
+  if (!cursor || !cursor.startsWith("search:")) return null;
+  const n = Number(cursor.slice("search:".length));
+  if (!Number.isFinite(n) || n < 0) return 0;
+  return Math.min(Math.floor(n), 500);
+}
+
 export type CorreoListFilter =
   | "inbox"
   | "archived"
@@ -106,9 +114,15 @@ const THREAD_LIST_SELECT = {
 } as const;
 
 /**
- * Lista paginada (cursor por fecha) de hilos de la casilla del usuario.
+ * Lista paginada de hilos de la casilla del usuario.
+ *
  * Con `q` activo y términos de texto libre: motor híbrido (léxico + semántico).
- * Con solo operadores estructurales: léxico por recencia con cursor.
+ * El cursor de esa rama es opaco con prefijo `search:{offset}` (offset sobre
+ * el ranking fusionado). Con solo operadores estructurales: léxico por
+ * recencia con cursor ISO de fecha. Sin `q`: cursor ISO de fecha por carpeta.
+ *
+ * Alcance: si hay búsqueda activa y el query NO trae `in:`, el scope efectivo
+ * es `all` (toda la casilla excepto trash/spam), no la carpeta de navegación.
  * `mode=semantic` se ignora (compatibilidad de deep-links).
  */
 export async function listCorreoThreads(params: {
@@ -126,15 +140,24 @@ export async function listCorreoThreads(params: {
   nextCursor: string | null;
   semanticAvailable?: boolean;
   searchMeta?: import("./correos.types").CorreoSearchMeta;
+  /** Carpeta efectiva bajo búsqueda (`all` por defecto si no hay `in:`). */
+  searchScope?: import("./correos.types").CorreoSearchScope;
 }> {
   const limit = Math.min(Math.max(params.limit ?? 30, 1), 100);
-  const cursorDate = params.cursor ? new Date(params.cursor) : null;
+  const searchOffset = parseSearchOffsetCursor(params.cursor);
+  const cursorDate =
+    searchOffset == null && params.cursor ? new Date(params.cursor) : null;
   const folder = params.folder ?? "inbox";
   const parsedSearch = parseCorreoSearchQuery(params.q);
-  const effectiveFolder = parsedSearch?.folderOverride ?? folder;
+  // Búsqueda activa sin `in:` → toda la casilla (paridad con Gmail).
+  const searchScope: CorreoListFilter | undefined = parsedSearch
+    ? (parsedSearch.folderOverride ?? "all")
+    : undefined;
+  const effectiveFolder = searchScope ?? folder;
 
-  // Búsqueda con texto libre → motor híbrido (una sola página rankeada).
+  // Búsqueda con texto libre → motor híbrido con paginación por score.
   if (parsedSearch && parsedSearch.terms.length > 0) {
+    const offset = searchOffset ?? 0;
     const { hybridSearchThreadIds } = await import("./correos-search-hybrid");
     const hybrid = await hybridSearchThreadIds({
       tenantId: params.tenantId,
@@ -142,18 +165,27 @@ export async function listCorreoThreads(params: {
       parsed: parsedSearch,
       folder: effectiveFolder,
       limit,
+      offset,
     });
+    const nextOffset = offset + hybrid.ids.length;
+    const nextCursor =
+      hybrid.ids.length > 0 && nextOffset < hybrid.totalCount
+        ? `search:${nextOffset}`
+        : null;
     if (hybrid.ids.length === 0) {
       return {
         items: [],
         nextCursor: null,
         semanticAvailable: hybrid.semanticAvailable,
+        searchScope: effectiveFolder,
         searchMeta: {
           hasExactMatches: false,
           lexicalCount: hybrid.lexicalCount,
           semanticCount: hybrid.semanticCount,
           discardedSemantic: hybrid.discardedSemantic,
           shownCount: 0,
+          totalCount: hybrid.totalCount,
+          totalIsLowerBound: hybrid.totalIsLowerBound,
         },
       };
     }
@@ -181,14 +213,17 @@ export async function listCorreoThreads(params: {
     );
     return {
       items,
-      nextCursor: null,
+      nextCursor,
       semanticAvailable: hybrid.semanticAvailable,
+      searchScope: effectiveFolder,
       searchMeta: {
         hasExactMatches: hybrid.hasExactMatches,
         lexicalCount: hybrid.lexicalCount,
         semanticCount: hybrid.semanticCount,
         discardedSemantic: hybrid.discardedSemantic,
         shownCount: items.length,
+        totalCount: hybrid.totalCount,
+        totalIsLowerBound: hybrid.totalIsLowerBound,
       },
     };
   }
@@ -263,7 +298,12 @@ export async function listCorreoThreads(params: {
   const nextCursor = hasMore
     ? (isSnoozed ? last?.snoozedUntil : last?.lastMessageAt)?.toISOString() ?? null
     : null;
-  return { items, nextCursor, semanticAvailable: true };
+  return {
+    items,
+    nextCursor,
+    semanticAvailable: true,
+    ...(searchScope ? { searchScope: effectiveFolder } : {}),
+  };
 }
 
 type ThreadRow = {

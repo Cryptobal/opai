@@ -3,37 +3,28 @@
 -- Aplicar MANUALMENTE en producción, fuera de prisma migrate deploy.
 -- ============================================================================
 --
--- ESTADO (2026-07-28): a la fecha de la búsqueda híbrida, NINGUNO de estos
--- índices estaba verificado como aplicado en producción. El proyecto Neon
--- accesible desde el entorno del agente no expone el schema `crm` (solo
--- `public`), así que no se pudo confirmar con `\di+` / `pg_indexes`. Antesir
--- en producción antes de aplicar:
+-- ESTADO (2026-07-29): a la fecha del brief de buscador+asistente, NINGUNO de
+-- estos índices estaba verificado como aplicado en producción. Antesir antes
+-- de aplicar:
 --   SELECT indexname FROM pg_indexes
 --   WHERE schemaname = 'crm' AND indexname LIKE 'idx_crm_email_%';
 --   SELECT indexrelid::regclass FROM pg_index WHERE NOT indisvalid;
 --
--- La búsqueda server-side de la bandeja (src/modules/crm/email/correos-search.ts)
--- funciona sin estos índices (queda acotada por casilla), pero en casillas
--- grandes estos índices evitan degradación:
+-- Las expresiones de los índices GIN DEBEN coincidir carácter por carácter
+-- con las de `buildTextConditions` / `buildStructuralConditions` en
+-- `src/modules/crm/email/correos-search.ts`. Un índice sobre LOWER(col)
+-- NO sirve para `col ILIKE` — el planner no reescribe.
 --
---   1. idx_crm_email_threads_mailbox_recent — el ORDER BY last_message_at DESC
---      LIMIT N de la lista y de la búsqueda camina este índice y corta temprano
---      (top-N por casilla), en vez de ordenar todo el resultado.
---   2. idx_crm_email_threads_subject_trgm — texto libre / subject: sobre asunto
---      (LOWER(f_unaccent(subject)) LIKE %...%), mismo patrón trigram del
---      buscador global (migración 20260916000000).
---   3. idx_crm_email_messages_from_trgm — operador from: y rama remitente del
---      texto libre (LOWER(from_email) LIKE %...%).
---   4. idx_crm_email_messages_body_trgm — rama de cuerpo del texto libre
---      (text_body ILIKE %...%). Es el índice MÁS PESADO de los cuatro: los
---      cuerpos son textos largos y el sync inserta mensajes continuamente.
---      Evaluar el costo de escritura del sync antes de aplicarlo. Si resulta
---      prohibitivo, la alternativa es acotar la rama de cuerpo a los mensajes
---      recientes del hilo (p. ej. últimos N días) en correos-search.ts.
---
--- Se eligió pg_trgm sobre tsvector porque los operadores from:/to:/domain:
--- necesitan substring matching (tsvector tokeniza emails completos) y porque
--- pg_trgm + f_unaccent ya son la infraestructura de búsqueda del repo.
+-- ORDEN DE APLICACIÓN (uno por vez, ventana de baja actividad):
+--   1. idx_crm_email_threads_mailbox_recent  — barato, alivia ORDER BY
+--   2. idx_crm_email_threads_subject_trgm    — asunto
+--   3. idx_crm_email_messages_from_trgm      — remitente
+--   4. idx_crm_email_messages_text_body_trgm — cuerpo texto (PESADO)
+--   5. idx_crm_email_messages_html_body_trgm — cuerpo HTML (PESADO)
+-- Tras cada CREATE: verificar `indisvalid` y latencia del sync Gmail.
+-- Los índices de cuerpo son los más costosos en escritura: el sync inserta
+-- continuamente. Si la latencia del sync sube de más, DROP INDEX CONCURRENTLY
+-- del cuerpo y evaluar acotar la rama de cuerpo a mensajes recientes.
 --
 -- CÓMO APLICAR (producción):
 --   - CREATE INDEX CONCURRENTLY no puede correr dentro de una transacción:
@@ -46,8 +37,12 @@
 --     `SELECT indexrelid::regclass FROM pg_index WHERE NOT indisvalid;` y
 --     hacer DROP INDEX + reintentar.
 --
--- Requiere: extensiones pg_trgm + función public.f_unaccent (ya creadas por
--- la migración 20260916000000_add_search_unaccent_normalization).
+-- Si existía el índice legacy `idx_crm_email_messages_body_trgm` (LOWER(text_body)
+-- sin f_unaccent / COALESCE), dropearlo antes de crear el nuevo:
+--   DROP INDEX CONCURRENTLY IF EXISTS crm.idx_crm_email_messages_body_trgm;
+--
+-- Requiere: extensiones pg_trgm + función public.f_unaccent IMMUTABLE (migración
+-- 20260916000000_add_search_unaccent_normalization). Verificar con `\df+ public.f_unaccent`.
 -- ============================================================================
 
 CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_crm_email_threads_mailbox_recent
@@ -59,6 +54,10 @@ CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_crm_email_threads_subject_trgm
 CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_crm_email_messages_from_trgm
   ON crm.email_messages USING gin (LOWER(from_email) gin_trgm_ops);
 
--- Índice de cuerpo: el más costoso en escritura. Aplicar con ventana controlada.
-CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_crm_email_messages_body_trgm
-  ON crm.email_messages USING gin (LOWER(text_body) gin_trgm_ops);
+-- Cuerpo texto: expresión idéntica a la rama de cuerpo en correos-search.ts.
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_crm_email_messages_text_body_trgm
+  ON crm.email_messages USING gin (LOWER(public.f_unaccent(COALESCE(text_body,''))) gin_trgm_ops);
+
+-- Cuerpo HTML: correos solo-HTML (sin text_body) quedan buscables.
+CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_crm_email_messages_html_body_trgm
+  ON crm.email_messages USING gin (LOWER(public.f_unaccent(COALESCE(html_body,''))) gin_trgm_ops);

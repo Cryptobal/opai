@@ -62,18 +62,20 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  let bodyLimit = 300;
+  // Lote chico + deadline holgado: el corte por tiempo debe ser excepcional
+  // (antes: 100 msgs / 20 s quemaba pendientes marcándolos como indexados).
+  let bodyLimit = 50;
   try {
     const body = (await req.json().catch(() => null)) as { limit?: number } | null;
     if (body?.limit != null) {
-      bodyLimit = Math.min(Math.max(Number(body.limit) || 300, 1), 300);
+      bodyLimit = Math.min(Math.max(Number(body.limit) || 50, 1), 50);
     }
   } catch {
     /* sin body */
   }
 
   rateByUser.set(rateKey, Date.now());
-  const deadline = Date.now() + 20_000;
+  const deadline = Date.now() + 45_000;
   const result = await indexRecentEmailMessages({
     tenantId: session.user.tenantId,
     emailAccountId: account.id,

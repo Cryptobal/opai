@@ -72,13 +72,23 @@ type MessageToIndex = {
 /**
  * Indexa un lote de mensajes: chunkea, embebe en batch y persiste. Idempotente
  * por (messageId, chunkIndex) + contentHash (no re-embebe lo que no cambió).
- * Devuelve chunks escritos y tokens reales consumidos.
+ *
+ * `indexedMessageIds`: mensajes con **todos** sus chunks al día (ya existentes
+ * o persistidos en esta corrida). Un corte por `deadline` deja fuera a los
+ * mensajes con chunks pendientes — no marcar `chunksIndexed` sobre ellos.
+ * `emptyMessageIds`: sin texto indexable (nada que embeber; se pueden marcar
+ * para no reintentarlos eternamente).
  */
 export async function indexEmailMessages(params: {
   tenantId: string;
   messages: MessageToIndex[];
   deadline?: number;
-}): Promise<{ chunks: number; tokens: number }> {
+}): Promise<{
+  chunks: number;
+  tokens: number;
+  indexedMessageIds: string[];
+  emptyMessageIds: string[];
+}> {
   const { tenantId } = params;
   let written = 0;
   let tokens = 0;
@@ -92,21 +102,34 @@ export async function indexEmailMessages(params: {
     contentHash: string;
   };
   const pending: PendingChunk[] = [];
+  const pendingNeeded = new Map<string, number>();
+  const alreadyComplete = new Set<string>();
+  const emptyMessageIds: string[] = [];
+  const writtenByMessage = new Map<string, number>();
 
   for (const message of params.messages) {
     if (!message.emailAccountId) continue;
     const text = messagePlainText(message);
-    if (!text) continue;
+    if (!text) {
+      emptyMessageIds.push(message.id);
+      continue;
+    }
     // El asunto entra al primer chunk: mejora el retrieval de hilos cortos.
     const chunks = splitEmailChunks(`${message.subject}\n${text}`);
+    if (chunks.length === 0) {
+      emptyMessageIds.push(message.id);
+      continue;
+    }
     const existing = await prisma.crmEmailChunk.findMany({
       where: { tenantId, messageId: message.id },
       select: { chunkIndex: true, contentHash: true },
     });
     const existingByIndex = new Map(existing.map((c) => [c.chunkIndex, c.contentHash]));
+    let need = 0;
     chunks.forEach((content, index) => {
       const contentHash = hashContent(content);
       if (existingByIndex.get(index) === contentHash) return;
+      need += 1;
       pending.push({
         messageId: message.id,
         threadId: message.threadId,
@@ -116,6 +139,8 @@ export async function indexEmailMessages(params: {
         contentHash,
       });
     });
+    if (need === 0) alreadyComplete.add(message.id);
+    else pendingNeeded.set(message.id, need);
   }
 
   const client = await getTenantOpenAIClient(tenantId);
@@ -163,9 +188,26 @@ export async function indexEmailMessages(params: {
         Math.ceil(chunk.content.length / 4),
       );
       written += 1;
+      writtenByMessage.set(
+        chunk.messageId,
+        (writtenByMessage.get(chunk.messageId) ?? 0) + 1,
+      );
     }
   }
-  return { chunks: written, tokens };
+
+  const indexedMessageIds = new Set<string>(alreadyComplete);
+  for (const [messageId, need] of pendingNeeded) {
+    if ((writtenByMessage.get(messageId) ?? 0) >= need) {
+      indexedMessageIds.add(messageId);
+    }
+  }
+
+  return {
+    chunks: written,
+    tokens,
+    indexedMessageIds: Array.from(indexedMessageIds),
+    emptyMessageIds,
+  };
 }
 
 /**
@@ -191,7 +233,7 @@ export async function indexRecentEmailMessages(params: {
         chunksIndexed: false,
       },
       orderBy: { createdAt: "desc" },
-      take: Math.min(params.limit ?? 40, 100),
+      take: Math.min(params.limit ?? 40, 50),
       select: {
         id: true,
         threadId: true,
@@ -207,11 +249,20 @@ export async function indexRecentEmailMessages(params: {
       messages,
       deadline: params.deadline,
     });
-    await prisma.crmEmailMessage.updateMany({
-      where: { id: { in: messages.map((m) => m.id) } },
-      data: { chunksIndexed: true },
-    });
-    return result;
+    // Solo marcar los efectivamente embebidos + los sin texto indexable.
+    // Un corte por deadline deja pendientes reintentables (chunksIndexed=false).
+    const markIds = [...result.indexedMessageIds, ...result.emptyMessageIds];
+    if (markIds.length > 0) {
+      await prisma.crmEmailMessage.updateMany({
+        where: {
+          tenantId: params.tenantId,
+          emailAccountId: params.emailAccountId,
+          id: { in: markIds },
+        },
+        data: { chunksIndexed: true },
+      });
+    }
+    return { chunks: result.chunks, tokens: result.tokens };
   } catch (err) {
     console.warn("[correo-embeddings] indexación incremental falló:", err);
     return { chunks: 0, tokens: 0 };
@@ -274,6 +325,9 @@ export async function semanticSearchChunks(params: {
   const fetchLimit = hasThreadFilters
     ? Math.min(params.overfetch ?? Math.max(baseLimit * 4, baseLimit), 200)
     : baseLimit;
+  // Entero validado en TS — nunca entrada de usuario. Default ef_search=40
+  // degrada el recall bajo filtros; subimos al menos a max(fetchLimit*2, 100).
+  const efSearch = Math.min(Math.max(Math.floor(Math.max(fetchLimit * 2, 100)), 40), 1000);
   const vectorLiteral = `[${embedding.join(",")}]`;
 
   const conds: Prisma.Sql[] = [
@@ -284,11 +338,18 @@ export async function semanticSearchChunks(params: {
   if (params.folderSql) conds.push(params.folderSql);
   if (params.structuralSql?.length) conds.push(...params.structuralSql);
 
-  // Vector como parámetro tipado (no concatenar entrada del usuario).
-  const rows = hasThreadFilters
-    ? await prisma.$queryRaw<
-        Array<{ thread_id: string; message_id: string; content: string; distance: number }>
-      >(Prisma.sql`
+  type HitRow = {
+    thread_id: string;
+    message_id: string;
+    content: string;
+    distance: number;
+  };
+
+  // SET LOCAL hnsw.ef_search solo aplica dentro de la transacción.
+  const rows = await prisma.$transaction(async (tx) => {
+    await tx.$executeRawUnsafe(`SET LOCAL hnsw.ef_search = ${efSearch}`);
+    if (hasThreadFilters) {
+      return tx.$queryRaw<HitRow[]>(Prisma.sql`
         SELECT c.thread_id, c.message_id, c.content,
                (c.embedding <=> ${vectorLiteral}::vector) AS distance
         FROM crm.email_chunks c
@@ -296,17 +357,23 @@ export async function semanticSearchChunks(params: {
         WHERE ${Prisma.join(conds, " AND ")}
         ORDER BY c.embedding <=> ${vectorLiteral}::vector
         LIMIT ${fetchLimit}
-      `)
-    : await prisma.$queryRaw<
-        Array<{ thread_id: string; message_id: string; content: string; distance: number }>
-      >(Prisma.sql`
-        SELECT c.thread_id, c.message_id, c.content,
-               (c.embedding <=> ${vectorLiteral}::vector) AS distance
-        FROM crm.email_chunks c
-        WHERE ${Prisma.join(conds, " AND ")}
-        ORDER BY c.embedding <=> ${vectorLiteral}::vector
-        LIMIT ${fetchLimit}
       `);
+    }
+    return tx.$queryRaw<HitRow[]>(Prisma.sql`
+      SELECT c.thread_id, c.message_id, c.content,
+             (c.embedding <=> ${vectorLiteral}::vector) AS distance
+      FROM crm.email_chunks c
+      WHERE ${Prisma.join(conds, " AND ")}
+      ORDER BY c.embedding <=> ${vectorLiteral}::vector
+      LIMIT ${fetchLimit}
+    `);
+  });
+
+  if (rows.length < fetchLimit) {
+    console.info(
+      `[correo-semantic] recall corto: fetchLimit=${fetchLimit} returned=${rows.length} ef_search=${efSearch}`,
+    );
+  }
 
   return rows.map((r) => ({
     threadId: r.thread_id,

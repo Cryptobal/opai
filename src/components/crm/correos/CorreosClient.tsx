@@ -23,10 +23,12 @@ import {
 import { CorreosDesktopRail } from "./CorreosDesktopRail";
 import { CorreosDesktopToolbar } from "./CorreosDesktopToolbar";
 import { CorreoSearchChips } from "./CorreoSearchChips";
+import { CorreoSearchScopeHint } from "./CorreoSearchScopeHint";
 import {
   CorreoIndexCoverageBar,
   type IndexCoverage,
 } from "./CorreoIndexCoverageBar";
+import { chipsFromQuery, removeChipFromQuery } from "@/lib/search-tokens";
 import { useCorreoFocusScope } from "./useCorreoFocusScope";
 import { CorreosMobileDrawer } from "./CorreosMobileDrawer";
 import { CorreosPullToRefresh } from "./CorreosPullToRefresh";
@@ -52,7 +54,11 @@ import {
 } from "./offline-store";
 import { CorreosSyncBanner } from "./CorreosSyncBanner";
 import { snoozeThread } from "./correo-thread-action-client";
-import type { CorreoSearchMeta, CorreoThreadDTO } from "@/modules/crm/email/correos.types";
+import type {
+  CorreoSearchMeta,
+  CorreoSearchScope,
+  CorreoThreadDTO,
+} from "@/modules/crm/email/correos.types";
 import { correoSearchOperatorChips } from "@/modules/crm/email/correos-operator-registry";
 import { useCorreosRealtime } from "./useCorreosRealtime";
 import { useCorreosViewPreferences, focusCorreosSearch } from "./useCorreosViewPreferences";
@@ -90,6 +96,18 @@ const CORREOS_MOBILE_TOP_SPACER = "h-14 shrink-0 lg:hidden";
 
 /** Operadores del overlay — fuente única: `correos-operator-registry.ts`. */
 const CORREO_SEARCH_OPERATORS: ModuleSearchOperator[] = correoSearchOperatorChips();
+
+/** Inserta o reemplaza el operador `in:` en la query. */
+function withInFolder(query: string, folder: string): string {
+  let next = query.trim();
+  for (const chip of chipsFromQuery(next)) {
+    if (/^in:/i.test(chip.token)) {
+      next = removeChipFromQuery(next, chip.token);
+    }
+  }
+  const token = `in:${folder}`;
+  return next ? `${next} ${token}` : token;
+}
 
 function matchesChip(t: CorreoThreadDTO, f: CorreoChipKey): boolean {
   if (f === "con_cuenta") return Boolean(t.accountId);
@@ -137,6 +155,7 @@ export function CorreosClient() {
   const [coverage, setCoverage] = useState<IndexCoverage | null>(null);
   const [semanticAvailable, setSemanticAvailable] = useState(true);
   const [searchMeta, setSearchMeta] = useState<CorreoSearchMeta | null>(null);
+  const [searchScope, setSearchScope] = useState<CorreoSearchScope | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
   const [autoExtract, setAutoExtract] = useState(false);
   const [workTabIntent, setWorkTabIntent] = useState<{ tab: WorkTab; nonce: number } | null>(null);
@@ -234,6 +253,7 @@ export function CorreosClient() {
         coverage?: IndexCoverage | null;
         semanticAvailable?: boolean;
         searchMeta?: CorreoSearchMeta | null;
+        searchScope?: CorreoSearchScope | null;
         backfillDone?: unknown;
         lastSyncAt?: unknown;
         totalThreads?: unknown;
@@ -276,8 +296,10 @@ export function CorreosClient() {
       }
       if (debouncedQuery) {
         setSearchMeta(r.searchMeta ?? null);
+        setSearchScope(r.searchScope ?? null);
       } else {
         setSearchMeta(null);
+        setSearchScope(null);
       }
       setBackfillDone(typeof r.backfillDone === "boolean" ? r.backfillDone : null);
       setLastSyncAt(typeof r.lastSyncAt === "string" ? r.lastSyncAt : null);
@@ -1193,7 +1215,22 @@ export function CorreosClient() {
       {/* Reserva el alto de la isla / barra de selección. */}
       <div aria-hidden className={CORREOS_MOBILE_TOP_SPACER} />
       <div className="space-y-1 px-4 lg:hidden">
-        {query.trim().length > 0 && <CorreoSearchChips query={query} onQuery={setQuery} />}
+        {query.trim().length > 0 && (
+          <CorreoSearchChips
+            query={query}
+            onQuery={setQuery}
+            trailing={
+              searching ? (
+                <CorreoSearchScopeHint
+                  compact
+                  scope={searchScope}
+                  navFolder={folder}
+                  onScopeToFolder={(f) => setQuery((q) => withInFolder(q, f))}
+                />
+              ) : null
+            }
+          />
+        )}
         <CorreoIndexCoverageBar
           coverage={coverage}
           compact
@@ -1365,9 +1402,10 @@ export function CorreosClient() {
               syncing={syncing}
               shownCount={filtered.length}
               searching={searching}
+              totalIsLowerBound={Boolean(searchMeta?.totalIsLowerBound)}
               totalCount={
                 searching
-                  ? (searchMeta?.shownCount ?? items.length)
+                  ? (searchMeta?.totalCount ?? searchMeta?.shownCount ?? items.length)
                   : counts
                     ? ((counts as Record<string, number | undefined>)[folder] ?? null)
                     : null
@@ -1381,6 +1419,15 @@ export function CorreosClient() {
               onAction={bulkAction}
               onSnooze={() => setSnoozeId("__bulk__")}
             />
+            {searching && (
+              <div className="hidden border-x border-ds-border-subtle bg-ds-surface-1 px-3 py-0.5 lg:block">
+                <CorreoSearchScopeHint
+                  scope={searchScope}
+                  navFolder={folder}
+                  onScopeToFolder={(f) => setQuery((q) => withInFolder(q, f))}
+                />
+              </div>
+            )}
             {!connected ? (
               <EmptyState icon={Mail} title="Conectá tu Gmail" description="Conectá tu casilla en Integraciones." />
             ) : folder === "scheduled" ? (
@@ -1395,10 +1442,30 @@ export function CorreosClient() {
                   title="Sin resultados"
                   description={
                     coverage && coverage.pct < 100
-                      ? `No encontramos coincidencias por texto ni por significado en esta carpeta. La casilla tiene ${coverage.pct}% indexado: correos antiguos pueden no aparecer por significado. Probá from:, is:unread o reformulá.`
+                      ? `No encontramos coincidencias por texto ni por significado${searchScope === "all" || !searchScope ? "" : " en esta carpeta"}. La casilla tiene ${coverage.pct}% indexado: correos antiguos pueden no aparecer por significado. Probá from:, is:unread o reformulá.`
                       : !semanticAvailable
                         ? "Nada coincide por texto exacto. La búsqueda por significado no está disponible ahora."
-                        : "Nada coincide por texto exacto ni por significado en esta carpeta. Probá from:, subject:, is:unread o has:attachment."
+                        : `Nada coincide por texto exacto ni por significado${searchScope === "all" || !searchScope ? "" : " en esta carpeta"}. Probá from:, subject:, is:unread o has:attachment.`
+                  }
+                  action={
+                    searchScope === "all" || !searchScope ? (
+                      <div className="flex flex-wrap items-center justify-center gap-2">
+                        <button
+                          type="button"
+                          className="h-10 sm:h-9 rounded-xl border border-ds-border-default bg-ds-surface-1 px-3 text-[13px] text-ds-text-2 ds-tap"
+                          onClick={() => setQuery((q) => withInFolder(q, "trash"))}
+                        >
+                          Buscar en papelera
+                        </button>
+                        <button
+                          type="button"
+                          className="h-10 sm:h-9 rounded-xl border border-ds-border-default bg-ds-surface-1 px-3 text-[13px] text-ds-text-2 ds-tap"
+                          onClick={() => setQuery((q) => withInFolder(q, "spam"))}
+                        >
+                          Buscar en spam
+                        </button>
+                      </div>
+                    ) : undefined
                   }
                 />
               ) : (

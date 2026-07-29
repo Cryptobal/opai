@@ -68,3 +68,93 @@ Al fusionar, **se priorizó la implementación de `main`** (más completa y con 
 - Contador del toolbar con wording «N resultados» (`searching` prop)
 - Labels de tools en `message-render` + asserts anti-defer de lecturas
 - Nota de verificación local del agente: `docs/audits/auditoria-buscador-correos-verificacion.md`
+
+---
+
+## H8 — Backfill excluye archivados históricos (documentado, no ejecutado)
+
+**Hallazgo (código).** `DEFAULT_BACKFILL_QUERY` y `HISTORICAL_BACKFILL_QUERY` en
+`src/modules/crm/email/gmail-sync-state.ts` usan `(in:inbox OR in:sent)`.
+Un correo recibido y archivado **antes** de conectar la casilla pierde el label
+`INBOX` y no entra en `SENT` → **nunca se espeja**. Eso explica huecos como el
+hilo Macronet/ACUDA (18-dic-2025) aun con `backfillDone=true`.
+
+**Estado actual del default (sin modificar en este PR):**
+
+```
+newer_than:365d (in:inbox OR in:sent)
+```
+
+Histórico ampliado:
+
+```
+after:2025/01/01 (in:inbox OR in:sent)
+```
+
+**Volúmenes ya medidos** (auditoría 29-07-2026, tenant `gard`, casilla Carlos +
+resto Gard — ver tabla «Casillas Gard» arriba):
+
+| Casilla (aprox.) | msgs en espejo | min_sent |
+|---|---:|---|
+| Carlos | 1 114 | 2025-11-06 |
+| Jorge | 5 496 | 2026-03-26 |
+| Lizeth | 3 100 | 2026-03-26 |
+| Alberto | 2 074 | 2026-03-30 |
+| **Total tenant** | **≈12 519** | |
+
+El total real en Gmail por casilla **no** está en el espejo: comparar con
+`users.messages.list` / cuota Gmail antes de reimportar. Query sugerida contra
+prod (solo lectura):
+
+```sql
+SELECT email_account_id, count(*) AS msgs
+FROM crm.email_messages
+GROUP BY 1
+ORDER BY 2 DESC;
+```
+
+**Opciones de reimportación (decisión de Carlos):**
+
+1. `newer_than:365d` **sin** filtro de carpeta — trae archivados del último año;
+   volumen ≈ Gmail «All Mail» − trash/spam del periodo.
+2. `in:anywhere` / `after:YYYY/MM/DD` sin `(in:inbox OR in:sent)` — máximo
+   recall; costo de storage + reindexación semántica (`text-embedding-3-small`
+   ≈ USD 0,02 / 1M tokens; el volumen actual del tenant es marginal).
+3. Mantener query actual y aceptar el hueco (archivados pre-conexión no
+   buscables).
+
+**Costo de reindexación semántica** tras un re-backfill: correr
+`scripts/backfill-email-embeddings.ts` en dry-run (reporta tokens/USD) y luego
+`--yes`. Antes, `scripts/repair-email-chunks-flag.ts` para resetear flags
+inflados (H4).
+
+**Este PR no cambia `DEFAULT_BACKFILL_QUERY`.**
+
+---
+
+## Post-brief buscador+asistente (H1–H7, H9) — 29-07-2026
+
+Implementado en código (sin aplicar índices ni repair en prod):
+
+| ID | Cambio |
+|---|---|
+| **H1** | Búsqueda de texto sin `in:` → scope `all`; UI con indicador + CTA |
+| **H2** | Paginación híbrida `search:{offset}` + `totalCount` / `totalIsLowerBound` |
+| **H3/H7** | Cuerpo `text_body`+`html_body` con `f_unaccent`; SQL PENDING alineado |
+| **H4** | `chunksIndexed` solo si hay chunks; cobertura = DISTINCT chunks; repair script |
+| **H5** | `excerptById` léxico desde snippet del último mensaje |
+| **H6** | Tool `count_emails` + clamp search 25 + prompt anti-extrapolación |
+| **H9** | `SET LOCAL hnsw.ef_search` en retrieval vectorial |
+
+**Pendiente operativo (Carlos):**
+
+1. Aplicar `prisma/migrations/PENDING-email-search-indexes.sql` (uno por vez,
+   `CONCURRENTLY`, verificar `indisvalid`).
+2. Medir agujero H4 en prod:
+   ```sql
+   SELECT count(*) FROM crm.email_messages m
+   WHERE m.chunks_indexed = true
+     AND NOT EXISTS (SELECT 1 FROM crm.email_chunks c WHERE c.message_id = m.id);
+   ```
+3. `npx tsx scripts/repair-email-chunks-flag.ts --dry-run` → `--yes` por casilla.
+4. Decidir H8 (arriba) y, si aplica, re-backfill + embeddings.
