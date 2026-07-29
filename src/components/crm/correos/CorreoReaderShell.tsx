@@ -38,7 +38,7 @@ type Props = {
 /** Fullscreen bajo lg; panel master-detail redimensionable en desktop.
  *  - split: columna sticky al lado de la lista
  *  - contained: cubre el workspace (absolute), dock Intelligence sigue visible
- *  - overlay: modal de viewport (Hub / Radar Comercial / fichas) */
+ *  - overlay: modal de viewport (Hub / fichas) */
 export function CorreoReaderShell({
   open,
   onClose,
