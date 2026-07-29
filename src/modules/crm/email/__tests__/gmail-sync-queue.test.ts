@@ -67,6 +67,7 @@ describe("gmail sync queue", () => {
       syncedCount: 1,
       fetched: 1,
       mode: "incremental",
+      backfillDone: true,
       reconcile: "skipped",
       healed: 0,
     });
@@ -123,10 +124,10 @@ describe("gmail sync queue", () => {
     expect(claim.where).toEqual(
       expect.objectContaining({
         id: "job",
-        requestedAt,
         maintenanceRequested: true,
       }),
     );
+    expect(claim.where).not.toHaveProperty("requestedAt");
     expect(claim.data.pending).toBe(true);
     expect(claim.data.maintenanceRequested).toBeUndefined();
     expect(claim.data.leaseUntil.getTime() - before).toBeGreaterThanOrEqual(
@@ -164,13 +165,16 @@ describe("gmail sync queue", () => {
     );
     expect(mocks.updateMany.mock.calls[1][0]).toEqual(
       expect.objectContaining({
-        where: expect.objectContaining({ requestedAt }),
+        where: expect.objectContaining({ leaseToken: expect.any(String) }),
         data: expect.objectContaining({
           pending: true,
           maintenanceRequested: true,
           reason: "retry",
         }),
       }),
+    );
+    expect(mocks.updateMany.mock.calls[1][0].where).not.toHaveProperty(
+      "requestedAt",
     );
   });
 
@@ -299,6 +303,45 @@ describe("gmail sync queue", () => {
       expect.objectContaining({
         where: { emailAccountId: "account", resolvedAt: null },
         data: expect.objectContaining({ resolvedAt: expect.any(Date) }),
+      }),
+    );
+  });
+
+  it("re-encola maintenance si el backfill histórico sigue incompleto", async () => {
+    mocks.findUnique.mockResolvedValue({
+      id: "job",
+      attempts: 0,
+      reason: "historical",
+      requestedAt: new Date("2026-07-22T12:00:00.000Z"),
+      maintenanceRequested: true,
+      emailAccount: {
+        id: "account",
+        tenantId: "tenant",
+        userId: "user",
+        email: "user@example.com",
+        status: "active",
+      },
+    });
+    mocks.syncGmailAccount.mockResolvedValue({
+      syncedCount: 100,
+      fetched: 100,
+      mode: "backfill",
+      backfillDone: false,
+      reconcile: "skipped",
+      healed: 0,
+    });
+    mocks.upsert.mockResolvedValue({});
+
+    await processGmailSyncJob({ emailAccountId: "account" });
+
+    expect(mocks.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { emailAccountId: "account" },
+        update: expect.objectContaining({
+          pending: true,
+          maintenanceRequested: true,
+          reason: "historical",
+        }),
       }),
     );
   });
