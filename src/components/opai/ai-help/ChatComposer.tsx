@@ -1,10 +1,23 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef } from "react";
 import { Loader2, Mic, Paperclip, Send, Sparkles, Square, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { VoiceBar } from "./VoiceBar";
 import type { MutableRefObject } from "react";
+
+/** Enfoca el composer IA visible (desktop u hoja móvil). */
+export function focusAiHelpComposer() {
+  const nodes = document.querySelectorAll<HTMLTextAreaElement>(
+    "textarea[data-opai-ai-composer]",
+  );
+  for (const el of nodes) {
+    if (el.getClientRects().length === 0 || el.disabled) continue;
+    el.focus({ preventScroll: true });
+    return true;
+  }
+  return false;
+}
 
 export function ChatComposer({
   input,
@@ -69,22 +82,23 @@ export function ChatComposer({
     if (dictationActive) taRef.current?.blur();
   }, [dictationActive]);
 
-  // Cursor siempre en el composer al abrir o al volver al chat (desktop + móvil).
-  useEffect(() => {
+  // useLayoutEffect: enfoca antes del paint, más cerca del gesto de apertura.
+  useLayoutEffect(() => {
     if (!autoFocus || dictationActive || disabled) return;
     const focus = () => {
-      if (!taRef.current || taRef.current.getClientRects().length === 0) return;
-      taRef.current.focus({ preventScroll: true });
+      const el = taRef.current;
+      if (!el || el.getClientRects().length === 0) return;
+      el.focus({ preventScroll: true });
     };
+    focus();
     let cancelled = false;
     let timeoutId = 0;
     const raf = requestAnimationFrame(() => {
       if (cancelled) return;
       focus();
-      // Segundo intento tras animación del sheet/dock (móvil).
       timeoutId = window.setTimeout(() => {
         if (!cancelled) focus();
-      }, 80);
+      }, 100);
     });
     return () => {
       cancelled = true;
@@ -148,6 +162,7 @@ export function ChatComposer({
         <textarea
           ref={taRef}
           rows={1}
+          data-opai-ai-composer
           placeholder="Escribe o dicta tu pregunta…"
           value={input}
           autoFocus={autoFocus && !dictationActive && !disabled}

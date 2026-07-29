@@ -55,8 +55,33 @@ export function TopbarActions({
   }, [hasModuleSearch, searchInlineMounted]);
 
   const handleToggleChat = () => {
-    if (!chatCtx.isPanelOpen) notifCtx.closePanel();
+    const willOpen = !chatCtx.isPanelOpen;
+    if (willOpen) notifCtx.closePanel();
     chatCtx.togglePanel();
+    if (!willOpen) return;
+    // Cursor en buscar (lista) o en el input del canal al abrir desde topbar.
+    const focusChatField = () => {
+      const channelInput = document.querySelectorAll<HTMLTextAreaElement>(
+        '[role="dialog"][aria-label="Panel de chat"] textarea',
+      );
+      for (const el of channelInput) {
+        if (el.getClientRects().length === 0) continue;
+        el.focus({ preventScroll: true });
+        return;
+      }
+      const searchInputs = document.querySelectorAll<HTMLInputElement>(
+        "input.opai-chat-mobile-search",
+      );
+      for (const el of searchInputs) {
+        if (el.getClientRects().length === 0) continue;
+        el.focus({ preventScroll: true });
+        return;
+      }
+    };
+    requestAnimationFrame(() => {
+      focusChatField();
+      window.setTimeout(focusChatField, 80);
+    });
   };
   const handleToggleNotifications = () => {
     if (!notifCtx.isPanelOpen) chatCtx.closePanel();
