@@ -1,8 +1,10 @@
 "use client";
 
+import Link from "next/link";
 import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatAgendaTime } from "@/components/agenda/agenda-calendar-utils";
+import { hubTareaHref } from "@/components/agenda/agenda-hub-item";
 import { todayInChile, ymdInChile } from "@/lib/dates-cl";
 import type { TareaBucket } from "@/modules/tareas/tareas.service";
 import type { TareaItem } from "./types";
@@ -40,7 +42,7 @@ export function TareaHubRow({
     (task.dueAt != null && ymdInChile(new Date(task.dueAt)) < todayYmd);
 
   return (
-    <div className="flex min-h-11 min-w-0 items-center gap-2.5 rounded-ds-md px-2 py-1.5">
+    <div className="flex min-h-11 min-w-0 items-center gap-1 rounded-ds-md">
       <button
         type="button"
         onClick={() => onComplete(task)}
@@ -54,7 +56,10 @@ export function TareaHubRow({
       >
         <Check className="h-3.5 w-3.5" />
       </button>
-      <div className="min-w-0 flex-1">
+      <Link
+        href={hubTareaHref(task.id)}
+        className="min-w-0 flex-1 rounded-ds-md px-2 py-1.5 transition-colors hover:bg-ds-surface-2 ds-tap"
+      >
         <p className="truncate text-[13px] font-medium text-ds-text-1">{task.title}</p>
         <p
           className={cn(
@@ -65,7 +70,7 @@ export function TareaHubRow({
           {bucketLabel}
           {due ? ` · ${due}` : ""}
         </p>
-      </div>
+      </Link>
     </div>
   );
 }

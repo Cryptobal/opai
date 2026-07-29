@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Search } from "lucide-react";
 import { showUndo } from "@/components/opai-ds";
 import { SimpleSelect } from "@/components/ui/simple-select";
@@ -31,6 +32,7 @@ export function TareasPageClient({
   userRole: string;
 }) {
   const isMobile = useIsMobileViewport();
+  const search = useSearchParams();
   const { tasks, groups, users, nameById, loading, filters, setFilters, create, update, toggleDone, remove } =
     useTareas();
 
@@ -38,6 +40,12 @@ export function TareasPageClient({
   // (posposición, edición) se reflejan en el panel abierto sin snapshot obsoleto.
   const [detailId, setDetailId] = useState<string | null>(null);
   const detailTask = tasks.find((t) => t.id === detailId) ?? null;
+
+  // Deep-link desde Mi día: /opai/tareas?task=<id>
+  useEffect(() => {
+    const task = search.get("task");
+    if (task) setDetailId(task);
+  }, [search]);
 
   // Posposición rápida optimista con snackbar Deshacer (~10 s), reversible.
   const postpone = useCallback(
@@ -127,7 +135,14 @@ export function TareasPageClient({
         users={users}
         canEdit={canEdit}
         canDelete={detailTask ? canDelete(detailTask) : false}
-        onClose={() => setDetailId(null)}
+        onClose={() => {
+          setDetailId(null);
+          if (typeof window !== "undefined" && search.get("task")) {
+            const url = new URL(window.location.href);
+            url.searchParams.delete("task");
+            window.history.replaceState({}, "", url.pathname + url.search);
+          }
+        }}
         onSave={update}
         onDelete={remove}
         onToggle={toggleDone}

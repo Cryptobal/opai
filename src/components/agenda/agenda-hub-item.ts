@@ -17,6 +17,8 @@ export type HubAgendaItem = {
   assignedUserId?: string;
   /** Multi-responsable (tareas). */
   assignedUserIds?: string[];
+  /** Negocio (licitaciones / tareas vinculadas). */
+  dealId?: string | null;
 };
 
 /** ¿La tarea es del usuario actual? Sin assignees → visible (legacy). */
@@ -29,6 +31,39 @@ export function isHubTaskForUser(item: HubAgendaItem, userId: string): boolean {
         ? [item.assignedUserId]
         : [];
   return ids.length === 0 || ids.includes(userId);
+}
+
+/** Deep-link al día de agenda (YYYY-MM-DD Chile). */
+export function hubAgendaDayHref(ymd: string): string {
+  return `/opai/agenda?date=${encodeURIComponent(ymd)}`;
+}
+
+/**
+ * Destino al clickear un item de Agenda en Mi día.
+ * Prioridad: detalle nativo (visita/licitación) → día en /opai/agenda.
+ * Las tareas del hub van a la agenda del día (la columna Tareas abre el detalle).
+ */
+export function hubAgendaItemHref(item: HubAgendaItem): string {
+  if (item.source === "agenda_visita") {
+    return `/opai/agenda?visita=${encodeURIComponent(item.id)}`;
+  }
+  if (item.source === "licitacion" || item.type === "licitacion") {
+    const id = item.dealId || item.id;
+    return `/opai/agenda?licitacion=${encodeURIComponent(id)}`;
+  }
+  // Día del evento (all-day ymd puro o ISO → Chile).
+  const day =
+    item.allDay && /^\d{4}-\d{2}-\d{2}$/.test(item.start)
+      ? item.start
+      : new Date(item.start).toLocaleDateString("en-CA", {
+          timeZone: "America/Santiago",
+        });
+  return hubAgendaDayHref(day);
+}
+
+/** Detalle de una tarea en /opai/tareas. */
+export function hubTareaHref(taskId: string): string {
+  return `/opai/tareas?task=${encodeURIComponent(taskId)}`;
 }
 
 export function hhmm(start: string): string {

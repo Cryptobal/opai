@@ -11,7 +11,7 @@ import { agendaItemDayKey } from "./agenda-calendar-utils";
 import { AgendaHubDays } from "./AgendaHubDays";
 import { AgendaHubUpcomingList } from "./AgendaHubUpcomingList";
 import { AgendaHubCardDense } from "./AgendaHubCardDense";
-import { type HubAgendaItem as Item, hhmm } from "./agenda-hub-item";
+import { type HubAgendaItem as Item, hhmm, hubAgendaItemHref } from "./agenda-hub-item";
 
 export type AgendaHubCardProps = {
   /** Si se pasan, el componente no hace fetch propio (hub de Productividad). */
@@ -147,58 +147,65 @@ export function AgendaHubCard({
                 <p className="text-[13px] text-ds-text-3">Sin visitas hoy</p>
               ) : (
                 <ul className="space-y-1">
-                  {todayItems.map((i) =>
-                    i.source === "tarea" ? (
-                      <li key={`tarea-${i.id}`} className="min-w-0">
+                  {todayItems.map((i) => {
+                    const href = hubAgendaItemHref(i);
+                    if (i.source === "tarea") {
+                      return (
+                        <li key={`tarea-${i.id}`} className="min-w-0">
+                          <Link
+                            href={href}
+                            className="flex items-center justify-between gap-2 rounded-lg border border-primary/30 bg-primary/10 px-2 py-1.5 text-[13px] text-ds-text-1 ds-tap"
+                          >
+                            <span className="min-w-0 truncate">
+                              ✓ {i.allDay ? i.title : `${hhmm(i.start)} · ${i.title}`}
+                            </span>
+                            <span className="shrink-0 text-[12px] text-primary">Tarea</span>
+                          </Link>
+                        </li>
+                      );
+                    }
+                    if (i.source === "google") {
+                      return (
+                        <li key={`google-${i.id}`} className="min-w-0">
+                          <Link
+                            href={href}
+                            className="flex items-center justify-between gap-2 rounded-lg bg-ds-surface-3 px-2 py-1.5 text-[13px] text-ds-text-2 ds-tap"
+                          >
+                            <span className="min-w-0 truncate">
+                              {i.allDay ? i.title : `${hhmm(i.start)} · ${i.title}`}
+                            </span>
+                            <span
+                              className="max-w-[40%] shrink-0 truncate text-[12px] font-mono uppercase tracking-[0.08em] text-ds-text-4"
+                              title={i.calendarName || "Google Calendar"}
+                            >
+                              {i.calendarName || "Google"}
+                            </span>
+                          </Link>
+                        </li>
+                      );
+                    }
+                    return (
+                      <li key={`${i.type}-${i.id}`} className="min-w-0">
                         <Link
-                          href={i.href || "/crm/mi-semana"}
-                          className="flex items-center justify-between gap-2 rounded-lg border border-primary/30 bg-primary/10 px-2 py-1.5 text-[13px] text-ds-text-1 ds-tap"
+                          href={href}
+                          className={`flex min-w-0 items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-[13px] ds-tap ${
+                            i.allDay ? "bg-tint-violet/60" : "bg-ds-surface-2"
+                          }`}
                         >
-                          <span className="min-w-0 truncate">
-                            ✓ {i.allDay ? i.title : `${hhmm(i.start)} · ${i.title}`}
+                          <span
+                            className={`min-w-0 truncate ${i.allDay ? "text-tint-violet-fg" : "text-ds-text-1"}`}
+                          >
+                            {i.allDay ? `Licitación · ${i.title}` : `${hhmm(i.start)} · ${i.title}`}
                           </span>
-                          <span className="shrink-0 text-[12px] text-primary">Tarea</span>
+                          {!i.allDay && i.syncStatus && (
+                            <Tag variant={i.syncStatus === "SYNCED" ? "ok" : "warn"} size="sm">
+                              {i.syncStatus}
+                            </Tag>
+                          )}
                         </Link>
                       </li>
-                    ) : i.source === "google" ? (
-                      <li key={`google-${i.id}`} className="min-w-0">
-                        <a
-                          href={i.htmlLink || undefined}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-center justify-between gap-2 rounded-lg bg-ds-surface-3 px-2 py-1.5 text-[13px] text-ds-text-2"
-                        >
-                          <span className="min-w-0 truncate">
-                            {i.allDay ? i.title : `${hhmm(i.start)} · ${i.title}`}
-                          </span>
-                          <span
-                            className="max-w-[40%] shrink-0 truncate text-[12px] font-mono uppercase tracking-[0.08em] text-ds-text-4"
-                            title={i.calendarName || "Google Calendar"}
-                          >
-                            {i.calendarName || "Google"}
-                          </span>
-                        </a>
-                      </li>
-                    ) : (
-                      <li
-                        key={`${i.type}-${i.id}`}
-                        className={`flex min-w-0 items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-[13px] ${
-                          i.allDay ? "bg-tint-violet/60" : "bg-ds-surface-2"
-                        }`}
-                      >
-                        <span
-                          className={`min-w-0 truncate ${i.allDay ? "text-tint-violet-fg" : "text-ds-text-1"}`}
-                        >
-                          {i.allDay ? `Licitación · ${i.title}` : `${hhmm(i.start)} · ${i.title}`}
-                        </span>
-                        {!i.allDay && i.syncStatus && (
-                          <Tag variant={i.syncStatus === "SYNCED" ? "ok" : "warn"} size="sm">
-                            {i.syncStatus}
-                          </Tag>
-                        )}
-                      </li>
-                    ),
-                  )}
+                    );
+                  })}
                 </ul>
               )}
             </div>

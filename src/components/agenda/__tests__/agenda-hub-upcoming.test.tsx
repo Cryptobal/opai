@@ -79,15 +79,15 @@ describe("AgendaHubUpcomingList", () => {
     expect(ul!.className).toContain("min-w-0");
   });
 
-  it("deriva a la agenda completa en vez de reconstruir el calendario", () => {
+  it("deriva a la agenda del día en vez de reconstruir el calendario", () => {
     const { container } = render(
       <AgendaHubUpcomingList
         items={[ev({ id: "x", start: "2030-05-11T09:00:00.000Z" })]}
       />,
     );
-    expect(
-      container.querySelector('a[href="/opai/agenda"]'),
-    ).toBeTruthy();
+    const href = container.querySelector("a")?.getAttribute("href") ?? "";
+    expect(href.startsWith("/opai/agenda")).toBe(true);
+    expect(href).toContain("date=");
   });
 
   it("muestra el contexto del evento (tipo)", () => {
