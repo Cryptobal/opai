@@ -15,11 +15,9 @@ import {
 import { triggerHaptic } from "@/lib/haptics";
 import { lockSwipeScroll, unlockSwipeScroll } from "@/lib/swipe-scroll-lock";
 import {
-  isSwipeArmed,
   isSwipeOpenReached,
   resolveSwipeRelease,
   SUPPRESS_CLICK_MS,
-  SWIPE_COMMIT_RATIO,
   SWIPE_DRAG_CONFIRM_PX,
   SWIPE_HAPTIC_HYSTERESIS,
   SWIPE_OPEN_WIDTH,
@@ -31,7 +29,6 @@ import {
 
 export type { CorreoSwipeSide } from "./row-swipe-gesture";
 export {
-  SWIPE_COMMIT_RATIO,
   SWIPE_OPEN_WIDTH,
   SWIPE_BUTTON_WIDTH,
   SUPPRESS_CLICK_MS,
@@ -50,24 +47,21 @@ function snapTransition() {
 }
 
 /**
- * Swipe de dos niveles sobre `drag="x"` de framer-motion:
+ * Swipe que revela 2 botones (tap para ejecutar). Sin commit automático:
  * - `dragDirectionLock` cede el eje vertical al scroll nativo
- * - sin setState por frame (hápticas vía `x.on("change")`; lado vía MotionValue)
+ * - sin setState por frame (hápticas vía `x.on("change")`)
  * - touch-action fijo `pan-y` (nunca mutado en runtime)
- * - ≤2–3 hápticas por gesto con histéresis
  * - supresión de click post-arrastre por ventana temporal (no latch)
  */
 export function useRowSwipe(opts: {
   enabled: boolean;
-  onCommitSwipe: (side: CorreoSwipeSide) => void;
   onLongPress?: () => void;
 }) {
-  const { enabled, onCommitSwipe, onLongPress } = opts;
+  const { enabled, onLongPress } = opts;
   const x = useMotionValue(0);
   const [openSide, setOpenSide] = useState<CorreoSwipeSide | null>(null);
 
   const openReachedRef = useRef(false);
-  const armedRef = useRef(false);
   const lastSignRef = useRef(0);
   const rowRef = useRef<HTMLDivElement | null>(null);
   const rowWidthRef = useRef(360);
@@ -80,11 +74,9 @@ export function useRowSwipe(opts: {
   const longPressStart = useRef({ x: 0, y: 0 });
   const scrollLocked = useRef(false);
   const dragBaseRef = useRef(0);
-  const onCommitRef = useRef(onCommitSwipe);
   const onLongPressRef = useRef(onLongPress);
 
   openSideRef.current = openSide;
-  onCommitRef.current = onCommitSwipe;
   onLongPressRef.current = onLongPress;
 
   const clearLongPress = useCallback(() => {
@@ -113,7 +105,6 @@ export function useRowSwipe(opts: {
 
   const resetFeedback = useCallback(() => {
     openReachedRef.current = false;
-    armedRef.current = false;
     lastSignRef.current = 0;
   }, []);
 
@@ -150,18 +141,16 @@ export function useRowSwipe(opts: {
     };
   }, [openSide, close]);
 
-  // Hápticas sin setState por frame. El lado se deriva de x vía transforms.
+  // Háptica al alcanzar el ancho de botones (sin commit automático).
   useEffect(() => {
     return x.on("change", (value) => {
       if (!draggingRef.current && openSideRef.current == null) return;
       const abs = Math.abs(value);
-      const width = rowWidthRef.current || 1;
       const sign = value === 0 ? 0 : value > 0 ? 1 : -1;
 
       if (sign !== 0 && sign !== lastSignRef.current) {
         lastSignRef.current = sign;
         openReachedRef.current = false;
-        armedRef.current = false;
       }
 
       if (isSwipeOpenReached(abs)) {
@@ -171,15 +160,6 @@ export function useRowSwipe(opts: {
         }
       } else if (abs < SWIPE_OPEN_WIDTH - SWIPE_HAPTIC_HYSTERESIS) {
         openReachedRef.current = false;
-      }
-
-      if (isSwipeArmed(abs, width)) {
-        if (!armedRef.current) {
-          armedRef.current = true;
-          void triggerHaptic("medium");
-        }
-      } else if (abs < width * SWIPE_COMMIT_RATIO - SWIPE_HAPTIC_HYSTERESIS) {
-        armedRef.current = false;
       }
     });
   }, [x]);
@@ -263,15 +243,6 @@ export function useRowSwipe(opts: {
       rowWidth: width,
       velocityX: info.velocity.x,
     });
-
-    if (outcome.type === "commit") {
-      setOpenSide(null);
-      resetFeedback();
-      animateTo(0);
-      void triggerHaptic("success");
-      onCommitRef.current(outcome.side);
-      return;
-    }
 
     if (outcome.type === "snap") {
       setOpenSide(outcome.side);

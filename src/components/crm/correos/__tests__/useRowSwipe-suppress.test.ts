@@ -23,7 +23,7 @@ describe("useRowSwipe — supresión de click y scroll", () => {
 
   it("wasDragged es puro y respeta la ventana temporal", () => {
     const { result } = renderHook(() =>
-      useRowSwipe({ enabled: true, onCommitSwipe: vi.fn() }),
+      useRowSwipe({ enabled: true }),
     );
 
     // Sin gesto: no suprime.
@@ -63,7 +63,7 @@ describe("useRowSwipe — supresión de click y scroll", () => {
 
   it("scroll con panel abierto llama a close", () => {
     const { result } = renderHook(() =>
-      useRowSwipe({ enabled: true, onCommitSwipe: vi.fn() }),
+      useRowSwipe({ enabled: true }),
     );
 
     // Abrir panel vía snap.

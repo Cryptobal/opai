@@ -1,12 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
-  isSwipeArmed,
-  isSwipeFlick,
   isSwipeOpenReached,
   resolveSwipeRelease,
   SWIPE_BUTTON_WIDTH,
-  SWIPE_COMMIT_RATIO,
-  SWIPE_FLICK_VELOCITY,
   SWIPE_OPEN_WIDTH,
   SWIPE_RUBBER_BAND,
   SWIPE_SNAP_RATIO,
@@ -26,26 +22,9 @@ describe("row-swipe-gesture", () => {
     );
   });
 
-  it("marca armado al 45% del ancho de fila", () => {
-    expect(isSwipeArmed(ROW * SWIPE_COMMIT_RATIO - 1, ROW)).toBe(false);
-    expect(isSwipeArmed(ROW * SWIPE_COMMIT_RATIO, ROW)).toBe(true);
-  });
-
   it("marca apertura completa al ancho de dos botones", () => {
     expect(isSwipeOpenReached(SWIPE_OPEN_WIDTH - 1)).toBe(false);
     expect(isSwipeOpenReached(SWIPE_OPEN_WIDTH)).toBe(true);
-  });
-
-  it("detecta flick solo con velocidad y desplazamiento ≥ OPEN", () => {
-    expect(
-      isSwipeFlick("left", SWIPE_OPEN_WIDTH, -SWIPE_FLICK_VELOCITY),
-    ).toBe(true);
-    expect(
-      isSwipeFlick("left", SWIPE_OPEN_WIDTH - 1, -SWIPE_FLICK_VELOCITY),
-    ).toBe(false);
-    expect(
-      isSwipeFlick("right", SWIPE_OPEN_WIDTH, SWIPE_FLICK_VELOCITY),
-    ).toBe(true);
   });
 
   it("cierra gestos cortos (60 px)", () => {
@@ -62,28 +41,16 @@ describe("row-swipe-gesture", () => {
       resolveSwipeRelease({ value: 100, rowWidth: ROW, velocityX: 0 }),
     ).toEqual({ type: "snap", side: "right" });
     expect(100).toBeGreaterThanOrEqual(SWIPE_OPEN_WIDTH * SWIPE_SNAP_RATIO);
-    expect(100).toBeLessThan(ROW * SWIPE_COMMIT_RATIO);
   });
 
-  it("hace commit al 45% del ancho de fila", () => {
+  it("hace snap al soltar profundo o con flick (nunca commit)", () => {
     expect(
       resolveSwipeRelease({
-        value: ROW * SWIPE_COMMIT_RATIO,
+        value: ROW * 0.45,
         rowWidth: ROW,
         velocityX: 0,
       }),
-    ).toEqual({ type: "commit", side: "right" });
-  });
-
-  it("hace commit con flick válido (≥ OPEN + velocidad alta)", () => {
-    // 100 px < OPEN: aunque la velocidad sea alta, no es flick (protege WebKit).
-    expect(
-      resolveSwipeRelease({
-        value: -100,
-        rowWidth: ROW,
-        velocityX: -1400,
-      }),
-    ).toEqual({ type: "snap", side: "left" });
+    ).toEqual({ type: "snap", side: "right" });
 
     expect(
       resolveSwipeRelease({
@@ -91,7 +58,7 @@ describe("row-swipe-gesture", () => {
         rowWidth: ROW,
         velocityX: -1400,
       }),
-    ).toEqual({ type: "commit", side: "left" });
+    ).toEqual({ type: "snap", side: "left" });
   });
 
   it("hace snap con velocidad insuficiente en zona OPEN", () => {
@@ -104,7 +71,7 @@ describe("row-swipe-gesture", () => {
     ).toEqual({ type: "snap", side: "left" });
   });
 
-  it("ignora velocidad espuria por debajo de OPEN (causa raíz WebKit)", () => {
+  it("ignora velocidad espuria por debajo del umbral de snap", () => {
     expect(
       resolveSwipeRelease({
         value: -60,
@@ -114,24 +81,26 @@ describe("row-swipe-gesture", () => {
     ).toEqual({ type: "close" });
   });
 
-  it("nunca ejecuta acción (commit) por debajo de SWIPE_OPEN_WIDTH", () => {
+  it("nunca ejecuta acción al soltar (solo snap o close)", () => {
     for (const value of [
       0,
       36,
       60,
       72,
       SWIPE_OPEN_WIDTH - 1,
+      SWIPE_OPEN_WIDTH,
+      ROW * 0.5,
       -(SWIPE_OPEN_WIDTH - 1),
+      -SWIPE_OPEN_WIDTH,
       -100,
+      -ROW,
     ]) {
-      const abs = Math.abs(value);
-      if (abs >= SWIPE_OPEN_WIDTH) continue;
       const outcome = resolveSwipeRelease({
         value,
         rowWidth: ROW,
         velocityX: value < 0 ? -5000 : 5000,
       });
-      expect(outcome.type).not.toBe("commit");
+      expect(outcome.type === "snap" || outcome.type === "close").toBe(true);
     }
   });
 
