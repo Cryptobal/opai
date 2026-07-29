@@ -132,4 +132,36 @@ describe("createPlanQuote contactId + positions", () => {
     expect(result.quoteId).toBe("quote-1");
     expect(mocks.threadLinkUpsert).toHaveBeenCalled();
   });
+
+  it("sin dealId crea cotización en la cuenta y no crea CrmDealQuote", async () => {
+    const proposal = emptyCrmStructureProposal();
+    proposal.account.name = "Maclean";
+    proposal.deal.title = null;
+
+    const result = await createPlanQuote({
+      tenantId: "t1",
+      userId: "u1",
+      dealId: null,
+      accountId: "acc-1",
+      contactId: "contact-1",
+      threadId: "th-1",
+      proposal,
+    });
+
+    expect(result.quoteId).toBe("quote-1");
+    expect(mocks.dealFindFirst).not.toHaveBeenCalled();
+    expect(mocks.dealQuoteCreate).not.toHaveBeenCalled();
+    expect(mocks.quoteCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          accountId: "acc-1",
+          contactId: "contact-1",
+          name: "Maclean",
+        }),
+      }),
+    );
+    const data = mocks.quoteCreate.mock.calls[0][0].data as Record<string, unknown>;
+    expect(data).not.toHaveProperty("dealId");
+    expect(mocks.threadLinkUpsert).toHaveBeenCalled();
+  });
 });

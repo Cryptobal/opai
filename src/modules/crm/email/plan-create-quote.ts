@@ -20,11 +20,12 @@ function coverageServiceDetail(proposal: CrmStructureProposal): string {
   return lines.join("\n").slice(0, 4000);
 }
 
-/** Crea CpqQuote draft + CrmDealQuote + puestos desde cobertura. Errores se propagan al caller (skipped). */
+/** Crea CpqQuote draft (+ CrmDealQuote si hay deal) + puestos desde cobertura. Errores se propagan al caller (skipped). */
 export async function createPlanQuote(params: {
   tenantId: string;
   userId: string;
-  dealId: string;
+  /** Opcional: cotización borrador puede vivir solo en la cuenta. */
+  dealId?: string | null;
   accountId: string;
   contactId?: string;
   installationId?: string;
@@ -33,18 +34,25 @@ export async function createPlanQuote(params: {
   proposal: CrmStructureProposal;
   quoteInput?: PlanQuoteInput;
 }): Promise<{ quoteId: string; quoteUrl: string; code: string; positionsCreated: number }> {
-  const { tenantId, userId, dealId, accountId } = params;
-  const deal = await prisma.crmDeal.findFirst({
-    where: { id: dealId, tenantId },
-    select: { id: true, title: true },
-  });
-  if (!deal) throw new Error("Negocio no encontrado para cotización");
+  const { tenantId, userId, accountId } = params;
+  const dealId = params.dealId?.trim() || null;
+
+  let dealTitle: string | null = null;
+  if (dealId) {
+    const deal = await prisma.crmDeal.findFirst({
+      where: { id: dealId, tenantId },
+      select: { id: true, title: true },
+    });
+    if (!deal) throw new Error("Negocio no encontrado para cotización");
+    dealTitle = deal.title;
+  }
 
   const input = params.quoteInput;
   const name =
     input?.name?.trim() ||
     params.proposal.deal.title?.trim() ||
-    deal.title ||
+    dealTitle ||
+    params.proposal.account.name ||
     "Cotización borrador";
   const contractDuration =
     input?.contractDuration ?? params.proposal.deal.mesesContrato ?? 12;
@@ -76,7 +84,7 @@ export async function createPlanQuote(params: {
           validUntil,
           insurancePolicyUF: 1500,
           accountId,
-          dealId,
+          ...(dealId ? { dealId } : {}),
           ...(params.contactId ? { contactId: params.contactId } : {}),
           ...(params.installationId ? { installationId: params.installationId } : {}),
           contractDuration,
@@ -115,16 +123,18 @@ export async function createPlanQuote(params: {
     console.error("[plan-create-quote] includes:", err);
   }
 
-  try {
-    await prisma.crmDealQuote.create({
-      data: { tenantId, dealId, quoteId: quote.id },
-    });
-  } catch (linkErr: unknown) {
-    const code =
-      linkErr && typeof linkErr === "object" && "code" in linkErr
-        ? (linkErr as { code: string }).code
-        : "";
-    if (code !== "P2002") throw linkErr;
+  if (dealId) {
+    try {
+      await prisma.crmDealQuote.create({
+        data: { tenantId, dealId, quoteId: quote.id },
+      });
+    } catch (linkErr: unknown) {
+      const code =
+        linkErr && typeof linkErr === "object" && "code" in linkErr
+          ? (linkErr as { code: string }).code
+          : "";
+      if (code !== "P2002") throw linkErr;
+    }
   }
 
   let positionsCreated = 0;
