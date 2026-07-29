@@ -2,8 +2,10 @@ import type { gmail_v1 } from "googleapis";
 import { upsertGmailMessage } from "./gmail-message-upsert";
 import { refreshThreadLabelsBatch } from "./gmail-refresh-threads";
 import { batchGetGmailMessages } from "./gmail-batch";
+import { syncThreadStateFromLocalLabels } from "./gmail-inbox-selfheal";
 import {
   DEFAULT_BACKFILL_QUERY,
+  computeRefreshDeadline,
   type GmailSyncState,
   type SyncRunArgs,
   type SyncRunResult,
@@ -15,8 +17,9 @@ const PAGE_SIZE = 100;
  * Backfill histórico paginado. Avanza `backfillPageToken` entre corridas hasta
  * agotar la query → `backfillDone: true` y captura `lastHistoryId` de arranque
  * para el incremental. Respeta budget de mensajes y deadline de tiempo.
- * Al final refresca el estado de labels de cada hilo tocado (por hilo, no por
- * mensaje: un SENT individual no debe archivar el hilo).
+ *
+ * Tras importar, deriva el estado de carpeta desde `label_ids` locales (gratis)
+ * y recién después refresca labels remotos con presupuesto propio.
  */
 export async function runBackfill(args: SyncRunArgs): Promise<SyncRunResult> {
   const { gmail, tenantId, emailAccount, budget, deadline, createdByUserId } = args;
@@ -74,12 +77,20 @@ export async function runBackfill(args: SyncRunArgs): Promise<SyncRunResult> {
     }
   }
 
+  // Derivación local desde label_ids ya persistidos: gratis (DB-only) y
+  // suficiente para que ningún hilo importado nazca en Recibidos por omisión.
+  await syncThreadStateFromLocalLabels({
+    tenantId,
+    emailAccountId: emailAccount.id,
+    providerThreadIds: Array.from(touchedThreadIds),
+  });
+
   await refreshThreadLabelsBatch({
     gmail,
     tenantId,
     emailAccountId: emailAccount.id,
     threadIds: touchedThreadIds,
-    deadline,
+    deadline: computeRefreshDeadline(args.hardDeadline),
   });
 
   const state: GmailSyncState = {

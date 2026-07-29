@@ -2,7 +2,8 @@ import type { gmail_v1 } from "googleapis";
 import { upsertGmailMessage } from "./gmail-message-upsert";
 import { refreshThreadLabelsBatch } from "./gmail-refresh-threads";
 import { batchGetGmailMessages } from "./gmail-batch";
-import type { SyncRunArgs } from "./gmail-sync-state";
+import { syncThreadStateFromLocalLabels } from "./gmail-inbox-selfheal";
+import { computeRefreshDeadline, type SyncRunArgs } from "./gmail-sync-state";
 
 export type HistoryPage = {
   /** messageId de `messagesAdded` a upsertear. */
@@ -76,12 +77,17 @@ export async function processHistoryPage(
     if (res.wrote) counters.synced += 1;
     if (res.providerThreadId) threadIds.add(res.providerThreadId);
   }
+  await syncThreadStateFromLocalLabels({
+    tenantId,
+    emailAccountId: emailAccount.id,
+    providerThreadIds: Array.from(threadIds),
+  });
   const refreshed = await refreshThreadLabelsBatch({
     gmail,
     tenantId,
     emailAccountId: emailAccount.id,
     threadIds,
-    deadline,
+    deadline: computeRefreshDeadline(args.hardDeadline),
   });
   return refreshed >= threadIds.size;
 }

@@ -57,10 +57,25 @@ export type SyncRunArgs = {
   budget: number;
   /** Timestamp absoluto (ms) a partir del cual se corta la corrida. */
   deadline: number;
+  /**
+   * Deadline global de `syncGmailAccount`. El refresh remoto de labels usa un
+   * presupuesto propio acotado por este hard cap (no hereda el deadline de
+   * fase 1 ya consumido por el loop de mensajes).
+   */
+  hardDeadline?: number;
   createdByUserId?: string | null;
   /** false en el webhook: evita sweeps caros cuando historyId expiró. */
   maintenance?: boolean;
 };
+
+/** Presupuesto propio del refresh remoto de labels tras importar una página. */
+export const REFRESH_LABELS_BUDGET_MS = 8_000;
+
+/** Deadline para `refreshThreadLabelsBatch` sin heredar el de fase 1 agotado. */
+export function computeRefreshDeadline(hardDeadline?: number): number {
+  const budgetEnd = Date.now() + REFRESH_LABELS_BUDGET_MS;
+  return hardDeadline != null ? Math.min(budgetEnd, hardDeadline) : budgetEnd;
+}
 
 export type SyncRunResult = { synced: number; fetched: number; state: GmailSyncState };
 

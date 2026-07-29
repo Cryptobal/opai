@@ -53,4 +53,34 @@ describe("deriveThreadState", () => {
     const next = deriveThreadState(flags, empty, now);
     expect(next.archivedAt).toEqual(now);
   });
+
+  it("SENT-only (histórico archivado en Gmail) sale de Recibidos", () => {
+    const flags = flagsFromLabelIds(["SENT"]);
+    const next = deriveThreadState(flags, empty, now);
+    expect(next.archivedAt).not.toBeNull();
+    expect(next.trashedAt).toBeNull();
+    expect(next.spamAt).toBeNull();
+  });
+
+  it("unión parcial SENT+INBOX mantiene el hilo en Recibidos", () => {
+    const flags = flagsFromLabelIds(["SENT", "INBOX"]);
+    expect(deriveThreadState(flags, empty, now)).toEqual({
+      archivedAt: null,
+      trashedAt: null,
+      spamAt: null,
+    });
+  });
+
+  it("spamAt previo no se pisa con un now nuevo", () => {
+    const previousSpam = new Date("2026-03-01T00:00:00.000Z");
+    const flags = flagsFromLabelIds(["SPAM"]);
+    const next = deriveThreadState(
+      flags,
+      { archivedAt: null, trashedAt: null, spamAt: previousSpam },
+      now,
+    );
+    expect(next.spamAt).toEqual(previousSpam);
+    expect(next.archivedAt).toBeNull();
+    expect(next.trashedAt).toBeNull();
+  });
 });
