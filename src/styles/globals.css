@@ -145,6 +145,18 @@
     --tint-sky-fg:     200 95% 33%;
     --tint-teal:       167 85% 89%;
     --tint-teal-fg:    173 80% 28%;
+    --tint-indigo:     226 100% 94%;
+    --tint-indigo-fg:  231 68% 42%;
+    --tint-cyan:       187 92% 91%;
+    --tint-cyan-fg:    192 91% 28%;
+    --tint-lime:        85 78% 90%;
+    --tint-lime-fg:     88 70% 26%;
+    --tint-orange:      30 100% 92%;
+    --tint-orange-fg:   22 90% 36%;
+    --tint-fuchsia:    292 90% 94%;
+    --tint-fuchsia-fg: 293 72% 38%;
+    --tint-slate:      214 24% 92%;
+    --tint-slate-fg:   215 25% 32%;
 
     /* Motion tokens — duraciones y curvas estándar.
        Consumir desde lib/motion.ts (TS) o en CSS directamente. */
@@ -266,6 +278,18 @@
     --tint-sky-fg:     199 94% 78%;
     --tint-teal:       172 75% 18%;
     --tint-teal-fg:    169 76% 70%;
+    --tint-indigo:     231 55% 22%;
+    --tint-indigo-fg:  226 100% 84%;
+    --tint-cyan:       192 60% 18%;
+    --tint-cyan-fg:    187 85% 70%;
+    --tint-lime:        90 50% 18%;
+    --tint-lime-fg:     84 75% 68%;
+    --tint-orange:      22 65% 20%;
+    --tint-orange-fg:   30 95% 70%;
+    --tint-fuchsia:    293 55% 22%;
+    --tint-fuchsia-fg: 292 90% 82%;
+    --tint-slate:      215 25% 22%;
+    --tint-slate-fg:   214 20% 78%;
 
     /* ── Liquid Glass v1 — recetario dark (principal) ────────────
        Un material, 3 intensidades. Fills translúcidos sobre aurora.
