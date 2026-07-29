@@ -21,7 +21,7 @@
 
 | Email | msgs | min_sent | backfillDone |
 |---|---:|---|---|
-| carlos.irigoyen@gard.cl | 1114 | 2025-11-06 | true |
+| [REDACTED] | 1114 | 2025-11-06 | true |
 | jorge.montenegro@gard.cl | 5496 | 2026-03-26 | true |
 | lizeth.gonzalez@gard.cl | 3100 | 2026-03-26 | true |
 | alberto.stein@gard.cl | 2074 | 2026-03-30 | true |
@@ -56,3 +56,15 @@
 6. **Golden tests** (fixtures + asserts de aceptación).
 
 No reescribir `correos-list.ts` in-place: extender híbrido y añadir endpoint/flag donde haga falta.
+
+---
+
+## Estado post-merge (rama `cursor/fix-buscador-correos-3d6d`)
+
+El fix paralelo ya aterrizó en `main` (`aa7c07098` / merge `4b380272d`): registry (`correos-operator-registry` + constants), `searchMeta`, umbral semántico, `correos-resolve-entity`, tools en `help-chat-email-search-tools.ts`, backfill histórico y acceptance tests.
+
+Al fusionar, **se priorizó la implementación de `main`** (más completa y con verificación contra prod). Esta rama aporta sobre eso:
+
+- Contador del toolbar con wording «N resultados» (`searching` prop)
+- Labels de tools en `message-render` + asserts anti-defer de lecturas
+- Nota de verificación local del agente: `docs/audits/auditoria-buscador-correos-verificacion.md`
