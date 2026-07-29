@@ -59,12 +59,14 @@ export function TopbarSearchField() {
     <div className="relative flex h-full min-w-0 flex-1 items-center">
       <div
         className={cn(
-          "relative flex h-9 w-full max-w-[640px] min-w-0 items-center gap-1.5 px-1",
-          focused && "text-ds-text-1",
+          // Estilo Gmail: pastilla con fill suave, sin trazo/marco.
+          "relative flex h-10 w-full max-w-[720px] min-w-0 items-center gap-2 rounded-full bg-ds-surface-2 px-3.5 transition-colors",
+          "hover:bg-ds-surface-3",
+          focused && "bg-ds-surface-3",
         )}
       >
         <Search
-          className="pointer-events-none h-[15px] w-[15px] shrink-0 text-ds-text-4"
+          className="pointer-events-none h-4 w-4 shrink-0 text-ds-text-4"
           aria-hidden
         />
         {chips.length > 0 && (
@@ -76,7 +78,7 @@ export function TopbarSearchField() {
                 onClick={() =>
                   search.onChange(removeChipFromQuery(search.value, chip.token))
                 }
-                className="inline-flex h-6 shrink-0 items-center gap-0.5 rounded-full border border-ds-border-default bg-ds-surface-1 px-1.5 text-[12px] text-ds-text-2 ds-tap hover:bg-ds-surface-3"
+                className="inline-flex h-6 shrink-0 items-center gap-0.5 rounded-full bg-ds-surface-1 px-1.5 text-[12px] text-ds-text-2 ds-tap hover:bg-ds-surface-3"
                 title={`Quitar ${chip.label}`}
               >
                 <span className="max-w-[7rem] truncate font-mono">
@@ -100,20 +102,12 @@ export function TopbarSearchField() {
           onBlur={() => setFocused(false)}
           onKeyDown={onKeyDown}
         />
-        {!focused && !hasValue && (
-          <kbd
-            className="pointer-events-none hidden shrink-0 rounded border border-ds-border-subtle bg-ds-surface-1 px-1.5 py-0.5 font-mono text-[12px] text-ds-text-4 sm:inline"
-            aria-hidden
-          >
-            /
-          </kbd>
-        )}
         {hasValue && (
           <button
             type="button"
             onClick={clear}
             aria-label="Limpiar búsqueda"
-            className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-ds-text-3 ds-tap hover:bg-ds-surface-3 hover:text-ds-text-1"
+            className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-ds-text-3 ds-tap hover:bg-ds-surface-1 hover:text-ds-text-1"
           >
             <X className="h-3.5 w-3.5" />
           </button>
@@ -127,8 +121,8 @@ export function TopbarSearchField() {
             onMouseDown={(e) => e.preventDefault()}
             onClick={() => setOpsOpen((v) => !v)}
             className={cn(
-              "inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-ds-text-3 ds-tap hover:bg-ds-surface-3 hover:text-ds-text-1",
-              opsOpen && "bg-ds-surface-3 text-primary",
+              "inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-ds-text-3 ds-tap hover:bg-ds-surface-1 hover:text-ds-text-1",
+              opsOpen && "bg-ds-surface-1 text-primary",
             )}
           >
             <ListFilter className="h-3.5 w-3.5" />
