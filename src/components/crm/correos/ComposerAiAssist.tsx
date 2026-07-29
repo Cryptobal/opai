@@ -12,6 +12,8 @@ import {
 
 export type { DraftRefineMode };
 
+type AssistMode = "reply" | "compose";
+
 type PillProps = {
   value: string;
   onChange: (value: string) => void;
@@ -25,6 +27,8 @@ type PillProps = {
   hasDraft: boolean;
   /** Abre el sheet de estilo de respuesta. */
   onOpenStyle?: () => void;
+  /** reply = respuesta a hilo; compose = mensaje nuevo. */
+  mode?: AssistMode;
 };
 
 /**
@@ -41,7 +45,9 @@ export function ComposerAiPromptPill({
   generating,
   hasDraft,
   onOpenStyle,
+  mode = "reply",
 }: PillProps) {
+  const isCompose = mode === "compose";
   const inputRef = useRef<HTMLInputElement>(null);
   const kebabRef = useRef<HTMLDivElement | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -115,7 +121,11 @@ export function ComposerAiPromptPill({
   );
 
   return (
-    <div role="region" aria-label="Responder con IA" className="space-y-1.5 py-1.5">
+    <div
+      role="region"
+      aria-label={isCompose ? "Redactar con IA" : "Responder con IA"}
+      className="space-y-1.5 py-1.5"
+    >
       <div className="flex items-center gap-1.5">
         <div
           className={cn(
@@ -141,7 +151,9 @@ export function ComposerAiPromptPill({
             placeholder={
               hasDraft
                 ? "Describí un cambio…"
-                : "Indicá cómo querés responder…"
+                : isCompose
+                  ? "Indicá qué querés redactar…"
+                  : "Indicá cómo querés responder…"
             }
             disabled={generating}
             aria-label={hasDraft ? "Describir cambio del borrador" : "Prompt para la IA"}
@@ -254,15 +266,23 @@ type ToggleProps = {
   open: boolean;
   onToggle: () => void;
   disabled?: boolean;
+  /** reply = "Responder con IA"; compose = "Redactar con IA". */
+  mode?: AssistMode;
 };
 
 /** Botón lápiz+estrella en la barra inferior: prende/apaga la pill. */
-export function ComposerAiAssistToggle({ open, onToggle, disabled }: ToggleProps) {
+export function ComposerAiAssistToggle({
+  open,
+  onToggle,
+  disabled,
+  mode = "reply",
+}: ToggleProps) {
+  const openLabel = mode === "compose" ? "Redactar con IA" : "Responder con IA";
   return (
     <button
       type="button"
-      title={open ? "Cerrar asistente IA" : "Responder con IA"}
-      aria-label={open ? "Cerrar asistente IA" : "Responder con IA"}
+      title={open ? "Cerrar asistente IA" : openLabel}
+      aria-label={open ? "Cerrar asistente IA" : openLabel}
       aria-pressed={open}
       onClick={onToggle}
       disabled={disabled}

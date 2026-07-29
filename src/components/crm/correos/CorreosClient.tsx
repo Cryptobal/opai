@@ -1565,6 +1565,7 @@ export function CorreosClient() {
           setCorreoComposeInHistory(false);
         }}
         onSent={() => void fetchPage(null, true)}
+        onOpenAiStyle={() => setAiStyleSheetOpen(true)}
       />
 
       <CorreoSnoozeSheet

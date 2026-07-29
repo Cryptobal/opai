@@ -14,11 +14,20 @@ import {
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { EmailComposer, type EmailComposerHandle } from "./EmailComposer";
+import {
+  ComposerAiAssistToggle,
+  ComposerAiPromptPill,
+  type DraftRefineMode,
+} from "./ComposerAiAssist";
+import { plainTextToTiptapDoc } from "./email-inline-images";
+import { docPlainText } from "./composer-draft";
 
 type Props = {
   open: boolean;
   onClose: () => void;
   onSent: () => void;
+  /** Abre el sheet de estilo de respuesta IA (mismo que reply). */
+  onOpenAiStyle?: () => void;
 };
 
 type WindowState = "normal" | "minimized" | "expanded";
@@ -28,18 +37,32 @@ type WindowState = "normal" | "minimized" | "expanded";
  * Glass — el vidrio dejaba leer la bandeja detrás) y ventana tipo Gmail en
  * desktop (minimizar / expandir / cerrar).
  *
+ * Incluye asistente IA (misma UX que reply) y fila CRM cuenta/negocio vía
+ * EmailComposer.
+ *
  * Móvil: un solo scroll en el cuerpo del mensaje (cabecera + acciones fijas)
  * para que el caret no “viaje” con la barra de desplazamiento de la hoja.
  * Cerrar con cambios pregunta Guardar / Descartar; minimizar deja el borrador
  * a mano como barra inferior.
  */
-export function CorreoComposeSheet({ open, onClose, onSent }: Props) {
+export function CorreoComposeSheet({ open, onClose, onSent, onOpenAiStyle }: Props) {
   const [dirty, setDirty] = useState(false);
   const [win, setWin] = useState<WindowState>("normal");
   const [mounted, setMounted] = useState(false);
   const [closePromptOpen, setClosePromptOpen] = useState(false);
   const [closeBusy, setCloseBusy] = useState(false);
   const composerRef = useRef<EmailComposerHandle>(null);
+
+  const bodyRef = useRef<object | null>(null);
+  const subjectRef = useRef("");
+  const toRef = useRef<string[]>([]);
+  const aiSeededRef = useRef(false);
+  const [ai, setAi] = useState(false);
+  const [seed, setSeed] = useState<object | null>(null);
+  const [epoch, setEpoch] = useState(0);
+  const [instructions, setInstructions] = useState("");
+  const [generating, setGenerating] = useState(false);
+  const [hasAiDraft, setHasAiDraft] = useState(false);
 
   useEffect(() => setMounted(true), []);
 
@@ -50,8 +73,66 @@ export function CorreoComposeSheet({ open, onClose, onSent }: Props) {
     } else {
       setDirty(false);
       setClosePromptOpen(false);
+      setAi(false);
+      setInstructions("");
+      setGenerating(false);
+      setHasAiDraft(false);
+      setSeed(null);
+      setEpoch(0);
+      bodyRef.current = null;
+      subjectRef.current = "";
+      toRef.current = [];
+      aiSeededRef.current = false;
     }
   }, [open]);
+
+  useEffect(() => {
+    if (!ai) {
+      aiSeededRef.current = false;
+      setInstructions("");
+      return;
+    }
+    if (aiSeededRef.current) return;
+    aiSeededRef.current = true;
+    if (docPlainText(bodyRef.current).trim()) {
+      setHasAiDraft(true);
+    }
+  }, [ai]);
+
+  function injectDraft(text: string) {
+    const doc = plainTextToTiptapDoc(text);
+    bodyRef.current = doc;
+    setSeed(doc);
+    setEpoch((e) => e + 1);
+    setHasAiDraft(true);
+    setInstructions("");
+  }
+
+  async function runAi(opts?: { refine?: DraftRefineMode }) {
+    const prompt = instructions.trim();
+    const currentDraft = docPlainText(bodyRef.current).trim();
+    const refine = opts?.refine;
+    if (refine == null && hasAiDraft && !prompt) return;
+
+    setGenerating(true);
+    try {
+      const d = await fetch("/api/crm/correos/suggest-compose", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          instructions: prompt || undefined,
+          currentDraft:
+            refine || (hasAiDraft && currentDraft) ? currentDraft || undefined : undefined,
+          refine: refine || undefined,
+          subject: subjectRef.current || undefined,
+          to: toRef.current,
+        }),
+      }).then((r) => r.json());
+      if (d.draft) injectDraft(String(d.draft));
+    } finally {
+      setGenerating(false);
+    }
+  }
 
   if (!open || !mounted) return null;
 
@@ -191,6 +272,40 @@ export function CorreoComposeSheet({ open, onClose, onSent }: Props) {
           ref={composerRef}
           mode="new"
           layout="sheet"
+          initialContent={seed}
+          contentEpoch={epoch}
+          onBodyChange={(doc) => {
+            bodyRef.current = doc;
+          }}
+          onSubjectChange={(s) => {
+            subjectRef.current = s;
+          }}
+          onToChange={(next) => {
+            toRef.current = next;
+          }}
+          aboveFooter={
+            ai ? (
+              <ComposerAiPromptPill
+                mode="compose"
+                value={instructions}
+                onChange={setInstructions}
+                onGenerate={() => void runAi()}
+                onRefine={(preset) => void runAi({ refine: preset })}
+                onClose={() => setAi(false)}
+                generating={generating}
+                hasDraft={hasAiDraft}
+                onOpenStyle={onOpenAiStyle}
+              />
+            ) : null
+          }
+          footerExtras={
+            <ComposerAiAssistToggle
+              mode="compose"
+              open={ai}
+              onToggle={() => setAi((v) => !v)}
+              disabled={generating}
+            />
+          }
           onSent={onSent}
           onClose={() => {
             setDirty(false);
