@@ -31,7 +31,16 @@ export function usePlatform(): Platform {
     }
 
     const ua = window.navigator.userAgent;
-    if (/iPad|iPhone|iPod/.test(ua) && !(window as unknown as { MSStream?: unknown }).MSStream) {
+    // iPadOS 13+ Safari reporta UA de Macintosh; discriminar por touch points.
+    const isIPadOS =
+      /Macintosh/.test(ua) &&
+      typeof navigator.maxTouchPoints === "number" &&
+      navigator.maxTouchPoints > 1;
+
+    if (
+      (/iPad|iPhone|iPod/.test(ua) || isIPadOS) &&
+      !(window as unknown as { MSStream?: unknown }).MSStream
+    ) {
       setPlatform("ios");
     } else if (/android/i.test(ua)) {
       setPlatform("android");
