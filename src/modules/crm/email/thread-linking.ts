@@ -157,18 +157,41 @@ export async function upsertLinkedThread(params: {
   // Solo los recibidos reordenan la bandeja (los enviados no bumpean el hilo).
   const advanceLastMsg =
     isInbound && (!existing.lastMessageAt || lastMessageAt > existing.lastMessageAt);
-  await prisma.crmEmailThread.update({
-    where: { id: existing.id },
-    data: {
-      ...(advanceLastMsg ? { lastMessageAt } : {}),
-      ...(emailAccountId ? { emailAccountId } : {}),
-      ...(providerThreadId ? { providerThreadId } : {}),
-      ...(existing.contactId == null && links.contactId ? { contactId: links.contactId } : {}),
-      ...(existing.accountId == null && links.accountId ? { accountId: links.accountId } : {}),
-      ...(existing.dealId == null && links.dealId ? { dealId: links.dealId } : {}),
-    },
-  });
-  return { id: existing.id };
+  try {
+    await prisma.crmEmailThread.update({
+      where: { id: existing.id },
+      data: {
+        ...(advanceLastMsg ? { lastMessageAt } : {}),
+        ...(emailAccountId ? { emailAccountId } : {}),
+        ...(providerThreadId ? { providerThreadId } : {}),
+        ...(existing.contactId == null && links.contactId ? { contactId: links.contactId } : {}),
+        ...(existing.accountId == null && links.accountId ? { accountId: links.accountId } : {}),
+        ...(existing.dealId == null && links.dealId ? { dealId: links.dealId } : {}),
+      },
+    });
+    return { id: existing.id };
+  } catch (error) {
+    // Conflicto al adoptar huérfano: ya hay un hilo con ese providerThreadId.
+    // Devolver el canónico para que el mensaje quede en el espejo correcto.
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === "P2002" &&
+      emailAccountId &&
+      providerThreadId
+    ) {
+      const winner = await prisma.crmEmailThread.findUnique({
+        where: {
+          emailAccountId_providerThreadId: {
+            emailAccountId,
+            providerThreadId,
+          },
+        },
+        select: { id: true },
+      });
+      if (winner) return winner;
+    }
+    throw error;
+  }
 }
 
 /**
