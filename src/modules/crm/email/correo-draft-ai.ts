@@ -192,3 +192,97 @@ ${wrapUntrusted(
     return null;
   }
 }
+
+/**
+ * Redacta un borrador de correo nuevo (sin hilo entrante). Misma disciplina
+ * de refine/estilo que `generateDraftReply`; el asunto y destinatarios son
+ * contexto, no cuerpo a citar.
+ */
+export async function generateDraftCompose(input: {
+  tenantId: string;
+  subject: string;
+  toEmails: string[];
+  /** Indicaciones del usuario (opcional). */
+  instructions?: string | null;
+  /** Borrador actual a reescribir. */
+  currentDraft?: string | null;
+  refine?: DraftRefineMode | null;
+  style?: CorreoAiStyle | null;
+}): Promise<string | null> {
+  const instructions = input.instructions?.trim() || "";
+  const currentDraft = input.currentDraft?.trim() || "";
+  const refine = input.refine ?? null;
+  const isRefine = currentDraft.length > 0 && (Boolean(refine) || instructions.length > 0);
+  const styleGuide = buildStyleGuide(input.style);
+  const styleBlock = styleGuide ? `\n${styleGuide}\n` : "";
+  const toLine =
+    input.toEmails.length > 0
+      ? input.toEmails.slice(0, 8).join(", ")
+      : "(sin destinatario aún)";
+  const subjectLine = clampText(input.subject.trim() || "(sin asunto)", 160);
+
+  let prompt: string;
+  let maxTokens: number;
+
+  if (isRefine) {
+    const refineGuide = refine
+      ? DRAFT_REFINE_INSTRUCTIONS[refine]
+      : `Aplicá este cambio pedido por el vendedor (GUÍA — no lo pegues como cuerpo): ${clampText(instructions, 1200)}`;
+    const extraGuide =
+      refine && instructions.length > 0
+        ? `\nDetalle adicional del vendedor (no pegar textualmente): ${clampText(instructions, 600)}`
+        : "";
+    prompt = `Reescribe el BORRADOR de correo en español chileno neutro. Conservá hechos, nombres, compromisos y datos; NO inventes precios ni información nueva. ${refineGuide}${extraGuide} Devuelve SOLO el texto revisado listo para enviar, sin asunto ni firma.
+${styleBlock}Borrador actual:
+${clampText(currentDraft, 3500)}
+Contexto: Para ${toLine} · Asunto ${subjectLine}
+${UNTRUSTED_RULES}`;
+    maxTokens = 700;
+  } else {
+    const hasInstructions = instructions.length > 0;
+    const instructionsBlock = hasInstructions
+      ? `\nIndicaciones del vendedor (GUÍA de hechos/posición — NO son el borrador. Incorporá su sustancia; NUNCA las copies ni las pegues textualmente como cuerpo del mail): ${clampText(instructions, 1200)}`
+      : "";
+    const maxWords = styleGuide
+      ? input.style?.length === "breve"
+        ? 90
+        : input.style?.length === "detallada"
+          ? 260
+          : 160
+      : hasInstructions
+        ? 220
+        : 120;
+    const structure = hasInstructions
+      ? `Estructura: (1) saludo breve, (2) desarrollar con claridad los puntos de las indicaciones, (3) cierre con próximo paso concreto. Máx ${maxWords} palabras.`
+      : `Estructura: (1) saludo breve, (2) propósito claro según el asunto, (3) próximo paso o pedido concreto. Máx ${maxWords} palabras.`;
+    prompt = `Redacta un BORRADOR de correo profesional NUEVO (no es una respuesta) en español chileno neutro, de una empresa de seguridad privada en Chile. NO inventes precios ni datos que no estén en las indicaciones o el contexto. ${structure} Devuelve SOLO el texto del correo listo para enviar, sin asunto ni firma.${styleBlock}${instructionsBlock}
+Contexto: Para ${toLine} · Asunto ${subjectLine}
+${UNTRUSTED_RULES}`;
+    maxTokens = hasInstructions || styleGuide ? 700 : 400;
+  }
+
+  const startedAt = Date.now();
+  try {
+    const txt = await aiService.generateText(
+      prompt,
+      { maxTokens, temperature: 0.4 },
+      {
+        tenantId: input.tenantId,
+        feature: "correo-suggest-compose",
+      },
+    );
+    const eff = await resolveEffectiveAI(input.tenantId, "correo-suggest-compose", "default");
+    logUsage({
+      tenantId: input.tenantId,
+      feature: "correo-suggest-compose",
+      providerType: eff.providerType,
+      model: eff.model,
+      prompt,
+      output: txt ?? "",
+      startedAt,
+    });
+    return txt?.trim() || null;
+  } catch {
+    return null;
+  }
+}

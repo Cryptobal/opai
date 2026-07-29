@@ -49,6 +49,10 @@ import { extractInlineImages } from "./email-inline-images";
 import { composerSnapshot, docPlainText, isComposerPristine } from "./composer-draft";
 import { discardGmailDraft } from "./correo-discard-draft";
 import {
+  ComposerCrmLink,
+  type ComposerCrmLinkValue,
+} from "./ComposerCrmLink";
+import {
   isSpeechDictationSupported,
   useSpeechDictation,
 } from "@/hooks/useSpeechDictation";
@@ -114,7 +118,14 @@ type Props = {
   /** Asociaciones CRM a propagar al hilo del envío. */
   dealId?: string | null;
   accountId?: string | null;
+  /** Nombre de cuenta (solo UI del chip en mensaje nuevo). */
+  accountName?: string | null;
   contactId?: string | null;
+  /**
+   * Fila CRM bajo Asunto (mensaje nuevo). Default: activo en `mode="new"`.
+   * En reply/forward la asociación viene del hilo y no se edita aquí.
+   */
+  showCrmLink?: boolean;
   onSent?: () => void;
   onClose?: () => void;
   /** Tras descartar borrador con la papelera (refrescar cadena del hilo). */
@@ -131,6 +142,7 @@ type Props = {
    *  cambiar de modo (Responder ↔ A todos ↔ Reenviar) sin perder trabajo. */
   onBodyChange?: (doc: object | null) => void;
   onSubjectChange?: (subject: string) => void;
+  onToChange?: (to: string[]) => void;
   onDraftIdChange?: (id: string | null) => void;
 };
 
@@ -158,7 +170,9 @@ export const EmailComposer = forwardRef<EmailComposerHandle, Props>(function Ema
     resumeDraftId = null,
     dealId = null,
     accountId = null,
+    accountName = null,
     contactId = null,
+    showCrmLink,
     onSent,
     onClose,
     onDraftDiscarded,
@@ -168,11 +182,13 @@ export const EmailComposer = forwardRef<EmailComposerHandle, Props>(function Ema
     onDirtyChange,
     onBodyChange,
     onSubjectChange,
+    onToChange,
     onDraftIdChange,
   },
   ref,
 ) {
   const isSheet = layout === "sheet";
+  const crmLinkEnabled = showCrmLink ?? mode === "new";
   const attachments = useEmailAttachments();
   const [to, setTo] = useState<string[]>(() => normalizeRecipientList(initialTo));
   const [cc, setCc] = useState<string[]>(() => normalizeRecipientList(initialCc));
@@ -184,6 +200,13 @@ export const EmailComposer = forwardRef<EmailComposerHandle, Props>(function Ema
   const [accounts, setAccounts] = useState<AccountOption[]>([]);
   const [identity, setIdentity] = useState<{ accountId: string; alias: string | null } | null>(null);
   const [draftSavedAt, setDraftSavedAt] = useState<string | null>(null);
+  const [crmLink, setCrmLink] = useState<ComposerCrmLinkValue>(() => ({
+    accountId: accountId ?? null,
+    accountName: accountName ?? null,
+    dealId: dealId ?? null,
+  }));
+  const effectiveAccountId = crmLinkEnabled ? crmLink.accountId : accountId;
+  const effectiveDealId = crmLinkEnabled ? crmLink.dealId : dealId;
 
   const idempotencyKeyRef = useRef(newEmailIdempotencyKey());
   const providerDraftIdRef = useRef<string | null>(resumeDraftId);
@@ -465,8 +488,8 @@ export const EmailComposer = forwardRef<EmailComposerHandle, Props>(function Ema
         ...(mode === "forward" && forwardFromThreadId
           ? { forwardFromThreadId, forwardAttachments }
           : {}),
-        ...(dealId ? { dealId } : {}),
-        ...(accountId ? { accountId } : {}),
+        ...(effectiveDealId ? { dealId: effectiveDealId } : {}),
+        ...(effectiveAccountId ? { accountId: effectiveAccountId } : {}),
         ...(contactId ? { contactId } : {}),
         ...(scheduledAt ? { scheduledAt: scheduledAt.toISOString() } : {}),
       });
@@ -530,7 +553,14 @@ export const EmailComposer = forwardRef<EmailComposerHandle, Props>(function Ema
         </div>
       )}
       <div className="relative">
-        <ReplyRecipientsField label="Para" values={to} onChange={setTo} />
+        <ReplyRecipientsField
+          label="Para"
+          values={to}
+          onChange={(next) => {
+            setTo(next);
+            onToChange?.(next);
+          }}
+        />
         <div className="absolute right-0 top-2.5 flex items-center gap-2">
           {replyAll &&
             (replyAll.cc.length > 0 ||
@@ -540,6 +570,7 @@ export const EmailComposer = forwardRef<EmailComposerHandle, Props>(function Ema
                 type="button"
                 onClick={() => {
                   setTo(replyAll.to);
+                  onToChange?.(replyAll.to);
                   setCc(replyAll.cc);
                   if (replyAll.cc.length > 0) setShowCcBcc(true);
                 }}
@@ -584,6 +615,13 @@ export const EmailComposer = forwardRef<EmailComposerHandle, Props>(function Ema
           className={SUBJECT_INPUT_CLASS}
         />
       </div>
+      {crmLinkEnabled && (
+        <ComposerCrmLink
+          value={crmLink}
+          onChange={setCrmLink}
+          disabled={busy}
+        />
+      )}
     </>
   );
 

@@ -10,9 +10,13 @@ vi.mock("../EmailComposer", () => {
     {
       onDirtyChange,
       layout,
+      footerExtras,
+      aboveFooter,
     }: {
       onDirtyChange?: (dirty: boolean) => void;
       layout?: string;
+      footerExtras?: React.ReactNode;
+      aboveFooter?: React.ReactNode;
     },
     ref: React.Ref<{ flushDraft: () => Promise<void>; discardDraft: () => Promise<void> }>,
   ) {
@@ -20,7 +24,12 @@ vi.mock("../EmailComposer", () => {
       onDirtyChange?.(true);
     }, [onDirtyChange]);
     useImperativeHandle(ref, () => ({ flushDraft, discardDraft }), []);
-    return <div data-testid="email-composer" data-layout={layout} />;
+    return (
+      <div data-testid="email-composer" data-layout={layout}>
+        {aboveFooter}
+        {footerExtras}
+      </div>
+    );
   });
   return { EmailComposer };
 });
@@ -63,5 +72,10 @@ describe("CorreoComposeSheet", () => {
       expect(discardDraft).toHaveBeenCalledTimes(1);
       expect(onClose).toHaveBeenCalled();
     });
+  });
+
+  it("expone el toggle Redactar con IA en mensaje nuevo", () => {
+    render(<CorreoComposeSheet open onClose={vi.fn()} onSent={vi.fn()} />);
+    expect(screen.getByRole("button", { name: /redactar con ia/i })).toBeTruthy();
   });
 });

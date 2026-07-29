@@ -31,6 +31,11 @@ describe("ComposerAiAssist", () => {
     expect(onToggle).toHaveBeenCalledOnce();
   });
 
+  it("en modo compose el toggle ofrece Redactar con IA", () => {
+    render(<ComposerAiAssistToggle open={false} onToggle={() => {}} mode="compose" />);
+    expect(screen.getByRole("button", { name: /redactar con ia/i })).toBeTruthy();
+  });
+
   it("Enter en la pill genera; la X cierra sin enviar mail", () => {
     const onGenerate = vi.fn();
     const onClose = vi.fn();
