@@ -34,6 +34,14 @@ export {
 export { Toolbar, type ToolbarProps } from "./Toolbar";
 export { HeatGrid, type HeatGridProps, type HeatGridRow, type HeatGridColumn } from "./HeatGrid";
 export { Avatar, type AvatarProps, type AvatarVariant } from "./Avatar";
+export { EntityRow, type EntityRowProps } from "./EntityRow";
+export {
+  tintFromId,
+  tintClasses,
+  ENTITY_TINTS,
+  type EntityTint,
+  type EntityTintOverrides,
+} from "@/lib/entity-tint";
 export { Breadcrumbs, type BreadcrumbsProps, type BreadcrumbItem } from "./Breadcrumbs";
 export {
   BreadcrumbTrailingProvider,

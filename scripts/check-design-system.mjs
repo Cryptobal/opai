@@ -1400,6 +1400,7 @@ const DS_SOURCE_PATHS = [
   "src/components/opai-ds/DataView.tsx",
   "src/components/opai-ds/HeatGrid.tsx",
   "src/components/opai-ds/Avatar.tsx",
+  "src/components/opai-ds/EntityRow.tsx",
   "src/components/opai-ds/Breadcrumbs.tsx",
   "src/components/opai-ds/KPICard.tsx",
   "src/components/opai-ds/SubNav.tsx",
