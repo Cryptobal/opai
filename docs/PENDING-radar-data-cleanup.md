@@ -73,6 +73,26 @@ ALTER TABLE crm."CrmEmailThread"  -- nombre físico a confirmar
 6. Preferencias de notificación: typeKey `radar_comercial` se mantiene en el
    catálogo como legacy; puede archivarse/ocultarse en un follow-up de prefs.
 
+## Roles (JSON en `role_templates`) — NO es B4
+
+Los permisos viven en `RoleTemplate.permissions` (JSONB). Al retirar las caps
+`radar_*` del catálogo, los snapshots viejos en BD pueden:
+
+1. Tener `radar_comercial: true` sin `copiloto_correos` → el runtime ya aplica
+   `applyCopilotoCorreosCompat` (nadie pierde el Copiloto).
+2. Romper el PUT de Roles si `validatePermissions` veía caps desconocidas →
+   las `radar_*` se ignoran/filtran al validar.
+
+Persistir la migración (idempotente, post-deploy):
+
+```bash
+npx tsx scripts/backfill-copiloto-correos-permissions.ts --dry-run
+npx tsx scripts/backfill-copiloto-correos-permissions.ts
+```
+
+Eso otorga `copiloto_correos` donde había `radar_comercial` y borra las keys
+`radar_*` del JSON. **No** dropea tablas ni columnas.
+
 ## Fuera de alcance de este documento
 
 - Settings tenant `radar_*_enabled` (key-value): limpieza opcional de filas

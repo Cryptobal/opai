@@ -23,6 +23,7 @@ import {
 import {
     getDefaultPermissions,
     mergeRolePermissions,
+    applyPermissionCompats,
     EMPTY_PERMISSIONS,
     type RolePermissions,
 } from '@/lib/permissions';
@@ -258,11 +259,15 @@ export function RoleSimulationProvider({
         if (dbRole?.permissions) {
             // El servidor ya hizo el merge para owner/admin; para el resto,
             // mergeamos defaults + overrides BD (overrides ganan).
-            return mergeRolePermissions(defaults, dbRole.permissions);
+            return applyPermissionCompats(
+                mergeRolePermissions(defaults, dbRole.permissions),
+            );
         }
 
         // 2) Sin permiso para ver el cuerpo (no es owner/admin) — usar defaults
-        if (defaults && Object.keys(defaults.modules).length > 0) return defaults;
+        if (defaults && Object.keys(defaults.modules).length > 0) {
+            return applyPermissionCompats(defaults);
+        }
 
         return EMPTY_PERMISSIONS;
     }, [isSimulating, simulatedRole, realPermissions, roles]);

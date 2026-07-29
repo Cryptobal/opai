@@ -913,6 +913,47 @@ export function applyProductividadCompat(perms: RolePermissions): RolePermission
   return changed ? { ...perms, submodules } : perms;
 }
 
+/**
+ * Caps del Radar Comercial retiradas del catálogo. Pueden seguir en el JSON de
+ * RoleTemplates ya persistidos en BD hasta correr el backfill.
+ */
+export const LEGACY_RADAR_CAPABILITY_KEYS = [
+  "radar_comercial",
+  "radar_operaciones",
+  "radar_rrhh",
+  "radar_finanzas",
+] as const;
+
+/**
+ * Compatibilidad Copiloto ← Radar Comercial.
+ *
+ * El Copiloto pasó a gatearse con `copiloto_correos`. Los RoleTemplates en BD
+ * pueden seguir teniendo solo `radar_comercial: true` (snapshot viejo). Este
+ * shim otorga `copiloto_correos` cuando el rol tenía `radar_comercial` y aún
+ * no define la nueva capability. Es aditivo: nunca apaga un `copiloto_correos`
+ * explícito en false.
+ *
+ * Persistir con scripts/backfill-copiloto-correos-permissions.ts.
+ */
+export function applyCopilotoCorreosCompat(perms: RolePermissions): RolePermissions {
+  const caps = perms.capabilities ?? {};
+  if (caps.copiloto_correos === true) return perms;
+  if (caps.copiloto_correos === false) return perms;
+
+  const legacy = (caps as Record<string, unknown>).radar_comercial === true;
+  if (!legacy) return perms;
+
+  return {
+    ...perms,
+    capabilities: { ...caps, copiloto_correos: true },
+  };
+}
+
+/** Cadena de shims de compatibilidad aplicados al resolver permisos. */
+export function applyPermissionCompats(perms: RolePermissions): RolePermissions {
+  return applyCopilotoCorreosCompat(applyProductividadCompat(perms));
+}
+
 // ═══════════════════════════════════════════════════════════════
 //  DIFF & STATS HELPERS (UI)
 // ═══════════════════════════════════════════════════════════════
@@ -1333,16 +1374,23 @@ export function validatePermissions(data: unknown): {
     }
   }
 
-  // Validate capabilities
+  // Validate capabilities. Caps legacy del Radar se ignoran (no error) y se
+  // filtran del objeto persistido para no romper PUT de roles con JSON viejo.
+  const legacyRadar = new Set<string>(LEGACY_RADAR_CAPABILITY_KEYS);
+  const cleanedCapabilities: Partial<Record<CapabilityKey, boolean>> = {};
   if (obj.capabilities && typeof obj.capabilities === "object") {
     const caps = obj.capabilities as Record<string, unknown>;
     for (const [key, val] of Object.entries(caps)) {
+      if (legacyRadar.has(key)) continue;
       if (!CAPABILITY_KEYS.includes(key as CapabilityKey)) {
         errors.push(`Capability desconocida: ${key}`);
+        continue;
       }
       if (typeof val !== "boolean") {
         errors.push(`Capability ${key} debe ser boolean`);
+        continue;
       }
+      cleanedCapabilities[key as CapabilityKey] = val;
     }
   }
 
@@ -1356,7 +1404,7 @@ export function validatePermissions(data: unknown): {
     permissions: {
       modules: (obj.modules ?? {}) as RolePermissions["modules"],
       submodules: (obj.submodules ?? {}) as RolePermissions["submodules"],
-      capabilities: (obj.capabilities ?? {}) as RolePermissions["capabilities"],
+      capabilities: cleanedCapabilities,
     },
   };
 }
