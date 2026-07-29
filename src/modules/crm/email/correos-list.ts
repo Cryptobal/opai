@@ -2,11 +2,6 @@ import { prisma } from "@/lib/prisma";
 import { getTenantCompanyConfig } from "@/lib/tenant-config";
 import type { CorreoThreadDTO } from "./correos.types";
 import {
-  effectiveVertical,
-  visibleVertical,
-  type RadarCapability,
-} from "./radar-types";
-import {
   buildTenantDomains,
   isSystemSender,
   snippetFromBody,
@@ -94,8 +89,6 @@ const THREAD_LIST_SELECT = {
   snoozedUntil: true,
   starredAt: true,
   spamAt: true,
-  aiVertical: true,
-  verticalOverride: true,
   isUnread: true,
   messages: {
     select: { fromEmail: true, textBody: true, htmlBody: true, isDraft: true },
@@ -121,11 +114,6 @@ export async function listCorreoThreads(params: {
   q?: string | null;
   /** @deprecated Ignorado — la búsqueda siempre es híbrida. */
   semantic?: boolean;
-  /** A03: filtra por vertical de la clasificación v5. */
-  vertical?: string | null;
-  /** F2: capabilities de radar del solicitante — gobiernan el badge por vertical
-   *  (se calcula en servidor; sin capability no hay badge). */
-  radarCaps?: Set<RadarCapability>;
 }): Promise<{
   items: CorreoThreadDTO[];
   nextCursor: string | null;
@@ -145,7 +133,6 @@ export async function listCorreoThreads(params: {
       emailAccountId: params.emailAccountId,
       parsed: parsedSearch,
       folder: effectiveFolder,
-      vertical: params.vertical ?? null,
       limit,
     });
     if (hybrid.ids.length === 0) {
@@ -172,7 +159,6 @@ export async function listCorreoThreads(params: {
         params.tenantId,
         company,
         params.mailboxEmail,
-        params.radarCaps,
         hybrid.reasonById,
       ),
       nextCursor: null,
@@ -192,14 +178,6 @@ export async function listCorreoThreads(params: {
           tenantId: params.tenantId,
           emailAccountId: params.emailAccountId,
           ...folderWhere(effectiveFolder),
-          ...(params.vertical
-            ? {
-                OR: [
-                  { verticalOverride: params.vertical },
-                  { verticalOverride: null, aiVertical: params.vertical },
-                ],
-              }
-            : {}),
           ...(hasCursor && cursorDate
             ? isSnoozed
               ? { snoozedUntil: { gt: cursorDate } }
@@ -218,7 +196,6 @@ export async function listCorreoThreads(params: {
         emailAccountId: params.emailAccountId,
         parsed: parsedSearch,
         folder: effectiveFolder,
-        vertical: params.vertical ?? null,
         cursorDate: hasCursor ? cursorDate : null,
         take: limit + 1,
         structuralOnly: true,
@@ -252,7 +229,6 @@ export async function listCorreoThreads(params: {
     params.tenantId,
     company,
     params.mailboxEmail,
-    params.radarCaps,
     reasonById,
   );
 
@@ -277,8 +253,6 @@ type ThreadRow = {
   snoozedUntil: Date | null;
   starredAt: Date | null;
   spamAt: Date | null;
-  aiVertical: string | null;
-  verticalOverride: string | null;
   isUnread: boolean;
   messages: Array<{
     fromEmail: string;
@@ -296,7 +270,6 @@ async function mapThreadRowsInternal(
   tenantId: string,
   company: CompanyConfig,
   mailboxEmail?: string | null,
-  radarCaps?: Set<RadarCapability>,
   reasonById?: Map<string, MatchReason>,
 ): Promise<CorreoThreadDTO[]> {
   const tenantDomains = buildTenantDomains(company, mailboxEmail);
@@ -353,12 +326,6 @@ async function mapThreadRowsInternal(
       starredAt: r.starredAt?.toISOString() ?? null,
       spamAt: r.spamAt?.toISOString() ?? null,
       hasDraft: Boolean(msg?.isDraft),
-      aiVertical: r.aiVertical,
-      vertical: visibleVertical(
-        effectiveVertical(r.aiVertical, r.verticalOverride),
-        radarCaps ?? new Set<RadarCapability>(),
-      ),
-      verticalFixed: Boolean(r.verticalOverride),
       matchReason: reasonById?.get(r.id) ?? null,
     };
   });

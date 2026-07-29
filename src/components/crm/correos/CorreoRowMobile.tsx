@@ -3,15 +3,12 @@
 import { memo } from "react";
 import { Paperclip, Star } from "lucide-react";
 import type { CorreoThreadDTO } from "@/modules/crm/email/correos.types";
-import type { RadarCapability } from "@/modules/crm/email/radar-types";
 import { CorreoSenderAvatar } from "./CorreoSenderAvatar";
 import { parseSender } from "./correo-sender";
 import { PREVIEW_LINE_CLASS } from "./CorreoRow";
 import type { CorreoPreviewLines } from "./useCorreosViewPreferences";
 import { formatGmailDateChile } from "@/modules/crm/email/gmail-date-format";
 import { CorreoMatchReasonBadge } from "./CorreoMatchReasonBadge";
-import { CorreoVerticalDot } from "./CorreoVerticalDot";
-import { CorreoActionChip } from "./CorreoActionChip";
 
 type Props = {
   thread: CorreoThreadDTO;
@@ -21,12 +18,11 @@ type Props = {
   checked?: boolean;
   /** Tap en el avatar alterna la selección (estilo Gmail). */
   onAvatarPress?: () => void;
-  caps?: Set<RadarCapability>;
 };
 
 /**
- * Fila móvil estilo Gmail: barra de vertical + avatar + remitente/asunto/snippet +
- * hora (primary si no leído), chip de acción, clip si hay adjuntos y estrella.
+ * Fila móvil estilo Gmail: avatar + remitente/asunto/snippet +
+ * hora (primary si no leído), clip si hay adjuntos y estrella.
  */
 export const CorreoRowMobile = memo(function CorreoRowMobile({
   thread,
@@ -34,7 +30,6 @@ export const CorreoRowMobile = memo(function CorreoRowMobile({
   previewLines = 2,
   checked,
   onAvatarPress,
-  caps = new Set(),
 }: Props) {
   const unread = thread.isUnread;
   const compact = previewLines === 1;
@@ -47,16 +42,10 @@ export const CorreoRowMobile = memo(function CorreoRowMobile({
       data-correo-row={thread.id}
       data-correo-swipe-row=""
       onContextMenu={(e) => e.preventDefault()}
-      className={`flex items-stretch gap-0 border-b border-ds-border-subtle pl-0 pr-4 ${
+      className={`flex items-stretch gap-0 border-b border-ds-border-subtle pl-3 pr-4 ${
         compact ? "py-2" : "py-2.5"
       } ${checked ? "bg-primary/10" : ""}`}
     >
-      <CorreoVerticalDot
-        vertical={thread.vertical}
-        fixed={thread.verticalFixed}
-        variant="edge"
-      />
-      <span aria-hidden className="w-[9px] shrink-0" />
       <div className="flex min-w-0 flex-1 items-start gap-3">
         <CorreoSenderAvatar
           fromEmail={thread.fromEmail}
@@ -112,7 +101,6 @@ export const CorreoRowMobile = memo(function CorreoRowMobile({
             >
               {formatGmailDateChile(thread.lastMessageAt)}
             </span>
-            <CorreoActionChip thread={thread} caps={caps} />
             <span className="flex items-center gap-1.5">
               <CorreoMatchReasonBadge reason={thread.matchReason} />
               {hasAttachments && (

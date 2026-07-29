@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Archive, Building2, CalendarPlus, CheckSquare, Clock, Forward, Link2,
   ListTodo, Mail, MailOpen, Menu, PenLine, Reply, ReplyAll, Sparkles, Star,
-  Tag, TicketPlus, Trash2,
+  TicketPlus, Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -74,28 +74,10 @@ import {
   CorreoAiActionPanel,
   type AiPanelCommand,
 } from "./CorreoAiActionPanel";
-import { CorreoVerticalPicker } from "./CorreoVerticalPicker";
 import type { CorreoAiCommandId } from "@/modules/crm/email/correo-ai-commands";
 import { getCorreoAiCommand } from "@/modules/crm/email/correo-ai-commands";
 import { dispatchAiCommand } from "@/lib/ai/ai-command-event";
-import { hasCapability, type RolePermissions } from "@/lib/permissions";
-import type { RadarCapability, RadarVertical } from "@/modules/crm/email/radar-types";
-
-/** Temporal (B0): caps del Radar para chips/vertical hasta B2. */
-const RADAR_CAPS: RadarCapability[] = [
-  "radar_comercial",
-  "radar_operaciones",
-  "radar_rrhh",
-  "radar_finanzas",
-];
-
-function radarCapsFromPerms(perms: RolePermissions): Set<RadarCapability> {
-  const set = new Set<RadarCapability>();
-  for (const c of RADAR_CAPS) {
-    if (hasCapability(perms, c)) set.add(c);
-  }
-  return set;
-}
+import { hasCapability } from "@/lib/permissions";
 
 /** Alto visual de la isla global (8px gap + min-h-12). El safe-area lo aporta AppShell. */
 const CORREOS_MOBILE_TOP_SPACER = "h-14 shrink-0 lg:hidden";
@@ -145,8 +127,6 @@ export function CorreosClient() {
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [coverage, setCoverage] = useState<IndexCoverage | null>(null);
   const [semanticAvailable, setSemanticAvailable] = useState(true);
-  // A03: filtro por vertical de la clasificación v5.
-  const [vertical, setVertical] = useState<string | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
   const [autoExtract, setAutoExtract] = useState(false);
   const [workTabIntent, setWorkTabIntent] = useState<{ tab: WorkTab; nonce: number } | null>(null);
@@ -169,14 +149,7 @@ export function CorreosClient() {
   } | null>(null);
   /** Bottom-sheet de Acciones IA (móvil: long-press / chip del lector). */
   const [aiMenuSheet, setAiMenuSheet] = useState<CorreoThreadDTO | null>(null);
-  /** Picker de corrección de vertical (menú desktop / sheet móvil). */
-  const [verticalPicker, setVerticalPicker] = useState<{
-    thread: CorreoThreadDTO;
-    anchor: { x: number; y: number } | null;
-  } | null>(null);
   const perms = useEffectivePermissions();
-  const radarCaps = useMemo(() => radarCapsFromPerms(perms), [perms]);
-  const hasRadarCaps = radarCaps.size > 0;
   const canUseCopiloto = hasCapability(perms, "copiloto_correos");
   // v2: táctil (long-press/selección móvil); en desktop nada de esto aplica.
   const [isCoarse, setIsCoarse] = useState(false);
@@ -239,7 +212,6 @@ export function CorreosClient() {
       if (cur) qs.set("cursor", cur);
       if (f !== "inbox") qs.set("folder", f);
       if (debouncedQuery) qs.set("q", debouncedQuery);
-      if (vertical) qs.set("vertical", vertical);
       // C18: counts (+ coverage) solo en cargas "reset" sin búsqueda activa.
       const wantCounts = reset && !cur && !debouncedQuery;
       if (wantCounts) qs.set("counts", "1");
@@ -311,7 +283,7 @@ export function CorreosClient() {
     } finally {
       setLoading(false);
     }
-  }, [folder, debouncedQuery, vertical]);
+  }, [folder, debouncedQuery]);
 
   /** Refresh post-acción: counts/meta sin re-pintar la lista (anti-pestañeo). */
   const softRefresh = useCallback(() => {
@@ -329,75 +301,6 @@ export function CorreosClient() {
       prev.map((t) => (t.id === id ? { ...t, ...partial } : t)),
     );
   }, []);
-
-  /** Corrige la vertical del hilo (optimista + POST). */
-  async function applyVerticalOverride(
-    thread: CorreoThreadDTO,
-    next: RadarVertical | null,
-  ) {
-    const prevVertical = thread.vertical;
-    const prevFixed = thread.verticalFixed;
-    const optimisticVertical = next;
-    const optimisticFixed = next !== null;
-
-    setItems((prev) =>
-      prev
-        .map((t) =>
-          t.id === thread.id
-            ? { ...t, vertical: optimisticVertical, verticalFixed: optimisticFixed }
-            : t,
-        )
-        .filter((t) => {
-          // Si hay filtro de rail activo y el hilo ya no matchea, sacarlo.
-          // Al limpiar override aún no conocemos la vertical IA: no sacar.
-          if (!vertical || next === null) return true;
-          if (t.id !== thread.id) return true;
-          return t.vertical === vertical;
-        }),
-    );
-
-    try {
-      const res = await fetch(`/api/crm/correos/${thread.id}/vertical`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ vertical: next }),
-      });
-      if (!res.ok) {
-        const body = (await res.json().catch(() => ({}))) as { error?: string };
-        throw new Error(body.error || "No se pudo corregir la vertical");
-      }
-      const data = (await res.json()) as {
-        vertical: RadarVertical | null;
-        verticalFixed: boolean;
-      };
-      setItems((prev) =>
-        prev
-          .map((t) =>
-            t.id === thread.id
-              ? { ...t, vertical: data.vertical, verticalFixed: data.verticalFixed }
-              : t,
-          )
-          .filter((t) => {
-            if (!vertical) return true;
-            if (t.id !== thread.id) return true;
-            return t.vertical === vertical;
-          }),
-      );
-      toast.success(
-        next ? "Vertical corregida" : "Se restauró la sugerencia de la IA",
-      );
-    } catch (err) {
-      setItems((prev) =>
-        prev.map((t) =>
-          t.id === thread.id
-            ? { ...t, vertical: prevVertical, verticalFixed: prevFixed }
-            : t,
-        ),
-      );
-      toast.error(err instanceof Error ? err.message : "Error al corregir");
-      hardRefresh();
-    }
-  }
 
   /** Archivar/papelera con UI optimista: soft al aplicar, hard al deshacer. */
   function runRemoveAction(
@@ -1040,10 +943,6 @@ export function CorreosClient() {
         if (canModify) toggleSelect(id);
         return;
       }
-      if (canModify && hasRadarCaps) {
-        setVerticalPicker({ thread: t, anchor: null });
-        return;
-      }
       const aiItems = buildAiMenuItems(t, perms, { onCommand: handleAiCommand });
       if (aiItems.length > 0) {
         setAiMenuSheet(t);
@@ -1052,7 +951,7 @@ export function CorreosClient() {
       if (canModify) toggleSelect(id);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [selectionMode, canModify, hasRadarCaps, toggleSelect, perms],
+    [selectionMode, canModify, toggleSelect, perms],
   );
   const handleRowAiMenu = useCallback(
     (id: string, anchor: { x: number; y: number }) => {
@@ -1075,7 +974,7 @@ export function CorreosClient() {
   // Ítems del menú contextual (click derecho, desktop): 3 bloques + 3 submenús.
   function contextItems(
     t: CorreoThreadDTO,
-    anchor?: { x: number; y: number },
+    _anchor?: { x: number; y: number },
   ): CorreoMenuItem[] {
     const aiItems = buildAiMenuItems(t, perms, { onCommand: handleAiCommand });
     const items: CorreoMenuItem[] = [
@@ -1151,29 +1050,12 @@ export function CorreosClient() {
     }
 
     if (aiItems.length > 0) {
-      const aiSubmenu: CorreoMenuItem[] = [...aiItems];
-      if (canModify) {
-        aiSubmenu.push({
-          divider: true,
-          icon: <Tag className="h-4 w-4" />,
-          label: "Corregir vertical",
-          onClick: () => setVerticalPicker({ thread: t, anchor: anchor ?? null }),
-        });
-      }
       items.push({
         divider: true,
         icon: <Sparkles className="h-4 w-4" />,
         label: "✦ Copiloto",
         onClick: () => {},
-        submenu: aiSubmenu,
-      });
-    } else if (canModify) {
-      // Sin Copiloto: Corregir vertical queda en el bloque triage.
-      items.push({
-        divider: items.length > 3,
-        icon: <Tag className="h-4 w-4" />,
-        label: "Corregir vertical",
-        onClick: () => setVerticalPicker({ thread: t, anchor: anchor ?? null }),
+        submenu: [...aiItems],
       });
     }
 
@@ -1273,8 +1155,6 @@ export function CorreosClient() {
         onFolder={setFolder}
         chip={chip}
         onChip={setChip}
-        vertical={vertical}
-        onVertical={setVertical}
         counts={counts}
         previewLines={previewLines}
         onPreviewLines={setPreviewLines}
@@ -1323,18 +1203,6 @@ export function CorreosClient() {
             : []
         }
         onClose={() => setCtxMenu(null)}
-      />
-      <CorreoVerticalPicker
-        open={verticalPicker !== null}
-        onClose={() => setVerticalPicker(null)}
-        variant={verticalPicker?.anchor ? "menu" : "sheet"}
-        anchor={verticalPicker?.anchor ?? null}
-        caps={radarCaps}
-        current={verticalPicker?.thread.vertical ?? null}
-        fixed={Boolean(verticalPicker?.thread.verticalFixed)}
-        onSelect={(v) => {
-          if (verticalPicker) void applyVerticalOverride(verticalPicker.thread, v);
-        }}
       />
       <CorreoAiMenuSheet
         open={aiMenuSheet !== null}
@@ -1413,7 +1281,6 @@ export function CorreosClient() {
         <CorreosDesktopRail
           folder={folder} onFolder={setFolder}
           chip={chip} onChip={setChip}
-          vertical={vertical} onVertical={setVertical}
           counts={counts}
           onCompose={() => {
             setComposeOpen(true);
@@ -1531,7 +1398,6 @@ export function CorreosClient() {
                   onUndoDone={hardRefresh}
                   onRemove={removeThreadAndAdvance}
                   onSnooze={handleRowSnooze}
-                  caps={radarCaps}
                   onAiMenu={canUseCopiloto ? handleRowAiMenu : undefined}
                   onOpen={handleRowOpen}
                 />

@@ -26,7 +26,7 @@ export type ReplyBoxDetail = {
   attachments: CorreoAttachmentDTO[];
 };
 
-type Meta = { to: string[]; replyAll: ReplyAll | null; radarItemId: string | null; preDraft: string | null };
+type Meta = { to: string[]; replyAll: ReplyAll | null };
 
 function normalizeReplyAll(ra: ReplyAll | null): ReplyAll | null {
   if (!ra) return null;
@@ -105,8 +105,6 @@ export function CorreoReplyBox({
   const [meta, setMeta] = useState<Meta>({
     to: [],
     replyAll: null,
-    radarItemId: null,
-    preDraft: null,
   });
   const [metaReady, setMetaReady] = useState(false);
   const [open, setOpen] = useState<{ mode: ComposerMode; ai: boolean; expanded: boolean } | null>(null);
@@ -134,12 +132,10 @@ export function CorreoReplyBox({
         setMeta({
           to,
           replyAll: normalizeReplyAll(d.replyAll ?? null),
-          radarItemId: d.radarItemId ?? null,
-          preDraft: d.draft ? String(d.draft) : null,
         });
       })
       .catch(() => {
-        if (alive) setMeta({ to: [], replyAll: null, radarItemId: null, preDraft: null });
+        if (alive) setMeta({ to: [], replyAll: null });
       })
       .finally(() => {
         if (alive) setMetaReady(true);
@@ -202,8 +198,6 @@ export function CorreoReplyBox({
       contactId={detail.thread.contactId ?? null}
       to={meta.to}
       replyAll={meta.replyAll}
-      radarItemId={meta.radarItemId}
-      preDraft={meta.preDraft}
       forwardQuotedHtml={buildForwardQuote(detail)}
       forwardAttachments={forwardAttachments}
       mode={open.mode}

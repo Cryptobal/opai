@@ -16,7 +16,6 @@ const OPERATOR_HINTS = [
   "subject:",
   "has:attachment",
   "is:unread",
-  "vertical:",
   "newer_than:7d",
 ] as const;
 

@@ -1,5 +1,4 @@
 import { AgendaHubCard } from "@/components/agenda/AgendaHubCard";
-import { RadarComercialCard } from "@/components/hub/RadarComercialCard";
 import type {
   AtsMetrics,
   ClosingHubData,
@@ -41,17 +40,13 @@ export function HubCommercialView({
       {/* "Control comercial" = dashboard del Hub; "Abrir Comercial" = CRM real */}
       <HubDomainHeader
         title="Control comercial"
-        hint="Radar, agenda, borradores, negociación, contratos y servicios por iniciar."
+        hint="Agenda, borradores, negociación, contratos y servicios por iniciar."
         moduleHref="/crm"
         moduleLabel="Abrir Comercial"
       />
 
-      {/* Móvil: apila Agenda (lista vertical) y luego Radar resumido.
-          Desktop: columnas Agenda + Radar como antes. grid-cols-1 base evita
-          que el track auto crezca al min-content y desborde la pantalla. */}
-      <div className="grid min-w-0 grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(360px,0.85fr)]">
+      <div className="min-w-0">
         <AgendaHubCard />
-        <RadarComercialCard />
       </div>
 
       <HubCrmSection

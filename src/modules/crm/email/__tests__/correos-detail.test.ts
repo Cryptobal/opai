@@ -58,7 +58,6 @@ const THREAD = {
   sharedWithAccount: false,
   lastMessageAt: null,
   aiCategory: null,
-  aiVertical: null,
   aiUrgency: null,
   aiSentiment: null,
   aiSummary: null,

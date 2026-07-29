@@ -37,9 +37,6 @@ const thread: CorreoThreadDTO = {
   starredAt: null,
   spamAt: null,
   hasDraft: false,
-  aiSummary: null,
-  vertical: null,
-  verticalFixed: false,
 };
 
 const swipeConfig: CorreoSwipeConfig = {

@@ -17,7 +17,6 @@ import { CorreoMessages } from "./CorreoMessages";
 import { CorreoReplyBox } from "./CorreoReplyBox";
 import { CorreoThreadActions } from "./CorreoThreadActions";
 import { CorreoWorkPanel } from "./CorreoWorkPanel";
-import { CorreoVerdictStrip } from "./CorreoVerdictStrip";
 import { resolveWorkTab, type WorkTab } from "./work-panel-tabs";
 import type { CorreoDetail } from "@/modules/crm/email/correos.types";
 import type { CorreoAiCommandId } from "@/modules/crm/email/correo-ai-commands";
@@ -269,27 +268,6 @@ export function CorreoDrawerContent({
             )}
           </div>
         </div>
-
-        {t.aiClassifiedAt && (
-          <button
-            type="button"
-            onClick={() => openPanel("resumen")}
-            aria-label="Abrir Copiloto con el veredicto del hilo"
-            className="block w-full text-left ds-tap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ds-border-strong rounded-xl"
-          >
-            <CorreoVerdictStrip
-              variant="compact"
-              data={{
-                aiCategory: t.aiCategory,
-                aiSummary: t.aiSummary,
-                aiUrgency: t.aiUrgency,
-                aiClassifiedAt: t.aiClassifiedAt,
-                lastMessageAt: t.lastMessageAt,
-                dealFechaEntrega: t.dealFechaEntrega,
-              }}
-            />
-          </button>
-        )}
       </div>
 
       {detail.degraded && (

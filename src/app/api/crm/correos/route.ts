@@ -3,9 +3,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { requireCorreosAccess } from "@/lib/api-auth-productividad";
-import { resolveApiPerms } from "@/lib/api-auth";
-import { hasCapability } from "@/lib/permissions";
-import type { RadarCapability } from "@/modules/crm/email/radar-types";
 import { listCorreoThreads, type CorreoListFilter } from "@/modules/crm/email/correos-list";
 import { countCorreoFolders } from "@/modules/crm/email/correos-folder-counts";
 import { getGmailSyncParkedInfo } from "@/modules/crm/email/gmail-sync-queue";
@@ -25,21 +22,6 @@ function parseFolder(raw: string | null): CorreoListFilter {
     return raw;
   }
   return "inbox";
-}
-
-const VERTICALES = new Set([
-  "operaciones",
-  "rrhh",
-  "comercial",
-  "finanzas",
-  "cobranza",
-  "contratos",
-  "incidentes",
-  "otro",
-]);
-
-function parseVertical(raw: string | null): string | null {
-  return raw && VERTICALES.has(raw) ? raw : null;
 }
 
 export async function GET(req: NextRequest) {
@@ -64,14 +46,6 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ connected: false, items: [], nextCursor: null, counts: null });
   }
 
-  // F2: capabilities de radar del solicitante → gobiernan el badge por vertical.
-  const perms = await resolveApiPerms(mod.ctx);
-  const radarCaps = new Set<RadarCapability>(
-    (["radar_comercial", "radar_operaciones", "radar_rrhh", "radar_finanzas"] as const).filter(
-      (c) => hasCapability(perms, c),
-    ),
-  );
-
   const folder = parseFolder(req.nextUrl.searchParams.get("folder"));
   // C18 (PR-13): los 9 counts NO se calculan en cada request — solo cuando el
   // cliente los pide (carga inicial, cambio de carpeta, invalidación realtime).
@@ -89,8 +63,6 @@ export async function GET(req: NextRequest) {
         cursor: req.nextUrl.searchParams.get("cursor"),
         folder,
         q: req.nextUrl.searchParams.get("q"),
-        vertical: parseVertical(req.nextUrl.searchParams.get("vertical")),
-        radarCaps,
       }),
       wantCounts
         ? countCorreoFolders({

@@ -23,7 +23,6 @@ import {
   type CorreoAiCommandId,
 } from "@/modules/crm/email/correo-ai-commands";
 import { resolveContinueActions } from "@/modules/crm/email/correo-continue-actions";
-import { CorreoVerdictStrip } from "./CorreoVerdictStrip";
 import { CorreoThreadSummaryCard } from "./CorreoThreadSummaryCard";
 import { CorreoThreadContacts } from "./CorreoThreadContacts";
 import { useCorreoWork } from "./CorreoWorkContext";
@@ -204,18 +203,6 @@ export function CorreoWorkSummary({
 
   return (
     <div className="ds-page-enter space-y-3">
-      <CorreoVerdictStrip
-        variant="full"
-        data={{
-          aiCategory: t.aiCategory,
-          aiSummary: t.aiSummary,
-          aiUrgency: t.aiUrgency,
-          aiClassifiedAt: t.aiClassifiedAt,
-          lastMessageAt: t.lastMessageAt,
-          dealFechaEntrega: t.dealFechaEntrega,
-        }}
-      />
-
       {primary && primaryCopy && !primaryExecuted && (
         <button
           type="button"

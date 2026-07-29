@@ -2,10 +2,10 @@
 
 import { Clock, Mail, Menu, PenLine, RefreshCw, Settings, Wifi, WifiOff, Keyboard, WandSparkles } from "lucide-react";
 import {
-  CHIPS, TABS, VERTICAL_LABELS,
+  CHIPS, TABS,
   type CorreoChipKey, type CorreoFolderCounts, type CorreoFolderTab,
 } from "./CorreosFilters";
-import { FOLDER_ICONS, VERTICAL_DOTS } from "./CorreosMobileDrawer";
+import { FOLDER_ICONS } from "./CorreosMobileDrawer";
 import type { CorreosRealtimeStatus } from "./useCorreosRealtime";
 
 type Props = {
@@ -13,8 +13,6 @@ type Props = {
   onFolder: (f: CorreoFolderTab) => void;
   chip: CorreoChipKey;
   onChip: (c: CorreoChipKey) => void;
-  vertical: string | null;
-  onVertical: (v: string | null) => void;
   counts: CorreoFolderCounts;
   onCompose: () => void;
   onSync: () => void;
@@ -35,10 +33,10 @@ type Props = {
 };
 
 /** Riel de carpetas desktop (reemplaza a las filas de pills): Redactar,
- *  carpetas con contadores, filtros de asociación y verticales, y estado
+ *  carpetas con contadores, filtros de asociación, y estado
  *  de sync al pie. Contraíble a 68px con peek al pasar el mouse. */
 export function CorreosDesktopRail({
-  folder, onFolder, chip, onChip, vertical, onVertical, counts,
+  folder, onFolder, chip, onChip, counts,
   onCompose, onSync, syncing, realtimeStatus, lastSyncAt, mailboxEmail,
   collapsed, onToggleCollapsed, onOpenSwipeSettings, onOpenShortcuts,
   onOpenSnoozeSettings, onOpenAiStyle,
@@ -143,15 +141,6 @@ export function CorreosDesktopRail({
               onClick={() => onChip(chip === c.key ? "todos" : c.key)}
               className={item(chip === c.key)}>
               <span className={`${lbl} min-w-0 flex-1`}>{c.label}</span>
-            </button>
-          ))}
-          <p className="px-3.5 pb-1.5 pt-3.5 text-[11px] font-mono uppercase tracking-[0.08em] text-ds-text-4">Verticales</p>
-          {Object.entries(VERTICAL_LABELS).map(([key, label]) => (
-            <button key={key} type="button"
-              onClick={() => onVertical(vertical === key ? null : key)}
-              className={item(vertical === key)}>
-              <span aria-hidden className={`h-2.5 w-2.5 shrink-0 rounded-full ${VERTICAL_DOTS[key] ?? "bg-tint-violet"}`} />
-              <span className={`${lbl} min-w-0 flex-1`}>{label}</span>
             </button>
           ))}
         </div>

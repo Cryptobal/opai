@@ -7,11 +7,6 @@ import { captureEmailError } from "./email-observability";
 import { attachSavedFileIds } from "./attachment-saved";
 import type { CorreoDetail, CorreoAttachmentDTO } from "./correos.types";
 import { parseThreadSummaryCache } from "./email-summary.service";
-import {
-  effectiveVertical,
-  visibleVertical,
-  type RadarCapability,
-} from "./radar-types";
 
 /** TTL del caché de detalle; la invalidación real es updatedAt del sync. */
 const DETAIL_CACHE_TTL_MS = 15 * 60_000;
@@ -49,8 +44,6 @@ export async function getCorreoDetail(params: {
   tenantId: string;
   emailAccountId: string;
   threadId: string;
-  /** Capabilities de radar del solicitante (filtra vertical visible). */
-  radarCaps?: Set<RadarCapability>;
 }): Promise<CorreoDetail | null> {
   const startedAt = Date.now();
   const { tenantId, emailAccountId, threadId } = params;
@@ -70,8 +63,6 @@ export async function getCorreoDetail(params: {
       sharedWithAccount: true,
       lastMessageAt: true,
       aiCategory: true,
-      aiVertical: true,
-      verticalOverride: true,
       aiUrgency: true,
       aiSentiment: true,
       aiSummary: true,
@@ -235,12 +226,6 @@ export async function getCorreoDetail(params: {
       sharedWithAccount: thread.sharedWithAccount,
       lastMessageAt: thread.lastMessageAt?.toISOString() ?? null,
       aiCategory: thread.aiCategory,
-      aiVertical: thread.aiVertical,
-      vertical: visibleVertical(
-        effectiveVertical(thread.aiVertical, thread.verticalOverride),
-        params.radarCaps ?? new Set(),
-      ),
-      verticalFixed: Boolean(thread.verticalOverride),
       aiUrgency: thread.aiUrgency,
       aiSentiment: thread.aiSentiment,
       aiSummary: thread.aiSummary,
