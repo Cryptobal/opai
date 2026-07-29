@@ -122,6 +122,7 @@ export function CorreoReplyBox({
   composeIntent = null,
   continueDraftIntent = null,
   onOpenAiStyle,
+  onOpenSignature,
 }: {
   detail: ReplyBoxDetail;
   onSent: () => void;
@@ -131,6 +132,7 @@ export function CorreoReplyBox({
   /** Continuar un borrador desde la card de la cadena. */
   continueDraftIntent?: { message: CorreoMessageDTO; nonce: number } | null;
   onOpenAiStyle?: () => void;
+  onOpenSignature?: () => void;
 }) {
   const threadId = detail.thread.id;
   const [meta, setMeta] = useState<Meta>({
@@ -267,6 +269,7 @@ export function CorreoReplyBox({
         onSent();
       }}
       onOpenAiStyle={onOpenAiStyle}
+      onOpenSignature={onOpenSignature}
     />
   );
 }

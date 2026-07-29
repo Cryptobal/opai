@@ -12,6 +12,8 @@ import { getTenantCompanyConfig } from "@/lib/tenant-config";
 import { buildPortalClienteMagicLinkUrl } from "@/lib/portal-cliente-magic-link";
 import { renderFollowUpEmailHtml } from "@/lib/followup-email-layout";
 import { getCanonicalSiteUrl } from "@/lib/emails/site-url";
+import { resolveSignatureForSend } from "@/modules/crm/email/signature-resolve.server";
+import { appendSignatureOnce } from "@/modules/crm/email/email-signature";
 
 function tiptapJsonToHtml(doc: unknown): string {
   const d = doc as { content?: unknown[] } | null;
@@ -294,16 +296,10 @@ export async function processFollowUpLog(
           : `Último seguimiento: ${deal.title} - ${deal.account.name}`;
   }
 
-  const signature = await prisma.crmEmailSignature.findFirst({
-    where: {
-      tenantId: followUp.tenantId,
-      isDefault: true,
-      isActive: true,
-    },
-  });
-
-  if (signature?.htmlContent) {
-    bodyHtml += signature.htmlContent;
+  // CrmDeal no expone ownerId/createdBy: solo firma de empresa (userId: null).
+  const signature = await resolveSignatureForSend(followUp.tenantId, null);
+  if (signature) {
+    bodyHtml = appendSignatureOnce(bodyHtml, signature.html).html;
   }
 
   const emailHtml = renderFollowUpEmailHtml({

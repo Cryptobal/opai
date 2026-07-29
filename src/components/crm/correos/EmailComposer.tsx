@@ -32,6 +32,7 @@ import { confirmDialog } from "@/components/ui/confirm-service";
 import { ContractEditor } from "@/components/docs/ContractEditor";
 import { EmailToolbar } from "./EmailToolbar";
 import { ScheduleSendSplitButton } from "./ScheduleSendSplitButton";
+import { SignatureChip } from "./signature/SignatureChip";
 import { tiptapToEmailHtml } from "@/lib/docs/tiptap-to-html";
 import {
   ReplyRecipientsField,
@@ -136,6 +137,8 @@ type Props = {
   footerExtras?: React.ReactNode;
   /** Slot sobre adjuntos/Enviar (p.ej. pill "Help me write" estilo Gmail). */
   aboveFooter?: React.ReactNode;
+  /** Abre preferencias de Correos en la pestaña Firma. */
+  onOpenSignature?: () => void;
   /**
    * Selector Responder / A todos / Reenviar a la derecha de Para (estilo Gmail).
    * Solo el composer del lector lo usa; mensaje nuevo no lo pasa.
@@ -191,6 +194,7 @@ export const EmailComposer = forwardRef<EmailComposerHandle, Props>(function Ema
     onDraftDiscarded,
     footerExtras,
     aboveFooter,
+    onOpenSignature,
     modeSwitcher = null,
     contentEpoch = 0,
     onDirtyChange,
@@ -714,6 +718,9 @@ export const EmailComposer = forwardRef<EmailComposerHandle, Props>(function Ema
         disabled={busy}
         className="rounded-none border-0 border-t border-ds-border-subtle bg-transparent px-0 py-2"
       />
+      <div className="py-1">
+        <SignatureChip onOpenFirma={onOpenSignature} />
+      </div>
       <div className="flex flex-wrap items-center gap-1.5 pt-1">
         <ScheduleSendSplitButton
           busy={busy}
