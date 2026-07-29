@@ -43,7 +43,7 @@ export function EntityThreadReader({
   onChanged?: () => void;
   onClose: () => void;
 }) {
-  useCorreoFocusScope();
+  useCorreoFocusScope(Boolean(threadId));
   const [viewer, setViewer] = useState<ViewerFile | null>(null);
   const { width, reset, onResizePointerDown, onResizeKeyDown } = useEntityReaderWidth();
   const { detail, state, reload } = useEntityThreadDetail(threadId, entityType, entityId);
