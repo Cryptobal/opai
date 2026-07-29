@@ -120,16 +120,19 @@ export async function archiveThreadsWithoutInboxLabel(params: {
   const { tenantId, emailAccountId, providerThreadIds } = params;
   if (providerThreadIds && providerThreadIds.length === 0) return 0;
 
+  // SELECT + JOIN LATERAL (no UPDATE…FROM LATERAL): en Postgres el alias
+  // del target de UPDATE no es visible dentro del FROM → 42P10
+  // ("invalid reference to FROM-clause entry for table t").
   const rows = await prisma.$queryRaw<{ id: string }[]>`
-    UPDATE crm.email_threads t
-    SET archived_at = NOW(), updated_at = NOW()
-    FROM LATERAL (
+    SELECT t.id
+    FROM crm.email_threads t
+    INNER JOIN LATERAL (
       SELECT m.label_ids
       FROM crm.email_messages m
       WHERE m.thread_id = t.id
       ORDER BY m.sent_at DESC NULLS LAST, m.created_at DESC
       LIMIT 1
-    ) latest
+    ) latest ON true
     WHERE t.tenant_id = ${tenantId}
       AND t.email_account_id = ${emailAccountId}::uuid
       AND t.archived_at IS NULL
@@ -140,12 +143,27 @@ export async function archiveThreadsWithoutInboxLabel(params: {
       AND array_length(latest.label_ids, 1) > 0
       AND NOT (latest.label_ids @> ARRAY['INBOX']::text[])
       ${providerThreadScopeSql(providerThreadIds)}
-    RETURNING t.id
   `;
-  if (rows.length > 0) {
-    await stripInboxLabelsForThreads(rows.map((r) => r.id));
+  if (rows.length === 0) return 0;
+  const ids = rows.map((r) => r.id);
+  const now = new Date();
+  const res = await prisma.crmEmailThread.updateMany({
+    where: {
+      tenantId,
+      emailAccountId,
+      id: { in: ids },
+      archivedAt: null,
+      trashedAt: null,
+      spamAt: null,
+      OR: [{ snoozedUntil: null }, { snoozedUntil: { lte: now } }],
+      providerThreadId: { not: null },
+    },
+    data: { archivedAt: now },
+  });
+  if (res.count > 0) {
+    await stripInboxLabelsForThreads(ids);
   }
-  return rows.length;
+  return res.count;
 }
 
 /**
