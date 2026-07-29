@@ -13,7 +13,6 @@ import type {
 } from "./useCorreosViewPreferences";
 import {
   SWIPE_BUTTON_WIDTH,
-  SWIPE_COMMIT_RATIO,
   SWIPE_OPEN_WIDTH,
   useRowSwipe,
 } from "./useRowSwipe";
@@ -100,9 +99,8 @@ function SwipeActionStrip({
 }
 
 /**
- * Swipe de dos niveles (sólo pointer coarse): snap revela 2 botones (tap);
- * commit o flick ejecuta la principal. Botones de ancho fijo; overlay de commit.
- * Sin lecturas de layout ni re-renders durante el arrastre.
+ * Swipe lateral (sólo pointer coarse): revela 2 botones por lado;
+ * la acción se ejecuta solo al tocar un botón (nunca al soltar el deslizamiento).
  */
 function CorreoRowSwipeInner({
   thread, canModify, onOpen, onChanged, onPatch, onRemoveDone, onUndoDone, onRemove, onSnooze,
@@ -127,7 +125,6 @@ function CorreoRowSwipeInner({
     openSide,
     touchAction,
     rowRef,
-    rowWidthRef,
     measureWidth,
     close,
     wasDragged,
@@ -135,7 +132,6 @@ function CorreoRowSwipeInner({
     dragProps,
   } = useRowSwipe({
     enabled: coarse && canModify && !leaving && !selectionMode,
-    onCommitSwipe: (side) => execute(side === "right" ? swipeConfig.right[0] : swipeConfig.left[0]),
     onLongPress: coarse && onLongPress ? () => onLongPress(thread.id) : undefined,
   });
 
@@ -155,51 +151,8 @@ function CorreoRowSwipeInner({
     return () => ro.disconnect();
   }, [rowRef, coarse, measureWidth]);
 
-  // Transforms leen rowWidthRef (memoizado) — cero offsetWidth por frame.
-  const rightStripOpacity = useTransform(x, (value) => {
-    if (value <= 0) return 0;
-    const abs = value;
-    const width = rowWidthRef.current || 360;
-    return abs >= width * SWIPE_COMMIT_RATIO ? 0 : 1;
-  });
-
-  const leftStripOpacity = useTransform(x, (value) => {
-    if (value >= 0) return 0;
-    const abs = Math.abs(value);
-    const width = rowWidthRef.current || 360;
-    return abs >= width * SWIPE_COMMIT_RATIO ? 0 : 1;
-  });
-
-  const rightCommitOpacity = useTransform(x, (value) => {
-    if (value <= 0) return 0;
-    const abs = value;
-    const width = rowWidthRef.current || 360;
-    const threshold = width * SWIPE_COMMIT_RATIO;
-    if (abs < threshold) return 0;
-    const progress = Math.min(1, (abs - threshold) / Math.max(threshold * 0.35, 1));
-    return 0.45 + 0.55 * progress;
-  });
-
-  const leftCommitOpacity = useTransform(x, (value) => {
-    if (value >= 0) return 0;
-    const abs = Math.abs(value);
-    const width = rowWidthRef.current || 360;
-    const threshold = width * SWIPE_COMMIT_RATIO;
-    if (abs < threshold) return 0;
-    const progress = Math.min(1, (abs - threshold) / Math.max(threshold * 0.35, 1));
-    return 0.45 + 0.55 * progress;
-  });
-
-  const rightCommitIconLeft = useTransform(x, (value) => {
-    if (value < 0) return 12;
-    return Math.max(12, value - 36);
-  });
-
-  const leftCommitIconLeft = useTransform(x, (value) => {
-    const width = rowWidthRef.current || 360;
-    if (value >= 0) return 12;
-    return Math.max(12, width + value + 12);
-  });
+  const rightStripOpacity = useTransform(x, (value) => (value > 0 ? 1 : 0));
+  const leftStripOpacity = useTransform(x, (value) => (value < 0 ? 1 : 0));
 
   function execute(action: CorreoSwipeAction) {
     if (action === "archive" || action === "trash") {
@@ -296,10 +249,6 @@ function CorreoRowSwipeInner({
   // Lado izquierdo: visualmente [secundaria, primaria] anclado a la derecha.
   const leftShown: CorreoSwipeAction[] = [leftActions[1], leftActions[0]];
   const revealed = openSide !== null;
-  const rightPrimary = rightActions[0];
-  const leftPrimary = leftActions[0];
-  const RightPrimaryIcon = actionMeta(rightPrimary, thread).icon;
-  const LeftPrimaryIcon = actionMeta(leftPrimary, thread).icon;
 
   return (
     <div
@@ -335,32 +284,6 @@ function CorreoRowSwipeInner({
           revealed={revealed && openSide === "left"}
           onExecute={execute}
         />
-      </motion.div>
-
-      {/* Overlays de commit — uno por lado, sin re-render al cruzar cero. */}
-      <motion.div
-        aria-hidden
-        className={`pointer-events-none absolute inset-0 ${ACTION_STYLE[rightPrimary].bg}`}
-        style={{ opacity: rightCommitOpacity }}
-      >
-        <motion.div
-          className="absolute inset-y-0 flex items-center"
-          style={{ left: rightCommitIconLeft }}
-        >
-          <RightPrimaryIcon className={`h-6 w-6 scale-125 ${ACTION_STYLE[rightPrimary].fg}`} />
-        </motion.div>
-      </motion.div>
-      <motion.div
-        aria-hidden
-        className={`pointer-events-none absolute inset-0 ${ACTION_STYLE[leftPrimary].bg}`}
-        style={{ opacity: leftCommitOpacity }}
-      >
-        <motion.div
-          className="absolute inset-y-0 flex items-center"
-          style={{ left: leftCommitIconLeft }}
-        >
-          <LeftPrimaryIcon className={`h-6 w-6 scale-125 ${ACTION_STYLE[leftPrimary].fg}`} />
-        </motion.div>
       </motion.div>
 
       <motion.div

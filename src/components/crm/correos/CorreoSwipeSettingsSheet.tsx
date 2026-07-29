@@ -56,7 +56,7 @@ function Selector({
 }
 
 /** Sheet de configuración de los gestos de deslizar (mismo patrón visual
- *  que CorreoSnoozeSheet). La acción 1 de cada lado es la del swipe largo. */
+ *  que CorreoSnoozeSheet). Deslizar revela botones; hay que tocarlos para ejecutar. */
 export function CorreoSwipeSettingsSheet({
   open, onClose, config, onConfig, undoSeconds, onUndoSeconds,
 }: Props) {
@@ -88,18 +88,18 @@ export function CorreoSwipeSettingsSheet({
           </button>
         </div>
         <p className="text-[12px] text-ds-text-3">
-          Deslizá corto para ver los botones o ejecutar la acción secundaria; largo o flick para la principal.
+          Deslizá para ver los dos botones de cada lado. Tocá uno para ejecutarlo.
         </p>
 
         <div className="space-y-1.5">
           <p className="text-[12px] font-medium text-ds-text-2">Deslizar a la derecha →</p>
-          <Selector label="Acción 1 (principal)" value={config.right[0]} onChange={set("right", 0)} />
+          <Selector label="Acción 1" value={config.right[0]} onChange={set("right", 0)} />
           <Selector label="Acción 2" value={config.right[1]} onChange={set("right", 1)} />
         </div>
 
         <div className="space-y-1.5">
           <p className="text-[12px] font-medium text-ds-text-2">← Deslizar a la izquierda</p>
-          <Selector label="Acción 1 (principal)" value={config.left[0]} onChange={set("left", 0)} />
+          <Selector label="Acción 1" value={config.left[0]} onChange={set("left", 0)} />
           <Selector label="Acción 2" value={config.left[1]} onChange={set("left", 1)} />
         </div>
 
