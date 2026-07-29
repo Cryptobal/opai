@@ -28,6 +28,12 @@ export const RRF_WEIGHT_LEXICAL = 1.0;
 export const RRF_WEIGHT_SEMANTIC = 0.9;
 
 /**
+ * Distancia coseno máxima (`<=>`) para aceptar un hit semántico.
+ * Por encima = vecino lejano (basura operacional). text-embedding-3-small.
+ */
+export const MAX_SEMANTIC_DISTANCE = 0.55;
+
+/**
  * Boosts deterministas — notoriamente menores que la diferencia RRF típica
  * entre posiciones consecutivas (~0.00027 en ranks bajos). Solo desempate.
  */
@@ -45,6 +51,10 @@ export type HybridSearchResult = {
   semanticAvailable: boolean;
   /** Mejor excerpt por hilo cuando la rama semántica aportó. */
   excerptById: Map<string, string>;
+  /** La rama léxica no encontró nada (el resultado es solo semántico o vacío). */
+  lexicalEmpty: boolean;
+  /** Hits semánticos descartados por baja similitud. */
+  semanticDiscarded: number;
 };
 
 type LexicalRow = {
@@ -111,9 +121,18 @@ export async function hybridSearchThreadIds(params: {
   vertical?: string | null;
   limit: number;
   now?: Date;
+  /**
+   * Si true, no mezcla hits solo-semánticos cuando la rama léxica está vacía.
+   * Útil para «buscar solo exactos» y para queries basura (asdfgh).
+   */
+  exactOnly?: boolean;
 }): Promise<HybridSearchResult> {
   const now = params.now ?? new Date();
-  const folder = params.parsed.folderOverride ?? params.folder;
+  // Texto libre sin `in:` → toda la casilla (como Gmail). Operadores solos
+  // respetan la carpeta de la UI.
+  const folder =
+    params.parsed.folderOverride ??
+    (params.parsed.terms.length > 0 ? "all" : params.folder);
   const limit = Math.min(Math.max(params.limit, 1), 100);
   const overfetch = Math.min(limit * 4, 200);
   const hasTextTerms = params.parsed.terms.length > 0;
@@ -142,6 +161,8 @@ export async function hybridSearchThreadIds(params: {
       reasonById,
       semanticAvailable: semanticAvailableEnv,
       excerptById: new Map(),
+      lexicalEmpty: idRows.length === 0,
+      semanticDiscarded: 0,
     };
   }
 
@@ -183,11 +204,20 @@ export async function hybridSearchThreadIds(params: {
   ]);
 
   const lexicalRows = lexSettled.status === "fulfilled" ? lexSettled.value : [];
-  const semanticHits = semSettled.status === "fulfilled" ? semSettled.value : [];
+  const rawSemanticHits = semSettled.status === "fulfilled" ? semSettled.value : [];
   const semanticAvailable =
     semanticAvailableEnv && semSettled.status === "fulfilled";
 
+  const strongHits = rawSemanticHits.filter(
+    (h) => h.distance <= MAX_SEMANTIC_DISTANCE,
+  );
+  const semanticDiscarded = rawSemanticHits.length - strongHits.length;
+
   const lexicalIds = lexicalRows.map((r) => r.id);
+  const lexicalEmpty = lexicalIds.length === 0;
+
+  // exactOnly / umbral: nunca servir vecinos semánticos lejanos.
+  const semanticHits = params.exactOnly ? [] : strongHits;
   const semanticIds = rankThreadsFromHits(semanticHits, overfetch);
   const lexicalMeta = new Map(lexicalRows.map((r) => [r.id, r]));
 
@@ -220,5 +250,12 @@ export async function hybridSearchThreadIds(params: {
     }
   }
 
-  return { ids: ranked, reasonById, semanticAvailable, excerptById };
+  return {
+    ids: ranked,
+    reasonById,
+    semanticAvailable,
+    excerptById,
+    lexicalEmpty,
+    semanticDiscarded,
+  };
 }

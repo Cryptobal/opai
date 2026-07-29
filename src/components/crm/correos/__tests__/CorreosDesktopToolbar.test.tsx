@@ -31,6 +31,13 @@ describe("CorreosDesktopToolbar", () => {
     expect(screen.getByText("3 hilos")).toBeTruthy();
   });
 
+  it("en búsqueda muestra «N resultados» cuando coincide el total", () => {
+    render(
+      <CorreosDesktopToolbar {...base} searching shownCount={1} totalCount={1} />,
+    );
+    expect(screen.getByText("1 resultado")).toBeTruthy();
+  });
+
   it("dispara onToggleAll al hacer clic en el checkbox", () => {
     const onToggleAll = vi.fn();
     render(<CorreosDesktopToolbar {...base} onToggleAll={onToggleAll} />);

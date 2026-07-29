@@ -114,16 +114,26 @@ export async function listCorreoThreads(params: {
   q?: string | null;
   /** @deprecated Ignorado — la búsqueda siempre es híbrida. */
   semantic?: boolean;
+  /** Solo coincidencias léxicas (sin rama semántica). */
+  exactOnly?: boolean;
 }): Promise<{
   items: CorreoThreadDTO[];
   nextCursor: string | null;
   semanticAvailable?: boolean;
+  /** true si hubo q activo y la rama léxica no matcheó. */
+  lexicalEmpty?: boolean;
+  semanticDiscarded?: number;
+  /** Total de filas que se van a renderizar (para el contador). */
+  resultCount?: number;
 }> {
   const limit = Math.min(Math.max(params.limit ?? 30, 1), 100);
   const cursorDate = params.cursor ? new Date(params.cursor) : null;
   const folder = params.folder ?? "inbox";
   const parsedSearch = parseCorreoSearchQuery(params.q);
-  const effectiveFolder = parsedSearch?.folderOverride ?? folder;
+  // Texto libre sin in: → all (Gmail-like). Ver hybridSearchThreadIds.
+  const effectiveFolder =
+    parsedSearch?.folderOverride ??
+    (parsedSearch && parsedSearch.terms.length > 0 ? "all" : folder);
 
   // Búsqueda con texto libre → motor híbrido (una sola página rankeada).
   if (parsedSearch && parsedSearch.terms.length > 0) {
@@ -134,9 +144,17 @@ export async function listCorreoThreads(params: {
       parsed: parsedSearch,
       folder: effectiveFolder,
       limit,
+      exactOnly: Boolean(params.exactOnly),
     });
     if (hybrid.ids.length === 0) {
-      return { items: [], nextCursor: null, semanticAvailable: hybrid.semanticAvailable };
+      return {
+        items: [],
+        nextCursor: null,
+        semanticAvailable: hybrid.semanticAvailable,
+        lexicalEmpty: hybrid.lexicalEmpty,
+        semanticDiscarded: hybrid.semanticDiscarded,
+        resultCount: 0,
+      };
     }
     const [threads, company] = await Promise.all([
       prisma.crmEmailThread.findMany({
@@ -153,16 +171,20 @@ export async function listCorreoThreads(params: {
     const sorted = threads.sort(
       (a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0),
     );
+    const items = await mapThreadRowsInternal(
+      sorted,
+      params.tenantId,
+      company,
+      params.mailboxEmail,
+      hybrid.reasonById,
+    );
     return {
-      items: await mapThreadRowsInternal(
-        sorted,
-        params.tenantId,
-        company,
-        params.mailboxEmail,
-        hybrid.reasonById,
-      ),
+      items,
       nextCursor: null,
       semanticAvailable: hybrid.semanticAvailable,
+      lexicalEmpty: hybrid.lexicalEmpty,
+      semanticDiscarded: hybrid.semanticDiscarded,
+      resultCount: items.length,
     };
   }
 

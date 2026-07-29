@@ -223,12 +223,36 @@ describe("hybridSearchThreadIds", () => {
     });
     expect(result.reasonById.get("shared")).toBe("both");
     expect(result.ids).toContain("shared");
+    expect(result.lexicalEmpty).toBe(false);
     expect(mocks.semanticSearchChunks).toHaveBeenCalledWith(
       expect.objectContaining({
         folderSql: expect.anything(),
         structuralSql: expect.any(Array),
       }),
     );
+  });
+
+  it("descarta hits semánticos sobre el umbral cuando léxico está vacío", async () => {
+    mocks.queryRaw.mockResolvedValue([]);
+    mocks.semanticSearchChunks.mockResolvedValue([
+      {
+        threadId: "far",
+        messageId: "m1",
+        content: "noise",
+        distance: 0.9,
+      },
+    ]);
+    const parsed = parseCorreoSearchQuery("asdfgh")!;
+    const result = await hybridSearchThreadIds({
+      tenantId: "ten",
+      emailAccountId: "00000000-0000-0000-0000-000000000001",
+      parsed,
+      folder: "inbox",
+      limit: 10,
+    });
+    expect(result.ids).toEqual([]);
+    expect(result.lexicalEmpty).toBe(true);
+    expect(result.semanticDiscarded).toBe(1);
   });
 
   it("respeta folderOverride in:trash del parser", async () => {

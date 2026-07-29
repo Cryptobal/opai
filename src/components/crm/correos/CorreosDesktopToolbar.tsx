@@ -18,6 +18,8 @@ type Props = {
   syncing: boolean;
   shownCount: number;
   totalCount: number | null;
+  /** Si true, el contador usa wording «N resultados» (búsqueda activa). */
+  searching?: boolean;
   previewLines: CorreoPreviewLines;
   onPreviewLines: (lines: CorreoPreviewLines) => void;
   /** Selección activa: la barra muta a acciones masivas (bulkAction del cliente). */
@@ -36,10 +38,18 @@ const BTN = "flex h-8 w-8 items-center justify-center rounded-lg text-ds-text-3 
  *  activa muta a acciones masivas. La búsqueda vive en el topbar (overlay). */
 export function CorreosDesktopToolbar({
   canModify, allChecked, onToggleAll, onRefresh, syncing,
-  shownCount, totalCount, previewLines, onPreviewLines,
+  shownCount, totalCount, searching = false, previewLines, onPreviewLines,
   selectedCount, allReadSelected, onClear, onAction, onSnooze, onOpenShortcuts,
 }: Props) {
   const compact = previewLines === 1;
+  const countLabel =
+    totalCount == null
+      ? `${shownCount} hilos`
+      : searching
+        ? totalCount === shownCount
+          ? `${shownCount} resultado${shownCount === 1 ? "" : "s"}`
+          : `${shownCount} de ${totalCount}`
+        : `${shownCount} de ${totalCount}`;
 
   if (selectedCount > 0) {
     return (
@@ -103,7 +113,7 @@ export function CorreosDesktopToolbar({
         <RefreshCw className={`h-4 w-4 ${syncing ? "animate-spin" : ""}`} />
       </button>
       <span className="ml-auto text-[12px] text-ds-text-4 tabular-nums">
-        {totalCount != null ? `${shownCount} de ${totalCount}` : `${shownCount} hilos`}
+        {countLabel}
       </span>
       <button
         type="button"

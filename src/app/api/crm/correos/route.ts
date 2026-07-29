@@ -54,7 +54,13 @@ export async function GET(req: NextRequest) {
   // mode=semantic se acepta por compatibilidad de deep-links y se ignora:
   // la búsqueda siempre corre el motor híbrido.
   void req.nextUrl.searchParams.get("mode");
-  const [{ items, nextCursor, semanticAvailable }, counts, syncParkedInfo, coverage] =
+  const exactOnly = req.nextUrl.searchParams.get("exact") === "1";
+  const [
+    { items, nextCursor, semanticAvailable, lexicalEmpty, semanticDiscarded, resultCount },
+    counts,
+    syncParkedInfo,
+    coverage,
+  ] =
     await Promise.all([
       listCorreoThreads({
         tenantId: session.user.tenantId,
@@ -63,6 +69,7 @@ export async function GET(req: NextRequest) {
         cursor: req.nextUrl.searchParams.get("cursor"),
         folder,
         q: req.nextUrl.searchParams.get("q"),
+        exactOnly,
       }),
       wantCounts
         ? countCorreoFolders({
@@ -94,6 +101,9 @@ export async function GET(req: NextRequest) {
     counts,
     coverage,
     semanticAvailable: semanticAvailable ?? true,
+    lexicalEmpty: lexicalEmpty ?? false,
+    semanticDiscarded: semanticDiscarded ?? 0,
+    resultCount: resultCount ?? items.length,
     realtimeChannel: gmailMailboxChannel(
       session.user.tenantId,
       session.user.id,

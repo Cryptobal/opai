@@ -35,29 +35,12 @@ import { Prisma } from "@prisma/client";
 import { fromZonedTime, toZonedTime } from "date-fns-tz";
 import { addDaysChile, CHILE_TZ, startOfDayChile } from "@/lib/dates-cl";
 import type { CorreoListFilter } from "./correos-list";
+import {
+  CORREO_LIST_FILTERS,
+  CORREO_SEARCH_VERTICALS,
+} from "./correos-search-operators";
 
-export const CORREO_SEARCH_VERTICALS = [
-  "operaciones",
-  "rrhh",
-  "comercial",
-  "finanzas",
-  "cobranza",
-  "contratos",
-  "incidentes",
-  "otro",
-] as const;
-
-export const CORREO_LIST_FILTERS: readonly CorreoListFilter[] = [
-  "inbox",
-  "sent",
-  "drafts",
-  "starred",
-  "spam",
-  "trash",
-  "all",
-  "snoozed",
-  "archived",
-] as const;
+export { CORREO_LIST_FILTERS, CORREO_SEARCH_VERTICALS };
 
 const VERTICAL_SET = new Set<string>(CORREO_SEARCH_VERTICALS);
 const FOLDER_SET = new Set<string>(CORREO_LIST_FILTERS);
@@ -78,7 +61,7 @@ export type ParsedCorreoSearch = {
 };
 
 const OPERATOR_RE =
-  /^(from|to|domain|before|after|has|subject|is|vertical|label|in|newer_than|older_than):(.*)$/i;
+  /^(from|to|cc|domain|before|after|has|subject|is|vertical|label|in|newer_than|older_than):(.*)$/i;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const RELATIVE_RE = /^(\d+)([dwm])$/i;
 /** Longitud máxima defensiva del query completo. */
@@ -191,7 +174,7 @@ export function parseCorreoSearchQuery(
     }
     if (!value) continue;
     if (name === "from") parsed.from.push(value.toLowerCase());
-    else if (name === "to") parsed.to.push(value.toLowerCase());
+    else if (name === "to" || name === "cc") parsed.to.push(value.toLowerCase());
     else if (name === "domain") parsed.domains.push(value.toLowerCase().replace(/^@/, ""));
     else if (name === "subject") parsed.subject.push(value);
     else if (name === "before") parsed.before = parseUtcDate(value) ?? parsed.before;
