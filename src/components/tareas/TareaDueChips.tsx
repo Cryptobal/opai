@@ -28,10 +28,12 @@ export function TareaDueChips({
   value,
   onChange,
   disabled,
+  portalContainer,
 }: {
   value: DueValue;
   onChange: (next: DueValue) => void;
   disabled?: boolean;
+  portalContainer?: HTMLElement | null;
 }) {
   const { todayYmd, tomorrowYmd, weekYmd } = useMemo(() => {
     const now = new Date();
@@ -89,6 +91,7 @@ export function TareaDueChips({
         value={value}
         onChange={onChange}
         disabled={disabled}
+        portalContainer={portalContainer}
         triggerClassName={chipClass(active === "custom")}
       >
         <CalendarClock className="h-4 w-4 shrink-0" />

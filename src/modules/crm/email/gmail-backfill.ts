@@ -2,10 +2,13 @@ import type { gmail_v1 } from "googleapis";
 import { upsertGmailMessage } from "./gmail-message-upsert";
 import { refreshThreadLabelsBatch } from "./gmail-refresh-threads";
 import { batchGetGmailMessages } from "./gmail-batch";
-import type { GmailSyncState, SyncRunArgs, SyncRunResult } from "./gmail-sync-state";
+import {
+  DEFAULT_BACKFILL_QUERY,
+  type GmailSyncState,
+  type SyncRunArgs,
+  type SyncRunResult,
+} from "./gmail-sync-state";
 
-/** INBOX + SENT de los últimos 120 días (excluye spam/trash/chats). */
-const BACKFILL_QUERY = "newer_than:120d (in:inbox OR in:sent)";
 const PAGE_SIZE = 100;
 
 /**
@@ -22,11 +25,14 @@ export async function runBackfill(args: SyncRunArgs): Promise<SyncRunResult> {
   let fetched = 0;
   let backfillDone = false;
   const touchedThreadIds = new Set<string>();
+  const backfillQuery =
+    (typeof args.state.backfillQuery === "string" && args.state.backfillQuery.trim()) ||
+    DEFAULT_BACKFILL_QUERY;
 
   while (fetched < budget && Date.now() < deadline) {
     const list = await gmail.users.messages.list({
       userId: "me",
-      q: BACKFILL_QUERY,
+      q: backfillQuery,
       maxResults: PAGE_SIZE,
       pageToken,
     });
@@ -78,6 +84,7 @@ export async function runBackfill(args: SyncRunArgs): Promise<SyncRunResult> {
 
   const state: GmailSyncState = {
     ...args.state,
+    backfillQuery,
     backfillPageToken: pageToken ?? null,
     lastSyncAt: new Date().toISOString(),
   };

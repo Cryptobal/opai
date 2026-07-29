@@ -110,7 +110,8 @@ export type GmailSyncReason =
   | "oauth"
   | "retry"
   | "action"
-  | "send";
+  | "send"
+  | "historical";
 
 export async function enqueueGmailSyncJob(params: {
   tenantId: string;

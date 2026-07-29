@@ -146,7 +146,6 @@ export function TareasPageClient({
         onSave={update}
         onDelete={remove}
         onToggle={toggleDone}
-        onPostpone={postpone}
       />
     </div>
   );

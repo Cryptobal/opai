@@ -7,7 +7,7 @@ import { InstallationField } from "../nueva-visita/InstallationField";
 import type { useEventComposer, ComposerType } from "../mobile/useEventComposer";
 import type { useQuickCreateTask } from "./useQuickCreateTask";
 import { QuickCreateParticipants } from "./QuickCreateParticipants";
-import { TimeChipPicker } from "@/components/opai/TimeChipPicker";
+import { TareaDueChips } from "@/components/tareas/TareaDueChips";
 import { TaskAssigneePicker } from "../TaskAssigneePicker";
 
 const EVENT_TYPES: Array<{ id: ComposerType; label: string }> = [
@@ -153,7 +153,7 @@ export function QuickCreateEventFields({
   );
 }
 
-/** Cuerpo Tarea del quick-create: vencimiento, responsable y cuenta opcional. */
+/** Cuerpo Tarea del quick-create: mismos componentes que el módulo Tareas. */
 export function QuickCreateTaskFields({
   task,
   users,
@@ -165,16 +165,18 @@ export function QuickCreateTaskFields({
   return (
     <div className="space-y-3">
       <Row label="Vence">
-        <div className="flex min-h-9 flex-wrap items-center gap-1.5">
-          <input
-            type="date"
-            value={form.date}
-            onChange={(e) => set.setDate(e.target.value)}
-            aria-label="Fecha de vencimiento"
-            className={cn(INPUT, "w-36")}
-          />
-          <TimeChipPicker value={form.time} onChange={set.setTime} />
-        </div>
+        <TareaDueChips value={form.due} onChange={set.setDue} />
+      </Row>
+
+      <Row label="Notas">
+        <textarea
+          value={form.notes}
+          onChange={(e) => set.setNotes(e.target.value)}
+          rows={2}
+          aria-label="Notas de la tarea"
+          placeholder="Contexto opcional…"
+          className="min-h-16 w-full rounded-xl border border-ds-border-default bg-ds-surface-1 px-3 py-2 text-[13px] text-ds-text-1 placeholder:text-ds-text-4 focus:outline-none focus:ring-1 focus:ring-primary/40"
+        />
       </Row>
 
       <Row label="Responsables">

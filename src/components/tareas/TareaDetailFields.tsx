@@ -31,23 +31,27 @@ export function TareaDetailFields({
   canEdit,
   title,
   notes,
+  due,
   assigneeIds,
   users,
   onTitle,
   onNotes,
-  onAssignees,
   onDue,
+  onAssignees,
+  portalContainer,
 }: {
   task: TareaItem;
   canEdit: boolean;
   title: string;
   notes: string;
+  due: DueValue;
   assigneeIds: string[];
   users: AgendaTeamMember[];
   onTitle: (v: string) => void;
   onNotes: (v: string) => void;
-  onAssignees: (ids: string[]) => void;
   onDue: (next: DueValue) => void;
+  onAssignees: (ids: string[]) => void;
+  portalContainer?: HTMLElement | null;
 }) {
   const names = assigneeIds.map((id) => users.find((u) => u.id === id)?.name).filter((n): n is string => Boolean(n));
 
@@ -93,7 +97,11 @@ export function TareaDetailFields({
       {canEdit && (
         <div className="space-y-1.5">
           <span className="px-1 text-[12px] font-medium text-ds-text-4">Vencimiento</span>
-          <TareaDueChips value={{ dueAt: task.dueAt, allDay: task.allDay }} onChange={onDue} />
+          <TareaDueChips
+            value={due}
+            onChange={onDue}
+            portalContainer={portalContainer}
+          />
         </div>
       )}
 

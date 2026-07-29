@@ -52,7 +52,8 @@ import {
 } from "./offline-store";
 import { CorreosSyncBanner } from "./CorreosSyncBanner";
 import { snoozeThread } from "./correo-thread-action-client";
-import type { CorreoThreadDTO } from "@/modules/crm/email/correos.types";
+import type { CorreoSearchMeta, CorreoThreadDTO } from "@/modules/crm/email/correos.types";
+import { correoSearchOperatorChips } from "@/modules/crm/email/correos-operator-registry";
 import { useCorreosRealtime } from "./useCorreosRealtime";
 import { useCorreosViewPreferences, focusCorreosSearch } from "./useCorreosViewPreferences";
 import {
@@ -83,13 +84,12 @@ import {
   CORREO_SEARCH_EVENT,
   type CorreoSearchRequest,
 } from "./correo-search-bus";
-import { getCorreoSearchOperatorChips } from "@/modules/crm/email/correos-search-operators";
 
 /** Alto visual de la isla global (8px gap + min-h-12). El safe-area lo aporta AppShell. */
 const CORREOS_MOBILE_TOP_SPACER = "h-14 shrink-0 lg:hidden";
 
-/** Operadores del overlay — fuente única: `correos-search-operators.ts`. */
-const CORREO_SEARCH_OPERATORS: ModuleSearchOperator[] = getCorreoSearchOperatorChips();
+/** Operadores del overlay — fuente única: `correos-operator-registry.ts`. */
+const CORREO_SEARCH_OPERATORS: ModuleSearchOperator[] = correoSearchOperatorChips();
 
 function matchesChip(t: CorreoThreadDTO, f: CorreoChipKey): boolean {
   if (f === "con_cuenta") return Boolean(t.accountId);
@@ -136,9 +136,7 @@ export function CorreosClient() {
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [coverage, setCoverage] = useState<IndexCoverage | null>(null);
   const [semanticAvailable, setSemanticAvailable] = useState(true);
-  const [lexicalEmpty, setLexicalEmpty] = useState(false);
-  const [exactOnly, setExactOnly] = useState(false);
-  const [searchResultCount, setSearchResultCount] = useState<number | null>(null);
+  const [searchMeta, setSearchMeta] = useState<CorreoSearchMeta | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
   const [autoExtract, setAutoExtract] = useState(false);
   const [workTabIntent, setWorkTabIntent] = useState<{ tab: WorkTab; nonce: number } | null>(null);
@@ -224,7 +222,6 @@ export function CorreosClient() {
       if (cur) qs.set("cursor", cur);
       if (f !== "inbox") qs.set("folder", f);
       if (debouncedQuery) qs.set("q", debouncedQuery);
-      if (debouncedQuery && exactOnly) qs.set("exact", "1");
       // C18: counts (+ coverage) solo en cargas "reset" sin búsqueda activa.
       const wantCounts = reset && !cur && !debouncedQuery;
       if (wantCounts) qs.set("counts", "1");
@@ -236,8 +233,7 @@ export function CorreosClient() {
         counts?: unknown;
         coverage?: IndexCoverage | null;
         semanticAvailable?: boolean;
-        lexicalEmpty?: boolean;
-        resultCount?: number;
+        searchMeta?: CorreoSearchMeta | null;
         backfillDone?: unknown;
         lastSyncAt?: unknown;
         totalThreads?: unknown;
@@ -278,16 +274,11 @@ export function CorreosClient() {
       if (typeof r.semanticAvailable === "boolean") {
         setSemanticAvailable(r.semanticAvailable);
       }
-      setLexicalEmpty(r.lexicalEmpty === true);
-      setSearchResultCount(
-        debouncedQuery
-          ? typeof r.resultCount === "number"
-            ? r.resultCount
-            : Array.isArray(r.items)
-              ? r.items.length
-              : 0
-          : null,
-      );
+      if (debouncedQuery) {
+        setSearchMeta(r.searchMeta ?? null);
+      } else {
+        setSearchMeta(null);
+      }
       setBackfillDone(typeof r.backfillDone === "boolean" ? r.backfillDone : null);
       setLastSyncAt(typeof r.lastSyncAt === "string" ? r.lastSyncAt : null);
       if (r.totalThreads != null) setTotalThreads(Number(r.totalThreads) || 0);
@@ -308,7 +299,7 @@ export function CorreosClient() {
     } finally {
       setLoading(false);
     }
-  }, [folder, debouncedQuery, exactOnly]);
+  }, [folder, debouncedQuery]);
 
   /** Refresh post-acción: counts/meta sin re-pintar la lista (anti-pestañeo). */
   const softRefresh = useCallback(() => {
@@ -382,19 +373,14 @@ export function CorreosClient() {
     return () => clearTimeout(timer);
   }, [query]);
 
-  // Al cambiar el texto de búsqueda, volver al modo híbrido (no exactOnly).
-  useEffect(() => {
-    setExactOnly(false);
-  }, [debouncedQuery]);
-
   useEffect(() => {
     const sp = new URLSearchParams(window.location.search);
     const syncThreadFromUrl = () => {
       const current = new URLSearchParams(window.location.search);
-      // Deep-link `?thread=<uuid>` (p. ej. desde el detalle de una tarea): sólo
+      // Deep-link `?thread=` / `?hilo=` (+ opcional `?mensaje=`): sólo
       // preseleccionamos si tiene forma de UUID. Un id de otro tenant no
       // devuelve datos porque el backend ya filtra por tenantId.
-      const thread = current.get("thread");
+      const thread = current.get("hilo") || current.get("thread");
       setOpenId(isUuid(thread) ? thread : null);
       setAutoExtract(current.get("extract") === "1");
     };
@@ -1380,7 +1366,7 @@ export function CorreosClient() {
             searching={searching}
             totalCount={
               searching
-                ? searchResultCount
+                ? (searchMeta?.shownCount ?? items.length)
                 : counts
                   ? ((counts as Record<string, number | undefined>)[folder] ?? null)
                   : null
@@ -1407,17 +1393,39 @@ export function CorreosClient() {
                 Búsqueda por significado no disponible ahora; mostrando coincidencias de texto exacto.
               </p>
             )}
-            {searching && lexicalEmpty && filtered.length > 0 && !exactOnly && (
-              <div className="flex flex-wrap items-center gap-2 rounded-xl border border-status-warn-border bg-status-warn-soft px-3 py-2 text-[12px] text-status-warn-fg">
+            {searching &&
+              searchMeta &&
+              !searchMeta.hasExactMatches &&
+              (searchMeta.shownCount > 0 || items.length > 0) && (
+              <div className="flex flex-wrap items-center gap-2 rounded-xl border border-status-warn-border bg-status-warn-soft px-3 py-2 text-[13px] text-status-warn-fg">
                 <span>
                   Sin coincidencias exactas para «{debouncedQuery}» · mostrando resultados por significado
+                  {searchMeta.discardedSemantic > 0
+                    ? ` (${searchMeta.discardedSemantic} descartados por baja similitud)`
+                    : ""}
                 </span>
                 <button
                   type="button"
-                  className="h-10 rounded-lg border border-status-warn-border px-2 ds-tap sm:h-8"
-                  onClick={() => setExactOnly(true)}
+                  className="h-10 sm:h-8 rounded-lg border border-ds-border-default bg-ds-surface-1 px-2.5 text-[12px] text-ds-text-2 ds-tap"
+                  onClick={() => {
+                    setItems((prev) =>
+                      prev.filter(
+                        (t) => t.matchReason === "lexical" || t.matchReason === "both",
+                      ),
+                    );
+                    setSearchMeta((m) =>
+                      m
+                        ? {
+                            ...m,
+                            shownCount: 0,
+                            hasExactMatches: false,
+                            semanticCount: 0,
+                          }
+                        : m,
+                    );
+                  }}
                 >
-                  Buscar solo exactos
+                  Solo exactos
                 </button>
               </div>
             )}

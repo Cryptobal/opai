@@ -8,9 +8,13 @@ const THREAD_HISTORY_MARKER = "correoThread";
 export function openCorreoThreadInHistory(
   threadId: string,
   alreadyOpen: boolean,
+  messageId?: string | null,
 ): void {
   const url = new URL(window.location.href);
   url.searchParams.set("thread", threadId);
+  url.searchParams.set("hilo", threadId);
+  if (messageId) url.searchParams.set("mensaje", messageId);
+  else url.searchParams.delete("mensaje");
   url.searchParams.delete("extract");
   if (alreadyOpen) {
     window.history.replaceState(window.history.state, "", url);
@@ -26,6 +30,8 @@ export function openCorreoThreadInHistory(
 export function closeCorreoThreadInHistory(): "back" | "replaced" {
   const url = new URL(window.location.href);
   url.searchParams.delete("thread");
+  url.searchParams.delete("hilo");
+  url.searchParams.delete("mensaje");
   url.searchParams.delete("extract");
   // Siempre limpiar la URL al instante (la UI ya cerró el lector). Si la
   // apertura hizo pushState, además consumimos esa entrada con back() para

@@ -223,7 +223,7 @@ describe("hybridSearchThreadIds", () => {
     });
     expect(result.reasonById.get("shared")).toBe("both");
     expect(result.ids).toContain("shared");
-    expect(result.lexicalEmpty).toBe(false);
+    expect(result.hasExactMatches).toBe(true);
     expect(mocks.semanticSearchChunks).toHaveBeenCalledWith(
       expect.objectContaining({
         folderSql: expect.anything(),
@@ -251,8 +251,8 @@ describe("hybridSearchThreadIds", () => {
       limit: 10,
     });
     expect(result.ids).toEqual([]);
-    expect(result.lexicalEmpty).toBe(true);
-    expect(result.semanticDiscarded).toBe(1);
+    expect(result.hasExactMatches).toBe(false);
+    expect(result.discardedSemantic).toBe(1);
   });
 
   it("respeta folderOverride in:trash del parser", async () => {

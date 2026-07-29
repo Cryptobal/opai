@@ -114,26 +114,17 @@ export async function listCorreoThreads(params: {
   q?: string | null;
   /** @deprecated Ignorado — la búsqueda siempre es híbrida. */
   semantic?: boolean;
-  /** Solo coincidencias léxicas (sin rama semántica). */
-  exactOnly?: boolean;
 }): Promise<{
   items: CorreoThreadDTO[];
   nextCursor: string | null;
   semanticAvailable?: boolean;
-  /** true si hubo q activo y la rama léxica no matcheó. */
-  lexicalEmpty?: boolean;
-  semanticDiscarded?: number;
-  /** Total de filas que se van a renderizar (para el contador). */
-  resultCount?: number;
+  searchMeta?: import("./correos.types").CorreoSearchMeta;
 }> {
   const limit = Math.min(Math.max(params.limit ?? 30, 1), 100);
   const cursorDate = params.cursor ? new Date(params.cursor) : null;
   const folder = params.folder ?? "inbox";
   const parsedSearch = parseCorreoSearchQuery(params.q);
-  // Texto libre sin in: → all (Gmail-like). Ver hybridSearchThreadIds.
-  const effectiveFolder =
-    parsedSearch?.folderOverride ??
-    (parsedSearch && parsedSearch.terms.length > 0 ? "all" : folder);
+  const effectiveFolder = parsedSearch?.folderOverride ?? folder;
 
   // Búsqueda con texto libre → motor híbrido (una sola página rankeada).
   if (parsedSearch && parsedSearch.terms.length > 0) {
@@ -144,16 +135,19 @@ export async function listCorreoThreads(params: {
       parsed: parsedSearch,
       folder: effectiveFolder,
       limit,
-      exactOnly: Boolean(params.exactOnly),
     });
     if (hybrid.ids.length === 0) {
       return {
         items: [],
         nextCursor: null,
         semanticAvailable: hybrid.semanticAvailable,
-        lexicalEmpty: hybrid.lexicalEmpty,
-        semanticDiscarded: hybrid.semanticDiscarded,
-        resultCount: 0,
+        searchMeta: {
+          hasExactMatches: false,
+          lexicalCount: hybrid.lexicalCount,
+          semanticCount: hybrid.semanticCount,
+          discardedSemantic: hybrid.discardedSemantic,
+          shownCount: 0,
+        },
       };
     }
     const [threads, company] = await Promise.all([
@@ -182,9 +176,13 @@ export async function listCorreoThreads(params: {
       items,
       nextCursor: null,
       semanticAvailable: hybrid.semanticAvailable,
-      lexicalEmpty: hybrid.lexicalEmpty,
-      semanticDiscarded: hybrid.semanticDiscarded,
-      resultCount: items.length,
+      searchMeta: {
+        hasExactMatches: hybrid.hasExactMatches,
+        lexicalCount: hybrid.lexicalCount,
+        semanticCount: hybrid.semanticCount,
+        discardedSemantic: hybrid.discardedSemantic,
+        shownCount: items.length,
+      },
     };
   }
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import type { AgendaListItem } from "@/modules/agenda/agenda.types";
 import type {
@@ -8,7 +8,7 @@ import type {
   AgendaSchedule,
   AgendaTeamMember,
 } from "../agenda-calendar.types";
-import type { CalendarRange } from "../agenda-calendar-utils";
+import { formatAgendaTime, type CalendarRange } from "../agenda-calendar-utils";
 
 export type GoogleAccountStatus = {
   connected: boolean;
@@ -39,7 +39,13 @@ function normalizeItem(item: AgendaListItem): AgendaCalendarItem {
     htmlLink: item.htmlLink,
     calendarName: item.calendarName,
     href: item.href,
+    createdBy: item.createdBy,
   };
+}
+
+function scheduleLabel(schedule: AgendaSchedule): string {
+  if (schedule.allDay) return "Todo el día";
+  return `${formatAgendaTime(schedule.start)}–${formatAgendaTime(schedule.end)}`;
 }
 
 /** Datos + persistencia de la agenda desktop (items por rango, equipo, Google). */
@@ -48,7 +54,9 @@ export function useAgendaDesktopData(range: CalendarRange) {
   const [users, setUsers] = useState<AgendaTeamMember[]>([]);
   const [googleStatus, setGoogleStatus] = useState<string | null>(null);
   const [google, setGoogle] = useState<GoogleAccountStatus | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [initialLoading, setInitialLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const hasLoadedOnce = useRef(false);
 
   useEffect(() => {
     fetch("/api/crm/users")
@@ -89,7 +97,8 @@ export function useAgendaDesktopData(range: CalendarRange) {
   const fromMs = range.from.getTime();
   const toMs = range.to.getTime();
   const load = useCallback(async () => {
-    setLoading(true);
+    if (hasLoadedOnce.current) setRefreshing(true);
+    else setInitialLoading(true);
     try {
       const res = await fetch(
         `/api/agenda?from=${new Date(fromMs).toISOString()}&to=${new Date(toMs).toISOString()}`,
@@ -97,7 +106,9 @@ export function useAgendaDesktopData(range: CalendarRange) {
       setItems((res.items ?? []).map(normalizeItem));
       setGoogleStatus(res.googleStatus ?? null);
     } finally {
-      setLoading(false);
+      hasLoadedOnce.current = true;
+      setInitialLoading(false);
+      setRefreshing(false);
     }
   }, [fromMs, toMs]);
 
@@ -107,6 +118,29 @@ export function useAgendaDesktopData(range: CalendarRange) {
 
   const persistSchedule = useCallback(
     async (item: AgendaCalendarItem, schedule: AgendaSchedule) => {
+      const fromLabel = item.allDay
+        ? "Todo el día"
+        : `${formatAgendaTime(new Date(item.start))}–${formatAgendaTime(new Date(item.end))}`;
+      const toLabel = scheduleLabel(schedule);
+
+      // Optimistic update — mantiene el grid montado.
+      setItems((current) =>
+        current.map((entry) =>
+          entry.id === item.id && entry.source === item.source
+            ? {
+                ...entry,
+                start: schedule.allDay
+                  ? schedule.start.toISOString().slice(0, 10)
+                  : schedule.start.toISOString(),
+                end: schedule.allDay
+                  ? schedule.end.toISOString().slice(0, 10)
+                  : schedule.end.toISOString(),
+                allDay: schedule.allDay,
+              }
+            : entry,
+        ),
+      );
+
       if (item.source === "agenda_visita") {
         const r = await fetch(`/api/agenda/visitas/${item.id}`, {
           method: "PATCH",
@@ -118,6 +152,7 @@ export function useAgendaDesktopData(range: CalendarRange) {
         }).catch(() => null);
         if (!r?.ok) {
           toast.error("No se pudo reprogramar la visita");
+          void load();
           return;
         }
         const data = (await r.json().catch(() => ({}))) as {
@@ -125,8 +160,8 @@ export function useAgendaDesktopData(range: CalendarRange) {
         };
         toast.success(
           data.sync?.syncStatus === "SYNCED"
-            ? "Visita reprogramada · Google Calendar actualizado"
-            : "Visita reprogramada",
+            ? `${fromLabel} → ${toLabel} · Google Calendar actualizado`
+            : `${fromLabel} → ${toLabel}`,
         );
         void load();
         return;
@@ -143,14 +178,26 @@ export function useAgendaDesktopData(range: CalendarRange) {
         }).catch(() => null);
         if (!r?.ok) {
           toast.error("No se pudo mover la tarea");
+          void load();
           return;
         }
-        toast.success("Tarea movida");
+        toast.success(`${fromLabel} → ${toLabel}`);
         void load();
       }
     },
     [load],
   );
 
-  return { items, users, googleStatus, google, loading, load, persistSchedule };
+  return {
+    items,
+    users,
+    googleStatus,
+    google,
+    initialLoading,
+    refreshing,
+    /** @deprecated usar initialLoading — alias de compat. */
+    loading: initialLoading,
+    load,
+    persistSchedule,
+  };
 }
