@@ -82,18 +82,24 @@ export function useAgendaDesktopData(range: CalendarRange) {
       .catch(() => setGoogle(null));
   }, []);
 
+  // Deps por epoch (number): `range.from`/`range.to` son Date nuevos en cada
+  // recálculo de visibleCalendarRange aunque el instante sea el mismo; si
+  // usáramos las refs Date, `load` cambiaría de identidad y re-dispararía
+  // efectos que lo listan como dependencia.
+  const fromMs = range.from.getTime();
+  const toMs = range.to.getTime();
   const load = useCallback(async () => {
     setLoading(true);
     try {
       const res = await fetch(
-        `/api/agenda?from=${range.from.toISOString()}&to=${range.to.toISOString()}`,
+        `/api/agenda?from=${new Date(fromMs).toISOString()}&to=${new Date(toMs).toISOString()}`,
       ).then((r) => r.json());
       setItems((res.items ?? []).map(normalizeItem));
       setGoogleStatus(res.googleStatus ?? null);
     } finally {
       setLoading(false);
     }
-  }, [range.from, range.to]);
+  }, [fromMs, toMs]);
 
   useEffect(() => {
     void load();

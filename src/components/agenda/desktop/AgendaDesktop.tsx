@@ -113,16 +113,24 @@ export function AgendaDesktop({
     [search],
   );
 
+  // Deep-link desde Mi día / Próximos días: ?date=YYYY-MM-DD.
+  // Efecto aparte (deps solo `search`): setAnchor(new Date) no debe vivir en el
+  // efecto que depende de `load`, porque load cambia de identidad al cambiar
+  // el rango (Date refs) y re-dispararía un loop infinito (React #185).
+  const appliedDateRef = useRef<string | null>(null);
+  useEffect(() => {
+    const date = search.get("date");
+    if (date && /^\d{4}-\d{2}-\d{2}$/.test(date) && appliedDateRef.current !== date) {
+      appliedDateRef.current = date;
+      setAnchor(dateAtChileSlot(date, 0));
+    }
+  }, [search]);
+
   const calHandled = useRef(false);
   useEffect(() => {
     if (search.get("nueva") === "1") setModalOpen(true);
     if (search.get("visita")) setVisitaId(search.get("visita"));
     if (search.get("licitacion")) setLicId(search.get("licitacion"));
-    // Deep-link desde Mi día / Próximos días: ?date=YYYY-MM-DD
-    const date = search.get("date");
-    if (date && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
-      setAnchor(dateAtChileSlot(date, 0));
-    }
     const cal = search.get("cal");
     if (!cal || calHandled.current) return;
     calHandled.current = true;
