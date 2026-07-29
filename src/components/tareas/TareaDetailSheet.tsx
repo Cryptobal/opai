@@ -20,12 +20,12 @@ const FOOTER_BTN = "flex min-h-[44px] items-center gap-1.5 rounded-xl px-4 text-
 
 /**
  * Detalle editable de una tarea. Sheet inferior en móvil / diálogo centrado en
- * desktop (Radix Dialog: focus-trap, aria-modal, Escape). Título, detalles y
- * responsables se editan en borrador y persisten con "Guardar"; el vencimiento
- * (TareaDueChips) se pospone de inmediato con Deshacer (onPostpone).
+ * desktop (Radix Dialog: focus-trap, aria-modal, Escape). Título, detalles,
+ * vencimiento y responsables se editan en borrador y persisten con "Guardar".
+ * La posposición rápida con Deshacer vive en la lista (TareaRow), no aquí.
  */
 export function TareaDetailSheet({
-  task, users, canEdit, canDelete, onClose, onSave, onDelete, onToggle, onPostpone,
+  task, users, canEdit, canDelete, onClose, onSave, onDelete, onToggle,
 }: {
   task: TareaItem | null;
   users: AgendaTeamMember[];
@@ -35,7 +35,6 @@ export function TareaDetailSheet({
   onSave: (id: string, input: TareaUpdateInput) => Promise<boolean>;
   onDelete: (id: string) => void;
   onToggle: (t: TareaItem) => void;
-  onPostpone: (t: TareaItem, next: DueValue) => void;
 }) {
   const isMobile = useIsMobileViewport();
   const kb = useKeyboardOffset();
@@ -43,6 +42,7 @@ export function TareaDetailSheet({
   const [portalEl, setPortalEl] = useState<HTMLElement | null>(null);
   const [title, setTitle] = useState("");
   const [notes, setNotes] = useState("");
+  const [due, setDue] = useState<DueValue>({ dueAt: null, allDay: true });
   const [assigneeIds, setAssigneeIds] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
 
@@ -54,14 +54,17 @@ export function TareaDetailSheet({
     if (!task) return;
     setTitle(task.title);
     setNotes(task.notes ?? "");
+    setDue({ dueAt: task.dueAt, allDay: task.allDay });
     setAssigneeIds(task.assigneeIds);
   }, [task?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!task) return null;
   const done = task.status === "done";
+  const dueDirty = due.dueAt !== task.dueAt || due.allDay !== task.allDay;
   const dirty = canEdit && (
     title.trim() !== task.title ||
     (notes.trim() || null) !== (task.notes ?? null) ||
+    dueDirty ||
     !sameIds(assigneeIds, task.assigneeIds)
   );
 
@@ -80,6 +83,10 @@ export function TareaDetailSheet({
     if (title.trim() !== task.title) input.title = title.trim();
     const nextNotes = notes.trim() ? notes.trim() : null;
     if (nextNotes !== (task.notes ?? null)) input.notes = nextNotes;
+    if (dueDirty) {
+      input.dueAt = due.dueAt;
+      input.allDay = due.allDay;
+    }
     // No dejar la tarea sin responsables desde la UI: si queda vacío, no se toca.
     if (assigneeIds.length && !sameIds(assigneeIds, task.assigneeIds)) input.assigneeIds = assigneeIds;
     if (Object.keys(input).length === 0) { onClose(); return; }
@@ -134,9 +141,8 @@ export function TareaDetailSheet({
 
           <div className="min-h-0 flex-1 overflow-y-auto px-4">
             <TareaDetailFields
-              task={task} canEdit={canEdit} title={title} notes={notes} assigneeIds={assigneeIds} users={users}
-              onTitle={setTitle} onNotes={setNotes} onAssignees={setAssigneeIds}
-              onDue={(next) => onPostpone(task, next)}
+              task={task} canEdit={canEdit} title={title} notes={notes} due={due} assigneeIds={assigneeIds} users={users}
+              onTitle={setTitle} onNotes={setNotes} onDue={setDue} onAssignees={setAssigneeIds}
               portalContainer={portalEl}
             />
           </div>
