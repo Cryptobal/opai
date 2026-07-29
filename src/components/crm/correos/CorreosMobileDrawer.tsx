@@ -40,6 +40,9 @@ type Props = {
   activeAccountId?: string | null;
   onScopeChange?: (accountId: string | null) => void;
   onColorChange?: (accountId: string, color: string) => void;
+  /** Superficie multicuenta (flag o escape por conteo). */
+  multiEnabled?: boolean;
+  canConnectMore?: boolean;
   inboxUnreadTotal?: number;
   /** Abre el sheet de configuración de gestos (Bloque 6). */
   onOpenSwipeSettings?: () => void;
@@ -76,6 +79,7 @@ export function CorreosMobileDrawer({
   open, onClose, folder, onFolder, chip, onChip, counts,
   previewLines, onPreviewLines, onSync, syncing, realtimeStatus, lastSyncAt,
   accounts = [], activeAccountId = null, onScopeChange, onColorChange,
+  multiEnabled = false, canConnectMore = true,
   inboxUnreadTotal,
   onOpenSwipeSettings, onOpenSnoozeSettings, onOpenAiStyle,
   onOpenShortcuts,
@@ -118,7 +122,7 @@ export function CorreosMobileDrawer({
           </button>
         </div>
 
-        {accounts.length > 0 && onScopeChange && (
+        {multiEnabled && accounts.length > 0 && onScopeChange && (
           <div className="px-2 pb-1">
             <SectionTitle>Casillas</SectionTitle>
             <MailboxSwitcher
@@ -131,6 +135,7 @@ export function CorreosMobileDrawer({
                 onClose();
               }}
               onColorChange={onColorChange}
+              canConnect={canConnectMore}
             />
           </div>
         )}

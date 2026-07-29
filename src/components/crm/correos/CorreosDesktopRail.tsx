@@ -24,6 +24,9 @@ type Props = {
   activeAccountId?: string | null;
   onScopeChange?: (accountId: string | null) => void;
   onColorChange?: (accountId: string, color: string) => void;
+  /** Superficie multicuenta (flag o escape por conteo). */
+  multiEnabled?: boolean;
+  canConnectMore?: boolean;
   inboxUnreadTotal?: number;
   /** Contraído (persistente); con hover hace peek overlay, como Gmail. */
   collapsed: boolean;
@@ -44,6 +47,7 @@ export function CorreosDesktopRail({
   folder, onFolder, chip, onChip, counts,
   onCompose, onSync, syncing, realtimeStatus, lastSyncAt,
   accounts = [], activeAccountId = null, onScopeChange, onColorChange,
+  multiEnabled = false, canConnectMore = true,
   inboxUnreadTotal,
   collapsed, onToggleCollapsed, onOpenSwipeSettings, onOpenShortcuts,
   onOpenSnoozeSettings, onOpenAiStyle,
@@ -95,7 +99,7 @@ export function CorreosDesktopRail({
           <span className={lbl}>Redactar</span>
         </button>
 
-        {accounts.length > 0 && onScopeChange && (
+        {multiEnabled && accounts.length > 0 && onScopeChange && (
           <MailboxSwitcher
             accounts={accounts}
             activeAccountId={activeAccountId}
@@ -103,6 +107,7 @@ export function CorreosDesktopRail({
             collapsed={collapsed}
             onScopeChange={onScopeChange}
             onColorChange={onColorChange}
+            canConnect={canConnectMore}
           />
         )}
 

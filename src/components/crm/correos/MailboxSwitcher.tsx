@@ -29,6 +29,8 @@ type Props = {
   onScopeChange: (accountId: string | null) => void;
   onColorChange?: (accountId: string, color: string) => void;
   connectHref?: string;
+  /** Si es false, oculta CTA de conectar y leyenda del tope. Default true. */
+  canConnect?: boolean;
 };
 
 export { tintBar, tintSoft } from "./mailbox-tints";
@@ -37,9 +39,10 @@ export { tintBar, tintSoft } from "./mailbox-tints";
 export function MailboxSwitcher({
   accounts, activeAccountId, inboxUnreadTotal = 0, collapsed = false, touchRows = false,
   onScopeChange, onColorChange, connectHref = "/api/crm/gmail/connect",
+  canConnect = true,
 }: Props) {
   const sorted = [...accounts].sort((a, b) => a.sortIndex - b.sortIndex);
-  const atLimit = sorted.length >= MAX_MAILBOXES_PER_USER;
+  const atLimit = !canConnect || sorted.length >= MAX_MAILBOXES_PER_USER;
   const lbl = collapsed ? "hidden truncate group-hover/rail:inline" : "truncate";
   const rowPad = collapsed
     ? "justify-center px-0 group-hover/rail:justify-start group-hover/rail:px-3"
@@ -111,16 +114,18 @@ export function MailboxSwitcher({
         );
       })}
 
-      <div className={collapsed ? "hidden group-hover/rail:block" : ""}>
-        {!atLimit && (
-          <Link href={connectHref}
-            className={`mt-0.5 flex ${rowH} w-full items-center gap-2.5 rounded-xl px-3 text-[13px] text-primary ds-tap hover:bg-ds-surface-2`}>
-            <Plus className="h-4 w-4 shrink-0" />
-            <span className="truncate">Conectar otra casilla</span>
-          </Link>
-        )}
-        <p className="px-3 pt-1 text-[12px] text-ds-text-4">Máximo {MAX_MAILBOXES_PER_USER} casillas</p>
-      </div>
+      {canConnect && (
+        <div className={collapsed ? "hidden group-hover/rail:block" : ""}>
+          {!atLimit && (
+            <Link href={connectHref}
+              className={`mt-0.5 flex ${rowH} w-full items-center gap-2.5 rounded-xl px-3 text-[13px] text-primary ds-tap hover:bg-ds-surface-2`}>
+              <Plus className="h-4 w-4 shrink-0" />
+              <span className="truncate">Conectar otra casilla</span>
+            </Link>
+          )}
+          <p className="px-3 pt-1 text-[12px] text-ds-text-4">Máximo {MAX_MAILBOXES_PER_USER} casillas</p>
+        </div>
+      )}
     </div>
   );
 }
