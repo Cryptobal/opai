@@ -25,8 +25,16 @@ vi.mock("@/lib/prisma", () => ({
   },
 }));
 
+const getClientForAccountMock = vi.fn();
+const resolveCreateTargetMock = vi.fn();
+
 vi.mock("../clients", () => ({
   getCalendarClientForUser: getClientMock,
+  getCalendarClientForAccount: getClientForAccountMock,
+}));
+
+vi.mock("@/modules/calendar/calendar-sources", () => ({
+  resolveCreateTarget: resolveCreateTargetMock,
 }));
 
 const BASE_LINK = {
@@ -48,17 +56,21 @@ function payloadWithAttendees(): CalendarEventPayload {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  linkFindUnique.mockResolvedValue(BASE_LINK);
+  linkFindUnique.mockResolvedValue({ ...BASE_LINK, calendarAccountId: "acc-1" });
   linkUpdate.mockResolvedValue({});
+  resolveCreateTargetMock.mockResolvedValue(null);
   eventsPatch.mockResolvedValue({ data: { htmlLink: "https://cal/x" } });
   eventsDelete.mockResolvedValue({});
-  getClientMock.mockResolvedValue({
+  const client = {
     calendar: {
       events: { patch: eventsPatch, insert: eventsInsert, delete: eventsDelete },
     },
     accountId: "acc-1",
     calendarId: "primary",
-  });
+    googleEmail: "u@gard.cl",
+  };
+  getClientMock.mockResolvedValue(client);
+  getClientForAccountMock.mockResolvedValue(client);
 });
 
 const input = {

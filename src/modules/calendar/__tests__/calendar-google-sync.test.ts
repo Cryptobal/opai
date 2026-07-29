@@ -1,12 +1,13 @@
 /**
- * Tests B5: attendees internos+externos en el evento del organizador,
- * fallback attendee_copy para internos sin Google, y readback de RSVP.
+ * Tests B5 + multicuenta: attendees, attendee_copy, readback RSVP,
+ * resolución por vínculo (no por default vigente).
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const eventFindFirst = vi.fn();
 const accountFindMany = vi.fn();
 const linkFindUnique = vi.fn();
+const linkFindFirst = vi.fn();
 const linkUpsert = vi.fn();
 const linkUpdate = vi.fn();
 const participantUpdate = vi.fn();
@@ -14,7 +15,9 @@ const externalUpdate = vi.fn();
 const eventsInsert = vi.fn();
 const eventsPatch = vi.fn();
 const eventsDelete = vi.fn();
-const getClientMock = vi.fn();
+const getClientForUserMock = vi.fn();
+const getClientForAccountMock = vi.fn();
+const resolveCreateTargetMock = vi.fn();
 
 vi.mock("server-only", () => ({}));
 
@@ -24,6 +27,7 @@ vi.mock("@/lib/prisma", () => ({
     googleCalendarAccount: { findMany: accountFindMany },
     calendarProviderLink: {
       findUnique: linkFindUnique,
+      findFirst: linkFindFirst,
       upsert: linkUpsert,
       update: linkUpdate,
       findMany: vi.fn().mockResolvedValue([]),
@@ -34,7 +38,30 @@ vi.mock("@/lib/prisma", () => ({
 }));
 
 vi.mock("@/lib/google-workspace/clients", () => ({
-  getCalendarClientForUser: getClientMock,
+  getCalendarClientForUser: getClientForUserMock,
+  getCalendarClientForAccount: getClientForAccountMock,
+  pickDefaultAccount: (
+    accounts: Array<{
+      userId: string;
+      isDefault?: boolean;
+      createdAt?: Date;
+      sortIndex?: number;
+      id: string;
+    }>,
+    userId: string,
+  ) => {
+    const mine = accounts.filter((a) => a.userId === userId);
+    return (
+      mine.find((a) => a.isDefault) ??
+      [...mine].sort(
+        (a, b) => (a.createdAt?.getTime() ?? 0) - (b.createdAt?.getTime() ?? 0),
+      )[0]
+    );
+  },
+}));
+
+vi.mock("../calendar-sources", () => ({
+  resolveCreateTarget: resolveCreateTargetMock,
 }));
 
 const EVENT = {
@@ -59,16 +86,40 @@ const EVENT = {
   ],
 };
 
+function clientFor(accountId: string, calendarId = "primary") {
+  return {
+    calendar: { events: { insert: eventsInsert, patch: eventsPatch, delete: eventsDelete } },
+    accountId,
+    calendarId,
+    googleEmail: `${accountId}@gard.cl`,
+  };
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   eventFindFirst.mockResolvedValue(EVENT);
-  // Jorge (organizador) y Lizeth tienen Google; Hugo no.
   accountFindMany.mockResolvedValue([
-    { id: "acc-jorge", userId: "jorge", googleEmail: "jorge@gard.cl" },
-    { id: "acc-lizeth", userId: "lizeth", googleEmail: "lizeth@gard.cl" },
+    {
+      id: "acc-jorge",
+      userId: "jorge",
+      googleEmail: "jorge@gard.cl",
+      isDefault: true,
+      createdAt: new Date("2026-01-01"),
+      sortIndex: 0,
+    },
+    {
+      id: "acc-lizeth",
+      userId: "lizeth",
+      googleEmail: "lizeth@gard.cl",
+      isDefault: true,
+      createdAt: new Date("2026-01-01"),
+      sortIndex: 0,
+    },
   ]);
+  linkFindFirst.mockResolvedValue(null);
   linkFindUnique.mockResolvedValue(null);
   linkUpsert.mockResolvedValue({});
+  resolveCreateTargetMock.mockResolvedValue(null);
   eventsInsert.mockResolvedValue({
     data: {
       id: "gev-1",
@@ -80,11 +131,10 @@ beforeEach(() => {
       ],
     },
   });
-  getClientMock.mockResolvedValue({
-    calendar: { events: { insert: eventsInsert, patch: eventsPatch, delete: eventsDelete } },
-    accountId: "acc-jorge",
-    calendarId: "primary",
-  });
+  getClientForUserMock.mockResolvedValue(clientFor("acc-jorge"));
+  getClientForAccountMock.mockImplementation((_t: string, accountId: string) =>
+    Promise.resolve(clientFor(accountId)),
+  );
 });
 
 describe("syncCalendarEventToGoogle", () => {
@@ -98,7 +148,7 @@ describe("syncCalendarEventToGoogle", () => {
     const emails = call.requestBody.attendees.map((a: { email: string }) => a.email);
     expect(emails).toContain("lizeth@gard.cl");
     expect(emails).toContain("cliente@ejemplo.cl");
-    expect(emails).not.toContain("hugo"); // sin cuenta: no va como attendee
+    expect(emails).not.toContain("hugo");
     expect(call.requestBody.start.timeZone).toBe("America/Santiago");
   });
 
@@ -124,14 +174,14 @@ describe("syncCalendarEventToGoogle", () => {
         data: expect.objectContaining({ responseStatus: "accepted" }),
       }),
     );
-    // Externo quedó needs_action (ya era el valor) → sin update redundante.
     expect(externalUpdate).not.toHaveBeenCalled();
   });
 
   it("evento cancelado borra con sendUpdates all y marca CANCELLED", async () => {
     eventFindFirst.mockResolvedValue({ ...EVENT, status: "cancelled" });
-    linkFindUnique.mockResolvedValue({
+    linkFindFirst.mockResolvedValue({
       id: "l1",
+      providerAccountId: "acc-jorge",
       providerEventId: "gev-1",
       providerCalendarId: "primary",
     });
@@ -143,8 +193,9 @@ describe("syncCalendarEventToGoogle", () => {
   });
 
   it("reprogramación: hace patch (no insert) del evento del organizador y marca SYNCED", async () => {
-    linkFindUnique.mockResolvedValue({
+    linkFindFirst.mockResolvedValue({
       id: "l1",
+      providerAccountId: "acc-jorge",
       providerEventId: "gev-1",
       providerCalendarId: "primary",
     });
@@ -165,8 +216,9 @@ describe("syncCalendarEventToGoogle", () => {
   });
 
   it("fallo de red al reprogramar deja el link PENDING sin revertir (reintentable)", async () => {
-    linkFindUnique.mockResolvedValue({
+    linkFindFirst.mockResolvedValue({
       id: "l1",
+      providerAccountId: "acc-jorge",
       providerEventId: "gev-1",
       providerCalendarId: "primary",
     });
@@ -183,8 +235,9 @@ describe("syncCalendarEventToGoogle", () => {
   });
 
   it("evento borrado en Google (404) al reprogramar marca ERROR y no reintenta", async () => {
-    linkFindUnique.mockResolvedValue({
+    linkFindFirst.mockResolvedValue({
       id: "l1",
+      providerAccountId: "acc-jorge",
       providerEventId: "gev-1",
       providerCalendarId: "primary",
     });
@@ -196,6 +249,82 @@ describe("syncCalendarEventToGoogle", () => {
       expect.objectContaining({
         where: { id: "l1" },
         data: expect.objectContaining({ syncStatus: "ERROR" }),
+      }),
+    );
+  });
+
+  it("link existente en cuenta A con default B: actualiza en A y no inserta en B", async () => {
+    // Jorge tiene dos cuentas; default es B, link está en A.
+    accountFindMany.mockResolvedValue([
+      {
+        id: "acc-A",
+        userId: "jorge",
+        googleEmail: "a@gard.cl",
+        isDefault: false,
+        createdAt: new Date("2026-01-01"),
+        sortIndex: 0,
+      },
+      {
+        id: "acc-B",
+        userId: "jorge",
+        googleEmail: "b@gard.cl",
+        isDefault: true,
+        createdAt: new Date("2026-02-01"),
+        sortIndex: 1,
+      },
+      {
+        id: "acc-lizeth",
+        userId: "lizeth",
+        googleEmail: "lizeth@gard.cl",
+        isDefault: true,
+        createdAt: new Date("2026-01-01"),
+        sortIndex: 0,
+      },
+    ]);
+    linkFindFirst.mockResolvedValue({
+      id: "l1",
+      providerAccountId: "acc-A",
+      providerEventId: "gev-A",
+      providerCalendarId: "primary",
+    });
+    eventsPatch.mockResolvedValue({
+      data: { id: "gev-A", htmlLink: "https://cal/a", etag: "e", attendees: [] },
+    });
+
+    const { syncCalendarEventToGoogle } = await import("../calendar-google-sync");
+    const res = await syncCalendarEventToGoogle("t1", "ev-1");
+    expect(res.syncStatus).toBe("SYNCED");
+    expect(getClientForAccountMock).toHaveBeenCalledWith("t1", "acc-A");
+    expect(getClientForUserMock).not.toHaveBeenCalled();
+    expect(eventsPatch).toHaveBeenCalledTimes(1);
+    expect(eventsInsert).not.toHaveBeenCalled();
+    expect(eventsPatch.mock.calls[0][0]).toMatchObject({
+      eventId: "gev-A",
+      calendarId: "primary",
+    });
+  });
+
+  it("cuenta del link revocada: marca ERROR y no inserta en otra cuenta", async () => {
+    linkFindFirst.mockResolvedValue({
+      id: "l1",
+      providerAccountId: "acc-revoked",
+      providerEventId: "gev-old",
+      providerCalendarId: "primary",
+    });
+    getClientForAccountMock.mockResolvedValue(null);
+
+    const { syncCalendarEventToGoogle } = await import("../calendar-google-sync");
+    const res = await syncCalendarEventToGoogle("t1", "ev-1");
+    expect(res.syncStatus).toBe("ERROR");
+    expect(eventsInsert).not.toHaveBeenCalled();
+    expect(eventsPatch).not.toHaveBeenCalled();
+    expect(linkUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "l1" },
+        data: expect.objectContaining({
+          syncStatus: "ERROR",
+          lastError: expect.stringMatching(/no está ACTIVE/i),
+        }),
       }),
     );
   });
