@@ -116,6 +116,26 @@ export async function GET(request: NextRequest) {
       },
     });
 
+    const {
+      assignMailboxIdentity,
+      MAX_MAILBOXES_PER_USER,
+    } = await import("@/modules/crm/email/mailbox-identity");
+
+    // Tope de 5 casillas activas (solo al crear; reconexión no cuenta).
+    if (!existing) {
+      const activeCount = await prisma.crmEmailAccount.count({
+        where: {
+          tenantId,
+          userId: session.user.id,
+          provider: "gmail",
+          status: "active",
+        },
+      });
+      if (activeCount >= MAX_MAILBOXES_PER_USER) {
+        return redirectWithGmail(origin, returnPath, "limit_reached");
+      }
+    }
+
     const data = {
       tenantId,
       userId: session.user.id,
@@ -132,7 +152,7 @@ export async function GET(request: NextRequest) {
     if (existing) {
       // Reconexión: si Google no devolvió un refresh_token nuevo (pasa cuando
       // el consent ya existía), conservar el guardado — pisarlo con null
-      // rompería la casilla al expirar el access token (~1 h).
+      // rompería la casilla al expirar el access token (~1 h). No toca identidad.
       const { refreshTokenEncrypted, ...rest } = data;
       await prisma.crmEmailAccount.update({
         where: { id: existing.id },
@@ -140,7 +160,20 @@ export async function GET(request: NextRequest) {
       });
       accountId = existing.id;
     } else {
-      const created = await prisma.crmEmailAccount.create({ data, select: { id: true } });
+      const siblings = await prisma.crmEmailAccount.findMany({
+        where: {
+          tenantId,
+          userId: session.user.id,
+          provider: "gmail",
+          status: "active",
+        },
+        select: { color: true, displayLabel: true, sortIndex: true },
+      });
+      const identity = assignMailboxIdentity(siblings, emailAddress);
+      const created = await prisma.crmEmailAccount.create({
+        data: { ...data, ...identity },
+        select: { id: true },
+      });
       accountId = created.id;
     }
 
