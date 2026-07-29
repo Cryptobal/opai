@@ -445,6 +445,8 @@ REGLAS DE CONTEXTO DE MÓDULO:
         });
 
         let fullText = "";
+        let reasoningText = "";
+        const tReasonStart = Date.now();
         let toolCallsUsed = 0;
         let usedInferredAnswer = false;
         const deferredPendings: PendingConfirmation[] = [];
@@ -553,13 +555,13 @@ REGLAS DE CONTEXTO DE MÓDULO:
               send("tool_call", { name: call.name, status: "done" });
               messages.push({ role: "tool", tool_call_id: call.id, content: JSON.stringify(result) });
             }
-            // El texto emitido en esta iteración era solo razonamiento previo a
-            // las tool_calls (no la respuesta final). Le decimos al cliente que
-            // borre lo que mostró para que la próxima iteración escriba limpio
-            // sobre la burbuja en streaming. Sin esto el cliente acumula todas
-            // las iteraciones y luego el evento "done" reemplaza con la última,
-            // provocando el bug de "primero una respuesta, después otra rara".
-            send("reset_stream", {});
+            // El texto de esta iteración era razonamiento previo a las tool_calls,
+            // no la respuesta final. En vez de borrarlo de la burbuja (parpadeo),
+            // lo movemos al bloque de progreso: el cliente lo reubica sin destruirlo.
+            if (fullText.trim()) {
+              reasoningText += (reasoningText ? "\n\n" : "") + fullText.trim();
+            }
+            send("stash_reasoning", { text: fullText });
             fullText = "";
 
             // Si esta fue la última iteración permitida y el modelo todavía
@@ -651,13 +653,23 @@ REGLAS DE CONTEXTO DE MÓDULO:
           }
         }
 
-        /* save assistant message (+ visuals / suggestions / pendings en metadata) */
+        const reasoning =
+          reasoningText.length > 4000
+            ? `${reasoningText.slice(0, 3999)}…`
+            : reasoningText;
+        const reasoningMs = reasoning ? Date.now() - tReasonStart : undefined;
+
+        /* save assistant message (+ visuals / suggestions / pendings / reasoning en metadata) */
         let assistantMessageId = `ephemeral-${Date.now()}`;
         if (persistenceEnabled && conversation) {
           const metadata: Record<string, unknown> = {};
           if (visuals.length) metadata.visuals = visuals;
           if (suggestions.length) metadata.suggestions = suggestions;
           if (clientPendings.length) metadata.pendingConfirmations = clientPendings;
+          if (reasoning) {
+            metadata.reasoning = reasoning;
+            if (reasoningMs != null) metadata.reasoningMs = reasoningMs;
+          }
 
           const saved = await prisma.aiChatMessage.create({
             data: {
@@ -697,6 +709,7 @@ REGLAS DE CONTEXTO DE MÓDULO:
           retrievalTopScore: retrievalMaxScore,
           retrievalChunks: allChunks.length,
           knowledgeBaseChunks: knowledgeChunks.length,
+          ...(reasoning ? { reasoning, reasoningMs } : {}),
         });
 
         console.log(
