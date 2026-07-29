@@ -6,6 +6,7 @@ import {
   CALENDAR_SCOPES,
   safeCalendarReturnPath,
 } from "@/lib/google-workspace";
+import { resolveMultiAccount } from "@/modules/shared/multi-account";
 
 export async function GET(request: NextRequest) {
   const origin = new URL(request.url).origin;
@@ -25,7 +26,23 @@ export async function GET(request: NextRequest) {
 
   const params = new URL(request.url).searchParams;
   const returnPath = safeCalendarReturnPath(params.get("return"));
-  const addAccount = params.get("add") === "1";
+  const dest =
+    returnPath ?? "/opai/configuracion/integraciones/google-calendar";
+
+  const multi = await resolveMultiAccount({
+    tenantId: session.user.tenantId,
+    userId: session.user.id,
+    scope: "agenda",
+  });
+
+  // Sin multicuenta: ignorar ?add=1 (no abrir selector de cuenta de Google).
+  const wantsAdd = params.get("add") === "1";
+  const addAccount = multi.flagEnabled && wantsAdd;
+
+  if (!multi.canConnect) {
+    return NextResponse.redirect(`${origin}${dest}?cal=limit_reached`);
+  }
+
   const state = buildState({
     tenantId: session.user.tenantId,
     userId: session.user.id,
