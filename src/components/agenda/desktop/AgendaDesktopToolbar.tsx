@@ -22,7 +22,9 @@ import type {
   AgendaTypeFilter,
   AgendaViewMode,
 } from "../agenda-calendar.types";
+import type { AgendaDesktopPrefs } from "./agenda-desktop-prefs";
 import { AgendaFilterPopover } from "./AgendaFilterPopover";
+import { AgendaPrefsPopover } from "./AgendaPrefsPopover";
 import { AgendaTeamPopover } from "./AgendaTeamPopover";
 
 const VIEW_OPTIONS: Array<{ id: AgendaViewMode; label: string }> = [
@@ -65,6 +67,9 @@ type Props = {
   onContentFilterChange: (filter: AgendaContentFilter) => void;
   onTypeFilterChange: (filter: AgendaTypeFilter) => void;
   onCreate: () => void;
+  prefs: AgendaDesktopPrefs;
+  onPrefsChange: (prefs: AgendaDesktopPrefs) => void;
+  refreshing?: boolean;
 };
 
 /** Toolbar desktop de 1 línea (52px) estilo Notion Calendar. */
@@ -88,6 +93,9 @@ export function AgendaDesktopToolbar({
   onContentFilterChange,
   onTypeFilterChange,
   onCreate,
+  prefs,
+  onPrefsChange,
+  refreshing = false,
 }: Props) {
   return (
     <div className="flex h-[52px] shrink-0 items-center gap-2 border-b border-ds-border-subtle pb-2">
@@ -185,6 +193,18 @@ export function AgendaDesktopToolbar({
         onTypeFilterChange={onTypeFilterChange}
         buttonClass={CONTROL}
       />
+
+      <AgendaPrefsPopover
+        prefs={prefs}
+        onChange={onPrefsChange}
+        buttonClass={cn(CONTROL, "w-9 px-0")}
+      />
+
+      {refreshing && (
+        <span className="font-mono text-[12px] text-ds-text-4" aria-live="polite">
+          Actualizando…
+        </span>
+      )}
 
       <TooltipProvider delayDuration={250}>
         <Tooltip>

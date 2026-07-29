@@ -61,10 +61,15 @@ describe("hubAgendaItemHref", () => {
     ).toBe("/opai/agenda?licitacion=deal-9");
   });
 
-  it("tareas y google van al día en agenda", () => {
+  it("tareas abren fecha + modal; google usa ?item=", () => {
     expect(hubAgendaItemHref(item({ id: "t1", source: "tarea", start: "2026-07-29" }))).toBe(
-      "/opai/agenda?date=2026-07-29",
+      "/opai/agenda?date=2026-07-29&tarea=t1",
     );
+    expect(
+      hubAgendaItemHref(
+        item({ id: "g1", source: "google", type: "event", start: "2026-07-29T15:00:00.000Z", allDay: false }),
+      ),
+    ).toMatch(/^\/opai\/agenda\?date=2026-07-29&item=google%3Ag1$/);
     expect(hubAgendaDayHref("2026-07-30")).toBe("/opai/agenda?date=2026-07-30");
   });
 

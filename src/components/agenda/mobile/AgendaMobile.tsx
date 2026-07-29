@@ -9,6 +9,7 @@ import type {
   AgendaTypeFilter,
 } from "../agenda-calendar.types";
 import { LicitacionDrawer } from "../LicitacionDrawer";
+import { AgendaTaskDetail } from "../desktop/AgendaTaskDetail";
 import { AgendaDayView } from "./AgendaDayView";
 import { AgendaDetailSheet } from "./AgendaDetailSheet";
 import { EventComposer } from "./EventComposer";
@@ -34,8 +35,8 @@ import {
  * Agenda/Día/Mes + FAB. Nada de PageHero/toolbar desktop (spec §1).
  */
 export function AgendaMobile({
-  currentUserId: _currentUserId,
-  userRole: _userRole,
+  currentUserId,
+  userRole,
 }: {
   currentUserId: string;
   userRole: string;
@@ -50,6 +51,7 @@ export function AgendaMobile({
   const [viewSheetOpen, setViewSheetOpen] = useState(false);
   const [visitaId, setVisitaId] = useState<string | null>(null);
   const [licId, setLicId] = useState<string | null>(null);
+  const [taskDetailId, setTaskDetailId] = useState<string | null>(null);
   const [composerOpen, setComposerOpen] = useState(false);
   const [composerDate, setComposerDate] = useState<string | null>(null);
 
@@ -61,7 +63,7 @@ export function AgendaMobile({
     writeMobilePrefs({ view, date: selectedYmd });
   }, [view, selectedYmd]);
 
-  // Deep links: ?visita= abre el detalle; ?nueva=1 el composer; ?date= el día.
+  // Deep links: ?visita= detalle; ?nueva=1 composer; ?date= día; ?tarea= modal.
   useEffect(() => {
     const visita = search.get("visita") ?? search.get("evento");
     if (visita) setVisitaId(visita);
@@ -69,6 +71,13 @@ export function AgendaMobile({
     const date = search.get("date");
     if (date && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
       setSelectedYmd(date);
+    }
+    const tarea = search.get("tarea");
+    if (tarea) {
+      setTaskDetailId(tarea);
+      const url = new URL(window.location.href);
+      url.searchParams.delete("tarea");
+      window.history.replaceState({}, "", url.pathname + url.search);
     }
   }, [search]);
 
@@ -89,8 +98,8 @@ export function AgendaMobile({
       setLicId(item.dealId ?? item.id);
       return;
     }
-    if (item.source === "tarea" && item.href) {
-      window.location.href = item.href;
+    if (item.source === "tarea") {
+      setTaskDetailId(item.id);
       return;
     }
     if (item.source === "agenda_visita") setVisitaId(item.id);
@@ -196,6 +205,16 @@ export function AgendaMobile({
           setComposerOpen(true);
         }}
       />
+      {taskDetailId && (
+        <AgendaTaskDetail
+          taskId={taskDetailId}
+          users={users}
+          currentUserId={currentUserId}
+          userRole={userRole}
+          onClose={() => setTaskDetailId(null)}
+          onChanged={() => void reload()}
+        />
+      )}
     </div>
   );
 }

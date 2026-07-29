@@ -21,10 +21,18 @@ vi.mock("../desktop/useAgendaDesktopData", () => ({
     users: [],
     googleStatus: null,
     google: null,
+    initialLoading: false,
+    refreshing: false,
     loading: false,
     load: loadMock,
     persistSchedule: vi.fn(),
   }),
+}));
+
+vi.mock("../desktop/AgendaTaskDetail", () => ({
+  AgendaTaskDetail: ({ taskId }: { taskId: string }) => (
+    <div data-testid="agenda-task-detail">{taskId}</div>
+  ),
 }));
 
 vi.mock("../desktop/useAgendaShortcuts", () => ({
@@ -77,6 +85,8 @@ describe("AgendaDesktop deep-link ?date=", () => {
     searchParams.delete("nueva");
     searchParams.delete("visita");
     searchParams.delete("licitacion");
+    searchParams.delete("tarea");
+    searchParams.delete("item");
   });
 
   afterEach(() => {
@@ -96,5 +106,18 @@ describe("AgendaDesktop deep-link ?date=", () => {
 
     // Sin el guard, setAnchor(new Date) + load inestable re-renderiza sin techo.
     expect(toolbarRenders).toBeLessThan(20);
+  });
+
+  it("con ?tarea=<id> monta el detalle de tarea y no el inspector", async () => {
+    searchParams.set("tarea", "task-99");
+
+    const { getByTestId, queryByTestId } = render(
+      <AgendaDesktop currentUserId="u1" userRole="owner" />,
+    );
+
+    await waitFor(() => {
+      expect(getByTestId("agenda-task-detail")).toHaveTextContent("task-99");
+    });
+    expect(queryByTestId("agenda-inspector")).not.toBeInTheDocument();
   });
 });

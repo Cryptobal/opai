@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { Check, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
@@ -39,10 +39,16 @@ export function TareaDetailSheet({
 }) {
   const isMobile = useIsMobileViewport();
   const kb = useKeyboardOffset();
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [portalEl, setPortalEl] = useState<HTMLElement | null>(null);
   const [title, setTitle] = useState("");
   const [notes, setNotes] = useState("");
   const [assigneeIds, setAssigneeIds] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    setPortalEl(contentRef.current);
+  }, [task?.id]);
 
   useEffect(() => {
     if (!task) return;
@@ -88,11 +94,13 @@ export function TareaDetailSheet({
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-[60] bg-black/55 motion-safe:animate-in motion-safe:fade-in" />
         <Dialog.Content
+          ref={contentRef}
           aria-label={`Detalle de tarea: ${task.title}`}
           style={isMobile && kb > 0 ? { bottom: kb, maxHeight: `calc(92vh - ${kb}px)` } : undefined}
           className={cn(
             // Desktop: card opaco. Mobile: liquid glass con underlay (ios-surface-dialog)
             // — sin opai-glass-strong solo, que dejaba leer el fondo a través del modal.
+            // fixed es positioned → el popover absolute se ancla a este Dialog.Content.
             "fixed z-[70] flex flex-col border border-ds-border-default bg-card outline-none motion-safe:animate-in",
             "opai-ios-surface-dialog",
             isMobile
@@ -129,6 +137,7 @@ export function TareaDetailSheet({
               task={task} canEdit={canEdit} title={title} notes={notes} assigneeIds={assigneeIds} users={users}
               onTitle={setTitle} onNotes={setNotes} onAssignees={setAssigneeIds}
               onDue={(next) => onPostpone(task, next)}
+              portalContainer={portalEl}
             />
           </div>
 

@@ -4,10 +4,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { toZonedTime } from "date-fns-tz";
 import {
-  CheckCircle2,
   ExternalLink,
   MapPin,
-  Trash2,
   X,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -21,15 +19,11 @@ import {
 import { CHILE_TZ } from "@/lib/dates-cl";
 import { dateAtChileSlot, formatAgendaTime } from "./agenda-calendar-utils";
 import { TaskTimePicker } from "./TaskTimePicker";
-import { TaskAssigneePicker } from "./TaskAssigneePicker";
-import { canDeleteTarea } from "@/lib/productividad-task-ownership";
 import type { AgendaCalendarItem, AgendaTeamMember } from "./agenda-calendar.types";
 
 type Props = {
   item: AgendaCalendarItem | null;
   users: AgendaTeamMember[];
-  currentUserId: string;
-  userRole: string;
   onClose: () => void;
   onChanged: () => void;
 };
@@ -63,11 +57,14 @@ function localParts(iso: string): { date: string; time: string } {
   };
 }
 
-export function AgendaInspector({ item, users, currentUserId, userRole, onClose, onChanged }: Props) {
+/**
+ * Inspector lateral para visitas, licitaciones y eventos de Google.
+ * Las tareas se editan exclusivamente en `TareaDetailSheet` (AgendaTaskDetail).
+ */
+export function AgendaInspector({ item, users, onClose, onChanged }: Props) {
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
   const [assignedUserId, setAssignedUserId] = useState("");
-  const [assigneeIds, setAssigneeIds] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [confirmCancel, setConfirmCancel] = useState(false);
   const [visitDetail, setVisitDetail] = useState<{
@@ -84,13 +81,6 @@ export function AgendaInspector({ item, users, currentUserId, userRole, onClose,
     setDate(parts.date);
     setTime(item.allDay ? "" : parts.time);
     setAssignedUserId(item.assignedUserId ?? "");
-    setAssigneeIds(
-      item.assignedUserIds?.length
-        ? item.assignedUserIds
-        : item.assignedUserId
-          ? [item.assignedUserId]
-          : [],
-    );
     setVisitDetail(null);
 
     if (item.source === "agenda_visita") {
@@ -105,7 +95,6 @@ export function AgendaInspector({ item, users, currentUserId, userRole, onClose,
               null,
             htmlLink: data.htmlLink ?? null,
             syncStatus: data.syncStatus ?? "PENDING",
-            // RSVP v2 (participantes) solo si el espejo CalendarEvent existe.
             participants: Array.isArray(data.v2?.participants)
               ? data.v2.participants.map(
                   (p: { name?: string; responseStatus?: string; hasGoogle?: boolean }) => ({
@@ -125,24 +114,6 @@ export function AgendaInspector({ item, users, currentUserId, userRole, onClose,
 
   const assignee =
     users.find((user) => user.id === assignedUserId)?.name ?? item.assignedName;
-
-  async function saveTask(body: Record<string, unknown>, okMsg: string) {
-    setBusy(true);
-    try {
-      const r = await fetch(`/api/crm/tasks/${item!.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      if (!r.ok) throw new Error();
-      toast.success(okMsg);
-      onChanged();
-    } catch {
-      toast.error("No se pudo actualizar la tarea");
-    } finally {
-      setBusy(false);
-    }
-  }
 
   async function saveVisit(body: Record<string, unknown>, okMsg: string) {
     setBusy(true);
@@ -168,8 +139,7 @@ export function AgendaInspector({ item, users, currentUserId, userRole, onClose,
   }
 
   const saveSchedule = () => {
-    if (!date) return;
-    const allDay = !time;
+    if (!date || item.source !== "agenda_visita") return;
     const [hour, minute] = (time || "09:00").split(":").map(Number);
     const start = dateAtChileSlot(date, hour * 60 + minute);
     const durationMs = Math.max(
@@ -177,36 +147,19 @@ export function AgendaInspector({ item, users, currentUserId, userRole, onClose,
       new Date(item.end).getTime() - new Date(item.start).getTime(),
     );
     const end = new Date(start.getTime() + durationMs);
-
-    if (item.source === "tarea") {
-      void saveTask(
-        {
-          dueAt: start.toISOString(),
-          allDay,
-          assigneeIds,
-        },
-        "Tarea actualizada",
-      );
-      return;
-    }
-    if (item.source === "agenda_visita") {
-      void saveVisit(
-        {
-          startAt: start.toISOString(),
-          endAt: end.toISOString(),
-          assignedUserId: assignedUserId || undefined,
-        },
-        "Visita actualizada",
-      );
-    }
+    void saveVisit(
+      {
+        startAt: start.toISOString(),
+        endAt: end.toISOString(),
+        assignedUserId: assignedUserId || undefined,
+      },
+      "Visita actualizada",
+    );
   };
 
   const inputClass =
     "h-10 w-full rounded-xl border border-ds-border-default bg-ds-surface-1 px-3 text-[13px] text-ds-text-1 sm:h-9";
   const calendarLink = item.htmlLink ?? visitDetail?.htmlLink;
-  const canDeleteTaskItem =
-    item.source === "tarea" &&
-    canDeleteTarea({ createdBy: item.createdBy }, currentUserId, userRole);
 
   return (
     <Surface
@@ -217,11 +170,9 @@ export function AgendaInspector({ item, users, currentUserId, userRole, onClose,
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 space-y-1">
           <Tag size="sm" variant="neutral">
-            {item.source === "tarea"
-              ? "Tarea"
-              : item.source === "google"
-                ? "Google Calendar"
-                : item.type}
+            {item.source === "google"
+              ? "Google Calendar"
+              : item.type}
           </Tag>
           <h2 className="font-display text-base font-semibold text-ds-text-1">{item.title}</h2>
           <p className="text-[13px] text-ds-text-3">
@@ -254,7 +205,7 @@ export function AgendaInspector({ item, users, currentUserId, userRole, onClose,
         </div>
       )}
 
-      {(item.source === "tarea" || item.source === "agenda_visita") && (
+      {item.source === "agenda_visita" && (
         <div className="space-y-3">
           <div className="grid grid-cols-[1fr_auto] gap-2">
             <input
@@ -267,31 +218,24 @@ export function AgendaInspector({ item, users, currentUserId, userRole, onClose,
             <TaskTimePicker value={time} onChange={setTime} ariaLabel="Hora" />
           </div>
 
-          {item.source === "tarea" ? (
-            <div className="space-y-1.5">
-              <span className="text-[12px] font-medium text-ds-text-4">Responsables</span>
-              <TaskAssigneePicker users={users} value={assigneeIds} onChange={setAssigneeIds} />
+          <label className="block space-y-1.5">
+            <span className="text-[12px] font-medium text-ds-text-4">Responsable</span>
+            <div className="flex items-center gap-2">
+              {assignee && <Avatar name={assignee} size="sm" variant="brand" />}
+              <select
+                value={assignedUserId}
+                onChange={(e) => setAssignedUserId(e.target.value)}
+                className={inputClass}
+              >
+                <option value="">Sin asignar</option>
+                {users.map((user) => (
+                  <option key={user.id} value={user.id}>
+                    {user.name}
+                  </option>
+                ))}
+              </select>
             </div>
-          ) : (
-            <label className="block space-y-1.5">
-              <span className="text-[12px] font-medium text-ds-text-4">Responsable</span>
-              <div className="flex items-center gap-2">
-                {assignee && <Avatar name={assignee} size="sm" variant="brand" />}
-                <select
-                  value={assignedUserId}
-                  onChange={(e) => setAssignedUserId(e.target.value)}
-                  className={inputClass}
-                >
-                  <option value="">Sin asignar</option>
-                  {users.map((user) => (
-                    <option key={user.id} value={user.id}>
-                      {user.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </label>
-          )}
+          </label>
 
           <button
             type="button"
@@ -346,41 +290,6 @@ export function AgendaInspector({ item, users, currentUserId, userRole, onClose,
           >
             Google Calendar <ExternalLink className="h-3.5 w-3.5" />
           </a>
-        )}
-
-        {item.source === "tarea" && (
-          <>
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => void saveTask({ status: "done" }, "Tarea completada")}
-              className="inline-flex h-10 flex-1 items-center justify-center gap-1.5 rounded-xl border border-status-ok-border bg-status-ok-soft text-[13px] text-status-ok-fg ds-tap sm:h-9"
-            >
-              <CheckCircle2 className="h-4 w-4" /> Completar
-            </button>
-            {canDeleteTaskItem && (
-              <button
-                type="button"
-                disabled={busy}
-                onClick={async () => {
-                  setBusy(true);
-                  const r = await fetch(`/api/crm/tasks/${item.id}`, { method: "DELETE" }).catch(
-                    () => null,
-                  );
-                  setBusy(false);
-                  if (r?.ok) {
-                    toast.success("Tarea eliminada");
-                    onChanged();
-                    onClose();
-                  } else toast.error("No se pudo eliminar");
-                }}
-                aria-label="Eliminar tarea"
-                className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-ds-border-default text-ds-text-3 ds-tap sm:h-9 sm:w-9"
-              >
-                <Trash2 className="h-4 w-4" />
-              </button>
-            )}
-          </>
         )}
 
         {item.source === "agenda_visita" && (

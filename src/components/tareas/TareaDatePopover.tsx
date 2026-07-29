@@ -30,24 +30,25 @@ function ymdToLocalDate(ymd: string): Date {
 }
 
 /**
- * Trigger + popover glass para elegir fecha y hora sin componentes nativos.
- * Contiene el Calendar del DS y una grilla horaria en flujo (TareaTimeGrid, 15').
- * Portaleado a <body> con posición fixed (no lo recorta ningún overflow); abre
- * hacia arriba si no hay espacio y descuenta la isla inferior (--bottom-nav-height).
- * La hora va EN FLUJO (no un menú portaleado a z-[60]) para que funcione dentro
- * del diálogo de detalle (z-[70]) sin quedar detrás ni cerrar el popover.
+ * Trigger + popover opaco para elegir fecha y hora.
+ * Por defecto portal a <body> (fixed). Si se pasa `portalContainer` (p. ej. el
+ * Dialog.Content del detalle), se portalea ahí con posición absolute relativa
+ * al contenedor — así recupera pointer-events dentro de un Dialog modal.
  */
 export function TareaDatePopover({
   value,
   onChange,
   disabled,
   triggerClassName,
+  portalContainer,
   children,
 }: {
   value: DueValue;
   onChange: (next: DueValue) => void;
   disabled?: boolean;
   triggerClassName: string;
+  /** Contenedor de portal (Dialog.Content). Si null/undefined → document.body. */
+  portalContainer?: HTMLElement | null;
   children: ReactNode;
 }) {
   const [open, setOpen] = useState(false);
@@ -57,6 +58,8 @@ export function TareaDatePopover({
 
   const dueYmd = value.dueAt ? ymdInChile(new Date(value.dueAt)) : null;
   const time = value.dueAt && !value.allDay ? formatAgendaTime(new Date(value.dueAt)) : "";
+  const target = portalContainer ?? (typeof document !== "undefined" ? document.body : null);
+  const nested = Boolean(portalContainer && portalContainer !== document.body);
 
   const close = useCallback(() => setOpen(false), []);
   const place = useCallback(() => {
@@ -64,13 +67,31 @@ export function TareaDatePopover({
     if (!el) return;
     const r = el.getBoundingClientRect();
     const menuH = menuRef.current?.offsetHeight ?? 380;
+    const container = portalContainer && portalContainer !== document.body ? portalContainer : null;
+    const containerRect = container?.getBoundingClientRect();
+
+    if (container && containerRect) {
+      const left = Math.max(
+        MARGIN,
+        Math.min(r.left - containerRect.left, containerRect.width - POPOVER_W - MARGIN),
+      );
+      const spaceBelow = containerRect.bottom - r.bottom - GAP - MARGIN;
+      const spaceAbove = r.top - containerRect.top - GAP - MARGIN;
+      const openUp = spaceBelow < menuH && spaceAbove > spaceBelow;
+      const top = openUp
+        ? Math.max(MARGIN, r.top - containerRect.top - GAP - menuH)
+        : r.bottom - containerRect.top + GAP;
+      setCoords({ top, left });
+      return;
+    }
+
     const left = Math.max(MARGIN, Math.min(r.left, window.innerWidth - POPOVER_W - MARGIN));
     const navH = parseInt(getComputedStyle(document.documentElement).getPropertyValue("--bottom-nav-height")) || 0;
     const spaceBelow = window.innerHeight - r.bottom - GAP - MARGIN - navH;
     const spaceAbove = r.top - GAP - MARGIN;
     const openUp = spaceBelow < menuH && spaceAbove > spaceBelow;
     setCoords({ top: openUp ? Math.max(MARGIN, r.top - GAP - menuH) : r.bottom + GAP, left });
-  }, []);
+  }, [portalContainer]);
 
   useEffect(() => {
     if (!open) return;
@@ -106,12 +127,20 @@ export function TareaDatePopover({
         {children}
       </button>
 
-      {open && typeof document !== "undefined" &&
+      {open && target &&
         createPortal(
           <div
             ref={menuRef}
-            style={{ position: "fixed", top: coords?.top ?? -9999, left: coords?.left ?? -9999, width: POPOVER_W }}
-            className={cn("opai-glass-strong z-[70] max-h-[80vh] overflow-y-auto p-2", !coords && "pointer-events-none opacity-0")}
+            style={{
+              position: nested ? "absolute" : "fixed",
+              top: coords?.top ?? -9999,
+              left: coords?.left ?? -9999,
+              width: POPOVER_W,
+            }}
+            className={cn(
+              "z-[80] max-h-[80vh] overflow-y-auto rounded-2xl border border-ds-border-default bg-ds-surface-2 p-2 shadow-ds-lg",
+              !coords && "pointer-events-none opacity-0",
+            )}
             role="dialog"
             aria-label="Elegir fecha y hora"
           >
@@ -128,7 +157,7 @@ export function TareaDatePopover({
               />
             </div>
           </div>,
-          document.body,
+          target,
         )}
     </>
   );

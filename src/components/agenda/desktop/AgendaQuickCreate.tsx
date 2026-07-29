@@ -24,10 +24,11 @@ type Props = {
   users: AgendaTeamMember[];
   onClose: () => void;
   onCreated: () => void;
+  onOpenTask?: (id: string) => void;
 };
 
 /** Quick-create Notion-style: panel flotante ≤400px, contenido contenido al viewport. */
-export function AgendaQuickCreate({ state, users, onClose, onCreated }: Props) {
+export function AgendaQuickCreate({ state, users, onClose, onCreated, onOpenTask }: Props) {
   const [mode, setMode] = useState(state.mode);
   const [title, setTitle] = useState("");
   const composer = useEventComposer(true, state.dateKey ?? null);
@@ -83,12 +84,15 @@ export function AgendaQuickCreate({ state, users, onClose, onCreated }: Props) {
 
   const saving = mode === "evento" ? composer.saving : task.saving;
 
+  const [lastCreatedTaskId, setLastCreatedTaskId] = useState<string | null>(null);
+
   const save = async () => {
     if (saving) return;
     if (mode === "tarea") {
-      if (await task.submit()) {
+      const id = await task.submit();
+      if (id) {
+        setLastCreatedTaskId(id);
         onCreated();
-        onClose();
       }
       return;
     }
@@ -200,15 +204,34 @@ export function AgendaQuickCreate({ state, users, onClose, onCreated }: Props) {
           )}
         </div>
 
-        <div className="flex h-12 shrink-0 items-center justify-between border-t border-ds-border-subtle px-4">
-          <p className="font-mono text-[12px] text-ds-text-4">⇥ cambia · ↵ guarda</p>
+        <div className="flex h-12 shrink-0 items-center justify-between gap-2 border-t border-ds-border-subtle px-4">
+          {lastCreatedTaskId ? (
+            <button
+              type="button"
+              onClick={() => {
+                if (onOpenTask) onOpenTask(lastCreatedTaskId);
+                else onClose();
+              }}
+              className="text-[13px] font-medium text-primary underline-offset-2 hover:underline ds-tap"
+            >
+              Abrir detalle
+            </button>
+          ) : (
+            <p className="font-mono text-[12px] text-ds-text-4">⇥ cambia · ↵ guarda</p>
+          )}
           <button
             type="button"
             disabled={saving}
-            onClick={() => void save()}
+            onClick={() => {
+              if (lastCreatedTaskId) {
+                onClose();
+                return;
+              }
+              void save();
+            }}
             className="inline-flex h-8 items-center rounded-xl bg-primary px-3.5 text-[13px] font-semibold text-primary-foreground ds-tap disabled:opacity-60"
           >
-            {saving ? "Guardando…" : "Guardar"}
+            {saving ? "Guardando…" : lastCreatedTaskId ? "Cerrar" : "Guardar"}
           </button>
         </div>
       </div>

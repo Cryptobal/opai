@@ -29,6 +29,9 @@ type TimedProps = {
   width: number;
   selected: boolean;
   user?: AgendaTeamMember;
+  hourHeight?: number;
+  step?: number;
+  showOwner?: boolean;
   onSelect: (item: AgendaCalendarItem) => void;
   onResize: (item: AgendaCalendarItem, schedule: AgendaSchedule) => void;
 };
@@ -41,6 +44,9 @@ export function AgendaTimedEvent({
   width,
   selected,
   user,
+  hourHeight = CALENDAR_HOUR_HEIGHT,
+  step = 15,
+  showOwner = true,
   onSelect,
   onResize,
 }: TimedProps) {
@@ -55,16 +61,16 @@ export function AgendaTimedEvent({
   });
 
   const previewSchedule =
-    resizeDelta == null ? null : resizedSchedule(item, resizeDelta, CALENDAR_HOUR_HEIGHT);
+    resizeDelta == null ? null : resizedSchedule(item, resizeDelta, hourHeight, step);
   const previewHeight = previewSchedule
     ? Math.max(
         44,
         ((previewSchedule.end.getTime() - previewSchedule.start.getTime()) / 60_000 / 60) *
-          CALENDAR_HOUR_HEIGHT,
+          hourHeight,
       )
     : height;
   const assigneeName = item.assignedName ?? user?.name ?? null;
-  const showDetails = previewHeight >= 68;
+  const showDetails = previewHeight >= 68 && showOwner;
 
   const style: CSSProperties = {
     top,
@@ -80,7 +86,7 @@ export function AgendaTimedEvent({
     const delta = event.clientY - resizeOrigin.current.y;
     resizeOrigin.current = null;
     setResizeDelta(null);
-    const schedule = resizedSchedule(item, delta, CALENDAR_HOUR_HEIGHT);
+    const schedule = resizedSchedule(item, delta, hourHeight, step);
     if (schedule.end.toISOString() !== item.end) onResize(item, schedule);
   };
 
@@ -170,6 +176,7 @@ type CompactProps = {
   selected?: boolean;
   dense?: boolean;
   user?: AgendaTeamMember;
+  showOwner?: boolean;
   /** Overrides puntuales (ej. chips slim de la banda all-day desktop). */
   className?: string;
   onSelect: (item: AgendaCalendarItem) => void;
@@ -180,6 +187,7 @@ export function AgendaCompactEvent({
   selected = false,
   dense = false,
   user,
+  showOwner = true,
   className,
   onSelect,
 }: CompactProps) {
@@ -201,7 +209,7 @@ export function AgendaCompactEvent({
       }}
       style={{ transform: CSS.Translate.toString(transform) }}
       className={cn(
-        "flex min-h-8 w-full min-w-0 items-center gap-1.5 rounded-md border px-1.5 text-left text-[12px] shadow-ds-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50",
+        "flex min-h-8 w-full min-w-0 max-w-full items-center gap-1.5 overflow-hidden rounded-md border px-1.5 text-left text-[12px] shadow-ds-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50",
         eventTone(item),
         dense ? "h-11 sm:h-8" : "h-11 sm:h-9",
         movable && "cursor-grab active:cursor-grabbing touch-none",
@@ -219,12 +227,35 @@ export function AgendaCompactEvent({
         </span>
       )}
       <span className="min-w-0 flex-1 truncate font-medium">{item.title}</span>
-      {!dense && assigneeName && <Avatar name={assigneeName} size="sm" />}
+      {!dense && showOwner && assigneeName && <Avatar name={assigneeName} size="sm" />}
     </button>
   );
 }
 
-export function AgendaDragPreview({ item }: { item: AgendaCalendarItem }) {
+type DragGuide = {
+  dateKey: string;
+  minute: number;
+  allDay: boolean;
+  title: string;
+  duration: number;
+} | null;
+
+export function AgendaDragPreview({
+  item,
+  guide,
+}: {
+  item: AgendaCalendarItem;
+  guide?: DragGuide;
+}) {
+  const guideLabel = (() => {
+    if (!guide) return null;
+    if (guide.allDay) return "Todo el día";
+    const end = guide.minute + guide.duration;
+    const fmt = (m: number) =>
+      `${String(Math.floor(m / 60) % 24).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+    return `${fmt(guide.minute)}–${fmt(end)}`;
+  })();
+
   return (
     <div
       className={cn(
@@ -234,9 +265,11 @@ export function AgendaDragPreview({ item }: { item: AgendaCalendarItem }) {
     >
       <p className="truncate font-semibold">{item.title}</p>
       <p className="mt-0.5 text-[12px] opacity-75">
-        {item.allDay
-          ? "Todo el día"
-          : `${formatAgendaTime(new Date(item.start))}–${formatAgendaTime(new Date(item.end))}`}
+        {guideLabel
+          ? `${guideLabel} · ${item.title}`
+          : item.allDay
+            ? "Todo el día"
+            : `${formatAgendaTime(new Date(item.start))}–${formatAgendaTime(new Date(item.end))}`}
       </p>
     </div>
   );

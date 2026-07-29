@@ -1,5 +1,6 @@
 /**
  * API Route: /api/crm/tasks/[id]
+ * GET    - Detalle de una tarea (mismo select del listado).
  * PATCH  - Actualiza una tarea { title?, status?, dueAt?, allDay?, assignedTo?,
  *          assigneeIds? }. Si llega `assigneeIds` reemplaza el conjunto completo
  *          y resincroniza `assignedTo` (= primer responsable). Al pasar a "done"
@@ -8,7 +9,7 @@
  * DELETE - Elimina una tarea (sus responsables caen por FK cascade).
  *
  * Multi-tenant: valida que la tarea pertenezca a ctx.tenantId antes de mutar.
- * Permiso: productividad.tareas edit O crm.deals edit.
+ * Permiso: productividad.tareas view/edit O crm.deals edit.
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -19,10 +20,63 @@ import { auditTaskAction } from "@/lib/audit-productividad";
 const MAX_ASSIGNEES = 20;
 const NOTES_MAX = 5000;
 
+const TASK_DETAIL_SELECT = {
+  id: true,
+  title: true,
+  notes: true,
+  status: true,
+  type: true,
+  dueAt: true,
+  allDay: true,
+  assignedTo: true,
+  completedBy: true,
+  completedAt: true,
+  dealId: true,
+  accountId: true,
+  emailThreadId: true,
+  createdBy: true,
+  createdAt: true,
+  assignees: { select: { userId: true } },
+} as const;
+
 function parseAssigneeIds(value: unknown): string[] {
   const raw = Array.isArray(value) ? value : [];
   const ids = raw.filter((x): x is string => typeof x === "string" && x.length > 0);
   return [...new Set(ids)].slice(0, MAX_ASSIGNEES);
+}
+
+export async function GET(
+  _request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  try {
+    const access = await requireTasksAccess("view");
+    if (!access.authorized) return access.response;
+    const ctx = access.ctx;
+
+    const { id } = await params;
+    const task = await prisma.crmTask.findFirst({
+      where: { id, tenantId: ctx.tenantId },
+      select: TASK_DETAIL_SELECT,
+    });
+    if (!task) {
+      return NextResponse.json({ success: false, error: "Tarea no encontrada" }, { status: 404 });
+    }
+
+    const assigneeIds = task.assignees.length
+      ? task.assignees.map((a) => a.userId)
+      : task.assignedTo
+        ? [task.assignedTo]
+        : [];
+
+    return NextResponse.json({
+      success: true,
+      data: { ...task, assigneeIds },
+    });
+  } catch (error) {
+    console.error("Error fetching task:", error);
+    return NextResponse.json({ success: false, error: "Error al obtener tarea" }, { status: 500 });
+  }
 }
 
 export async function PATCH(
