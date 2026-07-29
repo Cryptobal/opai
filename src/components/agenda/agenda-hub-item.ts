@@ -40,8 +40,7 @@ export function hubAgendaDayHref(ymd: string): string {
 
 /**
  * Destino al clickear un item de Agenda en Mi día.
- * Prioridad: detalle nativo (visita/licitación) → día en /opai/agenda.
- * Las tareas del hub van a la agenda del día (la columna Tareas abre el detalle).
+ * Prioridad: detalle nativo (visita/licitación/tarea) → día + item en /opai/agenda.
  */
 export function hubAgendaItemHref(item: HubAgendaItem): string {
   if (item.source === "agenda_visita") {
@@ -58,7 +57,11 @@ export function hubAgendaItemHref(item: HubAgendaItem): string {
       : new Date(item.start).toLocaleDateString("en-CA", {
           timeZone: "America/Santiago",
         });
-  return hubAgendaDayHref(day);
+  if (item.source === "tarea") {
+    return `/opai/agenda?date=${encodeURIComponent(day)}&tarea=${encodeURIComponent(item.id)}`;
+  }
+  const source = item.source || item.type || "evento";
+  return `/opai/agenda?date=${encodeURIComponent(day)}&item=${encodeURIComponent(`${source}:${item.id}`)}`;
 }
 
 /** Detalle de una tarea en /opai/tareas. */

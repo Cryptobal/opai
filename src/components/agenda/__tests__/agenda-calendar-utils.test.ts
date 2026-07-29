@@ -3,10 +3,14 @@ import { ymdInChile } from "@/lib/dates-cl";
 import {
   CALENDAR_HOUR_HEIGHT,
   dateAtChileSlot,
+  displayCalendarDays,
   eventDurationMinutes,
   layoutTimedItems,
+  minuteFromOffset,
   moveItemToSlot,
   resizedSchedule,
+  snapTo,
+  startOfWeekChile,
   visibleCalendarRange,
 } from "../agenda-calendar-utils";
 import type { AgendaCalendarItem } from "../agenda-calendar.types";
@@ -96,5 +100,44 @@ describe("agenda calendar utils", () => {
     expect(entries.find((entry) => entry.item.id === "a")?.columnCount).toBe(2);
     expect(entries.find((entry) => entry.item.id === "b")?.column).toBe(1);
     expect(entries.find((entry) => entry.item.id === "c")?.columnCount).toBe(1);
+  });
+
+  it("startOfWeekChile respeta firstDay 0|1", () => {
+    // Miércoles 22 jul 2026 Chile
+    const anchor = new Date("2026-07-22T15:00:00.000Z");
+    expect(ymdInChile(startOfWeekChile(anchor, 1))).toBe("2026-07-20"); // lunes
+    expect(ymdInChile(startOfWeekChile(anchor, 0))).toBe("2026-07-19"); // domingo
+  });
+
+  it("semana sin fines de semana renderiza 5 días; el rango API sigue en 7", () => {
+    const anchor = new Date("2026-07-22T15:00:00.000Z");
+    const range = visibleCalendarRange(anchor, "week", 3, {
+      firstDay: 1,
+      showWeekends: false,
+    });
+    expect(range.days).toHaveLength(7);
+    expect(displayCalendarDays(range.days, "week", false)).toHaveLength(5);
+  });
+
+  it("snapTo respeta pasos 5/15/30", () => {
+    expect(snapTo(17, 5)).toBe(15);
+    expect(snapTo(22, 15)).toBe(15);
+    expect(snapTo(44, 30)).toBe(30);
+  });
+
+  it("minuteFromOffset calcula minuto desde offset vertical", () => {
+    expect(minuteFromOffset(84, 84, 15)).toBe(60);
+    expect(minuteFromOffset(42, 84, 15)).toBe(30);
+  });
+
+  it("moveItemToSlot no marca all-day en visitas", () => {
+    const visit = item(
+      "v1",
+      "2026-07-22T13:00:00.000Z",
+      "2026-07-22T14:00:00.000Z",
+    );
+    const moved = moveItemToSlot(visit, "2026-07-23", 10 * 60, true);
+    expect(moved.allDay).toBe(false);
+    expect(eventDurationMinutes({ ...visit, start: moved.start.toISOString(), end: moved.end.toISOString() })).toBe(60);
   });
 });

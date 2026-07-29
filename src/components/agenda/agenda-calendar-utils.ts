@@ -12,12 +12,15 @@ import type {
 } from "./agenda-calendar.types";
 
 // Rango completo 0-24 (fix B8 del audit: eventos <07 o >21 eran invisibles).
-// La grilla desktop hace auto-scroll inicial a las 07:00.
+// La grilla desktop hace auto-scroll inicial según startHour de prefs.
 export const CALENDAR_START_HOUR = 0;
 export const CALENDAR_END_HOUR = 24;
 export const CALENDAR_AUTOSCROLL_HOUR = 7;
 export const CALENDAR_SLOT_MINUTES = 15;
 export const CALENDAR_HOUR_HEIGHT = 84;
+export const CALENDAR_MIN_HOUR_HEIGHT = 34;
+export const CALENDAR_DAY_MIN_WIDTH = 120;
+export const CALENDAR_GUTTER_WIDTH = 56;
 
 const MINUTES_PER_DAY = 24 * 60;
 const MIN_EVENT_MINUTES = 30;
@@ -37,6 +40,13 @@ export type TimedLayoutItem = {
   columnCount: number;
 };
 
+export type VisibleRangeOptions = {
+  /** 0 = domingo, 1 = lunes (default). */
+  firstDay?: 0 | 1;
+  /** Si false, en vista semana/multi se ocultan sáb/dom en el render. */
+  showWeekends?: boolean;
+};
+
 function zonedLocalDate(date: Date): Date {
   return toZonedTime(date, CHILE_TZ);
 }
@@ -45,10 +55,13 @@ function fromChileLocalDate(date: Date): Date {
   return fromZonedTime(date, CHILE_TZ);
 }
 
-export function startOfWeekChile(date: Date): Date {
+export function startOfWeekChile(date: Date, weekStartsOn: 0 | 1 = 1): Date {
   const local = zonedLocalDate(startOfDayChile(date));
-  const mondayOffset = (local.getDay() + 6) % 7;
-  local.setDate(local.getDate() - mondayOffset);
+  const offset =
+    weekStartsOn === 0
+      ? local.getDay()
+      : (local.getDay() + 6) % 7;
+  local.setDate(local.getDate() - offset);
   local.setHours(0, 0, 0, 0);
   return fromChileLocalDate(local);
 }
@@ -68,19 +81,32 @@ export function addMonthsChile(date: Date, amount: number): Date {
   return fromChileLocalDate(local);
 }
 
-export function monthGridDays(anchor: Date): Date[] {
+export function monthGridDays(anchor: Date, weekStartsOn: 0 | 1 = 1): Date[] {
   const first = startOfMonthChile(anchor);
-  const start = startOfWeekChile(first);
+  const start = startOfWeekChile(first, weekStartsOn);
   return Array.from({ length: 42 }, (_, index) => addDaysChile(start, index));
+}
+
+/** Filtra sáb/dom del array de días visibles (el rango API sigue completo). */
+export function filterWeekendDays(days: Date[], showWeekends: boolean): Date[] {
+  if (showWeekends) return days;
+  return days.filter((day) => {
+    const dow = zonedLocalDate(day).getDay();
+    return dow !== 0 && dow !== 6;
+  });
 }
 
 export function visibleCalendarRange(
   anchor: Date,
   view: AgendaViewMode,
   multiDays: number,
+  options: VisibleRangeOptions = {},
 ): CalendarRange {
+  const firstDay = options.firstDay ?? 1;
+  const showWeekends = options.showWeekends !== false;
+
   if (view === "month") {
-    const days = monthGridDays(anchor);
+    const days = monthGridDays(anchor, firstDay);
     return {
       from: days[0],
       to: addDaysChile(days[days.length - 1], 1),
@@ -89,9 +115,25 @@ export function visibleCalendarRange(
   }
 
   const count = view === "day" ? 1 : view === "week" ? 7 : clamp(multiDays, 2, 6);
-  const from = view === "week" ? startOfWeekChile(anchor) : startOfDayChile(anchor);
+  const from = view === "week" ? startOfWeekChile(anchor, firstDay) : startOfDayChile(anchor);
+  // API range: período completo. El filtrado de fines de semana es solo de render
+  // (`displayCalendarDays`); `showWeekends` no altera from/to.
+  void showWeekends;
   const days = Array.from({ length: count }, (_, index) => addDaysChile(from, index));
   return { from, to: addDaysChile(from, count), days };
+}
+
+/**
+ * Días a renderizar en la grilla. El `range.days` de `visibleCalendarRange`
+ * conserva la semana completa para el fetch; este helper aplica showWeekends.
+ */
+export function displayCalendarDays(
+  rangeDays: Date[],
+  view: AgendaViewMode,
+  showWeekends: boolean,
+): Date[] {
+  if (view === "month" || view === "day" || showWeekends) return rangeDays;
+  return filterWeekendDays(rangeDays, false);
 }
 
 export function navigateCalendar(
@@ -142,6 +184,19 @@ export function snapMinutes(minute: number, step = CALENDAR_SLOT_MINUTES): numbe
   return Math.round(minute / step) * step;
 }
 
+/** Alias canónico del brief (`snapTo`). */
+export const snapTo = snapMinutes;
+
+/** Minuto del día a partir del offset vertical dentro de la columna horaria. */
+export function minuteFromOffset(
+  offsetY: number,
+  hourHeight: number,
+  step = CALENDAR_SLOT_MINUTES,
+): number {
+  if (hourHeight <= 0) return 0;
+  return snapMinutes((offsetY / hourHeight) * 60, step);
+}
+
 export function eventDurationMinutes(item: AgendaCalendarItem): number {
   const start = new Date(item.start).getTime();
   const end = new Date(item.end).getTime();
@@ -156,9 +211,10 @@ export function moveItemToSlot(
   dateKey: string,
   minute: number,
   allDay = false,
+  step = CALENDAR_SLOT_MINUTES,
 ): AgendaSchedule {
   const duration = eventDurationMinutes(item);
-  const targetMinute = allDay ? 9 * 60 : snapMinutes(minute);
+  const targetMinute = allDay ? 9 * 60 : snapMinutes(minute, step);
   const start = dateAtChileSlot(dateKey, targetMinute);
   return {
     start,
@@ -178,11 +234,12 @@ export function resizedSchedule(
   item: AgendaCalendarItem,
   deltaPixels: number,
   hourHeight = CALENDAR_HOUR_HEIGHT,
+  step = CALENDAR_SLOT_MINUTES,
 ): AgendaSchedule {
   const currentDuration = eventDurationMinutes(item);
   const deltaMinutes = (deltaPixels / hourHeight) * 60;
   const duration = clamp(
-    snapMinutes(currentDuration + deltaMinutes),
+    snapMinutes(currentDuration + deltaMinutes, step),
     MIN_EVENT_MINUTES,
     MAX_EVENT_MINUTES,
   );
@@ -194,11 +251,11 @@ export function resizedSchedule(
   };
 }
 
-export function calendarSlotMinutes(): number[] {
+export function calendarSlotMinutes(step = CALENDAR_SLOT_MINUTES): number[] {
   const start = CALENDAR_START_HOUR * 60;
   const end = CALENDAR_END_HOUR * 60;
   const slots: number[] = [];
-  for (let minute = start; minute < end; minute += CALENDAR_SLOT_MINUTES) {
+  for (let minute = start; minute < end; minute += step) {
     slots.push(minute);
   }
   return slots;
@@ -271,8 +328,10 @@ export function formatAgendaPeriod(
   anchor: Date,
   view: AgendaViewMode,
   multiDays: number,
+  options?: VisibleRangeOptions,
 ): string {
-  const { days } = visibleCalendarRange(anchor, view, multiDays);
+  const { days: rangeDays } = visibleCalendarRange(anchor, view, multiDays, options);
+  const days = displayCalendarDays(rangeDays, view, options?.showWeekends !== false);
   if (view === "month") {
     return anchor.toLocaleDateString("es-CL", {
       month: "long",
@@ -317,6 +376,21 @@ export function itemKey(item: AgendaCalendarItem): string {
   return `${item.source}:${item.id}`;
 }
 
-function clamp(value: number, min: number, max: number): number {
+export function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
+}
+
+/** Altura de hora según prefs + alto disponible del scroll. */
+export function resolveHourHeight(opts: {
+  fitToWindow: boolean;
+  hourHeight: number;
+  startHour: number;
+  endHour: number;
+  availableHeight: number;
+}): number {
+  const span = Math.max(1, opts.endHour - opts.startHour);
+  if (opts.fitToWindow && opts.availableHeight > 0) {
+    return Math.max(CALENDAR_MIN_HOUR_HEIGHT, Math.round(opts.availableHeight / span));
+  }
+  return opts.hourHeight;
 }

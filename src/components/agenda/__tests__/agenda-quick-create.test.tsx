@@ -77,18 +77,17 @@ describe("AgendaQuickCreate", () => {
     expect(reunion.className).toContain("bg-primary");
   });
 
-  it("la fila Vence del modo Tarea envuelve fecha y hora", () => {
+  it("la fila Vence del modo Tarea usa chips canónicos", () => {
     renderPanel();
     fireEvent.click(screen.getByRole("button", { name: "tarea" }));
 
-    const dateInput = screen.getByLabelText("Fecha de vencimiento");
-    const venceRow = dateInput.parentElement;
-    expect(venceRow).not.toBeNull();
-    expect(venceRow!.className).toContain("flex-wrap");
-    expect(venceRow!.className).toContain("min-h-9");
+    expect(screen.getByLabelText("Vencimiento")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Hoy" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Fecha y hora|·/ })).toBeInTheDocument();
+    expect(screen.getByLabelText("Notas de la tarea")).toBeInTheDocument();
   });
 
-  it("prefija fecha y hora del slot clickeado", () => {
+  it("prefija fecha y hora del slot clickeado en modo Evento", () => {
     renderPanel();
     expect(screen.getByLabelText("Fecha")).toHaveValue("2026-07-23");
     expect(screen.getByLabelText("Hora")).toHaveValue("10:00");
@@ -101,7 +100,7 @@ describe("AgendaQuickCreate", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    const { onClose, onCreated } = renderPanel();
+    const { onCreated } = renderPanel();
     const title = screen.getByLabelText("Título");
 
     fireEvent.keyDown(title, { key: "Tab" });
@@ -111,7 +110,8 @@ describe("AgendaQuickCreate", () => {
     fireEvent.keyDown(title, { key: "Enter" });
 
     await waitFor(() => expect(onCreated).toHaveBeenCalled());
-    expect(onClose).toHaveBeenCalled();
+    // Tras crear, ofrece "Abrir detalle" en vez de cerrar de inmediato.
+    expect(screen.getByRole("button", { name: "Abrir detalle" })).toBeInTheDocument();
     const [url, init] = fetchMock.mock.calls[0];
     expect(url).toBe("/api/crm/tasks");
     const body = JSON.parse((init as RequestInit).body as string);
@@ -119,7 +119,7 @@ describe("AgendaQuickCreate", () => {
     expect(body.allDay).toBe(false);
   });
 
-  it("modo Tarea usa el selector de 15 min y envía assigneeIds (sin assignedTo)", async () => {
+  it("modo Tarea envía assigneeIds (sin assignedTo) y notas", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({ success: true, data: { id: "t1" } }),
@@ -130,20 +130,18 @@ describe("AgendaQuickCreate", () => {
     const title = screen.getByLabelText("Título");
     fireEvent.keyDown(title, { key: "Tab" }); // → modo Tarea
 
-    // El selector horario es el chip de hora propio (botón), no un <input type="time">.
-    const timeBtn = screen.getByRole("button", { name: "Cambiar hora" });
-    expect(timeBtn).toHaveTextContent("10:00");
-
+    fireEvent.change(screen.getByLabelText("Notas de la tarea"), {
+      target: { value: "Llevar contrato" },
+    });
     fireEvent.change(title, { target: { value: "Revisar propuesta" } });
     fireEvent.keyDown(title, { key: "Enter" });
 
     await waitFor(() => expect(onCreated).toHaveBeenCalled());
     const [, init] = fetchMock.mock.calls[0];
     const body = JSON.parse((init as RequestInit).body as string);
-    // Contrato nuevo: multi-responsable. Sin responsable seleccionado → el
-    // servidor asigna al creador (assigneeIds omitido, assignedTo ya no se usa).
     expect(body).not.toHaveProperty("assignedTo");
     expect(body.assigneeIds).toBeUndefined();
+    expect(body.notes).toBe("Llevar contrato");
   });
 
   it("Esc cierra el panel", () => {
