@@ -14,6 +14,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireTasksAccess } from "@/lib/api-auth-tareas";
 import { auditTaskAction } from "@/lib/audit-productividad";
+import { OPEN_TASK_STATUSES } from "@/modules/tareas/tareas.service";
 
 const MAX_ASSIGNEES = 20;
 const NOTES_MAX = 5000;
@@ -58,7 +59,11 @@ export async function GET(request: NextRequest) {
     const take = Math.min(Number(url.searchParams.get("limit")) || 100, 200);
 
     const where: Record<string, unknown> = { tenantId: ctx.tenantId };
-    if (status === "open" || status === "done") where.status = status;
+    // `open` = pendientes reales: incluye recordatorios ya avisados (notified*).
+    // Sin esto, una tarea de día completo desaparece del listado Tareas en Mi día
+    // tras el cron, aunque siga visible en Agenda.
+    if (status === "open") where.status = { in: [...OPEN_TASK_STATUSES] };
+    else if (status === "done") where.status = "done";
     // Preferir task_assignees; fallback a assignedTo denormalizado para tareas
     // pre-migración (p.ej. creadas desde correo sin fila en assignees).
     if (assigneeId) {

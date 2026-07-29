@@ -5,6 +5,11 @@ import type { AgendaListItem } from "./agenda.types";
  * Tareas del equipo con fecha dentro de la ventana, como items de agenda.
  * Se muestran junto a visitas/licitaciones en el hub y en la Agenda; el click
  * lleva al origen (correo/negocio) vía `href`, no abre el drawer de visita.
+ *
+ * Incluye pendientes vencidas (`dueAt < from`): si no, una tarea de día completo
+ * "desaparece" de Mi día al cambiar la fecha aunque siga abierta. El hub las
+ * reubica en la sección de hoy (carry-forward); el calendario las sigue mostrando
+ * en su día original cuando ese día está en el rango visible.
  */
 export async function listAgendaTasks(
   tenantId: string,
@@ -16,7 +21,11 @@ export async function listAgendaTasks(
       where: {
         tenantId,
         status: { notIn: ["done", "cancelled"] },
-        dueAt: { gte: from, lt: to },
+        dueAt: { not: null, lt: to },
+        OR: [
+          { dueAt: { gte: from, lt: to } },
+          { dueAt: { lt: from } },
+        ],
       },
       select: {
         id: true,

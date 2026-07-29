@@ -13,7 +13,23 @@ export type HubAgendaItem = {
   href?: string | null;
   accountName?: string | null;
   installationName?: string | null;
+  /** Responsable principal (compat). */
+  assignedUserId?: string;
+  /** Multi-responsable (tareas). */
+  assignedUserIds?: string[];
 };
+
+/** ¿La tarea es del usuario actual? Sin assignees → visible (legacy). */
+export function isHubTaskForUser(item: HubAgendaItem, userId: string): boolean {
+  if (item.source !== "tarea") return true;
+  const ids =
+    item.assignedUserIds?.length
+      ? item.assignedUserIds
+      : item.assignedUserId
+        ? [item.assignedUserId]
+        : [];
+  return ids.length === 0 || ids.includes(userId);
+}
 
 export function hhmm(start: string): string {
   return new Date(start).toLocaleTimeString("es-CL", {

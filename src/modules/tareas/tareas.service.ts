@@ -8,6 +8,19 @@ import { todayInChile, ymdInChile, addDaysChile } from "@/lib/dates-cl";
  * Lógica pura (sin prisma) para poder testearla y usarla en cliente y servidor.
  */
 
+/**
+ * Estados que siguen siendo pendientes de completar.
+ * El cron de recordatorios marca `notified` / `notified_no_slack` tras el aviso
+ * Slack, pero la tarea NO está hecha — Agenda y Mi semana ya las trataban así;
+ * el listado de Tareas (`status=open`) debe incluirlas también.
+ */
+export const OPEN_TASK_STATUSES = ["open", "notified", "notified_no_slack"] as const;
+export type OpenTaskStatus = (typeof OPEN_TASK_STATUSES)[number];
+
+export function isOpenTaskStatus(status: string): status is OpenTaskStatus {
+  return (OPEN_TASK_STATUSES as readonly string[]).includes(status);
+}
+
 export type TareaBucket =
   | "vencidas"
   | "hoy"

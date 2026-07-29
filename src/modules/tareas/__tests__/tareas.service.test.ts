@@ -4,6 +4,8 @@ import {
   computeBoundaries,
   bucketForDueYmd,
   TAREA_BUCKET_ORDER,
+  OPEN_TASK_STATUSES,
+  isOpenTaskStatus,
 } from "../tareas.service";
 import { utcDateFromYmd, ymdInChile, addDaysChile } from "@/lib/dates-cl";
 
@@ -18,6 +20,17 @@ function shift(days: number): string {
 function dueOn(ymd: string): string {
   return new Date(utcDateFromYmd(ymd).getTime() + 12 * 3600 * 1000).toISOString();
 }
+
+describe("OPEN_TASK_STATUSES", () => {
+  it("incluye recordatorios ya notificados como pendientes", () => {
+    expect(OPEN_TASK_STATUSES).toEqual(["open", "notified", "notified_no_slack"]);
+    expect(isOpenTaskStatus("open")).toBe(true);
+    expect(isOpenTaskStatus("notified")).toBe(true);
+    expect(isOpenTaskStatus("notified_no_slack")).toBe(true);
+    expect(isOpenTaskStatus("done")).toBe(false);
+    expect(isOpenTaskStatus("cancelled")).toBe(false);
+  });
+});
 
 describe("bucketForDueYmd", () => {
   it("clasifica cada frontera correctamente", () => {
