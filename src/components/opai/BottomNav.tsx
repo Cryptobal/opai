@@ -233,7 +233,7 @@ export function BottomNav({
     return (
       <nav
         ref={navRef}
-        className="fixed left-3 right-3 z-40 lg:hidden pointer-events-none"
+        className="fixed left-3 right-3 z-40 lg:hidden pointer-events-none md:mx-auto md:max-w-[640px]"
         style={{
           bottom: "calc(env(safe-area-inset-bottom) + 10px)",
         }}
@@ -265,7 +265,7 @@ export function BottomNav({
   return (
     <nav
       ref={navRef}
-      className="fixed left-3 right-3 z-40 lg:hidden pointer-events-none"
+      className="fixed left-3 right-3 z-40 lg:hidden pointer-events-none md:mx-auto md:max-w-[640px]"
       style={{
         bottom: "calc(env(safe-area-inset-bottom) + 10px)",
       }}
