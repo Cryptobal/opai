@@ -29,10 +29,12 @@ describe("folderWhere", () => {
   it("las demás carpetas mantienen su semántica", () => {
     expect(folderWhere("trash")).toEqual({ trashedAt: { not: null } });
     expect(folderWhere("all")).toEqual({ trashedAt: null, spamAt: null });
+    // Archivados excluye pospuestos vigentes (notSnoozedWhere null-safe).
     expect(folderWhere("archived")).toEqual({
       trashedAt: null,
       spamAt: null,
       archivedAt: { not: null },
+      OR: [{ snoozedUntil: null }, { snoozedUntil: { lte: expect.any(Date) } }],
     });
     expect(folderWhere("snoozed")).toMatchObject({
       trashedAt: null,
