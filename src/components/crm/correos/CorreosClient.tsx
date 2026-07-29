@@ -39,6 +39,7 @@ import { CorreoDrawer } from "./CorreoDrawer";
 import { CorreoSnoozeSheet } from "./CorreoSnoozeSheet";
 import { CorreoComposeSheet } from "./CorreoComposeSheet";
 import { CorreoScheduledList } from "./CorreoScheduledList";
+import type { MailboxAccount } from "./MailboxSwitcher";
 import { runBulkCorreoAction } from "./CorreoBulkBar";
 import { useCorreosKeyboard } from "./useCorreosKeyboard";
 import { runCorreoAction } from "./correo-thread-action-client";
@@ -129,8 +130,26 @@ export function CorreosClient() {
   const [cursor, setCursor] = useState<string | null>(null);
   const [counts, setCounts] = useState<Counts>(null);
   const [connected, setConnected] = useState(true);
-  /** Casilla Gmail activa del usuario (viene del list endpoint). */
-  const [mailboxEmail, setMailboxEmail] = useState<string | null>(null);
+  /** Casillas Gmail del usuario + alcance (null = unificada). */
+  const [accounts, setAccounts] = useState<MailboxAccount[]>([]);
+  const [activeAccountId, setActiveAccountId] = useState<string | null>(null);
+  const [defaultAccountId, setDefaultAccountId] = useState<string | null>(null);
+  const unified = activeAccountId === null;
+  const mailboxEmail = useMemo(() => {
+    if (activeAccountId) {
+      return accounts.find((a) => a.id === activeAccountId)?.email ?? null;
+    }
+    return (
+      accounts.find((a) => a.id === defaultAccountId)?.email ??
+      accounts[0]?.email ??
+      null
+    );
+  }, [accounts, activeAccountId, defaultAccountId]);
+  const accountsById = useMemo(() => {
+    const map = new Map<string, MailboxAccount>();
+    for (const a of accounts) map.set(a.id, a);
+    return map;
+  }, [accounts]);
   const [canModify, setCanModify] = useState(false);
   // El estado real de conexión/permisos solo se conoce tras el primer fetch;
   // hasta entonces no mostramos el aviso amarillo "Reconectá Gmail" (evita el
@@ -144,6 +163,9 @@ export function CorreosClient() {
   const [syncing, setSyncing] = useState(false);
   const itemsRef = useRef<CorreoThreadDTO[]>([]);
   itemsRef.current = items;
+  const activeAccountIdRef = useRef<string | null>(activeAccountId);
+  activeAccountIdRef.current = activeAccountId;
+  const scopeHydratedRef = useRef(false);
   const [folder, setFolder] = useState<CorreoFolderTab>("inbox");
   const [chip, setChip] = useState<CorreoChipKey>("todos");
   const [query, setQuery] = useState("");
@@ -238,12 +260,26 @@ export function CorreosClient() {
       if (cur) qs.set("cursor", cur);
       if (f !== "inbox") qs.set("folder", f);
       if (debouncedQuery) qs.set("q", debouncedQuery);
+      const scopeId = activeAccountIdRef.current;
+      if (scopeId) qs.set("accountId", scopeId);
+      else if (scopeHydratedRef.current) qs.set("accountId", "all");
       // C18: counts (+ coverage) solo en cargas "reset" sin búsqueda activa.
       const wantCounts = reset && !cur && !debouncedQuery;
       if (wantCounts) qs.set("counts", "1");
       let r: Record<string, unknown> & {
         connected?: boolean;
         email?: string;
+        accounts?: Array<{
+          id: string;
+          email: string;
+          color?: string | null;
+          displayLabel?: string | null;
+          isDefault?: boolean;
+          sortIndex?: number;
+          status?: string;
+        }>;
+        activeAccountId?: string | null;
+        defaultAccountId?: string | null;
         canModify?: boolean;
         realtimeChannel?: unknown;
         counts?: unknown;
@@ -278,8 +314,33 @@ export function CorreosClient() {
         return;
       }
       setConnected(r.connected !== false);
-      if (typeof r.email === "string" && r.email) setMailboxEmail(r.email);
-      else if (r.connected === false) setMailboxEmail(null);
+      if (Array.isArray(r.accounts)) {
+        const mapped: MailboxAccount[] = r.accounts
+          .filter((a) => !a.status || a.status === "active")
+          .map((a) => ({
+            id: a.id,
+            email: a.email,
+            color: a.color || "teal",
+            displayLabel: a.displayLabel || a.email.split("@")[0] || "Mail",
+            isDefault: Boolean(a.isDefault),
+            sortIndex: typeof a.sortIndex === "number" ? a.sortIndex : 0,
+          }));
+        setAccounts(mapped);
+      } else if (r.connected === false) {
+        setAccounts([]);
+      }
+      if ("activeAccountId" in r) {
+        const nextActive =
+          typeof r.activeAccountId === "string" ? r.activeAccountId : null;
+        setActiveAccountId(nextActive);
+        activeAccountIdRef.current = nextActive;
+      }
+      if ("defaultAccountId" in r) {
+        setDefaultAccountId(
+          typeof r.defaultAccountId === "string" ? r.defaultAccountId : null,
+        );
+      }
+      scopeHydratedRef.current = true;
       setCanModify(Boolean(r.canModify));
       setStatusReady(true);
       setRealtimeChannel(
@@ -329,6 +390,32 @@ export function CorreosClient() {
   const hardRefresh = useCallback(() => {
     void fetchPage(null, true);
   }, [fetchPage]);
+
+  const handleScopeChange = useCallback(
+    (accountId: string | null) => {
+      setActiveAccountId(accountId);
+      activeAccountIdRef.current = accountId;
+      setCursor(null);
+      void fetch("/api/me/preferences/correo-scope", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ correoScope: accountId ?? "all" }),
+      }).catch(() => {});
+      void fetchPage(null, true);
+    },
+    [fetchPage],
+  );
+
+  const handleColorChange = useCallback((accountId: string, color: string) => {
+    setAccounts((prev) =>
+      prev.map((a) => (a.id === accountId ? { ...a, color } : a)),
+    );
+    void fetch("/api/crm/gmail/accounts", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: accountId, color }),
+    }).catch(() => {});
+  }, []);
 
   /** Patch local por id (acciones optimistas read/star). */
   const patchThread = useCallback((id: string, partial: Partial<CorreoThreadDTO>) => {
@@ -423,6 +510,23 @@ export function CorreosClient() {
       f === "scheduled"
     ) {
       setFolder(f);
+    }
+    const gmailStatus = sp.get("gmail");
+    if (gmailStatus === "limit_reached") {
+      toast.error("Máximo 5 casillas Gmail por usuario");
+      const url = new URL(window.location.href);
+      url.searchParams.delete("gmail");
+      window.history.replaceState({}, "", url.toString());
+    } else if (gmailStatus === "connected" || gmailStatus === "ok") {
+      toast.success("Gmail conectado");
+      const url = new URL(window.location.href);
+      url.searchParams.delete("gmail");
+      window.history.replaceState({}, "", url.toString());
+    } else if (gmailStatus === "error") {
+      toast.error("No se pudo conectar Gmail");
+      const url = new URL(window.location.href);
+      url.searchParams.delete("gmail");
+      window.history.replaceState({}, "", url.toString());
     }
     window.addEventListener("popstate", syncThreadFromUrl);
     return () => window.removeEventListener("popstate", syncThreadFromUrl);
@@ -726,7 +830,12 @@ export function CorreosClient() {
     onOpen: () => setMobileNavOpen(true),
   });
   useSetIslandSearch({
-    placeholder: "Buscá lo que recordás",
+    placeholder:
+      accounts.length > 1 && unified
+        ? `Buscar en las ${accounts.length} casillas`
+        : mailboxEmail
+          ? `Buscar en ${mailboxEmail}`
+          : "Buscá lo que recordás",
     value: query,
     onChange: setQuery,
     onExit: () => {
@@ -1243,7 +1352,11 @@ export function CorreosClient() {
         syncing={syncing}
         realtimeStatus={realtimeStatus}
         lastSyncAt={lastSyncAt}
-        mailboxEmail={mailboxEmail}
+        accounts={accounts}
+        activeAccountId={activeAccountId}
+        onScopeChange={handleScopeChange}
+        onColorChange={handleColorChange}
+        inboxUnreadTotal={counts?.inboxUnread}
         onOpenSwipeSettings={() => setSwipeSettingsOpen(true)}
         onOpenSnoozeSettings={() => setSnoozeSettingsOpen(true)}
         onOpenAiStyle={() => setAiStyleSheetOpen(true)}
@@ -1369,7 +1482,11 @@ export function CorreosClient() {
           }}
           onSync={syncNow} syncing={syncing}
           realtimeStatus={realtimeStatus} lastSyncAt={lastSyncAt}
-          mailboxEmail={mailboxEmail}
+          accounts={accounts}
+          activeAccountId={activeAccountId}
+          onScopeChange={handleScopeChange}
+          onColorChange={handleColorChange}
+          inboxUnreadTotal={counts?.inboxUnread}
           collapsed={railCollapsed}
           onToggleCollapsed={() => setRailCollapsed(!railCollapsed)}
           onOpenSwipeSettings={() => setSwipeSettingsOpen(true)}
@@ -1420,7 +1537,19 @@ export function CorreosClient() {
               </div>
             )}
             {!connected ? (
-              <EmptyState icon={Mail} title="Conectá tu Gmail" description="Conectá tu casilla en Integraciones." />
+              <EmptyState
+                icon={Mail}
+                title="Conectá tu Gmail"
+                description="Conectá tu casilla para ver la bandeja aquí."
+                action={
+                  <a
+                    href="/api/crm/gmail/connect"
+                    className="inline-flex h-10 items-center justify-center rounded-xl bg-primary px-4 text-[13px] font-medium text-primary-foreground ds-tap sm:h-9"
+                  >
+                    Conectar Gmail
+                  </a>
+                }
+              />
             ) : folder === "scheduled" ? (
               /* PR-12: Programados se alimenta del outbox, no de hilos. */
               <CorreoScheduledList refreshToken={realtimeRevision} />
@@ -1460,7 +1589,21 @@ export function CorreosClient() {
                   }
                 />
               ) : (
-                <EmptyState icon={Mail} title="Sin correos" description="Probá sincronizar o cambiá los filtros." />
+                <EmptyState
+                  icon={Mail}
+                  title={
+                    activeAccountId
+                      ? "Sin correos en esta casilla"
+                      : "Sin correos"
+                  }
+                  description={
+                    activeAccountId && mailboxEmail
+                      ? `No hay mensajes en ${mailboxEmail} con estos filtros. Probá sincronizar o cambiá de casilla.`
+                      : accounts.length > 1
+                        ? "No hay mensajes en ninguna casilla con estos filtros. Probá sincronizar o cambiá los filtros."
+                        : "Probá sincronizar o cambiá los filtros."
+                  }
+                />
               )
             ) : (
               <Surface
@@ -1482,7 +1625,12 @@ export function CorreosClient() {
                     <Spinner className="h-3.5 w-3.5" /> Buscando en toda la casilla…
                   </div>
                 )}
-                {filtered.map((t, index) => (
+                {filtered.map((t, index) => {
+                  const mb = t.emailAccountId
+                    ? accountsById.get(t.emailAccountId)
+                    : undefined;
+                  const showUnifiedChip = unified && accounts.length > 1;
+                  return (
                   <CorreoRowSwipe
                     key={t.id}
                     thread={t}
@@ -1504,8 +1652,12 @@ export function CorreosClient() {
                     onSnooze={handleRowSnooze}
                     onAiMenu={canUseCopiloto ? handleRowAiMenu : undefined}
                     onOpen={handleRowOpen}
+                    unified={showUnifiedChip}
+                    mailboxColor={showUnifiedChip ? mb?.color ?? null : null}
+                    mailboxLabel={showUnifiedChip ? mb?.displayLabel ?? null : null}
                   />
-                ))}
+                  );
+                })}
               </Surface>
             )}
           </div>
@@ -1619,6 +1771,7 @@ export function CorreosClient() {
         }}
         onSent={() => void fetchPage(null, true)}
         onOpenAiStyle={() => setAiStyleSheetOpen(true)}
+        preferredAccountId={activeAccountId ?? defaultAccountId}
       />
 
       <CorreoSnoozeSheet

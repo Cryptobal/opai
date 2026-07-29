@@ -9,6 +9,7 @@ import { PREVIEW_LINE_CLASS } from "./CorreoRow";
 import type { CorreoPreviewLines } from "./useCorreosViewPreferences";
 import { formatGmailDateChile } from "@/modules/crm/email/gmail-date-format";
 import { CorreoMatchReasonBadge } from "./CorreoMatchReasonBadge";
+import { tintBar, tintSoft } from "./MailboxSwitcher";
 
 type Props = {
   thread: CorreoThreadDTO;
@@ -18,6 +19,10 @@ type Props = {
   checked?: boolean;
   /** Tap en el avatar alterna la selección (estilo Gmail). */
   onAvatarPress?: () => void;
+  /** Bandeja unificada: barra de color + chip de casilla. */
+  unified?: boolean;
+  mailboxColor?: string | null;
+  mailboxLabel?: string | null;
 };
 
 /**
@@ -30,22 +35,32 @@ export const CorreoRowMobile = memo(function CorreoRowMobile({
   previewLines = 2,
   checked,
   onAvatarPress,
+  unified = false,
+  mailboxColor = null,
+  mailboxLabel = null,
 }: Props) {
   const unread = thread.isUnread;
   const compact = previewLines === 1;
   const subject = thread.subject || "(sin asunto)";
   const sender = parseSender(thread.fromEmail);
   const hasAttachments = thread.attachmentCount > 0;
+  const showMailbox = unified && Boolean(mailboxColor || mailboxLabel);
 
   return (
     <div
       data-correo-row={thread.id}
       data-correo-swipe-row=""
       onContextMenu={(e) => e.preventDefault()}
-      className={`flex items-stretch gap-0 border-b border-ds-border-subtle pl-3 pr-4 ${
+      className={`relative flex items-stretch gap-0 border-b border-ds-border-subtle pl-3 pr-4 ${
         compact ? "py-2" : "py-2.5"
       } ${checked ? "bg-primary/10" : ""}`}
     >
+      {showMailbox && mailboxColor && (
+        <span
+          aria-hidden
+          className={`absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r ${tintBar(mailboxColor)}`}
+        />
+      )}
       <div className="flex min-w-0 flex-1 items-start gap-3">
         <CorreoSenderAvatar
           fromEmail={thread.fromEmail}
@@ -63,11 +78,22 @@ export const CorreoRowMobile = memo(function CorreoRowMobile({
         >
           <span className="min-w-0 flex-1">
             <span
-              className={`block truncate text-[14px] leading-5 ${
+              className={`flex min-w-0 items-center gap-1.5 text-[14px] leading-5 ${
                 unread ? "font-semibold text-ds-text-1" : "text-ds-text-2"
               }`}
             >
-              {sender.name || sender.email || "—"}
+              <span className="min-w-0 truncate">
+                {sender.name || sender.email || "—"}
+              </span>
+              {showMailbox && mailboxLabel && (
+                <span
+                  className={`inline-flex h-5 shrink-0 items-center rounded-md px-1.5 text-[12px] font-medium ${
+                    mailboxColor ? tintSoft(mailboxColor) : "bg-ds-surface-2 text-ds-text-3"
+                  }`}
+                >
+                  {mailboxLabel}
+                </span>
+              )}
             </span>
             <span
               className={`flex min-w-0 items-baseline text-[13px] leading-5 ${
