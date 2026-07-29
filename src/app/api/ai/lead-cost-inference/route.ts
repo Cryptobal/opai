@@ -9,6 +9,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getTenantOpenAIClient } from "@/lib/ai/tenant-openai";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
+import { getFileBuffer } from "@/lib/storage";
+import { extractText } from "@/lib/knowledge/extract";
+import {
+  DOC_TEXT_MAX_PER_FILE,
+  DOC_TEXT_MAX_TOTAL,
+  truncateDocText,
+} from "@/lib/ai/document-text-budget";
 
 const VALID_GROUP_IDS = new Set([
   "uniform",
@@ -69,13 +76,58 @@ export async function POST(request: NextRequest) {
 
     const meta = lead.metadata as {
       inboundEmail?: { text?: string; subject?: string; html?: string };
+      attachmentTexts?: string[];
     } | null;
     const emailText = meta?.inboundEmail?.text?.trim() || "";
     const emailSubject = meta?.inboundEmail?.subject?.trim() || "";
     const notes = (lead.notes || "").trim();
     const companyName = (lead.companyName || "").trim();
+    const cachedAtt =
+      Array.isArray(meta?.attachmentTexts)
+        ? meta!.attachmentTexts!.filter((t): t is string => typeof t === "string").join("\n\n")
+        : "";
 
-    const textToAnalyze = [emailSubject, emailText, notes, companyName].filter(Boolean).join("\n\n");
+    // Adjuntos vinculados al lead (pliegos / RFI) — antes se ignoraban.
+    let linkedDocText = "";
+    try {
+      const links = await prisma.crmFileLink.findMany({
+        where: { tenantId: ctx.tenantId, entityType: "lead", entityId: lead.id },
+        take: 4,
+        select: {
+          file: { select: { storageKey: true, mimeType: true, fileName: true } },
+        },
+      });
+      let budget = DOC_TEXT_MAX_TOTAL;
+      for (const link of links) {
+        if (budget <= 0) break;
+        const f = link.file;
+        if (!f?.storageKey) continue;
+        try {
+          const buf = await getFileBuffer(f.storageKey);
+          const raw = (await extractText(buf, f.mimeType)).trim();
+          if (!raw) continue;
+          const per = Math.min(DOC_TEXT_MAX_PER_FILE, budget);
+          const page = truncateDocText(raw, per, { label: f.fileName });
+          linkedDocText += `\n\n[Adjunto lead: ${f.fileName}]\n${page.text}`;
+          budget -= Math.min(raw.length, per);
+        } catch {
+          /* best-effort */
+        }
+      }
+    } catch {
+      /* best-effort */
+    }
+
+    const textToAnalyze = [
+      emailSubject,
+      emailText,
+      notes,
+      companyName,
+      cachedAtt,
+      linkedDocText,
+    ]
+      .filter(Boolean)
+      .join("\n\n");
     if (!textToAnalyze) {
       return NextResponse.json({
         success: true,
@@ -85,9 +137,9 @@ export async function POST(request: NextRequest) {
 
     const prompt = `Eres un asistente que analiza solicitudes de cotización de servicios de seguridad (guardias, vigilancia).
 
-TEXTO DEL LEAD (email, asunto, notas, empresa):
+TEXTO DEL LEAD (email, asunto, notas, empresa, adjuntos):
 ---
-${textToAnalyze}
+${textToAnalyze.slice(0, DOC_TEXT_MAX_TOTAL)}
 ---
 
 Debes devolver ÚNICAMENTE un array JSON de IDs de grupos de costo que deberían incluirse en la cotización, según lo que se menciona o se infiere del texto.

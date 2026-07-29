@@ -141,7 +141,12 @@ export async function materializeCoverageSlotsOnQuote(params: {
     const endTime = slot.horaFin || "20:00";
     const numGuards = normalizePositiveInt(slot.headcount, 1);
     const numPuestos = normalizePositiveInt(slot.simultaneous, 1);
-    const baseSalary = 550000;
+    // Piso del pliego si la extracción lo detectó; si no, default interno.
+    const floor = proposal.condicionesEconomicas?.sueldoBaseMinimo;
+    const baseSalary =
+      typeof floor === "number" && Number.isFinite(floor) && floor > 0
+        ? Math.round(floor)
+        : 550000;
 
     let employerCost = 0;
     let netSalary = 0;

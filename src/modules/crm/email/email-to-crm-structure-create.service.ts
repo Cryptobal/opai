@@ -95,6 +95,53 @@ export function buildDealNotes(proposal: CrmStructureProposal): string {
   return lines.join("\n\n").slice(0, 8000);
 }
 
+/** Nota auditable con el piso económico del pliego (exportada para tests). */
+export function buildCondicionesEconomicasNote(
+  proposal: CrmStructureProposal,
+): string | null {
+  const ce = proposal.condicionesEconomicas;
+  if (!ce) return null;
+  const lines: string[] = ["Condiciones económicas del pliego (extracción IA — confirmar):"];
+  if (ce.sueldoBaseMinimo != null) {
+    lines.push(`- Sueldo base mínimo exigido: $${ce.sueldoBaseMinimo.toLocaleString("es-CL")} CLP/mes`);
+  }
+  if (ce.gratificacionPct != null) {
+    lines.push(`- Gratificación: ${ce.gratificacionPct}%`);
+  }
+  if (ce.movilizacion != null) {
+    lines.push(`- Movilización: $${ce.movilizacion.toLocaleString("es-CL")} CLP`);
+  }
+  if (ce.colacionProvistaPorCliente != null) {
+    lines.push(
+      `- Colación: ${ce.colacionProvistaPorCliente ? "provista por el cliente" : "a cargo del oferente"}`,
+    );
+  }
+  if (ce.reservaPct != null) {
+    lines.push(`- Reserva / contingencia exigida: ${ce.reservaPct}%`);
+  }
+  if (ce.beneficiosExigidos.length) {
+    lines.push(`- Beneficios exigidos: ${ce.beneficiosExigidos.join("; ")}`);
+  }
+  if (ce.multas.length) {
+    lines.push(
+      "- Multas (UF): " +
+        ce.multas.map((m) => `${m.concepto} (${m.montoUf} UF)`).join("; "),
+    );
+  }
+  if (ce.kpis.length) {
+    lines.push(
+      "- KPI: " + ce.kpis.map((k) => `${k.indicador}: ${k.meta}`).join("; "),
+    );
+  }
+  if (ce.inadmisibleSiNoCumpleRemuneracion) {
+    lines.push(
+      "- ADVERTENCIA: el pliego declara inadmisibilidad por incumplimiento remuneracional. La cotización no puede quedar bajo el piso salarial.",
+    );
+  }
+  if (lines.length <= 1) return null;
+  return lines.join("\n").slice(0, 2000);
+}
+
 function installationMetadata(proposal: CrmStructureProposal, instName: string) {
   const inst = proposal.installations.find((i) => i.name === instName);
   if (!inst) return null;
@@ -493,6 +540,27 @@ export async function createCrmStructureFromProposal(params: {
         } catch (e) {
           console.error("[email-to-crm-structure] sync licitación:", e);
           agendaSync = { attempted: true, ok: false, skippedReason: "error" };
+        }
+      }
+    }
+
+    // Nota estructurada con piso económico del pliego (auditable en el deal).
+    if (dealId && proposal.condicionesEconomicas) {
+      const ecoNote = buildCondicionesEconomicasNote(proposal);
+      if (ecoNote) {
+        try {
+          await prisma.crmNote.create({
+            data: {
+              tenantId,
+              entityType: "deal",
+              entityId: dealId,
+              content: ecoNote,
+              createdBy: userId,
+              interactionType: "note",
+            },
+          });
+        } catch (e) {
+          console.error("[email-to-crm-structure] nota económica:", e);
         }
       }
     }
