@@ -22,48 +22,51 @@ import {
   summarizeRecipients,
   type RecipientChip,
 } from "./message-recipients";
+import { CorreoRecipientPopover } from "./CorreoRecipientPopover";
 
-async function copyText(value: string, label: string) {
-  try {
-    await navigator.clipboard.writeText(value);
-    toast.success(`${label} copiado`);
-  } catch {
-    toast.error("No se pudo copiar");
-  }
-}
+type RecipientActions = {
+  threadId: string;
+  inSpam: boolean;
+  canModify: boolean;
+};
 
-function RecipientChipPill({ chip }: { chip: RecipientChip }) {
+function RecipientChipPill({
+  chip,
+  threadId,
+  inSpam,
+  canModify,
+}: { chip: RecipientChip } & RecipientActions) {
   const email = chip.email || chip.raw;
-  const label =
-    chip.label === "De"
-      ? "Remitente"
-      : chip.label === "Responder a"
-        ? "Reply-To"
-        : chip.label === "Para"
-          ? "Destinatario"
-          : "CC";
   return (
-    <button
-      type="button"
-      title={`${chip.label}: ${email}`}
-      onClick={(e) => {
-        e.stopPropagation();
-        void copyText(email, label);
-      }}
-      className="inline-flex max-w-[min(100%,220px)] items-center gap-1.5 rounded-full border border-ds-border-subtle bg-ds-surface-2 px-2.5 py-1 text-[12px] text-ds-text-2 ds-tap transition-colors hover:border-ds-border-default hover:bg-ds-surface-3"
+    <CorreoRecipientPopover
+      chip={chip}
+      threadId={threadId}
+      inSpam={inSpam}
+      canModify={canModify}
     >
-      <span className="shrink-0 text-[12px] font-medium uppercase tracking-wide text-ds-text-4">
-        {chip.label === "Responder a" ? "R-To" : chip.label}
-      </span>
-      <span className="min-w-0 truncate font-medium">
-        {chip.name || email.split("@")[0] || email}
-      </span>
-    </button>
+      <button
+        type="button"
+        onClick={(e) => e.stopPropagation()}
+        className="inline-flex max-w-[min(100%,220px)] items-center gap-1.5 rounded-full border border-ds-border-subtle bg-ds-surface-2 px-2.5 py-1 text-[12px] text-ds-text-2 ds-tap transition-colors hover:border-ds-border-default hover:bg-ds-surface-3"
+      >
+        <span className="shrink-0 text-[12px] font-medium uppercase tracking-wide text-ds-text-4">
+          {chip.label === "Responder a" ? "R-To" : chip.label}
+        </span>
+        <span className="min-w-0 truncate font-medium">
+          {chip.name || email.split("@")[0] || email}
+        </span>
+      </button>
+    </CorreoRecipientPopover>
   );
 }
 
 /** Cabecera De/Para/CC: una línea colapsada; chips al expandir. */
-function MessageRecipients({ m }: { m: CorreoMessageDTO }) {
+function MessageRecipients({
+  m,
+  threadId,
+  inSpam,
+  canModify,
+}: { m: CorreoMessageDTO } & RecipientActions) {
   const [expanded, setExpanded] = useState(false);
   const summary = summarizeRecipients(m);
   const chips = buildRecipientChips(m);
@@ -107,6 +110,9 @@ function MessageRecipients({ m }: { m: CorreoMessageDTO }) {
             <RecipientChipPill
               key={`${chip.label}-${chip.email || chip.raw}`}
               chip={chip}
+              threadId={threadId}
+              inSpam={inSpam}
+              canModify={canModify}
             />
           ))}
         </div>
@@ -129,6 +135,8 @@ type ImagePrefs = {
   onAlwaysShowImages?: () => void;
   threadId?: string | null;
   attachments?: CorreoAttachmentDTO[];
+  inSpam?: boolean;
+  canModify?: boolean;
 };
 
 type SavePrefs = {
@@ -156,6 +164,8 @@ function MessageCard({
   alwaysShowImages,
   onAlwaysShowImages,
   threadId,
+  inSpam = false,
+  canModify = false,
   attachments = [],
   dealId = null,
   dealTitle = null,
@@ -287,7 +297,12 @@ function MessageCard({
       ) : null}
       {open && (
         <div className="border-t border-ds-border-subtle px-3 py-2">
-          <MessageRecipients m={m} />
+          <MessageRecipients
+            m={m}
+            threadId={threadId ?? ""}
+            inSpam={inSpam}
+            canModify={canModify}
+          />
           {threadId &&
           m.direction !== "out" &&
           (m.providerMessageId || m.id) &&
@@ -350,6 +365,8 @@ export function CorreoMessages({
   alwaysShowImages,
   onAlwaysShowImages,
   threadId,
+  inSpam = false,
+  canModify = false,
   attachments = [],
   dealId = null,
   dealTitle = null,
@@ -387,6 +404,8 @@ export function CorreoMessages({
           alwaysShowImages={alwaysShowImages}
           onAlwaysShowImages={onAlwaysShowImages}
           threadId={threadId}
+          inSpam={inSpam}
+          canModify={canModify}
           attachments={attachments}
           dealId={dealId}
           dealTitle={dealTitle}
