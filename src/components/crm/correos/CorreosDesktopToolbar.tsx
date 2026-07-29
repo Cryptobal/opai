@@ -20,6 +20,8 @@ type Props = {
   totalCount: number | null;
   /** Si true, el contador usa wording «N resultados» (búsqueda activa). */
   searching?: boolean;
+  /** true cuando el total de búsqueda es un piso (alcanzó overfetch). */
+  totalIsLowerBound?: boolean;
   previewLines: CorreoPreviewLines;
   onPreviewLines: (lines: CorreoPreviewLines) => void;
   /** Selección activa: la barra muta a acciones masivas (bulkAction del cliente). */
@@ -40,17 +42,19 @@ const SHELL =
  *  masivas en selección. Atajos viven en el riel; búsqueda en el topbar. */
 export function CorreosDesktopToolbar({
   canModify, allChecked, onToggleAll, onRefresh, syncing,
-  shownCount, totalCount, searching = false, previewLines, onPreviewLines,
+  shownCount, totalCount, searching = false, totalIsLowerBound = false,
+  previewLines, onPreviewLines,
   selectedCount, allReadSelected, onClear, onAction, onSnooze,
 }: Props) {
   const compact = previewLines === 1;
+  const boundSuffix = searching && totalIsLowerBound ? "+" : "";
   const countLabel =
     totalCount == null
       ? `${shownCount} hilos`
       : searching
-        ? totalCount === shownCount
+        ? totalCount === shownCount && !totalIsLowerBound
           ? `${shownCount} resultado${shownCount === 1 ? "" : "s"}`
-          : `${shownCount} de ${totalCount}`
+          : `${shownCount} de ${totalCount}${boundSuffix}`
         : `${shownCount} de ${totalCount}`;
 
   if (selectedCount > 0) {

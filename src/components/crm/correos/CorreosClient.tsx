@@ -1402,9 +1402,10 @@ export function CorreosClient() {
               syncing={syncing}
               shownCount={filtered.length}
               searching={searching}
+              totalIsLowerBound={Boolean(searchMeta?.totalIsLowerBound)}
               totalCount={
                 searching
-                  ? (searchMeta?.shownCount ?? items.length)
+                  ? (searchMeta?.totalCount ?? searchMeta?.shownCount ?? items.length)
                   : counts
                     ? ((counts as Record<string, number | undefined>)[folder] ?? null)
                     : null
