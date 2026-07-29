@@ -2,7 +2,13 @@ import { upsertGmailMessage } from "./gmail-message-upsert";
 import { refreshThreadLabelsBatch } from "./gmail-refresh-threads";
 import { collectHistoryPage, processHistoryPage, type PageCounters } from "./gmail-incremental-page";
 import { reconcileGmailFolders } from "./gmail-folder-reconcile";
-import type { GmailSyncState, SyncRunArgs, SyncRunResult } from "./gmail-sync-state";
+import { syncThreadStateFromLocalLabels } from "./gmail-inbox-selfheal";
+import {
+  computeRefreshDeadline,
+  type GmailSyncState,
+  type SyncRunArgs,
+  type SyncRunResult,
+} from "./gmail-sync-state";
 
 const FALLBACK_QUERY = "newer_than:7d (in:inbox OR in:sent)";
 
@@ -30,12 +36,17 @@ async function fallbackSync(args: SyncRunArgs): Promise<SyncRunResult> {
     if (res.wrote) synced += 1;
     if (res.providerThreadId) threadIds.add(res.providerThreadId);
   }
+  await syncThreadStateFromLocalLabels({
+    tenantId,
+    emailAccountId: emailAccount.id,
+    providerThreadIds: Array.from(threadIds),
+  });
   await refreshThreadLabelsBatch({
     gmail,
     tenantId,
     emailAccountId: emailAccount.id,
     threadIds,
-    deadline,
+    deadline: computeRefreshDeadline(args.hardDeadline),
   });
   // La query de fallback excluye TRASH/SPAM. El sweep recupera esos cambios
   // en mantenimiento; el webhook realtime lo omite para mantener baja latencia.

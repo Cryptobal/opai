@@ -9,12 +9,49 @@ import type { EmailAccountLite } from "./gmail-sync-state";
 const TRASH_IMPORT_CAP = 25;
 const INBOX_IMPORT_CAP = 50;
 
+export type FolderReconcileThread = {
+  id: string;
+  providerThreadId: string | null;
+  archivedAt: Date | null;
+  trashedAt: Date | null;
+  spamAt: Date | null;
+  snoozedUntil: Date | null;
+};
+
 /**
- * Sweep global degradado: aplica pertenencia positiva a sets (refuerzo) e
- * importa hilos que existen en Gmail pero no localmente — INBOX primero
- * (hilos perdidos en ventanas muertas del historyId que jamás entrarían a
- * Recibidos), luego TRASH/SPAM. El estado inbox/archivado por-hilo lo
- * resuelven el incremental + self-heal — aquí NO se archiva.
+ * Con sets COMPLETOS, un hilo local ausente de INBOX/TRASH/SPAM está archivado
+ * en Gmail. Con sets parciales NO se archiva (evitar archivado masivo indebido).
+ * Respeta pospuestos vigentes y omite hilos sin providerThreadId.
+ */
+export function computeNegativeArchiveIds(params: {
+  setsComplete: boolean;
+  threads: FolderReconcileThread[];
+  inboxIds: Set<string>;
+  spamIds: Set<string>;
+  trashIds: Set<string>;
+  now?: Date;
+}): string[] {
+  if (!params.setsComplete) return [];
+  const now = params.now ?? new Date();
+  const toArchive: string[] = [];
+  for (const t of params.threads) {
+    const tid = t.providerThreadId;
+    if (!tid) continue;
+    if (params.inboxIds.has(tid) || params.spamIds.has(tid) || params.trashIds.has(tid)) {
+      continue;
+    }
+    if (t.archivedAt) continue;
+    if (t.snoozedUntil != null && t.snoozedUntil.getTime() > now.getTime()) continue;
+    toArchive.push(t.id);
+  }
+  return toArchive;
+}
+
+/**
+ * Sweep global: aplica pertenencia positiva a sets (refuerzo), pertenencia
+ * negativa cuando los 3 sets están completos (cierre del espejo → Archivar),
+ * e importa hilos que existen en Gmail pero no localmente — INBOX primero,
+ * luego TRASH/SPAM.
  */
 export async function reconcileGmailFolders(params: {
   gmail: gmail_v1.Gmail;
@@ -27,14 +64,20 @@ export async function reconcileGmailFolders(params: {
     // INBOX: más páginas para reforzar pertenencia positiva (self-heal cubre el resto).
     // 10×500 ≈ hasta ~5k mensajes; `complete` sigue indicando si el set quedó parcial.
     const inboxSet = await listGmailThreadIdSet({ gmail, labelId: "INBOX", maxPages: 10, deadline });
-    const trashSet = await listGmailThreadIdSet({ gmail, labelId: "TRASH", maxPages: 4, deadline });
-    const spamSet = await listGmailThreadIdSet({ gmail, labelId: "SPAM", maxPages: 2, deadline });
+    // TRASH/SPAM: más páginas para maximizar chance de setsComplete (rama negativa).
+    const trashSet = await listGmailThreadIdSet({ gmail, labelId: "TRASH", maxPages: 6, deadline });
+    const spamSet = await listGmailThreadIdSet({ gmail, labelId: "SPAM", maxPages: 4, deadline });
     const setsComplete = inboxSet.complete && spamSet.complete && trashSet.complete;
 
     const threads = await prisma.crmEmailThread.findMany({
       where: { tenantId, emailAccountId: emailAccount.id, providerThreadId: { not: null } },
       select: {
-        id: true, providerThreadId: true, archivedAt: true, trashedAt: true, spamAt: true,
+        id: true,
+        providerThreadId: true,
+        archivedAt: true,
+        trashedAt: true,
+        spamAt: true,
+        snoozedUntil: true,
       },
     });
 
@@ -56,17 +99,36 @@ export async function reconcileGmailFolders(params: {
     }
 
     const now = new Date();
+    // Cierre del espejo: con los 3 sets COMPLETOS, la ausencia es información.
+    // Un hilo local que Gmail no reporta en INBOX/TRASH/SPAM está archivado.
+    const toArchive = computeNegativeArchiveIds({
+      setsComplete,
+      threads,
+      inboxIds: inboxSet.ids,
+      spamIds: spamSet.ids,
+      trashIds: trashSet.ids,
+      now,
+    });
+
     const base = { tenantId, emailAccountId: emailAccount.id };
     const groups: Array<[string[], { archivedAt: Date | null; trashedAt: Date | null; spamAt: Date | null }]> = [
       [toInbox, { archivedAt: null, trashedAt: null, spamAt: null }],
       [toSpam, { archivedAt: null, trashedAt: null, spamAt: now }],
       [toTrash, { archivedAt: null, trashedAt: now, spamAt: null }],
+      [toArchive, { archivedAt: now, trashedAt: null, spamAt: null }],
     ];
     let updated = 0;
     for (const [ids, data] of groups) {
       if (ids.length === 0) continue;
+      const isArchive = data.archivedAt != null && data.trashedAt == null && data.spamAt == null;
       const res = await prisma.crmEmailThread.updateMany({
-        where: { ...base, id: { in: ids } },
+        where: isArchive
+          ? {
+              ...base,
+              id: { in: ids },
+              OR: [{ snoozedUntil: null }, { snoozedUntil: { lte: now } }],
+            }
+          : { ...base, id: { in: ids } },
         data,
       });
       updated += res.count;

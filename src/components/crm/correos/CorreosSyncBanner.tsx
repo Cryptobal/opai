@@ -49,8 +49,8 @@ export function CorreosSyncBanner({
       )}
       {backfillDone === false && (
         <div className="rounded-xl border border-status-info-border bg-status-info-soft px-3 py-2.5 text-[13px] text-status-info-fg">
-          Importación inicial en progreso ({totalThreads} hilos sincronizados hasta ahora).
-          Podés seguir usando la bandeja; al terminar se actualizará sola.
+          Importación inicial en progreso ({totalThreads} hilos). Recibidos ya
+          refleja tu bandeja de Gmail; el histórico se guarda en Archivados.
         </div>
       )}
     </div>

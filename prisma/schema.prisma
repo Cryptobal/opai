@@ -3045,6 +3045,7 @@ model CrmEmailMessage {
   source         String  @default("manual") // manual, followup, gmail
   // Labels Gmail del mensaje (INBOX/SPAM/TRASH/UNREAD…). Fuente local para
   // derivar estado de hilo sin listados globales.
+  // Índice GIN aditivo en migración 20261116000000 (Prisma no modela GIN sobre String[]).
   labelIds       String[] @default([]) @map("label_ids")
   // ── Borradores Gmail (C08): autosave bidireccional OPAI↔Gmail ──
   isDraft         Boolean @default(false) @map("is_draft")

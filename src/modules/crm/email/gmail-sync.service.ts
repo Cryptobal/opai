@@ -9,7 +9,7 @@ import { runBackfill } from "./gmail-backfill";
 import { runIncremental } from "./gmail-incremental";
 import { reconcileGmailFolders, repairMissingInboxThreads } from "./gmail-folder-reconcile";
 import { detachForeignDraftMirrors, syncGmailDrafts } from "./gmail-drafts.service";
-import { healInboxFromLocalLabels, selfHealInbox } from "./gmail-inbox-selfheal";
+import { selfHealInbox, syncThreadStateFromLocalLabels } from "./gmail-inbox-selfheal";
 import { gmailClientForAccount } from "./gmail-account-client";
 import { notifyNewInboundMail } from "./gmail-new-mail-push";
 
@@ -39,7 +39,12 @@ export function changedGmailSyncState(
  * es enriquecimiento.
  *
  * El deadline global se reparte por fases para que ninguna corra con las
- * sobras muertas: incremental/backfill (55%), self-heal/sweep (resto).
+ * sobras muertas (maintenance):
+ *   F1  backfill/incremental     45%  (+ hardDeadline para refresh labels)
+ *   F2  repairMissingInbox       ≤8s  (huecos INBOX)
+ *   F3  self-heal / local sync   ≤10s
+ *   F3.5 drafts / embeddings     resto corto
+ *   F4  reconcileGmailFolders    ≥8s  (pertenencia +/− con sets completos)
  *
  * @param maxResults      budget de mensajes por corrida (default 300).
  * @param deadlineMs      timestamp absoluto para cortar (el cron lo comparte
@@ -93,7 +98,7 @@ export async function syncGmailAccount(params: {
   const maintenance = params.profile !== "delta";
 
   // Fase 1 — la ruta realtime dedica casi todo el presupuesto al delta. La
-  // ruta de mantenimiento reserva 45% para heal/sweep.
+  // ruta de mantenimiento reserva ~55% para heal/sweep/gap (F1 = 45%).
   const runArgs: SyncRunArgs = {
     gmail,
     tenantId: params.tenantId,
@@ -101,8 +106,9 @@ export async function syncGmailAccount(params: {
     state,
     budget: Math.max(params.maxResults ?? DEFAULT_BUDGET, 1),
     deadline: maintenance
-      ? Date.now() + Math.floor(total * 0.55)
+      ? Date.now() + Math.floor(total * 0.45)
       : Math.max(Date.now(), globalDeadline - 250),
+    hardDeadline: globalDeadline,
     createdByUserId: params.createdByUserId,
     maintenance,
   };
@@ -147,7 +153,8 @@ export async function syncGmailAccount(params: {
   let inboxRepaired = 0;
   const gapRemaining = globalDeadline - Date.now();
   if (gapRemaining >= 4_000) {
-    const gapBudget = Math.min(12_000, Math.floor(gapRemaining * 0.35));
+    // Cap 8s: dejar ≥8s al sweep (pertenencia negativa) tras heal/drafts.
+    const gapBudget = Math.min(8_000, Math.floor(gapRemaining * 0.35));
     const gap = await repairMissingInboxThreads({
       gmail,
       tenantId: params.tenantId,
@@ -167,15 +174,13 @@ export async function syncGmailAccount(params: {
   }
 
   // Fase 3 — self-heal Recibidos ANTES del sweep.
-  // Heal local (instantáneo) siempre; remoto por-hilo cuando hay presupuesto
-  // (incremental, force, o sync manual con selfHealBudgetMs).
+  // Heal local bidireccional (instantáneo) siempre; remoto por-hilo en
+  // maintenance cuando hay presupuesto (también durante backfill).
   const healRemaining = globalDeadline - Date.now();
   // Cap más bajo (10s): priorizar import de huecos + sweep sobre re-chequear
   // archivados ya conocidos.
   const minHeal = Math.max(params.selfHealBudgetMs ?? 6_000, 6_000);
-  const runRemoteHeal =
-    healRemaining >= 3_000 &&
-    (mode === "incremental" || params.forceReconcile === true || params.selfHealBudgetMs != null);
+  const runRemoteHeal = healRemaining >= 3_000 && maintenance;
   let healed = 0;
   if (runRemoteHeal) {
     const healBudget = Math.min(Math.max(minHeal, healRemaining - 4_000), healRemaining, 10_000);
@@ -187,10 +192,11 @@ export async function syncGmailAccount(params: {
     });
     healed = heal.healed;
   } else {
-    healed = await healInboxFromLocalLabels({
+    const local = await syncThreadStateFromLocalLabels({
       tenantId: params.tenantId,
       emailAccountId: emailAccount.id,
     });
+    healed = local.toInbox + local.toArchive;
   }
 
   // Fase 3.4 — reparación DB-only (best-effort, sin presupuesto Gmail): saca de
@@ -235,7 +241,9 @@ export async function syncGmailAccount(params: {
     });
   }
 
-  // Fase 4 — sweep global (solo TRASH/SPAM + refuerzo positivo) con throttle.
+  // Fase 4 — sweep global (pertenencia +/− + import huecos) con throttle.
+  // También corre en modo backfill: la derivación local es gratis; el sweep
+  // cierra el espejo cuando los sets están completos.
   let reconcile: "ok" | "partial" | "skipped" = "skipped";
   const sweepDue =
     state.lastReconcileComplete !== true ||
@@ -245,7 +253,7 @@ export async function syncGmailAccount(params: {
     healed > 0 ||
     inboxRepaired > 0;
   const sweepRemaining = globalDeadline - Date.now();
-  if ((mode === "incremental" || params.forceReconcile === true) && sweepDue && sweepRemaining >= 5_000) {
+  if (maintenance && sweepDue && sweepRemaining >= 5_000) {
     const sweepResult = await reconcileGmailFolders({
       gmail,
       tenantId: params.tenantId,
