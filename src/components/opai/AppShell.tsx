@@ -3,6 +3,7 @@
 import { cloneElement, isValidElement, ReactElement, ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
+import { densityRootProps } from '@/lib/density';
 import { CommandPalette, CommandPaletteProvider, useCommandPalette } from './CommandPalette';
 import { MobileIsland } from './MobileIsland';
 import { TopbarActions } from './TopbarActions';
@@ -202,7 +203,7 @@ function AppShellInner({
           notifUnread={notifUnreadCount}
         />
       )}
-      <div className="relative min-h-[100dvh] overflow-x-clip">
+      <div className="relative min-h-[100dvh] overflow-x-clip" {...densityRootProps()}>
         {/* ── Desktop sidebar (unchanged) ── */}
         {sidebar && (
           <div className="hidden lg:block">

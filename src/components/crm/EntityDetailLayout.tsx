@@ -7,7 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { ChipTabs } from "@/components/ui/chip-tabs";
 import { RecordActions } from "./RecordActions";
-import { useSetBreadcrumbTrailing } from "@/components/opai-ds";
+import { Avatar, useSetBreadcrumbTrailing } from "@/components/opai-ds";
+import { tintFromId } from "@/lib/entity-tint";
 
 /* ── Types ── */
 
@@ -38,6 +39,12 @@ export interface EntityDetailLayoutProps {
   breadcrumbHrefs?: string[];
   /** Header configuration */
   header: {
+    /**
+     * Id de la entidad para identidad cromática (tint).
+     * Si se provee y no hay photoUrl/icon/color custom, el avatar usa variant tint.
+     * Opcional — fallback al comportamiento legacy de avatar.color.
+     */
+    entityId?: string;
     /** Avatar / icon config */
     avatar?: {
       /** Initials to show (e.g. "S") */
@@ -144,6 +151,13 @@ export function EntityDetailLayout({
   const secondaryActions = allActions.filter((a) => !a.primary);
 
   const AvatarIcon = header.avatar?.icon;
+  const useTintAvatar =
+    Boolean(header.entityId) &&
+    Boolean(header.avatar) &&
+    !header.avatar?.photoUrl &&
+    !header.avatar?.icon &&
+    !header.avatar?.color;
+  const entityTint = header.entityId ? tintFromId(header.entityId) : undefined;
 
   return (
     <div className={cn("min-w-0 -mt-3 sm:-mt-4 lg:mt-0", className)}>
@@ -186,12 +200,21 @@ export function EntityDetailLayout({
                     <img
                       src={header.avatar.photoUrl}
                       alt=""
-                      className="h-10 w-10 sm:h-12 sm:w-12 rounded-full border border-border bg-background object-contain"
+                      className="h-10 w-10 sm:h-12 sm:w-12 rounded-full border border-ds-border-default bg-background object-contain"
+                    />
+                  ) : useTintAvatar && entityTint ? (
+                    <Avatar
+                      variant="tint"
+                      tint={entityTint}
+                      size="lg"
+                      initials={header.avatar.initials}
+                      name={header.title}
+                      className="h-10 w-10 sm:h-12 sm:w-12 text-ds-body sm:text-ds-title"
                     />
                   ) : (
                     <div
                       className={cn(
-                        "flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-full text-sm sm:text-base font-semibold",
+                        "flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-full text-ds-body sm:text-ds-title font-semibold",
                         header.avatar.color?.startsWith("#") || header.avatar.color?.startsWith("rgb")
                           ? "text-white"
                           : header.avatar.color || "bg-primary/10 text-primary"
@@ -215,7 +238,7 @@ export function EntityDetailLayout({
               {/* Info — el nombre puede usar 2 líneas en mobile para no truncar agresivamente */}
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2.5 flex-wrap">
-                  <h1 className="text-xl sm:text-2xl font-display font-semibold tracking-tight leading-tight line-clamp-2 sm:truncate min-w-0">
+                  <h1 className="text-ds-display font-display tracking-tight line-clamp-2 sm:truncate min-w-0">
                     {header.title}
                   </h1>
                   {/* Badge: al lado del título solo en ≥sm. En mobile va inline debajo, compacto. */}
@@ -241,7 +264,7 @@ export function EntityDetailLayout({
                   )}
                 </div>
                 {header.subtitle && (
-                  <p className="text-sm text-ds-text-3 mt-1 truncate lg:hidden">
+                  <p className="text-ds-caption text-ds-text-3 mt-1 truncate lg:hidden">
                     {header.subtitle}
                   </p>
                 )}
@@ -250,7 +273,7 @@ export function EntityDetailLayout({
                   <div className="mt-1 sm:hidden flex items-center gap-1.5">
                     <span
                       className={cn(
-                        "inline-flex items-center gap-1 rounded-full px-1.5 py-px text-[10px] font-medium leading-tight",
+                        "inline-flex items-center gap-1 rounded-full px-1.5 py-px text-ds-caption font-medium leading-tight",
                         !header.status.color && "bg-muted text-muted-foreground"
                       )}
                       style={header.status.color ? {

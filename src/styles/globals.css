@@ -121,6 +121,16 @@
     --ds-radius-xl: 20px;
     --ds-radius-pill: 999px;
 
+    /* DS v4 — tipografía semántica (densidad comfortable por defecto).
+       eyebrow/caption/body NO cambian en compact → sin layout shift en tablas. */
+    --t-eyebrow: 11px;
+    --t-caption: 12px;
+    --t-body: 13px;
+    --t-title: 15px;
+    --t-heading: 17px;
+    --t-display: 21px;
+    --t-metric: 26px;
+
     /* Shadow tokens — capas reales, no flat */
     --ds-shadow-xs: 0 1px 2px 0 hsl(220 30% 10% / 0.04);
     --ds-shadow-sm: 0 1px 3px 0 hsl(220 30% 10% / 0.06), 0 1px 2px -1px hsl(220 30% 10% / 0.04);
@@ -154,6 +164,15 @@
     --motion-easing-standard: cubic-bezier(0.2, 0, 0, 1);
     --motion-easing-emphasized: cubic-bezier(0.3, 0, 0, 1);
 
+  }
+
+  /* DS v4 — densidad compacta: solo roles superiores se achican.
+     eyebrow/caption/body permanecen iguales → sin layout shift en planillas. */
+  [data-density="compact"] {
+    --t-title: 14px;
+    --t-heading: 15px;
+    --t-display: 18px;
+    --t-metric: 22px;
   }
 
   .dark {

@@ -184,6 +184,18 @@ module.exports = {
         // y caemos en JetBrains si Geist no resolviera.
         mono: ['"Geist Mono Variable"', '"Geist Mono"', 'var(--font-jetbrains)', '"JetBrains Mono"', 'ui-monospace', 'monospace'],
       },
+      // OPAI DS v4 — escala tipográfica semántica (roles, no píxeles).
+      // Tamaños vía --t-* en globals.css; densidad compacta overridea solo
+      // title/heading/display/metric (eyebrow/caption/body no cambian).
+      fontSize: {
+        'ds-eyebrow': ['var(--t-eyebrow)', { lineHeight: '1.2',  letterSpacing: '0.08em', fontWeight: '600' }],
+        'ds-caption': ['var(--t-caption)', { lineHeight: '1.45', fontWeight: '400' }],
+        'ds-body':    ['var(--t-body)',    { lineHeight: '1.45', fontWeight: '400' }],
+        'ds-title':   ['var(--t-title)',   { lineHeight: '1.3',  fontWeight: '500' }],
+        'ds-heading': ['var(--t-heading)', { lineHeight: '1.25', fontWeight: '600' }],
+        'ds-display': ['var(--t-display)', { lineHeight: '1.2',  letterSpacing: '-0.01em', fontWeight: '600' }],
+        'ds-metric':  ['var(--t-metric)',  { lineHeight: '1',    fontWeight: '600' }],
+      },
       boxShadow: {
         'glow-brand': '0 0 0 1px rgba(0,102,255,0.25), 0 8px 30px -12px rgba(0,102,255,0.45)',
         'ring-soft': 'inset 0 0 0 1px rgba(255,255,255,0.06)',
