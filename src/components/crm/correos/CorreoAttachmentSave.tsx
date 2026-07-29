@@ -288,12 +288,13 @@ export function CorreoAttachmentSave({
     </div>
   );
 
-  // Preferir el host del lector (ancho del visor). Fallback: body fullscreen
-  // (p. ej. si el sheet se abre fuera del shell — no debería pasar).
+  // Preferir el host del lector (ancho del visor). Fallback: body por encima
+  // del Copiloto (z-55) y de Adjuntos (z-60). pointer-events-auto: el Sheet
+  // Radix / remove-scroll puede dejar body en pointer-events:none.
   if (overlayHost) return createPortal(sheet, overlayHost);
   if (typeof document === "undefined") return null;
   return createPortal(
-    <div className="fixed inset-0 z-[70]">{sheet}</div>,
+    <div className="pointer-events-auto fixed inset-0 z-[70]">{sheet}</div>,
     document.body,
   );
 }
