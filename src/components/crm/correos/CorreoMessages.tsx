@@ -10,7 +10,9 @@ import type {
 import { emailPlainFallback } from "@/lib/sanitize-email-html";
 import { EmailHtmlBody } from "./EmailHtmlBody";
 import { CorreoAttachments } from "./CorreoAttachments";
+import { CorreoInviteRsvpCard } from "./CorreoInviteRsvpCard";
 import { attachmentsForMessage } from "./correo-attachments-scope";
+import { isCalendarMime } from "@/lib/ics";
 import { parseSender } from "./correo-sender";
 import {
   buildRecipientChips,
@@ -225,6 +227,21 @@ function MessageCard({
       {open && (
         <div className="border-t border-ds-border-subtle px-3 py-2">
           <MessageRecipients m={m} />
+          {threadId &&
+          m.direction !== "out" &&
+          (m.providerMessageId || m.id) &&
+          (msgAttachments.some((a) => isCalendarMime(a.mimeType, a.filename)) ||
+            /invitaci[oó]n|invitation|calendar|reunion|reunión|meeting|teams|aceptar|RSVP/i.test(
+              `${m.subject || ""} ${m.textBody || ""}`,
+            ) ||
+            /teams\.microsoft\.com|meet\.google\.com|text\/calendar|\.ics/i.test(
+              m.htmlBody || "",
+            )) ? (
+            <CorreoInviteRsvpCard
+              threadId={threadId}
+              messageId={m.providerMessageId || m.id}
+            />
+          ) : null}
           <EmailHtmlBody
             htmlBody={m.htmlBody}
             textBody={m.textBody}

@@ -25,7 +25,14 @@ export function contentIdFromPartHeaders(
   return raw.replace(/^<|>$/g, "").trim() || null;
 }
 
-/** Recorre el árbol de partes y devuelve los adjuntos (con attachmentId). */
+function isCalendarPart(part: GmailMessagePart): boolean {
+  const mt = (part.mimeType || "").toLowerCase();
+  const fn = (part.filename || "").toLowerCase();
+  return mt.includes("text/calendar") || mt.includes("application/ics") || fn.endsWith(".ics") || fn.endsWith(".ical");
+}
+
+/** Recorre el árbol de partes y devuelve los adjuntos (con attachmentId).
+ *  Incluye partes `text/calendar` aunque vengan sin filename (invites Outlook/Google). */
 export function extractGmailAttachments(payload?: GmailMessagePart): GmailAttachmentMeta[] {
   const out: GmailAttachmentMeta[] = [];
   if (!payload) return out;
@@ -33,14 +40,58 @@ export function extractGmailAttachments(payload?: GmailMessagePart): GmailAttach
   while (stack.length > 0) {
     const part = stack.pop();
     if (!part) continue;
-    if (part.filename && part.body?.attachmentId) {
+    if (part.body?.attachmentId && (part.filename || isCalendarPart(part))) {
       out.push({
         attachmentId: part.body.attachmentId,
-        filename: part.filename,
+        filename: part.filename || (isCalendarPart(part) ? "invite.ics" : "attachment"),
         mimeType: part.mimeType || "application/octet-stream",
         size: part.body.size ?? 0,
         contentId: contentIdFromPartHeaders(part.headers),
       });
+    }
+    if (part.parts?.length) stack.push(...part.parts);
+  }
+  return out;
+}
+
+export type InlineCalendarPart = {
+  mimeType: string;
+  filename: string;
+  /** ICS en texto (ya decodificado de body.data). */
+  icsText: string;
+  attachmentId?: string | null;
+};
+
+/**
+ * Busca partes de calendario en el payload: adjuntos (attachmentId) o inline
+ * (body.data). Preferir attachmentId cuando exista.
+ */
+export function extractCalendarParts(payload?: GmailMessagePart): InlineCalendarPart[] {
+  const out: InlineCalendarPart[] = [];
+  if (!payload) return out;
+  const stack: GmailMessagePart[] = [payload];
+  while (stack.length > 0) {
+    const part = stack.pop();
+    if (!part) continue;
+    if (isCalendarPart(part)) {
+      if (part.body?.attachmentId) {
+        out.push({
+          mimeType: part.mimeType || "text/calendar",
+          filename: part.filename || "invite.ics",
+          icsText: "",
+          attachmentId: part.body.attachmentId,
+        });
+      } else if (part.body?.data) {
+        const icsText = decodeBase64Url(part.body.data);
+        if (icsText.includes("BEGIN:")) {
+          out.push({
+            mimeType: part.mimeType || "text/calendar",
+            filename: part.filename || "invite.ics",
+            icsText,
+            attachmentId: null,
+          });
+        }
+      }
     }
     if (part.parts?.length) stack.push(...part.parts);
   }

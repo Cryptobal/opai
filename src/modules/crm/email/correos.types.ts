@@ -60,6 +60,31 @@ export type CorreoAttachmentDTO = {
   savedFileId?: string | null;
 };
 
+/** Invitación de calendario detectada en un mensaje (RSVP en el lector). */
+export type CorreoInviteDTO = {
+  messageId: string;
+  attachmentId: string | null;
+  filename: string;
+  uid: string | null;
+  method: string | null;
+  title: string;
+  whenLabel: string | null;
+  startAt: string | null;
+  endAt: string | null;
+  allDay: boolean;
+  location: string | null;
+  joinUrl: string | null;
+  organizerName: string | null;
+  organizerEmail: string | null;
+  attendeeCount: number;
+  responseStatus: "needs_action" | "accepted" | "declined" | "tentative";
+  cancelled: boolean;
+  calendarConnected: boolean;
+  googleEventId: string | null;
+  googleHtmlLink: string | null;
+  source: "ics";
+};
+
 /**
  * Detalle de un hilo servido a una ficha (Bloque 5): solo lectura, 100% desde
  * el espejo local — NUNCA toca Gmail. Autorizado por la entidad, no por la
