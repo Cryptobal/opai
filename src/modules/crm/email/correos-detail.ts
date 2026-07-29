@@ -181,7 +181,12 @@ export async function getCorreoDetail(params: {
     thread.dealId
       ? prisma.crmDeal.findFirst({
           where: { id: thread.dealId, tenantId },
-          select: { title: true, fechaEntrega: true, isLicitacion: true },
+          select: {
+            title: true,
+            fechaEntrega: true,
+            isLicitacion: true,
+            stage: { select: { name: true } },
+          },
         })
       : null,
   ]);
@@ -216,6 +221,7 @@ export async function getCorreoDetail(params: {
       accountName: account?.name ?? null,
       dealId: thread.dealId,
       dealTitle: deal?.title ?? null,
+      dealStageName: deal?.stage?.name ?? null,
       dealFechaEntrega: deal?.fechaEntrega
         ? deal.fechaEntrega.toISOString().slice(0, 10)
         : null,

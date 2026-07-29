@@ -65,6 +65,23 @@ export function CorreoRowDesktop({
   // al cambiar de fila — eso causaba el "tiritón" al archivar/navegar.
   const active = selected || focused;
   const showMailbox = unified && Boolean(mailboxColor || mailboxLabel);
+  const hasDeal = Boolean(thread.dealId && thread.dealTitle);
+  const exceptionMark =
+    thread.slaLevel === "danger"
+      ? { label: thread.slaLabel ?? "!", tone: "danger" as const }
+      : thread.slaLevel === "warn"
+        ? { label: thread.slaLabel ?? "!", tone: "warn" as const }
+        : !thread.accountId
+          ? { label: "sin cuenta", tone: "warn" as const }
+          : null;
+  const chainLabel = hasDeal
+    ? [
+        thread.accountName,
+        thread.dealTitle,
+      ]
+        .filter(Boolean)
+        .join(" › ") + (thread.dealStageName ? ` · ${thread.dealStageName}` : "")
+    : null;
 
   return (
     <div
@@ -152,19 +169,32 @@ export function CorreoRowDesktop({
           )}
         </span>
         <span className="min-w-0 flex-1 truncate text-[13px]" title={subject}>
-          {thread.accountName && (
+          {hasDeal ? (
             <>
-              <span className="inline-block max-w-[130px] truncate align-bottom font-medium text-ds-text-3">
-                {thread.accountName}
+              <span className={unread ? "font-semibold text-ds-text-1" : "text-ds-text-2"}>
+                {subject}
               </span>
-              <span className="mx-1.5 text-ds-border-strong">·</span>
+              {chainLabel && (
+                <span className="text-ds-text-3"> — {chainLabel}</span>
+              )}
             </>
-          )}
-          <span className={unread ? "font-semibold text-ds-text-1" : "text-ds-text-2"}>
-            {subject}
-          </span>
-          {thread.snippet && (
-            <span className="text-ds-text-4"> — {thread.snippet}</span>
+          ) : (
+            <>
+              {thread.accountName && (
+                <>
+                  <span className="inline-block max-w-[130px] truncate align-bottom font-medium text-ds-text-3">
+                    {thread.accountName}
+                  </span>
+                  <span className="mx-1.5 text-ds-border-strong">·</span>
+                </>
+              )}
+              <span className={unread ? "font-semibold text-ds-text-1" : "text-ds-text-2"}>
+                {subject}
+              </span>
+              {thread.snippet && (
+                <span className="text-ds-text-4"> — {thread.snippet}</span>
+              )}
+            </>
           )}
         </span>
       </button>
@@ -175,17 +205,34 @@ export function CorreoRowDesktop({
         )}
       </span>
       <span
-        className={`w-24 flex-none text-right text-[12px] tabular-nums transition-opacity ${
-          thread.snoozedUntil
-            ? "text-status-warn-fg"
-            : unread
-              ? "font-semibold text-primary"
-              : "text-ds-text-4"
-        } ${canModify || onAiMenu ? "group-hover:opacity-0" : ""}`}
+        className={`flex w-28 flex-none items-center justify-end gap-1 text-right text-[12px] tabular-nums transition-opacity ${
+          canModify || onAiMenu ? "group-hover:opacity-0" : ""
+        }`}
       >
-        {thread.snoozedUntil
-          ? `hasta ${snoozeShort(thread.snoozedUntil)}`
-          : formatGmailDateChile(thread.lastMessageAt)}
+        {exceptionMark && !thread.snoozedUntil && (
+          <span
+            className={`font-medium ${
+              exceptionMark.tone === "danger"
+                ? "text-status-danger-fg"
+                : "text-status-warn-fg"
+            }`}
+          >
+            {exceptionMark.label}
+          </span>
+        )}
+        <span
+          className={
+            thread.snoozedUntil
+              ? "text-status-warn-fg"
+              : unread
+                ? "font-semibold text-primary"
+                : "text-ds-text-4"
+          }
+        >
+          {thread.snoozedUntil
+            ? `hasta ${snoozeShort(thread.snoozedUntil)}`
+            : formatGmailDateChile(thread.lastMessageAt)}
+        </span>
       </span>
       <div className="absolute right-2 top-1/2 hidden -translate-y-1/2 items-center rounded-lg bg-ds-surface-2 pl-1 group-hover:flex">
         {onAiMenu && (

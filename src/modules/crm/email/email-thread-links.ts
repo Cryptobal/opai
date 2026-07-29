@@ -51,8 +51,27 @@ export type ThreadLinkCandidate = {
   label: string;
   sublabel: string | null;
   status: string | null;
-  scope: "account" | "tenant";
+  scope: "account" | "tenant" | "suggested";
+  /** Presente en búsquedas multi-tipo. */
+  entityType?: string;
+  signal?: string | null;
+  confidence?: "alta" | "media" | null;
 };
+
+/** Tipos del buscador único (omnibox), incluyen deal/account/contact. */
+export const OMNIBOX_ENTITY_TYPES = [
+  "account",
+  "contact",
+  "deal",
+  "quote",
+  "installation",
+  "contract",
+] as const;
+export type OmniboxEntityType = (typeof OMNIBOX_ENTITY_TYPES)[number];
+
+export function isOmniboxEntityType(v: string): v is OmniboxEntityType {
+  return (OMNIBOX_ENTITY_TYPES as readonly string[]).includes(v);
+}
 
 export type ThreadLinkSearchResult = {
   candidates: ThreadLinkCandidate[];
@@ -360,6 +379,150 @@ export async function searchThreadLinkCandidates(params: {
   };
 }
 
+/**
+ * Búsqueda multi-tipo para el omnibox. Reutiliza las ramas por tipo del
+ * registry y suma account/contact/deal.
+ */
+export async function searchThreadLinkCandidatesMulti(params: {
+  tenantId: string;
+  types: string[];
+  q: string;
+  accountId?: string | null;
+  limit?: number;
+}): Promise<ThreadLinkSearchResult> {
+  const { tenantId } = params;
+  const accountId = params.accountId?.trim() || null;
+  const q = params.q.trim();
+  const perType = Math.min(params.limit ?? 8, 15);
+  const types = params.types.map((t) => t.trim()).filter(Boolean);
+  const out: ThreadLinkCandidate[] = [];
+  let accountScopeApplies = false;
+
+  async function pushLinkType(type: ThreadLinkEntityType) {
+    const r = await searchThreadLinkCandidates({
+      tenantId,
+      type,
+      q,
+      accountId,
+      limit: perType,
+    });
+    if (r.accountScopeApplies) accountScopeApplies = true;
+    for (const c of r.candidates) {
+      out.push({ ...c, entityType: type });
+    }
+  }
+
+  for (const type of types) {
+    if (type === "account") {
+      const rows = await prisma.crmAccount.findMany({
+        where: {
+          tenantId,
+          ...(q
+            ? {
+                OR: [
+                  { name: like(q) },
+                  { rut: like(q) },
+                ],
+              }
+            : {}),
+        },
+        select: { id: true, name: true, rut: true },
+        orderBy: { name: "asc" },
+        take: perType,
+      });
+      for (const r of rows) {
+        out.push({
+          id: r.id,
+          entityType: "account",
+          label: r.name,
+          sublabel: r.rut,
+          status: null,
+          scope: "tenant",
+        });
+      }
+      continue;
+    }
+    if (type === "contact") {
+      const rows = await prisma.crmContact.findMany({
+        where: {
+          tenantId,
+          ...(accountId ? { accountId } : {}),
+          ...(q
+            ? {
+                OR: [
+                  { firstName: like(q) },
+                  { lastName: like(q) },
+                  { email: like(q) },
+                ],
+              }
+            : {}),
+        },
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          email: true,
+          accountId: true,
+          account: { select: { name: true } },
+        },
+        orderBy: { firstName: "asc" },
+        take: perType,
+      });
+      if (accountId) accountScopeApplies = true;
+      for (const r of rows) {
+        out.push({
+          id: r.id,
+          entityType: "contact",
+          label: `${r.firstName} ${r.lastName}`.trim(),
+          sublabel: r.email ?? r.account?.name ?? null,
+          status: null,
+          scope: accountId && r.accountId === accountId ? "account" : "tenant",
+        });
+      }
+      continue;
+    }
+    if (type === "deal") {
+      const rows = await prisma.crmDeal.findMany({
+        where: {
+          tenantId,
+          ...(accountId ? { accountId } : {}),
+          status: "open",
+          ...(q ? { title: like(q) } : {}),
+        },
+        select: {
+          id: true,
+          title: true,
+          status: true,
+          accountId: true,
+          stage: { select: { name: true } },
+        },
+        orderBy: { updatedAt: "desc" },
+        take: perType,
+      });
+      if (accountId) accountScopeApplies = true;
+      for (const r of rows) {
+        out.push({
+          id: r.id,
+          entityType: "deal",
+          label: r.title,
+          sublabel: r.stage?.name ?? null,
+          status: r.status,
+          scope: accountId && r.accountId === accountId ? "account" : "tenant",
+        });
+      }
+      continue;
+    }
+    if (isThreadLinkEntityType(type)) {
+      await pushLinkType(type);
+    }
+  }
+
+  return {
+    candidates: sortByScope(out).slice(0, Math.min(params.limit ?? 40, 60)),
+    accountScopeApplies,
+  };
+}
+
 /** Valida que la entidad exista EN el tenant (antes de crear el vínculo). */
 export async function threadLinkEntityExists(params: {
   tenantId: string;
@@ -435,7 +598,7 @@ export async function threadLinkEntityExists(params: {
   }
 }
 
-const HREFS: Record<ThreadLinkEntityType, (id: string) => string | null> = {
+export const HREFS: Record<ThreadLinkEntityType, (id: string) => string | null> = {
   installation: (id) => `/crm/installations/${id}`,
   guardia: (id) => `/personas/guardias/${id}`,
   postulante: (id) => `/personas/guardias/${id}`,
@@ -447,6 +610,18 @@ const HREFS: Record<ThreadLinkEntityType, (id: string) => string | null> = {
   quote: (id) => `/crm/cotizaciones/${id}`,
   contract: (id) => `/opai/documentos/${id}`,
 };
+
+/** Deep-links públicos para la cadena de contexto. */
+export function hrefForThreadEntity(
+  entityType: string,
+  id: string,
+): string | null {
+  if (entityType === "account") return `/crm/accounts/${id}`;
+  if (entityType === "deal") return `/crm/deals/${id}`;
+  if (entityType === "contact") return `/crm/contacts/${id}`;
+  if (isThreadLinkEntityType(entityType)) return HREFS[entityType](id);
+  return null;
+}
 
 type EntityMeta = { label: string; status: string | null };
 

@@ -45,6 +45,43 @@ export const CorreoRowMobile = memo(function CorreoRowMobile({
   const sender = parseSender(thread.fromEmail);
   const hasAttachments = thread.attachmentCount > 0;
   const showMailbox = unified && Boolean(mailboxColor || mailboxLabel);
+  const hasDeal = Boolean(thread.dealId && thread.dealTitle);
+  // Presupuesto de color: una marca máx junto a la hora (SLA > sin cuenta).
+  const exceptionMark =
+    thread.slaLevel === "danger"
+      ? { label: thread.slaLabel ?? "!", tone: "danger" as const }
+      : thread.slaLevel === "warn"
+        ? { label: thread.slaLabel ?? "!", tone: "warn" as const }
+        : !thread.accountId
+          ? { label: "sin cuenta", tone: "warn" as const }
+          : null;
+  const line2 = hasDeal ? (
+    <span className="min-w-0 truncate">{subject}</span>
+  ) : (
+    <>
+      {thread.accountName && (
+        <>
+          <span className="max-w-[40%] shrink-0 truncate font-medium text-ds-text-3">
+            {thread.accountName}
+          </span>
+          <span className="mx-1.5 shrink-0 text-ds-border-strong">·</span>
+        </>
+      )}
+      <span className="min-w-0 truncate">{subject}</span>
+    </>
+  );
+  const line3 = hasDeal ? (
+    <span className="block truncate text-[13px] leading-5 text-ds-text-3">
+      {[thread.accountName, thread.dealTitle].filter(Boolean).join(" › ")}
+      {thread.dealStageName ? ` · ${thread.dealStageName}` : ""}
+    </span>
+  ) : !compact && thread.snippet ? (
+    <span
+      className={`block ${PREVIEW_LINE_CLASS[previewLines]} break-words text-[13px] leading-5 text-ds-text-3`}
+    >
+      {thread.snippet}
+    </span>
+  ) : null;
 
   return (
     <div
@@ -101,31 +138,30 @@ export const CorreoRowMobile = memo(function CorreoRowMobile({
               }`}
               title={subject}
             >
-              {thread.accountName && (
-                <>
-                  <span className="max-w-[40%] shrink-0 truncate font-medium text-ds-text-3">
-                    {thread.accountName}
-                  </span>
-                  <span className="mx-1.5 shrink-0 text-ds-border-strong">·</span>
-                </>
-              )}
-              <span className="min-w-0 truncate">{subject}</span>
+              {line2}
             </span>
-            {!compact && thread.snippet && (
-              <span
-                className={`block ${PREVIEW_LINE_CLASS[previewLines]} break-words text-[13px] leading-5 text-ds-text-3`}
-              >
-                {thread.snippet}
-              </span>
-            )}
+            {line3}
           </span>
           <span className="flex shrink-0 flex-col items-end gap-1 pt-0.5">
-            <span
-              className={`text-[12px] leading-4 ${
-                unread ? "font-medium text-primary" : "text-ds-text-4"
-              }`}
-            >
-              {formatGmailDateChile(thread.lastMessageAt)}
+            <span className="flex items-center gap-1">
+              {exceptionMark && (
+                <span
+                  className={`text-[12px] font-medium leading-4 ${
+                    exceptionMark.tone === "danger"
+                      ? "text-status-danger-fg"
+                      : "text-status-warn-fg"
+                  }`}
+                >
+                  {exceptionMark.label}
+                </span>
+              )}
+              <span
+                className={`text-[12px] leading-4 ${
+                  unread ? "font-medium text-primary" : "text-ds-text-4"
+                }`}
+              >
+                {formatGmailDateChile(thread.lastMessageAt)}
+              </span>
             </span>
             <span className="flex items-center gap-1.5">
               <CorreoMatchReasonBadge reason={thread.matchReason} />

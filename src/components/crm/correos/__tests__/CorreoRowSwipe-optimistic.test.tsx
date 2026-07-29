@@ -21,10 +21,12 @@ const thread: CorreoThreadDTO = {
   fromEmail: "a@b.com",
   snippet: "snippet",
   lastMessageAt: "2026-07-22T12:00:00.000Z",
+  emailAccountId: null,
   accountId: null,
   accountName: null,
   dealId: null,
   dealTitle: null,
+  dealStageName: null,
   leadId: null,
   attachmentCount: 0,
   messageCount: 1,
@@ -37,6 +39,9 @@ const thread: CorreoThreadDTO = {
   starredAt: null,
   spamAt: null,
   hasDraft: false,
+  pendingSince: null,
+  slaLevel: null,
+  slaLabel: null,
 };
 
 const swipeConfig: CorreoSwipeConfig = {

@@ -10,6 +10,8 @@ export type CorreoThreadDTO = {
   accountName: string | null;
   dealId: string | null;
   dealTitle: string | null;
+  /** Nombre de etapa del pipeline (si hay negocio). */
+  dealStageName: string | null;
   leadId: string | null;
   attachmentCount: number;
   messageCount: number;
@@ -22,6 +24,12 @@ export type CorreoThreadDTO = {
   starredAt: string | null;
   spamAt: string | null;
   hasDraft: boolean;
+  /** ISO del último inbound pendiente de respuesta (null si no aplica). */
+  pendingSince: string | null;
+  /** Nivel SLA de espera: warn | danger | null. */
+  slaLevel: "warn" | "danger" | null;
+  /** Etiqueta corta ("3 h" / "2 d") cuando hay SLA activo. */
+  slaLabel: string | null;
   /** Motivo de match bajo búsqueda híbrida (null fuera de búsqueda). */
   matchReason?: "lexical" | "semantic" | "both" | null;
 };
@@ -149,6 +157,8 @@ export type CorreoDetail = {
     accountName: string | null;
     dealId: string | null;
     dealTitle: string | null;
+    /** Nombre de etapa del pipeline (si hay negocio). */
+    dealStageName: string | null;
     /** Fecha de entrega del negocio asociado (licitación), ISO date o null. */
     dealFechaEntrega: string | null;
     dealIsLicitacion: boolean;

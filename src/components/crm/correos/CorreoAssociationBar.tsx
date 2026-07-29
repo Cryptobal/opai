@@ -41,9 +41,9 @@ export function CorreoAssociationBar({
     accountId: string | null;
     dealId: string | null;
     sharedWithAccount?: boolean;
-  }) => void;
+  }) => void | Promise<void>;
 }) {
-  const { deals: dealsRes, reload } = useCorreoWork();
+  const { deals: dealsRes, reload, applyAccountOptimistic } = useCorreoWork();
   const perms = useEffectivePermissions();
   const canMutate = canEdit(perms, "crm", "correos");
   const deals = dealsRes.data ?? [];
@@ -78,13 +78,14 @@ export function CorreoAssociationBar({
   const openDeals = deals.filter((d) => d.status === "open");
   const closedDeals = deals.filter((d) => d.status !== "open");
 
-  function associate(p: {
+  async function associate(p: {
     accountId: string | null;
     dealId: string | null;
     sharedWithAccount?: boolean;
   }) {
-    onAssociate(p);
-    reload("all");
+    applyAccountOptimistic(p.accountId);
+    await onAssociate(p);
+    await reload("all");
   }
 
   async function createWithAi() {

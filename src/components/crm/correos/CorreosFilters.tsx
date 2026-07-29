@@ -17,7 +17,13 @@ export type CorreoFolderTab =
   | "spam"
   | "starred"
   | "scheduled";
-export type CorreoChipKey = "todos" | "con_cuenta" | "sin_asociar" | "con_adjuntos" | "leads_creados";
+export type CorreoChipKey =
+  | "todos"
+  | "con_cuenta"
+  | "sin_asociar"
+  | "con_adjuntos"
+  | "leads_creados"
+  | "sin_responder";
 
 // Espejo de Gmail: no hay bandeja "Archivados" — los archivados viven dentro
 // de "Todos". El tipo `archived` se mantiene solo por compat de deep-links.
@@ -40,6 +46,7 @@ export const CHIPS: { key: CorreoChipKey; label: string }[] = [
   { key: "todos", label: "Todas las asociaciones" },
   { key: "con_cuenta", label: "Con cuenta" },
   { key: "sin_asociar", label: "Sin asociar" },
+  { key: "sin_responder", label: "Sin responder" },
   { key: "con_adjuntos", label: "Con adjuntos" },
   { key: "leads_creados", label: "Leads creados" },
 ];

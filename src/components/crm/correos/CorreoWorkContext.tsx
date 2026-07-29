@@ -4,6 +4,9 @@
  * Fuente de verdad compartida del Panel de trabajo: links, tasks,
  * contact-context y deals de la cuenta. Una sola carga por recurso;
  * las mutaciones llaman reload(scope) para refrescar a todas las pestañas.
+ *
+ * Copiloto v4: `reload` devuelve Promise; `applyAccountOptimistic` evita la
+ * race al asociar cuenta A→B (loadDeals usa el id nuevo de inmediato).
  */
 
 import {
@@ -53,7 +56,9 @@ type CorreoWorkValue = {
   tasks: ResourceState<CorreoWorkTask[]>;
   contactContext: ResourceState<CorreoWorkContactContext>;
   deals: ResourceState<CorreoWorkDeal[]>;
-  reload: (scope?: CorreoWorkReloadScope) => void;
+  reload: (scope?: CorreoWorkReloadScope) => Promise<void>;
+  /** Actualiza el accountId efectivo para loadDeals sin esperar re-fetch. */
+  applyAccountOptimistic: (accountId: string | null) => void;
 };
 
 const CorreoWorkCtx = createContext<CorreoWorkValue | null>(null);
@@ -66,7 +71,6 @@ export function useCorreoWork(): CorreoWorkValue {
   return ctx;
 }
 
-/** Hook opcional: null fuera del provider (p. ej. Summary embebido en cascada). */
 export function useCorreoWorkOptional(): CorreoWorkValue | null {
   return useContext(CorreoWorkCtx);
 }
@@ -74,7 +78,6 @@ export function useCorreoWorkOptional(): CorreoWorkValue | null {
 export function CorreoWorkProvider({
   threadId,
   accountId,
-  /** Incrementa al refrescar el detalle (p. ej. tras crear estructura). */
   revision = 0,
   children,
 }: {
@@ -99,10 +102,21 @@ export function CorreoWorkProvider({
     data: null,
     loading: false,
   });
+  const [optimisticAccountId, setOptimisticAccountId] = useState<string | null | undefined>(
+    undefined,
+  );
 
   const cancelledRef = useRef(false);
   const threadIdRef = useRef(threadId);
   threadIdRef.current = threadId;
+
+  // Prop gana sobre optimistic cuando el detalle refresca.
+  const effectiveAccountId =
+    optimisticAccountId !== undefined ? optimisticAccountId : accountId;
+
+  useEffect(() => {
+    setOptimisticAccountId(undefined);
+  }, [accountId, revision, threadId]);
 
   const loadLinks = useCallback(async () => {
     const tid = threadId;
@@ -155,13 +169,13 @@ export function CorreoWorkProvider({
     }
   }, [threadId]);
 
-  const loadDeals = useCallback(async () => {
-    if (!accountId) {
+  const loadDeals = useCallback(async (accountOverride?: string | null) => {
+    const acc = accountOverride !== undefined ? accountOverride : effectiveAccountId;
+    if (!acc) {
       setDeals({ data: [], loading: false });
       return;
     }
     const tid = threadId;
-    const acc = accountId;
     setDeals((s) => ({ ...s, loading: true }));
     try {
       const res = await fetch(
@@ -182,14 +196,24 @@ export function CorreoWorkProvider({
       if (cancelledRef.current || threadIdRef.current !== tid) return;
       setDeals({ data: [], loading: false });
     }
-  }, [threadId, accountId]);
+  }, [threadId, effectiveAccountId]);
+
+  const applyAccountOptimistic = useCallback(
+    (next: string | null) => {
+      setOptimisticAccountId(next);
+      void loadDeals(next);
+    },
+    [loadDeals],
+  );
 
   const reload = useCallback(
-    (scope: CorreoWorkReloadScope = "all") => {
-      if (scope === "all" || scope === "links") void loadLinks();
-      if (scope === "all" || scope === "tasks") void loadTasks();
-      if (scope === "all" || scope === "contact") void loadContact();
-      if (scope === "all" || scope === "deals") void loadDeals();
+    async (scope: CorreoWorkReloadScope = "all") => {
+      const jobs: Promise<void>[] = [];
+      if (scope === "all" || scope === "links") jobs.push(loadLinks());
+      if (scope === "all" || scope === "tasks") jobs.push(loadTasks());
+      if (scope === "all" || scope === "contact") jobs.push(loadContact());
+      if (scope === "all" || scope === "deals") jobs.push(loadDeals());
+      await Promise.all(jobs);
     },
     [loadLinks, loadTasks, loadContact, loadDeals],
   );
@@ -203,25 +227,34 @@ export function CorreoWorkProvider({
     return () => {
       cancelledRef.current = true;
     };
-    // revision: refresco del detalle (estructura creada, associate, etc.)
   }, [threadId, revision, loadLinks, loadTasks, loadContact]);
 
   useEffect(() => {
     cancelledRef.current = false;
     void loadDeals();
-  }, [accountId, revision, loadDeals]);
+  }, [effectiveAccountId, revision, loadDeals]);
 
   const value = useMemo<CorreoWorkValue>(
     () => ({
       threadId,
-      accountId,
+      accountId: effectiveAccountId,
       links,
       tasks,
       contactContext,
       deals,
       reload,
+      applyAccountOptimistic,
     }),
-    [threadId, accountId, links, tasks, contactContext, deals, reload],
+    [
+      threadId,
+      effectiveAccountId,
+      links,
+      tasks,
+      contactContext,
+      deals,
+      reload,
+      applyAccountOptimistic,
+    ],
   );
 
   return <CorreoWorkCtx.Provider value={value}>{children}</CorreoWorkCtx.Provider>;

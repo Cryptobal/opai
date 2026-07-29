@@ -11,6 +11,10 @@ import {
   parseCorreoSearchQuery,
 } from "./correos-search";
 import type { MatchReason } from "./correos-search-hybrid";
+import {
+  getSlaThresholds,
+  resolveThreadSla,
+} from "./thread-sla";
 
 const KEYWORDS = ["cotiz", "licitac", "servicio", "propuesta", "bases", "presupuesto"];
 
@@ -98,6 +102,8 @@ const THREAD_LIST_SELECT = {
   dealId: true,
   leadId: true,
   lastMessageAt: true,
+  lastInboundAt: true,
+  lastOutboundAt: true,
   providerThreadId: true,
   attachmentCount: true,
   archivedAt: true,
@@ -319,6 +325,8 @@ type ThreadRow = {
   dealId: string | null;
   leadId: string | null;
   lastMessageAt: Date | null;
+  lastInboundAt: Date | null;
+  lastOutboundAt: Date | null;
   providerThreadId: string | null;
   attachmentCount: number;
   archivedAt: Date | null;
@@ -349,7 +357,20 @@ async function mapThreadRowsInternal(
 
   const accountIds = Array.from(new Set(page.map((r) => r.accountId).filter(Boolean) as string[]));
   const dealIds = Array.from(new Set(page.map((r) => r.dealId).filter(Boolean) as string[]));
-  const [accounts, deals] = await Promise.all([
+  // Hilos potencialmente en espera: inbound sin outbound posterior.
+  const pendingThreadIds = page
+    .filter(
+      (r) =>
+        r.accountId &&
+        r.lastInboundAt &&
+        (!r.lastOutboundAt || r.lastOutboundAt.getTime() < r.lastInboundAt.getTime()) &&
+        !r.archivedAt &&
+        !r.trashedAt &&
+        !r.spamAt,
+    )
+    .map((r) => r.id);
+
+  const [accounts, deals, thresholds, lastInbounds] = await Promise.all([
     accountIds.length
       ? prisma.crmAccount.findMany({
           where: { tenantId, id: { in: accountIds } },
@@ -359,12 +380,39 @@ async function mapThreadRowsInternal(
     dealIds.length
       ? prisma.crmDeal.findMany({
           where: { tenantId, id: { in: dealIds } },
-          select: { id: true, title: true },
+          select: {
+            id: true,
+            title: true,
+            status: true,
+            stage: { select: { name: true } },
+          },
+        })
+      : [],
+    getSlaThresholds(tenantId),
+    pendingThreadIds.length
+      ? prisma.crmEmailMessage.findMany({
+          where: {
+            tenantId,
+            threadId: { in: pendingThreadIds },
+            direction: "in",
+            isDraft: false,
+          },
+          orderBy: { sentAt: "desc" },
+          distinct: ["threadId"],
+          select: { threadId: true, fromEmail: true },
         })
       : [],
   ]);
   const accMap = new Map(accounts.map((a) => [a.id, a.name]));
-  const dealMap = new Map(deals.map((d) => [d.id, d.title]));
+  const dealMap = new Map(
+    deals.map((d) => [
+      d.id,
+      { title: d.title, status: d.status, stageName: d.stage?.name ?? null },
+    ]),
+  );
+  const inboundFromByThread = new Map(
+    lastInbounds.map((m) => [m.threadId, m.fromEmail]),
+  );
 
   return page.map((r) => {
     const msg = r.messages[0];
@@ -377,6 +425,25 @@ async function mapThreadRowsInternal(
     const snippet =
       snippetFromBody(msg?.textBody) ??
       snippetFromBody(msg?.htmlBody?.replace(/<[^>]+>/g, " ") ?? null);
+    const deal = r.dealId ? dealMap.get(r.dealId) : undefined;
+    const inboundFrom = inboundFromByThread.get(r.id) ?? null;
+    const inboundIsOwnOrSystem = isSystemSender(inboundFrom, tenantDomains);
+    const sla = resolveThreadSla(
+      {
+        lastInboundAt: r.lastInboundAt,
+        lastOutboundAt: r.lastOutboundAt,
+        accountId: r.accountId,
+        dealId: r.dealId,
+        dealIsOpen: deal ? deal.status === "open" : null,
+        archivedAt: r.archivedAt,
+        trashedAt: r.trashedAt,
+        spamAt: r.spamAt,
+        snoozedUntil: r.snoozedUntil,
+        lastInboundIsOwn: inboundIsOwnOrSystem,
+        lastInboundIsSystem: inboundIsOwnOrSystem,
+      },
+      { thresholds },
+    );
     return {
       id: r.id,
       subject: r.subject,
@@ -387,7 +454,8 @@ async function mapThreadRowsInternal(
       accountId: r.accountId,
       accountName: r.accountId ? accMap.get(r.accountId) ?? null : null,
       dealId: r.dealId,
-      dealTitle: r.dealId ? dealMap.get(r.dealId) ?? null : null,
+      dealTitle: deal?.title ?? null,
+      dealStageName: deal?.stageName ?? null,
       leadId: r.leadId,
       attachmentCount: r.attachmentCount,
       messageCount: r._count.messages,
@@ -400,6 +468,9 @@ async function mapThreadRowsInternal(
       starredAt: r.starredAt?.toISOString() ?? null,
       spamAt: r.spamAt?.toISOString() ?? null,
       hasDraft: Boolean(msg?.isDraft),
+      pendingSince: sla.pendingSince,
+      slaLevel: sla.level,
+      slaLabel: sla.label,
       matchReason: reasonById?.get(r.id) ?? null,
     };
   });

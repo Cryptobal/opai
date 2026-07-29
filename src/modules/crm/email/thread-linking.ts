@@ -69,6 +69,12 @@ export async function upsertLinkedThread(params: {
   providerThreadId?: string | null;
   /** El mensaje que gatilla el upsert es entrante. Default true (compat). */
   isInbound?: boolean;
+  /**
+   * Si true, al autoasociar cuenta/contacto por match exacto de email se
+   * escribe AuditLog `email.associate` con `meta.via = "rule"`.
+   */
+  auditAutoAssociate?: boolean;
+  createdByUserId?: string | null;
 }): Promise<{ id: string }> {
   const { tenantId, subject, lastMessageAt, emailAccountId, providerThreadId } = params;
   const isInbound = params.isInbound !== false;
@@ -80,6 +86,9 @@ export async function upsertLinkedThread(params: {
     accountId: true,
     dealId: true,
     lastMessageAt: true,
+    lastInboundAt: true,
+    lastOutboundAt: true,
+    firstInboundAt: true,
   } as const;
 
   const existing =
@@ -119,7 +128,7 @@ export async function upsertLinkedThread(params: {
 
   if (!existing) {
     try {
-      return await prisma.crmEmailThread.create({
+      const created = await prisma.crmEmailThread.create({
         data: {
           tenantId,
           subject,
@@ -129,9 +138,29 @@ export async function upsertLinkedThread(params: {
           contactId: links.contactId,
           accountId: links.accountId,
           dealId: links.dealId,
+          ...(isInbound
+            ? { lastInboundAt: lastMessageAt, firstInboundAt: lastMessageAt }
+            : { lastOutboundAt: lastMessageAt }),
         },
         select: { id: true },
       });
+      if (params.auditAutoAssociate && links.accountId) {
+        const { auditEmailAction } = await import("@/lib/audit-email");
+        void auditEmailAction({
+          tenantId,
+          userId: params.createdByUserId,
+          action: "associate",
+          entityType: "email_thread",
+          entityId: created.id,
+          meta: {
+            via: "rule",
+            accountId: links.accountId,
+            contactId: links.contactId,
+            dealId: links.dealId,
+          },
+        });
+      }
+      return created;
     } catch (error) {
       if (
         error instanceof Prisma.PrismaClientKnownRequestError &&
@@ -157,18 +186,49 @@ export async function upsertLinkedThread(params: {
   // Solo los recibidos reordenan la bandeja (los enviados no bumpean el hilo).
   const advanceLastMsg =
     isInbound && (!existing.lastMessageAt || lastMessageAt > existing.lastMessageAt);
+  const advanceInbound =
+    isInbound &&
+    (!existing.lastInboundAt || lastMessageAt > existing.lastInboundAt);
+  const advanceOutbound =
+    !isInbound &&
+    (!existing.lastOutboundAt || lastMessageAt > existing.lastOutboundAt);
+  const autoAccount =
+    existing.accountId == null && Boolean(links.accountId);
+  const autoContact =
+    existing.contactId == null && Boolean(links.contactId);
   try {
     await prisma.crmEmailThread.update({
       where: { id: existing.id },
       data: {
         ...(advanceLastMsg ? { lastMessageAt } : {}),
+        ...(advanceInbound ? { lastInboundAt: lastMessageAt } : {}),
+        ...(isInbound && !existing.firstInboundAt
+          ? { firstInboundAt: lastMessageAt }
+          : {}),
+        ...(advanceOutbound ? { lastOutboundAt: lastMessageAt } : {}),
         ...(emailAccountId ? { emailAccountId } : {}),
         ...(providerThreadId ? { providerThreadId } : {}),
-        ...(existing.contactId == null && links.contactId ? { contactId: links.contactId } : {}),
-        ...(existing.accountId == null && links.accountId ? { accountId: links.accountId } : {}),
+        ...(autoContact ? { contactId: links.contactId } : {}),
+        ...(autoAccount ? { accountId: links.accountId } : {}),
         ...(existing.dealId == null && links.dealId ? { dealId: links.dealId } : {}),
       },
     });
+    if (params.auditAutoAssociate && autoAccount && links.accountId) {
+      const { auditEmailAction } = await import("@/lib/audit-email");
+      void auditEmailAction({
+        tenantId,
+        userId: params.createdByUserId,
+        action: "associate",
+        entityType: "email_thread",
+        entityId: existing.id,
+        meta: {
+          via: "rule",
+          accountId: links.accountId,
+          contactId: links.contactId,
+          dealId: links.dealId,
+        },
+      });
+    }
     return { id: existing.id };
   } catch (error) {
     // Conflicto al adoptar huérfano: ya hay un hilo con ese providerThreadId.

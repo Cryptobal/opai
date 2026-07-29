@@ -390,6 +390,7 @@ export async function performGmailSend(input: GmailSendInput): Promise<GmailSend
             ? { attachmentCount: { increment: outboundAttachments.length } }
             : {}),
           ...(replyCtx && !replyCtx.firstReplyAt ? { firstReplyAt: sentAt } : {}),
+          lastOutboundAt: sentAt,
         },
       });
 
