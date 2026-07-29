@@ -2,7 +2,6 @@ import { beforeAll, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import {
   ComposerAiAssistToggle,
-  ComposerAiDraftSuggestion,
   ComposerAiPromptPill,
 } from "../ComposerAiAssist";
 
@@ -134,20 +133,4 @@ describe("ComposerAiAssist", () => {
     expect(screen.getByRole("button", { name: /generando borrador/i })).toBeDisabled();
   });
 
-  it("la sugerencia del Radar ofrece Usar / Descartar sin auto-inyectar", () => {
-    const onUse = vi.fn();
-    const onDismiss = vi.fn();
-    render(
-      <ComposerAiDraftSuggestion
-        draft="Hola, gracias por tu consulta sobre la cotización del servicio."
-        onUse={onUse}
-        onDismiss={onDismiss}
-      />,
-    );
-    expect(screen.getByText(/radar tiene un borrador/i)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: /usar este borrador/i }));
-    expect(onUse).toHaveBeenCalledOnce();
-    fireEvent.click(screen.getByRole("button", { name: /descartar/i }));
-    expect(onDismiss).toHaveBeenCalledOnce();
-  });
 });

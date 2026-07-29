@@ -3,7 +3,6 @@ import { describe, expect, it, vi } from "vitest";
 import { CorreoRow } from "../CorreoRow";
 import { CorreoRowMobile } from "../CorreoRowMobile";
 import type { CorreoThreadDTO } from "@/modules/crm/email/correos.types";
-import type { RadarCapability } from "@/modules/crm/email/radar-types";
 
 const thread: CorreoThreadDTO = {
   id: "thread-1",
@@ -27,12 +26,7 @@ const thread: CorreoThreadDTO = {
   starredAt: null,
   spamAt: null,
   hasDraft: false,
-  aiVertical: null,
-  vertical: null,
-  verticalFixed: false,
 };
-
-const caps = (...c: RadarCapability[]) => new Set<RadarCapability>(c);
 
 describe("CorreoRow (desktop denso)", () => {
   it("aplica densidad compacta con 1 línea", () => {
@@ -87,24 +81,19 @@ describe("CorreoRow (desktop denso)", () => {
     expect(screen.getByLabelText("2 adjuntos")).toBeTruthy();
   });
 
-  it("muestra cuenta CRM y vertical simultáneamente", () => {
+  it("muestra cuenta CRM junto al asunto", () => {
     render(
       <CorreoRow
         thread={{
           ...thread,
           accountId: "acc-1",
           accountName: "Coexpan",
-          vertical: "cobranza",
-          aiVertical: "cobranza",
-          verticalFixed: false,
         }}
         canModify={false}
         onOpen={vi.fn()}
-        caps={caps("radar_finanzas")}
       />,
     );
     expect(screen.getByText("Coexpan")).toBeTruthy();
-    expect(screen.getByLabelText("Cobranza")).toBeTruthy();
   });
 });
 
@@ -127,23 +116,18 @@ describe("CorreoRowMobile", () => {
     expect(screen.queryByLabelText(/adjuntos/)).toBeNull();
   });
 
-  it("muestra cuenta, vertical y chip de acción", () => {
+  it("muestra cuenta CRM junto al asunto", () => {
     render(
       <CorreoRowMobile
         thread={{
           ...thread,
           accountId: "acc-1",
           accountName: "Coexpan",
-          vertical: "comercial",
-          aiVertical: "comercial",
           hasDraft: true,
         }}
         onOpen={vi.fn()}
-        caps={caps("radar_comercial")}
       />,
     );
     expect(screen.getByText("Coexpan")).toBeTruthy();
-    expect(screen.getByLabelText("Comercial")).toBeTruthy();
-    expect(screen.getByText("Borrador")).toBeTruthy();
   });
 });

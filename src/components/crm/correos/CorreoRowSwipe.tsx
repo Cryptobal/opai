@@ -6,7 +6,6 @@ import { Archive, Clock, Mail, MailOpen, Reply, Star, Trash2, type LucideIcon } 
 import { CorreoRow } from "./CorreoRow";
 import { runCorreoAction } from "./correo-thread-action-client";
 import type { CorreoThreadDTO } from "@/modules/crm/email/correos.types";
-import type { RadarCapability } from "@/modules/crm/email/radar-types";
 import type {
   CorreoPreviewLines,
   CorreoSwipeAction,
@@ -61,7 +60,6 @@ type Props = {
   onAvatarPress?: (id: string) => void;
   onLongPress?: (id: string) => void;
   selectionMode?: boolean;
-  caps?: Set<RadarCapability>;
 };
 
 const LEAVE_MS = 200;
@@ -110,7 +108,7 @@ function CorreoRowSwipeInner({
   thread, canModify, onOpen, onChanged, onPatch, onRemoveDone, onUndoDone, onRemove, onSnooze,
   onAiMenu,
   selected, focused, checked, onToggleCheck, previewLines, swipeConfig,
-  onAvatarPress, onLongPress, selectionMode = false, caps,
+  onAvatarPress, onLongPress, selectionMode = false,
 }: Props) {
   const [coarse, setCoarse] = useState(false);
   const [leaving, setLeaving] = useState(false);
@@ -289,7 +287,6 @@ function CorreoRowSwipeInner({
         checked={checked}
         onToggleCheck={onToggleCheck ? () => onToggleCheck(thread.id) : undefined}
         previewLines={previewLines}
-        caps={caps}
       />
     );
   }
@@ -390,7 +387,6 @@ function CorreoRowSwipeInner({
               : undefined
           }
           previewLines={previewLines}
-          caps={caps}
         />
       </motion.div>
     </div>
@@ -407,7 +403,6 @@ function propsAreEqual(prev: Props, next: Props): boolean {
     prev.selectionMode === next.selectionMode &&
     prev.previewLines === next.previewLines &&
     prev.swipeConfig === next.swipeConfig &&
-    prev.caps === next.caps &&
     prev.onOpen === next.onOpen &&
     prev.onChanged === next.onChanged &&
     prev.onPatch === next.onPatch &&

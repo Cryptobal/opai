@@ -6,9 +6,8 @@ import {
   Send, Settings, ShieldAlert, Star, Trash2, WandSparkles, Wifi, WifiOff, X,
   type LucideIcon,
 } from "lucide-react";
-import { VERTICAL_META } from "@/modules/crm/email/radar-types";
 import {
-  CHIPS, TABS, VERTICAL_LABELS,
+  CHIPS, TABS,
   type CorreoChipKey, type CorreoFolderCounts, type CorreoFolderTab,
 } from "./CorreosFilters";
 import type { CorreosRealtimeStatus } from "./useCorreosRealtime";
@@ -16,16 +15,11 @@ import type { CorreoPreviewLines } from "./useCorreosViewPreferences";
 import { useCloseOnBack } from "./useCloseOnBack";
 import { useFocusTrap } from "./useFocusTrap";
 
-// Export: el riel desktop reusa los mismos iconos y puntos categóricos.
+// Export: el riel desktop reusa los mismos iconos.
 export const FOLDER_ICONS: Partial<Record<CorreoFolderTab, LucideIcon>> = {
   inbox: Inbox, snoozed: Clock, sent: Send, drafts: Pencil,
   scheduled: CalendarClock, starred: Star, all: Mail, spam: ShieldAlert, trash: Trash2,
 };
-
-/** Punto categórico por vertical (tokens tint-*-fg / status del DS). */
-export const VERTICAL_DOTS: Record<string, string> = Object.fromEntries(
-  Object.entries(VERTICAL_META).map(([key, meta]) => [key, meta.dot]),
-);
 
 type Props = {
   open: boolean;
@@ -34,8 +28,6 @@ type Props = {
   onFolder: (f: CorreoFolderTab) => void;
   chip: CorreoChipKey;
   onChip: (c: CorreoChipKey) => void;
-  vertical: string | null;
-  onVertical: (v: string | null) => void;
   counts: CorreoFolderCounts;
   previewLines: CorreoPreviewLines;
   onPreviewLines: (lines: CorreoPreviewLines) => void;
@@ -57,15 +49,6 @@ type Props = {
   onInsertSearch?: (token: string) => void;
 };
 
-const SEARCH_OPS = [
-  "from:",
-  "subject:",
-  "has:attachment",
-  "is:unread",
-  "vertical:",
-  "newer_than:7d",
-] as const;
-
 function Item({ active, onClick, children }: { active?: boolean; onClick: () => void; children: ReactNode }) {
   return (
     <button
@@ -86,7 +69,7 @@ function SectionTitle({ children }: { children: ReactNode }) {
 
 /** Drawer lateral móvil (Opción C): carpetas, filtros y acciones del módulo. */
 export function CorreosMobileDrawer({
-  open, onClose, folder, onFolder, chip, onChip, vertical, onVertical, counts,
+  open, onClose, folder, onFolder, chip, onChip, counts,
   previewLines, onPreviewLines, onSync, syncing, realtimeStatus, lastSyncAt,
   mailboxEmail, onOpenSwipeSettings, onOpenSnoozeSettings, onOpenAiStyle,
   onOpenShortcuts,
@@ -151,14 +134,6 @@ export function CorreosMobileDrawer({
           {CHIPS.map((c) => (
             <Item key={c.key} active={chip === c.key} onClick={pick(() => onChip(c.key))}>
               <span className="min-w-0 flex-1 truncate">{c.label}</span>
-            </Item>
-          ))}
-
-          <SectionTitle>Verticales</SectionTitle>
-          {Object.entries(VERTICAL_LABELS).map(([key, label]) => (
-            <Item key={key} active={vertical === key} onClick={pick(() => onVertical(vertical === key ? null : key))}>
-              <span aria-hidden className={`h-2.5 w-2.5 shrink-0 rounded-full ${VERTICAL_DOTS[key] ?? "bg-tint-violet"}`} />
-              <span className="min-w-0 flex-1 truncate">{label}</span>
             </Item>
           ))}
 

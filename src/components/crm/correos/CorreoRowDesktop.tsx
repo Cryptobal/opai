@@ -2,15 +2,12 @@
 
 import { Paperclip, Sparkles, Star } from "lucide-react";
 import type { CorreoThreadDTO } from "@/modules/crm/email/correos.types";
-import type { RadarCapability } from "@/modules/crm/email/radar-types";
 import { CorreoCheckbox } from "./CorreoCheckbox";
 import { CorreoSenderAvatar } from "./CorreoSenderAvatar";
 import { parseSender } from "./correo-sender";
 import { formatGmailDateChile } from "@/modules/crm/email/gmail-date-format";
 import { CorreoThreadActions } from "./CorreoThreadActions";
 import { CorreoMatchReasonBadge } from "./CorreoMatchReasonBadge";
-import { CorreoVerticalDot } from "./CorreoVerticalDot";
-import { CorreoActionChip } from "./CorreoActionChip";
 import { runCorreoAction } from "./correo-thread-action-client";
 import type { CorreoPreviewLines } from "./useCorreosViewPreferences";
 
@@ -38,12 +35,11 @@ type Props = {
   checked?: boolean;
   onToggleCheck?: () => void;
   previewLines?: CorreoPreviewLines;
-  caps?: Set<RadarCapability>;
 };
 
 /**
  * Fila desktop densa estilo Gmail (40–44px, una línea): checkbox + estrella +
- * barra de vertical + avatar + remitente + cuenta·asunto — snippet + chip + hora.
+ * avatar + remitente + cuenta·asunto — snippet + hora.
  * El hover revela las acciones (CorreoThreadActions) superpuestas a la hora.
  * Densidad compacta (previewLines=1): 36px y sin avatar.
  */
@@ -51,7 +47,6 @@ export function CorreoRowDesktop({
   thread, onOpen, canModify, onChanged, onRemoveDone, onUndoDone, onRemove, onSnooze,
   onAiMenu,
   selected = false, focused = false, checked, onToggleCheck, previewLines = 2,
-  caps = new Set(),
 }: Props) {
   const unread = thread.isUnread;
   const compact = previewLines === 1;
@@ -113,11 +108,6 @@ export function CorreoRowDesktop({
           />
         </button>
       )}
-      <CorreoVerticalDot
-        vertical={thread.vertical}
-        fixed={thread.verticalFixed}
-        variant="bar"
-      />
       {!compact && <CorreoSenderAvatar fromEmail={thread.fromEmail} compact />}
       <button
         type="button"
@@ -155,7 +145,6 @@ export function CorreoRowDesktop({
         </span>
       </button>
       <span className="flex shrink-0 items-center gap-1.5">
-        <CorreoActionChip thread={thread} caps={caps} />
         <CorreoMatchReasonBadge reason={thread.matchReason} />
         {thread.attachmentCount > 0 && (
           <Paperclip aria-label={`${thread.attachmentCount} adjuntos`} className="h-3.5 w-3.5 text-ds-text-4" />

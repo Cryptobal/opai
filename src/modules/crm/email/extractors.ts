@@ -1,22 +1,26 @@
 import { prisma } from "@/lib/prisma";
 import { aiService } from "@/lib/ai-service";
 import { logAiUsage } from "@/lib/platform-ai-service";
+import type { ModuleKey } from "@/lib/permissions";
 import { UNTRUSTED_RULES, wrapUntrusted } from "./ai-untrusted";
 import { gmailClientForAccount } from "./gmail-account-client";
 import { prepareThreadAttachments, type PreparedAttachments } from "./email-to-lead-attachments";
-import type { RadarCapability } from "./radar-types";
 
 /**
  * Extractores profundos BAJO DEMANDA por vertical (F3). Se disparan sólo por
  * clic del usuario (nunca en el cron de sync). Devuelven una PROPUESTA JSON; no
  * crean nada — el usuario confirma después. Reutilizan UNTRUSTED_RULES +
  * prepareThreadAttachments (cuerpo y adjuntos son entrada no confiable).
+ *
+ * Gate de acceso: capability `copiloto_correos` + canView del módulo destino
+ * (ver extractor-route.ts / correo-ai-commands).
  */
 export type ExtractorVertical = "operativo" | "rrhh" | "cobranza";
 
 export interface ExtractorConfig {
   feature: string;
-  capability: RadarCapability;
+  /** Módulo destino (además de copiloto_correos). */
+  destinationModule: { module: ModuleKey; submodule?: string };
   system: string;
 }
 
@@ -55,9 +59,21 @@ Devuelve SOLO un objeto JSON con EXACTAMENTE estas claves (null si no hay dato):
 }`;
 
 export const EXTRACTORS: Record<ExtractorVertical, ExtractorConfig> = {
-  operativo: { feature: "correo-extract-operativo", capability: "radar_operaciones", system: OPERATIVO_SYSTEM },
-  rrhh: { feature: "correo-extract-rrhh", capability: "radar_rrhh", system: RRHH_SYSTEM },
-  cobranza: { feature: "correo-extract-cobranza", capability: "radar_finanzas", system: COBRANZA_SYSTEM },
+  operativo: {
+    feature: "correo-extract-operativo",
+    destinationModule: { module: "ops", submodule: "tickets" },
+    system: OPERATIVO_SYSTEM,
+  },
+  rrhh: {
+    feature: "correo-extract-rrhh",
+    destinationModule: { module: "ops", submodule: "ats" },
+    system: RRHH_SYSTEM,
+  },
+  cobranza: {
+    feature: "correo-extract-cobranza",
+    destinationModule: { module: "finance" },
+    system: COBRANZA_SYSTEM,
+  },
 };
 
 export interface ExtractorResult {

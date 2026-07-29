@@ -10,7 +10,6 @@ import { runIncremental } from "./gmail-incremental";
 import { reconcileGmailFolders, repairMissingInboxThreads } from "./gmail-folder-reconcile";
 import { detachForeignDraftMirrors, syncGmailDrafts } from "./gmail-drafts.service";
 import { healInboxFromLocalLabels, selfHealInbox } from "./gmail-inbox-selfheal";
-import { classifyAccountThreads } from "./radar-classifier.service";
 import { gmailClientForAccount } from "./gmail-account-client";
 import { notifyNewInboundMail } from "./gmail-new-mail-push";
 
@@ -39,7 +38,7 @@ export function changedGmailSyncState(
  * usuario; el matching a contacto/cuenta/deal es enriquecimiento.
  *
  * El deadline global se reparte por fases para que ninguna corra con las
- * sobras muertas: incremental/backfill (55%), radar (hasta 12s), sweep (resto).
+ * sobras muertas: incremental/backfill (55%), self-heal/sweep (resto).
  *
  * @param maxResults      budget de mensajes por corrida (default 300).
  * @param deadlineMs      timestamp absoluto para cortar (el cron lo comparte
@@ -57,7 +56,7 @@ export async function syncGmailAccount(params: {
   selfHealBudgetMs?: number;
   /**
    * `delta` es la ruta crítica del push: solo history/backfill + labels.
-   * `maintenance` agrega Radar, self-heal y reconciliación completa.
+   * `maintenance` agrega self-heal y reconciliación completa.
    */
   profile?: "delta" | "maintenance";
 }): Promise<{
@@ -91,7 +90,7 @@ export async function syncGmailAccount(params: {
   const maintenance = params.profile !== "delta";
 
   // Fase 1 — la ruta realtime dedica casi todo el presupuesto al delta. La
-  // ruta de mantenimiento reserva 45% para Radar/heal/sweep.
+  // ruta de mantenimiento reserva 45% para heal/sweep.
   const runArgs: SyncRunArgs = {
     gmail,
     tenantId: params.tenantId,
@@ -135,20 +134,7 @@ export async function syncGmailAccount(params: {
     };
   }
 
-  // Fase 2 — Radar Comercial ANTES del sweep, con presupuesto reservado
-  // (hasta 12s): clasifica hilos con inbound nuevo y genera RadarItems.
-  // Best-effort: nunca lanza ni bloquea el sync.
-  const radarRemaining = globalDeadline - Date.now();
-  if (radarRemaining > 0) {
-    await classifyAccountThreads({
-      tenantId: params.tenantId,
-      emailAccountId: emailAccount.id,
-      userId: emailAccount.userId,
-      deadlineMs: Date.now() + Math.min(12_000, radarRemaining * 0.6),
-    });
-  }
-
-  // Fase 2.5 — huecos de Recibidos (ANTES del heal caro). historyId al día
+  // Fase 2 — huecos de Recibidos (ANTES del heal caro). historyId al día
   // no reimporta hilos perdidos; sin esta fase el espejo queda agujereado y el
   // sweep completo a menudo se salta por falta de presupuesto tras el heal.
   let inboxRepaired = 0;

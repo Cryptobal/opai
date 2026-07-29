@@ -2,8 +2,13 @@
  * Registro único de comandos IA de correo (Command Layer).
  * Puro: sin Prisma ni React — importable desde cliente y servidor.
  */
-import type { RadarCapability, RadarVertical } from "./radar-types";
-import { VERTICAL_CAPABILITY } from "./radar-types";
+import {
+  canView,
+  hasCapability,
+  hasModuleAccess,
+  type ModuleKey,
+  type RolePermissions,
+} from "@/lib/permissions";
 
 export type CorreoAiCommandId =
   | "analizar"
@@ -23,15 +28,18 @@ export type CorreoAiCommand = {
   /** Nombre del icono lucide; el mapeo a componente vive en el .tsx */
   icon: string;
   tone: "violet" | "emerald" | "amber" | "sky";
-  capability: RadarCapability | null;
+  /**
+   * Módulo/submódulo destino a validar.
+   * null = solo requiere capability `copiloto_correos`.
+   * Nota: la clave real del módulo Finanzas es `finance` (no `finanzas`).
+   */
+  requiresModule: { module: ModuleKey; submodule?: string } | null;
   /** "panel" ejecuta endpoint y muestra propuesta; "chat" abre el asistente. */
   kind: "panel" | "chat";
   /** true = muta datos; ocultar si el usuario solo tiene view. */
   requiresEdit: boolean;
   endpoint?: (threadId: string) => string;
   prompt?: string;
-  /** Verticales donde el comando aparece en el grupo prioritario. */
-  primaryFor: RadarVertical[];
 };
 
 export const CORREO_AI_COMMANDS: CorreoAiCommand[] = [
@@ -41,20 +49,10 @@ export const CORREO_AI_COMMANDS: CorreoAiCommand[] = [
     shortLabel: "Analizar",
     icon: "Sparkles",
     tone: "violet",
-    capability: "radar_comercial",
+    requiresModule: null,
     kind: "panel",
     requiresEdit: false,
     endpoint: (id) => `/api/crm/correos/${id}/extract-structure`,
-    primaryFor: [
-      "comercial",
-      "contratos",
-      "operaciones",
-      "incidentes",
-      "rrhh",
-      "finanzas",
-      "cobranza",
-      "otro",
-    ],
   },
   {
     id: "crm_completo",
@@ -62,11 +60,10 @@ export const CORREO_AI_COMMANDS: CorreoAiCommand[] = [
     shortLabel: "CRM completo",
     icon: "Building2",
     tone: "violet",
-    capability: "radar_comercial",
+    requiresModule: null,
     kind: "panel",
     requiresEdit: true,
     endpoint: (id) => `/api/crm/correos/${id}/extract-structure`,
-    primaryFor: ["comercial", "contratos"],
   },
   {
     id: "lead",
@@ -74,11 +71,10 @@ export const CORREO_AI_COMMANDS: CorreoAiCommand[] = [
     shortLabel: "Lead",
     icon: "UserPlus",
     tone: "emerald",
-    capability: "radar_comercial",
+    requiresModule: null,
     kind: "panel",
     requiresEdit: true,
     endpoint: (id) => `/api/crm/correos/${id}/extract`,
-    primaryFor: ["comercial", "contratos"],
   },
   {
     id: "ticket_operativo",
@@ -86,11 +82,10 @@ export const CORREO_AI_COMMANDS: CorreoAiCommand[] = [
     shortLabel: "Ticket",
     icon: "TicketPlus",
     tone: "amber",
-    capability: "radar_operaciones",
+    requiresModule: { module: "ops", submodule: "tickets" },
     kind: "panel",
     requiresEdit: true,
     endpoint: (id) => `/api/crm/correos/${id}/extract-operativo`,
-    primaryFor: ["operaciones", "incidentes"],
   },
   {
     id: "candidato",
@@ -98,11 +93,10 @@ export const CORREO_AI_COMMANDS: CorreoAiCommand[] = [
     shortLabel: "Candidato",
     icon: "UserRoundCheck",
     tone: "sky",
-    capability: "radar_rrhh",
+    requiresModule: { module: "ops", submodule: "ats" },
     kind: "panel",
     requiresEdit: true,
     endpoint: (id) => `/api/crm/correos/${id}/extract-rrhh`,
-    primaryFor: ["rrhh"],
   },
   {
     id: "cobranza",
@@ -110,11 +104,11 @@ export const CORREO_AI_COMMANDS: CorreoAiCommand[] = [
     shortLabel: "Cobranza",
     icon: "Wallet",
     tone: "amber",
-    capability: "radar_finanzas",
+    // Clave canónica del módulo: `finance` (ruta UI /finanzas).
+    requiresModule: { module: "finance" },
     kind: "panel",
     requiresEdit: false,
     endpoint: (id) => `/api/crm/correos/${id}/extract-cobranza`,
-    primaryFor: ["finanzas", "cobranza"],
   },
   {
     id: "resumen",
@@ -122,12 +116,11 @@ export const CORREO_AI_COMMANDS: CorreoAiCommand[] = [
     shortLabel: "Resumen",
     icon: "FileText",
     tone: "violet",
-    capability: null,
+    requiresModule: null,
     kind: "chat",
     requiresEdit: false,
     prompt:
       "Resumí este hilo de correo: puntos clave, compromisos, próximos pasos y si hay señal comercial u operativa.",
-    primaryFor: ["otro"],
   },
   {
     id: "investigar",
@@ -135,12 +128,11 @@ export const CORREO_AI_COMMANDS: CorreoAiCommand[] = [
     shortLabel: "Investigar",
     icon: "Search",
     tone: "violet",
-    capability: null,
+    requiresModule: null,
     kind: "chat",
     requiresEdit: false,
     prompt:
       "Investigá a fondo este correo: extraé entidades, riesgos, cobertura/dotación si aplica y proponé un plan de acciones CRM.",
-    primaryFor: [],
   },
   {
     id: "responder_ia",
@@ -148,12 +140,11 @@ export const CORREO_AI_COMMANDS: CorreoAiCommand[] = [
     shortLabel: "Responder IA",
     icon: "MessageSquare",
     tone: "violet",
-    capability: null,
+    requiresModule: null,
     kind: "chat",
     requiresEdit: false,
     prompt:
       "Redactá una respuesta profesional a este correo, en tono cortés y concreto, lista para enviar.",
-    primaryFor: [],
   },
 ];
 
@@ -166,86 +157,48 @@ export function getCorreoAiCommand(id: CorreoAiCommandId): CorreoAiCommand {
   return BY_ID[id];
 }
 
-const VERTICAL_LABEL: Record<RadarVertical, string> = {
-  comercial: "Comercial",
-  contratos: "Contratos",
-  operaciones: "Operaciones",
-  incidentes: "Incidentes",
-  rrhh: "RRHH",
-  finanzas: "Finanzas",
-  cobranza: "Cobranza",
-  otro: "Otro",
-};
-
-/** Etiqueta legible para el header del menú (Radar: Comercial). */
-export function radarVerticalLabel(aiVertical: string | null): string {
-  if (!aiVertical) return "sin señal";
-  const v = aiVertical as RadarVertical;
-  return VERTICAL_LABEL[v] ?? aiVertical;
-}
-
-function parseVertical(aiVertical: string | null): RadarVertical | null {
-  if (!aiVertical) return null;
-  if (aiVertical in VERTICAL_CAPABILITY) return aiVertical as RadarVertical;
-  return null;
+function moduleAllowed(
+  cmd: CorreoAiCommand,
+  perms: RolePermissions,
+): boolean {
+  if (!cmd.requiresModule) return true;
+  const { module, submodule } = cmd.requiresModule;
+  if (submodule) return canView(perms, module, submodule);
+  return hasModuleAccess(perms, module);
 }
 
 function isAllowed(
   cmd: CorreoAiCommand,
-  caps: Set<RadarCapability>,
+  perms: RolePermissions,
   canEditCorreos: boolean,
 ): boolean {
   if (cmd.requiresEdit && !canEditCorreos) return false;
-  if (cmd.capability && !caps.has(cmd.capability)) return false;
+  if (!moduleAllowed(cmd, perms)) return false;
   return true;
 }
 
 /**
- * Devuelve { primary, more } según la vertical del hilo y las capabilities.
- * `analizar` siempre primero en primary cuando es visible. Máximo 3 en primary.
+ * Devuelve { primary, more } según copiloto_correos y acceso a módulos destino.
+ * Orden fijo de primary: analizar → resumen → crm_completo. Máximo 3.
  */
 export function resolveCorreoAiCommands(
-  aiVertical: string | null,
-  caps: Set<RadarCapability>,
+  perms: RolePermissions,
   opts?: { canEditCorreos?: boolean },
 ): { primary: CorreoAiCommand[]; more: CorreoAiCommand[] } {
   const canEdit = opts?.canEditCorreos !== false;
-  const vertical = parseVertical(aiVertical);
 
-  // Sin ninguna capability de radar el grupo IA no existe (menú queda como hoy).
-  if (caps.size === 0) return { primary: [], more: [] };
-
-  const visible = CORREO_AI_COMMANDS.filter((c) => isAllowed(c, caps, canEdit));
-  if (visible.length === 0) return { primary: [], more: [] };
-
-  // Vertical null/otro: priorizar analizar + resumen.
-  const primaryIds: CorreoAiCommandId[] = [];
-  const pushUnique = (id: CorreoAiCommandId) => {
-    if (!primaryIds.includes(id) && visible.some((c) => c.id === id)) {
-      primaryIds.push(id);
-    }
-  };
-
-  pushUnique("analizar");
-
-  if (vertical === "comercial" || vertical === "contratos") {
-    pushUnique("crm_completo");
-    pushUnique("lead");
-  } else if (vertical === "operaciones" || vertical === "incidentes") {
-    pushUnique("ticket_operativo");
-  } else if (vertical === "rrhh") {
-    pushUnique("candidato");
-  } else if (vertical === "finanzas" || vertical === "cobranza") {
-    pushUnique("cobranza");
-  } else {
-    // otro / null
-    pushUnique("resumen");
+  if (!hasCapability(perms, "copiloto_correos")) {
+    return { primary: [], more: [] };
   }
 
+  const visible = CORREO_AI_COMMANDS.filter((c) => isAllowed(c, perms, canEdit));
+  if (visible.length === 0) return { primary: [], more: [] };
+
+  const primaryIds: CorreoAiCommandId[] = ["analizar", "resumen", "crm_completo"];
   const primary = primaryIds
-    .slice(0, 3)
-    .map((id) => visible.find((c) => c.id === id)!)
-    .filter(Boolean);
+    .map((id) => visible.find((c) => c.id === id))
+    .filter((c): c is CorreoAiCommand => Boolean(c))
+    .slice(0, 3);
 
   const primarySet = new Set(primary.map((c) => c.id));
   const more = visible.filter((c) => !primarySet.has(c.id));
@@ -253,18 +206,9 @@ export function resolveCorreoAiCommands(
   return { primary, more };
 }
 
-/** Capability del Radar asociada a la vertical del hilo (null si no aplica). */
-export function capabilityForThreadVertical(
-  aiVertical: string | null,
-): RadarCapability | null {
-  const v = parseVertical(aiVertical);
-  if (!v) return null;
-  return VERTICAL_CAPABILITY[v];
-}
-
 /**
  * Comando principal sugerido según la categoría del clasificador.
- * Puro: no filtra por capabilities — usar `resolvePrimaryCorreoAiCommand`.
+ * Puro: no filtra por permisos — usar `resolvePrimaryCorreoAiCommand`.
  */
 export function primaryCommandForCategory(
   aiCategory: string | null | undefined,
@@ -340,24 +284,22 @@ export function primaryActionCopy(
 }
 
 /**
- * Resuelve el comando principal visible para el usuario: mapeo por categoría
- * filtrado por capabilities. Si el preferido no está disponible, cae al
- * primero de `resolveCorreoAiCommands.primary`; si no hay ninguno, null.
+ * Resuelve el comando principal visible: mapeo por categoría filtrado por
+ * permisos. Si el preferido no está disponible, cae al primero de
+ * `resolveCorreoAiCommands.primary`; si no hay ninguno, null.
  */
 export function resolvePrimaryCorreoAiCommand(
   aiCategory: string | null | undefined,
-  aiVertical: string | null,
-  caps: Set<RadarCapability>,
+  perms: RolePermissions,
   opts?: { canEditCorreos?: boolean },
 ): CorreoAiCommand | null {
-  const { primary, more } = resolveCorreoAiCommands(aiVertical, caps, opts);
+  const { primary, more } = resolveCorreoAiCommands(perms, opts);
   const available = [...primary, ...more];
   if (available.length === 0) return null;
 
-  const preferredId = primaryCommandForCategory(aiCategory, aiVertical);
+  const preferredId = primaryCommandForCategory(aiCategory);
   const preferred = available.find((c) => c.id === preferredId);
   if (preferred) return preferred;
 
-  // Fallback: siguiente disponible en el orden de resolve (primary primero).
   return available[0] ?? null;
 }

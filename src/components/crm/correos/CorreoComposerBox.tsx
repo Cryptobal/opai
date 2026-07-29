@@ -8,7 +8,6 @@ import { plainTextToTiptapDoc } from "./email-inline-images";
 import { docPlainText } from "./composer-draft";
 import {
   ComposerAiAssistToggle,
-  ComposerAiDraftSuggestion,
   ComposerAiPromptPill,
   type DraftRefineMode,
 } from "./ComposerAiAssist";
@@ -32,8 +31,6 @@ type Props = {
   contactId?: string | null;
   to: string[];
   replyAll: ReplyAll | null;
-  radarItemId: string | null;
-  preDraft: string | null;
   /** Borrador Gmail del hilo: reanuda id + contenido (no crea uno nuevo). */
   threadDraft?: ThreadDraftSeed | null;
   forwardQuotedHtml: string;
@@ -88,8 +85,6 @@ export function CorreoComposerBox(props: Props) {
   const subjectRef = useRef<string>(initialSeed?.subject ?? "");
   const draftIdRef = useRef<string | null>(initialSeed?.draftId ?? null);
   const aiSeededRef = useRef(false);
-  /** Descarte de sugerencia Radar por hilo (no reaparece al cambiar modo). */
-  const dismissedSuggestionRef = useRef<Set<string>>(new Set());
   const [seed, setSeed] = useState<object | null>(initialSeed?.doc ?? null);
   const [epoch, setEpoch] = useState(0);
   const [instructions, setInstructions] = useState("");
@@ -98,8 +93,6 @@ export function CorreoComposerBox(props: Props) {
   const [hasAiDraft, setHasAiDraft] = useState(() =>
     Boolean(initialSeed && docPlainText(initialSeed.doc).trim()),
   );
-  /** Borrador del Radar ofrecido como sugerencia (nunca auto-inyectado). */
-  const [suggestion, setSuggestion] = useState<string | null>(null);
   const [isDesktop, setIsDesktop] = useState(false);
 
   useEffect(() => {
@@ -188,8 +181,7 @@ export function CorreoComposerBox(props: Props) {
     }
   }
 
-  // Al abrir el asistente: jamás inyectar texto. Si hay preDraft del Radar y
-  // el cuerpo está vacío, ofrecer una tarjeta de sugerencia explícita.
+  // Al abrir el asistente: jamás inyectar texto automáticamente.
   useEffect(() => {
     if (!showAiPrompt) {
       if (!ai) {
@@ -202,16 +194,8 @@ export function CorreoComposerBox(props: Props) {
     aiSeededRef.current = true;
     if (docPlainText(bodyRef.current).trim()) {
       setHasAiDraft(true);
-      setSuggestion(null);
-      return;
     }
-    if (
-      props.preDraft &&
-      !dismissedSuggestionRef.current.has(threadId)
-    ) {
-      setSuggestion(props.preDraft);
-    }
-  }, [showAiPrompt, ai, props.preDraft, threadId]);
+  }, [showAiPrompt, ai]);
 
   function switchMode(next: ComposerMode) {
     reseed();
@@ -278,31 +262,16 @@ export function CorreoComposerBox(props: Props) {
         onDraftIdChange={(id) => { draftIdRef.current = id; }}
         aboveFooter={
           showAiPrompt ? (
-            <div className="space-y-1.5">
-              {suggestion && (
-                <ComposerAiDraftSuggestion
-                  draft={suggestion}
-                  onUse={() => {
-                    injectDraft(suggestion);
-                    setSuggestion(null);
-                  }}
-                  onDismiss={() => {
-                    dismissedSuggestionRef.current.add(threadId);
-                    setSuggestion(null);
-                  }}
-                />
-              )}
-              <ComposerAiPromptPill
-                value={instructions}
-                onChange={setInstructions}
-                onGenerate={() => void runAi()}
-                onRefine={(preset) => void runAi({ refine: preset })}
-                onClose={closeAi}
-                generating={generating}
-                hasDraft={hasAiDraft}
-                onOpenStyle={props.onOpenAiStyle}
-              />
-            </div>
+            <ComposerAiPromptPill
+              value={instructions}
+              onChange={setInstructions}
+              onGenerate={() => void runAi()}
+              onRefine={(preset) => void runAi({ refine: preset })}
+              onClose={closeAi}
+              generating={generating}
+              hasDraft={hasAiDraft}
+              onOpenStyle={props.onOpenAiStyle}
+            />
           ) : null
         }
         footerExtras={
@@ -315,13 +284,6 @@ export function CorreoComposerBox(props: Props) {
           ) : null
         }
         onSent={() => {
-          if (props.radarItemId) {
-            void fetch(`/api/crm/radar/${props.radarItemId}`, {
-              method: "PATCH",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ status: "DONE" }),
-            }).catch(() => {});
-          }
           props.onSent();
         }}
         onClose={props.onClose}
