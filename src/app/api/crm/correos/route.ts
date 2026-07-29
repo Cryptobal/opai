@@ -54,7 +54,7 @@ export async function GET(req: NextRequest) {
   // mode=semantic se acepta por compatibilidad de deep-links y se ignora:
   // la búsqueda siempre corre el motor híbrido.
   void req.nextUrl.searchParams.get("mode");
-  const [{ items, nextCursor, semanticAvailable }, counts, syncParkedInfo, coverage] =
+  const [{ items, nextCursor, semanticAvailable, searchMeta }, counts, syncParkedInfo, coverage] =
     await Promise.all([
       listCorreoThreads({
         tenantId: session.user.tenantId,
@@ -94,6 +94,7 @@ export async function GET(req: NextRequest) {
     counts,
     coverage,
     semanticAvailable: semanticAvailable ?? true,
+    searchMeta: searchMeta ?? null,
     realtimeChannel: gmailMailboxChannel(
       session.user.tenantId,
       session.user.id,

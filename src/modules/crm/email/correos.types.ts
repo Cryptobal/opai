@@ -24,6 +24,16 @@ export type CorreoThreadDTO = {
   matchReason?: "lexical" | "semantic" | "both" | null;
 };
 
+/** Metadatos de una búsqueda híbrida (para UI honesta). */
+export type CorreoSearchMeta = {
+  hasExactMatches: boolean;
+  lexicalCount: number;
+  semanticCount: number;
+  discardedSemantic: number;
+  /** Filas que se están mostrando (igual a items.length). */
+  shownCount: number;
+};
+
 export type CorreoMessageDTO = {
   id: string;
   /** Id del mensaje en Gmail (para URLs de adjuntos / cid). */

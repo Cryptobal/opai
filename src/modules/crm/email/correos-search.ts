@@ -35,29 +35,13 @@ import { Prisma } from "@prisma/client";
 import { fromZonedTime, toZonedTime } from "date-fns-tz";
 import { addDaysChile, CHILE_TZ, startOfDayChile } from "@/lib/dates-cl";
 import type { CorreoListFilter } from "./correos-list";
+import {
+  CORREO_LIST_FILTERS,
+  CORREO_SEARCH_VERTICALS,
+} from "./correos-search-constants";
+import { correoOperatorRegex } from "./correos-operator-registry";
 
-export const CORREO_SEARCH_VERTICALS = [
-  "operaciones",
-  "rrhh",
-  "comercial",
-  "finanzas",
-  "cobranza",
-  "contratos",
-  "incidentes",
-  "otro",
-] as const;
-
-export const CORREO_LIST_FILTERS: readonly CorreoListFilter[] = [
-  "inbox",
-  "sent",
-  "drafts",
-  "starred",
-  "spam",
-  "trash",
-  "all",
-  "snoozed",
-  "archived",
-] as const;
+export { CORREO_LIST_FILTERS, CORREO_SEARCH_VERTICALS };
 
 const VERTICAL_SET = new Set<string>(CORREO_SEARCH_VERTICALS);
 const FOLDER_SET = new Set<string>(CORREO_LIST_FILTERS);
@@ -66,6 +50,7 @@ export type ParsedCorreoSearch = {
   terms: string[];
   from: string[];
   to: string[];
+  cc: string[];
   domains: string[];
   subject: string[];
   before: Date | null;
@@ -77,8 +62,7 @@ export type ParsedCorreoSearch = {
   folderOverride: CorreoListFilter | null;
 };
 
-const OPERATOR_RE =
-  /^(from|to|domain|before|after|has|subject|is|vertical|label|in|newer_than|older_than):(.*)$/i;
+const OPERATOR_RE = correoOperatorRegex();
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const RELATIVE_RE = /^(\d+)([dwm])$/i;
 /** Longitud máxima defensiva del query completo. */
@@ -127,6 +111,7 @@ function isActive(parsed: ParsedCorreoSearch): boolean {
     parsed.terms.length > 0 ||
     parsed.from.length > 0 ||
     parsed.to.length > 0 ||
+    parsed.cc.length > 0 ||
     parsed.domains.length > 0 ||
     parsed.subject.length > 0 ||
     parsed.before !== null ||
@@ -154,6 +139,7 @@ export function parseCorreoSearchQuery(
     terms: [],
     from: [],
     to: [],
+    cc: [],
     domains: [],
     subject: [],
     before: null,
@@ -192,6 +178,7 @@ export function parseCorreoSearchQuery(
     if (!value) continue;
     if (name === "from") parsed.from.push(value.toLowerCase());
     else if (name === "to") parsed.to.push(value.toLowerCase());
+    else if (name === "cc") parsed.cc.push(value.toLowerCase());
     else if (name === "domain") parsed.domains.push(value.toLowerCase().replace(/^@/, ""));
     else if (name === "subject") parsed.subject.push(value);
     else if (name === "before") parsed.before = parseUtcDate(value) ?? parsed.before;
@@ -282,6 +269,18 @@ function buildStructuralConditions(parsed: ParsedCorreoSearch): Prisma.Sql[] {
       WHERE m.thread_id = t.id
         AND EXISTS (
           SELECT 1 FROM unnest(m.to_emails || m.cc_emails || m.bcc_emails) AS rcpt(email)
+          WHERE LOWER(rcpt.email) LIKE ${pattern}
+        )
+    )`);
+  }
+
+  for (const cc of parsed.cc ?? []) {
+    const pattern = containsPattern(cc);
+    conds.push(Prisma.sql`EXISTS (
+      SELECT 1 FROM crm.email_messages m
+      WHERE m.thread_id = t.id
+        AND EXISTS (
+          SELECT 1 FROM unnest(m.cc_emails) AS rcpt(email)
           WHERE LOWER(rcpt.email) LIKE ${pattern}
         )
     )`);

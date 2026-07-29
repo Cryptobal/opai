@@ -52,7 +52,8 @@ import {
 } from "./offline-store";
 import { CorreosSyncBanner } from "./CorreosSyncBanner";
 import { snoozeThread } from "./correo-thread-action-client";
-import type { CorreoThreadDTO } from "@/modules/crm/email/correos.types";
+import type { CorreoSearchMeta, CorreoThreadDTO } from "@/modules/crm/email/correos.types";
+import { correoSearchOperatorChips } from "@/modules/crm/email/correos-operator-registry";
 import { useCorreosRealtime } from "./useCorreosRealtime";
 import { useCorreosViewPreferences, focusCorreosSearch } from "./useCorreosViewPreferences";
 import {
@@ -87,20 +88,8 @@ import {
 /** Alto visual de la isla global (8px gap + min-h-12). El safe-area lo aporta AppShell. */
 const CORREOS_MOBILE_TOP_SPACER = "h-14 shrink-0 lg:hidden";
 
-/** Operadores expuestos en el overlay de búsqueda (parser `correos-search.ts`). */
-const CORREO_SEARCH_OPERATORS: ModuleSearchOperator[] = [
-  { token: "from:", hint: "remitente" },
-  { token: "to:", hint: "destinatario" },
-  { token: "domain:", hint: "dominio" },
-  { token: "subject:", hint: "asunto" },
-  { token: "has:attachment", hint: "con adjuntos" },
-  { token: "is:unread", hint: "no leídos" },
-  { token: "is:starred", hint: "destacados" },
-  { token: "newer_than:7d", hint: "últimos 7 días" },
-  { token: "older_than:30d", hint: "más de 30 días" },
-  { token: "before:", hint: "antes de AAAA-MM-DD" },
-  { token: "after:", hint: "desde AAAA-MM-DD" },
-];
+/** Operadores del overlay — fuente única: `correos-operator-registry.ts`. */
+const CORREO_SEARCH_OPERATORS: ModuleSearchOperator[] = correoSearchOperatorChips();
 
 function matchesChip(t: CorreoThreadDTO, f: CorreoChipKey): boolean {
   if (f === "con_cuenta") return Boolean(t.accountId);
@@ -147,6 +136,7 @@ export function CorreosClient() {
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [coverage, setCoverage] = useState<IndexCoverage | null>(null);
   const [semanticAvailable, setSemanticAvailable] = useState(true);
+  const [searchMeta, setSearchMeta] = useState<CorreoSearchMeta | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
   const [autoExtract, setAutoExtract] = useState(false);
   const [workTabIntent, setWorkTabIntent] = useState<{ tab: WorkTab; nonce: number } | null>(null);
@@ -243,6 +233,7 @@ export function CorreosClient() {
         counts?: unknown;
         coverage?: IndexCoverage | null;
         semanticAvailable?: boolean;
+        searchMeta?: CorreoSearchMeta | null;
         backfillDone?: unknown;
         lastSyncAt?: unknown;
         totalThreads?: unknown;
@@ -282,6 +273,11 @@ export function CorreosClient() {
       if (r.coverage != null) setCoverage(r.coverage);
       if (typeof r.semanticAvailable === "boolean") {
         setSemanticAvailable(r.semanticAvailable);
+      }
+      if (debouncedQuery) {
+        setSearchMeta(r.searchMeta ?? null);
+      } else {
+        setSearchMeta(null);
       }
       setBackfillDone(typeof r.backfillDone === "boolean" ? r.backfillDone : null);
       setLastSyncAt(typeof r.lastSyncAt === "string" ? r.lastSyncAt : null);
@@ -381,10 +377,10 @@ export function CorreosClient() {
     const sp = new URLSearchParams(window.location.search);
     const syncThreadFromUrl = () => {
       const current = new URLSearchParams(window.location.search);
-      // Deep-link `?thread=<uuid>` (p. ej. desde el detalle de una tarea): sólo
+      // Deep-link `?thread=` / `?hilo=` (+ opcional `?mensaje=`): sólo
       // preseleccionamos si tiene forma de UUID. Un id de otro tenant no
       // devuelve datos porque el backend ya filtra por tenantId.
-      const thread = current.get("thread");
+      const thread = current.get("hilo") || current.get("thread");
       setOpenId(isUuid(thread) ? thread : null);
       setAutoExtract(current.get("extract") === "1");
     };
@@ -1367,7 +1363,13 @@ export function CorreosClient() {
             onRefresh={syncNow}
             syncing={syncing}
             shownCount={filtered.length}
-            totalCount={counts ? ((counts as Record<string, number | undefined>)[folder] ?? null) : null}
+            totalCount={
+              searching
+                ? (searchMeta?.shownCount ?? items.length)
+                : counts
+                  ? ((counts as Record<string, number | undefined>)[folder] ?? null)
+                  : null
+            }
             previewLines={previewLines} onPreviewLines={setPreviewLines}
             selectedCount={selectedIds.size}
             allReadSelected={items
@@ -1389,6 +1391,42 @@ export function CorreosClient() {
               <p className="text-[12px] text-status-warn-fg">
                 Búsqueda por significado no disponible ahora; mostrando coincidencias de texto exacto.
               </p>
+            )}
+            {searching &&
+              searchMeta &&
+              !searchMeta.hasExactMatches &&
+              (searchMeta.shownCount > 0 || items.length > 0) && (
+              <div className="flex flex-wrap items-center gap-2 rounded-xl border border-status-warn-border bg-status-warn-soft px-3 py-2 text-[13px] text-status-warn-fg">
+                <span>
+                  Sin coincidencias exactas para «{debouncedQuery}» · mostrando resultados por significado
+                  {searchMeta.discardedSemantic > 0
+                    ? ` (${searchMeta.discardedSemantic} descartados por baja similitud)`
+                    : ""}
+                </span>
+                <button
+                  type="button"
+                  className="h-10 sm:h-8 rounded-lg border border-ds-border-default bg-ds-surface-1 px-2.5 text-[12px] text-ds-text-2 ds-tap"
+                  onClick={() => {
+                    setItems((prev) =>
+                      prev.filter(
+                        (t) => t.matchReason === "lexical" || t.matchReason === "both",
+                      ),
+                    );
+                    setSearchMeta((m) =>
+                      m
+                        ? {
+                            ...m,
+                            shownCount: 0,
+                            hasExactMatches: false,
+                            semanticCount: 0,
+                          }
+                        : m,
+                    );
+                  }}
+                >
+                  Solo exactos
+                </button>
+              </div>
             )}
           </div>
           {!connected ? (
