@@ -37,8 +37,9 @@ export function notSnoozedWhere(now: Date) {
 
 /**
  * Spam excluido de todo menos papelera (que solo mira trashedAt), como Gmail.
- * Recibidos excluye los pospuestos vigentes (`snoozedUntil > now`); Pospuestos
- * es su propia carpeta.
+ * Recibidos = espejo estricto del label INBOX de Gmail (más archivedAt null y
+ * sin pospuestos vigentes). Sin el filtro de label, el backfill `in:sent`
+ * inundaba Recibidos con miles de hilos que Gmail nunca muestra ahí.
  */
 export function folderWhere(folder: CorreoListFilter) {
   const now = new Date();
@@ -72,7 +73,13 @@ export function folderWhere(folder: CorreoListFilter) {
   if (folder === "starred") {
     return { trashedAt: null, spamAt: null, starredAt: { not: null } };
   }
-  return { trashedAt: null, spamAt: null, archivedAt: null, ...notSnoozedWhere(now) };
+  return {
+    trashedAt: null,
+    spamAt: null,
+    archivedAt: null,
+    messages: { some: { labelIds: { has: "INBOX" } } },
+    ...notSnoozedWhere(now),
+  };
 }
 
 const THREAD_LIST_SELECT = {

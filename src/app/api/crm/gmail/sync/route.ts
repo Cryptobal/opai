@@ -16,6 +16,7 @@ import {
   countCorreoFolders,
   invalidateCorreoFolderCounts,
 } from "@/modules/crm/email/correos-folder-counts";
+import { syncThreadStateFromLocalLabels } from "@/modules/crm/email/gmail-inbox-selfheal";
 
 export const maxDuration = 60;
 
@@ -46,12 +47,21 @@ async function handle(request: NextRequest) {
   }
 
   // Sync manual (botón "Sincronizar ahora"): siempre forceReconcile +
-  // self-heal amplio para reparar Recibidos vacío. `?force=0` desactiva el
-  // sweep. `?background=1` es el check silencioso al abrir la bandeja: solo
-  // delta (history/labels, igual que el push), sin sweep ni self-heal, para
-  // no pagar una corrida de mantenimiento completa en cada apertura.
+  // self-heal amplio para reparar Recibidos. `?force=0` desactiva el
+  // sweep. `?background=1` es el check silencioso al abrir la bandeja: delta
+  // + heal local DB-only (archiva sent/histórico sin INBOX) sin sweep remoto.
   const forceParam = request.nextUrl.searchParams.get("force");
   const background = request.nextUrl.searchParams.get("background") === "1";
+
+  // Reparación barata e inmediata del espejo: saca de Recibidos todo hilo
+  // cuyo último mensaje no tiene label INBOX (residuo del backfill in:sent).
+  // Corre también en background para que al abrir la bandeja el espejo cierre
+  // sin esperar el botón "Sincronizar".
+  await syncThreadStateFromLocalLabels({
+    tenantId: session.user.tenantId,
+    emailAccountId: emailAccount.id,
+  });
+
   await enqueueGmailSyncJob({
     tenantId: session.user.tenantId,
     emailAccountId: emailAccount.id,

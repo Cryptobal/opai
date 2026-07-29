@@ -271,12 +271,13 @@ describe("folderWhereSql (paridad con folderWhere de Prisma)", () => {
     expect(folderWhereSql("trash", now).sql).toBe("t.trashed_at IS NOT NULL");
   });
 
-  it("inbox es null-safe con snoozed_until (nunca NOT)", () => {
+  it("inbox es null-safe con snoozed_until y exige label INBOX", () => {
     const sql = folderWhereSql("inbox", now).sql;
     expect(sql).toContain("t.snoozed_until IS NULL OR t.snoozed_until <=");
-    expect(sql).not.toContain("NOT");
+    expect(sql).not.toMatch(/\bNOT\b/);
     expect(sql).toContain("t.archived_at IS NULL");
     expect(sql).toContain("t.spam_at IS NULL");
+    expect(sql).toContain("ARRAY['INBOX']");
   });
 
   it("all excluye papelera y spam; archived exige archived_at", () => {
