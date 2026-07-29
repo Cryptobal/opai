@@ -11,13 +11,10 @@ import { getPlatformAIConfig } from "@/lib/platform-ai-service";
 import { prisma } from "@/lib/prisma";
 import { decryptApiKey } from "@/lib/ai-encryption";
 import { KNOWN_PROVIDERS } from "@/lib/ai-known-models";
-import {
-  transcribeAudioBuffer,
-  type TranscriptionResult,
-} from "@/lib/ai/transcription";
 import OpenAI from "openai";
 
-export type { TranscriptionResult };
+export type { TranscriptionResult } from "@/lib/ai/transcription";
+import type { TranscriptionResult } from "@/lib/ai/transcription";
 
 /* ── Types ── */
 
@@ -771,5 +768,8 @@ export async function transcribeAudio(
   mimeType: string,
   chatConfig?: HelpChatAIConfig | null,
 ): Promise<TranscriptionResult | null> {
+  // Import dinámico: evita cargar tenant-openai/openai al importar este módulo
+  // (rompe tests jsdom y clientes que solo necesitan completions).
+  const { transcribeAudioBuffer } = await import("@/lib/ai/transcription");
   return transcribeAudioBuffer(tenantId, audio, mimeType, chatConfig);
 }
