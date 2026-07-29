@@ -14,7 +14,13 @@ export function ChatSheetMobile(props: ChatPanelSharedProps) {
   const sheetRef = useRef<HTMLDivElement | null>(null);
   const [closing, setClosing] = useState(false);
   const [threadsOpen, setThreadsOpen] = useState(false);
+  const [composerFocusToken, setComposerFocusToken] = useState(0);
   const keyboardOffset = useKeyboardOffset();
+
+  const closeThreads = () => {
+    setThreadsOpen(false);
+    setComposerFocusToken((n) => n + 1);
+  };
 
   const finishClose = () => {
     props.onClose();
@@ -70,7 +76,10 @@ export function ChatSheetMobile(props: ChatPanelSharedProps) {
           <ChatHeader
             threadTitle={props.threadTitle}
             onOpenThreads={() => setThreadsOpen(true)}
-            onNew={props.onNew}
+            onNew={() => {
+              props.onNew();
+              setComposerFocusToken((n) => n + 1);
+            }}
             onClose={() => requestClose()}
             swipeHandlers={{
               onTouchStart: swipe.onTouchStart,
@@ -120,11 +129,15 @@ export function ChatSheetMobile(props: ChatPanelSharedProps) {
                   : "calc(env(safe-area-inset-bottom) + 0.75rem)",
             }}
           >
-            <ChatComposer {...props.composer} />
+            <ChatComposer
+              {...props.composer}
+              autoFocus={!threadsOpen}
+              focusToken={composerFocusToken}
+            />
           </div>
           <ThreadsPanel
             open={threadsOpen}
-            onClose={() => setThreadsOpen(false)}
+            onClose={closeThreads}
             conversations={props.conversations}
             activeConversationId={props.activeConversationId}
             persistenceEnabled={props.persistenceEnabled}

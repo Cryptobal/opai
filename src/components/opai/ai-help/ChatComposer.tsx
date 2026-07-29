@@ -23,6 +23,8 @@ export function ChatComposer({
   polishEnabled,
   onPolishChange,
   disabled,
+  autoFocus = true,
+  focusToken,
 }: {
   input: string;
   onInputChange: (v: string) => void;
@@ -49,6 +51,9 @@ export function ChatComposer({
   polishEnabled: boolean;
   onPolishChange: (v: boolean) => void;
   disabled?: boolean;
+  /** Enfoca el textarea al montar / al cambiar focusToken (abrir panel, volver de hilos). */
+  autoFocus?: boolean;
+  focusToken?: number | string | boolean;
 }) {
   const fileRef = useRef<HTMLInputElement | null>(null);
   const taRef = useRef<HTMLTextAreaElement | null>(null);
@@ -63,6 +68,30 @@ export function ChatComposer({
   useEffect(() => {
     if (dictationActive) taRef.current?.blur();
   }, [dictationActive]);
+
+  // Cursor siempre en el composer al abrir o al volver al chat (desktop + móvil).
+  useEffect(() => {
+    if (!autoFocus || dictationActive || disabled) return;
+    const focus = () => {
+      if (!taRef.current || taRef.current.getClientRects().length === 0) return;
+      taRef.current.focus({ preventScroll: true });
+    };
+    let cancelled = false;
+    let timeoutId = 0;
+    const raf = requestAnimationFrame(() => {
+      if (cancelled) return;
+      focus();
+      // Segundo intento tras animación del sheet/dock (móvil).
+      timeoutId = window.setTimeout(() => {
+        if (!cancelled) focus();
+      }, 80);
+    });
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(raf);
+      window.clearTimeout(timeoutId);
+    };
+  }, [autoFocus, dictationActive, disabled, focusToken]);
 
   if (dictationActive && voiceProps) {
     return (
@@ -121,6 +150,7 @@ export function ChatComposer({
           rows={1}
           placeholder="Escribe o dicta tu pregunta…"
           value={input}
+          autoFocus={autoFocus && !dictationActive && !disabled}
           onChange={(e) => onInputChange(e.target.value)}
           onPaste={(e) => {
             const files = Array.from(e.clipboardData?.items ?? [])

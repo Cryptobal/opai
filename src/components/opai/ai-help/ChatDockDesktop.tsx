@@ -11,6 +11,12 @@ import { cn } from "@/lib/utils";
 export function ChatDockDesktop(props: ChatPanelSharedProps) {
   const [threadsOpen, setThreadsOpen] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const [composerFocusToken, setComposerFocusToken] = useState(0);
+
+  const closeThreads = () => {
+    setThreadsOpen(false);
+    setComposerFocusToken((n) => n + 1);
+  };
 
   return (
     <div
@@ -37,8 +43,14 @@ export function ChatDockDesktop(props: ChatPanelSharedProps) {
       <div className="relative flex min-h-0 flex-1 flex-col">
         <ChatHeader
           threadTitle={props.threadTitle}
-          onOpenThreads={() => setThreadsOpen((v) => !v)}
-          onNew={props.onNew}
+          onOpenThreads={() => {
+            if (threadsOpen) closeThreads();
+            else setThreadsOpen(true);
+          }}
+          onNew={() => {
+            props.onNew();
+            setComposerFocusToken((n) => n + 1);
+          }}
           onClose={props.onClose}
         />
         <ChatMessageList
@@ -64,11 +76,15 @@ export function ChatDockDesktop(props: ChatPanelSharedProps) {
           scrollRef={props.scrollRef}
         />
         <div className="shrink-0 border-t border-ds-border-subtle p-3">
-          <ChatComposer {...props.composer} />
+          <ChatComposer
+            {...props.composer}
+            autoFocus={!threadsOpen}
+            focusToken={composerFocusToken}
+          />
         </div>
         <ThreadsPanel
           open={threadsOpen}
-          onClose={() => setThreadsOpen(false)}
+          onClose={closeThreads}
           conversations={props.conversations}
           activeConversationId={props.activeConversationId}
           persistenceEnabled={props.persistenceEnabled}

@@ -130,6 +130,25 @@ export function ChatInput({
     }
   }, [replyTo]);
 
+  // Al abrir/cambiar canal: cursor en el input (solo si el textarea es visible;
+  // hay mounts duplicados mobile+desktop en ChatSidePanel).
+  useEffect(() => {
+    const focus = () => {
+      const ta = textareaRef.current;
+      if (!ta || ta.getClientRects().length === 0) return;
+      ta.focus({ preventScroll: true });
+    };
+    let timeoutId = 0;
+    const raf = requestAnimationFrame(() => {
+      focus();
+      timeoutId = window.setTimeout(focus, 80);
+    });
+    return () => {
+      cancelAnimationFrame(raf);
+      if (timeoutId) window.clearTimeout(timeoutId);
+    };
+  }, [channelId]);
+
   // Close emoji picker on outside click
   useEffect(() => {
     if (!showEmojiPicker) return;

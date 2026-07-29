@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, MoreHorizontal, Pin, Plus, Search, Trash2, Pencil } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { es } from "date-fns/locale";
@@ -46,6 +46,7 @@ export function ThreadsPanel({
   const [debounced, setDebounced] = useState("");
   const [searchResults, setSearchResults] = useState<HistoryConversation[] | null>(null);
   const [menuId, setMenuId] = useState<string | null>(null);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     const t = setTimeout(() => setDebounced(query.trim()), 250);
@@ -57,7 +58,19 @@ export function ThreadsPanel({
       setQuery("");
       setSearchResults(null);
       setMenuId(null);
+      return;
     }
+    // Al abrir hilos (buscar), cursor en el campo de búsqueda.
+    const focus = () => searchInputRef.current?.focus({ preventScroll: true });
+    let timeoutId = 0;
+    const raf = requestAnimationFrame(() => {
+      focus();
+      timeoutId = window.setTimeout(focus, 80);
+    });
+    return () => {
+      cancelAnimationFrame(raf);
+      if (timeoutId) window.clearTimeout(timeoutId);
+    };
   }, [open]);
 
   useEffect(() => {
@@ -244,10 +257,12 @@ export function ThreadsPanel({
         <div className="relative px-3 py-2">
           <Search className="pointer-events-none absolute left-5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ds-text-4" />
           <input
+            ref={searchInputRef}
             type="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Buscar hilos…"
+            autoFocus
             className="h-10 w-full rounded-xl border border-ds-border-default bg-ds-surface-2 pl-8 pr-3 text-[13px] text-ds-text-1 placeholder:text-ds-text-4 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/50"
           />
         </div>

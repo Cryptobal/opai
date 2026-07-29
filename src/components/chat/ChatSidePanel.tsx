@@ -200,6 +200,31 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
     prevPanelOpen.current = ctx.isPanelOpen;
   }, [ctx.isPanelOpen, ctx.totalUnread]);
 
+  // Lista de canales (sin conversación abierta): cursor en "Buscar conversación…".
+  // Hay dos mounts (mobile/desktop); solo enfocar el input visible.
+  useEffect(() => {
+    if (!ctx.isPanelOpen || ctx.selectedChannelId) return;
+    const focusVisibleSearch = () => {
+      const inputs = document.querySelectorAll<HTMLInputElement>(
+        'input.opai-chat-mobile-search',
+      );
+      for (const el of inputs) {
+        if (el.getClientRects().length === 0) continue;
+        el.focus({ preventScroll: true });
+        return;
+      }
+    };
+    let timeoutId = 0;
+    const raf = requestAnimationFrame(() => {
+      focusVisibleSearch();
+      timeoutId = window.setTimeout(focusVisibleSearch, 80);
+    });
+    return () => {
+      cancelAnimationFrame(raf);
+      if (timeoutId) window.clearTimeout(timeoutId);
+    };
+  }, [ctx.isPanelOpen, ctx.selectedChannelId]);
+
   // Debounced universal search for "Iniciar nueva conversación" suggestions
   useEffect(() => {
     const q = searchQuery.trim();

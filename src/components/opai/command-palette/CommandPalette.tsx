@@ -378,18 +378,28 @@ export function CommandPalette({ userRole, onOpenChat }: CommandPaletteProps) {
   );
 
   // Seed query on open (initialQuery from isla móvil / atajo sin args → vacío)
+  // Reintentos: el click del topbar a veces pierde el gesto antes del paint.
   useEffect(() => {
-    if (isOpen) {
-      const seed = initialQuery ?? '';
-      setQuery(seed);
-      setApiResults([]);
-      requestAnimationFrame(() => {
-        const el = inputRef.current;
-        if (!el) return;
-        el.focus();
-        if (seed) el.select();
-      });
-    }
+    if (!isOpen) return;
+    const seed = initialQuery ?? '';
+    setQuery(seed);
+    setApiResults([]);
+    const focus = () => {
+      const el = inputRef.current;
+      if (!el) return;
+      el.focus({ preventScroll: true });
+      if (seed) el.select();
+    };
+    const timeouts: number[] = [];
+    const raf = requestAnimationFrame(() => {
+      focus();
+      timeouts.push(window.setTimeout(focus, 50));
+      timeouts.push(window.setTimeout(focus, 120));
+    });
+    return () => {
+      cancelAnimationFrame(raf);
+      for (const id of timeouts) window.clearTimeout(id);
+    };
   }, [isOpen, initialQuery]);
 
   // Lock body scroll while open (prevents background scroll on iOS)
