@@ -1,12 +1,18 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import { Bell, MessageCircle, Search } from "lucide-react";
 import { useChatSidePanelContext } from "@/components/chat/ChatFloatingProvider";
 import { useNotificationSidePanelContext } from "@/components/notifications/NotificationSidePanelContext";
 import { useNotifications } from "@/contexts/NotificationContext";
+import {
+  useIslandSearchOpenListener,
+  useModuleSurface,
+} from "@/components/opai-ds";
 import { Badge } from "@/components/ui/badge";
 import { TopbarIconButton } from "./TopbarIconButton";
 import { RoleSwitcher } from "@/components/navbar/RoleSwitcher";
+import { ModuleSearchOverlay } from "./ModuleSearchOverlay";
 import { cn } from "@/lib/utils";
 import { FiscalizacionDTButton } from "./FiscalizacionDTButton";
 
@@ -28,6 +34,19 @@ export function TopbarActions({
   const chatCtx = useChatSidePanelContext();
   const notifCtx = useNotificationSidePanelContext();
   const { unreadCount: notifUnreadCount } = useNotifications();
+  const { search } = useModuleSurface();
+  const [moduleSearchOpen, setModuleSearchOpen] = useState(false);
+  const searchBtnWrapRef = useRef<HTMLDivElement | null>(null);
+  const hasModuleSearch = search !== null;
+  const activeQuery = search?.value.trim() ?? "";
+
+  useIslandSearchOpenListener(() => {
+    if (hasModuleSearch) setModuleSearchOpen(true);
+  });
+
+  useEffect(() => {
+    if (!hasModuleSearch) setModuleSearchOpen(false);
+  }, [hasModuleSearch]);
 
   const handleToggleChat = () => {
     if (!chatCtx.isPanelOpen) notifCtx.closePanel();
@@ -37,6 +56,12 @@ export function TopbarActions({
     if (!notifCtx.isPanelOpen) chatCtx.closePanel();
     notifCtx.togglePanel();
   };
+
+  const searchLabel = hasModuleSearch
+    ? activeQuery
+      ? `Buscar en el módulo — filtro activo: ${activeQuery}`
+      : "Buscar en el módulo"
+    : "Buscar";
 
   return (
     <div className={cn("flex items-center gap-2 shrink-0 min-w-0", className)}>
@@ -50,7 +75,22 @@ export function TopbarActions({
         aria-label="Acciones rápidas"
       >
         {onSearch && (
-          <TopbarIconButton icon={Search} label="Buscar" onClick={onSearch} />
+          <div ref={searchBtnWrapRef} className="contents">
+            <TopbarIconButton
+              icon={Search}
+              label={searchLabel}
+              className={cn(activeQuery && hasModuleSearch && "text-primary")}
+              onClick={
+                hasModuleSearch
+                  ? () => setModuleSearchOpen(true)
+                  : onSearch
+              }
+            >
+              {hasModuleSearch && activeQuery ? (
+                <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-primary ring-2 ring-background" />
+              ) : null}
+            </TopbarIconButton>
+          </div>
         )}
         <TopbarIconButton
           icon={MessageCircle}
@@ -76,6 +116,15 @@ export function TopbarActions({
           )}
         </TopbarIconButton>
       </div>
+
+      {hasModuleSearch && search && moduleSearchOpen && (
+        <ModuleSearchOverlay
+          open
+          onClose={() => setModuleSearchOpen(false)}
+          search={search}
+          returnFocusRef={searchBtnWrapRef}
+        />
+      )}
     </div>
   );
 }

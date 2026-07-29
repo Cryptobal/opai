@@ -118,11 +118,11 @@ export function normalizeShortcutKey(key: string): string {
   return key;
 }
 
-/** Resuelve el input de búsqueda activo (desktop toolbar o isla móvil). */
+/** Resuelve el input de búsqueda activo (overlay desktop o isla móvil). */
 export function focusCorreosSearch(): void {
-  const desktop = document.getElementById("correos-search-input");
-  if (desktop) {
-    desktop.focus();
+  const overlay = document.getElementById("module-search-input");
+  if (overlay) {
+    overlay.focus();
     return;
   }
   const mobile = document.getElementById("correos-search-input-mobile");
@@ -130,7 +130,7 @@ export function focusCorreosSearch(): void {
     mobile.focus();
     return;
   }
-  // Isla: abrir modo búsqueda del módulo y enfocar el campo.
+  // Abre overlay desktop (topbar) o modo búsqueda de la isla móvil.
   if (typeof window !== "undefined") {
     window.dispatchEvent(new CustomEvent("opai:island-open-search"));
   }

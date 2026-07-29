@@ -1,43 +1,16 @@
 "use client";
 
 import { X } from "lucide-react";
+import {
+  chipsFromQuery,
+  removeChipFromQuery,
+  type SearchTokenChip,
+} from "@/lib/search-tokens";
 
-export type CorreoSearchChip = {
-  key: string;
-  label: string;
-  /** Token a quitar de la query (operador o término). */
-  token: string;
-};
+/** @deprecated Preferir `SearchTokenChip` de `@/lib/search-tokens`. */
+export type CorreoSearchChip = SearchTokenChip;
 
-/** Reconstruye chips a partir del query crudo (operadores + términos libres). */
-export function chipsFromQuery(query: string): CorreoSearchChip[] {
-  const chips: CorreoSearchChip[] = [];
-  const re = /(?:[^\s"]+|"[^"]*")+/g;
-  let match: RegExpExecArray | null;
-  let i = 0;
-  while ((match = re.exec(query))) {
-    const token = match[0];
-    chips.push({ key: `${i}-${token}`, label: token, token });
-    i += 1;
-  }
-  return chips;
-}
-
-/** Quita la primera ocurrencia del token (respeta frases entre comillas). */
-export function removeChipFromQuery(query: string, token: string): string {
-  const re = /(?:[^\s"]+|"[^"]*")+/g;
-  const parts: string[] = [];
-  let removed = false;
-  let match: RegExpExecArray | null;
-  while ((match = re.exec(query))) {
-    if (!removed && match[0] === token) {
-      removed = true;
-      continue;
-    }
-    parts.push(match[0]);
-  }
-  return parts.join(" ").trim();
-}
+export { chipsFromQuery, removeChipFromQuery };
 
 type Props = {
   query: string;

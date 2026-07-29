@@ -14,6 +14,7 @@ import {
   useSetIslandModuleMenu,
   useSetIslandSearch,
   useSetIslandSuppressed,
+  type ModuleSearchOperator,
 } from "@/components/opai-ds";
 import {
   type CorreoChipKey,
@@ -86,6 +87,22 @@ import {
 
 /** Alto visual de la isla global (8px gap + min-h-12). El safe-area lo aporta AppShell. */
 const CORREOS_MOBILE_TOP_SPACER = "h-14 shrink-0 lg:hidden";
+
+/** Operadores expuestos en el overlay de búsqueda (parser `correos-search.ts`). */
+const CORREO_SEARCH_OPERATORS: ModuleSearchOperator[] = [
+  { token: "from:", hint: "remitente" },
+  { token: "to:", hint: "destinatario" },
+  { token: "domain:", hint: "dominio" },
+  { token: "subject:", hint: "asunto" },
+  { token: "has:attachment", hint: "con adjuntos" },
+  { token: "is:unread", hint: "no leídos" },
+  { token: "is:starred", hint: "destacados" },
+  { token: "vertical:", hint: "vertical del radar" },
+  { token: "newer_than:7d", hint: "últimos 7 días" },
+  { token: "older_than:30d", hint: "más de 30 días" },
+  { token: "before:", hint: "antes de AAAA-MM-DD" },
+  { token: "after:", hint: "desde AAAA-MM-DD" },
+];
 
 function matchesChip(t: CorreoThreadDTO, f: CorreoChipKey): boolean {
   if (f === "con_cuenta") return Boolean(t.accountId);
@@ -781,6 +798,7 @@ export function CorreosClient() {
       setQuery("");
       setDebouncedQuery("");
     },
+    operators: CORREO_SEARCH_OPERATORS,
   });
   useSetIslandSuppressed(selectionMode);
   function bulkAction(
@@ -1465,7 +1483,6 @@ export function CorreosClient() {
             }
             onRefresh={syncNow}
             syncing={syncing}
-            query={query} onQuery={setQuery}
             shownCount={filtered.length}
             totalCount={counts ? ((counts as Record<string, number | undefined>)[folder] ?? null) : null}
             previewLines={previewLines} onPreviewLines={setPreviewLines}
