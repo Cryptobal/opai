@@ -50,6 +50,31 @@ export type CrmStructureAssumption = {
   removed?: boolean;
 };
 
+/** Fechas del proceso declaradas en el pliego. YYYY-MM-DD o null. */
+export type CrmStructureLicitacion = {
+  fechaConsultas: string | null;
+  fechaVisitaTecnica: string | null;
+  fechaEntrega: string | null;
+  inicioServicio: string | null;
+  visitaObligatoria: boolean | null;
+};
+
+/** Piso económico impuesto por el pliego. null = no declarado. */
+export type CrmStructureCondicionesEconomicas = {
+  /** CLP mensual. */
+  sueldoBaseMinimo: number | null;
+  gratificacionPct: number | null;
+  movilizacion: number | null;
+  colacionProvistaPorCliente: boolean | null;
+  beneficiosExigidos: string[];
+  /** Montos en UF tal como declara el pliego (no convertir). */
+  multas: Array<{ concepto: string; montoUf: number }>;
+  kpis: Array<{ indicador: string; meta: string }>;
+  /** Dotación de contingencia exigida (0–100). */
+  reservaPct: number | null;
+  inadmisibleSiNoCumpleRemuneracion: boolean;
+};
+
 export type CrmStructureProposal = {
   account: {
     name: string | null;
@@ -92,6 +117,10 @@ export type CrmStructureProposal = {
     legalMinimum: number;
   };
   requerimiento: string | null;
+  /** Fechas de proceso del pliego (opcional; drafts viejos no lo traen). */
+  licitacion?: CrmStructureLicitacion;
+  /** Piso económico del pliego (opcional; drafts viejos no lo traen). */
+  condicionesEconomicas?: CrmStructureCondicionesEconomicas;
 };
 
 /** Respuesta de refinamiento acumulada (máx. 10, answer ≤ 500). */
@@ -147,6 +176,8 @@ export type PlanMilestone = {
   notes?: string;
   /** Si false, el hito no se crea aunque milestones esté en include. */
   enabled?: boolean;
+  /** true cuando la fecha vino de la extracción del pliego (UI marca origen). */
+  fromDocument?: boolean;
 };
 
 export type CreateCrmStructureResult = {
@@ -222,7 +253,34 @@ export function emptyCrmStructureProposal(): CrmStructureProposal {
       legalMinimum: 0,
     },
     requerimiento: null,
+    licitacion: undefined,
+    condicionesEconomicas: undefined,
   };
+}
+
+/** Semilla PlanMilestone[] desde proposal.licitacion (solo fechas no nulas). */
+export function milestonesFromLicitacion(
+  licitacion: CrmStructureLicitacion | undefined | null,
+): PlanMilestone[] {
+  if (!licitacion) return [];
+  const out: PlanMilestone[] = [];
+  const push = (kind: PlanMilestone["kind"], date: string | null) => {
+    if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return;
+    out.push({
+      kind,
+      date,
+      time: "09:00",
+      durationMin: 60,
+      participantIds: [],
+      externalEmails: [],
+      enabled: true,
+      fromDocument: true,
+    });
+  };
+  push("consultas", licitacion.fechaConsultas);
+  push("visita_tecnica", licitacion.fechaVisitaTecnica);
+  push("entrega", licitacion.fechaEntrega);
+  return out;
 }
 
 /** Deriva assumptions + assumptionOrigins desde assumptionItems (retrocompat). */

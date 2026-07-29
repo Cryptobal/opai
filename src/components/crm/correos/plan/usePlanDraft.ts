@@ -12,7 +12,10 @@ import type {
   PlanTaskOverride,
 } from "@/modules/crm/email/email-to-crm-structure.types";
 import type { StagedFile } from "@/modules/crm/email/email-to-lead.types";
-import { emptyCrmStructureProposal } from "@/modules/crm/email/email-to-crm-structure.types";
+import {
+  emptyCrmStructureProposal,
+  milestonesFromLicitacion,
+} from "@/modules/crm/email/email-to-crm-structure.types";
 
 // Tiny path setter — no lodash dep needed
 function setByPath(obj: unknown, path: string, value: unknown): unknown {
@@ -173,6 +176,9 @@ export function usePlanDraft(threadId: string) {
       setLocks([]);
       setDirty(false);
       setDraftSavedAt(null);
+      // Sembrar hitos desde el pliego cuando el draft no trae hitos guardados.
+      const seeded = milestonesFromLicitacion(newProposal.licitacion);
+      setMilestones(seeded);
       if (staged) setStagedFiles(staged);
     },
     [],
@@ -191,7 +197,13 @@ export function usePlanDraft(threadId: string) {
       setTaskOverride(d.taskOverride ?? {});
       setAttachmentSelection(d.attachmentSelection ?? defaultAttachmentSelection);
       setQuoteInput(d.quoteInput ?? defaultQuoteInput);
-      setMilestones(d.milestones ?? []);
+      // Drafts viejos sin milestones: sembrar desde proposal.licitacion si existe.
+      const savedMs = d.milestones ?? [];
+      setMilestones(
+        savedMs.length > 0
+          ? savedMs
+          : milestonesFromLicitacion(d.proposal?.licitacion),
+      );
       setDraftSavedAt(d.savedAt);
       setDirty(false);
       // Selección por defecto desde include del borrador.

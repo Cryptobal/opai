@@ -1,6 +1,13 @@
 import { getFileBuffer } from "@/lib/storage";
 import { extractText } from "@/lib/knowledge/extract";
 import type { MultimodalAttachment } from "@/lib/ai/help-chat-multimodal";
+import {
+  DOC_ATTACHMENT_MAX_BYTES,
+  DOC_TEXT_MAX_PER_FILE,
+  DOC_TEXT_MAX_TOTAL,
+  docUntrustedBanner,
+  truncateDocText,
+} from "@/lib/ai/document-text-budget";
 
 /* Adjuntos del chat: visión (imágenes/PDF) + texto extraído (Excel/Word/PDF).
  * El texto de turnos previos ("hilo") llega ya cacheado en metadata y NO se
@@ -9,10 +16,10 @@ import type { MultimodalAttachment } from "@/lib/ai/help-chat-multimodal";
 
 const IMAGE_MIME_RE = /^image\/(png|jpe?g|webp|gif)$/;
 const MULTIMODAL_MIME_RE = /^(image\/(png|jpe?g|webp|gif)|application\/pdf)$/;
-const MAX_EXTRACT_CHARS = 12_000; // por archivo
-const MAX_TOTAL_CONTEXT_CHARS = 24_000; // cap global de texto inyectado
+const MAX_EXTRACT_CHARS = DOC_TEXT_MAX_PER_FILE;
+const MAX_TOTAL_CONTEXT_CHARS = DOC_TEXT_MAX_TOTAL;
 const MAX_THREAD_IMAGES = 2; // imágenes del hilo re-subidas a visión (las más recientes)
-const MAX_STAGED_BYTES = 10 * 1024 * 1024;
+const MAX_STAGED_BYTES = DOC_ATTACHMENT_MAX_BYTES;
 
 export type AttachmentRef = { stagedKey: string; fileName: string; mimeType: string };
 export type ThreadAttachment = AttachmentRef & { extractedText?: string };
@@ -43,9 +50,15 @@ export async function buildAttachmentsContext(params: {
   function pushExtracted(fileName: string, text: string, suffix: string): void {
     const trimmed = text.trim();
     if (!trimmed || budget <= 0) return;
-    const slice = trimmed.slice(0, budget);
-    budget -= slice.length;
-    extractedBlocks.push(`[Contenido extraído de '${fileName}'${suffix}]:\n${slice}`);
+    const perFile = Math.min(MAX_EXTRACT_CHARS, budget);
+    const { text: sliced, truncated } = truncateDocText(trimmed, perFile, {
+      label: fileName,
+    });
+    // Contabilizar chars del documento (no del marcador) contra el presupuesto.
+    budget -= Math.min(trimmed.length, perFile);
+    extractedBlocks.push(
+      `[Contenido extraído de '${fileName}'${suffix}${truncated ? " · TRUNCADO" : ""}]:\n${sliced}`,
+    );
   }
 
   /* (a) Turno actual: baja de R2, arma visión y extrae texto (cacheable). */
@@ -63,10 +76,14 @@ export async function buildAttachmentsContext(params: {
     }
     if (!IMAGE_MIME_RE.test(ref.mimeType)) {
       try {
-        const text = (await extractText(buffer, ref.mimeType)).slice(0, MAX_EXTRACT_CHARS);
-        if (text.trim()) {
-          freshExtractions.push({ stagedKey: ref.stagedKey, extractedText: text });
-          pushExtracted(ref.fileName, text, "");
+        const raw = (await extractText(buffer, ref.mimeType)).trim();
+        if (raw) {
+          // Cachear hasta el tope por archivo; el presupuesto global se aplica al inyectar.
+          const cached = truncateDocText(raw, MAX_EXTRACT_CHARS, {
+            label: ref.fileName,
+          }).text;
+          freshExtractions.push({ stagedKey: ref.stagedKey, extractedText: cached });
+          pushExtracted(ref.fileName, raw, "");
         }
       } catch (e) {
         console.error("[help-chat] extractText (adjunto) falló", {
@@ -102,6 +119,7 @@ export async function buildAttachmentsContext(params: {
 
   const blocks: string[] = [];
   if (manifest.length) {
+    blocks.push(docUntrustedBanner());
     blocks.push(
       `El usuario adjuntó archivos ya almacenados en staging. Para adjuntar uno a una entidad (deal/cuenta/instalación/lead) usa attach_file_to_entity con su stagedKey EXACTO:\n${manifest.join("\n")}`,
     );

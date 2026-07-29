@@ -29,7 +29,8 @@ describe("folderWhere", () => {
   it("las demás carpetas mantienen su semántica", () => {
     expect(folderWhere("trash")).toEqual({ trashedAt: { not: null } });
     expect(folderWhere("all")).toEqual({ trashedAt: null, spamAt: null });
-    // Archivados excluye pospuestos vigentes (notSnoozedWhere null-safe).
+    // Archivados excluye pospuestos vigentes (notSnoozedWhere null-safe;
+    // archivedAt residual del sync no debe mezclarlos con Archivados).
     expect(folderWhere("archived")).toEqual({
       trashedAt: null,
       spamAt: null,

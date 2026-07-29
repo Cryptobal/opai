@@ -2,6 +2,10 @@ import { prisma } from "@/lib/prisma";
 import { aiService } from "@/lib/ai-service";
 import { logAiUsage } from "@/lib/platform-ai-service";
 import {
+  DOC_TEXT_MAX_TOTAL,
+  truncateDocText,
+} from "@/lib/ai/document-text-budget";
+import {
   staffingForCoverageSlot,
   sumStaffing,
   normalizeWeekdays,
@@ -15,9 +19,11 @@ import {
   emptyCrmStructureProposal,
   syncAssumptionArrays,
   type CrmStructureAssumption,
+  type CrmStructureCondicionesEconomicas,
   type CrmStructureCoverageSlot,
   type CrmStructureExtractionResult,
   type CrmStructureInstallation,
+  type CrmStructureLicitacion,
   type CrmStructureProposal,
   type CrmStructureRefineAnswer,
 } from "./email-to-crm-structure.types";
@@ -52,7 +58,7 @@ export function buildAssumptionItems(
 }
 
 const SYSTEM = `Eres un asistente comercial de una empresa de seguridad privada en Chile.
-Extraes del correo + adjuntos (RFI, bases, SoW, consulta al mercado) la ESTRUCTURA CRM + COBERTURA para proponer alta en OPAI.
+Extraes del correo + adjuntos (RFI, bases, SoW, consulta al mercado, pliego) la ESTRUCTURA CRM + COBERTURA + HITOS + CONDICIONES ECONÓMICAS para proponer alta en OPAI.
 
 Devuelve SOLO un objeto JSON con EXACTAMENTE estas claves:
 {
@@ -61,7 +67,26 @@ Devuelve SOLO un objeto JSON con EXACTAMENTE estas claves:
   "deal": { "title": string|null, "isLicitacion": boolean, "mesesContrato": number|null, "notes": string|null, "fechaLimite": string|null },
   "coverageIsRequirementNotStaffing": boolean,
   "weeklyHoursPerWorker": number,
+  "reservePct": number,
   "requerimiento": string|null,
+  "licitacion": {
+    "fechaConsultas": "YYYY-MM-DD"|null,
+    "fechaVisitaTecnica": "YYYY-MM-DD"|null,
+    "fechaEntrega": "YYYY-MM-DD"|null,
+    "inicioServicio": "YYYY-MM-DD"|null,
+    "visitaObligatoria": boolean|null
+  },
+  "condicionesEconomicas": {
+    "sueldoBaseMinimo": number|null,
+    "gratificacionPct": number|null,
+    "movilizacion": number|null,
+    "colacionProvistaPorCliente": boolean|null,
+    "beneficiosExigidos": string[],
+    "multas": [{ "concepto": string, "montoUf": number }],
+    "kpis": [{ "indicador": string, "meta": string }],
+    "reservaPct": number|null,
+    "inadmisibleSiNoCumpleRemuneracion": boolean
+  },
   "installations": [
     {
       "name": string,
@@ -94,10 +119,13 @@ Reglas CRÍTICAS:
 4. dias en minúsculas sin acento: lunes…domingo. horaInicio/horaFin en HH:mm 24h.
 5. weeklyHoursPerWorker: 42 si el documento lo indica (Ley 40 horas / jornada referencial); si no, 42.
 6. isLicitacion true si es licitación, bases, Wherex, Mercado Público o Consulta al Mercado / RFI.
-7. openQuestions: ambigüedades caras (ej. jefe de turno adicional, colación, jornada parcial). Máx 5.
+7. openQuestions: ambigüedades caras (ej. jefe de turno adicional, colación, jornada parcial) y datos relevantes que el documento NO declare (fechas, sueldo mínimo, multas). Máx 8.
 8. assumptions: supuestos razonables que aplicaste. Máx 5.
-9. No inventes RUT, montos ni emails. Si el contacto solo trae teléfono, email puede ser null.
-10. Extrae TODOS los slots del cuadro de cobertura; no resumas "9 dependencias" en un solo slot genérico.`;
+9. No inventes RUT, montos, fechas ni emails. Si no está en el documento → null y, si es relevante, openQuestions. Si el contacto solo trae teléfono, email puede ser null.
+10. Extrae TODOS los slots del cuadro de cobertura; no resumas "9 dependencias" en un solo slot genérico.
+11. licitacion: fechas del cronograma del pliego normalizadas a YYYY-MM-DD. Fechas textuales chilenas ("10 de agosto de 2026") → ISO. Ante ambigüedad → null + openQuestions. deal.fechaLimite debe coincidir con licitacion.fechaEntrega cuando exista.
+12. condicionesEconomicas: piso salarial (sueldoBaseMinimo en CLP mensual), asignaciones, multas en UF (NO convertir a CLP), KPI contractuales. inadmisibleSiNoCumpleRemuneracion=true si el pliego declara inadmisibilidad por incumplimiento remuneracional. Si declara % de dotación de contingencia, ponelo en condicionesEconomicas.reservaPct Y en reservePct raíz.
+13. Si un dato aparece dos veces con valores distintos, NO elijas uno: null + conflicto en openQuestions.`;
 
 function str(v: unknown): string | null {
   return typeof v === "string" && v.trim() ? v.trim() : null;
@@ -108,6 +136,143 @@ function num(v: unknown): number | null {
 }
 function bool(v: unknown): boolean {
   return v === true || v === "true";
+}
+
+/** YYYY-MM-DD estricto; descarta silenciosamente lo inválido. */
+function ymd(v: unknown): string | null {
+  if (typeof v !== "string") return null;
+  const s = v.trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return null;
+  const [y, m, d] = s.split("-").map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  if (
+    dt.getUTCFullYear() !== y ||
+    dt.getUTCMonth() !== m - 1 ||
+    dt.getUTCDate() !== d
+  ) {
+    return null;
+  }
+  return s;
+}
+
+function nullableBool(v: unknown): boolean | null {
+  if (v === true || v === "true") return true;
+  if (v === false || v === "false") return false;
+  return null;
+}
+
+/** Número finito positivo (montos); null si inválido o ≤0. */
+function positiveNum(v: unknown): number | null {
+  const n = Number(v);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+function normalizeLicitacion(raw: unknown): CrmStructureLicitacion | undefined {
+  if (!raw || typeof raw !== "object") return undefined;
+  const r = raw as Record<string, unknown>;
+  const fechaConsultas = ymd(r.fechaConsultas);
+  const fechaVisitaTecnica = ymd(r.fechaVisitaTecnica);
+  const fechaEntrega = ymd(r.fechaEntrega);
+  const inicioServicio = ymd(r.inicioServicio);
+  if (!fechaConsultas && !fechaVisitaTecnica && !fechaEntrega && !inicioServicio) {
+    const visita = nullableBool(r.visitaObligatoria);
+    if (visita === null) return undefined;
+  }
+  // Coherencia blanda: si entrega < consultas, descartar entrega (no inventar).
+  let entrega = fechaEntrega;
+  if (fechaConsultas && entrega && entrega < fechaConsultas) entrega = null;
+  let visita = fechaVisitaTecnica;
+  if (entrega && visita && visita > entrega) {
+    // Visita después de entrega es incoherente en licitaciones típicas.
+    visita = null;
+  }
+  return {
+    fechaConsultas,
+    fechaVisitaTecnica: visita,
+    fechaEntrega: entrega,
+    inicioServicio,
+    visitaObligatoria: nullableBool(r.visitaObligatoria),
+  };
+}
+
+function normalizeCondicionesEconomicas(
+  raw: unknown,
+): CrmStructureCondicionesEconomicas | undefined {
+  if (!raw || typeof raw !== "object") return undefined;
+  const r = raw as Record<string, unknown>;
+
+  const beneficiosExigidos = Array.isArray(r.beneficiosExigidos)
+    ? r.beneficiosExigidos
+        .filter((x): x is string => typeof x === "string" && !!x.trim())
+        .map((x) => x.trim().slice(0, 200))
+        .slice(0, 15)
+    : [];
+
+  const multas = Array.isArray(r.multas)
+    ? r.multas
+        .map((m) => {
+          if (!m || typeof m !== "object") return null;
+          const row = m as Record<string, unknown>;
+          const concepto = str(row.concepto);
+          const montoUf = positiveNum(row.montoUf);
+          if (!concepto || montoUf == null) return null;
+          return { concepto: concepto.slice(0, 200), montoUf };
+        })
+        .filter((x): x is { concepto: string; montoUf: number } => !!x)
+        .slice(0, 20)
+    : [];
+
+  const kpis = Array.isArray(r.kpis)
+    ? r.kpis
+        .map((k) => {
+          if (!k || typeof k !== "object") return null;
+          const row = k as Record<string, unknown>;
+          const indicador = str(row.indicador);
+          const meta = str(row.meta);
+          if (!indicador || !meta) return null;
+          return { indicador: indicador.slice(0, 200), meta: meta.slice(0, 200) };
+        })
+        .filter((x): x is { indicador: string; meta: string } => !!x)
+        .slice(0, 15)
+    : [];
+
+  const reservaRaw = Number(r.reservaPct);
+  const reservaPct =
+    Number.isFinite(reservaRaw) && reservaRaw >= 0 && reservaRaw <= 100
+      ? Math.round(reservaRaw)
+      : null;
+
+  const sueldoBaseMinimo = positiveNum(r.sueldoBaseMinimo);
+  const gratificacionPct = (() => {
+    const n = Number(r.gratificacionPct);
+    return Number.isFinite(n) && n > 0 && n <= 100 ? n : null;
+  })();
+  const movilizacion = positiveNum(r.movilizacion);
+
+  const hasAny =
+    sueldoBaseMinimo != null ||
+    gratificacionPct != null ||
+    movilizacion != null ||
+    nullableBool(r.colacionProvistaPorCliente) != null ||
+    beneficiosExigidos.length > 0 ||
+    multas.length > 0 ||
+    kpis.length > 0 ||
+    reservaPct != null ||
+    r.inadmisibleSiNoCumpleRemuneracion === true;
+
+  if (!hasAny) return undefined;
+
+  return {
+    sueldoBaseMinimo: sueldoBaseMinimo != null ? Math.round(sueldoBaseMinimo) : null,
+    gratificacionPct,
+    movilizacion: movilizacion != null ? Math.round(movilizacion) : null,
+    colacionProvistaPorCliente: nullableBool(r.colacionProvistaPorCliente),
+    beneficiosExigidos,
+    multas,
+    kpis,
+    reservaPct,
+    inadmisibleSiNoCumpleRemuneracion: bool(r.inadmisibleSiNoCumpleRemuneracion),
+  };
 }
 
 function splitName(nombre: string | null): { firstName: string | null; lastName: string | null } {
@@ -205,12 +370,18 @@ export function normalizeCrmStructureProposal(raw: Record<string, unknown>): Crm
   }
 
   const weeklyHours = num(raw.weeklyHoursPerWorker) ?? 42;
+  const licitacion = normalizeLicitacion(raw.licitacion);
+  const condicionesEconomicas = normalizeCondicionesEconomicas(raw.condicionesEconomicas);
   // reservePct en propuesta = porcentaje 0–100; sumStaffing espera fracción 0–1.
+  // Preferir el % de contingencia del pliego si el documento lo declara.
   const reservePctRaw = Number(raw.reservePct);
+  const reserveFromDoc = condicionesEconomicas?.reservaPct;
   const reservePct =
-    Number.isFinite(reservePctRaw) && reservePctRaw >= 0 && reservePctRaw <= 100
-      ? Math.round(reservePctRaw)
-      : 10;
+    reserveFromDoc != null
+      ? reserveFromDoc
+      : Number.isFinite(reservePctRaw) && reservePctRaw >= 0 && reservePctRaw <= 100
+        ? Math.round(reservePctRaw)
+        : 10;
   const installations = (Array.isArray(raw.installations) ? raw.installations : [])
     .map((i) => enrichInstallation(i, weeklyHours))
     .filter((i): i is CrmStructureInstallation => !!i);
@@ -243,7 +414,7 @@ export function normalizeCrmStructureProposal(raw: Record<string, unknown>): Crm
   const totals = sumStaffing(allStaff, weeklyHours, reservePct / 100);
 
   const openQuestions = Array.isArray(raw.openQuestions)
-    ? raw.openQuestions.filter((q): q is string => typeof q === "string" && !!q.trim()).slice(0, 5)
+    ? raw.openQuestions.filter((q): q is string => typeof q === "string" && !!q.trim()).slice(0, 8)
     : [];
   const assumptions = Array.isArray(raw.assumptions)
     ? raw.assumptions.filter((q): q is string => typeof q === "string" && !!q.trim()).slice(0, 5)
@@ -258,6 +429,9 @@ export function normalizeCrmStructureProposal(raw: Record<string, unknown>): Crm
   const locks = Array.isArray(raw.locks)
     ? raw.locks.filter((p): p is string => typeof p === "string" && p.length > 0 && p.length <= 200).slice(0, 100)
     : [];
+
+  const fechaLimiteRaw =
+    ymd(dealRaw.fechaLimite) ?? ymd(raw.fechaLimite) ?? licitacion?.fechaEntrega ?? null;
 
   const proposal: CrmStructureProposal = {
     ...base,
@@ -280,7 +454,7 @@ export function normalizeCrmStructureProposal(raw: Record<string, unknown>): Crm
       isLicitacion: bool(dealRaw.isLicitacion) || bool(raw.esLicitacion),
       mesesContrato: num(dealRaw.mesesContrato) ?? num(raw.mesesContrato),
       notes: str(dealRaw.notes),
-      fechaLimite: str(dealRaw.fechaLimite) ?? str(raw.fechaLimite),
+      fechaLimite: fechaLimiteRaw,
     },
     coverageIsRequirementNotStaffing: bool(raw.coverageIsRequirementNotStaffing),
     weeklyHoursPerWorker: weeklyHours,
@@ -298,6 +472,8 @@ export function normalizeCrmStructureProposal(raw: Record<string, unknown>): Crm
       legalMinimum: totals.legalMinimum,
     },
     requerimiento: str(raw.requerimiento),
+    ...(licitacion ? { licitacion } : {}),
+    ...(condicionesEconomicas ? { condicionesEconomicas } : {}),
   };
   return syncAssumptionArrays(proposal);
 }
@@ -399,14 +575,23 @@ export async function extractCrmStructureFromThread(params: {
     .join("\n\n---\n\n")
     .slice(0, 14000);
 
-  let att: PreparedAttachments = { stagedFiles: [], docText: "", images: [], imageMimes: [], sources: [] };
+  let att: PreparedAttachments = {
+    stagedFiles: [],
+    docText: "",
+    images: [],
+    imageMimes: [],
+    sources: [],
+    pdfsForVision: [],
+  };
   const gmail = account ? gmailClientForAccount(account) : null;
   if (gmail && thread.providerThreadId) {
     att = await prepareThreadAttachments(gmail, thread.providerThreadId, tenantId).catch(() => att);
   }
 
-  // Más contexto de adjuntos: cuadros de cobertura RFI suelen ser densos.
-  const docText = att.docText.slice(0, 24000);
+  // Pliegos / RFI densos: presupuesto unificado (ver document-text-budget).
+  const docText = truncateDocText(att.docText, DOC_TEXT_MAX_TOTAL, {
+    label: "adjuntos del hilo",
+  }).text;
 
   const answersBlock =
     answers.length > 0
@@ -423,32 +608,57 @@ export async function extractCrmStructureFromThread(params: {
 
   let raw: Record<string, unknown>;
   const startedAt = Date.now();
+  const cfg = await aiService.getActiveConfig?.({ tenantId, feature });
+  const providerType = cfg?.providerType ?? "openai";
+  const pdfVisionSupported =
+    providerType === "anthropic" || providerType === "google";
+  const pdfsForVision = att.pdfsForVision ?? [];
+  let usedVisionMode: "images" | "pdf" | "json" = "json";
+
   try {
-    raw = (att.images.length
-      ? await aiService.generateFromImages(
-          att.images,
-          att.imageMimes,
-          prompt,
-          { maxTokens: 4500 },
-          { tenantId, feature },
-        )
-      : await aiService.generateJSON(prompt, 4500, {
-          tenantId,
-          feature,
-        })) as Record<string, unknown>;
-    const cfg = await aiService.getActiveConfig?.({ tenantId, feature });
+    if (pdfsForVision.length > 0 && pdfVisionSupported) {
+      // PDF escaneado / sin capa de texto: visión documental del proveedor.
+      usedVisionMode = "pdf";
+      raw = (await aiService.processDocument(
+        pdfsForVision[0].base64,
+        prompt,
+        4500,
+        { tenantId, feature },
+      )) as Record<string, unknown>;
+    } else if (att.images.length) {
+      usedVisionMode = "images";
+      raw = (await aiService.generateFromImages(
+        att.images,
+        att.imageMimes,
+        prompt,
+        { maxTokens: 4500 },
+        { tenantId, feature },
+      )) as Record<string, unknown>;
+    } else {
+      raw = (await aiService.generateJSON(prompt, 4500, {
+        tenantId,
+        feature,
+      })) as Record<string, unknown>;
+    }
     logAiUsage({
       tenantId,
-      providerType: cfg?.providerType ?? "openai",
-      model: cfg?.modelId ?? (att.images.length ? "vision-default" : "json-default"),
+      providerType,
+      model:
+        cfg?.modelId ??
+        (usedVisionMode === "json" ? "json-default" : "vision-default"),
       feature,
       inputTokens: Math.ceil(prompt.length / 4),
       outputTokens: Math.ceil(JSON.stringify(raw ?? {}).length / 4),
       durationMs: Date.now() - startedAt,
       metadata: {
-        promptVersion: answers.length ? "email-to-crm-structure-refine-v1" : "email-to-crm-structure-v1",
+        promptVersion: answers.length
+          ? "email-to-crm-structure-refine-v2"
+          : "email-to-crm-structure-v2",
         estimated: true,
         refineAnswers: answers.length,
+        visionMode: usedVisionMode,
+        pdfsForVision: pdfsForVision.length,
+        docTextChars: att.docText.length,
       },
     });
   } catch (err) {
@@ -457,6 +667,17 @@ export async function extractCrmStructureFromThread(params: {
   }
 
   let proposal = normalizeCrmStructureProposal(raw);
+
+  // PDF sin texto + proveedor sin visión documental: declarar, no fallar en silencio.
+  if (pdfsForVision.length > 0 && !pdfVisionSupported) {
+    const names = pdfsForVision.map((p) => p.fileName).join(", ");
+    const q =
+      `Hay PDF(s) sin capa de texto (${names}) y el proveedor de IA activo (${providerType}) ` +
+      `no admite visión de documentos; no se pudo leer el pliego escaneado.`;
+    if (!proposal.openQuestions.includes(q)) {
+      proposal.openQuestions = [...proposal.openQuestions, q].slice(0, 8);
+    }
+  }
   if (answers.length > 0) {
     // Marcar supuestos que coinciden con respuestas del usuario.
     const answerText = answers.map((a) => a.answer.toLowerCase()).join(" ");

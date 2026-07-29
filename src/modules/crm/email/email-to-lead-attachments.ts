@@ -1,11 +1,18 @@
 import { uploadFile } from "@/lib/storage";
 import { extractText } from "@/lib/knowledge/extract";
+import {
+  DOC_ATTACHMENT_MAX_BYTES,
+  DOC_TEXT_MAX_PER_FILE,
+  DOC_TEXT_MAX_TOTAL,
+  PDF_TEXT_MIN_CHARS,
+  truncateDocText,
+} from "@/lib/ai/document-text-budget";
 import { listThreadAttachments } from "./gmail-account-client";
 import type { StagedFile } from "./email-to-lead.types";
 import type { gmail_v1 } from "googleapis";
 
 const MAX_ATTACHMENTS = 6;
-const MAX_SIZE = 6 * 1024 * 1024;
+const MAX_SIZE = DOC_ATTACHMENT_MAX_BYTES;
 const VISION_MIME = /^image\/(png|jpe?g)$/;
 const TEXT_MIME = new Set([
   "application/pdf",
@@ -16,12 +23,20 @@ const TEXT_MIME = new Set([
   "text/plain",
 ]);
 
+export type PdfForVision = {
+  base64: string;
+  mimeType: string;
+  fileName: string;
+};
+
 export type PreparedAttachments = {
   stagedFiles: StagedFile[];
   docText: string;
   images: string[];
   imageMimes: string[];
   sources: string[];
+  /** PDFs sin capa de texto útil; el caller puede enviarlos a visión. */
+  pdfsForVision: PdfForVision[];
 };
 
 function fromB64Url(data: string): Buffer {
@@ -34,8 +49,16 @@ export async function prepareThreadAttachments(
   providerThreadId: string,
   tenantId: string,
 ): Promise<PreparedAttachments> {
-  const out: PreparedAttachments = { stagedFiles: [], docText: "", images: [], imageMimes: [], sources: [] };
+  const out: PreparedAttachments = {
+    stagedFiles: [],
+    docText: "",
+    images: [],
+    imageMimes: [],
+    sources: [],
+    pdfsForVision: [],
+  };
   const metas = (await listThreadAttachments(gmail, providerThreadId)).slice(0, MAX_ATTACHMENTS);
+  let remainingBudget = DOC_TEXT_MAX_TOTAL;
 
   for (const meta of metas) {
     if (meta.size > MAX_SIZE) {
@@ -53,7 +76,12 @@ export async function prepareThreadAttachments(
 
       try {
         const up = await uploadFile(buffer, meta.filename, meta.mimeType, "chat-staged", tenantId);
-        out.stagedFiles.push({ storageKey: up.storageKey, fileName: meta.filename, mimeType: meta.mimeType, size: up.size });
+        out.stagedFiles.push({
+          storageKey: up.storageKey,
+          fileName: meta.filename,
+          mimeType: meta.mimeType,
+          size: up.size,
+        });
       } catch (e) {
         console.warn("[email-to-lead] staging falló", meta.filename, e);
       }
@@ -64,8 +92,53 @@ export async function prepareThreadAttachments(
         out.sources.push(`imagen ${meta.filename} (visión)`);
       } else if (TEXT_MIME.has(meta.mimeType)) {
         const text = await extractText(buffer, meta.mimeType).catch(() => "");
-        if (text.trim()) out.docText += `\n\n[Adjunto: ${meta.filename}]\n${text.slice(0, 6000)}`;
-        out.sources.push(`${meta.filename} (texto)`);
+        const trimmed = text.trim();
+        const isPdf = meta.mimeType === "application/pdf";
+
+        if (isPdf && trimmed.length < PDF_TEXT_MIN_CHARS) {
+          out.pdfsForVision.push({
+            base64: buffer.toString("base64"),
+            mimeType: meta.mimeType,
+            fileName: meta.filename,
+          });
+          out.sources.push(
+            `${meta.filename} (sin capa de texto, se usará visión)`,
+          );
+          if (trimmed) {
+            // Conservar lo poco que haya si aún hay presupuesto.
+            const perFile = Math.min(DOC_TEXT_MAX_PER_FILE, remainingBudget);
+            if (perFile > 0) {
+              const { text: sliced, truncated } = truncateDocText(trimmed, perFile, {
+                label: meta.filename,
+              });
+              out.docText += `\n\n[Adjunto: ${meta.filename}]\n${sliced}`;
+              remainingBudget -= Math.min(trimmed.length, perFile);
+              if (truncated) {
+                out.sources.push(`${meta.filename} (texto parcial + visión)`);
+              }
+            }
+          }
+        } else if (trimmed) {
+          const perFile = Math.min(DOC_TEXT_MAX_PER_FILE, remainingBudget);
+          if (perFile <= 0) {
+            out.sources.push(
+              `${meta.filename} (omitido: presupuesto de texto agotado; ${trimmed.length} chars)`,
+            );
+          } else {
+            const { text: sliced, truncated } = truncateDocText(trimmed, perFile, {
+              label: meta.filename,
+            });
+            out.docText += `\n\n[Adjunto: ${meta.filename}]\n${sliced}`;
+            remainingBudget -= Math.min(trimmed.length, perFile);
+            out.sources.push(
+              truncated
+                ? `${meta.filename} (texto truncado: ${trimmed.length} chars)`
+                : `${meta.filename} (texto)`,
+            );
+          }
+        } else {
+          out.sources.push(`${meta.filename} (sin texto extraíble)`);
+        }
       } else {
         out.sources.push(`${meta.filename} (omitido: ${meta.mimeType})`);
       }
