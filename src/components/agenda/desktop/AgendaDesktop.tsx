@@ -117,6 +117,7 @@ export function AgendaDesktop({
     items,
     users,
     sources,
+    multiEnabled,
     colorBySource,
     googleStatus,
     google,
@@ -395,6 +396,7 @@ export function AgendaDesktop({
           visibleDays={visibleDays}
           sources={sources}
           counts={sourceCounts}
+          multiEnabled={multiEnabled}
           onSelectDate={(ymd) => setAnchor(dateAtChileSlot(ymd, 0))}
           onToggleSource={toggleSource}
           onColorChange={handleColorChange}

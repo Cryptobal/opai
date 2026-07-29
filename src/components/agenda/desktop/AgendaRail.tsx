@@ -10,6 +10,7 @@ type Props = {
   visibleDays: Set<string>;
   sources: CalendarSource[];
   counts: Record<string, number>;
+  multiEnabled?: boolean;
   onSelectDate: (ymd: string) => void;
   onToggleSource: (sourceKey: string) => void;
   onColorChange: (sourceKey: string, color: string) => void;
@@ -23,6 +24,7 @@ export function AgendaRail({
   visibleDays,
   sources,
   counts,
+  multiEnabled = false,
   onSelectDate,
   onToggleSource,
   onColorChange,
@@ -45,6 +47,7 @@ export function AgendaRail({
         <AgendaCalendarList
           sources={sources}
           counts={counts}
+          multiEnabled={multiEnabled}
           onToggle={onToggleSource}
           onColorChange={onColorChange}
           onSetCreateTarget={onSetCreateTarget}

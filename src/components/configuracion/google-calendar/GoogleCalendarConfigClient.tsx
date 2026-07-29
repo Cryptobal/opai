@@ -12,8 +12,6 @@ import { paletteFgBg } from "@/lib/design/calendar-palette";
 import { cn } from "@/lib/utils";
 import { CalendarPrefsList } from "./CalendarPrefsList";
 
-const MAX_CALENDAR_ACCOUNTS = 5;
-
 type CalendarAccount = {
   id: string;
   googleEmail: string;
@@ -31,6 +29,11 @@ type Status = {
   prefs: Record<string, boolean>;
   accounts: CalendarAccount[];
   team: GoogleTeamRow[];
+  multiAccount?: {
+    enabled?: boolean;
+    canConnect?: boolean;
+    maxAccounts?: number;
+  };
 };
 
 const CONNECT_HREF = "/api/integrations/google-calendar/oauth/start?return=/opai/configuracion/integraciones/google-calendar";
@@ -94,7 +97,8 @@ export function GoogleCalendarConfigClient() {
 
   const accounts = [...(data?.accounts ?? [])].sort((a, b) => a.sortIndex - b.sortIndex);
   const connected = accounts.length > 0;
-  const atLimit = accounts.length >= MAX_CALENDAR_ACCOUNTS;
+  const canConnect = data?.multiAccount?.canConnect === true;
+  const maxAccounts = data?.multiAccount?.maxAccounts ?? 1;
   const prefs = data?.prefs ?? {};
 
   return (
@@ -117,7 +121,11 @@ export function GoogleCalendarConfigClient() {
               </p>
               <p className="text-[13px] text-ds-text-3">
                 {connected
-                  ? `${accounts.length} de ${MAX_CALENDAR_ACCOUNTS} cuentas conectadas`
+                  ? maxAccounts > 1
+                    ? `${accounts.length} de ${maxAccounts} cuentas conectadas`
+                    : accounts.length === 1
+                      ? accounts[0]!.googleEmail
+                      : `${accounts.length} cuentas conectadas`
                   : "Conectá tu Google Calendar para sync de visitas"}
               </p>
             </div>
@@ -191,18 +199,20 @@ export function GoogleCalendarConfigClient() {
               );
             })}
 
-            {!atLimit && (
-              <Link
-                href={ADD_HREF}
-                className="flex h-10 items-center gap-2 rounded-xl px-2 text-[13px] text-primary ds-tap hover:bg-ds-surface-2"
-              >
-                <Plus className="h-4 w-4 shrink-0" />
-                Conectar otra cuenta
-              </Link>
+            {canConnect && (
+              <>
+                <Link
+                  href={ADD_HREF}
+                  className="flex h-10 items-center gap-2 rounded-xl px-2 text-[13px] text-primary ds-tap hover:bg-ds-surface-2"
+                >
+                  <Plus className="h-4 w-4 shrink-0" />
+                  Conectar otra cuenta
+                </Link>
+                <p className="text-[12px] text-ds-text-4">
+                  Máximo {maxAccounts} cuentas por usuario
+                </p>
+              </>
             )}
-            <p className="text-[12px] text-ds-text-4">
-              Máximo {MAX_CALENDAR_ACCOUNTS} cuentas por usuario
-            </p>
           </div>
         )}
       </Surface>
