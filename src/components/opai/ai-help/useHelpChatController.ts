@@ -19,6 +19,8 @@ import { MAX_VISIBLE_MESSAGES } from "./types";
 import type { VisualBlock, VisualCardItem, VisualSuggestionItem } from "@/lib/ai/help-chat-visual-types";
 import type { PendingConfirmationClient } from "./PendingConfirmCards";
 import { startNavProgress } from "../nav-progress-bus";
+import { pageContextFromCorreoUrl } from "@/lib/ai/help-chat-correo-url-context";
+import type { ChatPageContextValue } from "../ChatPageContextProvider";
 
 const POLISH_KEY = "opai-dictado-pulido";
 const MOTOR_KEY = "opai-dictado-motor";
@@ -106,10 +108,21 @@ export function useHelpChatController(opts: {
   const [serverTxUnavailable, setServerTxUnavailable] = useState(false);
   const fallbackToastShownRef = useRef(false);
 
-  const pageContext = useChatPageContext();
+  const registeredPageContext = useChatPageContext();
   const clearPageContext = useClearChatPageContext();
   const pathname = usePathname();
   const router = useRouter();
+
+  // Fallback: si Correos tiene ?thread=/?hilo= pero el provider aún no
+  // registró el hilo (race / hilo fuera de la página de lista), sintetizar
+  // contexto mínimo al leer la URL. El registro reactivo de CorreosClient
+  // manda cuando está disponible.
+  const pageContext = useMemo<ChatPageContextValue | null>(() => {
+    if (registeredPageContext) return registeredPageContext;
+    if (typeof window === "undefined") return null;
+    return pageContextFromCorreoUrl(pathname, window.location.search);
+  }, [registeredPageContext, pathname]);
+
   const quickStarters = useMemo(
     () => getQuickStarters(pageContext, pathname),
     [pageContext, pathname],
@@ -440,7 +453,15 @@ export function useHelpChatController(opts: {
           body: JSON.stringify({
             message: text,
             conversationId: activeConversationId ?? undefined,
-            pageContext: pageContext ?? undefined,
+            // Releer URL al enviar: pushState de Correos puede haber abierto
+            // un hilo después del último render del memo.
+            pageContext:
+              (pageContext ??
+                pageContextFromCorreoUrl(
+                  pathname,
+                  typeof window !== "undefined" ? window.location.search : "",
+                )) ??
+              undefined,
             pathname: pathname ?? undefined,
             attachments: attachmentRefs.length > 0 ? attachmentRefs : undefined,
           }),

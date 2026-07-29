@@ -19,6 +19,52 @@ export function resolveEmailThreadId(
   return "";
 }
 
+export type MailboxAccountForThread = {
+  id: string;
+  email: string;
+  accessTokenEncrypted: string | null;
+  refreshTokenEncrypted: string | null;
+  sendAs: unknown;
+  threadSubject: string | null;
+};
+
+/**
+ * Resuelve la casilla Gmail del usuario que posee el hilo.
+ * Evita el bug de `findFirst` sobre cuentas: con varias casillas, la primera
+ * activa no necesariamente es la dueña del threadId y getCorreoDetail devolvía null.
+ */
+export async function resolveMailboxAccountForThread(params: {
+  tenantId: string;
+  userId: string;
+  threadId: string;
+}): Promise<MailboxAccountForThread | null> {
+  const { prisma } = await import("@/lib/prisma");
+  const thread = await prisma.crmEmailThread.findFirst({
+    where: { id: params.threadId, tenantId: params.tenantId },
+    select: { emailAccountId: true, subject: true },
+  });
+  if (!thread?.emailAccountId) return null;
+
+  const account = await prisma.crmEmailAccount.findFirst({
+    where: {
+      id: thread.emailAccountId,
+      tenantId: params.tenantId,
+      userId: params.userId,
+      provider: "gmail",
+      status: "active",
+    },
+    select: {
+      id: true,
+      email: true,
+      accessTokenEncrypted: true,
+      refreshTokenEncrypted: true,
+      sendAs: true,
+    },
+  });
+  if (!account) return null;
+  return { ...account, threadSubject: thread.subject ?? null };
+}
+
 /** HTML → texto plano acotado para inyección al LLM (contenido untrusted). */
 export function stripHtmlForAi(html: string): string {
   return html
@@ -167,8 +213,6 @@ export async function buildEmailThreadAiContext(params: {
     const { getCorreoDetail } = await import("@/modules/crm/email/correos-detail");
     const { getSendAsAliases } = await import("@/modules/crm/email/gmail-sendas");
 
-    let emailAccountId = params.emailAccountId;
-    let accountEmail = "";
     let accountRow: {
       id: string;
       email: string;
@@ -177,10 +221,10 @@ export async function buildEmailThreadAiContext(params: {
       sendAs: unknown;
     } | null = null;
 
-    if (emailAccountId) {
+    if (params.emailAccountId) {
       accountRow = await prisma.crmEmailAccount.findFirst({
         where: {
-          id: emailAccountId,
+          id: params.emailAccountId,
           tenantId: params.tenantId,
           userId: params.userId,
           provider: "gmail",
@@ -195,25 +239,24 @@ export async function buildEmailThreadAiContext(params: {
         },
       });
     } else {
-      accountRow = await prisma.crmEmailAccount.findFirst({
-        where: {
-          tenantId: params.tenantId,
-          userId: params.userId,
-          provider: "gmail",
-          status: "active",
-        },
-        select: {
-          id: true,
-          email: true,
-          accessTokenEncrypted: true,
-          refreshTokenEncrypted: true,
-          sendAs: true,
-        },
+      const resolved = await resolveMailboxAccountForThread({
+        tenantId: params.tenantId,
+        userId: params.userId,
+        threadId: params.threadId,
       });
+      if (resolved) {
+        accountRow = {
+          id: resolved.id,
+          email: resolved.email,
+          accessTokenEncrypted: resolved.accessTokenEncrypted,
+          refreshTokenEncrypted: resolved.refreshTokenEncrypted,
+          sendAs: resolved.sendAs,
+        };
+      }
     }
     if (!accountRow) return null;
-    emailAccountId = accountRow.id;
-    accountEmail = accountRow.email;
+    const emailAccountId = accountRow.id;
+    const accountEmail = accountRow.email;
 
     const detail = await getCorreoDetail({
       tenantId: params.tenantId,

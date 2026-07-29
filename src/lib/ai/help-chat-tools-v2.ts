@@ -4196,11 +4196,14 @@ async function toolCreateLeadFromEmail(
   if (!threadId) {
     return { ok: false, error: "Necesito el threadId del correo (abrilo en la bandeja Correos)." };
   }
-  const account = await prisma.crmEmailAccount.findFirst({
-    where: { tenantId, userId, provider: "gmail", status: "active" },
-    select: { id: true },
-  });
-  if (!account) return { ok: false, error: "No tenés Gmail conectado para leer el correo." };
+  const { resolveMailboxAccountForThread } = await import("@/lib/ai/help-chat-email-context");
+  const account = await resolveMailboxAccountForThread({ tenantId, userId, threadId });
+  if (!account) {
+    return {
+      ok: false,
+      error: "No encontré ese hilo en tus casillas Gmail activas (¿está abierto otro usuario o casilla?).",
+    };
+  }
   try {
     const { extractLeadFromThread } = await import("@/modules/crm/email/email-to-lead.service");
     const result = await extractLeadFromThread({ tenantId, emailAccountId: account.id, threadId });
@@ -4264,11 +4267,14 @@ async function toolCreateCrmFromEmail(
   if (!threadId) {
     return { ok: false, error: "Necesito el threadId del correo (abrilo en la bandeja Correos)." };
   }
-  const account = await prisma.crmEmailAccount.findFirst({
-    where: { tenantId, userId, provider: "gmail", status: "active" },
-    select: { id: true },
-  });
-  if (!account) return { ok: false, error: "No tenés Gmail conectado para leer el correo." };
+  const { resolveMailboxAccountForThread } = await import("@/lib/ai/help-chat-email-context");
+  const account = await resolveMailboxAccountForThread({ tenantId, userId, threadId });
+  if (!account) {
+    return {
+      ok: false,
+      error: "No encontré ese hilo en tus casillas Gmail activas (¿está abierto otro usuario o casilla?).",
+    };
+  }
 
   try {
     const { extractCrmStructureFromThread, buildCoverageTable, coerceCrmStructureProposal } =
@@ -7917,22 +7923,20 @@ async function toolGetEmailThread(
     };
   }
   const maxMessages = Math.min(Math.max(Number(args.maxMessages) || 8, 1), 20);
-  const account = await prisma.crmEmailAccount.findFirst({
-    where: { tenantId, userId, provider: "gmail", status: "active" },
-    select: {
-      id: true,
-      email: true,
-      accessTokenEncrypted: true,
-      refreshTokenEncrypted: true,
-      sendAs: true,
-    },
-  });
-  if (!account) return { ok: false, error: "No tenés Gmail conectado para leer el correo." };
+  const { resolveMailboxAccountForThread, resolveOwnAndCounterparty } = await import(
+    "@/lib/ai/help-chat-email-context"
+  );
+  const account = await resolveMailboxAccountForThread({ tenantId, userId, threadId });
+  if (!account) {
+    return {
+      ok: false,
+      error: "No encontré ese hilo en tus casillas Gmail activas (¿está abierto otro usuario o casilla?).",
+    };
+  }
 
   const { getCorreoDetail } = await import("@/modules/crm/email/correos-detail");
   const { parseAddressName } = await import("@/modules/crm/email/email-recipients");
   const { extractEmailAddresses } = await import("@/lib/email-address");
-  const { resolveOwnAndCounterparty } = await import("@/lib/ai/help-chat-email-context");
   const detail = await getCorreoDetail({
     tenantId,
     emailAccountId: account.id,
@@ -8017,11 +8021,14 @@ async function toolSummarizeEmailThread(
     };
   }
   const mode = args.mode === "since-read" ? "since-read" : "full";
-  const account = await prisma.crmEmailAccount.findFirst({
-    where: { tenantId, userId, provider: "gmail", status: "active" },
-    select: { id: true },
-  });
-  if (!account) return { ok: false, error: "No tenés Gmail conectado para leer el correo." };
+  const { resolveMailboxAccountForThread } = await import("@/lib/ai/help-chat-email-context");
+  const account = await resolveMailboxAccountForThread({ tenantId, userId, threadId });
+  if (!account) {
+    return {
+      ok: false,
+      error: "No encontré ese hilo en tus casillas Gmail activas (¿está abierto otro usuario o casilla?).",
+    };
+  }
 
   const { summarizeThread } = await import("@/modules/crm/email/email-summary.service");
   const result = await summarizeThread({
@@ -8057,15 +8064,14 @@ async function toolReadEmailAttachments(
       error: "No hay correo en contexto. Pedile al usuario que abra el hilo en Correos o pase threadId.",
     };
   }
-  const account = await prisma.crmEmailAccount.findFirst({
-    where: { tenantId, userId, provider: "gmail", status: "active" },
-    select: {
-      id: true,
-      accessTokenEncrypted: true,
-      refreshTokenEncrypted: true,
-    },
-  });
-  if (!account) return { ok: false, error: "No tenés Gmail conectado para leer el correo." };
+  const { resolveMailboxAccountForThread } = await import("@/lib/ai/help-chat-email-context");
+  const account = await resolveMailboxAccountForThread({ tenantId, userId, threadId });
+  if (!account) {
+    return {
+      ok: false,
+      error: "No encontré ese hilo en tus casillas Gmail activas (¿está abierto otro usuario o casilla?).",
+    };
+  }
 
   const thread = await prisma.crmEmailThread.findFirst({
     where: { id: threadId, tenantId, emailAccountId: account.id },
