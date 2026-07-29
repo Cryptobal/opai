@@ -2,8 +2,7 @@
  * Identidad visual de casillas Gmail (correo multicuenta v1).
  *
  * `color` almacena la clave del tint DS (`teal`, `violet`, …), nunca un hex.
- * Solo los 6 tints existentes en globals.css están disponibles; los otros 6
- * quedan declarados para el Brief B (calendario / paleta completa).
+ * Paleta completa de 12 tints (Brief B — calendar-palette).
  */
 
 export const MAILBOX_COLOR_KEYS = [
@@ -23,7 +22,7 @@ export const MAILBOX_COLOR_KEYS = [
 
 export type MailboxColorKey = (typeof MAILBOX_COLOR_KEYS)[number];
 
-/** Tints con tokens reales en el DS hoy. El resto: `disponible: false`. */
+/** Los 12 tints del DS (ver `src/lib/design/calendar-palette.ts`). */
 export const MAILBOX_PALETTE: ReadonlyArray<{
   key: MailboxColorKey;
   disponible: boolean;
@@ -34,12 +33,12 @@ export const MAILBOX_PALETTE: ReadonlyArray<{
   { key: "amber", disponible: true },
   { key: "emerald", disponible: true },
   { key: "sky", disponible: true },
-  { key: "indigo", disponible: false },
-  { key: "cyan", disponible: false },
-  { key: "lime", disponible: false },
-  { key: "orange", disponible: false },
-  { key: "fuchsia", disponible: false },
-  { key: "slate", disponible: false },
+  { key: "indigo", disponible: true },
+  { key: "cyan", disponible: true },
+  { key: "lime", disponible: true },
+  { key: "orange", disponible: true },
+  { key: "fuchsia", disponible: true },
+  { key: "slate", disponible: true },
 ];
 
 export const AVAILABLE_MAILBOX_COLORS = MAILBOX_PALETTE.filter((c) => c.disponible).map(

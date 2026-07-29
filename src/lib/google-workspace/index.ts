@@ -7,7 +7,13 @@ export {
   getCalendarOAuthClient,
 } from "./oauth";
 export { encryptToken, decryptToken, withFreshToken } from "./tokens";
-export { getDriveClientForTenant, getCalendarClientForUser } from "./clients";
+export {
+  getDriveClientForTenant,
+  getCalendarClientForUser,
+  getCalendarClientForAccount,
+  listCalendarAccounts,
+  pickDefaultAccount,
+} from "./clients";
 export {
   trimEnv,
   tokenSecret,

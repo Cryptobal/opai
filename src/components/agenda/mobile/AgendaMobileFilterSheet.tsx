@@ -1,11 +1,14 @@
 "use client";
 
-import { FilterGroup } from "../FilterGroup";
+import { paletteFgBg } from "@/lib/design/calendar-palette";
+import { cn } from "@/lib/utils";
 import type {
   AgendaContentFilter,
   AgendaTeamMember,
   AgendaTypeFilter,
 } from "../agenda-calendar.types";
+import type { CalendarSource } from "../desktop/AgendaCalendarList";
+import { FilterGroup } from "../FilterGroup";
 
 const CONTENT_OPTIONS = [
   { id: "todo", label: "Todo" },
@@ -28,9 +31,11 @@ type Props = {
   typeFilter: AgendaTypeFilter;
   assignedUserId: string;
   users: AgendaTeamMember[];
+  sources: CalendarSource[];
   onContentFilterChange: (value: AgendaContentFilter) => void;
   onTypeFilterChange: (value: AgendaTypeFilter) => void;
   onAssignedUserChange: (id: string) => void;
+  onToggleSource: (sourceKey: string) => void;
   onClose: () => void;
 };
 
@@ -41,9 +46,11 @@ export function AgendaMobileFilterSheet({
   typeFilter,
   assignedUserId,
   users,
+  sources,
   onContentFilterChange,
   onTypeFilterChange,
   onAssignedUserChange,
+  onToggleSource,
   onClose,
 }: Props) {
   if (!open) return null;
@@ -77,6 +84,39 @@ export function AgendaMobileFilterSheet({
           value={assignedUserId}
           onChange={onAssignedUserChange}
         />
+        <div className="my-3 border-t border-ds-border-subtle" />
+        <p className="mb-2 text-[12px] font-medium uppercase tracking-wide text-ds-text-4">
+          Calendarios
+        </p>
+        <div className="space-y-1">
+          {sources.map((source) => {
+            const active = !source.hidden;
+            return (
+              <button
+                key={source.sourceKey}
+                type="button"
+                onClick={() => onToggleSource(source.sourceKey)}
+                aria-pressed={active}
+                className="flex h-10 w-full items-center gap-2 rounded-xl px-2 text-left text-[13px] ds-tap hover:bg-ds-surface-2"
+              >
+                <span
+                  className={cn(
+                    "h-3.5 w-3.5 shrink-0 rounded",
+                    active ? paletteFgBg(source.color) : "border border-ds-border-default",
+                  )}
+                />
+                <span
+                  className={cn(
+                    "min-w-0 flex-1 truncate",
+                    active ? "text-ds-text-2" : "text-ds-text-4 line-through",
+                  )}
+                >
+                  {source.name}
+                </span>
+              </button>
+            );
+          })}
+        </div>
         <button
           type="button"
           onClick={onClose}

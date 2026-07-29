@@ -10,6 +10,9 @@ import {
   CALENDAR_SCOPES,
   safeCalendarReturnPath,
 } from "@/lib/google-workspace";
+import { nextPaletteColor } from "@/lib/design/calendar-palette";
+
+const MAX_CALENDAR_ACCOUNTS = 5;
 
 const DEFAULT_PREFS = {
   inviteContacts: true,
@@ -76,32 +79,56 @@ export async function GET(request: NextRequest) {
     }
 
     step = "db";
-    await prisma.googleCalendarAccount.upsert({
+    // Upsert por (tenant, user, googleEmail): reconectar conserva id; segunda cuenta no pisa.
+    const existing = await prisma.googleCalendarAccount.findUnique({
       where: {
-        tenantId_userId: {
+        tenantId_userId_googleEmail: {
           tenantId: decoded.tenantId,
           userId: session.user.id,
+          googleEmail,
         },
       },
-      create: {
-        tenantId: decoded.tenantId,
-        userId: session.user.id,
-        googleEmail,
-        accessTokenEnc: encryptToken(tokens.access_token),
-        refreshTokenEnc: encryptToken(tokens.refresh_token),
-        tokenExpiresAt: tokens.expiry_date ? new Date(tokens.expiry_date) : null,
-        calendarId: "primary",
-        prefs: DEFAULT_PREFS,
-        status: "ACTIVE",
-      },
-      update: {
-        googleEmail,
-        accessTokenEnc: encryptToken(tokens.access_token),
-        refreshTokenEnc: encryptToken(tokens.refresh_token),
-        tokenExpiresAt: tokens.expiry_date ? new Date(tokens.expiry_date) : null,
-        status: "ACTIVE",
-      },
     });
+    if (existing) {
+      await prisma.googleCalendarAccount.update({
+        where: { id: existing.id },
+        data: {
+          accessTokenEnc: encryptToken(tokens.access_token),
+          refreshTokenEnc: encryptToken(tokens.refresh_token),
+          tokenExpiresAt: tokens.expiry_date ? new Date(tokens.expiry_date) : null,
+          status: "ACTIVE",
+        },
+      });
+    } else {
+      const siblings = await prisma.googleCalendarAccount.findMany({
+        where: {
+          tenantId: decoded.tenantId,
+          userId: session.user.id,
+          status: "ACTIVE",
+        },
+        select: { color: true, sortIndex: true },
+      });
+      if (siblings.length >= MAX_CALENDAR_ACCOUNTS) {
+        return NextResponse.redirect(withCal("limit_reached"));
+      }
+      const maxSort = siblings.reduce((m, s) => Math.max(m, s.sortIndex), -1);
+      await prisma.googleCalendarAccount.create({
+        data: {
+          tenantId: decoded.tenantId,
+          userId: session.user.id,
+          googleEmail,
+          accessTokenEnc: encryptToken(tokens.access_token),
+          refreshTokenEnc: encryptToken(tokens.refresh_token),
+          tokenExpiresAt: tokens.expiry_date ? new Date(tokens.expiry_date) : null,
+          calendarId: "primary",
+          prefs: DEFAULT_PREFS,
+          status: "ACTIVE",
+          isDefault: siblings.length === 0,
+          color: nextPaletteColor(siblings.map((s) => s.color)),
+          sortIndex: maxSort + 1,
+        },
+      });
+    }
 
     // Registrar push channel (best-effort; cron renueva).
     void fetch(`${origin}/api/cron/calendar-channel-renew`, {
@@ -114,6 +141,12 @@ export async function GET(request: NextRequest) {
         retryPendingAgendaLinks({ tenantId: decoded.tenantId, actorUserId: session.user.id }),
       )
       .catch((err) => console.warn("[calendar] retry post-oauth:", err));
+
+    void import("@/modules/calendar/calendar-retry-pending")
+      .then(({ retryPendingCalendarV2Links }) =>
+        retryPendingCalendarV2Links(decoded.tenantId, session.user.id),
+      )
+      .catch((err) => console.warn("[calendar-v2] retry post-oauth:", err));
 
     return NextResponse.redirect(withCal("connected"));
   } catch (err) {

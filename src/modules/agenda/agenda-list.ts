@@ -3,6 +3,7 @@ import { todayInChile, utcDateFromYmd, ymdInChile } from "@/lib/dates-cl";
 import { expandLicitacionAgendaItems } from "./agenda-list-licitacion";
 import { listAgendaTasks } from "./agenda-tasks";
 import type { AgendaListItem, LicitacionListItem } from "./agenda.types";
+import { opaiSourceKey } from "@/modules/calendar/calendar-sources";
 
 function daysBetweenYmd(fromYmd: string, toYmd: string): number {
   const ms = utcDateFromYmd(toYmd).getTime() - utcDateFromYmd(fromYmd).getTime();
@@ -91,6 +92,7 @@ export async function listAgenda(
       syncStatus: syncMap.get(`agenda_visita:${v.id}`) ?? "PENDING",
       dealId: v.dealId,
       status: v.status,
+      sourceKey: opaiSourceKey("cliente"),
     });
   }
 
@@ -113,6 +115,7 @@ export async function listAgenda(
       syncStatus: syncMap.get(`visita_tecnica:${v.id}`) ?? null,
       dealId: v.dealId,
       status: v.status,
+      sourceKey: opaiSourceKey("tecnica"),
     });
   }
 

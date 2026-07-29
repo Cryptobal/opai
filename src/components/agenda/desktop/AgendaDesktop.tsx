@@ -36,13 +36,12 @@ import { AgendaQuickCreate, type QuickCreateState } from "./AgendaQuickCreate";
 import { AgendaRail } from "./AgendaRail";
 import { AgendaTaskDetail } from "./AgendaTaskDetail";
 import {
-  agendaSourceKey,
   DEFAULT_AGENDA_PREFS,
+  itemSourceKey,
   readDesktopPrefs,
   toGridPrefs,
   writeDesktopPrefs,
   type AgendaDesktopPrefs,
-  type AgendaSourceKey,
 } from "./agenda-desktop-prefs";
 import { useAgendaDesktopData } from "./useAgendaDesktopData";
 import { useAgendaShortcuts } from "./useAgendaShortcuts";
@@ -100,7 +99,6 @@ export function AgendaDesktop({
 
   const view = prefs.view;
   const railCollapsed = prefs.railCollapsed;
-  const hiddenSources = prefs.hiddenSources;
 
   const range = useMemo(
     () =>
@@ -115,8 +113,19 @@ export function AgendaDesktop({
     [range.days, view, prefs.showWeekends],
   );
 
-  const { items, users, googleStatus, google, initialLoading, refreshing, load, persistSchedule } =
-    useAgendaDesktopData(range);
+  const {
+    items,
+    users,
+    sources,
+    colorBySource,
+    googleStatus,
+    google,
+    initialLoading,
+    refreshing,
+    load,
+    patchSource,
+    persistSchedule,
+  } = useAgendaDesktopData(range);
 
   const prefsMounted = useRef(false);
   useEffect(() => {
@@ -129,11 +138,7 @@ export function AgendaDesktop({
   }, [prefs]);
 
   const updatePrefs = useCallback((next: AgendaDesktopPrefs) => {
-    // showTasks ↔ toggle "tareas" del rail: una sola verdad.
-    const hidden = new Set(next.hiddenSources);
-    if (next.showTasks) hidden.delete("tareas");
-    else hidden.add("tareas");
-    setPrefs({ ...next, hiddenSources: [...hidden] });
+    setPrefs(next);
   }, []);
 
   const setView = useCallback((next: AgendaViewMode) => {
@@ -148,16 +153,9 @@ export function AgendaDesktop({
     }));
   }, []);
 
-  const setHiddenSources = useCallback(
-    (updater: AgendaSourceKey[] | ((c: AgendaSourceKey[]) => AgendaSourceKey[])) => {
-      setPrefs((current) => {
-        const nextHidden =
-          typeof updater === "function" ? updater(current.hiddenSources) : updater;
-        const showTasks = !nextHidden.includes("tareas");
-        return { ...current, hiddenSources: nextHidden, showTasks };
-      });
-    },
-    [],
+  const hiddenSourceKeys = useMemo(
+    () => new Set(sources.filter((s) => s.hidden).map((s) => s.sourceKey)),
+    [sources],
   );
 
   const ctx = useMemo(
@@ -235,9 +233,8 @@ export function AgendaDesktop({
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    const hidden = new Set(hiddenSources);
     return items.filter((item) => {
-      if (hidden.has(agendaSourceKey(item))) return false;
+      if (hiddenSourceKeys.has(itemSourceKey(item))) return false;
       const isTask = item.source === "tarea";
       if (contentFilter === "tareas" && !isTask) return false;
       if (contentFilter === "reuniones" && isTask) return false;
@@ -263,7 +260,7 @@ export function AgendaDesktop({
         .toLowerCase();
       return haystack.includes(q);
     });
-  }, [items, hiddenSources, contentFilter, typeFilter, assignedUserIds, query]);
+  }, [items, hiddenSourceKeys, contentFilter, typeFilter, assignedUserIds, query]);
 
   const handleSelect = useCallback((item: AgendaCalendarItem) => {
     if (item.source === "tarea") {
@@ -281,19 +278,36 @@ export function AgendaDesktop({
   );
 
   const sourceCounts = useMemo(() => {
-    const counts: Partial<Record<AgendaSourceKey, number>> = {};
+    const counts: Record<string, number> = {};
     for (const item of items) {
-      const key = agendaSourceKey(item);
+      const key = itemSourceKey(item);
       counts[key] = (counts[key] ?? 0) + 1;
     }
     return counts;
   }, [items]);
 
-  const toggleSource = useCallback((key: AgendaSourceKey) => {
-    setHiddenSources((current) =>
-      current.includes(key) ? current.filter((k) => k !== key) : [...current, key],
-    );
-  }, [setHiddenSources]);
+  const toggleSource = useCallback(
+    (sourceKey: string) => {
+      const source = sources.find((s) => s.sourceKey === sourceKey);
+      if (!source) return;
+      void patchSource(sourceKey, { hidden: !source.hidden });
+    },
+    [sources, patchSource],
+  );
+
+  const handleColorChange = useCallback(
+    (sourceKey: string, color: string) => {
+      void patchSource(sourceKey, { color });
+    },
+    [patchSource],
+  );
+
+  const handleSetCreateTarget = useCallback(
+    (sourceKey: string) => {
+      void patchSource(sourceKey, { isCreateTarget: true });
+    },
+    [patchSource],
+  );
 
   useAgendaShortcuts({
     onCreate: useCallback(() => setQuickCreate({ mode: "evento", origin: null }), []),
@@ -379,11 +393,12 @@ export function AgendaDesktop({
           collapsed={railCollapsed}
           anchor={anchor}
           visibleDays={visibleDays}
-          hiddenSources={hiddenSources}
+          sources={sources}
           counts={sourceCounts}
-          google={google}
           onSelectDate={(ymd) => setAnchor(dateAtChileSlot(ymd, 0))}
           onToggleSource={toggleSource}
+          onColorChange={handleColorChange}
+          onSetCreateTarget={handleSetCreateTarget}
         />
         <div className="min-w-0 flex-1">
           {initialLoading ? (
@@ -399,6 +414,7 @@ export function AgendaDesktop({
               selectedKey={selectedKey}
               usersById={usersById}
               gridPrefs={gridPrefs}
+              colorBySource={colorBySource}
               onSelect={handleSelect}
               onMove={(item, schedule) => void persistSchedule(item, schedule)}
               onResize={(item, schedule) => void persistSchedule(item, schedule)}

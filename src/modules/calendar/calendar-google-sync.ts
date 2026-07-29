@@ -6,11 +6,19 @@
  *   convierte en copia cuando conecte (retryPendingCalendarV2Links);
  * - lectura de responseStatus de attendees de vuelta a participantes/externos.
  * Idempotencia por @@unique([eventId, provider, providerAccountId]).
+ *
+ * Multicuentas: si ya existe un link organizer con providerEventId, se actualiza
+ * SIEMPRE en esa cuenta. Nunca se recrea en otra aunque cambie el default.
  */
 import { prisma } from "@/lib/prisma";
-import { getCalendarClientForUser } from "@/lib/google-workspace/clients";
+import {
+  getCalendarClientForAccount,
+  getCalendarClientForUser,
+  pickDefaultAccount,
+} from "@/lib/google-workspace/clients";
 import { buildCalendarEventGooglePayload, pendingAccountKey } from "./calendar-google-payload";
 import { applyAttendeeResponses } from "./calendar-rsvp-readback";
+import { resolveCreateTarget } from "./calendar-sources";
 
 /**
  * Clasifica un fallo de push a Google para decidir el estado del link sin
@@ -63,6 +71,31 @@ export function classifyGoogleSyncError(err: unknown): "ERROR" | "PENDING" {
   return "PENDING";
 }
 
+/** Mapa userId → cuenta default (isDefault o más antigua). Determinista. */
+function buildAccountByUserMap<
+  T extends {
+    id: string;
+    userId: string;
+    googleEmail: string;
+    isDefault: boolean;
+    createdAt: Date;
+    sortIndex: number;
+  },
+>(accounts: T[]): Map<string, T> {
+  const byUser = new Map<string, T[]>();
+  for (const a of accounts) {
+    const list = byUser.get(a.userId) ?? [];
+    list.push(a);
+    byUser.set(a.userId, list);
+  }
+  const result = new Map<string, T>();
+  for (const [userId, list] of byUser) {
+    const picked = pickDefaultAccount(list, userId);
+    if (picked) result.set(userId, picked);
+  }
+  return result;
+}
+
 export async function syncCalendarEventToGoogle(
   tenantId: string,
   eventId: string,
@@ -81,9 +114,16 @@ export async function syncCalendarEventToGoogle(
   const internalIds = event.participants.map((p) => p.userId);
   const accounts = await prisma.googleCalendarAccount.findMany({
     where: { tenantId, userId: { in: internalIds }, status: "ACTIVE" },
-    select: { id: true, userId: true, googleEmail: true },
+    select: {
+      id: true,
+      userId: true,
+      googleEmail: true,
+      isDefault: true,
+      createdAt: true,
+      sortIndex: true,
+    },
   });
-  const accountByUser = new Map(accounts.map((a) => [a.userId, a]));
+  const accountByUser = buildAccountByUserMap(accounts);
 
   // Internos sin Google → link PENDING attendee_copy (se materializa al conectar).
   for (const p of event.participants) {
@@ -109,9 +149,54 @@ export async function syncCalendarEventToGoogle(
     });
   }
 
-  const client = await getCalendarClientForUser(tenantId, organizer.userId);
-  if (!client) return { syncStatus: "PENDING" };
-  const { calendar, accountId, calendarId } = client;
+  // Resolver por vínculo existente (no por cuenta default vigente).
+  const existingLink = await prisma.calendarProviderLink.findFirst({
+    where: {
+      tenantId,
+      eventId: event.id,
+      provider: "google",
+      role: "organizer",
+      syncStatus: { notIn: ["CANCELLED"] },
+      providerEventId: { not: null },
+    },
+  });
+
+  let accountId: string;
+  let calendarId: string;
+  let calendar: NonNullable<Awaited<ReturnType<typeof getCalendarClientForUser>>>["calendar"];
+
+  if (existingLink) {
+    const client = await getCalendarClientForAccount(
+      tenantId,
+      existingLink.providerAccountId,
+    );
+    if (!client) {
+      await prisma.calendarProviderLink.update({
+        where: { id: existingLink.id },
+        data: {
+          syncStatus: "ERROR",
+          lastError: "Cuenta de Google Calendar del vínculo no está ACTIVE",
+          lastSyncAt: new Date(),
+        },
+      });
+      return { syncStatus: "ERROR" };
+    }
+    accountId = client.accountId;
+    calendarId = existingLink.providerCalendarId || client.calendarId;
+    calendar = client.calendar;
+  } else {
+    const target = await resolveCreateTarget({
+      tenantId,
+      userId: organizer.userId,
+    });
+    const client = target
+      ? await getCalendarClientForAccount(tenantId, target.accountId)
+      : await getCalendarClientForUser(tenantId, organizer.userId);
+    if (!client) return { syncStatus: "PENDING" };
+    accountId = client.accountId;
+    calendarId = target?.calendarId ?? client.calendarId;
+    calendar = client.calendar;
+  }
 
   const linkKey = {
     eventId_provider_providerAccountId: {
@@ -120,7 +205,9 @@ export async function syncCalendarEventToGoogle(
       providerAccountId: accountId,
     },
   };
-  const link = await prisma.calendarProviderLink.findUnique({ where: linkKey });
+  const link =
+    existingLink ??
+    (await prisma.calendarProviderLink.findUnique({ where: linkKey }));
 
   try {
     if (event.status === "cancelled" || event.deletedAt) {
@@ -140,10 +227,13 @@ export async function syncCalendarEventToGoogle(
       return { syncStatus: "CANCELLED" };
     }
 
+    // Attendees: googleEmail de la cuenta default del participante (mapa determinista).
+    // Internos sin Google → attendee_copy (no van como attendees nativos).
     const attendeeEmails = event.participants
       .filter((p) => p.userId !== organizer.userId)
       .map((p) => accountByUser.get(p.userId)?.googleEmail)
       .filter((e): e is string => Boolean(e));
+
     const body = buildCalendarEventGooglePayload(event, attendeeEmails);
     const sendUpdates = body.attendees?.length ? "all" : "none";
 

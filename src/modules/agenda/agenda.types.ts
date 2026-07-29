@@ -35,6 +35,11 @@ export type AgendaListItem = {
   calendarName?: string | null;
   /** googleEventId crudo (sin prefijo de calendarId) para dedupe. */
   googleEventId?: string | null;
+  /**
+   * Clave estable de fuente para color/filtro:
+   * `opai:cliente|tecnica|tareas|licitaciones` o `google:{accountId}:{calendarId}`.
+   */
+  sourceKey?: string;
   /** Sólo tareas: deep-link al origen (correo / negocio / cuenta). */
   href?: string | null;
   /** Sólo tareas: usuario que creó la tarea (ownership para eliminar). */

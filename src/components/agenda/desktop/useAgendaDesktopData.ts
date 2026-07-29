@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import type { AgendaListItem } from "@/modules/agenda/agenda.types";
 import type {
@@ -9,6 +9,18 @@ import type {
   AgendaTeamMember,
 } from "../agenda-calendar.types";
 import { formatAgendaTime, type CalendarRange } from "../agenda-calendar-utils";
+import { consumeLegacyHiddenSources } from "./agenda-desktop-prefs";
+import type { CalendarSource } from "./AgendaCalendarList";
+
+export type CalendarAccount = {
+  id: string;
+  googleEmail: string;
+  isDefault: boolean;
+  color: string | null;
+  calendarId: string;
+  status: string;
+  sortIndex: number;
+};
 
 export type GoogleAccountStatus = {
   connected: boolean;
@@ -40,6 +52,7 @@ function normalizeItem(item: AgendaListItem): AgendaCalendarItem {
     calendarName: item.calendarName,
     href: item.href,
     createdBy: item.createdBy,
+    sourceKey: item.sourceKey,
   };
 }
 
@@ -48,15 +61,43 @@ function scheduleLabel(schedule: AgendaSchedule): string {
   return `${formatAgendaTime(schedule.start)}–${formatAgendaTime(schedule.end)}`;
 }
 
-/** Datos + persistencia de la agenda desktop (items por rango, equipo, Google). */
+/** Datos + persistencia de la agenda desktop (items por rango, fuentes, Google). */
 export function useAgendaDesktopData(range: CalendarRange) {
   const [items, setItems] = useState<AgendaCalendarItem[]>([]);
   const [users, setUsers] = useState<AgendaTeamMember[]>([]);
+  const [sources, setSources] = useState<CalendarSource[]>([]);
+  const [accounts, setAccounts] = useState<CalendarAccount[]>([]);
   const [googleStatus, setGoogleStatus] = useState<string | null>(null);
   const [google, setGoogle] = useState<GoogleAccountStatus | null>(null);
   const [initialLoading, setInitialLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const hasLoadedOnce = useRef(false);
+  const legacySeeded = useRef(false);
+
+  const colorBySource = useMemo(
+    () => Object.fromEntries(sources.map((s) => [s.sourceKey, s.color])),
+    [sources],
+  );
+
+  const loadSources = useCallback(async () => {
+    const legacy = !legacySeeded.current ? consumeLegacyHiddenSources() : null;
+    if (legacy) legacySeeded.current = true;
+    const qs = legacy?.length
+      ? `?seedLegacy=${encodeURIComponent(JSON.stringify(legacy))}`
+      : "";
+    const res = await fetch(`/api/calendar/sources${qs}`);
+    if (!res.ok) return;
+    const json = (await res.json()) as {
+      sources?: CalendarSource[];
+      accounts?: CalendarAccount[];
+    };
+    setSources(json.sources ?? []);
+    setAccounts(json.accounts ?? []);
+  }, []);
+
+  useEffect(() => {
+    void loadSources();
+  }, [loadSources]);
 
   useEffect(() => {
     fetch("/api/crm/users")
@@ -76,24 +117,26 @@ export function useAgendaDesktopData(range: CalendarRange) {
 
     fetch("/api/integrations/google-calendar/status")
       .then((r) => (r.ok ? r.json() : null))
-      .then((json) =>
-        setGoogle(
-          json
-            ? {
-                connected: json.connected === true,
-                googleEmail: json.googleEmail ?? null,
-                team: Array.isArray(json.team) ? json.team : [],
-              }
-            : null,
-        ),
-      )
+      .then((json) => {
+        if (!json) return;
+        setGoogle({
+          connected: json.connected === true,
+          googleEmail: json.googleEmail ?? null,
+          team: Array.isArray(json.team) ? json.team : [],
+        });
+      })
       .catch(() => setGoogle(null));
   }, []);
 
-  // Deps por epoch (number): `range.from`/`range.to` son Date nuevos en cada
-  // recálculo de visibleCalendarRange aunque el instante sea el mismo; si
-  // usáramos las refs Date, `load` cambiaría de identidad y re-dispararía
-  // efectos que lo listan como dependencia.
+  useEffect(() => {
+    if (accounts.length === 0) return;
+    setGoogle((prev) => ({
+      connected: true,
+      googleEmail: accounts[0]?.googleEmail ?? prev?.googleEmail ?? null,
+      team: prev?.team ?? [],
+    }));
+  }, [accounts]);
+
   const fromMs = range.from.getTime();
   const toMs = range.to.getTime();
   const load = useCallback(async () => {
@@ -116,6 +159,47 @@ export function useAgendaDesktopData(range: CalendarRange) {
     void load();
   }, [load]);
 
+  const patchSource = useCallback(
+    async (
+      sourceKey: string,
+      patch: { color?: string; hidden?: boolean; isCreateTarget?: boolean },
+    ) => {
+      const res = await fetch("/api/calendar/sources", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sourceKey, ...patch }),
+      }).catch(() => null);
+
+      if (!res?.ok) {
+        toast.error("No se pudo actualizar el calendario");
+        return;
+      }
+
+      const json = (await res.json()) as { source?: CalendarSource; sources?: CalendarSource[] };
+      if (json.sources) {
+        setSources(json.sources);
+      } else if (json.source) {
+        setSources((current) =>
+          current.map((s) => (s.sourceKey === sourceKey ? json.source! : s)),
+        );
+        if (patch.isCreateTarget) {
+          setSources((current) =>
+            current.map((s) =>
+              s.sourceKey === sourceKey
+                ? { ...s, isCreateTarget: true }
+                : s.kind === "google"
+                  ? { ...s, isCreateTarget: false }
+                  : s,
+            ),
+          );
+        }
+      } else {
+        await loadSources();
+      }
+    },
+    [loadSources],
+  );
+
   const persistSchedule = useCallback(
     async (item: AgendaCalendarItem, schedule: AgendaSchedule) => {
       const fromLabel = item.allDay
@@ -123,7 +207,6 @@ export function useAgendaDesktopData(range: CalendarRange) {
         : `${formatAgendaTime(new Date(item.start))}–${formatAgendaTime(new Date(item.end))}`;
       const toLabel = scheduleLabel(schedule);
 
-      // Optimistic update — mantiene el grid montado.
       setItems((current) =>
         current.map((entry) =>
           entry.id === item.id && entry.source === item.source
@@ -191,6 +274,9 @@ export function useAgendaDesktopData(range: CalendarRange) {
   return {
     items,
     users,
+    sources,
+    accounts,
+    colorBySource,
     googleStatus,
     google,
     initialLoading,
@@ -198,6 +284,8 @@ export function useAgendaDesktopData(range: CalendarRange) {
     /** @deprecated usar initialLoading — alias de compat. */
     loading: initialLoading,
     load,
+    loadSources,
+    patchSource,
     persistSchedule,
   };
 }

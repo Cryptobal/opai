@@ -12173,14 +12173,40 @@ model GoogleCalendarAccount {
   calendarId      String    @default("primary") @map("calendar_id")
   prefs           Json      @default("{}")
   status          String    @default("ACTIVE") // ACTIVE | REVOKED
+  /// Cuenta destino por defecto del usuario (a lo sumo una ACTIVE).
+  isDefault       Boolean   @default(false) @map("is_default")
+  /// Clave de tint DS (`teal`, `violet`, …), nunca hex.
+  color           String?
+  sortIndex       Int       @default(0) @map("sort_index")
   createdAt       DateTime  @default(now()) @map("created_at")
   updatedAt       DateTime  @updatedAt @map("updated_at")
 
   eventLinks AgendaEventLink[]
 
-  @@unique([tenantId, userId], map: "uq_google_calendar_account_tenant_user")
+  @@unique([tenantId, userId, googleEmail], map: "uq_google_calendar_account_tenant_user_email")
   @@index([tenantId], map: "idx_google_calendar_account_tenant")
+  @@index([tenantId, userId], map: "idx_google_calendar_account_tenant_user")
   @@map("google_calendar_accounts")
+  @@schema("public")
+}
+
+/// Preferencias de visibilidad/color/destino por fuente de agenda (OPAI o Google).
+model CalendarSourcePref {
+  id             String   @id @default(cuid())
+  tenantId       String   @map("tenant_id")
+  userId         String   @map("user_id")
+  /// opai:cliente | google:{accountId}:{providerCalendarId}
+  sourceKey      String   @map("source_key")
+  color          String?
+  hidden         Boolean  @default(false)
+  isCreateTarget Boolean  @default(false) @map("is_create_target")
+  sortIndex      Int      @default(0) @map("sort_index")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@unique([tenantId, userId, sourceKey], map: "uq_calendar_source_prefs_user_source")
+  @@index([tenantId, userId], map: "idx_calendar_source_prefs_user")
+  @@map("calendar_source_prefs")
   @@schema("public")
 }
 

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createHmac, timingSafeEqual } from "crypto";
 import { prisma } from "@/lib/prisma";
-import { getCalendarClientForUser, tokenSecret } from "@/lib/google-workspace";
+import { getCalendarClientForAccount, tokenSecret } from "@/lib/google-workspace";
 
 export const dynamic = "force-dynamic";
 
@@ -36,7 +36,8 @@ export async function POST(req: NextRequest) {
   });
   if (!account) return NextResponse.json({ ok: true, skipped: true });
 
-  const client = await getCalendarClientForUser(account.tenantId, account.userId);
+  // Usar la cuenta del channelId (no la default del usuario).
+  const client = await getCalendarClientForAccount(account.tenantId, account.id);
   if (!client) return NextResponse.json({ ok: true, skipped: true });
 
   const prefs = (account.prefs ?? {}) as {

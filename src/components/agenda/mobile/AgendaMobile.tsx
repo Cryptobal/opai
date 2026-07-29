@@ -81,17 +81,29 @@ export function AgendaMobile({
     }
   }, [search]);
 
-  const { items, users, loading, error, reload } = useAgendaMobileData(view, selectedYmd);
+  const { items, users, sources, colorBySource, loading, error, reload, patchSource } =
+    useAgendaMobileData(view, selectedYmd);
+
+  const hiddenSourceKeys = useMemo(
+    () => new Set(sources.filter((s) => s.hidden).map((s) => s.sourceKey)),
+    [sources],
+  );
 
   const filtered = useMemo(
-    () => filterMobileItems(items, { contentFilter, typeFilter, assignedUserId }),
-    [items, contentFilter, typeFilter, assignedUserId],
+    () =>
+      filterMobileItems(
+        items,
+        { contentFilter, typeFilter, assignedUserId },
+        hiddenSourceKeys,
+      ),
+    [items, contentFilter, typeFilter, assignedUserId, hiddenSourceKeys],
   );
   const daysWithEvents = useMemo(() => daysWithEventsSet(filtered), [filtered]);
   const filterCount =
     (contentFilter !== "todo" ? 1 : 0) +
     (typeFilter !== "todos" ? 1 : 0) +
-    (assignedUserId ? 1 : 0);
+    (assignedUserId ? 1 : 0) +
+    sources.filter((s) => s.hidden).length;
 
   const handleSelect = (item: AgendaCalendarItem) => {
     if (item.source === "licitacion" || item.type === "licitacion") {
@@ -125,6 +137,7 @@ export function AgendaMobile({
         <AgendaListView
           selectedYmd={selectedYmd}
           items={filtered}
+          colorBySource={colorBySource}
           loading={loading}
           error={error}
           onRetry={() => void reload()}
@@ -140,6 +153,7 @@ export function AgendaMobile({
         <AgendaDayView
           selectedYmd={selectedYmd}
           items={filtered}
+          colorBySource={colorBySource}
           onSelectDate={setSelectedYmd}
           onSelect={handleSelect}
         />
@@ -148,6 +162,7 @@ export function AgendaMobile({
         <AgendaMonthView
           selectedYmd={selectedYmd}
           items={filtered}
+          colorBySource={colorBySource}
           onSelectDate={setSelectedYmd}
           onSelect={handleSelect}
           onChanged={() => void reload()}
@@ -179,9 +194,14 @@ export function AgendaMobile({
         typeFilter={typeFilter}
         assignedUserId={assignedUserId}
         users={users}
+        sources={sources}
         onContentFilterChange={setContentFilter}
         onTypeFilterChange={setTypeFilter}
         onAssignedUserChange={setAssignedUserId}
+        onToggleSource={(sourceKey) => {
+          const source = sources.find((s) => s.sourceKey === sourceKey);
+          if (source) void patchSource(sourceKey, { hidden: !source.hidden });
+        }}
         onClose={() => setFiltersOpen(false)}
       />
 

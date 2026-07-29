@@ -23,9 +23,9 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const returnPath = safeCalendarReturnPath(
-    new URL(request.url).searchParams.get("return"),
-  );
+  const params = new URL(request.url).searchParams;
+  const returnPath = safeCalendarReturnPath(params.get("return"));
+  const addAccount = params.get("add") === "1";
   const state = buildState({
     tenantId: session.user.tenantId,
     userId: session.user.id,
@@ -38,7 +38,8 @@ export async function GET(request: NextRequest) {
     // habiendo autorizado Opai para Gmail, la fusión de scopes previos
     // devolvía un token SIN calendar.events → 403 "insufficient scopes".
     // Forzar un consentimiento explícito y aislado garantiza el scope.
-    login_hint: session.user.email ?? undefined,
+    // ?add=1 omite login_hint para que Google muestre el selector de cuenta.
+    ...(addAccount ? {} : { login_hint: session.user.email ?? undefined }),
     scope: [...CALENDAR_SCOPES],
     state,
   });

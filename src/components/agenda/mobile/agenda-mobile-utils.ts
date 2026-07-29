@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { CHILE_TZ, todayInChile } from "@/lib/dates-cl";
+import { paletteFgBg } from "@/lib/design/calendar-palette";
 import type { AgendaCalendarItem } from "../agenda-calendar.types";
+import { itemSourceKey } from "../desktop/agenda-desktop-prefs";
 
 export type AgendaMobileView = "agenda" | "day" | "month";
 
@@ -61,15 +63,13 @@ export function hhmmChile(iso: string): string {
   });
 }
 
-/** Barra vertical de color semántico por tipo (spec §2). */
-export function typeBarClass(item: Pick<AgendaCalendarItem, "source" | "type">): string {
-  if (item.source === "tarea") return "bg-primary";
-  if (item.source === "google") return "bg-ds-text-4";
-  if (item.type === "cliente") return "bg-tint-violet-fg";
-  if (item.type === "tecnica") return "bg-status-ok-fg";
-  if (item.type === "supervision") return "bg-status-warn-fg";
-  if (item.type === "licitacion") return "bg-status-danger-fg";
-  return "bg-ds-text-4";
+/** Barra vertical de color por fuente (mapa del servidor). */
+export function typeBarClass(
+  item: Pick<AgendaCalendarItem, "source" | "type" | "sourceKey">,
+  colorBySource?: Record<string, string>,
+): string {
+  const color = colorBySource?.[itemSourceKey(item)] ?? "teal";
+  return paletteFgBg(color);
 }
 
 export const TYPE_LABELS: Record<string, string> = {

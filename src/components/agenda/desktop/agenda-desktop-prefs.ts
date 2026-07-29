@@ -6,7 +6,7 @@ import type { AgendaCalendarItem, AgendaViewMode } from "../agenda-calendar.type
  */
 const PREFS_KEY = "opai-agenda-prefs";
 
-/** Fuentes/"calendarios OPAI" del rail (toggle on/off + color). */
+/** Fuentes legacy del rail (compat lectura; visibilidad real viene del servidor). */
 export const AGENDA_SOURCE_KEYS = [
   "cliente",
   "tecnica",
@@ -16,10 +16,31 @@ export const AGENDA_SOURCE_KEYS = [
 ] as const;
 export type AgendaSourceKey = (typeof AGENDA_SOURCE_KEYS)[number];
 
-/** Fuente lógica de un item para los toggles del rail. */
-export function agendaSourceKey(
-  item: Pick<AgendaCalendarItem, "source" | "type">,
-): AgendaSourceKey {
+type ItemForSource = Pick<AgendaCalendarItem, "source" | "type" | "sourceKey">;
+
+/**
+ * Clave estable de fuente para color/filtro.
+ * `opai:cliente|tecnica|tareas|licitaciones` o `google:{accountId}:{calendarId}`.
+ */
+export function itemSourceKey(item: ItemForSource): string {
+  if (item.sourceKey) return item.sourceKey;
+  if (item.source === "tarea") return "opai:tareas";
+  if (item.source === "google") return "google";
+  if (item.source === "licitacion" || item.type === "licitacion") return "opai:licitaciones";
+  if (item.type === "tecnica") return "opai:tecnica";
+  return "opai:cliente";
+}
+
+/** Fuente lógica legacy (cliente / google / …) para compat y migración. */
+export function agendaSourceKey(item: ItemForSource): AgendaSourceKey {
+  const sk = itemSourceKey(item);
+  if (sk.startsWith("opai:")) {
+    const origin = sk.slice("opai:".length);
+    if ((AGENDA_SOURCE_KEYS as readonly string[]).includes(origin)) {
+      return origin as AgendaSourceKey;
+    }
+  }
+  if (sk.startsWith("google")) return "google";
   if (item.source === "tarea") return "tareas";
   if (item.source === "google") return "google";
   if (item.source === "licitacion" || item.type === "licitacion") return "licitaciones";
@@ -34,6 +55,10 @@ export type FirstDay = 0 | 1;
 export type AgendaDesktopPrefs = {
   view: AgendaViewMode;
   railCollapsed: boolean;
+  /**
+   * @deprecated La visibilidad de calendarios viene de `/api/calendar/sources`
+   * (`hidden` en servidor). Se conserva en localStorage solo por compat.
+   */
   hiddenSources: AgendaSourceKey[];
   startHour: number;
   endHour: number;
@@ -102,6 +127,32 @@ function readHours(
   return { startHour, endHour };
 }
 
+/**
+ * Lee `hiddenSources` legacy de localStorage, limpia la clave y devuelve los
+ * valores (una sola vez, para sembrar en el servidor vía `?seedLegacy=`).
+ */
+export function consumeLegacyHiddenSources(): string[] | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(PREFS_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<AgendaDesktopPrefs>;
+    const hiddenSources = Array.isArray(parsed.hiddenSources)
+      ? parsed.hiddenSources.filter((s): s is AgendaSourceKey =>
+          (AGENDA_SOURCE_KEYS as readonly string[]).includes(s),
+        )
+      : [];
+    if (hiddenSources.length === 0) return null;
+    window.localStorage.setItem(
+      PREFS_KEY,
+      JSON.stringify({ ...parsed, hiddenSources: [] }),
+    );
+    return hiddenSources;
+  } catch {
+    return null;
+  }
+}
+
 export function readDesktopPrefs(): AgendaDesktopPrefs {
   if (typeof window === "undefined") return { ...DEFAULT_AGENDA_PREFS };
   try {
@@ -116,27 +167,11 @@ export function readDesktopPrefs(): AgendaDesktopPrefs {
       ? (parsed.stepMinutes as StepMinutes)
       : DEFAULT_AGENDA_PREFS.stepMinutes;
     const firstDay: FirstDay = parsed.firstDay === 0 ? 0 : 1;
-    const hiddenSources = Array.isArray(parsed.hiddenSources)
-      ? parsed.hiddenSources.filter((s): s is AgendaSourceKey =>
-          (AGENDA_SOURCE_KEYS as readonly string[]).includes(s),
-        )
-      : [];
-
-    // showTasks ↔ toggle "tareas" del rail: una sola verdad.
-    let showTasks = parsed.showTasks !== false;
-    if (parsed.showTasks === undefined && hiddenSources.includes("tareas")) {
-      showTasks = false;
-    }
-    const nextHidden: AgendaSourceKey[] = showTasks
-      ? hiddenSources.filter((s) => s !== "tareas")
-      : hiddenSources.includes("tareas")
-        ? hiddenSources
-        : [...hiddenSources, "tareas" as const];
 
     return {
       view: parsed.view && VALID_VIEWS.includes(parsed.view) ? parsed.view : DEFAULT_AGENDA_PREFS.view,
       railCollapsed: parsed.railCollapsed === true,
-      hiddenSources: nextHidden,
+      hiddenSources: [],
       ...hours,
       fitToWindow: parsed.fitToWindow !== false,
       hourHeight,
@@ -145,7 +180,7 @@ export function readDesktopPrefs(): AgendaDesktopPrefs {
       nowLine: parsed.nowLine !== false,
       firstDay,
       showWeekends: parsed.showWeekends !== false,
-      showTasks,
+      showTasks: parsed.showTasks !== false,
       showOwner: parsed.showOwner !== false,
     };
   } catch {

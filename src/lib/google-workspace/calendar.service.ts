@@ -1,6 +1,10 @@
 import { prisma } from "@/lib/prisma";
-import { getCalendarClientForUser } from "./clients";
+import {
+  getCalendarClientForAccount,
+  getCalendarClientForUser,
+} from "./clients";
 import type { CalendarEventPayload } from "./calendar-payloads";
+import { resolveCreateTarget } from "@/modules/calendar/calendar-sources";
 
 export type SyncLinkInput = {
   tenantId: string;
@@ -11,8 +15,11 @@ export type SyncLinkInput = {
 };
 
 /**
- * Crea / actualiza / elimina el evento Google vinculado a un AgendaEventLink.
+ * Crea / actualiza / elimina el evento Google vinculado a un AgendaEventLink (v1).
  * payload=null → delete. Sin cuenta conectada → PENDING sin error.
+ *
+ * Si el link ya tiene calendarAccountId + googleEventId, usa ESA cuenta.
+ * No recrea en otra cuenta si la original fue revocada.
  */
 export async function syncEventLink(
   input: SyncLinkInput,
@@ -30,16 +37,53 @@ export async function syncEventLink(
     });
   }
 
-  const client = await getCalendarClientForUser(tenantId, assignedUserId);
-  if (!client) {
-    await prisma.agendaEventLink.update({
-      where: { id: link.id },
-      data: { syncStatus: "PENDING", lastError: null, calendarAccountId: null },
-    });
-    return { syncStatus: "PENDING" };
-  }
+  const hasExistingGoogle =
+    Boolean(link.calendarAccountId) && Boolean(link.googleEventId);
 
-  const { calendar, accountId, calendarId } = client;
+  let accountId: string;
+  let calendarId: string;
+  let calendar: NonNullable<
+    Awaited<ReturnType<typeof getCalendarClientForUser>>
+  >["calendar"];
+
+  if (hasExistingGoogle && link.calendarAccountId) {
+    const client = await getCalendarClientForAccount(
+      tenantId,
+      link.calendarAccountId,
+    );
+    if (!client) {
+      await prisma.agendaEventLink.update({
+        where: { id: link.id },
+        data: {
+          syncStatus: "ERROR",
+          lastError: "Cuenta de Google Calendar del vínculo no está ACTIVE",
+          lastSyncAt: new Date(),
+        },
+      });
+      return { syncStatus: "ERROR", googleEventId: link.googleEventId };
+    }
+    accountId = client.accountId;
+    calendarId = link.googleCalendarId || client.calendarId;
+    calendar = client.calendar;
+  } else {
+    const target = await resolveCreateTarget({
+      tenantId,
+      userId: assignedUserId,
+    });
+    const client = target
+      ? await getCalendarClientForAccount(tenantId, target.accountId)
+      : await getCalendarClientForUser(tenantId, assignedUserId);
+    if (!client) {
+      await prisma.agendaEventLink.update({
+        where: { id: link.id },
+        data: { syncStatus: "PENDING", lastError: null, calendarAccountId: null },
+      });
+      return { syncStatus: "PENDING" };
+    }
+    accountId = client.accountId;
+    calendarId = target?.calendarId ?? client.calendarId;
+    calendar = client.calendar;
+  }
 
   try {
     if (payload === null) {

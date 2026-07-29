@@ -10,12 +10,13 @@ import { hhmmChile, mobileTypeLabel, typeBarClass } from "./agenda-mobile-utils"
 
 type Props = {
   item: AgendaCalendarItem;
+  colorBySource?: Record<string, string>;
   onSelect: (item: AgendaCalendarItem) => void;
   onChanged: () => void;
 };
 
 /** Fila de evento de la vista Agenda móvil (spec §2). */
-export function AgendaListRow({ item, onSelect, onChanged }: Props) {
+export function AgendaListRow({ item, colorBySource, onSelect, onChanged }: Props) {
   const [completing, setCompleting] = useState(false);
   const [done, setDone] = useState(false);
   const isTask = item.source === "tarea";
@@ -91,7 +92,7 @@ export function AgendaListRow({ item, onSelect, onChanged }: Props) {
         </div>
       )}
 
-      <div className={cn("w-[3px] shrink-0 self-stretch rounded-full", typeBarClass(item))} />
+      <div className={cn("w-[3px] shrink-0 self-stretch rounded-full", typeBarClass(item, colorBySource))} />
 
       <button
         type="button"

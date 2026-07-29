@@ -25,6 +25,8 @@ export type AgendaCalendarItem = {
   href?: string | null;
   /** Sólo tareas: creador (ownership para eliminar). */
   createdBy?: string | null;
+  /** Clave estable de fuente para color/filtro (multicuenta). */
+  sourceKey?: string;
 };
 
 /** Alias legacy usado por TaskDrawer/VisitList (ex AgendaWeekStrip, retirado). */

@@ -11,6 +11,7 @@ import { AgendaListRow } from "./AgendaListRow";
 type Props = {
   selectedYmd: string;
   items: AgendaCalendarItem[];
+  colorBySource?: Record<string, string>;
   loading: boolean;
   error: boolean;
   onRetry: () => void;
@@ -23,6 +24,7 @@ type Props = {
 export function AgendaListView({
   selectedYmd,
   items,
+  colorBySource,
   loading,
   error,
   onRetry,
@@ -115,6 +117,7 @@ export function AgendaListView({
                   <AgendaListRow
                     key={`${item.source}:${item.id}`}
                     item={item}
+                    colorBySource={colorBySource}
                     onSelect={onSelect}
                     onChanged={onChanged}
                   />
