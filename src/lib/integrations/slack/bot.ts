@@ -204,35 +204,40 @@ export async function handleBotEvent(teamId: string, event: SlackBotEvent): Prom
     const tTranscribe = Date.now();
     try {
       const aiConfig = await getHelpChatAIConfig(workspace.tenantId);
-      if (!aiConfig) {
-        await slackUpdateMessage(token, {
-          channel: channelId,
-          ts: placeholderTs,
-          text: "Tu proveedor de IA actual no soporta transcripción de audio; escríbeme el texto 🙏",
-          blocks: [assistantSection("Tu proveedor de IA actual no soporta transcripción de audio; escríbeme el texto 🙏")],
-        });
-        return;
-      }
       const { buffer, contentType } = await slackDownloadFile(audioFile.url_private, token);
-      const transcript = await transcribeAudio(aiConfig, buffer, contentType);
+      const transcript = await transcribeAudio(
+        workspace.tenantId,
+        buffer,
+        contentType,
+        aiConfig,
+      );
       if (transcript === null) {
+        const msg =
+          "No pude transcribir tu nota de voz; escríbeme el texto 🙏";
         await slackUpdateMessage(token, {
           channel: channelId,
           ts: placeholderTs,
-          text: "Tu proveedor de IA actual no soporta transcripción de audio; escríbeme el texto 🙏",
-          blocks: [assistantSection("Tu proveedor de IA actual no soporta transcripción de audio; escríbeme el texto 🙏")],
+          text: msg,
+          blocks: [assistantSection(msg)],
         });
         return;
       }
-      userMessage = (userMessage ? `${userMessage}\n\n` : "") + `[Nota de voz transcrita]: ${transcript}`;
+      userMessage =
+        (userMessage ? `${userMessage}\n\n` : "") +
+        `[Nota de voz transcrita]: ${transcript.text}`;
       logAiUsage({
         tenantId: workspace.tenantId,
         userId: linked.adminId,
-        providerType: aiConfig.providerType,
-        model: aiConfig.model,
+        providerType: transcript.providerType,
+        model: transcript.model,
         feature: "voice_transcription",
         durationMs: Date.now() - tTranscribe,
-        metadata: { mimeType: contentType, bytes: buffer.length },
+        metadata: {
+          mimeType: contentType,
+          bytes: buffer.length,
+          keySource: transcript.keySource,
+          chatProvider: aiConfig?.providerType ?? null,
+        },
       });
       await slackUpdateMessage(token, {
         channel: channelId,
@@ -241,7 +246,7 @@ export async function handleBotEvent(teamId: string, event: SlackBotEvent): Prom
         blocks: [assistantSection("⏳ Consultando OPAI…")],
       }).catch(() => {});
     } catch (err) {
-      console.error("[slack] error transcribiendo nota de voz:", err);
+      console.error("[slack] error transcribiendo nota de voz:", err instanceof Error ? err.message : "unknown");
       await slackUpdateMessage(token, {
         channel: channelId,
         ts: placeholderTs,
