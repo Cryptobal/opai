@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   queryRaw: vi.fn(),
+  messageFindMany: vi.fn(async () => []),
   semanticSearchChunks: vi.fn(),
   emailEmbeddingsDisabled: vi.fn(() => false),
   rankThreadsFromHits: vi.fn(
@@ -22,7 +23,10 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/prisma", () => ({
-  prisma: { $queryRaw: mocks.queryRaw },
+  prisma: {
+    $queryRaw: mocks.queryRaw,
+    crmEmailMessage: { findMany: mocks.messageFindMany },
+  },
 }));
 
 vi.mock("../email-embeddings", () => ({

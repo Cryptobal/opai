@@ -8,6 +8,7 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import type { CorreoListFilter } from "./correos-list";
+import { snippetFromBody } from "./correos-list-helpers";
 import {
   buildCorreoSearchIdsQuery,
   buildCorreoSearchParts,
@@ -269,6 +270,38 @@ export async function hybridSearchThreadIds(params: {
   for (const hit of acceptedHits) {
     if (!excerptById.has(hit.threadId)) {
       excerptById.set(hit.threadId, hit.content.slice(0, 240));
+    }
+  }
+
+  // Matches léxicos puros: poblar excerpt con snippet del último mensaje
+  // (consulta acotada a los IDs de la página — no infla la query principal).
+  const missingExcerpt = ranked.filter((id) => !excerptById.has(id));
+  if (missingExcerpt.length > 0) {
+    const bodies = await prisma.crmEmailMessage.findMany({
+      where: {
+        tenantId: params.tenantId,
+        emailAccountId: params.emailAccountId,
+        threadId: { in: missingExcerpt },
+        isDraft: false,
+      },
+      select: {
+        threadId: true,
+        textBody: true,
+        htmlBody: true,
+        sentAt: true,
+      },
+      orderBy: { sentAt: "desc" },
+    });
+    const seen = new Set<string>();
+    for (const row of bodies) {
+      if (seen.has(row.threadId)) continue;
+      seen.add(row.threadId);
+      const snippet =
+        snippetFromBody(row.textBody) ??
+        snippetFromBody(row.htmlBody?.replace(/<[^>]+>/g, " ") ?? null);
+      if (snippet) {
+        excerptById.set(row.threadId, snippet.slice(0, 240));
+      }
     }
   }
 
