@@ -11,8 +11,7 @@ import {
   safeCalendarReturnPath,
 } from "@/lib/google-workspace";
 import { nextPaletteColor } from "@/lib/design/calendar-palette";
-
-const MAX_CALENDAR_ACCOUNTS = 5;
+import { resolveMultiAccount } from "@/modules/shared/multi-account";
 
 const DEFAULT_PREFS = {
   inviteContacts: true,
@@ -108,7 +107,12 @@ export async function GET(request: NextRequest) {
         },
         select: { color: true, sortIndex: true },
       });
-      if (siblings.length >= MAX_CALENDAR_ACCOUNTS) {
+      const multi = await resolveMultiAccount({
+        tenantId: decoded.tenantId,
+        userId: session.user.id,
+        scope: "agenda",
+      });
+      if (siblings.length >= multi.maxAccounts) {
         return NextResponse.redirect(withCal("limit_reached"));
       }
       const maxSort = siblings.reduce((m, s) => Math.max(m, s.sortIndex), -1);

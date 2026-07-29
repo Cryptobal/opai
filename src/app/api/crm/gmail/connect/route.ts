@@ -13,6 +13,7 @@ import { getGmailTokenSecret } from "@/lib/crypto";
 import { createHmac } from "crypto";
 import { requireTenantModule } from "@/lib/require-module";
 import { safeGmailReturnPath } from "@/lib/google-workspace/gmail-return-path";
+import { resolveMultiAccount } from "@/modules/shared/multi-account";
 
 // El secreto se resuelve por request (no a nivel de módulo) para que el build
 // no dependa de la env y el error fail-closed ocurra en el request.
@@ -44,6 +45,17 @@ export async function GET(request: NextRequest) {
       `${origin}/opai/login?callbackUrl=${encodeURIComponent(returnPath)}`,
     );
   }
+
+  // Fail-closed: tope antes de ir a Google (evita consentimiento inútil).
+  const multi = await resolveMultiAccount({
+    tenantId,
+    userId: session.user.id,
+    scope: "correo",
+  });
+  if (!multi.canConnect) {
+    return NextResponse.redirect(`${origin}${returnPath}?gmail=limit_reached`);
+  }
+
   try {
     const payload = JSON.stringify({
       userId: session.user.id,

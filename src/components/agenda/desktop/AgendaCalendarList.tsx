@@ -25,6 +25,11 @@ type Props = {
   onColorChange: (sourceKey: string, color: string) => void;
   onSetCreateTarget?: (sourceKey: string) => void;
   counts: Record<string, number>;
+  /**
+   * Superficie multicuenta (flag o escape). Sin ella, lista plana de
+   * calendarios Google sin encabezado de email de cuenta.
+   */
+  multiEnabled?: boolean;
 };
 
 /** Lista de calendarios del rail: OPAI + cuentas Google. */
@@ -34,6 +39,7 @@ export function AgendaCalendarList({
   onColorChange,
   onSetCreateTarget,
   counts,
+  multiEnabled = false,
 }: Props) {
   const opai = sources.filter((s) => s.kind === "opai");
   const google = sources.filter((s) => s.kind === "google");
@@ -71,7 +77,7 @@ export function AgendaCalendarList({
           >
             Conectar Google Calendar
           </a>
-        ) : (
+        ) : multiEnabled ? (
           [...byAccount.entries()].map(([email, accountSources]) => {
             const visible = accountSources.filter((s) => !s.hidden).length;
             return (
@@ -103,6 +109,19 @@ export function AgendaCalendarList({
               </div>
             );
           })
+        ) : (
+          <div className="space-y-0.5">
+            {google.map((s) => (
+              <AgendaCalendarSourceRow
+                key={s.sourceKey}
+                source={s}
+                count={counts[s.sourceKey] ?? 0}
+                onToggle={onToggle}
+                onColorChange={onColorChange}
+                onSetCreateTarget={onSetCreateTarget}
+              />
+            ))}
+          </div>
         )}
       </div>
     </div>

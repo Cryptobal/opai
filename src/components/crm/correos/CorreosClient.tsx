@@ -134,6 +134,11 @@ export function CorreosClient() {
   const [accounts, setAccounts] = useState<MailboxAccount[]>([]);
   const [activeAccountId, setActiveAccountId] = useState<string | null>(null);
   const [defaultAccountId, setDefaultAccountId] = useState<string | null>(null);
+  /** Superficie multicuenta: flag tenant o escape por ≥2 casillas. */
+  const [multiEnabled, setMultiEnabled] = useState(false);
+  const [canConnectMore, setCanConnectMore] = useState(true);
+  const multiEnabledRef = useRef(false);
+  multiEnabledRef.current = multiEnabled;
   const unified = activeAccountId === null;
   const mailboxEmail = useMemo(() => {
     if (activeAccountId) {
@@ -293,6 +298,7 @@ export function CorreosClient() {
         syncParked?: unknown;
         items?: CorreoThreadDTO[];
         nextCursor?: string | null;
+        multiAccount?: { enabled?: boolean; canConnect?: boolean };
       };
       try {
         r = await fetch(`/api/crm/correos?${qs}`).then((x) => x.json());
@@ -314,6 +320,12 @@ export function CorreosClient() {
         return;
       }
       setConnected(r.connected !== false);
+      if (r.multiAccount && typeof r.multiAccount === "object") {
+        const enabled = r.multiAccount.enabled === true;
+        setMultiEnabled(enabled);
+        multiEnabledRef.current = enabled;
+        setCanConnectMore(r.multiAccount.canConnect !== false);
+      }
       if (Array.isArray(r.accounts)) {
         const mapped: MailboxAccount[] = r.accounts
           .filter((a) => !a.status || a.status === "active")
@@ -330,8 +342,12 @@ export function CorreosClient() {
         setAccounts([]);
       }
       if ("activeAccountId" in r) {
-        const nextActive =
+        let nextActive =
           typeof r.activeAccountId === "string" ? r.activeAccountId : null;
+        // Modo casilla única: alcance = la única casilla (no "unificada").
+        if (!multiEnabledRef.current && Array.isArray(r.accounts) && r.accounts.length === 1) {
+          nextActive = r.accounts[0]!.id;
+        }
         setActiveAccountId(nextActive);
         activeAccountIdRef.current = nextActive;
       }
@@ -393,6 +409,8 @@ export function CorreosClient() {
 
   const handleScopeChange = useCallback(
     (accountId: string | null) => {
+      // Sin superficie multicuenta no hay selector ni preferencia de alcance.
+      if (!multiEnabledRef.current) return;
       setActiveAccountId(accountId);
       activeAccountIdRef.current = accountId;
       setCursor(null);
@@ -1365,6 +1383,8 @@ export function CorreosClient() {
         activeAccountId={activeAccountId}
         onScopeChange={handleScopeChange}
         onColorChange={handleColorChange}
+        multiEnabled={multiEnabled}
+        canConnectMore={canConnectMore}
         inboxUnreadTotal={counts?.inboxUnread}
         onOpenSwipeSettings={() => setSwipeSettingsOpen(true)}
         onOpenSnoozeSettings={() => setSnoozeSettingsOpen(true)}
@@ -1495,6 +1515,8 @@ export function CorreosClient() {
           activeAccountId={activeAccountId}
           onScopeChange={handleScopeChange}
           onColorChange={handleColorChange}
+          multiEnabled={multiEnabled}
+          canConnectMore={canConnectMore}
           inboxUnreadTotal={counts?.inboxUnread}
           collapsed={railCollapsed}
           onToggleCollapsed={() => setRailCollapsed(!railCollapsed)}

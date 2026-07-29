@@ -8,6 +8,7 @@ import {
   updateAccountColor,
   updateCalendarSourcePref,
 } from "@/modules/calendar/calendar-sources";
+import { resolveMultiAccount } from "@/modules/shared/multi-account";
 
 export async function GET(request: NextRequest) {
   const auth = await requireAgendaAccess();
@@ -26,9 +27,10 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  const [sources, accounts] = await Promise.all([
+  const [sources, accounts, multi] = await Promise.all([
     listCalendarSources({ tenantId, userId }),
     listCalendarAccounts(tenantId, userId),
+    resolveMultiAccount({ tenantId, userId, scope: "agenda" }),
   ]);
 
   return NextResponse.json({
@@ -42,6 +44,7 @@ export async function GET(request: NextRequest) {
       status: a.status,
       sortIndex: a.sortIndex,
     })),
+    multiAccount: { enabled: multi.enabled, canConnect: multi.canConnect },
   });
 }
 

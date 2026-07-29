@@ -48,6 +48,11 @@ export const AVAILABLE_MAILBOX_COLORS = MAILBOX_PALETTE.filter((c) => c.disponib
 export const MAX_MAILBOXES_PER_USER = 5;
 export const MAX_DISPLAY_LABEL_LENGTH = 6;
 
+/** Tope efectivo: 5 con multicuenta, 1 en modo casilla única. */
+export function mailboxCapFor(flagEnabled: boolean): number {
+  return flagEnabled ? MAX_MAILBOXES_PER_USER : 1;
+}
+
 export function isMailboxColorKey(value: unknown): value is MailboxColorKey {
   return typeof value === "string" && (MAILBOX_COLOR_KEYS as readonly string[]).includes(value);
 }

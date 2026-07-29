@@ -8,6 +8,7 @@ import { countCorreoFolders } from "@/modules/crm/email/correos-folder-counts";
 import { getGmailSyncParkedInfo } from "@/modules/crm/email/gmail-sync-queue";
 import { gmailMailboxChannel } from "@/modules/crm/email/gmail-realtime";
 import { resolveMailboxScope } from "@/modules/crm/email/mailbox-scope";
+import { resolveMultiAccount } from "@/modules/shared/multi-account";
 import { hasGmailModify } from "@/lib/gmail";
 
 function parseFolder(raw: string | null): CorreoListFilter {
@@ -96,6 +97,13 @@ export async function GET(req: NextRequest) {
   }
   const { scope } = resolved;
 
+  const multi = await resolveMultiAccount({
+    tenantId,
+    userId,
+    scope: "correo",
+  });
+  const multiAccount = { enabled: multi.enabled, canConnect: multi.canConnect };
+
   if (scope.accountIds.length === 0) {
     return NextResponse.json({
       connected: false,
@@ -105,6 +113,7 @@ export async function GET(req: NextRequest) {
       items: [],
       nextCursor: null,
       counts: null,
+      multiAccount,
     });
   }
 
@@ -205,5 +214,6 @@ export async function GET(req: NextRequest) {
     lastSyncAt: syncRaw.lastSyncAt ?? null,
     syncParked: syncParkedInfo.parked,
     syncParkedReason: syncParkedInfo.reason,
+    multiAccount,
   });
 }

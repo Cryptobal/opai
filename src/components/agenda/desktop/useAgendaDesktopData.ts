@@ -67,6 +67,7 @@ export function useAgendaDesktopData(range: CalendarRange) {
   const [users, setUsers] = useState<AgendaTeamMember[]>([]);
   const [sources, setSources] = useState<CalendarSource[]>([]);
   const [accounts, setAccounts] = useState<CalendarAccount[]>([]);
+  const [multiEnabled, setMultiEnabled] = useState(false);
   const [googleStatus, setGoogleStatus] = useState<string | null>(null);
   const [google, setGoogle] = useState<GoogleAccountStatus | null>(null);
   const [initialLoading, setInitialLoading] = useState(true);
@@ -90,9 +91,11 @@ export function useAgendaDesktopData(range: CalendarRange) {
     const json = (await res.json()) as {
       sources?: CalendarSource[];
       accounts?: CalendarAccount[];
+      multiAccount?: { enabled?: boolean; canConnect?: boolean };
     };
     setSources(json.sources ?? []);
     setAccounts(json.accounts ?? []);
+    setMultiEnabled(json.multiAccount?.enabled === true);
   }, []);
 
   useEffect(() => {
@@ -276,6 +279,7 @@ export function useAgendaDesktopData(range: CalendarRange) {
     users,
     sources,
     accounts,
+    multiEnabled,
     colorBySource,
     googleStatus,
     google,

@@ -7,6 +7,7 @@ import {
   getCalendarClientForUser,
   listCalendarAccounts,
 } from "@/lib/google-workspace";
+import { resolveMultiAccount } from "@/modules/shared/multi-account";
 
 export async function GET() {
   const session = await auth();
@@ -16,7 +17,14 @@ export async function GET() {
   const tenantId = session.user.tenantId;
   const isAdmin = ["owner", "admin"].includes(session.user.role ?? "");
 
-  const accounts = await listCalendarAccounts(tenantId, session.user.id);
+  const [accounts, multi] = await Promise.all([
+    listCalendarAccounts(tenantId, session.user.id),
+    resolveMultiAccount({
+      tenantId,
+      userId: session.user.id,
+      scope: "agenda",
+    }),
+  ]);
   const mine = accounts[0] ?? null;
 
   let team: Array<{
@@ -64,6 +72,11 @@ export async function GET() {
       sortIndex: a.sortIndex,
     })),
     team,
+    multiAccount: {
+      enabled: multi.enabled,
+      canConnect: multi.canConnect,
+      maxAccounts: multi.maxAccounts,
+    },
   });
 }
 
