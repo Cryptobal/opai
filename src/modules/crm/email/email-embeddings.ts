@@ -325,6 +325,9 @@ export async function semanticSearchChunks(params: {
   const fetchLimit = hasThreadFilters
     ? Math.min(params.overfetch ?? Math.max(baseLimit * 4, baseLimit), 200)
     : baseLimit;
+  // Entero validado en TS — nunca entrada de usuario. Default ef_search=40
+  // degrada el recall bajo filtros; subimos al menos a max(fetchLimit*2, 100).
+  const efSearch = Math.min(Math.max(Math.floor(Math.max(fetchLimit * 2, 100)), 40), 1000);
   const vectorLiteral = `[${embedding.join(",")}]`;
 
   const conds: Prisma.Sql[] = [
@@ -335,11 +338,18 @@ export async function semanticSearchChunks(params: {
   if (params.folderSql) conds.push(params.folderSql);
   if (params.structuralSql?.length) conds.push(...params.structuralSql);
 
-  // Vector como parámetro tipado (no concatenar entrada del usuario).
-  const rows = hasThreadFilters
-    ? await prisma.$queryRaw<
-        Array<{ thread_id: string; message_id: string; content: string; distance: number }>
-      >(Prisma.sql`
+  type HitRow = {
+    thread_id: string;
+    message_id: string;
+    content: string;
+    distance: number;
+  };
+
+  // SET LOCAL hnsw.ef_search solo aplica dentro de la transacción.
+  const rows = await prisma.$transaction(async (tx) => {
+    await tx.$executeRawUnsafe(`SET LOCAL hnsw.ef_search = ${efSearch}`);
+    if (hasThreadFilters) {
+      return tx.$queryRaw<HitRow[]>(Prisma.sql`
         SELECT c.thread_id, c.message_id, c.content,
                (c.embedding <=> ${vectorLiteral}::vector) AS distance
         FROM crm.email_chunks c
@@ -347,17 +357,23 @@ export async function semanticSearchChunks(params: {
         WHERE ${Prisma.join(conds, " AND ")}
         ORDER BY c.embedding <=> ${vectorLiteral}::vector
         LIMIT ${fetchLimit}
-      `)
-    : await prisma.$queryRaw<
-        Array<{ thread_id: string; message_id: string; content: string; distance: number }>
-      >(Prisma.sql`
-        SELECT c.thread_id, c.message_id, c.content,
-               (c.embedding <=> ${vectorLiteral}::vector) AS distance
-        FROM crm.email_chunks c
-        WHERE ${Prisma.join(conds, " AND ")}
-        ORDER BY c.embedding <=> ${vectorLiteral}::vector
-        LIMIT ${fetchLimit}
       `);
+    }
+    return tx.$queryRaw<HitRow[]>(Prisma.sql`
+      SELECT c.thread_id, c.message_id, c.content,
+             (c.embedding <=> ${vectorLiteral}::vector) AS distance
+      FROM crm.email_chunks c
+      WHERE ${Prisma.join(conds, " AND ")}
+      ORDER BY c.embedding <=> ${vectorLiteral}::vector
+      LIMIT ${fetchLimit}
+    `);
+  });
+
+  if (rows.length < fetchLimit) {
+    console.info(
+      `[correo-semantic] recall corto: fetchLimit=${fetchLimit} returned=${rows.length} ef_search=${efSearch}`,
+    );
+  }
 
   return rows.map((r) => ({
     threadId: r.thread_id,

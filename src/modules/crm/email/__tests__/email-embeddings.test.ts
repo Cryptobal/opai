@@ -16,6 +16,16 @@ vi.mock("@/lib/prisma", () => ({
   prisma: {
     $queryRaw: mocks.queryRaw,
     $executeRawUnsafe: mocks.executeRawUnsafe,
+    $transaction: async (
+      fn: (tx: {
+        $executeRawUnsafe: typeof mocks.executeRawUnsafe;
+        $queryRaw: typeof mocks.queryRaw;
+      }) => Promise<unknown>,
+    ) =>
+      fn({
+        $executeRawUnsafe: mocks.executeRawUnsafe,
+        $queryRaw: mocks.queryRaw,
+      }),
     crmEmailChunk: { findMany: mocks.chunkFindMany },
   },
 }));
