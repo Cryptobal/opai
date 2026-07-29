@@ -3,7 +3,10 @@
 import Link from "next/link";
 import { CalendarDays, ExternalLink } from "lucide-react";
 import { Tag } from "@/components/opai-ds";
-import type { CreateCrmStructureResult } from "@/modules/crm/email/email-to-crm-structure.types";
+import type {
+  CreateCrmStructureResult,
+  SkipReason,
+} from "@/modules/crm/email/email-to-crm-structure.types";
 
 type Props = {
   result: CreateCrmStructureResult;
@@ -14,6 +17,31 @@ const MILESTONE_LABEL: Record<string, string> = {
   visita_tecnica: "Visita técnica",
   entrega: "Entrega de oferta",
 };
+
+const SKIP_ID_LABEL: Record<string, string> = {
+  contact: "Contacto",
+  deal: "Negocio",
+  installations: "Instalaciones",
+  attachments: "Adjuntos",
+  followUpTask: "Tarea de seguimiento",
+  quote: "Cotización",
+  milestones: "Hitos",
+  agendaDeadline: "Plazo en agenda",
+};
+
+const SKIP_REASON_LABEL: Record<SkipReason, string> = {
+  no_seleccionado: "no seleccionado",
+  requiere_negocio: "requiere negocio",
+  sin_permiso: "sin permiso",
+  sin_datos: "sin datos",
+  error: "error al crear",
+};
+
+function formatSkippedLine(id: string, reason?: SkipReason): string {
+  const label = SKIP_ID_LABEL[id] ?? id;
+  if (!reason) return label;
+  return `${label} — ${SKIP_REASON_LABEL[reason]}`;
+}
 
 export function CorreoAiResultList({ result }: Props) {
   return (
@@ -84,11 +112,24 @@ export function CorreoAiResultList({ result }: Props) {
           </li>
         )}
       </ul>
-      {result.skipped && result.skipped.length > 0 && (
-        <p className="text-[12px] text-ds-text-4">
-          Omitido: {result.skipped.join(", ")}
-        </p>
-      )}
+      {(result.skippedDetail?.length || result.skipped?.length) ? (
+        <div className="space-y-1">
+          <p className="text-[12px] font-medium text-ds-text-3">Omitido</p>
+          <ul className="space-y-0.5">
+            {result.skippedDetail?.length
+              ? result.skippedDetail.map((s) => (
+                  <li key={`${s.id}-${s.reason}`} className="text-[12px] text-ds-text-4">
+                    {formatSkippedLine(s.id, s.reason)}
+                  </li>
+                ))
+              : (result.skipped ?? []).map((id) => (
+                  <li key={id} className="text-[12px] text-ds-text-4">
+                    {formatSkippedLine(id)}
+                  </li>
+                ))}
+          </ul>
+        </div>
+      ) : null}
     </div>
   );
 }
