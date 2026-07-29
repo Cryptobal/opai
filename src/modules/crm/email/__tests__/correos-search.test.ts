@@ -31,10 +31,13 @@ describe("parseCorreoSearchQuery", () => {
     ]);
   });
 
-  it("from:/to:/domain: normalizan a lowercase", () => {
-    const parsed = parseCorreoSearchQuery("from:Bob@Acme.com to:MARIA domain:Acme.COM");
+  it("from:/to:/cc:/domain: normalizan a lowercase", () => {
+    const parsed = parseCorreoSearchQuery(
+      "from:Bob@Acme.com to:MARIA cc:Ana@X.cl domain:Acme.COM",
+    );
     expect(parsed?.from).toEqual(["bob@acme.com"]);
     expect(parsed?.to).toEqual(["maria"]);
+    expect(parsed?.cc).toEqual(["ana@x.cl"]);
     expect(parsed?.domains).toEqual(["acme.com"]);
   });
 

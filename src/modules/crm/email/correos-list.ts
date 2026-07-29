@@ -118,6 +118,7 @@ export async function listCorreoThreads(params: {
   items: CorreoThreadDTO[];
   nextCursor: string | null;
   semanticAvailable?: boolean;
+  searchMeta?: import("./correos.types").CorreoSearchMeta;
 }> {
   const limit = Math.min(Math.max(params.limit ?? 30, 1), 100);
   const cursorDate = params.cursor ? new Date(params.cursor) : null;
@@ -136,7 +137,18 @@ export async function listCorreoThreads(params: {
       limit,
     });
     if (hybrid.ids.length === 0) {
-      return { items: [], nextCursor: null, semanticAvailable: hybrid.semanticAvailable };
+      return {
+        items: [],
+        nextCursor: null,
+        semanticAvailable: hybrid.semanticAvailable,
+        searchMeta: {
+          hasExactMatches: false,
+          lexicalCount: hybrid.lexicalCount,
+          semanticCount: hybrid.semanticCount,
+          discardedSemantic: hybrid.discardedSemantic,
+          shownCount: 0,
+        },
+      };
     }
     const [threads, company] = await Promise.all([
       prisma.crmEmailThread.findMany({
@@ -153,16 +165,24 @@ export async function listCorreoThreads(params: {
     const sorted = threads.sort(
       (a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0),
     );
+    const items = await mapThreadRowsInternal(
+      sorted,
+      params.tenantId,
+      company,
+      params.mailboxEmail,
+      hybrid.reasonById,
+    );
     return {
-      items: await mapThreadRowsInternal(
-        sorted,
-        params.tenantId,
-        company,
-        params.mailboxEmail,
-        hybrid.reasonById,
-      ),
+      items,
       nextCursor: null,
       semanticAvailable: hybrid.semanticAvailable,
+      searchMeta: {
+        hasExactMatches: hybrid.hasExactMatches,
+        lexicalCount: hybrid.lexicalCount,
+        semanticCount: hybrid.semanticCount,
+        discardedSemantic: hybrid.discardedSemantic,
+        shownCount: items.length,
+      },
     };
   }
 

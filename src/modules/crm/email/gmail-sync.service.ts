@@ -33,9 +33,10 @@ export function changedGmailSyncState(
 }
 
 /**
- * Sync de una casilla Gmail. Decide backfill (histórico 120d paginado) o
- * incremental (`historyId`) según `syncState`. Guarda TODOS los threads del
- * usuario; el matching a contacto/cuenta/deal es enriquecimiento.
+ * Sync de una casilla Gmail. Decide backfill (histórico, default 365d o
+ * `syncState.backfillQuery`) o incremental (`historyId`) según `syncState`.
+ * Guarda TODOS los threads del usuario; el matching a contacto/cuenta/deal
+ * es enriquecimiento.
  *
  * El deadline global se reparte por fases para que ninguna corra con las
  * sobras muertas: incremental/backfill (55%), self-heal/sweep (resto).

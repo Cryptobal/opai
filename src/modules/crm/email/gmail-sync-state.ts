@@ -2,12 +2,23 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import type { gmail_v1 } from "googleapis";
 
+/** Query Gmail por defecto del backfill inicial (inbox+sent, 365 días). */
+export const DEFAULT_BACKFILL_QUERY = "newer_than:365d (in:inbox OR in:sent)";
+
+/** Query histórica por defecto al pedir reimportación ampliada. */
+export const HISTORICAL_BACKFILL_QUERY = "after:2025/01/01 (in:inbox OR in:sent)";
+
 /** Estado de sync persistido en `crmEmailAccount.syncState` (JSON). */
 export type GmailSyncState = {
   /** pageToken de backfill en curso (null = agotado). */
   backfillPageToken?: string | null;
-  /** true cuando el backfill de 120d terminó. */
+  /** true cuando el backfill de la query actual terminó. */
   backfillDone?: boolean;
+  /**
+   * Query Gmail del backfill en curso (default: newer_than:365d inbox+sent).
+   * Permite re-backfill histórico sin tocar el código (p. ej. after:2025/01/01).
+   */
+  backfillQuery?: string | null;
   /** historyId para el incremental (`users.history.list`). */
   lastHistoryId?: string | null;
   /** ISO de la última corrida. */

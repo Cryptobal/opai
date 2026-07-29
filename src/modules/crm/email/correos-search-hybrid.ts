@@ -28,6 +28,12 @@ export const RRF_WEIGHT_LEXICAL = 1.0;
 export const RRF_WEIGHT_SEMANTIC = 0.9;
 
 /**
+ * Distancia coseno máxima (pgvector `<=>`) para aceptar un hit semántico.
+ * text-embedding-3-small: ~0.45 ≈ similitud 0.55. Por encima = ruido.
+ */
+export const SEMANTIC_MAX_DISTANCE = 0.45;
+
+/**
  * Boosts deterministas — notoriamente menores que la diferencia RRF típica
  * entre posiciones consecutivas (~0.00027 en ranks bajos). Solo desempate.
  */
@@ -45,6 +51,14 @@ export type HybridSearchResult = {
   semanticAvailable: boolean;
   /** Mejor excerpt por hilo cuando la rama semántica aportó. */
   excerptById: Map<string, string>;
+  /** Coincidencias léxicas (texto/operadores) antes del fuse. */
+  lexicalCount: number;
+  /** Hits semánticos que pasaron el umbral. */
+  semanticCount: number;
+  /** true si hubo al menos un match léxico. */
+  hasExactMatches: boolean;
+  /** Semánticos descartados por distancia > SEMANTIC_MAX_DISTANCE. */
+  discardedSemantic: number;
 };
 
 type LexicalRow = {
@@ -111,6 +125,11 @@ export async function hybridSearchThreadIds(params: {
   vertical?: string | null;
   limit: number;
   now?: Date;
+  /**
+   * Si true, no mezcla ni devuelve resultados solo-semánticos.
+   * Útil para "buscar solo exactos" y para el asistente en modo estricto.
+   */
+  exactOnly?: boolean;
 }): Promise<HybridSearchResult> {
   const now = params.now ?? new Date();
   const folder = params.parsed.folderOverride ?? params.folder;
@@ -119,6 +138,7 @@ export async function hybridSearchThreadIds(params: {
   const hasTextTerms = params.parsed.terms.length > 0;
   const semanticAvailableEnv =
     !emailEmbeddingsDisabled() && Boolean(process.env.OPENAI_API_KEY);
+  const exactOnly = Boolean(params.exactOnly);
 
   // Atajo: solo operadores estructurales → léxico por recencia, sin embeddings.
   if (!hasTextTerms) {
@@ -142,6 +162,10 @@ export async function hybridSearchThreadIds(params: {
       reasonById,
       semanticAvailable: semanticAvailableEnv,
       excerptById: new Map(),
+      lexicalCount: idRows.length,
+      semanticCount: 0,
+      hasExactMatches: idRows.length > 0,
+      discardedSemantic: 0,
     };
   }
 
@@ -165,17 +189,18 @@ export async function hybridSearchThreadIds(params: {
     }),
   );
 
-  const semanticPromise = semanticAvailableEnv
-    ? semanticSearchChunks({
-        tenantId: params.tenantId,
-        emailAccountId: params.emailAccountId,
-        query: params.parsed.terms.join(" "),
-        limit: overfetch,
-        folderSql,
-        structuralSql: structuralWithVertical,
-        overfetch,
-      })
-    : Promise.resolve([]);
+  const semanticPromise =
+    semanticAvailableEnv && !exactOnly
+      ? semanticSearchChunks({
+          tenantId: params.tenantId,
+          emailAccountId: params.emailAccountId,
+          query: params.parsed.terms.join(" "),
+          limit: overfetch,
+          folderSql,
+          structuralSql: structuralWithVertical,
+          overfetch,
+        })
+      : Promise.resolve([]);
 
   const [lexSettled, semSettled] = await Promise.allSettled([
     lexicalPromise,
@@ -183,17 +208,26 @@ export async function hybridSearchThreadIds(params: {
   ]);
 
   const lexicalRows = lexSettled.status === "fulfilled" ? lexSettled.value : [];
-  const semanticHits = semSettled.status === "fulfilled" ? semSettled.value : [];
+  const rawSemanticHits = semSettled.status === "fulfilled" ? semSettled.value : [];
   const semanticAvailable =
-    semanticAvailableEnv && semSettled.status === "fulfilled";
+    semanticAvailableEnv && !exactOnly && semSettled.status === "fulfilled";
+
+  const acceptedHits = rawSemanticHits.filter(
+    (h) => Number.isFinite(h.distance) && h.distance <= SEMANTIC_MAX_DISTANCE,
+  );
+  const discardedSemantic = rawSemanticHits.length - acceptedHits.length;
 
   const lexicalIds = lexicalRows.map((r) => r.id);
-  const semanticIds = rankThreadsFromHits(semanticHits, overfetch);
+  const hasExactMatches = lexicalIds.length > 0;
+  const semanticIds = rankThreadsFromHits(acceptedHits, overfetch);
   const lexicalMeta = new Map(lexicalRows.map((r) => [r.id, r]));
 
+  // Sin exactos: devolver semánticos (si pasan umbral) pero marcados — la UI
+  // muestra banner "Sin coincidencias exactas". Nunca inventar ranking vacío
+  // como si hubiera match léxico.
   const scores = fuseRrfScores({
     lexicalIds,
-    semanticIds,
+    semanticIds: hasExactMatches || !exactOnly ? semanticIds : [],
     lexicalMeta,
     terms: params.parsed.terms,
     now,
@@ -214,11 +248,20 @@ export async function hybridSearchThreadIds(params: {
   }
 
   const excerptById = new Map<string, string>();
-  for (const hit of semanticHits) {
+  for (const hit of acceptedHits) {
     if (!excerptById.has(hit.threadId)) {
       excerptById.set(hit.threadId, hit.content.slice(0, 240));
     }
   }
 
-  return { ids: ranked, reasonById, semanticAvailable, excerptById };
+  return {
+    ids: ranked,
+    reasonById,
+    semanticAvailable,
+    excerptById,
+    lexicalCount: lexicalIds.length,
+    semanticCount: semanticIds.length,
+    hasExactMatches,
+    discardedSemantic,
+  };
 }
