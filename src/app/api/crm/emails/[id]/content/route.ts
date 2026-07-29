@@ -14,6 +14,10 @@ import {
   type GmailMessagePart,
 } from "@/lib/gmail-message-content";
 import { requireTenantModule } from '@/lib/require-module';
+import {
+  listUserMailboxes,
+  requireThreadMailbox,
+} from "@/modules/crm/email/mailbox-scope";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -50,12 +54,44 @@ export async function GET(_request: NextRequest, { params }: Params) {
       return NextResponse.json({ success: true, data: message, hydrated: false });
     }
 
-    const emailAccount = await prisma.crmEmailAccount.findFirst({
-      where: {
+    // Propiedad multicuenta: hilo del usuario, o mensaje de una casilla propia.
+    let emailAccountId: string | null = null;
+    if (message.threadId) {
+      const owned = await requireThreadMailbox({
         tenantId: ctx.tenantId,
         userId: ctx.userId,
-        provider: "gmail",
-        status: "active",
+        threadId: message.threadId,
+      });
+      if (!owned.ok) {
+        return NextResponse.json(
+          { success: false, error: "Correo no encontrado" },
+          { status: 404 },
+        );
+      }
+      emailAccountId = owned.account.id;
+    } else if (message.emailAccountId) {
+      const mailboxes = await listUserMailboxes({
+        tenantId: ctx.tenantId,
+        userId: ctx.userId,
+      });
+      if (!mailboxes.some((a) => a.id === message.emailAccountId)) {
+        return NextResponse.json(
+          { success: false, error: "Correo no encontrado" },
+          { status: 404 },
+        );
+      }
+      emailAccountId = message.emailAccountId;
+    } else {
+      return NextResponse.json(
+        { success: false, error: "Correo no encontrado" },
+        { status: 404 },
+      );
+    }
+
+    const emailAccount = await prisma.crmEmailAccount.findFirst({
+      where: {
+        id: emailAccountId,
+        tenantId: ctx.tenantId,
       },
     });
 

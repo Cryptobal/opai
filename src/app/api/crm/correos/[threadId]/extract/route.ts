@@ -1,9 +1,9 @@
 /** POST /api/crm/correos/[threadId]/extract — propuesta de lead por IA (no crea). */
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
 import { requireCorreosAccess } from "@/lib/api-auth-productividad";
 import { extractLeadFromThread } from "@/modules/crm/email/email-to-lead.service";
+import { requireThreadMailbox } from "@/modules/crm/email/mailbox-scope";
 
 export const maxDuration = 60;
 
@@ -18,13 +18,15 @@ export async function POST(_req: NextRequest, ctx: Ctx) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
 
-  const account = await prisma.crmEmailAccount.findFirst({
-    where: { tenantId: session.user.tenantId, userId: session.user.id, provider: "gmail", status: "active" },
-    select: { id: true },
-  });
-  if (!account) return NextResponse.json({ error: "Gmail no conectado" }, { status: 400 });
-
   const { threadId } = await ctx.params;
+  const owned = await requireThreadMailbox({
+    tenantId: session.user.tenantId,
+    userId: session.user.id,
+    threadId,
+  });
+  if (!owned.ok) return NextResponse.json({ error: owned.error }, { status: owned.status });
+  const { account } = owned;
+
   try {
     const result = await extractLeadFromThread({
       tenantId: session.user.tenantId,

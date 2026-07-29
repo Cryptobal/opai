@@ -1,6 +1,5 @@
 /** POST /api/crm/correos/[threadId]/create-lead — crea el lead (propuesta editada). */
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
 import { hasCapability } from "@/lib/permissions";
 import { requireCorreosAccess } from "@/lib/api-auth-productividad";
@@ -8,6 +7,7 @@ import { requireCrmEdit } from "@/lib/api-auth-crm";
 import { createLeadFromExtraction } from "@/modules/crm/email/email-to-lead-create.service";
 import type { CreateLeadMode, LeadExtraction, StagedFile } from "@/modules/crm/email/email-to-lead.types";
 import { auditEmailAction } from "@/lib/audit-email";
+import { requireThreadMailbox } from "@/modules/crm/email/mailbox-scope";
 
 type Ctx = { params: Promise<{ threadId: string }> };
 
@@ -26,12 +26,6 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     return NextResponse.json({ error: "Sin permiso de Copiloto de correos" }, { status: 403 });
   }
 
-  const account = await prisma.crmEmailAccount.findFirst({
-    where: { tenantId: authCtx.tenantId, userId: authCtx.userId, provider: "gmail", status: "active" },
-    select: { id: true },
-  });
-  if (!account) return NextResponse.json({ error: "Gmail no conectado" }, { status: 400 });
-
   const body = (await req.json().catch(() => ({}))) as {
     proposal?: LeadExtraction;
     mode?: CreateLeadMode;
@@ -43,6 +37,14 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   const mode: CreateLeadMode = body.mode === "lead_y_negocio" ? "lead_y_negocio" : "lead";
 
   const { threadId } = await ctx.params;
+  const owned = await requireThreadMailbox({
+    tenantId: authCtx.tenantId,
+    userId: authCtx.userId,
+    threadId,
+  });
+  if (!owned.ok) return NextResponse.json({ error: owned.error }, { status: owned.status });
+  const { account } = owned;
+
   const result = await createLeadFromExtraction({
     tenantId: authCtx.tenantId,
     userId: authCtx.userId,

@@ -1,9 +1,9 @@
 /** GET /api/crm/correos/[threadId] — detalle de un hilo (cuerpos + adjuntos). */
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
 import { requireCorreosAccess } from "@/lib/api-auth-productividad";
 import { getCorreoDetail } from "@/modules/crm/email/correos-detail";
+import { requireThreadMailbox } from "@/modules/crm/email/mailbox-scope";
 
 type Ctx = { params: Promise<{ threadId: string }> };
 
@@ -16,20 +16,15 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
 
-  const account = await prisma.crmEmailAccount.findFirst({
-    where: {
-      tenantId: session.user.tenantId,
-      userId: session.user.id,
-      provider: "gmail",
-      status: "active",
-    },
-    select: { id: true },
-  });
-  if (!account) {
-    return NextResponse.json({ error: "Gmail no conectado" }, { status: 400 });
-  }
-
   const { threadId } = await ctx.params;
+  const owned = await requireThreadMailbox({
+    tenantId: session.user.tenantId,
+    userId: session.user.id,
+    threadId,
+  });
+  if (!owned.ok) return NextResponse.json({ error: owned.error }, { status: owned.status });
+  const { account } = owned;
+
   const detail = await getCorreoDetail({
     tenantId: session.user.tenantId,
     emailAccountId: account.id,

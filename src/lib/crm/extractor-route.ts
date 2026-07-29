@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 import { resolveApiPerms } from "@/lib/api-auth";
 import { canView, hasCapability, hasModuleAccess } from "@/lib/permissions";
 import { requireCorreosAccess } from "@/lib/api-auth-productividad";
@@ -9,6 +8,7 @@ import {
   EXTRACTORS,
   type ExtractorVertical,
 } from "@/modules/crm/email/extractors";
+import { requireThreadMailbox } from "@/modules/crm/email/mailbox-scope";
 
 /**
  * Handler compartido de los extractores bajo demanda (F3).
@@ -42,13 +42,15 @@ export async function handleThreadExtractor(
     );
   }
 
-  const account = await prisma.crmEmailAccount.findFirst({
-    where: { tenantId: ctx.tenantId, userId: ctx.userId, provider: "gmail", status: "active" },
-    select: { id: true },
-  });
-  if (!account) return NextResponse.json({ error: "Gmail no conectado" }, { status: 400 });
-
   const { threadId } = await paramsPromise;
+  const owned = await requireThreadMailbox({
+    tenantId: ctx.tenantId,
+    userId: ctx.userId,
+    threadId,
+  });
+  if (!owned.ok) return NextResponse.json({ error: owned.error }, { status: owned.status });
+  const { account } = owned;
+
   const result = await runThreadExtractor({
     tenantId: ctx.tenantId,
     emailAccountId: account.id,

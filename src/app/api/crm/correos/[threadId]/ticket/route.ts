@@ -9,6 +9,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { requireCorreosAccess } from "@/lib/api-auth-productividad";
 import { createOpsTicket } from "@/lib/tickets-create";
+import { requireThreadMailbox } from "@/modules/crm/email/mailbox-scope";
 
 export const dynamic = "force-dynamic";
 
@@ -29,11 +30,10 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ threadId: 
   const userId = session.user.id;
   const { threadId } = await ctx.params;
 
-  const account = await prisma.crmEmailAccount.findFirst({
-    where: { tenantId, userId, provider: "gmail", status: "active" },
-    select: { id: true },
-  });
-  if (!account) return NextResponse.json({ error: "Gmail no conectado" }, { status: 400 });
+  const owned = await requireThreadMailbox({ tenantId, userId, threadId });
+  if (!owned.ok) return NextResponse.json({ error: owned.error }, { status: owned.status });
+  const { account } = owned;
+
   const thread = await prisma.crmEmailThread.findFirst({
     where: { id: threadId, tenantId, emailAccountId: account.id },
     select: { id: true },

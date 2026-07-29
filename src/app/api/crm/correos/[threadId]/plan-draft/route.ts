@@ -1,6 +1,5 @@
 /** PUT/DELETE /api/crm/correos/[threadId]/plan-draft — borrador del plan editable. */
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 import { resolveApiPerms } from "@/lib/api-auth";
 import { hasCapability } from "@/lib/permissions";
 import { requireCorreosAccess } from "@/lib/api-auth-productividad";
@@ -10,15 +9,9 @@ import {
   savePlanDraft,
 } from "@/modules/crm/email/plan-draft";
 import type { AiPlanDraft } from "@/modules/crm/email/email-to-crm-structure.types";
+import { requireThreadMailbox } from "@/modules/crm/email/mailbox-scope";
 
 type Ctx = { params: Promise<{ threadId: string }> };
-
-async function resolveAccount(tenantId: string, userId: string) {
-  return prisma.crmEmailAccount.findFirst({
-    where: { tenantId, userId, provider: "gmail", status: "active" },
-    select: { id: true },
-  });
-}
 
 export async function GET(_req: NextRequest, ctx: Ctx) {
   const mod = await requireCorreosAccess();
@@ -28,10 +21,16 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
   if (!hasCapability(perms, "copiloto_correos")) {
     return NextResponse.json({ error: "Sin permiso de Copiloto de correos" }, { status: 403 });
   }
-  const account = await resolveAccount(authCtx.tenantId, authCtx.userId);
-  if (!account) return NextResponse.json({ error: "Gmail no conectado" }, { status: 400 });
 
   const { threadId } = await ctx.params;
+  const owned = await requireThreadMailbox({
+    tenantId: authCtx.tenantId,
+    userId: authCtx.userId,
+    threadId,
+  });
+  if (!owned.ok) return NextResponse.json({ error: owned.error }, { status: owned.status });
+  const { account } = owned;
+
   const draft = await getPlanDraft({
     tenantId: authCtx.tenantId,
     threadId,
@@ -48,8 +47,6 @@ export async function PUT(req: NextRequest, ctx: Ctx) {
   if (!hasCapability(perms, "copiloto_correos")) {
     return NextResponse.json({ error: "Sin permiso de Copiloto de correos" }, { status: 403 });
   }
-  const account = await resolveAccount(authCtx.tenantId, authCtx.userId);
-  if (!account) return NextResponse.json({ error: "Gmail no conectado" }, { status: 400 });
 
   const body = (await req.json().catch(() => ({}))) as Partial<AiPlanDraft>;
   if (!body.proposal || !body.include) {
@@ -57,6 +54,14 @@ export async function PUT(req: NextRequest, ctx: Ctx) {
   }
 
   const { threadId } = await ctx.params;
+  const owned = await requireThreadMailbox({
+    tenantId: authCtx.tenantId,
+    userId: authCtx.userId,
+    threadId,
+  });
+  if (!owned.ok) return NextResponse.json({ error: owned.error }, { status: owned.status });
+  const { account } = owned;
+
   const result = await savePlanDraft({
     tenantId: authCtx.tenantId,
     threadId,
@@ -89,10 +94,16 @@ export async function DELETE(_req: NextRequest, ctx: Ctx) {
   if (!hasCapability(perms, "copiloto_correos")) {
     return NextResponse.json({ error: "Sin permiso de Copiloto de correos" }, { status: 403 });
   }
-  const account = await resolveAccount(authCtx.tenantId, authCtx.userId);
-  if (!account) return NextResponse.json({ error: "Gmail no conectado" }, { status: 400 });
 
   const { threadId } = await ctx.params;
+  const owned = await requireThreadMailbox({
+    tenantId: authCtx.tenantId,
+    userId: authCtx.userId,
+    threadId,
+  });
+  if (!owned.ok) return NextResponse.json({ error: owned.error }, { status: owned.status });
+  const { account } = owned;
+
   await clearPlanDraft({
     tenantId: authCtx.tenantId,
     threadId,
