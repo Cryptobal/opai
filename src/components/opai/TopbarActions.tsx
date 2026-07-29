@@ -8,6 +8,7 @@ import { useNotifications } from "@/contexts/NotificationContext";
 import {
   useIslandSearchOpenListener,
   useModuleSurface,
+  useTopbarSubNavTabs,
 } from "@/components/opai-ds";
 import { Badge } from "@/components/ui/badge";
 import { TopbarIconButton } from "./TopbarIconButton";
@@ -25,6 +26,8 @@ interface TopbarActionsProps {
 /**
  * Acciones globales del topbar: rol, fiscalización, buscar, chat y campana.
  * Identidad, tema y configuración viven en SidebarUserMenu.
+ * La lupa se oculta cuando el campo inline del topbar está montado
+ * (módulo con search y sin tabs N3).
  */
 export function TopbarActions({
   userRole,
@@ -35,18 +38,21 @@ export function TopbarActions({
   const notifCtx = useNotificationSidePanelContext();
   const { unreadCount: notifUnreadCount } = useNotifications();
   const { search } = useModuleSurface();
+  const tabs = useTopbarSubNavTabs();
   const [moduleSearchOpen, setModuleSearchOpen] = useState(false);
   const searchBtnWrapRef = useRef<HTMLDivElement | null>(null);
   const hasModuleSearch = search !== null;
+  const searchInlineMounted = hasModuleSearch && tabs.length === 0;
+  const showSearchButton = Boolean(onSearch) && !searchInlineMounted;
   const activeQuery = search?.value.trim() ?? "";
 
   useIslandSearchOpenListener(() => {
-    if (hasModuleSearch) setModuleSearchOpen(true);
+    if (hasModuleSearch && !searchInlineMounted) setModuleSearchOpen(true);
   });
 
   useEffect(() => {
-    if (!hasModuleSearch) setModuleSearchOpen(false);
-  }, [hasModuleSearch]);
+    if (!hasModuleSearch || searchInlineMounted) setModuleSearchOpen(false);
+  }, [hasModuleSearch, searchInlineMounted]);
 
   const handleToggleChat = () => {
     if (!chatCtx.isPanelOpen) notifCtx.closePanel();
@@ -74,7 +80,7 @@ export function TopbarActions({
         role="group"
         aria-label="Acciones rápidas"
       >
-        {onSearch && (
+        {showSearchButton && (
           <div ref={searchBtnWrapRef} className="contents">
             <TopbarIconButton
               icon={Search}
@@ -117,7 +123,7 @@ export function TopbarActions({
         </TopbarIconButton>
       </div>
 
-      {hasModuleSearch && search && moduleSearchOpen && (
+      {hasModuleSearch && search && !searchInlineMounted && moduleSearchOpen && (
         <ModuleSearchOverlay
           open
           onClose={() => setModuleSearchOpen(false)}

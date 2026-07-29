@@ -1350,39 +1350,108 @@ export function CorreosClient() {
           onOpenShortcuts={() => setShortcutsSheetOpen(true)}
         />
         <div className="min-w-0 flex-1 space-y-4 max-lg:px-4 lg:min-w-[340px] lg:space-y-3">
-          {/* Toolbar desktop: búsqueda/refresh/densidad; con selección muta a
-              acciones masivas (reemplaza a CorreoBulkBar en desktop). */}
-          <CorreosDesktopToolbar
-            canModify={canModify}
-            allChecked={filtered.length > 0 && selectedIds.size === filtered.length}
-            onToggleAll={() =>
-              filtered.length > 0 && selectedIds.size === filtered.length
-                ? clearSelection()
-                : setSelectedIds(new Set(filtered.map((t) => t.id)))
-            }
-            onRefresh={syncNow}
-            syncing={syncing}
-            shownCount={filtered.length}
-            searching={searching}
-            totalCount={
-              searching
-                ? (searchMeta?.shownCount ?? items.length)
-                : counts
-                  ? ((counts as Record<string, number | undefined>)[folder] ?? null)
-                  : null
-            }
-            previewLines={previewLines} onPreviewLines={setPreviewLines}
-            selectedCount={selectedIds.size}
-            allReadSelected={items
-              .filter((t) => selectedIds.has(t.id))
-              .every((t) => !t.isUnread)}
-            onClear={clearSelection}
-            onAction={bulkAction}
-            onSnooze={() => setSnoozeId("__bulk__")}
-            onOpenShortcuts={() => setShortcutsSheetOpen(true)}
-          />
+          {/* Cabecera + lista: space-y-0 para unir bordes. Cobertura/avisos
+              semánticos van debajo (fuera del bloque unido). */}
+          <div className="space-y-0">
+            <CorreosDesktopToolbar
+              canModify={canModify}
+              allChecked={filtered.length > 0 && selectedIds.size === filtered.length}
+              onToggleAll={() =>
+                filtered.length > 0 && selectedIds.size === filtered.length
+                  ? clearSelection()
+                  : setSelectedIds(new Set(filtered.map((t) => t.id)))
+              }
+              onRefresh={syncNow}
+              syncing={syncing}
+              shownCount={filtered.length}
+              searching={searching}
+              totalCount={
+                searching
+                  ? (searchMeta?.shownCount ?? items.length)
+                  : counts
+                    ? ((counts as Record<string, number | undefined>)[folder] ?? null)
+                    : null
+              }
+              previewLines={previewLines} onPreviewLines={setPreviewLines}
+              selectedCount={selectedIds.size}
+              allReadSelected={items
+                .filter((t) => selectedIds.has(t.id))
+                .every((t) => !t.isUnread)}
+              onClear={clearSelection}
+              onAction={bulkAction}
+              onSnooze={() => setSnoozeId("__bulk__")}
+            />
+            {!connected ? (
+              <EmptyState icon={Mail} title="Conectá tu Gmail" description="Conectá tu casilla en Integraciones." />
+            ) : folder === "scheduled" ? (
+              /* PR-12: Programados se alimenta del outbox, no de hilos. */
+              <CorreoScheduledList refreshToken={realtimeRevision} />
+            ) : loading && items.length === 0 ? (
+              <Spinner className="mx-auto" />
+            ) : filtered.length === 0 ? (
+              searching ? (
+                <EmptyState
+                  icon={Mail}
+                  title="Sin resultados"
+                  description={
+                    coverage && coverage.pct < 100
+                      ? `No encontramos coincidencias por texto ni por significado en esta carpeta. La casilla tiene ${coverage.pct}% indexado: correos antiguos pueden no aparecer por significado. Probá from:, is:unread o reformulá.`
+                      : !semanticAvailable
+                        ? "Nada coincide por texto exacto. La búsqueda por significado no está disponible ahora."
+                        : "Nada coincide por texto exacto ni por significado en esta carpeta. Probá from:, subject:, is:unread o has:attachment."
+                  }
+                />
+              ) : (
+                <EmptyState icon={Mail} title="Sin correos" description="Probá sincronizar o cambiá los filtros." />
+              )
+            ) : (
+              <Surface
+                elevation={1}
+                padding="none"
+                className="relative overflow-hidden max-lg:-mx-4 max-lg:rounded-none max-lg:border-x-0 lg:rounded-t-none lg:border-t-0"
+                onContextMenu={(e) => {
+                  // Click derecho sobre una fila (desktop): menú contextual.
+                  const rowEl = (e.target as HTMLElement).closest?.("[data-correo-row]");
+                  const id = rowEl?.getAttribute("data-correo-row");
+                  const t = id ? filtered.find((x) => x.id === id) : null;
+                  if (!t) return;
+                  e.preventDefault();
+                  setCtxMenu({ thread: t, x: e.clientX, y: e.clientY });
+                }}
+              >
+                {searching && loading && (
+                  <div className="flex items-center gap-2 border-b border-ds-border-subtle px-4 py-2 text-[12px] text-ds-text-3">
+                    <Spinner className="h-3.5 w-3.5" /> Buscando en toda la casilla…
+                  </div>
+                )}
+                {filtered.map((t, index) => (
+                  <CorreoRowSwipe
+                    key={t.id}
+                    thread={t}
+                    canModify={canModify}
+                    selected={openId === t.id}
+                    focused={focusIndex === index}
+                    checked={selectedIds.has(t.id)}
+                    onToggleCheck={canModify ? toggleSelect : undefined}
+                    onAvatarPress={canModify ? toggleSelect : undefined}
+                    onLongPress={handleRowLongPress}
+                    selectionMode={selectionMode}
+                    previewLines={previewLines}
+                    swipeConfig={swipeConfig}
+                    onChanged={softRefresh}
+                    onPatch={patchThread}
+                    onRemoveDone={softRefresh}
+                    onUndoDone={hardRefresh}
+                    onRemove={removeThreadAndAdvance}
+                    onSnooze={handleRowSnooze}
+                    onAiMenu={canUseCopiloto ? handleRowAiMenu : undefined}
+                    onOpen={handleRowOpen}
+                  />
+                ))}
+              </Surface>
+            )}
+          </div>
           <div className="hidden space-y-2 lg:block">
-            {query.trim().length > 0 && <CorreoSearchChips query={query} onQuery={setQuery} />}
             <CorreoIndexCoverageBar
               coverage={coverage}
               syncing={syncing}
@@ -1430,76 +1499,6 @@ export function CorreosClient() {
               </div>
             )}
           </div>
-          {!connected ? (
-            <EmptyState icon={Mail} title="Conectá tu Gmail" description="Conectá tu casilla en Integraciones." />
-          ) : folder === "scheduled" ? (
-            /* PR-12: Programados se alimenta del outbox, no de hilos. */
-            <CorreoScheduledList refreshToken={realtimeRevision} />
-          ) : loading && items.length === 0 ? (
-            <Spinner className="mx-auto" />
-          ) : filtered.length === 0 ? (
-            searching ? (
-              <EmptyState
-                icon={Mail}
-                title="Sin resultados"
-                description={
-                  coverage && coverage.pct < 100
-                    ? `No encontramos coincidencias por texto ni por significado en esta carpeta. La casilla tiene ${coverage.pct}% indexado: correos antiguos pueden no aparecer por significado. Probá from:, is:unread o reformulá.`
-                    : !semanticAvailable
-                      ? "Nada coincide por texto exacto. La búsqueda por significado no está disponible ahora."
-                      : "Nada coincide por texto exacto ni por significado en esta carpeta. Probá from:, subject:, is:unread o has:attachment."
-                }
-              />
-            ) : (
-              <EmptyState icon={Mail} title="Sin correos" description="Probá sincronizar o cambiá los filtros." />
-            )
-          ) : (
-            <Surface
-              elevation={1}
-              padding="none"
-              className="relative overflow-hidden max-lg:-mx-4 max-lg:rounded-none max-lg:border-x-0"
-              onContextMenu={(e) => {
-                // Click derecho sobre una fila (desktop): menú contextual.
-                const rowEl = (e.target as HTMLElement).closest?.("[data-correo-row]");
-                const id = rowEl?.getAttribute("data-correo-row");
-                const t = id ? filtered.find((x) => x.id === id) : null;
-                if (!t) return;
-                e.preventDefault();
-                setCtxMenu({ thread: t, x: e.clientX, y: e.clientY });
-              }}
-            >
-              {searching && loading && (
-                <div className="flex items-center gap-2 border-b border-ds-border-subtle px-4 py-2 text-[12px] text-ds-text-3">
-                  <Spinner className="h-3.5 w-3.5" /> Buscando en toda la casilla…
-                </div>
-              )}
-              {filtered.map((t, index) => (
-                <CorreoRowSwipe
-                  key={t.id}
-                  thread={t}
-                  canModify={canModify}
-                  selected={openId === t.id}
-                  focused={focusIndex === index}
-                  checked={selectedIds.has(t.id)}
-                  onToggleCheck={canModify ? toggleSelect : undefined}
-                  onAvatarPress={canModify ? toggleSelect : undefined}
-                  onLongPress={handleRowLongPress}
-                  selectionMode={selectionMode}
-                  previewLines={previewLines}
-                  swipeConfig={swipeConfig}
-                  onChanged={softRefresh}
-                  onPatch={patchThread}
-                  onRemoveDone={softRefresh}
-                  onUndoDone={hardRefresh}
-                  onRemove={removeThreadAndAdvance}
-                  onSnooze={handleRowSnooze}
-                  onAiMenu={canUseCopiloto ? handleRowAiMenu : undefined}
-                  onOpen={handleRowOpen}
-                />
-              ))}
-            </Surface>
-          )}
-
           {cursor && (
             <div className="flex justify-center">
               <button type="button" onClick={() => void fetchPage(cursor, false)} disabled={loading}
