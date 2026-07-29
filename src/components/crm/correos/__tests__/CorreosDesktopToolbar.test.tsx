@@ -21,9 +21,11 @@ const base = {
 };
 
 describe("CorreosDesktopToolbar", () => {
-  it("renderiza el contador con totalCount", () => {
+  it("en reposo muestra el contador y no el botón de atajos", () => {
     render(<CorreosDesktopToolbar {...base} />);
     expect(screen.getByText("3 de 10")).toBeTruthy();
+    expect(screen.queryByTitle("Atajos de teclado (?)")).toBeNull();
+    expect(screen.queryByTitle(/Atajos/i)).toBeNull();
   });
 
   it("renderiza el contador sin totalCount", () => {
@@ -73,7 +75,7 @@ describe("CorreosDesktopToolbar", () => {
     expect(onPreviewLines).toHaveBeenCalledWith(2);
   });
 
-  it("con selección muestra acciones masivas e invoca spam", () => {
+  it("con selección muestra las seis acciones masivas y el contador", () => {
     const onAction = vi.fn();
     render(
       <CorreosDesktopToolbar
@@ -83,6 +85,12 @@ describe("CorreosDesktopToolbar", () => {
       />,
     );
     expect(screen.getByText("2 seleccionados")).toBeTruthy();
+    expect(screen.getByTitle("Archivar")).toBeTruthy();
+    expect(screen.getByTitle("Mover a la Papelera")).toBeTruthy();
+    expect(screen.getByTitle("Marcar leídos")).toBeTruthy();
+    expect(screen.getByTitle("Destacar")).toBeTruthy();
+    expect(screen.getByTitle("Posponer")).toBeTruthy();
+    expect(screen.getByTitle("Marcar spam")).toBeTruthy();
     fireEvent.click(screen.getByTitle("Marcar spam"));
     expect(onAction).toHaveBeenCalledWith("spam", "Marcados como spam", {
       undo: "unspam",
@@ -90,3 +98,4 @@ describe("CorreosDesktopToolbar", () => {
     });
   });
 });
+
