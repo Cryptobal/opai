@@ -1,32 +1,32 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import type { AgendaSourceKey } from "./agenda-desktop-prefs";
-import { AgendaCalendarToggles } from "./AgendaCalendarToggles";
+import { AgendaCalendarList, type CalendarSource } from "./AgendaCalendarList";
 import { AgendaMiniCalendar } from "./AgendaMiniCalendar";
-import type { GoogleAccountStatus } from "./useAgendaDesktopData";
 
 type Props = {
   collapsed: boolean;
   anchor: Date;
   visibleDays: Set<string>;
-  hiddenSources: AgendaSourceKey[];
-  counts: Partial<Record<AgendaSourceKey, number>>;
-  google: GoogleAccountStatus | null;
+  sources: CalendarSource[];
+  counts: Record<string, number>;
   onSelectDate: (ymd: string) => void;
-  onToggleSource: (key: AgendaSourceKey) => void;
+  onToggleSource: (sourceKey: string) => void;
+  onColorChange: (sourceKey: string, color: string) => void;
+  onSetCreateTarget?: (sourceKey: string) => void;
 };
 
-/** Rail izquierdo (232px) colapsable: mini-calendario + toggles de calendarios. */
+/** Rail izquierdo (232px) colapsable: mini-calendario + lista de calendarios. */
 export function AgendaRail({
   collapsed,
   anchor,
   visibleDays,
-  hiddenSources,
+  sources,
   counts,
-  google,
   onSelectDate,
   onToggleSource,
+  onColorChange,
+  onSetCreateTarget,
 }: Props) {
   return (
     <div
@@ -42,11 +42,12 @@ export function AgendaRail({
           visibleDays={visibleDays}
           onSelectDate={onSelectDate}
         />
-        <AgendaCalendarToggles
-          hiddenSources={hiddenSources}
-          onToggleSource={onToggleSource}
+        <AgendaCalendarList
+          sources={sources}
           counts={counts}
-          google={google}
+          onToggle={onToggleSource}
+          onColorChange={onColorChange}
+          onSetCreateTarget={onSetCreateTarget}
         />
       </div>
     </div>

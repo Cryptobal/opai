@@ -17,12 +17,19 @@ const HOUR_H = 64; // px por hora (spec §4)
 type Props = {
   selectedYmd: string;
   items: AgendaCalendarItem[];
+  colorBySource?: Record<string, string>;
   onSelectDate: (ymd: string) => void;
   onSelect: (item: AgendaCalendarItem) => void;
 };
 
 /** Vista Día móvil (spec §4): 1 columna 00-24, nowline, swipe entre días. */
-export function AgendaDayView({ selectedYmd, items, onSelectDate, onSelect }: Props) {
+export function AgendaDayView({
+  selectedYmd,
+  items,
+  colorBySource,
+  onSelectDate,
+  onSelect,
+}: Props) {
   const isToday = selectedYmd === todayInChile();
   const scrollAnchor = useRef<HTMLDivElement>(null);
   const touchStart = useRef<{ x: number; y: number } | null>(null);
@@ -86,7 +93,7 @@ export function AgendaDayView({ selectedYmd, items, onSelectDate, onSelect }: Pr
               onClick={() => onSelect(item)}
               className="opai-glass-soft flex w-full items-center gap-2 rounded-[16px] px-3 py-2 text-left ds-tap"
             >
-              <span className={cn("h-4 w-[3px] rounded-full", typeBarClass(item))} />
+              <span className={cn("h-4 w-[3px] rounded-full", typeBarClass(item, colorBySource))} />
               <span className="truncate text-[13px] font-medium text-ds-text-1">{item.title}</span>
             </button>
           ))}
@@ -120,7 +127,7 @@ export function AgendaDayView({ selectedYmd, items, onSelectDate, onSelect }: Pr
                 width: `calc((100% - 44px) / ${columnCount} - 4px)`,
               }}
             >
-              <span className={cn("absolute inset-y-0 left-0 w-[3px]", typeBarClass(item))} />
+              <span className={cn("absolute inset-y-0 left-0 w-[3px]", typeBarClass(item, colorBySource))} />
               <p className="truncate text-[13px] font-semibold leading-tight text-ds-text-1">
                 {item.title}
               </p>

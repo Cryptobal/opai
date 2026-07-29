@@ -58,6 +58,7 @@ type Props = {
   selectedKey: string | null;
   usersById: Map<string, AgendaTeamMember>;
   gridPrefs: AgendaGridPrefs;
+  colorBySource?: Record<string, string>;
   onSelect: (item: AgendaCalendarItem) => void;
   onMove: (item: AgendaCalendarItem, schedule: AgendaSchedule) => void;
   onResize: (item: AgendaCalendarItem, schedule: AgendaSchedule) => void;
@@ -161,6 +162,7 @@ export function AgendaCalendarGrid({
   selectedKey,
   usersById,
   gridPrefs,
+  colorBySource,
   onSelect,
   onMove,
   onResize,
@@ -397,6 +399,7 @@ export function AgendaCalendarGrid({
                     selectedKey={selectedKey}
                     usersById={usersById}
                     showOwner={gridPrefs.showOwner}
+                    colorBySource={colorBySource}
                     onSelect={onSelect}
                     onOpenDay={onOpenDay}
                   />
@@ -407,7 +410,7 @@ export function AgendaCalendarGrid({
         </Surface>
         <DragOverlay dropAnimation={null}>
           {activeItem ? (
-            <AgendaDragPreview item={activeItem} guide={dropGuide} />
+            <AgendaDragPreview item={activeItem} guide={dropGuide} colorBySource={colorBySource} />
           ) : null}
         </DragOverlay>
       </DndContext>
@@ -496,6 +499,7 @@ export function AgendaCalendarGrid({
                     selectedKey={selectedKey}
                     usersById={usersById}
                     showOwner={gridPrefs.showOwner}
+                    colorBySource={colorBySource}
                     onSelect={onSelect}
                   />
                 );
@@ -548,6 +552,7 @@ export function AgendaCalendarGrid({
                   hourLinesBg={hourLinesBg}
                   step={step}
                   showOwner={gridPrefs.showOwner}
+                  colorBySource={colorBySource}
                   dropGuide={
                     dropGuide && !dropGuide.allDay && dropGuide.dateKey === key
                       ? dropGuide
@@ -564,7 +569,9 @@ export function AgendaCalendarGrid({
       </Surface>
 
       <DragOverlay dropAnimation={null}>
-        {activeItem ? <AgendaDragPreview item={activeItem} guide={dropGuide} /> : null}
+        {activeItem ? (
+          <AgendaDragPreview item={activeItem} guide={dropGuide} colorBySource={colorBySource} />
+        ) : null}
       </DragOverlay>
     </DndContext>
   );
@@ -578,6 +585,7 @@ function AllDayColumn({
   selectedKey,
   usersById,
   showOwner,
+  colorBySource,
   onSelect,
 }: {
   dateKey: string;
@@ -585,6 +593,7 @@ function AllDayColumn({
   selectedKey: string | null;
   usersById: Map<string, AgendaTeamMember>;
   showOwner: boolean;
+  colorBySource?: Record<string, string>;
   onSelect: (item: AgendaCalendarItem) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: `all-day:${dateKey}` });
@@ -609,6 +618,7 @@ function AllDayColumn({
           user={usersById.get(item.assignedUserId)}
           showOwner={showOwner}
           className={ALL_DAY_CHIP}
+          colorBySource={colorBySource}
           onSelect={onSelect}
         />
       ))}
@@ -629,6 +639,7 @@ function AllDayColumn({
                 selected={selectedKey === itemKey(item)}
                 user={usersById.get(item.assignedUserId)}
                 showOwner={showOwner}
+                colorBySource={colorBySource}
                 onSelect={onSelect}
               />
             ))}
@@ -651,6 +662,7 @@ function DayTimeColumn({
   hourLinesBg,
   step,
   showOwner,
+  colorBySource,
   dropGuide,
   onSelect,
   onResize,
@@ -667,6 +679,7 @@ function DayTimeColumn({
   hourLinesBg: string;
   step: number;
   showOwner: boolean;
+  colorBySource?: Record<string, string>;
   dropGuide: DropGuide | null;
   onSelect: (item: AgendaCalendarItem) => void;
   onResize: (item: AgendaCalendarItem, schedule: AgendaSchedule) => void;
@@ -752,6 +765,7 @@ function DayTimeColumn({
             selected={selectedKey === itemKey(item)}
             user={usersById.get(item.assignedUserId)}
             showOwner={showOwner}
+            colorBySource={colorBySource}
             onSelect={onSelect}
             onResize={onResize}
           />
@@ -776,6 +790,7 @@ function MonthDayCell({
   selectedKey,
   usersById,
   showOwner,
+  colorBySource,
   onSelect,
   onOpenDay,
 }: {
@@ -786,6 +801,7 @@ function MonthDayCell({
   selectedKey: string | null;
   usersById: Map<string, AgendaTeamMember>;
   showOwner: boolean;
+  colorBySource?: Record<string, string>;
   onSelect: (item: AgendaCalendarItem) => void;
   onOpenDay?: (dateKey: string) => void;
 }) {
@@ -829,6 +845,7 @@ function MonthDayCell({
           selected={selectedKey === itemKey(item)}
           user={usersById.get(item.assignedUserId)}
           showOwner={showOwner}
+          colorBySource={colorBySource}
           className="h-[22px] min-h-0 min-w-0 shrink-0 sm:h-[22px]"
           onSelect={onSelect}
         />

@@ -5,7 +5,13 @@ import { useDraggable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 import { Cloud, CloudOff, ExternalLink, GripHorizontal } from "lucide-react";
 import { Avatar } from "@/components/opai-ds";
+import {
+  paletteBorder,
+  paletteFgText,
+  paletteSoftBg,
+} from "@/lib/design/calendar-palette";
 import { cn } from "@/lib/utils";
+import { itemSourceKey } from "./desktop/agenda-desktop-prefs";
 import {
   CALENDAR_HOUR_HEIGHT,
   eventDurationMinutes,
@@ -32,6 +38,7 @@ type TimedProps = {
   hourHeight?: number;
   step?: number;
   showOwner?: boolean;
+  colorBySource?: Record<string, string>;
   onSelect: (item: AgendaCalendarItem) => void;
   onResize: (item: AgendaCalendarItem, schedule: AgendaSchedule) => void;
 };
@@ -47,6 +54,7 @@ export function AgendaTimedEvent({
   hourHeight = CALENDAR_HOUR_HEIGHT,
   step = 15,
   showOwner = true,
+  colorBySource,
   onSelect,
   onResize,
 }: TimedProps) {
@@ -108,7 +116,7 @@ export function AgendaTimedEvent({
         }}
         className={cn(
           "relative h-full w-full overflow-hidden rounded-lg border px-2 py-1.5 text-left shadow-ds-xs transition-[border-color,background-color,box-shadow] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50",
-          eventTone(item),
+          eventTone(item, colorBySource),
           movable && "cursor-grab active:cursor-grabbing touch-none",
           selected && "ring-2 ring-primary/35 shadow-ds-sm",
         )}
@@ -179,6 +187,7 @@ type CompactProps = {
   showOwner?: boolean;
   /** Overrides puntuales (ej. chips slim de la banda all-day desktop). */
   className?: string;
+  colorBySource?: Record<string, string>;
   onSelect: (item: AgendaCalendarItem) => void;
 };
 
@@ -189,6 +198,7 @@ export function AgendaCompactEvent({
   user,
   showOwner = true,
   className,
+  colorBySource,
   onSelect,
 }: CompactProps) {
   const movable = isMovableAgendaItem(item);
@@ -210,7 +220,7 @@ export function AgendaCompactEvent({
       style={{ transform: CSS.Translate.toString(transform) }}
       className={cn(
         "flex min-h-8 w-full min-w-0 max-w-full items-center gap-1.5 overflow-hidden rounded-md border px-1.5 text-left text-[12px] shadow-ds-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50",
-        eventTone(item),
+        eventTone(item, colorBySource),
         dense ? "h-11 sm:h-8" : "h-11 sm:h-9",
         movable && "cursor-grab active:cursor-grabbing touch-none",
         selected && "ring-2 ring-primary/35",
@@ -243,9 +253,11 @@ type DragGuide = {
 export function AgendaDragPreview({
   item,
   guide,
+  colorBySource,
 }: {
   item: AgendaCalendarItem;
   guide?: DragGuide;
+  colorBySource?: Record<string, string>;
 }) {
   const guideLabel = (() => {
     if (!guide) return null;
@@ -260,7 +272,7 @@ export function AgendaDragPreview({
     <div
       className={cn(
         "w-56 rounded-lg border px-2.5 py-2 text-left text-[13px] shadow-ds-lg",
-        eventTone(item),
+        eventTone(item, colorBySource),
       )}
     >
       <p className="truncate font-semibold">{item.title}</p>
@@ -275,25 +287,16 @@ export function AgendaDragPreview({
   );
 }
 
-function eventTone(item: AgendaCalendarItem): string {
-  if (item.source === "tarea") {
-    return "border-primary/35 bg-primary/10 text-ds-text-1 hover:bg-primary/15";
-  }
-  if (item.type === "cliente") {
-    return "border-tint-violet-fg/30 bg-tint-violet text-tint-violet-fg hover:bg-tint-violet/80";
-  }
-  if (item.type === "tecnica") {
-    return "border-status-ok-border bg-status-ok-soft text-status-ok-fg";
-  }
-  if (item.type === "supervision") {
-    return "border-status-info-border bg-status-info-soft text-status-info-fg";
-  }
-  if (item.type === "licitacion") {
-    // Warn rayado (spec desktop v1): franjas diagonales con el token warn.
-    return "border-status-warn-border bg-status-warn-soft text-status-warn-fg [background-image:repeating-linear-gradient(135deg,transparent_0,transparent_6px,hsl(var(--ds-warn-fg)/0.10)_6px,hsl(var(--ds-warn-fg)/0.10)_12px)]";
-  }
-  if (item.source === "google") {
-    return "border-ds-border-default bg-ds-surface-3 text-ds-text-2";
-  }
-  return "border-status-warn-border bg-status-warn-soft text-status-warn-fg";
+function eventTone(
+  item: AgendaCalendarItem,
+  colorBySource?: Record<string, string>,
+): string {
+  const color = colorBySource?.[itemSourceKey(item)] ?? "teal";
+  return cn(
+    paletteSoftBg(color),
+    paletteFgText(color),
+    "border-l-2",
+    paletteBorder(color),
+    "hover:opacity-90",
+  );
 }

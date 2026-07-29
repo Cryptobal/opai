@@ -19,12 +19,17 @@ vi.mock("../desktop/useAgendaDesktopData", () => ({
   useAgendaDesktopData: () => ({
     items: [],
     users: [],
+    sources: [],
+    accounts: [],
+    colorBySource: {},
     googleStatus: null,
     google: null,
     initialLoading: false,
     refreshing: false,
     loading: false,
     load: loadMock,
+    loadSources: vi.fn(),
+    patchSource: vi.fn(),
     persistSchedule: vi.fn(),
   }),
 }));

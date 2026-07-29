@@ -19,6 +19,7 @@ const WEEKDAYS = ["L", "M", "M", "J", "V", "S", "D"];
 type Props = {
   selectedYmd: string;
   items: AgendaCalendarItem[];
+  colorBySource?: Record<string, string>;
   onSelectDate: (ymd: string) => void;
   onSelect: (item: AgendaCalendarItem) => void;
   onChanged: () => void;
@@ -28,6 +29,7 @@ type Props = {
 export function AgendaMonthView({
   selectedYmd,
   items,
+  colorBySource,
   onSelectDate,
   onSelect,
   onChanged,
@@ -100,7 +102,7 @@ export function AgendaMonthView({
                     key={i}
                     className={cn(
                       "h-1 w-1 rounded-full",
-                      selected ? "bg-primary-foreground" : typeBarClass(item),
+                      selected ? "bg-primary-foreground" : typeBarClass(item, colorBySource),
                     )}
                   />
                 ))}
@@ -126,6 +128,7 @@ export function AgendaMonthView({
               <AgendaListRow
                 key={`${item.source}:${item.id}`}
                 item={item}
+                colorBySource={colorBySource}
                 onSelect={onSelect}
                 onChanged={onChanged}
               />

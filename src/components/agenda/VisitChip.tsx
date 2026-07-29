@@ -2,6 +2,12 @@
 
 import { Cloud, CloudOff, Loader2 } from "lucide-react";
 import { Tag } from "@/components/opai-ds";
+import {
+  paletteBorder,
+  paletteFgText,
+  paletteSoftBg,
+} from "@/lib/design/calendar-palette";
+import { cn } from "@/lib/utils";
 
 const TYPE_CLASS: Record<string, string> = {
   tecnica: "bg-status-ok-soft text-status-ok-fg border-status-ok-border",
@@ -15,18 +21,36 @@ type Props = {
   title: string;
   start: string;
   syncStatus?: string | null;
+  eventColor?: string;
   onClick?: () => void;
   /** Con id, el chip se puede arrastrar a otro día (reprograma + Google Calendar). */
   draggableId?: string;
 };
 
-export function VisitChip({ type, title, start, syncStatus, onClick, draggableId }: Props) {
+export function VisitChip({
+  type,
+  title,
+  start,
+  syncStatus,
+  eventColor,
+  onClick,
+  draggableId,
+}: Props) {
   const time = new Date(start).toLocaleTimeString("es-CL", {
     hour: "2-digit",
     minute: "2-digit",
   });
   const SyncIcon =
     syncStatus === "SYNCED" ? Cloud : syncStatus === "PENDING" ? Loader2 : CloudOff;
+
+  const tone = eventColor
+    ? cn(
+        paletteSoftBg(eventColor),
+        paletteFgText(eventColor),
+        "border-l-2",
+        paletteBorder(eventColor),
+      )
+    : TYPE_CLASS[type] ?? TYPE_CLASS.otra;
 
   return (
     <button
@@ -38,9 +62,11 @@ export function VisitChip({ type, title, start, syncStatus, onClick, draggableId
         e.dataTransfer.setData("application/x-opai-visita", draggableId);
         e.dataTransfer.effectAllowed = "move";
       }}
-      className={`w-full rounded-xl border px-2 py-1.5 text-left text-[12px] ds-tap ${
-        draggableId ? "cursor-grab active:cursor-grabbing " : ""
-      }${TYPE_CLASS[type] ?? TYPE_CLASS.otra}`}
+      className={cn(
+        "w-full rounded-xl border px-2 py-1.5 text-left text-[12px] ds-tap",
+        draggableId && "cursor-grab active:cursor-grabbing",
+        tone,
+      )}
     >
       <div className="flex items-center justify-between gap-1">
         <span className="font-medium">{time}</span>
