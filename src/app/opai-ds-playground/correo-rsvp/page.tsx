@@ -408,24 +408,14 @@ export default function CorreoRsvpMockupPage() {
 
             <Surface elevation={1} padding="md" className="space-y-2 border border-dashed border-ds-border-default">
               <p className="text-[12px] font-semibold uppercase tracking-wide text-ds-text-4">
-                Nota de implementación (no va en producto)
+                Estado
               </p>
-              <ul className="list-inside list-disc space-y-1 text-[13px] text-ds-text-3">
-                <li>
-                  Detectar invite por adjunto <code className="text-ds-text-2">text/calendar</code> /
-                  headers Gmail / HTML de Teams·Outlook·Google.
-                </li>
-                <li>
-                  Responder con la API de Calendar del usuario conectado (
-                  <code className="text-ds-text-2">events.patch</code> attendee responseStatus).
-                </li>
-                <li>
-                  Espejar en Agenda OPAI (ya existe <code className="text-ds-text-2">respondRsvp</code>).
-                </li>
-                <li>
-                  Card arriba del cuerpo del mensaje (como Gmail), no escondida en adjuntos.
-                </li>
-              </ul>
+              <p className="text-[13px] text-ds-text-3">
+                Implementado en el lector real: <code className="text-ds-text-2">CorreoInviteRsvpCard</code>{" "}
+                + <code className="text-ds-text-2">GET …/invite</code> +{" "}
+                <code className="text-ds-text-2">POST …/rsvp</code> (Google Calendar del usuario).
+                Requiere Gmail + Calendar conectados y que el evento exista en el calendar (iCalUID).
+              </p>
             </Surface>
           </div>
         </section>
