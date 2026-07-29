@@ -76,32 +76,54 @@ export async function GET(request: NextRequest) {
     }
 
     step = "db";
-    await prisma.googleCalendarAccount.upsert({
+    // Upsert por (tenant, user, googleEmail) — no destructivo entre cuentas.
+    // Tope / isDefault / color: ver bloque 5 (OAuth no destructivo).
+    const existing = await prisma.googleCalendarAccount.findUnique({
       where: {
-        tenantId_userId: {
+        tenantId_userId_googleEmail: {
           tenantId: decoded.tenantId,
           userId: session.user.id,
+          googleEmail,
         },
       },
-      create: {
-        tenantId: decoded.tenantId,
-        userId: session.user.id,
-        googleEmail,
-        accessTokenEnc: encryptToken(tokens.access_token),
-        refreshTokenEnc: encryptToken(tokens.refresh_token),
-        tokenExpiresAt: tokens.expiry_date ? new Date(tokens.expiry_date) : null,
-        calendarId: "primary",
-        prefs: DEFAULT_PREFS,
-        status: "ACTIVE",
-      },
-      update: {
-        googleEmail,
-        accessTokenEnc: encryptToken(tokens.access_token),
-        refreshTokenEnc: encryptToken(tokens.refresh_token),
-        tokenExpiresAt: tokens.expiry_date ? new Date(tokens.expiry_date) : null,
-        status: "ACTIVE",
-      },
     });
+    if (existing) {
+      await prisma.googleCalendarAccount.update({
+        where: { id: existing.id },
+        data: {
+          accessTokenEnc: encryptToken(tokens.access_token),
+          refreshTokenEnc: encryptToken(tokens.refresh_token),
+          tokenExpiresAt: tokens.expiry_date ? new Date(tokens.expiry_date) : null,
+          status: "ACTIVE",
+        },
+      });
+    } else {
+      const activeCount = await prisma.googleCalendarAccount.count({
+        where: {
+          tenantId: decoded.tenantId,
+          userId: session.user.id,
+          status: "ACTIVE",
+        },
+      });
+      if (activeCount >= 5) {
+        return NextResponse.redirect(withCal("limit_reached"));
+      }
+      await prisma.googleCalendarAccount.create({
+        data: {
+          tenantId: decoded.tenantId,
+          userId: session.user.id,
+          googleEmail,
+          accessTokenEnc: encryptToken(tokens.access_token),
+          refreshTokenEnc: encryptToken(tokens.refresh_token),
+          tokenExpiresAt: tokens.expiry_date ? new Date(tokens.expiry_date) : null,
+          calendarId: "primary",
+          prefs: DEFAULT_PREFS,
+          status: "ACTIVE",
+          isDefault: activeCount === 0,
+          sortIndex: activeCount,
+        },
+      });
+    }
 
     // Registrar push channel (best-effort; cron renueva).
     void fetch(`${origin}/api/cron/calendar-channel-renew`, {

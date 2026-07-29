@@ -21,7 +21,7 @@ export default async function IntegracionesPage() {
 
   const tenantId = session.user.tenantId;
   const isAdmin = ["owner", "admin"].includes(session.user.role ?? "");
-  const [gmailAccount, slackWorkspace, driveWorkspace, calendarAccount, mcpKeyCount] =
+  const [gmailAccount, slackWorkspace, driveWorkspace, calendarAccountCount, mcpKeyCount] =
     await Promise.all([
       prisma.crmEmailAccount.findFirst({
         where: {
@@ -34,15 +34,14 @@ export default async function IntegracionesPage() {
       }),
       prisma.slackWorkspace.findUnique({ where: { tenantId }, select: { status: true } }),
       prisma.googleDriveWorkspace.findUnique({ where: { tenantId }, select: { status: true } }),
-      prisma.googleCalendarAccount.findUnique({
-        where: { tenantId_userId: { tenantId, userId: session.user.id } },
-        select: { status: true },
+      prisma.googleCalendarAccount.count({
+        where: { tenantId, userId: session.user.id, status: "ACTIVE" },
       }),
       prisma.mcpApiKey.count({ where: { tenantId, revokedAt: null } }),
     ]);
   const slackConnected = slackWorkspace?.status === "ACTIVE";
   const driveConnected = driveWorkspace?.status === "ACTIVE";
-  const calendarConnected = calendarAccount?.status === "ACTIVE";
+  const calendarConnected = calendarAccountCount > 0;
   const mcpConnected = mcpKeyCount > 0;
   const gmailConnected = Boolean(gmailAccount);
 

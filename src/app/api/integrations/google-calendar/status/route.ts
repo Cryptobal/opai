@@ -12,8 +12,9 @@ export async function GET() {
   const tenantId = session.user.tenantId;
   const isAdmin = ["owner", "admin"].includes(session.user.role ?? "");
 
-  const mine = await prisma.googleCalendarAccount.findUnique({
-    where: { tenantId_userId: { tenantId, userId: session.user.id } },
+  const mine = await prisma.googleCalendarAccount.findFirst({
+    where: { tenantId, userId: session.user.id, status: "ACTIVE" },
+    orderBy: [{ isDefault: "desc" }, { sortIndex: "asc" }, { createdAt: "asc" }],
   });
 
   let team: Array<{ userId: string; name: string; email: string; connected: boolean }> = [];
