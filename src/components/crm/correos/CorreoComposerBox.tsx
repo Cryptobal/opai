@@ -49,6 +49,8 @@ type Props = {
   onDraftDiscarded?: () => void;
   /** Abre el sheet de estilo de respuesta IA. */
   onOpenAiStyle?: () => void;
+  /** Abre preferencias en la pestaña Firma. */
+  onOpenSignature?: () => void;
 };
 
 function defaultSubject(mode: ComposerMode, subject: string): string {
@@ -266,6 +268,7 @@ export function CorreoComposerBox(props: Props) {
         onBodyChange={(doc) => { bodyRef.current = doc; }}
         onSubjectChange={(s) => { subjectRef.current = s; }}
         onDraftIdChange={(id) => { draftIdRef.current = id; }}
+        onOpenSignature={props.onOpenSignature}
         aboveFooter={
           showAiPrompt ? (
             <ComposerAiPromptPill

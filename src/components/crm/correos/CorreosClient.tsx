@@ -192,6 +192,15 @@ export function CorreosClient() {
   const [swipeSettingsOpen, setSwipeSettingsOpen] = useState(false);
   const [snoozeSettingsOpen, setSnoozeSettingsOpen] = useState(false);
   const [aiStyleSheetOpen, setAiStyleSheetOpen] = useState(false);
+  const [aiStyleInitialTab, setAiStyleInitialTab] = useState<"ai" | "firma">("ai");
+  const openAiStyle = useCallback(() => {
+    setAiStyleInitialTab("ai");
+    setAiStyleSheetOpen(true);
+  }, []);
+  const openFirmaStyle = useCallback(() => {
+    setAiStyleInitialTab("firma");
+    setAiStyleSheetOpen(true);
+  }, []);
   const [shortcutsSheetOpen, setShortcutsSheetOpen] = useState(false);
   // Menú contextual (click derecho) desktop sobre una fila.
   const [ctxMenu, setCtxMenu] = useState<{ thread: CorreoThreadDTO; x: number; y: number } | null>(null);
@@ -1389,7 +1398,7 @@ export function CorreosClient() {
         inboxUnreadTotal={counts?.inboxUnread}
         onOpenSwipeSettings={() => setSwipeSettingsOpen(true)}
         onOpenSnoozeSettings={() => setSnoozeSettingsOpen(true)}
-        onOpenAiStyle={() => setAiStyleSheetOpen(true)}
+        onOpenAiStyle={openAiStyle}
         onOpenShortcuts={() => setShortcutsSheetOpen(true)}
         onInsertSearch={(token) => {
           setQuery((prev) => (prev.trim() ? `${prev.trim()} ${token}` : token));
@@ -1412,6 +1421,7 @@ export function CorreosClient() {
       <CorreoAiStyleSheet
         open={aiStyleSheetOpen}
         onClose={() => setAiStyleSheetOpen(false)}
+        initialTab={aiStyleInitialTab}
       />
       <CorreoShortcutsSheet
         open={shortcutsSheetOpen}
@@ -1523,7 +1533,7 @@ export function CorreosClient() {
           onToggleCollapsed={() => setRailCollapsed(!railCollapsed)}
           onOpenSwipeSettings={() => setSwipeSettingsOpen(true)}
           onOpenSnoozeSettings={() => setSnoozeSettingsOpen(true)}
-          onOpenAiStyle={() => setAiStyleSheetOpen(true)}
+          onOpenAiStyle={openAiStyle}
           onOpenShortcuts={() => setShortcutsSheetOpen(true)}
         />
         <div className="min-w-0 flex-1 space-y-4 max-lg:px-4 lg:min-w-[340px] lg:space-y-3">
@@ -1788,7 +1798,8 @@ export function CorreosClient() {
                 }
               : undefined
           }
-          onOpenAiStyle={() => setAiStyleSheetOpen(true)}
+          onOpenAiStyle={openAiStyle}
+          onOpenSignature={openFirmaStyle}
         />
       </div>
 
@@ -1802,7 +1813,8 @@ export function CorreosClient() {
           setCorreoComposeInHistory(false);
         }}
         onSent={() => void fetchPage(null, true)}
-        onOpenAiStyle={() => setAiStyleSheetOpen(true)}
+        onOpenAiStyle={openAiStyle}
+        onOpenSignature={openFirmaStyle}
         preferredAccountId={activeAccountId ?? defaultAccountId}
       />
 

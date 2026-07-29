@@ -28,6 +28,8 @@ type Props = {
   onSent: () => void;
   /** Abre el sheet de estilo de respuesta IA (mismo que reply). */
   onOpenAiStyle?: () => void;
+  /** Abre preferencias en la pestaña Firma. */
+  onOpenSignature?: () => void;
   /** Casilla preferida al redactar (alcance activo o default). */
   preferredAccountId?: string | null;
 };
@@ -47,7 +49,7 @@ type WindowState = "normal" | "minimized" | "expanded";
  * Cerrar con cambios pregunta Guardar / Descartar; minimizar deja el borrador
  * a mano como barra inferior.
  */
-export function CorreoComposeSheet({ open, onClose, onSent, onOpenAiStyle, preferredAccountId = null }: Props) {
+export function CorreoComposeSheet({ open, onClose, onSent, onOpenAiStyle, onOpenSignature, preferredAccountId = null }: Props) {
   const [dirty, setDirty] = useState(false);
   const [win, setWin] = useState<WindowState>("normal");
   const [mounted, setMounted] = useState(false);
@@ -286,6 +288,7 @@ export function CorreoComposeSheet({ open, onClose, onSent, onOpenAiStyle, prefe
           onToChange={(next) => {
             toRef.current = next;
           }}
+          onOpenSignature={onOpenSignature}
           aboveFooter={
             ai ? (
               <ComposerAiPromptPill

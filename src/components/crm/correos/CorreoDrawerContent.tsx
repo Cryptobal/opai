@@ -57,6 +57,7 @@ type Props = {
   /** Token del drawer: refresca el contexto del panel de trabajo. */
   dataRevision?: number;
   onOpenAiStyle?: () => void;
+  onOpenSignature?: () => void;
 };
 
 function copilotoAttentionReasons(detail: CorreoDetail): string[] {
@@ -91,6 +92,7 @@ export function CorreoDrawerContent({
   readCursorAt = null,
   dataRevision = 0,
   onOpenAiStyle,
+  onOpenSignature,
 }: Props) {
   const t = detail.thread;
   const perms = useEffectivePermissions();
@@ -334,6 +336,7 @@ export function CorreoDrawerContent({
             composeIntent={composeIntent}
             continueDraftIntent={continueDraftIntent}
             onOpenAiStyle={onOpenAiStyle}
+            onOpenSignature={onOpenSignature}
           />
         </div>
 

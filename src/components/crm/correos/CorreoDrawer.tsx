@@ -60,6 +60,7 @@ type Props = {
   onAiCommand?: (commandId: import("@/modules/crm/email/correo-ai-commands").CorreoAiCommandId) => void;
   onOpenAiMenu?: () => void;
   onOpenAiStyle?: () => void;
+  onOpenSignature?: () => void;
 };
 
 export function CorreoDrawer({
@@ -91,6 +92,7 @@ export function CorreoDrawer({
   onAiCommand,
   onOpenAiMenu,
   onOpenAiStyle,
+  onOpenSignature,
 }: Props) {
   const [detail, setDetail] = useState<CorreoDetail | null>(null);
   const [loading, setLoading] = useState(false);
@@ -361,6 +363,7 @@ export function CorreoDrawer({
           readCursorAt={readCursorAt}
           dataRevision={refreshToken}
           onOpenAiStyle={onOpenAiStyle}
+          onOpenSignature={onOpenSignature}
         />
       )}
       <CorreoSnoozeSheet

@@ -8,21 +8,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireCorreosAccess } from "@/lib/api-auth-productividad";
-import { resolveApiPerms } from "@/lib/api-auth";
+import { resolveApiPerms, type AuthContext } from "@/lib/api-auth";
 import { canEdit } from "@/lib/permissions";
 import { logAudit } from "@/lib/audit";
 import { parseSignatureData } from "@/modules/crm/email/signature-data";
 import { renderSignatureHtml } from "@/modules/crm/email/signature-render";
 
 async function assertCanMutateSignature(
-  ctx: { tenantId: string; userId: string },
+  ctx: AuthContext,
   signature: { userId: string | null },
 ): Promise<NextResponse | null> {
   const isOwn = signature.userId === ctx.userId;
-  const isTenant = signature.userId === null;
   if (isOwn) return null;
   const perms = await resolveApiPerms(ctx);
-  if ((isTenant || !isOwn) && canEdit(perms, "config")) return null;
+  if (canEdit(perms, "config")) return null;
   return NextResponse.json(
     { success: false, error: "Sin permisos para modificar esta firma" },
     { status: 403 },
