@@ -19,6 +19,7 @@ import { loadOfflineDetail } from "./offline-store";
 import type { CorreoDetail } from "@/modules/crm/email/correos.types";
 import type { CorreoShortcuts, CorreoSnoozeConfig } from "./useCorreosViewPreferences";
 import { nextIntentNonce, type ComposeIntent } from "./correo-reader-intent";
+import { toast } from "sonner";
 
 type ThreadPreview = {
   fromEmail?: string | null;
@@ -209,12 +210,43 @@ export function CorreoDrawer({
 
   async function associate(p: { accountId: string | null; dealId: string | null; sharedWithAccount?: boolean }) {
     if (!threadId) return;
-    await fetch(`/api/crm/correos/${threadId}/associate`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(p),
-    });
-    refresh();
+    try {
+      const res = await fetch(`/api/crm/correos/${threadId}/associate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(p),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(
+          typeof body?.error === "string" ? body.error : "No se pudo guardar la asociación",
+        );
+      }
+      // Actualización optimista del detalle local para que Copiloto/Cuenta
+      // muestren cuenta/negocio sin esperar el re-fetch completo.
+      setDetail((d) =>
+        d
+          ? {
+              ...d,
+              thread: {
+                ...d.thread,
+                accountId: body.accountId ?? null,
+                accountName: body.accountName ?? null,
+                dealId: body.dealId ?? null,
+                dealTitle: body.dealTitle ?? null,
+                sharedWithAccount:
+                  typeof body.sharedWithAccount === "boolean"
+                    ? body.sharedWithAccount
+                    : d.thread.sharedWithAccount,
+              },
+            }
+          : d,
+      );
+      refresh();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "No se pudo guardar la asociación");
+      refresh();
+    }
   }
 
   if (!threadId) return null;
@@ -273,6 +305,8 @@ export function CorreoDrawer({
             threadId={detail.thread.id}
             isUnread={detail.thread.isUnread}
             archived={Boolean(detail.thread.archivedAt)}
+            trashed={Boolean(detail.thread.trashedAt)}
+            snoozedUntil={detail.thread.snoozedUntil}
             canModify
             variant="mobile-bar"
             onReply={requestReply}

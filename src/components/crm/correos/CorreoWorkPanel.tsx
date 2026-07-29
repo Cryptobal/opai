@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Briefcase, X } from "lucide-react";
+import { LayoutGrid, X } from "lucide-react";
 import { hasModuleAccess } from "@/lib/permissions";
 import { useEffectivePermissions } from "@/hooks/useEffectivePermissions";
 import { useSwipeGesture } from "@/components/chat/hooks/useSwipeGesture";
@@ -37,7 +37,7 @@ type Props = {
 };
 
 /**
- * Panel de trabajo transversal: slide-over derecha en desktop /
+ * Copiloto (panel de trabajo): slide-over derecha en desktop /
  * bottom-sheet a altura completa en móvil (90dvh). Swipe-down cierra.
  */
 export function CorreoWorkPanel({
@@ -136,7 +136,7 @@ export function CorreoWorkPanel({
         ref={sheetRef}
         role="dialog"
         aria-modal
-        aria-label="Panel de trabajo"
+        aria-label="Copiloto"
         className="pointer-events-auto flex h-full w-full flex-col overflow-hidden border-ds-border-default bg-ds-surface-1 shadow-2xl sm:w-[430px] sm:border-l max-lg:mt-auto max-lg:h-[90dvh] max-lg:max-h-[90dvh] max-lg:rounded-t-2xl max-lg:border-t"
         style={
           closing
@@ -163,8 +163,8 @@ export function CorreoWorkPanel({
           onTouchEnd={swipe.onTouchEnd}
         >
           <div className="flex items-center gap-2">
-            <Briefcase className="h-4 w-4 shrink-0 text-tint-violet-fg" />
-            <p className="font-display text-[15px] font-semibold text-ds-text-1">Panel de trabajo</p>
+            <LayoutGrid className="h-4 w-4 shrink-0 text-tint-violet-fg" />
+            <p className="font-display text-[15px] font-semibold text-ds-text-1">Copiloto</p>
             <button
               type="button"
               aria-label="Cerrar"

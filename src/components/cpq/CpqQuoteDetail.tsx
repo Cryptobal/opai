@@ -2509,7 +2509,10 @@ export function CpqQuoteDetail({
           <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", secCostos && "rotate-180")} />
         </button>
         {secCostos && (
-          <div className="px-3 pb-3 pt-3 bg-card/60 sm:px-4 sm:pb-4 sm:pt-4" inert={isLocked ? true : undefined}>
+          // No usamos `inert` con cotización enviada: bloquearía expandir/
+          // colapsar cada categoría para ver el detalle. La edición ya queda
+          // bloqueada vía `readOnly` en CpqQuoteCosts.
+          <div className="px-3 pb-3 pt-3 bg-card/60 sm:px-4 sm:pb-4 sm:pt-4">
             <CpqQuoteCosts
               quoteId={quoteId}
               variant="inline"

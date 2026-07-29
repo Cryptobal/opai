@@ -25,7 +25,9 @@ type Props = {
 };
 
 const ICON_BTN =
-  "inline-flex h-11 w-11 items-center justify-center rounded-full text-ds-text-2 ds-tap";
+  "inline-flex h-11 w-11 items-center justify-center rounded-full text-ds-text-2 transition-colors ds-tap hover:bg-primary/15 hover:text-primary";
+const ICON_BTN_DANGER =
+  "inline-flex h-11 w-11 items-center justify-center rounded-full text-ds-text-2 transition-colors ds-tap hover:bg-status-danger-soft hover:text-status-danger-fg";
 
 /**
  * Barra contextual del modo selección móvil (estilo Gmail): reemplaza a la
@@ -65,7 +67,7 @@ export function CorreoSelectionBar({
           type="button"
           aria-label="Mover seleccionados a la papelera"
           onClick={run(() => onAction("trash", "Movidos a la Papelera", { undo: "untrash", removes: true }))}
-          className={ICON_BTN}
+          className={ICON_BTN_DANGER}
         >
           <Trash2 className="h-5 w-5" />
         </button>

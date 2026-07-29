@@ -1,6 +1,6 @@
 "use client";
 
-import { Archive, Clock, Mail, MailOpen, Reply, ShieldAlert, Star, Trash2 } from "lucide-react";
+import { Archive, Clock, Mail, MailOpen, Reply, ShieldAlert, Star, Trash2, Undo2 } from "lucide-react";
 import type { CorreoAction } from "@/modules/crm/email/gmail-thread-actions";
 import { CorreoThreadActionsBar } from "./CorreoThreadActionsBar";
 import { runCorreoAction } from "./correo-thread-action-client";
@@ -9,6 +9,10 @@ type Props = {
   threadId: string;
   isUnread: boolean;
   archived: boolean;
+  /** En Papelera: el botón de eliminar pasa a restaurar. */
+  trashed?: boolean;
+  /** ISO de posponer vigente; si activo, el reloj ofrece "Dejar de posponer". */
+  snoozedUntil?: string | null;
   /** ISO de destacado/spam del hilo (C11); undefined = no mostrar el botón. */
   starred?: boolean;
   inSpam?: boolean;
@@ -33,10 +37,17 @@ type Props = {
   onSnooze?: () => void;
 };
 
+/** Hover con tinte brand para saber dónde queda el cursor al recorrer la barra. */
+const HOVER_BRAND = "hover:bg-primary/15 hover:text-primary";
+const HOVER_DANGER = "hover:bg-status-danger-soft hover:text-status-danger-fg";
+const HOVER_WARN = "hover:bg-status-warn-soft hover:text-status-warn-fg";
+
 export function CorreoThreadActions({
   threadId,
   isUnread,
   archived,
+  trashed = false,
+  snoozedUntil = null,
   starred,
   inSpam,
   canModify,
@@ -52,12 +63,17 @@ export function CorreoThreadActions({
 }: Props) {
   if (!canModify) return null;
 
+  const snoozeActive =
+    snoozedUntil != null && new Date(snoozedUntil).getTime() > Date.now();
+
   if (variant === "mobile-bar") {
     return (
       <CorreoThreadActionsBar
         threadId={threadId}
         isUnread={isUnread}
         archived={archived}
+        trashed={trashed}
+        snoozeActive={snoozeActive}
         onDone={onDone}
         onReply={onReply}
         onClose={onClose}
@@ -73,11 +89,15 @@ export function CorreoThreadActions({
   // drawer compacto: fila de iconos (rediseño lector). drawer normal:
   // botones con etiqueta. row: icono que aparece en hover.
   const showLabel = drawer && !compact;
-  const btn = compact
-    ? "inline-flex h-9 w-9 items-center justify-center rounded-lg text-ds-text-2 hover:bg-ds-surface-3 hover:text-ds-text-1 ds-tap"
+  const btnBase = compact
+    ? "inline-flex h-9 w-9 items-center justify-center rounded-lg text-ds-text-2 transition-colors ds-tap"
     : drawer
-      ? "inline-flex h-10 items-center gap-1.5 rounded-xl border border-ds-border-default px-3 text-[13px] ds-tap sm:h-9"
-      : "inline-flex h-9 w-9 items-center justify-center rounded-lg text-ds-text-3 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-ds-surface-3 hover:text-ds-text-1 ds-tap";
+      ? "inline-flex h-10 items-center gap-1.5 rounded-xl border border-ds-border-default px-3 text-[13px] transition-colors ds-tap sm:h-9"
+      : "inline-flex h-9 w-9 items-center justify-center rounded-lg text-ds-text-3 opacity-0 transition-opacity transition-colors group-hover:opacity-100 ds-tap";
+
+  function btn(hover: string = HOVER_BRAND) {
+    return `${btnBase} ${hover}`;
+  }
 
   function act(action: CorreoAction, okMsg: string, undo?: CorreoAction) {
     void runCorreoAction(threadId, action, okMsg, onDone, undo, onUndoDone);
@@ -100,6 +120,19 @@ export function CorreoThreadActions({
     if (!onRemove) onClose?.();
   }
 
+  function restoreAfter(action: "untrash" | "unsnooze", okMsg: string) {
+    onRemove?.(threadId);
+    void runCorreoAction(
+      threadId,
+      action,
+      okMsg,
+      onRemoveDone ?? onDone,
+      undefined,
+      onUndoDone,
+    );
+    if (!onRemove) onClose?.();
+  }
+
   return (
     <div
       className={
@@ -113,7 +146,7 @@ export function CorreoThreadActions({
     >
       <button
         type="button"
-        className={btn}
+        className={btn()}
         title={archived ? "Desarchivar" : "Archivar"}
         onClick={() =>
           archived
@@ -126,20 +159,24 @@ export function CorreoThreadActions({
       </button>
       <button
         type="button"
-        className={btn}
-        title="Eliminar"
+        className={btn(trashed ? HOVER_BRAND : HOVER_DANGER)}
+        title={trashed ? "Quitar de la Papelera" : "Eliminar"}
         onClick={() => {
+          if (trashed) {
+            restoreAfter("untrash", "Restaurado a bandeja");
+            return;
+          }
           // Sin confirm(): como Gmail, la papelera es directa y el toast
           // ofrece Deshacer (untrash restaura a bandeja).
           removeAfter("trash", "Movido a la Papelera");
         }}
       >
-        <Trash2 className="h-4 w-4" />
-        {showLabel && <span>Eliminar</span>}
+        {trashed ? <Undo2 className="h-4 w-4" /> : <Trash2 className="h-4 w-4" />}
+        {showLabel && <span>{trashed ? "Restaurar" : "Eliminar"}</span>}
       </button>
       <button
         type="button"
-        className={btn}
+        className={btn()}
         title={isUnread ? "Marcar leído" : "Marcar no leído"}
         onClick={() =>
           act(
@@ -155,9 +192,13 @@ export function CorreoThreadActions({
       {!drawer && onSnooze && (
         <button
           type="button"
-          className={btn}
-          title="Posponer"
-          onClick={() => onSnooze()}
+          className={btn(HOVER_WARN)}
+          title={snoozeActive ? "Dejar de posponer" : "Posponer"}
+          onClick={() =>
+            snoozeActive
+              ? restoreAfter("unsnooze", "Dejado de posponer")
+              : onSnooze()
+          }
         >
           <Clock className="h-4 w-4" />
         </button>
@@ -165,7 +206,7 @@ export function CorreoThreadActions({
       {starred !== undefined && (
         <button
           type="button"
-          className={btn}
+          className={btn(HOVER_WARN)}
           title={starred ? "Quitar destacado" : "Destacar"}
           onClick={() =>
             act(
@@ -181,7 +222,7 @@ export function CorreoThreadActions({
       {inSpam !== undefined && (
         <button
           type="button"
-          className={btn}
+          className={btn(HOVER_DANGER)}
           title={inSpam ? "No es spam" : "Marcar spam"}
           onClick={() =>
             inSpam
@@ -194,13 +235,22 @@ export function CorreoThreadActions({
         </button>
       )}
       {drawer && onSnooze && (
-        <button type="button" className={btn} title="Posponer" onClick={() => onSnooze()}>
+        <button
+          type="button"
+          className={btn(HOVER_WARN)}
+          title={snoozeActive ? "Dejar de posponer" : "Posponer"}
+          onClick={() =>
+            snoozeActive
+              ? restoreAfter("unsnooze", "Dejado de posponer")
+              : onSnooze()
+          }
+        >
           <Clock className="h-4 w-4" />
-          {showLabel && <span>Posponer</span>}
+          {showLabel && <span>{snoozeActive ? "Despertar" : "Posponer"}</span>}
         </button>
       )}
       {drawer && onReply && !compact && (
-        <button type="button" className={btn} title="Responder" onClick={() => onReply()}>
+        <button type="button" className={btn()} title="Responder" onClick={() => onReply()}>
           <Reply className="h-4 w-4" />
           {showLabel && <span>Responder</span>}
         </button>

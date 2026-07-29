@@ -16,6 +16,7 @@ import { toast } from "sonner";
 import { CorreoMessages } from "./CorreoMessages";
 import { CorreoReplyBox } from "./CorreoReplyBox";
 import { CorreoThreadActions } from "./CorreoThreadActions";
+import { CorreoSystemLabels } from "./CorreoSystemLabels";
 import { CorreoWorkPanel } from "./CorreoWorkPanel";
 import { resolveWorkTab, type WorkTab } from "./work-panel-tabs";
 import type { CorreoDetail } from "@/modules/crm/email/correos.types";
@@ -170,6 +171,8 @@ export function CorreoDrawerContent({
               threadId={t.id}
               isUnread={t.isUnread}
               archived={Boolean(t.archivedAt)}
+              trashed={Boolean(t.trashedAt)}
+              snoozedUntil={t.snoozedUntil}
               starred={Boolean(t.starredAt)}
               inSpam={Boolean(t.spamAt)}
               canModify
@@ -185,6 +188,18 @@ export function CorreoDrawerContent({
             />
           </div>
         )}
+
+        <CorreoSystemLabels
+          threadId={t.id}
+          trashedAt={t.trashedAt}
+          snoozedUntil={t.snoozedUntil}
+          canModify={Boolean(canModify)}
+          onDone={onRefresh}
+          onRemove={onRemove}
+          onRemoveDone={onRemoveDone}
+          onUndoDone={onUndoDone}
+          onClose={onClose}
+        />
 
         {/* Una sola fila: contexto · Copiloto · overflow */}
         <div className="flex min-w-0 items-center gap-1.5">

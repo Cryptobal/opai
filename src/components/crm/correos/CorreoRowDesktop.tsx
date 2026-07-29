@@ -208,6 +208,8 @@ export function CorreoRowDesktop({
             threadId={thread.id}
             isUnread={unread}
             archived={Boolean(thread.archivedAt)}
+            trashed={Boolean(thread.trashedAt)}
+            snoozedUntil={thread.snoozedUntil}
             starred={Boolean(thread.starredAt)}
             inSpam={Boolean(thread.spamAt)}
             canModify={canModify}

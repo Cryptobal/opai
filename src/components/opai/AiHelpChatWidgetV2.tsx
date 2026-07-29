@@ -8,12 +8,24 @@ import { useNotificationSidePanelContext } from "@/components/notifications/Noti
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { ChatDockDesktop } from "./ai-help/ChatDockDesktop";
 import { ChatSheetMobile } from "./ai-help/ChatSheetMobile";
+import { focusAiHelpComposer } from "./ai-help/ChatComposer";
 import { useHelpChatController } from "./ai-help/useHelpChatController";
 import type { ChatPanelSharedProps } from "./ai-help/chat-panel-props";
 import {
   AI_COMMAND_EVENT,
   type AiCommandDetail,
 } from "@/lib/ai/ai-command-event";
+
+function scheduleComposerFocus() {
+  // Varios intentos: el sheet/dock monta async y en móvil el teclado
+  // solo responde si el foco llega cerca del gesto de apertura.
+  focusAiHelpComposer();
+  requestAnimationFrame(() => {
+    focusAiHelpComposer();
+    window.setTimeout(() => focusAiHelpComposer(), 50);
+    window.setTimeout(() => focusAiHelpComposer(), 150);
+  });
+}
 
 export function AiHelpChatWidgetV2() {
   const intelCtx = useIntelligenceSidePanelContext();
@@ -26,6 +38,7 @@ export function AiHelpChatWidgetV2() {
       chatCtx.closePanel();
       notifCtx.closePanel();
       intelCtx.openPanel();
+      scheduleComposerFocus();
     } else {
       intelCtx.closePanel();
     }
@@ -44,6 +57,7 @@ export function AiHelpChatWidgetV2() {
       chatCtx.closePanel();
       notifCtx.closePanel();
       intelCtx.openPanel();
+      scheduleComposerFocus();
     };
     window.addEventListener("opai-ai-open", openEvt);
     return () => window.removeEventListener("opai-ai-open", openEvt);

@@ -390,13 +390,25 @@ export function CommandPalette({ userRole, onOpenChat }: CommandPaletteProps) {
       el.focus({ preventScroll: true });
       if (seed) el.select();
     };
+    let cancelled = false;
     const timeouts: number[] = [];
+    focus();
     const raf = requestAnimationFrame(() => {
+      if (cancelled) return;
       focus();
-      timeouts.push(window.setTimeout(focus, 50));
-      timeouts.push(window.setTimeout(focus, 120));
+      timeouts.push(
+        window.setTimeout(() => {
+          if (!cancelled) focus();
+        }, 50),
+      );
+      timeouts.push(
+        window.setTimeout(() => {
+          if (!cancelled) focus();
+        }, 120),
+      );
     });
     return () => {
+      cancelled = true;
       cancelAnimationFrame(raf);
       for (const id of timeouts) window.clearTimeout(id);
     };

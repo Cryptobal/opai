@@ -55,9 +55,9 @@ export function CorreosDesktopRail({
   // Con el riel contraído, los textos aparecen solo durante el peek (hover).
   const lbl = collapsed ? "hidden truncate group-hover/rail:inline" : "truncate";
   const item = (active: boolean) =>
-    `relative mb-0.5 flex h-[34px] w-full items-center gap-3 rounded-xl text-left text-[13px] ds-tap ${
+    `relative mb-0.5 flex h-[34px] w-full items-center gap-3 rounded-xl text-left text-[13px] transition-colors ds-tap ${
       collapsed ? "justify-center px-0 group-hover/rail:justify-start group-hover/rail:px-3.5" : "px-3.5"
-    } ${active ? "bg-primary/15 font-medium text-primary" : "text-ds-text-2 hover:bg-ds-surface-2"}`;
+    } ${active ? "bg-primary/15 font-medium text-primary" : "text-ds-text-2 hover:bg-primary/10 hover:text-primary"}`;
 
   return (
     <div

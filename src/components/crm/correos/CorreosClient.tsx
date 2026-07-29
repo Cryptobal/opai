@@ -656,35 +656,44 @@ export function CorreosClient() {
 
   // OPAI Intelligence: inyecta el hilo abierto como page context (threadId
   // implícito para tools get_email_thread / create_lead_from_email / etc.).
+  // IMPORTANTE: registrar por openId aunque el hilo NO esté en `items` (deep
+  // link, página distinta del inbox, o hardRefresh que lo sacó de la lista).
+  // Antes el find fallaba → pageContext null → el chat pedía "abrí el correo"
+  // con el lector ya abierto al lado.
   const openThreadPreview = openId
     ? items.find((t) => t.id === openId) ?? null
     : null;
   useRegisterChatPageContext(
-    openThreadPreview
+    openId
       ? {
           entityType: "crm_email_thread",
-          entityId: openThreadPreview.id,
-          entityName: openThreadPreview.subject?.trim() || "(sin asunto)",
-          entityUrl: `/crm/correos?thread=${openThreadPreview.id}`,
-          extra: [
-            openThreadPreview.fromEmail
-              ? `Header From (puede ser una casilla propia y traer el nombre del cliente delante): ${openThreadPreview.fromEmail}`
-              : null,
-            "La contraparte real se resuelve en servidor; no asumas que este header es el email del cliente.",
-            openThreadPreview.accountId
-              ? `Cuenta: ${openThreadPreview.accountName ?? openThreadPreview.accountId}`
-              : "Sin cuenta asociada",
-            openThreadPreview.dealId
-              ? `Deal: ${openThreadPreview.dealTitle ?? openThreadPreview.dealId}`
-              : null,
-            openThreadPreview.leadId ? `Lead: ${openThreadPreview.leadId}` : null,
-            `Adjuntos: ${openThreadPreview.attachmentCount}`,
-            openThreadPreview.snippet
-              ? `Snippet: ${openThreadPreview.snippet.slice(0, 180)}`
-              : null,
-          ]
-            .filter(Boolean)
-            .join(" · "),
+          entityId: openId,
+          entityName:
+            openThreadPreview?.subject?.trim() || "Correo abierto",
+          entityUrl: `/crm/correos?thread=${openId}`,
+          extra: openThreadPreview
+            ? [
+                openThreadPreview.fromEmail
+                  ? `Header From (puede ser una casilla propia y traer el nombre del cliente delante): ${openThreadPreview.fromEmail}`
+                  : null,
+                "La contraparte real se resuelve en servidor; no asumas que este header es el email del cliente.",
+                openThreadPreview.accountId
+                  ? `Cuenta: ${openThreadPreview.accountName ?? openThreadPreview.accountId}`
+                  : "Sin cuenta asociada",
+                openThreadPreview.dealId
+                  ? `Deal: ${openThreadPreview.dealTitle ?? openThreadPreview.dealId}`
+                  : null,
+                openThreadPreview.leadId
+                  ? `Lead: ${openThreadPreview.leadId}`
+                  : null,
+                `Adjuntos: ${openThreadPreview.attachmentCount}`,
+                openThreadPreview.snippet
+                  ? `Snippet: ${openThreadPreview.snippet.slice(0, 180)}`
+                  : null,
+              ]
+                .filter(Boolean)
+                .join(" · ")
+            : "Hilo abierto en el lector (no está en la página actual de la lista; el servidor lo resuelve por threadId).",
         }
       : null,
   );
@@ -1265,7 +1274,7 @@ export function CorreosClient() {
           {
             divider: true,
             icon: <CheckSquare className="h-4 w-4" />,
-            label: "Panel de trabajo",
+            label: "Copiloto",
             onClick: () => openWork(t.id, "resumen"),
           },
         ],
