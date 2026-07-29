@@ -43,7 +43,7 @@ describe("help-chat-defer-writes", () => {
       "update_deal",
       "bulk_update_installations",
       "create_ticket",
-      "resolve_radar_item",
+      // resolve_radar_item retirado con el Radar Comercial (B3).
       "attach_file_to_entity",
       "add_deal_note",
       "create_crm_from_email",
