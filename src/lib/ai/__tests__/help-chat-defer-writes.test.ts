@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { decideWriteDeferral, shouldDeferWrite } from "@/lib/ai/help-chat-defer-writes";
+import { WRITE_TOOL_NAMES } from "@/lib/ai/help-chat-tools-v2";
 
 describe("help-chat-defer-writes", () => {
   it("diferir update_installation cuando allowWrites", () => {
@@ -19,6 +20,38 @@ describe("help-chat-defer-writes", () => {
 
   it("no diferir lecturas", () => {
     expect(shouldDeferWrite("search_installations", { query: "a" }, true)).toBe(false);
+  });
+
+  it("no diferir search_emails (lectura en sección de escritura)", () => {
+    expect(WRITE_TOOL_NAMES.has("search_emails")).toBe(false);
+    expect(WRITE_TOOL_NAMES.has("search_emails_semantic")).toBe(false);
+    expect(shouldDeferWrite("search_emails", { query: "acuda" }, true)).toBe(false);
+    expect(shouldDeferWrite("search_emails_semantic", { query: "acuda" }, true)).toBe(false);
+    expect(
+      decideWriteDeferral({
+        toolName: "search_emails",
+        args: { query: "acuda" },
+        allowWrites: true,
+        pendingCount: 0,
+      }).kind,
+    ).toBe("execute");
+  });
+
+  it("las escrituras reales siguen difiriéndose", () => {
+    const expectedWrites = [
+      "create_account",
+      "update_deal",
+      "bulk_update_installations",
+      "create_ticket",
+      "resolve_radar_item",
+      "attach_file_to_entity",
+      "add_deal_note",
+      "create_crm_from_email",
+    ];
+    for (const t of expectedWrites) {
+      expect(WRITE_TOOL_NAMES.has(t)).toBe(true);
+      expect(shouldDeferWrite(t, { id: "x", confirm: true }, true)).toBe(true);
+    }
   });
 
   it("create_crm_from_email sin confirm ejecuta (propuesta)", () => {
