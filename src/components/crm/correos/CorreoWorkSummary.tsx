@@ -33,8 +33,6 @@ type Props = {
   detail: CorreoDetail;
   /** Cursor de lectura capturado al abrir (antes del markRead). */
   readCursorAt: string | null;
-  /** Oculta secciones densas en altura media del sheet móvil. */
-  peekMode?: boolean;
   onOpenAiLead: () => void;
   onAiCommand?: (commandId: CorreoAiCommandId) => void;
   onGoTo: (tab: WorkTab) => void;
@@ -50,7 +48,6 @@ type Props = {
 export function CorreoWorkSummary({
   detail,
   readCursorAt,
-  peekMode = false,
   onOpenAiLead,
   onAiCommand,
   onGoTo,
@@ -246,7 +243,7 @@ export function CorreoWorkSummary({
         }}
       />
 
-      {!peekMode && secondary.length > 0 && (
+      {secondary.length > 0 && (
         <div className="overflow-hidden rounded-2xl border border-ds-border-subtle bg-ds-surface-2">
           <button
             type="button"
@@ -277,96 +274,94 @@ export function CorreoWorkSummary({
         </div>
       )}
 
-      {!peekMode && (
-        <div className="overflow-hidden rounded-xl border border-ds-border-subtle bg-ds-surface-2">
-          <p className="px-3 pt-2 text-[12px] font-medium text-ds-text-3">Contexto en cascada</p>
-          <CascadeRow
-            icon={Building2}
-            label="Cuenta"
-            value={accountValue}
-            depth={0}
-            actionable={accountActionable}
-            disabled={false}
-            onClick={() => onGoTo("cuenta")}
-          />
-          <CascadeRow
-            icon={Users}
-            label="Contactos"
-            value={
-              !hasAccount
-                ? "Asocia una cuenta primero"
-                : contactValue || "Elegir contactos"
+      <div className="overflow-hidden rounded-xl border border-ds-border-subtle bg-ds-surface-2">
+        <p className="px-3 pt-2 text-[12px] font-medium text-ds-text-3">Contexto en cascada</p>
+        <CascadeRow
+          icon={Building2}
+          label="Cuenta"
+          value={accountValue}
+          depth={0}
+          actionable={accountActionable}
+          disabled={false}
+          onClick={() => onGoTo("cuenta")}
+        />
+        <CascadeRow
+          icon={Users}
+          label="Contactos"
+          value={
+            !hasAccount
+              ? "Asocia una cuenta primero"
+              : contactValue || "Elegir contactos"
+          }
+          depth={1}
+          actionable={hasAccount && !contactValue}
+          disabled={!hasAccount}
+          onClick={() => {
+            if (!hasAccount) {
+              onGoTo("cuenta");
+              return;
             }
-            depth={1}
-            actionable={hasAccount && !contactValue}
-            disabled={!hasAccount}
-            onClick={() => {
-              if (!hasAccount) {
-                onGoTo("cuenta");
-                return;
-              }
-              setContactsOpen((v) => !v);
-            }}
-          />
-          {hasAccount && contactsOpen && (
-            <div className="border-b border-ds-border-subtle px-3 pb-2 pl-8">
-              <CorreoThreadContacts threadId={t.id} accountId={t.accountId} />
-            </div>
-          )}
-          <CascadeRow
-            icon={Briefcase}
-            label="Negocio"
-            value={
-              !hasAccount
-                ? "Asocia una cuenta primero"
-                : dealValue || "Sin negocio"
-            }
-            depth={1}
-            actionable={hasAccount && !dealValue}
-            disabled={!hasAccount}
-            onClick={() => onGoTo("cuenta")}
-          />
-          <CascadeRow
-            icon={FileText}
-            label="Cotización"
-            value={quoteValue}
-            depth={2}
-            actionable={hasAccount && !stats.quoteLabel}
-            disabled={!hasAccount}
-            onClick={() => onGoTo("vinculos")}
-          />
-          <CascadeRow
-            icon={MapPin}
-            label="Instalación"
-            value={installationValue}
-            depth={1}
-            actionable={hasAccount && (stats.installationCount ?? 0) === 0}
-            disabled={!hasAccount}
-            onClick={() => onGoTo("vinculos")}
-          />
-          <CascadeRow
-            icon={Paperclip}
-            label="Adjuntos"
-            value={attachmentsValue ?? "Sin adjuntos"}
-            depth={1}
-            actionable={adjuntosActionable}
-            disabled={detail.attachments.length === 0 && !detail.degraded}
-            onClick={() => onOpenAttachments?.()}
-          />
-          {workParts.length > 0 && (
-            <p className="border-t border-ds-border-subtle px-3 py-2 text-[12px] text-ds-text-4">
-              Trabajo: {workParts.join(" · ")}
-              <button
-                type="button"
-                onClick={() => onGoTo("productividad")}
-                className="ml-2 text-primary ds-tap"
-              >
-                Ver
-              </button>
-            </p>
-          )}
-        </div>
-      )}
+            setContactsOpen((v) => !v);
+          }}
+        />
+        {hasAccount && contactsOpen && (
+          <div className="border-b border-ds-border-subtle px-3 pb-2 pl-8">
+            <CorreoThreadContacts threadId={t.id} accountId={t.accountId} />
+          </div>
+        )}
+        <CascadeRow
+          icon={Briefcase}
+          label="Negocio"
+          value={
+            !hasAccount
+              ? "Asocia una cuenta primero"
+              : dealValue || "Sin negocio"
+          }
+          depth={1}
+          actionable={hasAccount && !dealValue}
+          disabled={!hasAccount}
+          onClick={() => onGoTo("cuenta")}
+        />
+        <CascadeRow
+          icon={FileText}
+          label="Cotización"
+          value={quoteValue}
+          depth={2}
+          actionable={hasAccount && !stats.quoteLabel}
+          disabled={!hasAccount}
+          onClick={() => onGoTo("vinculos")}
+        />
+        <CascadeRow
+          icon={MapPin}
+          label="Instalación"
+          value={installationValue}
+          depth={1}
+          actionable={hasAccount && (stats.installationCount ?? 0) === 0}
+          disabled={!hasAccount}
+          onClick={() => onGoTo("vinculos")}
+        />
+        <CascadeRow
+          icon={Paperclip}
+          label="Adjuntos"
+          value={attachmentsValue ?? "Sin adjuntos"}
+          depth={1}
+          actionable={adjuntosActionable}
+          disabled={detail.attachments.length === 0 && !detail.degraded}
+          onClick={() => onOpenAttachments?.()}
+        />
+        {workParts.length > 0 && (
+          <p className="border-t border-ds-border-subtle px-3 py-2 text-[12px] text-ds-text-4">
+            Trabajo: {workParts.join(" · ")}
+            <button
+              type="button"
+              onClick={() => onGoTo("productividad")}
+              className="ml-2 text-primary ds-tap"
+            >
+              Ver
+            </button>
+          </p>
+        )}
+      </div>
     </div>
   );
 }
