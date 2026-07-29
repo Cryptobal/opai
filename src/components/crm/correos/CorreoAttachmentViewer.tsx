@@ -1,7 +1,8 @@
 "use client";
 
 import { Download, Share2, X } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { AttachmentPreview } from "./AttachmentPreview";
 import { useCloseOnBack } from "./useCloseOnBack";
 
@@ -37,6 +38,10 @@ async function shareFile(url: string, filename: string, mimeType: string) {
  * Excel/xlsx) o muestra una tarjeta tipada con descarga/compartir. Reemplaza
  * el `<iframe>` sobre `blob:` que dejaba el PDF en blanco en el WebView de
  * iOS/Android.
+ *
+ * Viaja por portal a `<body>`: los hijos animados de `ds-page-enter` (y el
+ * `backdrop-filter` del Surface del lector) crean containing block + stacking
+ * context que atrapan el `fixed inset-0` y dejan topbar/rieles por encima.
  */
 export function CorreoAttachmentViewer({
   file,
@@ -48,9 +53,26 @@ export function CorreoAttachmentViewer({
   const [sharing, setSharing] = useState(false);
   useCloseOnBack(Boolean(file), onClose);
 
+  // Bloqueo de scroll del fondo + cierre con Escape mientras el visor está abierto.
+  useEffect(() => {
+    if (!file) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+
+    return () => {
+      document.body.style.overflow = prev;
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [file, onClose]);
+
   if (!file) return null;
 
-  return (
+  const overlay = (
     <div className="fixed inset-0 z-[60] flex flex-col bg-ds-surface-1 animate-in fade-in slide-in-from-bottom-2 duration-200 ease-out">
       <header className="flex items-center gap-1.5 border-b border-ds-border-subtle px-3 py-2 pt-[calc(env(safe-area-inset-top)+0.5rem)]">
         <p className="min-w-0 flex-1 truncate text-[13px] font-medium text-ds-text-1" title={file.filename}>
@@ -99,4 +121,8 @@ export function CorreoAttachmentViewer({
       </div>
     </div>
   );
+
+  // Portal a body: escape del containing block de ds-page-enter / glass.
+  if (typeof document === "undefined") return null;
+  return createPortal(overlay, document.body);
 }
