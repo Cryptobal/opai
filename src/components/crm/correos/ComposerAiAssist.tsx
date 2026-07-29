@@ -120,7 +120,7 @@ export function ComposerAiPromptPill({
         <div
           className={cn(
             "flex min-w-0 flex-1 items-center gap-2 rounded-full border px-2.5",
-            "border-ds-border-default bg-ds-surface-2",
+            "border-ds-border-default bg-ds-surface-2 focus-within:border-ds-border-strong",
           )}
         >
           <WandSparkles

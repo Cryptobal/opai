@@ -26,6 +26,7 @@ import {
   CorreoIndexCoverageBar,
   type IndexCoverage,
 } from "./CorreoIndexCoverageBar";
+import { useCorreoFocusScope } from "./useCorreoFocusScope";
 import { CorreosMobileDrawer } from "./CorreosMobileDrawer";
 import { CorreosPullToRefresh } from "./CorreosPullToRefresh";
 import { CorreoSwipeSettingsSheet } from "./CorreoSwipeSettingsSheet";
@@ -100,6 +101,7 @@ type Counts = {
 } | null;
 
 export function CorreosClient() {
+  useCorreoFocusScope();
   const [items, setItems] = useState<CorreoThreadDTO[]>([]);
   const [cursor, setCursor] = useState<string | null>(null);
   const [counts, setCounts] = useState<Counts>(null);
