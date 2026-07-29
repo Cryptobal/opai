@@ -330,9 +330,16 @@ export function CrmInstallationsListClient({
                     titleAside={
                       <>
                         {inst.account && (
-                          <Tag size="sm" className={cn(tc.bg, tc.fg, "border-transparent")}>
+                          <span
+                            className={cn(
+                              "inline-flex items-center h-5 px-2 rounded-full text-ds-caption font-medium truncate max-w-[140px]",
+                              tc.bg,
+                              tc.fg,
+                            )}
+                            title={inst.account.name}
+                          >
                             {inst.account.name}
-                          </Tag>
+                          </span>
                         )}
                         {unreadNoteIds.has(inst.id) && (
                           <span className="relative shrink-0" title="Notas no leídas">
