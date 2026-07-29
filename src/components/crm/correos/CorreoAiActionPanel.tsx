@@ -15,8 +15,11 @@ import { toast } from "sonner";
 import { Spinner } from "@/components/opai-ds";
 import { useSwipeGesture } from "@/components/chat/hooks/useSwipeGesture";
 import type { CorreoAiCommandId } from "@/modules/crm/email/correo-ai-commands";
-import type { CrmStructureProposal } from "@/modules/crm/email/email-to-crm-structure.types";
-import type { CreateCrmStructureResult } from "@/modules/crm/email/email-to-crm-structure.types";
+import type {
+  CreateCrmStructureResult,
+  CrmStructureProposal,
+  PlanAttachmentSelection,
+} from "@/modules/crm/email/email-to-crm-structure.types";
 import { LeadFromEmailPanel } from "./LeadFromEmailPanel";
 import { CorreoSourcePreview } from "./CorreoSourcePreview";
 import { CorreoAiPlanCard, type PlanAction } from "./CorreoAiPlanCard";
@@ -40,6 +43,7 @@ import { PlanAttachmentsForm } from "./plan/forms/PlanAttachmentsForm";
 import { PlanTaskForm } from "./plan/forms/PlanTaskForm";
 import { PlanQuoteForm } from "./plan/forms/PlanQuoteForm";
 import { PlanMilestonesForm } from "./plan/forms/PlanMilestonesForm";
+import { PlanPresets } from "./plan/PlanPresets";
 
 const PLAN_SHEET_WIDTH_KEY = "opai-plan-acciones-width";
 const PLAN_SHEET_DEFAULT = 452;
@@ -108,6 +112,7 @@ function buildStructureActions(
   existingDealId: string | null | undefined,
   canCreateQuote: boolean,
   canCreateMilestones: boolean,
+  dealSelected: boolean,
 ): PlanAction[] {
   const noInstallations = proposal.installations.length === 0;
   const actions: PlanAction[] = [
@@ -170,8 +175,13 @@ function buildStructureActions(
         ? `Fecha ${proposal.deal.fechaLimite} ya pasó — no se sincroniza`
         : `Hasta ${proposal.deal.fechaLimite} · se sincroniza al crear el negocio`,
       tag: "automatico",
-      locked: !past,
-      disabled: past,
+      locked: !past && dealSelected,
+      disabled: past || !dealSelected,
+      reasonDisabled: past
+        ? undefined
+        : !dealSelected
+          ? "Requiere negocio"
+          : undefined,
       group: "calendario",
     });
   }
@@ -179,7 +189,8 @@ function buildStructureActions(
   actions.push(
     {
       id: "attachments",
-      label: "Guardar adjuntos en el negocio",
+      label: "Guardar adjuntos",
+      detail: dealSelected ? "En el negocio" : "En la cuenta",
       tag: "calculado",
       group: "calendario",
     },
@@ -196,7 +207,7 @@ function buildStructureActions(
     {
       id: "quote",
       label: "Cotización (CPQ)",
-      detail: canCreateQuote ? undefined : undefined,
+      detail: dealSelected ? undefined : "Sin negocio — borrador en la cuenta",
       tag: "opcional",
       optional: !proposal.deal.isLicitacion,
       disabled: !canCreateQuote,
@@ -212,13 +223,26 @@ function buildStructureActions(
       detail: "Consultas, visita técnica, entrega",
       tag: "opcional",
       optional: false,
-      disabled: !canCreateMilestones,
-      reasonDisabled: !canCreateMilestones ? "Sin acceso a agenda" : undefined,
+      disabled: !canCreateMilestones || !dealSelected,
+      reasonDisabled: !dealSelected
+        ? "Requiere negocio"
+        : !canCreateMilestones
+          ? "Sin acceso a agenda"
+          : undefined,
       group: "calendario",
     });
   }
 
   return actions;
+}
+
+/** Destino efectivo de adjuntos: sin negocio siempre cae a la cuenta (no muta el draft). */
+function effectiveAttachmentSelection(
+  selection: PlanAttachmentSelection,
+  dealSelected: boolean,
+): PlanAttachmentSelection {
+  if (dealSelected) return selection;
+  return { ...selection, target: "account" };
 }
 
 function verticalActions(command: AiPanelCommand, proposal: VerticalProposal): PlanAction[] {
@@ -396,7 +420,7 @@ export function CorreoAiActionPanel({
         const j = (await res.json()) as StructureResponse & { error?: string };
         if (!res.ok) throw new Error(j.error || "No se pudo analizar el correo");
         if (!existingDraft) {
-          const actions = buildStructureActions(j.proposal, false, existingDealId, true, true);
+          const actions = buildStructureActions(j.proposal, false, existingDealId, true, true, true);
           d.resetToAi(j.proposal, j.stagedFiles ?? []);
           d.setSelectedIds(
             new Set(actions.filter((a) => !a.optional && !a.disabled).map((a) => a.id).concat(["account"])),
@@ -457,10 +481,23 @@ export function CorreoAiActionPanel({
     return () => document.removeEventListener("keydown", onKey, { capture: true });
   }, [open, requestClose]);
 
+  const dealSelected = draft.selectedIds.has("deal");
+  const attachmentSelectionForUi = effectiveAttachmentSelection(
+    draft.attachmentSelection,
+    dealSelected,
+  );
+
   const structureActions = useMemo(() => {
     if (!draft.proposal) return [];
-    return buildStructureActions(draft.proposal, false, existingDealId, true, true);
-  }, [draft.proposal, existingDealId]);
+    return buildStructureActions(
+      draft.proposal,
+      false,
+      existingDealId,
+      true,
+      true,
+      dealSelected,
+    );
+  }, [draft.proposal, existingDealId, dealSelected]);
 
   function handleExpand(id: string) {
     setExpandedIds((prev) => {
@@ -506,7 +543,7 @@ export function CorreoAiActionPanel({
         return (
           <PlanAttachmentsForm
             stagedFiles={draft.stagedFiles}
-            selection={draft.attachmentSelection}
+            selection={attachmentSelectionForUi}
             onChange={draft.setAttachmentSelection}
           />
         );
@@ -560,7 +597,14 @@ export function CorreoAiActionPanel({
       draft.setProposal(j.proposal);
       draft.setStagedFiles(j.stagedFiles ?? []);
       setSources(j.sources ?? []);
-      const actions = buildStructureActions(j.proposal, false, existingDealId, true, true);
+      const actions = buildStructureActions(
+        j.proposal,
+        false,
+        existingDealId,
+        true,
+        true,
+        draft.selectedIds.has("deal"),
+      );
       draft.setSelectedIds(
         new Set(actions.filter((a) => !a.optional && !a.disabled && !a.locked).map((a) => a.id).concat(["account"])),
       );
@@ -615,7 +659,10 @@ export function CorreoAiActionPanel({
           include,
           refineAnswers: answers,
           taskOverride: draft.taskOverride,
-          attachmentSelection: draft.attachmentSelection,
+          attachmentSelection: effectiveAttachmentSelection(
+            draft.attachmentSelection,
+            sel.has("deal"),
+          ),
           quoteInput: draft.quoteInput,
           milestones: draft.milestones,
         }),
@@ -801,6 +848,12 @@ export function CorreoAiActionPanel({
 
           {(phase === "structure" || phase === "executing") && draft.proposal && (
             <>
+              <div className="mb-3">
+                <PlanPresets
+                  selectedIds={draft.selectedIds}
+                  onApply={draft.applyPreset}
+                />
+              </div>
               <CorreoAiPlanSections
                 proposal={draft.proposal}
                 actions={structureActions}

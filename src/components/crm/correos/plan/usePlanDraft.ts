@@ -157,10 +157,24 @@ export function usePlanDraft(threadId: string) {
   const toggleAction = useCallback((id: string) => {
     setSelectedIds((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+      if (next.has(id)) {
+        next.delete(id);
+        // Hitos y plazo de agenda dependen del negocio.
+        if (id === "deal") {
+          next.delete("milestones");
+          next.delete("agendaDeadline");
+        }
+      } else {
+        next.add(id);
+      }
       return next;
     });
+    setDirty(true);
+  }, []);
+
+  /** Aplica un preset de selección (account siempre implícito). */
+  const applyPreset = useCallback((ids: string[]) => {
+    setSelectedIds(new Set(["account", ...ids]));
     setDirty(true);
   }, []);
 
@@ -275,6 +289,7 @@ export function usePlanDraft(threadId: string) {
     setField,
     setInclude: setIncludePartial,
     toggleAction,
+    applyPreset,
     setAssumptions,
     resetToAi,
     loadDraft,

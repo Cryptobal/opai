@@ -180,6 +180,14 @@ export type PlanMilestone = {
   fromDocument?: boolean;
 };
 
+/** Motivo tipado de omisión al crear la estructura (Command Layer). */
+export type SkipReason =
+  | "no_seleccionado"
+  | "requiere_negocio"
+  | "sin_permiso"
+  | "sin_datos"
+  | "error";
+
 export type CreateCrmStructureResult = {
   ok: boolean;
   error?: string;
@@ -199,7 +207,10 @@ export type CreateCrmStructureResult = {
     eventId: string;
     syncStatus?: string;
   }>;
+  /** Ids omitidos (retrocompat). Preferir `skippedDetail` en UI nueva. */
   skipped?: string[];
+  /** Omisiones con motivo legible. */
+  skippedDetail?: Array<{ id: string; reason: SkipReason }>;
   note?: string;
   /** Estado del sync de plazo de licitación a agenda (si aplica). */
   agendaSync?: {

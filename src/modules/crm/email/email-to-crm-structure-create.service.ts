@@ -12,6 +12,7 @@ import type {
   PlanMilestone,
   PlanQuoteInput,
   PlanTaskOverride,
+  SkipReason,
 } from "./email-to-crm-structure.types";
 import { coerceCrmStructureProposal } from "./email-to-crm-structure.service";
 import { syncAssumptionArrays } from "./email-to-crm-structure.types";
@@ -213,6 +214,11 @@ export async function createCrmStructureFromProposal(params: {
   const proposal = coerceCrmStructureProposal(params.proposal);
   const flags = resolveCreateInclude(params.include);
   const skipped: string[] = [];
+  const skippedDetail: Array<{ id: string; reason: SkipReason }> = [];
+  const skip = (id: string, reason: SkipReason) => {
+    skipped.push(id);
+    skippedDetail.push({ id, reason });
+  };
 
   if (!proposal.account.name?.trim()) {
     return { ok: false, error: "La propuesta no tiene nombre de cuenta." };
@@ -238,8 +244,7 @@ export async function createCrmStructureFromProposal(params: {
   }
   const attachTarget = params.attachmentSelection?.target ?? "deal";
 
-  // Exigir etapa antes de escribir la cuenta si puede hacer falta crear un deal
-  // (comportamiento histórico de la tool del chat).
+  // Etapa de pipeline solo si se va a crear/reutilizar deal.
   let stageId: string | null = null;
   if (flags.deal) {
     const stage = await prisma.crmPipelineStage.findFirst({
@@ -281,9 +286,10 @@ export async function createCrmStructureFromProposal(params: {
     accountReused = false;
   }
 
+  // Contacto — independiente del deal.
   let contactId = thread.contactId ?? undefined;
   if (!flags.contact) {
-    skipped.push("contact");
+    skip("contact", "no_seleccionado");
   } else if (proposal.contact.email || proposal.contact.firstName) {
     const email = proposal.contact.email;
     if (email) {
@@ -315,23 +321,72 @@ export async function createCrmStructureFromProposal(params: {
     }
   }
 
+  // Instalaciones — cuelgan de la cuenta; no requieren deal.
+  const createdInstallations: Array<{ id: string; name: string; url: string }> = [];
+  if (!flags.installations) {
+    skip("installations", "no_seleccionado");
+  } else {
+    for (const inst of proposal.installations) {
+      const meta = installationMetadata(proposal, inst.name);
+      const row = await prisma.crmInstallation.create({
+        data: {
+          tenantId,
+          accountId: account.id,
+          name: inst.name,
+          address: inst.address,
+          city: inst.city,
+          commune: inst.commune,
+          status: "prospect",
+          notes: inst.coverageSlots
+            .map((s) => `${s.name}: cob. ${s.simultaneous} → dot. ${s.headcount} (${s.pattern})`)
+            .join(" · ")
+            .slice(0, 2000),
+          metadata: (meta ?? undefined) as Prisma.InputJsonValue | undefined,
+        },
+        select: { id: true, name: true },
+      });
+      createdInstallations.push({
+        id: row.id,
+        name: row.name,
+        url: `/crm/installations/${row.id}`,
+      });
+      try {
+        await prisma.crmEmailThreadLink.upsert({
+          where: {
+            threadId_entityType_entityId: {
+              threadId: thread.id,
+              entityType: "installation",
+              entityId: row.id,
+            },
+          },
+          create: {
+            tenantId,
+            threadId: thread.id,
+            entityType: "installation",
+            entityId: row.id,
+            linkedVia: "ai",
+            createdBy: userId,
+          },
+          update: {},
+        });
+      } catch (linkErr) {
+        console.error("[email-to-crm-structure] thread link installation:", linkErr);
+      }
+    }
+  }
+
+  // Negocio — opcional.
   let dealId: string | undefined;
+  let dealUrl: string | undefined;
+  let createdNewDeal = false;
   let positionsCreated = 0;
   let agendaSync: CreateCrmStructureResult["agendaSync"];
-  let dealUrl: string | undefined;
   let quoteId: string | undefined;
   let quoteUrl: string | undefined;
   let milestoneResults: NonNullable<CreateCrmStructureResult["milestones"]> = [];
-  let createdNewDeal = false;
-  const createdInstallations: Array<{ id: string; name: string; url: string }> = [];
 
   if (!flags.deal) {
-    skipped.push("deal");
-    if (flags.installations) skipped.push("installations");
-    if (flags.attachments) skipped.push("attachments");
-    if (flags.followUpTask) skipped.push("followUpTask");
-    if (flags.quote) skipped.push("quote");
-    if (flags.milestones) skipped.push("milestones");
+    skip("deal", "no_seleccionado");
   } else {
     // Solo en el Command Layer (include explícito): reutilizar deal del hilo.
     // La tool del chat (include undefined) siempre crea un deal nuevo.
@@ -357,7 +412,11 @@ export async function createCrmStructureFromProposal(params: {
           ? `Consulta / Licitación — ${accountName}`
           : `Oportunidad — ${accountName}`);
 
-      const primaryInst = proposal.installations[0];
+      // Preferir instalación recién creada; si no, la de la propuesta.
+      const primaryInst = createdInstallations[0]
+        ? proposal.installations.find((i) => i.name === createdInstallations[0].name) ??
+          proposal.installations[0]
+        : proposal.installations[0];
       const deal = await prisma.crmDeal.create({
         data: {
           tenantId,
@@ -383,232 +442,181 @@ export async function createCrmStructureFromProposal(params: {
       dealUrl = `/crm/deals/${deal.id}`;
       createdNewDeal = true;
     }
+  }
 
-    if (flags.installations) {
-      for (const inst of proposal.installations) {
-        const meta = installationMetadata(proposal, inst.name);
-        const row = await prisma.crmInstallation.create({
-          data: {
-            tenantId,
-            accountId: account.id,
-            name: inst.name,
-            address: inst.address,
-            city: inst.city,
-            commune: inst.commune,
-            status: "prospect",
-            notes: inst.coverageSlots
-              .map((s) => `${s.name}: cob. ${s.simultaneous} → dot. ${s.headcount} (${s.pattern})`)
-              .join(" · ")
-              .slice(0, 2000),
-            metadata: (meta ?? undefined) as Prisma.InputJsonValue | undefined,
-          },
-          select: { id: true, name: true },
-        });
-        createdInstallations.push({
-          id: row.id,
-          name: row.name,
-          url: `/crm/installations/${row.id}`,
-        });
-        // Vínculo operacional del hilo → instalación (Copiloto "Vínculos").
-        try {
-          await prisma.crmEmailThreadLink.upsert({
-            where: {
-              threadId_entityType_entityId: {
-                threadId: thread.id,
-                entityType: "installation",
-                entityId: row.id,
-              },
-            },
-            create: {
-              tenantId,
-              threadId: thread.id,
-              entityType: "installation",
-              entityId: row.id,
-              linkedVia: "ai",
-              createdBy: userId,
-            },
-            update: {},
-          });
-        } catch (linkErr) {
-          console.error("[email-to-crm-structure] thread link installation:", linkErr);
-        }
-      }
-    } else {
-      skipped.push("installations");
-    }
-
-    // Contacto ↔ negocio (además de primaryContactId en deals nuevos).
-    if (dealId && contactId) {
-      try {
-        await prisma.crmDealContact.create({
-          data: {
-            tenantId,
-            dealId,
-            contactId,
-            role: "primary",
-          },
-        });
-      } catch (dcErr: unknown) {
-        const code =
-          dcErr && typeof dcErr === "object" && "code" in dcErr
-            ? (dcErr as { code: string }).code
-            : "";
-        if (code !== "P2002") {
-          console.error("[email-to-crm-structure] deal contact:", dcErr);
-        }
-      }
-      // Si reutilizamos el deal, asegurar primaryContactId cuando faltaba.
-      if (!createdNewDeal) {
-        await prisma.crmDeal
-          .updateMany({
-            where: { id: dealId, tenantId, primaryContactId: null },
-            data: { primaryContactId: contactId },
-          })
-          .catch(() => undefined);
+  // Contacto ↔ negocio (además de primaryContactId en deals nuevos).
+  if (dealId && contactId) {
+    try {
+      await prisma.crmDealContact.create({
+        data: {
+          tenantId,
+          dealId,
+          contactId,
+          role: "primary",
+        },
+      });
+    } catch (dcErr: unknown) {
+      const code =
+        dcErr && typeof dcErr === "object" && "code" in dcErr
+          ? (dcErr as { code: string }).code
+          : "";
+      if (code !== "P2002") {
+        console.error("[email-to-crm-structure] deal contact:", dcErr);
       }
     }
-
-    // Hitos de licitación (antes de banda all-day para alinear fechaEntrega).
-    if (flags.milestones) {
-      if (!params.canCreateMilestones) {
-        skipped.push("milestones");
-      } else if (!dealId || !proposal.deal.isLicitacion) {
-        skipped.push("milestones");
-      } else {
-        const { createDealMilestoneEvent, milestoneRangeFromPlan } = await import(
-          "@/modules/agenda/deal-milestones"
-        );
-        const today = new Date().toISOString().slice(0, 10);
-        for (const m of params.milestones ?? []) {
-          if (m.enabled === false) continue;
-          if (m.date < today) continue;
-          const range = milestoneRangeFromPlan(m);
-          if (!range) continue;
-          if (m.kind === "entrega" && m.date !== proposal.deal.fechaLimite) {
-            await prisma.crmDeal.update({
-              where: { id: dealId },
-              data: { fechaEntrega: new Date(`${m.date}T12:00:00Z`) },
-            });
-            proposal.deal.fechaLimite = m.date;
-          }
-          try {
-            const created = await createDealMilestoneEvent({
-              tenantId,
-              actorUserId: userId,
-              dealId,
-              accountId: account.id,
-              installationId: createdInstallations[0]?.id ?? null,
-              kind: m.kind,
-              startAt: range.startAt,
-              endAt: range.endAt,
-              notes: m.notes,
-              participantIds: m.participantIds,
-              externalEmails: m.externalEmails,
-            });
-            milestoneResults.push({
-              kind: m.kind,
-              eventId: created.eventId,
-              syncStatus: created.syncStatus,
-            });
-            if (m.kind === "visita_tecnica") {
-              await prisma.crmDeal.update({
-                where: { id: dealId },
-                data: { technicalVisitDate: new Date(`${m.date}T12:00:00Z`) },
-              });
-            }
-          } catch (e) {
-            console.error("[email-to-crm-structure] hito:", m.kind, e);
-          }
-        }
-      }
-    }
-
-    // Banda all-day de licitación (solo en deal nuevo, igual que antes).
-    if (proposal.deal.isLicitacion && dealId && createdNewDeal) {
-      const pastDeadline =
-        proposal.deal.fechaLimite &&
-        proposal.deal.fechaLimite < new Date().toISOString().slice(0, 10);
-      if (pastDeadline) {
-        agendaSync = { attempted: false, ok: false, skippedReason: "fecha_pasada" };
-      } else if (!proposal.deal.fechaLimite) {
-        agendaSync = { attempted: false, ok: false, skippedReason: "sin_fecha" };
-      } else {
-        const { syncLicitacionToCalendar } = await import("@/modules/agenda/agenda-sync");
-        try {
-          const sync = await syncLicitacionToCalendar(tenantId, dealId);
-          agendaSync = { attempted: true, ok: sync.syncStatus !== "ERROR" };
-        } catch (e) {
-          console.error("[email-to-crm-structure] sync licitación:", e);
-          agendaSync = { attempted: true, ok: false, skippedReason: "error" };
-        }
-      }
-    }
-
-    // Nota estructurada con piso económico del pliego (auditable en el deal).
-    if (dealId && proposal.condicionesEconomicas) {
-      const ecoNote = buildCondicionesEconomicasNote(proposal);
-      if (ecoNote) {
-        try {
-          await prisma.crmNote.create({
-            data: {
-              tenantId,
-              entityType: "deal",
-              entityId: dealId,
-              content: ecoNote,
-              createdBy: userId,
-              interactionType: "note",
-            },
-          });
-        } catch (e) {
-          console.error("[email-to-crm-structure] nota económica:", e);
-        }
-      }
-    }
-
-    // Cotización CPQ borrador.
-    if (flags.quote) {
-      if (!params.canCreateQuote) {
-        skipped.push("quote");
-      } else if (!dealId) {
-        skipped.push("quote");
-      } else {
-        try {
-          const { createPlanQuote } = await import("./plan-create-quote");
-          const q = await createPlanQuote({
-            tenantId,
-            userId,
-            dealId,
-            accountId: account.id,
-            contactId,
-            installationId: createdInstallations[0]?.id,
-            threadId: thread.id,
-            proposal,
-            quoteInput: params.quoteInput,
-          });
-          quoteId = q.quoteId;
-          quoteUrl = q.quoteUrl;
-          positionsCreated = q.positionsCreated;
-        } catch (e) {
-          console.error("[email-to-crm-structure] quote:", e);
-          skipped.push("quote");
-        }
-      }
-    }
-
-    if (flags.attachments && dealId) {
-      for (const f of files) {
-        if (attachTarget === "account" || attachTarget === "both") {
-          await attach(tenantId, userId, f, "account", account.id);
-        }
-        if (attachTarget === "deal" || attachTarget === "both") {
-          await attach(tenantId, userId, f, "deal", dealId);
-        }
-      }
-    } else if (!flags.attachments) {
-      skipped.push("attachments");
+    if (!createdNewDeal) {
+      await prisma.crmDeal
+        .updateMany({
+          where: { id: dealId, tenantId, primaryContactId: null },
+          data: { primaryContactId: contactId },
+        })
+        .catch(() => undefined);
     }
   }
 
+  // Hitos de licitación — requieren deal.
+  if (flags.milestones) {
+    if (!params.canCreateMilestones) {
+      skip("milestones", "sin_permiso");
+    } else if (!dealId) {
+      skip("milestones", "requiere_negocio");
+    } else if (!proposal.deal.isLicitacion) {
+      skip("milestones", "sin_datos");
+    } else {
+      const { createDealMilestoneEvent, milestoneRangeFromPlan } = await import(
+        "@/modules/agenda/deal-milestones"
+      );
+      const today = new Date().toISOString().slice(0, 10);
+      for (const m of params.milestones ?? []) {
+        if (m.enabled === false) continue;
+        if (m.date < today) continue;
+        const range = milestoneRangeFromPlan(m);
+        if (!range) continue;
+        if (m.kind === "entrega" && m.date !== proposal.deal.fechaLimite) {
+          await prisma.crmDeal.update({
+            where: { id: dealId },
+            data: { fechaEntrega: new Date(`${m.date}T12:00:00Z`) },
+          });
+          proposal.deal.fechaLimite = m.date;
+        }
+        try {
+          const created = await createDealMilestoneEvent({
+            tenantId,
+            actorUserId: userId,
+            dealId,
+            accountId: account.id,
+            installationId: createdInstallations[0]?.id ?? null,
+            kind: m.kind,
+            startAt: range.startAt,
+            endAt: range.endAt,
+            notes: m.notes,
+            participantIds: m.participantIds,
+            externalEmails: m.externalEmails,
+          });
+          milestoneResults.push({
+            kind: m.kind,
+            eventId: created.eventId,
+            syncStatus: created.syncStatus,
+          });
+          if (m.kind === "visita_tecnica") {
+            await prisma.crmDeal.update({
+              where: { id: dealId },
+              data: { technicalVisitDate: new Date(`${m.date}T12:00:00Z`) },
+            });
+          }
+        } catch (e) {
+          console.error("[email-to-crm-structure] hito:", m.kind, e);
+        }
+      }
+    }
+  }
+
+  // Banda all-day de licitación (solo en deal nuevo).
+  if (proposal.deal.isLicitacion && dealId && createdNewDeal) {
+    const pastDeadline =
+      proposal.deal.fechaLimite &&
+      proposal.deal.fechaLimite < new Date().toISOString().slice(0, 10);
+    if (pastDeadline) {
+      agendaSync = { attempted: false, ok: false, skippedReason: "fecha_pasada" };
+    } else if (!proposal.deal.fechaLimite) {
+      agendaSync = { attempted: false, ok: false, skippedReason: "sin_fecha" };
+    } else {
+      const { syncLicitacionToCalendar } = await import("@/modules/agenda/agenda-sync");
+      try {
+        const sync = await syncLicitacionToCalendar(tenantId, dealId);
+        agendaSync = { attempted: true, ok: sync.syncStatus !== "ERROR" };
+      } catch (e) {
+        console.error("[email-to-crm-structure] sync licitación:", e);
+        agendaSync = { attempted: true, ok: false, skippedReason: "error" };
+      }
+    }
+  }
+
+  // Nota estructurada con piso económico del pliego (auditable en el deal).
+  if (dealId && proposal.condicionesEconomicas) {
+    const ecoNote = buildCondicionesEconomicasNote(proposal);
+    if (ecoNote) {
+      try {
+        await prisma.crmNote.create({
+          data: {
+            tenantId,
+            entityType: "deal",
+            entityId: dealId,
+            content: ecoNote,
+            createdBy: userId,
+            interactionType: "note",
+          },
+        });
+      } catch (e) {
+        console.error("[email-to-crm-structure] nota económica:", e);
+      }
+    }
+  }
+
+  // Cotización CPQ borrador — deal opcional (dealId nullable en schema).
+  if (flags.quote) {
+    if (!params.canCreateQuote) {
+      skip("quote", "sin_permiso");
+    } else {
+      try {
+        const { createPlanQuote } = await import("./plan-create-quote");
+        const q = await createPlanQuote({
+          tenantId,
+          userId,
+          dealId: dealId ?? null,
+          accountId: account.id,
+          contactId,
+          installationId: createdInstallations[0]?.id,
+          threadId: thread.id,
+          proposal,
+          quoteInput: params.quoteInput,
+        });
+        quoteId = q.quoteId;
+        quoteUrl = q.quoteUrl;
+        positionsCreated = q.positionsCreated;
+      } catch (e) {
+        console.error("[email-to-crm-structure] quote:", e);
+        skip("quote", "error");
+      }
+    }
+  }
+
+  // Adjuntos — sin deal fuerzan destino cuenta.
+  if (!flags.attachments) {
+    skip("attachments", "no_seleccionado");
+  } else {
+    const effectiveTarget = dealId ? attachTarget : "account";
+    for (const f of files) {
+      if (effectiveTarget === "account" || effectiveTarget === "both") {
+        await attach(tenantId, userId, f, "account", account.id);
+      }
+      if (dealId && (effectiveTarget === "deal" || effectiveTarget === "both")) {
+        await attach(tenantId, userId, f, "deal", dealId);
+      }
+    }
+  }
+
+  // Actualizar hilo: account siempre; deal/contact solo si existen (no desvincula).
   await prisma.crmEmailThread.update({
     where: { id: thread.id },
     data: {
@@ -618,8 +626,9 @@ export async function createCrmStructureFromProposal(params: {
     },
   });
 
+  // Tarea de seguimiento — thread-scoped; no requiere deal.
   let taskId: string | undefined;
-  if (flags.followUpTask && dealId) {
+  if (flags.followUpTask) {
     const ov = params.taskOverride;
     const dueAt = followUpDueAt(proposal.deal.fechaLimite, ov?.dueAt);
     const title =
@@ -653,8 +662,6 @@ export async function createCrmStructureFromProposal(params: {
         });
       }
     }
-  } else if (flags.followUpTask && !dealId) {
-    skipped.push("followUpTask");
   }
 
   if (dealId) {
@@ -667,7 +674,6 @@ export async function createCrmStructureFromProposal(params: {
 
   let conversationId: string | undefined;
   if (dealId) {
-    // Anclar conversación con supuestos no eliminados.
     const forAnchor = syncAssumptionArrays(proposal);
     conversationId = await anchorStructureConversation({
       tenantId,
@@ -682,6 +688,7 @@ export async function createCrmStructureFromProposal(params: {
 
   const noteParts = [
     `Estructura: ${accountReused ? "cuenta reutilizada" : "cuenta nueva"}`,
+    contactId ? "contacto" : null,
     dealId
       ? thread.dealId === dealId
         ? "negocio existente"
@@ -690,14 +697,13 @@ export async function createCrmStructureFromProposal(params: {
     flags.installations
       ? `${createdInstallations.length} instalación(es)`
       : "instalaciones omitidas",
-    flags.deal
-      ? `dotación base ${proposal.staffingTotals.headcountBase}`
-      : null,
     quoteId
       ? positionsCreated > 0
-        ? `cotización borrador con ${positionsCreated} puesto(s)`
-        : "cotización borrador creada"
+        ? `cotización borrador con ${positionsCreated} puesto(s)${dealId ? "" : " (sin negocio)"}`
+        : `cotización borrador${dealId ? "" : " (sin negocio)"}`
       : null,
+    taskId ? "tarea de seguimiento" : null,
+    flags.attachments ? "adjuntos guardados" : null,
   ].filter(Boolean);
 
   return {
@@ -715,10 +721,9 @@ export async function createCrmStructureFromProposal(params: {
     quoteUrl,
     milestones: milestoneResults.length ? milestoneResults : undefined,
     skipped: skipped.length ? skipped : undefined,
+    skippedDetail: skippedDetail.length ? skippedDetail : undefined,
     agendaSync,
     conversationId,
-    note:
-      noteParts.join(", ") +
-      (quoteId ? "." : ". Cotización CPQ: armar puestos en el workspace."),
+    note: noteParts.join(", ") + ".",
   };
 }
