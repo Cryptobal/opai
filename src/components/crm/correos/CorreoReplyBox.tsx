@@ -180,7 +180,6 @@ export function CorreoReplyBox({
         onReply={() => openComposer("reply", true)}
         onReplyAll={() => openComposer("all", true)}
         onForward={() => openComposer("forward", false)}
-        onReplyAI={() => openComposer("reply", true)}
       />
     );
   }

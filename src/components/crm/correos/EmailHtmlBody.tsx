@@ -172,7 +172,7 @@ export function EmailHtmlBody({
   }, [useIframe, mode, safeHtml, measure]);
 
   // El foco dentro del iframe no burbujea al padre: sin este puente, los
-  // atajos de bandeja/lector (j/k, R/F/I, archivar…) dejan de responder al
+  // atajos de bandeja/lector (j/k, R/A/F, archivar…) dejan de responder al
   // leer el cuerpo. Re-adjuntamos en `load` porque con srcDoc el
   // contentDocument puede no estar listo en el primer effect.
   useEffect(() => {

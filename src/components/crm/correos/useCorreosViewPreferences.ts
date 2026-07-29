@@ -74,7 +74,6 @@ export type CorreoShortcutAction =
   | "reply"
   | "replyAll"
   | "forward"
-  | "replyAi"
   | "star"
   | "snooze"
   | "toggleRead"
@@ -84,11 +83,11 @@ export type CorreoShortcuts = Record<CorreoShortcutAction, string>;
 
 const SHORTCUT_ACTIONS: readonly CorreoShortcutAction[] = [
   "down", "up", "open", "toggleSelect", "archive", "trash",
-  "reply", "replyAll", "forward", "replyAi",
+  "reply", "replyAll", "forward",
   "star", "snooze", "toggleRead", "focusSearch", "aiMenu",
 ];
 
-/** Defaults estilo Gmail (s = destacar, b = posponer; a/f/i = lector; . = Acciones IA). */
+/** Defaults estilo Gmail (s = destacar, b = posponer; a/f = lector; . = Acciones IA). */
 export const DEFAULT_CORREO_SHORTCUTS: CorreoShortcuts = {
   down: "j",
   up: "k",
@@ -99,7 +98,6 @@ export const DEFAULT_CORREO_SHORTCUTS: CorreoShortcuts = {
   reply: "r",
   replyAll: "a",
   forward: "f",
-  replyAi: "i",
   star: "s",
   snooze: "b",
   toggleRead: "u",
@@ -112,7 +110,6 @@ export const COMPOSE_SHORTCUT_ACTIONS: readonly CorreoShortcutAction[] = [
   "reply",
   "replyAll",
   "forward",
-  "replyAi",
 ];
 
 /** Normaliza teclas grabadas/comparadas: letras en minúscula; especiales intactos. */
