@@ -83,10 +83,10 @@ export async function POST(req: NextRequest) {
     limit: bodyLimit,
   });
 
-  clearEmailIndexCoverageCache(session.user.tenantId, account.id);
+  clearEmailIndexCoverageCache(session.user.tenantId, [account.id]);
   const coverage = await getEmailIndexCoverage({
     tenantId: session.user.tenantId,
-    emailAccountId: account.id,
+    emailAccountIds: [account.id],
   });
 
   return NextResponse.json({

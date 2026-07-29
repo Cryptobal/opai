@@ -100,7 +100,7 @@ describe("semanticSearchChunks — aislamiento tenant (A07)", () => {
     ]);
     const hits = await semanticSearchChunks({
       tenantId: "tenant-1",
-      emailAccountId: "00000000-0000-0000-0000-000000000001",
+      emailAccountIds: ["00000000-0000-0000-0000-000000000001"],
       query: "quién pidió más guardias",
     });
     const sql = mocks.queryRaw.mock.calls[0][0] as Prisma.Sql;
@@ -124,7 +124,7 @@ describe("semanticSearchChunks — aislamiento tenant (A07)", () => {
     const structuralSql = [Prisma.sql`t.attachment_count > 0`];
     await semanticSearchChunks({
       tenantId: "tenant-1",
-      emailAccountId: "00000000-0000-0000-0000-000000000001",
+      emailAccountIds: ["00000000-0000-0000-0000-000000000001"],
       query: "factura",
       folderSql,
       structuralSql,
@@ -140,7 +140,7 @@ describe("semanticSearchChunks — aislamiento tenant (A07)", () => {
     delete process.env.OPENAI_API_KEY;
     const hits = await semanticSearchChunks({
       tenantId: "t",
-      emailAccountId: "00000000-0000-0000-0000-000000000001",
+      emailAccountIds: ["00000000-0000-0000-0000-000000000001"],
       query: "x",
     });
     expect(hits).toEqual([]);
@@ -155,7 +155,7 @@ describe("semanticSearchChunks — aislamiento tenant (A07)", () => {
     mocks.queryRaw.mockResolvedValue([]);
     await semanticSearchChunks({
       tenantId: "tenant-1",
-      emailAccountId: "00000000-0000-0000-0000-000000000001",
+      emailAccountIds: ["00000000-0000-0000-0000-000000000001"],
       query: "factura",
       limit: 10,
     });

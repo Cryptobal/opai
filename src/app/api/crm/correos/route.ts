@@ -62,7 +62,7 @@ export async function GET(req: NextRequest) {
   ] = await Promise.all([
     listCorreoThreads({
       tenantId: session.user.tenantId,
-      emailAccountId: account.id,
+      emailAccountIds: [account.id],
       mailboxEmail: account.email,
       cursor: req.nextUrl.searchParams.get("cursor"),
       folder,
@@ -71,7 +71,7 @@ export async function GET(req: NextRequest) {
     wantCounts
       ? countCorreoFolders({
           tenantId: session.user.tenantId,
-          emailAccountId: account.id,
+          emailAccountIds: [account.id],
         })
       : null,
     getGmailSyncParkedInfo(account.id),
@@ -79,7 +79,7 @@ export async function GET(req: NextRequest) {
       ? import("@/modules/crm/email/email-index-coverage").then((m) =>
           m.getEmailIndexCoverage({
             tenantId: session.user.tenantId,
-            emailAccountId: account.id,
+            emailAccountIds: [account.id],
           }),
         )
       : null,

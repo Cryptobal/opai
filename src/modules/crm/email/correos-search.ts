@@ -372,9 +372,20 @@ export function buildCorreoSearchConditions(parsed: ParsedCorreoSearch): Prisma.
  * cursor de fecha (last_message_at DESC — bajo búsqueda todas las carpetas
  * ordenan por recencia, incluida Pospuestos).
  */
+/** Fragmento SQL seguro para filtrar casillas (evita ANY text[] de Prisma). */
+export function emailAccountIdsInSql(
+  ids: string[],
+  column: Prisma.Sql = Prisma.sql`t.email_account_id`,
+): Prisma.Sql {
+  if (ids.length === 0) return Prisma.sql`FALSE`;
+  return Prisma.sql`${column} IN (${Prisma.join(
+    ids.map((id) => Prisma.sql`${id}::uuid`),
+  )})`;
+}
+
 export function buildCorreoSearchIdsQuery(params: {
   tenantId: string;
-  emailAccountId: string;
+  emailAccountIds: string[];
   parsed: ParsedCorreoSearch;
   folder: CorreoListFilter;
   /** A03: filtro por vertical efectiva (override ?? ai_vertical). */
@@ -394,7 +405,7 @@ export function buildCorreoSearchIdsQuery(params: {
     : [...parts.structural, ...parts.text];
   const conds: Prisma.Sql[] = [
     Prisma.sql`t.tenant_id::text = ${params.tenantId}`,
-    Prisma.sql`t.email_account_id = ${params.emailAccountId}::uuid`,
+    emailAccountIdsInSql(params.emailAccountIds),
     folderWhereSql(params.folder, now),
     ...searchConds,
     ...(params.vertical

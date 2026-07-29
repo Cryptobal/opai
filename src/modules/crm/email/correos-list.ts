@@ -93,6 +93,7 @@ export function folderWhere(folder: CorreoListFilter) {
 const THREAD_LIST_SELECT = {
   id: true,
   subject: true,
+  emailAccountId: true,
   accountId: true,
   dealId: true,
   leadId: true,
@@ -127,7 +128,7 @@ const THREAD_LIST_SELECT = {
  */
 export async function listCorreoThreads(params: {
   tenantId: string;
-  emailAccountId: string;
+  emailAccountIds: string[];
   mailboxEmail?: string | null;
   cursor?: string | null;
   limit?: number;
@@ -144,6 +145,10 @@ export async function listCorreoThreads(params: {
   searchScope?: import("./correos.types").CorreoSearchScope;
 }> {
   const limit = Math.min(Math.max(params.limit ?? 30, 1), 100);
+  const emailAccountIds = params.emailAccountIds;
+  if (emailAccountIds.length === 0) {
+    return { items: [], nextCursor: null, semanticAvailable: true };
+  }
   const searchOffset = parseSearchOffsetCursor(params.cursor);
   const cursorDate =
     searchOffset == null && params.cursor ? new Date(params.cursor) : null;
@@ -161,7 +166,7 @@ export async function listCorreoThreads(params: {
     const { hybridSearchThreadIds } = await import("./correos-search-hybrid");
     const hybrid = await hybridSearchThreadIds({
       tenantId: params.tenantId,
-      emailAccountId: params.emailAccountId,
+      emailAccountIds,
       parsed: parsedSearch,
       folder: effectiveFolder,
       limit,
@@ -193,7 +198,7 @@ export async function listCorreoThreads(params: {
       prisma.crmEmailThread.findMany({
         where: {
           tenantId: params.tenantId,
-          emailAccountId: params.emailAccountId,
+          emailAccountId: { in: emailAccountIds },
           id: { in: hybrid.ids },
         },
         select: THREAD_LIST_SELECT,
@@ -238,7 +243,7 @@ export async function listCorreoThreads(params: {
       return prisma.crmEmailThread.findMany({
         where: {
           tenantId: params.tenantId,
-          emailAccountId: params.emailAccountId,
+          emailAccountId: { in: emailAccountIds },
           ...folderWhere(effectiveFolder),
           ...(hasCursor && cursorDate
             ? isSnoozed
@@ -255,7 +260,7 @@ export async function listCorreoThreads(params: {
     const idRows = await prisma.$queryRaw<Array<{ id: string; last_message_at: Date | null }>>(
       buildCorreoSearchIdsQuery({
         tenantId: params.tenantId,
-        emailAccountId: params.emailAccountId,
+        emailAccountIds,
         parsed: parsedSearch,
         folder: effectiveFolder,
         cursorDate: hasCursor ? cursorDate : null,
@@ -267,7 +272,7 @@ export async function listCorreoThreads(params: {
     const threads = await prisma.crmEmailThread.findMany({
       where: {
         tenantId: params.tenantId,
-        emailAccountId: params.emailAccountId,
+        emailAccountId: { in: emailAccountIds },
         id: { in: idRows.map((r) => r.id) },
       },
       select: THREAD_LIST_SELECT,
@@ -309,6 +314,7 @@ export async function listCorreoThreads(params: {
 type ThreadRow = {
   id: string;
   subject: string;
+  emailAccountId: string | null;
   accountId: string | null;
   dealId: string | null;
   leadId: string | null;
@@ -377,6 +383,7 @@ async function mapThreadRowsInternal(
       fromEmail: from,
       snippet,
       lastMessageAt: r.lastMessageAt?.toISOString() ?? null,
+      emailAccountId: r.emailAccountId,
       accountId: r.accountId,
       accountName: r.accountId ? accMap.get(r.accountId) ?? null : null,
       dealId: r.dealId,
