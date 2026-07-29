@@ -1,5 +1,12 @@
-import type { HelpChatPageContext } from "@/lib/ai/help-chat-page-context";
 import { isUuid } from "@/lib/utils/uuid";
+
+/** Shape compatible con ChatPageContextValue / HelpChatPageContext. */
+export type CorreoUrlPageContext = {
+  entityType: "crm_email_thread";
+  entityId: string;
+  entityName: string;
+  entityUrl: string;
+};
 
 /**
  * Fallback: si el page context del cliente no llegó (p. ej. el hilo abierto
@@ -9,7 +16,7 @@ import { isUuid } from "@/lib/utils/uuid";
 export function pageContextFromCorreoUrl(
   pathname: string | null | undefined,
   search: string | null | undefined,
-): HelpChatPageContext | null {
+): CorreoUrlPageContext | null {
   if (!pathname?.startsWith("/crm/correos")) return null;
   const sp = new URLSearchParams(search ?? "");
   const thread = (sp.get("hilo") || sp.get("thread") || "").trim();
