@@ -10,18 +10,35 @@ export type IndexCoverage = {
   oldestIndexedAt: string | null;
 };
 
+/** Mínimo de mensajes sin indexar para considerar el backlog material. */
+export const COVERAGE_MIN_PENDING = 25;
+/** Bajo este porcentaje la búsqueda semántica está realmente degradada. */
+export const COVERAGE_MIN_PCT = 90;
+
 type Props = {
   coverage: IndexCoverage | null;
   onIndexed: (coverage: IndexCoverage) => void;
   compact?: boolean;
+  /** Mientras hay sync en curso la barra se oculta (el backlog puede ser desfase). */
+  syncing?: boolean;
 };
 
-/** Barra de cobertura semántica — visible solo si pct < 100. */
-export function CorreoIndexCoverageBar({ coverage, onIndexed, compact }: Props) {
+/**
+ * Barra de cobertura semántica — visible solo con backlog material:
+ * pending ≥ COVERAGE_MIN_PENDING, pct < COVERAGE_MIN_PCT y sin sync en curso.
+ */
+export function CorreoIndexCoverageBar({
+  coverage,
+  onIndexed,
+  compact,
+  syncing = false,
+}: Props) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  if (!coverage || coverage.pct >= 100) return null;
+  if (!coverage || syncing) return null;
+  const pending = coverage.totalMessages - coverage.indexedMessages;
+  if (pending < COVERAGE_MIN_PENDING || coverage.pct >= COVERAGE_MIN_PCT) return null;
 
   const indexNow = async () => {
     setBusy(true);

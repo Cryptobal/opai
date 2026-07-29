@@ -1262,6 +1262,7 @@ export function CorreosClient() {
         <CorreoIndexCoverageBar
           coverage={coverage}
           compact
+          syncing={syncing}
           onIndexed={setCoverage}
         />
       </div>
@@ -1458,6 +1459,7 @@ export function CorreosClient() {
             {query.trim().length > 0 && <CorreoSearchChips query={query} onQuery={setQuery} />}
             <CorreoIndexCoverageBar
               coverage={coverage}
+              syncing={syncing}
               onIndexed={setCoverage}
             />
             {searching && !semanticAvailable && (
