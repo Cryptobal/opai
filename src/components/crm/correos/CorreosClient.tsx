@@ -79,6 +79,10 @@ import type { CorreoAiCommandId } from "@/modules/crm/email/correo-ai-commands";
 import { getCorreoAiCommand } from "@/modules/crm/email/correo-ai-commands";
 import { dispatchAiCommand } from "@/lib/ai/ai-command-event";
 import type { RadarVertical } from "@/modules/crm/email/radar-types";
+import {
+  CORREO_SEARCH_EVENT,
+  type CorreoSearchRequest,
+} from "./correo-search-bus";
 
 /** Alto visual de la isla global (8px gap + min-h-12). El safe-area lo aporta AppShell. */
 const CORREOS_MOBILE_TOP_SPACER = "h-14 shrink-0 lg:hidden";
@@ -640,6 +644,23 @@ export function CorreosClient() {
     return () => window.removeEventListener("opai-correo-open-work", onOpenWork);
     // openThread es estable en la práctica (cierra sobre setters); se re-liga al montar.
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Búsqueda desde el lector (popover de participante) → aplica token y vuelve a la lista.
+  useEffect(() => {
+    function onSearch(ev: Event) {
+      const detail = (ev as CustomEvent<CorreoSearchRequest>).detail;
+      if (!detail?.token?.trim()) return;
+      const token = detail.token.trim();
+      const mode = detail.mode ?? "replace";
+      setQuery((prev) =>
+        mode === "append" && prev.trim() ? `${prev.trim()} ${token}` : token,
+      );
+      setOpenId(null);
+      window.scrollTo({ top: 0 });
+    }
+    window.addEventListener(CORREO_SEARCH_EVENT, onSearch);
+    return () => window.removeEventListener(CORREO_SEARCH_EVENT, onSearch);
   }, []);
 
   /**
