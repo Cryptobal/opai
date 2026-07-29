@@ -29,11 +29,17 @@ describe("folderWhere", () => {
   it("las demás carpetas mantienen su semántica", () => {
     expect(folderWhere("trash")).toEqual({ trashedAt: { not: null } });
     expect(folderWhere("all")).toEqual({ trashedAt: null, spamAt: null });
-    expect(folderWhere("archived")).toEqual({
+    // Archivados excluye pospuestos vigentes (archivedAt residual del sync).
+    const archived = folderWhere("archived");
+    expect(archived).toMatchObject({
       trashedAt: null,
       spamAt: null,
       archivedAt: { not: null },
     });
+    expect(archived).not.toHaveProperty("NOT");
+    const archivedOr = (archived as { OR?: Array<Record<string, unknown>> }).OR;
+    expect(archivedOr).toBeDefined();
+    expect(archivedOr).toContainEqual({ snoozedUntil: null });
     expect(folderWhere("snoozed")).toMatchObject({
       trashedAt: null,
       spamAt: null,
