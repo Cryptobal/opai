@@ -335,7 +335,8 @@ function buildTextConditions(parsed: ParsedCorreoSearch): Prisma.Sql[] {
               SELECT 1 FROM unnest(m.to_emails || m.cc_emails) AS rcpt(email)
               WHERE LOWER(rcpt.email) LIKE LOWER(${pattern})
             )
-            OR m.text_body ILIKE ${pattern}
+            OR LOWER(public.f_unaccent(COALESCE(m.text_body, ''))) LIKE LOWER(public.f_unaccent(${pattern}))
+            OR LOWER(public.f_unaccent(COALESCE(m.html_body, ''))) LIKE LOWER(public.f_unaccent(${pattern}))
           )
       )
     )`);
