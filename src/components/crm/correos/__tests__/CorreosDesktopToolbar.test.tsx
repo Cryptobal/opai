@@ -10,7 +10,7 @@ const base = {
   onRefresh: vi.fn(),
   syncing: false,
   shownCount: 3,
-  totalCount: 10,
+  totalCount: 10 as number | null,
   previewLines: 2 as const,
   onPreviewLines: vi.fn(),
   selectedCount: 0,
@@ -20,38 +20,66 @@ const base = {
   onSnooze: vi.fn(),
 };
 
-describe("CorreosDesktopToolbar — operadores bajo demanda", () => {
-  it("oculta la fila Operadores con query vacía y sin foco", () => {
-    const { container } = render(
-      <CorreosDesktopToolbar {...base} query="" onQuery={vi.fn()} />,
-    );
-    const label = screen.getByText("Operadores");
-    const ops = label.closest("[aria-hidden]");
-    expect(ops?.getAttribute("aria-hidden")).toBe("true");
-    expect(container.querySelector("[aria-hidden='false']")).toBeNull();
+describe("CorreosDesktopToolbar", () => {
+  it("renderiza el contador con totalCount", () => {
+    render(<CorreosDesktopToolbar {...base} />);
+    expect(screen.getByText("3 de 10")).toBeTruthy();
   });
 
-  it("muestra operadores al enfocar el input", () => {
-    const { container } = render(
-      <CorreosDesktopToolbar {...base} query="" onQuery={vi.fn()} />,
-    );
-    fireEvent.focus(screen.getByPlaceholderText(/Buscá lo que recordás/i));
-    const ops = container.querySelector("[aria-hidden='false']");
-    expect(ops).toBeTruthy();
-    expect(screen.getByText("from:")).toBeTruthy();
+  it("renderiza el contador sin totalCount", () => {
+    render(<CorreosDesktopToolbar {...base} totalCount={null} />);
+    expect(screen.getByText("3 hilos")).toBeTruthy();
   });
 
-  it("muestra operadores con query no vacía y se pliega al limpiar", () => {
-    const onQuery = vi.fn();
-    const { rerender, container } = render(
-      <CorreosDesktopToolbar {...base} query="from:a" onQuery={onQuery} />,
+  it("dispara onToggleAll al hacer clic en el checkbox", () => {
+    const onToggleAll = vi.fn();
+    render(<CorreosDesktopToolbar {...base} onToggleAll={onToggleAll} />);
+    fireEvent.click(screen.getByLabelText("Seleccionar todo lo visible"));
+    expect(onToggleAll).toHaveBeenCalledTimes(1);
+  });
+
+  it("dispara onRefresh y deshabilita con syncing", () => {
+    const onRefresh = vi.fn();
+    const { rerender } = render(
+      <CorreosDesktopToolbar {...base} onRefresh={onRefresh} />,
     );
-    expect(container.querySelector("[aria-hidden='false']")).toBeTruthy();
+    const btn = screen.getByTitle("Sincronizar ahora");
+    fireEvent.click(btn);
+    expect(onRefresh).toHaveBeenCalledTimes(1);
 
-    fireEvent.click(screen.getByLabelText("Limpiar búsqueda"));
-    expect(onQuery).toHaveBeenCalledWith("");
+    rerender(<CorreosDesktopToolbar {...base} onRefresh={onRefresh} syncing />);
+    expect(screen.getByTitle("Sincronizando…")).toBeDisabled();
+  });
 
-    rerender(<CorreosDesktopToolbar {...base} query="" onQuery={onQuery} />);
-    expect(container.querySelector("[aria-hidden='true']")).toBeTruthy();
+  it("alterna densidad entre 1 y 2 líneas", () => {
+    const onPreviewLines = vi.fn();
+    const { rerender } = render(
+      <CorreosDesktopToolbar {...base} onPreviewLines={onPreviewLines} previewLines={2} />,
+    );
+    fireEvent.click(screen.getByTitle("Densidad compacta"));
+    expect(onPreviewLines).toHaveBeenCalledWith(1);
+
+    rerender(
+      <CorreosDesktopToolbar {...base} onPreviewLines={onPreviewLines} previewLines={1} />,
+    );
+    fireEvent.click(screen.getByTitle("Densidad cómoda"));
+    expect(onPreviewLines).toHaveBeenCalledWith(2);
+  });
+
+  it("con selección muestra acciones masivas e invoca spam", () => {
+    const onAction = vi.fn();
+    render(
+      <CorreosDesktopToolbar
+        {...base}
+        selectedCount={2}
+        onAction={onAction}
+      />,
+    );
+    expect(screen.getByText("2 seleccionados")).toBeTruthy();
+    fireEvent.click(screen.getByTitle("Marcar spam"));
+    expect(onAction).toHaveBeenCalledWith("spam", "Marcados como spam", {
+      undo: "unspam",
+      removes: true,
+    });
   });
 });

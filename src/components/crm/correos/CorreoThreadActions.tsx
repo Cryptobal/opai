@@ -162,7 +162,7 @@ export function CorreoThreadActions({
           <Clock className="h-4 w-4" />
         </button>
       )}
-      {drawer && starred !== undefined && (
+      {starred !== undefined && (
         <button
           type="button"
           className={btn}
@@ -178,7 +178,7 @@ export function CorreoThreadActions({
           {showLabel && <span>{starred ? "Destacado" : "Destacar"}</span>}
         </button>
       )}
-      {drawer && inSpam !== undefined && (
+      {inSpam !== undefined && (
         <button
           type="button"
           className={btn}

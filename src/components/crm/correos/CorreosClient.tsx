@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Archive, Building2, CalendarPlus, CheckSquare, Clock, Forward, Link2,
-  ListTodo, Mail, MailOpen, Menu, PenLine, Reply, ReplyAll, Sparkles, Star,
-  TicketPlus, Trash2,
+  ListTodo, Mail, MailOpen, Menu, PenLine, Reply, ReplyAll, ShieldAlert,
+  Sparkles, Star, TicketPlus, Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -14,6 +14,7 @@ import {
   useSetIslandModuleMenu,
   useSetIslandSearch,
   useSetIslandSuppressed,
+  type ModuleSearchOperator,
 } from "@/components/opai-ds";
 import {
   type CorreoChipKey,
@@ -78,9 +79,28 @@ import type { CorreoAiCommandId } from "@/modules/crm/email/correo-ai-commands";
 import { getCorreoAiCommand } from "@/modules/crm/email/correo-ai-commands";
 import { dispatchAiCommand } from "@/lib/ai/ai-command-event";
 import { hasCapability } from "@/lib/permissions";
+import {
+  CORREO_SEARCH_EVENT,
+  type CorreoSearchRequest,
+} from "./correo-search-bus";
 
 /** Alto visual de la isla global (8px gap + min-h-12). El safe-area lo aporta AppShell. */
 const CORREOS_MOBILE_TOP_SPACER = "h-14 shrink-0 lg:hidden";
+
+/** Operadores expuestos en el overlay de búsqueda (parser `correos-search.ts`). */
+const CORREO_SEARCH_OPERATORS: ModuleSearchOperator[] = [
+  { token: "from:", hint: "remitente" },
+  { token: "to:", hint: "destinatario" },
+  { token: "domain:", hint: "dominio" },
+  { token: "subject:", hint: "asunto" },
+  { token: "has:attachment", hint: "con adjuntos" },
+  { token: "is:unread", hint: "no leídos" },
+  { token: "is:starred", hint: "destacados" },
+  { token: "newer_than:7d", hint: "últimos 7 días" },
+  { token: "older_than:30d", hint: "más de 30 días" },
+  { token: "before:", hint: "antes de AAAA-MM-DD" },
+  { token: "after:", hint: "desde AAAA-MM-DD" },
+];
 
 function matchesChip(t: CorreoThreadDTO, f: CorreoChipKey): boolean {
   if (f === "con_cuenta") return Boolean(t.accountId);
@@ -305,10 +325,11 @@ export function CorreosClient() {
   /** Archivar/papelera con UI optimista: soft al aplicar, hard al deshacer. */
   function runRemoveAction(
     threadId: string,
-    action: "archive" | "trash",
+    action: "archive" | "trash" | "spam",
     okMsg: string,
   ) {
-    const undo = action === "archive" ? "unarchive" : "untrash";
+    const undo =
+      action === "archive" ? "unarchive" : action === "trash" ? "untrash" : "unspam";
     void runCorreoAction(threadId, action, okMsg, softRefresh, undo, hardRefresh);
   }
 
@@ -562,6 +583,23 @@ export function CorreosClient() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Búsqueda desde el lector (popover de participante) → aplica token y vuelve a la lista.
+  useEffect(() => {
+    function onSearch(ev: Event) {
+      const detail = (ev as CustomEvent<CorreoSearchRequest>).detail;
+      if (!detail?.token?.trim()) return;
+      const token = detail.token.trim();
+      const mode = detail.mode ?? "replace";
+      setQuery((prev) =>
+        mode === "append" && prev.trim() ? `${prev.trim()} ${token}` : token,
+      );
+      setOpenId(null);
+      window.scrollTo({ top: 0 });
+    }
+    window.addEventListener(CORREO_SEARCH_EVENT, onSearch);
+    return () => window.removeEventListener(CORREO_SEARCH_EVENT, onSearch);
+  }, []);
+
   /**
    * Archivar / papelera / snooze: saca el hilo. En desktop (split) avanza al
    * siguiente como Gmail. En móvil vuelve a la bandeja — quedarse en el
@@ -680,6 +718,7 @@ export function CorreosClient() {
       setQuery("");
       setDebouncedQuery("");
     },
+    operators: CORREO_SEARCH_OPERATORS,
   });
   useSetIslandSuppressed(selectionMode);
   function bulkAction(
@@ -1046,6 +1085,24 @@ export function CorreosClient() {
               starred ? "star" : "unstar",
             ),
         },
+        {
+          icon: <ShieldAlert className="h-4 w-4" />,
+          label: t.spamAt ? "No es spam" : "Marcar spam",
+          onClick: () => {
+            if (t.spamAt) {
+              void runCorreoAction(
+                t.id,
+                "unspam",
+                "Restaurado de Spam",
+                () => void fetchPage(null, true),
+                "spam",
+              );
+              return;
+            }
+            removeThreadAndAdvance(t.id);
+            runRemoveAction(t.id, "spam", "Marcado como spam");
+          },
+        },
       );
     }
 
@@ -1309,7 +1366,6 @@ export function CorreosClient() {
             }
             onRefresh={syncNow}
             syncing={syncing}
-            query={query} onQuery={setQuery}
             shownCount={filtered.length}
             totalCount={counts ? ((counts as Record<string, number | undefined>)[folder] ?? null) : null}
             previewLines={previewLines} onPreviewLines={setPreviewLines}

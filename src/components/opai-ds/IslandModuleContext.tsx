@@ -2,7 +2,8 @@
 
 /**
  * IslandModuleContext — contrato para que un módulo publique controles en la
- * isla móvil (Zona C'): menú de módulo, override de búsqueda y supresión
+ * isla móvil (Zona C') y en el topbar desktop (lupa → overlay de búsqueda):
+ * menú de módulo, override de búsqueda (con operadores) y supresión
  * (p. ej. modo selección).
  *
  * Uso:
@@ -18,6 +19,7 @@
  *     value: query,
  *     onChange: setQuery,
  *     onExit: () => setQuery(""),
+ *     operators: [{ token: "from:", hint: "remitente" }],
  *   });
  *   useSetIslandSuppressed(selectionMode);
  *
@@ -44,11 +46,20 @@ export interface IslandModuleMenu {
   onOpen: () => void;
 }
 
+export interface ModuleSearchOperator {
+  /** Token insertable, p. ej. "from:". */
+  token: string;
+  /** Ayuda corta en español, p. ej. "remitente". */
+  hint?: string;
+}
+
 export interface IslandSearch {
   placeholder: string;
   value: string;
   onChange: (q: string) => void;
   onExit?: () => void;
+  /** Operadores ofrecidos por el módulo (topbar desktop). */
+  operators?: ModuleSearchOperator[];
 }
 
 interface IslandModuleState {
@@ -80,7 +91,7 @@ export function IslandModuleProvider({ children }: { children: ReactNode }) {
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 
-/** Lectura completa del contrato (para la isla). */
+/** Lectura completa del contrato (isla móvil + topbar desktop). */
 export function useIslandModule(): {
   moduleMenu: IslandModuleMenu | null;
   search: IslandSearch | null;
@@ -93,6 +104,9 @@ export function useIslandModule(): {
     suppressed: ctx?.suppressed ?? false,
   };
 }
+
+/** Alias neutral respecto de plataforma (isla / topbar). */
+export const useModuleSurface = useIslandModule;
 
 /** Publica el botón de menú de módulo (Zona C'). */
 export function useSetIslandModuleMenu(
@@ -122,18 +136,23 @@ export function useSetIslandModuleMenu(
   }, [setModuleMenu, label, icon, badge]);
 }
 
-/** Publica el override de búsqueda de la isla. */
+/** Publica el override de búsqueda (isla móvil + topbar desktop). */
 export function useSetIslandSearch(search: IslandSearch | null | undefined) {
   const ctx = useContext(Ctx);
   const setSearch = ctx?.setSearch;
   const placeholder = search?.placeholder ?? null;
   const value = search?.value ?? "";
+  const operatorsKey =
+    search?.operators?.map((o) => `${o.token}|${o.hint ?? ""}`).join(",") ?? "";
+  const operators = search?.operators;
   const onChangeRef = useRef(search?.onChange);
   const onExitRef = useRef(search?.onExit);
+  const operatorsRef = useRef(operators);
   onChangeRef.current = search?.onChange;
   onExitRef.current = search?.onExit;
+  operatorsRef.current = operators;
 
-  // Publicar / limpiar solo al montar o cambiar placeholder (no en cada tecla).
+  // Publicar / limpiar solo al montar o cambiar placeholder/operators.
   useEffect(() => {
     if (!setSearch) return;
     if (!placeholder) {
@@ -145,13 +164,14 @@ export function useSetIslandSearch(search: IslandSearch | null | undefined) {
       value,
       onChange: (q: string) => onChangeRef.current?.(q),
       onExit: () => onExitRef.current?.(),
+      operators: operatorsRef.current,
     });
     return () => setSearch(null);
     // value se sincroniza en el efecto de abajo.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [setSearch, placeholder]);
+  }, [setSearch, placeholder, operatorsKey]);
 
-  // Sincronizar value sin teardown (input controlado en la isla).
+  // Sincronizar value sin teardown (input controlado en isla/overlay).
   useEffect(() => {
     if (!setSearch || !placeholder) return;
     setSearch({
@@ -159,9 +179,13 @@ export function useSetIslandSearch(search: IslandSearch | null | undefined) {
       value,
       onChange: (q: string) => onChangeRef.current?.(q),
       onExit: () => onExitRef.current?.(),
+      operators: operatorsRef.current,
     });
-  }, [setSearch, placeholder, value]);
+  }, [setSearch, placeholder, value, operatorsKey]);
 }
+
+/** Alias neutral respecto de plataforma. */
+export const useSetModuleSearch = useSetIslandSearch;
 
 /** Suprime el montaje de la isla (p. ej. modo selección). */
 export function useSetIslandSuppressed(suppressed: boolean) {
@@ -174,7 +198,7 @@ export function useSetIslandSuppressed(suppressed: boolean) {
   }, [setSuppressed, suppressed]);
 }
 
-/** Evento para abrir el modo búsqueda de la isla desde atajos de teclado. */
+/** Evento para abrir el modo búsqueda (isla móvil o overlay desktop). */
 export const ISLAND_OPEN_SEARCH_EVENT = "opai:island-open-search";
 
 export function requestIslandSearchOpen() {
@@ -182,7 +206,7 @@ export function requestIslandSearchOpen() {
   window.dispatchEvent(new CustomEvent(ISLAND_OPEN_SEARCH_EVENT));
 }
 
-/** Hook interno: registra el opener (usado por MobileIsland). */
+/** Hook interno: registra el opener (usado por MobileIsland y TopbarActions). */
 export function useIslandSearchOpenListener(onOpen: () => void) {
   const onOpenRef = useRef(onOpen);
   onOpenRef.current = onOpen;

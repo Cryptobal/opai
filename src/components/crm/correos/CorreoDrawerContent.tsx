@@ -53,12 +53,13 @@ type Props = {
   onOpenAiStyle?: () => void;
 };
 
-function hasCopilotoAttention(detail: CorreoDetail): boolean {
+function copilotoAttentionReasons(detail: CorreoDetail): string[] {
   const t = detail.thread;
-  if (t.accountId == null) return true;
-  if (detail.attachments.some((a) => !a.savedFileId)) return true;
-  if (t.aiUrgency === "alta" && !t.dealId) return true;
-  return false;
+  const reasons: string[] = [];
+  if (t.accountId == null) reasons.push("sin cuenta asociada");
+  if (detail.attachments.some((a) => !a.savedFileId)) reasons.push("adjuntos sin guardar");
+  if (t.aiUrgency === "alta" && !t.dealId) reasons.push("urgencia alta sin negocio");
+  return reasons;
 }
 
 export function CorreoDrawerContent({
@@ -96,7 +97,11 @@ export function CorreoDrawerContent({
   const gmailUrl = t.providerThreadId
     ? `https://mail.google.com/mail/u/0/#all/${t.providerThreadId}`
     : null;
-  const attention = hasCopilotoAttention(detail);
+  const reasons = copilotoAttentionReasons(detail);
+  const attentionLabel =
+    reasons.length > 0
+      ? `Copiloto — ${reasons.length} ${reasons.length === 1 ? "pendiente" : "pendientes"}: ${reasons.join(", ")}`
+      : "Copiloto";
 
   useEffect(() => {
     if (!workTabIntent) return;
@@ -205,15 +210,19 @@ export function CorreoDrawerContent({
           <button
             type="button"
             onClick={() => openPanel("resumen")}
-            aria-label="Copiloto"
+            title={attentionLabel}
+            aria-label={attentionLabel}
             className="relative inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-full border border-tint-violet/30 bg-tint-violet/10 px-2.5 text-[12px] font-medium text-tint-violet-fg ds-tap sm:min-h-8"
           >
             <Sparkles className="h-3.5 w-3.5" /> ✦ Copiloto
-            {attention && (
-              <span
-                className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-status-warn"
-                aria-hidden
-              />
+            {reasons.length > 0 && (
+              <>
+                <span
+                  className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-status-warn"
+                  aria-hidden
+                />
+                <span className="sr-only">{attentionLabel}</span>
+              </>
             )}
           </button>
 
@@ -287,6 +296,8 @@ export function CorreoDrawerContent({
           alwaysShowImages={alwaysShowImages}
           onAlwaysShowImages={onAlwaysShowImages}
           threadId={t.id}
+          inSpam={Boolean(t.spamAt)}
+          canModify={canModify}
           attachments={detail.attachments}
           dealId={t.dealId}
           dealTitle={t.dealTitle}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { MessageCircle } from "lucide-react";
+import { Sparkles } from "lucide-react";
 import { useIntelligenceSidePanelContext } from "./IntelligenceSidePanelContext";
 import { useChatSidePanelContext } from "@/components/chat/ChatFloatingProvider";
 import { useNotificationSidePanelContext } from "@/components/notifications/NotificationSidePanelContext";
@@ -182,7 +182,7 @@ export function AiHelpChatWidgetV2() {
           className="hidden lg:flex items-center justify-center fixed right-6 z-40 h-12 w-12 rounded-full bg-gradient-to-br from-primary via-primary to-primary/80 text-primary-foreground shadow-[0_10px_30px_hsl(var(--primary)/0.4)] transition-transform hover:scale-[1.05] lg:bottom-6"
           aria-label="Abrir OPAI Intelligence"
         >
-          <MessageCircle className="h-5 w-5" />
+          <Sparkles className="h-5 w-5" />
         </button>
       ) : null}
 

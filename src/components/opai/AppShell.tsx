@@ -53,6 +53,10 @@ export interface AppShellProps {
  *  La isla global SÍ se monta; el módulo reserva su spacer. BottomNav se mantiene. */
 const IMMERSIVE_MOBILE_PREFIXES = ['/crm/correos'];
 
+/** Rutas que en desktop gestionan su propio aire horizontal (full-bleed
+ *  alineado al eje del FAB de Intelligence, `right-6`). */
+const DESKTOP_TIGHT_PREFIXES = ['/crm/correos'];
+
 /**
  * DocumentTitle — mantiene `document.title` sincronizado con la ruta activa
  * usando el registry (`resolveNavContext`) y el trailing publicado por las
@@ -103,6 +107,7 @@ function AppShellInner({
 }: AppShellProps) {
   const pathname = usePathname();
   const isImmersiveMobile = IMMERSIVE_MOBILE_PREFIXES.some((p) => pathname.startsWith(p));
+  const isDesktopTight = DESKTOP_TIGHT_PREFIXES.some((p) => pathname.startsWith(p));
   const chatCtx = useChatSidePanelContext();
   const notifCtx = useNotificationSidePanelContext();
   const intelCtx = useIntelligenceSidePanelContext();
@@ -282,7 +287,11 @@ function AppShellInner({
               <div
                 data-layout-mode={isSheetFocus ? 'sheet-focus' : undefined}
                 className={cn(
-                  'w-full max-w-full animate-in-page min-w-0 lg:pt-0 lg:pb-6 lg:px-8 xl:px-10 2xl:px-12',
+                  'w-full max-w-full animate-in-page min-w-0 lg:pt-0',
+                  // Desktop: correos densificado vs padding global del shell.
+                  isDesktopTight
+                    ? 'lg:pl-3 lg:pr-6 lg:pb-3'
+                    : 'lg:pb-6 lg:px-8 xl:px-10 2xl:px-12',
                   // Inmersivo móvil (correos): full-bleed; la isla global
                   // sigue montada y el módulo reserva su spacer.
                   isImmersiveMobile && 'overflow-x-clip pt-0 pb-0 px-0',
