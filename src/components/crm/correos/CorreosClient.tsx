@@ -24,10 +24,7 @@ import { CorreosDesktopRail } from "./CorreosDesktopRail";
 import { CorreosDesktopToolbar } from "./CorreosDesktopToolbar";
 import { CorreoSearchChips } from "./CorreoSearchChips";
 import { CorreoSearchScopeHint } from "./CorreoSearchScopeHint";
-import {
-  CorreoIndexCoverageBar,
-  type IndexCoverage,
-} from "./CorreoIndexCoverageBar";
+import type { EmailIndexCoverage } from "@/modules/crm/email/email-index-coverage";
 import { chipsFromQuery, removeChipFromQuery } from "@/lib/search-tokens";
 import { useCorreoFocusScope } from "./useCorreoFocusScope";
 import { CorreosMobileDrawer } from "./CorreosMobileDrawer";
@@ -152,7 +149,7 @@ export function CorreosClient() {
   const [query, setQuery] = useState("");
   // C15: la búsqueda consulta al servidor (toda la casilla), con debounce.
   const [debouncedQuery, setDebouncedQuery] = useState("");
-  const [coverage, setCoverage] = useState<IndexCoverage | null>(null);
+  const [coverage, setCoverage] = useState<EmailIndexCoverage | null>(null);
   const [semanticAvailable, setSemanticAvailable] = useState(true);
   const [searchMeta, setSearchMeta] = useState<CorreoSearchMeta | null>(null);
   const [searchScope, setSearchScope] = useState<CorreoSearchScope | null>(null);
@@ -250,7 +247,7 @@ export function CorreosClient() {
         canModify?: boolean;
         realtimeChannel?: unknown;
         counts?: unknown;
-        coverage?: IndexCoverage | null;
+        coverage?: EmailIndexCoverage | null;
         semanticAvailable?: boolean;
         searchMeta?: CorreoSearchMeta | null;
         searchScope?: CorreoSearchScope | null;
@@ -1231,12 +1228,6 @@ export function CorreosClient() {
             }
           />
         )}
-        <CorreoIndexCoverageBar
-          coverage={coverage}
-          compact
-          syncing={syncing}
-          onIndexed={setCoverage}
-        />
       </div>
       <CorreosMobileDrawer
         open={mobileNavOpen}
@@ -1519,11 +1510,6 @@ export function CorreosClient() {
             )}
           </div>
           <div className="hidden space-y-2 lg:block">
-            <CorreoIndexCoverageBar
-              coverage={coverage}
-              syncing={syncing}
-              onIndexed={setCoverage}
-            />
             {searching && !semanticAvailable && (
               <p className="text-[12px] text-status-warn-fg">
                 Búsqueda por significado no disponible ahora; mostrando coincidencias de texto exacto.
