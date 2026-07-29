@@ -393,6 +393,7 @@ export function CpqQuoteCosts({
 
 
   const handleSave = async (options?: { close?: boolean; silent?: boolean }) => {
+    if (readOnly) return;
     setSaving(true);
     try {
       const res = await fetch(`/api/cpq/quotes/${quoteId}/costs`, {
