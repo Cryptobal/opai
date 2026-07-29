@@ -3,6 +3,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { AgendaHubCard } from "@/components/agenda/AgendaHubCard";
 import { agendaItemDayKey } from "@/components/agenda/agenda-calendar-utils";
+import { isHubTaskForUser } from "@/components/agenda/agenda-hub-item";
 import { HubEmailProvider, useHubEmails } from "@/components/hub/hub-email-context";
 import { RecentEmailCard } from "@/components/hub/RecentEmailCard";
 import { TareasHubCard } from "@/components/tareas/TareasHubCard";
@@ -57,10 +58,21 @@ function ProductividadHomeInner({
 
   const onTaskCount = useCallback((n: number) => setTaskCount(n), []);
 
+  // Mi día: las tareas de Agenda deben coincidir con la columna Tareas (mías).
+  // La API de agenda trae tareas del equipo entero; sin este filtro una tarea
+  // de otro responsable aparece en Agenda y "falta" en Tareas.
+  const myAgendaItems = useMemo(
+    () => agenda.items.filter((i) => isHubTaskForUser(i, currentUserId)),
+    [agenda.items, currentUserId],
+  );
+
   const todayEventCount = useMemo(() => {
     const key = todayInChile();
-    return agenda.items.filter((i) => agendaItemDayKey(i) === key).length;
-  }, [agenda.items]);
+    return myAgendaItems.filter((i) => {
+      const day = agendaItemDayKey(i);
+      return day === key || (i.source === "tarea" && day < key);
+    }).length;
+  }, [myAgendaItems]);
 
   const unreadCount = emails?.data?.unreadCount ?? 0;
   const colCount =
@@ -96,7 +108,7 @@ function ProductividadHomeInner({
       />
 
       {perms.hasAgenda && (
-        <NextActionBar items={agenda.items} loading={agenda.loading} />
+        <NextActionBar items={myAgendaItems} loading={agenda.loading} />
       )}
 
       {/* Segmentador móvil */}
@@ -145,7 +157,7 @@ function ProductividadHomeInner({
           >
             <AgendaHubCard
               variant="dense"
-              items={agenda.items}
+              items={myAgendaItems}
               loading={agenda.loading}
               expanded={agenda.expanded}
               onExpandedChange={(v) => agenda.setExpanded(v)}

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { CalendarDays } from "lucide-react";
 import { Surface, Spinner, EmptyState } from "@/components/opai-ds";
-import { addDaysChile, startOfDayChile } from "@/lib/dates-cl";
+import { addDaysChile, startOfDayChile, todayInChile } from "@/lib/dates-cl";
 import { cn } from "@/lib/utils";
 import { agendaItemDayKey } from "./agenda-calendar-utils";
 import {
@@ -28,6 +28,7 @@ export function AgendaHubCardDense({
   className?: string;
 }) {
   const now = new Date();
+  const todayKey = todayInChile(now);
   const nowLabel = now.toLocaleTimeString("es-CL", {
     hour: "2-digit",
     minute: "2-digit",
@@ -35,7 +36,12 @@ export function AgendaHubCardDense({
   });
   const dayStart = startOfDayChile(now);
   const dayEnd = addDaysChile(dayStart, 1);
-  const freeSlots = computeFreeSlots(todayItems, dayStart, dayEnd);
+  // Huecos solo con eventos timed de hoy (las vencidas carry-forward no cuentan).
+  const freeSlots = computeFreeSlots(
+    todayItems.filter((i) => agendaItemDayKey(i) === todayKey),
+    dayStart,
+    dayEnd,
+  );
 
   type Row =
     | { kind: "event"; item: Item; at: number }
@@ -161,25 +167,34 @@ export function AgendaHubCardDense({
 }
 
 function DenseEventRow({ item }: { item: Item }) {
+  const overdue =
+    item.source === "tarea" && agendaItemDayKey(item) < todayInChile();
   const context =
     item.accountName ||
     item.installationName ||
     item.calendarName ||
     (item.source === "google" ? "Google" : item.source === "tarea" ? "Tarea" : null);
-  const duration = item.allDay ? null : formatDurationLabel(agendaDurationMin(item));
-  const barTone =
-    item.source === "tarea"
+  const duration = item.allDay || overdue ? null : formatDurationLabel(agendaDurationMin(item));
+  const barTone = overdue
+    ? "bg-status-danger"
+    : item.source === "tarea"
       ? "bg-primary"
       : item.source === "google"
         ? "bg-status-info"
         : item.allDay
           ? "bg-tint-violet"
           : "bg-status-ok";
+  const timeLabel = overdue ? "Venc." : item.allDay ? "Día" : hhmm(item.start);
 
   const inner = (
     <div className="flex min-h-11 min-w-0 items-stretch gap-2 rounded-lg px-1.5 py-1.5 transition-colors hover:bg-ds-surface-2">
-      <span className="w-12 shrink-0 self-center font-mono text-[12px] tabular-nums text-ds-text-3">
-        {item.allDay ? "Día" : hhmm(item.start)}
+      <span
+        className={cn(
+          "w-12 shrink-0 self-center font-mono text-[12px] tabular-nums",
+          overdue ? "text-status-danger-fg" : "text-ds-text-3",
+        )}
+      >
+        {timeLabel}
       </span>
       <span className={cn("w-0.5 shrink-0 self-stretch rounded-full", barTone)} />
       <span className="min-w-0 flex-1 self-center">

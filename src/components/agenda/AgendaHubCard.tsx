@@ -75,7 +75,13 @@ export function AgendaHubCard({
   const items = controlled ? itemsProp : localItems;
   const loading = controlled ? Boolean(loadingProp) : localLoading;
   const todayKey = todayInChile();
-  const todayItems = items.filter((i) => agendaItemDayKey(i) === todayKey);
+  // Hoy + tareas pendientes vencidas (carry-forward): sin esto, una tarea de
+  // día completo deja de verse en Agenda al pasar la fecha aunque siga abierta.
+  const todayItems = items.filter((i) => {
+    const key = agendaItemDayKey(i);
+    if (key === todayKey) return true;
+    return i.source === "tarea" && key < todayKey;
+  });
   const days = Array.from({ length: expanded ? 7 : 4 }, (_, i) =>
     addDaysChile(new Date(), i),
   );
