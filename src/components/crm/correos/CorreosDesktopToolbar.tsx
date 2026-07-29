@@ -33,7 +33,11 @@ type Props = {
 };
 
 const BTN =
-  "flex h-7 w-7 items-center justify-center rounded-lg text-ds-text-3 ds-tap hover:bg-ds-surface-2 hover:text-ds-text-1 disabled:opacity-40";
+  "flex h-7 w-7 items-center justify-center rounded-lg text-ds-text-3 transition-colors ds-tap hover:bg-primary/15 hover:text-primary disabled:opacity-40";
+const BTN_DANGER =
+  "flex h-7 w-7 items-center justify-center rounded-lg text-ds-text-3 transition-colors ds-tap hover:bg-status-danger-soft hover:text-status-danger-fg disabled:opacity-40";
+const BTN_WARN =
+  "flex h-7 w-7 items-center justify-center rounded-lg text-ds-text-3 transition-colors ds-tap hover:bg-status-warn-soft hover:text-status-warn-fg disabled:opacity-40";
 
 const SHELL =
   "sticky top-[var(--correo-stick)] z-10 hidden h-[34px] items-center gap-1.5 rounded-t-xl border px-2 lg:flex";
@@ -74,7 +78,7 @@ export function CorreosDesktopToolbar({
           onClick={() => onAction("archive", "Archivados", { undo: "unarchive", removes: true })}>
           <Archive className="h-3.5 w-3.5" />
         </button>
-        <button type="button" title="Mover a la Papelera" className={BTN}
+        <button type="button" title="Mover a la Papelera" className={BTN_DANGER}
           onClick={() => onAction("trash", "Movidos a la Papelera", { undo: "untrash", removes: true })}>
           <Trash2 className="h-3.5 w-3.5" />
         </button>
@@ -86,14 +90,14 @@ export function CorreosDesktopToolbar({
           }>
           {allReadSelected ? <Mail className="h-3.5 w-3.5" /> : <MailOpen className="h-3.5 w-3.5" />}
         </button>
-        <button type="button" title="Destacar" className={BTN}
+        <button type="button" title="Destacar" className={BTN_WARN}
           onClick={() => onAction("star", "Destacados", { undo: "unstar" })}>
           <Star className="h-3.5 w-3.5" />
         </button>
-        <button type="button" title="Posponer" onClick={onSnooze} className={BTN}>
+        <button type="button" title="Posponer" onClick={onSnooze} className={BTN_WARN}>
           <Clock className="h-3.5 w-3.5" />
         </button>
-        <button type="button" title="Marcar spam" className={BTN}
+        <button type="button" title="Marcar spam" className={BTN_DANGER}
           onClick={() => onAction("spam", "Marcados como spam", { undo: "unspam", removes: true })}>
           <ShieldAlert className="h-3.5 w-3.5" />
         </button>

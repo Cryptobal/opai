@@ -54,8 +54,8 @@ function Item({ active, onClick, children }: { active?: boolean; onClick: () => 
     <button
       type="button"
       onClick={onClick}
-      className={`flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-[13px] ds-tap ${
-        active ? "bg-primary/15 font-medium text-primary" : "text-ds-text-2"
+      className={`flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-[13px] transition-colors ds-tap ${
+        active ? "bg-primary/15 font-medium text-primary" : "text-ds-text-2 hover:bg-primary/10 hover:text-primary"
       }`}
     >
       {children}

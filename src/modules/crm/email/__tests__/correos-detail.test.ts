@@ -53,6 +53,8 @@ const THREAD = {
   providerThreadId: "prov-1",
   isUnread: false,
   archivedAt: null,
+  trashedAt: null,
+  snoozedUntil: null,
   starredAt: null,
   spamAt: null,
   sharedWithAccount: false,
