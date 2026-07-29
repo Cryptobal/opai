@@ -8,14 +8,15 @@
  *    Ops → Pautas → Mensual/Diaria/…: solo las tabs N3. Cambiar de submódulo
  *    (N2) se hace por el menú lateral (flyout del ícono del módulo).
  *  - Submódulo SIN N3 (Personas, Payroll, CRM, Docs, Reportes DT, y las
- *    landing sin N3 de Finanzas/Ops): la barra queda VACÍA.
+ *    landing sin N3 de Finanzas/Ops): la barra queda VACÍA (o muestra
+ *    `fallback` si se pasa — p. ej. búsqueda inline del módulo).
  *  - Excepción HUB: sus vistas (Resumen/Comercial/…) VIVEN en estas pestañas
  *    y no tienen otro punto de navegación en desktop, así que sí se muestran.
  *
  * Filtra por permisos + módulos del tenant, igual que ModuleSubNav.
  */
 
-import { useMemo } from "react";
+import { useMemo, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import { useTenantModules } from "@/contexts/TenantModulesContext";
 import { useEffectivePermissions } from "@/hooks/useEffectivePermissions";
@@ -40,7 +41,8 @@ function toTab(n: NavNode): SwipeTabItem {
   };
 }
 
-export function TopbarSubNav({ className }: { className?: string }) {
+/** Tabs N3 (o Hub) que la topbar mostraría para el pathname actual. */
+export function useTopbarSubNavTabs(): SwipeTabItem[] {
   const pathname = usePathname() ?? "/";
   const perms = useEffectivePermissions();
   const { isModuleEnabled, hasFeatureFlag } = useTenantModules();
@@ -50,7 +52,7 @@ export function TopbarSubNav({ className }: { className?: string }) {
     [perms, isModuleEnabled, hasFeatureFlag],
   );
 
-  const tabs = useMemo(() => {
+  return useMemo(() => {
     const mod = findActiveModule(pathname);
     // Módulos con navegación propia (ej. Configuración) no renderizan tabs de
     // secciones en la topbar.
@@ -82,8 +84,19 @@ export function TopbarSubNav({ className }: { className?: string }) {
     }
     return [] as SwipeTabItem[];
   }, [pathname, ctx]);
+}
 
-  if (tabs.length === 0) return null;
+export function TopbarSubNav({
+  className,
+  fallback,
+}: {
+  className?: string;
+  /** Contenido cuando no hay tabs N3 (p. ej. búsqueda inline del módulo). */
+  fallback?: ReactNode;
+}) {
+  const tabs = useTopbarSubNavTabs();
+
+  if (tabs.length === 0) return <>{fallback ?? null}</>;
 
   return (
     <div className={cn("flex min-w-0 items-stretch", className)}>
