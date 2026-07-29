@@ -68,13 +68,20 @@ export function PlanMilestonesForm({ milestones, onChange }: Props) {
             </div>
             {m.enabled !== false && (
               <div className="grid grid-cols-2 gap-2 pt-1">
-                <SmallField
-                  id={`ms-${kind}-date`}
-                  label="Fecha"
-                  type="date"
-                  value={m.date}
-                  onChange={(v) => update(kind, { date: v })}
-                />
+                <div className="space-y-1">
+                  <SmallField
+                    id={`ms-${kind}-date`}
+                    label="Fecha"
+                    type="date"
+                    value={m.date}
+                    onChange={(v) => update(kind, { date: v, fromDocument: false })}
+                  />
+                  {m.fromDocument && m.date ? (
+                    <p className="text-[12px] text-ds-text-3">
+                      propuesto desde el documento
+                    </p>
+                  ) : null}
+                </div>
                 <SmallField
                   id={`ms-${kind}-time`}
                   label="Hora"

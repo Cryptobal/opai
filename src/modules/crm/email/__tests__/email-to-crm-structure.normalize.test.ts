@@ -122,4 +122,109 @@ describe("normalizeCrmStructureProposal", () => {
     expect(proposal.contact.firstName).toBe("Ana");
     expect(proposal.contact.lastName).toBe("Soto");
   });
+
+  it("tolera ausencia de licitacion y condicionesEconomicas (drafts viejos)", () => {
+    const proposal = normalizeCrmStructureProposal({
+      account: { name: "ACME" },
+      deal: { title: "X", isLicitacion: true },
+    });
+    expect(proposal.licitacion).toBeUndefined();
+    expect(proposal.condicionesEconomicas).toBeUndefined();
+    expect(proposal.reservePct).toBe(10);
+  });
+
+  it("normaliza licitacion YYYY-MM-DD y descarta fechas inválidas", () => {
+    const proposal = normalizeCrmStructureProposal({
+      account: { name: "Muni" },
+      deal: { title: "Licitación", isLicitacion: true, fechaLimite: "no-es-fecha" },
+      licitacion: {
+        fechaConsultas: "2026-08-10",
+        fechaVisitaTecnica: "2026-08-15",
+        fechaEntrega: "2026-08-30",
+        inicioServicio: "2026-10-01",
+        visitaObligatoria: true,
+      },
+    });
+    expect(proposal.licitacion).toEqual({
+      fechaConsultas: "2026-08-10",
+      fechaVisitaTecnica: "2026-08-15",
+      fechaEntrega: "2026-08-30",
+      inicioServicio: "2026-10-01",
+      visitaObligatoria: true,
+    });
+    expect(proposal.deal.fechaLimite).toBe("2026-08-30");
+  });
+
+  it("descarta fechas incoherentes y montos/arrays inválidos en condicionesEconomicas", () => {
+    const proposal = normalizeCrmStructureProposal({
+      account: { name: "Muni" },
+      deal: { isLicitacion: true },
+      licitacion: {
+        fechaConsultas: "2026-09-01",
+        fechaEntrega: "2026-08-01", // antes de consultas → descartar entrega
+        fechaVisitaTecnica: "2026-08-15",
+        inicioServicio: null,
+        visitaObligatoria: false,
+      },
+      condicionesEconomicas: {
+        sueldoBaseMinimo: -100,
+        gratificacionPct: 250,
+        movilizacion: "abc",
+        beneficiosExigidos: Array.from({ length: 30 }, (_, i) => `b${i}`),
+        multas: [
+          { concepto: "Puesto sin cobertura", montoUf: 10 },
+          { concepto: "", montoUf: 5 },
+          { concepto: "Negativa", montoUf: -3 },
+        ],
+        kpis: [{ indicador: "Asistencia", meta: "≥98%" }],
+        reservaPct: 15,
+        inadmisibleSiNoCumpleRemuneracion: true,
+      },
+      reservePct: 10,
+    });
+    expect(proposal.licitacion?.fechaEntrega).toBeNull();
+    expect(proposal.condicionesEconomicas?.sueldoBaseMinimo).toBeNull();
+    expect(proposal.condicionesEconomicas?.gratificacionPct).toBeNull();
+    expect(proposal.condicionesEconomicas?.movilizacion).toBeNull();
+    expect(proposal.condicionesEconomicas?.beneficiosExigidos).toHaveLength(15);
+    expect(proposal.condicionesEconomicas?.multas).toEqual([
+      { concepto: "Puesto sin cobertura", montoUf: 10 },
+    ]);
+    expect(proposal.condicionesEconomicas?.kpis).toHaveLength(1);
+    expect(proposal.condicionesEconomicas?.reservaPct).toBe(15);
+    expect(proposal.reservePct).toBe(15); // pliego pisa el default
+    expect(proposal.condicionesEconomicas?.inadmisibleSiNoCumpleRemuneracion).toBe(true);
+  });
+
+  it("acepta sueldo base mínimo positivo del pliego", () => {
+    const proposal = normalizeCrmStructureProposal({
+      account: { name: "Muni" },
+      condicionesEconomicas: {
+        sueldoBaseMinimo: 620000,
+        beneficiosExigidos: [],
+        multas: [],
+        kpis: [],
+        reservaPct: null,
+        inadmisibleSiNoCumpleRemuneracion: false,
+      },
+    });
+    expect(proposal.condicionesEconomicas?.sueldoBaseMinimo).toBe(620000);
+  });
+});
+
+describe("milestonesFromLicitacion", () => {
+  it("siembra hitos solo con fechas no nulas", async () => {
+    const { milestonesFromLicitacion } = await import(
+      "../email-to-crm-structure.types"
+    );
+    const ms = milestonesFromLicitacion({
+      fechaConsultas: "2026-08-10",
+      fechaVisitaTecnica: null,
+      fechaEntrega: "2026-08-30",
+      inicioServicio: "2026-10-01",
+      visitaObligatoria: true,
+    });
+    expect(ms.map((m) => m.kind)).toEqual(["consultas", "entrega"]);
+    expect(ms.every((m) => m.fromDocument && m.enabled && m.time === "09:00")).toBe(true);
+  });
 });
