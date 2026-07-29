@@ -81,11 +81,16 @@ async function main() {
     const result = await indexEmailMessages({ tenantId, messages: group });
     chunks += result.chunks;
     tokens += result.tokens;
-    await prisma.crmEmailMessage.updateMany({
-      where: { id: { in: group.map((m) => m.id) } },
-      data: { chunksIndexed: true },
-    });
-    console.log(`[backfill-embeddings] tenant ${tenantId}: ${result.chunks} chunks, ${result.tokens} tokens.`);
+    const markIds = [...result.indexedMessageIds, ...result.emptyMessageIds];
+    if (markIds.length > 0) {
+      await prisma.crmEmailMessage.updateMany({
+        where: { tenantId, id: { in: markIds } },
+        data: { chunksIndexed: true },
+      });
+    }
+    console.log(
+      `[backfill-embeddings] tenant ${tenantId}: ${result.chunks} chunks, ${result.tokens} tokens, marked ${markIds.length}/${group.length}.`,
+    );
   }
   const realUsd = (tokens / 1_000_000) * EMBEDDING_USD_PER_MTOKEN;
   console.log(`[backfill-embeddings] LISTO: ${chunks} chunks, ${tokens.toLocaleString()} tokens reales (~USD ${realUsd.toFixed(4)}). Re-ejecutá para seguir avanzando si quedaron candidatos.`);
