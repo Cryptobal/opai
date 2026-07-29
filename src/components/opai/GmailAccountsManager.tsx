@@ -199,7 +199,7 @@ export function GmailAccountsManager({
                         aria-label="Etiqueta corta"
                         defaultValue={label}
                         maxLength={MAX_DISPLAY_LABEL_LENGTH}
-                        className="mt-1 h-10 max-w-[8rem] text-[12px] sm:h-8"
+                        className="mt-1 h-10 max-w-[8rem] text-[12px] sm:h-9"
                         onBlur={(e) => {
                           const next = e.target.value.trim().slice(0, MAX_DISPLAY_LABEL_LENGTH);
                           if (next && next !== label) {
