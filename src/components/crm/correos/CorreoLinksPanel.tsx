@@ -147,20 +147,22 @@ export function CorreoLinksPanel({
       aria-label="Entidades vinculadas"
       className="space-y-2 rounded-xl border border-ds-border-subtle bg-ds-surface-2 p-3"
     >
-      <div className="flex items-center gap-2">
-        <Link2 className="h-4 w-4 text-tint-violet-fg" />
-        <p className="text-[13px] font-semibold text-ds-text-1">Vinculado a</p>
-        {accountId ? (
-          <Tag variant="brand" size="sm">
-            Alcance: cuenta
-          </Tag>
-        ) : (
-          <Tag variant="neutral" size="sm">
-            Sin cuenta — todo el tenant
-          </Tag>
-        )}
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
+        <Link2 className="h-4 w-4 shrink-0 text-tint-violet-fg" />
+        <p className="text-[13px] font-semibold text-ds-text-1 shrink-0">Vinculado a</p>
+        <span className="min-w-0 truncate">
+          {accountId ? (
+            <Tag variant="brand" size="sm">
+              Alcance: cuenta
+            </Tag>
+          ) : (
+            <Tag variant="neutral" size="sm">
+              Sin cuenta — todo el tenant
+            </Tag>
+          )}
+        </span>
         {canMutate && (
-          <div className="ml-auto flex items-center gap-1.5">
+          <div className="ml-auto flex shrink-0 items-center gap-1.5">
             <button
               type="button"
               onClick={() => void suggest()}
