@@ -13,6 +13,8 @@ import { decryptText, getGmailTokenSecret } from "@/lib/crypto";
 import { getGmailClient } from "@/lib/gmail";
 import { normalizeEmailAddress, normalizeEmailList } from "@/lib/email-address";
 import { requireTenantModule } from '@/lib/require-module';
+import { resolveSignatureForSend } from "@/modules/crm/email/signature-resolve.server";
+import { appendSignatureOnce } from "@/modules/crm/email/email-signature";
 
 function buildRawEmail({
   from,
@@ -184,25 +186,10 @@ export async function POST(
       let finalHtml = normalizedBody.html;
       let signatureId: string | null = null;
 
-      const signature =
-        (await prisma.crmEmailSignature.findFirst({
-          where: {
-            tenantId: ctx.tenantId,
-            userId: ctx.userId,
-            isDefault: true,
-            isActive: true,
-          },
-        })) ||
-        (await prisma.crmEmailSignature.findFirst({
-          where: {
-            tenantId: ctx.tenantId,
-            isDefault: true,
-            isActive: true,
-          },
-        }));
-
-      if (signature?.htmlContent) {
-        finalHtml += signature.htmlContent;
+      const signature = await resolveSignatureForSend(ctx.tenantId, ctx.userId);
+      if (signature) {
+        const appended = appendSignatureOnce(finalHtml, signature.html);
+        finalHtml = appended.html;
         signatureId = signature.id;
       }
 

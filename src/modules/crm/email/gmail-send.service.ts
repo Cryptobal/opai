@@ -30,6 +30,7 @@ import { enqueueGmailSyncJob, processGmailSyncJob } from "./gmail-sync-queue";
 import { captureEmailError } from "./email-observability";
 import { recordRecipients } from "./email-recipients";
 import { appendSignatureOnce } from "./email-signature";
+import { resolveSignatureForSend } from "./signature-resolve.server";
 import { fetchGmailAttachment } from "./gmail-attachment";
 import { getSendAsAliases, resolveFromHeader } from "./gmail-sendas";
 import type { GmailInlineImage } from "./gmail-mime";
@@ -94,24 +95,6 @@ function errorHttpStatus(error: unknown): number | null {
   const e = error as { code?: number; status?: number; response?: { status?: number } };
   const status = e?.code ?? e?.status ?? e?.response?.status;
   return typeof status === "number" ? status : null;
-}
-
-/** Firma default del usuario (o del tenant) para inyectar en el HTML saliente. */
-async function resolveDefaultSignature(tenantId: string, userId: string) {
-  try {
-    const own = await prisma.crmEmailSignature.findFirst({
-      where: { tenantId, userId, isDefault: true, isActive: true },
-    });
-    const sig =
-      own ??
-      (await prisma.crmEmailSignature.findFirst({
-        where: { tenantId, isDefault: true, isActive: true },
-      }));
-    return sig?.htmlContent ? { id: sig.id, html: sig.htmlContent } : null;
-  } catch (error) {
-    console.error("Error cargando firma:", error);
-    return null;
-  }
 }
 
 /**
@@ -258,10 +241,10 @@ export async function performGmailSend(input: GmailSendInput): Promise<GmailSend
       });
     }
 
-    // ── Firma idempotente (R2): solo si el HTML no la contiene ya ──
+    // ── Firma idempotente: personal → empresa → ninguna ──
     let finalHtml = input.html ?? "";
     let signatureId: string | null = null;
-    const signature = await resolveDefaultSignature(input.tenantId, input.userId);
+    const signature = await resolveSignatureForSend(input.tenantId, input.userId);
     if (signature) {
       const result = appendSignatureOnce(finalHtml, signature.html);
       finalHtml = result.html;
