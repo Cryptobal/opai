@@ -1363,6 +1363,7 @@ export function CorreosClient() {
             onRefresh={syncNow}
             syncing={syncing}
             shownCount={filtered.length}
+            searching={searching}
             totalCount={
               searching
                 ? (searchMeta?.shownCount ?? items.length)

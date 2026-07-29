@@ -22,11 +22,15 @@ describe("help-chat-defer-writes", () => {
     expect(shouldDeferWrite("search_installations", { query: "a" }, true)).toBe(false);
   });
 
-  it("no diferir search_emails (lectura en sección de escritura)", () => {
+  it("no diferir search_emails ni resolve_entity/mailbox_coverage", () => {
     expect(WRITE_TOOL_NAMES.has("search_emails")).toBe(false);
     expect(WRITE_TOOL_NAMES.has("search_emails_semantic")).toBe(false);
+    expect(WRITE_TOOL_NAMES.has("resolve_entity")).toBe(false);
+    expect(WRITE_TOOL_NAMES.has("mailbox_coverage")).toBe(false);
     expect(shouldDeferWrite("search_emails", { query: "acuda" }, true)).toBe(false);
     expect(shouldDeferWrite("search_emails_semantic", { query: "acuda" }, true)).toBe(false);
+    expect(shouldDeferWrite("resolve_entity", { text: "Macronet" }, true)).toBe(false);
+    expect(shouldDeferWrite("mailbox_coverage", {}, true)).toBe(false);
     expect(
       decideWriteDeferral({
         toolName: "search_emails",
@@ -43,11 +47,14 @@ describe("help-chat-defer-writes", () => {
       "update_deal",
       "bulk_update_installations",
       "create_ticket",
-      // resolve_radar_item retirado con el Radar Comercial (B3).
       "attach_file_to_entity",
       "add_deal_note",
       "create_crm_from_email",
     ];
+    // Lecturas nuevas del buscador de correos NUNCA deben diferirse.
+    expect(WRITE_TOOL_NAMES.has("resolve_entity")).toBe(false);
+    expect(WRITE_TOOL_NAMES.has("mailbox_coverage")).toBe(false);
+    expect(WRITE_TOOL_NAMES.has("search_emails")).toBe(false);
     for (const t of expectedWrites) {
       expect(WRITE_TOOL_NAMES.has(t)).toBe(true);
       expect(shouldDeferWrite(t, { id: "x", confirm: true }, true)).toBe(true);

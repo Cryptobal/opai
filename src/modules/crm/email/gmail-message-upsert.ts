@@ -102,14 +102,26 @@ export async function upsertGmailMessage(params: {
     // así que esos hilos jamás aparecían en Recibidos y el import del sweep
     // los re-visitaba infinitamente (el mensaje "ya existe" → early return).
     if (providerThreadId) {
-      await prisma.crmEmailThread.updateMany({
-        where: {
-          id: existing.threadId,
-          tenantId,
-          OR: [{ emailAccountId: null }, { providerThreadId: null }],
-        },
-        data: { emailAccountId: emailAccount.id, providerThreadId },
-      });
+      try {
+        await prisma.crmEmailThread.updateMany({
+          where: {
+            id: existing.threadId,
+            tenantId,
+            OR: [{ emailAccountId: null }, { providerThreadId: null }],
+          },
+          data: { emailAccountId: emailAccount.id, providerThreadId },
+        });
+      } catch (error) {
+        // El hilo canónico con ese providerThreadId ya existe: adoptar el
+        // huérfano violaría uq_crm_email_threads_account_provider. No es fatal
+        // para el sync — el mensaje ya está persistido.
+        if (
+          !(error instanceof Prisma.PrismaClientKnownRequestError) ||
+          error.code !== "P2002"
+        ) {
+          throw error;
+        }
+      }
     }
     return { wrote: false, providerThreadId };
   }

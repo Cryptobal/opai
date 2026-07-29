@@ -3,10 +3,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { confirmDialog } from "@/components/ui/confirm-service";
-import { Spinner, showUndo } from "@/components/opai-ds";
+import { Spinner } from "@/components/opai-ds";
 import { canDeleteTarea } from "@/lib/productividad-task-ownership";
 import { TareaDetailSheet } from "@/components/tareas/TareaDetailSheet";
-import type { DueValue } from "@/components/tareas/TareaDueChips";
 import type { TareaItem, TareaUpdateInput } from "@/components/tareas/types";
 import type { AgendaTeamMember } from "../agenda-calendar.types";
 
@@ -169,40 +168,6 @@ export function AgendaTaskDetail({
     [onChanged, onClose],
   );
 
-  const onPostpone = useCallback(
-    (t: TareaItem, next: DueValue) => {
-      const prev: DueValue = { dueAt: t.dueAt, allDay: t.allDay };
-      setTask({ ...t, dueAt: next.dueAt, allDay: next.allDay });
-      void fetch(`/api/crm/tasks/${t.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ dueAt: next.dueAt, allDay: next.allDay }),
-      })
-        .then(async (r) => {
-          if (!r.ok) throw new Error();
-          onChanged();
-          showUndo({
-            message: "Vencimiento actualizado",
-            onUndo: () => {
-              setTask((current) =>
-                current ? { ...current, dueAt: prev.dueAt, allDay: prev.allDay } : current,
-              );
-              void fetch(`/api/crm/tasks/${t.id}`, {
-                method: "PATCH",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ dueAt: prev.dueAt, allDay: prev.allDay }),
-              }).then(() => onChanged());
-            },
-          });
-        })
-        .catch(() => {
-          setTask(t);
-          toast.error("No se pudo actualizar el vencimiento");
-        });
-    },
-    [onChanged],
-  );
-
   if (loading) {
     return (
       <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40">
@@ -223,7 +188,6 @@ export function AgendaTaskDetail({
       onSave={onSave}
       onDelete={onDelete}
       onToggle={onToggle}
-      onPostpone={onPostpone}
     />
   );
 }

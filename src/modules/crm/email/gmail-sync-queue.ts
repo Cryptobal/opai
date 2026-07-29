@@ -152,6 +152,7 @@ export type GmailSyncProcessResult =
       syncedCount: number;
       fetched: number;
       mode: "backfill" | "incremental";
+      backfillDone: boolean;
       reconcile: "ok" | "partial" | "skipped";
       healed: number;
     }
@@ -196,10 +197,13 @@ export async function processGmailSyncJob(params: {
   // pendiente. Conservamos pending=true para que el flush la procese apenas se
   // libere el lease. Un mantenimiento, en cambio, consume el flag al reclamar.
   const keepPending = profile === "delta" && job.maintenanceRequested;
+  // No matchear `requestedAt` exacto: Postgres guarda microsegundos y el
+  // Date de Prisma solo milisegundos → claim eternamente busy (caso
+  // historical backfill disparado con NOW() SQL). La concurrencia la cubren
+  // lease + maintenanceRequested + pending.
   const claimed = await prisma.crmGmailSyncJob.updateMany({
     where: {
       id: job.id,
-      requestedAt: job.requestedAt,
       maintenanceRequested: job.maintenanceRequested,
       availableAt: { lte: now },
       OR: [
@@ -247,6 +251,17 @@ export async function processGmailSyncJob(params: {
         lastCompletedAt: new Date(),
       },
     });
+    // Backfill histórico paginado: una corrida solo avanza ~budget msgs.
+    // Si aún no terminó, re-encolar maintenance para que el flush continue
+    // (si no, queda pending=false y el espejo nunca llega a dic-2025).
+    if (result.mode === "backfill" && !result.backfillDone) {
+      await enqueueGmailSyncJob({
+        tenantId: job.emailAccount.tenantId,
+        emailAccountId: job.emailAccount.id,
+        reason: job.reason === "historical" ? "historical" : "cron",
+        maintenance: true,
+      });
+    }
     // Una corrida exitosa resuelve cualquier dead letter abierto: la casilla
     // dejó de estar envenenada y el banner de parked se apaga solo.
     await prisma.crmEmailSyncDeadLetter.updateMany({
@@ -310,8 +325,9 @@ export async function processGmailSyncJob(params: {
     }
 
     const backoffMs = gmailSyncRetryDelayMs(job.attempts + 1);
+    // Lease token basta como ownership: no filtrar por requestedAt (microsegundos).
     const retried = await prisma.crmGmailSyncJob.updateMany({
-      where: { id: job.id, leaseToken, requestedAt: job.requestedAt },
+      where: { id: job.id, leaseToken },
       data: {
         pending: true,
         ...(profile === "maintenance"
