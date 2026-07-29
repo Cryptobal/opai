@@ -184,3 +184,28 @@ describe("aceptación — aislamiento tenant en builders (criterio 10)", () => {
     expect(text).toContain("t.email_account_id");
   });
 });
+
+describe("aceptación — scope global + cuerpo HTML/acentos (brief post-F7)", () => {
+  it("término libre sin in: no fija folderOverride (list usa all)", () => {
+    const parsed = parseCorreoSearchQuery("cotización Macronet")!;
+    expect(parsed.folderOverride).toBeNull();
+    expect(parsed.terms.length).toBeGreaterThan(0);
+  });
+
+  it("rama de cuerpo genera condiciones text_body y html_body con f_unaccent", () => {
+    const parsed = parseCorreoSearchQuery("instalación")!;
+    const sql = buildCorreoSearchConditions(parsed)
+      .map((c) => c.strings.join(" "))
+      .join(" ")
+      .toLowerCase();
+    expect(sql).toContain("text_body");
+    expect(sql).toContain("html_body");
+    expect(sql).toContain("f_unaccent");
+    expect(sql).not.toContain("text_body ilike");
+  });
+
+  it("in:sent en el query sí fija folderOverride (scope mixto)", () => {
+    const parsed = parseCorreoSearchQuery("macronet in:sent")!;
+    expect(parsed.folderOverride).toBe("sent");
+  });
+});

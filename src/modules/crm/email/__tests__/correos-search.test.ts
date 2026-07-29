@@ -179,7 +179,9 @@ describe("buildCorreoSearchParts", () => {
       unread: true,
     });
     expect(parts.text).toHaveLength(1);
-    expect(parts.text[0].sql).toContain("m.text_body ILIKE");
+    expect(parts.text[0].sql).toContain("m.text_body");
+    expect(parts.text[0].sql).toContain("m.html_body");
+    expect(parts.text[0].sql).toContain("f_unaccent");
     expect(parts.structural.length).toBeGreaterThanOrEqual(3);
     expect(parts.structural.some((c) => c.sql.includes("from_email"))).toBe(true);
     expect(parts.structural.some((c) => c.sql.includes("attachment_count"))).toBe(true);
@@ -214,7 +216,9 @@ describe("buildCorreoSearchConditions", () => {
     expect(cond.sql).toContain("f_unaccent(t.subject)");
     expect(cond.sql).toContain("m.from_email");
     expect(cond.sql).toContain("m.to_emails || m.cc_emails");
-    expect(cond.sql).toContain("m.text_body ILIKE");
+    expect(cond.sql).toContain("m.text_body");
+    expect(cond.sql).toContain("m.html_body");
+    expect(cond.sql).toContain("f_unaccent");
     expect(cond.values).toContain("%factura%");
   });
 

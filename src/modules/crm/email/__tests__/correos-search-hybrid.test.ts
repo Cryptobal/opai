@@ -272,4 +272,71 @@ describe("hybridSearchThreadIds", () => {
     const sqlArg = mocks.queryRaw.mock.calls[0][0];
     expect(sqlArg.sql).toContain("t.trashed_at IS NOT NULL");
   });
+
+  it("offset desplaza el ranking sin perder ni duplicar IDs", async () => {
+    const rows = Array.from({ length: 8 }, (_, i) => ({
+      id: `t${i}`,
+      last_message_at: new Date(),
+      subject: `asunto ${i}`,
+      is_unread: false,
+      attachment_count: 0,
+      account_id: null,
+    }));
+    mocks.queryRaw.mockResolvedValue(rows);
+    mocks.semanticSearchChunks.mockResolvedValue([]);
+    const parsed = parseCorreoSearchQuery("asunto")!;
+    const page1 = await hybridSearchThreadIds({
+      tenantId: "ten",
+      emailAccountId: "00000000-0000-0000-0000-000000000001",
+      parsed,
+      folder: "all",
+      limit: 3,
+      offset: 0,
+    });
+    const page2 = await hybridSearchThreadIds({
+      tenantId: "ten",
+      emailAccountId: "00000000-0000-0000-0000-000000000001",
+      parsed,
+      folder: "all",
+      limit: 3,
+      offset: 3,
+    });
+    expect(page1.ids).toHaveLength(3);
+    expect(page2.ids).toHaveLength(3);
+    expect(new Set([...page1.ids, ...page2.ids]).size).toBe(6);
+    expect(page1.totalCount).toBe(8);
+    expect(page1.ids.some((id) => page2.ids.includes(id))).toBe(false);
+  });
+
+  it("excerptById queda poblado para matches léxicos puros", async () => {
+    mocks.queryRaw.mockResolvedValue([
+      {
+        id: "lex-only",
+        last_message_at: new Date(),
+        subject: "cotización",
+        is_unread: false,
+        attachment_count: 0,
+        account_id: null,
+      },
+    ]);
+    mocks.semanticSearchChunks.mockResolvedValue([]);
+    mocks.messageFindMany.mockResolvedValue([
+      {
+        threadId: "lex-only",
+        textBody: "Necesitamos cotización de 4 guardias para Macronet.",
+        htmlBody: null,
+        sentAt: new Date(),
+      },
+    ]);
+    const parsed = parseCorreoSearchQuery("cotización")!;
+    const result = await hybridSearchThreadIds({
+      tenantId: "ten",
+      emailAccountId: "00000000-0000-0000-0000-000000000001",
+      parsed,
+      folder: "all",
+      limit: 10,
+    });
+    expect(result.reasonById.get("lex-only")).toBe("lexical");
+    expect(result.excerptById.get("lex-only")).toMatch(/cotización/i);
+  });
 });

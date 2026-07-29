@@ -32,6 +32,7 @@ vi.mock("@/lib/prisma", () => ({
 vi.mock("@/lib/platform-ai-service", () => ({ logAiUsage: mocks.logAiUsage }));
 
 import {
+  indexEmailMessages,
   messagePlainText,
   rankThreadsFromHits,
   semanticSearchChunks,
@@ -143,6 +144,88 @@ describe("semanticSearchChunks — aislamiento tenant (A07)", () => {
       query: "x",
     });
     expect(hits).toEqual([]);
+    expect(mocks.embeddingsCreate).not.toHaveBeenCalled();
+  });
+
+  it("fija hnsw.ef_search vía SET LOCAL en la transacción", async () => {
+    mocks.embeddingsCreate.mockResolvedValue({
+      data: [{ embedding: [0.1, 0.2] }],
+      usage: { total_tokens: 4 },
+    });
+    mocks.queryRaw.mockResolvedValue([]);
+    await semanticSearchChunks({
+      tenantId: "tenant-1",
+      emailAccountId: "00000000-0000-0000-0000-000000000001",
+      query: "factura",
+      limit: 10,
+    });
+    expect(mocks.executeRawUnsafe).toHaveBeenCalledWith(
+      expect.stringMatching(/SET LOCAL hnsw\.ef_search = \d+/),
+    );
+  });
+});
+
+describe("indexEmailMessages — marcado honesto (H4)", () => {
+  it("al cortar por deadline solo incluye mensajes efectivamente embebidos", async () => {
+    const longBody = Array.from(
+      { length: 80 },
+      (_, i) => `Oración número ${i} del correo para forzar varios chunks.`,
+    ).join(" ");
+    mocks.chunkFindMany.mockResolvedValue([]);
+    let embedCalls = 0;
+    mocks.embeddingsCreate.mockImplementation(async ({ input }: { input: string[] }) => {
+      embedCalls += 1;
+      return {
+        data: input.map(() => ({ embedding: [0.1, 0.2] })),
+        usage: { total_tokens: input.length * 4 },
+      };
+    });
+    mocks.executeRawUnsafe.mockResolvedValue(1);
+
+    const result = await indexEmailMessages({
+      tenantId: "tenant-1",
+      deadline: Date.now() - 1, // ya vencido → no embebe ningún batch
+      messages: [
+        {
+          id: "m1",
+          threadId: "t1",
+          emailAccountId: "00000000-0000-0000-0000-000000000001",
+          textBody: longBody,
+          htmlBody: null,
+          subject: "Cotización A",
+        },
+        {
+          id: "m2",
+          threadId: "t2",
+          emailAccountId: "00000000-0000-0000-0000-000000000001",
+          textBody: longBody,
+          htmlBody: null,
+          subject: "Cotización B",
+        },
+      ],
+    });
+    expect(embedCalls).toBe(0);
+    expect(result.indexedMessageIds).toEqual([]);
+    expect(result.chunks).toBe(0);
+  });
+
+  it("mensajes sin texto indexable van a emptyMessageIds", async () => {
+    mocks.chunkFindMany.mockResolvedValue([]);
+    const result = await indexEmailMessages({
+      tenantId: "tenant-1",
+      messages: [
+        {
+          id: "empty",
+          threadId: "t1",
+          emailAccountId: "00000000-0000-0000-0000-000000000001",
+          textBody: null,
+          htmlBody: null,
+          subject: "Vacío",
+        },
+      ],
+    });
+    expect(result.emptyMessageIds).toEqual(["empty"]);
+    expect(result.indexedMessageIds).toEqual([]);
     expect(mocks.embeddingsCreate).not.toHaveBeenCalled();
   });
 });
