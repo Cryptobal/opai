@@ -215,6 +215,8 @@ export const CAPABILITY_KEYS = [
   "radar_operaciones",
   "radar_rrhh",
   "radar_finanzas",
+  // Copiloto de correos (extracción bajo demanda). Misma audiencia que radar_comercial.
+  "copiloto_correos",
 ] as const;
 export type CapabilityKey = (typeof CAPABILITY_KEYS)[number];
 
@@ -420,6 +422,7 @@ export const CAPABILITY_META: CapabilityMeta[] = [
   { key: "radar_operaciones", label: "Radar Operaciones", description: "Ve sugerencias de IA de correos operativos (reclamos de cliente, solicitudes) en la bandeja.", moduleKey: "productividad", submoduleKey: "correos" },
   { key: "radar_rrhh", label: "Radar RRHH", description: "Ve sugerencias de IA de correos de RRHH (postulaciones, solicitudes laborales) en la bandeja.", moduleKey: "productividad", submoduleKey: "correos" },
   { key: "radar_finanzas", label: "Radar Finanzas", description: "Ve sugerencias de IA de correos de finanzas y cobranza (cobros, disputas de factura) en la bandeja.", moduleKey: "productividad", submoduleKey: "correos" },
+  { key: "copiloto_correos", label: "Copiloto de correos", description: "Puede extraer estructura CRM desde correos y crear cuenta, contacto, instalación, negocio y cotización.", moduleKey: "productividad", submoduleKey: "correos" },
 ];
 
 // ═══════════════════════════════════════════════════════════════
@@ -580,6 +583,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, RolePermissions> = {
       alerta_cobertura_crear: true,
       alerta_cobertura_gestionar: true,
       radar_comercial: true,
+      copiloto_correos: true,
     },
   },
 
@@ -718,7 +722,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, RolePermissions> = {
   solo_crm: {
     modules: { hub: "view", productividad: "edit", ops: "none", crm: "edit", docs: "none", payroll: "none", cpq: "none", config: "none", finance: "none" },
     submodules: {},
-    capabilities: { radar_comercial: true },
+    capabilities: { radar_comercial: true, copiloto_correos: true },
   },
 
   // LEGACY

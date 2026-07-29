@@ -3,8 +3,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { requireCorreosAccess } from "@/lib/api-auth-productividad";
 import { prisma } from "@/lib/prisma";
-import { suggestNextStepTask } from "@/modules/crm/email/radar-classify-ai";
-import { stripHtml } from "@/modules/crm/email/radar-util";
+import { suggestNextStepTask } from "@/modules/crm/email/correo-draft-ai";
+import { stripHtml } from "@/modules/crm/email/email-text-util";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;

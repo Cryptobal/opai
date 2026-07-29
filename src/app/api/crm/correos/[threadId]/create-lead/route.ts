@@ -20,9 +20,9 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   const forbidden = await requireCrmEdit(authCtx);
   if (forbidden) return forbidden;
 
-  // "Crear lead" es una acción del Radar Comercial: exige radar_comercial.
+  // "Crear lead" es una acción del Copiloto: exige copiloto_correos.
   const perms = await resolveApiPerms(authCtx);
-  if (!hasCapability(perms, "radar_comercial")) {
+  if (!hasCapability(perms, "copiloto_correos")) {
     return NextResponse.json({ error: "Sin permiso de Radar Comercial" }, { status: 403 });
   }
 

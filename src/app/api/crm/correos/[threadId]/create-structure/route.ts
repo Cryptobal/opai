@@ -32,7 +32,7 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   if (forbidden) return forbidden;
 
   const perms = await resolveApiPerms(authCtx);
-  if (!hasCapability(perms, "radar_comercial")) {
+  if (!hasCapability(perms, "copiloto_correos")) {
     return NextResponse.json({ error: "Sin permiso de Radar Comercial" }, { status: 403 });
   }
 

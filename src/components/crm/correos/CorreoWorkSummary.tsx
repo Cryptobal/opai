@@ -14,7 +14,7 @@ import {
   Users,
   type LucideIcon,
 } from "lucide-react";
-import { canEdit } from "@/lib/permissions";
+import { canEdit, hasCapability } from "@/lib/permissions";
 import { useEffectivePermissions } from "@/hooks/useEffectivePermissions";
 import {
   primaryActionCopy,
@@ -27,7 +27,6 @@ import { CorreoVerdictStrip } from "./CorreoVerdictStrip";
 import { CorreoThreadSummaryCard } from "./CorreoThreadSummaryCard";
 import { CorreoThreadContacts } from "./CorreoThreadContacts";
 import { useCorreoWork } from "./CorreoWorkContext";
-import { capsFromPerms } from "./CorreoAiMenu";
 import type { WorkTab } from "./work-panel-tabs";
 import type { CorreoDetail } from "@/modules/crm/email/correos.types";
 
@@ -61,23 +60,24 @@ export function CorreoWorkSummary({
 }: Props) {
   const t = detail.thread;
   const perms = useEffectivePermissions();
-  const caps = useMemo(() => capsFromPerms(perms), [perms]);
-  const canEditCorreos = canEdit(perms, "crm", "correos");
+  const canUseCopiloto = hasCapability(perms, "copiloto_correos");
+  const canEditCorreos = canEdit(perms, "productividad", "correos");
   const { links: linksRes, tasks: tasksRes, contactContext } = useCorreoWork();
 
   const primary = useMemo(
     () =>
-      resolvePrimaryCorreoAiCommand(t.aiCategory, t.aiVertical, caps, {
-        canEditCorreos,
-      }),
-    [t.aiCategory, t.aiVertical, caps, canEditCorreos],
+      canUseCopiloto
+        ? resolvePrimaryCorreoAiCommand(t.aiCategory, perms, { canEditCorreos })
+        : null,
+    [t.aiCategory, perms, canEditCorreos, canUseCopiloto],
   );
   const secondary = useMemo(() => {
-    const { primary: p, more } = resolveCorreoAiCommands(t.aiVertical, caps, {
+    if (!canUseCopiloto) return [];
+    const { primary: p, more } = resolveCorreoAiCommands(perms, {
       canEditCorreos,
     });
     return [...p, ...more].filter((c) => c.id !== primary?.id && c.kind === "panel");
-  }, [t.aiVertical, caps, canEditCorreos, primary?.id]);
+  }, [perms, canEditCorreos, canUseCopiloto, primary?.id]);
 
   const stats = useMemo(() => {
     const links = linksRes.data ?? [];

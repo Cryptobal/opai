@@ -67,7 +67,7 @@ import { nextIntentNonce, type ComposeIntent, type ReaderOpenOpts } from "./corr
 import type { WorkTab } from "./work-panel-tabs";
 import type { ComposerMode } from "./CorreoComposerBox";
 import { useEffectivePermissions } from "@/hooks/useEffectivePermissions";
-import { buildAiMenuItems, capsFromPerms, radarPillFor } from "./CorreoAiMenu";
+import { buildAiMenuItems } from "./CorreoAiMenu";
 import { CorreoAiMenuSheet } from "./CorreoAiMenuSheet";
 import { CorreoAiStyleSheet } from "./CorreoAiStyleSheet";
 import {
@@ -78,7 +78,24 @@ import { CorreoVerticalPicker } from "./CorreoVerticalPicker";
 import type { CorreoAiCommandId } from "@/modules/crm/email/correo-ai-commands";
 import { getCorreoAiCommand } from "@/modules/crm/email/correo-ai-commands";
 import { dispatchAiCommand } from "@/lib/ai/ai-command-event";
-import type { RadarVertical } from "@/modules/crm/email/radar-types";
+import { hasCapability, type RolePermissions } from "@/lib/permissions";
+import type { RadarCapability, RadarVertical } from "@/modules/crm/email/radar-types";
+
+/** Temporal (B0): caps del Radar para chips/vertical hasta B2. */
+const RADAR_CAPS: RadarCapability[] = [
+  "radar_comercial",
+  "radar_operaciones",
+  "radar_rrhh",
+  "radar_finanzas",
+];
+
+function radarCapsFromPerms(perms: RolePermissions): Set<RadarCapability> {
+  const set = new Set<RadarCapability>();
+  for (const c of RADAR_CAPS) {
+    if (hasCapability(perms, c)) set.add(c);
+  }
+  return set;
+}
 
 /** Alto visual de la isla global (8px gap + min-h-12). El safe-area lo aporta AppShell. */
 const CORREOS_MOBILE_TOP_SPACER = "h-14 shrink-0 lg:hidden";
@@ -158,8 +175,9 @@ export function CorreosClient() {
     anchor: { x: number; y: number } | null;
   } | null>(null);
   const perms = useEffectivePermissions();
-  const radarCaps = useMemo(() => capsFromPerms(perms), [perms]);
+  const radarCaps = useMemo(() => radarCapsFromPerms(perms), [perms]);
   const hasRadarCaps = radarCaps.size > 0;
+  const canUseCopiloto = hasCapability(perms, "copiloto_correos");
   // v2: táctil (long-press/selección móvil); en desktop nada de esto aplica.
   const [isCoarse, setIsCoarse] = useState(false);
   useEffect(() => {
@@ -1145,13 +1163,12 @@ export function CorreosClient() {
       items.push({
         divider: true,
         icon: <Sparkles className="h-4 w-4" />,
-        label: "✦ Acciones IA",
-        headerPill: radarPillFor(t),
+        label: "✦ Copiloto",
         onClick: () => {},
         submenu: aiSubmenu,
       });
     } else if (canModify) {
-      // Sin capabilities de Radar: Corregir vertical queda en el bloque triage.
+      // Sin Copiloto: Corregir vertical queda en el bloque triage.
       items.push({
         divider: items.length > 3,
         icon: <Tag className="h-4 w-4" />,
@@ -1205,7 +1222,7 @@ export function CorreosClient() {
             label: "Vincular instalación/factura",
             onClick: () => openWork(t.id, "vinculos"),
           },
-          // Sin Acciones IA (sin capabilities Radar): conserva el acceso previo.
+          // Sin Copiloto: conserva el acceso previo a lead con IA.
           ...(aiItems.length === 0
             ? [
                 {
@@ -1515,7 +1532,7 @@ export function CorreosClient() {
                   onRemove={removeThreadAndAdvance}
                   onSnooze={handleRowSnooze}
                   caps={radarCaps}
-                  onAiMenu={hasRadarCaps ? handleRowAiMenu : undefined}
+                  onAiMenu={canUseCopiloto ? handleRowAiMenu : undefined}
                   onOpen={handleRowOpen}
                 />
               ))}
@@ -1566,7 +1583,7 @@ export function CorreosClient() {
             if (t) handleAiCommand(commandId, t);
           }}
           onOpenAiMenu={
-            hasRadarCaps
+            canUseCopiloto
               ? () => {
                   const t = openId ? items.find((x) => x.id === openId) : null;
                   if (!t) return;

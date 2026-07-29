@@ -3,10 +3,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { requireCorreosAccess } from "@/lib/api-auth-productividad";
 import { prisma } from "@/lib/prisma";
-import { generateDraftReply } from "@/modules/crm/email/radar-classify-ai";
+import { generateDraftReply } from "@/modules/crm/email/correo-draft-ai";
 import { resolveCorreoAiStyle } from "@/modules/crm/email/correo-ai-style.server";
 import { isDraftRefineMode } from "@/modules/crm/email/draft-reply-refine";
-import { stripHtml } from "@/modules/crm/email/radar-util";
+import { stripHtml } from "@/modules/crm/email/email-text-util";
 import {
   computeReplyAllRecipients,
   preferredReplyAddress,
