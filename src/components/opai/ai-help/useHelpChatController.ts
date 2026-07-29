@@ -22,6 +22,26 @@ import { startNavProgress } from "../nav-progress-bus";
 
 const POLISH_KEY = "opai-dictado-pulido";
 const MOTOR_KEY = "opai-dictado-motor";
+const TRANSCRIBE_UNAVAILABLE_KEY = "opai-transcribe-unavailable";
+
+function readSessionFlag(key: string): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return sessionStorage.getItem(key) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function writeSessionFlag(key: string, value: boolean): void {
+  if (typeof window === "undefined") return;
+  try {
+    if (value) sessionStorage.setItem(key, "1");
+    else sessionStorage.removeItem(key);
+  } catch {
+    // noop
+  }
+}
 
 function readLocalFlag(key: string, fallback: boolean): boolean {
   if (typeof window === "undefined") return fallback;
@@ -83,6 +103,8 @@ export function useHelpChatController(opts: {
   const [polishEnabled, setPolishEnabled] = useState(false);
   const [motor, setMotor] = useState<"auto" | "server">("auto");
   const [voiceMode, setVoiceMode] = useState(false);
+  const [serverTxUnavailable, setServerTxUnavailable] = useState(false);
+  const fallbackToastShownRef = useRef(false);
 
   const pageContext = useChatPageContext();
   const clearPageContext = useClearChatPageContext();
@@ -103,6 +125,7 @@ export function useHelpChatController(opts: {
   useEffect(() => {
     setPolishEnabled(readLocalFlag(POLISH_KEY, false));
     setMotor(readMotor());
+    setServerTxUnavailable(readSessionFlag(TRANSCRIBE_UNAVAILABLE_KEY));
   }, []);
 
   const navigateInternal = useCallback(
@@ -134,10 +157,12 @@ export function useHelpChatController(opts: {
   });
 
   // iOS: Web Speech re-pide mic al abrir/usar dictado; motor servidor = 1 prompt.
+  // Si el servidor declaró NO_TRANSCRIPTION_PROVIDER y hay Web Speech, degradamos.
   const preferServer =
-    motor === "server" ||
-    !webSpeech.supported ||
-    shouldForceServerDictation();
+    (motor === "server" ||
+      !webSpeech.supported ||
+      shouldForceServerDictation()) &&
+    !(serverTxUnavailable && webSpeech.supported);
   const dictationActive =
     preferServer
       ? serverTx.recording || serverTx.uploading
@@ -150,9 +175,28 @@ export function useHelpChatController(opts: {
   useEffect(() => {
     if (webSpeech.error) toast.error(webSpeech.error);
   }, [webSpeech.error]);
+
   useEffect(() => {
+    if (serverTx.errorCode !== "NO_TRANSCRIPTION_PROVIDER") return;
+    setServerTxUnavailable(true);
+    writeSessionFlag(TRANSCRIBE_UNAVAILABLE_KEY, true);
+    setVoiceMode(false);
+    if (webSpeech.supported) {
+      if (!fallbackToastShownRef.current) {
+        fallbackToastShownRef.current = true;
+        toast.info("Dictado del dispositivo activado");
+      }
+    } else if (!fallbackToastShownRef.current) {
+      // Capacitor / WKWebView sin Web Speech: mensaje neutro, sin nombres de proveedor.
+      fallbackToastShownRef.current = true;
+      toast.error("Dictado no disponible en este dispositivo. Escribe tu mensaje.");
+    }
+  }, [serverTx.errorCode, webSpeech.supported]);
+
+  useEffect(() => {
+    if (serverTx.errorCode === "NO_TRANSCRIPTION_PROVIDER") return;
     if (serverTx.error) toast.error(serverTx.error);
-  }, [serverTx.error]);
+  }, [serverTx.error, serverTx.errorCode]);
 
   useEffect(() => {
     const run = () => {

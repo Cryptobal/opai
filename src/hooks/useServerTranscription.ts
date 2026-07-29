@@ -35,6 +35,7 @@ export function useServerTranscription(opts?: {
 }) {
   const [state, setState] = useState<ServerTranscriptionState>("idle");
   const [error, setError] = useState<string | null>(null);
+  const [errorCode, setErrorCode] = useState<string | null>(null);
   const [elapsedMs, setElapsedMs] = useState(0);
   const [mediaStream, setMediaStream] = useState<MediaStream | null>(null);
 
@@ -83,6 +84,7 @@ export function useServerTranscription(opts?: {
     cleanupMedia();
     setState("idle");
     setError(null);
+    setErrorCode(null);
     setElapsedMs(0);
   }, [cleanupMedia]);
 
@@ -102,12 +104,22 @@ export function useServerTranscription(opts?: {
       const json = (await res.json().catch(() => ({}))) as {
         success?: boolean;
         error?: string;
+        code?: string;
         data?: { text?: string };
       };
       if (gen !== generationRef.current) return;
       if (!res.ok || !json.success || !json.data?.text) {
+        const code = typeof json.code === "string" ? json.code : null;
+        setErrorCode(code);
+        // El controller maneja NO_TRANSCRIPTION_PROVIDER (fallback Web Speech).
+        if (code === "NO_TRANSCRIPTION_PROVIDER") {
+          setError(null);
+          setState("error");
+          return;
+        }
         throw new Error(json.error || "No se pudo transcribir");
       }
+      setErrorCode(null);
       onTextRef.current?.(json.data.text);
       setState("done");
       setElapsedMs(0);
@@ -163,6 +175,7 @@ export function useServerTranscription(opts?: {
     abortRef.current = null;
     cleanupMedia();
     setError(null);
+    setErrorCode(null);
 
     try {
       // Un solo getUserMedia por dictado; useAudioLevel reutiliza este stream.
@@ -209,6 +222,7 @@ export function useServerTranscription(opts?: {
   return {
     state,
     error,
+    errorCode,
     elapsedMs,
     recording: state === "recording",
     uploading: state === "uploading",

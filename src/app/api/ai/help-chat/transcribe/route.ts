@@ -85,24 +85,20 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // Chat config es opcional: la transcripción puede resolverse por OpenAI
+  // (tenant/plataforma) aunque no haya proveedor de chat o sea Anthropic.
   const aiConfig = await getHelpChatAIConfig(ctx.tenantId);
-  if (!aiConfig) {
-    return NextResponse.json(
-      { success: false, error: "No hay proveedor de IA configurado" },
-      { status: 502 },
-    );
-  }
-
   const buffer = Buffer.from(await audio.arrayBuffer());
   const t0 = Date.now();
   try {
-    const text = await transcribeAudio(aiConfig, buffer, mime);
-    if (text == null) {
+    const result = await transcribeAudio(ctx.tenantId, buffer, mime, aiConfig);
+    if (result == null) {
       return NextResponse.json(
         {
           success: false,
+          code: "NO_TRANSCRIPTION_PROVIDER",
           error:
-            "El proveedor de IA actual no soporta transcripción de audio. Usa un navegador con dictado nativo o configura OpenAI/Google.",
+            "Dictado por servidor no disponible. Se usará el dictado del dispositivo.",
         },
         { status: 501 },
       );
@@ -110,13 +106,19 @@ export async function POST(request: NextRequest) {
     logAiUsage({
       tenantId: ctx.tenantId,
       userId: ctx.userId,
-      providerType: aiConfig.providerType,
-      model: aiConfig.model,
+      providerType: result.providerType,
+      model: result.model,
       feature: "voice_transcription",
       durationMs: Date.now() - t0,
-      metadata: { mimeType: mime, bytes: buffer.length, source: "help-chat" },
+      metadata: {
+        mimeType: mime,
+        bytes: buffer.length,
+        source: "help-chat",
+        keySource: result.keySource,
+        chatProvider: aiConfig?.providerType ?? null,
+      },
     });
-    return NextResponse.json({ success: true, data: { text } });
+    return NextResponse.json({ success: true, data: { text: result.text } });
   } catch (err) {
     console.error("[help-chat/transcribe] provider error", err instanceof Error ? err.message : "unknown");
     return NextResponse.json(
