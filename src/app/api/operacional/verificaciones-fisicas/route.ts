@@ -167,28 +167,43 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Batch create in a transaction
+    // Batch create/upsert: hallazgoId es @unique — reintentos del cliente
+    // (doble tap / offline) no deben 500 por P2002.
+    const select = { id: true, capa: true, presente: true, createdAt: true } as const;
     const created = await prisma.$transaction(
-      verificaciones.map((v) =>
-        prisma.docVerificacionFisica.create({
-          data: {
-            tenantId: ctx.tenantId,
-            supervisionId,
-            supervisorId: ctx.userId,
-            capa: v.capa,
-            installationId: v.installationId,
-            ...(v.tipoDocId ? { tipoDocId: v.tipoDocId } : {}),
-            ...(v.guardiaDocType ? { guardiaDocType: v.guardiaDocType } : {}),
-            ...(v.guardiaId ? { guardiaId: v.guardiaId } : {}),
-            presente: v.presente,
-            ...(v.photoUrl ? { photoUrl: v.photoUrl } : {}),
-            ...(v.photoKey ? { photoKey: v.photoKey } : {}),
-            ...(v.notes ? { notes: v.notes } : {}),
-            ...(v.hallazgoId ? { hallazgoId: v.hallazgoId } : {}),
-          },
-          select: { id: true, capa: true, presente: true, createdAt: true },
-        })
-      )
+      verificaciones.map((v) => {
+        const data = {
+          tenantId: ctx.tenantId,
+          supervisionId,
+          supervisorId: ctx.userId,
+          capa: v.capa,
+          installationId: v.installationId,
+          ...(v.tipoDocId ? { tipoDocId: v.tipoDocId } : {}),
+          ...(v.guardiaDocType ? { guardiaDocType: v.guardiaDocType } : {}),
+          ...(v.guardiaId ? { guardiaId: v.guardiaId } : {}),
+          presente: v.presente,
+          ...(v.photoUrl ? { photoUrl: v.photoUrl } : {}),
+          ...(v.photoKey ? { photoKey: v.photoKey } : {}),
+          ...(v.notes ? { notes: v.notes } : {}),
+          ...(v.hallazgoId ? { hallazgoId: v.hallazgoId } : {}),
+        };
+        if (v.hallazgoId) {
+          return prisma.docVerificacionFisica.upsert({
+            where: { hallazgoId: v.hallazgoId },
+            create: data,
+            update: {
+              presente: v.presente,
+              ...(v.photoUrl ? { photoUrl: v.photoUrl } : {}),
+              ...(v.photoKey ? { photoKey: v.photoKey } : {}),
+              ...(v.notes ? { notes: v.notes } : {}),
+              supervisorId: ctx.userId,
+              supervisionId,
+            },
+            select,
+          });
+        }
+        return prisma.docVerificacionFisica.create({ data, select });
+      })
     );
 
     // Auto-resolución: si alguna verificación marcó "presente", cerrar el hallazgo

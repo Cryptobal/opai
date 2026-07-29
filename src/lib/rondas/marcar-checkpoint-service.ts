@@ -262,31 +262,50 @@ export async function marcarCheckpoint(
       }
     }
 
-    const mark = await tx.opsMarcacionCheckpoint.create({
-      data: {
-        tenantId: execution.tenantId,
-        ejecucionId: execution.id,
-        checkpointId: checkpoint?.id ?? null,
-        guardiaId,
-        timestamp: now,
-        lat,
-        lng,
-        geoValidada: geo.valid,
-        geoDistanciaM: geo.distanceM,
-        batteryLevel: batteryLevel ?? null,
-        motionData: (motionData ?? null) as never,
-        speedFromPrevKmh: speed,
-        timeFromPrevSec: prev ? elapsedSec : null,
-        fotoEvidenciaUrl: fotoEvidenciaUrl ?? null,
-        audioUrl: audioUrl ?? null,
-        note: note ?? null,
-        hashIntegridad: hash,
-        anomalias: anomalies as never,
-        status: geoNoVerificada ? "GEO_NO_VERIFICADA" : "COMPLETED",
-        verificationMethod: verificationMethod ?? (isAdHocGps ? "GEOFENCE" : checkpointId ? "GEOFENCE" : "QR"),
-        isOfflineSync: isOfflineSync ?? false,
-      },
-    });
+    // Race: dos sync offline / taps pueden pasar el findFirst y chocar en
+    // uq (ejecucion_id, checkpoint_id) → P2002. Tratar como already_marked.
+    let mark;
+    try {
+      mark = await tx.opsMarcacionCheckpoint.create({
+        data: {
+          tenantId: execution.tenantId,
+          ejecucionId: execution.id,
+          checkpointId: checkpoint?.id ?? null,
+          guardiaId,
+          timestamp: now,
+          lat,
+          lng,
+          geoValidada: geo.valid,
+          geoDistanciaM: geo.distanceM,
+          batteryLevel: batteryLevel ?? null,
+          motionData: (motionData ?? null) as never,
+          speedFromPrevKmh: speed,
+          timeFromPrevSec: prev ? elapsedSec : null,
+          fotoEvidenciaUrl: fotoEvidenciaUrl ?? null,
+          audioUrl: audioUrl ?? null,
+          note: note ?? null,
+          hashIntegridad: hash,
+          anomalias: anomalies as never,
+          status: geoNoVerificada ? "GEO_NO_VERIFICADA" : "COMPLETED",
+          verificationMethod: verificationMethod ?? (isAdHocGps ? "GEOFENCE" : checkpointId ? "GEOFENCE" : "QR"),
+          isOfflineSync: isOfflineSync ?? false,
+        },
+      });
+    } catch (err) {
+      if (
+        typeof err === "object" &&
+        err !== null &&
+        "code" in err &&
+        (err as { code?: unknown }).code === "P2002"
+      ) {
+        throw new MarcarCheckpointError(
+          "Checkpoint ya marcado en esta ronda",
+          200,
+          "already_marked",
+        );
+      }
+      throw err;
+    }
 
     // Save task responses if provided
     if (taskResponses && taskResponses.length > 0) {

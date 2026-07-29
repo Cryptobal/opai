@@ -10,6 +10,8 @@ export function openCorreoThreadInHistory(
   alreadyOpen: boolean,
   messageId?: string | null,
 ): void {
+  // SSR / primer paint: no tocar window (rompe /crm/correos).
+  if (typeof window === "undefined") return;
   const url = new URL(window.location.href);
   url.searchParams.set("thread", threadId);
   url.searchParams.set("hilo", threadId);
@@ -28,6 +30,8 @@ export function openCorreoThreadInHistory(
 }
 
 export function closeCorreoThreadInHistory(): "back" | "replaced" {
+  // SSR / primer paint: no tocar window (rompe /crm/correos).
+  if (typeof window === "undefined") return "replaced";
   const url = new URL(window.location.href);
   url.searchParams.delete("thread");
   url.searchParams.delete("hilo");

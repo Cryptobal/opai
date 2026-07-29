@@ -20,7 +20,10 @@ vi.mock("../correos-folder-counts", () => ({
   invalidateCorreoFolderCounts: mocks.invalidate,
 }));
 
-import { archiveThreadsWithoutInboxLabel } from "../gmail-inbox-selfheal";
+import {
+  archiveThreadsWithoutInboxLabel,
+  stripInboxLabelsForThreads,
+} from "../gmail-inbox-selfheal";
 
 function sqlText(arg: unknown): string {
   if (arg instanceof Prisma.Sql) return arg.sql;
@@ -78,5 +81,22 @@ describe("archiveThreadsWithoutInboxLabel", () => {
     });
     expect(n).toBe(0);
     expect(mocks.updateMany).not.toHaveBeenCalled();
+  });
+});
+
+describe("stripInboxLabelsForThreads", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("no escribe updated_at (email_messages no tiene esa columna)", async () => {
+    mocks.executeRaw.mockResolvedValue(2);
+    const n = await stripInboxLabelsForThreads(["th-1", "th-2"]);
+    expect(n).toBe(2);
+    expect(mocks.executeRaw).toHaveBeenCalledOnce();
+    const rawArg = mocks.executeRaw.mock.calls[0][0];
+    const text = Array.isArray(rawArg) ? rawArg.join(" ") : sqlText(rawArg);
+    expect(text).toMatch(/array_remove/i);
+    expect(text).not.toMatch(/updated_at/i);
   });
 });

@@ -43,4 +43,19 @@ describe("historial del lector de correos", () => {
     expect(closeCorreoThreadInHistory()).toBe("back");
     expect(window.location.search).toBe("");
   });
+
+  it("en SSR no toca window", () => {
+    const desc = Object.getOwnPropertyDescriptor(globalThis, "window");
+    // jsdom siempre define window; simulamos ausencia como en Node SSR.
+    Object.defineProperty(globalThis, "window", {
+      configurable: true,
+      value: undefined,
+    });
+    try {
+      expect(() => openCorreoThreadInHistory("t", false)).not.toThrow();
+      expect(closeCorreoThreadInHistory()).toBe("replaced");
+    } finally {
+      if (desc) Object.defineProperty(globalThis, "window", desc);
+    }
+  });
 });
