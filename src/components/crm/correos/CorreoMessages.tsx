@@ -1,17 +1,20 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
-import { ChevronDown, ChevronRight, Paperclip } from "lucide-react";
+import { useState, type MouseEvent, type ReactNode } from "react";
+import { ChevronDown, ChevronRight, Paperclip, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import type {
   CorreoAttachmentDTO,
   CorreoMessageDTO,
 } from "@/modules/crm/email/correos.types";
 import { emailPlainFallback } from "@/lib/sanitize-email-html";
+import { confirmDialog } from "@/components/ui/confirm-service";
+import { Tag } from "@/components/opai-ds";
 import { EmailHtmlBody } from "./EmailHtmlBody";
 import { CorreoAttachments } from "./CorreoAttachments";
 import { CorreoInviteRsvpCard } from "./CorreoInviteRsvpCard";
 import { attachmentsForMessage } from "./correo-attachments-scope";
+import { discardGmailDraft } from "./correo-discard-draft";
 import { isCalendarMime } from "@/lib/ics";
 import { parseSender } from "./correo-sender";
 import {
@@ -139,6 +142,10 @@ type SavePrefs = {
   onRequestAssociate?: () => void;
   /** Si se define, reemplaza el bloque CRM de adjuntos (p. ej. ficha entidad). */
   renderMessageAttachments?: (m: CorreoMessageDTO, items: CorreoAttachmentDTO[]) => ReactNode;
+  /** Tras descartar un borrador en la cadena (refrescar detalle + lista). */
+  onDraftDiscarded?: () => void;
+  /** Continuar editando un borrador en el composer (estilo Gmail). */
+  onContinueDraft?: (m: CorreoMessageDTO) => void;
 };
 
 /** Tarjeta de mensaje: cabecera siempre visible (tap = abrir/cerrar) + cuerpo. */
@@ -159,12 +166,16 @@ function MessageCard({
   onAttachmentsSaved,
   onRequestAssociate,
   renderMessageAttachments,
+  onDraftDiscarded,
+  onContinueDraft,
 }: {
   m: CorreoMessageDTO;
   open: boolean;
   onToggle: () => void;
 } & ImagePrefs &
   SavePrefs) {
+  const [discarding, setDiscarding] = useState(false);
+  const isDraft = Boolean(m.isDraft);
   const sender = parseSender(m.fromEmail);
   const who =
     m.direction === "out"
@@ -194,10 +205,41 @@ function MessageCard({
             />
           )
           : null;
+
+  async function requestDiscardDraft(e?: MouseEvent) {
+    e?.stopPropagation();
+    if (!m.providerDraftId || discarding) return;
+    const ok = await confirmDialog({
+      title: "¿Descartar borrador?",
+      description: "Se elimina el borrador y no se puede deshacer.",
+      confirmLabel: "Descartar",
+      cancelLabel: "Cancelar",
+      variant: "destructive",
+    });
+    if (!ok) return;
+    setDiscarding(true);
+    try {
+      const deleted = await discardGmailDraft(m.providerDraftId);
+      if (!deleted) {
+        toast.error("No se pudo descartar el borrador");
+        return;
+      }
+      toast.message("Borrador descartado");
+      onDraftDiscarded?.();
+    } finally {
+      setDiscarding(false);
+    }
+  }
+
   return (
     <div
       data-correo-message
-      className="overflow-hidden rounded-xl border border-ds-border-subtle bg-ds-surface-1"
+      data-correo-draft={isDraft ? "true" : undefined}
+      className={`overflow-hidden rounded-xl border bg-ds-surface-1 ${
+        isDraft
+          ? "border-status-warn-border/60 ring-1 ring-status-warn-border/30"
+          : "border-ds-border-subtle"
+      }`}
     >
       <button
         type="button"
@@ -207,9 +249,14 @@ function MessageCard({
         <Chevron className="mt-0.5 h-4 w-4 shrink-0 text-ds-text-4" />
         <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between gap-2 text-[12px]">
-            <span className="truncate font-medium text-ds-text-2">
-              {m.direction === "out" ? "Para: " : ""}
-              {who}
+            <span className="flex min-w-0 items-center gap-1.5 truncate font-medium text-ds-text-2">
+              {isDraft ? (
+                <Tag variant="warn" size="sm">Borrador</Tag>
+              ) : null}
+              <span className="truncate">
+                {m.direction === "out" ? "Para: " : ""}
+                {who}
+              </span>
             </span>
             <span className="flex shrink-0 items-center gap-1.5 text-ds-text-4">
               {!open && msgAttachments.length > 0 && (
@@ -218,12 +265,26 @@ function MessageCard({
                   <span className="tabular-nums">{msgAttachments.length}</span>
                 </span>
               )}
-              {fmtDate(m.sentAt)}
+              {isDraft ? null : fmtDate(m.sentAt)}
             </span>
           </div>
           {!open && <p className="truncate text-[12px] text-ds-text-4">{snippet(m)}</p>}
         </div>
       </button>
+      {isDraft && m.providerDraftId && !open ? (
+        <div className="flex justify-end gap-1 px-3 pb-2">
+          <button
+            type="button"
+            title="Descartar borrador"
+            aria-label="Descartar borrador"
+            disabled={discarding}
+            onClick={(e) => void requestDiscardDraft(e)}
+            className="inline-flex h-10 w-10 items-center justify-center rounded-full text-ds-text-3 ds-tap hover:bg-ds-surface-2 hover:text-status-danger-fg disabled:opacity-50 sm:h-9 sm:w-9"
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
+        </div>
+      ) : null}
       {open && (
         <div className="border-t border-ds-border-subtle px-3 py-2">
           <MessageRecipients m={m} />
@@ -254,6 +315,29 @@ function MessageCard({
           {attachmentBlock && (
             <div className="mt-2 border-t border-ds-border-subtle pt-2">{attachmentBlock}</div>
           )}
+          {isDraft && m.providerDraftId ? (
+            <div className="mt-2 flex flex-wrap items-center justify-end gap-1.5 border-t border-ds-border-subtle pt-2">
+              {onContinueDraft ? (
+                <button
+                  type="button"
+                  onClick={() => onContinueDraft(m)}
+                  className="inline-flex h-10 items-center rounded-full px-3 text-[13px] font-medium text-ds-text-2 ds-tap hover:bg-ds-surface-2 sm:h-9"
+                >
+                  Continuar
+                </button>
+              ) : null}
+              <button
+                type="button"
+                title="Descartar borrador"
+                aria-label="Descartar borrador"
+                disabled={discarding}
+                onClick={(e) => void requestDiscardDraft(e)}
+                className="inline-flex h-10 w-10 items-center justify-center rounded-full text-ds-text-3 ds-tap hover:bg-ds-surface-2 hover:text-status-danger-fg disabled:opacity-50 sm:h-9 sm:w-9"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </div>
+          ) : null}
         </div>
       )}
     </div>
@@ -276,6 +360,8 @@ export function CorreoMessages({
   onAttachmentsSaved,
   onRequestAssociate,
   renderMessageAttachments,
+  onDraftDiscarded,
+  onContinueDraft,
 }: { messages: CorreoMessageDTO[] } & ImagePrefs & SavePrefs) {
   const lastId = messages[messages.length - 1]?.id;
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set(lastId ? [lastId] : []));
@@ -311,6 +397,8 @@ export function CorreoMessages({
           onAttachmentsSaved={onAttachmentsSaved}
           onRequestAssociate={onRequestAssociate}
           renderMessageAttachments={renderMessageAttachments}
+          onDraftDiscarded={onDraftDiscarded}
+          onContinueDraft={onContinueDraft}
         />
       ))}
     </div>

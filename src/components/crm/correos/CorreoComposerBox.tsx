@@ -12,9 +12,17 @@ import {
   ComposerAiPromptPill,
   type DraftRefineMode,
 } from "./ComposerAiAssist";
+import type { CorreoMessageDTO } from "@/modules/crm/email/correos.types";
+import { emailPlainFallback } from "@/lib/sanitize-email-html";
 
 export type ComposerMode = "reply" | "all" | "forward";
 export type ReplyAll = { to: string[]; cc: string[] };
+
+/** Borrador del hilo a retomar en el composer (providerDraftId + cuerpo). */
+export type ThreadDraftSeed = Pick<
+  CorreoMessageDTO,
+  "providerDraftId" | "toEmails" | "ccEmails" | "subject" | "htmlBody" | "textBody"
+>;
 
 type Props = {
   threadId: string;
@@ -26,6 +34,8 @@ type Props = {
   replyAll: ReplyAll | null;
   radarItemId: string | null;
   preDraft: string | null;
+  /** Borrador Gmail del hilo: reanuda id + contenido (no crea uno nuevo). */
+  threadDraft?: ThreadDraftSeed | null;
   forwardQuotedHtml: string;
   forwardAttachments: ForwardAttachmentRefClient[];
   mode: ComposerMode;
@@ -37,6 +47,8 @@ type Props = {
   onToggleExpand: () => void;
   onClose: () => void;
   onSent: () => void;
+  /** Tras descartar el borrador desde la papelera del composer. */
+  onDraftDiscarded?: () => void;
   /** Abre el sheet de estilo de respuesta IA. */
   onOpenAiStyle?: () => void;
 };
@@ -52,20 +64,40 @@ function defaultSubject(mode: ComposerMode, subject: string): string {
  * = modal grande en desktop / fullscreen en móvil. Esc: cierra IA → colapsa
  * modal → cierra composer.
  */
+function seedFromThreadDraft(draft: ThreadDraftSeed): {
+  doc: object;
+  subject: string;
+  draftId: string | null;
+  to: string[];
+  cc: string[];
+} {
+  const plain = emailPlainFallback(draft.htmlBody, draft.textBody);
+  return {
+    doc: plainTextToTiptapDoc(plain),
+    subject: draft.subject || "",
+    draftId: draft.providerDraftId ?? null,
+    to: draft.toEmails ?? [],
+    cc: draft.ccEmails ?? [],
+  };
+}
+
 export function CorreoComposerBox(props: Props) {
-  const { threadId, subject, mode, ai, replyAll, to, expanded } = props;
-  const bodyRef = useRef<object | null>(null);
-  const subjectRef = useRef<string>("");
-  const draftIdRef = useRef<string | null>(null);
+  const { threadId, subject, mode, ai, replyAll, to, expanded, threadDraft = null } = props;
+  const initialSeed = threadDraft ? seedFromThreadDraft(threadDraft) : null;
+  const bodyRef = useRef<object | null>(initialSeed?.doc ?? null);
+  const subjectRef = useRef<string>(initialSeed?.subject ?? "");
+  const draftIdRef = useRef<string | null>(initialSeed?.draftId ?? null);
   const aiSeededRef = useRef(false);
   /** Descarte de sugerencia Radar por hilo (no reaparece al cambiar modo). */
   const dismissedSuggestionRef = useRef<Set<string>>(new Set());
-  const [seed, setSeed] = useState<object | null>(null);
+  const [seed, setSeed] = useState<object | null>(initialSeed?.doc ?? null);
   const [epoch, setEpoch] = useState(0);
   const [instructions, setInstructions] = useState("");
   const [generating, setGenerating] = useState(false);
   /** Hay borrador IA en el editor → kebab de refinamiento habilitado. */
-  const [hasAiDraft, setHasAiDraft] = useState(false);
+  const [hasAiDraft, setHasAiDraft] = useState(() =>
+    Boolean(initialSeed && docPlainText(initialSeed.doc).trim()),
+  );
   /** Borrador del Radar ofrecido como sugerencia (nunca auto-inyectado). */
   const [suggestion, setSuggestion] = useState<string | null>(null);
   const [isDesktop, setIsDesktop] = useState(false);
@@ -87,7 +119,9 @@ export function CorreoComposerBox(props: Props) {
       ? { to: replyAll.to, cc: replyAll.cc }
       : isForward
         ? { to: [] as string[], cc: [] as string[] }
-        : { to, cc: [] as string[] };
+        : initialSeed
+          ? { to: initialSeed.to, cc: initialSeed.cc }
+          : { to, cc: [] as string[] };
 
   // Esc en tres pasos: IA → modal → cerrar. Capture para preempt al focus-trap
   // del lector (que en burbuja cerraría el lector).
@@ -223,7 +257,7 @@ export function CorreoComposerBox(props: Props) {
       </div>
 
       <EmailComposer
-        key={`${threadId}:${mode}`}
+        key={`${threadId}:${mode}:${initialSeed?.draftId ?? "new"}`}
         mode={isForward ? "forward" : "reply"}
         threadId={isForward ? null : threadId}
         initialTo={recipients.to}
@@ -291,6 +325,7 @@ export function CorreoComposerBox(props: Props) {
           props.onSent();
         }}
         onClose={props.onClose}
+        onDraftDiscarded={props.onDraftDiscarded}
       />
     </>
   );

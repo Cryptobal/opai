@@ -22,7 +22,8 @@ import { resolveWorkTab, type WorkTab } from "./work-panel-tabs";
 import type { CorreoDetail } from "@/modules/crm/email/correos.types";
 import type { CorreoAiCommandId } from "@/modules/crm/email/correo-ai-commands";
 import type { CorreoShortcuts } from "./useCorreosViewPreferences";
-import type { ComposeIntent } from "./correo-reader-intent";
+import { nextIntentNonce, type ComposeIntent } from "./correo-reader-intent";
+import type { CorreoMessageDTO } from "@/modules/crm/email/correos.types";
 
 type Props = {
   detail: CorreoDetail;
@@ -89,6 +90,10 @@ export function CorreoDrawerContent({
   const [panel, setPanel] = useState<{ tab: WorkTab } | null>(null);
   const [overflowOpen, setOverflowOpen] = useState(false);
   const overflowRef = useRef<HTMLDivElement>(null);
+  const [continueDraftIntent, setContinueDraftIntent] = useState<{
+    message: CorreoMessageDTO;
+    nonce: number;
+  } | null>(null);
   const gmailUrl = t.providerThreadId
     ? `https://mail.google.com/mail/u/0/#all/${t.providerThreadId}`
     : null;
@@ -313,6 +318,10 @@ export function CorreoDrawerContent({
           degraded={detail.degraded}
           onAttachmentsSaved={onRefresh}
           onRequestAssociate={() => openPanel("cuenta")}
+          onDraftDiscarded={onRefresh}
+          onContinueDraft={(m) =>
+            setContinueDraftIntent({ message: m, nonce: nextIntentNonce() })
+          }
         />
         <CorreoReplyBox
           key={`reply-${t.id}`}
@@ -320,6 +329,7 @@ export function CorreoDrawerContent({
           onSent={onRefresh}
           shortcuts={shortcuts}
           composeIntent={composeIntent}
+          continueDraftIntent={continueDraftIntent}
           onOpenAiStyle={onOpenAiStyle}
         />
       </div>

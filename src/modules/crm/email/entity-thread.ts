@@ -35,7 +35,7 @@ export async function getEntityThreadDetail(params: {
     select: {
       id: true, direction: true, fromEmail: true, replyToEmail: true,
       toEmails: true, ccEmails: true, subject: true, htmlBody: true,
-      textBody: true, sentAt: true,
+      textBody: true, sentAt: true, isDraft: true, providerDraftId: true,
     },
   });
 
@@ -44,7 +44,12 @@ export async function getEntityThreadDetail(params: {
 
   return {
     thread: { id: threadId, subject, accountId, dealId, contactId },
-    messages: messages.map((m) => ({ ...m, sentAt: m.sentAt?.toISOString() ?? null })),
+    messages: messages.map((m) => ({
+      ...m,
+      sentAt: m.sentAt?.toISOString() ?? null,
+      isDraft: Boolean(m.isDraft),
+      providerDraftId: m.providerDraftId ?? null,
+    })),
     attachments,
     synced: messages.length > 0,
   };

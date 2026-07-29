@@ -44,6 +44,10 @@ export type CorreoMessageDTO = {
   htmlBody: string | null;
   textBody: string | null;
   sentAt: string | null;
+  /** Borrador Gmail espejado (visible en la cadena con acción Descartar). */
+  isDraft?: boolean;
+  /** Id estable del draft en Gmail (`users.drafts`); null si no es borrador. */
+  providerDraftId?: string | null;
 };
 
 export type CorreoAttachmentDTO = {

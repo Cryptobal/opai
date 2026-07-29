@@ -47,6 +47,7 @@ import {
 } from "./email-send-client";
 import { extractInlineImages } from "./email-inline-images";
 import { composerSnapshot, docPlainText, isComposerPristine } from "./composer-draft";
+import { discardGmailDraft } from "./correo-discard-draft";
 import {
   isSpeechDictationSupported,
   useSpeechDictation,
@@ -116,6 +117,8 @@ type Props = {
   contactId?: string | null;
   onSent?: () => void;
   onClose?: () => void;
+  /** Tras descartar borrador con la papelera (refrescar cadena del hilo). */
+  onDraftDiscarded?: () => void;
   /** Controles extra junto a Enviar (p.ej. toggle IA). */
   footerExtras?: React.ReactNode;
   /** Slot sobre adjuntos/Enviar (p.ej. pill "Help me write" estilo Gmail). */
@@ -158,6 +161,7 @@ export const EmailComposer = forwardRef<EmailComposerHandle, Props>(function Ema
     contactId = null,
     onSent,
     onClose,
+    onDraftDiscarded,
     footerExtras,
     aboveFooter,
     contentEpoch = 0,
@@ -376,18 +380,21 @@ export const EmailComposer = forwardRef<EmailComposerHandle, Props>(function Ema
       closedRef.current = true;
       if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current);
       const draftId = providerDraftIdRef.current;
+      let discarded = false;
       if (draftId) {
-        await fetch(`/api/crm/gmail/drafts/${draftId}`, { method: "DELETE" }).catch(() => {});
+        discarded = await discardGmailDraft(draftId);
         providerDraftIdRef.current = null;
         onDraftIdChange?.(null);
-        toast.message("Borrador descartado");
+        if (discarded) toast.message("Borrador descartado");
+        else toast.error("No se pudo descartar el borrador");
       }
       dirtyRef.current = false;
       onDirtyChange?.(false);
+      if (discarded) onDraftDiscarded?.();
       // Via ref el host (sheet) cierra; desde la papelera cerramos aquí.
       if (opts?.close !== false) onClose?.();
     },
-    [onClose, onDirtyChange, onDraftIdChange],
+    [onClose, onDirtyChange, onDraftIdChange, onDraftDiscarded],
   );
 
   const flushDraft = useCallback(async () => {
