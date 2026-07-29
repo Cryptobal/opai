@@ -95,9 +95,10 @@ function ProductividadHomeInner({
     <div
       className={cn(
         "ds-page-enter flex min-w-0 flex-col gap-3",
-        // Desktop alto: una pantalla sin scroll de página. En <800px de alto
-        // se permite scroll (min-[800px]:… no aplica y el flex crece natural).
-        "min-[800px]:lg:h-[calc(100dvh-5.5rem)] min-[800px]:lg:min-h-0 min-[800px]:lg:overflow-hidden",
+        // Desktop alto: una pantalla sin scroll de página. El offset se deriva de
+        // --app-topbar-offset (topbar + safe-area) + 2.5rem del padding de página
+        // (lg:pt-4 + lg:pb-6). En <800px de alto se permite scroll.
+        "min-[800px]:lg:h-[calc(100dvh-var(--app-topbar-offset)-2.5rem)] min-[800px]:lg:min-h-0 min-[800px]:lg:overflow-hidden",
         "max-lg:pb-[env(safe-area-inset-bottom)]",
       )}
     >
