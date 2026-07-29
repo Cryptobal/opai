@@ -21,6 +21,9 @@ export type ChatMessage = {
   suggestions?: VisualSuggestionItem[];
   feedback?: "up" | "down" | null;
   pendingConfirmations?: PendingConfirmationClient[];
+  /** Razonamiento intermedio (preámbulo antes de tool_calls), solo presentación */
+  reasoning?: string;
+  reasoningMs?: number;
 };
 
 export const MAX_VISIBLE_MESSAGES = 120;

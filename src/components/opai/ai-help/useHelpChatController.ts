@@ -75,6 +75,9 @@ export function useHelpChatController(opts: {
   const [streamingStarted, setStreamingStarted] = useState(false);
   const [persistenceEnabled, setPersistenceEnabled] = useState(true);
   const [activeToolName, setActiveToolName] = useState<string | null>(null);
+  const [reasoningText, setReasoningText] = useState("");
+  const [reasoningSteps, setReasoningSteps] = useState(0);
+  const [reasoningMs, setReasoningMs] = useState<number | undefined>(undefined);
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [staging, setStaging] = useState(false);
   const [polishEnabled, setPolishEnabled] = useState(false);
@@ -93,6 +96,9 @@ export function useHelpChatController(opts: {
   const skipMessageFetchRef = useRef<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  const reasoningTextRef = useRef("");
+  const reasoningStepsRef = useRef(0);
+  const reasoningStartRef = useRef<number | null>(null);
 
   useEffect(() => {
     setPolishEnabled(readLocalFlag(POLISH_KEY, false));
@@ -267,6 +273,15 @@ export function useHelpChatController(opts: {
     }
   }, []);
 
+  const clearReasoningLive = useCallback(() => {
+    reasoningTextRef.current = "";
+    reasoningStepsRef.current = 0;
+    reasoningStartRef.current = null;
+    setReasoningText("");
+    setReasoningSteps(0);
+    setReasoningMs(undefined);
+  }, []);
+
   const stopStreaming = useCallback(() => {
     abortRef.current?.abort();
     abortRef.current = null;
@@ -345,6 +360,8 @@ export function useHelpChatController(opts: {
       }
 
       setStreamingStarted(false);
+      clearReasoningLive();
+      reasoningStartRef.current = Date.now();
       webSpeech.cancel();
       serverTx.cancel();
       setVoiceMode(false);
@@ -444,6 +461,15 @@ export function useHelpChatController(opts: {
                 const pendingConfirmations =
                   (data.pendingConfirmations as PendingConfirmationClient[] | undefined) ?? [];
                 const msgId = (data.assistantMessageId as string) || `done-${Date.now()}`;
+                const doneReasoning =
+                  (data.reasoning as string) || reasoningTextRef.current || undefined;
+                const doneReasoningMs =
+                  typeof data.reasoningMs === "number"
+                    ? (data.reasoningMs as number)
+                    : doneReasoning && reasoningStartRef.current
+                      ? Date.now() - reasoningStartRef.current
+                      : undefined;
+                if (doneReasoningMs != null) setReasoningMs(doneReasoningMs);
                 setMessages((prev) => {
                   const updated = [...prev];
                   const lastIdx = updated.findIndex(
@@ -457,6 +483,8 @@ export function useHelpChatController(opts: {
                       visuals,
                       suggestions,
                       pendingConfirmations,
+                      reasoning: doneReasoning,
+                      reasoningMs: doneReasoningMs,
                       createdAt: new Date().toISOString(),
                     };
                   }
@@ -466,6 +494,26 @@ export function useHelpChatController(opts: {
                 const status = (data.status as string) || "running";
                 const name = (data.name as string) || "";
                 setActiveToolName(status === "running" ? name : null);
+              } else if (eventType === "stash_reasoning") {
+                const chunk = ((data.text as string) || "").trim();
+                if (chunk) {
+                  const next = reasoningTextRef.current
+                    ? `${reasoningTextRef.current}\n\n${chunk}`
+                    : chunk;
+                  reasoningTextRef.current = next;
+                  setReasoningText(next);
+                }
+                reasoningStepsRef.current += 1;
+                setReasoningSteps(reasoningStepsRef.current);
+                streamedText = "";
+                setMessages((prev) => {
+                  const updated = [...prev];
+                  const last = updated[updated.length - 1];
+                  if (last?.role === "assistant" && last.id.startsWith("tmp-streaming-")) {
+                    updated[updated.length - 1] = { ...last, content: "" };
+                  }
+                  return updated;
+                });
               } else if (eventType === "reset_stream") {
                 streamedText = "";
                 setMessages((prev) => {
@@ -488,6 +536,11 @@ export function useHelpChatController(opts: {
         await refreshConversations();
       } catch (error) {
         if ((error as Error)?.name === "AbortError") {
+          const abortedReasoning = reasoningTextRef.current || undefined;
+          const abortedMs =
+            abortedReasoning && reasoningStartRef.current
+              ? Date.now() - reasoningStartRef.current
+              : undefined;
           setMessages((prev) => {
             const updated = [...prev];
             const last = updated[updated.length - 1];
@@ -498,6 +551,8 @@ export function useHelpChatController(opts: {
                 content: last.content?.trim()
                   ? `${last.content}\n\n_(respuesta detenida)_`
                   : "_(respuesta detenida)_",
+                reasoning: abortedReasoning,
+                reasoningMs: abortedMs,
               };
             }
             return updated;
@@ -522,6 +577,7 @@ export function useHelpChatController(opts: {
         abortRef.current = null;
         setSending(false);
         setActiveToolName(null);
+        clearReasoningLive();
       }
     },
     [
@@ -536,6 +592,7 @@ export function useHelpChatController(opts: {
       pathname,
       streamingStarted,
       refreshConversations,
+      clearReasoningLive,
     ],
   );
 
@@ -667,6 +724,9 @@ export function useHelpChatController(opts: {
     sending,
     streamingStarted,
     activeToolName,
+    reasoningText,
+    reasoningSteps,
+    reasoningMs,
     quickStarters,
     persistenceEnabled,
     pageContext,
