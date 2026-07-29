@@ -59,10 +59,8 @@ export function TopbarSearchField() {
     <div className="relative flex h-full min-w-0 flex-1 items-center">
       <div
         className={cn(
-          "relative flex h-9 w-full max-w-[640px] min-w-0 items-center gap-1.5 rounded-full border border-transparent bg-ds-surface-2 px-2.5 transition-colors",
-          "hover:bg-ds-surface-3",
-          focused &&
-            "border-primary/55 bg-ds-surface-1 ring-2 ring-primary/14",
+          "relative flex h-9 w-full max-w-[640px] min-w-0 items-center gap-1.5 px-1",
+          focused && "text-ds-text-1",
         )}
       >
         <Search
