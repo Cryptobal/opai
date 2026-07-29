@@ -3,8 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Archive, Building2, CalendarPlus, CheckSquare, Clock, Forward, Link2,
-  ListTodo, Mail, MailOpen, Menu, PenLine, Reply, ReplyAll, Sparkles, Star,
-  Tag, TicketPlus, Trash2,
+  ListTodo, Mail, MailOpen, Menu, PenLine, Reply, ReplyAll, ShieldAlert,
+  Sparkles, Star, Tag, TicketPlus, Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -384,10 +384,11 @@ export function CorreosClient() {
   /** Archivar/papelera con UI optimista: soft al aplicar, hard al deshacer. */
   function runRemoveAction(
     threadId: string,
-    action: "archive" | "trash",
+    action: "archive" | "trash" | "spam",
     okMsg: string,
   ) {
-    const undo = action === "archive" ? "unarchive" : "untrash";
+    const undo =
+      action === "archive" ? "unarchive" : action === "trash" ? "untrash" : "unspam";
     void runCorreoAction(threadId, action, okMsg, softRefresh, undo, hardRefresh);
   }
 
@@ -1128,6 +1129,24 @@ export function CorreosClient() {
               () => void fetchPage(null, true),
               starred ? "star" : "unstar",
             ),
+        },
+        {
+          icon: <ShieldAlert className="h-4 w-4" />,
+          label: t.spamAt ? "No es spam" : "Marcar spam",
+          onClick: () => {
+            if (t.spamAt) {
+              void runCorreoAction(
+                t.id,
+                "unspam",
+                "Restaurado de Spam",
+                () => void fetchPage(null, true),
+                "spam",
+              );
+              return;
+            }
+            removeThreadAndAdvance(t.id);
+            runRemoveAction(t.id, "spam", "Marcado como spam");
+          },
         },
       );
     }

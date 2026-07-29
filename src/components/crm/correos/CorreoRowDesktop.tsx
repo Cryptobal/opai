@@ -195,6 +195,8 @@ export function CorreoRowDesktop({
             threadId={thread.id}
             isUnread={unread}
             archived={Boolean(thread.archivedAt)}
+            starred={Boolean(thread.starredAt)}
+            inSpam={Boolean(thread.spamAt)}
             canModify={canModify}
             onDone={onChanged}
             onRemoveDone={onRemoveDone}
