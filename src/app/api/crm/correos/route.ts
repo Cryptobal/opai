@@ -54,32 +54,36 @@ export async function GET(req: NextRequest) {
   // mode=semantic se acepta por compatibilidad de deep-links y se ignora:
   // la búsqueda siempre corre el motor híbrido.
   void req.nextUrl.searchParams.get("mode");
-  const [{ items, nextCursor, semanticAvailable, searchMeta }, counts, syncParkedInfo, coverage] =
-    await Promise.all([
-      listCorreoThreads({
-        tenantId: session.user.tenantId,
-        emailAccountId: account.id,
-        mailboxEmail: account.email,
-        cursor: req.nextUrl.searchParams.get("cursor"),
-        folder,
-        q: req.nextUrl.searchParams.get("q"),
-      }),
-      wantCounts
-        ? countCorreoFolders({
+  const [
+    { items, nextCursor, semanticAvailable, searchMeta, searchScope },
+    counts,
+    syncParkedInfo,
+    coverage,
+  ] = await Promise.all([
+    listCorreoThreads({
+      tenantId: session.user.tenantId,
+      emailAccountId: account.id,
+      mailboxEmail: account.email,
+      cursor: req.nextUrl.searchParams.get("cursor"),
+      folder,
+      q: req.nextUrl.searchParams.get("q"),
+    }),
+    wantCounts
+      ? countCorreoFolders({
+          tenantId: session.user.tenantId,
+          emailAccountId: account.id,
+        })
+      : null,
+    getGmailSyncParkedInfo(account.id),
+    wantCounts
+      ? import("@/modules/crm/email/email-index-coverage").then((m) =>
+          m.getEmailIndexCoverage({
             tenantId: session.user.tenantId,
             emailAccountId: account.id,
-          })
-        : null,
-      getGmailSyncParkedInfo(account.id),
-      wantCounts
-        ? import("@/modules/crm/email/email-index-coverage").then((m) =>
-            m.getEmailIndexCoverage({
-              tenantId: session.user.tenantId,
-              emailAccountId: account.id,
-            }),
-          )
-        : null,
-    ]);
+          }),
+        )
+      : null,
+  ]);
 
   const syncRaw =
     account.syncState && typeof account.syncState === "object" && !Array.isArray(account.syncState)
@@ -95,6 +99,7 @@ export async function GET(req: NextRequest) {
     coverage,
     semanticAvailable: semanticAvailable ?? true,
     searchMeta: searchMeta ?? null,
+    searchScope: searchScope ?? null,
     realtimeChannel: gmailMailboxChannel(
       session.user.tenantId,
       session.user.id,

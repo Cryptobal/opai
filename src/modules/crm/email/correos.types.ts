@@ -32,7 +32,26 @@ export type CorreoSearchMeta = {
   discardedSemantic: number;
   /** Filas que se están mostrando (igual a items.length). */
   shownCount: number;
+  /**
+   * Tamaño del ranking fusionado (acotado al overfetch). Solo en rama híbrida
+   * con paginación por score.
+   */
+  totalCount?: number;
+  /** true cuando totalCount alcanzó el techo de overfetch (puede haber más). */
+  totalIsLowerBound?: boolean;
 };
+
+/** Alcance efectivo de una búsqueda de texto (carpeta o toda la casilla). */
+export type CorreoSearchScope =
+  | "inbox"
+  | "archived"
+  | "all"
+  | "trash"
+  | "snoozed"
+  | "sent"
+  | "drafts"
+  | "spam"
+  | "starred";
 
 export type CorreoMessageDTO = {
   id: string;

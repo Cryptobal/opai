@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { X } from "lucide-react";
 import {
   chipsFromQuery,
@@ -15,12 +16,14 @@ export { chipsFromQuery, removeChipFromQuery };
 type Props = {
   query: string;
   onQuery: (q: string) => void;
+  /** Chip/acción adicional al final de la fila (p. ej. alcance de búsqueda). */
+  trailing?: ReactNode;
 };
 
 /** Chips removibles de la consulta interpretada. */
-export function CorreoSearchChips({ query, onQuery }: Props) {
+export function CorreoSearchChips({ query, onQuery, trailing }: Props) {
   const chips = chipsFromQuery(query);
-  if (chips.length === 0) return null;
+  if (chips.length === 0 && !trailing) return null;
 
   return (
     <div className="flex min-w-0 gap-1.5 overflow-x-auto scrollbar-none py-1">
@@ -36,6 +39,7 @@ export function CorreoSearchChips({ query, onQuery }: Props) {
           <X className="h-3.5 w-3.5 text-ds-text-4" aria-hidden />
         </button>
       ))}
+      {trailing}
     </div>
   );
 }

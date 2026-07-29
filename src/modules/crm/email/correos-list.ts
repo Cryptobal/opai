@@ -106,9 +106,15 @@ const THREAD_LIST_SELECT = {
 } as const;
 
 /**
- * Lista paginada (cursor por fecha) de hilos de la casilla del usuario.
+ * Lista paginada de hilos de la casilla del usuario.
+ *
  * Con `q` activo y términos de texto libre: motor híbrido (léxico + semántico).
- * Con solo operadores estructurales: léxico por recencia con cursor.
+ * El cursor de esa rama es opaco con prefijo `search:{offset}` (offset sobre
+ * el ranking fusionado). Con solo operadores estructurales: léxico por
+ * recencia con cursor ISO de fecha. Sin `q`: cursor ISO de fecha por carpeta.
+ *
+ * Alcance: si hay búsqueda activa y el query NO trae `in:`, el scope efectivo
+ * es `all` (toda la casilla excepto trash/spam), no la carpeta de navegación.
  * `mode=semantic` se ignora (compatibilidad de deep-links).
  */
 export async function listCorreoThreads(params: {
@@ -126,12 +132,18 @@ export async function listCorreoThreads(params: {
   nextCursor: string | null;
   semanticAvailable?: boolean;
   searchMeta?: import("./correos.types").CorreoSearchMeta;
+  /** Carpeta efectiva bajo búsqueda (`all` por defecto si no hay `in:`). */
+  searchScope?: import("./correos.types").CorreoSearchScope;
 }> {
   const limit = Math.min(Math.max(params.limit ?? 30, 1), 100);
   const cursorDate = params.cursor ? new Date(params.cursor) : null;
   const folder = params.folder ?? "inbox";
   const parsedSearch = parseCorreoSearchQuery(params.q);
-  const effectiveFolder = parsedSearch?.folderOverride ?? folder;
+  // Búsqueda activa sin `in:` → toda la casilla (paridad con Gmail).
+  const searchScope: CorreoListFilter | undefined = parsedSearch
+    ? (parsedSearch.folderOverride ?? "all")
+    : undefined;
+  const effectiveFolder = searchScope ?? folder;
 
   // Búsqueda con texto libre → motor híbrido (una sola página rankeada).
   if (parsedSearch && parsedSearch.terms.length > 0) {
@@ -148,6 +160,7 @@ export async function listCorreoThreads(params: {
         items: [],
         nextCursor: null,
         semanticAvailable: hybrid.semanticAvailable,
+        searchScope: effectiveFolder,
         searchMeta: {
           hasExactMatches: false,
           lexicalCount: hybrid.lexicalCount,
@@ -183,6 +196,7 @@ export async function listCorreoThreads(params: {
       items,
       nextCursor: null,
       semanticAvailable: hybrid.semanticAvailable,
+      searchScope: effectiveFolder,
       searchMeta: {
         hasExactMatches: hybrid.hasExactMatches,
         lexicalCount: hybrid.lexicalCount,
@@ -263,7 +277,12 @@ export async function listCorreoThreads(params: {
   const nextCursor = hasMore
     ? (isSnoozed ? last?.snoozedUntil : last?.lastMessageAt)?.toISOString() ?? null
     : null;
-  return { items, nextCursor, semanticAvailable: true };
+  return {
+    items,
+    nextCursor,
+    semanticAvailable: true,
+    ...(searchScope ? { searchScope: effectiveFolder } : {}),
+  };
 }
 
 type ThreadRow = {
