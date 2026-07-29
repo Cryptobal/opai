@@ -149,7 +149,7 @@ describe("hybridSearchThreadIds", () => {
     const parsed = parseCorreoSearchQuery("is:unread")!;
     const result = await hybridSearchThreadIds({
       tenantId: "ten",
-      emailAccountId: "00000000-0000-0000-0000-000000000001",
+      emailAccountIds: ["00000000-0000-0000-0000-000000000001"],
       parsed,
       folder: "inbox",
       limit: 10,
@@ -174,7 +174,7 @@ describe("hybridSearchThreadIds", () => {
     const parsed = parseCorreoSearchQuery("dotación")!;
     const result = await hybridSearchThreadIds({
       tenantId: "ten",
-      emailAccountId: "00000000-0000-0000-0000-000000000001",
+      emailAccountIds: ["00000000-0000-0000-0000-000000000001"],
       parsed,
       folder: "inbox",
       limit: 10,
@@ -220,7 +220,7 @@ describe("hybridSearchThreadIds", () => {
     const parsed = parseCorreoSearchQuery("dotación")!;
     const result = await hybridSearchThreadIds({
       tenantId: "ten",
-      emailAccountId: "00000000-0000-0000-0000-000000000001",
+      emailAccountIds: ["00000000-0000-0000-0000-000000000001"],
       parsed,
       folder: "sent",
       limit: 10,
@@ -249,7 +249,7 @@ describe("hybridSearchThreadIds", () => {
     const parsed = parseCorreoSearchQuery("asdfgh")!;
     const result = await hybridSearchThreadIds({
       tenantId: "ten",
-      emailAccountId: "00000000-0000-0000-0000-000000000001",
+      emailAccountIds: ["00000000-0000-0000-0000-000000000001"],
       parsed,
       folder: "inbox",
       limit: 10,
@@ -264,7 +264,7 @@ describe("hybridSearchThreadIds", () => {
     const parsed = parseCorreoSearchQuery("factura in:trash")!;
     await hybridSearchThreadIds({
       tenantId: "ten",
-      emailAccountId: "00000000-0000-0000-0000-000000000001",
+      emailAccountIds: ["00000000-0000-0000-0000-000000000001"],
       parsed,
       folder: "inbox",
       limit: 5,
@@ -287,7 +287,7 @@ describe("hybridSearchThreadIds", () => {
     const parsed = parseCorreoSearchQuery("asunto")!;
     const page1 = await hybridSearchThreadIds({
       tenantId: "ten",
-      emailAccountId: "00000000-0000-0000-0000-000000000001",
+      emailAccountIds: ["00000000-0000-0000-0000-000000000001"],
       parsed,
       folder: "all",
       limit: 3,
@@ -295,7 +295,7 @@ describe("hybridSearchThreadIds", () => {
     });
     const page2 = await hybridSearchThreadIds({
       tenantId: "ten",
-      emailAccountId: "00000000-0000-0000-0000-000000000001",
+      emailAccountIds: ["00000000-0000-0000-0000-000000000001"],
       parsed,
       folder: "all",
       limit: 3,
@@ -331,7 +331,7 @@ describe("hybridSearchThreadIds", () => {
     const parsed = parseCorreoSearchQuery("cotización")!;
     const result = await hybridSearchThreadIds({
       tenantId: "ten",
-      emailAccountId: "00000000-0000-0000-0000-000000000001",
+      emailAccountIds: ["00000000-0000-0000-0000-000000000001"],
       parsed,
       folder: "all",
       limit: 10,

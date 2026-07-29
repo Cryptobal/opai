@@ -173,7 +173,7 @@ describe("aceptación — aislamiento tenant en builders (criterio 10)", () => {
     const parsed = parseCorreoSearchQuery("macronet acuda")!;
     const sql = buildCorreoSearchIdsQuery({
       tenantId: "tenant-a",
-      emailAccountId: "00000000-0000-0000-0000-0000000000aa",
+      emailAccountIds: ["00000000-0000-0000-0000-0000000000aa"],
       parsed,
       folder: "all",
       cursorDate: null,

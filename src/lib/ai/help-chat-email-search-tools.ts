@@ -112,7 +112,7 @@ export async function toolSearchEmails(
       : "all");
   const hybrid = await hybridSearchThreadIds({
     tenantId,
-    emailAccountId: account.id,
+    emailAccountIds: [account.id],
     parsed: effectiveParsed,
     folder: effectiveFolder,
     limit,
@@ -393,7 +393,7 @@ export async function toolMailboxCoverage(
   );
   const coverage = await getEmailIndexCoverage({
     tenantId,
-    emailAccountId: account.id,
+    emailAccountIds: [account.id],
   });
   const bounds = await prisma.crmEmailMessage.aggregate({
     where: {

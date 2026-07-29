@@ -286,7 +286,7 @@ export type SemanticHit = {
  */
 export async function semanticSearchChunks(params: {
   tenantId: string;
-  emailAccountId: string;
+  emailAccountIds: string[];
   query: string;
   limit?: number;
   /** Condición de carpeta sobre alias `t` (folderWhereSql). */
@@ -296,7 +296,11 @@ export async function semanticSearchChunks(params: {
   /** Sobre-recuperación ante post-filtrado HNSW (default limit*4, techo 200). */
   overfetch?: number;
 }): Promise<SemanticHit[]> {
-  if (emailEmbeddingsDisabled() || !process.env.OPENAI_API_KEY) {
+  if (
+    emailEmbeddingsDisabled() ||
+    !process.env.OPENAI_API_KEY ||
+    params.emailAccountIds.length === 0
+  ) {
     return [];
   }
   const startedAt = Date.now();
@@ -330,9 +334,15 @@ export async function semanticSearchChunks(params: {
   const efSearch = Math.min(Math.max(Math.floor(Math.max(fetchLimit * 2, 100)), 40), 1000);
   const vectorLiteral = `[${embedding.join(",")}]`;
 
+  const accountFilter =
+    params.emailAccountIds.length === 1
+      ? Prisma.sql`c.email_account_id = ${params.emailAccountIds[0]}::uuid`
+      : Prisma.sql`c.email_account_id IN (${Prisma.join(
+          params.emailAccountIds.map((id) => Prisma.sql`${id}::uuid`),
+        )})`;
   const conds: Prisma.Sql[] = [
     Prisma.sql`c.tenant_id = ${params.tenantId}`,
-    Prisma.sql`c.email_account_id = ${params.emailAccountId}::uuid`,
+    accountFilter,
     Prisma.sql`c.embedding IS NOT NULL`,
   ];
   if (params.folderSql) conds.push(params.folderSql);

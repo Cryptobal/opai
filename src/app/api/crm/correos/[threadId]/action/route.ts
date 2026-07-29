@@ -2,13 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { requireCorreosAccess } from "@/lib/api-auth-productividad";
 import { hasGmailModify } from "@/lib/gmail";
-import { prisma } from "@/lib/prisma";
 import {
   runCorreoThreadAction,
   type CorreoAction,
 } from "@/modules/crm/email/gmail-thread-actions";
 import { broadcastGmailMailboxChanged } from "@/modules/crm/email/gmail-realtime";
 import { auditEmailAction } from "@/lib/audit-email";
+import { requireThreadMailbox } from "@/modules/crm/email/mailbox-scope";
 
 const ACTIONS = new Set<CorreoAction>([
   "archive",
@@ -52,33 +52,14 @@ export async function POST(
     snoozeUntil = d;
   }
 
-  const threadOwner = await prisma.crmEmailThread.findFirst({
-    where: {
-      id: threadId,
-      tenantId: session.user.tenantId,
-    },
-    select: { emailAccountId: true },
+  const owned = await requireThreadMailbox({
+    tenantId: session.user.tenantId,
+    userId: session.user.id,
+    threadId,
   });
-  if (!threadOwner?.emailAccountId) {
-    return NextResponse.json(
-      { error: "Hilo no vinculado a Gmail" },
-      { status: 400 },
-    );
-  }
+  if (!owned.ok) return NextResponse.json({ error: owned.error }, { status: owned.status });
+  const { account } = owned;
 
-  const account = await prisma.crmEmailAccount.findFirst({
-    where: {
-      id: threadOwner.emailAccountId,
-      tenantId: session.user.tenantId,
-      userId: session.user.id,
-      provider: "gmail",
-      status: "active",
-    },
-    select: { id: true, grantedScopes: true },
-  });
-  if (!account) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
   if (!hasGmailModify(account.grantedScopes)) {
     return NextResponse.json(
       { error: "Reconectá Gmail para habilitar archivar y eliminar", needsReconnect: true },
@@ -96,17 +77,15 @@ export async function POST(
   if (!result.ok) {
     return NextResponse.json({ error: result.error }, { status: result.status });
   }
-  if (account) {
-    const { invalidateCorreoFolderCounts } = await import(
-      "@/modules/crm/email/correos-folder-counts"
-    );
-    invalidateCorreoFolderCounts(session.user.tenantId, account.id);
-    await broadcastGmailMailboxChanged({
-      tenantId: session.user.tenantId,
-      userId: session.user.id,
-      reason: `action:${body.action}`,
-    });
-  }
+  const { invalidateCorreoFolderCounts } = await import(
+    "@/modules/crm/email/correos-folder-counts"
+  );
+  invalidateCorreoFolderCounts(session.user.tenantId, account.id);
+  await broadcastGmailMailboxChanged({
+    tenantId: session.user.tenantId,
+    userId: session.user.id,
+    reason: `action:${body.action}`,
+  });
   void auditEmailAction({
     tenantId: session.user.tenantId,
     userId: session.user.id,

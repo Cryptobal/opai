@@ -15,6 +15,7 @@ import { logAiUsage } from "@/lib/platform-ai-service";
 import { normalizeEmailAddress } from "@/lib/email-address";
 import { CHILE_TZ } from "@/lib/dates-cl";
 import { UNTRUSTED_RULES, wrapUntrusted } from "@/modules/crm/email/ai-untrusted";
+import { requireThreadMailbox } from "@/modules/crm/email/mailbox-scope";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
@@ -36,11 +37,14 @@ export async function POST(_req: NextRequest, ctx: { params: Promise<{ threadId:
   const tenantId = session.user.tenantId;
   const { threadId } = await ctx.params;
 
-  const account = await prisma.crmEmailAccount.findFirst({
-    where: { tenantId, userId: session.user.id, provider: "gmail", status: "active" },
-    select: { id: true },
+  const owned = await requireThreadMailbox({
+    tenantId,
+    userId: session.user.id,
+    threadId,
   });
-  if (!account) return NextResponse.json({ error: "Gmail no conectado" }, { status: 400 });
+  if (!owned.ok) return NextResponse.json({ error: owned.error }, { status: owned.status });
+  const { account } = owned;
+
   const thread = await prisma.crmEmailThread.findFirst({
     where: { id: threadId, tenantId, emailAccountId: account.id },
     select: { id: true, subject: true },

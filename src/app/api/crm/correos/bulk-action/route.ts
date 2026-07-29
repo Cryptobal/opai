@@ -7,13 +7,16 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { requireCorreosAccess } from "@/lib/api-auth-productividad";
 import { hasGmailModify } from "@/lib/gmail";
-import { prisma } from "@/lib/prisma";
 import {
   runCorreoThreadAction,
   type CorreoAction,
 } from "@/modules/crm/email/gmail-thread-actions";
 import { broadcastGmailMailboxChanged } from "@/modules/crm/email/gmail-realtime";
 import { auditEmailAction } from "@/lib/audit-email";
+import {
+  listUserMailboxes,
+  requireThreadMailbox,
+} from "@/modules/crm/email/mailbox-scope";
 
 export const maxDuration = 60;
 
@@ -68,16 +71,14 @@ export async function POST(req: NextRequest) {
     snoozeUntil = d;
   }
 
-  const account = await prisma.crmEmailAccount.findFirst({
-    where: {
-      tenantId: session.user.tenantId,
-      userId: session.user.id,
-      provider: "gmail",
-      status: "active",
-    },
-    select: { id: true, grantedScopes: true },
+  const mailboxes = await listUserMailboxes({
+    tenantId: session.user.tenantId,
+    userId: session.user.id,
   });
-  if (!hasGmailModify(account?.grantedScopes)) {
+  if (mailboxes.length === 0) {
+    return NextResponse.json({ error: "Gmail no conectado" }, { status: 400 });
+  }
+  if (!mailboxes.every((a) => hasGmailModify(a.grantedScopes))) {
     return NextResponse.json(
       { error: "Reconectá Gmail para habilitar acciones", needsReconnect: true },
       { status: 403 },
@@ -87,6 +88,15 @@ export async function POST(req: NextRequest) {
   let applied = 0;
   const failed: string[] = [];
   for (const threadId of threadIds) {
+    const owned = await requireThreadMailbox({
+      tenantId: session.user.tenantId,
+      userId: session.user.id,
+      threadId,
+    });
+    if (!owned.ok) {
+      failed.push(threadId);
+      continue;
+    }
     const result = await runCorreoThreadAction({
       tenantId: session.user.tenantId,
       userId: session.user.id,
@@ -98,13 +108,11 @@ export async function POST(req: NextRequest) {
     else failed.push(threadId);
   }
 
-  if (account) {
-    await broadcastGmailMailboxChanged({
-      tenantId: session.user.tenantId,
-      userId: session.user.id,
-      reason: `bulk:${body.action}`,
-    });
-  }
+  await broadcastGmailMailboxChanged({
+    tenantId: session.user.tenantId,
+    userId: session.user.id,
+    reason: `bulk:${body.action}`,
+  });
   void auditEmailAction({
     tenantId: session.user.tenantId,
     userId: session.user.id,

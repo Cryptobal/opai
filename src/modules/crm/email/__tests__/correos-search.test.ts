@@ -314,14 +314,14 @@ describe("buildCorreoSearchIdsQuery", () => {
   it("aísla por tenant y casilla, ordena por recencia y pagina", () => {
     const query = buildCorreoSearchIdsQuery({
       tenantId: "t1",
-      emailAccountId: "00000000-0000-0000-0000-000000000001",
+      emailAccountIds: ["00000000-0000-0000-0000-000000000001"],
       parsed,
       folder: "inbox",
       cursorDate: null,
       take: 31,
     });
     expect(query.sql).toContain("t.tenant_id::text =");
-    expect(query.sql).toContain("t.email_account_id =");
+    expect(query.sql).toContain("t.email_account_id");
     expect(query.sql).toContain("ORDER BY t.last_message_at DESC NULLS LAST");
     expect(query.sql).toContain("LIMIT");
     expect(query.values).toContain("t1");
@@ -332,7 +332,7 @@ describe("buildCorreoSearchIdsQuery", () => {
     const cursor = new Date("2026-07-01T00:00:00.000Z");
     const query = buildCorreoSearchIdsQuery({
       tenantId: "t1",
-      emailAccountId: "00000000-0000-0000-0000-000000000001",
+      emailAccountIds: ["00000000-0000-0000-0000-000000000001"],
       parsed,
       folder: "all",
       cursorDate: cursor,

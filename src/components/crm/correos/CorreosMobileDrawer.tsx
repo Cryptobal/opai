@@ -14,6 +14,7 @@ import type { CorreosRealtimeStatus } from "./useCorreosRealtime";
 import type { CorreoPreviewLines } from "./useCorreosViewPreferences";
 import { useCloseOnBack } from "./useCloseOnBack";
 import { useFocusTrap } from "./useFocusTrap";
+import { MailboxSwitcher, type MailboxAccount } from "./MailboxSwitcher";
 
 // Export: el riel desktop reusa los mismos iconos.
 export const FOLDER_ICONS: Partial<Record<CorreoFolderTab, LucideIcon>> = {
@@ -35,8 +36,11 @@ type Props = {
   syncing: boolean;
   realtimeStatus: CorreosRealtimeStatus;
   lastSyncAt: string | null;
-  /** Casilla Gmail conectada (se muestra en el encabezado del drawer). */
-  mailboxEmail?: string | null;
+  accounts?: MailboxAccount[];
+  activeAccountId?: string | null;
+  onScopeChange?: (accountId: string | null) => void;
+  onColorChange?: (accountId: string, color: string) => void;
+  inboxUnreadTotal?: number;
   /** Abre el sheet de configuración de gestos (Bloque 6). */
   onOpenSwipeSettings?: () => void;
   /** Abre el sheet de horarios de posponer. */
@@ -71,7 +75,9 @@ function SectionTitle({ children }: { children: ReactNode }) {
 export function CorreosMobileDrawer({
   open, onClose, folder, onFolder, chip, onChip, counts,
   previewLines, onPreviewLines, onSync, syncing, realtimeStatus, lastSyncAt,
-  mailboxEmail, onOpenSwipeSettings, onOpenSnoozeSettings, onOpenAiStyle,
+  accounts = [], activeAccountId = null, onScopeChange, onColorChange,
+  inboxUnreadTotal,
+  onOpenSwipeSettings, onOpenSnoozeSettings, onOpenAiStyle,
   onOpenShortcuts,
 }: Props) {
   const panelRef = useRef<HTMLDivElement | null>(null);
@@ -99,18 +105,35 @@ export function CorreosMobileDrawer({
         <div className="flex items-center justify-between gap-2 px-4 pb-1 pt-3">
           <div className="min-w-0 flex-1">
             <p className="font-display text-sm font-semibold text-ds-text-1">Correos</p>
-            {mailboxEmail ? (
-              <p className="truncate text-[12px] text-ds-text-3" title={mailboxEmail}>
-                Gmail · {mailboxEmail}
-              </p>
-            ) : (
-              <p className="text-[12px] text-ds-text-4">Cuenta Gmail</p>
-            )}
+            <p className="text-[12px] text-ds-text-4">
+              {accounts.length > 1
+                ? `${accounts.length} casillas`
+                : accounts[0]?.email
+                  ? `Gmail · ${accounts[0].email}`
+                  : "Cuenta Gmail"}
+            </p>
           </div>
           <button type="button" aria-label="Cerrar menú" onClick={onClose} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-ds-text-3 ds-tap">
             <X className="h-5 w-5" />
           </button>
         </div>
+
+        {accounts.length > 0 && onScopeChange && (
+          <div className="px-2 pb-1">
+            <SectionTitle>Casillas</SectionTitle>
+            <MailboxSwitcher
+              accounts={accounts}
+              activeAccountId={activeAccountId}
+              inboxUnreadTotal={inboxUnreadTotal ?? counts?.inboxUnread ?? 0}
+              touchRows
+              onScopeChange={(id) => {
+                onScopeChange(id);
+                onClose();
+              }}
+              onColorChange={onColorChange}
+            />
+          </div>
+        )}
 
         <nav className="px-2">
           <SectionTitle>Carpetas</SectionTitle>

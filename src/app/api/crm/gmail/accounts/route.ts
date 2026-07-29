@@ -57,11 +57,15 @@ export async function GET(request?: NextRequest) {
       status: true,
       userId: true,
       updatedAt: true,
+      color: true,
+      displayLabel: true,
+      isDefault: true,
+      sortIndex: true,
       ...(withAliases
         ? { sendAs: true, accessTokenEncrypted: true, refreshTokenEncrypted: true }
         : {}),
     },
-    orderBy: { createdAt: "asc" },
+    orderBy: [{ sortIndex: "asc" }, { createdAt: "asc" }],
   });
 
   if (withAliases) {
@@ -86,6 +90,10 @@ export async function GET(request?: NextRequest) {
           status: account.status,
           userId: account.userId,
           updatedAt: account.updatedAt,
+          color: account.color,
+          displayLabel: account.displayLabel,
+          isDefault: account.isDefault,
+          sortIndex: account.sortIndex,
           aliases,
         };
       }),
@@ -94,7 +102,9 @@ export async function GET(request?: NextRequest) {
   }
 
   if (!elevated) {
-    return NextResponse.json({ accounts });
+    return NextResponse.json({
+      accounts: accounts.map((a) => ({ ...a, isOwn: true })),
+    });
   }
 
   // Owner/Admin: anotar cada casilla con el email del dueño (sin relación FK
@@ -109,8 +119,128 @@ export async function GET(request?: NextRequest) {
     accounts: accounts.map((a) => ({
       ...a,
       ownerEmail: ownerEmailById.get(a.userId) ?? null,
+      isOwn: a.userId === ctx.userId,
     })),
   });
+}
+
+/**
+ * PATCH /api/crm/gmail/accounts
+ * Body: { id, color?, displayLabel?, isDefault?, sortIndex? }
+ * Solo el dueño. color validado contra paleta disponible.
+ */
+export async function PATCH(request: NextRequest) {
+  const modCheck = await requireTenantModule("crm");
+  if (!modCheck.authorized) return modCheck.response;
+
+  const ctx = await requireAuth();
+  if (!ctx) return unauthorized();
+  const forbidden = await requireCrmView(ctx);
+  if (forbidden) return forbidden;
+
+  const {
+    isAvailableMailboxColor,
+    MAX_DISPLAY_LABEL_LENGTH,
+  } = await import("@/modules/crm/email/mailbox-identity");
+
+  let body: {
+    id?: unknown;
+    color?: unknown;
+    displayLabel?: unknown;
+    isDefault?: unknown;
+    sortIndex?: unknown;
+  };
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+  }
+
+  const id = typeof body.id === "string" ? body.id : null;
+  if (!id) return NextResponse.json({ error: "missing_id" }, { status: 400 });
+
+  const acc = await prisma.crmEmailAccount.findFirst({
+    where: {
+      id,
+      tenantId: ctx.tenantId,
+      userId: ctx.userId,
+      provider: "gmail",
+    },
+    select: { id: true },
+  });
+  if (!acc) return NextResponse.json({ error: "not_found" }, { status: 404 });
+
+  const data: {
+    color?: string;
+    displayLabel?: string;
+    isDefault?: boolean;
+    sortIndex?: number;
+  } = {};
+
+  if (body.color !== undefined) {
+    if (!isAvailableMailboxColor(body.color)) {
+      return NextResponse.json({ error: "color_invalid" }, { status: 400 });
+    }
+    data.color = body.color;
+  }
+  if (body.displayLabel !== undefined) {
+    if (typeof body.displayLabel !== "string") {
+      return NextResponse.json({ error: "displayLabel_invalid" }, { status: 400 });
+    }
+    const label = body.displayLabel.trim().slice(0, MAX_DISPLAY_LABEL_LENGTH);
+    if (!label) {
+      return NextResponse.json({ error: "displayLabel_invalid" }, { status: 400 });
+    }
+    data.displayLabel = label;
+  }
+  if (body.isDefault !== undefined) {
+    if (typeof body.isDefault !== "boolean") {
+      return NextResponse.json({ error: "isDefault_invalid" }, { status: 400 });
+    }
+    data.isDefault = body.isDefault;
+  }
+  if (body.sortIndex !== undefined) {
+    if (typeof body.sortIndex !== "number" || !Number.isFinite(body.sortIndex)) {
+      return NextResponse.json({ error: "sortIndex_invalid" }, { status: 400 });
+    }
+    data.sortIndex = Math.floor(body.sortIndex);
+  }
+
+  if (Object.keys(data).length === 0) {
+    return NextResponse.json({ error: "empty_patch" }, { status: 400 });
+  }
+
+  await prisma.$transaction(async (tx) => {
+    if (data.isDefault === true) {
+      await tx.crmEmailAccount.updateMany({
+        where: {
+          tenantId: ctx.tenantId,
+          userId: ctx.userId,
+          provider: "gmail",
+          NOT: { id },
+        },
+        data: { isDefault: false },
+      });
+    }
+    await tx.crmEmailAccount.update({
+      where: { id },
+      data,
+    });
+  });
+
+  const updated = await prisma.crmEmailAccount.findFirst({
+    where: { id },
+    select: {
+      id: true,
+      email: true,
+      color: true,
+      displayLabel: true,
+      isDefault: true,
+      sortIndex: true,
+      status: true,
+    },
+  });
+  return NextResponse.json({ ok: true, account: updated });
 }
 
 export async function DELETE(request: NextRequest) {
@@ -134,6 +264,7 @@ export async function DELETE(request: NextRequest) {
       id: true,
       email: true,
       userId: true,
+      isDefault: true,
       syncState: true,
       accessTokenEncrypted: true,
       refreshTokenEncrypted: true,
@@ -172,14 +303,38 @@ export async function DELETE(request: NextRequest) {
     });
   }
 
-  await prisma.crmEmailAccount.update({
-    where: { id: acc.id },
-    data: {
-      status: "revoked",
-      accessTokenEncrypted: null,
-      refreshTokenEncrypted: null,
-      tokenExpiresAt: null,
-    },
+  await prisma.$transaction(async (tx) => {
+    await tx.crmEmailAccount.update({
+      where: { id: acc.id },
+      data: {
+        status: "revoked",
+        accessTokenEncrypted: null,
+        refreshTokenEncrypted: null,
+        tokenExpiresAt: null,
+        isDefault: false,
+      },
+    });
+
+    // Si era la default, promover la de menor sortIndex que quede activa.
+    if (acc.isDefault) {
+      const next = await tx.crmEmailAccount.findFirst({
+        where: {
+          tenantId: ctx.tenantId,
+          userId: acc.userId,
+          provider: "gmail",
+          status: "active",
+          NOT: { id: acc.id },
+        },
+        orderBy: [{ sortIndex: "asc" }, { createdAt: "asc" }],
+        select: { id: true },
+      });
+      if (next) {
+        await tx.crmEmailAccount.update({
+          where: { id: next.id },
+          data: { isDefault: true },
+        });
+      }
+    }
   });
 
   void auditEmailAction({

@@ -37,6 +37,9 @@ type Props = {
   mobileGmail?: boolean;
   /** Tap en el avatar alterna selección (solo variante móvil). */
   onAvatarPress?: () => void;
+  unified?: boolean;
+  mailboxColor?: string | null;
+  mailboxLabel?: string | null;
 };
 
 /**
@@ -62,6 +65,9 @@ function CorreoRowInner({
   previewLines = 2,
   mobileGmail = false,
   onAvatarPress,
+  unified = false,
+  mailboxColor = null,
+  mailboxLabel = null,
 }: Props) {
   if (mobileGmail) {
     return (
@@ -71,6 +77,9 @@ function CorreoRowInner({
         previewLines={previewLines}
         checked={checked}
         onAvatarPress={onAvatarPress}
+        unified={unified}
+        mailboxColor={mailboxColor}
+        mailboxLabel={mailboxLabel}
       />
     );
   }
@@ -91,6 +100,9 @@ function CorreoRowInner({
       checked={checked}
       onToggleCheck={onToggleCheck}
       previewLines={previewLines}
+      unified={unified}
+      mailboxColor={mailboxColor}
+      mailboxLabel={mailboxLabel}
     />
   );
 }

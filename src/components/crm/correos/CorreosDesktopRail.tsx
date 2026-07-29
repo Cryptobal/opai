@@ -7,6 +7,7 @@ import {
 } from "./CorreosFilters";
 import { FOLDER_ICONS } from "./CorreosMobileDrawer";
 import type { CorreosRealtimeStatus } from "./useCorreosRealtime";
+import { MailboxSwitcher, type MailboxAccount } from "./MailboxSwitcher";
 
 type Props = {
   folder: CorreoFolderTab;
@@ -19,7 +20,11 @@ type Props = {
   syncing: boolean;
   realtimeStatus: CorreosRealtimeStatus;
   lastSyncAt: string | null;
-  mailboxEmail?: string | null;
+  accounts?: MailboxAccount[];
+  activeAccountId?: string | null;
+  onScopeChange?: (accountId: string | null) => void;
+  onColorChange?: (accountId: string, color: string) => void;
+  inboxUnreadTotal?: number;
   /** Contraído (persistente); con hover hace peek overlay, como Gmail. */
   collapsed: boolean;
   onToggleCollapsed: () => void;
@@ -37,7 +42,9 @@ type Props = {
  *  de sync al pie. Contraíble a 68px con peek al pasar el mouse. */
 export function CorreosDesktopRail({
   folder, onFolder, chip, onChip, counts,
-  onCompose, onSync, syncing, realtimeStatus, lastSyncAt, mailboxEmail,
+  onCompose, onSync, syncing, realtimeStatus, lastSyncAt,
+  accounts = [], activeAccountId = null, onScopeChange, onColorChange,
+  inboxUnreadTotal,
   collapsed, onToggleCollapsed, onOpenSwipeSettings, onOpenShortcuts,
   onOpenSnoozeSettings, onOpenAiStyle,
 }: Props) {
@@ -88,13 +95,15 @@ export function CorreosDesktopRail({
           <span className={lbl}>Redactar</span>
         </button>
 
-        {mailboxEmail && (
-          <p
-            className={`mb-2 truncate px-3.5 text-[12px] text-ds-text-4 ${collapsed ? "hidden group-hover/rail:block" : ""}`}
-            title={mailboxEmail}
-          >
-            Gmail · {mailboxEmail}
-          </p>
+        {accounts.length > 0 && onScopeChange && (
+          <MailboxSwitcher
+            accounts={accounts}
+            activeAccountId={activeAccountId}
+            inboxUnreadTotal={inboxUnreadTotal ?? counts?.inboxUnread ?? 0}
+            collapsed={collapsed}
+            onScopeChange={onScopeChange}
+            onColorChange={onColorChange}
+          />
         )}
 
         {TABS.map((t) => {

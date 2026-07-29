@@ -7,12 +7,12 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
 import { requireCorreosAccess } from "@/lib/api-auth-productividad";
 import {
   parseSinceParam,
   summarizeThread,
 } from "@/modules/crm/email/email-summary.service";
+import { requireThreadMailbox } from "@/modules/crm/email/mailbox-scope";
 
 export const maxDuration = 30;
 
@@ -31,18 +31,13 @@ export async function POST(
   const mode = body.mode === "since-read" ? "since-read" : "full";
   const since = mode === "since-read" ? parseSinceParam(body.since) : null;
 
-  const account = await prisma.crmEmailAccount.findFirst({
-    where: {
-      tenantId: session.user.tenantId,
-      userId: session.user.id,
-      provider: "gmail",
-      status: "active",
-    },
-    select: { id: true },
+  const owned = await requireThreadMailbox({
+    tenantId: session.user.tenantId,
+    userId: session.user.id,
+    threadId,
   });
-  if (!account) {
-    return NextResponse.json({ error: "Gmail no conectado" }, { status: 400 });
-  }
+  if (!owned.ok) return NextResponse.json({ error: owned.error }, { status: owned.status });
+  const { account } = owned;
 
   const result = await summarizeThread({
     tenantId: session.user.tenantId,

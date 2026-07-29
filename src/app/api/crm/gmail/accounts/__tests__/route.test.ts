@@ -21,7 +21,9 @@ const requireCrmViewMock = vi.fn();
 const accountFindMany = vi.fn();
 const accountFindFirst = vi.fn();
 const accountUpdate = vi.fn();
+const accountUpdateMany = vi.fn();
 const adminFindMany = vi.fn();
+const transactionMock = vi.fn();
 const stopGmailWatchMock = vi.fn();
 const fetchMock = vi.fn();
 
@@ -50,10 +52,12 @@ vi.mock("@/lib/prisma", () => ({
       findMany: accountFindMany,
       findFirst: accountFindFirst,
       update: accountUpdate,
+      updateMany: accountUpdateMany,
     },
     admin: {
       findMany: adminFindMany,
     },
+    $transaction: transactionMock,
   },
 }));
 
@@ -89,6 +93,7 @@ function ownAccount(overrides: Record<string, unknown> = {}) {
     id: "acc-1",
     email: "casilla@gmail.com",
     userId: "user-1",
+    isDefault: false,
     syncState: null,
     accessTokenEncrypted: encryptText("access-plain", SECRET),
     refreshTokenEncrypted: encryptText("refresh-plain", SECRET),
@@ -103,6 +108,16 @@ beforeEach(() => {
   accountFindMany.mockReset();
   accountFindFirst.mockReset();
   accountUpdate.mockReset().mockResolvedValue({});
+  accountUpdateMany.mockReset().mockResolvedValue({ count: 0 });
+  transactionMock.mockReset().mockImplementation(async (fn: (tx: unknown) => Promise<unknown>) =>
+    fn({
+      crmEmailAccount: {
+        findFirst: accountFindFirst,
+        update: accountUpdate,
+        updateMany: accountUpdateMany,
+      },
+    }),
+  );
   adminFindMany.mockReset();
   stopGmailWatchMock.mockReset().mockResolvedValue(undefined);
   fetchMock.mockReset().mockResolvedValue(new Response("{}", { status: 200 }));
@@ -219,6 +234,7 @@ describe("DELETE /api/crm/gmail/accounts", () => {
         accessTokenEncrypted: null,
         refreshTokenEncrypted: null,
         tokenExpiresAt: null,
+        isDefault: false,
       },
     });
   });

@@ -15,15 +15,31 @@ export type CorreoFolderCounts = {
 };
 
 /**
- * Conteos frescos por pestaña. No se cachean en memoria: en Vercel cada
- * instancia mantenía una copia distinta durante 60s y el refetch realtime
- * podía seguir mostrando números viejos.
+ * Conteos frescos por pestaña sobre N casillas. No se cachean en memoria: en
+ * Vercel cada instancia mantenía una copia distinta durante 60s y el refetch
+ * realtime podía seguir mostrando números viejos.
  */
 export async function countCorreoFolders(params: {
   tenantId: string;
-  emailAccountId: string;
+  emailAccountIds: string[];
 }): Promise<CorreoFolderCounts> {
-  const base = { tenantId: params.tenantId, emailAccountId: params.emailAccountId };
+  if (params.emailAccountIds.length === 0) {
+    return {
+      inbox: 0,
+      inboxUnread: 0,
+      archived: 0,
+      all: 0,
+      trash: 0,
+      snoozed: 0,
+      drafts: 0,
+      spam: 0,
+      scheduled: 0,
+    };
+  }
+  const base = {
+    tenantId: params.tenantId,
+    emailAccountId: { in: params.emailAccountIds },
+  };
   const now = new Date();
   // Null-safe: el patrón NOT excluía los hilos con snoozedUntil NULL (ver
   // notSnoozedWhere en correos-list.ts) y el contador de Recibidos daba 0.
@@ -60,7 +76,7 @@ export async function countCorreoFolders(params: {
       prisma.crmEmailMessage.count({
         where: {
           tenantId: params.tenantId,
-          emailAccountId: params.emailAccountId,
+          emailAccountId: { in: params.emailAccountIds },
           isDraft: true,
         },
       }),
@@ -70,7 +86,7 @@ export async function countCorreoFolders(params: {
       prisma.crmEmailOutbox.count({
         where: {
           tenantId: params.tenantId,
-          emailAccountId: params.emailAccountId,
+          emailAccountId: { in: params.emailAccountIds },
           status: "held",
         },
       }),
@@ -80,6 +96,9 @@ export async function countCorreoFolders(params: {
 }
 
 /** Compatibilidad para call sites previos; los conteos ahora siempre son frescos. */
-export function invalidateCorreoFolderCounts(_tenantId: string, _emailAccountId: string) {
+export function invalidateCorreoFolderCounts(
+  _tenantId: string,
+  _emailAccountId: string | string[],
+) {
   // no-op
 }

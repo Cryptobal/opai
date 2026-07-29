@@ -127,7 +127,7 @@ export function fuseRrfScores(params: {
 
 export async function hybridSearchThreadIds(params: {
   tenantId: string;
-  emailAccountId: string;
+  emailAccountIds: string[];
   parsed: ParsedCorreoSearch;
   folder: CorreoListFilter;
   vertical?: string | null;
@@ -153,13 +153,29 @@ export async function hybridSearchThreadIds(params: {
   const semanticAvailableEnv =
     !emailEmbeddingsDisabled() && Boolean(process.env.OPENAI_API_KEY);
   const exactOnly = Boolean(params.exactOnly);
+  const emailAccountIds = params.emailAccountIds;
+
+  if (emailAccountIds.length === 0) {
+    return {
+      ids: [],
+      reasonById: new Map(),
+      semanticAvailable: semanticAvailableEnv,
+      excerptById: new Map(),
+      lexicalCount: 0,
+      semanticCount: 0,
+      hasExactMatches: false,
+      discardedSemantic: 0,
+      totalCount: 0,
+      totalIsLowerBound: false,
+    };
+  }
 
   // Atajo: solo operadores estructurales → léxico por recencia, sin embeddings.
   if (!hasTextTerms) {
     const idRows = await prisma.$queryRaw<LexicalRow[]>(
       buildCorreoSearchIdsQuery({
         tenantId: params.tenantId,
-        emailAccountId: params.emailAccountId,
+        emailAccountIds,
         parsed: params.parsed,
         folder,
         vertical: params.vertical ?? null,
@@ -195,7 +211,7 @@ export async function hybridSearchThreadIds(params: {
   const lexicalPromise = prisma.$queryRaw<LexicalRow[]>(
     buildCorreoSearchIdsQuery({
       tenantId: params.tenantId,
-      emailAccountId: params.emailAccountId,
+      emailAccountIds,
       parsed: params.parsed,
       folder,
       vertical: params.vertical ?? null,
@@ -209,7 +225,7 @@ export async function hybridSearchThreadIds(params: {
     semanticAvailableEnv && !exactOnly
       ? semanticSearchChunks({
           tenantId: params.tenantId,
-          emailAccountId: params.emailAccountId,
+          emailAccountIds,
           query: params.parsed.terms.join(" "),
           limit: overfetch,
           folderSql,
@@ -280,7 +296,7 @@ export async function hybridSearchThreadIds(params: {
     const bodies = await prisma.crmEmailMessage.findMany({
       where: {
         tenantId: params.tenantId,
-        emailAccountId: params.emailAccountId,
+        emailAccountId: { in: emailAccountIds },
         threadId: { in: missingExcerpt },
         isDraft: false,
       },
