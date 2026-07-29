@@ -100,7 +100,14 @@ export async function runThreadExtractor(params: {
     .slice(0, 12000);
 
   // El extractor funciona sólo con texto si no hay adjuntos.
-  let att: PreparedAttachments = { stagedFiles: [], docText: "", images: [], imageMimes: [], sources: [] };
+  let att: PreparedAttachments = {
+    stagedFiles: [],
+    docText: "",
+    images: [],
+    imageMimes: [],
+    sources: [],
+    pdfsForVision: [],
+  };
   const gmail = account ? gmailClientForAccount(account) : null;
   if (gmail && thread.providerThreadId) {
     att = await prepareThreadAttachments(gmail, thread.providerThreadId, tenantId).catch(() => att);

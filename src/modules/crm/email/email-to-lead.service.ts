@@ -327,7 +327,14 @@ export async function extractLeadFromThread(params: {
     .join("\n\n---\n\n")
     .slice(0, 12000);
 
-  let att: PreparedAttachments = { stagedFiles: [], docText: "", images: [], imageMimes: [], sources: [] };
+  let att: PreparedAttachments = {
+    stagedFiles: [],
+    docText: "",
+    images: [],
+    imageMimes: [],
+    sources: [],
+    pdfsForVision: [],
+  };
   const gmail = account ? gmailClientForAccount(account) : null;
   if (gmail && thread.providerThreadId) {
     att = await prepareThreadAttachments(gmail, thread.providerThreadId, tenantId).catch(() => att);
