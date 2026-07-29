@@ -1,6 +1,7 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { requireCorreosAccess } from "@/lib/api-auth-productividad";
 import { prisma } from "@/lib/prisma";
+import { resolveMailboxScope } from "@/modules/crm/email/mailbox-scope";
 
 export const dynamic = "force-dynamic";
 
@@ -15,25 +16,31 @@ function fmt(ms: number): string {
 
 /**
  * GET /api/crm/correos/kpi — mediana del tiempo de respuesta
- * (firstReplyAt − firstInboundAt) de los hilos de la casilla del usuario en los
+ * (firstReplyAt − firstInboundAt) de los hilos del alcance activo en los
  * últimos 30 días.
  */
-export async function GET() {
+export async function GET(req: NextRequest) {
   const access = await requireCorreosAccess();
   if (!access.authorized) return access.response;
   const ctx = access.ctx;
 
-  const acc = await prisma.crmEmailAccount.findFirst({
-    where: { tenantId: ctx.tenantId, userId: ctx.userId, provider: "gmail", status: "active" },
-    select: { id: true },
+  const resolved = await resolveMailboxScope({
+    tenantId: ctx.tenantId,
+    userId: ctx.userId,
+    requestedAccountId: req.nextUrl.searchParams.get("accountId"),
   });
-  if (!acc) return NextResponse.json({ count: 0, medianMs: null, formatted: null });
+  if (!resolved.ok) {
+    return NextResponse.json({ error: resolved.error }, { status: resolved.status });
+  }
+  if (resolved.scope.accountIds.length === 0) {
+    return NextResponse.json({ count: 0, medianMs: null, formatted: null });
+  }
 
   const since = new Date(Date.now() - 30 * 24 * 3600 * 1000);
   const rows = await prisma.crmEmailThread.findMany({
     where: {
       tenantId: ctx.tenantId,
-      emailAccountId: acc.id,
+      emailAccountId: { in: resolved.scope.accountIds },
       firstInboundAt: { not: null },
       firstReplyAt: { not: null, gte: since },
     },

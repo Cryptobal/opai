@@ -85,6 +85,7 @@ type AccountOption = {
   id: string;
   email: string;
   aliases: AccountAlias[];
+  isDefault?: boolean;
 };
 
 /** API imperativa para el host (sheet): flush/discard al cerrar. */
@@ -154,6 +155,8 @@ type Props = {
   onSubjectChange?: (subject: string) => void;
   onToChange?: (to: string[]) => void;
   onDraftIdChange?: (id: string | null) => void;
+  /** Casilla preferida al abrir composición nueva (no reply). */
+  preferredAccountId?: string | null;
 };
 
 const AUTOSAVE_DEBOUNCE_MS = 3_000;
@@ -195,6 +198,7 @@ export const EmailComposer = forwardRef<EmailComposerHandle, Props>(function Ema
     onSubjectChange,
     onToChange,
     onDraftIdChange,
+    preferredAccountId = null,
   },
   ref,
 ) {
@@ -307,16 +311,23 @@ export const EmailComposer = forwardRef<EmailComposerHandle, Props>(function Ema
           .filter((a) => !a.status || a.status === "active");
         setAccounts(active);
         if (active.length > 0) {
-          const first = active[0];
-          const def = first.aliases?.find((a) => a.isDefault);
+          const preferred =
+            preferredAccountId
+              ? active.find((a) => a.id === preferredAccountId)
+              : null;
+          const picked =
+            preferred ??
+            active.find((a) => a.isDefault) ??
+            active[0];
+          const def = picked.aliases?.find((a) => a.isDefault);
           setIdentity({
-            accountId: first.id,
-            alias: def && def.email !== first.email.toLowerCase() ? def.email : null,
+            accountId: picked.id,
+            alias: def && def.email !== picked.email.toLowerCase() ? def.email : null,
           });
         }
       })
       .catch(() => {});
-  }, [isReply]);
+  }, [isReply, preferredAccountId]);
 
   const identityOptions = useMemo(() => {
     const options: Array<{ key: string; label: string; accountId: string; alias: string | null }> = [];

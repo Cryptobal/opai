@@ -2717,6 +2717,14 @@ model CrmEmailAccount {
   /// Cache de users.settings.sendAs (aliases de envío): [{ email, displayName,
   /// isDefault, verificationStatus }]. Se refresca al conectar y bajo demanda.
   sendAs                Json?     @map("send_as")
+  /// Clave de token de tint DS (`teal`, `violet`, …). Nunca un hex.
+  color                 String?   @map("color")
+  /// Etiqueta corta (≤6) para chip en bandeja unificada.
+  displayLabel          String?   @map("display_label")
+  /// Casilla por defecto para redactar. A lo sumo una por (tenantId, userId).
+  isDefault             Boolean   @default(false) @map("is_default")
+  /// Orden en el selector de casillas.
+  sortIndex             Int       @default(0) @map("sort_index")
   createdAt             DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt             DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 

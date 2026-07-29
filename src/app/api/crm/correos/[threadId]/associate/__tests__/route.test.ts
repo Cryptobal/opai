@@ -9,7 +9,6 @@ vi.mock("@/lib/api-auth-productividad", () => ({
 }));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
-    crmEmailAccount: { findFirst: vi.fn() },
     crmEmailThread: { findFirst: vi.fn(), update: vi.fn() },
     crmAccount: { findFirst: vi.fn() },
     crmDeal: { findFirst: vi.fn() },
@@ -23,10 +22,14 @@ vi.mock("@/lib/audit-email", () => ({
 vi.mock("@/modules/crm/email/share-materialize", () => ({
   materializeSharedThreadAttachments: vi.fn(),
 }));
+vi.mock("@/modules/crm/email/mailbox-scope", () => ({
+  requireThreadMailbox: vi.fn(),
+}));
 
 import { auth } from "@/lib/auth";
 import { requireCorreosAccess } from "@/lib/api-auth-productividad";
 import { prisma } from "@/lib/prisma";
+import { requireThreadMailbox } from "@/modules/crm/email/mailbox-scope";
 import { POST } from "../route";
 
 describe("POST /api/crm/correos/[threadId]/associate", () => {
@@ -36,7 +39,20 @@ describe("POST /api/crm/correos/[threadId]/associate", () => {
     vi.mocked(auth).mockResolvedValue({
       user: { id: "u1", tenantId: "t1", email: "u@test.com" },
     } as never);
-    vi.mocked(prisma.crmEmailAccount.findFirst).mockResolvedValue({ id: "ea1" } as never);
+    vi.mocked(requireThreadMailbox).mockResolvedValue({
+      ok: true,
+      thread: { id: "th1", emailAccountId: "ea1" },
+      account: {
+        id: "ea1",
+        email: "a@test.com",
+        color: "teal",
+        displayLabel: "Test",
+        isDefault: true,
+        sortIndex: 0,
+        status: "active",
+        grantedScopes: null,
+      },
+    });
     vi.mocked(prisma.crmEmailThread.findFirst).mockResolvedValue({
       id: "th1",
       accountId: "acc1",

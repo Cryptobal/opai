@@ -1,6 +1,5 @@
 /** POST /api/crm/correos/[threadId]/extract-structure — propuesta CRM+cobertura (no crea). */
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 import { resolveApiPerms } from "@/lib/api-auth";
 import { hasCapability } from "@/lib/permissions";
 import { requireCorreosAccess } from "@/lib/api-auth-productividad";
@@ -11,6 +10,7 @@ import {
 import { parseExtractStructureBody } from "@/modules/crm/email/extract-structure-body";
 import { logAiUsage } from "@/lib/platform-ai-service";
 import { aiService } from "@/lib/ai-service";
+import { requireThreadMailbox } from "@/modules/crm/email/mailbox-scope";
 
 export const maxDuration = 60;
 
@@ -25,17 +25,6 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   if (!hasCapability(perms, "copiloto_correos")) {
     return NextResponse.json({ error: "Sin permiso de Copiloto de correos" }, { status: 403 });
   }
-
-  const account = await prisma.crmEmailAccount.findFirst({
-    where: {
-      tenantId: authCtx.tenantId,
-      userId: authCtx.userId,
-      provider: "gmail",
-      status: "active",
-    },
-    select: { id: true },
-  });
-  if (!account) return NextResponse.json({ error: "Gmail no conectado" }, { status: 400 });
 
   let body: unknown = undefined;
   const contentType = req.headers.get("content-type") ?? "";
@@ -53,6 +42,14 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   }
 
   const { threadId } = await ctx.params;
+  const owned = await requireThreadMailbox({
+    tenantId: authCtx.tenantId,
+    userId: authCtx.userId,
+    threadId,
+  });
+  if (!owned.ok) return NextResponse.json({ error: owned.error }, { status: owned.status });
+  const { account } = owned;
+
   const isRefine = Boolean(parsed.answers?.length);
   const startedAt = Date.now();
   try {

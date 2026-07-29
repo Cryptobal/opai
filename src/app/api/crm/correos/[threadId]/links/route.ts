@@ -16,17 +16,12 @@ import {
   resolveThreadLinks,
   threadLinkEntityExists,
 } from "@/modules/crm/email/email-thread-links";
+import { requireThreadMailbox } from "@/modules/crm/email/mailbox-scope";
 
 async function threadOfUser(tenantId: string, userId: string, threadId: string) {
-  const account = await prisma.crmEmailAccount.findFirst({
-    where: { tenantId, userId, provider: "gmail", status: "active" },
-    select: { id: true },
-  });
-  if (!account) return null;
-  return prisma.crmEmailThread.findFirst({
-    where: { id: threadId, tenantId, emailAccountId: account.id },
-    select: { id: true },
-  });
+  const owned = await requireThreadMailbox({ tenantId, userId, threadId });
+  if (!owned.ok) return null;
+  return { id: owned.thread.id };
 }
 
 export async function GET(

@@ -103,7 +103,7 @@ async function handle(request: NextRequest) {
   invalidateCorreoFolderCounts(session.user.tenantId, emailAccount.id);
   const counts = await countCorreoFolders({
     tenantId: session.user.tenantId,
-    emailAccountId: emailAccount.id,
+    emailAccountIds: [emailAccount.id],
   });
 
   return NextResponse.json({

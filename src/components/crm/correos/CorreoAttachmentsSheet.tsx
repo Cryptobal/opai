@@ -1,14 +1,10 @@
 "use client";
 
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetDescription,
-} from "@/components/ui/sheet";
+import { createPortal } from "react-dom";
+import { X } from "lucide-react";
 import type { CorreoAttachmentDTO } from "@/modules/crm/email/correos.types";
 import { CorreoAttachments } from "./CorreoAttachments";
+import { useCloseOnBack } from "./useCloseOnBack";
 
 type Props = {
   open: boolean;
@@ -27,7 +23,8 @@ type Props = {
 
 /**
  * Hoja con los adjuntos del hilo (previsualización + guardar en cuenta/negocio).
- * Reutiliza CorreoAttachments / Viewer / Save — no inventa un visor nuevo.
+ * Portal propio a `<body>` por encima del Copiloto (z-55): el Sheet Radix a
+ * z-50 quedaba debajo / inert y el guardado no recibía clics.
  */
 export function CorreoAttachmentsSheet({
   open,
@@ -43,23 +40,44 @@ export function CorreoAttachmentsSheet({
   onSaved,
   onRequestAssociate,
 }: Props) {
-  return (
-    <Sheet open={open} onOpenChange={(v) => !v && onClose()}>
-      <SheetContent
-        side="bottom"
-        className="flex max-h-[85vh] flex-col gap-0 overflow-hidden rounded-t-2xl p-0 sm:max-w-lg sm:rounded-t-2xl"
+  useCloseOnBack(open, onClose);
+
+  if (!open || typeof document === "undefined") return null;
+
+  return createPortal(
+    <div
+      className="pointer-events-auto fixed inset-0 z-[60] flex items-end justify-center bg-black/40 sm:items-end"
+      onClick={onClose}
+      role="presentation"
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Adjuntos del hilo"
+        onClick={(e) => e.stopPropagation()}
+        className="flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-t-2xl border border-ds-border-subtle bg-ds-surface-1 shadow-ds-lg"
       >
-        <SheetHeader className="border-b border-ds-border-subtle px-4 py-3 text-left">
-          <SheetTitle className="font-display text-[16px] text-ds-text-1">
-            Adjuntos del hilo
-          </SheetTitle>
-          <SheetDescription className="text-[12px] text-ds-text-3">
-            {items.length === 0
-              ? "Este hilo no tiene adjuntos"
-              : `${items.length} archivo${items.length === 1 ? "" : "s"} · previsualiza o guarda en la ficha`}
-          </SheetDescription>
-        </SheetHeader>
-        <div className="min-h-0 flex-1 overflow-y-auto p-3">
+        <header className="flex shrink-0 items-start gap-2 border-b border-ds-border-subtle px-4 py-3">
+          <div className="min-w-0 flex-1 text-left">
+            <h2 className="font-display text-[16px] font-semibold text-ds-text-1">
+              Adjuntos del hilo
+            </h2>
+            <p className="text-[12px] text-ds-text-3">
+              {items.length === 0
+                ? "Este hilo no tiene adjuntos"
+                : `${items.length} archivo${items.length === 1 ? "" : "s"} · previsualiza o guarda en la ficha`}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Cerrar"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-ds-text-3 ds-tap sm:h-9 sm:w-9"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </header>
+        <div className="min-h-0 flex-1 overflow-y-auto p-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)]">
           {items.length === 0 ? (
             <p className="py-8 text-center text-[13px] text-ds-text-3">Sin adjuntos</p>
           ) : (
@@ -78,7 +96,8 @@ export function CorreoAttachmentsSheet({
             />
           )}
         </div>
-      </SheetContent>
-    </Sheet>
+      </div>
+    </div>,
+    document.body,
   );
 }

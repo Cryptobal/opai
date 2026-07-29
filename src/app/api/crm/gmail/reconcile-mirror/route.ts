@@ -65,7 +65,7 @@ export async function POST() {
   invalidateCorreoFolderCounts(tenantId, emailAccount.id);
   const counts = await countCorreoFolders({
     tenantId,
-    emailAccountId: emailAccount.id,
+    emailAccountIds: [emailAccount.id],
   });
 
   return NextResponse.json({

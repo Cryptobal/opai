@@ -6,6 +6,7 @@ import { requireCorreosAccess } from "@/lib/api-auth-productividad";
 import { normalizeEmailAddress } from "@/lib/email-address";
 import { auditEmailAction } from "@/lib/audit-email";
 import { materializeSharedThreadAttachments } from "@/modules/crm/email/share-materialize";
+import { requireThreadMailbox } from "@/modules/crm/email/mailbox-scope";
 
 type Ctx = { params: Promise<{ threadId: string }> };
 type Body = { accountId?: string | null; dealId?: string | null; sharedWithAccount?: boolean };
@@ -20,13 +21,15 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   }
   const tenantId = session.user.tenantId;
 
-  const account = await prisma.crmEmailAccount.findFirst({
-    where: { tenantId, userId: session.user.id, provider: "gmail", status: "active" },
-    select: { id: true },
-  });
-  if (!account) return NextResponse.json({ error: "Gmail no conectado" }, { status: 400 });
-
   const { threadId } = await ctx.params;
+  const owned = await requireThreadMailbox({
+    tenantId,
+    userId: session.user.id,
+    threadId,
+  });
+  if (!owned.ok) return NextResponse.json({ error: owned.error }, { status: owned.status });
+  const { account } = owned;
+
   const body = (await req.json().catch(() => ({}))) as Body;
 
   const thread = await prisma.crmEmailThread.findFirst({

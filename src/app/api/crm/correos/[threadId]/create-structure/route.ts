@@ -19,6 +19,7 @@ import { gmailClientForAccount } from "@/modules/crm/email/gmail-account-client"
 import { prepareThreadAttachments } from "@/modules/crm/email/email-to-lead-attachments";
 import { auditEmailAction } from "@/lib/audit-email";
 import type { StagedFile } from "@/modules/crm/email/email-to-lead.types";
+import { requireThreadMailbox } from "@/modules/crm/email/mailbox-scope";
 
 type Ctx = { params: Promise<{ threadId: string }> };
 
@@ -36,17 +37,6 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     return NextResponse.json({ error: "Sin permiso de Copiloto de correos" }, { status: 403 });
   }
 
-  const account = await prisma.crmEmailAccount.findFirst({
-    where: {
-      tenantId: authCtx.tenantId,
-      userId: authCtx.userId,
-      provider: "gmail",
-      status: "active",
-    },
-    select: { id: true, accessTokenEncrypted: true, refreshTokenEncrypted: true },
-  });
-  if (!account) return NextResponse.json({ error: "Gmail no conectado" }, { status: 400 });
-
   const body = (await req.json().catch(() => ({}))) as {
     proposal?: CrmStructureProposal;
     include?: CreateCrmStructureInclude;
@@ -61,6 +51,14 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   }
 
   const { threadId } = await ctx.params;
+  const owned = await requireThreadMailbox({
+    tenantId: authCtx.tenantId,
+    userId: authCtx.userId,
+    threadId,
+  });
+  if (!owned.ok) return NextResponse.json({ error: owned.error }, { status: owned.status });
+  const { account } = owned;
+
   const proposal = coerceCrmStructureProposal(body.proposal);
 
   let stagedFiles: StagedFile[] = [];
@@ -69,7 +67,11 @@ export async function POST(req: NextRequest, ctx: Ctx) {
       where: { id: threadId, tenantId: authCtx.tenantId, emailAccountId: account.id },
       select: { providerThreadId: true },
     });
-    const gmail = gmailClientForAccount(account);
+    const accountTokens = await prisma.crmEmailAccount.findFirst({
+      where: { id: account.id, tenantId: authCtx.tenantId },
+      select: { id: true, accessTokenEncrypted: true, refreshTokenEncrypted: true },
+    });
+    const gmail = accountTokens ? gmailClientForAccount(accountTokens) : null;
     if (thread?.providerThreadId && gmail) {
       const prepared = await prepareThreadAttachments(
         gmail,

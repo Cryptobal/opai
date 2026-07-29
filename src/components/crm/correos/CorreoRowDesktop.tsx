@@ -10,6 +10,7 @@ import { CorreoThreadActions } from "./CorreoThreadActions";
 import { CorreoMatchReasonBadge } from "./CorreoMatchReasonBadge";
 import { runCorreoAction } from "./correo-thread-action-client";
 import type { CorreoPreviewLines } from "./useCorreosViewPreferences";
+import { tintBar, tintSoft } from "./MailboxSwitcher";
 
 function snoozeShort(iso: string): string {
   return new Date(iso).toLocaleString("es-CL", {
@@ -35,6 +36,10 @@ type Props = {
   checked?: boolean;
   onToggleCheck?: () => void;
   previewLines?: CorreoPreviewLines;
+  /** Bandeja unificada: barra de color + chip de casilla. */
+  unified?: boolean;
+  mailboxColor?: string | null;
+  mailboxLabel?: string | null;
 };
 
 /**
@@ -47,6 +52,7 @@ export function CorreoRowDesktop({
   thread, onOpen, canModify, onChanged, onRemoveDone, onUndoDone, onRemove, onSnooze,
   onAiMenu,
   selected = false, focused = false, checked, onToggleCheck, previewLines = 2,
+  unified = false, mailboxColor = null, mailboxLabel = null,
 }: Props) {
   const unread = thread.isUnread;
   const compact = previewLines === 1;
@@ -58,6 +64,7 @@ export function CorreoRowDesktop({
   // El border-l siempre ocupa 2px (transparent) para no desplazar el contenido
   // al cambiar de fila — eso causaba el "tiritón" al archivar/navegar.
   const active = selected || focused;
+  const showMailbox = unified && Boolean(mailboxColor || mailboxLabel);
 
   return (
     <div
@@ -76,6 +83,12 @@ export function CorreoRowDesktop({
         checked && !active ? "bg-primary/10" : ""
       }`}
     >
+      {showMailbox && mailboxColor && (
+        <span
+          aria-hidden
+          className={`absolute left-0 top-1.5 bottom-1.5 w-[3px] rounded-r ${tintBar(mailboxColor)}`}
+        />
+      )}
       {onToggleCheck && (
         <CorreoCheckbox
           checked={Boolean(checked)}
@@ -118,13 +131,24 @@ export function CorreoRowDesktop({
         className="flex h-full min-w-0 flex-1 items-center gap-3 text-left outline-none focus-visible:ring-0 focus-visible:ring-offset-0"
       >
         <span
-          className={`w-44 flex-none truncate text-[13px] ${
+          className={`flex w-44 flex-none items-center gap-1.5 truncate text-[13px] ${
             unread ? "font-semibold text-ds-text-1" : "text-ds-text-2"
           }`}
         >
-          {senderLabel}
-          {thread.messageCount > 1 && (
-            <span className="font-normal text-ds-text-4"> ({thread.messageCount})</span>
+          <span className="min-w-0 truncate">
+            {senderLabel}
+            {thread.messageCount > 1 && (
+              <span className="font-normal text-ds-text-4"> ({thread.messageCount})</span>
+            )}
+          </span>
+          {showMailbox && mailboxLabel && (
+            <span
+              className={`inline-flex h-5 shrink-0 items-center rounded-md px-1.5 text-[12px] font-medium ${
+                mailboxColor ? tintSoft(mailboxColor) : "bg-ds-surface-2 text-ds-text-3"
+              }`}
+            >
+              {mailboxLabel}
+            </span>
           )}
         </span>
         <span className="min-w-0 flex-1 truncate text-[13px]" title={subject}>

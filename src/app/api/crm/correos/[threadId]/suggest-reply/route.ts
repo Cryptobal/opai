@@ -17,6 +17,7 @@ import {
   normalizeEmailAddress,
 } from "@/lib/email-address";
 import { gmailClientForAccount } from "@/modules/crm/email/gmail-account-client";
+import { requireThreadMailbox } from "@/modules/crm/email/mailbox-scope";
 
 export const maxDuration = 60;
 type Ctx = { params: Promise<{ threadId: string }> };
@@ -112,20 +113,19 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
   const ctx = await requireAuth();
   if (!ctx) return unauthorized();
   const { threadId } = await params;
+
+  const owned = await requireThreadMailbox({
+    tenantId: ctx.tenantId,
+    userId: ctx.userId,
+    threadId,
+  });
+  if (!owned.ok) return NextResponse.json({ error: owned.error }, { status: owned.status });
+  const { account } = owned;
+
   const data = await loadThreadReply(ctx.tenantId, threadId);
   if (!data) return NextResponse.json({ error: "Hilo no encontrado" }, { status: 404 });
 
-  let ownEmail = "";
-  const account = data.thread.emailAccountId
-    ? await prisma.crmEmailAccount.findFirst({
-        where: { id: data.thread.emailAccountId, tenantId: ctx.tenantId },
-        select: { email: true },
-      })
-    : await prisma.crmEmailAccount.findFirst({
-        where: { tenantId: ctx.tenantId, userId: ctx.userId, provider: "gmail", status: "active" },
-        select: { email: true },
-      });
-  if (account?.email) ownEmail = account.email;
+  const ownEmail = account.email || "";
 
   let replyToEmail = data.lastInbound?.replyToEmail ?? null;
   if (data.lastInbound) {
@@ -133,7 +133,7 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
       (await ensureReplyTo({
         tenantId: ctx.tenantId,
         message: data.lastInbound,
-        emailAccountId: data.thread.emailAccountId,
+        emailAccountId: account.id,
       })) ?? replyToEmail;
   }
 
@@ -167,6 +167,15 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   const ctx = await requireAuth();
   if (!ctx) return unauthorized();
   const { threadId } = await params;
+
+  const owned = await requireThreadMailbox({
+    tenantId: ctx.tenantId,
+    userId: ctx.userId,
+    threadId,
+  });
+  if (!owned.ok) return NextResponse.json({ error: owned.error }, { status: owned.status });
+  const { account } = owned;
+
   const data = await loadThreadReply(ctx.tenantId, threadId);
   if (!data?.lastInbound) return NextResponse.json({ error: "Sin correo entrante" }, { status: 404 });
   const payload = (await req.json().catch(() => ({}))) as {
@@ -184,7 +193,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     (await ensureReplyTo({
       tenantId: ctx.tenantId,
       message: data.lastInbound,
-      emailAccountId: data.thread.emailAccountId,
+      emailAccountId: account.id,
     })) ?? data.lastInbound.replyToEmail;
   const replyAddress = preferredReplyAddress({
     fromEmail: data.lastInbound.fromEmail,

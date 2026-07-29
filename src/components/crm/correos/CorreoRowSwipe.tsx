@@ -59,6 +59,9 @@ type Props = {
   onAvatarPress?: (id: string) => void;
   onLongPress?: (id: string) => void;
   selectionMode?: boolean;
+  unified?: boolean;
+  mailboxColor?: string | null;
+  mailboxLabel?: string | null;
 };
 
 const LEAVE_MS = 200;
@@ -107,6 +110,7 @@ function CorreoRowSwipeInner({
   onAiMenu,
   selected, focused, checked, onToggleCheck, previewLines, swipeConfig,
   onAvatarPress, onLongPress, selectionMode = false,
+  unified = false, mailboxColor = null, mailboxLabel = null,
 }: Props) {
   const [coarse, setCoarse] = useState(false);
   const [leaving, setLeaving] = useState(false);
@@ -240,6 +244,9 @@ function CorreoRowSwipeInner({
         checked={checked}
         onToggleCheck={onToggleCheck ? () => onToggleCheck(thread.id) : undefined}
         previewLines={previewLines}
+        unified={unified}
+        mailboxColor={mailboxColor}
+        mailboxLabel={mailboxLabel}
       />
     );
   }
@@ -310,6 +317,9 @@ function CorreoRowSwipeInner({
               : undefined
           }
           previewLines={previewLines}
+          unified={unified}
+          mailboxColor={mailboxColor}
+          mailboxLabel={mailboxLabel}
         />
       </motion.div>
     </div>
@@ -336,7 +346,10 @@ function propsAreEqual(prev: Props, next: Props): boolean {
     prev.onAiMenu === next.onAiMenu &&
     prev.onToggleCheck === next.onToggleCheck &&
     prev.onAvatarPress === next.onAvatarPress &&
-    prev.onLongPress === next.onLongPress
+    prev.onLongPress === next.onLongPress &&
+    prev.unified === next.unified &&
+    prev.mailboxColor === next.mailboxColor &&
+    prev.mailboxLabel === next.mailboxLabel
   );
 }
 

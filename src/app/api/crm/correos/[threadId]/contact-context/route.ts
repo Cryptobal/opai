@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { requireCorreosAccess } from "@/lib/api-auth-productividad";
+import { requireThreadMailbox } from "@/modules/crm/email/mailbox-scope";
 
 export async function GET(
   _req: NextRequest,
@@ -22,16 +23,13 @@ export async function GET(
   const tenantId = session.user.tenantId;
   const { threadId } = await ctx.params;
 
-  const account = await prisma.crmEmailAccount.findFirst({
-    where: {
-      tenantId,
-      userId: session.user.id,
-      provider: "gmail",
-      status: "active",
-    },
-    select: { id: true },
+  const owned = await requireThreadMailbox({
+    tenantId,
+    userId: session.user.id,
+    threadId,
   });
-  if (!account) return NextResponse.json({ contact: null });
+  if (!owned.ok) return NextResponse.json({ error: owned.error }, { status: owned.status });
+  const { account } = owned;
 
   const thread = await prisma.crmEmailThread.findFirst({
     where: { id: threadId, tenantId, emailAccountId: account.id },

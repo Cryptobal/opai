@@ -6,6 +6,7 @@
  * La autorización replica exactamente las reglas del listado (directos +
  * heredados) vía authorizeEntityThread().
  */
+// Excepción multicuenta: autoriza por entidad (sharedWithAccount), no por casilla del usuario.
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, resolveApiPerms } from "@/lib/api-auth";
 import { prisma } from "@/lib/prisma";

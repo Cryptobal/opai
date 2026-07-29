@@ -4,6 +4,8 @@ export type CorreoThreadDTO = {
   fromEmail: string | null;
   snippet: string | null;
   lastMessageAt: string | null;
+  /** Casilla Gmail dueña del hilo (bandeja unificada). */
+  emailAccountId: string | null;
   accountId: string | null;
   accountName: string | null;
   dealId: string | null;

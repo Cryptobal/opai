@@ -16,6 +16,7 @@ import { CorreoMeetingPanel } from "./CorreoMeetingPanel";
 import { CorreoWorkSummary } from "./CorreoWorkSummary";
 import { CorreoAttachmentsSheet } from "./CorreoAttachmentsSheet";
 import { CorreoWorkProvider } from "./CorreoWorkContext";
+import { CorreoReaderOverlayContext } from "./CorreoReaderOverlayContext";
 import { WORK_TABS, resolveWorkTab, type WorkTab } from "./work-panel-tabs";
 import type { CorreoDetail } from "@/modules/crm/email/correos.types";
 import type { CorreoAiCommandId } from "@/modules/crm/email/correo-ai-commands";
@@ -100,17 +101,21 @@ export function CorreoWorkPanel({
   useEffect(() => {
     if (!open) return;
     function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") {
-        e.preventDefault();
-        e.stopPropagation();
-        requestClose();
+      if (e.key !== "Escape") return;
+      e.preventDefault();
+      e.stopPropagation();
+      // Primero cerrar capas hijas (adjuntos / guardar); no tumbar el Copiloto.
+      if (attachmentsOpen) {
+        setAttachmentsOpen(false);
+        return;
       }
+      requestClose();
     }
     document.addEventListener("keydown", onKey, { capture: true });
     return () => document.removeEventListener("keydown", onKey, { capture: true });
     // requestClose closes over `closing`; re-bind when open/closing changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, closing, onClose]);
+  }, [open, closing, onClose, attachmentsOpen]);
 
   if (!open) return null;
 
@@ -261,19 +266,26 @@ export function CorreoWorkPanel({
           </div>
         </CorreoWorkProvider>
       </div>
-      <CorreoAttachmentsSheet
-        open={attachmentsOpen}
-        onClose={() => setAttachmentsOpen(false)}
-        threadId={t.id}
-        items={detail.attachments}
-        dealId={t.dealId}
-        dealTitle={t.dealTitle}
-        accountId={t.accountId}
-        accountName={t.accountName}
-        degraded={detail.degraded}
-        onSaved={onRefresh}
-        onRequestAssociate={() => selectTab("cuenta")}
-      />
+      {/*
+        Anular el host del lector: CorreoAttachmentSave hereda el overlay del
+        reader (detrás del Copiloto z-55) y el guardado quedaba inaccesible.
+        Con null cae al portal body z-[70].
+      */}
+      <CorreoReaderOverlayContext.Provider value={null}>
+        <CorreoAttachmentsSheet
+          open={attachmentsOpen}
+          onClose={() => setAttachmentsOpen(false)}
+          threadId={t.id}
+          items={detail.attachments}
+          dealId={t.dealId}
+          dealTitle={t.dealTitle}
+          accountId={t.accountId}
+          accountName={t.accountName}
+          degraded={detail.degraded}
+          onSaved={onRefresh}
+          onRequestAssociate={() => selectTab("cuenta")}
+        />
+      </CorreoReaderOverlayContext.Provider>
     </div>,
     document.body,
   );
