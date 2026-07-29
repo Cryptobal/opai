@@ -181,18 +181,13 @@ const MIGRATED_PATHS = [
   // y Moon icon nocturno (bg-emerald/amber/red/blue/zinc-500/X →
   // <Tag variant>/<IconBubble tone>; text-indigo-400 → text-status-info-fg).
   //
-  // Solo /crm/installations page (SC) se agrega: queda 100% limpia tras
-  // el cambio a <PageHero>. CrmInstallationsListClient.tsx y
-  // CrmInstallationsClient.tsx (CC) NO se agregan: mismo criterio que
-  // 4A/4B/4C/4D/5A.1/5A.2/5A.3/5A.4/5A.5/5A.6 — los archivos completaron
-  // su migración del badging/icons al DS v3 pero conservan text-[11px]
-  // en counters (decisión deliberada del prompt 5A.7.a para alinear con
-  // el resto de los chips chicos del CRM) y bg-emerald-600 en el botón
-  // Crear del modal (preservado por la regla "no tocar el modal" del
-  // prompt). Se agregarán cuando se haga su pasada de limpieza completa
-  // en una sub-fase futura. La ficha /crm/installations/[id]
-  // (CrmInstallationDetailClient, 3.002 líneas) queda para 5A.7.b.
+  // Cluster DS v4 bloques 0–2 — lista de Instalaciones migrada a EntityRow
+  // + escala tipográfica semántica + tint por cliente. CrmInstallationsClient
+  // (lista anidada en ficha Cuenta) y CrmInstallationDetailClient quedan
+  // fuera de alcance de este brief.
   "src/app/(app)/crm/installations/page.tsx",
+  "src/components/crm/CrmInstallationsListClient.tsx",
+  "src/lib/entity-tint.ts",
   // Cluster 5A.7.b — Ficha de Instalación (CrmInstallationDetailClient,
   // 3.002 líneas) migrada granularmente al DS v3 en color drift +
   // EmptyState + Tag patterns. 43 hex hardcoded eliminados
@@ -1622,6 +1617,28 @@ const RULES = [
     message: "Input/Select con h-8 (32px) es bajo el mínimo Apple HIG (44px) en mobile.",
     fix: 'className="h-10 sm:h-9" (44px mobile, 36px desktop).',
     severity: "warn", // warn porque hay cards-toggle y otros valid uses
+    scope: "tsx",
+  },
+
+  // ─── DS v4 — preferir roles tipográficos semánticos ──────────
+  // Warning (nunca bloquea): guía la migración de text-[Npx] → text-ds-*.
+  // No es error para no romper pre-commit de los ~800 archivos no migrados.
+  {
+    id: "prefer-ds-fontsize",
+    test: /text-\[(1[2-9]|2[0-9])px\]/g,
+    message: "Tamaño tipográfico arbitrario — preferir rol semántico DS v4.",
+    fix: "Mapear: 12→text-ds-caption, 13→text-ds-body, 14-15→text-ds-title, 16-18→text-ds-heading, 19-22→text-ds-display, 23+→text-ds-metric. Ver --t-* en globals.css.",
+    severity: "warn",
+    scope: "tsx",
+  },
+
+  // ─── DS v4 — tints sin interpolación (Tailwind no los detecta) ─
+  {
+    id: "no-interpolated-tint",
+    test: /(?:bg|text)-tint-\$\{/g,
+    message: "Clase tint construida por interpolación — Tailwind no la genera en el CSS.",
+    fix: "Usar tintClasses(tint) de @/lib/entity-tint (mapa literal estático).",
+    severity: "error",
     scope: "tsx",
   },
 

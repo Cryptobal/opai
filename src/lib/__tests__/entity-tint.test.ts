@@ -64,13 +64,29 @@ describe("tintFromId", () => {
 
 describe("tintClasses", () => {
   it("devuelve clases Tailwind estáticas sin interpolación", () => {
+    const expectedBg: Record<string, string> = {
+      emerald: "bg-tint-emerald",
+      violet: "bg-tint-violet",
+      amber: "bg-tint-amber",
+      sky: "bg-tint-sky",
+      rose: "bg-tint-rose",
+      teal: "bg-tint-teal",
+    };
+    const expectedFg: Record<string, string> = {
+      emerald: "text-tint-emerald-fg",
+      violet: "text-tint-violet-fg",
+      amber: "text-tint-amber-fg",
+      sky: "text-tint-sky-fg",
+      rose: "text-tint-rose-fg",
+      teal: "text-tint-teal-fg",
+    };
     for (const tint of ENTITY_TINTS) {
       const c = tintClasses(tint);
-      expect(c.bg).toBe(`bg-tint-${tint}`);
-      expect(c.fg).toBe(`text-tint-${tint}-fg`);
+      expect(c.bg).toBe(expectedBg[tint]);
+      expect(c.fg).toBe(expectedFg[tint]);
       expect(c.rail).toContain("inset_3px_0_0");
-      expect(c.bg.includes("${")).toBe(false);
-      expect(c.fg.includes("${")).toBe(false);
+      expect(c.bg.includes("$" + "{")).toBe(false);
+      expect(c.fg.includes("$" + "{")).toBe(false);
     }
   });
 });

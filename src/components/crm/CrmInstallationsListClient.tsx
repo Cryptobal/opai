@@ -16,13 +16,12 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { EmptyState, Tag, IconBubble } from "@/components/opai-ds";
+import { Avatar, EmptyState, EntityRow, Tag, tintFromId, tintClasses } from "@/components/opai-ds";
 import { cn } from "@/lib/utils";
 import { AddressAutocomplete, type AddressResult } from "@/components/ui/AddressAutocomplete";
 import { MapsUrlPasteInput } from "@/components/ui/MapsUrlPasteInput";
-import { CrmDates } from "@/components/crm/CrmDates";
 import { ViewToggle, type ViewMode } from "@/components/shared/ViewToggle";
-import { SearchableSelect, type SearchableOption } from "@/components/ui/SearchableSelect";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { useUnreadNoteIds } from "@/lib/hooks";
@@ -297,40 +296,76 @@ export function CrmInstallationsListClient({
               compact
             />
           ) : view === "list" ? (
-            <div className="space-y-2">
-              {filteredInstallations.map((inst) => (
-                <Link
-                  key={inst.id}
-                  href={`/crm/installations/${inst.id}`}
-                  className="flex items-center gap-2 rounded-lg border p-3 sm:p-4 transition-colors group hover:bg-accent/30"
-                >
-                  <div className="flex flex-1 items-center justify-between min-w-0">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <p className="font-medium text-sm truncate group-hover:text-primary transition-colors">{inst.name}</p>
+            <div className="space-y-1">
+              {filteredInstallations.map((inst) => {
+                const tint = tintFromId(inst.account?.id ?? inst.id);
+                const tc = tintClasses(tint);
+                const statusLabel =
+                  inst.status === "active" ? "Activa" :
+                  inst.status === "inactive" ? "Inactiva" : "Prospecto";
+                const statusVariant =
+                  inst.status === "active" ? "ok" as const :
+                  inst.status === "inactive" ? "warn" as const :
+                  "neutral" as const;
+                const addressLine = [
+                  inst.address,
+                  [inst.commune, inst.city].filter(Boolean).join(", ") || null,
+                ].filter(Boolean).join(" · ");
+
+                return (
+                  <EntityRow
+                    key={inst.id}
+                    href={`/crm/installations/${inst.id}`}
+                    tint={tint}
+                    avatar={
+                      <Avatar
+                        variant="tint"
+                        tint={tint}
+                        shape="square"
+                        size="sm"
+                        name={inst.name}
+                      />
+                    }
+                    title={inst.name}
+                    titleAside={
+                      <>
+                        {inst.account && (
+                          <Tag size="sm" className={cn(tc.bg, tc.fg, "border-transparent")}>
+                            {inst.account.name}
+                          </Tag>
+                        )}
                         {unreadNoteIds.has(inst.id) && (
                           <span className="relative shrink-0" title="Notas no leídas">
-                            <MessageSquare className="h-3.5 w-3.5 text-muted-foreground" />
+                            <MessageSquare className="h-3.5 w-3.5 text-ds-text-3" />
                             <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-destructive" />
                           </span>
                         )}
-                        <Tag
-                          variant={
-                            inst.status === "active" ? "ok" :
-                            inst.status === "inactive" ? "warn" :
-                            "neutral"
-                          }
-                          size="sm"
-                          dot
-                        >
-                          {inst.status === "active" ? "Activa" : inst.status === "inactive" ? "Inactiva" : "Prospecto"}
+                        <Tag variant={statusVariant} size="sm" dot>
+                          {statusLabel}
                         </Tag>
                         {inst.nocturnoEnabled !== false && (
-                          <span title="Control nocturno activo"><Moon className="h-3.5 w-3.5 text-status-info-fg" /></span>
+                          <span title="Control nocturno activo">
+                            <Moon className="h-3.5 w-3.5 text-status-info-fg" />
+                          </span>
                         )}
+                      </>
+                    }
+                    subtitle={
+                      addressLine ? (
+                        <span className="inline-flex items-center gap-1 min-w-0">
+                          <MapPin className="h-3 w-3 shrink-0" />
+                          <span className="truncate">{addressLine}</span>
+                        </span>
+                      ) : undefined
+                    }
+                    meta={
+                      <>
                         {inst.status === "active" && (inst.totalSlots ?? 0) > 0 ? (
                           <>
-                            <span className="inline-flex items-center gap-1 text-[11px] tabular-nums text-muted-foreground" title="Guardias asignados / Slots requeridos">
+                            <span
+                              className="inline-flex items-center gap-1 text-ds-caption tabular-nums text-ds-text-3"
+                              title="Guardias asignados / Slots requeridos"
+                            >
                               <Users className="h-3 w-3" />
                               {inst.assignedGuards ?? 0}/{inst.totalSlots}
                             </span>
@@ -343,100 +378,97 @@ export function CrmInstallationsListClient({
                         ) : inst.status === "active" && (inst.totalSlots ?? 0) === 0 ? (
                           <Tag variant="warn" size="sm">Sin puestos</Tag>
                         ) : null}
-                      </div>
-                      {inst.account && (
-                        <p className="mt-0.5 text-xs text-muted-foreground">{inst.account.name}</p>
-                      )}
-                      {inst.address && (
-                        <p className="mt-0.5 text-xs text-muted-foreground flex items-center gap-1">
-                          <MapPin className="h-3 w-3 shrink-0" />
-                          {inst.address}
-                          {(inst.city || inst.commune) && (
-                            <span> · {[inst.commune, inst.city].filter(Boolean).join(", ")}</span>
-                          )}
-                        </p>
-                      )}
-                      {inst.createdAt && (
-                        <CrmDates createdAt={inst.createdAt} updatedAt={inst.updatedAt} className="mt-0.5" />
-                      )}
-                    </div>
-                    <ChevronRight className="h-4 w-4 text-muted-foreground/40 transition-transform group-hover:translate-x-0.5 shrink-0 ml-2" />
-                  </div>
-                </Link>
-              ))}
+                        <ChevronRight className="h-4 w-4 text-ds-text-4 transition-transform group-hover:translate-x-0.5" />
+                      </>
+                    }
+                  />
+                );
+              })}
             </div>
           ) : (
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 min-w-0">
-              {filteredInstallations.map((inst) => (
-                <Link
-                  key={inst.id}
-                  href={`/crm/installations/${inst.id}`}
-                  className="rounded-lg border transition-colors hover:border-primary/30 group hover:bg-accent/30 block min-w-0 overflow-hidden"
-                >
-                  <div className="flex items-start justify-between gap-2 p-4">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2.5">
-                        <IconBubble icon={MapPin} tone="sky" size="md" />
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-2">
-                            <p className="font-medium text-sm group-hover:text-primary transition-colors truncate">{inst.name}</p>
-                            {unreadNoteIds.has(inst.id) && (
-                              <span className="relative shrink-0" title="Notas no leídas">
-                                <MessageSquare className="h-3.5 w-3.5 text-muted-foreground" />
-                                <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-destructive" />
-                              </span>
-                            )}
-                            <Tag
-                              variant={
-                                inst.status === "active" ? "ok" :
-                                inst.status === "inactive" ? "warn" :
-                                "neutral"
-                              }
-                              size="sm"
-                              dot
-                            >
-                              {inst.status === "active" ? "Activa" : inst.status === "inactive" ? "Inactiva" : "Prospecto"}
-                            </Tag>
-                            {inst.nocturnoEnabled !== false && (
-                              <span title="Control nocturno activo"><Moon className="h-3.5 w-3.5 text-status-info-fg" /></span>
+              {filteredInstallations.map((inst) => {
+                const tint = tintFromId(inst.account?.id ?? inst.id);
+                const tc = tintClasses(tint);
+                return (
+                  <Link
+                    key={inst.id}
+                    href={`/crm/installations/${inst.id}`}
+                    className="rounded-lg border border-ds-border-default transition-colors hover:border-primary/30 group hover:bg-ds-surface-2 block min-w-0 overflow-hidden"
+                  >
+                    <div className="flex items-start justify-between gap-2 p-4">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2.5">
+                          <Avatar
+                            variant="tint"
+                            tint={tint}
+                            shape="square"
+                            size="md"
+                            name={inst.name}
+                          />
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2">
+                              <p className="text-ds-title text-ds-text-1 group-hover:text-primary transition-colors truncate">{inst.name}</p>
+                              {unreadNoteIds.has(inst.id) && (
+                                <span className="relative shrink-0" title="Notas no leídas">
+                                  <MessageSquare className="h-3.5 w-3.5 text-ds-text-3" />
+                                  <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-destructive" />
+                                </span>
+                              )}
+                              <Tag
+                                variant={
+                                  inst.status === "active" ? "ok" :
+                                  inst.status === "inactive" ? "warn" :
+                                  "neutral"
+                                }
+                                size="sm"
+                                dot
+                              >
+                                {inst.status === "active" ? "Activa" : inst.status === "inactive" ? "Inactiva" : "Prospecto"}
+                              </Tag>
+                              {inst.nocturnoEnabled !== false && (
+                                <span title="Control nocturno activo"><Moon className="h-3.5 w-3.5 text-status-info-fg" /></span>
+                              )}
+                            </div>
+                            {inst.account && (
+                              <p className={cn("text-ds-caption truncate", tc.fg)}>{inst.account.name}</p>
                             )}
                           </div>
-                          {inst.account && <p className="text-xs text-muted-foreground">{inst.account.name}</p>}
                         </div>
+                        {inst.address && (
+                          <p className="text-ds-caption text-ds-text-3 flex items-center gap-1.5 mt-2">
+                            <MapPin className="h-3 w-3 shrink-0" />
+                            {inst.address}
+                          </p>
+                        )}
+                        {(inst.commune || inst.city) && (
+                          <p className="text-ds-caption text-ds-text-3">
+                            {[inst.commune, inst.city].filter(Boolean).join(", ")}
+                          </p>
+                        )}
+                        {inst.status === "active" && (inst.totalSlots ?? 0) > 0 ? (
+                          <div className="flex items-center gap-2 mt-2 pt-2 border-t border-ds-border-subtle">
+                            <span className="inline-flex items-center gap-1 text-ds-caption tabular-nums text-ds-text-3" title="Guardias asignados / Slots requeridos">
+                              <Users className="h-3 w-3" />
+                              {inst.assignedGuards ?? 0}/{inst.totalSlots} guardias
+                            </span>
+                            {(inst.totalSlots! - (inst.assignedGuards ?? 0)) > 0 && (
+                              <Tag variant="danger" size="sm" icon={ShieldAlert}>
+                                {inst.totalSlots! - (inst.assignedGuards ?? 0)} PPC
+                              </Tag>
+                            )}
+                          </div>
+                        ) : inst.status === "active" && (inst.totalSlots ?? 0) === 0 ? (
+                          <div className="mt-2 pt-2 border-t border-ds-border-subtle">
+                            <Tag variant="warn" size="sm">Sin puestos creados</Tag>
+                          </div>
+                        ) : null}
                       </div>
-                      {inst.address && (
-                        <p className="text-xs text-muted-foreground flex items-center gap-1.5 mt-2">
-                          <MapPin className="h-3 w-3 shrink-0" />
-                          {inst.address}
-                        </p>
-                      )}
-                      {(inst.commune || inst.city) && (
-                        <p className="text-xs text-muted-foreground">
-                          {[inst.commune, inst.city].filter(Boolean).join(", ")}
-                        </p>
-                      )}
-                      {inst.status === "active" && (inst.totalSlots ?? 0) > 0 ? (
-                        <div className="flex items-center gap-2 mt-2 pt-2 border-t border-border/50">
-                          <span className="inline-flex items-center gap-1 text-[11px] tabular-nums text-muted-foreground" title="Guardias asignados / Slots requeridos">
-                            <Users className="h-3 w-3" />
-                            {inst.assignedGuards ?? 0}/{inst.totalSlots} guardias
-                          </span>
-                          {(inst.totalSlots! - (inst.assignedGuards ?? 0)) > 0 && (
-                            <Tag variant="danger" size="sm" icon={ShieldAlert}>
-                              {inst.totalSlots! - (inst.assignedGuards ?? 0)} PPC
-                            </Tag>
-                          )}
-                        </div>
-                      ) : inst.status === "active" && (inst.totalSlots ?? 0) === 0 ? (
-                        <div className="mt-2 pt-2 border-t border-border/50">
-                          <Tag variant="warn" size="sm">Sin puestos creados</Tag>
-                        </div>
-                      ) : null}
+                      <ChevronRight className="h-4 w-4 text-ds-text-4 shrink-0" />
                     </div>
-                    <ChevronRight className="h-4 w-4 text-muted-foreground/40 shrink-0" />
-                  </div>
-                </Link>
-              ))}
+                  </Link>
+                );
+              })}
             </div>
           )}
         </CardContent>
