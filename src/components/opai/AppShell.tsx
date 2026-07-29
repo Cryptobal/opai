@@ -228,8 +228,8 @@ function AppShellInner({
             // isla flotante (safe + 8px + 48px + 8px gap) en mobile; desktop 3rem.
             // Inmersivo: el módulo reserva el spacer de la isla; solo safe-area aquí.
             isImmersiveMobile
-              ? 'pt-[env(safe-area-inset-top,0px)] lg:pt-12'
-              : 'pt-[calc(4rem+env(safe-area-inset-top,0px))] lg:pt-12',
+              ? 'pt-[env(safe-area-inset-top,0px)] lg:pt-[var(--app-topbar-offset)]'
+              : 'pt-[calc(4rem+env(safe-area-inset-top,0px))] lg:pt-[var(--app-topbar-offset)]',
             isSidebarOpen ? 'lg:pl-64' : 'lg:pl-[72px]',
             lgPanelOpen && 'lg:mr-[400px]',
             xlPanelOpen && 'xl:mr-[400px]',
@@ -241,7 +241,7 @@ function AppShellInner({
               pathname; null si la ruta no tiene N3). Derecha: indicador UF/UTM,
               botón buscar y el clúster de acciones (theme/chat/notif/config). */}
           <div className={cn(
-            "hidden lg:flex fixed top-0 right-0 z-20 h-12 items-stretch shrink-0 transition-[left,right] duration-300 ease-out",
+            "hidden lg:flex fixed top-0 right-0 z-20 h-[var(--app-topbar-offset)] pt-[var(--safe-area-top)] items-stretch shrink-0 transition-[left,right] duration-300 ease-out",
             isIOS
               ? "opai-liquid-glass-bar-top"
               : "border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80",
