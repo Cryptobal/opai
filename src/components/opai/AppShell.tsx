@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 import { CommandPalette, CommandPaletteProvider, useCommandPalette } from './CommandPalette';
 import { MobileIsland } from './MobileIsland';
 import { TopbarActions } from './TopbarActions';
+import { TopbarSearchField } from './TopbarSearchField';
 import { QuickCreateModal, type QuickCreateType } from './QuickCreateModal';
 import { AiHelpChatWidgetV2 as AiHelpChatWidget } from './AiHelpChatWidgetV2';
 import { NavProgress } from './NavProgress';
@@ -256,7 +257,10 @@ function AppShellInner({
                 el clúster derecho al borde. TopbarSubNav muestra solo tabs N3
                 del submódulo activo (Finanzas, Ops); cambiar N2 es por sidebar. */}
             <div className="flex-1 min-w-0 flex items-stretch overflow-hidden pl-3">
-              <TopbarSubNav className="flex-1 min-w-0" />
+              <TopbarSubNav
+                className="flex-1 min-w-0"
+                fallback={<TopbarSearchField />}
+              />
             </div>
             {/* Clúster derecho: FX + acciones. Agrupado y alineado al centro del h-12. */}
             <div className="flex h-full items-center gap-2.5 pl-3 pr-3 shrink-0 border-l border-ds-border-subtle">
