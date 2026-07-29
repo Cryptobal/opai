@@ -1156,7 +1156,7 @@ export function CorreosClient() {
           {
             divider: true,
             icon: <CheckSquare className="h-4 w-4" />,
-            label: "Panel de trabajo",
+            label: "Copiloto",
             onClick: () => openWork(t.id, "resumen"),
           },
         ],

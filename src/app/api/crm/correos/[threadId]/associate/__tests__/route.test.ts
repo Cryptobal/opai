@@ -1,0 +1,120 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { NextRequest } from "next/server";
+
+vi.mock("@/lib/auth", () => ({
+  auth: vi.fn(),
+}));
+vi.mock("@/lib/api-auth-productividad", () => ({
+  requireCorreosAccess: vi.fn(),
+}));
+vi.mock("@/lib/prisma", () => ({
+  prisma: {
+    crmEmailAccount: { findFirst: vi.fn() },
+    crmEmailThread: { findFirst: vi.fn(), update: vi.fn() },
+    crmAccount: { findFirst: vi.fn() },
+    crmDeal: { findFirst: vi.fn() },
+    crmEmailMessage: { findMany: vi.fn() },
+    crmContact: { findMany: vi.fn() },
+  },
+}));
+vi.mock("@/lib/audit-email", () => ({
+  auditEmailAction: vi.fn(),
+}));
+vi.mock("@/modules/crm/email/share-materialize", () => ({
+  materializeSharedThreadAttachments: vi.fn(),
+}));
+
+import { auth } from "@/lib/auth";
+import { requireCorreosAccess } from "@/lib/api-auth-productividad";
+import { prisma } from "@/lib/prisma";
+import { POST } from "../route";
+
+describe("POST /api/crm/correos/[threadId]/associate", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(requireCorreosAccess).mockResolvedValue({ authorized: true } as never);
+    vi.mocked(auth).mockResolvedValue({
+      user: { id: "u1", tenantId: "t1", email: "u@test.com" },
+    } as never);
+    vi.mocked(prisma.crmEmailAccount.findFirst).mockResolvedValue({ id: "ea1" } as never);
+    vi.mocked(prisma.crmEmailThread.findFirst).mockResolvedValue({
+      id: "th1",
+      accountId: "acc1",
+      dealId: null,
+      sharedWithAccount: true,
+    } as never);
+    vi.mocked(prisma.crmAccount.findFirst).mockResolvedValue({
+      id: "acc1",
+      name: "Ns Construcciones Spa",
+    } as never);
+    vi.mocked(prisma.crmEmailMessage.findMany).mockResolvedValue([]);
+    vi.mocked(prisma.crmContact.findMany).mockResolvedValue([]);
+    vi.mocked(prisma.crmEmailThread.update).mockResolvedValue({} as never);
+  });
+
+  it("asocia un negocio cerrado (lost) a la cuenta del hilo", async () => {
+    vi.mocked(prisma.crmDeal.findFirst).mockResolvedValue({
+      id: "deal-lost",
+      title: "Oportunidad Ns Construcciones Spa",
+    } as never);
+
+    const req = new NextRequest("http://localhost/api/crm/correos/th1/associate", {
+      method: "POST",
+      body: JSON.stringify({ accountId: "acc1", dealId: "deal-lost" }),
+      headers: { "Content-Type": "application/json" },
+    });
+    const res = await POST(req, { params: Promise.resolve({ threadId: "th1" }) });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body).toMatchObject({
+      ok: true,
+      accountId: "acc1",
+      dealId: "deal-lost",
+      dealTitle: "Oportunidad Ns Construcciones Spa",
+    });
+    expect(prisma.crmDeal.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "deal-lost", tenantId: "t1", accountId: "acc1" },
+      }),
+    );
+    const dealWhere = vi.mocked(prisma.crmDeal.findFirst).mock.calls[0]?.[0]?.where as {
+      status?: string;
+    };
+    expect(dealWhere.status).toBeUndefined();
+    expect(prisma.crmEmailThread.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ dealId: "deal-lost", accountId: "acc1" }),
+      }),
+    );
+  });
+
+  it("asocia un negocio ganado (won)", async () => {
+    vi.mocked(prisma.crmDeal.findFirst).mockResolvedValue({
+      id: "deal-won",
+      title: "Deal ganado",
+    } as never);
+
+    const req = new NextRequest("http://localhost/api/crm/correos/th1/associate", {
+      method: "POST",
+      body: JSON.stringify({ accountId: "acc1", dealId: "deal-won" }),
+      headers: { "Content-Type": "application/json" },
+    });
+    const res = await POST(req, { params: Promise.resolve({ threadId: "th1" }) });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.dealId).toBe("deal-won");
+  });
+
+  it("rechaza un negocio que no pertenece a la cuenta", async () => {
+    vi.mocked(prisma.crmDeal.findFirst).mockResolvedValue(null);
+
+    const req = new NextRequest("http://localhost/api/crm/correos/th1/associate", {
+      method: "POST",
+      body: JSON.stringify({ accountId: "acc1", dealId: "deal-other" }),
+      headers: { "Content-Type": "application/json" },
+    });
+    const res = await POST(req, { params: Promise.resolve({ threadId: "th1" }) });
+    expect(res.status).toBe(404);
+    expect(prisma.crmEmailThread.update).not.toHaveBeenCalled();
+  });
+});

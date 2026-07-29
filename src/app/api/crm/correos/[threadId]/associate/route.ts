@@ -61,10 +61,12 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     return NextResponse.json({ error: "Cuenta no encontrada" }, { status: 404 });
   }
 
+  // Permite asociar negocios abiertos o cerrados (won/lost): el hilo puede
+  // referirse a una oportunidad ya resuelta (post-mortem, reclamaciones, etc.).
   let dealTitle: string | null = null;
   if (newAccountId && newDealId) {
     const deal = await prisma.crmDeal.findFirst({
-      where: { id: newDealId, tenantId, accountId: newAccountId, status: "open" },
+      where: { id: newDealId, tenantId, accountId: newAccountId },
       select: { id: true, title: true },
     });
     if (!deal) return NextResponse.json({ error: "Negocio no encontrado" }, { status: 404 });
