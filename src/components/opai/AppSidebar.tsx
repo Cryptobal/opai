@@ -141,8 +141,8 @@ export function AppSidebar({
     <aside
       className={cn(
         /* z-[48]: por encima de cabeceras sticky del contenido (p. ej. z-30); por debajo de modales (z-50). */
-        "fixed left-0 top-0 z-[48] border-r border-border/60 bg-gradient-to-b from-card to-card/80 flex flex-col transition-[width] duration-200 ease-out",
-        showCloseButton ? "h-full max-h-full" : "h-screen",
+        "fixed left-0 top-0 z-[48] border-r border-border/60 bg-gradient-to-b from-card to-card/80 flex flex-col transition-[width] duration-200 ease-out pt-[var(--safe-area-top)]",
+        showCloseButton ? "h-full max-h-full" : "h-[100dvh]",
         collapsed ? "w-[72px]" : "w-64",
         className
       )}

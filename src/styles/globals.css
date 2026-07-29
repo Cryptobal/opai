@@ -87,8 +87,8 @@
     --ds-border-strong: 220 13% 78%;       /* focus, hover */
 
     /* Correos: offset sticky compartido (rail / toolbar / lector).
-       Topbar AppShell = h-12 (48px) + aire ≈ 56px. */
-    --correo-stick: 56px;
+       Topbar AppShell = h-12 (48px) + aire ≈ 56px, + safe-area en iOS. */
+    --correo-stick: calc(56px + var(--safe-area-top));
 
     /* Semantic — OK (success / confirmed) */
     --ds-ok: 160 84% 32%;                  /* #0d9b6c — solid */
@@ -285,6 +285,14 @@
     --safe-area-bottom: env(safe-area-inset-bottom, 0px);
     --safe-area-left: env(safe-area-inset-left, 0px);
     --safe-area-right: env(safe-area-inset-right, 0px);
+    /* ── Offset del chrome superior ──────────────────────────────
+       Fuente única de verdad para todo lo que se ancla bajo la
+       topbar desktop (h-12). En navegador de escritorio
+       env(safe-area-inset-top) = 0px → el valor resuelve a 3rem,
+       idéntico al comportamiento previo. En iPad / iOS con
+       viewport-fit=cover el inset se suma automáticamente. */
+    --app-topbar-h: 3rem;
+    --app-topbar-offset: calc(var(--app-topbar-h) + var(--safe-area-top));
     /* Medido en runtime por PlatformAwareBottomNav (portales PWA). */
     --portal-bottom-nav-height: 5.5rem;
 
@@ -531,8 +539,8 @@
   }
   @media (min-width: 1024px) {
     .chat-full-height {
-      /* desktop: viewport minus desktop sticky topbar (3rem = h-12) */
-      height: calc(100dvh - 3rem);
+      /* desktop: viewport minus desktop sticky topbar (+ safe-area en iPad) */
+      height: calc(100dvh - var(--app-topbar-offset));
     }
   }
 }

@@ -355,7 +355,7 @@ function PortalClienteShell() {
           <ChatClientePortal session={session} />
         </div>
       ) : (
-        <main className="flex-1 pb-16 sm:pb-20">
+        <main className="flex-1 max-w-6xl mx-auto w-full pb-16 sm:pb-20">
           <PushPermissionPrompt
             portalType="cliente"
             userType="contact"

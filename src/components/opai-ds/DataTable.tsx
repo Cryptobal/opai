@@ -84,7 +84,7 @@ export function DataTable<T>({
   empty,
   className,
   stickyHeader = false,
-  stickyHeaderTopClass = "top-12",
+  stickyHeaderTopClass = "top-[var(--app-topbar-offset)]",
 }: DataTableProps<T>) {
   if (loading) {
     return (

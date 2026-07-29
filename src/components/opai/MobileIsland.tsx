@@ -212,6 +212,7 @@ export function MobileIsland({
       <div
         className={cn(
           "pointer-events-auto opai-glass-strong opai-glass-shell flex min-h-12 items-center gap-1 rounded-[22px] pl-3 pr-1",
+          "md:mx-auto md:w-full md:max-w-[860px]",
         )}
       >
         {searchOpen ? (

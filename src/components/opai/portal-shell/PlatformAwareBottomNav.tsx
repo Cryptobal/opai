@@ -78,7 +78,7 @@ export function PlatformAwareBottomNav<TId extends string = string>({
       data-portal-bottom-nav=""
       className={cn(
         // Isla glass única (iOS === Android), despegada de los bordes.
-        "fixed z-50 left-3 right-3 bottom-[calc(env(safe-area-inset-bottom,0px)+10px)] opai-glass-strong px-2 py-2 flex gap-1",
+        "fixed z-50 left-3 right-3 bottom-[calc(env(safe-area-inset-bottom,0px)+10px)] opai-glass-strong px-2 py-2 flex gap-1 sm:mx-auto sm:max-w-[560px]",
         className,
       )}
       aria-label="Navegación principal"

@@ -340,7 +340,7 @@ export function EntityDetailLayout({
       {/* ── Content area: main + optional right panel ── */}
       <div className={cn("lg:flex", subTabs ? "pt-14 sm:pt-16" : "pt-4 sm:pt-5")}>
         {leftPanel ? (
-          <div className="mb-4 lg:mb-0 lg:mr-6 lg:w-[264px] lg:shrink-0 lg:self-start lg:sticky lg:top-12 lg:max-h-[calc(100vh-48px)] lg:overflow-y-auto">
+          <div className="mb-4 lg:mb-0 lg:mr-6 lg:w-[264px] lg:shrink-0 lg:self-start lg:sticky lg:top-[var(--app-topbar-offset)] lg:max-h-[calc(100dvh-var(--app-topbar-offset))] lg:overflow-y-auto">
             {leftPanel}
           </div>
         ) : null}

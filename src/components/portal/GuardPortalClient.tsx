@@ -215,7 +215,7 @@ export function GuardPortalClient() {
           <ChatGuardPortal session={session} />
         </div>
       ) : (
-        <main className="flex-1 overflow-y-auto overscroll-contain touch-pan-y pb-16 sm:pb-20 px-4 sm:px-6">
+        <main className="flex-1 overflow-y-auto overscroll-contain touch-pan-y pb-16 sm:pb-20 px-4 sm:px-6 max-w-6xl mx-auto w-full">
           <PushPermissionPrompt
             portalType="guardia"
             userType="guardia"

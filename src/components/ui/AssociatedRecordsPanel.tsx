@@ -68,7 +68,7 @@ export function AssociatedRecordsPanel({
         className={cn(
           "hidden lg:block shrink-0 border-l border-border/60 overflow-y-auto transition-all duration-200",
           isDesktopCollapsed ? "w-10" : "w-[300px] xl:w-[340px]",
-          "sticky top-12 h-[calc(100vh-48px)]",
+          "sticky top-[var(--app-topbar-offset)] h-[calc(100dvh-var(--app-topbar-offset))]",
           className
         )}
       >
