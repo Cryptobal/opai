@@ -6,8 +6,10 @@
  * Deshacer" / "Programado" con cancelación dentro de la ventana.
  */
 
+import { fromZonedTime, toZonedTime } from "date-fns-tz";
 import { toast } from "sonner";
 import { showUndo } from "@/components/opai-ds";
+import { addDaysChile, CHILE_TZ, ymdInChile } from "@/lib/dates-cl";
 
 export type CrmEmailQueuedData = {
   outboxId: string;
@@ -145,22 +147,68 @@ export function notifyEmailQueued(
   });
 }
 
-/** Presets de "Programar envío": mañana 9:00 y próximo lunes 9:00 (hora local). */
+/** Instante UTC para un día YYYY-MM-DD a la hora de pared en Chile. */
+export function scheduleAtChileWallTime(
+  ymd: string,
+  hour: number,
+  minute = 0,
+): Date {
+  const [y, m, d] = ymd.split("-").map(Number);
+  return fromZonedTime(new Date(y, m - 1, d, hour, minute, 0, 0), CHILE_TZ);
+}
+
+/** Etiqueta corta estilo Gmail: "29 jul, 8:00". */
+export function formatScheduleWhen(date: Date): string {
+  const dayPart = date
+    .toLocaleDateString("es-CL", {
+      day: "numeric",
+      month: "short",
+      timeZone: CHILE_TZ,
+    })
+    .replace(/\./g, "")
+    .trim();
+  const timePart = date
+    .toLocaleTimeString("es-CL", {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: false,
+      timeZone: CHILE_TZ,
+    })
+    .replace(/^0/, "");
+  return `${dayPart}, ${timePart}`;
+}
+
+/**
+ * Presets de "Programar envío" (estilo Gmail), anclados a America/Santiago:
+ * mañana 8:00, mañana 13:00 y próximo lunes 8:00.
+ */
 export function scheduleSendPresets(now = new Date()): Array<{
   key: string;
   label: string;
+  whenLabel: string;
   date: Date;
 }> {
-  const tomorrow = new Date(now);
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  tomorrow.setHours(9, 0, 0, 0);
-  const nextMonday = new Date(now);
-  const day = nextMonday.getDay();
-  const daysUntilMonday = ((8 - day) % 7) || 7;
-  nextMonday.setDate(nextMonday.getDate() + daysUntilMonday);
-  nextMonday.setHours(9, 0, 0, 0);
-  return [
-    { key: "tomorrow", label: "Mañana 9:00", date: tomorrow },
-    { key: "monday", label: "Próximo lunes 9:00", date: nextMonday },
+  const tomorrowYmd = ymdInChile(addDaysChile(now, 1));
+  const chileNow = toZonedTime(now, CHILE_TZ);
+  const daysUntilMonday = ((8 - chileNow.getDay()) % 7) || 7;
+  const mondayYmd = ymdInChile(addDaysChile(now, daysUntilMonday));
+
+  const presets = [
+    {
+      key: "tomorrow-morning",
+      label: "Mañana por la mañana",
+      date: scheduleAtChileWallTime(tomorrowYmd, 8),
+    },
+    {
+      key: "tomorrow-afternoon",
+      label: "Mañana por la tarde",
+      date: scheduleAtChileWallTime(tomorrowYmd, 13),
+    },
+    {
+      key: "monday-morning",
+      label: "El lunes por la mañana",
+      date: scheduleAtChileWallTime(mondayYmd, 8),
+    },
   ];
+  return presets.map((p) => ({ ...p, whenLabel: formatScheduleWhen(p.date) }));
 }

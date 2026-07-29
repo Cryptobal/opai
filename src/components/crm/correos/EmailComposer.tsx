@@ -24,13 +24,14 @@ import {
   useState,
 } from "react";
 import type { Editor } from "@tiptap/react";
-import { CalendarClock, Check, Mic, Send, Square, Trash2 } from "lucide-react";
+import { Check, Mic, Square, Trash2 } from "lucide-react";
 import { toast } from "sonner";
-import { AttachmentPicker, Spinner } from "@/components/opai-ds";
+import { AttachmentPicker } from "@/components/opai-ds";
 import { SimpleSelect } from "@/components/ui/simple-select";
 import { confirmDialog } from "@/components/ui/confirm-service";
 import { ContractEditor } from "@/components/docs/ContractEditor";
 import { EmailToolbar } from "./EmailToolbar";
+import { ScheduleSendSplitButton } from "./ScheduleSendSplitButton";
 import { tiptapToEmailHtml } from "@/lib/docs/tiptap-to-html";
 import {
   ReplyRecipientsField,
@@ -42,7 +43,6 @@ import {
   newEmailIdempotencyKey,
   notifyEmailQueued,
   notifyEmailQueuedOffline,
-  scheduleSendPresets,
   sendCrmEmail,
 } from "./email-send-client";
 import { extractInlineImages } from "./email-inline-images";
@@ -177,8 +177,6 @@ export const EmailComposer = forwardRef<EmailComposerHandle, Props>(function Ema
   const [subject, setSubject] = useState(initialSubject);
   const [content, setContent] = useState<object | null>(initialContent);
   const [busy, setBusy] = useState(false);
-  const [scheduleOpen, setScheduleOpen] = useState(false);
-  const [customSchedule, setCustomSchedule] = useState("");
   const [accounts, setAccounts] = useState<AccountOption[]>([]);
   const [identity, setIdentity] = useState<{ accountId: string; alias: string | null } | null>(null);
   const [draftSavedAt, setDraftSavedAt] = useState<string | null>(null);
@@ -634,15 +632,12 @@ export const EmailComposer = forwardRef<EmailComposerHandle, Props>(function Ema
         className="rounded-none border-0 border-t border-ds-border-subtle bg-transparent px-0 py-2"
       />
       <div className="flex flex-wrap items-center gap-1.5 pt-1">
-        <button
-          type="button"
-          onClick={() => void send()}
-          disabled={busy || !canSend}
-          className="inline-flex h-10 items-center justify-center gap-1.5 rounded-full bg-primary px-4 text-[13px] font-medium text-primary-foreground ds-tap disabled:opacity-50 sm:h-9"
-        >
-          {busy ? <Spinner className="h-4 w-4" /> : <Send className="h-4 w-4" />}
-          {busy ? "Enviando…" : "Enviar"}
-        </button>
+        <ScheduleSendSplitButton
+          busy={busy}
+          disabled={!canSend}
+          onSend={() => void send()}
+          onSchedule={(date) => void send(date)}
+        />
         {dictSupported && (
           <button
             type="button"
@@ -661,16 +656,6 @@ export const EmailComposer = forwardRef<EmailComposerHandle, Props>(function Ema
             {dictation.listening ? <Square className="h-4 w-4 fill-current" /> : <Mic className="h-4 w-4" />}
           </button>
         )}
-        <button
-          type="button"
-          title="Programar envío"
-          aria-label="Programar envío"
-          onClick={() => setScheduleOpen((v) => !v)}
-          disabled={busy || !canSend}
-          className="inline-flex h-10 w-10 items-center justify-center rounded-full text-ds-text-2 ds-tap hover:bg-ds-surface-2 disabled:opacity-50 sm:h-9 sm:w-9"
-        >
-          <CalendarClock className="h-4 w-4" />
-        </button>
         {footerExtras}
         <button
           type="button"
@@ -688,45 +673,6 @@ export const EmailComposer = forwardRef<EmailComposerHandle, Props>(function Ema
           </span>
         )}
       </div>
-      {scheduleOpen && (
-        <div className="space-y-2 border-t border-ds-border-subtle py-2">
-          <p className="text-[12px] text-ds-text-3">Programar envío</p>
-          <div className="flex flex-wrap items-center gap-2">
-            {scheduleSendPresets().map((preset) => (
-              <button
-                key={preset.key}
-                type="button"
-                onClick={() => void send(preset.date)}
-                className="h-9 rounded-full px-3 text-[12px] text-ds-text-2 ds-tap hover:bg-ds-surface-2"
-              >
-                {preset.label}
-              </button>
-            ))}
-            <input
-              type="datetime-local"
-              value={customSchedule}
-              onChange={(e) => setCustomSchedule(e.target.value)}
-              className="h-9 border-b border-ds-border-subtle bg-transparent px-1 text-[12px] text-ds-text-1 outline-none focus:border-ds-border-strong"
-              aria-label="Fecha y hora personalizada"
-            />
-            <button
-              type="button"
-              disabled={!customSchedule}
-              onClick={() => {
-                const date = new Date(customSchedule);
-                if (Number.isNaN(date.getTime()) || date.getTime() < Date.now() + 2 * 60_000) {
-                  toast.error("Elegí una fecha futura (mínimo 2 minutos)");
-                  return;
-                }
-                void send(date);
-              }}
-              className="h-9 px-2 text-[12px] text-primary ds-tap disabled:opacity-50"
-            >
-              Programar
-            </button>
-          </div>
-        </div>
-      )}
     </>
   );
 
