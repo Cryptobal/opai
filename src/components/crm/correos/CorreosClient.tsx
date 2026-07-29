@@ -110,6 +110,7 @@ function withInFolder(query: string, folder: string): string {
 function matchesChip(t: CorreoThreadDTO, f: CorreoChipKey): boolean {
   if (f === "con_cuenta") return Boolean(t.accountId);
   if (f === "sin_asociar") return !t.accountId;
+  if (f === "sin_responder") return t.slaLevel === "warn" || t.slaLevel === "danger";
   if (f === "con_adjuntos") return t.attachmentCount > 0;
   if (f === "leads_creados") return Boolean(t.leadId);
   return true;

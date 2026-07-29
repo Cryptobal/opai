@@ -208,7 +208,11 @@ export function CorreoDrawer({
     setDetail((d) => (d ? { ...d, thread: { ...d.thread, isUnread: false } } : d));
   });
 
-  async function associate(p: { accountId: string | null; dealId: string | null; sharedWithAccount?: boolean }) {
+  async function associate(p: {
+    accountId: string | null;
+    dealId: string | null;
+    sharedWithAccount?: boolean;
+  }): Promise<void> {
     if (!threadId) return;
     try {
       const res = await fetch(`/api/crm/correos/${threadId}/associate`, {
@@ -234,6 +238,10 @@ export function CorreoDrawer({
                 accountName: body.accountName ?? null,
                 dealId: body.dealId ?? null,
                 dealTitle: body.dealTitle ?? null,
+                dealStageName:
+                  typeof body.dealStageName === "string"
+                    ? body.dealStageName
+                    : d.thread.dealStageName,
                 sharedWithAccount:
                   typeof body.sharedWithAccount === "boolean"
                     ? body.sharedWithAccount
@@ -242,10 +250,10 @@ export function CorreoDrawer({
             }
           : d,
       );
-      refresh();
+      await Promise.resolve(refresh());
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "No se pudo guardar la asociación");
-      refresh();
+      await Promise.resolve(refresh());
     }
   }
 

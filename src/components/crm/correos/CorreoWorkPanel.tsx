@@ -6,16 +6,11 @@ import { LayoutGrid, X } from "lucide-react";
 import { hasModuleAccess } from "@/lib/permissions";
 import { useEffectivePermissions } from "@/hooks/useEffectivePermissions";
 import { useSwipeGesture } from "@/components/chat/hooks/useSwipeGesture";
-import { CorreoAssociationBar } from "./CorreoAssociationBar";
-import { CorreoLinksPanel } from "./CorreoLinksPanel";
 import { CorreoTasksPanel } from "./CorreoTasksPanel";
-import { CorreoContactPanel } from "./CorreoContactPanel";
-import { CorreoThreadContacts } from "./CorreoThreadContacts";
 import { CorreoTicketPanel } from "./CorreoTicketPanel";
 import { CorreoMeetingPanel } from "./CorreoMeetingPanel";
 import { CorreoWorkSummary } from "./CorreoWorkSummary";
 import { CorreoAttachmentsSheet } from "./CorreoAttachmentsSheet";
-import { CorreoWorkProvider } from "./CorreoWorkContext";
 import { CorreoReaderOverlayContext } from "./CorreoReaderOverlayContext";
 import { WORK_TABS, resolveWorkTab, type WorkTab } from "./work-panel-tabs";
 import type { CorreoDetail } from "@/modules/crm/email/correos.types";
@@ -28,18 +23,20 @@ type Props = {
   detail: CorreoDetail;
   readCursorAt?: string | null;
   workTabIntent?: { tab: WorkTab; nonce: number } | null;
-  /** Token del drawer: al incrementar, el contexto recarga links/tasks/contact. */
-  dataRevision?: number;
   onOpenAiLead: () => void;
   onAiCommand?: (commandId: CorreoAiCommandId) => void;
-  onAssociate: (p: { accountId: string | null; dealId: string | null; sharedWithAccount?: boolean }) => void;
+  onAssociate: (p: {
+    accountId: string | null;
+    dealId: string | null;
+    sharedWithAccount?: boolean;
+  }) => void | Promise<void>;
   onRefresh: () => void;
   onRequestReply?: () => void;
 };
 
 /**
- * Copiloto (panel de trabajo): slide-over derecha en desktop /
- * bottom-sheet a altura completa en móvil (90dvh). Swipe-down cierra.
+ * Copiloto v4: 2 pestañas (Contexto / Trabajo). El CorreoWorkProvider vive
+ * arriba (CorreoDrawerContent) — este panel solo consume el contexto.
  */
 export function CorreoWorkPanel({
   open,
@@ -48,7 +45,6 @@ export function CorreoWorkPanel({
   detail,
   readCursorAt = null,
   workTabIntent = null,
-  dataRevision = 0,
   onOpenAiLead,
   onAiCommand,
   onAssociate,
@@ -72,7 +68,6 @@ export function CorreoWorkPanel({
   useEffect(() => {
     if (!open || !workTabIntent) return;
     setTab(resolveWorkTab(workTabIntent.tab));
-    // nonce fuerza re-apertura aunque sea la misma pestaña.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [workTabIntent?.nonce, open]);
 
@@ -104,7 +99,6 @@ export function CorreoWorkPanel({
       if (e.key !== "Escape") return;
       e.preventDefault();
       e.stopPropagation();
-      // Primero cerrar capas hijas (adjuntos / guardar); no tumbar el Copiloto.
       if (attachmentsOpen) {
         setAttachmentsOpen(false);
         return;
@@ -113,7 +107,6 @@ export function CorreoWorkPanel({
     }
     document.addEventListener("keydown", onKey, { capture: true });
     return () => document.removeEventListener("keydown", onKey, { capture: true });
-    // requestClose closes over `closing`; re-bind when open/closing changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, closing, onClose, attachmentsOpen]);
 
@@ -213,64 +206,31 @@ export function CorreoWorkPanel({
           </div>
         </header>
 
-        <CorreoWorkProvider
-          key={threadId}
-          threadId={threadId}
-          accountId={t.accountId}
-          revision={dataRevision}
+        <div
+          className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3 [-webkit-overflow-scrolling:touch] [overscroll-behavior:contain]"
+          style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 0.75rem)" }}
         >
-          <div
-            className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3 [-webkit-overflow-scrolling:touch] [overscroll-behavior:contain]"
-            style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 0.75rem)" }}
-          >
-            {tab === "resumen" && (
-              <CorreoWorkSummary
-                detail={detail}
-                readCursorAt={readCursorAt}
-                onOpenAiLead={onOpenAiLead}
-                onAiCommand={onAiCommand}
-                onGoTo={(next) => selectTab(resolveWorkTab(next))}
-                onRequestReply={onRequestReply}
-                onOpenAttachments={() => setAttachmentsOpen(true)}
-              />
-            )}
-            {tab === "cuenta" && (
-              <>
-                <CorreoAssociationBar
-                  threadId={t.id}
-                  accountId={t.accountId}
-                  accountName={t.accountName}
-                  dealId={t.dealId}
-                  dealTitle={t.dealTitle}
-                  subject={t.subject}
-                  sharedWithAccount={t.sharedWithAccount}
-                  onAssociate={onAssociate}
-                />
-                <div className="space-y-2 rounded-xl border border-ds-border-subtle bg-ds-surface-2 p-2.5">
-                  <p className="text-[12px] font-medium text-ds-text-3">Contactos del hilo</p>
-                  <CorreoContactPanel threadId={t.id} />
-                  <CorreoThreadContacts threadId={t.id} accountId={t.accountId} />
-                </div>
-              </>
-            )}
-            {tab === "vinculos" && (
-              <CorreoLinksPanel threadId={t.id} accountId={t.accountId} />
-            )}
-            {tab === "productividad" && (
-              <>
-                <CorreoMeetingPanel threadId={t.id} subject={t.subject} />
-                <CorreoTicketPanel threadId={t.id} subject={t.subject} />
-                <CorreoTasksPanel threadId={t.id} subject={t.subject} />
-              </>
-            )}
-          </div>
-        </CorreoWorkProvider>
+          {tab === "contexto" && (
+            <CorreoWorkSummary
+              detail={detail}
+              readCursorAt={readCursorAt}
+              onOpenAiLead={onOpenAiLead}
+              onAiCommand={onAiCommand}
+              onGoTo={(next) => selectTab(resolveWorkTab(next))}
+              onRequestReply={onRequestReply}
+              onOpenAttachments={() => setAttachmentsOpen(true)}
+              onAssociate={onAssociate}
+            />
+          )}
+          {tab === "trabajo" && (
+            <>
+              <CorreoMeetingPanel threadId={t.id} subject={t.subject} />
+              <CorreoTicketPanel threadId={t.id} subject={t.subject} />
+              <CorreoTasksPanel threadId={t.id} subject={t.subject} />
+            </>
+          )}
+        </div>
       </div>
-      {/*
-        Anular el host del lector: CorreoAttachmentSave hereda el overlay del
-        reader (detrás del Copiloto z-55) y el guardado quedaba inaccesible.
-        Con null cae al portal body z-[70].
-      */}
       <CorreoReaderOverlayContext.Provider value={null}>
         <CorreoAttachmentsSheet
           open={attachmentsOpen}
@@ -283,7 +243,7 @@ export function CorreoWorkPanel({
           accountName={t.accountName}
           degraded={detail.degraded}
           onSaved={onRefresh}
-          onRequestAssociate={() => selectTab("cuenta")}
+          onRequestAssociate={() => selectTab("contexto")}
         />
       </CorreoReaderOverlayContext.Provider>
     </div>,

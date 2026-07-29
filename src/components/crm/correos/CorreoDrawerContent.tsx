@@ -2,22 +2,23 @@
 
 import { useEffect, useRef, useState } from "react";
 import {
-  Building2,
   Code2,
   Copy,
   ExternalLink,
-  Eye,
   MoreHorizontal,
-  Plus,
   Printer,
   Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
+import { canEdit } from "@/lib/permissions";
+import { useEffectivePermissions } from "@/hooks/useEffectivePermissions";
 import { CorreoMessages } from "./CorreoMessages";
 import { CorreoReplyBox } from "./CorreoReplyBox";
 import { CorreoThreadActions } from "./CorreoThreadActions";
 import { CorreoSystemLabels } from "./CorreoSystemLabels";
 import { CorreoWorkPanel } from "./CorreoWorkPanel";
+import { CorreoWorkProvider } from "./CorreoWorkContext";
+import { CorreoContextChain } from "./CorreoContextChain";
 import { resolveWorkTab, type WorkTab } from "./work-panel-tabs";
 import type { CorreoDetail } from "@/modules/crm/email/correos.types";
 import type { CorreoAiCommandId } from "@/modules/crm/email/correo-ai-commands";
@@ -31,7 +32,11 @@ type Props = {
   canModify?: boolean;
   onOpenAiLead: () => void;
   onAiCommand?: (commandId: CorreoAiCommandId) => void;
-  onAssociate: (p: { accountId: string | null; dealId: string | null; sharedWithAccount?: boolean }) => void;
+  onAssociate: (p: {
+    accountId: string | null;
+    dealId: string | null;
+    sharedWithAccount?: boolean;
+  }) => void | Promise<void>;
   onRefresh: () => void;
   onClose?: () => void;
   onRemove?: (threadId: string) => void;
@@ -88,6 +93,8 @@ export function CorreoDrawerContent({
   onOpenAiStyle,
 }: Props) {
   const t = detail.thread;
+  const perms = useEffectivePermissions();
+  const canEditCorreos = canEdit(perms, "crm", "correos");
   const [panel, setPanel] = useState<{ tab: WorkTab } | null>(null);
   const [overflowOpen, setOverflowOpen] = useState(false);
   const overflowRef = useRef<HTMLDivElement>(null);
@@ -158,202 +165,194 @@ export function CorreoDrawerContent({
     toast.message("Desplazado al mensaje original");
   }
 
-  const contextLabel = t.accountId
-    ? [t.accountName || "Cuenta", t.dealTitle].filter(Boolean).join(" · ")
-    : null;
-
   return (
-    <div className="flex min-h-0 flex-col gap-4">
-      <div className="shrink-0 space-y-2 border-b border-ds-border-subtle bg-background pb-3 lg:bg-ds-surface-2">
-        {canModify && (
-          <div className="hidden flex-wrap items-center gap-2 lg:flex">
-            <CorreoThreadActions
-              threadId={t.id}
-              isUnread={t.isUnread}
-              archived={Boolean(t.archivedAt)}
-              trashed={Boolean(t.trashedAt)}
-              snoozedUntil={t.snoozedUntil}
-              starred={Boolean(t.starredAt)}
-              inSpam={Boolean(t.spamAt)}
-              canModify
-              variant="drawer"
-              compact
-              onDone={onRefresh}
-              onRemoveDone={onRemoveDone}
-              onUndoDone={onUndoDone}
-              onClose={onClose}
-              onRemove={onRemove}
-              onReply={onReply}
-              onSnooze={onSnooze}
-            />
+    <CorreoWorkProvider
+      key={t.id}
+      threadId={t.id}
+      accountId={t.accountId}
+      revision={dataRevision}
+    >
+      <div className="flex min-h-0 flex-col gap-4">
+        <div className="shrink-0 space-y-2 border-b border-ds-border-subtle bg-background pb-3 lg:bg-ds-surface-2">
+          {canModify && (
+            <div className="hidden flex-wrap items-center gap-2 lg:flex">
+              <CorreoThreadActions
+                threadId={t.id}
+                isUnread={t.isUnread}
+                archived={Boolean(t.archivedAt)}
+                trashed={Boolean(t.trashedAt)}
+                snoozedUntil={t.snoozedUntil}
+                starred={Boolean(t.starredAt)}
+                inSpam={Boolean(t.spamAt)}
+                canModify
+                variant="drawer"
+                compact
+                onDone={onRefresh}
+                onRemoveDone={onRemoveDone}
+                onUndoDone={onUndoDone}
+                onClose={onClose}
+                onRemove={onRemove}
+                onReply={onReply}
+                onSnooze={onSnooze}
+              />
+            </div>
+          )}
+
+          <CorreoSystemLabels
+            threadId={t.id}
+            trashedAt={t.trashedAt}
+            snoozedUntil={t.snoozedUntil}
+            canModify={Boolean(canModify)}
+            onDone={onRefresh}
+            onRemove={onRemove}
+            onRemoveDone={onRemoveDone}
+            onUndoDone={onUndoDone}
+            onClose={onClose}
+          />
+
+          {/* Cadena de contexto + Copiloto + overflow */}
+          <div className="flex min-w-0 items-start gap-1.5">
+            <div className="min-w-0 flex-1">
+              <CorreoContextChain
+                detail={detail}
+                canEdit={canEditCorreos}
+                onAssociate={onAssociate}
+                onSearchAccount={() => openPanel("contexto")}
+              />
+            </div>
+
+            <button
+              type="button"
+              onClick={() => openPanel("contexto")}
+              title={attentionLabel}
+              aria-label={attentionLabel}
+              className="relative inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-full border border-tint-violet/30 bg-tint-violet/10 px-2.5 text-[12px] font-medium text-tint-violet-fg ds-tap sm:min-h-8"
+            >
+              <Sparkles className="h-3.5 w-3.5" /> ✦ Copiloto
+              {reasons.length > 0 && (
+                <>
+                  <span
+                    className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-status-warn"
+                    aria-hidden
+                  />
+                  <span className="sr-only">{attentionLabel}</span>
+                </>
+              )}
+            </button>
+
+            <div ref={overflowRef} className="relative shrink-0">
+              <button
+                type="button"
+                aria-label="Más acciones"
+                aria-expanded={overflowOpen}
+                onClick={() => setOverflowOpen((o) => !o)}
+                className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-ds-border-default bg-ds-surface-1 text-ds-text-2 ds-tap sm:h-8 sm:w-8"
+              >
+                <MoreHorizontal className="h-4 w-4" />
+              </button>
+              {overflowOpen && (
+                <div
+                  role="menu"
+                  className="absolute right-0 z-20 mt-1 w-52 overflow-hidden rounded-xl border border-ds-border-default bg-ds-surface-1 py-1 shadow-ds-lg"
+                >
+                  {gmailUrl && (
+                    <a
+                      role="menuitem"
+                      href={gmailUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={() => setOverflowOpen(false)}
+                      className="flex min-h-11 w-full items-center gap-2 px-3 text-left text-[13px] text-ds-text-1 ds-tap hover:bg-ds-surface-2 sm:min-h-9"
+                    >
+                      <ExternalLink className="h-4 w-4 text-ds-text-3" /> Abrir en Gmail
+                    </a>
+                  )}
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={printThread}
+                    className="flex min-h-11 w-full items-center gap-2 px-3 text-left text-[13px] text-ds-text-1 ds-tap hover:bg-ds-surface-2 sm:min-h-9"
+                  >
+                    <Printer className="h-4 w-4 text-ds-text-3" /> Imprimir
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={viewOriginal}
+                    className="flex min-h-11 w-full items-center gap-2 px-3 text-left text-[13px] text-ds-text-1 ds-tap hover:bg-ds-surface-2 sm:min-h-9"
+                  >
+                    <Code2 className="h-4 w-4 text-ds-text-3" /> Ver original
+                  </button>
+                  <div className="my-1 border-t border-ds-border-subtle" role="separator" />
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => void copyThreadLink()}
+                    className="flex min-h-11 w-full items-center gap-2 px-3 text-left text-[13px] text-ds-text-1 ds-tap hover:bg-ds-surface-2 sm:min-h-9"
+                  >
+                    <Copy className="h-4 w-4 text-ds-text-3" /> Copiar enlace del hilo
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {detail.degraded && (
+          <div className="shrink-0 rounded-xl border border-status-warn-border bg-status-warn-soft px-3 py-2.5 text-[13px] text-status-warn-fg">
+            No se pudieron cargar los adjuntos de este hilo desde Gmail. Reintentá en unos segundos.
           </div>
         )}
 
-        <CorreoSystemLabels
-          threadId={t.id}
-          trashedAt={t.trashedAt}
-          snoozedUntil={t.snoozedUntil}
-          canModify={Boolean(canModify)}
-          onDone={onRefresh}
-          onRemove={onRemove}
-          onRemoveDone={onRemoveDone}
-          onUndoDone={onUndoDone}
-          onClose={onClose}
-        />
-
-        {/* Una sola fila: contexto · Copiloto · overflow */}
-        <div className="flex min-w-0 items-center gap-1.5">
-          <button
-            type="button"
-            onClick={() => openPanel("cuenta")}
-            className="inline-flex min-h-11 min-w-0 max-w-[46%] shrink items-center gap-1 rounded-full border border-ds-border-default bg-ds-surface-1 px-2.5 text-[12px] text-ds-text-1 ds-tap sm:min-h-8"
-          >
-            {t.accountId ? (
-              <>
-                {t.sharedWithAccount && <Eye className="h-3.5 w-3.5 shrink-0 text-status-ok-fg" />}
-                <Building2 className="h-3.5 w-3.5 shrink-0 text-ds-text-3" />
-                <span className="truncate">{contextLabel}</span>
-              </>
-            ) : (
-              <>
-                <Plus className="h-3.5 w-3.5 shrink-0" />
-                <span className="truncate">+ Asociar</span>
-              </>
-            )}
-          </button>
-
-          <button
-            type="button"
-            onClick={() => openPanel("resumen")}
-            title={attentionLabel}
-            aria-label={attentionLabel}
-            className="relative inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-full border border-tint-violet/30 bg-tint-violet/10 px-2.5 text-[12px] font-medium text-tint-violet-fg ds-tap sm:min-h-8"
-          >
-            <Sparkles className="h-3.5 w-3.5" /> ✦ Copiloto
-            {reasons.length > 0 && (
-              <>
-                <span
-                  className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-status-warn"
-                  aria-hidden
-                />
-                <span className="sr-only">{attentionLabel}</span>
-              </>
-            )}
-          </button>
-
-          <div ref={overflowRef} className="relative ml-auto shrink-0">
-            <button
-              type="button"
-              aria-label="Más acciones"
-              aria-expanded={overflowOpen}
-              onClick={() => setOverflowOpen((o) => !o)}
-              className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-ds-border-default bg-ds-surface-1 text-ds-text-2 ds-tap sm:h-8 sm:w-8"
-            >
-              <MoreHorizontal className="h-4 w-4" />
-            </button>
-            {overflowOpen && (
-              <div
-                role="menu"
-                className="absolute right-0 z-20 mt-1 w-52 overflow-hidden rounded-xl border border-ds-border-default bg-ds-surface-1 py-1 shadow-ds-lg"
-              >
-                {gmailUrl && (
-                  <a
-                    role="menuitem"
-                    href={gmailUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={() => setOverflowOpen(false)}
-                    className="flex min-h-11 w-full items-center gap-2 px-3 text-left text-[13px] text-ds-text-1 ds-tap hover:bg-ds-surface-2 sm:min-h-9"
-                  >
-                    <ExternalLink className="h-4 w-4 text-ds-text-3" /> Abrir en Gmail
-                  </a>
-                )}
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={printThread}
-                  className="flex min-h-11 w-full items-center gap-2 px-3 text-left text-[13px] text-ds-text-1 ds-tap hover:bg-ds-surface-2 sm:min-h-9"
-                >
-                  <Printer className="h-4 w-4 text-ds-text-3" /> Imprimir
-                </button>
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={viewOriginal}
-                  className="flex min-h-11 w-full items-center gap-2 px-3 text-left text-[13px] text-ds-text-1 ds-tap hover:bg-ds-surface-2 sm:min-h-9"
-                >
-                  <Code2 className="h-4 w-4 text-ds-text-3" /> Ver original
-                </button>
-                <div className="my-1 border-t border-ds-border-subtle" role="separator" />
-                <button
-                  type="button"
-                  role="menuitem"
-                  onClick={() => void copyThreadLink()}
-                  className="flex min-h-11 w-full items-center gap-2 px-3 text-left text-[13px] text-ds-text-1 ds-tap hover:bg-ds-surface-2 sm:min-h-9"
-                >
-                  <Copy className="h-4 w-4 text-ds-text-3" /> Copiar enlace del hilo
-                </button>
-              </div>
-            )}
-          </div>
+        <div className="min-w-0 space-y-2">
+          <CorreoMessages
+            messages={detail.messages}
+            alwaysShowImages={alwaysShowImages}
+            onAlwaysShowImages={onAlwaysShowImages}
+            threadId={t.id}
+            inSpam={Boolean(t.spamAt)}
+            canModify={canModify}
+            attachments={detail.attachments}
+            dealId={t.dealId}
+            dealTitle={t.dealTitle}
+            accountId={t.accountId}
+            accountName={t.accountName}
+            mailboxEmail={mailboxEmail}
+            degraded={detail.degraded}
+            onAttachmentsSaved={onRefresh}
+            onRequestAssociate={() => openPanel("contexto")}
+            onDraftDiscarded={onRefresh}
+            onContinueDraft={(m) =>
+              setContinueDraftIntent({ message: m, nonce: nextIntentNonce() })
+            }
+          />
+          <CorreoReplyBox
+            key={`reply-${t.id}`}
+            detail={detail}
+            onSent={onRefresh}
+            shortcuts={shortcuts}
+            composeIntent={composeIntent}
+            continueDraftIntent={continueDraftIntent}
+            onOpenAiStyle={onOpenAiStyle}
+          />
         </div>
-      </div>
 
-      {detail.degraded && (
-        <div className="shrink-0 rounded-xl border border-status-warn-border bg-status-warn-soft px-3 py-2.5 text-[13px] text-status-warn-fg">
-          No se pudieron cargar los adjuntos de este hilo desde Gmail. Reintentá en unos segundos.
-        </div>
-      )}
-
-      <div className="min-w-0 space-y-2">
-        <CorreoMessages
-          messages={detail.messages}
-          alwaysShowImages={alwaysShowImages}
-          onAlwaysShowImages={onAlwaysShowImages}
-          threadId={t.id}
-          inSpam={Boolean(t.spamAt)}
-          canModify={canModify}
-          attachments={detail.attachments}
-          dealId={t.dealId}
-          dealTitle={t.dealTitle}
-          accountId={t.accountId}
-          accountName={t.accountName}
-          mailboxEmail={mailboxEmail}
-          degraded={detail.degraded}
-          onAttachmentsSaved={onRefresh}
-          onRequestAssociate={() => openPanel("cuenta")}
-          onDraftDiscarded={onRefresh}
-          onContinueDraft={(m) =>
-            setContinueDraftIntent({ message: m, nonce: nextIntentNonce() })
-          }
-        />
-        <CorreoReplyBox
-          key={`reply-${t.id}`}
+        <CorreoWorkPanel
+          open={panel !== null}
+          initialTab={panel?.tab ?? "contexto"}
           detail={detail}
-          onSent={onRefresh}
-          shortcuts={shortcuts}
-          composeIntent={composeIntent}
-          continueDraftIntent={continueDraftIntent}
-          onOpenAiStyle={onOpenAiStyle}
+          readCursorAt={readCursorAt}
+          workTabIntent={workTabIntent}
+          onOpenAiLead={onOpenAiLead}
+          onAiCommand={onAiCommand}
+          onAssociate={onAssociate}
+          onRefresh={onRefresh}
+          onRequestReply={onRequestReply ?? onReply}
+          onClose={() => {
+            setPanel(null);
+          }}
         />
       </div>
-
-      <CorreoWorkPanel
-        open={panel !== null}
-        initialTab={panel?.tab ?? "resumen"}
-        detail={detail}
-        readCursorAt={readCursorAt}
-        workTabIntent={workTabIntent}
-        dataRevision={dataRevision}
-        onOpenAiLead={onOpenAiLead}
-        onAiCommand={onAiCommand}
-        onAssociate={onAssociate}
-        onRefresh={onRefresh}
-        onRequestReply={onRequestReply ?? onReply}
-        onClose={() => {
-          setPanel(null);
-        }}
-      />
-    </div>
+    </CorreoWorkProvider>
   );
 }

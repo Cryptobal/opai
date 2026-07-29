@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { Briefcase, Building2, Check, Download, FolderPlus, Link2, X } from "lucide-react";
+import { Briefcase, Building2, Check, Download, FolderPlus, Link2, MapPin, X } from "lucide-react";
 import { toast } from "sonner";
 import { Spinner } from "@/components/opai-ds";
 import { Switch } from "@/components/ui/switch";
@@ -20,7 +20,8 @@ import { useCorreoReaderOverlayHost } from "./CorreoReaderOverlayContext";
 export type SaveSheetItem = { messageId: string; attachmentId: string; filename: string; size: number };
 type DealOpt = { id: string; title: string };
 type FolderOpt = { id: string; name: string };
-type Dest = { type: "account" | "deal"; id: string };
+type Dest = { type: "account" | "deal" | "installation"; id: string };
+type InstallationOpt = { id: string; label: string };
 
 type Props = {
   open: boolean;
@@ -58,6 +59,7 @@ export function CorreoAttachmentSave({
 }: Props) {
   const overlayHost = useCorreoReaderOverlayHost();
   const [deals, setDeals] = useState<DealOpt[]>([]);
+  const [installations, setInstallations] = useState<InstallationOpt[]>([]);
   const [dest, setDest] = useState<Dest | null>(null);
   const [folders, setFolders] = useState<FolderOpt[]>([]);
   const [folderId, setFolderId] = useState<string | null>(null);
@@ -71,18 +73,41 @@ export function CorreoAttachmentSave({
     if (!open) return;
     setResults(null);
     setDest(dealId ? { type: "deal", id: dealId } : accountId ? { type: "account", id: accountId } : null);
-    if (!accountId) return;
+    if (!accountId) {
+      setDeals([]);
+      setInstallations([]);
+      return;
+    }
     fetch(`/api/crm/correos/deals-for-account?accountId=${encodeURIComponent(accountId)}`)
       .then((r) => r.json())
       .then((d) => setDeals(Array.isArray(d.items) ? d.items : []))
       .catch(() => setDeals([]));
-  }, [open, accountId, dealId]);
+    // Instalaciones vinculadas al hilo (API de links).
+    fetch(`/api/crm/correos/${threadId}/links`)
+      .then((r) => r.json())
+      .then((d) => {
+        const links = Array.isArray(d.links) ? d.links : [];
+        setInstallations(
+          links
+            .filter(
+              (l: { entityType?: string; orphan?: boolean; entityId?: string; label?: string }) =>
+                l.entityType === "installation" && !l.orphan && l.entityId,
+            )
+            .map((l: { entityId: string; label: string }) => ({
+              id: l.entityId,
+              label: l.label || "Instalación",
+            })),
+        );
+      })
+      .catch(() => setInstallations([]));
+  }, [open, accountId, dealId, threadId]);
 
   // Carpetas de la entidad destino (se recargan al cambiar el destino).
   useEffect(() => {
     if (!open || !dest) return;
     setFolderId(null);
-    fetch(`/api/crm/folders?entityType=${dest.type}&entityId=${encodeURIComponent(dest.id)}`)
+    const entityType = dest.type === "installation" ? "installation" : dest.type;
+    fetch(`/api/crm/folders?entityType=${entityType}&entityId=${encodeURIComponent(dest.id)}`)
       .then((r) => r.json())
       .then((d) => setFolders(d.success && Array.isArray(d.data) ? d.data.map((f: FolderOpt) => ({ id: f.id, name: f.name })) : []))
       .catch(() => setFolders([]));
@@ -94,7 +119,12 @@ export function CorreoAttachmentSave({
     if (!dest || items.length === 0) return;
     setSaving(true);
     try {
-      const target = dest.type === "deal" ? { dealId: dest.id, accountId: accountId ?? undefined } : { accountId: dest.id };
+      const target =
+        dest.type === "deal"
+          ? { dealId: dest.id, accountId: accountId ?? undefined }
+          : dest.type === "installation"
+            ? { installationId: dest.id, accountId: accountId ?? undefined }
+            : { accountId: dest.id };
       const res = await fetch(`/api/crm/correos/${threadId}/attachments/save`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -120,7 +150,9 @@ export function CorreoAttachmentSave({
   const destLabel = (d: Dest) =>
     d.type === "account"
       ? accountName || "la cuenta"
-      : deals.find((x) => x.id === d.id)?.title || dealTitle || "el negocio";
+      : d.type === "installation"
+        ? installations.find((x) => x.id === d.id)?.label || "la instalación"
+        : deals.find((x) => x.id === d.id)?.title || dealTitle || "el negocio";
 
   const sheet = (
     <div
@@ -226,6 +258,21 @@ export function CorreoAttachmentSave({
                           active={dest?.type === "deal" && dest.id === d.id}
                           onClick={() => setDest({ type: "deal", id: d.id })}
                           label={d.title}
+                        />
+                      ))}
+                    </div>
+                  )}
+                  {installations.length > 0 && (
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="inline-flex items-center gap-1 text-[12px] text-ds-text-4">
+                        <MapPin className="h-3.5 w-3.5" /> Instalación
+                      </span>
+                      {installations.map((i) => (
+                        <DestChip
+                          key={i.id}
+                          active={dest?.type === "installation" && dest.id === i.id}
+                          onClick={() => setDest({ type: "installation", id: i.id })}
+                          label={i.label}
                         />
                       ))}
                     </div>

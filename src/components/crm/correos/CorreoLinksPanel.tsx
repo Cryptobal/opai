@@ -20,7 +20,7 @@ import {
 } from "@/modules/crm/email/email-thread-links";
 import { useCorreoWork } from "./CorreoWorkContext";
 import { CorreoLinkRow } from "./CorreoLinkRow";
-import { CorreoLinkPicker } from "./CorreoLinkPicker";
+import { CorreoLinkOmnibox } from "./CorreoLinkOmnibox";
 
 type Suggestion = { entityType: string; entityId: string; label: string; motivo: string };
 
@@ -260,11 +260,12 @@ export function CorreoLinksPanel({
       )}
 
       {adding && canMutate && (
-        <CorreoLinkPicker
+        <CorreoLinkOmnibox
           accountId={accountId}
-          onPick={(entityType, entityId, scope) =>
-            void createLink(entityType, entityId, undefined, scope)
+          onPick={(c) =>
+            void createLink(c.entityType, c.id, undefined, c.scope === "tenant" ? "tenant" : "account")
           }
+          onCancel={() => setAdding(false)}
         />
       )}
     </section>

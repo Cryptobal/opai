@@ -10,10 +10,12 @@ const thread: CorreoThreadDTO = {
   fromEmail: "cliente@example.com",
   snippet: "Este es un extracto suficientemente largo para probar la vista previa.",
   lastMessageAt: "2026-07-22T12:00:00.000Z",
-  accountId: null,
-  accountName: null,
+  emailAccountId: null,
+  accountId: "acc-1",
+  accountName: "Acme",
   dealId: null,
   dealTitle: null,
+  dealStageName: null,
   leadId: null,
   attachmentCount: 0,
   messageCount: 1,
@@ -26,6 +28,9 @@ const thread: CorreoThreadDTO = {
   starredAt: null,
   spamAt: null,
   hasDraft: false,
+  pendingSince: null,
+  slaLevel: null,
+  slaLabel: null,
 };
 
 describe("CorreoRow (desktop denso)", () => {

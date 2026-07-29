@@ -193,6 +193,8 @@ export async function upsertGmailMessage(params: {
         emailAccountId: emailAccount.id,
         providerThreadId,
         isInbound: direction === "in",
+        auditAutoAssociate: direction === "in",
+        createdByUserId: params.createdByUserId ?? emailAccount.userId,
       });
       threadId = linked.id;
     }
@@ -218,6 +220,9 @@ export async function upsertGmailMessage(params: {
     providerThreadId,
     // Los enviados (incluidas respuestas hechas fuera de OPAI) no reordenan.
     isInbound: direction === "in",
+    // Autoasociación de confianza alta (match exacto de contacto) solo en inbound.
+    auditAutoAssociate: direction === "in",
+    createdByUserId: params.createdByUserId ?? emailAccount.userId,
   });
 
   try {
