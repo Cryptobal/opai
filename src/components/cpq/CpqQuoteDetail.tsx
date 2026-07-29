@@ -1920,9 +1920,9 @@ export function CpqQuoteDetail({
       </div>{/* end sticky header */}
 
       {/* -- Desktop sticky KPI bar (fuera del grid: sticky respecto al viewport) --
-           top-12 = debajo del topbar fijo (h-12). Sin overflow-x en el path
+           top = debajo del topbar fijo (--app-topbar-offset). Sin overflow-x en el path
            hacia el viewport (html/body usan clip). */}
-      <div className="hidden lg:flex sticky top-12 z-30 items-center justify-between gap-4 rounded-lg border border-border/60 bg-card/95 backdrop-blur-md px-4 py-3 shadow-md">
+      <div className="hidden lg:flex sticky top-[var(--app-topbar-offset)] z-30 items-center justify-between gap-4 rounded-lg border border-border/60 bg-card/95 backdrop-blur-md px-4 py-3 shadow-md">
         <div className="flex items-center gap-3 min-w-0">
           <Link href="/crm/cotizaciones" className="shrink-0">
             <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
