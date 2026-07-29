@@ -241,7 +241,12 @@ export function folderWhereSql(folder: CorreoListFilter, now: Date): Prisma.Sql 
   if (folder === "starred") {
     return Prisma.sql`t.trashed_at IS NULL AND t.spam_at IS NULL AND t.starred_at IS NOT NULL`;
   }
-  return Prisma.sql`t.trashed_at IS NULL AND t.spam_at IS NULL AND t.archived_at IS NULL AND (t.snoozed_until IS NULL OR t.snoozed_until <= ${now})`;
+  // Espejo estricto: Recibidos exige label INBOX en algún mensaje (paridad
+  // con folderWhere de correos-list.ts).
+  return Prisma.sql`t.trashed_at IS NULL AND t.spam_at IS NULL AND t.archived_at IS NULL AND (t.snoozed_until IS NULL OR t.snoozed_until <= ${now}) AND EXISTS (
+    SELECT 1 FROM crm.email_messages m
+    WHERE m.thread_id = t.id AND m.label_ids @> ARRAY['INBOX']::text[]
+  )`;
 }
 
 function buildStructuralConditions(parsed: ParsedCorreoSearch): Prisma.Sql[] {

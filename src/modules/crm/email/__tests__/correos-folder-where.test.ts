@@ -26,6 +26,13 @@ describe("folderWhere", () => {
     expect(or).toContainEqual({ snoozedUntil: null });
   });
 
+  it("inbox exige label INBOX (espejo Gmail; no basta archivedAt null)", () => {
+    const where = folderWhere("inbox");
+    expect(where).toMatchObject({
+      messages: { some: { labelIds: { has: "INBOX" } } },
+    });
+  });
+
   it("las demás carpetas mantienen su semántica", () => {
     expect(folderWhere("trash")).toEqual({ trashedAt: { not: null } });
     expect(folderWhere("all")).toEqual({ trashedAt: null, spamAt: null });

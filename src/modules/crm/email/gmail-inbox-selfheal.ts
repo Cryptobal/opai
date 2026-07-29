@@ -28,9 +28,30 @@ function providerThreadScopeSql(providerThreadIds?: string[]): Prisma.Sql {
 }
 
 /**
+ * Quita INBOX de label_ids locales de los hilos dados.
+ * Impide el ping-pong: heal local reabría Recibidos por labels stale tras
+ * archivar por sweep/remoto.
+ */
+export async function stripInboxLabelsForThreads(threadIds: string[]): Promise<number> {
+  if (threadIds.length === 0) return 0;
+  const res = await prisma.$executeRaw`
+    UPDATE crm.email_messages m
+    SET label_ids = array_remove(m.label_ids, 'INBOX'),
+        updated_at = NOW()
+    WHERE m.thread_id IN (${Prisma.join(
+      threadIds.map((id) => Prisma.sql`${id}::uuid`),
+    )})
+      AND m.label_ids @> ARRAY['INBOX']::text[]
+  `;
+  return Number(res);
+}
+
+/**
  * Reparación instantánea (sin API Gmail): hilos con `archivedAt` seteado pero
- * cuyos mensajes locales aún tienen label `INBOX`. Es el residuo típico del
- * sweep viejo que archivaba en masa sin tocar `labelIds` de los mensajes.
+ * cuyo **último** mensaje local aún tiene label `INBOX`.
+ *
+ * Usa el mensaje más reciente (no la unión): labels viejos en mensajes no
+ * refrescados no deben reabrir Recibidos tras un archivo real en Gmail.
  *
  * `providerThreadIds` acota a hilos tocados en la corrida (ids de Gmail).
  * Si se omite, barre toda la casilla.
@@ -45,15 +66,21 @@ export async function healInboxFromLocalLabels(params: {
   if (providerThreadIds && providerThreadIds.length === 0) return 0;
 
   const rows = await prisma.$queryRaw<{ id: string }[]>`
-    SELECT DISTINCT t.id
+    SELECT t.id
     FROM crm.email_threads t
-    INNER JOIN crm.email_messages m ON m.thread_id = t.id
+    INNER JOIN LATERAL (
+      SELECT m.label_ids
+      FROM crm.email_messages m
+      WHERE m.thread_id = t.id
+      ORDER BY m.sent_at DESC NULLS LAST, m.created_at DESC
+      LIMIT 1
+    ) latest ON true
     WHERE t.tenant_id = ${tenantId}
       AND t.email_account_id = ${emailAccountId}::uuid
       AND t.archived_at IS NOT NULL
       AND t.trashed_at IS NULL
       AND t.spam_at IS NULL
-      AND m.label_ids @> ARRAY['INBOX']::text[]
+      AND latest.label_ids @> ARRAY['INBOX']::text[]
       ${providerThreadScopeSql(providerThreadIds)}
   `;
   if (rows.length === 0) return 0;
@@ -73,15 +100,16 @@ export async function healInboxFromLocalLabels(params: {
 }
 
 /**
- * Contraparte de healInboxFromLocalLabels: archiva los hilos SIN label INBOX
- * en ninguno de sus mensajes. Es el cierre del espejo — sin esto, todo hilo
- * importado por el backfill nace en Recibidos (archivedAt = NULL por default).
+ * Contraparte de healInboxFromLocalLabels: archiva los hilos cuyo **último**
+ * mensaje no tiene label INBOX. Es el cierre del espejo — sin esto, todo hilo
+ * importado por el backfill (inbox OR sent) nace en Recibidos (archivedAt = NULL).
  *
  * Guardas:
- *  - solo hilos con al menos un mensaje que trae labels de Gmail (evita
- *    archivar hilos nativos del CRM: web4leads, seguimiento, envío CRM);
+ *  - último mensaje con labels de Gmail no vacíos (evita archivar hilos nativos
+ *    del CRM o mensajes aún sin refrescar);
  *  - respeta papelera, spam y pospuestos vigentes;
  *  - `providerThreadIds` acota el alcance a los hilos tocados en la corrida.
+ *  - al archivar, strip INBOX de todos los mensajes del hilo (anti ping-pong).
  */
 export async function archiveThreadsWithoutInboxLabel(params: {
   tenantId: string;
@@ -95,6 +123,13 @@ export async function archiveThreadsWithoutInboxLabel(params: {
   const rows = await prisma.$queryRaw<{ id: string }[]>`
     UPDATE crm.email_threads t
     SET archived_at = NOW(), updated_at = NOW()
+    FROM LATERAL (
+      SELECT m.label_ids
+      FROM crm.email_messages m
+      WHERE m.thread_id = t.id
+      ORDER BY m.sent_at DESC NULLS LAST, m.created_at DESC
+      LIMIT 1
+    ) latest
     WHERE t.tenant_id = ${tenantId}
       AND t.email_account_id = ${emailAccountId}::uuid
       AND t.archived_at IS NULL
@@ -102,17 +137,14 @@ export async function archiveThreadsWithoutInboxLabel(params: {
       AND t.spam_at IS NULL
       AND (t.snoozed_until IS NULL OR t.snoozed_until <= NOW())
       AND t.provider_thread_id IS NOT NULL
-      AND EXISTS (
-        SELECT 1 FROM crm.email_messages m
-        WHERE m.thread_id = t.id AND array_length(m.label_ids, 1) > 0
-      )
-      AND NOT EXISTS (
-        SELECT 1 FROM crm.email_messages m
-        WHERE m.thread_id = t.id AND m.label_ids @> ARRAY['INBOX']::text[]
-      )
+      AND array_length(latest.label_ids, 1) > 0
+      AND NOT (latest.label_ids @> ARRAY['INBOX']::text[])
       ${providerThreadScopeSql(providerThreadIds)}
     RETURNING t.id
   `;
+  if (rows.length > 0) {
+    await stripInboxLabelsForThreads(rows.map((r) => r.id));
+  }
   return rows.length;
 }
 
@@ -125,8 +157,10 @@ export async function syncThreadStateFromLocalLabels(params: {
   emailAccountId: string;
   providerThreadIds?: string[];
 }): Promise<{ toInbox: number; toArchive: number }> {
-  const toInbox = await healInboxFromLocalLabels(params);
+  // Primero archivar (y strip), luego heal: evita que labels stale reabran
+  // hilos que acabamos de sacar de Recibidos en la misma corrida.
   const toArchive = await archiveThreadsWithoutInboxLabel(params);
+  const toInbox = await healInboxFromLocalLabels(params);
   if (toInbox + toArchive > 0) {
     invalidateCorreoFolderCounts(params.tenantId, params.emailAccountId);
   }
@@ -138,8 +172,8 @@ export async function syncThreadStateFromLocalLabels(params: {
  * No depende de sets globales ni de completitud — repara archivado erróneo
  * y archiva localmente lo que Gmail ya sacó de INBOX.
  *
- * Orden: (1) heal local bidireccional por labelIds, (2) chequeo remoto
- * priorizando archivados locales (restaurar a inbox).
+ * Orden: (1) heal local bidireccional por labelIds del último mensaje,
+ * (2) chequeo remoto priorizando archivados locales (restaurar a inbox).
  */
 export async function selfHealInbox(params: {
   gmail: gmail_v1.Gmail;
@@ -154,15 +188,19 @@ export async function selfHealInbox(params: {
   const localCandidates = await prisma.$queryRaw<{ id: string; provider_thread_id: string | null }[]>`
     SELECT t.id, t.provider_thread_id
     FROM crm.email_threads t
+    INNER JOIN LATERAL (
+      SELECT m.label_ids
+      FROM crm.email_messages m
+      WHERE m.thread_id = t.id
+      ORDER BY m.sent_at DESC NULLS LAST, m.created_at DESC
+      LIMIT 1
+    ) latest ON true
     WHERE t.tenant_id = ${tenantId}
       AND t.email_account_id = ${emailAccountId}::uuid
       AND t.archived_at IS NOT NULL
       AND t.trashed_at IS NULL
       AND t.spam_at IS NULL
-      AND EXISTS (
-        SELECT 1 FROM crm.email_messages m
-        WHERE m.thread_id = t.id AND m.label_ids @> ARRAY['INBOX']::text[]
-      )
+      AND latest.label_ids @> ARRAY['INBOX']::text[]
     ORDER BY t.last_message_at DESC NULLS LAST
     LIMIT ${CANDIDATE_CAP}
   `;
@@ -268,6 +306,8 @@ export async function selfHealInbox(params: {
       data: { archivedAt: now, trashedAt: null, spamAt: null },
     });
     healed += r.count;
+    // Strip labels stale para que el próximo heal local no los reabra.
+    await stripInboxLabelsForThreads(toArchive);
   }
   if (healed > localHealed) invalidateCorreoFolderCounts(tenantId, emailAccountId);
   return { healed, checked, localHealed };

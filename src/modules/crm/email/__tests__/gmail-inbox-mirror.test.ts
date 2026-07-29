@@ -20,9 +20,9 @@ function thread(partial: {
 }
 
 describe("computeNegativeArchiveIds (pertenencia negativa)", () => {
-  it("no archiva nada cuando setsComplete === false", () => {
+  it("no archiva nada cuando inboxComplete === false", () => {
     const ids = computeNegativeArchiveIds({
-      setsComplete: false,
+      inboxComplete: false,
       threads: [thread({ id: "t1", providerThreadId: "g1" })],
       inboxIds: new Set(),
       spamIds: new Set(),
@@ -32,9 +32,9 @@ describe("computeNegativeArchiveIds (pertenencia negativa)", () => {
     expect(ids).toEqual([]);
   });
 
-  it("con setsComplete, un hilo ausente de los 3 sets entra en toArchive", () => {
+  it("con inboxComplete, un hilo ausente de los 3 sets entra en toArchive", () => {
     const ids = computeNegativeArchiveIds({
-      setsComplete: true,
+      inboxComplete: true,
       threads: [
         thread({ id: "t1", providerThreadId: "g-inbox" }),
         thread({ id: "t2", providerThreadId: "g-archived" }),
@@ -48,10 +48,22 @@ describe("computeNegativeArchiveIds (pertenencia negativa)", () => {
     expect(ids).toEqual(["t2"]);
   });
 
+  it("inboxComplete basta aunque spam/trash estén incompletos (setsComplete legacy)", () => {
+    const ids = computeNegativeArchiveIds({
+      setsComplete: true,
+      threads: [thread({ id: "t2", providerThreadId: "g-archived" })],
+      inboxIds: new Set(),
+      spamIds: new Set(),
+      trashIds: new Set(),
+      now,
+    });
+    expect(ids).toEqual(["t2"]);
+  });
+
   it("no archiva un hilo con snoozedUntil futuro", () => {
     const future = new Date(now.getTime() + 60_000);
     const ids = computeNegativeArchiveIds({
-      setsComplete: true,
+      inboxComplete: true,
       threads: [
         thread({
           id: "t-snooze",
@@ -69,7 +81,7 @@ describe("computeNegativeArchiveIds (pertenencia negativa)", () => {
 
   it("no archiva un hilo con providerThreadId === null", () => {
     const ids = computeNegativeArchiveIds({
-      setsComplete: true,
+      inboxComplete: true,
       threads: [thread({ id: "t-local", providerThreadId: null })],
       inboxIds: new Set(),
       spamIds: new Set(),
@@ -81,7 +93,7 @@ describe("computeNegativeArchiveIds (pertenencia negativa)", () => {
 
   it("omite hilos ya archivados", () => {
     const ids = computeNegativeArchiveIds({
-      setsComplete: true,
+      inboxComplete: true,
       threads: [
         thread({
           id: "t-arch",

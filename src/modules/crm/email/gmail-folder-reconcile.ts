@@ -4,6 +4,7 @@ import { applyThreadLabelFlags } from "./gmail-thread-labels";
 import { upsertGmailMessage } from "./gmail-message-upsert";
 import { listGmailThreadIdSet } from "./gmail-folder-reconcile-sets";
 import { invalidateCorreoFolderCounts } from "./correos-folder-counts";
+import { stripInboxLabelsForThreads } from "./gmail-inbox-selfheal";
 import type { EmailAccountLite } from "./gmail-sync-state";
 
 const TRASH_IMPORT_CAP = 25;
@@ -19,19 +20,24 @@ export type FolderReconcileThread = {
 };
 
 /**
- * Con sets COMPLETOS, un hilo local ausente de INBOX/TRASH/SPAM está archivado
- * en Gmail. Con sets parciales NO se archiva (evitar archivado masivo indebido).
+ * Con el set INBOX completo, un hilo local ausente de INBOX/TRASH/SPAM está
+ * archivado en Gmail. No exige spam/trash completos: en casillas grandes esos
+ * sets casi nunca terminan y el espejo de Recibidos quedaba inundado para
+ * siempre. Con inbox parcial NO se archiva (evitar archivado masivo indebido).
  * Respeta pospuestos vigentes y omite hilos sin providerThreadId.
  */
 export function computeNegativeArchiveIds(params: {
-  setsComplete: boolean;
+  /** @deprecated Usar inboxComplete. Se acepta por compat de tests. */
+  setsComplete?: boolean;
+  inboxComplete?: boolean;
   threads: FolderReconcileThread[];
   inboxIds: Set<string>;
   spamIds: Set<string>;
   trashIds: Set<string>;
   now?: Date;
 }): string[] {
-  if (!params.setsComplete) return [];
+  const inboxComplete = params.inboxComplete ?? params.setsComplete ?? false;
+  if (!inboxComplete) return [];
   const now = params.now ?? new Date();
   const toArchive: string[] = [];
   for (const t of params.threads) {
@@ -67,7 +73,10 @@ export async function reconcileGmailFolders(params: {
     // TRASH/SPAM: más páginas para maximizar chance de setsComplete (rama negativa).
     const trashSet = await listGmailThreadIdSet({ gmail, labelId: "TRASH", maxPages: 6, deadline });
     const spamSet = await listGmailThreadIdSet({ gmail, labelId: "SPAM", maxPages: 4, deadline });
-    const setsComplete = inboxSet.complete && spamSet.complete && trashSet.complete;
+    // Spam/trash completos siguen aportando al flag `complete` del throttle,
+    // pero el cierre de Recibidos solo necesita INBOX completo.
+    const inboxComplete = inboxSet.complete;
+    const setsComplete = inboxComplete && spamSet.complete && trashSet.complete;
 
     const threads = await prisma.crmEmailThread.findMany({
       where: { tenantId, emailAccountId: emailAccount.id, providerThreadId: { not: null } },
@@ -99,10 +108,10 @@ export async function reconcileGmailFolders(params: {
     }
 
     const now = new Date();
-    // Cierre del espejo: con los 3 sets COMPLETOS, la ausencia es información.
+    // Cierre del espejo: con INBOX completo, la ausencia es información.
     // Un hilo local que Gmail no reporta en INBOX/TRASH/SPAM está archivado.
     const toArchive = computeNegativeArchiveIds({
-      setsComplete,
+      inboxComplete,
       threads,
       inboxIds: inboxSet.ids,
       spamIds: spamSet.ids,
@@ -132,6 +141,9 @@ export async function reconcileGmailFolders(params: {
         data,
       });
       updated += res.count;
+      if (isArchive && res.count > 0) {
+        await stripInboxLabelsForThreads(ids);
+      }
     }
 
     // INBOX primero (lo que el usuario ve en Recibidos), papelera después.

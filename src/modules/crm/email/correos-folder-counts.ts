@@ -28,13 +28,20 @@ export async function countCorreoFolders(params: {
   // Null-safe: el patrón NOT excluía los hilos con snoozedUntil NULL (ver
   // notSnoozedWhere en correos-list.ts) y el contador de Recibidos daba 0.
   const notSnoozed = notSnoozedWhere(now);
+  // Recibidos = espejo INBOX de Gmail (mismo criterio que folderWhere("inbox")).
+  const inboxWhere = {
+    ...base,
+    trashedAt: null,
+    archivedAt: null,
+    spamAt: null,
+    messages: { some: { labelIds: { has: "INBOX" as const } } },
+    ...notSnoozed,
+  };
   const [inbox, inboxUnread, archived, all, trash, snoozed, drafts, spam, scheduled] =
     await Promise.all([
+      prisma.crmEmailThread.count({ where: inboxWhere }),
       prisma.crmEmailThread.count({
-        where: { ...base, trashedAt: null, archivedAt: null, spamAt: null, ...notSnoozed },
-      }),
-      prisma.crmEmailThread.count({
-        where: { ...base, trashedAt: null, archivedAt: null, spamAt: null, isUnread: true, ...notSnoozed },
+        where: { ...inboxWhere, isUnread: true },
       }),
       prisma.crmEmailThread.count({
         where: { ...base, trashedAt: null, spamAt: null, archivedAt: { not: null } },
