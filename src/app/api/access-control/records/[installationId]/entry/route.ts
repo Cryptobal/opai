@@ -34,6 +34,20 @@ export async function POST(
 
     const cleaned = body.rut ? cleanRut(body.rut) : null;
 
+    // entryGuardId es UUID NOT NULL — "" dispara P2023 ("invalid length … found 0").
+    const entryGuardId =
+      typeof body.entryGuardId === "string" ? body.entryGuardId.trim() : "";
+    if (!entryGuardId) {
+      return NextResponse.json(
+        { success: false, error: "entryGuardId es requerido", code: "MISSING_GUARD" },
+        { status: 400 },
+      );
+    }
+    const preregistrationId =
+      typeof body.preregistrationId === "string" && body.preregistrationId.trim()
+        ? body.preregistrationId.trim()
+        : null;
+
     // ── Defense in depth: revalidar listas server-side ──
     // Las listas ahora se aplican por tipo de registro: solo se valida
     // la blacklist/whitelist si el recordType del request está incluido
@@ -133,13 +147,13 @@ export async function POST(
             : null;
 
         if (candidate) {
-          if (body.entryGuardId) {
+          if (entryGuardId) {
             await prisma.accessControlDeniedAttempt
               .create({
                 data: {
                   tenantId: installation.tenantId,
                   installationId,
-                  guardId: body.entryGuardId,
+                  guardId: entryGuardId,
                   rut: cleaned,
                   fullName: body.fullName || null,
                   blacklistEntryId: candidate.id,
@@ -238,13 +252,13 @@ export async function POST(
         });
 
         if (!(candidate && whitelistMatches) && !prereg) {
-          if (body.entryGuardId) {
+          if (entryGuardId) {
             await prisma.accessControlDeniedAttempt
               .create({
                 data: {
                   tenantId: installation.tenantId,
                   installationId,
-                  guardId: body.entryGuardId,
+                  guardId: entryGuardId,
                   rut: cleaned,
                   fullName: body.fullName || null,
                   blockReason: "no_in_whitelist",
@@ -279,7 +293,7 @@ export async function POST(
         company: body.company || null,
         documentSerial: body.documentSerial || null,
         entryAt: body.offlineCreatedAt ? new Date(body.offlineCreatedAt) : new Date(),
-        entryGuardId: body.entryGuardId,
+        entryGuardId,
         entryGpsLat: body.gpsLat ?? null,
         entryGpsLng: body.gpsLng ?? null,
         vehiclePlate: body.vehiclePlate || null,
@@ -297,7 +311,7 @@ export async function POST(
         qrSource: body.qrSource || null,
         idValidationStatus: body.idValidationStatus || "not_checked",
         listMatch: body.listMatch || null,
-        preregistrationId: body.preregistrationId || null,
+        preregistrationId,
         isSynced: !body.deviceId,
         deviceId: body.deviceId || null,
         offlineCreatedAt: body.offlineCreatedAt ? new Date(body.offlineCreatedAt) : null,
@@ -331,9 +345,9 @@ export async function POST(
     }
 
     // Update preregistration status if linked
-    if (body.preregistrationId) {
+    if (preregistrationId) {
       await prisma.accessControlPreregistration.update({
-        where: { id: body.preregistrationId },
+        where: { id: preregistrationId },
         data: { status: "checked_in" },
       });
     }

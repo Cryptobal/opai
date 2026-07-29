@@ -34,10 +34,10 @@ function providerThreadScopeSql(providerThreadIds?: string[]): Prisma.Sql {
  */
 export async function stripInboxLabelsForThreads(threadIds: string[]): Promise<number> {
   if (threadIds.length === 0) return 0;
+  // email_messages no tiene updated_at (solo created_at) — no inventar la columna.
   const res = await prisma.$executeRaw`
     UPDATE crm.email_messages m
-    SET label_ids = array_remove(m.label_ids, 'INBOX'),
-        updated_at = NOW()
+    SET label_ids = array_remove(m.label_ids, 'INBOX')
     WHERE m.thread_id IN (${Prisma.join(
       threadIds.map((id) => Prisma.sql`${id}::uuid`),
     )})
