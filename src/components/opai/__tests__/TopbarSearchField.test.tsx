@@ -44,6 +44,15 @@ describe("TopbarSearchField", () => {
     expect(document.getElementById("module-search-input")).toBeTruthy();
   });
 
+  it("el input anula ring/outline de focus-visible (sin rectángulo interno)", () => {
+    mockSearch.mockReturnValue(searchStub());
+    render(<TopbarSearchField />);
+    const input = document.getElementById("module-search-input");
+    expect(input?.className).toMatch(/focus-visible:ring-0/);
+    expect(input?.className).toMatch(/focus-visible:ring-offset-0/);
+    expect(input?.className).toMatch(/focus-visible:outline-none/);
+  });
+
   it("renderiza chips y al quitar uno llama onChange sin el token", () => {
     const onChange = vi.fn();
     mockSearch.mockReturnValue(

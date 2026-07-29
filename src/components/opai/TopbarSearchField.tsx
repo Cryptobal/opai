@@ -92,7 +92,14 @@ export function TopbarSearchField() {
         <input
           ref={inputRef}
           id="module-search-input"
-          className="h-full min-w-0 flex-1 bg-transparent text-[13px] text-ds-text-1 outline-none placeholder:text-ds-text-4"
+          className={cn(
+            // Anula el :focus-visible global (ring + ring-offset) que dibuja
+            // un rectángulo claro dentro de la pastilla.
+            "h-full min-w-0 flex-1 appearance-none border-0 bg-transparent text-[13px] text-ds-text-1 shadow-none outline-none",
+            "placeholder:text-ds-text-4",
+            "focus:border-0 focus:outline-none focus:ring-0 focus:ring-offset-0",
+            "focus-visible:border-0 focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0",
+          )}
           placeholder={search.placeholder}
           value={search.value}
           maxLength={MAX_SEARCH_LENGTH}
