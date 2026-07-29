@@ -10,6 +10,9 @@ import {
   CALENDAR_SCOPES,
   safeCalendarReturnPath,
 } from "@/lib/google-workspace";
+import { nextPaletteColor } from "@/lib/design/calendar-palette";
+
+const MAX_CALENDAR_ACCOUNTS = 5;
 
 const DEFAULT_PREFS = {
   inviteContacts: true,
@@ -76,8 +79,7 @@ export async function GET(request: NextRequest) {
     }
 
     step = "db";
-    // Upsert por (tenant, user, googleEmail) — no destructivo entre cuentas.
-    // Tope / isDefault / color: ver bloque 5 (OAuth no destructivo).
+    // Upsert por (tenant, user, googleEmail): reconectar conserva id; segunda cuenta no pisa.
     const existing = await prisma.googleCalendarAccount.findUnique({
       where: {
         tenantId_userId_googleEmail: {
@@ -98,16 +100,18 @@ export async function GET(request: NextRequest) {
         },
       });
     } else {
-      const activeCount = await prisma.googleCalendarAccount.count({
+      const siblings = await prisma.googleCalendarAccount.findMany({
         where: {
           tenantId: decoded.tenantId,
           userId: session.user.id,
           status: "ACTIVE",
         },
+        select: { color: true, sortIndex: true },
       });
-      if (activeCount >= 5) {
+      if (siblings.length >= MAX_CALENDAR_ACCOUNTS) {
         return NextResponse.redirect(withCal("limit_reached"));
       }
+      const maxSort = siblings.reduce((m, s) => Math.max(m, s.sortIndex), -1);
       await prisma.googleCalendarAccount.create({
         data: {
           tenantId: decoded.tenantId,
@@ -119,8 +123,9 @@ export async function GET(request: NextRequest) {
           calendarId: "primary",
           prefs: DEFAULT_PREFS,
           status: "ACTIVE",
-          isDefault: activeCount === 0,
-          sortIndex: activeCount,
+          isDefault: siblings.length === 0,
+          color: nextPaletteColor(siblings.map((s) => s.color)),
+          sortIndex: maxSort + 1,
         },
       });
     }
@@ -136,6 +141,12 @@ export async function GET(request: NextRequest) {
         retryPendingAgendaLinks({ tenantId: decoded.tenantId, actorUserId: session.user.id }),
       )
       .catch((err) => console.warn("[calendar] retry post-oauth:", err));
+
+    void import("@/modules/calendar/calendar-retry-pending")
+      .then(({ retryPendingCalendarV2Links }) =>
+        retryPendingCalendarV2Links(decoded.tenantId, session.user.id),
+      )
+      .catch((err) => console.warn("[calendar-v2] retry post-oauth:", err));
 
     return NextResponse.redirect(withCal("connected"));
   } catch (err) {
