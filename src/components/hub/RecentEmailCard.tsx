@@ -64,13 +64,17 @@ function HeaderRow({
           <ChevronRight className="h-4 w-4" />
         </span>
       </Link>
-      <div className="hidden min-w-0 items-center gap-2 lg:flex">
+      <Link
+        href="/crm/correos"
+        aria-label="Ver todos los correos"
+        className="hidden min-h-11 min-w-0 items-center gap-2 rounded-lg transition-colors hover:bg-ds-surface-2 ds-tap lg:flex"
+      >
         <Mail className="h-4 w-4 shrink-0 text-primary" />
         <p className="truncate font-display text-sm font-semibold text-ds-text-1">
           {dense ? "Correos" : "Correos recientes"}
         </p>
         {badge}
-      </div>
+      </Link>
     </>
   );
 }

@@ -61,11 +61,15 @@ export function AgendaMobile({
     writeMobilePrefs({ view, date: selectedYmd });
   }, [view, selectedYmd]);
 
-  // Deep links: ?visita= abre el detalle; ?nueva=1 el composer.
+  // Deep links: ?visita= abre el detalle; ?nueva=1 el composer; ?date= el día.
   useEffect(() => {
     const visita = search.get("visita") ?? search.get("evento");
     if (visita) setVisitaId(visita);
     if (search.get("nueva") === "1") setComposerOpen(true);
+    const date = search.get("date");
+    if (date && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      setSelectedYmd(date);
+    }
   }, [search]);
 
   const { items, users, loading, error, reload } = useAgendaMobileData(view, selectedYmd);

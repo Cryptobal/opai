@@ -12,7 +12,7 @@ import { Tag } from "@/components/opai-ds";
 import { cn } from "@/lib/utils";
 import { todayInChile } from "@/lib/dates-cl";
 import { agendaItemDayKey } from "./agenda-calendar-utils";
-import { type HubAgendaItem, hhmm } from "./agenda-hub-item";
+import { type HubAgendaItem, hhmm, hubAgendaItemHref } from "./agenda-hub-item";
 
 export const HUB_UPCOMING_MAX = 4;
 
@@ -124,14 +124,7 @@ export function AgendaHubUpcomingList({
 
         return (
           <li key={`${item.source ?? item.type}-${item.id}`} className="min-w-0">
-            <Link
-              href={
-                item.source === "tarea"
-                  ? item.href || "/crm/mi-semana"
-                  : "/opai/agenda"
-              }
-              className={rowClass}
-            >
+            <Link href={hubAgendaItemHref(item)} className={rowClass}>
               {row}
             </Link>
           </li>

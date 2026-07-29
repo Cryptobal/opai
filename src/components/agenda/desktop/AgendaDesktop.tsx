@@ -118,6 +118,11 @@ export function AgendaDesktop({
     if (search.get("nueva") === "1") setModalOpen(true);
     if (search.get("visita")) setVisitaId(search.get("visita"));
     if (search.get("licitacion")) setLicId(search.get("licitacion"));
+    // Deep-link desde Mi día / Próximos días: ?date=YYYY-MM-DD
+    const date = search.get("date");
+    if (date && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      setAnchor(dateAtChileSlot(date, 0));
+    }
     const cal = search.get("cal");
     if (!cal || calHandled.current) return;
     calHandled.current = true;

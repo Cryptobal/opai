@@ -12,6 +12,8 @@ import {
   agendaDurationMin,
   formatDurationLabel,
   computeFreeSlots,
+  hubAgendaDayHref,
+  hubAgendaItemHref,
 } from "./agenda-hub-item";
 
 export function AgendaHubCardDense({
@@ -69,13 +71,20 @@ export function AgendaHubCardDense({
       className={cn("flex min-h-0 min-w-0 flex-col gap-3", className)}
     >
       <div className="flex shrink-0 items-center justify-between gap-2">
-        <div className="flex min-w-0 items-center gap-2">
+        <Link
+          href="/opai/agenda"
+          aria-label="Abrir agenda"
+          className="flex min-h-11 min-w-0 items-center gap-2 rounded-lg transition-colors hover:bg-ds-surface-2 ds-tap"
+        >
           <CalendarDays className="h-4 w-4 shrink-0 text-primary" />
           <p className="truncate font-display text-sm font-semibold text-ds-text-1">Agenda</p>
-        </div>
-        <span className="shrink-0 text-[12px] tabular-nums text-ds-text-3">
+        </Link>
+        <Link
+          href="/opai/agenda"
+          className="shrink-0 text-[12px] tabular-nums text-ds-text-3 transition-colors hover:text-primary"
+        >
           {todayItems.length} hoy
-        </span>
+        </Link>
       </div>
 
       <div className="min-h-0 flex-1 overflow-auto">
@@ -89,6 +98,14 @@ export function AgendaHubCardDense({
             title="Sin eventos"
             description="Tu agenda de hoy está libre."
             compact
+            action={
+              <Link
+                href="/opai/agenda"
+                className="text-[13px] font-medium text-primary hover:underline"
+              >
+                Abrir agenda
+              </Link>
+            }
           />
         ) : (
           <div className="space-y-1">
@@ -143,20 +160,28 @@ export function AgendaHubCardDense({
               day: "numeric",
               timeZone: "America/Santiago",
             });
+            const summary = first
+              ? `${first.allDay ? first.title : `${hhmm(first.start)} · ${first.title}`}${
+                  dayItems.length > 1 ? ` +${dayItems.length - 1}` : ""
+                }`
+              : "Sin eventos";
             return (
-              <li
-                key={key}
-                className="flex min-w-0 items-baseline gap-2 text-[13px] text-ds-text-2"
-              >
-                <span className="w-16 shrink-0 capitalize text-ds-text-3">{label}</span>
-                {first ? (
-                  <span className="min-w-0 truncate">
-                    {first.allDay ? first.title : `${hhmm(first.start)} · ${first.title}`}
-                    {dayItems.length > 1 ? ` +${dayItems.length - 1}` : ""}
+              <li key={key}>
+                <Link
+                  href={hubAgendaDayHref(key)}
+                  aria-label={`Abrir agenda del ${label}`}
+                  className="flex min-h-11 min-w-0 items-center gap-2 rounded-lg px-1 py-1.5 text-[13px] text-ds-text-2 transition-colors hover:bg-ds-surface-2 ds-tap"
+                >
+                  <span className="w-16 shrink-0 capitalize text-ds-text-3">{label}</span>
+                  <span
+                    className={cn(
+                      "min-w-0 flex-1 truncate",
+                      first ? "text-ds-text-2" : "text-ds-text-4",
+                    )}
+                  >
+                    {summary}
                   </span>
-                ) : (
-                  <span className="text-ds-text-4">Sin eventos</span>
-                )}
+                </Link>
               </li>
             );
           })}
@@ -185,9 +210,13 @@ function DenseEventRow({ item }: { item: Item }) {
           ? "bg-tint-violet"
           : "bg-status-ok";
   const timeLabel = overdue ? "Venc." : item.allDay ? "Día" : hhmm(item.start);
+  const href = hubAgendaItemHref(item);
 
-  const inner = (
-    <div className="flex min-h-11 min-w-0 items-stretch gap-2 rounded-lg px-1.5 py-1.5 transition-colors hover:bg-ds-surface-2">
+  return (
+    <Link
+      href={href}
+      className="flex min-h-11 min-w-0 items-stretch gap-2 rounded-lg px-1.5 py-1.5 transition-colors hover:bg-ds-surface-2 ds-tap"
+    >
       <span
         className={cn(
           "w-12 shrink-0 self-center font-mono text-[12px] tabular-nums",
@@ -205,18 +234,6 @@ function DenseEventRow({ item }: { item: Item }) {
           </span>
         )}
       </span>
-    </div>
+    </Link>
   );
-
-  if (item.source === "tarea") {
-    return <Link href={item.href || "/opai/tareas"}>{inner}</Link>;
-  }
-  if (item.htmlLink) {
-    return (
-      <a href={item.htmlLink} target="_blank" rel="noopener noreferrer">
-        {inner}
-      </a>
-    );
-  }
-  return inner;
 }
