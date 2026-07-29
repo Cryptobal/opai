@@ -1,11 +1,12 @@
 "use client";
 
-import { memo } from "react";
+import { Fragment, memo } from "react";
 import { Loader2, Mail, Sparkles, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ChatPageContextValue } from "../ChatPageContextProvider";
 import { MessageActionBar } from "./MessageActionBar";
 import { PendingConfirmCards } from "./PendingConfirmCards";
+import { ReasoningTrace } from "./ReasoningTrace";
 import { VisualsRenderer } from "./visuals";
 import { renderMessageContent } from "./message-render";
 import type { ChatMessage } from "./types";
@@ -17,6 +18,9 @@ type Props = {
   sending: boolean;
   streamingStarted: boolean;
   activeToolName: string | null;
+  reasoningText: string;
+  reasoningSteps: number;
+  reasoningMs?: number;
   quickStarters: string[];
   persistenceEnabled: boolean;
   pageContext: ChatPageContextValue | null;
@@ -39,6 +43,9 @@ function ChatMessageListInner({
   sending,
   streamingStarted,
   activeToolName,
+  reasoningText,
+  reasoningSteps,
+  reasoningMs,
   quickStarters,
   persistenceEnabled,
   pageContext,
@@ -52,6 +59,11 @@ function ChatMessageListInner({
   friendlyToolLabel,
   scrollRef,
 }: Props) {
+  // Indicador live durante el turno (pensando / tools / razonamiento). El
+  // colapso a "Pensó durante…" ocurre en el mensaje persistido al terminar.
+  const showLiveReasoning =
+    sending && (!!activeToolName || !streamingStarted || !!reasoningText || reasoningSteps > 0);
+
   return (
     <>
       {pageContext ? (
@@ -114,44 +126,63 @@ function ChatMessageListInner({
             {messages.map((msg, idx) => {
               const isLastAssistant =
                 msg.role === "assistant" && idx === messages.length - 1 && !sending;
+              const isStreamingBubble =
+                msg.role === "assistant" && msg.id.startsWith("tmp-streaming-");
+              // Durante el turno, el razonamiento live se renderiza abajo; no
+              // duplicar si el mensaje streaming aún no tiene reasoning persistido.
+              const showPersistedReasoning =
+                msg.role === "assistant" &&
+                !!msg.reasoning &&
+                !(isStreamingBubble && sending);
               return (
-                <div
-                  key={msg.id}
-                  className={cn(
-                    "max-w-[95%] rounded-2xl px-3 py-2.5 text-sm",
-                    msg.role === "user"
-                      ? "ml-auto bg-gradient-to-br from-primary/30 to-primary/14 text-ds-text-1 border border-primary/30"
-                      : "mr-auto bg-ds-surface-2 text-ds-text-1 border border-ds-border-subtle",
-                  )}
-                >
-                  <div className="whitespace-pre-wrap">
-                    {renderMessageContent(msg.content, onNavigateInternal)}
+                <Fragment key={msg.id}>
+                  {showPersistedReasoning ? (
+                    <ReasoningTrace
+                      active={false}
+                      text={msg.reasoning!}
+                      toolLabel={null}
+                      steps={0}
+                      elapsedMs={msg.reasoningMs}
+                    />
+                  ) : null}
+                  <div
+                    className={cn(
+                      "max-w-[95%] rounded-2xl px-3 py-2.5 text-sm",
+                      msg.role === "user"
+                        ? "ml-auto bg-gradient-to-br from-primary/30 to-primary/14 text-ds-text-1 border border-primary/30"
+                        : "mr-auto bg-ds-surface-2 text-ds-text-1 border border-ds-border-subtle",
+                      isStreamingBubble && !msg.content ? "hidden" : null,
+                    )}
+                  >
+                    <div className="whitespace-pre-wrap">
+                      {renderMessageContent(msg.content, onNavigateInternal)}
+                    </div>
+                    {msg.role === "assistant" && (msg.visuals?.length || msg.suggestions?.length) ? (
+                      <VisualsRenderer
+                        visuals={msg.visuals ?? []}
+                        suggestions={msg.suggestions ?? []}
+                        onCardAction={(a) => onAction(a)}
+                        onSuggestionAction={(a) => onAction(a)}
+                      />
+                    ) : null}
+                    {msg.role === "assistant" && msg.pendingConfirmations?.length ? (
+                      <PendingConfirmCards
+                        items={msg.pendingConfirmations}
+                        onResolved={(id, status) => onConfirmResolved(msg.id, id, status)}
+                      />
+                    ) : null}
+                    {msg.role === "assistant" && !msg.id.startsWith("tmp-streaming-") ? (
+                      <MessageActionBar
+                        messageId={msg.id}
+                        content={msg.content}
+                        feedback={msg.feedback}
+                        canPersistFeedback={persistenceEnabled}
+                        onRegenerate={isLastAssistant ? onRegenerate : undefined}
+                        onFeedback={(next) => onFeedback(msg.id, next)}
+                      />
+                    ) : null}
                   </div>
-                  {msg.role === "assistant" && (msg.visuals?.length || msg.suggestions?.length) ? (
-                    <VisualsRenderer
-                      visuals={msg.visuals ?? []}
-                      suggestions={msg.suggestions ?? []}
-                      onCardAction={(a) => onAction(a)}
-                      onSuggestionAction={(a) => onAction(a)}
-                    />
-                  ) : null}
-                  {msg.role === "assistant" && msg.pendingConfirmations?.length ? (
-                    <PendingConfirmCards
-                      items={msg.pendingConfirmations}
-                      onResolved={(id, status) => onConfirmResolved(msg.id, id, status)}
-                    />
-                  ) : null}
-                  {msg.role === "assistant" && !msg.id.startsWith("tmp-streaming-") ? (
-                    <MessageActionBar
-                      messageId={msg.id}
-                      content={msg.content}
-                      feedback={msg.feedback}
-                      canPersistFeedback={persistenceEnabled}
-                      onRegenerate={isLastAssistant ? onRegenerate : undefined}
-                      onFeedback={(next) => onFeedback(msg.id, next)}
-                    />
-                  ) : null}
-                </div>
+                </Fragment>
               );
             })}
             {!sending &&
@@ -173,15 +204,14 @@ function ChatMessageListInner({
             ) : null}
           </>
         )}
-        {(sending && !streamingStarted) || activeToolName ? (
-          <div className="flex items-center gap-1.5 px-2 py-2 text-xs text-status-info-fg/80">
-            <span className="inline-flex gap-1">
-              <span className="h-1.5 w-1.5 rounded-full bg-status-info animate-bounce [animation-delay:0ms]" />
-              <span className="h-1.5 w-1.5 rounded-full bg-status-info animate-bounce [animation-delay:120ms]" />
-              <span className="h-1.5 w-1.5 rounded-full bg-status-info animate-bounce [animation-delay:240ms]" />
-            </span>
-            <span>{activeToolName ? friendlyToolLabel(activeToolName) : "Pensando..."}</span>
-          </div>
+        {showLiveReasoning ? (
+          <ReasoningTrace
+            active
+            text={reasoningText}
+            toolLabel={activeToolName ? friendlyToolLabel(activeToolName) : null}
+            steps={reasoningSteps}
+            elapsedMs={reasoningMs}
+          />
         ) : null}
       </div>
     </>

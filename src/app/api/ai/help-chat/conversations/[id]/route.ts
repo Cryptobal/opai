@@ -22,6 +22,8 @@ function parseMessageMeta(metadata: unknown): {
     status: string;
     expiresAt: string;
   }>;
+  reasoning?: string;
+  reasoningMs?: number;
 } {
   if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) return {};
   const m = metadata as Record<string, unknown>;
@@ -38,6 +40,8 @@ function parseMessageMeta(metadata: unknown): {
           expiresAt: string;
         }>)
       : undefined,
+    reasoning: typeof m.reasoning === "string" && m.reasoning.trim() ? m.reasoning : undefined,
+    reasoningMs: typeof m.reasoningMs === "number" && Number.isFinite(m.reasoningMs) ? m.reasoningMs : undefined,
   };
 }
 
@@ -109,6 +113,8 @@ export async function GET(
         suggestions: meta.suggestions,
         feedback: meta.feedback,
         pendingConfirmations: meta.pendingConfirmations,
+        reasoning: meta.reasoning,
+        reasoningMs: meta.reasoningMs,
       };
     });
 

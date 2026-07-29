@@ -47,6 +47,9 @@ export function ChatDockDesktop(props: ChatPanelSharedProps) {
           sending={props.sending}
           streamingStarted={props.streamingStarted}
           activeToolName={props.activeToolName}
+          reasoningText={props.reasoningText}
+          reasoningSteps={props.reasoningSteps}
+          reasoningMs={props.reasoningMs}
           quickStarters={props.quickStarters}
           persistenceEnabled={props.persistenceEnabled}
           pageContext={props.pageContext}

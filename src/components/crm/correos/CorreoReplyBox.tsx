@@ -3,7 +3,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { Spinner } from "@/components/opai-ds";
 import { CorreoActionBar } from "./CorreoActionBar";
-import { CorreoComposerBox, type ComposerMode, type ReplyAll } from "./CorreoComposerBox";
+import {
+  CorreoComposerBox,
+  type ComposerMode,
+  type ReplyAll,
+  type ThreadDraftSeed,
+} from "./CorreoComposerBox";
 import type { ForwardAttachmentRefClient } from "./EmailComposer";
 import type { CorreoAttachmentDTO, CorreoMessageDTO } from "@/modules/crm/email/correos.types";
 import {
@@ -78,6 +83,26 @@ function scrollComposerIntoView() {
   window.setTimeout(run, 80);
 }
 
+/** Último borrador del hilo con id de Gmail (el que se puede descartar/reanudar). */
+export function findThreadDraft(messages: CorreoMessageDTO[]): CorreoMessageDTO | null {
+  for (let i = messages.length - 1; i >= 0; i -= 1) {
+    const m = messages[i];
+    if (m?.isDraft && m.providerDraftId) return m;
+  }
+  return null;
+}
+
+function toThreadDraftSeed(m: CorreoMessageDTO): ThreadDraftSeed {
+  return {
+    providerDraftId: m.providerDraftId ?? null,
+    toEmails: m.toEmails,
+    ccEmails: m.ccEmails,
+    subject: m.subject,
+    htmlBody: m.htmlBody,
+    textBody: m.textBody,
+  };
+}
+
 /**
  * Orquesta la respuesta del lector (Bloque 2): barra de acciones Gmail (cerrado)
  * ⇄ composer con modos (abierto). IA = panel tipo Gmail (pill + toggle abajo),
@@ -86,12 +111,16 @@ function scrollComposerIntoView() {
  *
  * La barra de acciones se muestra de inmediato (sin esperar suggest-reply): el
  * meta se hidrata en background para no bloquear la lectura con un spinner.
+ *
+ * Si el hilo tiene un borrador, Responder/Continuar lo reanuda (mismo
+ * providerDraftId) en vez de crear otro.
  */
 export function CorreoReplyBox({
   detail,
   onSent,
   shortcuts = DEFAULT_CORREO_SHORTCUTS,
   composeIntent = null,
+  continueDraftIntent = null,
   onOpenAiStyle,
 }: {
   detail: ReplyBoxDetail;
@@ -99,6 +128,8 @@ export function CorreoReplyBox({
   shortcuts?: CorreoShortcuts;
   /** Pedido externo (atajo desde bandeja / menú contextual). */
   composeIntent?: ComposeIntent | null;
+  /** Continuar un borrador desde la card de la cadena. */
+  continueDraftIntent?: { message: CorreoMessageDTO; nonce: number } | null;
   onOpenAiStyle?: () => void;
 }) {
   const threadId = detail.thread.id;
@@ -108,8 +139,12 @@ export function CorreoReplyBox({
   });
   const [metaReady, setMetaReady] = useState(false);
   const [open, setOpen] = useState<{ mode: ComposerMode; ai: boolean; expanded: boolean } | null>(null);
+  const [activeDraft, setActiveDraft] = useState<ThreadDraftSeed | null>(null);
 
-  function openComposer(mode: ComposerMode, ai = false) {
+  const threadDraft = useMemo(() => findThreadDraft(detail.messages), [detail.messages]);
+
+  function openComposer(mode: ComposerMode, ai = false, draft: CorreoMessageDTO | null = threadDraft) {
+    setActiveDraft(draft && mode !== "forward" ? toThreadDraftSeed(draft) : null);
     setOpen({ mode, ai, expanded: false });
   }
 
@@ -122,6 +157,7 @@ export function CorreoReplyBox({
 
   useEffect(() => {
     setOpen(null);
+    setActiveDraft(null);
     setMetaReady(false);
     let alive = true;
     fetch(`/api/crm/correos/${threadId}/suggest-reply`)
@@ -153,6 +189,13 @@ export function CorreoReplyBox({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [composeIntent?.nonce]);
 
+  // Continuar borrador desde la card de la cadena (papelera + Continuar).
+  useEffect(() => {
+    if (!continueDraftIntent) return;
+    openComposer("reply", false, continueDraftIntent.message);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [continueDraftIntent?.nonce]);
+
   const canReply = meta.to.length > 0 || Boolean(meta.replyAll);
   const replyAllAvailable = useMemo(() => {
     const ra = meta.replyAll;
@@ -181,7 +224,8 @@ export function CorreoReplyBox({
   }
 
   // Composer abierto antes de que llegue el meta: spinner mínimo en el box.
-  if (!metaReady && open.mode !== "forward") {
+  // Si reanudamos un borrador ya tenemos destinatarios/cuerpo — no bloquear.
+  if (!metaReady && open.mode !== "forward" && !activeDraft) {
     return (
       <div id="correo-suggested-reply" className="flex justify-center py-4">
         <Spinner />
@@ -198,6 +242,7 @@ export function CorreoReplyBox({
       contactId={detail.thread.contactId ?? null}
       to={meta.to}
       replyAll={meta.replyAll}
+      threadDraft={activeDraft}
       forwardQuotedHtml={buildForwardQuote(detail)}
       forwardAttachments={forwardAttachments}
       mode={open.mode}
@@ -220,8 +265,16 @@ export function CorreoReplyBox({
         })
       }
       onToggleExpand={() => setOpen((o) => (o ? { ...o, expanded: !o.expanded } : o))}
-      onClose={() => setOpen(null)}
+      onClose={() => {
+        setOpen(null);
+        setActiveDraft(null);
+      }}
       onSent={onSent}
+      onDraftDiscarded={() => {
+        setOpen(null);
+        setActiveDraft(null);
+        onSent();
+      }}
       onOpenAiStyle={onOpenAiStyle}
     />
   );

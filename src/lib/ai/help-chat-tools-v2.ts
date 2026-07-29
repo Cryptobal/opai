@@ -211,6 +211,73 @@ function v2ToolDefinitions() {
     {
       type: "function" as const,
       function: {
+        name: "search_emails",
+        description:
+          "Busca en la casilla de correo del usuario (híbrido: texto exacto + significado). Úsala para CUALQUIER pregunta sobre correos que NO sea sobre el hilo abierto en pantalla ('¿qué cliente pidió ampliar la dotación?', 'correos de Luis de diciembre', 'facturas con adjunto'). Traducí filtros del lenguaje natural a los parámetros. Devuelve hilos con url — SIEMPRE respondé con :::cards citando los hilos.",
+        parameters: {
+          type: "object",
+          properties: {
+            query: {
+              type: "string",
+              description: "Texto libre o idea a buscar (también puede ir vacío si solo hay filtros). OBLIGATORIO como string.",
+            },
+            from: { type: "string", description: "Remitente (nombre o email parcial)." },
+            subject: { type: "string", description: "Coincidencia solo en asunto." },
+            newerThan: {
+              type: "string",
+              description: "Antigüedad máxima relativa: 7d, 2w, 3m.",
+            },
+            olderThan: {
+              type: "string",
+              description: "Antigüedad mínima relativa: 7d, 2w, 3m.",
+            },
+            hasAttachment: { type: "boolean", description: "Solo hilos con adjuntos." },
+            unread: { type: "boolean", description: "true = no leídos; false = leídos." },
+            vertical: {
+              type: "string",
+              description:
+                "Filtro vertical histórico del hilo (ai_vertical): operaciones|rrhh|comercial|finanzas|cobranza|contratos|incidentes|otro.",
+            },
+            folder: {
+              type: "string",
+              description:
+                "Carpeta: inbox|sent|drafts|starred|spam|trash|all|snoozed|archived. Por defecto inbox (excluye papelera/spam).",
+            },
+            limit: { type: "number", description: "Máximo de hilos (default 6, máx 12)." },
+          },
+          required: ["query"],
+          additionalProperties: false,
+        },
+      },
+    },
+    {
+      type: "function" as const,
+      function: {
+        name: "search_emails_semantic",
+        description:
+          "Alias de search_emails (compatibilidad). Preferí search_emails.",
+        parameters: {
+          type: "object",
+          properties: {
+            query: { type: "string", description: "Pregunta o descripción. OBLIGATORIO." },
+            limit: { type: "number", description: "Máximo de hilos (default 6, máx 12)." },
+            from: { type: "string" },
+            subject: { type: "string" },
+            newerThan: { type: "string" },
+            olderThan: { type: "string" },
+            hasAttachment: { type: "boolean" },
+            unread: { type: "boolean" },
+            vertical: { type: "string" },
+            folder: { type: "string" },
+          },
+          required: ["query"],
+          additionalProperties: false,
+        },
+      },
+    },
+    {
+      type: "function" as const,
+      function: {
         name: "list_deal_tasks",
         description:
           "Lista las tareas/checklist de un deal con su estado (open/done) y vencimiento. Úsala cuando pregunten '¿qué falta de la licitación X?' o pidan ver los pendientes de un negocio.",
@@ -999,73 +1066,6 @@ function writeToolDefinitions() {
             },
           },
           required: [],
-          additionalProperties: false,
-        },
-      },
-    },
-    {
-      type: "function" as const,
-      function: {
-        name: "search_emails",
-        description:
-          "Busca en la casilla de correo del usuario (híbrido: texto exacto + significado). Úsala para CUALQUIER pregunta sobre correos que NO sea sobre el hilo abierto en pantalla ('¿qué cliente pidió ampliar la dotación?', 'correos de Luis de diciembre', 'facturas con adjunto'). Traducí filtros del lenguaje natural a los parámetros. Devuelve hilos con badge de vertical y url — SIEMPRE respondé con :::cards citando los hilos.",
-        parameters: {
-          type: "object",
-          properties: {
-            query: {
-              type: "string",
-              description: "Texto libre o idea a buscar (también puede ir vacío si solo hay filtros). OBLIGATORIO como string.",
-            },
-            from: { type: "string", description: "Remitente (nombre o email parcial)." },
-            subject: { type: "string", description: "Coincidencia solo en asunto." },
-            newerThan: {
-              type: "string",
-              description: "Antigüedad máxima relativa: 7d, 2w, 3m.",
-            },
-            olderThan: {
-              type: "string",
-              description: "Antigüedad mínima relativa: 7d, 2w, 3m.",
-            },
-            hasAttachment: { type: "boolean", description: "Solo hilos con adjuntos." },
-            unread: { type: "boolean", description: "true = no leídos; false = leídos." },
-            vertical: {
-              type: "string",
-              description:
-                "Filtro vertical histórico del hilo (ai_vertical): operaciones|rrhh|comercial|finanzas|cobranza|contratos|incidentes|otro.",
-            },
-            folder: {
-              type: "string",
-              description:
-                "Carpeta: inbox|sent|drafts|starred|spam|trash|all|snoozed|archived. Por defecto inbox (excluye papelera/spam).",
-            },
-            limit: { type: "number", description: "Máximo de hilos (default 6, máx 12)." },
-          },
-          required: ["query"],
-          additionalProperties: false,
-        },
-      },
-    },
-    {
-      type: "function" as const,
-      function: {
-        name: "search_emails_semantic",
-        description:
-          "Alias de search_emails (compatibilidad). Preferí search_emails.",
-        parameters: {
-          type: "object",
-          properties: {
-            query: { type: "string", description: "Pregunta o descripción. OBLIGATORIO." },
-            limit: { type: "number", description: "Máximo de hilos (default 6, máx 12)." },
-            from: { type: "string" },
-            subject: { type: "string" },
-            newerThan: { type: "string" },
-            olderThan: { type: "string" },
-            hasAttachment: { type: "boolean" },
-            unread: { type: "boolean" },
-            vertical: { type: "string" },
-            folder: { type: "string" },
-          },
-          required: ["query"],
           additionalProperties: false,
         },
       },
@@ -2252,19 +2252,40 @@ export function describeWriteArgs(toolName: string, args: Record<string, unknown
   return detail ? `${label} · ${detail}`.slice(0, 140) : label;
 }
 
-/** Tools que viven en la sección de escritura pero son de LECTURA (no diferir). */
-const WRITE_SECTION_READ_ONLY: ReadonlySet<string> = new Set(["get_quote_proposal"]);
+/**
+ * Tools que viven en la sección de escritura pero son de LECTURA (no diferir).
+ * Incluye nombres conocidos por si quedan mal ubicados en el futuro.
+ */
+const WRITE_SECTION_READ_ONLY: ReadonlySet<string> = new Set([
+  "get_quote_proposal",
+  "search_emails",
+  "search_emails_semantic",
+]);
+
+/**
+ * Prefijos de tools de solo lectura. Si una escritura legítima empieza con
+ * alguno de estos, agregarla a WRITE_SECTION_FORCE_WRITE en vez de quitar el filtro.
+ */
+const READ_ONLY_PREFIXES = ["preview_", "search_", "get_", "list_", "read_"] as const;
+
+/** Escrituras cuyo nombre colisiona con un prefijo de lectura (vacío hoy). */
+const WRITE_SECTION_FORCE_WRITE: ReadonlySet<string> = new Set([]);
 
 /**
  * Nombres de todas las tools de escritura, DERIVADO de `writeToolDefinitions()`
  * para que ningún write nuevo escape al diferido en transportes externos
- * (Slack). Excluye las `preview_*` (solo calculan, no persisten) y las lecturas
- * de la sección. `WRITE_TOOL_LABELS` queda solo para el texto de la tarjeta.
+ * (Slack). Excluye las `preview_*` (solo calculan, no persisten), prefijos de
+ * lectura y las lecturas conocidas de la sección. `WRITE_TOOL_LABELS` queda
+ * solo para el texto de la tarjeta.
  */
 export const WRITE_TOOL_NAMES: ReadonlySet<string> = new Set(
   writeToolDefinitions()
     .map((d) => d.function.name)
-    .filter((n) => !n.startsWith("preview_") && !WRITE_SECTION_READ_ONLY.has(n)),
+    .filter(
+      (n) =>
+        WRITE_SECTION_FORCE_WRITE.has(n) ||
+        (!READ_ONLY_PREFIXES.some((p) => n.startsWith(p)) && !WRITE_SECTION_READ_ONLY.has(n)),
+    ),
 );
 
 export function getToolDefinitionsV2(allowDataQuestions: boolean, allowWrites: boolean = false) {

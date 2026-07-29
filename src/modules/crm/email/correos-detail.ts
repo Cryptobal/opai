@@ -170,6 +170,7 @@ export async function getCorreoDetail(params: {
         id: true, providerMessageId: true, direction: true, fromEmail: true,
         replyToEmail: true, toEmails: true, ccEmails: true, subject: true,
         htmlBody: true, textBody: true, sentAt: true, isDraft: true,
+        providerDraftId: true,
       },
     }),
     thread.accountId
@@ -233,9 +234,11 @@ export async function getCorreoDetail(params: {
       lastReadAt: thread.lastReadAt?.toISOString() ?? null,
       threadSummary,
     },
-    messages: messages.map(({ isDraft: _isDraft, ...m }) => ({
+    messages: messages.map((m) => ({
       ...m,
       sentAt: m.sentAt?.toISOString() ?? null,
+      isDraft: Boolean(m.isDraft),
+      providerDraftId: m.providerDraftId ?? null,
     })),
     attachments: attachmentsWithSaved,
     degraded,

@@ -12,6 +12,9 @@ export type ChatPanelSharedProps = {
   sending: boolean;
   streamingStarted: boolean;
   activeToolName: string | null;
+  reasoningText: string;
+  reasoningSteps: number;
+  reasoningMs?: number;
   quickStarters: string[];
   persistenceEnabled: boolean;
   pageContext: ChatPageContextValue | null;

@@ -8,9 +8,10 @@ import { CorreoMessages } from "./correos/CorreoMessages";
 import { CorreoAttachmentViewer, type ViewerFile } from "./correos/CorreoAttachmentViewer";
 import { CorreoReaderShell } from "./correos/CorreoReaderShell";
 import { CorreoReplyBox } from "./correos/CorreoReplyBox";
+import { nextIntentNonce } from "./correos/correo-reader-intent";
 import { useCorreoFocusScope } from "./correos/useCorreoFocusScope";
 import { parseSender } from "./correos/correo-sender";
-import type { CorreoAttachmentDTO } from "@/modules/crm/email/correos.types";
+import type { CorreoAttachmentDTO, CorreoMessageDTO } from "@/modules/crm/email/correos.types";
 import type { ConversationEntityType } from "@/modules/crm/email/entity-conversations";
 import { EntityMessageAttachments } from "./entity-conversations/EntityMessageAttachments";
 import { ensureEntityLink } from "./entity-conversations/ensure-entity-link";
@@ -45,6 +46,10 @@ export function EntityThreadReader({
 }) {
   useCorreoFocusScope(Boolean(threadId));
   const [viewer, setViewer] = useState<ViewerFile | null>(null);
+  const [continueDraftIntent, setContinueDraftIntent] = useState<{
+    message: CorreoMessageDTO;
+    nonce: number;
+  } | null>(null);
   const { width, reset, onResizePointerDown, onResizeKeyDown } = useEntityReaderWidth();
   const { detail, state, reload } = useEntityThreadDetail(threadId, entityType, entityId);
 
@@ -122,13 +127,22 @@ export function EntityThreadReader({
             renderMessageAttachments={(_m, items) => (
               <EntityMessageAttachments items={items} onOpen={openAttachment} />
             )}
+            onDraftDiscarded={() => {
+              void reload();
+              onChanged?.();
+            }}
+            onContinueDraft={(m) =>
+              setContinueDraftIntent({ message: m, nonce: nextIntentNonce() })
+            }
           />
           {detail.canReply ? (
             <div className="sticky bottom-0 space-y-2 border-t border-ds-border-subtle bg-ds-surface-1 p-2">
               <CorreoReplyBox
                 detail={replyDetail}
+                continueDraftIntent={continueDraftIntent}
                 onSent={async () => {
                   await ensureEntityLink({ threadId, entityType, entityId });
+                  void reload();
                   onChanged?.();
                 }}
               />
