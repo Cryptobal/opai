@@ -8,7 +8,11 @@ import {
   pickAgentInstructionsForPrompt,
 } from "@/lib/ai/help-chat-config";
 import { retrieveDocsContext, retrieveTemplatesContext } from "@/lib/ai/help-chat-retrieval";
-import { getToolDefinitionsV2, executeToolCallV2 } from "@/lib/ai/help-chat-tools-v2";
+import {
+  getToolDefinitionsV2,
+  executeToolCallV2,
+  WRITE_TOOL_NAMES,
+} from "@/lib/ai/help-chat-tools-v2";
 import {
   PENDING_TTL_MS,
   decideWriteDeferral,
@@ -51,6 +55,24 @@ function clipTitle(text: string): string {
   const clean = text.replace(/\s+/g, " ").trim();
   if (!clean) return "Nueva conversación";
   return clean.length > 90 ? `${clean.slice(0, 87)}...` : clean;
+}
+
+/** Clave estable de args para deduplicar tool calls de escritura en un turno. */
+function stableToolArgsKey(args: Record<string, unknown>): string {
+  const keys = Object.keys(args).sort();
+  const normalized: Record<string, unknown> = {};
+  for (const k of keys) normalized[k] = args[k];
+  try {
+    return JSON.stringify(normalized);
+  } catch {
+    return String(callFallbackArgs(args));
+  }
+}
+
+function callFallbackArgs(args: Record<string, unknown>): string {
+  return Object.entries(args)
+    .map(([k, v]) => `${k}=${typeof v === "string" ? v : JSON.stringify(v)}`)
+    .join("&");
 }
 
 /**
@@ -450,6 +472,8 @@ REGLAS DE CONTEXTO DE MÓDULO:
         let toolCallsUsed = 0;
         let usedInferredAnswer = false;
         const deferredPendings: PendingConfirmation[] = [];
+        /** Evita crear el mismo registro N veces si el modelo repite la tool en un turno. */
+        const seenWriteKeys = new Set<string>();
 
         // ── Inferred answer upfront ──
         // Para preguntas puramente funcionales (cómo/dónde/qué hace tal módulo)
@@ -523,33 +547,52 @@ REGLAS DE CONTEXTO DE MÓDULO:
               try { args = JSON.parse(call.arguments || "{}"); } catch { args = {}; }
               send("tool_call", { name: call.name, status: "running" });
 
-              const pre = decideWriteDeferral({
-                toolName: call.name,
-                args,
-                allowWrites,
-                pendingCount: deferredPendings.length,
-              });
-
               let result: unknown;
-              if (pre.kind === "defer" || pre.kind === "limit") {
-                if (pre.kind === "defer") deferredPendings.push(pre.pending);
-                result = pre.toolResult;
+              // Chat web: ejecutar escrituras al pedirlas (el mensaje del usuario
+              // ya es el consentimiento). Slack sigue diferiendo vía runner.
+              // Solo se encolarían pendings si deferWrites volviera a true.
+              const writeKey = WRITE_TOOL_NAMES.has(call.name)
+                ? `${call.name}:${stableToolArgsKey(args)}`
+                : null;
+              if (writeKey && seenWriteKeys.has(writeKey)) {
+                result = {
+                  ok: true,
+                  executed: false,
+                  status: "duplicate_skipped",
+                  message:
+                    "Misma escritura ya procesada en este turno; no se repite para evitar duplicados.",
+                };
               } else {
-                result = await executeToolCallV2(
-                  call.name, args, ctx.tenantId, ctx.userId,
-                  perms,
-                  hasCapability(perms, "rendicion_view_all"),
-                  pageContext,
-                );
-                const post = decideWriteDeferral({
+                if (writeKey) seenWriteKeys.add(writeKey);
+                const pre = decideWriteDeferral({
                   toolName: call.name,
                   args,
                   allowWrites,
                   pendingCount: deferredPendings.length,
-                  executedResult: result as { ok?: boolean },
+                  deferWrites: false,
                 });
-                if (post.kind === "defer") deferredPendings.push(post.pending);
-                else if (post.kind === "limit") result = post.toolResult;
+
+                if (pre.kind === "defer" || pre.kind === "limit") {
+                  if (pre.kind === "defer") deferredPendings.push(pre.pending);
+                  result = pre.toolResult;
+                } else {
+                  result = await executeToolCallV2(
+                    call.name, args, ctx.tenantId, ctx.userId,
+                    perms,
+                    hasCapability(perms, "rendicion_view_all"),
+                    pageContext,
+                  );
+                  const post = decideWriteDeferral({
+                    toolName: call.name,
+                    args,
+                    allowWrites,
+                    pendingCount: deferredPendings.length,
+                    executedResult: result as { ok?: boolean },
+                    deferWrites: false,
+                  });
+                  if (post.kind === "defer") deferredPendings.push(post.pending);
+                  else if (post.kind === "limit") result = post.toolResult;
+                }
               }
 
               send("tool_call", { name: call.name, status: "done" });
