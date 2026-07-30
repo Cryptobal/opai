@@ -1,29 +1,79 @@
 /**
  * PAYROLL INITIAL SEED DATA
- * Parámetros legales Chile Febrero 2026 + UF/UTM
+ * Parámetros legales Chile 2026 (Julio + Agosto en adelante) + UF/UTM
+ *
+ * Versión activa para cotizar: Agosto 2026 en adelante (reforma 3,5%).
+ * Julio 2026 queda para lookup por fecha (liquidaciones / cashflow julio).
  */
 
 import { PrismaClient } from "@prisma/client";
+import {
+  AUGUST_2026_VERSION_NAME,
+  JULY_2026_VERSION_NAME,
+  buildAugust2026Parameters,
+  buildJuly2026Parameters,
+} from "./payroll-params-chile-2026";
 
 const prisma = new PrismaClient();
+
+async function upsertParamVersion(opts: {
+  name: string;
+  description: string;
+  effectiveFrom: Date;
+  effectiveUntil: Date | null;
+  data: unknown;
+  isActive: boolean;
+}) {
+  const existing = await prisma.payrollParameterVersion.findFirst({
+    where: { name: opts.name },
+  });
+
+  if (existing) {
+    await prisma.payrollParameterVersion.update({
+      where: { id: existing.id },
+      data: {
+        description: opts.description,
+        effectiveFrom: opts.effectiveFrom,
+        effectiveUntil: opts.effectiveUntil,
+        data: opts.data as object,
+        isActive: opts.isActive,
+      },
+    });
+    console.log(`   ↻ Updated: ${opts.name} (isActive=${opts.isActive})`);
+    return;
+  }
+
+  await prisma.payrollParameterVersion.create({
+    data: {
+      name: opts.name,
+      description: opts.description,
+      effectiveFrom: opts.effectiveFrom,
+      effectiveUntil: opts.effectiveUntil,
+      data: opts.data as object,
+      isActive: opts.isActive,
+      createdBy: "system",
+    },
+  });
+  console.log(`   + Created: ${opts.name} (isActive=${opts.isActive})`);
+}
 
 export async function seedPayrollData() {
   console.log("🌱 Seeding Payroll data...");
 
-  // 1. Crear tabla FX: UF Rates (febrero 2026)
+  // 1. Crear tabla FX: UF Rates (referencia)
   console.log("   → Creating UF rates...");
   await prisma.fxUfRate.upsert({
     where: { date: new Date("2026-02-01") },
     update: {},
     create: {
       date: new Date("2026-02-01"),
-      value: 39703.50,
+      value: 39703.5,
       source: "SBIF",
       fetchedAt: new Date(),
     },
   });
 
-  // 2. Crear tabla FX: UTM Rates (febrero 2026)
+  // 2. Crear tabla FX: UTM Rates
   console.log("   → Creating UTM rates...");
   await prisma.fxUtmRate.upsert({
     where: { month: new Date("2026-02-01") },
@@ -36,7 +86,7 @@ export async function seedPayrollData() {
     },
   });
 
-  // 3. Crear assumptions por defecto (buscar por isDefault en lugar de ID)
+  // 3. Crear assumptions por defecto
   console.log("   → Creating default assumptions...");
   const existingAssumption = await prisma.payrollAssumption.findFirst({
     where: { isDefault: true },
@@ -51,230 +101,62 @@ export async function seedPayrollData() {
         severanceProvisionPct: 0.0,
         holidayBonusPct: 0.0,
         christmasBonusPct: 0.0,
-        workInjuryRiskLevel: "medium",
+        workInjuryRiskLevel: "security_industry",
         isDefault: true,
       },
     });
   }
 
-  // 4. Crear versión de parámetros legales (Febrero 2026)
-  console.log("   → Creating parameter version (Feb 2026)...");
+  // 4. Versiones de parámetros legales 2026
+  console.log("   → Creating/updating parameter versions 2026...");
 
-  const parametersData = {
-    version_metadata: {
-      name: "Parámetros Legales Chile - Febrero 2026",
-      effective_from: "2026-02-01",
-      effective_until: "2026-02-29",
-      source: "SII, Previred, Superintendencia de Pensiones",
-    },
-
-    afp: {
-      base_rate: 0.1,
-      commissions: {
-        uno: { commission_rate: 0.0046, sis_included: false },
-        modelo: { commission_rate: 0.0058, sis_included: false },
-        planvital: { commission_rate: 0.0116, sis_included: false },
-        habitat: { commission_rate: 0.0127, sis_included: false },
-        capital: { commission_rate: 0.0144, sis_included: false },
-        cuprum: { commission_rate: 0.0144, sis_included: false },
-        provida: { commission_rate: 0.0145, sis_included: false },
-      },
-    },
-
-    sis: {
-      employer_rate: 0.0154,
-      applies_to: "employer",
-      base: "pension_cap",
-    },
-
-    health: {
-      fonasa: { rate: 0.07, is_fixed: true },
-      isapre: { min_rate: 0.07, is_fixed: false },
-    },
-
-    afc: {
-      indefinite: {
-        worker: {
-          cic_rate: 0.006,
-          fcs_rate: 0.0,
-          total_rate: 0.006,
-        },
-        employer: {
-          cic_rate: 0.016,
-          fcs_rate: 0.008,
-          total_rate: 0.024,
-        },
-      },
-      fixed_term: {
-        worker: {
-          cic_rate: 0.0,
-          fcs_rate: 0.0,
-          total_rate: 0.0,
-        },
-        employer: {
-          cic_rate: 0.028,
-          fcs_rate: 0.002,
-          total_rate: 0.03,
-        },
-      },
-    },
-
-    caps: {
-      pension_uf: 89.9,
-      health_uf: 89.9,
-      work_injury_uf: 89.9,
-      afc_uf: 135.1,
-    },
-
-    tax_brackets: [
-      {
-        from_clp: 0,
-        to_clp: 939748.5,
-        factor: 0,
-        rebate_clp: 0,
-        effective_rate_max: 0,
-      },
-      {
-        from_clp: 939748.51,
-        to_clp: 2088330.0,
-        factor: 0.04,
-        rebate_clp: 37589.94,
-        effective_rate_max: 0.022,
-      },
-      {
-        from_clp: 2088330.01,
-        to_clp: 3480550.0,
-        factor: 0.08,
-        rebate_clp: 121123.14,
-        effective_rate_max: 0.0452,
-      },
-      {
-        from_clp: 3480550.01,
-        to_clp: 4872770.0,
-        factor: 0.135,
-        rebate_clp: 312553.39,
-        effective_rate_max: 0.0709,
-      },
-      {
-        from_clp: 4872770.01,
-        to_clp: 6264990.0,
-        factor: 0.23,
-        rebate_clp: 775466.54,
-        effective_rate_max: 0.1062,
-      },
-      {
-        from_clp: 6264990.01,
-        to_clp: 8353320.0,
-        factor: 0.304,
-        rebate_clp: 1239075.8,
-        effective_rate_max: 0.1557,
-      },
-      {
-        from_clp: 8353320.01,
-        to_clp: 21579410.0,
-        factor: 0.35,
-        rebate_clp: 1623328.52,
-        effective_rate_max: 0.2748,
-      },
-      {
-        from_clp: 21579410.01,
-        to_clp: null,
-        factor: 0.4,
-        rebate_clp: 2702299.02,
-        effective_rate_max: 0.4,
-      },
-    ],
-
-    work_injury: {
-      base_rate: 0.0093,
-      additional_rate_default: 0.0000,
-      employer_rate_default: 0.0093,
-      risk_levels: {
-        low: 0.0093,
-        medium: 0.0095,
-        high: 0.0134,
-        security_industry: 0.0120,
-      },
-      base: "pension_cap",
-      imponible_previsional: false,
-      imponible_tributario: false,
-    },
-
-    gratification: {
-      regime_25_monthly: {
-        enabled: true,
-        monthly_rate: 0.25,
-        annual_cap_imm_multiple: 4.75,
-        imponible_previsional: true,
-        imponible_tributario: true,
-      },
-      regime_30_annual: {
-        enabled: false,
-        annual_rate: 0.30,
-        imponible_previsional: true,
-        imponible_tributario: true,
-      },
-    },
-
-    family_allowance: {
-      enabled: true,
-      tranches: [
-        { from_clp: 0, to_clp: 631976, amount_per_dependent: 22007, amount_maternal: 22007, amount_invalidity: 22007 },
-        { from_clp: 631977, to_clp: 923067, amount_per_dependent: 13505, amount_maternal: 13505, amount_invalidity: 13505 },
-        { from_clp: 923068, to_clp: 1439668, amount_per_dependent: 4276, amount_maternal: 4276, amount_invalidity: 4276 },
-        { from_clp: 1439669, to_clp: null, amount_per_dependent: 0, amount_maternal: 0, amount_invalidity: 0 }
-      ],
-      imponible_previsional: false,
-      imponible_tributario: false,
-    },
-
-    imm: {
-      value_clp: 539000,
-      effective_from: "2026-01-01",
-      imponible_previsional: true,
-      imponible_tributario: true,
-    },
-
-    apv: {
-      max_monthly_uf: 50,
-      max_annual_uf: 600,
-      regime_b_tax_deduction: true,
-    },
-  };
-
-  // Buscar si ya existe una versión con este nombre
-  const existingParams = await prisma.payrollParameterVersion.findFirst({
-    where: { name: "Parámetros Legales Chile - Febrero 2026" },
+  // Desactivar activas previas (solo una activa al final)
+  await prisma.payrollParameterVersion.updateMany({
+    where: { isActive: true },
+    data: { isActive: false },
   });
 
-  if (existingParams) {
-    // Actualizar datos existentes (fix data incorrecta)
+  // Histórica Feb 2026: conservar si existe, fix fecha 29-feb (2026 no bisiesto)
+  const febExisting = await prisma.payrollParameterVersion.findFirst({
+    where: { name: "Parámetros Legales Chile - Febrero 2026" },
+  });
+  if (febExisting) {
+    const until = febExisting.effectiveUntil;
+    const needsFix =
+      until != null && until.getUTCMonth() === 1 && until.getUTCDate() === 29;
     await prisma.payrollParameterVersion.update({
-      where: { id: existingParams.id },
+      where: { id: febExisting.id },
       data: {
-        data: parametersData as any,
-        description: "Tasas y topes oficiales vigentes para febrero 2026 (actualizado)",
-        isActive: true,
+        isActive: false,
+        ...(needsFix ? { effectiveUntil: new Date("2026-02-28") } : {}),
       },
     });
-    console.log("   ↻ Updated existing parameter version");
-  } else {
-    await prisma.payrollParameterVersion.create({
-      data: {
-        name: "Parámetros Legales Chile - Febrero 2026",
-        description: "Tasas y topes oficiales vigentes para febrero 2026",
-        effectiveFrom: new Date("2026-02-01"),
-        effectiveUntil: new Date("2026-02-29"),
-        data: parametersData as any,
-        isActive: true,
-        createdBy: "system",
-      },
-    });
-    console.log("   + Created new parameter version");
+    if (needsFix) {
+      console.log("   🔧 Fixed Febrero 2026 effectiveUntil → 2026-02-28");
+    }
   }
+
+  await upsertParamVersion({
+    name: JULY_2026_VERSION_NAME,
+    description:
+      "SIS 2,00% + reforma previsional 1,0% (Ley 21.735). Vigente solo julio 2026.",
+    effectiveFrom: new Date("2026-07-01"),
+    effectiveUntil: new Date("2026-07-31"),
+    data: buildJuly2026Parameters(),
+    isActive: false,
+  });
+
+  await upsertParamVersion({
+    name: AUGUST_2026_VERSION_NAME,
+    description:
+      "Reforma previsional 3,5% (incluye SIS). Topes 90/135,2 UF, IMM $553.553. Versión activa para cotizar.",
+    effectiveFrom: new Date("2026-08-01"),
+    effectiveUntil: null,
+    data: buildAugust2026Parameters(),
+    isActive: true,
+  });
 
   console.log("✅ Payroll data seeded successfully!");
 }
 
-// Exportar para uso desde otros scripts
 export default seedPayrollData;

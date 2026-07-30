@@ -83,6 +83,7 @@ type PositionCostResult = {
   gratificacion: number;
   totalImponible: number;
   sisEmployer: number;
+  pensionReformEmployer: number;
   afcEmployer: number;
   mutualEmployer: number;
   vacationProvision: number;
@@ -361,6 +362,7 @@ export async function POST(
         gratification: pos.gratificacionTotal,
         totalImponible: pos.totalImponible * pos.totalGuardsInPos,
         sisEmployer: pos.sisEmployer,
+        pensionReformEmployer: pos.pensionReformEmployer,
         afcEmployer: pos.afcEmployer,
         mutualEmployer: pos.mutualEmployer,
         vacationProvision: pos.vacationProvision,
@@ -415,6 +417,7 @@ export async function POST(
       gratification: pos.gratificacionTotal,
       totalImponible: pos.totalImponible * pos.totalGuardsInPos,
       sisEmployer: pos.sisEmployer,
+      pensionReformEmployer: pos.pensionReformEmployer,
       afcEmployer: pos.afcEmployer,
       mutualEmployer: pos.mutualEmployer,
       vacationProvision: pos.vacationProvision,

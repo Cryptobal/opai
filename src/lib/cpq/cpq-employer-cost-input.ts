@@ -32,6 +32,8 @@ export function buildCpqStyleEmployerCostInput(
     afp_name: opts?.afpName ?? "modelo",
     health_system: healthSystem,
     health_plan_pct: healthPlanPct,
+    // Seguridad privada: tasa mutual industry (1,20%) ya definida en parámetros
+    work_injury_risk: "security_industry",
     assumptions: {
       include_vacation_provision: true,
       include_severance_provision: true,

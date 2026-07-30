@@ -101,6 +101,7 @@ export interface LaborPositionDetail {
   gratification: number;
   totalImponible: number;
   sisEmployer: number;
+  pensionReformEmployer?: number;
   afcEmployer: number;
   mutualEmployer: number;
   vacationProvision: number;

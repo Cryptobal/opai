@@ -24,6 +24,7 @@ export type LeadPositionCostRow = {
   gratificacion: number;
   totalImponible: number;
   sisEmployer: number;
+  pensionReformEmployer: number;
   afcEmployer: number;
   mutualEmployer: number;
   vacationProvision: number;
@@ -60,6 +61,7 @@ export async function computeLeadPositionCostFromPayroll(
     gratificacion: b.gratification,
     totalImponible: b.total_taxable_income,
     sisEmployer: b.sis_employer * totalGuardsInPos,
+    pensionReformEmployer: (b.pension_reform_employer ?? 0) * totalGuardsInPos,
     afcEmployer: b.afc_employer.total * totalGuardsInPos,
     mutualEmployer: b.work_injury_employer.amount * totalGuardsInPos,
     vacationProvision: b.vacation_provision * totalGuardsInPos,

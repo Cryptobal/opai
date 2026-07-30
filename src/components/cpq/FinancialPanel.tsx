@@ -155,6 +155,7 @@ export function buildBreakdownData(
     const gratification = getNum("gratification");
     const totalImponible = getNum("total_taxable_income") || baseSalary + gratification;
     const sisEmployer = getNum("sis_employer");
+    const pensionReformEmployer = getNum("pension_reform_employer");
     const afcEmployer = getNestedNum("afc_employer", "total");
     const mutualEmployer = getNestedNum("work_injury_employer", "amount");
     const vacationProvision = getNum("vacation_provision");
@@ -174,6 +175,7 @@ export function buildBreakdownData(
       gratification,
       totalImponible,
       sisEmployer,
+      pensionReformEmployer,
       afcEmployer,
       mutualEmployer,
       vacationProvision,

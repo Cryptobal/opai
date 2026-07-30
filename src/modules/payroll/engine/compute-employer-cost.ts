@@ -4,7 +4,7 @@
  * 
  * Incluye:
  *   - Salario bruto (base + gratificación + horas extra + comisiones)
- *   - Aportes empleador (SIS, AFC, Mutual)
+ *   - Aportes empleador (SIS, reforma previsional Ley 21.735, AFC, Mutual)
  *   - Haberes no imponibles (colación, movilización, asig. familiar)
  *   - Provisiones (vacaciones, indemnización)
  *   - Estimación líquido trabajador
@@ -145,6 +145,11 @@ export async function computeEmployerCost(
   // ── 12. SIS EMPLEADOR ────────────────────────────────────
   const sis_employer = imponible_pension * params.sis.employer_rate;
 
+  // ── 12b. REFORMA PREVISIONAL EMPLEADOR (Ley 21.735) ──────
+  // Retro-compatible: versiones sin pension_reform → tasa 0
+  const pension_reform_rate = params.pension_reform?.employer_rate ?? 0;
+  const pension_reform_employer = imponible_pension * pension_reform_rate;
+
   // ── 13. MUTUAL / ACCIDENTES DEL TRABAJO ──────────────────
   let work_injury_base_rate: number;
   let work_injury_additional_rate: number;
@@ -178,6 +183,7 @@ export async function computeEmployerCost(
     total_taxable +
     total_non_taxable +
     sis_employer +
+    pension_reform_employer +
     afc_employer_total +
     work_injury_employer;
 
@@ -236,6 +242,7 @@ export async function computeEmployerCost(
 
       // Aportes empleador
       sis_employer: Math.round(sis_employer),
+      pension_reform_employer: Math.round(pension_reform_employer),
       afc_employer: {
         cic: Math.round(afc_employer_cic),
         fcs: Math.round(afc_employer_fcs),

@@ -43,7 +43,11 @@ export function ProposalManoDeObra({
       </h3>
 
       {positionDetails.map((pos, idx) => {
-        const totalSocialCharges = pos.sisEmployer + pos.afcEmployer + pos.mutualEmployer;
+        const totalSocialCharges =
+          pos.sisEmployer +
+          (pos.pensionReformEmployer ?? 0) +
+          pos.afcEmployer +
+          pos.mutualEmployer;
         const perGuard = pos.totalGuardsInPosition > 0 ? pos.totalLaborCost / pos.totalGuardsInPosition : 0;
 
         return (
@@ -61,6 +65,11 @@ export function ProposalManoDeObra({
               <Row label="Gratificación legal" value={fmt(pos.gratification / Math.max(1, pos.totalGuardsInPosition))} />
               <Row label="Total haberes imponibles" value={fmt(pos.totalImponible / Math.max(1, pos.totalGuardsInPosition))} bold />
               <Row label="SIS" value={fmt(pos.sisEmployer / Math.max(1, pos.totalGuardsInPosition))} indent />
+              <Row
+                label="Reforma Previsional (Ley 21.735)"
+                value={fmt((pos.pensionReformEmployer ?? 0) / Math.max(1, pos.totalGuardsInPosition))}
+                indent
+              />
               <Row label="AFC" value={fmt(pos.afcEmployer / Math.max(1, pos.totalGuardsInPosition))} indent />
               <Row label="Mutual / Accidentes (Ley 16.744)" value={fmt(pos.mutualEmployer / Math.max(1, pos.totalGuardsInPosition))} indent />
               <Row label="Total cargas sociales empleador" value={fmt(totalSocialCharges / Math.max(1, pos.totalGuardsInPosition))} bold />

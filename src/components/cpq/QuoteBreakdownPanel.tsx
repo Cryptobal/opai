@@ -219,7 +219,12 @@ function TotalView({ data, isDark }: TotalViewProps) {
   const laborBreakdown = (() => {
     const totalImponible = data.positions.reduce((s, p) => s + p.totalImponible, 0);
     const imposiciones = data.positions.reduce(
-      (s, p) => s + p.sisEmployer + p.afcEmployer + p.mutualEmployer,
+      (s, p) =>
+        s +
+        p.sisEmployer +
+        (p.pensionReformEmployer ?? 0) +
+        p.afcEmployer +
+        p.mutualEmployer,
       0,
     );
     const provisiones = data.positions.reduce(
@@ -552,7 +557,11 @@ function PositionCard({
   const rowCls = cn(CPQ_BREAKDOWN_ROW, "text-xs py-0.5");
   const labelCls = cn("text-xs min-w-0 break-words", isDark ? "text-zinc-400" : "text-muted-foreground");
 
-  const imposiciones = pos.sisEmployer + pos.afcEmployer + pos.mutualEmployer;
+  const imposiciones =
+    pos.sisEmployer +
+    (pos.pensionReformEmployer ?? 0) +
+    pos.afcEmployer +
+    pos.mutualEmployer;
   const provisiones = pos.vacationProvision + pos.severanceProvision;
 
   return (
@@ -703,6 +712,17 @@ function PositionCard({
                   <span className={cn(labelCls, "pl-2 italic")}>SIS empleador</span>
                   <AmountCell
                     clp={pos.sisEmployer}
+                    data={data}
+                    isDark={isDark}
+                    primaryClassName={isDark ? "text-zinc-300/70" : "text-foreground/70"}
+                  />
+                </div>
+                <div className={rowCls}>
+                  <span className={cn(labelCls, "pl-2 italic")}>
+                    Reforma Previsional (Ley 21.735)
+                  </span>
+                  <AmountCell
+                    clp={pos.pensionReformEmployer ?? 0}
                     data={data}
                     isDark={isDark}
                     primaryClassName={isDark ? "text-zinc-300/70" : "text-foreground/70"}
