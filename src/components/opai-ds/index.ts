@@ -32,6 +32,18 @@ export {
   type MobileSlot,
 } from "./DataView";
 export { Toolbar, type ToolbarProps } from "./Toolbar";
+export {
+  SegmentedControl,
+  type SegmentedControlProps,
+  type SegmentedControlItem,
+} from "./SegmentedControl";
+export { FilterChipsBar, type FilterChipsBarProps, type FilterChip } from "./FilterChipsBar";
+export {
+  FilterPopover,
+  type FilterPopoverProps,
+  type FilterGroup,
+  type FilterOption,
+} from "./FilterPopover";
 export { HeatGrid, type HeatGridProps, type HeatGridRow, type HeatGridColumn } from "./HeatGrid";
 export { Avatar, type AvatarProps, type AvatarVariant } from "./Avatar";
 export { EntityRow, type EntityRowProps } from "./EntityRow";
