@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { Spinner } from "@/components/opai-ds";
 import { CorreoActionBar } from "./CorreoActionBar";
 import {
@@ -17,6 +18,7 @@ import {
 } from "./useCorreosViewPreferences";
 import { normalizeRecipientList } from "./ReplyRecipientsField";
 import type { ComposeIntent } from "./correo-reader-intent";
+import { useCorreoReaderDock } from "./CorreoReaderDockContext";
 
 /** Contrato mínimo del reply box (CorreoDetail y EntityThreadDetail lo satisfacen). */
 export type ReplyBoxDetail = {
@@ -111,6 +113,7 @@ function toThreadDraftSeed(m: CorreoMessageDTO): ThreadDraftSeed {
  *
  * La barra de acciones se muestra de inmediato (sin esperar suggest-reply): el
  * meta se hidrata en background para no bloquear la lectura con un spinner.
+ * Con dock del shell, se porta fuera del scroll (fija abajo, estilo Gmail).
  *
  * Si el hilo tiene un borrador, Responder/Continuar lo reanuda (mismo
  * providerDraftId) en vez de crear otro.
@@ -134,6 +137,7 @@ export function CorreoReplyBox({
   onOpenAiStyle?: () => void;
   onOpenSignature?: () => void;
 }) {
+  const dock = useCorreoReaderDock();
   const threadId = detail.thread.id;
   const [meta, setMeta] = useState<Meta>({
     to: [],
@@ -213,7 +217,7 @@ export function CorreoReplyBox({
   }));
 
   if (!open) {
-    return (
+    const bar = (
       <CorreoActionBar
         canReply={metaReady ? canReply : true}
         replyAllAvailable={metaReady ? replyAllAvailable : false}
@@ -223,6 +227,13 @@ export function CorreoReplyBox({
         onForward={() => openComposer("forward", true)}
       />
     );
+    // Dock del shell = fija abajo fuera del scroll (Gmail).
+    // Si el shell está montando el host, no renderizar inline (evita flash).
+    if (dock.enabled) {
+      if (!dock.host) return null;
+      return createPortal(bar, dock.host);
+    }
+    return bar;
   }
 
   // Composer abierto antes de que llegue el meta: spinner mínimo en el box.

@@ -16,6 +16,7 @@ import { Surface } from "@/components/opai-ds";
 import { cn } from "@/lib/utils";
 import { useCloseOnBack } from "./useCloseOnBack";
 import { useFocusTrap } from "./useFocusTrap";
+import { CorreoReaderDockContext } from "./CorreoReaderDockContext";
 import { CorreoReaderOverlayContext } from "./CorreoReaderOverlayContext";
 
 type Props = {
@@ -76,6 +77,8 @@ export function CorreoReaderShell({
   useFocusTrap(panelRef, { active: open, trap: isOverlay, onEscape: onClose });
   // Host para sheets absolutos (guardar adjuntos) acotados al visor.
   const [overlayHost, setOverlayHost] = useState<HTMLDivElement | null>(null);
+  // Dock inferior (fuera del scroll): Responder / Reenviar siempre visibles.
+  const [dockHost, setDockHost] = useState<HTMLDivElement | null>(null);
 
   if (!open) return null;
 
@@ -151,47 +154,62 @@ export function CorreoReaderShell({
         onClick={(e: MouseEvent) => e.stopPropagation()}
       >
         <CorreoReaderOverlayContext.Provider value={overlayHost}>
-          <header className="sticky top-0 z-10 border-b border-ds-border-subtle bg-background px-2 py-2.5 pt-[calc(env(safe-area-inset-top)+0.625rem)] md:px-4 lg:bg-ds-surface-2">
-            <div className="flex items-center gap-1.5">
-              <button
-                type="button"
-                onClick={onClose}
-                aria-label="Volver"
-                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-ds-text-2 outline-none focus-visible:ring-0 focus-visible:ring-offset-0 ds-tap"
-              >
-                <ChevronLeft className="h-6 w-6" />
-              </button>
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-[12px] text-ds-text-3">{headerFrom || "—"}</p>
-                <p className="truncate font-display text-[15px] font-semibold text-ds-text-1 md:text-base">
-                  {headerSubject || "Correo"}
-                </p>
+          <CorreoReaderDockContext.Provider value={{ host: dockHost, enabled: true }}>
+            <header className="sticky top-0 z-10 border-b border-ds-border-subtle bg-background px-2 py-2.5 pt-[calc(env(safe-area-inset-top)+0.625rem)] md:px-4 lg:bg-ds-surface-2">
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  aria-label="Volver"
+                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-ds-text-2 outline-none focus-visible:ring-0 focus-visible:ring-offset-0 ds-tap"
+                >
+                  <ChevronLeft className="h-6 w-6" />
+                </button>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-[12px] text-ds-text-3">{headerFrom || "—"}</p>
+                  <p className="truncate font-display text-[15px] font-semibold text-ds-text-1 md:text-base">
+                    {headerSubject || "Correo"}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="hidden shrink-0 px-1 text-[13px] text-ds-text-3 ds-tap md:block"
+                >
+                  Cerrar
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={onClose}
-                className="hidden shrink-0 px-1 text-[13px] text-ds-text-3 ds-tap md:block"
-              >
-                Cerrar
-              </button>
+            </header>
+
+            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto bg-background px-3 py-3 [-webkit-overflow-scrolling:touch] [overscroll-behavior:contain] md:px-4 md:py-4 lg:bg-ds-surface-2">
+              {children}
             </div>
-          </header>
 
-          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto bg-background px-3 py-3 [-webkit-overflow-scrolling:touch] [overscroll-behavior:contain] md:px-4 md:py-4 lg:bg-ds-surface-2">
-            {children}
-          </div>
+            {/* Dock Gmail: Responder / Reenviar fijos fuera del scroll.
+                empty:hidden — solo ocupa espacio cuando CorreoReplyBox porta
+                la barra aquí (composer cerrado). Safe-area solo si no hay
+                barra de acciones móvil debajo. */}
+            <div
+              ref={setDockHost}
+              className={cn(
+                "shrink-0 border-t border-ds-border-subtle bg-background px-3 py-2 empty:hidden md:px-4 lg:bg-ds-surface-2",
+                !mobileActions &&
+                  "pb-[calc(env(safe-area-inset-bottom)+0.5rem)] lg:pb-2",
+              )}
+            />
 
-          {mobileActions && (
-            <footer className="sticky bottom-0 z-10 border-t border-ds-border-subtle bg-background p-2 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] lg:hidden">
-              <div className="h-11">{mobileActions}</div>
-            </footer>
-          )}
+            {mobileActions && (
+              <footer className="z-10 border-t border-ds-border-subtle bg-background p-2 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] lg:hidden">
+                <div className="h-11">{mobileActions}</div>
+              </footer>
+            )}
 
-          {/* Capa para sheets (guardar adjuntos): mismo ancho del visor. */}
-          <div
-            ref={setOverlayHost}
-            className="pointer-events-none absolute inset-0 z-40"
-          />
+            {/* Capa para sheets (guardar adjuntos): mismo ancho del visor. */}
+            <div
+              ref={setOverlayHost}
+              className="pointer-events-none absolute inset-0 z-40"
+            />
+          </CorreoReaderDockContext.Provider>
         </CorreoReaderOverlayContext.Provider>
       </Surface>
     </div>
