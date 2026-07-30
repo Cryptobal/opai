@@ -21,6 +21,7 @@ import { Loader2, Plus, ChevronRight, Globe, MessageSquare, GitMerge, ShieldChec
 import { DuplicateAccountModal } from "./DuplicateAccountModal";
 import { CRM_MODULES } from "./CrmModuleIcons";
 import { EmptyState, Tag } from "@/components/opai-ds";
+import { CrmEntityCard, type EntityCardChip } from "./cards/CrmEntityCard";
 import { CrmDates } from "@/components/crm/CrmDates";
 import { CrmToolbar } from "./CrmToolbar";
 import type { ViewMode } from "@/components/shared/ViewToggle";
@@ -525,84 +526,40 @@ export function CrmAccountsClient({ initialAccounts }: { initialAccounts: Accoun
                 const lifecycle = getLifecycle(account);
                 const statusLabel = lifecycle === "prospect" ? "Prospecto" : lifecycle === "client_active" ? "Cliente" : "Ex cliente";
                 const contractTag = getContractCoverageTag(account);
+                const chips: EntityCardChip[] = [
+                  {
+                    label: statusLabel,
+                    variant: lifecycle === "prospect" ? "warn" : lifecycle === "client_active" ? "ok" : "danger",
+                    dot: true,
+                  },
+                ];
+                if (contractTag) chips.push({ label: contractTag.label, variant: contractTag.variant, dot: true });
+                if ((account.cashflowItemCount ?? 0) > 0 && account.cashflowMonthlyAmount) {
+                  chips.push({ label: renderCashflowAmount(account.cashflowMonthlyAmount), variant: "info", icon: Wallet });
+                }
                 return (
-                  <div
+                  <CrmEntityCard
                     key={account.id}
-                    className="rounded-lg border transition-colors hover:border-primary/30 group hover:bg-accent/30 min-w-0 overflow-hidden"
-                  >
-                    <Link href={`/crm/accounts/${account.id}`} className="block p-4">
-                      {/* Fila 1: logo + nombre + industria */}
-                      <div className="flex items-start gap-2.5">
-                        {getAccountLogo(account) ? (
-                          <img
-                            src={getAccountLogo(account)!}
-                            alt=""
-                            className="h-9 w-9 shrink-0 rounded-lg border border-border bg-background object-contain"
-                          />
-                        ) : (
-                          <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${CRM_MODULES.accounts.color}`}>
-                            <CRM_MODULES.accounts.icon className="h-4 w-4" />
-                          </div>
-                        )}
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-1.5">
-                            <p className="font-medium text-sm group-hover:text-primary transition-colors truncate">{account.name}</p>
-                            {unreadNoteIds.has(account.id) && (
-                              <span className="relative shrink-0" title="Notas no leídas">
-                                <MessageSquare className="h-3.5 w-3.5 text-muted-foreground" />
-                                <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-destructive" />
-                              </span>
-                            )}
-                          </div>
-                          <p className="text-[11px] text-muted-foreground truncate">{account.industry || "Sin industria"}</p>
-                          {account.rut && <p className="text-[11px] text-muted-foreground/70">{account.rut}</p>}
-                        </div>
-                        <ChevronRight className="h-4 w-4 text-muted-foreground/30 shrink-0 mt-0.5 group-hover:text-muted-foreground/60 transition-colors" />
-                      </div>
-
-                      {/* Fila 2: badges ordenados */}
-                      <div className="flex flex-wrap gap-1.5 mt-3">
-                        <Badge
-                          variant={lifecycle === "prospect" ? "warning" : lifecycle === "client_active" ? "success" : "destructive"}
-                          className="text-[10px]"
-                        >
-                          {statusLabel}
-                        </Badge>
-                        {contractTag && (
-                          <Tag variant={contractTag.variant} size="sm" dot>
-                            {contractTag.label}
-                          </Tag>
-                        )}
-                        {(account.activeGuardsCount ?? 0) > 0 && (
-                          <Tag variant="neutral" size="sm" icon={ShieldCheck}>
-                            {account.activeGuardsCount} G
-                          </Tag>
-                        )}
-                        {(account.cashflowItemCount ?? 0) > 0 && account.cashflowMonthlyAmount && (
-                          <Tag variant="info" size="sm" icon={Wallet}>
-                            {renderCashflowAmount(account.cashflowMonthlyAmount)}
-                          </Tag>
-                        )}
-                        <span className="text-[11px] text-muted-foreground flex items-center gap-1">
-                          <CRM_MODULES.contacts.icon className="h-3 w-3" />{account._count?.contacts ?? 0}
+                    href={`/crm/accounts/${account.id}`}
+                    entityId={account.id}
+                    title={account.name}
+                    titleAdornment={
+                      unreadNoteIds.has(account.id) ? (
+                        <span className="relative shrink-0" title="Notas no leídas">
+                          <MessageSquare className="h-3.5 w-3.5 text-muted-foreground" />
+                          <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-destructive" />
                         </span>
-                        <span className="text-[11px] text-muted-foreground flex items-center gap-1">
-                          <CRM_MODULES.deals.icon className="h-3 w-3" />{account._count?.deals ?? 0}
-                        </span>
-                        {account.website && (
-                          <span
-                            role="link"
-                            tabIndex={0}
-                            className="flex items-center gap-1 text-[11px] text-primary hover:underline cursor-pointer"
-                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); window.open(account.website!, "_blank", "noopener,noreferrer"); }}
-                          >
-                            <Globe className="h-3 w-3 shrink-0" />
-                            Web
-                          </span>
-                        )}
-                      </div>
-                    </Link>
-                  </div>
+                      ) : null
+                    }
+                    meta={`${account.rut || "Sin RUT"} · ${account.industry || "Sin industria"}`}
+                    avatar={{ photoUrl: getAccountLogo(account), shape: "square" }}
+                    chips={chips}
+                    metrics={[
+                      { label: "Contactos", value: account._count?.contacts ?? 0 },
+                      { label: "Negocios", value: account._count?.deals ?? 0 },
+                      { label: "Guardias", value: account.activeGuardsCount ?? 0 },
+                    ]}
+                  />
                 );
               })}
             </div>
