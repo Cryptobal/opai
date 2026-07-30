@@ -143,16 +143,44 @@ function buildStructureActions(
       locked: true,
       group: "comercial",
     },
-    {
-      id: "contact",
-      label: "Contacto",
-      detail:
-        [proposal.contact.firstName, proposal.contact.lastName, proposal.contact.email]
-          .filter(Boolean)
-          .join(" ") || "Sin datos de contacto",
-      tag: "nueva",
-      group: "comercial",
-    },
+    (() => {
+      const contacts =
+        Array.isArray(proposal.contacts) && proposal.contacts.length > 0
+          ? proposal.contacts.filter(
+              (c) => c.email || c.firstName || c.phone,
+            )
+          : proposal.contact.email || proposal.contact.firstName || proposal.contact.phone
+            ? [proposal.contact]
+            : [];
+      const selected = contacts.filter((c) => c.selected !== false);
+      const n = contacts.length;
+      const detail =
+        n === 0
+          ? "Sin datos de contacto"
+          : n === 1
+            ? [contacts[0].firstName, contacts[0].lastName, contacts[0].email]
+                .filter(Boolean)
+                .join(" ")
+            : contacts
+                .map(
+                  (c) =>
+                    [c.firstName, c.lastName].filter(Boolean).join(" ") ||
+                    c.email ||
+                    "—",
+                )
+                .slice(0, 4)
+                .join(" · ") + (n > 4 ? ` (+${n - 4})` : "");
+      return {
+        id: "contact" as const,
+        label:
+          n <= 1
+            ? "Contacto"
+            : `Contactos (${selected.length}/${n})`,
+        detail: detail || undefined,
+        tag: "nueva" as const,
+        group: "comercial" as const,
+      };
+    })(),
     {
       id: "deal",
       label: existingDealId
@@ -592,7 +620,8 @@ export function CorreoAiActionPanel({
         return (
           <PlanContactForm
             contact={p.contact}
-            onChange={(f, v) => draft.setField(`contact.${f}`, v)}
+            contacts={p.contacts}
+            onChange={(next) => draft.setField("contacts", next)}
           />
         );
       case "deal":

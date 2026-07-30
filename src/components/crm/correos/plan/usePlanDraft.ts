@@ -133,7 +133,14 @@ export function usePlanDraft(threadId: string) {
   const setField = useCallback(
     (path: string, value: unknown) => {
       setProposal((prev) => {
-        const next = setByPath(prev, path, value) as CrmStructureProposal;
+        let next = setByPath(prev, path, value) as CrmStructureProposal;
+        // contacts[] es fuente de verdad: espejar el primario en `contact`.
+        if (path === "contacts" && Array.isArray(value)) {
+          const list = value as CrmStructureProposal["contacts"];
+          const primary =
+            list?.find((c) => c.selected !== false) ?? list?.[0] ?? prev.contact;
+          next = { ...next, contact: primary };
+        }
         setLocks((lks) => {
           const newLocks = lks.includes(path) ? lks : [...lks, path];
           scheduleAutosave(next, include, newLocks);

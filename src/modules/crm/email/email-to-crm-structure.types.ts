@@ -7,6 +7,8 @@ export type CrmStructureContact = {
   email: string | null;
   phone: string | null;
   roleTitle: string | null;
+  /** false = omitir al crear; default true / undefined = crear. */
+  selected?: boolean;
 };
 
 export type CrmStructureCoverageSlot = {
@@ -98,7 +100,13 @@ export type CrmStructureProposal = {
     industry: string | null;
     segment: string | null;
   };
+  /** Contacto primario (retrocompat); espejo de contacts[0] cuando hay lista. */
   contact: CrmStructureContact;
+  /**
+   * Todos los contactos candidatos (From/To/CC externos + firma/cuerpo).
+   * Fuente de verdad para el plan multi-contacto; drafts viejos pueden omitirlo.
+   */
+  contacts?: CrmStructureContact[];
   deal: {
     title: string | null;
     isLicitacion: boolean;
@@ -263,6 +271,7 @@ export function emptyCrmStructureProposal(): CrmStructureProposal {
   return {
     account: { name: null, rut: null, legalName: null, industry: null, segment: null },
     contact: { firstName: null, lastName: null, email: null, phone: null, roleTitle: null },
+    contacts: [],
     deal: {
       title: null,
       isLicitacion: false,

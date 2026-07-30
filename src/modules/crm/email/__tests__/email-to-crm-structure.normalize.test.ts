@@ -121,6 +121,34 @@ describe("normalizeCrmStructureProposal", () => {
     });
     expect(proposal.contact.firstName).toBe("Ana");
     expect(proposal.contact.lastName).toBe("Soto");
+    expect(proposal.contacts).toHaveLength(1);
+    expect(proposal.contacts?.[0].email).toBe("ana@acme.cl");
+  });
+
+  it("normaliza contacts[] multi-contacto y espeja el primario", () => {
+    const proposal = normalizeCrmStructureProposal({
+      account: { name: "Embajada" },
+      contact: {
+        firstName: "Embajada",
+        lastName: "España",
+        email: "emb.santiagodechile@maec.es",
+      },
+      contacts: [
+        {
+          firstName: "Embajada",
+          lastName: "España",
+          email: "emb.santiagodechile@maec.es",
+        },
+        { nombre: "Julia Fuentes", email: "julia.fuentes@maec.es" },
+        { firstName: "Fanny", lastName: "Villarroel", email: "fanny.villarroel@maec.es" },
+      ],
+      deal: { title: "Licitación", isLicitacion: true },
+      installations: [],
+    });
+    expect(proposal.contacts).toHaveLength(3);
+    expect(proposal.contact.email).toBe("emb.santiagodechile@maec.es");
+    expect(proposal.contacts?.[1].firstName).toBe("Julia");
+    expect(proposal.contacts?.[1].lastName).toBe("Fuentes");
   });
 
   it("tolera ausencia de licitacion y condicionesEconomicas (drafts viejos)", () => {

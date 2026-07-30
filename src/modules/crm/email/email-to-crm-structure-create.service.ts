@@ -20,6 +20,7 @@ import { createThreadTask } from "./correos-tasks";
 import { anchorStructureConversation } from "./anchor-structure-conversation";
 import type { CrmStructureRefineAnswer } from "./email-to-crm-structure.types";
 import { clearPlanDraft } from "./plan-draft";
+import { selectedProposalContacts } from "./structure-contacts";
 
 async function attach(
   tenantId: string,
@@ -286,38 +287,50 @@ export async function createCrmStructureFromProposal(params: {
     accountReused = false;
   }
 
-  // Contacto — independiente del deal.
+  // Contactos — independientes del deal. Crea todos los seleccionados
+  // (contacts[] o el contact primario legacy); el primero es primary del hilo.
   let contactId = thread.contactId ?? undefined;
+  const contactsToCreate = selectedProposalContacts({
+    contact: proposal.contact,
+    contacts: proposal.contacts,
+  });
   if (!flags.contact) {
     skip("contact", "no_seleccionado");
-  } else if (proposal.contact.email || proposal.contact.firstName) {
-    const email = proposal.contact.email;
-    if (email) {
-      const existing = await prisma.crmContact.findFirst({
-        where: {
-          tenantId,
-          accountId: account.id,
-          email: { equals: email, mode: "insensitive" },
-        },
-        select: { id: true },
-      });
-      if (existing) contactId = existing.id;
-    }
-    if (!contactId) {
-      const created = await prisma.crmContact.create({
-        data: {
-          tenantId,
-          accountId: account.id,
-          firstName: proposal.contact.firstName ?? "Contacto",
-          lastName: proposal.contact.lastName ?? "",
-          email: proposal.contact.email,
-          phone: proposal.contact.phone,
-          roleTitle: proposal.contact.roleTitle,
-          isPrimary: true,
-        },
-        select: { id: true },
-      });
-      contactId = created.id;
+  } else if (contactsToCreate.length === 0) {
+    skip("contact", "sin_datos");
+  } else {
+    let primarySet = Boolean(contactId);
+    for (const c of contactsToCreate) {
+      let id: string | undefined;
+      if (c.email) {
+        const existing = await prisma.crmContact.findFirst({
+          where: {
+            tenantId,
+            accountId: account.id,
+            email: { equals: c.email, mode: "insensitive" },
+          },
+          select: { id: true },
+        });
+        if (existing) id = existing.id;
+      }
+      if (!id) {
+        const created = await prisma.crmContact.create({
+          data: {
+            tenantId,
+            accountId: account.id,
+            firstName: c.firstName ?? "Contacto",
+            lastName: c.lastName ?? "",
+            email: c.email,
+            phone: c.phone,
+            roleTitle: c.roleTitle,
+            isPrimary: !primarySet,
+          },
+          select: { id: true },
+        });
+        id = created.id;
+        primarySet = true;
+      }
+      if (!contactId) contactId = id;
     }
   }
 
