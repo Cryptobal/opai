@@ -4,7 +4,23 @@
 
 ### Overview
 
-OPAI Suite is a multi-tenant SaaS platform for security companies (Next.js 15 App Router, TypeScript, Prisma ORM, PostgreSQL). See `README.md` for the full module list and tech stack.
+OPAI Suite is a multi-tenant SaaS platform for security companies (Next.js 16 App Router — `package.json` is source of truth; TypeScript, Prisma ORM, PostgreSQL). See `README.md` for the full module list and tech stack.
+
+### Cloud VM notes — verified for this environment (READ FIRST)
+
+These override the generic instructions below when running inside the Cursor Cloud VM. They are non-obvious and were verified during setup:
+
+- **The VM injects a REMOTE `DATABASE_URL` (Neon) as a process env var.** Next.js (`@next/env`) and the Prisma CLI do **not** let `.env.local` override an already-set process env var, so `.env.local`'s local URL is ignored by default. **Always run DB and dev commands with explicit local URLs inline** so you never touch the remote DB:
+  ```bash
+  DATABASE_URL="postgresql://postgres:postgres@localhost:5432/gard?schema=public" \
+  DIRECT_DATABASE_URL="postgresql://postgres:postgres@localhost:5432/gard?schema=public" \
+  npx prisma db push --accept-data-loss   # same prefix for: db seed, vitest run, npm run dev:watch
+  ```
+- **Docker is NOT available in this VM.** Postgres runs natively: `postgresql-16` + `postgresql-16-pgvector` via apt. Start it with `sudo pg_ctlcluster 16 main start` (check with `pg_lsclusters`). Local DB is `gard`, user/pass `postgres`/`postgres` on `localhost:5432`, with `vector` + `uuid-ossp` extensions already created. This replaces the Docker command below.
+- **`npm run lint` is BROKEN on Next 16** (`next lint` was removed). Lint with ESLint directly instead: `npx eslint .` (or scope to a path, e.g. `npx eslint src/lib/sii`). `eslint@8` + `eslint-config-next` are in devDependencies (restored by `npm install`); config is `.eslintrc.json`.
+- **SII tests need Python.** `src/lib/sii/aec_signer.py` / `pfx_extract.py` import `lxml` and `cryptography`; the `aec-signer`/`aec-builder`/`aec-sender` vitest suites shell out to Python. Install with `pip3 install --break-system-packages lxml cryptography`.
+- **Login (seeded)**: email is the injected `$ADMIN_EMAIL` secret, password `GardSecurity2026!` (owner). Login page is at `/opai/login`.
+- **Known pre-existing test failure (not an env issue)**: `src/components/crm/correos/__tests__/CorreoDrawerContent-overflow.test.tsx` fails because its `@/lib/permissions` mock omits `canViewInstallations`. The rest of the suite (2649 tests) passes.
 
 ### Services
 
