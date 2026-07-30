@@ -24,7 +24,8 @@ export type CrmHistoryEntityType =
   | "deal"
   | "installation"
   | "quote"
-  | "lead";
+  | "lead"
+  | "bundle";
 
 export async function createCrmHistoryLog(
   input: {

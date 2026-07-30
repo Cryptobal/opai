@@ -142,6 +142,13 @@ export async function addInstallationToBundle(opts: {
       currency: quote.currency,
       bundleCurrency: bundle.currency,
     });
+    await afterInstallationLinked({
+      tenantId: opts.tenantId,
+      bundleId: opts.bundleId,
+      quoteId: quote.id,
+      created: false,
+      userId: opts.userId ?? null,
+    });
     return { member, quoteId: quote.id, created: false as const };
   }
 
@@ -241,6 +248,14 @@ export async function addInstallationToBundle(opts: {
       currency: source.currency,
       bundleCurrency: bundle.currency,
     });
+    await afterInstallationLinked({
+      tenantId: opts.tenantId,
+      bundleId: opts.bundleId,
+      quoteId: cloned.id,
+      created: true,
+      clonedFromQuoteId: source.id,
+      userId: opts.userId ?? null,
+    });
     return { member, quoteId: cloned.id, created: true as const };
   }
 
@@ -297,14 +312,59 @@ export async function addInstallationToBundle(opts: {
     currency: quote.currency,
     bundleCurrency: bundle.currency,
   });
+  await afterInstallationLinked({
+    tenantId: opts.tenantId,
+    bundleId: opts.bundleId,
+    quoteId: quote.id,
+    created: true,
+    userId: opts.userId ?? null,
+  });
 
   return { member, quoteId: quote.id, created: true as const };
+}
+
+/**
+ * Post-vínculo: la hija hereda las condiciones gobernadas por el bundle
+ * (propagación acotada a esa quote) y el evento queda auditado.
+ */
+async function afterInstallationLinked(opts: {
+  tenantId: string;
+  bundleId: string;
+  quoteId: string;
+  created: boolean;
+  clonedFromQuoteId?: string | null;
+  userId?: string | null;
+}) {
+  try {
+    await propagateBundleConditions({
+      tenantId: opts.tenantId,
+      bundleId: opts.bundleId,
+      quoteIds: [opts.quoteId],
+    });
+  } catch (err) {
+    console.error("[bundle] propagate on link:", err);
+  }
+  await createCrmHistoryLog({
+    tenantId: opts.tenantId,
+    entityType: "bundle",
+    entityId: opts.bundleId,
+    action: "bundle_installation_added",
+    details: {
+      quoteId: opts.quoteId,
+      created: opts.created,
+      ...(opts.clonedFromQuoteId
+        ? { clonedFromQuoteId: opts.clonedFromQuoteId }
+        : {}),
+    },
+    createdBy: opts.userId ?? null,
+  });
 }
 
 export async function removeQuoteFromBundle(opts: {
   tenantId: string;
   bundleId: string;
   quoteId: string;
+  userId?: string | null;
 }) {
   await assertBundleOwned(opts.tenantId, opts.bundleId);
   const member = await prisma.cpqProposalBundleQuote.findFirst({
@@ -322,12 +382,21 @@ export async function removeQuoteFromBundle(opts: {
     );
   }
   await prisma.cpqProposalBundleQuote.delete({ where: { id: member.id } });
+  await createCrmHistoryLog({
+    tenantId: opts.tenantId,
+    entityType: "bundle",
+    entityId: opts.bundleId,
+    action: "bundle_installation_removed",
+    details: { quoteId: opts.quoteId },
+    createdBy: opts.userId ?? null,
+  });
   return { ok: true };
 }
 
 export async function patchBundleQuotes(opts: {
   tenantId: string;
   bundleId: string;
+  userId?: string | null;
   updates: Array<{
     quoteId: string;
     includedInProposal?: boolean;
@@ -371,6 +440,25 @@ export async function patchBundleQuotes(opts: {
       }
     }
   });
+
+  const includeChanges = opts.updates.filter(
+    (u) => typeof u.includedInProposal === "boolean",
+  );
+  if (includeChanges.length > 0) {
+    await createCrmHistoryLog({
+      tenantId: opts.tenantId,
+      entityType: "bundle",
+      entityId: opts.bundleId,
+      action: "bundle_installations_updated",
+      details: {
+        updates: includeChanges.map((u) => ({
+          quoteId: u.quoteId,
+          includedInProposal: u.includedInProposal,
+        })),
+      },
+      createdBy: opts.userId ?? null,
+    });
+  }
 
   return { ok: true };
 }

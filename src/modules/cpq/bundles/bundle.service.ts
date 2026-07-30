@@ -28,7 +28,7 @@ export class BundleServiceError extends Error {
   }
 }
 
-async function generateBundleCode(tenantId: string): Promise<string> {
+export async function generateBundleCode(tenantId: string): Promise<string> {
   const year = new Date().getFullYear();
   for (let attempt = 1; attempt <= 10; attempt++) {
     const count = await prisma.cpqProposalBundle.count({ where: { tenantId } });
@@ -246,6 +246,45 @@ function snapshotConditions(q: {
   return snap;
 }
 
+/** Claves de condiciones/financiero aceptadas por PATCH que gatillan propagación. */
+export const BUNDLE_CONDITION_PATCH_KEYS = [
+  "paymentTerms",
+  "serviceStartDays",
+  "contractDuration",
+  "isOngoingService",
+  "adjustmentType",
+  "adjustmentFreq",
+  "ipcWeight",
+  "imoWeight",
+  "insurancePolicyUF",
+  "liabilityMonths",
+  "realAnnualIncrement",
+  "paymentDays",
+  "paymentDayMode",
+  "financialEnabled",
+  "financialRatePct",
+  "validUntil",
+  "currency",
+] as const;
+
+const intOrNull = (value: unknown): number | null => {
+  if (value === null || value === undefined || value === "") return null;
+  const n = Number(value);
+  if (!Number.isFinite(n)) {
+    throw new BundleServiceError("Valor numérico inválido", "VALIDATION", 400);
+  }
+  return Math.round(n);
+};
+
+const decimalOrNull = (value: unknown): number | null => {
+  if (value === null || value === undefined || value === "") return null;
+  const n = Number(value);
+  if (!Number.isFinite(n)) {
+    throw new BundleServiceError("Valor numérico inválido", "VALIDATION", 400);
+  }
+  return n;
+};
+
 export async function updateBundle(opts: {
   tenantId: string;
   bundleId: string;
@@ -257,6 +296,22 @@ export async function updateBundle(opts: {
     notes?: string | null;
     contactId?: string | null;
     currency?: string;
+    // v2 — condiciones comerciales + financiero a nivel propuesta (null = des-gobernar)
+    paymentTerms?: string | null;
+    serviceStartDays?: number | null;
+    contractDuration?: number | null;
+    isOngoingService?: boolean | null;
+    adjustmentType?: string | null;
+    adjustmentFreq?: string | null;
+    ipcWeight?: number | null;
+    imoWeight?: number | null;
+    insurancePolicyUF?: number | string | null;
+    liabilityMonths?: number | null;
+    realAnnualIncrement?: number | null;
+    paymentDays?: number | null;
+    paymentDayMode?: string | null;
+    financialEnabled?: boolean | null;
+    financialRatePct?: number | string | null;
   };
 }) {
   const existing = await prisma.cpqProposalBundle.findFirst({
@@ -285,6 +340,77 @@ export async function updateBundle(opts: {
   if (d.notes !== undefined) data.notes = d.notes;
   if (d.contactId !== undefined) data.contactId = d.contactId;
   if (d.currency !== undefined) data.currency = d.currency;
+
+  if (d.paymentTerms !== undefined) {
+    data.paymentTerms = d.paymentTerms?.trim() || null;
+  }
+  if (d.serviceStartDays !== undefined) {
+    data.serviceStartDays = intOrNull(d.serviceStartDays);
+  }
+  if (d.contractDuration !== undefined) {
+    data.contractDuration = intOrNull(d.contractDuration);
+  }
+  if (d.isOngoingService !== undefined) {
+    data.isOngoingService =
+      typeof d.isOngoingService === "boolean" ? d.isOngoingService : null;
+  }
+  if (d.adjustmentType !== undefined) {
+    if (
+      d.adjustmentType != null &&
+      !["NONE", "IPC", "IMO", "POLYNOMIAL"].includes(d.adjustmentType)
+    ) {
+      throw new BundleServiceError("Tipo de reajuste inválido", "VALIDATION", 400);
+    }
+    data.adjustmentType = d.adjustmentType ?? null;
+    if (d.adjustmentType === "NONE") {
+      data.adjustmentFreq = null;
+      data.ipcWeight = null;
+      data.imoWeight = null;
+    }
+  }
+  if (d.adjustmentFreq !== undefined && data.adjustmentFreq === undefined) {
+    if (
+      d.adjustmentFreq != null &&
+      !["TRIMESTRAL", "SEMESTRAL", "ANUAL"].includes(d.adjustmentFreq)
+    ) {
+      throw new BundleServiceError("Frecuencia de reajuste inválida", "VALIDATION", 400);
+    }
+    data.adjustmentFreq = d.adjustmentFreq ?? null;
+  }
+  if (d.ipcWeight !== undefined && data.ipcWeight === undefined) {
+    data.ipcWeight = intOrNull(d.ipcWeight);
+  }
+  if (d.imoWeight !== undefined && data.imoWeight === undefined) {
+    data.imoWeight = intOrNull(d.imoWeight);
+  }
+  if (d.insurancePolicyUF !== undefined) {
+    data.insurancePolicyUF = decimalOrNull(d.insurancePolicyUF);
+  }
+  if (d.liabilityMonths !== undefined) {
+    data.liabilityMonths = intOrNull(d.liabilityMonths);
+  }
+  if (d.realAnnualIncrement !== undefined) {
+    data.realAnnualIncrement = intOrNull(d.realAnnualIncrement);
+  }
+  if (d.paymentDays !== undefined) data.paymentDays = intOrNull(d.paymentDays);
+  if (d.paymentDayMode !== undefined) {
+    data.paymentDayMode = d.paymentDayMode?.trim() || null;
+  }
+  if (d.financialEnabled !== undefined) {
+    data.financialEnabled =
+      typeof d.financialEnabled === "boolean" ? d.financialEnabled : null;
+  }
+  if (d.financialRatePct !== undefined) {
+    const rate = decimalOrNull(d.financialRatePct);
+    if (rate != null && (rate < 0 || rate > 100)) {
+      throw new BundleServiceError(
+        "La tasa financiera debe estar entre 0 y 100",
+        "VALIDATION",
+        400,
+      );
+    }
+    data.financialRatePct = rate;
+  }
 
   return prisma.cpqProposalBundle.update({
     where: { id: opts.bundleId },

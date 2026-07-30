@@ -99,6 +99,7 @@ export async function PATCH(
       const result = await patchBundleQuotes({
         tenantId: ctx.tenantId,
         bundleId,
+        userId: ctx.userId,
         updates,
       });
       return NextResponse.json({ success: true, data: result });
@@ -150,6 +151,7 @@ export async function DELETE(
         tenantId: ctx.tenantId,
         bundleId,
         quoteId,
+        userId: ctx.userId,
       });
       return NextResponse.json({ success: true, data: result });
     } catch (e) {
