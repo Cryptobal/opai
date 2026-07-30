@@ -89,6 +89,7 @@ export async function POST(request: NextRequest) {
     dealId: body.dealId ?? null,
     startAt,
     endAt,
+    allDay,
     notes: body.notes ?? null,
     customAddress: body.customAddress ?? null,
     participantIds,

@@ -49,8 +49,10 @@ type VisitaLike = {
 export async function mirrorVisitaToV2(
   visita: VisitaLike,
   actorId?: string | null,
+  opts?: { allDay?: boolean },
 ): Promise<void> {
   try {
+    const allDay = opts?.allDay === true;
     const existing = await prisma.calendarEvent.findFirst({
       where: { id: visita.id, tenantId: visita.tenantId },
       select: { id: true },
@@ -69,6 +71,7 @@ export async function mirrorVisitaToV2(
         lng: visita.lng,
         startAt: visita.startAt,
         endAt: visita.endAt,
+        allDay,
         accountId: visita.accountId,
         installationId: visita.installationId,
         dealId: visita.dealId,
@@ -91,6 +94,7 @@ export async function mirrorVisitaToV2(
         description: visita.notes,
         startAt: visita.startAt,
         endAt: visita.endAt,
+        ...(opts?.allDay !== undefined ? { allDay } : {}),
         status: STATUS_MAP[visita.status] ?? "confirmed",
         version: { increment: 1 },
       },
