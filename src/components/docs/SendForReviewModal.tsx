@@ -64,6 +64,16 @@ export function SendForReviewModal({
     [associations]
   );
 
+  const associatedContactIds = useMemo(
+    () =>
+      new Set(
+        (associations ?? [])
+          .filter((a) => a.entityType === "crm_contact")
+          .map((a) => a.entityId),
+      ),
+    [associations],
+  );
+
   useEffect(() => {
     if (!open) return;
     setError(null);
@@ -100,8 +110,17 @@ export function SendForReviewModal({
             isPrimary: !!c.isPrimary,
           }));
         setContacts(list);
-        const primary = list.find((c) => c.isPrimary);
-        setSelectedIds(new Set(primary ? [primary.id] : []));
+        // Preseleccionar contactos ya asociados al documento; si no hay,
+        // caer al contacto primario (comportamiento histórico).
+        const preselected = list
+          .filter((c) => associatedContactIds.has(c.id))
+          .map((c) => c.id);
+        if (preselected.length > 0) {
+          setSelectedIds(new Set(preselected));
+        } else {
+          const primary = list.find((c) => c.isPrimary);
+          setSelectedIds(new Set(primary ? [primary.id] : []));
+        }
       } catch {
         if (!cancelled) {
           setContacts([]);
@@ -114,7 +133,7 @@ export function SendForReviewModal({
     return () => {
       cancelled = true;
     };
-  }, [open, accountId]);
+  }, [open, accountId, associatedContactIds]);
 
   const toggleContact = (id: string) => {
     setSelectedIds((prev) => {
@@ -218,9 +237,10 @@ export function SendForReviewModal({
         <DialogHeader>
           <DialogTitle>Enviar borrador a revisión</DialogTitle>
           <DialogDescription>
-            Elige a qué contactos enviar el borrador para que lo revisen y
-            propongan cambios antes de la firma. Puedes seleccionar uno o más
-            contactos del cliente y/o agregar correos manualmente.
+            Elige a qué contactos enviar el borrador. Recibirán un correo con
+            acceso al Portal Cliente para revisar el contrato y proponer cambios
+            antes de la firma. Puedes seleccionar uno o más contactos del
+            cliente y/o agregar correos manualmente.
           </DialogDescription>
         </DialogHeader>
 

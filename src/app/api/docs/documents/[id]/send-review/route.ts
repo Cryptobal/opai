@@ -2,10 +2,10 @@
  * API Route: POST /api/docs/documents/[id]/send-review
  *
  * Sends a "review draft" email to the client (one or more recipients).
- * Reuses the existing `Document.contractClientToken` and the public
- * `/contrato/[token]` portal page — the client opens the same view they'd
- * see at signature time, but can submit suggestions via the existing
- * `contract-suggestions` API.
+ * The email CTA lands on Portal Cliente access (`/portal/cliente?email=...`,
+ * or PIN setup if the contact has no portal yet). After login, the client
+ * sees the contract in review and can open `/contrato/[token]` to suggest
+ * changes via `contract-suggestions`.
  *
  * Body: { recipients?: Array<{ name: string; email: string }>, message?: string }
  *   When `recipients` is omitted, defaults to the primary contact of the
@@ -139,7 +139,15 @@ export async function POST(
     });
 
     const siteUrl = getSiteUrl();
-    const reviewUrl = `${siteUrl}/contrato/${token}`;
+    // Deep-link al visor del contrato (post-login). El CTA del correo usa el
+    // acceso al Portal Cliente; este URL queda como fallback interno.
+    const contractViewerUrl = `${siteUrl}/contrato/${token}`;
+    // URL genérica de acceso al portal (sin email) — la que devolvemos en la
+    // respuesta y la que el ejecutivo copia desde la ficha del documento.
+    const portalAccessUrl = buildEmailUrl(
+      "/portal/cliente",
+      tenant?.slug ?? null,
+    );
 
     // Account context for portal onboarding: if a recipient is a known contact
     // without portal access, we mint a magic-link so the review email doubles
@@ -151,11 +159,15 @@ export async function POST(
     });
     const portalAccountId = accountAssocForPortal?.entityId ?? null;
 
+    // Cuántos contactos ya están asociados (para decidir role primary/related).
+    const existingContactAssocCount = await prisma.docAssociation.count({
+      where: { documentId: id, entityType: "crm_contact" },
+    });
+    let newContactAssocIndex = 0;
+
     const results: Array<{ email: string; ok: boolean; error?: string }> = [];
     for (const recipient of recipients) {
-      // Primary portal entry point: the client-portal login page with the
-      // recipient's email pre-filled, so they land on the ingreso screen with
-      // their correo ready and only need their PIN.
+      // Primary CTA: Portal Cliente login with email pre-filled.
       const portalLoginUrl = buildEmailUrl(
         `/portal/cliente?email=${encodeURIComponent(recipient.email)}`,
         tenant?.slug ?? null,
@@ -171,17 +183,39 @@ export async function POST(
           },
           select: { id: true, portalEnabled: true },
         });
-        if (contact && !contact.portalEnabled) {
-          const magicToken = buildToken();
-          const exp = new Date(Date.now() + 48 * 60 * 60 * 1000); // 48h
-          await prisma.crmContact.update({
-            where: { id: contact.id },
-            data: { portalMagicToken: magicToken, portalMagicTokenExp: exp },
+        if (contact) {
+          // Asociar TODOS los destinatarios CRM al documento para que
+          // figurezcan como revisores con acceso (no solo el contacto
+          // primario con el que se generó el contrato).
+          const role =
+            existingContactAssocCount === 0 && newContactAssocIndex === 0
+              ? "primary"
+              : "related";
+          await prisma.docAssociation.createMany({
+            data: [
+              {
+                documentId: id,
+                entityType: "crm_contact",
+                entityId: contact.id,
+                role,
+              },
+            ],
+            skipDuplicates: true,
           });
-          portalSetupUrl = buildEmailUrl(
-            `/portal/cliente/setup?token=${magicToken}`,
-            tenant?.slug ?? null,
-          );
+          newContactAssocIndex += 1;
+
+          if (!contact.portalEnabled) {
+            const magicToken = buildToken();
+            const exp = new Date(Date.now() + 48 * 60 * 60 * 1000); // 48h
+            await prisma.crmContact.update({
+              where: { id: contact.id },
+              data: { portalMagicToken: magicToken, portalMagicTokenExp: exp },
+            });
+            portalSetupUrl = buildEmailUrl(
+              `/portal/cliente/setup?token=${magicToken}`,
+              tenant?.slug ?? null,
+            );
+          }
         }
       }
 
@@ -189,7 +223,7 @@ export async function POST(
         to: recipient.email,
         recipientName: recipient.name || "Estimado(a)",
         documentTitle: document.title,
-        reviewUrl,
+        reviewUrl: contractViewerUrl,
         senderName: sender?.name ?? sender?.email ?? "Equipo OPAI",
         senderCompany: tenant?.name ?? undefined,
         message: body.message?.trim() || null,
@@ -203,17 +237,16 @@ export async function POST(
       });
     }
 
-    // Move the document to the "review" status so the timeline / UI can
-    // reflect that there's an open review cycle. `review` is the canonical
-    // in-review state understood by the editor allow-list, the status catalog
-    // (DOC_STATUS_CONFIG) and the PATCH validator — and it keeps the document
-    // editable so the executive can still fix unresolved tokens.
-    if (document.status === "draft") {
-      await prisma.document.update({
-        where: { id },
-        data: { status: "review" },
-      });
-    }
+    // Visible en Portal Cliente + pasar a "review" si aún estaba en draft.
+    // `review` es el estado canónico de ciclo abierto (editor allow-list,
+    // DOC_STATUS_CONFIG y PATCH validator) y mantiene el documento editable.
+    await prisma.document.update({
+      where: { id },
+      data: {
+        portalVisible: true,
+        ...(document.status === "draft" ? { status: "review" } : {}),
+      },
+    });
 
     await prisma.docHistory.create({
       data: {
@@ -233,7 +266,10 @@ export async function POST(
       success: allOk,
       data: {
         token,
-        reviewUrl,
+        // Acceso al Portal Cliente (CTA principal). Compat: `reviewUrl`.
+        reviewUrl: portalAccessUrl,
+        portalAccessUrl,
+        contractViewerUrl,
         results,
       },
       ...(allOk ? {} : { error: "Algunos correos no se pudieron enviar." }),
