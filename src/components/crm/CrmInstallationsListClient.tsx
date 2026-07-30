@@ -17,6 +17,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Avatar, EmptyState, EntityRow, Tag, tintFromId, tintClasses } from "@/components/opai-ds";
+import { CrmEntityCard, type EntityCardChip } from "./cards/CrmEntityCard";
 import { cn } from "@/lib/utils";
 import { AddressAutocomplete, type AddressResult } from "@/components/ui/AddressAutocomplete";
 import { MapsUrlPasteInput } from "@/components/ui/MapsUrlPasteInput";
@@ -395,85 +396,53 @@ export function CrmInstallationsListClient({
           ) : (
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 min-w-0">
               {filteredInstallations.map((inst) => {
-                const tint = tintFromId(inst.account?.id ?? inst.id);
-                const tc = tintClasses(tint);
+                const ppc = Math.max(0, (inst.totalSlots ?? 0) - (inst.assignedGuards ?? 0));
+                const chips: EntityCardChip[] = [
+                  {
+                    label: inst.status === "active" ? "Activa" : inst.status === "inactive" ? "Inactiva" : "Prospecto",
+                    variant: inst.status === "active" ? "ok" : inst.status === "inactive" ? "warn" : "neutral",
+                    dot: true,
+                  },
+                ];
+                if (inst.status === "active" && (inst.totalSlots ?? 0) > 0) {
+                  chips.push({
+                    label: `${inst.assignedGuards ?? 0}/${inst.totalSlots} guardias`,
+                    variant: ppc > 0 ? "warn" : "ok",
+                    icon: Users,
+                  });
+                  if (ppc > 0) chips.push({ label: `${ppc} PPC`, variant: "danger", icon: ShieldAlert });
+                } else if (inst.status === "active") {
+                  chips.push({ label: "Sin puestos", variant: "warn" });
+                }
+                const addressLine = [
+                  inst.address,
+                  [inst.commune, inst.city].filter(Boolean).join(", ") || null,
+                ].filter(Boolean).join(" · ");
                 return (
-                  <Link
+                  <CrmEntityCard
                     key={inst.id}
                     href={`/crm/installations/${inst.id}`}
-                    className="rounded-lg border border-ds-border-default transition-colors hover:border-primary/30 group hover:bg-ds-surface-2 block min-w-0 overflow-hidden"
-                  >
-                    <div className="flex items-start justify-between gap-2 p-4">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2.5">
-                          <Avatar
-                            variant="tint"
-                            tint={tint}
-                            shape="square"
-                            size="md"
-                            name={inst.name}
-                          />
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-2">
-                              <p className="text-ds-title text-ds-text-1 group-hover:text-primary transition-colors truncate">{inst.name}</p>
-                              {unreadNoteIds.has(inst.id) && (
-                                <span className="relative shrink-0" title="Notas no leídas">
-                                  <MessageSquare className="h-3.5 w-3.5 text-ds-text-3" />
-                                  <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-destructive" />
-                                </span>
-                              )}
-                              <Tag
-                                variant={
-                                  inst.status === "active" ? "ok" :
-                                  inst.status === "inactive" ? "warn" :
-                                  "neutral"
-                                }
-                                size="sm"
-                                dot
-                              >
-                                {inst.status === "active" ? "Activa" : inst.status === "inactive" ? "Inactiva" : "Prospecto"}
-                              </Tag>
-                              {inst.nocturnoEnabled !== false && (
-                                <span title="Control nocturno activo"><Moon className="h-3.5 w-3.5 text-status-info-fg" /></span>
-                              )}
-                            </div>
-                            {inst.account && (
-                              <p className={cn("text-ds-caption truncate", tc.fg)}>{inst.account.name}</p>
-                            )}
-                          </div>
-                        </div>
-                        {inst.address && (
-                          <p className="text-ds-caption text-ds-text-3 flex items-center gap-1.5 mt-2">
-                            <MapPin className="h-3 w-3 shrink-0" />
-                            {inst.address}
-                          </p>
+                    entityId={inst.account?.id ?? inst.id}
+                    title={inst.name}
+                    titleAdornment={
+                      <>
+                        {unreadNoteIds.has(inst.id) && (
+                          <span className="relative shrink-0" title="Notas no leídas">
+                            <MessageSquare className="h-3.5 w-3.5 text-ds-text-3" />
+                            <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-destructive" />
+                          </span>
                         )}
-                        {(inst.commune || inst.city) && (
-                          <p className="text-ds-caption text-ds-text-3">
-                            {[inst.commune, inst.city].filter(Boolean).join(", ")}
-                          </p>
+                        {inst.nocturnoEnabled !== false && (
+                          <span title="Control nocturno activo" className="shrink-0">
+                            <Moon className="h-3.5 w-3.5 text-status-info-fg" />
+                          </span>
                         )}
-                        {inst.status === "active" && (inst.totalSlots ?? 0) > 0 ? (
-                          <div className="flex items-center gap-2 mt-2 pt-2 border-t border-ds-border-subtle">
-                            <span className="inline-flex items-center gap-1 text-ds-caption tabular-nums text-ds-text-3" title="Guardias asignados / Slots requeridos">
-                              <Users className="h-3 w-3" />
-                              {inst.assignedGuards ?? 0}/{inst.totalSlots} guardias
-                            </span>
-                            {(inst.totalSlots! - (inst.assignedGuards ?? 0)) > 0 && (
-                              <Tag variant="danger" size="sm" icon={ShieldAlert}>
-                                {inst.totalSlots! - (inst.assignedGuards ?? 0)} PPC
-                              </Tag>
-                            )}
-                          </div>
-                        ) : inst.status === "active" && (inst.totalSlots ?? 0) === 0 ? (
-                          <div className="mt-2 pt-2 border-t border-ds-border-subtle">
-                            <Tag variant="warn" size="sm">Sin puestos creados</Tag>
-                          </div>
-                        ) : null}
-                      </div>
-                      <ChevronRight className="h-4 w-4 text-ds-text-4 shrink-0" />
-                    </div>
-                  </Link>
+                      </>
+                    }
+                    meta={`${inst.account?.name ?? "Sin cuenta"}${addressLine ? ` · ${addressLine}` : ""}`}
+                    avatar={{ icon: MapPin, shape: "square" }}
+                    chips={chips}
+                  />
                 );
               })}
             </div>

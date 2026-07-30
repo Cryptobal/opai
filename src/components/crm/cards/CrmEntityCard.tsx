@@ -5,7 +5,7 @@ import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Avatar, Tag, type TagProps } from "@/components/opai-ds";
-import { tintFromId } from "@/lib/entity-tint";
+import { tintClasses, tintFromId } from "@/lib/entity-tint";
 
 /**
  * CrmEntityCard — anatomía única de tarjeta de lista CRM.
@@ -109,7 +109,7 @@ export function CrmEntityCard({
                 className={cn(
                   "flex h-9 w-9 shrink-0 items-center justify-center",
                   shape === "square" ? "rounded-lg" : "rounded-full",
-                  tint ? cn("bg-ds-surface-2 text-ds-text-2") : "bg-primary/10 text-primary"
+                  tint ? cn(tintClasses(tint).bg, tintClasses(tint).fg) : "bg-primary/10 text-primary"
                 )}
               >
                 <AvatarIcon className="h-4 w-4" />

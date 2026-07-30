@@ -19,6 +19,7 @@ import {
 import { Plus, Pencil, Loader2, ChevronRight, Mail, Phone, MessageSquare } from "lucide-react";
 import { CRM_MODULES } from "./CrmModuleIcons";
 import { EmptyState } from "@/components/opai-ds";
+import { CrmEntityCard, type EntityCardChip } from "./cards/CrmEntityCard";
 import { CrmDates } from "@/components/crm/CrmDates";
 import { CrmToolbar } from "./CrmToolbar";
 import type { ViewMode } from "@/components/shared/ViewToggle";
@@ -517,50 +518,40 @@ export function CrmContactsClient({
             </div>
           ) : (
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 min-w-0">
-              {filteredContacts.map((contact) => (
-                <div
-                  key={contact.id}
-                  className="rounded-lg border p-4 transition-colors hover:border-primary/30 group space-y-2.5 hover:bg-accent/30 min-w-0 overflow-hidden"
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <Link href={`/crm/contacts/${contact.id}`} className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <p className="font-medium text-sm group-hover:text-primary transition-colors">{contactName(contact)}</p>
-                            {unreadNoteIds.has(contact.id) && (
-                              <span className="relative shrink-0" title="Notas no leídas">
-                                <MessageSquare className="h-3.5 w-3.5 text-muted-foreground" />
-                                <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-destructive" />
-                              </span>
-                            )}
-                            {contact.portalPinVisible && (
-                              <span className="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold tabular-nums bg-status-ok-soft text-status-ok-fg">
-                                PIN: {contact.portalPinVisible}
-                              </span>
-                            )}
-                            {(contact.companyPresentations?.length ?? 0) > 0 && (
-                              <span title="Presentación de empresa enviada" className="shrink-0 inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold" style={{ background: 'rgba(45,212,191,0.12)', color: '#2dd4bf', border: '1px solid rgba(45,212,191,0.2)' }}>
-                                📋 Presentación
-                              </span>
-                            )}
-                          </div>
-                          <p className="text-[11px] text-muted-foreground">{contact.roleTitle || "Sin cargo"}</p>
-                        </div>
-                        {contact.isPrimary && (
-                          <Badge variant="outline" className="text-[10px] border-primary/30 text-primary shrink-0">Principal</Badge>
-                        )}
-                      </div>
-                      <div className="space-y-1 text-xs text-muted-foreground mt-2">
-                        {contact.email && <p className="flex items-center gap-1.5"><Mail className="h-3 w-3 shrink-0" />{contact.email}</p>}
-                        {contact.phone && <p className="flex items-center gap-1.5"><Phone className="h-3 w-3 shrink-0" />{contact.phone}</p>}
-                        {contact.account?.name && <p className="flex items-center gap-1.5"><CRM_MODULES.accounts.icon className="h-3 w-3 shrink-0" />{contact.account.name}</p>}
-                      </div>
-                    </Link>
-                    <ChevronRight className="h-4 w-4 text-muted-foreground/40 shrink-0" />
-                  </div>
-                </div>
-              ))}
+              {filteredContacts.map((contact) => {
+                const chips: EntityCardChip[] = [];
+                if (contact.isPrimary) chips.push({ label: "Principal", variant: "info", dot: true });
+                if (contact.account?.status === "prospect") chips.push({ label: "Prospecto", variant: "warn", dot: true });
+                if (contact.portalPinVisible) chips.push({ label: `PIN ${contact.portalPinVisible}`, variant: "ok" });
+                if ((contact.companyPresentations?.length ?? 0) > 0) {
+                  chips.push({ label: "Presentación", variant: "info", icon: Mail });
+                }
+                return (
+                  <CrmEntityCard
+                    key={contact.id}
+                    href={`/crm/contacts/${contact.id}`}
+                    entityId={contact.id}
+                    title={contactName(contact)}
+                    titleAdornment={
+                      unreadNoteIds.has(contact.id) ? (
+                        <span className="relative shrink-0" title="Notas no leídas">
+                          <MessageSquare className="h-3.5 w-3.5 text-muted-foreground" />
+                          <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-destructive" />
+                        </span>
+                      ) : null
+                    }
+                    meta={`${contact.roleTitle || "Sin cargo"} · ${contact.account?.name || "Sin cuenta"}`}
+                    avatar={{
+                      initials: `${contact.firstName?.[0] ?? ""}${contact.lastName?.[0] ?? ""}` || undefined,
+                    }}
+                    chips={chips}
+                    metrics={[
+                      { label: "Email", value: contact.email || "—" },
+                      { label: "Teléfono", value: contact.phone || "—" },
+                    ]}
+                  />
+                );
+              })}
             </div>
           )}
         </CardContent>
