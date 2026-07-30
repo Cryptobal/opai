@@ -112,6 +112,11 @@ const CORREO_URL_FOLDERS = new Set([
 /** Operadores del overlay — fuente única: `correos-operator-registry.ts`. */
 const CORREO_SEARCH_OPERATORS: ModuleSearchOperator[] = correoSearchOperatorChips();
 
+/** Feedback cuando una acción IA del lector no resuelve el hilo en la lista
+ *  (hilo fuera de la página actual); antes era un no-op silencioso. */
+const AI_THREAD_OUT_OF_LIST_MSG =
+  "El hilo no está en la página actual de la lista; buscalo para ejecutar esta acción.";
+
 /** Inserta o reemplaza el operador `in:` en la query. */
 function withInFolder(query: string, folder: string): string {
   let next = query.trim();
@@ -998,10 +1003,23 @@ export function CorreosClient() {
   }, [filteredFocusKey, filtered.length]);
 
   // Con el lector abierto, la fila enfocada = hilo abierto (una sola marca).
+  // Deep-link: la fila abierta queda visible en viewport (una vez por hilo).
+  const lastRowScrollRef = useRef<string | null>(null);
   useEffect(() => {
-    if (!openId || filtered.length === 0) return;
+    if (!openId) {
+      lastRowScrollRef.current = null;
+      return;
+    }
+    if (filtered.length === 0) return;
     const idx = filtered.findIndex((t) => t.id === openId);
-    if (idx >= 0) setFocusIndex((prev) => (prev === idx ? prev : idx));
+    if (idx < 0) return;
+    setFocusIndex((prev) => (prev === idx ? prev : idx));
+    if (lastRowScrollRef.current !== openId) {
+      lastRowScrollRef.current = openId;
+      document
+        .querySelector(`[data-correo-row="${openId}"]`)
+        ?.scrollIntoView({ block: "nearest" });
+    }
     // filtered se re-deriva; filteredFocusKey cubre cambios de lista.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- filteredFocusKey
   }, [openId, filteredFocusKey]);
@@ -1021,6 +1039,9 @@ export function CorreosClient() {
 
   function moveFocus(delta: number) {
     if (filtered.length === 0) return;
+    // Deep-link: con un hilo abierto que NO está en la página actual, una
+    // flecha no debe secuestrar el lector llevándolo a la fila 0.
+    if (openId !== null && !filtered.some((t) => t.id === openId)) return;
     setFocusIndex((prev) => {
       // Base: la fila enfocada; si no hay, el hilo abierto (flechas con el
       // lector abierto); si tampoco, arranca desde el borde.
@@ -1832,19 +1853,27 @@ export function CorreosClient() {
           onUndoDone={hardRefresh}
           onChanged={hardRefresh}
           onOpenAiLead={() => {
-            const t = openId ? items.find((x) => x.id === openId) : null;
-            if (t) openAiPanel(t, "lead");
+            if (openThreadPreview) {
+              openAiPanel(openThreadPreview, "lead");
+            } else {
+              toast.info(AI_THREAD_OUT_OF_LIST_MSG);
+            }
           }}
           onAiCommand={(commandId) => {
-            const t = openId ? items.find((x) => x.id === openId) : null;
-            if (t) handleAiCommand(commandId, t);
+            if (openThreadPreview) {
+              handleAiCommand(commandId, openThreadPreview);
+            } else {
+              toast.info(AI_THREAD_OUT_OF_LIST_MSG);
+            }
           }}
           onOpenAiMenu={
             canUseCopiloto
               ? () => {
-                  const t = openId ? items.find((x) => x.id === openId) : null;
-                  if (!t) return;
-                  openAiMenuSheetForThread(t);
+                  if (!openThreadPreview) {
+                    toast.info(AI_THREAD_OUT_OF_LIST_MSG);
+                    return;
+                  }
+                  openAiMenuSheetForThread(openThreadPreview);
                 }
               : undefined
           }
