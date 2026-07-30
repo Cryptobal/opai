@@ -24,7 +24,12 @@ export function renderProposalHTML(props: ProposalProps, assets: ProposalAssets)
     coverageSchedule, staffingCount, staffingRegime,
     supervisionFrequency, items, totalNetoFormatted, paymentTerms,
     companyConfig, companyStats, regimeExplanation,
+    installations, consolidatedSummary,
   } = props;
+  const isBundle =
+    Array.isArray(installations) &&
+    installations.length > 0 &&
+    !!consolidatedSummary;
 
   const { logoUrl: logo, escudoUrl, clientLogos, guardPhotos } = assets;
   const clientLogoImg = companyLogo
@@ -186,6 +191,50 @@ export function renderProposalHTML(props: ProposalProps, assets: ProposalAssets)
   const sectionTitle = (t: string) => `<h2 class="section-title">${esc(t)}</h2>`;
   const highlight = (t: string) => `<div class="highlight-box">${esc(t)}</div>`;
   const bullet = (items: string[], dot = '•') => items.map(i => `<div class="bullet-item"><span class="bullet-dot">${dot}</span><span>${esc(i)}</span></div>`).join('');
+
+  /** Inversión mono (histórico) vs consolidado multi-instalación.
+   *  El branch mono debe producir el mismo HTML que antes del bundle. */
+  const inversionSection = !isBundle
+    ? `<!-- PÁG 17: INVERSIÓN -->
+<div class="page-break"></div>
+<div>
+  ${sectionTitle('Inversión Mensual')}
+  <table class="table-proposal">
+    <thead><tr><th style="width:6%;">#</th><th style="width:44%;">Descripción</th><th style="width:10%;">Cant.</th><th style="width:20%;">P. Unitario</th><th style="width:20%;">Subtotal</th></tr></thead>
+    <tbody>
+      ${items.map(it => `<tr><td>${it.index}</td><td>${esc(it.description)}</td><td>${it.quantity}</td><td>${esc(it.unitPriceFormatted)}</td><td style="font-weight:600;color:var(--navy);">${esc(it.subtotalFormatted)}</td></tr>`).join('')}
+    </tbody>
+    <tfoot><tr><td colspan="4" style="background:var(--navy);color:white;font-weight:700;text-transform:uppercase;font-size:8pt;letter-spacing:0.5px;padding:8px 12px;">TOTAL NETO</td><td style="background:var(--navy);color:var(--teal);font-weight:700;padding:8px 12px;">${esc(totalNetoFormatted)}</td></tr></tfoot>
+  </table>
+  <p style="font-size:8pt;margin-top:8px;">Valores netos. IVA se factura según ley.</p>
+  <p style="font-size:9pt;margin-top:4px;">Forma de pago: ${esc(paymentTerms)}</p>
+  ${items.filter(it => it.specifications).map(it => `<div style="margin-top:8px;"><p style="font-size:8pt;font-weight:600;">${esc(it.description)}</p><p style="font-size:8pt;">${esc(it.specifications!)}</p></div>`).join('')}
+</div>`
+    : `<!-- PÁG 17: CUADRO CONSOLIDADO + DETALLE POR INSTALACIÓN -->
+<div class="page-break"></div>
+<div data-bundle-consolidated="1">
+  ${sectionTitle('Cuadro consolidado por instalación')}
+  <table class="table-proposal">
+    <thead><tr><th>Instalación</th><th>Dotación</th><th>Puestos</th><th>Mensual</th></tr></thead>
+    <tbody>
+      ${installations!.map((inst) => `<tr><td>${esc(inst.name)}${inst.city ? ` · ${esc(inst.city)}` : ''}</td><td>${inst.staffingCount}</td><td>${inst.totalPositions}</td><td style="font-weight:600;color:var(--navy);">${esc(inst.monthlyFormatted)}</td></tr>`).join('')}
+    </tbody>
+    <tfoot><tr><td colspan="3" style="background:var(--navy);color:white;font-weight:700;padding:8px 12px;">TOTAL GENERAL (${consolidatedSummary!.installationCount} instalaciones)</td><td style="background:var(--navy);color:var(--teal);font-weight:700;padding:8px 12px;">${esc(consolidatedSummary!.totalMonthlyFormatted)}</td></tr></tfoot>
+  </table>
+  <p style="font-size:8pt;margin-top:8px;">Dotación total: ${consolidatedSummary!.totalGuards} guardias · Forma de pago: ${esc(paymentTerms)}</p>
+</div>
+${installations!.map((inst) => `<div class="page-break"></div>
+<div data-bundle-installation="${esc(inst.quoteCode)}">
+  ${sectionTitle(`Detalle — ${inst.name}`)}
+  <p class="body-text">${esc(inst.address)}${inst.city ? ` · ${esc(inst.city)}` : ''} · ${esc(inst.coverageSchedule)}</p>
+  <table class="table-proposal">
+    <thead><tr><th style="width:6%;">#</th><th style="width:44%;">Descripción</th><th style="width:10%;">Cant.</th><th style="width:20%;">P. Unitario</th><th style="width:20%;">Subtotal</th></tr></thead>
+    <tbody>
+      ${inst.items.map(it => `<tr><td>${it.index}</td><td>${esc(it.description)}</td><td>${it.quantity}</td><td>${esc(it.unitPriceFormatted)}</td><td style="font-weight:600;color:var(--navy);">${esc(it.subtotalFormatted)}</td></tr>`).join('')}
+    </tbody>
+    <tfoot><tr><td colspan="4" style="background:var(--navy);color:white;font-weight:700;padding:8px 12px;">SUBTOTAL ${esc(inst.name)}</td><td style="background:var(--navy);color:var(--teal);font-weight:700;padding:8px 12px;">${esc(inst.monthlyFormatted)}</td></tr></tfoot>
+  </table>
+</div>`).join('')}`;
 
   return `<!DOCTYPE html>
 <html lang="es">
@@ -545,21 +594,7 @@ ${guardPhotos.length > 0 ? `
   ${regimeExplanation ? highlight(regimeExplanation) : ''}
 </div>
 
-<!-- PÁG 17: INVERSIÓN -->
-<div class="page-break"></div>
-<div>
-  ${sectionTitle('Inversión Mensual')}
-  <table class="table-proposal">
-    <thead><tr><th style="width:6%;">#</th><th style="width:44%;">Descripción</th><th style="width:10%;">Cant.</th><th style="width:20%;">P. Unitario</th><th style="width:20%;">Subtotal</th></tr></thead>
-    <tbody>
-      ${items.map(it => `<tr><td>${it.index}</td><td>${esc(it.description)}</td><td>${it.quantity}</td><td>${esc(it.unitPriceFormatted)}</td><td style="font-weight:600;color:var(--navy);">${esc(it.subtotalFormatted)}</td></tr>`).join('')}
-    </tbody>
-    <tfoot><tr><td colspan="4" style="background:var(--navy);color:white;font-weight:700;text-transform:uppercase;font-size:8pt;letter-spacing:0.5px;padding:8px 12px;">TOTAL NETO</td><td style="background:var(--navy);color:var(--teal);font-weight:700;padding:8px 12px;">${esc(totalNetoFormatted)}</td></tr></tfoot>
-  </table>
-  <p style="font-size:8pt;margin-top:8px;">Valores netos. IVA se factura según ley.</p>
-  <p style="font-size:9pt;margin-top:4px;">Forma de pago: ${esc(paymentTerms)}</p>
-  ${items.filter(it => it.specifications).map(it => `<div style="margin-top:8px;"><p style="font-size:8pt;font-weight:600;">${esc(it.description)}</p><p style="font-size:8pt;">${esc(it.specifications!)}</p></div>`).join('')}
-</div>
+${inversionSection}
 
 <!-- PÁG 18: IMPLEMENTACIÓN -->
 <div class="page-break"></div>

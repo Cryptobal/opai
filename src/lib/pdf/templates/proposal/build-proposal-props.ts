@@ -107,6 +107,32 @@ export interface ProposalProps {
   breakdown?: QuoteBreakdownData;
   resourceBreakdown?: ResourceBreakdownCategory[];
   includedItems?: string[];
+
+  /**
+   * Modo consolidado (proposal bundle). Ausente/undefined → render mono-instalación
+   * idéntico al histórico. Cada entrada es el detalle aperturado de una cotización.
+   */
+  installations?: Array<{
+    quoteCode: string;
+    name: string;
+    city?: string;
+    address: string;
+    staffingCount: number;
+    totalPositions: number;
+    coverageSchedule: string;
+    monthly: number;
+    monthlyFormatted: string;
+    items: ProposalProps['items'];
+  }>;
+  /** Totales del cuadro consolidado (solo si `installations` está presente). */
+  consolidatedSummary?: {
+    totalMonthly: number;
+    totalMonthlyFormatted: string;
+    totalGuards: number;
+    totalPositions: number;
+    installationCount: number;
+    currency: string;
+  };
 }
 
 const PAYMENT_LABELS: Record<string, string> = {

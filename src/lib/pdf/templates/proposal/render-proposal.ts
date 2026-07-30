@@ -379,12 +379,17 @@ export async function renderProposalToBufferFromProps(
     items, oneTimeItems, oneTimeTotalFormatted, totalNetoFormatted, paymentTerms, regimeExplanation,
     companyConfig, companyStats, proposalMetrics, clientLogosWithNames, providerLogo,
     breakdown, resourceBreakdown, includedItems,
+    installations, consolidatedSummary,
   } = props;
 
   /* La variante institucional ya fue delegada al renderer 16:9 al inicio. Se
    * conserva esta bandera booleana para mantener legible el template técnico
    * mientras se retiran gradualmente sus ramas institucionales legacy. */
   const isInstitutional: boolean = false;
+  const isBundle =
+    Array.isArray(installations) &&
+    installations.length > 0 &&
+    !!consolidatedSummary;
   const docLabel = isInstitutional ? 'PRESENTACIÓN' : 'PROPUESTA TÉCNICA';
 
   /* Métricas configurables por tenant (vacío = no se muestran, nunca inventar) */
@@ -1180,8 +1185,64 @@ export async function renderProposalToBufferFromProps(
     );
   }
 
-  /* ── 19. Inversión Mensual (omitida en presentación institucional) ── */
-  if (!isInstitutional) sections.push(
+  /* ── 19. Inversión Mensual (omitida en presentación institucional) ──
+   * Bundle: cuadro consolidado + detalle aperturado. Mono: idéntico al histórico. */
+  if (!isInstitutional && isBundle) {
+    sections.push(
+      e(View, { key: 'sec19-bundle', break: true },
+        sectionTitle('Cuadro consolidado por instalación'),
+        e(View, { style: s.tblHeader },
+          e(Text, { style: [s.tblHeaderCell, { flex: 3 }] }, 'INSTALACIÓN'),
+          e(Text, { style: [s.tblHeaderCell, { flex: 1, textAlign: 'center' as const }] }, 'DOTACIÓN'),
+          e(Text, { style: [s.tblHeaderCell, { flex: 1, textAlign: 'center' as const }] }, 'PUESTOS'),
+          e(Text, { style: [s.tblHeaderCell, { flex: 1.5, textAlign: 'right' as const }] }, 'MENSUAL'),
+        ),
+        ...installations!.map((inst, i) =>
+          e(View, { key: i, style: s.tblRow },
+            e(Text, { style: [s.tblCell, { flex: 3 }] },
+              inst.city ? `${inst.name} · ${inst.city}` : inst.name),
+            e(Text, { style: [s.tblCell, { flex: 1, textAlign: 'center' as const }] }, String(inst.staffingCount)),
+            e(Text, { style: [s.tblCell, { flex: 1, textAlign: 'center' as const }] }, String(inst.totalPositions)),
+            e(Text, { style: [s.tblCellBold, { flex: 1.5, textAlign: 'right' as const }] }, inst.monthlyFormatted),
+          ),
+        ),
+        e(View, { style: s.grandTotal },
+          e(Text, { style: s.grandTotalLabel },
+            `TOTAL GENERAL (${consolidatedSummary!.installationCount} instalaciones)`),
+          e(Text, { style: s.grandTotalAmount }, consolidatedSummary!.totalMonthlyFormatted),
+        ),
+        e(Text, { style: { fontSize: 8, color: C.textLight, marginTop: 6 } },
+          `Dotación total: ${consolidatedSummary!.totalGuards} guardias · Forma de pago: ${paymentTerms}`),
+      ),
+    );
+    installations!.forEach((inst, idx) => {
+      sections.push(
+        e(View, { key: `sec19-inst-${idx}`, break: true },
+          sectionTitle(`Detalle — ${inst.name}`),
+          e(Text, { style: s.para },
+            [inst.address, inst.city, inst.coverageSchedule].filter(Boolean).join(' · ')),
+          e(View, { style: s.tblHeader },
+            e(Text, { style: [s.tblHeaderCell, { flex: 0.5, textAlign: 'center' as const }] }, '#'),
+            e(Text, { style: [s.tblHeaderCell, { flex: 3 }] }, 'ÍTEM'),
+            e(Text, { style: [s.tblHeaderCell, { flex: 0.8, textAlign: 'center' as const }] }, 'CANT'),
+            e(Text, { style: [s.tblHeaderCell, { flex: 1.5, textAlign: 'right' as const }] }, 'VALOR MENSUAL'),
+          ),
+          ...inst.items.map((item, i) =>
+            e(View, { key: i, style: s.tblRow },
+              e(Text, { style: [s.tblCell, { flex: 0.5, textAlign: 'center' as const }] }, String(item.index)),
+              e(Text, { style: [s.tblCell, { flex: 3 }] }, item.description),
+              e(Text, { style: [s.tblCell, { flex: 0.8, textAlign: 'center' as const }] }, String(item.quantity)),
+              e(Text, { style: [s.tblCellBold, { flex: 1.5, textAlign: 'right' as const }] }, item.subtotalFormatted),
+            ),
+          ),
+          e(View, { style: s.grandTotal },
+            e(Text, { style: s.grandTotalLabel }, `SUBTOTAL ${inst.name}`),
+            e(Text, { style: s.grandTotalAmount }, inst.monthlyFormatted),
+          ),
+        ),
+      );
+    });
+  } else if (!isInstitutional) sections.push(
     e(View, { key: 'sec19', break: true },
       sectionTitle('Inversión Mensual'),
       e(View, { style: s.tblHeader },
@@ -1592,14 +1653,20 @@ export async function renderProposalToBufferFromProps(
   ];
   const keyOf = (el: unknown): string | null =>
     el && typeof el === 'object' && 'key' in el ? String((el as { key: unknown }).key) : null;
+  const bundleInvestKeys = sections
+    .map(keyOf)
+    .filter((k): k is string => !!k && (k === 'sec19-bundle' || k.startsWith('sec19-inst-')));
+  const effectiveOrder = isBundle
+    ? sectionOrder.flatMap((k) => (k === 'sec19' ? bundleInvestKeys : [k]))
+    : sectionOrder;
   const orderedSections: unknown[] = [
-    ...sectionOrder
+    ...effectiveOrder
       .map((k) => sections.find((sec) => keyOf(sec) === k))
       .filter((sec) => sec !== undefined),
     // Cualquier sección no listada (defensivo) se conserva al final
     ...sections.filter((sec) => {
       const k = keyOf(sec);
-      return !k || !sectionOrder.includes(k);
+      return !k || !effectiveOrder.includes(k);
     }),
   ];
 

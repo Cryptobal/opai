@@ -7,7 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyState, Stat } from "@/components/opai-ds";
-import { FileText, ChevronRight, Plus, Loader2, MessageSquare, ExternalLink, CalendarClock, Zap } from "lucide-react";
+import { FileText, ChevronRight, Plus, Loader2, MessageSquare, ExternalLink, CalendarClock, Zap, Layers } from "lucide-react";
 import { formatCLP, formatNumber, formatUFSuffix } from "@/lib/utils";
 import { clpToUf } from "@/lib/uf-utils";
 import { CrmDates } from "@/components/crm/CrmDates";
@@ -15,6 +15,15 @@ import { CrmToolbar } from "./CrmToolbar";
 import type { ViewMode } from "@/components/shared/ViewToggle";
 import { toast } from "sonner";
 import { useUnreadNoteIds } from "@/lib/hooks";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 
 type QuoteRow = {
   id: string;
@@ -70,6 +79,12 @@ export function CrmCotizacionesClient({
   const [viewMode, setViewMode] = useState<ViewMode>("cards");
   const [sort, setSort] = useState("newest");
   const [creating, setCreating] = useState(false);
+  const [bundleDialogOpen, setBundleDialogOpen] = useState(false);
+  const [dealOptions, setDealOptions] = useState<
+    Array<{ id: string; label: string }>
+  >([]);
+  const [selectedDealId, setSelectedDealId] = useState("");
+  const [creatingBundle, setCreatingBundle] = useState(false);
   const unreadNoteIds = useUnreadNoteIds("QUOTATION");
 
   const createQuote = async () => {
@@ -89,6 +104,52 @@ export function CrmCotizacionesClient({
       toast.error(error?.message || "No se pudo crear la cotización.");
     } finally {
       setCreating(false);
+    }
+  };
+
+  const openBundleDialog = async () => {
+    setBundleDialogOpen(true);
+    if (dealOptions.length > 0) return;
+    try {
+      const res = await fetch("/api/crm/deals");
+      const json = await res.json();
+      if (json?.success && Array.isArray(json.data)) {
+        setDealOptions(
+          json.data.map(
+            (d: { id: string; title: string; account?: { name?: string } }) => ({
+              id: d.id,
+              label: d.account?.name
+                ? `${d.title} — ${d.account.name}`
+                : d.title,
+            }),
+          ),
+        );
+      }
+    } catch {
+      toast.error("No se pudieron cargar los negocios");
+    }
+  };
+
+  const createBundle = async () => {
+    if (!selectedDealId || creatingBundle) return;
+    setCreatingBundle(true);
+    try {
+      const res = await fetch("/api/cpq/bundles", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dealId: selectedDealId }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.error || "No se pudo crear la propuesta");
+      }
+      toast.success(`Propuesta ${json.data.code} creada`);
+      setBundleDialogOpen(false);
+      router.push(`/crm/propuestas/${json.data.id}`);
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Error al crear propuesta");
+    } finally {
+      setCreatingBundle(false);
     }
   };
 
@@ -161,18 +222,68 @@ export function CrmCotizacionesClient({
         activeView={viewMode}
         onViewChange={(v) => setViewMode(v as ViewMode)}
         actionSlot={
-          <Button
-            size="icon"
-            variant="secondary"
-            className="h-9 w-9 shrink-0"
-            onClick={createQuote}
-            disabled={creating}
-          >
-            {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-            <span className="sr-only">Nueva cotización</span>
-          </Button>
+          <div className="flex items-center gap-1.5">
+            <Button
+              size="icon"
+              variant="outline"
+              className="h-9 w-9 shrink-0"
+              onClick={() => void openBundleDialog()}
+              title="Nueva propuesta multi-instalación"
+            >
+              <Layers className="h-4 w-4" />
+              <span className="sr-only">Nueva propuesta multi-instalación</span>
+            </Button>
+            <Button
+              size="icon"
+              variant="secondary"
+              className="h-9 w-9 shrink-0"
+              onClick={createQuote}
+              disabled={creating}
+            >
+              {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+              <span className="sr-only">Nueva cotización</span>
+            </Button>
+          </div>
         }
       />
+
+      <Dialog open={bundleDialogOpen} onOpenChange={setBundleDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Nueva propuesta multi-instalación</DialogTitle>
+            <DialogDescription>
+              Selecciona el negocio. Se importarán las cotizaciones vinculadas
+              que aún no pertenezcan a otra propuesta.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-1.5">
+            <Label>Negocio</Label>
+            <select
+              className="w-full h-10 sm:h-9 rounded-md border border-border bg-background px-3 text-sm"
+              value={selectedDealId}
+              onChange={(e) => setSelectedDealId(e.target.value)}
+            >
+              <option value="">Seleccionar…</option>
+              {dealOptions.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <DialogFooter>
+            <Button
+              disabled={!selectedDealId || creatingBundle}
+              onClick={() => void createBundle()}
+            >
+              {creatingBundle && (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              )}
+              Crear propuesta
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* ── Quote list / cards ── */}
       <Card>

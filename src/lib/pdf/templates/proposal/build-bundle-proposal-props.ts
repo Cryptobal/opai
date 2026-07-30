@@ -1,0 +1,115 @@
+/**
+ * Compone N buildProposalProps (una por cotización incluida) en un ProposalProps
+ * consolidado para PDF/correo de proposal bundle. No modifica la firma de
+ * buildProposalProps.
+ */
+
+import { prisma } from "@/lib/prisma";
+import { formatCurrency, formatUFSuffix } from "@/lib/utils";
+import { getUfValue, clpToUf } from "@/lib/uf";
+import { buildProposalProps } from "./build-proposal-props";
+import type { ProposalProps } from "./build-proposal-props";
+
+export async function buildBundleProposalProps(
+  bundleId: string,
+  tenantId: string,
+): Promise<ProposalProps & { fileName: string }> {
+  const bundle = await prisma.cpqProposalBundle.findFirst({
+    where: { id: bundleId, tenantId },
+    include: {
+      quotes: {
+        where: { includedInProposal: true },
+        orderBy: { displayOrder: "asc" },
+        select: { quoteId: true },
+      },
+    },
+  });
+
+  if (!bundle) {
+    throw new Error("BUNDLE_NOT_FOUND");
+  }
+  if (bundle.quotes.length === 0) {
+    throw new Error("BUNDLE_EMPTY");
+  }
+
+  const perQuote = await Promise.all(
+    bundle.quotes.map((m) => buildProposalProps(m.quoteId, tenantId)),
+  );
+
+  const base = perQuote[0]!;
+  const ufVal = base.ufValue ?? (await getUfValue()) ?? 0;
+  const currency = bundle.currency || base.currency || "UF";
+  const fmt = (clp: number) =>
+    currency === "UF" && ufVal > 0
+      ? formatUFSuffix(clpToUf(clp, ufVal))
+      : formatCurrency(clp);
+
+  const installations: NonNullable<ProposalProps["installations"]> =
+    perQuote.map((p) => ({
+      quoteCode: p.quotationCode,
+      name: p.installationName,
+      city: p.installationCity,
+      address: p.installationAddress,
+      staffingCount: p.staffingCount,
+      totalPositions: p.items.reduce((s, i) => s + (i.quantity || 0), 0),
+      coverageSchedule: p.coverageSchedule,
+      monthly: p.totalNeto,
+      monthlyFormatted: p.totalNetoFormatted,
+      items: p.items,
+    }));
+
+  const totalMonthly = installations.reduce((s, i) => s + i.monthly, 0);
+  const totalGuards = installations.reduce((s, i) => s + i.staffingCount, 0);
+  const totalPositions = installations.reduce(
+    (s, i) => s + i.totalPositions,
+    0,
+  );
+
+  const names = installations
+    .map((i) => i.name)
+    .filter((n) => n && n !== "-");
+  const installationLabel =
+    names.length <= 2
+      ? names.join(" · ") || `${installations.length} instalaciones`
+      : `${names[0]} + ${names.length - 1} más`;
+
+  const { fileName: _ignored, ...baseProps } = base;
+
+  const props: ProposalProps = {
+    ...baseProps,
+    quotationCode: bundle.code,
+    installationName: installationLabel,
+    installationCity: undefined,
+    installationAddress: `${installations.length} instalaciones`,
+    staffingCount: totalGuards,
+    totalNeto: totalMonthly,
+    totalNetoFormatted: fmt(totalMonthly),
+    currency: currency === "UF" ? "UF" : "CLP",
+    validUntil: bundle.validUntil
+      ? new Date(bundle.validUntil).toLocaleDateString("es-CL", {
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+        })
+      : base.validUntil,
+    // Condiciones comerciales desde la primera cotización (sincronizada)
+    paymentTerms: base.paymentTerms,
+    installations,
+    consolidatedSummary: {
+      totalMonthly,
+      totalMonthlyFormatted: fmt(totalMonthly),
+      totalGuards,
+      totalPositions,
+      installationCount: installations.length,
+      currency: currency === "UF" ? "UF" : "CLP",
+    },
+  };
+
+  const safeClient = (base.companyName || "Cliente")
+    .replace(/[^\w\s\-áéíóúñÁÉÍÓÚÑ]/gi, "")
+    .trim()
+    .slice(0, 40);
+  const fileName = `Propuesta-${bundle.code}-${safeClient || "Cliente"}.pdf`;
+
+  return { ...props, fileName };
+}
