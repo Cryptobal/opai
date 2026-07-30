@@ -4,7 +4,7 @@ import { TareaDetailSheet } from "../TareaDetailSheet";
 import type { TareaItem } from "../types";
 
 vi.mock("@/hooks/useIsMobileViewport", () => ({
-  useIsMobileViewport: () => false,
+  useIsMobileViewport: () => true,
 }));
 
 vi.mock("@/hooks/useKeyboardOffset", () => ({
@@ -19,10 +19,15 @@ vi.mock("sonner", () => ({
   toast: { error: vi.fn(), success: vi.fn() },
 }));
 
+vi.mock("../TareaActivityTimeline", () => ({
+  TareaActivityTimeline: () => <div data-testid="timeline" />,
+}));
+
 const TASK: TareaItem = {
   id: "t1",
   title: "Seguimiento del mail",
   notes: null,
+  priority: null,
   status: "open",
   type: "task",
   dueAt: null,
@@ -33,12 +38,16 @@ const TASK: TareaItem = {
   dealId: null,
   accountId: null,
   emailThreadId: null,
+  emailThreadSubject: null,
+  accountName: null,
+  dealTitle: null,
   createdAt: "2026-07-28T12:00:00.000Z",
   createdBy: "u1",
   assigneeIds: ["u1"],
 };
 
 const USERS = [{ id: "u1", name: "Carlos Irigoyen" }];
+const NAME_BY_ID = new Map([["u1", "Carlos Irigoyen"]]);
 
 describe("TareaDetailSheet", () => {
   it("habilita Guardar al cambiar solo el vencimiento y lo envía en el PATCH", async () => {
@@ -47,12 +56,14 @@ describe("TareaDetailSheet", () => {
       <TareaDetailSheet
         task={TASK}
         users={USERS}
+        nameById={NAME_BY_ID}
         canEdit
         canDelete
         onClose={vi.fn()}
         onSave={onSave}
         onDelete={vi.fn()}
         onToggle={vi.fn()}
+        onPostpone={vi.fn()}
       />,
     );
 
@@ -76,6 +87,7 @@ describe("TareaDetailSheet", () => {
       <TareaDetailSheet
         task={TASK}
         users={USERS}
+        nameById={NAME_BY_ID}
         canEdit
         canDelete={false}
         onClose={vi.fn()}
@@ -85,5 +97,26 @@ describe("TareaDetailSheet", () => {
       />,
     );
     expect(screen.getByRole("button", { name: "Guardar" })).toBeDisabled();
+  });
+
+  it("muestra chips de prioridad y acciones Posponer/Completar", () => {
+    render(
+      <TareaDetailSheet
+        task={TASK}
+        users={USERS}
+        nameById={NAME_BY_ID}
+        canEdit
+        canDelete
+        onClose={vi.fn()}
+        onSave={vi.fn(async () => true)}
+        onDelete={vi.fn()}
+        onToggle={vi.fn()}
+        onPostpone={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole("group", { name: "Prioridad" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Posponer/i })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /^Completar$/i })).toBeTruthy();
+    expect(screen.getByTestId("timeline")).toBeTruthy();
   });
 });

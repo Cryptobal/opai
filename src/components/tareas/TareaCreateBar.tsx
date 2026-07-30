@@ -1,17 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { AgendaTeamMember } from "@/components/agenda/agenda-calendar.types";
 import { TaskAssigneePicker } from "@/components/agenda/TaskAssigneePicker";
 import { TareaDueChips, type DueValue } from "./TareaDueChips";
-import type { TareaCreateInput } from "./types";
+import { TareaPriorityChips } from "./TareaPriorityChips";
+import type { TareaCreateInput, TareaPriority } from "./types";
 
 const INPUT =
   "w-full rounded-xl border border-ds-border-default bg-ds-surface-1 px-3 text-[13px] text-ds-text-1 opai-glass-soft placeholder:text-ds-text-4";
 
-/** Creación inline de tareas (título + detalles + vencimiento sin nativos + responsables). */
+/** Creación inline: una línea colapsada → expande con due/prioridad/responsables. */
 export function TareaCreateBar({
   users,
   onCreate,
@@ -21,65 +22,99 @@ export function TareaCreateBar({
   onCreate: (input: TareaCreateInput) => Promise<boolean>;
   onDone?: () => void;
 }) {
+  const rootRef = useRef<HTMLDivElement>(null);
+  const [expanded, setExpanded] = useState(false);
   const [title, setTitle] = useState("");
-  const [notes, setNotes] = useState("");
+  const [priority, setPriority] = useState<TareaPriority>(null);
   const [due, setDue] = useState<DueValue>({ dueAt: null, allDay: true });
   const [assigneeIds, setAssigneeIds] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
+
+  const reset = () => {
+    setTitle("");
+    setPriority(null);
+    setDue({ dueAt: null, allDay: true });
+    setAssigneeIds([]);
+    setExpanded(false);
+  };
 
   const submit = async () => {
     if (!title.trim() || saving) return;
     setSaving(true);
     const ok = await onCreate({
       title: title.trim(),
-      notes: notes.trim() ? notes.trim() : null,
+      priority,
       dueAt: due.dueAt,
       allDay: due.allDay,
       assigneeIds,
     });
     setSaving(false);
     if (ok) {
-      setTitle("");
-      setNotes("");
-      setDue({ dueAt: null, allDay: true });
-      setAssigneeIds([]);
+      reset();
       onDone?.();
     }
   };
 
+  useEffect(() => {
+    if (!expanded) return;
+    const onDoc = (e: MouseEvent) => {
+      if (rootRef.current && !rootRef.current.contains(e.target as Node)) {
+        if (!title.trim()) reset();
+        else setExpanded(false);
+      }
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        if (!title.trim()) reset();
+        else setExpanded(false);
+      }
+    };
+    document.addEventListener("mousedown", onDoc);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDoc);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [expanded, title]);
+
   return (
-    <div className="space-y-2 rounded-2xl border border-ds-border-default bg-ds-surface-2 p-3 opai-glass-soft-m">
+    <div
+      ref={rootRef}
+      className="space-y-2 rounded-2xl border border-ds-border-default bg-ds-surface-2 p-3 opai-glass-soft-m"
+    >
       <input
         value={title}
         onChange={(e) => setTitle(e.target.value)}
-        onKeyDown={(e) => { if (e.key === "Enter") void submit(); }}
+        onFocus={() => setExpanded(true)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            void submit();
+          }
+        }}
         placeholder="Nueva tarea…"
         aria-label="Título de la tarea"
         className={cn(INPUT, "h-10")}
       />
-      <textarea
-        value={notes}
-        onChange={(e) => setNotes(e.target.value)}
-        maxLength={5000}
-        rows={2}
-        placeholder="Detalles (opcional)"
-        aria-label="Detalles de la tarea"
-        className={cn(INPUT, "resize-none py-2")}
-      />
-      <TareaDueChips value={due} onChange={setDue} />
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="min-w-[180px] flex-1">
-          <TaskAssigneePicker users={users} value={assigneeIds} onChange={setAssigneeIds} />
-        </div>
-        <button
-          type="button"
-          onClick={() => void submit()}
-          disabled={!title.trim() || saving}
-          className="flex h-10 min-h-[44px] items-center gap-1.5 rounded-xl bg-primary px-4 text-[13px] font-medium text-primary-foreground disabled:opacity-50 sm:min-h-0"
-        >
-          <Plus className="h-4 w-4" /> Agregar
-        </button>
-      </div>
+      {expanded && (
+        <>
+          <TareaDueChips value={due} onChange={setDue} />
+          <TareaPriorityChips value={priority} onChange={setPriority} />
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="min-w-[180px] flex-1">
+              <TaskAssigneePicker users={users} value={assigneeIds} onChange={setAssigneeIds} />
+            </div>
+            <button
+              type="button"
+              onClick={() => void submit()}
+              disabled={!title.trim() || saving}
+              className="flex h-10 min-h-[44px] items-center gap-1.5 rounded-xl bg-primary px-4 text-[13px] font-medium text-primary-foreground disabled:opacity-50 sm:min-h-0"
+            >
+              <Plus className="h-4 w-4" /> Agregar
+            </button>
+          </div>
+        </>
+      )}
     </div>
   );
 }

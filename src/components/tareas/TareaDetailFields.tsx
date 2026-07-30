@@ -1,8 +1,6 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import Link from "next/link";
-import { Mail, ExternalLink } from "lucide-react";
 import { Avatar } from "@/components/opai-ds";
 import { cn } from "@/lib/utils";
 import type { AgendaTeamMember } from "@/components/agenda/agenda-calendar.types";
@@ -12,7 +10,6 @@ import type { TareaItem } from "./types";
 
 const NOTES_MAX = 5000;
 
-/** Textarea que crece con el contenido (sin manija nativa de resize). */
 function AutoTextarea({ className, value, ...rest }: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
   const ref = useRef<HTMLTextAreaElement>(null);
   useEffect(() => {
@@ -24,21 +21,13 @@ function AutoTextarea({ className, value, ...rest }: React.TextareaHTMLAttribute
   return <textarea ref={ref} value={value} className={cn("resize-none", className)} {...rest} />;
 }
 
-const FIELD = "w-full rounded-2xl border border-ds-border-default bg-ds-surface-1 px-3 py-2 text-ds-text-1 opai-glass-soft placeholder:text-ds-text-4 focus:outline-none focus:ring-1 focus:ring-primary/40 disabled:opacity-70";
+const FIELD =
+  "w-full rounded-2xl border border-ds-border-default bg-ds-surface-1 px-3 py-2 text-ds-text-1 opai-glass-soft placeholder:text-ds-text-4 focus:outline-none focus:ring-1 focus:ring-primary/40 disabled:opacity-70";
 
+/** Campos editables del detalle (título, notas, vencimiento, responsables). */
 export function TareaDetailFields({
-  task,
-  canEdit,
-  title,
-  notes,
-  due,
-  assigneeIds,
-  users,
-  onTitle,
-  onNotes,
-  onDue,
-  onAssignees,
-  portalContainer,
+  canEdit, title, notes, due, assigneeIds, users,
+  onTitle, onNotes, onDue, onAssignees, portalContainer,
 }: {
   task: TareaItem;
   canEdit: boolean;
@@ -75,33 +64,15 @@ export function TareaDetailFields({
           readOnly={!canEdit}
           maxLength={NOTES_MAX}
           aria-label="Detalles de la tarea"
-          placeholder="Agrega contexto: qué hay que hacer, dónde, con quién, condiciones de cierre…"
+          placeholder="Agrega contexto: qué hay que hacer, dónde, con quién…"
           className={cn(FIELD, "min-h-[74px] text-[13px]")}
         />
       </div>
 
-      {task.emailThreadId && (
-        <div className="space-y-1.5">
-          <span className="px-1 text-[12px] font-medium text-ds-text-4">Origen</span>
-          <Link
-            href={`/crm/correos?thread=${task.emailThreadId}`}
-            className="opai-glass-soft flex min-h-[44px] items-center gap-2 rounded-2xl px-3 text-[13px] text-ds-text-1 hover:text-primary"
-          >
-            <Mail className="h-4 w-4 shrink-0 text-ds-text-4" />
-            <span className="min-w-0 flex-1 truncate">Ver correo de origen</span>
-            <ExternalLink className="h-4 w-4 shrink-0 text-ds-text-4" />
-          </Link>
-        </div>
-      )}
-
       {canEdit && (
         <div className="space-y-1.5">
           <span className="px-1 text-[12px] font-medium text-ds-text-4">Vencimiento</span>
-          <TareaDueChips
-            value={due}
-            onChange={onDue}
-            portalContainer={portalContainer}
-          />
+          <TareaDueChips value={due} onChange={onDue} portalContainer={portalContainer} />
         </div>
       )}
 

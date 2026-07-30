@@ -15,6 +15,8 @@ import { prisma } from "@/lib/prisma";
 import { requireTasksAccess } from "@/lib/api-auth-tareas";
 import { auditTaskAction } from "@/lib/audit-productividad";
 import { OPEN_TASK_STATUSES } from "@/modules/tareas/tareas.service";
+import { logTaskActivity } from "@/modules/tareas/tarea-activity";
+import { loadTaskOriginMaps, originFromMaps, parsePriority } from "@/modules/tareas/tarea-origin";
 
 const MAX_ASSIGNEES = 20;
 const NOTES_MAX = 5000;
@@ -89,6 +91,7 @@ export async function GET(request: NextRequest) {
         id: true,
         title: true,
         notes: true,
+        priority: true,
         status: true,
         type: true,
         dueAt: true,
@@ -106,8 +109,11 @@ export async function GET(request: NextRequest) {
     });
 
     const hasMore = rows.length > take;
-    const items = (hasMore ? rows.slice(0, take) : rows).map((t) => ({
+    const page = hasMore ? rows.slice(0, take) : rows;
+    const originMaps = await loadTaskOriginMaps(ctx.tenantId, page);
+    const items = page.map((t) => ({
       ...t,
+      ...originFromMaps(t, originMaps),
       assigneeIds: t.assignees.length
         ? t.assignees.map((a) => a.userId)
         : t.assignedTo
@@ -143,6 +149,15 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ success: false, error: `Las notas superan el máximo de ${NOTES_MAX} caracteres` }, { status: 400 });
       }
       notes = parsed.value;
+    }
+
+    let priority: string | null = null;
+    if (body?.priority !== undefined) {
+      const parsed = parsePriority(body.priority);
+      if (!parsed.ok) {
+        return NextResponse.json({ success: false, error: "Prioridad inválida (high|medium|low|null)" }, { status: 400 });
+      }
+      priority = parsed.value;
     }
 
     let dueAt: Date | null = null;
@@ -188,6 +203,7 @@ export async function POST(request: NextRequest) {
           tenantId: ctx.tenantId,
           title,
           notes,
+          priority,
           status: "open",
           type: "manual",
           dueAt,
@@ -198,14 +214,25 @@ export async function POST(request: NextRequest) {
           accountId,
         },
         select: {
-          id: true, title: true, notes: true, status: true, type: true, dueAt: true,
+          id: true, title: true, notes: true, priority: true, status: true, type: true, dueAt: true,
           allDay: true, assignedTo: true, createdAt: true,
+          dealId: true, accountId: true, emailThreadId: true,
         },
       });
       await tx.crmTaskAssignee.createMany({
         data: assigneeIds.map((userId) => ({ taskId: created.id, userId })),
         skipDuplicates: true,
       });
+      await logTaskActivity(
+        {
+          taskId: created.id,
+          tenantId: ctx.tenantId,
+          kind: "created",
+          actorId: ctx.userId,
+          payload: { source: "manual" },
+        },
+        tx,
+      );
       return created;
     });
 

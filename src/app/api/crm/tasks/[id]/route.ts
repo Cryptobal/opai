@@ -16,6 +16,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireTasksAccess, canDeleteTask, taskDeleteForbidden } from "@/lib/api-auth-tareas";
 import { auditTaskAction } from "@/lib/audit-productividad";
+import { logTaskActivity } from "@/modules/tareas/tarea-activity";
+import { loadTaskOriginMaps, originFromMaps, parsePriority } from "@/modules/tareas/tarea-origin";
 
 const MAX_ASSIGNEES = 20;
 const NOTES_MAX = 5000;
@@ -24,6 +26,7 @@ const TASK_DETAIL_SELECT = {
   id: true,
   title: true,
   notes: true,
+  priority: true,
   status: true,
   type: true,
   dueAt: true,
@@ -68,10 +71,11 @@ export async function GET(
       : task.assignedTo
         ? [task.assignedTo]
         : [];
+    const originMaps = await loadTaskOriginMaps(ctx.tenantId, [task]);
 
     return NextResponse.json({
       success: true,
-      data: { ...task, assigneeIds },
+      data: { ...task, ...originFromMaps(task, originMaps), assigneeIds },
     });
   } catch (error) {
     console.error("Error fetching task:", error);
@@ -91,11 +95,27 @@ export async function PATCH(
     const { id } = await params;
     const existing = await prisma.crmTask.findFirst({
       where: { id, tenantId: ctx.tenantId },
-      select: { id: true, completedBy: true, createdBy: true, title: true, status: true },
+      select: {
+        id: true,
+        completedBy: true,
+        createdBy: true,
+        title: true,
+        status: true,
+        dueAt: true,
+        allDay: true,
+        priority: true,
+        assignees: { select: { userId: true } },
+        assignedTo: true,
+      },
     });
     if (!existing) {
       return NextResponse.json({ success: false, error: "Tarea no encontrada" }, { status: 404 });
     }
+    const prevAssignees = existing.assignees.length
+      ? existing.assignees.map((a) => a.userId)
+      : existing.assignedTo
+        ? [existing.assignedTo]
+        : [];
 
     const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
     const data: {
@@ -104,6 +124,7 @@ export async function PATCH(
       status?: string;
       dueAt?: Date | null;
       allDay?: boolean;
+      priority?: string | null;
       assignedTo?: string | null;
       completedBy?: string | null;
       completedAt?: Date | null;
@@ -192,14 +213,22 @@ export async function PATCH(
         return NextResponse.json({ success: false, error: "Fecha de vencimiento inválida" }, { status: 400 });
       }
     }
+    if (body?.priority !== undefined) {
+      const parsed = parsePriority(body.priority);
+      if (!parsed.ok) {
+        return NextResponse.json({ success: false, error: "Prioridad inválida (high|medium|low|null)" }, { status: 400 });
+      }
+      data.priority = parsed.value;
+    }
 
+    const changes: Record<string, unknown> = {};
     const task = await prisma.$transaction(async (tx) => {
       const updated = await tx.crmTask.update({
         where: { id },
         data,
         select: {
           id: true, title: true, notes: true, status: true, type: true, dueAt: true,
-          allDay: true, assignedTo: true, completedBy: true, completedAt: true, createdAt: true,
+          allDay: true, priority: true, assignedTo: true, completedBy: true, completedAt: true, createdAt: true,
         },
       });
       if (nextAssignees) {
@@ -210,7 +239,70 @@ export async function PATCH(
         });
       }
       const assignees = await tx.crmTaskAssignee.findMany({ where: { taskId: id }, select: { userId: true } });
-      return { ...updated, assigneeIds: assignees.map((a) => a.userId) };
+      const assigneeIds = assignees.map((a) => a.userId);
+      const actorId = ctx.userId;
+
+      if (data.status === "done" && existing.status !== "done") {
+        await logTaskActivity({ taskId: id, tenantId: ctx.tenantId, kind: "completed", actorId }, tx);
+        changes.status = { from: existing.status, to: "done" };
+      } else if (data.status === "open" && existing.status === "done") {
+        await logTaskActivity({ taskId: id, tenantId: ctx.tenantId, kind: "reopened", actorId }, tx);
+        changes.status = { from: existing.status, to: "open" };
+      }
+
+      if (data.dueAt !== undefined || data.allDay !== undefined) {
+        const fromDue = existing.dueAt?.toISOString() ?? null;
+        const toDue = updated.dueAt?.toISOString() ?? null;
+        const fromAllDay = existing.allDay;
+        const toAllDay = updated.allDay;
+        if (fromDue !== toDue || fromAllDay !== toAllDay) {
+          await logTaskActivity(
+            {
+              taskId: id,
+              tenantId: ctx.tenantId,
+              kind: "due_changed",
+              actorId,
+              payload: { from: fromDue, to: toDue, allDay: toAllDay },
+            },
+            tx,
+          );
+          changes.dueAt = { from: fromDue, to: toDue, allDay: toAllDay };
+        }
+      }
+
+      if (data.priority !== undefined && (existing.priority ?? null) !== (updated.priority ?? null)) {
+        await logTaskActivity(
+          {
+            taskId: id,
+            tenantId: ctx.tenantId,
+            kind: "priority_changed",
+            actorId,
+            payload: { from: existing.priority ?? null, to: updated.priority ?? null },
+          },
+          tx,
+        );
+        changes.priority = { from: existing.priority ?? null, to: updated.priority ?? null };
+      }
+
+      if (nextAssignees) {
+        const fromSorted = [...prevAssignees].sort().join(",");
+        const toSorted = [...assigneeIds].sort().join(",");
+        if (fromSorted !== toSorted) {
+          await logTaskActivity(
+            {
+              taskId: id,
+              tenantId: ctx.tenantId,
+              kind: "assignees_changed",
+              actorId,
+              payload: { from: prevAssignees, to: assigneeIds },
+            },
+            tx,
+          );
+          changes.assignees = { from: prevAssignees, to: assigneeIds };
+        }
+      }
+
+      return { ...updated, assigneeIds };
     });
 
     void auditTaskAction({
@@ -224,7 +316,7 @@ export async function PATCH(
             ? "reopened"
             : "updated",
       taskId: id,
-      meta: { title: task.title },
+      meta: { title: task.title, ...(Object.keys(changes).length ? { changes } : {}) },
       request,
     });
 

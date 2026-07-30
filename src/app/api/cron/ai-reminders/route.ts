@@ -1,6 +1,7 @@
 /**
  * Cron: entrega recordatorios del agente (CrmTask type reminder) por DM de Slack.
  * Cada 15 min busca tareas vencidas (status open) y notifica al assignedTo vinculado.
+ * Tras cada intento (con o sin Slack) registra `reminder_sent` en la bitácora (best-effort).
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -8,9 +9,24 @@ import { prisma } from "@/lib/prisma";
 import { getWorkspaceForTenant } from "@/lib/integrations/slack/workspace";
 import { slackOpenDm, slackPostMessage } from "@/lib/integrations/slack/api";
 import { getSlackUserIdForAdmin } from "@/lib/integrations/slack/user-link";
+import { logTaskActivity } from "@/modules/tareas/tarea-activity";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
+
+async function markReminder(
+  task: { id: string; tenantId: string },
+  status: "notified" | "notified_no_slack",
+): Promise<void> {
+  await prisma.crmTask.update({ where: { id: task.id }, data: { status } });
+  await logTaskActivity({
+    taskId: task.id,
+    tenantId: task.tenantId,
+    kind: "reminder_sent",
+    actorId: null,
+    payload: { channel: status === "notified" ? "slack" : "none" },
+  });
+}
 
 export async function GET(request: NextRequest) {
   const authHeader = request.headers.get("authorization");
@@ -34,28 +50,28 @@ export async function GET(request: NextRequest) {
     for (const task of tasks) {
       try {
         if (!task.assignedTo) {
-          await prisma.crmTask.update({ where: { id: task.id }, data: { status: "notified_no_slack" } });
+          await markReminder(task, "notified_no_slack");
           noSlack++;
           continue;
         }
 
         const ws = await getWorkspaceForTenant(task.tenantId);
         if (!ws) {
-          await prisma.crmTask.update({ where: { id: task.id }, data: { status: "notified_no_slack" } });
+          await markReminder(task, "notified_no_slack");
           noSlack++;
           continue;
         }
 
         const slackUserId = await getSlackUserIdForAdmin(ws, task.assignedTo);
         if (!slackUserId) {
-          await prisma.crmTask.update({ where: { id: task.id }, data: { status: "notified_no_slack" } });
+          await markReminder(task, "notified_no_slack");
           noSlack++;
           continue;
         }
 
         const dm = await slackOpenDm(ws.botToken, slackUserId);
         if (!dm) {
-          await prisma.crmTask.update({ where: { id: task.id }, data: { status: "notified_no_slack" } });
+          await markReminder(task, "notified_no_slack");
           noSlack++;
           continue;
         }
@@ -75,7 +91,7 @@ export async function GET(request: NextRequest) {
         ];
 
         await slackPostMessage(ws.botToken, { channel: dm, text, blocks });
-        await prisma.crmTask.update({ where: { id: task.id }, data: { status: "notified" } });
+        await markReminder(task, "notified");
         delivered++;
       } catch (e) {
         console.error(`[ai-reminders] task ${task.id} failed:`, e);

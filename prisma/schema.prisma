@@ -2702,6 +2702,8 @@ model CrmTask {
   title         String
   /// Contexto libre de la tarea (detalles, condiciones de cierre, enlaces).
   notes         String?   @db.Text
+  /// Prioridad de seguimiento: "high" | "medium" | "low" | null (sin prioridad).
+  priority      String?   @map("priority")
   status        String    @default("open")
   type          String    @default("followup")
   dueAt         DateTime? @map("due_at") @db.Timestamptz(6)
@@ -2719,8 +2721,9 @@ model CrmTask {
   createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  deal      CrmDeal?          @relation(fields: [dealId], references: [id], onDelete: Cascade)
-  assignees CrmTaskAssignee[]
+  deal       CrmDeal?          @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  assignees  CrmTaskAssignee[]
+  activities CrmTaskActivity[]
 
   @@index([tenantId], map: "idx_crm_tasks_tenant")
   @@index([status], map: "idx_crm_tasks_status")
@@ -2729,6 +2732,28 @@ model CrmTask {
   @@index([accountId], map: "idx_crm_tasks_account")
   @@index([emailThreadId], map: "idx_crm_tasks_email_thread")
   @@map("tasks")
+  @@schema("crm")
+}
+
+/// Bitácora de seguimiento por tarea (eventos + comentarios de colaboración).
+/// Distinto de AuditLog (compliance): aquí viven diffs de producto y comentarios.
+model CrmTaskActivity {
+  id        String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  taskId    String   @map("task_id") @db.Uuid
+  tenantId  String   @map("tenant_id")
+  /// created|completed|reopened|due_changed|priority_changed|assignees_changed|comment|reminder_sent
+  kind      String
+  payload   Json?    @db.JsonB
+  message   String?  @db.Text
+  /// null = sistema/cron/copiloto
+  actorId   String?  @map("actor_id")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  task CrmTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId, createdAt], map: "idx_crm_task_activity_task_created")
+  @@index([tenantId], map: "idx_crm_task_activity_tenant")
+  @@map("task_activity")
   @@schema("crm")
 }
 

@@ -26,7 +26,12 @@ export async function POST(req: NextRequest, { params }: Ctx) {
   if (forbidden) return forbidden;
 
   const { threadId } = await params;
-  const body = (await req.json().catch(() => ({}))) as { title?: unknown; dueAt?: unknown; allDay?: unknown };
+  const body = (await req.json().catch(() => ({}))) as {
+    title?: unknown;
+    dueAt?: unknown;
+    allDay?: unknown;
+    source?: unknown;
+  };
   const title = typeof body.title === "string" ? body.title.trim().slice(0, 200) : "";
   if (!title) return NextResponse.json({ error: "El título es requerido" }, { status: 400 });
 
@@ -36,6 +41,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     if (!Number.isNaN(d.getTime())) dueAt = d;
   }
   const allDay = body.allDay === true;
+  const source = body.source === "copiloto" ? "copiloto" as const : "correo" as const;
 
   const task = await createThreadTask({
     tenantId: ctx.tenantId,
@@ -45,6 +51,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
     title,
     dueAt,
     allDay,
+    source,
     request: req,
   });
   if (!task) return NextResponse.json({ error: "Hilo no encontrado" }, { status: 404 });

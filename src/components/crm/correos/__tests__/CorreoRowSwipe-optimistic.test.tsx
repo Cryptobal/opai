@@ -42,6 +42,8 @@ const thread: CorreoThreadDTO = {
   pendingSince: null,
   slaLevel: null,
   slaLabel: null,
+  openTaskCount: 0,
+  taskDueLevel: null,
 };
 
 const swipeConfig: CorreoSwipeConfig = {

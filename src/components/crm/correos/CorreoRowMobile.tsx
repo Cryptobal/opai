@@ -9,6 +9,7 @@ import { PREVIEW_LINE_CLASS } from "./CorreoRow";
 import type { CorreoPreviewLines } from "./useCorreosViewPreferences";
 import { formatGmailDateChile } from "@/modules/crm/email/gmail-date-format";
 import { CorreoMatchReasonBadge } from "./CorreoMatchReasonBadge";
+import { CorreoTasksChip } from "./CorreoTasksChip";
 import { tintBar, tintSoft } from "./MailboxSwitcher";
 
 type Props = {
@@ -165,6 +166,14 @@ export const CorreoRowMobile = memo(function CorreoRowMobile({
             </span>
             <span className="flex items-center gap-1.5">
               <CorreoMatchReasonBadge reason={thread.matchReason} />
+              {thread.openTaskCount > 0 && (
+                <CorreoTasksChip
+                  count={thread.openTaskCount}
+                  level={thread.taskDueLevel}
+                  onOpen={onOpen}
+                  compact
+                />
+              )}
               {hasAttachments && (
                 <Paperclip
                   aria-label={`${thread.attachmentCount} adjuntos`}

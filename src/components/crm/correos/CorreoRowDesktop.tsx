@@ -8,6 +8,7 @@ import { parseSender } from "./correo-sender";
 import { formatGmailDateChile } from "@/modules/crm/email/gmail-date-format";
 import { CorreoThreadActions } from "./CorreoThreadActions";
 import { CorreoMatchReasonBadge } from "./CorreoMatchReasonBadge";
+import { CorreoTasksChip } from "./CorreoTasksChip";
 import { runCorreoAction } from "./correo-thread-action-client";
 import type { CorreoPreviewLines } from "./useCorreosViewPreferences";
 import { tintBar, tintSoft } from "./MailboxSwitcher";
@@ -200,6 +201,13 @@ export function CorreoRowDesktop({
       </button>
       <span className="flex shrink-0 items-center gap-1.5">
         <CorreoMatchReasonBadge reason={thread.matchReason} />
+        {thread.openTaskCount > 0 && (
+          <CorreoTasksChip
+            count={thread.openTaskCount}
+            level={thread.taskDueLevel}
+            onOpen={onOpen}
+          />
+        )}
         {thread.attachmentCount > 0 && (
           <Paperclip aria-label={`${thread.attachmentCount} adjuntos`} className="h-3.5 w-3.5 text-ds-text-4" />
         )}

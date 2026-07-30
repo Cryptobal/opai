@@ -198,6 +198,7 @@ export function CorreosClient() {
   const [folder, setFolder] = useState<CorreoFolderTab>("inbox");
   const [chip, setChip] = useState<CorreoChipKey>("todos");
   const [query, setQuery] = useState("");
+  const [withTasks, setWithTasks] = useState(false);
   // C15: la búsqueda consulta al servidor (toda la casilla), con debounce.
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [coverage, setCoverage] = useState<EmailIndexCoverage | null>(null);
@@ -305,6 +306,7 @@ export function CorreosClient() {
       if (cur) qs.set("cursor", cur);
       if (f !== "inbox") qs.set("folder", f);
       if (debouncedQuery) qs.set("q", debouncedQuery);
+      if (withTasks && !debouncedQuery) qs.set("withTasks", "1");
       const scopeId = activeAccountIdRef.current;
       if (scopeId) qs.set("accountId", scopeId);
       else if (scopeHydratedRef.current) qs.set("accountId", "all");
@@ -438,7 +440,7 @@ export function CorreosClient() {
     } finally {
       if (seq === fetchSeqRef.current) setLoading(false);
     }
-  }, [folder, debouncedQuery]);
+  }, [folder, debouncedQuery, withTasks]);
 
   /** Refresh post-acción: counts/meta sin re-pintar la lista (anti-pestañeo). */
   const softRefresh = useCallback(() => {
@@ -1680,6 +1682,8 @@ export function CorreosClient() {
                     : null
               }
               previewLines={previewLines} onPreviewLines={setPreviewLines}
+              withTasks={withTasks}
+              onWithTasksChange={setWithTasks}
               selectedCount={selectedIds.size}
               allReadSelected={items
                 .filter((t) => selectedIds.has(t.id))

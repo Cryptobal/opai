@@ -27,6 +27,8 @@ export type CorreoWorkTask = {
   status: string;
   dueAt: string | null;
   allDay: boolean;
+  priority?: string | null;
+  assignedTo?: { id: string; name: string | null } | null;
 };
 
 export type CorreoWorkContactContext = {

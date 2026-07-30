@@ -15,6 +15,10 @@ import {
   getSlaThresholds,
   resolveThreadSla,
 } from "./thread-sla";
+import {
+  findThreadIdsWithOpenTasks,
+  loadThreadTaskAgg,
+} from "./correos-thread-tasks";
 
 const KEYWORDS = ["cotiz", "licitac", "servicio", "propuesta", "bases", "presupuesto"];
 
@@ -140,6 +144,8 @@ export async function listCorreoThreads(params: {
   limit?: number;
   folder?: CorreoListFilter;
   q?: string | null;
+  /** Solo hilos con tareas abiertas. Ignorado si hay búsqueda `q`. */
+  withTasks?: boolean;
   /** @deprecated Ignorado — la búsqueda siempre es híbrida. */
   semantic?: boolean;
 }): Promise<{
@@ -165,6 +171,15 @@ export async function listCorreoThreads(params: {
     ? (parsedSearch.folderOverride ?? "all")
     : undefined;
   const effectiveFolder = searchScope ?? folder;
+
+  // Filtro withTasks: solo sin búsqueda activa.
+  let withTasksIds: string[] | null = null;
+  if (params.withTasks && !parsedSearch) {
+    withTasksIds = await findThreadIdsWithOpenTasks(params.tenantId);
+    if (withTasksIds.length === 0) {
+      return { items: [], nextCursor: null, semanticAvailable: true };
+    }
+  }
 
   // Búsqueda con texto libre → motor híbrido con paginación por score.
   if (parsedSearch && parsedSearch.terms.length > 0) {
@@ -251,6 +266,7 @@ export async function listCorreoThreads(params: {
           tenantId: params.tenantId,
           emailAccountId: { in: emailAccountIds },
           ...folderWhere(effectiveFolder),
+          ...(withTasksIds ? { id: { in: withTasksIds } } : {}),
           ...(hasCursor && cursorDate
             ? isSnoozed
               ? { snoozedUntil: { gt: cursorDate } }
@@ -370,7 +386,8 @@ async function mapThreadRowsInternal(
     )
     .map((r) => r.id);
 
-  const [accounts, deals, thresholds, lastInbounds] = await Promise.all([
+  const threadIds = page.map((r) => r.id);
+  const [accounts, deals, thresholds, lastInbounds, taskAgg] = await Promise.all([
     accountIds.length
       ? prisma.crmAccount.findMany({
           where: { tenantId, id: { in: accountIds } },
@@ -402,6 +419,7 @@ async function mapThreadRowsInternal(
           select: { threadId: true, fromEmail: true },
         })
       : [],
+    loadThreadTaskAgg(tenantId, threadIds),
   ]);
   const accMap = new Map(accounts.map((a) => [a.id, a.name]));
   const dealMap = new Map(
@@ -472,6 +490,8 @@ async function mapThreadRowsInternal(
       slaLevel: sla.level,
       slaLabel: sla.label,
       matchReason: reasonById?.get(r.id) ?? null,
+      openTaskCount: taskAgg.get(r.id)?.openTaskCount ?? 0,
+      taskDueLevel: taskAgg.get(r.id)?.taskDueLevel ?? null,
     };
   });
 }

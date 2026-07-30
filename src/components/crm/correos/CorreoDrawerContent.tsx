@@ -13,6 +13,7 @@ import { CorreoReaderOverflowMenu } from "./CorreoReaderOverflowMenu";
 import { CorreoCopilotBanner } from "./CorreoCopilotBanner";
 import { CorreoWorkPanel } from "./CorreoWorkPanel";
 import { CorreoWorkProvider } from "./CorreoWorkContext";
+import { CorreoTasksStrip } from "./CorreoTasksStrip";
 import { CorreoContextChain } from "./CorreoContextChain";
 import { copilotoAttentionReasons } from "./correo-copiloto-reasons";
 import { useCorreoSuggestedAccounts } from "./useCorreoSuggestedAccounts";
@@ -173,6 +174,11 @@ export function CorreoDrawerContent({
             onClose={onClose}
           />
 
+          <CorreoTasksStrip
+            canModify={Boolean(canModify)}
+            onOpenTrabajo={() => openPanel("trabajo")}
+          />
+
           {/* Cadena de contexto + Copiloto + overflow */}
           <div className="flex min-w-0 items-start gap-1.5">
             <div className="min-w-0 flex-1">
@@ -221,6 +227,13 @@ export function CorreoDrawerContent({
           onRemoveDone={onRemoveDone}
           onUndoDone={onUndoDone}
           onClose={onClose}
+          below={
+            <CorreoTasksStrip
+              compact
+              canModify={Boolean(canModify)}
+              onOpenTrabajo={() => openPanel("trabajo")}
+            />
+          }
         />
 
         {/* Copiloto / contexto (móvil): un solo banner con pendientes y chips;
