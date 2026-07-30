@@ -1,6 +1,8 @@
+import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
+import { Spinner } from "@/components/opai-ds";
 import { CorreosClient } from "@/components/crm/correos/CorreosClient";
 
 export const metadata = { title: "Correos · Productividad" };
@@ -15,5 +17,17 @@ export default async function CorreosPage() {
     redirect("/hub");
   }
 
-  return <CorreosClient />;
+  // Suspense requerido por useSearchParams() en CorreosClient (deep-links del
+  // copiloto con q/hilo reactivos, no solo al montar).
+  return (
+    <Suspense
+      fallback={
+        <div className="flex justify-center py-16">
+          <Spinner />
+        </div>
+      }
+    >
+      <CorreosClient />
+    </Suspense>
+  );
 }
