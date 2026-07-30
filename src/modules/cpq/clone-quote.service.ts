@@ -21,6 +21,11 @@ export async function cloneCpqQuote(opts: {
   /** Opcional — si se omite, se usa `{nombre original} (copia)` igual que antes */
   overrideName?: string | null;
   createdBy?: string | null;
+  /** Retarget opcional (p. ej. copiar dotación a otra instalación en un bundle). */
+  overrideInstallationId?: string | null;
+  overrideDealId?: string | null;
+  overrideAccountId?: string | null;
+  overrideContactId?: string | null;
 }): Promise<CloneCpqQuoteResult> {
   const { tenantId, sourceQuoteId, overrideName } = opts;
 
@@ -79,10 +84,10 @@ export async function cloneCpqQuote(opts: {
         totalGuards: source.totalGuards,
         monthlyCost: source.monthlyCost,
         currency: source.currency,
-        accountId: source.accountId,
-        contactId: source.contactId,
-        dealId: source.dealId,
-        installationId: source.installationId,
+        accountId: opts.overrideAccountId ?? source.accountId,
+        contactId: opts.overrideContactId ?? source.contactId,
+        dealId: opts.overrideDealId ?? source.dealId,
+        installationId: opts.overrideInstallationId ?? source.installationId,
         aiDescription: source.aiDescription,
         serviceDetail: source.serviceDetail,
       },
