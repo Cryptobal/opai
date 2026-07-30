@@ -14,7 +14,7 @@
  * La conversión es in-place: la URL /crm/cotizaciones/[id] no cambia.
  */
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Plus, Send } from "lucide-react";
 import { Skeleton } from "@/components/opai-ds";
 import { Button } from "@/components/ui/button";
@@ -69,7 +69,16 @@ export function QuoteWorkspace({
     [bundle],
   );
 
-  const activeQuoteId = tab.startsWith("inst:") ? tab.slice(5) : null;
+  // El tab puede quedar huérfano si la instalación se desvincula (aquí o en otra
+  // pestaña): el servidor manda, así que caemos al Consolidado.
+  const requestedQuoteId = tab.startsWith("inst:") ? tab.slice(5) : null;
+  const activeQuoteId =
+    requestedQuoteId && bundle?.quotes.some((m) => m.quoteId === requestedQuoteId)
+      ? requestedQuoteId
+      : null;
+  useEffect(() => {
+    if (requestedQuoteId && bundle && !activeQuoteId) setTab("consolidated");
+  }, [requestedQuoteId, bundle, activeQuoteId]);
   const openInstall = useCallback((qid: string) => setTab(`inst:${qid}`), []);
   const openAdd = useCallback((cloneFrom?: string | null) => {
     setCloneFromQuoteId(cloneFrom ?? null);
@@ -134,10 +143,13 @@ export function QuoteWorkspace({
   }
   if (!bundle || !billing) return null;
 
+  const effectiveTab: BundleTabId = activeQuoteId
+    ? `inst:${activeQuoteId}`
+    : "consolidated";
   const tabs = (
     <BundleTabs
       members={bundle.quotes}
-      active={tab}
+      active={effectiveTab}
       onChange={setTab}
       onAdd={() => openAdd(null)}
     />
@@ -159,7 +171,7 @@ export function QuoteWorkspace({
         {tabs}
       </div>
 
-      {tab === "consolidated" ? (
+      {!activeQuoteId ? (
         <>
           {/* Stack sticky móvil del consolidado: total + pestañas. */}
           <div className="sticky top-[53px] z-20 -mx-4 sm:-mx-6 lg:hidden opai-liquid-glass-bar-top">
@@ -183,7 +195,7 @@ export function QuoteWorkspace({
             auditRefreshKey={bundle.updatedAt ?? bundle.quotes.length}
           />
         </>
-      ) : activeQuoteId ? (
+      ) : (
         <CpqQuoteDetail
           key={activeQuoteId}
           quoteId={activeQuoteId}
@@ -198,7 +210,7 @@ export function QuoteWorkspace({
           mobileTotalClpOverride={billing.monthlyClp}
           onQuoteSaved={() => void refresh()}
         />
-      ) : null}
+      )}
 
       {/* Barra inferior móvil: solo acciones (el total vive en la barra sticky). */}
       <div
