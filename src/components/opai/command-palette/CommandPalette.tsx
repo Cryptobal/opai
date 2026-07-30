@@ -54,6 +54,7 @@ import {
   readAiShortcutConfig,
   type AiShortcutConfig,
 } from '@/lib/ai/ai-shortcut';
+import { setPaletteBridgeState } from './palette-bridge';
 
 // ── Fuzzy matching ──
 // Acento-insensible: normaliza ambos lados con NFD + strip de diacríticos
@@ -295,6 +296,13 @@ export function CommandPalette({ userRole, onOpenChat }: CommandPaletteProps) {
     window.addEventListener(AI_SHORTCUT_CHANGED_EVENT, sync);
     return () => window.removeEventListener(AI_SHORTCUT_CHANGED_EVENT, sync);
   }, []);
+
+  useEffect(() => {
+    setPaletteBridgeState({ isOpen, query });
+    return () => {
+      if (!isOpen) setPaletteBridgeState({ isOpen: false, query: '' });
+    };
+  }, [isOpen, query]);
 
   const askAiItem = useMemo<CommandItem | null>(() => {
     const q = query.trim();
