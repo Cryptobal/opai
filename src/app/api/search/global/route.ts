@@ -7,10 +7,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized, resolveApiPerms, type AuthContext } from "@/lib/api-auth";
-import { hasModuleAccess, type RolePermissions } from "@/lib/permissions";
+import { canView, hasModuleAccess, type RolePermissions } from "@/lib/permissions";
 import { ensureOpsAccess } from "@/lib/ops";
+import { CHILE_TZ } from "@/lib/dates-cl";
+import { formatInTimeZone } from "date-fns-tz";
 import { normalizeForSearch } from "@/lib/search-normalize-pure";
 import {
+  findCalendarEventIdsBySearch,
   findCpqQuoteIdsBySearch,
   findCrmAccountIdsBySearch,
   findCrmContactIdsBySearch,
@@ -18,9 +21,12 @@ import {
   findCrmDealIdsByTitleOrAccount,
   findCrmInstallationIdsBySearch,
   findCrmLeadIdsBySearch,
+  findCrmTaskIdsBySearch,
   findOpsGuardiaIdsBySearch,
   findOpsGuardiaIdsForDocsSearch,
+  findOpsTicketIdsBySearch,
 } from "@/lib/search-normalize";
+import { TICKET_PRIORITY_CONFIG, TICKET_STATUS_CONFIG } from "@/lib/tickets";
 
 export type GlobalSearchResult = {
   id: string;
@@ -40,9 +46,24 @@ export type GlobalSearchResult = {
     | "inventory_phone_line"
     | "dte_issued"
     | "dte_received"
-    | "config_page";
+    | "config_page"
+    | "email_thread"
+    | "calendar_event"
+    | "task"
+    | "ticket";
   /** Agrupa resultados por módulo para mostrar secciones separadas en la UI */
-  group: "crm" | "ops" | "docs" | "chat" | "inventory" | "finance" | "config" | "correos";
+  group:
+    | "crm"
+    | "ops"
+    | "docs"
+    | "chat"
+    | "inventory"
+    | "finance"
+    | "config"
+    | "correos"
+    | "agenda"
+    | "tareas"
+    | "tickets";
   title: string;
   subtitle: string;
   href: string;
@@ -55,6 +76,16 @@ export type GlobalSearchResult = {
   pinDisplay?: string;
   /** Meta corta a la derecha (fecha relativa, prioridad, etc.) */
   meta?: string;
+};
+
+const PRODUCTIVITY_LIMIT = 8;
+
+const TASK_STATUS_LABEL: Record<string, string> = {
+  open: "Abierta",
+  notified: "Notificada",
+  notified_no_slack: "Notificada",
+  done: "Completada",
+  cancelled: "Cancelada",
 };
 
 const LIFECYCLE_BADGE: Record<string, { label: string; class: string }> = {
@@ -180,6 +211,219 @@ async function searchCorreos(_ctx: {
   return [];
 }
 
+async function searchTareas(ctx: {
+  tenantId: string;
+  q: string;
+  perms: RolePermissions;
+}): Promise<GlobalSearchResult[]> {
+  if (!canView(ctx.perms, "productividad", "tareas")) {
+    return [];
+  }
+  try {
+    const ids = await findCrmTaskIdsBySearch({
+      tenantId: ctx.tenantId,
+      query: ctx.q,
+      limit: PRODUCTIVITY_LIMIT,
+    });
+    if (ids.length === 0) return [];
+
+    const tasks = await prisma.crmTask.findMany({
+      where: { tenantId: ctx.tenantId, id: { in: ids } },
+      select: {
+        id: true,
+        title: true,
+        status: true,
+        dueAt: true,
+        assignedTo: true,
+        assignees: { select: { userId: true }, orderBy: { createdAt: "asc" }, take: 3 },
+      },
+    });
+
+    const assigneeIds = Array.from(
+      new Set(
+        tasks.flatMap((t) => [
+          ...(t.assignees.map((a) => a.userId)),
+          ...(t.assignedTo ? [t.assignedTo] : []),
+        ]),
+      ),
+    );
+    const admins =
+      assigneeIds.length > 0
+        ? await prisma.admin.findMany({
+            where: { tenantId: ctx.tenantId, id: { in: assigneeIds } },
+            select: { id: true, name: true },
+          })
+        : [];
+    const nameById = new Map(admins.map((a) => [a.id, a.name]));
+
+    const byId = new Map(tasks.map((t) => [t.id, t]));
+    const out: GlobalSearchResult[] = [];
+    for (const id of ids) {
+      const t = byId.get(id);
+      if (!t) continue;
+      const assigneeNames = (
+        t.assignees.length > 0
+          ? t.assignees.map((a) => nameById.get(a.userId)).filter(Boolean)
+          : t.assignedTo
+            ? [nameById.get(t.assignedTo)].filter(Boolean)
+            : []
+      ) as string[];
+      const dueMeta = t.dueAt
+        ? formatInTimeZone(t.dueAt, CHILE_TZ, "dd/MM/yy")
+        : null;
+      out.push({
+        id: t.id,
+        type: "task",
+        group: "tareas",
+        title: t.title,
+        subtitle: [
+          TASK_STATUS_LABEL[t.status] ?? t.status,
+          dueMeta ? `Vence ${dueMeta}` : null,
+          assigneeNames[0] ?? "Sin asignar",
+        ]
+          .filter(Boolean)
+          .join(" · "),
+        href: `/opai/tareas?task=${t.id}`,
+        meta: dueMeta ?? undefined,
+      });
+    }
+    return out;
+  } catch (err) {
+    console.error("[global search] tareas query error:", err);
+    return [];
+  }
+}
+
+async function searchTickets(ctx: {
+  tenantId: string;
+  q: string;
+  auth: AuthContext;
+}): Promise<GlobalSearchResult[]> {
+  try {
+    const forbidden = await ensureOpsAccess(ctx.auth);
+    if (forbidden) return [];
+
+    const ids = await findOpsTicketIdsBySearch({
+      tenantId: ctx.tenantId,
+      query: ctx.q,
+      limit: PRODUCTIVITY_LIMIT,
+    });
+    if (ids.length === 0) return [];
+
+    const tickets = await prisma.opsTicket.findMany({
+      where: { tenantId: ctx.tenantId, id: { in: ids } },
+      select: {
+        id: true,
+        code: true,
+        title: true,
+        status: true,
+        priority: true,
+      },
+    });
+    const byId = new Map(tickets.map((t) => [t.id, t]));
+    const out: GlobalSearchResult[] = [];
+    for (const id of ids) {
+      const t = byId.get(id);
+      if (!t) continue;
+      const statusLabel =
+        TICKET_STATUS_CONFIG[t.status as keyof typeof TICKET_STATUS_CONFIG]?.label ?? t.status;
+      const priorityCfg =
+        TICKET_PRIORITY_CONFIG[t.priority as keyof typeof TICKET_PRIORITY_CONFIG];
+      out.push({
+        id: t.id,
+        type: "ticket",
+        group: "tickets",
+        title: `${t.code} · ${t.title}`,
+        subtitle: statusLabel,
+        href: `/ops/tickets/${t.id}`,
+        meta: priorityCfg?.shortLabel ?? t.priority,
+        badgeLabel: priorityCfg?.shortLabel ?? t.priority,
+        badgeClass: priorityCfg
+          ? `${priorityCfg.bg} ${priorityCfg.color}`
+          : undefined,
+      });
+    }
+    return out;
+  } catch (err) {
+    console.error("[global search] tickets query error:", err);
+    return [];
+  }
+}
+
+async function searchAgenda(ctx: {
+  tenantId: string;
+  q: string;
+  perms: RolePermissions;
+}): Promise<GlobalSearchResult[]> {
+  if (!canView(ctx.perms, "productividad", "agenda")) {
+    return [];
+  }
+  try {
+    const ids = await findCalendarEventIdsBySearch({
+      tenantId: ctx.tenantId,
+      query: ctx.q,
+      limit: PRODUCTIVITY_LIMIT,
+    });
+    if (ids.length === 0) return [];
+
+    const events = await prisma.calendarEvent.findMany({
+      where: { tenantId: ctx.tenantId, id: { in: ids }, deletedAt: null },
+      select: {
+        id: true,
+        title: true,
+        location: true,
+        startAt: true,
+        allDay: true,
+        participants: {
+          select: { userId: true, role: true },
+          take: 4,
+        },
+      },
+    });
+
+    const userIds = Array.from(
+      new Set(events.flatMap((e) => e.participants.map((p) => p.userId))),
+    );
+    const admins =
+      userIds.length > 0
+        ? await prisma.admin.findMany({
+            where: { tenantId: ctx.tenantId, id: { in: userIds } },
+            select: { id: true, name: true },
+          })
+        : [];
+    const nameById = new Map(admins.map((a) => [a.id, a.name]));
+
+    const byId = new Map(events.map((e) => [e.id, e]));
+    const out: GlobalSearchResult[] = [];
+    for (const id of ids) {
+      const e = byId.get(id);
+      if (!e) continue;
+      const participantNames = e.participants
+        .map((p) => nameById.get(p.userId))
+        .filter(Boolean) as string[];
+      const meta = e.allDay
+        ? formatInTimeZone(e.startAt, CHILE_TZ, "dd MMM yyyy")
+        : formatInTimeZone(e.startAt, CHILE_TZ, "dd MMM · HH:mm");
+      out.push({
+        id: e.id,
+        type: "calendar_event",
+        group: "agenda",
+        title: e.title,
+        subtitle: [e.location, participantNames.slice(0, 2).join(", ") || null]
+          .filter(Boolean)
+          .join(" · ") || "Evento",
+        // Deep-link canónico: resuelve CalendarEvent o AgendaVisita legacy.
+        href: `/opai/agenda/evento/${e.id}`,
+        meta,
+      });
+    }
+    return out;
+  } catch (err) {
+    console.error("[global search] agenda query error:", err);
+    return [];
+  }
+}
+
 export async function GET(request: NextRequest) {
   try {
     const ctx = await requireAuth();
@@ -211,6 +455,9 @@ export async function GET(request: NextRequest) {
       inventoryResults,
       financeResults,
       configResults,
+      agendaResults,
+      tareasResults,
+      ticketsResults,
     ] = await Promise.all([
       (async (): Promise<GlobalSearchResult[]> => {
         const results: GlobalSearchResult[] = [];
@@ -920,6 +1167,9 @@ export async function GET(request: NextRequest) {
 
         return results;
       })(),
+      searchAgenda({ tenantId, q, perms }),
+      searchTareas({ tenantId, q, perms }),
+      searchTickets({ tenantId, q, auth: ctx }),
     ]);
 
     const results: GlobalSearchResult[] = [
@@ -930,6 +1180,9 @@ export async function GET(request: NextRequest) {
       ...inventoryResults,
       ...financeResults,
       ...configResults,
+      ...agendaResults,
+      ...tareasResults,
+      ...ticketsResults,
     ];
 
     if (tier === "full") {
