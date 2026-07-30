@@ -6,12 +6,14 @@ import {
   truncateDocText,
 } from "@/lib/ai/document-text-budget";
 import {
+  computePeakStaffing,
   staffingForCoverageSlot,
   sumStaffing,
   normalizeWeekdays,
   shiftHours,
 } from "@/lib/crm/coverage-to-staffing";
 import { UNTRUSTED_RULES, wrapUntrusted } from "./ai-untrusted";
+import { htmlToTextWithTables, stripHtml } from "./email-text-util";
 import { gmailClientForAccount } from "./gmail-account-client";
 import { prepareThreadAttachments, type PreparedAttachments } from "./email-to-lead-attachments";
 import { WEEKDAYS_FULL } from "./email-to-lead.types";
@@ -103,7 +105,11 @@ Devuelve SOLO un objeto JSON con EXACTAMENTE estas claves:
           "horaInicio": string,
           "horaFin": string,
           "simultaneous": number,
-          "notes": string|null
+          "notes": string|null,
+          "etapa": string|null,
+          "vigenciaDesde": "YYYY-MM-DD"|null,
+          "vigenciaHasta": "YYYY-MM-DD"|null,
+          "horarioAsumido": boolean
         }
       ]
     }
@@ -125,7 +131,11 @@ Reglas CRÍTICAS:
 10. Extrae TODOS los slots del cuadro de cobertura; no resumas "9 dependencias" en un solo slot genérico.
 11. licitacion: fechas del cronograma del pliego normalizadas a YYYY-MM-DD. Fechas textuales chilenas ("10 de agosto de 2026") → ISO. Ante ambigüedad → null + openQuestions. deal.fechaLimite debe coincidir con licitacion.fechaEntrega cuando exista.
 12. condicionesEconomicas: piso salarial (sueldoBaseMinimo en CLP mensual), asignaciones, multas en UF (NO convertir a CLP), KPI contractuales. inadmisibleSiNoCumpleRemuneracion=true si el pliego declara inadmisibilidad por incumplimiento remuneracional. Si declara % de dotación de contingencia, ponelo en condicionesEconomicas.reservaPct Y en reservePct raíz.
-13. Si un dato aparece dos veces con valores distintos, NO elijas uno: null + conflicto en openQuestions.`;
+13. Si un dato aparece dos veces con valores distintos, NO elijas uno: null + conflicto en openQuestions.
+14. Si el documento trae una tabla frente/etapa/período/cobertura, emite los slots mapeando CADA fila 1:1; nunca cruces valores entre filas; conserva el nombre de etapa en \`etapa\` y el período en vigenciaDesde/vigenciaHasta (ISO).
+15. Si el documento no declara horas de los turnos, usa 08:00–20:00 (día) y 20:00–08:00 (noche), marca \`horarioAsumido: true\` y agrégalo a assumptions.
+16. Rondín/rondas nocturnas: slot con regimen "Rondín" y detalle en notes; no lo conviertas en puesto fijo.
+17. Si la cobertura dice "por frente" y el frente agrupa varios puntos, no multipliques: usa el valor literal y agrega la ambigüedad a openQuestions.`;
 
 function str(v: unknown): string | null {
   return typeof v === "string" && v.trim() ? v.trim() : null;
@@ -318,6 +328,10 @@ function enrichSlot(raw: Record<string, unknown>, weeklyHours: number): CrmStruc
     headcountLocked && manualHeadcount != null && manualHeadcount > 0
       ? Math.max(1, Math.floor(manualHeadcount))
       : staff.headcount;
+  const etapa = str(raw.etapa);
+  const vigenciaDesde = ymd(raw.vigenciaDesde);
+  const vigenciaHasta = ymd(raw.vigenciaHasta);
+  const horarioAsumido = bool(raw.horarioAsumido);
   return {
     name,
     role: str(raw.role) ?? str(raw.rol),
@@ -332,6 +346,10 @@ function enrichSlot(raw: Record<string, unknown>, weeklyHours: number): CrmStruc
     ...(headcountLocked ? { headcountLocked: true } : {}),
     pattern: staff.pattern,
     staffingRationale: staff.rationale,
+    ...(etapa ? { etapa } : { etapa: null }),
+    vigenciaDesde,
+    vigenciaHasta,
+    ...(horarioAsumido ? { horarioAsumido: true } : {}),
   };
 }
 
@@ -412,6 +430,16 @@ export function normalizeCrmStructureProposal(raw: Record<string, unknown>): Crm
     })),
   );
   const totals = sumStaffing(allStaff, weeklyHours, reservePct / 100);
+  const staffingPeak = computePeakStaffing(
+    installations.flatMap((i) =>
+      i.coverageSlots.map((s) => ({
+        headcount: s.headcount,
+        weeklyHH: s.weeklyHH,
+        vigenciaDesde: s.vigenciaDesde,
+        vigenciaHasta: s.vigenciaHasta,
+      })),
+    ),
+  );
 
   const openQuestions = Array.isArray(raw.openQuestions)
     ? raw.openQuestions.filter((q): q is string => typeof q === "string" && !!q.trim()).slice(0, 8)
@@ -471,6 +499,7 @@ export function normalizeCrmStructureProposal(raw: Record<string, unknown>): Crm
       headcountWithReserve: totals.headcountWithReserve,
       legalMinimum: totals.legalMinimum,
     },
+    staffingPeak,
     requerimiento: str(raw.requerimiento),
     ...(licitacion ? { licitacion } : {}),
     ...(condicionesEconomicas ? { condicionesEconomicas } : {}),
@@ -571,7 +600,14 @@ export async function extractCrmStructureFromThread(params: {
   ]);
 
   const bodyText = messages
-    .map((m) => `De: ${m.fromEmail}\n${(m.textBody || m.htmlBody?.replace(/<[^>]+>/g, " ") || "").trim()}`)
+    .map((m) => {
+      const html = m.htmlBody || "";
+      const hasTable = /<table[\s>]/i.test(html);
+      const body = hasTable
+        ? htmlToTextWithTables(html)
+        : (m.textBody || stripHtml(html) || "").trim();
+      return `De: ${m.fromEmail}\n${body}`;
+    })
     .join("\n\n---\n\n")
     .slice(0, 14000);
 
@@ -652,8 +688,8 @@ export async function extractCrmStructureFromThread(params: {
       durationMs: Date.now() - startedAt,
       metadata: {
         promptVersion: answers.length
-          ? "email-to-crm-structure-refine-v2"
-          : "email-to-crm-structure-v2",
+          ? "email-to-crm-structure-refine-v3"
+          : "email-to-crm-structure-v3",
         estimated: true,
         refineAnswers: answers.length,
         visionMode: usedVisionMode,
