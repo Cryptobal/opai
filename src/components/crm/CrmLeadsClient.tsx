@@ -19,9 +19,11 @@ import {
 } from "@/components/ui/dialog";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { CrmLead } from "@/types";
-import { Plus, Loader2, ChevronRight, UserPlus, Phone, Mail, Trash2 } from "lucide-react";
+import { Plus, Loader2, ChevronRight, UserPlus, Phone, Mail, Trash2, Check, X, MapPin } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { StatusTag } from "@/components/ops/StatusTag";
-import { EmptyState } from "@/components/opai-ds";
+import { EmptyState, Stat, Tag } from "@/components/opai-ds";
+import { cn } from "@/lib/utils";
 import { CrmDates } from "@/components/crm/CrmDates";
 import { CrmToolbar } from "./CrmToolbar";
 import { LeadSourceBadge } from "./LeadSourceBadge";
@@ -110,15 +112,26 @@ function getLeadFilterLabel(filter: LeadStatusFilter): string | null {
 
 /* ─── Component ─── */
 
+/* Chip de estado — misma familia visual que STATUS_MAP de Cotizaciones */
+const LEAD_STATUS_MAP: Record<string, { label: string; className: string }> = {
+  pending: { label: "Pendiente", className: "border-status-warn-border text-status-warn-fg bg-status-warn-soft" },
+  in_review: { label: "En revisión", className: "border-status-info-border text-status-info-fg" },
+  approved: { label: "Aprobado", className: "border-status-ok-border text-status-ok-fg" },
+  rejected: { label: "Rechazado", className: "border-status-danger-border text-status-danger-fg" },
+};
+
 export function CrmLeadsClient({
   initialLeads,
   initialStatusFilter = "pending",
   userRole = "",
+  canEditLeads = false,
 }: {
   initialLeads: CrmLead[];
   initialStatusFilter?: LeadStatusFilter;
   userRole?: string;
+  canEditLeads?: boolean;
 }) {
+  const router = useRouter();
   const canDeleteLead =
     (userRole === "owner" || userRole === "admin") as boolean;
   const [leads, setLeads] = useState<CrmLead[]>(initialLeads);
@@ -132,6 +145,11 @@ export function CrmLeadsClient({
   const [rejectReasonFilter, setRejectReasonFilter] = useState<LeadRejectReasonFilter>("all");
   const [deleteLeadId, setDeleteLeadId] = useState<string | null>(null);
   const [deleteDeleting, setDeleteDeleting] = useState(false);
+  // Rechazo inline desde la lista — reutiliza POST /api/crm/leads/[id]/reject
+  const [rejectLeadId, setRejectLeadId] = useState<string | null>(null);
+  const [rejectReason, setRejectReason] = useState<LeadRejectReason>("other");
+  const [rejectNote, setRejectNote] = useState("");
+  const [rejecting, setRejecting] = useState(false);
 
   const inputClassName = "bg-background text-foreground placeholder:text-muted-foreground border-input focus-visible:ring-ring";
 
@@ -156,6 +174,53 @@ export function CrmLeadsClient({
       toast.error("No se pudo eliminar el lead");
     } finally {
       setDeleteDeleting(false);
+    }
+  };
+
+  const openRejectDialog = (e: React.MouseEvent, leadId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setRejectReason("other");
+    setRejectNote("");
+    setRejectLeadId(leadId);
+  };
+
+  const confirmRejectLead = async () => {
+    if (!rejectLeadId || rejecting) return;
+    setRejecting(true);
+    try {
+      const res = await fetch(`/api/crm/leads/${rejectLeadId}/reject`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          reason: rejectReason,
+          note: rejectNote.trim() || undefined,
+          sendEmail: false,
+        }),
+      });
+      const payload = await res.json();
+      if (!res.ok) throw new Error(payload?.error || "No se pudo rechazar el lead");
+      setLeads((prev) =>
+        prev.map((l) =>
+          l.id === rejectLeadId
+            ? {
+                ...l,
+                status: "rejected",
+                metadata: {
+                  ...(l.metadata && typeof l.metadata === "object" ? l.metadata : {}),
+                  rejection: { reason: rejectReason, note: rejectNote.trim() || null, emailSent: false },
+                },
+              }
+            : l
+        )
+      );
+      setRejectLeadId(null);
+      toast.success("Lead rechazado");
+    } catch (error) {
+      console.error(error);
+      toast.error(error instanceof Error ? error.message : "No se pudo rechazar el lead.");
+    } finally {
+      setRejecting(false);
     }
   };
 
@@ -242,6 +307,25 @@ export function CrmLeadsClient({
       {initialFilterLabel && (
         <p className="text-xs text-muted-foreground">{initialFilterLabel}</p>
       )}
+
+      {/* ── Stat strip clickeable: filtra la lista ── */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {([
+          { key: "all" as const, label: "Total", value: counts.total, variant: "default" as const },
+          { key: "pending" as const, label: "Pendientes", value: counts.pending, variant: "warn" as const },
+          { key: "approved" as const, label: "Aprobados", value: counts.approved, variant: "ok" as const },
+          { key: "rejected" as const, label: "Rechazados", value: counts.rejected, variant: "danger" as const },
+        ]).map((stat) => (
+          <Stat
+            key={stat.key}
+            label={stat.label}
+            value={String(stat.value)}
+            variant={stat.variant}
+            onClick={() => setStatusFilter(stat.key)}
+            className={cn(statusFilter === stat.key && "ring-1 ring-primary/40")}
+          />
+        ))}
+      </div>
 
       {/* ── Toolbar ── */}
       <CrmToolbar
@@ -341,64 +425,113 @@ export function CrmLeadsClient({
               compact
             />
           ) : view === "cards" ? (
-            /* ═══ Cards View ═══ */
+            /* ═══ Cards View — familia visual de Cotizaciones ═══ */
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 min-w-0">
               {filteredLeads.map((lead) => {
                 const meta = lead.metadata as Record<string, unknown> | undefined;
                 const totalGuards = (meta?.totalGuards as number) || 0;
                 const rejectionInfo = getLeadRejectionInfo(lead.metadata);
+                const status = LEAD_STATUS_MAP[lead.status] || LEAD_STATUS_MAP.pending;
+                const isPending = lead.status === "pending" || lead.status === "in_review";
                 return (
                   <Link
                     key={lead.id}
                     href={`/crm/leads/${lead.id}`}
-                    className="block rounded-lg border border-border p-4 transition-colors hover:border-primary/30 hover:bg-accent/30 group space-y-2.5 min-w-0 overflow-hidden"
+                    className="flex flex-col rounded-lg border border-border transition-colors hover:border-primary/30 hover:bg-accent/30 group min-w-0 overflow-hidden"
                   >
-                    {/* Header: company + status */}
-                    <div className="flex items-start justify-between gap-2">
-                      <p className="font-medium text-sm truncate">{lead.companyName || "Empresa sin nombre"}</p>
-                      <StatusTag status={lead.status} />
-                    </div>
-
-                    {/* Contact info */}
-                    <div className="space-y-1">
-                      <p className="text-xs text-muted-foreground">{leadDisplayName(lead)}</p>
-                      {lead.email && (
-                        <p className="text-xs text-muted-foreground flex items-center gap-1 truncate">
-                          <Mail className="h-3 w-3 shrink-0" />{lead.email}
-                        </p>
-                      )}
-                      {lead.phone && (
-                        <p className="text-xs text-muted-foreground flex items-center gap-1">
-                          <Phone className="h-3 w-3 shrink-0" />{lead.phone}
-                        </p>
-                      )}
-                    </div>
-
-                    {/* Badges row: guards, source, rejection email status */}
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      {totalGuards > 0 && (
-                        <Badge variant="success" className="text-[10px] px-1.5 py-0">
-                          {totalGuards} guardia{totalGuards > 1 ? "s" : ""}
+                    <div className="flex-1 p-4">
+                      {/* Header: empresa + chip estado con dot */}
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="font-medium text-sm truncate">{lead.companyName || "Empresa sin nombre"}</p>
+                        <Badge variant="outline" className={`shrink-0 ${status.className}`}>
+                          <span className="inline-flex h-1.5 w-1.5 rounded-full mr-1 bg-current" />
+                          {status.label}
                         </Badge>
-                      )}
-                      <LeadSourceBadge source={lead.source} />
-                      {lead.status === "rejected" && rejectionInfo && (
-                        <Badge variant={rejectionInfo.emailSent ? "default" : "warning"} className="text-[10px] px-1.5 py-0">
-                          {rejectionInfo.emailSent ? "Correo enviado" : "Sin correo enviado"}
-                        </Badge>
-                      )}
-                    </div>
+                      </div>
 
-                    {/* Rejection note */}
-                    {lead.status === "rejected" && rejectionInfo?.note && (
-                      <p className="rounded-md border border-border bg-muted/30 px-2 py-1 text-[11px] text-muted-foreground line-clamp-3">
-                        Observación: {rejectionInfo.note}
+                      {/* Contacto · email */}
+                      <p className="mt-1 text-xs text-muted-foreground truncate">
+                        {leadDisplayName(lead)}
+                        {lead.email ? ` · ${lead.email}` : ""}
+                        {!lead.email && lead.phone ? ` · ${lead.phone}` : ""}
                       </p>
-                    )}
 
-                    {/* Footer: dates + actions */}
-                    <div className="flex items-center justify-between pt-0.5">
-                      <CrmDates createdAt={lead.createdAt} />
+                      {/* Chips: origen / comuna / correo de rechazo */}
+                      <div className="mt-2 flex items-center gap-1.5 flex-wrap">
+                        <LeadSourceBadge source={lead.source} />
+                        {lead.commune && (
+                          <Tag variant="neutral" size="sm" icon={MapPin}>
+                            {lead.commune}
+                          </Tag>
+                        )}
+                        {lead.status === "rejected" && rejectionInfo && (
+                          <Tag variant={rejectionInfo.emailSent ? "neutral" : "warn"} size="sm">
+                            {rejectionInfo.emailSent ? "Correo enviado" : "Sin correo enviado"}
+                          </Tag>
+                        )}
+                      </div>
+
+                      {/* Rejection note */}
+                      {lead.status === "rejected" && rejectionInfo?.note && (
+                        <p className="mt-2 rounded-md border border-border bg-muted/30 px-2 py-1 text-[11px] text-muted-foreground line-clamp-3">
+                          Observación: {rejectionInfo.note}
+                        </p>
+                      )}
+
+                      {/* Métricas con hairline superior */}
+                      <div className="mt-3 grid grid-cols-3 gap-2 border-t border-ds-border-subtle pt-2 text-center">
+                        <div className="min-w-0">
+                          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Guardias</p>
+                          <p className="truncate text-sm font-medium font-mono">
+                            {totalGuards > 0 ? totalGuards : "—"}
+                          </p>
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Servicio</p>
+                          <p className="truncate text-[12px] font-medium">
+                            {lead.serviceType || "—"}
+                          </p>
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Recibido</p>
+                          <div className="flex justify-center">
+                            <CrmDates createdAt={lead.createdAt} />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Footer: acciones inline (solo pendientes con permiso de edición) */}
+                    <div className="flex items-center justify-between gap-2 border-t border-ds-border-subtle px-4 py-2">
+                      {isPending && canEditLeads ? (
+                        <div className="flex items-center gap-1.5">
+                          <Button
+                            size="sm"
+                            className="h-8 gap-1 bg-status-ok text-white hover:brightness-110"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              router.push(`/crm/leads/${lead.id}`);
+                            }}
+                          >
+                            <Check className="h-3.5 w-3.5" />
+                            Aprobar
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-8 gap-1 border-status-danger-border text-status-danger-fg hover:bg-status-danger-soft"
+                            onClick={(e) => openRejectDialog(e, lead.id)}
+                          >
+                            <X className="h-3.5 w-3.5" />
+                            Rechazar
+                          </Button>
+                        </div>
+                      ) : (
+                        <span className="text-[11px] text-muted-foreground">
+                          {isPending ? "Revisar en la ficha" : ""}
+                        </span>
+                      )}
                       <div className="flex items-center gap-1">
                         {lead.status !== "approved" && canDeleteLead && (
                           <Button
@@ -527,6 +660,54 @@ export function CrmLeadsClient({
           )}
         </CardContent>
       </Card>
+
+      {/* Rechazo inline — mismo endpoint que la ficha; sin envío de correo */}
+      <Dialog open={!!rejectLeadId} onOpenChange={(o) => !o && setRejectLeadId(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Rechazar lead</DialogTitle>
+            <DialogDescription>
+              El lead pasará a rechazados. Para rechazar con correo al contacto, hazlo desde la ficha.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Motivo</Label>
+              <div className="flex flex-wrap gap-1.5">
+                {REJECTION_REASON_OPTIONS.map((opt) => (
+                  <Button
+                    key={opt.value}
+                    size="sm"
+                    variant={rejectReason === opt.value ? "default" : "outline"}
+                    className="h-8 rounded-full text-xs"
+                    onClick={() => setRejectReason(opt.value)}
+                  >
+                    {opt.label}
+                  </Button>
+                ))}
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Observación (opcional)</Label>
+              <Input
+                value={rejectNote}
+                onChange={(e) => setRejectNote(e.target.value)}
+                placeholder="Contexto del rechazo..."
+                className={inputClassName}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRejectLeadId(null)} disabled={rejecting}>
+              Cancelar
+            </Button>
+            <Button variant="destructive" onClick={confirmRejectLead} disabled={rejecting}>
+              {rejecting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Rechazar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <ConfirmDialog
         open={!!deleteLeadId}

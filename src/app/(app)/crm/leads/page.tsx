@@ -4,7 +4,7 @@
 
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
-import { resolvePagePerms, canView } from "@/lib/permissions-server";
+import { resolvePagePerms, canView, canEdit } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
 import { CrmLeadsClient } from "@/components/crm";
 
@@ -50,6 +50,7 @@ export default async function CrmLeadsPage({
         initialLeads={initialLeads}
         initialStatusFilter={initialStatusFilter}
         userRole={session.user?.role ?? ""}
+        canEditLeads={canEdit(perms, "crm", "leads")}
       />
     </div>
   );
