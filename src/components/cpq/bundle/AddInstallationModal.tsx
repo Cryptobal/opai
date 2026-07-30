@@ -21,11 +21,14 @@ export function AddInstallationModal({
   onOpenChange,
   bundle,
   onAdded,
+  defaultCloneFromQuoteId,
 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
   bundle: BundleDetail;
-  onAdded: () => Promise<void>;
+  onAdded: (quoteId?: string) => Promise<void> | void;
+  /** Preselecciona "copiar dotación desde" (acción Duplicar de la tabla). */
+  defaultCloneFromQuoteId?: string | null;
 }) {
   const [mode, setMode] = useState<"existing" | "new">("existing");
   const [installations, setInstallations] = useState<InstOption[]>([]);
@@ -33,6 +36,11 @@ export function AddInstallationModal({
   const [newName, setNewName] = useState("");
   const [cloneFromQuoteId, setCloneFromQuoteId] = useState("");
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    setCloneFromQuoteId(defaultCloneFromQuoteId || "");
+  }, [open, defaultCloneFromQuoteId]);
 
   useEffect(() => {
     if (!open || !bundle.accountId) return;
@@ -90,7 +98,7 @@ export function AddInstallationModal({
       setInstallationId("");
       setNewName("");
       setCloneFromQuoteId("");
-      await onAdded();
+      await onAdded(json.data?.quoteId as string | undefined);
     } finally {
       setLoading(false);
     }

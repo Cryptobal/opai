@@ -114,11 +114,15 @@ interface CpqQuoteDetailProps {
   bundleId?: string | null;
   /** Callback tras convertir en multi-instalación (workspace unificado). */
   onConverted?: (bundleId: string, existing: boolean) => void;
+  /** Modo única CON bundle (1 instalación): abre el modal Agregar instalación. */
+  onAddInstallation?: () => void;
   /** true cuando se renderiza dentro de un tab del workspace multi: oculta
    *  headers/sticky bars/bottom bar propios (los provee el workspace). */
   embedded?: boolean;
   /** Slot de pestañas de instalaciones dentro del stack sticky móvil (multi). */
   mobileTabsSlot?: React.ReactNode;
+  /** Total mensual consolidado (CLP) para la barra sticky móvil en multi. */
+  mobileTotalClpOverride?: number | null;
   /** Notifica cambios guardados para refrescar totales del bundle (multi). */
   onQuoteSaved?: () => void;
 }
@@ -166,8 +170,10 @@ export function CpqQuoteDetail({
   onEditConditionsAtProposal,
   bundleId = null,
   onConverted,
+  onAddInstallation,
   embedded = false,
   mobileTabsSlot,
+  mobileTotalClpOverride = null,
   onQuoteSaved,
 }: CpqQuoteDetailProps) {
   const router = useRouter();
@@ -1802,10 +1808,17 @@ export function CpqQuoteDetail({
                       <CheckCircle2 className="h-3.5 w-3.5" /> Marcar como enviada
                     </button>
                   )}
-                  {!bundleId && onConverted && !isLocked ? (
+                  {isLocked ? null : !bundleId && onConverted ? (
                     <div onClick={() => setOverflowMenuOpen(false)}>
                       <ConvertToBundleButton asMenuItem quoteId={quoteId} onConverted={onConverted} />
                     </div>
+                  ) : onAddInstallation ? (
+                    <button
+                      className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-xs font-medium text-primary hover:bg-accent"
+                      onClick={() => { setOverflowMenuOpen(false); onAddInstallation(); }}
+                    >
+                      <Plus className="h-3.5 w-3.5" /> Agregar instalación
+                    </button>
                   ) : null}
                   <button className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-xs hover:bg-accent" onClick={() => { setOverflowMenuOpen(false); handleClone(); }} disabled={cloning}>
                     <Copy className="h-3.5 w-3.5" /> {cloning ? "Clonando..." : "Clonar cotizacion"}
@@ -1958,13 +1971,15 @@ export function CpqQuoteDetail({
       )}
       </div>{/* end compact header */}
 
+      </>)}
+
       {/* -- Mobile sticky stack: total glass (40px) → pestañas (multi) → chips
            de secciones. Orden fijo del mockup aprobado; top-[53px] = altura del
            topbar móvil. El indicador UF/UTM del topbar no existe en móvil: el
-           chip UF del día vive aquí. */}
+           chip UF del día vive aquí. En multi el total es el consolidado. */}
       <div className="sticky top-[53px] z-20 -mx-4 sm:-mx-6 lg:-mx-8 lg:hidden opai-liquid-glass-bar-top mb-3">
         <MobileTotalBar
-          totalClp={billingMonthlyTotal}
+          totalClp={mobileTotalClpOverride ?? billingMonthlyTotal}
           currency={crmContext.currency || "CLP"}
           ufValue={ufValue}
           saving={!isLocked && (savingQuote || savingFinancials)}
@@ -1972,7 +1987,6 @@ export function CpqQuoteDetail({
         {mobileTabsSlot}
         <SectionChips onNavigate={openAndScrollTo} className="border-t border-border/40" />
       </div>
-      </>)}
 
       {/* -- Desktop sticky KPI bar (fuera del grid: sticky respecto al viewport) --
            top = debajo del topbar fijo (--app-topbar-offset). Sin overflow-x en el path
@@ -2092,10 +2106,17 @@ export function CpqQuoteDetail({
                     </button>
                   )}
                   <div className="my-1 h-px bg-border" />
-                  {!bundleId && onConverted && !isLocked ? (
+                  {isLocked ? null : !bundleId && onConverted ? (
                     <div onClick={() => setOverflowMenuOpen(false)}>
                       <ConvertToBundleButton asMenuItem quoteId={quoteId} onConverted={onConverted} />
                     </div>
+                  ) : onAddInstallation ? (
+                    <button
+                      className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-xs font-medium text-primary hover:bg-accent"
+                      onClick={() => { setOverflowMenuOpen(false); onAddInstallation(); }}
+                    >
+                      <Plus className="h-3.5 w-3.5" /> Agregar instalación
+                    </button>
                   ) : null}
                   <button className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-xs hover:bg-accent" onClick={() => { setOverflowMenuOpen(false); handleClone(); }} disabled={cloning}>
                     <Copy className="h-3.5 w-3.5" /> {cloning ? "Clonando..." : "Clonar cotizacion"}
@@ -2139,8 +2160,18 @@ export function CpqQuoteDetail({
           ? "top-[calc(var(--app-topbar-offset)+7.25rem)]"
           : "top-[calc(var(--app-topbar-offset)+4.75rem)]"}
         onNavigate={openAndScrollTo}
-        footer={!bundleId && onConverted && !isLocked ? (
+        footer={isLocked ? undefined : !bundleId && onConverted ? (
           <ConvertToBundleButton quoteId={quoteId} onConverted={onConverted} />
+        ) : onAddInstallation ? (
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-9 w-full justify-start gap-2 text-xs font-medium text-primary"
+            onClick={onAddInstallation}
+          >
+            <Plus className="h-3.5 w-3.5" />
+            Agregar instalación
+          </Button>
         ) : undefined}
       />
       <div
