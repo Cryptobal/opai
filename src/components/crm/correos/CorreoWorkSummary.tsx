@@ -27,6 +27,8 @@ type Props = {
   onRequestReply?: () => void;
   /** Abre la hoja de adjuntos del hilo (no navega a Vínculos). */
   onOpenAttachments?: () => void;
+  /** Cierra el panel Copiloto (p. ej. al abrir el asistente). */
+  onClose?: () => void;
   onAssociate: (p: {
     accountId: string | null;
     dealId: string | null;
@@ -46,6 +48,7 @@ export function CorreoWorkSummary({
   onGoTo,
   onRequestReply,
   onOpenAttachments,
+  onClose,
   onAssociate,
 }: Props) {
   const t = detail.thread;
@@ -103,6 +106,9 @@ export function CorreoWorkSummary({
       prompt: `Respecto a este correo («${subject}»): `,
       autoSend: false,
     });
+    // El dock del asistente vive a z-40; Copiloto es z-55. Hay que cerrar
+    // el panel o el chat queda detrás (mismo patrón que CorreoAiActionPanel).
+    onClose?.();
   }
 
   function createMissingWithAi() {

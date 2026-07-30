@@ -578,6 +578,7 @@ export function CorreoAiActionPanel({
     if (nextAnswers.length > MAX_REFINES) {
       toast.message("Abrí el asistente completo para seguir afinando");
       dispatchAiCommand({ prompt: "Seguí refinando el plan de acciones de este correo con más detalle.", autoSend: true });
+      requestClose();
       return;
     }
     const prevTotals = draft.proposal.staffingTotals;
