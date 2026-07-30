@@ -1562,6 +1562,7 @@ model CpqQuote {
   installation     CrmInstallation?         @relation(fields: [installationId], references: [id], onDelete: SetNull)
   proposalTemplate CpqProposalTemplate?     @relation(fields: [proposalTemplateId], references: [id])
   visitasTecnicas  OpsVisitaTecnica[]       @relation("ops_visita_tecnica_quote")
+  proposalBundleQuote CpqProposalBundleQuote?
 
   @@index([tenantId], map: "idx_cpq_quotes_tenant")
   @@index([status], map: "idx_cpq_quotes_status")
@@ -1571,6 +1572,55 @@ model CpqQuote {
   @@index([installationId], map: "idx_cpq_quotes_installation")
   @@index([proposalTemplateId], map: "idx_cpq_quotes_proposal_template")
   @@map("quotes")
+  @@schema("cpq")
+}
+
+/// Agrupa N cotizaciones (1 por instalación) como unidad enviable consolidada.
+/// Invariante intacto: 1 CpqQuote = 1 instalación; el bundle es capa fina encima.
+model CpqProposalBundle {
+  id                    String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId              String    @map("tenant_id")
+  code                  String    @unique @map("code")
+  name                  String?   @map("name")
+  status                String    @default("draft") // draft | sent | accepted | rejected
+  accountId             String?   @map("account_id") @db.Uuid
+  contactId             String?   @map("contact_id") @db.Uuid
+  dealId                String    @map("deal_id") @db.Uuid
+  currency              String    @default("UF")
+  validUntil            DateTime? @map("valid_until") @db.Date
+  notes                 String?
+  visibleInClientPortal Boolean?  @map("visible_in_client_portal")
+  proposalTemplateId    String?   @map("proposal_template_id") @db.Uuid
+  proposalAiContent     Json?     @map("proposal_ai_content")
+  sentAt                DateTime? @map("sent_at") @db.Timestamptz(6)
+  createdAt             DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt             DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  quotes CpqProposalBundleQuote[]
+
+  @@index([tenantId], map: "idx_cpq_proposal_bundles_tenant")
+  @@index([dealId], map: "idx_cpq_proposal_bundles_deal")
+  @@index([status], map: "idx_cpq_proposal_bundles_status")
+  @@map("proposal_bundles")
+  @@schema("cpq")
+}
+
+model CpqProposalBundleQuote {
+  id                 String  @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId           String  @map("tenant_id")
+  bundleId           String  @map("bundle_id") @db.Uuid
+  quoteId            String  @unique @map("quote_id") @db.Uuid
+  includedInProposal Boolean @default(true) @map("included_in_proposal")
+  displayOrder       Int     @default(0) @map("display_order")
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  bundle CpqProposalBundle @relation(fields: [bundleId], references: [id], onDelete: Cascade)
+  quote  CpqQuote          @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId], map: "idx_cpq_proposal_bundle_quotes_tenant")
+  @@index([bundleId], map: "idx_cpq_proposal_bundle_quotes_bundle")
+  @@map("proposal_bundle_quotes")
   @@schema("cpq")
 }
 
