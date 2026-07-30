@@ -79,6 +79,21 @@ export function ShiftRowSummary({
           <span>·</span>
           <JornadaHoursChip analysis={jornada} variant="compact" />
         </div>
+        {/* Valor del turno: en desktop va en la columna derecha; en móvil se
+            muestra aquí para que la tarjeta lo exponga sin abrir el editor. */}
+        <div className="mt-0.5 flex items-center gap-1.5 sm:hidden">
+          <CpqDualCurrencyAmount
+            clp={row.costo ?? 0}
+            currency={currency}
+            ufValue={ufValue}
+            size="xs"
+            inline
+            primaryClassName="font-semibold text-foreground"
+          />
+          <span className="font-mono text-[11px] text-muted-foreground">
+            bruto {totalGuards > 0 ? row.bruto.toLocaleString("es-CL") : 0}
+          </span>
+        </div>
         {row.description?.trim() ? (
           <span className="mt-0.5 flex min-w-0 items-center gap-1 text-[11px] italic text-muted-foreground">
             <NotebookPen className="h-3 w-3 shrink-0 text-primary" />

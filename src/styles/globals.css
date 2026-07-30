@@ -1857,3 +1857,25 @@ html {
     display: none;
   }
 }
+
+/* ════════════════════════════════════════════════════════════
+   CPQ · Workspace de cotización — inputs táctiles (móvil)
+   iOS hace zoom automático al enfocar un campo con font-size < 16px.
+   En el workspace se construye la cotización completa desde el teléfono,
+   así que bajo 768px los campos suben a 16px sin alterar el denso de
+   desktop. El scroll-margin evita que las barras sticky (total → pestañas
+   → chips) tapen el campo enfocado con el teclado abierto.
+   ════════════════════════════════════════════════════════════ */
+@media (max-width: 767px) {
+  .cpq-touch-inputs input:not([type="checkbox"]):not([type="radio"]),
+  .cpq-touch-inputs select,
+  .cpq-touch-inputs textarea {
+    font-size: 16px;
+  }
+
+  .cpq-touch-inputs input:not([type="checkbox"]):not([type="radio"]),
+  .cpq-touch-inputs select,
+  .cpq-touch-inputs textarea {
+    scroll-margin-top: 11rem;
+  }
+}

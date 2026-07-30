@@ -87,6 +87,7 @@ import { WorkspaceRail } from "@/components/cpq/workspace/WorkspaceRail";
 import { SectionChips } from "@/components/cpq/workspace/SectionChips";
 import { MobileTotalBar } from "@/components/cpq/workspace/MobileTotalBar";
 import { ConvertToBundleButton } from "@/components/cpq/workspace/ConvertToBundleButton";
+import { ControlCenterSheet, ControlCenterTrigger } from "@/components/cpq/workspace/ControlCenterSheet";
 import type { QuoteFormState, WorkspaceSectionId } from "@/components/cpq/workspace/types";
 
 type ActivityEvent = {
@@ -442,6 +443,7 @@ export function CpqQuoteDetail({
       return next;
     });
   }, []);
+  const [controlSheetOpen, setControlSheetOpen] = useState(false);
   const [pdfPreviewMode, setPdfPreviewMode] = useState<CpqPdfPreviewMode>("presentacion");
   const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
   const [pdfPreviewLoading, setPdfPreviewLoading] = useState(false);
@@ -1706,7 +1708,7 @@ export function CpqQuoteDetail({
   }
 
   return (
-    <div className="space-y-3 pb-4 lg:pb-4 overflow-x-clip min-w-0">
+    <div className="cpq-touch-inputs space-y-3 pb-4 lg:pb-4 overflow-x-clip min-w-0">
       {!embedded && (<>
       {/* -- Compact header (mobile/tablet) --
            Bg-background opaco (no /95) + shadow inferior para que el contenido
@@ -2677,6 +2679,8 @@ export function CpqQuoteDetail({
       {!embedded && (
       <MobileBottomBar
         className="lg:hidden"
+        hideTotal
+        centerButton={<ControlCenterTrigger onClick={() => setControlSheetOpen(true)} />}
         salePriceMonthly={salePriceMonthly}
         additionalLinesTotal={additionalLinesTotal}
         marginPct={marginPct}
@@ -2896,6 +2900,37 @@ export function CpqQuoteDetail({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ControlCenterSheet
+        open={controlSheetOpen}
+        onOpenChange={setControlSheetOpen}
+        panelProps={{
+          quoteId,
+          quoteStatus: quote.status,
+          isLocked,
+          crmContext,
+          billingMonthlyTotal,
+          additionalLinesOneTimeTotal,
+          ufValue,
+          marginPct,
+          totalGuards: stats.totalGuards,
+          roleSummary,
+          onToggleGuardsBreakdown: () => setGuardsBreakdownOpen((v) => !v),
+          canSendPortalProposal,
+          portalReadinessItems,
+          contactHasEmail,
+          onSendProposal: () => { setControlSheetOpen(false); openPortalProposal(); },
+          positionsCount: positions.length,
+          additionalLinesCount: additionalLines?.length ?? 0,
+          pdfPreviewMode,
+          pdfTemplateSlug,
+          pdfPreviewUrl,
+          pdfPreviewLoading,
+          onPdfModeChange: (mode) => { setPdfPreviewMode(mode); setPdfPreviewUrl(null); },
+          onPdfTemplateSlugChange: (slug) => { setPdfTemplateSlug(slug); setPdfPreviewUrl(null); },
+          onGeneratePdfPreview: handleGeneratePdfPreview,
+        }}
+      />
 
       <ConfirmDialog
         open={deleteConfirmOpen}
