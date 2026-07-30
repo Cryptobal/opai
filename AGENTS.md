@@ -42,6 +42,13 @@ OPAI Suite is a multi-tenant SaaS platform for security companies (Next.js 15 Ap
 - **Login credentials (seeded)**: `[REDACTED]` / `GardSecurity2026!` (owner role).
 - **Sentry (errores)**: Opcional. Definir `NEXT_PUBLIC_SENTRY_DSN` en `.env.local` (y en Vercel) para enviar errores a Sentry. Ver `.env.example` para `SENTRY_ORG`/`SENTRY_PROJECT`/`SENTRY_AUTH_TOKEN` (source maps).
 - **Connection pool (producción)**: En Vercel, `DATABASE_URL` debe incluir `connection_limit=5&pool_timeout=20` en la query string para evitar "Timed out fetching a new connection" (500). Ver `.env.example`.
+- **Neon MCP — BD de Opai (producción)**: El MCP Neon está autenticado a dos orgs. La BD correcta de Opai **no** es `gardops-db` (org personal). Usar siempre:
+  - Org: `Vercel: Gard Security` (`org-young-butterfly-48196069`)
+  - Project: **OpaiDB** (`lively-wave-03154573`)
+  - Database: `neondb`
+  - Endpoint host: `ep-falling-pond-ahxb0r41*.c-3.us-east-1.aws.neon.tech`
+  - En cada `run_sql` / `get_connection_string` / etc. pasar `projectId: "lively-wave-03154573"`.
+  - `gardops-db` (`little-hill-86034491`) es legacy GardOps sin schema `payroll`/`cpq` — ignorarlo para Opai.
 
 ---
 
