@@ -18,7 +18,7 @@
        ============================================ */
 
     /* Background & Foreground */
-    --background: 0 0% 99%;               /* #fcfcfc — warm off-white */
+    --background: 216 33% 97%;            /* #f4f7fa — lienzo frío v5 */
     --foreground: 220 20% 10%;            /* #151a23 */
 
     /* Cards & Surfaces */
@@ -30,7 +30,7 @@
     --popover-foreground: 220 20% 10%;   /* #151a23 */
 
     /* Borders & Inputs */
-    --border: 220 13% 87%;               /* #d9dde4 */
+    --border: 216 20% 88%;               /* #dae0e6 */
     --input: 220 13% 85%;               /* #d3d8e0 */
 
     /* Muted (secondary text, disabled) */
@@ -69,10 +69,10 @@
     /* ============================================
        OPAI DS v3 — Surfaces (5 niveles de elevación)
        ============================================ */
-    --ds-surface-0: 0 0% 99%;              /* page bg = same as --background */
-    --ds-surface-1: 220 14% 97%;           /* card primary, subtle off-white */
-    --ds-surface-2: 0 0% 100%;             /* card elevated / popover */
-    --ds-surface-3: 220 14% 99%;           /* sticky header / dialog top */
+    --ds-surface-0: 216 33% 97%;           /* page bg = same as --background */
+    --ds-surface-1: 0 0% 100%;             /* card primary — blanco solo en tarjetas */
+    --ds-surface-2: 216 33% 99%;           /* card elevated / popover */
+    --ds-surface-3: 0 0% 100%;             /* sticky header / dialog top */
     --ds-surface-4: 0 0% 100%;             /* menu / tooltip top */
 
     /* Text scale — 4 niveles */
@@ -82,9 +82,9 @@
     --ds-text-4: 215 12% 65%;              /* tertiary / placeholders */
 
     /* Border weights */
-    --ds-border-subtle: 220 13% 92%;       /* dividers, table rows */
-    --ds-border-default: 220 13% 87%;      /* cards, inputs */
-    --ds-border-strong: 220 13% 78%;       /* focus, hover */
+    --ds-border-subtle: 216 22% 92%;       /* dividers, table rows */
+    --ds-border-default: 216 20% 88%;      /* cards, inputs */
+    --ds-border-strong: 216 18% 78%;       /* focus, hover */
 
     /* Correos: offset sticky compartido (rail / toolbar / lector).
        Topbar AppShell = h-12 (48px) + aire ≈ 56px, + safe-area en iOS. */
