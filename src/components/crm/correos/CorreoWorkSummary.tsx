@@ -11,6 +11,7 @@ import {
   resolvePrimaryCorreoAiCommand,
   type CorreoAiCommandId,
 } from "@/modules/crm/email/correo-ai-commands";
+import type { CorreoCascadeAiTarget } from "@/modules/crm/email/correo-cascade-ai";
 import { resolveContinueActions } from "@/modules/crm/email/correo-continue-actions";
 import { CorreoThreadSummaryCard } from "./CorreoThreadSummaryCard";
 import { CorreoContextCascade } from "./CorreoContextCascade";
@@ -23,6 +24,8 @@ type Props = {
   readCursorAt: string | null;
   onOpenAiLead: () => void;
   onAiCommand?: (commandId: CorreoAiCommandId) => void;
+  /** Plan IA enfocado: solo la entidad de la fila de cascada. */
+  onCreateWithAi?: (target: CorreoCascadeAiTarget) => void;
   onGoTo: (tab: WorkTab) => void;
   onRequestReply?: () => void;
   /** Abre la hoja de adjuntos del hilo (no navega a Vínculos). */
@@ -45,6 +48,7 @@ export function CorreoWorkSummary({
   readCursorAt,
   onOpenAiLead,
   onAiCommand,
+  onCreateWithAi,
   onGoTo,
   onRequestReply,
   onOpenAttachments,
@@ -68,7 +72,13 @@ export function CorreoWorkSummary({
     const { primary: p, more } = resolveCorreoAiCommands(perms, {
       canEditCorreos,
     });
-    return [...p, ...more].filter((c) => c.id !== primary?.id && c.kind === "panel");
+    // CRM completo queda fuera: lo cubren Armar licitación + sparkles de cascada.
+    return [...p, ...more].filter(
+      (c) =>
+        c.id !== primary?.id &&
+        c.id !== "crm_completo" &&
+        c.kind === "panel",
+    );
   }, [perms, canEditCorreos, canUseCopiloto, primary?.id]);
 
   const [primaryExecuted, setPrimaryExecuted] = useState(false);
@@ -109,15 +119,6 @@ export function CorreoWorkSummary({
     // El dock del asistente vive a z-40; Copiloto es z-55. Hay que cerrar
     // el panel o el chat queda detrás (mismo patrón que CorreoAiActionPanel).
     onClose?.();
-  }
-
-  function createMissingWithAi() {
-    // Plan IA canónico: extrae y propone crear lo faltante (negocio, cotización, etc.).
-    if (primary && primary.kind === "panel" && primary.id !== "lead") {
-      runCommand(primary.id);
-      return;
-    }
-    runCommand("analizar");
   }
 
   const continueActions = useMemo(
@@ -165,7 +166,9 @@ export function CorreoWorkSummary({
         detail={detail}
         onAssociate={onAssociate}
         onOpenAttachments={onOpenAttachments}
-        onCreateWithAi={canUseCopiloto ? createMissingWithAi : undefined}
+        onCreateWithAi={
+          canUseCopiloto && onCreateWithAi ? onCreateWithAi : undefined
+        }
       />
 
       <CorreoThreadSummaryCard

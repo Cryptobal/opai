@@ -41,7 +41,7 @@ describe("CorreoCascadeRow", () => {
     expect(screen.queryByRole("button", { name: "Editar Cuenta" })).toBeNull();
   });
 
-  it("sin valor editable muestra Vincular (no Agregar) y abre onAdd", () => {
+  it("sin valor editable no muestra Vincular y el + abre onAdd", () => {
     const onAdd = vi.fn();
     render(
       <CorreoCascadeRow
@@ -54,7 +54,7 @@ describe("CorreoCascadeRow", () => {
         onAdd={onAdd}
       />,
     );
-    expect(screen.getByText("Vincular")).toBeTruthy();
+    expect(screen.queryByText("Vincular")).toBeNull();
     expect(screen.queryByText("Agregar")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: /Negocio/i }));
     expect(onAdd).toHaveBeenCalledTimes(1);

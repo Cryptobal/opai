@@ -16,6 +16,7 @@ import { CORREO_COPILOT_DOCK_WIDTH_VAR } from "./correo-copilot-dock";
 import { WORK_TABS, resolveWorkTab, type WorkTab } from "./work-panel-tabs";
 import type { CorreoDetail } from "@/modules/crm/email/correos.types";
 import type { CorreoAiCommandId } from "@/modules/crm/email/correo-ai-commands";
+import type { CorreoCascadeAiTarget } from "@/modules/crm/email/correo-cascade-ai";
 
 const WORK_PANEL_DOCK_WIDTH = 430;
 
@@ -28,6 +29,7 @@ type Props = {
   workTabIntent?: { tab: WorkTab; nonce: number } | null;
   onOpenAiLead: () => void;
   onAiCommand?: (commandId: CorreoAiCommandId) => void;
+  onCreateWithAi?: (target: CorreoCascadeAiTarget) => void;
   onAssociate: (p: {
     accountId: string | null;
     dealId: string | null;
@@ -51,6 +53,7 @@ export function CorreoWorkPanel({
   workTabIntent = null,
   onOpenAiLead,
   onAiCommand,
+  onCreateWithAi,
   onAssociate,
   onRefresh,
   onRequestReply,
@@ -245,6 +248,7 @@ export function CorreoWorkPanel({
               readCursorAt={readCursorAt}
               onOpenAiLead={onOpenAiLead}
               onAiCommand={onAiCommand}
+              onCreateWithAi={onCreateWithAi}
               onGoTo={(next) => selectTab(resolveWorkTab(next))}
               onRequestReply={onRequestReply}
               onOpenAttachments={() => setAttachmentsOpen(true)}

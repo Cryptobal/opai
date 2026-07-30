@@ -16,6 +16,10 @@ import { toast } from "sonner";
 import { Spinner } from "@/components/opai-ds";
 import { useSwipeGesture } from "@/components/chat/hooks/useSwipeGesture";
 import type { CorreoAiCommandId } from "@/modules/crm/email/correo-ai-commands";
+import {
+  selectionForCascadeAi,
+  type CorreoCascadeAiTarget,
+} from "@/modules/crm/email/correo-cascade-ai";
 import type {
   CreateCrmStructureResult,
   CrmStructureProposal,
@@ -82,6 +86,11 @@ type Props = {
   command: AiPanelCommand;
   hasAccount?: boolean;
   existingDealId?: string | null;
+  /**
+   * Desde cascada: preselecciona solo esa entidad (negocio / cotización / …).
+   * Sin foco = plan completo (Armar licitación).
+   */
+  focusEntity?: CorreoCascadeAiTarget;
   onCreated?: () => void;
   /** Asunto/remitente del hilo anclado (el plan no sigue al mail abierto). */
   threadLabel?: string | null;
@@ -291,6 +300,7 @@ export function CorreoAiActionPanel({
   command,
   hasAccount = false,
   existingDealId,
+  focusEntity,
   onCreated,
   threadLabel = null,
   onDirtyChange,
@@ -468,23 +478,35 @@ export function CorreoAiActionPanel({
         const j = (await res.json()) as StructureResponse & { error?: string };
         if (!res.ok) throw new Error(j.error || "No se pudo analizar el correo");
         if (!existingDraft) {
-          const actions = buildStructureActions(j.proposal, false, existingDealId, true, true, true);
           d.resetToAi(j.proposal, j.stagedFiles ?? []);
-          d.setSelectedIds(
-            new Set(actions.filter((a) => !a.optional && !a.disabled).map((a) => a.id).concat(["account"])),
-          );
-          const hasSlots = j.proposal.installations.some((i) => i.coverageSlots.length > 0);
-          d.setInclude({
-            contact: true,
-            deal: true,
-            installations: j.proposal.installations.length > 0,
-            attachments: true,
-            followUpTask: false,
-            quote: Boolean(j.proposal.deal.isLicitacion || hasSlots),
-            milestones: Boolean(j.proposal.deal.isLicitacion),
-          });
+          if (focusEntity) {
+            const focused = selectionForCascadeAi(focusEntity);
+            d.setSelectedIds(focused.selectedIds);
+            d.setInclude(focused.include);
+          } else {
+            const actions = buildStructureActions(j.proposal, false, existingDealId, true, true, true);
+            d.setSelectedIds(
+              new Set(actions.filter((a) => !a.optional && !a.disabled).map((a) => a.id).concat(["account"])),
+            );
+            const hasSlots = j.proposal.installations.some((i) => i.coverageSlots.length > 0);
+            d.setInclude({
+              contact: true,
+              deal: true,
+              installations: j.proposal.installations.length > 0,
+              attachments: true,
+              followUpTask: false,
+              quote: Boolean(j.proposal.deal.isLicitacion || hasSlots),
+              milestones: Boolean(j.proposal.deal.isLicitacion),
+            });
+          }
         } else {
           d.setStagedFiles(j.stagedFiles ?? []);
+          // Cascada granular: aunque haya borrador, preseleccionar solo la entidad pedida.
+          if (focusEntity) {
+            const focused = selectionForCascadeAi(focusEntity);
+            d.setSelectedIds(focused.selectedIds);
+            d.setInclude(focused.include);
+          }
         }
         setSources(j.sources ?? []);
         setDurationMs(Date.now() - t0);
@@ -508,7 +530,7 @@ export function CorreoAiActionPanel({
       setError(e instanceof Error ? e.message : "Error al analizar");
       setPhase("error");
     }
-  }, [command, existingDealId, isLead, isStructure, threadId]);
+  }, [command, existingDealId, focusEntity, isLead, isStructure, threadId]);
 
   useEffect(() => { if (!open) return; void load(); }, [open, load]);
 

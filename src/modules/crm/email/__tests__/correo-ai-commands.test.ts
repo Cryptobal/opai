@@ -32,9 +32,10 @@ const full = perms({
 });
 
 describe("resolveCorreoAiCommands", () => {
-  it("orden fijo de primary: analizar → resumen → crm_completo", () => {
-    const { primary } = resolveCorreoAiCommands(full);
-    expect(primary.map((c) => c.id)).toEqual(["analizar", "resumen", "crm_completo"]);
+  it("orden fijo de primary: analizar → resumen (sin crm_completo en menú)", () => {
+    const { primary, more } = resolveCorreoAiCommands(full);
+    expect(primary.map((c) => c.id)).toEqual(["analizar", "resumen"]);
+    expect([...primary, ...more].map((c) => c.id)).not.toContain("crm_completo");
   });
 
   it("sin copiloto_correos: grupo vacío", () => {
@@ -72,7 +73,6 @@ describe("resolveCorreoAiCommands", () => {
     const ids = [...primary, ...more].map((c) => c.id);
     expect(ids).toContain("analizar");
     expect(ids).toContain("resumen");
-    expect(ids).not.toContain("crm_completo");
     expect(ids).not.toContain("lead");
     expect(ids).not.toContain("ticket_operativo");
   });

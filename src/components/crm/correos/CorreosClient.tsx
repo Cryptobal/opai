@@ -84,6 +84,7 @@ import {
 import { CORREO_COPILOT_DOCK_WIDTH_VAR } from "./correo-copilot-dock";
 import type { CorreoAiCommandId } from "@/modules/crm/email/correo-ai-commands";
 import { getCorreoAiCommand } from "@/modules/crm/email/correo-ai-commands";
+import type { CorreoCascadeAiTarget } from "@/modules/crm/email/correo-cascade-ai";
 import { dispatchAiCommand } from "@/lib/ai/ai-command-event";
 import { hasCapability } from "@/lib/permissions";
 import {
@@ -233,6 +234,7 @@ export function CorreosClient() {
     command: AiPanelCommand;
     hasAccount: boolean;
     dealId: string | null;
+    focusEntity?: CorreoCascadeAiTarget;
   } | null>(null);
   /** Edits del plan abierto — para confirmar al cambiar de hilo vía Copiloto. */
   const [aiPanelDirty, setAiPanelDirty] = useState(false);
@@ -1164,7 +1166,11 @@ export function CorreosClient() {
     },
   });
 
-  function openAiPanel(t: CorreoThreadDTO, command: AiPanelCommand) {
+  function openAiPanel(
+    t: CorreoThreadDTO,
+    command: AiPanelCommand,
+    focusEntity?: CorreoCascadeAiTarget,
+  ) {
     // El dock es sticky al hilo que lo abrió: navegar mails no lo cierra.
     // Solo cambia al abrir Copiloto en otro hilo (o al salir con X/Escape).
     if (
@@ -1186,6 +1192,7 @@ export function CorreosClient() {
       command,
       hasAccount: Boolean(t.accountId),
       dealId: t.dealId,
+      focusEntity,
     });
   }
 
@@ -1562,6 +1569,7 @@ export function CorreosClient() {
           command={aiPanel.command}
           hasAccount={aiPanel.hasAccount}
           existingDealId={aiPanel.dealId}
+          focusEntity={aiPanel.focusEntity}
           threadLabel={aiPanelThreadLabel}
           onDirtyChange={setAiPanelDirty}
           onClose={() => {
@@ -1911,6 +1919,13 @@ export function CorreosClient() {
           onAiCommand={(commandId) => {
             if (openThreadPreview) {
               handleAiCommand(commandId, openThreadPreview);
+            } else {
+              toast.info(AI_THREAD_OUT_OF_LIST_MSG);
+            }
+          }}
+          onCreateWithAi={(target) => {
+            if (openThreadPreview) {
+              openAiPanel(openThreadPreview, "analizar", target);
             } else {
               toast.info(AI_THREAD_OUT_OF_LIST_MSG);
             }
