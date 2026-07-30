@@ -990,7 +990,7 @@ export function CorreoAiActionPanel({
               >
                 {phase === "executing" && <Loader2 className="h-4 w-4 animate-spin" />}
                 {isStructure
-                  ? `Crear ${selectedCount} acción${selectedCount === 1 ? "" : "es"}`
+                  ? `Crear ${selectedCount} ${selectedCount === 1 ? "acción" : "acciones"}`
                   : command === "cobranza" ? "Entendido" : "Continuar"}
               </button>
             </div>

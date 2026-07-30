@@ -170,3 +170,137 @@ export function sumStaffing(
     legalMinimum,
   };
 }
+
+/** Slot con vigencia opcional para cálculo de peak. */
+export type PeakStaffingSlot = {
+  headcount: number;
+  weeklyHH: number;
+  vigenciaDesde?: string | null;
+  vigenciaHasta?: string | null;
+};
+
+export type PeakStaffingResult = {
+  peakHeadcount: number;
+  peakWeeklyHH: number;
+  peakFrom: string;
+  peakTo: string;
+};
+
+const YMD_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+function parseYmdUtc(s: string): number | null {
+  if (!YMD_RE.test(s)) return null;
+  const [y, m, d] = s.split("-").map(Number);
+  const dt = Date.UTC(y, m - 1, d);
+  const check = new Date(dt);
+  if (
+    check.getUTCFullYear() !== y ||
+    check.getUTCMonth() !== m - 1 ||
+    check.getUTCDate() !== d
+  ) {
+    return null;
+  }
+  return dt;
+}
+
+function formatYmdUtc(ms: number): string {
+  const d = new Date(ms);
+  const y = d.getUTCFullYear();
+  const m = String(d.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(d.getUTCDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+/**
+ * Peak de dotación simultánea iterando día a día entre min(desde) y max(hasta).
+ * - Slot sin vigencia (o vigencia inválida / desde>hasta) cuenta en todo el rango.
+ * - Retorna null si ningún slot tiene vigencia válida.
+ * - La ventana `peakFrom`–`peakTo` es el primer tramo contiguo del máximo.
+ */
+export function computePeakStaffing(
+  slots: PeakStaffingSlot[],
+): PeakStaffingResult | null {
+  if (slots.length === 0) return null;
+
+  type Bound = { from: number | null; to: number | null; open: boolean };
+  const bounds: Bound[] = slots.map((s) => {
+    const fromRaw = typeof s.vigenciaDesde === "string" ? s.vigenciaDesde.trim() : null;
+    const toRaw = typeof s.vigenciaHasta === "string" ? s.vigenciaHasta.trim() : null;
+    const from = fromRaw ? parseYmdUtc(fromRaw) : null;
+    const to = toRaw ? parseYmdUtc(toRaw) : null;
+    if (from == null && to == null) return { from: null, to: null, open: true };
+    if (from != null && to != null && from > to) return { from: null, to: null, open: true };
+    // Solo un extremo válido → tratar como sin vigencia (no inventar el otro).
+    if (from == null || to == null) return { from: null, to: null, open: true };
+    return { from, to, open: false };
+  });
+
+  const dated = bounds.filter((b) => !b.open);
+  if (dated.length === 0) return null;
+
+  let rangeMin = Infinity;
+  let rangeMax = -Infinity;
+  for (const b of dated) {
+    if (b.from != null && b.from < rangeMin) rangeMin = b.from;
+    if (b.to != null && b.to > rangeMax) rangeMax = b.to;
+  }
+  if (!Number.isFinite(rangeMin) || !Number.isFinite(rangeMax) || rangeMin > rangeMax) {
+    return null;
+  }
+
+  const DAY = 24 * 60 * 60 * 1000;
+  const series: Array<{ day: number; hc: number; hh: number }> = [];
+  for (let day = rangeMin; day <= rangeMax; day += DAY) {
+    let hc = 0;
+    let hh = 0;
+    for (let i = 0; i < slots.length; i++) {
+      const b = bounds[i];
+      const active =
+        b.open || (b.from != null && b.to != null && day >= b.from && day <= b.to);
+      if (!active) continue;
+      hc += Math.max(0, slots[i].headcount || 0);
+      hh += Math.max(0, slots[i].weeklyHH || 0);
+    }
+    series.push({ day, hc, hh: Math.round(hh * 10) / 10 });
+  }
+
+  let peakHc = 0;
+  let peakHh = 0;
+  for (const row of series) {
+    if (row.hc > peakHc || (row.hc === peakHc && row.hh > peakHh)) {
+      peakHc = row.hc;
+      peakHh = row.hh;
+    }
+  }
+
+  let peakFromMs = series[0].day;
+  let peakToMs = series[0].day;
+  let i = 0;
+  while (i < series.length) {
+    if (series[i].hc !== peakHc || series[i].hh !== peakHh) {
+      i++;
+      continue;
+    }
+    const start = series[i].day;
+    let end = start;
+    let j = i;
+    while (
+      j + 1 < series.length &&
+      series[j + 1].hc === peakHc &&
+      series[j + 1].hh === peakHh
+    ) {
+      j++;
+      end = series[j].day;
+    }
+    peakFromMs = start;
+    peakToMs = end;
+    break;
+  }
+
+  return {
+    peakHeadcount: peakHc,
+    peakWeeklyHH: peakHh,
+    peakFrom: formatYmdUtc(peakFromMs),
+    peakTo: formatYmdUtc(peakToMs),
+  };
+}

@@ -24,6 +24,21 @@ function normalizePositiveInt(value: unknown, fallback: number): number {
   return Math.floor(n);
 }
 
+/** Prefijo de trazabilidad etapa/vigencia para description del puesto CPQ. */
+export function coverageSlotTracePrefix(slot: {
+  etapa?: string | null;
+  vigenciaDesde?: string | null;
+  vigenciaHasta?: string | null;
+}): string {
+  const etapaLabel = (slot.etapa || "").trim();
+  const vigenciaLabel =
+    slot.vigenciaDesde || slot.vigenciaHasta
+      ? `${slot.vigenciaDesde ?? "—"}→${slot.vigenciaHasta ?? "—"}`
+      : "";
+  const parts = [etapaLabel, vigenciaLabel].filter(Boolean);
+  return parts.length > 0 ? `[${parts.join(" · ")}] ` : "";
+}
+
 /** Preferencia de rol CPQ a partir del régimen del slot. */
 export function preferredRolName(regimen: string | null | undefined): string | null {
   if (!regimen) return null;
@@ -174,6 +189,8 @@ export async function materializeCoverageSlotsOnQuote(params: {
     }
 
     const customName = [puesto.name, cargo.name, rol.name].filter(Boolean).join(" - ");
+    const description =
+      `${coverageSlotTracePrefix(slot)}${slot.notes ?? ""}`.trim() || null;
 
     await prisma.cpqPosition.create({
       data: {
@@ -181,7 +198,7 @@ export async function materializeCoverageSlotsOnQuote(params: {
         serviceGroupId: serviceGroup.id,
         puestoTrabajoId: puesto.id,
         customName,
-        description: slot.notes,
+        description,
         weekdays,
         startTime,
         endTime,

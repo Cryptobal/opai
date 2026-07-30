@@ -1,5 +1,25 @@
 import { describe, expect, it } from "vitest";
-import { preferredRolName } from "../coverage-slots-to-quote-positions";
+import {
+  coverageSlotTracePrefix,
+  preferredRolName,
+} from "../coverage-slots-to-quote-positions";
+
+describe("coverageSlotTracePrefix", () => {
+  it("antepone etapa y vigencia", () => {
+    expect(
+      coverageSlotTracePrefix({
+        etapa: "Etapa 1",
+        vigenciaDesde: "2026-09-01",
+        vigenciaHasta: "2026-09-30",
+      }),
+    ).toBe("[Etapa 1 · 2026-09-01→2026-09-30] ");
+  });
+
+  it("sin campos → string vacío", () => {
+    expect(coverageSlotTracePrefix({})).toBe("");
+    expect(coverageSlotTracePrefix({ etapa: null })).toBe("");
+  });
+});
 
 describe("preferredRolName", () => {
   it("mapea 24/7 y continuo a 4x4", () => {

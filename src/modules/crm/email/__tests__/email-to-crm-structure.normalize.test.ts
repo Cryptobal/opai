@@ -210,6 +210,138 @@ describe("normalizeCrmStructureProposal", () => {
     });
     expect(proposal.condicionesEconomicas?.sueldoBaseMinimo).toBe(620000);
   });
+
+  it("conserva etapa/vigencia/horarioAsumido y calcula staffingPeak (no suma total)", () => {
+    const week = [
+      "lunes",
+      "martes",
+      "miercoles",
+      "jueves",
+      "viernes",
+      "sabado",
+      "domingo",
+    ];
+    const proposal = normalizeCrmStructureProposal({
+      account: { name: "ITJC" },
+      deal: { title: "Cotización Guardia" },
+      weeklyHoursPerWorker: 42,
+      installations: [
+        {
+          name: "Obra ITJC",
+          coverageSlots: [
+            {
+              name: "Pique Brasil diurno E1",
+              regimen: "Diurno",
+              dias: week,
+              horaInicio: "08:00",
+              horaFin: "20:00",
+              simultaneous: 1,
+              etapa: "Etapa 1",
+              vigenciaDesde: "2026-09-01",
+              vigenciaHasta: "2026-09-30",
+              horarioAsumido: true,
+            },
+            {
+              name: "Pique Brasil diurno E2",
+              regimen: "Diurno",
+              dias: week,
+              horaInicio: "08:00",
+              horaFin: "20:00",
+              simultaneous: 1,
+              etapa: "Etapa 2",
+              vigenciaDesde: "2026-09-01",
+              vigenciaHasta: "2026-09-30",
+              horarioAsumido: true,
+            },
+            {
+              name: "Pique Brasil 24/7 día E3A",
+              regimen: "24/7",
+              dias: week,
+              horaInicio: "08:00",
+              horaFin: "20:00",
+              simultaneous: 1,
+              etapa: "Etapa 3A",
+              vigenciaDesde: "2026-10-01",
+              vigenciaHasta: "2026-11-30",
+            },
+            {
+              name: "Pique Brasil 24/7 noche E3A",
+              regimen: "24/7",
+              dias: week,
+              horaInicio: "20:00",
+              horaFin: "08:00",
+              simultaneous: 1,
+              etapa: "Etapa 3A",
+              vigenciaDesde: "2026-10-01",
+              vigenciaHasta: "2026-11-30",
+            },
+            {
+              name: "Pique reforzado día E3B",
+              regimen: "24/7",
+              dias: week,
+              horaInicio: "08:00",
+              horaFin: "20:00",
+              simultaneous: 2,
+              etapa: "Etapa 3B",
+              vigenciaDesde: "2026-11-15",
+              vigenciaHasta: "2027-01-29",
+            },
+            {
+              name: "Pique reforzado noche E3B",
+              regimen: "24/7",
+              dias: week,
+              horaInicio: "20:00",
+              horaFin: "08:00",
+              simultaneous: 2,
+              etapa: "Etapa 3B",
+              vigenciaDesde: "2026-11-15",
+              vigenciaHasta: "2027-01-29",
+            },
+          ],
+        },
+      ],
+    });
+
+    const slots = proposal.installations[0].coverageSlots;
+    expect(slots[0].etapa).toBe("Etapa 1");
+    expect(slots[0].vigenciaDesde).toBe("2026-09-01");
+    expect(slots[0].vigenciaHasta).toBe("2026-09-30");
+    expect(slots[0].horarioAsumido).toBe(true);
+    expect(slots[2].etapa).toBe("Etapa 3A");
+    expect(slots[4].etapa).toBe("Etapa 3B");
+
+    // Peak en traslape 3A+3B (2+2 + 4+4 = 12), no la suma total de todas las etapas.
+    expect(proposal.staffingPeak).not.toBeNull();
+    expect(proposal.staffingPeak!.peakHeadcount).toBe(12);
+    expect(proposal.staffingPeak!.peakFrom).toBe("2026-11-15");
+    expect(proposal.staffingPeak!.peakTo).toBe("2026-11-30");
+    expect(proposal.staffingTotals.headcountBase).toBeGreaterThan(
+      proposal.staffingPeak!.peakHeadcount,
+    );
+  });
+
+  it("draft legacy sin vigencias → staffingPeak null", () => {
+    const proposal = normalizeCrmStructureProposal({
+      account: { name: "ACME" },
+      installations: [
+        {
+          name: "Planta",
+          coverageSlots: [
+            {
+              name: "Portería",
+              dias: ["lunes", "martes", "miercoles", "jueves", "viernes"],
+              horaInicio: "08:00",
+              horaFin: "18:00",
+              simultaneous: 1,
+            },
+          ],
+        },
+      ],
+    });
+    expect(proposal.staffingPeak).toBeNull();
+    expect(proposal.installations[0].coverageSlots[0].etapa).toBeNull();
+    expect(proposal.installations[0].coverageSlots[0].vigenciaDesde).toBeNull();
+  });
 });
 
 describe("milestonesFromLicitacion", () => {
