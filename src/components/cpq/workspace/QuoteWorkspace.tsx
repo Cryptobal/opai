@@ -275,7 +275,12 @@ export function QuoteWorkspace({
         </Button>
         <Button
           className="h-11 gap-1.5 bg-status-ok text-white hover:brightness-110"
-          disabled={bundle.totals.includedCount === 0}
+          disabled={bundle.totals.includedCount === 0 || !bundle.contact?.email}
+          title={
+            !bundle.contact?.email
+              ? "La propuesta no tiene contacto con email"
+              : undefined
+          }
           onClick={() => setSendOpen(true)}
         >
           <Send className="h-4 w-4" />

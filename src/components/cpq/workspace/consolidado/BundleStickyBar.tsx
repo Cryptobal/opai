@@ -150,7 +150,14 @@ export function BundleStickyBar({
         </Button>
         <Button
           className="h-9 gap-1.5 bg-status-ok text-white hover:brightness-110"
-          disabled={t.includedCount === 0}
+          disabled={t.includedCount === 0 || !bundle.contact?.email}
+          title={
+            t.includedCount === 0
+              ? "Incluye al menos una instalación en la propuesta"
+              : !bundle.contact?.email
+                ? "La propuesta no tiene contacto con email: asígnalo en el negocio"
+                : undefined
+          }
           onClick={onSend}
         >
           <Send className="h-4 w-4" />

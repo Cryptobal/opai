@@ -40,9 +40,26 @@ export async function POST(
       );
     }
 
-    await prisma.cpqProposalBundle.update({
-      where: { id },
-      data: { proposalAiContent: Prisma.DbNull },
+    // El PDF consolidado compone el contenido IA de cada instalación
+    // (buildBundleProposalProps → buildProposalProps por hija), así que hay que
+    // invalidar el caché de las hijas además del propio del bundle.
+    const members = await prisma.cpqProposalBundleQuote.findMany({
+      where: { bundleId: id, tenantId: ctx.tenantId },
+      select: { quoteId: true },
+    });
+    const quoteIds = members.map((m) => m.quoteId);
+
+    await prisma.$transaction(async (tx) => {
+      await tx.cpqProposalBundle.update({
+        where: { id },
+        data: { proposalAiContent: Prisma.DbNull },
+      });
+      if (quoteIds.length > 0) {
+        await tx.cpqQuote.updateMany({
+          where: { id: { in: quoteIds }, tenantId: ctx.tenantId },
+          data: { proposalAiContent: Prisma.DbNull, proposalAiGeneratedAt: null },
+        });
+      }
     });
 
     await createCrmHistoryLog({
@@ -50,10 +67,14 @@ export async function POST(
       entityType: "bundle",
       entityId: id,
       action: "bundle_proposal_ai_reset",
+      details: { instalaciones: quoteIds.length },
       createdBy: ctx.userId ?? null,
     });
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({
+      success: true,
+      data: { invalidatedQuotes: quoteIds.length },
+    });
   } catch (error) {
     console.error("[cpq/bundles/proposal-ai]", error);
     return NextResponse.json(

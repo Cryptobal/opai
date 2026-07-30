@@ -64,6 +64,12 @@ export function DatosPropuestaSection({
           />
         </div>
       </div>
+      {!bundle.contact?.email && (
+        <p className="rounded-md border border-status-warn-border bg-status-warn-soft/40 px-3 py-2 text-[12px] text-status-warn-fg">
+          La propuesta no tiene contacto con email: asígnalo en el negocio para
+          poder enviarla.
+        </p>
+      )}
       <dl className="grid grid-cols-2 gap-3 text-[13px] sm:grid-cols-3">
         {[
           ["Cliente", bundle.account?.name ?? "—"],

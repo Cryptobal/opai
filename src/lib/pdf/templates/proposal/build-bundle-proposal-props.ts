@@ -65,8 +65,13 @@ export async function buildBundleProposalProps(
       monthlyFormatted: p.totalNetoFormatted,
       items: p.items,
       // Pagos únicos por instalación: se cobran una vez y NO entran al mensual.
+      // El subtotal se recalcula desde los mismos items que se imprimen, para
+      // que cuadre con el total consolidado (que también los suma).
       oneTimeItems: p.oneTimeItems,
-      oneTimeTotalFormatted: p.oneTimeTotalFormatted,
+      oneTimeTotalFormatted:
+        p.oneTimeItems && p.oneTimeItems.length > 0
+          ? fmt(p.oneTimeItems.reduce((s, i) => s + (i.subtotal || 0), 0))
+          : undefined,
     }));
 
   // Pagos únicos consolidados: renumerados y prefijados con la instalación
