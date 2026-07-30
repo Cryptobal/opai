@@ -14,6 +14,7 @@ import {
 import type { CorreoMessageDTO } from "@/modules/crm/email/correos.types";
 import { emailPlainFallback } from "@/lib/sanitize-email-html";
 import type { ComposerMode } from "./ComposerModeSwitcher";
+import type { CorreoShortcuts } from "./useCorreosViewPreferences";
 
 export type { ComposerMode };
 export type ReplyAll = { to: string[]; cc: string[] };
@@ -45,12 +46,15 @@ type Props = {
   onToggleExpand: () => void;
   onClose: () => void;
   onSent: () => void;
+  /** Tras "Enviar y archivar" (⌘/Ctrl+Enter). */
+  onArchiveAfterSend?: () => void;
   /** Tras descartar el borrador desde la papelera del composer. */
   onDraftDiscarded?: () => void;
   /** Abre el sheet de estilo de respuesta IA. */
   onOpenAiStyle?: () => void;
   /** Abre preferencias en la pestaña Firma. */
   onOpenSignature?: () => void;
+  shortcuts?: CorreoShortcuts;
 };
 
 function defaultSubject(mode: ComposerMode, subject: string): string {
@@ -295,8 +299,10 @@ export function CorreoComposerBox(props: Props) {
         onSent={() => {
           props.onSent();
         }}
+        onArchiveAfterSend={props.onArchiveAfterSend}
         onClose={props.onClose}
         onDraftDiscarded={props.onDraftDiscarded}
+        shortcuts={props.shortcuts}
       />
     </>
   );

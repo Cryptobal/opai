@@ -51,6 +51,13 @@ describe("CorreoComposeSheet", () => {
     expect(screen.getByTestId("email-composer").closest(".hidden")).toBeTruthy();
   });
 
+  it("scrollea el formulario completo (estilo Gmail), no solo el editor", () => {
+    render(<CorreoComposeSheet open onClose={vi.fn()} onSent={vi.fn()} />);
+    const scrollHost = screen.getByTestId("email-composer").parentElement;
+    expect(scrollHost?.className).toMatch(/overflow-y-auto/);
+    expect(scrollHost?.className).not.toMatch(/overflow-hidden/);
+  });
+
   it("al cerrar con cambios pregunta guardar/descartar", async () => {
     const onClose = vi.fn();
     render(<CorreoComposeSheet open onClose={onClose} onSent={vi.fn()} />);

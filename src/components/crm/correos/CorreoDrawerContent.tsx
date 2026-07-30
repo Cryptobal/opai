@@ -20,6 +20,7 @@ import { resolveWorkTab, type WorkTab } from "./work-panel-tabs";
 import type { CorreoDetail } from "@/modules/crm/email/correos.types";
 import type { CorreoAiCommandId } from "@/modules/crm/email/correo-ai-commands";
 import type { CorreoShortcuts } from "./useCorreosViewPreferences";
+import { runCorreoAction } from "./correo-thread-action-client";
 import { nextIntentNonce, type ComposeIntent } from "./correo-reader-intent";
 import type { CorreoMessageDTO } from "@/modules/crm/email/correos.types";
 
@@ -277,6 +278,22 @@ export function CorreoDrawerContent({
             key={`reply-${t.id}`}
             detail={detail}
             onSent={onRefresh}
+            onArchiveAfterSend={
+              canModify
+                ? () => {
+                    const id = t.id;
+                    onRemove?.(id);
+                    void runCorreoAction(
+                      id,
+                      "archive",
+                      "Enviado y archivado",
+                      onRemoveDone ?? onRefresh,
+                      "unarchive",
+                      onUndoDone,
+                    );
+                  }
+                : undefined
+            }
             shortcuts={shortcuts}
             composeIntent={composeIntent}
             continueDraftIntent={continueDraftIntent}

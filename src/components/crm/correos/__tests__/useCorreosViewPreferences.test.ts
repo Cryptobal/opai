@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
+  DEFAULT_CORREO_SHORTCUTS,
   assignCorreoShortcut,
   clampCorreoPanelWidth,
   correoReaderBudget,
+  eventToShortcutKey,
+  matchesShortcut,
   normalizeShortcutKey,
   parseCorreosViewPreferences,
 } from "../useCorreosViewPreferences";
@@ -205,15 +208,47 @@ describe("normalizeShortcutKey", () => {
     expect(normalizeShortcutKey("#")).toBe("#");
     expect(normalizeShortcutKey("/")).toBe("/");
   });
+
+  it("normaliza combos Mod/Ctrl/Cmd", () => {
+    expect(normalizeShortcutKey("Ctrl+Enter")).toBe("Mod+Enter");
+    expect(normalizeShortcutKey("cmd+shift+enter")).toBe("Mod+Shift+Enter");
+    expect(normalizeShortcutKey("Meta+Enter")).toBe("Mod+Enter");
+  });
+});
+
+describe("eventToShortcutKey / matchesShortcut", () => {
+  it("serializa ⌘/Ctrl+Enter como Mod+Enter", () => {
+    expect(
+      eventToShortcutKey({
+        key: "Enter",
+        metaKey: true,
+        ctrlKey: false,
+        altKey: false,
+        shiftKey: false,
+      }),
+    ).toBe("Mod+Enter");
+    expect(
+      matchesShortcut(
+        {
+          key: "Enter",
+          metaKey: false,
+          ctrlKey: true,
+          altKey: false,
+          shiftKey: true,
+        },
+        "Mod+Shift+Enter",
+      ),
+    ).toBe(true);
+  });
 });
 
 describe("assignCorreoShortcut", () => {
   it("libera duplicados restaurando el default en la otra acción", () => {
-    const config = {
-      down: "j", up: "k", open: "Enter", toggleSelect: "x", archive: "e",
-      trash: "#", reply: "q", star: "s", snooze: "b", toggleRead: "u", focusSearch: "/",
-    };
-    const next = assignCorreoShortcut(config, "archive", "q");
+    const next = assignCorreoShortcut(
+      { ...DEFAULT_CORREO_SHORTCUTS, reply: "q" },
+      "archive",
+      "q",
+    );
     expect(next.archive).toBe("q");
     expect(next.reply).toBe("r");
   });

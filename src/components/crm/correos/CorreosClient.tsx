@@ -1816,6 +1816,7 @@ export function CorreosClient() {
         onOpenAiStyle={openAiStyle}
         onOpenSignature={openFirmaStyle}
         preferredAccountId={activeAccountId ?? defaultAccountId}
+        shortcuts={shortcuts}
       />
 
       <CorreoSnoozeSheet

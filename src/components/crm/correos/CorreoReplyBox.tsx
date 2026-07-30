@@ -125,6 +125,7 @@ function toThreadDraftSeed(m: CorreoMessageDTO): ThreadDraftSeed {
 export function CorreoReplyBox({
   detail,
   onSent,
+  onArchiveAfterSend,
   shortcuts = DEFAULT_CORREO_SHORTCUTS,
   composeIntent = null,
   continueDraftIntent = null,
@@ -135,6 +136,8 @@ export function CorreoReplyBox({
 }: {
   detail: ReplyBoxDetail;
   onSent: () => void;
+  /** Archiva el hilo tras ⌘/Ctrl+Enter (Enviar y archivar). */
+  onArchiveAfterSend?: () => void;
   shortcuts?: CorreoShortcuts;
   /** Pedido externo (atajo desde bandeja / menú contextual). */
   composeIntent?: ComposeIntent | null;
@@ -299,6 +302,8 @@ export function CorreoReplyBox({
         setActiveDraft(null);
       }}
       onSent={onSent}
+      onArchiveAfterSend={onArchiveAfterSend}
+      shortcuts={shortcuts}
       onDraftDiscarded={() => {
         setOpen(null);
         setActiveDraft(null);
