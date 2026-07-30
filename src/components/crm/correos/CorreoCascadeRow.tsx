@@ -1,13 +1,13 @@
 "use client";
 
-import { ArrowUpRight, Pencil, Plus, type LucideIcon } from "lucide-react";
+import { ArrowUpRight, Pencil, Plus, Sparkles, type LucideIcon } from "lucide-react";
 
 type Props = {
   icon: LucideIcon;
   label: string;
   value: string | null;
   depth: number;
-  /** Hay valor → navegar; sin valor y editable → abrir omnibox. */
+  /** Hay valor → navegar; sin valor y editable → abrir omnibox (vincular). */
   hasValue: boolean;
   editable?: boolean;
   disabled?: boolean;
@@ -15,14 +15,16 @@ type Props = {
   onAdd?: () => void;
   /** Con valor y editable: abre el omnibox para cambiar/quitar. */
   onEdit?: () => void;
+  /** Sin valor: crea la entidad vía plan IA (no CRUD directo). */
+  onCreateWithAi?: () => void;
   /** Acción secundaria (p. ej. expandir contactos). */
   onActivate?: () => void;
 };
 
 /**
  * Fila de la cascada editable (Copiloto v4).
- * Sin valor: ＋ abre el buscador. Con valor: fila navega (↗); lápiz edita
- * sin anidar botones (controles hermanos en un flex, no button-dentro-de-button).
+ * Sin valor: Vincular (omnibox) + opcional Crear con IA.
+ * Con valor: fila navega (↗); lápiz edita sin anidar botones.
  */
 export function CorreoCascadeRow({
   icon: Icon,
@@ -35,9 +37,11 @@ export function CorreoCascadeRow({
   href,
   onAdd,
   onEdit,
+  onCreateWithAi,
   onActivate,
 }: Props) {
   const showAdd = !hasValue && editable && !disabled;
+  const showCreateAi = showAdd && Boolean(onCreateWithAi);
   const showEdit = hasValue && editable && !disabled && Boolean(onEdit);
   const canNavigate = hasValue && Boolean(href);
   const mainDisabled = disabled || (!showAdd && !canNavigate && !onActivate);
@@ -82,7 +86,7 @@ export function CorreoCascadeRow({
             showAdd ? "text-status-warn-fg" : "text-ds-text-3"
           }`}
         >
-          {value ?? (showAdd ? "Agregar" : "—")}
+          {value ?? (showAdd ? "Vincular" : "—")}
         </span>
         {showAdd ? (
           <span
@@ -95,6 +99,20 @@ export function CorreoCascadeRow({
           <ArrowUpRight className="relative h-4 w-4 shrink-0 text-ds-text-4" aria-hidden />
         ) : null}
       </button>
+      {showCreateAi && (
+        <button
+          type="button"
+          aria-label={`Crear ${label} con IA`}
+          title={`Crear ${label} con IA`}
+          onClick={(e) => {
+            e.stopPropagation();
+            onCreateWithAi?.();
+          }}
+          className="relative inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-tint-violet-fg ds-tap hover:bg-tint-violet/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 sm:h-9 sm:w-9"
+        >
+          <Sparkles className="h-4 w-4" aria-hidden />
+        </button>
+      )}
       {showEdit && (
         <button
           type="button"

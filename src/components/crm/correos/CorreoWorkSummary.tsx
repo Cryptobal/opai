@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ChevronDown, Sparkles } from "lucide-react";
+import { ChevronDown, MessageSquare, Sparkles } from "lucide-react";
 import { canEdit, hasCapability } from "@/lib/permissions";
 import { useEffectivePermissions } from "@/hooks/useEffectivePermissions";
+import { dispatchAiCommand } from "@/lib/ai/ai-command-event";
 import {
   primaryActionCopy,
   resolveCorreoAiCommands,
@@ -96,6 +97,23 @@ export function CorreoWorkSummary({
     onAiCommand?.(id);
   }
 
+  function openAssistantChat() {
+    const subject = t.subject?.trim() || "este correo";
+    dispatchAiCommand({
+      prompt: `Respecto a este correo («${subject}»): `,
+      autoSend: false,
+    });
+  }
+
+  function createMissingWithAi() {
+    // Plan IA canónico: extrae y propone crear lo faltante (negocio, cotización, etc.).
+    if (primary && primary.kind === "panel" && primary.id !== "lead") {
+      runCommand(primary.id);
+      return;
+    }
+    runCommand("analizar");
+  }
+
   const continueActions = useMemo(
     () =>
       resolveContinueActions({
@@ -141,6 +159,7 @@ export function CorreoWorkSummary({
         detail={detail}
         onAssociate={onAssociate}
         onOpenAttachments={onOpenAttachments}
+        onCreateWithAi={canUseCopiloto ? createMissingWithAi : undefined}
       />
 
       <CorreoThreadSummaryCard
@@ -172,6 +191,24 @@ export function CorreoWorkSummary({
           }
         }}
       />
+
+      {canUseCopiloto && (
+        <button
+          type="button"
+          onClick={openAssistantChat}
+          className="flex min-h-11 w-full items-center gap-2 rounded-2xl border border-ds-border-subtle bg-ds-surface-2 px-3 py-2.5 text-left ds-tap hover:border-primary"
+        >
+          <MessageSquare className="h-4 w-4 shrink-0 text-tint-violet-fg" />
+          <span className="min-w-0">
+            <span className="block text-[13px] font-medium text-ds-text-1">
+              Preguntar al asistente
+            </span>
+            <span className="block text-[12px] text-ds-text-3">
+              Abre el chat con este hilo como contexto
+            </span>
+          </span>
+        </button>
+      )}
 
       {secondary.length > 0 && (
         <div className="overflow-hidden rounded-2xl border border-ds-border-subtle bg-ds-surface-2">

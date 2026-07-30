@@ -1,7 +1,7 @@
 /** @vitest-environment jsdom */
 import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
-import { Building2 } from "lucide-react";
+import { Building2, Briefcase } from "lucide-react";
 import { CorreoCascadeRow } from "../CorreoCascadeRow";
 
 describe("CorreoCascadeRow", () => {
@@ -39,5 +39,43 @@ describe("CorreoCascadeRow", () => {
       />,
     );
     expect(screen.queryByRole("button", { name: "Editar Cuenta" })).toBeNull();
+  });
+
+  it("sin valor editable muestra Vincular (no Agregar) y abre onAdd", () => {
+    const onAdd = vi.fn();
+    render(
+      <CorreoCascadeRow
+        icon={Briefcase}
+        label="Negocio"
+        value={null}
+        depth={1}
+        hasValue={false}
+        editable
+        onAdd={onAdd}
+      />,
+    );
+    expect(screen.getByText("Vincular")).toBeTruthy();
+    expect(screen.queryByText("Agregar")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: /Negocio/i }));
+    expect(onAdd).toHaveBeenCalledTimes(1);
+  });
+
+  it("sin valor con onCreateWithAi expone botón Crear con IA", () => {
+    const onCreateWithAi = vi.fn();
+    render(
+      <CorreoCascadeRow
+        icon={Briefcase}
+        label="Cotización"
+        value={null}
+        depth={2}
+        hasValue={false}
+        editable
+        onAdd={vi.fn()}
+        onCreateWithAi={onCreateWithAi}
+      />,
+    );
+    const create = screen.getByRole("button", { name: "Crear Cotización con IA" });
+    fireEvent.click(create);
+    expect(onCreateWithAi).toHaveBeenCalledTimes(1);
   });
 });
