@@ -25,6 +25,9 @@ type Props = {
   placeholder?: string;
   onPick: (c: OmniboxCandidate) => void;
   onCancel?: () => void;
+  /** Opción destructiva al pie (p. ej. quitar cuenta del hilo). */
+  onRemove?: () => void | Promise<void>;
+  removeLabel?: string;
 };
 
 const DEFAULT_TYPES = [
@@ -46,6 +49,8 @@ export function CorreoLinkOmnibox({
   placeholder = "Buscar cuenta, contacto, negocio…",
   onPick,
   onCancel,
+  onRemove,
+  removeLabel = "Quitar cuenta del hilo",
 }: Props) {
   const [q, setQ] = useState("");
   const [candidates, setCandidates] = useState<OmniboxCandidate[]>([]);
@@ -175,6 +180,15 @@ export function CorreoLinkOmnibox({
           <li className="px-2 py-1.5 text-[12px] text-ds-text-4">Sin resultados</li>
         )}
       </ul>
+      {onRemove && (
+        <button
+          type="button"
+          onClick={() => void onRemove()}
+          className="flex min-h-11 w-full items-center justify-center rounded-lg border border-status-danger-border bg-status-danger-soft px-2 text-[13px] font-medium text-status-danger-fg ds-tap sm:min-h-9"
+        >
+          {removeLabel}
+        </button>
+      )}
     </div>
   );
 }

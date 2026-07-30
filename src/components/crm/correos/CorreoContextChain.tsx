@@ -8,6 +8,7 @@ import {
   FileText,
   MapPin,
   Paperclip,
+  Pencil,
   Search,
 } from "lucide-react";
 import { Tag } from "@/components/opai-ds";
@@ -166,6 +167,15 @@ export function CorreoContextChain({
           <Paperclip className="h-3.5 w-3.5" />
           {pendingAttachments} sin guardar
         </span>
+      )}
+      {canEdit && (
+        <button
+          type="button"
+          onClick={onSearchAccount}
+          className="inline-flex min-h-11 shrink-0 items-center gap-1 rounded-full border border-ds-border-default bg-ds-surface-1 px-2.5 text-[12px] text-ds-text-2 ds-tap sm:min-h-8"
+        >
+          <Pencil className="h-3.5 w-3.5" aria-hidden /> Editar contexto
+        </button>
       )}
     </div>
   );
