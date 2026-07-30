@@ -22,10 +22,15 @@ function toTareaItem(raw: Record<string, unknown>): TareaItem {
   const assignees = Array.isArray(raw.assigneeIds)
     ? raw.assigneeIds.filter((x): x is string => typeof x === "string")
     : [];
+  const priority =
+    raw.priority === "high" || raw.priority === "medium" || raw.priority === "low"
+      ? raw.priority
+      : null;
   return {
     id: String(raw.id),
     title: String(raw.title ?? ""),
     notes: (raw.notes as string | null) ?? null,
+    priority,
     status: String(raw.status ?? "open"),
     type: String(raw.type ?? "task"),
     dueAt: raw.dueAt ? new Date(raw.dueAt as string).toISOString() : null,
@@ -36,6 +41,9 @@ function toTareaItem(raw: Record<string, unknown>): TareaItem {
     dealId: (raw.dealId as string | null) ?? null,
     accountId: (raw.accountId as string | null) ?? null,
     emailThreadId: (raw.emailThreadId as string | null) ?? null,
+    emailThreadSubject: (raw.emailThreadSubject as string | null) ?? null,
+    accountName: (raw.accountName as string | null) ?? null,
+    dealTitle: (raw.dealTitle as string | null) ?? null,
     createdAt: raw.createdAt ? new Date(raw.createdAt as string).toISOString() : new Date().toISOString(),
     createdBy: (raw.createdBy as string | null) ?? null,
     assigneeIds: assignees,
@@ -178,10 +186,13 @@ export function AgendaTaskDetail({
 
   if (!task) return null;
 
+  const nameById = new Map(users.map((u) => [u.id, u.name || u.email || u.id]));
+
   return (
     <TareaDetailSheet
       task={task}
       users={users}
+      nameById={nameById}
       canEdit
       canDelete={canDeleteTarea(task, currentUserId, userRole)}
       onClose={onClose}

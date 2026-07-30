@@ -1,0 +1,58 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import type { DueValue } from "./TareaDatePopover";
+import type { TareaItem, TareaPriority, TareaUpdateInput } from "./types";
+
+const sameIds = (a: string[], b: string[]) =>
+  a.length === b.length && [...a].sort().join() === [...b].sort().join();
+
+/** Draft local del detalle (sheet/panel) + dirty + buildPatch. */
+export function useTareaDetailDraft(task: TareaItem | null) {
+  const [title, setTitle] = useState("");
+  const [notes, setNotes] = useState("");
+  const [priority, setPriority] = useState<TareaPriority>(null);
+  const [due, setDue] = useState<DueValue>({ dueAt: null, allDay: true });
+  const [assigneeIds, setAssigneeIds] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (!task) return;
+    setTitle(task.title);
+    setNotes(task.notes ?? "");
+    setPriority(task.priority ?? null);
+    setDue({ dueAt: task.dueAt, allDay: task.allDay });
+    setAssigneeIds(task.assigneeIds);
+  }, [task?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const dueDirty = task
+    ? due.dueAt !== task.dueAt || due.allDay !== task.allDay
+    : false;
+
+  const dirty = Boolean(
+    task && (
+      title.trim() !== task.title ||
+      (notes.trim() || null) !== (task.notes ?? null) ||
+      (priority ?? null) !== (task.priority ?? null) ||
+      dueDirty ||
+      !sameIds(assigneeIds, task.assigneeIds)
+    ),
+  );
+
+  const buildPatch = (): TareaUpdateInput | null => {
+    if (!task) return null;
+    if (!title.trim()) return null;
+    const input: TareaUpdateInput = {};
+    if (title.trim() !== task.title) input.title = title.trim();
+    const nextNotes = notes.trim() ? notes.trim() : null;
+    if (nextNotes !== (task.notes ?? null)) input.notes = nextNotes;
+    if ((priority ?? null) !== (task.priority ?? null)) input.priority = priority;
+    if (dueDirty) { input.dueAt = due.dueAt; input.allDay = due.allDay; }
+    if (assigneeIds.length && !sameIds(assigneeIds, task.assigneeIds)) input.assigneeIds = assigneeIds;
+    return input;
+  };
+
+  return {
+    title, setTitle, notes, setNotes, priority, setPriority,
+    due, setDue, assigneeIds, setAssigneeIds, dirty, buildPatch,
+  };
+}
