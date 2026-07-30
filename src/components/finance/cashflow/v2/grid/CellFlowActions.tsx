@@ -122,9 +122,7 @@ export function CellFlowActions({
         <PopoverContent
           align="center"
           side="bottom"
-          // El Popover base fija max-w al ancho del trigger (el ojo ~24px);
-          // sin override el texto se apila 1 letra por línea y tapa la grilla.
-          className="w-64 min-w-64 max-w-64 space-y-2 p-3"
+          className="w-64 space-y-2 p-3"
           onClick={(e) => e.stopPropagation()}
           onPointerDown={(e) => e.stopPropagation()}
         >

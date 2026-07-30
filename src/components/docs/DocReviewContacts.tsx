@@ -180,9 +180,7 @@ export function DocReviewContacts({
           <PopoverContent
             align="end"
             sideOffset={4}
-            // El Popover base fija max-w al ancho del trigger; sin override
-            // el menú queda del tamaño del botón "Agregar" (~80px).
-            className="w-80 min-w-[20rem] max-w-[min(20rem,calc(100vw-1.5rem))] p-0"
+            className="w-80 p-0"
             onOpenAutoFocus={(e) => e.preventDefault()}
           >
             <div className="border-b border-ds-border-subtle p-2">
