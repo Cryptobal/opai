@@ -36,6 +36,19 @@ export interface PayrollParameters {
     imponible_tributario: false;
   };
 
+  /**
+   * Aporte empleador reforma previsional (Ley 21.735).
+   * Opcional: versiones anteriores al jul-2026 no lo tienen → tasa 0.
+   * Desde ago-2026 `includes_sis: true` (SIS queda absorbido en esta tasa;
+   * `sis.employer_rate` debe ir en 0 en esa versión).
+   */
+  pension_reform?: {
+    law: "21735";
+    employer_rate: number;
+    includes_sis: boolean;
+    base: "pension_cap";
+  };
+
   // Salud
   health: {
     fonasa: {
@@ -292,6 +305,8 @@ export interface EmployerCostOutput {
     
     // Aportes empleador
     sis_employer: number;
+    /** Aporte empleador Ley 21.735; 0 si la versión no define pension_reform */
+    pension_reform_employer: number;
     afc_employer: {
       cic: number;
       fcs: number;
