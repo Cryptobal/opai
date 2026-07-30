@@ -118,7 +118,7 @@ export function TerrenoHubClient() {
   /* --------------------------- Loading --------------------------- */
   if (state === "loading") {
     return (
-      <div className="flex items-center justify-center min-h-dvh bg-[#060a13] text-white">
+      <div className="flex items-center justify-center min-h-dvh bg-[#0a0f1a] text-white">
         <div className="text-center">
           {tenantBrand?.brandingLogoWhite ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -206,7 +206,7 @@ export function TerrenoHubClient() {
       className="flex flex-col min-h-dvh text-white"
       style={{
         background:
-          "linear-gradient(180deg, #060a13 0%, #0a0e17 30%, #0d1220 100%)",
+          "linear-gradient(180deg, #0a0f1a 0%, #0a0e17 30%, #0d1220 100%)",
         paddingTop: "var(--safe-area-top, 0px)",
         paddingBottom: "var(--safe-area-bottom, 0px)",
       }}

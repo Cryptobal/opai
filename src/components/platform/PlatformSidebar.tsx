@@ -82,7 +82,7 @@ export function PlatformSidebar({ adminName, adminEmail }: PlatformSidebarProps)
     const expanded = isMobile || !collapsed;
     return (
       <aside
-        className={`flex h-full flex-col bg-[#0a1628] text-white transition-all duration-200 ${
+        className={`flex h-full flex-col bg-[#0a0f1a] text-white transition-all duration-200 ${
           expanded ? 'w-64' : 'w-[72px]'
         }`}
       >
@@ -214,7 +214,7 @@ export function PlatformSidebar({ adminName, adminEmail }: PlatformSidebarProps)
   return (
     <>
       {/* Mobile: top bar with hamburger */}
-      <div className="fixed left-0 right-0 top-0 z-40 flex h-14 items-center gap-3 border-b border-gray-200 bg-white px-4 dark:border-gray-800 dark:bg-[#0a1628] lg:hidden">
+      <div className="fixed left-0 right-0 top-0 z-40 flex h-14 items-center gap-3 border-b border-gray-200 bg-white px-4 dark:border-gray-800 dark:bg-ds-surface-0 lg:hidden">
         <button onClick={() => setMobileOpen(true)} className="p-1 text-gray-600 dark:text-gray-300">
           <Menu className="h-5 w-5" />
         </button>

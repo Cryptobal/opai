@@ -61,7 +61,7 @@ export function AuthShell({
       className="min-h-dvh flex flex-col items-center justify-center relative overflow-hidden"
       style={{
         background:
-          "linear-gradient(180deg, #060a13 0%, #0a0e17 30%, #0d1220 100%)",
+          "linear-gradient(180deg, #0a0f1a 0%, #0a0e17 30%, #0d1220 100%)",
         fontFamily: "'Plus Jakarta Sans', sans-serif",
         paddingTop: "var(--safe-area-top, 0px)",
         paddingBottom: "var(--safe-area-bottom, 0px)",

@@ -61,7 +61,7 @@ export default function PlatformLoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[#0a1628]">
+    <div className="flex min-h-screen items-center justify-center bg-[#0a0f1a]">
       <div className="w-full max-w-sm px-4">
         {/* Logo */}
         <div className="mb-8 text-center">

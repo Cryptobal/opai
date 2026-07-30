@@ -587,7 +587,7 @@ export function EmpresaConfigTabs() {
         <h3 className="text-sm font-semibold">Vista previa</h3>
         <div
           className="rounded-lg p-6 flex flex-col items-center gap-3"
-          style={{ backgroundColor: form["empresa.branding.primaryColor"] || "#0a1628" }}
+          style={{ backgroundColor: form["empresa.branding.primaryColor"] || "#0a0f1a" }}
         >
           {form["empresa.branding.logoWhite"] || form["empresa.branding.logoFull"] ? (
             <img
@@ -607,7 +607,7 @@ export function EmpresaConfigTabs() {
           <div className="flex gap-2 mt-2">
             <div
               className="w-8 h-8 rounded-full border border-white/20"
-              style={{ backgroundColor: form["empresa.branding.primaryColor"] || "#0a1628" }}
+              style={{ backgroundColor: form["empresa.branding.primaryColor"] || "#0a0f1a" }}
               title="Primary"
             />
             <div

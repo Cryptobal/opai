@@ -549,7 +549,7 @@ export function MarcacionScreen({
   // ── Processing spinner ──────────────────────────────────────────────────
   if (mode === "processing") {
     return (
-      <div className="min-h-dvh flex flex-col" style={{ background: "#060a13" }}>
+      <div className="min-h-dvh flex flex-col" style={{ background: "#0a0f1a" }}>
         <Header />
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center">
@@ -564,7 +564,7 @@ export function MarcacionScreen({
   // ── Success screen ──────────────────────────────────────────────────────
   if (mode === "success" && lastMarca) {
     return (
-      <div className="min-h-dvh flex flex-col" style={{ background: "#060a13" }}>
+      <div className="min-h-dvh flex flex-col" style={{ background: "#0a0f1a" }}>
         <Header />
         <div className="flex-1 flex items-center justify-center px-4">
           <div
@@ -615,7 +615,7 @@ export function MarcacionScreen({
   // ── Error screen ────────────────────────────────────────────────────────
   if (mode === "error") {
     return (
-      <div className="min-h-dvh flex flex-col" style={{ background: "#060a13" }}>
+      <div className="min-h-dvh flex flex-col" style={{ background: "#0a0f1a" }}>
         <Header />
         <div className="flex-1 flex items-center justify-center px-4">
           <div
@@ -634,7 +634,7 @@ export function MarcacionScreen({
   // ── Step 1: RUT entry ───────────────────────────────────────────────────
   if (mode === "rut-entry") {
     return (
-      <div className="min-h-dvh flex flex-col" style={{ background: "#060a13" }}>
+      <div className="min-h-dvh flex flex-col" style={{ background: "#0a0f1a" }}>
         <Header />
         <div className="flex-1 flex flex-col justify-center px-4 pb-8">
           <div className="mb-8 text-center">
@@ -707,7 +707,7 @@ export function MarcacionScreen({
     const gpsReady = gpsStatus === "ok" && geoPosition != null;
 
     return (
-      <div className="min-h-dvh flex flex-col relative" style={{ background: "#060a13" }}>
+      <div className="min-h-dvh flex flex-col relative" style={{ background: "#0a0f1a" }}>
         <GpsIndicator />
         <GpsModal />
         <Header />
@@ -810,7 +810,7 @@ export function MarcacionScreen({
     const gpsReady = gpsStatus === "ok" && geoPosition != null;
 
     return (
-      <div className="min-h-dvh flex flex-col relative" style={{ background: "#060a13" }}>
+      <div className="min-h-dvh flex flex-col relative" style={{ background: "#0a0f1a" }}>
         <GpsIndicator />
         <GpsModal />
         <Header />

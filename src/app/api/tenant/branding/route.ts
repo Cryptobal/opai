@@ -27,7 +27,7 @@ const OPAI_DEFAULTS = {
   commercialName: "OPAI",
   brandingLogoWhite: "",
   brandingLogoIcon: "",
-  brandingPrimaryColor: "#0a1628",
+  brandingPrimaryColor: "#0a0f1a",
   brandingAppName: "OPAI",
 };
 

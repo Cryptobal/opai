@@ -72,7 +72,7 @@ export function FaceRegistrationFlow({
   // Step: Biometric consent — Consentimiento informado Ley 21.719
   if (step === "consent") {
     return (
-      <div className="min-h-dvh flex flex-col items-center justify-center px-4 py-8" style={{ background: "#060a13" }}>
+      <div className="min-h-dvh flex flex-col items-center justify-center px-4 py-8" style={{ background: "#0a0f1a" }}>
         <div
           className="w-full max-w-md rounded-2xl p-6 overflow-y-auto"
           style={{
@@ -182,7 +182,7 @@ export function FaceRegistrationFlow({
   // Step: Identify with RUT + PIN
   if (step === "identify") {
     return (
-      <div className="min-h-dvh flex flex-col items-center justify-center px-4" style={{ background: "#060a13" }}>
+      <div className="min-h-dvh flex flex-col items-center justify-center px-4" style={{ background: "#0a0f1a" }}>
         <div className="w-full max-w-md rounded-2xl p-6" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}>
           <h2 className="text-lg font-bold text-white mb-2 text-center">
             Activar Face ID
@@ -246,7 +246,7 @@ export function FaceRegistrationFlow({
   // Step: Capture face
   if (step === "capture") {
     return (
-      <div className="min-h-dvh flex flex-col items-center justify-center px-4 py-8" style={{ background: "#060a13" }}>
+      <div className="min-h-dvh flex flex-col items-center justify-center px-4 py-8" style={{ background: "#0a0f1a" }}>
         <h2 className="text-lg font-bold text-white mb-4 text-center">
           Mira directamente a la camara
         </h2>
@@ -261,7 +261,7 @@ export function FaceRegistrationFlow({
   // Step: Processing
   if (step === "processing") {
     return (
-      <div className="min-h-dvh flex items-center justify-center" style={{ background: "#060a13" }}>
+      <div className="min-h-dvh flex items-center justify-center" style={{ background: "#0a0f1a" }}>
         <div className="text-center">
           <div className="h-12 w-12 mx-auto animate-spin rounded-full border-3 border-white/20 border-t-emerald-400" />
           <p className="mt-4 text-white/70">Registrando Face ID...</p>
@@ -273,7 +273,7 @@ export function FaceRegistrationFlow({
   // Step: Success
   if (step === "success") {
     return (
-      <div className="min-h-dvh flex items-center justify-center px-4" style={{ background: "#060a13" }}>
+      <div className="min-h-dvh flex items-center justify-center px-4" style={{ background: "#0a0f1a" }}>
         <div className="w-full max-w-sm rounded-2xl p-6 text-center" style={{ background: "rgba(16,185,129,0.1)", border: "1px solid rgba(16,185,129,0.3)" }}>
           <div className="text-5xl mb-3">{"\u2705"}</div>
           <p className="text-xl font-bold text-white">Face ID activado</p>
@@ -287,7 +287,7 @@ export function FaceRegistrationFlow({
 
   // Step: Error
   return (
-    <div className="min-h-dvh flex items-center justify-center px-4" style={{ background: "#060a13" }}>
+    <div className="min-h-dvh flex items-center justify-center px-4" style={{ background: "#0a0f1a" }}>
       <div className="w-full max-w-sm rounded-2xl p-6 text-center" style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)" }}>
         <div className="text-5xl mb-3">{"\u274C"}</div>
         <p className="text-status-danger-fg font-medium">{error || "Error al registrar Face ID"}</p>
