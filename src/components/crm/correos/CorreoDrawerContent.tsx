@@ -6,8 +6,10 @@ import {
   Copy,
   ExternalLink,
   MoreHorizontal,
+  PenLine,
   Printer,
   Sparkles,
+  WandSparkles,
 } from "lucide-react";
 import { toast } from "sonner";
 import { canEdit } from "@/lib/permissions";
@@ -291,6 +293,32 @@ export function CorreoDrawerContent({
                     >
                       <Code2 className="h-4 w-4 text-ds-text-3" /> Ver original
                     </button>
+                    {onOpenSignature && (
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          setOverflowOpen(false);
+                          onOpenSignature();
+                        }}
+                        className="flex min-h-11 w-full items-center gap-2 px-3 text-left text-[13px] text-ds-text-1 ds-tap hover:bg-ds-surface-2 sm:min-h-9"
+                      >
+                        <PenLine className="h-4 w-4 text-ds-text-3" /> Firma
+                      </button>
+                    )}
+                    {onOpenAiStyle && (
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          setOverflowOpen(false);
+                          onOpenAiStyle();
+                        }}
+                        className="flex min-h-11 w-full items-center gap-2 px-3 text-left text-[13px] text-ds-text-1 ds-tap hover:bg-ds-surface-2 sm:min-h-9"
+                      >
+                        <WandSparkles className="h-4 w-4 text-ds-text-3" /> Estilo de respuesta
+                      </button>
+                    )}
                     <div className="my-1 border-t border-ds-border-subtle" role="separator" />
                     <button
                       type="button"
