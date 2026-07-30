@@ -792,8 +792,8 @@ function MarcarAsistenciaQuickAction({ session }: { session: GuardSession }) {
             aria-label="Marcar asistencia"
           >
             <span aria-hidden className="opai-marca-ring absolute inset-0 rounded-full" />
-            <Fingerprint className="relative h-14 w-14 text-primary" />
-            <span className="relative mt-2 text-sm font-bold text-primary">
+            <Fingerprint className="relative h-14 w-14" />
+            <span className="relative mt-2 text-sm font-bold">
               Marcar Asistencia
             </span>
           </button>

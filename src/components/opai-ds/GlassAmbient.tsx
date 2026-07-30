@@ -3,7 +3,7 @@
 /**
  * GlassAmbient — fondo ambiental fijo (aurora) que el Liquid Glass refracta.
  *
- * 3 blobs (teal / esmeralda / azul profundo) con drift lento + capa de noise
+ * 3 blobs (teal / teal / índigo, v2 tenue) con drift 14-18s + capa de noise
  * al 5%. Es lo que el vidrio translúcido de las superficies refleja/refracta.
  *
  * Sólo mobile (`< lg`). Se oculta bajo `prefers-reduced-transparency` y no
@@ -19,9 +19,9 @@ const NOISE =
   );
 
 const BLOBS = [
-  { c: "hsl(168 78% 38% / 0.30)", top: "-10%", left: "-12%", size: "64vw", dur: "30s", delay: "0s" },
-  { c: "hsl(152 70% 42% / 0.22)", top: "36%", left: "56%", size: "72vw", dur: "38s", delay: "-7s" },
-  { c: "hsl(218 70% 48% / 0.32)", top: "70%", left: "-8%", size: "60vw", dur: "26s", delay: "-14s" },
+  { c: "hsl(168 78% 38% / 0.16)", top: "-10%", left: "-12%", size: "64vw", dur: "16s", delay: "0s" },
+  { c: "hsl(168 78% 38% / 0.14)", top: "36%", left: "56%", size: "72vw", dur: "18s", delay: "-7s" },
+  { c: "hsl(233 66% 59% / 0.13)", top: "70%", left: "-8%", size: "60vw", dur: "14s", delay: "-14s" },
 ];
 
 export function GlassAmbient() {
