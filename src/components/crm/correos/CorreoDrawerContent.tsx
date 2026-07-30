@@ -6,7 +6,6 @@ import { canEdit } from "@/lib/permissions";
 import { useEffectivePermissions } from "@/hooks/useEffectivePermissions";
 import { CorreoMessages } from "./CorreoMessages";
 import { CorreoReplyBox } from "./CorreoReplyBox";
-import { CorreoThreadActions } from "./CorreoThreadActions";
 import { CorreoSystemLabels } from "./CorreoSystemLabels";
 import { CorreoReaderTitleBlock } from "./CorreoReaderTitleBlock";
 import { CorreoReaderOverflowMenu } from "./CorreoReaderOverflowMenu";
@@ -72,9 +71,7 @@ export function CorreoDrawerContent({
   onRemove,
   onRemoveDone,
   onUndoDone,
-  onReply,
   onRequestReply,
-  onSnooze,
   alwaysShowImages,
   onAlwaysShowImages,
   shortcuts,
@@ -121,29 +118,7 @@ export function CorreoDrawerContent({
             remitente viven en el bloque de título; las etiquetas de sistema se
             reubican dentro de él. */}
         <div className="hidden shrink-0 space-y-2 border-b border-ds-border-subtle bg-background pb-3 lg:block lg:bg-ds-surface-2">
-          {canModify && (
-            <div className="hidden flex-wrap items-center gap-2 lg:flex">
-              <CorreoThreadActions
-                threadId={t.id}
-                isUnread={t.isUnread}
-                archived={Boolean(t.archivedAt)}
-                trashed={Boolean(t.trashedAt)}
-                snoozedUntil={t.snoozedUntil}
-                starred={Boolean(t.starredAt)}
-                inSpam={Boolean(t.spamAt)}
-                canModify
-                variant="drawer"
-                compact
-                onDone={onRefresh}
-                onRemoveDone={onRemoveDone}
-                onUndoDone={onUndoDone}
-                onClose={onClose}
-                onRemove={onRemove}
-                onReply={onReply}
-                onSnooze={onSnooze}
-              />
-            </div>
-          )}
+          {/* Acciones Archivar/Papelera/etc. solo en el listado (hover), estilo Gmail. */}
 
           <CorreoSystemLabels
             threadId={t.id}

@@ -7,7 +7,7 @@ type Props = {
   label: string;
   value: string | null;
   depth: number;
-  /** Hay valor → navegar; sin valor y editable → abrir omnibox (vincular). */
+  /** Hay valor → navegar; sin valor y editable → abrir omnibox (buscar/vincular). */
   hasValue: boolean;
   editable?: boolean;
   disabled?: boolean;
@@ -15,7 +15,7 @@ type Props = {
   onAdd?: () => void;
   /** Con valor y editable: abre el omnibox para cambiar/quitar. */
   onEdit?: () => void;
-  /** Sin valor: crea la entidad vía plan IA (no CRUD directo). */
+  /** Sin valor: crea solo esta entidad vía plan IA (no CRM completo). */
   onCreateWithAi?: () => void;
   /** Acción secundaria (p. ej. expandir contactos). */
   onActivate?: () => void;
@@ -23,7 +23,7 @@ type Props = {
 
 /**
  * Fila de la cascada editable (Copiloto v4).
- * Sin valor: Vincular (omnibox) + opcional Crear con IA.
+ * Sin valor: botón + (omnibox buscar) + opcional Crear con IA (sparkles).
  * Con valor: fila navega (↗); lápiz edita sin anidar botones.
  */
 export function CorreoCascadeRow({
@@ -83,10 +83,10 @@ export function CorreoCascadeRow({
         <span className="relative text-[13px] font-medium text-ds-text-1">{label}</span>
         <span
           className={`relative ml-auto truncate text-[12px] ${
-            showAdd ? "text-status-warn-fg" : "text-ds-text-3"
+            showAdd ? "text-ds-text-4" : "text-ds-text-3"
           }`}
         >
-          {value ?? (showAdd ? "Vincular" : "—")}
+          {value ?? (showAdd ? "" : "—")}
         </span>
         {showAdd ? (
           <span

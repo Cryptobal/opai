@@ -178,8 +178,14 @@ function isAllowed(
 }
 
 /**
+ * Ocultos del menú / Más acciones IA. Siguen en el registro por compat
+ * (deep-links, handleAiCommand), pero la UI usa Armar licitación + cascada.
+ */
+const HIDDEN_FROM_MENU = new Set<CorreoAiCommandId>(["crm_completo"]);
+
+/**
  * Devuelve { primary, more } según copiloto_correos y acceso a módulos destino.
- * Orden fijo de primary: analizar → resumen → crm_completo. Máximo 3.
+ * Orden fijo de primary: analizar → resumen. Máximo 3.
  */
 export function resolveCorreoAiCommands(
   perms: RolePermissions,
@@ -191,10 +197,12 @@ export function resolveCorreoAiCommands(
     return { primary: [], more: [] };
   }
 
-  const visible = CORREO_AI_COMMANDS.filter((c) => isAllowed(c, perms, canEdit));
+  const visible = CORREO_AI_COMMANDS.filter(
+    (c) => isAllowed(c, perms, canEdit) && !HIDDEN_FROM_MENU.has(c.id),
+  );
   if (visible.length === 0) return { primary: [], more: [] };
 
-  const primaryIds: CorreoAiCommandId[] = ["analizar", "resumen", "crm_completo"];
+  const primaryIds: CorreoAiCommandId[] = ["analizar", "resumen"];
   const primary = primaryIds
     .map((id) => visible.find((c) => c.id === id))
     .filter((c): c is CorreoAiCommand => Boolean(c))

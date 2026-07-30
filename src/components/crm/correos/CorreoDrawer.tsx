@@ -67,6 +67,9 @@ type Props = {
   composeIntent?: ComposeIntent | null;
   onOpenAiLead?: () => void;
   onAiCommand?: (commandId: import("@/modules/crm/email/correo-ai-commands").CorreoAiCommandId) => void;
+  onCreateWithAi?: (
+    target: import("@/modules/crm/email/correo-cascade-ai").CorreoCascadeAiTarget,
+  ) => void;
   onOpenAiMenu?: () => void;
   onOpenAiStyle?: () => void;
   onOpenSignature?: () => void;
@@ -100,6 +103,7 @@ export function CorreoDrawer({
   composeIntent = null,
   onOpenAiLead,
   onAiCommand,
+  onCreateWithAi,
   onOpenAiMenu,
   onOpenAiStyle,
   onOpenSignature,
@@ -471,6 +475,7 @@ export function CorreoDrawer({
             workTabIntent={workTabIntent}
             onOpenAiLead={() => onOpenAiLead?.()}
             onAiCommand={onAiCommand}
+            onCreateWithAi={onCreateWithAi}
             onAssociate={workPanelSynced ? associate : async () => {}}
             onRefresh={workPanelSynced ? refresh : () => {}}
             onRequestReply={workPanelSynced ? requestReply : undefined}
