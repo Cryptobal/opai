@@ -179,42 +179,14 @@ export function CorreoReaderShell({
         <CorreoReaderScrollContext.Provider value={scrollValue}>
         <CorreoReaderOverlayContext.Provider value={overlayHost}>
           <CorreoReaderDockContext.Provider value={{ host: dockHost, enabled: true }}>
-            {/* Header opaco: solo desktop (lg+). En móvil lo reemplaza el
-                header adaptativo con glass. */}
-            <header className="sticky top-0 z-10 hidden border-b border-ds-border-subtle bg-background px-2 py-2.5 pt-[calc(env(safe-area-inset-top)+0.625rem)] md:px-4 lg:block lg:bg-ds-surface-2">
-              <div className="flex items-center gap-1.5">
-                <button
-                  type="button"
-                  onClick={onClose}
-                  aria-label="Volver"
-                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-ds-text-2 outline-none focus-visible:ring-0 focus-visible:ring-offset-0 ds-tap"
-                >
-                  <ChevronLeft className="h-6 w-6" />
-                </button>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-[12px] text-ds-text-3">{headerFrom || "—"}</p>
-                  <p className="truncate font-display text-[15px] font-semibold text-ds-text-1 md:text-base">
-                    {headerSubject || "Correo"}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="hidden shrink-0 px-1 text-[13px] text-ds-text-3 ds-tap md:block"
-                >
-                  Cerrar
-                </button>
-              </div>
-            </header>
-
-            {/* Header adaptativo móvil (sticky sobre el contenido). */}
-            {isMobile && mobileHeader}
-
+            {/* Un solo scroller X+Y: al desplazarse en horizontal se mueve TODO
+                el panel (header + acciones + remitente + cuerpo), no el iframe
+                blanco aislado. Los headers quedan sticky en el eje Y. */}
             <div
               ref={scrollElRef}
               className={cn(
                 // pb móvil 106px: espacio para la isla flotante (60 + safe-area).
-                "min-h-0 flex-1 space-y-4 overflow-y-auto bg-background px-3 pt-3 pb-[106px] [-webkit-overflow-scrolling:touch] [overscroll-behavior:contain] md:px-4 md:pt-4 lg:bg-ds-surface-2 lg:pb-4",
+                "min-h-0 flex-1 overflow-auto bg-background [-webkit-overflow-scrolling:touch] [overscroll-behavior:contain] lg:bg-ds-surface-2",
                 // Máscara de scroll (móvil): fade inferior sobre la isla; el fade
                 // superior solo aparece al scrollear.
                 isMobile && scrolled && "mobile-scroll-fade",
@@ -225,7 +197,44 @@ export function CorreoReaderShell({
                   : undefined
               }
             >
-              {children}
+              {/* Header opaco: solo desktop (lg+). En móvil lo reemplaza el
+                  header adaptativo con glass. */}
+              <header className="sticky top-0 z-10 hidden border-b border-ds-border-subtle bg-background px-2 py-2.5 pt-[calc(env(safe-area-inset-top)+0.625rem)] md:px-4 lg:block lg:bg-ds-surface-2">
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    aria-label="Volver"
+                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-ds-text-2 outline-none focus-visible:ring-0 focus-visible:ring-offset-0 ds-tap"
+                  >
+                    <ChevronLeft className="h-6 w-6" />
+                  </button>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[12px] text-ds-text-3">{headerFrom || "—"}</p>
+                    <p className="truncate font-display text-[15px] font-semibold text-ds-text-1 md:text-base">
+                      {headerSubject || "Correo"}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    className="hidden shrink-0 px-1 text-[13px] text-ds-text-3 ds-tap md:block"
+                  >
+                    Cerrar
+                  </button>
+                </div>
+              </header>
+
+              {/* Header adaptativo móvil (sticky en Y; en X viaja con el panel). */}
+              {isMobile && (
+                <div className="sticky top-0 z-10">
+                  {mobileHeader}
+                </div>
+              )}
+
+              <div className="space-y-4 px-3 pt-3 pb-[106px] md:px-4 md:pt-4 lg:pb-4">
+                {children}
+              </div>
             </div>
 
             {/* Dock Gmail: Responder / Reenviar fijos fuera del scroll. Solo

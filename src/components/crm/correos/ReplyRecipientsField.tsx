@@ -160,7 +160,7 @@ export function ReplyRecipientsField({
     update();
     window.addEventListener("resize", update);
     // El scroller del lector mueve el ancla — reposicionar.
-    const scroller = rootRef.current?.closest(".overflow-y-auto");
+    const scroller = rootRef.current?.closest(".overflow-auto, .overflow-y-auto");
     scroller?.addEventListener("scroll", update, { passive: true });
     return () => {
       window.removeEventListener("resize", update);

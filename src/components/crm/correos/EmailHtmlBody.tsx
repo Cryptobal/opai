@@ -63,16 +63,20 @@ body a,body a *{color:${link}!important}
 body table,body td,body th{border-color:${border}!important}
 body blockquote{color:${quote}!important;border-left-color:${border}!important}`
     : "";
+  // Sin overflow-x en body/tablas: el scroll horizontal lo hace el panel del
+  // lector (header + remitente + cuerpo) como una sola unidad. Las tablas
+  // expanden el canvas a su ancho natural; EmailHtmlBody decide entre escalar
+  // (fitWidth) o ensanchar el iframe para que scrollee el padre.
   return `<!doctype html><html><head><meta charset="utf-8"><base target="_blank"><style>
 :root{color-scheme:${night ? "dark" : "light"}}
 html,body{margin:0;padding:0}
 body{font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
   font-size:13px;line-height:1.55;color:${fg};background:${bg};
-  word-break:break-word;overflow-x:auto;padding:16px 20px}
-.opai-mail-canvas{max-width:100%;margin:0 auto}
+  word-break:break-word;overflow-x:hidden;padding:16px 20px}
+.opai-mail-canvas{display:inline-block;min-width:100%;width:max-content;box-sizing:border-box;vertical-align:top}
 a{color:${link};text-decoration:underline;text-underline-offset:2px}
 img{max-width:100%;height:auto}
-table{display:block;overflow-x:auto;border-collapse:collapse;max-width:100%;margin:.5rem 0}
+table{border-collapse:collapse;margin:.5rem 0}
 td,th{border:1px solid ${border};padding:.35rem .5rem;vertical-align:top}
 p,div,li{margin:.35em 0}
 blockquote{margin:.5rem 0;padding-left:.75rem;border-left:3px solid ${border};color:${quote}}
@@ -140,12 +144,16 @@ export function EmailHtmlBody({
   // y luego salto al alto real). Reservamos el último alto medido y ocultamos
   // el iframe hasta la primera medición del documento nuevo.
   const [height, setHeight] = useState(320);
+  // null = 100% del contenedor; número = ancho natural (scrollea el panel padre).
+  const [frameWidth, setFrameWidth] = useState<number | null>(null);
   const [frameReady, setFrameReady] = useState(false);
   const [measureFailed, setMeasureFailed] = useState(false);
   const lastHeightRef = useRef(320);
-  // Ajuste a ancho: escala el contenido para que no genere scroll horizontal.
-  // true = escala automática; false = 100% (permite scroll interno del iframe).
-  const [fitWidth, setFitWidth] = useState(true);
+  const hostRef = useRef<HTMLDivElement>(null);
+  // Ajuste a ancho: false = 100% y el panel del lector scrollea en X como
+  // una sola unidad (header + cuerpo). true = escala el canvas al ancho.
+  // Default false: el scroll horizontal no debe aislarse en el bloque blanco.
+  const [fitWidth, setFitWidth] = useState(false);
   const [viewSheetOpen, setViewSheetOpen] = useState(false);
 
   const showHtmlFrame = mode === "html" && Boolean(safeHtml) && renderable;
@@ -184,13 +192,13 @@ export function EmailHtmlBody({
 
   // Con allow-same-origin (mismo origen vía srcDoc) el padre puede medir la
   // altura del contenido; un ResizeObserver sigue los cambios (imágenes lazy).
-  // Ajuste a ancho: si el contenido excede el ancho del contenedor, se escala
-  // `.opai-mail-canvas` (transform-origin top-left) y la altura reportada se
-  // multiplica por la misma escala. `canvas.scrollWidth/Height` son invariantes
-  // al transform del propio canvas → sin bucle de medición.
+  // Ancho: el canvas usa width:max-content (sin scroll interno). Si cabe con
+  // escala ≥0.6 y fitWidth, escalamos; si no, ensanchamos el iframe para que
+  // el panel del lector (overflow-x) mueva header + cuerpo juntos.
   const measure = useCallback(() => {
-    const doc = iframeRef.current?.contentDocument;
-    if (!doc) return;
+    const iframe = iframeRef.current;
+    const doc = iframe?.contentDocument;
+    if (!iframe || !doc) return;
     const canvas = doc.querySelector(".opai-mail-canvas") as HTMLElement | null;
     const naturalH =
       canvas?.scrollHeight ??
@@ -203,12 +211,24 @@ export function EmailHtmlBody({
     }
 
     let scale = 1;
+    let nextFrameWidth: number | null = null;
     if (canvas) {
-      const availW = canvas.clientWidth;
-      const naturalW = canvas.scrollWidth;
-      if (fitWidth && availW > 0 && naturalW > availW + 1) {
-        // Escala mínima 0.6: por debajo el correo queda ilegible → 100%.
-        scale = Math.max(0.6, availW / naturalW);
+      // Ancho disponible = host del iframe (no el iframe: al ensancharlo
+      // clientWidth crecería y cancelaría el scroll del padre).
+      const availW = hostRef.current?.clientWidth || iframe.clientWidth;
+      const naturalW = Math.ceil(canvas.scrollWidth);
+      if (availW > 0 && naturalW > availW + 1) {
+        if (fitWidth) {
+          const ideal = availW / naturalW;
+          if (ideal >= 0.6) {
+            scale = ideal;
+          } else {
+            // Demasiado ancho para escalar legible → 100% + scroll del panel.
+            nextFrameWidth = naturalW;
+          }
+        } else {
+          nextFrameWidth = naturalW;
+        }
       }
       const desiredTransform = scale < 1 ? `scale(${scale})` : "";
       if (canvas.style.transformOrigin !== "top left") {
@@ -217,32 +237,35 @@ export function EmailHtmlBody({
       if (canvas.style.transform !== desiredTransform) {
         canvas.style.transform = desiredTransform;
       }
-      const desiredOverflow = scale < 1 ? "hidden" : "";
-      if (doc.body && doc.body.style.overflowX !== desiredOverflow) {
-        doc.body.style.overflowX = desiredOverflow;
+      if (doc.body && doc.body.style.overflowX !== "hidden") {
+        doc.body.style.overflowX = "hidden";
       }
     }
 
     const h = Math.round(naturalH * scale) + 4;
     lastHeightRef.current = h;
     setHeight(h);
+    setFrameWidth(nextFrameWidth);
     setFrameReady(true);
     setMeasureFailed(false);
   }, [fitWidth]);
 
   useEffect(() => {
     if (!useIframe || mode !== "html") return;
+    if (typeof ResizeObserver === "undefined") return;
     const doc = iframeRef.current?.contentDocument;
-    if (!doc?.body || typeof ResizeObserver === "undefined") return;
+    const host = hostRef.current;
     const ro = new ResizeObserver(() => measure());
-    ro.observe(doc.body);
+    if (doc?.body) ro.observe(doc.body);
+    // El asa de ancho del lector cambia el host sin mutar el documento.
+    if (host) ro.observe(host);
     return () => ro.disconnect();
   }, [useIframe, mode, safeHtml, measure]);
 
-  // El foco dentro del iframe no burbujea al padre: sin este puente, los
-  // atajos de bandeja/lector (j/k, R/A/F, archivar…) dejan de responder al
-  // leer el cuerpo. Re-adjuntamos en `load` porque con srcDoc el
-  // contentDocument puede no estar listo en el primer effect.
+  // El foco/rueda dentro del iframe no burbujean al padre: sin estos puentes,
+  // los atajos (j/k, R/A/F…) y el scroll del panel del lector fallan al leer
+  // el cuerpo. Re-adjuntamos en `load` porque con srcDoc el contentDocument
+  // puede no estar listo en el primer effect.
   useEffect(() => {
     if (!useIframe || mode !== "html") return;
     const iframe = iframeRef.current;
@@ -266,12 +289,28 @@ export function EmailHtmlBody({
       );
     };
 
+    // El iframe no scrollea solo (overflow hidden + alto/ancho al contenido).
+    // Reenviamos la rueda al scroller del lector para que se mueva TODO el panel.
+    const onWheel = (event: WheelEvent) => {
+      const scroller =
+        hostRef.current?.closest(".overflow-auto, .overflow-y-auto, .overflow-x-auto") ??
+        null;
+      if (!(scroller instanceof HTMLElement)) return;
+      if (event.deltaX === 0 && event.deltaY === 0) return;
+      scroller.scrollBy({ left: event.deltaX, top: event.deltaY });
+      event.preventDefault();
+    };
+
     const attach = () => {
       const next = iframe.contentDocument;
       if (!next || next === doc) return;
-      if (doc) doc.removeEventListener("keydown", onKey);
+      if (doc) {
+        doc.removeEventListener("keydown", onKey);
+        doc.removeEventListener("wheel", onWheel);
+      }
       doc = next;
       doc.addEventListener("keydown", onKey);
+      doc.addEventListener("wheel", onWheel, { passive: false });
     };
 
     attach();
@@ -279,6 +318,7 @@ export function EmailHtmlBody({
     return () => {
       iframe.removeEventListener("load", attach);
       doc?.removeEventListener("keydown", onKey);
+      doc?.removeEventListener("wheel", onWheel);
     };
   }, [useIframe, mode, srcDoc]);
 
@@ -342,7 +382,11 @@ export function EmailHtmlBody({
       )}
       {showHtmlFrame ? (
         useIframe ? (
-          <div className="relative">
+          <div
+            ref={hostRef}
+            className="relative"
+            style={frameWidth ? { minWidth: `${frameWidth}px` } : undefined}
+          >
             <iframe
               ref={iframeRef}
               srcDoc={srcDoc}
@@ -363,6 +407,7 @@ export function EmailHtmlBody({
               className={`${styles.frame}${night ? ` ${styles.frameNight}` : ""}`}
               style={{
                 height: `${height}px`,
+                width: frameWidth ? `${frameWidth}px` : "100%",
                 opacity: frameReady ? 1 : 0,
                 transition: frameReady ? "opacity 80ms ease-out" : undefined,
               }}
