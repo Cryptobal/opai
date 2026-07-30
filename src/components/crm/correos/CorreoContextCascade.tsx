@@ -34,6 +34,8 @@ type Props = {
     sharedWithAccount?: boolean;
   }) => void | Promise<void>;
   onOpenAttachments?: () => void;
+  /** Abre el plan IA para crear entidades faltantes (no CRUD directo). */
+  onCreateWithAi?: () => void;
 };
 
 type OmniboxTarget =
@@ -52,12 +54,14 @@ export function CorreoContextCascade({
   detail,
   onAssociate,
   onOpenAttachments,
+  onCreateWithAi,
 }: Props) {
   const t = detail.thread;
   const perms = useEffectivePermissions();
   const canMutate = canEdit(perms, "crm", "correos");
   const canUseCopiloto = hasCapability(perms, "copiloto_correos");
   const editable = canMutate && canUseCopiloto;
+  const createWithAi = editable && onCreateWithAi ? onCreateWithAi : undefined;
   const { links: linksRes, contactContext, reload, applyAccountOptimistic } =
     useCorreoWork();
   const [omnibox, setOmnibox] = useState<OmniboxTarget>(null);
@@ -252,6 +256,7 @@ export function CorreoContextCascade({
         href={t.accountId ? `/crm/accounts/${t.accountId}` : null}
         onAdd={() => setOmnibox("account")}
         onEdit={() => setOmnibox("account")}
+        onCreateWithAi={createWithAi}
       />
       <CorreoCascadeRow
         icon={Users}
@@ -274,6 +279,7 @@ export function CorreoContextCascade({
           setContactsOpen(true);
           setOmnibox("contact");
         }}
+        onCreateWithAi={createWithAi}
       />
       {t.accountId && contactsOpen && (
         <div className="border-b border-ds-border-subtle px-3 pb-2 pl-8">
@@ -291,6 +297,7 @@ export function CorreoContextCascade({
         href={t.dealId ? `/crm/deals/${t.dealId}` : null}
         onAdd={() => setOmnibox("deal")}
         onEdit={() => setOmnibox("deal")}
+        onCreateWithAi={createWithAi}
       />
       <CorreoCascadeRow
         icon={FileText}
@@ -303,6 +310,7 @@ export function CorreoContextCascade({
         href={quote?.href ?? null}
         onAdd={() => setOmnibox("quote")}
         onEdit={() => setOmnibox("quote")}
+        onCreateWithAi={createWithAi}
       />
       <CorreoCascadeRow
         icon={MapPin}
@@ -315,6 +323,7 @@ export function CorreoContextCascade({
         href={installation?.href ?? null}
         onAdd={() => setOmnibox("installation")}
         onEdit={() => setOmnibox("installation")}
+        onCreateWithAi={createWithAi}
       />
       <CorreoCascadeRow
         icon={Paperclip}
