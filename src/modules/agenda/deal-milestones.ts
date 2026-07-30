@@ -20,6 +20,7 @@ export type CreateAgendaEventWithPeopleParams = {
   installationId?: string | null;
   startAt: Date;
   endAt: Date;
+  allDay?: boolean;
   notes?: string | null;
   customAddress?: string | null;
   participantIds?: string[];
@@ -45,6 +46,7 @@ export async function createAgendaEventWithPeople(
     installationId,
     startAt,
     endAt,
+    allDay = false,
     notes,
     customAddress,
     syncGoogle = true,
@@ -81,6 +83,7 @@ export async function createAgendaEventWithPeople(
     assignedUserId: actorUserId,
     startAt,
     endAt,
+    allDay,
     notes: notes ?? null,
     customAddress: customAddress ?? null,
     syncCalendar: syncGoogle && !useV2Sync,
@@ -143,6 +146,7 @@ export async function createDealMilestoneEvent(params: {
   kind: PlanMilestone["kind"];
   startAt: Date;
   endAt: Date;
+  allDay?: boolean;
   title?: string;
   notes?: string | null;
   participantIds?: string[];
@@ -160,6 +164,7 @@ export async function createDealMilestoneEvent(params: {
     installationId: params.installationId,
     startAt: params.startAt,
     endAt: params.endAt,
+    allDay: params.allDay,
     notes: params.notes ?? `Hito licitación: ${params.kind}`,
     participantIds: params.participantIds,
     externalEmails: params.externalEmails,
@@ -173,12 +178,21 @@ export async function createDealMilestoneEvent(params: {
 export function milestoneRangeFromPlan(m: PlanMilestone): {
   startAt: Date;
   endAt: Date;
+  allDay: boolean;
 } | null {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(m.date)) return null;
+  const allDay = m.allDay === true;
+  if (allDay) {
+    return {
+      startAt: dateAtChileSlot(m.date, 0),
+      endAt: dateAtChileSlot(m.date, 24 * 60 - 1),
+      allDay: true,
+    };
+  }
   const [hh, mm] = (m.time || "09:00").split(":").map(Number);
   if (Number.isNaN(hh) || Number.isNaN(mm)) return null;
   const durationMin = Math.max(15, Math.min(24 * 60, Number(m.durationMin) || 60));
   const startAt = dateAtChileSlot(m.date, hh * 60 + mm);
   const endAt = new Date(startAt.getTime() + durationMin * 60_000);
-  return { startAt, endAt };
+  return { startAt, endAt, allDay: false };
 }

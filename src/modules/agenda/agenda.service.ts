@@ -14,6 +14,7 @@ export async function createAgendaVisita(input: {
   assignedUserId: string;
   startAt: Date;
   endAt: Date;
+  allDay?: boolean;
   notes?: string | null;
   customAddress?: string | null;
   lat?: number | null;
@@ -44,7 +45,9 @@ export async function createAgendaVisita(input: {
     },
   });
   // Espejo v2 antes del sync: si el sync delega a v2, necesita el estado fresco.
-  if (isCalendarV2Enabled()) await mirrorVisitaToV2(visita, input.createdBy);
+  if (isCalendarV2Enabled()) {
+    await mirrorVisitaToV2(visita, input.createdBy, { allDay: input.allDay === true });
+  }
   // Si el usuario destildó "crear evento en Calendar", la visita queda sin evento.
   const sync =
     input.syncCalendar === false

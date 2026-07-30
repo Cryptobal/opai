@@ -191,6 +191,8 @@ export type PlanMilestone = {
   date: string;
   time: string;
   durationMin: number;
+  /** Evento de todo el día (oculta hora/duración en UI; rango 00:00–23:59 Chile). */
+  allDay?: boolean;
   participantIds: string[];
   externalEmails: Array<{ email: string; name?: string }>;
   notes?: string;
@@ -302,6 +304,7 @@ export function milestonesFromLicitacion(
       date,
       time: "09:00",
       durationMin: 60,
+      allDay: false,
       participantIds: [],
       externalEmails: [],
       enabled: true,

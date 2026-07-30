@@ -509,6 +509,7 @@ export async function createCrmStructureFromProposal(params: {
             kind: m.kind,
             startAt: range.startAt,
             endAt: range.endAt,
+            allDay: range.allDay,
             notes: m.notes,
             participantIds: m.participantIds,
             externalEmails: m.externalEmails,
