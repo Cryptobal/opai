@@ -57,7 +57,7 @@
     --ring: 166 76% 40%;                 /* same as primary */
 
     /* Border Radius */
-    --radius: 0.5rem;
+    --radius: 0.625rem;
 
     /* Chart Colors */
     --chart-1: 166 76% 40%;
@@ -116,20 +116,20 @@
 
     /* Spacing scale (referencia, no usar directo en HTML) */
     --ds-radius-sm: 6px;
-    --ds-radius-md: 10px;
-    --ds-radius-lg: 14px;
-    --ds-radius-xl: 20px;
+    --ds-radius-md: 12px;
+    --ds-radius-lg: 16px;
+    --ds-radius-xl: 24px;
     --ds-radius-pill: 999px;
 
     /* DS v4 — tipografía semántica (densidad comfortable por defecto).
        eyebrow/caption/body NO cambian en compact → sin layout shift en tablas. */
     --t-eyebrow: 11px;
     --t-caption: 12px;
-    --t-body: 13px;
-    --t-title: 15px;
-    --t-heading: 17px;
-    --t-display: 21px;
-    --t-metric: 26px;
+    --t-body: 14px;
+    --t-title: 16px;
+    --t-heading: 19px;
+    --t-display: 24px;
+    --t-metric: 32px;
 
     /* Shadow tokens — capas reales, no flat */
     --ds-shadow-xs: 0 1px 2px 0 hsl(220 30% 10% / 0.04);
@@ -182,9 +182,9 @@
      eyebrow/caption/body permanecen iguales → sin layout shift en planillas. */
   [data-density="compact"] {
     --t-title: 14px;
-    --t-heading: 15px;
-    --t-display: 18px;
-    --t-metric: 22px;
+    --t-heading: 16px;
+    --t-display: 20px;
+    --t-metric: 26px;
   }
 
   .dark {
