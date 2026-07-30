@@ -142,14 +142,19 @@ export async function addInstallationToBundle(opts: {
       currency: quote.currency,
       bundleCurrency: bundle.currency,
     });
-    await afterInstallationLinked({
+    const linked = await afterInstallationLinked({
       tenantId: opts.tenantId,
       bundleId: opts.bundleId,
       quoteId: quote.id,
       created: false,
       userId: opts.userId ?? null,
     });
-    return { member, quoteId: quote.id, created: false as const };
+    return {
+      member,
+      quoteId: quote.id,
+      created: false as const,
+      propagationError: linked.propagationError,
+    };
   }
 
   // ── Resolver instalación ──
@@ -248,7 +253,7 @@ export async function addInstallationToBundle(opts: {
       currency: source.currency,
       bundleCurrency: bundle.currency,
     });
-    await afterInstallationLinked({
+    const linked = await afterInstallationLinked({
       tenantId: opts.tenantId,
       bundleId: opts.bundleId,
       quoteId: cloned.id,
@@ -256,7 +261,12 @@ export async function addInstallationToBundle(opts: {
       clonedFromQuoteId: source.id,
       userId: opts.userId ?? null,
     });
-    return { member, quoteId: cloned.id, created: true as const };
+    return {
+      member,
+      quoteId: cloned.id,
+      created: true as const,
+      propagationError: linked.propagationError,
+    };
   }
 
   // ── Cotización vacía nueva ──
@@ -312,7 +322,7 @@ export async function addInstallationToBundle(opts: {
     currency: quote.currency,
     bundleCurrency: bundle.currency,
   });
-  await afterInstallationLinked({
+  const linked = await afterInstallationLinked({
     tenantId: opts.tenantId,
     bundleId: opts.bundleId,
     quoteId: quote.id,
@@ -320,7 +330,12 @@ export async function addInstallationToBundle(opts: {
     userId: opts.userId ?? null,
   });
 
-  return { member, quoteId: quote.id, created: true as const };
+  return {
+    member,
+    quoteId: quote.id,
+    created: true as const,
+    propagationError: linked.propagationError,
+  };
 }
 
 /**
@@ -335,6 +350,9 @@ async function afterInstallationLinked(opts: {
   clonedFromQuoteId?: string | null;
   userId?: string | null;
 }) {
+  // Un fallo aquí no debe deshacer el alta de la instalación, pero tampoco puede
+  // quedar invisible: la hija arrancaría con condiciones distintas al resto.
+  let propagationError: string | null = null;
   try {
     await propagateBundleConditions({
       tenantId: opts.tenantId,
@@ -342,6 +360,7 @@ async function afterInstallationLinked(opts: {
       quoteIds: [opts.quoteId],
     });
   } catch (err) {
+    propagationError = err instanceof Error ? err.message : String(err);
     console.error("[bundle] propagate on link:", err);
   }
   await createCrmHistoryLog({
@@ -355,9 +374,17 @@ async function afterInstallationLinked(opts: {
       ...(opts.clonedFromQuoteId
         ? { clonedFromQuoteId: opts.clonedFromQuoteId }
         : {}),
+      ...(propagationError
+        ? {
+            advertencia:
+              "No se pudieron aplicar las condiciones de la propuesta a esta instalación",
+            error: propagationError,
+          }
+        : {}),
     },
     createdBy: opts.userId ?? null,
   });
+  return { propagationError };
 }
 
 export async function removeQuoteFromBundle(opts: {

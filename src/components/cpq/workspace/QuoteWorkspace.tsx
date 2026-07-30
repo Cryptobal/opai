@@ -161,7 +161,7 @@ export function QuoteWorkspace({
   );
 
   return (
-    <div className="min-w-0 space-y-3 pb-4 overflow-x-clip">
+    <div className="cpq-touch-inputs min-w-0 space-y-3 pb-4 overflow-x-clip">
       <BundleStickyBar
         bundle={bundle}
         billing={billing}

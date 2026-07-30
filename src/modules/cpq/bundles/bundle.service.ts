@@ -331,13 +331,24 @@ export const BUNDLE_CONDITION_PATCH_KEYS = [
   "currency",
 ] as const;
 
-const intOrNull = (value: unknown): number | null => {
+const intOrNull = (
+  value: unknown,
+  range?: { field: string; min: number; max: number },
+): number | null => {
   if (value === null || value === undefined || value === "") return null;
   const n = Number(value);
   if (!Number.isFinite(n)) {
     throw new BundleServiceError("Valor numérico inválido", "VALIDATION", 400);
   }
-  return Math.round(n);
+  const rounded = Math.round(n);
+  if (range && (rounded < range.min || rounded > range.max)) {
+    throw new BundleServiceError(
+      `${range.field} debe estar entre ${range.min} y ${range.max}`,
+      "VALIDATION",
+      400,
+    );
+  }
+  return rounded;
 };
 
 const decimalOrNull = (value: unknown): number | null => {
@@ -406,13 +417,26 @@ export async function updateBundle(opts: {
   if (d.currency !== undefined) data.currency = d.currency;
 
   if (d.paymentTerms !== undefined) {
-    data.paymentTerms = d.paymentTerms?.trim() || null;
+    const terms = d.paymentTerms?.trim() || null;
+    if (terms && !["contrafactura", "30_dias", "anticipado"].includes(terms)) {
+      throw new BundleServiceError("Forma de pago inválida", "VALIDATION", 400);
+    }
+    data.paymentTerms = terms;
   }
   if (d.serviceStartDays !== undefined) {
-    data.serviceStartDays = intOrNull(d.serviceStartDays);
+    data.serviceStartDays = intOrNull(d.serviceStartDays, {
+      field: "Inicio de servicios",
+      min: 1,
+      max: 90,
+    });
   }
   if (d.contractDuration !== undefined) {
-    data.contractDuration = intOrNull(d.contractDuration);
+    // 0 dividiría por cero en el prorrateo de costos del motor.
+    data.contractDuration = intOrNull(d.contractDuration, {
+      field: "Duración del contrato",
+      min: 1,
+      max: 60,
+    });
   }
   if (d.isOngoingService !== undefined) {
     data.isOngoingService =
@@ -442,21 +466,43 @@ export async function updateBundle(opts: {
     data.adjustmentFreq = d.adjustmentFreq ?? null;
   }
   if (d.ipcWeight !== undefined && data.ipcWeight === undefined) {
-    data.ipcWeight = intOrNull(d.ipcWeight);
+    data.ipcWeight = intOrNull(d.ipcWeight, { field: "% IPC", min: 0, max: 100 });
   }
   if (d.imoWeight !== undefined && data.imoWeight === undefined) {
-    data.imoWeight = intOrNull(d.imoWeight);
+    data.imoWeight = intOrNull(d.imoWeight, { field: "% IMO", min: 0, max: 100 });
   }
   if (d.insurancePolicyUF !== undefined) {
-    data.insurancePolicyUF = decimalOrNull(d.insurancePolicyUF);
+    const uf = decimalOrNull(d.insurancePolicyUF);
+    if (uf != null && uf < 0) {
+      throw new BundleServiceError(
+        "El monto de la póliza no puede ser negativo",
+        "VALIDATION",
+        400,
+      );
+    }
+    data.insurancePolicyUF = uf;
   }
   if (d.liabilityMonths !== undefined) {
-    data.liabilityMonths = intOrNull(d.liabilityMonths);
+    data.liabilityMonths = intOrNull(d.liabilityMonths, {
+      field: "Límite de responsabilidad",
+      min: 1,
+      max: 24,
+    });
   }
   if (d.realAnnualIncrement !== undefined) {
-    data.realAnnualIncrement = intOrNull(d.realAnnualIncrement);
+    data.realAnnualIncrement = intOrNull(d.realAnnualIncrement, {
+      field: "Incremento real anual",
+      min: 0,
+      max: 100,
+    });
   }
-  if (d.paymentDays !== undefined) data.paymentDays = intOrNull(d.paymentDays);
+  if (d.paymentDays !== undefined) {
+    data.paymentDays = intOrNull(d.paymentDays, {
+      field: "Días de pago",
+      min: 1,
+      max: 30,
+    });
+  }
   if (d.paymentDayMode !== undefined) {
     data.paymentDayMode = d.paymentDayMode?.trim() || null;
   }

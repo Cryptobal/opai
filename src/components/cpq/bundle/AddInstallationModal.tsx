@@ -93,7 +93,14 @@ export function AddInstallationModal({
         toast.error(json.error || "No se pudo agregar");
         return;
       }
-      toast.success("Instalación agregada");
+      if (json.data?.propagationError) {
+        toast.warning("Instalación agregada, pero sin las condiciones de la propuesta", {
+          description:
+            "Vuelve a guardar las condiciones en el Consolidado para aplicarlas a esta instalación.",
+        });
+      } else {
+        toast.success("Instalación agregada");
+      }
       onOpenChange(false);
       setInstallationId("");
       setNewName("");

@@ -1876,6 +1876,6 @@ html {
   .cpq-touch-inputs input:not([type="checkbox"]):not([type="radio"]),
   .cpq-touch-inputs select,
   .cpq-touch-inputs textarea {
-    scroll-margin-top: 11rem;
+    scroll-margin-top: 12.5rem;
   }
 }

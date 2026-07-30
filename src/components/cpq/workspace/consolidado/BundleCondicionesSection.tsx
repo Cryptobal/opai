@@ -81,12 +81,17 @@ export function BundleCondicionesSection({
   /** PATCH del bundle: el servidor propaga a todas las hijas y recalcula. */
   onPatch: (data: Record<string, unknown>) => Promise<void>;
 }) {
+  // Propuesta enviada = inmutable, igual que la cotización enviada en modo
+  // única: editar aquí reescribiría condiciones ya comunicadas al cliente en
+  // TODAS las instalaciones.
+  const isLocked = bundle.status === "sent";
   const [form, setForm] = useState<Form>(() => formFromBundle(bundle));
   useEffect(() => {
     setForm(formFromBundle(bundle));
   }, [bundle]);
 
   const save = (patch: Partial<Form>) => {
+    if (isLocked) return;
     setForm((prev) => ({ ...prev, ...patch }));
     void onPatch(patch as Record<string, unknown>).catch(() => {
       // revert optimista: el refresh del hook restaurará el valor real
@@ -107,11 +112,18 @@ export function BundleCondicionesSection({
           Condiciones comerciales
         </h2>
         <span className="text-[12px] text-ds-text-3">
-          {saving ? "Guardando…" : "Se aplican a todas las instalaciones"}
+          {isLocked
+            ? "Propuesta enviada — condiciones bloqueadas"
+            : saving
+              ? "Guardando…"
+              : "Se aplican a todas las instalaciones"}
         </span>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div
+        className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4"
+        inert={isLocked ? true : undefined}
+      >
         <div className="space-y-1">
           <Label className={LABEL_CLASS}>Forma de pago</Label>
           <select
@@ -324,7 +336,10 @@ export function BundleCondicionesSection({
       </div>
 
       {/* Gasto financiero a nivel propuesta: stepper 0–6% en pasos de 0,5 */}
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border/60 bg-ds-surface-2/40 px-3 py-2.5">
+      <div
+        className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border/60 bg-ds-surface-2/40 px-3 py-2.5"
+        inert={isLocked ? true : undefined}
+      >
         <div className="flex items-center gap-3">
           <div>
             <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
