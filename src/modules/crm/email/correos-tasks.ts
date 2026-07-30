@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { auditTaskAction } from "@/lib/audit-productividad";
+import { logTaskActivity } from "@/modules/tareas/tarea-activity";
 
 export type ThreadTaskDTO = {
   id: string;
@@ -8,6 +9,8 @@ export type ThreadTaskDTO = {
   dueAt: string | null;
   allDay: boolean;
 };
+
+export type ThreadTaskSource = "correo" | "copiloto";
 
 /** Tareas asociadas a un hilo de correo (las más abiertas/próximas primero). */
 export async function listThreadTasks(tenantId: string, threadId: string): Promise<ThreadTaskDTO[]> {
@@ -40,8 +43,10 @@ export async function createThreadTask(params: {
   title: string;
   dueAt: Date | null;
   allDay?: boolean;
+  source?: ThreadTaskSource;
   request?: Request;
 }): Promise<ThreadTaskDTO | null> {
+  const source: ThreadTaskSource = params.source === "copiloto" ? "copiloto" : "correo";
   const thread = await prisma.crmEmailThread.findFirst({
     where: { id: params.threadId, tenantId: params.tenantId },
     select: { id: true, accountId: true, dealId: true, leadId: true, contactId: true },
@@ -73,6 +78,16 @@ export async function createThreadTask(params: {
       data: [{ taskId: created.id, userId: params.userId }],
       skipDuplicates: true,
     });
+    await logTaskActivity(
+      {
+        taskId: created.id,
+        tenantId: params.tenantId,
+        kind: "created",
+        actorId: params.userId,
+        payload: { source, threadId: params.threadId },
+      },
+      tx,
+    );
     return created;
   });
 

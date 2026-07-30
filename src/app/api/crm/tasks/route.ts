@@ -15,6 +15,7 @@ import { prisma } from "@/lib/prisma";
 import { requireTasksAccess } from "@/lib/api-auth-tareas";
 import { auditTaskAction } from "@/lib/audit-productividad";
 import { OPEN_TASK_STATUSES } from "@/modules/tareas/tareas.service";
+import { logTaskActivity } from "@/modules/tareas/tarea-activity";
 
 const MAX_ASSIGNEES = 20;
 const NOTES_MAX = 5000;
@@ -206,6 +207,16 @@ export async function POST(request: NextRequest) {
         data: assigneeIds.map((userId) => ({ taskId: created.id, userId })),
         skipDuplicates: true,
       });
+      await logTaskActivity(
+        {
+          taskId: created.id,
+          tenantId: ctx.tenantId,
+          kind: "created",
+          actorId: ctx.userId,
+          payload: { source: "manual" },
+        },
+        tx,
+      );
       return created;
     });
 
