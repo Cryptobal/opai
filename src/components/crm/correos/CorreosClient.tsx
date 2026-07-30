@@ -4,13 +4,16 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import {
   Archive, Building2, CalendarPlus, CheckSquare, Clock, Forward, Link2,
-  ListTodo, Mail, MailOpen, Menu, PenLine, Reply, ReplyAll, ShieldAlert,
-  Sparkles, Star, TicketPlus, Trash2,
+  ListChecks, ListTodo, Mail, MailOpen, Menu, PenLine, Reply, ReplyAll,
+  ShieldAlert, SlidersHorizontal, Sparkles, Star, TicketPlus, Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
   Surface,
   EmptyState,
+  FilterChipsBar,
+  FilterPopover,
+  SegmentedControl,
   Spinner,
   useSetIslandModuleMenu,
   useSetIslandSearch,
@@ -18,11 +21,15 @@ import {
   type ModuleSearchOperator,
 } from "@/components/opai-ds";
 import {
+  TOP_ASSOC_CHIPS,
   type CorreoChipKey,
   type CorreoFolderTab,
 } from "./CorreosFilters";
 import { CorreosDesktopRail } from "./CorreosDesktopRail";
-import { CorreosDesktopToolbar } from "./CorreosDesktopToolbar";
+import {
+  CorreosDesktopToolbar,
+  type CorreoQuickView,
+} from "./CorreosDesktopToolbar";
 import { CorreoSearchChips } from "./CorreoSearchChips";
 import { CorreoSearchScopeHint } from "./CorreoSearchScopeHint";
 import type { EmailIndexCoverage } from "@/modules/crm/email/email-index-coverage";
@@ -200,6 +207,9 @@ export function CorreosClient() {
   const [chip, setChip] = useState<CorreoChipKey>("todos");
   const [query, setQuery] = useState("");
   const [withTasks, setWithTasks] = useState(false);
+  /** Predicado client-side (eje excluyente con withTasks). Deshabilitado en búsqueda. */
+  const [unreadOnly, setUnreadOnly] = useState(false);
+  const [assocFiltersOpen, setAssocFiltersOpen] = useState(false);
   // C15: la búsqueda consulta al servidor (toda la casilla), con debounce.
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [coverage, setCoverage] = useState<EmailIndexCoverage | null>(null);
@@ -740,10 +750,37 @@ export function CorreosClient() {
     });
   }
 
-  // La búsqueda ya viene filtrada del servidor; los chips siguen siendo
-  // client-side (filtran metadata de asociación ya presente en la página).
-  const filtered = items.filter((t) => matchesChip(t, chip));
+  // La búsqueda ya viene filtrada del servidor; chips + "No leídos" son
+  // client-side sobre metadata ya presente. "No leídos" se apaga durante
+  // búsqueda (mismo criterio que withTasks — decisión por defecto del brief).
   const searching = debouncedQuery.length > 0;
+  const filtered = items.filter(
+    (t) => matchesChip(t, chip) && (!unreadOnly || searching || t.isUnread),
+  );
+  const quickView: CorreoQuickView = withTasks
+    ? "con_tareas"
+    : unreadOnly
+      ? "no_leidos"
+      : "todos";
+  function handleQuickViewChange(next: CorreoQuickView) {
+    if (next === "con_tareas") {
+      setWithTasks(true);
+      setUnreadOnly(false);
+      return;
+    }
+    if (next === "no_leidos") {
+      setWithTasks(false);
+      setUnreadOnly(true);
+      return;
+    }
+    setWithTasks(false);
+    setUnreadOnly(false);
+  }
+  const activeAssocChips = useMemo(() => {
+    const active = TOP_ASSOC_CHIPS.find((c) => c.key === chip);
+    if (!active) return [];
+    return [{ key: active.key, label: active.label, onClear: () => setChip("todos") }];
+  }, [chip]);
   const filteredFocusKey = useMemo(() => {
     if (filtered.length === 0) return "empty";
     return `${filtered.length}:${filtered[0]?.id}:${filtered[filtered.length - 1]?.id}`;
@@ -829,7 +866,9 @@ export function CorreosClient() {
    * siguiente hilo se sentía como “no vuelve a inicio” tras posponer.
    */
   function removeThreadAndAdvance(id: string) {
-    const list = itemsRef.current.filter((t) => matchesChip(t, chip));
+    const list = itemsRef.current.filter(
+      (t) => matchesChip(t, chip) && (!unreadOnly || searching || t.isUnread),
+    );
     const { nextId, nextFocusIndex } = nextThreadAfterRemove(list, id);
     const readerWasOnRemoved = openId === id;
     const focusedId = focusIndex >= 0 ? list[focusIndex]?.id : undefined;
@@ -1472,7 +1511,7 @@ export function CorreosClient() {
       )}
       {/* Reserva el alto de la isla / barra de selección. */}
       <div aria-hidden className={CORREOS_MOBILE_TOP_SPACER} />
-      <div className="space-y-1 px-4 lg:hidden">
+      <div className="space-y-1.5 px-4 lg:hidden">
         {query.trim().length > 0 && (
           <CorreoSearchChips
             query={query}
@@ -1489,6 +1528,74 @@ export function CorreosClient() {
             }
           />
         )}
+        {/* Vista rápida + filtros de asociación (sheet). El drawer sigue
+            disponible como vía alterna. */}
+        {selectedIds.size === 0 && (
+          <div className="flex items-center gap-1.5">
+            <SegmentedControl
+              ariaLabel="Vista rápida"
+              size="sm"
+              className="min-w-0 flex-1"
+              value={quickView}
+              onChange={handleQuickViewChange}
+              items={[
+                { id: "todos", label: "Todos" },
+                {
+                  id: "no_leidos",
+                  label: "No leídos",
+                  disabled: searching,
+                  title: searching ? "No disponible durante la búsqueda" : undefined,
+                },
+                {
+                  id: "con_tareas",
+                  label: "Con tareas",
+                  icon: ListChecks,
+                  disabled: searching,
+                  title: searching ? "No disponible durante la búsqueda" : undefined,
+                },
+              ]}
+            />
+            <FilterPopover
+              variant="sheet"
+              open={assocFiltersOpen}
+              onOpenChange={setAssocFiltersOpen}
+              title="Filtros"
+              onClear={() => setChip("todos")}
+              groups={[
+                {
+                  title: "Asociación",
+                  options: TOP_ASSOC_CHIPS.map((c) => ({
+                    id: c.key,
+                    label: c.label,
+                    checked: chip === c.key,
+                    onToggle: () => setChip(chip === c.key ? "todos" : c.key),
+                  })),
+                },
+              ]}
+              trigger={
+                <button
+                  type="button"
+                  onClick={() => setAssocFiltersOpen((o) => !o)}
+                  className={`inline-flex h-10 shrink-0 items-center gap-1 rounded-full border px-3 text-[12px] font-medium ds-tap ${
+                    activeAssocChips.length > 0
+                      ? "border-primary/30 bg-primary/15 text-primary"
+                      : "border-ds-border-default bg-ds-surface-1 text-ds-text-3"
+                  }`}
+                >
+                  <SlidersHorizontal className="h-3.5 w-3.5" aria-hidden />
+                  Filtros
+                  {activeAssocChips.length > 0 && (
+                    <span className="tabular-nums">{activeAssocChips.length}</span>
+                  )}
+                </button>
+              }
+            />
+          </div>
+        )}
+        <FilterChipsBar
+          chips={activeAssocChips}
+          onClearAll={() => setChip("todos")}
+        />
       </div>
       <CorreosMobileDrawer
         open={mobileNavOpen}
@@ -1686,8 +1793,10 @@ export function CorreosClient() {
                     : null
               }
               previewLines={previewLines} onPreviewLines={setPreviewLines}
-              withTasks={withTasks}
-              onWithTasksChange={setWithTasks}
+              quickView={quickView}
+              onQuickViewChange={handleQuickViewChange}
+              chip={chip}
+              onChip={setChip}
               selectedCount={selectedIds.size}
               allReadSelected={items
                 .filter((t) => selectedIds.has(t.id))

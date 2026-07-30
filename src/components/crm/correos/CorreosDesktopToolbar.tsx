@@ -1,12 +1,22 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import {
   AlignJustify, Archive, CheckSquare, Clock, ListChecks, Mail, MailOpen, RefreshCw,
-  ShieldAlert, Star, Trash2, X,
+  ShieldAlert, SlidersHorizontal, Star, Trash2, X,
 } from "lucide-react";
 import type { CorreoAction } from "@/modules/crm/email/gmail-thread-actions";
+import {
+  FilterChipsBar,
+  FilterPopover,
+  SegmentedControl,
+  type FilterGroup,
+} from "@/components/opai-ds";
 import { CorreoCheckbox } from "./CorreoCheckbox";
+import { TOP_ASSOC_CHIPS, type CorreoChipKey } from "./CorreosFilters";
 import type { CorreoPreviewLines } from "./useCorreosViewPreferences";
+
+export type CorreoQuickView = "todos" | "no_leidos" | "con_tareas";
 
 type Props = {
   canModify: boolean;
@@ -30,9 +40,12 @@ type Props = {
   onClear: () => void;
   onAction: (action: CorreoAction, okMsg: string, opts?: { undo?: CorreoAction; removes?: boolean }) => void;
   onSnooze: () => void;
-  /** Filtro rápido: solo hilos con tareas abiertas (deshabilitado con búsqueda). */
-  withTasks?: boolean;
-  onWithTasksChange?: (next: boolean) => void;
+  /** Vista rápida excluyente: Todos · No leídos · Con tareas. */
+  quickView: CorreoQuickView;
+  onQuickViewChange: (next: CorreoQuickView) => void;
+  /** Asociación single-select (eje independiente de la vista rápida). */
+  chip: CorreoChipKey;
+  onChip: (next: CorreoChipKey) => void;
 };
 
 const BTN =
@@ -52,7 +65,7 @@ export function CorreosDesktopToolbar({
   shownCount, totalCount, searching = false, totalIsLowerBound = false,
   previewLines, onPreviewLines,
   selectedCount, allReadSelected, onClear, onAction, onSnooze,
-  withTasks = false, onWithTasksChange,
+  quickView, onQuickViewChange, chip, onChip,
 }: Props) {
   const compact = previewLines === 1;
   const boundSuffix = searching && totalIsLowerBound ? "+" : "";
@@ -64,6 +77,29 @@ export function CorreosDesktopToolbar({
           ? `${shownCount} resultado${shownCount === 1 ? "" : "s"}`
           : `${shownCount} de ${totalCount}${boundSuffix}`
         : `${shownCount} de ${totalCount}`;
+
+  const [filtersOpen, setFiltersOpen] = useState(false);
+
+  const filterGroups: FilterGroup[] = useMemo(
+    () => [
+      {
+        title: "Asociación",
+        options: TOP_ASSOC_CHIPS.map((c) => ({
+          id: c.key,
+          label: c.label,
+          checked: chip === c.key,
+          onToggle: () => onChip(chip === c.key ? "todos" : c.key),
+        })),
+      },
+    ],
+    [chip, onChip],
+  );
+
+  const activeAssocChips = useMemo(() => {
+    const active = TOP_ASSOC_CHIPS.find((c) => c.key === chip);
+    if (!active) return [];
+    return [{ key: active.key, label: active.label, onClear: () => onChip("todos") }];
+  }, [chip, onChip]);
 
   if (selectedCount > 0) {
     return (
@@ -110,58 +146,95 @@ export function CorreosDesktopToolbar({
   }
 
   return (
-    <div className={`${SHELL} border-ds-border-default border-b-ds-border-subtle bg-ds-surface-1`}>
-      <CorreoCheckbox
-        checked={allChecked}
-        onChange={onToggleAll}
-        disabled={!canModify}
-        ariaLabel="Seleccionar todo lo visible"
-      />
-      <button
-        type="button"
-        title={syncing ? "Sincronizando…" : "Sincronizar ahora"}
-        onClick={onRefresh}
-        disabled={syncing}
-        className={BTN}
-      >
-        <RefreshCw className={`h-3.5 w-3.5 ${syncing ? "animate-spin" : ""}`} />
-      </button>
-      {onWithTasksChange && (
+    <div className="hidden lg:block">
+      <div className={`${SHELL} border-ds-border-default border-b-ds-border-subtle bg-ds-surface-1`}>
+        <CorreoCheckbox
+          checked={allChecked}
+          onChange={onToggleAll}
+          disabled={!canModify}
+          ariaLabel="Seleccionar todo lo visible"
+        />
         <button
           type="button"
-          disabled={searching}
-          title={
-            searching
-              ? "No disponible durante la búsqueda"
-              : withTasks
-                ? "Quitar filtro Con tareas"
-                : "Solo hilos con tareas"
-          }
-          aria-pressed={withTasks}
-          onClick={() => onWithTasksChange(!withTasks)}
-          className={`ml-1 inline-flex h-7 items-center gap-1 rounded-lg px-2 text-[12px] font-medium transition-colors ds-tap disabled:opacity-40 ${
-            withTasks
-              ? "bg-primary/15 text-primary"
-              : "text-ds-text-3 hover:bg-primary/10 hover:text-primary"
-          }`}
+          title={syncing ? "Sincronizando…" : "Sincronizar ahora"}
+          onClick={onRefresh}
+          disabled={syncing}
+          className={BTN}
         >
-          <ListChecks className="h-3.5 w-3.5" aria-hidden />
-          Con tareas
+          <RefreshCw className={`h-3.5 w-3.5 ${syncing ? "animate-spin" : ""}`} />
         </button>
-      )}
-      <span className="ml-auto text-[12px] text-ds-text-4 tabular-nums">
-        {countLabel}
-      </span>
-      <span aria-hidden className="h-4 w-px bg-ds-border-subtle" />
-      <button
-        type="button"
-        title={compact ? "Densidad cómoda" : "Densidad compacta"}
-        aria-pressed={compact}
-        onClick={() => onPreviewLines(compact ? 2 : 1)}
-        className={BTN}
-      >
-        <AlignJustify className="h-3.5 w-3.5" />
-      </button>
+
+        <SegmentedControl
+          ariaLabel="Vista rápida"
+          size="xs"
+          className="ml-1 min-w-0 max-w-[min(100%,420px)]"
+          value={quickView}
+          onChange={onQuickViewChange}
+          items={[
+            { id: "todos", label: "Todos" },
+            {
+              id: "no_leidos",
+              label: "No leídos",
+              disabled: searching,
+              title: searching ? "No disponible durante la búsqueda" : undefined,
+            },
+            {
+              id: "con_tareas",
+              label: "Con tareas",
+              icon: ListChecks,
+              disabled: searching,
+              title: searching ? "No disponible durante la búsqueda" : undefined,
+            },
+          ]}
+        />
+
+        <FilterPopover
+          open={filtersOpen}
+          onOpenChange={setFiltersOpen}
+          groups={filterGroups}
+          title="Filtros"
+          onClear={() => onChip("todos")}
+          align="start"
+          trigger={
+            <button
+              type="button"
+              onClick={() => setFiltersOpen((o) => !o)}
+              className={`ml-1 inline-flex h-7 items-center gap-1 rounded-lg px-2 text-[12px] font-medium transition-colors ds-tap ${
+                chip !== "todos" && chip !== "leads_creados"
+                  ? "bg-primary/15 text-primary"
+                  : "text-ds-text-3 hover:bg-primary/10 hover:text-primary"
+              }`}
+            >
+              <SlidersHorizontal className="h-3.5 w-3.5" aria-hidden />
+              Filtros
+              {activeAssocChips.length > 0 && (
+                <span className="rounded-full bg-primary/20 px-1.5 text-[12px] font-semibold tabular-nums">
+                  {activeAssocChips.length}
+                </span>
+              )}
+            </button>
+          }
+        />
+
+        <span className="ml-auto text-[12px] text-ds-text-4 tabular-nums">
+          {countLabel}
+        </span>
+        <span aria-hidden className="h-4 w-px bg-ds-border-subtle" />
+        <button
+          type="button"
+          title={compact ? "Densidad cómoda" : "Densidad compacta"}
+          aria-pressed={compact}
+          onClick={() => onPreviewLines(compact ? 2 : 1)}
+          className={BTN}
+        >
+          <AlignJustify className="h-3.5 w-3.5" />
+        </button>
+      </div>
+      <FilterChipsBar
+        chips={activeAssocChips}
+        onClearAll={() => onChip("todos")}
+        className="border-x border-ds-border-subtle bg-ds-surface-1 px-2 py-1"
+      />
     </div>
   );
 }
