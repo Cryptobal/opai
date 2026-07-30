@@ -345,6 +345,32 @@ function buildTextConditions(parsed: ParsedCorreoSearch): Prisma.Sql[] {
 }
 
 /**
+ * Variante ligera para el command palette: asunto + remitente/participantes.
+ * Nunca consulta text_body/html_body (latencia y costo de índices de cuerpo).
+ */
+export function buildPaletteTextConditions(parsed: ParsedCorreoSearch): Prisma.Sql[] {
+  const conds: Prisma.Sql[] = [];
+  for (const term of parsed.terms) {
+    const pattern = containsPattern(term);
+    conds.push(Prisma.sql`(
+      LOWER(public.f_unaccent(t.subject)) LIKE LOWER(public.f_unaccent(${pattern}))
+      OR EXISTS (
+        SELECT 1 FROM crm.email_messages m
+        WHERE m.thread_id = t.id
+          AND (
+            LOWER(m.from_email) LIKE LOWER(${pattern})
+            OR EXISTS (
+              SELECT 1 FROM unnest(m.to_emails || m.cc_emails) AS rcpt(email)
+              WHERE LOWER(rcpt.email) LIKE LOWER(${pattern})
+            )
+          )
+      )
+    )`);
+  }
+  return conds;
+}
+
+/**
  * Particiona condiciones: estructurales (léxico + vectorial) vs texto (solo léxico).
  */
 export function buildCorreoSearchParts(parsed: ParsedCorreoSearch): {
@@ -397,12 +423,20 @@ export function buildCorreoSearchIdsQuery(params: {
   orderBy?: Prisma.Sql;
   /** Si true, solo aplica condiciones estructurales (sin texto libre). */
   structuralOnly?: boolean;
+  /**
+   * Si true, el texto libre matchea solo asunto + participantes (sin cuerpo).
+   * Usado por el command palette.
+   */
+  paletteTextOnly?: boolean;
 }): Prisma.Sql {
   const now = params.now ?? new Date();
   const parts = buildCorreoSearchParts(params.parsed);
+  const textConds = params.paletteTextOnly
+    ? buildPaletteTextConditions(params.parsed)
+    : parts.text;
   const searchConds = params.structuralOnly
     ? parts.structural
-    : [...parts.structural, ...parts.text];
+    : [...parts.structural, ...textConds];
   const conds: Prisma.Sql[] = [
     Prisma.sql`t.tenant_id::text = ${params.tenantId}`,
     emailAccountIdsInSql(params.emailAccountIds),

@@ -27,6 +27,11 @@ import {
   findOpsTicketIdsBySearch,
 } from "@/lib/search-normalize";
 import { TICKET_PRIORITY_CONFIG, TICKET_STATUS_CONFIG } from "@/lib/tickets";
+import {
+  buildCorreoSearchIdsQuery,
+  parseCorreoSearchQuery,
+} from "@/modules/crm/email/correos-search";
+import { resolveMailboxScope } from "@/modules/crm/email/mailbox-scope";
 
 export type GlobalSearchResult = {
   id: string;
@@ -79,6 +84,20 @@ export type GlobalSearchResult = {
 };
 
 const PRODUCTIVITY_LIMIT = 8;
+const CORREOS_LIMIT = 6;
+
+function formatRelativeEs(date: Date, now = new Date()): string {
+  const diffMs = now.getTime() - date.getTime();
+  const abs = Math.abs(diffMs);
+  const mins = Math.round(abs / 60_000);
+  if (mins < 1) return "ahora";
+  if (mins < 60) return `hace ${mins} min`;
+  const hours = Math.round(mins / 60);
+  if (hours < 24) return `hace ${hours} h`;
+  const days = Math.round(hours / 24);
+  if (days < 7) return `hace ${days} d`;
+  return formatInTimeZone(date, CHILE_TZ, "dd/MM/yy");
+}
 
 const TASK_STATUS_LABEL: Record<string, string> = {
   open: "Abierta",
@@ -201,14 +220,109 @@ function parseSearchTier(raw: string | null): SearchTier {
   return "full";
 }
 
-/** Grupo correos — placeholder vacío hasta el bloque de implementación dedicado. */
-async function searchCorreos(_ctx: {
+/** Grupo correos — casillas propias; asunto + participantes (sin cuerpo). */
+async function searchCorreos(ctx: {
   tenantId: string;
   q: string;
   perms: RolePermissions;
   auth: AuthContext;
 }): Promise<GlobalSearchResult[]> {
-  return [];
+  if (!canView(ctx.perms, "productividad", "correos")) {
+    return [];
+  }
+  try {
+    const scopeRes = await resolveMailboxScope({
+      tenantId: ctx.tenantId,
+      userId: ctx.auth.userId,
+    });
+    if (!scopeRes.ok || scopeRes.scope.accountIds.length === 0) {
+      return [];
+    }
+
+    const parsed = parseCorreoSearchQuery(ctx.q);
+    if (!parsed) return [];
+
+    type ThreadRow = {
+      id: string;
+      last_message_at: Date | null;
+      subject: string;
+      is_unread: boolean;
+      attachment_count: number;
+      account_id: string | null;
+    };
+
+    const rows = await prisma.$queryRaw<ThreadRow[]>(
+      buildCorreoSearchIdsQuery({
+        tenantId: ctx.tenantId,
+        emailAccountIds: scopeRes.scope.accountIds,
+        parsed,
+        folder: parsed.folderOverride ?? "all",
+        cursorDate: null,
+        take: CORREOS_LIMIT,
+        paletteTextOnly: true,
+      }),
+    );
+    if (rows.length === 0) return [];
+
+    const threadIds = rows.map((r) => r.id);
+    const [counts, lastMessages] = await Promise.all([
+      prisma.crmEmailMessage.groupBy({
+        by: ["threadId"],
+        where: { tenantId: ctx.tenantId, threadId: { in: threadIds } },
+        _count: { _all: true },
+      }),
+      prisma.crmEmailMessage.findMany({
+        where: { tenantId: ctx.tenantId, threadId: { in: threadIds } },
+        orderBy: [{ sentAt: "desc" }, { createdAt: "desc" }],
+        distinct: ["threadId"],
+        select: {
+          threadId: true,
+          fromEmail: true,
+        },
+      }),
+    ]);
+
+    const countByThread = new Map(
+      counts.map((c) => [c.threadId, c._count._all]),
+    );
+    const lastByThread = new Map(
+      lastMessages.map((m) => [m.threadId, m]),
+    );
+
+    const out: GlobalSearchResult[] = [];
+    for (const row of rows) {
+      const last = lastByThread.get(row.id);
+      const from = last?.fromEmail?.trim() || "Sin remitente";
+      const msgCount = countByThread.get(row.id) ?? 0;
+      const meta = row.last_message_at
+        ? formatRelativeEs(row.last_message_at)
+        : undefined;
+      out.push({
+        id: row.id,
+        type: "email_thread",
+        group: "correos",
+        title: row.subject || "(sin asunto)",
+        subtitle: [
+          from,
+          msgCount > 0
+            ? `${msgCount} ${msgCount === 1 ? "mensaje" : "mensajes"}`
+            : null,
+        ]
+          .filter(Boolean)
+          .join(" · "),
+        href: `/crm/correos?thread=${row.id}`,
+        meta,
+        badgeLabel: row.is_unread ? "No leído" : undefined,
+        badgeClass: row.is_unread
+          ? "bg-status-info-soft text-status-info-fg"
+          : undefined,
+      });
+    }
+    return out;
+  } catch (err) {
+    console.error("[global search] correos query error:", err);
+    return [];
+  }
 }
 
 async function searchTareas(ctx: {

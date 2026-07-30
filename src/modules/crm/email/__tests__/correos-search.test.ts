@@ -3,6 +3,7 @@ import {
   buildCorreoSearchConditions,
   buildCorreoSearchIdsQuery,
   buildCorreoSearchParts,
+  buildPaletteTextConditions,
   escapeLikePattern,
   folderWhereSql,
   parseCorreoSearchQuery,
@@ -220,6 +221,28 @@ describe("buildCorreoSearchConditions", () => {
     expect(cond.sql).toContain("m.html_body");
     expect(cond.sql).toContain("f_unaccent");
     expect(cond.values).toContain("%factura%");
+  });
+
+  it("paletteTextOnly excluye cuerpo y conserva asunto + participantes", () => {
+    const [cond] = buildPaletteTextConditions({ ...base, terms: ["factura"] });
+    expect(cond.sql).toContain("f_unaccent(t.subject)");
+    expect(cond.sql).toContain("m.from_email");
+    expect(cond.sql).toContain("m.to_emails || m.cc_emails");
+    expect(cond.sql).not.toContain("text_body");
+    expect(cond.sql).not.toContain("html_body");
+
+    const query = buildCorreoSearchIdsQuery({
+      tenantId: "t1",
+      emailAccountIds: ["11111111-1111-1111-1111-111111111111"],
+      parsed: { ...base, terms: ["factura"] },
+      folder: "all",
+      cursorDate: null,
+      take: 6,
+      paletteTextOnly: true,
+    });
+    expect(query.sql).not.toContain("text_body");
+    expect(query.sql).not.toContain("html_body");
+    expect(query.sql).toContain("f_unaccent(t.subject)");
   });
 
   it("cada criterio produce una condición AND independiente", () => {
