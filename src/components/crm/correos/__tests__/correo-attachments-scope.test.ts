@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  allAttachmentsForMessage,
   attachmentsForMessage,
   isListedAttachment,
 } from "../correo-attachments-scope";
@@ -61,5 +62,41 @@ describe("attachmentsForMessage", () => {
     const m = msg({ id: "db-1", providerMessageId: null });
     const all = [att({ messageId: "db-1", attachmentId: "a1" })];
     expect(attachmentsForMessage(all, m)).toHaveLength(1);
+  });
+
+  it("excluye imágenes inline con Content-ID del listado", () => {
+    const m = msg({ id: "db-1", providerMessageId: "gmail-9" });
+    const all = [
+      att({
+        messageId: "gmail-9",
+        attachmentId: "img",
+        filename: "image.png",
+        mimeType: "image/png",
+        contentId: "ii_abc",
+      }),
+      att({ messageId: "gmail-9", attachmentId: "pdf", filename: "os.pdf" }),
+    ];
+    expect(attachmentsForMessage(all, m).map((a) => a.filename)).toEqual(["os.pdf"]);
+  });
+});
+
+describe("allAttachmentsForMessage", () => {
+  it("incluye embeds cid para el rewrite del HTML del lector", () => {
+    const m = msg({ id: "db-1", providerMessageId: "gmail-9" });
+    const all = [
+      att({
+        messageId: "gmail-9",
+        attachmentId: "img",
+        filename: "image.png",
+        mimeType: "image/png",
+        contentId: "ii_abc",
+      }),
+      att({ messageId: "gmail-9", attachmentId: "pdf", filename: "os.pdf" }),
+      att({ messageId: "gmail-other", attachmentId: "x", filename: "otro.pdf" }),
+    ];
+    expect(allAttachmentsForMessage(all, m).map((a) => a.filename)).toEqual([
+      "image.png",
+      "os.pdf",
+    ]);
   });
 });
