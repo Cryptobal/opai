@@ -188,6 +188,26 @@ const GROUP_CATEGORY: Record<SearchResultGroup, CommandCategory> = {
   config:    'search_config',
 };
 
+type SearchScope = 'all' | 'crm' | 'correos' | 'agenda' | 'tareas' | 'tickets';
+
+const SCOPE_TABS: { id: SearchScope; label: string; category?: CommandCategory }[] = [
+  { id: 'all', label: 'Todo' },
+  { id: 'crm', label: 'CRM', category: 'search_crm' },
+  { id: 'correos', label: 'Correos', category: 'search_correos' },
+  { id: 'agenda', label: 'Agenda', category: 'search_agenda' },
+  { id: 'tareas', label: 'Tareas', category: 'search_tareas' },
+  { id: 'tickets', label: 'Tickets', category: 'search_tickets' },
+];
+
+/** En alcance "Todo", tope por grupo nuevo (correos/agenda/tareas/tickets). */
+const TODO_NEW_GROUP_CAP = 4;
+const NEW_SEARCH_CATEGORIES = new Set<CommandCategory>([
+  'search_correos',
+  'search_agenda',
+  'search_tareas',
+  'search_tickets',
+]);
+
 // ── Paleta por categoría de COMANDO (recent/navigation/action/config) ──
 // Para que cada item de navegación tenga color en base al módulo destino.
 function getNavTone(href?: string): { color: string; bg: string } {
@@ -243,6 +263,7 @@ export function CommandPalette({ userRole, onOpenChat }: CommandPaletteProps) {
   const [coreLoading, setCoreLoading] = useState(false);
   const [correosLoading, setCorreosLoading] = useState(false);
   const [searchElapsedMs, setSearchElapsedMs] = useState<number | null>(null);
+  const [scope, setScope] = useState<SearchScope>('all');
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const coreAbortRef = useRef<AbortController | null>(null);
   const correosAbortRef = useRef<AbortController | null>(null);
@@ -319,7 +340,48 @@ export function CommandPalette({ userRole, onOpenChat }: CommandPaletteProps) {
     });
   }, [apiResults, onOpenChat]);
 
-  const allItems = useMemo(() => [...filteredCommands, ...searchItems], [filteredCommands, searchItems]);
+  const scopeCounts = useMemo(() => {
+    const counts: Record<SearchScope, number> = {
+      all: searchItems.length,
+      crm: 0,
+      correos: 0,
+      agenda: 0,
+      tareas: 0,
+      tickets: 0,
+    };
+    for (const item of searchItems) {
+      if (item.category === 'search_crm') counts.crm++;
+      else if (item.category === 'search_correos') counts.correos++;
+      else if (item.category === 'search_agenda') counts.agenda++;
+      else if (item.category === 'search_tareas') counts.tareas++;
+      else if (item.category === 'search_tickets') counts.tickets++;
+    }
+    return counts;
+  }, [searchItems]);
+
+  const visibleScopeTabs = useMemo(() => {
+    return SCOPE_TABS.filter((tab) => {
+      if (tab.id === 'all') return true;
+      // Mostrar tab si hay resultados o si el tier correspondiente aún carga
+      if (tab.id === 'correos') return scopeCounts.correos > 0 || correosLoading || query.trim().length >= 2;
+      return scopeCounts[tab.id] > 0 || (coreLoading && query.trim().length >= 2);
+    });
+  }, [scopeCounts, correosLoading, coreLoading, query]);
+
+  const scopedSearchItems = useMemo(() => {
+    if (scope === 'all') return searchItems;
+    const cat = SCOPE_TABS.find((t) => t.id === scope)?.category;
+    if (!cat) return searchItems;
+    return searchItems.filter((item) => item.category === cat);
+  }, [searchItems, scope]);
+
+  const allItems = useMemo(() => {
+    // En alcance específico, solo resultados de búsqueda (no comandos de nav)
+    if (scope !== 'all' && query.trim()) {
+      return scopedSearchItems;
+    }
+    return [...filteredCommands, ...scopedSearchItems];
+  }, [filteredCommands, scopedSearchItems, scope, query]);
 
   // Group by category
   const grouped = useMemo(() => {
@@ -348,6 +410,15 @@ export function CommandPalette({ userRole, onOpenChat }: CommandPaletteProps) {
       groups[cat].push(cmd);
     }
 
+    // Cap en "Todo" para grupos nuevos
+    if (scope === 'all') {
+      for (const cat of NEW_SEARCH_CATEGORIES) {
+        if (groups[cat] && groups[cat].length > TODO_NEW_GROUP_CAP) {
+          groups[cat] = groups[cat].slice(0, TODO_NEW_GROUP_CAP);
+        }
+      }
+    }
+
     return order
       .filter((cat) => groups[cat]?.length)
       .map((cat) => ({
@@ -355,7 +426,36 @@ export function CommandPalette({ userRole, onOpenChat }: CommandPaletteProps) {
         label: CATEGORY_LABELS[cat] ?? cat,
         items: groups[cat],
       }));
-  }, [allItems]);
+  }, [allItems, scope]);
+
+  // Tab / Shift+Tab y ⌘1–⌘6 para cambiar alcance
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      const tabs = visibleScopeTabs;
+      if (tabs.length === 0) return;
+
+      if (e.key === 'Tab') {
+        e.preventDefault();
+        const idx = Math.max(0, tabs.findIndex((t) => t.id === scope));
+        const next = e.shiftKey
+          ? (idx - 1 + tabs.length) % tabs.length
+          : (idx + 1) % tabs.length;
+        setScope(tabs[next].id);
+        return;
+      }
+
+      if ((e.metaKey || e.ctrlKey) && e.key >= '1' && e.key <= '6') {
+        const n = Number(e.key) - 1;
+        if (n >= 0 && n < SCOPE_TABS.length) {
+          e.preventDefault();
+          setScope(SCOPE_TABS[n].id);
+        }
+      }
+    };
+    window.addEventListener('keydown', onKeyDown, true);
+    return () => window.removeEventListener('keydown', onKeyDown, true);
+  }, [isOpen, scope, visibleScopeTabs]);
 
   // Debounced dual-fetch (core + correos) con AbortControllers independientes
   useEffect(() => {
@@ -492,6 +592,7 @@ export function CommandPalette({ userRole, onOpenChat }: CommandPaletteProps) {
     setCoreResults([]);
     setCorreosResults([]);
     setSearchElapsedMs(null);
+    setScope('all');
     const focus = () => {
       const el = inputRef.current;
       if (!el) return;
@@ -659,6 +760,55 @@ export function CommandPalette({ userRole, onOpenChat }: CommandPaletteProps) {
             </kbd>
           </div>
 
+          {/* ── Scope tabs ── */}
+          {query.trim().length >= 2 && (
+            <div
+              className={cn(
+                'flex items-center gap-1 border-b border-border/60 px-2 sm:px-3 py-1.5 shrink-0',
+                'overflow-x-auto scrollbar-none snap-x snap-mandatory',
+              )}
+              role="tablist"
+              aria-label="Alcance de búsqueda"
+            >
+              {visibleScopeTabs.map((tab) => {
+                const count = scopeCounts[tab.id];
+                const active = scope === tab.id;
+                const shortcutN = SCOPE_TABS.findIndex((t) => t.id === tab.id) + 1;
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={active}
+                    onClick={() => setScope(tab.id)}
+                    className={cn(
+                      'snap-start shrink-0 inline-flex items-center gap-1.5 rounded-lg px-3 h-10 sm:h-8',
+                      'text-[13px] font-medium transition-colors',
+                      active
+                        ? 'bg-accent text-accent-foreground'
+                        : 'text-ds-text-3 hover:bg-ds-surface-2 hover:text-foreground',
+                    )}
+                  >
+                    <span>{tab.label}</span>
+                    {(count > 0 || tab.id === 'all') && (
+                      <span
+                        className={cn(
+                          'rounded-md px-1.5 py-0.5 text-[12px] tabular-nums',
+                          active ? 'bg-background/40' : 'bg-ds-surface-2',
+                        )}
+                      >
+                        {count}
+                      </span>
+                    )}
+                    <kbd className="hidden sm:inline text-[12px] text-ds-text-4 ml-0.5 opacity-60">
+                      ⌘{shortcutN}
+                    </kbd>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
           {/* ── Results ── */}
           <Command.List
             className={cn(
@@ -679,7 +829,11 @@ export function CommandPalette({ userRole, onOpenChat }: CommandPaletteProps) {
                 </div>
                 <p className="text-sm font-medium text-foreground">
                   {query ? (
-                    <>Sin resultados para <span className="text-muted-foreground">&ldquo;{query}&rdquo;</span></>
+                    scope !== 'all' ? (
+                      <>Sin resultados en {SCOPE_TABS.find((t) => t.id === scope)?.label ?? 'este alcance'}</>
+                    ) : (
+                      <>Sin resultados para <span className="text-muted-foreground">&ldquo;{query}&rdquo;</span></>
+                    )
                   ) : (
                     'Empieza a escribir para buscar'
                   )}
@@ -830,7 +984,7 @@ export function CommandPalette({ userRole, onOpenChat }: CommandPaletteProps) {
             ))}
 
             {/* Shimmer Correos mientras el tier correos pende (altura ≈ 1 fila) */}
-            {correosLoading && query.trim().length >= 2 && (
+            {correosLoading && query.trim().length >= 2 && (scope === 'all' || scope === 'correos') && (
               <div
                 className="mx-0.5 mt-1 rounded-xl px-3 py-3 sm:py-2.5"
                 aria-busy="true"
