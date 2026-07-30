@@ -159,6 +159,12 @@ export async function POST(
     });
     const portalAccountId = accountAssocForPortal?.entityId ?? null;
 
+    // Cuántos contactos ya están asociados (para decidir role primary/related).
+    const existingContactAssocCount = await prisma.docAssociation.count({
+      where: { documentId: id, entityType: "crm_contact" },
+    });
+    let newContactAssocIndex = 0;
+
     const results: Array<{ email: string; ok: boolean; error?: string }> = [];
     for (const recipient of recipients) {
       // Primary CTA: Portal Cliente login with email pre-filled.
@@ -177,17 +183,39 @@ export async function POST(
           },
           select: { id: true, portalEnabled: true },
         });
-        if (contact && !contact.portalEnabled) {
-          const magicToken = buildToken();
-          const exp = new Date(Date.now() + 48 * 60 * 60 * 1000); // 48h
-          await prisma.crmContact.update({
-            where: { id: contact.id },
-            data: { portalMagicToken: magicToken, portalMagicTokenExp: exp },
+        if (contact) {
+          // Asociar TODOS los destinatarios CRM al documento para que
+          // figurezcan como revisores con acceso (no solo el contacto
+          // primario con el que se generó el contrato).
+          const role =
+            existingContactAssocCount === 0 && newContactAssocIndex === 0
+              ? "primary"
+              : "related";
+          await prisma.docAssociation.createMany({
+            data: [
+              {
+                documentId: id,
+                entityType: "crm_contact",
+                entityId: contact.id,
+                role,
+              },
+            ],
+            skipDuplicates: true,
           });
-          portalSetupUrl = buildEmailUrl(
-            `/portal/cliente/setup?token=${magicToken}`,
-            tenant?.slug ?? null,
-          );
+          newContactAssocIndex += 1;
+
+          if (!contact.portalEnabled) {
+            const magicToken = buildToken();
+            const exp = new Date(Date.now() + 48 * 60 * 60 * 1000); // 48h
+            await prisma.crmContact.update({
+              where: { id: contact.id },
+              data: { portalMagicToken: magicToken, portalMagicTokenExp: exp },
+            });
+            portalSetupUrl = buildEmailUrl(
+              `/portal/cliente/setup?token=${magicToken}`,
+              tenant?.slug ?? null,
+            );
+          }
         }
       }
 
@@ -209,17 +237,16 @@ export async function POST(
       });
     }
 
-    // Move the document to the "review" status so the timeline / UI can
-    // reflect that there's an open review cycle. `review` is the canonical
-    // in-review state understood by the editor allow-list, the status catalog
-    // (DOC_STATUS_CONFIG) and the PATCH validator — and it keeps the document
-    // editable so the executive can still fix unresolved tokens.
-    if (document.status === "draft") {
-      await prisma.document.update({
-        where: { id },
-        data: { status: "review" },
-      });
-    }
+    // Visible en Portal Cliente + pasar a "review" si aún estaba en draft.
+    // `review` es el estado canónico de ciclo abierto (editor allow-list,
+    // DOC_STATUS_CONFIG y PATCH validator) y mantiene el documento editable.
+    await prisma.document.update({
+      where: { id },
+      data: {
+        portalVisible: true,
+        ...(document.status === "draft" ? { status: "review" } : {}),
+      },
+    });
 
     await prisma.docHistory.create({
       data: {

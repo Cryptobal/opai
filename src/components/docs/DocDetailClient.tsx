@@ -38,6 +38,7 @@ import { DetailHeader, useSetBreadcrumbTrailing } from "@/components/opai-ds";
 import { ContractEditor } from "./ContractEditor";
 import { SignatureRequestModal } from "./SignatureRequestModal";
 import { SendForReviewModal } from "./SendForReviewModal";
+import { DocReviewContacts } from "./DocReviewContacts";
 import { SignatureStatusPanel } from "./SignatureStatusPanel";
 import { DOC_STATUS_CONFIG, normalizeDocStatus } from "@/lib/docs/token-registry";
 import { toast } from "sonner";
@@ -520,14 +521,17 @@ export function DocDetailClient({ documentId }: DocDetailClientProps) {
         )}
       </div>
 
-      {/* Associations */}
-      {doc.associations && doc.associations.length > 0 && (
+      {/* Associations (cuenta / instalación / negocio). Los contactos se
+          gestionan aparte para poder agregar varios revisores. */}
+      {doc.associations &&
+        doc.associations.some((a) => a.entityType !== "crm_contact") && (
         <div className="flex items-center gap-2 flex-wrap px-1">
           <span className="text-xs text-muted-foreground">Asociado a:</span>
-          {doc.associations.map((assoc) => {
+          {doc.associations
+            .filter((assoc) => assoc.entityType !== "crm_contact")
+            .map((assoc) => {
             const Icon = ENTITY_ICONS[assoc.entityType] || FileText;
             const entityUrl = assoc.entityType === "crm_account" ? `/opai/crm/cuentas/${assoc.entityId}`
-              : assoc.entityType === "crm_contact" ? `/opai/crm/contactos/${assoc.entityId}`
               : assoc.entityType === "crm_installation" ? `/opai/crm/instalaciones/${assoc.entityId}`
               : assoc.entityType === "crm_deal" ? `/opai/crm/negocios/${assoc.entityId}`
               : null;
@@ -554,6 +558,21 @@ export function DocDetailClient({ documentId }: DocDetailClientProps) {
             );
           })}
         </div>
+      )}
+
+      {/* Contactos revisores: agregar/quitar desde el visor */}
+      {doc.contractClientToken && (
+        <DocReviewContacts
+          documentId={documentId}
+          initialAssociated={(doc.associations ?? [])
+            .filter((a) => a.entityType === "crm_contact")
+            .map((a) => ({
+              id: a.id,
+              entityId: a.entityId,
+              entityName: a.entityName,
+            }))}
+          onChanged={() => fetchDocument()}
+        />
       )}
 
       {/* Acceso al Portal Cliente (login). El contrato en revisión aparece
