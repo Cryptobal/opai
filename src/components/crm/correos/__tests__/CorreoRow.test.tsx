@@ -31,6 +31,8 @@ const thread: CorreoThreadDTO = {
   pendingSince: null,
   slaLevel: null,
   slaLabel: null,
+  openTaskCount: 0,
+  taskDueLevel: null,
 };
 
 describe("CorreoRow (desktop denso)", () => {

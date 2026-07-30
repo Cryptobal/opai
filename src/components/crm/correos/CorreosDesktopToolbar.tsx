@@ -1,7 +1,7 @@
 "use client";
 
 import {
-  AlignJustify, Archive, CheckSquare, Clock, Mail, MailOpen, RefreshCw,
+  AlignJustify, Archive, CheckSquare, Clock, ListChecks, Mail, MailOpen, RefreshCw,
   ShieldAlert, Star, Trash2, X,
 } from "lucide-react";
 import type { CorreoAction } from "@/modules/crm/email/gmail-thread-actions";
@@ -30,6 +30,9 @@ type Props = {
   onClear: () => void;
   onAction: (action: CorreoAction, okMsg: string, opts?: { undo?: CorreoAction; removes?: boolean }) => void;
   onSnooze: () => void;
+  /** Filtro rápido: solo hilos con tareas abiertas (deshabilitado con búsqueda). */
+  withTasks?: boolean;
+  onWithTasksChange?: (next: boolean) => void;
 };
 
 const BTN =
@@ -49,6 +52,7 @@ export function CorreosDesktopToolbar({
   shownCount, totalCount, searching = false, totalIsLowerBound = false,
   previewLines, onPreviewLines,
   selectedCount, allReadSelected, onClear, onAction, onSnooze,
+  withTasks = false, onWithTasksChange,
 }: Props) {
   const compact = previewLines === 1;
   const boundSuffix = searching && totalIsLowerBound ? "+" : "";
@@ -122,6 +126,29 @@ export function CorreosDesktopToolbar({
       >
         <RefreshCw className={`h-3.5 w-3.5 ${syncing ? "animate-spin" : ""}`} />
       </button>
+      {onWithTasksChange && (
+        <button
+          type="button"
+          disabled={searching}
+          title={
+            searching
+              ? "No disponible durante la búsqueda"
+              : withTasks
+                ? "Quitar filtro Con tareas"
+                : "Solo hilos con tareas"
+          }
+          aria-pressed={withTasks}
+          onClick={() => onWithTasksChange(!withTasks)}
+          className={`ml-1 inline-flex h-7 items-center gap-1 rounded-lg px-2 text-[12px] font-medium transition-colors ds-tap disabled:opacity-40 ${
+            withTasks
+              ? "bg-primary/15 text-primary"
+              : "text-ds-text-3 hover:bg-primary/10 hover:text-primary"
+          }`}
+        >
+          <ListChecks className="h-3.5 w-3.5" aria-hidden />
+          Con tareas
+        </button>
+      )}
       <span className="ml-auto text-[12px] text-ds-text-4 tabular-nums">
         {countLabel}
       </span>
