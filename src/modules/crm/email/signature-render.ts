@@ -17,8 +17,8 @@ import {
   normalizeChilePhone,
   normalizeWebsiteHref,
   normalizeWhatsAppDigits,
+  resolveWebsiteText,
   type SignatureData,
-  websiteLabel,
 } from "./signature-data";
 
 const FONT =
@@ -27,6 +27,9 @@ const COLOR_NAME = "#151a23";
 const COLOR_META = "#5c6b82";
 const COLOR_MUTED = "#8794a8";
 const COLOR_RULE = "#e5e7eb";
+
+/** Ancho máximo razonable para logo al lado (no come todo el preview). */
+const MAX_LOGO_LEFT_WIDTH = 140;
 
 export function escapeHtml(s: string): string {
   return s
@@ -44,6 +47,13 @@ function linkStyle(accent: string): string {
 function clampWidth(n: number | undefined): number {
   const w = typeof n === "number" && Number.isFinite(n) ? Math.round(n) : DEFAULT_LOGO_WIDTH;
   return Math.min(MAX_LOGO_WIDTH, Math.max(MIN_LOGO_WIDTH, w));
+}
+
+function logoDisplayWidth(data: SignatureData): number {
+  const w = clampWidth(data.logoWidthPx);
+  // En layout lateral un logo de 226px colapsa/oculta el bloque en clients estrechos.
+  if (data.layout === "logo-left") return Math.min(w, MAX_LOGO_LEFT_WIDTH);
+  return w;
 }
 
 function renderPhoneLink(phone: string, accent: string): string {
@@ -65,9 +75,9 @@ function renderEmailLink(email: string, accent: string): string {
   return `<a href="mailto:${safe}" style="${linkStyle(accent)}">${safe}</a>`;
 }
 
-function renderWebLink(website: string, accent: string): string {
+function renderWebLink(website: string, accent: string, websiteText?: string): string {
   const href = normalizeWebsiteHref(website);
-  const label = escapeHtml(websiteLabel(website));
+  const label = escapeHtml(resolveWebsiteText(website, websiteText));
   return `<a href="${escapeHtml(href)}" style="${linkStyle(accent)}" target="_blank">${label}</a>`;
 }
 
@@ -81,10 +91,13 @@ function renderContactLine(data: SignatureData, accent: string): string {
 
 function renderLogoCell(data: SignatureData, opts?: { previewPlaceholder?: boolean }): string {
   if (data.layout === "text-only") return "";
-  const w = clampWidth(data.logoWidthPx);
+  const w = logoDisplayWidth(data);
   const alt = escapeHtml(data.company || data.fullName || "Logo");
+  // NO usar max-width:100% en celdas de tabla sin ancho fijo: en varios clients
+  // (y en el preview) el % se resuelve a 0 y el logo desaparece en logo-left.
+  const imgStyle = `display:block;border:0;outline:none;width:${w}px;height:auto;`;
   if (data.logoUrl) {
-    return `<img src="${escapeHtml(data.logoUrl)}" alt="${alt}" width="${w}" style="display:block;border:0;width:${w}px;max-width:100%;height:auto;" />`;
+    return `<img src="${escapeHtml(data.logoUrl)}" alt="${alt}" width="${w}" style="${imgStyle}" />`;
   }
   // Solo preview del editor: sin logo real el layout no se veía distinto.
   if (opts?.previewPlaceholder) {
@@ -99,9 +112,13 @@ function renderTextBlock(data: SignatureData): string {
     : DEFAULT_ACCENT;
 
   const name = escapeHtml(data.fullName || "");
-  const roleParts = [data.role, data.company].filter(Boolean).map((s) => escapeHtml(s!));
-  const roleLine = roleParts.length
-    ? `<div style="font-size:13px;line-height:1.45;color:${COLOR_META};margin:0 0 4px;">${roleParts.join(" · ")}</div>`
+
+  // Cargo y empresa en líneas separadas (nunca "Cargo · Empresa").
+  const roleLine = data.role
+    ? `<div style="font-size:13px;line-height:1.45;color:${COLOR_META};margin:0 0 2px;">${escapeHtml(data.role)}</div>`
+    : "";
+  const companyLine = data.company
+    ? `<div style="font-size:13px;line-height:1.45;color:${COLOR_META};margin:0 0 4px;">${escapeHtml(data.company)}</div>`
     : "";
 
   const contactLine = renderContactLine(data, accent);
@@ -111,7 +128,7 @@ function renderTextBlock(data: SignatureData): string {
     : "";
 
   const webLine = data.website
-    ? `<div style="font-size:13px;line-height:1.45;margin:0 0 2px;">${renderWebLink(data.website, accent)}</div>`
+    ? `<div style="font-size:13px;line-height:1.45;margin:0 0 2px;">${renderWebLink(data.website, accent, data.websiteText)}</div>`
     : "";
 
   const addressLine = data.address
@@ -121,6 +138,7 @@ function renderTextBlock(data: SignatureData): string {
   return [
     `<div style="font-size:15px;font-weight:700;line-height:1.35;color:${COLOR_NAME};margin:0 0 2px;">${name}</div>`,
     roleLine,
+    companyLine,
     contactLine,
     emailLine,
     webLine,
@@ -150,27 +168,29 @@ export function renderSignatureHtml(
   const text = renderTextBlock(data);
   const disclaimer = renderDisclaimer(data);
   const showLogo = Boolean(logo);
+  const logoW = logoDisplayWidth(data);
 
   let body: string;
 
   if (!showLogo || data.layout === "text-only") {
-    body = `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;"><tr><td style="font-family:${FONT};vertical-align:top;">${text}</td></tr></table>`;
+    body = `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;"><tr><td style="font-family:${FONT};vertical-align:top;text-align:left;">${text}</td></tr></table>`;
   } else if (data.layout === "logo-top") {
+    // Logo arriba, alineado a la izquierda con el bloque de texto (no centrado).
     body = `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;">
-<tr><td style="font-family:${FONT};padding:0 0 10px;">${logo}</td></tr>
-<tr><td style="font-family:${FONT};vertical-align:top;">${text}</td></tr>
+<tr><td align="left" style="font-family:${FONT};padding:0 0 10px;text-align:left;vertical-align:top;">${logo}</td></tr>
+<tr><td align="left" style="font-family:${FONT};vertical-align:top;text-align:left;">${text}</td></tr>
 </table>`;
   } else {
-    // logo-left (default)
+    // logo-left: celda de logo con ancho fijo para que la imagen no colapse.
     body = `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;">
 <tr>
-<td style="font-family:${FONT};vertical-align:middle;padding:0 14px 0 0;">${logo}</td>
-<td style="font-family:${FONT};vertical-align:top;border-left:1px solid ${COLOR_RULE};padding:0 0 0 14px;">${text}</td>
+<td width="${logoW}" align="left" style="font-family:${FONT};vertical-align:top;padding:0 14px 0 0;width:${logoW}px;text-align:left;">${logo}</td>
+<td align="left" style="font-family:${FONT};vertical-align:top;border-left:1px solid ${COLOR_RULE};padding:0 0 0 14px;text-align:left;">${text}</td>
 </tr>
 </table>`;
   }
 
-  return `<div style="margin-top:18px;padding-top:14px;border-top:1px solid ${COLOR_RULE};font-family:${FONT};">
+  return `<div style="margin-top:18px;padding-top:14px;border-top:1px solid ${COLOR_RULE};font-family:${FONT};text-align:left;">
 ${body}
 ${disclaimer}
 </div>`;

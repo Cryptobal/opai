@@ -4,10 +4,12 @@ import { useRef, useState } from "react";
 import { ImagePlus, X } from "lucide-react";
 import { toast } from "sonner";
 import {
+  isBookingUrl,
   MAX_LOGO_WIDTH,
   MIN_LOGO_WIDTH,
   normalizeChilePhone,
   normalizeWhatsAppDigits,
+  resolveWebsiteText,
   type SignatureData,
   type SignatureLayout,
 } from "@/modules/crm/email/signature-data";
@@ -124,10 +126,30 @@ export function SignatureForm({ data, onChange, disabled }: Props) {
           <input className={inputCls} disabled={disabled} type="email" value={data.email ?? ""}
             onChange={(e) => patch({ email: e.target.value || undefined })} />
         </Field>
-        <Field label="Sitio web">
+        <Field label="Enlace (URL)">
           <input className={inputCls} disabled={disabled} value={data.website ?? ""}
-            placeholder="gard.cl"
-            onChange={(e) => patch({ website: e.target.value || undefined })} />
+            placeholder="gard.cl o calendar.app.google/…"
+            onChange={(e) => {
+              const website = e.target.value || undefined;
+              const next: Partial<SignatureData> = { website };
+              // Si pegan un link de agenda y aún no hay texto, sugerir uno amigable.
+              if (website && isBookingUrl(website) && !data.websiteText) {
+                next.websiteText = "Agenda una reunión";
+              }
+              patch(next);
+            }} />
+        </Field>
+        <Field label="Texto del enlace">
+          <input className={inputCls} disabled={disabled} value={data.websiteText ?? ""}
+            placeholder="Agenda una reunión"
+            maxLength={80}
+            onChange={(e) => patch({ websiteText: e.target.value.slice(0, 80) || undefined })} />
+          {data.website && (
+            <UriChip
+              ok
+              text={`Se verá: ${resolveWebsiteText(data.website, data.websiteText)}`}
+            />
+          )}
         </Field>
       </section>
 
