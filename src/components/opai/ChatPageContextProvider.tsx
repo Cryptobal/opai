@@ -39,6 +39,7 @@ export type ChatPageContextEntityType =
   | "crm_contact"
   | "crm_email_thread"
   | "cpq_quote"
+  | "cpq_bundle"
   | "doc_document"
   | "ops_guardia"
   | "other";
