@@ -136,7 +136,9 @@ export function EntityThreadReader({
             }
           />
           {detail.canReply ? (
-            <div className="sticky bottom-0 space-y-2 border-t border-ds-border-subtle bg-ds-surface-1 p-2">
+            <div className="space-y-2">
+              {/* Action bar se porta al dock fijo del shell; aquí queda el
+                  composer (cuando abre) + atajo a Correo. */}
               <CorreoReplyBox
                 detail={replyDetail}
                 continueDraftIntent={continueDraftIntent}

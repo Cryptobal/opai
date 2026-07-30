@@ -21,10 +21,11 @@ type Props = {
 };
 
 /**
- * Barra de acciones estilo Gmail bajo el último mensaje (Bloque 2).
+ * Barra de acciones estilo Gmail (Bloque 2).
  * Responder · Responder a todos (condicional) · Reenviar.
- * Al abrir el composer esta barra desaparece (exclusividad total).
- * Sin scroll lateral: grid de ancho fijo con etiquetas cortas en móvil.
+ * CorreoReplyBox la ancla al dock inferior del lector (fuera del scroll)
+ * para que quede fija abajo como en Gmail. Al abrir el composer desaparece
+ * (exclusividad total). Sin scroll lateral: grid de ancho fijo.
  */
 export function CorreoActionBar({
   canReply,
