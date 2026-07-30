@@ -14,6 +14,8 @@ import { CorreoReaderMobileHeader } from "./CorreoReaderMobileHeader";
 import { CorreoReaderOverflowMenu } from "./CorreoReaderOverflowMenu";
 import { CorreoReaderIsland } from "./CorreoReaderIsland";
 import { CorreoSnoozeSheet } from "./CorreoSnoozeSheet";
+import { CorreoWorkPanel } from "./CorreoWorkPanel";
+import { CorreoWorkProvider } from "./CorreoWorkContext";
 import { snoozeThread } from "./correo-thread-action-client";
 import { useMarkCorreoRead } from "./useMarkCorreoRead";
 import { parseSender } from "./correo-sender";
@@ -23,6 +25,7 @@ import type { CorreoShortcuts, CorreoSnoozeConfig } from "./useCorreosViewPrefer
 import { nextIntentNonce, type ComposeIntent } from "./correo-reader-intent";
 import type { ComposerMode } from "./CorreoComposerBox";
 import type { CorreoPrimaryAction } from "./correo-primary-action";
+import { resolveWorkTab, type WorkTab } from "./work-panel-tabs";
 import { toast } from "sonner";
 
 type ThreadPreview = {
@@ -110,6 +113,10 @@ export function CorreoDrawer({
   const [primaryAction, setPrimaryAction] = useState<CorreoPrimaryAction | null>(null);
   /** Composer abierto → la isla de acciones se oculta (exclusividad). */
   const [composerOpen, setComposerOpen] = useState(false);
+  /** Copiloto (Contexto/Trabajo): vive aquí para no cerrarse al cambiar de hilo. */
+  const [workPanelTab, setWorkPanelTab] = useState<WorkTab | null>(null);
+  /** Último detalle con el que se mostró Copiloto (evita parpadeo al cargar otro hilo). */
+  const workPanelDetailRef = useRef<CorreoDetail | null>(null);
   // Evita reutilizar el detalle del hilo anterior al cambiar de correo.
   const detailThreadId = detail?.thread.id ?? null;
   // Guarda el hilo pedido para descartar respuestas stale (p. ej. onDone de
@@ -152,11 +159,26 @@ export function CorreoDrawer({
     }
   }, [threadId]);
 
+  // Deep-link / menú contextual: abrir Copiloto en una pestaña.
+  useEffect(() => {
+    if (!workTabIntent) return;
+    setWorkPanelTab(resolveWorkTab(workTabIntent.tab));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [workTabIntent?.nonce]);
+
+  // Cache del detalle para que Copiloto no parpadee al cambiar de hilo.
+  useEffect(() => {
+    if (detail && detail.thread.id === threadId) {
+      workPanelDetailRef.current = detail;
+    }
+  }, [detail, threadId]);
+
   // Carga inicial / cambio de hilo: header desde `preview`; cuerpo desde
   // IndexedDB (si hay) + red. No vaciamos el detalle del hilo anterior con
   // un null intermedio si ya estamos pidiendo el mismo id; al cambiar de id
   // limpiamos para no mostrar el HTML del correo previo (evita “pestañeo”
   // de un pedazo de correo sobre otro).
+  // Copiloto (workPanelTab) NO se cierra al cambiar de hilo: solo con X/Escape.
   useEffect(() => {
     setLocalComposeIntent(null);
     setSnoozeOpen(false);
@@ -166,6 +188,8 @@ export function CorreoDrawer({
     readCursorCapturedRef.current = false;
     if (!threadId) {
       setDetail(null);
+      setWorkPanelTab(null);
+      workPanelDetailRef.current = null;
       return;
     }
     setDetail((prev) => (prev?.thread.id === threadId ? prev : null));
@@ -323,6 +347,17 @@ export function CorreoDrawer({
   // Intent externo (atajo/menú) gana; si no, el pedido local de la isla móvil.
   const effectiveComposeIntent = composeIntent ?? localComposeIntent;
 
+  // Copiloto sigue abierto al cambiar de mail: actualiza al nuevo detalle y,
+  // mientras carga, mantiene el anterior para no “desaparecer”.
+  const workPanelDetail =
+    workPanelTab == null
+      ? null
+      : detailReady
+        ? detail
+        : workPanelDetailRef.current;
+  const workPanelSynced =
+    workPanelDetail != null && workPanelDetail.thread.id === threadId;
+
   return (
     <CorreoReaderShell
       open
@@ -393,8 +428,6 @@ export function CorreoDrawer({
           initialMessageId={initialMessageId}
           mailboxEmail={mailboxEmail}
           canModify={canModify}
-          onOpenAiLead={() => onOpenAiLead?.()}
-          onAiCommand={onAiCommand}
           onAssociate={associate}
           onRefresh={refresh}
           onClose={onClose}
@@ -407,9 +440,8 @@ export function CorreoDrawer({
           alwaysShowImages={alwaysShowImages}
           onAlwaysShowImages={onAlwaysShowImages}
           shortcuts={shortcuts}
-          workTabIntent={workTabIntent}
+          onOpenWorkPanel={setWorkPanelTab}
           composeIntent={effectiveComposeIntent}
-          readCursorAt={readCursorAt}
           dataRevision={refreshToken}
           onOpenAiStyle={onOpenAiStyle}
           onOpenSignature={onOpenSignature}
@@ -424,6 +456,28 @@ export function CorreoDrawer({
         onOpenSettings={onOpenSnoozeSettings}
         onConfirm={handleSnoozeConfirm}
       />
+      {workPanelTab && workPanelDetail ? (
+        <CorreoWorkProvider
+          key={workPanelDetail.thread.id}
+          threadId={workPanelDetail.thread.id}
+          accountId={workPanelDetail.thread.accountId}
+          revision={refreshToken}
+        >
+          <CorreoWorkPanel
+            open
+            initialTab={workPanelTab}
+            detail={workPanelDetail}
+            readCursorAt={workPanelSynced ? readCursorAt : null}
+            workTabIntent={workTabIntent}
+            onOpenAiLead={() => onOpenAiLead?.()}
+            onAiCommand={onAiCommand}
+            onAssociate={workPanelSynced ? associate : async () => {}}
+            onRefresh={workPanelSynced ? refresh : () => {}}
+            onRequestReply={workPanelSynced ? requestReply : undefined}
+            onClose={() => setWorkPanelTab(null)}
+          />
+        </CorreoWorkProvider>
+      ) : null}
     </CorreoReaderShell>
   );
 }

@@ -1,9 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, cleanup } from "@testing-library/react";
-import {
-  CORREO_COPILOT_DOCK_WIDTH_VAR,
-  CorreoAiActionPanel,
-} from "../CorreoAiActionPanel";
+import { CORREO_COPILOT_DOCK_WIDTH_VAR } from "../correo-copilot-dock";
+import { CorreoAiActionPanel } from "../CorreoAiActionPanel";
 
 vi.mock("../plan/usePlanDraft", () => ({
   usePlanDraft: () => ({

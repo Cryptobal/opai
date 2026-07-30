@@ -8,9 +8,10 @@ vi.mock("@/hooks/useEffectivePermissions", () => ({
   useEffectivePermissions: () => ({ crm: { correos: "full" } }),
 }));
 
-vi.mock("@/lib/permissions", () => ({
-  canEdit: () => true,
-}));
+vi.mock("@/lib/permissions", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/permissions")>();
+  return { ...actual, canEdit: () => true };
+});
 
 vi.mock("../CorreoWorkContext", () => ({
   CorreoWorkProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
@@ -41,10 +42,6 @@ vi.mock("../CorreoMessages", () => ({
 
 vi.mock("../CorreoReplyBox", () => ({
   CorreoReplyBox: () => <div data-testid="reply" />,
-}));
-
-vi.mock("../CorreoWorkPanel", () => ({
-  CorreoWorkPanel: () => null,
 }));
 
 vi.mock("../CorreoThreadActions", () => ({
@@ -99,7 +96,7 @@ describe("CorreoDrawerContent overflow menu", () => {
     render(
       <CorreoDrawerContent
         detail={detail}
-        onOpenAiLead={() => {}}
+        onOpenWorkPanel={() => {}}
         onAssociate={() => {}}
         onRefresh={() => {}}
         onOpenSignature={() => {}}

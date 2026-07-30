@@ -78,10 +78,10 @@ import { buildAiMenuItems } from "./CorreoAiMenu";
 import { CorreoAiMenuSheet } from "./CorreoAiMenuSheet";
 import { CorreoAiStyleSheet } from "./CorreoAiStyleSheet";
 import {
-  CORREO_COPILOT_DOCK_WIDTH_VAR,
   CorreoAiActionPanel,
   type AiPanelCommand,
 } from "./CorreoAiActionPanel";
+import { CORREO_COPILOT_DOCK_WIDTH_VAR } from "./correo-copilot-dock";
 import type { CorreoAiCommandId } from "@/modules/crm/email/correo-ai-commands";
 import { getCorreoAiCommand } from "@/modules/crm/email/correo-ai-commands";
 import { dispatchAiCommand } from "@/lib/ai/ai-command-event";
@@ -1621,14 +1621,10 @@ export function CorreosClient() {
         ref={workspaceRef}
         data-correo-scope
         className="relative min-w-0 lg:flex lg:items-start lg:gap-3 lg:transition-[padding-right] lg:duration-200"
-        style={
-          aiPanel
-            ? {
-                // Dock desktop reserva su ancho; en mobile la var no se setea.
-                paddingRight: `var(${CORREO_COPILOT_DOCK_WIDTH_VAR}, 0px)`,
-              }
-            : undefined
-        }
+        style={{
+          // Copiloto / Plan de acciones setean la var al abrir el dock desktop.
+          paddingRight: `var(${CORREO_COPILOT_DOCK_WIDTH_VAR}, 0px)`,
+        }}
       >
         {/* Riel desktop contraíble (Gmail): carpetas + filtros + sync. */}
         <CorreosDesktopRail
