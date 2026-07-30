@@ -8,13 +8,26 @@ vi.mock("@/hooks/useEffectivePermissions", () => ({
   useEffectivePermissions: () => ({ crm: { correos: "full" } }),
 }));
 
-vi.mock("@/lib/permissions", () => ({
-  canEdit: () => true,
-}));
+vi.mock("@/lib/permissions", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/permissions")>();
+  return {
+    ...actual,
+    canEdit: () => true,
+  };
+});
 
 vi.mock("../CorreoWorkContext", () => ({
   CorreoWorkProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
   useCorreoWorkOptional: () => null,
+  useCorreoWork: () => ({
+    threadId: "thread-1",
+    tasks: { data: [], loading: false },
+    reload: vi.fn(),
+  }),
+}));
+
+vi.mock("../CorreoTasksStrip", () => ({
+  CorreoTasksStrip: () => null,
 }));
 
 vi.mock("../CorreoContextChain", () => ({

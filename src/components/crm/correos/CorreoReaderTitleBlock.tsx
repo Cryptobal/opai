@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { CorreoSystemLabels } from "./CorreoSystemLabels";
@@ -16,6 +16,8 @@ type Props = {
   onRemoveDone?: () => void;
   onUndoDone?: () => void;
   onClose?: () => void;
+  /** Slot bajo el bloque (p. ej. franja de tareas compacta). */
+  below?: ReactNode;
 };
 
 function fmtDateTime(iso: string | null): string {
@@ -37,6 +39,7 @@ export function CorreoReaderTitleBlock({
   onRemoveDone,
   onUndoDone,
   onClose,
+  below,
 }: Props) {
   const t = detail.thread;
   const messages = detail.messages;
@@ -111,6 +114,8 @@ export function CorreoReaderTitleBlock({
           <MetaRow label="Fecha" value={time} />
         </dl>
       )}
+
+      {below}
     </div>
   );
 }

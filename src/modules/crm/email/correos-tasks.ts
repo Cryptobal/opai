@@ -8,6 +8,8 @@ export type ThreadTaskDTO = {
   status: string;
   dueAt: string | null;
   allDay: boolean;
+  priority: string | null;
+  assignedTo: { id: string; name: string | null } | null;
 };
 
 export type ThreadTaskSource = "correo" | "copiloto";
@@ -18,8 +20,28 @@ export async function listThreadTasks(tenantId: string, threadId: string): Promi
     where: { tenantId, emailThreadId: threadId, status: { not: "cancelled" } },
     orderBy: [{ status: "asc" }, { dueAt: "asc" }, { createdAt: "desc" }],
     take: 50,
-    select: { id: true, title: true, status: true, dueAt: true, allDay: true },
+    select: {
+      id: true,
+      title: true,
+      status: true,
+      dueAt: true,
+      allDay: true,
+      priority: true,
+      assignedTo: true,
+    },
   });
+  const assigneeIds = [
+    ...new Set(rows.map((r) => r.assignedTo).filter((id): id is string => Boolean(id))),
+  ];
+  const admins =
+    assigneeIds.length > 0
+      ? await prisma.admin.findMany({
+          where: { id: { in: assigneeIds }, tenantId },
+          select: { id: true, name: true },
+        })
+      : [];
+  const nameById = new Map(admins.map((a) => [a.id, a.name]));
+
   return rows.map((t) => ({
     id: t.id,
     title: t.title,
@@ -27,6 +49,10 @@ export async function listThreadTasks(tenantId: string, threadId: string): Promi
     status: t.status === "notified" || t.status === "notified_no_slack" ? "open" : t.status,
     dueAt: t.dueAt?.toISOString() ?? null,
     allDay: t.allDay,
+    priority: t.priority ?? null,
+    assignedTo: t.assignedTo
+      ? { id: t.assignedTo, name: nameById.get(t.assignedTo) ?? null }
+      : null,
   }));
 }
 
@@ -72,7 +98,15 @@ export async function createThreadTask(params: {
         leadId: thread.leadId,
         contactId: thread.contactId,
       },
-      select: { id: true, title: true, status: true, dueAt: true, allDay: true },
+      select: {
+        id: true,
+        title: true,
+        status: true,
+        dueAt: true,
+        allDay: true,
+        priority: true,
+        assignedTo: true,
+      },
     });
     await tx.crmTaskAssignee.createMany({
       data: [{ taskId: created.id, userId: params.userId }],
@@ -101,5 +135,14 @@ export async function createThreadTask(params: {
     request: params.request,
   });
 
-  return { id: t.id, title: t.title, status: t.status, dueAt: t.dueAt?.toISOString() ?? null, allDay: t.allDay };
+  return {
+    id: t.id,
+    title: t.title,
+    status: t.status,
+    dueAt: t.dueAt?.toISOString() ?? null,
+    allDay: t.allDay,
+    priority: t.priority ?? null,
+    // Nombre no resuelto en create (el cliente ya conoce al creador).
+    assignedTo: t.assignedTo ? { id: t.assignedTo, name: null } : null,
+  };
 }
