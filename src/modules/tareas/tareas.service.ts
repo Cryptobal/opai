@@ -1,4 +1,5 @@
 import { todayInChile, ymdInChile, addDaysChile } from "@/lib/dates-cl";
+import { byDueThenPriority, type TareaLike } from "./tarea-priority";
 
 /**
  * Agrupación de tareas por vencimiento para la vista /opai/tareas
@@ -7,6 +8,21 @@ import { todayInChile, ymdInChile, addDaysChile } from "@/lib/dates-cl";
  *
  * Lógica pura (sin prisma) para poder testearla y usarla en cliente y servidor.
  */
+
+export {
+  byDueThenPriority,
+  originKeyFor,
+  primaryAssigneeId,
+  priorityLabel,
+  priorityRank,
+  TAREA_ORIGEN_LABELS,
+  TAREA_PRIORITY_LABELS,
+  TAREA_PRIORITY_ORDER,
+  type TareaLike,
+  type TareaOrigenKey,
+  type TareaPriority,
+  type TareaVista,
+} from "./tarea-priority";
 
 /**
  * Estados que siguen siendo pendientes de completar.
@@ -47,11 +63,6 @@ export const TAREA_BUCKET_ORDER: TareaBucket[] = [
   "sin_fecha",
 ];
 
-export interface TareaLike {
-  /** ISO string o null (sin fecha). */
-  dueAt: string | null;
-}
-
 export interface TareaBoundaries {
   /** YYYY-MM-DD en Chile. */
   today: string;
@@ -60,8 +71,7 @@ export interface TareaBoundaries {
   weekEnd: string;
 }
 
-/** Límites de día en TZ Chile a partir de `now`. `addDaysChile` normaliza al
- *  inicio de día Chile internamente, así que se parte de `now` directo. */
+/** Límites de día en TZ Chile a partir de `now`. */
 export function computeBoundaries(now: Date = new Date()): TareaBoundaries {
   return {
     today: todayInChile(now),
@@ -106,6 +116,6 @@ export function groupTasksByDue<T extends TareaLike>(
   return TAREA_BUCKET_ORDER.map((bucket) => ({
     bucket,
     label: TAREA_BUCKET_LABELS[bucket],
-    tasks: byBucket.get(bucket) ?? [],
+    tasks: (byBucket.get(bucket) ?? []).slice().sort(byDueThenPriority),
   })).filter((g) => g.tasks.length > 0);
 }
