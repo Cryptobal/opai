@@ -36,7 +36,16 @@ export function TopbarSearchField() {
       ? `${search!.value.trim()} ${token}`
       : token;
     search!.onChange(next.slice(0, MAX_SEARCH_LENGTH));
-    inputRef.current?.focus();
+    // Token terminado en ":" (from:, to:, …) espera un valor: el foco vuelve
+    // al input con el cursor al final, listo para escribirlo. El rAF espera
+    // a que React pinte el value nuevo.
+    window.requestAnimationFrame(() => {
+      const el = inputRef.current;
+      if (!el) return;
+      el.focus();
+      const end = el.value.length;
+      el.setSelectionRange(end, end);
+    });
   }
 
   function clear() {
