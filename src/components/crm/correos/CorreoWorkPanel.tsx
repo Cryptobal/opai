@@ -219,6 +219,7 @@ export function CorreoWorkPanel({
               onGoTo={(next) => selectTab(resolveWorkTab(next))}
               onRequestReply={onRequestReply}
               onOpenAttachments={() => setAttachmentsOpen(true)}
+              onClose={requestClose}
               onAssociate={onAssociate}
             />
           )}
