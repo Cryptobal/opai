@@ -32,6 +32,10 @@ export type CorreoThreadDTO = {
   slaLabel: string | null;
   /** Motivo de match bajo búsqueda híbrida (null fuera de búsqueda). */
   matchReason?: "lexical" | "semantic" | "both" | null;
+  /** Tareas abiertas del hilo (0 si no hay). */
+  openTaskCount: number;
+  /** Urgencia de la tarea más próxima: overdue | today | upcoming | null. */
+  taskDueLevel: "overdue" | "today" | "upcoming" | null;
 };
 
 /** Metadatos de una búsqueda híbrida (para UI honesta). */

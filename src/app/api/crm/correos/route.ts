@@ -154,6 +154,7 @@ export async function GET(req: NextRequest) {
       cursor: req.nextUrl.searchParams.get("cursor"),
       folder,
       q: req.nextUrl.searchParams.get("q"),
+      withTasks: req.nextUrl.searchParams.get("withTasks") === "1",
     }),
     wantCounts
       ? countCorreoFolders({
