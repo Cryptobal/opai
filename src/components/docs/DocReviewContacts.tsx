@@ -184,7 +184,7 @@ export function DocReviewContacts({
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder="Buscar contacto de la cuenta…"
-                  className="h-10 sm:h-8 w-full bg-transparent text-[13px] text-foreground placeholder:text-ds-text-3 outline-none"
+                  className="h-10 sm:h-8 w-full bg-transparent text-ds-body text-foreground placeholder:text-ds-text-3 outline-none"
                 />
               </div>
             </div>
@@ -215,7 +215,7 @@ export function DocReviewContacts({
                     onClick={() => addContact(c.id)}
                     className="w-full rounded-md px-2 py-2 text-left transition-colors hover:bg-ds-surface-2 focus:bg-ds-surface-2 focus:outline-none disabled:opacity-60"
                   >
-                    <div className="flex items-center gap-2 text-[13px] font-medium text-foreground">
+                    <div className="flex items-center gap-2 text-ds-body font-medium text-foreground">
                       <Plus className="h-3.5 w-3.5 text-ds-text-3 shrink-0" />
                       <span className="truncate">{c.name || "(Sin nombre)"}</span>
                       {c.isPrimary && (
