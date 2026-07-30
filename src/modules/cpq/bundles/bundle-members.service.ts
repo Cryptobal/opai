@@ -12,6 +12,7 @@ import {
   BundleServiceError,
 } from "./bundle.service";
 import { SYNCABLE_CONDITION_FIELDS } from "./bundle-totals";
+import { propagateBundleConditions } from "./propagate-bundle-conditions";
 
 async function generateQuoteCode(tenantId: string): Promise<string> {
   const year = new Date().getFullYear();
@@ -428,35 +429,28 @@ export async function syncBundleConditions(opts: {
   }
 
   const src = sourceMember.quote;
-  const data: Record<string, unknown> = {};
+
+  // v2: la fuente de verdad pasa a ser el bundle. Persistimos las condiciones
+  // de la cotización fuente en el bundle y delegamos en la propagación
+  // estándar (bundle → todas las hijas, con recálculo).
+  const bundleData: Record<string, unknown> = {};
   for (const field of SYNCABLE_CONDITION_FIELDS) {
-    data[field] = src[field];
+    bundleData[field] = src[field];
   }
+  await prisma.cpqProposalBundle.update({
+    where: { id: bundle.id },
+    data: bundleData,
+  });
 
-  // Validar moneda única: sync también actualiza currency del bundle
-  const targetIds = members
-    .filter((m) => m.quoteId !== sourceMember.quoteId)
-    .map((m) => m.quoteId);
-
-  await prisma.$transaction(async (tx) => {
-    if (targetIds.length > 0) {
-      await tx.cpqQuote.updateMany({
-        where: { id: { in: targetIds }, tenantId: opts.tenantId },
-        data,
-      });
-    }
-    if (src.currency !== bundle.currency) {
-      await tx.cpqProposalBundle.update({
-        where: { id: opts.bundleId },
-        data: { currency: src.currency },
-      });
-    }
+  await propagateBundleConditions({
+    tenantId: opts.tenantId,
+    bundleId: opts.bundleId,
   });
 
   return {
     ok: true,
     sourceQuoteId: sourceMember.quoteId,
-    updatedCount: targetIds.length,
+    updatedCount: members.length - 1,
     currency: src.currency,
   };
 }
