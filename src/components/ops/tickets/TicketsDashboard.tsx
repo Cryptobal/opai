@@ -24,7 +24,16 @@ import {
   Zap,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { useThemeColors } from "@/lib/theme/resolveColor";
 import { TICKET_TEAM_CONFIG, TICKET_PRIORITY_CONFIG } from "@/lib/tickets";
+
+const CHART_TOKENS = [
+  "--ds-border-default",
+  "--ds-text-3",
+  "--ds-surface-1",
+  "--ds-ok",
+  "--ds-info",
+] as const;
 
 // ═══════════════════════════════════════════════════════════════
 //  TYPES
@@ -75,6 +84,19 @@ export function TicketsDashboard() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState<Period>("week");
+  // Recharts no acepta CSS vars: resolvemos tokens DS en runtime.
+  const chart = useThemeColors(CHART_TOKENS);
+  const grid = chart["--ds-border-default"] || "hsl(220 13% 87%)";
+  const tick = chart["--ds-text-3"] || "hsl(215 16% 50%)";
+  const surface = chart["--ds-surface-1"] || "hsl(220 14% 97%)";
+  const ok = chart["--ds-ok"] || "hsl(160 84% 32%)";
+  const info = chart["--ds-info"] || "hsl(217 90% 50%)";
+  const tooltipStyle = {
+    background: surface,
+    border: `1px solid ${grid}`,
+    borderRadius: "8px",
+    fontSize: "12px",
+  } as const;
 
   useEffect(() => {
     async function fetchDashboard() {
@@ -320,29 +342,24 @@ export function TicketsDashboard() {
           <div className="h-[180px]">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={teamData} layout="vertical" margin={{ left: 0, right: 16 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#30363d" horizontal={false} />
-                <XAxis type="number" tick={{ fontSize: 11, fill: "#8b949e" }} />
+                <CartesianGrid strokeDasharray="3 3" stroke={grid} horizontal={false} />
+                <XAxis type="number" tick={{ fontSize: 11, fill: tick }} />
                 <YAxis
                   type="category"
                   dataKey="team"
                   width={90}
-                  tick={{ fontSize: 11, fill: "#8b949e" }}
+                  tick={{ fontSize: 11, fill: tick }}
                   tickFormatter={(t: string) =>
                     (TICKET_TEAM_CONFIG as Record<string, { label: string }>)[t]?.label ?? t
                   }
                 />
                 <Tooltip
-                  contentStyle={{
-                    background: "#161b22",
-                    border: "1px solid #30363d",
-                    borderRadius: "8px",
-                    fontSize: "12px",
-                  }}
+                  contentStyle={tooltipStyle}
                   labelFormatter={(t) =>
                     (TICKET_TEAM_CONFIG as Record<string, { label: string }>)[String(t)]?.label ?? String(t)
                   }
                 />
-                <Bar dataKey="count" fill="#10b981" radius={[0, 4, 4, 0]} name="Tickets" />
+                <Bar dataKey="count" fill={ok} radius={[0, 4, 4, 0]} name="Tickets" />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -355,22 +372,15 @@ export function TicketsDashboard() {
           <div className="h-[200px]">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={weeklyTrend} margin={{ left: 0, right: 16 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#30363d" />
-                <XAxis dataKey="week" tick={{ fontSize: 11, fill: "#8b949e" }} />
-                <YAxis tick={{ fontSize: 11, fill: "#8b949e" }} />
-                <Tooltip
-                  contentStyle={{
-                    background: "#161b22",
-                    border: "1px solid #30363d",
-                    borderRadius: "8px",
-                    fontSize: "12px",
-                  }}
-                />
+                <CartesianGrid strokeDasharray="3 3" stroke={grid} />
+                <XAxis dataKey="week" tick={{ fontSize: 11, fill: tick }} />
+                <YAxis tick={{ fontSize: 11, fill: tick }} />
+                <Tooltip contentStyle={tooltipStyle} />
                 <Legend wrapperStyle={{ fontSize: "11px" }} />
                 <Line
                   type="monotone"
                   dataKey="created"
-                  stroke="#3b82f6"
+                  stroke={info}
                   strokeWidth={2}
                   dot={{ r: 4 }}
                   name="Creados"
@@ -378,7 +388,7 @@ export function TicketsDashboard() {
                 <Line
                   type="monotone"
                   dataKey="resolved"
-                  stroke="#10b981"
+                  stroke={ok}
                   strokeWidth={2}
                   dot={{ r: 4 }}
                   name="Resueltos"
@@ -494,7 +504,9 @@ function DashboardCard({
   return (
     <div
       className={`rounded-xl border p-4 space-y-3 ${
-        alert ? "border-status-danger-border bg-status-danger-soft" : "border-border bg-[#161b22]"
+        alert
+          ? "border-status-danger-border bg-status-danger-soft"
+          : "border-ds-border-default bg-ds-surface-1"
       }`}
     >
       <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
@@ -521,7 +533,7 @@ function KpiCard({
   subtitle?: string;
 }) {
   const variantStyles = {
-    default: "border-border bg-[#161b22]",
+    default: "border-ds-border-default bg-ds-surface-1",
     amber: "border-status-warn-border bg-status-warn-soft",
     red: "border-status-danger-border bg-status-danger-soft",
     emerald: "border-status-ok-border bg-status-ok-soft",

@@ -40,3 +40,38 @@ export function useThemeColor(cssVarName: string): string {
   }, [cssVarName]);
   return color;
 }
+
+/**
+ * Variante batch de `useThemeColor`: resuelve varias CSS vars con un solo
+ * observer. Pensada para dashboards de Recharts, que necesitan grilla, ejes,
+ * tooltip y series al mismo tiempo.
+ *
+ * `names` se lee por su contenido, no por identidad de array, así que el call
+ * site puede pasar un literal inline sin memoizarlo.
+ */
+export function useThemeColors<T extends string>(names: readonly T[]): Record<T, string> {
+  const key = names.join("|");
+  const [colors, setColors] = useState<Record<T, string>>(
+    () => Object.fromEntries(names.map((n) => [n, "transparent"])) as Record<T, string>,
+  );
+  useEffect(() => {
+    const list = key.split("|") as T[];
+    const resolve = () =>
+      setColors(
+        Object.fromEntries(list.map((n) => [n, resolveCSSVarColor(n)])) as Record<T, string>,
+      );
+    resolve();
+    const mq = window.matchMedia("(prefers-color-scheme: dark)");
+    const obs = new MutationObserver(resolve);
+    obs.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["class", "data-theme"],
+    });
+    mq.addEventListener?.("change", resolve);
+    return () => {
+      obs.disconnect();
+      mq.removeEventListener?.("change", resolve);
+    };
+  }, [key]);
+  return colors;
+}

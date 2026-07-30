@@ -2691,7 +2691,7 @@ function TicketLinksCard({
   }
 
   return (
-    <div className="rounded-xl border border-border bg-[#161b22] p-4 space-y-3">
+    <div className="rounded-xl border border-ds-border-default bg-ds-surface-1 p-4 space-y-3">
       <div className="flex items-center gap-2">
         <ExternalLink className="h-4 w-4 text-muted-foreground" />
         <h4 className="text-sm font-medium">Tickets relacionados</h4>
