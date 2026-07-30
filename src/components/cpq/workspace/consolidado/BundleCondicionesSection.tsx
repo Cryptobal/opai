@@ -98,6 +98,9 @@ export function BundleCondicionesSection({
   // única: editar aquí reescribiría condiciones ya comunicadas al cliente en
   // TODAS las instalaciones.
   const isLocked = bundle.status === "sent";
+  /** Propuesta v1 sin gobierno: las hijas pueden tener condiciones distintas. */
+  const divergent = !bundle.conditionsSynced && bundle.quotes.length > 1;
+  const [applying, setApplying] = useState(false);
   const [form, setForm] = useState<Form>(() => formFromBundle(bundle));
   /** Hay edición local sin confirmar: el refresh del bundle no debe pisarla. */
   const dirtyRef = useRef(false);
@@ -149,6 +152,40 @@ export function BundleCondicionesSection({
         </span>
       </div>
 
+      {divergent && !isLocked && (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-status-warn-border bg-status-warn-soft/40 px-3 py-2">
+          <p className="text-[12px] text-status-warn-fg">
+            Las instalaciones tienen condiciones distintas entre sí. Estas son las
+            de la primera; aplícalas para igualar toda la propuesta.
+          </p>
+          <button
+            type="button"
+            disabled={applying}
+            onClick={() => {
+              setApplying(true);
+              void onPatch({
+                paymentTerms: form.paymentTerms,
+                serviceStartDays: form.serviceStartDays,
+                contractDuration: form.contractDuration,
+                isOngoingService: form.isOngoingService,
+                adjustmentType: form.adjustmentType,
+                adjustmentFreq: form.adjustmentFreq,
+                ipcWeight: form.ipcWeight,
+                imoWeight: form.imoWeight,
+                insurancePolicyUF: form.insurancePolicyUF,
+                liabilityMonths: form.liabilityMonths,
+                realAnnualIncrement: form.realAnnualIncrement,
+                paymentDays: form.paymentDays,
+                financialEnabled: form.financialEnabled,
+                financialRatePct: form.financialRatePct,
+              }).finally(() => setApplying(false));
+            }}
+            className="min-h-[36px] shrink-0 rounded-md border border-status-warn-border px-2.5 text-[12px] font-semibold text-status-warn-fg transition-colors hover:bg-status-warn-soft disabled:opacity-50"
+          >
+            {applying ? "Aplicando…" : "Aplicar a todas"}
+          </button>
+        </div>
+      )}
       <div
         className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4"
         inert={isLocked ? true : undefined}
