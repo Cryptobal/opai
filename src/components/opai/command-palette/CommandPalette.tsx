@@ -750,12 +750,13 @@ export function CommandPalette({ userRole, onOpenChat }: CommandPaletteProps) {
 
       {/* Sheet / Modal — liquid glass mobile + desktop */}
       <div
+        data-command-palette-scope
         className={cn(
           'relative flex flex-col min-h-0 opai-liquid-glass',
           // Mobile: fill screen (slide up from bottom) with bottom-sheet feel
           'flex-1 w-full rounded-t-3xl animate-in slide-in-from-bottom-4 fade-in duration-200',
-          // Desktop: centered card
-          'sm:flex-none sm:w-full sm:max-w-[640px] sm:mx-auto sm:rounded-2xl sm:slide-in-from-top-4 sm:zoom-in-[0.98] sm:overflow-hidden',
+          // Desktop: centered card (radios amplios, sin ángulos duros)
+          'sm:flex-none sm:w-full sm:max-w-[640px] sm:mx-auto sm:rounded-3xl sm:slide-in-from-top-4 sm:zoom-in-[0.98] sm:overflow-hidden',
           isIOS && 'opai-ios-command-palette',
         )}
         style={{
@@ -769,60 +770,73 @@ export function CommandPalette({ userRole, onOpenChat }: CommandPaletteProps) {
           loop
           shouldFilter={false}
         >
-          {/* ── Search input (sticky top) ── */}
+          {/* ── Search input (sticky top) — óvalo con contraste, sin ring azul ── */}
           <div
             className={cn(
-              'flex items-center gap-2 border-b border-border/60 px-4 sm:px-5 shrink-0',
-              // Mobile input area is taller for comfortable thumb reach
-              'h-16 sm:h-[60px]',
+              'shrink-0 px-3 sm:px-4 pt-3 pb-2.5',
               isIOS && 'opai-ios-command-palette-chrome',
             )}
           >
-            <Search className="h-5 w-5 shrink-0 text-muted-foreground/70" aria-hidden />
-            <Command.Input
-              ref={inputRef}
-              value={query}
-              onValueChange={setQuery}
-              placeholder={isMobile ? 'Buscar…' : 'Buscar guardias, instalaciones, chats, acciones…'}
+            <div
               className={cn(
-                'flex min-w-0 flex-1 bg-transparent outline-none',
-                'text-[17px] sm:text-[15px] text-foreground',
-                'placeholder:text-muted-foreground/60',
-                // Prevent iOS auto-cap/auto-correct noise
+                'flex items-center gap-2.5 rounded-full',
+                'h-12 sm:h-11 px-3.5 sm:px-4',
+                'bg-ds-surface-2 border border-ds-border-subtle',
+                'shadow-[inset_0_1px_0_0_hsl(var(--foreground)/0.04)]',
               )}
-              autoCapitalize="off"
-              autoCorrect="off"
-              spellCheck={false}
-              inputMode="search"
-              enterKeyHint="search"
-              aria-label="Buscar"
-            />
-            {apiLoading && (
-              <Loader2 className="h-4 w-4 shrink-0 animate-spin text-muted-foreground" aria-hidden />
-            )}
-            <button
-              type="button"
-              onClick={handleClose}
-              className={cn(
-                'shrink-0 inline-flex items-center justify-center rounded-md transition-colors',
-                // Mobile: 40px touch target with X icon
-                'sm:hidden h-10 w-10 text-muted-foreground hover:bg-accent hover:text-foreground active:scale-95',
-              )}
-              aria-label="Cerrar"
             >
-              <X className="h-5 w-5" />
-            </button>
-            <kbd
-              className={cn(
-                'hidden sm:inline-flex shrink-0 items-center rounded-md border border-border/60 bg-muted/60 px-1.5 h-6 text-[11px] font-medium text-muted-foreground hover:bg-muted transition-colors cursor-pointer select-none',
+              <Search className="h-5 w-5 shrink-0 text-ds-text-3" aria-hidden />
+              <Command.Input
+                ref={inputRef}
+                value={query}
+                onValueChange={setQuery}
+                placeholder={isMobile ? 'Buscar…' : 'Buscar guardias, instalaciones, chats, acciones…'}
+                className={cn(
+                  'flex min-w-0 flex-1 bg-transparent',
+                  'text-[17px] sm:text-[15px] text-foreground',
+                  'placeholder:text-ds-text-3',
+                  // Anula el ring azul global :focus-visible (ángulos rectos)
+                  'outline-none ring-0 ring-offset-0 shadow-none',
+                  'focus:outline-none focus:ring-0 focus:ring-offset-0 focus:shadow-none',
+                  'focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:shadow-none',
+                )}
+                autoCapitalize="off"
+                autoCorrect="off"
+                spellCheck={false}
+                inputMode="search"
+                enterKeyHint="search"
+                aria-label="Buscar"
+              />
+              {apiLoading && (
+                <Loader2 className="h-4 w-4 shrink-0 animate-spin text-ds-text-3" aria-hidden />
               )}
-              onClick={handleClose}
-              aria-label="Cerrar (Esc)"
-              role="button"
-              tabIndex={-1}
-            >
-              esc
-            </kbd>
+              <button
+                type="button"
+                onClick={handleClose}
+                className={cn(
+                  'shrink-0 inline-flex items-center justify-center rounded-full transition-colors',
+                  // Mobile: 40px touch target with X icon
+                  'sm:hidden h-9 w-9 text-ds-text-3 hover:bg-ds-surface-3 hover:text-foreground active:scale-95',
+                )}
+                aria-label="Cerrar"
+              >
+                <X className="h-5 w-5" />
+              </button>
+              <kbd
+                className={cn(
+                  'hidden sm:inline-flex shrink-0 items-center justify-center rounded-full',
+                  'border border-ds-border-subtle bg-ds-surface-3 px-2.5 h-7',
+                  'text-[12px] font-medium text-ds-text-3',
+                  'hover:bg-ds-surface-1 hover:text-foreground transition-colors cursor-pointer select-none',
+                )}
+                onClick={handleClose}
+                aria-label="Cerrar (Esc)"
+                role="button"
+                tabIndex={-1}
+              >
+                esc
+              </kbd>
+            </div>
           </div>
 
           {/* ── Scope tabs ── */}
@@ -847,7 +861,7 @@ export function CommandPalette({ userRole, onOpenChat }: CommandPaletteProps) {
                     aria-selected={active}
                     onClick={() => setScope(tab.id)}
                     className={cn(
-                      'snap-start shrink-0 inline-flex items-center gap-1.5 rounded-lg px-3 h-10 sm:h-8',
+                      'snap-start shrink-0 inline-flex items-center gap-1.5 rounded-full px-3.5 h-10 sm:h-8',
                       'text-[13px] font-medium transition-colors',
                       active
                         ? 'bg-accent text-accent-foreground'
@@ -858,7 +872,7 @@ export function CommandPalette({ userRole, onOpenChat }: CommandPaletteProps) {
                     {(count > 0 || tab.id === 'all') && (
                       <span
                         className={cn(
-                          'rounded-md px-1.5 py-0.5 text-[12px] tabular-nums',
+                          'rounded-full px-1.5 py-0.5 text-[12px] tabular-nums',
                           active ? 'bg-background/40' : 'bg-ds-surface-2',
                         )}
                       >

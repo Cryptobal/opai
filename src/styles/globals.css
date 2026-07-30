@@ -471,6 +471,19 @@
     box-shadow: none;
   }
 
+  /* Command palette: el contraste lo da el óvalo (bg + border), no un
+     ring azul de ángulos rectos sobre el input. */
+  [data-command-palette-scope] input:focus,
+  [data-command-palette-scope] input:focus-visible,
+  [data-command-palette-scope] [cmdk-input]:focus,
+  [data-command-palette-scope] [cmdk-input]:focus-visible {
+    outline: none;
+    outline-offset: 0;
+    --tw-ring-shadow: 0 0 #0000;
+    --tw-ring-offset-shadow: 0 0 #0000;
+    box-shadow: none;
+  }
+
   /* Scrollbar sutil y minimalista */
   ::-webkit-scrollbar {
     width: 6px;
