@@ -1,26 +1,21 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import {
-  Code2,
-  Copy,
-  ExternalLink,
-  MoreHorizontal,
-  PenLine,
-  Printer,
-  Sparkles,
-  WandSparkles,
-} from "lucide-react";
-import { toast } from "sonner";
+import { Sparkles } from "lucide-react";
 import { canEdit } from "@/lib/permissions";
 import { useEffectivePermissions } from "@/hooks/useEffectivePermissions";
 import { CorreoMessages } from "./CorreoMessages";
 import { CorreoReplyBox } from "./CorreoReplyBox";
 import { CorreoThreadActions } from "./CorreoThreadActions";
 import { CorreoSystemLabels } from "./CorreoSystemLabels";
+import { CorreoReaderTitleBlock } from "./CorreoReaderTitleBlock";
+import { CorreoReaderOverflowMenu } from "./CorreoReaderOverflowMenu";
+import { CorreoCopilotBanner } from "./CorreoCopilotBanner";
 import { CorreoWorkPanel } from "./CorreoWorkPanel";
 import { CorreoWorkProvider } from "./CorreoWorkContext";
 import { CorreoContextChain } from "./CorreoContextChain";
+import { copilotoAttentionReasons } from "./correo-copiloto-reasons";
+import { useCorreoSuggestedAccounts } from "./useCorreoSuggestedAccounts";
 import { resolveWorkTab, type WorkTab } from "./work-panel-tabs";
 import type { CorreoDetail } from "@/modules/crm/email/correos.types";
 import type { CorreoAiCommandId } from "@/modules/crm/email/correo-ai-commands";
@@ -60,16 +55,13 @@ type Props = {
   dataRevision?: number;
   onOpenAiStyle?: () => void;
   onOpenSignature?: () => void;
+  /** Eleva la acción primaria resuelta (isla móvil). */
+  onPrimaryActionChange?: (
+    action: import("./correo-primary-action").CorreoPrimaryAction | null,
+  ) => void;
+  /** Notifica apertura/cierre del composer (la isla se oculta al abrir). */
+  onComposerOpenChange?: (open: boolean) => void;
 };
-
-function copilotoAttentionReasons(detail: CorreoDetail): string[] {
-  const t = detail.thread;
-  const reasons: string[] = [];
-  if (t.accountId == null) reasons.push("sin cuenta asociada");
-  if (detail.attachments.some((a) => !a.savedFileId)) reasons.push("adjuntos sin guardar");
-  if (t.aiUrgency === "alta" && !t.dealId) reasons.push("urgencia alta sin negocio");
-  return reasons;
-}
 
 export function CorreoDrawerContent({
   detail,
@@ -95,24 +87,26 @@ export function CorreoDrawerContent({
   dataRevision = 0,
   onOpenAiStyle,
   onOpenSignature,
+  onPrimaryActionChange,
+  onComposerOpenChange,
 }: Props) {
   const t = detail.thread;
   const perms = useEffectivePermissions();
   const canEditCorreos = canEdit(perms, "crm", "correos");
   const [panel, setPanel] = useState<{ tab: WorkTab } | null>(null);
-  const [overflowOpen, setOverflowOpen] = useState(false);
+  // Descartar el banner de Copiloto es efímero por sesión de hilo.
+  const [copilotDismissed, setCopilotDismissed] = useState(false);
   const [continueDraftIntent, setContinueDraftIntent] = useState<{
     message: CorreoMessageDTO;
     nonce: number;
   } | null>(null);
-  const gmailUrl = t.providerThreadId
-    ? `https://mail.google.com/mail/u/0/#all/${t.providerThreadId}`
-    : null;
   const reasons = copilotoAttentionReasons(detail);
   const attentionLabel =
     reasons.length > 0
       ? `Copiloto — ${reasons.length} ${reasons.length === 1 ? "pendiente" : "pendientes"}: ${reasons.join(", ")}`
       : "Copiloto";
+  // Cuentas sugeridas (móvil): mismo caché que la cadena de contexto → 1 fetch.
+  const suggestions = useCorreoSuggestedAccounts(t.id, t.accountId == null);
 
   useEffect(() => {
     if (!workTabIntent) return;
@@ -122,45 +116,10 @@ export function CorreoDrawerContent({
   }, [workTabIntent?.nonce]);
 
   useEffect(() => {
-    setOverflowOpen(false);
+    setCopilotDismissed(false);
   }, [t.id]);
 
-  useEffect(() => {
-    if (!overflowOpen) return;
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") setOverflowOpen(false);
-    }
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [overflowOpen]);
-
   const openPanel = (tab: WorkTab) => setPanel({ tab: resolveWorkTab(tab) });
-
-  async function copyThreadLink() {
-    setOverflowOpen(false);
-    const url = `${window.location.origin}/crm/correos?thread=${encodeURIComponent(t.id)}`;
-    try {
-      await navigator.clipboard.writeText(url);
-      toast.success("Enlace del hilo copiado");
-    } catch {
-      toast.error("No se pudo copiar el enlace");
-    }
-  }
-
-  function printThread() {
-    setOverflowOpen(false);
-    window.print();
-  }
-
-  function viewOriginal() {
-    setOverflowOpen(false);
-    document
-      .querySelector("[data-correo-message]")
-      ?.scrollIntoView({ behavior: "smooth", block: "start" });
-    toast.message("Desplazado al mensaje original");
-  }
 
   return (
     <CorreoWorkProvider
@@ -170,7 +129,10 @@ export function CorreoDrawerContent({
       revision={dataRevision}
     >
       <div className="flex min-h-0 flex-col gap-4">
-        <div className="shrink-0 space-y-2 border-b border-ds-border-subtle bg-background pb-3 lg:bg-ds-surface-2">
+        {/* Cabecera de contexto: solo desktop (lg+). En móvil, el asunto y el
+            remitente viven en el bloque de título; las etiquetas de sistema se
+            reubican dentro de él. */}
+        <div className="hidden shrink-0 space-y-2 border-b border-ds-border-subtle bg-background pb-3 lg:block lg:bg-ds-surface-2">
           {canModify && (
             <div className="hidden flex-wrap items-center gap-2 lg:flex">
               <CorreoThreadActions
@@ -237,106 +199,54 @@ export function CorreoDrawerContent({
               )}
             </button>
 
-            <div className="relative shrink-0">
-              <button
-                type="button"
-                aria-label="Más acciones"
-                aria-expanded={overflowOpen}
-                onClick={() => setOverflowOpen((o) => !o)}
-                className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-ds-border-default bg-ds-surface-1 text-ds-text-2 ds-tap sm:h-8 sm:w-8"
-              >
-                <MoreHorizontal className="h-4 w-4" />
-              </button>
-              {overflowOpen && (
-                <>
-                  {/* Scrim transparente: captura el tap fuera del menú y evita que el
-                      click sintetizado (touch → mousedown → click) llegue al footer
-                      sticky (p. ej. Eliminar → Papelera). */}
-                  <div
-                    aria-hidden
-                    className="fixed inset-0 z-[55]"
-                    onPointerDown={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      setOverflowOpen(false);
-                    }}
-                  />
-                  <div
-                    role="menu"
-                    className="absolute right-0 z-[56] mt-1 w-52 overflow-hidden rounded-xl border border-ds-border-default bg-ds-surface-1 py-1 shadow-ds-lg"
-                  >
-                    {gmailUrl && (
-                      <a
-                        role="menuitem"
-                        href={gmailUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={() => setOverflowOpen(false)}
-                        className="flex min-h-11 w-full items-center gap-2 px-3 text-left text-[13px] text-ds-text-1 ds-tap hover:bg-ds-surface-2 sm:min-h-9"
-                      >
-                        <ExternalLink className="h-4 w-4 text-ds-text-3" /> Abrir en Gmail
-                      </a>
-                    )}
-                    <button
-                      type="button"
-                      role="menuitem"
-                      onClick={printThread}
-                      className="flex min-h-11 w-full items-center gap-2 px-3 text-left text-[13px] text-ds-text-1 ds-tap hover:bg-ds-surface-2 sm:min-h-9"
-                    >
-                      <Printer className="h-4 w-4 text-ds-text-3" /> Imprimir
-                    </button>
-                    <button
-                      type="button"
-                      role="menuitem"
-                      onClick={viewOriginal}
-                      className="flex min-h-11 w-full items-center gap-2 px-3 text-left text-[13px] text-ds-text-1 ds-tap hover:bg-ds-surface-2 sm:min-h-9"
-                    >
-                      <Code2 className="h-4 w-4 text-ds-text-3" /> Ver original
-                    </button>
-                    {onOpenSignature && (
-                      <button
-                        type="button"
-                        role="menuitem"
-                        onClick={() => {
-                          setOverflowOpen(false);
-                          onOpenSignature();
-                        }}
-                        className="flex min-h-11 w-full items-center gap-2 px-3 text-left text-[13px] text-ds-text-1 ds-tap hover:bg-ds-surface-2 sm:min-h-9"
-                      >
-                        <PenLine className="h-4 w-4 text-ds-text-3" /> Firma
-                      </button>
-                    )}
-                    {onOpenAiStyle && (
-                      <button
-                        type="button"
-                        role="menuitem"
-                        onClick={() => {
-                          setOverflowOpen(false);
-                          onOpenAiStyle();
-                        }}
-                        className="flex min-h-11 w-full items-center gap-2 px-3 text-left text-[13px] text-ds-text-1 ds-tap hover:bg-ds-surface-2 sm:min-h-9"
-                      >
-                        <WandSparkles className="h-4 w-4 text-ds-text-3" /> Estilo de respuesta
-                      </button>
-                    )}
-                    <div className="my-1 border-t border-ds-border-subtle" role="separator" />
-                    <button
-                      type="button"
-                      role="menuitem"
-                      onClick={() => void copyThreadLink()}
-                      className="flex min-h-11 w-full items-center gap-2 px-3 text-left text-[13px] text-ds-text-1 ds-tap hover:bg-ds-surface-2 sm:min-h-9"
-                    >
-                      <Copy className="h-4 w-4 text-ds-text-3" /> Copiar enlace del hilo
-                    </button>
-                  </div>
-                </>
-              )}
-            </div>
+            <CorreoReaderOverflowMenu
+              threadId={t.id}
+              providerThreadId={t.providerThreadId}
+              onOpenSignature={onOpenSignature}
+              onOpenAiStyle={onOpenAiStyle}
+            />
           </div>
         </div>
 
+        {/* Bloque de título móvil (<lg): asunto grande + remitente + metadata. */}
+        <CorreoReaderTitleBlock
+          detail={detail}
+          canModify={Boolean(canModify)}
+          onDone={onRefresh}
+          onRemove={onRemove}
+          onRemoveDone={onRemoveDone}
+          onUndoDone={onUndoDone}
+          onClose={onClose}
+        />
+
+        {/* Copiloto / contexto (móvil): un solo banner con pendientes y chips;
+            sin pendientes, breadcrumb compacto. En desktop lo cubre la fila
+            de contexto de arriba. */}
+        <div className="lg:hidden">
+          {reasons.length > 0 && !copilotDismissed ? (
+            <CorreoCopilotBanner
+              detail={detail}
+              canEdit={canEditCorreos}
+              suggestions={suggestions}
+              onAssociate={(accountId) => void onAssociate({ accountId, dealId: null })}
+              onOpenPanel={() => openPanel("contexto")}
+              onSaveAttachments={() => openPanel("contexto")}
+              onDismiss={() => setCopilotDismissed(true)}
+            />
+          ) : t.accountId ? (
+            <CorreoContextChain
+              detail={detail}
+              canEdit={canEditCorreos}
+              onAssociate={onAssociate}
+              onSearchAccount={() => openPanel("contexto")}
+              variant="breadcrumb"
+            />
+          ) : null}
+        </div>
+
+        {/* Degradado: en móvil es un motivo del banner de Copiloto. */}
         {detail.degraded && (
-          <div className="shrink-0 rounded-xl border border-status-warn-border bg-status-warn-soft px-3 py-2.5 text-[13px] text-status-warn-fg">
+          <div className="hidden shrink-0 rounded-xl border border-status-warn-border bg-status-warn-soft px-3 py-2.5 text-[13px] text-status-warn-fg lg:block">
             No se pudieron cargar los adjuntos de este hilo desde Gmail. Reintentá en unos segundos.
           </div>
         )}
@@ -372,6 +282,8 @@ export function CorreoDrawerContent({
             continueDraftIntent={continueDraftIntent}
             onOpenAiStyle={onOpenAiStyle}
             onOpenSignature={onOpenSignature}
+            onPrimaryActionChange={onPrimaryActionChange}
+            onOpenChange={onComposerOpenChange}
           />
         </div>
 

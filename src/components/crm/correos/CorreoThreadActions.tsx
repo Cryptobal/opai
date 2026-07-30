@@ -2,7 +2,6 @@
 
 import { Archive, Clock, Mail, MailOpen, Reply, ShieldAlert, Star, Trash2, Undo2 } from "lucide-react";
 import type { CorreoAction } from "@/modules/crm/email/gmail-thread-actions";
-import { CorreoThreadActionsBar } from "./CorreoThreadActionsBar";
 import { runCorreoAction } from "./correo-thread-action-client";
 
 type Props = {
@@ -17,7 +16,7 @@ type Props = {
   starred?: boolean;
   inSpam?: boolean;
   canModify: boolean;
-  variant?: "row" | "drawer" | "mobile-bar";
+  variant?: "row" | "drawer";
   /** drawer compacto: fila de iconos sin etiquetas (rediseño del lector). */
   compact?: boolean;
   onDone?: () => void;
@@ -26,7 +25,7 @@ type Props = {
   /** Refresh al Deshacer (p. ej. rehidratar lista tras archivar optimista). */
   onUndoDone?: () => void;
   onReply?: () => void;
-  /** Cierra el lector tras archivar/eliminar (drawer/mobile-bar). */
+  /** Cierra el lector tras archivar/eliminar (drawer). */
   onClose?: () => void;
   /**
    * Remoción optimista + avance al siguiente hilo (desktop split / fila).
@@ -65,25 +64,6 @@ export function CorreoThreadActions({
 
   const snoozeActive =
     snoozedUntil != null && new Date(snoozedUntil).getTime() > Date.now();
-
-  if (variant === "mobile-bar") {
-    return (
-      <CorreoThreadActionsBar
-        threadId={threadId}
-        isUnread={isUnread}
-        archived={archived}
-        trashed={trashed}
-        snoozeActive={snoozeActive}
-        onDone={onDone}
-        onReply={onReply}
-        onClose={onClose}
-        onRemove={onRemove}
-        onRemoveDone={onRemoveDone}
-        onUndoDone={onUndoDone}
-        onSnooze={onSnooze}
-      />
-    );
-  }
 
   const drawer = variant === "drawer";
   // drawer compacto: fila de iconos (rediseño lector). drawer normal:

@@ -10,7 +10,9 @@ import {
 } from "react";
 import { CorreoReaderShell } from "./CorreoReaderShell";
 import { CorreoDrawerContent } from "./CorreoDrawerContent";
-import { CorreoThreadActions } from "./CorreoThreadActions";
+import { CorreoReaderMobileHeader } from "./CorreoReaderMobileHeader";
+import { CorreoReaderOverflowMenu } from "./CorreoReaderOverflowMenu";
+import { CorreoReaderIsland } from "./CorreoReaderIsland";
 import { CorreoSnoozeSheet } from "./CorreoSnoozeSheet";
 import { snoozeThread } from "./correo-thread-action-client";
 import { useMarkCorreoRead } from "./useMarkCorreoRead";
@@ -19,6 +21,8 @@ import { loadOfflineDetail } from "./offline-store";
 import type { CorreoDetail } from "@/modules/crm/email/correos.types";
 import type { CorreoShortcuts, CorreoSnoozeConfig } from "./useCorreosViewPreferences";
 import { nextIntentNonce, type ComposeIntent } from "./correo-reader-intent";
+import type { ComposerMode } from "./CorreoComposerBox";
+import type { CorreoPrimaryAction } from "./correo-primary-action";
 import { toast } from "sonner";
 
 type ThreadPreview = {
@@ -97,8 +101,12 @@ export function CorreoDrawer({
   const [detail, setDetail] = useState<CorreoDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [snoozeOpen, setSnoozeOpen] = useState(false);
-  /** Pedido local (barra móvil Responder) sin pasar por CorreosClient. */
+  /** Pedido local (isla móvil Responder/Reenviar) sin pasar por CorreosClient. */
   const [localComposeIntent, setLocalComposeIntent] = useState<ComposeIntent | null>(null);
+  /** Acción primaria resuelta (elevada desde CorreoReplyBox) para la isla. */
+  const [primaryAction, setPrimaryAction] = useState<CorreoPrimaryAction | null>(null);
+  /** Composer abierto → la isla de acciones se oculta (exclusividad). */
+  const [composerOpen, setComposerOpen] = useState(false);
   // Evita reutilizar el detalle del hilo anterior al cambiar de correo.
   const detailThreadId = detail?.thread.id ?? null;
   // Guarda el hilo pedido para descartar respuestas stale (p. ej. onDone de
@@ -149,6 +157,8 @@ export function CorreoDrawer({
   useEffect(() => {
     setLocalComposeIntent(null);
     setSnoozeOpen(false);
+    setPrimaryAction(null);
+    setComposerOpen(false);
     setReadCursorAt(null);
     readCursorCapturedRef.current = false;
     if (!threadId) {
@@ -289,12 +299,25 @@ export function CorreoDrawer({
     window.setTimeout(run, 80);
   };
 
-  const requestReply = () => {
-    setLocalComposeIntent({ mode: "reply", nonce: nextIntentNonce() });
+  const requestCompose = (mode: ComposerMode, ai = false) => {
+    setLocalComposeIntent({ mode, ai, nonce: nextIntentNonce() });
     scrollToReply();
   };
+  const requestReply = () => requestCompose("reply");
 
-  // Intent externo (atajo/menú) gana; si no, el pedido local de la barra móvil.
+  // Posponer: mismo efecto que el sheet (sale de INBOX + Deshacer). Compartido
+  // por el sheet «Elegir fecha…» y los presets rápidos de la isla.
+  const handleSnoozeConfirm = (iso: string, label: string) => {
+    if (!detailReady) return;
+    const id = detail.thread.id;
+    if (onRemove) onRemove(id);
+    else onClose();
+    void snoozeThread(id, iso, `Pospuesto hasta ${label}`, () => {
+      onChanged?.();
+    });
+  };
+
+  // Intent externo (atajo/menú) gana; si no, el pedido local de la isla móvil.
   const effectiveComposeIntent = composeIntent ?? localComposeIntent;
 
   return (
@@ -309,22 +332,44 @@ export function CorreoDrawer({
       onResizeReset={onResizeReset}
       desktopMode={desktopMode}
       manageBackHistory={manageBackHistory}
+      mobileHeader={
+        <CorreoReaderMobileHeader
+          subject={headerSubject}
+          messageCount={detailReady ? detail.messages.length : 0}
+          accountName={detailReady ? detail.thread.accountName : null}
+          dealTitle={detailReady ? detail.thread.dealTitle : null}
+          snoozedUntil={detailReady ? detail.thread.snoozedUntil : null}
+          onClose={onClose}
+          moreSlot={
+            detailReady ? (
+              <CorreoReaderOverflowMenu
+                threadId={detail.thread.id}
+                providerThreadId={detail.thread.providerThreadId}
+                onOpenSignature={onOpenSignature}
+                onOpenAiStyle={onOpenAiStyle}
+              />
+            ) : undefined
+          }
+        />
+      }
       mobileActions={
         detailReady && canModify ? (
-          <CorreoThreadActions
+          <CorreoReaderIsland
             threadId={detail.thread.id}
             isUnread={detail.thread.isUnread}
             archived={Boolean(detail.thread.archivedAt)}
             trashed={Boolean(detail.thread.trashedAt)}
             snoozedUntil={detail.thread.snoozedUntil}
-            canModify
-            variant="mobile-bar"
-            onReply={requestReply}
+            primaryAction={primaryAction}
+            composerOpen={composerOpen}
+            snoozeConfig={snoozeConfig}
+            onCompose={requestCompose}
+            onSnoozeConfirm={handleSnoozeConfirm}
+            onOpenSnoozeSheet={() => setSnoozeOpen(true)}
             onClose={onClose}
             onRemove={onRemove}
             onRemoveDone={onRemoveDone}
             onUndoDone={onUndoDone}
-            onSnooze={() => setSnoozeOpen(true)}
             onDone={refresh}
           />
         ) : null
@@ -364,6 +409,8 @@ export function CorreoDrawer({
           dataRevision={refreshToken}
           onOpenAiStyle={onOpenAiStyle}
           onOpenSignature={onOpenSignature}
+          onPrimaryActionChange={setPrimaryAction}
+          onComposerOpenChange={setComposerOpen}
         />
       )}
       <CorreoSnoozeSheet
@@ -371,15 +418,7 @@ export function CorreoDrawer({
         onClose={() => setSnoozeOpen(false)}
         config={snoozeConfig}
         onOpenSettings={onOpenSnoozeSettings}
-        onConfirm={(iso, label) => {
-          if (!detailReady) return;
-          const id = detail.thread.id;
-          if (onRemove) onRemove(id);
-          else onClose();
-          void snoozeThread(id, iso, `Pospuesto hasta ${label}`, () => {
-            onChanged?.();
-          });
-        }}
+        onConfirm={handleSnoozeConfirm}
       />
     </CorreoReaderShell>
   );

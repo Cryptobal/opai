@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Eye } from "lucide-react";
 import {
   emailPlainFallback,
   hasBlockedImages,
@@ -12,6 +13,7 @@ import {
   type CidAttachmentRef,
 } from "./rewrite-cid-images";
 import { emailHtmlIsRenderable } from "./email-html-renderable";
+import { CorreoViewSheet } from "./CorreoViewSheet";
 import styles from "./email-html-body.module.css";
 
 type Props = {
@@ -141,6 +143,10 @@ export function EmailHtmlBody({
   const [frameReady, setFrameReady] = useState(false);
   const [measureFailed, setMeasureFailed] = useState(false);
   const lastHeightRef = useRef(320);
+  // Ajuste a ancho: escala el contenido para que no genere scroll horizontal.
+  // true = escala automática; false = 100% (permite scroll interno del iframe).
+  const [fitWidth, setFitWidth] = useState(true);
+  const [viewSheetOpen, setViewSheetOpen] = useState(false);
 
   const showHtmlFrame = mode === "html" && Boolean(safeHtml) && renderable;
 
@@ -178,20 +184,51 @@ export function EmailHtmlBody({
 
   // Con allow-same-origin (mismo origen vía srcDoc) el padre puede medir la
   // altura del contenido; un ResizeObserver sigue los cambios (imágenes lazy).
+  // Ajuste a ancho: si el contenido excede el ancho del contenedor, se escala
+  // `.opai-mail-canvas` (transform-origin top-left) y la altura reportada se
+  // multiplica por la misma escala. `canvas.scrollWidth/Height` son invariantes
+  // al transform del propio canvas → sin bucle de medición.
   const measure = useCallback(() => {
     const doc = iframeRef.current?.contentDocument;
-    const next = doc?.documentElement?.scrollHeight ?? doc?.body?.scrollHeight;
-    if (!next || next <= 0) return;
+    if (!doc) return;
+    const canvas = doc.querySelector(".opai-mail-canvas") as HTMLElement | null;
+    const naturalH =
+      canvas?.scrollHeight ??
+      doc.documentElement?.scrollHeight ??
+      doc.body?.scrollHeight;
+    if (!naturalH || naturalH <= 0) return;
     if (watchdogRef.current) {
       clearTimeout(watchdogRef.current);
       watchdogRef.current = null;
     }
-    const h = next + 4;
+
+    let scale = 1;
+    if (canvas) {
+      const availW = canvas.clientWidth;
+      const naturalW = canvas.scrollWidth;
+      if (fitWidth && availW > 0 && naturalW > availW + 1) {
+        // Escala mínima 0.6: por debajo el correo queda ilegible → 100%.
+        scale = Math.max(0.6, availW / naturalW);
+      }
+      const desiredTransform = scale < 1 ? `scale(${scale})` : "";
+      if (canvas.style.transformOrigin !== "top left") {
+        canvas.style.transformOrigin = "top left";
+      }
+      if (canvas.style.transform !== desiredTransform) {
+        canvas.style.transform = desiredTransform;
+      }
+      const desiredOverflow = scale < 1 ? "hidden" : "";
+      if (doc.body && doc.body.style.overflowX !== desiredOverflow) {
+        doc.body.style.overflowX = desiredOverflow;
+      }
+    }
+
+    const h = Math.round(naturalH * scale) + 4;
     lastHeightRef.current = h;
     setHeight(h);
     setFrameReady(true);
     setMeasureFailed(false);
-  }, []);
+  }, [fitWidth]);
 
   useEffect(() => {
     if (!useIframe || mode !== "html") return;
@@ -248,48 +285,60 @@ export function EmailHtmlBody({
   return (
     <div className="space-y-1.5">
       {(hasHtml || blockedAvailable) && (
-        <div className="flex flex-wrap items-center gap-3">
-          {hasHtml && (
-            <button
-              type="button"
-              onClick={() => setMode((m) => (m === "html" ? "text" : "html"))}
-              className="text-[12px] text-primary ds-tap"
-            >
-              {mode === "html" ? "Ver texto" : "Ver original"}
-            </button>
-          )}
-          {blockedAvailable && mode === "html" && (
-            <>
+        <>
+          {/* Desktop: fila de enlaces. Móvil: botón «Vista» → sheet. */}
+          <div className="hidden flex-wrap items-center gap-3 lg:flex">
+            {hasHtml && (
               <button
                 type="button"
-                onClick={() => setShowImages((v) => !v)}
+                onClick={() => setMode((m) => (m === "html" ? "text" : "html"))}
                 className="text-[12px] text-primary ds-tap"
               >
-                {showImages ? "Ocultar imágenes" : "Mostrar imágenes"}
+                {mode === "html" ? "Ver texto" : "Ver original"}
               </button>
-              {!showImages && onAlwaysShowImages && (
+            )}
+            {blockedAvailable && mode === "html" && (
+              <>
                 <button
                   type="button"
-                  onClick={() => { onAlwaysShowImages(); setShowImages(true); }}
-                  className="text-[12px] text-ds-text-3 underline underline-offset-2 ds-tap"
+                  onClick={() => setShowImages((v) => !v)}
+                  className="text-[12px] text-primary ds-tap"
                 >
-                  Mostrar siempre
+                  {showImages ? "Ocultar imágenes" : "Mostrar imágenes"}
                 </button>
-              )}
-            </>
-          )}
-          {showHtmlFrame && useIframe && (
+                {!showImages && onAlwaysShowImages && (
+                  <button
+                    type="button"
+                    onClick={() => { onAlwaysShowImages(); setShowImages(true); }}
+                    className="text-[12px] text-ds-text-3 underline underline-offset-2 ds-tap"
+                  >
+                    Mostrar siempre
+                  </button>
+                )}
+              </>
+            )}
+            {showHtmlFrame && useIframe && (
+              <button
+                type="button"
+                onClick={() => setEmailNightMode(!night)}
+                aria-pressed={night}
+                title={night ? "Fondo claro" : "Fondo oscuro"}
+                className="ml-auto text-[12px] text-ds-text-3 ds-tap"
+              >
+                {night ? "☀️ Claro" : "🌙 Oscuro"}
+              </button>
+            )}
+          </div>
+          <div className="flex justify-end lg:hidden">
             <button
               type="button"
-              onClick={() => setEmailNightMode(!night)}
-              aria-pressed={night}
-              title={night ? "Fondo claro" : "Fondo oscuro"}
-              className="ml-auto text-[12px] text-ds-text-3 ds-tap"
+              onClick={() => setViewSheetOpen(true)}
+              className="inline-flex min-h-11 items-center gap-1.5 rounded-full border border-ds-border-default bg-ds-surface-1 px-3 text-[12px] font-medium text-ds-text-2 ds-tap"
             >
-              {night ? "☀️ Claro" : "🌙 Oscuro"}
+              <Eye className="h-3.5 w-3.5" aria-hidden /> Vista
             </button>
-          )}
-        </div>
+          </div>
+        </>
       )}
       {showHtmlFrame ? (
         useIframe ? (
@@ -341,6 +390,32 @@ export function EmailHtmlBody({
         <p className="whitespace-pre-wrap break-words text-[13px] text-ds-text-2">
           {plain}
         </p>
+      )}
+
+      {viewSheetOpen && (
+        <CorreoViewSheet
+          mode={mode}
+          hasHtml={hasHtml}
+          isHtmlFrame={showHtmlFrame && useIframe}
+          night={night}
+          showImages={showImages}
+          blockedAvailable={blockedAvailable}
+          fitWidth={fitWidth}
+          onToggleMode={() => setMode((m) => (m === "html" ? "text" : "html"))}
+          onToggleNight={() => setEmailNightMode(!night)}
+          onToggleImages={() => setShowImages((v) => !v)}
+          onAlwaysShowImages={
+            onAlwaysShowImages
+              ? () => {
+                  onAlwaysShowImages();
+                  setShowImages(true);
+                }
+              : undefined
+          }
+          onToggleFitWidth={() => setFitWidth((v) => !v)}
+          onPrint={() => window.print()}
+          onClose={() => setViewSheetOpen(false)}
+        />
       )}
     </div>
   );

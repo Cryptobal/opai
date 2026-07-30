@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Spinner } from "@/components/opai-ds";
 import { CorreoActionBar } from "./CorreoActionBar";
@@ -19,6 +19,10 @@ import {
 import { normalizeRecipientList } from "./ReplyRecipientsField";
 import type { ComposeIntent } from "./correo-reader-intent";
 import { useCorreoReaderDock } from "./CorreoReaderDockContext";
+import {
+  resolveCorreoPrimaryAction,
+  type CorreoPrimaryAction,
+} from "./correo-primary-action";
 
 /** Contrato mínimo del reply box (CorreoDetail y EntityThreadDetail lo satisfacen). */
 export type ReplyBoxDetail = {
@@ -126,6 +130,8 @@ export function CorreoReplyBox({
   continueDraftIntent = null,
   onOpenAiStyle,
   onOpenSignature,
+  onPrimaryActionChange,
+  onOpenChange,
 }: {
   detail: ReplyBoxDetail;
   onSent: () => void;
@@ -136,6 +142,14 @@ export function CorreoReplyBox({
   continueDraftIntent?: { message: CorreoMessageDTO; nonce: number } | null;
   onOpenAiStyle?: () => void;
   onOpenSignature?: () => void;
+  /**
+   * Eleva la acción primaria resuelta (Responder/Reenviar + disponibilidad de
+   * "A todos") para que la isla móvil no vuelva a pedir suggest-reply. `null`
+   * mientras el meta carga o al cambiar de hilo.
+   */
+  onPrimaryActionChange?: (action: CorreoPrimaryAction | null) => void;
+  /** Notifica apertura/cierre del composer (la isla se oculta al abrir). */
+  onOpenChange?: (open: boolean) => void;
 }) {
   const dock = useCorreoReaderDock();
   const threadId = detail.thread.id;
@@ -160,6 +174,13 @@ export function CorreoReplyBox({
     if (!open) return;
     scrollComposerIntoView();
   }, [open, metaReady]);
+
+  // Notifica apertura/cierre del composer (isla móvil = exclusividad) vía ref.
+  const onOpenChangeRef = useRef(onOpenChange);
+  onOpenChangeRef.current = onOpenChange;
+  useEffect(() => {
+    onOpenChangeRef.current?.(open !== null);
+  }, [open]);
 
   useEffect(() => {
     setOpen(null);
@@ -202,12 +223,16 @@ export function CorreoReplyBox({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [continueDraftIntent?.nonce]);
 
-  const canReply = meta.to.length > 0 || Boolean(meta.replyAll);
-  const replyAllAvailable = useMemo(() => {
-    const ra = meta.replyAll;
-    const to = meta.to;
-    return Boolean(ra && (ra.cc.length > 0 || ra.to.some((e) => !to.includes(e)) || ra.to.length !== to.length));
-  }, [meta]);
+  const primaryAction = useMemo(() => resolveCorreoPrimaryAction(meta), [meta]);
+  const { canReply, replyAllAvailable } = primaryAction;
+
+  // Eleva la acción primaria al drawer/isla vía ref (evita re-ejecutar el
+  // effect por identidad del callback). Null mientras el meta aún carga.
+  const onPrimaryActionChangeRef = useRef(onPrimaryActionChange);
+  onPrimaryActionChangeRef.current = onPrimaryActionChange;
+  useEffect(() => {
+    onPrimaryActionChangeRef.current?.(metaReady ? primaryAction : null);
+  }, [metaReady, primaryAction]);
 
   const forwardAttachments: ForwardAttachmentRefClient[] = detail.attachments.map((a) => ({
     providerMessageId: a.messageId,

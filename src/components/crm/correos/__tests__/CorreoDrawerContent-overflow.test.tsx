@@ -21,6 +21,20 @@ vi.mock("../CorreoContextChain", () => ({
   CorreoContextChain: () => <div data-testid="context-chain" />,
 }));
 
+// El árbol nuevo (bloque de título + banner de Copiloto) se aísla para que el
+// test del menú "⋯" no dependa de la petición suggest-account.
+vi.mock("../CorreoReaderTitleBlock", () => ({
+  CorreoReaderTitleBlock: () => null,
+}));
+
+vi.mock("../CorreoCopilotBanner", () => ({
+  CorreoCopilotBanner: () => null,
+}));
+
+vi.mock("../useCorreoSuggestedAccounts", () => ({
+  useCorreoSuggestedAccounts: () => [],
+}));
+
 vi.mock("../CorreoMessages", () => ({
   CorreoMessages: () => <div data-testid="messages" />,
 }));

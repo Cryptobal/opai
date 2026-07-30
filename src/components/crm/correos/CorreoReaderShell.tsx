@@ -2,6 +2,7 @@
 
 import {
   useEffect,
+  useMemo,
   useRef,
   useState,
   type CSSProperties,
@@ -18,12 +19,16 @@ import { useCloseOnBack } from "./useCloseOnBack";
 import { useFocusTrap } from "./useFocusTrap";
 import { CorreoReaderDockContext } from "./CorreoReaderDockContext";
 import { CorreoReaderOverlayContext } from "./CorreoReaderOverlayContext";
+import { CorreoReaderScrollContext } from "./CorreoReaderScrollContext";
 
 type Props = {
   open: boolean;
   onClose: () => void;
   headerFrom: string;
   headerSubject: string;
+  /** Header adaptativo móvil (`<lg`); el header opaco queda solo para `lg+`. */
+  mobileHeader?: ReactNode;
+  /** Isla / barra de acciones flotante móvil (reemplaza el footer opaco). */
   mobileActions?: ReactNode;
   desktopWidth: number;
   onResizePointerDown: PointerEventHandler<HTMLElement>;
@@ -45,6 +50,7 @@ export function CorreoReaderShell({
   onClose,
   headerFrom,
   headerSubject,
+  mobileHeader,
   mobileActions,
   desktopWidth,
   onResizePointerDown,
@@ -79,6 +85,23 @@ export function CorreoReaderShell({
   const [overlayHost, setOverlayHost] = useState<HTMLDivElement | null>(null);
   // Dock inferior (fuera del scroll): Responder / Reenviar siempre visibles.
   const [dockHost, setDockHost] = useState<HTMLDivElement | null>(null);
+
+  // Estado de scroll para el header adaptativo móvil: glass + asunto tras 24px.
+  // Listener nativo passive; solo re-render al cruzar el umbral (sin spam).
+  const scrollElRef = useRef<HTMLDivElement | null>(null);
+  const [scrolled, setScrolled] = useState(false);
+  useEffect(() => {
+    const el = scrollElRef.current;
+    if (!el) return;
+    const onScroll = () => {
+      const next = el.scrollTop > 24;
+      setScrolled((prev) => (prev === next ? prev : next));
+    };
+    onScroll();
+    el.addEventListener("scroll", onScroll, { passive: true });
+    return () => el.removeEventListener("scroll", onScroll);
+  }, [open]);
+  const scrollValue = useMemo(() => ({ scrolled }), [scrolled]);
 
   if (!open) return null;
 
@@ -153,9 +176,12 @@ export function CorreoReaderShell({
         )}
         onClick={(e: MouseEvent) => e.stopPropagation()}
       >
+        <CorreoReaderScrollContext.Provider value={scrollValue}>
         <CorreoReaderOverlayContext.Provider value={overlayHost}>
           <CorreoReaderDockContext.Provider value={{ host: dockHost, enabled: true }}>
-            <header className="sticky top-0 z-10 border-b border-ds-border-subtle bg-background px-2 py-2.5 pt-[calc(env(safe-area-inset-top)+0.625rem)] md:px-4 lg:bg-ds-surface-2">
+            {/* Header opaco: solo desktop (lg+). En móvil lo reemplaza el
+                header adaptativo con glass. */}
+            <header className="sticky top-0 z-10 hidden border-b border-ds-border-subtle bg-background px-2 py-2.5 pt-[calc(env(safe-area-inset-top)+0.625rem)] md:px-4 lg:block lg:bg-ds-surface-2">
               <div className="flex items-center gap-1.5">
                 <button
                   type="button"
@@ -181,28 +207,43 @@ export function CorreoReaderShell({
               </div>
             </header>
 
-            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto bg-background px-3 py-3 [-webkit-overflow-scrolling:touch] [overscroll-behavior:contain] md:px-4 md:py-4 lg:bg-ds-surface-2">
+            {/* Header adaptativo móvil (sticky sobre el contenido). */}
+            {isMobile && mobileHeader}
+
+            <div
+              ref={scrollElRef}
+              className={cn(
+                // pb móvil 106px: espacio para la isla flotante (60 + safe-area).
+                "min-h-0 flex-1 space-y-4 overflow-y-auto bg-background px-3 pt-3 pb-[106px] [-webkit-overflow-scrolling:touch] [overscroll-behavior:contain] md:px-4 md:pt-4 lg:bg-ds-surface-2 lg:pb-4",
+                // Máscara de scroll (móvil): fade inferior sobre la isla; el fade
+                // superior solo aparece al scrollear.
+                isMobile && scrolled && "mobile-scroll-fade",
+              )}
+              style={
+                isMobile && scrolled
+                  ? ({ "--fade-top": "40px", "--fade-bot": "112px" } as CSSProperties)
+                  : undefined
+              }
+            >
               {children}
             </div>
 
-            {/* Dock Gmail: Responder / Reenviar fijos fuera del scroll.
-                empty:hidden — solo ocupa espacio cuando CorreoReplyBox porta
-                la barra aquí (composer cerrado). Safe-area solo si no hay
-                barra de acciones móvil debajo. */}
-            <div
-              ref={setDockHost}
-              className={cn(
-                "shrink-0 border-t border-ds-border-subtle bg-background px-3 py-2 empty:hidden md:px-4 lg:bg-ds-surface-2",
-                !mobileActions &&
-                  "pb-[calc(env(safe-area-inset-bottom)+0.5rem)] lg:pb-2",
-              )}
-            />
-
-            {mobileActions && (
-              <footer className="z-10 border-t border-ds-border-subtle bg-background p-2 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] lg:hidden">
-                <div className="h-11">{mobileActions}</div>
-              </footer>
+            {/* Dock Gmail: Responder / Reenviar fijos fuera del scroll. Solo
+                lg+: en móvil la isla flotante resuelve la respuesta, así que el
+                host no se monta y CorreoReplyBox no porta la barra (queda null
+                con el composer cerrado). empty:hidden — solo ocupa espacio
+                cuando el composer está cerrado y hay barra portada. */}
+            {!isMobile && (
+              <div
+                ref={setDockHost}
+                className="shrink-0 border-t border-ds-border-subtle bg-ds-surface-2 px-4 py-2 empty:hidden"
+              />
             )}
+
+            {/* Isla de acciones móvil: se posiciona sola (fixed, flotante).
+                Solo se monta en móvil — en desktop reclamaría el host del undo
+                estando oculta (lg:hidden) y el snackbar global no se vería. */}
+            {isMobile && mobileActions}
 
             {/* Capa para sheets (guardar adjuntos): mismo ancho del visor. */}
             <div
@@ -211,6 +252,7 @@ export function CorreoReaderShell({
             />
           </CorreoReaderDockContext.Provider>
         </CorreoReaderOverlayContext.Provider>
+        </CorreoReaderScrollContext.Provider>
       </Surface>
     </div>
   );

@@ -91,6 +91,12 @@ export {
   showUndo,
   dismissUndo,
   DEFAULT_UNDO_DURATION_MS,
+  getUndoSnackbarSnapshot,
+  subscribeUndoSnackbar,
+  claimUndoHost,
+  getUndoHostClaimSnapshot,
+  subscribeUndoHostClaim,
   type UndoSnackbarInput,
+  type UndoSnackbarState,
 } from "./undo-snackbar-store";
 export { thresholdFromScore, type Threshold } from "./tokens";
