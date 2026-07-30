@@ -48,7 +48,27 @@ export async function generateBundleCode(tenantId: string): Promise<string> {
 
 const quoteInclude = {
   installation: { select: { id: true, name: true, city: true, address: true } },
-  parameters: { select: { marginPct: true, marginMode: true, salePriceMonthly: true } },
+  parameters: {
+    select: {
+      marginPct: true,
+      marginMode: true,
+      salePriceMonthly: true,
+      financialEnabled: true,
+      financialRatePct: true,
+    },
+  },
+  additionalLines: {
+    orderBy: { orden: "asc" as const },
+    select: {
+      id: true,
+      nombre: true,
+      precio: true,
+      tipo: true,
+      recurrencia: true,
+      cantidad: true,
+      marginPct: true,
+    },
+  },
 } as const;
 
 export type BundleWithMembers = Awaited<
@@ -60,8 +80,17 @@ export async function createBundle(opts: {
   dealId: string;
   name?: string | null;
   importDealQuotes?: boolean;
-}): Promise<{ id: string; code: string }> {
-  const { tenantId, dealId, name, importDealQuotes = true } = opts;
+  /** Crea una cotización vacía si el negocio no aportó ninguna (CTA "nueva propuesta"). */
+  ensurePrimaryQuote?: boolean;
+  userId?: string | null;
+}): Promise<{ id: string; code: string; primaryQuoteId: string | null }> {
+  const {
+    tenantId,
+    dealId,
+    name,
+    importDealQuotes = true,
+    ensurePrimaryQuote = false,
+  } = opts;
 
   const deal = await prisma.crmDeal.findFirst({
     where: { id: dealId, tenantId },
@@ -136,7 +165,36 @@ export async function createBundle(opts: {
     return created;
   });
 
-  return { id: bundle.id, code: bundle.code };
+  let primaryQuoteId =
+    (
+      await prisma.cpqProposalBundleQuote.findFirst({
+        where: { tenantId, bundleId: bundle.id },
+        orderBy: { displayOrder: "asc" },
+        select: { quoteId: true },
+      })
+    )?.quoteId ?? null;
+
+  // El workspace unificado vive en la cotización: si el negocio no aportó
+  // ninguna, sembramos la primera instalación para poder abrirlo.
+  if (!primaryQuoteId && ensurePrimaryQuote) {
+    const { addInstallationToBundle } = await import("./bundle-members.service");
+    const installation = await prisma.crmInstallation.findFirst({
+      where: { tenantId, accountId: deal.accountId ?? undefined },
+      orderBy: { createdAt: "asc" },
+      select: { id: true },
+    });
+    if (installation) {
+      const added = await addInstallationToBundle({
+        tenantId,
+        bundleId: bundle.id,
+        userId: opts.userId ?? null,
+        installationId: installation.id,
+      });
+      primaryQuoteId = added.quoteId;
+    }
+  }
+
+  return { id: bundle.id, code: bundle.code, primaryQuoteId };
 }
 
 export async function listBundlesByDeal(opts: {
@@ -160,6 +218,12 @@ export async function listBundlesByDeal(opts: {
       createdAt: true,
       updatedAt: true,
       _count: { select: { quotes: true } },
+      // Cotización primaria: destino del workspace unificado.
+      quotes: {
+        orderBy: { displayOrder: "asc" },
+        take: 1,
+        select: { quoteId: true },
+      },
     },
   });
 }

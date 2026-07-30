@@ -1,5 +1,11 @@
 "use client";
 
+/**
+ * @deprecated Header de propuesta v1. Reemplazado por
+ * `@/components/cpq/workspace/consolidado/BundleStickyBar` (KPIs consolidados
+ * sticky bajo el topbar).
+ */
+
 import { Tag } from "@/components/opai-ds";
 import type { BundleDetail } from "./useBundle";
 

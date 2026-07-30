@@ -1,5 +1,11 @@
 "use client";
 
+/**
+ * @deprecated Tab de instalación v1 (solo matriz + margen). En el workspace
+ * unificado el tab de instalación monta `CpqQuoteDetail` en modo `embedded`
+ * con el set completo de secciones.
+ */
+
 import { useState } from "react";
 import Link from "next/link";
 import { AlertCircle, ExternalLink, LayoutTemplate } from "lucide-react";

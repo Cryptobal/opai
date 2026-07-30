@@ -1,5 +1,12 @@
 "use client";
 
+/**
+ * @deprecated Consolidado v1. Reemplazado por
+ * `@/components/cpq/workspace/consolidado/ConsolidadoPanel`, que además edita
+ * las condiciones a nivel propuesta (con propagación automática) y suma
+ * comparador, AI global, Incluye agregado y auditoría.
+ */
+
 import { useState } from "react";
 import { toast } from "sonner";
 import { Surface, Tag, EmptyState } from "@/components/opai-ds";

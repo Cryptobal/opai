@@ -497,7 +497,13 @@ export function CrmDealDetailClient({
   );
   const [updatingActiveQuotation, setUpdatingActiveQuotation] = useState(false);
   const [dealBundles, setDealBundles] = useState<
-    Array<{ id: string; code: string; name: string | null; status: string }>
+    Array<{
+      id: string;
+      code: string;
+      name: string | null;
+      status: string;
+      primaryQuoteId: string | null;
+    }>
   >([]);
   const [creatingBundle, setCreatingBundle] = useState(false);
 
@@ -517,11 +523,18 @@ export function CrmDealDetailClient({
         if (cancelled || !j?.success) return;
         setDealBundles(
           (j.data || []).map(
-            (b: { id: string; code: string; name: string | null; status: string }) => ({
+            (b: {
+              id: string;
+              code: string;
+              name: string | null;
+              status: string;
+              primaryQuoteId?: string | null;
+            }) => ({
               id: b.id,
               code: b.code,
               name: b.name,
               status: b.status,
+              primaryQuoteId: b.primaryQuoteId ?? null,
             }),
           ),
         );
@@ -532,6 +545,16 @@ export function CrmDealDetailClient({
     };
   }, [deal.id]);
 
+  /**
+   * Enlace del bundle: apunta a su cotización primaria (workspace unificado).
+   * Sin cotización primaria conocida cae en /crm/propuestas/[id], que redirige
+   * en servidor.
+   */
+  const bundleHref = (b: { id: string; primaryQuoteId?: string | null }) =>
+    b.primaryQuoteId
+      ? `/crm/cotizaciones/${b.primaryQuoteId}`
+      : `/crm/propuestas/${b.id}`;
+
   const createMultiInstallProposal = async () => {
     if (creatingBundle) return;
     setCreatingBundle(true);
@@ -539,14 +562,25 @@ export function CrmDealDetailClient({
       const res = await fetch("/api/cpq/bundles", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ dealId: deal.id }),
+        // El workspace unificado vive en la cotización: la propuesta necesita
+        // al menos una para poder abrirse.
+        body: JSON.stringify({ dealId: deal.id, ensurePrimaryQuote: true }),
       });
       const json = await res.json();
       if (!res.ok || !json.success) {
         throw new Error(json.error || "No se pudo crear la propuesta");
       }
       toast.success(`Propuesta ${json.data.code} creada`);
-      router.push(`/crm/propuestas/${json.data.id}`);
+      const primaryQuoteId = json.data.primaryQuoteId as string | null;
+      if (primaryQuoteId) {
+        router.push(`/crm/cotizaciones/${primaryQuoteId}`);
+      } else {
+        toast.message("Propuesta creada sin instalaciones", {
+          description:
+            "Crea una cotización en este negocio y conviértela en multi-instalación.",
+        });
+        router.refresh();
+      }
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : "Error al crear propuesta");
     } finally {
@@ -1790,7 +1824,7 @@ export function CrmDealDetailClient({
                 className="h-7 text-xs gap-1"
                 asChild
               >
-                <Link href={`/crm/propuestas/${dealBundles[0].id}`}>
+                <Link href={bundleHref(dealBundles[0])}>
                   <Layers className="h-3 w-3" />
                   Abrir {dealBundles[0].code}
                 </Link>
@@ -1816,7 +1850,7 @@ export function CrmDealDetailClient({
             <div className="flex flex-wrap gap-1.5">
               {dealBundles.slice(1).map((b) => (
                 <Button key={b.id} size="sm" variant="ghost" className="h-7 text-xs" asChild>
-                  <Link href={`/crm/propuestas/${b.id}`}>{b.code}</Link>
+                  <Link href={bundleHref(b)}>{b.code}</Link>
                 </Button>
               ))}
             </div>

@@ -137,7 +137,9 @@ export function CrmCotizacionesClient({
       const res = await fetch("/api/cpq/bundles", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ dealId: selectedDealId }),
+        // ensurePrimaryQuote: el workspace unificado vive en la cotización, así
+        // que la propuesta necesita al menos una para poder abrirse.
+        body: JSON.stringify({ dealId: selectedDealId, ensurePrimaryQuote: true }),
       });
       const json = await res.json();
       if (!res.ok || !json.success) {
@@ -145,7 +147,16 @@ export function CrmCotizacionesClient({
       }
       toast.success(`Propuesta ${json.data.code} creada`);
       setBundleDialogOpen(false);
-      router.push(`/crm/propuestas/${json.data.id}`);
+      const primaryQuoteId = json.data.primaryQuoteId as string | null;
+      if (primaryQuoteId) {
+        router.push(`/crm/cotizaciones/${primaryQuoteId}`);
+      } else {
+        toast.message("Propuesta creada sin instalaciones", {
+          description:
+            "El negocio no tiene cotizaciones ni instalaciones. Crea una cotización y conviértela en multi-instalación.",
+        });
+        router.refresh();
+      }
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : "Error al crear propuesta");
     } finally {
