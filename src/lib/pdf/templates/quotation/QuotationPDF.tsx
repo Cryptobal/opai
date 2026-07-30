@@ -437,7 +437,12 @@ function BreakdownPage({
 
   const totalImponible = breakdown.positions.reduce((s, p) => s + p.totalImponible, 0);
   const imposiciones = breakdown.positions.reduce(
-    (s, p) => s + p.sisEmployer + p.afcEmployer + p.mutualEmployer,
+    (s, p) =>
+      s +
+      p.sisEmployer +
+      (p.pensionReformEmployer ?? 0) +
+      p.afcEmployer +
+      p.mutualEmployer,
     0,
   );
   const provisiones = breakdown.positions.reduce(
@@ -520,7 +525,12 @@ function BreakdownPage({
                 <View style={ls.bdSubRow}>
                   <Text style={ls.bdSubLabel}>Cargas sociales (SIS+AFC+Mutual)</Text>
                   <Text style={ls.bdSubAmount}>
-                    {fmt(pos.sisEmployer + pos.afcEmployer + pos.mutualEmployer)}
+                    {fmt(
+                      pos.sisEmployer +
+                        (pos.pensionReformEmployer ?? 0) +
+                        pos.afcEmployer +
+                        pos.mutualEmployer,
+                    )}
                   </Text>
                 </View>
                 {pos.vacationProvision + pos.severanceProvision > 0 && (
@@ -778,7 +788,11 @@ function LaborDetailSection({
 
       {/* Per-position detailed breakdown (Fix 5) */}
       {hasDetails && laborBreakdown.positionDetails.map((pos, idx) => {
-        const totalSocialCharges = pos.sisEmployer + pos.afcEmployer + pos.mutualEmployer;
+        const totalSocialCharges =
+          pos.sisEmployer +
+          (pos.pensionReformEmployer ?? 0) +
+          pos.afcEmployer +
+          pos.mutualEmployer;
         const perGuard = pos.totalGuardsInPosition > 0 ? pos.totalLaborCost / pos.totalGuardsInPosition : 0;
         return (
           <View key={idx} style={{ marginBottom: 8, borderWidth: 0.5, borderColor: pdfColors.slate200, borderRadius: 4 }}>
@@ -802,6 +816,12 @@ function LaborDetailSection({
             <View style={ls.laborRow}>
               <Text style={ls.laborLabel}>SIS (Seguro invalidez y sobrevivencia)</Text>
               <Text style={ls.laborValue}>{fmtCLPPdf(pos.sisEmployer / Math.max(1, pos.totalGuardsInPosition))}</Text>
+            </View>
+            <View style={ls.laborRow}>
+              <Text style={ls.laborLabel}>Reforma Previsional (Ley 21.735)</Text>
+              <Text style={ls.laborValue}>
+                {fmtCLPPdf((pos.pensionReformEmployer ?? 0) / Math.max(1, pos.totalGuardsInPosition))}
+              </Text>
             </View>
             <View style={ls.laborRow}>
               <Text style={ls.laborLabel}>AFC (Seguro cesantía empleador)</Text>

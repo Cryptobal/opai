@@ -427,6 +427,7 @@ export async function buildQuotationProps(
             gratification,
             totalImponible,
             sisEmployer: getNum('sis_employer'),
+            pensionReformEmployer: getNum('pension_reform_employer'),
             afcEmployer: getNestedNum('afc_employer', 'total'),
             mutualEmployer: getNestedNum('work_injury_employer', 'amount'),
             vacationProvision: getNum('vacation_provision'),
@@ -544,7 +545,13 @@ export async function buildQuotationProps(
     const totalBaseSalary = breakdown.positions.reduce((s, p) => s + p.baseSalary, 0);
     const totalGratification = breakdown.positions.reduce((s, p) => s + p.gratification, 0);
     const totalImpositions = breakdown.positions.reduce(
-      (s, p) => s + p.sisEmployer + p.afcEmployer + p.mutualEmployer, 0,
+      (s, p) =>
+        s +
+        p.sisEmployer +
+        (p.pensionReformEmployer ?? 0) +
+        p.afcEmployer +
+        p.mutualEmployer,
+      0,
     );
     const posGuards = breakdown.positions.reduce((s, p) => s + p.totalGuardsInPosition, 0);
     const cargasSocialesPct = totalImponible > 0 ? (totalImpositions / totalImponible) * 100 : 0;
@@ -563,6 +570,7 @@ export async function buildQuotationProps(
         gratification: p.gratification,
         totalImponible: p.totalImponible,
         sisEmployer: p.sisEmployer,
+        pensionReformEmployer: p.pensionReformEmployer ?? 0,
         afcEmployer: p.afcEmployer,
         mutualEmployer: p.mutualEmployer,
         vacationProvision: p.vacationProvision,

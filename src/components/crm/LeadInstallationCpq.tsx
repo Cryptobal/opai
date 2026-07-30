@@ -931,6 +931,7 @@ export function LeadInstallationCpq({
             gratification: 0,
             totalImponible: baseSalary,
             sisEmployer: 0,
+            pensionReformEmployer: 0,
             afcEmployer: 0,
             mutualEmployer: 0,
             vacationProvision: 0,

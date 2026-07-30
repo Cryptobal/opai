@@ -241,6 +241,7 @@ export async function GET(
           gratification,
           totalImponible,
           sisEmployer,
+          pensionReformEmployer,
           afcEmployer,
           mutualEmployer,
           vacationProvision,
@@ -262,6 +263,7 @@ export async function GET(
           gratification,
           totalImponible,
           sisEmployer,
+          pensionReformEmployer,
           afcEmployer,
           mutualEmployer,
           vacationProvision,
@@ -515,7 +517,8 @@ export async function GET(
   /* ── Build labor breakdown for portal ── */
   let laborBreakdown: { totalGuardias: number; totalMensual: number; positionDetails: Array<{
     name: string; totalGuardsInPosition: number; baseSalary: number; gratification: number;
-    totalImponible: number; sisEmployer: number; afcEmployer: number; mutualEmployer: number;
+    totalImponible: number; sisEmployer: number; pensionReformEmployer: number;
+    afcEmployer: number; mutualEmployer: number;
     vacationProvision: number; severanceProvision: number; totalLaborCost: number;
   }> } | undefined;
   if (costBreakdown && costBreakdown.positions.length > 0) {
@@ -530,6 +533,7 @@ export async function GET(
         gratification: p.gratification,
         totalImponible: p.totalImponible,
         sisEmployer: p.sisEmployer,
+        pensionReformEmployer: p.pensionReformEmployer ?? 0,
         afcEmployer: p.afcEmployer,
         mutualEmployer: p.mutualEmployer,
         vacationProvision: p.vacationProvision,

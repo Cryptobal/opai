@@ -566,6 +566,7 @@ export async function buildProposalProps(
           gratification: charges.gratification,
           totalImponible: charges.totalImponible,
           sisEmployer: charges.sisEmployer,
+          pensionReformEmployer: charges.pensionReformEmployer,
           afcEmployer: charges.afcEmployer,
           mutualEmployer: charges.mutualEmployer,
           vacationProvision: charges.vacationProvision,

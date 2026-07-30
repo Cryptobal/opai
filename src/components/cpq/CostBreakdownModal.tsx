@@ -136,6 +136,12 @@ export function CostBreakdownModal({ open, onOpenChange, position }: CostBreakdo
                     <span className="font-mono">{formatCurrency(breakdown.sis_employer)}</span>
                   </div>
                   <div className="flex items-center justify-between">
+                    <span>Reforma Previsional (Ley 21.735)</span>
+                    <span className="font-mono">
+                      {formatCurrency(breakdown.pension_reform_employer ?? 0)}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
                     <span>AFC</span>
                     <span className="font-mono">{formatCurrency(breakdown.afc_employer.total)}</span>
                   </div>

@@ -10,11 +10,13 @@
  */
 
 // Tasas empleador aproximadas (display-only). Ajustar si cambia la normativa.
-const SIS_RATE = 0.0188; // Seguro de Invalidez y Sobrevivencia (empleador)
+// Fallback alineado a Agosto 2026: SIS absorbido en reforma 3,5%.
+const SIS_RATE = 0.0;
+const PENSION_REFORM_RATE = 0.035; // Ley 21.735 (ago-2026 en adelante)
 const AFC_RATE_INDEFINITE = 0.024; // AFC empleador, contrato indefinido
-const MUTUAL_RATE_BASE = 0.0093; // Cotización básica Ley 16.744 (0.90% + 0.03% extra)
+const MUTUAL_RATE_BASE = 0.012; // security_industry (1,20%)
 const GRATIFICATION_RATE = 0.25; // Art. 50 CT
-const GRATIFICATION_CAP_MONTHLY = (500000 * 4.75) / 12; // tope mensual aprox (IMM × 4.75 / 12)
+const GRATIFICATION_CAP_MONTHLY = (553553 * 4.75) / 12; // IMM jul-2026 × 4.75 / 12
 
 export interface LaborChargesInput {
   /** Sueldo base TOTAL de la posición (ya multiplicado por nº de guardias). */
@@ -29,6 +31,7 @@ export interface LaborChargesOutput {
   gratification: number;
   totalImponible: number;
   sisEmployer: number;
+  pensionReformEmployer: number;
   afcEmployer: number;
   mutualEmployer: number;
   vacationProvision: number;
@@ -59,12 +62,19 @@ export function resolveLaborCharges(input: LaborChargesInput): LaborChargesOutpu
 
   // Cargas: del snapshot, o fallback sobre el imponible.
   let sisEmployer = readNum(bd, "sis_employer", guards);
+  let pensionReformEmployer = readNum(bd, "pension_reform_employer", guards);
   let afcEmployer = readNested(bd, "afc_employer", "total", guards);
   let mutualEmployer = readNested(bd, "work_injury_employer", "amount", guards);
 
-  if (sisEmployer === 0 && totalImponible > 0) sisEmployer = totalImponible * SIS_RATE;
-  if (afcEmployer === 0 && totalImponible > 0) afcEmployer = totalImponible * AFC_RATE_INDEFINITE;
-  if (mutualEmployer === 0 && totalImponible > 0) mutualEmployer = totalImponible * MUTUAL_RATE_BASE;
+  // Fallback display-only solo si el snapshot no trae cargas sociales.
+  const hasAnyEmployerCharge =
+    sisEmployer > 0 || pensionReformEmployer > 0 || afcEmployer > 0 || mutualEmployer > 0;
+  if (!hasAnyEmployerCharge && totalImponible > 0) {
+    sisEmployer = totalImponible * SIS_RATE;
+    pensionReformEmployer = totalImponible * PENSION_REFORM_RATE;
+    afcEmployer = totalImponible * AFC_RATE_INDEFINITE;
+    mutualEmployer = totalImponible * MUTUAL_RATE_BASE;
+  }
 
   const vacationProvision = readNum(bd, "vacation_provision", guards);
   const severanceProvision = readNum(bd, "severance_provision", guards);
@@ -73,6 +83,7 @@ export function resolveLaborCharges(input: LaborChargesInput): LaborChargesOutpu
     gratification,
     totalImponible,
     sisEmployer,
+    pensionReformEmployer,
     afcEmployer,
     mutualEmployer,
     vacationProvision,

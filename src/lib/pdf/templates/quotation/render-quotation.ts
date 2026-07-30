@@ -33,6 +33,7 @@ export interface LaborPositionDetailPDF {
   gratification: number;
   totalImponible: number;
   sisEmployer: number;
+  pensionReformEmployer?: number;
   afcEmployer: number;
   mutualEmployer: number;
   vacationProvision: number;
@@ -915,7 +916,11 @@ export async function renderQuotationToBuffer(
     const positionCards = hasDetails
       ? laborBreakdown.positionDetails.map((pos, idx) => {
           const div = perGuardDivisor(pos.totalGuardsInPosition);
-          const totalSocial = pos.sisEmployer + pos.afcEmployer + pos.mutualEmployer;
+          const totalSocial =
+            pos.sisEmployer +
+            (pos.pensionReformEmployer ?? 0) +
+            pos.afcEmployer +
+            pos.mutualEmployer;
           const perGuardCost = pos.totalLaborCost / div;
           return e(
             View,
@@ -927,6 +932,10 @@ export async function renderQuotationToBuffer(
             laborRow('Gratificacion legal', fmtMoney(pos.gratification / div)),
             laborRow('Total haberes imponibles', fmtMoney(pos.totalImponible / div)),
             laborRow('SIS (Seguro invalidez y sobrevivencia)', fmtMoney(pos.sisEmployer / div)),
+            laborRow(
+              'Reforma Previsional (Ley 21.735)',
+              fmtMoney((pos.pensionReformEmployer ?? 0) / div),
+            ),
             laborRow('AFC (Seguro cesantia empleador)', fmtMoney(pos.afcEmployer / div)),
             laborRow('Mutual / Accidentes (Ley 16.744)', fmtMoney(pos.mutualEmployer / div)),
             laborRow('Total cargas sociales empleador', fmtMoney(totalSocial / div)),
@@ -1223,7 +1232,11 @@ export async function renderQuotationToBuffer(
               acc.push(e(View, { key: `${pos.id}-hdr`, style: [s.tblRow, { paddingLeft: 12, backgroundColor: '#f0f9ff' }] }, e(Text, { style: [s.tblCellBold, { flex: 3, fontSize: 8 }] }, `${pos.name} (${pos.totalGuardsInPosition}g)`), e(Text, { style: [s.tblCellBold, { flex: 2, textAlign: 'right' as const, fontSize: 8 }] }, fmtMoney(pos.totalLaborCost))));
               acc.push(e(View, { key: `${pos.id}-base`, style: [s.tblRow, { paddingLeft: 16 }] }, e(Text, { style: [s.tblCell, { flex: 3 }] }, 'Sueldo base'), e(Text, { style: [s.tblCell, { flex: 2, textAlign: 'right' as const }] }, fmtMoney(pos.baseSalary))));
               if (pos.gratification > 0) acc.push(e(View, { key: `${pos.id}-grat`, style: [s.tblRow, { paddingLeft: 16 }] }, e(Text, { style: [s.tblCell, { flex: 3 }] }, 'Gratificacion legal'), e(Text, { style: [s.tblCell, { flex: 2, textAlign: 'right' as const }] }, fmtMoney(pos.gratification))));
-              const socialCharges = pos.sisEmployer + pos.afcEmployer + pos.mutualEmployer;
+              const socialCharges =
+                pos.sisEmployer +
+                (pos.pensionReformEmployer ?? 0) +
+                pos.afcEmployer +
+                pos.mutualEmployer;
               if (socialCharges > 0) acc.push(e(View, { key: `${pos.id}-social`, style: [s.tblRow, { paddingLeft: 16 }] }, e(Text, { style: [s.tblCell, { flex: 3 }] }, 'Cargas sociales (SIS+AFC+Mutual)'), e(Text, { style: [s.tblCell, { flex: 2, textAlign: 'right' as const }] }, fmtMoney(socialCharges))));
               const prov = pos.vacationProvision + pos.severanceProvision;
               if (prov > 0) acc.push(e(View, { key: `${pos.id}-prov`, style: [s.tblRow, { paddingLeft: 16 }] }, e(Text, { style: [s.tblCell, { flex: 3 }] }, 'Provisiones (vacac.+finiquito)'), e(Text, { style: [s.tblCell, { flex: 2, textAlign: 'right' as const }] }, fmtMoney(prov))));

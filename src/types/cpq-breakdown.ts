@@ -32,6 +32,8 @@ export interface PositionBreakdownItem {
   gratification: number;
   totalImponible: number;
   sisEmployer: number;
+  /** Aporte empleador Ley 21.735; 0 en snapshots antiguos */
+  pensionReformEmployer: number;
   afcEmployer: number;
   mutualEmployer: number;
   vacationProvision: number;

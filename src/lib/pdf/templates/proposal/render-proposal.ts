@@ -1357,7 +1357,11 @@ export async function renderProposalToBufferFromProps(
           );
           acc.push(bdRow('Sueldo base', pos.baseSalary, true));
           if (pos.gratification > 0) acc.push(bdRow('Gratificación legal', pos.gratification, true));
-          const social = pos.sisEmployer + pos.afcEmployer + pos.mutualEmployer;
+          const social =
+            pos.sisEmployer +
+            (pos.pensionReformEmployer ?? 0) +
+            pos.afcEmployer +
+            pos.mutualEmployer;
           if (social > 0) acc.push(bdRow('Cargas sociales (SIS+AFC+Mutual)', social, true));
           const prov = pos.vacationProvision + pos.severanceProvision;
           if (prov > 0) acc.push(bdRow('Provisiones (vacac.+finiquito)', prov, true));
