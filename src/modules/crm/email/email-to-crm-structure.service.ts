@@ -12,7 +12,9 @@ import {
   normalizeWeekdays,
   shiftHours,
 } from "@/lib/crm/coverage-to-staffing";
+import { getTenantCompanyConfig } from "@/lib/tenant-config";
 import { UNTRUSTED_RULES, wrapUntrusted } from "./ai-untrusted";
+import { buildTenantDomains } from "./correos-list-helpers";
 import { htmlToTextWithTables, stripHtml } from "./email-text-util";
 import { gmailClientForAccount } from "./gmail-account-client";
 import { prepareThreadAttachments, type PreparedAttachments } from "./email-to-lead-attachments";
@@ -22,6 +24,7 @@ import {
   syncAssumptionArrays,
   type CrmStructureAssumption,
   type CrmStructureCondicionesEconomicas,
+  type CrmStructureContact,
   type CrmStructureCoverageSlot,
   type CrmStructureExtractionResult,
   type CrmStructureInstallation,
@@ -29,6 +32,12 @@ import {
   type CrmStructureProposal,
   type CrmStructureRefineAnswer,
 } from "./email-to-crm-structure.types";
+import {
+  contactHasIdentity,
+  formatRecipientsBlock,
+  harvestExternalContacts,
+  withHeaderContacts,
+} from "./structure-contacts";
 
 /** Hash corto estable para ids de supuestos. */
 function shortHash(text: string): string {
@@ -66,6 +75,7 @@ Devuelve SOLO un objeto JSON con EXACTAMENTE estas claves:
 {
   "account": { "name": string|null, "rut": string|null, "legalName": string|null, "industry": string|null, "segment": string|null },
   "contact": { "firstName": string|null, "lastName": string|null, "email": string|null, "phone": string|null, "roleTitle": string|null },
+  "contacts": [{ "firstName": string|null, "lastName": string|null, "email": string|null, "phone": string|null, "roleTitle": string|null }],
   "deal": { "title": string|null, "isLicitacion": boolean, "mesesContrato": number|null, "notes": string|null, "fechaLimite": string|null },
   "coverageIsRequirementNotStaffing": boolean,
   "weeklyHoursPerWorker": number,
@@ -128,6 +138,7 @@ Reglas CRÍTICAS:
 7. openQuestions: ambigüedades caras (ej. jefe de turno adicional, colación, jornada parcial) y datos relevantes que el documento NO declare (fechas, sueldo mínimo, multas). Máx 8.
 8. assumptions: supuestos razonables que aplicaste. Máx 5.
 9. No inventes RUT, montos, fechas ni emails. Si no está en el documento → null y, si es relevante, openQuestions. Si el contacto solo trae teléfono, email puede ser null.
+9b. CONTACTOS: en "contacts" listá TODOS los interlocutores externos del cliente visibles en De/Para/CC, firma y cuerpo (personas con email o nombre+teléfono). Excluí casillas de la empresa receptora (seguridad privada / tenant). "contact" = el primario (remitente o firmante principal). No omitas CC externos.
 10. Extrae TODOS los slots del cuadro de cobertura; no resumas "9 dependencias" en un solo slot genérico.
 11. licitacion: fechas del cronograma del pliego normalizadas a YYYY-MM-DD. Fechas textuales chilenas ("10 de agosto de 2026") → ISO. Ante ambigüedad → null + openQuestions. deal.fechaLimite debe coincidir con licitacion.fechaEntrega cuando exista.
 12. condicionesEconomicas: piso salarial (sueldoBaseMinimo en CLP mensual), asignaciones, multas en UF (NO convertir a CLP), KPI contractuales. inadmisibleSiNoCumpleRemuneracion=true si el pliego declara inadmisibilidad por incumplimiento remuneracional. Si declara % de dotación de contingencia, ponelo en condicionesEconomicas.reservaPct Y en reservePct raíz.
@@ -372,13 +383,9 @@ function enrichInstallation(raw: unknown, weeklyHours: number): CrmStructureInst
   };
 }
 
-/** Normaliza JSON de IA + calcula dotación (exportado para tests). */
-export function normalizeCrmStructureProposal(raw: Record<string, unknown>): CrmStructureProposal {
-  const base = emptyCrmStructureProposal();
-  const accountRaw = (raw.account ?? {}) as Record<string, unknown>;
-  const contactRaw = (raw.contact ?? {}) as Record<string, unknown>;
-  const dealRaw = (raw.deal ?? {}) as Record<string, unknown>;
-
+function normalizeOneContact(raw: unknown): CrmStructureContact | null {
+  if (!raw || typeof raw !== "object") return null;
+  const contactRaw = raw as Record<string, unknown>;
   let firstName = str(contactRaw.firstName);
   let lastName = str(contactRaw.lastName);
   if (!firstName && str(contactRaw.nombre)) {
@@ -386,6 +393,44 @@ export function normalizeCrmStructureProposal(raw: Record<string, unknown>): Crm
     firstName = split.firstName;
     lastName = split.lastName;
   }
+  const contact: CrmStructureContact = {
+    firstName,
+    lastName,
+    email: str(contactRaw.email),
+    phone: str(contactRaw.phone) ?? str(contactRaw.telefono),
+    roleTitle: str(contactRaw.roleTitle) ?? str(contactRaw.cargo),
+    selected: contactRaw.selected === false ? false : true,
+  };
+  return contactHasIdentity(contact) ? contact : null;
+}
+
+/** Normaliza JSON de IA + calcula dotación (exportado para tests). */
+export function normalizeCrmStructureProposal(raw: Record<string, unknown>): CrmStructureProposal {
+  const base = emptyCrmStructureProposal();
+  const accountRaw = (raw.account ?? {}) as Record<string, unknown>;
+  const contactRaw = (raw.contact ?? {}) as Record<string, unknown>;
+  const dealRaw = (raw.deal ?? {}) as Record<string, unknown>;
+
+  const primaryFromContact = normalizeOneContact(contactRaw);
+  const fromContactsArr = Array.isArray(raw.contacts)
+    ? raw.contacts
+        .map((c) => normalizeOneContact(c))
+        .filter((c): c is CrmStructureContact => !!c)
+    : [];
+  // contacts[] es fuente de verdad; si solo vino `contact`, armar lista de 1.
+  const contacts =
+    fromContactsArr.length > 0
+      ? fromContactsArr
+      : primaryFromContact
+        ? [primaryFromContact]
+        : [];
+  const contact = contacts[0] ?? {
+    firstName: null,
+    lastName: null,
+    email: null,
+    phone: null,
+    roleTitle: null,
+  };
 
   const weeklyHours = num(raw.weeklyHoursPerWorker) ?? 42;
   const licitacion = normalizeLicitacion(raw.licitacion);
@@ -470,13 +515,8 @@ export function normalizeCrmStructureProposal(raw: Record<string, unknown>): Crm
       industry: str(accountRaw.industry),
       segment: str(accountRaw.segment),
     },
-    contact: {
-      firstName,
-      lastName,
-      email: str(contactRaw.email),
-      phone: str(contactRaw.phone) ?? str(contactRaw.telefono),
-      roleTitle: str(contactRaw.roleTitle) ?? str(contactRaw.cargo),
-    },
+    contact,
+    contacts,
     deal: {
       title: str(dealRaw.title) ?? str(raw.nombreCotizacion),
       isLicitacion: bool(dealRaw.isLicitacion) || bool(raw.esLicitacion),
@@ -587,16 +627,27 @@ export async function extractCrmStructureFromThread(params: {
   });
   if (!thread) return null;
 
-  const [messages, account] = await Promise.all([
+  const [messages, account, company] = await Promise.all([
     prisma.crmEmailMessage.findMany({
       where: { threadId: thread.id, tenantId },
       orderBy: { sentAt: "asc" },
-      select: { fromEmail: true, textBody: true, htmlBody: true },
+      select: {
+        fromEmail: true,
+        toEmails: true,
+        ccEmails: true,
+        textBody: true,
+        htmlBody: true,
+      },
     }),
     prisma.crmEmailAccount.findUnique({
       where: { id: emailAccountId },
-      select: { accessTokenEncrypted: true, refreshTokenEncrypted: true },
+      select: {
+        email: true,
+        accessTokenEncrypted: true,
+        refreshTokenEncrypted: true,
+      },
     }),
+    getTenantCompanyConfig(tenantId),
   ]);
 
   const bodyText = messages
@@ -606,10 +657,26 @@ export async function extractCrmStructureFromThread(params: {
       const body = hasTable
         ? htmlToTextWithTables(html)
         : (m.textBody || stripHtml(html) || "").trim();
-      return `De: ${m.fromEmail}\n${body}`;
+      const headers = formatRecipientsBlock({
+        fromEmail: m.fromEmail,
+        toEmails: m.toEmails,
+        ccEmails: m.ccEmails,
+      });
+      return `${headers}\n${body}`;
     })
     .join("\n\n---\n\n")
     .slice(0, 14000);
+
+  const tenantDomains = buildTenantDomains(company, account?.email ?? null);
+  const headerContacts = harvestExternalContacts({
+    messages: messages.map((m) => ({
+      fromEmail: m.fromEmail,
+      toEmails: m.toEmails,
+      ccEmails: m.ccEmails,
+    })),
+    tenantDomains,
+    ownEmail: account?.email ?? null,
+  });
 
   let att: PreparedAttachments = {
     stagedFiles: [],
@@ -757,6 +824,12 @@ export async function extractCrmStructureFromThread(params: {
     );
     proposal = syncAssumptionArrays(proposal);
   }
+
+  const baseContacts =
+    params.baseProposal && typeof params.baseProposal === "object"
+      ? (coerceCrmStructureProposal(params.baseProposal).contacts ?? null)
+      : null;
+  proposal = withHeaderContacts(proposal, headerContacts, baseContacts);
 
   return {
     proposal: syncAssumptionArrays(proposal),
