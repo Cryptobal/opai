@@ -21,6 +21,7 @@ import {
 } from "./ComposerAiAssist";
 import { plainTextToTiptapDoc } from "./email-inline-images";
 import { docPlainText } from "./composer-draft";
+import type { CorreoShortcuts } from "./useCorreosViewPreferences";
 
 type Props = {
   open: boolean;
@@ -32,6 +33,7 @@ type Props = {
   onOpenSignature?: () => void;
   /** Casilla preferida al redactar (alcance activo o default). */
   preferredAccountId?: string | null;
+  shortcuts?: CorreoShortcuts;
 };
 
 type WindowState = "normal" | "minimized" | "expanded";
@@ -44,12 +46,19 @@ type WindowState = "normal" | "minimized" | "expanded";
  * Incluye asistente IA (misma UX que reply) y fila CRM cuenta/negocio vía
  * EmailComposer.
  *
- * Móvil: un solo scroll en el cuerpo del mensaje (cabecera + acciones fijas)
- * para que el caret no “viaje” con la barra de desplazamiento de la hoja.
- * Cerrar con cambios pregunta Guardar / Descartar; minimizar deja el borrador
- * a mano como barra inferior.
+ * Scroll estilo Gmail: la barra de título queda fija y el resto (Para, Asunto,
+ * cuerpo, adjuntos, Enviar) se desplaza junto. Cerrar con cambios pregunta
+ * Guardar / Descartar; minimizar deja el borrador a mano como barra inferior.
  */
-export function CorreoComposeSheet({ open, onClose, onSent, onOpenAiStyle, onOpenSignature, preferredAccountId = null }: Props) {
+export function CorreoComposeSheet({
+  open,
+  onClose,
+  onSent,
+  onOpenAiStyle,
+  onOpenSignature,
+  preferredAccountId = null,
+  shortcuts,
+}: Props) {
   const [dirty, setDirty] = useState(false);
   const [win, setWin] = useState<WindowState>("normal");
   const [mounted, setMounted] = useState(false);
@@ -266,9 +275,8 @@ export function CorreoComposeSheet({ open, onClose, onSent, onOpenAiStyle, onOpe
       {/* Mantener montado al minimizar para no perder el borrador en memoria. */}
       <div
         className={cn(
-          // Un solo eje de scroll: el cuerpo del EmailComposer (layout=sheet).
-          // Evita que el caret “Para/cuerpo” se mueva con la barra de la hoja.
-          "flex min-h-0 flex-1 flex-col overflow-hidden px-4 pb-[calc(env(safe-area-inset-bottom,0px)+0.75rem)] pt-3",
+          // Página completa scrollea (Gmail): Para/Asunto/cuerpo/Enviar juntos.
+          "min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(env(safe-area-inset-bottom,0px)+0.75rem)] pt-3 [-webkit-overflow-scrolling:touch]",
           win === "minimized" && "hidden",
         )}
       >
@@ -318,6 +326,7 @@ export function CorreoComposeSheet({ open, onClose, onSent, onOpenAiStyle, onOpe
             onClose();
           }}
           onDirtyChange={setDirty}
+          shortcuts={shortcuts}
         />
       </div>
     </div>

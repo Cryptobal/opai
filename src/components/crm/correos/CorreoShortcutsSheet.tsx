@@ -6,7 +6,8 @@ import { Surface } from "@/components/opai-ds";
 import {
   DEFAULT_CORREO_SHORTCUTS,
   assignCorreoShortcut,
-  normalizeShortcutKey,
+  eventToShortcutKey,
+  formatShortcutLabel,
   type CorreoShortcutAction,
   type CorreoShortcuts,
 } from "./useCorreosViewPreferences";
@@ -26,6 +27,8 @@ const LABELS: Record<CorreoShortcutAction, string> = {
   toggleRead: "Leído / No leído",
   focusSearch: "Buscar",
   aiMenu: "Acciones IA",
+  sendAndArchive: "Enviar y archivar",
+  send: "Enviar (sin archivar)",
 };
 
 const ORDER_BANDEJA: CorreoShortcutAction[] = [
@@ -37,14 +40,9 @@ const ORDER_LECTOR: CorreoShortcutAction[] = [
   "reply", "replyAll", "forward",
 ];
 
-/** Muestra la tecla de forma legible (Enter, Espacio, ↑…). */
-function keyLabel(key: string): string {
-  if (key === "Enter") return "↵ Enter";
-  if (key === " ") return "Espacio";
-  if (key === "ArrowUp") return "↑";
-  if (key === "ArrowDown") return "↓";
-  return key.length === 1 ? normalizeShortcutKey(key).toUpperCase() : key;
-}
+const ORDER_REDACCION: CorreoShortcutAction[] = [
+  "sendAndArchive", "send",
+];
 
 type Props = {
   open: boolean;
@@ -69,12 +67,16 @@ function ShortcutRow({
 }) {
   const capture = (event: React.KeyboardEvent) => {
     if (recording !== action) return;
-    if (["Shift", "Control", "Alt", "Meta", "Tab", "Escape"].includes(event.key)) {
-      if (event.key === "Escape") setRecording(null);
+    if (event.key === "Escape") {
+      event.preventDefault();
+      setRecording(null);
       return;
     }
+    if (["Shift", "Control", "Alt", "Meta", "Tab"].includes(event.key)) return;
+    const binding = eventToShortcutKey(event);
+    if (!binding) return;
     event.preventDefault();
-    onConfig(assignCorreoShortcut(config, action, event.key));
+    onConfig(assignCorreoShortcut(config, action, binding));
     setRecording(null);
   };
 
@@ -91,7 +93,7 @@ function ShortcutRow({
             : "border-ds-border-default bg-ds-surface-2 text-ds-text-1"
         }`}
       >
-        {recording === action ? "Presioná…" : keyLabel(config[action])}
+        {recording === action ? "Presioná…" : formatShortcutLabel(config[action])}
       </button>
     </div>
   );
@@ -125,8 +127,8 @@ export function CorreoShortcutsSheet({ open, onClose, config, onConfig }: Props)
           </button>
         </div>
         <p className="shrink-0 text-[12px] text-ds-text-3">
-          Tocá un atajo y presioná la tecla que quieras asignarle. Las flechas
-          ↑/↓ siempre navegan entre correos.
+          Tocá un atajo y presioná la tecla (o combo ⌘/Ctrl) que quieras
+          asignarle. Las flechas ↑/↓ siempre navegan entre correos.
         </p>
 
         <div className="min-h-0 flex-1 space-y-3 overflow-y-auto">
@@ -150,6 +152,21 @@ export function CorreoShortcutsSheet({ open, onClose, config, onConfig }: Props)
               Lector
             </p>
             {ORDER_LECTOR.map((action) => (
+              <ShortcutRow
+                key={action}
+                action={action}
+                config={config}
+                recording={recording}
+                setRecording={setRecording}
+                onConfig={onConfig}
+              />
+            ))}
+          </div>
+          <div className="space-y-1 border-l-2 border-status-ok-border pl-2">
+            <p className="px-0.5 text-[12px] font-medium uppercase tracking-wide text-status-ok-fg">
+              Redacción
+            </p>
+            {ORDER_REDACCION.map((action) => (
               <ShortcutRow
                 key={action}
                 action={action}

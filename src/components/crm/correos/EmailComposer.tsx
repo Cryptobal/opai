@@ -55,6 +55,12 @@ import {
 } from "./ComposerCrmLink";
 import { ComposerModeSwitcher, type ComposerMode } from "./ComposerModeSwitcher";
 import {
+  DEFAULT_CORREO_SHORTCUTS,
+  formatShortcutLabel,
+  matchesShortcut,
+  type CorreoShortcuts,
+} from "./useCorreosViewPreferences";
+import {
   isSpeechDictationSupported,
   useSpeechDictation,
 } from "@/hooks/useSpeechDictation";
@@ -98,9 +104,10 @@ export type EmailComposerHandle = {
 type Props = {
   mode: EmailComposerMode;
   /**
-   * `sheet`: fullscreen / ventana Gmail — cabecera y acciones fijas, solo el
-   * cuerpo scrollea (evita caret + scrollbar moviéndose juntos en móvil).
-   * `inline`: reply embebido en el lector (flujo previo).
+   * `sheet`: fullscreen / ventana Gmail (mensaje nuevo).
+   * `inline`: reply embebido en el lector.
+   * En ambos el formulario scrollea junto (estilo Gmail); la barra de título
+   * del sheet es lo único fijo.
    */
   layout?: "sheet" | "inline";
   /** Hilo interno al que se responde (threading + casilla fija). */
@@ -131,8 +138,15 @@ type Props = {
   showCrmLink?: boolean;
   onSent?: () => void;
   onClose?: () => void;
+  /**
+   * Tras enviar con "Enviar y archivar" (⌘/Ctrl+Enter). Solo aplica a
+   * respuestas con `threadId`; el host archiva el hilo (estilo Gmail).
+   */
+  onArchiveAfterSend?: () => void;
   /** Tras descartar borrador con la papelera (refrescar cadena del hilo). */
   onDraftDiscarded?: () => void;
+  /** Atajos de redacción (enviar / enviar y archivar). */
+  shortcuts?: Pick<CorreoShortcuts, "send" | "sendAndArchive">;
   /** Controles extra junto a Enviar (p.ej. toggle IA). */
   footerExtras?: React.ReactNode;
   /** Slot sobre adjuntos/Enviar (p.ej. pill "Help me write" estilo Gmail). */
@@ -191,6 +205,7 @@ export const EmailComposer = forwardRef<EmailComposerHandle, Props>(function Ema
     showCrmLink,
     onSent,
     onClose,
+    onArchiveAfterSend,
     onDraftDiscarded,
     footerExtras,
     aboveFooter,
@@ -203,11 +218,14 @@ export const EmailComposer = forwardRef<EmailComposerHandle, Props>(function Ema
     onToChange,
     onDraftIdChange,
     preferredAccountId = null,
+    shortcuts: shortcutsProp,
   },
   ref,
 ) {
   const isSheet = layout === "sheet";
   const crmLinkEnabled = showCrmLink ?? mode === "new";
+  const sendShortcuts = shortcutsProp ?? DEFAULT_CORREO_SHORTCUTS;
+  const rootRef = useRef<HTMLDivElement | null>(null);
   const attachments = useEmailAttachments();
   const [to, setTo] = useState<string[]>(() => normalizeRecipientList(initialTo));
   const [cc, setCc] = useState<string[]>(() => normalizeRecipientList(initialCc));
@@ -487,8 +505,9 @@ export const EmailComposer = forwardRef<EmailComposerHandle, Props>(function Ema
     !attachments.uploading &&
     !attachments.hasErrors;
 
-  async function send(scheduledAt?: Date) {
+  async function send(scheduledAt?: Date, opts?: { archive?: boolean }) {
     if (!canSend || busy) return;
+    const archive = Boolean(opts?.archive) && !scheduledAt && Boolean(threadId) && Boolean(onArchiveAfterSend);
     setBusy(true);
     try {
       let html = currentHtml();
@@ -529,13 +548,14 @@ export const EmailComposer = forwardRef<EmailComposerHandle, Props>(function Ema
         else notifyEmailQueued(result.data);
       } else if (result.warning) {
         toast.message(result.warning);
-      } else {
+      } else if (!archive) {
         toast.success("Correo enviado por Gmail");
       }
       idempotencyKeyRef.current = newEmailIdempotencyKey();
       providerDraftIdRef.current = null;
       attachments.resetAfterSend();
       onSent?.();
+      if (archive) onArchiveAfterSend?.();
       onClose?.();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "No se pudo enviar el correo");
@@ -543,6 +563,36 @@ export const EmailComposer = forwardRef<EmailComposerHandle, Props>(function Ema
       setBusy(false);
     }
   }
+
+  const sendRef = useRef(send);
+  sendRef.current = send;
+  const canSendRef = useRef(canSend);
+  canSendRef.current = canSend;
+  const busyRef = useRef(busy);
+  busyRef.current = busy;
+
+  // Atajos de redacción (⌘/Ctrl+Enter) — deben funcionar con foco en el editor.
+  useEffect(() => {
+    const el = rootRef.current;
+    if (!el) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (busyRef.current || !canSendRef.current) return;
+      if (matchesShortcut(event, sendShortcuts.sendAndArchive)) {
+        event.preventDefault();
+        event.stopPropagation();
+        void sendRef.current(undefined, { archive: true });
+        return;
+      }
+      if (matchesShortcut(event, sendShortcuts.send)) {
+        event.preventDefault();
+        event.stopPropagation();
+        void sendRef.current();
+      }
+    };
+    // capture: antes que TipTap (StarterKit usa Mod+Enter = hard break).
+    el.addEventListener("keydown", onKeyDown, true);
+    return () => el.removeEventListener("keydown", onKeyDown, true);
+  }, [sendShortcuts.send, sendShortcuts.sendAndArchive]);
 
   async function toggleDictation() {
     if (dictation.listening) {
@@ -680,7 +730,7 @@ export const EmailComposer = forwardRef<EmailComposerHandle, Props>(function Ema
       enableImages
       enableTokens={false}
       compact
-      className={isSheet ? "min-h-0 flex-1" : "min-h-[200px]"}
+      className="min-h-[200px]"
       renderToolbar={(editor) => {
         editorRef.current = editor;
         return <EmailToolbar editor={editor} />;
@@ -726,6 +776,13 @@ export const EmailComposer = forwardRef<EmailComposerHandle, Props>(function Ema
           busy={busy}
           disabled={!canSend}
           onSend={() => void send()}
+          onSendAndArchive={
+            threadId && onArchiveAfterSend
+              ? () => void send(undefined, { archive: true })
+              : undefined
+          }
+          sendShortcutHint={formatShortcutLabel(sendShortcuts.send)}
+          sendAndArchiveShortcutHint={formatShortcutLabel(sendShortcuts.sendAndArchive)}
           onSchedule={(date) => void send(date)}
         />
         {dictSupported && (
@@ -766,24 +823,13 @@ export const EmailComposer = forwardRef<EmailComposerHandle, Props>(function Ema
     </>
   );
 
-  if (isSheet) {
-    return (
-      <div
-        className="flex min-h-0 flex-1 flex-col"
-        data-email-composer
-        data-layout="sheet"
-      >
-        <div className="shrink-0 space-y-0.5">{headerFields}</div>
-        <div className="flex min-h-0 flex-1 flex-col overflow-hidden pt-2">
-          {editorBlock}
-        </div>
-        <div className="shrink-0 bg-background pt-1">{footerBlock}</div>
-      </div>
-    );
-  }
-
   return (
-    <div className="space-y-0" data-email-composer data-layout="inline">
+    <div
+      ref={rootRef}
+      className="space-y-0"
+      data-email-composer
+      data-layout={isSheet ? "sheet" : "inline"}
+    >
       {headerFields}
       {editorBlock}
       {footerBlock}

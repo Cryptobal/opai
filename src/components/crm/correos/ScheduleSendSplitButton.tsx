@@ -8,7 +8,7 @@
  */
 
 import { useMemo, useState } from "react";
-import { CalendarClock, CalendarDays, ChevronDown, Send, X } from "lucide-react";
+import { Archive, CalendarClock, CalendarDays, ChevronDown, Send, X } from "lucide-react";
 import { toast } from "sonner";
 import { Calendar } from "@/components/ui/calendar";
 import {
@@ -63,6 +63,10 @@ type Props = {
   busy: boolean;
   disabled: boolean;
   onSend: () => void;
+  /** Presente en respuestas: menú "Enviar y archivar" (⌘/Ctrl+Enter). */
+  onSendAndArchive?: () => void;
+  sendShortcutHint?: string;
+  sendAndArchiveShortcutHint?: string;
   onSchedule: (date: Date) => void;
 };
 
@@ -70,6 +74,9 @@ export function ScheduleSendSplitButton({
   busy,
   disabled,
   onSend,
+  onSendAndArchive,
+  sendShortcutHint,
+  sendAndArchiveShortcutHint,
   onSchedule,
 }: Props) {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -138,6 +145,7 @@ export function ScheduleSendSplitButton({
           type="button"
           onClick={onSend}
           disabled={busy || disabled}
+          title={sendShortcutHint ? `Enviar (${sendShortcutHint})` : "Enviar"}
           className="inline-flex h-full items-center justify-center gap-1.5 px-4 text-[13px] font-medium ds-tap disabled:pointer-events-none"
         >
           {busy ? <Spinner className="h-4 w-4" /> : <Send className="h-4 w-4" />}
@@ -148,8 +156,8 @@ export function ScheduleSendSplitButton({
             <button
               type="button"
               disabled={busy || disabled}
-              title="Programar envío"
-              aria-label="Programar envío"
+              title="Más opciones de envío"
+              aria-label="Más opciones de envío"
               aria-haspopup="menu"
               aria-expanded={menuOpen}
               className="inline-flex h-full w-9 items-center justify-center border-l border-primary-foreground/25 ds-tap disabled:pointer-events-none"
@@ -161,8 +169,29 @@ export function ScheduleSendSplitButton({
             align="start"
             side="top"
             sideOffset={8}
-            className="w-auto min-w-[200px] max-w-none rounded-xl border-ds-border-default bg-card p-1.5 shadow-lg"
+            className="w-auto min-w-[220px] max-w-none rounded-xl border-ds-border-default bg-card p-1.5 shadow-lg"
           >
+            {onSendAndArchive && (
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setMenuOpen(false);
+                  onSendAndArchive();
+                }}
+                className="flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2.5 text-left text-[13px] text-ds-text-1 ds-tap hover:bg-ds-surface-2"
+              >
+                <span className="inline-flex items-center gap-2.5 font-medium">
+                  <Archive className="h-4 w-4 shrink-0 text-primary" />
+                  Enviar y archivar
+                </span>
+                {sendAndArchiveShortcutHint && (
+                  <kbd className="shrink-0 font-mono text-[12px] text-ds-text-4">
+                    {sendAndArchiveShortcutHint}
+                  </kbd>
+                )}
+              </button>
+            )}
             <button
               type="button"
               role="menuitem"

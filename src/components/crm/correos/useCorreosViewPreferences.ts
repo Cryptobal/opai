@@ -78,16 +78,26 @@ export type CorreoShortcutAction =
   | "snooze"
   | "toggleRead"
   | "focusSearch"
-  | "aiMenu";
+  | "aiMenu"
+  | "send"
+  | "sendAndArchive";
 export type CorreoShortcuts = Record<CorreoShortcutAction, string>;
 
 const SHORTCUT_ACTIONS: readonly CorreoShortcutAction[] = [
   "down", "up", "open", "toggleSelect", "archive", "trash",
   "reply", "replyAll", "forward",
   "star", "snooze", "toggleRead", "focusSearch", "aiMenu",
+  "send", "sendAndArchive",
 ];
 
-/** Defaults estilo Gmail (s = destacar, b = posponer; a/f = lector; . = Acciones IA). */
+/** Atajos de redacción (viven en el composer; admiten Mod+…). */
+export const COMPOSE_SEND_SHORTCUT_ACTIONS: readonly CorreoShortcutAction[] = [
+  "sendAndArchive",
+  "send",
+];
+
+/** Defaults estilo Gmail (s = destacar, b = posponer; a/f = lector; . = Acciones IA).
+ *  Redacción: ⌘/Ctrl+Enter = enviar y archivar; ⌘/Ctrl+Shift+Enter = solo enviar. */
 export const DEFAULT_CORREO_SHORTCUTS: CorreoShortcuts = {
   down: "j",
   up: "k",
@@ -103,6 +113,8 @@ export const DEFAULT_CORREO_SHORTCUTS: CorreoShortcuts = {
   toggleRead: "u",
   focusSearch: "/",
   aiMenu: ".",
+  sendAndArchive: "Mod+Enter",
+  send: "Mod+Shift+Enter",
 };
 
 /** Atajos del composer/lector (prioridad ante colisiones con bandeja). */
@@ -112,10 +124,126 @@ export const COMPOSE_SHORTCUT_ACTIONS: readonly CorreoShortcutAction[] = [
   "forward",
 ];
 
-/** Normaliza teclas grabadas/comparadas: letras en minúscula; especiales intactos. */
+const NAMED_KEYS: Record<string, string> = {
+  enter: "Enter",
+  space: "Space",
+  escape: "Escape",
+  tab: "Tab",
+  backspace: "Backspace",
+  delete: "Delete",
+  arrowup: "ArrowUp",
+  arrowdown: "ArrowDown",
+  arrowleft: "ArrowLeft",
+  arrowright: "ArrowRight",
+};
+
+function normalizeBaseKey(part: string): string {
+  if (part.length === 1) return part.toLowerCase();
+  return NAMED_KEYS[part.toLowerCase()] ?? part;
+}
+
+/** Normaliza teclas grabadas/comparadas: letras en minúscula; combos con Mod. */
 export function normalizeShortcutKey(key: string): string {
-  if (key.length === 1 && /[a-zA-Z]/.test(key)) return key.toLowerCase();
-  return key;
+  const trimmed = key.trim();
+  if (!trimmed.includes("+")) {
+    if (trimmed.length === 1 && /[a-zA-Z]/.test(trimmed)) return trimmed.toLowerCase();
+    return normalizeBaseKey(trimmed);
+  }
+  const parts = trimmed.split("+").map((p) => p.trim()).filter(Boolean);
+  const mods = new Set<string>();
+  let base = "";
+  for (const part of parts) {
+    const lower = part.toLowerCase();
+    if (lower === "mod" || lower === "meta" || lower === "cmd" || lower === "command" || lower === "ctrl" || lower === "control") {
+      mods.add("Mod");
+    } else if (lower === "alt" || lower === "option") {
+      mods.add("Alt");
+    } else if (lower === "shift") {
+      mods.add("Shift");
+    } else {
+      base = normalizeBaseKey(part);
+    }
+  }
+  if (!base) return trimmed;
+  const ordered = [
+    mods.has("Mod") ? "Mod" : null,
+    mods.has("Alt") ? "Alt" : null,
+    mods.has("Shift") ? "Shift" : null,
+    base,
+  ].filter(Boolean);
+  return ordered.join("+");
+}
+
+type ShortcutKeyLike = Pick<
+  KeyboardEvent,
+  "key" | "metaKey" | "ctrlKey" | "altKey" | "shiftKey"
+>;
+
+/**
+ * Serializa un keydown a binding (`Mod+Enter`, `e`, …).
+ * `Mod` = ⌘ en Apple / Ctrl en el resto (igual que Gmail).
+ */
+export function eventToShortcutKey(event: ShortcutKeyLike): string | null {
+  const { key } = event;
+  if (!key || ["Shift", "Control", "Alt", "Meta", "Tab", "Escape"].includes(key)) {
+    return null;
+  }
+  const hasMod = event.metaKey || event.ctrlKey;
+  const hasAlt = event.altKey;
+  // Shift solo (sin Mod/Alt) en letras → la letra; Enter/etc. conservan Shift en combo.
+  if (!hasMod && !hasAlt && event.shiftKey && key.length === 1) {
+    return normalizeShortcutKey(key);
+  }
+  const parts: string[] = [];
+  if (hasMod) parts.push("Mod");
+  if (hasAlt) parts.push("Alt");
+  if (event.shiftKey) parts.push("Shift");
+  const base = key === " " ? "Space" : key.length === 1 ? key.toLowerCase() : key;
+  parts.push(base);
+  return normalizeShortcutKey(parts.join("+"));
+}
+
+/** true si el evento coincide con el binding guardado. */
+export function matchesShortcut(event: ShortcutKeyLike, bound: string): boolean {
+  const got = eventToShortcutKey(event);
+  if (!got) return false;
+  return got === normalizeShortcutKey(bound);
+}
+
+/** Etiqueta legible para UI (⌘↵ / Ctrl+Shift+Enter). */
+export function formatShortcutLabel(bound: string): string {
+  const normalized = normalizeShortcutKey(bound);
+  const isApple =
+    typeof navigator !== "undefined" &&
+    /Mac|iPhone|iPad|iPod/.test(navigator.platform || navigator.userAgent || "");
+  if (!normalized.includes("+")) {
+    if (normalized === "Enter") return "↵ Enter";
+    if (normalized === " " || normalized === "Space") return "Espacio";
+    if (normalized === "ArrowUp") return "↑";
+    if (normalized === "ArrowDown") return "↓";
+    return normalized.length === 1 ? normalized.toUpperCase() : normalized;
+  }
+  const parts = normalized.split("+");
+  if (isApple) {
+    return parts
+      .map((p) => {
+        if (p === "Mod") return "⌘";
+        if (p === "Alt") return "⌥";
+        if (p === "Shift") return "⇧";
+        if (p === "Enter") return "↵";
+        if (p === "Space") return "␣";
+        return p.length === 1 ? p.toUpperCase() : p;
+      })
+      .join("");
+  }
+  return parts
+    .map((p) => {
+      if (p === "Mod") return "Ctrl";
+      if (p === "Enter") return "Enter";
+      if (p === "Space") return "Space";
+      return p.length === 1 ? p.toUpperCase() : p;
+    })
+    .join("+");
 }
 
 /** Resuelve el input de búsqueda activo (overlay desktop o isla móvil). */
@@ -173,7 +301,7 @@ function parseShortcuts(value: unknown): CorreoShortcuts | null {
   const touched = new Set<CorreoShortcutAction>();
   for (const action of SHORTCUT_ACTIONS) {
     const key = candidate[action];
-    if (typeof key === "string" && key.length > 0 && key.length <= 12) {
+    if (typeof key === "string" && key.length > 0 && key.length <= 32) {
       merged[action] = normalizeShortcutKey(key);
       touched.add(action);
     }

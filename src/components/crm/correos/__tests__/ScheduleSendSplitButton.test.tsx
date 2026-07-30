@@ -38,7 +38,7 @@ describe("ScheduleSendSplitButton", () => {
         onSchedule={onSchedule}
       />,
     );
-    fireEvent.click(screen.getByLabelText("Programar envío"));
+    fireEvent.click(screen.getByLabelText("Más opciones de envío"));
     fireEvent.click(screen.getByRole("menuitem", { name: /Programar envío/i }));
     expect(screen.getByRole("heading", { name: "Programar envío" })).toBeTruthy();
     expect(screen.getByText("Mañana por la mañana")).toBeTruthy();
@@ -57,7 +57,7 @@ describe("ScheduleSendSplitButton", () => {
         onSchedule={onSchedule}
       />,
     );
-    fireEvent.click(screen.getByLabelText("Programar envío"));
+    fireEvent.click(screen.getByLabelText("Más opciones de envío"));
     fireEvent.click(screen.getByRole("menuitem", { name: /Programar envío/i }));
     fireEvent.click(screen.getByText("Mañana por la mañana"));
     expect(onSchedule).toHaveBeenCalledTimes(1);
@@ -74,7 +74,7 @@ describe("ScheduleSendSplitButton", () => {
         onSchedule={onSchedule}
       />,
     );
-    fireEvent.click(screen.getByLabelText("Programar envío"));
+    fireEvent.click(screen.getByLabelText("Más opciones de envío"));
     fireEvent.click(screen.getByRole("menuitem", { name: /Programar envío/i }));
     fireEvent.click(screen.getByText("Elegir fecha y hora"));
     expect(screen.getByRole("heading", { name: "Elegir fecha y hora" })).toBeTruthy();
@@ -83,5 +83,22 @@ describe("ScheduleSendSplitButton", () => {
     expect(screen.getByLabelText("Minutos")).toBeTruthy();
     const dialog = screen.getByRole("dialog");
     expect(within(dialog).getByRole("button", { name: "Programar envío" })).toBeTruthy();
+  });
+
+  it("ofrece Enviar y archivar cuando hay callback", () => {
+    const onSendAndArchive = vi.fn();
+    render(
+      <ScheduleSendSplitButton
+        busy={false}
+        disabled={false}
+        onSend={onSend}
+        onSendAndArchive={onSendAndArchive}
+        sendAndArchiveShortcutHint="⌘↵"
+        onSchedule={onSchedule}
+      />,
+    );
+    fireEvent.click(screen.getByLabelText("Más opciones de envío"));
+    fireEvent.click(screen.getByRole("menuitem", { name: /Enviar y archivar/i }));
+    expect(onSendAndArchive).toHaveBeenCalledTimes(1);
   });
 });
