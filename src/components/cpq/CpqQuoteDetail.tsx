@@ -83,7 +83,11 @@ import { LineasSection } from "@/components/cpq/workspace/LineasSection";
 import { FinancierosSection } from "@/components/cpq/workspace/FinancierosSection";
 import { AiSection } from "@/components/cpq/workspace/AiSection";
 import { ControlCenterPanel } from "@/components/cpq/workspace/ControlCenterPanel";
-import type { QuoteFormState } from "@/components/cpq/workspace/types";
+import { WorkspaceRail } from "@/components/cpq/workspace/WorkspaceRail";
+import { SectionChips } from "@/components/cpq/workspace/SectionChips";
+import { MobileTotalBar } from "@/components/cpq/workspace/MobileTotalBar";
+import { ConvertToBundleButton } from "@/components/cpq/workspace/ConvertToBundleButton";
+import type { QuoteFormState, WorkspaceSectionId } from "@/components/cpq/workspace/types";
 
 type ActivityEvent = {
   id: string;
@@ -106,6 +110,17 @@ interface CpqQuoteDetailProps {
   conditionsGovernedByProposal?: boolean;
   /** Link "editar a nivel propuesta" (cambia al tab Consolidado). */
   onEditConditionsAtProposal?: () => void;
+  /** Bundle al que pertenece la cotización (null = única; oculta Convertir si ya existe). */
+  bundleId?: string | null;
+  /** Callback tras convertir en multi-instalación (workspace unificado). */
+  onConverted?: (bundleId: string, existing: boolean) => void;
+  /** true cuando se renderiza dentro de un tab del workspace multi: oculta
+   *  headers/sticky bars/bottom bar propios (los provee el workspace). */
+  embedded?: boolean;
+  /** Slot de pestañas de instalaciones dentro del stack sticky móvil (multi). */
+  mobileTabsSlot?: React.ReactNode;
+  /** Notifica cambios guardados para refrescar totales del bundle (multi). */
+  onQuoteSaved?: () => void;
 }
 
 type CrmInstallationOption = {
@@ -149,6 +164,11 @@ export function CpqQuoteDetail({
   tenantBrandName,
   conditionsGovernedByProposal = false,
   onEditConditionsAtProposal,
+  bundleId = null,
+  onConverted,
+  embedded = false,
+  mobileTabsSlot,
+  onQuoteSaved,
 }: CpqQuoteDetailProps) {
   const router = useRouter();
   const { resolve: resolveWaTemplate } = useWaTemplate();
@@ -353,6 +373,27 @@ export function CpqQuoteDetail({
   // Cuando la cotización está "Enviada", auto-plegamos todas las secciones la
   // primera vez que entramos para mostrar un resumen tipo dashboard. El usuario
   // puede expandir manualmente lo que necesite revisar.
+  /** Navegación por secciones (rail desktop / chips móvil): expandir + scroll. */
+  const sectionSetters: Record<WorkspaceSectionId, (v: boolean) => void> = {
+    "sec-datos": setSecDatos,
+    "sec-condiciones": setSecCondiciones,
+    "sec-desglose": setSecDesglose,
+    "sec-puestos": setSecPuestos,
+    "sec-costos": setSecCostos,
+    "sec-lineas": setSecLineas,
+    "sec-financieros": setSecFinancieros,
+    "sec-margen": setSecMargen,
+    "sec-ai": setSecAiContent,
+    "sec-incluye": setSecIncluye,
+    "sec-auditoria": setSecAuditoria,
+  };
+  const openAndScrollTo = useCallback((id: WorkspaceSectionId) => {
+    sectionSetters[id]?.(true);
+    requestAnimationFrame(() => {
+      document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const sentAutoCollapseRef = useRef(false);
   useEffect(() => {
     if (quote?.status === "sent" && !sentAutoCollapseRef.current) {
@@ -491,6 +532,8 @@ export function CpqQuoteDetail({
     } finally {
       setLoading(false);
     }
+    // Multi-instalación: los totales del bundle derivan de esta quote.
+    if (initialLoadDone.current) onQuoteSaved?.();
   };
 
   useEffect(() => {
@@ -962,6 +1005,7 @@ export function CpqQuoteDetail({
       setQuote(data.data);
       setQuoteDirty(false);
       setLastSavedAt(new Date());
+      onQuoteSaved?.();
     } catch (error) {
       console.error("Error saving CPQ quote:", error);
       setQuoteError("No se pudo guardar la cotizacion.");
@@ -994,6 +1038,7 @@ export function CpqQuoteDetail({
       }
       if (data.data) setCostSummary(data.data);
       setLastSavedAt(new Date());
+      onQuoteSaved?.();
     } catch (error) {
       console.error("Error saving financials:", error);
       setFinancialError("No se pudieron guardar los financieros.");
@@ -1656,6 +1701,7 @@ export function CpqQuoteDetail({
 
   return (
     <div className="space-y-3 pb-4 lg:pb-4 overflow-x-clip min-w-0">
+      {!embedded && (<>
       {/* -- Compact header (mobile/tablet) --
            Bg-background opaco (no /95) + shadow inferior para que el contenido
            que pasa por debajo al hacer scroll no se vea a través del header
@@ -1665,7 +1711,7 @@ export function CpqQuoteDetail({
            overflow-x-clip en el wrapper (no -hidden): hidden rompe
            position: sticky al crear scroll container — clip recorta igual
            sin establecer contexto de scroll, así el sticky usa el viewport. */}
-      <div className="sticky top-[53px] z-20 bg-background border-b border-border/60 shadow-sm -mx-4 px-3 pt-1.5 pb-2 mb-3 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8 lg:hidden">
+      <div className="bg-background -mx-4 px-3 pt-1.5 pb-2 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8 lg:hidden">
       {/* Row 1: back · code · status · acciones */}
       <div className="flex items-center gap-1.5 min-w-0">
         <Link href="/crm/cotizaciones" className="shrink-0 -ml-1">
@@ -1756,6 +1802,11 @@ export function CpqQuoteDetail({
                       <CheckCircle2 className="h-3.5 w-3.5" /> Marcar como enviada
                     </button>
                   )}
+                  {!bundleId && onConverted && !isLocked ? (
+                    <div onClick={() => setOverflowMenuOpen(false)}>
+                      <ConvertToBundleButton asMenuItem quoteId={quoteId} onConverted={onConverted} />
+                    </div>
+                  ) : null}
                   <button className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-xs hover:bg-accent" onClick={() => { setOverflowMenuOpen(false); handleClone(); }} disabled={cloning}>
                     <Copy className="h-3.5 w-3.5" /> {cloning ? "Clonando..." : "Clonar cotizacion"}
                   </button>
@@ -1843,15 +1894,9 @@ export function CpqQuoteDetail({
           </div>
         );
       })()}
-      {/* Row 3: totales + (a la derecha) save indicator + portal toggle */}
+      {/* Row 3: pill de guardias (el total vive en la barra sticky de abajo) */}
       <div className="mt-1.5 flex items-center justify-between gap-2 min-w-0">
         <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0 text-sm tabular-nums min-w-0">
-            {ufValue != null && ufValue > 0 && (
-              <span className="font-semibold text-status-ok-fg dark:text-status-ok-fg">
-                {(billingMonthlyTotal / ufValue).toFixed(2)} UF
-              </span>
-            )}
-            <span className="text-foreground/85 text-[13px]">{formatCurrency(billingMonthlyTotal)}</span>
             {stats.totalGuards > 0 && (
               <button
                 type="button"
@@ -1889,11 +1934,6 @@ export function CpqQuoteDetail({
               </button>
             )}
         </div>
-        <div className="flex items-center gap-1.5 shrink-0">
-          {!isLocked && (savingQuote || savingFinancials) && (
-            <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" aria-hidden />
-          )}
-        </div>
       </div>
       {guardsBreakdownOpen && roleSummary.length > 0 && (
         <div
@@ -1916,11 +1956,29 @@ export function CpqQuoteDetail({
           ))}
         </div>
       )}
-      </div>{/* end sticky header */}
+      </div>{/* end compact header */}
+
+      {/* -- Mobile sticky stack: total glass (40px) → pestañas (multi) → chips
+           de secciones. Orden fijo del mockup aprobado; top-[53px] = altura del
+           topbar móvil. El indicador UF/UTM del topbar no existe en móvil: el
+           chip UF del día vive aquí. */}
+      <div className="sticky top-[53px] z-20 -mx-4 sm:-mx-6 lg:-mx-8 lg:hidden opai-liquid-glass-bar-top mb-3">
+        <MobileTotalBar
+          totalClp={billingMonthlyTotal}
+          currency={crmContext.currency || "CLP"}
+          ufValue={ufValue}
+          saving={!isLocked && (savingQuote || savingFinancials)}
+        />
+        {mobileTabsSlot}
+        <SectionChips onNavigate={openAndScrollTo} className="border-t border-border/40" />
+      </div>
+      </>)}
 
       {/* -- Desktop sticky KPI bar (fuera del grid: sticky respecto al viewport) --
            top = debajo del topbar fijo (--app-topbar-offset). Sin overflow-x en el path
-           hacia el viewport (html/body usan clip). */}
+           hacia el viewport (html/body usan clip). En multi (embedded) la provee
+           el workspace con totales consolidados. */}
+      {!embedded && (
       <div className="hidden lg:flex sticky top-[var(--app-topbar-offset)] z-30 items-center justify-between gap-4 rounded-lg border border-border/60 bg-card/95 backdrop-blur-md px-4 py-3 shadow-md">
         <div className="flex items-center gap-3 min-w-0">
           <Link href="/crm/cotizaciones" className="shrink-0">
@@ -2034,6 +2092,11 @@ export function CpqQuoteDetail({
                     </button>
                   )}
                   <div className="my-1 h-px bg-border" />
+                  {!bundleId && onConverted && !isLocked ? (
+                    <div onClick={() => setOverflowMenuOpen(false)}>
+                      <ConvertToBundleButton asMenuItem quoteId={quoteId} onConverted={onConverted} />
+                    </div>
+                  ) : null}
                   <button className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-xs hover:bg-accent" onClick={() => { setOverflowMenuOpen(false); handleClone(); }} disabled={cloning}>
                     <Copy className="h-3.5 w-3.5" /> {cloning ? "Clonando..." : "Clonar cotizacion"}
                   </button>
@@ -2063,22 +2126,34 @@ export function CpqQuoteDetail({
           </div>
         </div>
       </div>
+      )}
 
       {/* -- Detail workspace --
            Layout 2 columnas (main + aside Centro de control) tanto en borrador
            como en enviada. El aside se puede contraer para ensanchar Datos /
            Condiciones / Desglose / Puestos. */}
+      <div className="xl:grid xl:grid-cols-[168px_minmax(0,1fr)] xl:gap-3 xl:items-start">
+      <WorkspaceRail
+        className="hidden xl:block"
+        topOffsetClassName={embedded
+          ? "top-[calc(var(--app-topbar-offset)+7.25rem)]"
+          : "top-[calc(var(--app-topbar-offset)+4.75rem)]"}
+        onNavigate={openAndScrollTo}
+        footer={!bundleId && onConverted && !isLocked ? (
+          <ConvertToBundleButton quoteId={quoteId} onConverted={onConverted} />
+        ) : undefined}
+      />
       <div
         className={cn(
           "grid gap-3 min-w-0 lg:items-start",
-          controlCenterOpen
+          controlCenterOpen && !embedded
             ? "lg:grid-cols-[minmax(0,1fr)_340px]"
             : "lg:grid-cols-1"
         )}
       >
       <div className="space-y-2 min-w-0">
       {/* -- Section: Datos (scroll-mt-32: visible below sticky header when scrolled) -- */}
-      <Card className="overflow-visible rounded-xl border-border/70 bg-card/85 shadow-sm scroll-mt-44 sm:scroll-mt-32">
+      <Card id="sec-datos" className="overflow-visible rounded-xl border-border/70 bg-card/85 shadow-sm scroll-mt-44 sm:scroll-mt-32">
         <button type="button" onClick={() => setSecDatos(v => !v)} className="flex items-center justify-between w-full border-b border-border/50 bg-muted/20 px-4 py-3 hover:bg-muted/30 transition-colors">
           <div className="flex items-center gap-2 min-w-0">
             <h2 className="text-sm font-semibold text-primary shrink-0">Datos</h2>
@@ -2136,7 +2211,7 @@ export function CpqQuoteDetail({
            Visible en todos los breakpoints: es la apertura línea por línea de la
            propuesta (mano de obra → costos → margen → financiero → líneas → total).
            El aside «Centro de control» solo muestra KPIs, no el desglose. -- */}
-      <Card className="overflow-hidden rounded-xl border-border/70 bg-card/85 shadow-sm scroll-mt-44 sm:scroll-mt-32">
+      <Card id="sec-desglose" className="overflow-hidden rounded-xl border-border/70 bg-card/85 shadow-sm scroll-mt-44 sm:scroll-mt-32">
         <button type="button" onClick={() => setSecDesglose(v => !v)} className="flex items-center justify-between w-full border-b border-border/50 bg-muted/20 px-4 py-3 hover:bg-muted/30 transition-colors">
           <div className="flex items-center gap-2 min-w-0">
             <h2 className="text-sm font-semibold text-primary shrink-0">Desglose</h2>
@@ -2179,7 +2254,7 @@ export function CpqQuoteDetail({
       </Card>
 
       {/* -- Section: Puestos -- */}
-      <Card className="overflow-hidden rounded-xl border-border/70 bg-card/85 shadow-sm">
+      <Card id="sec-puestos" className="overflow-hidden rounded-xl border-border/70 bg-card/85 shadow-sm scroll-mt-44 sm:scroll-mt-32">
         <div role="button" tabIndex={0} onClick={() => setSecPuestos(v => !v)} className="flex items-center justify-between w-full border-b border-border/50 bg-muted/20 px-4 py-3 hover:bg-muted/30 transition-colors cursor-pointer">
           <div className="flex items-center gap-2 min-w-0">
             <h2 className="text-sm font-semibold text-primary shrink-0">Puestos</h2>
@@ -2243,7 +2318,7 @@ export function CpqQuoteDetail({
       </Card>
 
       {/* -- Section: Costos -- */}
-      <Card className="overflow-hidden rounded-xl border-border/70 bg-card/85 shadow-sm">
+      <Card id="sec-costos" className="overflow-hidden rounded-xl border-border/70 bg-card/85 shadow-sm scroll-mt-44 sm:scroll-mt-32">
         <button type="button" onClick={() => setSecCostos(v => !v)} className="flex items-center justify-between w-full border-b border-border/50 bg-muted/20 px-4 py-3 hover:bg-muted/30 transition-colors">
           <div className="flex items-center gap-2 min-w-0">
             <h2 className="text-sm font-semibold text-primary shrink-0">Costos adicionales</h2>
@@ -2323,7 +2398,7 @@ export function CpqQuoteDetail({
       />
 
       {/* -- Section: Margen -- */}
-      <Card className="overflow-hidden rounded-xl border-border/70 bg-card/85 shadow-sm">
+      <Card id="sec-margen" className="overflow-hidden rounded-xl border-border/70 bg-card/85 shadow-sm scroll-mt-44 sm:scroll-mt-32">
         <button type="button" onClick={() => setSecMargen(v => !v)} className="flex items-center justify-between w-full border-b border-border/50 bg-muted/20 px-4 py-3 hover:bg-muted/30 transition-colors">
           <div className="flex items-center gap-2 min-w-0">
             <h2 className="text-sm font-semibold text-primary shrink-0">Margen de venta</h2>
@@ -2378,7 +2453,7 @@ export function CpqQuoteDetail({
       />
 
       {/* -- Section: Incluye (items incluidos en la cotización) -- */}
-      <Card className="overflow-visible rounded-xl border-border/70 bg-card/85 shadow-sm scroll-mt-44 sm:scroll-mt-32">
+      <Card id="sec-incluye" className="overflow-visible rounded-xl border-border/70 bg-card/85 shadow-sm scroll-mt-44 sm:scroll-mt-32">
         <button
           type="button"
           onClick={() => setSecIncluye((v) => !v)}
@@ -2457,7 +2532,7 @@ export function CpqQuoteDetail({
       </Card>
 
       {/* -- Section: Auditoría (registro de todos los cambios) -- */}
-      <Card className="overflow-visible rounded-xl border-border/70 bg-card/85 shadow-sm">
+      <Card id="sec-auditoria" className="overflow-visible rounded-xl border-border/70 bg-card/85 shadow-sm scroll-mt-44 sm:scroll-mt-32">
         <div className="flex items-center justify-between w-full border-b border-border/50 bg-muted/20 px-4 py-3">
           <button type="button" onClick={() => setSecAuditoria((v) => !v)} className="flex-1 flex items-center gap-2 min-w-0 text-left hover:bg-muted/10 transition-colors -m-1 p-1 rounded">
             <h2 className="text-sm font-semibold text-primary shrink-0">Auditoría</h2>
@@ -2488,7 +2563,7 @@ export function CpqQuoteDetail({
 
       </div>{/* end main column */}
 
-      {controlCenterOpen ? (
+      {controlCenterOpen && !embedded ? (
       <aside className="hidden lg:block min-w-0">
         {/* Centro de control: contraíble desde la barra sticky o desde este header.
             KPIs clave viven también en la barra superior sticky. */}
@@ -2555,9 +2630,10 @@ export function CpqQuoteDetail({
       ) : null}
 
       </div>{/* end detail workspace */}
+      </div>{/* end rail wrapper */}
 
       {/* Mobile spacer for fixed bottom bar */}
-      <div className="h-14 lg:hidden" />
+      {!embedded && <div className="h-14 lg:hidden" />}
 
       {/* -- Mobile FAB: Agregar Servicio (above bottom bar) -- */}
       {!isLocked && secPuestos && (
@@ -2567,6 +2643,7 @@ export function CpqQuoteDetail({
       )}
 
       {/* -- Mobile bottom bar (replaces wizard nav) -- */}
+      {!embedded && (
       <MobileBottomBar
         className="lg:hidden"
         salePriceMonthly={salePriceMonthly}
@@ -2626,6 +2703,7 @@ export function CpqQuoteDetail({
           );
         })()}
       />
+      )}
 
       {crmContext.dealId && contactForPortal?.email ? (
             <SendPortalProposalModal
