@@ -189,29 +189,29 @@
 
   .dark {
     /* ============================================
-       OPAI Design System v2 — Dark Theme
-       Azul pizarra legible (no negro): hue ~218, L≥11%.
+       OPAI Design System v5 — Dark Theme
+       Lienzo profundo #0a0f1a (L7%); jerarquía por elevación 7/11/14/17/20.
        Overrideable por empresa vía BrandThemeSync.
        ============================================ */
 
     /* Background & Foreground */
-    --background: 218 36% 12%;             /* #142033 */
+    --background: 220 45% 7%;              /* #0a0f1a */
     --foreground: 210 40% 98%;             /* #f8fafc */
 
     /* Cards & Surfaces */
-    --card: 218 32% 15%;                   /* #1a2940 */
+    --card: 218 36% 11%;                   /* #121926 */
     --card-foreground: 210 40% 98%;        /* #f8fafc */
 
     /* Popovers & Dropdowns (elevated) */
-    --popover: 218 30% 17%;               /* #1f304a */
+    --popover: 218 32% 14%;               /* #18212f */
     --popover-foreground: 210 40% 98%;    /* #f8fafc */
 
     /* Borders & Inputs */
-    --border: 218 24% 26%;                /* #334861 */
+    --border: 218 26% 19%;                /* #242d3d */
     --input: 218 24% 28%;                 /* #384d68 */
 
     /* Muted (secondary text, disabled) */
-    --muted: 218 26% 18%;                 /* #223048 */
+    --muted: 218 32% 14%;                 /* #18212f */
     --muted-foreground: 214 22% 68%;      /* #9aadc4 */
 
     /* Accent (hover, active states) */
@@ -241,20 +241,20 @@
     --chart-5: 340 82% 52%;
 
     /* OPAI DS v3 — Dark surfaces */
-    --ds-surface-0: 218 36% 12%;           /* page bg = same as --background */
-    --ds-surface-1: 218 32% 14%;           /* card primary */
-    --ds-surface-2: 218 30% 17%;           /* elevated */
-    --ds-surface-3: 218 28% 20%;           /* dialog top */
-    --ds-surface-4: 218 26% 23%;           /* tooltip / menu */
+    --ds-surface-0: 220 45% 7%;            /* page bg = same as --background */
+    --ds-surface-1: 218 36% 11%;           /* card primary */
+    --ds-surface-2: 218 32% 14%;           /* elevated */
+    --ds-surface-3: 218 30% 17%;           /* dialog top */
+    --ds-surface-4: 218 28% 20%;           /* tooltip / menu */
 
     --ds-text-1: 210 40% 98%;
     --ds-text-2: 214 24% 84%;
     --ds-text-3: 214 18% 66%;
     --ds-text-4: 214 14% 48%;
 
-    --ds-border-subtle: 218 24% 20%;
-    --ds-border-default: 218 24% 26%;
-    --ds-border-strong: 218 24% 34%;
+    --ds-border-subtle: 218 28% 15%;
+    --ds-border-default: 218 26% 19%;
+    --ds-border-strong: 218 24% 28%;
 
     --ds-ok: 160 76% 42%;
     --ds-ok-fg: 160 76% 60%;
@@ -280,7 +280,7 @@
     --ds-shadow-sm: 0 1px 3px 0 hsl(220 60% 2% / 0.5), 0 1px 2px -1px hsl(220 60% 2% / 0.4);
     --ds-shadow-md: 0 4px 12px -2px hsl(220 60% 2% / 0.55), 0 2px 4px -2px hsl(220 60% 2% / 0.45);
     --ds-shadow-lg: 0 12px 24px -8px hsl(220 60% 2% / 0.6), 0 4px 8px -4px hsl(220 60% 2% / 0.45);
-    --ds-shadow-glow-brand: 0 0 0 1px hsl(var(--primary) / 0.28), 0 6px 24px -8px hsl(var(--primary) / 0.45);
+    --ds-shadow-glow-brand: 0 0 0 1px hsl(var(--primary) / 0.28), 0 8px 24px -8px hsl(var(--primary) / 0.35);
 
     /* Categorical tints — dark variants.
        Container: tono profundo (saturado oscuro). Foreground: tono claro
@@ -384,7 +384,7 @@
     font-size: 17px;
     min-height: 100dvh;
     /* Respaldo literal para el instante previo a variables CSS (splash PWA). */
-    background-color: #060a13;
+    background-color: #0a0f1a;
     background-color: hsl(var(--ds-surface-0));
   }
 
