@@ -1,18 +1,21 @@
 "use client";
 
 /**
- * Tab Consolidado del workspace multi-instalación: resumen + datos de la
- * propuesta + condiciones comerciales (editables una vez, se propagan) +
- * instalaciones. Comparador, AI global, Incluye agregado y Auditoría se suman
- * en B7.
+ * Tab Consolidado del workspace multi-instalación: resumen, instalaciones,
+ * condiciones comerciales (editables una vez, se propagan a todas las hijas),
+ * datos de la propuesta, comparador, contenido AI global, Incluye agregado y
+ * auditoría consolidada.
  */
 
-import type { ReactNode } from "react";
 import type { BundleDetail } from "@/components/cpq/bundle/useBundle";
 import { ResumenSection } from "./ResumenSection";
 import { DatosPropuestaSection } from "./DatosPropuestaSection";
 import { BundleCondicionesSection } from "./BundleCondicionesSection";
 import { InstalacionesSection } from "./InstalacionesSection";
+import { ComparadorSection } from "./ComparadorSection";
+import { BundleAiSection } from "./BundleAiSection";
+import { IncluyeAgregadoSection } from "./IncluyeAgregadoSection";
+import { BundleAuditSection } from "./BundleAuditSection";
 
 export function ConsolidadoPanel({
   bundle,
@@ -23,7 +26,7 @@ export function ConsolidadoPanel({
   onOpenInstall,
   onAdd,
   onDuplicate,
-  extraSections,
+  auditRefreshKey,
 }: {
   bundle: BundleDetail;
   ufValue: number | null;
@@ -33,8 +36,8 @@ export function ConsolidadoPanel({
   onOpenInstall: (quoteId: string) => void;
   onAdd: () => void;
   onDuplicate: (quoteId: string) => void;
-  /** Secciones avanzadas del consolidado (comparador, AI, incluye, auditoría). */
-  extraSections?: ReactNode;
+  /** Cambia tras cada acción para recargar la auditoría consolidada. */
+  auditRefreshKey: unknown;
 }) {
   return (
     <div className="space-y-3 ds-page-enter">
@@ -49,7 +52,10 @@ export function ConsolidadoPanel({
       />
       <BundleCondicionesSection bundle={bundle} saving={saving} onPatch={onPatch} />
       <DatosPropuestaSection bundle={bundle} onPatch={onPatch} />
-      {extraSections}
+      <ComparadorSection bundle={bundle} ufValue={ufValue} />
+      <BundleAiSection bundle={bundle} onOpenInstall={onOpenInstall} />
+      <IncluyeAgregadoSection bundle={bundle} onOpenInstall={onOpenInstall} />
+      <BundleAuditSection bundleId={bundle.id} refreshKey={auditRefreshKey} />
     </div>
   );
 }

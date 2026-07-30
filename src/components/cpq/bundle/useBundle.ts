@@ -68,6 +68,7 @@ export type BundleDetail = {
   visibleInClientPortal: boolean | null;
   notes: string | null;
   sentAt: string | null;
+  updatedAt: string;
   /** Condiciones comerciales a nivel propuesta (null = aún no gobernadas). */
   paymentTerms: string | null;
   serviceStartDays: number | null;

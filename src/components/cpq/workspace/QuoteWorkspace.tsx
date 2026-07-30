@@ -180,6 +180,7 @@ export function QuoteWorkspace({
             onOpenInstall={openInstall}
             onAdd={() => openAdd(null)}
             onDuplicate={(qid) => openAdd(qid)}
+            auditRefreshKey={bundle.updatedAt ?? bundle.quotes.length}
           />
         </>
       ) : activeQuoteId ? (
