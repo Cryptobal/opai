@@ -24,6 +24,7 @@ import {
 } from "./shift-utils";
 import { JornadaHoursChip } from "./JornadaHoursChip";
 import { CatalogPicker } from "./CatalogPicker";
+import { TouchStepper } from "./TouchStepper";
 import { useLiquidoPreview } from "./useLiquidoPreview";
 import type { CpqCatalogOption, NormalizedShift, ShiftPatch } from "./types";
 
@@ -228,7 +229,7 @@ export function ShiftRowEditor({
                   type="button"
                   onClick={() => toggleDay(d)}
                   className={cn(
-                    "h-9 min-w-[2.25rem] rounded-md border px-1.5 text-xs font-semibold transition-colors",
+                    "h-10 min-w-[2.5rem] sm:h-9 sm:min-w-[2.25rem] rounded-md border px-1.5 text-xs font-semibold transition-colors",
                     on ? activeCls : "border-border bg-card text-muted-foreground hover:bg-muted/40",
                   )}
                 >
@@ -245,7 +246,7 @@ export function ShiftRowEditor({
                   title="Cubre festivos"
                   onClick={() => toggleDay(HOLIDAY_DAY)}
                   className={cn(
-                    "h-9 min-w-[2.25rem] rounded-md border px-1.5 text-xs font-semibold transition-colors",
+                    "h-10 min-w-[2.5rem] sm:h-9 sm:min-w-[2.25rem] rounded-md border px-1.5 text-xs font-semibold transition-colors",
                     on
                       ? "border-status-warn-border bg-status-warn-soft text-status-warn-fg"
                       : "border-dashed border-border bg-card text-muted-foreground hover:bg-muted/40",
@@ -261,10 +262,26 @@ export function ShiftRowEditor({
 
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         <Field label="Guardias">
-          <SimpleSelect className={FIELD} value={String(draft.guardias)} onValueChange={(v) => apply({ guardias: Number(v) })} options={Array.from({ length: 10 }, (_, i) => i + 1).map((n) => ({ value: String(n), label: String(n) }))} />
+          <TouchStepper
+            className="sm:hidden"
+            ariaLabel="guardias"
+            value={draft.guardias}
+            min={1}
+            max={10}
+            onChange={(n) => apply({ guardias: n })}
+          />
+          <SimpleSelect className={cn(FIELD, "hidden sm:flex")} value={String(draft.guardias)} onValueChange={(v) => apply({ guardias: Number(v) })} options={Array.from({ length: 10 }, (_, i) => i + 1).map((n) => ({ value: String(n), label: String(n) }))} />
         </Field>
         <Field label="N° Puestos">
-          <SimpleSelect className={FIELD} value={String(draft.nPuestos)} onValueChange={(v) => apply({ nPuestos: Number(v) })} options={Array.from({ length: 20 }, (_, i) => i + 1).map((n) => ({ value: String(n), label: String(n) }))} />
+          <TouchStepper
+            className="sm:hidden"
+            ariaLabel="número de puestos"
+            value={draft.nPuestos || 1}
+            min={1}
+            max={20}
+            onChange={(n) => apply({ nPuestos: n })}
+          />
+          <SimpleSelect className={cn(FIELD, "hidden sm:flex")} value={String(draft.nPuestos)} onValueChange={(v) => apply({ nPuestos: Number(v) })} options={Array.from({ length: 20 }, (_, i) => i + 1).map((n) => ({ value: String(n), label: String(n) }))} />
         </Field>
         <Field label="Sueldo bruto">
           <Input

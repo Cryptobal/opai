@@ -41,6 +41,7 @@ export async function cloneCpqQuote(opts: {
       vehicles: true,
       infrastructure: true,
       additionalLines: true,
+      includesItems: true,
     },
   });
 
@@ -100,8 +101,15 @@ export async function cloneCpqQuote(opts: {
           monthlyHoursStandard: source.parameters.monthlyHoursStandard,
           avgStayMonths: source.parameters.avgStayMonths,
           uniformChangesPerYear: source.parameters.uniformChangesPerYear,
+          financialEnabled: source.parameters.financialEnabled,
           financialRatePct: source.parameters.financialRatePct,
+          // salePriceBase NO se copia: es la base de venta manual de la
+          // cotización fuente y el motor la usa como base del gasto financiero
+          // y de la póliza. El clon tiene su propia dotación, así que debe
+          // recalcularla (salePriceBase = 0 → el motor usa baseWithMargin).
           salePriceMonthly: source.parameters.salePriceMonthly,
+          policyEnabled: source.parameters.policyEnabled,
+          marginMode: source.parameters.marginMode,
           policyRatePct: source.parameters.policyRatePct,
           policyAdminRatePct: source.parameters.policyAdminRatePct,
           policyContractMonths: source.parameters.policyContractMonths,
@@ -242,6 +250,23 @@ export async function cloneCpqQuote(opts: {
           descripcion: line.descripcion,
           precio: line.precio,
           orden: line.orden,
+          tipo: line.tipo,
+          recurrencia: line.recurrencia,
+          cantidad: line.cantidad,
+          marginPct: line.marginPct,
+        })),
+      });
+    }
+
+    if (source.includesItems.length) {
+      await tx.cpqQuoteIncludesItem.createMany({
+        data: source.includesItems.map((item) => ({
+          quoteId: newQuote.id,
+          text: item.text,
+          sortOrder: item.sortOrder,
+          showInPdf: item.showInPdf,
+          source: item.source,
+          suggestionId: item.suggestionId,
         })),
       });
     }

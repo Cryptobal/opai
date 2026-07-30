@@ -11,7 +11,6 @@ import { useRegisterChatPageContext } from "@/components/opai/ChatPageContextPro
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { EmptyState, useSetBreadcrumbTrailing } from "@/components/opai-ds";
@@ -26,13 +25,12 @@ import { CpqQuoteCosts } from "@/components/cpq/CpqQuoteCosts";
 import { SendPortalProposalModal } from "@/components/cpq/SendPortalProposalModal";
 import { formatCurrency } from "@/components/cpq/utils";
 import { CpqDualCurrencyAmount } from "@/components/cpq/CpqDualCurrency";
-import { LocalizedNumberInput } from "@/components/cpq/LocalizedNumberInput";
 import {
   CPQ_BREAKDOWN_SHELL,
   CPQ_BREAKDOWN_ROW,
   cpqBreakdownAmount,
 } from "@/components/cpq/cpqBreakdownLayout";
-import { cn, formatNumber, parseLocalizedNumber } from "@/lib/utils";
+import { cn, formatNumber } from "@/lib/utils";
 import type {
   CpqQuote,
   CpqPosition,
@@ -58,7 +56,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { ArrowLeft, ChevronDown, Copy, RefreshCw, Users, MoreVertical, Trash2, Loader2, Building2, Plus, MessageCircle, Send, Check, CheckCircle2, Briefcase, Phone, PencilLine, Sparkles, CalendarDays, FileSignature, Eye, PanelRightClose, PanelRightOpen } from "lucide-react";
+import { ArrowLeft, ChevronDown, Copy, RefreshCw, Users, MoreVertical, Trash2, Loader2, Building2, Plus, MessageCircle, Send, CheckCircle2, Briefcase, Phone, PencilLine, CalendarDays, FileSignature, Eye, PanelRightClose, PanelRightOpen } from "lucide-react";
 import { DatosSection } from "@/components/cpq/DatosSection";
 import MarginSection from "@/components/cpq/MarginSection";
 import { QuoteAttachmentsSection } from "@/components/cpq/QuoteAttachmentsSection";
@@ -73,7 +71,6 @@ import { QuoteIncludesEditor } from "@/components/cpq/QuoteIncludesEditor";
 import { MobileBottomBar } from "@/components/cpq/MobileBottomBar";
 import type { FollowUpDecision } from "@/components/cpq/FollowUpDecisionModal";
 import { CrmActivityTimeline } from "@/components/crm/CrmActivityTimeline";
-import { EntityConversations } from "@/components/crm/EntityConversations";
 import { VisitaTecnicaSolicitudModal } from "@/components/cpq/VisitaTecnicaSolicitudModal";
 import { ServiceTemplateButtons } from "@/components/cpq/ServiceTemplateButtons";
 import type { ServiceTemplate } from "@/lib/cpq/service-templates";
@@ -81,6 +78,17 @@ import { resolveTemplateRowCatalog } from "@/lib/cpq/resolve-cpq-role-from-shift
 import { isCpqQuoteListedInClientPortal } from "@/lib/cpq-portal-visibility";
 import { buildDefaultPortalInviteEmailSubject } from "@/lib/cpq-portal-email-subject";
 import { useWaTemplate } from "@/lib/whatsapp/use-wa-template";
+import { CondicionesSection } from "@/components/cpq/workspace/CondicionesSection";
+import { LineasSection } from "@/components/cpq/workspace/LineasSection";
+import { FinancierosSection } from "@/components/cpq/workspace/FinancierosSection";
+import { AiSection } from "@/components/cpq/workspace/AiSection";
+import { ControlCenterPanel } from "@/components/cpq/workspace/ControlCenterPanel";
+import { WorkspaceRail } from "@/components/cpq/workspace/WorkspaceRail";
+import { SectionChips } from "@/components/cpq/workspace/SectionChips";
+import { MobileTotalBar } from "@/components/cpq/workspace/MobileTotalBar";
+import { ConvertToBundleButton } from "@/components/cpq/workspace/ConvertToBundleButton";
+import { ControlCenterSheet, ControlCenterTrigger } from "@/components/cpq/workspace/ControlCenterSheet";
+import type { QuoteFormState, WorkspaceSectionId } from "@/components/cpq/workspace/types";
 
 type ActivityEvent = {
   id: string;
@@ -99,6 +107,25 @@ interface CpqQuoteDetailProps {
   defaultPortalEmailSubject?: string;
   /** Marca comercial para recalcular el asunto cuando carga el detalle de la cotización. */
   tenantBrandName?: string;
+  /** Multi-instalación: condiciones y financiero gobernados por la propuesta (solo lectura aquí). */
+  conditionsGovernedByProposal?: boolean;
+  /** Link "editar a nivel propuesta" (cambia al tab Consolidado). */
+  onEditConditionsAtProposal?: () => void;
+  /** Bundle al que pertenece la cotización (null = única; oculta Convertir si ya existe). */
+  bundleId?: string | null;
+  /** Callback tras convertir en multi-instalación (workspace unificado). */
+  onConverted?: (bundleId: string, existing: boolean) => void;
+  /** Modo única CON bundle (1 instalación): abre el modal Agregar instalación. */
+  onAddInstallation?: () => void;
+  /** true cuando se renderiza dentro de un tab del workspace multi: oculta
+   *  headers/sticky bars/bottom bar propios (los provee el workspace). */
+  embedded?: boolean;
+  /** Slot de pestañas de instalaciones dentro del stack sticky móvil (multi). */
+  mobileTabsSlot?: React.ReactNode;
+  /** Total mensual consolidado (CLP) para la barra sticky móvil en multi. */
+  mobileTotalClpOverride?: number | null;
+  /** Notifica cambios guardados para refrescar totales del bundle (multi). */
+  onQuoteSaved?: () => void;
 }
 
 type CrmInstallationOption = {
@@ -134,22 +161,21 @@ function roundUpToNice(value: number): number {
   return Math.ceil(value / 100000) * 100000;
 }
 
-/** Fecha de término estimada (solo display): inicio contrato + N meses. */
-function estimatedServiceEnd(startIso: string | null | undefined, months: number): string | null {
-  if (!startIso || !Number.isFinite(months) || months <= 0) return null;
-  const start = new Date(`${startIso}T00:00:00`);
-  if (Number.isNaN(start.getTime())) return null;
-  const end = new Date(start);
-  end.setMonth(end.getMonth() + Math.round(months));
-  return end.toLocaleDateString("es-CL", { day: "2-digit", month: "long", year: "numeric" });
-}
-
 export function CpqQuoteDetail({
   quoteId,
   currentUserId,
   activityEvents = [],
   defaultPortalEmailSubject,
   tenantBrandName,
+  conditionsGovernedByProposal = false,
+  onEditConditionsAtProposal,
+  bundleId = null,
+  onConverted,
+  onAddInstallation,
+  embedded = false,
+  mobileTabsSlot,
+  mobileTotalClpOverride = null,
+  onQuoteSaved,
 }: CpqQuoteDetailProps) {
   const router = useRouter();
   const { resolve: resolveWaTemplate } = useWaTemplate();
@@ -226,7 +252,7 @@ export function CpqQuoteDetail({
   const [savingFinancials, setSavingFinancials] = useState(false);
   const [financialError, setFinancialError] = useState<string | null>(null);
   const [decimalDrafts, setDecimalDrafts] = useState<Record<string, string>>({});
-  const [quoteForm, setQuoteForm] = useState({
+  const [quoteForm, setQuoteForm] = useState<QuoteFormState>({
     name: "",
     clientName: "",
     validUntil: "",
@@ -354,6 +380,27 @@ export function CpqQuoteDetail({
   // Cuando la cotización está "Enviada", auto-plegamos todas las secciones la
   // primera vez que entramos para mostrar un resumen tipo dashboard. El usuario
   // puede expandir manualmente lo que necesite revisar.
+  /** Navegación por secciones (rail desktop / chips móvil): expandir + scroll. */
+  const sectionSetters: Record<WorkspaceSectionId, (v: boolean) => void> = {
+    "sec-datos": setSecDatos,
+    "sec-condiciones": setSecCondiciones,
+    "sec-desglose": setSecDesglose,
+    "sec-puestos": setSecPuestos,
+    "sec-costos": setSecCostos,
+    "sec-lineas": setSecLineas,
+    "sec-financieros": setSecFinancieros,
+    "sec-margen": setSecMargen,
+    "sec-ai": setSecAiContent,
+    "sec-incluye": setSecIncluye,
+    "sec-auditoria": setSecAuditoria,
+  };
+  const openAndScrollTo = useCallback((id: WorkspaceSectionId) => {
+    sectionSetters[id]?.(true);
+    requestAnimationFrame(() => {
+      document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const sentAutoCollapseRef = useRef(false);
   useEffect(() => {
     if (quote?.status === "sent" && !sentAutoCollapseRef.current) {
@@ -396,12 +443,17 @@ export function CpqQuoteDetail({
       return next;
     });
   }, []);
+  const [controlSheetOpen, setControlSheetOpen] = useState(false);
   const [pdfPreviewMode, setPdfPreviewMode] = useState<CpqPdfPreviewMode>("presentacion");
   const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
   const [pdfPreviewLoading, setPdfPreviewLoading] = useState(false);
   const [pdfTemplateSlug, setPdfTemplateSlug] = useState<CpqPdfTemplateSlug>("standard");
   const initialLoadDone = useRef(false);
   const skipAutoSave = useRef(false);
+  /** Guardados pendientes al desmontar (cambio de pestaña / navegación). */
+  const pendingFinancialsSave = useRef(false);
+  const pendingQuoteFormSave = useRef(false);
+  const flushOnUnmountRef = useRef<() => void>(() => {});
   const financialsAutoSaveTimer = useRef<NodeJS.Timeout | undefined>(undefined);
   const quoteFormAutoSaveTimer = useRef<NodeJS.Timeout | undefined>(undefined);
   const formatDateInput = (value?: string | null) => (value ? value.split("T")[0] : "");
@@ -492,6 +544,8 @@ export function CpqQuoteDetail({
     } finally {
       setLoading(false);
     }
+    // Multi-instalación: los totales del bundle derivan de esta quote.
+    if (initialLoadDone.current) onQuoteSaved?.();
   };
 
   useEffect(() => {
@@ -505,7 +559,9 @@ export function CpqQuoteDetail({
   useEffect(() => {
     if (!initialLoadDone.current || skipAutoSave.current || isLocked) return;
     clearTimeout(financialsAutoSaveTimer.current);
+    pendingFinancialsSave.current = true;
     financialsAutoSaveTimer.current = setTimeout(() => {
+      pendingFinancialsSave.current = false;
       handleSaveFinancials();
     }, 2000);
     return () => clearTimeout(financialsAutoSaveTimer.current);
@@ -515,7 +571,9 @@ export function CpqQuoteDetail({
   useEffect(() => {
     if (!initialLoadDone.current || isLocked) return;
     clearTimeout(quoteFormAutoSaveTimer.current);
+    pendingQuoteFormSave.current = true;
     quoteFormAutoSaveTimer.current = setTimeout(() => {
+      pendingQuoteFormSave.current = false;
       saveQuoteBasics();
     }, 2000);
     return () => clearTimeout(quoteFormAutoSaveTimer.current);
@@ -963,6 +1021,7 @@ export function CpqQuoteDetail({
       setQuote(data.data);
       setQuoteDirty(false);
       setLastSavedAt(new Date());
+      onQuoteSaved?.();
     } catch (error) {
       console.error("Error saving CPQ quote:", error);
       setQuoteError("No se pudo guardar la cotizacion.");
@@ -995,6 +1054,7 @@ export function CpqQuoteDetail({
       }
       if (data.data) setCostSummary(data.data);
       setLastSavedAt(new Date());
+      onQuoteSaved?.();
     } catch (error) {
       console.error("Error saving financials:", error);
       setFinancialError("No se pudieron guardar los financieros.");
@@ -1096,6 +1156,26 @@ export function CpqQuoteDetail({
       setDeleting(false);
     }
   };
+
+  flushOnUnmountRef.current = () => {
+    if (isLocked || !initialLoadDone.current) return;
+    if (pendingFinancialsSave.current) {
+      clearTimeout(financialsAutoSaveTimer.current);
+      pendingFinancialsSave.current = false;
+      void handleSaveFinancials();
+    }
+    if (pendingQuoteFormSave.current) {
+      clearTimeout(quoteFormAutoSaveTimer.current);
+      pendingQuoteFormSave.current = false;
+      void saveQuoteBasics();
+    }
+  };
+  // Al desmontar (cambiar de pestaña en multi, navegar) se vacían los
+  // guardados con debounce en vuelo: antes se cancelaban y los últimos
+  // cambios se perdían sin aviso.
+  useEffect(() => {
+    return () => flushOnUnmountRef.current();
+  }, []);
 
   /** Flush any pending debounced saves so the backend has the latest data */
   const flushPendingSaves = async () => {
@@ -1656,7 +1736,8 @@ export function CpqQuoteDetail({
   }
 
   return (
-    <div className="space-y-3 pb-4 lg:pb-4 overflow-x-clip min-w-0">
+    <div className="cpq-touch-inputs space-y-3 pb-4 lg:pb-4 overflow-x-clip min-w-0">
+      {!embedded && (<>
       {/* -- Compact header (mobile/tablet) --
            Bg-background opaco (no /95) + shadow inferior para que el contenido
            que pasa por debajo al hacer scroll no se vea a través del header
@@ -1666,7 +1747,7 @@ export function CpqQuoteDetail({
            overflow-x-clip en el wrapper (no -hidden): hidden rompe
            position: sticky al crear scroll container — clip recorta igual
            sin establecer contexto de scroll, así el sticky usa el viewport. */}
-      <div className="sticky top-[53px] z-20 bg-background border-b border-border/60 shadow-sm -mx-4 px-3 pt-1.5 pb-2 mb-3 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8 lg:hidden">
+      <div className="bg-background -mx-4 px-3 pt-1.5 pb-2 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8 lg:hidden">
       {/* Row 1: back · code · status · acciones */}
       <div className="flex items-center gap-1.5 min-w-0">
         <Link href="/crm/cotizaciones" className="shrink-0 -ml-1">
@@ -1757,6 +1838,18 @@ export function CpqQuoteDetail({
                       <CheckCircle2 className="h-3.5 w-3.5" /> Marcar como enviada
                     </button>
                   )}
+                  {isLocked ? null : !bundleId && onConverted ? (
+                    <div onClick={() => setOverflowMenuOpen(false)}>
+                      <ConvertToBundleButton asMenuItem quoteId={quoteId} onConverted={onConverted} />
+                    </div>
+                  ) : onAddInstallation ? (
+                    <button
+                      className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-xs font-medium text-primary hover:bg-accent"
+                      onClick={() => { setOverflowMenuOpen(false); onAddInstallation(); }}
+                    >
+                      <Plus className="h-3.5 w-3.5" /> Agregar instalación
+                    </button>
+                  ) : null}
                   <button className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-xs hover:bg-accent" onClick={() => { setOverflowMenuOpen(false); handleClone(); }} disabled={cloning}>
                     <Copy className="h-3.5 w-3.5" /> {cloning ? "Clonando..." : "Clonar cotizacion"}
                   </button>
@@ -1844,15 +1937,9 @@ export function CpqQuoteDetail({
           </div>
         );
       })()}
-      {/* Row 3: totales + (a la derecha) save indicator + portal toggle */}
+      {/* Row 3: pill de guardias (el total vive en la barra sticky de abajo) */}
       <div className="mt-1.5 flex items-center justify-between gap-2 min-w-0">
         <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0 text-sm tabular-nums min-w-0">
-            {ufValue != null && ufValue > 0 && (
-              <span className="font-semibold text-status-ok-fg dark:text-status-ok-fg">
-                {(billingMonthlyTotal / ufValue).toFixed(2)} UF
-              </span>
-            )}
-            <span className="text-foreground/85 text-[13px]">{formatCurrency(billingMonthlyTotal)}</span>
             {stats.totalGuards > 0 && (
               <button
                 type="button"
@@ -1890,11 +1977,6 @@ export function CpqQuoteDetail({
               </button>
             )}
         </div>
-        <div className="flex items-center gap-1.5 shrink-0">
-          {!isLocked && (savingQuote || savingFinancials) && (
-            <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" aria-hidden />
-          )}
-        </div>
       </div>
       {guardsBreakdownOpen && roleSummary.length > 0 && (
         <div
@@ -1917,11 +1999,30 @@ export function CpqQuoteDetail({
           ))}
         </div>
       )}
-      </div>{/* end sticky header */}
+      </div>{/* end compact header */}
+
+      </>)}
+
+      {/* -- Mobile sticky stack: total glass (40px) → pestañas (multi) → chips
+           de secciones. Orden fijo del mockup aprobado; top-[53px] = altura del
+           topbar móvil. El indicador UF/UTM del topbar no existe en móvil: el
+           chip UF del día vive aquí. En multi el total es el consolidado. */}
+      <div className="sticky top-[53px] z-20 -mx-4 sm:-mx-6 lg:-mx-8 lg:hidden opai-liquid-glass-bar-top mb-3">
+        <MobileTotalBar
+          totalClp={mobileTotalClpOverride ?? billingMonthlyTotal}
+          currency={crmContext.currency || "CLP"}
+          ufValue={ufValue}
+          saving={!isLocked && (savingQuote || savingFinancials)}
+        />
+        {mobileTabsSlot}
+        <SectionChips onNavigate={openAndScrollTo} className="border-t border-border/40" />
+      </div>
 
       {/* -- Desktop sticky KPI bar (fuera del grid: sticky respecto al viewport) --
            top = debajo del topbar fijo (--app-topbar-offset). Sin overflow-x en el path
-           hacia el viewport (html/body usan clip). */}
+           hacia el viewport (html/body usan clip). En multi (embedded) la provee
+           el workspace con totales consolidados. */}
+      {!embedded && (
       <div className="hidden lg:flex sticky top-[var(--app-topbar-offset)] z-30 items-center justify-between gap-4 rounded-lg border border-border/60 bg-card/95 backdrop-blur-md px-4 py-3 shadow-md">
         <div className="flex items-center gap-3 min-w-0">
           <Link href="/crm/cotizaciones" className="shrink-0">
@@ -2035,6 +2136,18 @@ export function CpqQuoteDetail({
                     </button>
                   )}
                   <div className="my-1 h-px bg-border" />
+                  {isLocked ? null : !bundleId && onConverted ? (
+                    <div onClick={() => setOverflowMenuOpen(false)}>
+                      <ConvertToBundleButton asMenuItem quoteId={quoteId} onConverted={onConverted} />
+                    </div>
+                  ) : onAddInstallation ? (
+                    <button
+                      className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-xs font-medium text-primary hover:bg-accent"
+                      onClick={() => { setOverflowMenuOpen(false); onAddInstallation(); }}
+                    >
+                      <Plus className="h-3.5 w-3.5" /> Agregar instalación
+                    </button>
+                  ) : null}
                   <button className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-xs hover:bg-accent" onClick={() => { setOverflowMenuOpen(false); handleClone(); }} disabled={cloning}>
                     <Copy className="h-3.5 w-3.5" /> {cloning ? "Clonando..." : "Clonar cotizacion"}
                   </button>
@@ -2064,22 +2177,44 @@ export function CpqQuoteDetail({
           </div>
         </div>
       </div>
+      )}
 
       {/* -- Detail workspace --
            Layout 2 columnas (main + aside Centro de control) tanto en borrador
            como en enviada. El aside se puede contraer para ensanchar Datos /
            Condiciones / Desglose / Puestos. */}
+      <div className="xl:grid xl:grid-cols-[168px_minmax(0,1fr)] xl:gap-3 xl:items-start">
+      <WorkspaceRail
+        className="hidden xl:block"
+        topOffsetClassName={embedded
+          ? "top-[calc(var(--app-topbar-offset)+7.25rem)]"
+          : "top-[calc(var(--app-topbar-offset)+4.75rem)]"}
+        onNavigate={openAndScrollTo}
+        footer={isLocked ? undefined : !bundleId && onConverted ? (
+          <ConvertToBundleButton quoteId={quoteId} onConverted={onConverted} />
+        ) : onAddInstallation ? (
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-9 w-full justify-start gap-2 text-xs font-medium text-primary"
+            onClick={onAddInstallation}
+          >
+            <Plus className="h-3.5 w-3.5" />
+            Agregar instalación
+          </Button>
+        ) : undefined}
+      />
       <div
         className={cn(
           "grid gap-3 min-w-0 lg:items-start",
-          controlCenterOpen
+          controlCenterOpen && !embedded
             ? "lg:grid-cols-[minmax(0,1fr)_340px]"
             : "lg:grid-cols-1"
         )}
       >
       <div className="space-y-2 min-w-0">
-      {/* -- Section: Datos (scroll-mt-32: visible below sticky header when scrolled) -- */}
-      <Card className="overflow-visible rounded-xl border-border/70 bg-card/85 shadow-sm scroll-mt-44 sm:scroll-mt-32">
+      {/* -- Section: Datos (scroll-mt: visible bajo el stack sticky al navegar) -- */}
+      <Card id="sec-datos" className="overflow-visible rounded-xl border-border/70 bg-card/85 shadow-sm scroll-mt-[12.5rem] lg:scroll-mt-32">
         <button type="button" onClick={() => setSecDatos(v => !v)} className="flex items-center justify-between w-full border-b border-border/50 bg-muted/20 px-4 py-3 hover:bg-muted/30 transition-colors">
           <div className="flex items-center gap-2 min-w-0">
             <h2 className="text-sm font-semibold text-primary shrink-0">Datos</h2>
@@ -2118,269 +2253,26 @@ export function CpqQuoteDetail({
       </Card>
 
       {/* -- Section: Condiciones Comerciales -- */}
-      <Card className="overflow-hidden rounded-xl border-border/70 bg-card/85 shadow-sm scroll-mt-44 sm:scroll-mt-32">
-        <button type="button" onClick={() => setSecCondiciones(v => !v)} className="flex items-center justify-between w-full border-b border-border/50 bg-muted/20 px-4 py-3 hover:bg-muted/30 transition-colors">
-          <div className="flex items-center gap-2 min-w-0">
-            <h2 className="text-sm font-semibold text-primary shrink-0">Condiciones comerciales</h2>
-            {!secCondiciones && (
-              <span className="text-xs text-muted-foreground truncate">
-                {quoteForm.paymentTerms === "contrafactura" ? "Contrafactura" : quoteForm.paymentTerms === "30_dias" ? "30 días" : "Anticipado"} · {quoteForm.serviceStartDays}d · {quoteForm.contractDuration}m
-              </span>
-            )}
-          </div>
-          <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform shrink-0", secCondiciones && "rotate-180")} />
-        </button>
-        {secCondiciones && (
-          <div className="px-3 pb-3 pt-3 bg-card/60 sm:px-4 sm:pb-4 sm:pt-4" inert={isLocked ? true : undefined}>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <div className="space-y-1">
-                <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Forma de pago</Label>
-                <select
-                  value={quoteForm.paymentTerms}
-                  onChange={(e) => { setQuoteForm(prev => ({ ...prev, paymentTerms: e.target.value })); setQuoteDirty(true); }}
-                  disabled={isLocked}
-                  className="flex h-8 w-full rounded-md border border-border bg-card px-2 py-1 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-                >
-                  <option value="contrafactura">Contrafactura</option>
-                  <option value="30_dias">30 días</option>
-                  <option value="anticipado">Pago anticipado</option>
-                </select>
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Inicio servicios</Label>
-                <div className="flex items-center gap-1">
-                  <Input
-                    type="number"
-                    min={1}
-                    max={90}
-                    value={quoteForm.serviceStartDays}
-                    onChange={(e) => { setQuoteForm(prev => ({ ...prev, serviceStartDays: Number(e.target.value) || 5 })); setQuoteDirty(true); }}
-                    disabled={isLocked}
-                    className="h-8 bg-card text-foreground border-border text-xs w-16"
-                  />
-                  <span className="text-xs text-muted-foreground whitespace-nowrap">días háb.</span>
-                </div>
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                  {quoteForm.isOngoingService ? "Compromiso / reajuste" : "Duración"}
-                </Label>
-                <div className="flex items-center gap-1">
-                  <Input
-                    type="number"
-                    min={1}
-                    max={60}
-                    value={quoteForm.contractDuration}
-                    onChange={(e) => { setQuoteForm(prev => ({ ...prev, contractDuration: Number(e.target.value) || 12 })); setQuoteDirty(true); }}
-                    disabled={isLocked}
-                    className="h-8 bg-card text-foreground border-border text-xs w-16"
-                  />
-                  <span className="text-xs text-muted-foreground">meses</span>
-                </div>
-                {!quoteForm.isOngoingService && estimatedServiceEnd(quoteForm.contractStartDate, quoteForm.contractDuration) && (
-                  <p className="text-xs text-muted-foreground">Termina ~{estimatedServiceEnd(quoteForm.contractStartDate, quoteForm.contractDuration)}</p>
-                )}
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Servicio continuo</Label>
-                <div className="flex h-8 items-center gap-2">
-                  <Switch
-                    checked={quoteForm.isOngoingService}
-                    onCheckedChange={(checked) => { setQuoteForm(prev => ({ ...prev, isOngoingService: checked })); setQuoteDirty(true); }}
-                    disabled={isLocked}
-                  />
-                  <span className="text-xs text-muted-foreground">
-                    {quoteForm.isOngoingService ? "Indefinido" : "Plazo definido"}
-                  </span>
-                </div>
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Propuesta económica</Label>
-                <div className="flex items-center gap-1.5">
-                  <select
-                    value={proposalTemplateId ?? ""}
-                    onChange={(e) => {
-                      const val = e.target.value || null;
-                      setProposalTemplateId(val);
-                      fetch(`/api/cpq/quotes/${quoteId}`, {
-                        method: "PATCH",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ proposalTemplateId: val }),
-                      }).catch(() => {});
-                    }}
-                    disabled={isLocked}
-                    className="flex h-8 w-full rounded-md border border-border bg-card px-2 py-1 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-                  >
-                    {proposalTemplates
-                      .filter(
-                        (t) =>
-                          !(
-                            (t.name || "").toLowerCase().includes("presentación") &&
-                            (t.name || "").toLowerCase().includes("empresa")
-                          )
-                      )
-                      .map((t) => (
-                        <option key={t.id} value={t.id}>
-                          {t.name}
-                        </option>
-                      ))}
-                  </select>
-                </div>
-              </div>
-            </div>
-
-            {/* Contract service fields */}
-            <div className="border-t border-border pt-3 mt-3">
-              <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-3">Contrato de Servicio</h4>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                <div className="space-y-1">
-                  <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Tipo de reajuste</Label>
-                  <select
-                    value={quoteForm.adjustmentType}
-                    onChange={(e) => {
-                      const type = e.target.value;
-                      setQuoteForm(prev => ({
-                        ...prev,
-                        adjustmentType: type,
-                        ...(type === "NONE" ? { adjustmentFreq: null, ipcWeight: null, imoWeight: null } : {}),
-                        ...(type === "IPC" || type === "IMO" ? { ipcWeight: null, imoWeight: null } : {}),
-                      }));
-                      setQuoteDirty(true);
-                    }}
-                    disabled={isLocked}
-                    className="flex h-8 w-full rounded-md border border-border bg-card px-2 py-1 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-                  >
-                    <option value="NONE">Sin reajuste</option>
-                    <option value="IPC">IPC</option>
-                    <option value="IMO">Índice Mano de Obra</option>
-                    <option value="POLYNOMIAL">Polinomio mixto</option>
-                  </select>
-                </div>
-
-                {quoteForm.adjustmentType !== "NONE" && (
-                  <div className="space-y-1">
-                    <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Frecuencia</Label>
-                    <select
-                      value={quoteForm.adjustmentFreq ?? ""}
-                      onChange={(e) => { setQuoteForm(prev => ({ ...prev, adjustmentFreq: e.target.value || null })); setQuoteDirty(true); }}
-                      disabled={isLocked}
-                      className="flex h-8 w-full rounded-md border border-border bg-card px-2 py-1 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-                    >
-                      <option value="">Seleccionar</option>
-                      <option value="TRIMESTRAL">Trimestral</option>
-                      <option value="SEMESTRAL">Semestral</option>
-                      <option value="ANUAL">Anual</option>
-                    </select>
-                  </div>
-                )}
-
-                {quoteForm.adjustmentType === "POLYNOMIAL" && (
-                  <>
-                    <div className="space-y-1">
-                      <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">% IPC</Label>
-                      <div className="flex items-center gap-1">
-                        <Input type="number" min={0} max={100} value={quoteForm.ipcWeight ?? ""}
-                          onChange={(e) => { const ipc = Number(e.target.value) || 0; setQuoteForm(prev => ({ ...prev, ipcWeight: ipc, imoWeight: 100 - ipc })); setQuoteDirty(true); }}
-                          disabled={isLocked} className="h-8 bg-card text-foreground border-border text-xs w-16" />
-                        <span className="text-xs text-muted-foreground">%</span>
-                      </div>
-                    </div>
-                    <div className="space-y-1">
-                      <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">% IMO</Label>
-                      <div className="flex items-center gap-1">
-                        <Input type="number" min={0} max={100} value={quoteForm.imoWeight ?? ""}
-                          onChange={(e) => { const imo = Number(e.target.value) || 0; setQuoteForm(prev => ({ ...prev, imoWeight: imo, ipcWeight: 100 - imo })); setQuoteDirty(true); }}
-                          disabled={isLocked} className="h-8 bg-card text-foreground border-border text-xs w-16" />
-                        <span className="text-xs text-muted-foreground">%</span>
-                      </div>
-                    </div>
-                  </>
-                )}
-
-                <div className="space-y-1">
-                  <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Días de pago</Label>
-                  <div className="flex items-center gap-1">
-                    <Input type="number" min={1} max={30} value={quoteForm.paymentDays}
-                      onChange={(e) => { setQuoteForm(prev => ({ ...prev, paymentDays: Number(e.target.value) || 5 })); setQuoteDirty(true); }}
-                      disabled={isLocked} className="h-8 bg-card text-foreground border-border text-xs w-16" />
-                    <span className="text-xs text-muted-foreground whitespace-nowrap">días háb.</span>
-                  </div>
-                </div>
-
-                <div className="space-y-1">
-                  <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Monto póliza</Label>
-                  <div className="flex items-center gap-1">
-                    <Input type="number" min={0} step={0.01} value={quoteForm.insurancePolicyUF ?? 1500} placeholder="1500"
-                      onChange={(e) => { setQuoteForm(prev => ({ ...prev, insurancePolicyUF: e.target.value ? Number(e.target.value) : 1500 })); setQuoteDirty(true); }}
-                      disabled={isLocked} className="h-8 bg-card text-foreground border-border text-xs w-20" />
-                    <span className="text-xs text-muted-foreground">UF</span>
-                  </div>
-                </div>
-
-                <div className="space-y-1">
-                  <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Límite responsabilidad</Label>
-                  <div className="flex items-center gap-1">
-                    <Input type="number" min={1} max={24} value={quoteForm.liabilityMonths}
-                      onChange={(e) => { setQuoteForm(prev => ({ ...prev, liabilityMonths: Number(e.target.value) || 3 })); setQuoteDirty(true); }}
-                      disabled={isLocked} className="h-8 bg-card text-foreground border-border text-xs w-16" />
-                    <span className="text-xs text-muted-foreground">meses</span>
-                  </div>
-                </div>
-
-                <div className="space-y-1">
-                  <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Incremento real anual</Label>
-                  <div className="flex items-center gap-1">
-                    <Input type="number" min={0} max={100} step={1} value={quoteForm.realAnnualIncrement ?? 3}
-                      onChange={(e) => {
-                        const raw = e.target.value;
-                        const n = raw === "" ? 0 : Number(raw);
-                        const clamped = Number.isFinite(n) ? Math.max(0, Math.min(100, Math.round(n))) : 0;
-                        setQuoteForm(prev => ({ ...prev, realAnnualIncrement: clamped }));
-                        setQuoteDirty(true);
-                      }}
-                      disabled={isLocked} className="h-8 bg-card text-foreground border-border text-xs w-16" />
-                    <span className="text-xs text-muted-foreground">%</span>
-                  </div>
-                </div>
-
-                <div className="space-y-1">
-                  <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Fecha inicio contrato</Label>
-                  <Input type="date" value={quoteForm.contractStartDate ?? ""}
-                    onChange={(e) => { setQuoteForm(prev => ({ ...prev, contractStartDate: e.target.value || null })); setQuoteDirty(true); }}
-                    disabled={isLocked} className="h-8 bg-card text-foreground border-border text-xs" />
-                </div>
-
-                <div className="space-y-1 flex items-end gap-2 pb-0.5">
-                  <label className="flex items-center gap-1.5 cursor-pointer">
-                    <input type="checkbox" checked={quoteForm.hasCCTV}
-                      onChange={(e) => { setQuoteForm(prev => ({ ...prev, hasCCTV: e.target.checked })); setQuoteDirty(true); }}
-                      disabled={isLocked} className="rounded border-border" />
-                    <span className="text-xs text-muted-foreground">Incluye CCTV</span>
-                  </label>
-                </div>
-
-                {quoteForm.hasCCTV && (
-                  <div className="space-y-1">
-                    <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Retención CCTV</Label>
-                    <div className="flex items-center gap-1">
-                      <Input type="number" min={1} max={365} value={quoteForm.cctvRetentionDays ?? 30}
-                        onChange={(e) => { setQuoteForm(prev => ({ ...prev, cctvRetentionDays: Number(e.target.value) || 30 })); setQuoteDirty(true); }}
-                        disabled={isLocked} className="h-8 bg-card text-foreground border-border text-xs w-16" />
-                      <span className="text-xs text-muted-foreground">días</span>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-      </Card>
+      <CondicionesSection
+        open={secCondiciones}
+        onToggle={() => setSecCondiciones(v => !v)}
+        quoteId={quoteId}
+        form={quoteForm}
+        setForm={setQuoteForm}
+        setDirty={() => setQuoteDirty(true)}
+        isLocked={isLocked}
+        proposalTemplates={proposalTemplates}
+        proposalTemplateId={proposalTemplateId}
+        setProposalTemplateId={setProposalTemplateId}
+        proposalGoverned={conditionsGovernedByProposal}
+        onEditAtProposal={onEditConditionsAtProposal}
+      />
 
       {/* -- Section: Desglose detallado (precio de venta, margen financiero) --
            Visible en todos los breakpoints: es la apertura línea por línea de la
            propuesta (mano de obra → costos → margen → financiero → líneas → total).
            El aside «Centro de control» solo muestra KPIs, no el desglose. -- */}
-      <Card className="overflow-hidden rounded-xl border-border/70 bg-card/85 shadow-sm scroll-mt-44 sm:scroll-mt-32">
+      <Card id="sec-desglose" className="overflow-hidden rounded-xl border-border/70 bg-card/85 shadow-sm scroll-mt-[12.5rem] lg:scroll-mt-32">
         <button type="button" onClick={() => setSecDesglose(v => !v)} className="flex items-center justify-between w-full border-b border-border/50 bg-muted/20 px-4 py-3 hover:bg-muted/30 transition-colors">
           <div className="flex items-center gap-2 min-w-0">
             <h2 className="text-sm font-semibold text-primary shrink-0">Desglose</h2>
@@ -2423,7 +2315,7 @@ export function CpqQuoteDetail({
       </Card>
 
       {/* -- Section: Puestos -- */}
-      <Card className="overflow-hidden rounded-xl border-border/70 bg-card/85 shadow-sm">
+      <Card id="sec-puestos" className="overflow-hidden rounded-xl border-border/70 bg-card/85 shadow-sm scroll-mt-[12.5rem] lg:scroll-mt-32">
         <div role="button" tabIndex={0} onClick={() => setSecPuestos(v => !v)} className="flex items-center justify-between w-full border-b border-border/50 bg-muted/20 px-4 py-3 hover:bg-muted/30 transition-colors cursor-pointer">
           <div className="flex items-center gap-2 min-w-0">
             <h2 className="text-sm font-semibold text-primary shrink-0">Puestos</h2>
@@ -2487,7 +2379,7 @@ export function CpqQuoteDetail({
       </Card>
 
       {/* -- Section: Costos -- */}
-      <Card className="overflow-hidden rounded-xl border-border/70 bg-card/85 shadow-sm">
+      <Card id="sec-costos" className="overflow-hidden rounded-xl border-border/70 bg-card/85 shadow-sm scroll-mt-[12.5rem] lg:scroll-mt-32">
         <button type="button" onClick={() => setSecCostos(v => !v)} className="flex items-center justify-between w-full border-b border-border/50 bg-muted/20 px-4 py-3 hover:bg-muted/30 transition-colors">
           <div className="flex items-center gap-2 min-w-0">
             <h2 className="text-sm font-semibold text-primary shrink-0">Costos adicionales</h2>
@@ -2529,416 +2421,45 @@ export function CpqQuoteDetail({
       </Card>
 
       {/* -- Section: Líneas adicionales -- */}
-      <Card className="overflow-hidden rounded-xl border-border/70 bg-card/85 shadow-sm">
-        <button type="button" onClick={() => setSecLineas(v => !v)} className="flex items-center justify-between w-full border-b border-border/50 bg-muted/20 px-4 py-3 hover:bg-muted/30 transition-colors">
-          <div className="flex items-center gap-2 min-w-0">
-            <h2 className="text-sm font-semibold text-primary shrink-0">Líneas adicionales</h2>
-            {!secLineas && additionalLines.length > 0 && (
-              <span className="text-xs text-muted-foreground truncate">
-                {additionalLines.length} {additionalLines.length === 1 ? "línea" : "líneas"} —{" "}
-                <span className="inline-flex align-middle">
-                  <CpqDualCurrencyAmount
-                    clp={additionalLinesTotal}
-                    currency={crmContext.currency || "CLP"}
-                    ufValue={ufValue}
-                    size="xs"
-                    inline
-                    primaryClassName="text-foreground font-medium"
-                  />
-                </span>
-              </span>
-            )}
-          </div>
-          <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", secLineas && "rotate-180")} />
-        </button>
-        {secLineas && (
-          <div className="space-y-2 bg-card/60 px-3 pb-3 pt-3 sm:px-4 sm:pb-4 sm:pt-4" inert={isLocked ? true : undefined}>
-            {additionalLines.map((line, idx) => {
-              const precioBase = Number(line.precio || 0) * Number(line.cantidad || 1);
-              const mPct = Number(line.marginPct || 0);
-              const precioVenta = mPct > 0 && mPct < 100 ? precioBase / (1 - mPct / 100) : precioBase;
-              const isUnico = line.recurrencia === "unico";
-
-              return (
-                <div key={idx} className="rounded-lg border border-border/50 bg-muted/5 p-2.5">
-                  <div className={cn(CPQ_BREAKDOWN_SHELL, "grid grid-cols-1 gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:gap-x-4 sm:items-start")}>
-                    <div className="min-w-0">
-                      <Input
-                        placeholder="Nombre del servicio/producto"
-                        value={line.nombre}
-                        onChange={(e) => {
-                          const updated = [...additionalLines];
-                          updated[idx] = { ...updated[idx], nombre: e.target.value };
-                          setAdditionalLines(updated);
-                        }}
-                        className="h-7 bg-transparent border-none text-[13px] font-semibold p-0 focus-visible:ring-0 placeholder:text-muted-foreground/50"
-                        disabled={isLocked}
-                      />
-                      <Input
-                        placeholder="Descripción (opcional)"
-                        value={line.descripcion}
-                        onChange={(e) => {
-                          const updated = [...additionalLines];
-                          updated[idx] = { ...updated[idx], descripcion: e.target.value };
-                          setAdditionalLines(updated);
-                        }}
-                        className="h-6 bg-transparent border-none text-sm text-muted-foreground p-0 focus-visible:ring-0 placeholder:text-muted-foreground/40"
-                        disabled={isLocked}
-                      />
-                      <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
-                        {/* Tipo badges */}
-                        {(["servicio", "arriendo", "producto", "asesoria", "equipamiento"] as const).map((t) => (
-                          <button
-                            key={t}
-                            type="button"
-                            disabled={isLocked}
-                            onClick={() => {
-                              const updated = [...additionalLines];
-                              updated[idx] = { ...updated[idx], tipo: t };
-                              setAdditionalLines(updated);
-                            }}
-                            className={cn(
-                              "h-5 rounded px-1.5 text-xs font-semibold capitalize transition-colors",
-                              (line.tipo || "servicio") === t
-                                ? "bg-tint-violet text-tint-violet-fg border border-tint-violet-fg/30"
-                                : "bg-muted/30 text-muted-foreground border border-transparent hover:bg-muted/50",
-                            )}
-                          >
-                            {t}
-                          </button>
-                        ))}
-                        <div className="w-px h-4 bg-border mx-0.5" />
-                        {/* Recurrencia */}
-                        {([
-                          { value: "mensual", label: "Mensual" },
-                          { value: "unico", label: "Pago único" },
-                        ] as const).map((r) => (
-                          <button
-                            key={r.value}
-                            type="button"
-                            disabled={isLocked}
-                            onClick={() => {
-                              const updated = [...additionalLines];
-                              updated[idx] = { ...updated[idx], recurrencia: r.value };
-                              setAdditionalLines(updated);
-                            }}
-                            className={cn(
-                              "h-5 rounded px-1.5 text-xs font-semibold transition-colors",
-                              (line.recurrencia || "mensual") === r.value
-                                ? "bg-status-info-soft text-status-info-fg border border-status-info-border"
-                                : "bg-muted/30 text-muted-foreground border border-transparent hover:bg-muted/50",
-                            )}
-                          >
-                            {r.label}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="flex flex-col items-start gap-1 sm:items-end shrink-0">
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-xs text-muted-foreground">{addlIsUf ? "UF" : "$"}</span>
-                        <LocalizedNumberInput
-                          placeholder="Precio"
-                          value={addlToInput(Number(line.precio || 0))}
-                          maxDecimals={addlIsUf ? 2 : 0}
-                          onValueChange={(entered) => {
-                            const updated = [...additionalLines];
-                            updated[idx] = { ...updated[idx], precio: addlFromInput(entered) || 0 };
-                            setAdditionalLines(updated);
-                          }}
-                          className="h-7 w-24 bg-card text-foreground border-border text-xs text-right font-mono"
-                          disabled={isLocked}
-                        />
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7 text-status-danger-fg/60 hover:text-status-danger-fg hover:bg-status-danger-soft"
-                          onClick={() => setAdditionalLines((prev) => prev.filter((_, i) => i !== idx))}
-                          disabled={isLocked}
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <div className="flex items-center gap-1">
-                          <span className="text-xs text-muted-foreground">Margen:</span>
-                          <Input
-                            type="text"
-                            inputMode="numeric"
-                            placeholder="0"
-                            value={line.marginPct ? String(line.marginPct) : ""}
-                            onChange={(e) => {
-                              const updated = [...additionalLines];
-                              const val = parseLocalizedNumber(e.target.value);
-                              updated[idx] = { ...updated[idx], marginPct: val || null };
-                              setAdditionalLines(updated);
-                            }}
-                            className="h-6 w-12 bg-card text-foreground border-border text-xs text-right font-mono px-1"
-                            disabled={isLocked}
-                          />
-                          <span className="text-xs text-muted-foreground">%</span>
-                        </div>
-                      </div>
-                      <div className="flex flex-col items-start sm:items-end">
-                        <div className="flex items-baseline gap-1">
-                          <CpqDualCurrencyAmount
-                            clp={precioVenta}
-                            currency={crmContext.currency || "CLP"}
-                            ufValue={ufValue}
-                            size="sm"
-                            inline
-                            primaryClassName={cn("text-[13px] font-bold", isUnico && "text-status-warn-fg")}
-                          />
-                          <span className="text-xs text-muted-foreground font-normal">
-                            {isUnico ? "pago único" : "/mes"}
-                          </span>
-                        </div>
-                        {isUnico && (
-                          <span className="text-[11px] text-status-warn-fg">Se cobra una sola vez</span>
-                        )}
-                        {mPct > 0 && (
-                          <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                            <span>Base:</span>
-                            <CpqDualCurrencyAmount
-                              clp={precioBase}
-                              currency={crmContext.currency || "CLP"}
-                              ufValue={ufValue}
-                              size="xs"
-                              inline
-                              hideSecondary
-                              primaryClassName="text-muted-foreground"
-                            />
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-            {!isLocked && (
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="gap-1.5 border-tint-violet-fg/30 text-tint-violet-fg hover:bg-tint-violet"
-                  onClick={() =>
-                    setAdditionalLines((prev) => [
-                      ...prev,
-                      { nombre: "", descripcion: "", precio: 0, orden: prev.length, tipo: "servicio", recurrencia: "mensual", cantidad: 1, marginPct: null },
-                    ])
-                  }
-                >
-                  <Plus className="h-3.5 w-3.5" /> Agregar línea
-                </Button>
-                {additionalLines.length > 0 && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="gap-1.5 border-status-ok-border text-status-ok-fg hover:bg-status-ok-soft"
-                    disabled={savingFinancials}
-                    onClick={() => {
-                      clearTimeout(financialsAutoSaveTimer.current);
-                      handleSaveFinancials();
-                    }}
-                  >
-                    {savingFinancials ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
-                    Guardar
-                  </Button>
-                )}
-              </div>
-            )}
-            {additionalLines.length > 0 && (
-              <div className={cn(CPQ_BREAKDOWN_SHELL, CPQ_BREAKDOWN_ROW, "pt-1 border-t border-tint-violet-fg/20 text-xs")}>
-                <span className="text-sm font-medium text-tint-violet-fg break-words min-w-0">Total líneas adicionales</span>
-                <div className={cpqBreakdownAmount()}>
-                  <CpqDualCurrencyAmount
-                    clp={additionalLinesTotal}
-                    currency={crmContext.currency || "CLP"}
-                    ufValue={ufValue}
-                    size="sm"
-                    primaryClassName="font-bold text-tint-violet-fg"
-                  />
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-      </Card>
+      <LineasSection
+        open={secLineas}
+        onToggle={() => setSecLineas(v => !v)}
+        lines={additionalLines}
+        setLines={setAdditionalLines}
+        isLocked={isLocked}
+        currency={crmContext.currency || "CLP"}
+        ufValue={ufValue}
+        addlIsUf={addlIsUf}
+        addlToInput={addlToInput}
+        addlFromInput={addlFromInput}
+        additionalLinesTotal={additionalLinesTotal}
+        savingFinancials={savingFinancials}
+        onSaveNow={() => {
+          clearTimeout(financialsAutoSaveTimer.current);
+          handleSaveFinancials();
+        }}
+      />
 
       {/* -- Section: Financials -- */}
-      <Card className="overflow-hidden rounded-xl border-border/70 bg-card/85 shadow-sm">
-        <button type="button" onClick={() => setSecFinancieros(v => !v)} className="flex items-center justify-between w-full border-b border-border/50 bg-muted/20 px-4 py-3 hover:bg-muted/30 transition-colors">
-          <div className="flex items-center gap-2 min-w-0">
-            <h2 className="text-sm font-semibold text-primary shrink-0">Gastos financieros</h2>
-            {!secFinancieros && costSummary && ((costSummary.monthlyFinancial ?? 0) + (costSummary.monthlyPolicy ?? 0)) > 0 && (
-              <span className="text-xs text-muted-foreground truncate">
-                <span className="font-medium text-foreground">{formatCurrency((costSummary.monthlyFinancial ?? 0) + (costSummary.monthlyPolicy ?? 0))}</span>
-              </span>
-            )}
-            {savingFinancials && <span className="text-xs text-muted-foreground">Guardando...</span>}
-          </div>
-          <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform shrink-0", secFinancieros && "rotate-180")} />
-        </button>
-        {secFinancieros && (
-          <div className="space-y-2 bg-card/60 px-3 pb-3 pt-3 sm:px-4 sm:pb-4 sm:pt-4" inert={isLocked ? true : undefined}>
-
-          <div className="grid gap-2 grid-cols-1 sm:grid-cols-2">
-            {/* Costo financiero */}
-            <div className="space-y-1.5 rounded-md border border-border/40 bg-muted/10 p-2">
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                <span className="text-sm font-semibold">Financiero</span>
-                <button
-                  type="button"
-                  className={cn(
-                    "inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-xs font-medium transition-colors",
-                    costParams?.financialEnabled
-                      ? "bg-status-ok-soft text-status-ok-fg dark:text-status-ok-fg"
-                      : "bg-muted/30 text-muted-foreground"
-                  )}
-                  onClick={() => updateParams({ financialEnabled: !costParams?.financialEnabled })}
-                  aria-pressed={costParams?.financialEnabled}
-                >
-                  <span className={cn("h-1.5 w-1.5 rounded-full", costParams?.financialEnabled ? "bg-status-ok" : "bg-muted-foreground")} />
-                  {costParams?.financialEnabled ? "On" : "Off"}
-                </button>
-              </div>
-              <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
-                <div>
-                  <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Base venta</Label>
-                  <Input
-                    type="text"
-                    inputMode="numeric"
-                    value={getDecimalValue("salePriceBase", salePriceBase, 0, true)}
-                    onChange={(e) => setDecimalValue("salePriceBase", e.target.value)}
-                    onBlur={() => {
-                      const raw = decimalDrafts.salePriceBase;
-                      if (raw === undefined) return;
-                      const parsed = raw.trim() ? parseLocalizedNumber(raw) : 0;
-                      updateParams({ salePriceBase: Math.max(0, parsed), financialEnabled: true });
-                      clearDecimalValue("salePriceBase");
-                    }}
-                    className="h-7 text-xs bg-card text-foreground border-border"
-                    placeholder="4.000.000"
-                  />
-                </div>
-                <div>
-                  <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Tasa %</Label>
-                  <Input
-                    type="text"
-                    inputMode="decimal"
-                    value={getDecimalValue("financialRatePct", costParams?.financialRatePct ?? 2.5, 2, true)}
-                    onChange={(e) => setDecimalValue("financialRatePct", e.target.value)}
-                    onBlur={() => {
-                      const raw = decimalDrafts.financialRatePct;
-                      if (raw === undefined) return;
-                      const parsed = raw.trim() ? parseLocalizedNumber(raw) : 2.5;
-                      updateParams({ financialRatePct: parsed, financialEnabled: true });
-                      clearDecimalValue("financialRatePct");
-                    }}
-                    className="h-7 text-xs bg-card text-foreground border-border"
-                    placeholder="2,5"
-                  />
-                </div>
-              </div>
-              {salePriceBase > 0 && (
-                <div className="text-xs text-status-ok-fg dark:text-status-ok-fg">
-                  = {formatCurrency(salePriceBase * ((costParams?.financialRatePct ?? 2.5) / 100))}/mes
-                </div>
-              )}
-            </div>
-
-            {/* Poliza */}
-            <div className="space-y-1.5 rounded-md border border-border/40 bg-muted/10 p-2">
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                <span className="text-sm font-semibold">Poliza</span>
-                <button
-                  type="button"
-                  className={cn(
-                    "inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-xs font-medium transition-colors",
-                    policyEnabled
-                      ? "bg-status-ok-soft text-status-ok-fg dark:text-status-ok-fg"
-                      : "bg-muted/30 text-muted-foreground"
-                  )}
-                  onClick={() => updateParams({ policyEnabled: !policyEnabled, financialEnabled: true })}
-                  aria-pressed={policyEnabled}
-                >
-                  <span className={cn("h-1.5 w-1.5 rounded-full", policyEnabled ? "bg-status-ok" : "bg-muted-foreground")} />
-                  {policyEnabled ? "On" : "Off"}
-                </button>
-              </div>
-              <div className="grid grid-cols-3 gap-1">
-                <div>
-                  <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Meses</Label>
-                  <Input
-                    type="number"
-                    value={policyContractMonths}
-                    onChange={(e) =>
-                      updateParams({
-                        policyContractMonths: parseLocalizedNumber(e.target.value),
-                        financialEnabled: true,
-                      })
-                    }
-                    className="h-7 text-xs bg-card text-foreground border-border"
-                    placeholder="12"
-                  />
-                </div>
-                <div>
-                  <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">% Poliza</Label>
-                  <Input
-                    type="text"
-                    inputMode="decimal"
-                    value={getDecimalValue("policyContractPct", policyContractPct, 2)}
-                    onChange={(e) => setDecimalValue("policyContractPct", e.target.value)}
-                    onBlur={() => {
-                      const raw = decimalDrafts.policyContractPct;
-                      if (raw === undefined) return;
-                      const parsed = raw.trim() ? parseLocalizedNumber(raw) : 20;
-                      updateParams({ policyContractPct: parsed, financialEnabled: true });
-                      clearDecimalValue("policyContractPct");
-                    }}
-                    className="h-7 text-xs bg-card text-foreground border-border"
-                    placeholder="20"
-                  />
-                </div>
-                <div>
-                  <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Tasa %</Label>
-                  <Input
-                    type="text"
-                    inputMode="decimal"
-                    value={getDecimalValue("policyRatePct", costParams?.policyRatePct ?? 2.5, 2, true)}
-                    onChange={(e) => setDecimalValue("policyRatePct", e.target.value)}
-                    onBlur={() => {
-                      const raw = decimalDrafts.policyRatePct;
-                      if (raw === undefined) return;
-                      const parsed = raw.trim() ? parseLocalizedNumber(raw) : 2.5;
-                      updateParams({ policyRatePct: parsed, financialEnabled: true });
-                      clearDecimalValue("policyRatePct");
-                    }}
-                    className="h-7 text-xs bg-card text-foreground border-border"
-                    placeholder="2,5"
-                  />
-                </div>
-              </div>
-              {policyEnabled && salePriceBase > 0 && (
-                <div className="text-xs text-status-ok-fg dark:text-status-ok-fg">
-                  = {formatCurrency(
-                    (salePriceBase * policyContractMonths * (policyContractPct / 100) * ((costParams?.policyRatePct ?? 2.5) / 100)) / 12
-                  )}/mes
-                </div>
-              )}
-            </div>
-          </div>
-
-          {financialError && (
-            <div className="text-sm text-status-danger-fg">{financialError}</div>
-          )}
-          </div>
-        )}
-      </Card>
+      <FinancierosSection
+        open={secFinancieros}
+        onToggle={() => setSecFinancieros(v => !v)}
+        isLocked={isLocked}
+        costParams={costParams}
+        updateParams={updateParams}
+        costSummary={costSummary}
+        savingFinancials={savingFinancials}
+        financialError={financialError}
+        decimalDrafts={decimalDrafts}
+        getDecimalValue={getDecimalValue}
+        setDecimalValue={setDecimalValue}
+        clearDecimalValue={clearDecimalValue}
+        proposalGoverned={conditionsGovernedByProposal}
+        onEditAtProposal={onEditConditionsAtProposal}
+      />
 
       {/* -- Section: Margen -- */}
-      <Card className="overflow-hidden rounded-xl border-border/70 bg-card/85 shadow-sm">
+      <Card id="sec-margen" className="overflow-hidden rounded-xl border-border/70 bg-card/85 shadow-sm scroll-mt-[12.5rem] lg:scroll-mt-32">
         <button type="button" onClick={() => setSecMargen(v => !v)} className="flex items-center justify-between w-full border-b border-border/50 bg-muted/20 px-4 py-3 hover:bg-muted/30 transition-colors">
           <div className="flex items-center gap-2 min-w-0">
             <h2 className="text-sm font-semibold text-primary shrink-0">Margen de venta</h2>
@@ -2966,112 +2487,34 @@ export function CpqQuoteDetail({
       </Card>
 
       {/* -- Section: Contenido AI (Descripcion + Detalle servicio) -- */}
-      <Card className="overflow-hidden rounded-xl border-border/70 bg-card/85 shadow-sm scroll-mt-44 sm:scroll-mt-32">
-        <button type="button" onClick={() => setSecAiContent(v => !v)} className="flex items-center justify-between w-full border-b border-border/50 bg-muted/20 px-4 py-3 hover:bg-muted/30 transition-colors">
-          <div className="flex items-center gap-2 min-w-0">
-            <Sparkles className="h-4 w-4 text-muted-foreground shrink-0" />
-            <h2 className="text-sm font-semibold text-primary shrink-0">Contenido AI</h2>
-            {!secAiContent && (
-              <span className="text-xs text-muted-foreground break-words">
-                {quote.aiDescription ? "Descripción generada" : "Sin descripción"}
-              </span>
-            )}
-          </div>
-          <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform shrink-0", secAiContent && "rotate-180")} />
-        </button>
-        {secAiContent && (
-          <div className="grid gap-4 bg-card/60 px-3 pb-3 pt-3 sm:px-4 sm:pb-4 sm:pt-4 lg:grid-cols-2" inert={isLocked ? true : undefined}>
-            <div className="space-y-1.5">
-              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Descripción AI
-              </Label>
-              <div className="flex items-center gap-2">
-                <Input
-                  value={aiCustomInstruction}
-                  onChange={(e) => setAiCustomInstruction(e.target.value)}
-                  placeholder="Instrucción AI (opcional)"
-                  className="h-8 flex-1 border-border/60 bg-muted/20 text-xs"
-                />
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="h-8 gap-1 text-xs shrink-0"
-                  onClick={generateAiDescription}
-                  disabled={generatingAi}
-                >
-                  {generatingAi ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
-                  {generatingAi ? "..." : "Generar"}
-                </Button>
-              </div>
-              <textarea
-                value={quote.aiDescription ?? ""}
-                onChange={(e) => {
-                  const v = e.target.value;
-                  setQuote((prev) => (prev ? { ...prev, aiDescription: v } : prev));
-                  saveQuoteFieldDebounced("aiDescription", v);
-                }}
-                placeholder="Clic en 'Generar' para crear una descripción profesional..."
-                className="w-full min-h-[160px] rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-xs resize-y focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                rows={8}
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Detalle servicio
-              </Label>
-              <div className="flex items-center gap-2">
-                <Input
-                  value={serviceDetailInstruction}
-                  onChange={(e) => setServiceDetailInstruction(e.target.value)}
-                  placeholder="Instrucción AI (opcional)"
-                  className="h-8 flex-1 border-border/60 bg-muted/20 text-xs"
-                />
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="h-8 gap-1 text-xs shrink-0"
-                  onClick={generateServiceDetail}
-                  disabled={generatingServiceDetail}
-                >
-                  {generatingServiceDetail ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
-                  {generatingServiceDetail ? "..." : "Generar"}
-                </Button>
-              </div>
-              <textarea
-                value={quote.serviceDetail ?? ""}
-                onChange={(e) => {
-                  const v = e.target.value;
-                  setQuote((prev) => (prev ? { ...prev, serviceDetail: v } : prev));
-                  saveQuoteFieldDebounced("serviceDetail", v);
-                }}
-                placeholder="Clic en 'Generar' para detalle de servicios..."
-                className="w-full min-h-[160px] rounded-md border border-border/60 bg-muted/20 px-3 py-2 text-xs resize-y focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                rows={8}
-              />
-            </div>
-
-            <div className="lg:col-span-2 flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between rounded-md border border-dashed border-border/60 bg-muted/10 px-3 py-2">
-              <p className="text-[11px] text-muted-foreground">
-                La Propuesta Técnica usa estos textos como base. Si los editás, se regenera sola; o forzá la regeneración ahora.
-              </p>
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-8 gap-1 text-xs shrink-0"
-                onClick={regenerateProposalAi}
-                disabled={regeneratingProposalAi}
-              >
-                {regeneratingProposalAi ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
-                {regeneratingProposalAi ? "Regenerando..." : "Regenerar propuesta"}
-              </Button>
-            </div>
-          </div>
-        )}
-      </Card>
+      <AiSection
+        open={secAiContent}
+        onToggle={() => setSecAiContent(v => !v)}
+        isLocked={isLocked}
+        aiDescription={quote.aiDescription ?? null}
+        serviceDetail={quote.serviceDetail ?? null}
+        onAiDescriptionChange={(v) => {
+          setQuote((prev) => (prev ? { ...prev, aiDescription: v } : prev));
+          saveQuoteFieldDebounced("aiDescription", v);
+        }}
+        onServiceDetailChange={(v) => {
+          setQuote((prev) => (prev ? { ...prev, serviceDetail: v } : prev));
+          saveQuoteFieldDebounced("serviceDetail", v);
+        }}
+        aiCustomInstruction={aiCustomInstruction}
+        setAiCustomInstruction={setAiCustomInstruction}
+        serviceDetailInstruction={serviceDetailInstruction}
+        setServiceDetailInstruction={setServiceDetailInstruction}
+        generatingAi={generatingAi}
+        generatingServiceDetail={generatingServiceDetail}
+        onGenerateAiDescription={generateAiDescription}
+        onGenerateServiceDetail={generateServiceDetail}
+        regeneratingProposalAi={regeneratingProposalAi}
+        onRegenerateProposalAi={regenerateProposalAi}
+      />
 
       {/* -- Section: Incluye (items incluidos en la cotización) -- */}
-      <Card className="overflow-visible rounded-xl border-border/70 bg-card/85 shadow-sm scroll-mt-44 sm:scroll-mt-32">
+      <Card id="sec-incluye" className="overflow-visible rounded-xl border-border/70 bg-card/85 shadow-sm scroll-mt-[12.5rem] lg:scroll-mt-32">
         <button
           type="button"
           onClick={() => setSecIncluye((v) => !v)}
@@ -3149,8 +2592,11 @@ export function CpqQuoteDetail({
         )}
       </Card>
 
-      {/* -- Section: Auditoría (registro de todos los cambios) -- */}
-      <Card className="overflow-visible rounded-xl border-border/70 bg-card/85 shadow-sm">
+      {/* -- Section: Auditoría (registro de todos los cambios) --
+           En multi-instalación la auditoría vive en el Consolidado, que reúne
+           los eventos de la propuesta y de todas sus instalaciones. */}
+      {!embedded && (
+      <Card id="sec-auditoria" className="overflow-visible rounded-xl border-border/70 bg-card/85 shadow-sm scroll-mt-[12.5rem] lg:scroll-mt-32">
         <div className="flex items-center justify-between w-full border-b border-border/50 bg-muted/20 px-4 py-3">
           <button type="button" onClick={() => setSecAuditoria((v) => !v)} className="flex-1 flex items-center gap-2 min-w-0 text-left hover:bg-muted/10 transition-colors -m-1 p-1 rounded">
             <h2 className="text-sm font-semibold text-primary shrink-0">Auditoría</h2>
@@ -3178,10 +2624,11 @@ export function CpqQuoteDetail({
           </div>
         )}
       </Card>
+      )}
 
       </div>{/* end main column */}
 
-      {controlCenterOpen ? (
+      {controlCenterOpen && !embedded ? (
       <aside className="hidden lg:block min-w-0">
         {/* Centro de control: contraíble desde la barra sticky o desde este header.
             KPIs clave viven también en la barra superior sticky. */}
@@ -3216,190 +2663,42 @@ export function CpqQuoteDetail({
               </div>
             </div>
 
-            <div className="space-y-4 p-4">
-              {quoteId && (
-                <EntityConversations
-                  entityType="quote"
-                  entityId={quoteId}
-                  accountId={crmContext.accountId}
-                  dealId={crmContext.dealId}
-                  contactId={crmContext.contactId}
-                  variant="rail"
-                />
-              )}
-              <div className="rounded-xl border border-status-ok-border bg-gradient-to-br from-emerald-500/[0.14] via-emerald-500/[0.07] to-background p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-xs font-medium uppercase tracking-wide text-status-ok-fg dark:text-status-ok-fg">
-                      Total mensual cliente
-                    </p>
-                    <div className="mt-1">
-                      <CpqDualCurrencyAmount
-                        clp={billingMonthlyTotal}
-                        currency={crmContext.currency || "CLP"}
-                        ufValue={ufValue}
-                        size="lg"
-                        align="left"
-                        primaryClassName="text-2xl font-bold"
-                      />
-                    </div>
-                  </div>
-                  <Badge variant="outline" className="border-status-ok-border bg-background/50 text-[11px] text-status-ok-fg dark:text-status-ok-fg">
-                    Mensual
-                  </Badge>
-                </div>
-              </div>
-
-              {additionalLinesOneTimeTotal > 0 && (
-                <div className="rounded-xl border border-status-warn-border bg-status-warn-soft/40 p-3">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="text-xs font-medium uppercase tracking-wide text-status-warn-fg">
-                        Pago inicial único
-                      </p>
-                      <div className="mt-1">
-                        <CpqDualCurrencyAmount
-                          clp={additionalLinesOneTimeTotal}
-                          currency={crmContext.currency || "CLP"}
-                          ufValue={ufValue}
-                          size="sm"
-                          align="left"
-                          primaryClassName="text-base font-bold"
-                        />
-                      </div>
-                    </div>
-                    <Badge variant="outline" className="border-status-warn-border bg-background/50 text-[11px] text-status-warn-fg">
-                      Una vez
-                    </Badge>
-                  </div>
-                  <p className="mt-1 text-[11px] text-muted-foreground">
-                    Se cobra una sola vez, fuera del total mensual.
-                  </p>
-                </div>
-              )}
-
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                <div className="rounded-lg border border-border/60 bg-background/45 p-3">
-                  <p className="text-xs font-medium text-muted-foreground">Margen</p>
-                  <p className={cn("mt-1 text-lg font-bold", marginPct >= 15 ? "text-status-ok-fg" : marginPct >= 10 ? "text-status-warn-fg" : "text-status-danger-fg")}>
-                    {Number(marginPct || 0).toFixed(1)}%
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setGuardsBreakdownOpen((v) => !v)}
-                  disabled={roleSummary.length === 0}
-                  className="rounded-lg border border-border/60 bg-background/45 p-3 text-left transition-colors enabled:hover:bg-muted/20 disabled:cursor-default"
-                >
-                  <p className="text-xs font-medium text-muted-foreground">Dotación</p>
-                  <p className="mt-1 flex items-center gap-1.5 text-lg font-bold">
-                    <Users className="h-4 w-4 text-status-info-fg" />
-                    {stats.totalGuards}
-                  </p>
-                </button>
-              </div>
-
-              {roleSummary.length > 0 && (
-                <div className="space-y-1.5">
-                  <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                    Roles principales
-                  </p>
-                  <div className="space-y-1.5 rounded-lg border border-border/60 bg-background/35 p-3">
-                    {roleSummary.slice(0, 4).map((item, idx) => (
-                      <div key={`${item.label}-${idx}`} className="flex items-center justify-between gap-3 rounded-md bg-muted/20 px-2 py-1.5 text-xs">
-                        <span className="break-words text-muted-foreground">{item.label}</span>
-                        <span className="font-mono font-semibold text-foreground">{item.qty}×</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              <div className="space-y-2 border-t border-border/50 pt-3">
-                <div className="space-y-2 rounded-lg border border-border/60 bg-background/35 p-3">
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                      Preparación portal
-                    </p>
-                    <span className={cn("text-xs font-semibold", canSendPortalProposal ? "text-status-ok-fg" : "text-status-warn-fg")}>
-                      {portalReadinessItems.filter((item) => item.ready).length}/{portalReadinessItems.length}
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
-                    {portalReadinessItems.map((item) => (
-                      <div key={item.label} className="flex items-center gap-1.5 text-xs">
-                        <span
-                          className={cn(
-                            "flex h-4 w-4 shrink-0 items-center justify-center rounded-full border",
-                            item.ready
-                              ? "border-status-ok-border bg-status-ok-soft text-status-ok-fg"
-                              : "border-status-warn-border bg-status-warn-soft text-status-warn-fg"
-                          )}
-                          aria-hidden
-                        >
-                          {item.ready ? <Check className="h-3 w-3" /> : <span className="h-1.5 w-1.5 rounded-full bg-current" />}
-                        </span>
-                        <span className={cn("truncate", item.ready ? "text-foreground" : "text-muted-foreground")}>
-                          {item.label}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                <Button
-                  className="h-9 w-full gap-2 bg-status-ok text-white hover:brightness-110"
-                  disabled={
-                    !quote ||
-                    (positions.length === 0 && (additionalLines?.length ?? 0) === 0) ||
-                    !crmContext.accountId ||
-                    !crmContext.contactId ||
-                    !crmContext.dealId
-                  }
-                  title={
-                    crmContext.contactId && !contactHasEmail
-                      ? "El contacto no tiene email cargado"
-                      : undefined
-                  }
-                  onClick={openPortalProposal}
-                >
-                  <Send className="h-4 w-4" />
-                  {quote.status === "sent" ? "Reenviar propuesta" : "Enviar propuesta"}
-                </Button>
-                <CpqPdfPreviewPanel
-                  mode={pdfPreviewMode}
-                  templateSlug={pdfTemplateSlug}
-                  previewUrl={pdfPreviewUrl}
-                  loading={pdfPreviewLoading}
-                  onModeChange={(mode) => {
-                    setPdfPreviewMode(mode);
-                    setPdfPreviewUrl(null);
-                  }}
-                  onTemplateSlugChange={(slug) => {
-                    setPdfTemplateSlug(slug);
-                    setPdfPreviewUrl(null);
-                  }}
-                  onGenerate={handleGeneratePdfPreview}
-                  footer={
-                    <QuoteAttachmentsSection
-                      quoteId={quoteId}
-                      isLocked={isLocked}
-                      defaultExpanded
-                      compact
-                      className="mt-0 border-border/60 bg-background/40 shadow-none"
-                    />
-                  }
-                />
-              </div>
-            </div>
+            <ControlCenterPanel
+              quoteId={quoteId}
+              quoteStatus={quote.status}
+              isLocked={isLocked}
+              crmContext={crmContext}
+              billingMonthlyTotal={billingMonthlyTotal}
+              additionalLinesOneTimeTotal={additionalLinesOneTimeTotal}
+              ufValue={ufValue}
+              marginPct={marginPct}
+              totalGuards={stats.totalGuards}
+              roleSummary={roleSummary}
+              onToggleGuardsBreakdown={() => setGuardsBreakdownOpen((v) => !v)}
+              canSendPortalProposal={canSendPortalProposal}
+              portalReadinessItems={portalReadinessItems}
+              contactHasEmail={contactHasEmail}
+              onSendProposal={openPortalProposal}
+              positionsCount={positions.length}
+              additionalLinesCount={additionalLines?.length ?? 0}
+              pdfPreviewMode={pdfPreviewMode}
+              pdfTemplateSlug={pdfTemplateSlug}
+              pdfPreviewUrl={pdfPreviewUrl}
+              pdfPreviewLoading={pdfPreviewLoading}
+              onPdfModeChange={(mode) => { setPdfPreviewMode(mode); setPdfPreviewUrl(null); }}
+              onPdfTemplateSlugChange={(slug) => { setPdfTemplateSlug(slug); setPdfPreviewUrl(null); }}
+              onGeneratePdfPreview={handleGeneratePdfPreview}
+            />
           </Card>
         </div>
       </aside>
       ) : null}
 
       </div>{/* end detail workspace */}
+      </div>{/* end rail wrapper */}
 
       {/* Mobile spacer for fixed bottom bar */}
-      <div className="h-14 lg:hidden" />
+      {!embedded && <div className="h-14 lg:hidden" />}
 
       {/* -- Mobile FAB: Agregar Servicio (above bottom bar) -- */}
       {!isLocked && secPuestos && (
@@ -3409,8 +2708,11 @@ export function CpqQuoteDetail({
       )}
 
       {/* -- Mobile bottom bar (replaces wizard nav) -- */}
+      {!embedded && (
       <MobileBottomBar
         className="lg:hidden"
+        hideTotal
+        centerButton={<ControlCenterTrigger onClick={() => setControlSheetOpen(true)} />}
         salePriceMonthly={salePriceMonthly}
         additionalLinesTotal={additionalLinesTotal}
         marginPct={marginPct}
@@ -3468,6 +2770,7 @@ export function CpqQuoteDetail({
           );
         })()}
       />
+      )}
 
       {crmContext.dealId && contactForPortal?.email ? (
             <SendPortalProposalModal
@@ -3629,6 +2932,37 @@ export function CpqQuoteDetail({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ControlCenterSheet
+        open={controlSheetOpen}
+        onOpenChange={setControlSheetOpen}
+        panelProps={{
+          quoteId,
+          quoteStatus: quote.status,
+          isLocked,
+          crmContext,
+          billingMonthlyTotal,
+          additionalLinesOneTimeTotal,
+          ufValue,
+          marginPct,
+          totalGuards: stats.totalGuards,
+          roleSummary,
+          onToggleGuardsBreakdown: () => setGuardsBreakdownOpen((v) => !v),
+          canSendPortalProposal,
+          portalReadinessItems,
+          contactHasEmail,
+          onSendProposal: () => { setControlSheetOpen(false); openPortalProposal(); },
+          positionsCount: positions.length,
+          additionalLinesCount: additionalLines?.length ?? 0,
+          pdfPreviewMode,
+          pdfTemplateSlug,
+          pdfPreviewUrl,
+          pdfPreviewLoading,
+          onPdfModeChange: (mode) => { setPdfPreviewMode(mode); setPdfPreviewUrl(null); },
+          onPdfTemplateSlugChange: (slug) => { setPdfTemplateSlug(slug); setPdfPreviewUrl(null); },
+          onGeneratePdfPreview: handleGeneratePdfPreview,
+        }}
+      />
 
       <ConfirmDialog
         open={deleteConfirmOpen}

@@ -1,5 +1,12 @@
 "use client";
 
+/**
+ * @deprecated Workspace de propuesta v1. El workspace unificado vive en
+ * `@/components/cpq/workspace/QuoteWorkspace` y se monta desde
+ * `/crm/cotizaciones/[id]` (`/crm/propuestas/[id]` redirige ahí). Se conserva
+ * temporalmente para revertir sin migración; eliminar en un PR posterior.
+ */
+
 import { useMemo, useState } from "react";
 import { Send } from "lucide-react";
 import { Skeleton } from "@/components/opai-ds";

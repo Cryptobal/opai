@@ -1,5 +1,11 @@
 "use client";
 
+/**
+ * @deprecated Centro de control de propuesta v1. En el workspace unificado las
+ * acciones viven en `BundleStickyBar` (desktop) y en el bottom-sheet
+ * `@/components/cpq/workspace/ControlCenterSheet` (móvil).
+ */
+
 import { useState } from "react";
 import { FileDown, Send, CheckCircle2, Circle } from "lucide-react";
 import { Surface } from "@/components/opai-ds";

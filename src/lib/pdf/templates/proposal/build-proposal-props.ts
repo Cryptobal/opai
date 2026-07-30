@@ -123,6 +123,9 @@ export interface ProposalProps {
     monthly: number;
     monthlyFormatted: string;
     items: ProposalProps['items'];
+    /** Líneas de pago único de esta instalación (fuera del mensual). */
+    oneTimeItems?: ProposalProps['oneTimeItems'];
+    oneTimeTotalFormatted?: string;
   }>;
   /** Totales del cuadro consolidado (solo si `installations` está presente). */
   consolidatedSummary?: {
@@ -132,6 +135,9 @@ export interface ProposalProps {
     totalPositions: number;
     installationCount: number;
     currency: string;
+    /** Suma de pagos únicos de todas las instalaciones incluidas. */
+    totalOneTime?: number;
+    totalOneTimeFormatted?: string;
   };
 }
 

@@ -25,6 +25,13 @@ interface MobileBottomBarProps {
   actionMenu?: React.ReactNode;
   totalGuards?: number;
   className?: string;
+  /**
+   * Workspace unificado: el total vive en la barra sticky superior, así que la
+   * barra inferior queda solo con acciones (◨ Centro + Enviar) y no lo duplica.
+   */
+  hideTotal?: boolean;
+  /** Botón que abre el Centro de control como bottom-sheet (móvil). */
+  centerButton?: React.ReactNode;
 }
 
 export function MobileBottomBar({
@@ -40,6 +47,8 @@ export function MobileBottomBar({
   actionMenu,
   totalGuards,
   className,
+  hideTotal = false,
+  centerButton,
 }: MobileBottomBarProps) {
   const [sendSheetOpen, setSendSheetOpen] = useState(false);
   const [actionSheetOpen, setActionSheetOpen] = useState(false);
@@ -60,31 +69,39 @@ export function MobileBottomBar({
       <div
         className={cn(
           "fixed bottom-0 left-0 right-0 z-50 lg:hidden",
-          "bg-background/95 backdrop-blur-xl border-t border-border/60",
+          "opai-liquid-glass-bar",
           "px-4 py-2 pb-[max(env(safe-area-inset-bottom,0px),0.5rem)]",
           "flex items-center justify-between gap-2",
           className
         )}
       >
-        {/* Left: precio (solo lectura; el desglose está en la ficha al hacer scroll) */}
-        <div className="flex flex-col min-w-0 text-left">
-          <CpqDualCurrencyAmount
-            clp={total}
-            currency={displayCurrency}
-            ufValue={ufValue}
-            size="md"
-            isDark
-            primaryClassName="!text-white font-extrabold"
-            secondaryClassName="!text-status-info-fg/90"
-            align="left"
-          />
-          <span className="text-xs text-status-ok-fg">
-            Margen {Number(marginPct || 0).toFixed(0)}%{totalGuards ? ` · ${totalGuards} guardias` : ""}
-          </span>
-        </div>
+        {/* Left: precio (solo lectura; el desglose está en la ficha al hacer scroll).
+            Con `hideTotal` el total ya vive en la barra sticky superior. */}
+        {hideTotal ? (
+          centerButton ?? <span />
+        ) : (
+          <div className="flex flex-col min-w-0 text-left">
+            <CpqDualCurrencyAmount
+              clp={total}
+              currency={displayCurrency}
+              ufValue={ufValue}
+              size="md"
+              isDark
+              primaryClassName="!text-white font-extrabold"
+              secondaryClassName="!text-status-info-fg/90"
+              align="left"
+            />
+            <span className="text-xs text-status-ok-fg">
+              Margen {Number(marginPct || 0).toFixed(0)}%{totalGuards ? ` · ${totalGuards} guardias` : ""}
+            </span>
+          </div>
+        )}
 
         {/* Right: acciones + enviar */}
-        <div className="flex items-center gap-1.5 shrink-0 min-w-0 flex-1 justify-end max-w-[62%]">
+        <div className={cn(
+          "flex items-center gap-1.5 shrink-0 min-w-0 flex-1 justify-end",
+          hideTotal ? "max-w-[70%]" : "max-w-[62%]",
+        )}>
           {actionMenu ? (
             <button
               type="button"

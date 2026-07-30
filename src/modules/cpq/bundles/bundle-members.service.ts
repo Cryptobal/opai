@@ -12,6 +12,7 @@ import {
   BundleServiceError,
 } from "./bundle.service";
 import { SYNCABLE_CONDITION_FIELDS } from "./bundle-totals";
+import { propagateBundleConditions } from "./propagate-bundle-conditions";
 
 async function generateQuoteCode(tenantId: string): Promise<string> {
   const year = new Date().getFullYear();
@@ -141,7 +142,19 @@ export async function addInstallationToBundle(opts: {
       currency: quote.currency,
       bundleCurrency: bundle.currency,
     });
-    return { member, quoteId: quote.id, created: false as const };
+    const linked = await afterInstallationLinked({
+      tenantId: opts.tenantId,
+      bundleId: opts.bundleId,
+      quoteId: quote.id,
+      created: false,
+      userId: opts.userId ?? null,
+    });
+    return {
+      member,
+      quoteId: quote.id,
+      created: false as const,
+      propagationError: linked.propagationError,
+    };
   }
 
   // ── Resolver instalación ──
@@ -240,7 +253,20 @@ export async function addInstallationToBundle(opts: {
       currency: source.currency,
       bundleCurrency: bundle.currency,
     });
-    return { member, quoteId: cloned.id, created: true as const };
+    const linked = await afterInstallationLinked({
+      tenantId: opts.tenantId,
+      bundleId: opts.bundleId,
+      quoteId: cloned.id,
+      created: true,
+      clonedFromQuoteId: source.id,
+      userId: opts.userId ?? null,
+    });
+    return {
+      member,
+      quoteId: cloned.id,
+      created: true as const,
+      propagationError: linked.propagationError,
+    };
   }
 
   // ── Cotización vacía nueva ──
@@ -296,14 +322,76 @@ export async function addInstallationToBundle(opts: {
     currency: quote.currency,
     bundleCurrency: bundle.currency,
   });
+  const linked = await afterInstallationLinked({
+    tenantId: opts.tenantId,
+    bundleId: opts.bundleId,
+    quoteId: quote.id,
+    created: true,
+    userId: opts.userId ?? null,
+  });
 
-  return { member, quoteId: quote.id, created: true as const };
+  return {
+    member,
+    quoteId: quote.id,
+    created: true as const,
+    propagationError: linked.propagationError,
+  };
+}
+
+/**
+ * Post-vínculo: la hija hereda las condiciones gobernadas por el bundle
+ * (propagación acotada a esa quote) y el evento queda auditado.
+ */
+async function afterInstallationLinked(opts: {
+  tenantId: string;
+  bundleId: string;
+  quoteId: string;
+  created: boolean;
+  clonedFromQuoteId?: string | null;
+  userId?: string | null;
+}) {
+  // Un fallo aquí no debe deshacer el alta de la instalación, pero tampoco puede
+  // quedar invisible: la hija arrancaría con condiciones distintas al resto.
+  let propagationError: string | null = null;
+  try {
+    await propagateBundleConditions({
+      tenantId: opts.tenantId,
+      bundleId: opts.bundleId,
+      quoteIds: [opts.quoteId],
+    });
+  } catch (err) {
+    propagationError = err instanceof Error ? err.message : String(err);
+    console.error("[bundle] propagate on link:", err);
+  }
+  await createCrmHistoryLog({
+    tenantId: opts.tenantId,
+    entityType: "bundle",
+    entityId: opts.bundleId,
+    action: "bundle_installation_added",
+    details: {
+      quoteId: opts.quoteId,
+      created: opts.created,
+      ...(opts.clonedFromQuoteId
+        ? { clonedFromQuoteId: opts.clonedFromQuoteId }
+        : {}),
+      ...(propagationError
+        ? {
+            advertencia:
+              "No se pudieron aplicar las condiciones de la propuesta a esta instalación",
+            error: propagationError,
+          }
+        : {}),
+    },
+    createdBy: opts.userId ?? null,
+  });
+  return { propagationError };
 }
 
 export async function removeQuoteFromBundle(opts: {
   tenantId: string;
   bundleId: string;
   quoteId: string;
+  userId?: string | null;
 }) {
   await assertBundleOwned(opts.tenantId, opts.bundleId);
   const member = await prisma.cpqProposalBundleQuote.findFirst({
@@ -321,12 +409,21 @@ export async function removeQuoteFromBundle(opts: {
     );
   }
   await prisma.cpqProposalBundleQuote.delete({ where: { id: member.id } });
+  await createCrmHistoryLog({
+    tenantId: opts.tenantId,
+    entityType: "bundle",
+    entityId: opts.bundleId,
+    action: "bundle_installation_removed",
+    details: { quoteId: opts.quoteId },
+    createdBy: opts.userId ?? null,
+  });
   return { ok: true };
 }
 
 export async function patchBundleQuotes(opts: {
   tenantId: string;
   bundleId: string;
+  userId?: string | null;
   updates: Array<{
     quoteId: string;
     includedInProposal?: boolean;
@@ -370,6 +467,25 @@ export async function patchBundleQuotes(opts: {
       }
     }
   });
+
+  const includeChanges = opts.updates.filter(
+    (u) => typeof u.includedInProposal === "boolean",
+  );
+  if (includeChanges.length > 0) {
+    await createCrmHistoryLog({
+      tenantId: opts.tenantId,
+      entityType: "bundle",
+      entityId: opts.bundleId,
+      action: "bundle_installations_updated",
+      details: {
+        updates: includeChanges.map((u) => ({
+          quoteId: u.quoteId,
+          includedInProposal: u.includedInProposal,
+        })),
+      },
+      createdBy: opts.userId ?? null,
+    });
+  }
 
   return { ok: true };
 }
@@ -428,30 +544,38 @@ export async function syncBundleConditions(opts: {
   }
 
   const src = sourceMember.quote;
-  const data: Record<string, unknown> = {};
-  for (const field of SYNCABLE_CONDITION_FIELDS) {
-    data[field] = src[field];
-  }
 
-  // Validar moneda única: sync también actualiza currency del bundle
+  // v2: la fuente de verdad pasa a ser el bundle. Persistimos en él las
+  // condiciones y el financiero de la cotización fuente y delegamos en la
+  // propagación estándar. La fuente queda FUERA del destino: es la que define
+  // los valores, no debe recibir el financiero que el bundle traía de antes.
+  const sourceParams = await prisma.cpqQuoteParameters.findUnique({
+    where: { quoteId: sourceMember.quoteId },
+    select: { financialEnabled: true, financialRatePct: true },
+  });
+  const bundleData: Record<string, unknown> = {};
+  for (const field of SYNCABLE_CONDITION_FIELDS) {
+    bundleData[field] = src[field];
+  }
+  if (sourceParams) {
+    bundleData.financialEnabled = sourceParams.financialEnabled;
+    bundleData.financialRatePct = sourceParams.financialRatePct;
+  }
+  await prisma.cpqProposalBundle.update({
+    where: { id: bundle.id },
+    data: bundleData,
+  });
+
   const targetIds = members
     .filter((m) => m.quoteId !== sourceMember.quoteId)
     .map((m) => m.quoteId);
-
-  await prisma.$transaction(async (tx) => {
-    if (targetIds.length > 0) {
-      await tx.cpqQuote.updateMany({
-        where: { id: { in: targetIds }, tenantId: opts.tenantId },
-        data,
-      });
-    }
-    if (src.currency !== bundle.currency) {
-      await tx.cpqProposalBundle.update({
-        where: { id: opts.bundleId },
-        data: { currency: src.currency },
-      });
-    }
-  });
+  if (targetIds.length > 0) {
+    await propagateBundleConditions({
+      tenantId: opts.tenantId,
+      bundleId: opts.bundleId,
+      quoteIds: targetIds,
+    });
+  }
 
   return {
     ok: true,

@@ -40,7 +40,18 @@ export type BundleMember = {
       marginPct: number | string;
       marginMode: string;
       salePriceMonthly: number | string;
+      financialEnabled?: boolean;
+      financialRatePct?: number | string;
     } | null;
+    additionalLines?: Array<{
+      id: string;
+      nombre: string;
+      precio: number | string;
+      tipo: string;
+      recurrencia: string;
+      cantidad: number;
+      marginPct: number | string | null;
+    }>;
   };
 };
 
@@ -57,6 +68,23 @@ export type BundleDetail = {
   visibleInClientPortal: boolean | null;
   notes: string | null;
   sentAt: string | null;
+  updatedAt: string;
+  /** Condiciones comerciales a nivel propuesta (null = aún no gobernadas). */
+  paymentTerms: string | null;
+  serviceStartDays: number | null;
+  contractDuration: number | null;
+  isOngoingService: boolean | null;
+  adjustmentType: string | null;
+  adjustmentFreq: string | null;
+  ipcWeight: number | null;
+  imoWeight: number | null;
+  insurancePolicyUF: number | string | null;
+  liabilityMonths: number | null;
+  realAnnualIncrement: number | null;
+  paymentDays: number | null;
+  paymentDayMode: string | null;
+  financialEnabled: boolean | null;
+  financialRatePct: number | string | null;
   quotes: BundleMember[];
   totals: {
     totalMonthly: number;
@@ -78,13 +106,18 @@ export type BundleDetail = {
   } | null;
 };
 
-export function useBundle(bundleId: string) {
+export function useBundle(bundleId: string | null) {
   const [bundle, setBundle] = useState<BundleDetail | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(Boolean(bundleId));
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   const refresh = useCallback(async () => {
+    if (!bundleId) {
+      setBundle(null);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
@@ -109,6 +142,7 @@ export function useBundle(bundleId: string) {
 
   const patch = useCallback(
     async (data: Record<string, unknown>) => {
+      if (!bundleId) return;
       setSaving(true);
       try {
         const res = await fetch(`/api/cpq/bundles/${bundleId}`, {

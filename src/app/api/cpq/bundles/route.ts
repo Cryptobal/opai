@@ -34,10 +34,14 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const data = await listBundlesByDeal({
+    const bundles = await listBundlesByDeal({
       tenantId: ctx.tenantId,
       dealId,
     });
+    const data = bundles.map(({ quotes, ...b }) => ({
+      ...b,
+      primaryQuoteId: quotes[0]?.quoteId ?? null,
+    }));
     return NextResponse.json({ success: true, data });
   } catch (error) {
     console.error("[cpq/bundles GET]", error);
@@ -78,6 +82,8 @@ export async function POST(request: NextRequest) {
         dealId,
         name,
         importDealQuotes,
+        ensurePrimaryQuote: body?.ensurePrimaryQuote === true,
+        userId: ctx.userId,
       });
       return NextResponse.json({ success: true, data: created }, { status: 201 });
     } catch (e) {

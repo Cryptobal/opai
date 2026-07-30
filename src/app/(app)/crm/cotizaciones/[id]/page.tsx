@@ -6,7 +6,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { CpqQuoteDetail } from "@/components/cpq/CpqQuoteDetail";
+import { QuoteWorkspace } from "@/components/cpq/workspace/QuoteWorkspace";
 import { z } from "zod";
 import { getTenantCompanyConfig } from "@/lib/tenant-config";
 import { buildDefaultPortalInviteEmailSubject } from "@/lib/cpq-portal-email-subject";
@@ -81,6 +81,13 @@ export default async function CrmCotizacionDetailPage({
     createdByName: log.createdBy ? activityActorMap.get(log.createdBy) ?? null : null,
   }));
 
+  // Workspace unificado: si la cotización pertenece a un bundle, el workspace
+  // abre en modo multi-instalación (la URL no cambia).
+  const membership = await prisma.cpqProposalBundleQuote.findFirst({
+    where: { quoteId: quote.id, tenantId },
+    select: { bundleId: true },
+  });
+
   const tenantCfg = await getTenantCompanyConfig(tenantId);
   const defaultPortalEmailSubject = buildDefaultPortalInviteEmailSubject({
     quoteCode: quote.code,
@@ -94,12 +101,13 @@ export default async function CrmCotizacionDetailPage({
     <>
       {/* Sin breadcrumbs dentro de módulos (v3.1): el header del detalle ya
           muestra back arrow + código + contexto en móvil y desktop. */}
-      <CpqQuoteDetail
+      <QuoteWorkspace
         quoteId={id}
         currentUserId={session.user.id}
         activityEvents={activityEvents}
         defaultPortalEmailSubject={defaultPortalEmailSubject}
         tenantBrandName={tenantBrandName}
+        initialBundleId={membership?.bundleId ?? null}
       />
     </>
   );

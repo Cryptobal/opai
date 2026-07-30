@@ -48,6 +48,15 @@ export const ACTION_LABELS: Record<string, string> = {
   presentation_sent: "Presentación enviada",
   portal_cliente_access: "Acceso al portal del cliente",
   visita_tecnica_programada: "Visita técnica programada",
+  // Propuestas multi-instalación (bundles CPQ)
+  bundle_created_from_quote: "Propuesta creada desde cotización",
+  quote_converted_to_bundle: "Convertida en propuesta multi-instalación",
+  bundle_conditions_updated: "Condiciones de la propuesta actualizadas",
+  bundle_installation_added: "Instalación agregada a la propuesta",
+  bundle_installation_removed: "Instalación quitada de la propuesta",
+  bundle_installations_updated: "Instalaciones incluidas actualizadas",
+  bundle_proposal_ai_reset: "Contenido IA de la propuesta reiniciado",
+  bundle_sent: "Propuesta enviada",
 };
 
 const DOT_COLOR_BY_ACTION: Record<string, string> = {

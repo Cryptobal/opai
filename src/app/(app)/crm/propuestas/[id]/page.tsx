@@ -1,12 +1,15 @@
 /**
- * CRM — Workspace de propuesta multi-instalación (bundle CPQ)
+ * CRM — Propuesta multi-instalación (bundle CPQ).
+ *
+ * El workspace unificado vive en la cotización (`/crm/cotizaciones/[id]`): esta
+ * ruta se conserva por compatibilidad con enlaces existentes y redirige a la
+ * cotización primaria de la propuesta, validando el acceso antes de redirigir.
  */
 
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
-import { BundleWorkspace } from "@/components/cpq/bundle/BundleWorkspace";
 import { z } from "zod";
 
 const uuidSchema = z.string().uuid();
@@ -32,15 +35,21 @@ export default async function CrmPropuestaDetailPage({
 
   const bundle = await prisma.cpqProposalBundle.findFirst({
     where: { id, tenantId },
-    select: { id: true },
+    select: {
+      id: true,
+      quotes: {
+        orderBy: { displayOrder: "asc" },
+        take: 1,
+        select: { quoteId: true },
+      },
+    },
   });
   if (!bundle) {
     redirect("/crm/cotizaciones");
   }
 
-  return (
-    <div className="min-w-0 px-3 sm:px-4 py-4">
-      <BundleWorkspace bundleId={bundle.id} />
-    </div>
+  const primaryQuoteId = bundle.quotes[0]?.quoteId;
+  redirect(
+    primaryQuoteId ? `/crm/cotizaciones/${primaryQuoteId}` : "/crm/cotizaciones",
   );
 }

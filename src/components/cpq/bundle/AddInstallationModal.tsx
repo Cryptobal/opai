@@ -21,11 +21,14 @@ export function AddInstallationModal({
   onOpenChange,
   bundle,
   onAdded,
+  defaultCloneFromQuoteId,
 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
   bundle: BundleDetail;
-  onAdded: () => Promise<void>;
+  onAdded: (quoteId?: string) => Promise<void> | void;
+  /** Preselecciona "copiar dotación desde" (acción Duplicar de la tabla). */
+  defaultCloneFromQuoteId?: string | null;
 }) {
   const [mode, setMode] = useState<"existing" | "new">("existing");
   const [installations, setInstallations] = useState<InstOption[]>([]);
@@ -33,6 +36,11 @@ export function AddInstallationModal({
   const [newName, setNewName] = useState("");
   const [cloneFromQuoteId, setCloneFromQuoteId] = useState("");
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    setCloneFromQuoteId(defaultCloneFromQuoteId || "");
+  }, [open, defaultCloneFromQuoteId]);
 
   useEffect(() => {
     if (!open || !bundle.accountId) return;
@@ -85,12 +93,19 @@ export function AddInstallationModal({
         toast.error(json.error || "No se pudo agregar");
         return;
       }
-      toast.success("Instalación agregada");
+      if (json.data?.propagationError) {
+        toast.warning("Instalación agregada, pero sin las condiciones de la propuesta", {
+          description:
+            "Vuelve a guardar las condiciones en el Consolidado para aplicarlas a esta instalación.",
+        });
+      } else {
+        toast.success("Instalación agregada");
+      }
       onOpenChange(false);
       setInstallationId("");
       setNewName("");
       setCloneFromQuoteId("");
-      await onAdded();
+      await onAdded(json.data?.quoteId as string | undefined);
     } finally {
       setLoading(false);
     }

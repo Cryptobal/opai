@@ -1211,6 +1211,32 @@ export async function renderProposalToBufferFromProps(
             `TOTAL GENERAL (${consolidatedSummary!.installationCount} instalaciones)`),
           e(Text, { style: s.grandTotalAmount }, consolidatedSummary!.totalMonthlyFormatted),
         ),
+        // Pagos únicos consolidados: se cobran una vez, fuera del mensual.
+        ...(oneTimeItems && oneTimeItems.length > 0
+          ? [
+              e(View, { key: 'onetime-bundle', style: { marginTop: 10 } },
+                e(Text, { style: s.sectionSubtitle }, 'Pago único (se cobra una vez)'),
+                e(View, { style: s.tblHeader },
+                  e(Text, { style: [s.tblHeaderCell, { flex: 0.5, textAlign: 'center' as const }] }, '#'),
+                  e(Text, { style: [s.tblHeaderCell, { flex: 3.8, textAlign: 'left' as const }] }, 'ÍTEM'),
+                  e(Text, { style: [s.tblHeaderCell, { flex: 1.5, textAlign: 'right' as const }] }, 'VALOR'),
+                ),
+                ...oneTimeItems.map((item, i) =>
+                  e(View, { key: i, style: s.tblRow },
+                    e(Text, { style: [s.tblCell, { flex: 0.5, textAlign: 'center' as const }] }, String(item.index)),
+                    e(Text, { style: [s.tblCell, { flex: 3.8 }] }, item.description),
+                    e(Text, { style: [s.tblCellBold, { flex: 1.5, textAlign: 'right' as const }] }, item.subtotalFormatted),
+                  ),
+                ),
+                oneTimeTotalFormatted
+                  ? e(View, { style: s.grandTotal },
+                      e(Text, { style: s.grandTotalLabel }, 'TOTAL PAGO ÚNICO NETO'),
+                      e(Text, { style: s.grandTotalAmount }, oneTimeTotalFormatted),
+                    )
+                  : null,
+              ),
+            ]
+          : []),
         e(Text, { style: { fontSize: 8, color: C.textLight, marginTop: 6 } },
           `Dotación total: ${consolidatedSummary!.totalGuards} guardias · Forma de pago: ${paymentTerms}`),
       ),
@@ -1239,6 +1265,33 @@ export async function renderProposalToBufferFromProps(
             e(Text, { style: s.grandTotalLabel }, `SUBTOTAL ${inst.name}`),
             e(Text, { style: s.grandTotalAmount }, inst.monthlyFormatted),
           ),
+          ...(inst.oneTimeItems && inst.oneTimeItems.length > 0
+            ? [
+                e(View, { key: `onetime-${idx}`, style: { marginTop: 10 } },
+                  e(Text, { style: s.sectionSubtitle }, 'Pago único (se cobra una vez)'),
+                  e(View, { style: s.tblHeader },
+                    e(Text, { style: [s.tblHeaderCell, { flex: 0.5, textAlign: 'center' as const }] }, '#'),
+                    e(Text, { style: [s.tblHeaderCell, { flex: 3 }] }, 'ÍTEM'),
+                    e(Text, { style: [s.tblHeaderCell, { flex: 0.8, textAlign: 'center' as const }] }, 'CANT'),
+                    e(Text, { style: [s.tblHeaderCell, { flex: 1.5, textAlign: 'right' as const }] }, 'VALOR'),
+                  ),
+                  ...inst.oneTimeItems.map((item, i) =>
+                    e(View, { key: i, style: s.tblRow },
+                      e(Text, { style: [s.tblCell, { flex: 0.5, textAlign: 'center' as const }] }, String(item.index)),
+                      e(Text, { style: [s.tblCell, { flex: 3 }] }, item.description),
+                      e(Text, { style: [s.tblCell, { flex: 0.8, textAlign: 'center' as const }] }, String(item.quantity)),
+                      e(Text, { style: [s.tblCellBold, { flex: 1.5, textAlign: 'right' as const }] }, item.subtotalFormatted),
+                    ),
+                  ),
+                  inst.oneTimeTotalFormatted
+                    ? e(View, { style: s.grandTotal },
+                        e(Text, { style: s.grandTotalLabel }, `PAGO ÚNICO ${inst.name}`),
+                        e(Text, { style: s.grandTotalAmount }, inst.oneTimeTotalFormatted),
+                      )
+                    : null,
+                ),
+              ]
+            : []),
         ),
       );
     });

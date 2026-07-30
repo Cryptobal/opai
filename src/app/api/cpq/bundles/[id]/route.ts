@@ -9,12 +9,15 @@ import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { requireCpqView, requireCpqEdit } from "@/lib/api-auth-cpq";
 import { requireTenantModule } from "@/lib/require-module";
 import {
+  BUNDLE_CONDITION_PATCH_KEYS,
   BundleServiceError,
   getBundleById,
   syncStatusFromBundle,
   totalsFromBundle,
   updateBundle,
 } from "@/modules/cpq/bundles/bundle.service";
+import { propagateBundleConditions } from "@/modules/cpq/bundles/propagate-bundle-conditions";
+import { createCrmHistoryLog } from "@/lib/crm-history";
 import { prisma } from "@/lib/prisma";
 
 export const runtime = "nodejs";
@@ -126,8 +129,49 @@ export async function PATCH(
           notes: body?.notes,
           contactId: body?.contactId,
           currency: body?.currency,
+          paymentTerms: body?.paymentTerms,
+          serviceStartDays: body?.serviceStartDays,
+          contractDuration: body?.contractDuration,
+          isOngoingService: body?.isOngoingService,
+          adjustmentType: body?.adjustmentType,
+          adjustmentFreq: body?.adjustmentFreq,
+          ipcWeight: body?.ipcWeight,
+          imoWeight: body?.imoWeight,
+          insurancePolicyUF: body?.insurancePolicyUF,
+          liabilityMonths: body?.liabilityMonths,
+          realAnnualIncrement: body?.realAnnualIncrement,
+          paymentDays: body?.paymentDays,
+          paymentDayMode: body?.paymentDayMode,
+          financialEnabled: body?.financialEnabled,
+          financialRatePct: body?.financialRatePct,
         },
       });
+
+      // Condiciones/financiero a nivel propuesta → propagación automática a
+      // todas las hijas + recálculo (sin botón "Aplicar a todas").
+      const conditionKeys = BUNDLE_CONDITION_PATCH_KEYS.filter(
+        (key) => body?.[key] !== undefined,
+      );
+      if (conditionKeys.length > 0) {
+        await propagateBundleConditions({
+          tenantId: ctx.tenantId,
+          bundleId: id,
+        });
+        await createCrmHistoryLog({
+          tenantId: ctx.tenantId,
+          entityType: "bundle",
+          entityId: id,
+          action: "bundle_conditions_updated",
+          details: {
+            fields: conditionKeys,
+            values: Object.fromEntries(
+              conditionKeys.map((key) => [key, body?.[key] ?? null]),
+            ),
+          },
+          createdBy: ctx.userId ?? null,
+        });
+      }
+
       return NextResponse.json({ success: true, data: updated });
     } catch (e) {
       if (e instanceof BundleServiceError) {

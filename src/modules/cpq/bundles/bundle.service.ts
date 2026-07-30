@@ -28,7 +28,7 @@ export class BundleServiceError extends Error {
   }
 }
 
-async function generateBundleCode(tenantId: string): Promise<string> {
+export async function generateBundleCode(tenantId: string): Promise<string> {
   const year = new Date().getFullYear();
   for (let attempt = 1; attempt <= 10; attempt++) {
     const count = await prisma.cpqProposalBundle.count({ where: { tenantId } });
@@ -48,7 +48,27 @@ async function generateBundleCode(tenantId: string): Promise<string> {
 
 const quoteInclude = {
   installation: { select: { id: true, name: true, city: true, address: true } },
-  parameters: { select: { marginPct: true, marginMode: true, salePriceMonthly: true } },
+  parameters: {
+    select: {
+      marginPct: true,
+      marginMode: true,
+      salePriceMonthly: true,
+      financialEnabled: true,
+      financialRatePct: true,
+    },
+  },
+  additionalLines: {
+    orderBy: { orden: "asc" as const },
+    select: {
+      id: true,
+      nombre: true,
+      precio: true,
+      tipo: true,
+      recurrencia: true,
+      cantidad: true,
+      marginPct: true,
+    },
+  },
 } as const;
 
 export type BundleWithMembers = Awaited<
@@ -60,8 +80,17 @@ export async function createBundle(opts: {
   dealId: string;
   name?: string | null;
   importDealQuotes?: boolean;
-}): Promise<{ id: string; code: string }> {
-  const { tenantId, dealId, name, importDealQuotes = true } = opts;
+  /** Crea una cotización vacía si el negocio no aportó ninguna (CTA "nueva propuesta"). */
+  ensurePrimaryQuote?: boolean;
+  userId?: string | null;
+}): Promise<{ id: string; code: string; primaryQuoteId: string | null }> {
+  const {
+    tenantId,
+    dealId,
+    name,
+    importDealQuotes = true,
+    ensurePrimaryQuote = false,
+  } = opts;
 
   const deal = await prisma.crmDeal.findFirst({
     where: { id: dealId, tenantId },
@@ -136,7 +165,50 @@ export async function createBundle(opts: {
     return created;
   });
 
-  return { id: bundle.id, code: bundle.code };
+  let primaryQuoteId =
+    (
+      await prisma.cpqProposalBundleQuote.findFirst({
+        where: { tenantId, bundleId: bundle.id },
+        orderBy: { displayOrder: "asc" },
+        select: { quoteId: true },
+      })
+    )?.quoteId ?? null;
+
+  // Las condiciones del bundle nacen de la primera cotización importada y se
+  // propagan al resto: si no, la propuesta arranca "no gobernada" y las hijas
+  // quedan divergentes sin ningún indicador.
+  if (primaryQuoteId) {
+    const { seedBundleConditionsFromQuote } = await import(
+      "./propagate-bundle-conditions"
+    );
+    await seedBundleConditionsFromQuote({
+      tenantId,
+      bundleId: bundle.id,
+      quoteId: primaryQuoteId,
+    });
+  }
+
+  // El workspace unificado vive en la cotización: si el negocio no aportó
+  // ninguna, sembramos la primera instalación para poder abrirlo.
+  if (!primaryQuoteId && ensurePrimaryQuote) {
+    const { addInstallationToBundle } = await import("./bundle-members.service");
+    const installation = await prisma.crmInstallation.findFirst({
+      where: { tenantId, accountId: deal.accountId ?? undefined },
+      orderBy: { createdAt: "asc" },
+      select: { id: true },
+    });
+    if (installation) {
+      const added = await addInstallationToBundle({
+        tenantId,
+        bundleId: bundle.id,
+        userId: opts.userId ?? null,
+        installationId: installation.id,
+      });
+      primaryQuoteId = added.quoteId;
+    }
+  }
+
+  return { id: bundle.id, code: bundle.code, primaryQuoteId };
 }
 
 export async function listBundlesByDeal(opts: {
@@ -160,6 +232,12 @@ export async function listBundlesByDeal(opts: {
       createdAt: true,
       updatedAt: true,
       _count: { select: { quotes: true } },
+      // Cotización primaria: destino del workspace unificado.
+      quotes: {
+        orderBy: { displayOrder: "asc" },
+        take: 1,
+        select: { quoteId: true },
+      },
     },
   });
 }
@@ -246,6 +324,56 @@ function snapshotConditions(q: {
   return snap;
 }
 
+/** Claves de condiciones/financiero aceptadas por PATCH que gatillan propagación. */
+export const BUNDLE_CONDITION_PATCH_KEYS = [
+  "paymentTerms",
+  "serviceStartDays",
+  "contractDuration",
+  "isOngoingService",
+  "adjustmentType",
+  "adjustmentFreq",
+  "ipcWeight",
+  "imoWeight",
+  "insurancePolicyUF",
+  "liabilityMonths",
+  "realAnnualIncrement",
+  "paymentDays",
+  "paymentDayMode",
+  "financialEnabled",
+  "financialRatePct",
+  "validUntil",
+  "currency",
+] as const;
+
+const intOrNull = (
+  value: unknown,
+  range?: { field: string; min: number; max: number },
+): number | null => {
+  if (value === null || value === undefined || value === "") return null;
+  const n = Number(value);
+  if (!Number.isFinite(n)) {
+    throw new BundleServiceError("Valor numérico inválido", "VALIDATION", 400);
+  }
+  const rounded = Math.round(n);
+  if (range && (rounded < range.min || rounded > range.max)) {
+    throw new BundleServiceError(
+      `${range.field} debe estar entre ${range.min} y ${range.max}`,
+      "VALIDATION",
+      400,
+    );
+  }
+  return rounded;
+};
+
+const decimalOrNull = (value: unknown): number | null => {
+  if (value === null || value === undefined || value === "") return null;
+  const n = Number(value);
+  if (!Number.isFinite(n)) {
+    throw new BundleServiceError("Valor numérico inválido", "VALIDATION", 400);
+  }
+  return n;
+};
+
 export async function updateBundle(opts: {
   tenantId: string;
   bundleId: string;
@@ -257,6 +385,22 @@ export async function updateBundle(opts: {
     notes?: string | null;
     contactId?: string | null;
     currency?: string;
+    // v2 — condiciones comerciales + financiero a nivel propuesta (null = des-gobernar)
+    paymentTerms?: string | null;
+    serviceStartDays?: number | null;
+    contractDuration?: number | null;
+    isOngoingService?: boolean | null;
+    adjustmentType?: string | null;
+    adjustmentFreq?: string | null;
+    ipcWeight?: number | null;
+    imoWeight?: number | null;
+    insurancePolicyUF?: number | string | null;
+    liabilityMonths?: number | null;
+    realAnnualIncrement?: number | null;
+    paymentDays?: number | null;
+    paymentDayMode?: string | null;
+    financialEnabled?: boolean | null;
+    financialRatePct?: number | string | null;
   };
 }) {
   const existing = await prisma.cpqProposalBundle.findFirst({
@@ -285,6 +429,112 @@ export async function updateBundle(opts: {
   if (d.notes !== undefined) data.notes = d.notes;
   if (d.contactId !== undefined) data.contactId = d.contactId;
   if (d.currency !== undefined) data.currency = d.currency;
+
+  if (d.paymentTerms !== undefined) {
+    const terms = d.paymentTerms?.trim() || null;
+    if (terms && !["contrafactura", "30_dias", "anticipado"].includes(terms)) {
+      throw new BundleServiceError("Forma de pago inválida", "VALIDATION", 400);
+    }
+    data.paymentTerms = terms;
+  }
+  if (d.serviceStartDays !== undefined) {
+    data.serviceStartDays = intOrNull(d.serviceStartDays, {
+      field: "Inicio de servicios",
+      min: 1,
+      max: 90,
+    });
+  }
+  if (d.contractDuration !== undefined) {
+    // 0 dividiría por cero en el prorrateo de costos del motor.
+    data.contractDuration = intOrNull(d.contractDuration, {
+      field: "Duración del contrato",
+      min: 1,
+      max: 60,
+    });
+  }
+  if (d.isOngoingService !== undefined) {
+    data.isOngoingService =
+      typeof d.isOngoingService === "boolean" ? d.isOngoingService : null;
+  }
+  if (d.adjustmentType !== undefined) {
+    if (
+      d.adjustmentType != null &&
+      !["NONE", "IPC", "IMO", "POLYNOMIAL"].includes(d.adjustmentType)
+    ) {
+      throw new BundleServiceError("Tipo de reajuste inválido", "VALIDATION", 400);
+    }
+    data.adjustmentType = d.adjustmentType ?? null;
+    if (d.adjustmentType === "NONE") {
+      data.adjustmentFreq = null;
+      data.ipcWeight = null;
+      data.imoWeight = null;
+    }
+  }
+  if (d.adjustmentFreq !== undefined && data.adjustmentFreq === undefined) {
+    if (
+      d.adjustmentFreq != null &&
+      !["TRIMESTRAL", "SEMESTRAL", "ANUAL"].includes(d.adjustmentFreq)
+    ) {
+      throw new BundleServiceError("Frecuencia de reajuste inválida", "VALIDATION", 400);
+    }
+    data.adjustmentFreq = d.adjustmentFreq ?? null;
+  }
+  if (d.ipcWeight !== undefined && data.ipcWeight === undefined) {
+    data.ipcWeight = intOrNull(d.ipcWeight, { field: "% IPC", min: 0, max: 100 });
+  }
+  if (d.imoWeight !== undefined && data.imoWeight === undefined) {
+    data.imoWeight = intOrNull(d.imoWeight, { field: "% IMO", min: 0, max: 100 });
+  }
+  if (d.insurancePolicyUF !== undefined) {
+    const uf = decimalOrNull(d.insurancePolicyUF);
+    if (uf != null && uf < 0) {
+      throw new BundleServiceError(
+        "El monto de la póliza no puede ser negativo",
+        "VALIDATION",
+        400,
+      );
+    }
+    data.insurancePolicyUF = uf;
+  }
+  if (d.liabilityMonths !== undefined) {
+    data.liabilityMonths = intOrNull(d.liabilityMonths, {
+      field: "Límite de responsabilidad",
+      min: 1,
+      max: 24,
+    });
+  }
+  if (d.realAnnualIncrement !== undefined) {
+    data.realAnnualIncrement = intOrNull(d.realAnnualIncrement, {
+      field: "Incremento real anual",
+      min: 0,
+      max: 100,
+    });
+  }
+  if (d.paymentDays !== undefined) {
+    data.paymentDays = intOrNull(d.paymentDays, {
+      field: "Días de pago",
+      min: 1,
+      max: 30,
+    });
+  }
+  if (d.paymentDayMode !== undefined) {
+    data.paymentDayMode = d.paymentDayMode?.trim() || null;
+  }
+  if (d.financialEnabled !== undefined) {
+    data.financialEnabled =
+      typeof d.financialEnabled === "boolean" ? d.financialEnabled : null;
+  }
+  if (d.financialRatePct !== undefined) {
+    const rate = decimalOrNull(d.financialRatePct);
+    if (rate != null && (rate < 0 || rate > 100)) {
+      throw new BundleServiceError(
+        "La tasa financiera debe estar entre 0 y 100",
+        "VALIDATION",
+        400,
+      );
+    }
+    data.financialRatePct = rate;
+  }
 
   return prisma.cpqProposalBundle.update({
     where: { id: opts.bundleId },
