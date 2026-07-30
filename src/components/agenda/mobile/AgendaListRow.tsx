@@ -15,7 +15,7 @@ type Props = {
   onChanged: () => void;
 };
 
-/** Fila de evento de la vista Agenda móvil (spec §2). */
+/** Fila de evento de la vista Agenda móvil — anatomía EntityRow (min-h 44, title 13px, Tags). */
 export function AgendaListRow({ item, colorBySource, onSelect, onChanged }: Props) {
   const [completing, setCompleting] = useState(false);
   const [done, setDone] = useState(false);
@@ -46,22 +46,28 @@ export function AgendaListRow({ item, colorBySource, onSelect, onChanged }: Prop
       <button
         type="button"
         onClick={() => onSelect(item)}
-        className="w-full rounded-[18px] border border-status-warn-border px-3 py-2.5 text-left ds-tap"
+        className="flex min-h-11 w-full items-center rounded-[18px] border border-status-warn-border px-3 py-2 text-left ds-tap"
         style={{
           backgroundImage:
             "repeating-linear-gradient(45deg, hsl(var(--status-warn)/0.12) 0 6px, transparent 6px 12px)",
         }}
       >
-        <p className="truncate text-[14px] font-semibold text-ds-text-1">{item.title}</p>
-        <p className="mt-0.5 font-mono text-[12px] text-status-warn-fg">
-          {licDeadlineLabel(item)}
-        </p>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[13px] font-semibold leading-snug text-ds-text-1">
+            {item.title}
+          </p>
+          <div className="mt-1 flex flex-wrap items-center gap-1.5">
+            <Tag variant="warn" size="md">
+              {licDeadlineLabel(item)}
+            </Tag>
+          </div>
+        </div>
       </button>
     );
   }
 
   return (
-    <div className="opai-glass-soft flex items-stretch gap-2 rounded-[18px] px-2.5 py-2">
+    <div className="opai-glass-soft flex min-h-11 items-stretch gap-2 rounded-[18px] px-2.5 py-2">
       {isTask && (
         <button
           type="button"
@@ -103,29 +109,33 @@ export function AgendaListRow({ item, colorBySource, onSelect, onChanged }: Prop
           }
           onSelect(item);
         }}
-        className="min-w-0 flex-1 py-0.5 text-left ds-tap"
+        className="min-h-11 min-w-0 flex-1 py-0.5 text-left ds-tap"
       >
         <p
           className={cn(
-            "line-clamp-2 text-[14px] font-semibold leading-snug text-ds-text-1",
+            "line-clamp-2 text-[13px] font-semibold leading-snug text-ds-text-1",
             done && "line-through text-ds-text-4",
           )}
         >
           {item.title}
         </p>
         <div className="mt-1 flex flex-wrap items-center gap-1.5">
-          <Tag variant={isGoogle ? "neutral" : "info"} className="text-[12px]">
+          <Tag variant={isGoogle ? "neutral" : "info"} size="md">
             {mobileTypeLabel(item)}
-            {isGoogle && <ExternalLink className="ml-1 inline h-3 w-3" />}
+            {isGoogle && <ExternalLink className="ml-0.5 inline h-3 w-3" />}
           </Tag>
           {item.assignedName && (
             <Avatar name={item.assignedName} size="sm" className="h-5 w-5 text-[12px]" />
           )}
           {item.syncStatus === "SYNCED" && (
-            <span className="text-[12px] text-status-ok-fg">☁ sync</span>
+            <Tag variant="ok" size="md">
+              ☁ sync
+            </Tag>
           )}
           {item.syncStatus === "PENDING" && (
-            <span className="text-[12px] text-status-warn-fg">◌ pendiente</span>
+            <Tag variant="warn" size="md">
+              ◌ pendiente
+            </Tag>
           )}
         </div>
       </button>
