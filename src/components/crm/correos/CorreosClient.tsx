@@ -585,6 +585,11 @@ export function CorreosClient() {
     setUrlSyncReady(true);
   }, [searchParams]);
 
+  // `?mensaje=` (deep-link del copiloto): mensaje a expandir/scrollear en el
+  // lector. Derivado en render (no es estado): viaja con el hilo de la URL.
+  const mensajeParam = searchParams.get("mensaje");
+  const urlMessageId = isUuid(mensajeParam) ? mensajeParam : null;
+
   // One-shots de montaje: composer (?compose=1) y toasts de retorno OAuth de
   // Gmail (?gmail=...). No son reactivos: describe el estado al entrar.
   useEffect(() => {
@@ -1829,6 +1834,7 @@ export function CorreosClient() {
 
         <CorreoDrawer
           threadId={openId}
+          initialMessageId={urlMessageId}
           preview={openId ? items.find((t) => t.id === openId) ?? null : null}
           mailboxEmail={mailboxEmail}
           shortcuts={shortcuts}

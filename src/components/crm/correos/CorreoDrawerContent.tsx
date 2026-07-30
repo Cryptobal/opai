@@ -26,6 +26,8 @@ import type { CorreoMessageDTO } from "@/modules/crm/email/correos.types";
 
 type Props = {
   detail: CorreoDetail;
+  /** Deep-link `?mensaje=`: mensaje a expandir/scrollear al abrir. */
+  initialMessageId?: string | null;
   mailboxEmail?: string | null;
   canModify?: boolean;
   onOpenAiLead: () => void;
@@ -66,6 +68,7 @@ type Props = {
 
 export function CorreoDrawerContent({
   detail,
+  initialMessageId = null,
   mailboxEmail,
   canModify,
   onOpenAiLead,
@@ -255,6 +258,7 @@ export function CorreoDrawerContent({
         <div className="min-w-0 space-y-2">
           <CorreoMessages
             messages={detail.messages}
+            initialMessageId={initialMessageId}
             alwaysShowImages={alwaysShowImages}
             onAlwaysShowImages={onAlwaysShowImages}
             threadId={t.id}

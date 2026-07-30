@@ -32,6 +32,8 @@ type ThreadPreview = {
 
 type Props = {
   threadId: string | null;
+  /** Deep-link `?mensaje=`: mensaje a expandir/scrollear al abrir el hilo. */
+  initialMessageId?: string | null;
   /** Datos de la fila de la lista: header inmediato sin esperar el fetch. */
   preview?: ThreadPreview | null;
   /** Casilla Gmail conectada (se muestra al guardar adjuntos). */
@@ -69,6 +71,7 @@ type Props = {
 
 export function CorreoDrawer({
   threadId,
+  initialMessageId = null,
   preview = null,
   mailboxEmail = null,
   onClose,
@@ -387,6 +390,7 @@ export function CorreoDrawer({
       ) : (
         <CorreoDrawerContent
           detail={detail}
+          initialMessageId={initialMessageId}
           mailboxEmail={mailboxEmail}
           canModify={canModify}
           onOpenAiLead={() => onOpenAiLead?.()}
