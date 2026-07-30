@@ -50,8 +50,17 @@ export function decideWriteDeferral(input: {
   pendingCount: number;
   /** Resultado ya ejecutado (para preview_* → encolar confirm). */
   executedResult?: { ok?: boolean } | null;
+  /**
+   * Si false, no diferir: ejecutar escrituras al momento (chat web).
+   * Slack y otros transportes externos dejan el default (true) para
+   * exigir confirmación con botones antes de mutar datos.
+   */
+  deferWrites?: boolean;
 }): DeferDecision {
   const { toolName, args, allowWrites, pendingCount, executedResult } = input;
+  if (input.deferWrites === false) {
+    return { kind: "execute" };
+  }
 
   if (shouldDeferWrite(toolName, args, allowWrites)) {
     if (pendingCount >= MAX_PENDING_WRITES) {

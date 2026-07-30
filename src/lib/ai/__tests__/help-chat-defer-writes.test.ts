@@ -95,4 +95,27 @@ describe("help-chat-defer-writes", () => {
     });
     expect(d.kind).toBe("limit");
   });
+
+  it("deferWrites:false (chat web) siempre ejecuta, incluso create_deal", () => {
+    const d = decideWriteDeferral({
+      toolName: "create_deal",
+      args: { accountId: "a", title: "Acuda", stageName: "Negociación" },
+      allowWrites: true,
+      pendingCount: 0,
+      deferWrites: false,
+    });
+    expect(d.kind).toBe("execute");
+  });
+
+  it("deferWrites:false no encola confirm tras preview_*", () => {
+    const d = decideWriteDeferral({
+      toolName: "preview_bulk_update_installations",
+      args: { query: "Melón", status: "inactive" },
+      allowWrites: true,
+      pendingCount: 0,
+      executedResult: { ok: true },
+      deferWrites: false,
+    });
+    expect(d.kind).toBe("execute");
+  });
 });
