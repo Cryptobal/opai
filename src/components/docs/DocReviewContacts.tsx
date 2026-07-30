@@ -116,9 +116,11 @@ export function DocReviewContacts({
         throw new Error(json?.error || "No se pudo asociar el contacto");
       }
       toast.success("Contacto asociado al contrato");
-      setPickerOpen(false);
+      // Mantener el picker abierto para agregar varios revisores seguidos.
+      setContacts((prev) =>
+        prev.map((c) => (c.id === contactId ? { ...c, associated: true } : c)),
+      );
       setQuery("");
-      await load();
       onChanged?.();
     } catch (err) {
       toast.error(
@@ -159,11 +161,17 @@ export function DocReviewContacts({
         <span className="text-xs text-ds-text-3">
           Contactos con acceso al contrato
         </span>
-        <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
+        <Popover
+          open={pickerOpen}
+          onOpenChange={(open) => {
+            setPickerOpen(open);
+            if (!open) setQuery("");
+          }}
+        >
           <PopoverTrigger asChild>
             <button
               type="button"
-              className="inline-flex h-10 sm:h-8 items-center gap-1.5 rounded-md border border-ds-border-default bg-ds-surface-1 px-2.5 text-xs text-ds-text-2 hover:bg-ds-surface-2 transition-colors"
+              className="inline-flex h-10 sm:h-8 shrink-0 items-center gap-1.5 rounded-md border border-ds-border-default bg-ds-surface-1 px-2.5 text-xs text-ds-text-2 hover:bg-ds-surface-2 transition-colors"
             >
               <UserPlus className="h-3.5 w-3.5" />
               Agregar
@@ -172,19 +180,21 @@ export function DocReviewContacts({
           <PopoverContent
             align="end"
             sideOffset={4}
-            className="w-80 p-0"
+            // El Popover base fija max-w al ancho del trigger; sin override
+            // el menú queda del tamaño del botón "Agregar" (~80px).
+            className="w-80 min-w-[20rem] max-w-[min(20rem,calc(100vw-1.5rem))] p-0"
             onOpenAutoFocus={(e) => e.preventDefault()}
           >
             <div className="border-b border-ds-border-subtle p-2">
               <div className="flex items-center gap-2 rounded-md border border-ds-border-default bg-background px-2">
-                <Search className="h-3.5 w-3.5 text-ds-text-3" />
+                <Search className="h-3.5 w-3.5 shrink-0 text-ds-text-3" />
                 <input
                   autoFocus
                   type="text"
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder="Buscar contacto de la cuenta…"
-                  className="h-10 sm:h-8 w-full bg-transparent text-ds-body text-foreground placeholder:text-ds-text-3 outline-none"
+                  className="h-10 sm:h-8 min-w-0 w-full bg-transparent text-ds-body text-foreground placeholder:text-ds-text-3 outline-none"
                 />
               </div>
             </div>
@@ -213,18 +223,24 @@ export function DocReviewContacts({
                     type="button"
                     disabled={busyId === c.id}
                     onClick={() => addContact(c.id)}
-                    className="w-full rounded-md px-2 py-2 text-left transition-colors hover:bg-ds-surface-2 focus:bg-ds-surface-2 focus:outline-none disabled:opacity-60"
+                    className="w-full min-w-0 rounded-md px-2 py-2 text-left transition-colors hover:bg-ds-surface-2 focus:bg-ds-surface-2 focus:outline-none disabled:opacity-60"
                   >
-                    <div className="flex items-center gap-2 text-ds-body font-medium text-foreground">
-                      <Plus className="h-3.5 w-3.5 text-ds-text-3 shrink-0" />
-                      <span className="truncate">{c.name || "(Sin nombre)"}</span>
+                    <div className="flex min-w-0 items-center gap-2 text-ds-body font-medium text-foreground">
+                      {busyId === c.id ? (
+                        <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-ds-text-3" />
+                      ) : (
+                        <Plus className="h-3.5 w-3.5 shrink-0 text-ds-text-3" />
+                      )}
+                      <span className="min-w-0 truncate">
+                        {c.name || "(Sin nombre)"}
+                      </span>
                       {c.isPrimary && (
                         <Tag variant="info" size="sm">
                           Principal
                         </Tag>
                       )}
                     </div>
-                    <div className="pl-5 text-xs text-ds-text-3 truncate">
+                    <div className="min-w-0 pl-5 text-xs text-ds-text-3 truncate">
                       {c.email}
                       {c.roleTitle ? ` · ${c.roleTitle}` : ""}
                       {!c.portalEnabled ? " · Sin portal" : ""}
