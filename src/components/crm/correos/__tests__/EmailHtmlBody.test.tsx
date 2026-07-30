@@ -79,6 +79,9 @@ describe("buildEmailSrcDoc", () => {
     expect(doc).toContain("opai-mail-canvas");
     expect(doc).toContain("padding:16px 20px");
     expect(doc).toContain("<p>contenido</p>");
+    // Sin scroll X interno: el panel del lector scrollea como unidad.
+    expect(doc).toContain("overflow-x:hidden");
+    expect(doc).not.toMatch(/table\{[^}]*overflow-x:auto/);
   });
 
   it("en modo noche fuerza texto claro (pisando color negro inline de correos)", () => {

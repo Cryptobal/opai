@@ -285,7 +285,7 @@ export function CorreoDrawer({
     const run = () => {
       const el = document.getElementById("correo-suggested-reply");
       if (!el) return;
-      const scroller = el.closest(".overflow-y-auto");
+      const scroller = el.closest(".overflow-auto, .overflow-y-auto");
       if (scroller instanceof HTMLElement) {
         const elRect = el.getBoundingClientRect();
         const scRect = scroller.getBoundingClientRect();

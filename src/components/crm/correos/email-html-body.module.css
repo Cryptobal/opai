@@ -14,12 +14,14 @@
 }
 
 /* Sandbox aislado del tema app: fondo claro fijo para HTML de correo.
- * (Render legacy, solo con NEXT_PUBLIC_EMAIL_IFRAME_SANDBOX=false.) */
+ * (Render legacy, solo con NEXT_PUBLIC_EMAIL_IFRAME_SANDBOX=false.)
+ * Sin overflow-x propio: el scroll horizontal lo hace el panel del lector. */
 .root {
-  width: 100%;
+  width: max-content;
+  min-width: 100%;
   max-width: none;
   box-sizing: border-box;
-  overflow-x: auto;
+  overflow-x: visible;
   padding: 1rem 1.25rem;
   border-radius: 0.75rem;
   background-color: hsl(0 0% 100%);
@@ -27,10 +29,6 @@
   font-size: 13px;
   line-height: 1.55;
   word-break: break-word;
-}
-
-.root > :global(*) {
-  max-width: 100%;
 }
 
 .root :global(a) {
@@ -45,10 +43,7 @@
 }
 
 .root :global(table) {
-  display: block;
-  overflow-x: auto;
   border-collapse: collapse;
-  max-width: 100%;
   margin: 0.5rem 0;
 }
 

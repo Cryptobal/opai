@@ -71,8 +71,8 @@ function scrollComposerIntoView() {
   const run = () => {
     const el = document.getElementById("correo-suggested-reply");
     if (!el) return;
-    // El scroller real es el panel del lector (overflow-y-auto), no la ventana.
-    const scroller = el.closest(".overflow-y-auto");
+    // El scroller real es el panel del lector (overflow-auto), no la ventana.
+    const scroller = el.closest(".overflow-auto, .overflow-y-auto");
     if (scroller instanceof HTMLElement) {
       const elRect = el.getBoundingClientRect();
       const scRect = scroller.getBoundingClientRect();
