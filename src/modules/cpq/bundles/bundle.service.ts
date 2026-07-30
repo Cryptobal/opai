@@ -174,6 +174,20 @@ export async function createBundle(opts: {
       })
     )?.quoteId ?? null;
 
+  // Las condiciones del bundle nacen de la primera cotización importada y se
+  // propagan al resto: si no, la propuesta arranca "no gobernada" y las hijas
+  // quedan divergentes sin ningún indicador.
+  if (primaryQuoteId) {
+    const { seedBundleConditionsFromQuote } = await import(
+      "./propagate-bundle-conditions"
+    );
+    await seedBundleConditionsFromQuote({
+      tenantId,
+      bundleId: bundle.id,
+      quoteId: primaryQuoteId,
+    });
+  }
+
   // El workspace unificado vive en la cotización: si el negocio no aportó
   // ninguna, sembramos la primera instalación para poder abrirlo.
   if (!primaryQuoteId && ensurePrimaryQuote) {

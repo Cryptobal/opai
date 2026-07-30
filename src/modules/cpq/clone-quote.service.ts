@@ -103,7 +103,10 @@ export async function cloneCpqQuote(opts: {
           uniformChangesPerYear: source.parameters.uniformChangesPerYear,
           financialEnabled: source.parameters.financialEnabled,
           financialRatePct: source.parameters.financialRatePct,
-          salePriceBase: source.parameters.salePriceBase,
+          // salePriceBase NO se copia: es la base de venta manual de la
+          // cotización fuente y el motor la usa como base del gasto financiero
+          // y de la póliza. El clon tiene su propia dotación, así que debe
+          // recalcularla (salePriceBase = 0 → el motor usa baseWithMargin).
           salePriceMonthly: source.parameters.salePriceMonthly,
           policyEnabled: source.parameters.policyEnabled,
           marginMode: source.parameters.marginMode,

@@ -7,7 +7,7 @@
  * 0–6% en pasos de 0,5.
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Minus, Plus } from "lucide-react";
 import { Surface } from "@/components/opai-ds";
 import { Input } from "@/components/ui/input";
@@ -15,6 +15,19 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import type { BundleDetail } from "@/components/cpq/bundle/useBundle";
+
+/** Borrar el campo deja 0 en el draft sin saltar al default mientras se teclea. */
+const toIntDraft = (raw: string): number => {
+  if (raw.trim() === "") return 0;
+  const n = Number(raw);
+  return Number.isFinite(n) ? Math.round(n) : 0;
+};
+
+/** Normaliza en el blur: fuera de rango vuelve al default del campo. */
+const clampInt = (value: number, min: number, max: number, fallback: number): number => {
+  if (!Number.isFinite(value) || value < min || value > max) return fallback;
+  return Math.round(value);
+};
 
 const toNum = (v: unknown, fallback: number): number => {
   if (v == null || v === "") return fallback;
@@ -86,17 +99,33 @@ export function BundleCondicionesSection({
   // TODAS las instalaciones.
   const isLocked = bundle.status === "sent";
   const [form, setForm] = useState<Form>(() => formFromBundle(bundle));
+  /** Hay edición local sin confirmar: el refresh del bundle no debe pisarla. */
+  const dirtyRef = useRef(false);
+  const bundleRef = useRef(bundle);
+  bundleRef.current = bundle;
+
   useEffect(() => {
+    if (dirtyRef.current) return;
     setForm(formFromBundle(bundle));
   }, [bundle]);
+
+  const editLocal = (patch: Partial<Form>) => {
+    dirtyRef.current = true;
+    setForm((prev) => ({ ...prev, ...patch }));
+  };
 
   const save = (patch: Partial<Form>) => {
     if (isLocked) return;
     setForm((prev) => ({ ...prev, ...patch }));
-    void onPatch(patch as Record<string, unknown>).catch(() => {
-      // revert optimista: el refresh del hook restaurará el valor real
-      setForm(formFromBundle(bundle));
-    });
+    void onPatch(patch as Record<string, unknown>)
+      .then(() => {
+        dirtyRef.current = false;
+      })
+      .catch(() => {
+        // revert: el bundle en servidor es la verdad
+        dirtyRef.current = false;
+        setForm(formFromBundle(bundleRef.current));
+      });
   };
 
   const stepRate = (delta: number) => {
@@ -144,8 +173,8 @@ export function BundleCondicionesSection({
               min={1}
               max={90}
               value={form.serviceStartDays}
-              onChange={(e) => setForm((p) => ({ ...p, serviceStartDays: Number(e.target.value) || 5 }))}
-              onBlur={() => save({ serviceStartDays: form.serviceStartDays })}
+              onChange={(e) => editLocal({ serviceStartDays: toIntDraft(e.target.value) })}
+              onBlur={() => save({ serviceStartDays: clampInt(form.serviceStartDays, 1, 90, 5) })}
               className={cn(INPUT_CLASS, "w-16")}
             />
             <span className="text-xs text-muted-foreground whitespace-nowrap">días háb.</span>
@@ -161,8 +190,8 @@ export function BundleCondicionesSection({
               min={1}
               max={60}
               value={form.contractDuration}
-              onChange={(e) => setForm((p) => ({ ...p, contractDuration: Number(e.target.value) || 12 }))}
-              onBlur={() => save({ contractDuration: form.contractDuration })}
+              onChange={(e) => editLocal({ contractDuration: toIntDraft(e.target.value) })}
+              onBlur={() => save({ contractDuration: clampInt(form.contractDuration, 1, 60, 12) })}
               className={cn(INPUT_CLASS, "w-16")}
             />
             <span className="text-xs text-muted-foreground">meses</span>
@@ -227,8 +256,8 @@ export function BundleCondicionesSection({
                   max={100}
                   value={form.ipcWeight ?? ""}
                   onChange={(e) => {
-                    const ipc = Number(e.target.value) || 0;
-                    setForm((p) => ({ ...p, ipcWeight: ipc, imoWeight: 100 - ipc }));
+                    const ipc = clampInt(toIntDraft(e.target.value), 0, 100, 0);
+                    editLocal({ ipcWeight: ipc, imoWeight: 100 - ipc });
                   }}
                   onBlur={() => save({ ipcWeight: form.ipcWeight, imoWeight: form.imoWeight })}
                   className={cn(INPUT_CLASS, "w-16")}
@@ -245,8 +274,8 @@ export function BundleCondicionesSection({
                   max={100}
                   value={form.imoWeight ?? ""}
                   onChange={(e) => {
-                    const imo = Number(e.target.value) || 0;
-                    setForm((p) => ({ ...p, imoWeight: imo, ipcWeight: 100 - imo }));
+                    const imo = clampInt(toIntDraft(e.target.value), 0, 100, 0);
+                    editLocal({ imoWeight: imo, ipcWeight: 100 - imo });
                   }}
                   onBlur={() => save({ ipcWeight: form.ipcWeight, imoWeight: form.imoWeight })}
                   className={cn(INPUT_CLASS, "w-16")}
@@ -264,8 +293,8 @@ export function BundleCondicionesSection({
               min={1}
               max={30}
               value={form.paymentDays}
-              onChange={(e) => setForm((p) => ({ ...p, paymentDays: Number(e.target.value) || 5 }))}
-              onBlur={() => save({ paymentDays: form.paymentDays })}
+              onChange={(e) => editLocal({ paymentDays: toIntDraft(e.target.value) })}
+              onBlur={() => save({ paymentDays: clampInt(form.paymentDays, 1, 30, 5) })}
               className={cn(INPUT_CLASS, "w-16")}
             />
             <span className="text-xs text-muted-foreground whitespace-nowrap">días háb.</span>
@@ -279,8 +308,8 @@ export function BundleCondicionesSection({
               min={0}
               step={0.01}
               value={form.insurancePolicyUF}
-              onChange={(e) => setForm((p) => ({ ...p, insurancePolicyUF: Number(e.target.value) || 1500 }))}
-              onBlur={() => save({ insurancePolicyUF: form.insurancePolicyUF })}
+              onChange={(e) => editLocal({ insurancePolicyUF: toIntDraft(e.target.value) })}
+              onBlur={() => save({ insurancePolicyUF: Math.max(0, form.insurancePolicyUF || 0) })}
               className={cn(INPUT_CLASS, "w-20")}
             />
             <span className="text-xs text-muted-foreground">UF</span>
@@ -294,8 +323,8 @@ export function BundleCondicionesSection({
               min={1}
               max={24}
               value={form.liabilityMonths}
-              onChange={(e) => setForm((p) => ({ ...p, liabilityMonths: Number(e.target.value) || 3 }))}
-              onBlur={() => save({ liabilityMonths: form.liabilityMonths })}
+              onChange={(e) => editLocal({ liabilityMonths: toIntDraft(e.target.value) })}
+              onBlur={() => save({ liabilityMonths: clampInt(form.liabilityMonths, 1, 24, 3) })}
               className={cn(INPUT_CLASS, "w-16")}
             />
             <span className="text-xs text-muted-foreground">meses</span>
@@ -310,14 +339,8 @@ export function BundleCondicionesSection({
               max={100}
               step={1}
               value={form.realAnnualIncrement}
-              onChange={(e) => {
-                const n = Number(e.target.value);
-                setForm((p) => ({
-                  ...p,
-                  realAnnualIncrement: Number.isFinite(n) ? Math.max(0, Math.min(100, Math.round(n))) : 0,
-                }));
-              }}
-              onBlur={() => save({ realAnnualIncrement: form.realAnnualIncrement })}
+              onChange={(e) => editLocal({ realAnnualIncrement: toIntDraft(e.target.value) })}
+              onBlur={() => save({ realAnnualIncrement: clampInt(form.realAnnualIncrement, 0, 100, 0) })}
               className={cn(INPUT_CLASS, "w-16")}
             />
             <span className="text-xs text-muted-foreground">%</span>
@@ -328,7 +351,7 @@ export function BundleCondicionesSection({
           <Input
             type="date"
             value={form.validUntil}
-            onChange={(e) => setForm((p) => ({ ...p, validUntil: e.target.value }))}
+            onChange={(e) => editLocal({ validUntil: e.target.value })}
             onBlur={() => save({ validUntil: form.validUntil || null } as Partial<Form>)}
             className={INPUT_CLASS}
           />

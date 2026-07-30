@@ -15,6 +15,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Plus, Send } from "lucide-react";
 import { Skeleton } from "@/components/opai-ds";
 import { Button } from "@/components/ui/button";
@@ -54,8 +55,13 @@ export function QuoteWorkspace({
   /** Bundle al que ya pertenece la cotización (resuelto en servidor). */
   initialBundleId: string | null;
 }) {
+  const router = useRouter();
   const [bundleId, setBundleId] = useState<string | null>(initialBundleId);
-  const { bundle, loading, saving, refresh, patch } = useBundle(bundleId);
+  const { bundle, loading, error, saving, refresh, patch } = useBundle(bundleId);
+  /** Cambia con cada recarga del bundle para refrescar la auditoría (agregar,
+   *  quitar e incluir/excluir no tocan la fila del bundle, así que `updatedAt`
+   *  no basta como señal). */
+  const [bundleRevision, setBundleRevision] = useState(0);
   // La URL manda: abrir /crm/cotizaciones/[id] de una hija entra directo a su
   // instalación. Solo al convertir se fuerza el Consolidado.
   const [tab, setTab] = useState<BundleTabId>(
@@ -101,13 +107,50 @@ export function QuoteWorkspace({
     [],
   );
 
+  const refreshBundle = useCallback(async () => {
+    await refresh();
+    setBundleRevision((n) => n + 1);
+  }, [refresh]);
+
   const handleAdded = useCallback(
     async (newQuoteId?: string) => {
-      await refresh();
+      await refreshBundle();
       if (newQuoteId) openInstall(newQuoteId);
     },
-    [refresh, openInstall],
+    [refreshBundle, openInstall],
   );
+
+  // Si se quita del bundle la cotización de la URL, la ruta deja de
+  // corresponder a la propuesta: seguimos a la primera instalación restante.
+  useEffect(() => {
+    if (!bundle || bundle.quotes.length === 0) return;
+    if (bundle.quotes.some((m) => m.quoteId === quoteId)) return;
+    router.replace(`/crm/cotizaciones/${bundle.quotes[0]!.quoteId}`);
+  }, [bundle, quoteId, router]);
+
+  // Con bundle conocido en servidor y GET en vuelo, esperar: si no, la
+  // propuesta multi parpadea como cotización única en cada carga.
+  if (initialBundleId && !bundle && loading) {
+    return (
+      <div className="space-y-4 p-4">
+        <Skeleton className="h-16 w-full" />
+        <Skeleton className="h-10 w-full" />
+        <Skeleton className="h-64 w-full" />
+      </div>
+    );
+  }
+
+  // Un fallo transitorio del GET no debe colapsar una propuesta a modo única.
+  if (initialBundleId && !bundle && error) {
+    return (
+      <div className="space-y-3 p-4">
+        <p className="text-[13px] text-status-danger-fg">{error}</p>
+        <Button variant="outline" className="h-10" onClick={() => void refresh()}>
+          Reintentar
+        </Button>
+      </div>
+    );
+  }
 
   // Modo única: sin bundle o con una sola instalación. La cotización que se
   // edita es siempre la de la URL.
@@ -193,11 +236,11 @@ export function QuoteWorkspace({
             ufValue={ufValue}
             saving={saving}
             onPatch={patch}
-            onRefresh={refresh}
+            onRefresh={refreshBundle}
             onOpenInstall={openInstall}
             onAdd={() => openAdd(null)}
             onDuplicate={(qid) => openAdd(qid)}
-            auditRefreshKey={bundle.updatedAt ?? bundle.quotes.length}
+            auditRefreshKey={bundleRevision}
           />
         </>
       ) : (
@@ -213,7 +256,7 @@ export function QuoteWorkspace({
           onEditConditionsAtProposal={() => setTab("consolidated")}
           mobileTabsSlot={<div className="px-2 pb-1.5">{tabs}</div>}
           mobileTotalClpOverride={billing.monthlyClp}
-          onQuoteSaved={() => void refresh()}
+          onQuoteSaved={() => void refreshBundle()}
         />
       )}
 
@@ -252,7 +295,7 @@ export function QuoteWorkspace({
         open={sendOpen}
         onOpenChange={setSendOpen}
         bundle={bundle}
-        onSent={refresh}
+        onSent={refreshBundle}
       />
     </div>
   );

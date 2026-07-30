@@ -450,6 +450,10 @@ export function CpqQuoteDetail({
   const [pdfTemplateSlug, setPdfTemplateSlug] = useState<CpqPdfTemplateSlug>("standard");
   const initialLoadDone = useRef(false);
   const skipAutoSave = useRef(false);
+  /** Guardados pendientes al desmontar (cambio de pestaña / navegación). */
+  const pendingFinancialsSave = useRef(false);
+  const pendingQuoteFormSave = useRef(false);
+  const flushOnUnmountRef = useRef<() => void>(() => {});
   const financialsAutoSaveTimer = useRef<NodeJS.Timeout | undefined>(undefined);
   const quoteFormAutoSaveTimer = useRef<NodeJS.Timeout | undefined>(undefined);
   const formatDateInput = (value?: string | null) => (value ? value.split("T")[0] : "");
@@ -555,7 +559,9 @@ export function CpqQuoteDetail({
   useEffect(() => {
     if (!initialLoadDone.current || skipAutoSave.current || isLocked) return;
     clearTimeout(financialsAutoSaveTimer.current);
+    pendingFinancialsSave.current = true;
     financialsAutoSaveTimer.current = setTimeout(() => {
+      pendingFinancialsSave.current = false;
       handleSaveFinancials();
     }, 2000);
     return () => clearTimeout(financialsAutoSaveTimer.current);
@@ -565,7 +571,9 @@ export function CpqQuoteDetail({
   useEffect(() => {
     if (!initialLoadDone.current || isLocked) return;
     clearTimeout(quoteFormAutoSaveTimer.current);
+    pendingQuoteFormSave.current = true;
     quoteFormAutoSaveTimer.current = setTimeout(() => {
+      pendingQuoteFormSave.current = false;
       saveQuoteBasics();
     }, 2000);
     return () => clearTimeout(quoteFormAutoSaveTimer.current);
@@ -1148,6 +1156,26 @@ export function CpqQuoteDetail({
       setDeleting(false);
     }
   };
+
+  flushOnUnmountRef.current = () => {
+    if (isLocked || !initialLoadDone.current) return;
+    if (pendingFinancialsSave.current) {
+      clearTimeout(financialsAutoSaveTimer.current);
+      pendingFinancialsSave.current = false;
+      void handleSaveFinancials();
+    }
+    if (pendingQuoteFormSave.current) {
+      clearTimeout(quoteFormAutoSaveTimer.current);
+      pendingQuoteFormSave.current = false;
+      void saveQuoteBasics();
+    }
+  };
+  // Al desmontar (cambiar de pestaña en multi, navegar) se vacían los
+  // guardados con debounce en vuelo: antes se cancelaban y los últimos
+  // cambios se perdían sin aviso.
+  useEffect(() => {
+    return () => flushOnUnmountRef.current();
+  }, []);
 
   /** Flush any pending debounced saves so the backend has the latest data */
   const flushPendingSaves = async () => {

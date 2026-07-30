@@ -545,27 +545,42 @@ export async function syncBundleConditions(opts: {
 
   const src = sourceMember.quote;
 
-  // v2: la fuente de verdad pasa a ser el bundle. Persistimos las condiciones
-  // de la cotización fuente en el bundle y delegamos en la propagación
-  // estándar (bundle → todas las hijas, con recálculo).
+  // v2: la fuente de verdad pasa a ser el bundle. Persistimos en él las
+  // condiciones y el financiero de la cotización fuente y delegamos en la
+  // propagación estándar. La fuente queda FUERA del destino: es la que define
+  // los valores, no debe recibir el financiero que el bundle traía de antes.
+  const sourceParams = await prisma.cpqQuoteParameters.findUnique({
+    where: { quoteId: sourceMember.quoteId },
+    select: { financialEnabled: true, financialRatePct: true },
+  });
   const bundleData: Record<string, unknown> = {};
   for (const field of SYNCABLE_CONDITION_FIELDS) {
     bundleData[field] = src[field];
+  }
+  if (sourceParams) {
+    bundleData.financialEnabled = sourceParams.financialEnabled;
+    bundleData.financialRatePct = sourceParams.financialRatePct;
   }
   await prisma.cpqProposalBundle.update({
     where: { id: bundle.id },
     data: bundleData,
   });
 
-  await propagateBundleConditions({
-    tenantId: opts.tenantId,
-    bundleId: opts.bundleId,
-  });
+  const targetIds = members
+    .filter((m) => m.quoteId !== sourceMember.quoteId)
+    .map((m) => m.quoteId);
+  if (targetIds.length > 0) {
+    await propagateBundleConditions({
+      tenantId: opts.tenantId,
+      bundleId: opts.bundleId,
+      quoteIds: targetIds,
+    });
+  }
 
   return {
     ok: true,
     sourceQuoteId: sourceMember.quoteId,
-    updatedCount: members.length - 1,
+    updatedCount: targetIds.length,
     currency: src.currency,
   };
 }

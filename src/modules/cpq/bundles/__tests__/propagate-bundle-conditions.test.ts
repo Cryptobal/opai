@@ -145,9 +145,12 @@ describe("propagateBundleConditions", () => {
         }),
       }),
     );
-    // ipcWeight/imoWeight null en el bundle → no se tocan en las hijas
+    // El reajuste viaja como grupo: con IPC puro, los pesos del polinomio se
+    // limpian explícitamente en las hijas.
     const data = mocks.quoteUpdateMany.mock.calls[0][0].data;
-    expect("ipcWeight" in data).toBe(false);
+    expect(data.adjustmentFreq).toBe("ANUAL");
+    expect(data.ipcWeight).toBeNull();
+    expect(data.imoWeight).toBeNull();
     expect(mocks.paramsUpsert).toHaveBeenCalledTimes(2);
     expect(mocks.paramsUpsert).toHaveBeenCalledWith({
       where: { quoteId: "q1" },
@@ -170,6 +173,46 @@ describe("propagateBundleConditions", () => {
       }),
     );
     expect(mocks.refreshQuoteTotals).toHaveBeenCalledTimes(1);
+  });
+
+  it("limpiar la frecuencia con reajuste activo SÍ llega a las hijas", async () => {
+    mocks.bundleFindFirst.mockResolvedValue({
+      ...baseBundle,
+      adjustmentType: "IPC",
+      adjustmentFreq: null,
+    });
+    await propagateBundleConditions({ tenantId: "t1", bundleId: "b1" });
+    const data = mocks.quoteUpdateMany.mock.calls[0][0].data;
+    expect(data.adjustmentFreq).toBeNull();
+  });
+
+  it("polinomio propaga sus pesos; sin gobernar el tipo no toca el grupo", async () => {
+    mocks.bundleFindFirst.mockResolvedValue({
+      ...baseBundle,
+      adjustmentType: "POLYNOMIAL",
+      adjustmentFreq: "SEMESTRAL",
+      ipcWeight: 60,
+      imoWeight: 40,
+    });
+    await propagateBundleConditions({ tenantId: "t1", bundleId: "b1" });
+    expect(mocks.quoteUpdateMany.mock.calls[0][0].data).toMatchObject({
+      adjustmentType: "POLYNOMIAL",
+      adjustmentFreq: "SEMESTRAL",
+      ipcWeight: 60,
+      imoWeight: 40,
+    });
+
+    vi.clearAllMocks();
+    mocks.memberFindMany.mockResolvedValue([{ quoteId: "q1" }]);
+    mocks.bundleFindFirst.mockResolvedValue({
+      ...baseBundle,
+      adjustmentType: null,
+      adjustmentFreq: null,
+    });
+    await propagateBundleConditions({ tenantId: "t1", bundleId: "b1" });
+    const data = mocks.quoteUpdateMany.mock.calls[0][0].data;
+    expect("adjustmentType" in data).toBe(false);
+    expect("adjustmentFreq" in data).toBe(false);
   });
 
   it("bundle sin campos gobernados → no escribe ni recalcula", async () => {
