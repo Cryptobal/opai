@@ -63,11 +63,11 @@ export function AgendaListView({
   if (error) {
     return (
       <div className="px-3 py-10 text-center">
-        <p className="text-[13px] text-ds-text-3">No pudimos cargar tu agenda.</p>
+        <p className="text-ds-body text-ds-text-3">No pudimos cargar tu agenda.</p>
         <button
           type="button"
           onClick={onRetry}
-          className="mt-3 h-11 rounded-xl bg-primary px-4 text-[13px] font-semibold text-primary-foreground ds-tap"
+          className="mt-3 h-11 rounded-xl bg-primary px-4 text-ds-body font-semibold text-primary-foreground ds-tap"
         >
           Reintentar
         </button>
@@ -102,11 +102,11 @@ export function AgendaListView({
             </div>
             {dayItems.length === 0 ? (
               <div className="flex items-center justify-between rounded-[18px] border border-dashed border-ds-border-default px-3 py-2.5">
-                <span className="text-[13px] text-ds-text-4">Día libre</span>
+                <span className="text-ds-body text-ds-text-4">Día libre</span>
                 <button
                   type="button"
                   onClick={() => onCreateAt(ymd)}
-                  className="inline-flex h-9 items-center gap-1 rounded-lg px-2 text-[13px] font-medium text-primary ds-tap"
+                  className="inline-flex h-9 items-center gap-1 rounded-lg px-2 text-ds-body font-medium text-primary ds-tap"
                 >
                   <Plus className="h-3.5 w-3.5" /> Agendar aquí
                 </button>

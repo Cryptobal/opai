@@ -104,7 +104,7 @@ export function ComposerModeSwitcher({
                   if (id !== mode) onChange(id);
                 }}
                 className={cn(
-                  "flex min-h-11 w-full items-center gap-2 px-3 text-left text-[13px] ds-tap sm:min-h-9",
+                  "flex min-h-11 w-full items-center gap-2 px-3 text-left text-ds-body ds-tap sm:min-h-9",
                   active
                     ? "bg-ds-surface-2 font-medium text-ds-text-1"
                     : "text-ds-text-1 hover:bg-ds-surface-2",

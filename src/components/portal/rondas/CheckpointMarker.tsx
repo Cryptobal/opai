@@ -828,7 +828,7 @@ export function CheckpointMarker({
                 />
                 {flashPendingValidation && (
                   <div className="pointer-events-none absolute inset-0 z-[51] flex items-center justify-center px-3">
-                    <p className="rounded-lg bg-status-warn-soft px-3 py-2 text-center text-[13px] font-medium leading-snug text-status-warn-fg">
+                    <p className="rounded-lg bg-status-warn-soft px-3 py-2 text-center text-ds-body font-medium leading-snug text-status-warn-fg">
                       Marcado — pendiente de validación
                     </p>
                   </div>
@@ -928,7 +928,7 @@ export function CheckpointMarker({
 
               {needsConfirmOutside && gpsStatus === "success" && distanceM != null && (
                 <div className="rounded-xl border border-status-warn-border bg-status-warn-soft/40 p-3 space-y-2">
-                  <p className="text-[13px] leading-snug text-status-warn-fg">
+                  <p className="text-ds-body leading-snug text-status-warn-fg">
                     Estás a {Math.round(distanceM)}m — radio {checkpoint.geoRadiusM}
                     m (efectivo ~{Math.round(effectiveRadiusM)}m). Tu señal GPS es{" "}
                     {geoConfidence === "low" ? "débil" : "imprecisa"}. La marca quedará registrada
@@ -941,7 +941,7 @@ export function CheckpointMarker({
                       onChange={(e) => setConfirmArrivedAtPoint(e.target.checked)}
                       className="mt-0.5 h-5 w-5 shrink-0 rounded accent-amber-500"
                     />
-                    <span className="text-[13px] text-foreground">
+                    <span className="text-ds-body text-foreground">
                       Confirmo que estoy en el punto
                     </span>
                   </label>
@@ -1010,7 +1010,7 @@ export function CheckpointMarker({
               />
               {flashPendingValidation && (
                 <div className="pointer-events-none absolute inset-0 z-[51] flex items-center justify-center px-3">
-                  <p className="rounded-lg bg-status-warn-soft px-3 py-2 text-center text-[13px] font-medium leading-snug text-status-warn-fg">
+                  <p className="rounded-lg bg-status-warn-soft px-3 py-2 text-center text-ds-body font-medium leading-snug text-status-warn-fg">
                     Marcado — pendiente de validación
                   </p>
                 </div>
@@ -1422,7 +1422,7 @@ export function CheckpointMarker({
 
             {needsConfirmOutside && gpsStatus === "success" && distanceM != null && (
               <div className="mb-3 rounded-xl border border-status-warn-border bg-status-warn-soft/40 p-3 space-y-2">
-                <p className="text-[13px] leading-snug text-status-warn-fg">
+                <p className="text-ds-body leading-snug text-status-warn-fg">
                   Estás a {Math.round(distanceM)}m — radio {checkpoint.geoRadiusM}
                   m (efectivo ~{Math.round(effectiveRadiusM)}m). Tu señal GPS es{" "}
                   {geoConfidence === "low" ? "débil" : "imprecisa"}. La marca quedará registrada
@@ -1435,7 +1435,7 @@ export function CheckpointMarker({
                     onChange={(e) => setConfirmArrivedAtPoint(e.target.checked)}
                     className="mt-0.5 h-5 w-5 shrink-0 rounded accent-amber-500"
                   />
-                  <span className="text-[13px] text-foreground">Confirmo que estoy en el punto</span>
+                  <span className="text-ds-body text-foreground">Confirmo que estoy en el punto</span>
                 </label>
               </div>
             )}

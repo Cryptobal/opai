@@ -831,7 +831,7 @@ function DetailView({
                 <span className="text-muted-foreground text-[12px] block">
                   Saldo banco
                 </span>
-                <span className="font-mono font-medium tabular-nums text-[13px] sm:text-sm">
+                <span className="font-mono font-medium tabular-nums text-ds-body sm:text-sm">
                   {fmtCLP.format(detail.bankBalance)}
                 </span>
               </div>
@@ -839,7 +839,7 @@ function DetailView({
                 <span className="text-muted-foreground text-[12px] block">
                   Saldo libro
                 </span>
-                <span className="font-mono font-medium tabular-nums text-[13px] sm:text-sm">
+                <span className="font-mono font-medium tabular-nums text-ds-body sm:text-sm">
                   {fmtCLP.format(detail.bookBalance)}
                 </span>
               </div>
@@ -849,7 +849,7 @@ function DetailView({
                 </span>
                 <span
                   className={cn(
-                    "font-mono font-medium tabular-nums text-[13px] sm:text-sm",
+                    "font-mono font-medium tabular-nums text-ds-body sm:text-sm",
                     detail.difference !== 0 && "text-status-warn-fg"
                   )}
                 >

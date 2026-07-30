@@ -144,7 +144,7 @@ export function AgendaHubCard({
             <div className="min-w-0">
               <p className="mb-1 text-[12px] uppercase tracking-wide text-ds-text-4">Hoy</p>
               {todayItems.length === 0 ? (
-                <p className="text-[13px] text-ds-text-3">Sin visitas hoy</p>
+                <p className="text-ds-body text-ds-text-3">Sin visitas hoy</p>
               ) : (
                 <ul className="space-y-1">
                   {todayItems.map((i) => {
@@ -154,7 +154,7 @@ export function AgendaHubCard({
                         <li key={`tarea-${i.id}`} className="min-w-0">
                           <Link
                             href={href}
-                            className="flex items-center justify-between gap-2 rounded-lg border border-primary/30 bg-primary/10 px-2 py-1.5 text-[13px] text-ds-text-1 ds-tap"
+                            className="flex items-center justify-between gap-2 rounded-lg border border-primary/30 bg-primary/10 px-2 py-1.5 text-ds-body text-ds-text-1 ds-tap"
                           >
                             <span className="min-w-0 truncate">
                               ✓ {i.allDay ? i.title : `${hhmm(i.start)} · ${i.title}`}
@@ -169,7 +169,7 @@ export function AgendaHubCard({
                         <li key={`google-${i.id}`} className="min-w-0">
                           <Link
                             href={href}
-                            className="flex items-center justify-between gap-2 rounded-lg bg-ds-surface-3 px-2 py-1.5 text-[13px] text-ds-text-2 ds-tap"
+                            className="flex items-center justify-between gap-2 rounded-lg bg-ds-surface-3 px-2 py-1.5 text-ds-body text-ds-text-2 ds-tap"
                           >
                             <span className="min-w-0 truncate">
                               {i.allDay ? i.title : `${hhmm(i.start)} · ${i.title}`}
@@ -188,7 +188,7 @@ export function AgendaHubCard({
                       <li key={`${i.type}-${i.id}`} className="min-w-0">
                         <Link
                           href={href}
-                          className={`flex min-w-0 items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-[13px] ds-tap ${
+                          className={`flex min-w-0 items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-ds-body ds-tap ${
                             i.allDay ? "bg-tint-violet/60" : "bg-ds-surface-2"
                           }`}
                         >

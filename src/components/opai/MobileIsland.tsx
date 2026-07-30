@@ -252,7 +252,7 @@ export function MobileIsland({
               autoComplete="off"
               autoCorrect="off"
               className={cn(
-                "min-w-0 flex-1 bg-transparent text-[13px] text-ds-text-1 placeholder:text-ds-text-4",
+                "min-w-0 flex-1 bg-transparent text-ds-body text-ds-text-1 placeholder:text-ds-text-4",
                 "outline-none border-0 focus:ring-0",
               )}
               aria-label={usingModuleSearch ? fieldPlaceholder : "Buscar en OPAI"}
@@ -327,7 +327,7 @@ export function MobileIsland({
               {islandAction.href ? (
                 <Link
                   href={islandAction.href}
-                  className="inline-flex h-10 items-center gap-1.5 rounded-full bg-primary px-3.5 text-[13px] font-semibold text-primary-foreground active:scale-95"
+                  className="inline-flex h-10 items-center gap-1.5 rounded-full bg-primary px-3.5 text-ds-body font-semibold text-primary-foreground active:scale-95"
                 >
                   {islandAction.icon && <islandAction.icon className="h-4 w-4" />}
                   <span className="truncate max-w-[8rem]">{islandAction.label}</span>
@@ -336,7 +336,7 @@ export function MobileIsland({
                 <button
                   type="button"
                   onClick={islandAction.onClick}
-                  className="inline-flex h-10 items-center gap-1.5 rounded-full bg-primary px-3.5 text-[13px] font-semibold text-primary-foreground active:scale-95"
+                  className="inline-flex h-10 items-center gap-1.5 rounded-full bg-primary px-3.5 text-ds-body font-semibold text-primary-foreground active:scale-95"
                 >
                   {islandAction.icon && <islandAction.icon className="h-4 w-4" />}
                   <span className="truncate max-w-[8rem]">{islandAction.label}</span>

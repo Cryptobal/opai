@@ -37,7 +37,7 @@ export function AgendaMiniCalendar({ anchor, visibleDays, onSelectDate }: Props)
   return (
     <div className="space-y-1.5">
       <div className="flex items-center justify-between px-1">
-        <p className="text-[13px] font-semibold capitalize text-ds-text-1">{monthLabel}</p>
+        <p className="text-ds-body font-semibold capitalize text-ds-text-1">{monthLabel}</p>
         <div className="flex items-center">
           <button
             type="button"

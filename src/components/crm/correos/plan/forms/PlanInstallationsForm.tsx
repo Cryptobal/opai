@@ -42,7 +42,7 @@ export function PlanInstallationsForm({ installations, onChange }: Props) {
   return (
     <div className="space-y-3">
       {installations.length === 0 && (
-        <p className="text-[13px] text-ds-text-3">Sin instalaciones.</p>
+        <p className="text-ds-body text-ds-text-3">Sin instalaciones.</p>
       )}
       {installations.map((inst, i) => (
         <div
@@ -93,7 +93,7 @@ export function PlanInstallationsForm({ installations, onChange }: Props) {
       <button
         type="button"
         onClick={add}
-        className="flex h-10 items-center gap-1.5 rounded-lg border border-dashed border-ds-border-default px-3 text-[13px] text-ds-text-3 ds-tap hover:border-primary hover:text-primary sm:h-9"
+        className="flex h-10 items-center gap-1.5 rounded-lg border border-dashed border-ds-border-default px-3 text-ds-body text-ds-text-3 ds-tap hover:border-primary hover:text-primary sm:h-9"
       >
         <Plus className="h-4 w-4" /> Agregar instalación
       </button>
@@ -121,7 +121,7 @@ function SmallField({
         id={id}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="h-10 text-[13px] sm:h-9"
+        className="h-10 text-ds-body sm:h-9"
       />
     </div>
   );

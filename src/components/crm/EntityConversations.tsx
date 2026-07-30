@@ -160,16 +160,16 @@ export function EntityConversations({
       </div>
 
       {error === "forbidden" ? (
-        <p className="text-[13px] text-status-warn-fg">Sin permiso para ver estas conversaciones.</p>
+        <p className="text-ds-body text-status-warn-fg">Sin permiso para ver estas conversaciones.</p>
       ) : error === "load" ? (
-        <p className="text-[13px] text-status-danger-fg">No se pudieron cargar las conversaciones.</p>
+        <p className="text-ds-body text-status-danger-fg">No se pudieron cargar las conversaciones.</p>
       ) : rows === null ? (
         <div className="space-y-2">
           <Skeleton className="h-10 w-full" />
           <Skeleton className="h-10 w-full" />
         </div>
       ) : rows.length === 0 ? (
-        <div className="flex flex-col gap-2 rounded-xl border border-ds-border-subtle bg-ds-surface-1 px-3 py-4 text-[13px] text-ds-text-4">
+        <div className="flex flex-col gap-2 rounded-xl border border-ds-border-subtle bg-ds-surface-1 px-3 py-4 text-ds-body text-ds-text-4">
           <div className="flex items-center gap-2">
             <MailX className="h-4 w-4 shrink-0" />
             {cascade
@@ -196,7 +196,7 @@ export function EntityConversations({
                 className="flex w-full flex-col gap-0.5 rounded-xl border border-ds-border-subtle bg-ds-surface-1 px-3 py-2 text-left ds-tap"
               >
                 <span className="flex items-center gap-2">
-                  <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-ds-text-1">
+                  <span className="min-w-0 flex-1 truncate text-ds-body font-medium text-ds-text-1">
                     {t.subject || "(sin asunto)"}
                   </span>
                   {t.origin === "inherited" && (

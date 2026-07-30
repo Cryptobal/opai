@@ -75,17 +75,17 @@ export function BucketBankDrawer({ open, onOpenChange, bucketKey, granularity }:
         </SheetHeader>
 
         {loading && (
-          <div className="flex items-center gap-2 mt-4 text-[13px] text-ds-text-3">
+          <div className="flex items-center gap-2 mt-4 text-ds-body text-ds-text-3">
             <Loader2 className="h-3.5 w-3.5 animate-spin" /> Cargando...
           </div>
         )}
 
         {error && (
-          <p className="mt-4 text-[13px] text-status-warn-fg">{error}</p>
+          <p className="mt-4 text-ds-body text-status-warn-fg">{error}</p>
         )}
 
         {!loading && txs && txs.length === 0 && (
-          <p className="mt-4 text-[13px] text-ds-text-3">
+          <p className="mt-4 text-ds-body text-ds-text-3">
             No hay movimientos bancarios en este bucket.
           </p>
         )}
@@ -120,7 +120,7 @@ export function BucketBankDrawer({ open, onOpenChange, bucketKey, granularity }:
                     className="flex items-start justify-between gap-2 p-2 rounded-ds-sm bg-muted/20"
                   >
                     <div className="min-w-0">
-                      <p className="text-[13px] truncate" title={tx.description}>
+                      <p className="text-ds-body truncate" title={tx.description}>
                         {tx.description}
                       </p>
                       <p className="text-[11px] font-mono uppercase tracking-[0.08em] text-ds-text-4">
@@ -128,7 +128,7 @@ export function BucketBankDrawer({ open, onOpenChange, bucketKey, granularity }:
                         {tx.reconciliationStatus}
                       </p>
                     </div>
-                    <p className={`font-mono text-[13px] shrink-0 ${tone}`}>
+                    <p className={`font-mono text-ds-body shrink-0 ${tone}`}>
                       {isCredit ? "+" : "−"}
                       {fmt.format(Math.abs(tx.amount))}
                     </p>

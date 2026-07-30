@@ -175,7 +175,7 @@ export function SignaturePanel({
               La firma se anexa al enviar. No la escribas en el prompt de IA.
             </p>
             <button type="button" onClick={startCreate}
-              className="inline-flex h-11 items-center gap-1.5 rounded-xl bg-primary px-3 text-[13px] font-medium text-primary-foreground ds-tap sm:h-10">
+              className="inline-flex h-11 items-center gap-1.5 rounded-xl bg-primary px-3 text-ds-body font-medium text-primary-foreground ds-tap sm:h-10">
               <Plus className="h-4 w-4" /> Nueva
             </button>
           </div>
@@ -193,7 +193,7 @@ export function SignaturePanel({
       ) : (
         <>
           <div className="flex min-h-11 items-center justify-between gap-3 rounded-xl border border-ds-border-subtle bg-ds-surface-2 px-3">
-            <label htmlFor="sig-scope-personal" className="min-w-0 flex-1 text-[13px] text-ds-text-2">
+            <label htmlFor="sig-scope-personal" className="min-w-0 flex-1 text-ds-body text-ds-text-2">
               Firma personal (si no, de empresa)
             </label>
             <input
@@ -224,11 +224,11 @@ export function SignaturePanel({
               value={name}
               disabled={legacyReadOnly}
               onChange={(e) => setName(e.target.value)}
-              className="h-11 w-full rounded-xl border border-ds-border-default bg-ds-surface-1 px-3 text-[13px] sm:h-10"
+              className="h-11 w-full rounded-xl border border-ds-border-default bg-ds-surface-1 px-3 text-ds-body sm:h-10"
             />
           </label>
 
-          <label className="flex min-h-11 items-center gap-2 text-[13px] text-ds-text-2">
+          <label className="flex min-h-11 items-center gap-2 text-ds-body text-ds-text-2">
             <input type="checkbox" checked={isDefault} disabled={legacyReadOnly}
               onChange={(e) => setIsDefault(e.target.checked)}
               className="h-5 w-5 accent-primary" />
@@ -247,7 +247,7 @@ export function SignaturePanel({
           <div className="flex flex-wrap gap-2 pt-1">
             {!legacyReadOnly && !scopeDisabled && (
               <button type="button" disabled={saving} onClick={() => void save()}
-                className="inline-flex h-11 flex-1 items-center justify-center rounded-xl bg-primary px-4 text-[13px] font-medium text-primary-foreground ds-tap disabled:opacity-50 sm:h-10">
+                className="inline-flex h-11 flex-1 items-center justify-center rounded-xl bg-primary px-4 text-ds-body font-medium text-primary-foreground ds-tap disabled:opacity-50 sm:h-10">
                 {saving ? "Guardando…" : "Guardar firma"}
               </button>
             )}
@@ -257,12 +257,12 @@ export function SignaturePanel({
                   const row = rows.find((r) => r.id === editingId);
                   if (row) convertLegacy(row);
                 }}
-                className="inline-flex h-11 items-center justify-center rounded-xl border border-ds-border-default px-3 text-[13px] ds-tap sm:h-10">
+                className="inline-flex h-11 items-center justify-center rounded-xl border border-ds-border-default px-3 text-ds-body ds-tap sm:h-10">
                 Convertir a campos
               </button>
             )}
             <button type="button" onClick={() => setShowEditor(false)}
-              className="inline-flex h-11 items-center justify-center rounded-xl border border-ds-border-default px-3 text-[13px] text-ds-text-2 ds-tap sm:h-10">
+              className="inline-flex h-11 items-center justify-center rounded-xl border border-ds-border-default px-3 text-ds-body text-ds-text-2 ds-tap sm:h-10">
               Volver
             </button>
           </div>

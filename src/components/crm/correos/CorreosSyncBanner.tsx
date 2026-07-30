@@ -26,7 +26,7 @@ export function CorreosSyncBanner({
         onConnected={onConnected}
       />
       {syncParked && (
-        <div className="rounded-xl border border-status-warn-border bg-status-warn-soft px-3 py-2.5 text-[13px] text-status-warn-fg">
+        <div className="rounded-xl border border-status-warn-border bg-status-warn-soft px-3 py-2.5 text-ds-body text-status-warn-fg">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <span>
               La sincronización de esta casilla está pausada por errores
@@ -48,7 +48,7 @@ export function CorreosSyncBanner({
         </div>
       )}
       {backfillDone === false && (
-        <div className="rounded-xl border border-status-info-border bg-status-info-soft px-3 py-2.5 text-[13px] text-status-info-fg">
+        <div className="rounded-xl border border-status-info-border bg-status-info-soft px-3 py-2.5 text-ds-body text-status-info-fg">
           Importación inicial en progreso ({totalThreads} hilos). Recibidos ya
           refleja tu bandeja de Gmail; el histórico se guarda en Archivados.
         </div>

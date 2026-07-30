@@ -95,7 +95,7 @@ export function AgendaMonthView({
                 !inMonth && !selected && "opacity-40",
               )}
             >
-              <span className="font-mono text-[13px] leading-none">{Number(ymd.slice(8))}</span>
+              <span className="font-mono text-ds-body leading-none">{Number(ymd.slice(8))}</span>
               <span className="flex h-1 items-center gap-0.5">
                 {dots.map((item, i) => (
                   <span
@@ -121,7 +121,7 @@ export function AgendaMonthView({
           </span>
         </p>
         {dayItems.length === 0 ? (
-          <p className="py-3 text-center text-[13px] text-ds-text-4">Día libre</p>
+          <p className="py-3 text-center text-ds-body text-ds-text-4">Día libre</p>
         ) : (
           <div className="space-y-2">
             {dayItems.map((item) => (

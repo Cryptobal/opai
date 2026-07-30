@@ -42,7 +42,7 @@ export function MoveConflictDialog({
         <div className="flex items-start gap-2 px-1">
           <AlertCircle className="h-5 w-5 text-status-warn-fg shrink-0 mt-0.5" />
           <div>
-            <p className="text-[13px] font-semibold text-ds-text-1">
+            <p className="text-ds-body font-semibold text-ds-text-1">
               Esa fecha tiene una factura o cuota conciliada
             </p>
             <p className="text-[12px] text-ds-text-3 mt-0.5">
@@ -54,7 +54,7 @@ export function MoveConflictDialog({
         <Button
           variant="outline"
           onClick={onCancel}
-          className="w-full h-11 sm:h-10 text-[13px]"
+          className="w-full h-11 sm:h-10 text-ds-body"
         >
           Entendido
         </Button>
@@ -67,7 +67,7 @@ export function MoveConflictDialog({
       <div className="flex items-start gap-2 px-1">
         <AlertCircle className="h-5 w-5 text-status-warn-fg shrink-0 mt-0.5" />
         <div>
-          <p className="text-[13px] font-semibold text-ds-text-1">
+          <p className="text-ds-body font-semibold text-ds-text-1">
             Hay otra cuota en {conflict.targetDateLabel}
           </p>
           <p className="text-[12px] text-ds-text-3 mt-0.5">
@@ -80,7 +80,7 @@ export function MoveConflictDialog({
           variant="outline"
           onClick={() => onResolve("replace")}
           disabled={busy}
-          className="w-full h-11 sm:h-10 text-[13px] justify-start"
+          className="w-full h-11 sm:h-10 text-ds-body justify-start"
         >
           Reemplazar la otra cuota
         </Button>
@@ -88,7 +88,7 @@ export function MoveConflictDialog({
           variant="outline"
           onClick={() => onResolve("next_free")}
           disabled={busy}
-          className="w-full h-11 sm:h-10 text-[13px] justify-start"
+          className="w-full h-11 sm:h-10 text-ds-body justify-start"
         >
           Mover a {conflict.suggestedFreeDateLabel}
         </Button>
@@ -96,13 +96,13 @@ export function MoveConflictDialog({
           variant="ghost"
           onClick={onCancel}
           disabled={busy}
-          className="w-full h-11 sm:h-10 text-[13px]"
+          className="w-full h-11 sm:h-10 text-ds-body"
         >
           Cancelar
         </Button>
       </div>
       {busy && (
-        <div className="flex items-center justify-center gap-2 text-[13px] text-ds-text-3">
+        <div className="flex items-center justify-center gap-2 text-ds-body text-ds-text-3">
           <Loader2 className="h-4 w-4 animate-spin" /> Aplicando…
         </div>
       )}

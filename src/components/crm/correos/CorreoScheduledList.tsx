@@ -92,7 +92,7 @@ export function CorreoScheduledList({ refreshToken }: { refreshToken?: number })
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2">
                 <Tag variant={status.variant} size="sm">{status.label}</Tag>
-                <p className="truncate text-[13px] font-medium text-ds-text-1">
+                <p className="truncate text-ds-body font-medium text-ds-text-1">
                   {item.subject || "(Sin asunto)"}
                 </p>
               </div>

@@ -47,7 +47,7 @@ export function FacturaTimingSection({
   return (
     <div className="rounded-md border border-status-info-border bg-status-info-soft p-3 space-y-3">
       <div className="space-y-1">
-        <p className="text-[13px] font-medium text-status-info-fg">
+        <p className="text-ds-body font-medium text-status-info-fg">
           ¿Cuándo se emite la factura real?
         </p>
         <p className="text-[12px] text-status-info-fg/80">
@@ -64,7 +64,7 @@ export function FacturaTimingSection({
           aria-pressed={!isEspecifico}
           className={cn(CARD, !isEspecifico ? CARD_ON : CARD_OFF)}
         >
-          <span className="block text-[13px] font-medium text-ds-text-1">
+          <span className="block text-ds-body font-medium text-ds-text-1">
             El mismo día de la programación
           </span>
           <span className="block text-[12px] text-ds-text-3 mt-0.5">
@@ -81,7 +81,7 @@ export function FacturaTimingSection({
             aria-pressed={isEspecifico}
             className={cn(CARD, isEspecifico ? CARD_ON : CARD_OFF)}
           >
-            <span className="block text-[13px] font-medium text-ds-text-1">
+            <span className="block text-ds-body font-medium text-ds-text-1">
               Un día específico, después de la programación
             </span>
             <span className="block text-[12px] text-ds-text-3 mt-0.5">

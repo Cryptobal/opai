@@ -62,7 +62,7 @@ export function ShiftRowSummary({
       </span>
 
       <div className="min-w-0 flex-1">
-        <div className="truncate text-[13px] font-medium text-foreground">{customName || puestoName}</div>
+        <div className="truncate text-ds-body font-medium text-foreground">{customName || puestoName}</div>
         {customName && (
           <div className="truncate text-[11px] text-muted-foreground">{puestoName}</div>
         )}

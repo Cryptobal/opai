@@ -137,7 +137,7 @@ export function CashflowMobileBucketSummary({
               Neto
             </span>
             <span
-              className={`text-[13px] font-mono font-semibold tabular-nums ${netToneCls}`}
+              className={`text-ds-body font-mono font-semibold tabular-nums ${netToneCls}`}
             >
               {fmt.format(bucket.net)}
             </span>
@@ -223,14 +223,14 @@ function SummaryRow({
           onClick={onClick}
           title={clickTitle}
           aria-label={clickTitle ?? label}
-          className={`inline-flex items-center gap-1.5 text-[13px] font-mono font-semibold tabular-nums underline underline-offset-2 decoration-dotted decoration-primary/60 active:opacity-70 cursor-pointer ${toneCls}`}
+          className={`inline-flex items-center gap-1.5 text-ds-body font-mono font-semibold tabular-nums underline underline-offset-2 decoration-dotted decoration-primary/60 active:opacity-70 cursor-pointer ${toneCls}`}
         >
           <Pencil className="h-3 w-3 opacity-70" aria-hidden="true" />
           {value}
         </button>
       ) : (
         <span
-          className={`text-[13px] font-mono font-semibold tabular-nums ${toneCls}`}
+          className={`text-ds-body font-mono font-semibold tabular-nums ${toneCls}`}
         >
           {value}
         </span>

@@ -242,7 +242,7 @@ export default function OnboardingSection({
             <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80 mb-1">
               Enviado
             </p>
-            <p className="text-[13px]">
+            <p className="text-ds-body">
               {data.emailEnviado ? (
                 <span className="flex items-center gap-1.5">
                   <Check className="h-3.5 w-3.5 text-status-ok-fg" />
@@ -257,7 +257,7 @@ export default function OnboardingSection({
             <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80 mb-1">
               Abierto
             </p>
-            <p className="text-[13px]">
+            <p className="text-ds-body">
               {data.emailAbierto ? (
                 <span className="flex items-center gap-1.5">
                   <MailOpen className="h-3.5 w-3.5 text-status-ok-fg" />

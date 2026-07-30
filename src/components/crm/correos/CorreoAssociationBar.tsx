@@ -124,7 +124,7 @@ export function CorreoAssociationBar({
         <div className="min-w-0 flex-1">
           <span className="text-[12px] text-ds-text-3">Asociación</span>
           <p
-            className="truncate text-[13px] font-medium text-ds-text-1"
+            className="truncate text-ds-body font-medium text-ds-text-1"
             title={accountName || "Sin cuenta"}
           >
             {accountName || "Sin cuenta"}
@@ -158,7 +158,7 @@ export function CorreoAssociationBar({
             <EyeOff className="mt-0.5 h-4 w-4 shrink-0 text-ds-text-4" />
           )}
           <span className="min-w-0 flex-1">
-            <span className="block text-[13px] font-medium text-ds-text-1">
+            <span className="block text-ds-body font-medium text-ds-text-1">
               {sharedWithAccount
                 ? "Visible en la ficha de la cuenta"
                 : "Privado (no visible en la ficha)"}

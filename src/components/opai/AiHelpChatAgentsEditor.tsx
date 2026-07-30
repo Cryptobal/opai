@@ -84,7 +84,7 @@ export function AiHelpChatAgentsEditor({ agents, onChange }: Props) {
                     instructions: e.target.value.slice(0, MAX_INSTRUCTIONS),
                   })
                 }
-                className="min-h-[100px] text-[13px] border-ds-border-default bg-ds-surface-1"
+                className="min-h-[100px] text-ds-body border-ds-border-default bg-ds-surface-1"
                 disabled={!profile.enabled}
               />
               <p className="text-right text-[12px] font-mono text-ds-text-4">

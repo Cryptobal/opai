@@ -128,7 +128,7 @@ export default async function AuditoriaProductividadPage({ searchParams }: PageP
         <h1 className="font-display text-lg font-semibold tracking-tight text-ds-text-1 sm:text-xl">
           Auditoría de Productividad
         </h1>
-        <p className="mt-0.5 text-[13px] text-ds-text-3">
+        <p className="mt-0.5 text-ds-body text-ds-text-3">
           Historial de creación, cambios y eliminaciones de tareas, agenda y correos.
         </p>
       </header>
@@ -139,12 +139,12 @@ export default async function AuditoriaProductividadPage({ searchParams }: PageP
             name="q"
             defaultValue={q}
             placeholder="Buscar por usuario, acción o ID"
-            className="h-10 rounded-xl border border-ds-border-default bg-ds-surface-1 px-3 text-[13px] sm:h-9"
+            className="h-10 rounded-xl border border-ds-border-default bg-ds-surface-1 px-3 text-ds-body sm:h-9"
           />
           <select
             name="domain"
             defaultValue={domain}
-            className="h-10 rounded-xl border border-ds-border-default bg-ds-surface-1 px-3 text-[13px] sm:h-9"
+            className="h-10 rounded-xl border border-ds-border-default bg-ds-surface-1 px-3 text-ds-body sm:h-9"
           >
             {DOMAIN_OPTIONS.map((opt) => (
               <option key={opt.value || "all"} value={opt.value}>
@@ -155,7 +155,7 @@ export default async function AuditoriaProductividadPage({ searchParams }: PageP
           <select
             name="action"
             defaultValue={action}
-            className="h-10 rounded-xl border border-ds-border-default bg-ds-surface-1 px-3 text-[13px] sm:h-9"
+            className="h-10 rounded-xl border border-ds-border-default bg-ds-surface-1 px-3 text-ds-body sm:h-9"
           >
             <option value="">Todas las acciones</option>
             {actions.map((item) => (
@@ -166,7 +166,7 @@ export default async function AuditoriaProductividadPage({ searchParams }: PageP
           </select>
           <button
             type="submit"
-            className="h-10 rounded-xl bg-primary px-4 text-[13px] font-medium text-primary-foreground sm:h-9"
+            className="h-10 rounded-xl bg-primary px-4 text-ds-body font-medium text-primary-foreground sm:h-9"
           >
             Filtrar
           </button>

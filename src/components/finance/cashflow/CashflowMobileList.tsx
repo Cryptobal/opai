@@ -233,7 +233,7 @@ export function CashflowMobileList({
           <button
             type="button"
             onClick={() => setGranularity("monthly")}
-            className={`flex-1 h-10 text-[13px] rounded-ds-sm transition-colors ${
+            className={`flex-1 h-10 text-ds-body rounded-ds-sm transition-colors ${
               granularity === "monthly"
                 ? "bg-card font-semibold text-ds-text-1 shadow-sm"
                 : "text-ds-text-3"
@@ -245,7 +245,7 @@ export function CashflowMobileList({
           <button
             type="button"
             onClick={() => setGranularity("weekly")}
-            className={`flex-1 h-10 text-[13px] rounded-ds-sm transition-colors ${
+            className={`flex-1 h-10 text-ds-body rounded-ds-sm transition-colors ${
               granularity === "weekly"
                 ? "bg-card font-semibold text-ds-text-1 shadow-sm"
                 : "text-ds-text-3"

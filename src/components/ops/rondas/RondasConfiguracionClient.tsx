@@ -301,7 +301,7 @@ export function RondasConfiguracionClient({
                     {stepDone ? "✓" : i + 1}
                   </span>
                   <div className="flex flex-col items-center sm:items-start">
-                    <span className="text-[13px] font-semibold">{step.label}</span>
+                    <span className="text-ds-body font-semibold">{step.label}</span>
                     <span className="text-[10px] text-[#64748b] hidden lg:block">
                       {step.id === "checkpoints" ? "Define los puntos de control" : step.id === "plantillas" ? "Agrupa checkpoints en rutas" : "Programa cuándo se ejecutan"}
                     </span>
@@ -316,7 +316,7 @@ export function RondasConfiguracionClient({
       {loading && (
         <div className="flex items-center gap-2 py-4 text-[#64748b]">
           <div className="w-4 h-4 rounded-full border-2 border-[#2dd4bf] border-t-transparent animate-spin" />
-          <span className="text-[13px]">Cargando...</span>
+          <span className="text-ds-body">Cargando...</span>
         </div>
       )}
 
@@ -411,14 +411,14 @@ export function RondasConfiguracionClient({
           />
 
           {templates.length === 0 && (
-            <p className="text-[13px] text-[#94a3b8] py-2">Sin plantillas creadas.</p>
+            <p className="text-ds-body text-[#94a3b8] py-2">Sin plantillas creadas.</p>
           )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {templates.map((tpl) => (
               <div key={tpl.id} className="rounded-xl border border-[#1e293b] bg-[#111827] p-4 space-y-2.5">
                 <div className="flex items-center justify-between gap-2">
-                  <h4 className="text-[13px] font-semibold text-[#f1f5f9] truncate">{tpl.name}</h4>
+                  <h4 className="text-ds-body font-semibold text-[#f1f5f9] truncate">{tpl.name}</h4>
                   <span className={[
                     "text-[10px] font-semibold rounded-full border px-2 py-0.5 shrink-0",
                     tpl.isActive !== false
@@ -531,7 +531,7 @@ export function RondasConfiguracionClient({
               Instalaciones con checkpoints{installationsWithCheckpoints.length > 0 && ` (${installationsWithCheckpoints.length})`}
             </p>
             {installationsWithCheckpoints.length === 0 ? (
-              <p className="text-[13px] text-[#94a3b8] py-1">Ninguna instalación tiene checkpoints configurados aún.</p>
+              <p className="text-ds-body text-[#94a3b8] py-1">Ninguna instalación tiene checkpoints configurados aún.</p>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 {installationsWithCheckpoints.map((inst) => (
@@ -548,7 +548,7 @@ export function RondasConfiguracionClient({
                       <MapPin className="h-5 w-5 text-[#2dd4bf]" />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="text-[13px] font-semibold text-[#f1f5f9] truncate">{inst.name}</p>
+                      <p className="text-ds-body font-semibold text-[#f1f5f9] truncate">{inst.name}</p>
                       {inst.address && (
                         <p className="text-[11px] text-[#64748b] truncate">{inst.address}</p>
                       )}
@@ -569,7 +569,7 @@ export function RondasConfiguracionClient({
               Instalaciones sin checkpoints{installationsWithoutCheckpoints.length > 0 && ` (${installationsWithoutCheckpoints.length})`}
             </p>
             {installationsWithoutCheckpoints.length === 0 ? (
-              <p className="text-[13px] text-[#94a3b8] py-1">Todas las instalaciones tienen checkpoints configurados. ✓</p>
+              <p className="text-ds-body text-[#94a3b8] py-1">Todas las instalaciones tienen checkpoints configurados. ✓</p>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 {installationsWithoutCheckpoints.map((inst) => (
@@ -586,7 +586,7 @@ export function RondasConfiguracionClient({
                       <MapPin className="h-5 w-5 text-[#64748b]" />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="text-[13px] font-semibold text-[#94a3b8] truncate">{inst.name}</p>
+                      <p className="text-ds-body font-semibold text-[#94a3b8] truncate">{inst.name}</p>
                       {inst.address && (
                         <p className="text-[11px] text-[#64748b] truncate">{inst.address}</p>
                       )}

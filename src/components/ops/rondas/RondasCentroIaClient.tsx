@@ -38,7 +38,7 @@ export function RondasCentroIaClient() {
 
       {/* Trust Score explanation */}
       <div className="rounded-xl border border-[#1a1f2e] bg-[#111827] p-5">
-        <h3 className="text-[13px] font-semibold text-[#f1f5f9] mb-4">Cómo se calcula el Trust Score</h3>
+        <h3 className="text-ds-body font-semibold text-[#f1f5f9] mb-4">Cómo se calcula el Trust Score</h3>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
           {TRUST_FACTORS.map((factor) => (
             <div
@@ -54,7 +54,7 @@ export function RondasCentroIaClient() {
                   {factor.weight}%
                 </span>
               </div>
-              <p className="text-[13px] font-semibold text-[#f1f5f9] mb-1">{factor.name}</p>
+              <p className="text-ds-body font-semibold text-[#f1f5f9] mb-1">{factor.name}</p>
               <p className="text-[11px] text-[#94a3b8] leading-tight">{factor.desc1}</p>
               <p className="text-[11px] text-[#94a3b8] leading-tight">{factor.desc2}</p>
             </div>
@@ -73,7 +73,7 @@ export function RondasCentroIaClient() {
         >
           <div className="flex items-center gap-2">
             <History className="w-4 h-4 text-[#06b6d4]" />
-            <span className="text-[13px] font-semibold text-[#f1f5f9]">Historial de recomendaciones</span>
+            <span className="text-ds-body font-semibold text-[#f1f5f9]">Historial de recomendaciones</span>
           </div>
           <ChevronDown className={cn(
             "w-4 h-4 text-[#64748b] transition-transform duration-200",
@@ -82,7 +82,7 @@ export function RondasCentroIaClient() {
         </button>
         {historialOpen && (
           <div className="p-4 bg-[#111827] border-t border-[#1a1f2e]">
-            <p className="text-[13px] text-[#64748b] text-center py-6">
+            <p className="text-ds-body text-[#64748b] text-center py-6">
               Las recomendaciones generadas anteriormente aparecerán aquí.
             </p>
           </div>

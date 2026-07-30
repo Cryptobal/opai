@@ -71,7 +71,7 @@ export function CorreoSnoozeSettingsSheet({
 
         <div className="space-y-1.5">
           <label className="flex min-h-11 items-center justify-between gap-3 rounded-xl border border-ds-border-subtle bg-ds-surface-1 pl-3 pr-2">
-            <span className="min-w-0 text-[13px] text-ds-text-2">Mañana / semana</span>
+            <span className="min-w-0 text-ds-body text-ds-text-2">Mañana / semana</span>
             <SimpleSelect
               value={String(config.morningHour)}
               onValueChange={(v) => patch({ morningHour: Number(v) })}
@@ -85,7 +85,7 @@ export function CorreoSnoozeSettingsSheet({
           </label>
 
           <label className="flex min-h-11 items-center justify-between gap-3 rounded-xl border border-ds-border-subtle bg-ds-surface-1 pl-3 pr-2">
-            <span className="min-w-0 text-[13px] text-ds-text-2">Hoy más tarde</span>
+            <span className="min-w-0 text-ds-body text-ds-text-2">Hoy más tarde</span>
             <SimpleSelect
               value={String(config.afternoonHour)}
               onValueChange={(v) => patch({ afternoonHour: Number(v) })}
@@ -99,7 +99,7 @@ export function CorreoSnoozeSettingsSheet({
           </label>
 
           <label className="flex min-h-11 items-center justify-between gap-3 rounded-xl border border-ds-border-subtle bg-ds-surface-1 pl-3 pr-2">
-            <span className="min-w-0 text-[13px] text-ds-text-2">Fin de semana</span>
+            <span className="min-w-0 text-ds-body text-ds-text-2">Fin de semana</span>
             <SimpleSelect
               value={String(config.weekendDay)}
               onValueChange={(v) =>
@@ -115,7 +115,7 @@ export function CorreoSnoozeSettingsSheet({
           </label>
 
           <label className="flex min-h-11 items-center justify-between gap-3 rounded-xl border border-ds-border-subtle bg-ds-surface-1 pl-3 pr-2">
-            <span className="min-w-0 text-[13px] text-ds-text-2">Próxima semana</span>
+            <span className="min-w-0 text-ds-body text-ds-text-2">Próxima semana</span>
             <SimpleSelect
               value={String(config.nextWeekDay)}
               onValueChange={(v) =>
@@ -137,7 +137,7 @@ export function CorreoSnoozeSettingsSheet({
         <button
           type="button"
           onClick={onClose}
-          className="h-11 w-full rounded-xl bg-primary text-[13px] font-medium text-primary-foreground ds-tap"
+          className="h-11 w-full rounded-xl bg-primary text-ds-body font-medium text-primary-foreground ds-tap"
         >
           Listo
         </button>

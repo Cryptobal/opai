@@ -13,7 +13,7 @@ export function HubModuleLink({
   return (
     <Link
       href={href}
-      className="inline-flex min-h-11 items-center rounded-full border border-primary/30 bg-primary/10 px-4 text-[13px] font-semibold text-primary transition-colors hover:bg-primary/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+      className="inline-flex min-h-11 items-center rounded-full border border-primary/30 bg-primary/10 px-4 text-ds-body font-semibold text-primary transition-colors hover:bg-primary/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
     >
       {children}
     </Link>

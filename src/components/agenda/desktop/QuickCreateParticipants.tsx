@@ -107,7 +107,7 @@ export function QuickCreateParticipants({
             }
           }}
           placeholder="Nombre o correo…"
-          className="h-7 min-w-32 flex-1 border-0 bg-transparent p-0 text-[13px] text-ds-text-1 outline-none placeholder:text-ds-text-4 focus:ring-0"
+          className="h-7 min-w-32 flex-1 border-0 bg-transparent p-0 text-ds-body text-ds-text-1 outline-none placeholder:text-ds-text-4 focus:ring-0"
         />
       ) : (
         <button
@@ -131,7 +131,7 @@ export function QuickCreateParticipants({
                 setQ("");
                 inputRef.current?.focus();
               }}
-              className="flex h-8 w-full items-center gap-2 rounded-lg px-2 text-left text-[13px] text-ds-text-2 hover:bg-ds-surface-3 ds-tap"
+              className="flex h-8 w-full items-center gap-2 rounded-lg px-2 text-left text-ds-body text-ds-text-2 hover:bg-ds-surface-3 ds-tap"
             >
               <Avatar name={u.name} size="sm" className="h-5 w-5 text-[12px]" />
               <span className="min-w-0 flex-1 truncate">{u.name}</span>
@@ -145,7 +145,7 @@ export function QuickCreateParticipants({
               onMouseDown={(e) => e.preventDefault()}
               onClick={() => addEmail(c.email!.toLowerCase())}
               className={cn(
-                "flex h-8 w-full items-center gap-2 rounded-lg px-2 text-left text-[13px] text-ds-text-2 hover:bg-ds-surface-3 ds-tap",
+                "flex h-8 w-full items-center gap-2 rounded-lg px-2 text-left text-ds-body text-ds-text-2 hover:bg-ds-surface-3 ds-tap",
               )}
             >
               <span className="min-w-0 flex-1 truncate">
@@ -159,7 +159,7 @@ export function QuickCreateParticipants({
               type="button"
               onMouseDown={(e) => e.preventDefault()}
               onClick={() => addEmail(rawEmail)}
-              className="flex h-8 w-full items-center rounded-lg px-2 text-left text-[13px] text-primary hover:bg-ds-surface-3 ds-tap"
+              className="flex h-8 w-full items-center rounded-lg px-2 text-left text-ds-body text-primary hover:bg-ds-surface-3 ds-tap"
             >
               Invitar a {rawEmail}
             </button>

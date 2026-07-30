@@ -131,12 +131,12 @@ export function TenantAiRoutingConfig() {
           Modelo por defecto (base)
         </p>
         {data?.defaultProvider ? (
-          <p className="text-[13px] text-ds-text-1">
+          <p className="text-ds-body text-ds-text-1">
             {PROVIDER_ICON[data.defaultProvider.providerType] ?? "🤖"} {data.defaultProvider.displayName}
             <span className="text-ds-text-3"> · {data.defaultProvider.name}</span>
           </p>
         ) : (
-          <p className="text-[13px] text-status-warn-fg">
+          <p className="text-ds-body text-status-warn-fg">
             Sin proveedor por defecto. Configura y activa un proveedor arriba: si un módulo no tiene
             override y no hay proveedor por defecto, la IA de ese módulo queda deshabilitada (OPAI no
             costea la IA del tenant).
@@ -166,7 +166,7 @@ export function TenantAiRoutingConfig() {
               <div className="flex flex-col gap-2.5 sm:flex-row sm:items-start sm:justify-between">
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <p className="text-[13px] font-semibold text-ds-text-1">{mod.label}</p>
+                    <p className="text-ds-body font-semibold text-ds-text-1">{mod.label}</p>
                     {!hasAi && <Tag variant="neutral" size="sm">sin IA aún</Tag>}
                     {current && <Tag variant="info" size="sm">override</Tag>}
                   </div>
@@ -174,7 +174,7 @@ export function TenantAiRoutingConfig() {
                 </div>
                 <select
                   aria-label={`Modelo para ${mod.label}`}
-                  className="h-10 w-full rounded-lg border border-ds-border-default bg-ds-surface-1 px-3 text-[13px] text-ds-text-1 sm:h-9 sm:w-72"
+                  className="h-10 w-full rounded-lg border border-ds-border-default bg-ds-surface-1 px-3 text-ds-body text-ds-text-1 sm:h-9 sm:w-72"
                   value={routeValue(current)}
                   disabled={noProviders}
                   onChange={(e) => setModuleRoute(mod.id, e.target.value)}
@@ -204,7 +204,7 @@ export function TenantAiRoutingConfig() {
       {/* Guardar */}
       <div className="sticky bottom-2 flex items-center justify-end gap-3">
         {msg && (
-          <span className={`text-[13px] ${msg.ok ? "text-status-ok-fg" : "text-status-danger-fg"}`}>
+          <span className={`text-ds-body ${msg.ok ? "text-status-ok-fg" : "text-status-danger-fg"}`}>
             {msg.ok ? "✓" : "✗"} {msg.text}
           </span>
         )}
@@ -212,7 +212,7 @@ export function TenantAiRoutingConfig() {
           type="button"
           onClick={handleSave}
           disabled={!dirty || saving || noProviders}
-          className="ds-tap rounded-lg bg-primary px-4 py-2 text-[13px] font-medium text-primary-foreground disabled:opacity-40"
+          className="ds-tap rounded-lg bg-primary px-4 py-2 text-ds-body font-medium text-primary-foreground disabled:opacity-40"
         >
           {saving ? "Guardando..." : "Guardar ruteo"}
         </button>

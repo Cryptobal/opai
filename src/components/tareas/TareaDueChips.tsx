@@ -12,7 +12,7 @@ export type { DueValue };
 /** Clase base de un chip de vencimiento (glass soft, sin blur). */
 function chipClass(active: boolean): string {
   return cn(
-    "opai-glass-soft inline-flex shrink-0 min-h-[40px] items-center gap-1 rounded-2xl px-2.5 text-[13px] whitespace-nowrap transition-colors disabled:opacity-50",
+    "opai-glass-soft inline-flex shrink-0 min-h-[40px] items-center gap-1 rounded-2xl px-2.5 text-ds-body whitespace-nowrap transition-colors disabled:opacity-50",
     active ? "border-primary/50 bg-primary/15 text-primary" : "text-ds-text-2 hover:text-ds-text-1",
   );
 }

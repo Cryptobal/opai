@@ -195,7 +195,7 @@ export function CorreoReaderIsland({
               ) : (
                 <Reply className="h-4 w-4 shrink-0" />
               )}
-              <span className="truncate text-[13px] font-semibold">{primary.label}</span>
+              <span className="truncate text-ds-body font-semibold">{primary.label}</span>
             </button>
             <button
               type="button"

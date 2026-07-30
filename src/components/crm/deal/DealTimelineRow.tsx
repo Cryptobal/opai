@@ -31,7 +31,7 @@ export function DealTimelineRow({ entry }: { entry: TimelineEntry }) {
       >
         <Icon className="h-2 w-2 text-background" />
       </div>
-      <p className="text-[13px] font-medium leading-tight">{entry.title}</p>
+      <p className="text-ds-body font-medium leading-tight">{entry.title}</p>
       <p className="mt-0.5 text-[12px] text-ds-text-3">
         {when}
         {entry.subtitle ? ` · ${entry.subtitle}` : ""}

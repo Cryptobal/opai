@@ -84,7 +84,7 @@ export function CorreoReaderTitleBlock({
           className="flex min-h-11 min-w-0 flex-1 flex-col justify-center text-left ds-tap"
         >
           <span className="flex items-center gap-1.5">
-            <span className="truncate text-[13px] font-semibold text-ds-text-1">
+            <span className="truncate text-ds-body font-semibold text-ds-text-1">
               {sender.name || sender.email || "—"}
             </span>
             <ChevronDown

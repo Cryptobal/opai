@@ -6,7 +6,7 @@ import { AddressAutocomplete, type AddressResult } from "@/components/ui/Address
 import { mapsHref, type InstallationOption } from "./types";
 
 const INPUT =
-  "h-10 w-full rounded-xl border border-ds-border-default bg-ds-surface-1 px-3 text-[13px] sm:h-9";
+  "h-10 w-full rounded-xl border border-ds-border-default bg-ds-surface-1 px-3 text-ds-body sm:h-9";
 
 export function InstallationField({
   accountId,

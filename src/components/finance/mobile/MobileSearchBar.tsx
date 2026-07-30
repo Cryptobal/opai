@@ -77,7 +77,7 @@ export function MobileSearchBar({
         <button
           type="button"
           onClick={onOpenFilters}
-          className="relative shrink-0 inline-flex items-center gap-1.5 h-11 px-3 rounded-ds-md border border-border bg-ds-surface-1 text-[13px] font-medium text-ds-text-1 active:bg-muted/40"
+          className="relative shrink-0 inline-flex items-center gap-1.5 h-11 px-3 rounded-ds-md border border-border bg-ds-surface-1 text-ds-body font-medium text-ds-text-1 active:bg-muted/40"
           aria-label={filtersLabel}
         >
           <SlidersHorizontal className="h-4 w-4" />

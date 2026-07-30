@@ -128,7 +128,7 @@ function ProductividadHomeInner({
               aria-selected={mobileTab === t.id}
               onClick={() => setMobileTab(t.id)}
               className={cn(
-                "flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-lg px-2 text-[13px] font-medium transition-colors",
+                "flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-lg px-2 text-ds-body font-medium transition-colors",
                 mobileTab === t.id
                   ? "bg-ds-surface-1 text-ds-text-1 shadow-sm"
                   : "text-ds-text-3",

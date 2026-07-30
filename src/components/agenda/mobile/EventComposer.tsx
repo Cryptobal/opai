@@ -100,7 +100,7 @@ export function EventComposer({ open, users, prefillDate, onClose, onCreated }: 
               type="button"
               onClick={() => setMode(m)}
               className={cn(
-                "h-9 rounded-full px-4 text-[13px] font-medium capitalize transition-colors ds-tap",
+                "h-9 rounded-full px-4 text-ds-body font-medium capitalize transition-colors ds-tap",
                 mode === m
                   ? "bg-ds-surface-1 text-ds-text-1 shadow-ds-xs"
                   : "text-ds-text-3",
@@ -114,7 +114,7 @@ export function EventComposer({ open, users, prefillDate, onClose, onCreated }: 
           type="button"
           disabled={currentSaving}
           onClick={() => void save()}
-          className="h-11 rounded-xl px-2 text-[13px] font-semibold text-primary ds-tap disabled:opacity-50"
+          className="h-11 rounded-xl px-2 text-ds-body font-semibold text-primary ds-tap disabled:opacity-50"
         >
           Guardar
         </button>
@@ -138,7 +138,7 @@ export function EventComposer({ open, users, prefillDate, onClose, onCreated }: 
                 value={task.form.date}
                 onChange={(e) => task.set.setDate(e.target.value)}
                 aria-label="Fecha de vencimiento"
-                className="h-11 min-w-0 flex-1 rounded-xl border border-ds-border-default bg-ds-surface-1 px-3 text-[13px]"
+                className="h-11 min-w-0 flex-1 rounded-xl border border-ds-border-default bg-ds-surface-1 px-3 text-ds-body"
               />
               <TaskTimePicker value={task.form.time} onChange={task.set.setTime} />
             </div>
@@ -174,7 +174,7 @@ export function EventComposer({ open, users, prefillDate, onClose, onCreated }: 
               type="button"
               onClick={() => set.setType(t.id)}
               className={cn(
-                "h-9 shrink-0 rounded-full px-3 text-[13px] font-medium ds-tap",
+                "h-9 shrink-0 rounded-full px-3 text-ds-body font-medium ds-tap",
                 form.type === t.id
                   ? "bg-primary text-primary-foreground"
                   : "opai-glass-soft text-ds-text-2",
@@ -199,14 +199,14 @@ export function EventComposer({ open, users, prefillDate, onClose, onCreated }: 
               type="date"
               value={form.date}
               onChange={(e) => set.setDate(e.target.value)}
-              className="h-11 min-w-0 flex-1 rounded-xl border border-ds-border-default bg-ds-surface-1 px-3 text-[13px]"
+              className="h-11 min-w-0 flex-1 rounded-xl border border-ds-border-default bg-ds-surface-1 px-3 text-ds-body"
             />
             {!form.allDay && (
               <input
                 type="time"
                 value={form.time}
                 onChange={(e) => set.setTime(e.target.value)}
-                className="h-11 w-28 rounded-xl border border-ds-border-default bg-ds-surface-1 px-3 text-[13px]"
+                className="h-11 w-28 rounded-xl border border-ds-border-default bg-ds-surface-1 px-3 text-ds-body"
               />
             )}
           </div>
@@ -241,7 +241,7 @@ export function EventComposer({ open, users, prefillDate, onClose, onCreated }: 
             </button>
           </div>
           {conflictNames.length > 0 && (
-            <div className="rounded-xl border border-status-warn-border bg-status-warn-soft px-3 py-2 text-[13px] text-status-warn-fg">
+            <div className="rounded-xl border border-status-warn-border bg-status-warn-soft px-3 py-2 text-ds-body text-status-warn-fg">
               ⚠ Conflicto: {conflictNames.join(" · ")}
               {availability?.suggestions[0] && (
                 <button
@@ -269,7 +269,7 @@ export function EventComposer({ open, users, prefillDate, onClose, onCreated }: 
                   key={id}
                   type="button"
                   onClick={() => set.setParticipantIds(form.participantIds.filter((p) => p !== id))}
-                  className="opai-glass-soft flex h-9 items-center gap-1.5 rounded-full pl-1 pr-2.5 text-[13px] text-ds-text-1 ds-tap"
+                  className="opai-glass-soft flex h-9 items-center gap-1.5 rounded-full pl-1 pr-2.5 text-ds-body text-ds-text-1 ds-tap"
                 >
                   <Avatar name={user?.name ?? "?"} size="sm" className="h-6 w-6 text-[12px]" />
                   {user?.name ?? id}
@@ -281,7 +281,7 @@ export function EventComposer({ open, users, prefillDate, onClose, onCreated }: 
             <button
               type="button"
               onClick={() => setPickerOpen(true)}
-              className="flex h-9 items-center gap-1 rounded-full border border-dashed border-ds-border-default px-3 text-[13px] text-ds-text-3 ds-tap"
+              className="flex h-9 items-center gap-1 rounded-full border border-dashed border-ds-border-default px-3 text-ds-body text-ds-text-3 ds-tap"
             >
               <Plus className="h-3.5 w-3.5" /> Agregar
             </button>
@@ -298,7 +298,7 @@ export function EventComposer({ open, users, prefillDate, onClose, onCreated }: 
                 key={email}
                 type="button"
                 onClick={() => set.setExternalEmails(form.externalEmails.filter((e) => e !== email))}
-                className="opai-glass-soft flex h-9 items-center gap-1.5 rounded-full px-2.5 text-[13px] text-ds-text-1 ds-tap"
+                className="opai-glass-soft flex h-9 items-center gap-1.5 rounded-full px-2.5 text-ds-body text-ds-text-1 ds-tap"
               >
                 {email} <X className="h-3 w-3 text-ds-text-4" />
               </button>
@@ -316,7 +316,7 @@ export function EventComposer({ open, users, prefillDate, onClose, onCreated }: 
             }}
             onBlur={addEmail}
             placeholder="correo@cliente.cl"
-            className="h-11 w-full rounded-xl border border-ds-border-default bg-ds-surface-1 px-3 text-[13px] outline-none placeholder:text-ds-text-4"
+            className="h-11 w-full rounded-xl border border-ds-border-default bg-ds-surface-1 px-3 text-ds-body outline-none placeholder:text-ds-text-4"
           />
         </section>
 
@@ -345,7 +345,7 @@ export function EventComposer({ open, users, prefillDate, onClose, onCreated }: 
           onChange={(e) => set.setNotes(e.target.value)}
           placeholder="Notas…"
           rows={3}
-          className="w-full rounded-xl border border-ds-border-default bg-ds-surface-1 px-3 py-2 text-[13px] outline-none placeholder:text-ds-text-4"
+          className="w-full rounded-xl border border-ds-border-default bg-ds-surface-1 px-3 py-2 text-ds-body outline-none placeholder:text-ds-text-4"
         />
 
         <ComposerToggles

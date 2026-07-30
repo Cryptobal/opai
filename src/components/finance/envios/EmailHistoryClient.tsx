@@ -231,7 +231,7 @@ export function EmailHistoryClient() {
         const meta = resolveMeta(log);
         return (
           <div className="flex flex-col gap-0.5">
-            <span className="text-[13px] font-medium text-ds-text-1">
+            <span className="text-ds-body font-medium text-ds-text-1">
               {meta.label}
             </span>
             <span className="text-[12px] font-mono uppercase tracking-[0.08em] text-ds-text-4">
@@ -246,7 +246,7 @@ export function EmailHistoryClient() {
       header: "Cliente / Documento",
       cell: (log) => (
         <div className="min-w-0 max-w-56">
-          <p className="text-[13px] text-ds-text-1 truncate" title={clientLabel(log)}>
+          <p className="text-ds-body text-ds-text-1 truncate" title={clientLabel(log)}>
             {clientLabel(log)}
           </p>
           <p className="text-[12px] text-ds-text-3">
@@ -264,7 +264,7 @@ export function EmailHistoryClient() {
       header: "Asunto",
       cell: (log) => (
         <span
-          className="text-[13px] text-ds-text-2 line-clamp-2 max-w-72"
+          className="text-ds-body text-ds-text-2 line-clamp-2 max-w-72"
           title={log.subject}
         >
           {log.subject}
@@ -405,7 +405,7 @@ export function EmailHistoryClient() {
                 <Surface elevation={1} padding="sm">
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
-                      <p className="text-[13px] font-medium text-ds-text-1 truncate">
+                      <p className="text-ds-body font-medium text-ds-text-1 truncate">
                         {clientLabel(log)}
                       </p>
                       <p className="text-[12px] text-ds-text-3">

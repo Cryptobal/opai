@@ -82,7 +82,7 @@ function PendingConfirmCard({
           : "border-status-warn-border bg-status-warn-soft",
       )}
     >
-      <p className="text-[13px] font-medium text-white">
+      <p className="text-ds-body font-medium text-white">
         {resolved
           ? item.status === "CONFIRMED"
             ? "✅ Confirmado"

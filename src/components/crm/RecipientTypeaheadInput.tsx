@@ -102,7 +102,7 @@ export function RecipientTypeaheadInput({
               >
                 <span className="min-w-0">
                   {s.name && (
-                    <span className="block truncate text-[13px] text-ds-text-1">
+                    <span className="block truncate text-ds-body text-ds-text-1">
                       {s.name}
                     </span>
                   )}

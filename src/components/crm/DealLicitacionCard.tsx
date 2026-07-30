@@ -75,7 +75,7 @@ export function DealLicitacionCard({ dealId, isLicitacion, fechaEntrega, onUpdat
           </Tag>
         )}
       </div>
-      <label className="flex items-center justify-between gap-3 text-[13px] text-ds-text-2">
+      <label className="flex items-center justify-between gap-3 text-ds-body text-ds-text-2">
         <span>Marcar como licitación</span>
         <Switch
           size="lg"
@@ -98,7 +98,7 @@ export function DealLicitacionCard({ dealId, isLicitacion, fechaEntrega, onUpdat
                 setError(null);
                 if (v && v !== savedFecha) void persist(true, v);
               }}
-              className="h-10 flex-1 rounded-xl border border-ds-border-default bg-ds-surface-1 px-3 text-[13px] sm:h-9"
+              className="h-10 flex-1 rounded-xl border border-ds-border-default bg-ds-surface-1 px-3 text-ds-body sm:h-9"
             />
             {dirty && (
               <button

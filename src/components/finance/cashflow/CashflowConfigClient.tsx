@@ -681,7 +681,7 @@ export function CashflowConfigClient({ initialConfig, initialCategories, account
         </p>
         <div className="flex items-start justify-between gap-3 p-3 rounded-ds-md bg-muted/20 mb-3">
           <div className="min-w-0">
-            <p className="font-medium text-[13px]">Cerrar diferencias automáticamente</p>
+            <p className="font-medium text-ds-body">Cerrar diferencias automáticamente</p>
             <p className="text-[12px] text-ds-text-3">
               Activá el motor de write-off automático para cerrar diferencias
               menores sin intervención.
@@ -806,7 +806,7 @@ export function CashflowConfigClient({ initialConfig, initialCategories, account
           {GENERATORS.map((g) => (
             <div key={g.key} className="flex items-start justify-between gap-3 p-3 rounded-ds-md bg-muted/20">
               <div className="min-w-0">
-                <p className="font-medium text-[13px]">{g.title}</p>
+                <p className="font-medium text-ds-body">{g.title}</p>
                 <p className="text-[12px] text-ds-text-3">{g.description}</p>
               </div>
               <Switch
@@ -882,7 +882,7 @@ export function CashflowConfigClient({ initialConfig, initialCategories, account
                 type="button"
                 onClick={() => setNewCat((c) => ({ ...c, kind: "INCOME" }))}
                 className={
-                  "flex-1 text-[13px] font-medium transition-colors " +
+                  "flex-1 text-ds-body font-medium transition-colors " +
                   (newCat.kind === "INCOME"
                     ? "bg-status-ok-soft text-status-ok-fg"
                     : "bg-transparent text-ds-text-3 hover:bg-muted/40")
@@ -894,7 +894,7 @@ export function CashflowConfigClient({ initialConfig, initialCategories, account
                 type="button"
                 onClick={() => setNewCat((c) => ({ ...c, kind: "EXPENSE" }))}
                 className={
-                  "flex-1 text-[13px] font-medium transition-colors border-l border-border " +
+                  "flex-1 text-ds-body font-medium transition-colors border-l border-border " +
                   (newCat.kind === "EXPENSE"
                     ? "bg-status-danger-soft text-status-danger-fg"
                     : "bg-transparent text-ds-text-3 hover:bg-muted/40")
@@ -922,7 +922,7 @@ export function CashflowConfigClient({ initialConfig, initialCategories, account
             <li key={c.id} className="rounded-ds-md border border-border bg-background p-3">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0 flex-1">
-                  <div className="font-medium text-[13px] truncate">{c.name}</div>
+                  <div className="font-medium text-ds-body truncate">{c.name}</div>
                   <div className="font-mono text-[11px] uppercase tracking-[0.08em] text-ds-text-4 truncate">{c.code}</div>
                   <div className="text-[12px] text-ds-text-3 mt-0.5">
                     {c.kind === "INCOME" ? "↑ Ingreso" : "↓ Egreso"}

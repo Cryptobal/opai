@@ -55,7 +55,7 @@ export function ContactsField({
                     className="h-4 w-4 accent-[hsl(var(--primary))]"
                   />
                   <span className="min-w-0">
-                    <span className="block truncate text-[13px] text-ds-text-1">{name}</span>
+                    <span className="block truncate text-ds-body text-ds-text-1">{name}</span>
                     <span className="block truncate text-[12px] text-ds-text-4">
                       {[c.roleTitle, c.email].filter(Boolean).join(" · ") || "Sin datos"}
                     </span>

@@ -221,14 +221,14 @@ export function CostCenterEditor({
   const display = selectedAccountName ? (
     <div className="flex items-center gap-1.5 min-w-0">
       <Building className="h-3.5 w-3.5 shrink-0 text-status-info-fg" />
-      <span className="truncate text-[13px] font-medium text-ds-text-1">
+      <span className="truncate text-ds-body font-medium text-ds-text-1">
         {selectedAccountName}
       </span>
       {selectedInstallationName && (
         <>
           <span className="text-ds-text-3 shrink-0">·</span>
           <MapPin className="h-3.5 w-3.5 shrink-0 text-ds-text-3" />
-          <span className="truncate text-[13px] text-ds-text-2">
+          <span className="truncate text-ds-body text-ds-text-2">
             {selectedInstallationName}
           </span>
         </>

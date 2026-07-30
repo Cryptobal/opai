@@ -26,7 +26,7 @@ type Props = {
   onNextWeek: () => void;
 };
 
-const navBtn = "h-10 rounded-xl border border-ds-border-default px-3 text-[13px] ds-tap sm:h-9";
+const navBtn = "h-10 rounded-xl border border-ds-border-default px-3 text-ds-body ds-tap sm:h-9";
 
 export function AgendaFilters({
   view,

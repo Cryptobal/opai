@@ -57,7 +57,7 @@ export function QuotaMoveSelector({
                 className="flex min-h-[44px] w-full items-center gap-3 rounded-ds-md border border-ds-border-default px-3 py-2 text-left transition-colors hover:bg-ds-surface-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
               >
                 <CellStatusPill variant={occurrenceVariant(o)} className="shrink-0" />
-                <span className="ml-auto font-mono text-[13px] font-medium tabular-nums text-ds-text-1">
+                <span className="ml-auto font-mono text-ds-body font-medium tabular-nums text-ds-text-1">
                   {fmt.format(o.amountClp)}
                 </span>
                 {o.dteFolio != null && (

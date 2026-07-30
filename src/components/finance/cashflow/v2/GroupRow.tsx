@@ -71,7 +71,7 @@ export function GroupRow({
               !open && "-rotate-90",
             )}
           />
-          <span className="truncate text-[13px] font-medium text-ds-text-1">
+          <span className="truncate text-ds-body font-medium text-ds-text-1">
             {label}
           </span>
           <span className="font-mono text-[12px] text-ds-text-3">
@@ -79,7 +79,7 @@ export function GroupRow({
           </span>
         </span>
         <span className="flex shrink-0 items-center gap-2">
-          <span className="font-mono text-[13px] tabular-nums text-ds-text-1">
+          <span className="font-mono text-ds-body tabular-nums text-ds-text-1">
             {fmtCLP.format(totalClp)}
           </span>
           <CellStatusPill variant="PROJECTED" compact />

@@ -293,7 +293,7 @@ export function RondasReporteInstalacion({
             type="date"
             value={dateFrom}
             onChange={(e) => setDateFrom(e.target.value)}
-            className="h-9 rounded-lg border border-[#1a1f2e] bg-[#0a0e1a] text-[13px] text-[#f1f5f9] px-3 w-36"
+            className="h-9 rounded-lg border border-[#1a1f2e] bg-[#0a0e1a] text-ds-body text-[#f1f5f9] px-3 w-36"
           />
         </div>
         <div>
@@ -304,7 +304,7 @@ export function RondasReporteInstalacion({
             type="date"
             value={dateTo}
             onChange={(e) => setDateTo(e.target.value)}
-            className="h-9 rounded-lg border border-[#1a1f2e] bg-[#0a0e1a] text-[13px] text-[#f1f5f9] px-3 w-36"
+            className="h-9 rounded-lg border border-[#1a1f2e] bg-[#0a0e1a] text-ds-body text-[#f1f5f9] px-3 w-36"
           />
         </div>
 

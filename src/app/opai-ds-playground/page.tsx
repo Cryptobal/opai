@@ -100,7 +100,7 @@ export default function PlaygroundPage() {
             <p className="mt-1 font-display text-base font-semibold text-ds-text-1">
               RSVP de invitaciones en el lector
             </p>
-            <p className="mt-1 text-[13px] text-ds-text-3">
+            <p className="mt-1 text-ds-body text-ds-text-3">
               Card Sí / Quizás / No estilo Gmail sobre el cuerpo del mail (Teams, Outlook, Google).
             </p>
           </a>

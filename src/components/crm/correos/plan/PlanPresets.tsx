@@ -38,7 +38,7 @@ export function PlanPresets({ selectedIds, onApply }: Props) {
             key={p.id}
             type="button"
             onClick={() => onApply(p.ids)}
-            className={`h-11 shrink-0 rounded-full px-3.5 text-[13px] font-medium ds-tap sm:h-10 ${
+            className={`h-11 shrink-0 rounded-full px-3.5 text-ds-body font-medium ds-tap sm:h-10 ${
               active
                 ? "bg-primary/15 text-primary"
                 : "bg-ds-surface-2 text-ds-text-2 hover:bg-ds-surface-3"

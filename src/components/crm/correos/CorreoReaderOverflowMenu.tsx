@@ -73,7 +73,7 @@ export function CorreoReaderOverflowMenu({
   }
 
   const itemCls =
-    "flex min-h-11 w-full items-center gap-2 px-3 text-left text-[13px] text-ds-text-1 ds-tap hover:bg-ds-surface-2 sm:min-h-9";
+    "flex min-h-11 w-full items-center gap-2 px-3 text-left text-ds-body text-ds-text-1 ds-tap hover:bg-ds-surface-2 sm:min-h-9";
 
   return (
     <div className="relative shrink-0">

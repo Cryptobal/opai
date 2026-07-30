@@ -120,7 +120,7 @@ export function TaskTimePicker({
           close();
         }}
         className={cn(
-          "mb-2 w-full rounded-lg px-3 py-2 text-left text-[13px] hover:bg-ds-surface-2",
+          "mb-2 w-full rounded-lg px-3 py-2 text-left text-ds-body hover:bg-ds-surface-2",
           !value ? "bg-primary/10 font-medium text-primary" : "text-ds-text-1",
         )}
       >
@@ -137,7 +137,7 @@ export function TaskTimePicker({
                 type="button"
                 onClick={() => setSelectedHour(h)}
                 className={cn(
-                  "flex h-9 items-center justify-center rounded-lg text-[13px] hover:bg-ds-surface-2",
+                  "flex h-9 items-center justify-center rounded-lg text-ds-body hover:bg-ds-surface-2",
                   value.startsWith(`${h}:`) ? "bg-primary/10 font-medium text-primary" : "text-ds-text-1",
                 )}
               >
@@ -162,7 +162,7 @@ export function TaskTimePicker({
                 type="button"
                 onClick={() => pickMinute(m)}
                 className={cn(
-                  "flex h-10 items-center justify-center rounded-lg text-[13px] hover:bg-ds-surface-2",
+                  "flex h-10 items-center justify-center rounded-lg text-ds-body hover:bg-ds-surface-2",
                   value === `${selectedHour}:${m}` ? "bg-primary text-primary-foreground" : "text-ds-text-1",
                 )}
               >
@@ -183,7 +183,7 @@ export function TaskTimePicker({
         onClick={() => (open ? close() : setOpen(true))}
         aria-label={ariaLabel}
         aria-expanded={open}
-        className="flex h-9 min-h-[44px] items-center gap-2 rounded-xl border border-ds-border-default bg-ds-surface-1 px-3 text-[13px] text-ds-text-1 sm:min-h-0"
+        className="flex h-9 min-h-[44px] items-center gap-2 rounded-xl border border-ds-border-default bg-ds-surface-1 px-3 text-ds-body text-ds-text-1 sm:min-h-0"
       >
         <Clock3 className="h-4 w-4 text-ds-text-4" />
         <span className={cn(!value && "text-ds-text-4")}>{value || "Sin hora"}</span>

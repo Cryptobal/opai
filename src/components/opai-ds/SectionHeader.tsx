@@ -38,7 +38,7 @@ export function SectionHeader({
         )}
         <h2 className={cn(TITLE_SIZE[size], "text-ds-text-1")}>{title}</h2>
         {hint && (
-          <p className="mt-1 text-[13px] text-ds-text-3 leading-relaxed">{hint}</p>
+          <p className="mt-1 text-ds-body text-ds-text-3 leading-relaxed">{hint}</p>
         )}
       </div>
       {actions && (

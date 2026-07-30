@@ -107,7 +107,7 @@ export function CorreoLinkOmnibox({
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder={placeholder}
-          className="h-10 min-w-0 flex-1 rounded-lg border border-ds-border-default bg-ds-surface-1 px-2 text-[13px] text-ds-text-1 sm:h-9"
+          className="h-10 min-w-0 flex-1 rounded-lg border border-ds-border-default bg-ds-surface-1 px-2 text-ds-body text-ds-text-1 sm:h-9"
         />
         {onCancel && (
           <button
@@ -184,7 +184,7 @@ export function CorreoLinkOmnibox({
         <button
           type="button"
           onClick={() => void onRemove()}
-          className="flex min-h-11 w-full items-center justify-center rounded-lg border border-status-danger-border bg-status-danger-soft px-2 text-[13px] font-medium text-status-danger-fg ds-tap sm:min-h-9"
+          className="flex min-h-11 w-full items-center justify-center rounded-lg border border-status-danger-border bg-status-danger-soft px-2 text-ds-body font-medium text-status-danger-fg ds-tap sm:min-h-9"
         >
           {removeLabel}
         </button>
@@ -209,7 +209,7 @@ function CandidateRow({
       <button
         type="button"
         onClick={onPick}
-        className={`flex min-h-11 w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[13px] ds-tap hover:bg-ds-surface-2 sm:min-h-0 ${
+        className={`flex min-h-11 w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-ds-body ds-tap hover:bg-ds-surface-2 sm:min-h-0 ${
           muted ? "text-ds-text-3 opacity-70" : "text-ds-text-2"
         }`}
       >

@@ -144,7 +144,7 @@ export function CashflowCandidatesPanel({ bankTransactionId, onMatched }: Props)
                     </span>
                   )}
                 </div>
-                <h4 className="font-medium text-[13px] leading-tight">
+                <h4 className="font-medium text-ds-body leading-tight">
                   {c.itemName}
                   {c.installationName ? (
                     <span className="text-muted-foreground"> · {c.installationName}</span>

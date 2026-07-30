@@ -35,7 +35,7 @@ function Field({
 }
 
 const inputCls =
-  "h-11 w-full rounded-xl border border-ds-border-default bg-ds-surface-1 px-3 text-[13px] text-ds-text-1 outline-none focus:border-ds-border-strong disabled:opacity-60 sm:h-10";
+  "h-11 w-full rounded-xl border border-ds-border-default bg-ds-surface-1 px-3 text-ds-body text-ds-text-1 outline-none focus:border-ds-border-strong disabled:opacity-60 sm:h-10";
 
 function UriChip({ ok, text }: { ok: boolean; text: string }) {
   return (
@@ -158,7 +158,7 @@ export function SignatureForm({ data, onChange, disabled }: Props) {
           ) : (
             <button type="button" disabled={disabled || uploading}
               onClick={() => fileRef.current?.click()}
-              className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-dashed border-ds-border-default bg-ds-surface-2 px-3 py-3 text-[13px] text-ds-text-2 ds-tap disabled:opacity-50">
+              className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-dashed border-ds-border-default bg-ds-surface-2 px-3 py-3 text-ds-body text-ds-text-2 ds-tap disabled:opacity-50">
               <ImagePlus className="h-4 w-4" />
               {uploading ? "Subiendo…" : "Subir logo"}
             </button>
@@ -215,7 +215,7 @@ export function SignatureForm({ data, onChange, disabled }: Props) {
           <div className="mt-2 space-y-1">
             <textarea disabled={disabled} rows={3} maxLength={300} value={data.disclaimer ?? ""}
               onChange={(e) => patch({ disclaimer: e.target.value.slice(0, 300) || undefined })}
-              className="w-full rounded-xl border border-ds-border-default bg-ds-surface-1 px-3 py-2 text-[13px] text-ds-text-1 outline-none focus:border-ds-border-strong disabled:opacity-60" />
+              className="w-full rounded-xl border border-ds-border-default bg-ds-surface-1 px-3 py-2 text-ds-body text-ds-text-1 outline-none focus:border-ds-border-strong disabled:opacity-60" />
             <p className="text-right font-mono text-[12px] text-ds-text-4">
               {(data.disclaimer ?? "").length} / 300
             </p>

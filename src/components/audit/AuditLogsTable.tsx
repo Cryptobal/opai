@@ -54,7 +54,7 @@ const COLUMNS: DataTableColumn<AuditLogRow>[] = [
     header: "Detalle",
     cell: (row) => (
       <span className="min-w-0">
-        <span className="block truncate text-[13px] text-ds-text-1">{detailFromRow(row)}</span>
+        <span className="block truncate text-ds-body text-ds-text-1">{detailFromRow(row)}</span>
         {row.detail && row.entityId && (
           <span className="block truncate font-mono text-[12px] text-ds-text-4">{row.entityId}</span>
         )}

@@ -161,7 +161,7 @@ export function PortalConocimientoEquipo({ session, installationId }: Props) {
                 cumplimiento
               </span>
             </div>
-            <p className="text-[13px] text-ds-text-3 mt-3 leading-relaxed">
+            <p className="text-ds-body text-ds-text-3 mt-3 leading-relaxed">
               {evaluatedGuards} de {activeGuards} guardias evaluados en los últimos 30
               días.
               {lastExamDays !== null
@@ -204,7 +204,7 @@ export function PortalConocimientoEquipo({ session, installationId }: Props) {
         <div className="flex items-start gap-3">
           <IconBubble icon={Check} variant="ok" size="md" rounded="circle" />
           <div className="flex-1 min-w-0">
-            <p className="font-display text-[13px] font-semibold text-status-ok-fg">
+            <p className="font-display text-ds-body font-semibold text-status-ok-fg">
               Tu proveedor capacita activamente
             </p>
             <p className="text-[12px] text-ds-text-3 leading-relaxed mt-1">
@@ -339,7 +339,7 @@ function TrendChart({ data }: { data: InstallationDetailMonthlyAvg[] }) {
   return (
     <Surface elevation={1} padding="sm" className="mt-3">
       <div className="flex items-center justify-between mb-1.5">
-        <span className="font-display text-[13px] font-semibold text-ds-text-1">
+        <span className="font-display text-ds-body font-semibold text-ds-text-1">
           Tendencia 6 meses
         </span>
         <span className={cn("text-[12px] font-mono ds-num", colorClass)}>

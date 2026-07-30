@@ -24,7 +24,7 @@ export function DealInstallationCard({ installation }: { installation: DealInsta
             <div className="min-w-0 flex-1">
               <Link
                 href={`/crm/installations/${resolved.id}`}
-                className="block truncate text-[13px] font-medium text-primary hover:underline"
+                className="block truncate text-ds-body font-medium text-primary hover:underline"
               >
                 {resolved.name}
               </Link>

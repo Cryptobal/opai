@@ -119,7 +119,7 @@ export function AgendaMobileHeader({
           <button
             type="button"
             onClick={onToday}
-            className="h-11 rounded-full border border-ds-border-default px-3 text-[13px] font-medium text-ds-text-2 ds-tap"
+            className="h-11 rounded-full border border-ds-border-default px-3 text-ds-body font-medium text-ds-text-2 ds-tap"
           >
             Hoy
           </button>

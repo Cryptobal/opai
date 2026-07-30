@@ -113,7 +113,7 @@ export function ComposerAiPromptPill({
             setMenuOpen(false);
             onRefine(chip.id);
           }}
-          className="flex min-h-11 w-full items-center px-3 text-left text-[13px] text-ds-text-1 ds-tap hover:bg-ds-surface-2 disabled:opacity-40 sm:min-h-9"
+          className="flex min-h-11 w-full items-center px-3 text-left text-ds-body text-ds-text-1 ds-tap hover:bg-ds-surface-2 disabled:opacity-40 sm:min-h-9"
         >
           {chip.label}
         </button>
@@ -126,7 +126,7 @@ export function ComposerAiPromptPill({
           setMenuOpen(false);
           onOpenStyle?.();
         }}
-        className="flex min-h-11 w-full items-center px-3 text-left text-[13px] text-ds-text-1 ds-tap hover:bg-ds-surface-2 sm:min-h-9"
+        className="flex min-h-11 w-full items-center px-3 text-left text-ds-body text-ds-text-1 ds-tap hover:bg-ds-surface-2 sm:min-h-9"
       >
         Estilo de respuesta…
       </button>
@@ -172,7 +172,7 @@ export function ComposerAiPromptPill({
             aria-label={hasDraft ? "Describir cambio del borrador" : "Prompt para la IA"}
             className={cn(
               "h-10 min-w-0 flex-1 appearance-none border-0 bg-transparent text-[16px] text-ds-text-1 shadow-none outline-none ring-0",
-              "placeholder:text-ds-text-4 disabled:opacity-60 sm:h-9 sm:text-[13px]",
+              "placeholder:text-ds-text-4 disabled:opacity-60 sm:h-9 sm:text-ds-body",
               "focus:border-0 focus:outline-none focus:ring-0 focus:ring-offset-0",
               "focus-visible:border-0 focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0",
             )}

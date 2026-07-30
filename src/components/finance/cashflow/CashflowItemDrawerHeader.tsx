@@ -132,7 +132,7 @@ export function CashflowItemDrawerBase({
       {baseAmount > 0 && (
         <div className="flex items-center justify-between gap-2">
           <span className="text-[12px] text-ds-text-3">Monto base</span>
-          <span className="text-[13px] font-mono font-semibold tabular-nums text-ds-text-1">
+          <span className="text-ds-body font-mono font-semibold tabular-nums text-ds-text-1">
             {currency === "UF"
               ? `UF ${new Intl.NumberFormat("es-CL", {
                   minimumFractionDigits: 2,
@@ -144,7 +144,7 @@ export function CashflowItemDrawerBase({
       )}
       <div className="flex items-center justify-between gap-2">
         <span className="text-[12px] text-ds-text-3">Recurrencia</span>
-        <span className="text-[13px] text-ds-text-1">
+        <span className="text-ds-body text-ds-text-1">
           {recurrenceLoading ? "…" : (recurrenceLabel ?? "—")}
         </span>
       </div>

@@ -101,7 +101,7 @@ export function QuickDealCreate({
             if (e.key === "Escape") onCancel();
           }}
           placeholder="Título del negocio"
-          className={`h-10 min-w-0 w-full rounded-xl border bg-ds-surface-1 px-3 text-[13px] text-ds-text-1 sm:h-9 ${
+          className={`h-10 min-w-0 w-full rounded-xl border bg-ds-surface-1 px-3 text-ds-body text-ds-text-1 sm:h-9 ${
             fromAi ? "border-tint-violet/40" : "border-ds-border-default"
           }`}
         />
@@ -112,7 +112,7 @@ export function QuickDealCreate({
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
             placeholder={fromAi ? "Monto (sugerido)" : "Monto (opcional)"}
-            className={`h-10 min-w-0 flex-1 rounded-xl border bg-ds-surface-1 px-3 text-[13px] text-ds-text-1 sm:h-9 ${
+            className={`h-10 min-w-0 flex-1 rounded-xl border bg-ds-surface-1 px-3 text-ds-body text-ds-text-1 sm:h-9 ${
               fromAi && amount ? "border-tint-violet/40" : "border-ds-border-default"
             }`}
           />
@@ -127,14 +127,14 @@ export function QuickDealCreate({
             type="button"
             onClick={() => void create()}
             disabled={saving || !title.trim()}
-            className="h-10 flex-1 rounded-xl bg-primary px-3 text-[13px] font-medium text-primary-foreground ds-tap disabled:opacity-50 sm:h-9"
+            className="h-10 flex-1 rounded-xl bg-primary px-3 text-ds-body font-medium text-primary-foreground ds-tap disabled:opacity-50 sm:h-9"
           >
             {saving ? "Creando…" : "Confirmar y crear"}
           </button>
           <button
             type="button"
             onClick={onCancel}
-            className="h-10 shrink-0 rounded-xl border border-ds-border-default px-3 text-[13px] text-ds-text-2 ds-tap sm:h-9"
+            className="h-10 shrink-0 rounded-xl border border-ds-border-default px-3 text-ds-body text-ds-text-2 ds-tap sm:h-9"
           >
             Cancelar
           </button>

@@ -69,7 +69,7 @@ export function AgendaTeamPopover({
         <button
           type="button"
           onClick={() => onChange([])}
-          className="flex h-11 w-full items-center gap-2 rounded-lg px-2 text-left text-[13px] text-ds-text-2 hover:bg-ds-surface-3 ds-tap sm:h-9"
+          className="flex h-11 w-full items-center gap-2 rounded-lg px-2 text-left text-ds-body text-ds-text-2 hover:bg-ds-surface-3 ds-tap sm:h-9"
         >
           <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-ds-surface-3">
             <UsersRound className="h-3.5 w-3.5" />
@@ -85,7 +85,7 @@ export function AgendaTeamPopover({
               key={user.id}
               type="button"
               onClick={() => toggle(user.id)}
-              className="flex h-11 w-full items-center gap-2 rounded-lg px-2 text-left text-[13px] text-ds-text-2 hover:bg-ds-surface-3 ds-tap sm:h-9"
+              className="flex h-11 w-full items-center gap-2 rounded-lg px-2 text-left text-ds-body text-ds-text-2 hover:bg-ds-surface-3 ds-tap sm:h-9"
             >
               <span
                 className={cn(

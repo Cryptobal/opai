@@ -589,7 +589,7 @@ export function CashflowGrid({
             inferior del scroll queda por encima del bottom bar y la fila FC ·
             saldo (sticky-bottom) siempre es visible sin quedar tapada. */}
         <div className="max-h-[70vh] max-md:max-h-[calc(100dvh-3rem-env(safe-area-inset-top,0px)-var(--bottom-nav-height,4.5rem)-1rem)] overflow-auto overscroll-contain [-webkit-overflow-scrolling:touch] max-md:overflow-x-hidden rounded-ds-lg border border-ds-border-default">
-          <table className="w-full min-w-[720px] max-md:min-w-0 border-collapse text-[13px]">
+          <table className="w-full min-w-[720px] max-md:min-w-0 border-collapse text-ds-body">
             <GridHeader
               buckets={visibleBuckets}
               currentIdx={currentIdx}

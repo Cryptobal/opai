@@ -20,7 +20,7 @@ export function PlatformAiNav() {
           <Link
             key={item.href}
             href={item.href}
-            className={`inline-flex items-center gap-2 rounded-lg px-3 py-2 text-[13px] transition-colors ${
+            className={`inline-flex items-center gap-2 rounded-lg px-3 py-2 text-ds-body transition-colors ${
               active
                 ? "bg-status-info-soft text-status-info-fg"
                 : "text-ds-text-3 hover:bg-ds-surface-2 hover:text-ds-text-1"

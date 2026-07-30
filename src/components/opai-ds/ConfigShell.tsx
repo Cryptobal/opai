@@ -158,7 +158,7 @@ function ConfigSidebar({
                 aria-label={collapsed ? item.label : undefined}
                 title={collapsed ? item.label : undefined}
                 className={cn(
-                  "group flex items-center rounded-md text-[13px] transition-colors min-h-[36px]",
+                  "group flex items-center rounded-md text-ds-body transition-colors min-h-[36px]",
                   collapsed
                     ? "justify-center mx-1.5 w-9 h-9 p-0"
                     : "gap-2.5 px-2 py-1.5",
@@ -264,7 +264,7 @@ export function ConfigShell({ children }: ConfigShellProps) {
               <Link
                 href="/opai/configuracion"
                 onClick={() => setDrawerOpen(false)}
-                className="mb-3 inline-flex items-center gap-1 text-[13px] text-primary/90 hover:text-primary transition-colors"
+                className="mb-3 inline-flex items-center gap-1 text-ds-body text-primary/90 hover:text-primary transition-colors"
               >
                 <ChevronLeft className="h-4 w-4" />
                 <span>Todas las categorías</span>

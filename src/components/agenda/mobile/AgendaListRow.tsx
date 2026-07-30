@@ -81,7 +81,7 @@ export function AgendaListRow({ item, colorBySource, onSelect, onChanged }: Prop
 
       {!item.allDay && (
         <div className="flex w-11 shrink-0 flex-col items-end justify-center">
-          <span className="font-mono text-[13px] leading-tight text-ds-text-1">
+          <span className="font-mono text-ds-body leading-tight text-ds-text-1">
             {hhmmChile(item.start)}
           </span>
           {!isTask && item.end !== item.start && (

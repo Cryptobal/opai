@@ -63,15 +63,15 @@ export function VisitDrawer({ visitaId, onClose, onChanged }: Props) {
       >
         <div className="flex items-center justify-between">
           <p className="font-display text-base font-semibold">{data?.visita.title || "Visita"}</p>
-          <button type="button" onClick={onClose} className="text-[13px] text-ds-text-3">
+          <button type="button" onClick={onClose} className="text-ds-body text-ds-text-3">
             Cerrar
           </button>
         </div>
-        <p className="text-[13px] text-ds-text-3">
+        <p className="text-ds-body text-ds-text-3">
           {data ? new Date(data.visita.startAt).toLocaleString("es-CL") : "…"} · Google{" "}
           {data?.syncStatus}
         </p>
-        <div className="rounded-xl border border-dashed border-ds-border-subtle bg-ds-surface-2 p-4 text-[13px] text-ds-text-3">
+        <div className="rounded-xl border border-dashed border-ds-border-subtle bg-ds-surface-2 p-4 text-ds-body text-ds-text-3">
           {data?.visita.installation?.address || "Sin dirección"}
           {maps && (
             <a href={maps} target="_blank" rel="noreferrer" className="mt-2 block text-primary">
@@ -80,14 +80,14 @@ export function VisitDrawer({ visitaId, onClose, onChanged }: Props) {
           )}
         </div>
         {data?.visita.notes && (
-          <p className="text-[13px] text-ds-text-2">{data.visita.notes}</p>
+          <p className="text-ds-body text-ds-text-2">{data.visita.notes}</p>
         )}
         {data?.htmlLink && (
           <a
             href={data.htmlLink}
             target="_blank"
             rel="noreferrer"
-            className="inline-flex h-10 w-full items-center justify-center rounded-xl border border-ds-border-default text-[13px] text-ds-text-2 ds-tap sm:h-9"
+            className="inline-flex h-10 w-full items-center justify-center rounded-xl border border-ds-border-default text-ds-body text-ds-text-2 ds-tap sm:h-9"
           >
             Ver en Google Calendar
           </a>
@@ -96,7 +96,7 @@ export function VisitDrawer({ visitaId, onClose, onChanged }: Props) {
           <label className="text-[12px] text-ds-text-3">Reprogramar</label>
           <input
             type="datetime-local"
-            className="h-10 w-full rounded-xl border border-ds-border-default px-3 text-[13px] sm:h-9"
+            className="h-10 w-full rounded-xl border border-ds-border-default px-3 text-ds-body sm:h-9"
             value={newStart}
             onChange={(e) => setNewStart(e.target.value)}
           />
@@ -108,14 +108,14 @@ export function VisitDrawer({ visitaId, onClose, onChanged }: Props) {
               const end = new Date(start.getTime() + 60 * 60_000);
               void patch({ startAt: start.toISOString(), endAt: end.toISOString() });
             }}
-            className="h-10 w-full rounded-xl border border-ds-border-default text-[13px] ds-tap sm:h-9"
+            className="h-10 w-full rounded-xl border border-ds-border-default text-ds-body ds-tap sm:h-9"
           >
             Guardar reprogramación
           </button>
         </div>
         <div className="space-y-2">
           <input
-            className="h-10 w-full rounded-xl border border-ds-border-default px-3 text-[13px] sm:h-9"
+            className="h-10 w-full rounded-xl border border-ds-border-default px-3 text-ds-body sm:h-9"
             placeholder="Nota de resultado"
             value={resultNote}
             onChange={(e) => setResultNote(e.target.value)}
@@ -123,7 +123,7 @@ export function VisitDrawer({ visitaId, onClose, onChanged }: Props) {
           <button
             type="button"
             onClick={() => void patch({ action: "complete", resultNote })}
-            className="h-10 w-full rounded-xl bg-primary text-[13px] text-primary-foreground ds-tap sm:h-9"
+            className="h-10 w-full rounded-xl bg-primary text-ds-body text-primary-foreground ds-tap sm:h-9"
           >
             Completar
           </button>
@@ -138,7 +138,7 @@ export function VisitDrawer({ visitaId, onClose, onChanged }: Props) {
                 if (ok) void patch({ action: "cancel" });
               });
             }}
-            className="h-10 w-full rounded-xl border border-status-danger-border text-[13px] text-status-danger-fg ds-tap sm:h-9"
+            className="h-10 w-full rounded-xl border border-status-danger-border text-ds-body text-status-danger-fg ds-tap sm:h-9"
           >
             Cancelar visita
           </button>

@@ -81,7 +81,7 @@ export function DealHighlightsStrip({
           <button
             type="button"
             onClick={onEditStartDate}
-            className="inline-flex items-center gap-1.5 text-[13px] font-normal text-ds-text-3 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded"
+            className="inline-flex items-center gap-1.5 text-ds-body font-normal text-ds-text-3 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded"
           >
             <CalendarClock className="h-3.5 w-3.5 shrink-0" />
             Definir
@@ -96,7 +96,7 @@ export function DealHighlightsStrip({
             <span className="text-[11px] font-medium text-ds-text-3">· {activeQuote.statusLabel}</span>
           </span>
         ) : (
-          <span className="text-[13px] font-normal text-ds-text-3">Sin cotización</span>
+          <span className="text-ds-body font-normal text-ds-text-3">Sin cotización</span>
         )}
       </Item>
       {/* Propietario: sin fuente de datos en los props actuales de la ficha —

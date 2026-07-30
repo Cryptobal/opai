@@ -76,7 +76,7 @@ export function CorreoCascadeRow({
         className="relative flex min-h-11 min-w-0 flex-1 items-center gap-2.5 py-2 pr-1 text-left ds-tap hover:bg-ds-surface-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:cursor-not-allowed disabled:opacity-50"
       >
         <Icon className="relative h-4 w-4 shrink-0 text-ds-text-3" />
-        <span className="relative text-[13px] font-medium text-ds-text-1">{label}</span>
+        <span className="relative text-ds-body font-medium text-ds-text-1">{label}</span>
         <span
           className={`relative ml-auto truncate text-[12px] ${
             showAdd ? "text-status-warn-fg" : "text-ds-text-3"

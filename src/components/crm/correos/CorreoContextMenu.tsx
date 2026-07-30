@@ -349,7 +349,7 @@ export function CorreoContextMenu({
                   sub.onClick();
                   onClose();
                 }}
-                className={`flex min-h-10 w-full items-center gap-3 px-3 text-left text-[13px] ds-tap sm:min-h-9 ${
+                className={`flex min-h-10 w-full items-center gap-3 px-3 text-left text-ds-body ds-tap sm:min-h-9 ${
                   subFocused ? "bg-ds-surface-2" : "hover:bg-ds-surface-2"
                 } ${sub.danger ? "text-status-danger-fg" : "text-ds-text-1"}`}
               >
@@ -460,7 +460,7 @@ export function CorreoContextMenu({
                     setSubFocusIdx(0);
                   }
                 }}
-                className={`flex min-h-10 w-full items-center gap-3 px-3 text-left text-[13px] ds-tap focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[hsl(var(--ds-border-strong))] sm:min-h-9 ${
+                className={`flex min-h-10 w-full items-center gap-3 px-3 text-left text-ds-body ds-tap focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[hsl(var(--ds-border-strong))] sm:min-h-9 ${
                   focused || subOpen ? "bg-ds-surface-2" : "hover:bg-ds-surface-2"
                 } ${item.danger ? "text-status-danger-fg" : "text-ds-text-1"}`}
               >

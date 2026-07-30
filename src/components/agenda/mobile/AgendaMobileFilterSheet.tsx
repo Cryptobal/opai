@@ -97,7 +97,7 @@ export function AgendaMobileFilterSheet({
                 type="button"
                 onClick={() => onToggleSource(source.sourceKey)}
                 aria-pressed={active}
-                className="flex h-10 w-full items-center gap-2 rounded-xl px-2 text-left text-[13px] ds-tap hover:bg-ds-surface-2"
+                className="flex h-10 w-full items-center gap-2 rounded-xl px-2 text-left text-ds-body ds-tap hover:bg-ds-surface-2"
               >
                 <span
                   className={cn(
@@ -120,7 +120,7 @@ export function AgendaMobileFilterSheet({
         <button
           type="button"
           onClick={onClose}
-          className="mt-3 h-11 w-full rounded-xl bg-primary text-[13px] font-semibold text-primary-foreground ds-tap"
+          className="mt-3 h-11 w-full rounded-xl bg-primary text-ds-body font-semibold text-primary-foreground ds-tap"
         >
           Listo
         </button>

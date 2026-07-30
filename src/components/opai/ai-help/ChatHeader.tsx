@@ -37,7 +37,7 @@ export function ChatHeader({
             <Sparkles className="h-3.5 w-3.5 text-primary-foreground" />
           </span>
           <div className="min-w-0 flex-1">
-            <p className="font-display text-[13px] font-semibold leading-none text-ds-text-1">
+            <p className="font-display text-ds-body font-semibold leading-none text-ds-text-1">
               Intelligence
             </p>
             {/* El selector de hilo recupera toques con touch-auto */}

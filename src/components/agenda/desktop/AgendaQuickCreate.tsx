@@ -212,7 +212,7 @@ export function AgendaQuickCreate({ state, users, onClose, onCreated, onOpenTask
                 if (onOpenTask) onOpenTask(lastCreatedTaskId);
                 else onClose();
               }}
-              className="text-[13px] font-medium text-primary underline-offset-2 hover:underline ds-tap"
+              className="text-ds-body font-medium text-primary underline-offset-2 hover:underline ds-tap"
             >
               Abrir detalle
             </button>
@@ -229,7 +229,7 @@ export function AgendaQuickCreate({ state, users, onClose, onCreated, onOpenTask
               }
               void save();
             }}
-            className="inline-flex h-8 items-center rounded-xl bg-primary px-3.5 text-[13px] font-semibold text-primary-foreground ds-tap disabled:opacity-60"
+            className="inline-flex h-8 items-center rounded-xl bg-primary px-3.5 text-ds-body font-semibold text-primary-foreground ds-tap disabled:opacity-60"
           >
             {saving ? "Guardando…" : lastCreatedTaskId ? "Cerrar" : "Guardar"}
           </button>

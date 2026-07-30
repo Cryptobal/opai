@@ -53,10 +53,10 @@ export function NextActionBar({
         {formatRemainingLabel(next.start)}
       </span>
       <div className="min-w-0 flex-1">
-        <p className="truncate text-[13px] font-medium text-ds-text-1">{next.title}</p>
+        <p className="truncate text-ds-body font-medium text-ds-text-1">{next.title}</p>
         {meta && <p className="truncate text-[12px] text-ds-text-4">{meta}</p>}
       </div>
-      <span className="inline-flex min-h-11 shrink-0 items-center gap-1 rounded-lg px-2.5 text-[13px] font-medium text-primary sm:min-h-9">
+      <span className="inline-flex min-h-11 shrink-0 items-center gap-1 rounded-lg px-2.5 text-ds-body font-medium text-primary sm:min-h-9">
         <ActionIcon className="h-3.5 w-3.5" />
         {actionLabel}
       </span>

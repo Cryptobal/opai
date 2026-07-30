@@ -1076,7 +1076,7 @@ export function RecurringTemplateForm({
                 {/* Sugerencias CRM (contactos del account) → tap para CC */}
                 {crmSuggestions?.account && crmSuggestions.contacts.length > 0 && (
                   <div className="pt-3 border-t space-y-2">
-                    <p className="text-[13px] font-medium">
+                    <p className="text-ds-body font-medium">
                       {crmSuggestions.contacts.length} contacto(s) en CRM para{" "}
                       <span className="font-mono">{crmSuggestions.account.rut}</span>
                     </p>
@@ -1492,7 +1492,7 @@ export function RecurringTemplateForm({
 
                 {hasUfLine && (
                   <div className="rounded-md border border-status-info-border bg-status-info-soft p-3 space-y-2">
-                    <p className="text-[13px] font-medium text-status-info-fg">
+                    <p className="text-ds-body font-medium text-status-info-fg">
                       Política de fijación de UF
                     </p>
                     <p className="text-[12px] text-status-info-fg/80">
@@ -1554,7 +1554,7 @@ export function RecurringTemplateForm({
                     derivados al generar el borrador. Default
                     CURRENT_MONTH = factura por adelantado (común en CL). */}
                 <div className="rounded-md border border-status-info-border bg-status-info-soft p-3 space-y-2">
-                  <p className="text-[13px] font-medium text-status-info-fg">
+                  <p className="text-ds-body font-medium text-status-info-fg">
                     Política de período (placeholder {`{{periodo}}`})
                   </p>
                   <p className="text-[12px] text-status-info-fg/80">
@@ -1592,7 +1592,7 @@ export function RecurringTemplateForm({
                     montos: solo avisa cuando se acerca la fecha de reajuste para
                     que ingreses el % real editando las líneas de la plantilla. */}
                 <div className="rounded-md border border-ds-border-subtle p-3 space-y-3">
-                  <label className="flex items-start gap-2 text-[13px]">
+                  <label className="flex items-start gap-2 text-ds-body">
                     <input
                       type="checkbox"
                       checked={hasIpcAdjustment}
@@ -1652,7 +1652,7 @@ export function RecurringTemplateForm({
                   )}
                 </div>
 
-                <label className="flex items-start gap-2 text-[13px]">
+                <label className="flex items-start gap-2 text-ds-body">
                   <input
                     type="checkbox"
                     checked={isActive}
@@ -1665,7 +1665,7 @@ export function RecurringTemplateForm({
                   </span>
                 </label>
 
-                <label className="flex items-start gap-2 text-[13px]">
+                <label className="flex items-start gap-2 text-ds-body">
                   <input
                     type="checkbox"
                     checked={autoSendEmail}
@@ -1681,7 +1681,7 @@ export function RecurringTemplateForm({
                   </span>
                 </label>
 
-                <label className="flex items-start gap-2 text-[13px]">
+                <label className="flex items-start gap-2 text-ds-body">
                   <input
                     type="checkbox"
                     checked={autoSendProforma}
@@ -1694,7 +1694,7 @@ export function RecurringTemplateForm({
                   </span>
                 </label>
 
-                <label className="flex items-start gap-2 text-[13px]">
+                <label className="flex items-start gap-2 text-ds-body">
                   <input
                     type="checkbox"
                     checked={autoSendPaymentStatement}
@@ -1714,7 +1714,7 @@ export function RecurringTemplateForm({
                     id="section-recipients"
                     className="rounded-md border border-ds-border-default bg-ds-surface-2 p-3 space-y-2 scroll-mt-4"
                   >
-                    <div className="text-[13px] font-medium text-ds-text-1">
+                    <div className="text-ds-body font-medium text-ds-text-1">
                       Destinatarios de proforma y estado de pago
                     </div>
                     <p className="text-xs text-ds-text-3">

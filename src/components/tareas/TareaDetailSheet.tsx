@@ -16,7 +16,7 @@ import type { TareaItem, TareaUpdateInput } from "./types";
 const sameIds = (a: string[], b: string[]) =>
   a.length === b.length && [...a].sort().join() === [...b].sort().join();
 
-const FOOTER_BTN = "flex min-h-[44px] items-center gap-1.5 rounded-xl px-4 text-[13px]";
+const FOOTER_BTN = "flex min-h-[44px] items-center gap-1.5 rounded-xl px-4 text-ds-body";
 
 /**
  * Detalle editable de una tarea. Sheet inferior en móvil / diálogo centrado en
@@ -128,7 +128,7 @@ export function TareaDetailSheet({
             >
               <Check className="h-3.5 w-3.5" />
             </button>
-            <Dialog.Title className="min-w-0 flex-1 truncate text-[13px] font-semibold text-ds-text-2">
+            <Dialog.Title className="min-w-0 flex-1 truncate text-ds-body font-semibold text-ds-text-2">
               {done ? "Tarea completada" : "Detalle de tarea"}
             </Dialog.Title>
             <button

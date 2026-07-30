@@ -68,7 +68,7 @@ export function InstallationCashflowCard({ installationId }: { installationId: s
   if (loading) {
     return (
       <Surface elevation={1} padding="md">
-        <div className="flex items-center gap-2 text-[13px] text-ds-text-3">
+        <div className="flex items-center gap-2 text-ds-body text-ds-text-3">
           <Loader2 className="h-4 w-4 animate-spin" /> Cargando flujo de caja…
         </div>
       </Surface>
@@ -81,7 +81,7 @@ export function InstallationCashflowCard({ installationId }: { installationId: s
         <div className="flex items-start gap-3">
           <Wallet className="h-5 w-5 text-ds-text-3 shrink-0 mt-0.5" />
           <div>
-            <p className="text-[13px] font-medium text-ds-text-1">Sin flujo de caja</p>
+            <p className="text-ds-body font-medium text-ds-text-1">Sin flujo de caja</p>
             <p className="text-[12px] text-ds-text-3 mt-1">
               Esta instalación todavía no tiene contratos ni sueldos
               proyectados. Se crearán automáticamente cuando vincules un
@@ -190,11 +190,11 @@ function BreakdownGroup({
             <span className="text-[11px] font-mono uppercase tracking-[0.06em] px-1.5 py-0.5 rounded-ds-sm bg-muted/40 text-ds-text-3 shrink-0">
               {SOURCE_LABEL[b.source] ?? b.source}
             </span>
-            <span className="text-[13px] text-ds-text-1 truncate min-w-0 flex-1">
+            <span className="text-ds-body text-ds-text-1 truncate min-w-0 flex-1">
               {b.name}
             </span>
             <span
-              className={`text-[13px] font-mono tabular-nums shrink-0 ${color}`}
+              className={`text-ds-body font-mono tabular-nums shrink-0 ${color}`}
             >
               {b.currency} {fmt.format(b.amountClp)}
             </span>

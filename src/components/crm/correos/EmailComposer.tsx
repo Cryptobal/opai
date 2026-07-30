@@ -63,7 +63,7 @@ import { cn } from "@/lib/utils";
 /** Anula el :focus-visible global que pinta rectángulos blancos en Asunto. */
 const SUBJECT_INPUT_CLASS =
   "h-9 min-w-0 flex-1 appearance-none border-0 bg-transparent text-[16px] text-ds-text-1 shadow-none outline-none " +
-  "placeholder:text-ds-text-4 sm:text-[13px] " +
+  "placeholder:text-ds-text-4 sm:text-ds-body " +
   "focus:outline-none focus:ring-0 focus:ring-offset-0 " +
   "focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0";
 

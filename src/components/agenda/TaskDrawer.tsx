@@ -92,7 +92,7 @@ export function TaskDrawer({ task, onClose, onChanged }: Props) {
 
         <div className="flex items-center gap-2">
           <input type="date" value={date} onChange={(e) => setDate(e.target.value)} aria-label="Fecha"
-            className="h-11 min-w-0 flex-1 rounded-xl border border-ds-border-default bg-ds-surface-1 px-2 text-[13px] text-ds-text-1 sm:h-9" />
+            className="h-11 min-w-0 flex-1 rounded-xl border border-ds-border-default bg-ds-surface-1 px-2 text-ds-body text-ds-text-1 sm:h-9" />
           <TimeChipPicker value={time} onChange={setTime} menuAlign="right" />
         </div>
         <p className="text-[12px] text-ds-text-4">Sin hora → todo el día (aviso a media mañana).</p>
@@ -108,12 +108,12 @@ export function TaskDrawer({ task, onClose, onChanged }: Props) {
 
         <div className="flex gap-2">
           <button type="button" disabled={busy || !date} onClick={save}
-            className="h-10 flex-1 rounded-xl bg-primary text-[13px] font-medium text-primary-foreground ds-tap disabled:opacity-50 sm:h-9">
+            className="h-10 flex-1 rounded-xl bg-primary text-ds-body font-medium text-primary-foreground ds-tap disabled:opacity-50 sm:h-9">
             {busy ? "Guardando…" : "Guardar"}
           </button>
           <button type="button" disabled={busy} onClick={() => void patch({ status: "done" }, "Tarea completada")}
             aria-label="Completar"
-            className="inline-flex h-10 items-center gap-1.5 rounded-xl border border-status-ok-border bg-status-ok-soft px-3 text-[13px] text-status-ok-fg ds-tap disabled:opacity-50 sm:h-9">
+            className="inline-flex h-10 items-center gap-1.5 rounded-xl border border-status-ok-border bg-status-ok-soft px-3 text-ds-body text-status-ok-fg ds-tap disabled:opacity-50 sm:h-9">
             <CheckCircle2 className="h-4 w-4" /> Completar
           </button>
           <button type="button" disabled={busy}
@@ -131,7 +131,7 @@ export function TaskDrawer({ task, onClose, onChanged }: Props) {
         </div>
 
         {task.href && (
-          <Link href={task.href} className="inline-flex items-center gap-1.5 text-[13px] font-medium text-primary ds-tap">
+          <Link href={task.href} className="inline-flex items-center gap-1.5 text-ds-body font-medium text-primary ds-tap">
             Abrir origen (correo / negocio) <ExternalLink className="h-3.5 w-3.5" />
           </Link>
         )}

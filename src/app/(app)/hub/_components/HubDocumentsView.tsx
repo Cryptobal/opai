@@ -113,7 +113,7 @@ export function HubDocumentsView({ signals }: { signals: DocsSignals }) {
               size="md"
             />
             <div className="min-w-0">
-              <p className="text-[13px] font-medium text-ds-text-1">
+              <p className="text-ds-body font-medium text-ds-text-1">
                 Espejo documental
               </p>
               <p className="truncate text-[12px] text-ds-text-3">
@@ -125,7 +125,7 @@ export function HubDocumentsView({ signals }: { signals: DocsSignals }) {
           </div>
           <Link
             href="/opai/configuracion/integraciones/google-drive"
-            className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-full border border-ds-border-default px-4 text-[13px] font-semibold text-ds-text-2 transition-colors hover:border-ds-border-strong hover:text-ds-text-1"
+            className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-full border border-ds-border-default px-4 text-ds-body font-semibold text-ds-text-2 transition-colors hover:border-ds-border-strong hover:text-ds-text-1"
           >
             {drive?.connected ? "Configurar" : "Conectar"}
           </Link>

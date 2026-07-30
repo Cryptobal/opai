@@ -127,11 +127,11 @@ export function ItemsList({ canManage }: { canManage: boolean }) {
           placeholder="Buscar..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="h-10 sm:h-9 w-full sm:w-[200px] text-[13px]"
+          className="h-10 sm:h-9 w-full sm:w-[200px] text-ds-body"
         />
         <div className="grid grid-cols-2 sm:flex gap-2">
           <Select value={filterKind} onValueChange={setFilterKind}>
-            <SelectTrigger className="h-10 sm:h-9 w-full sm:w-[140px] text-[13px]">
+            <SelectTrigger className="h-10 sm:h-9 w-full sm:w-[140px] text-ds-body">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -141,7 +141,7 @@ export function ItemsList({ canManage }: { canManage: boolean }) {
             </SelectContent>
           </Select>
           <Select value={filterSource} onValueChange={setFilterSource}>
-            <SelectTrigger className="h-10 sm:h-9 w-full sm:w-[160px] text-[13px]">
+            <SelectTrigger className="h-10 sm:h-9 w-full sm:w-[160px] text-ds-body">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -163,9 +163,9 @@ export function ItemsList({ canManage }: { canManage: boolean }) {
       </div>
 
       {loading ? (
-        <p className="p-4 text-center text-ds-text-3 text-[13px]">Cargando...</p>
+        <p className="p-4 text-center text-ds-text-3 text-ds-body">Cargando...</p>
       ) : filtered.length === 0 ? (
-        <p className="p-4 text-center text-ds-text-3 text-[13px]">Sin items</p>
+        <p className="p-4 text-center text-ds-text-3 text-ds-body">Sin items</p>
       ) : (
         <>
           {/* Mobile: card list */}
@@ -174,7 +174,7 @@ export function ItemsList({ canManage }: { canManage: boolean }) {
               <li key={i.id} className="rounded-ds-md border border-border bg-background p-3">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0 flex-1">
-                    <div className="font-medium text-[13px] truncate">{i.name}</div>
+                    <div className="font-medium text-ds-body truncate">{i.name}</div>
                     <div className="text-[12px] text-ds-text-3 truncate">
                       {i.category.name} · {humanReadableRecurrence(i)}
                     </div>
@@ -186,7 +186,7 @@ export function ItemsList({ canManage }: { canManage: boolean }) {
                   </div>
                   <div className="text-right shrink-0">
                     <div
-                      className={`font-mono text-[13px] font-semibold ${
+                      className={`font-mono text-ds-body font-semibold ${
                         i.kind === "INCOME" ? "text-status-ok-fg" : "text-status-warn-fg"
                       }`}
                     >

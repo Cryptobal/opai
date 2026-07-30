@@ -682,7 +682,7 @@ export function CrmContactDetailClient({
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
         <div className="min-w-0 rounded-xl border border-border bg-card p-3 sm:p-4">
           <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">Email</div>
-          <div className="truncate text-[13px] font-medium text-foreground">
+          <div className="truncate text-ds-body font-medium text-foreground">
             {contact.email ? (
               <a href={`mailto:${contact.email}`} className="text-primary hover:underline" title={contact.email}>
                 {contact.email}
@@ -694,7 +694,7 @@ export function CrmContactDetailClient({
         </div>
         <div className="min-w-0 rounded-xl border border-border bg-card p-3 sm:p-4">
           <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">Teléfono</div>
-          <div className="truncate font-mono text-[13px] font-medium tabular-nums text-foreground">
+          <div className="truncate font-mono text-ds-body font-medium tabular-nums text-foreground">
             {contact.phone ? (
               <a href={`tel:${contact.phone}`} className="text-primary hover:underline">{contact.phone}</a>
             ) : (
@@ -704,13 +704,13 @@ export function CrmContactDetailClient({
         </div>
         <div className="min-w-0 rounded-xl border border-border bg-card p-3 sm:p-4">
           <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">Cargo</div>
-          <div className="truncate text-[13px] font-medium text-foreground">
+          <div className="truncate text-ds-body font-medium text-foreground">
             {contact.roleTitle || <span className="text-muted-foreground/70">—</span>}
           </div>
         </div>
         <div className="min-w-0 rounded-xl border border-border bg-card p-3 sm:p-4">
           <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">Cuenta</div>
-          <div className="truncate text-[13px] font-medium text-foreground">
+          <div className="truncate text-ds-body font-medium text-foreground">
             {contact.account?.name ? (
               <a href={`/crm/accounts/${contact.account.id}`} className="text-primary hover:underline">
                 {contact.account.name}

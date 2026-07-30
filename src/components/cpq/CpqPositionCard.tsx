@@ -299,7 +299,7 @@ export function CpqPositionCard({
         <div className={cn("px-3 py-2.5 space-y-2", CPQ_BREAKDOWN_SHELL)}>
           <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-4 items-start">
             <div className="min-w-0">
-              <div className="text-[13px] font-bold text-foreground break-words">{titleLabel}</div>
+              <div className="text-ds-body font-bold text-foreground break-words">{titleLabel}</div>
               <div className="flex items-center gap-1 flex-wrap mt-1">
                 <Badge variant="outline" className={cn(badgeBase, "border-status-ok-border bg-status-ok-soft text-status-ok-fg dark:text-status-ok-fg")}>
                   {totalGuards} {totalGuards === 1 ? "guardia" : "guardias"}

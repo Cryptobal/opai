@@ -26,7 +26,7 @@ export function CalendarPrefsList({
             key={key}
             className="flex items-center justify-between gap-3 rounded-xl border border-ds-border-subtle bg-ds-surface-1 px-3 py-2.5"
           >
-            <span className="text-[13px] text-ds-text-2">{label}</span>
+            <span className="text-ds-body text-ds-text-2">{label}</span>
             <Switch
               size="lg"
               checked={Boolean(prefs[key])}

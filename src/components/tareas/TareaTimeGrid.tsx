@@ -48,7 +48,7 @@ export function TareaTimeGrid({
               type="button"
               onClick={() => setHour(h)}
               className={cn(
-                "flex h-9 min-h-[40px] items-center justify-center rounded-lg text-[13px] hover:bg-ds-surface-2",
+                "flex h-9 min-h-[40px] items-center justify-center rounded-lg text-ds-body hover:bg-ds-surface-2",
                 value.startsWith(`${h}:`) ? "bg-primary/10 font-medium text-primary" : "text-ds-text-1",
               )}
             >
@@ -72,7 +72,7 @@ export function TareaTimeGrid({
                 type="button"
                 onClick={() => { onPick(`${hour}:${m}`); setHour(null); }}
                 className={cn(
-                  "flex h-10 min-h-[40px] items-center justify-center rounded-lg text-[13px] hover:bg-ds-surface-2",
+                  "flex h-10 min-h-[40px] items-center justify-center rounded-lg text-ds-body hover:bg-ds-surface-2",
                   value === `${hour}:${m}` ? "bg-primary text-primary-foreground" : "text-ds-text-1",
                 )}
               >

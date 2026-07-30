@@ -569,7 +569,7 @@ export function CreditNoteForm({ noteType, referenceDte, onSuccess, onCancel }: 
 
         {/* Banner contextual según CodRef */}
         {autoFilled && referenceType === "1" && (
-          <div className="rounded-md border border-status-warn-border bg-status-warn-soft p-3 text-[13px] text-status-warn-fg">
+          <div className="rounded-md border border-status-warn-border bg-status-warn-soft p-3 text-ds-body text-status-warn-fg">
             <p className="font-medium">Anulación: líneas copiadas del original</p>
             <p className="mt-0.5">
               La NC debe replicar EXACTAMENTE el monto del documento
@@ -580,7 +580,7 @@ export function CreditNoteForm({ noteType, referenceDte, onSuccess, onCancel }: 
           </div>
         )}
         {autoFilled && referenceType === "2" && (
-          <div className="rounded-md border border-status-info-border bg-status-info-soft p-3 text-[13px] text-status-info-fg">
+          <div className="rounded-md border border-status-info-border bg-status-info-soft p-3 text-ds-body text-status-info-fg">
             <p className="font-medium">Corrección de texto</p>
             <p className="mt-0.5">
               Editá nombre o descripción si querés. Los montos quedan
@@ -589,7 +589,7 @@ export function CreditNoteForm({ noteType, referenceDte, onSuccess, onCancel }: 
           </div>
         )}
         {autoFilled && referenceType === "3" && (
-          <div className="rounded-md border border-status-info-border bg-status-info-soft p-3 text-[13px] text-status-info-fg">
+          <div className="rounded-md border border-status-info-border bg-status-info-soft p-3 text-ds-body text-status-info-fg">
             <p className="font-medium">Corrección de montos</p>
             <p className="mt-0.5">
               Las líneas se cargaron del original. Ajustá las cantidades
@@ -777,7 +777,7 @@ export function CreditNoteForm({ noteType, referenceDte, onSuccess, onCancel }: 
                       />
                     </div>
                   </div>
-                  <div className="text-right text-[13px] font-mono tabular-nums">
+                  <div className="text-right text-ds-body font-mono tabular-nums">
                     Subtotal: <span className="font-medium">{fmtCLP.format(Math.round(subtotal))}</span>
                   </div>
                 </CardContent>

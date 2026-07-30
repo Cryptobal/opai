@@ -74,7 +74,7 @@ export function SignaturePreview({ data, className }: Props) {
         }}
         onBlurCapture={() => setHoverHref(null)}
       >
-        <p className="mb-3 text-[13px] leading-relaxed text-[#334155]">
+        <p className="mb-3 text-ds-body leading-relaxed text-[#334155]">
           Quedo atento,
         </p>
         <div dangerouslySetInnerHTML={{ __html: html }} />

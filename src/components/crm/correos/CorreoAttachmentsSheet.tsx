@@ -79,7 +79,7 @@ export function CorreoAttachmentsSheet({
         </header>
         <div className="min-h-0 flex-1 overflow-y-auto p-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)]">
           {items.length === 0 ? (
-            <p className="py-8 text-center text-[13px] text-ds-text-3">Sin adjuntos</p>
+            <p className="py-8 text-center text-ds-body text-ds-text-3">Sin adjuntos</p>
           ) : (
             <CorreoAttachments
               items={items}

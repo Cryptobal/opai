@@ -124,7 +124,7 @@ export function AgendaTimedEvent({
         {...listeners}
         {...attributes}
       >
-        <span className="block truncate text-[13px] font-semibold leading-4">
+        <span className="block truncate text-ds-body font-semibold leading-4">
           {item.title}
         </span>
         <span className="mt-0.5 flex min-w-0 items-center gap-1.5 text-[12px] leading-4 opacity-80">
@@ -271,7 +271,7 @@ export function AgendaDragPreview({
   return (
     <div
       className={cn(
-        "w-56 rounded-lg border px-2.5 py-2 text-left text-[13px] shadow-ds-lg",
+        "w-56 rounded-lg border px-2.5 py-2 text-left text-ds-body shadow-ds-lg",
         eventTone(item, colorBySource),
       )}
     >

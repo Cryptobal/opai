@@ -58,7 +58,7 @@ export function DetailHeader({
   useSetIslandAction(islandAction);
 
   const backClasses =
-    "inline-flex items-center gap-1 shrink-0 text-[13px] text-ds-text-3 transition-colors hover:text-ds-text-1";
+    "inline-flex items-center gap-1 shrink-0 text-ds-body text-ds-text-3 transition-colors hover:text-ds-text-1";
 
   return (
     <div

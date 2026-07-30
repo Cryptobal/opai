@@ -609,7 +609,7 @@ export function CederDteDialog({ open, onOpenChange, dte }: Props) {
                   ) : (
                     <Paperclip className="h-6 w-6 text-muted-foreground" />
                   )}
-                  <span className="text-[13px] text-muted-foreground">
+                  <span className="text-ds-body text-muted-foreground">
                     {simulationUploading
                       ? "Subiendo y extrayendo datos con IA…"
                       : "Arrastra el PDF que envió el factoring o haz clic para seleccionar"}
@@ -629,7 +629,7 @@ export function CederDteDialog({ open, onOpenChange, dte }: Props) {
                       href={simulation.fileUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-[13px] font-medium hover:underline truncate block"
+                      className="text-ds-body font-medium hover:underline truncate block"
                     >
                       {simulation.fileName}
                     </a>

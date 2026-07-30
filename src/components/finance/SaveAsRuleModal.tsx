@@ -423,7 +423,7 @@ export function SaveAsRuleModal({
                 className="mt-0.5"
               />
               <div className="flex-1 min-w-0 space-y-2">
-                <span className="text-[13px] font-medium">Descripción</span>
+                <span className="text-ds-body font-medium">Descripción</span>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   <Select
                     value={descriptionOperator}
@@ -487,7 +487,7 @@ export function SaveAsRuleModal({
               />
               <div className="flex-1 min-w-0 space-y-2">
                 <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-                  <span className="text-[13px] font-medium">Referencia</span>
+                  <span className="text-ds-body font-medium">Referencia</span>
                   <span className="text-[12px] text-ds-text-3 font-normal">
                     Nº de referencia / folio de la línea del extracto
                   </span>
@@ -513,7 +513,7 @@ export function SaveAsRuleModal({
                   </Select>
                   {textOperatorNeedsValue(referenceOperator) ? (
                     <Input
-                      className="h-10 sm:h-9 font-mono text-[13px]"
+                      className="h-10 sm:h-9 font-mono text-ds-body"
                       value={referenceValue}
                       onChange={(e) => setReferenceValue(e.target.value)}
                       disabled={!criteriaReference}
@@ -555,7 +555,7 @@ export function SaveAsRuleModal({
                   className="mt-0.5"
                 />
                 <div className="flex-1 min-w-0">
-                  <span className="text-[13px] font-medium">
+                  <span className="text-ds-body font-medium">
                     RUT contraparte es
                   </span>
                   <Input
@@ -586,7 +586,7 @@ export function SaveAsRuleModal({
                 className="mt-0.5"
               />
               <div className="flex-1 min-w-0">
-                <span className="text-[13px] font-medium">Monto entre</span>
+                <span className="text-ds-body font-medium">Monto entre</span>
                 <div className="grid grid-cols-2 gap-2 mt-1.5">
                   <Input
                     className="h-10 sm:h-9 font-mono"

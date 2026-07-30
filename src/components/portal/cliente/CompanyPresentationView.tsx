@@ -279,7 +279,7 @@ export function CompanyPresentationView({ contactId }: Props) {
             </div>
           </TooltipProvider>
           {extraClients > 0 && (
-            <p className="text-center text-[13px] text-zinc-400">
+            <p className="text-center text-ds-body text-zinc-400">
               + {extraClients} empresas más confían en nosotros
             </p>
           )}

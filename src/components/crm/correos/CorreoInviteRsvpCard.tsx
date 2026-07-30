@@ -45,7 +45,7 @@ function RsvpButton({
       type="button"
       disabled={disabled}
       onClick={onClick}
-      className={`inline-flex h-10 min-w-[96px] flex-1 items-center justify-center gap-1.5 rounded-xl border px-3 text-[13px] font-medium ds-tap transition-colors disabled:opacity-50 sm:flex-none ${
+      className={`inline-flex h-10 min-w-[96px] flex-1 items-center justify-center gap-1.5 rounded-xl border px-3 text-ds-body font-medium ds-tap transition-colors disabled:opacity-50 sm:flex-none ${
         active
           ? activeCls
           : "border-ds-border-default bg-ds-surface-1 text-ds-text-2 hover:bg-ds-surface-2"
@@ -189,12 +189,12 @@ export function CorreoInviteRsvpCard({
             </Tag>
           </div>
           {invite.whenLabel ? (
-            <p className="text-[13px] text-ds-text-2">{invite.whenLabel}</p>
+            <p className="text-ds-body text-ds-text-2">{invite.whenLabel}</p>
           ) : null}
         </div>
       </div>
 
-      <div className="space-y-1.5 rounded-xl border border-ds-border-subtle bg-ds-surface-2 px-3 py-2.5 text-[13px]">
+      <div className="space-y-1.5 rounded-xl border border-ds-border-subtle bg-ds-surface-2 px-3 py-2.5 text-ds-body">
         {(invite.organizerName || invite.organizerEmail) && (
           <div className="flex items-center gap-2 text-ds-text-2">
             <Users className="h-3.5 w-3.5 shrink-0 text-ds-text-4" />

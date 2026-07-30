@@ -383,7 +383,7 @@ export function CorreoDrawer({
           <p className="text-[12px] text-ds-text-4">Cargando correo…</p>
         </div>
       ) : !detailReady ? (
-        <p className="text-[13px] text-ds-text-4">No se pudo cargar el hilo.</p>
+        <p className="text-ds-body text-ds-text-4">No se pudo cargar el hilo.</p>
       ) : (
         <CorreoDrawerContent
           detail={detail}

@@ -151,7 +151,7 @@ export function RondasAlertasClient({
           <ShieldCheck className="w-7 h-7 text-status-warn-fg" />
         </div>
         <p className="text-[15px] font-semibold text-[#f1f5f9] mb-1">Sin monitoreo activo</p>
-        <p className="text-[13px] text-[#94a3b8] max-w-sm">
+        <p className="text-ds-body text-[#94a3b8] max-w-sm">
           Abre el monitoreo de turnos para ver y gestionar alertas. Al cerrar el turno las alertas dejan de mostrarse aquí.
         </p>
       </div>
@@ -195,13 +195,13 @@ export function RondasAlertasClient({
               type="date"
               value={dateFrom}
               onChange={(e) => setDateFrom(e.target.value)}
-              className="h-8 rounded-lg border border-[#1a1f2e] bg-[#111827] text-[13px] text-[#f1f5f9] px-3 w-36"
+              className="h-8 rounded-lg border border-[#1a1f2e] bg-[#111827] text-ds-body text-[#f1f5f9] px-3 w-36"
             />
             <input
               type="date"
               value={dateTo}
               onChange={(e) => setDateTo(e.target.value)}
-              className="h-8 rounded-lg border border-[#1a1f2e] bg-[#111827] text-[13px] text-[#f1f5f9] px-3 w-36"
+              className="h-8 rounded-lg border border-[#1a1f2e] bg-[#111827] text-ds-body text-[#f1f5f9] px-3 w-36"
             />
           </div>
         </div>
@@ -212,7 +212,7 @@ export function RondasAlertasClient({
 
       {/* Alert count + bulk select controls */}
       <div className="flex items-center justify-between">
-        <p className="text-[13px] text-[#94a3b8]">
+        <p className="text-ds-body text-[#94a3b8]">
           <span className="font-semibold text-[#f1f5f9]">{filtered.length}</span> alerta{filtered.length !== 1 ? "s" : ""}
           {selectedIds.size > 0 && (
             <span className="text-status-info-fg ml-2">
@@ -275,7 +275,7 @@ export function RondasAlertasClient({
             <ShieldCheck className="w-6 h-6 text-status-ok-fg" />
           </div>
           <p className="text-[15px] font-semibold text-[#f1f5f9] mb-1">Sin alertas activas</p>
-          <p className="text-[13px] text-[#94a3b8]">
+          <p className="text-ds-body text-[#94a3b8]">
             Sistema activo · Monitoreando {rows.length} ejecuciones
           </p>
         </div>
@@ -285,7 +285,7 @@ export function RondasAlertasClient({
       <div className="rounded-xl border border-[#1a1f2e] bg-[#111827] p-4 space-y-2">
         <div className="flex items-center gap-2">
           <Bot className="h-4 w-4 text-status-info-fg" />
-          <h4 className="text-[13px] font-semibold text-[#f1f5f9]">Motor de detección automática</h4>
+          <h4 className="text-ds-body font-semibold text-[#f1f5f9]">Motor de detección automática</h4>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
           {[

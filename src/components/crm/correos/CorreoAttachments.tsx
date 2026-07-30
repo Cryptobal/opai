@@ -140,7 +140,7 @@ export function CorreoAttachments({
                   if (el) rowRefs.current.set(k, el);
                   else rowRefs.current.delete(k);
                 }}
-                className="flex items-center gap-1 rounded-lg border border-ds-border-subtle bg-ds-surface-1 px-1.5 text-[13px] text-ds-text-2"
+                className="flex items-center gap-1 rounded-lg border border-ds-border-subtle bg-ds-surface-1 px-1.5 text-ds-body text-ds-text-2"
               >
                 {canSelect && (
                   <button

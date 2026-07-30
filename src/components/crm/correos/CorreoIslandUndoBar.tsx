@@ -53,14 +53,14 @@ export function CorreoIslandUndoBar({ payload }: { payload: UndoSnackbarState })
       aria-live="polite"
       className="opai-glass-strong opai-glass-shell relative flex h-[60px] items-center gap-3 overflow-hidden rounded-[26px] px-5"
     >
-      <p className="min-w-0 flex-1 truncate text-[13px] font-medium text-ds-text-1">
+      <p className="min-w-0 flex-1 truncate text-ds-body font-medium text-ds-text-1">
         {payload.message}
       </p>
       <button
         type="button"
         onClick={() => void onUndo()}
         disabled={busy}
-        className="min-h-11 min-w-[72px] shrink-0 px-1 text-[13px] font-semibold text-primary ds-tap disabled:opacity-60"
+        className="min-h-11 min-w-[72px] shrink-0 px-1 text-ds-body font-semibold text-primary ds-tap disabled:opacity-60"
       >
         {payload.actionLabel}
       </button>

@@ -44,7 +44,7 @@ export function AgendaCalendarSourceRow({
         </span>
         <span
           className={cn(
-            "min-w-0 flex-1 truncate text-[13px]",
+            "min-w-0 flex-1 truncate text-ds-body",
             active ? "text-ds-text-2" : "text-ds-text-4 line-through decoration-ds-text-4/40",
           )}
         >
@@ -71,7 +71,7 @@ export function AgendaCalendarSourceRow({
         </PopoverTrigger>
         <PopoverContent align="end" className="w-52 space-y-2 border-ds-border-default bg-ds-surface-1 p-2">
           <CalendarColorPopover color={source.color} onChange={(key) => onColorChange(source.sourceKey, key)}>
-            <button type="button" className="flex h-9 w-full items-center gap-2 rounded-lg px-2 text-[13px] hover:bg-ds-surface-2 ds-tap">
+            <button type="button" className="flex h-9 w-full items-center gap-2 rounded-lg px-2 text-ds-body hover:bg-ds-surface-2 ds-tap">
               <span className={cn("h-5 w-5 rounded-md", swatch)} />
               Cambiar color
             </button>
@@ -80,7 +80,7 @@ export function AgendaCalendarSourceRow({
             <button
               type="button"
               onClick={() => onSetCreateTarget(source.sourceKey)}
-              className="flex h-9 w-full items-center gap-2 rounded-lg px-2 text-[13px] hover:bg-ds-surface-2 ds-tap"
+              className="flex h-9 w-full items-center gap-2 rounded-lg px-2 text-ds-body hover:bg-ds-surface-2 ds-tap"
             >
               <Target className="h-4 w-4 shrink-0 text-ds-text-3" />
               Marcar como destino

@@ -89,7 +89,7 @@ export default function CsatClient({ token }: { token: string }) {
           <h1 className="font-display text-xl sm:text-2xl font-semibold tracking-tight">
             ¿Cómo fue tu experiencia?
           </h1>
-          <p className="text-[13px] text-muted-foreground">
+          <p className="text-ds-body text-muted-foreground">
             Tu opinión nos ayuda a mejorar el servicio.
           </p>
         </div>
@@ -100,7 +100,7 @@ export default function CsatClient({ token }: { token: string }) {
               Cargando…
             </p>
           ) : error ? (
-            <div className="rounded-lg border border-status-danger-border bg-status-danger-soft p-3 text-center text-[13px] text-status-danger-fg">
+            <div className="rounded-lg border border-status-danger-border bg-status-danger-soft p-3 text-center text-ds-body text-status-danger-fg">
               {error}
             </div>
           ) : !data ? null : (
@@ -141,7 +141,7 @@ export default function CsatClient({ token }: { token: string }) {
                 })}
               </div>
               {rating != null && (
-                <p className="mt-2 text-center text-[13px] text-muted-foreground">
+                <p className="mt-2 text-center text-ds-body text-muted-foreground">
                   {RATING_LABELS[rating - 1]}
                 </p>
               )}
@@ -153,7 +153,7 @@ export default function CsatClient({ token }: { token: string }) {
                 placeholder="Cuéntanos algo más (opcional)…"
                 rows={3}
                 maxLength={2000}
-                className="mt-4 w-full rounded-lg border border-border bg-background px-3 py-2 text-[13px] leading-relaxed focus:outline-none focus:ring-2 focus:ring-primary/40 disabled:opacity-60"
+                className="mt-4 w-full rounded-lg border border-border bg-background px-3 py-2 text-ds-body leading-relaxed focus:outline-none focus:ring-2 focus:ring-primary/40 disabled:opacity-60"
               />
 
               <div className="mt-4 flex flex-col items-center gap-2">

@@ -63,7 +63,7 @@ export function EmptyState({
         {description && (
           <p className={cn(
             "text-ds-text-3 leading-relaxed",
-            compact ? "text-[13px]" : "text-[14px] sm:text-[15px]",
+            compact ? "text-ds-body" : "text-[14px] sm:text-[15px]",
           )}>
             {description}
           </p>

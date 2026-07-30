@@ -124,7 +124,7 @@ export function CatalogPicker({ kind, value, onChange, disabled, triggerClassNam
           type="button"
           disabled={disabled}
           className={cn(
-            "flex h-9 w-full items-center justify-between gap-1 rounded-md border border-border bg-card px-2 text-[13px] text-foreground disabled:opacity-60",
+            "flex h-9 w-full items-center justify-between gap-1 rounded-md border border-border bg-card px-2 text-ds-body text-foreground disabled:opacity-60",
             triggerClassName
           )}
         >
@@ -151,7 +151,7 @@ export function CatalogPicker({ kind, value, onChange, disabled, triggerClassNam
                       if (e.key === "Enter") saveEdit(o);
                       if (e.key === "Escape") setEditingId(null);
                     }}
-                    className="h-8 text-[13px]"
+                    className="h-8 text-ds-body"
                   />
                   <Button type="button" variant="ghost" size="icon" className="h-7 w-7 shrink-0" disabled={busy} onClick={() => saveEdit(o)}>
                     <Check className="h-3.5 w-3.5" />
@@ -166,7 +166,7 @@ export function CatalogPicker({ kind, value, onChange, disabled, triggerClassNam
                     type="button"
                     onClick={() => { onChange(o.id); setOpen(false); }}
                     className={cn(
-                      "flex flex-1 items-center gap-1.5 rounded px-2 py-1.5 text-left text-[13px] transition-colors hover:bg-muted/50",
+                      "flex flex-1 items-center gap-1.5 rounded px-2 py-1.5 text-left text-ds-body transition-colors hover:bg-muted/50",
                       o.id === value ? "font-semibold text-foreground" : "text-foreground"
                     )}
                   >
@@ -216,7 +216,7 @@ export function CatalogPicker({ kind, value, onChange, disabled, triggerClassNam
                     if (e.key === "Enter") create();
                     if (e.key === "Escape") { setCreating(false); setNewName(""); }
                   }}
-                  className="h-8 flex-1 text-[13px]"
+                  className="h-8 flex-1 text-ds-body"
                 />
                 <Button type="button" variant="ghost" size="icon" className="h-7 w-7 shrink-0" disabled={busy || !newName.trim()} onClick={create}>
                   <Check className="h-3.5 w-3.5" />

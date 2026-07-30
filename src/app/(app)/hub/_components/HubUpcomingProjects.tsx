@@ -148,7 +148,7 @@ export function HubUpcomingProjects({ projects, canEdit = false }: Props) {
       <div className="flex items-center gap-3 border-b border-ds-border-subtle px-3 py-3">
         <IconBubble icon={CalendarClock} variant="info" size="sm" />
         <div className="min-w-0 flex-1">
-          <p className="text-[13px] font-semibold text-ds-text-1">
+          <p className="text-ds-body font-semibold text-ds-text-1">
             Servicios por iniciar
           </p>
           <p className="text-[12px] text-ds-text-3">
@@ -181,7 +181,7 @@ export function HubUpcomingProjects({ projects, canEdit = false }: Props) {
                 <div className="min-w-0 flex-1">
                   <Link
                     href={`/crm/deals/${p.id}`}
-                    className="group inline-flex max-w-full items-center gap-1.5 text-[13px] font-semibold text-ds-text-1 hover:text-primary"
+                    className="group inline-flex max-w-full items-center gap-1.5 text-ds-body font-semibold text-ds-text-1 hover:text-primary"
                   >
                     <span className="truncate">{p.title}</span>
                     <ArrowRight className="h-3.5 w-3.5 shrink-0 transition-transform group-hover:translate-x-0.5" />
@@ -231,10 +231,10 @@ export function HubUpcomingProjects({ projects, canEdit = false }: Props) {
                         }))
                       }
                       disabled={Boolean(busy)}
-                      className="min-h-11 w-full rounded-ds-md border border-ds-border-default bg-ds-surface-1 px-3 font-mono text-[13px] text-ds-text-1 outline-none transition-colors focus:border-primary focus:ring-1 focus:ring-primary sm:min-h-9"
+                      className="min-h-11 w-full rounded-ds-md border border-ds-border-default bg-ds-surface-1 px-3 font-mono text-ds-body text-ds-text-1 outline-none transition-colors focus:border-primary focus:ring-1 focus:ring-primary sm:min-h-9"
                     />
                   ) : (
-                    <span className="flex min-h-11 items-center font-mono text-[13px] text-ds-text-1 sm:min-h-9">
+                    <span className="flex min-h-11 items-center font-mono text-ds-body text-ds-text-1 sm:min-h-9">
                       {formatStartDate(p.serviceStartDate)}
                     </span>
                   )}
@@ -249,7 +249,7 @@ export function HubUpcomingProjects({ projects, canEdit = false }: Props) {
                         Boolean(busy) ||
                         selectedDate === p.serviceStartDate.slice(0, 10)
                       }
-                      className="inline-flex min-h-11 items-center justify-center rounded-full border border-ds-border-default px-4 text-[13px] font-semibold text-ds-text-2 transition-colors hover:border-ds-border-strong hover:text-ds-text-1 disabled:cursor-not-allowed disabled:opacity-40 sm:min-h-9"
+                      className="inline-flex min-h-11 items-center justify-center rounded-full border border-ds-border-default px-4 text-ds-body font-semibold text-ds-text-2 transition-colors hover:border-ds-border-strong hover:text-ds-text-1 disabled:cursor-not-allowed disabled:opacity-40 sm:min-h-9"
                     >
                       {savingDate ? 'Guardando…' : 'Guardar fecha'}
                     </button>
@@ -257,7 +257,7 @@ export function HubUpcomingProjects({ projects, canEdit = false }: Props) {
                       type="button"
                       onClick={() => void markStarted(p)}
                       disabled={Boolean(busy)}
-                      className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-primary px-4 text-[13px] font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-9"
+                      className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-primary px-4 text-ds-body font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-9"
                     >
                       <PlayCircle className="h-4 w-4" />
                       {starting ? 'Iniciando…' : 'Marcar iniciado'}

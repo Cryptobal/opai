@@ -246,7 +246,7 @@ export function CorreoDrawerContent({
 
         {/* Degradado: en móvil es un motivo del banner de Copiloto. */}
         {detail.degraded && (
-          <div className="hidden shrink-0 rounded-xl border border-status-warn-border bg-status-warn-soft px-3 py-2.5 text-[13px] text-status-warn-fg lg:block">
+          <div className="hidden shrink-0 rounded-xl border border-status-warn-border bg-status-warn-soft px-3 py-2.5 text-ds-body text-status-warn-fg lg:block">
             No se pudieron cargar los adjuntos de este hilo desde Gmail. Reintentá en unos segundos.
           </div>
         )}

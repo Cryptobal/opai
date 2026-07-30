@@ -1812,7 +1812,7 @@ export function AccountContractsSection({
                               </span>
                               <span
                                 className={cn(
-                                  "text-[13px] font-semibold tabular-nums",
+                                  "text-ds-body font-semibold tabular-nums",
                                   isOrphan ? "text-status-warn-fg" : "text-status-ok-fg",
                                 )}
                               >
@@ -2057,7 +2057,7 @@ export function AccountContractsSection({
                     <span className="text-[11px] font-mono uppercase tracking-[0.08em] text-status-ok-fg">
                       En flujo de caja
                     </span>
-                    <span className="text-[13px] font-semibold tabular-nums text-status-ok-fg">
+                    <span className="text-ds-body font-semibold tabular-nums text-status-ok-fg">
                       ${monthly}/mes
                     </span>
                     <span className="text-[11px] text-muted-foreground">
@@ -3179,7 +3179,7 @@ export function AccountContractsSection({
                       {(recurringAutoSendProforma ||
                         recurringAutoSendPaymentStatement) && (
                         <div className="rounded-md border border-border bg-muted/40 p-3 space-y-2">
-                          <div className="text-[13px] font-medium">
+                          <div className="text-ds-body font-medium">
                             Destinatarios de proforma y estado de pago
                           </div>
                           <p className="text-xs text-muted-foreground">

@@ -59,7 +59,7 @@ export function ParticipantsBlock({
         <div className="flex items-center gap-2.5">
           <Avatar name={fallbackName} size="md" className="h-[30px] w-[30px]" />
           <div className="min-w-0">
-            <p className="truncate text-[13px] font-medium text-ds-text-1">{fallbackName}</p>
+            <p className="truncate text-ds-body font-medium text-ds-text-1">{fallbackName}</p>
             <p className="text-[12px] text-ds-text-4">Responsable</p>
           </div>
         </div>
@@ -73,7 +73,7 @@ export function ParticipantsBlock({
         <div key={p.userId} className="flex items-center gap-2.5">
           <Avatar name={p.name} size="md" className="h-[30px] w-[30px]" />
           <div className="min-w-0 flex-1">
-            <p className="truncate text-[13px] font-medium text-ds-text-1">{p.name}</p>
+            <p className="truncate text-ds-body font-medium text-ds-text-1">{p.name}</p>
             <p className="text-[12px] text-ds-text-4">{ROLE_LABELS[p.role] ?? p.role}</p>
           </div>
           <RsvpBadge status={p.responseStatus} hasGoogle={p.hasGoogle} />
@@ -83,7 +83,7 @@ export function ParticipantsBlock({
         <div key={e.email} className="flex items-center gap-2.5">
           <Avatar name={e.name ?? e.email} size="md" variant="neutral" className="h-[30px] w-[30px]" />
           <div className="min-w-0 flex-1">
-            <p className="truncate text-[13px] font-medium text-ds-text-1">{e.name ?? e.email}</p>
+            <p className="truncate text-ds-body font-medium text-ds-text-1">{e.name ?? e.email}</p>
             <p className="truncate text-[12px] text-ds-text-4">{e.email}</p>
           </div>
           <RsvpBadge status={e.responseStatus} hasGoogle />
@@ -130,6 +130,6 @@ export function ContextBlock({
 function ctxChip(): string {
   return cn(
     "inline-flex max-w-full items-center gap-1.5 truncate rounded-full",
-    "opai-glass-soft px-2.5 py-1.5 text-[13px] text-ds-text-1 ds-tap",
+    "opai-glass-soft px-2.5 py-1.5 text-ds-body text-ds-text-1 ds-tap",
   );
 }

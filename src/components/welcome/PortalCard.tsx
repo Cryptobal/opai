@@ -121,7 +121,7 @@ export function PortalCard({
           >
             {title}
           </div>
-          <div className="text-[13px] text-[#6b7280] leading-snug">
+          <div className="text-ds-body text-[#6b7280] leading-snug">
             {subtitle}
           </div>
         </div>

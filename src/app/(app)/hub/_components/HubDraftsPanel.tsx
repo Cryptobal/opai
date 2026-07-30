@@ -26,7 +26,7 @@ function formatQuoteAmount(quote: ClosingDraftQuote): string {
 
 function EmptyDraftList({ children }: { children: string }) {
   return (
-    <p className="rounded-ds-md bg-ds-surface-2 px-3 py-4 text-center text-[13px] text-ds-text-3">
+    <p className="rounded-ds-md bg-ds-surface-2 px-3 py-4 text-center text-ds-body text-ds-text-3">
       {children}
     </p>
   );
@@ -62,7 +62,7 @@ export function HubDraftsPanel({
             <div className="min-w-0 flex-1">
               <h3
                 id="draft-quotes"
-                className="text-[13px] font-semibold text-ds-text-1"
+                className="text-ds-body font-semibold text-ds-text-1"
               >
                 Cotizaciones
               </h3>
@@ -90,7 +90,7 @@ export function HubDraftsPanel({
                     className="flex min-h-14 items-center gap-3 px-3 py-2.5 transition-colors hover:bg-ds-surface-2"
                   >
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-[13px] font-medium text-ds-text-1">
+                      <p className="truncate text-ds-body font-medium text-ds-text-1">
                         {quote.clientName || quote.name || quote.code}
                       </p>
                       <p className="truncate text-[12px] text-ds-text-4">
@@ -114,7 +114,7 @@ export function HubDraftsPanel({
             <div className="min-w-0 flex-1">
               <h3
                 id="draft-leads"
-                className="text-[13px] font-semibold text-ds-text-1"
+                className="text-ds-body font-semibold text-ds-text-1"
               >
                 Leads
               </h3>
@@ -142,7 +142,7 @@ export function HubDraftsPanel({
                     className="flex min-h-14 items-center gap-3 px-3 py-2.5 transition-colors hover:bg-ds-surface-2"
                   >
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-[13px] font-medium text-ds-text-1">
+                      <p className="truncate text-ds-body font-medium text-ds-text-1">
                         {lead.companyName || lead.contactName}
                       </p>
                       <p className="truncate text-[12px] text-ds-text-4">

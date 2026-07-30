@@ -166,7 +166,7 @@ function ActionList({
               />
               <span className="min-w-0 flex-1">
                 <span className="flex flex-wrap items-center gap-1.5">
-                  <span className="text-[13px] font-medium text-ds-text-1">{a.label}</span>
+                  <span className="text-ds-body font-medium text-ds-text-1">{a.label}</span>
                   {a.tag && (
                     <Tag variant={TAG_VARIANT[a.tag]} size="sm">
                       {TAG_LABEL[a.tag]}

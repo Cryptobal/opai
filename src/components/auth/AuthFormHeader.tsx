@@ -12,7 +12,7 @@ export function AuthFormHeader({ title, subtitle }: AuthFormHeaderProps) {
       >
         {title}
       </h2>
-      <p className="text-[13px] text-[#6b7280] m-0" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+      <p className="text-ds-body text-[#6b7280] m-0" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
         {subtitle}
       </p>
     </div>

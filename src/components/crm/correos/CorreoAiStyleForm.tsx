@@ -161,7 +161,7 @@ export function CorreoAiStyleForm({ active }: Props) {
       </p>
 
       <div className="flex min-h-11 items-center justify-between gap-3 rounded-xl border border-ds-border-subtle bg-ds-surface-2 px-3">
-        <label htmlFor="correo-ai-style-personal" className="min-w-0 flex-1 text-[13px] text-ds-text-2">
+        <label htmlFor="correo-ai-style-personal" className="min-w-0 flex-1 text-ds-body text-ds-text-2">
           Usar mi propio estilo
         </label>
         <input
@@ -193,7 +193,7 @@ export function CorreoAiStyleForm({ active }: Props) {
       )}
 
       <div className="flex min-h-11 items-center justify-between gap-3 rounded-xl border border-ds-border-subtle bg-ds-surface-1 pl-3 pr-2">
-        <span className="text-[13px] text-ds-text-2">Cercanía</span>
+        <span className="text-ds-body text-ds-text-2">Cercanía</span>
         <SimpleSelect
           value={draft.closeness}
           onValueChange={(v) => patch({ closeness: v as CorreoAiCloseness })}
@@ -210,7 +210,7 @@ export function CorreoAiStyleForm({ active }: Props) {
       </div>
 
       <div className="flex min-h-11 items-center justify-between gap-3 rounded-xl border border-ds-border-subtle bg-ds-surface-1 pl-3 pr-2">
-        <span className="text-[13px] text-ds-text-2">Tratamiento</span>
+        <span className="text-ds-body text-ds-text-2">Tratamiento</span>
         <SimpleSelect
           value={draft.addressing}
           onValueChange={(v) => patch({ addressing: v as CorreoAiAddressing })}
@@ -227,7 +227,7 @@ export function CorreoAiStyleForm({ active }: Props) {
       </div>
 
       <div className="flex min-h-11 items-center justify-between gap-3 rounded-xl border border-ds-border-subtle bg-ds-surface-1 pl-3 pr-2">
-        <span className="text-[13px] text-ds-text-2">Extensión</span>
+        <span className="text-ds-body text-ds-text-2">Extensión</span>
         <SimpleSelect
           value={draft.length}
           onValueChange={(v) => patch({ length: v as CorreoAiLength })}
@@ -250,7 +250,7 @@ export function CorreoAiStyleForm({ active }: Props) {
           onChange={(e) => setAvoidInput(e.target.value)}
           disabled={readOnly}
           placeholder="Estimado, Cordialmente…"
-          className="h-11 w-full rounded-xl border border-ds-border-default bg-ds-surface-1 px-3 text-[13px] text-ds-text-1 outline-none focus:border-ds-border-strong disabled:opacity-60"
+          className="h-11 w-full rounded-xl border border-ds-border-default bg-ds-surface-1 px-3 text-ds-body text-ds-text-1 outline-none focus:border-ds-border-strong disabled:opacity-60"
         />
       </label>
 
@@ -263,7 +263,7 @@ export function CorreoAiStyleForm({ active }: Props) {
           rows={3}
           maxLength={1200}
           placeholder="Ej. Siempre ofrecer una llamada de 15 min…"
-          className="w-full rounded-xl border border-ds-border-default bg-ds-surface-1 px-3 py-2 text-[13px] text-ds-text-1 outline-none focus:border-ds-border-strong disabled:opacity-60"
+          className="w-full rounded-xl border border-ds-border-default bg-ds-surface-1 px-3 py-2 text-ds-body text-ds-text-1 outline-none focus:border-ds-border-strong disabled:opacity-60"
         />
       </label>
 
@@ -271,7 +271,7 @@ export function CorreoAiStyleForm({ active }: Props) {
         <p className="mb-1 font-mono text-[12px] uppercase tracking-[0.08em] text-ds-text-4">
           Vista previa
         </p>
-        <p className="whitespace-pre-wrap text-[13px] text-ds-text-2">
+        <p className="whitespace-pre-wrap text-ds-body text-ds-text-2">
           {previewText({
             ...draft,
             avoidWords: avoidInput
@@ -288,7 +288,7 @@ export function CorreoAiStyleForm({ active }: Props) {
             type="button"
             disabled={saving}
             onClick={() => void save()}
-            className="inline-flex h-11 flex-1 items-center justify-center rounded-xl bg-primary px-4 text-[13px] font-medium text-primary-foreground ds-tap disabled:opacity-50 sm:h-10"
+            className="inline-flex h-11 flex-1 items-center justify-center rounded-xl bg-primary px-4 text-ds-body font-medium text-primary-foreground ds-tap disabled:opacity-50 sm:h-10"
           >
             {saving ? "Guardando…" : "Guardar"}
           </button>
@@ -298,7 +298,7 @@ export function CorreoAiStyleForm({ active }: Props) {
             type="button"
             disabled={saving}
             onClick={() => void restoreCompany()}
-            className="inline-flex h-11 items-center justify-center rounded-xl border border-ds-border-default px-3 text-[13px] text-ds-text-2 ds-tap disabled:opacity-50 sm:h-10"
+            className="inline-flex h-11 items-center justify-center rounded-xl border border-ds-border-default px-3 text-ds-body text-ds-text-2 ds-tap disabled:opacity-50 sm:h-10"
           >
             Restaurar valores de la empresa
           </button>

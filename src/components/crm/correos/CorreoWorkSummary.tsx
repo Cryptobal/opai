@@ -130,7 +130,7 @@ export function CorreoWorkSummary({
           onClick={() => runCommand(primary.id)}
           className="flex min-h-[72px] w-full flex-col items-start gap-1 rounded-2xl border border-tint-violet/40 bg-tint-violet/10 px-3.5 py-3 text-left ds-tap"
         >
-          <span className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-tint-violet-fg">
+          <span className="inline-flex items-center gap-1.5 text-ds-body font-semibold text-tint-violet-fg">
             <Sparkles className="h-4 w-4" /> ✦ {primaryCopy.title}
           </span>
           <span className="text-[12px] leading-snug text-ds-text-2">{primaryCopy.subtitle}</span>
@@ -182,7 +182,7 @@ export function CorreoWorkSummary({
             className="flex min-h-11 w-full items-center gap-2 px-3 py-2 text-left ds-tap"
           >
             <Sparkles className="h-4 w-4 text-tint-violet-fg" />
-            <span className="text-[13px] font-medium text-ds-text-1">Más acciones IA</span>
+            <span className="text-ds-body font-medium text-ds-text-1">Más acciones IA</span>
             <ChevronDown
               className={`ml-auto h-4 w-4 text-ds-text-4 transition-transform ${moreOpen ? "rotate-180" : ""}`}
             />

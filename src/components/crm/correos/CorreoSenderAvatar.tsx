@@ -33,7 +33,7 @@ export function CorreoSenderAvatar({ fromEmail, compact, checked, onPress }: Pro
   const face = (
     <span aria-hidden className={`relative block shrink-0 ${size}`}>
       <span
-        className={`${circle} ${tint} ${compact ? "text-[13px]" : "text-sm"} font-semibold ${
+        className={`${circle} ${tint} ${compact ? "text-ds-body" : "text-sm"} font-semibold ${
           checked ? "scale-0 opacity-0" : "scale-100 opacity-100"
         }`}
       >

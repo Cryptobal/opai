@@ -52,7 +52,7 @@ export function SlackDealRoomCard({ accountName, dealTitle, channelName: realNam
           <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-tint-violet-fg">
             Sala Slack
           </p>
-          <p className="truncate text-[13px] font-medium" title={`#${channelName}`}>
+          <p className="truncate text-ds-body font-medium" title={`#${channelName}`}>
             #{channelName}
           </p>
         </div>

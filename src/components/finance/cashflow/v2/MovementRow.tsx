@@ -115,7 +115,7 @@ export function MovementRow({
     >
       {/* Línea 1: Cuenta / Nombre + monto */}
       <div className="flex items-center gap-2">
-        <span className={cn("min-w-0 flex-1 truncate text-[13px]", emphasis)}>
+        <span className={cn("min-w-0 flex-1 truncate text-ds-body", emphasis)}>
           {title}
         </span>
         {occ.notes && (
@@ -127,7 +127,7 @@ export function MovementRow({
             <StickyNote className="h-2.5 w-2.5" />
           </span>
         )}
-        <span className={cn("shrink-0 font-mono text-[13px] tabular-nums", emphasis)}>
+        <span className={cn("shrink-0 font-mono text-ds-body tabular-nums", emphasis)}>
           {fmtCLP.format(occ.amountClp)}
         </span>
       </div>

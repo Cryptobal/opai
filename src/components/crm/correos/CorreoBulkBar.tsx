@@ -76,7 +76,7 @@ type Props = {
 };
 
 const BTN =
-  "inline-flex h-9 items-center gap-1.5 rounded-lg px-2.5 text-[13px] text-primary-foreground/90 ds-tap hover:bg-primary-foreground/10";
+  "inline-flex h-9 items-center gap-1.5 rounded-lg px-2.5 text-ds-body text-primary-foreground/90 ds-tap hover:bg-primary-foreground/10";
 
 export function CorreoBulkBar({ count, onClear, onSelectAllVisible, onAction, onSnooze }: Props) {
   return (
@@ -85,7 +85,7 @@ export function CorreoBulkBar({ count, onClear, onSelectAllVisible, onAction, on
       <button type="button" aria-label="Deseleccionar todo" onClick={onClear} className={BTN}>
         <X className="h-4 w-4" />
       </button>
-      <span className="text-[13px] font-medium">{count} seleccionados</span>
+      <span className="text-ds-body font-medium">{count} seleccionados</span>
       <button type="button" onClick={onSelectAllVisible} className={BTN}>
         <CheckSquare className="h-4 w-4" /> <span className="hidden sm:inline">Todos</span>
       </button>

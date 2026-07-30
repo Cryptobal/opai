@@ -732,7 +732,7 @@ export function TicketsClient({ userRole, userId }: TicketsClientProps) {
                   value={savedViewName}
                   onChange={(e) => setSavedViewName(e.target.value)}
                   placeholder="Ej: Mis P1 críticos"
-                  className="h-9 text-[13px]"
+                  className="h-9 text-ds-body"
                   maxLength={60}
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && savedViewName.trim()) {
@@ -782,7 +782,7 @@ export function TicketsClient({ userRole, userId }: TicketsClientProps) {
                             applyViewState(v.state);
                             setSavedViewsOpen(false);
                           }}
-                          className="flex flex-1 items-center gap-2 text-left text-[13px]"
+                          className="flex flex-1 items-center gap-2 text-left text-ds-body"
                           title={`Aplicar vista: ${v.name}`}
                         >
                           <Star
@@ -887,7 +887,7 @@ export function TicketsClient({ userRole, userId }: TicketsClientProps) {
             <div className="space-y-1.5">
               <Label className="text-[12px] uppercase tracking-wide text-muted-foreground">Estado</Label>
               <Select value={filterStatus} onValueChange={(v) => setFilterStatus(v as typeof filterStatus)}>
-                <SelectTrigger className="h-10 sm:h-9 text-[13px]">
+                <SelectTrigger className="h-10 sm:h-9 text-ds-body">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="z-[200]">
@@ -934,7 +934,7 @@ export function TicketsClient({ userRole, userId }: TicketsClientProps) {
             <div className="space-y-1.5">
               <Label className="text-[12px] uppercase tracking-wide text-muted-foreground">Origen</Label>
               <Select value={originTab} onValueChange={(v) => setOriginTab(v as typeof originTab)}>
-                <SelectTrigger className="h-10 sm:h-9 text-[13px]">
+                <SelectTrigger className="h-10 sm:h-9 text-ds-body">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="z-[200]">
@@ -950,7 +950,7 @@ export function TicketsClient({ userRole, userId }: TicketsClientProps) {
             <div className="space-y-1.5">
               <Label className="text-[12px] uppercase tracking-wide text-muted-foreground">Asignación</Label>
               <Select value={assignedFilter} onValueChange={(v) => setAssignedFilter(v as AssignedFilter)}>
-                <SelectTrigger className="h-10 sm:h-9 text-[13px]">
+                <SelectTrigger className="h-10 sm:h-9 text-ds-body">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="z-[200]">
@@ -967,7 +967,7 @@ export function TicketsClient({ userRole, userId }: TicketsClientProps) {
               <div className="space-y-1.5">
                 <Label className="text-[12px] uppercase tracking-wide text-muted-foreground">Tipo</Label>
                 <Select value={filterTypeId} onValueChange={setFilterTypeId}>
-                  <SelectTrigger className="h-10 sm:h-9 text-[13px]">
+                  <SelectTrigger className="h-10 sm:h-9 text-ds-body">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent className="z-[200]">
@@ -1114,7 +1114,7 @@ export function TicketsClient({ userRole, userId }: TicketsClientProps) {
       {selectionMode && (
         <div className="sticky top-0 z-30 -mx-1 rounded-xl border border-primary/30 bg-primary/5 px-3 py-2 backdrop-blur supports-[backdrop-filter]:bg-primary/10">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-[13px] font-medium text-foreground">
+            <span className="text-ds-body font-medium text-foreground">
               {selectedIds.size === 0
                 ? "Selecciona tickets para acciones masivas"
                 : `${selectedIds.size} seleccionado${selectedIds.size === 1 ? "" : "s"}`}
@@ -1156,7 +1156,7 @@ export function TicketsClient({ userRole, userId }: TicketsClientProps) {
                     }
                   }}
                 >
-                  <SelectTrigger className="h-10 sm:h-9 w-[160px] text-[13px]">
+                  <SelectTrigger className="h-10 sm:h-9 w-[160px] text-ds-body">
                     <SelectValue placeholder="Asignar a…" />
                   </SelectTrigger>
                   <SelectContent>
@@ -1177,7 +1177,7 @@ export function TicketsClient({ userRole, userId }: TicketsClientProps) {
                     runBulkAction("priority", { priority: v });
                   }}
                 >
-                  <SelectTrigger className="h-10 sm:h-9 w-[120px] text-[13px]">
+                  <SelectTrigger className="h-10 sm:h-9 w-[120px] text-ds-body">
                     <SelectValue placeholder="Prioridad…" />
                   </SelectTrigger>
                   <SelectContent>
@@ -1196,7 +1196,7 @@ export function TicketsClient({ userRole, userId }: TicketsClientProps) {
                     runBulkAction("status", { status: v });
                   }}
                 >
-                  <SelectTrigger className="h-10 sm:h-9 w-[140px] text-[13px]">
+                  <SelectTrigger className="h-10 sm:h-9 w-[140px] text-ds-body">
                     <SelectValue placeholder="Estado…" />
                   </SelectTrigger>
                   <SelectContent>
@@ -2406,7 +2406,7 @@ function TicketCreateForm({
                     <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                   )}
                   <span
-                    className="truncate text-[13px] font-medium"
+                    className="truncate text-ds-body font-medium"
                     title={f.name}
                   >
                     {f.name}
@@ -2466,7 +2466,7 @@ function TicketCreateForm({
                 <span className="text-[12px] uppercase tracking-wider text-muted-foreground shrink-0">
                   Link
                 </span>
-                <code className="text-[13px] font-mono truncate">
+                <code className="text-ds-body font-mono truncate">
                   {createdPublicAccess.url}
                 </code>
                 <Button

@@ -84,7 +84,7 @@ function UsageTable({ title, rows, unit }: { title: string; rows: UsageRow[]; un
       header: unit,
       cell: (r) => (
         <div className="min-w-0">
-          <p className="truncate text-[13px] font-medium text-ds-text-1">{r.label}</p>
+          <p className="truncate text-ds-body font-medium text-ds-text-1">{r.label}</p>
           {r.sublabel && <p className="truncate text-[12px] text-ds-text-3">{r.sublabel}</p>}
         </div>
       ),
@@ -94,14 +94,14 @@ function UsageTable({ title, rows, unit }: { title: string; rows: UsageRow[]; un
       header: "Llamadas",
       align: "right",
       hideOnMobile: true,
-      cell: (r) => <span className="ds-num text-[13px] text-ds-text-2">{fmtInt(r.requests)}</span>,
+      cell: (r) => <span className="ds-num text-ds-body text-ds-text-2">{fmtInt(r.requests)}</span>,
     },
     {
       id: "tokens",
       header: "Tokens",
       align: "right",
       hideOnMobile: true,
-      cell: (r) => <span className="ds-num text-[13px] text-ds-text-2">{fmtTokens(r.totalTokens)}</span>,
+      cell: (r) => <span className="ds-num text-ds-body text-ds-text-2">{fmtTokens(r.totalTokens)}</span>,
     },
     {
       id: "cost",
@@ -112,7 +112,7 @@ function UsageTable({ title, rows, unit }: { title: string; rows: UsageRow[]; un
           {!r.priced && (
             <Tag variant="warn" size="sm">s/tarifa</Tag>
           )}
-          <span className="ds-num text-[13px] font-semibold text-ds-text-1">{fmtUSD(r.costUSD)}</span>
+          <span className="ds-num text-ds-body font-semibold text-ds-text-1">{fmtUSD(r.costUSD)}</span>
         </div>
       ),
     },
@@ -122,7 +122,7 @@ function UsageTable({ title, rows, unit }: { title: string; rows: UsageRow[]; un
     <Surface elevation={1} padding="md" className="space-y-3 min-w-0">
       <p className="text-xs font-medium uppercase tracking-wide text-ds-text-3">{title}</p>
       {rows.length === 0 ? (
-        <p className="text-[13px] text-ds-text-3">Sin datos para el período.</p>
+        <p className="text-ds-body text-ds-text-3">Sin datos para el período.</p>
       ) : (
         <>
           <div className="hidden sm:block">
@@ -133,8 +133,8 @@ function UsageTable({ title, rows, unit }: { title: string; rows: UsageRow[]; un
               <li key={r.key}>
                 <Surface elevation={1} padding="sm" className="space-y-1">
                   <div className="flex items-center justify-between gap-2">
-                    <p className="truncate text-[13px] font-medium text-ds-text-1">{r.label}</p>
-                    <span className="ds-num text-[13px] font-semibold text-ds-text-1">{fmtUSD(r.costUSD)}</span>
+                    <p className="truncate text-ds-body font-medium text-ds-text-1">{r.label}</p>
+                    <span className="ds-num text-ds-body font-semibold text-ds-text-1">{fmtUSD(r.costUSD)}</span>
                   </div>
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-[12px] text-ds-text-3">
@@ -196,7 +196,7 @@ export function AiUsageClient() {
     <div className="space-y-6 ds-page-enter min-w-0">
       <Link
         href="/platform/settings"
-        className="inline-flex items-center gap-1 text-[13px] text-ds-text-3 hover:text-ds-text-1"
+        className="inline-flex items-center gap-1 text-ds-body text-ds-text-3 hover:text-ds-text-1"
       >
         <ArrowLeft className="h-4 w-4" />
         Configuración
@@ -216,19 +216,19 @@ export function AiUsageClient() {
           <input
             type="date"
             aria-label="Desde"
-            className="h-10 sm:h-9 rounded-lg border border-ds-border-default bg-ds-surface-1 px-3 text-[13px] text-ds-text-1"
+            className="h-10 sm:h-9 rounded-lg border border-ds-border-default bg-ds-surface-1 px-3 text-ds-body text-ds-text-1"
             value={filters.from}
             onChange={(e) => set({ from: e.target.value })}
           />
           <input
             type="date"
             aria-label="Hasta"
-            className="h-10 sm:h-9 rounded-lg border border-ds-border-default bg-ds-surface-1 px-3 text-[13px] text-ds-text-1"
+            className="h-10 sm:h-9 rounded-lg border border-ds-border-default bg-ds-surface-1 px-3 text-ds-body text-ds-text-1"
             value={filters.to}
             onChange={(e) => set({ to: e.target.value })}
           />
           <input
-            className="h-10 sm:h-9 rounded-lg border border-ds-border-default bg-ds-surface-1 px-3 text-[13px] text-ds-text-1"
+            className="h-10 sm:h-9 rounded-lg border border-ds-border-default bg-ds-surface-1 px-3 text-ds-body text-ds-text-1"
             placeholder="Tenant ID (opcional)"
             value={filters.tenantId}
             onChange={(e) => set({ tenantId: e.target.value })}
@@ -236,7 +236,7 @@ export function AiUsageClient() {
           <button
             type="button"
             onClick={() => setApplied(filters)}
-            className="ds-tap h-10 sm:h-9 rounded-lg bg-primary px-4 text-[13px] font-medium text-primary-foreground"
+            className="ds-tap h-10 sm:h-9 rounded-lg bg-primary px-4 text-ds-body font-medium text-primary-foreground"
           >
             Aplicar
           </button>
@@ -245,7 +245,7 @@ export function AiUsageClient() {
 
       {error && (
         <Surface elevation={1} padding="md" className="border border-status-danger-border bg-status-danger-soft">
-          <p className="text-[13px] text-status-danger-fg">{error}</p>
+          <p className="text-ds-body text-status-danger-fg">{error}</p>
         </Surface>
       )}
 

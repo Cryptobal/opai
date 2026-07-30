@@ -149,7 +149,7 @@ export function CorreoLinksPanel({
     >
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
         <Link2 className="h-4 w-4 shrink-0 text-tint-violet-fg" />
-        <p className="text-[13px] font-semibold text-ds-text-1 shrink-0">Vinculado a</p>
+        <p className="text-ds-body font-semibold text-ds-text-1 shrink-0">Vinculado a</p>
         <span className="min-w-0 truncate">
           {accountId ? (
             <Tag variant="brand" size="sm">
@@ -244,7 +244,7 @@ export function CorreoLinksPanel({
               <Tag variant="neutral" size="sm">
                 {typeLabel(s.entityType)}
               </Tag>
-              <span className="min-w-0 flex-1 truncate text-[13px] text-ds-text-2" title={s.motivo}>
+              <span className="min-w-0 flex-1 truncate text-ds-body text-ds-text-2" title={s.motivo}>
                 {s.label}
               </span>
               <button

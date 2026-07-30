@@ -77,7 +77,7 @@ export function CashflowMobileSection({
             {title}
           </span>
         </span>
-        <span className="text-[13px] font-mono font-semibold tabular-nums">
+        <span className="text-ds-body font-mono font-semibold tabular-nums">
           {fmt.format(subtotal)}
         </span>
       </button>

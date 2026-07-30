@@ -630,7 +630,7 @@ export function SaludFinancieraHero({
             <span className="truncate">Aging del por cobrar</span>
           </div>
           {agingTotal === 0 ? (
-            <p className="text-[13px] text-ds-text-3 italic">
+            <p className="text-ds-body text-ds-text-3 italic">
               Sin facturas pendientes en este período.
             </p>
           ) : (
@@ -716,7 +716,7 @@ export function SaludFinancieraHero({
             <span className="truncate">DSO · días en cobrar</span>
           </div>
           {summary.dso === null ? (
-            <div className="text-[13px] text-ds-text-3 italic">
+            <div className="text-ds-body text-ds-text-3 italic">
               Sin ventas en el período
             </div>
           ) : (
@@ -831,7 +831,7 @@ export function SaludFinancieraHero({
                   </div>
                   <div className="flex-1 min-w-0">
                     <div
-                      className="text-[13px] text-ds-text-1 truncate"
+                      className="text-ds-body text-ds-text-1 truncate"
                       title={`${d.name} (${d.rut})`}
                     >
                       {d.name}

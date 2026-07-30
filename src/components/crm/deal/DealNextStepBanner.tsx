@@ -73,7 +73,7 @@ export function DealNextStepBanner({
             <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-ds-text-3">
               Próximo paso {isPaused && "· pausado"}
             </p>
-            <p className="text-[13px] font-semibold leading-tight">
+            <p className="text-ds-body font-semibold leading-tight">
               Seguimiento S{log.sequence} · {formatWhen(log.scheduledAt)}
             </p>
             {(subject || recipient) && (

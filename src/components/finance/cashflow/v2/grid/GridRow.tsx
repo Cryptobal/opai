@@ -124,7 +124,7 @@ export function GridRow({
           <span
             className={cn(
               "truncate font-medium text-ds-text-1",
-              isChild ? "text-[12px] text-ds-text-3" : "text-[13px]",
+              isChild ? "text-[12px] text-ds-text-3" : "text-ds-body",
             )}
           >
             {primary}

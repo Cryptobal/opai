@@ -7,7 +7,7 @@ import { isGoogleMapsUrl, parseGoogleMapsUrl } from "@/lib/google-maps-url";
 import { LeadFields } from "./LeadFields";
 import type { LeadExtraction, StagedFile } from "@/modules/crm/email/email-to-lead.types";
 
-const BTN = "h-10 sm:h-9 rounded-lg px-3 text-[13px] font-medium ds-tap disabled:opacity-50";
+const BTN = "h-10 sm:h-9 rounded-lg px-3 text-ds-body font-medium ds-tap disabled:opacity-50";
 
 async function resolveMapsIntoProposal(p: LeadExtraction): Promise<LeadExtraction> {
   if (!p.mapsUrl || !isGoogleMapsUrl(p.mapsUrl)) return p;
@@ -137,15 +137,15 @@ export function LeadFromEmailPanel({
     <div className="space-y-2.5 rounded-xl border border-tint-violet-fg/30 bg-tint-violet p-3">
       <div className="flex items-center gap-2 text-tint-violet-fg">
         <Sparkles className="h-4 w-4" />
-        <span className="text-[13px] font-semibold">Extracción IA</span>
+        <span className="text-ds-body font-semibold">Extracción IA</span>
       </div>
 
       {loading ? (
-        <p className="flex items-center gap-2 text-[13px] text-tint-violet-fg">
+        <p className="flex items-center gap-2 text-ds-body text-tint-violet-fg">
           <Loader2 className="h-4 w-4 animate-spin" /> Analizando el correo y sus adjuntos…
         </p>
       ) : error ? (
-        <p className="text-[13px] text-status-danger-fg">{error}</p>
+        <p className="text-ds-body text-status-danger-fg">{error}</p>
       ) : p ? (
         <>
           <LeadFields p={p} onChange={setP} />

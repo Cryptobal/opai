@@ -65,7 +65,7 @@ export function AgendaViewSheet({ open, view, selectedYmd, onViewChange, onSelec
             <ChevronLeft className="h-5 w-5" />
           </button>
           <p className="font-display text-[15px] font-semibold text-ds-text-1">
-            {month} <span className="font-mono text-[13px] font-normal text-ds-text-3">{year}</span>
+            {month} <span className="font-mono text-ds-body font-normal text-ds-text-3">{year}</span>
           </p>
           <button
             type="button"

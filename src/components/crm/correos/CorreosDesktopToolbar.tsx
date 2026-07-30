@@ -67,7 +67,7 @@ export function CorreosDesktopToolbar({
         <button type="button" aria-label="Salir de la selección" onClick={onClear} className={BTN}>
           <X className="h-3.5 w-3.5" />
         </button>
-        <span aria-live="polite" className="mx-1 text-[13px] font-medium text-primary tabular-nums">
+        <span aria-live="polite" className="mx-1 text-ds-body font-medium text-primary tabular-nums">
           {selectedCount} seleccionados
         </span>
         <button type="button" title="Seleccionar todo lo visible" onClick={onToggleAll} className={BTN}>

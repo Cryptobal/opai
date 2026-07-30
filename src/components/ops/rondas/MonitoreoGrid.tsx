@@ -470,7 +470,7 @@ function GridEmptyState() {
         <span className="text-2xl opacity-50">\uD83D\uDCCB</span>
       </div>
       <div className="text-center">
-        <h3 className="text-[13px] font-medium text-[#94a3b8]">Grid Operativo</h3>
+        <h3 className="text-ds-body font-medium text-[#94a3b8]">Grid Operativo</h3>
         <p className="text-[11px] text-[#64748b] mt-1.5 max-w-xs leading-relaxed">
           Inicia un turno para ver la planilla de control.
         </p>

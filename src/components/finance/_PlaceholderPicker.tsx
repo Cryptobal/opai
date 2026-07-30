@@ -151,7 +151,7 @@ export function PlaceholderPicker({
                 className="w-full text-left px-2 py-2 rounded hover:bg-accent transition-colors"
               >
                 <div className="flex items-baseline justify-between gap-3 min-w-0">
-                  <span className="text-[13px] font-medium text-ds-text-1 leading-tight whitespace-nowrap">
+                  <span className="text-ds-body font-medium text-ds-text-1 leading-tight whitespace-nowrap">
                     {it.label}
                   </span>
                   <span className="text-[12px] font-mono text-primary leading-tight text-right shrink-0 max-w-[55%] truncate">

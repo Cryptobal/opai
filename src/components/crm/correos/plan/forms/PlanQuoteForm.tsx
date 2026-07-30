@@ -35,7 +35,7 @@ export function PlanQuoteForm({ quoteInput, onChange }: Props) {
             value={quoteInput.currency}
             onValueChange={(v) => onChange({ currency: v })}
           >
-            <SelectTrigger id="q-currency" className="h-10 text-[13px] sm:h-9">
+            <SelectTrigger id="q-currency" className="h-10 text-ds-body sm:h-9">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -67,7 +67,7 @@ export function PlanQuoteForm({ quoteInput, onChange }: Props) {
           onCheckedChange={(v) => onChange({ isOngoingService: Boolean(v) })}
           className="h-5 w-5"
         />
-        <Label htmlFor="q-ongoing" className="cursor-pointer text-[13px] text-ds-text-2">
+        <Label htmlFor="q-ongoing" className="cursor-pointer text-ds-body text-ds-text-2">
           Servicio continuo (no por obra)
         </Label>
       </div>
@@ -98,7 +98,7 @@ function FormField({
         type={type}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="h-10 text-[13px] sm:h-9"
+        className="h-10 text-ds-body sm:h-9"
       />
     </div>
   );

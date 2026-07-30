@@ -464,7 +464,7 @@ export function WeeklyMatrix({
       {/* Header: stack on mobile, inline on desktop. Selector + actions are
           full-width on mobile to maximize tap area. */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3">
-        <p className="text-[12px] sm:text-[13px] text-ds-text-2">
+        <p className="text-[12px] sm:text-ds-body text-ds-text-2">
           {projection.buckets.length} semanas · saldo inicial {fmt.format(projection.openingBalanceClp)}
         </p>
         <div className="flex flex-col sm:flex-row gap-2 sm:items-center">

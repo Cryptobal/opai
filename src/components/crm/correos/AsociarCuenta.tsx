@@ -45,7 +45,7 @@ export function AsociarCuenta({
         type="button"
         onClick={() => setOpen(true)}
         disabled={disabled}
-        className="h-11 shrink-0 whitespace-nowrap rounded-xl border border-ds-border-default px-3 text-[13px] text-ds-text-2 ds-tap disabled:opacity-50 sm:h-9"
+        className="h-11 shrink-0 whitespace-nowrap rounded-xl border border-ds-border-default px-3 text-ds-body text-ds-text-2 ds-tap disabled:opacity-50 sm:h-9"
       >
         {hasAccount ? "Cambiar cuenta" : "Asociar a cuenta"}
       </button>
@@ -57,7 +57,7 @@ export function AsociarCuenta({
       <div className="relative">
         <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ds-text-4" />
         <input
-          className="h-9 w-full rounded-xl border border-ds-border-default bg-ds-surface-1 pl-9 pr-3 text-[13px]"
+          className="h-9 w-full rounded-xl border border-ds-border-default bg-ds-surface-1 pl-9 pr-3 text-ds-body"
           placeholder="Buscar cuenta…"
           value={q}
           onChange={(e) => setQ(e.target.value)}
@@ -81,7 +81,7 @@ export function AsociarCuenta({
                 }}
                 className="flex w-full flex-col items-start px-3 py-2 text-left ds-tap hover:bg-ds-surface-2"
               >
-                <span className="text-[13px] text-ds-text-1">{a.name}</span>
+                <span className="text-ds-body text-ds-text-1">{a.name}</span>
                 {a.rut && <span className="text-[12px] text-ds-text-4">{a.rut}</span>}
               </button>
             </li>

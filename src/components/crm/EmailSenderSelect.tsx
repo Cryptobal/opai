@@ -73,7 +73,7 @@ export function EmailSenderSelect({
       <select
         value={value ?? accounts[0]?.id ?? ""}
         onChange={(e) => onChange(e.target.value || null)}
-        className="h-10 sm:h-9 rounded-lg border border-ds-border-default bg-ds-surface-1 px-2 text-[13px] text-ds-text-2"
+        className="h-10 sm:h-9 rounded-lg border border-ds-border-default bg-ds-surface-1 px-2 text-ds-body text-ds-text-2"
       >
         {accounts.map((a) => (
           <option key={a.id} value={a.id}>

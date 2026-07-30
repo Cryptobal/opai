@@ -1936,7 +1936,7 @@ function TransactionsTab({
           >
             <SlidersHorizontal className="h-4 w-4 text-muted-foreground shrink-0" />
             <div className="min-w-0 flex-1">
-              <p className="text-[13px] font-medium truncate">{selectedAccountLabel}</p>
+              <p className="text-ds-body font-medium truncate">{selectedAccountLabel}</p>
               <p className="text-[11px] text-muted-foreground truncate">
                 {dateFrom || dateTo
                   ? `${dateFrom || "…"} → ${dateTo || "…"}`
@@ -2008,7 +2008,7 @@ function TransactionsTab({
         </div>
         <div className="space-y-1.5 sm:flex-initial">
           <Label>Tipo</Label>
-          <div className="flex h-9 rounded-md border border-input overflow-hidden text-[13px]">
+          <div className="flex h-9 rounded-md border border-input overflow-hidden text-ds-body">
             <button
               type="button"
               onClick={() => setDirection("all")}
@@ -2085,7 +2085,7 @@ function TransactionsTab({
       {/* Mobile-only quick toggle Ingresos/Egresos: 1-tap, sin abrir el drawer.
           Comparte state (`direction`) con el control desktop dentro del drawer. */}
       {isMobile && (
-        <div className="flex h-11 rounded-md border border-input overflow-hidden text-[13px] -mt-1">
+        <div className="flex h-11 rounded-md border border-input overflow-hidden text-ds-body -mt-1">
           <button
             type="button"
             onClick={() => setDirection("all")}
@@ -2253,7 +2253,7 @@ function TransactionsTab({
           <div className="sm:hidden rounded-md border border-status-warn-border bg-status-warn-soft p-3 flex items-start gap-2">
             <CheckCircle2 className="h-4 w-4 text-status-warn-fg shrink-0 mt-0.5" />
             <div className="min-w-0 flex-1">
-              <p className="text-[13px] font-medium text-status-warn-fg">
+              <p className="text-ds-body font-medium text-status-warn-fg">
                 {tabCounts.recognized} movimiento
                 {tabCounts.recognized === 1 ? "" : "s"} listo
                 {tabCounts.recognized === 1 ? "" : "s"} para autorizar
@@ -2630,7 +2630,7 @@ function TransactionsTab({
             Conciliar selección ({selectedTxIds.size})
           </Button>
           <span className="hidden sm:inline h-4 w-px bg-border" />
-          <span className="text-[13px] font-mono text-ds-text-3">
+          <span className="text-ds-body font-mono text-ds-text-3">
             Σ{" "}
             <span
               className={
@@ -2641,7 +2641,7 @@ function TransactionsTab({
             </span>
           </span>
           <div className="h-4 w-px bg-border hidden sm:block" />
-          <span className="text-[13px] text-ds-text-3 sm:hidden basis-full pt-1">
+          <span className="text-ds-body text-ds-text-3 sm:hidden basis-full pt-1">
             {selectedTxIds.size} movimiento
             {selectedTxIds.size === 1 ? "" : "s"}
           </span>

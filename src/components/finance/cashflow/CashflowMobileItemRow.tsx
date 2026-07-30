@@ -74,7 +74,7 @@ export const CategoryGroup = memo(function CategoryGroup({
           ) : (
             <ChevronRight className="h-3.5 w-3.5 text-ds-text-3 shrink-0" />
           )}
-          <span className="text-[13px] font-medium text-ds-text-1 truncate">
+          <span className="text-ds-body font-medium text-ds-text-1 truncate">
             {row.categoryName}
           </span>
           <span className="text-[10px] font-mono uppercase tracking-wider text-ds-text-4 shrink-0">
@@ -82,7 +82,7 @@ export const CategoryGroup = memo(function CategoryGroup({
           </span>
         </span>
         <span
-          className={`text-[13px] font-mono font-semibold tabular-nums shrink-0 ${
+          className={`text-ds-body font-mono font-semibold tabular-nums shrink-0 ${
             kind === "INCOME" ? "text-status-ok-fg" : "text-status-warn-fg"
           }`}
         >
@@ -289,7 +289,7 @@ const ItemRow = memo(function ItemRow({
       }`}
     >
       <div className="min-w-0 flex-1 flex flex-col gap-0.5">
-        <span className="text-[13px] text-ds-text-1 truncate" title={display}>
+        <span className="text-ds-body text-ds-text-1 truncate" title={display}>
           {display}
         </span>
         <div className="flex flex-wrap items-center gap-1">
@@ -316,7 +316,7 @@ const ItemRow = memo(function ItemRow({
         </div>
       </div>
       <div className="flex flex-col items-end gap-0.5 shrink-0">
-        <span className={`text-[13px] font-mono font-semibold tabular-nums ${toneCls}`}>
+        <span className={`text-ds-body font-mono font-semibold tabular-nums ${toneCls}`}>
           {fmt.format(amount)}
         </span>
         {actual !== null && actual !== 0 && (

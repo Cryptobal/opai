@@ -188,7 +188,7 @@ export function ThreadsPanel({
           onClose();
         }}
       >
-        <p className="truncate text-[13px] font-medium text-ds-text-1">{c.title}</p>
+        <p className="truncate text-ds-body font-medium text-ds-text-1">{c.title}</p>
         <p className="mt-0.5 text-[12px] text-ds-text-4">
           {relativeDate(c.updatedAt)}
           {c._count?.messages != null ? ` · ${c._count.messages} msgs` : ""}
@@ -263,7 +263,7 @@ export function ThreadsPanel({
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Buscar hilos…"
             autoFocus
-            className="h-10 w-full rounded-xl border border-ds-border-default bg-ds-surface-2 pl-8 pr-3 text-[13px] text-ds-text-1 placeholder:text-ds-text-4 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/50"
+            className="h-10 w-full rounded-xl border border-ds-border-default bg-ds-surface-2 pl-8 pr-3 text-ds-body text-ds-text-1 placeholder:text-ds-text-4 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/50"
           />
         </div>
       ) : null}
@@ -274,7 +274,7 @@ export function ThreadsPanel({
         ) : null}
         <Section title="Recientes">
           {recent.length === 0 ? (
-            <p className="px-3 py-6 text-center text-[13px] text-ds-text-4">Sin hilos aún</p>
+            <p className="px-3 py-6 text-center text-ds-body text-ds-text-4">Sin hilos aún</p>
           ) : (
             recent.map(renderRow)
           )}
@@ -311,7 +311,7 @@ function MenuBtn({
       type="button"
       onClick={onClick}
       className={cn(
-        "flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-[13px] text-left hover:bg-ds-surface-2",
+        "flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-ds-body text-left hover:bg-ds-surface-2",
         danger ? "text-status-danger-fg" : "text-ds-text-1",
       )}
     >

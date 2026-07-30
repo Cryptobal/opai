@@ -180,7 +180,7 @@ export function SupervisionFindingsPanel({
             <AlertTriangle className="h-4 w-4 shrink-0 text-status-danger-fg" />
             <span className="truncate">{installation?.name}</span>
           </SheetTitle>
-          <SheetDescription className="text-[13px]">
+          <SheetDescription className="text-ds-body">
             {loading
               ? "Cargando hallazgos…"
               : `${findings.length} hallazgo${findings.length !== 1 ? "s" : ""} abierto${findings.length !== 1 ? "s" : ""}. Pincha uno para ir a subsanarlo.`}
@@ -193,7 +193,7 @@ export function SupervisionFindingsPanel({
               <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
             </div>
           ) : findings.length === 0 ? (
-            <p className="py-10 text-center text-[13px] text-muted-foreground">
+            <p className="py-10 text-center text-ds-body text-muted-foreground">
               Sin hallazgos abiertos en esta instalación.
             </p>
           ) : (
@@ -282,7 +282,7 @@ export function SupervisionFindingsPanel({
                     )}
                   </div>
 
-                  <p className="mt-1.5 text-[13px] leading-snug">
+                  <p className="mt-1.5 text-ds-body leading-snug">
                     {f.description}
                   </p>
 

@@ -90,7 +90,7 @@ function ActionBtn({
       aria-label={label}
       title={`${label} (${kbdDisplay(kbd)})`}
       className={cn(
-        "flex min-w-0 flex-col items-center justify-center gap-0.5 rounded-lg px-1 py-2.5 text-[12px] font-medium leading-tight ds-tap md:flex-row md:gap-1.5 md:px-2 md:py-2 md:text-[13px]",
+        "flex min-w-0 flex-col items-center justify-center gap-0.5 rounded-lg px-1 py-2.5 text-[12px] font-medium leading-tight ds-tap md:flex-row md:gap-1.5 md:px-2 md:py-2 md:text-ds-body",
         tone === "primary" && "text-primary hover:bg-primary/10",
         tone === "accent" && "text-tint-violet-fg hover:bg-tint-violet/10",
         tone === "default" && "text-ds-text-2 hover:bg-ds-surface-3 hover:text-ds-text-1",

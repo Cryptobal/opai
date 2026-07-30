@@ -58,13 +58,13 @@ export function AgentesPageClient() {
     <div className="space-y-4 min-w-0">
       <div>
         <h2 className="text-[15px] font-semibold text-ds-text-1">Agentes IA</h2>
-        <p className="text-[13px] text-ds-text-3">
+        <p className="text-ds-body text-ds-text-3">
           Controla el presupuesto mensual de IA y revisa el consumo por feature.
         </p>
       </div>
 
       {budget.exceeded && (
-        <Surface className="flex items-center gap-2 border-status-danger-fg/30 p-3 text-[13px] text-status-danger-fg">
+        <Surface className="flex items-center gap-2 border-status-danger-fg/30 p-3 text-ds-body text-status-danger-fg">
           <AlertTriangle className="h-4 w-4 shrink-0" />
           Presupuesto mensual de IA agotado. Los extractores bajo demanda están pausados.
         </Surface>
@@ -83,18 +83,18 @@ export function AgentesPageClient() {
             onChange={(e) => setBudgetInput(e.target.value)}
             disabled={!data.canManage}
             aria-label="Presupuesto mensual de tokens"
-            className="h-10 w-40 rounded-xl border border-ds-border-default bg-ds-surface-1 px-3 text-[13px] text-ds-text-1"
+            className="h-10 w-40 rounded-xl border border-ds-border-default bg-ds-surface-1 px-3 text-ds-body text-ds-text-1"
           />
           {data.canManage && (
             <button
               type="button"
               onClick={() => save({ budget: Number(budgetInput) || 0 })}
-              className="h-10 rounded-xl bg-primary px-4 text-[13px] font-medium text-primary-foreground"
+              className="h-10 rounded-xl bg-primary px-4 text-ds-body font-medium text-primary-foreground"
             >
               Guardar
             </button>
           )}
-          <span className="text-[13px] text-ds-text-4">
+          <span className="text-ds-body text-ds-text-4">
             Usados este mes: <strong className="text-ds-text-1">{fmt(budget.used)}</strong>
             {budget.budget > 0 && ` / ${fmt(budget.budget)} (${pct}%)`}
           </span>
@@ -119,10 +119,10 @@ export function AgentesPageClient() {
           )}
         </div>
         {data.usage.length === 0 ? (
-          <p className="text-[13px] text-ds-text-4">Sin consumo registrado este mes.</p>
+          <p className="text-ds-body text-ds-text-4">Sin consumo registrado este mes.</p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-[13px]">
+            <table className="w-full text-ds-body">
               <thead>
                 <tr className="text-left text-[12px] text-ds-text-4">
                   <th className="py-1 pr-3 font-medium">Feature</th>

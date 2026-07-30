@@ -97,7 +97,7 @@ export function AttachmentPicker({
           type="button"
           onClick={() => inputRef.current?.click()}
           disabled={disabled}
-          className="inline-flex h-11 items-center gap-2 rounded-full px-2.5 text-[13px] font-medium text-ds-text-2 ds-tap hover:bg-ds-surface-2 hover:text-ds-text-1 disabled:opacity-50 sm:h-10"
+          className="inline-flex h-11 items-center gap-2 rounded-full px-2.5 text-ds-body font-medium text-ds-text-2 ds-tap hover:bg-ds-surface-2 hover:text-ds-text-1 disabled:opacity-50 sm:h-10"
         >
           <Paperclip className="h-4 w-4" />
           Adjuntar archivos
@@ -117,7 +117,7 @@ export function AttachmentPicker({
               <IconBubble icon={FileText} variant="neutral" size="sm" />
               <div className="min-w-0 flex-1">
                 <div className="flex items-baseline gap-2">
-                  <p className="truncate text-[13px] text-ds-text-1">{item.name}</p>
+                  <p className="truncate text-ds-body text-ds-text-1">{item.name}</p>
                   <span className="shrink-0 text-[12px] text-ds-text-4">
                     {formatBytes(item.size)}
                   </span>

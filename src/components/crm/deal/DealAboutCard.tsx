@@ -30,7 +30,7 @@ function LinkChip({ href, icon: Icon, label }: { href: string; icon: typeof Buil
   return (
     <Link
       href={href}
-      className="flex items-center gap-2 rounded-md border border-border/60 bg-muted/20 px-2.5 py-2 text-[13px] font-medium text-primary transition-colors hover:bg-muted/40"
+      className="flex items-center gap-2 rounded-md border border-border/60 bg-muted/20 px-2.5 py-2 text-ds-body font-medium text-primary transition-colors hover:bg-muted/40"
     >
       <Icon className="h-4 w-4 shrink-0 text-ds-text-3" />
       <span className="truncate">{label}</span>
@@ -105,7 +105,7 @@ export function DealAboutCard({
               href={proposalLink}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-1 text-[13px] text-primary hover:underline"
+              className="flex items-center gap-1 text-ds-body text-primary hover:underline"
             >
               Ver propuesta <ExternalLink className="h-3 w-3" />
             </a>

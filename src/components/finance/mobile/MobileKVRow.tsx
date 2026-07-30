@@ -45,7 +45,7 @@ export function MobileKVRow({
             ? "text-ds-text-3"
             : "text-ds-text-1";
   const valueClass = cn(
-    "text-[13px] font-medium text-right shrink-0",
+    "text-ds-body font-medium text-right shrink-0",
     mono && "font-mono tabular-nums",
     toneCls,
   );

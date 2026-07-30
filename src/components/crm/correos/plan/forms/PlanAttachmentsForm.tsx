@@ -40,7 +40,7 @@ export function PlanAttachmentsForm({ stagedFiles, selection, onChange }: Props)
   }
 
   if (stagedFiles.length === 0) {
-    return <p className="text-[13px] text-ds-text-3">Sin adjuntos disponibles.</p>;
+    return <p className="text-ds-body text-ds-text-3">Sin adjuntos disponibles.</p>;
   }
 
   return (
@@ -60,7 +60,7 @@ export function PlanAttachmentsForm({ stagedFiles, selection, onChange }: Props)
               />
               <Label
                 htmlFor={`att-${f.storageKey}`}
-                className="min-w-0 flex-1 cursor-pointer text-[13px] text-ds-text-2"
+                className="min-w-0 flex-1 cursor-pointer text-ds-body text-ds-text-2"
               >
                 <span className="block truncate">{f.fileName}</span>
                 <span className="text-[12px] text-ds-text-4">
@@ -82,7 +82,7 @@ export function PlanAttachmentsForm({ stagedFiles, selection, onChange }: Props)
             onChange({ ...selection, target: v as PlanAttachmentSelection["target"] })
           }
         >
-          <SelectTrigger className="h-10 text-[13px] sm:h-9">
+          <SelectTrigger className="h-10 text-ds-body sm:h-9">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>

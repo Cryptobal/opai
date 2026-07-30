@@ -43,7 +43,7 @@ export function EntityMessageAttachments({
             return (
               <li
                 key={`${a.messageId}-${a.attachmentId}`}
-                className="flex items-center gap-2 rounded-lg border border-ds-border-subtle bg-ds-surface-1 px-2.5 py-1 text-[13px] text-ds-text-2"
+                className="flex items-center gap-2 rounded-lg border border-ds-border-subtle bg-ds-surface-1 px-2.5 py-1 text-ds-body text-ds-text-2"
               >
                 {saved ? (
                   <button

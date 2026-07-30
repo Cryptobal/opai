@@ -95,7 +95,7 @@ export function TimeChipPicker({
             type="button"
             onClick={() => onChange(p)}
             className={cn(
-              "flex h-10 items-center justify-center rounded-lg text-[13px] ds-tap",
+              "flex h-10 items-center justify-center rounded-lg text-ds-body ds-tap",
               value === p ? "bg-primary font-medium text-primary-foreground" : "bg-ds-surface-2 text-ds-text-1",
             )}
           >
@@ -108,7 +108,7 @@ export function TimeChipPicker({
           type="button"
           onClick={() => onChange("")}
           className={cn(
-            "h-10 flex-1 rounded-lg text-[13px] ds-tap",
+            "h-10 flex-1 rounded-lg text-ds-body ds-tap",
             !value ? "bg-primary/10 font-medium text-primary" : "bg-ds-surface-2 text-ds-text-1",
           )}
         >
@@ -117,7 +117,7 @@ export function TimeChipPicker({
         <button
           type="button"
           onClick={close}
-          className="h-10 flex-1 rounded-lg bg-primary text-[13px] font-medium text-primary-foreground ds-tap"
+          className="h-10 flex-1 rounded-lg bg-primary text-ds-body font-medium text-primary-foreground ds-tap"
         >
           Listo
         </button>
@@ -134,7 +134,7 @@ export function TimeChipPicker({
             onClick={() => (open ? close() : setOpen(true))}
             aria-label="Cambiar hora"
             aria-expanded={open}
-            className="flex h-11 items-center gap-1.5 pl-3 pr-2 text-[13px] text-ds-text-1 ds-tap sm:h-9"
+            className="flex h-11 items-center gap-1.5 pl-3 pr-2 text-ds-body text-ds-text-1 ds-tap sm:h-9"
           >
             <Clock3 className="h-4 w-4 text-ds-text-4" />
             {value}
@@ -154,7 +154,7 @@ export function TimeChipPicker({
           onClick={() => (open ? close() : setOpen(true))}
           aria-label="Agregar hora"
           aria-expanded={open}
-          className="flex h-11 items-center gap-1.5 rounded-xl border border-dashed border-ds-border-default px-3 text-[13px] text-ds-text-3 ds-tap sm:h-9"
+          className="flex h-11 items-center gap-1.5 rounded-xl border border-dashed border-ds-border-default px-3 text-ds-body text-ds-text-3 ds-tap sm:h-9"
         >
           <Plus className="h-4 w-4" />
           Hora

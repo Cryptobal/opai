@@ -92,7 +92,7 @@ export function ContactsMultiSelect({ accountId, value, onChange }: Props) {
         return (
           <label
             key={c.id}
-            className="flex items-start gap-2 text-[13px] cursor-pointer hover:bg-ds-surface-3 rounded px-1.5 py-1"
+            className="flex items-start gap-2 text-ds-body cursor-pointer hover:bg-ds-surface-3 rounded px-1.5 py-1"
           >
             <Checkbox
               checked={checked}

@@ -65,7 +65,7 @@ export function CorreoAiStyleSheet({ open, onClose, initialTab = "ai" }: Props) 
           <button
             type="button"
             onClick={() => setTab("ai")}
-            className={`flex h-11 flex-1 items-center justify-center gap-1.5 rounded-lg text-[13px] ds-tap ${
+            className={`flex h-11 flex-1 items-center justify-center gap-1.5 rounded-lg text-ds-body ds-tap ${
               tab === "ai"
                 ? "bg-ds-surface-1 font-medium text-ds-text-1 shadow-sm"
                 : "text-ds-text-3"
@@ -77,7 +77,7 @@ export function CorreoAiStyleSheet({ open, onClose, initialTab = "ai" }: Props) 
           <button
             type="button"
             onClick={() => setTab("firma")}
-            className={`flex h-11 flex-1 items-center justify-center gap-1.5 rounded-lg text-[13px] ds-tap ${
+            className={`flex h-11 flex-1 items-center justify-center gap-1.5 rounded-lg text-ds-body ds-tap ${
               tab === "firma"
                 ? "bg-ds-surface-1 font-medium text-ds-text-1 shadow-sm"
                 : "text-ds-text-3"

@@ -406,7 +406,7 @@ export function RondasReportesClient({
               type="date"
               value={dateFrom}
               onChange={(e) => setDateFrom(e.target.value)}
-              className="h-9 rounded-lg border border-[#1a1f2e] bg-[#0a0e1a] text-[13px] text-[#f1f5f9] px-3 w-36"
+              className="h-9 rounded-lg border border-[#1a1f2e] bg-[#0a0e1a] text-ds-body text-[#f1f5f9] px-3 w-36"
             />
           </div>
           <div>
@@ -415,7 +415,7 @@ export function RondasReportesClient({
               type="date"
               value={dateTo}
               onChange={(e) => setDateTo(e.target.value)}
-              className="h-9 rounded-lg border border-[#1a1f2e] bg-[#0a0e1a] text-[13px] text-[#f1f5f9] px-3 w-36"
+              className="h-9 rounded-lg border border-[#1a1f2e] bg-[#0a0e1a] text-ds-body text-[#f1f5f9] px-3 w-36"
             />
           </div>
           <div>
@@ -423,7 +423,7 @@ export function RondasReportesClient({
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="h-9 rounded-lg border border-[#1a1f2e] bg-[#0a0e1a] text-[13px] text-[#f1f5f9] px-3"
+              className="h-9 rounded-lg border border-[#1a1f2e] bg-[#0a0e1a] text-ds-body text-[#f1f5f9] px-3"
             >
               {STATUS_OPTIONS.map((o) => (
                 <option key={o.id} value={o.id}>{o.label}</option>
@@ -474,7 +474,7 @@ export function RondasReportesClient({
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={[
-                "flex-1 flex items-center justify-center gap-2 px-3 py-2.5 min-h-[44px] text-[13px] font-semibold transition-colors border-r border-[#1a1f2e] last:border-r-0",
+                "flex-1 flex items-center justify-center gap-2 px-3 py-2.5 min-h-[44px] text-ds-body font-semibold transition-colors border-r border-[#1a1f2e] last:border-r-0",
                 isActive ? "bg-[#06b6d4]/10 text-[#06b6d4]" : "bg-[#111827] text-[#94a3b8] hover:text-[#f1f5f9]",
               ].join(" ")}
             >

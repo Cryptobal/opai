@@ -30,7 +30,7 @@ export function ProductividadDayHeader({
       >
         Mi día
       </h1>
-      <p className="truncate text-[13px] capitalize text-ds-text-3">
+      <p className="truncate text-ds-body capitalize text-ds-text-3">
         {dateLabel}
         <span className="text-ds-text-4"> · {counters}</span>
       </p>

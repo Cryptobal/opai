@@ -59,7 +59,7 @@ export function CorreoAiRefineChat({
           {messages.map((m) => (
             <li
               key={m.id}
-              className={`rounded-lg px-2.5 py-2 text-[13px] ${
+              className={`rounded-lg px-2.5 py-2 text-ds-body ${
                 m.role === "user"
                   ? "ml-6 bg-tint-violet/10 text-ds-text-1"
                   : "mr-6 bg-ds-surface-1 text-ds-text-2"
@@ -72,7 +72,7 @@ export function CorreoAiRefineChat({
       )}
 
       {remaining <= 0 ? (
-        <div className="rounded-xl border border-status-warn-border bg-status-warn-soft px-3 py-2.5 text-[13px] text-status-warn-fg">
+        <div className="rounded-xl border border-status-warn-border bg-status-warn-soft px-3 py-2.5 text-ds-body text-status-warn-fg">
           Llegaste al límite de refinamientos en esta sesión.{" "}
           {onOpenFullAssistant && (
             <button type="button" onClick={onOpenFullAssistant} className="underline ds-tap">
@@ -89,7 +89,7 @@ export function CorreoAiRefineChat({
             maxLength={500}
             placeholder="Ej. son 26 guardias, no 20…"
             aria-label="Respuesta de refinamiento"
-            className="min-h-11 flex-1 resize-none rounded-xl border border-ds-border-default bg-ds-surface-1 px-3 py-2 text-[13px] text-ds-text-1 placeholder:text-ds-text-4"
+            className="min-h-11 flex-1 resize-none rounded-xl border border-ds-border-default bg-ds-surface-1 px-3 py-2 text-ds-body text-ds-text-1 placeholder:text-ds-text-4"
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();

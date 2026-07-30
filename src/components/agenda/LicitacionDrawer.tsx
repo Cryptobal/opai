@@ -87,11 +87,11 @@ export function LicitacionDrawer({ dealId, onClose, onAgendar }: Props) {
       >
         <div className="flex items-center justify-between">
           <p className="truncate font-display text-base font-semibold">{deal?.title || "Licitación"}</p>
-          <button type="button" onClick={onClose} className="shrink-0 text-[13px] text-ds-text-3">
+          <button type="button" onClick={onClose} className="shrink-0 text-ds-body text-ds-text-3">
             Cerrar
           </button>
         </div>
-        <p className="text-[13px] text-ds-text-3">
+        <p className="text-ds-body text-ds-text-3">
           {deal?.account?.name} · {deal?.stage?.name || "Sin etapa"} · $
           {(deal?.amount ?? 0).toLocaleString("es-CL")}
         </p>
@@ -144,30 +144,30 @@ export function LicitacionDrawer({ dealId, onClose, onAgendar }: Props) {
           <button
             type="button"
             onClick={() => void generateSummary()}
-            className="h-10 rounded-xl border border-ds-border-default px-3 text-[13px] ds-tap sm:h-9"
+            className="h-10 rounded-xl border border-ds-border-default px-3 text-ds-body ds-tap sm:h-9"
           >
             {loadingSummary ? "Generando…" : "Generar"}
           </button>
-          {summary && <p className="text-[13px] text-ds-text-2">{summary}</p>}
+          {summary && <p className="text-ds-body text-ds-text-2">{summary}</p>}
         </div>
 
         <div className="flex flex-wrap gap-2">
           <Link
             href={`/crm/deals/${dealId}`}
-            className="inline-flex h-10 items-center rounded-xl bg-primary px-3 text-[13px] text-primary-foreground ds-tap sm:h-9"
+            className="inline-flex h-10 items-center rounded-xl bg-primary px-3 text-ds-body text-primary-foreground ds-tap sm:h-9"
           >
             Abrir negocio
           </Link>
           <Link
             href={`/crm/cotizaciones?dealId=${dealId}`}
-            className="inline-flex h-10 items-center rounded-xl border border-ds-border-default px-3 text-[13px] ds-tap sm:h-9"
+            className="inline-flex h-10 items-center rounded-xl border border-ds-border-default px-3 text-ds-body ds-tap sm:h-9"
           >
             Ver cotizaciones
           </Link>
           <button
             type="button"
             onClick={onAgendar}
-            className="inline-flex h-10 items-center rounded-xl border border-ds-border-default px-3 text-[13px] ds-tap sm:h-9"
+            className="inline-flex h-10 items-center rounded-xl border border-ds-border-default px-3 text-ds-body ds-tap sm:h-9"
           >
             Agendar visita
           </button>

@@ -110,19 +110,19 @@ export function GuardiaSalaryTab({ guardiaId }: { guardiaId: string }) {
             <div className="grid grid-cols-2 gap-2 sm:gap-3">
               <div className="rounded-lg border border-border/40 bg-card/40 p-3">
                 <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">Base</p>
-                <p className="text-[13px] font-medium tabular-nums mt-1">${salary.baseSalary.toLocaleString("es-CL")}</p>
+                <p className="text-ds-body font-medium tabular-nums mt-1">${salary.baseSalary.toLocaleString("es-CL")}</p>
               </div>
               <div className="rounded-lg border border-border/40 bg-card/40 p-3">
                 <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">Colación</p>
-                <p className="text-[13px] font-medium tabular-nums mt-1">${salary.colacion.toLocaleString("es-CL")}</p>
+                <p className="text-ds-body font-medium tabular-nums mt-1">${salary.colacion.toLocaleString("es-CL")}</p>
               </div>
               <div className="rounded-lg border border-border/40 bg-card/40 p-3">
                 <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">Movilización</p>
-                <p className="text-[13px] font-medium tabular-nums mt-1">${salary.movilizacion.toLocaleString("es-CL")}</p>
+                <p className="text-ds-body font-medium tabular-nums mt-1">${salary.movilizacion.toLocaleString("es-CL")}</p>
               </div>
               <div className="rounded-lg border border-border/40 bg-card/40 p-3">
                 <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">Bonos</p>
-                <p className="text-[13px] font-medium tabular-nums mt-1">${totalBonos.toLocaleString("es-CL")}</p>
+                <p className="text-ds-body font-medium tabular-nums mt-1">${totalBonos.toLocaleString("es-CL")}</p>
               </div>
             </div>
 

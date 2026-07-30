@@ -40,7 +40,7 @@ export function CorreoAiQuestions({ questions, remainingRefines, onAnswer }: Pro
       <ul className="space-y-3">
         {questions.map((q) => (
           <li key={q} className="space-y-1.5">
-            <div className="flex items-start gap-1.5 text-[13px] text-ds-text-2">
+            <div className="flex items-start gap-1.5 text-ds-body text-ds-text-2">
               <MessageSquareText className="mt-0.5 h-4 w-4 shrink-0 text-tint-violet-fg" />
               <span>{q}</span>
             </div>
@@ -55,7 +55,7 @@ export function CorreoAiQuestions({ questions, remainingRefines, onAnswer }: Pro
                   onChange={(e) =>
                     setAnswers((prev) => ({ ...prev, [q]: e.target.value }))
                   }
-                  className="min-h-[56px] flex-1 resize-y text-[13px]"
+                  className="min-h-[56px] flex-1 resize-y text-ds-body"
                   disabled={remainingRefines <= 0}
                 />
                 <button

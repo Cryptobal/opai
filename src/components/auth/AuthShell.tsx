@@ -248,7 +248,7 @@ export function AuthShell({
           >
             <Link
               href="/welcome"
-              className="text-[13px] text-[#4b5563] hover:text-[#9ca3af] transition-colors"
+              className="text-ds-body text-[#4b5563] hover:text-[#9ca3af] transition-colors"
             >
               &larr; Volver a selecci&oacute;n de portales
             </Link>

@@ -348,7 +348,7 @@ function DocRow({
         <div className="h-7 w-7 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
           <FileText className="h-3.5 w-3.5 text-primary" />
         </div>
-        <span className="text-[13px] font-semibold truncate text-foreground" title={doc.title}>
+        <span className="text-ds-body font-semibold truncate text-foreground" title={doc.title}>
           {doc.title}
         </span>
         <span className="text-[12px] text-muted-foreground uppercase font-mono">

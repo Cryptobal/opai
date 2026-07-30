@@ -83,7 +83,7 @@ function MessageRecipients({
         }`}
       >
         <div className="min-w-0 flex-1 space-y-0.5">
-          <div className="flex min-w-0 items-baseline gap-1.5 text-[13px]">
+          <div className="flex min-w-0 items-baseline gap-1.5 text-ds-body">
             <span className="shrink-0 text-[12px] font-medium uppercase tracking-wide text-ds-text-4">
               De
             </span>
@@ -336,7 +336,7 @@ function MessageCard({
                 <button
                   type="button"
                   onClick={() => onContinueDraft(m)}
-                  className="inline-flex h-10 items-center rounded-full px-3 text-[13px] font-medium text-ds-text-2 ds-tap hover:bg-ds-surface-2 sm:h-9"
+                  className="inline-flex h-10 items-center rounded-full px-3 text-ds-body font-medium text-ds-text-2 ds-tap hover:bg-ds-surface-2 sm:h-9"
                 >
                   Continuar
                 </button>
@@ -383,7 +383,7 @@ export function CorreoMessages({
   const lastId = messages[messages.length - 1]?.id;
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set(lastId ? [lastId] : []));
   if (messages.length === 0) {
-    return <p className="text-[13px] text-ds-text-4">Sin mensajes.</p>;
+    return <p className="text-ds-body text-ds-text-4">Sin mensajes.</p>;
   }
   const toggle = (id: string) =>
     setExpanded((s) => {

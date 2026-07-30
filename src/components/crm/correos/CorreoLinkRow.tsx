@@ -40,14 +40,14 @@ export function CorreoLinkRow({ link, canEdit, onToggleVisibility, onRemove }: P
       {showLink ? (
         <Link
           href={link.href!}
-          className="min-w-0 flex-1 truncate text-[13px] text-ds-text-2 underline-offset-2 hover:underline"
+          className="min-w-0 flex-1 truncate text-ds-body text-ds-text-2 underline-offset-2 hover:underline"
           title={link.label}
         >
           {link.label}
         </Link>
       ) : (
         <span
-          className={`min-w-0 flex-1 truncate text-[13px] ${
+          className={`min-w-0 flex-1 truncate text-ds-body ${
             link.orphan ? "text-status-danger-fg" : "text-ds-text-2"
           }`}
           title={link.label}

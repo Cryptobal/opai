@@ -101,7 +101,7 @@ export function AgendaHubCardDense({
             action={
               <Link
                 href="/opai/agenda"
-                className="text-[13px] font-medium text-primary hover:underline"
+                className="text-ds-body font-medium text-primary hover:underline"
               >
                 Abrir agenda
               </Link>
@@ -118,7 +118,7 @@ export function AgendaHubCardDense({
             </div>
 
             {rows.length === 0 ? (
-              <p className="px-1 py-2 text-[13px] text-ds-text-3">Sin visitas hoy</p>
+              <p className="px-1 py-2 text-ds-body text-ds-text-3">Sin visitas hoy</p>
             ) : (
               <ul className="space-y-0.5">
                 {rows.map((row) =>
@@ -126,7 +126,7 @@ export function AgendaHubCardDense({
                     <li key={`gap-${row.slot.start.toISOString()}`}>
                       <Link
                         href={`/opai/agenda?nueva=1&start=${encodeURIComponent(row.slot.start.toISOString())}`}
-                        className="flex min-h-11 items-center gap-2 rounded-lg border border-dashed border-ds-border-default px-2 py-1.5 text-[13px] text-ds-text-3 transition-colors hover:border-primary/40 hover:text-primary ds-tap"
+                        className="flex min-h-11 items-center gap-2 rounded-lg border border-dashed border-ds-border-default px-2 py-1.5 text-ds-body text-ds-text-3 transition-colors hover:border-primary/40 hover:text-primary ds-tap"
                       >
                         <span className="w-12 shrink-0 font-mono text-[12px] tabular-nums">
                           {hhmm(row.slot.start.toISOString())}
@@ -170,7 +170,7 @@ export function AgendaHubCardDense({
                 <Link
                   href={hubAgendaDayHref(key)}
                   aria-label={`Abrir agenda del ${label}`}
-                  className="flex min-h-11 min-w-0 items-center gap-2 rounded-lg px-1 py-1.5 text-[13px] text-ds-text-2 transition-colors hover:bg-ds-surface-2 ds-tap"
+                  className="flex min-h-11 min-w-0 items-center gap-2 rounded-lg px-1 py-1.5 text-ds-body text-ds-text-2 transition-colors hover:bg-ds-surface-2 ds-tap"
                 >
                   <span className="w-16 shrink-0 capitalize text-ds-text-3">{label}</span>
                   <span
@@ -227,7 +227,7 @@ function DenseEventRow({ item }: { item: Item }) {
       </span>
       <span className={cn("w-0.5 shrink-0 self-stretch rounded-full", barTone)} />
       <span className="min-w-0 flex-1 self-center">
-        <span className="block truncate text-[13px] font-medium text-ds-text-1">{item.title}</span>
+        <span className="block truncate text-ds-body font-medium text-ds-text-1">{item.title}</span>
         {(duration || context) && (
           <span className="block truncate text-[12px] text-ds-text-4">
             {[duration, context].filter(Boolean).join(" · ")}

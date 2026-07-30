@@ -29,7 +29,7 @@ export function PlanDealForm({ deal, onChange }: Props) {
           onCheckedChange={(v) => onChange("isLicitacion", Boolean(v))}
           className="h-5 w-5"
         />
-        <Label htmlFor="deal-licitacion" className="cursor-pointer text-[13px] text-ds-text-2">
+        <Label htmlFor="deal-licitacion" className="cursor-pointer text-ds-body text-ds-text-2">
           Licitación / RFI
         </Label>
       </div>
@@ -58,7 +58,7 @@ export function PlanDealForm({ deal, onChange }: Props) {
           rows={3}
           value={deal.notes ?? ""}
           onChange={(e) => onChange("notes", e.target.value || null)}
-          className="min-h-[72px] resize-y text-[13px]"
+          className="min-h-[72px] resize-y text-ds-body"
         />
       </div>
     </div>
@@ -88,7 +88,7 @@ function FormField({
         type={type}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="h-10 text-[13px] sm:h-9"
+        className="h-10 text-ds-body sm:h-9"
       />
     </div>
   );

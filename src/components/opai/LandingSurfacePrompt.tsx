@@ -85,7 +85,7 @@ export function LandingSurfacePrompt() {
           <DialogTitle className="font-display text-lg">
             ¿Dónde quieres empezar?
           </DialogTitle>
-          <DialogDescription className="text-[13px] text-ds-text-3">
+          <DialogDescription className="text-ds-body text-ds-text-3">
             Puedes cambiarlo después en Configuración → General → Modo de inicio,
             o con el selector ERP / Productividad de la barra.
           </DialogDescription>
@@ -140,7 +140,7 @@ function ChoiceButton({
         <Icon className="h-4 w-4" />
       </span>
       <span className="min-w-0">
-        <span className="block text-[13px] font-semibold text-ds-text-1">{title}</span>
+        <span className="block text-ds-body font-semibold text-ds-text-1">{title}</span>
         <span className="block text-[12px] text-ds-text-3">{description}</span>
       </span>
     </button>

@@ -92,13 +92,13 @@ export function CorreoTicketPanel({ threadId, subject }: { threadId: string; sub
     <div className="space-y-2 rounded-xl border border-ds-border-subtle bg-ds-surface-2 p-2.5">
       <div className="flex items-center gap-2">
         <TicketPlus className="h-4 w-4 text-tint-violet-fg" />
-        <p className="text-[13px] font-semibold text-ds-text-1">Ticket</p>
+        <p className="text-ds-body font-semibold text-ds-text-1">Ticket</p>
       </div>
 
       {created && (
         <Link
           href="/ops/tickets"
-          className="flex items-center gap-2 rounded-lg border border-status-ok-border bg-status-ok-soft px-3 py-2 text-[13px] text-status-ok-fg ds-tap"
+          className="flex items-center gap-2 rounded-lg border border-status-ok-border bg-status-ok-soft px-3 py-2 text-ds-body text-status-ok-fg ds-tap"
         >
           <CheckCircle2 className="h-4 w-4 shrink-0" />
           <span className="min-w-0 flex-1 truncate">
@@ -112,7 +112,7 @@ export function CorreoTicketPanel({ threadId, subject }: { threadId: string; sub
           type="button"
           onClick={() => void suggest()}
           disabled={busy !== null}
-          className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-tint-violet text-[13px] font-medium text-tint-violet-fg ds-tap disabled:opacity-50"
+          className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-tint-violet text-ds-body font-medium text-tint-violet-fg ds-tap disabled:opacity-50"
         >
           <Sparkles className="h-4 w-4" /> {busy === "sug" ? "Proponiendo…" : "✦ Crear ticket con IA"}
         </button>
@@ -122,7 +122,7 @@ export function CorreoTicketPanel({ threadId, subject }: { threadId: string; sub
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="Título del ticket"
-            className="h-10 w-full rounded-lg border border-ds-border-default bg-ds-surface-1 px-2 text-[16px] text-ds-text-1 sm:text-[13px]"
+            className="h-10 w-full rounded-lg border border-ds-border-default bg-ds-surface-1 px-2 text-[16px] text-ds-text-1 sm:text-ds-body"
           />
           <div className="flex flex-wrap gap-1.5">
             {PRIORITIES.map((p) => (
@@ -144,7 +144,7 @@ export function CorreoTicketPanel({ threadId, subject }: { threadId: string; sub
               value={assignedTeam}
               onChange={(e) => setAssignedTeam(e.target.value)}
               placeholder="Equipo (opcional)"
-              className="h-9 min-w-[8rem] flex-1 rounded-lg border border-ds-border-default bg-ds-surface-1 px-2 text-[16px] text-ds-text-1 sm:text-[13px]"
+              className="h-9 min-w-[8rem] flex-1 rounded-lg border border-ds-border-default bg-ds-surface-1 px-2 text-[16px] text-ds-text-1 sm:text-ds-body"
             />
             {users.length > 0 && (
               <SimpleSelect
@@ -176,7 +176,7 @@ export function CorreoTicketPanel({ threadId, subject }: { threadId: string; sub
             <button
               type="button"
               onClick={() => setOpen(false)}
-              className="h-9 flex-1 rounded-lg border border-ds-border-default text-[13px] text-ds-text-2 ds-tap"
+              className="h-9 flex-1 rounded-lg border border-ds-border-default text-ds-body text-ds-text-2 ds-tap"
             >
               Cancelar
             </button>
@@ -184,7 +184,7 @@ export function CorreoTicketPanel({ threadId, subject }: { threadId: string; sub
               type="button"
               onClick={() => void create()}
               disabled={busy !== null || !title.trim()}
-              className="inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-lg bg-primary text-[13px] font-medium text-primary-foreground ds-tap disabled:opacity-50"
+              className="inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-lg bg-primary text-ds-body font-medium text-primary-foreground ds-tap disabled:opacity-50"
             >
               <TicketPlus className="h-4 w-4" /> {busy === "create" ? "Creando…" : "Crear ticket"}
             </button>

@@ -810,7 +810,7 @@ export function CorreoAiActionPanel({
           {phase === "loading" && (
             <div className="space-y-3 py-6 text-center">
               <Spinner className="mx-auto" />
-              <p className="text-[13px] text-ds-text-2">{TRACE_STEPS[traceIdx]}</p>
+              <p className="text-ds-body text-ds-text-2">{TRACE_STEPS[traceIdx]}</p>
               <ul className="mx-auto max-w-xs space-y-1 text-left text-[12px] text-ds-text-4">
                 {TRACE_STEPS.map((s, i) => (
                   <li key={s} className={i <= traceIdx ? "text-ds-text-2" : ""}>
@@ -823,14 +823,14 @@ export function CorreoAiActionPanel({
 
           {phase === "error" && (
             <div className="space-y-3 rounded-xl border border-status-danger-border bg-status-danger-soft px-3 py-3">
-              <div className="flex items-start gap-2 text-[13px] text-status-danger-fg">
+              <div className="flex items-start gap-2 text-ds-body text-status-danger-fg">
                 <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
                 <span>{error}</span>
               </div>
               <button
                 type="button"
                 onClick={() => void load()}
-                className="h-10 rounded-lg border border-ds-border-default px-3 text-[13px] ds-tap sm:h-9"
+                className="h-10 rounded-lg border border-ds-border-default px-3 text-ds-body ds-tap sm:h-9"
               >
                 Reintentar
               </button>
@@ -900,7 +900,7 @@ export function CorreoAiActionPanel({
                 onRefineQuestion={(q) => openRefine(q)}
                 onOpenRefine={() => openRefine("Ajuste al plan")}
               />
-              {error && <p className="mt-2 text-[13px] text-status-danger-fg">{error}</p>}
+              {error && <p className="mt-2 text-ds-body text-status-danger-fg">{error}</p>}
             </>
           )}
 
@@ -924,7 +924,7 @@ export function CorreoAiActionPanel({
                 <VerticalPreview command="cobranza" proposal={verticalProposal} />
               </div>
             ) : (
-              <p className="text-[13px] text-ds-text-2">Listo.</p>
+              <p className="text-ds-body text-ds-text-2">Listo.</p>
             )
           )}
         </div>
@@ -970,7 +970,7 @@ export function CorreoAiActionPanel({
                   type="button"
                   disabled={phase === "executing" || refineBusy}
                   onClick={() => setShowRefine((v) => !v)}
-                  className="flex h-11 flex-1 items-center justify-center rounded-xl border border-ds-border-default text-[13px] font-medium text-ds-text-1 ds-tap disabled:opacity-50 sm:h-10"
+                  className="flex h-11 flex-1 items-center justify-center rounded-xl border border-ds-border-default text-ds-body font-medium text-ds-text-1 ds-tap disabled:opacity-50 sm:h-10"
                 >
                   {showRefine ? "Ocultar" : "Afinar"}
                 </button>
@@ -985,7 +985,7 @@ export function CorreoAiActionPanel({
                   if (isStructure) void executeStructure();
                   else executeVertical();
                 }}
-                className="flex h-11 flex-[1.4] items-center justify-center gap-2 rounded-xl bg-primary text-[13px] font-medium text-primary-foreground ds-tap disabled:opacity-50 sm:h-10"
+                className="flex h-11 flex-[1.4] items-center justify-center gap-2 rounded-xl bg-primary text-ds-body font-medium text-primary-foreground ds-tap disabled:opacity-50 sm:h-10"
               >
                 {phase === "executing" && <Loader2 className="h-4 w-4 animate-spin" />}
                 {isStructure
@@ -1014,7 +1014,7 @@ function VerticalPreview({
       {entries.map(([k, v]) => (
         <div key={k}>
           <dt className="text-[12px] uppercase tracking-wide text-ds-text-4">{k}</dt>
-          <dd className="text-[13px] text-ds-text-1">{String(v)}</dd>
+          <dd className="text-ds-body text-ds-text-1">{String(v)}</dd>
         </div>
       ))}
       {command === "cobranza" && (

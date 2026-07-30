@@ -71,7 +71,7 @@ export function VoiceBar({
     >
       <p
         aria-live="polite"
-        className="line-clamp-3 text-[13px] leading-snug text-ds-text-1"
+        className="line-clamp-3 text-ds-body leading-snug text-ds-text-1"
       >
         {confirmedText ? <span>{confirmedText}</span> : null}
         {interimText ? (

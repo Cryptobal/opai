@@ -22,7 +22,7 @@ export function PlanTaskForm({ task, onChange }: Props) {
           value={task.title ?? ""}
           placeholder="Seguimiento cotización"
           onChange={(e) => onChange({ title: e.target.value || undefined })}
-          className="h-10 text-[13px] sm:h-9"
+          className="h-10 text-ds-body sm:h-9"
         />
       </div>
       <div className="grid grid-cols-2 gap-2">
@@ -35,7 +35,7 @@ export function PlanTaskForm({ task, onChange }: Props) {
             type="date"
             value={task.dueAt ? task.dueAt.slice(0, 10) : ""}
             onChange={(e) => onChange({ dueAt: e.target.value || null })}
-            className="h-10 text-[13px] sm:h-9"
+            className="h-10 text-ds-body sm:h-9"
           />
         </div>
         <div className="flex items-end pb-0.5">
@@ -46,7 +46,7 @@ export function PlanTaskForm({ task, onChange }: Props) {
               onCheckedChange={(v) => onChange({ allDay: Boolean(v) })}
               className="h-5 w-5"
             />
-            <Label htmlFor="task-allday" className="cursor-pointer text-[13px] text-ds-text-2">
+            <Label htmlFor="task-allday" className="cursor-pointer text-ds-body text-ds-text-2">
               Todo el día
             </Label>
           </div>

@@ -121,7 +121,7 @@ export function AddConceptRow({
           <button
             type="button"
             onClick={() => setPhase({ step: "pick", query: "" })}
-            className="flex h-10 w-full items-center rounded-ds-sm px-1.5 text-left text-[13px] text-ds-text-4 hover:bg-ds-surface-2 hover:text-ds-text-2 sm:h-9"
+            className="flex h-10 w-full items-center rounded-ds-sm px-1.5 text-left text-ds-body text-ds-text-4 hover:bg-ds-surface-2 hover:text-ds-text-2 sm:h-9"
           >
             {hint}
           </button>
@@ -177,7 +177,7 @@ export function AddConceptRow({
                 }
               }}
               placeholder="$"
-              className="mx-auto block h-10 w-full max-w-[5.5rem] rounded-ds-sm border border-ds-border-default bg-ds-surface-1 px-1.5 text-center font-mono text-[13px] tabular-nums sm:h-9"
+              className="mx-auto block h-10 w-full max-w-[5.5rem] rounded-ds-sm border border-ds-border-default bg-ds-surface-1 px-1.5 text-center font-mono text-ds-body tabular-nums sm:h-9"
             />
           ) : null}
         </td>

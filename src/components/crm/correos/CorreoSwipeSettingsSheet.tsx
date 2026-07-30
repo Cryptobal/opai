@@ -40,7 +40,7 @@ function Selector({
 }) {
   return (
     <label className="flex min-h-11 items-center justify-between gap-3 rounded-xl border border-ds-border-subtle bg-ds-surface-1 pl-3 pr-2">
-      <span className="shrink-0 text-[13px] text-ds-text-2">{label}</span>
+      <span className="shrink-0 text-ds-body text-ds-text-2">{label}</span>
       <SimpleSelect
         value={value}
         onValueChange={(v) => onChange(v as CorreoSwipeAction)}
@@ -104,7 +104,7 @@ export function CorreoSwipeSettingsSheet({
         </div>
 
         <label className="flex min-h-11 items-center justify-between gap-3 rounded-xl border border-ds-border-subtle bg-ds-surface-1 pl-3 pr-2">
-          <span className="min-w-0 text-[13px] text-ds-text-2">Tiempo para deshacer</span>
+          <span className="min-w-0 text-ds-body text-ds-text-2">Tiempo para deshacer</span>
           <SimpleSelect
             value={String(undoSeconds)}
             onValueChange={(v) => onUndoSeconds(Number(v) as CorreoUndoSeconds)}
@@ -123,7 +123,7 @@ export function CorreoSwipeSettingsSheet({
         <button
           type="button"
           onClick={onClose}
-          className="h-11 w-full rounded-xl bg-primary text-[13px] font-medium text-primary-foreground ds-tap"
+          className="h-11 w-full rounded-xl bg-primary text-ds-body font-medium text-primary-foreground ds-tap"
         >
           Listo
         </button>

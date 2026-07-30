@@ -149,7 +149,7 @@ function LegendSection({
               {item.symbol}
             </div>
             <div className="min-w-0 flex-1">
-              <div className="text-[13px] font-medium text-ds-text-1">
+              <div className="text-ds-body font-medium text-ds-text-1">
                 {item.label}
               </div>
               <div className="text-[12px] text-ds-text-3 leading-relaxed">

@@ -77,7 +77,7 @@ export function ChatToast({
         {/* Sender + Channel */}
         {hasSender && (
           <>
-            <p className="text-[13px] font-bold text-white truncate">
+            <p className="text-ds-body font-bold text-white truncate">
               {senderName}
             </p>
             <p className="text-[12px] text-status-info-fg truncate">
@@ -86,13 +86,13 @@ export function ChatToast({
           </>
         )}
         {!hasSender && (
-          <p className="text-[13px] font-bold text-white truncate">
+          <p className="text-ds-body font-bold text-white truncate">
             # {channelName}
           </p>
         )}
 
         {/* Preview or count */}
-        <p className="text-[13px] text-zinc-400 line-clamp-2 mt-0.5">
+        <p className="text-ds-body text-zinc-400 line-clamp-2 mt-0.5">
           {messageCount
             ? `${messageCount} mensajes nuevos`
             : displayPreview}

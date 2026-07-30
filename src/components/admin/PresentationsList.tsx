@@ -20,7 +20,7 @@ interface PresentationsListProps {
 
 export function PresentationsList({ presentations, initialFilter: _initialFilter }: PresentationsListProps) {
   return (
-    <div className="rounded-ds-md border border-border bg-card p-4 text-[13px] text-ds-text-3">
+    <div className="rounded-ds-md border border-border bg-card p-4 text-ds-body text-ds-text-3">
       Listado de presentaciones — pendiente de implementación.
       {presentations.length > 0 ? ` (${presentations.length} items)` : ""}
     </div>

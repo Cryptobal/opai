@@ -84,13 +84,13 @@ export function DealVisitasCard({ dealId, accountId, installationId }: Props) {
       {loading ? (
         <Spinner className="mx-auto" />
       ) : rows.length === 0 ? (
-        <p className="text-[13px] text-ds-text-3">Sin visitas vinculadas a este negocio.</p>
+        <p className="text-ds-body text-ds-text-3">Sin visitas vinculadas a este negocio.</p>
       ) : (
         <ul className="divide-y divide-ds-border-subtle rounded-xl border border-ds-border-subtle">
           {rows.map((r) => (
             <li key={`${r.source}-${r.id}`} className="flex items-center justify-between gap-2 px-3 py-2">
               <div className="min-w-0">
-                <p className="truncate text-[13px] text-ds-text-1">
+                <p className="truncate text-ds-body text-ds-text-1">
                   {r.type} · {new Date(r.start).toLocaleString("es-CL")}
                 </p>
                 <p className="truncate text-[12px] text-ds-text-4">

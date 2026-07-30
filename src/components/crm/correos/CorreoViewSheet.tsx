@@ -141,7 +141,7 @@ function Row({
     <button
       type="button"
       onClick={onClick}
-      className={`flex min-h-12 w-full items-center gap-3 px-3.5 text-left text-[13px] text-ds-text-1 ds-tap hover:bg-ds-surface-2 ${
+      className={`flex min-h-12 w-full items-center gap-3 px-3.5 text-left text-ds-body text-ds-text-1 ds-tap hover:bg-ds-surface-2 ${
         last ? "" : "border-b border-ds-border-subtle"
       }`}
     >

@@ -64,7 +64,7 @@ export function FlowMiniChart({
         type="button"
         onClick={toggle}
         aria-expanded={open}
-        className="flex h-10 w-full items-center justify-between gap-2 px-3 text-left text-[13px] font-medium text-ds-text-2 hover:bg-ds-surface-2 sm:h-9"
+        className="flex h-10 w-full items-center justify-between gap-2 px-3 text-left text-ds-body font-medium text-ds-text-2 hover:bg-ds-surface-2 sm:h-9"
       >
         <span>Flujo semanal</span>
         <ChevronDown

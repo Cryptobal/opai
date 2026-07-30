@@ -14,7 +14,7 @@ import {
 } from "@/modules/crm/email/email-to-lead.types";
 
 const INPUT =
-  "h-10 sm:h-9 w-full rounded-lg border border-ds-border-default bg-ds-surface-1 px-2.5 text-[13px]";
+  "h-10 sm:h-9 w-full rounded-lg border border-ds-border-default bg-ds-surface-1 px-2.5 text-ds-body";
 
 /** Marca festivo en `dias`; el backend la normaliza a "Fer" del CPQ. */
 const FESTIVO = "festivo";
@@ -88,7 +88,7 @@ function Section({
         <ChevronDown
           className={`h-4 w-4 shrink-0 text-ds-text-3 transition-transform ${open ? "" : "-rotate-90"}`}
         />
-        <span className="text-[13px] font-semibold text-ds-text-1">{title}</span>
+        <span className="text-ds-body font-semibold text-ds-text-1">{title}</span>
         {badge ? (
           <span className="ml-auto rounded-full bg-ds-surface-3 px-2 py-0.5 text-[12px] text-ds-text-3">
             {badge}
@@ -276,7 +276,7 @@ export function LeadFields({
             onChange={(e) => set({ requerimiento: e.target.value || null })}
           />
         </div>
-        <div className="col-span-2 flex flex-wrap items-center gap-3 text-[13px] text-ds-text-2">
+        <div className="col-span-2 flex flex-wrap items-center gap-3 text-ds-body text-ds-text-2">
           <label className="flex items-center gap-2">
             <input
               type="radio"
@@ -323,7 +323,7 @@ export function LeadFields({
             ariaLabel="Fecha límite"
           />
         </div>
-        <label className="col-span-2 flex min-h-11 cursor-pointer items-center gap-3 text-[13px] text-ds-text-2">
+        <label className="col-span-2 flex min-h-11 cursor-pointer items-center gap-3 text-ds-body text-ds-text-2">
           <Checkbox
             checked={p.esLicitacion}
             onCheckedChange={(c) => set({ esLicitacion: c === true })}
@@ -346,7 +346,7 @@ export function LeadFields({
       >
         <div className="col-span-2 space-y-2">
           {p.puestos.length === 0 ? (
-            <p className="text-[13px] text-ds-text-3">Sin puestos. Agregá al menos uno o dejá que la IA proponga turnos.</p>
+            <p className="text-ds-body text-ds-text-3">Sin puestos. Agregá al menos uno o dejá que la IA proponga turnos.</p>
           ) : null}
           {p.puestos.map((row, idx) => (
             <div
@@ -503,7 +503,7 @@ export function LeadFields({
           <button
             type="button"
             onClick={() => onChange({ ...p, puestos: [...p.puestos, emptyPuesto()] })}
-            className="inline-flex h-10 sm:h-9 items-center gap-1.5 rounded-lg border border-ds-border-default px-3 text-[13px] text-ds-text-2 ds-tap"
+            className="inline-flex h-10 sm:h-9 items-center gap-1.5 rounded-lg border border-ds-border-default px-3 text-ds-body text-ds-text-2 ds-tap"
           >
             <Plus className="h-4 w-4" /> Agregar puesto
           </button>

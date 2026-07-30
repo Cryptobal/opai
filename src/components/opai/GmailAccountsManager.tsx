@@ -127,12 +127,12 @@ export function GmailAccountsManager({
         cada casilla en la bandeja unificada.
       </p>
       {accounts === null ? (
-        <div className="flex items-center gap-2 px-2 py-3 text-[13px] text-ds-text-3">
+        <div className="flex items-center gap-2 px-2 py-3 text-ds-body text-ds-text-3">
           <Loader2 className="h-3.5 w-3.5 animate-spin" />
           Cargando casillas…
         </div>
       ) : count === 0 ? (
-        <p className="px-2 py-2 text-[13px] text-ds-text-3">
+        <p className="px-2 py-2 text-ds-body text-ds-text-3">
           Todavía no hay casillas Gmail conectadas.
         </p>
       ) : (
@@ -146,7 +146,7 @@ export function GmailAccountsManager({
             return (
               <li
                 key={acc.id}
-                className="flex flex-wrap items-center justify-between gap-2 rounded-lg px-2 py-2 text-[13px]"
+                className="flex flex-wrap items-center justify-between gap-2 rounded-lg px-2 py-2 text-ds-body"
               >
                 <div className="flex min-w-0 flex-1 items-center gap-2">
                   {canEditIdentity ? (

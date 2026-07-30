@@ -96,7 +96,7 @@ export function MiSemanaClient() {
                       <Square className="h-5 w-5" />
                     </button>
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-[13px] font-medium text-ds-text-1">{it.title}</p>
+                      <p className="truncate text-ds-body font-medium text-ds-text-1">{it.title}</p>
                       <div className="flex items-center gap-1.5 text-[12px] text-ds-text-4">
                         {it.context && <span className="truncate">{it.context}</span>}
                         {it.dueAt && <span className="shrink-0">· {fmtDue(it.dueAt, it.allDay)}</span>}

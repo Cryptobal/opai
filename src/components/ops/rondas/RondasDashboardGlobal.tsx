@@ -903,7 +903,7 @@ export function RondasDashboardGlobal({ initialDate }: Props) {
           type="date"
           value={fecha}
           onChange={(e) => setFecha(e.target.value)}
-          className="h-9 rounded-lg border border-[#1a1f2e] bg-[#0a0e1a] text-[13px] text-[#f1f5f9] px-3 w-40"
+          className="h-9 rounded-lg border border-[#1a1f2e] bg-[#0a0e1a] text-ds-body text-[#f1f5f9] px-3 w-40"
         />
         <button
           onClick={() => {

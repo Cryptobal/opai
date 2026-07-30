@@ -1510,7 +1510,7 @@ function EmailTimelineEvent({
               autoFocus
               rows={Math.max(2, Math.min(8, editBuffer.split("\n").length + 1))}
               maxLength={5000}
-              className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-[13px] leading-relaxed focus:outline-none focus:ring-2 focus:ring-primary/40"
+              className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-ds-body leading-relaxed focus:outline-none focus:ring-2 focus:ring-primary/40"
               onKeyDown={(e) => {
                 if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
                   e.preventDefault();
@@ -1812,7 +1812,7 @@ function InfoField({ label, value, className }: { label: string; value: string; 
   return (
     <div>
       <p className="text-[12px] font-medium uppercase tracking-wider text-muted-foreground">{label}</p>
-      <p className={`text-[13px] font-medium ${className ?? ""}`}>{value}</p>
+      <p className={`text-ds-body font-medium ${className ?? ""}`}>{value}</p>
     </div>
   );
 }
@@ -2118,14 +2118,14 @@ function TicketAttachmentsCard({
                     href={a.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="truncate text-[13px] font-medium text-foreground hover:underline"
+                    className="truncate text-ds-body font-medium text-foreground hover:underline"
                     title={a.fileName}
                   >
                     {a.fileName}
                   </a>
                 ) : (
                   <span
-                    className="truncate text-[13px] font-medium text-muted-foreground"
+                    className="truncate text-ds-body font-medium text-muted-foreground"
                     title={a.fileName}
                   >
                     {a.fileName}
@@ -2206,14 +2206,14 @@ function TicketAttachmentsCard({
                       href={a.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="truncate text-[13px] font-medium text-foreground hover:underline"
+                      className="truncate text-ds-body font-medium text-foreground hover:underline"
                       title={a.fileName}
                     >
                       {a.fileName}
                     </a>
                   ) : (
                     <span
-                      className="truncate text-[13px] font-medium text-muted-foreground"
+                      className="truncate text-ds-body font-medium text-muted-foreground"
                       title={a.fileName}
                     >
                       {a.fileName}
@@ -2480,7 +2480,7 @@ export function ReplyTemplatesMenu({
 
             <div className="max-h-72 overflow-y-auto p-1">
               {visible.length === 0 ? (
-                <p className="px-3 py-3 text-center text-[13px] text-muted-foreground">
+                <p className="px-3 py-3 text-center text-ds-body text-muted-foreground">
                   Sin plantillas guardadas. Crea una abajo.
                 </p>
               ) : (
@@ -2498,7 +2498,7 @@ export function ReplyTemplatesMenu({
                       >
                         <div className="flex items-center gap-1.5">
                           <Sparkles className="h-3 w-3 text-muted-foreground" />
-                          <span className="text-[13px] font-medium truncate">
+                          <span className="text-ds-body font-medium truncate">
                             {t.name}
                           </span>
                         </div>
@@ -2526,7 +2526,7 @@ export function ReplyTemplatesMenu({
                 <button
                   type="button"
                   onClick={() => setShowCreate(true)}
-                  className="w-full text-left text-[13px] text-primary hover:underline"
+                  className="w-full text-left text-ds-body text-primary hover:underline"
                 >
                   + Nueva plantilla
                 </button>
@@ -2537,7 +2537,7 @@ export function ReplyTemplatesMenu({
                     onChange={(e) => setNewName(e.target.value)}
                     placeholder="Nombre"
                     maxLength={60}
-                    className="h-9 text-[13px]"
+                    className="h-9 text-ds-body"
                   />
                   <textarea
                     value={newBody}
@@ -2545,7 +2545,7 @@ export function ReplyTemplatesMenu({
                     placeholder="Cuerpo (usa {{ticket.code}} etc.)"
                     rows={3}
                     maxLength={2000}
-                    className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-[13px] leading-relaxed focus:outline-none focus:ring-2 focus:ring-primary/40"
+                    className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-ds-body leading-relaxed focus:outline-none focus:ring-2 focus:ring-primary/40"
                   />
                   <div className="flex items-center justify-end gap-1.5">
                     <Button
@@ -2713,10 +2713,10 @@ function TicketLinksCard({
               onChange={(e) => setAddCode(e.target.value)}
               placeholder="TK-202604-0461"
               maxLength={32}
-              className="h-9 text-[13px] font-mono"
+              className="h-9 text-ds-body font-mono"
             />
             <Select value={addType} onValueChange={setAddType}>
-              <SelectTrigger className="h-9 w-[140px] text-[13px]">
+              <SelectTrigger className="h-9 w-[140px] text-ds-body">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -2747,7 +2747,7 @@ function TicketLinksCard({
 
       {items.length === 0 ? (
         !adding && (
-          <p className="text-[13px] text-muted-foreground">
+          <p className="text-ds-body text-muted-foreground">
             No hay tickets relacionados.
           </p>
         )
@@ -2776,7 +2776,7 @@ function TicketLinksCard({
                   <span className="font-mono text-[12px] text-muted-foreground">
                     {it.ticket.code}
                   </span>
-                  <span className="truncate text-[13px] font-medium">
+                  <span className="truncate text-ds-body font-medium">
                     {it.ticket.title}
                   </span>
                 </button>
@@ -2889,14 +2889,14 @@ function TicketCsatCard({
             )}
           </div>
           {data.comment && (
-            <p className="text-[13px] leading-relaxed text-muted-foreground whitespace-pre-wrap">
+            <p className="text-ds-body leading-relaxed text-muted-foreground whitespace-pre-wrap">
               {data.comment}
             </p>
           )}
         </div>
       ) : publicUrl ? (
         <div className="space-y-2">
-          <p className="text-[13px] text-muted-foreground">
+          <p className="text-ds-body text-muted-foreground">
             Comparte este enlace con el cliente para que califique la
             experiencia. El enlace no requiere login y expira a 30 días.
           </p>
@@ -2927,7 +2927,7 @@ function TicketCsatCard({
           </div>
         </div>
       ) : (
-        <p className="text-[13px] text-muted-foreground">
+        <p className="text-ds-body text-muted-foreground">
           Aún no se generó token de encuesta.
         </p>
       )}
@@ -3061,7 +3061,7 @@ function TicketPublicPortalCard({
 
       {state.hasPin ? (
         <div className="space-y-2">
-          <p className="text-[13px] text-muted-foreground">
+          <p className="text-ds-body text-muted-foreground">
             Tu cliente puede ver el estado del ticket sin login en:
           </p>
           <div className="flex items-center gap-1.5">
@@ -3119,7 +3119,7 @@ function TicketPublicPortalCard({
         </div>
       ) : (
         <div className="space-y-2">
-          <p className="text-[13px] text-muted-foreground">
+          <p className="text-ds-body text-muted-foreground">
             Genera un PIN de 6 dígitos para que el cliente vea el estado
             del ticket en una página pública sin login.
           </p>

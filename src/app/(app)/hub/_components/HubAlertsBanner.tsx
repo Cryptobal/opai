@@ -100,7 +100,7 @@ export function HubAlertsBanner({ alerts }: HubAlertsBannerProps) {
         <button
           type="button"
           onClick={() => setShowAll(true)}
-          className="min-h-11 w-full rounded-lg text-[13px] font-medium text-primary transition-colors hover:bg-muted/40"
+          className="min-h-11 w-full rounded-lg text-ds-body font-medium text-primary transition-colors hover:bg-muted/40"
         >
           Ver todo ({active.length})
         </button>

@@ -126,7 +126,7 @@ function EmailRow({
         <span className="flex min-w-0 items-baseline justify-between gap-2">
           <span
             className={cn(
-              "min-w-0 truncate text-[13px]",
+              "min-w-0 truncate text-ds-body",
               item.isUnread ? "font-semibold text-ds-text-1" : "font-medium text-ds-text-2",
             )}
           >
@@ -142,7 +142,7 @@ function EmailRow({
           )}
           <span
             className={cn(
-              "min-w-0 truncate text-[13px]",
+              "min-w-0 truncate text-ds-body",
               item.isUnread ? "text-ds-text-1" : "text-ds-text-3",
             )}
           >
@@ -189,7 +189,7 @@ function ScheduledRow({ item }: { item: HubScheduledItem }) {
       <CalendarClock className="mt-1 h-4 w-4 shrink-0 text-status-info-fg" />
       <span className="min-w-0 flex-1">
         <span className="flex min-w-0 items-baseline justify-between gap-2">
-          <span className="min-w-0 truncate text-[13px] font-medium text-ds-text-1">
+          <span className="min-w-0 truncate text-ds-body font-medium text-ds-text-1">
             {item.subject || "(Sin asunto)"}
           </span>
           <span className="shrink-0 text-[12px] tabular-nums text-ds-text-4">
@@ -269,7 +269,7 @@ export function RecentEmailCard({
       <Surface elevation={1} padding="md" className={shell}>
         <HeaderRow dense={dense} />
         <div className="flex min-w-0 items-center justify-between gap-2 rounded-ds-md bg-ds-surface-2 px-3 py-2.5">
-          <p className="min-w-0 text-[13px] text-ds-text-3">No pudimos cargar tus correos.</p>
+          <p className="min-w-0 text-ds-body text-ds-text-3">No pudimos cargar tus correos.</p>
           <Button variant="outline" size="sm" onClick={reload} className="shrink-0">
             <RefreshCw className="h-4 w-4" />
             <span className="ml-1.5">Reintentar</span>
@@ -383,7 +383,7 @@ export function RecentEmailCard({
             <button
               type="button"
               onClick={() => setShowAll(true)}
-              className="min-h-11 w-full rounded-ds-md text-[13px] font-medium text-primary transition-colors hover:bg-ds-surface-2 lg:hidden"
+              className="min-h-11 w-full rounded-ds-md text-ds-body font-medium text-primary transition-colors hover:bg-ds-surface-2 lg:hidden"
             >
               Ver más correos
             </button>

@@ -182,7 +182,7 @@ export default async function OpsDashboardPage() {
                     <Icon className="h-5 w-5" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="font-display text-[13px] sm:text-[14px] font-semibold text-ds-text-1">{item.title}</p>
+                    <p className="font-display text-ds-body sm:text-[14px] font-semibold text-ds-text-1">{item.title}</p>
                     <p className="hidden sm:block text-[12px] text-ds-text-3 mt-0.5">{item.description}</p>
                     {item.count != null && (
                       <p className="font-display text-lg sm:text-2xl font-bold text-ds-text-1 ds-num mt-2">{item.count}</p>

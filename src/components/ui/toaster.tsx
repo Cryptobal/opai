@@ -28,9 +28,9 @@ export function Toaster() {
             "!opai-toast !text-foreground !rounded-2xl !px-4 !py-3 !shadow-2xl !border",
           description: "!text-muted-foreground",
           actionButton:
-            "!bg-transparent !text-primary !rounded-md !px-2 !py-1.5 !text-[13px] !font-semibold !ml-auto !shadow-none",
+            "!bg-transparent !text-primary !rounded-md !px-2 !py-1.5 !text-ds-body !font-semibold !ml-auto !shadow-none",
           cancelButton:
-            "!bg-transparent !text-muted-foreground !rounded-md !px-2 !py-1.5 !text-[13px] !font-medium",
+            "!bg-transparent !text-muted-foreground !rounded-md !px-2 !py-1.5 !text-ds-body !font-medium",
           error: "!border-status-danger-border",
           success: "!border-status-ok-border",
           warning: "!border-status-warn-border",

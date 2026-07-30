@@ -197,7 +197,7 @@ export function DetalleClient({ installationId }: { installationId: string }) {
           padding="md"
           className="border-status-danger-border bg-status-danger-soft text-center"
         >
-          <p className="text-[13px] text-status-danger-fg">
+          <p className="text-ds-body text-status-danger-fg">
             {error ?? "No se pudo cargar el detalle."}
           </p>
         </Surface>
@@ -238,7 +238,7 @@ export function DetalleClient({ installationId }: { installationId: string }) {
           <h1 className="font-display text-xl sm:text-2xl font-bold leading-tight tracking-tight text-ds-text-1 truncate">
             {data.installation.name}
           </h1>
-          <p className="text-[13px] text-ds-text-3 truncate">
+          <p className="text-ds-body text-ds-text-3 truncate">
             {accountLine || "—"}
           </p>
           <div className="flex items-center gap-1.5 mt-2 flex-wrap">
@@ -472,7 +472,7 @@ function DispatchPanel({
   }
   if (error) {
     return (
-      <p className="px-3.5 py-4 text-[13px] text-status-danger-fg">{error}</p>
+      <p className="px-3.5 py-4 text-ds-body text-status-danger-fg">{error}</p>
     );
   }
   if (!history) return null;
@@ -485,7 +485,7 @@ function DispatchPanel({
           Próximos envíos
         </p>
         {history.upcoming.length === 0 ? (
-          <p className="text-[13px] text-ds-text-3 py-2">
+          <p className="text-ds-body text-ds-text-3 py-2">
             Sin envíos recurrentes programados.
           </p>
         ) : (
@@ -493,7 +493,7 @@ function DispatchPanel({
             {history.upcoming.map((u) => (
               <li
                 key={`${u.examId}-${u.guardId}`}
-                className="flex items-center justify-between gap-2 text-[13px]"
+                className="flex items-center justify-between gap-2 text-ds-body"
               >
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-ds-text-1">{u.guardName || "—"}</p>
@@ -514,7 +514,7 @@ function DispatchPanel({
           Historial de corridas
         </p>
         {history.runs.length === 0 ? (
-          <p className="text-[13px] text-ds-text-3 py-2">Sin corridas registradas.</p>
+          <p className="text-ds-body text-ds-text-3 py-2">Sin corridas registradas.</p>
         ) : (
           <ul className="space-y-1.5 max-h-[260px] overflow-y-auto pr-1">
             {history.runs.map((r) => {

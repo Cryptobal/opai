@@ -73,7 +73,7 @@ function FormField({
         type={type}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="h-10 text-[13px] sm:h-9"
+        className="h-10 text-ds-body sm:h-9"
       />
     </div>
   );

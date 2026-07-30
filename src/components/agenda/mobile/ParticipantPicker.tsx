@@ -38,11 +38,11 @@ export function ParticipantPicker({
   return (
     <div className="opai-glass-strong fixed inset-0 z-[60] flex flex-col rounded-none lg:hidden">
       <header className="flex shrink-0 items-center justify-between px-4 pb-2 pt-3">
-        <button type="button" onClick={onClose} className="h-11 rounded-xl px-2 text-[13px] text-ds-text-3 ds-tap">
+        <button type="button" onClick={onClose} className="h-11 rounded-xl px-2 text-ds-body text-ds-text-3 ds-tap">
           Cerrar
         </button>
         <p className="text-[14px] font-semibold text-ds-text-1">Participantes</p>
-        <button type="button" onClick={onClose} className="h-11 rounded-xl px-2 text-[13px] font-semibold text-primary ds-tap">
+        <button type="button" onClick={onClose} className="h-11 rounded-xl px-2 text-ds-body font-semibold text-primary ds-tap">
           Listo
         </button>
       </header>
@@ -54,7 +54,7 @@ export function ParticipantPicker({
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Buscar en el equipo…"
-            className="w-full bg-transparent text-[13px] outline-none placeholder:text-ds-text-4"
+            className="w-full bg-transparent text-ds-body outline-none placeholder:text-ds-text-4"
           />
         </div>
       </div>
@@ -73,7 +73,7 @@ export function ParticipantPicker({
             >
               <Avatar name={user.name} size="md" className="h-9 w-9" />
               <div className="min-w-0 flex-1">
-                <p className="truncate text-[13px] font-medium text-ds-text-1">{user.name}</p>
+                <p className="truncate text-ds-body font-medium text-ds-text-1">{user.name}</p>
                 {avail ? (
                   conflict ? (
                     <p className="truncate text-[12px] text-status-danger-fg">

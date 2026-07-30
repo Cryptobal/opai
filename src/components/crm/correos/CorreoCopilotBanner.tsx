@@ -46,7 +46,7 @@ export function CorreoCopilotBanner({
           <Sparkles className="h-4 w-4" aria-hidden />
         </span>
         <div className="min-w-0 flex-1">
-          <p className="text-[13px] font-semibold text-tint-violet-fg">
+          <p className="text-ds-body font-semibold text-tint-violet-fg">
             Copiloto · {count} {count === 1 ? "pendiente" : "pendientes"}
           </p>
           <p className="text-[12px] leading-snug text-ds-text-2">{reasons.join(" · ")}</p>

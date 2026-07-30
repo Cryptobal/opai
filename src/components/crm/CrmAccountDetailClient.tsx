@@ -1292,7 +1292,7 @@ export function CrmAccountDetailClient({
             <div className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">
               Giro / Actividad económica
             </div>
-            <div className="break-words text-[13px] leading-snug text-foreground">
+            <div className="break-words text-ds-body leading-snug text-foreground">
               {account.giro || (
                 <span className="italic text-muted-foreground/70">
                   Sin cargar — requerido por SII al facturar
@@ -1304,7 +1304,7 @@ export function CrmAccountDetailClient({
             <div className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">
               Dirección
             </div>
-            <div className="break-words text-[13px] leading-snug text-foreground">
+            <div className="break-words text-ds-body leading-snug text-foreground">
               {account.address || <span className="italic text-muted-foreground/70">Sin cargar</span>}
             </div>
           </div>
@@ -1312,7 +1312,7 @@ export function CrmAccountDetailClient({
             <div className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">
               Comuna
             </div>
-            <div className="break-words text-[13px] leading-snug text-foreground">
+            <div className="break-words text-ds-body leading-snug text-foreground">
               {account.commune || <span className="italic text-muted-foreground/70">Sin cargar</span>}
             </div>
           </div>
@@ -1320,7 +1320,7 @@ export function CrmAccountDetailClient({
             <div className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">
               Ciudad
             </div>
-            <div className="break-words text-[13px] leading-snug text-foreground">
+            <div className="break-words text-ds-body leading-snug text-foreground">
               {account.city || (
                 <span className="italic text-muted-foreground/70">
                   Sin cargar — SII pide ambas (comuna + ciudad)
@@ -1335,25 +1335,25 @@ export function CrmAccountDetailClient({
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
         <div className="min-w-0 rounded-xl border border-border bg-card p-3 sm:p-4">
           <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">RUT</div>
-          <div className="truncate font-mono text-[13px] font-medium tabular-nums text-foreground">
+          <div className="truncate font-mono text-ds-body font-medium tabular-nums text-foreground">
             {account.rut || <span className="font-sans text-muted-foreground/70">—</span>}
           </div>
         </div>
         <div className="min-w-0 rounded-xl border border-border bg-card p-3 sm:p-4">
           <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">Industria</div>
-          <div className="truncate text-[13px] font-medium text-foreground">
+          <div className="truncate text-ds-body font-medium text-foreground">
             {account.industry || <span className="text-muted-foreground/70">—</span>}
           </div>
         </div>
         <div className="min-w-0 rounded-xl border border-border bg-card p-3 sm:p-4">
           <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">Segmento</div>
-          <div className="truncate text-[13px] font-medium text-foreground">
+          <div className="truncate text-ds-body font-medium text-foreground">
             {account.segment || <span className="text-muted-foreground/70">—</span>}
           </div>
         </div>
         <div className="min-w-0 rounded-xl border border-border bg-card p-3 sm:p-4">
           <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">Vigencia</div>
-          <div className="truncate text-[13px] font-medium text-foreground">
+          <div className="truncate text-ds-body font-medium text-foreground">
             {account.startDate
               ? new Intl.DateTimeFormat("es-CL", { year: "numeric", month: "short" }).format(new Date(account.startDate))
               : <span className="text-muted-foreground/70">—</span>}

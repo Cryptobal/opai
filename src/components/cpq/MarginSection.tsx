@@ -61,7 +61,7 @@ export default function MarginSection({
     <Card className="p-3">
       {/* Header: title + mode chips */}
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2 mb-2.5">
-        <h3 className="text-[13px] font-bold tracking-tight">Margen</h3>
+        <h3 className="text-ds-body font-bold tracking-tight">Margen</h3>
         <div className="flex gap-1">
           {MARGIN_MODES.map((m) => (
             <button

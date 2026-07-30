@@ -66,7 +66,7 @@ function RsvpButton({
     <button
       type="button"
       onClick={onClick}
-      className={`inline-flex h-10 min-w-[96px] flex-1 items-center justify-center gap-1.5 rounded-xl border px-3 text-[13px] font-medium ds-tap transition-colors sm:flex-none ${
+      className={`inline-flex h-10 min-w-[96px] flex-1 items-center justify-center gap-1.5 rounded-xl border px-3 text-ds-body font-medium ds-tap transition-colors sm:flex-none ${
         active
           ? activeCls
           : "border-ds-border-default bg-ds-surface-1 text-ds-text-2 hover:bg-ds-surface-2"
@@ -110,12 +110,12 @@ function InviteRsvpCard({
               {statusLabel}
             </Tag>
           </div>
-          <p className="text-[13px] text-ds-text-2">{INVITE.when}</p>
+          <p className="text-ds-body text-ds-text-2">{INVITE.when}</p>
           <p className="text-[12px] text-ds-text-4">{INVITE.timezone}</p>
         </div>
       </div>
 
-      <div className="space-y-1.5 rounded-xl border border-ds-border-subtle bg-ds-surface-2 px-3 py-2.5 text-[13px]">
+      <div className="space-y-1.5 rounded-xl border border-ds-border-subtle bg-ds-surface-2 px-3 py-2.5 text-ds-body">
         <div className="flex items-center gap-2 text-ds-text-2">
           <Users className="h-3.5 w-3.5 shrink-0 text-ds-text-4" />
           <span className="truncate">
@@ -230,7 +230,7 @@ export default function CorreoRsvpMockupPage() {
         <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-3">
           <Link
             href="/opai-ds-playground"
-            className="text-[13px] font-medium text-ds-text-3 hover:text-ds-text-1"
+            className="text-ds-body font-medium text-ds-text-3 hover:text-ds-text-1"
           >
             ← Playground
           </Link>
@@ -285,7 +285,7 @@ export default function CorreoRsvpMockupPage() {
         <aside className="hidden border-r border-ds-border-subtle lg:block">
           <div className="flex items-center gap-2 border-b border-ds-border-subtle px-3 py-3">
             <Mail className="h-4 w-4 text-primary" />
-            <span className="text-[13px] font-semibold">Bandeja</span>
+            <span className="text-ds-body font-semibold">Bandeja</span>
           </div>
           <ul className="divide-y divide-ds-border-subtle">
             {INBOX.map((row) => (
@@ -294,10 +294,10 @@ export default function CorreoRsvpMockupPage() {
                 className={`px-3 py-3 ${row.active ? "bg-ds-surface-2" : "bg-ds-surface-0"}`}
               >
                 <div className="flex items-baseline justify-between gap-2">
-                  <p className="truncate text-[13px] font-medium text-ds-text-1">{row.from}</p>
+                  <p className="truncate text-ds-body font-medium text-ds-text-1">{row.from}</p>
                   <span className="shrink-0 text-[12px] text-ds-text-4">{row.time}</span>
                 </div>
-                <p className="truncate text-[13px] text-ds-text-2">{row.subject}</p>
+                <p className="truncate text-ds-body text-ds-text-2">{row.subject}</p>
                 <div className="mt-1 flex items-center gap-2">
                   {row.tag ? (
                     <Tag variant={row.tag === "Invitación" ? "info" : "warn"} size="sm">
@@ -335,7 +335,7 @@ export default function CorreoRsvpMockupPage() {
               <h1 className="font-display text-lg font-semibold tracking-tight text-ds-text-1 sm:text-xl">
                 {INVITE.title}
               </h1>
-              <p className="mt-1 text-[13px] text-ds-text-3">
+              <p className="mt-1 text-ds-body text-ds-text-3">
                 De <span className="font-medium text-ds-text-1">{INVITE.organizer}</span>
                 <span className="text-ds-text-4"> · {INVITE.organizerEmail}</span>
               </p>
@@ -347,7 +347,7 @@ export default function CorreoRsvpMockupPage() {
               <div className="flex flex-wrap items-center gap-2 rounded-xl border border-ds-border-subtle bg-ds-surface-1 px-3 py-2.5">
                 <CalendarDays className="h-4 w-4 shrink-0 text-primary" />
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-[13px] font-medium text-ds-text-1">{INVITE.title}</p>
+                  <p className="truncate text-ds-body font-medium text-ds-text-1">{INVITE.title}</p>
                   <p className="truncate text-[12px] text-ds-text-3">{INVITE.when}</p>
                 </div>
                 <div className="flex gap-1.5">
@@ -377,17 +377,17 @@ export default function CorreoRsvpMockupPage() {
             )}
 
             <Surface elevation={1} padding="md" className="space-y-3 bg-ds-surface-1">
-              <p className="text-[13px] leading-relaxed text-ds-text-2">
+              <p className="text-ds-body leading-relaxed text-ds-text-2">
                 Estimados,
               </p>
-              <p className="text-[13px] leading-relaxed text-ds-text-2">
+              <p className="text-ds-body leading-relaxed text-ds-text-2">
                 Junto con saludar, les envío la invitación a la reunión para revisar el proceso
                 de acreditación de personal y vehículos con Gard Security.
               </p>
-              <p className="text-[13px] leading-relaxed text-ds-text-2">
+              <p className="text-ds-body leading-relaxed text-ds-text-2">
                 Quedo atento a su confirmación.
               </p>
-              <p className="text-[13px] leading-relaxed text-ds-text-2">
+              <p className="text-ds-body leading-relaxed text-ds-text-2">
                 Saludos cordiales,
                 <br />
                 {INVITE.organizer}
@@ -397,7 +397,7 @@ export default function CorreoRsvpMockupPage() {
                 <p className="text-[12px] font-semibold uppercase tracking-wide text-ds-text-4">
                   Reunión de Microsoft Teams
                 </p>
-                <p className="mt-2 text-[13px] text-ds-text-2">
+                <p className="mt-2 text-ds-body text-ds-text-2">
                   Unirse:{" "}
                   <span className="font-medium text-primary">Click aquí para unirse a la reunión</span>
                 </p>
@@ -410,7 +410,7 @@ export default function CorreoRsvpMockupPage() {
               <p className="text-[12px] font-semibold uppercase tracking-wide text-ds-text-4">
                 Estado
               </p>
-              <p className="text-[13px] text-ds-text-3">
+              <p className="text-ds-body text-ds-text-3">
                 Implementado en el lector real: <code className="text-ds-text-2">CorreoInviteRsvpCard</code>{" "}
                 + <code className="text-ds-text-2">GET …/invite</code> +{" "}
                 <code className="text-ds-text-2">POST …/rsvp</code> (Google Calendar del usuario).

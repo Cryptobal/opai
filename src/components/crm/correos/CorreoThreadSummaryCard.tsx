@@ -163,7 +163,7 @@ export function CorreoThreadSummaryCard({
           type="button"
           disabled={loading}
           onClick={() => void requestSummary("full")}
-          className="inline-flex min-h-11 w-full items-center justify-center gap-1.5 rounded-xl border border-tint-violet/40 bg-tint-violet/10 px-3 text-[13px] font-medium text-tint-violet-fg ds-tap disabled:opacity-50 sm:min-h-9"
+          className="inline-flex min-h-11 w-full items-center justify-center gap-1.5 rounded-xl border border-tint-violet/40 bg-tint-violet/10 px-3 text-ds-body font-medium text-tint-violet-fg ds-tap disabled:opacity-50 sm:min-h-9"
         >
           <Sparkles className="h-4 w-4" /> Resumir hilo
           {messageCount > 0 && (
@@ -188,7 +188,7 @@ export function CorreoThreadSummaryCard({
       {text && (
         <ul className="space-y-1.5">
           {visibleLines.map((line, i) => (
-            <li key={`${i}-${line.text.slice(0, 24)}`} className="flex gap-2 text-[13px] leading-5 text-ds-text-2">
+            <li key={`${i}-${line.text.slice(0, 24)}`} className="flex gap-2 text-ds-body leading-5 text-ds-text-2">
               <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-ds-text-3" aria-hidden />
               <span className={line.emphasis ? "font-medium text-ds-text-1" : undefined}>
                 {line.text}
@@ -224,7 +224,7 @@ export function CorreoThreadSummaryCard({
           </p>
           <ul className="space-y-1">
             {formatThreadSummary(sinceSummary).map((line, i) => (
-              <li key={`since-${i}`} className="flex gap-2 text-[13px] leading-5 text-ds-text-2">
+              <li key={`since-${i}`} className="flex gap-2 text-ds-body leading-5 text-ds-text-2">
                 <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-status-warn-fg" aria-hidden />
                 <span>{line.text}</span>
               </li>
@@ -235,7 +235,7 @@ export function CorreoThreadSummaryCard({
 
       {error && (
         <div className="space-y-2 rounded-xl border border-status-danger-border bg-status-danger-soft px-2.5 py-2">
-          <p className="text-[13px] text-status-danger-fg">{error}</p>
+          <p className="text-ds-body text-status-danger-fg">{error}</p>
           <button
             type="button"
             disabled={loading}

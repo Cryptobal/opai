@@ -94,7 +94,7 @@ export function AgendaDayView({
               className="opai-glass-soft flex w-full items-center gap-2 rounded-[16px] px-3 py-2 text-left ds-tap"
             >
               <span className={cn("h-4 w-[3px] rounded-full", typeBarClass(item, colorBySource))} />
-              <span className="truncate text-[13px] font-medium text-ds-text-1">{item.title}</span>
+              <span className="truncate text-ds-body font-medium text-ds-text-1">{item.title}</span>
             </button>
           ))}
         </div>
@@ -128,7 +128,7 @@ export function AgendaDayView({
               }}
             >
               <span className={cn("absolute inset-y-0 left-0 w-[3px]", typeBarClass(item, colorBySource))} />
-              <p className="truncate text-[13px] font-semibold leading-tight text-ds-text-1">
+              <p className="truncate text-ds-body font-semibold leading-tight text-ds-text-1">
                 {item.title}
               </p>
               <p className="font-mono text-[12px] text-ds-text-3">

@@ -25,7 +25,7 @@ export function FilterGroup({
           key={option.id}
           type="button"
           onClick={() => onChange(option.id)}
-          className="flex h-11 w-full items-center justify-between rounded-lg px-2.5 text-left text-[13px] text-ds-text-2 hover:bg-ds-surface-3 ds-tap sm:h-9"
+          className="flex h-11 w-full items-center justify-between rounded-lg px-2.5 text-left text-ds-body text-ds-text-2 hover:bg-ds-surface-3 ds-tap sm:h-9"
         >
           {option.label}
           {value === option.id && <Check className="h-4 w-4 text-primary" />}

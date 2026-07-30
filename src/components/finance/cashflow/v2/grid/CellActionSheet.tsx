@@ -141,7 +141,7 @@ export function CellActionSheet({
           <SheetTitle className="text-[15px] leading-snug">{itemName}</SheetTitle>
         </SheetHeader>
 
-        <dl className="mt-4 space-y-3 text-[13px]">
+        <dl className="mt-4 space-y-3 text-ds-body">
           <Row label="Estado" value={statusTitle} />
           <Row label="Semana" value={weekLabel} />
           <Row label="Monto" value={fmt.format(amount)} mono />
@@ -168,7 +168,7 @@ export function CellActionSheet({
           {isDupProjection && canHide && (
             <Button
               variant="outline"
-              className="h-11 w-full justify-start border-status-danger-border text-[13px] text-status-danger-fg hover:bg-status-danger-soft sm:h-10"
+              className="h-11 w-full justify-start border-status-danger-border text-ds-body text-status-danger-fg hover:bg-status-danger-soft sm:h-10"
               disabled={busy}
               onClick={() =>
                 void doHide(
@@ -188,7 +188,7 @@ export function CellActionSheet({
           {canEdit && (
             <Button
               variant="outline"
-              className="h-11 w-full justify-start text-[13px] sm:h-10"
+              className="h-11 w-full justify-start text-ds-body sm:h-10"
               onClick={() => {
                 onOpenChange(false);
                 onEdit();
@@ -202,7 +202,7 @@ export function CellActionSheet({
             <Button
               asChild
               variant="outline"
-              className="h-11 w-full justify-start text-[13px] sm:h-10"
+              className="h-11 w-full justify-start text-ds-body sm:h-10"
             >
               <Link href={`/finanzas/facturacion/dtes?dte=${dteId}`}>
                 <FileText className="mr-2 h-4 w-4" /> Ver factura
@@ -214,7 +214,7 @@ export function CellActionSheet({
             <Button
               asChild
               variant="outline"
-              className="h-11 w-full justify-start text-[13px] sm:h-10"
+              className="h-11 w-full justify-start text-ds-body sm:h-10"
             >
               <Link href={programacionHref}>
                 <CalendarDays className="mr-2 h-4 w-4" /> Ver programación
@@ -226,7 +226,7 @@ export function CellActionSheet({
             !isDupProjection &&
             (confirmingHide ? (
               <div className="rounded-ds-md border border-status-danger-border bg-status-danger-soft/40 p-3 space-y-2">
-                <p className="text-[13px] text-ds-text-1">
+                <p className="text-ds-body text-ds-text-1">
                   ¿Ocultar «{itemName}» del flujo?
                 </p>
                 <p className="text-[12px] text-ds-text-3">
@@ -237,14 +237,14 @@ export function CellActionSheet({
                 <div className="flex gap-2">
                   <Button
                     variant="outline"
-                    className="h-10 flex-1 text-[13px]"
+                    className="h-10 flex-1 text-ds-body"
                     disabled={busy}
                     onClick={() => setConfirmingHide(false)}
                   >
                     Cancelar
                   </Button>
                   <Button
-                    className="h-10 flex-1 text-[13px]"
+                    className="h-10 flex-1 text-ds-body"
                     disabled={busy}
                     onClick={() => void doHide()}
                   >
@@ -259,7 +259,7 @@ export function CellActionSheet({
             ) : (
               <Button
                 variant="outline"
-                className="h-11 w-full justify-start text-[13px] text-status-danger-fg hover:bg-status-danger-soft sm:h-10"
+                className="h-11 w-full justify-start text-ds-body text-status-danger-fg hover:bg-status-danger-soft sm:h-10"
                 onClick={() => setConfirmingHide(true)}
               >
                 <EyeOff className="mr-2 h-4 w-4" /> Ocultar del flujo
@@ -386,7 +386,7 @@ function GestionSection({
   return (
     <div className="mt-5 space-y-2 border-t border-ds-border-subtle pt-4">
       <div className="flex items-center justify-between gap-2">
-        <h3 className="text-[13px] font-medium text-ds-text-2">
+        <h3 className="text-ds-body font-medium text-ds-text-2">
           Gestión de cobro
         </h3>
         <GestionGlyphs
@@ -439,7 +439,7 @@ function GestionRow({
   return (
     <div
       className={cn(
-        "flex items-baseline justify-between gap-4 text-[13px]",
+        "flex items-baseline justify-between gap-4 text-ds-body",
         !applicable && "opacity-50",
       )}
     >

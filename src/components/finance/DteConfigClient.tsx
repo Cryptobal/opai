@@ -511,7 +511,7 @@ export function DteConfigClient({
                   }
                   id="xml-always-send"
                 />
-                <Label htmlFor="xml-always-send" className="text-[13px]">
+                <Label htmlFor="xml-always-send" className="text-ds-body">
                   Enviar siempre, sin opción de desmarcar al emitir
                 </Label>
               </div>
@@ -607,7 +607,7 @@ export function DteConfigClient({
                   }))
                 }
                 rows={6}
-                className="w-full rounded-md border border-ds-border-subtle px-3 py-2 text-[13px] font-mono"
+                className="w-full rounded-md border border-ds-border-subtle px-3 py-2 text-ds-body font-mono"
               />
             </div>
 

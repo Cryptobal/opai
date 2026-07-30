@@ -45,7 +45,7 @@ export function CorreoSnoozeQuickPopover({ config, onPick, onOpenSheet, onClose 
             type="button"
             role="menuitem"
             onClick={() => onPick(p.at.toISOString(), p.label)}
-            className="flex min-h-11 w-full items-center justify-between gap-3 px-3.5 text-left text-[13px] text-ds-text-1 ds-tap hover:bg-ds-surface-2"
+            className="flex min-h-11 w-full items-center justify-between gap-3 px-3.5 text-left text-ds-body text-ds-text-1 ds-tap hover:bg-ds-surface-2"
           >
             <span className="font-medium">{p.label}</span>
             <span className="shrink-0 font-mono text-[12px] text-ds-text-3">
@@ -58,7 +58,7 @@ export function CorreoSnoozeQuickPopover({ config, onPick, onOpenSheet, onClose 
           type="button"
           role="menuitem"
           onClick={onOpenSheet}
-          className="flex min-h-11 w-full items-center gap-2 px-3.5 text-left text-[13px] font-medium text-ds-text-1 ds-tap hover:bg-ds-surface-2"
+          className="flex min-h-11 w-full items-center gap-2 px-3.5 text-left text-ds-body font-medium text-ds-text-1 ds-tap hover:bg-ds-surface-2"
         >
           <CalendarClock className="h-4 w-4 text-ds-text-3" /> Elegir fecha…
         </button>

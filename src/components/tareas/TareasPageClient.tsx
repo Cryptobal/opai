@@ -97,7 +97,7 @@ export function TareasPageClient({
               type="button"
               onClick={() => setFilters((f) => ({ ...f, status: tab.id }))}
               className={cn(
-                "rounded-lg px-3 py-1.5 text-[13px]",
+                "rounded-lg px-3 py-1.5 text-ds-body",
                 filters.status === tab.id
                   ? "bg-primary text-primary-foreground"
                   : "text-ds-text-4 hover:text-ds-text-1",
@@ -113,7 +113,7 @@ export function TareasPageClient({
           onValueChange={(v) => setFilters((f) => ({ ...f, assigneeId: v }))}
           options={assigneeOptions}
           aria-label="Filtrar por responsable"
-          className="h-9 min-h-[44px] w-full rounded-xl text-[13px] sm:min-h-0 sm:w-auto"
+          className="h-9 min-h-[44px] w-full rounded-xl text-ds-body sm:min-h-0 sm:w-auto"
         />
 
         <div className="relative min-w-[160px] flex-1">
@@ -123,7 +123,7 @@ export function TareasPageClient({
             onChange={(e) => setFilters((f) => ({ ...f, q: e.target.value }))}
             placeholder="Buscar…"
             aria-label="Buscar tareas"
-            className="h-9 min-h-[44px] w-full rounded-xl border border-ds-border-default bg-ds-surface-1 pl-8 pr-3 text-[13px] text-ds-text-1 opai-glass-soft-m sm:min-h-0"
+            className="h-9 min-h-[44px] w-full rounded-xl border border-ds-border-default bg-ds-surface-1 pl-8 pr-3 text-ds-body text-ds-text-1 opai-glass-soft-m sm:min-h-0"
           />
         </div>
       </div>

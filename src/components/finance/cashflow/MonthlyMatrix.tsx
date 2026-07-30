@@ -261,7 +261,7 @@ export function MonthlyMatrix({ defaultMonths, searchTerm = "" }: Props) {
   if (loading || !projection) {
     return (
       <Surface elevation={1} padding="md">
-        <p className="text-[13px] text-ds-text-2">Cargando proyección mensual...</p>
+        <p className="text-ds-body text-ds-text-2">Cargando proyección mensual...</p>
       </Surface>
     );
   }
@@ -294,7 +294,7 @@ export function MonthlyMatrix({ defaultMonths, searchTerm = "" }: Props) {
   return (
     <Surface elevation={1} padding="md" className="overflow-hidden">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3">
-        <p className="text-[12px] sm:text-[13px] text-ds-text-2">
+        <p className="text-[12px] sm:text-ds-body text-ds-text-2">
           {projection.buckets.length} meses · saldo inicial {fmt.format(projection.openingBalanceClp)}
         </p>
         <div className="flex gap-2">
@@ -306,7 +306,7 @@ export function MonthlyMatrix({ defaultMonths, searchTerm = "" }: Props) {
               saveRowOrder(next);
             }}
           >
-            <SelectTrigger className="h-10 sm:h-9 w-full sm:w-[170px] text-[13px]">
+            <SelectTrigger className="h-10 sm:h-9 w-full sm:w-[170px] text-ds-body">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -316,7 +316,7 @@ export function MonthlyMatrix({ defaultMonths, searchTerm = "" }: Props) {
             </SelectContent>
           </Select>
           <Select value={horizon} onValueChange={(v) => setHorizon(v as Horizon)}>
-            <SelectTrigger className="h-10 sm:h-9 w-full sm:w-[170px] text-[13px]">
+            <SelectTrigger className="h-10 sm:h-9 w-full sm:w-[170px] text-ds-body">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>

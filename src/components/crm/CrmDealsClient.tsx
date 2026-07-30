@@ -405,7 +405,7 @@ function DealCard({
           <span className="flex items-center gap-1">
             <Link
               href={`/crm/deals/${deal.id}`}
-              className="text-[13px] font-medium text-foreground hover:underline line-clamp-1"
+              className="text-ds-body font-medium text-foreground hover:underline line-clamp-1"
               onClick={(e) => e.stopPropagation()}
             >
               {deal.title}
@@ -545,7 +545,7 @@ function MobileStageList({
                     >
                       <div className="flex-1 min-w-0">
                         <span className="flex items-center gap-1">
-                          <p className="text-[13px] font-medium truncate" title={deal.title}>{deal.title}</p>
+                          <p className="text-ds-body font-medium truncate" title={deal.title}>{deal.title}</p>
                           {unreadNoteIds?.has(deal.id) && (
                             <span className="relative shrink-0" title="Notas no leídas">
                               <MessageSquare className="h-3 w-3 text-muted-foreground" />

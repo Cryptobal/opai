@@ -76,7 +76,7 @@ export function TareaDetailFields({
           maxLength={NOTES_MAX}
           aria-label="Detalles de la tarea"
           placeholder="Agrega contexto: qué hay que hacer, dónde, con quién, condiciones de cierre…"
-          className={cn(FIELD, "min-h-[74px] text-[13px]")}
+          className={cn(FIELD, "min-h-[74px] text-ds-body")}
         />
       </div>
 
@@ -85,7 +85,7 @@ export function TareaDetailFields({
           <span className="px-1 text-[12px] font-medium text-ds-text-4">Origen</span>
           <Link
             href={`/crm/correos?thread=${task.emailThreadId}`}
-            className="opai-glass-soft flex min-h-[44px] items-center gap-2 rounded-2xl px-3 text-[13px] text-ds-text-1 hover:text-primary"
+            className="opai-glass-soft flex min-h-[44px] items-center gap-2 rounded-2xl px-3 text-ds-body text-ds-text-1 hover:text-primary"
           >
             <Mail className="h-4 w-4 shrink-0 text-ds-text-4" />
             <span className="min-w-0 flex-1 truncate">Ver correo de origen</span>
@@ -112,14 +112,14 @@ export function TareaDetailFields({
         ) : names.length ? (
           <div className="flex flex-wrap gap-1.5">
             {names.map((name, i) => (
-              <span key={i} className="opai-glass-soft inline-flex min-h-[36px] items-center gap-1.5 rounded-full py-0.5 pl-0.5 pr-2.5 text-[13px] text-ds-text-1">
+              <span key={i} className="opai-glass-soft inline-flex min-h-[36px] items-center gap-1.5 rounded-full py-0.5 pl-0.5 pr-2.5 text-ds-body text-ds-text-1">
                 <Avatar name={name} size="sm" variant="brand" />
                 {name}
               </span>
             ))}
           </div>
         ) : (
-          <p className="px-1 text-[13px] text-ds-text-4">Sin responsables</p>
+          <p className="px-1 text-ds-body text-ds-text-4">Sin responsables</p>
         )}
       </div>
     </div>

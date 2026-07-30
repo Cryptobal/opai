@@ -71,7 +71,7 @@ export function CellHistory({
         {lines.map((line) => (
           <li
             key={line}
-            className="flex gap-2 text-[13px] text-ds-text-2 before:mt-2 before:h-1.5 before:w-1.5 before:shrink-0 before:rounded-full before:bg-ds-surface-3 before:content-['']"
+            className="flex gap-2 text-ds-body text-ds-text-2 before:mt-2 before:h-1.5 before:w-1.5 before:shrink-0 before:rounded-full before:bg-ds-surface-3 before:content-['']"
           >
             {line}
           </li>

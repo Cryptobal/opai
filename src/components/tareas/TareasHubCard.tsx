@@ -164,7 +164,7 @@ export function TareasHubCard({
         <>
           <div className="min-h-0 flex-1 space-y-3 overflow-auto">
             {overdue === 0 && (
-              <div className="flex items-center gap-2 rounded-lg bg-status-ok-soft px-2.5 py-2 text-[13px] text-status-ok-fg">
+              <div className="flex items-center gap-2 rounded-lg bg-status-ok-soft px-2.5 py-2 text-ds-body text-status-ok-fg">
                 <CheckCircle2 className="h-4 w-4 shrink-0" />
                 Sin tareas vencidas
               </div>
@@ -258,7 +258,7 @@ export function TareasHubCard({
           {flat.length > MOBILE_VISIBLE && (
             <Link
               href="/opai/tareas"
-              className="flex min-h-11 w-full items-center justify-center rounded-ds-md text-[13px] font-medium text-primary transition-colors hover:bg-ds-surface-2 lg:hidden"
+              className="flex min-h-11 w-full items-center justify-center rounded-ds-md text-ds-body font-medium text-primary transition-colors hover:bg-ds-surface-2 lg:hidden"
             >
               Ver todas las tareas
             </Link>
@@ -266,7 +266,7 @@ export function TareasHubCard({
           {flat.length > DESKTOP_VISIBLE && (
             <Link
               href="/opai/tareas"
-              className="hidden min-h-11 w-full items-center justify-center rounded-ds-md text-[13px] font-medium text-primary transition-colors hover:bg-ds-surface-2 lg:flex"
+              className="hidden min-h-11 w-full items-center justify-center rounded-ds-md text-ds-body font-medium text-primary transition-colors hover:bg-ds-surface-2 lg:flex"
             >
               Ver todas las tareas
             </Link>

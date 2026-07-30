@@ -46,7 +46,7 @@ export function ConceptTypeahead({
           }
         }}
         placeholder="Buscar o crear…"
-        className="h-10 w-full rounded-ds-sm border border-ds-border-default bg-ds-surface-1 px-2 text-[13px] text-ds-text-1 sm:h-9"
+        className="h-10 w-full rounded-ds-sm border border-ds-border-default bg-ds-surface-1 px-2 text-ds-body text-ds-text-1 sm:h-9"
       />
       <ul className="absolute left-0 right-0 top-full z-40 mt-1 max-h-48 overflow-auto rounded-ds-md border border-ds-border-default bg-ds-surface-1 shadow-md">
         {filtered.map((o) => (
@@ -56,7 +56,7 @@ export function ConceptTypeahead({
               className="flex h-10 w-full flex-col justify-center px-2 text-left hover:bg-ds-surface-2 sm:h-9"
               onClick={() => onChoose(o)}
             >
-              <span className="truncate text-[13px] text-ds-text-1">{o.name}</span>
+              <span className="truncate text-ds-body text-ds-text-1">{o.name}</span>
               {o.hint && (
                 <span className="truncate text-[12px] text-ds-text-3">{o.hint}</span>
               )}
@@ -67,7 +67,7 @@ export function ConceptTypeahead({
           <li>
             <button
               type="button"
-              className="flex h-10 w-full items-center px-2 text-left text-[13px] text-primary hover:bg-ds-surface-2 sm:h-9"
+              className="flex h-10 w-full items-center px-2 text-left text-ds-body text-primary hover:bg-ds-surface-2 sm:h-9"
               onClick={() => onChoose({ name: query.trim(), categoryId: null })}
             >
               {free}

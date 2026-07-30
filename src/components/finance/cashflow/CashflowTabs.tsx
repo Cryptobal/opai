@@ -297,15 +297,15 @@ export function CashflowTabs({
             On desktop the tabs render normally. */}
         <div className="flex items-center gap-2 -mx-4 px-4 sm:mx-0 sm:px-0 overflow-x-auto scrollbar-hide">
           <TabsList className="h-11 inline-flex w-max min-w-0 shrink-0">
-            <TabsTrigger value="weekly" className="text-[13px] sm:text-sm whitespace-nowrap">
+            <TabsTrigger value="weekly" className="text-ds-body sm:text-sm whitespace-nowrap">
               <span className="sm:hidden">Semanal</span>
               <span className="hidden sm:inline">Proyección semanal</span>
             </TabsTrigger>
-            <TabsTrigger value="monthly" className="text-[13px] sm:text-sm whitespace-nowrap">
+            <TabsTrigger value="monthly" className="text-ds-body sm:text-sm whitespace-nowrap">
               <span className="sm:hidden">Mensual</span>
               <span className="hidden sm:inline">Proyección mensual</span>
             </TabsTrigger>
-            <TabsTrigger value="items" className="text-[13px] sm:text-sm whitespace-nowrap">
+            <TabsTrigger value="items" className="text-ds-body sm:text-sm whitespace-nowrap">
               <span className="sm:hidden">Movimientos</span>
               <span className="hidden sm:inline">Movimientos proyectados</span>
             </TabsTrigger>
@@ -323,7 +323,7 @@ export function CashflowTabs({
               placeholder="Buscar cliente, contrato, instalación, categoría…  /"
               // text-base (16px) en mobile evita el zoom de iOS al enfocar.
               // En sm+ volvemos al tamaño compacto (13px).
-              className="w-full h-9 bg-ds-surface-1 border border-ds-border-default rounded-md pl-8 pr-8 text-base sm:text-[13px] placeholder:text-ds-text-3 focus:outline-none focus:ring-1 focus:ring-primary"
+              className="w-full h-9 bg-ds-surface-1 border border-ds-border-default rounded-md pl-8 pr-8 text-base sm:text-ds-body placeholder:text-ds-text-3 focus:outline-none focus:ring-1 focus:ring-primary"
               aria-label="Buscar en el flujo de caja"
             />
             {searchTerm && (
@@ -344,7 +344,7 @@ export function CashflowTabs({
             <Button
               size="sm"
               variant="outline"
-              className="shrink-0 h-9 text-[13px]"
+              className="shrink-0 h-9 text-ds-body"
               onClick={() => openQuickFor()}
             >
               + Nuevo ítem rápido

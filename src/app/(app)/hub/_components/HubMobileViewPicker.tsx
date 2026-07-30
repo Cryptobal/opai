@@ -69,7 +69,7 @@ export function HubMobileViewPicker() {
         <SelectTrigger
           aria-labelledby="hub-view-picker-label"
           aria-label="Vista del Centro de Control"
-          className="h-11 w-full min-w-0 rounded-ds-md text-[13px] font-medium"
+          className="h-11 w-full min-w-0 rounded-ds-md text-ds-body font-medium"
         >
           <span className="flex min-w-0 items-center gap-1.5 truncate">
             <span className="shrink-0 text-ds-text-3">Vista:</span>
@@ -81,7 +81,7 @@ export function HubMobileViewPicker() {
             <SelectItem
               key={option.key}
               value={option.href}
-              className="min-h-11 text-[13px]"
+              className="min-h-11 text-ds-body"
             >
               {option.label}
             </SelectItem>

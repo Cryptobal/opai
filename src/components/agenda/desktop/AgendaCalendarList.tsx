@@ -73,7 +73,7 @@ export function AgendaCalendarList({
         {google.length === 0 ? (
           <a
             href={CAL_CONNECT_HREF}
-            className="flex h-8 items-center rounded-lg px-1.5 text-[13px] text-primary underline-offset-2 hover:underline ds-tap"
+            className="flex h-8 items-center rounded-lg px-1.5 text-ds-body text-primary underline-offset-2 hover:underline ds-tap"
           >
             Conectar Google Calendar
           </a>

@@ -75,7 +75,7 @@ export function CashflowKpis({ kpis }: { kpis: KpiData[] }) {
                       {k.label}
                     </p>
                     <p className={`tabular-nums truncate ${tone.fg} ${
-                      expanded ? "text-[15px] font-semibold" : "text-[13px] font-semibold"
+                      expanded ? "text-[15px] font-semibold" : "text-ds-body font-semibold"
                     }`}>
                       {k.value}
                     </p>

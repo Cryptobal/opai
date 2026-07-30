@@ -43,7 +43,7 @@ export function SignatureList({
           <button
             type="button"
             onClick={onCreate}
-            className="inline-flex h-11 items-center justify-center rounded-xl bg-primary px-4 text-[13px] font-medium text-primary-foreground ds-tap sm:h-10"
+            className="inline-flex h-11 items-center justify-center rounded-xl bg-primary px-4 text-ds-body font-medium text-primary-foreground ds-tap sm:h-10"
           >
             Nueva firma
           </button>
@@ -70,7 +70,7 @@ export function SignatureList({
             >
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="truncate text-[13px] font-medium text-ds-text-1">
+                  <span className="truncate text-ds-body font-medium text-ds-text-1">
                     {row.name}
                   </span>
                   {row.isDefault && (

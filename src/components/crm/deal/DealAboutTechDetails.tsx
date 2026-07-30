@@ -27,7 +27,7 @@ export function DealAboutTechDetails({
         Detalles técnicos
         <ChevronDown className="h-3.5 w-3.5 transition-transform group-open:rotate-180" />
       </summary>
-      <dl className="mt-2 space-y-1.5 text-[13px]">
+      <dl className="mt-2 space-y-1.5 text-ds-body">
         <div className="flex items-center justify-between gap-2">
           <dt className="text-ds-text-3">Creación</dt>
           <dd className="text-right tabular-nums">{formatTechDate(createdAt)}</dd>

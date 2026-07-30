@@ -1471,7 +1471,7 @@ export function CorreosClient() {
           onConnected={() => void fetchPage(null, true)} />
 
         {offlineSince && (
-          <div className="rounded-xl border border-status-warn-border bg-status-warn-soft px-3 py-2.5 text-[13px] text-status-warn-fg">
+          <div className="rounded-xl border border-status-warn-border bg-status-warn-soft px-3 py-2.5 text-ds-body text-status-warn-fg">
             Sin conexión — mostrando correos guardados
             {offlineSince
               ? ` (actualizados ${new Date(offlineSince).toLocaleString("es-CL", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })})`
@@ -1481,7 +1481,7 @@ export function CorreosClient() {
         )}
 
         {statusReady && connected && !canModify && (
-          <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-status-warn-border bg-status-warn-soft px-3 py-2.5 text-[13px] text-status-warn-fg">
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-status-warn-border bg-status-warn-soft px-3 py-2.5 text-ds-body text-status-warn-fg">
             <span>Reconectá Gmail para habilitar archivar y eliminar</span>
             <a href="/api/crm/gmail/connect" className="font-medium underline underline-offset-2">
               Reconectar Gmail
@@ -1500,7 +1500,7 @@ export function CorreosClient() {
             setComposeOpen(true);
             setCorreoComposeInHistory(true);
           }}
-          className="fixed bottom-[calc(5.5rem+env(safe-area-inset-bottom,0px))] right-4 z-40 inline-flex h-12 items-center gap-2 rounded-full bg-primary px-4 text-[13px] font-medium text-primary-foreground shadow-lg ds-tap lg:hidden"
+          className="fixed bottom-[calc(5.5rem+env(safe-area-inset-bottom,0px))] right-4 z-40 inline-flex h-12 items-center gap-2 rounded-full bg-primary px-4 text-ds-body font-medium text-primary-foreground shadow-lg ds-tap lg:hidden"
         >
           <PenLine className="h-4 w-4" /> Redactar
         </button>
@@ -1586,7 +1586,7 @@ export function CorreosClient() {
                 action={
                   <a
                     href="/api/crm/gmail/connect"
-                    className="inline-flex h-10 items-center justify-center rounded-xl bg-primary px-4 text-[13px] font-medium text-primary-foreground ds-tap sm:h-9"
+                    className="inline-flex h-10 items-center justify-center rounded-xl bg-primary px-4 text-ds-body font-medium text-primary-foreground ds-tap sm:h-9"
                   >
                     Conectar Gmail
                   </a>
@@ -1614,14 +1614,14 @@ export function CorreosClient() {
                       <div className="flex flex-wrap items-center justify-center gap-2">
                         <button
                           type="button"
-                          className="h-10 sm:h-9 rounded-xl border border-ds-border-default bg-ds-surface-1 px-3 text-[13px] text-ds-text-2 ds-tap"
+                          className="h-10 sm:h-9 rounded-xl border border-ds-border-default bg-ds-surface-1 px-3 text-ds-body text-ds-text-2 ds-tap"
                           onClick={() => setQuery((q) => withInFolder(q, "trash"))}
                         >
                           Buscar en papelera
                         </button>
                         <button
                           type="button"
-                          className="h-10 sm:h-9 rounded-xl border border-ds-border-default bg-ds-surface-1 px-3 text-[13px] text-ds-text-2 ds-tap"
+                          className="h-10 sm:h-9 rounded-xl border border-ds-border-default bg-ds-surface-1 px-3 text-ds-body text-ds-text-2 ds-tap"
                           onClick={() => setQuery((q) => withInFolder(q, "spam"))}
                         >
                           Buscar en spam
@@ -1713,7 +1713,7 @@ export function CorreosClient() {
               searchMeta &&
               !searchMeta.hasExactMatches &&
               (searchMeta.shownCount > 0 || items.length > 0) && (
-              <div className="flex flex-wrap items-center gap-2 rounded-xl border border-status-warn-border bg-status-warn-soft px-3 py-2 text-[13px] text-status-warn-fg">
+              <div className="flex flex-wrap items-center gap-2 rounded-xl border border-status-warn-border bg-status-warn-soft px-3 py-2 text-ds-body text-status-warn-fg">
                 <span>
                   Sin coincidencias exactas para «{debouncedQuery}» · mostrando resultados por significado
                   {searchMeta.discardedSemantic > 0
@@ -1749,7 +1749,7 @@ export function CorreosClient() {
           {cursor && (
             <div className="flex justify-center">
               <button type="button" onClick={() => void fetchPage(cursor, false)} disabled={loading}
-                className="h-10 rounded-xl border border-ds-border-default px-4 text-[13px] ds-tap disabled:opacity-50 sm:h-9">
+                className="h-10 rounded-xl border border-ds-border-default px-4 text-ds-body ds-tap disabled:opacity-50 sm:h-9">
                 {loading ? "Cargando…" : "Cargar más"}
               </button>
             </div>

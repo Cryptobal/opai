@@ -102,7 +102,7 @@ function OAuthResultBannerInner({ param, startHref, onConnected }: BannerProps) 
   return (
     <div
       role="status"
-      className={`flex items-start justify-between gap-3 rounded-xl border px-4 py-3 text-[13px] ${toneClass}`}
+      className={`flex items-start justify-between gap-3 rounded-xl border px-4 py-3 text-ds-body ${toneClass}`}
     >
       <span className="pt-1">{info.text}</span>
       <div className="flex shrink-0 items-center gap-2">

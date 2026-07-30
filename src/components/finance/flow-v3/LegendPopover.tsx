@@ -62,7 +62,7 @@ export function LegendPopover({ open, onOpenChange }: Props) {
             <li key={it.title} className="flex items-start gap-2.5">
               <span className={`mt-0.5 h-4 w-6 shrink-0 rounded-sm ${it.swatch}`} aria-hidden />
               <div className="min-w-0">
-                <p className="text-[13px] font-medium text-ds-text-1">{it.title}</p>
+                <p className="text-ds-body font-medium text-ds-text-1">{it.title}</p>
                 <p className="text-[12px] leading-snug text-ds-text-3">{it.desc}</p>
               </div>
             </li>

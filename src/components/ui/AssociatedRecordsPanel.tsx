@@ -167,7 +167,7 @@ function AccordionItem({
             )}
           />
           {Icon && <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />}
-          <span className="truncate font-medium text-foreground text-[13px]">{section.label}</span>
+          <span className="truncate font-medium text-foreground text-ds-body">{section.label}</span>
           {section.count !== undefined && (
             <span className="text-xs text-muted-foreground tabular-nums">
               ({section.count})

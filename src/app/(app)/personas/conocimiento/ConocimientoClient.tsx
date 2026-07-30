@@ -333,7 +333,7 @@ export function ConocimientoClient() {
               view === "grid" && "col-span-full",
             )}
           >
-            <p className="text-[13px] text-status-danger-fg">{error}</p>
+            <p className="text-ds-body text-status-danger-fg">{error}</p>
           </Surface>
         )}
         {!loading && !error && installations.length === 0 && (

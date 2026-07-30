@@ -56,7 +56,7 @@ export function CorreoSystemLabels({
     <div className="flex flex-col gap-2">
       {snoozeActive && snoozedUntil && (
         <div
-          className="flex min-h-10 flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-status-warn-border bg-status-warn-soft px-3 py-2 text-[13px]"
+          className="flex min-h-10 flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-status-warn-border bg-status-warn-soft px-3 py-2 text-ds-body"
           role="status"
         >
           <span className="inline-flex min-w-0 items-center gap-1.5 text-status-warn-fg">
@@ -69,7 +69,7 @@ export function CorreoSystemLabels({
             <button
               type="button"
               onClick={() => leaveFolder("unsnooze", "Dejado de posponer")}
-              className="ml-auto shrink-0 text-[13px] font-medium text-primary ds-tap hover:underline"
+              className="ml-auto shrink-0 text-ds-body font-medium text-primary ds-tap hover:underline"
             >
               Dejar de posponer
             </button>

@@ -126,7 +126,7 @@ export function WeeklyCloseDialog({
           <Button variant="outline" size="sm" onClick={() => shiftWeek(-1)} aria-label="Semana anterior">
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <span className="font-mono text-[13px] uppercase tracking-wide text-ds-text-2">
+          <span className="font-mono text-ds-body uppercase tracking-wide text-ds-text-2">
             {snap ? `${snap.weekLabel} · ${snap.weekStartYmd} → ${snap.weekEndYmd}` : weekEnd}
           </span>
           <Button variant="outline" size="sm" onClick={() => shiftWeek(1)} aria-label="Semana siguiente">

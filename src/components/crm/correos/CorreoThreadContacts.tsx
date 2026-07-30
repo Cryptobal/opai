@@ -153,7 +153,7 @@ export function CorreoThreadContacts({
               <button
                 type="button"
                 onClick={() => void add(c.id)}
-                className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[13px] text-ds-text-2 ds-tap hover:bg-ds-surface-2"
+                className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-ds-body text-ds-text-2 ds-tap hover:bg-ds-surface-2"
               >
                 <span className="min-w-0 flex-1 truncate">
                   {`${c.firstName} ${c.lastName}`.trim()}

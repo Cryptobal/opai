@@ -187,7 +187,7 @@ export function CorreoAttachmentSave({
         <div className="min-h-0 flex-1 overflow-y-auto">
           {!accountId ? (
             <div className="space-y-3 p-4">
-              <p className="text-[13px] text-ds-text-2">
+              <p className="text-ds-body text-ds-text-2">
                 Este correo de Gmail{mailboxEmail ? ` (${mailboxEmail})` : ""} aún no está vinculado a un{" "}
                 <span className="font-medium text-ds-text-1">cliente / cuenta CRM</span> en OPAI.
                 Asociarlo permite guardar los adjuntos en Documentos de esa ficha.
@@ -198,7 +198,7 @@ export function CorreoAttachmentSave({
                   onRequestAssociate?.();
                   onClose();
                 }}
-                className="inline-flex h-11 w-full items-center justify-center gap-1.5 rounded-lg bg-primary px-4 text-[13px] font-medium text-primary-fg ds-tap"
+                className="inline-flex h-11 w-full items-center justify-center gap-1.5 rounded-lg bg-primary px-4 text-ds-body font-medium text-primary-fg ds-tap"
               >
                 <Link2 className="h-4 w-4" /> Asociar a cuenta CRM y guardar
               </button>
@@ -211,7 +211,7 @@ export function CorreoAttachmentSave({
               {results.map((r, i) => (
                 <div
                   key={i}
-                  className="flex items-center gap-2 rounded-lg border border-ds-border-subtle px-3 py-2 text-[13px]"
+                  className="flex items-center gap-2 rounded-lg border border-ds-border-subtle px-3 py-2 text-ds-body"
                 >
                   <span className="min-w-0 flex-1 truncate text-ds-text-1">{r.filename}</span>
                   <span className={r.status === "error" ? "text-status-danger-fg" : "text-status-ok-fg"}>
@@ -222,7 +222,7 @@ export function CorreoAttachmentSave({
               <button
                 type="button"
                 onClick={onClose}
-                className="mt-2 h-11 w-full rounded-lg border border-ds-border-default text-[13px] ds-tap"
+                className="mt-2 h-11 w-full rounded-lg border border-ds-border-default text-ds-body ds-tap"
               >
                 Listo
               </button>
@@ -286,7 +286,7 @@ export function CorreoAttachmentSave({
                   value={folderId ?? "__none__"}
                   onValueChange={(v) => setFolderId(v === "__none__" ? null : v)}
                 >
-                  <SelectTrigger className="h-11 w-full rounded-lg border-ds-border-default bg-ds-surface-2 text-[13px] text-ds-text-1 sm:h-11">
+                  <SelectTrigger className="h-11 w-full rounded-lg border-ds-border-default bg-ds-surface-2 text-ds-body text-ds-text-1 sm:h-11">
                     <SelectValue placeholder="Sin carpeta" />
                   </SelectTrigger>
                   <SelectContent className="z-[100] border-ds-border-default bg-ds-surface-1 text-ds-text-1">
@@ -302,7 +302,7 @@ export function CorreoAttachmentSave({
 
               <div className="flex items-center justify-between gap-3 rounded-xl border border-ds-border-subtle bg-ds-surface-2 px-3 py-2.5">
                 <div className="min-w-0">
-                  <p className="text-[13px] font-medium text-ds-text-1">Visible en portal cliente</p>
+                  <p className="text-ds-body font-medium text-ds-text-1">Visible en portal cliente</p>
                   <p className="text-[12px] text-ds-text-4">
                     El cliente podrá ver este archivo en su portal.
                   </p>

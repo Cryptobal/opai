@@ -189,7 +189,7 @@ export function ChatComposer({
           autoComplete="off"
           className={cn(
             "max-h-[120px] min-h-[44px] w-full resize-none appearance-none border-0",
-            "bg-transparent px-3.5 py-2.5 text-[13px] leading-snug text-ds-text-1",
+            "bg-transparent px-3.5 py-2.5 text-ds-body leading-snug text-ds-text-1",
             "placeholder:text-ds-text-4 shadow-none outline-none",
             /* Anula el :focus-visible global (ring + ring-offset) que pinta
                un rectángulo claro sobre el vidrio del sheet. */

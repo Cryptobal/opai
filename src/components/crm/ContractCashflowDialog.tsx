@@ -256,7 +256,7 @@ export function ContractCashflowDialog({
         </DialogHeader>
 
         {loading ? (
-          <div className="flex items-center justify-center gap-2 py-8 text-[13px] text-ds-text-3">
+          <div className="flex items-center justify-center gap-2 py-8 text-ds-body text-ds-text-3">
             <Loader2 className="h-4 w-4 animate-spin" /> Cargando…
           </div>
         ) : (

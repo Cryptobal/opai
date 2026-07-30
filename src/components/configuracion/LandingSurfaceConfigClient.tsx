@@ -95,7 +95,7 @@ export function LandingSurfaceConfigClient() {
 
   return (
     <div className="space-y-3">
-      <p className="text-[13px] text-ds-text-3">
+      <p className="text-ds-body text-ds-text-3">
         Define con qué modo arranca OPAI al iniciar sesión o al abrir la PWA.
         También puedes cambiarlo en el momento con el selector ERP / Productividad
         de la barra.
@@ -125,7 +125,7 @@ export function LandingSurfaceConfigClient() {
                 size="md"
               />
               <span className="min-w-0">
-                <span className="block text-[13px] font-semibold text-ds-text-1">
+                <span className="block text-ds-body font-semibold text-ds-text-1">
                   {opt.title}
                 </span>
                 <span className="block text-[12px] text-ds-text-3">

@@ -82,7 +82,7 @@ export function CorreoRecipientPopover({
         <div className="flex items-center gap-3 border-b border-ds-border-subtle px-3 py-3">
           <CorreoSenderAvatar fromEmail={email || chip.raw} compact />
           <div className="min-w-0 flex-1">
-            <p className="truncate text-[13px] font-medium text-ds-text-1">{name}</p>
+            <p className="truncate text-ds-body font-medium text-ds-text-1">{name}</p>
             <p className="select-text break-all text-[12px] text-ds-text-3">
               {email || chip.raw}
             </p>
@@ -95,7 +95,7 @@ export function CorreoRecipientPopover({
               void copyText(email || chip.raw, copyLabel);
               close();
             }}
-            className="flex min-h-11 w-full items-center gap-2 px-3 text-left text-[13px] text-ds-text-1 ds-tap hover:bg-ds-surface-2 sm:min-h-9"
+            className="flex min-h-11 w-full items-center gap-2 px-3 text-left text-ds-body text-ds-text-1 ds-tap hover:bg-ds-surface-2 sm:min-h-9"
           >
             <Copy className="h-4 w-4 shrink-0 text-ds-text-3" />
             Copiar dirección
@@ -107,7 +107,7 @@ export function CorreoRecipientPopover({
                 requestCorreoSearch({ token: `${personOp}:${email}` });
                 close();
               }}
-              className="flex min-h-11 w-full items-center gap-2 px-3 text-left text-[13px] text-ds-text-1 ds-tap hover:bg-ds-surface-2 sm:min-h-9"
+              className="flex min-h-11 w-full items-center gap-2 px-3 text-left text-ds-body text-ds-text-1 ds-tap hover:bg-ds-surface-2 sm:min-h-9"
             >
               <Search className="h-4 w-4 shrink-0 text-ds-text-3" />
               Buscar correos de esta persona
@@ -120,7 +120,7 @@ export function CorreoRecipientPopover({
                 requestCorreoSearch({ token: `domain:${domain}` });
                 close();
               }}
-              className="flex min-h-11 w-full items-center gap-2 px-3 text-left text-[13px] text-ds-text-1 ds-tap hover:bg-ds-surface-2 sm:min-h-9"
+              className="flex min-h-11 w-full items-center gap-2 px-3 text-left text-ds-body text-ds-text-1 ds-tap hover:bg-ds-surface-2 sm:min-h-9"
             >
               <Globe className="h-4 w-4 shrink-0 text-ds-text-3" />
               Buscar por dominio
@@ -139,7 +139,7 @@ export function CorreoRecipientPopover({
                 );
                 close();
               }}
-              className="flex min-h-11 w-full items-center gap-2 px-3 text-left text-[13px] text-status-danger-fg ds-tap hover:bg-ds-surface-2 sm:min-h-9"
+              className="flex min-h-11 w-full items-center gap-2 px-3 text-left text-ds-body text-status-danger-fg ds-tap hover:bg-ds-surface-2 sm:min-h-9"
             >
               <ShieldAlert className="h-4 w-4 shrink-0" />
               Marcar hilo como spam

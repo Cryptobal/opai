@@ -16,7 +16,7 @@ type Props = {
 export function PlanAccountForm({ account, accountReused, accountUrl, onChange }: Props) {
   if (accountReused) {
     return (
-      <div className="space-y-2 text-[13px] text-ds-text-2">
+      <div className="space-y-2 text-ds-body text-ds-text-2">
         <p className="font-medium text-ds-text-1">{account.name ?? "Cuenta existente"}</p>
         {account.rut && <p className="text-ds-text-3">RUT: {account.rut}</p>}
         {accountUrl && (
@@ -88,7 +88,7 @@ function FormField({
         id={id}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="h-10 text-[13px] sm:h-9"
+        className="h-10 text-ds-body sm:h-9"
       />
     </div>
   );

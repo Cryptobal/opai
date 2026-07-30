@@ -418,7 +418,7 @@ export function AppSidebar({
                             onClick={onNavigate}
                             className={cn(
                               "group/sub relative flex items-center rounded-md transition-all duration-200 ease-out overflow-hidden",
-                              showCloseButton ? "text-[13px] gap-2.5 px-3 py-2" : "text-[13px] gap-2.5 px-3 py-[6px]",
+                              showCloseButton ? "text-ds-body gap-2.5 px-3 py-2" : "text-ds-body gap-2.5 px-3 py-[6px]",
                               isChildActive
                                 ? "bg-accent text-foreground font-medium"
                                 : "text-muted-foreground hover:bg-accent/50 hover:text-foreground hover:translate-x-0.5"
@@ -482,7 +482,7 @@ export function AppSidebar({
                         href={child.href}
                         onClick={() => { setFlyout(null); onNavigate?.(); }}
                         className={cn(
-                          "flex items-center gap-2.5 rounded-md px-2.5 py-[6px] text-[13px] transition-colors",
+                          "flex items-center gap-2.5 rounded-md px-2.5 py-[6px] text-ds-body transition-colors",
                           isChildActive
                             ? "bg-accent text-foreground font-medium"
                             : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"

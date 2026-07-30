@@ -306,7 +306,7 @@ function RoleSelector({
           >
             Elige cómo continuar
           </h1>
-          <p className="text-[13px] text-[#6b7280]">
+          <p className="text-ds-body text-[#6b7280]">
             Tienes sesión activa en varios portales
           </p>
         </div>
@@ -380,7 +380,7 @@ function RoleSelector({
                         </span>
                       ) : null}
                     </div>
-                    <div className="text-[13px] text-[#9ca3af] mt-0.5">
+                    <div className="text-ds-body text-[#9ca3af] mt-0.5">
                       {cfg.description}
                     </div>
                   </div>

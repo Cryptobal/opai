@@ -26,7 +26,7 @@ export function ComposerToggles({
       <ToggleRow label="Notificación OPAI" checked={notifyOpai} onChange={onNotifyOpai} />
       <ToggleRow label="Recordatorio Slack" checked={slackReminder} onChange={onSlackReminder} />
       <div className="flex h-11 items-center justify-between rounded-xl px-1 opacity-50">
-        <span className="text-[13px] text-ds-text-2">Google Meet</span>
+        <span className="text-ds-body text-ds-text-2">Google Meet</span>
         <span className="text-[12px] text-ds-text-4" title="próximamente">
           próximamente
         </span>
@@ -52,7 +52,7 @@ function ToggleRow({
       onClick={() => onChange(!checked)}
       className="flex h-11 w-full items-center justify-between rounded-xl px-1 ds-tap"
     >
-      <span className="text-[13px] text-ds-text-1">{label}</span>
+      <span className="text-ds-body text-ds-text-1">{label}</span>
       <span
         className={cn(
           "flex h-6 w-10 items-center rounded-full p-0.5 transition-colors",

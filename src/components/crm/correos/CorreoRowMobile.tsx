@@ -71,13 +71,13 @@ export const CorreoRowMobile = memo(function CorreoRowMobile({
     </>
   );
   const line3 = hasDeal ? (
-    <span className="block truncate text-[13px] leading-5 text-ds-text-3">
+    <span className="block truncate text-ds-body leading-5 text-ds-text-3">
       {[thread.accountName, thread.dealTitle].filter(Boolean).join(" › ")}
       {thread.dealStageName ? ` · ${thread.dealStageName}` : ""}
     </span>
   ) : !compact && thread.snippet ? (
     <span
-      className={`block ${PREVIEW_LINE_CLASS[previewLines]} break-words text-[13px] leading-5 text-ds-text-3`}
+      className={`block ${PREVIEW_LINE_CLASS[previewLines]} break-words text-ds-body leading-5 text-ds-text-3`}
     >
       {thread.snippet}
     </span>
@@ -133,7 +133,7 @@ export const CorreoRowMobile = memo(function CorreoRowMobile({
               )}
             </span>
             <span
-              className={`flex min-w-0 items-baseline text-[13px] leading-5 ${
+              className={`flex min-w-0 items-baseline text-ds-body leading-5 ${
                 unread ? "font-medium text-ds-text-1" : "text-ds-text-2"
               }`}
               title={subject}

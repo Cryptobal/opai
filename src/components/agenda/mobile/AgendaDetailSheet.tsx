@@ -140,7 +140,7 @@ export function AgendaDetailSheet({ visitaId, onClose, onChanged }: Props) {
                 <h2 className="font-display text-[19px] font-semibold leading-snug text-ds-text-1">
                   {v.title}
                 </h2>
-                <p className="mt-1 font-mono text-[13px] text-ds-text-3">
+                <p className="mt-1 font-mono text-ds-body text-ds-text-3">
                   {fecha} · {hhmmChile(v.startAt)}–{hhmmChile(v.endAt)}
                 </p>
               </div>
@@ -154,12 +154,12 @@ export function AgendaDetailSheet({ visitaId, onClose, onChanged }: Props) {
               {address && (
                 <section className="space-y-1">
                   <p className="text-[12px] font-medium uppercase tracking-wide text-ds-text-4">Ubicación</p>
-                  <p className="text-[13px] text-ds-text-2">{address}</p>
+                  <p className="text-ds-body text-ds-text-2">{address}</p>
                   <a
                     href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex h-9 items-center text-[13px] font-medium text-primary ds-tap"
+                    className="inline-flex h-9 items-center text-ds-body font-medium text-primary ds-tap"
                   >
                     Cómo llegar ↗
                   </a>
@@ -171,7 +171,7 @@ export function AgendaDetailSheet({ visitaId, onClose, onChanged }: Props) {
               {v.notes && (
                 <section className="space-y-1">
                   <p className="text-[12px] font-medium uppercase tracking-wide text-ds-text-4">Notas</p>
-                  <p className="whitespace-pre-wrap text-[13px] text-ds-text-2">{v.notes}</p>
+                  <p className="whitespace-pre-wrap text-ds-body text-ds-text-2">{v.notes}</p>
                 </section>
               )}
             </>
@@ -192,7 +192,7 @@ export function AgendaDetailSheet({ visitaId, onClose, onChanged }: Props) {
                 setNewTime(local.slice(11, 16));
                 setReprogramOpen(true);
               }}
-              className="h-11 flex-1 rounded-xl border border-ds-border-default text-[13px] font-medium text-ds-text-1 ds-tap"
+              className="h-11 flex-1 rounded-xl border border-ds-border-default text-ds-body font-medium text-ds-text-1 ds-tap"
             >
               Reprogramar
             </button>
@@ -201,7 +201,7 @@ export function AgendaDetailSheet({ visitaId, onClose, onChanged }: Props) {
             type="button"
             disabled={busy}
             onClick={() => void act({ action: "complete" }, "Visita completada")}
-            className="h-11 flex-1 rounded-xl bg-status-ok-soft text-[13px] font-semibold text-status-ok-fg ds-tap"
+            className="h-11 flex-1 rounded-xl bg-status-ok-soft text-ds-body font-semibold text-status-ok-fg ds-tap"
           >
             Completar
           </button>
@@ -227,13 +227,13 @@ export function AgendaDetailSheet({ visitaId, onClose, onChanged }: Props) {
               type="date"
               value={newDate}
               onChange={(e) => setNewDate(e.target.value)}
-              className="h-11 min-w-0 flex-1 rounded-xl border border-ds-border-default bg-ds-surface-1 px-3 text-[13px] sm:h-9"
+              className="h-11 min-w-0 flex-1 rounded-xl border border-ds-border-default bg-ds-surface-1 px-3 text-ds-body sm:h-9"
             />
             <input
               type="time"
               value={newTime}
               onChange={(e) => setNewTime(e.target.value)}
-              className="h-11 w-28 rounded-xl border border-ds-border-default bg-ds-surface-1 px-3 text-[13px] sm:h-9"
+              className="h-11 w-28 rounded-xl border border-ds-border-default bg-ds-surface-1 px-3 text-ds-body sm:h-9"
             />
           </div>
           <button
@@ -254,7 +254,7 @@ export function AgendaDetailSheet({ visitaId, onClose, onChanged }: Props) {
                 "Visita reprogramada",
               );
             }}
-            className="h-11 w-full rounded-xl bg-primary text-[13px] font-semibold text-primary-foreground ds-tap sm:h-9"
+            className="h-11 w-full rounded-xl bg-primary text-ds-body font-semibold text-primary-foreground ds-tap sm:h-9"
           >
             Guardar nuevo horario
           </button>
@@ -266,14 +266,14 @@ export function AgendaDetailSheet({ visitaId, onClose, onChanged }: Props) {
           <DialogHeader>
             <DialogTitle>¿Cancelar esta visita?</DialogTitle>
           </DialogHeader>
-          <p className="text-[13px] text-ds-text-3">
+          <p className="text-ds-body text-ds-text-3">
             Se avisará a los participantes y el evento se quitará de Google Calendar.
           </p>
           <div className="flex gap-2 pt-1">
             <button
               type="button"
               onClick={() => setConfirmCancel(false)}
-              className="h-11 flex-1 rounded-xl border border-ds-border-default text-[13px] font-medium ds-tap sm:h-9"
+              className="h-11 flex-1 rounded-xl border border-ds-border-default text-ds-body font-medium ds-tap sm:h-9"
             >
               Volver
             </button>
@@ -284,7 +284,7 @@ export function AgendaDetailSheet({ visitaId, onClose, onChanged }: Props) {
                 setConfirmCancel(false);
                 void act({ action: "cancel" }, "Visita cancelada");
               }}
-              className="h-11 flex-1 rounded-xl bg-status-danger-soft text-[13px] font-semibold text-status-danger-fg ds-tap sm:h-9"
+              className="h-11 flex-1 rounded-xl bg-status-danger-soft text-ds-body font-semibold text-status-danger-fg ds-tap sm:h-9"
             >
               Cancelar visita
             </button>

@@ -79,7 +79,7 @@ export function DetailField({
       <dd
         className={cn(
           "min-w-0 break-words",
-          boxed ? "text-[13px] font-medium text-foreground" : "text-sm text-foreground",
+          boxed ? "text-ds-body font-medium text-foreground" : "text-sm text-foreground",
           mono && "font-mono tabular-nums",
           copyable && !isEmpty && "cursor-copy hover:text-primary transition-colors",
           isEmpty && "text-muted-foreground/60"

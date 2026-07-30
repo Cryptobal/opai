@@ -387,7 +387,7 @@ export function EmailHtmlBody({
           />
         )
       ) : (
-        <p className="whitespace-pre-wrap break-words text-[13px] text-ds-text-2">
+        <p className="whitespace-pre-wrap break-words text-ds-body text-ds-text-2">
           {plain}
         </p>
       )}

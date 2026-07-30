@@ -62,7 +62,7 @@ export function GmailConnectionCard({
             <p className="font-display text-base font-semibold text-ds-text-1">
               Mi Gmail
             </p>
-            <p className="text-[13px] text-ds-text-3">
+            <p className="text-ds-body text-ds-text-3">
               {connected
                 ? googleEmail
                 : "Conectá tu cuenta para enviar y registrar correos"}
@@ -76,17 +76,17 @@ export function GmailConnectionCard({
 
       {connected ? (
         <>
-          <p className="text-[13px] text-ds-text-3">
+          <p className="text-ds-body text-ds-text-3">
             {sync
               ? statusLabel(sync)
               : "Tu cuenta Gmail está conectada. El histórico avanza solo vía cron."}
           </p>
-          <p className="rounded-xl border border-ds-border-subtle bg-ds-surface-2 px-3 py-2.5 text-[13px] text-ds-text-2">
+          <p className="rounded-xl border border-ds-border-subtle bg-ds-surface-2 px-3 py-2.5 text-ds-body text-ds-text-2">
             Tras enviar un correo podés <span className="font-medium text-ds-text-1">Deshacer</span> durante{" "}
             <span className="font-medium text-ds-text-1">10 segundos</span> (estilo Gmail). El tiempo de las acciones de bandeja se configura en Correos → Gestos de deslizar.
           </p>
           {sync && sync.canModify === false && (
-            <p className="rounded-lg border border-status-warn-border bg-status-warn-soft px-2.5 py-2 text-[13px] text-status-warn-fg">
+            <p className="rounded-lg border border-status-warn-border bg-status-warn-soft px-2.5 py-2 text-ds-body text-status-warn-fg">
               Reconectá Gmail para habilitar archivar y eliminar{" "}
               <a
                 href={CONNECT_HREF}
@@ -97,10 +97,10 @@ export function GmailConnectionCard({
             </p>
           )}
           {passResult && (
-            <p className="text-[13px] text-status-ok-fg">{passResult}</p>
+            <p className="text-ds-body text-status-ok-fg">{passResult}</p>
           )}
           {error && (
-            <p className="text-[13px] text-status-danger-fg">{error}</p>
+            <p className="text-ds-body text-status-danger-fg">{error}</p>
           )}
           <div className="flex flex-wrap items-center gap-2">
             <Button asChild variant="secondary" size="sm" className="h-10 sm:h-9">

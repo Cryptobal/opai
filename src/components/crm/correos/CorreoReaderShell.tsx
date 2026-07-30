@@ -200,7 +200,7 @@ export function CorreoReaderShell({
                 <button
                   type="button"
                   onClick={onClose}
-                  className="hidden shrink-0 px-1 text-[13px] text-ds-text-3 ds-tap md:block"
+                  className="hidden shrink-0 px-1 text-ds-body text-ds-text-3 ds-tap md:block"
                 >
                   Cerrar
                 </button>

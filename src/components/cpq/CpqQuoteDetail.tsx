@@ -1852,7 +1852,7 @@ export function CpqQuoteDetail({
                 {(billingMonthlyTotal / ufValue).toFixed(2)} UF
               </span>
             )}
-            <span className="text-foreground/85 text-[13px]">{formatCurrency(billingMonthlyTotal)}</span>
+            <span className="text-foreground/85 text-ds-body">{formatCurrency(billingMonthlyTotal)}</span>
             {stats.totalGuards > 0 && (
               <button
                 type="button"
@@ -2571,7 +2571,7 @@ export function CpqQuoteDetail({
                           updated[idx] = { ...updated[idx], nombre: e.target.value };
                           setAdditionalLines(updated);
                         }}
-                        className="h-7 bg-transparent border-none text-[13px] font-semibold p-0 focus-visible:ring-0 placeholder:text-muted-foreground/50"
+                        className="h-7 bg-transparent border-none text-ds-body font-semibold p-0 focus-visible:ring-0 placeholder:text-muted-foreground/50"
                         disabled={isLocked}
                       />
                       <Input
@@ -2687,7 +2687,7 @@ export function CpqQuoteDetail({
                             ufValue={ufValue}
                             size="sm"
                             inline
-                            primaryClassName={cn("text-[13px] font-bold", isUnico && "text-status-warn-fg")}
+                            primaryClassName={cn("text-ds-body font-bold", isUnico && "text-status-warn-fg")}
                           />
                           <span className="text-xs text-muted-foreground font-normal">
                             {isUnico ? "pago único" : "/mes"}

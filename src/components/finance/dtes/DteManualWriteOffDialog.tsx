@@ -110,7 +110,7 @@ export function DteManualWriteOffDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-3 text-[13px]">
+        <div className="space-y-3 text-ds-body">
           <div className="grid grid-cols-2 gap-2 rounded-ds-md bg-muted/30 p-3">
             <div>
               <p className="text-[11px] text-ds-text-3">Factura</p>

@@ -215,7 +215,7 @@ export function TaskDatePicker({
         onClick={() => (open ? close() : setOpen(true))}
         aria-label={ariaLabel}
         aria-expanded={open}
-        className="flex h-10 min-h-[44px] w-full min-w-[8rem] items-center gap-2 rounded-xl border border-ds-border-default bg-ds-surface-1 px-3 text-[13px] text-ds-text-1 sm:h-9 sm:min-h-0"
+        className="flex h-10 min-h-[44px] w-full min-w-[8rem] items-center gap-2 rounded-xl border border-ds-border-default bg-ds-surface-1 px-3 text-ds-body text-ds-text-1 sm:h-9 sm:min-h-0"
       >
         <CalendarDays className="h-4 w-4 shrink-0 text-ds-text-4" />
         <span className={cn("truncate", !value && "text-ds-text-4")}>{formatLabel(value)}</span>

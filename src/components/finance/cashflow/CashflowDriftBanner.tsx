@@ -35,7 +35,7 @@ export function CashflowDriftBanner({
     <div className="rounded-ds-md border border-status-warn-border/50 bg-status-warn-soft/30 px-3 py-2.5 flex items-start gap-2.5">
       <AlertTriangle className="h-4 w-4 text-status-warn-fg mt-0.5 shrink-0" />
       <div className="flex-1 min-w-0">
-        <p className="text-[13px] leading-snug text-ds-text-1">
+        <p className="text-ds-body leading-snug text-ds-text-1">
           Tu saldo banco real está{" "}
           <strong className="font-semibold tabular-nums">
             {fmt.format(absAmount)}

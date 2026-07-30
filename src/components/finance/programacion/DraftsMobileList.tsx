@@ -381,7 +381,7 @@ export function DraftsMobileList({ canIssue, canManage: _canManage }: Props) {
 
   return (
     <>
-      <div className="flex items-center justify-between gap-2 mb-2 text-[13px] text-ds-text-3">
+      <div className="flex items-center justify-between gap-2 mb-2 text-ds-body text-ds-text-3">
         <span>
           <strong className="text-ds-text-1">{totals.count}</strong>{" "}
           {totals.count === 1 ? "borrador" : "borradores"} ·{" "}

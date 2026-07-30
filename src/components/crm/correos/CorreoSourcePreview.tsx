@@ -92,7 +92,7 @@ export function CorreoSourcePreview({
         aria-expanded={open}
       >
         <Mail className="h-4 w-4 shrink-0 text-primary" />
-        <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-ds-text-1">
+        <span className="min-w-0 flex-1 truncate text-ds-body font-medium text-ds-text-1">
           Correo completo
           {subject ? (
             <span className="font-normal text-ds-text-3"> · {subject}</span>
@@ -108,13 +108,13 @@ export function CorreoSourcePreview({
       {open && (
         <div className="max-h-[40vh] space-y-3 overflow-y-auto border-t border-ds-border-subtle px-3 py-2.5">
           {loading && (
-            <div className="flex items-center justify-center gap-2 py-4 text-[13px] text-ds-text-3">
+            <div className="flex items-center justify-center gap-2 py-4 text-ds-body text-ds-text-3">
               <Spinner className="h-4 w-4" /> Cargando hilo…
             </div>
           )}
-          {error && <p className="text-[13px] text-status-danger-fg">{error}</p>}
+          {error && <p className="text-ds-body text-status-danger-fg">{error}</p>}
           {!loading && !error && messages.length === 0 && (
-            <p className="text-[13px] text-ds-text-3">Sin mensajes en el hilo.</p>
+            <p className="text-ds-body text-ds-text-3">Sin mensajes en el hilo.</p>
           )}
           {messages.map((m) => (
             <article key={m.id} className="min-w-0 space-y-1">
@@ -132,11 +132,11 @@ export function CorreoSourcePreview({
                 )}
               </header>
               {m.body ? (
-                <p className="whitespace-pre-wrap break-words text-[13px] leading-relaxed text-ds-text-1">
+                <p className="whitespace-pre-wrap break-words text-ds-body leading-relaxed text-ds-text-1">
                   {m.body}
                 </p>
               ) : (
-                <p className="text-[13px] text-ds-text-4">(Sin cuerpo)</p>
+                <p className="text-ds-body text-ds-text-4">(Sin cuerpo)</p>
               )}
             </article>
           ))}

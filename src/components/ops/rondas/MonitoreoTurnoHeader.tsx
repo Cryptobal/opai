@@ -161,7 +161,7 @@ export function MonitoreoTurnoHeader({
           <>
             <span className="text-[11px] text-[#94a3b8]">{startTime}</span>
             <span className="text-[10px] text-[#475569]">·</span>
-            <span className="text-[13px] font-mono font-semibold text-[#f1f5f9] tabular-nums">{elapsed}</span>
+            <span className="text-ds-body font-mono font-semibold text-[#f1f5f9] tabular-nums">{elapsed}</span>
             <span className="text-[9px] text-[#475569] -ml-1">hrs</span>
           </>
         )}
@@ -276,7 +276,7 @@ function KpiChip({
   return (
     <div className={cn("flex items-center gap-1.5 rounded-full border px-2.5 py-1", className)}>
       <span className="text-[10px] font-semibold tracking-wider opacity-70">{label}</span>
-      <span className="text-[13px] font-bold tabular-nums">{value}</span>
+      <span className="text-ds-body font-bold tabular-nums">{value}</span>
     </div>
   );
 }

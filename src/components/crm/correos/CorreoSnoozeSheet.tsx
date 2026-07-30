@@ -157,7 +157,7 @@ export function CorreoSnoozeSheet({
               key={p.id}
               type="button"
               onClick={() => pick(p.at, p.label)}
-              className={`flex min-h-11 w-full items-center justify-between gap-3 px-3.5 text-left text-[13px] text-ds-text-1 ds-tap hover:bg-ds-surface-2 ${
+              className={`flex min-h-11 w-full items-center justify-between gap-3 px-3.5 text-left text-ds-body text-ds-text-1 ds-tap hover:bg-ds-surface-2 ${
                 i > 0 ? "border-t border-ds-border-subtle" : ""
               }`}
             >
@@ -174,7 +174,7 @@ export function CorreoSnoozeSheet({
             <button
               type="button"
               onClick={() => setCustomOpen(true)}
-              className="flex min-h-11 w-full items-center gap-2.5 rounded-xl border border-dashed border-ds-border-default bg-ds-surface-1 px-3.5 text-[13px] font-medium text-ds-text-1 ds-tap hover:bg-ds-surface-2"
+              className="flex min-h-11 w-full items-center gap-2.5 rounded-xl border border-dashed border-ds-border-default bg-ds-surface-1 px-3.5 text-ds-body font-medium text-ds-text-1 ds-tap hover:bg-ds-surface-2"
             >
               <CalendarDays className="h-4 w-4 text-ds-text-3" />
               Elegir fecha y hora
@@ -204,7 +204,7 @@ export function CorreoSnoozeSheet({
                 <button
                   type="button"
                   onClick={() => setCustomOpen(false)}
-                  className="h-11 flex-1 rounded-xl border border-ds-border-default text-[13px] font-medium text-ds-text-2 ds-tap hover:bg-ds-surface-2 sm:h-10"
+                  className="h-11 flex-1 rounded-xl border border-ds-border-default text-ds-body font-medium text-ds-text-2 ds-tap hover:bg-ds-surface-2 sm:h-10"
                 >
                   Cancelar
                 </button>
@@ -212,7 +212,7 @@ export function CorreoSnoozeSheet({
                   type="button"
                   onClick={pickCustom}
                   disabled={!customValid}
-                  className="h-11 flex-1 rounded-xl bg-primary text-[13px] font-medium text-primary-foreground ds-tap disabled:opacity-50 sm:h-10"
+                  className="h-11 flex-1 rounded-xl bg-primary text-ds-body font-medium text-primary-foreground ds-tap disabled:opacity-50 sm:h-10"
                 >
                   Posponer
                 </button>

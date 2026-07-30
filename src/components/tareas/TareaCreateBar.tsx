@@ -9,7 +9,7 @@ import { TareaDueChips, type DueValue } from "./TareaDueChips";
 import type { TareaCreateInput } from "./types";
 
 const INPUT =
-  "w-full rounded-xl border border-ds-border-default bg-ds-surface-1 px-3 text-[13px] text-ds-text-1 opai-glass-soft placeholder:text-ds-text-4";
+  "w-full rounded-xl border border-ds-border-default bg-ds-surface-1 px-3 text-ds-body text-ds-text-1 opai-glass-soft placeholder:text-ds-text-4";
 
 /** Creación inline de tareas (título + detalles + vencimiento sin nativos + responsables). */
 export function TareaCreateBar({
@@ -75,7 +75,7 @@ export function TareaCreateBar({
           type="button"
           onClick={() => void submit()}
           disabled={!title.trim() || saving}
-          className="flex h-10 min-h-[44px] items-center gap-1.5 rounded-xl bg-primary px-4 text-[13px] font-medium text-primary-foreground disabled:opacity-50 sm:min-h-0"
+          className="flex h-10 min-h-[44px] items-center gap-1.5 rounded-xl bg-primary px-4 text-ds-body font-medium text-primary-foreground disabled:opacity-50 sm:min-h-0"
         >
           <Plus className="h-4 w-4" /> Agregar
         </button>

@@ -530,7 +530,7 @@ export function LineDetailSurface({
         ) : (
           <span />
         )}
-        <span className="text-[13px] font-mono tabular-nums text-ds-text-2">
+        <span className="text-ds-body font-mono tabular-nums text-ds-text-2">
           Subtotal:{" "}
           <span className="font-medium text-ds-text-1">{subtotalFormatted}</span>
         </span>

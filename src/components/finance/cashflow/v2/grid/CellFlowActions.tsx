@@ -137,7 +137,7 @@ export function CellFlowActions({
               </p>
               <Button
                 variant="outline"
-                className="h-10 w-full justify-start text-[13px] text-status-danger-fg hover:bg-status-danger-soft sm:h-9"
+                className="h-10 w-full justify-start text-ds-body text-status-danger-fg hover:bg-status-danger-soft sm:h-9"
                 onClick={() => setConfirming(true)}
               >
                 <EyeOff className="mr-2 h-3.5 w-3.5" />
@@ -146,7 +146,7 @@ export function CellFlowActions({
             </>
           ) : (
             <div className="space-y-2">
-              <p className="text-[13px] text-ds-text-1">
+              <p className="text-ds-body text-ds-text-1">
                 ¿Ocultar «{target.label}» del flujo?
               </p>
               <p className="text-[12px] text-ds-text-3">
@@ -157,14 +157,14 @@ export function CellFlowActions({
               <div className="flex gap-2">
                 <Button
                   variant="outline"
-                  className="h-10 flex-1 text-[13px] sm:h-9"
+                  className="h-10 flex-1 text-ds-body sm:h-9"
                   disabled={busy}
                   onClick={() => setConfirming(false)}
                 >
                   Cancelar
                 </Button>
                 <Button
-                  className="h-10 flex-1 text-[13px] sm:h-9"
+                  className="h-10 flex-1 text-ds-body sm:h-9"
                   disabled={busy}
                   onClick={() => void hide()}
                 >

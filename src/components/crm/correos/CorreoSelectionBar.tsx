@@ -112,7 +112,7 @@ export function CorreoSelectionBar({
                 key={item.label}
                 type="button"
                 onClick={item.onPick}
-                className="flex min-h-11 w-full items-center gap-3 px-4 text-left text-[13px] text-ds-text-1 ds-tap hover:bg-ds-surface-2"
+                className="flex min-h-11 w-full items-center gap-3 px-4 text-left text-ds-body text-ds-text-1 ds-tap hover:bg-ds-surface-2"
               >
                 <item.icon className="h-4 w-4 text-ds-text-3" />
                 {item.label}

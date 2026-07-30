@@ -25,7 +25,7 @@ export function HorizonSelector({
         aria-label="Horizonte de semanas"
         value={String(value)}
         onValueChange={(v) => onChange(Number(v) as HorizonWeeks)}
-        className="h-11 w-auto px-2 text-[13px] sm:hidden"
+        className="h-11 w-auto px-2 text-ds-body sm:hidden"
         options={HORIZON_OPTIONS.map((h) => ({
           value: String(h),
           label: `${h} semanas`,

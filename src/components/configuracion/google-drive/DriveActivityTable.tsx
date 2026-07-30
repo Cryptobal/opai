@@ -23,7 +23,7 @@ type Props = { rows: DriveOutboxRow[] };
 export function DriveActivityTable({ rows }: Props) {
   if (rows.length === 0) {
     return (
-      <p className="text-[13px] text-ds-text-3">
+      <p className="text-ds-body text-ds-text-3">
         Sin actividad reciente. Al enviar una factura o cotización aparecerá aquí.
       </p>
     );
@@ -34,7 +34,7 @@ export function DriveActivityTable({ rows }: Props) {
       {rows.map((row) => (
         <li key={row.id} className="flex flex-col gap-1 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
-            <p className="truncate text-[13px] font-medium text-ds-text-1">{row.fileName}</p>
+            <p className="truncate text-ds-body font-medium text-ds-text-1">{row.fileName}</p>
             <p className="truncate font-mono text-[12px] text-ds-text-4">{row.targetPath}</p>
           </div>
           <div className="flex shrink-0 items-center gap-2">

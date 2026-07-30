@@ -321,7 +321,7 @@ function DocTemplatesInner() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5">
-                      <span className="text-[13px] font-semibold truncate">
+                      <span className="text-ds-body font-semibold truncate">
                         {template.name}
                       </span>
                       {template.isDefault && (
@@ -390,7 +390,7 @@ function DocTemplatesInner() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5">
-                      <span className="text-[13px] font-semibold truncate">{template.name}</span>
+                      <span className="text-ds-body font-semibold truncate">{template.name}</span>
                       {template.isDefault && (
                         <Star className="h-3 w-3 text-status-warn-fg fill-amber-500 shrink-0" />
                       )}

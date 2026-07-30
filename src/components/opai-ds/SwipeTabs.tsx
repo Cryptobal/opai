@@ -199,7 +199,7 @@ export function SwipeTabs({
               className={cn(
                 "group relative inline-flex shrink-0 snap-center items-center gap-1.5 px-3 sm:px-4",
                 variant === "compact" ? "h-11" : "h-12",
-                "text-[13px] sm:text-sm",
+                "text-ds-body sm:text-sm",
                 "transition-all duration-200 ease-out",
                 "whitespace-nowrap",
                 isActive

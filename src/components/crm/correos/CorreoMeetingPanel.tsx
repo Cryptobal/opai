@@ -83,11 +83,11 @@ export function CorreoMeetingPanel({ threadId, subject }: { threadId: string; su
     <div className="space-y-2 rounded-xl border border-ds-border-subtle bg-ds-surface-2 p-2.5">
       <div className="flex items-center gap-2">
         <CalendarPlus className="h-4 w-4 text-tint-violet-fg" />
-        <p className="text-[13px] font-semibold text-ds-text-1">Reunión</p>
+        <p className="text-ds-body font-semibold text-ds-text-1">Reunión</p>
       </div>
 
       {created && (
-        <div className="space-y-1 rounded-lg border border-status-ok-border bg-status-ok-soft p-2.5 text-[13px] text-status-ok-fg">
+        <div className="space-y-1 rounded-lg border border-status-ok-border bg-status-ok-soft p-2.5 text-ds-body text-status-ok-fg">
           <div className="flex items-center gap-1.5 font-medium">
             <CalendarCheck className="h-4 w-4 shrink-0" /> {created.title}
           </div>
@@ -103,7 +103,7 @@ export function CorreoMeetingPanel({ threadId, subject }: { threadId: string; su
           type="button"
           onClick={() => void suggest()}
           disabled={busy !== null}
-          className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-tint-violet text-[13px] font-medium text-tint-violet-fg ds-tap disabled:opacity-50"
+          className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-lg bg-tint-violet text-ds-body font-medium text-tint-violet-fg ds-tap disabled:opacity-50"
         >
           <Sparkles className="h-4 w-4" /> {busy === "sug" ? "Proponiendo…" : "Proponer reunión con IA"}
         </button>
@@ -113,7 +113,7 @@ export function CorreoMeetingPanel({ threadId, subject }: { threadId: string; su
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="Título de la reunión"
-            className="h-10 w-full rounded-lg border border-ds-border-default bg-ds-surface-1 px-2 text-[16px] text-ds-text-1 sm:text-[13px]"
+            className="h-10 w-full rounded-lg border border-ds-border-default bg-ds-surface-1 px-2 text-[16px] text-ds-text-1 sm:text-ds-body"
           />
           <div className="flex flex-wrap items-center gap-2">
             <TaskDatePicker
@@ -157,18 +157,18 @@ export function CorreoMeetingPanel({ threadId, subject }: { threadId: string; su
                 }
               }}
               placeholder="Agregar asistente (email) + Enter"
-              className="h-9 min-w-0 flex-1 rounded-lg border border-ds-border-default bg-ds-surface-1 px-2 text-[16px] text-ds-text-1 sm:text-[13px]"
+              className="h-9 min-w-0 flex-1 rounded-lg border border-ds-border-default bg-ds-surface-1 px-2 text-[16px] text-ds-text-1 sm:text-ds-body"
             />
           </div>
           <div className="flex gap-2">
-            <button type="button" onClick={() => setOpen(false)} className="h-9 flex-1 rounded-lg border border-ds-border-default text-[13px] text-ds-text-2 ds-tap">
+            <button type="button" onClick={() => setOpen(false)} className="h-9 flex-1 rounded-lg border border-ds-border-default text-ds-body text-ds-text-2 ds-tap">
               Cancelar
             </button>
             <button
               type="button"
               onClick={() => void create()}
               disabled={busy !== null || !title.trim() || !date}
-              className="inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-lg bg-primary text-[13px] font-medium text-primary-foreground ds-tap disabled:opacity-50"
+              className="inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-lg bg-primary text-ds-body font-medium text-primary-foreground ds-tap disabled:opacity-50"
             >
               <CalendarPlus className="h-4 w-4" /> {busy === "create" ? "Agendando…" : "Agendar"}
             </button>

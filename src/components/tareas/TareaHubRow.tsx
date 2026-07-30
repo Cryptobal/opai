@@ -60,7 +60,7 @@ export function TareaHubRow({
         href={hubTareaHref(task.id)}
         className="min-w-0 flex-1 rounded-ds-md px-2 py-1.5 transition-colors hover:bg-ds-surface-2 ds-tap"
       >
-        <p className="truncate text-[13px] font-medium text-ds-text-1">{task.title}</p>
+        <p className="truncate text-ds-body font-medium text-ds-text-1">{task.title}</p>
         <p
           className={cn(
             "truncate text-[12px]",

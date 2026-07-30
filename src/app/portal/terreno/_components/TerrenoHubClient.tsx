@@ -278,7 +278,7 @@ export function TerrenoHubClient() {
           >
             Modo de operación
           </h1>
-          <p className="text-[13px] text-[#6b7280]">
+          <p className="text-ds-body text-[#6b7280]">
             Elige qué vas a hacer en este dispositivo
           </p>
         </div>
@@ -330,7 +330,7 @@ export function TerrenoHubClient() {
                     >
                       {portal.name}
                     </div>
-                    <div className="text-[13px] text-[#9ca3af] mt-0.5">
+                    <div className="text-ds-body text-[#9ca3af] mt-0.5">
                       {portal.description}
                     </div>
                   </div>

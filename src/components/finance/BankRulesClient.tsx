@@ -1152,7 +1152,7 @@ function RuleEditorSheet({
                   {postCreatePrompt.matchCount === 1 ? "" : "s"} de los últimos 30 días.
                 </DialogDescription>
               </DialogHeader>
-              <div className="space-y-2 text-[13px]">
+              <div className="space-y-2 text-ds-body">
                 <p className="text-ds-text-2">Tres opciones:</p>
                 <ul className="space-y-2 text-ds-text-3">
                   <li className="rounded-md border border-ds-border-subtle bg-ds-surface-2 p-2.5">

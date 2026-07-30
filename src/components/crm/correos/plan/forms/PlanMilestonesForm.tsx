@@ -61,7 +61,7 @@ export function PlanMilestonesForm({ milestones, onChange }: Props) {
               />
               <Label
                 htmlFor={`ms-${kind}-enabled`}
-                className="cursor-pointer text-[13px] font-medium text-ds-text-1"
+                className="cursor-pointer text-ds-body font-medium text-ds-text-1"
               >
                 {MILESTONE_LABELS[kind]}
               </Label>
@@ -146,7 +146,7 @@ function SmallField({
         value={value}
         placeholder={placeholder}
         onChange={(e) => onChange(e.target.value)}
-        className="h-10 text-[13px] sm:h-9"
+        className="h-10 text-ds-body sm:h-9"
       />
     </div>
   );

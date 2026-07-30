@@ -19,7 +19,7 @@ const EVENT_TYPES: Array<{ id: ComposerType; label: string }> = [
 
 const DURATIONS = [30, 60, 90] as const;
 const INPUT =
-  "h-9 rounded-xl border border-ds-border-default bg-ds-surface-1 px-3 text-[13px] text-ds-text-1";
+  "h-9 rounded-xl border border-ds-border-default bg-ds-surface-1 px-3 text-ds-body text-ds-text-1";
 const ROW_LABEL = "w-24 shrink-0 pt-2 text-[12px] font-medium text-ds-text-4";
 
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
@@ -175,7 +175,7 @@ export function QuickCreateTaskFields({
           rows={2}
           aria-label="Notas de la tarea"
           placeholder="Contexto opcional…"
-          className="min-h-16 w-full rounded-xl border border-ds-border-default bg-ds-surface-1 px-3 py-2 text-[13px] text-ds-text-1 placeholder:text-ds-text-4 focus:outline-none focus:ring-1 focus:ring-primary/40"
+          className="min-h-16 w-full rounded-xl border border-ds-border-default bg-ds-surface-1 px-3 py-2 text-ds-body text-ds-text-1 placeholder:text-ds-text-4 focus:outline-none focus:ring-1 focus:ring-primary/40"
         />
       </Row>
 

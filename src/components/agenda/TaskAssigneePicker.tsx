@@ -100,7 +100,7 @@ export function TaskAssigneePicker({
             placeholder="Buscar por nombre…"
             aria-label="Buscar responsable"
             autoFocus
-            className="mb-1 h-9 w-full rounded-lg border border-ds-border-default bg-ds-surface-2 px-2.5 text-[13px] text-ds-text-1 placeholder:text-ds-text-4"
+            className="mb-1 h-9 w-full rounded-lg border border-ds-border-default bg-ds-surface-2 px-2.5 text-ds-body text-ds-text-1 placeholder:text-ds-text-4"
           />
           <div className="max-h-56 overflow-y-auto">
             {suggestions.length === 0 ? (
@@ -111,7 +111,7 @@ export function TaskAssigneePicker({
                   key={u.id}
                   type="button"
                   onClick={() => add(u.id)}
-                  className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[13px] text-ds-text-1 hover:bg-ds-surface-2"
+                  className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-ds-body text-ds-text-1 hover:bg-ds-surface-2"
                 >
                   <Avatar name={u.name} size="sm" variant="brand" />
                   <span className="min-w-0 flex-1 truncate">{u.name}</span>

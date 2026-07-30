@@ -119,7 +119,7 @@ export function GoogleCalendarConfigClient() {
               <p className="font-display text-base font-semibold text-ds-text-1">
                 Cuentas de Google Calendar
               </p>
-              <p className="text-[13px] text-ds-text-3">
+              <p className="text-ds-body text-ds-text-3">
                 {connected
                   ? maxAccounts > 1
                     ? `${accounts.length} de ${maxAccounts} cuentas conectadas`
@@ -167,7 +167,7 @@ export function GoogleCalendarConfigClient() {
                     </button>
                   </CalendarColorPopover>
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-[13px] font-medium text-ds-text-1">
+                    <p className="truncate text-ds-body font-medium text-ds-text-1">
                       {account.googleEmail}
                     </p>
                     <p className="font-mono text-[12px] text-ds-text-4">
@@ -203,7 +203,7 @@ export function GoogleCalendarConfigClient() {
               <>
                 <Link
                   href={ADD_HREF}
-                  className="flex h-10 items-center gap-2 rounded-xl px-2 text-[13px] text-primary ds-tap hover:bg-ds-surface-2"
+                  className="flex h-10 items-center gap-2 rounded-xl px-2 text-ds-body text-primary ds-tap hover:bg-ds-surface-2"
                 >
                   <Plus className="h-4 w-4 shrink-0" />
                   Conectar otra cuenta

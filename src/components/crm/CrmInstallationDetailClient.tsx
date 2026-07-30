@@ -2486,7 +2486,7 @@ export function CrmInstallationDetailClient({
           <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">
             Fecha inicio
           </div>
-          <div className="truncate text-[13px] font-medium text-foreground">
+          <div className="truncate text-ds-body font-medium text-foreground">
             {installation.startDate ? (
               new Intl.DateTimeFormat("es-CL", { timeZone: "UTC" }).format(new Date(installation.startDate))
             ) : (
@@ -2498,7 +2498,7 @@ export function CrmInstallationDetailClient({
           <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">
             Fecha término
           </div>
-          <div className="truncate text-[13px] font-medium text-foreground">
+          <div className="truncate text-ds-body font-medium text-foreground">
             {installation.endDate ? (
               new Intl.DateTimeFormat("es-CL", { timeZone: "UTC" }).format(new Date(installation.endDate))
             ) : (

@@ -24,7 +24,7 @@ export function DriveTreePreview({ config }: Props) {
       <pre className="overflow-x-auto rounded-xl border border-ds-border-subtle bg-ds-surface-1 p-3 font-mono text-[12px] leading-relaxed text-ds-text-3">
         {lines.join("\n")}
       </pre>
-      <p className="text-[13px] text-ds-text-4">
+      <p className="text-ds-body text-ds-text-4">
         Las carpetas de cada cliente/negocio se crean automáticamente con el primer documento.
       </p>
     </div>

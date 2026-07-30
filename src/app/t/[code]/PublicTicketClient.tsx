@@ -88,7 +88,7 @@ export default function PublicTicketClient({ code }: { code: string }) {
 
         {!data ? (
           <div className="rounded-2xl border border-border bg-card p-5 sm:p-6 space-y-3">
-            <p className="text-[13px] text-muted-foreground">
+            <p className="text-ds-body text-muted-foreground">
               Ingresa el PIN que te compartió tu contacto para ver el estado y
               últimas novedades del ticket. No se requiere crear cuenta.
             </p>
@@ -110,7 +110,7 @@ export default function PublicTicketClient({ code }: { code: string }) {
               />
             </div>
             {error && (
-              <p className="rounded-md border border-status-danger-border bg-status-danger-soft p-2 text-center text-[13px] text-status-danger-fg">
+              <p className="rounded-md border border-status-danger-border bg-status-danger-soft p-2 text-center text-ds-body text-status-danger-fg">
                 {error}
               </p>
             )}
@@ -129,7 +129,7 @@ export default function PublicTicketClient({ code }: { code: string }) {
               <h2 className="text-base sm:text-lg font-semibold leading-snug">
                 {data.title}
               </h2>
-              <div className="grid grid-cols-2 gap-3 text-[13px]">
+              <div className="grid grid-cols-2 gap-3 text-ds-body">
                 <Field label="Estado" value={STATUS_LABELS[data.status] ?? data.status} />
                 <Field label="Prioridad" value={PRIORITY_LABELS[data.priority] ?? data.priority.toUpperCase()} />
                 <Field label="Creado" value={fmtDate(data.createdAt)} />
@@ -148,7 +148,7 @@ export default function PublicTicketClient({ code }: { code: string }) {
                 Actualizaciones
               </p>
               {data.comments.length === 0 ? (
-                <p className="text-[13px] text-muted-foreground">
+                <p className="text-ds-body text-muted-foreground">
                   Aún no hay actualizaciones.
                 </p>
               ) : (
@@ -161,7 +161,7 @@ export default function PublicTicketClient({ code }: { code: string }) {
                       <p className="text-[12px] text-muted-foreground">
                         {fmtDate(c.createdAt)}
                       </p>
-                      <p className="mt-1 text-[13px] leading-relaxed whitespace-pre-wrap">
+                      <p className="mt-1 text-ds-body leading-relaxed whitespace-pre-wrap">
                         {c.body}
                       </p>
                     </li>
@@ -182,7 +182,7 @@ function Field({ label, value }: { label: string; value: string }) {
       <p className="text-[12px] uppercase tracking-wide text-muted-foreground">
         {label}
       </p>
-      <p className="text-[13px] font-medium">{value}</p>
+      <p className="text-ds-body font-medium">{value}</p>
     </div>
   );
 }

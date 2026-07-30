@@ -348,7 +348,7 @@ export function RondasReportesAlertas({
           </p>
           <button
             onClick={() => setShowTypeFilter(!showTypeFilter)}
-            className="h-9 flex items-center gap-1.5 px-3 rounded-lg border border-[#1a1f2e] bg-[#0a0e1a] text-[13px] text-[#f1f5f9] hover:bg-[#1a1f2e] transition-colors"
+            className="h-9 flex items-center gap-1.5 px-3 rounded-lg border border-[#1a1f2e] bg-[#0a0e1a] text-ds-body text-[#f1f5f9] hover:bg-[#1a1f2e] transition-colors"
           >
             <Filter className="h-3.5 w-3.5 text-[#64748b]" />
             {visibleTypes.size}/{ALERT_TYPE_VISIBILITY.length} tipos
@@ -438,7 +438,7 @@ export function RondasReportesAlertas({
           <select
             value={filterStatus}
             onChange={(e) => setFilterStatus(e.target.value)}
-            className="h-9 rounded-lg border border-[#1a1f2e] bg-[#0a0e1a] text-[13px] text-[#f1f5f9] px-3"
+            className="h-9 rounded-lg border border-[#1a1f2e] bg-[#0a0e1a] text-ds-body text-[#f1f5f9] px-3"
           >
             <option value="all">Todos los estados</option>
             <option value="pendiente">Pendientes</option>

@@ -132,7 +132,7 @@ function AddItemPopover({
       <PopoverTrigger asChild>
         <button
           type="button"
-          className="w-full mt-1.5 flex items-center justify-center gap-1.5 rounded-lg border border-dashed border-primary/30 bg-primary/5 py-2.5 text-[13px] font-medium text-primary hover:border-primary/50 hover:bg-primary/10 transition-colors"
+          className="w-full mt-1.5 flex items-center justify-center gap-1.5 rounded-lg border border-dashed border-primary/30 bg-primary/5 py-2.5 text-ds-body font-medium text-primary hover:border-primary/50 hover:bg-primary/10 transition-colors"
         >
           <Plus className="h-3.5 w-3.5" />
           Agregar ítem
@@ -148,7 +148,7 @@ function AddItemPopover({
             placeholder="Buscar ítem..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="h-10 sm:h-8 text-[13px] pl-7"
+            className="h-10 sm:h-8 text-ds-body pl-7"
             autoFocus
           />
         </div>
@@ -158,7 +158,7 @@ function AddItemPopover({
               key={item.id}
               type="button"
               onClick={() => { onSelect(item.id); setOpen(false); }}
-              className="w-full text-left px-2 py-2 rounded text-[13px] hover:bg-accent transition-colors"
+              className="w-full text-left px-2 py-2 rounded text-ds-body hover:bg-accent transition-colors"
             >
               + {item.name}
             </button>
@@ -928,7 +928,7 @@ export function CpqQuoteCosts({
         )}
       >
         <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 min-w-0">
-          <span className="text-[13px] shrink-0">{meta.icon}</span>
+          <span className="text-ds-body shrink-0">{meta.icon}</span>
           <span className="text-sm font-medium break-words">{meta.label}</span>
           {count > 0 && (
             <span className="text-xs text-muted-foreground shrink-0">({count})</span>
@@ -997,7 +997,7 @@ export function CpqQuoteCosts({
     return (
     <div className="p-2.5 rounded-lg bg-card border border-border/50">
       <div className="flex items-center justify-between mb-1.5">
-        <span className="text-[13px] font-semibold truncate">{item.name}</span>
+        <span className="text-ds-body font-semibold truncate">{item.name}</span>
         {!readOnly && (
           <button type="button" onClick={onRemove} className="w-5 h-5 rounded flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 shrink-0">
             <Trash2 className="h-3 w-3" />
@@ -1063,7 +1063,7 @@ export function CpqQuoteCosts({
     return (
     <div key={item.id} className="p-2.5 rounded-lg bg-card border border-border/50">
       <div className="flex items-center justify-between mb-1.5">
-        <span className="text-[13px] font-semibold truncate">{item.name}</span>
+        <span className="text-ds-body font-semibold truncate">{item.name}</span>
         {!readOnly && (
           <button type="button" onClick={() => upsertCostItem(item, { isEnabled: false })} className="w-5 h-5 rounded flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 shrink-0">
             <Trash2 className="h-3 w-3" />
@@ -1136,7 +1136,7 @@ export function CpqQuoteCosts({
     return (
       <div key={item.id} className="p-2.5 rounded-lg bg-card border border-border/50 col-span-full">
         <div className="flex items-center justify-between mb-2">
-          <span className="text-[13px] font-semibold">{item.name}</span>
+          <span className="text-ds-body font-semibold">{item.name}</span>
           <div className="flex items-center gap-2">
             <span className="text-sm text-muted-foreground">Por fórmula</span>
             {!readOnly && (
@@ -1382,7 +1382,7 @@ export function CpqQuoteCosts({
                 return (
                   <div key={item.id} className="p-2.5 rounded-lg bg-card border border-border/50">
                     <div className="flex items-center justify-between mb-1.5">
-                      <span className="text-[13px] font-semibold">{item.name}</span>
+                      <span className="text-ds-body font-semibold">{item.name}</span>
                       {!readOnly && (
                         <button type="button" onClick={() => updateMeal(item.name, { isEnabled: false })} className="w-5 h-5 rounded flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10">
                           <Trash2 className="h-3 w-3" />
@@ -1483,7 +1483,7 @@ export function CpqQuoteCosts({
       <div className="border-t border-border/30" />
       <div className={cn(CPQ_BREAKDOWN_ROW, "px-3 py-1.5 text-xs")}>
         <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 min-w-0">
-          <span className="text-[13px] shrink-0">{"\u{1F4C5}"}</span>
+          <span className="text-ds-body shrink-0">{"\u{1F4C5}"}</span>
           <span className="text-sm font-medium break-words">Ajuste feriados</span>
           <span className="text-xs font-semibold uppercase text-status-warn-fg bg-status-warn-soft rounded px-1.5 py-0.5 shrink-0">
             Auto
@@ -1608,7 +1608,7 @@ export function CpqQuoteCosts({
               return (
                 <div key={item.id ?? item.catalogItemId ?? itemName} className="p-2.5 rounded-lg bg-card border border-border/50">
                   <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-[13px] font-semibold truncate">{itemName}</span>
+                    <span className="text-ds-body font-semibold truncate">{itemName}</span>
                     {!readOnly && (
                       <button type="button" onClick={() => {
                         if (ci) upsertCostItem(ci, { isEnabled: false });
@@ -1691,7 +1691,7 @@ export function CpqQuoteCosts({
     <div className="space-y-3 mt-3">
       <div className="rounded-xl border bg-card overflow-hidden">
         <div className="px-4 py-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <h3 className="text-[13px] font-semibold">Costos financieros</h3>
+          <h3 className="text-ds-body font-semibold">Costos financieros</h3>
           <span className="text-xs text-muted-foreground inline-flex items-baseline gap-1.5">
             Total:
             <CpqDualCurrencyAmount
@@ -1714,7 +1714,7 @@ export function CpqQuoteCosts({
             return (
               <div key={item.id ?? item.catalogItemId} className={cn("p-2.5 rounded-lg bg-muted/10 border border-border/50 space-y-2", isPolicy && "col-span-full")}>
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-[13px] font-semibold">{itemName}</span>
+                  <span className="text-ds-body font-semibold">{itemName}</span>
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <span>Tasa base: {formatNumber(Number(ci?.basePrice || 0), { minDecimals: 2, maxDecimals: 2 })}%</span>
                     <button type="button" className="w-5 h-5 rounded flex items-center justify-center hover:text-destructive hover:bg-destructive/10" onClick={() => {
@@ -1789,7 +1789,7 @@ export function CpqQuoteCosts({
 
       {/* Margin params */}
       <div className="rounded-xl border bg-card px-4 py-3 space-y-2">
-        <h3 className="text-[13px] font-semibold">Margen y parámetros</h3>
+        <h3 className="text-ds-body font-semibold">Margen y parámetros</h3>
         <div className="grid gap-2 grid-cols-2">
           <div className="space-y-1">
             <Label className="text-xs">Margen (%)</Label>

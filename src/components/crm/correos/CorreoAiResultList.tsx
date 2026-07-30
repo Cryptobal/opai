@@ -46,7 +46,7 @@ function formatSkippedLine(id: string, reason?: SkipReason): string {
 export function CorreoAiResultList({ result }: Props) {
   return (
     <div className="ds-page-enter space-y-3">
-      <p className="text-[13px] text-status-ok-fg">{result.note ?? "Creado correctamente."}</p>
+      <p className="text-ds-body text-status-ok-fg">{result.note ?? "Creado correctamente."}</p>
       <ul className="space-y-2">
         {result.accountUrl && <ResultLink href={result.accountUrl} label="Cuenta" />}
         {result.contactUrl && <ResultLink href={result.contactUrl} label="Contacto" />}
@@ -62,7 +62,7 @@ export function CorreoAiResultList({ result }: Props) {
             </p>
             <ul className="space-y-1">
               {result.milestones.map((m) => (
-                <li key={m.eventId} className="flex items-center gap-2 text-[13px] text-ds-text-2">
+                <li key={m.eventId} className="flex items-center gap-2 text-ds-body text-ds-text-2">
                   <CalendarDays className="h-3.5 w-3.5 shrink-0 text-tint-violet-fg" />
                   {MILESTONE_LABEL[m.kind] ?? m.kind}
                   {m.syncStatus && (
@@ -78,7 +78,7 @@ export function CorreoAiResultList({ result }: Props) {
             </ul>
             <Link
               href="/agenda"
-              className="mt-2 inline-flex min-h-10 items-center gap-1 text-[13px] text-primary ds-tap"
+              className="mt-2 inline-flex min-h-10 items-center gap-1 text-ds-body text-primary ds-tap"
             >
               Abrir agenda <ExternalLink className="h-3.5 w-3.5" />
             </Link>
@@ -86,7 +86,7 @@ export function CorreoAiResultList({ result }: Props) {
         )}
         {result.agendaSync && (
           <li className="rounded-xl border border-ds-border-subtle bg-ds-surface-2 px-3 py-2.5">
-            <div className="flex items-start gap-2 text-[13px] text-ds-text-2">
+            <div className="flex items-start gap-2 text-ds-body text-ds-text-2">
               <CalendarDays className="mt-0.5 h-4 w-4 shrink-0 text-tint-violet-fg" />
               <div className="min-w-0 space-y-1">
                 <p className="font-medium text-ds-text-1">Plazo en agenda</p>
@@ -102,7 +102,7 @@ export function CorreoAiResultList({ result }: Props) {
                 {result.dealUrl && result.agendaSync.ok && (
                   <Link
                     href="/agenda"
-                    className="inline-flex min-h-10 items-center gap-1 text-[13px] text-primary ds-tap"
+                    className="inline-flex min-h-10 items-center gap-1 text-ds-body text-primary ds-tap"
                   >
                     Abrir agenda <ExternalLink className="h-3.5 w-3.5" />
                   </Link>
@@ -147,7 +147,7 @@ function ResultLink({
     <li>
       <Link
         href={href}
-        className="inline-flex min-h-10 items-center gap-1.5 text-[13px] text-primary ds-tap"
+        className="inline-flex min-h-10 items-center gap-1.5 text-ds-body text-primary ds-tap"
       >
         {label}
         {badge && <Tag variant="neutral" size="sm">{badge}</Tag>}

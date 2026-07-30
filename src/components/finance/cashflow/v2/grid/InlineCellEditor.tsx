@@ -209,7 +209,7 @@ export function InlineCellEditor({
               void (mode === "create" ? saveCreate(false) : saveEdit())
             }
             disabled={busy}
-            className="inline-flex h-11 flex-1 items-center justify-center gap-1.5 rounded-ds-md bg-primary px-3 text-[13px] font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+            className="inline-flex h-11 flex-1 items-center justify-center gap-1.5 rounded-ds-md bg-primary px-3 text-ds-body font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
           >
             <Check className="h-4 w-4" />{" "}
             {mode === "create" ? "Crear" : "Guardar"}

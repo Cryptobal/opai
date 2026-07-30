@@ -191,13 +191,13 @@ export function CashflowItemDrawer({
           {success && (
             <div className="flex items-center gap-2 px-3 py-2 rounded-ds-md bg-status-ok-soft border border-status-ok-fg/20">
               <CheckCircle2 className="h-4 w-4 text-status-ok-fg shrink-0" />
-              <p className="text-[13px] text-status-ok-fg font-medium">{success}</p>
+              <p className="text-ds-body text-status-ok-fg font-medium">{success}</p>
             </div>
           )}
           {actions.error && (
             <div className="flex items-start gap-2 px-3 py-2 rounded-ds-md bg-status-warn-soft border border-status-warn-fg/20">
               <AlertCircle className="h-4 w-4 text-status-warn-fg shrink-0 mt-0.5" />
-              <p className="text-[13px] text-status-warn-fg">{actions.error}</p>
+              <p className="text-ds-body text-status-warn-fg">{actions.error}</p>
             </div>
           )}
 
@@ -258,7 +258,7 @@ export function CashflowItemDrawer({
               {target.crmAccountId && (
                 <a
                   href={`/crm/accounts/${target.crmAccountId}?tab=contracts`}
-                  className="flex items-center justify-between gap-2 px-3 py-3 min-h-[48px] rounded-ds-md border border-border hover:bg-muted/20 text-[13px] text-ds-text-1"
+                  className="flex items-center justify-between gap-2 px-3 py-3 min-h-[48px] rounded-ds-md border border-border hover:bg-muted/20 text-ds-body text-ds-text-1"
                 >
                   <span>Ver cuenta CRM</span>
                   <ExternalLink className="h-4 w-4 text-ds-text-3" />
@@ -267,7 +267,7 @@ export function CashflowItemDrawer({
               {target.installationId && (
                 <a
                   href={`/crm/installations/${target.installationId}`}
-                  className="flex items-center justify-between gap-2 px-3 py-3 min-h-[48px] rounded-ds-md border border-border hover:bg-muted/20 text-[13px] text-ds-text-1"
+                  className="flex items-center justify-between gap-2 px-3 py-3 min-h-[48px] rounded-ds-md border border-border hover:bg-muted/20 text-ds-body text-ds-text-1"
                 >
                   <span>Ver instalación</span>
                   <ExternalLink className="h-4 w-4 text-ds-text-3" />
@@ -285,7 +285,7 @@ export function CashflowItemDrawer({
                 <Button
                   variant="outline"
                   onClick={() => setCobranzaOpen(true)}
-                  className="w-full h-11 sm:h-10 text-[13px] justify-start text-status-info-fg hover:bg-status-info-soft"
+                  className="w-full h-11 sm:h-10 text-ds-body justify-start text-status-info-fg hover:bg-status-info-soft"
                 >
                   <Send className="h-4 w-4 mr-2" /> Enviar cobranza…
                 </Button>

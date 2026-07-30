@@ -179,7 +179,7 @@ export function LibroIvaTab() {
       </div>
 
       {isCurrentMonth && (
-        <div className="flex items-start gap-2 rounded-lg border border-status-warn-border bg-status-warn-soft p-3 text-[13px] text-status-warn-fg">
+        <div className="flex items-start gap-2 rounded-lg border border-status-warn-border bg-status-warn-soft p-3 text-ds-body text-status-warn-fg">
           <Info className="h-4 w-4 mt-0.5 shrink-0" />
           <span>
             Estás viendo el <strong>mes en curso</strong>: los documentos aún
@@ -418,7 +418,7 @@ function DocTable({
 
       {/* Desktop */}
       <div className="hidden sm:block overflow-x-auto">
-        <table className="w-full text-[13px]">
+        <table className="w-full text-ds-body">
           <thead>
             <tr className="text-left text-[12px] font-mono uppercase tracking-wide text-ds-text-3 border-b border-ds-border-subtle">
               <th className="py-2 pr-3 font-medium">Tipo</th>
@@ -489,11 +489,11 @@ function DocTable({
               className="rounded-lg border border-ds-border-subtle bg-ds-surface-2 p-3"
             >
               <div className="flex justify-between gap-2">
-                <span className="text-[13px] text-ds-text-1 font-medium">
+                <span className="text-ds-body text-ds-text-1 font-medium">
                   {DTE_LABELS[d.dteType] ?? `DTE ${d.dteType}`} #{d.folio}
                 </span>
                 <span
-                  className={`font-mono ds-num text-[13px] ${isNc ? "text-status-danger-fg" : "text-ds-text-1"}`}
+                  className={`font-mono ds-num text-ds-body ${isNc ? "text-status-danger-fg" : "text-ds-text-1"}`}
                 >
                   {fmtCLP(s * d.totalAmount)}
                 </span>

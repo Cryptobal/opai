@@ -52,7 +52,7 @@ export function TareasDesktop({
           {groups.map((group) => (
             <section key={group.bucket} className="space-y-1">
               <div className="flex items-center gap-2 px-1">
-                <h3 className="text-[13px] font-semibold text-ds-text-2">{group.label}</h3>
+                <h3 className="text-ds-body font-semibold text-ds-text-2">{group.label}</h3>
                 <span className="text-[12px] text-ds-text-4">{group.tasks.length}</span>
               </div>
               <Surface className="px-3 py-1">

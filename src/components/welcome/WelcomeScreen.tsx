@@ -235,7 +235,7 @@ export function WelcomeScreen() {
           >
             Selecciona tu portal
           </h1>
-          <p className="text-[13px] text-[#9ca3af]">
+          <p className="text-ds-body text-[#9ca3af]">
             Una plataforma, tres modos de trabajo
           </p>
         </motion.div>

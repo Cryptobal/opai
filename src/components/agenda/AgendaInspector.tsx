@@ -158,7 +158,7 @@ export function AgendaInspector({ item, users, onClose, onChanged }: Props) {
   };
 
   const inputClass =
-    "h-10 w-full rounded-xl border border-ds-border-default bg-ds-surface-1 px-3 text-[13px] text-ds-text-1 sm:h-9";
+    "h-10 w-full rounded-xl border border-ds-border-default bg-ds-surface-1 px-3 text-ds-body text-ds-text-1 sm:h-9";
   const calendarLink = item.htmlLink ?? visitDetail?.htmlLink;
 
   return (
@@ -175,7 +175,7 @@ export function AgendaInspector({ item, users, onClose, onChanged }: Props) {
               : item.type}
           </Tag>
           <h2 className="font-display text-base font-semibold text-ds-text-1">{item.title}</h2>
-          <p className="text-[13px] text-ds-text-3">
+          <p className="text-ds-body text-ds-text-3">
             {item.allDay
               ? "Todo el día"
               : `${formatAgendaTime(new Date(item.start))} – ${formatAgendaTime(new Date(item.end))}`}
@@ -192,14 +192,14 @@ export function AgendaInspector({ item, users, onClose, onChanged }: Props) {
       </div>
 
       {(item.accountName || item.installationName) && (
-        <div className="space-y-1 text-[13px] text-ds-text-2">
+        <div className="space-y-1 text-ds-body text-ds-text-2">
           {item.accountName && <p>{item.accountName}</p>}
           {item.installationName && <p className="text-ds-text-3">{item.installationName}</p>}
         </div>
       )}
 
       {visitDetail?.address && (
-        <div className="flex items-start gap-2 rounded-xl border border-ds-border-subtle bg-ds-surface-2 px-3 py-2 text-[13px] text-ds-text-2">
+        <div className="flex items-start gap-2 rounded-xl border border-ds-border-subtle bg-ds-surface-2 px-3 py-2 text-ds-body text-ds-text-2">
           <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-ds-text-4" />
           <span>{visitDetail.address}</span>
         </div>
@@ -241,7 +241,7 @@ export function AgendaInspector({ item, users, onClose, onChanged }: Props) {
             type="button"
             disabled={busy || !date}
             onClick={saveSchedule}
-            className="h-10 w-full rounded-xl bg-primary text-[13px] font-medium text-primary-foreground ds-tap disabled:opacity-50 sm:h-9"
+            className="h-10 w-full rounded-xl bg-primary text-ds-body font-medium text-primary-foreground ds-tap disabled:opacity-50 sm:h-9"
           >
             Guardar cambios
           </button>
@@ -255,7 +255,7 @@ export function AgendaInspector({ item, users, onClose, onChanged }: Props) {
             {visitDetail.participants.map((participant) => (
               <li key={participant.name} className="flex items-center gap-2">
                 <Avatar name={participant.name} size="sm" className="h-6 w-6 text-[12px]" />
-                <span className="min-w-0 flex-1 truncate text-[13px] text-ds-text-2">
+                <span className="min-w-0 flex-1 truncate text-ds-body text-ds-text-2">
                   {participant.name}
                 </span>
                 <RsvpBadge participant={participant} />
@@ -266,7 +266,7 @@ export function AgendaInspector({ item, users, onClose, onChanged }: Props) {
       )}
 
       {visitDetail?.notes && (
-        <p className="rounded-xl bg-ds-surface-2 px-3 py-2 text-[13px] text-ds-text-2">
+        <p className="rounded-xl bg-ds-surface-2 px-3 py-2 text-ds-body text-ds-text-2">
           {visitDetail.notes}
         </p>
       )}
@@ -275,7 +275,7 @@ export function AgendaInspector({ item, users, onClose, onChanged }: Props) {
         {item.href && (
           <Link
             href={item.href}
-            className="inline-flex h-10 flex-1 items-center justify-center gap-1.5 rounded-xl border border-ds-border-default text-[13px] text-ds-text-2 ds-tap sm:h-9"
+            className="inline-flex h-10 flex-1 items-center justify-center gap-1.5 rounded-xl border border-ds-border-default text-ds-body text-ds-text-2 ds-tap sm:h-9"
           >
             Abrir origen <ExternalLink className="h-3.5 w-3.5" />
           </Link>
@@ -286,7 +286,7 @@ export function AgendaInspector({ item, users, onClose, onChanged }: Props) {
             href={calendarLink}
             target="_blank"
             rel="noreferrer"
-            className="inline-flex h-10 flex-1 items-center justify-center gap-1.5 rounded-xl border border-ds-border-default text-[13px] text-ds-text-2 ds-tap sm:h-9"
+            className="inline-flex h-10 flex-1 items-center justify-center gap-1.5 rounded-xl border border-ds-border-default text-ds-body text-ds-text-2 ds-tap sm:h-9"
           >
             Google Calendar <ExternalLink className="h-3.5 w-3.5" />
           </a>
@@ -297,7 +297,7 @@ export function AgendaInspector({ item, users, onClose, onChanged }: Props) {
             type="button"
             disabled={busy}
             onClick={() => setConfirmCancel(true)}
-            className="inline-flex h-10 flex-1 items-center justify-center rounded-xl border border-status-danger-border text-[13px] text-status-danger-fg ds-tap sm:h-9"
+            className="inline-flex h-10 flex-1 items-center justify-center rounded-xl border border-status-danger-border text-ds-body text-status-danger-fg ds-tap sm:h-9"
           >
             Cancelar visita
           </button>
@@ -309,14 +309,14 @@ export function AgendaInspector({ item, users, onClose, onChanged }: Props) {
           <DialogHeader>
             <DialogTitle>¿Cancelar esta visita?</DialogTitle>
           </DialogHeader>
-          <p className="text-[13px] text-ds-text-3">
+          <p className="text-ds-body text-ds-text-3">
             Se avisará a los participantes y el evento se quitará de Google Calendar.
           </p>
           <div className="flex gap-2 pt-1">
             <button
               type="button"
               onClick={() => setConfirmCancel(false)}
-              className="h-11 flex-1 rounded-xl border border-ds-border-default text-[13px] font-medium ds-tap sm:h-9"
+              className="h-11 flex-1 rounded-xl border border-ds-border-default text-ds-body font-medium ds-tap sm:h-9"
             >
               Volver
             </button>
@@ -328,7 +328,7 @@ export function AgendaInspector({ item, users, onClose, onChanged }: Props) {
                 void saveVisit({ action: "cancel" }, "Visita cancelada");
                 onClose();
               }}
-              className="h-11 flex-1 rounded-xl bg-status-danger-soft text-[13px] font-semibold text-status-danger-fg ds-tap sm:h-9"
+              className="h-11 flex-1 rounded-xl bg-status-danger-soft text-ds-body font-semibold text-status-danger-fg ds-tap sm:h-9"
             >
               Cancelar visita
             </button>

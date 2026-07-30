@@ -120,7 +120,7 @@ export function ChipTabs({
           const Icon = tab.icon;
 
           const chipClassName = cn(
-            "chip-tab inline-flex shrink-0 items-center gap-1.5 rounded-[20px] px-4 py-2 text-[13px] font-medium whitespace-nowrap",
+            "chip-tab inline-flex shrink-0 items-center gap-1.5 rounded-[20px] px-4 py-2 text-ds-body font-medium whitespace-nowrap",
             "transition-all duration-[250ms] [transition-timing-function:cubic-bezier(0.4,0,0.2,1)]",
             "scroll-snap-align-center",
             isActive

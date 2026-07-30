@@ -466,7 +466,7 @@ export function AgendaCalendarGrid({
                     </span>
                     <span
                       className={cn(
-                        "inline-flex h-7 min-w-7 items-center justify-center rounded-full px-1 text-[13px] font-semibold",
+                        "inline-flex h-7 min-w-7 items-center justify-center rounded-full px-1 text-ds-body font-semibold",
                         isToday ? "bg-primary text-primary-foreground" : "text-ds-text-2",
                       )}
                     >

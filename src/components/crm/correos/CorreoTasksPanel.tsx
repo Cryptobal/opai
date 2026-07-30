@@ -83,13 +83,13 @@ export function CorreoTasksPanel({ threadId, subject }: { threadId: string; subj
     <div className="space-y-2 rounded-xl border border-ds-border-subtle bg-ds-surface-2 p-2.5">
       <div className="flex items-center gap-2">
         <ListTodo className="h-4 w-4 text-tint-violet-fg" />
-        <p className="text-[13px] font-semibold text-ds-text-1">Tareas</p>
+        <p className="text-ds-body font-semibold text-ds-text-1">Tareas</p>
       </div>
 
       {tasks.length > 0 && (
         <ul className="space-y-1">
           {tasks.map((t) => (
-            <li key={t.id} className="flex items-center gap-2 text-[13px]">
+            <li key={t.id} className="flex items-center gap-2 text-ds-body">
               <button type="button" onClick={() => void toggle(t)} className="shrink-0 text-ds-text-3 ds-tap" aria-label="Completar">
                 {t.status === "done" ? (
                   <CheckSquare className="h-4 w-4 text-status-ok-fg" />
@@ -111,7 +111,7 @@ export function CorreoTasksPanel({ threadId, subject }: { threadId: string; subj
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           placeholder="Nueva tarea (o Sugerir)…"
-          className="h-9 min-w-0 flex-1 rounded-lg border border-ds-border-default bg-ds-surface-1 px-2 text-[13px] text-ds-text-1"
+          className="h-9 min-w-0 flex-1 rounded-lg border border-ds-border-default bg-ds-surface-1 px-2 text-ds-body text-ds-text-1"
         />
         <button
           type="button"
@@ -144,7 +144,7 @@ export function CorreoTasksPanel({ threadId, subject }: { threadId: string; subj
           type="button"
           onClick={() => void add()}
           disabled={busy !== null}
-          className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-primary px-3 text-[13px] font-medium text-primary-foreground ds-tap disabled:opacity-50"
+          className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-primary px-3 text-ds-body font-medium text-primary-foreground ds-tap disabled:opacity-50"
         >
           <Plus className="h-4 w-4" /> {busy === "add" ? "Agendando…" : "Agendar"}
         </button>

@@ -302,7 +302,7 @@ export function ReplyRecipientsField({
             }}
             placeholder={values.length === 0 ? "Buscar nombre o correo" : ""}
             className={cn(
-              "h-8 min-w-[140px] flex-1 text-[16px] text-ds-text-1 placeholder:text-ds-text-4 sm:text-[13px]",
+              "h-8 min-w-[140px] flex-1 text-[16px] text-ds-text-1 placeholder:text-ds-text-4 sm:text-ds-body",
               INPUT_FOCUS_RESET,
             )}
             type="text"
@@ -372,7 +372,7 @@ export function ReplyRecipientsField({
                       {initials(name)}
                     </span>
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-[13px] text-ds-text-1">{name}</span>
+                      <span className="block truncate text-ds-body text-ds-text-1">{name}</span>
                       <span className="block truncate text-[12px] text-ds-text-3">{s.email}</span>
                     </span>
                     <span

@@ -110,7 +110,7 @@ export function AlertaCard({ alerta, onResolve, selected, onToggleSelect }: Prop
         <div className="flex items-center gap-2 min-w-0">
           <span className={cn("w-2 h-2 rounded-full shrink-0 mt-0.5", sev.dot)} />
           <div className="min-w-0">
-            <p className="text-[13px] font-semibold text-[#f1f5f9] truncate">
+            <p className="text-ds-body font-semibold text-[#f1f5f9] truncate">
               {TIPO_LABELS[alerta.tipo] ?? alerta.tipo}
             </p>
             <span className="text-[10px] font-semibold uppercase tracking-wider" style={{
@@ -183,7 +183,7 @@ export function AlertaCard({ alerta, onResolve, selected, onToggleSelect }: Prop
               placeholder={alerta.tipo === "panico"
                 ? "Describa las acciones tomadas y el resultado (mínimo 10 caracteres)..."
                 : "Ej: Revisado, falsa alarma..."}
-              className="w-full min-h-[80px] rounded-lg border border-[#1a1f2e] bg-[#0a0e1a] text-[13px] text-[#f1f5f9] px-3 py-2 placeholder:text-[#64748b] resize-y mb-1"
+              className="w-full min-h-[80px] rounded-lg border border-[#1a1f2e] bg-[#0a0e1a] text-ds-body text-[#f1f5f9] px-3 py-2 placeholder:text-[#64748b] resize-y mb-1"
               maxLength={1000}
             />
             {alerta.tipo === "panico" && (

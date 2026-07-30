@@ -86,7 +86,7 @@ export function PlanRow({
         >
           <span className="min-w-0 flex-1">
             <span className="flex flex-wrap items-center gap-1.5">
-              <span className="text-[13px] font-medium text-ds-text-1">{label}</span>
+              <span className="text-ds-body font-medium text-ds-text-1">{label}</span>
               {tag && (
                 <Tag variant={TAG_VARIANT[tag]} size="sm">
                   {TAG_LABEL[tag]}

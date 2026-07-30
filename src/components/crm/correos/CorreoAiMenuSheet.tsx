@@ -101,7 +101,7 @@ export function CorreoAiMenuSheet({
                     item.onClick();
                     onClose();
                   }}
-                  className={`flex min-h-11 w-full items-center gap-3 px-4 text-left text-[13px] ds-tap hover:bg-ds-surface-2 ${
+                  className={`flex min-h-11 w-full items-center gap-3 px-4 text-left text-ds-body ds-tap hover:bg-ds-surface-2 ${
                     item.danger ? "text-status-danger-fg" : "text-ds-text-1"
                   }`}
                 >

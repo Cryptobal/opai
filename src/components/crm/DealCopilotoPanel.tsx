@@ -40,7 +40,7 @@ export function DealCopilotoPanel({ dealId, dealTitle }: { dealId: string; dealT
 
   if (error) {
     return (
-      <div className="rounded-xl border border-status-danger-border bg-status-danger-soft px-3 py-3 text-[13px] text-status-danger-fg">
+      <div className="rounded-xl border border-status-danger-border bg-status-danger-soft px-3 py-3 text-ds-body text-status-danger-fg">
         {error}
       </div>
     );
@@ -70,7 +70,7 @@ export function DealCopilotoPanel({ dealId, dealTitle }: { dealId: string; dealT
                 autoSend: false,
               })
             }
-            className="inline-flex min-h-11 items-center rounded-xl bg-primary px-4 text-[13px] font-medium text-primary-foreground ds-tap"
+            className="inline-flex min-h-11 items-center rounded-xl bg-primary px-4 text-ds-body font-medium text-primary-foreground ds-tap"
           >
             Abrir asistente
           </button>
@@ -95,7 +95,7 @@ export function DealCopilotoPanel({ dealId, dealTitle }: { dealId: string; dealT
           >
             <MessageSquare className="mt-0.5 h-4 w-4 shrink-0 text-tint-violet-fg" />
             <span className="min-w-0 flex-1">
-              <span className="block text-[13px] font-medium text-ds-text-1">{c.title}</span>
+              <span className="block text-ds-body font-medium text-ds-text-1">{c.title}</span>
               {c.lastMessage && (
                 <span className="mt-0.5 line-clamp-2 block text-[12px] text-ds-text-3">
                   {c.lastMessage.content}

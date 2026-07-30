@@ -148,7 +148,7 @@ export function CorreoRowDesktop({
         className="flex h-full min-w-0 flex-1 items-center gap-3 text-left outline-none focus-visible:ring-0 focus-visible:ring-offset-0"
       >
         <span
-          className={`flex w-44 flex-none items-center gap-1.5 truncate text-[13px] ${
+          className={`flex w-44 flex-none items-center gap-1.5 truncate text-ds-body ${
             unread ? "font-semibold text-ds-text-1" : "text-ds-text-2"
           }`}
         >
@@ -168,7 +168,7 @@ export function CorreoRowDesktop({
             </span>
           )}
         </span>
-        <span className="min-w-0 flex-1 truncate text-[13px]" title={subject}>
+        <span className="min-w-0 flex-1 truncate text-ds-body" title={subject}>
           {hasDeal ? (
             <>
               <span className={unread ? "font-semibold text-ds-text-1" : "text-ds-text-2"}>

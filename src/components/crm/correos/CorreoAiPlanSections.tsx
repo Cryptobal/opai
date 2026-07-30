@@ -91,7 +91,7 @@ export function CorreoAiPlanSections({
       <TraceBlock sources={sources} durationMs={durationMs} attachmentHint={sources.length} />
 
       {delta && (
-        <div className="rounded-xl border border-status-info-border bg-status-info-soft px-3 py-2.5 text-[13px] text-status-info-fg">
+        <div className="rounded-xl border border-status-info-border bg-status-info-soft px-3 py-2.5 text-ds-body text-status-info-fg">
           <p className="font-medium">Cambios tras afinar</p>
           <ul className="mt-1 space-y-0.5">
             {delta.headcountBase && (
@@ -113,7 +113,7 @@ export function CorreoAiPlanSections({
         </div>
       )}
       {delta === null && (
-        <p className="rounded-xl border border-ds-border-subtle bg-ds-surface-2 px-3 py-2 text-[13px] text-ds-text-3">
+        <p className="rounded-xl border border-ds-border-subtle bg-ds-surface-2 px-3 py-2 text-ds-body text-ds-text-3">
           Sin cambios en dotación ni HH tras la última respuesta.
         </p>
       )}
@@ -139,7 +139,7 @@ export function CorreoAiPlanSections({
         </h3>
         {(onWeeklyHoursChange || onReservePctChange) && (
           <div className="mb-2 flex flex-wrap gap-3">
-            <label className="flex items-center gap-2 text-[13px] text-ds-text-2">
+            <label className="flex items-center gap-2 text-ds-body text-ds-text-2">
               Jornada
               <select
                 className="h-10 min-w-[4.5rem] rounded-lg border border-ds-border-default bg-ds-surface-1 px-2 sm:h-9"
@@ -153,7 +153,7 @@ export function CorreoAiPlanSections({
                 ))}
               </select>
             </label>
-            <label className="flex items-center gap-2 text-[13px] text-ds-text-2">
+            <label className="flex items-center gap-2 text-ds-body text-ds-text-2">
               Reserva %
               <input
                 type="number"
@@ -225,7 +225,7 @@ function LegacyAssumptions({
       </h3>
       <ul className="space-y-1.5">
         {assumptions.map((a, i) => (
-          <li key={`${i}-${a}`} className="flex items-start gap-2 text-[13px] text-ds-text-2">
+          <li key={`${i}-${a}`} className="flex items-start gap-2 text-ds-body text-ds-text-2">
             <span className="min-w-0 flex-1">
               {a}
               {originList[i] === "user" && (
@@ -268,7 +268,7 @@ function LegacyQuestions({
             <button
               type="button"
               onClick={() => onRefineQuestion?.(q)}
-              className="flex min-h-11 w-full items-start gap-2 rounded-lg px-1 py-1.5 text-left text-[13px] text-ds-text-2 ds-tap hover:bg-ds-surface-2 sm:min-h-9"
+              className="flex min-h-11 w-full items-start gap-2 rounded-lg px-1 py-1.5 text-left text-ds-body text-ds-text-2 ds-tap hover:bg-ds-surface-2 sm:min-h-9"
             >
               <span>{q}</span>
             </button>

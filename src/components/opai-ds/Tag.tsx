@@ -21,7 +21,7 @@ const VARIANT: Record<TagVariant, string> = {
 const SIZE = {
   sm: "h-5 px-2 text-[11px]",
   md: "h-6 px-2.5 text-[12px]",
-  lg: "h-7 px-3 text-[13px]",
+  lg: "h-7 px-3 text-ds-body",
 };
 
 export interface TagProps {

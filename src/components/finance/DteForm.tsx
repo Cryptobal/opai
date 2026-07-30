@@ -1773,7 +1773,7 @@ export function DteForm({
             Estos son los montos exactos que se enviarán al SII.
           </p>
           {serverPreviewError && (
-            <div className="rounded-md border border-status-danger-border bg-status-danger-soft p-3 text-[13px] text-status-danger-fg">
+            <div className="rounded-md border border-status-danger-border bg-status-danger-soft p-3 text-ds-body text-status-danger-fg">
               <p className="font-medium">No se puede calcular el total:</p>
               <p className="mt-0.5">{serverPreviewError}</p>
               <p className="mt-1 text-[12px]">

@@ -423,7 +423,7 @@ export function BulkCederDteDialog({
                     <CheckCircle2 className="h-4 w-4 text-status-ok-fg shrink-0 mt-0.5" />
                   )}
                   <div className="flex-1 min-w-0">
-                    <div className="font-medium text-[13px]">
+                    <div className="font-medium text-ds-body">
                       DTE {dte?.dteType}-{dte?.folio} · {dte?.receiverName}
                     </div>
                     {r.error ? (
@@ -479,7 +479,7 @@ export function BulkCederDteDialog({
               </div>
             ))}
           </div>
-          <div className="mt-2 pt-2 border-t border-ds-border-subtle flex items-center justify-between text-[13px] font-medium">
+          <div className="mt-2 pt-2 border-t border-ds-border-subtle flex items-center justify-between text-ds-body font-medium">
             <span>Total bruto</span>
             <span className="font-mono tabular-nums">{formatCLP(totalBruto)}</span>
           </div>
@@ -571,7 +571,7 @@ export function BulkCederDteDialog({
                   ) : (
                     <Paperclip className="h-6 w-6 text-muted-foreground" />
                   )}
-                  <span className="text-[13px] text-muted-foreground">
+                  <span className="text-ds-body text-muted-foreground">
                     {simulationUploading
                       ? "Subiendo y extrayendo datos con IA…"
                       : "Arrastra el PDF del factoring o haz clic para seleccionar"}
@@ -591,7 +591,7 @@ export function BulkCederDteDialog({
                       href={simulation.fileUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-[13px] font-medium hover:underline truncate block"
+                      className="text-ds-body font-medium hover:underline truncate block"
                     >
                       {simulation.fileName}
                     </a>

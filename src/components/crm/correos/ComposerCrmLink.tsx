@@ -113,7 +113,7 @@ export function ComposerCrmLink({ value, onChange, disabled }: Props) {
               disabled={disabled}
               onClick={() => setSearching(true)}
               className={cn(
-                "inline-flex min-h-10 items-center gap-1.5 rounded-md px-1 text-[13px] ds-tap sm:min-h-9",
+                "inline-flex min-h-10 items-center gap-1.5 rounded-md px-1 text-ds-body ds-tap sm:min-h-9",
                 "text-ds-text-4 hover:text-ds-text-2 disabled:opacity-50",
               )}
             >
@@ -147,7 +147,7 @@ export function ComposerCrmLink({ value, onChange, disabled }: Props) {
                 </button>
               </span>
               <SimpleSelect
-                className="h-10 min-w-0 max-w-[14rem] flex-1 border-0 bg-transparent px-0 text-[13px] sm:h-9"
+                className="h-10 min-w-0 max-w-[14rem] flex-1 border-0 bg-transparent px-0 text-ds-body sm:h-9"
                 value={dealId ?? ""}
                 disabled={disabled || loadingDeals}
                 aria-label="Negocio asociado"
@@ -203,7 +203,7 @@ export function ComposerCrmLink({ value, onChange, disabled }: Props) {
                 aria-label="Buscar cuenta CRM"
                 className={cn(
                   "h-10 w-full min-w-0 border-0 bg-transparent pl-5 pr-2 text-[16px] text-ds-text-1 outline-none",
-                  "placeholder:text-ds-text-4 sm:h-9 sm:text-[13px]",
+                  "placeholder:text-ds-text-4 sm:h-9 sm:text-ds-body",
                   "focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0",
                 )}
               />
@@ -237,7 +237,7 @@ export function ComposerCrmLink({ value, onChange, disabled }: Props) {
                 }}
                 className="flex w-full flex-col items-start px-3 py-2 text-left ds-tap hover:bg-ds-surface-2"
               >
-                <span className="text-[13px] text-ds-text-1">{a.name}</span>
+                <span className="text-ds-body text-ds-text-1">{a.name}</span>
                 {a.rut && <span className="text-[12px] text-ds-text-4">{a.rut}</span>}
               </button>
             </li>

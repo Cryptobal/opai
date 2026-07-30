@@ -96,13 +96,13 @@ export function DealUnifiedTimeline({
           <button
             type="button"
             onClick={() => onFocusNotes?.()}
-            className="flex w-full items-center gap-2 rounded-md border border-border/60 bg-muted/20 px-3 py-2.5 text-left text-[13px] text-ds-text-3 hover:bg-muted/40"
+            className="flex w-full items-center gap-2 rounded-md border border-border/60 bg-muted/20 px-3 py-2.5 text-left text-ds-body text-ds-text-3 hover:bg-muted/40"
           >
             <StickyNote className="h-4 w-4 shrink-0" />
             Las notas se registran en el compositor de arriba. Toca para ir.
           </button>
         ) : groups.length === 0 ? (
-          <p className="text-[13px] text-ds-text-3">Sin actividad registrada.</p>
+          <p className="text-ds-body text-ds-text-3">Sin actividad registrada.</p>
         ) : (
           <div className="space-y-4">
             {groups.map((group) => (

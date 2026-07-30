@@ -72,7 +72,7 @@ export function AiActionsClient() {
     <div className="space-y-6 ds-page-enter min-w-0">
       <Link
         href="/platform/settings"
-        className="inline-flex items-center gap-1 text-[13px] text-ds-text-3 hover:text-ds-text-1"
+        className="inline-flex items-center gap-1 text-ds-body text-ds-text-3 hover:text-ds-text-1"
       >
         <ArrowLeft className="h-4 w-4" />
         Configuración
@@ -91,7 +91,7 @@ export function AiActionsClient() {
       />
       {error && (
         <Surface elevation={1} padding="md" className="border border-status-danger-border bg-status-danger-soft">
-          <p className="text-[13px] text-status-danger-fg">{error}</p>
+          <p className="text-ds-body text-status-danger-fg">{error}</p>
         </Surface>
       )}
       {!ready && loading ? (
@@ -103,7 +103,7 @@ export function AiActionsClient() {
       )}
       {total > 0 && (
         <Surface elevation={1} padding="sm" className="flex items-center justify-between gap-3">
-          <span className="text-[13px] text-ds-text-3">
+          <span className="text-ds-body text-ds-text-3">
             {total} registro{total !== 1 ? "s" : ""} · página {page}/{totalPages}
           </span>
           <div className="flex gap-2">
@@ -111,7 +111,7 @@ export function AiActionsClient() {
               type="button"
               disabled={page <= 1 || loading}
               onClick={() => setPage((p) => Math.max(1, p - 1))}
-              className="ds-tap rounded-lg border border-ds-border-default px-3 py-2 text-[13px] disabled:opacity-40"
+              className="ds-tap rounded-lg border border-ds-border-default px-3 py-2 text-ds-body disabled:opacity-40"
             >
               Anterior
             </button>
@@ -119,7 +119,7 @@ export function AiActionsClient() {
               type="button"
               disabled={page >= totalPages || loading}
               onClick={() => setPage((p) => p + 1)}
-              className="ds-tap rounded-lg border border-ds-border-default px-3 py-2 text-[13px] disabled:opacity-40"
+              className="ds-tap rounded-lg border border-ds-border-default px-3 py-2 text-ds-body disabled:opacity-40"
             >
               Siguiente
             </button>

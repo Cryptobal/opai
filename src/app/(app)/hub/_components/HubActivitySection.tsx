@@ -108,7 +108,7 @@ export function HubActivitySection({ activities }: HubActivitySectionProps) {
             >
               <IconBubble icon={<Icon />} tone={h.tone} size="sm" />
               <div className="min-w-0 flex-1">
-                <p className="text-[13px] leading-snug text-ds-text-2">
+                <p className="text-ds-body leading-snug text-ds-text-2">
                   <span className="font-medium text-ds-text-1">{h.actor}</span>{' '}
                   {h.phrase}
                   {!h.countEmbedded && entry.count > 1 && (

@@ -102,9 +102,9 @@ export function EntityThreadReader({
       {state === "loading" ? (
         <Spinner className="mx-auto" />
       ) : state === "forbidden" ? (
-        <p className="text-[13px] text-status-warn-fg">No tenés acceso a esta conversación.</p>
+        <p className="text-ds-body text-status-warn-fg">No tenés acceso a esta conversación.</p>
       ) : state === "error" ? (
-        <div className="space-y-2 text-[13px]">
+        <div className="space-y-2 text-ds-body">
           <p className="text-status-danger-fg">No se pudo cargar la conversación.</p>
           <button
             type="button"
@@ -115,7 +115,7 @@ export function EntityThreadReader({
           </button>
         </div>
       ) : detail && !detail.synced ? (
-        <div className="flex items-center gap-2 rounded-xl border border-ds-border-subtle bg-ds-surface-1 px-3 py-4 text-[13px] text-ds-text-4">
+        <div className="flex items-center gap-2 rounded-xl border border-ds-border-subtle bg-ds-surface-1 px-3 py-4 text-ds-body text-ds-text-4">
           <Clock className="h-4 w-4 shrink-0" />
           Conversación no sincronizada todavía.
         </div>
@@ -157,7 +157,7 @@ export function EntityThreadReader({
               </Link>
             </div>
           ) : detail.ownerEmail ? (
-            <p className="rounded-xl border border-ds-border-subtle bg-ds-surface-1 px-3 py-3 text-[13px] text-ds-text-3">
+            <p className="rounded-xl border border-ds-border-subtle bg-ds-surface-1 px-3 py-3 text-ds-body text-ds-text-3">
               Este hilo pertenece a la casilla de {detail.ownerEmail}.
             </p>
           ) : null}

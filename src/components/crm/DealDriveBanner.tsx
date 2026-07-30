@@ -79,7 +79,7 @@ export function DealDriveBanner({ dealId, onImported }: Props) {
 
   return (
     <Surface elevation={1} padding="sm" className="mb-3 flex flex-wrap items-center justify-between gap-2">
-      <div className="flex items-center gap-2 text-[13px] text-ds-text-2">
+      <div className="flex items-center gap-2 text-ds-body text-ds-text-2">
         {status.hasFolder ? (
           <>
             <FolderOpen className="h-4 w-4 text-status-ok-fg" />

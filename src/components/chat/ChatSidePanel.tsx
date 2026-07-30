@@ -448,7 +448,7 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
             placeholder="Buscar conversación..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full h-9 pl-8 pr-9 text-[13px] rounded-md border border-ds-border-default bg-ds-surface-2 placeholder:text-ds-text-4 focus:outline-none focus:ring-1 focus:ring-status-info-border focus:border-status-info-border opai-chat-mobile-search"
+            className="w-full h-9 pl-8 pr-9 text-ds-body rounded-md border border-ds-border-default bg-ds-surface-2 placeholder:text-ds-text-4 focus:outline-none focus:ring-1 focus:ring-status-info-border focus:border-status-info-border opai-chat-mobile-search"
           />
           {searchQuery && (
             <button
@@ -466,7 +466,7 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
             type="button"
             onClick={() => setFilter("all")}
             className={cn(
-              "rounded-md px-3 h-8 text-[13px] font-medium transition-colors opai-chat-mobile-pill",
+              "rounded-md px-3 h-8 text-ds-body font-medium transition-colors opai-chat-mobile-pill",
               filter === "all"
                 ? "bg-status-info text-primary-foreground"
                 : "text-ds-text-3 hover:text-ds-text-1"
@@ -478,7 +478,7 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
             type="button"
             onClick={() => setFilter("unread")}
             className={cn(
-              "rounded-md px-3 h-8 text-[13px] font-medium transition-colors inline-flex items-center gap-1.5 opai-chat-mobile-pill",
+              "rounded-md px-3 h-8 text-ds-body font-medium transition-colors inline-flex items-center gap-1.5 opai-chat-mobile-pill",
               filter === "unread"
                 ? "bg-status-info text-primary-foreground"
                 : "text-ds-text-3 hover:text-ds-text-1"
@@ -674,7 +674,7 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
                         onClick={() => handleStartDmFromSearch(u)}
                         className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-accent/50 text-left"
                       >
-                        <div className="h-8 w-8 rounded-[10px] flex items-center justify-center shrink-0 text-[13px] font-bold bg-tint-teal text-tint-teal-fg">
+                        <div className="h-8 w-8 rounded-[10px] flex items-center justify-center shrink-0 text-ds-body font-bold bg-tint-teal text-tint-teal-fg">
                           {u.name.charAt(0).toUpperCase()}
                         </div>
                         <div className="flex-1 min-w-0">
@@ -698,7 +698,7 @@ export function ChatSidePanel({ userRole }: { userRole?: string }) {
                       >
                         <div
                           className={cn(
-                            "h-8 w-8 rounded-[10px] flex items-center justify-center shrink-0 text-[13px] font-bold",
+                            "h-8 w-8 rounded-[10px] flex items-center justify-center shrink-0 text-ds-body font-bold",
                             a.status === "prospect"
                               ? "bg-tint-emerald text-tint-emerald-fg"
                               : "bg-tint-sky text-tint-sky-fg",
@@ -1128,7 +1128,7 @@ function GroupChannelsSection({
             <ChevronDown className="h-3 w-3 shrink-0" />
           )}
           <Users className="h-3.5 w-3.5 text-status-warn-fg shrink-0" />
-          <span className="text-[13px] font-semibold text-ds-text-2 normal-case tracking-normal">Grupos</span>
+          <span className="text-ds-body font-semibold text-ds-text-2 normal-case tracking-normal">Grupos</span>
         </button>
         <div className="flex shrink-0 items-center gap-1 pr-2">
           {showSectionNotifMenu && (
@@ -1361,7 +1361,7 @@ function ChannelSection({
             <ChevronDown className="h-3 w-3 shrink-0" />
           )}
           {icon}
-          <span className="text-[13px] font-semibold text-ds-text-2 normal-case tracking-normal">{label}</span>
+          <span className="text-ds-body font-semibold text-ds-text-2 normal-case tracking-normal">{label}</span>
           <span className="text-[12px] font-normal tabular-nums text-ds-text-4">
             {channels.length}
           </span>

@@ -73,7 +73,7 @@ export function TareasMobile({
                 ) : (
                   <ChevronDown className="h-4 w-4 text-ds-text-4" />
                 )}
-                <span className="text-[13px] font-semibold text-ds-text-2">{group.label}</span>
+                <span className="text-ds-body font-semibold text-ds-text-2">{group.label}</span>
                 <span className="text-[12px] text-ds-text-4">{group.tasks.length}</span>
               </button>
               {!isCollapsed && (
@@ -119,7 +119,7 @@ export function TareasMobile({
           style={{ paddingBottom: "calc(12px + env(safe-area-inset-bottom))" }}
         >
           <div className="mb-2 flex items-center justify-between">
-            <span className="text-[13px] font-semibold text-ds-text-1">Nueva tarea</span>
+            <span className="text-ds-body font-semibold text-ds-text-1">Nueva tarea</span>
             <button
               type="button"
               onClick={() => setCreating(false)}

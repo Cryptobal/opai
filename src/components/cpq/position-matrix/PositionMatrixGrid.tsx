@@ -88,7 +88,7 @@ import { SortableGridRow } from "./SortableGridRow";
 import type { NormalizedGroup, NormalizedShift, PositionMatrixAdapter, ShiftPatch } from "./types";
 
 const FIELD =
-  "flex h-9 w-full rounded-md border border-border bg-card px-1.5 text-[13px] text-foreground";
+  "flex h-9 w-full rounded-md border border-border bg-card px-1.5 text-ds-body text-foreground";
 
 /** Columnas no-servicio (9). El servicio es una celda rowspan aparte. */
 const REST_COLS = 9;
@@ -318,11 +318,11 @@ export function PositionMatrixGrid({ adapter }: Props) {
       </tbody>
       <tfoot>
         <tr className="border-t-2 border-border bg-muted/40 font-semibold">
-          <td className="border-r border-border px-2 py-2 text-[13px] text-foreground" colSpan={6}>
+          <td className="border-r border-border px-2 py-2 text-ds-body text-foreground" colSpan={6}>
             TOTAL
           </td>
-          <td className="border-r border-border px-2 py-2 text-center text-[13px] text-foreground">{totalGuards}</td>
-          <td className="border-r border-border px-2 py-2 text-center text-[13px] text-foreground">{totalPtos}</td>
+          <td className="border-r border-border px-2 py-2 text-center text-ds-body text-foreground">{totalGuards}</td>
+          <td className="border-r border-border px-2 py-2 text-center text-ds-body text-foreground">{totalPtos}</td>
           <td className="border-r border-border px-2 py-2 text-right">
             <CpqDualCurrencyAmount
               clp={totalCost}
@@ -365,7 +365,7 @@ export function PositionMatrixGrid({ adapter }: Props) {
                 style={{ borderLeft: `4px solid ${colorByKey.get(activeGroup.key)}` }}
               >
                 <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: colorByKey.get(activeGroup.key) }} />
-                <span className="text-[13px] font-semibold text-foreground">{activeGroup.name}</span>
+                <span className="text-ds-body font-semibold text-foreground">{activeGroup.name}</span>
               </div>
             ) : null}
           </DragOverlay>
@@ -564,11 +564,11 @@ function GroupBlock({
                 if (e.key === "Escape") { setEditingName(false); setDraftName(group.name); }
               }}
               onBlur={saveName}
-              className="h-7 text-[13px]"
+              className="h-7 text-ds-body"
               autoFocus
             />
           ) : (
-            <span className="text-[13px] font-semibold leading-tight text-foreground">
+            <span className="text-ds-body font-semibold leading-tight text-foreground">
               {group?.name ?? "Sin agrupar"}
             </span>
           )}
@@ -675,7 +675,7 @@ function GroupBlock({
               <ChevronRight className="h-3.5 w-3.5" />
             </button>
             <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: color }} aria-hidden />
-            <span className="text-[13px] font-semibold text-foreground">{group.name}</span>
+            <span className="text-ds-body font-semibold text-foreground">{group.name}</span>
             <span className="text-[11px] text-muted-foreground">
               {rows.length} turno{rows.length !== 1 ? "s" : ""} · {totalGuards} gd · {totalPtos} pt
             </span>
@@ -992,7 +992,7 @@ function GridRow({
             disabled={disabled}
             value={formatNumber(draft.bruto, { minDecimals: 0, maxDecimals: 0 })}
             onChange={(e) => apply({ bruto: parseLocalizedNumber(e.target.value) || 0 })}
-            className="h-8 w-full text-right font-mono text-[13px]"
+            className="h-8 w-full text-right font-mono text-ds-body"
           />
           {/* Líquido + mano de obra en una sola línea (se envuelve si la columna se angosta) */}
           <div className="flex flex-wrap items-center justify-end gap-x-2 gap-y-0">
@@ -1134,7 +1134,7 @@ function ObservationRow({ row, adapter, readOnly, color }: ObservationRowProps) 
             </div>
           </div>
           {readOnly ? (
-            <p className="whitespace-pre-wrap text-[13px] text-foreground">
+            <p className="whitespace-pre-wrap text-ds-body text-foreground">
               {value.trim() ? value : <span className="text-muted-foreground">Sin observaciones.</span>}
             </p>
           ) : (
@@ -1144,7 +1144,7 @@ function ObservationRow({ row, adapter, readOnly, color }: ObservationRowProps) 
               rows={2}
               placeholder="Funciones, protocolos o particularidades de este turno…"
               onChange={(e) => change(e.target.value)}
-              className="w-full resize-y rounded-md border border-border bg-card px-2.5 py-2 text-[13px] text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+              className="w-full resize-y rounded-md border border-border bg-card px-2.5 py-2 text-ds-body text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
             />
           )}
           <p className="text-[10.5px] text-muted-foreground">
@@ -1183,7 +1183,7 @@ function Stepper({
       >
         <Minus className="h-3 w-3" />
       </button>
-      <span className="min-w-[22px] text-center font-mono text-[13px] tabular-nums text-foreground">{value}</span>
+      <span className="min-w-[22px] text-center font-mono text-ds-body tabular-nums text-foreground">{value}</span>
       <button
         type="button"
         disabled={disabled || value >= max}

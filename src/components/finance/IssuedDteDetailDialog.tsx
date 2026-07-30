@@ -643,7 +643,7 @@ export function IssuedDteDetailDialog({
                         : null;
                     return (
                       <div key={nc.id} className="rounded-sm px-2 py-1.5">
-                        <div className="flex items-center gap-2 flex-wrap text-[13px]">
+                        <div className="flex items-center gap-2 flex-wrap text-ds-body">
                           <Badge variant="outline" className="text-[10px]">
                             {DTE_TYPE_LABELS[nc.dteType] ?? `Tipo ${nc.dteType}`}
                           </Badge>
@@ -740,7 +740,7 @@ export function IssuedDteDetailDialog({
                   )}
                 </div>
                 {dte.lastReconciliation.bankTransactionDescription && (
-                  <p className="text-[13px] text-status-ok-fg/90 truncate">
+                  <p className="text-ds-body text-status-ok-fg/90 truncate">
                     {dte.lastReconciliation.bankTransactionDescription}
                   </p>
                 )}
@@ -1323,7 +1323,7 @@ export function IssuedDteDetailDialog({
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-3 py-2 text-sm">
-              <div className="rounded-md bg-status-info-soft border border-status-info-border p-3 text-[13px] text-status-info-fg">
+              <div className="rounded-md bg-status-info-soft border border-status-info-border p-3 text-ds-body text-status-info-fg">
                 <p className="font-medium mb-1">
                   ¿De dónde sacar el XML?
                 </p>

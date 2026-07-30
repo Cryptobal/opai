@@ -100,12 +100,12 @@ export function CashflowItemDrawerActions(props: Props) {
           variant="outline"
           onClick={onCancelMode}
           disabled={busy !== null}
-          className="w-full h-11 text-[13px]"
+          className="w-full h-11 text-ds-body"
         >
           Cancelar
         </Button>
         {busy === "move" && (
-          <p className="flex items-center justify-center gap-2 text-[13px] text-ds-text-3">
+          <p className="flex items-center justify-center gap-2 text-ds-body text-ds-text-3">
             <Loader2 className="h-4 w-4 animate-spin" /> Moviendo…
           </p>
         )}
@@ -140,14 +140,14 @@ export function CashflowItemDrawerActions(props: Props) {
             variant="outline"
             onClick={onCancelMode}
             disabled={busy !== null}
-            className="flex-1 h-11 text-[13px]"
+            className="flex-1 h-11 text-ds-body"
           >
             Cancelar
           </Button>
           <Button
             onClick={onSaveAmount}
             disabled={busy !== null}
-            className="flex-1 h-11 text-[13px]"
+            className="flex-1 h-11 text-ds-body"
           >
             {busy === "amount" ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -163,7 +163,7 @@ export function CashflowItemDrawerActions(props: Props) {
   if (mode === "confirmingCancel") {
     return (
       <div className="space-y-2">
-        <p className="text-[13px] text-ds-text-2">
+        <p className="text-ds-body text-ds-text-2">
           Esta cuota dejará de proyectarse. Las próximas cuotas del ítem se
           mantienen intactas.
         </p>
@@ -172,14 +172,14 @@ export function CashflowItemDrawerActions(props: Props) {
             variant="outline"
             onClick={onCancelMode}
             disabled={busy !== null}
-            className="flex-1 h-11 text-[13px]"
+            className="flex-1 h-11 text-ds-body"
           >
             Cancelar
           </Button>
           <Button
             onClick={onConfirmCancel}
             disabled={busy !== null}
-            className="flex-1 h-11 text-[13px] bg-status-error-fg text-background hover:bg-status-error-fg/90"
+            className="flex-1 h-11 text-ds-body bg-status-error-fg text-background hover:bg-status-error-fg/90"
           >
             {busy === "cancel" ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -195,7 +195,7 @@ export function CashflowItemDrawerActions(props: Props) {
   if (mode === "confirmingEnd") {
     return (
       <div className="space-y-2">
-        <p className="text-[13px] text-ds-text-2">
+        <p className="text-ds-body text-ds-text-2">
           A partir de esta fecha no se proyectarán más cuotas. Las ocurrencias
           ya pagadas quedan intactas.
         </p>
@@ -204,14 +204,14 @@ export function CashflowItemDrawerActions(props: Props) {
             variant="outline"
             onClick={onCancelMode}
             disabled={busy !== null}
-            className="flex-1 h-11 text-[13px]"
+            className="flex-1 h-11 text-ds-body"
           >
             Cancelar
           </Button>
           <Button
             onClick={onConfirmEnd}
             disabled={busy !== null}
-            className="flex-1 h-11 text-[13px] bg-status-warn-fg text-background hover:bg-status-warn-fg/90"
+            className="flex-1 h-11 text-ds-body bg-status-warn-fg text-background hover:bg-status-warn-fg/90"
           >
             {busy === "end" ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -231,28 +231,28 @@ export function CashflowItemDrawerActions(props: Props) {
       <Button
         variant="outline"
         onClick={onStartMove}
-        className="w-full h-11 text-[13px] justify-start"
+        className="w-full h-11 text-ds-body justify-start"
       >
         <Move className="h-4 w-4 mr-2" /> Mover a otro período
       </Button>
       <Button
         variant="outline"
         onClick={onStartEdit}
-        className="w-full h-11 text-[13px] justify-start"
+        className="w-full h-11 text-ds-body justify-start"
       >
         <Pencil className="h-4 w-4 mr-2" /> Editar monto
       </Button>
       <Button
         variant="outline"
         onClick={onStartCancel}
-        className="w-full h-11 text-[13px] justify-start text-status-error-fg hover:bg-status-error-soft"
+        className="w-full h-11 text-ds-body justify-start text-status-error-fg hover:bg-status-error-soft"
       >
         <Trash2 className="h-4 w-4 mr-2" /> Eliminar este monto
       </Button>
       <Button
         variant="outline"
         onClick={onStartEnd}
-        className="w-full h-11 text-[13px] justify-start text-status-warn-fg hover:bg-status-warn-soft"
+        className="w-full h-11 text-ds-body justify-start text-status-warn-fg hover:bg-status-warn-soft"
       >
         <CircleSlash className="h-4 w-4 mr-2" /> Terminar serie
       </Button>

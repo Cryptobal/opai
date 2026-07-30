@@ -28,7 +28,7 @@ export default async function InteligenciaArtificialPage() {
       <section className="mt-10 space-y-3">
         <div>
           <h2 className="text-[15px] font-semibold text-ds-text-1">Modelo por módulo</h2>
-          <p className="text-[13px] text-ds-text-3">
+          <p className="text-ds-body text-ds-text-3">
             Elige qué proveedor y modelo usa cada módulo de la app (todos los módulos y submódulos).
             Los módulos sin override usan el modelo por defecto.
           </p>

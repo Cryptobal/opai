@@ -123,7 +123,7 @@ export function ScheduleSendSplitButton({
   };
 
   const selectClass =
-    "h-10 w-full rounded-xl border border-ds-border-default bg-ds-surface-1 px-3 text-[13px] text-ds-text-1 outline-none ds-tap " +
+    "h-10 w-full rounded-xl border border-ds-border-default bg-ds-surface-1 px-3 text-ds-body text-ds-text-1 outline-none ds-tap " +
     "focus-visible:ring-1 focus-visible:ring-ring sm:h-9";
 
   return (
@@ -138,7 +138,7 @@ export function ScheduleSendSplitButton({
           type="button"
           onClick={onSend}
           disabled={busy || disabled}
-          className="inline-flex h-full items-center justify-center gap-1.5 px-4 text-[13px] font-medium ds-tap disabled:pointer-events-none"
+          className="inline-flex h-full items-center justify-center gap-1.5 px-4 text-ds-body font-medium ds-tap disabled:pointer-events-none"
         >
           {busy ? <Spinner className="h-4 w-4" /> : <Send className="h-4 w-4" />}
           {busy ? "Enviando…" : "Enviar"}
@@ -167,7 +167,7 @@ export function ScheduleSendSplitButton({
               type="button"
               role="menuitem"
               onClick={openPresets}
-              className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-left text-[13px] text-ds-text-1 ds-tap hover:bg-ds-surface-2"
+              className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-left text-ds-body text-ds-text-1 ds-tap hover:bg-ds-surface-2"
             >
               <CalendarClock className="h-4 w-4 shrink-0 text-primary" />
               <span className="font-medium">Programar envío</span>
@@ -185,7 +185,7 @@ export function ScheduleSendSplitButton({
             <DialogTitle className="font-display text-base">
               Programar envío
             </DialogTitle>
-            <DialogDescription className="text-[13px] text-ds-text-3">
+            <DialogDescription className="text-ds-body text-ds-text-3">
               Hora de Chile (America/Santiago)
             </DialogDescription>
           </DialogHeader>
@@ -197,10 +197,10 @@ export function ScheduleSendSplitButton({
                 onClick={() => confirmSchedule(preset.date)}
                 className="flex w-full items-center justify-between gap-3 rounded-xl px-3 py-3 text-left ds-tap hover:bg-ds-surface-2"
               >
-                <span className="text-[13px] font-medium text-ds-text-1">
+                <span className="text-ds-body font-medium text-ds-text-1">
                   {preset.label}
                 </span>
-                <span className="shrink-0 text-[13px] text-ds-text-3">
+                <span className="shrink-0 text-ds-body text-ds-text-3">
                   {preset.whenLabel}
                 </span>
               </button>
@@ -209,7 +209,7 @@ export function ScheduleSendSplitButton({
             <button
               type="button"
               onClick={openCustom}
-              className="flex w-full items-center gap-2.5 rounded-xl px-3 py-3 text-left text-[13px] font-medium text-ds-text-1 ds-tap hover:bg-ds-surface-2"
+              className="flex w-full items-center gap-2.5 rounded-xl px-3 py-3 text-left text-ds-body font-medium text-ds-text-1 ds-tap hover:bg-ds-surface-2"
             >
               <CalendarDays className="h-4 w-4 text-ds-text-3" />
               Elegir fecha y hora
@@ -227,7 +227,7 @@ export function ScheduleSendSplitButton({
             <DialogTitle className="font-display text-base">
               Elegir fecha y hora
             </DialogTitle>
-            <DialogDescription className="text-[13px] text-ds-text-3">
+            <DialogDescription className="text-ds-body text-ds-text-3">
               El correo se enviará a la hora de Chile
             </DialogDescription>
           </DialogHeader>
@@ -250,7 +250,7 @@ export function ScheduleSendSplitButton({
                 <p className="mb-1.5 text-[12px] uppercase tracking-wide text-ds-text-4">
                   Fecha
                 </p>
-                <div className="flex h-10 items-center rounded-xl border border-ds-border-default bg-ds-surface-1 px-3 text-[13px] text-ds-text-1 sm:h-9">
+                <div className="flex h-10 items-center rounded-xl border border-ds-border-default bg-ds-surface-1 px-3 text-ds-body text-ds-text-1 sm:h-9">
                   {customDateLabel}
                 </div>
               </div>
@@ -301,7 +301,7 @@ export function ScheduleSendSplitButton({
             <button
               type="button"
               onClick={() => setCustomOpen(false)}
-              className="inline-flex h-10 items-center gap-1 rounded-full px-3 text-[13px] text-primary ds-tap sm:h-9"
+              className="inline-flex h-10 items-center gap-1 rounded-full px-3 text-ds-body text-primary ds-tap sm:h-9"
             >
               <X className="h-3.5 w-3.5 sm:hidden" />
               Cancelar
@@ -309,7 +309,7 @@ export function ScheduleSendSplitButton({
             <button
               type="button"
               onClick={() => confirmSchedule(customDate)}
-              className="inline-flex h-10 items-center justify-center rounded-full bg-primary px-4 text-[13px] font-medium text-primary-foreground ds-tap sm:h-9"
+              className="inline-flex h-10 items-center justify-center rounded-full bg-primary px-4 text-ds-body font-medium text-primary-foreground ds-tap sm:h-9"
             >
               Programar envío
             </button>

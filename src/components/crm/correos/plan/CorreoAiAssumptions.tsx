@@ -75,7 +75,7 @@ export function CorreoAiAssumptions({ items, onChange }: Props) {
                   rows={3}
                   value={editText}
                   onChange={(e) => setEditText(e.target.value)}
-                  className="min-h-[64px] resize-y text-[13px]"
+                  className="min-h-[64px] resize-y text-ds-body"
                 />
                 <div className="flex gap-1.5">
                   <ActionBtn
@@ -99,7 +99,7 @@ export function CorreoAiAssumptions({ items, onChange }: Props) {
                 </div>
               </div>
             ) : (
-              <div className="flex items-start gap-2 text-[13px] text-ds-text-2">
+              <div className="flex items-start gap-2 text-ds-body text-ds-text-2">
                 <span className="min-w-0 flex-1">
                   {a.text}
                   {a.origin === "user" && (

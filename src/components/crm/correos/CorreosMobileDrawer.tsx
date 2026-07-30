@@ -61,7 +61,7 @@ function Item({ active, onClick, children }: { active?: boolean; onClick: () => 
     <button
       type="button"
       onClick={onClick}
-      className={`flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-[13px] transition-colors ds-tap ${
+      className={`flex min-h-11 w-full items-center gap-3 rounded-xl px-3 text-left text-ds-body transition-colors ds-tap ${
         active ? "bg-primary/15 font-medium text-primary" : "text-ds-text-2 hover:bg-primary/10 hover:text-primary"
       }`}
     >
@@ -171,7 +171,7 @@ export function CorreosMobileDrawer({
           <div className="flex items-center justify-between gap-3 rounded-xl px-3 py-1.5">
             <div className="flex min-w-0 items-center gap-3">
               <AlignJustify className="h-4 w-4 shrink-0 text-ds-text-2" />
-              <span className="truncate text-[13px] text-ds-text-2">Densidad</span>
+              <span className="truncate text-ds-body text-ds-text-2">Densidad</span>
             </div>
             <div
               role="group"
@@ -185,7 +185,7 @@ export function CorreosMobileDrawer({
                   onClick={() => onPreviewLines(n)}
                   aria-pressed={previewLines === n}
                   aria-label={`${n} ${n === 1 ? "línea" : "líneas"}`}
-                  className={`inline-flex h-9 min-w-[38px] items-center justify-center rounded-full px-2 text-[13px] font-medium ds-tap ${
+                  className={`inline-flex h-9 min-w-[38px] items-center justify-center rounded-full px-2 text-ds-body font-medium ds-tap ${
                     previewLines === n
                       ? "bg-primary text-primary-foreground"
                       : "text-ds-text-2"

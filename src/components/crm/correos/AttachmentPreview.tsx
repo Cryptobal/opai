@@ -208,7 +208,7 @@ export function AttachmentPreview({
       <a
         href={url}
         download={filename}
-        className="inline-flex h-11 items-center gap-1.5 rounded-lg border border-ds-border-default px-3 text-[13px] ds-tap"
+        className="inline-flex h-11 items-center gap-1.5 rounded-lg border border-ds-border-default px-3 text-ds-body ds-tap"
       >
         <Download className="h-4 w-4" /> Descargar
       </a>
@@ -219,7 +219,7 @@ export function AttachmentPreview({
           setSharing(true);
           void shareOrDownload(url, filename, mimeType).finally(() => setSharing(false));
         }}
-        className="inline-flex h-11 items-center gap-1.5 rounded-lg border border-ds-border-default px-3 text-[13px] ds-tap disabled:opacity-50"
+        className="inline-flex h-11 items-center gap-1.5 rounded-lg border border-ds-border-default px-3 text-ds-body ds-tap disabled:opacity-50"
       >
         <Share2 className="h-4 w-4" /> {sharing ? "…" : "Compartir"}
       </button>
@@ -241,11 +241,11 @@ export function AttachmentPreview({
   if (state.phase === "error") {
     return (
       <div className="mx-auto mt-12 max-w-xs space-y-3 px-4 text-center">
-        <p className="text-[13px] text-ds-text-2">{state.message}</p>
+        <p className="text-ds-body text-ds-text-2">{state.message}</p>
         <button
           type="button"
           onClick={() => setAttempt((a) => a + 1)}
-          className="inline-flex h-11 items-center gap-1.5 rounded-lg border border-ds-border-default px-3 text-[13px] ds-tap"
+          className="inline-flex h-11 items-center gap-1.5 rounded-lg border border-ds-border-default px-3 text-ds-body ds-tap"
         >
           <RefreshCw className="h-4 w-4" /> Reintentar
         </button>
@@ -285,7 +285,7 @@ export function AttachmentPreview({
     return (
       <div className="flex h-full flex-col animate-in fade-in duration-150">
         <div
-          className="min-h-0 flex-1 overflow-auto bg-ds-surface-1 p-4 text-[13px] leading-relaxed text-ds-text-1 [-webkit-overflow-scrolling:touch] [&_h1]:mb-2 [&_h1]:text-lg [&_h1]:font-semibold [&_h2]:mb-2 [&_h2]:text-base [&_h2]:font-semibold [&_li]:ml-4 [&_li]:list-disc [&_p]:mb-2 [&_table]:mb-3 [&_table]:w-full [&_td]:border [&_td]:border-ds-border-subtle [&_td]:p-1.5 [&_th]:border [&_th]:border-ds-border-subtle [&_th]:p-1.5 [&_th]:text-left"
+          className="min-h-0 flex-1 overflow-auto bg-ds-surface-1 p-4 text-ds-body leading-relaxed text-ds-text-1 [-webkit-overflow-scrolling:touch] [&_h1]:mb-2 [&_h1]:text-lg [&_h1]:font-semibold [&_h2]:mb-2 [&_h2]:text-base [&_h2]:font-semibold [&_li]:ml-4 [&_li]:list-disc [&_p]:mb-2 [&_table]:mb-3 [&_table]:w-full [&_td]:border [&_td]:border-ds-border-subtle [&_td]:p-1.5 [&_th]:border [&_th]:border-ds-border-subtle [&_th]:p-1.5 [&_th]:text-left"
           // HTML sanitizado con DOMPurify arriba.
           dangerouslySetInnerHTML={{ __html: state.html }}
         />
@@ -308,7 +308,7 @@ export function AttachmentPreview({
                 key={`${s.name}-${i}`}
                 type="button"
                 onClick={() => setSheetIdx(i)}
-                className={`h-10 shrink-0 rounded-lg px-3 text-[13px] ds-tap ${
+                className={`h-10 shrink-0 rounded-lg px-3 text-ds-body ds-tap ${
                   i === Math.min(sheetIdx, sheets.length - 1)
                     ? "bg-ds-surface-3 font-medium text-ds-text-1"
                     : "text-ds-text-3"
@@ -321,7 +321,7 @@ export function AttachmentPreview({
         )}
         <div className="min-h-0 flex-1 overflow-auto [-webkit-overflow-scrolling:touch]">
           {!active || active.rows.length === 0 ? (
-            <p className="p-4 text-center text-[13px] text-ds-text-3">Hoja vacía</p>
+            <p className="p-4 text-center text-ds-body text-ds-text-3">Hoja vacía</p>
           ) : (
             <table className="min-w-full border-collapse text-left text-[12px] text-ds-text-1">
               {header.length > 0 && (
@@ -373,7 +373,7 @@ export function AttachmentPreview({
         <FileIcon className="h-7 w-7 text-ds-text-3" />
       </div>
       <div className="space-y-0.5">
-        <p className="break-all text-[13px] font-medium text-ds-text-1">{filename}</p>
+        <p className="break-all text-ds-body font-medium text-ds-text-1">{filename}</p>
         <p className="text-[12px] text-ds-text-4">
           Vista previa no disponible{size ? ` · ${fmtSize(size)}` : ""}
         </p>

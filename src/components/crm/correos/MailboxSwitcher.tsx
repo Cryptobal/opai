@@ -49,7 +49,7 @@ export function MailboxSwitcher({
     : "px-3";
   const rowH = touchRows ? "min-h-12" : "min-h-11";
   const row = (on: boolean) =>
-    `mb-0.5 flex ${rowH} w-full items-center gap-2.5 rounded-xl text-left text-[13px] ds-tap ${rowPad} ${
+    `mb-0.5 flex ${rowH} w-full items-center gap-2.5 rounded-xl text-left text-ds-body ds-tap ${rowPad} ${
       on ? "bg-primary/15 font-medium text-primary" : "text-ds-text-2 hover:bg-ds-surface-2"
     }`;
   const peek = collapsed ? "hidden group-hover/rail:inline" : "";
@@ -118,7 +118,7 @@ export function MailboxSwitcher({
         <div className={collapsed ? "hidden group-hover/rail:block" : ""}>
           {!atLimit && (
             <Link href={connectHref}
-              className={`mt-0.5 flex ${rowH} w-full items-center gap-2.5 rounded-xl px-3 text-[13px] text-primary ds-tap hover:bg-ds-surface-2`}>
+              className={`mt-0.5 flex ${rowH} w-full items-center gap-2.5 rounded-xl px-3 text-ds-body text-primary ds-tap hover:bg-ds-surface-2`}>
               <Plus className="h-4 w-4 shrink-0" />
               <span className="truncate">Conectar otra casilla</span>
             </Link>

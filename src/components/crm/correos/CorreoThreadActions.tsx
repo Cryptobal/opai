@@ -72,7 +72,7 @@ export function CorreoThreadActions({
   const btnBase = compact
     ? "inline-flex h-9 w-9 items-center justify-center rounded-lg text-ds-text-2 transition-colors ds-tap"
     : drawer
-      ? "inline-flex h-10 items-center gap-1.5 rounded-xl border border-ds-border-default px-3 text-[13px] transition-colors ds-tap sm:h-9"
+      ? "inline-flex h-10 items-center gap-1.5 rounded-xl border border-ds-border-default px-3 text-ds-body transition-colors ds-tap sm:h-9"
       : "inline-flex h-9 w-9 items-center justify-center rounded-lg text-ds-text-3 opacity-0 transition-opacity transition-colors group-hover:opacity-100 ds-tap";
 
   function btn(hover: string = HOVER_BRAND) {

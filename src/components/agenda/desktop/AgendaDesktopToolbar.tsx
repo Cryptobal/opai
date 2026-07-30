@@ -35,7 +35,7 @@ const VIEW_OPTIONS: Array<{ id: AgendaViewMode; label: string }> = [
 ];
 
 const CONTROL =
-  "inline-flex h-9 items-center justify-center rounded-xl border border-ds-border-default bg-ds-surface-1 px-3 text-[13px] font-medium text-ds-text-2 transition-colors hover:bg-ds-surface-2 hover:text-ds-text-1 ds-tap";
+  "inline-flex h-9 items-center justify-center rounded-xl border border-ds-border-default bg-ds-surface-1 px-3 text-ds-body font-medium text-ds-text-2 transition-colors hover:bg-ds-surface-2 hover:text-ds-text-1 ds-tap";
 
 function monthYearLabel(anchor: Date): string {
   const raw = anchor.toLocaleDateString("es-CL", {
@@ -149,7 +149,7 @@ export function AgendaDesktopToolbar({
             type="button"
             onClick={() => onViewChange(option.id)}
             className={cn(
-              "h-8 shrink-0 rounded-[10px] px-3 text-[13px] font-medium transition-colors ds-tap",
+              "h-8 shrink-0 rounded-[10px] px-3 text-ds-body font-medium transition-colors ds-tap",
               view === option.id
                 ? "bg-ds-surface-1 text-ds-text-1 shadow-ds-xs"
                 : "text-ds-text-3 hover:text-ds-text-1",
@@ -171,7 +171,7 @@ export function AgendaDesktopToolbar({
           onChange={(event) => onQueryChange(event.target.value)}
           placeholder="Buscar"
           aria-label="Buscar en la agenda"
-          className="h-full min-w-0 flex-1 border-0 bg-transparent p-0 text-[13px] text-ds-text-1 outline-none placeholder:text-ds-text-4 focus:ring-0"
+          className="h-full min-w-0 flex-1 border-0 bg-transparent p-0 text-ds-body text-ds-text-1 outline-none placeholder:text-ds-text-4 focus:ring-0"
         />
         <kbd className="rounded border border-ds-border-subtle bg-ds-surface-2 px-1 font-mono text-[12px] text-ds-text-4 group-focus-within:hidden">
           /
@@ -210,7 +210,7 @@ export function AgendaDesktopToolbar({
         <Tooltip>
           <TooltipTrigger
             onClick={onCreate}
-            className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl bg-primary px-3.5 text-[13px] font-semibold text-primary-foreground shadow-ds-xs ds-tap"
+            className="inline-flex h-9 items-center justify-center gap-1.5 rounded-xl bg-primary px-3.5 text-ds-body font-semibold text-primary-foreground shadow-ds-xs ds-tap"
           >
             <Plus className="h-4 w-4" />
             Crear

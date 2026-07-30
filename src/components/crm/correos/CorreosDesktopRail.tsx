@@ -59,7 +59,7 @@ export function CorreosDesktopRail({
   // Con el riel contraído, los textos aparecen solo durante el peek (hover).
   const lbl = collapsed ? "hidden truncate group-hover/rail:inline" : "truncate";
   const item = (active: boolean) =>
-    `relative mb-0.5 flex h-[34px] w-full items-center gap-3 rounded-xl text-left text-[13px] transition-colors ds-tap ${
+    `relative mb-0.5 flex h-[34px] w-full items-center gap-3 rounded-xl text-left text-ds-body transition-colors ds-tap ${
       collapsed ? "justify-center px-0 group-hover/rail:justify-start group-hover/rail:px-3.5" : "px-3.5"
     } ${active ? "bg-primary/15 font-medium text-primary" : "text-ds-text-2 hover:bg-primary/10 hover:text-primary"}`;
 
@@ -89,7 +89,7 @@ export function CorreosDesktopRail({
         <button
           type="button"
           onClick={onCompose}
-          className={`mb-2 flex h-11 items-center gap-2.5 rounded-2xl bg-primary/15 text-[13px] font-medium text-primary ds-tap hover:bg-primary/25 ${
+          className={`mb-2 flex h-11 items-center gap-2.5 rounded-2xl bg-primary/15 text-ds-body font-medium text-primary ds-tap hover:bg-primary/25 ${
             collapsed
               ? "mx-auto w-11 justify-center group-hover/rail:mx-1 group-hover/rail:w-auto group-hover/rail:justify-start group-hover/rail:px-5"
               : "mx-1 px-5"

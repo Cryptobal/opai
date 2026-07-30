@@ -119,7 +119,7 @@ export function CashflowFolioSearch({ buckets, canManage, onRun, onLocate }: Pro
         onFocus={() => results.length > 0 && setOpen(true)}
         placeholder="Buscar factura por folio o cliente…"
         aria-label="Buscar factura por folio o cliente"
-        className="h-9 w-full rounded-ds-md border border-ds-border-default bg-ds-surface-1 pl-8 pr-8 text-[13px] placeholder:text-ds-text-3 focus:outline-none focus:ring-1 focus:ring-primary"
+        className="h-9 w-full rounded-ds-md border border-ds-border-default bg-ds-surface-1 pl-8 pr-8 text-ds-body placeholder:text-ds-text-3 focus:outline-none focus:ring-1 focus:ring-primary"
       />
       {loading ? (
         <Loader2 className="absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 animate-spin text-ds-text-3" />
@@ -137,7 +137,7 @@ export function CashflowFolioSearch({ buckets, canManage, onRun, onLocate }: Pro
       {open && (
         <div className="absolute z-30 mt-1 max-h-80 w-[22rem] max-w-[90vw] overflow-auto rounded-ds-md border border-ds-border-default bg-ds-surface-1 py-1 shadow-lg">
           {results.length === 0 ? (
-            <p className="px-3 py-2 text-[13px] text-ds-text-3">
+            <p className="px-3 py-2 text-ds-body text-ds-text-3">
               {loading ? "Buscando…" : "Sin resultados"}
             </p>
           ) : (
@@ -154,7 +154,7 @@ export function CashflowFolioSearch({ buckets, canManage, onRun, onLocate }: Pro
                 <span className="shrink-0 font-mono text-[12px] tabular-nums text-ds-text-2">
                   N° {r.folio}
                 </span>
-                <span className="min-w-0 flex-1 truncate text-[13px] text-ds-text-1">
+                <span className="min-w-0 flex-1 truncate text-ds-body text-ds-text-1">
                   {r.receiverName ?? "—"}
                 </span>
                 {r.hiddenFromFlow && (
@@ -196,7 +196,7 @@ export function CashflowFolioSearch({ buckets, canManage, onRun, onLocate }: Pro
                     setQ("");
                     setOpen(false);
                   }}
-                  className="rounded-ds-md border border-ds-border-default px-3 py-2 text-left text-[13px] text-ds-text-2 transition-colors hover:bg-ds-surface-2"
+                  className="rounded-ds-md border border-ds-border-default px-3 py-2 text-left text-ds-body text-ds-text-2 transition-colors hover:bg-ds-surface-2"
                 >
                   Ir a su semana ({selected.weekLabel})
                 </button>

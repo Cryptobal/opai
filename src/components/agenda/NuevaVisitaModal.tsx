@@ -11,7 +11,7 @@ import { TogglesField } from "./nueva-visita/TogglesField";
 import { useNuevaVisita } from "./nueva-visita/useNuevaVisita";
 
 const INPUT =
-  "h-10 w-full min-w-0 rounded-xl border border-ds-border-default bg-ds-surface-1 px-3 text-[13px] sm:h-9";
+  "h-10 w-full min-w-0 rounded-xl border border-ds-border-default bg-ds-surface-1 px-3 text-ds-body sm:h-9";
 
 type Props = {
   open: boolean;
@@ -125,7 +125,7 @@ export function NuevaVisitaModal(props: Props) {
           )}
 
           <textarea
-            className="min-h-[64px] w-full min-w-0 rounded-xl border border-ds-border-default bg-ds-surface-1 px-3 py-2 text-[13px]"
+            className="min-h-[64px] w-full min-w-0 rounded-xl border border-ds-border-default bg-ds-surface-1 px-3 py-2 text-ds-body"
             placeholder="Notas"
             value={form.notes}
             onChange={(e) => set("notes", e.target.value)}

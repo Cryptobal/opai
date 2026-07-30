@@ -189,7 +189,7 @@ export function ChatChannelSlackBridge({
           <div className="flex items-center gap-3 rounded-xl border border-ds-border-default bg-ds-surface-2 px-3 py-3">
             <div className="flex-1 min-w-0">
               <p className="text-[12px] uppercase tracking-wide text-ds-text-4">OPAI</p>
-              <p className="text-[13px] font-medium text-ds-text-1 truncate" title={channelName}>
+              <p className="text-ds-body font-medium text-ds-text-1 truncate" title={channelName}>
                 {channelName}
               </p>
             </div>
@@ -198,7 +198,7 @@ export function ChatChannelSlackBridge({
               <p className="text-[12px] uppercase tracking-wide text-ds-text-4">Slack</p>
               <p
                 className={cn(
-                  "text-[13px] font-medium truncate",
+                  "text-ds-body font-medium truncate",
                   selected ? "text-ds-text-1" : "text-ds-text-4",
                 )}
                 title={selected ? `#${selected.name}` : undefined}
@@ -209,7 +209,7 @@ export function ChatChannelSlackBridge({
           </div>
 
           {/* Aviso transparencia */}
-          <div className="flex gap-2.5 rounded-xl border border-status-warn-border bg-status-warn-soft p-3 text-[13px] text-status-warn-fg">
+          <div className="flex gap-2.5 rounded-xl border border-status-warn-border bg-status-warn-soft p-3 text-ds-body text-status-warn-fg">
             <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" aria-hidden />
             <p>
               El espejo es bidireccional: incluye mensajes de guardias y contactos de cliente.
@@ -219,7 +219,7 @@ export function ChatChannelSlackBridge({
 
           {/* Picker */}
           <div className="space-y-2">
-            <p className="text-[13px] font-medium text-ds-text-2">Canal de Slack</p>
+            <p className="text-ds-body font-medium text-ds-text-2">Canal de Slack</p>
             <div className="relative">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-ds-text-4" />
               <input
@@ -229,13 +229,13 @@ export function ChatChannelSlackBridge({
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder={loading ? "Cargando canales…" : "Buscar canal…"}
                 disabled={loading || busy}
-                className="w-full h-10 sm:h-9 pl-8 pr-3 text-[13px] rounded-md border border-ds-border-default bg-ds-surface-1 placeholder:text-ds-text-4 focus:outline-none focus:ring-1 focus:ring-status-info-border"
+                className="w-full h-10 sm:h-9 pl-8 pr-3 text-ds-body rounded-md border border-ds-border-default bg-ds-surface-1 placeholder:text-ds-text-4 focus:outline-none focus:ring-1 focus:ring-status-info-border"
                 autoFocus
               />
             </div>
 
             {loadError ? (
-              <div className="rounded-lg border border-status-danger-border bg-status-danger-soft p-3 text-[13px] text-status-danger-fg space-y-2">
+              <div className="rounded-lg border border-status-danger-border bg-status-danger-soft p-3 text-ds-body text-status-danger-fg space-y-2">
                 <p>{loadError}</p>
                 <Button type="button" size="sm" variant="outline" onClick={() => void loadChannels()}>
                   Reintentar
@@ -248,13 +248,13 @@ export function ChatChannelSlackBridge({
                 aria-label="Canales de Slack"
               >
                 {loading && (
-                  <li className="flex items-center justify-center gap-2 py-8 text-[13px] text-ds-text-3">
+                  <li className="flex items-center justify-center gap-2 py-8 text-ds-body text-ds-text-3">
                     <Loader2 className="h-4 w-4 animate-spin" />
                     Cargando…
                   </li>
                 )}
                 {!loading && filtered.length === 0 && (
-                  <li className="py-8 text-center text-[13px] text-ds-text-3">
+                  <li className="py-8 text-center text-ds-body text-ds-text-3">
                     {slackChannels.length === 0
                       ? "No hay canales disponibles"
                       : "Ningún canal coincide con la búsqueda"}
@@ -274,7 +274,7 @@ export function ChatChannelSlackBridge({
                           disabled={disabled || busy}
                           onClick={() => setSlackId(ch.id)}
                           className={cn(
-                            "w-full flex items-center gap-2 px-3 h-11 text-left text-[13px] transition-colors",
+                            "w-full flex items-center gap-2 px-3 h-11 text-left text-ds-body transition-colors",
                             disabled
                               ? "opacity-50 cursor-not-allowed bg-ds-surface-2"
                               : selectedRow

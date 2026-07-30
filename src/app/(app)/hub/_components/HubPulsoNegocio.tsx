@@ -263,7 +263,7 @@ export function HubPulsoNegocio({
         <button
           type="button"
           onClick={() => setShowAll(true)}
-          className="min-h-11 w-full rounded-ds-md text-[13px] font-medium text-primary transition-colors hover:bg-ds-surface-2 lg:hidden"
+          className="min-h-11 w-full rounded-ds-md text-ds-body font-medium text-primary transition-colors hover:bg-ds-surface-2 lg:hidden"
         >
           Ver todos los indicadores ({cards.length})
         </button>

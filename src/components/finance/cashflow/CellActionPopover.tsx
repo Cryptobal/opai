@@ -425,7 +425,7 @@ export function CellActionPopover({
             <p className="text-[10px] font-mono uppercase tracking-[0.06em] text-ds-text-3">
               Cuota · {formatDateLabel(target.originalDate)}
             </p>
-            <p className="text-[13px] font-semibold text-ds-text-1 tabular-nums">
+            <p className="text-ds-body font-semibold text-ds-text-1 tabular-nums">
               ${fmt.format(target.amountClp)}
             </p>
           </div>
@@ -444,7 +444,7 @@ export function CellActionPopover({
           {success && (
             <div className="mb-2 flex items-center gap-2 px-3 py-2 rounded-ds-md bg-status-ok-soft border border-status-ok-fg/20">
               <CheckCircle2 className="h-4 w-4 text-status-ok-fg shrink-0" />
-              <p className="text-[13px] text-status-ok-fg font-medium">{success}</p>
+              <p className="text-ds-body text-status-ok-fg font-medium">{success}</p>
             </div>
           )}
 
@@ -452,7 +452,7 @@ export function CellActionPopover({
           {error && !conflict && (
             <div className="mb-2 flex items-start gap-2 px-3 py-2 rounded-ds-md bg-status-warn-soft border border-status-warn-fg/20">
               <AlertCircle className="h-4 w-4 text-status-warn-fg shrink-0 mt-0.5" />
-              <p className="text-[13px] text-status-warn-fg">{error}</p>
+              <p className="text-ds-body text-status-warn-fg">{error}</p>
             </div>
           )}
 
@@ -473,7 +473,7 @@ export function CellActionPopover({
               {error && (
                 <div className="flex items-start gap-2 px-3 py-2 rounded-ds-md bg-status-warn-soft border border-status-warn-fg/20">
                   <AlertCircle className="h-4 w-4 text-status-warn-fg shrink-0 mt-0.5" />
-                  <p className="text-[13px] text-status-warn-fg">{error}</p>
+                  <p className="text-ds-body text-status-warn-fg">{error}</p>
                 </div>
               )}
             </div>
@@ -496,12 +496,12 @@ export function CellActionPopover({
                 variant="outline"
                 onClick={() => setPickingDate(false)}
                 disabled={busy !== null}
-                className="w-full h-11 sm:h-10 text-[13px]"
+                className="w-full h-11 sm:h-10 text-ds-body"
               >
                 Cancelar
               </Button>
               {busy === "date" && (
-                <div className="flex items-center justify-center gap-2 text-[13px] text-ds-text-3">
+                <div className="flex items-center justify-center gap-2 text-ds-body text-ds-text-3">
                   <Loader2 className="h-4 w-4 animate-spin" /> Moviendo…
                 </div>
               )}
@@ -511,7 +511,7 @@ export function CellActionPopover({
               <div className="flex items-start gap-2 px-1">
                 <Trash2 className="h-5 w-5 text-status-error-fg shrink-0 mt-0.5" />
                 <div>
-                  <p className="text-[13px] font-semibold text-ds-text-1">
+                  <p className="text-ds-body font-semibold text-ds-text-1">
                     Ocultar del flujo
                   </p>
                   <p className="text-[12px] text-ds-text-3 mt-0.5">
@@ -527,14 +527,14 @@ export function CellActionPopover({
                   variant="outline"
                   onClick={() => setConfirmingCancel(false)}
                   disabled={busy !== null}
-                  className="flex-1 h-11 sm:h-10 text-[13px]"
+                  className="flex-1 h-11 sm:h-10 text-ds-body"
                 >
                   Cancelar
                 </Button>
                 <Button
                   onClick={cancelOccurrence}
                   disabled={busy !== null}
-                  className="flex-1 h-11 sm:h-10 text-[13px] bg-status-error-fg text-background hover:bg-status-error-fg/90"
+                  className="flex-1 h-11 sm:h-10 text-ds-body bg-status-error-fg text-background hover:bg-status-error-fg/90"
                 >
                   {busy === "cancel" ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -549,7 +549,7 @@ export function CellActionPopover({
               <div className="flex items-start gap-2 px-1">
                 <CircleSlash className="h-5 w-5 text-status-warn-fg shrink-0 mt-0.5" />
                 <div>
-                  <p className="text-[13px] font-semibold text-ds-text-1">
+                  <p className="text-ds-body font-semibold text-ds-text-1">
                     Terminar este ítem
                   </p>
                   <p className="text-[12px] text-ds-text-3 mt-0.5">
@@ -565,14 +565,14 @@ export function CellActionPopover({
                   variant="outline"
                   onClick={() => setConfirmingEnd(false)}
                   disabled={busy !== null}
-                  className="flex-1 h-11 sm:h-10 text-[13px]"
+                  className="flex-1 h-11 sm:h-10 text-ds-body"
                 >
                   Cancelar
                 </Button>
                 <Button
                   onClick={endRecurrenceFromHere}
                   disabled={busy !== null}
-                  className="flex-1 h-11 sm:h-10 text-[13px] bg-status-warn-fg text-background hover:bg-status-warn-fg/90"
+                  className="flex-1 h-11 sm:h-10 text-ds-body bg-status-warn-fg text-background hover:bg-status-warn-fg/90"
                 >
                   {busy === "end" ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -608,14 +608,14 @@ export function CellActionPopover({
                   variant="outline"
                   onClick={() => setEditing(false)}
                   disabled={busy !== null}
-                  className="flex-1 h-11 sm:h-10 text-[13px]"
+                  className="flex-1 h-11 sm:h-10 text-ds-body"
                 >
                   Cancelar
                 </Button>
                 <Button
                   onClick={saveAmount}
                   disabled={busy !== null}
-                  className="flex-1 h-11 sm:h-10 text-[13px]"
+                  className="flex-1 h-11 sm:h-10 text-ds-body"
                 >
                   {busy === "amount" ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -728,7 +728,7 @@ export function CellActionPopover({
                 )}
               </div>
               {busy === "shift" && (
-                <div className="flex items-center justify-center gap-2 text-[13px] text-ds-text-3">
+                <div className="flex items-center justify-center gap-2 text-ds-body text-ds-text-3">
                   <Loader2 className="h-4 w-4 animate-spin" /> Moviendo…
                 </div>
               )}
@@ -807,7 +807,7 @@ function DtesSection({
               }`}
             >
               <div className="flex items-baseline gap-2 mb-0.5">
-                <span className="text-[13px] font-semibold text-ds-text-1">
+                <span className="text-ds-body font-semibold text-ds-text-1">
                   {d.folio ? `#${d.folio}` : "(borrador sin folio)"}
                 </span>
                 <CellStatusPill variant={variant} compact />

@@ -19,7 +19,7 @@ const HOUR_HEIGHTS: HourHeightPreset[] = [44, 60, 84];
 const STEPS: StepMinutes[] = [5, 15, 30];
 
 const SELECT =
-  "h-9 w-full rounded-xl border border-ds-border-default bg-ds-surface-1 px-2.5 text-[13px] text-ds-text-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40";
+  "h-9 w-full rounded-xl border border-ds-border-default bg-ds-surface-1 px-2.5 text-ds-body text-ds-text-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40";
 const CHECK =
   "h-4 w-4 rounded border-ds-border-default text-primary focus-visible:ring-2 focus-visible:ring-primary/40";
 
@@ -100,7 +100,7 @@ export function AgendaPrefsPopover({ prefs, onChange, buttonClass }: Props) {
 
         <fieldset className="space-y-2">
           <legend className="text-[12px] font-medium text-ds-text-4">Densidad</legend>
-          <label className="flex min-h-9 items-center gap-2 text-[13px] text-ds-text-2">
+          <label className="flex min-h-9 items-center gap-2 text-ds-body text-ds-text-2">
             <input
               type="checkbox"
               className={CHECK}
@@ -147,7 +147,7 @@ export function AgendaPrefsPopover({ prefs, onChange, buttonClass }: Props) {
 
         <fieldset className="space-y-2">
           <legend className="text-[12px] font-medium text-ds-text-4">Líneas</legend>
-          <label className="flex min-h-9 items-center gap-2 text-[13px] text-ds-text-2">
+          <label className="flex min-h-9 items-center gap-2 text-ds-body text-ds-text-2">
             <input
               type="checkbox"
               className={CHECK}
@@ -156,7 +156,7 @@ export function AgendaPrefsPopover({ prefs, onChange, buttonClass }: Props) {
             />
             Línea de media hora
           </label>
-          <label className="flex min-h-9 items-center gap-2 text-[13px] text-ds-text-2">
+          <label className="flex min-h-9 items-center gap-2 text-ds-body text-ds-text-2">
             <input
               type="checkbox"
               className={CHECK}
@@ -180,7 +180,7 @@ export function AgendaPrefsPopover({ prefs, onChange, buttonClass }: Props) {
               <option value={0}>Domingo</option>
             </select>
           </label>
-          <label className="flex min-h-9 items-center gap-2 text-[13px] text-ds-text-2">
+          <label className="flex min-h-9 items-center gap-2 text-ds-body text-ds-text-2">
             <input
               type="checkbox"
               className={CHECK}
@@ -193,7 +193,7 @@ export function AgendaPrefsPopover({ prefs, onChange, buttonClass }: Props) {
 
         <fieldset className="space-y-2">
           <legend className="text-[12px] font-medium text-ds-text-4">Contenido</legend>
-          <label className="flex min-h-9 items-center gap-2 text-[13px] text-ds-text-2">
+          <label className="flex min-h-9 items-center gap-2 text-ds-body text-ds-text-2">
             <input
               type="checkbox"
               className={CHECK}
@@ -202,7 +202,7 @@ export function AgendaPrefsPopover({ prefs, onChange, buttonClass }: Props) {
             />
             Mostrar tareas
           </label>
-          <label className="flex min-h-9 items-center gap-2 text-[13px] text-ds-text-2">
+          <label className="flex min-h-9 items-center gap-2 text-ds-body text-ds-text-2">
             <input
               type="checkbox"
               className={CHECK}

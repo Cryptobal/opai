@@ -106,7 +106,7 @@ export function ModuleSearchOverlay({
           <input
             ref={inputRef}
             id="module-search-input"
-            className="h-11 w-full rounded-xl bg-ds-surface-2 pl-9 pr-10 text-[13px] text-ds-text-1 outline-none placeholder:text-ds-text-4 sm:h-10"
+            className="h-11 w-full rounded-xl bg-ds-surface-2 pl-9 pr-10 text-ds-body text-ds-text-1 outline-none placeholder:text-ds-text-4 sm:h-10"
             placeholder={search.placeholder}
             value={search.value}
             maxLength={MAX_SEARCH_LENGTH}

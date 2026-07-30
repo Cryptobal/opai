@@ -352,7 +352,7 @@ export function AgendaDesktop({
       {(googleStatus === "missing_scope" ||
         googleStatus === "insufficient_scopes" ||
         googleStatus === "error") && (
-        <div className="mb-2 flex shrink-0 items-center justify-between gap-3 rounded-xl border border-status-warn-border bg-status-warn-soft px-3 py-1.5 text-[13px] text-status-warn-fg">
+        <div className="mb-2 flex shrink-0 items-center justify-between gap-3 rounded-xl border border-status-warn-border bg-status-warn-soft px-3 py-1.5 text-ds-body text-status-warn-fg">
           <span>
             {googleStatus === "error"
               ? "No pudimos leer tu Google Calendar (token expirado o revocado)."

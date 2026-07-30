@@ -70,7 +70,7 @@ export function AgendaHubUpcomingList({
 
   if (upcoming.length === 0) {
     return (
-      <p className={cn("text-[13px] text-ds-text-3", className)}>
+      <p className={cn("text-ds-body text-ds-text-3", className)}>
         Sin eventos próximos.
       </p>
     );
@@ -85,7 +85,7 @@ export function AgendaHubUpcomingList({
               {dayLabel(item, todayKey)}
             </span>
             <span className="min-w-0 flex-1">
-              <span className="block min-w-0 truncate text-[13px] font-medium text-ds-text-1">
+              <span className="block min-w-0 truncate text-ds-body font-medium text-ds-text-1">
                 {item.title}
               </span>
               <span className="block min-w-0 truncate text-[12px] text-ds-text-4">

@@ -166,7 +166,7 @@ export function CorreoAiCoverageTable({ proposal, onChange, onRecalc }: Props) {
   return (
     <div className="space-y-3">
       {proposal.coverageIsRequirementNotStaffing && (
-        <div className="rounded-xl border border-status-warn-border bg-status-warn-soft px-3 py-2 text-[13px] text-status-warn-fg">
+        <div className="rounded-xl border border-status-warn-border bg-status-warn-soft px-3 py-2 text-ds-body text-status-warn-fg">
           Cobertura ≠ dotación: el documento pide cobertura simultánea; la dotación se calculó en servidor.
         </div>
       )}
@@ -202,7 +202,7 @@ export function CorreoAiCoverageTable({ proposal, onChange, onRecalc }: Props) {
                         className={`${FIELD} w-full font-medium text-ds-text-1`}
                       />
                     ) : (
-                      <p className="font-medium text-[13px] text-ds-text-1">
+                      <p className="font-medium text-ds-body text-ds-text-1">
                         {r.slot.name || "—"}
                       </p>
                     )}
@@ -238,7 +238,7 @@ export function CorreoAiCoverageTable({ proposal, onChange, onRecalc }: Props) {
                         ]}
                       />
                     ) : (
-                      <p className="text-[13px] text-ds-text-2">{r.slot.regimen ?? "—"}</p>
+                      <p className="text-ds-body text-ds-text-2">{r.slot.regimen ?? "—"}</p>
                     )}
                   </label>
 
@@ -256,7 +256,7 @@ export function CorreoAiCoverageTable({ proposal, onChange, onRecalc }: Props) {
                         >
                           <Minus className="h-3.5 w-3.5" />
                         </button>
-                        <span className="min-w-[1.5rem] text-center text-[13px] tabular-nums font-medium text-ds-text-1">
+                        <span className="min-w-[1.5rem] text-center text-ds-body tabular-nums font-medium text-ds-text-1">
                           {r.slot.simultaneous}
                         </span>
                         <button
@@ -269,7 +269,7 @@ export function CorreoAiCoverageTable({ proposal, onChange, onRecalc }: Props) {
                         </button>
                       </div>
                     ) : (
-                      <p className="text-[13px] tabular-nums text-ds-text-2">{r.slot.simultaneous}</p>
+                      <p className="text-ds-body tabular-nums text-ds-text-2">{r.slot.simultaneous}</p>
                     )}
                   </label>
 
@@ -285,7 +285,7 @@ export function CorreoAiCoverageTable({ proposal, onChange, onRecalc }: Props) {
                         options={HOURS_24.map((t0) => ({ value: t0, label: t0 }))}
                       />
                     ) : (
-                      <p className="font-mono text-[13px] text-ds-text-2">{r.slot.horaInicio}</p>
+                      <p className="font-mono text-ds-body text-ds-text-2">{r.slot.horaInicio}</p>
                     )}
                   </label>
 
@@ -301,7 +301,7 @@ export function CorreoAiCoverageTable({ proposal, onChange, onRecalc }: Props) {
                         options={HOURS_24.map((t0) => ({ value: t0, label: t0 }))}
                       />
                     ) : (
-                      <p className="font-mono text-[13px] text-ds-text-2">{r.slot.horaFin}</p>
+                      <p className="font-mono text-ds-body text-ds-text-2">{r.slot.horaFin}</p>
                     )}
                   </label>
                 </div>
@@ -392,14 +392,14 @@ export function CorreoAiCoverageTable({ proposal, onChange, onRecalc }: Props) {
           })}
         </div>
       ) : (
-        <p className="text-[13px] text-ds-text-3">Sin puestos de cobertura en la propuesta.</p>
+        <p className="text-ds-body text-ds-text-3">Sin puestos de cobertura en la propuesta.</p>
       )}
 
       {editable && proposal.installations.length > 0 && (
         <button
           type="button"
           onClick={() => addSlot(0)}
-          className="flex h-10 items-center gap-1.5 rounded-lg border border-dashed border-ds-border-default px-3 text-[13px] text-ds-text-3 ds-tap hover:border-primary hover:text-primary sm:h-9"
+          className="flex h-10 items-center gap-1.5 rounded-lg border border-dashed border-ds-border-default px-3 text-ds-body text-ds-text-3 ds-tap hover:border-primary hover:text-primary sm:h-9"
         >
           <Plus className="h-4 w-4" /> Agregar puesto
         </button>

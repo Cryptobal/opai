@@ -203,7 +203,7 @@ export function BankAnalysisClient({ accounts }: BankAnalysisClientProps) {
           >
             <SlidersHorizontal className="h-4 w-4 text-muted-foreground shrink-0" />
             <div className="min-w-0 flex-1">
-              <p className="text-[13px] font-medium truncate">{selectedAccountLabel}</p>
+              <p className="text-ds-body font-medium truncate">{selectedAccountLabel}</p>
               <p className="text-[11px] text-muted-foreground truncate">
                 {dateFrom || dateTo ? `${dateFrom || "…"} → ${dateTo || "…"}` : "Sin rango"}
                 {` · ${groupByLabel}`}

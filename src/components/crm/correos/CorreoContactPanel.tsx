@@ -34,7 +34,7 @@ export function CorreoContactPanel({ threadId: _threadId }: { threadId: string }
       <div className="flex flex-wrap items-center gap-2">
         <Link
           href={`/crm/contacts/${contact.id}`}
-          className="text-[13px] font-semibold text-ds-text-1 underline-offset-2 hover:underline"
+          className="text-ds-body font-semibold text-ds-text-1 underline-offset-2 hover:underline"
         >
           {contact.name}
         </Link>
@@ -86,7 +86,7 @@ export function CorreoContactPanel({ threadId: _threadId }: { threadId: string }
               <li key={t.id}>
                 <Link
                   href={`/crm/correos?thread=${t.id}`}
-                  className="block truncate text-[13px] text-ds-text-2 underline-offset-2 hover:underline"
+                  className="block truncate text-ds-body text-ds-text-2 underline-offset-2 hover:underline"
                 >
                   {t.subject || "(sin asunto)"}
                   {t.lastMessageAt && (

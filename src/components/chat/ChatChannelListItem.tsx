@@ -199,7 +199,7 @@ export function ChatChannelListItem({
         {/* Avatar tipado */}
         <div
           className={cn(
-            "shrink-0 flex h-[34px] w-[34px] items-center justify-center rounded-[10px] text-[13px] font-bold",
+            "shrink-0 flex h-[34px] w-[34px] items-center justify-center rounded-[10px] text-ds-body font-bold",
             groupColor ? "text-primary-foreground" : avatarClasses(channel),
           )}
           style={groupColor ? { backgroundColor: groupColor } : undefined}
@@ -211,7 +211,7 @@ export function ChatChannelListItem({
           <div className="flex items-center gap-1.5 min-w-0">
             <span
               className={cn(
-                "text-[13px] truncate min-w-0",
+                "text-ds-body truncate min-w-0",
                 hasUnread
                   ? "font-semibold text-ds-text-1"
                   : "font-normal text-ds-text-2"

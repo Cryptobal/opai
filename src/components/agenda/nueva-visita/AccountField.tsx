@@ -5,7 +5,7 @@ import { Search, X } from "lucide-react";
 import type { AccountOption } from "./types";
 
 const INPUT =
-  "h-10 w-full rounded-xl border border-ds-border-default bg-ds-surface-1 px-3 text-[13px] sm:h-9";
+  "h-10 w-full rounded-xl border border-ds-border-default bg-ds-surface-1 px-3 text-ds-body sm:h-9";
 
 export function AccountField({
   value,
@@ -48,7 +48,7 @@ export function AccountField({
     return (
       <div className="flex items-center justify-between gap-2 rounded-xl border border-ds-border-default bg-ds-surface-1 px-3 py-2">
         <div className="min-w-0">
-          <p className="truncate text-[13px] font-medium text-ds-text-1">{value.name}</p>
+          <p className="truncate text-ds-body font-medium text-ds-text-1">{value.name}</p>
           {value.rut && <p className="truncate text-[12px] text-ds-text-4">{value.rut}</p>}
         </div>
         <button
@@ -97,7 +97,7 @@ export function AccountField({
                 onClick={() => onSelect(a)}
                 className="flex w-full flex-col items-start px-3 py-2 text-left ds-tap hover:bg-ds-surface-2"
               >
-                <span className="text-[13px] text-ds-text-1">{a.name}</span>
+                <span className="text-ds-body text-ds-text-1">{a.name}</span>
                 {a.rut && <span className="text-[12px] text-ds-text-4">{a.rut}</span>}
               </button>
             </li>

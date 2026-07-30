@@ -31,7 +31,7 @@ export function DriveConnectionCard({
           </div>
           <div>
             <p className="font-display text-base font-semibold text-ds-text-1">Google Drive</p>
-            <p className="text-[13px] text-ds-text-3">
+            <p className="text-ds-body text-ds-text-3">
               {connected ? googleEmail : DISCONNECTED_COPY}
             </p>
           </div>
