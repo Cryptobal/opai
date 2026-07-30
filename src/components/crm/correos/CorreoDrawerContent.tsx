@@ -11,7 +11,6 @@ import { CorreoSystemLabels } from "./CorreoSystemLabels";
 import { CorreoReaderTitleBlock } from "./CorreoReaderTitleBlock";
 import { CorreoReaderOverflowMenu } from "./CorreoReaderOverflowMenu";
 import { CorreoCopilotBanner } from "./CorreoCopilotBanner";
-import { CorreoWorkPanel } from "./CorreoWorkPanel";
 import { CorreoWorkProvider } from "./CorreoWorkContext";
 import { CorreoTasksStrip } from "./CorreoTasksStrip";
 import { CorreoContextChain } from "./CorreoContextChain";
@@ -19,7 +18,6 @@ import { copilotoAttentionReasons } from "./correo-copiloto-reasons";
 import { useCorreoSuggestedAccounts } from "./useCorreoSuggestedAccounts";
 import { resolveWorkTab, type WorkTab } from "./work-panel-tabs";
 import type { CorreoDetail } from "@/modules/crm/email/correos.types";
-import type { CorreoAiCommandId } from "@/modules/crm/email/correo-ai-commands";
 import type { CorreoShortcuts } from "./useCorreosViewPreferences";
 import { runCorreoAction } from "./correo-thread-action-client";
 import { nextIntentNonce, type ComposeIntent } from "./correo-reader-intent";
@@ -31,8 +29,6 @@ type Props = {
   initialMessageId?: string | null;
   mailboxEmail?: string | null;
   canModify?: boolean;
-  onOpenAiLead: () => void;
-  onAiCommand?: (commandId: CorreoAiCommandId) => void;
   onAssociate: (p: {
     accountId: string | null;
     dealId: string | null;
@@ -50,11 +46,9 @@ type Props = {
   alwaysShowImages?: boolean;
   onAlwaysShowImages?: () => void;
   shortcuts?: CorreoShortcuts;
-  /** Abrir panel en una pestaña (menú contextual / deep-link). */
-  workTabIntent?: { tab: WorkTab; nonce: number } | null;
+  /** Abrir Copiloto (estado vive en CorreoDrawer para sobrevivir cambio de hilo). */
+  onOpenWorkPanel: (tab: WorkTab) => void;
   composeIntent?: ComposeIntent | null;
-  /** Cursor de lectura capturado al abrir (antes del markRead). */
-  readCursorAt?: string | null;
   /** Token del drawer: refresca el contexto del panel de trabajo. */
   dataRevision?: number;
   onOpenAiStyle?: () => void;
@@ -72,8 +66,6 @@ export function CorreoDrawerContent({
   initialMessageId = null,
   mailboxEmail,
   canModify,
-  onOpenAiLead,
-  onAiCommand,
   onAssociate,
   onRefresh,
   onClose,
@@ -86,9 +78,8 @@ export function CorreoDrawerContent({
   alwaysShowImages,
   onAlwaysShowImages,
   shortcuts,
-  workTabIntent = null,
+  onOpenWorkPanel,
   composeIntent = null,
-  readCursorAt = null,
   dataRevision = 0,
   onOpenAiStyle,
   onOpenSignature,
@@ -98,7 +89,6 @@ export function CorreoDrawerContent({
   const t = detail.thread;
   const perms = useEffectivePermissions();
   const canEditCorreos = canEdit(perms, "crm", "correos");
-  const [panel, setPanel] = useState<{ tab: WorkTab } | null>(null);
   // Descartar el banner de Copiloto es efímero por sesión de hilo.
   const [copilotDismissed, setCopilotDismissed] = useState(false);
   const [continueDraftIntent, setContinueDraftIntent] = useState<{
@@ -114,17 +104,10 @@ export function CorreoDrawerContent({
   const suggestions = useCorreoSuggestedAccounts(t.id, t.accountId == null);
 
   useEffect(() => {
-    if (!workTabIntent) return;
-    setPanel({ tab: resolveWorkTab(workTabIntent.tab) });
-    // nonce garantiza re-apertura aunque sea la misma pestaña.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [workTabIntent?.nonce]);
-
-  useEffect(() => {
     setCopilotDismissed(false);
   }, [t.id]);
 
-  const openPanel = (tab: WorkTab) => setPanel({ tab: resolveWorkTab(tab) });
+  const openPanel = (tab: WorkTab) => onOpenWorkPanel(resolveWorkTab(tab));
 
   return (
     <CorreoWorkProvider
@@ -321,21 +304,6 @@ export function CorreoDrawerContent({
           />
         </div>
 
-        <CorreoWorkPanel
-          open={panel !== null}
-          initialTab={panel?.tab ?? "contexto"}
-          detail={detail}
-          readCursorAt={readCursorAt}
-          workTabIntent={workTabIntent}
-          onOpenAiLead={onOpenAiLead}
-          onAiCommand={onAiCommand}
-          onAssociate={onAssociate}
-          onRefresh={onRefresh}
-          onRequestReply={onRequestReply ?? onReply}
-          onClose={() => {
-            setPanel(null);
-          }}
-        />
       </div>
     </CorreoWorkProvider>
   );

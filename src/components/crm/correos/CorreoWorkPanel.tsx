@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { LayoutGrid, X } from "lucide-react";
 import { hasModuleAccess } from "@/lib/permissions";
@@ -12,9 +12,12 @@ import { CorreoMeetingPanel } from "./CorreoMeetingPanel";
 import { CorreoWorkSummary } from "./CorreoWorkSummary";
 import { CorreoAttachmentsSheet } from "./CorreoAttachmentsSheet";
 import { CorreoReaderOverlayContext } from "./CorreoReaderOverlayContext";
+import { CORREO_COPILOT_DOCK_WIDTH_VAR } from "./correo-copilot-dock";
 import { WORK_TABS, resolveWorkTab, type WorkTab } from "./work-panel-tabs";
 import type { CorreoDetail } from "@/modules/crm/email/correos.types";
 import type { CorreoAiCommandId } from "@/modules/crm/email/correo-ai-commands";
+
+const WORK_PANEL_DOCK_WIDTH = 430;
 
 type Props = {
   open: boolean;
@@ -35,8 +38,9 @@ type Props = {
 };
 
 /**
- * Copiloto v4: 2 pestañas (Contexto / Trabajo). El CorreoWorkProvider vive
- * arriba (CorreoDrawerContent) — este panel solo consume el contexto.
+ * Copiloto v4: 2 pestañas (Contexto / Trabajo). En desktop es un dock
+ * persistente (sin scrim) para poder seguir navegando la bandeja; en mobile
+ * sigue siendo bottom-sheet con backdrop.
  */
 export function CorreoWorkPanel({
   open,
@@ -70,6 +74,31 @@ export function CorreoWorkPanel({
     setTab(resolveWorkTab(workTabIntent.tab));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [workTabIntent?.nonce, open]);
+
+  // Dock desktop: reserva espacio en el layout (misma var que Plan de acciones).
+  useLayoutEffect(() => {
+    if (typeof document === "undefined") return;
+    const root = document.documentElement;
+    if (!open) {
+      root.style.removeProperty(CORREO_COPILOT_DOCK_WIDTH_VAR);
+      return;
+    }
+    const apply = () => {
+      const desktop = window.matchMedia("(min-width: 1024px)").matches;
+      if (desktop) {
+        root.style.setProperty(CORREO_COPILOT_DOCK_WIDTH_VAR, `${WORK_PANEL_DOCK_WIDTH}px`);
+      } else {
+        root.style.removeProperty(CORREO_COPILOT_DOCK_WIDTH_VAR);
+      }
+    };
+    apply();
+    const mq = window.matchMedia("(min-width: 1024px)");
+    mq.addEventListener("change", apply);
+    return () => {
+      mq.removeEventListener("change", apply);
+      root.style.removeProperty(CORREO_COPILOT_DOCK_WIDTH_VAR);
+    };
+  }, [open]);
 
   const requestClose = () => {
     if (closing) return;
@@ -124,24 +153,24 @@ export function CorreoWorkPanel({
   }
 
   return createPortal(
-    <div
-      className="fixed inset-0 z-[55] flex justify-end bg-black/40 max-lg:items-end"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) requestClose();
-      }}
-    >
+    <>
+      {/* Scrim solo mobile — en desktop el dock no oscurece ni bloquea la bandeja. */}
+      <div
+        className="fixed inset-0 z-[54] bg-black/40 lg:hidden"
+        onClick={requestClose}
+        aria-hidden
+      />
       <div
         ref={sheetRef}
         role="dialog"
-        aria-modal
+        aria-modal="false"
         aria-label="Copiloto"
-        className="pointer-events-auto flex h-full w-full flex-col overflow-hidden border-ds-border-default bg-ds-surface-1 shadow-2xl sm:w-[430px] sm:border-l max-lg:mt-auto max-lg:h-[90dvh] max-lg:max-h-[90dvh] max-lg:rounded-t-2xl max-lg:border-t"
+        className="fixed z-[55] flex flex-col overflow-hidden border-ds-border-default bg-ds-surface-1 max-lg:inset-x-0 max-lg:bottom-0 max-lg:mt-auto max-lg:h-[90dvh] max-lg:max-h-[90dvh] max-lg:w-full max-lg:rounded-t-2xl max-lg:border-t max-lg:shadow-2xl lg:top-0 lg:right-0 lg:h-full lg:w-[430px] lg:border-l lg:shadow-[-8px_0_30px_-12px_rgba(0,0,0,0.25)]"
         style={
           closing
             ? { transition: "transform 180ms ease-out" }
             : undefined
         }
-        onClick={(e) => e.stopPropagation()}
       >
         <button
           type="button"
@@ -247,7 +276,7 @@ export function CorreoWorkPanel({
           onRequestAssociate={() => selectTab("contexto")}
         />
       </CorreoReaderOverlayContext.Provider>
-    </div>,
+    </>,
     document.body,
   );
 }

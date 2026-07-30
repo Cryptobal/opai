@@ -45,15 +45,13 @@ import { PlanTaskForm } from "./plan/forms/PlanTaskForm";
 import { PlanQuoteForm } from "./plan/forms/PlanQuoteForm";
 import { PlanMilestonesForm } from "./plan/forms/PlanMilestonesForm";
 import { PlanPresets } from "./plan/PlanPresets";
+import { CORREO_COPILOT_DOCK_WIDTH_VAR } from "./correo-copilot-dock";
 
 const PLAN_SHEET_WIDTH_KEY = "opai-plan-acciones-width";
 const PLAN_SHEET_DEFAULT = 452;
 const PLAN_SHEET_MIN = 380;
 const PLAN_SHEET_MAX = 820;
 const PLAN_SHEET_STEP = 24;
-
-/** Reserva espacio en el layout de correos mientras el dock desktop está abierto. */
-export const CORREO_COPILOT_DOCK_WIDTH_VAR = "--correo-copilot-dock-width";
 
 function clampPlanSheetWidth(width: number, viewport = 1280): number {
   const max = Math.min(PLAN_SHEET_MAX, Math.floor(viewport * 0.85));

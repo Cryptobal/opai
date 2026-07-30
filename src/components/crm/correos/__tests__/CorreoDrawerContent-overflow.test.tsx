@@ -56,10 +56,6 @@ vi.mock("../CorreoReplyBox", () => ({
   CorreoReplyBox: () => <div data-testid="reply" />,
 }));
 
-vi.mock("../CorreoWorkPanel", () => ({
-  CorreoWorkPanel: () => null,
-}));
-
 vi.mock("../CorreoThreadActions", () => ({
   CorreoThreadActions: () => null,
 }));
@@ -112,7 +108,7 @@ describe("CorreoDrawerContent overflow menu", () => {
     render(
       <CorreoDrawerContent
         detail={detail}
-        onOpenAiLead={() => {}}
+        onOpenWorkPanel={() => {}}
         onAssociate={() => {}}
         onRefresh={() => {}}
         onOpenSignature={() => {}}
