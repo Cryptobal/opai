@@ -35,6 +35,10 @@ import {
   FileInput,
   FileOutput,
   Settings,
+  Mail,
+  CheckSquare,
+  Ticket,
+  Bot,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useIsIOS } from '@/hooks/usePlatform';
@@ -43,6 +47,14 @@ import { useCommandPalette } from './use-command-palette';
 import { defaultCommands, ICON_MAP, CATEGORY_LABELS } from './commands';
 import { useIsMobile } from '@/lib/pwa/use-is-mobile';
 import { normalizeForSearch } from '@/lib/search-normalize-pure';
+import { dispatchAiCommand } from '@/lib/ai/ai-command-event';
+import {
+  AI_SHORTCUT_CHANGED_EVENT,
+  formatCombo,
+  readAiShortcutConfig,
+  type AiShortcutConfig,
+} from '@/lib/ai/ai-shortcut';
+import { setPaletteBridgeState } from './palette-bridge';
 
 // ── Fuzzy matching ──
 // Acento-insensible: normaliza ambos lados con NFD + strip de diacríticos
@@ -116,9 +128,12 @@ type SearchResultType =
   | 'lead' | 'account' | 'contact' | 'deal' | 'quote'
   | 'installation' | 'guardia' | 'document' | 'pauta_mensual' | 'channel'
   | 'inventory_product' | 'inventory_asset' | 'inventory_phone_line'
-  | 'dte_issued' | 'dte_received' | 'config_page';
+  | 'dte_issued' | 'dte_received' | 'config_page'
+  | 'email_thread' | 'calendar_event' | 'task' | 'ticket';
 
-type SearchResultGroup = 'crm' | 'ops' | 'docs' | 'chat' | 'inventory' | 'finance' | 'config';
+type SearchResultGroup =
+  | 'crm' | 'ops' | 'docs' | 'chat' | 'inventory' | 'finance' | 'config'
+  | 'correos' | 'agenda' | 'tareas' | 'tickets';
 
 type ApiSearchResult = {
   id: string;
@@ -131,6 +146,7 @@ type ApiSearchResult = {
   badgeClass?: string;
   imageUrl?: string;
   pinDisplay?: string;
+  meta?: string;
 };
 
 // ── Paleta única por TIPO de resultado ──
@@ -160,10 +176,19 @@ const SEARCH_TYPE_CONFIG: Record<SearchResultType, { icon: typeof Users; color: 
   dte_received:          { icon: FileInput,    color: 'text-status-warn-fg',  bgColor: 'bg-status-warn-soft', label: 'DTE Recibido' },
   // Configuración — páginas/acciones
   config_page:           { icon: Settings,     color: 'text-muted-foreground', bgColor: 'bg-muted',           label: 'Configuración' },
+  // Productividad / tickets
+  email_thread:          { icon: Mail,         color: 'text-tint-sky-fg',     bgColor: 'bg-tint-sky',         label: 'Correo' },
+  calendar_event:        { icon: CalendarDays, color: 'text-tint-violet-fg',  bgColor: 'bg-tint-violet',      label: 'Evento' },
+  task:                  { icon: CheckSquare,  color: 'text-tint-teal-fg',    bgColor: 'bg-tint-teal',        label: 'Tarea' },
+  ticket:                { icon: Ticket,       color: 'text-tint-rose-fg',    bgColor: 'bg-tint-rose',        label: 'Ticket' },
 };
 
 const GROUP_CATEGORY: Record<SearchResultGroup, CommandCategory> = {
   crm:       'search_crm',
+  correos:   'search_correos',
+  agenda:    'search_agenda',
+  tareas:    'search_tareas',
+  tickets:   'search_tickets',
   ops:       'search_ops',
   docs:      'search_docs',
   chat:      'search_chat',
@@ -171,6 +196,26 @@ const GROUP_CATEGORY: Record<SearchResultGroup, CommandCategory> = {
   finance:   'search_finance',
   config:    'search_config',
 };
+
+type SearchScope = 'all' | 'crm' | 'correos' | 'agenda' | 'tareas' | 'tickets';
+
+const SCOPE_TABS: { id: SearchScope; label: string; category?: CommandCategory }[] = [
+  { id: 'all', label: 'Todo' },
+  { id: 'crm', label: 'CRM', category: 'search_crm' },
+  { id: 'correos', label: 'Correos', category: 'search_correos' },
+  { id: 'agenda', label: 'Agenda', category: 'search_agenda' },
+  { id: 'tareas', label: 'Tareas', category: 'search_tareas' },
+  { id: 'tickets', label: 'Tickets', category: 'search_tickets' },
+];
+
+/** En alcance "Todo", tope por grupo nuevo (correos/agenda/tareas/tickets). */
+const TODO_NEW_GROUP_CAP = 4;
+const NEW_SEARCH_CATEGORIES = new Set<CommandCategory>([
+  'search_correos',
+  'search_agenda',
+  'search_tareas',
+  'search_tickets',
+]);
 
 // ── Paleta por categoría de COMANDO (recent/navigation/action/config) ──
 // Para que cada item de navegación tenga color en base al módulo destino.
@@ -222,10 +267,77 @@ export function CommandPalette({ userRole, onOpenChat }: CommandPaletteProps) {
   const { isOpen, close, addRecent, getRecents, externalCommands, initialQuery } = useCommandPalette();
   const [query, setQuery] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
-  const [apiResults, setApiResults] = useState<ApiSearchResult[]>([]);
-  const [apiLoading, setApiLoading] = useState(false);
+  const [coreResults, setCoreResults] = useState<ApiSearchResult[]>([]);
+  const [correosResults, setCorreosResults] = useState<ApiSearchResult[]>([]);
+  const [coreLoading, setCoreLoading] = useState(false);
+  const [correosLoading, setCorreosLoading] = useState(false);
+  const [searchElapsedMs, setSearchElapsedMs] = useState<number | null>(null);
+  const [scope, setScope] = useState<SearchScope>('all');
+  const [aiShortcut, setAiShortcut] = useState<AiShortcutConfig>(() =>
+    typeof window === 'undefined'
+      ? { enabled: true, combo: { key: 'j', mod: true }, sendQueryAsPrompt: true }
+      : readAiShortcutConfig(),
+  );
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const abortRef = useRef<AbortController | null>(null);
+  const coreAbortRef = useRef<AbortController | null>(null);
+  const correosAbortRef = useRef<AbortController | null>(null);
+  const searchStartedAtRef = useRef<number | null>(null);
+  const activeQueryRef = useRef('');
+
+  const apiResults = useMemo(
+    () => [...coreResults, ...correosResults],
+    [coreResults, correosResults],
+  );
+  const apiLoading = coreLoading || correosLoading;
+
+  useEffect(() => {
+    const sync = () => setAiShortcut(readAiShortcutConfig());
+    sync();
+    window.addEventListener(AI_SHORTCUT_CHANGED_EVENT, sync);
+    return () => window.removeEventListener(AI_SHORTCUT_CHANGED_EVENT, sync);
+  }, []);
+
+  useEffect(() => {
+    setPaletteBridgeState({ isOpen, query });
+    return () => {
+      if (!isOpen) setPaletteBridgeState({ isOpen: false, query: '' });
+    };
+  }, [isOpen, query]);
+
+  const askAiItem = useMemo<CommandItem | null>(() => {
+    const q = query.trim();
+    const shortcutLabel = formatCombo(aiShortcut.combo);
+    if (!q) {
+      return {
+        id: 'action-ask-ai',
+        label: 'Preguntar a la IA',
+        description: 'Abrir el asistente de ayuda',
+        category: 'action',
+        icon: Bot,
+        shortcut: shortcutLabel,
+        action: () => {
+          window.dispatchEvent(new Event('opai-ai-open'));
+        },
+      };
+    }
+    return {
+      id: 'action-ask-ai-query',
+      label: `Preguntar a la IA: "${q}"`,
+      description: aiShortcut.sendQueryAsPrompt
+        ? 'Envía la búsqueda como pregunta al asistente'
+        : 'Abre el asistente con esta búsqueda',
+      category: 'action',
+      icon: Bot,
+      shortcut: shortcutLabel,
+      action: () => {
+        if (aiShortcut.sendQueryAsPrompt) {
+          dispatchAiCommand({ prompt: q, autoSend: true });
+        } else {
+          dispatchAiCommand({ prompt: q, autoSend: false });
+        }
+      },
+    };
+  }, [query, aiShortcut]);
 
   // Merge default + external commands, filter by role
   const allCommands = useMemo(() => {
@@ -257,8 +369,9 @@ export function CommandPalette({ userRole, onOpenChat }: CommandPaletteProps) {
     if (!query.trim()) {
       const suggested = allCommands
         .filter((c) => c.category === 'action')
-        .slice(0, 4);
-      return [...recentItems, ...suggested];
+        .slice(0, 3);
+      const withAi = askAiItem ? [askAiItem, ...suggested] : suggested;
+      return [...recentItems, ...withAi];
     }
 
     const scored = allCommands
@@ -266,8 +379,9 @@ export function CommandPalette({ userRole, onOpenChat }: CommandPaletteProps) {
       .filter(({ score }) => score > 0)
       .sort((a, b) => b.score - a.score);
 
-    return scored.map(({ cmd }) => cmd);
-  }, [query, allCommands, recentItems]);
+    const cmds = scored.map(({ cmd }) => cmd);
+    return askAiItem ? [askAiItem, ...cmds] : cmds;
+  }, [query, allCommands, recentItems, askAiItem]);
 
   // Convert API results to CommandItems
   const searchItems = useMemo<CommandItem[]>(() => {
@@ -286,21 +400,88 @@ export function CommandPalette({ userRole, onOpenChat }: CommandPaletteProps) {
         pinDisplay: r.pinDisplay,
         badgeLabel: r.badgeLabel,
         badgeClass: r.badgeClass,
+        meta: r.meta,
       };
     });
   }, [apiResults, onOpenChat]);
 
-  const allItems = useMemo(() => [...filteredCommands, ...searchItems], [filteredCommands, searchItems]);
+  const scopeCounts = useMemo(() => {
+    const counts: Record<SearchScope, number> = {
+      all: searchItems.length,
+      crm: 0,
+      correos: 0,
+      agenda: 0,
+      tareas: 0,
+      tickets: 0,
+    };
+    for (const item of searchItems) {
+      if (item.category === 'search_crm') counts.crm++;
+      else if (item.category === 'search_correos') counts.correos++;
+      else if (item.category === 'search_agenda') counts.agenda++;
+      else if (item.category === 'search_tareas') counts.tareas++;
+      else if (item.category === 'search_tickets') counts.tickets++;
+    }
+    return counts;
+  }, [searchItems]);
+
+  const visibleScopeTabs = useMemo(() => {
+    return SCOPE_TABS.filter((tab) => {
+      if (tab.id === 'all') return true;
+      // Mostrar tab si hay resultados o si el tier correspondiente aún carga
+      if (tab.id === 'correos') return scopeCounts.correos > 0 || correosLoading || query.trim().length >= 2;
+      return scopeCounts[tab.id] > 0 || (coreLoading && query.trim().length >= 2);
+    });
+  }, [scopeCounts, correosLoading, coreLoading, query]);
+
+  const scopedSearchItems = useMemo(() => {
+    if (scope === 'all') return searchItems;
+    const cat = SCOPE_TABS.find((t) => t.id === scope)?.category;
+    if (!cat) return searchItems;
+    return searchItems.filter((item) => item.category === cat);
+  }, [searchItems, scope]);
+
+  const allItems = useMemo(() => {
+    // En alcance específico, solo resultados de búsqueda (+ fila IA si hay query)
+    if (scope !== 'all' && query.trim()) {
+      return askAiItem ? [askAiItem, ...scopedSearchItems] : scopedSearchItems;
+    }
+    return [...filteredCommands, ...scopedSearchItems];
+  }, [filteredCommands, scopedSearchItems, scope, query, askAiItem]);
 
   // Group by category
   const grouped = useMemo(() => {
     const groups: Record<string, CommandItem[]> = {};
-    const order = ['recent', 'search_crm', 'search_ops', 'search_finance', 'search_chat', 'search_docs', 'search_inventory', 'search_config', 'navigation', 'action', 'config'];
+    const order = [
+      'action',
+      'recent',
+      'search_crm',
+      'search_correos',
+      'search_agenda',
+      'search_tareas',
+      'search_tickets',
+      'search_ops',
+      'search_finance',
+      'search_chat',
+      'search_docs',
+      'search_inventory',
+      'search_config',
+      'navigation',
+      'config',
+    ];
 
     for (const cmd of allItems) {
       const cat = cmd.category;
       if (!groups[cat]) groups[cat] = [];
       groups[cat].push(cmd);
+    }
+
+    // Cap en "Todo" para grupos nuevos
+    if (scope === 'all') {
+      for (const cat of NEW_SEARCH_CATEGORIES) {
+        if (groups[cat] && groups[cat].length > TODO_NEW_GROUP_CAP) {
+          groups[cat] = groups[cat].slice(0, TODO_NEW_GROUP_CAP);
+        }
+      }
     }
 
     return order
@@ -310,39 +491,129 @@ export function CommandPalette({ userRole, onOpenChat }: CommandPaletteProps) {
         label: CATEGORY_LABELS[cat] ?? cat,
         items: groups[cat],
       }));
-  }, [allItems]);
+  }, [allItems, scope]);
 
-  // Debounced API search with AbortController for out-of-order cancellation
+  // Tab / Shift+Tab y ⌘1–⌘6 para cambiar alcance
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      const tabs = visibleScopeTabs;
+      if (tabs.length === 0) return;
+
+      if (e.key === 'Tab') {
+        e.preventDefault();
+        const idx = Math.max(0, tabs.findIndex((t) => t.id === scope));
+        const next = e.shiftKey
+          ? (idx - 1 + tabs.length) % tabs.length
+          : (idx + 1) % tabs.length;
+        setScope(tabs[next].id);
+        return;
+      }
+
+      if ((e.metaKey || e.ctrlKey) && e.key >= '1' && e.key <= '6') {
+        const n = Number(e.key) - 1;
+        if (n >= 0 && n < SCOPE_TABS.length) {
+          e.preventDefault();
+          setScope(SCOPE_TABS[n].id);
+        }
+      }
+    };
+    window.addEventListener('keydown', onKeyDown, true);
+    return () => window.removeEventListener('keydown', onKeyDown, true);
+  }, [isOpen, scope, visibleScopeTabs]);
+
+  // Debounced dual-fetch (core + correos) con AbortControllers independientes
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    if (abortRef.current) abortRef.current.abort();
+    if (coreAbortRef.current) coreAbortRef.current.abort();
+    if (correosAbortRef.current) correosAbortRef.current.abort();
 
     if (!isOpen || query.trim().length < 2) {
-      setApiResults([]);
-      setApiLoading(false);
+      setCoreResults([]);
+      setCorreosResults([]);
+      setCoreLoading(false);
+      setCorreosLoading(false);
+      setSearchElapsedMs(null);
+      searchStartedAtRef.current = null;
+      activeQueryRef.current = '';
       return;
     }
 
-    setApiLoading(true);
-    debounceRef.current = setTimeout(async () => {
-      const controller = new AbortController();
-      abortRef.current = controller;
-      try {
-        const res = await fetch(
-          `/api/search/global?q=${encodeURIComponent(query.trim())}`,
-          { signal: controller.signal },
-        );
-        if (!res.ok) throw new Error();
-        const json = await res.json();
-        if (!controller.signal.aborted && json.success && Array.isArray(json.data)) {
-          setApiResults(json.data);
+    const q = query.trim();
+    setCoreLoading(true);
+    setCorreosLoading(true);
+    debounceRef.current = setTimeout(() => {
+      activeQueryRef.current = q;
+      searchStartedAtRef.current = performance.now();
+      setSearchElapsedMs(null);
+
+      const markElapsed = () => {
+        if (searchStartedAtRef.current != null) {
+          setSearchElapsedMs(Math.round(performance.now() - searchStartedAtRef.current));
         }
-      } catch (err) {
-        if ((err as { name?: string })?.name !== 'AbortError') setApiResults([]);
-      } finally {
-        if (!controller.signal.aborted) setApiLoading(false);
-      }
-    }, 250);
+      };
+
+      const coreController = new AbortController();
+      const correosController = new AbortController();
+      coreAbortRef.current = coreController;
+      correosAbortRef.current = correosController;
+
+      void (async () => {
+        try {
+          const res = await fetch(
+            `/api/search/global?q=${encodeURIComponent(q)}&tier=core`,
+            { signal: coreController.signal },
+          );
+          if (!res.ok) throw new Error();
+          const json = await res.json();
+          if (
+            !coreController.signal.aborted &&
+            activeQueryRef.current === q &&
+            json.success &&
+            Array.isArray(json.data)
+          ) {
+            setCoreResults(json.data);
+          }
+        } catch (err) {
+          if ((err as { name?: string })?.name !== 'AbortError' && activeQueryRef.current === q) {
+            setCoreResults([]);
+          }
+        } finally {
+          if (!coreController.signal.aborted && activeQueryRef.current === q) {
+            setCoreLoading(false);
+            markElapsed();
+          }
+        }
+      })();
+
+      void (async () => {
+        try {
+          const res = await fetch(
+            `/api/search/global?q=${encodeURIComponent(q)}&tier=correos`,
+            { signal: correosController.signal },
+          );
+          if (!res.ok) throw new Error();
+          const json = await res.json();
+          if (
+            !correosController.signal.aborted &&
+            activeQueryRef.current === q &&
+            json.success &&
+            Array.isArray(json.data)
+          ) {
+            setCorreosResults(json.data);
+          }
+        } catch (err) {
+          if ((err as { name?: string })?.name !== 'AbortError' && activeQueryRef.current === q) {
+            setCorreosResults([]);
+          }
+        } finally {
+          if (!correosController.signal.aborted && activeQueryRef.current === q) {
+            setCorreosLoading(false);
+            markElapsed();
+          }
+        }
+      })();
+    }, 150);
 
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -383,7 +654,10 @@ export function CommandPalette({ userRole, onOpenChat }: CommandPaletteProps) {
     if (!isOpen) return;
     const seed = initialQuery ?? '';
     setQuery(seed);
-    setApiResults([]);
+    setCoreResults([]);
+    setCorreosResults([]);
+    setSearchElapsedMs(null);
+    setScope('all');
     const focus = () => {
       const el = inputRef.current;
       if (!el) return;
@@ -551,6 +825,55 @@ export function CommandPalette({ userRole, onOpenChat }: CommandPaletteProps) {
             </kbd>
           </div>
 
+          {/* ── Scope tabs ── */}
+          {query.trim().length >= 2 && (
+            <div
+              className={cn(
+                'flex items-center gap-1 border-b border-border/60 px-2 sm:px-3 py-1.5 shrink-0',
+                'overflow-x-auto scrollbar-none snap-x snap-mandatory',
+              )}
+              role="tablist"
+              aria-label="Alcance de búsqueda"
+            >
+              {visibleScopeTabs.map((tab) => {
+                const count = scopeCounts[tab.id];
+                const active = scope === tab.id;
+                const shortcutN = SCOPE_TABS.findIndex((t) => t.id === tab.id) + 1;
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={active}
+                    onClick={() => setScope(tab.id)}
+                    className={cn(
+                      'snap-start shrink-0 inline-flex items-center gap-1.5 rounded-lg px-3 h-10 sm:h-8',
+                      'text-[13px] font-medium transition-colors',
+                      active
+                        ? 'bg-accent text-accent-foreground'
+                        : 'text-ds-text-3 hover:bg-ds-surface-2 hover:text-foreground',
+                    )}
+                  >
+                    <span>{tab.label}</span>
+                    {(count > 0 || tab.id === 'all') && (
+                      <span
+                        className={cn(
+                          'rounded-md px-1.5 py-0.5 text-[12px] tabular-nums',
+                          active ? 'bg-background/40' : 'bg-ds-surface-2',
+                        )}
+                      >
+                        {count}
+                      </span>
+                    )}
+                    <kbd className="hidden sm:inline text-[12px] text-ds-text-4 ml-0.5 opacity-60">
+                      ⌘{shortcutN}
+                    </kbd>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
           {/* ── Results ── */}
           <Command.List
             className={cn(
@@ -571,7 +894,11 @@ export function CommandPalette({ userRole, onOpenChat }: CommandPaletteProps) {
                 </div>
                 <p className="text-sm font-medium text-foreground">
                   {query ? (
-                    <>Sin resultados para <span className="text-muted-foreground">&ldquo;{query}&rdquo;</span></>
+                    scope !== 'all' ? (
+                      <>Sin resultados en {SCOPE_TABS.find((t) => t.id === scope)?.label ?? 'este alcance'}</>
+                    ) : (
+                      <>Sin resultados para <span className="text-muted-foreground">&ldquo;{query}&rdquo;</span></>
+                    )
                   ) : (
                     'Empieza a escribir para buscar'
                   )}
@@ -590,7 +917,7 @@ export function CommandPalette({ userRole, onOpenChat }: CommandPaletteProps) {
                 heading={group.label}
                 className={cn(
                   '[&_[cmdk-group-heading]]:px-3 [&_[cmdk-group-heading]]:pt-3 [&_[cmdk-group-heading]]:pb-1.5',
-                  '[&_[cmdk-group-heading]]:text-[10px] [&_[cmdk-group-heading]]:font-semibold',
+                  '[&_[cmdk-group-heading]]:text-[12px] [&_[cmdk-group-heading]]:font-semibold',
                   '[&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-[0.08em]',
                   '[&_[cmdk-group-heading]]:text-muted-foreground/70',
                   idx === 0 && '[&_[cmdk-group-heading]]:pt-1',
@@ -673,7 +1000,7 @@ export function CommandPalette({ userRole, onOpenChat }: CommandPaletteProps) {
                             {highlightMatch(cmd.label, query)}
                           </p>
                           {showPin && (
-                            <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] font-medium text-muted-foreground tabular-nums">
+                            <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 font-mono text-[12px] font-medium text-muted-foreground tabular-nums">
                               {cmd.pinDisplay}
                             </span>
                           )}
@@ -685,8 +1012,14 @@ export function CommandPalette({ userRole, onOpenChat }: CommandPaletteProps) {
                         )}
                       </div>
 
+                      {cmd.meta && (
+                        <span className="hidden sm:inline shrink-0 text-[12px] text-ds-text-3 tabular-nums">
+                          {cmd.meta}
+                        </span>
+                      )}
+
                       {cmd.shortcut && (
-                        <kbd className="hidden sm:inline-flex shrink-0 h-5 items-center gap-0.5 rounded border border-border/60 bg-muted/60 px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
+                        <kbd className="hidden sm:inline-flex shrink-0 h-5 items-center gap-0.5 rounded border border-border/60 bg-muted/60 px-1.5 font-mono text-[12px] font-medium text-muted-foreground">
                           {cmd.shortcut}
                         </kbd>
                       )}
@@ -698,7 +1031,7 @@ export function CommandPalette({ userRole, onOpenChat }: CommandPaletteProps) {
                       {showStatusBadge && (
                         <span
                           className={cn(
-                            'shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-medium',
+                            'shrink-0 rounded-md px-1.5 py-0.5 text-[12px] font-medium',
                             cmd.badgeLabel && cmd.badgeClass
                               ? cmd.badgeClass
                               : searchConfig
@@ -714,29 +1047,62 @@ export function CommandPalette({ userRole, onOpenChat }: CommandPaletteProps) {
                 })}
               </Command.Group>
             ))}
+
+            {/* Shimmer Correos mientras el tier correos pende (altura ≈ 1 fila) */}
+            {correosLoading && query.trim().length >= 2 && (scope === 'all' || scope === 'correos') && (
+              <div
+                className="mx-0.5 mt-1 rounded-xl px-3 py-3 sm:py-2.5"
+                aria-busy="true"
+                aria-label="Cargando correos"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="h-9 w-9 shrink-0 rounded-lg bg-tint-sky/60 animate-pulse" />
+                  <div className="min-w-0 flex-1 space-y-2">
+                    <div className="h-3.5 w-2/5 rounded bg-ds-surface-3 animate-pulse" />
+                    <div className="h-3 w-3/5 rounded bg-ds-surface-2 animate-pulse" />
+                  </div>
+                  <span className="text-[12px] text-ds-text-3">Correos…</span>
+                </div>
+              </div>
+            )}
           </Command.List>
 
           {/* ── Footer (desktop only — keyboard hints) ── */}
           <div className="hidden sm:flex items-center justify-between border-t border-border/60 bg-muted/20 px-4 py-2 shrink-0">
-            <div className="flex items-center gap-4 text-[11px] text-muted-foreground">
+            <div className="flex items-center gap-4 text-[12px] text-muted-foreground">
               <span className="inline-flex items-center gap-1.5">
-                <span className="inline-flex h-5 min-w-[20px] items-center justify-center rounded border border-white/15 bg-white/10 px-1">
+                <span className="inline-flex h-5 min-w-[20px] items-center justify-center rounded border border-ds-border-subtle bg-ds-surface-2 px-1">
                   <ArrowUp className="h-3 w-3" />
                 </span>
-                <span className="inline-flex h-5 min-w-[20px] items-center justify-center rounded border border-white/15 bg-white/10 px-1">
+                <span className="inline-flex h-5 min-w-[20px] items-center justify-center rounded border border-ds-border-subtle bg-ds-surface-2 px-1">
                   <ArrowDown className="h-3 w-3" />
                 </span>
                 <span>navegar</span>
               </span>
               <span className="inline-flex items-center gap-1.5">
-                <span className="inline-flex h-5 min-w-[20px] items-center justify-center rounded border border-white/15 bg-white/10 px-1">
+                <span className="inline-flex h-5 min-w-[20px] items-center justify-center rounded border border-ds-border-subtle bg-ds-surface-2 px-1">
                   <CornerDownLeft className="h-3 w-3" />
                 </span>
                 <span>abrir</span>
               </span>
+              {aiShortcut.enabled && (
+                <span className="inline-flex items-center gap-1.5">
+                  <kbd className="inline-flex h-5 items-center rounded border border-ds-border-subtle bg-ds-surface-2 px-1.5 font-mono text-[12px]">
+                    {formatCombo(aiShortcut.combo)}
+                  </kbd>
+                  <span>IA</span>
+                </span>
+              )}
             </div>
-            <span className="text-[10px] text-muted-foreground/60 tabular-nums">
+            <span className="inline-flex items-center gap-1.5 text-[12px] text-muted-foreground/70 tabular-nums">
+              {correosLoading && (
+                <span
+                  className="inline-block h-1.5 w-1.5 rounded-full bg-status-warn"
+                  aria-label="Correos pendientes"
+                />
+              )}
               {allItems.length} {allItems.length === 1 ? 'resultado' : 'resultados'}
+              {searchElapsedMs != null ? ` · ${searchElapsedMs} ms` : ''}
             </span>
           </div>
 

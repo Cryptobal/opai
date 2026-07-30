@@ -333,3 +333,74 @@ export async function findOpsGuardiaIdsForDocsSearch(params: {
       )
   `);
 }
+
+/** Tareas CRM por título (accent-insensitive). */
+export async function findCrmTaskIdsBySearch(params: {
+  tenantId: string;
+  query: string;
+  limit: number;
+}): Promise<string[]> {
+  const { tenantId, query, limit } = params;
+  const pattern = `%${query}%`;
+  return fetchIds(Prisma.sql`
+    SELECT t.id
+    FROM crm.tasks t
+    WHERE t.tenant_id::text = ${tenantId}
+      AND LOWER(public.f_unaccent(t.title)) LIKE LOWER(public.f_unaccent(${pattern}))
+    ORDER BY t.due_at ASC NULLS LAST, t.updated_at DESC
+    LIMIT ${limit}
+  `);
+}
+
+/** Tickets ops por título o código (accent-insensitive). */
+export async function findOpsTicketIdsBySearch(params: {
+  tenantId: string;
+  query: string;
+  limit: number;
+}): Promise<string[]> {
+  const { tenantId, query, limit } = params;
+  const pattern = `%${query}%`;
+  return fetchIds(Prisma.sql`
+    SELECT t.id
+    FROM ops.ops_tickets t
+    WHERE t.tenant_id::text = ${tenantId}
+      AND (
+        LOWER(public.f_unaccent(t.title)) LIKE LOWER(public.f_unaccent(${pattern}))
+        OR LOWER(public.f_unaccent(t.code)) LIKE LOWER(public.f_unaccent(${pattern}))
+      )
+    ORDER BY t.updated_at DESC
+    LIMIT ${limit}
+  `);
+}
+
+/**
+ * Eventos de agenda (CalendarEvent) por título o ubicación.
+ * Ventana temporal: desde now-60d hacia adelante (evita scan histórico).
+ * Orden: proximidad a hoy.
+ */
+export async function findCalendarEventIdsBySearch(params: {
+  tenantId: string;
+  query: string;
+  limit: number;
+  /** Instantes UTC; default now-60d. */
+  from?: Date;
+}): Promise<string[]> {
+  const { tenantId, query, limit } = params;
+  const pattern = `%${query}%`;
+  const from =
+    params.from ?? new Date(Date.now() - 60 * 24 * 60 * 60 * 1000);
+  return fetchIds(Prisma.sql`
+    SELECT e.id
+    FROM public.calendar_events e
+    WHERE e.tenant_id::text = ${tenantId}
+      AND e.deleted_at IS NULL
+      AND e.status <> 'cancelled'
+      AND e.start_at >= ${from}
+      AND (
+        LOWER(public.f_unaccent(e.title)) LIKE LOWER(public.f_unaccent(${pattern}))
+        OR LOWER(public.f_unaccent(COALESCE(e.location, ''))) LIKE LOWER(public.f_unaccent(${pattern}))
+      )
+    ORDER BY ABS(EXTRACT(EPOCH FROM (e.start_at - NOW()))) ASC
+    LIMIT ${limit}
+  `);
+}
