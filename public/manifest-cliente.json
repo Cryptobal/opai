@@ -7,8 +7,8 @@
   "scope": "/portal/cliente",
   "display": "standalone",
   "orientation": "portrait",
-  "theme_color": "#060a13",
-  "background_color": "#060a13",
+  "theme_color": "#0a0f1a",
+  "background_color": "#0a0f1a",
   "icons": [
     {
       "src": "/icons/icon-192x192.png",

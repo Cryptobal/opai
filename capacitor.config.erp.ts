@@ -34,7 +34,7 @@ const config: CapacitorConfig = {
   plugins: {
     SplashScreen: {
       launchShowDuration: 2000,
-      backgroundColor: "#0a1628",
+      backgroundColor: "#0a0f1a",
       showSpinner: false,
     },
     PushNotifications: {
@@ -42,7 +42,7 @@ const config: CapacitorConfig = {
     },
     StatusBar: {
       style: "DARK",
-      backgroundColor: "#0a1628",
+      backgroundColor: "#0a0f1a",
     },
   },
 };

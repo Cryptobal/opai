@@ -38,7 +38,7 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
-  themeColor: "#060a13",
+  themeColor: "#0a0f1a",
   interactiveWidget: "resizes-content",
 };
 
@@ -94,7 +94,7 @@ export default function RootLayout({
     <html lang="es" className={`dark ${exo2.variable} ${dmSans.variable} ${jetbrainsMono.variable}`} suppressHydrationWarning>
       <head>
         <meta name="mobile-web-app-capable" content="yes" />
-        <style dangerouslySetInnerHTML={{ __html: "html{background:#060a13}" }} />
+        <style dangerouslySetInnerHTML={{ __html: "html{background:#0a0f1a}" }} />
         <link
           rel="apple-touch-startup-image"
           href="/icons/splash/apple-splash-1170-2532.png"

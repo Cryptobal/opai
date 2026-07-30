@@ -7,8 +7,8 @@
   "scope": "/portal",
   "display": "standalone",
   "orientation": "portrait",
-  "theme_color": "#060a13",
-  "background_color": "#060a13",
+  "theme_color": "#0a0f1a",
+  "background_color": "#0a0f1a",
   "icons": [
     {
       "src": "/icons/opai/icon-192x192.png",
