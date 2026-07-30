@@ -15,7 +15,10 @@ export type SignatureData = {
   phone?: string;
   whatsapp?: string;
   email?: string;
+  /** URL del enlace (sitio, agenda, etc.). */
   website?: string;
+  /** Texto visible del enlace (ej. "Agenda una reunión"). Si falta, se deriva de la URL. */
+  websiteText?: string;
   address?: string;
   logoUrl?: string;
   logoStorageKey?: string;
@@ -42,6 +45,7 @@ const MAX_COMPANY = 80;
 const MAX_PHONE = 40;
 const MAX_EMAIL = 120;
 const MAX_WEBSITE = 200;
+const MAX_WEBSITE_TEXT = 80;
 const MAX_ADDRESS = 160;
 const MAX_DISCLAIMER = 300;
 const MAX_STORAGE_KEY = 500;
@@ -99,6 +103,7 @@ export function parseSignatureData(
   const whatsapp = asTrimmedString(src.whatsapp, MAX_PHONE);
   const email = asTrimmedString(src.email, MAX_EMAIL);
   const website = asTrimmedString(src.website, MAX_WEBSITE);
+  const websiteText = asTrimmedString(src.websiteText, MAX_WEBSITE_TEXT);
   const address = asTrimmedString(src.address, MAX_ADDRESS);
   const disclaimer = asTrimmedString(src.disclaimer, MAX_DISCLAIMER);
   const logoStorageKey = asTrimmedString(src.logoStorageKey, MAX_STORAGE_KEY);
@@ -127,6 +132,7 @@ export function parseSignatureData(
     ...(whatsapp ? { whatsapp } : {}),
     ...(email ? { email } : {}),
     ...(website ? { website } : {}),
+    ...(websiteText ? { websiteText } : {}),
     ...(address ? { address } : {}),
     ...(logoUrl ? { logoUrl } : {}),
     ...(logoStorageKey ? { logoStorageKey } : {}),
@@ -172,7 +178,25 @@ export function normalizeWebsiteHref(raw: string): string {
   return `https://${t}`;
 }
 
-/** Etiqueta visible de web sin protocolo. */
+/** Etiqueta visible de web sin protocolo (fallback si no hay websiteText). */
 export function websiteLabel(raw: string): string {
   return raw.trim().replace(/^https?:\/\//i, "");
+}
+
+/** True si la URL parece un link de agenda (Google Calendar, Calendly, etc.). */
+export function isBookingUrl(raw: string): boolean {
+  return /calendar\.app\.google|calendar\.google\.com|calendly\.com|(?:^|\/\/)cal\.com\//i.test(
+    raw.trim(),
+  );
+}
+
+/**
+ * Texto visible del enlace web.
+ * Prioriza websiteText; si falta y es agenda → "Agenda una reunión"; si no, host/path.
+ */
+export function resolveWebsiteText(website: string, websiteText?: string): string {
+  const custom = websiteText?.trim();
+  if (custom) return custom;
+  if (isBookingUrl(website)) return "Agenda una reunión";
+  return websiteLabel(website);
 }

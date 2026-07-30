@@ -100,11 +100,11 @@ describe("signature-render / parseSignatureData", () => {
     expect(renderSignatureHtml(data)).toBe(renderSignatureHtml(data));
   });
 
-  it("14. logoWidthPx 9999 → acotado a 240", () => {
+  it("14. logoWidthPx 9999 → acotado a 240 (logo-top)", () => {
     const data = parseSignatureData({ fullName: "X", logoWidthPx: 9999 }, R2);
     expect(data.logoWidthPx).toBe(240);
     const html = renderSignatureHtml(
-      sample({ logoWidthPx: 9999 }),
+      sample({ logoWidthPx: 9999, layout: "logo-top" }),
     );
     expect(html).toContain("width:240px");
   });
@@ -153,5 +153,54 @@ describe("signature-render / parseSignatureData", () => {
       sample({ phone: "229876543", whatsapp: undefined }),
     );
     expect(html).toContain('href="tel:+56229876543"');
+  });
+
+  it("21. Cargo y empresa en líneas separadas (sin ·)", () => {
+    const html = renderSignatureHtml(
+      sample({ role: "Director", company: "Gard Security" }),
+    );
+    expect(html).toContain(">Director</div>");
+    expect(html).toContain(">Gard Security</div>");
+    expect(html).not.toContain("Director · Gard");
+  });
+
+  it("22. websiteText personalizado se usa como label del enlace", () => {
+    const html = renderSignatureHtml(
+      sample({
+        website: "calendar.app.google/MnLVKqBUZnxfoDzN8",
+        websiteText: "Agenda una reunión",
+      }),
+    );
+    expect(html).toContain("Agenda una reunión");
+    expect(html).toContain('href="https://calendar.app.google/MnLVKqBUZnxfoDzN8"');
+    expect(html).not.toContain(">calendar.app.google/");
+  });
+
+  it("23. Link de agenda sin websiteText → label por defecto", () => {
+    const html = renderSignatureHtml(
+      sample({
+        website: "https://calendar.app.google/abc",
+        websiteText: undefined,
+      }),
+    );
+    expect(html).toContain("Agenda una reunión");
+  });
+
+  it("24. logo-left no usa max-width:100% (evita colapso) y acota ancho", () => {
+    const html = renderSignatureHtml(
+      sample({ layout: "logo-left", logoWidthPx: 226 }),
+    );
+    expect(html).toContain('width="140"');
+    expect(html).toContain("width:140px");
+    expect(html).not.toContain("max-width:100%");
+  });
+
+  it("25. logo-top respeta ancho pedido y alinea a la izquierda", () => {
+    const html = renderSignatureHtml(
+      sample({ layout: "logo-top", logoWidthPx: 226 }),
+    );
+    expect(html).toContain('width="226"');
+    expect(html).toContain('align="left"');
+    expect(html).toContain("text-align:left");
   });
 });

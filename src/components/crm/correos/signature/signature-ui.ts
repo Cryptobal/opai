@@ -1,6 +1,7 @@
 import {
   DEFAULT_ACCENT,
   DEFAULT_LOGO_WIDTH,
+  isBookingUrl,
   type SignatureData,
   type SignatureLayout,
 } from "@/modules/crm/email/signature-data";
@@ -92,10 +93,14 @@ export function inferFromLegacyHtml(html: string | null | undefined): Partial<Si
   const emailRaw = html.match(/mailto:([^"'>\s]+)/i)?.[1];
   const phoneRaw = html.match(/tel:([^"'>\s]+)/i)?.[1];
   const waRaw = html.match(/wa\.me\/(\+?\d+)/i)?.[1];
-  const hrefs = [...html.matchAll(/href="(https?:\/\/[^"]+)"/gi)].map((m) => m[1]);
-  const websiteHref = hrefs.find(
-    (h) => !/wa\.me|mailto:|tel:/i.test(h) && !h.includes("maps.google"),
+  const anchors = [...html.matchAll(/<a\b[^>]*href="(https?:\/\/[^"]+)"[^>]*>([\s\S]*?)<\/a>/gi)];
+  const webAnchor = anchors.find(
+    ([, h]) => !/wa\.me|mailto:|tel:/i.test(h) && !h.includes("maps.google"),
   );
+  const websiteHref = webAnchor?.[1]
+    ?? [...html.matchAll(/href="(https?:\/\/[^"]+)"/gi)]
+      .map((m) => m[1])
+      .find((h) => !/wa\.me|mailto:|tel:/i.test(h) && !h.includes("maps.google"));
 
   const email = emailRaw ? decodeURIComponent(emailRaw) : undefined;
   const phone = phoneRaw ? decodeURIComponent(phoneRaw) : undefined;
@@ -103,6 +108,21 @@ export function inferFromLegacyHtml(html: string | null | undefined): Partial<Si
   const website = websiteHref
     ? websiteHref.replace(/^https?:\/\//i, "").replace(/\/$/, "")
     : undefined;
+  const anchorInner = webAnchor?.[2]
+    ? decodeHtmlEntities(webAnchor[2].replace(/<[^>]+>/g, " ")).replace(/\s+/g, " ").trim()
+    : "";
+  const looksLikeRawUrl = Boolean(
+    anchorInner &&
+      (/^https?:\/\//i.test(anchorInner) ||
+        /^[\w.-]+\.[a-z]{2,}(\/.*)?$/i.test(anchorInner) ||
+        /calendar\.app\.google/i.test(anchorInner)),
+  );
+  let websiteText: string | undefined;
+  if (anchorInner && !looksLikeRawUrl) {
+    websiteText = anchorInner.slice(0, 80);
+  } else if (website && isBookingUrl(website)) {
+    websiteText = "Agenda una reunión";
+  }
 
   const lines = htmlToLines(html);
   const contentLines = lines.filter((l) => !looksLikeContactLine(l, email));
@@ -156,6 +176,7 @@ export function inferFromLegacyHtml(html: string | null | undefined): Partial<Si
     ...(phone ? { phone } : {}),
     ...(whatsapp ? { whatsapp } : {}),
     ...(website ? { website } : {}),
+    ...(websiteText ? { websiteText } : {}),
   };
 }
 
