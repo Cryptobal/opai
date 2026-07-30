@@ -106,7 +106,7 @@ export function InsertSignatureBlockButton({ editor }: Props) {
       <PopoverContent
         align="start"
         sideOffset={4}
-        className="w-72 min-w-[18rem] max-w-[18rem] p-3 space-y-3"
+        className="w-72 p-3 space-y-3"
         onOpenAutoFocus={(e) => e.preventDefault()}
       >
         <div className="space-y-1">

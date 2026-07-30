@@ -179,16 +179,10 @@ export function CashflowLegend({ className }: { className?: string }) {
           <HelpCircle className="h-3.5 w-3.5" />
         </button>
       </PopoverTrigger>
-      {/* IMPORTANTE: el PopoverContent shadcn (src/components/ui/popover.tsx)
-          tiene hardcoded `max-w-[var(--radix-popover-trigger-width)]`, lo cual
-          fuerza el contenido al ancho del trigger (~80px del botón "Leyenda").
-          Por eso usamos style inline para override el max-width — Tailwind no
-          puede ganarle desde className. */}
       <PopoverContent
         align="end"
         sideOffset={6}
-        className="max-h-[80vh] overflow-y-auto p-4 space-y-4"
-        style={{ width: 420, maxWidth: "min(420px, calc(100vw - 24px))" }}
+        className="w-[420px] max-w-[min(420px,calc(100vw-24px))] max-h-[80vh] overflow-y-auto p-4 space-y-4"
       >
         <div>
           <h2 className="text-sm font-semibold text-ds-text-1 mb-1">

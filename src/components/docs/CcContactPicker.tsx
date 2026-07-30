@@ -82,7 +82,7 @@ export function CcContactPicker({ documentId, onSelect }: Props) {
       <PopoverContent
         align="end"
         sideOffset={4}
-        className="w-80 min-w-[20rem] max-w-[20rem] p-0"
+        className="w-80 p-0"
         onOpenAutoFocus={(e) => e.preventDefault()}
       >
         <div className="border-b border-border p-2">
