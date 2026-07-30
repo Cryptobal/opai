@@ -19,7 +19,7 @@ import { Card, CardContent } from "@/components/ui/card";
 /* ── Palette — matches existing design system ── */
 
 const PALETTE = {
-  teal: "#1db990",
+  teal: "hsl(var(--chart-1))",
   red: "rgba(239,68,68,0.6)",
   amber: "#f59e0b",
   blue: "#3b82f6",

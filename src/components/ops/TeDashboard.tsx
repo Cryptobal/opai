@@ -425,7 +425,7 @@ export function TeDashboard() {
                       <XAxis dataKey="label" tick={{ fontSize: 9, fill: "rgba(255,255,255,0.35)" }} axisLine={false} tickLine={false} />
                       <YAxis tick={{ fontSize: 9, fill: "rgba(255,255,255,0.35)" }} axisLine={false} tickLine={false} tickFormatter={(v: number) => `$${(v / 1000).toFixed(0)}k`} />
                       <Tooltip content={<EvoTooltip />} />
-                      <Bar dataKey="totalAmount" fill="#1db990" radius={[3, 3, 0, 0]} maxBarSize={28} />
+                      <Bar dataKey="totalAmount" fill="hsl(var(--chart-1))" radius={[3, 3, 0, 0]} maxBarSize={28} />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>

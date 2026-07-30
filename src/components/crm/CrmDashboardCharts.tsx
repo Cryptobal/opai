@@ -18,11 +18,11 @@ import {
 /* ─── Paleta coherente con el design system oscuro + teal ─── */
 
 const PALETTE = {
-  teal: '#1db990',
+  teal: 'hsl(var(--chart-1))',
   blue: '#3b82f6',
   amber: '#f59e0b',
   redMuted: 'rgba(239,68,68,0.5)',
-  donut: ['#1db990', '#3b82f6', '#8b5cf6', '#f59e0b', '#64748b'],
+  donut: ['hsl(var(--chart-1))', '#3b82f6', '#8b5cf6', '#f59e0b', '#64748b'],
   grid: 'rgba(255,255,255,0.04)',
   axis: 'rgba(255,255,255,0.3)',
 };
