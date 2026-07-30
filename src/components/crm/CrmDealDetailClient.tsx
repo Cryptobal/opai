@@ -25,7 +25,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Loader2, ExternalLink, Trash2, FileText, Mail, ChevronRight, ChevronDown, Send, MessageSquare, Star, X, Clock3, MapPin, MoreHorizontal, Check, AlertCircle, Pause, Play, RotateCcw, XCircle, Settings2, Pencil, Users, Briefcase, Phone, Link2, History, Copy, Building2, ListChecks, Ticket as TicketIcon, Sparkles } from "lucide-react";
+import { Loader2, ExternalLink, Trash2, FileText, Mail, ChevronRight, ChevronDown, Send, MessageSquare, Star, X, Clock3, MapPin, MoreHorizontal, Check, AlertCircle, Pause, Play, RotateCcw, XCircle, Settings2, Pencil, Users, Briefcase, Phone, Link2, History, Copy, Building2, ListChecks, Ticket as TicketIcon, Sparkles, Layers } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -496,6 +496,10 @@ export function CrmDealDetailClient({
     deal.activeQuotationId ?? null
   );
   const [updatingActiveQuotation, setUpdatingActiveQuotation] = useState(false);
+  const [dealBundles, setDealBundles] = useState<
+    Array<{ id: string; code: string; name: string | null; status: string }>
+  >([]);
+  const [creatingBundle, setCreatingBundle] = useState(false);
 
   useEffect(() => {
     setLinkedQuotes(deal.quotes || []);
@@ -504,6 +508,51 @@ export function CrmDealDetailClient({
   useEffect(() => {
     setActiveQuotationId(deal.activeQuotationId ?? null);
   }, [deal.activeQuotationId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetch(`/api/cpq/bundles?dealId=${deal.id}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        if (cancelled || !j?.success) return;
+        setDealBundles(
+          (j.data || []).map(
+            (b: { id: string; code: string; name: string | null; status: string }) => ({
+              id: b.id,
+              code: b.code,
+              name: b.name,
+              status: b.status,
+            }),
+          ),
+        );
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [deal.id]);
+
+  const createMultiInstallProposal = async () => {
+    if (creatingBundle) return;
+    setCreatingBundle(true);
+    try {
+      const res = await fetch("/api/cpq/bundles", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dealId: deal.id }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.error || "No se pudo crear la propuesta");
+      }
+      toast.success(`Propuesta ${json.data.code} creada`);
+      router.push(`/crm/propuestas/${json.data.id}`);
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Error al crear propuesta");
+    } finally {
+      setCreatingBundle(false);
+    }
+  };
 
   // ── Contratos vinculados (cruce contrato ↔ negocio) ──
   const [linkedContracts, setLinkedContracts] = useState<
@@ -1730,11 +1779,48 @@ export function CrmDealDetailClient({
       onAdd: () => setQuoteCreateOpen(true),
       content: (
         <div className="space-y-3">
-          <div className="flex items-center gap-1.5">
+          <div className="flex flex-wrap items-center gap-1.5">
             <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={() => setQuoteDialogOpen(true)}>
               <Link2 className="h-3 w-3" /> Vincular existente
             </Button>
+            {dealBundles[0] ? (
+              <Button
+                size="sm"
+                variant="secondary"
+                className="h-7 text-xs gap-1"
+                asChild
+              >
+                <Link href={`/crm/propuestas/${dealBundles[0].id}`}>
+                  <Layers className="h-3 w-3" />
+                  Abrir {dealBundles[0].code}
+                </Link>
+              </Button>
+            ) : (
+              <Button
+                size="sm"
+                variant="secondary"
+                className="h-7 text-xs gap-1"
+                onClick={() => void createMultiInstallProposal()}
+                disabled={creatingBundle}
+              >
+                {creatingBundle ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <Layers className="h-3 w-3" />
+                )}
+                Propuesta multi-instalación
+              </Button>
+            )}
           </div>
+          {dealBundles.length > 1 ? (
+            <div className="flex flex-wrap gap-1.5">
+              {dealBundles.slice(1).map((b) => (
+                <Button key={b.id} size="sm" variant="ghost" className="h-7 text-xs" asChild>
+                  <Link href={`/crm/propuestas/${b.id}`}>{b.code}</Link>
+                </Button>
+              ))}
+            </div>
+          ) : null}
           <CreateQuoteModal
             defaultClientName={deal.account?.name ?? undefined}
             defaultDealName={deal.title}
