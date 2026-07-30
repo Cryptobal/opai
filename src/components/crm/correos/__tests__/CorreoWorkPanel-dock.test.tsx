@@ -32,7 +32,7 @@ vi.mock("../CorreoWorkSummary", () => ({
 vi.mock("../CorreoMeetingPanel", () => ({ CorreoMeetingPanel: () => null }));
 vi.mock("../CorreoTicketPanel", () => ({ CorreoTicketPanel: () => null }));
 vi.mock("../CorreoTasksPanel", () => ({ CorreoTasksPanel: () => null }));
-vi.mock("../CorreoAttachmentsSheet", () => ({ CorreoAttachmentsSheet: () => null }));
+vi.mock("../CorreoAttachments", () => ({ CorreoAttachments: () => null }));
 
 const detail = {
   thread: {

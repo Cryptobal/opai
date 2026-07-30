@@ -51,9 +51,31 @@ describe("thread contacts API", () => {
     );
     const res = await DELETE(req, { params: Promise.resolve({ threadId: "th1" }) });
     expect(res.status).toBe(200);
+    expect(requireCorreosAccess).toHaveBeenCalledWith("edit");
     expect(prisma.crmEmailThread.update).toHaveBeenCalledWith({
       where: { id: "th1" },
       data: { contactId: "c2" },
+    });
+  });
+
+  it("al quitar principal solo en escalar (sin puente) deja contactId null", async () => {
+    vi.mocked(prisma.crmEmailThread.findFirst).mockResolvedValue({
+      id: "th1",
+      contactId: "c1",
+    } as never);
+    vi.mocked(prisma.crmEmailThreadContact.deleteMany).mockResolvedValue({ count: 0 } as never);
+    vi.mocked(prisma.crmEmailThreadContact.findFirst).mockResolvedValue(null as never);
+    vi.mocked(prisma.crmEmailThread.update).mockResolvedValue({} as never);
+
+    const req = new NextRequest(
+      "http://localhost/api/crm/correos/th1/contacts?contactId=c1",
+      { method: "DELETE" },
+    );
+    const res = await DELETE(req, { params: Promise.resolve({ threadId: "th1" }) });
+    expect(res.status).toBe(200);
+    expect(prisma.crmEmailThread.update).toHaveBeenCalledWith({
+      where: { id: "th1" },
+      data: { contactId: null },
     });
   });
 

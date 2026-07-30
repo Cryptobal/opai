@@ -93,6 +93,8 @@ export function CorreoAttachmentsSheet({
               onSaved={onSaved}
               onRequestAssociate={onRequestAssociate}
               defaultOpen
+              hideCollapseHeader
+              savePlacement="inline"
             />
           )}
         </div>
