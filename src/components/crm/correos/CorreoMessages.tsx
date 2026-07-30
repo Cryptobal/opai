@@ -251,7 +251,10 @@ function MessageCard({
     <div
       data-correo-message
       data-correo-draft={isDraft ? "true" : undefined}
-      className={`overflow-hidden rounded-xl border bg-ds-surface-1 ${
+      // min-w-0: el flex padre puede encoger la tarjeta. Sin overflow-hidden:
+      // un cuerpo HTML ensanchado (ancho original) debe poder expandir el
+      // scroller del lector; overflow-hidden lo recortaba sin scrollbar.
+      className={`min-w-0 rounded-xl border bg-ds-surface-1 ${
         isDraft
           ? "border-status-warn-border/60 ring-1 ring-status-warn-border/30"
           : "border-ds-border-subtle"

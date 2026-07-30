@@ -63,21 +63,22 @@ body a,body a *{color:${link}!important}
 body table,body td,body th{border-color:${border}!important}
 body blockquote{color:${quote}!important;border-left-color:${border}!important}`
     : "";
-  // Sin overflow-x en body/tablas: el scroll horizontal lo hace el panel del
-  // lector (header + remitente + cuerpo) como una sola unidad. Las tablas
-  // expanden el canvas a su ancho natural; EmailHtmlBody decide entre escalar
-  // (fitWidth) o ensanchar el iframe para que scrollee el padre.
+  // Canvas a width:100%: el texto hace wrap al ancho del panel. Tablas/firmas
+  // fijas pueden desbordar (scrollWidth > clientWidth); EmailHtmlBody escala
+  // (fitWidth, default) o ensancha el iframe para que scrollee el panel padre.
+  // Nunca width:max-content en el canvas: eso evita el wrap (max-content = sin
+  // soft-wrap) y dispara el "tiritón" al mediar/ensanchar en bucle.
   return `<!doctype html><html><head><meta charset="utf-8"><base target="_blank"><style>
 :root{color-scheme:${night ? "dark" : "light"}}
-html,body{margin:0;padding:0}
+html,body{margin:0;padding:0;width:100%;max-width:100%}
 body{font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
   font-size:13px;line-height:1.55;color:${fg};background:${bg};
-  word-break:break-word;overflow-x:hidden;padding:16px 20px}
-.opai-mail-canvas{display:inline-block;min-width:100%;width:max-content;box-sizing:border-box;vertical-align:top}
+  word-break:break-word;overflow-wrap:anywhere;overflow-x:hidden;padding:16px 20px;box-sizing:border-box}
+.opai-mail-canvas{display:block;width:100%;max-width:100%;box-sizing:border-box}
 a{color:${link};text-decoration:underline;text-underline-offset:2px}
 img{max-width:100%;height:auto}
-table{border-collapse:collapse;margin:.5rem 0}
-td,th{border:1px solid ${border};padding:.35rem .5rem;vertical-align:top}
+table{border-collapse:collapse;max-width:100%;margin:.5rem 0}
+td,th{border:1px solid ${border};padding:.35rem .5rem;vertical-align:top;word-break:break-word}
 p,div,li{margin:.35em 0}
 blockquote{margin:.5rem 0;padding-left:.75rem;border-left:3px solid ${border};color:${quote}}
 ${nightCss}
@@ -149,11 +150,13 @@ export function EmailHtmlBody({
   const [frameReady, setFrameReady] = useState(false);
   const [measureFailed, setMeasureFailed] = useState(false);
   const lastHeightRef = useRef(320);
+  // Outer: ancho estable del panel (nunca se ensancha). Inner: opcional minWidth
+  // para el modo "ancho original" sin contaminar la medición (evita tiritón RO).
   const hostRef = useRef<HTMLDivElement>(null);
-  // Ajuste a ancho: false = 100% y el panel del lector scrollea en X como
-  // una sola unidad (header + cuerpo). true = escala el canvas al ancho.
-  // Default false: el scroll horizontal no debe aislarse en el bloque blanco.
-  const [fitWidth, setFitWidth] = useState(false);
+  const frameWidthRef = useRef<number | null>(null);
+  // Default true: el correo se ajusta al ancho del lector (como Gmail/Outlook).
+  // El usuario puede pedir "Ancho original" desde Vista.
+  const [fitWidth, setFitWidth] = useState(true);
   const [viewSheetOpen, setViewSheetOpen] = useState(false);
 
   const showHtmlFrame = mode === "html" && Boolean(safeHtml) && renderable;
@@ -177,6 +180,8 @@ export function EmailHtmlBody({
     setFrameReady(false);
     setMeasureFailed(false);
     setHeight(lastHeightRef.current);
+    frameWidthRef.current = null;
+    setFrameWidth(null);
     watchdogRef.current = setTimeout(() => {
       setFrameReady(true);
       setMeasureFailed(true);
@@ -192,9 +197,9 @@ export function EmailHtmlBody({
 
   // Con allow-same-origin (mismo origen vía srcDoc) el padre puede medir la
   // altura del contenido; un ResizeObserver sigue los cambios (imágenes lazy).
-  // Ancho: el canvas usa width:max-content (sin scroll interno). Si cabe con
-  // escala ≥0.6 y fitWidth, escalamos; si no, ensanchamos el iframe para que
-  // el panel del lector (overflow-x) mueva header + cuerpo juntos.
+  // Ancho disponible = host OUTER (estable). Si hay overflow y fitWidth,
+  // escalamos (≥0.55); si no cabe legible o el usuario pide ancho original,
+  // ensanchamos el iframe INNER para que scrollee el panel del lector.
   const measure = useCallback(() => {
     const iframe = iframeRef.current;
     const doc = iframe?.contentDocument;
@@ -213,17 +218,22 @@ export function EmailHtmlBody({
     let scale = 1;
     let nextFrameWidth: number | null = null;
     if (canvas) {
-      // Ancho disponible = host del iframe (no el iframe: al ensancharlo
-      // clientWidth crecería y cancelaría el scroll del padre).
+      // Solo el outer: si midiéramos el inner con minWidth=naturalW,
+      // availW ≈ naturalW → frameWidth=null → shrink → overflow → bucle.
       const availW = hostRef.current?.clientWidth || iframe.clientWidth;
-      const naturalW = Math.ceil(canvas.scrollWidth);
+      const naturalW = Math.ceil(
+        Math.max(
+          canvas.scrollWidth,
+          doc.documentElement?.scrollWidth ?? 0,
+          doc.body?.scrollWidth ?? 0,
+        ),
+      );
       if (availW > 0 && naturalW > availW + 1) {
         if (fitWidth) {
           const ideal = availW / naturalW;
-          if (ideal >= 0.6) {
+          if (ideal >= 0.55) {
             scale = ideal;
           } else {
-            // Demasiado ancho para escalar legible → 100% + scroll del panel.
             nextFrameWidth = naturalW;
           }
         } else {
@@ -244,8 +254,12 @@ export function EmailHtmlBody({
 
     const h = Math.round(naturalH * scale) + 4;
     lastHeightRef.current = h;
-    setHeight(h);
-    setFrameWidth(nextFrameWidth);
+    // Evitar setState redundantes que re-disparan layout/RO.
+    setHeight((prev) => (prev === h ? prev : h));
+    if (frameWidthRef.current !== nextFrameWidth) {
+      frameWidthRef.current = nextFrameWidth;
+      setFrameWidth(nextFrameWidth);
+    }
     setFrameReady(true);
     setMeasureFailed(false);
   }, [fitWidth]);
@@ -259,6 +273,8 @@ export function EmailHtmlBody({
     if (doc?.body) ro.observe(doc.body);
     // El asa de ancho del lector cambia el host sin mutar el documento.
     if (host) ro.observe(host);
+    // fitWidth / documento nuevo: medir ya (RO solo dispara en resize).
+    measure();
     return () => ro.disconnect();
   }, [useIframe, mode, safeHtml, measure]);
 
@@ -358,15 +374,26 @@ export function EmailHtmlBody({
               </>
             )}
             {showHtmlFrame && useIframe && (
-              <button
-                type="button"
-                onClick={() => setEmailNightMode(!night)}
-                aria-pressed={night}
-                title={night ? "Fondo claro" : "Fondo oscuro"}
-                className="ml-auto text-[12px] text-ds-text-3 ds-tap"
-              >
-                {night ? "☀️ Claro" : "🌙 Oscuro"}
-              </button>
+              <>
+                <button
+                  type="button"
+                  onClick={() => setFitWidth((v) => !v)}
+                  aria-pressed={fitWidth}
+                  title={fitWidth ? "Ver ancho original" : "Ajustar al ancho del panel"}
+                  className="text-[12px] text-ds-text-3 ds-tap"
+                >
+                  {fitWidth ? "Ancho original" : "Ajustar ancho"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEmailNightMode(!night)}
+                  aria-pressed={night}
+                  title={night ? "Fondo claro" : "Fondo oscuro"}
+                  className="ml-auto text-[12px] text-ds-text-3 ds-tap"
+                >
+                  {night ? "☀️ Claro" : "🌙 Oscuro"}
+                </button>
+              </>
             )}
           </div>
           <div className="flex justify-end lg:hidden">
@@ -382,48 +409,49 @@ export function EmailHtmlBody({
       )}
       {showHtmlFrame ? (
         useIframe ? (
-          <div
-            ref={hostRef}
-            className="relative"
-            style={frameWidth ? { minWidth: `${frameWidth}px` } : undefined}
-          >
-            <iframe
-              ref={iframeRef}
-              srcDoc={srcDoc}
-              // Sin allow-scripts: un bypass del sanitizer no ejecuta JS.
-              // allow-same-origin permite medir la altura desde el padre (el
-              // contenido no tiene scripts que abusen del origen compartido).
-              // allow-popups + allow-popups-to-escape-sandbox: los links
-              // (target=_blank + noopener del sanitizer) abren pestañas
-              // normales; sin el escape, la pestaña heredaría el sandbox sin
-              // scripts y casi cualquier sitio quedaría roto.
-              // Opción más estricta evaluada: quitar también el atributo
-              // `style` de la allowlist del sanitizer; se mantiene porque el
-              // sandbox ya es la mitigación y sin `style` el HTML real de
-              // correo (newsletters, firmas) se degrada demasiado.
-              sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"
-              title="Contenido del correo"
-              onLoad={measure}
-              className={`${styles.frame}${night ? ` ${styles.frameNight}` : ""}`}
-              style={{
-                height: `${height}px`,
-                width: frameWidth ? `${frameWidth}px` : "100%",
-                opacity: frameReady ? 1 : 0,
-                transition: frameReady ? "opacity 80ms ease-out" : undefined,
-              }}
-            />
-            {measureFailed && (
-              <div className="absolute inset-x-0 bottom-0 z-[1] flex flex-wrap items-center gap-2 border-t border-status-warn-border bg-status-warn-soft px-3 py-2 text-[12px] text-status-warn-fg">
-                <span>No se pudo mostrar el formato original</span>
-                <button
-                  type="button"
-                  onClick={() => setMode("text")}
-                  className="min-h-11 font-medium underline underline-offset-2 ds-tap sm:min-h-8"
-                >
-                  Ver texto
-                </button>
-              </div>
-            )}
+          <div ref={hostRef} className="relative w-full min-w-0">
+            <div
+              className="relative"
+              style={frameWidth ? { minWidth: `${frameWidth}px` } : undefined}
+            >
+              <iframe
+                ref={iframeRef}
+                srcDoc={srcDoc}
+                // Sin allow-scripts: un bypass del sanitizer no ejecuta JS.
+                // allow-same-origin permite medir la altura desde el padre (el
+                // contenido no tiene scripts que abusen del origen compartido).
+                // allow-popups + allow-popups-to-escape-sandbox: los links
+                // (target=_blank + noopener del sanitizer) abren pestañas
+                // normales; sin el escape, la pestaña heredaría el sandbox sin
+                // scripts y casi cualquier sitio quedaría roto.
+                // Opción más estricta evaluada: quitar también el atributo
+                // `style` de la allowlist del sanitizer; se mantiene porque el
+                // sandbox ya es la mitigación y sin `style` el HTML real de
+                // correo (newsletters, firmas) se degrada demasiado.
+                sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"
+                title="Contenido del correo"
+                onLoad={measure}
+                className={`${styles.frame}${night ? ` ${styles.frameNight}` : ""}`}
+                style={{
+                  height: `${height}px`,
+                  width: frameWidth ? `${frameWidth}px` : "100%",
+                  opacity: frameReady ? 1 : 0,
+                  transition: frameReady ? "opacity 80ms ease-out" : undefined,
+                }}
+              />
+              {measureFailed && (
+                <div className="absolute inset-x-0 bottom-0 z-[1] flex flex-wrap items-center gap-2 border-t border-status-warn-border bg-status-warn-soft px-3 py-2 text-[12px] text-status-warn-fg">
+                  <span>No se pudo mostrar el formato original</span>
+                  <button
+                    type="button"
+                    onClick={() => setMode("text")}
+                    className="min-h-11 font-medium underline underline-offset-2 ds-tap sm:min-h-8"
+                  >
+                    Ver texto
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         ) : (
           <div

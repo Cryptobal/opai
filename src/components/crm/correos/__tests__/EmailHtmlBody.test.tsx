@@ -79,9 +79,16 @@ describe("buildEmailSrcDoc", () => {
     expect(doc).toContain("opai-mail-canvas");
     expect(doc).toContain("padding:16px 20px");
     expect(doc).toContain("<p>contenido</p>");
-    // Sin scroll X interno: el panel del lector scrollea como unidad.
+    // Canvas al 100%: texto hace wrap; sin max-content (rompe wrap / tiritón).
     expect(doc).toContain("overflow-x:hidden");
+    expect(doc).toMatch(/\.opai-mail-canvas\{[^}]*width:100%/);
+    expect(doc).not.toMatch(/\.opai-mail-canvas\{[^}]*width:max-content/);
     expect(doc).not.toMatch(/table\{[^}]*overflow-x:auto/);
+  });
+
+  it("expone toggle de ajuste de ancho en desktop (default: ajustar)", () => {
+    render(<EmailHtmlBody htmlBody={HTML_SIN_IMG} textBody={null} />);
+    expect(screen.getByText("Ancho original")).toBeTruthy();
   });
 
   it("en modo noche fuerza texto claro (pisando color negro inline de correos)", () => {

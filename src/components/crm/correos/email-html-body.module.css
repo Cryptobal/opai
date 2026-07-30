@@ -15,13 +15,13 @@
 
 /* Sandbox aislado del tema app: fondo claro fijo para HTML de correo.
  * (Render legacy, solo con NEXT_PUBLIC_EMAIL_IFRAME_SANDBOX=false.)
- * Sin overflow-x propio: el scroll horizontal lo hace el panel del lector. */
+ * Ancho del panel + wrap; tablas fijas pueden desbordar al scroller padre. */
 .root {
-  width: max-content;
-  min-width: 100%;
-  max-width: none;
+  width: 100%;
+  max-width: 100%;
   box-sizing: border-box;
   overflow-x: visible;
+  overflow-wrap: anywhere;
   padding: 1rem 1.25rem;
   border-radius: 0.75rem;
   background-color: hsl(0 0% 100%);
@@ -44,6 +44,7 @@
 
 .root :global(table) {
   border-collapse: collapse;
+  max-width: 100%;
   margin: 0.5rem 0;
 }
 
@@ -52,6 +53,7 @@
   border: 1px solid hsl(220 10% 85%);
   padding: 0.35rem 0.5rem;
   vertical-align: top;
+  word-break: break-word;
 }
 
 .root :global(p),
