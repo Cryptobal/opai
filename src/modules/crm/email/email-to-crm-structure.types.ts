@@ -30,6 +30,21 @@ export type CrmStructureCoverageSlot = {
   headcountLocked?: boolean;
   pattern: string;
   staffingRationale: string;
+  /** Etapa del proyecto multi-fase (ej. "Etapa 1", "Etapa 3A"). Opcional; drafts legacy no lo traen. */
+  etapa?: string | null;
+  /** Vigencia del puesto YYYY-MM-DD (inclusive). null = sin vigencia. */
+  vigenciaDesde?: string | null;
+  vigenciaHasta?: string | null;
+  /** true si el documento no declaró horas y se usó el default 08–20 / 20–08. */
+  horarioAsumido?: boolean;
+};
+
+/** Peak de dotación simultánea entre vigencias (calculado en servidor). */
+export type CrmStructureStaffingPeak = {
+  peakHeadcount: number;
+  peakWeeklyHH: number;
+  peakFrom: string;
+  peakTo: string;
 };
 
 export type CrmStructureInstallation = {
@@ -116,6 +131,11 @@ export type CrmStructureProposal = {
     headcountWithReserve: number;
     legalMinimum: number;
   };
+  /**
+   * Peak de dotación simultánea por vigencias.
+   * null si ningún slot tiene vigencia (drafts legacy / sin fechas).
+   */
+  staffingPeak?: CrmStructureStaffingPeak | null;
   requerimiento: string | null;
   /** Fechas de proceso del pliego (opcional; drafts viejos no lo traen). */
   licitacion?: CrmStructureLicitacion;
