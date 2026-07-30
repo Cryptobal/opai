@@ -2564,7 +2564,10 @@ export function CpqQuoteDetail({
         )}
       </Card>
 
-      {/* -- Section: Auditoría (registro de todos los cambios) -- */}
+      {/* -- Section: Auditoría (registro de todos los cambios) --
+           En multi-instalación la auditoría vive en el Consolidado, que reúne
+           los eventos de la propuesta y de todas sus instalaciones. */}
+      {!embedded && (
       <Card id="sec-auditoria" className="overflow-visible rounded-xl border-border/70 bg-card/85 shadow-sm scroll-mt-44 sm:scroll-mt-32">
         <div className="flex items-center justify-between w-full border-b border-border/50 bg-muted/20 px-4 py-3">
           <button type="button" onClick={() => setSecAuditoria((v) => !v)} className="flex-1 flex items-center gap-2 min-w-0 text-left hover:bg-muted/10 transition-colors -m-1 p-1 rounded">
@@ -2593,6 +2596,7 @@ export function CpqQuoteDetail({
           </div>
         )}
       </Card>
+      )}
 
       </div>{/* end main column */}
 
