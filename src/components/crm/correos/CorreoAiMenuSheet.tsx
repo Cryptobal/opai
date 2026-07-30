@@ -51,7 +51,7 @@ export function CorreoAiMenuSheet({
       >
         <div aria-hidden className="mx-auto mt-2 h-1 w-10 rounded-full bg-ds-surface-3" />
         <div className="flex items-center justify-between px-3 pb-1 pt-2">
-          <p className="font-display text-[15px] font-semibold text-ds-text-1">Acciones IA</p>
+          <p className="font-display text-ds-title font-semibold text-ds-text-1">Acciones IA</p>
           <button
             type="button"
             aria-label="Cerrar"

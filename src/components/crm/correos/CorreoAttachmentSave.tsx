@@ -165,7 +165,7 @@ export function CorreoAttachmentSave({
       >
         <div className="flex shrink-0 items-center gap-2 border-b border-ds-border-subtle px-4 py-3">
           <div className="min-w-0 flex-1">
-            <h3 className="text-[15px] font-semibold text-ds-text-1">
+            <h3 className="text-ds-title font-semibold text-ds-text-1">
               Guardar {items.length} adjunto{items.length !== 1 ? "s" : ""}
             </h3>
             {mailboxEmail && (

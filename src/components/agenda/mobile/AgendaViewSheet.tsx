@@ -43,7 +43,7 @@ export function AgendaViewSheet({ open, view, selectedYmd, onViewChange, onSelec
         <div className="mx-auto h-1 w-10 rounded-full bg-ds-surface-3" />
 
         <div className="flex items-center justify-between">
-          <p className="font-display text-[15px] font-semibold text-ds-text-1">Vista</p>
+          <p className="font-display text-ds-title font-semibold text-ds-text-1">Vista</p>
           <button
             type="button"
             onClick={onClose}

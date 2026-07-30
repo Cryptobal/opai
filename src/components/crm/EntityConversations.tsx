@@ -119,7 +119,7 @@ export function EntityConversations({
     <>
       <div className="flex flex-wrap items-center gap-2">
         <Mail className="h-4 w-4 text-tint-violet-fg" />
-        <h3 className="font-display text-[15px] font-semibold text-ds-text-1">Conversaciones</h3>
+        <h3 className="font-display text-ds-title font-semibold text-ds-text-1">Conversaciones</h3>
         {rows && rows.length > 0 && (
           <span className="rounded-full bg-ds-surface-3 px-1.5 py-0.5 text-[12px] text-ds-text-3">
             {rows.length}

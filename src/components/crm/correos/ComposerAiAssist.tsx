@@ -264,7 +264,7 @@ export function ComposerAiPromptPill({
               onClick={(e) => e.stopPropagation()}
             >
               <div aria-hidden className="mx-auto mt-2 h-1 w-10 rounded-full bg-ds-surface-3" />
-              <p className="px-4 pb-1 pt-2 font-display text-[15px] font-semibold text-ds-text-1">
+              <p className="px-4 pb-1 pt-2 font-display text-ds-title font-semibold text-ds-text-1">
                 Refinar borrador
               </p>
               <div className="py-1">{menuItems}</div>

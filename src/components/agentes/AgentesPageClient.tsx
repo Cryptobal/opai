@@ -57,7 +57,7 @@ export function AgentesPageClient() {
   return (
     <div className="space-y-4 min-w-0">
       <div>
-        <h2 className="text-[15px] font-semibold text-ds-text-1">Agentes IA</h2>
+        <h2 className="text-ds-title font-semibold text-ds-text-1">Agentes IA</h2>
         <p className="text-ds-body text-ds-text-3">
           Controla el presupuesto mensual de IA y revisa el consumo por feature.
         </p>

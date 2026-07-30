@@ -162,7 +162,7 @@ export function CorreoWorkPanel({
         >
           <div className="flex items-center gap-2">
             <LayoutGrid className="h-4 w-4 shrink-0 text-tint-violet-fg" />
-            <p className="font-display text-[15px] font-semibold text-ds-text-1">Copiloto</p>
+            <p className="font-display text-ds-title font-semibold text-ds-text-1">Copiloto</p>
             <button
               type="button"
               aria-label="Cerrar"

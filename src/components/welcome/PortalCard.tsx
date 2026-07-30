@@ -116,7 +116,7 @@ export function PortalCard({
         {/* Title + subtitle */}
         <div className="flex-1">
           <div
-            className="font-semibold text-[#f9fafb] text-[17px] mb-1"
+            className="font-semibold text-[#f9fafb] text-ds-title mb-1"
             style={{ letterSpacing: "-0.02em" }}
           >
             {title}

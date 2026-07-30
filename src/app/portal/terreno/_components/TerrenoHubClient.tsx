@@ -325,7 +325,7 @@ export function TerrenoHubClient() {
                   </div>
                   <div className="min-w-0 flex-1">
                     <div
-                      className="text-[17px] font-semibold text-white"
+                      className="text-ds-title font-semibold text-white"
                       style={{ letterSpacing: "-0.01em" }}
                     >
                       {portal.name}

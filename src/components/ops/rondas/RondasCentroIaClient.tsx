@@ -25,7 +25,7 @@ export function RondasCentroIaClient() {
           <Brain className="w-4 h-4 text-[#06b6d4]" />
         </div>
         <div>
-          <h2 className="text-[15px] font-bold text-[#f1f5f9]">Centro IA</h2>
+          <h2 className="text-ds-title font-bold text-[#f1f5f9]">Centro IA</h2>
           <p className="text-[11px] text-[#64748b]">Detección automática de anomalías y recomendaciones inteligentes</p>
         </div>
       </div>

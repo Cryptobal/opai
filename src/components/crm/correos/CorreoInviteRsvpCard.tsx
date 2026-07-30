@@ -181,7 +181,7 @@ export function CorreoInviteRsvpCard({
         <IconBubble icon={CalendarDays} variant="brand" size="md" />
         <div className="min-w-0 flex-1 space-y-1">
           <div className="flex flex-wrap items-center gap-2">
-            <p className="font-display text-[15px] font-semibold leading-snug text-ds-text-1">
+            <p className="font-display text-ds-title font-semibold leading-snug text-ds-text-1">
               {invite.title}
             </p>
             <Tag variant={statusVariant(status, invite.cancelled)} size="sm">

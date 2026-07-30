@@ -362,7 +362,7 @@ function RoleSelector({
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                       <div
-                        className="text-[17px] font-semibold text-white"
+                        className="text-ds-title font-semibold text-white"
                         style={{ letterSpacing: "-0.01em" }}
                       >
                         {cfg.name}

@@ -105,7 +105,7 @@ export function InstallationDetailModal({ open, onClose, instalacion, alertRows 
         {/* Header */}
         <DialogHeader className="px-5 pt-5 pb-3 border-b border-[#1a1f2e]">
           <div className="flex items-center justify-between">
-            <DialogTitle className="text-[15px] font-semibold text-[#f1f5f9] flex items-center gap-2">
+            <DialogTitle className="text-ds-title font-semibold text-[#f1f5f9] flex items-center gap-2">
               <MapPin className="h-4 w-4 text-status-info-fg" />
               {instalacion.installationName}
             </DialogTitle>

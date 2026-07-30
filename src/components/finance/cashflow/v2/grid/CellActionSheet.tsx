@@ -138,7 +138,7 @@ export function CellActionSheet({
       <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-md">
         <SheetHeader>
           <CellStatusPill variant={variant} />
-          <SheetTitle className="text-[15px] leading-snug">{itemName}</SheetTitle>
+          <SheetTitle className="text-ds-title leading-snug">{itemName}</SheetTitle>
         </SheetHeader>
 
         <dl className="mt-4 space-y-3 text-ds-body">
