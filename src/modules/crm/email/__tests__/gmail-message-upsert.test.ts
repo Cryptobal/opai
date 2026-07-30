@@ -31,7 +31,10 @@ vi.mock("@/lib/prisma", () => ({
     },
   },
 }));
-vi.mock("../thread-linking", () => ({ upsertLinkedThread: mocks.upsertLinkedThread }));
+vi.mock("../thread-linking", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../thread-linking")>();
+  return { ...actual, upsertLinkedThread: mocks.upsertLinkedThread };
+});
 
 import { Prisma } from "@prisma/client";
 import { upsertGmailMessage } from "../gmail-message-upsert";

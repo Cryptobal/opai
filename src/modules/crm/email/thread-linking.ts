@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
+import { normalizeEmailAddress } from "@/lib/email-address";
 
 export type ThreadLinks = {
   contactId: string | null;
@@ -8,11 +9,56 @@ export type ThreadLinks = {
 };
 
 /**
+ * Emails de contraparte para auto-asociar un hilo.
+ *
+ * - Inbound: SOLO From (+ Reply-To si difiere). To/CC suelen incluir casillas
+ *   propias u otros contactos internos del tenant; si esos existen como
+ *   CrmContact bajo la cuenta de la propia empresa, el hilo quedaba mal
+ *   asociado (p. ej. cliente @corrupac.cl → "Gard Security").
+ * - Outbound: To + CC (destinatarios externos).
+ */
+export function counterpartyEmailsForLinking(params: {
+  direction: "in" | "out";
+  fromEmail: string | null | undefined;
+  replyToEmail?: string | null;
+  toEmails?: string[];
+  ccEmails?: string[];
+  ownEmail: string;
+}): string[] {
+  const own = normalizeEmailAddress(params.ownEmail);
+  const keep = (e: string | null | undefined) => {
+    if (!e) return false;
+    return normalizeEmailAddress(e) !== own;
+  };
+
+  if (params.direction === "in") {
+    const out: string[] = [];
+    if (keep(params.fromEmail)) out.push(normalizeEmailAddress(params.fromEmail!));
+    if (keep(params.replyToEmail)) {
+      const rt = normalizeEmailAddress(params.replyToEmail!);
+      if (!out.includes(rt)) out.push(rt);
+    }
+    return out;
+  }
+
+  return Array.from(
+    new Set(
+      [...(params.toEmails ?? []), ...(params.ccEmails ?? [])]
+        .filter(keep)
+        .map((e) => normalizeEmailAddress(e)),
+    ),
+  );
+}
+
+/**
  * Resuelve contacto / cuenta / deal a partir de las direcciones de correo de la
  * contraparte. Heurística conservadora:
- *  - contacto = primer CrmContact del tenant cuyo email coincida.
+ *  - contacto = primer candidato (en orden) que exista como CrmContact.
  *  - cuenta = accountId de ese contacto.
  *  - deal = solo si la cuenta tiene EXACTAMENTE un CrmDeal abierto.
+ *
+ * El orden de `emails` importa: el primero es la contraparte primaria (From
+ * en inbound). Así no gana un CC interno por orden arbitrario de BD.
  */
 export async function resolveThreadLinks(
   tenantId: string,
@@ -24,13 +70,29 @@ export async function resolveThreadLinks(
   );
   if (candidates.length === 0) return empty;
 
-  const contact = await prisma.crmContact.findFirst({
+  const contacts = await prisma.crmContact.findMany({
     where: {
       tenantId,
       OR: candidates.map((e) => ({ email: { equals: e, mode: "insensitive" as const } })),
     },
-    select: { id: true, accountId: true },
+    select: { id: true, accountId: true, email: true },
+    take: 30,
   });
+  if (contacts.length === 0) return empty;
+
+  const byEmail = new Map(
+    contacts
+      .filter((c) => c.email)
+      .map((c) => [normalizeEmailAddress(c.email!), c] as const),
+  );
+  let contact = null as (typeof contacts)[number] | null;
+  for (const email of candidates) {
+    const hit = byEmail.get(email);
+    if (hit) {
+      contact = hit;
+      break;
+    }
+  }
   if (!contact) return empty;
 
   let dealId: string | null = null;

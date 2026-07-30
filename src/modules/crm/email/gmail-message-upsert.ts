@@ -11,7 +11,7 @@ import {
   payloadHasMessageBody,
   type GmailMessagePart,
 } from "@/lib/gmail-message-content";
-import { upsertLinkedThread } from "./thread-linking";
+import { counterpartyEmailsForLinking, upsertLinkedThread } from "./thread-linking";
 import type { EmailAccountLite } from "./gmail-sync-state";
 import type { gmail_v1 } from "googleapis";
 
@@ -179,6 +179,20 @@ export async function upsertGmailMessage(params: {
     labelIds,
   };
 
+  const fromParsedForLink =
+    extractEmailAddresses(rawFrom)[0] || extractEmailAddresses(fromEmail)[0] || "";
+  const replyToParsedForLink = replyToEmail
+    ? extractEmailAddresses(replyToEmail)[0] || null
+    : null;
+  const linkEmails = counterpartyEmailsForLinking({
+    direction: direction === "out" ? "out" : "in",
+    fromEmail: fromParsedForLink,
+    replyToEmail: replyToParsedForLink,
+    toEmails,
+    ccEmails,
+    ownEmail: emailAccount.email,
+  });
+
   if (existing) {
     // Backfill de cuerpo: también reasigna al hilo Gmail correcto si el
     // mensaje quedó colgado de un hilo huérfano (evita "Sin mensajes.").
@@ -188,8 +202,7 @@ export async function upsertGmailMessage(params: {
         tenantId,
         subject,
         lastMessageAt: sentOrReceivedAt,
-        counterpartyEmails: [extractEmailAddresses(rawFrom)[0] || fromEmail, ...toEmails, ...ccEmails]
-          .filter((e) => e && normalizeEmailAddress(e) !== normalizeEmailAddress(emailAccount.email)),
+        counterpartyEmails: linkEmails,
         emailAccountId: emailAccount.id,
         providerThreadId,
         isInbound: direction === "in",
@@ -205,17 +218,11 @@ export async function upsertGmailMessage(params: {
     return { wrote: true, providerThreadId };
   }
 
-  const ownEmail = normalizeEmailAddress(emailAccount.email);
-  const counterpartyEmails = [
-    extractEmailAddresses(rawFrom)[0] || "",
-    ...toEmails,
-    ...ccEmails,
-  ].filter((e) => e && normalizeEmailAddress(e) !== ownEmail);
   const thread = await upsertLinkedThread({
     tenantId,
     subject,
     lastMessageAt: sentOrReceivedAt,
-    counterpartyEmails,
+    counterpartyEmails: linkEmails,
     emailAccountId: emailAccount.id,
     providerThreadId,
     // Los enviados (incluidas respuestas hechas fuera de OPAI) no reordenan.

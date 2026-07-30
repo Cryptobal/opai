@@ -7,6 +7,7 @@ export type AccountSuggestion = {
   name: string;
   reason: string;
   confidence?: "alta" | "media";
+  evidenceThreadIds?: string[];
 };
 
 type Props = {
@@ -28,7 +29,11 @@ export function CorreoAccountSuggestionChips({ suggestions, onAssociate }: Props
         <button
           key={s.id}
           type="button"
-          title={s.reason}
+          title={
+            s.evidenceThreadIds?.length
+              ? `${s.reason} (${s.evidenceThreadIds.length} hilo${s.evidenceThreadIds.length === 1 ? "" : "s"})`
+              : s.reason
+          }
           aria-label={`Asociar a ${s.name} — ${s.reason}`}
           onClick={() => onAssociate(s.id)}
           className="inline-flex min-h-11 shrink-0 items-center gap-1 rounded-full border border-ds-border-default bg-ds-surface-1 px-2.5 text-[12px] text-ds-text-1 ds-tap sm:min-h-8"

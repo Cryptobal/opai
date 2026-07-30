@@ -8,6 +8,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   contactFindFirst: vi.fn(),
+  contactFindMany: vi.fn(),
   dealFindMany: vi.fn(),
   threadFindUnique: vi.fn(),
   threadFindFirst: vi.fn(),
@@ -17,7 +18,10 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
-    crmContact: { findFirst: mocks.contactFindFirst },
+    crmContact: {
+      findFirst: mocks.contactFindFirst,
+      findMany: mocks.contactFindMany,
+    },
     crmDeal: { findMany: mocks.dealFindMany },
     crmEmailThread: {
       findUnique: mocks.threadFindUnique,
@@ -28,7 +32,11 @@ vi.mock("@/lib/prisma", () => ({
   },
 }));
 
-import { upsertLinkedThread } from "../thread-linking";
+import {
+  counterpartyEmailsForLinking,
+  resolveThreadLinks,
+  upsertLinkedThread,
+} from "../thread-linking";
 
 const OWN = "acc-mine";
 const OTHER = "acc-other";
@@ -37,11 +45,60 @@ beforeEach(() => {
   vi.clearAllMocks();
   // Sin contacto → links vacíos (no interesa el enriquecimiento aquí).
   mocks.contactFindFirst.mockResolvedValue(null);
+  mocks.contactFindMany.mockResolvedValue([]);
   mocks.dealFindMany.mockResolvedValue([]);
   mocks.threadFindUnique.mockResolvedValue(null);
   mocks.threadFindFirst.mockResolvedValue(null);
   mocks.threadCreate.mockResolvedValue({ id: "th-new" });
   mocks.threadUpdate.mockResolvedValue({ id: "th-upd" });
+});
+
+describe("counterpartyEmailsForLinking", () => {
+  it("inbound solo usa From/Reply-To (ignora To/CC internos)", () => {
+    expect(
+      counterpartyEmailsForLinking({
+        direction: "in",
+        fromEmail: "carlaandrea.nunez@corrupac.cl",
+        replyToEmail: null,
+        toEmails: ["carlos@gard.cl"],
+        ccEmails: ["coleaga@gard.cl", "otro@corrupac.cl"],
+        ownEmail: "carlos@gard.cl",
+      }),
+    ).toEqual(["carlaandrea.nunez@corrupac.cl"]);
+  });
+
+  it("outbound usa To/CC externos", () => {
+    expect(
+      counterpartyEmailsForLinking({
+        direction: "out",
+        fromEmail: "carlos@gard.cl",
+        toEmails: ["carlaandrea.nunez@corrupac.cl"],
+        ccEmails: ["coleaga@gard.cl"],
+        ownEmail: "carlos@gard.cl",
+      }),
+    ).toEqual(["carlaandrea.nunez@corrupac.cl", "coleaga@gard.cl"]);
+  });
+});
+
+describe("resolveThreadLinks — orden de candidatos", () => {
+  it("prefiere el primer email (From) si varios candidatos tienen contacto", async () => {
+    mocks.contactFindMany.mockResolvedValue([
+      { id: "c-gard", accountId: "acc-gard", email: "coleaga@gard.cl" },
+      { id: "c-carla", accountId: "acc-corrupac", email: "carlaandrea.nunez@corrupac.cl" },
+    ]);
+    mocks.dealFindMany.mockResolvedValue([]);
+
+    const links = await resolveThreadLinks("t1", [
+      "carlaandrea.nunez@corrupac.cl",
+      "coleaga@gard.cl",
+    ]);
+
+    expect(links).toEqual({
+      contactId: "c-carla",
+      accountId: "acc-corrupac",
+      dealId: null,
+    });
+  });
 });
 
 describe("upsertLinkedThread — scope del fallback por asunto", () => {
