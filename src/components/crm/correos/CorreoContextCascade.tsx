@@ -67,7 +67,6 @@ export function CorreoContextCascade({
   const { links: linksRes, contactContext, reload, applyAccountOptimistic } =
     useCorreoWork();
   const [omnibox, setOmnibox] = useState<OmniboxTarget>(null);
-  const [contactsOpen, setContactsOpen] = useState(false);
 
   const links = linksRes.data ?? [];
   const quotes = links.filter((l) => l.entityType === "quote" && !l.orphan);
@@ -150,10 +149,8 @@ export function CorreoContextCascade({
       return;
     }
     if (c.entityType === "contact") {
-      // Contactos del hilo se gestionan vía CorreoThreadContacts; aquí
-      // asociamos la cuenta del contacto si el hilo no tiene.
-      toast.message("Usá Contactos del hilo para vincular contactos");
-      setContactsOpen(true);
+      // Contactos del hilo se gestionan vía CorreoThreadContacts (chips abajo).
+      toast.message("Usá Agregar en Contactos para vincular");
       setOmnibox(null);
       return;
     }
@@ -194,9 +191,15 @@ export function CorreoContextCascade({
   }
 
   async function removeLink(linkId: string) {
-    await fetch(`/api/crm/correos/${t.id}/links?linkId=${linkId}`, {
+    const res = await fetch(`/api/crm/correos/${t.id}/links?linkId=${linkId}`, {
       method: "DELETE",
-    }).catch(() => {});
+    }).catch(() => null);
+    if (!res?.ok) {
+      toast.error("No se pudo quitar el vínculo");
+      return;
+    }
+    toast.success("Vínculo quitado");
+    setOmnibox(null);
     await reload("links");
   }
 
@@ -272,18 +275,11 @@ export function CorreoContextCascade({
         hasValue={Boolean(contactName)}
         editable={editable && Boolean(t.accountId)}
         disabled={!t.accountId}
-        onActivate={() => setContactsOpen((v) => !v)}
-        onAdd={() => {
-          setContactsOpen(true);
-          setOmnibox("contact");
-        }}
-        onEdit={() => {
-          setContactsOpen(true);
-          setOmnibox("contact");
-        }}
+        onAdd={() => setOmnibox("contact")}
+        onEdit={() => setOmnibox("contact")}
         onCreateWithAi={aiFor("contact")}
       />
-      {t.accountId && contactsOpen && (
+      {t.accountId && (
         <div className="border-b border-ds-border-subtle px-3 pb-2 pl-8">
           <CorreoThreadContacts threadId={t.id} accountId={t.accountId} />
         </div>
@@ -339,8 +335,13 @@ export function CorreoContextCascade({
         }
         depth={1}
         hasValue={detail.attachments.length > 0}
-        editable={false}
+        editable={Boolean(onOpenAttachments) && (detail.attachments.length > 0 || detail.degraded)}
         onActivate={
+          detail.attachments.length > 0 || detail.degraded
+            ? () => onOpenAttachments?.()
+            : undefined
+        }
+        onEdit={
           detail.attachments.length > 0 || detail.degraded
             ? () => onOpenAttachments?.()
             : undefined
@@ -354,10 +355,31 @@ export function CorreoContextCascade({
             types={omniboxTypes}
             onPick={(c) => void createLink(c)}
             onCancel={() => setOmnibox(null)}
+            removeLabel={
+              omnibox === "account"
+                ? "Quitar cuenta del hilo"
+                : omnibox === "deal"
+                  ? "Quitar negocio del hilo"
+                  : omnibox === "quote"
+                    ? "Quitar cotización del hilo"
+                    : omnibox === "installation"
+                      ? "Quitar instalación del hilo"
+                      : "Quitar del hilo"
+            }
             onRemove={
               omnibox === "account" && t.accountId
                 ? () => void removeAccountFromThread()
-                : undefined
+                  : omnibox === "deal" && t.dealId && t.accountId
+                  ? () =>
+                      void associateAndReload({
+                        accountId: t.accountId,
+                        dealId: null,
+                      }).then(() => toast.success("Negocio desvinculado"))
+                  : omnibox === "quote" && quote
+                    ? () => void removeLink(quote.id)
+                    : omnibox === "installation" && installation
+                      ? () => void removeLink(installation.id)
+                      : undefined
             }
           />
         </div>

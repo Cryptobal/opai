@@ -25,6 +25,7 @@ export type EmailAuditAction =
   | "connect_account"
   | "disconnect_account"
   | "save_attachment"
+  | "unsave_attachment"
   | "verticalOverride";
 
 export type EmailAuditEntityType =

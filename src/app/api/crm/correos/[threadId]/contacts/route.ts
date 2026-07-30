@@ -82,7 +82,7 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
 }
 
 export async function POST(req: NextRequest, { params }: Ctx) {
-  const mod = await requireCorreosAccess();
+  const mod = await requireCorreosAccess("edit");
   if (!mod.authorized) return mod.response;
   const ctx = await requireAuth();
   if (!ctx) return unauthorized();
@@ -163,7 +163,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
 }
 
 export async function DELETE(req: NextRequest, { params }: Ctx) {
-  const mod = await requireCorreosAccess();
+  const mod = await requireCorreosAccess("edit");
   if (!mod.authorized) return mod.response;
   const ctx = await requireAuth();
   if (!ctx) return unauthorized();
@@ -180,12 +180,13 @@ export async function DELETE(req: NextRequest, { params }: Ctx) {
   });
   if (!thread) return NextResponse.json({ error: "Hilo no encontrado" }, { status: 404 });
 
-  await prisma.crmEmailThreadContact.deleteMany({
+  const removed = await prisma.crmEmailThreadContact.deleteMany({
     where: { tenantId: ctx.tenantId, threadId, contactId },
   });
 
-  // Nunca dejar el escalar apuntando a un contacto desvinculado.
-  if (thread.contactId === contactId) {
+  // Principal solo en el escalar (pre-bridge) o aún apuntando al desvinculado.
+  const wasPrimary = thread.contactId === contactId;
+  if (wasPrimary) {
     const next = await prisma.crmEmailThreadContact.findFirst({
       where: { tenantId: ctx.tenantId, threadId },
       orderBy: { createdAt: "asc" },
@@ -195,6 +196,9 @@ export async function DELETE(req: NextRequest, { params }: Ctx) {
       where: { id: threadId },
       data: { contactId: next?.contactId ?? null },
     });
+  } else if (removed.count === 0 && !wasPrimary) {
+    // Nada que borrar en puente ni en escalar.
+    return NextResponse.json({ error: "Contacto no vinculado a este hilo" }, { status: 404 });
   }
 
   return NextResponse.json({ success: true });

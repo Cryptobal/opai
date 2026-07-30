@@ -2,7 +2,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { LayoutGrid, X } from "lucide-react";
+import { ArrowLeft, LayoutGrid, X } from "lucide-react";
 import { hasModuleAccess } from "@/lib/permissions";
 import { useEffectivePermissions } from "@/hooks/useEffectivePermissions";
 import { useSwipeGesture } from "@/components/chat/hooks/useSwipeGesture";
@@ -10,8 +10,7 @@ import { CorreoTasksPanel } from "./CorreoTasksPanel";
 import { CorreoTicketPanel } from "./CorreoTicketPanel";
 import { CorreoMeetingPanel } from "./CorreoMeetingPanel";
 import { CorreoWorkSummary } from "./CorreoWorkSummary";
-import { CorreoAttachmentsSheet } from "./CorreoAttachmentsSheet";
-import { CorreoReaderOverlayContext } from "./CorreoReaderOverlayContext";
+import { CorreoAttachments } from "./CorreoAttachments";
 import { CORREO_COPILOT_DOCK_WIDTH_VAR } from "./correo-copilot-dock";
 import { WORK_TABS, resolveWorkTab, type WorkTab } from "./work-panel-tabs";
 import type { CorreoDetail } from "@/modules/crm/email/correos.types";
@@ -70,6 +69,7 @@ export function CorreoWorkPanel({
     if (!open) return;
     setTab(resolveWorkTab(initialTab));
     setClosing(false);
+    setAttachmentsOpen(false);
   }, [open, initialTab, threadId]);
 
   useEffect(() => {
@@ -242,44 +242,77 @@ export function CorreoWorkPanel({
           className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3 [-webkit-overflow-scrolling:touch] [overscroll-behavior:contain]"
           style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 0.75rem)" }}
         >
-          {tab === "contexto" && (
-            <CorreoWorkSummary
-              detail={detail}
-              readCursorAt={readCursorAt}
-              onOpenAiLead={onOpenAiLead}
-              onAiCommand={onAiCommand}
-              onCreateWithAi={onCreateWithAi}
-              onGoTo={(next) => selectTab(resolveWorkTab(next))}
-              onRequestReply={onRequestReply}
-              onOpenAttachments={() => setAttachmentsOpen(true)}
-              onClose={requestClose}
-              onAssociate={onAssociate}
-            />
-          )}
-          {tab === "trabajo" && (
+          {attachmentsOpen ? (
+            <div className="space-y-3">
+              <div className="flex items-start gap-2">
+                <button
+                  type="button"
+                  onClick={() => setAttachmentsOpen(false)}
+                  className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-ds-text-3 ds-tap hover:bg-ds-surface-3 sm:h-9 sm:w-9"
+                  aria-label="Volver al contexto"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                </button>
+                <div className="min-w-0 flex-1 pt-1">
+                  <h2 className="font-display text-[15px] font-semibold text-ds-text-1">
+                    Adjuntos del hilo
+                  </h2>
+                  <p className="text-[12px] text-ds-text-3">
+                    {detail.attachments.length === 0
+                      ? "Este hilo no tiene adjuntos"
+                      : `${detail.attachments.length} archivo${detail.attachments.length === 1 ? "" : "s"} · guardá o quitá de OPAI`}
+                  </p>
+                </div>
+              </div>
+              {detail.attachments.length === 0 ? (
+                <p className="py-8 text-center text-[13px] text-ds-text-3">Sin adjuntos</p>
+              ) : (
+                <CorreoAttachments
+                  items={detail.attachments}
+                  threadId={t.id}
+                  dealId={t.dealId}
+                  dealTitle={t.dealTitle}
+                  accountId={t.accountId}
+                  accountName={t.accountName}
+                  degraded={detail.degraded}
+                  onSaved={onRefresh}
+                  onRequestAssociate={() => {
+                    setAttachmentsOpen(false);
+                    selectTab("contexto");
+                  }}
+                  defaultOpen
+                  hideCollapseHeader
+                  savePlacement="inline"
+                />
+              )}
+            </div>
+          ) : (
             <>
-              <CorreoMeetingPanel threadId={t.id} subject={t.subject} />
-              <CorreoTicketPanel threadId={t.id} subject={t.subject} />
-              <CorreoTasksPanel threadId={t.id} subject={t.subject} />
+              {tab === "contexto" && (
+                <CorreoWorkSummary
+                  detail={detail}
+                  readCursorAt={readCursorAt}
+                  onOpenAiLead={onOpenAiLead}
+                  onAiCommand={onAiCommand}
+                  onCreateWithAi={onCreateWithAi}
+                  onGoTo={(next) => selectTab(resolveWorkTab(next))}
+                  onRequestReply={onRequestReply}
+                  onOpenAttachments={() => setAttachmentsOpen(true)}
+                  onClose={requestClose}
+                  onAssociate={onAssociate}
+                />
+              )}
+              {tab === "trabajo" && (
+                <>
+                  <CorreoMeetingPanel threadId={t.id} subject={t.subject} />
+                  <CorreoTicketPanel threadId={t.id} subject={t.subject} />
+                  <CorreoTasksPanel threadId={t.id} subject={t.subject} />
+                </>
+              )}
             </>
           )}
         </div>
       </div>
-      <CorreoReaderOverlayContext.Provider value={null}>
-        <CorreoAttachmentsSheet
-          open={attachmentsOpen}
-          onClose={() => setAttachmentsOpen(false)}
-          threadId={t.id}
-          items={detail.attachments}
-          dealId={t.dealId}
-          dealTitle={t.dealTitle}
-          accountId={t.accountId}
-          accountName={t.accountName}
-          degraded={detail.degraded}
-          onSaved={onRefresh}
-          onRequestAssociate={() => selectTab("contexto")}
-        />
-      </CorreoReaderOverlayContext.Provider>
     </>,
     document.body,
   );

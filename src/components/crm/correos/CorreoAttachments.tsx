@@ -1,8 +1,22 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
-import { Check, ChevronDown, ChevronRight, Download, File, FileText, FolderPlus, Image as ImageIcon, Paperclip, Square } from "lucide-react";
+import {
+  Check,
+  ChevronDown,
+  ChevronRight,
+  Download,
+  File,
+  FileText,
+  FolderPlus,
+  Image as ImageIcon,
+  Paperclip,
+  Square,
+  Unlink,
+} from "lucide-react";
+import { toast } from "sonner";
+import { confirmDialog } from "@/components/ui/confirm-service";
 import type { CorreoAttachmentDTO } from "@/modules/crm/email/correos.types";
 import { CorreoAttachmentSave, type SaveSheetItem } from "./CorreoAttachmentSave";
 import { CorreoAttachmentViewer, type ViewerFile } from "./CorreoAttachmentViewer";
@@ -40,6 +54,8 @@ export function CorreoAttachments({
   onSaved,
   onRequestAssociate,
   defaultOpen = false,
+  savePlacement = "portal",
+  hideCollapseHeader = false,
 }: {
   items: CorreoAttachmentDTO[];
   threadId: string;
@@ -55,13 +71,17 @@ export function CorreoAttachments({
   onRequestAssociate?: () => void;
   /** Por defecto colapsado (estilo Gmail). */
   defaultOpen?: boolean;
+  /** En Copiloto: formulario de guardado embebido (sin fullscreen). */
+  savePlacement?: "portal" | "inline";
+  /** Oculta el toggle "Adjuntos (N)" cuando el contenedor ya tiene título. */
+  hideCollapseHeader?: boolean;
 }) {
   const [viewer, setViewer] = useState<ViewerFile | null>(null);
   const [viewerKey, setViewerKey] = useState<string | null>(null);
-  // Siempre colapsados al abrir el hilo; el usuario expande cuando quiere.
-  const [open, setOpen] = useState(defaultOpen);
+  const [open, setOpen] = useState(defaultOpen || hideCollapseHeader);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [unsavingId, setUnsavingId] = useState<string | null>(null);
   const rowRefs = useRef<Map<string, HTMLLIElement>>(new Map());
 
   if (items.length === 0) return null;
@@ -79,9 +99,18 @@ export function CorreoAttachments({
 
   const selectedItems: SaveSheetItem[] = items
     .filter((a) => selected.has(keyOf(a)))
-    .map((a) => ({ messageId: a.messageId, attachmentId: a.attachmentId, filename: a.filename, size: a.size }));
+    .map((a) => ({
+      messageId: a.messageId,
+      attachmentId: a.attachmentId,
+      filename: a.filename,
+      size: a.size,
+    }));
 
-  const destHref = dealId ? `/crm/deals/${dealId}` : accountId ? `/crm/accounts/${accountId}` : null;
+  const destHref = dealId
+    ? `/crm/deals/${dealId}`
+    : accountId
+      ? `/crm/accounts/${accountId}`
+      : null;
   const canSelect = !degraded;
 
   function openViewer(a: CorreoAttachmentDTO) {
@@ -98,7 +127,6 @@ export function CorreoAttachments({
   function closeViewer() {
     const k = viewerKey;
     setViewer(null);
-    // Volver al adjunto que se estaba viendo (scroll + sección abierta).
     setOpen(true);
     if (k) {
       requestAnimationFrame(() => {
@@ -107,24 +135,73 @@ export function CorreoAttachments({
     }
   }
 
+  async function unsave(a: CorreoAttachmentDTO) {
+    if (!a.savedFileId) return;
+    const ok = await confirmDialog({
+      title: "Quitar adjunto de OPAI",
+      description: `Se eliminará «${a.filename}» de Documentos CRM. El archivo del correo no se borra.`,
+      confirmLabel: "Quitar de OPAI",
+      cancelLabel: "Cancelar",
+      variant: "destructive",
+    });
+    if (!ok) return;
+
+    setUnsavingId(a.savedFileId);
+    try {
+      const res = await fetch(
+        `/api/crm/correos/${threadId}/attachments/save?fileId=${encodeURIComponent(a.savedFileId)}`,
+        { method: "DELETE" },
+      );
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.error(
+          typeof body.error === "string" ? body.error : "No se pudo quitar el adjunto",
+        );
+        return;
+      }
+      toast.success("Adjunto desasociado de OPAI");
+      onSaved?.();
+    } finally {
+      setUnsavingId(null);
+    }
+  }
+
   return (
     <div className="space-y-1.5">
-      <div className="flex items-center gap-1.5">
-        <button
-          type="button"
-          onClick={() => setOpen((v) => !v)}
-          className="flex h-9 flex-1 items-center gap-1.5 rounded-lg text-left text-[12px] font-medium text-ds-text-3 ds-tap"
-        >
-          {open ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-          <Paperclip className="h-3.5 w-3.5" />
-          Adjuntos ({items.length})
-        </button>
-        {open && canSelect && items.length > 1 && (
-          <button type="button" onClick={toggleAll} className="shrink-0 px-2 text-[12px] text-primary ds-tap">
+      {!hideCollapseHeader && (
+        <div className="flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => setOpen((v) => !v)}
+            className="flex h-9 flex-1 items-center gap-1.5 rounded-lg text-left text-[12px] font-medium text-ds-text-3 ds-tap"
+          >
+            {open ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+            <Paperclip className="h-3.5 w-3.5" />
+            Adjuntos ({items.length})
+          </button>
+          {open && canSelect && items.length > 1 && (
+            <button
+              type="button"
+              onClick={toggleAll}
+              className="shrink-0 px-2 text-[12px] text-primary ds-tap"
+            >
+              {allSelected ? "Quitar selección" : "Seleccionar todos"}
+            </button>
+          )}
+        </div>
+      )}
+
+      {hideCollapseHeader && canSelect && items.length > 1 && (
+        <div className="flex justify-end">
+          <button
+            type="button"
+            onClick={toggleAll}
+            className="px-2 text-[12px] text-primary ds-tap"
+          >
             {allSelected ? "Quitar selección" : "Seleccionar todos"}
           </button>
-        )}
-      </div>
+        </div>
+      )}
 
       {open && (
         <ul className="space-y-1">
@@ -151,7 +228,11 @@ export function CorreoAttachments({
                     onClick={() => toggle(k)}
                     className="flex h-11 w-9 shrink-0 items-center justify-center text-ds-text-4 ds-tap"
                   >
-                    {isSel ? <Check className="h-4 w-4 text-primary" /> : <Square className="h-4 w-4" />}
+                    {isSel ? (
+                      <Check className="h-4 w-4 text-primary" />
+                    ) : (
+                      <Square className="h-4 w-4" />
+                    )}
                   </button>
                 )}
                 <button
@@ -177,6 +258,18 @@ export function CorreoAttachments({
                       <Check className="h-3 w-3" /> Guardado
                     </span>
                   ))}
+                {a.savedFileId && (
+                  <button
+                    type="button"
+                    aria-label={`Quitar ${a.filename} de OPAI`}
+                    title="Quitar de OPAI"
+                    disabled={unsavingId === a.savedFileId}
+                    onClick={() => void unsave(a)}
+                    className="flex h-11 w-9 shrink-0 items-center justify-center text-ds-text-4 ds-tap hover:text-status-danger-fg disabled:opacity-50"
+                  >
+                    <Unlink className="h-4 w-4" />
+                  </button>
+                )}
                 <a
                   href={url}
                   download={a.filename}
@@ -192,7 +285,7 @@ export function CorreoAttachments({
         </ul>
       )}
 
-      {open && selected.size > 0 && (
+      {open && selected.size > 0 && !sheetOpen && (
         <button
           type="button"
           onClick={() => setSheetOpen(true)}
@@ -213,6 +306,7 @@ export function CorreoAttachments({
         dealTitle={dealTitle}
         mailboxEmail={mailboxEmail}
         onRequestAssociate={onRequestAssociate}
+        placement={savePlacement}
         onSaved={() => {
           setSelected(new Set());
           setSheetOpen(false);

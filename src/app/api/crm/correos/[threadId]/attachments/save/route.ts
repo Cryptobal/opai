@@ -5,6 +5,7 @@ import { canEdit, canEditInstallations } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { auditEmailAction } from "@/lib/audit-email";
 import { auth } from "@/lib/auth";
+import { deleteFile } from "@/lib/storage";
 import {
   normalizeSaveItems,
   saveThreadAttachments,
@@ -15,6 +16,62 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 type Ctx = { params: Promise<{ threadId: string }> };
+
+/**
+ * DELETE — quita un adjunto ya guardado en OPAI (CrmFile con procedencia
+ * de este hilo). No borra el adjunto del correo Gmail; solo la copia en
+ * Documentos CRM. Mismo gate de edición que el POST de guardado.
+ */
+export async function DELETE(req: NextRequest, ctx: Ctx) {
+  const mod = await requireCorreosAccess("edit");
+  if (!mod.authorized) return mod.response;
+  const { tenantId, userId } = mod.ctx;
+  const { threadId } = await ctx.params;
+  const fileId = req.nextUrl.searchParams.get("fileId")?.trim();
+  if (!fileId) {
+    return NextResponse.json({ error: "fileId requerido" }, { status: 400 });
+  }
+
+  const file = await prisma.crmFile.findFirst({
+    where: {
+      id: fileId,
+      tenantId,
+      sourceThreadId: threadId,
+      sourceType: "email",
+    },
+    select: { id: true, storageKey: true, fileName: true },
+  });
+  if (!file) {
+    return NextResponse.json(
+      { error: "Adjunto guardado no encontrado en este hilo" },
+      { status: 404 },
+    );
+  }
+
+  // Quitar asociación CRM: links + objeto (procedencia email de este hilo).
+  await prisma.crmFileLink.deleteMany({
+    where: { tenantId, fileId: file.id },
+  });
+  try {
+    await deleteFile(file.storageKey);
+  } catch {
+    // El registro igual se elimina; basura en R2 la limpia el cron.
+  }
+  await prisma.crmFile.delete({ where: { id: file.id } });
+
+  const session = await auth();
+  void auditEmailAction({
+    tenantId,
+    userId,
+    userEmail: session?.user?.email,
+    action: "unsave_attachment",
+    entityType: "email_thread",
+    entityId: threadId,
+    meta: { fileId: file.id, fileName: file.fileName },
+  });
+
+  return NextResponse.json({ success: true });
+}
 
 /**
  * POST — guarda uno o varios adjuntos del correo como Documentos de una

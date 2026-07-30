@@ -39,6 +39,7 @@ export function CorreoThreadContacts({
   const [accountContacts, setAccountContacts] = useState<AccountContact[]>([]);
   const [picking, setPicking] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [removingId, setRemovingId] = useState<string | null>(null);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -86,20 +87,38 @@ export function CorreoThreadContacts({
     }
     setPicking(false);
     load();
-    work?.reload("contact");
+    await work?.reload("contact");
   }
 
-  async function remove(contactId: string) {
-    const res = await fetch(
-      `/api/crm/correos/${threadId}/contacts?contactId=${encodeURIComponent(contactId)}`,
-      { method: "DELETE" },
-    );
-    if (!res.ok) {
-      toast.error("No se pudo quitar el contacto");
-      return;
+  async function remove(contactId: string, name: string) {
+    const ok = await confirmDialog({
+      title: "Quitar contacto del hilo",
+      description: `Se desvinculará a ${name} de este correo. El contacto no se elimina del CRM.`,
+      confirmLabel: "Quitar",
+      cancelLabel: "Cancelar",
+      variant: "destructive",
+    });
+    if (!ok) return;
+
+    setRemovingId(contactId);
+    try {
+      const res = await fetch(
+        `/api/crm/correos/${threadId}/contacts?contactId=${encodeURIComponent(contactId)}`,
+        { method: "DELETE" },
+      );
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.error(
+          typeof body.error === "string" ? body.error : "No se pudo quitar el contacto",
+        );
+        return;
+      }
+      setContacts((prev) => prev.filter((c) => c.contactId !== contactId));
+      toast.success("Contacto desvinculado");
+      await work?.reload("contact");
+    } finally {
+      setRemovingId(null);
     }
-    load();
-    work?.reload("contact");
   }
 
   if (!accountId) {
@@ -120,9 +139,9 @@ export function CorreoThreadContacts({
         {contacts.map((c) => (
           <span
             key={c.contactId}
-            className="inline-flex items-center gap-1 rounded-full border border-ds-border-default bg-ds-surface-1 pl-2.5 pr-1 text-[12px] text-ds-text-1"
+            className="inline-flex max-w-full items-center gap-1 rounded-full border border-ds-border-default bg-ds-surface-1 py-0.5 pl-2.5 pr-1 text-[12px] text-ds-text-1"
           >
-            {c.name}
+            <span className="min-w-0 truncate">{c.name}</span>
             {c.isPrimary && (
               <Tag variant="brand" size="sm">
                 Principal
@@ -131,8 +150,14 @@ export function CorreoThreadContacts({
             <button
               type="button"
               aria-label={`Quitar ${c.name}`}
-              onClick={() => void remove(c.contactId)}
-              className="inline-flex h-7 w-7 items-center justify-center rounded-full text-ds-text-4 ds-tap hover:text-status-danger-fg"
+              title="Quitar del hilo"
+              disabled={removingId === c.contactId}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                void remove(c.contactId, c.name);
+              }}
+              className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-ds-text-4 ds-tap hover:bg-status-danger-soft hover:text-status-danger-fg disabled:opacity-50"
             >
               <X className="h-3.5 w-3.5" />
             </button>
@@ -146,6 +171,9 @@ export function CorreoThreadContacts({
           <Plus className="h-3.5 w-3.5" /> Agregar
         </button>
       </div>
+      {contacts[0]?.email && (
+        <p className="truncate text-[12px] text-ds-text-4">{contacts[0].email}</p>
+      )}
       {picking && (
         <ul className="max-h-40 space-y-0.5 overflow-y-auto rounded-lg border border-ds-border-subtle bg-ds-surface-1 p-1">
           {available.map((c) => (

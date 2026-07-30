@@ -70,4 +70,28 @@ describe("CorreoAttachmentSave portal", () => {
     });
     await waitFor(() => expect(onSaved).toHaveBeenCalled());
   });
+
+  it("placement inline renderiza embebido sin portal fixed fullscreen", async () => {
+    render(
+      <CorreoAttachmentSave
+        open
+        onClose={() => {}}
+        threadId="t1"
+        items={[{ messageId: "m1", attachmentId: "a1", filename: "plano.kmz", size: 1000 }]}
+        accountId="acc1"
+        accountName="Kalpataru"
+        dealId="d1"
+        dealTitle="Negocio"
+        onSaved={vi.fn()}
+        placement="inline"
+      />,
+    );
+
+    const region = await screen.findByRole("region", { name: /Guardar adjuntos/i });
+    expect(region).toBeTruthy();
+    expect(region.className).toContain("rounded-xl");
+    // No envuelve con fixed inset-0 (fullscreen sobre la app).
+    expect(region.closest(".fixed")).toBeNull();
+  });
 });
+
