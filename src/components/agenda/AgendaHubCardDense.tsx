@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { CalendarDays } from "lucide-react";
-import { Surface, Spinner, EmptyState } from "@/components/opai-ds";
+import { Surface, Spinner, EmptyState, Tag } from "@/components/opai-ds";
 import { addDaysChile, startOfDayChile, todayInChile } from "@/lib/dates-cl";
 import { cn } from "@/lib/utils";
 import { agendaItemDayKey } from "./agenda-calendar-utils";
@@ -70,21 +70,18 @@ export function AgendaHubCardDense({
       padding="md"
       className={cn("flex min-h-0 min-w-0 flex-col gap-3", className)}
     >
-      <div className="flex shrink-0 items-center justify-between gap-2">
+      <div className="flex min-h-11 shrink-0 items-center justify-between gap-2">
         <Link
           href="/opai/agenda"
           aria-label="Abrir agenda"
-          className="flex min-h-11 min-w-0 items-center gap-2 rounded-lg transition-colors hover:bg-ds-surface-2 ds-tap"
+          className="flex min-h-11 min-w-0 items-center gap-2 rounded-ds-md transition-colors hover:bg-ds-surface-2 ds-tap"
         >
           <CalendarDays className="h-4 w-4 shrink-0 text-primary" />
-          <p className="truncate font-display text-sm font-semibold text-ds-text-1">Agenda</p>
+          <p className="truncate text-[13px] font-semibold text-ds-text-1">Agenda</p>
         </Link>
-        <Link
-          href="/opai/agenda"
-          className="shrink-0 text-[12px] tabular-nums text-ds-text-3 transition-colors hover:text-primary"
-        >
+        <Tag variant="neutral" size="sm" className="shrink-0 tabular-nums">
           {todayItems.length} hoy
-        </Link>
+        </Tag>
       </div>
 
       <div className="min-h-0 flex-1 overflow-auto">
