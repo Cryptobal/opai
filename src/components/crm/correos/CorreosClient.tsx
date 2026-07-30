@@ -78,6 +78,7 @@ import { buildAiMenuItems } from "./CorreoAiMenu";
 import { CorreoAiMenuSheet } from "./CorreoAiMenuSheet";
 import { CorreoAiStyleSheet } from "./CorreoAiStyleSheet";
 import {
+  CORREO_COPILOT_DOCK_WIDTH_VAR,
   CorreoAiActionPanel,
   type AiPanelCommand,
 } from "./CorreoAiActionPanel";
@@ -232,6 +233,8 @@ export function CorreosClient() {
     hasAccount: boolean;
     dealId: string | null;
   } | null>(null);
+  /** Edits del plan abierto — para confirmar al cambiar de hilo vía Copiloto. */
+  const [aiPanelDirty, setAiPanelDirty] = useState(false);
   /** Bottom-sheet de Acciones IA (móvil: long-press / chip del lector). */
   const [aiMenuSheet, setAiMenuSheet] = useState<CorreoThreadDTO | null>(null);
   const perms = useEffectivePermissions();
@@ -1160,6 +1163,22 @@ export function CorreosClient() {
   });
 
   function openAiPanel(t: CorreoThreadDTO, command: AiPanelCommand) {
+    // El dock es sticky al hilo que lo abrió: navegar mails no lo cierra.
+    // Solo cambia al abrir Copiloto en otro hilo (o al salir con X/Escape).
+    if (
+      aiPanel &&
+      aiPanel.threadId !== t.id &&
+      aiPanelDirty &&
+      typeof window !== "undefined" &&
+      !window.confirm(
+        "Hay cambios en el plan del correo anterior. ¿Abrir Copiloto en este correo? El borrador anterior queda guardado.",
+      )
+    ) {
+      return;
+    }
+    if (!aiPanel || aiPanel.threadId !== t.id) {
+      setAiPanelDirty(false);
+    }
     setAiPanel({
       threadId: t.id,
       command,
@@ -1415,6 +1434,17 @@ export function CorreosClient() {
     return items;
   }
 
+  const aiPanelThread =
+    aiPanel != null ? items.find((x) => x.id === aiPanel.threadId) ?? null : null;
+  const aiPanelThreadLabel = aiPanelThread
+    ? (() => {
+        const subject = aiPanelThread.subject?.trim();
+        const from = aiPanelThread.fromEmail?.trim();
+        if (subject && from) return `${subject} · ${from}`;
+        return subject || from || null;
+      })()
+    : null;
+
   return (
     <>
       {/* Con selección, la isla se suprime (useSetIslandSuppressed) y esta
@@ -1530,7 +1560,12 @@ export function CorreosClient() {
           command={aiPanel.command}
           hasAccount={aiPanel.hasAccount}
           existingDealId={aiPanel.dealId}
-          onClose={() => setAiPanel(null)}
+          threadLabel={aiPanelThreadLabel}
+          onDirtyChange={setAiPanelDirty}
+          onClose={() => {
+            setAiPanel(null);
+            setAiPanelDirty(false);
+          }}
           onCreated={refreshOpenThread}
         />
       )}
@@ -1585,7 +1620,15 @@ export function CorreosClient() {
       <div
         ref={workspaceRef}
         data-correo-scope
-        className="relative min-w-0 lg:flex lg:items-start lg:gap-3"
+        className="relative min-w-0 lg:flex lg:items-start lg:gap-3 lg:transition-[padding-right] lg:duration-200"
+        style={
+          aiPanel
+            ? {
+                // Dock desktop reserva su ancho; en mobile la var no se setea.
+                paddingRight: `var(${CORREO_COPILOT_DOCK_WIDTH_VAR}, 0px)`,
+              }
+            : undefined
+        }
       >
         {/* Riel desktop contraíble (Gmail): carpetas + filtros + sync. */}
         <CorreosDesktopRail

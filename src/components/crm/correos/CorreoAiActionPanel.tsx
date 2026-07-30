@@ -3,6 +3,7 @@
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -51,6 +52,9 @@ const PLAN_SHEET_MIN = 380;
 const PLAN_SHEET_MAX = 820;
 const PLAN_SHEET_STEP = 24;
 
+/** Reserva espacio en el layout de correos mientras el dock desktop está abierto. */
+export const CORREO_COPILOT_DOCK_WIDTH_VAR = "--correo-copilot-dock-width";
+
 function clampPlanSheetWidth(width: number, viewport = 1280): number {
   const max = Math.min(PLAN_SHEET_MAX, Math.floor(viewport * 0.85));
   return Math.max(PLAN_SHEET_MIN, Math.min(max, Math.round(width)));
@@ -81,6 +85,12 @@ type Props = {
   hasAccount?: boolean;
   existingDealId?: string | null;
   onCreated?: () => void;
+  /** Asunto/remitente del hilo anclado (el plan no sigue al mail abierto). */
+  threadLabel?: string | null;
+  /** Para confirmar al abrir Copiloto en otro hilo. */
+  onDirtyChange?: (dirty: boolean) => void;
+  /** Ancho actual del dock desktop (px) — el layout puede reservar espacio. */
+  onWidthChange?: (width: number) => void;
 };
 
 type Phase =
@@ -284,6 +294,9 @@ export function CorreoAiActionPanel({
   hasAccount = false,
   existingDealId,
   onCreated,
+  threadLabel = null,
+  onDirtyChange,
+  onWidthChange,
 }: Props) {
   const draft = usePlanDraft(threadId);
   const draftRef = useRef(draft);
@@ -328,6 +341,43 @@ export function CorreoAiActionPanel({
       // ignore
     }
   }, [sheetWidth]);
+
+  useEffect(() => {
+    onDirtyChange?.(draft.dirty);
+  }, [draft.dirty, onDirtyChange]);
+
+  useEffect(() => {
+    if (!open) {
+      onWidthChange?.(0);
+      return;
+    }
+    onWidthChange?.(sheetWidth);
+  }, [open, sheetWidth, onWidthChange]);
+
+  // Dock desktop: reserva espacio en el layout (sin scrim, sin bloquear la bandeja).
+  useLayoutEffect(() => {
+    if (typeof document === "undefined") return;
+    const root = document.documentElement;
+    if (!open) {
+      root.style.removeProperty(CORREO_COPILOT_DOCK_WIDTH_VAR);
+      return;
+    }
+    const apply = () => {
+      const desktop = window.matchMedia("(min-width: 1024px)").matches;
+      if (desktop) {
+        root.style.setProperty(CORREO_COPILOT_DOCK_WIDTH_VAR, `${sheetWidth}px`);
+      } else {
+        root.style.removeProperty(CORREO_COPILOT_DOCK_WIDTH_VAR);
+      }
+    };
+    apply();
+    const mq = window.matchMedia("(min-width: 1024px)");
+    mq.addEventListener("change", apply);
+    return () => {
+      mq.removeEventListener("change", apply);
+      root.style.removeProperty(CORREO_COPILOT_DOCK_WIDTH_VAR);
+    };
+  }, [open, sheetWidth]);
 
   const onSheetResizePointerDown = useCallback((event: ReactPointerEvent<HTMLElement>) => {
     if (event.button !== 0) return;
@@ -717,22 +767,25 @@ export function CorreoAiActionPanel({
     command === "candidato" ? "Candidato ATS" :
     command === "cobranza" ? "Contexto de cobranza" : "Plan de acciones";
 
+  // Desktop = dock persistente (como el chat): sin scrim, sin aria-modal.
+  // Mobile = bottom sheet con scrim; la bandeja sigue debajo al cerrar/minimizar.
   return createPortal(
-    <div
-      className="fixed inset-0 z-[55] flex justify-end max-lg:bg-black/40 lg:pointer-events-none lg:bg-transparent"
-      onClick={(e) => e.target === e.currentTarget && requestClose()}
-    >
+    <>
+      <div
+        className="fixed inset-0 z-[54] bg-black/40 lg:hidden"
+        onClick={requestClose}
+        aria-hidden
+      />
       <div
         ref={sheetRef}
         role="dialog"
-        aria-modal="true"
+        aria-modal="false"
         aria-label={title}
-        className="relative flex h-full w-full flex-col overflow-hidden border-ds-border-default bg-ds-surface-1 shadow-2xl sm:w-[var(--plan-sheet-width)] sm:border-l max-lg:mt-auto max-lg:h-[88dvh] max-lg:rounded-t-2xl max-lg:border-t lg:pointer-events-auto"
+        className="fixed z-[55] flex flex-col overflow-hidden border-ds-border-default bg-ds-surface-1 max-lg:inset-x-0 max-lg:bottom-0 max-lg:mt-auto max-lg:h-[88dvh] max-lg:w-full max-lg:rounded-t-2xl max-lg:border-t max-lg:shadow-2xl lg:top-0 lg:right-0 lg:h-full lg:w-[var(--plan-sheet-width)] lg:border-l lg:shadow-[-8px_0_30px_-12px_rgba(0,0,0,0.25)]"
         style={{
           transition: closing ? "transform 180ms ease-out" : undefined,
           ["--plan-sheet-width" as string]: `${sheetWidth}px`,
         }}
-        onClick={(e) => e.stopPropagation()}
       >
         <div
           role="separator"
@@ -745,7 +798,7 @@ export function CorreoAiActionPanel({
           onPointerDown={onSheetResizePointerDown}
           onKeyDown={onSheetResizeKeyDown}
           onDoubleClick={() => setSheetWidth(PLAN_SHEET_DEFAULT)}
-          className="group absolute -left-3 top-0 z-20 hidden h-full w-6 cursor-col-resize touch-none items-center justify-center outline-none sm:flex"
+          className="group absolute -left-3 top-0 z-20 hidden h-full w-6 cursor-col-resize touch-none items-center justify-center outline-none lg:flex"
           title="Arrastrá para cambiar el ancho · doble clic para restaurar"
         >
           <span className="h-16 w-1 rounded-full bg-ds-surface-3 transition-colors group-hover:bg-primary group-focus-visible:bg-primary" />
@@ -780,6 +833,11 @@ export function CorreoAiActionPanel({
               <X className="h-4 w-4" />
             </button>
           </div>
+          {threadLabel ? (
+            <p className="mt-1 truncate text-[12px] text-ds-text-3" title={threadLabel}>
+              Anclado a · {threadLabel}
+            </p>
+          ) : null}
           {draft.draftSavedAt && phase === "structure" && (
             <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[12px] text-ds-text-3">
               <span>
@@ -997,7 +1055,7 @@ export function CorreoAiActionPanel({
           </footer>
         )}
       </div>
-    </div>,
+    </>,
     document.body,
   );
 }
