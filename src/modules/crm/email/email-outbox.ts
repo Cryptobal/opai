@@ -62,6 +62,8 @@ export type EmailOutboxPayload = {
   forwardFromThreadId?: string | null;
   forwardAttachments?: ForwardAttachmentRef[];
   providerDraftId?: string | null;
+  /** false = no anexar firma al despachar. Default true. */
+  includeSignature?: boolean;
 };
 
 /** Backoff exponencial del despacho: 30s, 2m, 8m, 30m (cap). */
@@ -199,6 +201,7 @@ export async function dispatchOutboxItem(id: string): Promise<
     forwardFromThreadId: payload.forwardFromThreadId ?? null,
     forwardAttachments: payload.forwardAttachments ?? [],
     providerDraftId: payload.providerDraftId ?? null,
+    includeSignature: payload.includeSignature !== false,
   });
 
   if (result.ok) {

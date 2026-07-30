@@ -234,6 +234,8 @@ export const EmailComposer = forwardRef<EmailComposerHandle, Props>(function Ema
   const [subject, setSubject] = useState(initialSubject);
   const [content, setContent] = useState<object | null>(initialContent);
   const [busy, setBusy] = useState(false);
+  /** Por defecto se anexa la firma al enviar; el chip permite desactivarla. */
+  const [includeSignature, setIncludeSignature] = useState(true);
   const [accounts, setAccounts] = useState<AccountOption[]>([]);
   const [identity, setIdentity] = useState<{ accountId: string; alias: string | null } | null>(null);
   const [draftSavedAt, setDraftSavedAt] = useState<string | null>(null);
@@ -537,6 +539,7 @@ export const EmailComposer = forwardRef<EmailComposerHandle, Props>(function Ema
         ...(effectiveAccountId ? { accountId: effectiveAccountId } : {}),
         ...(contactId ? { contactId } : {}),
         ...(scheduledAt ? { scheduledAt: scheduledAt.toISOString() } : {}),
+        includeSignature,
       });
       if (!result.ok) {
         toast.error(result.error || "No se pudo enviar el correo");
@@ -769,7 +772,11 @@ export const EmailComposer = forwardRef<EmailComposerHandle, Props>(function Ema
         className="rounded-none border-0 border-t border-ds-border-subtle bg-transparent px-0 py-2"
       />
       <div className="py-1">
-        <SignatureChip onOpenFirma={onOpenSignature} />
+        <SignatureChip
+          onOpenFirma={onOpenSignature}
+          includeSignature={includeSignature}
+          onIncludeSignatureChange={setIncludeSignature}
+        />
       </div>
       <div className="flex flex-wrap items-center gap-1.5 pt-1">
         <ScheduleSendSplitButton

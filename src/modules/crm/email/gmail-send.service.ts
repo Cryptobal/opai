@@ -72,6 +72,11 @@ export type GmailSendInput = {
   forwardAttachments?: ForwardAttachmentRef[];
   /** Draft de Gmail a eliminar tras el envío exitoso (autosave del composer). */
   providerDraftId?: string | null;
+  /**
+   * Si false, no se anexa firma. Default true (undefined = incluir).
+   * El chip del composer permite desactivar por correo.
+   */
+  includeSignature?: boolean;
 };
 
 export type GmailSendResult =
@@ -244,11 +249,13 @@ export async function performGmailSend(input: GmailSendInput): Promise<GmailSend
     // ── Firma idempotente: personal → empresa → ninguna ──
     let finalHtml = input.html ?? "";
     let signatureId: string | null = null;
-    const signature = await resolveSignatureForSend(input.tenantId, input.userId);
-    if (signature) {
-      const result = appendSignatureOnce(finalHtml, signature.html);
-      finalHtml = result.html;
-      signatureId = signature.id;
+    if (input.includeSignature !== false) {
+      const signature = await resolveSignatureForSend(input.tenantId, input.userId);
+      if (signature) {
+        const result = appendSignatureOnce(finalHtml, signature.html);
+        finalHtml = result.html;
+        signatureId = signature.id;
+      }
     }
 
     const gmail = gmailClientForAccount(emailAccount);
