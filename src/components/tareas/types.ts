@@ -1,8 +1,13 @@
+import type { TareaPriority, TareaVista } from "@/modules/tareas/tarea-priority";
+
+export type { TareaPriority, TareaVista };
+
 /** Item de tarea tal como lo entrega GET /api/crm/tasks. */
 export interface TareaItem {
   id: string;
   title: string;
   notes: string | null;
+  priority: TareaPriority;
   status: string; // "open" | "done"
   type: string;
   dueAt: string | null;
@@ -13,6 +18,9 @@ export interface TareaItem {
   dealId: string | null;
   accountId: string | null;
   emailThreadId: string | null;
+  emailThreadSubject: string | null;
+  accountName: string | null;
+  dealTitle: string | null;
   createdAt: string;
   createdBy: string | null;
   assigneeIds: string[];
@@ -21,6 +29,7 @@ export interface TareaItem {
 export interface TareaCreateInput {
   title: string;
   notes?: string | null;
+  priority?: TareaPriority;
   dueAt: string | null;
   allDay: boolean;
   assigneeIds: string[];
@@ -30,6 +39,7 @@ export interface TareaCreateInput {
 export interface TareaUpdateInput {
   title?: string;
   notes?: string | null;
+  priority?: TareaPriority;
   dueAt?: string | null;
   allDay?: boolean;
   assigneeIds?: string[];
@@ -42,4 +52,10 @@ export interface TareaFilters {
   status: TareaStatusFilter;
   assigneeId: string;
   q: string;
+}
+
+export interface TareaKpis {
+  vencidas: number;
+  hoy: number;
+  semana: number;
 }

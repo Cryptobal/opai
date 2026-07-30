@@ -11,6 +11,7 @@ import { byDueThenPriority, type TareaLike } from "./tarea-priority";
 
 export {
   byDueThenPriority,
+  cyclePriority,
   originKeyFor,
   primaryAssigneeId,
   priorityLabel,

@@ -23,6 +23,14 @@ export function priorityRank(p: TareaPriority | undefined): number {
   return 3;
 }
 
+/** Ciclo de prioridad en filas: null → low → medium → high → null. */
+export function cyclePriority(p: TareaPriority | undefined): TareaPriority {
+  if (p == null) return "low";
+  if (p === "low") return "medium";
+  if (p === "medium") return "high";
+  return null;
+}
+
 export type TareaVista = "fecha" | "prioridad" | "responsable" | "origen";
 export type TareaOrigenKey = "mail" | "deal" | "manual";
 

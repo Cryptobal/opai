@@ -4,15 +4,28 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { confirmDialog } from "@/components/ui/confirm-service";
 import type { AgendaTeamMember } from "@/components/agenda/agenda-calendar.types";
-import { groupTasksByDue } from "@/modules/tareas/tareas.service";
-import type { TareaItem, TareaCreateInput, TareaUpdateInput, TareaFilters } from "./types";
+import { ymdInChile } from "@/lib/dates-cl";
+import {
+  bucketForDueYmd,
+  computeBoundaries,
+  isOpenTaskStatus,
+} from "@/modules/tareas/tareas.service";
+import { groupTasksBy } from "@/modules/tareas/tareas-group";
+import type {
+  TareaItem,
+  TareaCreateInput,
+  TareaUpdateInput,
+  TareaFilters,
+  TareaKpis,
+  TareaVista,
+} from "./types";
 
-/** Aplica un patch parcial a una tarea (optimismo local). Resincroniza la
- *  denormalización `assignedTo` (= primer responsable) igual que el servidor. */
+/** Aplica un patch parcial a una tarea (optimismo local). */
 function applyTareaPatch(t: TareaItem, input: TareaUpdateInput): TareaItem {
   const next: TareaItem = { ...t };
   if (input.title !== undefined) next.title = input.title;
   if (input.notes !== undefined) next.notes = input.notes;
+  if (input.priority !== undefined) next.priority = input.priority;
   if (input.dueAt !== undefined) next.dueAt = input.dueAt;
   if (input.allDay !== undefined) next.allDay = input.allDay;
   if (input.status !== undefined) next.status = input.status;
@@ -23,14 +36,23 @@ function applyTareaPatch(t: TareaItem, input: TareaUpdateInput): TareaItem {
   return next;
 }
 
+function normalizeTask(raw: TareaItem): TareaItem {
+  return {
+    ...raw,
+    priority: (raw.priority as TareaItem["priority"]) ?? null,
+    emailThreadSubject: raw.emailThreadSubject ?? null,
+    accountName: raw.accountName ?? null,
+    dealTitle: raw.dealTitle ?? null,
+  };
+}
+
 /** Datos + acciones de /opai/tareas (GET/POST/PATCH/DELETE /api/crm/tasks). */
 export function useTareas() {
   const [tasks, setTasks] = useState<TareaItem[]>([]);
   const [users, setUsers] = useState<AgendaTeamMember[]>([]);
   const [loading, setLoading] = useState(true);
+  const [view, setView] = useState<TareaVista>("fecha");
   const [filters, setFilters] = useState<TareaFilters>({ status: "open", assigneeId: "", q: "" });
-  // Refs vivos: revertir el optimismo (tasks) y decidir recarga por filtro
-  // activo (filters) sin recrear callbacks en cada render/tecleo.
   const tasksRef = useRef<TareaItem[]>(tasks);
   const filtersRef = useRef<TareaFilters>(filters);
   useEffect(() => { tasksRef.current = tasks; }, [tasks]);
@@ -45,13 +67,12 @@ export function useTareas() {
     params.set("limit", "200");
     const res = await fetch(`/api/crm/tasks?${params.toString()}`).catch(() => null);
     const json = res?.ok ? await res.json() : null;
-    setTasks(Array.isArray(json?.data) ? json.data : []);
+    const rows: TareaItem[] = Array.isArray(json?.data) ? json.data : [];
+    setTasks(rows.map(normalizeTask));
     setLoading(false);
   }, [filters.status, filters.assigneeId, filters.q]);
 
-  useEffect(() => {
-    void load();
-  }, [load]);
+  useEffect(() => { void load(); }, [load]);
 
   useEffect(() => {
     fetch("/api/crm/users")
@@ -67,6 +88,7 @@ export function useTareas() {
       body: JSON.stringify({
         title: input.title,
         notes: input.notes ?? undefined,
+        priority: input.priority ?? undefined,
         dueAt: input.dueAt ?? undefined,
         allDay: input.allDay,
         assigneeIds: input.assigneeIds.length ? input.assigneeIds : undefined,
@@ -81,11 +103,6 @@ export function useTareas() {
     return true;
   }, [load]);
 
-  /**
-   * Edición parcial optimista. Aplica el patch local de inmediato, guarda el
-   * snapshot previo y revierte si el PATCH falla. Recarga cuando el cambio
-   * afecta el agrupamiento/filtro (dueAt / status).
-   */
   const update = useCallback(async (id: string, input: TareaUpdateInput): Promise<boolean> => {
     const snapshot = tasksRef.current;
     setTasks((prev) => prev.map((t) => (t.id === id ? applyTareaPatch(t, input) : t)));
@@ -99,12 +116,11 @@ export function useTareas() {
       toast.error("No se pudo guardar la tarea");
       return false;
     }
-    // Recargar si el cambio puede sacar la tarea de la vista: agrupamiento
-    // (dueAt/status) o un filtro activo servidor-side (q / responsable).
     const f = filtersRef.current;
     const affectsView =
       input.dueAt !== undefined ||
       input.status !== undefined ||
+      input.priority !== undefined ||
       (input.title !== undefined && f.q.trim() !== "") ||
       (input.assigneeIds !== undefined && f.assigneeId !== "");
     if (affectsView) void load();
@@ -113,7 +129,6 @@ export function useTareas() {
 
   const toggleDone = useCallback(async (task: TareaItem) => {
     const next = task.status === "done" ? "open" : "done";
-    // Optimista: quita/actualiza de inmediato.
     setTasks((prev) =>
       prev.map((t) => (t.id === task.id ? { ...t, status: next } : t)),
     );
@@ -127,12 +142,9 @@ export function useTareas() {
       void load();
       return;
     }
-    // Si el filtro es "open", la tarea completada desaparece al recargar.
     if (filters.status !== "all") void load();
   }, [load, filters.status]);
 
-  // El DELETE es permanente (sin restauración): confirmamos antes con el diálogo
-  // del DS en vez de un "Deshacer" que no podría recrear la tarea con su id.
   const remove = useCallback(async (id: string): Promise<boolean> => {
     const ok = await confirmDialog({
       title: "Eliminar tarea",
@@ -153,8 +165,40 @@ export function useTareas() {
     return true;
   }, []);
 
-  const groups = useMemo(() => groupTasksByDue(tasks), [tasks]);
   const nameById = useMemo(() => new Map(users.map((u) => [u.id, u.name])), [users]);
+  const assigneeNames = useMemo(
+    () => Object.fromEntries(users.map((u) => [u.id, u.name])),
+    [users],
+  );
 
-  return { tasks, groups, users, nameById, loading, filters, setFilters, create, update, toggleDone, remove, reload: load };
+  const groups = useMemo(
+    () => groupTasksBy(view, tasks, { assigneeNames }),
+    [view, tasks, assigneeNames],
+  );
+
+  const groupsFecha = useMemo(
+    () => groupTasksBy("fecha", tasks, { assigneeNames }),
+    [tasks, assigneeNames],
+  );
+
+  const kpis: TareaKpis = useMemo(() => {
+    const b = computeBoundaries();
+    let vencidas = 0;
+    let hoy = 0;
+    let semana = 0;
+    for (const t of tasks) {
+      if (!isOpenTaskStatus(t.status)) continue;
+      const ymd = t.dueAt ? ymdInChile(new Date(t.dueAt)) : null;
+      const bucket = bucketForDueYmd(ymd, b);
+      if (bucket === "vencidas") vencidas += 1;
+      else if (bucket === "hoy") hoy += 1;
+      else if (bucket === "manana" || bucket === "semana") semana += 1;
+    }
+    return { vencidas, hoy, semana };
+  }, [tasks]);
+
+  return {
+    tasks, groups, groupsFecha, kpis, view, setView, users, nameById, loading,
+    filters, setFilters, create, update, toggleDone, remove, reload: load,
+  };
 }

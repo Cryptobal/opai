@@ -8,6 +8,7 @@ import {
   OPEN_TASK_STATUSES,
   isOpenTaskStatus,
   priorityRank,
+  cyclePriority,
 } from "../tareas.service";
 import { groupTasksBy } from "../tareas-group";
 import { utcDateFromYmd, ymdInChile, addDaysChile } from "@/lib/dates-cl";
@@ -100,6 +101,13 @@ describe("byDueThenPriority / priorityRank", () => {
     expect(priorityRank("high")).toBeLessThan(priorityRank("medium"));
     expect(priorityRank("medium")).toBeLessThan(priorityRank("low"));
     expect(priorityRank("low")).toBeLessThan(priorityRank(null));
+  });
+
+  it("cyclePriority: null → low → medium → high → null", () => {
+    expect(cyclePriority(null)).toBe("low");
+    expect(cyclePriority("low")).toBe("medium");
+    expect(cyclePriority("medium")).toBe("high");
+    expect(cyclePriority("high")).toBe(null);
   });
 
   it("pone sin fecha al final", () => {
