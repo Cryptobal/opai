@@ -11,6 +11,7 @@ import {
   rewriteCidImages,
   type CidAttachmentRef,
 } from "./rewrite-cid-images";
+import { emailHtmlIsRenderable } from "./email-html-renderable";
 import styles from "./email-html-body.module.css";
 
 type Props = {
@@ -110,10 +111,14 @@ export function EmailHtmlBody({
         : "",
     [hasHtml, htmlWithCid, showImages],
   );
+  const renderable = useMemo(
+    () => emailHtmlIsRenderable(safeHtml),
+    [safeHtml],
+  );
   // Se detecta sobre la versión bloqueada para que el botón no desaparezca
   // del layout al restaurar (pasa a "Ocultar imágenes").
-  // Las imgs ya reescritas a /api/... cuentan como remotas http(s) y entran
-  // en el toggle "Mostrar imágenes" (privacidad: no se piden hasta el click).
+  // Solo http(s) / protocol-relative cuentan como remotas; las /api/ (cid
+  // reescritas) no se bloquean ni entran en este toggle.
   const blockedAvailable = useMemo(
     () =>
       hasHtml
@@ -128,27 +133,48 @@ export function EmailHtmlBody({
 
   const useIframe = iframeSandboxEnabled();
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const watchdogRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Altura estable: no arrancar en 80px (causaba "pestañeo" — pedazo corto
   // y luego salto al alto real). Reservamos el último alto medido y ocultamos
   // el iframe hasta la primera medición del documento nuevo.
   const [height, setHeight] = useState(320);
   const [frameReady, setFrameReady] = useState(false);
+  const [measureFailed, setMeasureFailed] = useState(false);
   const lastHeightRef = useRef(320);
 
+  const showHtmlFrame = mode === "html" && Boolean(safeHtml) && renderable;
+
   const srcDoc = useMemo(
-    () => (useIframe && safeHtml ? buildEmailSrcDoc(safeHtml, night) : ""),
-    [useIframe, safeHtml, night],
+    () => (useIframe && showHtmlFrame ? buildEmailSrcDoc(safeHtml, night) : ""),
+    [useIframe, showHtmlFrame, safeHtml, night],
   );
 
-  // Nuevo documento → ocultar hasta medir (evita flash del top del HTML).
+  // Nuevo documento → ocultar hasta medir; watchdog garantiza visibilidad.
   useEffect(() => {
-    if (!useIframe || mode !== "html" || !srcDoc) {
+    if (watchdogRef.current) {
+      clearTimeout(watchdogRef.current);
+      watchdogRef.current = null;
+    }
+    if (!useIframe || !showHtmlFrame || !srcDoc) {
       setFrameReady(true);
+      setMeasureFailed(false);
       return;
     }
     setFrameReady(false);
+    setMeasureFailed(false);
     setHeight(lastHeightRef.current);
-  }, [srcDoc, useIframe, mode]);
+    watchdogRef.current = setTimeout(() => {
+      setFrameReady(true);
+      setMeasureFailed(true);
+      watchdogRef.current = null;
+    }, 700);
+    return () => {
+      if (watchdogRef.current) {
+        clearTimeout(watchdogRef.current);
+        watchdogRef.current = null;
+      }
+    };
+  }, [srcDoc, useIframe, showHtmlFrame]);
 
   // Con allow-same-origin (mismo origen vía srcDoc) el padre puede medir la
   // altura del contenido; un ResizeObserver sigue los cambios (imágenes lazy).
@@ -156,10 +182,15 @@ export function EmailHtmlBody({
     const doc = iframeRef.current?.contentDocument;
     const next = doc?.documentElement?.scrollHeight ?? doc?.body?.scrollHeight;
     if (!next || next <= 0) return;
+    if (watchdogRef.current) {
+      clearTimeout(watchdogRef.current);
+      watchdogRef.current = null;
+    }
     const h = next + 4;
     lastHeightRef.current = h;
     setHeight(h);
     setFrameReady(true);
+    setMeasureFailed(false);
   }, []);
 
   useEffect(() => {
@@ -247,7 +278,7 @@ export function EmailHtmlBody({
               )}
             </>
           )}
-          {hasHtml && mode === "html" && useIframe && (
+          {showHtmlFrame && useIframe && (
             <button
               type="button"
               onClick={() => setEmailNightMode(!night)}
@@ -260,32 +291,46 @@ export function EmailHtmlBody({
           )}
         </div>
       )}
-      {mode === "html" && safeHtml ? (
+      {showHtmlFrame ? (
         useIframe ? (
-          <iframe
-            ref={iframeRef}
-            srcDoc={srcDoc}
-            // Sin allow-scripts: un bypass del sanitizer no ejecuta JS.
-            // allow-same-origin permite medir la altura desde el padre (el
-            // contenido no tiene scripts que abusen del origen compartido).
-            // allow-popups + allow-popups-to-escape-sandbox: los links
-            // (target=_blank + noopener del sanitizer) abren pestañas
-            // normales; sin el escape, la pestaña heredaría el sandbox sin
-            // scripts y casi cualquier sitio quedaría roto.
-            // Opción más estricta evaluada: quitar también el atributo
-            // `style` de la allowlist del sanitizer; se mantiene porque el
-            // sandbox ya es la mitigación y sin `style` el HTML real de
-            // correo (newsletters, firmas) se degrada demasiado.
-            sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"
-            title="Contenido del correo"
-            onLoad={measure}
-            className={`${styles.frame}${night ? ` ${styles.frameNight}` : ""}`}
-            style={{
-              height: `${height}px`,
-              opacity: frameReady ? 1 : 0,
-              transition: frameReady ? "opacity 80ms ease-out" : undefined,
-            }}
-          />
+          <div className="relative">
+            <iframe
+              ref={iframeRef}
+              srcDoc={srcDoc}
+              // Sin allow-scripts: un bypass del sanitizer no ejecuta JS.
+              // allow-same-origin permite medir la altura desde el padre (el
+              // contenido no tiene scripts que abusen del origen compartido).
+              // allow-popups + allow-popups-to-escape-sandbox: los links
+              // (target=_blank + noopener del sanitizer) abren pestañas
+              // normales; sin el escape, la pestaña heredaría el sandbox sin
+              // scripts y casi cualquier sitio quedaría roto.
+              // Opción más estricta evaluada: quitar también el atributo
+              // `style` de la allowlist del sanitizer; se mantiene porque el
+              // sandbox ya es la mitigación y sin `style` el HTML real de
+              // correo (newsletters, firmas) se degrada demasiado.
+              sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"
+              title="Contenido del correo"
+              onLoad={measure}
+              className={`${styles.frame}${night ? ` ${styles.frameNight}` : ""}`}
+              style={{
+                height: `${height}px`,
+                opacity: frameReady ? 1 : 0,
+                transition: frameReady ? "opacity 80ms ease-out" : undefined,
+              }}
+            />
+            {measureFailed && (
+              <div className="absolute inset-x-0 bottom-0 z-[1] flex flex-wrap items-center gap-2 border-t border-status-warn-border bg-status-warn-soft px-3 py-2 text-[12px] text-status-warn-fg">
+                <span>No se pudo mostrar el formato original</span>
+                <button
+                  type="button"
+                  onClick={() => setMode("text")}
+                  className="min-h-11 font-medium underline underline-offset-2 ds-tap sm:min-h-8"
+                >
+                  Ver texto
+                </button>
+              </div>
+            )}
+          </div>
         ) : (
           <div
             className={styles.root}
