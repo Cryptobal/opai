@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   Archive, Building2, CalendarPlus, CheckSquare, Clock, Forward, Link2,
   ListTodo, Mail, MailOpen, Menu, PenLine, Reply, ReplyAll, ShieldAlert,
@@ -92,8 +93,29 @@ import {
 /** Alto visual de la isla global (8px gap + min-h-12). El safe-area lo aporta AppShell. */
 const CORREOS_MOBILE_TOP_SPACER = "h-14 shrink-0 lg:hidden";
 
+/** Mismo límite que el buscador del topbar/overlay: también clampa el `q` de la URL. */
+const MAX_SEARCH_LENGTH = 300;
+
+/** Carpetas aceptadas vía `?folder=` en deep-links ("archived" normaliza a "all"). */
+const CORREO_URL_FOLDERS = new Set([
+  "all",
+  "trash",
+  "inbox",
+  "snoozed",
+  "sent",
+  "drafts",
+  "spam",
+  "starred",
+  "scheduled",
+]);
+
 /** Operadores del overlay — fuente única: `correos-operator-registry.ts`. */
 const CORREO_SEARCH_OPERATORS: ModuleSearchOperator[] = correoSearchOperatorChips();
+
+/** Feedback cuando una acción IA del lector no resuelve el hilo en la lista
+ *  (hilo fuera de la página actual); antes era un no-op silencioso. */
+const AI_THREAD_OUT_OF_LIST_MSG =
+  "El hilo no está en la página actual de la lista; buscalo para ejecutar esta acción.";
 
 /** Inserta o reemplaza el operador `in:` en la query. */
 function withInFolder(query: string, folder: string): string {
@@ -251,12 +273,17 @@ export function CorreosClient() {
     onResizeKeyDown,
   } = useCorreosViewPreferences(workspaceRef);
 
+  /** Secuencia de requests: una respuesta reset huérfana (deep-links rápidos
+   *  del copiloto) nunca pisa los resultados de la última búsqueda. */
+  const fetchSeqRef = useRef(0);
   const fetchPage = useCallback(async (
     cur: string | null,
     reset: boolean,
     nextFolder?: CorreoFolderTab,
     opts?: { silent?: boolean; preserveItems?: boolean },
   ) => {
+    const seq = ++fetchSeqRef.current;
+    const isStaleReset = () => reset && seq !== fetchSeqRef.current;
     // Si ya hay filas en pantalla (snapshot o carga previa), refrescar en
     // silencio: sin spinner ni opacity-70. Cambio de carpeta, búsqueda o
     // primera pintura siguen con loading visible.
@@ -312,8 +339,10 @@ export function CorreosClient() {
       };
       try {
         r = await fetch(`/api/crm/correos?${qs}`).then((x) => x.json());
+        if (isStaleReset()) return;
         setOfflineSince(null);
       } catch {
+        if (isStaleReset()) return;
         // C22b: sin red — servir el snapshot local del inbox con banner.
         if (reset && f === "inbox" && !debouncedQuery) {
           const snapshot = await loadInboxSnapshot();
@@ -329,6 +358,7 @@ export function CorreosClient() {
         setOfflineSince(new Date().toISOString());
         return;
       }
+      if (isStaleReset()) return;
       setConnected(r.connected !== false);
       if (r.multiAccount && typeof r.multiAccount === "object") {
         const enabled = r.multiAccount.enabled === true;
@@ -403,7 +433,7 @@ export function CorreosClient() {
         }
       }
     } finally {
-      setLoading(false);
+      if (seq === fetchSeqRef.current) setLoading(false);
     }
   }, [folder, debouncedQuery]);
 
@@ -507,38 +537,67 @@ export function CorreosClient() {
     return () => clearTimeout(timer);
   }, [query]);
 
+  // ── Deep-links (copiloto / links compartidos) — sincronización REACTIVA ──
+  // useSearchParams reacciona a router.push (soft navigation) y a los
+  // pushState/replaceState nativos de correo-thread-history (Next ≥14.1), así
+  // una card del copiloto siembra búsqueda + hilo incluso estando ya en
+  // /crm/correos. Todas las asignaciones son idempotentes (comparación previa)
+  // para no entrar en bucle con los pushState propios de openThread.
+  const searchParams = useSearchParams();
+  const [urlSyncReady, setUrlSyncReady] = useState(false);
+  const openIdRef = useRef<string | null>(null);
+  openIdRef.current = openId;
+  /** Último `q` aplicado desde la URL: lo que el usuario tipea a mano (no
+   *  toca la URL) no debe resetearse al abrir/cerrar un hilo (pushState). */
+  const lastUrlQRef = useRef<string | null>(null);
+  useEffect(() => {
+    // Hilo: solo si la URL apunta a uno distinto del abierto. Si es el mismo
+    // (nuestro propio openThread hizo pushState), no tocar autoExtract ni el
+    // resto del intent local (workTab/compose).
+    const threadParam = searchParams.get("hilo") || searchParams.get("thread");
+    // Sólo UUID: un id de otro tenant no devuelve datos porque el backend
+    // ya filtra por tenantId.
+    const urlThread = isUuid(threadParam) ? threadParam : null;
+    if (urlThread !== openIdRef.current) {
+      setOpenId(urlThread);
+      setAutoExtract(searchParams.get("extract") === "1");
+    }
+    // Carpeta: solo cuando el link la trae (la UI no la escribe en la URL).
+    const f = searchParams.get("folder");
+    if (f) {
+      const nf = f === "archived" ? "all" : f;
+      if (CORREO_URL_FOLDERS.has(nf)) {
+        setFolder((prev) =>
+          prev === nf ? prev : (nf as CorreoFolderTab),
+        );
+      }
+    }
+    // Búsqueda: re-aplicar solo cuando el `q` de la URL cambia.
+    const rawQ = searchParams.get("q")?.trim() ?? "";
+    const urlQ = rawQ ? rawQ.slice(0, MAX_SEARCH_LENGTH) : null;
+    if (urlQ !== lastUrlQRef.current) {
+      lastUrlQRef.current = urlQ;
+      if (urlQ) {
+        setQuery((prev) => (prev === urlQ ? prev : urlQ));
+        setDebouncedQuery((prev) => (prev === urlQ ? prev : urlQ));
+      }
+    }
+    setUrlSyncReady(true);
+  }, [searchParams]);
+
+  // `?mensaje=` (deep-link del copiloto): mensaje a expandir/scrollear en el
+  // lector. Derivado en render (no es estado): viaja con el hilo de la URL.
+  const mensajeParam = searchParams.get("mensaje");
+  const urlMessageId = isUuid(mensajeParam) ? mensajeParam : null;
+
+  // One-shots de montaje: composer (?compose=1) y toasts de retorno OAuth de
+  // Gmail (?gmail=...). No son reactivos: describe el estado al entrar.
   useEffect(() => {
     const sp = new URLSearchParams(window.location.search);
-    const syncThreadFromUrl = () => {
-      const current = new URLSearchParams(window.location.search);
-      // Deep-link `?thread=` / `?hilo=` (+ opcional `?mensaje=`): sólo
-      // preseleccionamos si tiene forma de UUID. Un id de otro tenant no
-      // devuelve datos porque el backend ya filtra por tenantId.
-      const thread = current.get("hilo") || current.get("thread");
-      setOpenId(isUuid(thread) ? thread : null);
-      setAutoExtract(current.get("extract") === "1");
-    };
-    syncThreadFromUrl();
     // Deep-link del command palette / productividad: abrir el composer.
     // La URL se mantiene en sync con open/close vía setCorreoComposeInHistory
     // — cerrar o descartar quita ?compose=1 para que un refresh no lo reabra.
     if (sp.get("compose") === "1") setComposeOpen(true);
-    // Deep-links: "archived" ya no es pestaña → normalizar a "Todos".
-    const f = sp.get("folder");
-    if (f === "archived") setFolder("all");
-    else if (
-      f === "all" ||
-      f === "trash" ||
-      f === "inbox" ||
-      f === "snoozed" ||
-      f === "sent" ||
-      f === "drafts" ||
-      f === "spam" ||
-      f === "starred" ||
-      f === "scheduled"
-    ) {
-      setFolder(f);
-    }
     const gmailStatus = sp.get("gmail");
     if (gmailStatus === "limit_reached") {
       toast.error("Máximo 5 casillas Gmail por usuario");
@@ -556,14 +615,15 @@ export function CorreosClient() {
       url.searchParams.delete("gmail");
       window.history.replaceState({}, "", url.toString());
     }
-    window.addEventListener("popstate", syncThreadFromUrl);
-    return () => window.removeEventListener("popstate", syncThreadFromUrl);
   }, []);
 
   useEffect(() => {
+    // Gate urlSyncReady: el primer fetch ya incluye el `q`/`folder` del
+    // deep-link (sin flash de inbox ni fetch desperdiciado con q vacío).
+    if (!urlSyncReady) return;
     // Siempre pasa `folder` como nextFolder → loading visible al cambiar carpeta.
     void fetchPage(null, true, folder);
-  }, [fetchPage, folder]);
+  }, [fetchPage, folder, urlSyncReady]);
 
   // Al entrar a la bandeja (o volver tras >60s), disparamos un check delta en
   // background — mismo mecanismo liviano que usa el push (solo history/labels,
@@ -948,10 +1008,23 @@ export function CorreosClient() {
   }, [filteredFocusKey, filtered.length]);
 
   // Con el lector abierto, la fila enfocada = hilo abierto (una sola marca).
+  // Deep-link: la fila abierta queda visible en viewport (una vez por hilo).
+  const lastRowScrollRef = useRef<string | null>(null);
   useEffect(() => {
-    if (!openId || filtered.length === 0) return;
+    if (!openId) {
+      lastRowScrollRef.current = null;
+      return;
+    }
+    if (filtered.length === 0) return;
     const idx = filtered.findIndex((t) => t.id === openId);
-    if (idx >= 0) setFocusIndex((prev) => (prev === idx ? prev : idx));
+    if (idx < 0) return;
+    setFocusIndex((prev) => (prev === idx ? prev : idx));
+    if (lastRowScrollRef.current !== openId) {
+      lastRowScrollRef.current = openId;
+      document
+        .querySelector(`[data-correo-row="${openId}"]`)
+        ?.scrollIntoView({ block: "nearest" });
+    }
     // filtered se re-deriva; filteredFocusKey cubre cambios de lista.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- filteredFocusKey
   }, [openId, filteredFocusKey]);
@@ -971,6 +1044,9 @@ export function CorreosClient() {
 
   function moveFocus(delta: number) {
     if (filtered.length === 0) return;
+    // Deep-link: con un hilo abierto que NO está en la página actual, una
+    // flecha no debe secuestrar el lector llevándolo a la fila 0.
+    if (openId !== null && !filtered.some((t) => t.id === openId)) return;
     setFocusIndex((prev) => {
       // Base: la fila enfocada; si no hay, el hilo abierto (flechas con el
       // lector abierto); si tampoco, arranca desde el borde.
@@ -1758,6 +1834,7 @@ export function CorreosClient() {
 
         <CorreoDrawer
           threadId={openId}
+          initialMessageId={urlMessageId}
           preview={openId ? items.find((t) => t.id === openId) ?? null : null}
           mailboxEmail={mailboxEmail}
           shortcuts={shortcuts}
@@ -1782,19 +1859,27 @@ export function CorreosClient() {
           onUndoDone={hardRefresh}
           onChanged={hardRefresh}
           onOpenAiLead={() => {
-            const t = openId ? items.find((x) => x.id === openId) : null;
-            if (t) openAiPanel(t, "lead");
+            if (openThreadPreview) {
+              openAiPanel(openThreadPreview, "lead");
+            } else {
+              toast.info(AI_THREAD_OUT_OF_LIST_MSG);
+            }
           }}
           onAiCommand={(commandId) => {
-            const t = openId ? items.find((x) => x.id === openId) : null;
-            if (t) handleAiCommand(commandId, t);
+            if (openThreadPreview) {
+              handleAiCommand(commandId, openThreadPreview);
+            } else {
+              toast.info(AI_THREAD_OUT_OF_LIST_MSG);
+            }
           }}
           onOpenAiMenu={
             canUseCopiloto
               ? () => {
-                  const t = openId ? items.find((x) => x.id === openId) : null;
-                  if (!t) return;
-                  openAiMenuSheetForThread(t);
+                  if (!openThreadPreview) {
+                    toast.info(AI_THREAD_OUT_OF_LIST_MSG);
+                    return;
+                  }
+                  openAiMenuSheetForThread(openThreadPreview);
                 }
               : undefined
           }

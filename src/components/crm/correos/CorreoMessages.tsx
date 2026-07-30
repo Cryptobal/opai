@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type MouseEvent, type ReactNode } from "react";
+import { useEffect, useRef, useState, type MouseEvent, type ReactNode } from "react";
 import { ChevronDown, ChevronRight, Paperclip, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import type {
@@ -250,6 +250,7 @@ function MessageCard({
   return (
     <div
       data-correo-message
+      data-correo-message-id={m.id}
       data-correo-draft={isDraft ? "true" : undefined}
       // min-w-0: el flex padre puede encoger la tarjeta. Sin overflow-hidden:
       // un cuerpo HTML ensanchado (ancho original) debe poder expandir el
@@ -368,9 +369,11 @@ function MessageCard({
   );
 }
 
-/** Cadena del hilo: por defecto el último abierto; adjuntos por mensaje. */
+/** Cadena del hilo: por defecto el último abierto (o el del deep-link
+ *  `?mensaje=` si existe en la cadena); adjuntos por mensaje. */
 export function CorreoMessages({
   messages,
+  initialMessageId = null,
   alwaysShowImages,
   onAlwaysShowImages,
   threadId,
@@ -388,9 +391,28 @@ export function CorreoMessages({
   renderMessageAttachments,
   onDraftDiscarded,
   onContinueDraft,
-}: { messages: CorreoMessageDTO[] } & ImagePrefs & SavePrefs) {
+}: {
+  messages: CorreoMessageDTO[];
+  /** Deep-link del copiloto: mensaje a expandir/scrollear al abrir. */
+  initialMessageId?: string | null;
+} & ImagePrefs & SavePrefs) {
   const lastId = messages[messages.length - 1]?.id;
-  const [expanded, setExpanded] = useState<Set<string>>(() => new Set(lastId ? [lastId] : []));
+  const deepLinkedId =
+    initialMessageId && messages.some((m) => m.id === initialMessageId)
+      ? initialMessageId
+      : null;
+  const [expanded, setExpanded] = useState<Set<string>>(
+    () => new Set(deepLinkedId ? [deepLinkedId] : lastId ? [lastId] : []),
+  );
+  // Scroll al mensaje del deep-link, una sola vez al abrir el hilo.
+  const deepLinkScrolledRef = useRef(false);
+  useEffect(() => {
+    if (deepLinkScrolledRef.current || !deepLinkedId) return;
+    deepLinkScrolledRef.current = true;
+    document
+      .querySelector(`[data-correo-message-id="${deepLinkedId}"]`)
+      ?.scrollIntoView({ block: "start" });
+  }, [deepLinkedId]);
   if (messages.length === 0) {
     return <p className="text-[13px] text-ds-text-4">Sin mensajes.</p>;
   }

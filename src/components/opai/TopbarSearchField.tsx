@@ -16,6 +16,10 @@ const MAX_SEARCH_LENGTH = 300;
 export function TopbarSearchField() {
   const { search } = useModuleSurface();
   const inputRef = useRef<HTMLInputElement>(null);
+  /** Ancla del popover de operadores (la pastilla del buscador). */
+  const pillRef = useRef<HTMLDivElement>(null);
+  /** Excluido del cierre por clic afuera para que el toggle del embudo sirva. */
+  const filterBtnRef = useRef<HTMLButtonElement>(null);
   const [focused, setFocused] = useState(false);
   const [opsOpen, setOpsOpen] = useState(false);
   const focusInput = useCallback(() => inputRef.current?.focus(), []);
@@ -32,7 +36,16 @@ export function TopbarSearchField() {
       ? `${search!.value.trim()} ${token}`
       : token;
     search!.onChange(next.slice(0, MAX_SEARCH_LENGTH));
-    inputRef.current?.focus();
+    // Token terminado en ":" (from:, to:, …) espera un valor: el foco vuelve
+    // al input con el cursor al final, listo para escribirlo. El rAF espera
+    // a que React pinte el value nuevo.
+    window.requestAnimationFrame(() => {
+      const el = inputRef.current;
+      if (!el) return;
+      el.focus();
+      const end = el.value.length;
+      el.setSelectionRange(end, end);
+    });
   }
 
   function clear() {
@@ -58,6 +71,7 @@ export function TopbarSearchField() {
   return (
     <div className="relative flex h-full min-w-0 flex-1 items-center">
       <div
+        ref={pillRef}
         className={cn(
           // Estilo Gmail: pastilla con fill suave, sin trazo/marco.
           "relative flex h-10 w-full max-w-[720px] min-w-0 items-center gap-2 rounded-full bg-ds-surface-2 px-3.5 transition-colors",
@@ -121,6 +135,7 @@ export function TopbarSearchField() {
         )}
         {operators.length > 0 && (
           <button
+            ref={filterBtnRef}
             type="button"
             aria-label="Filtros de búsqueda"
             aria-expanded={opsOpen}
@@ -141,6 +156,8 @@ export function TopbarSearchField() {
         onClose={() => setOpsOpen(false)}
         operators={operators}
         onInsert={insertOp}
+        anchorRef={pillRef}
+        excludeRef={filterBtnRef}
       />
     </div>
   );

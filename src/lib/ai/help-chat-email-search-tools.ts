@@ -56,6 +56,24 @@ export function composeEmailToolQuery(args: Record<string, unknown>): {
   return { parts, folder, composed: parts.join(" ").trim() };
 }
 
+/**
+ * Deep-link a Correos con la búsqueda embebida: al abrirlo, la lista queda
+ * filtrada por la misma query que ejecutó la tool (mismo motor) y el hilo
+ * aparece en contexto. `q` va percent-encoded (URLSearchParams) porque
+ * linkifyLine corta URLs en el primer espacio.
+ */
+function buildCorreoDeepLink(
+  composed: string,
+  threadId: string,
+  messageId: string | null,
+): string {
+  const params = new URLSearchParams();
+  if (composed) params.set("q", composed);
+  params.set("hilo", threadId);
+  if (messageId) params.set("mensaje", messageId);
+  return `/crm/correos?${params.toString()}`;
+}
+
 export async function toolSearchEmails(
   tenantId: string,
   userId: string,
@@ -186,9 +204,7 @@ export async function toolSearchEmails(
       aiVertical: t.aiVertical,
       matchReason: hybrid.reasonById.get(t.id) ?? null,
       excerpt: hybrid.excerptById.get(t.id) ?? "",
-      url: `/crm/correos?hilo=${t.id}${
-        t.messages[0]?.id ? `&mensaje=${t.messages[0].id}` : ""
-      }`,
+      url: buildCorreoDeepLink(composed, t.id, t.messages[0]?.id ?? null),
     })),
     instruction:
       "Respondé en prosa breve anclada a threadId/messageId de results. Si hasExactMatches=false, decí que no hubo coincidencia exacta. :::cards con action navigate a url. NUNCA inventes contenido. Las capturas del usuario NO son fuente de verdad del sistema.",
