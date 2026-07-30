@@ -13,7 +13,10 @@ import { Tag } from "@/components/opai-ds";
 import { EmailHtmlBody } from "./EmailHtmlBody";
 import { CorreoAttachments } from "./CorreoAttachments";
 import { CorreoInviteRsvpCard } from "./CorreoInviteRsvpCard";
-import { attachmentsForMessage } from "./correo-attachments-scope";
+import {
+  allAttachmentsForMessage,
+  attachmentsForMessage,
+} from "./correo-attachments-scope";
 import { discardGmailDraft } from "./correo-discard-draft";
 import { isCalendarMime } from "@/lib/ics";
 import { parseSender } from "./correo-sender";
@@ -192,7 +195,10 @@ function MessageCard({
       ? m.toEmails[0] || "—"
       : sender.name || sender.email || m.fromEmail || "—";
   const Chevron = open ? ChevronDown : ChevronRight;
+  // Listables (sin embeds cid) para paperclip/UI; todos (con cid) para el
+  // rewrite de firmas e imágenes pegadas en el HTML del mensaje.
   const msgAttachments = attachmentsForMessage(attachments, m);
+  const cidAttachments = allAttachmentsForMessage(attachments, m);
   const attachmentBlock =
     msgAttachments.length === 0
       ? null
@@ -325,7 +331,7 @@ function MessageCard({
             onAlwaysShowImages={onAlwaysShowImages}
             threadId={threadId}
             messageId={m.providerMessageId || m.id}
-            attachments={msgAttachments}
+            attachments={cidAttachments}
           />
           {attachmentBlock && (
             <div className="mt-2 border-t border-ds-border-subtle pt-2">{attachmentBlock}</div>
