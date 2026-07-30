@@ -1593,6 +1593,24 @@ model CpqProposalBundle {
   proposalTemplateId    String?   @map("proposal_template_id") @db.Uuid
   proposalAiContent     Json?     @map("proposal_ai_content")
   sentAt                DateTime? @map("sent_at") @db.Timestamptz(6)
+  /// Condiciones comerciales a nivel propuesta (mismos nombres/tipos que CpqQuote).
+  /// null = campo aún no gobernado por el bundle; al guardar se propagan a las hijas.
+  paymentTerms          String?   @map("payment_terms")
+  serviceStartDays      Int?      @map("service_start_days")
+  contractDuration      Int?      @map("contract_duration")
+  isOngoingService      Boolean?  @map("is_ongoing_service")
+  adjustmentType        String?   @map("adjustment_type") // NONE | IPC | IMO | POLYNOMIAL
+  adjustmentFreq        String?   @map("adjustment_freq") // TRIMESTRAL | SEMESTRAL | ANUAL
+  ipcWeight             Int?      @map("ipc_weight")
+  imoWeight             Int?      @map("imo_weight")
+  insurancePolicyUF     Decimal?  @map("insurance_policy_uf") @db.Decimal(10, 2)
+  liabilityMonths       Int?      @map("liability_months")
+  realAnnualIncrement   Int?      @map("real_annual_increment")
+  paymentDays           Int?      @map("payment_days")
+  paymentDayMode        String?   @map("payment_day_mode")
+  /// Gasto financiero a nivel propuesta → CpqQuoteParameters de cada hija.
+  financialEnabled      Boolean?  @map("financial_enabled")
+  financialRatePct      Decimal?  @map("financial_rate_pct") @db.Decimal(6, 4)
   createdAt             DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt             DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
