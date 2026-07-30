@@ -90,6 +90,8 @@ import { LeadSpecCard } from "./lead/LeadSpecCard";
 import { LeadActivityTimeline } from "./lead/LeadActivityTimeline";
 import { LeadActionBar } from "./lead/LeadActionBar";
 import { LeadHeaderCta } from "./lead/LeadHeaderCta";
+import { LeadPipelineStepper } from "./lead/LeadPipelineStepper";
+import { LeadExtractionPanel } from "./lead/LeadExtractionPanel";
 import { LeadOverflowMenu } from "./lead/LeadOverflowMenu";
 import { LedgerSection } from "./lead/ledger/LedgerSection";
 import { LedgerAccountRow } from "./lead/ledger/LedgerAccountRow";
@@ -2003,6 +2005,9 @@ export function CrmLeadDetailClient({ lead: initialLead, currentUserId = "" }: {
           </div>
         </details>
 
+        {/* Copiloto · Extracción IA — datos extraídos del correo/cotizador */}
+        <LeadExtractionPanel metadata={lead.metadata} />
+
         {/* Datos Apollo — visibles solo si hay datos reales */}
         {apolloData && (apolloData.person?.title || apolloData.person?.seniority || apolloData.person?.linkedinUrl || apolloData.organization?.name || apolloData.organization?.industry) && (
           <div className="rounded-lg border border-status-warn-border bg-status-warn-soft p-4 space-y-3">
@@ -2433,6 +2438,7 @@ export function CrmLeadDetailClient({ lead: initialLead, currentUserId = "" }: {
         tabs={[]}
         activeTab=""
         onTabChange={() => {}}
+        pipelineBar={<LeadPipelineStepper status={lead.status} />}
       >
         {singlePageContent}
         <details className="group mt-3 rounded-2xl border border-ds-border-subtle bg-card">
