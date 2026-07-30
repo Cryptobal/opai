@@ -14,6 +14,7 @@ import { PresentationEmail } from "@/emails/PresentationEmail";
 import { buildBundleProposalProps } from "@/lib/pdf/templates/proposal/build-bundle-proposal-props";
 import { renderProposalToBufferFromProps } from "@/lib/pdf/templates/proposal/render-proposal";
 import { getTenantCompanyConfig } from "@/lib/tenant-config";
+import { createCrmHistoryLog } from "@/lib/crm-history";
 
 export const runtime = "nodejs";
 export const maxDuration = 90;
@@ -214,6 +215,19 @@ export async function POST(
         { status: 502 },
       );
     }
+
+    await createCrmHistoryLog({
+      tenantId: ctx.tenantId,
+      entityType: "bundle",
+      entityId: bundleId,
+      action: "bundle_sent",
+      details: {
+        code: bundle.code,
+        sentTo: recipientEmail,
+        instalaciones: quoteIds.length,
+      },
+      createdBy: ctx.userId ?? null,
+    });
 
     return NextResponse.json({
       success: true,

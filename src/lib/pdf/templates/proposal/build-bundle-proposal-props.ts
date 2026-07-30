@@ -10,6 +10,14 @@ import { getUfValue, clpToUf } from "@/lib/uf";
 import { buildProposalProps } from "./build-proposal-props";
 import type { ProposalProps } from "./build-proposal-props";
 
+/** Mismas etiquetas que build-proposal-props para las condiciones del bundle. */
+const PAYMENT_LABELS: Record<string, string> = {
+  contrafactura: "Mensual, contra entrega de factura",
+  "30_dias": "30 días",
+  "30dias": "30 días",
+  anticipado: "Pago anticipado",
+};
+
 export async function buildBundleProposalProps(
   bundleId: string,
   tenantId: string,
@@ -56,7 +64,28 @@ export async function buildBundleProposalProps(
       monthly: p.totalNeto,
       monthlyFormatted: p.totalNetoFormatted,
       items: p.items,
+      // Pagos únicos por instalación: se cobran una vez y NO entran al mensual.
+      oneTimeItems: p.oneTimeItems,
+      oneTimeTotalFormatted: p.oneTimeTotalFormatted,
     }));
+
+  // Pagos únicos consolidados: renumerados y prefijados con la instalación
+  // para que el bloque global sea legible (antes solo salían los de la primera).
+  const consolidatedOneTimeItems: ProposalProps["oneTimeItems"] = [];
+  let oneTimeIdx = 1;
+  for (const inst of installations) {
+    for (const item of inst.oneTimeItems ?? []) {
+      consolidatedOneTimeItems.push({
+        ...item,
+        index: oneTimeIdx++,
+        description: `${inst.name} — ${item.description}`,
+      });
+    }
+  }
+  const totalOneTime = consolidatedOneTimeItems.reduce(
+    (s, i) => s + (i.subtotal || 0),
+    0,
+  );
 
   const totalMonthly = installations.reduce((s, i) => s + i.monthly, 0);
   const totalGuards = installations.reduce((s, i) => s + i.staffingCount, 0);
@@ -92,8 +121,14 @@ export async function buildBundleProposalProps(
           day: "numeric",
         })
       : base.validUntil,
-    // Condiciones comerciales desde la primera cotización (sincronizada)
-    paymentTerms: base.paymentTerms,
+    // Condiciones comerciales: el bundle es la fuente de verdad cuando las
+    // gobierna; si no, se conserva lo de la cotización de referencia.
+    paymentTerms: bundle.paymentTerms
+      ? PAYMENT_LABELS[bundle.paymentTerms] ?? bundle.paymentTerms
+      : base.paymentTerms,
+    oneTimeItems:
+      consolidatedOneTimeItems.length > 0 ? consolidatedOneTimeItems : undefined,
+    oneTimeTotalFormatted: totalOneTime > 0 ? fmt(totalOneTime) : undefined,
     installations,
     consolidatedSummary: {
       totalMonthly,
@@ -102,6 +137,8 @@ export async function buildBundleProposalProps(
       totalPositions,
       installationCount: installations.length,
       currency: currency === "UF" ? "UF" : "CLP",
+      totalOneTime: totalOneTime > 0 ? totalOneTime : undefined,
+      totalOneTimeFormatted: totalOneTime > 0 ? fmt(totalOneTime) : undefined,
     },
   };
 
