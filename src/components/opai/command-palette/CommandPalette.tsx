@@ -35,6 +35,9 @@ import {
   FileInput,
   FileOutput,
   Settings,
+  Mail,
+  CheckSquare,
+  Ticket,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useIsIOS } from '@/hooks/usePlatform';
@@ -116,9 +119,12 @@ type SearchResultType =
   | 'lead' | 'account' | 'contact' | 'deal' | 'quote'
   | 'installation' | 'guardia' | 'document' | 'pauta_mensual' | 'channel'
   | 'inventory_product' | 'inventory_asset' | 'inventory_phone_line'
-  | 'dte_issued' | 'dte_received' | 'config_page';
+  | 'dte_issued' | 'dte_received' | 'config_page'
+  | 'email_thread' | 'calendar_event' | 'task' | 'ticket';
 
-type SearchResultGroup = 'crm' | 'ops' | 'docs' | 'chat' | 'inventory' | 'finance' | 'config';
+type SearchResultGroup =
+  | 'crm' | 'ops' | 'docs' | 'chat' | 'inventory' | 'finance' | 'config'
+  | 'correos' | 'agenda' | 'tareas' | 'tickets';
 
 type ApiSearchResult = {
   id: string;
@@ -131,6 +137,7 @@ type ApiSearchResult = {
   badgeClass?: string;
   imageUrl?: string;
   pinDisplay?: string;
+  meta?: string;
 };
 
 // ── Paleta única por TIPO de resultado ──
@@ -160,10 +167,19 @@ const SEARCH_TYPE_CONFIG: Record<SearchResultType, { icon: typeof Users; color: 
   dte_received:          { icon: FileInput,    color: 'text-status-warn-fg',  bgColor: 'bg-status-warn-soft', label: 'DTE Recibido' },
   // Configuración — páginas/acciones
   config_page:           { icon: Settings,     color: 'text-muted-foreground', bgColor: 'bg-muted',           label: 'Configuración' },
+  // Productividad / tickets
+  email_thread:          { icon: Mail,         color: 'text-tint-sky-fg',     bgColor: 'bg-tint-sky',         label: 'Correo' },
+  calendar_event:        { icon: CalendarDays, color: 'text-tint-violet-fg',  bgColor: 'bg-tint-violet',      label: 'Evento' },
+  task:                  { icon: CheckSquare,  color: 'text-tint-teal-fg',    bgColor: 'bg-tint-teal',        label: 'Tarea' },
+  ticket:                { icon: Ticket,       color: 'text-tint-rose-fg',    bgColor: 'bg-tint-rose',        label: 'Ticket' },
 };
 
 const GROUP_CATEGORY: Record<SearchResultGroup, CommandCategory> = {
   crm:       'search_crm',
+  correos:   'search_correos',
+  agenda:    'search_agenda',
+  tareas:    'search_tareas',
+  tickets:   'search_tickets',
   ops:       'search_ops',
   docs:      'search_docs',
   chat:      'search_chat',
@@ -222,10 +238,22 @@ export function CommandPalette({ userRole, onOpenChat }: CommandPaletteProps) {
   const { isOpen, close, addRecent, getRecents, externalCommands, initialQuery } = useCommandPalette();
   const [query, setQuery] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
-  const [apiResults, setApiResults] = useState<ApiSearchResult[]>([]);
-  const [apiLoading, setApiLoading] = useState(false);
+  const [coreResults, setCoreResults] = useState<ApiSearchResult[]>([]);
+  const [correosResults, setCorreosResults] = useState<ApiSearchResult[]>([]);
+  const [coreLoading, setCoreLoading] = useState(false);
+  const [correosLoading, setCorreosLoading] = useState(false);
+  const [searchElapsedMs, setSearchElapsedMs] = useState<number | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const abortRef = useRef<AbortController | null>(null);
+  const coreAbortRef = useRef<AbortController | null>(null);
+  const correosAbortRef = useRef<AbortController | null>(null);
+  const searchStartedAtRef = useRef<number | null>(null);
+  const activeQueryRef = useRef('');
+
+  const apiResults = useMemo(
+    () => [...coreResults, ...correosResults],
+    [coreResults, correosResults],
+  );
+  const apiLoading = coreLoading || correosLoading;
 
   // Merge default + external commands, filter by role
   const allCommands = useMemo(() => {
@@ -286,6 +314,7 @@ export function CommandPalette({ userRole, onOpenChat }: CommandPaletteProps) {
         pinDisplay: r.pinDisplay,
         badgeLabel: r.badgeLabel,
         badgeClass: r.badgeClass,
+        meta: r.meta,
       };
     });
   }, [apiResults, onOpenChat]);
@@ -295,7 +324,23 @@ export function CommandPalette({ userRole, onOpenChat }: CommandPaletteProps) {
   // Group by category
   const grouped = useMemo(() => {
     const groups: Record<string, CommandItem[]> = {};
-    const order = ['recent', 'search_crm', 'search_ops', 'search_finance', 'search_chat', 'search_docs', 'search_inventory', 'search_config', 'navigation', 'action', 'config'];
+    const order = [
+      'recent',
+      'search_crm',
+      'search_correos',
+      'search_agenda',
+      'search_tareas',
+      'search_tickets',
+      'search_ops',
+      'search_finance',
+      'search_chat',
+      'search_docs',
+      'search_inventory',
+      'search_config',
+      'navigation',
+      'action',
+      'config',
+    ];
 
     for (const cmd of allItems) {
       const cat = cmd.category;
@@ -312,37 +357,98 @@ export function CommandPalette({ userRole, onOpenChat }: CommandPaletteProps) {
       }));
   }, [allItems]);
 
-  // Debounced API search with AbortController for out-of-order cancellation
+  // Debounced dual-fetch (core + correos) con AbortControllers independientes
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    if (abortRef.current) abortRef.current.abort();
+    if (coreAbortRef.current) coreAbortRef.current.abort();
+    if (correosAbortRef.current) correosAbortRef.current.abort();
 
     if (!isOpen || query.trim().length < 2) {
-      setApiResults([]);
-      setApiLoading(false);
+      setCoreResults([]);
+      setCorreosResults([]);
+      setCoreLoading(false);
+      setCorreosLoading(false);
+      setSearchElapsedMs(null);
+      searchStartedAtRef.current = null;
+      activeQueryRef.current = '';
       return;
     }
 
-    setApiLoading(true);
-    debounceRef.current = setTimeout(async () => {
-      const controller = new AbortController();
-      abortRef.current = controller;
-      try {
-        const res = await fetch(
-          `/api/search/global?q=${encodeURIComponent(query.trim())}`,
-          { signal: controller.signal },
-        );
-        if (!res.ok) throw new Error();
-        const json = await res.json();
-        if (!controller.signal.aborted && json.success && Array.isArray(json.data)) {
-          setApiResults(json.data);
+    const q = query.trim();
+    setCoreLoading(true);
+    setCorreosLoading(true);
+    debounceRef.current = setTimeout(() => {
+      activeQueryRef.current = q;
+      searchStartedAtRef.current = performance.now();
+      setSearchElapsedMs(null);
+
+      const markElapsed = () => {
+        if (searchStartedAtRef.current != null) {
+          setSearchElapsedMs(Math.round(performance.now() - searchStartedAtRef.current));
         }
-      } catch (err) {
-        if ((err as { name?: string })?.name !== 'AbortError') setApiResults([]);
-      } finally {
-        if (!controller.signal.aborted) setApiLoading(false);
-      }
-    }, 250);
+      };
+
+      const coreController = new AbortController();
+      const correosController = new AbortController();
+      coreAbortRef.current = coreController;
+      correosAbortRef.current = correosController;
+
+      void (async () => {
+        try {
+          const res = await fetch(
+            `/api/search/global?q=${encodeURIComponent(q)}&tier=core`,
+            { signal: coreController.signal },
+          );
+          if (!res.ok) throw new Error();
+          const json = await res.json();
+          if (
+            !coreController.signal.aborted &&
+            activeQueryRef.current === q &&
+            json.success &&
+            Array.isArray(json.data)
+          ) {
+            setCoreResults(json.data);
+          }
+        } catch (err) {
+          if ((err as { name?: string })?.name !== 'AbortError' && activeQueryRef.current === q) {
+            setCoreResults([]);
+          }
+        } finally {
+          if (!coreController.signal.aborted && activeQueryRef.current === q) {
+            setCoreLoading(false);
+            markElapsed();
+          }
+        }
+      })();
+
+      void (async () => {
+        try {
+          const res = await fetch(
+            `/api/search/global?q=${encodeURIComponent(q)}&tier=correos`,
+            { signal: correosController.signal },
+          );
+          if (!res.ok) throw new Error();
+          const json = await res.json();
+          if (
+            !correosController.signal.aborted &&
+            activeQueryRef.current === q &&
+            json.success &&
+            Array.isArray(json.data)
+          ) {
+            setCorreosResults(json.data);
+          }
+        } catch (err) {
+          if ((err as { name?: string })?.name !== 'AbortError' && activeQueryRef.current === q) {
+            setCorreosResults([]);
+          }
+        } finally {
+          if (!correosController.signal.aborted && activeQueryRef.current === q) {
+            setCorreosLoading(false);
+            markElapsed();
+          }
+        }
+      })();
+    }, 150);
 
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -383,7 +489,9 @@ export function CommandPalette({ userRole, onOpenChat }: CommandPaletteProps) {
     if (!isOpen) return;
     const seed = initialQuery ?? '';
     setQuery(seed);
-    setApiResults([]);
+    setCoreResults([]);
+    setCorreosResults([]);
+    setSearchElapsedMs(null);
     const focus = () => {
       const el = inputRef.current;
       if (!el) return;
@@ -590,7 +698,7 @@ export function CommandPalette({ userRole, onOpenChat }: CommandPaletteProps) {
                 heading={group.label}
                 className={cn(
                   '[&_[cmdk-group-heading]]:px-3 [&_[cmdk-group-heading]]:pt-3 [&_[cmdk-group-heading]]:pb-1.5',
-                  '[&_[cmdk-group-heading]]:text-[10px] [&_[cmdk-group-heading]]:font-semibold',
+                  '[&_[cmdk-group-heading]]:text-[12px] [&_[cmdk-group-heading]]:font-semibold',
                   '[&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-[0.08em]',
                   '[&_[cmdk-group-heading]]:text-muted-foreground/70',
                   idx === 0 && '[&_[cmdk-group-heading]]:pt-1',
@@ -673,7 +781,7 @@ export function CommandPalette({ userRole, onOpenChat }: CommandPaletteProps) {
                             {highlightMatch(cmd.label, query)}
                           </p>
                           {showPin && (
-                            <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] font-medium text-muted-foreground tabular-nums">
+                            <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 font-mono text-[12px] font-medium text-muted-foreground tabular-nums">
                               {cmd.pinDisplay}
                             </span>
                           )}
@@ -685,8 +793,14 @@ export function CommandPalette({ userRole, onOpenChat }: CommandPaletteProps) {
                         )}
                       </div>
 
+                      {cmd.meta && (
+                        <span className="hidden sm:inline shrink-0 text-[12px] text-ds-text-3 tabular-nums">
+                          {cmd.meta}
+                        </span>
+                      )}
+
                       {cmd.shortcut && (
-                        <kbd className="hidden sm:inline-flex shrink-0 h-5 items-center gap-0.5 rounded border border-border/60 bg-muted/60 px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
+                        <kbd className="hidden sm:inline-flex shrink-0 h-5 items-center gap-0.5 rounded border border-border/60 bg-muted/60 px-1.5 font-mono text-[12px] font-medium text-muted-foreground">
                           {cmd.shortcut}
                         </kbd>
                       )}
@@ -698,7 +812,7 @@ export function CommandPalette({ userRole, onOpenChat }: CommandPaletteProps) {
                       {showStatusBadge && (
                         <span
                           className={cn(
-                            'shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-medium',
+                            'shrink-0 rounded-md px-1.5 py-0.5 text-[12px] font-medium',
                             cmd.badgeLabel && cmd.badgeClass
                               ? cmd.badgeClass
                               : searchConfig
@@ -714,6 +828,24 @@ export function CommandPalette({ userRole, onOpenChat }: CommandPaletteProps) {
                 })}
               </Command.Group>
             ))}
+
+            {/* Shimmer Correos mientras el tier correos pende (altura ≈ 1 fila) */}
+            {correosLoading && query.trim().length >= 2 && (
+              <div
+                className="mx-0.5 mt-1 rounded-xl px-3 py-3 sm:py-2.5"
+                aria-busy="true"
+                aria-label="Cargando correos"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="h-9 w-9 shrink-0 rounded-lg bg-tint-sky/60 animate-pulse" />
+                  <div className="min-w-0 flex-1 space-y-2">
+                    <div className="h-3.5 w-2/5 rounded bg-ds-surface-3 animate-pulse" />
+                    <div className="h-3 w-3/5 rounded bg-ds-surface-2 animate-pulse" />
+                  </div>
+                  <span className="text-[12px] text-ds-text-3">Correos…</span>
+                </div>
+              </div>
+            )}
           </Command.List>
 
           {/* ── Footer (desktop only — keyboard hints) ── */}
@@ -735,8 +867,15 @@ export function CommandPalette({ userRole, onOpenChat }: CommandPaletteProps) {
                 <span>abrir</span>
               </span>
             </div>
-            <span className="text-[10px] text-muted-foreground/60 tabular-nums">
+            <span className="inline-flex items-center gap-1.5 text-[12px] text-muted-foreground/70 tabular-nums">
+              {correosLoading && (
+                <span
+                  className="inline-block h-1.5 w-1.5 rounded-full bg-status-warn"
+                  aria-label="Correos pendientes"
+                />
+              )}
               {allItems.length} {allItems.length === 1 ? 'resultado' : 'resultados'}
+              {searchElapsedMs != null ? ` · ${searchElapsedMs} ms` : ''}
             </span>
           </div>
 

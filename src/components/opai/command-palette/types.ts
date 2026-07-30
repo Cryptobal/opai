@@ -12,7 +12,11 @@ export type CommandCategory =
   | 'search_chat'
   | 'search_inventory'
   | 'search_finance'
-  | 'search_config';
+  | 'search_config'
+  | 'search_correos'
+  | 'search_agenda'
+  | 'search_tareas'
+  | 'search_tickets';
 
 export interface CommandItem {
   id: string;
@@ -38,6 +42,8 @@ export interface CommandItem {
   badgeLabel?: string;
   /** Solo para search: clases Tailwind para badge de estado */
   badgeClass?: string;
+  /** Solo para search: meta a la derecha (fecha relativa, etc.) */
+  meta?: string;
 }
 
 export interface RecentItem {
