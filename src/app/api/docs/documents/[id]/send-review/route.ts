@@ -2,10 +2,10 @@
  * API Route: POST /api/docs/documents/[id]/send-review
  *
  * Sends a "review draft" email to the client (one or more recipients).
- * Reuses the existing `Document.contractClientToken` and the public
- * `/contrato/[token]` portal page — the client opens the same view they'd
- * see at signature time, but can submit suggestions via the existing
- * `contract-suggestions` API.
+ * The email CTA lands on Portal Cliente access (`/portal/cliente?email=...`,
+ * or PIN setup if the contact has no portal yet). After login, the client
+ * sees the contract in review and can open `/contrato/[token]` to suggest
+ * changes via `contract-suggestions`.
  *
  * Body: { recipients?: Array<{ name: string; email: string }>, message?: string }
  *   When `recipients` is omitted, defaults to the primary contact of the
@@ -139,7 +139,15 @@ export async function POST(
     });
 
     const siteUrl = getSiteUrl();
-    const reviewUrl = `${siteUrl}/contrato/${token}`;
+    // Deep-link al visor del contrato (post-login). El CTA del correo usa el
+    // acceso al Portal Cliente; este URL queda como fallback interno.
+    const contractViewerUrl = `${siteUrl}/contrato/${token}`;
+    // URL genérica de acceso al portal (sin email) — la que devolvemos en la
+    // respuesta y la que el ejecutivo copia desde la ficha del documento.
+    const portalAccessUrl = buildEmailUrl(
+      "/portal/cliente",
+      tenant?.slug ?? null,
+    );
 
     // Account context for portal onboarding: if a recipient is a known contact
     // without portal access, we mint a magic-link so the review email doubles
@@ -153,9 +161,7 @@ export async function POST(
 
     const results: Array<{ email: string; ok: boolean; error?: string }> = [];
     for (const recipient of recipients) {
-      // Primary portal entry point: the client-portal login page with the
-      // recipient's email pre-filled, so they land on the ingreso screen with
-      // their correo ready and only need their PIN.
+      // Primary CTA: Portal Cliente login with email pre-filled.
       const portalLoginUrl = buildEmailUrl(
         `/portal/cliente?email=${encodeURIComponent(recipient.email)}`,
         tenant?.slug ?? null,
@@ -189,7 +195,7 @@ export async function POST(
         to: recipient.email,
         recipientName: recipient.name || "Estimado(a)",
         documentTitle: document.title,
-        reviewUrl,
+        reviewUrl: contractViewerUrl,
         senderName: sender?.name ?? sender?.email ?? "Equipo OPAI",
         senderCompany: tenant?.name ?? undefined,
         message: body.message?.trim() || null,
@@ -233,7 +239,10 @@ export async function POST(
       success: allOk,
       data: {
         token,
-        reviewUrl,
+        // Acceso al Portal Cliente (CTA principal). Compat: `reviewUrl`.
+        reviewUrl: portalAccessUrl,
+        portalAccessUrl,
+        contractViewerUrl,
         results,
       },
       ...(allOk ? {} : { error: "Algunos correos no se pudieron enviar." }),

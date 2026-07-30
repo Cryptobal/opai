@@ -556,7 +556,9 @@ export function DocDetailClient({ documentId }: DocDetailClientProps) {
         </div>
       )}
 
-      {/* Contract client portal link — compact mobile */}
+      {/* Acceso al Portal Cliente (login). El contrato en revisión aparece
+          dentro del portal una vez autenticado; no enlazar a /contrato/{token}
+          como entrada — ese path es el visor post-login. */}
       {doc?.contractClientToken && (
         <div className="flex flex-wrap items-center gap-2 p-2.5 sm:p-3 rounded-lg border border-status-info-border bg-status-info-soft/30">
           <FileSignature className="h-4 w-4 text-status-info-fg shrink-0" />
@@ -565,22 +567,22 @@ export function DocDetailClient({ documentId }: DocDetailClientProps) {
           </span>
           <code className="hidden md:inline text-xs text-status-info-fg bg-teal-950/50 px-2 py-0.5 rounded select-all truncate max-w-[280px]">
             {typeof window !== "undefined"
-              ? `${window.location.origin}/contrato/${doc.contractClientToken}`
-              : `/contrato/${doc.contractClientToken}`}
+              ? `${window.location.origin}/portal/cliente`
+              : `/portal/cliente`}
           </code>
           <div className="ml-auto flex items-center gap-2">
             <button
               className="text-xs text-status-info-fg hover:text-status-info-fg underline px-2 py-1"
               onClick={() => {
-                const url = `${window.location.origin}/contrato/${doc.contractClientToken}`;
+                const url = `${window.location.origin}/portal/cliente`;
                 navigator.clipboard.writeText(url);
-                toast.success("Link copiado");
+                toast.success("Link del Portal Cliente copiado");
               }}
             >
               Copiar
             </button>
             <a
-              href={`/contrato/${doc.contractClientToken}`}
+              href="/portal/cliente"
               target="_blank"
               rel="noopener noreferrer"
               className="text-xs text-status-info-fg hover:text-status-info-fg underline px-2 py-1"

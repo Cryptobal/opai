@@ -15,6 +15,11 @@ import * as React from "react";
 interface ContractReviewRequestEmailProps {
   recipientName: string;
   documentTitle: string;
+  /**
+   * Deep-link al visor público `/contrato/[token]`. Se mantiene como fallback
+   * y referencia interna; el CTA principal del correo es el acceso al Portal
+   * Cliente (`portalLoginUrl` / `portalSetupUrl`).
+   */
   reviewUrl: string;
   senderName?: string;
   senderCompany?: string;
@@ -29,16 +34,16 @@ interface ContractReviewRequestEmailProps {
   /**
    * Optional magic-link to create a portal PIN. Only passed when the recipient
    * contact does not yet have portal access, so the review email doubles as a
-   * portal onboarding invite (shown as a secondary "first time?" line).
+   * portal onboarding invite (shown as primary CTA when present).
    */
   portalSetupUrl?: string | null;
 }
 
 /**
  * Sent when the contract owner asks the client to REVIEW (not yet sign) a
- * draft contract. The client opens the same `/contrato/[token]` portal page
- * already used by the read-only flow and can suggest changes via the
- * existing contract-suggestions API.
+ * draft contract. The primary CTA lands on Portal Cliente access (login or
+ * PIN setup). Once inside, the client sees the contract in review and can
+ * open the `/contrato/[token]` viewer to suggest changes.
  */
 export default function ContractReviewRequestEmail({
   recipientName,
@@ -54,6 +59,13 @@ export default function ContractReviewRequestEmail({
     ? `${senderName} (${senderCompany})`
     : senderName;
 
+  // Primary entry: setup (first time) → portal login → contract viewer fallback.
+  const isFirstTime = Boolean(portalSetupUrl);
+  const ctaUrl = portalSetupUrl || portalLoginUrl || reviewUrl;
+  const ctaLabel = isFirstTime
+    ? "Crear PIN e ingresar al Portal Cliente"
+    : "Ingresar al Portal Cliente";
+
   return (
     <Html>
       <Head />
@@ -64,7 +76,7 @@ export default function ContractReviewRequestEmail({
           <Text style={text}>Hola {recipientName},</Text>
           <Text style={text}>
             {senderLine} te ha enviado un borrador de contrato para que lo
-            revises antes de avanzar a la firma.
+            revises en tu Portal Cliente antes de avanzar a la firma.
           </Text>
 
           <Section style={box}>
@@ -82,64 +94,56 @@ export default function ContractReviewRequestEmail({
           <Section style={howItWorksBox}>
             <Text style={howItWorksTitle}>Cómo funciona</Text>
             <Text style={listItem}>
-              <strong>1.</strong> Abre el contrato y léelo cláusula por
-              cláusula.
+              <strong>1.</strong> Ingresa a tu Portal Cliente
+              {isFirstTime
+                ? " (crea tu PIN la primera vez)"
+                : " con tu email y PIN"}
+              .
             </Text>
             <Text style={listItem}>
-              <strong>2.</strong> Si ves algo que quieras cambiar, marca el
+              <strong>2.</strong> En el inicio verás el contrato en revisión;
+              ábrelo y léelo cláusula por cláusula.
+            </Text>
+            <Text style={listItem}>
+              <strong>3.</strong> Si ves algo que quieras cambiar, marca el
               texto y propone tu redacción alternativa.
             </Text>
             <Text style={listItem}>
-              <strong>3.</strong> Envíanos tus sugerencias. Las revisaremos y
+              <strong>4.</strong> Envíanos tus sugerencias. Las revisaremos y
               te volveremos a escribir con una versión final o con
               comentarios.
             </Text>
             <Text style={listItem}>
-              <strong>4.</strong> Cuando ambas partes estén de acuerdo, te
+              <strong>5.</strong> Cuando ambas partes estén de acuerdo, te
               llegará una nueva invitación, esta vez para firmar.
             </Text>
           </Section>
 
           <Section style={buttonWrap}>
-            <Button href={reviewUrl} style={button}>
-              Abrir contrato para revisar
+            <Button href={ctaUrl} style={button}>
+              {ctaLabel}
             </Button>
           </Section>
 
           <Text style={small}>
             Si no puedes hacer click, copia este enlace en tu navegador:
             <br />
-            <Link href={reviewUrl} style={link}>
-              {reviewUrl}
+            <Link href={ctaUrl} style={link}>
+              {ctaUrl}
             </Link>
           </Text>
 
-          {portalLoginUrl ? (
-            <Section style={portalBox}>
-              <Text style={portalTitle}>Accede a tu portal de cliente</Text>
-              <Text style={boxText}>
-                Entra a tu portal para ver tus contratos, documentos y servicios
-                cuando quieras. Tu correo ya viene ingresado, solo necesitas tu
-                PIN.
-              </Text>
-              <Text style={{ ...boxText, margin: "10px 0 0" }}>
-                <Link href={portalLoginUrl} style={link}>
-                  Ingresar a mi portal
-                </Link>
-              </Text>
-              {portalSetupUrl ? (
-                <Text style={{ ...boxText, margin: "8px 0 0", fontSize: "13px" }}>
-                  ¿Primera vez?{" "}
-                  <Link href={portalSetupUrl} style={link}>
-                    Crea tu PIN de acceso
-                  </Link>
-                </Text>
-              ) : null}
-            </Section>
+          {portalLoginUrl && portalSetupUrl ? (
+            <Text style={{ ...small, marginTop: "12px" }}>
+              ¿Ya tienes PIN?{" "}
+              <Link href={portalLoginUrl} style={link}>
+                Ingresar al Portal Cliente
+              </Link>
+            </Text>
           ) : null}
 
           <Text style={footer}>
-            Este enlace es personal y único. No lo compartas con terceros.
+            Este enlace es personal. No lo compartas con terceros.
           </Text>
         </Container>
       </Body>
@@ -239,17 +243,4 @@ const link = {
   color: "#0ea5e9",
   textDecoration: "underline",
   wordBreak: "break-all" as const,
-};
-const portalBox = {
-  backgroundColor: "#eff6ff",
-  border: "1px solid #bfdbfe",
-  borderRadius: "8px",
-  padding: "14px 16px",
-  margin: "18px 0 0",
-};
-const portalTitle = {
-  color: "#1e40af",
-  fontSize: "14px",
-  fontWeight: "700",
-  margin: "0 0 6px",
 };

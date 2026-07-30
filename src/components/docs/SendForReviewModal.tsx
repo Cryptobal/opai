@@ -218,9 +218,10 @@ export function SendForReviewModal({
         <DialogHeader>
           <DialogTitle>Enviar borrador a revisión</DialogTitle>
           <DialogDescription>
-            Elige a qué contactos enviar el borrador para que lo revisen y
-            propongan cambios antes de la firma. Puedes seleccionar uno o más
-            contactos del cliente y/o agregar correos manualmente.
+            Elige a qué contactos enviar el borrador. Recibirán un correo con
+            acceso al Portal Cliente para revisar el contrato y proponer cambios
+            antes de la firma. Puedes seleccionar uno o más contactos del
+            cliente y/o agregar correos manualmente.
           </DialogDescription>
         </DialogHeader>
 
