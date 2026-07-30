@@ -11,15 +11,12 @@ import {
   Search,
 } from "lucide-react";
 import { Tag } from "@/components/opai-ds";
+import {
+  CorreoAccountSuggestionChips,
+  type AccountSuggestion,
+} from "./CorreoAccountSuggestionChips";
 import { useCorreoWorkOptional } from "./CorreoWorkContext";
 import type { CorreoDetail } from "@/modules/crm/email/correos.types";
-
-type Suggestion = {
-  id: string;
-  name: string;
-  reason: string;
-  confidence?: "alta" | "media";
-};
 
 type Props = {
   detail: CorreoDetail;
@@ -50,7 +47,7 @@ export function CorreoContextChain({
   );
   const pendingAttachments = detail.attachments.filter((a) => !a.savedFileId).length;
 
-  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+  const [suggestions, setSuggestions] = useState<AccountSuggestion[]>([]);
 
   useEffect(() => {
     if (t.accountId) {
@@ -77,31 +74,23 @@ export function CorreoContextChain({
       <div className="space-y-1.5">
         <div className="flex min-w-0 items-center gap-1.5 overflow-x-auto scrollbar-none">
           <Tag variant="warn" size="sm">
-            sin cuenta
+            Sin cuenta
           </Tag>
-          {canEdit &&
-            suggestions.slice(0, 3).map((s) => (
-              <button
-                key={s.id}
-                type="button"
-                title={s.reason}
-                onClick={() => void onAssociate({ accountId: s.id, dealId: null })}
-                className="inline-flex min-h-11 shrink-0 items-center gap-1 rounded-full border border-ds-border-default bg-ds-surface-1 px-2.5 text-[12px] text-ds-text-1 ds-tap sm:min-h-8"
-              >
-                <Building2 className="h-3.5 w-3.5 text-ds-text-3" />
-                <span className="max-w-[120px] truncate">{s.name}</span>
-                {s.confidence && (
-                  <span className="text-ds-text-4">{s.confidence}</span>
-                )}
-              </button>
-            ))}
+          {canEdit && (
+            <CorreoAccountSuggestionChips
+              suggestions={suggestions}
+              onAssociate={(accountId) =>
+                void onAssociate({ accountId, dealId: null })
+              }
+            />
+          )}
           {canEdit && (
             <button
               type="button"
               onClick={onSearchAccount}
               className="inline-flex min-h-11 shrink-0 items-center gap-1 rounded-full border border-ds-border-default bg-ds-surface-1 px-2.5 text-[12px] text-ds-text-2 ds-tap sm:min-h-8"
             >
-              <Search className="h-3.5 w-3.5" /> Buscar
+              <Search className="h-3.5 w-3.5" /> Asociar
             </button>
           )}
         </div>
