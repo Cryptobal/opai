@@ -94,9 +94,41 @@ export function CorreoContextCascade({
     setOmnibox(null);
   }
 
+  async function removeAccountFromThread() {
+    const ok = await confirmDialog({
+      title: "Quitar cuenta del hilo",
+      description:
+        "Se desvinculará la cuenta y el negocio asociado. Las cotizaciones e instalaciones vinculadas quedarán huérfanas (visibles para que decidas). Los adjuntos ya guardados no se eliminan.",
+      confirmLabel: "Quitar cuenta",
+      cancelLabel: "Cancelar",
+      variant: "destructive",
+    });
+    if (!ok) return;
+    await associateAndReload({ accountId: null, dealId: null });
+  }
+
   async function createLink(c: OmniboxCandidate) {
     if (c.entityType === "account") {
-      await associateAndReload({ accountId: c.id, dealId: t.dealId });
+      if (t.accountId && c.id === t.accountId) {
+        setOmnibox(null);
+        return;
+      }
+      if (t.accountId && t.dealId && c.id !== t.accountId) {
+        const ok = await confirmDialog({
+          title: "Cambiar cuenta del hilo",
+          description:
+            "Al asociar otra cuenta se desvinculará el negocio actual. Las cotizaciones e instalaciones vinculadas a la cuenta anterior quedarán huérfanas.",
+          confirmLabel: "Cambiar cuenta",
+          cancelLabel: "Cancelar",
+        });
+        if (!ok) return;
+        await associateAndReload({ accountId: c.id, dealId: null });
+        return;
+      }
+      await associateAndReload({
+        accountId: c.id,
+        dealId: t.accountId ? null : t.dealId,
+      });
       return;
     }
     if (c.entityType === "deal") {
@@ -219,6 +251,7 @@ export function CorreoContextCascade({
         editable={editable}
         href={t.accountId ? `/crm/accounts/${t.accountId}` : null}
         onAdd={() => setOmnibox("account")}
+        onEdit={() => setOmnibox("account")}
       />
       <CorreoCascadeRow
         icon={Users}
@@ -234,6 +267,10 @@ export function CorreoContextCascade({
         disabled={!t.accountId}
         onActivate={() => setContactsOpen((v) => !v)}
         onAdd={() => {
+          setContactsOpen(true);
+          setOmnibox("contact");
+        }}
+        onEdit={() => {
           setContactsOpen(true);
           setOmnibox("contact");
         }}
@@ -253,6 +290,7 @@ export function CorreoContextCascade({
         disabled={!t.accountId}
         href={t.dealId ? `/crm/deals/${t.dealId}` : null}
         onAdd={() => setOmnibox("deal")}
+        onEdit={() => setOmnibox("deal")}
       />
       <CorreoCascadeRow
         icon={FileText}
@@ -264,6 +302,7 @@ export function CorreoContextCascade({
         disabled={!t.accountId}
         href={quote?.href ?? null}
         onAdd={() => setOmnibox("quote")}
+        onEdit={() => setOmnibox("quote")}
       />
       <CorreoCascadeRow
         icon={MapPin}
@@ -275,6 +314,7 @@ export function CorreoContextCascade({
         disabled={!t.accountId}
         href={installation?.href ?? null}
         onAdd={() => setOmnibox("installation")}
+        onEdit={() => setOmnibox("installation")}
       />
       <CorreoCascadeRow
         icon={Paperclip}
@@ -303,6 +343,11 @@ export function CorreoContextCascade({
             types={omniboxTypes}
             onPick={(c) => void createLink(c)}
             onCancel={() => setOmnibox(null)}
+            onRemove={
+              omnibox === "account" && t.accountId
+                ? () => void removeAccountFromThread()
+                : undefined
+            }
           />
         </div>
       )}

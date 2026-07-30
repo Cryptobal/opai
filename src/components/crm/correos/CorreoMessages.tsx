@@ -325,7 +325,7 @@ function MessageCard({
             onAlwaysShowImages={onAlwaysShowImages}
             threadId={threadId}
             messageId={m.providerMessageId || m.id}
-            attachments={attachments}
+            attachments={msgAttachments}
           />
           {attachmentBlock && (
             <div className="mt-2 border-t border-ds-border-subtle pt-2">{attachmentBlock}</div>

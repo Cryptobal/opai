@@ -1,13 +1,15 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Code2,
   Copy,
   ExternalLink,
   MoreHorizontal,
+  PenLine,
   Printer,
   Sparkles,
+  WandSparkles,
 } from "lucide-react";
 import { toast } from "sonner";
 import { canEdit } from "@/lib/permissions";
@@ -99,7 +101,6 @@ export function CorreoDrawerContent({
   const canEditCorreos = canEdit(perms, "crm", "correos");
   const [panel, setPanel] = useState<{ tab: WorkTab } | null>(null);
   const [overflowOpen, setOverflowOpen] = useState(false);
-  const overflowRef = useRef<HTMLDivElement>(null);
   const [continueDraftIntent, setContinueDraftIntent] = useState<{
     message: CorreoMessageDTO;
     nonce: number;
@@ -126,17 +127,11 @@ export function CorreoDrawerContent({
 
   useEffect(() => {
     if (!overflowOpen) return;
-    function onDoc(e: MouseEvent) {
-      if (overflowRef.current?.contains(e.target as Node)) return;
-      setOverflowOpen(false);
-    }
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") setOverflowOpen(false);
     }
-    document.addEventListener("mousedown", onDoc);
     document.addEventListener("keydown", onKey);
     return () => {
-      document.removeEventListener("mousedown", onDoc);
       document.removeEventListener("keydown", onKey);
     };
   }, [overflowOpen]);
@@ -242,7 +237,7 @@ export function CorreoDrawerContent({
               )}
             </button>
 
-            <div ref={overflowRef} className="relative shrink-0">
+            <div className="relative shrink-0">
               <button
                 type="button"
                 aria-label="Más acciones"
@@ -253,48 +248,88 @@ export function CorreoDrawerContent({
                 <MoreHorizontal className="h-4 w-4" />
               </button>
               {overflowOpen && (
-                <div
-                  role="menu"
-                  className="absolute right-0 z-20 mt-1 w-52 overflow-hidden rounded-xl border border-ds-border-default bg-ds-surface-1 py-1 shadow-ds-lg"
-                >
-                  {gmailUrl && (
-                    <a
+                <>
+                  {/* Scrim transparente: captura el tap fuera del menú y evita que el
+                      click sintetizado (touch → mousedown → click) llegue al footer
+                      sticky (p. ej. Eliminar → Papelera). */}
+                  <div
+                    aria-hidden
+                    className="fixed inset-0 z-[55]"
+                    onPointerDown={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setOverflowOpen(false);
+                    }}
+                  />
+                  <div
+                    role="menu"
+                    className="absolute right-0 z-[56] mt-1 w-52 overflow-hidden rounded-xl border border-ds-border-default bg-ds-surface-1 py-1 shadow-ds-lg"
+                  >
+                    {gmailUrl && (
+                      <a
+                        role="menuitem"
+                        href={gmailUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={() => setOverflowOpen(false)}
+                        className="flex min-h-11 w-full items-center gap-2 px-3 text-left text-[13px] text-ds-text-1 ds-tap hover:bg-ds-surface-2 sm:min-h-9"
+                      >
+                        <ExternalLink className="h-4 w-4 text-ds-text-3" /> Abrir en Gmail
+                      </a>
+                    )}
+                    <button
+                      type="button"
                       role="menuitem"
-                      href={gmailUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={() => setOverflowOpen(false)}
+                      onClick={printThread}
                       className="flex min-h-11 w-full items-center gap-2 px-3 text-left text-[13px] text-ds-text-1 ds-tap hover:bg-ds-surface-2 sm:min-h-9"
                     >
-                      <ExternalLink className="h-4 w-4 text-ds-text-3" /> Abrir en Gmail
-                    </a>
-                  )}
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={printThread}
-                    className="flex min-h-11 w-full items-center gap-2 px-3 text-left text-[13px] text-ds-text-1 ds-tap hover:bg-ds-surface-2 sm:min-h-9"
-                  >
-                    <Printer className="h-4 w-4 text-ds-text-3" /> Imprimir
-                  </button>
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={viewOriginal}
-                    className="flex min-h-11 w-full items-center gap-2 px-3 text-left text-[13px] text-ds-text-1 ds-tap hover:bg-ds-surface-2 sm:min-h-9"
-                  >
-                    <Code2 className="h-4 w-4 text-ds-text-3" /> Ver original
-                  </button>
-                  <div className="my-1 border-t border-ds-border-subtle" role="separator" />
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={() => void copyThreadLink()}
-                    className="flex min-h-11 w-full items-center gap-2 px-3 text-left text-[13px] text-ds-text-1 ds-tap hover:bg-ds-surface-2 sm:min-h-9"
-                  >
-                    <Copy className="h-4 w-4 text-ds-text-3" /> Copiar enlace del hilo
-                  </button>
-                </div>
+                      <Printer className="h-4 w-4 text-ds-text-3" /> Imprimir
+                    </button>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={viewOriginal}
+                      className="flex min-h-11 w-full items-center gap-2 px-3 text-left text-[13px] text-ds-text-1 ds-tap hover:bg-ds-surface-2 sm:min-h-9"
+                    >
+                      <Code2 className="h-4 w-4 text-ds-text-3" /> Ver original
+                    </button>
+                    {onOpenSignature && (
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          setOverflowOpen(false);
+                          onOpenSignature();
+                        }}
+                        className="flex min-h-11 w-full items-center gap-2 px-3 text-left text-[13px] text-ds-text-1 ds-tap hover:bg-ds-surface-2 sm:min-h-9"
+                      >
+                        <PenLine className="h-4 w-4 text-ds-text-3" /> Firma
+                      </button>
+                    )}
+                    {onOpenAiStyle && (
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          setOverflowOpen(false);
+                          onOpenAiStyle();
+                        }}
+                        className="flex min-h-11 w-full items-center gap-2 px-3 text-left text-[13px] text-ds-text-1 ds-tap hover:bg-ds-surface-2 sm:min-h-9"
+                      >
+                        <WandSparkles className="h-4 w-4 text-ds-text-3" /> Estilo de respuesta
+                      </button>
+                    )}
+                    <div className="my-1 border-t border-ds-border-subtle" role="separator" />
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => void copyThreadLink()}
+                      className="flex min-h-11 w-full items-center gap-2 px-3 text-left text-[13px] text-ds-text-1 ds-tap hover:bg-ds-surface-2 sm:min-h-9"
+                    >
+                      <Copy className="h-4 w-4 text-ds-text-3" /> Copiar enlace del hilo
+                    </button>
+                  </div>
+                </>
               )}
             </div>
           </div>

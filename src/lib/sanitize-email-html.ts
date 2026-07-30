@@ -71,17 +71,25 @@ export function sanitizeEmailHtml(html: string, options?: SanitizeEmailOptions):
     })
     .replace(/<img\b([^>]*?)(\/?)>/gi, (_m, attrs: string, selfClose: string) => {
       let a = attrs;
+      const srcMatch = a.match(/\bsrc\s*=\s*(['"])(.*?)\1/i);
+      const src = srcMatch?.[2] ?? "";
       if (blockImages) {
-        const srcMatch = a.match(/\bsrc\s*=\s*(['"])(.*?)\1/i);
-        // Solo http(s) y protocol-relative son "remotas"; cid:/data: quedan.
-        if (srcMatch && /^(https?:)?\/\//i.test(srcMatch[2])) {
+        // Solo http(s) y protocol-relative son "remotas". Las raíz-relativas
+        // (/api/crm/correos/…/attachments/…) que produce rewriteCidImages NO
+        // se bloquean: son adjuntos del propio hilo servidos por un endpoint
+        // autenticado del tenant, no pixels de terceros.
+        if (src && /^(https?:)?\/\//i.test(src)) {
           a = a.replace(
-            srcMatch[0],
-            `src="${BLOCKED_IMG_PLACEHOLDER}" data-blocked-src="${srcMatch[2]}"`,
+            srcMatch![0],
+            `src="${BLOCKED_IMG_PLACEHOLDER}" data-blocked-src="${src}"`,
           );
         }
       }
-      if (!/\bloading\s*=/i.test(a)) a += ' loading="lazy"';
+      // Imágenes /api/ (cid reescritas) cargan en el primer paint para que el
+      // iframe pueda medir altura; el resto conserva lazy.
+      if (!/\bloading\s*=/i.test(a) && !src.startsWith("/api/")) {
+        a += ' loading="lazy"';
+      }
       return `<img${a}${selfClose}>`;
     });
 }

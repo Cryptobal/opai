@@ -57,6 +57,17 @@ describe("EmailHtmlBody", () => {
     render(<EmailHtmlBody htmlBody={null} textBody={"hola\nmundo"} />);
     expect(screen.getByText(/hola/)).toBeTruthy();
   });
+
+  it("HTML no renderizable muestra fallback plano y no monta iframe", () => {
+    const { container } = render(
+      <EmailHtmlBody
+        htmlBody={'<div dir="ltr"><br></div>'}
+        textBody={null}
+      />,
+    );
+    expect(container.querySelector("iframe")).toBeNull();
+    expect(screen.getByText("(sin contenido)")).toBeTruthy();
+  });
 });
 
 describe("buildEmailSrcDoc", () => {
