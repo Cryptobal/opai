@@ -34,14 +34,14 @@ function applyBrandTheme(opts: {
   }
 
   if (root.classList.contains("dark") && navy) {
-    const bg = withLightness(navy, 12);
+    const bg = withLightness(navy, 7);
     root.style.setProperty("--background", bg);
-    root.style.setProperty("--card", withLightness(navy, 15));
-    root.style.setProperty("--popover", withLightness(navy, 17));
+    root.style.setProperty("--card", withLightness(navy, 11));
+    root.style.setProperty("--popover", withLightness(navy, 14));
     root.style.setProperty("--ds-surface-0", bg);
-    root.style.setProperty("--ds-surface-1", withLightness(navy, 14));
-    root.style.setProperty("--ds-surface-2", withLightness(navy, 17));
-    root.style.setProperty("--ds-surface-3", withLightness(navy, 20));
+    root.style.setProperty("--ds-surface-1", withLightness(navy, 11));
+    root.style.setProperty("--ds-surface-2", withLightness(navy, 14));
+    root.style.setProperty("--ds-surface-3", withLightness(navy, 17));
   } else {
     for (const k of SURFACE_KEYS) root.style.removeProperty(k);
   }

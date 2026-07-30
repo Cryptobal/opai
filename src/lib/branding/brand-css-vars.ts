@@ -22,16 +22,16 @@ export function brandCssVars(opts: {
     lines.push(`--ring:${accent};`);
   }
   if (navy) {
-    const bg = withLightness(navy, 12);
+    const bg = withLightness(navy, 7);
     // Solo aplica superficies dark; el tema claro conserva tokens DS.
     lines.push(`--opai-brand-navy:${navy};`);
     lines.push(`--opai-brand-bg:${bg};`);
-    lines.push(`--opai-brand-card:${withLightness(navy, 15)};`);
-    lines.push(`--opai-brand-popover:${withLightness(navy, 17)};`);
+    lines.push(`--opai-brand-card:${withLightness(navy, 11)};`);
+    lines.push(`--opai-brand-popover:${withLightness(navy, 14)};`);
     lines.push(`--opai-brand-s0:${bg};`);
-    lines.push(`--opai-brand-s1:${withLightness(navy, 14)};`);
-    lines.push(`--opai-brand-s2:${withLightness(navy, 17)};`);
-    lines.push(`--opai-brand-s3:${withLightness(navy, 20)};`);
+    lines.push(`--opai-brand-s1:${withLightness(navy, 11)};`);
+    lines.push(`--opai-brand-s2:${withLightness(navy, 14)};`);
+    lines.push(`--opai-brand-s3:${withLightness(navy, 17)};`);
   }
 
   if (!lines.length) return "";
