@@ -56,7 +56,11 @@ export function QuoteWorkspace({
 }) {
   const [bundleId, setBundleId] = useState<string | null>(initialBundleId);
   const { bundle, loading, saving, refresh, patch } = useBundle(bundleId);
-  const [tab, setTab] = useState<BundleTabId>("consolidated");
+  // La URL manda: abrir /crm/cotizaciones/[id] de una hija entra directo a su
+  // instalación. Solo al convertir se fuerza el Consolidado.
+  const [tab, setTab] = useState<BundleTabId>(
+    initialBundleId ? `inst:${quoteId}` : "consolidated",
+  );
   const [addOpen, setAddOpen] = useState(false);
   const [cloneFromQuoteId, setCloneFromQuoteId] = useState<string | null>(null);
   const [sendOpen, setSendOpen] = useState(false);
@@ -70,7 +74,8 @@ export function QuoteWorkspace({
   );
 
   // El tab puede quedar huérfano si la instalación se desvincula (aquí o en otra
-  // pestaña): el servidor manda, así que caemos al Consolidado.
+  // pestaña) o si la URL apunta a una quote que aún no está en el bundle: el
+  // servidor manda, así que caemos al Consolidado.
   const requestedQuoteId = tab.startsWith("inst:") ? tab.slice(5) : null;
   const activeQuoteId =
     requestedQuoteId && bundle?.quotes.some((m) => m.quoteId === requestedQuoteId)
