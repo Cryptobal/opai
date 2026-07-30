@@ -10,6 +10,7 @@ import {
   type AgentsState,
 } from "@/components/opai/AiHelpChatAgentsEditor";
 import { sanitizeAgents } from "@/lib/ai/help-chat-agents";
+import { AiShortcutConfigCard } from "@/components/opai/AiShortcutConfigCard";
 
 type ConfigResponse = {
   enabled: boolean;
@@ -177,6 +178,8 @@ export function AiHelpChatConfigClient() {
           </p>
         </div>
       </section>
+
+      <AiShortcutConfigCard />
 
       <section className="rounded-xl border border-border bg-card p-5 space-y-3 min-w-0 overflow-hidden">
         <h3 className="text-sm font-semibold">Roles con acceso al chat</h3>
