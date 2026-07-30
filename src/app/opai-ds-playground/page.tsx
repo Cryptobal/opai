@@ -22,6 +22,9 @@ import {
   DataTable,
   HeatGrid,
   Avatar,
+  SegmentedControl,
+  FilterChipsBar,
+  FilterPopover,
   type DataTableColumn,
 } from "@/components/opai-ds";
 import { Button } from "@/components/ui/button";
@@ -38,6 +41,14 @@ const SAMPLE_ROWS: Row[] = [
 export default function PlaygroundPage() {
   const [theme, setTheme] = useState<"light" | "dark">("light");
   const [search, setSearch] = useState("");
+  const [seg, setSeg] = useState<"todos" | "no_leidos" | "con_tareas">("todos");
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [assocChecked, setAssocChecked] = useState({
+    con_cuenta: false,
+    sin_asociar: true,
+    sin_responder: false,
+    con_adjuntos: false,
+  });
 
   // Toggle <html> class for dark mode preview
   if (typeof document !== "undefined") {
@@ -389,6 +400,92 @@ export default function PlaygroundPage() {
                 <Button size="sm" variant="ghost" className="h-9">
                   Ver todas
                 </Button>
+              }
+            />
+          </Surface>
+        </Section>
+
+        {/* Productividad — contrato visual */}
+        <Section title="Productividad — SegmentedControl · FilterChipsBar · FilterPopover">
+          <p className="text-[13px] text-ds-text-3">
+            Contrato de la superficie Productividad (ver{" "}
+            <code className="font-mono text-[12px]">docs/PRODUCTIVIDAD-UI.md</code>
+            ). El segmento activo usa <code className="font-mono text-[12px]">bg-primary</code>;
+            el acento viene del tenant vía <code className="font-mono text-[12px]">--primary</code>.
+          </p>
+          <Surface elevation={1} padding="md" className="space-y-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <SegmentedControl
+                ariaLabel="Vista rápida demo"
+                size="sm"
+                value={seg}
+                onChange={setSeg}
+                items={[
+                  { id: "todos", label: "Todos", count: 42 },
+                  { id: "no_leidos", label: "No leídos", count: 7 },
+                  { id: "con_tareas", label: "Con tareas", count: 3 },
+                ]}
+              />
+              <FilterPopover
+                open={filtersOpen}
+                onOpenChange={setFiltersOpen}
+                title="Filtros"
+                onClear={() =>
+                  setAssocChecked({
+                    con_cuenta: false,
+                    sin_asociar: false,
+                    sin_responder: false,
+                    con_adjuntos: false,
+                  })
+                }
+                groups={[
+                  {
+                    title: "Asociación",
+                    options: (
+                      [
+                        ["con_cuenta", "Con cuenta"],
+                        ["sin_asociar", "Sin asociar"],
+                        ["sin_responder", "Sin responder"],
+                        ["con_adjuntos", "Con adjuntos"],
+                      ] as const
+                    ).map(([id, label]) => ({
+                      id,
+                      label,
+                      checked: assocChecked[id],
+                      onToggle: () =>
+                        setAssocChecked((prev) => ({ ...prev, [id]: !prev[id] })),
+                    })),
+                  },
+                ]}
+                trigger={
+                  <Button size="sm" variant="outline" onClick={() => setFiltersOpen((o) => !o)}>
+                    Filtros
+                  </Button>
+                }
+              />
+            </div>
+            <FilterChipsBar
+              chips={(
+                [
+                  ["con_cuenta", "Con cuenta"],
+                  ["sin_asociar", "Sin asociar"],
+                  ["sin_responder", "Sin responder"],
+                  ["con_adjuntos", "Con adjuntos"],
+                ] as const
+              )
+                .filter(([id]) => assocChecked[id])
+                .map(([id, label]) => ({
+                  key: id,
+                  label,
+                  onClear: () => setAssocChecked((prev) => ({ ...prev, [id]: false })),
+                }))}
+              onClearAll={() =>
+                setAssocChecked({
+                  con_cuenta: false,
+                  sin_asociar: false,
+                  sin_responder: false,
+                  con_adjuntos: false,
+                })
               }
             />
           </Surface>

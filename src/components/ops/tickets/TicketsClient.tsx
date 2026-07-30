@@ -61,13 +61,19 @@ import {
   TICKET_TEAM_CONFIG,
   getSlaRemaining,
   getSlaPercentage,
-  getSlaColor,
   getSlaTextColor,
   getPriorityBorderColor,
   isSlaBreached,
 } from "@/lib/tickets";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import type { SearchableOption } from "@/components/ui/SearchableSelect";
+import {
+  FilterChipsBar,
+  MetricBar,
+  SegmentedControl,
+  Tag,
+} from "@/components/opai-ds";
+import type { Threshold } from "@/components/opai-ds";
 import { TicketsDashboard } from "./TicketsDashboard";
 import { TicketsKanban } from "./TicketsKanban";
 import { TicketsByInstallationView } from "./TicketsByInstallationView";
@@ -660,45 +666,23 @@ export function TicketsClient({ userRole, userId }: TicketsClientProps) {
       {/* Tickets view (List/Cards/Kanban) */}
       {moduleView === "tickets" && (
         <>
-      {/* Quick views — presets de un click. Primera fila del toolbar:
-          atajos comunes ("Activos", "P1", "Mi equipo"…). Debajo viene la
-          barra unificada de search + filtros + view-toggle para uso más
-          fino. Antes había 3 filas separadas (search / chips / filtros);
-          ahora son 2. */}
+      {/* Quick views — SegmentedControl compartido de Productividad + vistas guardadas. */}
       <div className="flex items-center gap-1.5 overflow-x-auto pb-1 -mx-1 px-1">
-        {([
-          { key: "active" as const, label: "Activos", count: counts?.active, tone: "primary" as const },
-          { key: "my_team" as const, label: "Mi equipo", count: counts?.myTeam, tone: "default" as const },
-          { key: "mine" as const, label: "Míos", count: counts?.mine, tone: "default" as const },
-          { key: "breached" as const, label: "SLA vencidos", count: counts?.slaBreached, tone: "danger" as const },
-          { key: "unassigned" as const, label: "Sin asignar", count: counts?.unassigned, tone: "warning" as const },
-          { key: "all" as const, label: "Todos", count: counts?.total, tone: "default" as const },
-        ]).map((q) => {
-          const on = activeQuickView === q.key;
-          const toneOn =
-            q.tone === "primary"
-              ? "bg-primary text-primary-foreground"
-              : q.tone === "danger"
-                ? "bg-status-danger-soft text-status-danger-fg border-status-danger-border"
-                : q.tone === "warning"
-                  ? "bg-status-warn-soft text-status-warn-fg border-status-warn-border"
-                  : "bg-background text-foreground border-border";
-          return (
-            <button
-              key={q.key}
-              type="button"
-              onClick={() => applyQuickView(q.key)}
-              className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
-                on ? toneOn : "border-transparent bg-muted/60 text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {q.label}
-              {typeof q.count === "number" && (
-                <span className="ml-1 opacity-80">({q.count})</span>
-              )}
-            </button>
-          );
-        })}
+        <SegmentedControl
+          ariaLabel="Vistas rápidas"
+          size="sm"
+          className="min-w-0 flex-1"
+          value={(activeQuickView ?? "") as QuickViewKey}
+          onChange={(id) => applyQuickView(id)}
+          items={[
+            { id: "active", label: "Activos", count: counts?.active },
+            { id: "my_team", label: "Mi equipo", count: counts?.myTeam },
+            { id: "mine", label: "Míos", count: counts?.mine },
+            { id: "breached", label: "SLA vencidos", count: counts?.slaBreached },
+            { id: "unassigned", label: "Sin asignar", count: counts?.unassigned },
+            { id: "all", label: "Todos", count: counts?.total },
+          ]}
+        />
 
         {/* Vistas guardadas (localStorage) — al final de los quick views */}
         <Popover open={savedViewsOpen} onOpenChange={setSavedViewsOpen}>
@@ -709,7 +693,7 @@ export function TicketsClient({ userRole, userId }: TicketsClientProps) {
                 savedViews.length > 0 &&
                 savedViews.some((v) => viewStatesEqual(v.state, currentViewState))
                   ? "bg-primary/10 text-primary border-primary/30"
-                  : "border-transparent bg-muted/60 text-muted-foreground hover:text-foreground"
+                  : "border-ds-border-default bg-ds-surface-2 text-ds-text-3 hover:text-ds-text-1"
               }`}
               title="Vistas guardadas"
             >
@@ -1082,33 +1066,7 @@ export function TicketsClient({ userRole, userId }: TicketsClientProps) {
       </div>
 
       {/* Active filter chips (only when filters don't match a quick view) */}
-      {activeChips.length > 0 && (
-        <div className="flex flex-wrap items-center gap-1.5">
-          {activeChips.map((chip) => (
-            <span
-              key={chip.key}
-              className="inline-flex items-center gap-1 rounded-full border border-border bg-muted/60 px-2 py-0.5 text-[12px]"
-            >
-              {chip.label}
-              <button
-                type="button"
-                onClick={chip.onClear}
-                className="rounded-full p-0.5 text-muted-foreground hover:text-foreground"
-                aria-label={`Quitar filtro ${chip.label}`}
-              >
-                <X className="h-3 w-3" />
-              </button>
-            </span>
-          ))}
-          <button
-            type="button"
-            onClick={resetAllFilters}
-            className="text-[12px] text-muted-foreground hover:text-foreground"
-          >
-            Limpiar todo
-          </button>
-        </div>
-      )}
+      <FilterChipsBar chips={activeChips} onClearAll={resetAllFilters} />
 
       {/* Bulk action bar (visible cuando hay tickets seleccionados) */}
       {selectionMode && (
@@ -1497,8 +1455,13 @@ function TicketCard({
   const priorityCfg = TICKET_PRIORITY_CONFIG[ticket.priority];
   const slaText = getSlaRemaining(ticket.slaDueAt, ticket.status, ticket.resolvedAt);
   const slaPercent = getSlaPercentage(ticket.slaDueAt, ticket.createdAt, ticket.status, ticket.resolvedAt);
-  const slaColor = getSlaColor(slaPercent);
   const slaTextColor = getSlaTextColor(slaPercent);
+  const slaThreshold: Threshold =
+    slaPercent === null || slaPercent <= 0 || slaPercent < 30
+      ? "danger"
+      : slaPercent < 60
+        ? "warn"
+        : "ok";
   const breached = isSlaBreached(ticket.slaDueAt, ticket.status, ticket.resolvedAt);
   const isTerminal = ["resolved", "closed", "rejected", "cancelled"].includes(ticket.status);
   const typeName = ticket.ticketType?.name ?? ticket.assignedTeam;
@@ -1549,41 +1512,28 @@ function TicketCard({
           {ticket.title}
         </p>
         <div className="flex shrink-0 items-center gap-1.5">
-          {isMine && (
-            <span
-              className="rounded-md bg-primary/15 px-1.5 py-0.5 text-[12px] font-semibold uppercase tracking-wide text-primary"
-              title="Asignado a ti"
-            >
-              Mío
-            </span>
-          )}
-          {/* Pill de prioridad: solo P1/P2 muestran soft bg, P3/P4 son texto */}
-          <span
-            className={`rounded-md px-1.5 py-0.5 text-[12px] font-semibold uppercase tracking-wide ${
-              ticket.priority === "p1" || ticket.priority === "p2"
-                ? `${priorityCfg.bg} ${priorityCfg.color}`
-                : `text-muted-foreground bg-muted/60`
-            }`}
-            title={priorityCfg.label}
+          {isMine && <Tag variant="brand" size="sm">Mío</Tag>}
+          <Tag
+            variant={
+              ticket.priority === "p1"
+                ? "danger"
+                : ticket.priority === "p2"
+                  ? "warn"
+                  : "neutral"
+            }
+            size="sm"
           >
             {ticket.priority.toUpperCase()}
-          </span>
+          </Tag>
           {breached && !isTerminal && (
-            <span
-              className="inline-flex items-center gap-0.5 rounded-md bg-status-danger-soft px-1.5 py-0.5 text-[12px] font-semibold text-status-danger-fg"
-              title="SLA vencido"
-            >
-              <AlertTriangle className="h-2.5 w-2.5" />
+            <Tag variant="danger" size="sm" icon={AlertTriangle}>
               SLA
-            </span>
+            </Tag>
           )}
           {ticket.approvalStatus === "pending" && (
-            <span
-              className="inline-flex items-center gap-0.5 rounded-md bg-status-info-soft px-1.5 py-0.5 text-[12px] font-medium text-status-info-fg"
-              title="Pendiente de aprobación"
-            >
-              <ShieldCheck className="h-2.5 w-2.5" />
-            </span>
+            <Tag variant="info" size="sm" icon={ShieldCheck}>
+              Aprob.
+            </Tag>
           )}
           {/* Avatar del responsable */}
           {ticket.assignedToName ? (
@@ -1676,15 +1626,15 @@ function TicketCard({
         </div>
       )}
 
-      {/* Fila 3: SLA bar (solo si hay SLA) — más sutil que antes (h-1) */}
+      {/* Fila 3: SLA bar (solo si hay SLA) */}
       {slaText && (
         <div className="mt-0.5 flex items-center gap-2">
-          <div className="h-1 flex-1 overflow-hidden rounded-full bg-muted">
-            <div
-              className={`h-full rounded-full transition-all ${slaColor}`}
-              style={{ width: `${slaPercent === 0 ? 100 : Math.max(slaPercent ?? 0, 2)}%` }}
-            />
-          </div>
+          <MetricBar
+            className="flex-1"
+            size="sm"
+            value={slaPercent === 0 ? 100 : Math.max(slaPercent ?? 0, 2)}
+            threshold={slaThreshold}
+          />
           <div className={`flex shrink-0 items-center gap-1 text-[12px] font-medium tabular-nums ${slaTextColor}`}>
             <Clock className="h-3 w-3" />
             <span>{slaText}</span>
@@ -1733,19 +1683,24 @@ export function SlaBar({
 
   const slaText = getSlaRemaining(slaDueAt, status, resolvedAt);
   const slaPercent = getSlaPercentage(slaDueAt, createdAt, status, resolvedAt);
-  const slaColor = getSlaColor(slaPercent);
   const slaTextColor = getSlaTextColor(slaPercent);
+  const threshold: Threshold =
+    slaPercent === null || slaPercent <= 0 || slaPercent < 30
+      ? "danger"
+      : slaPercent < 60
+        ? "warn"
+        : "ok";
 
   if (!slaText) return null;
 
   return (
     <div className="flex items-center gap-2">
-      <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
-        <div
-          className={`h-full rounded-full transition-all ${slaColor}`}
-          style={{ width: `${slaPercent === 0 ? 100 : Math.max(slaPercent ?? 0, 2)}%` }}
-        />
-      </div>
+      <MetricBar
+        className="flex-1"
+        size="sm"
+        value={slaPercent === 0 ? 100 : Math.max(slaPercent ?? 0, 2)}
+        threshold={threshold}
+      />
       {showText && (
         <div className={`flex items-center gap-1 text-[12px] font-medium shrink-0 ${slaTextColor}`}>
           <Clock className="h-3 w-3" />

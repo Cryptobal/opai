@@ -180,7 +180,7 @@ function KanbanCard({
     <button
       type="button"
       onClick={onClick}
-      className={`w-full rounded-lg border-l-[3px] border border-border bg-[#161b22] p-2 text-left transition-colors hover:bg-[#1c2333] ${borderColor} ${
+      className={`w-full rounded-lg border-l-[3px] border border-ds-border-default bg-ds-surface-1 p-2 text-left transition-colors hover:bg-ds-surface-2 ${borderColor} ${
         breached && !isTerminal ? "border-status-danger-border" : ""
       }`}
     >

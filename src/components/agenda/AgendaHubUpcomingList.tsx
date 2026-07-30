@@ -88,9 +88,13 @@ export function AgendaHubUpcomingList({
               <span className="block min-w-0 truncate text-[13px] font-medium text-ds-text-1">
                 {item.title}
               </span>
-              <span className="block min-w-0 truncate text-[12px] text-ds-text-4">
+              <Tag
+                variant={item.source === "tarea" ? "brand" : "neutral"}
+                size="sm"
+                className="mt-0.5 max-w-full truncate"
+              >
                 {contextLabel(item)}
-              </span>
+              </Tag>
             </span>
             {!item.allDay && item.syncStatus && (
               <Tag

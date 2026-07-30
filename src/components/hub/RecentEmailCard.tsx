@@ -56,7 +56,7 @@ function HeaderRow({
         className="flex min-h-11 min-w-0 items-center gap-2 lg:hidden"
       >
         <Mail className="h-4 w-4 shrink-0 text-primary" />
-        <p className="min-w-0 truncate font-display text-sm font-semibold text-ds-text-1">
+        <p className="min-w-0 truncate text-[13px] font-semibold text-ds-text-1">
           Correos
         </p>
         {badge}
@@ -67,10 +67,10 @@ function HeaderRow({
       <Link
         href="/crm/correos"
         aria-label="Ver todos los correos"
-        className="hidden min-h-11 min-w-0 items-center gap-2 rounded-lg transition-colors hover:bg-ds-surface-2 ds-tap lg:flex"
+        className="hidden min-h-11 min-w-0 items-center gap-2 rounded-ds-md transition-colors hover:bg-ds-surface-2 ds-tap lg:flex"
       >
         <Mail className="h-4 w-4 shrink-0 text-primary" />
-        <p className="truncate font-display text-sm font-semibold text-ds-text-1">
+        <p className="truncate text-[13px] font-semibold text-ds-text-1">
           {dense ? "Correos" : "Correos recientes"}
         </p>
         {badge}

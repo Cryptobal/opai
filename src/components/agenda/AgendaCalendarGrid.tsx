@@ -726,7 +726,7 @@ function DayTimeColumn({
           style={{ top: (nowMinute / 60) * hourHeight }}
         >
           <span className="absolute -left-1 -top-[5px] h-2 w-2 rounded-full bg-status-danger" />
-          <span className="absolute left-1 -top-[9px] rounded bg-status-danger px-1 font-mono text-[12px] leading-4 text-white">
+          <span className="absolute left-1 -top-[9px] rounded bg-status-danger-soft px-1 font-mono text-[12px] leading-4 text-status-danger-fg">
             {String(Math.floor(nowMinute / 60)).padStart(2, "0")}:
             {String(nowMinute % 60).padStart(2, "0")}
           </span>

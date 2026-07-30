@@ -51,6 +51,15 @@ export const CHIPS: { key: CorreoChipKey; label: string }[] = [
   { key: "leads_creados", label: "Leads creados" },
 ];
 
+/**
+ * Asociaciones del botón Filtros de la toolbar (popover/sheet).
+ * Excluye "todos" (es el default) y "leads_creados" (indicación de producto).
+ * El sidebar/drawer sigue usando `CHIPS` completo como vía alterna.
+ */
+export const TOP_ASSOC_CHIPS = CHIPS.filter(
+  (c) => c.key !== "todos" && c.key !== "leads_creados",
+);
+
 // Export: mismos contadores que consume el drawer móvil.
 export type CorreoFolderCounts = {
   inbox: number;

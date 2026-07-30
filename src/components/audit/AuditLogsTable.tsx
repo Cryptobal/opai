@@ -1,6 +1,6 @@
 "use client";
 
-import { DataTable, EmptyState } from "@/components/opai-ds";
+import { DataTable, EmptyState, Tag } from "@/components/opai-ds";
 import type { DataTableColumn } from "@/components/opai-ds";
 import { Inbox } from "lucide-react";
 
@@ -47,7 +47,11 @@ const COLUMNS: DataTableColumn<AuditLogRow>[] = [
   {
     id: "action",
     header: "Acción",
-    cell: (row) => row.action,
+    cell: (row) => (
+      <Tag variant="neutral" size="sm" className="max-w-full truncate font-mono">
+        {row.action}
+      </Tag>
+    ),
   },
   {
     id: "detail",

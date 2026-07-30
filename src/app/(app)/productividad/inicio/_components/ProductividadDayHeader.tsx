@@ -1,5 +1,7 @@
 "use client";
 
+import { SectionHeader } from "@/components/opai-ds";
+
 export function ProductividadDayHeader({
   eventCount,
   unreadCount,
@@ -23,17 +25,17 @@ export function ProductividadDayHeader({
   ].join(" · ");
 
   return (
-    <header className="flex min-w-0 flex-col gap-1">
-      <h1
-        id="prod-my-day"
-        className="font-display text-lg font-semibold tracking-tight text-ds-text-1 sm:text-xl"
-      >
-        Mi día
-      </h1>
-      <p className="truncate text-[13px] capitalize text-ds-text-3">
-        {dateLabel}
-        <span className="text-ds-text-4"> · {counters}</span>
-      </p>
-    </header>
+    <div id="prod-my-day" className="min-w-0">
+      <SectionHeader
+        size="sm"
+        title="Mi día"
+        hint={
+          <span className="capitalize">
+            {dateLabel}
+            <span className="text-ds-text-4"> · {counters}</span>
+          </span>
+        }
+      />
+    </div>
   );
 }

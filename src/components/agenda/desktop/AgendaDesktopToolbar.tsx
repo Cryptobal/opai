@@ -8,6 +8,7 @@ import {
   Plus,
   Search,
 } from "lucide-react";
+import { SegmentedControl } from "@/components/opai-ds";
 import {
   Tooltip,
   TooltipContent,
@@ -72,7 +73,7 @@ type Props = {
   refreshing?: boolean;
 };
 
-/** Toolbar desktop de 1 línea (52px) estilo Notion Calendar. */
+/** Toolbar desktop de 1 línea — patrón ModuleToolbar: [views] [search/nav] ··· [secondary] [primary]. */
 export function AgendaDesktopToolbar({
   anchor,
   view,
@@ -99,14 +100,14 @@ export function AgendaDesktopToolbar({
 }: Props) {
   return (
     <div className="flex h-[52px] shrink-0 items-center gap-2 border-b border-ds-border-subtle pb-2">
-      <button
-        type="button"
-        onClick={onToggleRail}
-        aria-label="Mostrar u ocultar panel lateral"
-        className={cn(CONTROL, "w-9 border-0 bg-transparent px-0")}
-      >
-        <PanelLeft className="h-4 w-4" />
-      </button>
+      <SegmentedControl
+        items={VIEW_OPTIONS}
+        value={view}
+        onChange={onViewChange}
+        size="sm"
+        ariaLabel="Vista del calendario"
+        className="shrink-0"
+      />
 
       <div className="flex min-w-0 shrink items-baseline gap-2">
         <p className="min-w-0 truncate font-display text-[18px] font-semibold text-ds-text-1">
@@ -142,26 +143,6 @@ export function AgendaDesktopToolbar({
         Hoy
       </button>
 
-      <div className="flex shrink-0 items-center gap-0.5 rounded-xl bg-ds-surface-2 p-0.5">
-        {VIEW_OPTIONS.map((option) => (
-          <button
-            key={option.id}
-            type="button"
-            onClick={() => onViewChange(option.id)}
-            className={cn(
-              "h-8 shrink-0 rounded-[10px] px-3 text-[13px] font-medium transition-colors ds-tap",
-              view === option.id
-                ? "bg-ds-surface-1 text-ds-text-1 shadow-ds-xs"
-                : "text-ds-text-3 hover:text-ds-text-1",
-            )}
-          >
-            {option.label}
-          </button>
-        ))}
-      </div>
-
-      <div className="flex-1" />
-
       <label className="group flex h-9 w-44 items-center gap-2 rounded-xl border border-ds-border-default bg-ds-surface-1 px-3 text-ds-text-3 transition-[width,border-color] focus-within:w-64 focus-within:border-primary/50">
         <Search className="h-4 w-4 shrink-0" />
         <input
@@ -177,6 +158,17 @@ export function AgendaDesktopToolbar({
           /
         </kbd>
       </label>
+
+      <div className="flex-1" />
+
+      <button
+        type="button"
+        onClick={onToggleRail}
+        aria-label="Mostrar u ocultar panel lateral"
+        className={cn(CONTROL, "w-9 border-0 bg-transparent px-0")}
+      >
+        <PanelLeft className="h-4 w-4" />
+      </button>
 
       <AgendaTeamPopover
         users={users}

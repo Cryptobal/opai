@@ -18,6 +18,10 @@ const base = {
   onClear: vi.fn(),
   onAction: vi.fn(),
   onSnooze: vi.fn(),
+  quickView: "todos" as const,
+  onQuickViewChange: vi.fn(),
+  chip: "todos" as const,
+  onChip: vi.fn(),
 };
 
 describe("CorreosDesktopToolbar", () => {
@@ -73,6 +77,19 @@ describe("CorreosDesktopToolbar", () => {
     );
     fireEvent.click(screen.getByTitle("Densidad cómoda"));
     expect(onPreviewLines).toHaveBeenCalledWith(2);
+  });
+
+  it("expone el segmentado de vista rápida y dispara onQuickViewChange", () => {
+    const onQuickViewChange = vi.fn();
+    render(<CorreosDesktopToolbar {...base} onQuickViewChange={onQuickViewChange} />);
+    fireEvent.click(screen.getByRole("tab", { name: /Con tareas/ }));
+    expect(onQuickViewChange).toHaveBeenCalledWith("con_tareas");
+  });
+
+  it("deshabilita No leídos y Con tareas durante la búsqueda", () => {
+    render(<CorreosDesktopToolbar {...base} searching />);
+    expect(screen.getByRole("tab", { name: /No leídos/ })).toBeDisabled();
+    expect(screen.getByRole("tab", { name: /Con tareas/ })).toBeDisabled();
   });
 
   it("con selección muestra las seis acciones masivas y el contador", () => {
