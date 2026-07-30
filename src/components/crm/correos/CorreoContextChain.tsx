@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
 import {
   Building2,
   Briefcase,
@@ -12,10 +11,8 @@ import {
   Search,
 } from "lucide-react";
 import { Tag } from "@/components/opai-ds";
-import {
-  CorreoAccountSuggestionChips,
-  type AccountSuggestion,
-} from "./CorreoAccountSuggestionChips";
+import { CorreoAccountSuggestionChips } from "./CorreoAccountSuggestionChips";
+import { useCorreoSuggestedAccounts } from "./useCorreoSuggestedAccounts";
 import { useCorreoWorkOptional } from "./CorreoWorkContext";
 import type { CorreoDetail } from "@/modules/crm/email/correos.types";
 
@@ -27,6 +24,8 @@ type Props = {
     dealId: string | null;
   }) => void | Promise<void>;
   onSearchAccount: () => void;
+  /** breadcrumb: variante compacta móvil (solo Cuenta › Negocio › Cotización). */
+  variant?: "full" | "breadcrumb";
 };
 
 /**
@@ -38,8 +37,10 @@ export function CorreoContextChain({
   canEdit,
   onAssociate,
   onSearchAccount,
+  variant = "full",
 }: Props) {
   const t = detail.thread;
+  const breadcrumb = variant === "breadcrumb";
   const work = useCorreoWorkOptional();
   const links = work?.links.data ?? [];
   const quote = links.find((l) => l.entityType === "quote" && !l.orphan);
@@ -48,27 +49,8 @@ export function CorreoContextChain({
   );
   const pendingAttachments = detail.attachments.filter((a) => !a.savedFileId).length;
 
-  const [suggestions, setSuggestions] = useState<AccountSuggestion[]>([]);
-
-  useEffect(() => {
-    if (t.accountId) {
-      setSuggestions([]);
-      return;
-    }
-    let alive = true;
-    fetch(`/api/crm/correos/${t.id}/suggest-account`)
-      .then((r) => r.json())
-      .then((d) => {
-        if (!alive) return;
-        setSuggestions(Array.isArray(d.suggestions) ? d.suggestions : []);
-      })
-      .catch(() => {
-        if (alive) setSuggestions([]);
-      });
-    return () => {
-      alive = false;
-    };
-  }, [t.id, t.accountId]);
+  // Petición compartida con el banner de Copiloto (una sola por hilo).
+  const suggestions = useCorreoSuggestedAccounts(t.id, t.accountId == null);
 
   if (!t.accountId) {
     return (
@@ -153,7 +135,7 @@ export function CorreoContextChain({
           </span>
         );
       })}
-      {installation?.href && (
+      {!breadcrumb && installation?.href && (
         <Link
           href={installation.href}
           className="inline-flex min-h-11 max-w-[140px] shrink-0 items-center gap-1 rounded-full border border-ds-border-subtle px-2 text-[12px] text-ds-text-2 ds-tap sm:min-h-8"
@@ -162,13 +144,13 @@ export function CorreoContextChain({
           <span className="truncate">{installation.label}</span>
         </Link>
       )}
-      {pendingAttachments > 0 && (
+      {!breadcrumb && pendingAttachments > 0 && (
         <span className="inline-flex min-h-11 shrink-0 items-center gap-1 rounded-full px-2 text-[12px] text-status-warn-fg sm:min-h-8">
           <Paperclip className="h-3.5 w-3.5" />
           {pendingAttachments} sin guardar
         </span>
       )}
-      {canEdit && (
+      {!breadcrumb && canEdit && (
         <button
           type="button"
           onClick={onSearchAccount}

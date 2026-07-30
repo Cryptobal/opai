@@ -86,9 +86,47 @@ export function dismissUndo(id?: number, opts?: { silent?: boolean }): void {
   }
 }
 
+/**
+ * Claim del host: mientras un lector (p. ej. la isla móvil de Correos) está
+ * montado, "reclama" el host del undo para renderizar el estado dentro de sí
+ * mismo. `UndoSnackbarHost` global no renderiza mientras haya un claim activo.
+ * Se cuenta con un contador para soportar claims simultáneos sin apagar el host
+ * global antes de tiempo. Aditivo: sin nadie que reclame, nada cambia.
+ */
+let hostClaims = 0;
+const hostClaimListeners = new Set<Listener>();
+
+function emitHostClaim() {
+  for (const listener of hostClaimListeners) listener();
+}
+
+export function getUndoHostClaimSnapshot(): boolean {
+  return hostClaims > 0;
+}
+
+export function subscribeUndoHostClaim(listener: Listener): () => void {
+  hostClaimListeners.add(listener);
+  return () => hostClaimListeners.delete(listener);
+}
+
+/** Reclama el host del undo (el caller lo renderiza). Devuelve la liberación. */
+export function claimUndoHost(): () => void {
+  hostClaims += 1;
+  emitHostClaim();
+  let released = false;
+  return () => {
+    if (released) return;
+    released = true;
+    hostClaims = Math.max(0, hostClaims - 1);
+    emitHostClaim();
+  };
+}
+
 /** @internal tests */
 export function __resetUndoSnackbarForTests(): void {
   state = null;
   seq = 0;
+  hostClaims = 0;
   emit();
+  emitHostClaim();
 }

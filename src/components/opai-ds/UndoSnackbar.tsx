@@ -4,7 +4,9 @@ import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import { cn } from "@/lib/utils";
 import {
   dismissUndo,
+  getUndoHostClaimSnapshot,
   getUndoSnackbarSnapshot,
+  subscribeUndoHostClaim,
   subscribeUndoSnackbar,
   type UndoSnackbarState,
 } from "./undo-snackbar-store";
@@ -12,6 +14,10 @@ import {
 /**
  * Host global del snackbar Undo (Liquid Glass). Montar una sola vez junto a
  * `<Toaster />`. Compacto, sin botón X, encima del bottom nav.
+ *
+ * Mientras un lector reclama el host (p. ej. la isla móvil de Correos absorbe
+ * el estado del undo), este host global no renderiza para evitar el snackbar
+ * duplicado sobre la barra inferior.
  */
 export function UndoSnackbarHost() {
   const payload = useSyncExternalStore(
@@ -19,7 +25,13 @@ export function UndoSnackbarHost() {
     getUndoSnackbarSnapshot,
     () => null,
   );
+  const claimed = useSyncExternalStore(
+    subscribeUndoHostClaim,
+    getUndoHostClaimSnapshot,
+    () => false,
+  );
 
+  if (claimed) return null;
   if (!payload) return null;
   return <UndoSnackbarBar key={payload.id} payload={payload} />;
 }
