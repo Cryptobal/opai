@@ -6,8 +6,8 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
-import { hasModuleAccess } from "@/lib/permissions";
+import { requireAuth, unauthorized, resolveApiPerms, type AuthContext } from "@/lib/api-auth";
+import { hasModuleAccess, type RolePermissions } from "@/lib/permissions";
 import { ensureOpsAccess } from "@/lib/ops";
 import { normalizeForSearch } from "@/lib/search-normalize-pure";
 import {
@@ -42,7 +42,7 @@ export type GlobalSearchResult = {
     | "dte_received"
     | "config_page";
   /** Agrupa resultados por módulo para mostrar secciones separadas en la UI */
-  group: "crm" | "ops" | "docs" | "chat" | "inventory" | "finance" | "config";
+  group: "crm" | "ops" | "docs" | "chat" | "inventory" | "finance" | "config" | "correos";
   title: string;
   subtitle: string;
   href: string;
@@ -53,6 +53,8 @@ export type GlobalSearchResult = {
   imageUrl?: string;
   /** PIN de marcación para guardias - siempre visible, mostrado arriba a la derecha */
   pinDisplay?: string;
+  /** Meta corta a la derecha (fecha relativa, prioridad, etc.) */
+  meta?: string;
 };
 
 const LIFECYCLE_BADGE: Record<string, { label: string; class: string }> = {
@@ -160,6 +162,24 @@ const QUOTE_STATUS_LABEL: Record<string, string> = {
   rejected: "Rechazada",
 };
 
+export type SearchTier = "core" | "correos" | "full";
+
+function parseSearchTier(raw: string | null): SearchTier {
+  const t = raw?.trim().toLowerCase();
+  if (t === "core" || t === "correos") return t;
+  return "full";
+}
+
+/** Grupo correos — placeholder vacío hasta el bloque de implementación dedicado. */
+async function searchCorreos(_ctx: {
+  tenantId: string;
+  q: string;
+  perms: RolePermissions;
+  auth: AuthContext;
+}): Promise<GlobalSearchResult[]> {
+  return [];
+}
+
 export async function GET(request: NextRequest) {
   try {
     const ctx = await requireAuth();
@@ -170,16 +190,30 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ success: true, data: [] });
     }
 
+    const tier = parseSearchTier(request.nextUrl.searchParams.get("tier"));
     const perms = await resolveApiPerms(ctx);
     const hasCrm = hasModuleAccess(perms, "crm");
     const hasOps = hasModuleAccess(perms, "ops");
     const hasDocs = hasModuleAccess(perms, "docs");
-
     const isSupervisorHub = ctx.userRole?.toLowerCase() === "supervisor";
-
     const tenantId = ctx.tenantId;
-    const results: GlobalSearchResult[] = [];
 
+    if (tier === "correos") {
+      const correos = await searchCorreos({ tenantId, q, perms, auth: ctx });
+      return NextResponse.json({ success: true, data: correos });
+    }
+
+    const [
+      crmResults,
+      opsResults,
+      docsResults,
+      chatResults,
+      inventoryResults,
+      financeResults,
+      configResults,
+    ] = await Promise.all([
+      (async (): Promise<GlobalSearchResult[]> => {
+        const results: GlobalSearchResult[] = [];
     // ── CRM (leads, accounts, contacts, deals, quotes, installations) ──
     if (hasCrm) {
       try {
@@ -479,6 +513,11 @@ export async function GET(request: NextRequest) {
       }
     }
 
+
+        return results;
+      })(),
+      (async (): Promise<GlobalSearchResult[]> => {
+        const results: GlobalSearchResult[] = [];
     // ── Ops (guardias por nombre, código, RUT) — accent-insensitive ──
     if (hasOps) {
       try {
@@ -552,6 +591,11 @@ export async function GET(request: NextRequest) {
       }
     }
 
+
+        return results;
+      })(),
+      (async (): Promise<GlobalSearchResult[]> => {
+        const results: GlobalSearchResult[] = [];
     // ── Documentos (por título o guardia asociado) — accent-insensitive ──
     if (hasDocs) {
       try {
@@ -592,6 +636,11 @@ export async function GET(request: NextRequest) {
       }
     }
 
+
+        return results;
+      })(),
+      (async (): Promise<GlobalSearchResult[]> => {
+        const results: GlobalSearchResult[] = [];
     // ── Chat channels ──
     try {
       const channels = await prisma.chatChannel.findMany({
@@ -634,6 +683,11 @@ export async function GET(request: NextRequest) {
       // Don't fail entire search if channel query errors
     }
 
+
+        return results;
+      })(),
+      (async (): Promise<GlobalSearchResult[]> => {
+        const results: GlobalSearchResult[] = [];
     // ── Inventario (productos, activos, líneas telefónicas) ──
     if (hasOps) {
       try {
@@ -741,6 +795,11 @@ export async function GET(request: NextRequest) {
       }
     }
 
+
+        return results;
+      })(),
+      (async (): Promise<GlobalSearchResult[]> => {
+        const results: GlobalSearchResult[] = [];
     // ── Finanzas: DTE emitidos y recibidos (folio, RUT, monto, nombre receptor/emisor) ──
     const hasFinance = hasModuleAccess(perms, "finance");
     if (hasFinance) {
@@ -832,6 +891,11 @@ export async function GET(request: NextRequest) {
       }
     }
 
+
+        return results;
+      })(),
+      (async (): Promise<GlobalSearchResult[]> => {
+        const results: GlobalSearchResult[] = [];
     // ── Configuración (páginas/acciones, no entidades) ──
     // Mismo gate por módulo que el resto del route: solo quien tiene acceso a
     // `config` (admins) ve estas páginas.
@@ -851,6 +915,25 @@ export async function GET(request: NextRequest) {
           });
         }
       }
+    }
+
+
+        return results;
+      })(),
+    ]);
+
+    const results: GlobalSearchResult[] = [
+      ...crmResults,
+      ...opsResults,
+      ...docsResults,
+      ...chatResults,
+      ...inventoryResults,
+      ...financeResults,
+      ...configResults,
+    ];
+
+    if (tier === "full") {
+      results.push(...(await searchCorreos({ tenantId, q, perms, auth: ctx })));
     }
 
     return NextResponse.json({ success: true, data: results });
