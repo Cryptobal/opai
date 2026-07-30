@@ -38,7 +38,8 @@ export function SignaturePanel({
   const [name, setName] = useState("Mi firma");
   const [isDefault, setIsDefault] = useState(true);
   const [data, setData] = useState<SignatureData>(emptySignatureData());
-  const [legacyReadOnly, setLegacyReadOnly] = useState(false);
+  /** Firma legacy abierta: editable tras auto-conversión a campos. */
+  const [convertedFromLegacy, setConvertedFromLegacy] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [showEditor, setShowEditor] = useState(false);
 
@@ -74,7 +75,7 @@ export function SignaturePanel({
     setName(scope === "tenant" ? "Firma de la empresa" : "Mi firma");
     setIsDefault(true);
     setData(emptySignatureData());
-    setLegacyReadOnly(false);
+    setConvertedFromLegacy(false);
     setShowEditor(true);
   }
 
@@ -86,23 +87,22 @@ export function SignaturePanel({
     const structured = dataFromRow(row);
     if (structured) {
       setData(structured);
-      setLegacyReadOnly(false);
+      setConvertedFromLegacy(false);
     } else {
+      // Legacy: abrir ya editable (antes quedaba disabled y ni diseño ni campos).
+      // Se guarda con PATCH sobre el mismo id → content estructurado + html nuevo.
       setData({
         ...emptySignatureData(),
         ...inferFromLegacyHtml(row.htmlContent),
       });
-      setLegacyReadOnly(true);
+      setConvertedFromLegacy(true);
+      toast.message("Revisá los campos (nombre, cargo, diseño) y guardá");
     }
     setShowEditor(true);
   }
 
   function convertLegacy(row: SignatureRow) {
     selectRow(row);
-    setLegacyReadOnly(false);
-    setEditingId(null); // guardar como nueva estructurada
-    setName(`${row.name} (campos)`);
-    toast.message("Revisa los campos y guarda como firma nueva");
   }
 
   async function save() {
@@ -127,6 +127,7 @@ export function SignaturePanel({
         return;
       }
       toast.success("Firma guardada");
+      setConvertedFromLegacy(false);
       setShowEditor(false);
       await reload();
     } catch {
@@ -200,7 +201,7 @@ export function SignaturePanel({
               id="sig-scope-personal"
               type="checkbox"
               checked={scope === "user"}
-              disabled={legacyReadOnly}
+              disabled={scopeDisabled}
               onChange={(e) => {
                 const personal = e.target.checked;
                 if (!personal && !canEditTenant) {
@@ -217,19 +218,25 @@ export function SignaturePanel({
               Sin permiso para editar firmas de la empresa. Pedí a un admin o usá firma personal.
             </p>
           )}
+          {convertedFromLegacy && (
+            <p className="rounded-lg border border-status-warn-border bg-status-warn-soft px-3 py-2 text-[12px] text-status-warn-fg">
+              Firma antigua convertida a campos. Separá nombre y cargo, elegí el diseño y guardá
+              para que deje de verse de corrido en los correos.
+            </p>
+          )}
 
           <label className="block space-y-1">
             <span className="text-[12px] text-ds-text-3">Nombre interno</span>
             <input
               value={name}
-              disabled={legacyReadOnly}
+              disabled={scopeDisabled}
               onChange={(e) => setName(e.target.value)}
               className="h-11 w-full rounded-xl border border-ds-border-default bg-ds-surface-1 px-3 text-[13px] sm:h-10"
             />
           </label>
 
           <label className="flex min-h-11 items-center gap-2 text-[13px] text-ds-text-2">
-            <input type="checkbox" checked={isDefault} disabled={legacyReadOnly}
+            <input type="checkbox" checked={isDefault} disabled={scopeDisabled}
               onChange={(e) => setIsDefault(e.target.checked)}
               className="h-5 w-5 accent-primary" />
             Usar como predeterminada
@@ -239,26 +246,16 @@ export function SignaturePanel({
             <SignatureForm
               data={data}
               onChange={setData}
-              disabled={legacyReadOnly || scopeDisabled}
+              disabled={scopeDisabled}
             />
             <SignaturePreview data={data} />
           </div>
 
           <div className="flex flex-wrap gap-2 pt-1">
-            {!legacyReadOnly && !scopeDisabled && (
+            {!scopeDisabled && (
               <button type="button" disabled={saving} onClick={() => void save()}
                 className="inline-flex h-11 flex-1 items-center justify-center rounded-xl bg-primary px-4 text-[13px] font-medium text-primary-foreground ds-tap disabled:opacity-50 sm:h-10">
                 {saving ? "Guardando…" : "Guardar firma"}
-              </button>
-            )}
-            {legacyReadOnly && editingId && (
-              <button type="button"
-                onClick={() => {
-                  const row = rows.find((r) => r.id === editingId);
-                  if (row) convertLegacy(row);
-                }}
-                className="inline-flex h-11 items-center justify-center rounded-xl border border-ds-border-default px-3 text-[13px] ds-tap sm:h-10">
-                Convertir a campos
               </button>
             )}
             <button type="button" onClick={() => setShowEditor(false)}

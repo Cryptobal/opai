@@ -18,7 +18,7 @@ export function SignaturePreview({ data, className }: Props) {
   const [blockImages, setBlockImages] = useState(false);
   const [hoverHref, setHoverHref] = useState<string | null>(null);
 
-  let html = renderSignatureHtml(data);
+  let html = renderSignatureHtml(data, { previewPlaceholder: true });
   if (blockImages) {
     html = html.replace(
       /<img\b([^>]*)>/gi,

@@ -79,11 +79,18 @@ function renderContactLine(data: SignatureData, accent: string): string {
   return `<div style="font-size:13px;line-height:1.45;color:${COLOR_META};margin:0 0 2px;">${parts.join(" <span style=\"color:" + COLOR_MUTED + ";\">|</span> ")}</div>`;
 }
 
-function renderLogoCell(data: SignatureData): string {
-  if (!data.logoUrl || data.layout === "text-only") return "";
+function renderLogoCell(data: SignatureData, opts?: { previewPlaceholder?: boolean }): string {
+  if (data.layout === "text-only") return "";
   const w = clampWidth(data.logoWidthPx);
   const alt = escapeHtml(data.company || data.fullName || "Logo");
-  return `<img src="${escapeHtml(data.logoUrl)}" alt="${alt}" width="${w}" style="display:block;border:0;width:${w}px;max-width:100%;height:auto;" />`;
+  if (data.logoUrl) {
+    return `<img src="${escapeHtml(data.logoUrl)}" alt="${alt}" width="${w}" style="display:block;border:0;width:${w}px;max-width:100%;height:auto;" />`;
+  }
+  // Solo preview del editor: sin logo real el layout no se veía distinto.
+  if (opts?.previewPlaceholder) {
+    return `<div style="display:block;width:${w}px;height:${Math.round(w * 0.55)}px;border:1px dashed ${COLOR_MUTED};background:#f3f4f6;color:${COLOR_MUTED};font-size:11px;line-height:${Math.round(w * 0.55)}px;text-align:center;">Logo</div>`;
+  }
+  return "";
 }
 
 function renderTextBlock(data: SignatureData): string {
@@ -126,12 +133,20 @@ function renderDisclaimer(data: SignatureData): string {
   return `<div style="font-size:11px;line-height:1.4;color:${COLOR_MUTED};margin-top:10px;">${escapeHtml(data.disclaimer)}</div>`;
 }
 
+export type RenderSignatureOptions = {
+  /** Muestra caja "Logo" si no hay logoUrl (solo UI de edición). */
+  previewPlaceholder?: boolean;
+};
+
 /**
  * HTML interior de la firma (sin marcador data-opai-signature).
  * Determinista: misma entrada → mismo string.
  */
-export function renderSignatureHtml(data: SignatureData): string {
-  const logo = renderLogoCell(data);
+export function renderSignatureHtml(
+  data: SignatureData,
+  opts?: RenderSignatureOptions,
+): string {
+  const logo = renderLogoCell(data, opts);
   const text = renderTextBlock(data);
   const disclaimer = renderDisclaimer(data);
   const showLogo = Boolean(logo);

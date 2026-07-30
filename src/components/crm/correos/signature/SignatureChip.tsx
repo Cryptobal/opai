@@ -7,12 +7,20 @@ import { isStructuredSignature } from "@/modules/crm/email/signature-data";
 
 type Props = {
   onOpenFirma?: () => void;
+  /** Si false, el envío no anexa firma. Default true. */
+  includeSignature?: boolean;
+  onIncludeSignatureChange?: (include: boolean) => void;
 };
 
 /**
  * Chip colapsado en el pie del composer: "Firma: <nombre>" / "Sin firma".
+ * Permite activar/desactivar la firma para este correo.
  */
-export function SignatureChip({ onOpenFirma }: Props) {
+export function SignatureChip({
+  onOpenFirma,
+  includeSignature = true,
+  onIncludeSignatureChange,
+}: Props) {
   const [name, setName] = useState<string | null>(null);
   const [html, setHtml] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
@@ -63,7 +71,13 @@ export function SignatureChip({ onOpenFirma }: Props) {
     };
   }, []);
 
-  const label = name ? `Firma: ${name}` : "Sin firma";
+  const hasSignature = Boolean(name && html);
+  const active = includeSignature && hasSignature;
+  const label = !hasSignature
+    ? "Sin firma"
+    : active
+      ? `Firma: ${name}`
+      : "Firma: desactivada";
 
   return (
     <div className="min-w-0">
@@ -88,11 +102,28 @@ export function SignatureChip({ onOpenFirma }: Props) {
         )}
       </div>
       {open && (
-        <div className="mt-2 max-w-md rounded-xl border border-ds-border-subtle bg-white p-3 text-black shadow-sm">
-          {html ? (
-            <div dangerouslySetInnerHTML={{ __html: html }} />
+        <div className="mt-2 max-w-md space-y-2 rounded-xl border border-ds-border-subtle bg-ds-surface-1 p-3 shadow-sm">
+          {hasSignature && onIncludeSignatureChange && (
+            <label className="flex min-h-11 items-center justify-between gap-3 text-[13px] text-ds-text-2">
+              <span>Incluir firma en este correo</span>
+              <input
+                type="checkbox"
+                checked={includeSignature}
+                onChange={(e) => onIncludeSignatureChange(e.target.checked)}
+                className="h-5 w-5 accent-primary"
+              />
+            </label>
+          )}
+          {hasSignature && includeSignature ? (
+            <div className="rounded-lg bg-white p-3 text-black">
+              <div dangerouslySetInnerHTML={{ __html: html! }} />
+            </div>
+          ) : hasSignature ? (
+            <p className="text-[12px] text-ds-text-3">
+              Este correo se enviará sin firma. Podés volver a activarla acá.
+            </p>
           ) : (
-            <p className="text-[12px] text-[#5c6b82]">
+            <p className="text-[12px] text-ds-text-3">
               No hay firma predeterminada. Configúrala en Preferencias → Firma.
             </p>
           )}

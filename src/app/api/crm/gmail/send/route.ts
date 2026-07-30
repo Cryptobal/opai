@@ -79,6 +79,7 @@ export async function POST(request: NextRequest) {
       forwardFromThreadId: rawForwardFromThreadId,
       forwardAttachments: rawForwardAttachments = [],
       providerDraftId: rawProviderDraftId,
+      includeSignature: rawIncludeSignature,
     } = body;
 
     // `to` acepta string (compat) o string[] (Para editable / Responder a todos).
@@ -319,6 +320,8 @@ export async function POST(request: NextRequest) {
         typeof rawProviderDraftId === "string" && rawProviderDraftId
           ? rawProviderDraftId
           : null,
+      // Default true: solo se omite si el cliente envía false explícitamente.
+      includeSignature: rawIncludeSignature !== false,
     };
 
     // ── Rollback: envío directo sin outbox (comportamiento previo) ──

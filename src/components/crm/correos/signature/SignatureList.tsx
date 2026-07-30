@@ -91,7 +91,7 @@ export function SignatureList({
                 </div>
                 {legacy && (
                   <p className="mt-1 text-[12px] text-ds-text-3">
-                    Solo lectura. Conviértela a campos para editarla.
+                    Formato antiguo — al abrir se convierte a campos editables.
                   </p>
                 )}
               </div>
@@ -113,7 +113,7 @@ export function SignatureList({
                     onClick={() => onConvertLegacy(row)}
                     className="h-11 rounded-lg px-2 text-[12px] text-primary ds-tap sm:h-9"
                   >
-                    Convertir
+                    Editar
                   </button>
                 )}
                 <button
