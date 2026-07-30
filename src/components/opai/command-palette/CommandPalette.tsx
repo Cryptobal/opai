@@ -38,6 +38,7 @@ import {
   Mail,
   CheckSquare,
   Ticket,
+  Bot,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useIsIOS } from '@/hooks/usePlatform';
@@ -46,6 +47,13 @@ import { useCommandPalette } from './use-command-palette';
 import { defaultCommands, ICON_MAP, CATEGORY_LABELS } from './commands';
 import { useIsMobile } from '@/lib/pwa/use-is-mobile';
 import { normalizeForSearch } from '@/lib/search-normalize-pure';
+import { dispatchAiCommand } from '@/lib/ai/ai-command-event';
+import {
+  AI_SHORTCUT_CHANGED_EVENT,
+  formatCombo,
+  readAiShortcutConfig,
+  type AiShortcutConfig,
+} from '@/lib/ai/ai-shortcut';
 
 // ── Fuzzy matching ──
 // Acento-insensible: normaliza ambos lados con NFD + strip de diacríticos
@@ -264,6 +272,11 @@ export function CommandPalette({ userRole, onOpenChat }: CommandPaletteProps) {
   const [correosLoading, setCorreosLoading] = useState(false);
   const [searchElapsedMs, setSearchElapsedMs] = useState<number | null>(null);
   const [scope, setScope] = useState<SearchScope>('all');
+  const [aiShortcut, setAiShortcut] = useState<AiShortcutConfig>(() =>
+    typeof window === 'undefined'
+      ? { enabled: true, combo: { key: 'j', mod: true }, sendQueryAsPrompt: true }
+      : readAiShortcutConfig(),
+  );
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const coreAbortRef = useRef<AbortController | null>(null);
   const correosAbortRef = useRef<AbortController | null>(null);
@@ -275,6 +288,48 @@ export function CommandPalette({ userRole, onOpenChat }: CommandPaletteProps) {
     [coreResults, correosResults],
   );
   const apiLoading = coreLoading || correosLoading;
+
+  useEffect(() => {
+    const sync = () => setAiShortcut(readAiShortcutConfig());
+    sync();
+    window.addEventListener(AI_SHORTCUT_CHANGED_EVENT, sync);
+    return () => window.removeEventListener(AI_SHORTCUT_CHANGED_EVENT, sync);
+  }, []);
+
+  const askAiItem = useMemo<CommandItem | null>(() => {
+    const q = query.trim();
+    const shortcutLabel = formatCombo(aiShortcut.combo);
+    if (!q) {
+      return {
+        id: 'action-ask-ai',
+        label: 'Preguntar a la IA',
+        description: 'Abrir el asistente de ayuda',
+        category: 'action',
+        icon: Bot,
+        shortcut: shortcutLabel,
+        action: () => {
+          window.dispatchEvent(new Event('opai-ai-open'));
+        },
+      };
+    }
+    return {
+      id: 'action-ask-ai-query',
+      label: `Preguntar a la IA: "${q}"`,
+      description: aiShortcut.sendQueryAsPrompt
+        ? 'Envía la búsqueda como pregunta al asistente'
+        : 'Abre el asistente con esta búsqueda',
+      category: 'action',
+      icon: Bot,
+      shortcut: shortcutLabel,
+      action: () => {
+        if (aiShortcut.sendQueryAsPrompt) {
+          dispatchAiCommand({ prompt: q, autoSend: true });
+        } else {
+          dispatchAiCommand({ prompt: q, autoSend: false });
+        }
+      },
+    };
+  }, [query, aiShortcut]);
 
   // Merge default + external commands, filter by role
   const allCommands = useMemo(() => {
@@ -306,8 +361,9 @@ export function CommandPalette({ userRole, onOpenChat }: CommandPaletteProps) {
     if (!query.trim()) {
       const suggested = allCommands
         .filter((c) => c.category === 'action')
-        .slice(0, 4);
-      return [...recentItems, ...suggested];
+        .slice(0, 3);
+      const withAi = askAiItem ? [askAiItem, ...suggested] : suggested;
+      return [...recentItems, ...withAi];
     }
 
     const scored = allCommands
@@ -315,8 +371,9 @@ export function CommandPalette({ userRole, onOpenChat }: CommandPaletteProps) {
       .filter(({ score }) => score > 0)
       .sort((a, b) => b.score - a.score);
 
-    return scored.map(({ cmd }) => cmd);
-  }, [query, allCommands, recentItems]);
+    const cmds = scored.map(({ cmd }) => cmd);
+    return askAiItem ? [askAiItem, ...cmds] : cmds;
+  }, [query, allCommands, recentItems, askAiItem]);
 
   // Convert API results to CommandItems
   const searchItems = useMemo<CommandItem[]>(() => {
@@ -376,17 +433,18 @@ export function CommandPalette({ userRole, onOpenChat }: CommandPaletteProps) {
   }, [searchItems, scope]);
 
   const allItems = useMemo(() => {
-    // En alcance específico, solo resultados de búsqueda (no comandos de nav)
+    // En alcance específico, solo resultados de búsqueda (+ fila IA si hay query)
     if (scope !== 'all' && query.trim()) {
-      return scopedSearchItems;
+      return askAiItem ? [askAiItem, ...scopedSearchItems] : scopedSearchItems;
     }
     return [...filteredCommands, ...scopedSearchItems];
-  }, [filteredCommands, scopedSearchItems, scope, query]);
+  }, [filteredCommands, scopedSearchItems, scope, query, askAiItem]);
 
   // Group by category
   const grouped = useMemo(() => {
     const groups: Record<string, CommandItem[]> = {};
     const order = [
+      'action',
       'recent',
       'search_crm',
       'search_correos',
@@ -400,7 +458,6 @@ export function CommandPalette({ userRole, onOpenChat }: CommandPaletteProps) {
       'search_inventory',
       'search_config',
       'navigation',
-      'action',
       'config',
     ];
 
@@ -1004,22 +1061,30 @@ export function CommandPalette({ userRole, onOpenChat }: CommandPaletteProps) {
 
           {/* ── Footer (desktop only — keyboard hints) ── */}
           <div className="hidden sm:flex items-center justify-between border-t border-border/60 bg-muted/20 px-4 py-2 shrink-0">
-            <div className="flex items-center gap-4 text-[11px] text-muted-foreground">
+            <div className="flex items-center gap-4 text-[12px] text-muted-foreground">
               <span className="inline-flex items-center gap-1.5">
-                <span className="inline-flex h-5 min-w-[20px] items-center justify-center rounded border border-white/15 bg-white/10 px-1">
+                <span className="inline-flex h-5 min-w-[20px] items-center justify-center rounded border border-ds-border-subtle bg-ds-surface-2 px-1">
                   <ArrowUp className="h-3 w-3" />
                 </span>
-                <span className="inline-flex h-5 min-w-[20px] items-center justify-center rounded border border-white/15 bg-white/10 px-1">
+                <span className="inline-flex h-5 min-w-[20px] items-center justify-center rounded border border-ds-border-subtle bg-ds-surface-2 px-1">
                   <ArrowDown className="h-3 w-3" />
                 </span>
                 <span>navegar</span>
               </span>
               <span className="inline-flex items-center gap-1.5">
-                <span className="inline-flex h-5 min-w-[20px] items-center justify-center rounded border border-white/15 bg-white/10 px-1">
+                <span className="inline-flex h-5 min-w-[20px] items-center justify-center rounded border border-ds-border-subtle bg-ds-surface-2 px-1">
                   <CornerDownLeft className="h-3 w-3" />
                 </span>
                 <span>abrir</span>
               </span>
+              {aiShortcut.enabled && (
+                <span className="inline-flex items-center gap-1.5">
+                  <kbd className="inline-flex h-5 items-center rounded border border-ds-border-subtle bg-ds-surface-2 px-1.5 font-mono text-[12px]">
+                    {formatCombo(aiShortcut.combo)}
+                  </kbd>
+                  <span>IA</span>
+                </span>
+              )}
             </div>
             <span className="inline-flex items-center gap-1.5 text-[12px] text-muted-foreground/70 tabular-nums">
               {correosLoading && (
