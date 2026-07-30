@@ -17,6 +17,7 @@ import { prisma } from "@/lib/prisma";
 import { requireTasksAccess, canDeleteTask, taskDeleteForbidden } from "@/lib/api-auth-tareas";
 import { auditTaskAction } from "@/lib/audit-productividad";
 import { logTaskActivity } from "@/modules/tareas/tarea-activity";
+import { loadTaskOriginMaps, originFromMaps, parsePriority } from "@/modules/tareas/tarea-origin";
 
 const MAX_ASSIGNEES = 20;
 const NOTES_MAX = 5000;
@@ -25,6 +26,7 @@ const TASK_DETAIL_SELECT = {
   id: true,
   title: true,
   notes: true,
+  priority: true,
   status: true,
   type: true,
   dueAt: true,
@@ -69,10 +71,11 @@ export async function GET(
       : task.assignedTo
         ? [task.assignedTo]
         : [];
+    const originMaps = await loadTaskOriginMaps(ctx.tenantId, [task]);
 
     return NextResponse.json({
       success: true,
-      data: { ...task, assigneeIds },
+      data: { ...task, ...originFromMaps(task, originMaps), assigneeIds },
     });
   } catch (error) {
     console.error("Error fetching task:", error);
@@ -211,13 +214,11 @@ export async function PATCH(
       }
     }
     if (body?.priority !== undefined) {
-      if (body.priority === null || body.priority === "") {
-        data.priority = null;
-      } else if (body.priority === "high" || body.priority === "medium" || body.priority === "low") {
-        data.priority = body.priority;
-      } else {
+      const parsed = parsePriority(body.priority);
+      if (!parsed.ok) {
         return NextResponse.json({ success: false, error: "Prioridad inválida (high|medium|low|null)" }, { status: 400 });
       }
+      data.priority = parsed.value;
     }
 
     const changes: Record<string, unknown> = {};
