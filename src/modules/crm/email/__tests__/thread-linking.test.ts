@@ -14,6 +14,9 @@ const mocks = vi.hoisted(() => ({
   threadFindFirst: vi.fn(),
   threadCreate: vi.fn(),
   threadUpdate: vi.fn(),
+  tenantFindUnique: vi.fn(),
+  emailAccountFindMany: vi.fn(),
+  getTenantCompanyConfig: vi.fn(),
 }));
 
 vi.mock("@/lib/prisma", () => ({
@@ -29,7 +32,13 @@ vi.mock("@/lib/prisma", () => ({
       create: mocks.threadCreate,
       update: mocks.threadUpdate,
     },
+    tenant: { findUnique: mocks.tenantFindUnique },
+    crmEmailAccount: { findMany: mocks.emailAccountFindMany },
   },
+}));
+
+vi.mock("@/lib/tenant-config", () => ({
+  getTenantCompanyConfig: mocks.getTenantCompanyConfig,
 }));
 
 import {
@@ -51,6 +60,14 @@ beforeEach(() => {
   mocks.threadFindFirst.mockResolvedValue(null);
   mocks.threadCreate.mockResolvedValue({ id: "th-new" });
   mocks.threadUpdate.mockResolvedValue({ id: "th-upd" });
+  mocks.getTenantCompanyConfig.mockResolvedValue({
+    companyName: "Gard Security",
+    commercialName: "Gard Security",
+    razonSocial: "Gard Security SpA",
+    website: "https://www.gard.cl",
+  });
+  mocks.tenantFindUnique.mockResolvedValue({ name: "Gard Security" });
+  mocks.emailAccountFindMany.mockResolvedValue([{ email: "owner@gard.cl" }]);
 });
 
 describe("counterpartyEmailsForLinking", () => {
@@ -83,8 +100,18 @@ describe("counterpartyEmailsForLinking", () => {
 describe("resolveThreadLinks — orden de candidatos", () => {
   it("prefiere el primer email (From) si varios candidatos tienen contacto", async () => {
     mocks.contactFindMany.mockResolvedValue([
-      { id: "c-gard", accountId: "acc-gard", email: "coleaga@gard.cl" },
-      { id: "c-carla", accountId: "acc-corrupac", email: "carlaandrea.nunez@corrupac.cl" },
+      {
+        id: "c-gard",
+        accountId: "acc-gard",
+        email: "coleaga@gard.cl",
+        account: { id: "acc-gard", name: "Gard Security", website: "https://www.gard.cl" },
+      },
+      {
+        id: "c-carla",
+        accountId: "acc-corrupac",
+        email: "carlaandrea.nunez@corrupac.cl",
+        account: { id: "acc-corrupac", name: "Corrupac", website: "https://corrupac.cl" },
+      },
     ]);
     mocks.dealFindMany.mockResolvedValue([]);
 
@@ -98,6 +125,25 @@ describe("resolveThreadLinks — orden de candidatos", () => {
       accountId: "acc-corrupac",
       dealId: null,
     });
+  });
+
+  it("no auto-asocia a la cuenta propia del tenant aunque el contacto exista ahí", async () => {
+    mocks.contactFindMany.mockResolvedValue([
+      {
+        id: "c-gard",
+        accountId: "acc-gard",
+        email: "cliente@externo.cl",
+        account: { id: "acc-gard", name: "Gard Security", website: "https://www.gard.cl" },
+      },
+    ]);
+
+    const links = await resolveThreadLinks("t1", ["cliente@externo.cl"]);
+    expect(links).toEqual({
+      contactId: "c-gard",
+      accountId: null,
+      dealId: null,
+    });
+    expect(mocks.dealFindMany).not.toHaveBeenCalled();
   });
 });
 

@@ -20,6 +20,8 @@ export type OmniboxCandidate = {
 
 type Props = {
   accountId: string | null;
+  /** Acota cotizaciones al negocio del hilo. */
+  dealId?: string | null;
   /** Tipos a buscar. Default: los 6 del buscador único (+ deal). */
   types?: string[];
   placeholder?: string;
@@ -45,6 +47,7 @@ const DEFAULT_TYPES = [
  */
 export function CorreoLinkOmnibox({
   accountId,
+  dealId = null,
   types = DEFAULT_TYPES,
   placeholder = "Buscar cuenta, contacto, negocio…",
   onPick,
@@ -66,6 +69,7 @@ export function CorreoLinkOmnibox({
         q,
       });
       if (accountId) params.set("accountId", accountId);
+      if (dealId) params.set("dealId", dealId);
       fetch(`/api/crm/correos/link-search?${params}`)
         .then((r) => r.json())
         .then((d) => {
@@ -83,7 +87,7 @@ export function CorreoLinkOmnibox({
         .finally(() => setLoading(false));
     }, 250);
     return () => clearTimeout(timer);
-  }, [q, accountId, types]);
+  }, [q, accountId, dealId, types]);
 
   const suggested = candidates.filter((c) => c.scope === "suggested");
   const accountOnes = candidates.filter((c) => c.scope === "account");

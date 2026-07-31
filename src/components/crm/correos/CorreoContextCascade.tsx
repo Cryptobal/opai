@@ -155,18 +155,14 @@ export function CorreoContextCascade({
       return;
     }
 
+    // Cascada estricta: instalación/cotización/contrato solo de la cuenta
+    // (y cotización del negocio si hay). Sin escape hatch cross-cuenta.
     const accountScopeApplies =
       Boolean(t.accountId) &&
       ACCOUNT_SCOPED_LINK_TYPES.has(c.entityType as ThreadLinkEntityType);
     if (accountScopeApplies && c.scope === "tenant") {
-      const ok = await confirmDialog({
-        title: "Vincular fuera de la cuenta",
-        description:
-          "Esta entidad no pertenece a la cuenta del hilo. ¿Confirmás el vínculo de todos modos?",
-        confirmLabel: "Vincular igual",
-        cancelLabel: "Cancelar",
-      });
-      if (!ok) return;
+      toast.message("Solo podés vincular entidades de la cuenta del hilo");
+      return;
     }
     const res = await fetch(`/api/crm/correos/${t.id}/links`, {
       method: "POST",
@@ -352,6 +348,7 @@ export function CorreoContextCascade({
         <div className="border-t border-ds-border-subtle p-2">
           <CorreoLinkOmnibox
             accountId={t.accountId}
+            dealId={t.dealId}
             types={omniboxTypes}
             onPick={(c) => void createLink(c)}
             onCancel={() => setOmnibox(null)}

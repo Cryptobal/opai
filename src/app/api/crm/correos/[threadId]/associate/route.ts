@@ -57,11 +57,28 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   const crmAccount = newAccountId
     ? await prisma.crmAccount.findFirst({
         where: { id: newAccountId, tenantId },
-        select: { id: true, name: true },
+        select: { id: true, name: true, website: true },
       })
     : null;
   if (newAccountId && !crmAccount) {
     return NextResponse.json({ error: "Cuenta no encontrada" }, { status: 404 });
+  }
+
+  // La cuenta de la propia empresa del tenant no es un cliente: no asociar hilos.
+  if (crmAccount) {
+    const { isOwnCompanyAccount, loadOwnTenant } = await import(
+      "@/modules/crm/email/own-tenant-company"
+    );
+    const own = await loadOwnTenant(tenantId);
+    if (isOwnCompanyAccount(crmAccount, own)) {
+      return NextResponse.json(
+        {
+          error:
+            "No se puede asociar un correo a la cuenta de tu propia empresa. Elegí la cuenta del cliente.",
+        },
+        { status: 400 },
+      );
+    }
   }
 
   // Permite asociar negocios abiertos o cerrados (won/lost): el hilo puede

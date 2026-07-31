@@ -107,39 +107,45 @@ export async function searchThreadLinkCandidates(params: {
   type: ThreadLinkEntityType;
   q: string;
   accountId?: string | null;
+  /** Si hay negocio en el hilo, cotizaciones se acotan a ese deal. */
+  dealId?: string | null;
   limit?: number;
 }): Promise<ThreadLinkSearchResult> {
   const { tenantId, type } = params;
   const accountId = params.accountId?.trim() || null;
+  const dealId = params.dealId?.trim() || null;
   const q = params.q.trim();
   const take = Math.min(params.limit ?? 20, 40);
   const accountScopeApplies = Boolean(accountId) && ACCOUNT_SCOPED_LINK_TYPES.has(type);
 
   if (type === "installation") {
+    // Con cuenta en el hilo: SOLO instalaciones de esa cuenta (sin "tenant").
     const rows = await prisma.crmInstallation.findMany({
-      where: { tenantId, ...(q ? { name: like(q) } : {}) },
+      where: {
+        tenantId,
+        ...(accountId ? { accountId } : {}),
+        ...(q ? { name: like(q) } : {}),
+      },
       select: { id: true, name: true, commune: true, status: true, accountId: true },
       orderBy: { name: "asc" },
-      take: accountScopeApplies ? take * 2 : take,
+      take,
     });
-    const candidates = sortByScope(
-      rows.map((r) => ({
-        id: r.id,
-        label: r.name,
-        sublabel: r.commune,
-        status: r.status,
-        scope: (accountId && r.accountId === accountId ? "account" : "tenant") as
-          | "account"
-          | "tenant",
-      })),
-    ).slice(0, take);
+    const candidates = rows.map((r) => ({
+      id: r.id,
+      label: r.name,
+      sublabel: r.commune,
+      status: r.status,
+      scope: (accountId ? "account" : "tenant") as "account" | "tenant",
+    }));
     return { candidates, accountScopeApplies };
   }
 
   if (type === "quote") {
+    // Cascada: con deal → solo cotizaciones del negocio; con cuenta → de la cuenta.
     const rows = await prisma.cpqQuote.findMany({
       where: {
         tenantId,
+        ...(dealId ? { dealId } : accountId ? { accountId } : {}),
         ...(q
           ? {
               OR: [{ code: like(q) }, { name: like(q) }, { clientName: like(q) }],
@@ -155,7 +161,7 @@ export async function searchThreadLinkCandidates(params: {
         clientName: true,
       },
       orderBy: { updatedAt: "desc" },
-      take: accountScopeApplies ? take * 2 : take,
+      take,
     });
     const accountIds = Array.from(
       new Set(rows.map((r) => r.accountId).filter((id): id is string => Boolean(id))),
@@ -168,22 +174,19 @@ export async function searchThreadLinkCandidates(params: {
           })
         : [];
     const accountNameById = new Map(accounts.map((a) => [a.id, a.name]));
-    const candidates = sortByScope(
-      rows.map((r) => ({
-        id: r.id,
-        label: r.code + (r.name ? ` · ${r.name}` : ""),
-        sublabel: (r.accountId && accountNameById.get(r.accountId)) || r.clientName || null,
-        status: r.status,
-        scope: (accountId && r.accountId === accountId ? "account" : "tenant") as
-          | "account"
-          | "tenant",
-      })),
-    ).slice(0, take);
-    return { candidates, accountScopeApplies };
+    const candidates = rows.map((r) => ({
+      id: r.id,
+      label: r.code + (r.name ? ` · ${r.name}` : ""),
+      sublabel: (r.accountId && accountNameById.get(r.accountId)) || r.clientName || null,
+      status: r.status,
+      scope: (accountId || dealId ? "account" : "tenant") as "account" | "tenant",
+    }));
+    return { candidates, accountScopeApplies: Boolean(accountId || dealId) };
   }
 
   if (type === "contract") {
     // Contratos = Document con categoría contrato*, asociados a cuenta vía DocAssociation.
+    // Con cuenta en el hilo: SOLO contratos de esa cuenta.
     const accountAssoc = accountId
       ? await prisma.docAssociation.findMany({
           where: { entityType: "crm_account", entityId: accountId },
@@ -197,6 +200,11 @@ export async function searchThreadLinkCandidates(params: {
       where: {
         tenantId,
         category: { contains: "contrato", mode: "insensitive" },
+        ...(accountId && accountDocIds.size > 0
+          ? { id: { in: Array.from(accountDocIds) } }
+          : accountId
+            ? { id: { in: [] } }
+            : {}),
         ...(q ? { title: like(q) } : {}),
       },
       select: {
@@ -211,21 +219,15 @@ export async function searchThreadLinkCandidates(params: {
         },
       },
       orderBy: { updatedAt: "desc" },
-      take: accountScopeApplies ? take * 2 : take,
+      take,
     });
-    const candidates = sortByScope(
-      rows.map((r) => {
-        const linkedAccountId = r.associations[0]?.entityId ?? null;
-        const inAccount = accountId ? accountDocIds.has(r.id) || linkedAccountId === accountId : false;
-        return {
-          id: r.id,
-          label: r.title,
-          sublabel: r.category,
-          status: r.status,
-          scope: (inAccount ? "account" : "tenant") as "account" | "tenant",
-        };
-      }),
-    ).slice(0, take);
+    const candidates = rows.map((r) => ({
+      id: r.id,
+      label: r.title,
+      sublabel: r.category,
+      status: r.status,
+      scope: (accountId ? "account" : "tenant") as "account" | "tenant",
+    }));
     return { candidates, accountScopeApplies };
   }
 
@@ -388,10 +390,12 @@ export async function searchThreadLinkCandidatesMulti(params: {
   types: string[];
   q: string;
   accountId?: string | null;
+  dealId?: string | null;
   limit?: number;
 }): Promise<ThreadLinkSearchResult> {
   const { tenantId } = params;
   const accountId = params.accountId?.trim() || null;
+  const dealId = params.dealId?.trim() || null;
   const q = params.q.trim();
   const perType = Math.min(params.limit ?? 8, 15);
   const types = params.types.map((t) => t.trim()).filter(Boolean);
@@ -404,6 +408,7 @@ export async function searchThreadLinkCandidatesMulti(params: {
       type,
       q,
       accountId,
+      dealId,
       limit: perType,
     });
     if (r.accountScopeApplies) accountScopeApplies = true;
@@ -414,9 +419,14 @@ export async function searchThreadLinkCandidatesMulti(params: {
 
   for (const type of types) {
     if (type === "account") {
+      const { findOwnCompanyAccountIds } = await import(
+        "@/modules/crm/email/own-tenant-company"
+      );
+      const ownIds = await findOwnCompanyAccountIds(tenantId);
       const rows = await prisma.crmAccount.findMany({
         where: {
           tenantId,
+          ...(ownIds.length > 0 ? { id: { notIn: ownIds } } : {}),
           ...(q
             ? {
                 OR: [

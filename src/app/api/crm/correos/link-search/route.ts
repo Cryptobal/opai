@@ -1,4 +1,4 @@
-/** GET /api/crm/correos/link-search?type=&types=&q=&accountId= — candidatos del omnibox. */
+/** GET /api/crm/correos/link-search?type=&types=&q=&accountId=&dealId= — candidatos del omnibox. */
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { requireCorreosAccess } from "@/lib/api-auth-productividad";
@@ -18,6 +18,7 @@ export async function GET(req: NextRequest) {
   }
   const tenantId = session.user.tenantId;
   const accountId = req.nextUrl.searchParams.get("accountId");
+  const dealId = req.nextUrl.searchParams.get("dealId");
   const q = req.nextUrl.searchParams.get("q") ?? "";
   const typesParam = req.nextUrl.searchParams.get("types");
   const type = req.nextUrl.searchParams.get("type") ?? "";
@@ -35,6 +36,7 @@ export async function GET(req: NextRequest) {
       types,
       q,
       accountId,
+      dealId,
     });
     return NextResponse.json(result);
   }
@@ -47,6 +49,7 @@ export async function GET(req: NextRequest) {
     type,
     q,
     accountId,
+    dealId,
   });
   return NextResponse.json({
     ...result,

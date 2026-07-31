@@ -264,11 +264,27 @@ export async function createCrmStructureFromProposal(params: {
 
   const accountName = proposal.account.name.trim();
 
+  const { isOwnCompanyAccount, loadOwnTenant } = await import(
+    "@/modules/crm/email/own-tenant-company"
+  );
+  const ownTenant = await loadOwnTenant(tenantId);
+  if (isOwnCompanyAccount({ name: accountName }, ownTenant)) {
+    return {
+      ok: false,
+      error:
+        "La propuesta apunta a la cuenta de tu propia empresa. Indicá el cliente real (no Gard / tu tenant) y reintentá.",
+    };
+  }
+
   // Reutilizar cuenta existente por nombre exacto (case-insensitive) en el tenant.
+  // Nunca reutilizar la cuenta propia del tenant aunque el nombre coincida.
   let account = await prisma.crmAccount.findFirst({
     where: { tenantId, name: { equals: accountName, mode: "insensitive" } },
-    select: { id: true, name: true },
+    select: { id: true, name: true, website: true },
   });
+  if (account && isOwnCompanyAccount(account, ownTenant)) {
+    account = null;
+  }
   let accountReused = !!account;
   if (!account) {
     account = await prisma.crmAccount.create({
@@ -282,7 +298,7 @@ export async function createCrmStructureFromProposal(params: {
         segment: proposal.account.segment ?? (proposal.deal.isLicitacion ? "Sector Público" : null),
         notes: proposal.requerimiento?.slice(0, 2000) ?? null,
       },
-      select: { id: true, name: true },
+      select: { id: true, name: true, website: true },
     });
     accountReused = false;
   }

@@ -1,6 +1,10 @@
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { normalizeEmailAddress } from "@/lib/email-address";
+import {
+  isOwnCompanyAccount,
+  loadOwnTenant,
+} from "@/modules/crm/email/own-tenant-company";
 
 export type ThreadLinks = {
   contactId: string | null;
@@ -70,14 +74,22 @@ export async function resolveThreadLinks(
   );
   if (candidates.length === 0) return empty;
 
-  const contacts = await prisma.crmContact.findMany({
-    where: {
-      tenantId,
-      OR: candidates.map((e) => ({ email: { equals: e, mode: "insensitive" as const } })),
-    },
-    select: { id: true, accountId: true, email: true },
-    take: 30,
-  });
+  const [contacts, own] = await Promise.all([
+    prisma.crmContact.findMany({
+      where: {
+        tenantId,
+        OR: candidates.map((e) => ({ email: { equals: e, mode: "insensitive" as const } })),
+      },
+      select: {
+        id: true,
+        accountId: true,
+        email: true,
+        account: { select: { id: true, name: true, website: true } },
+      },
+      take: 30,
+    }),
+    loadOwnTenant(tenantId),
+  ]);
   if (contacts.length === 0) return empty;
 
   const byEmail = new Map(
@@ -94,6 +106,14 @@ export async function resolveThreadLinks(
     }
   }
   if (!contact) return empty;
+
+  // Nunca auto-asociar a la cuenta de la propia empresa del tenant.
+  if (
+    contact.account &&
+    isOwnCompanyAccount(contact.account, own)
+  ) {
+    return { contactId: contact.id, accountId: null, dealId: null };
+  }
 
   let dealId: string | null = null;
   if (contact.accountId) {

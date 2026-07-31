@@ -1,22 +1,21 @@
 /**
  * Integridad hilo ↔ cuenta ↔ negocio.
  *
- * Un negocio siempre pertenece a una cuenta. Si el hilo apunta a una cuenta
- * distinta de la del negocio, la fuente de verdad es el negocio (la cuenta
- * del hilo suele quedar contaminada con la propia empresa — p. ej. "Gard
- * Security" — por reutilización cruzada en create-structure).
+ * - Un negocio siempre pertenece a una cuenta: si difieren, gana el deal.
+ * - Ningún hilo debe quedar asociado a la cuenta de la propia empresa del
+ *   tenant (p. ej. "Gard Security").
  */
 import { prisma } from "@/lib/prisma";
+import {
+  isOwnCompanyAccount,
+  loadOwnTenant,
+} from "@/modules/crm/email/own-tenant-company";
 
 export type ThreadAccountDealIds = {
   accountId: string | null;
   dealId: string | null;
 };
 
-/**
- * Si hay deal y su accountId difiere del del hilo, alinea el hilo al account
- * del deal. No-op si no hay deal, el deal no existe o ya coinciden.
- */
 export async function healThreadAccountToDealAccount(params: {
   tenantId: string;
   threadId: string;
@@ -24,31 +23,49 @@ export async function healThreadAccountToDealAccount(params: {
   dealId: string | null;
 }): Promise<ThreadAccountDealIds> {
   const { tenantId, threadId, accountId, dealId } = params;
-  if (!dealId) return { accountId, dealId };
+  let nextAccountId = accountId;
+  let nextDealId = dealId;
 
-  const deal = await prisma.crmDeal.findFirst({
-    where: { id: dealId, tenantId },
-    select: { id: true, accountId: true },
-  });
-  if (!deal) {
-    // Deal huérfano: limpiar referencia del hilo.
-    if (dealId) {
+  if (dealId) {
+    const deal = await prisma.crmDeal.findFirst({
+      where: { id: dealId, tenantId },
+      select: { id: true, accountId: true },
+    });
+    if (!deal) {
       await prisma.crmEmailThread.update({
         where: { id: threadId },
         data: { dealId: null },
       });
+      nextDealId = null;
+    } else if (deal.accountId !== nextAccountId) {
+      await prisma.crmEmailThread.update({
+        where: { id: threadId },
+        data: { accountId: deal.accountId },
+      });
+      nextAccountId = deal.accountId;
     }
-    return { accountId, dealId: null };
   }
 
-  if (deal.accountId === accountId) {
-    return { accountId, dealId };
+  if (!nextAccountId) {
+    return { accountId: nextAccountId, dealId: nextDealId };
   }
 
+  const [account, own] = await Promise.all([
+    prisma.crmAccount.findFirst({
+      where: { id: nextAccountId, tenantId },
+      select: { id: true, name: true, website: true },
+    }),
+    loadOwnTenant(tenantId),
+  ]);
+
+  if (!account || !isOwnCompanyAccount(account, own)) {
+    return { accountId: nextAccountId, dealId: nextDealId };
+  }
+
+  // Cuenta propia del tenant: desasociar. Si el deal también era de esa cuenta, limpiarlo.
   await prisma.crmEmailThread.update({
     where: { id: threadId },
-    data: { accountId: deal.accountId },
+    data: { accountId: null, dealId: null },
   });
-
-  return { accountId: deal.accountId, dealId };
+  return { accountId: null, dealId: null };
 }
