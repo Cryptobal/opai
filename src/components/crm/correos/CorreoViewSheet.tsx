@@ -21,6 +21,8 @@ type Props = {
   /** Hay un iframe HTML activo (aplica fondo oscuro y ajuste de ancho). */
   isHtmlFrame: boolean;
   night: boolean;
+  /** Solo en tema oscuro de la app; en claro el cuerpo es siempre blanco. */
+  showNightToggle?: boolean;
   showImages: boolean;
   blockedAvailable: boolean;
   fitWidth: boolean;
@@ -43,6 +45,7 @@ export function CorreoViewSheet({
   hasHtml,
   isHtmlFrame,
   night,
+  showNightToggle = true,
   showImages,
   blockedAvailable,
   fitWidth,
@@ -105,7 +108,7 @@ export function CorreoViewSheet({
               onClick={close(onAlwaysShowImages)}
             />
           )}
-          {isHtmlFrame && (
+          {isHtmlFrame && showNightToggle && (
             <Row
               icon={night ? Sun : Moon}
               label={night ? "Fondo claro" : "Fondo oscuro"}

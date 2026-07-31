@@ -7,6 +7,7 @@ import {
   hasBlockedImages,
   sanitizeEmailHtml,
 } from "@/lib/sanitize-email-html";
+import { useTheme } from "@/components/opai/ThemeProvider";
 import { setEmailNightMode, useEmailNightMode } from "./email-night-mode";
 import {
   rewriteCidImages,
@@ -57,9 +58,13 @@ export function buildEmailSrcDoc(safeHtml: string, night = false): string {
   const link = night ? "hsl(174 72% 55%)" : "hsl(174 72% 32%)";
   // Override agresivo solo en noche: el HTML de Outlook/Gmail pinta negros
   // y fondos blancos que matan el contraste. Links conservan teal; media
-  // no se recolorea.
+  // no se recolorea. Descendientes quedan transparentes (neutralizan blancos
+  // inline); el body se reafirma DESPUÉS — sin esa línea el body queda
+  // transparente, html no tiene fondo, y color-scheme:dark pinta el canvas
+  // con el negro opaco del UA (bug observado: caja negra en ambos temas).
   const nightCss = night
     ? `body,body *:not(a):not(img):not(svg):not(video):not(source){color:${fg}!important;background-color:transparent!important}
+body{background-color:${bg}!important}
 body a,body a *{color:${link}!important}
 body table,body td,body th{border-color:${border}!important}
 body blockquote{color:${quote}!important;border-left-color:${border}!important}`
@@ -101,9 +106,12 @@ export function EmailHtmlBody({
   const hasHtml = Boolean(htmlBody?.trim());
   const [mode, setMode] = useState<"html" | "text">(hasHtml ? "html" : "text");
   const [showImages, setShowImages] = useState(defaultShowImages);
-  // Preferencia global persistente (no se pierde al refrescar ni al re-render
-  // del hilo; misma en móvil y desktop). Ver email-night-mode.ts.
-  const night = useEmailNightMode();
+  // Preferencia persistente acoplada al tema de la app: en claro el cuerpo
+  // es siempre blanco; en oscuro aplica la preferencia (default noche).
+  const nightPref = useEmailNightMode();
+  const { theme } = useTheme();
+  const night = theme === "dark" && nightPref;
+  const showNightToggle = theme === "dark";
 
   // Firmas Outlook/Gmail: cid: → endpoint autenticado (antes del sanitize).
   const htmlWithCid = useMemo(() => {
@@ -385,15 +393,17 @@ export function EmailHtmlBody({
                 >
                   {fitWidth ? "Ancho original" : "Ajustar ancho"}
                 </button>
-                <button
-                  type="button"
-                  onClick={() => setEmailNightMode(!night)}
-                  aria-pressed={night}
-                  title={night ? "Fondo claro" : "Fondo oscuro"}
-                  className="ml-auto text-[12px] text-ds-text-3 ds-tap"
-                >
-                  {night ? "☀️ Claro" : "🌙 Oscuro"}
-                </button>
+                {showNightToggle && (
+                  <button
+                    type="button"
+                    onClick={() => setEmailNightMode(!nightPref)}
+                    aria-pressed={night}
+                    title={night ? "Fondo claro" : "Fondo oscuro"}
+                    className="ml-auto text-[12px] text-ds-text-3 ds-tap"
+                  >
+                    {night ? "☀️ Claro" : "🌙 Oscuro"}
+                  </button>
+                )}
               </>
             )}
           </div>
@@ -472,11 +482,12 @@ export function EmailHtmlBody({
           hasHtml={hasHtml}
           isHtmlFrame={showHtmlFrame && useIframe}
           night={night}
+          showNightToggle={showNightToggle}
           showImages={showImages}
           blockedAvailable={blockedAvailable}
           fitWidth={fitWidth}
           onToggleMode={() => setMode((m) => (m === "html" ? "text" : "html"))}
-          onToggleNight={() => setEmailNightMode(!night)}
+          onToggleNight={() => setEmailNightMode(!nightPref)}
           onToggleImages={() => setShowImages((v) => !v)}
           onAlwaysShowImages={
             onAlwaysShowImages
