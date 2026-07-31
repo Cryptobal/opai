@@ -327,8 +327,8 @@ function parseShortcuts(value: unknown): CorreoShortcuts | null {
 const STORAGE_KEY = "opai.crm.correos.view.v1";
 const DEFAULT_RATIO = 0.46;
 export const MIN_PANEL_WIDTH = 420;
-/** Mínimo real de la columna de lista en split (no ratio ciego). */
-export const LIST_MIN_WIDTH = 340;
+/** Mínimo legible de la columna de lista en split (no ratio ciego). */
+export const LIST_MIN_WIDTH = 380;
 export const RAIL_COLLAPSED = 68;
 export const RAIL_EXPANDED = 224;
 /** Gap entre riel / lista / lector (`lg:gap-3` = 12px × 2). */
@@ -363,6 +363,10 @@ type StoredPreferences = {
   undoSeconds?: CorreoUndoSeconds;
   /** Horas/días de los presets de posponer (estilo Gmail). */
   snoozeConfig?: CorreoSnoozeConfig;
+  /** Avanzar al siguiente hilo tras archivar/eliminar (desktop). */
+  advanceAfterRemove?: boolean;
+  /** Anexar firma por defecto al responder/redactar. */
+  includeSignatureDefault?: boolean;
 };
 
 export function parseCorreosViewPreferences(
@@ -413,6 +417,12 @@ export function parseCorreosViewPreferences(
     }
     if (candidate.snoozeConfig !== undefined) {
       preferences.snoozeConfig = parseCorreoSnoozeConfig(candidate.snoozeConfig);
+    }
+    if (typeof candidate.advanceAfterRemove === "boolean") {
+      preferences.advanceAfterRemove = candidate.advanceAfterRemove;
+    }
+    if (typeof candidate.includeSignatureDefault === "boolean") {
+      preferences.includeSignatureDefault = candidate.includeSignatureDefault;
     }
     return preferences;
   } catch {
@@ -466,6 +476,8 @@ export function useCorreosViewPreferences(
   const [snoozeConfig, setSnoozeConfig] = useState<CorreoSnoozeConfig>(
     DEFAULT_CORREO_SNOOZE_CONFIG,
   );
+  const [advanceAfterRemove, setAdvanceAfterRemove] = useState(true);
+  const [includeSignatureDefault, setIncludeSignatureDefault] = useState(true);
   const [hydrated, setHydrated] = useState(false);
 
   const containerWidth = useCallback(() => {
@@ -545,6 +557,12 @@ export function useCorreosViewPreferences(
     if (stored.snoozeConfig) {
       setSnoozeConfig(stored.snoozeConfig);
     }
+    if (typeof stored.advanceAfterRemove === "boolean") {
+      setAdvanceAfterRemove(stored.advanceAfterRemove);
+    }
+    if (typeof stored.includeSignatureDefault === "boolean") {
+      setIncludeSignatureDefault(stored.includeSignatureDefault);
+    }
     setHydrated(true);
   }, [containerWidth]);
 
@@ -557,6 +575,7 @@ export function useCorreosViewPreferences(
           JSON.stringify({
             panelWidth: preferredPanelWidth, previewLines, swipeConfig, railCollapsed,
             shortcuts, alwaysShowImages, undoSeconds, snoozeConfig,
+            advanceAfterRemove, includeSignatureDefault,
           }),
         );
       } catch {
@@ -564,7 +583,7 @@ export function useCorreosViewPreferences(
       }
     }, 120);
     return () => window.clearTimeout(timer);
-  }, [hydrated, preferredPanelWidth, previewLines, swipeConfig, railCollapsed, shortcuts, alwaysShowImages, undoSeconds, snoozeConfig]);
+  }, [hydrated, preferredPanelWidth, previewLines, swipeConfig, railCollapsed, shortcuts, alwaysShowImages, undoSeconds, snoozeConfig, advanceAfterRemove, includeSignatureDefault]);
 
   useEffect(() => {
     const node = containerRef.current;
@@ -613,6 +632,10 @@ export function useCorreosViewPreferences(
     setUndoSeconds,
     snoozeConfig,
     setSnoozeConfig,
+    advanceAfterRemove,
+    setAdvanceAfterRemove,
+    includeSignatureDefault,
+    setIncludeSignatureDefault,
     resetPanelWidth,
     onResizePointerDown,
     onResizeKeyDown,

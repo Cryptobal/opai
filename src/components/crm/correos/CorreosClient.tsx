@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import {
-  Archive, Building2, CalendarPlus, CheckSquare, Clock, Forward, Link2,
+  Archive, Building2, CalendarPlus, Clock, Forward, Link2,
   ListChecks, ListTodo, Mail, MailOpen, Menu, PenLine, Reply, ReplyAll,
   ShieldAlert, SlidersHorizontal, Sparkles, Star, TicketPlus, Trash2,
 } from "lucide-react";
@@ -12,7 +12,6 @@ import {
   Surface,
   EmptyState,
   FilterChipsBar,
-  FilterPopover,
   SegmentedControl,
   Spinner,
   useSetIslandModuleMenu,
@@ -21,10 +20,16 @@ import {
   type ModuleSearchOperator,
 } from "@/components/opai-ds";
 import {
-  TOP_ASSOC_CHIPS,
-  type CorreoChipKey,
+  ASSOC_OPTIONS,
+  FILTER_FLAG_OPTIONS,
+  countActiveFilters,
+  emptyFilterFlags,
+  matchesCorreoFilters,
+  type CorreoAssocKey,
+  type CorreoFilterFlag,
   type CorreoFolderTab,
 } from "./CorreosFilters";
+import { CorreoFiltersPopover } from "./CorreoFiltersPopover";
 import { CorreosDesktopRail } from "./CorreosDesktopRail";
 import {
   CorreosDesktopToolbar,
@@ -37,9 +42,7 @@ import { chipsFromQuery, removeChipFromQuery } from "@/lib/search-tokens";
 import { useCorreoFocusScope } from "./useCorreoFocusScope";
 import { CorreosMobileDrawer } from "./CorreosMobileDrawer";
 import { CorreosPullToRefresh } from "./CorreosPullToRefresh";
-import { CorreoSwipeSettingsSheet } from "./CorreoSwipeSettingsSheet";
-import { CorreoSnoozeSettingsSheet } from "./CorreoSnoozeSettingsSheet";
-import { CorreoShortcutsSheet } from "./CorreoShortcutsSheet";
+import { CorreoSettingsModal, type CorreoSettingsSection } from "./CorreoSettingsModal";
 import { CorreoContextMenu, type CorreoMenuItem } from "./CorreoContextMenu";
 import { CorreoSelectionBar } from "./CorreoSelectionBar";
 import { CorreoRowSwipe } from "./CorreoRowSwipe";
@@ -83,12 +86,12 @@ import type { ComposerMode } from "./CorreoComposerBox";
 import { useEffectivePermissions } from "@/hooks/useEffectivePermissions";
 import { buildAiMenuItems } from "./CorreoAiMenu";
 import { CorreoAiMenuSheet } from "./CorreoAiMenuSheet";
-import { CorreoAiStyleSheet } from "./CorreoAiStyleSheet";
 import {
   CorreoAiActionPanel,
   type AiPanelCommand,
 } from "./CorreoAiActionPanel";
 import { CORREO_COPILOT_DOCK_WIDTH_VAR } from "./correo-copilot-dock";
+import { useCorreoWorkspaceLayout } from "./useCorreoWorkspaceLayout";
 import type { CorreoAiCommandId } from "@/modules/crm/email/correo-ai-commands";
 import { getCorreoAiCommand } from "@/modules/crm/email/correo-ai-commands";
 import type { CorreoCascadeAiTarget } from "@/modules/crm/email/correo-cascade-ai";
@@ -136,15 +139,6 @@ function withInFolder(query: string, folder: string): string {
   }
   const token = `in:${folder}`;
   return next ? `${next} ${token}` : token;
-}
-
-function matchesChip(t: CorreoThreadDTO, f: CorreoChipKey): boolean {
-  if (f === "con_cuenta") return Boolean(t.accountId);
-  if (f === "sin_asociar") return !t.accountId;
-  if (f === "sin_responder") return t.slaLevel === "warn" || t.slaLevel === "danger";
-  if (f === "con_adjuntos") return t.attachmentCount > 0;
-  if (f === "leads_creados") return Boolean(t.leadId);
-  return true;
 }
 
 type Counts = {
@@ -204,7 +198,8 @@ export function CorreosClient() {
   activeAccountIdRef.current = activeAccountId;
   const scopeHydratedRef = useRef(false);
   const [folder, setFolder] = useState<CorreoFolderTab>("inbox");
-  const [chip, setChip] = useState<CorreoChipKey>("todos");
+  const [assoc, setAssoc] = useState<CorreoAssocKey>("todos");
+  const [flags, setFlags] = useState<Set<CorreoFilterFlag>>(() => emptyFilterFlags());
   const [query, setQuery] = useState("");
   const [withTasks, setWithTasks] = useState(false);
   /** Predicado client-side (eje excluyente con withTasks). Deshabilitado en búsqueda. */
@@ -219,26 +214,24 @@ export function CorreosClient() {
   const [openId, setOpenId] = useState<string | null>(null);
   const [autoExtract, setAutoExtract] = useState(false);
   const [workTabIntent, setWorkTabIntent] = useState<{ tab: WorkTab; nonce: number } | null>(null);
+  const [workPanelCloseNonce, setWorkPanelCloseNonce] = useState(0);
   const [composeIntent, setComposeIntent] = useState<ComposeIntent | null>(null);
   const [snoozeId, setSnoozeId] = useState<string | null>(null);
   const [composeOpen, setComposeOpen] = useState(false);
   // Opción C: drawer lateral móvil (carpetas + filtros + acciones).
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
-  const [swipeSettingsOpen, setSwipeSettingsOpen] = useState(false);
-  const [snoozeSettingsOpen, setSnoozeSettingsOpen] = useState(false);
-  const [aiStyleSheetOpen, setAiStyleSheetOpen] = useState(false);
-  const [aiStyleInitialTab, setAiStyleInitialTab] = useState<"ai" | "firma">("ai");
-  const openAiStyle = useCallback(() => {
-    setAiStyleInitialTab("ai");
-    setAiStyleSheetOpen(true);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsSection, setSettingsSection] = useState<CorreoSettingsSection>("general");
+  const openSettings = useCallback((section: CorreoSettingsSection = "general") => {
+    setSettingsSection(section);
+    setSettingsOpen(true);
   }, []);
-  const openFirmaStyle = useCallback(() => {
-    setAiStyleInitialTab("firma");
-    setAiStyleSheetOpen(true);
-  }, []);
-  const [shortcutsSheetOpen, setShortcutsSheetOpen] = useState(false);
+  const openAiStyle = useCallback(() => openSettings("ai"), [openSettings]);
+  const openFirmaStyle = useCallback(() => openSettings("firma"), [openSettings]);
   // Menú contextual (click derecho) desktop sobre una fila.
   const [ctxMenu, setCtxMenu] = useState<{ thread: CorreoThreadDTO; x: number; y: number } | null>(null);
+  /** Menú ✦ Copiloto (hover de fila) — distinto del contextual completo. */
+  const [aiMenu, setAiMenu] = useState<{ thread: CorreoThreadDTO; x: number; y: number } | null>(null);
   const [aiPanel, setAiPanel] = useState<{
     threadId: string;
     command: AiPanelCommand;
@@ -284,10 +277,40 @@ export function CorreosClient() {
     setUndoSeconds,
     snoozeConfig,
     setSnoozeConfig,
+    advanceAfterRemove,
+    setAdvanceAfterRemove,
+    includeSignatureDefault,
+    setIncludeSignatureDefault,
     resetPanelWidth,
     onResizePointerDown,
     onResizeKeyDown,
   } = useCorreosViewPreferences(workspaceRef);
+
+  const dockOpen = aiPanel !== null || workTabIntent !== null;
+  const layout = useCorreoWorkspaceLayout({
+    containerRef: workspaceRef,
+    railCollapsed,
+    readerOpen: openId !== null,
+    dockOpen,
+    panelWidth,
+  });
+
+  // Al pasar a mini-lista, limpiar selección (la toolbar masiva no cabe en 72px).
+  useEffect(() => {
+    if (layout.listMode === "mini" && selectedIds.size > 0) {
+      setSelectedIds(new Set());
+    }
+  }, [layout.listMode, selectedIds.size]);
+
+  function expandFromMini() {
+    setAiPanel(null);
+    setAiPanelDirty(false);
+    setWorkTabIntent(null);
+    setWorkPanelCloseNonce((n) => n + 1);
+    try {
+      document.documentElement.style.removeProperty(CORREO_COPILOT_DOCK_WIDTH_VAR);
+    } catch { /* ignore */ }
+  }
 
   /** Secuencia de requests: una respuesta reset huérfana (deep-links rápidos
    *  del copiloto) nunca pisa los resultados de la última búsqueda. */
@@ -754,8 +777,22 @@ export function CorreosClient() {
   // client-side sobre metadata ya presente. "No leídos" se apaga durante
   // búsqueda (mismo criterio que withTasks — decisión por defecto del brief).
   const searching = debouncedQuery.length > 0;
+  const toggleFlag = useCallback((flag: CorreoFilterFlag) => {
+    setFlags((prev) => {
+      const next = new Set(prev);
+      if (next.has(flag)) next.delete(flag);
+      else next.add(flag);
+      return next;
+    });
+  }, []);
+  const clearFilters = useCallback(() => {
+    setAssoc("todos");
+    setFlags(emptyFilterFlags());
+  }, []);
   const filtered = items.filter(
-    (t) => matchesChip(t, chip) && (!unreadOnly || searching || t.isUnread),
+    (t) =>
+      matchesCorreoFilters(t, assoc, flags) &&
+      (!unreadOnly || searching || t.isUnread),
   );
   const quickView: CorreoQuickView = withTasks
     ? "con_tareas"
@@ -777,10 +814,22 @@ export function CorreosClient() {
     setUnreadOnly(false);
   }
   const activeAssocChips = useMemo(() => {
-    const active = TOP_ASSOC_CHIPS.find((c) => c.key === chip);
-    if (!active) return [];
-    return [{ key: active.key, label: active.label, onClear: () => setChip("todos") }];
-  }, [chip]);
+    const chips: { key: string; label: string; onClear: () => void }[] = [];
+    if (assoc !== "todos") {
+      const opt = ASSOC_OPTIONS.find((o) => o.key === assoc);
+      if (opt) chips.push({ key: assoc, label: opt.label, onClear: () => setAssoc("todos") });
+    }
+    for (const flag of FILTER_FLAG_OPTIONS) {
+      if (flags.has(flag.key)) {
+        chips.push({
+          key: flag.key,
+          label: flag.label,
+          onClear: () => toggleFlag(flag.key),
+        });
+      }
+    }
+    return chips;
+  }, [assoc, flags, toggleFlag]);
   const filteredFocusKey = useMemo(() => {
     if (filtered.length === 0) return "empty";
     return `${filtered.length}:${filtered[0]?.id}:${filtered[filtered.length - 1]?.id}`;
@@ -867,7 +916,9 @@ export function CorreosClient() {
    */
   function removeThreadAndAdvance(id: string) {
     const list = itemsRef.current.filter(
-      (t) => matchesChip(t, chip) && (!unreadOnly || searching || t.isUnread),
+      (t) =>
+        matchesCorreoFilters(t, assoc, flags) &&
+        (!unreadOnly || searching || t.isUnread),
     );
     const { nextId, nextFocusIndex } = nextThreadAfterRemove(list, id);
     const readerWasOnRemoved = openId === id;
@@ -886,7 +937,7 @@ export function CorreosClient() {
         closeCorreoThreadInHistory();
         return;
       }
-      if (nextId) {
+      if (nextId && advanceAfterRemove) {
         openCorreoThreadInHistory(nextId, true);
         setOpenId(nextId);
         setAutoExtract(false);
@@ -1115,10 +1166,10 @@ export function CorreosClient() {
     });
   }
   useCorreosKeyboard({
-    enabled: !composeOpen && snoozeId === null && !shortcutsSheetOpen,
+    enabled: !composeOpen && snoozeId === null && !settingsOpen,
     replyHandledExternally: openId !== null,
     shortcuts,
-    onHelp: () => setShortcutsSheetOpen(true),
+    onHelp: () => openSettings("shortcuts"),
     onStar: () => {
       const t = resolveThread();
       if (!t) return;
@@ -1265,7 +1316,7 @@ export function CorreosClient() {
       setAiMenuSheet(t);
       return;
     }
-    setCtxMenu({ thread: t, x: anchor.x, y: anchor.y });
+    setAiMenu({ thread: t, x: anchor.x, y: anchor.y });
   }
 
   // Callbacks estables por id — evitan re-render de todas las filas en cada paint.
@@ -1442,12 +1493,6 @@ export function CorreosClient() {
             label: "Crear ticket",
             onClick: () => openWork(t.id, "productividad"),
           },
-          {
-            divider: true,
-            icon: <CheckSquare className="h-4 w-4" />,
-            label: "Copiloto",
-            onClick: () => openWork(t.id, "resumen"),
-          },
         ],
       },
       {
@@ -1555,37 +1600,30 @@ export function CorreosClient() {
                 },
               ]}
             />
-            <FilterPopover
+            <CorreoFiltersPopover
               variant="sheet"
               open={assocFiltersOpen}
               onOpenChange={setAssocFiltersOpen}
-              title="Filtros"
-              onClear={() => setChip("todos")}
-              groups={[
-                {
-                  title: "Asociación",
-                  options: TOP_ASSOC_CHIPS.map((c) => ({
-                    id: c.key,
-                    label: c.label,
-                    checked: chip === c.key,
-                    onToggle: () => setChip(chip === c.key ? "todos" : c.key),
-                  })),
-                },
-              ]}
+              assoc={assoc}
+              onAssoc={setAssoc}
+              flags={flags}
+              onToggleFlag={toggleFlag}
+              onClear={clearFilters}
+              shownCount={filtered.length}
               trigger={
                 <button
                   type="button"
                   onClick={() => setAssocFiltersOpen((o) => !o)}
                   className={`inline-flex h-10 shrink-0 items-center gap-1 rounded-full border px-3 text-[12px] font-medium ds-tap ${
-                    activeAssocChips.length > 0
+                    countActiveFilters(assoc, flags) > 0
                       ? "border-primary/30 bg-primary/15 text-primary"
                       : "border-ds-border-default bg-ds-surface-1 text-ds-text-3"
                   }`}
                 >
                   <SlidersHorizontal className="h-3.5 w-3.5" aria-hidden />
                   Filtros
-                  {activeAssocChips.length > 0 && (
-                    <span className="tabular-nums">{activeAssocChips.length}</span>
+                  {countActiveFilters(assoc, flags) > 0 && (
+                    <span className="tabular-nums">{countActiveFilters(assoc, flags)}</span>
                   )}
                 </button>
               }
@@ -1594,7 +1632,7 @@ export function CorreosClient() {
         )}
         <FilterChipsBar
           chips={activeAssocChips}
-          onClearAll={() => setChip("todos")}
+          onClearAll={clearFilters}
         />
       </div>
       <CorreosMobileDrawer
@@ -1602,11 +1640,7 @@ export function CorreosClient() {
         onClose={() => setMobileNavOpen(false)}
         folder={folder}
         onFolder={setFolder}
-        chip={chip}
-        onChip={setChip}
         counts={counts}
-        previewLines={previewLines}
-        onPreviewLines={setPreviewLines}
         onSync={syncNow}
         syncing={syncing}
         realtimeStatus={realtimeStatus}
@@ -1618,38 +1652,29 @@ export function CorreosClient() {
         multiEnabled={multiEnabled}
         canConnectMore={canConnectMore}
         inboxUnreadTotal={counts?.inboxUnread}
-        onOpenSwipeSettings={() => setSwipeSettingsOpen(true)}
-        onOpenSnoozeSettings={() => setSnoozeSettingsOpen(true)}
-        onOpenAiStyle={openAiStyle}
-        onOpenShortcuts={() => setShortcutsSheetOpen(true)}
+        onOpenSettings={() => openSettings("general")}
         onInsertSearch={(token) => {
           setQuery((prev) => (prev.trim() ? `${prev.trim()} ${token}` : token));
         }}
       />
-      <CorreoSwipeSettingsSheet
-        open={swipeSettingsOpen}
-        onClose={() => setSwipeSettingsOpen(false)}
-        config={swipeConfig}
-        onConfig={setSwipeConfig}
+      <CorreoSettingsModal
+        open={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        initialSection={settingsSection}
+        previewLines={previewLines}
+        onPreviewLines={setPreviewLines}
         undoSeconds={undoSeconds}
         onUndoSeconds={setUndoSeconds}
-      />
-      <CorreoSnoozeSettingsSheet
-        open={snoozeSettingsOpen}
-        onClose={() => setSnoozeSettingsOpen(false)}
-        config={snoozeConfig}
-        onConfig={setSnoozeConfig}
-      />
-      <CorreoAiStyleSheet
-        open={aiStyleSheetOpen}
-        onClose={() => setAiStyleSheetOpen(false)}
-        initialTab={aiStyleInitialTab}
-      />
-      <CorreoShortcutsSheet
-        open={shortcutsSheetOpen}
-        onClose={() => setShortcutsSheetOpen(false)}
-        config={shortcuts}
-        onConfig={setShortcuts}
+        advanceAfterRemove={advanceAfterRemove}
+        onAdvanceAfterRemove={setAdvanceAfterRemove}
+        includeSignatureDefault={includeSignatureDefault}
+        onIncludeSignatureDefault={setIncludeSignatureDefault}
+        swipeConfig={swipeConfig}
+        onSwipeConfig={setSwipeConfig}
+        snoozeConfig={snoozeConfig}
+        onSnoozeConfig={setSnoozeConfig}
+        shortcuts={shortcuts}
+        onShortcuts={setShortcuts}
       />
       <CorreoContextMenu
         anchor={ctxMenu ? { x: ctxMenu.x, y: ctxMenu.y } : null}
@@ -1659,6 +1684,25 @@ export function CorreosClient() {
             : []
         }
         onClose={() => setCtxMenu(null)}
+      />
+      <CorreoContextMenu
+        anchor={aiMenu ? { x: aiMenu.x, y: aiMenu.y } : null}
+        items={
+          aiMenu
+            ? [
+                {
+                  header: "✦ Copiloto",
+                  icon: null,
+                  label: "",
+                  onClick: () => {},
+                },
+                ...buildAiMenuItems(aiMenu.thread, perms, {
+                  onCommand: handleAiCommand,
+                }),
+              ]
+            : []
+        }
+        onClose={() => setAiMenu(null)}
       />
       <CorreoAiMenuSheet
         open={aiMenuSheet !== null}
@@ -1746,7 +1790,6 @@ export function CorreosClient() {
         {/* Riel desktop contraíble (Gmail): carpetas + filtros + sync. */}
         <CorreosDesktopRail
           folder={folder} onFolder={setFolder}
-          chip={chip} onChip={setChip}
           counts={counts}
           onCompose={() => {
             setComposeOpen(true);
@@ -1763,15 +1806,33 @@ export function CorreosClient() {
           inboxUnreadTotal={counts?.inboxUnread}
           collapsed={railCollapsed}
           onToggleCollapsed={() => setRailCollapsed(!railCollapsed)}
-          onOpenSwipeSettings={() => setSwipeSettingsOpen(true)}
-          onOpenSnoozeSettings={() => setSnoozeSettingsOpen(true)}
-          onOpenAiStyle={openAiStyle}
-          onOpenShortcuts={() => setShortcutsSheetOpen(true)}
+          onOpenSettings={() => openSettings("general")}
         />
-        <div className="min-w-0 flex-1 space-y-4 max-lg:px-4 lg:min-w-[340px] lg:space-y-3">
+        <div
+          className="min-w-0 flex-1 space-y-4 max-lg:px-4 lg:space-y-3"
+          data-listmode={layout.listMode}
+          data-tier={layout.tier}
+          data-rowmode={layout.rowMode}
+          style={
+            layout.listWidth != null
+              ? { flex: `0 0 ${layout.listWidth}px`, width: layout.listWidth, maxWidth: layout.listWidth }
+              : undefined
+          }
+        >
+          {layout.listMode === "mini" && (
+            <button
+              type="button"
+              onClick={expandFromMini}
+              title="Expandir lista (cierra Copiloto)"
+              className="mb-1 hidden h-8 w-full items-center justify-center rounded-lg border border-ds-border-default text-ds-text-3 ds-tap hover:bg-ds-surface-2 lg:flex"
+            >
+              <Menu className="h-4 w-4" />
+            </button>
+          )}
           {/* Cabecera + lista: space-y-0 para unir bordes. Cobertura/avisos
               semánticos van debajo (fuera del bloque unido). */}
           <div className="space-y-0">
+            {layout.listMode !== "mini" && (
             <CorreosDesktopToolbar
               canModify={canModify}
               allChecked={filtered.length > 0 && selectedIds.size === filtered.length}
@@ -1795,8 +1856,12 @@ export function CorreosClient() {
               previewLines={previewLines} onPreviewLines={setPreviewLines}
               quickView={quickView}
               onQuickViewChange={handleQuickViewChange}
-              chip={chip}
-              onChip={setChip}
+              assoc={assoc}
+              onAssoc={setAssoc}
+              flags={flags}
+              onToggleFlag={toggleFlag}
+              onClearFilters={clearFilters}
+              tier={layout.tier}
               selectedCount={selectedIds.size}
               allReadSelected={items
                 .filter((t) => selectedIds.has(t.id))
@@ -1805,6 +1870,7 @@ export function CorreosClient() {
               onAction={bulkAction}
               onSnooze={() => setSnoozeId("__bulk__")}
             />
+            )}
             {searching && (
               <div className="hidden border-x border-ds-border-subtle bg-ds-surface-1 px-3 py-0.5 lg:block">
                 <CorreoSearchScopeHint
@@ -1933,6 +1999,8 @@ export function CorreosClient() {
                     unified={showUnifiedChip}
                     mailboxColor={showUnifiedChip ? mb?.color ?? null : null}
                     mailboxLabel={showUnifiedChip ? mb?.displayLabel ?? null : null}
+                    listMode={layout.listMode}
+                    rowMode={layout.rowMode}
                   />
                   );
                 })}
@@ -2003,7 +2071,7 @@ export function CorreosClient() {
           composeIntent={composeIntent}
           canModify={canModify}
           refreshToken={realtimeRevision}
-          desktopWidth={panelWidth}
+          desktopWidth={layout.readerWidth ?? panelWidth}
           onResizePointerDown={onResizePointerDown}
           onResizeKeyDown={onResizeKeyDown}
           onResizeReset={resetPanelWidth}
@@ -2012,7 +2080,8 @@ export function CorreosClient() {
           alwaysShowImages={alwaysShowImages}
           onAlwaysShowImages={() => setAlwaysShowImages(true)}
           snoozeConfig={snoozeConfig}
-          onOpenSnoozeSettings={() => setSnoozeSettingsOpen(true)}
+          onOpenSnoozeSettings={() => openSettings("snooze")}
+          workPanelCloseNonce={workPanelCloseNonce}
           onClose={closeThread}
           onRemove={removeThreadAndAdvance}
           onRemoveDone={softRefresh}
@@ -2075,7 +2144,7 @@ export function CorreosClient() {
         open={snoozeId !== null}
         onClose={() => setSnoozeId(null)}
         config={snoozeConfig}
-        onOpenSettings={() => setSnoozeSettingsOpen(true)}
+        onOpenSettings={() => openSettings("snooze")}
         onConfirm={(iso, label) => {
           const id = snoozeId;
           if (!id) return;

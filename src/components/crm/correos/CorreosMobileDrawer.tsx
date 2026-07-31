@@ -2,21 +2,19 @@
 
 import { useRef, type ReactNode } from "react";
 import {
-  AlignJustify, CalendarClock, Clock, Inbox, Keyboard, Mail, Pencil, RefreshCw,
-  Send, Settings, ShieldAlert, Star, Trash2, WandSparkles, Wifi, WifiOff, X,
+  CalendarClock, Clock, Inbox, Mail, Pencil, RefreshCw,
+  Send, Settings, ShieldAlert, Star, Trash2, Wifi, WifiOff, X,
   type LucideIcon,
 } from "lucide-react";
 import {
-  CHIPS, TABS,
-  type CorreoChipKey, type CorreoFolderCounts, type CorreoFolderTab,
+  TABS,
+  type CorreoFolderCounts, type CorreoFolderTab,
 } from "./CorreosFilters";
 import type { CorreosRealtimeStatus } from "./useCorreosRealtime";
-import type { CorreoPreviewLines } from "./useCorreosViewPreferences";
 import { useCloseOnBack } from "./useCloseOnBack";
 import { useFocusTrap } from "./useFocusTrap";
 import { MailboxSwitcher, type MailboxAccount } from "./MailboxSwitcher";
 
-// Export: el riel desktop reusa los mismos iconos.
 export const FOLDER_ICONS: Partial<Record<CorreoFolderTab, LucideIcon>> = {
   inbox: Inbox, snoozed: Clock, sent: Send, drafts: Pencil,
   scheduled: CalendarClock, starred: Star, all: Mail, spam: ShieldAlert, trash: Trash2,
@@ -27,11 +25,7 @@ type Props = {
   onClose: () => void;
   folder: CorreoFolderTab;
   onFolder: (f: CorreoFolderTab) => void;
-  chip: CorreoChipKey;
-  onChip: (c: CorreoChipKey) => void;
   counts: CorreoFolderCounts;
-  previewLines: CorreoPreviewLines;
-  onPreviewLines: (lines: CorreoPreviewLines) => void;
   onSync: () => void;
   syncing: boolean;
   realtimeStatus: CorreosRealtimeStatus;
@@ -40,19 +34,11 @@ type Props = {
   activeAccountId?: string | null;
   onScopeChange?: (accountId: string | null) => void;
   onColorChange?: (accountId: string, color: string) => void;
-  /** Superficie multicuenta (flag o escape por conteo). */
   multiEnabled?: boolean;
   canConnectMore?: boolean;
   inboxUnreadTotal?: number;
-  /** Abre el sheet de configuración de gestos (Bloque 6). */
-  onOpenSwipeSettings?: () => void;
-  /** Abre el sheet de horarios de posponer. */
-  onOpenSnoozeSettings?: () => void;
-  /** Abre el sheet de estilo de respuesta IA. */
-  onOpenAiStyle?: () => void;
-  /** Abre el sheet de atajos de teclado configurables. */
-  onOpenShortcuts?: () => void;
-  /** Inserta un operador en la caja de búsqueda (ayuda móvil). */
+  /** Abre el modal unificado de configuración. */
+  onOpenSettings?: () => void;
   onInsertSearch?: (token: string) => void;
 };
 
@@ -74,15 +60,14 @@ function SectionTitle({ children }: { children: ReactNode }) {
   return <p className="px-3 pb-1 pt-4 text-[11px] font-mono uppercase tracking-[0.08em] text-ds-text-4">{children}</p>;
 }
 
-/** Drawer lateral móvil (Opción C): carpetas, filtros y acciones del módulo. */
+/** Drawer lateral móvil: carpetas + configuración unificada + sync. */
 export function CorreosMobileDrawer({
-  open, onClose, folder, onFolder, chip, onChip, counts,
-  previewLines, onPreviewLines, onSync, syncing, realtimeStatus, lastSyncAt,
+  open, onClose, folder, onFolder, counts,
+  onSync, syncing, realtimeStatus, lastSyncAt,
   accounts = [], activeAccountId = null, onScopeChange, onColorChange,
   multiEnabled = false, canConnectMore = true,
   inboxUnreadTotal,
-  onOpenSwipeSettings, onOpenSnoozeSettings, onOpenAiStyle,
-  onOpenShortcuts,
+  onOpenSettings,
 }: Props) {
   const panelRef = useRef<HTMLDivElement | null>(null);
   useCloseOnBack(open, onClose);
@@ -158,67 +143,14 @@ export function CorreosMobileDrawer({
             );
           })}
 
-          <SectionTitle>Asociación</SectionTitle>
-          {CHIPS.map((c) => (
-            <Item key={c.key} active={chip === c.key} onClick={pick(() => onChip(c.key))}>
-              <span className="min-w-0 flex-1 truncate">{c.label}</span>
-            </Item>
-          ))}
-
-          <SectionTitle>Configuración</SectionTitle>
-          {/* Densidad: selector Liquid Glass (elegir 1/2/3 líneas), no un ciclo
-              que rota y se cierra. Se aplica en vivo y el drawer queda abierto. */}
-          <div className="flex items-center justify-between gap-3 rounded-xl px-3 py-1.5">
-            <div className="flex min-w-0 items-center gap-3">
-              <AlignJustify className="h-4 w-4 shrink-0 text-ds-text-2" />
-              <span className="truncate text-[13px] text-ds-text-2">Densidad</span>
-            </div>
-            <div
-              role="group"
-              aria-label="Líneas de vista previa"
-              className="opai-glass-pill inline-flex shrink-0 items-center gap-0.5 rounded-full p-0.5"
-            >
-              {([1, 2, 3] as CorreoPreviewLines[]).map((n) => (
-                <button
-                  key={n}
-                  type="button"
-                  onClick={() => onPreviewLines(n)}
-                  aria-pressed={previewLines === n}
-                  aria-label={`${n} ${n === 1 ? "línea" : "líneas"}`}
-                  className={`inline-flex h-9 min-w-[38px] items-center justify-center rounded-full px-2 text-[13px] font-medium ds-tap ${
-                    previewLines === n
-                      ? "bg-primary text-primary-foreground"
-                      : "text-ds-text-2"
-                  }`}
-                >
-                  {n}
-                </button>
-              ))}
-            </div>
-          </div>
-          {onOpenSwipeSettings && (
-            <Item onClick={pick(onOpenSwipeSettings)}>
-              <Settings className="h-4 w-4 shrink-0" />
-              <span className="min-w-0 flex-1 truncate">Gestos de deslizar</span>
-            </Item>
-          )}
-          {onOpenSnoozeSettings && (
-            <Item onClick={pick(onOpenSnoozeSettings)}>
-              <Clock className="h-4 w-4 shrink-0" />
-              <span className="min-w-0 flex-1 truncate">Horarios de posponer</span>
-            </Item>
-          )}
-          {onOpenAiStyle && (
-            <Item onClick={pick(onOpenAiStyle)}>
-              <WandSparkles className="h-4 w-4 shrink-0" />
-              <span className="min-w-0 flex-1 truncate">Estilo de respuesta</span>
-            </Item>
-          )}
-          {onOpenShortcuts && (
-            <Item onClick={pick(onOpenShortcuts)}>
-              <Keyboard className="h-4 w-4 shrink-0" />
-              <span className="min-w-0 flex-1 truncate">Atajos de teclado</span>
-            </Item>
+          {onOpenSettings && (
+            <>
+              <SectionTitle>Configuración</SectionTitle>
+              <Item onClick={pick(onOpenSettings)}>
+                <Settings className="h-4 w-4 shrink-0" />
+                <span className="min-w-0 flex-1 truncate">Configuración</span>
+              </Item>
+            </>
           )}
         </nav>
 

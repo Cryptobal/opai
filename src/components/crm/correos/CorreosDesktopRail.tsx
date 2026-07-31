@@ -1,9 +1,9 @@
 "use client";
 
-import { Clock, Mail, Menu, PenLine, RefreshCw, Settings, Wifi, WifiOff, Keyboard, WandSparkles } from "lucide-react";
+import { Mail, Menu, PenLine, RefreshCw, Settings, Wifi, WifiOff } from "lucide-react";
 import {
-  CHIPS, TABS,
-  type CorreoChipKey, type CorreoFolderCounts, type CorreoFolderTab,
+  TABS,
+  type CorreoFolderCounts, type CorreoFolderTab,
 } from "./CorreosFilters";
 import { FOLDER_ICONS } from "./CorreosMobileDrawer";
 import type { CorreosRealtimeStatus } from "./useCorreosRealtime";
@@ -12,8 +12,6 @@ import { MailboxSwitcher, type MailboxAccount } from "./MailboxSwitcher";
 type Props = {
   folder: CorreoFolderTab;
   onFolder: (f: CorreoFolderTab) => void;
-  chip: CorreoChipKey;
-  onChip: (c: CorreoChipKey) => void;
   counts: CorreoFolderCounts;
   onCompose: () => void;
   onSync: () => void;
@@ -24,39 +22,29 @@ type Props = {
   activeAccountId?: string | null;
   onScopeChange?: (accountId: string | null) => void;
   onColorChange?: (accountId: string, color: string) => void;
-  /** Superficie multicuenta (flag o escape por conteo). */
   multiEnabled?: boolean;
   canConnectMore?: boolean;
   inboxUnreadTotal?: number;
-  /** Contraído (persistente); con hover hace peek overlay, como Gmail. */
   collapsed: boolean;
   onToggleCollapsed: () => void;
-  /** Abre configuración de gestos de deslizar (móvil) y atajos de teclado. */
-  onOpenSwipeSettings?: () => void;
-  onOpenShortcuts?: () => void;
-  /** Abre configuración de horarios de posponer. */
-  onOpenSnoozeSettings?: () => void;
-  /** Abre sheet de estilo de respuesta IA. */
-  onOpenAiStyle?: () => void;
+  /** Abre el modal unificado de configuración de Correos. */
+  onOpenSettings?: () => void;
 };
 
-/** Riel de carpetas desktop (reemplaza a las filas de pills): Redactar,
- *  carpetas con contadores, filtros de asociación, y estado
- *  de sync al pie. Contraíble a 68px con peek al pasar el mouse. */
+/** Riel de carpetas desktop: Redactar, carpetas con contadores, Configuración
+ *  y estado de sync. Contraíble a 68px con peek al pasar el mouse. */
 export function CorreosDesktopRail({
-  folder, onFolder, chip, onChip, counts,
+  folder, onFolder, counts,
   onCompose, onSync, syncing, realtimeStatus, lastSyncAt,
   accounts = [], activeAccountId = null, onScopeChange, onColorChange,
   multiEnabled = false, canConnectMore = true,
   inboxUnreadTotal,
-  collapsed, onToggleCollapsed, onOpenSwipeSettings, onOpenShortcuts,
-  onOpenSnoozeSettings, onOpenAiStyle,
+  collapsed, onToggleCollapsed, onOpenSettings,
 }: Props) {
   const live = realtimeStatus === "live";
   const lastSyncLabel = lastSyncAt
     ? new Date(lastSyncAt).toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit" })
     : null;
-  // Con el riel contraído, los textos aparecen solo durante el peek (hover).
   const lbl = collapsed ? "hidden truncate group-hover/rail:inline" : "truncate";
   const item = (active: boolean) =>
     `relative mb-0.5 flex h-[34px] w-full items-center gap-3 rounded-xl text-left text-[13px] transition-colors ds-tap ${
@@ -123,8 +111,6 @@ export function CorreosDesktopRail({
               <button type="button" onClick={() => onFolder(t.key)} className={item(folder === t.key)}>
                 <Icon className="h-4 w-4 shrink-0" />
                 <span className={`${lbl} min-w-0 flex-1`}>{t.label}</span>
-                {/* Riel colapsado: badge rojo de no leídos sobre el ícono (como
-                    Gmail); en el peek/expandido pasa a la píldora inline. */}
                 {unread > 0 && collapsed && (
                   <span
                     aria-hidden
@@ -148,62 +134,33 @@ export function CorreosDesktopRail({
           );
         })}
 
-        <div className={collapsed ? "hidden group-hover/rail:block" : ""}>
-          <p className="px-3.5 pb-1.5 pt-3.5 text-[11px] font-mono uppercase tracking-[0.08em] text-ds-text-4">Asociación</p>
-          {CHIPS.filter((c) => c.key !== "todos").map((c) => (
-            <button key={c.key} type="button"
-              onClick={() => onChip(chip === c.key ? "todos" : c.key)}
-              className={item(chip === c.key)}>
-              <span className={`${lbl} min-w-0 flex-1`}>{c.label}</span>
+        <div className="mt-auto space-y-1 border-t border-ds-border-subtle pt-2">
+          {onOpenSettings && (
+            <button
+              type="button"
+              onClick={onOpenSettings}
+              title="Configuración"
+              aria-label="Configuración de Correos"
+              className={item(false)}
+            >
+              <Settings className="h-4 w-4 shrink-0" />
+              <span className={`${lbl} min-w-0 flex-1`}>Configuración</span>
             </button>
-          ))}
-        </div>
-
-        {(onOpenSwipeSettings || onOpenShortcuts || onOpenSnoozeSettings || onOpenAiStyle) && (
-          <div className={collapsed ? "hidden group-hover/rail:block" : ""}>
-            <p className="px-3.5 pb-1.5 pt-3.5 text-[11px] font-mono uppercase tracking-[0.08em] text-ds-text-4">
-              Configuración
-            </p>
-            {onOpenSwipeSettings && (
-              <button type="button" onClick={onOpenSwipeSettings} className={item(false)}>
-                <Settings className="h-4 w-4 shrink-0" />
-                <span className={`${lbl} min-w-0 flex-1`}>Gestos de deslizar</span>
-              </button>
-            )}
-            {onOpenSnoozeSettings && (
-              <button type="button" onClick={onOpenSnoozeSettings} className={item(false)}>
-                <Clock className="h-4 w-4 shrink-0" />
-                <span className={`${lbl} min-w-0 flex-1`}>Horarios de posponer</span>
-              </button>
-            )}
-            {onOpenAiStyle && (
-              <button type="button" onClick={onOpenAiStyle} className={item(false)}>
-                <WandSparkles className="h-4 w-4 shrink-0" />
-                <span className={`${lbl} min-w-0 flex-1`}>Estilo de respuesta</span>
-              </button>
-            )}
-            {onOpenShortcuts && (
-              <button type="button" onClick={onOpenShortcuts} className={item(false)}>
-                <Keyboard className="h-4 w-4 shrink-0" />
-                <span className={`${lbl} min-w-0 flex-1`}>Atajos de teclado</span>
-              </button>
-            )}
+          )}
+          <div className={`flex items-center gap-2 text-[12px] ${collapsed ? "justify-center px-0 group-hover/rail:justify-start group-hover/rail:px-3.5" : "px-3.5"}`}>
+            <span className={live ? "text-status-ok-fg" : "text-ds-text-4"}
+              title={live ? "Los cambios de Gmail llegan en tiempo real" : "Reconectando; la bandeja se actualiza automáticamente"}>
+              {live ? <Wifi className="h-4 w-4" /> : <WifiOff className="h-4 w-4" />}
+            </span>
+            <span className={`${lbl} min-w-0 flex-1 text-ds-text-3`}>
+              {live ? "En vivo" : lastSyncLabel ? `Act. ${lastSyncLabel}` : "Reconectando"}
+            </span>
+            <button type="button" onClick={onSync} disabled={syncing}
+              title="Sincronizar ahora"
+              className={`items-center gap-1.5 rounded-lg p-1.5 text-ds-text-2 ds-tap hover:bg-ds-surface-3 disabled:opacity-50 ${collapsed ? "hidden group-hover/rail:flex" : "flex"}`}>
+              <RefreshCw className={`h-4 w-4 ${syncing ? "animate-spin" : ""}`} />
+            </button>
           </div>
-        )}
-
-        <div className={`mt-auto flex items-center gap-2 border-t border-ds-border-subtle pt-2 text-[12px] ${collapsed ? "justify-center px-0 group-hover/rail:justify-start group-hover/rail:px-3.5" : "px-3.5"}`}>
-          <span className={live ? "text-status-ok-fg" : "text-ds-text-4"}
-            title={live ? "Los cambios de Gmail llegan en tiempo real" : "Reconectando; la bandeja se actualiza automáticamente"}>
-            {live ? <Wifi className="h-4 w-4" /> : <WifiOff className="h-4 w-4" />}
-          </span>
-          <span className={`${lbl} min-w-0 flex-1 text-ds-text-3`}>
-            {live ? "En vivo" : lastSyncLabel ? `Act. ${lastSyncLabel}` : "Reconectando"}
-          </span>
-          <button type="button" onClick={onSync} disabled={syncing}
-            title="Sincronizar ahora"
-            className={`items-center gap-1.5 rounded-lg p-1.5 text-ds-text-2 ds-tap hover:bg-ds-surface-3 disabled:opacity-50 ${collapsed ? "hidden group-hover/rail:flex" : "flex"}`}>
-            <RefreshCw className={`h-4 w-4 ${syncing ? "animate-spin" : ""}`} />
-          </button>
         </div>
       </div>
     </div>

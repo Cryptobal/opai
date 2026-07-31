@@ -5,7 +5,7 @@ import type { CorreoThreadDTO } from "@/modules/crm/email/correos.types";
 import { CorreoRowDesktop } from "./CorreoRowDesktop";
 import { CorreoRowMobile } from "./CorreoRowMobile";
 import type { CorreoPreviewLines } from "./useCorreosViewPreferences";
-
+import type { CorreoListMode, CorreoRowMode } from "./useCorreoWorkspaceLayout";
 
 // Compartidos por las variantes móvil (clamp del snippet) y desktop (hora).
 export const PREVIEW_LINE_CLASS: Record<CorreoPreviewLines, string> = {
@@ -40,6 +40,8 @@ type Props = {
   unified?: boolean;
   mailboxColor?: string | null;
   mailboxLabel?: string | null;
+  listMode?: CorreoListMode;
+  rowMode?: CorreoRowMode;
 };
 
 /**
@@ -68,6 +70,8 @@ function CorreoRowInner({
   unified = false,
   mailboxColor = null,
   mailboxLabel = null,
+  listMode = "full",
+  rowMode = "default",
 }: Props) {
   if (mobileGmail) {
     return (
@@ -103,6 +107,8 @@ function CorreoRowInner({
       unified={unified}
       mailboxColor={mailboxColor}
       mailboxLabel={mailboxLabel}
+      listMode={listMode}
+      rowMode={rowMode}
     />
   );
 }
