@@ -11,6 +11,7 @@ import type {
   CorreoSwipeAction,
   CorreoSwipeConfig,
 } from "./useCorreosViewPreferences";
+import type { CorreoListMode, CorreoRowMode } from "./useCorreoWorkspaceLayout";
 import {
   SWIPE_BUTTON_WIDTH,
   SWIPE_OPEN_WIDTH,
@@ -62,6 +63,8 @@ type Props = {
   unified?: boolean;
   mailboxColor?: string | null;
   mailboxLabel?: string | null;
+  listMode?: CorreoListMode;
+  rowMode?: CorreoRowMode;
 };
 
 const LEAVE_MS = 200;
@@ -111,6 +114,7 @@ function CorreoRowSwipeInner({
   selected, focused, checked, onToggleCheck, previewLines, swipeConfig,
   onAvatarPress, onLongPress, selectionMode = false,
   unified = false, mailboxColor = null, mailboxLabel = null,
+  listMode = "full", rowMode = "default",
 }: Props) {
   const [coarse, setCoarse] = useState(false);
   const [leaving, setLeaving] = useState(false);
@@ -247,6 +251,8 @@ function CorreoRowSwipeInner({
         unified={unified}
         mailboxColor={mailboxColor}
         mailboxLabel={mailboxLabel}
+        listMode={listMode}
+        rowMode={rowMode}
       />
     );
   }
@@ -349,7 +355,9 @@ function propsAreEqual(prev: Props, next: Props): boolean {
     prev.onLongPress === next.onLongPress &&
     prev.unified === next.unified &&
     prev.mailboxColor === next.mailboxColor &&
-    prev.mailboxLabel === next.mailboxLabel
+    prev.mailboxLabel === next.mailboxLabel &&
+    prev.listMode === next.listMode &&
+    prev.rowMode === next.rowMode
   );
 }
 

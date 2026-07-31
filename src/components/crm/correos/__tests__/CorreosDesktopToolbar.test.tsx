@@ -20,8 +20,12 @@ const base = {
   onSnooze: vi.fn(),
   quickView: "todos" as const,
   onQuickViewChange: vi.fn(),
-  chip: "todos" as const,
-  onChip: vi.fn(),
+  assoc: "todos" as const,
+  onAssoc: vi.fn(),
+  flags: new Set() as Set<"sin_responder" | "con_adjuntos">,
+  onToggleFlag: vi.fn(),
+  onClearFilters: vi.fn(),
+  tier: "wide" as const,
 };
 
 describe("CorreosDesktopToolbar", () => {
@@ -115,4 +119,3 @@ describe("CorreosDesktopToolbar", () => {
     });
   });
 });
-

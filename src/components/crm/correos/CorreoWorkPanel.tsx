@@ -11,13 +11,14 @@ import { CorreoTicketPanel } from "./CorreoTicketPanel";
 import { CorreoMeetingPanel } from "./CorreoMeetingPanel";
 import { CorreoWorkSummary } from "./CorreoWorkSummary";
 import { CorreoAttachments } from "./CorreoAttachments";
-import { CORREO_COPILOT_DOCK_WIDTH_VAR } from "./correo-copilot-dock";
+import {
+  CORREO_COPILOT_DOCK_WIDTH_VAR,
+  CORREO_DOCK_WIDTH,
+} from "./correo-copilot-dock";
 import { WORK_TABS, resolveWorkTab, type WorkTab } from "./work-panel-tabs";
 import type { CorreoDetail } from "@/modules/crm/email/correos.types";
 import type { CorreoAiCommandId } from "@/modules/crm/email/correo-ai-commands";
 import type { CorreoCascadeAiTarget } from "@/modules/crm/email/correo-cascade-ai";
-
-const WORK_PANEL_DOCK_WIDTH = 430;
 
 type Props = {
   open: boolean;
@@ -89,7 +90,7 @@ export function CorreoWorkPanel({
     const apply = () => {
       const desktop = window.matchMedia("(min-width: 1024px)").matches;
       if (desktop) {
-        root.style.setProperty(CORREO_COPILOT_DOCK_WIDTH_VAR, `${WORK_PANEL_DOCK_WIDTH}px`);
+        root.style.setProperty(CORREO_COPILOT_DOCK_WIDTH_VAR, `${CORREO_DOCK_WIDTH}px`);
       } else {
         root.style.removeProperty(CORREO_COPILOT_DOCK_WIDTH_VAR);
       }

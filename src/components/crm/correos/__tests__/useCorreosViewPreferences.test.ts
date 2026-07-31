@@ -20,8 +20,8 @@ describe("correoReaderBudget", () => {
 
   it("728 (1280 con dock) → no alcanza para split", () => {
     const b = correoReaderBudget(728, true);
-    // 728 − 68 − 24 − 340 = 296 < 420
-    expect(b.maxReader).toBe(296);
+    // 728 − 68 − 24 − 380 = 256 < 420
+    expect(b.maxReader).toBe(256);
     expect(b.canSplit).toBe(false);
   });
 });
@@ -31,9 +31,9 @@ describe("clampCorreoPanelWidth", () => {
     expect(clampCorreoPanelWidth(200, 1_200)).toBe(420);
   });
 
-  it("reserva mínimo de lista: 1000 → maxReader 568", () => {
-    // 1000 − 68 − 24 − 340 = 568
-    expect(clampCorreoPanelWidth(1_000, 1_000)).toBe(568);
+  it("reserva mínimo de lista: 1000 → maxReader 528", () => {
+    // 1000 − 68 − 24 − 380 = 528
+    expect(clampCorreoPanelWidth(1_000, 1_000)).toBe(528);
   });
 
   it("preserva un ancho dentro del rango", () => {

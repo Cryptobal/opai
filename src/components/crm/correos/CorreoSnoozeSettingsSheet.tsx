@@ -2,12 +2,8 @@
 
 import { Clock, X } from "lucide-react";
 import { Surface } from "@/components/opai-ds";
-import { SimpleSelect } from "@/components/ui/simple-select";
-import {
-  CORREO_SNOOZE_AFTERNOON_HOURS,
-  CORREO_SNOOZE_MORNING_HOURS,
-  type CorreoSnoozeConfig,
-} from "@/modules/crm/email/correo-snooze-presets";
+import type { CorreoSnoozeConfig } from "@/modules/crm/email/correo-snooze-presets";
+import { CorreoSnoozeSettingsBody } from "./CorreoSnoozeSettingsBody";
 
 type Props = {
   open: boolean;
@@ -16,25 +12,10 @@ type Props = {
   onConfig: (config: CorreoSnoozeConfig) => void;
 };
 
-function hourLabel(h: number): string {
-  return `${String(h).padStart(2, "0")}:00`;
-}
-
-/**
- * Configura las horas/días de los presets de posponer (persistido en
- * preferencias de bandeja, mismo patrón que gestos de deslizar).
- */
 export function CorreoSnoozeSettingsSheet({
-  open,
-  onClose,
-  config,
-  onConfig,
+  open, onClose, config, onConfig,
 }: Props) {
   if (!open) return null;
-
-  const patch = (partial: Partial<CorreoSnoozeConfig>) => {
-    onConfig({ ...config, ...partial });
-  };
 
   return (
     <div
@@ -55,85 +36,11 @@ export function CorreoSnoozeSettingsSheet({
               Horarios de posponer
             </p>
           </div>
-          <button
-            type="button"
-            aria-label="Cerrar"
-            onClick={onClose}
-            className="text-ds-text-3 ds-tap"
-          >
+          <button type="button" aria-label="Cerrar" onClick={onClose} className="text-ds-text-3 ds-tap">
             <X className="h-5 w-5" />
           </button>
         </div>
-        <p className="text-[12px] text-ds-text-3">
-          Definí a qué hora vuelven los correos en «Mañana», «Hoy más tarde»,
-          fin de semana y próxima semana. «En 1 hora» y «En 3 horas» son fijos.
-        </p>
-
-        <div className="space-y-1.5">
-          <label className="flex min-h-11 items-center justify-between gap-3 rounded-xl border border-ds-border-subtle bg-ds-surface-1 pl-3 pr-2">
-            <span className="min-w-0 text-[13px] text-ds-text-2">Mañana / semana</span>
-            <SimpleSelect
-              value={String(config.morningHour)}
-              onValueChange={(v) => patch({ morningHour: Number(v) })}
-              aria-label="Hora de mañana y próxima semana"
-              className="h-11 min-w-0 max-w-[7rem] border-0 bg-transparent"
-              options={CORREO_SNOOZE_MORNING_HOURS.map((h) => ({
-                value: String(h),
-                label: hourLabel(h),
-              }))}
-            />
-          </label>
-
-          <label className="flex min-h-11 items-center justify-between gap-3 rounded-xl border border-ds-border-subtle bg-ds-surface-1 pl-3 pr-2">
-            <span className="min-w-0 text-[13px] text-ds-text-2">Hoy más tarde</span>
-            <SimpleSelect
-              value={String(config.afternoonHour)}
-              onValueChange={(v) => patch({ afternoonHour: Number(v) })}
-              aria-label="Hora de hoy más tarde"
-              className="h-11 min-w-0 max-w-[7rem] border-0 bg-transparent"
-              options={CORREO_SNOOZE_AFTERNOON_HOURS.map((h) => ({
-                value: String(h),
-                label: hourLabel(h),
-              }))}
-            />
-          </label>
-
-          <label className="flex min-h-11 items-center justify-between gap-3 rounded-xl border border-ds-border-subtle bg-ds-surface-1 pl-3 pr-2">
-            <span className="min-w-0 text-[13px] text-ds-text-2">Fin de semana</span>
-            <SimpleSelect
-              value={String(config.weekendDay)}
-              onValueChange={(v) =>
-                patch({ weekendDay: Number(v) as 0 | 6 })
-              }
-              aria-label="Día de fin de semana"
-              className="h-11 min-w-0 max-w-[8rem] border-0 bg-transparent"
-              options={[
-                { value: "6", label: "Sábado" },
-                { value: "0", label: "Domingo" },
-              ]}
-            />
-          </label>
-
-          <label className="flex min-h-11 items-center justify-between gap-3 rounded-xl border border-ds-border-subtle bg-ds-surface-1 pl-3 pr-2">
-            <span className="min-w-0 text-[13px] text-ds-text-2">Próxima semana</span>
-            <SimpleSelect
-              value={String(config.nextWeekDay)}
-              onValueChange={(v) =>
-                patch({ nextWeekDay: Number(v) as 1 | 2 | 3 | 4 | 5 })
-              }
-              aria-label="Día de la próxima semana"
-              className="h-11 min-w-0 max-w-[8rem] border-0 bg-transparent"
-              options={[
-                { value: "1", label: "Lunes" },
-                { value: "2", label: "Martes" },
-                { value: "3", label: "Miércoles" },
-                { value: "4", label: "Jueves" },
-                { value: "5", label: "Viernes" },
-              ]}
-            />
-          </label>
-        </div>
-
+        <CorreoSnoozeSettingsBody config={config} onConfig={onConfig} />
         <button
           type="button"
           onClick={onClose}

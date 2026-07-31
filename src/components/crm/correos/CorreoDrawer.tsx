@@ -73,6 +73,8 @@ type Props = {
   onOpenAiMenu?: () => void;
   onOpenAiStyle?: () => void;
   onOpenSignature?: () => void;
+  /** Incrementar para forzar cierre del dock Copiloto (mini-lista → expandir). */
+  workPanelCloseNonce?: number;
 };
 
 export function CorreoDrawer({
@@ -107,6 +109,7 @@ export function CorreoDrawer({
   onOpenAiMenu,
   onOpenAiStyle,
   onOpenSignature,
+  workPanelCloseNonce = 0,
 }: Props) {
   const [detail, setDetail] = useState<CorreoDetail | null>(null);
   const [loading, setLoading] = useState(false);
@@ -169,6 +172,10 @@ export function CorreoDrawer({
     setWorkPanelTab(resolveWorkTab(workTabIntent.tab));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [workTabIntent?.nonce]);
+
+  useEffect(() => {
+    if (workPanelCloseNonce > 0) setWorkPanelTab(null);
+  }, [workPanelCloseNonce]);
 
   // Cache del detalle para que Copiloto no parpadee al cambiar de hilo.
   useEffect(() => {
