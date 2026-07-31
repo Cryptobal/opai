@@ -14,6 +14,7 @@ import { CorreoReaderMobileHeader } from "./CorreoReaderMobileHeader";
 import { CorreoReaderOverflowMenu } from "./CorreoReaderOverflowMenu";
 import { CorreoReaderIsland } from "./CorreoReaderIsland";
 import { CorreoSnoozeSheet } from "./CorreoSnoozeSheet";
+import { CorreoCopilotSheet } from "./CorreoCopilotSheet";
 import { CorreoWorkPanel } from "./CorreoWorkPanel";
 import { CorreoWorkProvider } from "./CorreoWorkContext";
 import { runCorreoAction, snoozeThread } from "./correo-thread-action-client";
@@ -22,6 +23,8 @@ import { parseSender } from "./correo-sender";
 import { loadOfflineDetail } from "./offline-store";
 import { copilotoAttentionReasons } from "./correo-copiloto-reasons";
 import { triggerHaptic } from "@/lib/haptics";
+import { canEdit } from "@/lib/permissions";
+import { useEffectivePermissions } from "@/hooks/useEffectivePermissions";
 import type { CorreoDetail } from "@/modules/crm/email/correos.types";
 import type { CorreoShortcuts, CorreoSnoozeConfig } from "./useCorreosViewPreferences";
 import { nextIntentNonce, type ComposeIntent } from "./correo-reader-intent";
@@ -113,6 +116,8 @@ export function CorreoDrawer({
   onOpenSignature,
   workPanelCloseNonce = 0,
 }: Props) {
+  const perms = useEffectivePermissions();
+  const canEditCorreos = canEdit(perms, "crm", "correos");
   const [detail, setDetail] = useState<CorreoDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [snoozeOpen, setSnoozeOpen] = useState(false);
@@ -431,8 +436,6 @@ export function CorreoDrawer({
           };
         })()
       : null;
-  // Evita unused hasta B4 (sheet Copiloto).
-  void copilotSheetOpen;
 
   // Copiloto sigue abierto al cambiar de mail: actualiza al nuevo detalle y,
   // mientras carga, mantiene el anterior para no “desaparecer”.
@@ -527,6 +530,19 @@ export function CorreoDrawer({
         onOpenSettings={onOpenSnoozeSettings}
         onConfirm={handleSnoozeConfirm}
       />
+      {detailReady && (
+        <CorreoCopilotSheet
+          open={copilotSheetOpen}
+          detail={detail}
+          canEdit={canEditCorreos}
+          onClose={() => setCopilotSheetOpen(false)}
+          onAssociate={(accountId) => associate({ accountId, dealId: null })}
+          onOpenPanel={() => setWorkPanelTab(resolveWorkTab("contexto"))}
+          onComposeAi={() =>
+            requestCompose(primaryAction?.canReply === false ? "forward" : "reply", true)
+          }
+        />
+      )}
       {workPanelTab && workPanelDetail ? (
         <CorreoWorkProvider
           key={workPanelDetail.thread.id}
