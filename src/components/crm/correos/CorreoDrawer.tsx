@@ -467,6 +467,7 @@ export function CorreoDrawer({
       onResizeReset={onResizeReset}
       desktopMode={desktopMode}
       manageBackHistory={manageBackHistory}
+      trapPaused={composerOpen}
       mobileHeader={
         <CorreoReaderMobileHeader
           subject={headerSubject}

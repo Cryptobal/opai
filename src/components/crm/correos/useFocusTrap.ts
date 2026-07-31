@@ -8,7 +8,7 @@
  *  - Escape cierra siempre.
  */
 
-import { useEffect, type RefObject } from "react";
+import { useEffect, useRef, type RefObject } from "react";
 
 const FOCUSABLE =
   'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"]), [contenteditable="true"]';
@@ -18,6 +18,10 @@ export function useFocusTrap(
   opts: { active: boolean; trap: boolean; onEscape: () => void },
 ): void {
   const { active, trap, onEscape } = opts;
+  // Ref sincronizado: al pausar trap (composer) el cleanup no debe restaurar
+  // el foco; solo al cerrar el panel (`active` → false).
+  const activeRef = useRef(active);
+  activeRef.current = active;
 
   useEffect(() => {
     if (!active) return;
@@ -53,7 +57,11 @@ export function useFocusTrap(
     document.addEventListener("keydown", onKeyDown);
     return () => {
       document.removeEventListener("keydown", onKeyDown);
-      if (trap) previous?.focus?.();
+      // Pausar trap (composer abierto) no restaura; cerrar el lector sí,
+      // y solo si el origen sigue en el documento.
+      if (trap && !activeRef.current && previous && document.contains(previous)) {
+        previous.focus?.();
+      }
     };
   }, [ref, active, trap, onEscape]);
 }
