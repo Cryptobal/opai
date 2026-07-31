@@ -245,7 +245,7 @@ export function CorreoReaderShell({
                 </div>
               )}
 
-              <div className="space-y-4 px-3 pt-3 pb-[106px] md:px-4 md:pt-4 lg:pb-4">
+              <div className="space-y-2 px-3 pt-1.5 pb-[106px] md:space-y-4 md:px-4 md:pt-4 lg:pb-4">
                 {children}
               </div>
             </div>

@@ -34,6 +34,14 @@ vi.mock("../CorreoContextChain", () => ({
   CorreoContextChain: () => <div data-testid="context-chain" />,
 }));
 
+vi.mock("../CorreoReaderContextStrip", () => ({
+  CorreoReaderContextStrip: () => null,
+}));
+
+vi.mock("../CorreoAssociationsSheet", () => ({
+  CorreoAssociationsSheet: () => null,
+}));
+
 // El árbol nuevo (bloque de título + breadcrumb) se aísla para que el
 // test del menú "⋯" no dependa de la petición suggest-account.
 vi.mock("../CorreoReaderTitleBlock", () => ({

@@ -48,7 +48,7 @@ describe("CorreoReaderSummary — cache-first", () => {
     );
 
     const chip = screen.getByRole("button", { name: /Resumir este correo/ });
-    expect(container.querySelector(".my-3.flex.flex-col.items-center")).toBeTruthy();
+    expect(container.querySelector(".my-1.flex.flex-col")).toBeTruthy();
     expect(fetch).not.toHaveBeenCalled();
 
     fireEvent.click(chip);

@@ -13,6 +13,8 @@ import { CorreoReaderOverflowMenu } from "./CorreoReaderOverflowMenu";
 import { CorreoWorkProvider } from "./CorreoWorkContext";
 import { CorreoTasksStrip } from "./CorreoTasksStrip";
 import { CorreoContextChain } from "./CorreoContextChain";
+import { CorreoReaderContextStrip } from "./CorreoReaderContextStrip";
+import { CorreoAssociationsSheet } from "./CorreoAssociationsSheet";
 import { copilotoAttentionReasons } from "./correo-copiloto-reasons";
 import { resolveWorkTab, type WorkTab } from "./work-panel-tabs";
 import type { CorreoDetail } from "@/modules/crm/email/correos.types";
@@ -60,6 +62,13 @@ type Props = {
   onComposerOpenChange?: (open: boolean) => void;
   /** Cursor de lectura capturado al abrir (antes del markRead): no leídos. */
   readCursorAt?: string | null;
+  /** Toggle star (compartido con la barra de acciones móvil). */
+  onToggleStar?: () => void;
+  /**
+   * Si true, el padre ya montó CorreoWorkProvider (badge de tareas en header).
+   * Evita un segundo provider anidado.
+   */
+  workProviderExternal?: boolean;
 };
 
 export function CorreoDrawerContent({
@@ -86,6 +95,8 @@ export function CorreoDrawerContent({
   onPrimaryActionChange,
   onComposerOpenChange,
   readCursorAt = null,
+  onToggleStar,
+  workProviderExternal = false,
 }: Props) {
   const t = detail.thread;
   const perms = useEffectivePermissions();
@@ -95,6 +106,7 @@ export function CorreoDrawerContent({
     nonce: number;
   } | null>(null);
   const [expandAllNonce, setExpandAllNonce] = useState(0);
+  const [assocSheetOpen, setAssocSheetOpen] = useState(false);
   const unreadIds = useMemo(
     () => unreadMessageIds(detail.messages, readCursorAt ?? t.lastReadAt),
     [detail.messages, readCursorAt, t.lastReadAt],
@@ -107,20 +119,12 @@ export function CorreoDrawerContent({
 
   const openPanel = (tab: WorkTab) => onOpenWorkPanel(resolveWorkTab(tab));
 
-  return (
-    <CorreoWorkProvider
-      key={t.id}
-      threadId={t.id}
-      accountId={t.accountId}
-      revision={dataRevision}
-    >
-      <div className="flex min-h-0 flex-col gap-4">
+  const body = (
+      <div className="flex min-h-0 flex-col gap-2 lg:gap-4">
         {/* Cabecera de contexto: solo desktop (lg+). En móvil, el asunto y el
             remitente viven en el bloque de título; las etiquetas de sistema se
             reubican dentro de él. */}
         <div className="hidden shrink-0 space-y-2 border-b border-ds-border-subtle bg-background pb-3 lg:block lg:bg-ds-surface-2">
-          {/* Acciones Archivar/Papelera/etc. solo en el listado (hover), estilo Gmail. */}
-
           <CorreoSystemLabels
             threadId={t.id}
             trashedAt={t.trashedAt}
@@ -138,7 +142,6 @@ export function CorreoDrawerContent({
             onOpenTrabajo={() => openPanel("trabajo")}
           />
 
-          {/* Cadena de contexto + Copiloto + overflow */}
           <div className="flex min-w-0 items-start gap-1.5">
             <div className="min-w-0 flex-1">
               <CorreoContextChain
@@ -154,9 +157,9 @@ export function CorreoDrawerContent({
               onClick={() => openPanel("contexto")}
               title={attentionLabel}
               aria-label={attentionLabel}
-              className="relative inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-full border border-tint-violet/30 bg-tint-violet/10 px-2.5 text-[12px] font-medium text-tint-violet-fg ds-tap sm:min-h-8"
+              className="relative inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-full border border-ds-border-default bg-ds-surface-1 px-2.5 text-[12px] font-medium text-ds-text-2 ds-tap sm:min-h-8"
             >
-              <Sparkles className="h-3.5 w-3.5" /> ✦ Copiloto
+              <Sparkles className="h-3.5 w-3.5" /> Copiloto
               {reasons.length > 0 && (
                 <>
                   <span
@@ -172,11 +175,13 @@ export function CorreoDrawerContent({
               threadId={t.id}
               providerThreadId={t.providerThreadId}
               onOpenSnooze={onSnooze}
+              onOpenCopilot={() => openPanel("contexto")}
+              copilotPending={reasons.length > 0}
             />
           </div>
         </div>
 
-        {/* Bloque de título móvil (<lg): asunto grande + remitente + metadata. */}
+        {/* Móvil: asunto compacto → remitente → franja cuenta+tareas. */}
         <CorreoReaderTitleBlock
           detail={detail}
           canModify={Boolean(canModify)}
@@ -185,36 +190,26 @@ export function CorreoDrawerContent({
           onRemoveDone={onRemoveDone}
           onUndoDone={onUndoDone}
           onClose={onClose}
+          onToggleStar={onToggleStar}
           below={
-            <CorreoTasksStrip
-              compact
-              canModify={Boolean(canModify)}
-              onOpenTrabajo={() => openPanel("trabajo")}
+            <CorreoReaderContextStrip
+              accountId={t.accountId}
+              accountName={t.accountName}
+              canEdit={canEditCorreos}
+              onOpenAssociations={() => setAssocSheetOpen(true)}
+              onOpenTasks={() => openPanel("trabajo")}
+              onSearchAccount={() => setAssocSheetOpen(true)}
             />
           }
         />
 
-        {/* Contexto móvil: breadcrumb siempre (cuenta·deal). El Copiloto
-            completo (cascada, IA, Trabajo) se abre con ✨ del header. */}
-        <div className="lg:hidden">
-          <CorreoContextChain
-            detail={detail}
-            canEdit={canEditCorreos}
-            onAssociate={onAssociate}
-            onSearchAccount={() => openPanel("contexto")}
-            variant="breadcrumb"
-          />
-        </div>
-
-        {/* Degradado: desktop inline; en móvil también aparece en Copiloto. */}
         {detail.degraded && (
           <div className="hidden shrink-0 rounded-xl border border-status-warn-border bg-status-warn-soft px-3 py-2.5 text-[13px] text-status-warn-fg lg:block">
             No se pudieron cargar los adjuntos de este hilo desde Gmail. Reintentá en unos segundos.
           </div>
         )}
 
-        <div className="min-w-0 space-y-2">
-          {/* Resumen IA sobre la cadena: cache-first, nunca autogenera. */}
+        <div className="min-w-0 space-y-1.5 lg:space-y-2">
           <CorreoReaderSummary
             threadId={t.id}
             initialSummary={t.threadSummary}
@@ -225,7 +220,7 @@ export function CorreoDrawerContent({
               <button
                 type="button"
                 onClick={() => setExpandAllNonce((n) => n + 1)}
-                className="inline-flex min-h-11 items-center gap-1.5 rounded-full px-2 text-[12px] font-medium text-ds-text-3 ds-tap hover:text-ds-text-1 sm:min-h-8"
+                className="inline-flex h-8 min-h-8 items-center gap-1.5 rounded-full px-2 text-[12px] font-medium text-ds-text-3 ds-tap hover:text-ds-text-1"
               >
                 <ChevronsUpDown className="h-3.5 w-3.5" aria-hidden /> Expandir todo
               </button>
@@ -249,7 +244,7 @@ export function CorreoDrawerContent({
             mailboxEmail={mailboxEmail}
             degraded={detail.degraded}
             onAttachmentsSaved={onRefresh}
-            onRequestAssociate={() => openPanel("contexto")}
+            onRequestAssociate={() => setAssocSheetOpen(true)}
             onDraftDiscarded={onRefresh}
             onContinueDraft={(m) =>
               setContinueDraftIntent({ message: m, nonce: nextIntentNonce() })
@@ -285,7 +280,27 @@ export function CorreoDrawerContent({
           />
         </div>
 
+        <CorreoAssociationsSheet
+          open={assocSheetOpen}
+          onClose={() => setAssocSheetOpen(false)}
+          detail={detail}
+          onAssociate={onAssociate}
+        />
       </div>
+  );
+
+  if (workProviderExternal) {
+    return body;
+  }
+
+  return (
+    <CorreoWorkProvider
+      key={t.id}
+      threadId={t.id}
+      accountId={t.accountId}
+      revision={dataRevision}
+    >
+      {body}
     </CorreoWorkProvider>
   );
 }
