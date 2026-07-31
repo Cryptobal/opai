@@ -37,14 +37,21 @@ export function closeCorreoThreadInHistory(): "back" | "replaced" {
   url.searchParams.delete("hilo");
   url.searchParams.delete("mensaje");
   url.searchParams.delete("extract");
+  const state = window.history.state ?? {};
+  const ownsThreadEntry =
+    Boolean(state[THREAD_HISTORY_MARKER]) || Boolean(state.correoReader);
   // Siempre limpiar la URL al instante (la UI ya cerró el lector). Si la
-  // apertura hizo pushState, además consumimos esa entrada con back() para
-  // que el gesto/atrás del sistema no deje una URL fantasma con ?thread=.
-  if (window.history.state?.[THREAD_HISTORY_MARKER]) {
-    window.history.replaceState(window.history.state, "", url);
+  // apertura hizo pushState —o un overlay la reemplazó sin spread— consumimos
+  // esa entrada con back() para que el gesto/atrás del sistema no deje ?hilo=.
+  if (ownsThreadEntry) {
+    const { [THREAD_HISTORY_MARKER]: _t, correoReader: _r, ...rest } = state as Record<
+      string,
+      unknown
+    >;
+    window.history.replaceState(rest, "", url);
     window.history.back();
     return "back";
   }
-  window.history.replaceState(window.history.state, "", url);
+  window.history.replaceState(state, "", url);
   return "replaced";
 }

@@ -21,7 +21,11 @@ export function useCloseOnBack(open: boolean, onClose: () => void): void {
     if (!open) return;
     const entry = {};
     overlayStack.push(entry);
-    window.history.pushState({ correoReader: true }, "");
+    window.history.pushState(
+      { ...(window.history.state ?? {}), correoReader: true },
+      "",
+      window.location.href,
+    );
     let handledByPop = false;
 
     const onPop = () => {

@@ -348,8 +348,12 @@ export function CorreoDrawer({
   const handleSnoozeConfirm = (iso: string, label: string) => {
     if (!detailReady) return;
     const id = detail.thread.id;
-    if (onRemove) onRemove(id);
-    else onClose();
+    setSnoozeOpen(false);
+    const runRemove = () => {
+      if (onRemove) onRemove(id);
+      else onClose();
+    };
+    window.requestAnimationFrame(runRemove);
     void snoozeThread(id, iso, `Pospuesto hasta ${label}`, () => {
       onChanged?.();
     });
