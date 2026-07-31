@@ -315,10 +315,13 @@ function DealColumn({
     <div
       ref={setColumnNodeRef}
       className={cn(
-        "flex-shrink-0 w-full rounded-lg border bg-muted/30 p-2 md:p-2.5 min-w-0 sm:min-w-[250px] max-w-[280px] md:min-w-[290px] md:max-w-[290px] transition-colors overflow-hidden snap-center",
+        // Scroll vertical contenido en la columna: permite header sticky glass
+        // sin depender del scroll de página (que aquí es horizontal).
+        "flex-shrink-0 w-full rounded-lg border bg-muted/30 min-w-0 sm:min-w-[250px] max-w-[280px] md:min-w-[290px] md:max-w-[290px] transition-colors snap-center flex flex-col max-h-[calc(100dvh-var(--app-topbar-offset)-11rem)] overflow-y-auto overscroll-contain",
         isOver ? "border-primary/60 bg-primary/5" : "border-border"
       )}
     >
+      {/* Header sticky glass: cuenta + monto, las tarjetas pasan por debajo */}
       <div
         ref={setHeaderNodeRef}
         role={onToggleCollapse ? "button" : undefined}
@@ -335,12 +338,13 @@ function DealColumn({
             : undefined
         }
         className={cn(
-          "w-full mb-2 rounded-md px-2.5 py-1.5 flex items-center justify-between gap-2 transition-colors",
+          "sticky top-0 z-[5] w-full px-2.5 py-2 flex items-center justify-between gap-2 transition-colors",
+          "backdrop-blur-md border-b border-ds-border-subtle",
           onToggleCollapse && "cursor-pointer hover:opacity-90 active:opacity-80",
         )}
         style={{
           borderLeft: `3px solid ${stageColor}`,
-          backgroundColor: `${stageColor}10`,
+          background: "var(--glass-fill)",
         }}
       >
         <span className="text-xs font-semibold truncate flex-1 min-w-0" style={{ color: stageColor }} title={stage.name}>
@@ -355,7 +359,7 @@ function DealColumn({
           </span>
         )}
       </div>
-      {children}
+      <div className="p-2 md:p-2.5">{children}</div>
     </div>
   );
 }
@@ -420,9 +424,6 @@ function DealCard({
           <p className="text-[11px] text-muted-foreground truncate mt-0.5" title={deal.account?.name}>
             {deal.account?.name}
           </p>
-          <p className="text-[10px] text-muted-foreground mt-0.5">
-            Creado: {formatDealDate(deal.createdAt)}
-          </p>
           {isInNegotiation && daysOpen !== null && (
             <p className="text-[10px] text-muted-foreground mt-0.5">
               Negociación: {formatDealDate(negotiationEnteredAt)} · {daysOpen} día{daysOpen !== 1 ? "s" : ""} abierto{daysOpen !== 1 ? "s" : ""}
@@ -439,7 +440,19 @@ function DealCard({
               </span>
             </div>
           </div>
-          <div className="flex items-center gap-1.5 mt-1">
+          <div className="flex flex-wrap items-center gap-1.5 mt-1">
+            {deal.isLicitacion && (
+              <span className="inline-flex items-center rounded-full border border-status-info-border bg-status-info-soft px-1.5 py-px text-[10px] font-medium text-status-info-fg">
+                Licitación
+              </span>
+            )}
+            <span
+              className="inline-flex items-center gap-0.5 text-[10px] text-muted-foreground tabular-nums"
+              title={`Creado: ${formatDealDate(deal.createdAt)}`}
+            >
+              <Clock3 className="h-2.5 w-2.5" />
+              {daysSince(new Date(deal.createdAt))} d
+            </span>
             {quotesCount > 0 && (
               <span className="text-muted-foreground" title={`${quotesCount} cotizaciones`}>
                 <FileText className="h-3 w-3" />
@@ -1220,10 +1233,10 @@ export function CrmDealsClient({
                   onDragEnd={handleDragEnd}
                   onDragCancel={handleDragCancel}
                 >
-                  <div ref={desktopColumnsContainerRef} className="flex flex-row gap-3 overflow-x-auto pb-2 -mx-1 px-1">
+                  <div ref={desktopColumnsContainerRef} className="flex flex-row gap-3 overflow-x-auto snap-x snap-proximity pb-2 -mx-1 px-1">
                     {columns.map((column) => {
-                      const stageTotal = column.deals.reduce(
-                        (acc, d) => acc + getDealCommercialIndicators(d).amountClp,
+                      const stageTotalUf = column.deals.reduce(
+                        (acc, d) => acc + getDealCommercialIndicators(d).amountUf,
                         0
                       );
                       const isCollapsed = desktopCollapsedStages.has(column.stage.id);
@@ -1232,7 +1245,7 @@ export function CrmDealsClient({
                           key={column.stage.id}
                           stage={column.stage}
                           deals={column.deals}
-                          stageTotal={`$${stageTotal.toLocaleString("es-CL")}`}
+                          stageTotal={formatUFSuffix(stageTotalUf)}
                           collapsed={isCollapsed}
                           onToggleCollapse={() => toggleDesktopStageCollapse(column.stage.id)}
                           highlightDropTarget={
