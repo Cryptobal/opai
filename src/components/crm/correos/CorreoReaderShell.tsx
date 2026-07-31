@@ -93,6 +93,8 @@ export function CorreoReaderShell({
   const [overlayHost, setOverlayHost] = useState<HTMLDivElement | null>(null);
   // Dock inferior (fuera del scroll): Responder / Reenviar siempre visibles.
   const [dockHost, setDockHost] = useState<HTMLDivElement | null>(null);
+  // Fila superior del dock: chips de intención de respuesta.
+  const [dockTopHost, setDockTopHost] = useState<HTMLDivElement | null>(null);
 
   // Estado de scroll para el header adaptativo móvil: glass + asunto tras 24px.
   // Listener nativo passive; solo re-render al cruzar el umbral (sin spam).
@@ -186,7 +188,9 @@ export function CorreoReaderShell({
       >
         <CorreoReaderScrollContext.Provider value={scrollValue}>
         <CorreoReaderOverlayContext.Provider value={overlayHost}>
-          <CorreoReaderDockContext.Provider value={{ host: dockHost, enabled: true }}>
+          <CorreoReaderDockContext.Provider
+            value={{ host: dockHost, topHost: dockTopHost, enabled: true }}
+          >
             {/* Un solo scroller X+Y: al desplazarse en horizontal se mueve TODO
                 el panel (header + acciones + remitente + cuerpo), no el iframe
                 blanco aislado. Los headers quedan sticky en el eje Y. */}
@@ -252,10 +256,18 @@ export function CorreoReaderShell({
                 con el composer cerrado). empty:hidden — solo ocupa espacio
                 cuando el composer está cerrado y hay barra portada. */}
             {!isMobile && (
-              <div
-                ref={setDockHost}
-                className="shrink-0 border-t border-ds-border-subtle bg-ds-surface-2 px-4 py-2 empty:hidden"
-              />
+              <div className="shrink-0">
+                {/* Chips de intención: fila superior del dock, sobre las
+                    acciones. Vacía (y sin borde) mientras no haya chips. */}
+                <div
+                  ref={setDockTopHost}
+                  className="border-t border-ds-border-subtle bg-ds-surface-2/95 px-4 py-1.5 backdrop-blur empty:hidden"
+                />
+                <div
+                  ref={setDockHost}
+                  className="border-t border-ds-border-subtle bg-ds-surface-2 px-4 py-2 empty:hidden"
+                />
+              </div>
             )}
 
             {/* Isla de acciones móvil: se posiciona sola (fixed, flotante).

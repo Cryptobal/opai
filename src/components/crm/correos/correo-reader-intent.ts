@@ -9,6 +9,11 @@ import type { ComposerMode } from "./CorreoComposerBox";
 export type ComposeIntent = {
   mode: ComposerMode;
   ai?: boolean;
+  /**
+   * Chips de intención: guía para generar el borrador con IA apenas abre el
+   * composer (mismo flujo que el pill → `POST suggest-reply`).
+   */
+  instructions?: string;
   /** Cambia en cada pedido para re-disparar el effect aunque el modo sea igual. */
   nonce: number;
 };

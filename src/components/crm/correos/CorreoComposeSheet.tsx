@@ -233,10 +233,12 @@ export function CorreoComposeSheet({
         bottom: "auto",
       } as const)
     : undefined;
+  // El notch solo deja de aplicar en la medida en que el visual viewport se
+  // desplaza hacia abajo (vv.top). Con teclado iOS suele mantener top = 0, así
+  // que restar el safe-area a ciegas metía la topbar (Enviar) bajo la status
+  // bar justo al escribir. `max(..., 0px)` evita el padding negativo.
   const sheetHeaderPadTop = mobileFs
-    ? vv.keyboardInset > 0
-      ? "0.5rem"
-      : "calc(env(safe-area-inset-top, 0px) + 0.5rem)"
+    ? `calc(max(env(safe-area-inset-top, 0px) - ${vv.top}px, 0px) + 0.5rem)`
     : undefined;
 
   const panel = (

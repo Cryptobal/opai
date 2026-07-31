@@ -62,6 +62,12 @@ type Props = {
   mode: ComposerMode;
   ai: boolean;
   expanded: boolean;
+  /** Chip de intención: genera el borrador apenas abre (mismo flujo que el pill). */
+  autoDraftInstructions?: string | null;
+  /** Deja el caret en el cuerpo al abrir (Responder / A todos / Reenviar). */
+  autoFocusBody?: boolean;
+  /** Cambia en cada apertura explícita: re-dispara foco y borrador automático. */
+  openSeq?: number;
   onModeChange: (mode: ComposerMode) => void;
   onToggleAi: () => void;
   onToggleExpand: () => void;
@@ -112,7 +118,19 @@ function seedFromThreadDraft(draft: ThreadDraftSeed): {
  * siempre full-screen con topbar Gmail (✕ · ✨ · 📎 · Enviar · ⋯).
  */
 export function CorreoComposerBox(props: Props) {
-  const { threadId, subject, mode, ai, replyAll, to, expanded, threadDraft = null } = props;
+  const {
+    threadId,
+    subject,
+    mode,
+    ai,
+    replyAll,
+    to,
+    expanded,
+    threadDraft = null,
+    autoDraftInstructions = null,
+    autoFocusBody = false,
+    openSeq = 0,
+  } = props;
   const initialSeed = threadDraft ? seedFromThreadDraft(threadDraft) : null;
   const bodyRef = useRef<object | null>(initialSeed?.doc ?? null);
   const subjectRef = useRef<string>(initialSeed?.subject ?? "");
@@ -177,7 +195,7 @@ export function CorreoComposerBox(props: Props) {
       if (showAiPrompt) {
         e.preventDefault();
         e.stopPropagation();
-        props.onToggleAi();
+        toggleAi();
         return;
       }
       if (asModal) {
@@ -194,6 +212,21 @@ export function CorreoComposerBox(props: Props) {
     document.addEventListener("keydown", onKey, { capture: true });
     return () => document.removeEventListener("keydown", onKey, { capture: true });
   }, [asModal, showAiPrompt, props, moreOpen]);
+
+  /**
+   * true solo si el usuario abrió el asistente estando ya en el composer. Con
+   * el panel abierto "de fábrica" (Responder / A todos / Reenviar) el foco es
+   * del cuerpo, no del pill.
+   */
+  const [aiOpenedByUser, setAiOpenedByUser] = useState(false);
+  useEffect(() => {
+    setAiOpenedByUser(false);
+  }, [openSeq]);
+
+  function toggleAi() {
+    setAiOpenedByUser(!ai);
+    props.onToggleAi();
+  }
 
   function reseed() {
     setSeed(bodyRef.current);
@@ -262,6 +295,37 @@ export function CorreoComposerBox(props: Props) {
     }
   }, [showAiPrompt, ai]);
 
+  // Caret en el cuerpo al abrir Responder / A todos / Reenviar (desktop y
+  // móvil). Doble rAF + timeout: el editor puede seguir montando tras el tap.
+  // En móvil el foco va dentro de la cadena del gesto para que iOS levante el
+  // teclado; si el WKWebView lo bloquea, al menos el caret queda listo.
+  useEffect(() => {
+    if (!autoFocusBody) return;
+    let cancelled = false;
+    const focus = () => {
+      if (!cancelled) composerRef.current?.focusBody("start");
+    };
+    const raf = window.requestAnimationFrame(() => window.requestAnimationFrame(focus));
+    const t = window.setTimeout(focus, 80);
+    return () => {
+      cancelled = true;
+      window.cancelAnimationFrame(raf);
+      window.clearTimeout(t);
+    };
+  }, [autoFocusBody, openSeq]);
+
+  // Chip de intención: genera el borrador completo apenas abre el composer.
+  // `injectDraft` deja el cuerpo editable con el caret al final (contentEpoch).
+  const autoDraftRef = useRef<number>(-1);
+  useEffect(() => {
+    if (!autoDraftInstructions || autoDraftRef.current === openSeq) return;
+    autoDraftRef.current = openSeq;
+    setAiInstructions(autoDraftInstructions);
+    void runAi();
+    // runAi lee instructionsRef; el resto de deps son estables por apertura.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoDraftInstructions, openSeq]);
+
   function switchMode(next: ComposerMode) {
     reseed();
     props.onModeChange(next);
@@ -273,7 +337,7 @@ export function CorreoComposerBox(props: Props) {
   }
 
   function closeAi() {
-    if (ai) props.onToggleAi();
+    if (ai) toggleAi();
   }
 
   async function handleSend() {
@@ -321,6 +385,9 @@ export function CorreoComposerBox(props: Props) {
       aboveFooter={
         showAiPrompt ? (
           <ComposerAiPromptPill
+            // Abierto junto al composer el foco es del cuerpo; solo si el
+            // usuario abre el asistente el caret salta al prompt.
+            autoFocus={aiOpenedByUser}
             value={instructions}
             onChange={setAiInstructions}
             onGenerate={() => void runAi()}
@@ -337,7 +404,7 @@ export function CorreoComposerBox(props: Props) {
       footerExtras={
         <ComposerAiAssistToggle
           open={ai}
-          onToggle={props.onToggleAi}
+          onToggle={toggleAi}
           disabled={generating}
           mode={isForward ? "compose" : "reply"}
         />
@@ -390,13 +457,12 @@ export function CorreoComposerBox(props: Props) {
     const fsStyle = {
       top: vv.top,
       height: vv.height || "100dvh",
-      // Con teclado el VV ya excluye el notch inferior; sin teclado respetamos
-      // safe-area vía padding del header/scroll.
     } as const;
-    const headerPadTop =
-      vv.keyboardInset > 0
-        ? "0.5rem"
-        : "calc(env(safe-area-inset-top, 0px) + 0.5rem)";
+    // El safe-area superior solo se descuenta en la medida en que el visual
+    // viewport ya bajó (vv.top). En iOS con teclado normalmente sigue en 0: el
+    // ternario anterior borraba el notch justo cuando el teclado estaba
+    // abierto y la topbar (Enviar) quedaba bajo la status bar.
+    const headerPadTop = `calc(max(env(safe-area-inset-top, 0px) - ${vv.top}px, 0px) + 0.5rem)`;
 
     return createPortal(
       <div
@@ -429,7 +495,7 @@ export function CorreoComposerBox(props: Props) {
               if (document.activeElement instanceof HTMLElement) {
                 document.activeElement.blur();
               }
-              props.onToggleAi();
+              toggleAi();
             }}
             className={`flex h-11 w-11 items-center justify-center rounded-full ds-tap ${
               ai ? "bg-tint-violet/15 text-tint-violet-fg" : "text-ds-text-2"

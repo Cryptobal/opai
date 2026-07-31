@@ -57,7 +57,8 @@ function messageText(m: { textBody: string | null; htmlBody: string | null }): s
     .trim();
 }
 
-function buildTranscript(
+/** Transcripción acotada del hilo para prompts (compartida con reply-intents). */
+export function buildTranscript(
   messages: Array<{
     fromEmail: string;
     direction: string;

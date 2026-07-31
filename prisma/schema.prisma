@@ -3059,6 +3059,9 @@ model CrmEmailThread {
   verticalOverrideAt   DateTime? @map("vertical_override_at") @db.Timestamptz(6)
   // ── Resúmenes reales (A01/A02): caché por último mensaje + última lectura.
   aiThreadSummary Json?     @map("ai_thread_summary") // { summary, lastMessageId, generatedAt }
+  // ── Intenciones de respuesta (chips del lector): mismo caché por último
+  // mensaje que el resumen. { intents: [{id,label,hint}], lastMessageId, generatedAt }
+  aiReplyIntents  Json?     @map("ai_reply_intents")
   // ── Plan de acciones v2: borrador editable del plan (propuesta + include + locks).
   aiPlanDraft     Json?     @map("ai_plan_draft")
   lastReadAt      DateTime? @map("last_read_at") @db.Timestamptz(6)
