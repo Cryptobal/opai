@@ -6,7 +6,8 @@ import { Input } from "@/components/ui/input";
 import { AddressAutocomplete, type AddressResult } from "@/components/ui/AddressAutocomplete";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { MapCoordinatePicker } from "@/components/ui/MapCoordinatePicker";
-import { Switch } from "@/components/ui/switch";
+
+type VerificationType = "GEOFENCE" | "QR" | "BOTH";
 
 const CHECKPOINT_GEO_MIN = 5;
 const CHECKPOINT_GEO_MAX = 50;
@@ -47,7 +48,7 @@ export function CheckpointForm({
   const [lat, setLat] = useState("");
   const [lng, setLng] = useState("");
   const [geoRadiusM, setGeoRadiusM] = useState(5);
-  const [requiresQr, setRequiresQr] = useState(false);
+  const [verificationType, setVerificationType] = useState<VerificationType>("GEOFENCE");
   const [isCritical, setIsCritical] = useState(false);
   const [sortOrder, setSortOrder] = useState(0);
   const [saving, setSaving] = useState(false);
@@ -74,7 +75,7 @@ export function CheckpointForm({
             lat: lat ? Number(lat) : undefined,
             lng: lng ? Number(lng) : undefined,
             geoRadiusM: clampCheckpointGeoM(geoRadiusM),
-            verificationType: requiresQr ? "BOTH" : "GEOFENCE",
+            verificationType,
             isCritical,
             sortOrder,
           });
@@ -83,7 +84,7 @@ export function CheckpointForm({
           setLat("");
           setLng("");
           setGeoRadiusM(5);
-          setRequiresQr(false);
+          setVerificationType("GEOFENCE");
           setIsCritical(false);
           setSortOrder(0);
         } finally {
@@ -120,9 +121,17 @@ export function CheckpointForm({
         min={CHECKPOINT_GEO_MIN}
         max={CHECKPOINT_GEO_MAX}
       />
-      <div className="flex items-center justify-between gap-2 rounded-md border border-border px-2 py-1.5 sm:col-span-2">
-        <span className="text-xs text-muted-foreground">Requiere QR en el punto</span>
-        <Switch checked={requiresQr} onCheckedChange={setRequiresQr} />
+      <div className="sm:col-span-2 space-y-1.5 rounded-md border border-border px-2 py-2">
+        <span className="text-xs font-medium text-foreground">Verificación del punto</span>
+        <select
+          value={verificationType}
+          onChange={(e) => setVerificationType(e.target.value as VerificationType)}
+          className="h-10 w-full rounded-md border border-border bg-background px-2 text-sm"
+        >
+          <option value="GEOFENCE">Solo geocerca</option>
+          <option value="QR">Solo QR — recomendado para interiores sin GPS confiable</option>
+          <option value="BOTH">QR + geocerca</option>
+        </select>
       </div>
       <label className="flex items-center gap-2 text-sm h-9">
         <input type="checkbox" checked={isCritical} onChange={(e) => setIsCritical(e.target.checked)} className="rounded" />

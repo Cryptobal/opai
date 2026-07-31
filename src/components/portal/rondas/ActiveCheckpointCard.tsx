@@ -14,6 +14,7 @@ export interface ActiveCheckpoint {
   distanceM: number | null;
   geoRadiusM: number;
   qrRequired: boolean;
+  verificationType: string;
   isInRadius: boolean;
   /** Marca GEO_NO_VERIFICADA: el guardia ya registró, falta validación institucional. */
   geoPendingValidation?: boolean;
@@ -134,12 +135,22 @@ export function ActiveCheckpointCard({
               </p>
             </div>
           </div>
+          <button
+            onClick={onConfirmMark}
+            disabled={isMarking}
+            className="mt-3 flex w-full min-h-[48px] items-center justify-center gap-2 rounded-xl border border-status-warn-border bg-status-warn-soft py-3.5 font-bold text-status-warn-fg transition-all active:opacity-80 disabled:opacity-40"
+          >
+            {isMarking ? "Reintentando..." : "Reintentar marcación"}
+          </button>
         </div>
       </div>
     );
   }
 
-  const canMark = checkpoint.isInRadius;
+  const qrIsProof =
+    checkpoint.verificationType === "QR" || checkpoint.verificationType === "BOTH";
+  const canMark = qrIsProof || checkpoint.isInRadius;
+  const isOutsideGeofence = !qrIsProof && !checkpoint.isInRadius;
   const dc = distanceColor(checkpoint.distanceM);
 
   return (
@@ -224,23 +235,27 @@ export function ActiveCheckpointCard({
           {/* Confirm button */}
           <button
             onClick={onConfirmMark}
-            disabled={!canMark || isMarking}
-            className={`mt-3 flex w-full items-center justify-center gap-2 rounded-xl py-3.5 font-bold transition-all ${
+            disabled={isMarking}
+            className={`mt-3 flex w-full min-h-[48px] items-center justify-center gap-2 rounded-xl py-3.5 font-bold transition-all ${
               isMarking
                 ? "text-status-info-fg"
-                : canMark
-                  ? "text-white active:opacity-80"
-                  : "text-slate-500"
+                : isOutsideGeofence
+                  ? "border-2 border-status-warn-border bg-status-warn-soft text-status-warn-fg active:opacity-80"
+                  : canMark
+                    ? "text-white active:opacity-80"
+                    : "text-slate-500"
             }`}
             style={
               isMarking
                 ? { background: "rgba(20,184,166,0.3)" }
-                : canMark
-                  ? {
-                      background: "linear-gradient(90deg, #14b8a6, #0d9488)",
-                      boxShadow: "0 6px 20px rgba(20,184,166,0.35)",
-                    }
-                  : { background: "rgba(255,255,255,0.05)", opacity: 0.4 }
+                : isOutsideGeofence
+                  ? undefined
+                  : canMark
+                    ? {
+                        background: "linear-gradient(90deg, #14b8a6, #0d9488)",
+                        boxShadow: "0 6px 20px rgba(20,184,166,0.35)",
+                      }
+                    : { background: "rgba(255,255,255,0.05)", opacity: 0.4 }
             }
           >
             {isMarking ? (
@@ -251,6 +266,15 @@ export function ActiveCheckpointCard({
                 </svg>
                 Marcando...
               </>
+            ) : qrIsProof ? (
+              <>
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
+                </svg>
+                Escanear QR
+              </>
+            ) : isOutsideGeofence ? (
+              <>Marcar fuera de rango</>
             ) : canMark ? (
               <>
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
@@ -264,7 +288,12 @@ export function ActiveCheckpointCard({
           </button>
 
           {/* Contextual hint */}
-          {!canMark && !isMarking && (
+          {isOutsideGeofence && !isMarking && (
+            <p className="mt-1.5 text-center text-xs text-status-warn-fg/80">
+              Fuera del radio — se pedirá confirmación al marcar
+            </p>
+          )}
+          {!canMark && !isMarking && !isOutsideGeofence && (
             <p className="mt-1.5 text-center text-xs text-slate-500">
               Acércate al punto para poder marcar
             </p>

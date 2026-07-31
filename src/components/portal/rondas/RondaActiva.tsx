@@ -46,8 +46,8 @@ export interface ApiCheckpoint {
   name: string;
   instrucciones?: string | null;
   qrCode: string | null;
-  lat: number;
-  lng: number;
+  lat: number | null;
+  lng: number | null;
   geoRadiusM: number;
   verificationType: string;
   orderIndex: number;
@@ -107,8 +107,8 @@ interface Props {
   onBack: () => void;
 }
 
-// ---------------------------------------------------------------------------
-// Helpers
+const AUTO_MARK_MAX_ACCURACY_M = 50;
+
 // ---------------------------------------------------------------------------
 
 function haversineDistance(
@@ -204,6 +204,8 @@ export function RondaActiva({
     lng: number;
   } | null>(null);
   const [gpsAccuracy, setGpsAccuracy] = useState<number | null>(null);
+  /** Fix GPS con accuracy <= 75 m — habilita geocerca, banner y auto-marcado. */
+  const [hasQualityFix, setHasQualityFix] = useState(false);
   /** Última lectura aceptada: accuracy + ts (filtro: no degradar salvo stale 15s). */
   const guardReadQualityRef = useRef<{ accuracy: number; ts: number } | null>(null);
   const watchIdRef = useRef<number | null>(null);
@@ -252,12 +254,20 @@ export function RondaActiva({
         const prevQ = guardReadQualityRef.current;
         const stale = prevQ != null && now - prevQ.ts > STALE_MS;
 
-        // 1) Descartar lecturas con accuracy catastrófica, salvo que no haya ninguna previa.
+        // 1) Descartar lecturas con accuracy catastrófica cuando ya hay lectura previa.
         if (prevQ != null && newAcc > MAX_ACCEPTABLE_ACCURACY_M) {
           // Si además NO está stale, ignorar del todo. Si está stale, solo aceptar si
           // no degrada demasiado respecto a la previa.
           if (!stale) return;
           if (newAcc > prevQ.accuracy * STALE_DEGRADE_FACTOR) return;
+        }
+
+        // Primera lectura: aceptar solo para posición en mapa si accuracy <= umbral
+        if (prevQ == null && newAcc > MAX_ACCEPTABLE_ACCURACY_M) {
+          const pt = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+          setGuardPos(pt);
+          setGpsAccuracy(newAcc);
+          return;
         }
 
         // 2) Regla base: aceptar si mejora/iguala accuracy, o si la previa está stale
@@ -268,7 +278,10 @@ export function RondaActiva({
         guardReadQualityRef.current = { accuracy: newAcc, ts: now };
         const pt = { lat: pos.coords.latitude, lng: pos.coords.longitude };
         setGuardPos(pt);
-        setGpsAccuracy(rawAcc ?? null);
+        setGpsAccuracy(newAcc);
+        if (newAcc <= MAX_ACCEPTABLE_ACCURACY_M) {
+          setHasQualityFix(true);
+        }
         setTrailPoints((prev) => {
           // Only add if moved >3m from last point (avoid clutter)
           if (prev.length === 0) return [pt];
@@ -396,7 +409,7 @@ export function RondaActiva({
   // Geofence auto-detection + auto-marking
   // ---------------------------------------------------------------------------
   useEffect(() => {
-    if (!guardPos || isAdHocFreeForm) return;
+    if (!guardPos || !hasQualityFix || isAdHocFreeForm) return;
 
     // When marking is active, clear any pending auto-open timer
     if (markingCheckpointId) {
@@ -413,6 +426,7 @@ export function RondaActiva({
     let closestDist = Infinity;
 
     for (const cp of unmarked) {
+      if (cp.lat == null || cp.lng == null) continue;
       const ev = evaluateGeofenceWithTolerance(
         guardPos.lat,
         guardPos.lng,
@@ -448,6 +462,8 @@ export function RondaActiva({
         !autoMarkingRef.current.has(closest.id) &&
         !autoMarkedRef.current.has(closest.id) &&
         closest.verificationType === "GEOFENCE" &&
+        gpsAccuracy != null &&
+        gpsAccuracy <= AUTO_MARK_MAX_ACCURACY_M &&
         !(closest.tasks && closest.tasks.length > 0 && closest.tasks.some((t) => t.required));
 
       if (canAutoMark) {
@@ -577,7 +593,7 @@ export function RondaActiva({
       }
       setNearbyCheckpointId(null);
     }
-  }, [guardPos, checkpoints, isAdHocFreeForm, markingCheckpointId, gpsAccuracy, rondaData.ejecucionId, rondaData.qrRequerido, session.guardiaId, refreshCheckpoints]);
+  }, [guardPos, hasQualityFix, checkpoints, isAdHocFreeForm, markingCheckpointId, gpsAccuracy, rondaData.ejecucionId, rondaData.qrRequerido, session.guardiaId, refreshCheckpoints]);
 
   // Cleanup timers on unmount
   useEffect(() => {
@@ -650,14 +666,16 @@ export function RondaActiva({
       if (cp.completed) {
         completed.push(cp);
       } else if (cp.geoNoVerificada) {
-        const dist = guardPos
-          ? haversineDistance(guardPos.lat, guardPos.lng, cp.lat, cp.lng)
-          : Infinity;
+        const dist =
+          guardPos && cp.lat != null && cp.lng != null
+            ? haversineDistance(guardPos.lat, guardPos.lng, cp.lat, cp.lng)
+            : Infinity;
         geoPending.push({ ...cp, _dist: dist });
       } else {
-        const dist = guardPos
-          ? haversineDistance(guardPos.lat, guardPos.lng, cp.lat, cp.lng)
-          : Infinity;
+        const dist =
+          guardPos && cp.lat != null && cp.lng != null
+            ? haversineDistance(guardPos.lat, guardPos.lng, cp.lat, cp.lng)
+            : Infinity;
         needsVisit.push({ ...cp, _dist: dist });
       }
     }
@@ -673,11 +691,13 @@ export function RondaActiva({
 
   // Map checkpoints (include ad-hoc marked points for libre rondas)
   const mapCheckpoints = useMemo<MapCheckpoint[]>(() => {
-    const templateCps = checkpoints.map((cp) => ({
-      id: cp.id,
-      name: cp.name,
-      lat: cp.lat,
-      lng: cp.lng,
+    const templateCps = checkpoints
+      .filter((cp) => cp.lat != null && cp.lng != null)
+      .map((cp) => ({
+        id: cp.id,
+        name: cp.name,
+        lat: cp.lat as number,
+        lng: cp.lng as number,
       orderIndex: cp.orderIndex,
       geoRadiusM: cp.geoRadiusM,
       status: cp.completed
@@ -898,7 +918,11 @@ export function RondaActiva({
 
           {/* Timer + Progress ring + GPS status */}
           <div className="flex shrink-0 items-center gap-1.5 text-sm">
-            <GpsStatusIndicator accuracy={gpsAccuracy} isWatching={guardPos !== null} />
+            <GpsStatusIndicator
+              accuracy={gpsAccuracy}
+              isWatching={guardPos !== null}
+              hasQualityFix={hasQualityFix}
+            />
             <span className="text-gray-400 tabular-nums">
               {formatElapsed(elapsedSeconds)}
             </span>
@@ -963,9 +987,16 @@ export function RondaActiva({
                 Estas en {nearbyCheckpoint.name}
               </p>
               <p className="text-xs text-status-info-fg/70">
-                {guardPos
+                {guardPos &&
+                nearbyCheckpoint.lat != null &&
+                nearbyCheckpoint.lng != null
                   ? formatDistance(
-                      haversineDistance(guardPos.lat, guardPos.lng, nearbyCheckpoint.lat, nearbyCheckpoint.lng),
+                      haversineDistance(
+                        guardPos.lat,
+                        guardPos.lng,
+                        nearbyCheckpoint.lat,
+                        nearbyCheckpoint.lng,
+                      ),
                     )
                   : ""}{" "}
                 del punto
@@ -1075,9 +1106,15 @@ export function RondaActiva({
             return sortedCheckpoints.find((cp) => cp.geoNoVerificada) ?? null;
           })();
 
-          const cpDistance = activeCheckpoint && guardPos
-            ? haversineDistance(guardPos.lat, guardPos.lng, activeCheckpoint.lat, activeCheckpoint.lng)
-            : null;
+          const cpDistance =
+            activeCheckpoint && guardPos && activeCheckpoint.lat != null && activeCheckpoint.lng != null
+              ? haversineDistance(
+                  guardPos.lat,
+                  guardPos.lng,
+                  activeCheckpoint.lat,
+                  activeCheckpoint.lng,
+                )
+              : null;
 
           const needsQr = activeCheckpoint
             ? (activeCheckpoint.verificationType === "QR" || activeCheckpoint.verificationType === "BOTH")
@@ -1092,17 +1129,21 @@ export function RondaActiva({
                 distanceM: cpDistance,
                 geoRadiusM: activeCheckpoint.geoRadiusM,
                 qrRequired: needsQr,
+                verificationType: activeCheckpoint.verificationType,
                 geoPendingValidation: activeCheckpoint.geoNoVerificada === true,
                 isInRadius:
-                  guardPos != null &&
-                  evaluateGeofenceWithTolerance(
-                    guardPos.lat,
-                    guardPos.lng,
-                    activeCheckpoint.lat,
-                    activeCheckpoint.lng,
-                    activeCheckpoint.geoRadiusM,
-                    gpsAccuracy,
-                  ).inRange,
+                  activeCheckpoint.verificationType === "QR" ||
+                  activeCheckpoint.lat == null ||
+                  activeCheckpoint.lng == null ||
+                  (guardPos != null &&
+                    evaluateGeofenceWithTolerance(
+                      guardPos.lat,
+                      guardPos.lng,
+                      activeCheckpoint.lat,
+                      activeCheckpoint.lng,
+                      activeCheckpoint.geoRadiusM,
+                      gpsAccuracy,
+                    ).inRange),
               }
             : null;
 
@@ -1114,8 +1155,7 @@ export function RondaActiva({
               total={total}
               isMarking={false}
               onConfirmMark={() => {
-                if (activeCheckpoint && !activeCheckpoint.geoNoVerificada) {
-                  // Clear manual override on mark action
+                if (activeCheckpoint) {
                   setSelectedCheckpointId(null);
                   setMarkingCheckpointId(activeCheckpoint.id);
                 }

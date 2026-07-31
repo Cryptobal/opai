@@ -149,6 +149,7 @@ export async function marcarCheckpoint(
     lng: number | null;
     geoRadiusM: number;
     verificationType: string;
+    qrCode: string | null;
   } | null = null;
 
   if (!isAdHocGps) {
@@ -159,26 +160,71 @@ export async function marcarCheckpoint(
         isActive: true,
         ...(checkpointId ? { id: checkpointId } : { qrCode: checkpointQrCode ?? undefined }),
       },
-      select: { id: true, name: true, lat: true, lng: true, geoRadiusM: true, verificationType: true },
+      select: {
+        id: true,
+        name: true,
+        lat: true,
+        lng: true,
+        geoRadiusM: true,
+        verificationType: true,
+        qrCode: true,
+      },
     });
     if (!checkpoint) {
       throw new MarcarCheckpointError("Checkpoint inválido", 404);
     }
 
-    // QR verification enforcement
-    if (
-      execution.rondaTemplate?.qrRequerido &&
-      (checkpoint.verificationType === "QR" || checkpoint.verificationType === "BOTH") &&
-      !checkpointQrCode
-    ) {
-      throw new MarcarCheckpointError("Se requiere escaneo QR para este checkpoint");
+    const vt = checkpoint.verificationType;
+    const needsQrByType = vt === "QR" || vt === "BOTH";
+    const needsQrByTemplate = execution.rondaTemplate?.qrRequerido === true;
+
+    if (needsQrByType || needsQrByTemplate) {
+      if (!checkpointQrCode) {
+        throw new MarcarCheckpointError(
+          "Se requiere escaneo QR para este checkpoint",
+          400,
+          "qr_required",
+        );
+      }
+    }
+
+    if (needsQrByType && checkpoint.qrCode) {
+      const scanned = checkpointQrCode!.trim().toUpperCase();
+      const expected = checkpoint.qrCode.trim().toUpperCase();
+      if (scanned !== expected) {
+        throw new MarcarCheckpointError(
+          "El código QR no corresponde a este checkpoint",
+          400,
+          "qr_mismatch",
+        );
+      }
     }
   }
+
+  const qrValidado = Boolean(
+    checkpointQrCode &&
+      checkpoint &&
+      (checkpoint.verificationType === "QR" || checkpoint.verificationType === "BOTH") &&
+      checkpoint.qrCode &&
+      checkpointQrCode.trim().toUpperCase() === checkpoint.qrCode.trim().toUpperCase(),
+  );
+
+  const effectiveAccuracy =
+    gpsAccuracy != null && Number.isFinite(gpsAccuracy) && gpsAccuracy > 0
+      ? Math.min(gpsAccuracy, 100)
+      : null;
 
   // 5. Geo validation + speed calculation
   const prev = execution.marcaciones[0];
   const geo: GeofenceResult = checkpoint
-    ? validateGeofenceWithAccuracy(lat, lng, checkpoint.lat, checkpoint.lng, checkpoint.geoRadiusM, gpsAccuracy)
+    ? validateGeofenceWithAccuracy(
+        lat,
+        lng,
+        checkpoint.lat,
+        checkpoint.lng,
+        checkpoint.geoRadiusM,
+        effectiveAccuracy,
+      )
     : { valid: true, distanceM: 0, confidence: "unknown" as const };
   const now = overrideTimestamp ?? new Date();
   const elapsedSec = prev ? Math.max(1, Math.round((now.getTime() - prev.timestamp.getTime()) / 1000)) : 0;
@@ -196,7 +242,10 @@ export async function marcarCheckpoint(
   let geoNoVerificada = false;
   if (!isAdHocGps && checkpoint) {
     const hasCoords = checkpoint.lat != null && checkpoint.lng != null;
-    if (hasCoords && !geo.valid) {
+    const vt = checkpoint.verificationType;
+    if (vt === "QR" || qrValidado) {
+      // El escaneo es la prueba de presencia. La geo queda como metadato.
+    } else if (hasCoords && !geo.valid) {
       geoNoVerificada = true;
     }
   }
@@ -250,14 +299,43 @@ export async function marcarCheckpoint(
   // 9. Transaction: create mark, update execution, create alerts
   const turnoId = await getActiveTurnoId(execution.tenantId);
 
+  const resolvedVerificationMethod =
+    verificationMethod ?? (qrValidado ? "QR" : "GEOFENCE");
+
+  const markData = {
+    tenantId: execution.tenantId,
+    ejecucionId: execution.id,
+    checkpointId: checkpoint?.id ?? null,
+    guardiaId,
+    timestamp: now,
+    lat,
+    lng,
+    geoValidada: geo.valid,
+    geoDistanciaM: geo.distanceM,
+    geoAccuracy: gpsAccuracy ?? null,
+    geoConfidence: geo.confidence,
+    batteryLevel: batteryLevel ?? null,
+    motionData: (motionData ?? null) as never,
+    speedFromPrevKmh: speed,
+    timeFromPrevSec: prev ? elapsedSec : null,
+    fotoEvidenciaUrl: fotoEvidenciaUrl ?? null,
+    audioUrl: audioUrl ?? null,
+    note: note ?? null,
+    hashIntegridad: hash,
+    anomalias: anomalies as never,
+    status: geoNoVerificada ? ("GEO_NO_VERIFICADA" as const) : ("COMPLETED" as const),
+    verificationMethod: resolvedVerificationMethod,
+    isOfflineSync: isOfflineSync ?? false,
+  };
+
   const created = await prisma.$transaction(async (tx) => {
-    // Guard against duplicate marks on the same checkpoint within the same execution
+    let existingMark: { id: string; status: string } | null = null;
     if (checkpoint?.id) {
-      const existingMark = await tx.opsMarcacionCheckpoint.findFirst({
+      existingMark = await tx.opsMarcacionCheckpoint.findFirst({
         where: { ejecucionId: execution.id, checkpointId: checkpoint.id },
-        select: { id: true },
+        select: { id: true, status: true },
       });
-      if (existingMark) {
+      if (existingMark && existingMark.status !== "GEO_NO_VERIFICADA") {
         throw new MarcarCheckpointError("Checkpoint ya marcado en esta ronda", 200, "already_marked");
       }
     }
@@ -266,31 +344,14 @@ export async function marcarCheckpoint(
     // uq (ejecucion_id, checkpoint_id) → P2002. Tratar como already_marked.
     let mark;
     try {
-      mark = await tx.opsMarcacionCheckpoint.create({
-        data: {
-          tenantId: execution.tenantId,
-          ejecucionId: execution.id,
-          checkpointId: checkpoint?.id ?? null,
-          guardiaId,
-          timestamp: now,
-          lat,
-          lng,
-          geoValidada: geo.valid,
-          geoDistanciaM: geo.distanceM,
-          batteryLevel: batteryLevel ?? null,
-          motionData: (motionData ?? null) as never,
-          speedFromPrevKmh: speed,
-          timeFromPrevSec: prev ? elapsedSec : null,
-          fotoEvidenciaUrl: fotoEvidenciaUrl ?? null,
-          audioUrl: audioUrl ?? null,
-          note: note ?? null,
-          hashIntegridad: hash,
-          anomalias: anomalies as never,
-          status: geoNoVerificada ? "GEO_NO_VERIFICADA" : "COMPLETED",
-          verificationMethod: verificationMethod ?? (isAdHocGps ? "GEOFENCE" : checkpointId ? "GEOFENCE" : "QR"),
-          isOfflineSync: isOfflineSync ?? false,
-        },
-      });
+      if (existingMark?.status === "GEO_NO_VERIFICADA") {
+        mark = await tx.opsMarcacionCheckpoint.update({
+          where: { id: existingMark.id },
+          data: markData,
+        });
+      } else {
+        mark = await tx.opsMarcacionCheckpoint.create({ data: markData });
+      }
     } catch (err) {
       if (
         typeof err === "object" &&
@@ -449,7 +510,7 @@ export async function marcarCheckpoint(
       marcacion: {
         lat,
         lng,
-        verificationMethod: verificationMethod ?? "QR",
+        verificationMethod: verificationMethod ?? (qrValidado ? "QR" : "GEOFENCE"),
         geoDistanciaM: geo.distanceM,
         checkpointRadius: checkpoint.geoRadiusM,
         timestamp: now,

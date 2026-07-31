@@ -12,6 +12,11 @@ export interface GeofenceToleranceResult {
   confidence: GeoFenceConfidence;
 }
 
+/** Tope máximo de tolerancia por precisión GPS (m). Ninguna geocerca efectiva supera radio + este valor. */
+export const GEOFENCE_MAX_ACCURACY_TOLERANCE_M = 30;
+
+const INVALID_ACCURACY_SENTINEL = 999_999;
+
 function haversineDistanceM(
   lat1: number,
   lng1: number,
@@ -30,9 +35,48 @@ function haversineDistanceM(
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
+function isInvalidAccuracy(geoAccuracy: number | null | undefined): boolean {
+  return (
+    geoAccuracy == null ||
+    !Number.isFinite(geoAccuracy) ||
+    geoAccuracy <= 0 ||
+    geoAccuracy >= INVALID_ACCURACY_SENTINEL
+  );
+}
+
+function computeEffectiveRadius(
+  radiusM: number,
+  geoAccuracy: number | null | undefined,
+): { effectiveRadiusM: number; confidence: GeoFenceConfidence } {
+  if (isInvalidAccuracy(geoAccuracy)) {
+    return {
+      effectiveRadiusM: radiusM + GEOFENCE_MAX_ACCURACY_TOLERANCE_M,
+      confidence: "unknown",
+    };
+  }
+
+  const acc = geoAccuracy as number;
+  if (acc >= radiusM) {
+    const tol = Math.min(acc, GEOFENCE_MAX_ACCURACY_TOLERANCE_M);
+    return {
+      effectiveRadiusM: radiusM + tol,
+      confidence: "low",
+    };
+  }
+
+  const tol = Math.min(acc * 0.5, GEOFENCE_MAX_ACCURACY_TOLERANCE_M);
+  return {
+    effectiveRadiusM: radiusM + tol,
+    confidence: "high",
+  };
+}
+
 /**
  * Evalúa si una posición está dentro del radio efectivo (radio + tolerancia por accuracy GPS).
  * Misma regla que validateGeofenceWithAccuracy en geo-utils.
+ *
+ * Checkpoints sin coordenadas (toLat/toLng null): no hay geocerca que evaluar — inRange=true
+ * para no bloquear marcación (p. ej. puntos QR-only en interiores).
  */
 export function evaluateGeofenceWithTolerance(
   fromLat: number,
@@ -42,48 +86,22 @@ export function evaluateGeofenceWithTolerance(
   radiusM: number,
   geoAccuracy: number | null | undefined,
 ): GeofenceToleranceResult {
+  const { effectiveRadiusM, confidence } = computeEffectiveRadius(radiusM, geoAccuracy);
   const distanceM = haversineDistanceM(fromLat, fromLng, toLat, toLng);
 
   if (distanceM == null) {
-    const effectiveRadiusM =
-      geoAccuracy == null || geoAccuracy <= 0
-        ? radiusM
-        : geoAccuracy >= radiusM
-          ? radiusM + geoAccuracy
-          : radiusM + geoAccuracy * 0.5;
     return {
       distanceM: null,
       effectiveRadiusM,
-      inRange: false,
-      confidence: "unknown",
+      inRange: true,
+      confidence,
     };
   }
 
-  if (geoAccuracy == null || geoAccuracy <= 0) {
-    const effectiveRadiusM = radiusM;
-    return {
-      distanceM,
-      effectiveRadiusM,
-      inRange: distanceM != null && distanceM <= effectiveRadiusM,
-      confidence: "unknown",
-    };
-  }
-
-  if (geoAccuracy >= radiusM) {
-    const effectiveRadiusM = radiusM + geoAccuracy;
-    return {
-      distanceM,
-      effectiveRadiusM,
-      inRange: distanceM != null && distanceM <= effectiveRadiusM,
-      confidence: "low",
-    };
-  }
-
-  const effectiveRadiusM = radiusM + geoAccuracy * 0.5;
   return {
     distanceM,
     effectiveRadiusM,
-    inRange: distanceM != null && distanceM <= effectiveRadiusM,
-    confidence: "high",
+    inRange: distanceM <= effectiveRadiusM,
+    confidence,
   };
 }

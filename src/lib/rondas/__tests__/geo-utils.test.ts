@@ -123,13 +123,13 @@ describe("validateGeofenceWithAccuracy", () => {
     expect(result.valid).toBe(false);
   });
 
-  it("returns null coords correctly", () => {
+  it("returns valid=true for null coords (sin geocerca que evaluar)", () => {
     const result = validateGeofenceWithAccuracy(
       SANTIAGO_LAT, SANTIAGO_LNG, null, null, 100, 10,
     );
-    expect(result.valid).toBe(false);
+    expect(result.valid).toBe(true);
     expect(result.distanceM).toBeNull();
-    expect(result.confidence).toBe("unknown");
+    expect(result.confidence).toBe("high");
   });
 });
 

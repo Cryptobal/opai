@@ -6,7 +6,6 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { MapPin, Plus, Minus, Pencil, Trash2, X, LocateFixed, FileDown, Archive } from "lucide-react";
-import { Switch } from "@/components/ui/switch";
 import { useGeolocation } from "@/lib/patrullaje/use-geolocation";
 import { CheckpointTasksEditor, type TaskDraft } from "./checkpoint-tasks-editor";
 import { generateQrsPdf, generateQrsZip } from "@/lib/qr-export";
@@ -88,16 +87,16 @@ function clampGeoRadiusM(m: number): number {
   return Math.min(GEO_RADIUS_MAX, Math.max(GEO_RADIUS_MIN, Math.round(m)));
 }
 
-function checkpointRequiresQrVerification(type: string): boolean {
-  return type === "BOTH" || type === "QR";
-}
-
-function verificationTypeFromRequiresQr(requiresQr: boolean): string {
-  return requiresQr ? "BOTH" : "GEOFENCE";
-}
+type VerificationType = "GEOFENCE" | "QR" | "BOTH";
 
 function checkpointVerificationBadge(type: string) {
-  const needsQr = checkpointRequiresQrVerification(type);
+  const label =
+    type === "QR"
+      ? "Solo QR"
+      : type === "BOTH"
+        ? "QR + geocerca"
+        : "Solo geocerca";
+  const needsQr = type === "QR" || type === "BOTH";
   return (
     <Badge
       variant="outline"
@@ -107,7 +106,8 @@ function checkpointVerificationBadge(type: string) {
           : "border-status-ok-border text-status-ok-fg"
       }
     >
-      {needsQr ? "🔲 Con QR" : "📍 Solo geocerca"}
+      {needsQr ? "🔲 " : "📍 "}
+      {label}
     </Badge>
   );
 }
@@ -149,7 +149,7 @@ export function CheckpointMapCreator({
   const [draftLat, setDraftLat] = useState<number | null>(null);
   const [draftLng, setDraftLng] = useState<number | null>(null);
   const [draftName, setDraftName] = useState("");
-  const [draftRequiresQr, setDraftRequiresQr] = useState(false);
+  const [draftVerificationType, setDraftVerificationType] = useState<VerificationType>("GEOFENCE");
   const [draftRadius, setDraftRadius] = useState(DEFAULT_GEO_RADIUS_M);
   const [draftCritical, setDraftCritical] = useState(false);
   const [draftInstrucciones, setDraftInstrucciones] = useState("");
@@ -299,7 +299,11 @@ export function CheckpointMapCreator({
 
     setEditingCheckpointId(cp.id);
     setDraftName(cp.name);
-    setDraftRequiresQr(checkpointRequiresQrVerification(cp.verificationType));
+    setDraftVerificationType(
+      cp.verificationType === "QR" || cp.verificationType === "BOTH" || cp.verificationType === "GEOFENCE"
+        ? cp.verificationType
+        : "GEOFENCE",
+    );
     setDraftRadius(clampGeoRadiusM(cp.geoRadiusM));
     setDraftCritical(cp.isCritical);
     setDraftInstrucciones(cp.instrucciones ?? "");
@@ -516,7 +520,7 @@ export function CheckpointMapCreator({
     setDraftLat(null);
     setDraftLng(null);
     setDraftName("");
-    setDraftRequiresQr(false);
+    setDraftVerificationType("GEOFENCE");
     setDraftRadius(DEFAULT_GEO_RADIUS_M);
     setDraftCritical(false);
     setDraftInstrucciones("");
@@ -581,7 +585,7 @@ export function CheckpointMapCreator({
           lat: draftLat,
           lng: draftLng,
           geoRadiusM: draftRadius,
-          verificationType: verificationTypeFromRequiresQr(draftRequiresQr),
+          verificationType: draftVerificationType,
           isCritical: draftCritical,
           instrucciones: draftInstrucciones.trim() || undefined,
         });
@@ -594,7 +598,7 @@ export function CheckpointMapCreator({
           lat: draftLat,
           lng: draftLng,
           geoRadiusM: draftRadius,
-          verificationType: verificationTypeFromRequiresQr(draftRequiresQr),
+          verificationType: draftVerificationType,
           isCritical: draftCritical,
           instrucciones: draftInstrucciones.trim() || undefined,
         });
@@ -687,14 +691,42 @@ export function CheckpointMapCreator({
           autoFocus={!isMobile}
         />
 
-        <div className="flex items-center justify-between gap-3 rounded-lg border border-border px-3 py-2.5 touch-manipulation">
-          <div className="min-w-0">
-            <p className="text-xs font-medium text-foreground">Requiere escanear QR</p>
-            <p className="text-[10px] text-muted-foreground mt-0.5 leading-snug">
-              Siempre se valida por geocerca. Activa esto si en el punto deben leer el código QR.
-            </p>
+        <div className="space-y-2 rounded-lg border border-border px-3 py-2.5 touch-manipulation">
+          <p className="text-xs font-medium text-foreground">Verificación del punto</p>
+          <div className="grid grid-cols-1 gap-1.5">
+            {(
+              [
+                { value: "GEOFENCE" as const, label: "Solo geocerca", hint: "Validación por proximidad GPS" },
+                {
+                  value: "QR" as const,
+                  label: "Solo QR",
+                  hint: "Recomendado para interiores o recintos sin señal GPS confiable",
+                },
+                { value: "BOTH" as const, label: "QR + geocerca", hint: "Exige escaneo QR y registra la geocerca" },
+              ] as const
+            ).map((opt) => (
+              <label
+                key={opt.value}
+                className={`flex cursor-pointer items-start gap-2 rounded-md border px-2.5 py-2 ${
+                  draftVerificationType === opt.value
+                    ? "border-primary bg-primary/5"
+                    : "border-border"
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="draftVerificationType"
+                  checked={draftVerificationType === opt.value}
+                  onChange={() => setDraftVerificationType(opt.value)}
+                  className="mt-0.5"
+                />
+                <span className="min-w-0">
+                  <span className="block text-xs font-medium text-foreground">{opt.label}</span>
+                  <span className="block text-[10px] text-muted-foreground leading-snug">{opt.hint}</span>
+                </span>
+              </label>
+            ))}
           </div>
-          <Switch checked={draftRequiresQr} onCheckedChange={setDraftRequiresQr} className="shrink-0" />
         </div>
 
         <div>

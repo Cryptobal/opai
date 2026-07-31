@@ -82,17 +82,30 @@ export async function POST(request: NextRequest) {
             });
             if (!checkpoint) continue;
 
-            const geo = validateGeofenceWithAccuracy(m.lat, m.lng, checkpoint.lat, checkpoint.lng, checkpoint.geoRadiusM, m.gpsAccuracy);
+            const effectiveAccuracy =
+              m.gpsAccuracy != null && Number.isFinite(m.gpsAccuracy) && m.gpsAccuracy > 0
+                ? Math.min(m.gpsAccuracy, 100)
+                : null;
+
+            const geo = validateGeofenceWithAccuracy(
+              m.lat,
+              m.lng,
+              checkpoint.lat,
+              checkpoint.lng,
+              checkpoint.geoRadiusM,
+              effectiveAccuracy,
+            );
 
             // Geo soft-fail: NO saltar la marca. Registrar con GEO_NO_VERIFICADA
             // para que quede evidencia. La marca NO cuenta para cumplimiento
             // (todos los consumidores filtran status === "COMPLETED").
             const vt = checkpoint.verificationType;
             const hasCoords = checkpoint.lat != null && checkpoint.lng != null;
+            const qrValidado = m.verificationMethod === "QR";
             let geoNoVerificada = false;
-            if (vt === "QR") {
-              // QR-only: escaneo es prueba, no validar geo
-            } else if ((vt === "GEOFENCE" || vt === "BOTH") && hasCoords && !geo.valid) {
+            if (vt === "QR" || qrValidado) {
+              // QR-only o escaneo válido: geo es metadato
+            } else if (hasCoords && !geo.valid) {
               geoNoVerificada = true;
             }
             const elapsedSec = prevM
@@ -134,6 +147,8 @@ export async function POST(request: NextRequest) {
                 lng: m.lng,
                 geoValidada: geo.valid,
                 geoDistanciaM: geo.distanceM,
+                geoAccuracy: m.gpsAccuracy ?? null,
+                geoConfidence: geo.confidence,
                 batteryLevel: m.batteryLevel ?? null,
                 motionData: (m.motionData ?? null) as never,
                 speedFromPrevKmh: speed,

@@ -32,7 +32,10 @@ export async function POST(request: NextRequest) {
       if (error.code === "already_marked") {
         return NextResponse.json({ success: true, already_marked: true }, { status: 200 });
       }
-      return NextResponse.json({ success: false, error: error.message }, { status: error.statusCode });
+      return NextResponse.json(
+        { success: false, error: error.message, code: error.code },
+        { status: error.statusCode },
+      );
     }
     console.error("[RONDAS] public marcar", error);
     return NextResponse.json({ success: false, error: "Error interno" }, { status: 500 });

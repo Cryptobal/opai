@@ -77,30 +77,34 @@ vi.mock("../useCorreoFocusScope", () => ({ useCorreoFocusScope: () => {} }));
 vi.mock("../useCorreosKeyboard", () => ({ useCorreosKeyboard: () => {} }));
 vi.mock("../useCorreosRealtime", () => ({ useCorreosRealtime: () => "offline" }));
 vi.mock("../useCloseOnBack", () => ({ useCloseOnBack: () => {} }));
-vi.mock("../useCorreosViewPreferences", () => ({
-  focusCorreosSearch: () => {},
-  useCorreosViewPreferences: () => ({
-    panelWidth: 560,
-    desktopReaderMode: "contained",
-    previewLines: 2,
-    setPreviewLines: () => {},
-    swipeConfig: { right: ["archive", "snooze"], left: ["trash", "read"] },
-    setSwipeConfig: () => {},
-    railCollapsed: true,
-    setRailCollapsed: () => {},
-    shortcuts: {},
-    setShortcuts: () => {},
-    alwaysShowImages: false,
-    setAlwaysShowImages: () => {},
-    undoSeconds: 10,
-    setUndoSeconds: () => {},
-    snoozeConfig: {},
-    setSnoozeConfig: () => {},
-    resetPanelWidth: () => {},
-    onResizePointerDown: () => {},
-    onResizeKeyDown: () => {},
-  }),
-}));
+vi.mock("../useCorreosViewPreferences", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../useCorreosViewPreferences")>();
+  return {
+    ...actual,
+    focusCorreosSearch: () => {},
+    useCorreosViewPreferences: () => ({
+      panelWidth: 560,
+      desktopReaderMode: "contained",
+      previewLines: 2,
+      setPreviewLines: () => {},
+      swipeConfig: { right: ["archive", "snooze"], left: ["trash", "read"] },
+      setSwipeConfig: () => {},
+      railCollapsed: true,
+      setRailCollapsed: () => {},
+      shortcuts: {},
+      setShortcuts: () => {},
+      alwaysShowImages: false,
+      setAlwaysShowImages: () => {},
+      undoSeconds: 10,
+      setUndoSeconds: () => {},
+      snoozeConfig: {},
+      setSnoozeConfig: () => {},
+      resetPanelWidth: () => {},
+      onResizePointerDown: () => {},
+      onResizeKeyDown: () => {},
+    }),
+  };
+});
 vi.mock("../offline-store", () => ({
   flushOfflineActions: () => Promise.resolve(0),
   flushOfflineSends: () => Promise.resolve(0),
