@@ -14,6 +14,20 @@ describe("CorreoQuotedHistory", () => {
     expect(screen.getByText("Mensaje citado")).toBeTruthy();
   });
 
+  it("variante lector: `•••` cerrado no monta el contenido; al abrir lo muestra", () => {
+    render(
+      <CorreoQuotedHistory variant="reader" defaultExpanded={false}>
+        <p>Historial recortado</p>
+      </CorreoQuotedHistory>,
+    );
+    expect(screen.queryByText("Historial recortado")).toBeNull();
+    const trigger = screen.getByRole("button", { name: "Mostrar contenido recortado" });
+    fireEvent.click(trigger);
+    expect(screen.getByText("Historial recortado")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /Ocultar historial/i }));
+    expect(screen.queryByText("Historial recortado")).toBeNull();
+  });
+
   it("al colapsar desmonta el HTML (render diferido)", () => {
     render(<CorreoQuotedHistory html="<p>Mensaje citado</p>" />);
     fireEvent.click(screen.getByRole("button", { name: /Historial/i }));

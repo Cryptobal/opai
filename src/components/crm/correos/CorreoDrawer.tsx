@@ -528,6 +528,7 @@ export function CorreoDrawer({
           onOpenSignature={onOpenSignature}
           onPrimaryActionChange={setPrimaryAction}
           onComposerOpenChange={setComposerOpen}
+          readCursorAt={readCursorAt}
         />
       )}
       <CorreoSnoozeSheet

@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { Sparkles } from "lucide-react";
+import { useMemo, useState } from "react";
+import { ChevronsUpDown, Sparkles } from "lucide-react";
 import { canEdit } from "@/lib/permissions";
 import { useEffectivePermissions } from "@/hooks/useEffectivePermissions";
 import { CorreoMessages } from "./CorreoMessages";
@@ -17,6 +17,7 @@ import { resolveWorkTab, type WorkTab } from "./work-panel-tabs";
 import type { CorreoDetail } from "@/modules/crm/email/correos.types";
 import type { CorreoShortcuts } from "./useCorreosViewPreferences";
 import { runCorreoAction } from "./correo-thread-action-client";
+import { unreadMessageIds } from "./correo-thread-fold";
 import { nextIntentNonce, type ComposeIntent } from "./correo-reader-intent";
 import type { CorreoMessageDTO } from "@/modules/crm/email/correos.types";
 
@@ -56,6 +57,8 @@ type Props = {
   ) => void;
   /** Notifica apertura/cierre del composer (la isla se oculta al abrir). */
   onComposerOpenChange?: (open: boolean) => void;
+  /** Cursor de lectura capturado al abrir (antes del markRead): no leídos. */
+  readCursorAt?: string | null;
 };
 
 export function CorreoDrawerContent({
@@ -81,6 +84,7 @@ export function CorreoDrawerContent({
   onOpenSignature,
   onPrimaryActionChange,
   onComposerOpenChange,
+  readCursorAt = null,
 }: Props) {
   const t = detail.thread;
   const perms = useEffectivePermissions();
@@ -89,6 +93,11 @@ export function CorreoDrawerContent({
     message: CorreoMessageDTO;
     nonce: number;
   } | null>(null);
+  const [expandAllNonce, setExpandAllNonce] = useState(0);
+  const unreadIds = useMemo(
+    () => unreadMessageIds(detail.messages, readCursorAt ?? t.lastReadAt),
+    [detail.messages, readCursorAt, t.lastReadAt],
+  );
   const reasons = copilotoAttentionReasons(detail);
   const attentionLabel =
     reasons.length > 0
@@ -204,9 +213,22 @@ export function CorreoDrawerContent({
         )}
 
         <div className="min-w-0 space-y-2">
+          {detail.messages.length > 2 && (
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={() => setExpandAllNonce((n) => n + 1)}
+                className="inline-flex min-h-11 items-center gap-1.5 rounded-full px-2 text-[12px] font-medium text-ds-text-3 ds-tap hover:text-ds-text-1 sm:min-h-8"
+              >
+                <ChevronsUpDown className="h-3.5 w-3.5" aria-hidden /> Expandir todo
+              </button>
+            </div>
+          )}
           <CorreoMessages
             messages={detail.messages}
             initialMessageId={initialMessageId}
+            unreadMessageIds={unreadIds}
+            expandAllNonce={expandAllNonce}
             alwaysShowImages={alwaysShowImages}
             onAlwaysShowImages={onAlwaysShowImages}
             threadId={t.id}

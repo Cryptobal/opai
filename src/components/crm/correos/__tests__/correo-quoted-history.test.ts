@@ -5,6 +5,7 @@ import {
   htmlContainsGmailQuote,
   quoteSendHeader,
   splitDraftBodyAndQuote,
+  splitMessageQuote,
 } from "../correo-quoted-history";
 
 describe("splitDraftBodyAndQuote", () => {
@@ -21,6 +22,75 @@ describe("splitDraftBodyAndQuote", () => {
     const { bodyHtml, quotedHtml } = splitDraftBodyAndQuote("<p>solo</p>");
     expect(bodyHtml).toBe("<p>solo</p>");
     expect(quotedHtml).toBeNull();
+  });
+});
+
+describe("splitMessageQuote", () => {
+  it("gmail: corta en el div gmail_quote", () => {
+    const html =
+      '<p>Respuesta</p><div class="gmail_quote"><p>El 3 de enero…</p></div>';
+    const { bodyHtml, quotedHtml } = splitMessageQuote(html);
+    expect(bodyHtml).toBe("<p>Respuesta</p>");
+    expect(quotedHtml).toContain("gmail_quote");
+  });
+
+  it("apple mail: corta en blockquote type=cite", () => {
+    const html = '<div>Nuevo</div><blockquote type="cite"><p>viejo</p></blockquote>';
+    const { bodyHtml, quotedHtml } = splitMessageQuote(html);
+    expect(bodyHtml).toBe("<div>Nuevo</div>");
+    expect(quotedHtml).toContain("viejo");
+  });
+
+  it("outlook: corta en divRplyFwdMsg / appendonsend", () => {
+    const outlook =
+      '<div>Texto nuevo</div><div id="appendonsend"></div><hr><div id="divRplyFwdMsg">De: x</div>';
+    expect(splitMessageQuote(outlook).bodyHtml).toBe("<div>Texto nuevo</div>");
+    const fwd = '<div>Hola</div><div id="divRplyFwdMsg">De: alguien</div>';
+    expect(splitMessageQuote(fwd).quotedHtml).toContain("divRplyFwdMsg");
+  });
+
+  it("yahoo y thunderbird tienen su marcador", () => {
+    expect(
+      splitMessageQuote('<p>a</p><div class="yahoo_quoted">viejo</div>').quotedHtml,
+    ).toContain("yahoo_quoted");
+    expect(
+      splitMessageQuote('<p>a</p><div class="moz-cite-prefix">El … escribió:</div>')
+        .quotedHtml,
+    ).toContain("moz-cite-prefix");
+  });
+
+  it("cabecera textual al inicio de bloque corta; en medio de un párrafo no", () => {
+    const header =
+      "<p>Listo, lo vemos.</p><div>El 3 de enero de 2026, Juan Pérez escribió:</div><div>anterior</div>";
+    const cut = splitMessageQuote(header);
+    expect(cut.bodyHtml).toBe("<p>Listo, lo vemos.</p>");
+    expect(cut.quotedHtml).toContain("anterior");
+
+    const inline = "<p>Ayer El gerente de la sucursal escribió: nada relevante.</p>";
+    expect(splitMessageQuote(inline).quotedHtml).toBeNull();
+  });
+
+  it("no corta si el cuerpo quedaría vacío (correo que es solo forward)", () => {
+    const onlyQuote = '<div class="gmail_quote"><p>todo el historial</p></div>';
+    const out = splitMessageQuote(onlyQuote);
+    expect(out.bodyHtml).toBe(onlyQuote);
+    expect(out.quotedHtml).toBeNull();
+
+    const blankBody = '<div>&nbsp;</div><div class="gmail_quote">h</div>';
+    expect(splitMessageQuote(blankBody).quotedHtml).toBeNull();
+  });
+
+  it("un cuerpo de solo imagen cuenta como contenido y sí recorta", () => {
+    const html = '<div><img src="https://x/y.png"></div><div class="gmail_quote">h</div>';
+    expect(splitMessageQuote(html).quotedHtml).toContain("gmail_quote");
+  });
+
+  it("sin marcador devuelve todo como cuerpo", () => {
+    expect(splitMessageQuote("<p>solo</p>")).toEqual({
+      bodyHtml: "<p>solo</p>",
+      quotedHtml: null,
+    });
+    expect(splitMessageQuote(null)).toEqual({ bodyHtml: null, quotedHtml: null });
   });
 });
 

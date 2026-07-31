@@ -59,7 +59,12 @@ export function foldThread(
   const expanded = new Set<number>([n - 1]);
 
   messages.forEach((m, i) => {
-    if (m.isDraft) alwaysVisible.add(i);
+    // Los borradores abren expandidos: sus acciones (Continuar / Descartar)
+    // viven dentro del mensaje abierto.
+    if (m.isDraft) {
+      alwaysVisible.add(i);
+      expanded.add(i);
+    }
     if (unread.has(m.id)) {
       alwaysVisible.add(i);
       expanded.add(i);

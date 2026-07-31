@@ -29,6 +29,67 @@ export function splitDraftBodyAndQuote(html: string | null | undefined): {
   return { bodyHtml, quotedHtml };
 }
 
+/**
+ * Marcadores de historial citado por proveedor. El corte se hace en el PRIMERO
+ * que aparezca en el HTML del mensaje.
+ */
+const QUOTE_MARKERS: RegExp[] = [
+  GMAIL_QUOTE_RE,
+  // Apple Mail / clientes que citan con blockquote semántico.
+  /<blockquote\b[^>]*\btype\s*=\s*["']cite["'][^>]*>/i,
+  // Outlook (web y escritorio): separador de respuesta / reenvío.
+  /<(?:div|hr)\b[^>]*\bid\s*=\s*["'](?:divRplyFwdMsg|appendonsend)["'][^>]*>/i,
+  /<div\b[^>]*\bclass=["'][^"']*\byahoo_quoted\b[^"']*["'][^>]*>/i,
+  /<div\b[^>]*\bclass=["'][^"']*\bmoz-cite-prefix\b[^"']*["'][^>]*>/i,
+];
+
+/**
+ * Cabecera textual de cita ("El 3 de enero…, Juan escribió:" / "On …, wrote:").
+ * Solo cuenta al inicio de un bloque: una mención en medio de un párrafo no
+ * debe recortar el correo.
+ */
+const TEXT_QUOTE_HEADER_RE =
+  /(?:^|<(?:div|p|blockquote|td|span)\b[^>]*>|<br\s*\/?>)\s*(?:El|On)\s[^<>]{5,240}?\s(?:escribi[oó]|wrote)\s*:/i;
+
+/** true si el HTML conserva contenido útil (texto, imagen o tabla). */
+function hasVisibleContent(html: string): boolean {
+  if (/<(?:img|table)\b/i.test(html)) return true;
+  return Boolean(
+    html
+      .replace(/<[^>]+>/g, " ")
+      .replace(/&nbsp;/gi, " ")
+      .replace(/\s+/g, " ")
+      .trim(),
+  );
+}
+
+/**
+ * Separa el cuerpo del mensaje de su historial citado embebido (lector).
+ * Corta en el primer marcador encontrado; si el corte dejaría el cuerpo vacío
+ * (p. ej. un reenvío que es solo historial) devuelve el HTML intacto.
+ */
+export function splitMessageQuote(html: string | null | undefined): {
+  bodyHtml: string | null;
+  quotedHtml: string | null;
+} {
+  if (!html?.trim()) return { bodyHtml: html ?? null, quotedHtml: null };
+
+  let cut = -1;
+  for (const re of [...QUOTE_MARKERS, TEXT_QUOTE_HEADER_RE]) {
+    const match = re.exec(html);
+    if (!match || match.index == null) continue;
+    if (cut === -1 || match.index < cut) cut = match.index;
+  }
+  if (cut <= 0) return { bodyHtml: html, quotedHtml: null };
+
+  const bodyHtml = html.slice(0, cut).trim();
+  const quotedHtml = html.slice(cut).trim();
+  if (!bodyHtml || !quotedHtml || !hasVisibleContent(bodyHtml)) {
+    return { bodyHtml: html, quotedHtml: null };
+  }
+  return { bodyHtml, quotedHtml };
+}
+
 export type QuotedMessageSource = {
   fromEmail: string;
   sentAt: string | null;

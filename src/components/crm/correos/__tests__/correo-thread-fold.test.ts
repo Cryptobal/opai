@@ -54,12 +54,12 @@ describe("foldThread", () => {
     expect(fold.expanded).toEqual([4, 7, 9]);
   });
 
-  it("borradores nunca se agrupan (aunque no abran expandidos)", () => {
+  it("borradores nunca se agrupan y abren expandidos (Continuar/Descartar)", () => {
     const fold = foldThread(chain(8, { 3: { isDraft: true } }));
     expect(fold.visible).toContain(3);
     expect(fold.hidden).not.toContain(3);
     expect(fold.hiddenCount).toBe(4);
-    expect(fold.expanded).toEqual([7]);
+    expect(fold.expanded).toEqual([3, 7]);
   });
 
   it("deep-link dentro del grupo lo saca del contador y lo expande", () => {
