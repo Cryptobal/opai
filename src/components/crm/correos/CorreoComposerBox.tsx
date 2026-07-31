@@ -164,6 +164,8 @@ export function CorreoComposerBox(props: Props) {
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key !== "Escape") return;
+      // Settings (portal z-80) maneja su propio Escape; no cerrar el composer.
+      if (document.querySelector("[data-correo-settings-modal]")) return;
       if (moreOpen) {
         e.preventDefault();
         e.stopPropagation();
