@@ -43,6 +43,7 @@ import {
   SelectedInstallationProvider,
   useSelectedInstallation,
 } from "@/contexts/selected-installation-context";
+import { NativePushRegistrar } from "@/lib/capacitor/NativePushRegistrar";
 
 const HEADER_LOGO_FALLBACK = "/tenants/gard/logo-blanco.svg";
 
@@ -367,6 +368,7 @@ function PortalClienteShell() {
               "x-account-id": session.accountId,
             }}
           />
+          <NativePushRegistrar userId={session.contactId} userType="cliente" />
           {renderSection()}
         </main>
       )}

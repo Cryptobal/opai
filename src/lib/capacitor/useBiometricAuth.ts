@@ -13,7 +13,7 @@ export function useBiometricAuth() {
     }
 
     try {
-      const { NativeBiometric } = await import("capacitor-native-biometric");
+      const { NativeBiometric } = await import("@capgo/capacitor-native-biometric");
       const result = await NativeBiometric.isAvailable();
       setAvailable(result.isAvailable);
       return result.isAvailable;
@@ -27,7 +27,7 @@ export function useBiometricAuth() {
     if (!Capacitor.isNativePlatform()) return false;
 
     try {
-      const { NativeBiometric } = await import("capacitor-native-biometric");
+      const { NativeBiometric } = await import("@capgo/capacitor-native-biometric");
       await NativeBiometric.verifyIdentity({ reason });
       return true;
     } catch {

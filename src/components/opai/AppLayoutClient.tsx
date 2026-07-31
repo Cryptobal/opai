@@ -23,6 +23,12 @@ const PushPermissionPrompt = dynamic(
   { ssr: false },
 );
 
+const NativePushRegistrar = dynamic(
+  () =>
+    import('@/lib/capacitor/NativePushRegistrar').then((m) => m.NativePushRegistrar),
+  { ssr: false },
+);
+
 interface AppLayoutClientProps {
   children: ReactNode;
   userName?: string;
@@ -179,6 +185,9 @@ function AppLayoutClientInner({
             tenantId={tenantId}
           />
         )}
+        {idleReady && currentUserId ? (
+          <NativePushRegistrar userId={currentUserId} userType="admin" />
+        ) : null}
         <LandingSurfacePrompt />
         {children}
       </AppShell>

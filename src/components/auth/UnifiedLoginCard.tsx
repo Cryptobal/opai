@@ -34,6 +34,7 @@ import { AuthTextInput } from "@/components/auth/AuthTextInput";
 import { AuthPinInput } from "@/components/auth/AuthPinInput";
 import { AuthButton } from "@/components/auth/AuthButton";
 import { IdCardIcon, MailIcon } from "@/components/auth/icons";
+import { usePlatform } from "@/lib/capacitor/usePlatform";
 import {
   type GuardSession,
   formatRut,
@@ -166,6 +167,9 @@ export function UnifiedLoginCard({
 }: UnifiedLoginCardProps) {
   const cfg = MODE_CONFIG[mode];
   const router = useRouter();
+  const { isIOS, isNative } = usePlatform();
+  // App Store guideline 4.8: hide Google on iOS native (no Sign in with Apple yet).
+  const showGoogle = cfg.showGoogle && !(isIOS && isNative);
 
   /* Guardia state */
   const [rut, setRut] = useState("");
@@ -311,8 +315,8 @@ export function UnifiedLoginCard({
     >
       <AuthFormHeader title={cfg.headerTitle} subtitle={cfg.headerSubtitle} />
 
-      {/* Google Sign-In */}
-      {cfg.showGoogle ? (
+      {/* Google Sign-In — hidden on iOS native (App Store 4.8) */}
+      {showGoogle ? (
         <button
           type="button"
           onClick={() => {
@@ -359,7 +363,7 @@ export function UnifiedLoginCard({
       ) : null}
 
       {/* Separator — only when there's both Google AND a form */}
-      {cfg.showGoogle && (cfg.showRutPin || cfg.showEmailPin) ? (
+      {showGoogle && (cfg.showRutPin || cfg.showEmailPin) ? (
         <div className="relative my-6">
           <div className="absolute inset-0 flex items-center" aria-hidden>
             <span className="w-full border-t border-white/[0.08]" />
