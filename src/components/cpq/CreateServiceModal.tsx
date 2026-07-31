@@ -46,9 +46,16 @@ interface Props {
   quoteId: string;
   onCreated: () => void;
   disabled?: boolean;
+  /** `inline` = CTA full-width dashed dentro de Puestos (móvil). */
+  triggerVariant?: "default" | "inline";
 }
 
-export function CreateServiceModal({ quoteId, onCreated, disabled }: Props) {
+export function CreateServiceModal({
+  quoteId,
+  onCreated,
+  disabled,
+  triggerVariant = "default",
+}: Props) {
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<1 | 2>(1);
   const [pattern, setPattern] = useState<CpqCoveragePattern>("24-7");
@@ -145,10 +152,22 @@ export function CreateServiceModal({ quoteId, onCreated, disabled }: Props) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button size="sm" className="gap-2" disabled={disabled}>
-          <Plus className="h-4 w-4" />
-          <span>Agregar Servicio</span>
-        </Button>
+        {triggerVariant === "inline" ? (
+          <Button
+            type="button"
+            variant="ghost"
+            disabled={disabled}
+            className="h-11 w-full gap-2 rounded-lg border-[1.5px] border-dashed border-primary/50 bg-primary/10 text-sm font-semibold text-primary hover:bg-primary/15 hover:text-primary"
+          >
+            <Plus className="h-4 w-4" />
+            <span>Agregar servicio</span>
+          </Button>
+        ) : (
+          <Button size="sm" className="gap-2" disabled={disabled}>
+            <Plus className="h-4 w-4" />
+            <span>Agregar Servicio</span>
+          </Button>
+        )}
       </DialogTrigger>
       <DialogContent className="max-w-xl">
         <DialogHeader>
