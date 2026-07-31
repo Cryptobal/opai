@@ -457,13 +457,12 @@ export function CorreoComposerBox(props: Props) {
     const fsStyle = {
       top: vv.top,
       height: vv.height || "100dvh",
-      // Con teclado el VV ya excluye el notch inferior; sin teclado respetamos
-      // safe-area vía padding del header/scroll.
     } as const;
-    const headerPadTop =
-      vv.keyboardInset > 0
-        ? "0.5rem"
-        : "calc(env(safe-area-inset-top, 0px) + 0.5rem)";
+    // El safe-area superior solo se descuenta en la medida en que el visual
+    // viewport ya bajó (vv.top). En iOS con teclado normalmente sigue en 0: el
+    // ternario anterior borraba el notch justo cuando el teclado estaba
+    // abierto y la topbar (Enviar) quedaba bajo la status bar.
+    const headerPadTop = `calc(max(env(safe-area-inset-top, 0px) - ${vv.top}px, 0px) + 0.5rem)`;
 
     return createPortal(
       <div

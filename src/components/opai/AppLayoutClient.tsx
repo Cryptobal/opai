@@ -29,6 +29,12 @@ const NativePushRegistrar = dynamic(
   { ssr: false },
 );
 
+const NativeKeyboardSetup = dynamic(
+  () =>
+    import('@/lib/capacitor/NativeKeyboardSetup').then((m) => m.NativeKeyboardSetup),
+  { ssr: false },
+);
+
 interface AppLayoutClientProps {
   children: ReactNode;
   userName?: string;
@@ -188,6 +194,8 @@ function AppLayoutClientInner({
         {idleReady && currentUserId ? (
           <NativePushRegistrar userId={currentUserId} userType="admin" />
         ) : null}
+        {/* iOS nativo: barra accesoria del teclado oculta en toda la app. */}
+        <NativeKeyboardSetup />
         <LandingSurfacePrompt />
         {children}
       </AppShell>
