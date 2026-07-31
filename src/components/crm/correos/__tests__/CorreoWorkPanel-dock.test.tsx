@@ -1,6 +1,11 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, cleanup } from "@testing-library/react";
-import { CORREO_COPILOT_DOCK_WIDTH_VAR } from "../correo-copilot-dock";
+import {
+  CORREO_COPILOT_DOCK_WIDTH_VAR,
+  DOCK_CLAIM_PLAN,
+  claimDockWidth,
+  resetDockWidthClaims,
+} from "../correo-copilot-dock";
 import { CorreoWorkPanel } from "../CorreoWorkPanel";
 import type { CorreoDetail } from "@/modules/crm/email/correos.types";
 
@@ -50,7 +55,7 @@ const detail = {
 
 describe("CorreoWorkPanel dock", () => {
   beforeEach(() => {
-    document.documentElement.style.removeProperty(CORREO_COPILOT_DOCK_WIDTH_VAR);
+    resetDockWidthClaims();
     Object.defineProperty(window, "matchMedia", {
       writable: true,
       value: (query: string) => ({
@@ -67,7 +72,7 @@ describe("CorreoWorkPanel dock", () => {
 
   afterEach(() => {
     cleanup();
-    document.documentElement.style.removeProperty(CORREO_COPILOT_DOCK_WIDTH_VAR);
+    resetDockWidthClaims();
   });
 
   it("abre como dock no-modal sin scrim desktop y reserva ancho", () => {
@@ -90,5 +95,31 @@ describe("CorreoWorkPanel dock", () => {
     expect(
       document.documentElement.style.getPropertyValue(CORREO_COPILOT_DOCK_WIDTH_VAR),
     ).toBe("430px");
+  });
+
+  it("cede el carril al Plan: un claim posterior gana y al soltarlo vuelve el Copiloto", () => {
+    const { unmount } = render(
+      <CorreoWorkPanel
+        open
+        initialTab="contexto"
+        detail={detail}
+        onClose={vi.fn()}
+        onOpenAiLead={vi.fn()}
+        onAssociate={vi.fn()}
+        onRefresh={vi.fn()}
+      />,
+    );
+
+    // El Plan reclama después → gana su ancho aunque Copiloto siga montado.
+    claimDockWidth(DOCK_CLAIM_PLAN, 520);
+    expect(
+      document.documentElement.style.getPropertyValue(CORREO_COPILOT_DOCK_WIDTH_VAR),
+    ).toBe("520px");
+
+    // Al cerrarse el Copiloto su release NO borra la var reclamada por el Plan.
+    unmount();
+    expect(
+      document.documentElement.style.getPropertyValue(CORREO_COPILOT_DOCK_WIDTH_VAR),
+    ).toBe("520px");
   });
 });

@@ -91,7 +91,10 @@ import {
   CorreoAiActionPanel,
   type AiPanelCommand,
 } from "./CorreoAiActionPanel";
-import { CORREO_COPILOT_DOCK_WIDTH_VAR } from "./correo-copilot-dock";
+import {
+  CORREO_COPILOT_DOCK_WIDTH_VAR,
+  resetDockWidthClaims,
+} from "./correo-copilot-dock";
 import { useCorreoWorkspaceLayout } from "./useCorreoWorkspaceLayout";
 import type { CorreoAiCommandId } from "@/modules/crm/email/correo-ai-commands";
 import { getCorreoAiCommand } from "@/modules/crm/email/correo-ai-commands";
@@ -240,12 +243,18 @@ export function CorreosClient() {
   const [ctxMenu, setCtxMenu] = useState<{ thread: CorreoThreadDTO; x: number; y: number } | null>(null);
   /** Menú ✦ Copiloto (hover de fila) — distinto del contextual completo. */
   const [aiMenu, setAiMenu] = useState<{ thread: CorreoThreadDTO; x: number; y: number } | null>(null);
+  /** Pestaña abierta del Copiloto reportada por el Drawer (null = cerrado). */
+  const [copilotTab, setCopilotTab] = useState<WorkTab | null>(null);
+  const copilotTabRef = useRef<WorkTab | null>(null);
+  copilotTabRef.current = copilotTab;
   const [aiPanel, setAiPanel] = useState<{
     threadId: string;
     command: AiPanelCommand;
     hasAccount: boolean;
     dealId: string | null;
     focusEntity?: CorreoCascadeAiTarget;
+    /** Pestaña del Copiloto que el Plan desplazó — se reabre al cerrar. */
+    restoreCopilotTab: WorkTab | null;
   } | null>(null);
   /** Edits del plan abierto — para confirmar al cambiar de hilo vía Copiloto. */
   const [aiPanelDirty, setAiPanelDirty] = useState(false);
@@ -294,7 +303,9 @@ export function CorreosClient() {
     onResizeKeyDown,
   } = useCorreosViewPreferences(workspaceRef);
 
-  const dockOpen = aiPanel !== null || workTabIntent !== null;
+  // Exclusión mutua: nunca hay Copiloto y Plan a la vez, así que el carril
+  // reservado es el del dock activo (no la suma de ambos).
+  const dockOpen = aiPanel !== null || copilotTab !== null;
   const layout = useCorreoWorkspaceLayout({
     containerRef: workspaceRef,
     railCollapsed,
@@ -315,8 +326,10 @@ export function CorreosClient() {
     setAiPanelDirty(false);
     setWorkTabIntent(null);
     setWorkPanelCloseNonce((n) => n + 1);
+    // Libera el carril en el mismo frame: los cleanups de los docks corren
+    // después del re-render y la bandeja parpadearía con el ancho viejo.
     try {
-      document.documentElement.style.removeProperty(CORREO_COPILOT_DOCK_WIDTH_VAR);
+      resetDockWidthClaims();
     } catch { /* ignore */ }
   }
 
@@ -1376,13 +1389,17 @@ export function CorreosClient() {
     if (!aiPanel || aiPanel.threadId !== t.id) {
       setAiPanelDirty(false);
     }
-    setAiPanel({
+    // Un solo dock: el Plan reemplaza al Copiloto (mismo carril derecho).
+    const displacedTab = copilotTabRef.current;
+    if (displacedTab) setWorkPanelCloseNonce((n) => n + 1);
+    setAiPanel((prev) => ({
       threadId: t.id,
       command,
       hasAccount: Boolean(t.accountId),
       dealId: t.dealId,
       focusEntity,
-    });
+      restoreCopilotTab: displacedTab ?? prev?.restoreCopilotTab ?? null,
+    }));
   }
 
   function handleAiCommand(commandId: CorreoAiCommandId, t: CorreoThreadDTO) {
@@ -1825,8 +1842,13 @@ export function CorreosClient() {
           threadLabel={aiPanelThreadLabel}
           onDirtyChange={setAiPanelDirty}
           onClose={() => {
+            const restore = aiPanel.restoreCopilotTab;
             setAiPanel(null);
             setAiPanelDirty(false);
+            // Devolver el carril al Copiloto solo si estaba abierto al abrir el Plan.
+            if (restore) {
+              setWorkTabIntent({ tab: restore, nonce: nextIntentNonce() });
+            }
           }}
           onCreated={refreshOpenThread}
         />
@@ -2180,6 +2202,7 @@ export function CorreosClient() {
           snoozeConfig={snoozeConfig}
           onOpenSnoozeSettings={() => openSettings("snooze")}
           workPanelCloseNonce={workPanelCloseNonce}
+          onWorkPanelTabChange={setCopilotTab}
           onClose={closeThread}
           onRemove={removeThreadAndAdvance}
           onRemoveDone={softRefresh}

@@ -49,7 +49,11 @@ import { PlanTaskForm } from "./plan/forms/PlanTaskForm";
 import { PlanQuoteForm } from "./plan/forms/PlanQuoteForm";
 import { PlanMilestonesForm } from "./plan/forms/PlanMilestonesForm";
 import { PlanPresets } from "./plan/PlanPresets";
-import { CORREO_COPILOT_DOCK_WIDTH_VAR } from "./correo-copilot-dock";
+import {
+  DOCK_CLAIM_PLAN,
+  claimDockWidth,
+  releaseDockWidth,
+} from "./correo-copilot-dock";
 
 const PLAN_SHEET_WIDTH_KEY = "opai-plan-acciones-width";
 const PLAN_SHEET_DEFAULT = 452;
@@ -393,25 +397,21 @@ export function CorreoAiActionPanel({
   // Dock desktop: reserva espacio en el layout (sin scrim, sin bloquear la bandeja).
   useLayoutEffect(() => {
     if (typeof document === "undefined") return;
-    const root = document.documentElement;
     if (!open) {
-      root.style.removeProperty(CORREO_COPILOT_DOCK_WIDTH_VAR);
+      releaseDockWidth(DOCK_CLAIM_PLAN);
       return;
     }
     const apply = () => {
       const desktop = window.matchMedia("(min-width: 1024px)").matches;
-      if (desktop) {
-        root.style.setProperty(CORREO_COPILOT_DOCK_WIDTH_VAR, `${sheetWidth}px`);
-      } else {
-        root.style.removeProperty(CORREO_COPILOT_DOCK_WIDTH_VAR);
-      }
+      if (desktop) claimDockWidth(DOCK_CLAIM_PLAN, sheetWidth);
+      else releaseDockWidth(DOCK_CLAIM_PLAN);
     };
     apply();
     const mq = window.matchMedia("(min-width: 1024px)");
     mq.addEventListener("change", apply);
     return () => {
       mq.removeEventListener("change", apply);
-      root.style.removeProperty(CORREO_COPILOT_DOCK_WIDTH_VAR);
+      releaseDockWidth(DOCK_CLAIM_PLAN);
     };
   }, [open, sheetWidth]);
 

@@ -12,8 +12,10 @@ import { CorreoMeetingPanel } from "./CorreoMeetingPanel";
 import { CorreoWorkSummary } from "./CorreoWorkSummary";
 import { CorreoAttachments } from "./CorreoAttachments";
 import {
-  CORREO_COPILOT_DOCK_WIDTH_VAR,
   CORREO_DOCK_WIDTH,
+  DOCK_CLAIM_COPILOT,
+  claimDockWidth,
+  releaseDockWidth,
 } from "./correo-copilot-dock";
 import { WORK_TABS, resolveWorkTab, type WorkTab } from "./work-panel-tabs";
 import type { CorreoDetail } from "@/modules/crm/email/correos.types";
@@ -79,28 +81,24 @@ export function CorreoWorkPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [workTabIntent?.nonce, open]);
 
-  // Dock desktop: reserva espacio en el layout (misma var que Plan de acciones).
+  // Dock desktop: reserva espacio en el layout (mismo carril que Plan de acciones).
   useLayoutEffect(() => {
     if (typeof document === "undefined") return;
-    const root = document.documentElement;
     if (!open) {
-      root.style.removeProperty(CORREO_COPILOT_DOCK_WIDTH_VAR);
+      releaseDockWidth(DOCK_CLAIM_COPILOT);
       return;
     }
     const apply = () => {
       const desktop = window.matchMedia("(min-width: 1024px)").matches;
-      if (desktop) {
-        root.style.setProperty(CORREO_COPILOT_DOCK_WIDTH_VAR, `${CORREO_DOCK_WIDTH}px`);
-      } else {
-        root.style.removeProperty(CORREO_COPILOT_DOCK_WIDTH_VAR);
-      }
+      if (desktop) claimDockWidth(DOCK_CLAIM_COPILOT, CORREO_DOCK_WIDTH);
+      else releaseDockWidth(DOCK_CLAIM_COPILOT);
     };
     apply();
     const mq = window.matchMedia("(min-width: 1024px)");
     mq.addEventListener("change", apply);
     return () => {
       mq.removeEventListener("change", apply);
-      root.style.removeProperty(CORREO_COPILOT_DOCK_WIDTH_VAR);
+      releaseDockWidth(DOCK_CLAIM_COPILOT);
     };
   }, [open]);
 

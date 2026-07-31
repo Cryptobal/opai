@@ -80,6 +80,9 @@ type Props = {
   onOpenSignature?: () => void;
   /** Incrementar para forzar cierre del dock Copiloto (mini-lista → expandir). */
   workPanelCloseNonce?: number;
+  /** Pestaña activa del Copiloto (null = cerrado) — CorreosClient la usa para
+   *  reservar el carril del dock y para reabrirlo al cerrar el Plan. */
+  onWorkPanelTabChange?: (tab: WorkTab | null) => void;
 };
 
 export function CorreoDrawer({
@@ -115,6 +118,7 @@ export function CorreoDrawer({
   onOpenAiStyle,
   onOpenSignature,
   workPanelCloseNonce = 0,
+  onWorkPanelTabChange,
 }: Props) {
   const perms = useEffectivePermissions();
   const canEditCorreos = canEdit(perms, "crm", "correos");
@@ -185,6 +189,17 @@ export function CorreoDrawer({
   useEffect(() => {
     if (workPanelCloseNonce > 0) setWorkPanelTab(null);
   }, [workPanelCloseNonce]);
+
+  // Un solo dock a la derecha: CorreosClient necesita saber si Copiloto está
+  // abierto (y en qué pestaña) para cederle el carril al Plan y devolvérselo.
+  const workPanelTabChangeRef = useRef(onWorkPanelTabChange);
+  workPanelTabChangeRef.current = onWorkPanelTabChange;
+  useEffect(() => {
+    workPanelTabChangeRef.current?.(workPanelTab);
+  }, [workPanelTab]);
+  useEffect(() => {
+    return () => workPanelTabChangeRef.current?.(null);
+  }, []);
 
   // Cache del detalle para que Copiloto no parpadee al cambiar de hilo.
   useEffect(() => {
