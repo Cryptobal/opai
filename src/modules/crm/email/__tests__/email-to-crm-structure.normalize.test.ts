@@ -370,6 +370,26 @@ describe("normalizeCrmStructureProposal", () => {
     expect(proposal.installations[0].coverageSlots[0].etapa).toBeNull();
     expect(proposal.installations[0].coverageSlots[0].vigenciaDesde).toBeNull();
   });
+
+  it("puesto sin nombre no se descarta: recibe nombre por defecto", () => {
+    const proposal = normalizeCrmStructureProposal({
+      account: { name: "ACME" },
+      installations: [
+        {
+          name: "Planta",
+          coverageSlots: [
+            { name: "Portería", dias: ["lunes"], horaInicio: "08:00", horaFin: "18:00" },
+            // Puesto agregado a mano en el Plan y luego vaciado por el usuario:
+            // antes desaparecía en el coerce de un refine.
+            { name: "", dias: ["lunes"], horaInicio: "08:00", horaFin: "18:00" },
+            { dias: ["lunes"], horaInicio: "08:00", horaFin: "18:00" },
+          ],
+        },
+      ],
+    });
+    const names = proposal.installations[0].coverageSlots.map((s) => s.name);
+    expect(names).toEqual(["Portería", "Puesto 2", "Puesto 3"]);
+  });
 });
 
 describe("milestonesFromLicitacion", () => {

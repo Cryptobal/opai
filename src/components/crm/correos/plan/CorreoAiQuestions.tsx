@@ -4,6 +4,7 @@ import { useState } from "react";
 import { MessageSquareText, SendHorizonal } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import type { CrmStructureRefineAnswer } from "@/modules/crm/email/email-to-crm-structure.types";
+import { PlanCollapsibleSection } from "./PlanCollapsibleSection";
 
 type Props = {
   questions: string[];
@@ -28,12 +29,14 @@ export function CorreoAiQuestions({ questions, remainingRefines, onAnswer }: Pro
   }
 
   return (
-    <section className="rounded-xl border border-ds-border-subtle bg-ds-surface-1 px-3 py-2.5">
-      <h3 className="mb-1.5 text-[12px] font-medium uppercase tracking-wide text-ds-text-3">
-        Preguntas para afinar
-      </h3>
+    <PlanCollapsibleSection
+      title="Preguntas para afinar"
+      count={questions.length}
+      tone="surface-1"
+      purpose={`Responder vuelve a analizar el correo con IA y actualiza el plan · quedan ${remainingRefines}`}
+    >
       {remainingRefines <= 0 && (
-        <p className="mb-2 text-[12px] text-status-warn-fg">
+        <p className="text-[12px] text-status-warn-fg">
           Límite de refinamientos alcanzado. Abre el asistente para continuar.
         </p>
       )}
@@ -72,10 +75,6 @@ export function CorreoAiQuestions({ questions, remainingRefines, onAnswer }: Pro
           </li>
         ))}
       </ul>
-      <p className="mt-2 text-right text-[12px] text-ds-text-4">
-        {remainingRefines} refinamiento{remainingRefines === 1 ? "" : "s"} restante
-        {remainingRefines === 1 ? "" : "s"}
-      </p>
-    </section>
+    </PlanCollapsibleSection>
   );
 }

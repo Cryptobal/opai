@@ -1,7 +1,12 @@
-import { describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { describe, expect, it, vi, afterEach } from "vitest";
+import { useState } from "react";
+import { render, screen, cleanup, fireEvent } from "@testing-library/react";
 import { CorreoAiCoverageTable } from "../../CorreoAiCoverageTable";
-import type { CrmStructureProposal } from "@/modules/crm/email/email-to-crm-structure.types";
+import { recalcProposalStaffing } from "../../plan/staffing-local";
+import type {
+  CrmStructureInstallation,
+  CrmStructureProposal,
+} from "@/modules/crm/email/email-to-crm-structure.types";
 import { emptyCrmStructureProposal } from "@/modules/crm/email/email-to-crm-structure.types";
 
 vi.mock("@/components/ui/simple-select", () => ({
@@ -39,6 +44,8 @@ const week = [
 ];
 
 describe("CorreoAiCoverageTable", () => {
+  afterEach(() => cleanup());
+
   it("agrupa por etapa, muestra peak y chips en draft multi-etapa", () => {
     const proposal = baseProposal({
       staffingTotals: {
@@ -174,5 +181,97 @@ describe("CorreoAiCoverageTable", () => {
     expect(screen.queryByText("Peak simultáneo")).toBeNull();
     expect(screen.queryByText("Timeline de etapas")).toBeNull();
     expect(screen.getByText("Portería")).toBeTruthy();
+  });
+
+  it("agregar puesto: fila persistente con nombre por defecto, foco y sin red", () => {
+    const fetchSpy = vi.fn();
+    vi.stubGlobal("fetch", fetchSpy);
+
+    let installations: CrmStructureInstallation[] = [];
+    const initial = baseProposal({
+      installations: [
+        {
+          name: "Planta",
+          address: null,
+          commune: null,
+          city: null,
+          mapsUrl: null,
+          coverageSlots: [],
+        },
+      ],
+    });
+
+    function Harness() {
+      const [p, setP] = useState<CrmStructureProposal>(initial);
+      return (
+        <CorreoAiCoverageTable
+          proposal={p}
+          onChange={(next, opts) => {
+            const patched = { ...p, installations: next };
+            // Igual que CorreoAiActionPanel: recálculo local, cero red.
+            const committed =
+              opts?.recalc === false ? patched : recalcProposalStaffing(patched);
+            installations = committed.installations;
+            setP(committed);
+          }}
+        />
+      );
+    }
+
+    render(<Harness />);
+    fireEvent.click(screen.getByText(/Puesto en General/));
+
+    // La fila sobrevive al commit (antes la borraba el recalc por red).
+    const nameInput = screen.getByLabelText("Nombre del puesto") as HTMLInputElement;
+    expect(nameInput.value).toBe("Puesto 1");
+    expect(document.activeElement).toBe(nameInput);
+    expect(installations[0].coverageSlots).toHaveLength(1);
+    // Dotación calculada en cliente: L-D 08–20 → 4x4, 2 personas.
+    expect(installations[0].coverageSlots[0].headcount).toBe(2);
+    expect(fetchSpy).not.toHaveBeenCalled();
+
+    // Tipear no remonta la fila: el input conserva el foco.
+    fireEvent.change(nameInput, { target: { value: "Portería norte" } });
+    const after = screen.getByLabelText("Nombre del puesto") as HTMLInputElement;
+    expect(after.value).toBe("Portería norte");
+    expect(document.activeElement).toBe(after);
+    expect(fetchSpy).not.toHaveBeenCalled();
+
+    vi.unstubAllGlobals();
+  });
+
+  it("segundo puesto en el grupo numera correlativo", () => {
+    const proposal = baseProposal({
+      installations: [
+        {
+          name: "Planta",
+          address: null,
+          commune: null,
+          city: null,
+          mapsUrl: null,
+          coverageSlots: [],
+        },
+      ],
+    });
+    const onChange = vi.fn();
+    const { rerender } = render(
+      <CorreoAiCoverageTable proposal={proposal} onChange={onChange} />,
+    );
+    fireEvent.click(screen.getByText(/Puesto en General/));
+    const first = onChange.mock.calls[0][0] as CrmStructureInstallation[];
+    expect(first[0].coverageSlots[0].name).toBe("Puesto 1");
+
+    rerender(
+      <CorreoAiCoverageTable
+        proposal={{ ...proposal, installations: first }}
+        onChange={onChange}
+      />,
+    );
+    fireEvent.click(screen.getByText(/Puesto en esta etapa/));
+    const second = onChange.mock.calls[1][0] as CrmStructureInstallation[];
+    expect(second[0].coverageSlots.map((s) => s.name)).toEqual([
+      "Puesto 1",
+      "Puesto 2",
+    ]);
   });
 });

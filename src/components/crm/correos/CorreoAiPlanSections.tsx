@@ -8,6 +8,7 @@ import type {
 import type { CrmStructureRefineAnswer } from "@/modules/crm/email/email-to-crm-structure.types";
 import { CorreoAiPlanCard, type PlanAction } from "./CorreoAiPlanCard";
 import { CorreoAiCoverageTable } from "./CorreoAiCoverageTable";
+import type { RegimenOption } from "./coverage/coverage-grouping";
 import { CorreoAiAssumptions } from "./plan/CorreoAiAssumptions";
 import { CorreoAiQuestions } from "./plan/CorreoAiQuestions";
 
@@ -31,10 +32,14 @@ type Props = {
   remainingRefines?: number;
   onAnswer?: (answer: CrmStructureRefineAnswer) => void;
   onAssumptionsChange?: (items: CrmStructureAssumption[]) => void;
-  onCoverageChange?: (installations: CrmStructureInstallation[]) => void;
-  onCoverageRecalc?: () => void;
-  onWeeklyHoursChange?: (hours: number) => void;
+  /** `recalc: false` = edición que no afecta dotación (ej. tipear el nombre). */
+  onCoverageChange?: (
+    installations: CrmStructureInstallation[],
+    opts?: { recalc?: boolean },
+  ) => void;
   onReservePctChange?: (pct: number) => void;
+  /** Roles de turno del tenant (catálogo CPQ); sin dato usa la lista estática. */
+  regimenOptions?: RegimenOption[];
   /** Legacy callbacks (backward compat with CorreoAiActionPanel older usage). */
   onRefineAssumption?: (assumption: string) => void;
   onRefineQuestion?: (question: string) => void;
@@ -77,9 +82,8 @@ export function CorreoAiPlanSections({
   onAnswer,
   onAssumptionsChange,
   onCoverageChange,
-  onCoverageRecalc,
-  onWeeklyHoursChange,
   onReservePctChange,
+  regimenOptions,
   onRefineAssumption,
   onRefineQuestion,
   onOpenRefine,
@@ -137,39 +141,34 @@ export function CorreoAiPlanSections({
         <h3 className="mb-2 text-[12px] font-medium uppercase tracking-wide text-ds-text-3">
           Cobertura y dotación
         </h3>
-        {(onWeeklyHoursChange || onReservePctChange) && (
-          <div className="mb-2 flex flex-wrap gap-3">
-            <label className="flex items-center gap-2 text-[13px] text-ds-text-2">
-              Jornada
-              <select
-                className="h-10 min-w-[4.5rem] rounded-lg border border-ds-border-default bg-ds-surface-1 px-2 sm:h-9"
-                value={proposal.weeklyHoursPerWorker}
-                onChange={(e) => onWeeklyHoursChange?.(Number(e.target.value))}
-              >
-                {[42, 44, 45].map((h) => (
-                  <option key={h} value={h}>
-                    {h}h
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="flex items-center gap-2 text-[13px] text-ds-text-2">
-              Reserva %
-              <input
-                type="number"
-                min={0}
-                max={100}
-                className="h-10 w-16 rounded-lg border border-ds-border-default bg-ds-surface-1 px-2 sm:h-9"
-                value={proposal.reservePct ?? 10}
-                onChange={(e) => onReservePctChange?.(Number(e.target.value) || 0)}
-              />
-            </label>
+        {onReservePctChange && (
+          <div className="mb-2 space-y-1.5">
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="text-[12px] text-ds-text-3">
+                Jornada legal 42 h/sem
+              </span>
+              <label className="flex items-center gap-2 text-[13px] text-ds-text-2">
+                Reserva %
+                <input
+                  type="number"
+                  min={0}
+                  max={100}
+                  className="h-10 w-16 rounded-lg border border-ds-border-default bg-ds-surface-1 px-2 sm:h-9"
+                  value={proposal.reservePct ?? 10}
+                  onChange={(e) => onReservePctChange(Number(e.target.value) || 0)}
+                />
+              </label>
+            </div>
+            <p className="text-[12px] text-ds-text-4">
+              Dotación adicional sugerida para vacaciones y licencias.
+              Informativo: no crea puestos ni afecta la cotización.
+            </p>
           </div>
         )}
         <CorreoAiCoverageTable
           proposal={proposal}
           onChange={onCoverageChange}
-          onRecalc={onCoverageRecalc}
+          regimenOptions={regimenOptions}
         />
       </section>
 

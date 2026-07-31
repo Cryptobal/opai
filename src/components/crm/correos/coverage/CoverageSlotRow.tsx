@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { Copy, Minus, Plus, Trash2 } from "lucide-react";
 import { Tag } from "@/components/opai-ds";
 import { SimpleSelect } from "@/components/ui/simple-select";
@@ -9,20 +10,18 @@ import type {
   CrmStructureCoverageSlot,
   CrmStructureInstallation,
 } from "@/modules/crm/email/email-to-crm-structure.types";
-import { isRondinRegimen } from "./coverage-grouping";
+import {
+  buildRegimenOptions,
+  isRondinRegimen,
+  type RegimenOption,
+} from "./coverage-grouping";
 
 const FESTIVO = "festivo";
 const DAY_SHORT: Record<string, string> = {
   lunes: "L", martes: "M", miercoles: "M", jueves: "J",
   viernes: "V", sabado: "S", domingo: "D",
 };
-const REGIMEN_OPTIONS = [
-  { value: "4x4", label: "4x4" },
-  { value: "7x7", label: "7x7" },
-  { value: "5x2", label: "5x2" },
-  { value: "24/7", label: "24/7" },
-  { value: "Rondín", label: "Rondín" },
-];
+const DEFAULT_REGIMEN_OPTIONS = buildRegimenOptions();
 const FIELD =
   "h-10 sm:h-9 rounded-lg border border-ds-border-default bg-ds-surface-1 px-2 text-[12px]";
 
@@ -43,15 +42,31 @@ export type CoverageSlotRowProps = {
   onBumpHeadcount: (delta: number) => void;
   onDuplicate: () => void;
   onRemove: () => void;
+  /** Fila recién agregada: foco + selección en el nombre. */
+  autoFocusName?: boolean;
+  onAutoFocusDone?: () => void;
+  /** Roles de turno del tenant (catálogo CPQ); sin dato usa la lista estática. */
+  regimenOptions?: RegimenOption[];
 };
 
 export function CoverageSlotRow({
   slot, instIdx, installations, editable,
   onUpdate, onMoveInstallation, onToggleDay,
   onBumpSim, onBumpHeadcount, onDuplicate, onRemove,
+  autoFocusName = false, onAutoFocusDone,
+  regimenOptions = DEFAULT_REGIMEN_OPTIONS,
 }: CoverageSlotRowProps) {
   const regimenValue = slot.regimen ?? "";
-  const regimenInList = REGIMEN_OPTIONS.some((o) => o.value === regimenValue);
+  const regimenInList = regimenOptions.some((o) => o.value === regimenValue);
+  const nameRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    if (!autoFocusName || !editable) return;
+    nameRef.current?.focus();
+    nameRef.current?.select();
+    onAutoFocusDone?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoFocusName, editable]);
 
   return (
     <div className="rounded-xl border border-ds-border-subtle bg-ds-surface-1 p-3 space-y-2">
@@ -59,9 +74,11 @@ export function CoverageSlotRow({
         <div className="min-w-0 flex-1 space-y-1">
           {editable ? (
             <input
+              ref={nameRef}
               value={slot.name}
               onChange={(e) => onUpdate("name", e.target.value, { recalc: false })}
               placeholder="Nombre del puesto"
+              aria-label="Nombre del puesto"
               className={`${FIELD} w-full font-medium text-ds-text-1`}
             />
           ) : (
@@ -122,7 +139,7 @@ export function CoverageSlotRow({
                 ...(regimenValue && !regimenInList
                   ? [{ value: regimenValue, label: regimenValue }]
                   : []),
-                ...REGIMEN_OPTIONS,
+                ...regimenOptions,
               ]}
             />
           ) : (

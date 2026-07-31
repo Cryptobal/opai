@@ -314,9 +314,14 @@ function normalizeTime(v: unknown, fallback: string): string {
   return `${String(h).padStart(2, "0")}:${String(min).padStart(2, "0")}`;
 }
 
-function enrichSlot(raw: Record<string, unknown>, weeklyHours: number): CrmStructureCoverageSlot | null {
-  const name = str(raw.name) ?? str(raw.nombre);
-  if (!name) return null;
+function enrichSlot(
+  raw: Record<string, unknown>,
+  weeklyHours: number,
+  index = 0,
+): CrmStructureCoverageSlot {
+  // Sin nombre NO se descarta: los puestos agregados a mano en el Plan nacen
+  // con nombre por defecto y deben sobrevivir al coerce de un refine posterior.
+  const name = str(raw.name) ?? str(raw.nombre) ?? `Puesto ${index + 1}`;
   const rawDias = Array.isArray(raw.dias) ? raw.dias.map(String) : [...WEEKDAYS_FULL];
   const dias = normalizeWeekdays(rawDias);
   // Preservar marcador de festivos (no forma parte del cálculo HH).
@@ -371,7 +376,11 @@ function enrichInstallation(raw: unknown, weeklyHours: number): CrmStructureInst
   if (!name) return null;
   const slotsRaw = Array.isArray(r.coverageSlots) ? r.coverageSlots : Array.isArray(r.puestos) ? r.puestos : [];
   const coverageSlots = slotsRaw
-    .map((s) => (s && typeof s === "object" ? enrichSlot(s as Record<string, unknown>, weeklyHours) : null))
+    .map((s, i) =>
+      s && typeof s === "object"
+        ? enrichSlot(s as Record<string, unknown>, weeklyHours, i)
+        : null,
+    )
     .filter((s): s is CrmStructureCoverageSlot => !!s);
   return {
     name,
@@ -452,7 +461,11 @@ export function normalizeCrmStructureProposal(raw: Record<string, unknown>): Crm
   // Fallback: una sola instalación genérica si la IA no desglosó sitios pero sí puestos planos.
   if (installations.length === 0 && Array.isArray(raw.coverageSlots)) {
     const slots = raw.coverageSlots
-      .map((s) => (s && typeof s === "object" ? enrichSlot(s as Record<string, unknown>, weeklyHours) : null))
+      .map((s, i) =>
+        s && typeof s === "object"
+          ? enrichSlot(s as Record<string, unknown>, weeklyHours, i)
+          : null,
+      )
       .filter((s): s is CrmStructureCoverageSlot => !!s);
     if (slots.length > 0) {
       installations.push({

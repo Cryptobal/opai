@@ -1,6 +1,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, cleanup } from "@testing-library/react";
-import { CORREO_COPILOT_DOCK_WIDTH_VAR } from "../correo-copilot-dock";
+import {
+  CORREO_COPILOT_DOCK_WIDTH_VAR,
+  resetDockWidthClaims,
+} from "../correo-copilot-dock";
 import { CorreoAiActionPanel } from "../CorreoAiActionPanel";
 
 vi.mock("../plan/usePlanDraft", () => ({
@@ -26,7 +29,8 @@ vi.mock("../plan/usePlanDraft", () => ({
     resetToAi: vi.fn(),
     loadDraft: vi.fn(async () => null),
     clearDraft: vi.fn(async () => {}),
-    recalcStaffing: vi.fn(async () => {}),
+    setInstallationsAndRecalc: vi.fn(),
+    setStaffingParam: vi.fn(),
   }),
 }));
 
@@ -52,7 +56,7 @@ vi.mock("@/components/chat/hooks/useSwipeGesture", () => ({
 
 describe("CorreoAiActionPanel dock", () => {
   beforeEach(() => {
-    document.documentElement.style.removeProperty(CORREO_COPILOT_DOCK_WIDTH_VAR);
+    resetDockWidthClaims();
     Object.defineProperty(window, "matchMedia", {
       writable: true,
       value: (query: string) => ({
@@ -69,7 +73,7 @@ describe("CorreoAiActionPanel dock", () => {
 
   afterEach(() => {
     cleanup();
-    document.documentElement.style.removeProperty(CORREO_COPILOT_DOCK_WIDTH_VAR);
+    resetDockWidthClaims();
   });
 
   it("abre como dock no-modal (sin aria-modal) y reserva ancho en desktop", () => {
@@ -89,5 +93,24 @@ describe("CorreoAiActionPanel dock", () => {
     expect(
       document.documentElement.style.getPropertyValue(CORREO_COPILOT_DOCK_WIDTH_VAR),
     ).toMatch(/px$/);
+  });
+
+  it("libera el carril al cerrarse (sin claims no queda ancho reservado)", () => {
+    const { unmount } = render(
+      <CorreoAiActionPanel
+        open
+        threadId="thread-1"
+        command="lead"
+        onClose={vi.fn()}
+      />,
+    );
+    expect(
+      document.documentElement.style.getPropertyValue(CORREO_COPILOT_DOCK_WIDTH_VAR),
+    ).toMatch(/px$/);
+
+    unmount();
+    expect(
+      document.documentElement.style.getPropertyValue(CORREO_COPILOT_DOCK_WIDTH_VAR),
+    ).toBe("");
   });
 });

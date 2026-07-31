@@ -2,11 +2,13 @@ import { describe, expect, it } from "vitest";
 import type { CrmStructureInstallation } from "@/modules/crm/email/email-to-crm-structure.types";
 import {
   GENERAL_ETAPA_KEY,
+  buildRegimenOptions,
   bulkSetVigencia,
   clientPeakFallback,
   duplicateSlotAt,
   groupSlotsByEtapa,
   isRondinRegimen,
+  nextSlotName,
 } from "../coverage-grouping";
 
 function slot(
@@ -101,5 +103,49 @@ describe("coverage-grouping", () => {
     expect(isRondinRegimen("Rondín")).toBe(true);
     expect(isRondinRegimen("rondas nocturnas")).toBe(true);
     expect(isRondinRegimen("24/7")).toBe(false);
+  });
+});
+
+describe("buildRegimenOptions", () => {
+  it("sin catálogo devuelve la lista estática + sintéticos", () => {
+    expect(buildRegimenOptions().map((o) => o.value)).toEqual([
+      "4x4",
+      "7x7",
+      "5x2",
+      "24/7",
+      "Rondín",
+    ]);
+    expect(buildRegimenOptions([]).map((o) => o.value)).toEqual([
+      "4x4",
+      "7x7",
+      "5x2",
+      "24/7",
+      "Rondín",
+    ]);
+  });
+
+  it("con catálogo CPQ usa los roles del tenant y agrega sintéticos al final", () => {
+    expect(
+      buildRegimenOptions(["4x4", "2x5", " 1x6 ", "4X4", ""]).map((o) => o.value),
+    ).toEqual(["4x4", "2x5", "1x6", "24/7", "Rondín"]);
+  });
+
+  it("no duplica un rol CPQ que ya se llama como un sintético", () => {
+    expect(buildRegimenOptions(["Rondín", "5x2"]).map((o) => o.value)).toEqual([
+      "Rondín",
+      "5x2",
+      "24/7",
+    ]);
+  });
+});
+
+describe("nextSlotName", () => {
+  it("numera correlativo ignorando nombres libres", () => {
+    expect(nextSlotName([])).toBe("Puesto 1");
+    expect(nextSlotName([{ name: "Portería" }])).toBe("Puesto 1");
+    expect(nextSlotName([{ name: "Puesto 1" }, { name: "Puesto 3" }])).toBe(
+      "Puesto 4",
+    );
+    expect(nextSlotName([{ name: "Rondín 2" }], "Rondín")).toBe("Rondín 3");
   });
 });

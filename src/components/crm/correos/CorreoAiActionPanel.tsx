@@ -49,7 +49,15 @@ import { PlanTaskForm } from "./plan/forms/PlanTaskForm";
 import { PlanQuoteForm } from "./plan/forms/PlanQuoteForm";
 import { PlanMilestonesForm } from "./plan/forms/PlanMilestonesForm";
 import { PlanPresets } from "./plan/PlanPresets";
-import { CORREO_COPILOT_DOCK_WIDTH_VAR } from "./correo-copilot-dock";
+import {
+  buildRegimenOptions,
+  type RegimenOption,
+} from "./coverage/coverage-grouping";
+import {
+  DOCK_CLAIM_PLAN,
+  claimDockWidth,
+  releaseDockWidth,
+} from "./correo-copilot-dock";
 
 const PLAN_SHEET_WIDTH_KEY = "opai-plan-acciones-width";
 const PLAN_SHEET_DEFAULT = 452;
@@ -354,7 +362,37 @@ export function CorreoAiActionPanel({
   const [delta, setDelta] = useState<StaffingDelta | null | undefined>(undefined);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [sheetWidth, setSheetWidth] = useState(PLAN_SHEET_DEFAULT);
+  const [regimenOptions, setRegimenOptions] = useState<RegimenOption[]>(() =>
+    buildRegimenOptions(),
+  );
   const keyboardOffset = useKeyboardOffset();
+
+  // Régimen del puesto = roles de turno reales del tenant. El endpoint exige
+  // permiso CPQ: ante 403 / error se degrada en silencio a la lista estática.
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch("/api/cpq/roles?active=true");
+        if (!res.ok) return;
+        const j = (await res.json()) as {
+          success?: boolean;
+          data?: Array<{ name?: string | null }>;
+        };
+        if (cancelled || !j.success || !Array.isArray(j.data)) return;
+        const names = j.data
+          .map((r) => (r?.name ?? "").trim())
+          .filter((n): n is string => n.length > 0);
+        if (names.length > 0) setRegimenOptions(buildRegimenOptions(names));
+      } catch {
+        // sin catálogo → opciones estáticas
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [open]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -393,25 +431,21 @@ export function CorreoAiActionPanel({
   // Dock desktop: reserva espacio en el layout (sin scrim, sin bloquear la bandeja).
   useLayoutEffect(() => {
     if (typeof document === "undefined") return;
-    const root = document.documentElement;
     if (!open) {
-      root.style.removeProperty(CORREO_COPILOT_DOCK_WIDTH_VAR);
+      releaseDockWidth(DOCK_CLAIM_PLAN);
       return;
     }
     const apply = () => {
       const desktop = window.matchMedia("(min-width: 1024px)").matches;
-      if (desktop) {
-        root.style.setProperty(CORREO_COPILOT_DOCK_WIDTH_VAR, `${sheetWidth}px`);
-      } else {
-        root.style.removeProperty(CORREO_COPILOT_DOCK_WIDTH_VAR);
-      }
+      if (desktop) claimDockWidth(DOCK_CLAIM_PLAN, sheetWidth);
+      else releaseDockWidth(DOCK_CLAIM_PLAN);
     };
     apply();
     const mq = window.matchMedia("(min-width: 1024px)");
     mq.addEventListener("change", apply);
     return () => {
       mq.removeEventListener("change", apply);
-      root.style.removeProperty(CORREO_COPILOT_DOCK_WIDTH_VAR);
+      releaseDockWidth(DOCK_CLAIM_PLAN);
     };
   }, [open, sheetWidth]);
 
@@ -983,27 +1017,13 @@ export function CorreoAiActionPanel({
                   void refineWithAnswers(next);
                 }}
                 onAssumptionsChange={draft.setAssumptions}
-                onCoverageChange={(inst) => {
-                  draft.setField("installations", inst);
-                  void draft.recalcStaffing({
-                    ...draft.proposal,
-                    installations: inst,
-                  });
+                onCoverageChange={(inst, opts) => {
+                  // Recálculo local determinista: sin fetch y sin perder filas.
+                  if (opts?.recalc === false) draft.setField("installations", inst);
+                  else draft.setInstallationsAndRecalc(inst);
                 }}
-                onWeeklyHoursChange={(h) => {
-                  draft.setField("weeklyHoursPerWorker", h);
-                  void draft.recalcStaffing({
-                    ...draft.proposal,
-                    weeklyHoursPerWorker: h,
-                  });
-                }}
-                onReservePctChange={(pct) => {
-                  draft.setField("reservePct", pct);
-                  void draft.recalcStaffing({
-                    ...draft.proposal,
-                    reservePct: pct,
-                  });
-                }}
+                onReservePctChange={(pct) => draft.setStaffingParam("reservePct", pct)}
+                regimenOptions={regimenOptions}
                 onRefineAssumption={(a) => openRefine(`Cambiar supuesto: ${a}`)}
                 onRefineQuestion={(q) => openRefine(q)}
                 onOpenRefine={() => openRefine("Ajuste al plan")}
