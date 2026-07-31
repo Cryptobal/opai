@@ -409,6 +409,21 @@ export function CorreoDrawer({
   // Intent externo (atajo/menú) gana; si no, el pedido local de la isla móvil.
   const effectiveComposeIntent = composeIntent ?? localComposeIntent;
 
+  const toggleStar = detailReady
+    ? () => {
+        const id = detail.thread.id;
+        const starred = Boolean(detail.thread.starredAt);
+        void runCorreoAction(
+          id,
+          starred ? "unstar" : "star",
+          starred ? "Quitado de destacados" : "Destacado",
+          refresh,
+          starred ? "star" : "unstar",
+          onUndoDone,
+        );
+      }
+    : undefined;
+
   // Acciones de hilo para la topbar móvil (misma semántica que la isla).
   const threadActions =
     detailReady && canModify
@@ -417,6 +432,7 @@ export function CorreoDrawer({
           const isUnread = detail.thread.isUnread;
           const archived = Boolean(detail.thread.archivedAt);
           const trashed = Boolean(detail.thread.trashedAt);
+          const starred = Boolean(detail.thread.starredAt);
           const removeAfter = (
             action: "archive" | "trash",
             okMsg: string,
@@ -450,6 +466,7 @@ export function CorreoDrawer({
             isUnread,
             archived,
             trashed,
+            starred,
             onArchive: () =>
               archived
                 ? restoreAfter("unarchive", "Restaurado a bandeja")
@@ -468,13 +485,14 @@ export function CorreoDrawer({
                 onUndoDone,
               );
             },
-            copilotPending: copilotoAttentionReasons(detail).length > 0,
-            // Móvil = mismo Copiloto que desktop (Contexto/Trabajo), no el sheet
-            // recortado de pendientes+IA que ocultaba cascada y acciones.
-            onOpenCopilot: () => setWorkPanelTab(resolveWorkTab("contexto")),
+            onToggleStar: () => toggleStar?.(),
+            onOpenTasks: () => setWorkPanelTab(resolveWorkTab("trabajo")),
           };
         })()
       : null;
+
+  const copilotPending =
+    detailReady && copilotoAttentionReasons(detail).length > 0;
 
   // Copiloto sigue abierto al cambiar de mail: actualiza al nuevo detalle y,
   // mientras carga, mantiene el anterior para no “desaparecer”.
@@ -487,7 +505,7 @@ export function CorreoDrawer({
   const workPanelSynced =
     workPanelDetail != null && workPanelDetail.thread.id === threadId;
 
-  return (
+  const shell = (
     <CorreoReaderShell
       open
       onClose={onClose}
@@ -511,6 +529,8 @@ export function CorreoDrawer({
                 threadId={detail.thread.id}
                 providerThreadId={detail.thread.providerThreadId}
                 onOpenSnooze={() => setSnoozeOpen(true)}
+                onOpenCopilot={() => setWorkPanelTab(resolveWorkTab("contexto"))}
+                copilotPending={copilotPending}
               />
             ) : undefined
           }
@@ -562,6 +582,8 @@ export function CorreoDrawer({
           onPrimaryActionChange={setPrimaryAction}
           onComposerOpenChange={setComposerOpen}
           readCursorAt={readCursorAt}
+          onToggleStar={toggleStar}
+          workProviderExternal
         />
       )}
       {/* Dock desktop: se porta a la fila superior del dock del shell. */}
@@ -575,7 +597,7 @@ export function CorreoDrawer({
       />
       {workPanelTab && workPanelDetail ? (
         <CorreoWorkProvider
-          key={workPanelDetail.thread.id}
+          key={`wp-${workPanelDetail.thread.id}`}
           threadId={workPanelDetail.thread.id}
           accountId={workPanelDetail.thread.accountId}
           revision={refreshToken}
@@ -598,4 +620,21 @@ export function CorreoDrawer({
       ) : null}
     </CorreoReaderShell>
   );
+
+  // WorkProvider envuelve shell cuando hay detalle: header (badge tareas) y
+  // contenido comparten la misma carga de tasks/links.
+  if (detailReady) {
+    return (
+      <CorreoWorkProvider
+        key={detail.thread.id}
+        threadId={detail.thread.id}
+        accountId={detail.thread.accountId}
+        revision={refreshToken}
+      >
+        {shell}
+      </CorreoWorkProvider>
+    );
+  }
+
+  return shell;
 }

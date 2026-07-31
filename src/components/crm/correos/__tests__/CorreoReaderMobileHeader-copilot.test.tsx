@@ -2,11 +2,28 @@ import { describe, it, expect, vi, afterEach } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { CorreoReaderMobileHeader } from "../CorreoReaderMobileHeader";
 
-describe("CorreoReaderMobileHeader — Copiloto", () => {
+vi.mock("../CorreoWorkContext", () => ({
+  useCorreoWorkOptional: () => ({
+    tasks: {
+      data: [
+        { id: "t1", title: "A", status: "open" },
+        { id: "t2", title: "B", status: "done" },
+      ],
+      loading: false,
+    },
+  }),
+}));
+
+vi.mock("../CorreoReaderScrollContext", () => ({
+  useCorreoReaderScroll: () => ({ scrolled: false }),
+}));
+
+describe("CorreoReaderMobileHeader — acciones", () => {
   afterEach(() => cleanup());
 
-  it("el botón ✨ dispara onOpenCopilot (abre WorkPanel en CorreoDrawer)", () => {
-    const onOpenCopilot = vi.fn();
+  it("muestra Destacar y Tareas con badge; dispara callbacks", () => {
+    const onToggleStar = vi.fn();
+    const onOpenTasks = vi.fn();
     render(
       <CorreoReaderMobileHeader
         subject="Propuesta"
@@ -15,16 +32,21 @@ describe("CorreoReaderMobileHeader — Copiloto", () => {
           isUnread: false,
           archived: false,
           trashed: false,
+          starred: false,
           onArchive: () => {},
           onTrash: () => {},
           onToggleRead: () => {},
-          copilotPending: true,
-          onOpenCopilot,
+          onToggleStar,
+          onOpenTasks,
         }}
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Copiloto" }));
-    expect(onOpenCopilot).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole("button", { name: "Destacar" }));
+    expect(onToggleStar).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(screen.getByRole("button", { name: "Tareas" }));
+    expect(onOpenTasks).toHaveBeenCalledTimes(1);
+    expect(screen.getByText("1")).toBeTruthy();
   });
 });

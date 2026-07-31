@@ -20,9 +20,8 @@ type Props = {
 };
 
 /**
- * Fila colapsada de la cadena (una línea, estilo Gmail): avatar de remitente,
- * quién, snippet, clip con contador y fecha corta. Tap = abrir el mensaje.
- * No monta el HTML del cuerpo.
+ * Fila colapsada de la cadena (una línea, estilo Gmail): avatar + nombre +
+ * snippet + fecha. Tap = abrir el mensaje. No monta el HTML del cuerpo.
  */
 export function CorreoMessageRow({ m, attachmentCount, unread = false, onOpen }: Props) {
   const isDraft = Boolean(m.isDraft);
@@ -39,27 +38,25 @@ export function CorreoMessageRow({ m, attachmentCount, unread = false, onOpen }:
       data-correo-draft={isDraft ? "true" : undefined}
       onClick={onOpen}
       aria-expanded={false}
-      className="flex min-h-[52px] w-full min-w-0 items-center gap-2.5 px-3 py-2 text-left ds-tap hover:bg-ds-surface-2"
+      className="flex h-11 min-h-11 w-full min-w-0 items-center gap-2 px-1 text-left ds-tap hover:bg-ds-surface-2 sm:px-2"
     >
       <CorreoSenderAvatar fromEmail={m.fromEmail} compact />
-      <span className="flex min-w-0 flex-1 flex-col">
-        <span className="flex min-w-0 items-center gap-1.5">
-          {isDraft ? (
-            <Tag variant="warn" size="sm">
-              Borrador
-            </Tag>
-          ) : null}
-          <span
-            className={`truncate text-[13px] ${
-              unread ? "font-semibold text-ds-text-1" : "font-medium text-ds-text-2"
-            }`}
-          >
-            {who}
-          </span>
-        </span>
-        <span className="truncate text-[12px] text-ds-text-4">{messageSnippet(m)}</span>
+      {isDraft ? (
+        <Tag variant="warn" size="sm">
+          Borrador
+        </Tag>
+      ) : null}
+      <span
+        className={`shrink-0 max-w-[28%] truncate text-[13px] ${
+          unread ? "font-semibold text-ds-text-1" : "font-medium text-ds-text-2"
+        }`}
+      >
+        {who}
       </span>
-      <span className="flex shrink-0 items-center gap-1.5 text-[12px] text-ds-text-4">
+      <span className="min-w-0 flex-1 truncate text-[12px] text-ds-text-4">
+        {messageSnippet(m)}
+      </span>
+      <span className="flex shrink-0 items-center gap-1 text-[12px] text-ds-text-4">
         {attachmentCount > 0 && (
           <span
             className="inline-flex items-center gap-0.5"

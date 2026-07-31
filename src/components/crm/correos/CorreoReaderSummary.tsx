@@ -20,10 +20,10 @@ type Props = {
 
 /**
  * Resumen del hilo dentro del lector, cache-first.
+ * Pill fina tipo Gmail — no caja grande destacada.
  *
  * Reglas de red (estrictas): mostrar, colapsar, "Ocultar" y "Ver resumen" NO
- * llaman al servidor — solo el chip sin caché y "Actualizar" hacen POST. Con
- * caché vigente la card se pinta directo desde el detalle.
+ * llaman al servidor — solo el chip sin caché y "Actualizar" hacen POST.
  */
 export function CorreoReaderSummary({ threadId, initialSummary, messageCount }: Props) {
   const [text, setText] = useState(initialSummary?.text ?? null);
@@ -31,7 +31,7 @@ export function CorreoReaderSummary({ threadId, initialSummary, messageCount }: 
   const [stale, setStale] = useState(Boolean(initialSummary?.stale));
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  /** Solo UI: ocultar/mostrar la card ya generada (cero llamadas). */
+  /** Solo UI: ocultar/mostrar el resumen ya generado (cero llamadas). */
   const [hidden, setHidden] = useState(false);
 
   useEffect(() => {
@@ -75,33 +75,32 @@ export function CorreoReaderSummary({ threadId, initialSummary, messageCount }: 
     }
   }
 
-  // Chip: sin resumen aún, oculto por el usuario, o error sin contenido.
+  // Pill: sin resumen aún, oculto por el usuario, o error sin contenido.
   if (!text || hidden) {
-    const label = hidden ? "Ver resumen" : "✦ Resumir este correo";
+    const label = hidden ? "Ver resumen" : "Resumir este correo";
     return (
-      <div className="my-3 flex flex-col items-center gap-1.5">
+      <div className="my-1 flex flex-col gap-1">
         <button
           type="button"
           disabled={loading}
           onClick={() => {
-            // Con caché vigente "Ver resumen" es 100% local: no llama a la API.
             if (hidden) {
               setHidden(false);
               return;
             }
             void requestSummary();
           }}
-          className="inline-flex min-h-11 items-center gap-1.5 rounded-full border border-tint-violet/40 bg-tint-violet/10 px-3.5 text-[13px] font-medium text-tint-violet-fg ds-tap disabled:opacity-50 sm:min-h-9"
+          className="inline-flex h-8 min-h-8 w-full items-center justify-center gap-1.5 rounded-full border border-ds-border-default bg-ds-surface-1 px-3 text-[12px] font-medium text-ds-text-2 ds-tap hover:bg-ds-surface-2 disabled:opacity-50"
         >
           {loading ? (
-            <Spinner className="h-4 w-4" />
+            <Spinner className="h-3.5 w-3.5" />
           ) : (
-            <Sparkles className="h-4 w-4" aria-hidden />
+            <Sparkles className="h-3.5 w-3.5 text-ds-text-3" aria-hidden />
           )}
           {loading ? "Generando resumen…" : label}
-          {!hidden && messageCount > 0 && (
-            <span className="text-[12px] font-normal text-ds-text-3">
-              · {messageCount} mensaje{messageCount === 1 ? "" : "s"}
+          {!hidden && messageCount > 1 && (
+            <span className="font-normal text-ds-text-4">
+              · {messageCount}
             </span>
           )}
         </button>
@@ -111,14 +110,14 @@ export function CorreoReaderSummary({ threadId, initialSummary, messageCount }: 
   }
 
   return (
-    <div className="my-3 space-y-2 rounded-2xl border border-tint-violet/30 bg-tint-violet/5 p-3">
+    <div className="my-1 space-y-1.5 rounded-xl border border-ds-border-subtle bg-ds-surface-1 px-2.5 py-2">
       <div className="flex flex-wrap items-center gap-1.5">
-        <Sparkles className="h-3.5 w-3.5 shrink-0 text-tint-violet-fg" aria-hidden />
-        <p className="text-[12px] font-medium text-ds-text-3">Resumen del hilo</p>
+        <Sparkles className="h-3.5 w-3.5 shrink-0 text-ds-text-3" aria-hidden />
+        <p className="text-[12px] font-medium text-ds-text-3">Resumen</p>
         <button
           type="button"
           onClick={() => setHidden(true)}
-          className="ml-auto inline-flex min-h-11 items-center gap-1 rounded-full px-2 text-[12px] font-medium text-ds-text-3 ds-tap hover:text-ds-text-1 sm:min-h-8"
+          className="ml-auto inline-flex h-8 min-h-8 items-center gap-1 rounded-full px-2 text-[12px] font-medium text-ds-text-3 ds-tap hover:text-ds-text-1"
         >
           <ChevronUp className="h-3.5 w-3.5" aria-hidden /> Ocultar
         </button>
@@ -139,7 +138,7 @@ export function CorreoReaderSummary({ threadId, initialSummary, messageCount }: 
           type="button"
           disabled={loading}
           onClick={() => void requestSummary()}
-          className={`ml-auto inline-flex min-h-11 items-center gap-1 rounded-full border px-2.5 text-[12px] font-medium ds-tap disabled:opacity-50 sm:min-h-8 ${
+          className={`ml-auto inline-flex h-8 min-h-8 items-center gap-1 rounded-full border px-2.5 text-[12px] font-medium ds-tap disabled:opacity-50 ${
             stale
               ? "border-status-warn-border bg-status-warn-soft text-status-warn-fg"
               : "border-ds-border-default bg-ds-surface-1 text-ds-text-2"
