@@ -491,8 +491,9 @@ export function CorreoDrawer({
         })()
       : null;
 
-  const copilotPending =
-    detailReady && copilotoAttentionReasons(detail).length > 0;
+  const copilotPending = Boolean(
+    detailReady && copilotoAttentionReasons(detail).length > 0,
+  );
 
   // Copiloto sigue abierto al cambiar de mail: actualiza al nuevo detalle y,
   // mientras carga, mantiene el anterior para no “desaparecer”.
