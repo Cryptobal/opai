@@ -44,9 +44,37 @@ describe("historial del lector de correos", () => {
     expect(window.location.search).toBe("");
   });
 
+  it("overlay del lector conserva el marcador correoThread al apilarse", () => {
+    openCorreoThreadInHistory("thread-overlay", false);
+    window.history.pushState(
+      { ...(window.history.state ?? {}), correoReader: true },
+      "",
+      window.location.href,
+    );
+    expect(window.history.state.correoThread).toBe(true);
+    expect(window.history.state.correoReader).toBe(true);
+
+    const back = vi.spyOn(window.history, "back").mockImplementation(() => {});
+    expect(closeCorreoThreadInHistory()).toBe("back");
+    expect(window.location.search).toBe("");
+    expect(back).toHaveBeenCalledOnce();
+  });
+
+  it("overlay sin spread pierde marcador — el guard de cierre debe usar back si la URL tenía hilo", () => {
+    openCorreoThreadInHistory("thread-bug", false);
+    // Bug histórico: pushState del sheet pisaba el state completo.
+    window.history.pushState({ correoReader: true }, "", window.location.href);
+    expect(window.history.state.correoThread).toBeUndefined();
+
+    const back = vi.spyOn(window.history, "back").mockImplementation(() => {});
+    // Tras el fix, si la URL aún tiene ?hilo= tratamos la entrada como propia.
+    expect(closeCorreoThreadInHistory()).toBe("back");
+    expect(window.location.search).toBe("");
+    expect(back).toHaveBeenCalledOnce();
+  });
+
   it("en SSR no toca window", () => {
     const desc = Object.getOwnPropertyDescriptor(globalThis, "window");
-    // jsdom siempre define window; simulamos ausencia como en Node SSR.
     Object.defineProperty(globalThis, "window", {
       configurable: true,
       value: undefined,
