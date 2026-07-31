@@ -1,6 +1,58 @@
 import webPush from 'web-push';
 import { prisma } from "@/lib/prisma";
 import { type CoalescePolicy, getUnifiedType } from "./catalog";
+import { sendFcmToTokens } from "./fcm-sender";
+
+/** Maps notify() subscriberType → PushToken.userType values from /api/push/register. */
+function pushTokenUserTypes(
+  subscriberType: SendPushParams["subscriberType"],
+): string[] {
+  switch (subscriberType) {
+    case "ADMIN":
+      return ["admin", "supervisor"];
+    case "GUARD":
+      return ["guardia"];
+    case "CLIENT":
+      return ["cliente"];
+    default:
+      return [];
+  }
+}
+
+/**
+ * Native (Capacitor) FCM delivery.
+ *
+ * Always sent direct — the push_outbox cron only serializes web-push
+ * ChatPushSubscription rows. Critical and non-critical native pushes both
+ * go through this path; coalescing for FCM is out of scope for this iteration.
+ */
+async function sendNativeFcm(p: SendPushParams) {
+  if (p.channels && p.channels.mobile === false) return;
+
+  const userTypes = pushTokenUserTypes(p.subscriberType);
+  if (userTypes.length === 0) return;
+
+  const tokens = await prisma.pushToken.findMany({
+    where: {
+      tenantId: p.tenantId,
+      userId: p.subscriberId,
+      isActive: true,
+      platform: { in: ["android", "ios"] },
+      userType: { in: userTypes },
+    },
+    select: { token: true },
+  });
+  if (tokens.length === 0) return;
+
+  await sendFcmToTokens({
+    tokens: tokens.map((t) => t.token),
+    title: p.title,
+    body: p.body,
+    url: p.url,
+    data: p.data,
+    notifKey: p.notifKey,
+  });
+}
 
 let initialized = false;
 function init() {
@@ -104,13 +156,21 @@ async function enqueueOrCoalesce(p: SendPushParams) {
 
 /**
  * Direct push delivery, with optional coalesce path:
- * - If `coalesce` is set AND the type is not `critical`, the push is enqueued
- *   in push_outbox; the flush-push-outbox cron drains pending rows and sends
- *   one coalesced banner per group_key.
+ * - Native FCM (android/ios PushToken) is always sent direct — see sendNativeFcm.
+ * - If `coalesce` is set AND the type is not `critical`, the *web* push is
+ *   enqueued in push_outbox; the flush-push-outbox cron drains pending rows
+ *   and sends one coalesced banner per group_key (web-push only).
  * - Otherwise (critical types or no coalesce), send immediately via web-push.
  */
 export async function sendPushToSubscriptions(p: SendPushParams) {
   init();
+
+  // Native channel first — independent of web-push coalesce/outbox.
+  try {
+    await sendNativeFcm(p);
+  } catch (err) {
+    console.error('[push-sender] native FCM failed:', err);
+  }
 
   if (p.coalesce && !isCritical(p.notifKey)) {
     try {
