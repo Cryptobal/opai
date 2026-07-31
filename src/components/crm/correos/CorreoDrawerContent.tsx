@@ -70,6 +70,7 @@ export function CorreoDrawerContent({
   onRemoveDone,
   onUndoDone,
   onRequestReply,
+  onSnooze,
   alwaysShowImages,
   onAlwaysShowImages,
   shortcuts,
@@ -160,8 +161,7 @@ export function CorreoDrawerContent({
             <CorreoReaderOverflowMenu
               threadId={t.id}
               providerThreadId={t.providerThreadId}
-              onOpenSignature={onOpenSignature}
-              onOpenAiStyle={onOpenAiStyle}
+              onOpenSnooze={onSnooze}
             />
           </div>
         </div>

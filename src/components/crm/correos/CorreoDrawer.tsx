@@ -470,8 +470,7 @@ export function CorreoDrawer({
               <CorreoReaderOverflowMenu
                 threadId={detail.thread.id}
                 providerThreadId={detail.thread.providerThreadId}
-                onOpenSignature={onOpenSignature}
-                onOpenAiStyle={onOpenAiStyle}
+                onOpenSnooze={() => setSnoozeOpen(true)}
               />
             ) : undefined
           }

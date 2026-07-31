@@ -114,8 +114,10 @@ describe("CorreoDrawerContent overflow menu", () => {
 
     fireEvent.click(screen.getByLabelText("Más acciones"));
     expect(screen.getByRole("menu")).toBeTruthy();
-    expect(screen.getByText("Firma")).toBeTruthy();
-    expect(screen.getByText("Estilo de respuesta")).toBeTruthy();
+    expect(screen.getByText("Abrir en Gmail")).toBeTruthy();
+    expect(screen.getByText("Copiar enlace del hilo")).toBeTruthy();
+    expect(screen.queryByText("Firma")).toBeNull();
+    expect(screen.queryByText("Estilo de respuesta")).toBeNull();
 
     const mousedownRegs = addSpy.mock.calls.filter(([type]) => type === "mousedown");
     expect(mousedownRegs).toHaveLength(0);
