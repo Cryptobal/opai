@@ -19,6 +19,7 @@ import {
   emptyCoverageSlot,
   groupSlotsByEtapa,
   nextSlotName,
+  type RegimenOption,
 } from "./coverage/coverage-grouping";
 
 type Props = {
@@ -31,13 +32,15 @@ type Props = {
     installations: CrmStructureInstallation[],
     opts?: { recalc?: boolean },
   ) => void;
+  /** Roles de turno del tenant (catálogo CPQ); sin dato usa la lista estática. */
+  regimenOptions?: RegimenOption[];
 };
 
 /**
  * Tabla de cobertura agrupada por etapa + KPIs (peak / HH / base / total).
  * Firma pública estable para CorreoAiPlanSections.
  */
-export function CorreoAiCoverageTable({ proposal, onChange }: Props) {
+export function CorreoAiCoverageTable({ proposal, onChange, regimenOptions }: Props) {
   const t = proposal.staffingTotals;
   const editable = Boolean(onChange);
   /** Fila recién agregada que debe recibir el foco en su nombre. */
@@ -187,6 +190,7 @@ export function CorreoAiCoverageTable({ proposal, onChange }: Props) {
                   editable={editable}
                   autoFocusName={focusKey === `${instIdx}-${slotIdx}`}
                   onAutoFocusDone={() => setFocusKey(null)}
+                  regimenOptions={regimenOptions}
                   onUpdate={(field, value, opts) =>
                     updateSlot(instIdx, slotIdx, field, value, opts)
                   }

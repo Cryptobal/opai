@@ -10,20 +10,18 @@ import type {
   CrmStructureCoverageSlot,
   CrmStructureInstallation,
 } from "@/modules/crm/email/email-to-crm-structure.types";
-import { isRondinRegimen } from "./coverage-grouping";
+import {
+  buildRegimenOptions,
+  isRondinRegimen,
+  type RegimenOption,
+} from "./coverage-grouping";
 
 const FESTIVO = "festivo";
 const DAY_SHORT: Record<string, string> = {
   lunes: "L", martes: "M", miercoles: "M", jueves: "J",
   viernes: "V", sabado: "S", domingo: "D",
 };
-const REGIMEN_OPTIONS = [
-  { value: "4x4", label: "4x4" },
-  { value: "7x7", label: "7x7" },
-  { value: "5x2", label: "5x2" },
-  { value: "24/7", label: "24/7" },
-  { value: "Rondín", label: "Rondín" },
-];
+const DEFAULT_REGIMEN_OPTIONS = buildRegimenOptions();
 const FIELD =
   "h-10 sm:h-9 rounded-lg border border-ds-border-default bg-ds-surface-1 px-2 text-[12px]";
 
@@ -47,6 +45,8 @@ export type CoverageSlotRowProps = {
   /** Fila recién agregada: foco + selección en el nombre. */
   autoFocusName?: boolean;
   onAutoFocusDone?: () => void;
+  /** Roles de turno del tenant (catálogo CPQ); sin dato usa la lista estática. */
+  regimenOptions?: RegimenOption[];
 };
 
 export function CoverageSlotRow({
@@ -54,9 +54,10 @@ export function CoverageSlotRow({
   onUpdate, onMoveInstallation, onToggleDay,
   onBumpSim, onBumpHeadcount, onDuplicate, onRemove,
   autoFocusName = false, onAutoFocusDone,
+  regimenOptions = DEFAULT_REGIMEN_OPTIONS,
 }: CoverageSlotRowProps) {
   const regimenValue = slot.regimen ?? "";
-  const regimenInList = REGIMEN_OPTIONS.some((o) => o.value === regimenValue);
+  const regimenInList = regimenOptions.some((o) => o.value === regimenValue);
   const nameRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -138,7 +139,7 @@ export function CoverageSlotRow({
                 ...(regimenValue && !regimenInList
                   ? [{ value: regimenValue, label: regimenValue }]
                   : []),
-                ...REGIMEN_OPTIONS,
+                ...regimenOptions,
               ]}
             />
           ) : (

@@ -8,6 +8,7 @@ import type {
 import type { CrmStructureRefineAnswer } from "@/modules/crm/email/email-to-crm-structure.types";
 import { CorreoAiPlanCard, type PlanAction } from "./CorreoAiPlanCard";
 import { CorreoAiCoverageTable } from "./CorreoAiCoverageTable";
+import type { RegimenOption } from "./coverage/coverage-grouping";
 import { CorreoAiAssumptions } from "./plan/CorreoAiAssumptions";
 import { CorreoAiQuestions } from "./plan/CorreoAiQuestions";
 
@@ -37,6 +38,8 @@ type Props = {
     opts?: { recalc?: boolean },
   ) => void;
   onReservePctChange?: (pct: number) => void;
+  /** Roles de turno del tenant (catálogo CPQ); sin dato usa la lista estática. */
+  regimenOptions?: RegimenOption[];
   /** Legacy callbacks (backward compat with CorreoAiActionPanel older usage). */
   onRefineAssumption?: (assumption: string) => void;
   onRefineQuestion?: (question: string) => void;
@@ -80,6 +83,7 @@ export function CorreoAiPlanSections({
   onAssumptionsChange,
   onCoverageChange,
   onReservePctChange,
+  regimenOptions,
   onRefineAssumption,
   onRefineQuestion,
   onOpenRefine,
@@ -161,7 +165,11 @@ export function CorreoAiPlanSections({
             </p>
           </div>
         )}
-        <CorreoAiCoverageTable proposal={proposal} onChange={onCoverageChange} />
+        <CorreoAiCoverageTable
+          proposal={proposal}
+          onChange={onCoverageChange}
+          regimenOptions={regimenOptions}
+        />
       </section>
 
       {/* Assumptions v2 — inline editable */}

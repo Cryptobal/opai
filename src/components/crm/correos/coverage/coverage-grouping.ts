@@ -181,3 +181,31 @@ export function isRondinRegimen(regimen: string | null | undefined): boolean {
   if (!regimen) return false;
   return /rond/i.test(regimen);
 }
+
+export type RegimenOption = { value: string; label: string };
+
+/** Roles de turno usados cuando el catálogo CPQ no está disponible (403 / vacío). */
+export const REGIMEN_FALLBACK = ["4x4", "7x7", "5x2"];
+/** No son roles CPQ: describen cobertura continua / ronda. Van siempre al final. */
+export const REGIMEN_SYNTHETIC = ["24/7", "Rondín"];
+
+/**
+ * Opciones de régimen: catálogo real de roles CPQ del tenant (si se pudo leer)
+ * + las etiquetas sintéticas. Sin catálogo degrada a la lista estática.
+ */
+export function buildRegimenOptions(
+  catalog?: readonly string[] | null,
+): RegimenOption[] {
+  const names = catalog && catalog.length > 0 ? catalog : REGIMEN_FALLBACK;
+  const seen = new Set<string>();
+  const out: RegimenOption[] = [];
+  for (const raw of [...names, ...REGIMEN_SYNTHETIC]) {
+    const value = (raw ?? "").trim();
+    if (!value) continue;
+    const key = value.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({ value, label: value });
+  }
+  return out;
+}

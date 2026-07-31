@@ -50,6 +50,10 @@ import { PlanQuoteForm } from "./plan/forms/PlanQuoteForm";
 import { PlanMilestonesForm } from "./plan/forms/PlanMilestonesForm";
 import { PlanPresets } from "./plan/PlanPresets";
 import {
+  buildRegimenOptions,
+  type RegimenOption,
+} from "./coverage/coverage-grouping";
+import {
   DOCK_CLAIM_PLAN,
   claimDockWidth,
   releaseDockWidth,
@@ -358,7 +362,37 @@ export function CorreoAiActionPanel({
   const [delta, setDelta] = useState<StaffingDelta | null | undefined>(undefined);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [sheetWidth, setSheetWidth] = useState(PLAN_SHEET_DEFAULT);
+  const [regimenOptions, setRegimenOptions] = useState<RegimenOption[]>(() =>
+    buildRegimenOptions(),
+  );
   const keyboardOffset = useKeyboardOffset();
+
+  // Régimen del puesto = roles de turno reales del tenant. El endpoint exige
+  // permiso CPQ: ante 403 / error se degrada en silencio a la lista estática.
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch("/api/cpq/roles?active=true");
+        if (!res.ok) return;
+        const j = (await res.json()) as {
+          success?: boolean;
+          data?: Array<{ name?: string | null }>;
+        };
+        if (cancelled || !j.success || !Array.isArray(j.data)) return;
+        const names = j.data
+          .map((r) => (r?.name ?? "").trim())
+          .filter((n): n is string => n.length > 0);
+        if (names.length > 0) setRegimenOptions(buildRegimenOptions(names));
+      } catch {
+        // sin catálogo → opciones estáticas
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [open]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -989,6 +1023,7 @@ export function CorreoAiActionPanel({
                   else draft.setInstallationsAndRecalc(inst);
                 }}
                 onReservePctChange={(pct) => draft.setStaffingParam("reservePct", pct)}
+                regimenOptions={regimenOptions}
                 onRefineAssumption={(a) => openRefine(`Cambiar supuesto: ${a}`)}
                 onRefineQuestion={(q) => openRefine(q)}
                 onOpenRefine={() => openRefine("Ajuste al plan")}
