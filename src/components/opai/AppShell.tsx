@@ -1,10 +1,12 @@
 'use client';
 
 import { cloneElement, isValidElement, ReactElement, ReactNode, useCallback, useEffect, useRef, useState } from 'react';
+import dynamic from 'next/dynamic';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { densityRootProps } from '@/lib/density';
-import { CommandPalette, CommandPaletteProvider, useCommandPalette } from './CommandPalette';
+import { CommandPaletteProvider } from './command-palette/CommandPaletteProvider';
+import { useCommandPalette } from './command-palette/use-command-palette';
 import { MobileIsland } from './MobileIsland';
 import { TopbarActions } from './TopbarActions';
 import { TopbarSearchField } from './TopbarSearchField';
@@ -40,6 +42,11 @@ import {
   useTrackProductividadPath,
 } from '@/lib/surface-tracking';
 import { SurfaceSegment } from './SurfaceSegment';
+
+const CommandPalette = dynamic(
+  () => import('./command-palette/CommandPalette').then((m) => m.CommandPalette),
+  { ssr: false },
+);
 
 export interface AppShellProps {
   sidebar?: ReactNode;
@@ -115,8 +122,51 @@ function AppShellInner({
   const notifCtx = useNotificationSidePanelContext();
   const intelCtx = useIntelligenceSidePanelContext();
   const { unreadCount: notifUnreadCount } = useNotifications();
-  const { open: openCommandPalette } = useCommandPalette();
+  const { open: openCommandPalette, isOpen: isCommandPaletteOpen } = useCommandPalette();
   const isIOS = useIsIOS();
+  const [commandPaletteReady, setCommandPaletteReady] = useState(false);
+
+  const ensureCommandPalette = useCallback(() => {
+    void import('./command-palette/CommandPalette').then(() => setCommandPaletteReady(true));
+  }, []);
+
+  const handleOpenCommandPalette = useCallback(
+    (initialQuery?: string) => {
+      ensureCommandPalette();
+      openCommandPalette(initialQuery);
+    },
+    [ensureCommandPalette, openCommandPalette],
+  );
+
+  // Precarga el chunk del Command Palette al primer ⌘K / Ctrl+K.
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') ensureCommandPalette();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [ensureCommandPalette]);
+
+  useEffect(() => {
+    if (commandPaletteReady) return;
+    const ric = (
+      window as unknown as {
+        requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number;
+        cancelIdleCallback?: (id: number) => void;
+      }
+    ).requestIdleCallback;
+    let idleId: number | undefined;
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+    const activate = () => setCommandPaletteReady(true);
+    if (ric) idleId = ric(activate, { timeout: 4000 });
+    else timeoutId = setTimeout(activate, 4000);
+    return () => {
+      if (idleId != null) {
+        (window as unknown as { cancelIdleCallback?: (id: number) => void }).cancelIdleCallback?.(idleId);
+      }
+      if (timeoutId) clearTimeout(timeoutId);
+    };
+  }, [commandPaletteReady]);
 
   // Conserva la última ruta de Productividad (antes vivía en SurfaceReturnBar).
   useTrackProductividadPath(surface);
@@ -197,7 +247,7 @@ function AppShellInner({
       {sidebar && (
         <MobileIsland
           surface={surface}
-          onSearch={(q) => openCommandPalette(q)}
+          onSearch={(q) => handleOpenCommandPalette(q)}
           onToggleChat={handleToggleChat}
           onToggleNotifications={handleToggleNotifications}
           chatUnread={chatCtx.totalUnread}
@@ -276,7 +326,7 @@ function AppShellInner({
               <FxIndicator />
               <TopbarActions
                 userRole={userRole}
-                onSearch={() => openCommandPalette()}
+                onSearch={() => handleOpenCommandPalette()}
               />
             </div>
           </div>
@@ -325,14 +375,16 @@ function AppShellInner({
           </main>
         </div>
 
-        {/* ── Command Palette ── */}
-        <CommandPalette
-          userRole={userRole}
-          onOpenChat={(channelId) => {
-            chatCtx.openPanel();
-            chatCtx.selectChannel(channelId);
-          }}
-        />
+        {/* ── Command Palette (chunk lazy; precarga con ⌘K) ── */}
+        {(commandPaletteReady || isCommandPaletteOpen) && (
+          <CommandPalette
+            userRole={userRole}
+            onOpenChat={(channelId) => {
+              chatCtx.openPanel();
+              chatCtx.selectChannel(channelId);
+            }}
+          />
+        )}
 
       </div>
 

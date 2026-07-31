@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
-import Pusher from "pusher-js";
 import { PanicFullscreenModal, type PanicAlertData } from "./PanicFullscreenModal";
 
 // Web Audio alarm: alternating 800/600 Hz square wave
@@ -175,43 +174,50 @@ export function PanicAlertProvider({ tenantId, children }: PanicAlertProviderPro
       return;
     }
 
-    const pusher = new Pusher(pusherKey, {
-      cluster: pusherCluster,
-    });
-    const channel = pusher.subscribe(`monitoreo-${tenantId}`);
+    let cancelled = false;
+    let pusher: import("pusher-js").default | null = null;
+    let channel: import("pusher-js").Channel | null = null;
 
-    channel.bind("alerta-panico", (data: PanicAlertData) => {
-      setActivePanics((prev) => {
-        // Deduplicate by alertaId
-        if (prev.some((p) => p.alertaId === data.alertaId)) return prev;
-        return [...prev, data];
+    void import("pusher-js").then((PusherModule) => {
+      if (cancelled) return;
+      const Pusher = PusherModule.default;
+      pusher = new Pusher(pusherKey, {
+        cluster: pusherCluster,
+      });
+      channel = pusher.subscribe(`monitoreo-${tenantId}`);
+
+      channel.bind("alerta-panico", (data: PanicAlertData) => {
+        setActivePanics((prev) => {
+          if (prev.some((p) => p.alertaId === data.alertaId)) return prev;
+          return [...prev, data];
+        });
+
+        if (!isAudioLeaderRef.current) {
+          isAudioLeaderRef.current = true;
+          try {
+            broadcastRef.current?.postMessage({ type: "panic-audio-claimed" });
+          } catch { /* ignore */ }
+          startAlarm();
+        }
       });
 
-      // Claim audio leadership if no other tab has it
-      if (!isAudioLeaderRef.current) {
-        isAudioLeaderRef.current = true;
-        try {
-          broadcastRef.current?.postMessage({ type: "panic-audio-claimed" });
-        } catch { /* ignore */ }
-        startAlarm();
-      }
-    });
+      channel.bind("panico-atendido", (data: { alertaId?: string }) => {
+        if (data.alertaId) resolveLocal(data.alertaId);
+      });
 
-    // Listen for acknowledge — stop alarm on ALL devices immediately
-    channel.bind("panico-atendido", (data: { alertaId?: string }) => {
-      if (data.alertaId) resolveLocal(data.alertaId);
-    });
-
-    // Listen for resolve — final cleanup for any remaining state
-    channel.bind("panic-resolved", (data: { alertId?: string; alertaId?: string }) => {
-      const id = data.alertId || data.alertaId;
-      if (id) resolveLocal(id);
+      channel.bind("panic-resolved", (data: { alertId?: string; alertaId?: string }) => {
+        const id = data.alertId || data.alertaId;
+        if (id) resolveLocal(id);
+      });
     });
 
     return () => {
-      channel.unbind_all();
-      pusher.unsubscribe(`monitoreo-${tenantId}`);
-      pusher.disconnect();
+      cancelled = true;
+      if (channel) channel.unbind_all();
+      if (pusher) {
+        pusher.unsubscribe(`monitoreo-${tenantId}`);
+        pusher.disconnect();
+      }
     };
   }, [tenantId, startAlarm, resolveLocal]);
 
