@@ -81,6 +81,8 @@ describe("buildEmailSrcDoc", () => {
     expect(doc).toContain("<p>contenido</p>");
     // Canvas al 100%: texto hace wrap; sin max-content (rompe wrap / tiritón).
     expect(doc).toContain("overflow-x:hidden");
+    expect(doc).toContain("overscroll-behavior:none");
+    expect(doc).toContain("touch-action:none");
     expect(doc).toMatch(/\.opai-mail-canvas\{[^}]*width:100%/);
     expect(doc).not.toMatch(/\.opai-mail-canvas\{[^}]*width:max-content/);
     expect(doc).not.toMatch(/table\{[^}]*overflow-x:auto/);
