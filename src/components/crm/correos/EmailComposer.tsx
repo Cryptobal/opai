@@ -30,6 +30,7 @@ import { AttachmentPicker } from "@/components/opai-ds";
 import { SimpleSelect } from "@/components/ui/simple-select";
 import { confirmDialog } from "@/components/ui/confirm-service";
 import { ContractEditor } from "@/components/docs/ContractEditor";
+import { hideKeyboardAccessoryBar } from "@/lib/capacitor/hideKeyboardAccessoryBar";
 import { EmailToolbar } from "./EmailToolbar";
 import { ScheduleSendSplitButton } from "./ScheduleSendSplitButton";
 import { SignatureChip } from "./signature/SignatureChip";
@@ -292,6 +293,17 @@ export const EmailComposer = forwardRef<EmailComposerHandle, Props>(function Ema
 
   useEffect(() => {
     setDictSupported(isSpeechDictationSupported());
+  }, []);
+
+  // iOS: la barra ◀▶✓ reaparece al enfocar TipTap/inputs; re-ocultarla.
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root) return;
+    const onFocusIn = () => {
+      void hideKeyboardAccessoryBar();
+    };
+    root.addEventListener("focusin", onFocusIn);
+    return () => root.removeEventListener("focusin", onFocusIn);
   }, []);
 
   const dictation = useSpeechDictation({

@@ -188,8 +188,10 @@ ${wrapUntrusted(
       startedAt,
     });
     return txt?.trim() || null;
-  } catch {
-    return null;
+  } catch (error) {
+    // Antes se tragaba el error → el cliente veía cuerpo vacío sin feedback.
+    console.error("[correo-draft-ai] generateDraftReply failed:", error);
+    throw error;
   }
 }
 
@@ -282,7 +284,8 @@ ${UNTRUSTED_RULES}`;
       startedAt,
     });
     return txt?.trim() || null;
-  } catch {
-    return null;
+  } catch (error) {
+    console.error("[correo-draft-ai] generateDraftCompose failed:", error);
+    throw error;
   }
 }
