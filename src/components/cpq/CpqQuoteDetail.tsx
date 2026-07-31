@@ -86,6 +86,8 @@ import { ControlCenterPanel } from "@/components/cpq/workspace/ControlCenterPane
 import { WorkspaceRail } from "@/components/cpq/workspace/WorkspaceRail";
 import { SectionChips } from "@/components/cpq/workspace/SectionChips";
 import { MobileTotalBar } from "@/components/cpq/workspace/MobileTotalBar";
+import { useSectionSpy } from "@/components/cpq/workspace/useSectionSpy";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { ConvertToBundleButton } from "@/components/cpq/workspace/ConvertToBundleButton";
 import { ControlCenterSheet, ControlCenterTrigger } from "@/components/cpq/workspace/ControlCenterSheet";
 import type { QuoteFormState, WorkspaceSectionId } from "@/components/cpq/workspace/types";
@@ -380,6 +382,8 @@ export function CpqQuoteDetail({
     },
     [quote, quoteId]
   );
+  /** Móvil < lg: acordeón exclusivo (una sección abierta). Desktop: todas abiertas. */
+  const isMobileCpq = useMediaQuery("(max-width: 1023px)");
   const [secDatos, setSecDatos] = useState(true);
   const [secPuestos, setSecPuestos] = useState(true);
   const [secCostos, setSecCostos] = useState(true);
@@ -392,6 +396,7 @@ export function CpqQuoteDetail({
   const [secAuditoria, setSecAuditoria] = useState(false);
   const [secPdf, setSecPdf] = useState(true);
   const [secIncluye, setSecIncluye] = useState(true);
+  const mobileInitRef = useRef(false);
   // Cuando la cotización está "Enviada", auto-plegamos todas las secciones la
   // primera vez que entramos para mostrar un resumen tipo dashboard. El usuario
   // puede expandir manualmente lo que necesite revisar.
@@ -409,33 +414,58 @@ export function CpqQuoteDetail({
     "sec-incluye": setSecIncluye,
     "sec-auditoria": setSecAuditoria,
   };
+  const collapseAllSections = useCallback(() => {
+    setSecDatos(false);
+    setSecCondiciones(false);
+    setSecPuestos(false);
+    setSecCostos(false);
+    setSecLineas(false);
+    setSecFinancieros(false);
+    setSecMargen(false);
+    setSecAiContent(false);
+    setSecDesglose(false);
+    setSecPdf(false);
+    setSecIncluye(false);
+    setSecAuditoria(false);
+  }, []);
   const openAndScrollTo = useCallback((id: WorkspaceSectionId) => {
+    if (isMobileCpq) {
+      collapseAllSections();
+    }
     sectionSetters[id]?.(true);
     requestAnimationFrame(() => {
       document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [isMobileCpq, collapseAllSections]);
+  const activeSectionId = useSectionSpy(isMobileCpq);
+  const sectionCounts = useMemo(
+    () =>
+      ({
+        "sec-puestos": positions.length,
+        "sec-lineas": additionalLines.length,
+      }) satisfies Partial<Record<WorkspaceSectionId, number>>,
+    [positions.length, additionalLines.length],
+  );
+  // Estado inicial móvil: solo Datos abierta (si no está enviada).
+  useEffect(() => {
+    if (!isMobileCpq || mobileInitRef.current || !quote) return;
+    mobileInitRef.current = true;
+    if (quote.status === "sent") return; // lo maneja sentAutoCollapse
+    collapseAllSections();
+    setSecDatos(true);
+  }, [isMobileCpq, quote, collapseAllSections]);
   const sentAutoCollapseRef = useRef(false);
   useEffect(() => {
     if (quote?.status === "sent" && !sentAutoCollapseRef.current) {
       sentAutoCollapseRef.current = true;
-      setSecDatos(false);
-      setSecCondiciones(false);
-      setSecPuestos(false);
-      setSecCostos(false);
-      setSecLineas(false);
-      setSecFinancieros(false);
-      setSecMargen(false);
-      setSecAiContent(false);
-      setSecDesglose(false);
+      collapseAllSections();
       setSecPdf(false);
-      setSecIncluye(false);
     }
     if (quote?.status !== "sent") {
       sentAutoCollapseRef.current = false;
     }
-  }, [quote?.status]);
+  }, [quote?.status, collapseAllSections]);
   const [guardsBreakdownOpen, setGuardsBreakdownOpen] = useState(false);
   /** Centro de control (aside derecho): contraíble para dar más ancho a Datos/Desglose/Puestos. */
   const [controlCenterOpen, setControlCenterOpen] = useState(true);
@@ -1751,7 +1781,7 @@ export function CpqQuoteDetail({
   }
 
   return (
-    <div className="cpq-touch-inputs space-y-3 pb-4 lg:pb-4 overflow-x-clip min-w-0">
+    <div className="cpq-touch-inputs space-y-3 pb-[calc(3.5rem+env(safe-area-inset-bottom,0px)+0.75rem)] -mb-28 lg:mb-0 lg:pb-4 overflow-x-clip min-w-0">
       {/* -- Mobile sticky stack: total → pestañas (multi) → chips.
            top = --app-island-bottom (MobileIsland: safe + 8 + 48).
            z-[25] bajo la isla (z-30) y la bottom bar (z-50). */}
@@ -1786,7 +1816,12 @@ export function CpqQuoteDetail({
           }
         />
         {mobileTabsSlot}
-        <SectionChips onNavigate={openAndScrollTo} className="border-t border-border/40" />
+        <SectionChips
+          onNavigate={openAndScrollTo}
+          activeId={activeSectionId}
+          counts={sectionCounts}
+          className="border-t border-border/40"
+        />
       </div>
 
       {/* -- Desktop sticky KPI bar (fuera del grid: sticky respecto al viewport) --
@@ -2195,6 +2230,16 @@ export function CpqQuoteDetail({
                 </div>
               </div>
             )}
+            {!isLocked && (
+              <div className="mt-3 lg:hidden">
+                <CreateServiceModal
+                  quoteId={quoteId}
+                  onCreated={refresh}
+                  disabled={isLocked}
+                  triggerVariant="inline"
+                />
+              </div>
+            )}
           </div>
         )}
       </Card>
@@ -2517,16 +2562,6 @@ export function CpqQuoteDetail({
 
       </div>{/* end detail workspace */}
       </div>{/* end rail wrapper */}
-
-      {/* Mobile spacer for fixed bottom bar */}
-      {!embedded && <div className="h-14 lg:hidden" />}
-
-      {/* -- Mobile FAB: Agregar Servicio (above bottom bar) -- */}
-      {!isLocked && secPuestos && (
-        <div className="lg:hidden fixed bottom-20 right-4 z-40">
-          <CreateServiceModal quoteId={quoteId} onCreated={refresh} disabled={isLocked} />
-        </div>
-      )}
 
       {/* -- Mobile bottom bar (replaces wizard nav) -- */}
       {!embedded && (
