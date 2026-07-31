@@ -169,17 +169,14 @@ export async function POST(
     }
   }
 
-  // ── Nivel Cotización ──
+  // ── Nivel Cotización (del negocio si hay; si no, de la cuenta) ──
   const cotMatch = haystack.match(COT_RE);
-  const quoteWhere = {
-    tenantId,
-    OR: [
-      ...(thread.dealId ? [{ dealId: thread.dealId }] : []),
-      { accountId },
-    ],
-  };
   const quotes = await prisma.cpqQuote.findMany({
-    where: quoteWhere,
+    where: {
+      tenantId,
+      accountId,
+      ...(thread.dealId ? { dealId: thread.dealId } : {}),
+    },
     select: { id: true, code: true, status: true, name: true },
     orderBy: { updatedAt: "desc" },
     take: 10,
@@ -192,7 +189,11 @@ export async function POST(
       entityType: "quote",
       entityId: q.id,
       label: q.code || q.name || "Cotización",
-      signal: cotMatch ? `Código ${cotMatch[0]}` : "Cotización de la cuenta/negocio",
+      signal: cotMatch
+        ? `Código ${cotMatch[0]}`
+        : thread.dealId
+          ? "Cotización del negocio"
+          : "Cotización de la cuenta",
       confidence: cotMatch ? "alta" : "media",
     });
   }

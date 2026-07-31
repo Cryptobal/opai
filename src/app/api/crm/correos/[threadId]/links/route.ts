@@ -80,6 +80,49 @@ export async function POST(
   if (!exists) {
     return NextResponse.json({ error: "Entidad no encontrada" }, { status: 404 });
   }
+
+  // Cascada cuenta → negocio → cotización/instalación: no cruzar empresas.
+  const threadCrm = await prisma.crmEmailThread.findFirst({
+    where: { id: threadId, tenantId },
+    select: { accountId: true, dealId: true },
+  });
+  if (threadCrm?.accountId) {
+    const { ACCOUNT_SCOPED_LINK_TYPES } = await import(
+      "@/modules/crm/email/email-thread-links"
+    );
+    if (ACCOUNT_SCOPED_LINK_TYPES.has(body.entityType)) {
+      let belongs = true;
+      if (body.entityType === "installation") {
+        const row = await prisma.crmInstallation.findFirst({
+          where: { id: body.entityId, tenantId, accountId: threadCrm.accountId },
+          select: { id: true },
+        });
+        belongs = Boolean(row);
+      } else if (body.entityType === "quote") {
+        const row = await prisma.cpqQuote.findFirst({
+          where: {
+            id: body.entityId,
+            tenantId,
+            accountId: threadCrm.accountId,
+            ...(threadCrm.dealId ? { dealId: threadCrm.dealId } : {}),
+          },
+          select: { id: true },
+        });
+        belongs = Boolean(row);
+      }
+      if (!belongs) {
+        return NextResponse.json(
+          {
+            error: threadCrm.dealId
+              ? "La entidad no pertenece a la cuenta/negocio del hilo"
+              : "La entidad no pertenece a la cuenta del hilo",
+          },
+          { status: 400 },
+        );
+      }
+    }
+  }
+
   const linkedVia = body.linkedVia === "ai" || body.linkedVia === "rule" ? body.linkedVia : "manual";
   const link = await prisma.crmEmailThreadLink.upsert({
     where: {

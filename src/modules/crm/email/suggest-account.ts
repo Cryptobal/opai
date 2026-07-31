@@ -1,11 +1,10 @@
 import { prisma } from "@/lib/prisma";
 import { extractEmailAddresses, normalizeEmailAddress } from "@/lib/email-address";
-import { getTenantCompanyConfig } from "@/lib/tenant-config";
 import {
-  buildTenantDomains,
-  domainOf as domainOfHeader,
-  isPublicMailDomain,
-} from "@/modules/crm/email/correos-list-helpers";
+  isOwnCompanyAccount,
+  loadOwnTenant,
+  websiteDomain,
+} from "@/modules/crm/email/own-tenant-company";
 
 export type AccountSuggestion = {
   id: string;
@@ -29,65 +28,6 @@ function domainOf(email: string | null | undefined): string | null {
   if (at < 0) return null;
   const d = email!.slice(at + 1).trim().toLowerCase();
   return d && !GENERIC_DOMAINS.has(d) ? d : null;
-}
-
-function normalizeName(name: string): string {
-  return name.trim().toLowerCase().replace(/\s+/g, " ");
-}
-
-function websiteDomain(website: string | null | undefined): string | null {
-  if (!website) return null;
-  const raw = website.trim().toLowerCase().replace(/^https?:\/\//, "").replace(/^www\./, "");
-  const host = raw.split("/")[0]?.split("?")[0] ?? "";
-  if (!host || !host.includes(".")) return null;
-  return isPublicMailDomain(host) ? null : host;
-}
-
-type OwnTenant = {
-  domains: Set<string>;
-  names: Set<string>;
-};
-
-async function loadOwnTenant(tenantId: string): Promise<OwnTenant> {
-  const [company, tenant, mailboxes] = await Promise.all([
-    getTenantCompanyConfig(tenantId),
-    prisma.tenant.findUnique({ where: { id: tenantId }, select: { name: true } }),
-    prisma.crmEmailAccount.findMany({
-      where: { tenantId, provider: "gmail", status: "active" },
-      select: { email: true },
-      take: 20,
-    }),
-  ]);
-
-  const domains = buildTenantDomains(company, mailboxes[0]?.email ?? null);
-  for (const m of mailboxes) {
-    const d = domainOfHeader(m.email);
-    if (d && !isPublicMailDomain(d)) domains.add(d);
-  }
-  const web = websiteDomain(company.website);
-  if (web) domains.add(web);
-
-  const names = new Set<string>();
-  for (const n of [
-    tenant?.name,
-    company.companyName,
-    company.commercialName,
-    company.razonSocial,
-  ]) {
-    if (n && n.trim() && n !== "Mi Empresa" && n !== "Empresa Sin Configurar") {
-      names.add(normalizeName(n));
-    }
-  }
-  return { domains, names };
-}
-
-function isOwnCompanyAccount(
-  account: { name: string; website?: string | null },
-  own: OwnTenant,
-): boolean {
-  if (own.names.has(normalizeName(account.name))) return true;
-  const web = websiteDomain(account.website);
-  return Boolean(web && own.domains.has(web));
 }
 
 /** fromEmail almacenado como `"Nombre" <a@b.cl>` — contains en SQL + filtro exacto. */

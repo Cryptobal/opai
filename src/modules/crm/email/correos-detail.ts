@@ -7,6 +7,7 @@ import { captureEmailError } from "./email-observability";
 import { attachSavedFileIds } from "./attachment-saved";
 import type { CorreoDetail, CorreoAttachmentDTO } from "./correos.types";
 import { parseThreadSummaryCache } from "./email-summary.service";
+import { healThreadAccountToDealAccount } from "./thread-account-deal-consistency";
 
 /** TTL del caché de detalle; la invalidación real es updatedAt del sync. */
 const DETAIL_CACHE_TTL_MS = 15 * 60_000;
@@ -77,6 +78,17 @@ export async function getCorreoDetail(params: {
     },
   });
   if (!thread) return null;
+
+  // Integridad cuenta↔negocio: si el deal es de otra cuenta, alinear el hilo
+  // al accountId del deal (evita "Gard Security › Residencia Embajador").
+  const healed = await healThreadAccountToDealAccount({
+    tenantId,
+    threadId: thread.id,
+    accountId: thread.accountId,
+    dealId: thread.dealId,
+  });
+  const threadAccountId = healed.accountId;
+  const threadDealId = healed.dealId;
 
   // Antes de confiar en el caché C18: si el hilo no tiene mensajes o todos
   // tienen cuerpo vacío, hay que ir a Gmail sí o sí (hilos fantasma / sync
@@ -175,12 +187,12 @@ export async function getCorreoDetail(params: {
         providerDraftId: true,
       },
     }),
-    thread.accountId
-      ? prisma.crmAccount.findFirst({ where: { id: thread.accountId, tenantId }, select: { name: true } })
+    threadAccountId
+      ? prisma.crmAccount.findFirst({ where: { id: threadAccountId, tenantId }, select: { name: true } })
       : null,
-    thread.dealId
+    threadDealId
       ? prisma.crmDeal.findFirst({
-          where: { id: thread.dealId, tenantId },
+          where: { id: threadDealId, tenantId },
           select: {
             title: true,
             fechaEntrega: true,
@@ -217,9 +229,9 @@ export async function getCorreoDetail(params: {
     thread: {
       id: thread.id,
       subject: thread.subject,
-      accountId: thread.accountId,
+      accountId: threadAccountId,
       accountName: account?.name ?? null,
-      dealId: thread.dealId,
+      dealId: threadDealId,
       dealTitle: deal?.title ?? null,
       dealStageName: deal?.stage?.name ?? null,
       dealFechaEntrega: deal?.fechaEntrega

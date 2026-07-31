@@ -14,6 +14,8 @@ vi.mock("@/lib/prisma", () => ({
     crmDeal: { findFirst: vi.fn() },
     crmEmailMessage: { findMany: vi.fn() },
     crmContact: { findMany: vi.fn() },
+    tenant: { findUnique: vi.fn() },
+    crmEmailAccount: { findMany: vi.fn() },
   },
 }));
 vi.mock("@/lib/audit-email", () => ({
@@ -24,6 +26,14 @@ vi.mock("@/modules/crm/email/share-materialize", () => ({
 }));
 vi.mock("@/modules/crm/email/mailbox-scope", () => ({
   requireThreadMailbox: vi.fn(),
+}));
+vi.mock("@/lib/tenant-config", () => ({
+  getTenantCompanyConfig: vi.fn().mockResolvedValue({
+    companyName: "Gard Security",
+    commercialName: "Gard Security",
+    razonSocial: "Gard Security SpA",
+    website: "https://www.gard.cl",
+  }),
 }));
 
 import { auth } from "@/lib/auth";
@@ -62,10 +72,36 @@ describe("POST /api/crm/correos/[threadId]/associate", () => {
     vi.mocked(prisma.crmAccount.findFirst).mockResolvedValue({
       id: "acc1",
       name: "Ns Construcciones Spa",
+      website: null,
     } as never);
     vi.mocked(prisma.crmEmailMessage.findMany).mockResolvedValue([]);
     vi.mocked(prisma.crmContact.findMany).mockResolvedValue([]);
     vi.mocked(prisma.crmEmailThread.update).mockResolvedValue({} as never);
+    vi.mocked(prisma.tenant.findUnique).mockResolvedValue({
+      name: "Gard Security",
+    } as never);
+    vi.mocked(prisma.crmEmailAccount.findMany).mockResolvedValue([
+      { email: "owner@gard.cl" },
+    ] as never);
+  });
+
+  it("rechaza asociar a la cuenta propia del tenant", async () => {
+    vi.mocked(prisma.crmAccount.findFirst).mockResolvedValue({
+      id: "acc-gard",
+      name: "Gard Security",
+      website: "https://www.gard.cl",
+    } as never);
+
+    const req = new NextRequest("http://localhost/api/crm/correos/th1/associate", {
+      method: "POST",
+      body: JSON.stringify({ accountId: "acc-gard", dealId: null }),
+      headers: { "Content-Type": "application/json" },
+    });
+    const res = await POST(req, { params: Promise.resolve({ threadId: "th1" }) });
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toMatch(/propia empresa/i);
+    expect(prisma.crmEmailThread.update).not.toHaveBeenCalled();
   });
 
   it("asocia un negocio cerrado (lost) a la cuenta del hilo", async () => {

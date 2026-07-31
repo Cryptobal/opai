@@ -6,7 +6,7 @@ vi.mock("@/lib/prisma", () => ({
     cpqQuote: { findMany: vi.fn() },
     document: { findMany: vi.fn() },
     docAssociation: { findMany: vi.fn() },
-    crmAccount: { findFirst: vi.fn() },
+    crmAccount: { findFirst: vi.fn(), findMany: vi.fn() },
     financeDte: { findMany: vi.fn() },
     opsGuardia: { findMany: vi.fn() },
     financeSupplier: { findMany: vi.fn() },
@@ -23,7 +23,7 @@ describe("searchThreadLinkCandidates — alcance por cuenta", () => {
     vi.clearAllMocks();
   });
 
-  it("marca instalaciones de la cuenta con scope account y el resto tenant", async () => {
+  it("con accountId solo busca instalaciones de esa cuenta", async () => {
     vi.mocked(prisma.crmInstallation.findMany).mockResolvedValue([
       {
         id: "i1",
@@ -31,13 +31,6 @@ describe("searchThreadLinkCandidates — alcance por cuenta", () => {
         commune: "Santiago",
         status: "active",
         accountId: "acc1",
-      },
-      {
-        id: "i2",
-        name: "Agua sol",
-        commune: "Maipú",
-        status: "active",
-        accountId: "acc-other",
       },
     ] as never);
 
@@ -49,8 +42,47 @@ describe("searchThreadLinkCandidates — alcance por cuenta", () => {
     });
 
     expect(result.accountScopeApplies).toBe(true);
+    expect(prisma.crmInstallation.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ tenantId: "t1", accountId: "acc1" }),
+      }),
+    );
+    expect(result.candidates).toHaveLength(1);
     expect(result.candidates[0]).toMatchObject({ id: "i1", scope: "account" });
-    expect(result.candidates[1]).toMatchObject({ id: "i2", scope: "tenant" });
+  });
+
+  it("con dealId acota cotizaciones a ese negocio", async () => {
+    vi.mocked(prisma.cpqQuote.findMany).mockResolvedValue([
+      {
+        id: "q1",
+        code: "COT-2026-0001",
+        name: "Residencia",
+        status: "draft",
+        accountId: "acc1",
+        clientName: "Suecia",
+      },
+    ] as never);
+    vi.mocked(prisma.crmAccount.findMany).mockResolvedValue([
+      { id: "acc1", name: "Embajada De Suecia" },
+    ] as never);
+
+    const result = await searchThreadLinkCandidates({
+      tenantId: "t1",
+      type: "quote",
+      q: "",
+      accountId: "acc1",
+      dealId: "deal1",
+    });
+
+    expect(prisma.cpqQuote.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          tenantId: "t1",
+          dealId: "deal1",
+        }),
+      }),
+    );
+    expect(result.candidates[0]).toMatchObject({ id: "q1", scope: "account" });
   });
 
   it("sin accountId no aplica agrupamiento", async () => {
