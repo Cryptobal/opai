@@ -184,16 +184,27 @@ export function CorreoReplyBox({
     replyAll: null,
   });
   const [metaReady, setMetaReady] = useState(false);
-  const [open, setOpen] = useState<{ mode: ComposerMode; ai: boolean; expanded: boolean } | null>(null);
+  const [open, setOpen] = useState<{
+    mode: ComposerMode;
+    ai: boolean;
+    expanded: boolean;
+    /** Guía del chip de intención: genera el borrador al abrir. */
+    instructions?: string;
+  } | null>(null);
   /** Solo incrementa en aperturas explícitas — no al togglear IA/modo/expand. */
   const [openSeq, setOpenSeq] = useState(0);
   const [activeDraft, setActiveDraft] = useState<ThreadDraftSeed | null>(null);
 
   const threadDraft = useMemo(() => findThreadDraft(detail.messages), [detail.messages]);
 
-  function openComposer(mode: ComposerMode, ai = false, draft: CorreoMessageDTO | null = threadDraft) {
+  function openComposer(
+    mode: ComposerMode,
+    ai = false,
+    draft: CorreoMessageDTO | null = threadDraft,
+    instructions?: string,
+  ) {
     setActiveDraft(draft && mode !== "forward" ? toThreadDraftSeed(draft) : null);
-    setOpen({ mode, ai, expanded: false });
+    setOpen({ mode, ai, expanded: false, ...(instructions ? { instructions } : {}) });
     setOpenSeq((n) => n + 1);
   }
 
@@ -241,7 +252,12 @@ export function CorreoReplyBox({
   // Intent externo: abrir composer aunque el meta aún esté cargando.
   useEffect(() => {
     if (!composeIntent) return;
-    openComposer(composeIntent.mode, Boolean(composeIntent.ai));
+    openComposer(
+      composeIntent.mode,
+      Boolean(composeIntent.ai),
+      threadDraft,
+      composeIntent.instructions,
+    );
     // nonce garantiza re-disparo.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [composeIntent?.nonce]);
@@ -318,6 +334,12 @@ export function CorreoReplyBox({
       mode={open.mode}
       ai={open.ai}
       expanded={open.expanded}
+      autoDraftInstructions={open.instructions ?? null}
+      // Responder / A todos / Reenviar dejan el caret en el cuerpo aunque el
+      // panel IA venga abierto; el pill solo roba el foco si el usuario lo
+      // abre después. Con chip de intención manda la inyección del borrador.
+      autoFocusBody={!open.instructions}
+      openSeq={openSeq}
       onModeChange={(mode) =>
         // El panel IA se mantiene en Responder / A todos / Reenviar.
         setOpen((o) => (o ? { ...o, mode } : o))

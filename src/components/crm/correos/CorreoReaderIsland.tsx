@@ -1,6 +1,11 @@
 "use client";
 
-import { useEffect, useSyncExternalStore, type CSSProperties } from "react";
+import {
+  useEffect,
+  useSyncExternalStore,
+  type CSSProperties,
+  type ReactNode,
+} from "react";
 import { Forward, Reply, ReplyAll } from "lucide-react";
 import {
   claimUndoHost,
@@ -18,6 +23,8 @@ type Props = {
   /** Composer abierto → la barra de respuesta se oculta (exclusividad). */
   composerOpen: boolean;
   onCompose: (mode: ComposerMode, ai?: boolean) => void;
+  /** Fila de chips de intención sobre la isla (misma exclusividad). */
+  topSlot?: ReactNode;
 };
 
 const OPTIMISTIC: CorreoPrimaryAction = {
@@ -36,6 +43,7 @@ export function CorreoReaderIsland({
   primaryAction,
   composerOpen,
   onCompose,
+  topSlot,
 }: Props) {
   const undo = useSyncExternalStore(subscribeUndoSnackbar, getUndoSnackbarSnapshot, () => null);
 
@@ -59,6 +67,7 @@ export function CorreoReaderIsland({
 
   return (
     <div className={wrapCls} style={wrapStyle}>
+      {topSlot ? <div className="mb-1.5">{topSlot}</div> : null}
       <div
         className="opai-glass-strong opai-glass-shell flex h-[56px] items-center gap-1.5 rounded-[26px] px-2"
         role="toolbar"

@@ -13,6 +13,7 @@ import { CorreoDrawerContent } from "./CorreoDrawerContent";
 import { CorreoReaderMobileHeader } from "./CorreoReaderMobileHeader";
 import { CorreoReaderOverflowMenu } from "./CorreoReaderOverflowMenu";
 import { CorreoReaderIsland } from "./CorreoReaderIsland";
+import { CorreoSmartReplies } from "./CorreoSmartReplies";
 import { CorreoSnoozeSheet } from "./CorreoSnoozeSheet";
 import { CorreoCopilotSheet } from "./CorreoCopilotSheet";
 import { CorreoWorkPanel } from "./CorreoWorkPanel";
@@ -354,11 +355,30 @@ export function CorreoDrawer({
     window.setTimeout(run, 80);
   };
 
-  const requestCompose = (mode: ComposerMode, ai = false) => {
-    setLocalComposeIntent({ mode, ai, nonce: nextIntentNonce() });
+  const requestCompose = (mode: ComposerMode, ai = false, instructions?: string) => {
+    setLocalComposeIntent({
+      mode,
+      ai,
+      ...(instructions ? { instructions } : {}),
+      nonce: nextIntentNonce(),
+    });
     scrollToReply();
   };
   const requestReply = () => requestCompose("reply");
+
+  // Chips de intención: mismo componente en el dock desktop y sobre la isla
+  // móvil (el shell monta uno u otro host según viewport).
+  const smartReplies = (variant: "dock" | "inline") =>
+    detailReady && canModify && primaryAction?.canReply !== false ? (
+      <CorreoSmartReplies
+        threadId={detail.thread.id}
+        composerOpen={composerOpen}
+        variant={variant}
+        onCompose={({ instructions, ai }) =>
+          requestCompose("reply", Boolean(ai), instructions)
+        }
+      />
+    ) : null;
 
   // Posponer: mismo efecto que el sheet (sale de INBOX + Deshacer). Compartido
   // por el sheet «Elegir fecha…» y los presets rápidos de la isla.
@@ -490,6 +510,7 @@ export function CorreoDrawer({
             primaryAction={primaryAction}
             composerOpen={composerOpen}
             onCompose={requestCompose}
+            topSlot={smartReplies("inline")}
           />
         ) : null
       }
@@ -531,6 +552,8 @@ export function CorreoDrawer({
           readCursorAt={readCursorAt}
         />
       )}
+      {/* Dock desktop: se porta a la fila superior del dock del shell. */}
+      {smartReplies("dock")}
       <CorreoSnoozeSheet
         open={snoozeOpen}
         onClose={() => setSnoozeOpen(false)}

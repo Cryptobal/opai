@@ -100,6 +100,8 @@ type AccountOption = {
 
 /** API imperativa para el host (sheet): flush/discard al cerrar. */
 export type EmailComposerHandle = {
+  /** Caret en el cuerpo editable: `start` = antes del citado; `end` = al final. */
+  focusBody: (position?: "start" | "end") => void;
   flushDraft: () => Promise<void>;
   discardDraft: () => Promise<void>;
   requestDiscard: () => Promise<void>;
@@ -558,6 +560,10 @@ export const EmailComposer = forwardRef<EmailComposerHandle, Props>(function Ema
   useImperativeHandle(
     ref,
     () => ({
+      // preventScroll: el host ya posiciona el composer (scrollComposerIntoView
+      // en desktop, sheet propio en móvil); un scroll extra del caret salta.
+      focusBody: (position: "start" | "end" = "start") =>
+        editorRef.current?.commands.focus(position, { scrollIntoView: false }),
       flushDraft,
       discardDraft: () => discardDraft({ close: false }),
       requestDiscard: () => requestDiscard(),

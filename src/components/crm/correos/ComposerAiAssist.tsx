@@ -31,6 +31,11 @@ type PillProps = {
   onOpenStyle?: () => void;
   /** reply = respuesta a hilo; compose = mensaje nuevo. */
   mode?: AssistMode;
+  /**
+   * Foco al montar. `false` cuando el panel abre junto al composer: ahí el
+   * caret pertenece al cuerpo (Responder / A todos / Reenviar).
+   */
+  autoFocus?: boolean;
 };
 
 /**
@@ -49,6 +54,7 @@ export function ComposerAiPromptPill({
   hasDraft,
   onOpenStyle,
   mode = "reply",
+  autoFocus = true,
 }: PillProps) {
   const isCompose = mode === "compose";
   const inputRef = useRef<HTMLInputElement>(null);
@@ -59,6 +65,7 @@ export function ComposerAiPromptPill({
   // Foco al abrir: caret parpadeando en el prompt (doble rAF + timeout por
   // si el composer aún está montando tras Responder / Reenviar).
   useEffect(() => {
+    if (!autoFocus) return;
     let cancelled = false;
     const focus = () => {
       if (!cancelled) inputRef.current?.focus({ preventScroll: true });
@@ -72,7 +79,7 @@ export function ComposerAiPromptPill({
       window.cancelAnimationFrame(raf);
       window.clearTimeout(t);
     };
-  }, []);
+  }, [autoFocus]);
 
   useEffect(() => {
     if (!menuOpen) return;
