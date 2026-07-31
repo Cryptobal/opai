@@ -204,7 +204,14 @@ function AppShellInner({
           notifUnread={notifUnreadCount}
         />
       )}
-      <div className="relative min-h-[100dvh] overflow-x-clip" {...densityRootProps()}>
+      {/* --app-island-bottom: alineado con MobileIsland (safe + 8px + 48px).
+          Definido también en :root (globals.css); aquí refuerza el vínculo
+          con el componente que renderiza la isla. */}
+      <div
+        className="relative min-h-[100dvh] overflow-x-clip"
+        style={{ ["--app-island-bottom" as string]: "calc(env(safe-area-inset-top, 0px) + 3.5rem)" }}
+        {...densityRootProps()}
+      >
         {/* ── Desktop sidebar (unchanged) ── */}
         {sidebar && (
           <div className="hidden lg:block">

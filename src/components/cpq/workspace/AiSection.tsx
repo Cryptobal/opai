@@ -55,7 +55,7 @@ export function AiSection({
       icon={<Sparkles className="h-4 w-4 text-muted-foreground shrink-0" />}
       open={open}
       onToggle={onToggle}
-      cardClassName="overflow-hidden scroll-mt-[12.5rem] lg:scroll-mt-32"
+      cardClassName="overflow-hidden scroll-mt-[calc(var(--app-island-bottom)+var(--cpq-sticky-h))] lg:scroll-mt-32"
       bodyClassName="grid gap-4 bg-card/60 px-3 pb-3 pt-3 sm:px-4 sm:pb-4 sm:pt-4 lg:grid-cols-2"
       bodyInert={isLocked}
       summary={

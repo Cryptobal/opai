@@ -2003,11 +2003,13 @@ export function CpqQuoteDetail({
 
       </>)}
 
-      {/* -- Mobile sticky stack: total glass (40px) → pestañas (multi) → chips
-           de secciones. Orden fijo del mockup aprobado; top-[53px] = altura del
-           topbar móvil. El indicador UF/UTM del topbar no existe en móvil: el
-           chip UF del día vive aquí. En multi el total es el consolidado. */}
-      <div className="sticky top-[53px] z-20 -mx-4 sm:-mx-6 lg:-mx-8 lg:hidden opai-liquid-glass-bar-top mb-3">
+      {/* -- Mobile sticky stack: total → pestañas (multi) → chips.
+           top = --app-island-bottom (MobileIsland: safe + 8 + 48).
+           z-[25] bajo la isla (z-30) y la bottom bar (z-50). */}
+      <div
+        className="sticky top-[var(--app-island-bottom)] z-[25] -mx-4 sm:-mx-6 lg:-mx-8 lg:hidden opai-liquid-glass-bar-top mb-3"
+        style={mobileTabsSlot ? { ["--cpq-sticky-h" as string]: "7.75rem" } : undefined}
+      >
         <MobileTotalBar
           totalClp={mobileTotalClpOverride ?? billingMonthlyTotal}
           currency={crmContext.currency || "CLP"}
@@ -2214,7 +2216,7 @@ export function CpqQuoteDetail({
       >
       <div className="space-y-2 min-w-0">
       {/* -- Section: Datos (scroll-mt: visible bajo el stack sticky al navegar) -- */}
-      <Card id="sec-datos" className="overflow-visible rounded-xl border-border/70 bg-card/85 shadow-sm scroll-mt-[12.5rem] lg:scroll-mt-32">
+      <Card id="sec-datos" className="overflow-visible rounded-xl border-border/70 bg-card/85 shadow-sm scroll-mt-[calc(var(--app-island-bottom)+var(--cpq-sticky-h))] lg:scroll-mt-32">
         <button type="button" onClick={() => setSecDatos(v => !v)} className="flex items-center justify-between w-full border-b border-border/50 bg-muted/20 px-4 py-3 hover:bg-muted/30 transition-colors">
           <div className="flex items-center gap-2 min-w-0">
             <h2 className="text-sm font-semibold text-primary shrink-0">Datos</h2>
@@ -2272,7 +2274,7 @@ export function CpqQuoteDetail({
            Visible en todos los breakpoints: es la apertura línea por línea de la
            propuesta (mano de obra → costos → margen → financiero → líneas → total).
            El aside «Centro de control» solo muestra KPIs, no el desglose. -- */}
-      <Card id="sec-desglose" className="overflow-hidden rounded-xl border-border/70 bg-card/85 shadow-sm scroll-mt-[12.5rem] lg:scroll-mt-32">
+      <Card id="sec-desglose" className="overflow-hidden rounded-xl border-border/70 bg-card/85 shadow-sm scroll-mt-[calc(var(--app-island-bottom)+var(--cpq-sticky-h))] lg:scroll-mt-32">
         <button type="button" onClick={() => setSecDesglose(v => !v)} className="flex items-center justify-between w-full border-b border-border/50 bg-muted/20 px-4 py-3 hover:bg-muted/30 transition-colors">
           <div className="flex items-center gap-2 min-w-0">
             <h2 className="text-sm font-semibold text-primary shrink-0">Desglose</h2>
@@ -2315,7 +2317,7 @@ export function CpqQuoteDetail({
       </Card>
 
       {/* -- Section: Puestos -- */}
-      <Card id="sec-puestos" className="overflow-hidden rounded-xl border-border/70 bg-card/85 shadow-sm scroll-mt-[12.5rem] lg:scroll-mt-32">
+      <Card id="sec-puestos" className="overflow-hidden rounded-xl border-border/70 bg-card/85 shadow-sm scroll-mt-[calc(var(--app-island-bottom)+var(--cpq-sticky-h))] lg:scroll-mt-32">
         <div role="button" tabIndex={0} onClick={() => setSecPuestos(v => !v)} className="flex items-center justify-between w-full border-b border-border/50 bg-muted/20 px-4 py-3 hover:bg-muted/30 transition-colors cursor-pointer">
           <div className="flex items-center gap-2 min-w-0">
             <h2 className="text-sm font-semibold text-primary shrink-0">Puestos</h2>
@@ -2379,7 +2381,7 @@ export function CpqQuoteDetail({
       </Card>
 
       {/* -- Section: Costos -- */}
-      <Card id="sec-costos" className="overflow-hidden rounded-xl border-border/70 bg-card/85 shadow-sm scroll-mt-[12.5rem] lg:scroll-mt-32">
+      <Card id="sec-costos" className="overflow-hidden rounded-xl border-border/70 bg-card/85 shadow-sm scroll-mt-[calc(var(--app-island-bottom)+var(--cpq-sticky-h))] lg:scroll-mt-32">
         <button type="button" onClick={() => setSecCostos(v => !v)} className="flex items-center justify-between w-full border-b border-border/50 bg-muted/20 px-4 py-3 hover:bg-muted/30 transition-colors">
           <div className="flex items-center gap-2 min-w-0">
             <h2 className="text-sm font-semibold text-primary shrink-0">Costos adicionales</h2>
@@ -2459,7 +2461,7 @@ export function CpqQuoteDetail({
       />
 
       {/* -- Section: Margen -- */}
-      <Card id="sec-margen" className="overflow-hidden rounded-xl border-border/70 bg-card/85 shadow-sm scroll-mt-[12.5rem] lg:scroll-mt-32">
+      <Card id="sec-margen" className="overflow-hidden rounded-xl border-border/70 bg-card/85 shadow-sm scroll-mt-[calc(var(--app-island-bottom)+var(--cpq-sticky-h))] lg:scroll-mt-32">
         <button type="button" onClick={() => setSecMargen(v => !v)} className="flex items-center justify-between w-full border-b border-border/50 bg-muted/20 px-4 py-3 hover:bg-muted/30 transition-colors">
           <div className="flex items-center gap-2 min-w-0">
             <h2 className="text-sm font-semibold text-primary shrink-0">Margen de venta</h2>
@@ -2514,7 +2516,7 @@ export function CpqQuoteDetail({
       />
 
       {/* -- Section: Incluye (items incluidos en la cotización) -- */}
-      <Card id="sec-incluye" className="overflow-visible rounded-xl border-border/70 bg-card/85 shadow-sm scroll-mt-[12.5rem] lg:scroll-mt-32">
+      <Card id="sec-incluye" className="overflow-visible rounded-xl border-border/70 bg-card/85 shadow-sm scroll-mt-[calc(var(--app-island-bottom)+var(--cpq-sticky-h))] lg:scroll-mt-32">
         <button
           type="button"
           onClick={() => setSecIncluye((v) => !v)}
@@ -2596,7 +2598,7 @@ export function CpqQuoteDetail({
            En multi-instalación la auditoría vive en el Consolidado, que reúne
            los eventos de la propuesta y de todas sus instalaciones. */}
       {!embedded && (
-      <Card id="sec-auditoria" className="overflow-visible rounded-xl border-border/70 bg-card/85 shadow-sm scroll-mt-[12.5rem] lg:scroll-mt-32">
+      <Card id="sec-auditoria" className="overflow-visible rounded-xl border-border/70 bg-card/85 shadow-sm scroll-mt-[calc(var(--app-island-bottom)+var(--cpq-sticky-h))] lg:scroll-mt-32">
         <div className="flex items-center justify-between w-full border-b border-border/50 bg-muted/20 px-4 py-3">
           <button type="button" onClick={() => setSecAuditoria((v) => !v)} className="flex-1 flex items-center gap-2 min-w-0 text-left hover:bg-muted/10 transition-colors -m-1 p-1 rounded">
             <h2 className="text-sm font-semibold text-primary shrink-0">Auditoría</h2>

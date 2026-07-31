@@ -222,7 +222,10 @@ export function QuoteWorkspace({
       {!activeQuoteId ? (
         <>
           {/* Stack sticky móvil del consolidado: total + pestañas. */}
-          <div className="sticky top-[53px] z-20 -mx-4 sm:-mx-6 lg:hidden opai-liquid-glass-bar-top">
+          <div
+            className="sticky top-[var(--app-island-bottom)] z-[25] -mx-4 sm:-mx-6 lg:hidden opai-liquid-glass-bar-top"
+            style={{ ["--cpq-sticky-h" as string]: "7.75rem" }}
+          >
             <MobileTotalBar
               totalClp={billing.monthlyClp}
               currency={bundle.currency}
