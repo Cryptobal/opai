@@ -130,6 +130,7 @@ const FEATURE_MODULE: Record<string, AiModuleId> = {
   // CRM
   "correo-radar-next-step": "crm", // feature id histórico de suggestNextStepTask
   "correo-suggest-reply": "crm",
+  "correo-suggest-compose": "crm",
   "correo-email-to-lead": "crm",
   "correo-link-suggest": "crm",
   "correo-thread-summary": "crm",

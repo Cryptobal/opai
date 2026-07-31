@@ -110,6 +110,11 @@ describe("correo-draft-ai con correo adversarial", () => {
     );
   });
 
+  it("generateDraftReply propaga el error del proveedor (no lo traga)", async () => {
+    mocks.generateText.mockRejectedValue(new Error("quota exceeded"));
+    await expect(generateDraftReply(input)).rejects.toThrow("quota exceeded");
+  });
+
   it("generateDraftCompose redacta mensaje nuevo con estilo y telemetría", async () => {
     mocks.generateText.mockResolvedValue("Estimado Patricio,\n\nAdjunto antecedentes.");
     const draft = await generateDraftCompose({
