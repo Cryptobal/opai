@@ -25,6 +25,7 @@ import {
   type DraftRefineMode,
 } from "./ComposerAiAssist";
 import { CorreoComposerMoreSheet } from "./CorreoComposerMoreSheet";
+import { CorreoAttachSheet } from "./CorreoAttachSheet";
 import type { CorreoMessageDTO } from "@/modules/crm/email/correos.types";
 import { emailPlainFallback } from "@/lib/sanitize-email-html";
 import type { ComposerMode } from "./ComposerModeSwitcher";
@@ -108,7 +109,7 @@ export function CorreoComposerBox(props: Props) {
   );
   const [isDesktop, setIsDesktop] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
-  const attachInputRef = useRef<HTMLInputElement>(null);
+  const [attachOpen, setAttachOpen] = useState(false);
   const [scheduleNonce, setScheduleNonce] = useState(0);
   const [sendBusy, setSendBusy] = useState(false);
 
@@ -142,10 +143,11 @@ export function CorreoComposerBox(props: Props) {
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key !== "Escape") return;
-      if (moreOpen) {
+      if (moreOpen || attachOpen) {
         e.preventDefault();
         e.stopPropagation();
         setMoreOpen(false);
+        setAttachOpen(false);
         return;
       }
       if (showAiPrompt) {
@@ -167,7 +169,7 @@ export function CorreoComposerBox(props: Props) {
     }
     document.addEventListener("keydown", onKey, { capture: true });
     return () => document.removeEventListener("keydown", onKey, { capture: true });
-  }, [asModal, showAiPrompt, props, moreOpen]);
+  }, [asModal, showAiPrompt, props, moreOpen, attachOpen]);
 
   function reseed() {
     setSeed(bodyRef.current);
@@ -300,17 +302,24 @@ export function CorreoComposerBox(props: Props) {
     />
   );
 
-  const moreSheet = (
-    <CorreoComposerMoreSheet
-      open={moreOpen}
-      onClose={() => setMoreOpen(false)}
-      canSendAndArchive={Boolean(props.onArchiveAfterSend)}
-      onSendAndArchive={() => void composerRef.current?.sendAndArchive()}
-      onSchedule={() => setScheduleNonce((n) => n + 1)}
-      onOpenSignature={props.onOpenSignature}
-      onOpenAiStyle={props.onOpenAiStyle}
-      onDiscard={() => void composerRef.current?.requestDiscard()}
-    />
+  const sheets = (
+    <>
+      <CorreoComposerMoreSheet
+        open={moreOpen}
+        onClose={() => setMoreOpen(false)}
+        canSendAndArchive={Boolean(props.onArchiveAfterSend)}
+        onSendAndArchive={() => void composerRef.current?.sendAndArchive()}
+        onSchedule={() => setScheduleNonce((n) => n + 1)}
+        onOpenSignature={props.onOpenSignature}
+        onOpenAiStyle={props.onOpenAiStyle}
+        onDiscard={() => void composerRef.current?.requestDiscard()}
+      />
+      <CorreoAttachSheet
+        open={attachOpen}
+        onClose={() => setAttachOpen(false)}
+        onFiles={(files) => composerRef.current?.addFiles(files)}
+      />
+    </>
   );
 
   if (asMobileFs) {
@@ -342,22 +351,10 @@ export function CorreoComposerBox(props: Props) {
           >
             <Sparkles className="h-5 w-5" />
           </button>
-          <input
-            ref={attachInputRef}
-            type="file"
-            accept="*/*"
-            multiple
-            className="sr-only"
-            onChange={(e) => {
-              const files = Array.from(e.target.files ?? []);
-              if (files.length) composerRef.current?.addFiles(files);
-              e.target.value = "";
-            }}
-          />
           <button
             type="button"
             aria-label="Adjuntar"
-            onClick={() => attachInputRef.current?.click()}
+            onClick={() => setAttachOpen(true)}
             className="flex h-11 w-11 items-center justify-center rounded-full text-ds-text-2 ds-tap"
           >
             <Paperclip className="h-5 w-5" />
@@ -388,7 +385,7 @@ export function CorreoComposerBox(props: Props) {
         >
           {composer}
         </div>
-        {moreSheet}
+        {sheets}
       </div>,
       document.body,
     );
