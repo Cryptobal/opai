@@ -17,7 +17,8 @@ import {
 } from '@/components/crm/CrmDashboardCharts';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import Link from 'next/link';
-import { Users, AlertTriangle, Building2, TrendingUp } from 'lucide-react';
+import { Users, Building2, TrendingUp, Percent } from 'lucide-react';
+import { CrmKpiSparkline } from '@/components/crm/CrmKpiSparkline';
 import { getCommercialMetrics, normalizeWindow } from '@/modules/crm/analytics/commercial-metrics';
 
 export const dynamic = 'force-dynamic';
@@ -134,9 +135,16 @@ export default async function CRMPage({ searchParams }: { searchParams: Promise<
   const periodLabel = `${period}m`;
   const PERIOD_OPTS: Array<3 | 6 | 12> = [3, 6, 12];
 
+  // Series para sparklines — derivadas de los datos que ya entrega el
+  // servicio de métricas (sin fetchs nuevos).
+  const leadsSpark = leadsByMonthData.map((r) => r.total);
+  const conversionSpark = leadsByMonthData.map((r) =>
+    r.total > 0 ? Math.round((r.approved / r.total) * 100) : 0,
+  );
+
   return (
     <div className="space-y-4 min-w-0 overflow-x-hidden">
-      {/* ─── Resumen ejecutivo ─── */}
+      {/* ─── Resumen ejecutivo: 4 KPIs con sparkline ─── */}
       <StatGrid lgCols={4}>
         <Link href="/crm/leads" className="min-w-0">
           <Stat
@@ -144,23 +152,8 @@ export default async function CRMPage({ searchParams }: { searchParams: Promise<
             value={leadsThisMonth}
             icon={<Users />}
             trend={leadsMonthDelta !== 0 ? leadsMonthDelta : undefined}
-            hint={`${leadsPrevMonth} mes anterior`}
-            className="h-full transition-all hover:ring-2 hover:ring-primary/25"
-          />
-        </Link>
-        <Stat
-          label="Estado leads"
-          value={`${leadsPending + leadsInReview}`}
-          icon={<AlertTriangle />}
-          hint={`${leadsPending} pendientes · ${leadsInReview} en revisión`}
-          variant="warn"
-        />
-        <Link href="/crm/accounts" className="min-w-0">
-          <Stat
-            label="Portafolio activo"
-            value={accountsActive}
-            icon={<Building2 />}
-            hint={`${installationsActive} instalaciones`}
+            hint={`${leadsPrevMonth} mes anterior · ${leadsPending + leadsInReview} por revisar`}
+            footer={<CrmKpiSparkline points={leadsSpark} variant="brand" />}
             className="h-full transition-all hover:ring-2 hover:ring-primary/25"
           />
         </Link>
@@ -173,6 +166,23 @@ export default async function CRMPage({ searchParams }: { searchParams: Promise<
             className="h-full transition-all hover:ring-2 hover:ring-primary/25"
           />
         </Link>
+        <Link href="/crm/accounts" className="min-w-0">
+          <Stat
+            label="Portafolio activo"
+            value={accountsActive}
+            icon={<Building2 />}
+            hint={`${installationsActive} instalaciones activas`}
+            className="h-full transition-all hover:ring-2 hover:ring-primary/25"
+          />
+        </Link>
+        <Stat
+          label="Conversión lead a negocio"
+          value={`${leadToDealRate30}%`}
+          icon={<Percent />}
+          variant={leadToDealRate30 > 0 ? 'ok' : 'default'}
+          hint={`${leadsConverted30} de ${leadsCreated30} leads (30d)`}
+          footer={<CrmKpiSparkline points={conversionSpark} variant="ok" />}
+        />
       </StatGrid>
 
       {/* ─── Gráficos históricos ─── */}
@@ -255,11 +265,10 @@ export default async function CRMPage({ searchParams }: { searchParams: Promise<
                     </div>
                     <div className="h-8 w-full overflow-hidden rounded-md bg-muted/30">
                       <div
-                        className="flex h-full items-center rounded-md px-2.5 transition-all"
-                        style={{
-                          width: `${widthPct}%`,
-                          background: i === 0 ? 'rgba(29,185,144,0.2)' : i === 1 ? 'rgba(29,185,144,0.35)' : i === 2 ? 'rgba(29,185,144,0.5)' : 'rgba(29,185,144,0.7)',
-                        }}
+                        className={`flex h-full items-center rounded-md px-2.5 transition-all ${
+                          i === 0 ? 'bg-status-ok/20' : i === 1 ? 'bg-status-ok/35' : i === 2 ? 'bg-status-ok/50' : 'bg-status-ok/70'
+                        }`}
+                        style={{ width: `${widthPct}%` }}
                       >
                         <span className="text-sm font-semibold tabular-nums text-foreground">{step.value}</span>
                       </div>

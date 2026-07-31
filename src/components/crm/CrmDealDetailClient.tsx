@@ -2178,32 +2178,36 @@ export function CrmDealDetailClient({
           extra: headerExtra,
         }}
         pipelineBar={
-          <DealPipelineStepper
-            stages={pipelineStages}
-            currentStageId={currentStage?.id}
-            dealStatus={dealStatus}
-            onStageClick={updateStage}
-            onWonClick={handleWonClick}
-            onLostClick={handleLostClick}
-            disabled={changingStage}
-          />
-        }
-        stickyMeta={
-          <DealHighlightsStrip
-            amountClp={activeQuoteIndicators.amountClp}
-            amountUf={activeQuoteIndicators.amountUf}
-            totalGuards={activeQuoteIndicators.totalGuards}
-            serviceStartDate={dealServiceStartDate}
-            onEditStartDate={openEditStartDate}
-            activeQuote={
-              deal.activeQuoteSummary?.code
-                ? {
-                    code: deal.activeQuoteSummary.code,
-                    statusLabel: getQuoteStatus(deal.activeQuoteSummary.status).label,
-                  }
-                : null
-            }
-          />
+          <>
+            <DealPipelineStepper
+              stages={pipelineStages}
+              currentStageId={currentStage?.id}
+              dealStatus={dealStatus}
+              onStageClick={updateStage}
+              onWonClick={handleWonClick}
+              onLostClick={handleLostClick}
+              disabled={changingStage}
+            />
+            {/* Métricas dentro del área colapsable: al hacer scroll quedan
+                solo las tabs pegadas a la topbar. */}
+            <div className="border-t border-border/50 bg-muted/15 py-2">
+              <DealHighlightsStrip
+                amountClp={activeQuoteIndicators.amountClp}
+                amountUf={activeQuoteIndicators.amountUf}
+                totalGuards={activeQuoteIndicators.totalGuards}
+                serviceStartDate={dealServiceStartDate}
+                onEditStartDate={openEditStartDate}
+                activeQuote={
+                  deal.activeQuoteSummary?.code
+                    ? {
+                        code: deal.activeQuoteSummary.code,
+                        statusLabel: getQuoteStatus(deal.activeQuoteSummary.status).label,
+                      }
+                    : null
+                }
+              />
+            </div>
+          </>
         }
         tabs={tabs}
         activeTab={effectiveTab}

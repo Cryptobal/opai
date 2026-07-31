@@ -127,6 +127,9 @@ export interface CrmDeal {
   proposalLink?: string | null;
   proposalSentAt?: string | null;
   dealType?: string | null;
+  /** Licitación pública/privada — columna real ya incluida en el payload de lista */
+  isLicitacion?: boolean | null;
+  fechaEntrega?: string | null;
   notes?: string | null;
   driveFolderLink?: string | null;
   installationName?: string | null;

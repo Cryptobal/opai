@@ -9,6 +9,8 @@ import { ChipTabs } from "@/components/ui/chip-tabs";
 import { RecordActions } from "./RecordActions";
 import { Avatar, useSetBreadcrumbTrailing } from "@/components/opai-ds";
 import { tintFromId } from "@/lib/entity-tint";
+import { useCollapsibleHeader } from "./record/useCollapsibleHeader";
+import { RecordCollapse, RecordMiniTitle } from "./record/RecordCollapse";
 
 /* ── Types ── */
 
@@ -98,6 +100,12 @@ export interface EntityDetailLayoutProps {
   stickyMeta?: ReactNode;
   /** Called when the avatar is clicked (e.g. to upload a photo/logo) */
   onAvatarClick?: () => void;
+  /**
+   * Colapsa el bloque superior (avatar+título+acciones+pipelineBar) al hacer
+   * scroll, dejando solo el strip de tabs + mini-título pegado a la topbar.
+   * Kill-switch de rollback: pasar `false` restaura el header estático.
+   */
+  collapseOnScroll?: boolean;
   /** Additional class on the root container */
   className?: string;
 }
@@ -133,6 +141,7 @@ export function EntityDetailLayout({
   pipelineBar,
   stickyMeta,
   onAvatarClick,
+  collapseOnScroll = true,
   className,
 }: EntityDetailLayoutProps) {
   // Publica el último segmento del breadcrumb (nombre de la entidad) para
@@ -159,18 +168,24 @@ export function EntityDetailLayout({
     !header.avatar?.color;
   const entityTint = header.entityId ? tintFromId(header.entityId) : undefined;
 
+  // Colapso on-scroll: histéresis 64/26 sobre el contenedor de scroll real
+  // (window en el AppShell). El área colapsada no desmonta — solo se contrae.
+  const { collapsed, rootRef } = useCollapsibleHeader(collapseOnScroll);
+
   return (
-    <div className={cn("min-w-0 -mt-3 sm:-mt-4 lg:mt-0", className)}>
+    <div ref={rootRef} className={cn("min-w-0 -mt-3 sm:-mt-4 lg:mt-0", className)}>
       {/* ── Sticky Header + Tab Bar (single container to avoid gap) ── */}
       <div
         className={cn(
-          "sticky top-0 z-10 bg-background",
+          "sticky top-0 lg:top-[var(--app-topbar-offset)] z-10 bg-background",
           "-mx-2 px-4 sm:-mx-3 sm:px-6",
           "lg:-ml-4 lg:-mr-8 lg:pl-4 lg:pr-8",
           "xl:-ml-5 xl:-mr-10 xl:pl-5 xl:pr-10",
           "2xl:-ml-6 2xl:-mr-12 2xl:pl-6 2xl:pr-12"
         )}
       >
+        {/* ── Área colapsable: header + pipeline bar (las tabs quedan fuera) ── */}
+        <RecordCollapse collapsed={collapsed}>
         {/* ── Header ── */}
         <div className="pt-2 sm:pt-4 lg:pt-3 pb-1.5 sm:pb-2">
           {/* Breadcrumb in-place removido — vive arriba del contenido en
@@ -335,22 +350,49 @@ export function EntityDetailLayout({
 
         {/* Pipeline bar */}
         {pipelineBar}
+        </RecordCollapse>
 
-        {/* ── ChipTabs (inside sticky container) — se omite en fichas single-page ── */}
-        {visibleTabs.length > 0 && (
-          <ChipTabs
-            tabs={visibleTabs.map((tab) => ({
-              id: tab.id,
-              label: tab.label,
-              icon: tab.icon,
-              badge: tab.count,
-            }))}
-            activeTab={activeTab}
-            onTabChange={onTabChange}
-            compact
-            centered={false}
-          />
-        )}
+        {/* ── ChipTabs + mini-título (inside sticky container) ──
+            El mini-título (avatar 22px + nombre) aparece con fade/expand cuando
+            el header está colapsado. En fichas single-page (sin tabs) se
+            muestra un strip mínimo solo al colapsar. */}
+        {visibleTabs.length > 0 ? (
+          <div className="flex items-center min-w-0">
+            {collapseOnScroll && (
+              <RecordMiniTitle
+                collapsed={collapsed}
+                title={header.title}
+                entityId={header.entityId}
+                photoUrl={header.avatar?.photoUrl}
+                initials={header.avatar?.initials}
+              />
+            )}
+            <div className="flex-1 min-w-0">
+              <ChipTabs
+                tabs={visibleTabs.map((tab) => ({
+                  id: tab.id,
+                  label: tab.label,
+                  icon: tab.icon,
+                  badge: tab.count,
+                }))}
+                activeTab={activeTab}
+                onTabChange={onTabChange}
+                compact
+                centered={false}
+              />
+            </div>
+          </div>
+        ) : collapseOnScroll && collapsed ? (
+          <div className="flex items-center py-1.5 border-b border-white/[0.06]">
+            <RecordMiniTitle
+              collapsed={collapsed}
+              title={header.title}
+              entityId={header.entityId}
+              photoUrl={header.avatar?.photoUrl}
+              initials={header.avatar?.initials}
+            />
+          </div>
+        ) : null}
 
         {stickyMeta ? (
           <div className="border-t border-border/50 bg-muted/15 px-0 py-2 -mb-px">{stickyMeta}</div>
