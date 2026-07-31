@@ -1,4 +1,5 @@
 import type { CapacitorConfig } from "@capacitor/cli";
+import { KeyboardResize } from "@capacitor/keyboard";
 
 /**
  * Capacitor config — Opai ERP
@@ -43,6 +44,11 @@ const config: CapacitorConfig = {
     StatusBar: {
       style: "DARK",
       backgroundColor: "#0a1628",
+    },
+    // resize None: el composer fullscreen se ancla a visualViewport en JS.
+    // accessoryBarVisible se apaga en runtime al abrir el composer (iOS).
+    Keyboard: {
+      resize: KeyboardResize.None,
     },
   },
 };

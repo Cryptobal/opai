@@ -12,6 +12,8 @@ import {
   X,
 } from "lucide-react";
 import { Spinner } from "@/components/opai-ds";
+import { useVisualViewportFrame } from "@/hooks/useVisualViewportFrame";
+import { hideKeyboardAccessoryBar } from "@/lib/capacitor/hideKeyboardAccessoryBar";
 import {
   EmailComposer,
   type EmailComposerHandle,
@@ -125,6 +127,7 @@ export function CorreoComposerBox(props: Props) {
   const [attachOpen, setAttachOpen] = useState(false);
   const [scheduleNonce, setScheduleNonce] = useState(0);
   const [sendBusy, setSendBusy] = useState(false);
+  const vv = useVisualViewportFrame();
 
   useEffect(() => {
     const mq = window.matchMedia("(min-width: 1024px)");
@@ -137,6 +140,12 @@ export function CorreoComposerBox(props: Props) {
   const isForward = mode === "forward";
   const asModal = expanded && isDesktop;
   const asMobileFs = !isDesktop;
+
+  // iOS: sin barra ◀▶✓ del sistema; el Enviar vive en nuestra topbar.
+  useEffect(() => {
+    if (!asMobileFs) return;
+    void hideKeyboardAccessoryBar();
+  }, [asMobileFs]);
   const showAiPrompt = ai;
   const replyAllAvailable = Boolean(
     replyAll &&
@@ -337,14 +346,33 @@ export function CorreoComposerBox(props: Props) {
   );
 
   if (asMobileFs) {
+    // Anclado al visualViewport: con teclado iOS, inset-0 deja la topbar
+    // (Enviar) fuera de pantalla; top/height del VV la mantienen visible.
+    const fsStyle = {
+      top: vv.top,
+      height: vv.height || "100dvh",
+      // Con teclado el VV ya excluye el notch inferior; sin teclado respetamos
+      // safe-area vía padding del header/scroll.
+    } as const;
+    const headerPadTop =
+      vv.keyboardInset > 0
+        ? "0.5rem"
+        : "calc(env(safe-area-inset-top, 0px) + 0.5rem)";
+
     return createPortal(
       <div
-        className="fixed inset-0 z-[60] flex flex-col bg-background"
+        className="fixed inset-x-0 z-[60] flex flex-col bg-background"
+        style={fsStyle}
         role="dialog"
         aria-modal="true"
         aria-label="Redactar correo"
       >
-        <header className="opai-glass-strong flex h-14 shrink-0 items-center gap-0.5 border-b border-ds-border-subtle px-2 pt-[env(safe-area-inset-top)]">
+        {/* Sin h-* fijo: el pt safe-area debe sumar altura, no comerse la fila
+            de botones (antes h-14 + pt dejaba los controles pegados al notch). */}
+        <header
+          className="opai-glass-strong flex shrink-0 items-center gap-0.5 border-b border-ds-border-subtle px-2 pb-2"
+          style={{ paddingTop: headerPadTop }}
+        >
           <button
             type="button"
             aria-label="Cerrar"

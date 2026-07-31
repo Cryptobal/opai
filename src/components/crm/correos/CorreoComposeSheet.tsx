@@ -13,6 +13,8 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useVisualViewportFrame } from "@/hooks/useVisualViewportFrame";
+import { hideKeyboardAccessoryBar } from "@/lib/capacitor/hideKeyboardAccessoryBar";
 import { EmailComposer, type EmailComposerHandle } from "./EmailComposer";
 import {
   ComposerAiAssistToggle,
@@ -76,8 +78,23 @@ export function CorreoComposeSheet({
   const [instructions, setInstructions] = useState("");
   const [generating, setGenerating] = useState(false);
   const [hasAiDraft, setHasAiDraft] = useState(false);
+  const [isDesktop, setIsDesktop] = useState(false);
+  const vv = useVisualViewportFrame();
 
   useEffect(() => setMounted(true), []);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 768px)");
+    const update = () => setIsDesktop(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
+
+  useEffect(() => {
+    if (!open || win === "minimized" || isDesktop) return;
+    void hideKeyboardAccessoryBar();
+  }, [open, win, isDesktop]);
 
   useEffect(() => {
     if (open) {
@@ -184,6 +201,20 @@ export function CorreoComposeSheet({
     }
   };
 
+  const mobileFs = win !== "minimized" && !isDesktop;
+  const mobileFsStyle = mobileFs
+    ? ({
+        top: vv.top,
+        height: vv.height || "100dvh",
+        bottom: "auto",
+      } as const)
+    : undefined;
+  const sheetHeaderPadTop = mobileFs
+    ? vv.keyboardInset > 0
+      ? "0.5rem"
+      : "calc(env(safe-area-inset-top, 0px) + 0.5rem)"
+    : undefined;
+
   const panel = (
     <div
       role="dialog"
@@ -201,15 +232,18 @@ export function CorreoComposeSheet({
               "md:inset-auto md:bottom-0 md:right-4 md:h-12 md:w-[min(420px,calc(100vw-2rem))] md:rounded-t-xl md:rounded-b-none md:border-b-0",
             ]
           : [
-              "inset-0 rounded-none",
+              // Móvil: anclado al visualViewport (no inset-0) para que la
+              // topbar no desaparezca bajo el teclado iOS.
+              "inset-x-0 rounded-none md:inset-auto",
               // Desktop: dock abajo-derecha (Gmail).
-              "md:inset-auto md:bottom-0 md:right-4",
+              "md:bottom-0 md:right-4 md:top-auto md:h-auto",
             ],
         win === "normal" &&
           "md:h-[min(640px,calc(100dvh-5rem))] md:w-[min(720px,calc(100vw-2rem))] md:rounded-t-2xl",
         win === "expanded" &&
           "md:bottom-4 md:right-4 md:top-16 md:h-auto md:w-[min(960px,calc(100vw-2rem))] md:rounded-2xl",
       )}
+      style={mobileFs ? mobileFsStyle : undefined}
       onClick={(e) => e.stopPropagation()}
     >
       <div
@@ -218,8 +252,10 @@ export function CorreoComposeSheet({
           "bg-ds-surface-2",
           win === "minimized"
             ? "h-12 rounded-[inherit] border-b-0 pt-0"
-            : "h-12 pt-[calc(env(safe-area-inset-top,0px)+0.5rem)] md:h-11 md:pt-0",
+            : // Móvil fullscreen: pt safe-area suma altura (sin h-* fijo).
+              "min-h-12 pb-2 md:h-11 md:min-h-0 md:pb-0 md:pt-0",
         )}
+        style={sheetHeaderPadTop ? { paddingTop: sheetHeaderPadTop } : undefined}
       >
         <button
           type="button"
