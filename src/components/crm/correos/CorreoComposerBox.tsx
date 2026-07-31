@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { Spinner } from "@/components/opai-ds";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { useVisualViewportFrame } from "@/hooks/useVisualViewportFrame";
 import {
   hideKeyboardAccessoryBar,
@@ -127,20 +128,12 @@ export function CorreoComposerBox(props: Props) {
   const [hasAiDraft, setHasAiDraft] = useState(() =>
     Boolean(initialSeed && docPlainText(initialSeed.doc).trim()),
   );
-  const [isDesktop, setIsDesktop] = useState(false);
+  const isDesktop = useMediaQuery("(min-width: 1024px)");
   const [moreOpen, setMoreOpen] = useState(false);
   const [attachOpen, setAttachOpen] = useState(false);
   const [scheduleNonce, setScheduleNonce] = useState(0);
   const [sendBusy, setSendBusy] = useState(false);
   const vv = useVisualViewportFrame();
-
-  useEffect(() => {
-    const mq = window.matchMedia("(min-width: 1024px)");
-    const update = () => setIsDesktop(mq.matches);
-    update();
-    mq.addEventListener("change", update);
-    return () => mq.removeEventListener("change", update);
-  }, []);
 
   const isForward = mode === "forward";
   const asModal = expanded && isDesktop;

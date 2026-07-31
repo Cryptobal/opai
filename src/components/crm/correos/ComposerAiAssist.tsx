@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { ArrowUp, MoreVertical, WandSparkles, X } from "lucide-react";
 import { Spinner, Surface } from "@/components/opai-ds";
 import { hideKeyboardAccessoryBar } from "@/lib/capacitor/hideKeyboardAccessoryBar";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { cn } from "@/lib/utils";
 import {
   DRAFT_REFINE_CHIPS,
@@ -53,7 +54,7 @@ export function ComposerAiPromptPill({
   const inputRef = useRef<HTMLInputElement>(null);
   const kebabRef = useRef<HTMLDivElement | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [isDesktop, setIsDesktop] = useState(false);
+  const isDesktop = useMediaQuery("(min-width: 1024px)");
 
   // Foco al abrir: caret parpadeando en el prompt (doble rAF + timeout por
   // si el composer aún está montando tras Responder / Reenviar).
@@ -71,14 +72,6 @@ export function ComposerAiPromptPill({
       window.cancelAnimationFrame(raf);
       window.clearTimeout(t);
     };
-  }, []);
-
-  useEffect(() => {
-    const mq = window.matchMedia("(min-width: 1024px)");
-    const update = () => setIsDesktop(mq.matches);
-    update();
-    mq.addEventListener("change", update);
-    return () => mq.removeEventListener("change", update);
   }, []);
 
   useEffect(() => {
