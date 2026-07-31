@@ -15,7 +15,6 @@ import { CorreoReaderOverflowMenu } from "./CorreoReaderOverflowMenu";
 import { CorreoReaderIsland } from "./CorreoReaderIsland";
 import { CorreoSmartReplies } from "./CorreoSmartReplies";
 import { CorreoSnoozeSheet } from "./CorreoSnoozeSheet";
-import { CorreoCopilotSheet } from "./CorreoCopilotSheet";
 import { CorreoWorkPanel } from "./CorreoWorkPanel";
 import { CorreoWorkProvider } from "./CorreoWorkContext";
 import { runCorreoAction, snoozeThread } from "./correo-thread-action-client";
@@ -24,8 +23,6 @@ import { parseSender } from "./correo-sender";
 import { loadOfflineDetail } from "./offline-store";
 import { copilotoAttentionReasons } from "./correo-copiloto-reasons";
 import { triggerHaptic } from "@/lib/haptics";
-import { canEdit } from "@/lib/permissions";
-import { useEffectivePermissions } from "@/hooks/useEffectivePermissions";
 import type { CorreoDetail } from "@/modules/crm/email/correos.types";
 import type { CorreoShortcuts, CorreoSnoozeConfig } from "./useCorreosViewPreferences";
 import { nextIntentNonce, type ComposeIntent } from "./correo-reader-intent";
@@ -121,13 +118,9 @@ export function CorreoDrawer({
   workPanelCloseNonce = 0,
   onWorkPanelTabChange,
 }: Props) {
-  const perms = useEffectivePermissions();
-  const canEditCorreos = canEdit(perms, "crm", "correos");
   const [detail, setDetail] = useState<CorreoDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [snoozeOpen, setSnoozeOpen] = useState(false);
-  /** Sheet Copiloto móvil (badge ✨ del header). */
-  const [copilotSheetOpen, setCopilotSheetOpen] = useState(false);
   /** Pedido local (isla móvil Responder/Reenviar) sin pasar por CorreosClient. */
   const [localComposeIntent, setLocalComposeIntent] = useState<ComposeIntent | null>(null);
   /** Acción primaria resuelta (elevada desde CorreoReplyBox) para la isla. */
@@ -219,7 +212,6 @@ export function CorreoDrawer({
   useEffect(() => {
     setLocalComposeIntent(null);
     setSnoozeOpen(false);
-    setCopilotSheetOpen(false);
     setPrimaryAction(null);
     setComposerOpen(false);
     setReadCursorAt(null);
@@ -477,7 +469,9 @@ export function CorreoDrawer({
               );
             },
             copilotPending: copilotoAttentionReasons(detail).length > 0,
-            onOpenCopilot: () => setCopilotSheetOpen(true),
+            // Móvil = mismo Copiloto que desktop (Contexto/Trabajo), no el sheet
+            // recortado de pendientes+IA que ocultaba cascada y acciones.
+            onOpenCopilot: () => setWorkPanelTab(resolveWorkTab("contexto")),
           };
         })()
       : null;
@@ -579,19 +573,6 @@ export function CorreoDrawer({
         onOpenSettings={onOpenSnoozeSettings}
         onConfirm={handleSnoozeConfirm}
       />
-      {detailReady && (
-        <CorreoCopilotSheet
-          open={copilotSheetOpen}
-          detail={detail}
-          canEdit={canEditCorreos}
-          onClose={() => setCopilotSheetOpen(false)}
-          onAssociate={(accountId) => associate({ accountId, dealId: null })}
-          onOpenPanel={() => setWorkPanelTab(resolveWorkTab("contexto"))}
-          onComposeAi={() =>
-            requestCompose(primaryAction?.canReply === false ? "forward" : "reply", true)
-          }
-        />
-      )}
       {workPanelTab && workPanelDetail ? (
         <CorreoWorkProvider
           key={workPanelDetail.thread.id}
