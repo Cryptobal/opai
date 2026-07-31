@@ -162,7 +162,11 @@ type Props = {
   shortcuts?: Pick<CorreoShortcuts, "send" | "sendAndArchive">;
   /** Controles extra junto a Enviar (p.ej. toggle IA). */
   footerExtras?: React.ReactNode;
-  /** Slot sobre adjuntos/Enviar (p.ej. pill "Help me write" estilo Gmail). */
+  /**
+   * Slot justo debajo del cuerpo editable y antes del historial citado
+   * (p.ej. pill "Help me write"). Así la barra IA queda junto al texto que
+   * genera, no debajo de todo el historial.
+   */
   aboveFooter?: React.ReactNode;
   /** Abre preferencias de Correos en la pestaña Firma. */
   onOpenSignature?: () => void;
@@ -335,10 +339,23 @@ export const EmailComposer = forwardRef<EmailComposerHandle, Props>(function Ema
   // Borrador IA u otro contenido inyectado después del mount: se convierte en
   // el nuevo baseline (inyectar una sugerencia no cuenta como edición del
   // usuario; recién al tocarla se guarda).
+  // Además forzamos TipTap vía editorRef: ContractEditor a veces saltea el
+  // sync externo (foco / isInternalUpdate) y el cuerpo quedaba vacío.
   useEffect(() => {
     if (contentEpoch > 0 && initialContent) {
       setContent(initialContent);
       baselineRef.current.body = docPlainText(initialContent);
+      const doc = initialContent;
+      queueMicrotask(() => {
+        const editor = editorRef.current;
+        if (!editor) return;
+        editor.commands.setContent(doc);
+        editor.commands.focus("end");
+      });
+      // Traer el área de redacción a la vista (en reply el historial empuja).
+      rootRef.current
+        ?.querySelector<HTMLElement>("[data-email-composer-body]")
+        ?.scrollIntoView({ block: "nearest", behavior: "smooth" });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [contentEpoch]);
@@ -757,29 +774,30 @@ export const EmailComposer = forwardRef<EmailComposerHandle, Props>(function Ema
   );
 
   const editorBlock = (
-    <ContractEditor
-      content={content ?? undefined}
-      onChange={(next) => {
-        setContent(next);
-        onBodyChange?.(next);
-      }}
-      editable={!busy}
-      placeholder="Escribí tu mensaje… (pegá imágenes directo)"
-      showPagePreview={false}
-      enableImages
-      enableTokens={false}
-      compact
-      className="min-h-[200px]"
-      renderToolbar={(editor) => {
-        editorRef.current = editor;
-        return <EmailToolbar editor={editor} />;
-      }}
-    />
+    <div data-email-composer-body>
+      <ContractEditor
+        content={content ?? undefined}
+        onChange={(next) => {
+          setContent(next);
+          onBodyChange?.(next);
+        }}
+        editable={!busy}
+        placeholder="Escribí tu mensaje… (pegá imágenes directo)"
+        showPagePreview={false}
+        enableImages
+        enableTokens={false}
+        compact
+        className="min-h-[200px]"
+        renderToolbar={(editor) => {
+          editorRef.current = editor;
+          return <EmailToolbar editor={editor} />;
+        }}
+      />
+    </div>
   );
 
   const footerBlock = (
     <>
-      {aboveFooter}
       {dictation.listening && (dictation.interimText || dictation.silent) && (
         <p className="py-1 text-[12px] text-ds-text-3">
           {dictation.silent
@@ -889,6 +907,8 @@ export const EmailComposer = forwardRef<EmailComposerHandle, Props>(function Ema
     >
       {headerFields}
       {editorBlock}
+      {/* IA junto al cuerpo: antes del historial (si va en footer queda “abajo”). */}
+      {aboveFooter}
       {quotedHtml ? <CorreoQuotedHistory html={quotedHtml} /> : null}
       {footerBlock}
     </div>

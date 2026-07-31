@@ -193,17 +193,23 @@ export function ContractEditor({
   // Sincronizar contenido externo. Cuando se trata del primer sync (editor recién
   // creado vacío), ignoramos el check de `isFocused` para garantizar que el
   // contenido real se inyecte aunque el editor ya haya recibido foco.
+  // Importante: comparar JSON ANTES de consumir isInternalUpdate — si el padre
+  // inyecta un borrador IA distinto, no debemos tragar el sync por un flag stale.
   useEffect(() => {
     if (!editor || !content) return;
-    if (isInternalUpdate.current) {
+    const currentJSON = JSON.stringify(editor.getJSON());
+    const newJSON = JSON.stringify(content);
+    if (currentJSON === newJSON) {
       isInternalUpdate.current = false;
       return;
     }
-    const currentJSON = JSON.stringify(editor.getJSON());
-    const newJSON = JSON.stringify(content);
-    if (currentJSON === newJSON) return;
-    // Si el editor está vacío (tamaño mínimo) o nunca se cargó contenido real,
-    // siempre sincronizamos. En otros casos, respetamos el foco del usuario.
+    if (isInternalUpdate.current) {
+      isInternalUpdate.current = false;
+      // El onUpdate interno notificó al padre; si el prop aún diverge, es una
+      // inyección externa (p.ej. borrador IA) que sí debemos aplicar.
+    }
+    // Si el editor está vacío, siempre sincronizamos. Si hay foco y texto del
+    // usuario, no pisamos (EmailComposer fuerza vía editorRef en contentEpoch).
     const editorIsEmpty = editor.state.doc.content.size <= 2;
     if (editor.isFocused && !editorIsEmpty) return;
     editor.commands.setContent(content);

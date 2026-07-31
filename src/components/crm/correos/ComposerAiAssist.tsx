@@ -32,8 +32,9 @@ type PillProps = {
 };
 
 /**
- * Pill estilo Gmail "Help me write": vive entre el cuerpo del mail y la barra
- * de Enviar. Los presets de refinamiento viven en un kebab (⋮); el campo de
+ * Pill estilo Gmail "Help me write": va justo debajo del cuerpo editable
+ * (antes del historial citado). `sticky bottom` la mantiene usable al
+ * scrollear el hilo / con teclado. Los presets viven en el kebab (⋮); el
  * prompt abre vacío hasta que el usuario escribe y manda ↑.
  */
 export function ComposerAiPromptPill({
@@ -137,7 +138,8 @@ export function ComposerAiPromptPill({
     <div
       role="region"
       aria-label={isCompose ? "Redactar con IA" : "Responder con IA"}
-      // sticky: con teclado el ↑ de generar no queda tapado al scrollear el cuerpo.
+      // sticky bottom: al scrollear el historial / con teclado, el ↑ sigue usable.
+      // El host la monta bajo el cuerpo (no bajo el historial).
       className="sticky bottom-0 z-20 space-y-1.5 bg-background py-1.5"
     >
       <div className="flex items-center gap-1.5">
