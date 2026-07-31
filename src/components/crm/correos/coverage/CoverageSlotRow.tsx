@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { Copy, Minus, Plus, Trash2 } from "lucide-react";
 import { Tag } from "@/components/opai-ds";
 import { SimpleSelect } from "@/components/ui/simple-select";
@@ -43,15 +44,28 @@ export type CoverageSlotRowProps = {
   onBumpHeadcount: (delta: number) => void;
   onDuplicate: () => void;
   onRemove: () => void;
+  /** Fila recién agregada: foco + selección en el nombre. */
+  autoFocusName?: boolean;
+  onAutoFocusDone?: () => void;
 };
 
 export function CoverageSlotRow({
   slot, instIdx, installations, editable,
   onUpdate, onMoveInstallation, onToggleDay,
   onBumpSim, onBumpHeadcount, onDuplicate, onRemove,
+  autoFocusName = false, onAutoFocusDone,
 }: CoverageSlotRowProps) {
   const regimenValue = slot.regimen ?? "";
   const regimenInList = REGIMEN_OPTIONS.some((o) => o.value === regimenValue);
+  const nameRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    if (!autoFocusName || !editable) return;
+    nameRef.current?.focus();
+    nameRef.current?.select();
+    onAutoFocusDone?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoFocusName, editable]);
 
   return (
     <div className="rounded-xl border border-ds-border-subtle bg-ds-surface-1 p-3 space-y-2">
@@ -59,9 +73,11 @@ export function CoverageSlotRow({
         <div className="min-w-0 flex-1 space-y-1">
           {editable ? (
             <input
+              ref={nameRef}
               value={slot.name}
               onChange={(e) => onUpdate("name", e.target.value, { recalc: false })}
               placeholder="Nombre del puesto"
+              aria-label="Nombre del puesto"
               className={`${FIELD} w-full font-medium text-ds-text-1`}
             />
           ) : (

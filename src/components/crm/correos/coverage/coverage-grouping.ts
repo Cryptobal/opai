@@ -20,6 +20,23 @@ export type CoverageStageGroup = {
   subtotalHeadcount: number;
 };
 
+/**
+ * Próximo nombre libre "Puesto N" dentro de un grupo. Un puesto agregado a mano
+ * nunca nace sin nombre: el normalizador server descartaba esos slots.
+ */
+export function nextSlotName(
+  existing: Array<{ name?: string | null }>,
+  prefix = "Puesto",
+): string {
+  const re = new RegExp(`^${prefix}\\s+(\\d+)$`, "i");
+  let max = 0;
+  for (const s of existing) {
+    const m = (s.name ?? "").trim().match(re);
+    if (m) max = Math.max(max, Number(m[1]) || 0);
+  }
+  return `${prefix} ${max + 1}`;
+}
+
 export function emptyCoverageSlot(
   defaults?: Partial<CrmStructureCoverageSlot>,
 ): CrmStructureCoverageSlot {

@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { Stat, StatGrid } from "@/components/opai-ds";
 import { WEEKDAYS_FULL } from "@/modules/crm/email/email-to-lead.types";
 import type {
@@ -17,6 +18,7 @@ import {
   duplicateSlotAt,
   emptyCoverageSlot,
   groupSlotsByEtapa,
+  nextSlotName,
 } from "./coverage/coverage-grouping";
 
 type Props = {
@@ -38,6 +40,8 @@ type Props = {
 export function CorreoAiCoverageTable({ proposal, onChange }: Props) {
   const t = proposal.staffingTotals;
   const editable = Boolean(onChange);
+  /** Fila recién agregada que debe recibir el foco en su nombre. */
+  const [focusKey, setFocusKey] = useState<string | null>(null);
   const groups = groupSlotsByEtapa(proposal.installations);
   const peak = proposal.staffingPeak ?? clientPeakFallback(proposal.installations);
   const hasSlots = groups.some((g) => g.slots.length > 0);
@@ -107,19 +111,25 @@ export function CorreoAiCoverageTable({ proposal, onChange }: Props) {
     const group = groups.find((g) => g.key === groupKey);
     const instIdx = group?.slots[0]?.instIdx ?? 0;
     const etapa = groupKey === GENERAL_ETAPA_KEY ? null : groupKey;
+    const groupSlots = (group?.slots ?? []).map(({ slot: s }) => s);
     const slot = emptyCoverageSlot({
       etapa,
+      // Nunca sin nombre: el coerce del refine descartaría la fila.
+      name: nextSlotName(groupSlots, kind === "rondin" ? "Rondín" : "Puesto"),
       vigenciaDesde: group?.vigenciaDesde ?? null,
       vigenciaHasta: group?.vigenciaHasta ?? null,
       ...(kind === "rondin"
-        ? { regimen: "Rondín", name: "Rondín", horaInicio: "20:00", horaFin: "08:00" }
+        ? { regimen: "Rondín", horaInicio: "20:00", horaFin: "08:00" }
         : {}),
     });
+    const newSlotIdx = proposal.installations[instIdx]?.coverageSlots.length ?? 0;
     const next = proposal.installations.map((inst, i) =>
       i === instIdx
         ? { ...inst, coverageSlots: [...inst.coverageSlots, slot] }
         : inst,
     );
+    // Foco en el nombre de la fila nueva (mismo commit local, sin red).
+    setFocusKey(`${instIdx}-${newSlotIdx}`);
     commit(next);
   }
 
@@ -166,13 +176,17 @@ export function CorreoAiCoverageTable({ proposal, onChange }: Props) {
               onAddSlot={(kind) => addSlotInGroup(group.key, kind)}
             >
               {group.slots.map(({ instIdx, slotIdx, slot }) => (
+                // Key sin `slot.name`: incluirlo remontaba la fila (y perdía el
+                // foco) en cada tecla del input de nombre.
                 <CoverageSlotRow
-                  key={`${instIdx}-${slotIdx}-${slot.name}`}
+                  key={`${instIdx}-${slotIdx}`}
                   slot={slot}
                   instIdx={instIdx}
                   slotIdx={slotIdx}
                   installations={proposal.installations}
                   editable={editable}
+                  autoFocusName={focusKey === `${instIdx}-${slotIdx}`}
+                  onAutoFocusDone={() => setFocusKey(null)}
                   onUpdate={(field, value, opts) =>
                     updateSlot(instIdx, slotIdx, field, value, opts)
                   }
