@@ -43,6 +43,7 @@ type Props = {
   thread: CorreoThreadDTO;
   canModify: boolean;
   onOpen: (id: string) => void;
+  onPrefetch?: (id: string) => void;
   onChanged?: () => void;
   /** Patch optimista local (read/star) antes del round-trip. */
   onPatch?: (id: string, partial: Partial<CorreoThreadDTO>) => void;
@@ -109,7 +110,7 @@ function SwipeActionStrip({
  * la acción se ejecuta solo al tocar un botón (nunca al soltar el deslizamiento).
  */
 function CorreoRowSwipeInner({
-  thread, canModify, onOpen, onChanged, onPatch, onRemoveDone, onUndoDone, onRemove, onSnooze,
+  thread, canModify, onOpen, onPrefetch, onChanged, onPatch, onRemoveDone, onUndoDone, onRemove, onSnooze,
   onAiMenu,
   selected, focused, checked, onToggleCheck, previewLines, swipeConfig,
   onAvatarPress, onLongPress, selectionMode = false,
@@ -267,6 +268,7 @@ function CorreoRowSwipeInner({
     <div
       ref={rowRef}
       data-correo-swipe-row=""
+      onPointerDownCapture={() => onPrefetch?.(thread.id)}
       className={`relative overflow-hidden transition-[max-height,opacity] duration-200 ease-out ${
         leaving ? "max-h-0 opacity-0" : "max-h-[240px] opacity-100"
       }`}
@@ -343,6 +345,7 @@ function propsAreEqual(prev: Props, next: Props): boolean {
     prev.previewLines === next.previewLines &&
     prev.swipeConfig === next.swipeConfig &&
     prev.onOpen === next.onOpen &&
+    prev.onPrefetch === next.onPrefetch &&
     prev.onChanged === next.onChanged &&
     prev.onPatch === next.onPatch &&
     prev.onRemoveDone === next.onRemoveDone &&

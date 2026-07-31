@@ -95,6 +95,33 @@ export async function loadInboxSnapshot(): Promise<{
 
 /* ── Detalles de hilo ── */
 
+const prefetchInflight = new Map<string, Promise<void>>();
+const PREFETCH_TTL_MS = 30_000;
+const prefetchTimestamps = new Map<string, number>();
+
+export function prefetchDetail(threadId: string): void {
+  if (!threadId) return;
+  const last = prefetchTimestamps.get(threadId);
+  if (last != null && Date.now() - last < PREFETCH_TTL_MS) return;
+  if (prefetchInflight.has(threadId)) return;
+
+  const job = fetch(`/api/crm/correos/${threadId}`, { credentials: "include" })
+    .then(async (res) => {
+      if (!res.ok) return;
+      const data = (await res.json()) as { success?: boolean; data?: CorreoDetail };
+      if (data.success && data.data) {
+        await saveOfflineDetail(data.data);
+        prefetchTimestamps.set(threadId, Date.now());
+      }
+    })
+    .catch(() => {})
+    .finally(() => {
+      prefetchInflight.delete(threadId);
+    });
+
+  prefetchInflight.set(threadId, job);
+}
+
 export async function saveOfflineDetail(detail: CorreoDetail): Promise<void> {
   await tx("details", "readwrite", (s) => s.put(detail, detail.thread.id));
 }
