@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   Clock, Keyboard, PenLine, Settings, SlidersHorizontal, WandSparkles, X,
 } from "lucide-react";
@@ -82,13 +83,17 @@ export function CorreoSettingsModal({
     if (open) setSection(initialSection);
   }, [open, initialSection]);
 
-  if (!open) return null;
+  if (!open || typeof document === "undefined") return null;
 
   const active = NAV.find((n) => n.id === section) ?? NAV[0]!;
 
-  return (
+  // Capas: página < composer 60 < sheets 70 < settings 80 < dropdowns 90.
+  // Portal a body: con z empatado a 60 el composer (también portado) tapaba
+  // Firma / Estilo de respuesta al abrirlos desde el composer móvil.
+  return createPortal(
     <div
-      className="fixed inset-0 z-[60] flex items-end justify-center bg-black/40 lg:items-center lg:p-6"
+      data-correo-settings-modal
+      className="fixed inset-0 z-[80] flex items-end justify-center bg-black/40 lg:items-center lg:p-6"
       onClick={onClose}
     >
       <Surface
@@ -193,6 +198,7 @@ export function CorreoSettingsModal({
           </div>
         </div>
       </Surface>
-    </div>
+    </div>,
+    document.body,
   );
 }

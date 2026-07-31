@@ -200,7 +200,7 @@ export function CorreoAiStyleForm({ active }: Props) {
           disabled={readOnly}
           aria-label="Cercanía"
           className="h-11 min-w-0 max-w-[9rem] border-0 bg-transparent"
-          contentClassName="z-[80]"
+          contentClassName="z-[90]"
           options={[
             { value: "formal", label: "Formal" },
             { value: "cercano", label: "Cercano" },
@@ -217,7 +217,7 @@ export function CorreoAiStyleForm({ active }: Props) {
           disabled={readOnly}
           aria-label="Tratamiento"
           className="h-11 min-w-0 max-w-[9rem] border-0 bg-transparent"
-          contentClassName="z-[80]"
+          contentClassName="z-[90]"
           options={[
             { value: "nombre", label: "Nombre" },
             { value: "usted", label: "Usted" },
@@ -234,7 +234,7 @@ export function CorreoAiStyleForm({ active }: Props) {
           disabled={readOnly}
           aria-label="Extensión"
           className="h-11 min-w-0 max-w-[9rem] border-0 bg-transparent"
-          contentClassName="z-[80]"
+          contentClassName="z-[90]"
           options={[
             { value: "breve", label: "Breve" },
             { value: "media", label: "Media" },

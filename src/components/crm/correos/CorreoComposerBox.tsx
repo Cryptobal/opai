@@ -32,7 +32,6 @@ import {
   type DraftRefineMode,
 } from "./ComposerAiAssist";
 import { CorreoComposerMoreSheet } from "./CorreoComposerMoreSheet";
-import { CorreoAttachSheet } from "./CorreoAttachSheet";
 import type { CorreoMessageDTO } from "@/modules/crm/email/correos.types";
 import { emailPlainFallback, sanitizeEmailHtml } from "@/lib/sanitize-email-html";
 import type { ComposerMode } from "./ComposerModeSwitcher";
@@ -118,21 +117,23 @@ export function CorreoComposerBox(props: Props) {
   const bodyRef = useRef<object | null>(initialSeed?.doc ?? null);
   const subjectRef = useRef<string>(initialSeed?.subject ?? "");
   const draftIdRef = useRef<string | null>(initialSeed?.draftId ?? null);
-  const aiSeededRef = useRef(false);
   const composerRef = useRef<EmailComposerHandle | null>(null);
   const [seed, setSeed] = useState<object | null>(initialSeed?.doc ?? null);
   const [epoch, setEpoch] = useState(0);
   const [instructions, setInstructions] = useState("");
   const instructionsRef = useRef("");
   const [generating, setGenerating] = useState(false);
-  const [hasAiDraft, setHasAiDraft] = useState(() =>
+  const [hasAiDraft, setHasAiDraft] = useState(false);
+  // Texto refinable en el cuerpo (IA o escrito a mano). hasDraft del pill usa esto.
+  const [hasBody, setHasBody] = useState(() =>
     Boolean(initialSeed && docPlainText(initialSeed.doc).trim()),
   );
+  const hasRefinableDraft = hasAiDraft || hasBody;
   const isDesktop = useMediaQuery("(min-width: 1024px)");
   const [moreOpen, setMoreOpen] = useState(false);
-  const [attachOpen, setAttachOpen] = useState(false);
   const [scheduleNonce, setScheduleNonce] = useState(0);
   const [sendBusy, setSendBusy] = useState(false);
+  const nativeFileRef = useRef<HTMLInputElement>(null);
   const vv = useVisualViewportFrame();
 
   const isForward = mode === "forward";
@@ -165,11 +166,12 @@ export function CorreoComposerBox(props: Props) {
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key !== "Escape") return;
-      if (moreOpen || attachOpen) {
+      // Settings (portal z-80) maneja su propio Escape; no cerrar el composer.
+      if (document.querySelector("[data-correo-settings-modal]")) return;
+      if (moreOpen) {
         e.preventDefault();
         e.stopPropagation();
         setMoreOpen(false);
-        setAttachOpen(false);
         return;
       }
       if (showAiPrompt) {
@@ -191,7 +193,7 @@ export function CorreoComposerBox(props: Props) {
     }
     document.addEventListener("keydown", onKey, { capture: true });
     return () => document.removeEventListener("keydown", onKey, { capture: true });
-  }, [asModal, showAiPrompt, props, moreOpen, attachOpen]);
+  }, [asModal, showAiPrompt, props, moreOpen]);
 
   function reseed() {
     setSeed(bodyRef.current);
@@ -203,6 +205,7 @@ export function CorreoComposerBox(props: Props) {
     setSeed(doc);
     setEpoch((e) => e + 1);
     setHasAiDraft(true);
+    setHasBody(Boolean(text.trim()));
     instructionsRef.current = "";
     setInstructions("");
   }
@@ -217,7 +220,8 @@ export function CorreoComposerBox(props: Props) {
     const prompt = instructionsRef.current.trim();
     const currentDraft = docPlainText(bodyRef.current).trim();
     const refine = opts?.refine;
-    if (refine == null && hasAiDraft && !prompt) return;
+    const refinable = hasAiDraft || hasBody || Boolean(currentDraft);
+    if (refine == null && refinable && !prompt) return;
     setGenerating(true);
     try {
       const res = await fetch(`/api/crm/correos/${threadId}/suggest-reply`, {
@@ -226,7 +230,7 @@ export function CorreoComposerBox(props: Props) {
         body: JSON.stringify({
           instructions: prompt || undefined,
           currentDraft:
-            refine || (hasAiDraft && currentDraft) ? currentDraft || undefined : undefined,
+            refine || (refinable && currentDraft) ? currentDraft || undefined : undefined,
           refine: refine || undefined,
         }),
       });
@@ -252,17 +256,10 @@ export function CorreoComposerBox(props: Props) {
   }
 
   useEffect(() => {
-    if (!showAiPrompt) {
-      if (!ai) {
-        aiSeededRef.current = false;
-        instructionsRef.current = "";
-        setInstructions("");
-      }
-      return;
+    if (!showAiPrompt && !ai) {
+      instructionsRef.current = "";
+      setInstructions("");
     }
-    if (aiSeededRef.current) return;
-    aiSeededRef.current = true;
-    if (docPlainText(bodyRef.current).trim()) setHasAiDraft(true);
   }, [showAiPrompt, ai]);
 
   function switchMode(next: ComposerMode) {
@@ -309,7 +306,11 @@ export function CorreoComposerBox(props: Props) {
       dealId={props.dealId}
       contactId={props.contactId ?? null}
       modeSwitcher={{ mode, replyAllAvailable, onChange: switchMode }}
-      onBodyChange={(doc) => { bodyRef.current = doc; }}
+      onBodyChange={(doc) => {
+        bodyRef.current = doc;
+        const filled = docPlainText(doc).trim().length > 0;
+        setHasBody((prev) => (prev === filled ? prev : filled));
+      }}
       onSubjectChange={(s) => { subjectRef.current = s; }}
       onDraftIdChange={(id) => { draftIdRef.current = id; }}
       onOpenSignature={props.onOpenSignature}
@@ -326,7 +327,8 @@ export function CorreoComposerBox(props: Props) {
             onRefine={(preset) => void runAi({ refine: preset })}
             onClose={closeAi}
             generating={generating}
-            hasDraft={hasAiDraft}
+            // hasDraft = hay texto refinable (IA o manual), no solo seed de IA.
+            hasDraft={hasRefinableDraft}
             onOpenStyle={props.onOpenAiStyle}
             mode={isForward ? "compose" : "reply"}
           />
@@ -348,8 +350,27 @@ export function CorreoComposerBox(props: Props) {
     />
   );
 
+  // Input nativo siempre montado: un toque en el clip abre el menú del sistema
+  // (iOS: Fototeca / Cámara / Archivos). Sin accept ni capture.
+  const nativeFileInput = (
+    <input
+      ref={nativeFileRef}
+      type="file"
+      multiple
+      className="pointer-events-none absolute h-px w-px opacity-0"
+      tabIndex={-1}
+      aria-hidden
+      onChange={(e) => {
+        const files = Array.from(e.target.files ?? []);
+        if (files.length > 0) composerRef.current?.addFiles(files);
+        e.target.value = "";
+      }}
+    />
+  );
+
   const sheets = (
     <>
+      {nativeFileInput}
       <CorreoComposerMoreSheet
         open={moreOpen}
         onClose={() => setMoreOpen(false)}
@@ -359,11 +380,6 @@ export function CorreoComposerBox(props: Props) {
         onOpenSignature={props.onOpenSignature}
         onOpenAiStyle={props.onOpenAiStyle}
         onDiscard={() => void composerRef.current?.requestDiscard()}
-      />
-      <CorreoAttachSheet
-        open={attachOpen}
-        onClose={() => setAttachOpen(false)}
-        onFiles={(files) => composerRef.current?.addFiles(files)}
       />
     </>
   );
@@ -409,7 +425,12 @@ export function CorreoComposerBox(props: Props) {
             type="button"
             aria-label="Asistente IA"
             aria-pressed={ai}
-            onClick={props.onToggleAi}
+            onClick={() => {
+              if (document.activeElement instanceof HTMLElement) {
+                document.activeElement.blur();
+              }
+              props.onToggleAi();
+            }}
             className={`flex h-11 w-11 items-center justify-center rounded-full ds-tap ${
               ai ? "bg-tint-violet/15 text-tint-violet-fg" : "text-ds-text-2"
             }`}
@@ -419,7 +440,7 @@ export function CorreoComposerBox(props: Props) {
           <button
             type="button"
             aria-label="Adjuntar"
-            onClick={() => setAttachOpen(true)}
+            onClick={() => nativeFileRef.current?.click()}
             className="flex h-11 w-11 items-center justify-center rounded-full text-ds-text-2 ds-tap"
           >
             <Paperclip className="h-5 w-5" />
@@ -437,7 +458,12 @@ export function CorreoComposerBox(props: Props) {
           <button
             type="button"
             aria-label="Más opciones"
-            onClick={() => setMoreOpen(true)}
+            onClick={() => {
+              if (document.activeElement instanceof HTMLElement) {
+                document.activeElement.blur();
+              }
+              setMoreOpen(true);
+            }}
             className="flex h-11 w-11 items-center justify-center rounded-full text-ds-text-2 ds-tap"
           >
             <MoreHorizontal className="h-5 w-5" />
@@ -494,6 +520,7 @@ export function CorreoComposerBox(props: Props) {
           data-email-composer
           className="relative z-10 flex h-[min(84dvh,780px)] w-[min(820px,94vw)] flex-col gap-1 overflow-y-auto rounded-2xl border border-ds-border-default bg-background px-4 py-3 shadow-2xl"
         >
+          {nativeFileInput}
           {desktopChrome}
         </div>
       </div>,
@@ -507,8 +534,9 @@ export function CorreoComposerBox(props: Props) {
       data-correo-composer-surface
       data-composer-presentation="inline"
       data-email-composer
-      className="space-y-1 border-t border-ds-border-subtle bg-background pt-2"
+      className="relative space-y-1 border-t border-ds-border-subtle bg-background pt-2"
     >
+      {nativeFileInput}
       {desktopChrome}
     </div>
   );

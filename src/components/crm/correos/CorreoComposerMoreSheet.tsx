@@ -9,6 +9,7 @@ import {
   X,
 } from "lucide-react";
 import { Surface } from "@/components/opai-ds";
+import { ComposerSheetPortal } from "./ComposerSheetPortal";
 
 type Props = {
   open: boolean;
@@ -32,8 +33,6 @@ export function CorreoComposerMoreSheet({
   onOpenAiStyle,
   onDiscard,
 }: Props) {
-  if (!open) return null;
-
   const row =
     "flex min-h-12 w-full items-center gap-3 px-3.5 text-left text-[13px] text-ds-text-1 ds-tap hover:bg-ds-surface-2";
 
@@ -43,11 +42,7 @@ export function CorreoComposerMoreSheet({
   };
 
   return (
-    <div
-      className="fixed inset-0 z-[70] flex items-end justify-center bg-black/40"
-      onClick={onClose}
-      role="presentation"
-    >
+    <ComposerSheetPortal open={open} onClose={onClose}>
       <Surface
         elevation={2}
         padding="md"
@@ -96,6 +91,6 @@ export function CorreoComposerMoreSheet({
           </button>
         </div>
       </Surface>
-    </div>
+    </ComposerSheetPortal>
   );
 }
