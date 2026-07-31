@@ -103,7 +103,12 @@ import {
   type CorreoSearchRequest,
 } from "./correo-search-bus";
 
-/** Alto visual de la isla global (8px gap + min-h-12). El safe-area lo aporta AppShell. */
+/**
+ * Alto visual de la isla global (8px gap superior + min-h-12 = 3.5rem).
+ * El safe-area lo aporta AppShell en modo inmersivo (`pt-[env(safe-area-inset-top)]`).
+ * Alineado con `--app-island-bottom` sin el safe-area (ya consumido arriba).
+ * El aire bajo la isla (8px) va en el contenedor de chips (`pt-2`).
+ */
 const CORREOS_MOBILE_TOP_SPACER = "h-14 shrink-0 lg:hidden";
 
 /** Mismo límite que el buscador del topbar/overlay: también clampa el `q` de la URL. */
@@ -1602,7 +1607,8 @@ export function CorreosClient() {
       )}
       {/* Reserva el alto de la isla / barra de selección. */}
       <div aria-hidden className={CORREOS_MOBILE_TOP_SPACER} />
-      <div className="space-y-1.5 px-4 lg:hidden">
+      {/* pt-2: 8px de aire entre la isla y los chips (Todos · No leídos · …). */}
+      <div className="space-y-1.5 px-4 pt-2 lg:hidden">
         {query.trim().length > 0 && (
           <CorreoSearchChips
             query={query}
