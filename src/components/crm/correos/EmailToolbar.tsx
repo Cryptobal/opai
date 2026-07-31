@@ -70,7 +70,7 @@ export function EmailToolbar({ editor }: { editor: Editor }) {
   );
 
   return (
-    <div className="flex items-center gap-0.5 overflow-x-auto border-b border-ds-border-subtle px-0 py-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+    <div className="flex items-center gap-0.5 overflow-x-auto border-b border-ds-border-subtle px-0 py-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
       <Btn onClick={() => focus().toggleBold().run()} active={editor.isActive("bold")} title="Negrita">
         <Bold className="h-4 w-4" />
       </Btn>

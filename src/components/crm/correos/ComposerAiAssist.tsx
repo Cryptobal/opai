@@ -137,7 +137,8 @@ export function ComposerAiPromptPill({
     <div
       role="region"
       aria-label={isCompose ? "Redactar con IA" : "Responder con IA"}
-      className="space-y-1.5 py-1.5"
+      // sticky: con teclado el ↑ de generar no queda tapado al scrollear el cuerpo.
+      className="sticky bottom-0 z-20 space-y-1.5 bg-background py-1.5"
     >
       <div className="flex items-center gap-1.5">
         <div
@@ -168,6 +169,9 @@ export function ComposerAiPromptPill({
                   ? "Indicá qué querés redactar…"
                   : "Indicá cómo querés responder…"
             }
+            enterKeyHint="send"
+            autoComplete="off"
+            autoCorrect="off"
             disabled={generating}
             aria-label={hasDraft ? "Describir cambio del borrador" : "Prompt para la IA"}
             className={cn(
