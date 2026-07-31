@@ -188,13 +188,9 @@ module.exports = {
       },
       fontFamily: {
         sans: ['"Inter Variable"', '"Inter"', 'system-ui', '-apple-system', 'sans-serif'],
-        display: ['"Outfit Variable"', '"Outfit"', 'system-ui', 'sans-serif'],
-        body: ['var(--font-dm-sans)', '"DM Sans"', 'system-ui', 'sans-serif'],
-        // Geist Mono primero (cargado vía @fontsource-variable/geist-mono en globals.css)
-        // — no negociable para datos: precios, stock, SKU, fechas, IDs.
-        // Probamos ambas variantes de nombre (depende de versión del package)
-        // y caemos en JetBrains si Geist no resolviera.
-        mono: ['"Geist Mono Variable"', '"Geist Mono"', 'var(--font-jetbrains)', '"JetBrains Mono"', 'ui-monospace', 'monospace'],
+        display: ['"Inter Variable"', '"Inter"', 'system-ui', 'sans-serif'],
+        body: ['"Inter Variable"', '"Inter"', 'system-ui', '-apple-system', 'sans-serif'],
+        mono: ['"Geist Mono Variable"', '"Geist Mono"', 'ui-monospace', 'monospace'],
       },
       // OPAI DS v4 — escala tipográfica semántica (roles, no píxeles).
       // Tamaños vía --t-* en globals.css; densidad compacta overridea solo
