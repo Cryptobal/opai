@@ -807,9 +807,7 @@ export const EmailComposer = forwardRef<EmailComposerHandle, Props>(function Ema
             onClick={onOpenComposerMore}
             className="flex min-h-11 w-full items-center justify-between gap-2 rounded-xl px-1 text-left text-[12px] text-ds-text-3 ds-tap"
           >
-            <span className="truncate">
-              Firma · Estilo{onOpenAiStyle || onOpenSignature ? "" : ""}
-            </span>
+            <span className="truncate">Firma · Estilo de respuesta</span>
             <span className="shrink-0 text-ds-text-4">⋯</span>
           </button>
         ) : (
