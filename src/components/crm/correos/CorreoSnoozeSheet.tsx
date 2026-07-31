@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { CalendarDays, Clock, Settings2, X } from "lucide-react";
 import { Surface } from "@/components/opai-ds";
 import { TaskDatePicker } from "@/components/agenda/TaskDatePicker";
@@ -53,6 +54,8 @@ export function CorreoSnoozeSheet({
   const [storedConfig, setStoredConfig] = useState<CorreoSnoozeConfig>(
     DEFAULT_CORREO_SNOOZE_CONFIG,
   );
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
   useEffect(() => {
     if (!open) {
@@ -85,7 +88,7 @@ export function CorreoSnoozeSheet({
     setCustomTime((prev) => (prev ? prev : defaultCustomTime(config)));
   }, [open, customOpen, config]);
 
-  if (!open) return null;
+  if (!mounted || !open) return null;
 
   function pick(at: Date, label: string) {
     // Cerrar el sheet antes del confirm: el confirm suele desmontar el lector
@@ -105,7 +108,7 @@ export function CorreoSnoozeSheet({
     return Boolean(at && at.getTime() > Date.now());
   })();
 
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 z-[60] flex items-end justify-center bg-black/40 md:items-center"
       onClick={onClose}
@@ -221,6 +224,7 @@ export function CorreoSnoozeSheet({
           )}
         </div>
       </Surface>
-    </div>
+    </div>,
+    document.body,
   );
 }

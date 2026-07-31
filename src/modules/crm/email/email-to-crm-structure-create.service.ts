@@ -403,9 +403,11 @@ export async function createCrmStructureFromProposal(params: {
   } else {
     // Solo en el Command Layer (include explícito): reutilizar deal del hilo.
     // La tool del chat (include undefined) siempre crea un deal nuevo.
+    // Nunca reutilizar un negocio de OTRA cuenta: eso deja el hilo con
+    // accountId=A y dealId de B (p. ej. Gard Security + Residencia Embajador).
     if (params.include !== undefined && thread.dealId) {
       const existingDeal = await prisma.crmDeal.findFirst({
-        where: { id: thread.dealId, tenantId },
+        where: { id: thread.dealId, tenantId, accountId: account.id },
         select: { id: true },
       });
       if (existingDeal) {
