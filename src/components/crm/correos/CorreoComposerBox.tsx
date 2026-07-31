@@ -27,9 +27,10 @@ import {
 import { CorreoComposerMoreSheet } from "./CorreoComposerMoreSheet";
 import { CorreoAttachSheet } from "./CorreoAttachSheet";
 import type { CorreoMessageDTO } from "@/modules/crm/email/correos.types";
-import { emailPlainFallback } from "@/lib/sanitize-email-html";
+import { emailPlainFallback, sanitizeEmailHtml } from "@/lib/sanitize-email-html";
 import type { ComposerMode } from "./ComposerModeSwitcher";
 import type { CorreoShortcuts } from "./useCorreosViewPreferences";
+import { splitDraftBodyAndQuote } from "./correo-quoted-history";
 
 export type { ComposerMode };
 export type ReplyAll = { to: string[]; cc: string[] };
@@ -49,7 +50,8 @@ type Props = {
   to: string[];
   replyAll: ReplyAll | null;
   threadDraft?: ThreadDraftSeed | null;
-  forwardQuotedHtml: string;
+  /** Historial citado (sanitizado) para reply / reply-all / forward. */
+  quotedHtml: string;
   forwardAttachments: ForwardAttachmentRefClient[];
   mode: ComposerMode;
   ai: boolean;
@@ -77,14 +79,25 @@ function seedFromThreadDraft(draft: ThreadDraftSeed): {
   draftId: string | null;
   to: string[];
   cc: string[];
+  /** Quote embebido en borradores viejos (ya sanitizado); null si no había. */
+  quotedHistoryHtml: string | null;
 } {
-  const plain = emailPlainFallback(draft.htmlBody, draft.textBody);
+  const split = splitDraftBodyAndQuote(draft.htmlBody);
+  // Si el borrador traía gmail_quote, el cuerpo editable es solo la parte previa
+  // (sin textBody completo, que repetiría el historial en plano).
+  const plain = split.quotedHtml
+    ? emailPlainFallback(split.bodyHtml, null)
+    : emailPlainFallback(draft.htmlBody, draft.textBody);
+  const quotedHistoryHtml = split.quotedHtml
+    ? sanitizeEmailHtml(split.quotedHtml, { blockRemoteImages: true }) || null
+    : null;
   return {
-    doc: plainTextToTiptapDoc(plain),
+    doc: plainTextToTiptapDoc(plain === "(sin contenido)" && split.quotedHtml ? "" : plain),
     subject: draft.subject || "",
     draftId: draft.providerDraftId ?? null,
     to: draft.toEmails ?? [],
     cc: draft.ccEmails ?? [],
+    quotedHistoryHtml,
   };
 }
 
@@ -256,7 +269,8 @@ export function CorreoComposerBox(props: Props) {
       initialContent={seed}
       contentEpoch={epoch}
       resumeDraftId={draftIdRef.current}
-      quotedHtml={isForward ? props.forwardQuotedHtml : null}
+      quotedHtml={initialSeed?.quotedHistoryHtml || props.quotedHtml || null}
+      quoteMode={isForward ? "forward" : "reply"}
       forwardFromThreadId={isForward ? threadId : null}
       forwardAttachments={isForward ? props.forwardAttachments : []}
       accountId={props.accountId}
@@ -381,7 +395,7 @@ export function CorreoComposerBox(props: Props) {
         <div
           id="correo-suggested-reply"
           data-email-composer
-          className="min-h-0 flex-1 overflow-y-auto px-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-2"
+          className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-2 [-webkit-overflow-scrolling:touch]"
         >
           {composer}
         </div>

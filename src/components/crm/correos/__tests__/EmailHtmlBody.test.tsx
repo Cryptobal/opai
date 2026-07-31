@@ -80,12 +80,49 @@ describe("buildEmailSrcDoc", () => {
     expect(doc).toContain("padding:16px 20px");
     expect(doc).toContain("<p>contenido</p>");
     // Canvas al 100%: texto hace wrap; sin max-content (rompe wrap / tiritón).
+    // overflow:hidden en html/body: el iframe mide al contenido → pan nativo
+    // iOS encadena al scroller del shell (sin puente touch / touch-action:none).
     expect(doc).toContain("overflow-x:hidden");
-    expect(doc).toContain("overscroll-behavior:none");
-    expect(doc).toContain("touch-action:none");
+    expect(doc).toContain("overflow:hidden");
+    expect(doc).not.toContain("overscroll-behavior:none");
+    expect(doc).not.toContain("touch-action:none");
     expect(doc).toMatch(/\.opai-mail-canvas\{[^}]*width:100%/);
     expect(doc).not.toMatch(/\.opai-mail-canvas\{[^}]*width:max-content/);
     expect(doc).not.toMatch(/table\{[^}]*overflow-x:auto/);
+  });
+
+  it("el scroller del lector expone data-correo-reader-scroller", async () => {
+    Object.defineProperty(window, "matchMedia", {
+      writable: true,
+      value: (query: string) => ({
+        matches: false,
+        media: query,
+        onchange: null,
+        addListener: () => {},
+        removeListener: () => {},
+        addEventListener: () => {},
+        removeEventListener: () => {},
+        dispatchEvent: () => false,
+      }),
+    });
+    const { CorreoReaderShell } = await import("../CorreoReaderShell");
+    const { container } = render(
+      <CorreoReaderShell
+        open
+        onClose={() => {}}
+        headerFrom="a@b.cl"
+        headerSubject="Test"
+        desktopWidth={480}
+        onResizePointerDown={() => {}}
+        onResizeKeyDown={() => {}}
+        onResizeReset={() => {}}
+        desktopMode="split"
+        manageBackHistory={false}
+      >
+        <div>contenido</div>
+      </CorreoReaderShell>,
+    );
+    expect(container.querySelector("[data-correo-reader-scroller]")).toBeTruthy();
   });
 
   it("expone toggle de ajuste de ancho en desktop (default: ajustar)", () => {

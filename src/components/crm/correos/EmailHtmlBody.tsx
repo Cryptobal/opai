@@ -76,7 +76,7 @@ body blockquote{color:${quote}!important;border-left-color:${border}!important}`
   // soft-wrap) y dispara el "tiritón" al mediar/ensanchar en bucle.
   return `<!doctype html><html><head><meta charset="utf-8"><base target="_blank"><style>
 :root{color-scheme:${night ? "dark" : "light"}}
-html,body{margin:0;padding:0;width:100%;max-width:100%;overscroll-behavior:none;touch-action:none}
+html,body{margin:0;padding:0;width:100%;max-width:100%;overflow:hidden}
 body{font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
   font-size:13px;line-height:1.55;color:${fg};background:${bg};
   word-break:break-word;overflow-wrap:anywhere;overflow-x:hidden;padding:16px 20px;box-sizing:border-box}
@@ -314,12 +314,16 @@ export function EmailHtmlBody({
       );
     };
 
-    // El iframe no scrollea solo (overflow hidden + alto/ancho al contenido).
+    // El iframe no scrollea solo (overflow:hidden + alto/ancho al contenido).
     // Reenviamos la rueda al scroller del lector para que se mueva TODO el panel.
+    // Touch: pan nativo iOS — sin touch-action:none el documento interno no es
+    // scrolleable y WKWebView encadena el gesto al overflow-auto del shell.
     const resolveScroller = (): HTMLElement | null => {
+      const host = hostRef.current;
+      if (!host) return null;
       const el =
-        hostRef.current?.closest(".overflow-auto, .overflow-y-auto, .overflow-x-auto") ??
-        null;
+        host.closest("[data-correo-reader-scroller]") ??
+        host.closest(".overflow-auto, .overflow-y-auto");
       return el instanceof HTMLElement ? el : null;
     };
 
@@ -331,61 +335,16 @@ export function EmailHtmlBody({
       event.preventDefault();
     };
 
-    // iOS captura touchmove dentro del iframe (rubber-band / scroll interno).
-    // Reenviamos el pan al scroller del lector — mismo patrón que onWheel.
-    // Umbral 8px: taps y selección de texto corta no se interceptan.
-    let touchX = 0;
-    let touchY = 0;
-    let touchActive = false;
-    const TOUCH_SLOP = 8;
-
-    const onTouchStart = (event: TouchEvent) => {
-      if (event.touches.length !== 1) {
-        touchActive = false;
-        return;
-      }
-      touchActive = true;
-      touchX = event.touches[0].clientX;
-      touchY = event.touches[0].clientY;
-    };
-
-    const onTouchMove = (event: TouchEvent) => {
-      if (!touchActive || event.touches.length !== 1) return;
-      const scroller = resolveScroller();
-      if (!scroller) return;
-      const x = event.touches[0].clientX;
-      const y = event.touches[0].clientY;
-      const dx = touchX - x;
-      const dy = touchY - y;
-      if (Math.abs(dx) < TOUCH_SLOP && Math.abs(dy) < TOUCH_SLOP) return;
-      touchX = x;
-      touchY = y;
-      scroller.scrollBy({ left: dx, top: dy });
-      event.preventDefault();
-    };
-
-    const onTouchEnd = () => {
-      touchActive = false;
-    };
-
     const attach = () => {
       const next = iframe.contentDocument;
       if (!next || next === doc) return;
       if (doc) {
         doc.removeEventListener("keydown", onKey);
         doc.removeEventListener("wheel", onWheel);
-        doc.removeEventListener("touchstart", onTouchStart);
-        doc.removeEventListener("touchmove", onTouchMove);
-        doc.removeEventListener("touchend", onTouchEnd);
-        doc.removeEventListener("touchcancel", onTouchEnd);
       }
       doc = next;
       doc.addEventListener("keydown", onKey);
       doc.addEventListener("wheel", onWheel, { passive: false });
-      doc.addEventListener("touchstart", onTouchStart, { passive: true });
-      doc.addEventListener("touchmove", onTouchMove, { passive: false });
-      doc.addEventListener("touchend", onTouchEnd);
-      doc.addEventListener("touchcancel", onTouchEnd);
     };
 
     attach();
@@ -394,10 +353,6 @@ export function EmailHtmlBody({
       iframe.removeEventListener("load", attach);
       doc?.removeEventListener("keydown", onKey);
       doc?.removeEventListener("wheel", onWheel);
-      doc?.removeEventListener("touchstart", onTouchStart);
-      doc?.removeEventListener("touchmove", onTouchMove);
-      doc?.removeEventListener("touchend", onTouchEnd);
-      doc?.removeEventListener("touchcancel", onTouchEnd);
     };
   }, [useIframe, mode, srcDoc]);
 

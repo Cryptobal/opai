@@ -184,6 +184,7 @@ export function CorreoReaderShell({
                 blanco aislado. Los headers quedan sticky en el eje Y. */}
             <div
               ref={scrollElRef}
+              data-correo-reader-scroller=""
               className={cn(
                 // pb móvil 106px: espacio para la isla flotante (60 + safe-area).
                 "min-h-0 flex-1 overflow-auto bg-background [-webkit-overflow-scrolling:touch] [overscroll-behavior:contain] lg:bg-ds-surface-2",
