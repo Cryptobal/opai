@@ -14,12 +14,17 @@ import { CorreoReaderMobileHeader } from "./CorreoReaderMobileHeader";
 import { CorreoReaderOverflowMenu } from "./CorreoReaderOverflowMenu";
 import { CorreoReaderIsland } from "./CorreoReaderIsland";
 import { CorreoSnoozeSheet } from "./CorreoSnoozeSheet";
+import { CorreoCopilotSheet } from "./CorreoCopilotSheet";
 import { CorreoWorkPanel } from "./CorreoWorkPanel";
 import { CorreoWorkProvider } from "./CorreoWorkContext";
-import { snoozeThread } from "./correo-thread-action-client";
+import { runCorreoAction, snoozeThread } from "./correo-thread-action-client";
 import { useMarkCorreoRead } from "./useMarkCorreoRead";
 import { parseSender } from "./correo-sender";
 import { loadOfflineDetail } from "./offline-store";
+import { copilotoAttentionReasons } from "./correo-copiloto-reasons";
+import { triggerHaptic } from "@/lib/haptics";
+import { canEdit } from "@/lib/permissions";
+import { useEffectivePermissions } from "@/hooks/useEffectivePermissions";
 import type { CorreoDetail } from "@/modules/crm/email/correos.types";
 import type { CorreoShortcuts, CorreoSnoozeConfig } from "./useCorreosViewPreferences";
 import { nextIntentNonce, type ComposeIntent } from "./correo-reader-intent";
@@ -111,9 +116,13 @@ export function CorreoDrawer({
   onOpenSignature,
   workPanelCloseNonce = 0,
 }: Props) {
+  const perms = useEffectivePermissions();
+  const canEditCorreos = canEdit(perms, "crm", "correos");
   const [detail, setDetail] = useState<CorreoDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [snoozeOpen, setSnoozeOpen] = useState(false);
+  /** Sheet Copiloto móvil (badge ✨ del header). */
+  const [copilotSheetOpen, setCopilotSheetOpen] = useState(false);
   /** Pedido local (isla móvil Responder/Reenviar) sin pasar por CorreosClient. */
   const [localComposeIntent, setLocalComposeIntent] = useState<ComposeIntent | null>(null);
   /** Acción primaria resuelta (elevada desde CorreoReplyBox) para la isla. */
@@ -193,6 +202,7 @@ export function CorreoDrawer({
   useEffect(() => {
     setLocalComposeIntent(null);
     setSnoozeOpen(false);
+    setCopilotSheetOpen(false);
     setPrimaryAction(null);
     setComposerOpen(false);
     setReadCursorAt(null);
@@ -362,6 +372,71 @@ export function CorreoDrawer({
   // Intent externo (atajo/menú) gana; si no, el pedido local de la isla móvil.
   const effectiveComposeIntent = composeIntent ?? localComposeIntent;
 
+  // Acciones de hilo para la topbar móvil (misma semántica que la isla).
+  const threadActions =
+    detailReady && canModify
+      ? (() => {
+          const id = detail.thread.id;
+          const isUnread = detail.thread.isUnread;
+          const archived = Boolean(detail.thread.archivedAt);
+          const trashed = Boolean(detail.thread.trashedAt);
+          const removeAfter = (
+            action: "archive" | "trash",
+            okMsg: string,
+            undoAct: "unarchive" | "untrash",
+          ) => {
+            void triggerHaptic("light");
+            onRemove?.(id);
+            void runCorreoAction(
+              id,
+              action,
+              okMsg,
+              onRemoveDone ?? refresh,
+              undoAct,
+              onUndoDone,
+            );
+            if (!onRemove) onClose();
+          };
+          const restoreAfter = (action: "untrash" | "unarchive", okMsg: string) => {
+            onRemove?.(id);
+            void runCorreoAction(
+              id,
+              action,
+              okMsg,
+              onRemoveDone ?? refresh,
+              undefined,
+              onUndoDone,
+            );
+            if (!onRemove) onClose();
+          };
+          return {
+            isUnread,
+            archived,
+            trashed,
+            onArchive: () =>
+              archived
+                ? restoreAfter("unarchive", "Restaurado a bandeja")
+                : removeAfter("archive", "Archivado", "unarchive"),
+            onTrash: () =>
+              trashed
+                ? restoreAfter("untrash", "Restaurado a bandeja")
+                : removeAfter("trash", "Movido a la Papelera", "untrash"),
+            onToggleRead: () => {
+              void runCorreoAction(
+                id,
+                isUnread ? "markRead" : "markUnread",
+                isUnread ? "Marcado como leído" : "Marcado como no leído",
+                refresh,
+                isUnread ? "markUnread" : "markRead",
+                onUndoDone,
+              );
+            },
+            copilotPending: copilotoAttentionReasons(detail).length > 0,
+            onOpenCopilot: () => setCopilotSheetOpen(true),
+          };
+        })()
+      : null;
+
   // Copiloto sigue abierto al cambiar de mail: actualiza al nuevo detalle y,
   // mientras carga, mantiene el anterior para no “desaparecer”.
   const workPanelDetail =
@@ -388,18 +463,14 @@ export function CorreoDrawer({
       mobileHeader={
         <CorreoReaderMobileHeader
           subject={headerSubject}
-          messageCount={detailReady ? detail.messages.length : 0}
-          accountName={detailReady ? detail.thread.accountName : null}
-          dealTitle={detailReady ? detail.thread.dealTitle : null}
-          snoozedUntil={detailReady ? detail.thread.snoozedUntil : null}
           onClose={onClose}
+          threadActions={threadActions}
           moreSlot={
             detailReady ? (
               <CorreoReaderOverflowMenu
                 threadId={detail.thread.id}
                 providerThreadId={detail.thread.providerThreadId}
-                onOpenSignature={onOpenSignature}
-                onOpenAiStyle={onOpenAiStyle}
+                onOpenSnooze={() => setSnoozeOpen(true)}
               />
             ) : undefined
           }
@@ -408,22 +479,9 @@ export function CorreoDrawer({
       mobileActions={
         detailReady && canModify ? (
           <CorreoReaderIsland
-            threadId={detail.thread.id}
-            isUnread={detail.thread.isUnread}
-            archived={Boolean(detail.thread.archivedAt)}
-            trashed={Boolean(detail.thread.trashedAt)}
-            snoozedUntil={detail.thread.snoozedUntil}
             primaryAction={primaryAction}
             composerOpen={composerOpen}
-            snoozeConfig={snoozeConfig}
             onCompose={requestCompose}
-            onSnoozeConfirm={handleSnoozeConfirm}
-            onOpenSnoozeSheet={() => setSnoozeOpen(true)}
-            onClose={onClose}
-            onRemove={onRemove}
-            onRemoveDone={onRemoveDone}
-            onUndoDone={onUndoDone}
-            onDone={refresh}
           />
         ) : null
       }
@@ -471,6 +529,19 @@ export function CorreoDrawer({
         onOpenSettings={onOpenSnoozeSettings}
         onConfirm={handleSnoozeConfirm}
       />
+      {detailReady && (
+        <CorreoCopilotSheet
+          open={copilotSheetOpen}
+          detail={detail}
+          canEdit={canEditCorreos}
+          onClose={() => setCopilotSheetOpen(false)}
+          onAssociate={(accountId) => associate({ accountId, dealId: null })}
+          onOpenPanel={() => setWorkPanelTab(resolveWorkTab("contexto"))}
+          onComposeAi={() =>
+            requestCompose(primaryAction?.canReply === false ? "forward" : "reply", true)
+          }
+        />
+      )}
       {workPanelTab && workPanelDetail ? (
         <CorreoWorkProvider
           key={workPanelDetail.thread.id}

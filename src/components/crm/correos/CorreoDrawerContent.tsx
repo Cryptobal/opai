@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Sparkles } from "lucide-react";
 import { canEdit } from "@/lib/permissions";
 import { useEffectivePermissions } from "@/hooks/useEffectivePermissions";
@@ -9,12 +9,10 @@ import { CorreoReplyBox } from "./CorreoReplyBox";
 import { CorreoSystemLabels } from "./CorreoSystemLabels";
 import { CorreoReaderTitleBlock } from "./CorreoReaderTitleBlock";
 import { CorreoReaderOverflowMenu } from "./CorreoReaderOverflowMenu";
-import { CorreoCopilotBanner } from "./CorreoCopilotBanner";
 import { CorreoWorkProvider } from "./CorreoWorkContext";
 import { CorreoTasksStrip } from "./CorreoTasksStrip";
 import { CorreoContextChain } from "./CorreoContextChain";
 import { copilotoAttentionReasons } from "./correo-copiloto-reasons";
-import { useCorreoSuggestedAccounts } from "./useCorreoSuggestedAccounts";
 import { resolveWorkTab, type WorkTab } from "./work-panel-tabs";
 import type { CorreoDetail } from "@/modules/crm/email/correos.types";
 import type { CorreoShortcuts } from "./useCorreosViewPreferences";
@@ -72,6 +70,7 @@ export function CorreoDrawerContent({
   onRemoveDone,
   onUndoDone,
   onRequestReply,
+  onSnooze,
   alwaysShowImages,
   onAlwaysShowImages,
   shortcuts,
@@ -86,8 +85,6 @@ export function CorreoDrawerContent({
   const t = detail.thread;
   const perms = useEffectivePermissions();
   const canEditCorreos = canEdit(perms, "crm", "correos");
-  // Descartar el banner de Copiloto es efímero por sesión de hilo.
-  const [copilotDismissed, setCopilotDismissed] = useState(false);
   const [continueDraftIntent, setContinueDraftIntent] = useState<{
     message: CorreoMessageDTO;
     nonce: number;
@@ -97,12 +94,6 @@ export function CorreoDrawerContent({
     reasons.length > 0
       ? `Copiloto — ${reasons.length} ${reasons.length === 1 ? "pendiente" : "pendientes"}: ${reasons.join(", ")}`
       : "Copiloto";
-  // Cuentas sugeridas (móvil): mismo caché que la cadena de contexto → 1 fetch.
-  const suggestions = useCorreoSuggestedAccounts(t.id, t.accountId == null);
-
-  useEffect(() => {
-    setCopilotDismissed(false);
-  }, [t.id]);
 
   const openPanel = (tab: WorkTab) => onOpenWorkPanel(resolveWorkTab(tab));
 
@@ -170,8 +161,7 @@ export function CorreoDrawerContent({
             <CorreoReaderOverflowMenu
               threadId={t.id}
               providerThreadId={t.providerThreadId}
-              onOpenSignature={onOpenSignature}
-              onOpenAiStyle={onOpenAiStyle}
+              onOpenSnooze={onSnooze}
             />
           </div>
         </div>
@@ -194,32 +184,19 @@ export function CorreoDrawerContent({
           }
         />
 
-        {/* Copiloto / contexto (móvil): un solo banner con pendientes y chips;
-            sin pendientes, breadcrumb compacto. En desktop lo cubre la fila
-            de contexto de arriba. */}
+        {/* Contexto móvil: breadcrumb siempre (cuenta·deal). Pendientes viven
+            en el sheet Copiloto (✨ del header). Desktop: fila de arriba. */}
         <div className="lg:hidden">
-          {reasons.length > 0 && !copilotDismissed ? (
-            <CorreoCopilotBanner
-              detail={detail}
-              canEdit={canEditCorreos}
-              suggestions={suggestions}
-              onAssociate={(accountId) => void onAssociate({ accountId, dealId: null })}
-              onOpenPanel={() => openPanel("contexto")}
-              onSaveAttachments={() => openPanel("contexto")}
-              onDismiss={() => setCopilotDismissed(true)}
-            />
-          ) : t.accountId ? (
-            <CorreoContextChain
-              detail={detail}
-              canEdit={canEditCorreos}
-              onAssociate={onAssociate}
-              onSearchAccount={() => openPanel("contexto")}
-              variant="breadcrumb"
-            />
-          ) : null}
+          <CorreoContextChain
+            detail={detail}
+            canEdit={canEditCorreos}
+            onAssociate={onAssociate}
+            onSearchAccount={() => openPanel("contexto")}
+            variant="breadcrumb"
+          />
         </div>
 
-        {/* Degradado: en móvil es un motivo del banner de Copiloto. */}
+        {/* Degradado desktop; en móvil es motivo del sheet Copiloto. */}
         {detail.degraded && (
           <div className="hidden shrink-0 rounded-xl border border-status-warn-border bg-status-warn-soft px-3 py-2.5 text-[13px] text-status-warn-fg lg:block">
             No se pudieron cargar los adjuntos de este hilo desde Gmail. Reintentá en unos segundos.

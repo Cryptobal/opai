@@ -1,70 +1,87 @@
 /** @vitest-environment jsdom */
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import { CorreoReaderIsland } from "../CorreoReaderIsland";
 import {
   getUndoHostClaimSnapshot,
   __resetUndoSnackbarForTests,
 } from "@/components/opai-ds/undo-snackbar-store";
 
-vi.mock("@/lib/haptics", () => ({ triggerHaptic: vi.fn() }));
-vi.mock("../correo-thread-action-client", () => ({ runCorreoAction: vi.fn() }));
-
 const baseProps = {
-  threadId: "t1",
-  isUnread: false,
-  archived: false,
-  trashed: false,
-  snoozedUntil: null,
-  primaryAction: null,
+  primaryAction: null as null,
   composerOpen: false,
   onCompose: vi.fn(),
-  onSnoozeConfirm: vi.fn(),
-  onOpenSnoozeSheet: vi.fn(),
-  onRemove: vi.fn(),
-  onDone: vi.fn(),
-  onClose: vi.fn(),
 };
 
 describe("CorreoReaderIsland", () => {
   beforeEach(() => {
     __resetUndoSnackbarForTests();
+    baseProps.onCompose = vi.fn();
   });
 
-  it("renderiza exactamente 4 botones de acción, todos con aria-label", () => {
+  it("barra con Responder y Reenviar (optimista mientras primaryAction es null)", () => {
     const { container } = render(<CorreoReaderIsland {...baseProps} />);
     const actions = container.querySelectorAll("[data-island-action]");
-    expect(actions).toHaveLength(4);
-    actions.forEach((b) => expect(b.getAttribute("aria-label")).toBeTruthy());
-  });
-
-  it("primaria optimista = Responder mientras primaryAction es null", () => {
-    render(<CorreoReaderIsland {...baseProps} />);
+    expect(actions).toHaveLength(2);
     expect(screen.getByRole("button", { name: "Responder" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Reenviar" })).toBeTruthy();
   });
 
-  it("hilo no-reply (forward) → primaria Reenviar", () => {
+  it("muestra A todos cuando replyAllAvailable", () => {
     render(
       <CorreoReaderIsland
         {...baseProps}
-        primaryAction={{ mode: "forward", label: "Reenviar", canReply: false, replyAllAvailable: false }}
+        primaryAction={{
+          mode: "reply",
+          label: "Responder",
+          canReply: true,
+          replyAllAvailable: true,
+        }}
       />,
     );
+    expect(screen.getByRole("button", { name: "Responder a todos" })).toBeTruthy();
+    expect(
+      document.querySelectorAll("[data-island-action]"),
+    ).toHaveLength(3);
+  });
+
+  it("no-reply: Responder deshabilitado y Reenviar es primaria", () => {
+    render(
+      <CorreoReaderIsland
+        {...baseProps}
+        primaryAction={{
+          mode: "forward",
+          label: "Reenviar",
+          canReply: false,
+          replyAllAvailable: false,
+        }}
+      />,
+    );
+    const reply = screen.getByRole("button", { name: "Responder (no-reply)" });
+    expect(reply).toBeDisabled();
     expect(screen.getByRole("button", { name: "Reenviar" })).toBeTruthy();
-    expect(screen.queryByRole("button", { name: "Responder" })).toBeNull();
   });
 
-  it("con trashed el botón de eliminar cambia a restaurar", () => {
-    render(<CorreoReaderIsland {...baseProps} trashed />);
-    expect(screen.getByLabelText("Restaurar")).toBeTruthy();
-    expect(screen.queryByLabelText("Eliminar")).toBeNull();
-  });
-
-  it("con snoozedUntil vigente el reloj queda activo (Dejar de posponer)", () => {
-    const future = new Date(Date.now() + 3_600_000).toISOString();
-    render(<CorreoReaderIsland {...baseProps} snoozedUntil={future} />);
-    expect(screen.getByLabelText("Dejar de posponer")).toBeTruthy();
-    expect(screen.queryByLabelText("Posponer")).toBeNull();
+  it("toca Responder/Reenviar dispara onCompose directo (sin sheet)", () => {
+    const onCompose = vi.fn();
+    render(
+      <CorreoReaderIsland
+        {...baseProps}
+        onCompose={onCompose}
+        primaryAction={{
+          mode: "reply",
+          label: "Responder",
+          canReply: true,
+          replyAllAvailable: true,
+        }}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Responder" }));
+    fireEvent.click(screen.getByRole("button", { name: "Responder a todos" }));
+    fireEvent.click(screen.getByRole("button", { name: "Reenviar" }));
+    expect(onCompose).toHaveBeenCalledWith("reply");
+    expect(onCompose).toHaveBeenCalledWith("all");
+    expect(onCompose).toHaveBeenCalledWith("forward");
   });
 
   it("al montar reclama el host de undo y al desmontar lo libera", () => {
@@ -74,7 +91,7 @@ describe("CorreoReaderIsland", () => {
     expect(getUndoHostClaimSnapshot()).toBe(false);
   });
 
-  it("composerOpen oculta la isla de acciones (exclusividad)", () => {
+  it("composerOpen oculta la barra de respuesta (exclusividad)", () => {
     const { container } = render(<CorreoReaderIsland {...baseProps} composerOpen />);
     expect(container.querySelectorAll("[data-island-action]")).toHaveLength(0);
   });

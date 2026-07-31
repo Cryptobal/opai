@@ -27,6 +27,8 @@ export type AttachmentPickerProps = {
   multiple?: boolean;
   hint?: string;
   className?: string;
+  /** Si false, oculta el botón "Adjuntar" (p.ej. topbar móvil con sheet). */
+  showPickButton?: boolean;
 };
 
 function formatBytes(bytes: number): string {
@@ -45,6 +47,7 @@ export function AttachmentPicker({
   multiple = true,
   hint = "Máximo 10 archivos · 25 MB en total",
   className,
+  showPickButton = true,
 }: AttachmentPickerProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
@@ -80,32 +83,34 @@ export function AttachmentPicker({
       }}
       onDrop={handleDrop}
     >
-      <div className="flex flex-wrap items-center gap-2">
-        <input
-          ref={inputRef}
-          type="file"
-          className="sr-only"
-          accept={accept}
-          multiple={multiple}
-          disabled={disabled}
-          onChange={(event) => {
-            pick(event.target.files);
-            event.target.value = "";
-          }}
-        />
-        <button
-          type="button"
-          onClick={() => inputRef.current?.click()}
-          disabled={disabled}
-          className="inline-flex h-11 items-center gap-2 rounded-full px-2.5 text-[13px] font-medium text-ds-text-2 ds-tap hover:bg-ds-surface-2 hover:text-ds-text-1 disabled:opacity-50 sm:h-10"
-        >
-          <Paperclip className="h-4 w-4" />
-          Adjuntar archivos
-        </button>
-        <p className="min-w-0 flex-1 text-[12px] text-ds-text-4">
-          {dragging ? "Soltá los archivos para adjuntarlos" : hint}
-        </p>
-      </div>
+      {showPickButton && (
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            ref={inputRef}
+            type="file"
+            className="sr-only"
+            accept={accept}
+            multiple={multiple}
+            disabled={disabled}
+            onChange={(event) => {
+              pick(event.target.files);
+              event.target.value = "";
+            }}
+          />
+          <button
+            type="button"
+            onClick={() => inputRef.current?.click()}
+            disabled={disabled}
+            className="inline-flex h-11 items-center gap-2 rounded-full px-2.5 text-[13px] font-medium text-ds-text-2 ds-tap hover:bg-ds-surface-2 hover:text-ds-text-1 disabled:opacity-50 sm:h-10"
+          >
+            <Paperclip className="h-4 w-4" />
+            Adjuntar archivos
+          </button>
+          <p className="min-w-0 flex-1 text-[12px] text-ds-text-4">
+            {dragging ? "Soltá los archivos para adjuntarlos" : hint}
+          </p>
+        </div>
+      )}
 
       {items.length > 0 && (
         <ul className="ds-list-cascade space-y-1.5" aria-label="Adjuntos">

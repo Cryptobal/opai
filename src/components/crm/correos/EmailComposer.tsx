@@ -99,6 +99,12 @@ type AccountOption = {
 export type EmailComposerHandle = {
   flushDraft: () => Promise<void>;
   discardDraft: () => Promise<void>;
+  requestDiscard: () => Promise<void>;
+  send: () => Promise<void>;
+  sendAndArchive: () => Promise<void>;
+  addFiles: (files: File[]) => void;
+  canSend: boolean;
+  busy: boolean;
 };
 
 type Props = {
@@ -174,6 +180,16 @@ type Props = {
   onDraftIdChange?: (id: string | null) => void;
   /** Casilla preferida al abrir composición nueva (no reply). */
   preferredAccountId?: string | null;
+  /**
+   * Chrome móvil Gmail: oculta Enviar/Trash/pick de adjuntos (viven en topbar
+   * + sheets) y el toggle IA del footer. Mic + toolbar se conservan.
+   */
+  mobileChrome?: boolean;
+  /** Abre presets de programar envío (⋯ → Programar). */
+  openScheduleNonce?: number;
+  /** Línea colapsada Firma · Estilo (abre el sheet ⋯ o callbacks). */
+  onOpenComposerMore?: () => void;
+  onOpenAiStyle?: () => void;
 };
 
 const AUTOSAVE_DEBOUNCE_MS = 3_000;
@@ -219,6 +235,10 @@ export const EmailComposer = forwardRef<EmailComposerHandle, Props>(function Ema
     onDraftIdChange,
     preferredAccountId = null,
     shortcuts: shortcutsProp,
+    mobileChrome = false,
+    openScheduleNonce = 0,
+    onOpenComposerMore,
+    onOpenAiStyle,
   },
   ref,
 ) {
@@ -471,15 +491,6 @@ export const EmailComposer = forwardRef<EmailComposerHandle, Props>(function Ema
     await saveDraft();
   }, [saveDraft]);
 
-  useImperativeHandle(
-    ref,
-    () => ({
-      flushDraft,
-      discardDraft: () => discardDraft({ close: false }),
-    }),
-    [flushDraft, discardDraft],
-  );
-
   async function requestDiscard() {
     if (isPristine() && !providerDraftIdRef.current) {
       onClose?.();
@@ -506,6 +517,23 @@ export const EmailComposer = forwardRef<EmailComposerHandle, Props>(function Ema
     (!isDocEmpty(content) || Boolean(quotedHtml)) &&
     !attachments.uploading &&
     !attachments.hasErrors;
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      flushDraft,
+      discardDraft: () => discardDraft({ close: false }),
+      requestDiscard: () => requestDiscard(),
+      send: () => send(),
+      sendAndArchive: () => send(undefined, { archive: true }),
+      addFiles: (files: File[]) => attachments.addFiles(files),
+      canSend,
+      busy,
+    }),
+    // send/requestDiscard cierran sobre estado fresco del render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [flushDraft, discardDraft, canSend, busy, attachments.addFiles],
+  );
 
   async function send(scheduledAt?: Date, opts?: { archive?: boolean }) {
     if (!canSend || busy) return;
@@ -769,14 +797,26 @@ export const EmailComposer = forwardRef<EmailComposerHandle, Props>(function Ema
         onRemove={attachments.remove}
         onRetry={attachments.retry}
         disabled={busy}
+        showPickButton={!mobileChrome}
         className="rounded-none border-0 border-t border-ds-border-subtle bg-transparent px-0 py-2"
       />
       <div className="py-1">
-        <SignatureChip
-          onOpenFirma={onOpenSignature}
-          includeSignature={includeSignature}
-          onIncludeSignatureChange={setIncludeSignature}
-        />
+        {mobileChrome && onOpenComposerMore ? (
+          <button
+            type="button"
+            onClick={onOpenComposerMore}
+            className="flex min-h-11 w-full items-center justify-between gap-2 rounded-xl px-1 text-left text-[12px] text-ds-text-3 ds-tap"
+          >
+            <span className="truncate">Firma · Estilo de respuesta</span>
+            <span className="shrink-0 text-ds-text-4">⋯</span>
+          </button>
+        ) : (
+          <SignatureChip
+            onOpenFirma={onOpenSignature}
+            includeSignature={includeSignature}
+            onIncludeSignatureChange={setIncludeSignature}
+          />
+        )}
       </div>
       <div className="flex flex-wrap items-center gap-1.5 pt-1">
         <ScheduleSendSplitButton
@@ -791,6 +831,8 @@ export const EmailComposer = forwardRef<EmailComposerHandle, Props>(function Ema
           sendShortcutHint={formatShortcutLabel(sendShortcuts.send)}
           sendAndArchiveShortcutHint={formatShortcutLabel(sendShortcuts.sendAndArchive)}
           onSchedule={(date) => void send(date)}
+          openPresetsNonce={openScheduleNonce}
+          hideSendButton={mobileChrome}
         />
         {dictSupported && (
           <button
@@ -810,17 +852,19 @@ export const EmailComposer = forwardRef<EmailComposerHandle, Props>(function Ema
             {dictation.listening ? <Square className="h-4 w-4 fill-current" /> : <Mic className="h-4 w-4" />}
           </button>
         )}
-        {footerExtras}
-        <button
-          type="button"
-          title="Descartar borrador"
-          aria-label="Descartar borrador"
-          onClick={() => void requestDiscard()}
-          disabled={busy}
-          className="inline-flex h-10 w-10 items-center justify-center rounded-full text-ds-text-3 ds-tap hover:bg-ds-surface-2 hover:text-status-danger-fg disabled:opacity-50 sm:h-9 sm:w-9"
-        >
-          <Trash2 className="h-4 w-4" />
-        </button>
+        {!mobileChrome && footerExtras}
+        {!mobileChrome && (
+          <button
+            type="button"
+            title="Descartar borrador"
+            aria-label="Descartar borrador"
+            onClick={() => void requestDiscard()}
+            disabled={busy}
+            className="inline-flex h-10 w-10 items-center justify-center rounded-full text-ds-text-3 ds-tap hover:bg-ds-surface-2 hover:text-status-danger-fg disabled:opacity-50 sm:h-9 sm:w-9"
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
+        )}
         {draftSavedAt && (
           <span className="ml-auto inline-flex items-center gap-1 text-[12px] text-ds-text-4">
             <Check className="h-3.5 w-3.5" /> Borrador guardado {draftSavedAt}
