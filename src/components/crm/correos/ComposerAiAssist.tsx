@@ -25,7 +25,7 @@ type PillProps = {
   onRefine: (preset: DraftRefineMode) => void;
   onClose: () => void;
   generating: boolean;
-  /** Ya hay texto de IA en el editor → kebab de presets habilitado. */
+  /** Hay texto refinable en el editor (IA o escrito a mano). */
   hasDraft: boolean;
   /** Abre el sheet de estilo de respuesta. */
   onOpenStyle?: () => void;
@@ -96,6 +96,8 @@ export function ComposerAiPromptPill({
     };
   }, [menuOpen]);
 
+  const presetsDisabled = !hasDraft || generating;
+
   const menuItems = (
     <>
       {DRAFT_REFINE_CHIPS.map((chip) => (
@@ -103,12 +105,13 @@ export function ComposerAiPromptPill({
           key={chip.id}
           type="button"
           role="menuitem"
-          disabled={!hasDraft || generating}
+          disabled={presetsDisabled}
+          aria-disabled={presetsDisabled}
           onClick={() => {
             setMenuOpen(false);
             onRefine(chip.id);
           }}
-          className="flex min-h-11 w-full items-center px-3 text-left text-[13px] text-ds-text-1 ds-tap hover:bg-ds-surface-2 disabled:opacity-40 sm:min-h-9"
+          className="flex min-h-11 w-full items-center px-3 text-left text-[13px] text-ds-text-1 ds-tap hover:bg-ds-surface-2 disabled:opacity-40 disabled:text-ds-text-4 sm:min-h-9"
         >
           {chip.label}
         </button>
@@ -273,6 +276,11 @@ export function ComposerAiPromptPill({
               <p className="px-4 pb-1 pt-2 font-display text-[15px] font-semibold text-ds-text-1">
                 Refinar borrador
               </p>
+              {!hasDraft && (
+                <p className="px-4 pb-1 text-[12px] text-ds-text-3">
+                  Escribí o generá un borrador para refinarlo
+                </p>
+              )}
               <div className="py-1">{menuItems}</div>
             </Surface>
           </div>,

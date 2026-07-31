@@ -117,16 +117,18 @@ export function CorreoComposerBox(props: Props) {
   const bodyRef = useRef<object | null>(initialSeed?.doc ?? null);
   const subjectRef = useRef<string>(initialSeed?.subject ?? "");
   const draftIdRef = useRef<string | null>(initialSeed?.draftId ?? null);
-  const aiSeededRef = useRef(false);
   const composerRef = useRef<EmailComposerHandle | null>(null);
   const [seed, setSeed] = useState<object | null>(initialSeed?.doc ?? null);
   const [epoch, setEpoch] = useState(0);
   const [instructions, setInstructions] = useState("");
   const instructionsRef = useRef("");
   const [generating, setGenerating] = useState(false);
-  const [hasAiDraft, setHasAiDraft] = useState(() =>
+  const [hasAiDraft, setHasAiDraft] = useState(false);
+  // Texto refinable en el cuerpo (IA o escrito a mano). hasDraft del pill usa esto.
+  const [hasBody, setHasBody] = useState(() =>
     Boolean(initialSeed && docPlainText(initialSeed.doc).trim()),
   );
+  const hasRefinableDraft = hasAiDraft || hasBody;
   const isDesktop = useMediaQuery("(min-width: 1024px)");
   const [moreOpen, setMoreOpen] = useState(false);
   const [scheduleNonce, setScheduleNonce] = useState(0);
@@ -203,6 +205,7 @@ export function CorreoComposerBox(props: Props) {
     setSeed(doc);
     setEpoch((e) => e + 1);
     setHasAiDraft(true);
+    setHasBody(Boolean(text.trim()));
     instructionsRef.current = "";
     setInstructions("");
   }
@@ -217,7 +220,8 @@ export function CorreoComposerBox(props: Props) {
     const prompt = instructionsRef.current.trim();
     const currentDraft = docPlainText(bodyRef.current).trim();
     const refine = opts?.refine;
-    if (refine == null && hasAiDraft && !prompt) return;
+    const refinable = hasAiDraft || hasBody || Boolean(currentDraft);
+    if (refine == null && refinable && !prompt) return;
     setGenerating(true);
     try {
       const res = await fetch(`/api/crm/correos/${threadId}/suggest-reply`, {
@@ -226,7 +230,7 @@ export function CorreoComposerBox(props: Props) {
         body: JSON.stringify({
           instructions: prompt || undefined,
           currentDraft:
-            refine || (hasAiDraft && currentDraft) ? currentDraft || undefined : undefined,
+            refine || (refinable && currentDraft) ? currentDraft || undefined : undefined,
           refine: refine || undefined,
         }),
       });
@@ -252,17 +256,10 @@ export function CorreoComposerBox(props: Props) {
   }
 
   useEffect(() => {
-    if (!showAiPrompt) {
-      if (!ai) {
-        aiSeededRef.current = false;
-        instructionsRef.current = "";
-        setInstructions("");
-      }
-      return;
+    if (!showAiPrompt && !ai) {
+      instructionsRef.current = "";
+      setInstructions("");
     }
-    if (aiSeededRef.current) return;
-    aiSeededRef.current = true;
-    if (docPlainText(bodyRef.current).trim()) setHasAiDraft(true);
   }, [showAiPrompt, ai]);
 
   function switchMode(next: ComposerMode) {
@@ -309,7 +306,11 @@ export function CorreoComposerBox(props: Props) {
       dealId={props.dealId}
       contactId={props.contactId ?? null}
       modeSwitcher={{ mode, replyAllAvailable, onChange: switchMode }}
-      onBodyChange={(doc) => { bodyRef.current = doc; }}
+      onBodyChange={(doc) => {
+        bodyRef.current = doc;
+        const filled = docPlainText(doc).trim().length > 0;
+        setHasBody((prev) => (prev === filled ? prev : filled));
+      }}
       onSubjectChange={(s) => { subjectRef.current = s; }}
       onDraftIdChange={(id) => { draftIdRef.current = id; }}
       onOpenSignature={props.onOpenSignature}
@@ -326,7 +327,8 @@ export function CorreoComposerBox(props: Props) {
             onRefine={(preset) => void runAi({ refine: preset })}
             onClose={closeAi}
             generating={generating}
-            hasDraft={hasAiDraft}
+            // hasDraft = hay texto refinable (IA o manual), no solo seed de IA.
+            hasDraft={hasRefinableDraft}
             onOpenStyle={props.onOpenAiStyle}
             mode={isForward ? "compose" : "reply"}
           />

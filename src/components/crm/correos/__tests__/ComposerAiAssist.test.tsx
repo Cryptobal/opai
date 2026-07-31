@@ -106,7 +106,10 @@ describe("ComposerAiAssist", () => {
       />,
     );
     fireEvent.click(screen.getByRole("button", { name: /más opciones de ia/i }));
-    expect(screen.getByRole("menuitem", { name: "Formalizar" })).toBeDisabled();
+    const formalizar = screen.getByRole("menuitem", { name: "Formalizar" });
+    expect(formalizar).toBeDisabled();
+    expect(formalizar).toHaveAttribute("aria-disabled", "true");
+    expect(formalizar.className).toMatch(/disabled:text-ds-text-4/);
     expect(screen.getByRole("button", { name: /generar borrador/i })).not.toBeDisabled();
 
     rerender(
@@ -121,6 +124,43 @@ describe("ComposerAiAssist", () => {
       />,
     );
     expect(screen.getByRole("button", { name: /aplicar cambio/i })).toBeDisabled();
+  });
+
+  it("con hasDraft=true los presets invocan onRefine; Estilo sigue habilitado sin borrador", () => {
+    const onRefine = vi.fn();
+    const onOpenStyle = vi.fn();
+    const { rerender } = render(
+      <ComposerAiPromptPill
+        value=""
+        onChange={() => {}}
+        onGenerate={() => {}}
+        onRefine={onRefine}
+        onClose={() => {}}
+        generating={false}
+        hasDraft
+        onOpenStyle={onOpenStyle}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /más opciones de ia/i }));
+    expect(screen.getByRole("menuitem", { name: "Acortar" })).not.toBeDisabled();
+    fireEvent.click(screen.getByRole("menuitem", { name: "Acortar" }));
+    expect(onRefine).toHaveBeenCalledWith("shorten");
+
+    rerender(
+      <ComposerAiPromptPill
+        value=""
+        onChange={() => {}}
+        onGenerate={() => {}}
+        onRefine={onRefine}
+        onClose={() => {}}
+        generating={false}
+        hasDraft={false}
+        onOpenStyle={onOpenStyle}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /más opciones de ia/i }));
+    fireEvent.click(screen.getByRole("menuitem", { name: /estilo de respuesta/i }));
+    expect(onOpenStyle).toHaveBeenCalledOnce();
   });
 
   it("mientras genera, deshabilita el submit", () => {
