@@ -374,8 +374,10 @@ export function CorreoDrawer({
         threadId={detail.thread.id}
         composerOpen={composerOpen}
         variant={variant}
+        // Panel IA visible en ambos casos: con intención muestra el progreso
+        // de la generación y deja el pill listo para refinar el borrador.
         onCompose={({ instructions, ai }) =>
-          requestCompose("reply", Boolean(ai), instructions)
+          requestCompose("reply", Boolean(ai) || Boolean(instructions), instructions)
         }
       />
     ) : null;
