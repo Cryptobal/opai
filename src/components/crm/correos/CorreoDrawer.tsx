@@ -477,22 +477,9 @@ export function CorreoDrawer({
       mobileActions={
         detailReady && canModify ? (
           <CorreoReaderIsland
-            threadId={detail.thread.id}
-            isUnread={detail.thread.isUnread}
-            archived={Boolean(detail.thread.archivedAt)}
-            trashed={Boolean(detail.thread.trashedAt)}
-            snoozedUntil={detail.thread.snoozedUntil}
             primaryAction={primaryAction}
             composerOpen={composerOpen}
-            snoozeConfig={snoozeConfig}
             onCompose={requestCompose}
-            onSnoozeConfirm={handleSnoozeConfirm}
-            onOpenSnoozeSheet={() => setSnoozeOpen(true)}
-            onClose={onClose}
-            onRemove={onRemove}
-            onRemoveDone={onRemoveDone}
-            onUndoDone={onUndoDone}
-            onDone={refresh}
           />
         ) : null
       }
