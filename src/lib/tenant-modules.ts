@@ -6,8 +6,14 @@
  */
 
 import { cache } from "react";
+import { revalidateTag, unstable_cache } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
+
+/** Tag de invalidación para módulos, flags y config de un tenant. */
+export function tenantContextTag(tenantId: string): string {
+  return `tenant-ctx:${tenantId}`;
+}
 
 // ── Definición de módulos y planes ──
 
@@ -86,18 +92,13 @@ PLAN_MODULES.trial = PLAN_MODULES.free;
 PLAN_MODULES.essential = PLAN_MODULES.starter;
 PLAN_MODULES.professional = PLAN_MODULES.profesional;
 
-// ── Cache ──
+// ── Cache (Next.js Data Cache, TTL 300 s) ──
 
-const moduleCache = new Map<string, { modules: Set<string>; ts: number }>();
-const CACHE_TTL = 5 * 60 * 1000; // 5 min
+const CACHE_REVALIDATE = 300;
 
 export function clearTenantModuleCache(tenantId?: string): void {
   if (tenantId) {
-    moduleCache.delete(tenantId);
-    flagCache.delete(tenantId);
-  } else {
-    moduleCache.clear();
-    flagCache.clear();
+    revalidateTag(tenantContextTag(tenantId), "max");
   }
 }
 
@@ -108,27 +109,28 @@ export function clearTenantModuleCache(tenantId?: string): void {
  * Si el tenant no tiene registros en TenantModule, retorna todos
  * los módulos (backward compatibility con tenants existentes).
  */
-export async function getTenantEnabledModules(
-  tenantId: string,
-): Promise<Set<string>> {
-  const cached = moduleCache.get(tenantId);
-  if (cached && Date.now() - cached.ts < CACHE_TTL) {
-    return cached.modules;
-  }
-
+async function fetchTenantEnabledModuleKeys(tenantId: string): Promise<string[]> {
   const modules = await prisma.tenantModule.findMany({
     where: { tenantId, enabled: true },
     select: { module: true },
   });
-
   // Si no hay registros, asumir todos habilitados (backward compat para Gard)
-  const moduleSet =
-    modules.length > 0
-      ? new Set(modules.map((m) => m.module))
-      : new Set<string>(ALL_MODULES);
+  return modules.length > 0 ? modules.map((m) => m.module) : [...ALL_MODULES];
+}
 
-  moduleCache.set(tenantId, { modules: moduleSet, ts: Date.now() });
-  return moduleSet;
+function getCachedTenantEnabledModuleKeys(tenantId: string): Promise<string[]> {
+  return unstable_cache(
+    () => fetchTenantEnabledModuleKeys(tenantId),
+    ["tenant-enabled-modules", tenantId],
+    { revalidate: CACHE_REVALIDATE, tags: [tenantContextTag(tenantId)] },
+  )();
+}
+
+export async function getTenantEnabledModules(
+  tenantId: string,
+): Promise<Set<string>> {
+  const keys = await getCachedTenantEnabledModuleKeys(tenantId);
+  return new Set(keys);
 }
 
 /**
@@ -159,12 +161,7 @@ export const getTenantModulesList = cache(async function getTenantModulesList(
 // TenantModule del tenant (ej. module="finanzas", config={cashflowPlanillaV3:true}).
 // Mecanismo aditivo: cero migración, se administra con un UPDATE al JSONB.
 
-const flagCache = new Map<string, { flags: Set<string>; ts: number }>();
-
-export async function getTenantFeatureFlags(tenantId: string): Promise<Set<string>> {
-  const cached = flagCache.get(tenantId);
-  if (cached && Date.now() - cached.ts < CACHE_TTL) return cached.flags;
-
+async function fetchTenantFeatureFlagKeys(tenantId: string): Promise<string[]> {
   const rows = await prisma.tenantModule.findMany({
     where: { tenantId, enabled: true, config: { not: Prisma.DbNull } },
     select: { config: true },
@@ -175,8 +172,20 @@ export async function getTenantFeatureFlags(tenantId: string): Promise<Set<strin
     if (!cfg || typeof cfg !== "object") continue;
     for (const [k, v] of Object.entries(cfg)) if (v === true) flags.add(k);
   }
-  flagCache.set(tenantId, { flags, ts: Date.now() });
-  return flags;
+  return Array.from(flags);
+}
+
+function getCachedTenantFeatureFlagKeys(tenantId: string): Promise<string[]> {
+  return unstable_cache(
+    () => fetchTenantFeatureFlagKeys(tenantId),
+    ["tenant-feature-flags", tenantId],
+    { revalidate: CACHE_REVALIDATE, tags: [tenantContextTag(tenantId)] },
+  )();
+}
+
+export async function getTenantFeatureFlags(tenantId: string): Promise<Set<string>> {
+  const keys = await getCachedTenantFeatureFlagKeys(tenantId);
+  return new Set(keys);
 }
 
 export async function getTenantFeatureFlagsList(tenantId: string): Promise<string[]> {

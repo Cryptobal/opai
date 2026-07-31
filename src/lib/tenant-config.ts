@@ -2,7 +2,7 @@
  * Tenant Company Configuration
  *
  * Helper centralizado para leer la configuración de empresa por tenant.
- * Lee desde la tabla Setting con cache de 5 min para no repetir queries.
+ * Lee desde la tabla Setting con cache de Next.js Data Cache (300 s).
  *
  * Uso:
  *   const cfg = await getTenantCompanyConfig(tenantId);
@@ -242,17 +242,17 @@ const KEY_MAP: Record<string, keyof TenantCompanyConfig> = {
 const ALL_KEYS = Object.keys(KEY_MAP);
 
 /* ------------------------------------------------------------------ */
-/*  Cache                                                              */
+/*  Cache (Next.js Data Cache, TTL 300 s)                              */
 /* ------------------------------------------------------------------ */
 
-const cache = new Map<string, { config: TenantCompanyConfig; ts: number }>();
-const CACHE_TTL = 5 * 60 * 1000; // 5 min
+import { revalidateTag, unstable_cache } from "next/cache";
+import { tenantContextTag } from "@/lib/tenant-modules";
+
+const CACHE_REVALIDATE = 300;
 
 export function clearTenantCompanyConfigCache(tenantId?: string): void {
   if (tenantId) {
-    cache.delete(tenantId);
-  } else {
-    cache.clear();
+    revalidateTag(tenantContextTag(tenantId), "max");
   }
 }
 
@@ -262,16 +262,26 @@ export function clearTenantCompanyConfigCache(tenantId?: string): void {
 
 /**
  * Obtiene la configuración completa de la empresa para un tenant.
- * Lee de la tabla Setting, con cache de 5 minutos.
+ * Lee de la tabla Setting, con cache de Next.js Data Cache (300 s).
  * Si no hay datos en BD, usa los defaults hardcodeados (Gard).
  */
 export async function getTenantCompanyConfig(
   tenantId: string,
 ): Promise<TenantCompanyConfig> {
-  // Check cache
-  const cached = cache.get(tenantId);
-  if (cached && Date.now() - cached.ts < CACHE_TTL) return cached.config;
+  return getCachedTenantCompanyConfig(tenantId)();
+}
 
+function getCachedTenantCompanyConfig(tenantId: string) {
+  return unstable_cache(
+    () => loadTenantCompanyConfig(tenantId),
+    ["tenant-company-config", tenantId],
+    { revalidate: CACHE_REVALIDATE, tags: [tenantContextTag(tenantId)] },
+  );
+}
+
+async function loadTenantCompanyConfig(
+  tenantId: string,
+): Promise<TenantCompanyConfig> {
   // Start from defaults
   const config: TenantCompanyConfig = { ...DEFAULTS };
 
@@ -331,6 +341,5 @@ export async function getTenantCompanyConfig(
     // Return defaults on error
   }
 
-  cache.set(tenantId, { config, ts: Date.now() });
   return config;
 }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requirePlatformAuth, platformUnauthorized } from '@/lib/platform-api-auth';
 import { prisma } from '@/lib/prisma';
+import { clearTenantModuleCache } from '@/lib/tenant-modules';
 
 export async function POST(
   request: NextRequest,
@@ -52,6 +53,8 @@ export async function POST(
 
     activatedAddons.push(addon.slug);
   }
+
+  clearTenantModuleCache(id);
 
   return NextResponse.json({ success: true, activatedAddons });
 }
