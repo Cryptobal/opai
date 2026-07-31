@@ -18,7 +18,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import Link from "next/link";
 import type { CpqQuoteStatus } from "@/types/cpq";
-import { Plus, MapPin, ExternalLink, Loader2 } from "lucide-react";
+import { Plus, MapPin, ExternalLink, Loader2, ChevronDown } from "lucide-react";
 
 type CrmInstallationOption = {
   id: string;
@@ -115,6 +115,13 @@ export function DatosSection({
   const labelClassName = "text-xs font-medium uppercase tracking-wide text-muted-foreground";
   const inputClassName = "bg-card text-sm border-border/60";
   const searchableTriggerClassName = "h-8 rounded-md bg-card border-border/60";
+  /** Filas compactas móvil: etiqueta izq. + valor der. */
+  const mobileRowClass =
+    "flex items-center gap-2.5 min-h-12 py-1.5 border-b border-border/40 last:border-0";
+  const mobileLabelClass =
+    "basis-[84px] shrink-0 text-[11.5px] font-semibold font-mono uppercase tracking-[0.08em] text-muted-foreground";
+  const mobileSelectTriggerClass =
+    "h-11 min-h-11 rounded-md border-0 bg-transparent px-0 text-right text-sm shadow-none justify-end";
 
   const resetInlineForm = () =>
     setInlineForm({ name: "", firstName: "", lastName: "", email: "", title: "", address: "", city: "", commune: "", lat: null, lng: null });
@@ -239,34 +246,190 @@ export function DatosSection({
     return "";
   }, [selectedInstallation, selectedInstallationAddress]);
 
+  const accountOptions = crmAccounts.map((a) => ({
+    id: a.id,
+    label: a.name,
+    description: a.type ? (a.type === "client" ? "Cliente" : "Prospecto") : undefined,
+  }));
+  const installationOptions = crmInstallations.map((i) => ({
+    id: i.id,
+    label: i.name,
+    description: i.city || undefined,
+  }));
+  const contactOptions = crmContacts.map((c) => ({
+    id: c.id,
+    label: `${c.firstName} ${c.lastName}`.trim(),
+    description: c.email || undefined,
+  }));
+  const dealOptions = crmDeals.map((d) => ({ id: d.id, label: d.title }));
+
+  const onAccountChange = (val: string) => {
+    const account = crmAccounts.find((a) => a.id === val);
+    saveCrmContext({ accountId: val, installationId: "", contactId: "", dealId: "" });
+    if (account) {
+      setQuoteForm((prev: any) => ({ ...prev, clientName: account.name }));
+      setQuoteDirty(true);
+    }
+  };
+
+  const mobileCrmRows: {
+    key: string;
+    label: string;
+    value: string;
+    disabled: boolean;
+    options: { id: string; label: string; description?: string }[];
+    onChange: (val: string) => void;
+    onCreate: () => void;
+    createDisabled: boolean;
+  }[] = [
+    {
+      key: "account",
+      label: "Cuenta",
+      value: crmContext.accountId || "",
+      disabled: isLocked,
+      options: accountOptions,
+      onChange: onAccountChange,
+      onCreate: () => { resetInlineForm(); setInlineCreateType("account"); },
+      createDisabled: isLocked,
+    },
+    {
+      key: "installation",
+      label: "Instalación",
+      value: crmContext.installationId || "",
+      disabled: !crmContext.accountId || isLocked,
+      options: installationOptions,
+      onChange: (val) => saveCrmContext({ installationId: val }),
+      onCreate: () => { resetInlineForm(); setInlineCreateType("installation"); },
+      createDisabled: !crmContext.accountId || isLocked,
+    },
+    {
+      key: "contact",
+      label: "Contacto",
+      value: crmContext.contactId || "",
+      disabled: !crmContext.accountId || isLocked,
+      options: contactOptions,
+      onChange: (val) => saveCrmContext({ contactId: val }),
+      onCreate: () => { resetInlineForm(); setInlineCreateType("contact"); },
+      createDisabled: !crmContext.accountId || isLocked,
+    },
+    {
+      key: "deal",
+      label: "Negocio",
+      value: crmContext.dealId || "",
+      disabled: !crmContext.accountId || isLocked,
+      options: dealOptions,
+      onChange: (val) => saveCrmContext({ dealId: val }),
+      onCreate: () => { resetInlineForm(); setInlineCreateType("deal"); },
+      createDisabled: !crmContext.accountId || isLocked,
+    },
+  ];
+
   return (
     <div className="space-y-2">
       <div className="space-y-2">
-        {/* ── CRM Context: 1 columna en móvil (evita que el nombre se trunque a "S." "C." ...),
-             2 columnas en desktop. ── */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 w-full">
+        {/* ── Móvil (<sm): filas compactas etiqueta | valor ── */}
+        <div className="sm:hidden">
+          {mobileCrmRows.map((row) => {
+            const hasValue = Boolean(row.value);
+            return (
+              <div key={row.key} className={mobileRowClass}>
+                <span className={mobileLabelClass}>{row.label}</span>
+                <div className="flex min-w-0 flex-1 items-center justify-end gap-0.5">
+                  <div className="min-w-0 flex-1">
+                    <SearchableSelect
+                      value={row.value}
+                      options={row.options}
+                      placeholder="Elegir…"
+                      disabled={row.disabled}
+                      triggerClassName={mobileSelectTriggerClass}
+                      onChange={row.onChange}
+                    />
+                  </div>
+                  {hasValue ? (
+                    <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground pointer-events-none" aria-hidden />
+                  ) : (
+                    <button
+                      type="button"
+                      disabled={row.createDisabled}
+                      onClick={row.onCreate}
+                      className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-primary disabled:opacity-40"
+                      aria-label={`Crear ${row.label}`}
+                    >
+                      <Plus className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+          <div className={mobileRowClass}>
+            <span className={mobileLabelClass}>Nombre</span>
+            <Input
+              value={quoteForm.name}
+              onChange={(e) => {
+                setQuoteForm((prev: any) => ({ ...prev, name: e.target.value }));
+                setQuoteDirty(true);
+              }}
+              placeholder="Propuesta..."
+              className="h-11 min-h-11 flex-1 border-0 bg-transparent px-0 text-right text-sm shadow-none focus-visible:ring-0"
+              disabled={isLocked}
+            />
+          </div>
+          <div className={mobileRowClass}>
+            <span className={mobileLabelClass}>Válida</span>
+            <Input
+              type="date"
+              value={quoteForm.validUntil}
+              onChange={(e) => {
+                setQuoteForm((prev: any) => ({ ...prev, validUntil: e.target.value }));
+                setQuoteDirty(true);
+              }}
+              className="h-11 min-h-11 flex-1 border-0 bg-transparent px-0 text-right text-sm shadow-none focus-visible:ring-0 [color-scheme:light] dark:[color-scheme:dark]"
+              disabled={isLocked}
+            />
+          </div>
+          <div className={mobileRowClass}>
+            <span className={mobileLabelClass}>Moneda</span>
+            <div className="flex flex-1 items-center justify-end gap-1">
+              {["CLP", "UF"].map((cur) => (
+                <button
+                  key={cur}
+                  type="button"
+                  disabled={isLocked}
+                  onClick={() => saveCrmContext({ currency: cur })}
+                  className={cn(
+                    "h-11 min-w-11 rounded-md px-3 text-sm font-medium border transition-colors",
+                    crmContext.currency === cur
+                      ? "bg-primary/15 text-primary border-primary/30"
+                      : "bg-transparent text-muted-foreground border-border/50",
+                  )}
+                >
+                  {cur}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className={cn(mobileRowClass, "border-0")}>
+            <span className={mobileLabelClass}>Estado</span>
+            <span className="flex-1 text-right text-sm text-muted-foreground">
+              {savingQuote ? "Guardando..." : quoteDirty ? "Sin guardar" : "Guardado ✓"}
+            </span>
+          </div>
+        </div>
+
+        {/* ── Desktop/tablet (sm+): grid original ── */}
+        <div className="hidden sm:grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 w-full">
           <div className="min-w-0">
             <Label className={labelClassName}>Cuenta</Label>
             <div className="flex gap-0.5">
               <div className="flex-1 min-w-0">
                 <SearchableSelect
                 value={crmContext.accountId || ""}
-                options={crmAccounts.map((a) => ({
-                  id: a.id,
-                  label: a.name,
-                  description: a.type ? (a.type === "client" ? "Cliente" : "Prospecto") : undefined,
-                }))}
+                options={accountOptions}
                 placeholder="Seleccionar..."
                 disabled={isLocked}
                 triggerClassName={searchableTriggerClassName}
-                onChange={(val) => {
-                  const account = crmAccounts.find((a) => a.id === val);
-                  saveCrmContext({ accountId: val, installationId: "", contactId: "", dealId: "" });
-                  if (account) {
-                    setQuoteForm((prev: any) => ({ ...prev, clientName: account.name }));
-                    setQuoteDirty(true);
-                  }
-                }}
+                onChange={onAccountChange}
               />
               </div>
               {crmContext.accountId && (
@@ -287,7 +450,7 @@ export function DatosSection({
               <div className="flex-1 min-w-0">
                 <SearchableSelect
                 value={crmContext.installationId || ""}
-                options={crmInstallations.map((i) => ({ id: i.id, label: i.name, description: i.city || undefined }))}
+                options={installationOptions}
                 placeholder="Seleccionar..."
                 disabled={!crmContext.accountId || isLocked}
                 triggerClassName={searchableTriggerClassName}
@@ -312,7 +475,7 @@ export function DatosSection({
               <div className="flex-1 min-w-0">
                 <SearchableSelect
                 value={crmContext.contactId || ""}
-                options={crmContacts.map((c) => ({ id: c.id, label: `${c.firstName} ${c.lastName}`.trim(), description: c.email || undefined }))}
+                options={contactOptions}
                 placeholder="Seleccionar..."
                 disabled={!crmContext.accountId || isLocked}
                 triggerClassName={searchableTriggerClassName}
@@ -337,7 +500,7 @@ export function DatosSection({
               <div className="flex-1 min-w-0">
                 <SearchableSelect
                 value={crmContext.dealId || ""}
-                options={crmDeals.map((d) => ({ id: d.id, label: d.title }))}
+                options={dealOptions}
                 placeholder="Seleccionar..."
                 disabled={!crmContext.accountId || isLocked}
                 triggerClassName={searchableTriggerClassName}
@@ -469,8 +632,8 @@ export function DatosSection({
           </DialogContent>
         </Dialog>
 
-        {/* ── Quote name + Date + Currency + save indicator — compact row ── */}
-        <div className="grid grid-cols-1 gap-x-2 gap-y-2 sm:grid-cols-2 lg:grid-cols-[1fr_auto_auto_auto] lg:items-end">
+        {/* ── Quote name + Date + Currency + save — desktop/tablet ── */}
+        <div className="hidden sm:grid grid-cols-1 gap-x-2 gap-y-2 sm:grid-cols-2 lg:grid-cols-[1fr_auto_auto_auto] lg:items-end">
           <div className="min-w-0">
             <Label className={labelClassName}>Nombre cotización</Label>
             <Input

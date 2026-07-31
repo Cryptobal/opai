@@ -60,7 +60,7 @@ export function CondicionesSection({
       title="Condiciones comerciales"
       open={open}
       onToggle={onToggle}
-      cardClassName="overflow-hidden scroll-mt-[12.5rem] lg:scroll-mt-32"
+      cardClassName="overflow-hidden scroll-mt-[calc(var(--app-island-bottom)+var(--cpq-sticky-h))] lg:scroll-mt-32"
       bodyInert={isLocked}
       summary={
         <span className="text-xs text-muted-foreground truncate">

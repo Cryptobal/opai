@@ -26,6 +26,7 @@ import { ThemeLogo } from "./ThemeLogo";
 import {
   IconBubble,
   useBreadcrumbTrailing,
+  useBreadcrumbTrailingSubtitle,
   useIslandAction,
   useIslandModule,
   useIslandSearchOpenListener,
@@ -61,6 +62,7 @@ export function MobileIsland({
   const pathname = usePathname() ?? "/";
   const router = useRouter();
   const trailing = useBreadcrumbTrailing();
+  const trailingSubtitle = useBreadcrumbTrailingSubtitle();
   const islandAction = useIslandAction();
   const { moduleMenu, search: moduleSearch, suppressed } = useIslandModule();
   const permissions = usePermissions();
@@ -276,10 +278,12 @@ export function MobileIsland({
             <button type="button" onClick={back} className={cn(btnBase, "shrink-0")} aria-label="Volver">
               <ChevronLeft className="h-5 w-5" />
             </button>
-            <div key={pathname + trailing} className="min-w-0 flex-1 animate-in fade-in duration-200">
+            <div key={pathname + trailing + (trailingSubtitle ?? "")} className="min-w-0 flex-1 animate-in fade-in duration-200">
               <p className="truncate text-sm font-semibold leading-tight text-ds-text-1">{trailing}</p>
-              {ctx?.title && (
-                <p className="truncate text-[12px] leading-tight text-ds-text-3">{ctx.title}</p>
+              {(trailingSubtitle || ctx?.title) && (
+                <p className="truncate text-[12px] leading-tight text-ds-text-3">
+                  {trailingSubtitle || ctx?.title}
+                </p>
               )}
             </div>
           </div>

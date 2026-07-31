@@ -56,7 +56,7 @@ export function FinancierosSection({
       title="Gastos financieros"
       open={open}
       onToggle={onToggle}
-      cardClassName="overflow-hidden scroll-mt-[12.5rem] lg:scroll-mt-32"
+      cardClassName="overflow-hidden scroll-mt-[calc(var(--app-island-bottom)+var(--cpq-sticky-h))] lg:scroll-mt-32"
       bodyClassName="space-y-2 bg-card/60 px-3 pb-3 pt-3 sm:px-4 sm:pb-4 sm:pt-4"
       bodyInert={isLocked}
       summary={

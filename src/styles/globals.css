@@ -336,6 +336,13 @@
        viewport-fit=cover el inset se suma automáticamente. */
     --app-topbar-h: 3rem;
     --app-topbar-offset: calc(var(--app-topbar-h) + var(--safe-area-top));
+    /* Isla flotante móvil (MobileIsland): paddingTop safe+8px + min-h-12 (48px).
+       Fuente de verdad para sticky stacks bajo la isla (CPQ, etc.).
+       Mantener alineado con MobileIsland.tsx (paddingTop + min-h-12). */
+    --app-island-bottom: calc(env(safe-area-inset-top, 0px) + 3.5rem);
+    /* Stack sticky CPQ móvil: fila total (46px) + chips (40px) = 86px.
+       En modo bundle (con pestañas) se sobrescribe a ~7.75rem en el stack. */
+    --cpq-sticky-h: 5.375rem;
     /* Medido en runtime por PlatformAwareBottomNav (portales PWA). */
     --portal-bottom-nav-height: 5.5rem;
 
@@ -1876,6 +1883,6 @@ html {
   .cpq-touch-inputs input:not([type="checkbox"]):not([type="radio"]),
   .cpq-touch-inputs select,
   .cpq-touch-inputs textarea {
-    scroll-margin-top: 12.5rem;
+    scroll-margin-top: calc(var(--app-island-bottom, 3.5rem) + var(--cpq-sticky-h, 5.375rem) + 0.5rem);
   }
 }

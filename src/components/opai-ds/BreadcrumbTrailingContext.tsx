@@ -22,6 +22,10 @@
  * El hook se limpia automáticamente al desmontar — al navegar a otra
  * página, el trailing se resetea para que AutoBreadcrumbs vuelva a
  * derivar del path puro.
+ *
+ * Subtítulo opcional (2º arg / `subtitle`): la isla móvil lo muestra
+ * bajo el título (ej. «Cuenta · Instalación» en CPQ). Desktop breadcrumbs
+ * siguen usando solo `trailing`.
  */
 
 import {
@@ -35,14 +39,20 @@ import {
 
 interface BreadcrumbTrailingState {
   trailing: string | null;
+  subtitle: string | null;
   setTrailing: (value: string | null) => void;
+  setSubtitle: (value: string | null) => void;
 }
 
 const Ctx = createContext<BreadcrumbTrailingState | null>(null);
 
 export function BreadcrumbTrailingProvider({ children }: { children: ReactNode }) {
   const [trailing, setTrailing] = useState<string | null>(null);
-  const value = useMemo(() => ({ trailing, setTrailing }), [trailing]);
+  const [subtitle, setSubtitle] = useState<string | null>(null);
+  const value = useMemo(
+    () => ({ trailing, subtitle, setTrailing, setSubtitle }),
+    [trailing, subtitle],
+  );
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 
@@ -50,22 +60,34 @@ export function useBreadcrumbTrailing(): string | null {
   return useContext(Ctx)?.trailing ?? null;
 }
 
+/** Subtítulo publicado por la ficha (2ª línea de la isla en detalle). */
+export function useBreadcrumbTrailingSubtitle(): string | null {
+  return useContext(Ctx)?.subtitle ?? null;
+}
+
 /**
  * Publica el nombre de la entidad como último segmento del breadcrumb.
  * Pasá `null` o un string vacío para no agregar nada (default behaviour).
+ * El 2º argumento opcional es el subtítulo de la isla móvil.
  */
-export function useSetBreadcrumbTrailing(value: string | null | undefined) {
+export function useSetBreadcrumbTrailing(
+  value: string | null | undefined,
+  subtitle?: string | null | undefined,
+) {
   const ctx = useContext(Ctx);
   useEffect(() => {
     if (!ctx) return;
     const v = value && value.length > 0 ? value : null;
+    const s = subtitle && subtitle.length > 0 ? subtitle : null;
     ctx.setTrailing(v);
+    ctx.setSubtitle(s);
     return () => {
       // Reset on unmount/path change so siblings without a trailing
       // don't inherit a stale name.
       ctx.setTrailing(null);
+      ctx.setSubtitle(null);
     };
-  }, [ctx, value]);
+  }, [ctx, value, subtitle]);
 }
 
 /**
@@ -82,7 +104,13 @@ export function useSetBreadcrumbTrailing(value: string | null | undefined) {
  *     );
  *   }
  */
-export function SetBreadcrumbTrailing({ value }: { value: string | null | undefined }) {
-  useSetBreadcrumbTrailing(value);
+export function SetBreadcrumbTrailing({
+  value,
+  subtitle,
+}: {
+  value: string | null | undefined;
+  subtitle?: string | null | undefined;
+}) {
+  useSetBreadcrumbTrailing(value, subtitle);
   return null;
 }
