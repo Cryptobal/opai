@@ -11,6 +11,7 @@ import {
   Sparkles,
   X,
 } from "lucide-react";
+import { toast } from "sonner";
 import { Spinner } from "@/components/opai-ds";
 import { useVisualViewportFrame } from "@/hooks/useVisualViewportFrame";
 import { hideKeyboardAccessoryBar } from "@/lib/capacitor/hideKeyboardAccessoryBar";
@@ -118,6 +119,7 @@ export function CorreoComposerBox(props: Props) {
   const [seed, setSeed] = useState<object | null>(initialSeed?.doc ?? null);
   const [epoch, setEpoch] = useState(0);
   const [instructions, setInstructions] = useState("");
+  const instructionsRef = useRef("");
   const [generating, setGenerating] = useState(false);
   const [hasAiDraft, setHasAiDraft] = useState(() =>
     Boolean(initialSeed && docPlainText(initialSeed.doc).trim()),
@@ -203,17 +205,24 @@ export function CorreoComposerBox(props: Props) {
     setSeed(doc);
     setEpoch((e) => e + 1);
     setHasAiDraft(true);
+    instructionsRef.current = "";
     setInstructions("");
   }
 
+  function setAiInstructions(value: string) {
+    instructionsRef.current = value;
+    setInstructions(value);
+  }
+
   async function runAi(opts?: { refine?: DraftRefineMode }) {
-    const prompt = instructions.trim();
+    // Ref: Enter justo después de tipear puede correr antes del re-render.
+    const prompt = instructionsRef.current.trim();
     const currentDraft = docPlainText(bodyRef.current).trim();
     const refine = opts?.refine;
     if (refine == null && hasAiDraft && !prompt) return;
     setGenerating(true);
     try {
-      const d = await fetch(`/api/crm/correos/${threadId}/suggest-reply`, {
+      const res = await fetch(`/api/crm/correos/${threadId}/suggest-reply`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -222,8 +231,18 @@ export function CorreoComposerBox(props: Props) {
             refine || (hasAiDraft && currentDraft) ? currentDraft || undefined : undefined,
           refine: refine || undefined,
         }),
-      }).then((r) => r.json());
-      if (d.draft) injectDraft(String(d.draft));
+      });
+      const d = (await res.json().catch(() => ({}))) as {
+        draft?: unknown;
+        error?: string;
+      };
+      if (!res.ok || !d.draft) {
+        toast.error(d.error || "No se pudo generar el borrador");
+        return;
+      }
+      injectDraft(String(d.draft));
+    } catch {
+      toast.error("No se pudo generar el borrador");
     } finally {
       setGenerating(false);
     }
@@ -233,6 +252,7 @@ export function CorreoComposerBox(props: Props) {
     if (!showAiPrompt) {
       if (!ai) {
         aiSeededRef.current = false;
+        instructionsRef.current = "";
         setInstructions("");
       }
       return;
@@ -298,7 +318,7 @@ export function CorreoComposerBox(props: Props) {
         showAiPrompt ? (
           <ComposerAiPromptPill
             value={instructions}
-            onChange={setInstructions}
+            onChange={setAiInstructions}
             onGenerate={() => void runAi()}
             onRefine={(preset) => void runAi({ refine: preset })}
             onClose={closeAi}

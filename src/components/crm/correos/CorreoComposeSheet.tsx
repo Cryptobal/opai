@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Maximize2, Minimize2, Minus, PenLine, X } from "lucide-react";
+import { toast } from "sonner";
 import {
   Dialog,
   DialogContent,
@@ -76,6 +77,7 @@ export function CorreoComposeSheet({
   const [seed, setSeed] = useState<object | null>(null);
   const [epoch, setEpoch] = useState(0);
   const [instructions, setInstructions] = useState("");
+  const instructionsRef = useRef("");
   const [generating, setGenerating] = useState(false);
   const [hasAiDraft, setHasAiDraft] = useState(false);
   const [isDesktop, setIsDesktop] = useState(false);
@@ -104,6 +106,7 @@ export function CorreoComposeSheet({
       setDirty(false);
       setClosePromptOpen(false);
       setAi(false);
+      instructionsRef.current = "";
       setInstructions("");
       setGenerating(false);
       setHasAiDraft(false);
@@ -119,6 +122,7 @@ export function CorreoComposeSheet({
   useEffect(() => {
     if (!ai) {
       aiSeededRef.current = false;
+      instructionsRef.current = "";
       setInstructions("");
       return;
     }
@@ -129,24 +133,31 @@ export function CorreoComposeSheet({
     }
   }, [ai]);
 
+  function setAiInstructions(value: string) {
+    instructionsRef.current = value;
+    setInstructions(value);
+  }
+
   function injectDraft(text: string) {
     const doc = plainTextToTiptapDoc(text);
     bodyRef.current = doc;
     setSeed(doc);
     setEpoch((e) => e + 1);
     setHasAiDraft(true);
+    instructionsRef.current = "";
     setInstructions("");
   }
 
   async function runAi(opts?: { refine?: DraftRefineMode }) {
-    const prompt = instructions.trim();
+    // Ref: Enter justo después de tipear puede correr antes del re-render.
+    const prompt = instructionsRef.current.trim();
     const currentDraft = docPlainText(bodyRef.current).trim();
     const refine = opts?.refine;
     if (refine == null && hasAiDraft && !prompt) return;
 
     setGenerating(true);
     try {
-      const d = await fetch("/api/crm/correos/suggest-compose", {
+      const res = await fetch("/api/crm/correos/suggest-compose", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -157,8 +168,18 @@ export function CorreoComposeSheet({
           subject: subjectRef.current || undefined,
           to: toRef.current,
         }),
-      }).then((r) => r.json());
-      if (d.draft) injectDraft(String(d.draft));
+      });
+      const d = (await res.json().catch(() => ({}))) as {
+        draft?: unknown;
+        error?: string;
+      };
+      if (!res.ok || !d.draft) {
+        toast.error(d.error || "No se pudo generar el borrador");
+        return;
+      }
+      injectDraft(String(d.draft));
+    } catch {
+      toast.error("No se pudo generar el borrador");
     } finally {
       setGenerating(false);
     }
@@ -338,7 +359,7 @@ export function CorreoComposeSheet({
               <ComposerAiPromptPill
                 mode="compose"
                 value={instructions}
-                onChange={setInstructions}
+                onChange={setAiInstructions}
                 onGenerate={() => void runAi()}
                 onRefine={(preset) => void runAi({ refine: preset })}
                 onClose={() => setAi(false)}
