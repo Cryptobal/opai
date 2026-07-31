@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useRef, type KeyboardEvent } from "react";
 import { createPortal } from "react-dom";
-import { Search, X } from "lucide-react";
+import { Loader2, Search, X } from "lucide-react";
 import type { IslandSearch } from "@/components/opai-ds";
 import { chipsFromQuery, removeChipFromQuery } from "@/lib/search-tokens";
 import { cn } from "@/lib/utils";
@@ -115,6 +115,12 @@ export function ModuleSearchOverlay({
             onChange={(e) => search.onChange(e.target.value)}
             onKeyDown={onKeyDown}
           />
+          {search.pending && (
+            <Loader2
+              className="pointer-events-none absolute right-11 h-4 w-4 animate-spin text-ds-text-4"
+              aria-label="Buscando"
+            />
+          )}
           {search.value.length > 0 && (
             <button
               type="button"

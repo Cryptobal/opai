@@ -213,6 +213,8 @@ export function CorreosClient() {
   const [assocFiltersOpen, setAssocFiltersOpen] = useState(false);
   // C15: la búsqueda consulta al servidor (toda la casilla), con debounce.
   const [debouncedQuery, setDebouncedQuery] = useState("");
+  /** Fetch de búsqueda en vuelo — indicador en el campo, no spinner de lista. */
+  const [searchPending, setSearchPending] = useState(false);
   const [coverage, setCoverage] = useState<EmailIndexCoverage | null>(null);
   const [semanticAvailable, setSemanticAvailable] = useState(true);
   const [searchMeta, setSearchMeta] = useState<CorreoSearchMeta | null>(null);
@@ -335,13 +337,12 @@ export function CorreosClient() {
     const seq = ++fetchSeqRef.current;
     const isStaleReset = () => reset && seq !== fetchSeqRef.current;
     // Si ya hay filas en pantalla (snapshot o carga previa), refrescar en
-    // silencio: sin spinner ni opacity-70. Cambio de carpeta, búsqueda o
-    // primera pintura siguen con loading visible.
+    // silencio: sin spinner ni opacity-70. Incluye búsqueda (indicador en el
+    // campo). Cambio de carpeta o primera pintura siguen con loading visible.
     const hasRows = itemsRef.current.length > 0;
     const folderSwitch = nextFolder != null; // el effect de carpeta siempre pasa nextFolder
     const silent =
-      opts?.silent ??
-      (Boolean(reset) && hasRows && !debouncedQuery && !folderSwitch && !cur);
+      opts?.silent ?? (Boolean(reset) && hasRows && !folderSwitch && !cur);
     // Tras archivar/atajos: solo reconciliar counts/meta sin reemplazar filas
     // (la UI ya es optimista). Evita el pestañeo de remount de la lista.
     const preserveItems = Boolean(opts?.preserveItems);
@@ -349,7 +350,9 @@ export function CorreosClient() {
       Boolean(opts?.semantic) ||
       (Boolean(debouncedQuery) && pendingSemanticRef.current);
     if (wantSemantic) pendingSemanticRef.current = false;
+    const isSearchFetch = Boolean(debouncedQuery) && reset && !folderSwitch;
     if (!silent) setLoading(true);
+    if (isSearchFetch) setSearchPending(true);
     try {
       const f = nextFolder ?? folder;
       const qs = new URLSearchParams();
@@ -506,7 +509,10 @@ export function CorreosClient() {
         void fetchPage(null, true, undefined, { semantic: true, silent: true });
       }
     } finally {
-      if (seq === fetchSeqRef.current) setLoading(false);
+      if (seq === fetchSeqRef.current) {
+        setLoading(false);
+        if (isSearchFetch) setSearchPending(false);
+      }
     }
   }, [folder, debouncedQuery, withTasks]);
 
@@ -1108,12 +1114,14 @@ export function CorreosClient() {
           ? `Buscar en ${mailboxEmail}`
           : "Buscá lo que recordás",
     value: query,
+    pending: searchPending,
     onChange: setQuery,
     onExit: () => {
       setQuery("");
       setDebouncedQuery("");
       semanticRetryTermRef.current = null;
       pendingSemanticRef.current = false;
+      setSearchPending(false);
     },
     onSubmit: () => {
       const term = query.trim();
@@ -2057,11 +2065,6 @@ export function CorreosClient() {
                   setCtxMenu({ thread: t, x: e.clientX, y: e.clientY });
                 }}
               >
-                {searching && loading && (
-                  <div className="flex items-center gap-2 border-b border-ds-border-subtle px-4 py-2 text-[12px] text-ds-text-3">
-                    <Spinner className="h-3.5 w-3.5" /> Buscando en toda la casilla…
-                  </div>
-                )}
                 {filtered.map((t, index) => {
                   const mb = t.emailAccountId
                     ? accountsById.get(t.emailAccountId)

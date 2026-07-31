@@ -60,6 +60,8 @@ export interface IslandSearch {
   onExit?: () => void;
   /** Enter en el campo: confirmar búsqueda (p. ej. rama semántica). */
   onSubmit?: () => void;
+  /** Fetch de búsqueda en vuelo — indicador sutil en el campo. */
+  pending?: boolean;
   /** Operadores ofrecidos por el módulo (topbar desktop). */
   operators?: ModuleSearchOperator[];
 }
@@ -144,6 +146,7 @@ export function useSetIslandSearch(search: IslandSearch | null | undefined) {
   const setSearch = ctx?.setSearch;
   const placeholder = search?.placeholder ?? null;
   const value = search?.value ?? "";
+  const pending = Boolean(search?.pending);
   const operatorsKey =
     search?.operators?.map((o) => `${o.token}|${o.hint ?? ""}`).join(",") ?? "";
   const operators = search?.operators;
@@ -166,28 +169,30 @@ export function useSetIslandSearch(search: IslandSearch | null | undefined) {
     setSearch({
       placeholder,
       value,
+      pending,
       onChange: (q: string) => onChangeRef.current?.(q),
       onExit: () => onExitRef.current?.(),
       onSubmit: () => onSubmitRef.current?.(),
       operators: operatorsRef.current,
     });
     return () => setSearch(null);
-    // value se sincroniza en el efecto de abajo.
+    // value/pending se sincronizan en el efecto de abajo.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [setSearch, placeholder, operatorsKey]);
 
-  // Sincronizar value sin teardown (input controlado en isla/overlay).
+  // Sincronizar value/pending sin teardown (input controlado en isla/overlay).
   useEffect(() => {
     if (!setSearch || !placeholder) return;
     setSearch({
       placeholder,
       value,
+      pending,
       onChange: (q: string) => onChangeRef.current?.(q),
       onExit: () => onExitRef.current?.(),
       onSubmit: () => onSubmitRef.current?.(),
       operators: operatorsRef.current,
     });
-  }, [setSearch, placeholder, value, operatorsKey]);
+  }, [setSearch, placeholder, value, pending, operatorsKey]);
 }
 
 /** Alias neutral respecto de plataforma. */
