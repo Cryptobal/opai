@@ -180,7 +180,20 @@ export function CpqQuoteDetail({
   const router = useRouter();
   const { resolve: resolveWaTemplate } = useWaTemplate();
   const [quote, setQuote] = useState<CpqQuote | null>(null);
-  useSetBreadcrumbTrailing(quote?.code ?? quote?.name);
+  // Isla: código en L1; cuenta · instalación en L2 (dedup si uno contiene al otro).
+  const islandSubtitle = useMemo(() => {
+    if (!quote) return null;
+    const account = (quote.clientName || "").trim();
+    const installation = (quote.name || "").trim();
+    if (!account && !installation) return null;
+    if (!account) return installation;
+    if (!installation) return account;
+    const hasAccountInName = installation.toLowerCase().includes(account.toLowerCase());
+    const hasNameInAccount = account.toLowerCase().includes(installation.toLowerCase());
+    if (hasAccountInName || hasNameInAccount) return installation.length >= account.length ? installation : account;
+    return `${account} · ${installation}`;
+  }, [quote]);
+  useSetBreadcrumbTrailing(quote?.code ?? quote?.name, islandSubtitle);
 
   // Contexto de página para OPAI Intelligence (chat contextual tipo Notion).
   // Mientras la cotización carga, el hook recibe null y no registra contexto.
@@ -221,6 +234,8 @@ export function CpqQuoteDetail({
   const [deleting, setDeleting] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [overflowMenuOpen, setOverflowMenuOpen] = useState(false);
+  /** Sheet de acciones abierto desde el ⋮ de la barra sticky móvil. */
+  const [stickyActionSheetOpen, setStickyActionSheetOpen] = useState(false);
   const [generatingContract, setGeneratingContract] = useState(false);
   const [contractTemplates, setContractTemplates] = useState<{ id: string; name: string }[]>([]);
   const [changingStatus, setChangingStatus] = useState(false);
@@ -1737,272 +1752,6 @@ export function CpqQuoteDetail({
 
   return (
     <div className="cpq-touch-inputs space-y-3 pb-4 lg:pb-4 overflow-x-clip min-w-0">
-      {!embedded && (<>
-      {/* -- Compact header (mobile/tablet) --
-           Bg-background opaco (no /95) + shadow inferior para que el contenido
-           que pasa por debajo al hacer scroll no se vea a través del header
-           y "se sobreponga" visualmente sobre la primera sección (Datos).
-           pb-2 + mb-3 dan respiro suficiente para que la pill de guardias
-           (última fila del header) no quede pegada al título "Datos".
-           overflow-x-clip en el wrapper (no -hidden): hidden rompe
-           position: sticky al crear scroll container — clip recorta igual
-           sin establecer contexto de scroll, así el sticky usa el viewport. */}
-      <div className="bg-background -mx-4 px-3 pt-1.5 pb-2 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8 lg:hidden">
-      {/* Row 1: back · code · status · acciones */}
-      <div className="flex items-center gap-1.5 min-w-0">
-        <Link href="/crm/cotizaciones" className="shrink-0 -ml-1">
-          <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-        </Link>
-        <div className="flex-1 min-w-0 flex items-center gap-1.5">
-          <h1 className="text-[15px] sm:text-base font-bold tracking-tight truncate min-w-0">
-            {quote.code}
-          </h1>
-          <CpqStatusBadge
-            status={quote.status}
-            changing={changingStatus}
-            size="sm"
-            onToggle={() => void handleStatusChange(quote.status === "sent" ? "draft" : "sent")}
-          />
-        </div>
-        <div className="flex items-center gap-1 shrink-0">
-          <div className="hidden lg:flex xl:hidden items-center gap-1 border-r border-border/60 pr-2 mr-1">
-            {(() => {
-              const baseDisabled =
-                !quote ||
-                (positions.length === 0 && (additionalLines?.length ?? 0) === 0) ||
-                !crmContext.accountId ||
-                !crmContext.contactId ||
-                !crmContext.dealId;
-              return (
-                <Button
-                  size="sm"
-                  className="h-7 w-7 p-0 bg-status-ok hover:brightness-110 text-white border-0 shadow-sm"
-                  disabled={baseDisabled}
-                  title={
-                    crmContext.contactId && !contactHasEmail
-                      ? "El contacto no tiene email cargado"
-                      : quote.status === "sent"
-                        ? "Reenviar propuesta al portal"
-                        : "Enviar propuesta (invitación al portal)"
-                  }
-                  onClick={openPortalProposal}
-                >
-                  <Send className="h-3.5 w-3.5" />
-                </Button>
-              );
-            })()}
-          </div>
-          {/* Overflow menu for secondary actions */}
-          <div className="relative">
-            <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setOverflowMenuOpen((v) => !v)}>
-              <MoreVertical className="h-3.5 w-3.5" />
-            </Button>
-            {overflowMenuOpen && (
-              <>
-                <div className="fixed inset-0 z-20" onClick={() => setOverflowMenuOpen(false)} />
-                <div className="absolute right-0 top-full mt-1 z-30 min-w-[180px] max-w-[calc(100vw-2rem)] rounded-md border bg-popover p-1 shadow-md">
-                  <div className="lg:hidden border-b border-border pb-1 mb-1">
-                    <button
-                      className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-xs hover:bg-accent font-medium"
-                      onClick={() => {
-                        setOverflowMenuOpen(false);
-                        openPortalProposal();
-                      }}
-                      disabled={
-                        !quote ||
-                        (positions.length === 0 && (additionalLines?.length ?? 0) === 0) ||
-                        !crmContext.accountId ||
-                        !crmContext.contactId ||
-                        !crmContext.dealId
-                      }
-                    >
-                      <Send className="h-3.5 w-3.5" /> {quote.status === "sent" ? "Reenviar propuesta al portal" : "Enviar propuesta al portal"}
-                    </button>
-                  </div>
-                  {quote.status === "sent" ? (
-                    <button
-                      className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-xs hover:bg-accent"
-                      onClick={() => { setOverflowMenuOpen(false); void handleStatusChange("draft"); }}
-                      disabled={changingStatus}
-                    >
-                      <PencilLine className="h-3.5 w-3.5" /> Volver a borrador (editar)
-                    </button>
-                  ) : (
-                    <button
-                      className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-xs hover:bg-accent"
-                      onClick={() => { setOverflowMenuOpen(false); void handleStatusChange("sent"); }}
-                      disabled={changingStatus}
-                    >
-                      <CheckCircle2 className="h-3.5 w-3.5" /> Marcar como enviada
-                    </button>
-                  )}
-                  {isLocked ? null : !bundleId && onConverted ? (
-                    <div onClick={() => setOverflowMenuOpen(false)}>
-                      <ConvertToBundleButton asMenuItem quoteId={quoteId} onConverted={onConverted} />
-                    </div>
-                  ) : onAddInstallation ? (
-                    <button
-                      className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-xs font-medium text-primary hover:bg-accent"
-                      onClick={() => { setOverflowMenuOpen(false); onAddInstallation(); }}
-                    >
-                      <Plus className="h-3.5 w-3.5" /> Agregar instalación
-                    </button>
-                  ) : null}
-                  <button className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-xs hover:bg-accent" onClick={() => { setOverflowMenuOpen(false); handleClone(); }} disabled={cloning}>
-                    <Copy className="h-3.5 w-3.5" /> {cloning ? "Clonando..." : "Clonar cotizacion"}
-                  </button>
-                  <button className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-xs hover:bg-accent" onClick={() => { setOverflowMenuOpen(false); handleSendDotacionToInstallation(); }} disabled={sendingDotacion || !crmContext.installationId || positions.length === 0}>
-                    <Building2 className="h-3.5 w-3.5" /> {sendingDotacion ? "Enviando..." : "Enviar dotacion"}
-                  </button>
-                  <button className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-xs hover:bg-accent" onClick={() => { setOverflowMenuOpen(false); setVisitaTecnicaModalOpen(true); }} disabled={!crmContext.installationId || positions.length === 0}>
-                    <Briefcase className="h-3.5 w-3.5" /> Visita técnica
-                  </button>
-                  <button
-                    className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-xs hover:bg-accent font-medium text-status-info-fg"
-                    onClick={() => { setOverflowMenuOpen(false); handleGenerateContract(); }}
-                    disabled={generatingContract}
-                  >
-                    <FileSignature className="h-3.5 w-3.5" /> {generatingContract ? "Generando..." : "Generar contrato"}
-                  </button>
-                  <button className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-xs hover:bg-accent" onClick={() => { setOverflowMenuOpen(false); refresh(); }}>
-                    <RefreshCw className="h-3.5 w-3.5" /> Refrescar
-                  </button>
-                  {crmContext.accountId ? (
-                    <button
-                      className="flex w-full items-center justify-between gap-2 rounded-sm px-2 py-1.5 text-xs hover:bg-accent"
-                      onClick={() => {
-                        void handlePortalVisibilityChange(!portalListedEffective);
-                      }}
-                      disabled={portalVisibilitySaving}
-                    >
-                      <span className="flex items-center gap-2">
-                        <Eye className="h-3.5 w-3.5" />
-                        <span>Visible en portal</span>
-                      </span>
-                      <span className={cn(
-                        "inline-flex h-4 w-7 items-center rounded-full border transition-colors shrink-0",
-                        portalListedEffective
-                          ? "bg-status-ok/80 border-status-ok-border"
-                          : "bg-muted border-border"
-                      )}>
-                        <span className={cn(
-                          "inline-block h-3 w-3 rounded-full bg-white transition-transform",
-                          portalListedEffective ? "translate-x-3.5" : "translate-x-0.5"
-                        )} />
-                      </span>
-                    </button>
-                  ) : null}
-                  <div className="my-1 h-px bg-border" />
-                  <button className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-xs text-destructive hover:bg-accent" onClick={() => { setOverflowMenuOpen(false); setDeleteConfirmOpen(true); }} disabled={deleting || isLocked}>
-                    <Trash2 className="h-3.5 w-3.5" /> {deleting ? "Eliminando..." : "Eliminar"}
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-      </div>
-      {/* Row 2: subtítulo en una sola línea, truncado, sin duplicar nombres */}
-      {(() => {
-        const contactFull = (() => {
-          if (!crmContext.contactId) return "";
-          const c = crmContacts.find((x) => x.id === crmContext.contactId);
-          return c ? [c.firstName, c.lastName].filter(Boolean).join(" ") : "";
-        })();
-        const account = (quote.clientName || "").trim();
-        const installation = (quote.name || "").trim();
-        // Si la cuenta ya está incluida en el nombre de la cotización
-        // (o viceversa), evitamos duplicar — el usuario lee mejor.
-        const hasAccountInName =
-          installation && account &&
-          installation.toLowerCase().includes(account.toLowerCase());
-        const primary = installation || account;
-        const showAccountSeparately = !hasAccountInName && account && installation;
-        const parts = [
-          primary,
-          showAccountSeparately ? account : null,
-          contactFull,
-        ].filter(Boolean);
-        if (parts.length === 0) return null;
-        return (
-          <div className="text-[11px] sm:text-xs text-muted-foreground mt-0.5 leading-tight truncate">
-            {parts.map((p, i) => (
-              <span key={i}>
-                {i > 0 && <span className="mx-1 text-muted-foreground/50">·</span>}
-                <span className={i === 0 ? "text-foreground/80 font-medium" : undefined}>{p}</span>
-              </span>
-            ))}
-          </div>
-        );
-      })()}
-      {/* Row 3: pill de guardias (el total vive en la barra sticky de abajo) */}
-      <div className="mt-1.5 flex items-center justify-between gap-2 min-w-0">
-        <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0 text-sm tabular-nums min-w-0">
-            {stats.totalGuards > 0 && (
-              <button
-                type="button"
-                onClick={() => setGuardsBreakdownOpen((v) => !v)}
-                disabled={roleSummary.length === 0}
-                className={cn(
-                  "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium whitespace-nowrap shrink-0 transition-all",
-                  "focus:outline-none focus-visible:ring-1 focus-visible:ring-ring",
-                  roleSummary.length > 0
-                    ? "border-status-info-border bg-status-info-soft/30 text-status-info-fg cursor-pointer hover:bg-status-info-soft hover:border-status-info-border"
-                    : "border-border/60 bg-muted/30 text-muted-foreground cursor-default",
-                )}
-                aria-expanded={guardsBreakdownOpen}
-                aria-controls="guards-breakdown-row"
-                title={
-                  roleSummary.length > 0
-                    ? guardsBreakdownOpen
-                      ? "Ocultar desglose por rol"
-                      : "Ver desglose por rol"
-                    : undefined
-                }
-              >
-                <Users className="h-3 w-3 shrink-0" aria-hidden />
-                <span className="tabular-nums font-semibold">{stats.totalGuards}</span>
-                <span>guardias</span>
-                {roleSummary.length > 0 && (
-                  <ChevronDown
-                    className={cn(
-                      "h-3 w-3 shrink-0 transition-transform",
-                      guardsBreakdownOpen && "rotate-180",
-                    )}
-                    aria-hidden
-                  />
-                )}
-              </button>
-            )}
-        </div>
-      </div>
-      {guardsBreakdownOpen && roleSummary.length > 0 && (
-        <div
-          id="guards-breakdown-row"
-          className="mt-1 flex w-full items-center gap-1.5 overflow-x-auto pt-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-          role="list"
-          aria-label="Desglose de guardias por rol"
-        >
-          {roleSummary.map((item, idx) => (
-            <span
-              key={`${item.label}-${idx}`}
-              role="listitem"
-              className="inline-flex items-center gap-1 rounded-md border border-border/50 bg-muted/30 px-1.5 py-0.5 text-xs whitespace-nowrap shrink-0"
-            >
-              <span className="font-mono font-semibold text-foreground tabular-nums">
-                {item.qty}×
-              </span>
-              <span className="text-muted-foreground">{item.label}</span>
-            </span>
-          ))}
-        </div>
-      )}
-      </div>{/* end compact header */}
-
-      </>)}
-
       {/* -- Mobile sticky stack: total → pestañas (multi) → chips.
            top = --app-island-bottom (MobileIsland: safe + 8 + 48).
            z-[25] bajo la isla (z-30) y la bottom bar (z-50). */}
@@ -2015,6 +1764,26 @@ export function CpqQuoteDetail({
           currency={crmContext.currency || "CLP"}
           ufValue={ufValue}
           saving={!isLocked && (savingQuote || savingFinancials)}
+          statusSlot={
+            <CpqStatusBadge
+              status={quote.status}
+              changing={changingStatus}
+              size="sm"
+              onToggle={() => void handleStatusChange(quote.status === "sent" ? "draft" : "sent")}
+            />
+          }
+          actionsSlot={
+            !embedded ? (
+              <button
+                type="button"
+                aria-label="Más acciones"
+                onClick={() => setStickyActionSheetOpen(true)}
+                className="inline-flex h-11 w-11 items-center justify-center rounded-md border border-border/70 bg-ds-surface-2/70 text-muted-foreground transition-colors hover:bg-ds-surface-3 hover:text-foreground"
+              >
+                <MoreVertical className="h-4 w-4" />
+              </button>
+            ) : null
+          }
         />
         {mobileTabsSlot}
         <SectionChips onNavigate={openAndScrollTo} className="border-t border-border/40" />
@@ -2336,6 +2105,35 @@ export function CpqQuoteDetail({
                 </span>
               </span>
             )}
+            {secPuestos && stats.totalGuards > 0 && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setGuardsBreakdownOpen((v) => !v);
+                }}
+                disabled={roleSummary.length === 0}
+                className={cn(
+                  "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium whitespace-nowrap shrink-0 transition-all lg:hidden",
+                  "focus:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+                  roleSummary.length > 0
+                    ? "border-status-info-border bg-status-info-soft/30 text-status-info-fg"
+                    : "border-border/60 bg-muted/30 text-muted-foreground",
+                )}
+                aria-expanded={guardsBreakdownOpen}
+                aria-controls="guards-breakdown-row"
+              >
+                <Users className="h-3 w-3 shrink-0" aria-hidden />
+                <span className="tabular-nums font-semibold">{stats.totalGuards}</span>
+                <span>guardias</span>
+                {roleSummary.length > 0 && (
+                  <ChevronDown
+                    className={cn("h-3 w-3 shrink-0 transition-transform", guardsBreakdownOpen && "rotate-180")}
+                    aria-hidden
+                  />
+                )}
+              </button>
+            )}
           </div>
           <div className="flex items-center gap-2 shrink-0">
             <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", secPuestos && "rotate-180")} />
@@ -2347,6 +2145,27 @@ export function CpqQuoteDetail({
           // y el reordenar — interacciones de solo-visualización. La edición de
           // datos ya está bloqueada granularmente vía `readOnly` en la matriz.
           <div className="px-3 pb-3 pt-3 bg-card/60 sm:px-4 sm:pb-4 sm:pt-4">
+            {guardsBreakdownOpen && roleSummary.length > 0 && (
+              <div
+                id="guards-breakdown-row"
+                className="mb-2 flex w-full items-center gap-1.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:hidden"
+                role="list"
+                aria-label="Desglose de guardias por rol"
+              >
+                {roleSummary.map((item, idx) => (
+                  <span
+                    key={`${item.label}-${idx}`}
+                    role="listitem"
+                    className="inline-flex items-center gap-1 rounded-md border border-border/50 bg-muted/30 px-1.5 py-0.5 text-xs whitespace-nowrap shrink-0"
+                  >
+                    <span className="font-mono font-semibold text-foreground tabular-nums">
+                      {item.qty}×
+                    </span>
+                    <span className="text-muted-foreground">{item.label}</span>
+                  </span>
+                ))}
+              </div>
+            )}
             <PositionMatrix adapter={matrixAdapter} />
             {positions.length > 0 && (
               <div className={cn(CPQ_BREAKDOWN_SHELL, CPQ_BREAKDOWN_ROW, "px-3 py-2 border border-dashed border-border/60 rounded-lg mt-2 text-xs")}>
@@ -2714,6 +2533,9 @@ export function CpqQuoteDetail({
       <MobileBottomBar
         className="lg:hidden"
         hideTotal
+        hideActionTrigger
+        actionSheetOpen={stickyActionSheetOpen}
+        onActionSheetOpenChange={setStickyActionSheetOpen}
         centerButton={<ControlCenterTrigger onClick={() => setControlSheetOpen(true)} />}
         salePriceMonthly={salePriceMonthly}
         additionalLinesTotal={additionalLinesTotal}
@@ -2723,6 +2545,33 @@ export function CpqQuoteDetail({
         totalGuards={stats.totalGuards}
         actionMenu={
           <>
+            {quote.status === "sent" ? (
+              <button
+                className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-accent"
+                onClick={() => void handleStatusChange("draft")}
+                disabled={changingStatus}
+              >
+                <PencilLine className="h-4 w-4" /> Volver a borrador (editar)
+              </button>
+            ) : (
+              <button
+                className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-accent"
+                onClick={() => void handleStatusChange("sent")}
+                disabled={changingStatus}
+              >
+                <CheckCircle2 className="h-4 w-4" /> Marcar como enviada
+              </button>
+            )}
+            {isLocked ? null : !bundleId && onConverted ? (
+              <ConvertToBundleButton asMenuItem quoteId={quoteId} onConverted={onConverted} />
+            ) : onAddInstallation ? (
+              <button
+                className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-primary hover:bg-accent"
+                onClick={() => onAddInstallation()}
+              >
+                <Plus className="h-4 w-4" /> Agregar instalación
+              </button>
+            ) : null}
             <button className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-accent" onClick={() => handleClone()} disabled={cloning}>
               <Copy className="h-4 w-4" /> {cloning ? "Clonando..." : "Clonar cotizacion"}
             </button>
@@ -2742,6 +2591,29 @@ export function CpqQuoteDetail({
             <button className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-accent" onClick={() => refresh()}>
               <RefreshCw className="h-4 w-4" /> Refrescar
             </button>
+            {crmContext.accountId ? (
+              <button
+                className="flex w-full items-center justify-between gap-2 rounded-md px-3 py-2 text-sm hover:bg-accent"
+                onClick={() => void handlePortalVisibilityChange(!portalListedEffective)}
+                disabled={portalVisibilitySaving}
+              >
+                <span className="flex items-center gap-2">
+                  <Eye className="h-4 w-4" />
+                  <span>Visible en portal</span>
+                </span>
+                <span className={cn(
+                  "inline-flex h-4 w-7 items-center rounded-full border transition-colors shrink-0",
+                  portalListedEffective
+                    ? "bg-status-ok/80 border-status-ok-border"
+                    : "bg-muted border-border"
+                )}>
+                  <span className={cn(
+                    "inline-block h-3 w-3 rounded-full bg-white transition-transform",
+                    portalListedEffective ? "translate-x-3.5" : "translate-x-0.5"
+                  )} />
+                </span>
+              </button>
+            ) : null}
             <div className="my-1 h-px bg-border" />
             <button className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-destructive hover:bg-accent" onClick={() => setDeleteConfirmOpen(true)} disabled={deleting || isLocked}>
               <Trash2 className="h-4 w-4" /> {deleting ? "Eliminando..." : "Eliminar"}

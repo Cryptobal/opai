@@ -58,6 +58,7 @@ export { Breadcrumbs, type BreadcrumbsProps, type BreadcrumbItem } from "./Bread
 export {
   BreadcrumbTrailingProvider,
   useBreadcrumbTrailing,
+  useBreadcrumbTrailingSubtitle,
   useSetBreadcrumbTrailing,
   SetBreadcrumbTrailing,
 } from "./BreadcrumbTrailingContext";
