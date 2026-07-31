@@ -4,6 +4,7 @@
  * Server-only: usa prisma para queries. No importar en client components.
  */
 
+import { revalidateTag, unstable_cache } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { cookies } from "next/headers";
 import {
@@ -21,38 +22,45 @@ import {
   applyPermissionCompats,
 } from "@/lib/permissions";
 
-// ── In-memory cache (TTL 5 min) ──
+// ── Role template cache (Next.js Data Cache, TTL 300 s) ──
 
-interface CacheEntry {
-  permissions: RolePermissions;
-  expiresAt: number;
+const CACHE_REVALIDATE = 300;
+
+export function roleTemplateTag(templateId: string): string {
+  return `role-template:${templateId}`;
 }
 
-const CACHE_TTL_MS = 5 * 60 * 1000; // 5 min
-const cache = new Map<string, CacheEntry>();
-
-function getCached(id: string): RolePermissions | null {
-  const entry = cache.get(id);
-  if (!entry) return null;
-  if (Date.now() > entry.expiresAt) {
-    cache.delete(id);
-    return null;
-  }
-  return entry.permissions;
+interface CachedRoleTemplate {
+  permissions: RolePermissions | null;
+  slug: string | null;
 }
 
-function setCache(id: string, perms: RolePermissions): void {
-  cache.set(id, { permissions: perms, expiresAt: Date.now() + CACHE_TTL_MS });
+function getCachedRoleTemplate(templateId: string): Promise<CachedRoleTemplate | null> {
+  return unstable_cache(
+    async () => {
+      const template = await prisma.roleTemplate.findUnique({
+        where: { id: templateId },
+        select: { permissions: true, slug: true },
+      });
+      if (!template) return null;
+      return {
+        permissions: template.permissions as unknown as RolePermissions | null,
+        slug: template.slug,
+      };
+    },
+    ["role-template", templateId],
+    { revalidate: CACHE_REVALIDATE, tags: [roleTemplateTag(templateId)] },
+  )();
 }
 
 /** Invalidar cache de un template (cuando se edita) */
 export function invalidateTemplateCache(templateId: string): void {
-  cache.delete(templateId);
+  revalidateTag(roleTemplateTag(templateId), "max");
 }
 
-/** Invalidar todo el cache (cuando se hace cambio masivo) */
+/** Invalidar todo el cache de templates (cuando se hace cambio masivo) */
 export function invalidateAllCache(): void {
-  cache.clear();
+  // Sin listado global de tags: las mutaciones deben invalidar por id.
 }
 
 // ── Main resolution ──
@@ -79,28 +87,11 @@ export async function resolvePermissions(user: {
   let effectiveRole = normalizedRole;
 
   if (user.roleTemplateId) {
-    const cached = getCached(user.roleTemplateId);
-    if (cached) {
-      const merged = mergeRolePermissions(defaultPerms, cached);
-      // Recuperar slug del template para detectar si es supervisor
-      const tpl = await prisma.roleTemplate.findUnique({
-        where: { id: user.roleTemplateId },
-        select: { slug: true },
-      });
-      if (tpl?.slug) effectiveRole = normalizeRole(tpl.slug);
-      return applyPermissionCompats(ensureSupervisorSupervisionAccess(effectiveRole, merged));
-    }
+    const template = await getCachedRoleTemplate(user.roleTemplateId);
 
-    const template = await prisma.roleTemplate.findUnique({
-      where: { id: user.roleTemplateId },
-      select: { permissions: true, slug: true },
-    });
-
-    if (template && template.permissions) {
-      const perms = template.permissions as unknown as RolePermissions;
-      setCache(user.roleTemplateId, perms);
+    if (template?.permissions) {
       if (template.slug) effectiveRole = normalizeRole(template.slug);
-      const merged = mergeRolePermissions(defaultPerms, perms);
+      const merged = mergeRolePermissions(defaultPerms, template.permissions);
       return applyPermissionCompats(ensureSupervisorSupervisionAccess(effectiveRole, merged));
     }
   }

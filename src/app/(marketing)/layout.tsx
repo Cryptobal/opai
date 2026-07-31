@@ -1,11 +1,33 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import { Exo_2, DM_Sans, JetBrains_Mono } from 'next/font/google'
 import { Linkedin } from 'lucide-react'
 import { MobileNav } from '@/components/marketing/MobileNav'
 import { MarketingThemeToggle } from '@/components/marketing/ThemeToggle'
 import { FuncionalidadesMegaMenu } from '@/components/marketing/FuncionalidadesMegaMenu'
 import { MarketingChatWidget } from '@/components/marketing/MarketingChatWidget'
 import './marketing.css'
+
+const exo2 = Exo_2({
+  subsets: ['latin'],
+  weight: ['300', '400', '600', '700', '800', '900'],
+  variable: '--font-exo2',
+  display: 'swap',
+})
+
+const dmSans = DM_Sans({
+  subsets: ['latin'],
+  weight: ['300', '400', '500'],
+  variable: '--font-dm-sans',
+  display: 'swap',
+})
+
+const jetbrainsMono = JetBrains_Mono({
+  subsets: ['latin'],
+  weight: ['400', '500'],
+  variable: '--font-jetbrains',
+  display: 'swap',
+})
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://www.opai.cl'),
@@ -139,7 +161,10 @@ const websiteJsonLd = JSON.stringify({
 
 export default function MarketingLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="mk-grid-bg" style={{ background: 'var(--mk-bg)', color: 'var(--mk-text)', minHeight: '100vh', fontFamily: 'var(--mk-font-b)' }}>
+    <div
+      className={`mk-grid-bg ${exo2.variable} ${dmSans.variable} ${jetbrainsMono.variable}`}
+      style={{ background: 'var(--mk-bg)', color: 'var(--mk-text)', minHeight: '100vh', fontFamily: 'var(--mk-font-b)' }}
+    >
       {/* Organization + WebSite structured data — static constants, no user input */}
       {/* eslint-disable-next-line react/no-danger -- Static JSON-LD, no user input */}
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: orgJsonLd }} />

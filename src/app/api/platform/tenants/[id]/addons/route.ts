@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requirePlatformAuth, platformUnauthorized } from '@/lib/platform-api-auth';
 import { prisma } from '@/lib/prisma';
+import { clearTenantModuleCache } from '@/lib/tenant-modules';
 
 export async function GET(
   _request: NextRequest,
@@ -112,6 +113,8 @@ export async function POST(
     });
   }
 
+  clearTenantModuleCache(id);
+
   return NextResponse.json({ success: true });
 }
 
@@ -158,6 +161,8 @@ export async function DELETE(
       });
     }
   }
+
+  clearTenantModuleCache(id);
 
   return NextResponse.json({ success: true });
 }

@@ -59,6 +59,7 @@ import {
   flushOfflineActions,
   flushOfflineSends,
   loadInboxSnapshot,
+  prefetchDetail,
   saveInboxSnapshot,
 } from "./offline-store";
 import { CorreosSyncBanner } from "./CorreosSyncBanner";
@@ -587,6 +588,28 @@ export function CorreosClient() {
   const [urlSyncReady, setUrlSyncReady] = useState(false);
   const openIdRef = useRef<string | null>(null);
   openIdRef.current = openId;
+  const recentlyClosedThreadsRef = useRef<Map<string, number>>(new Map());
+  const RECENTLY_CLOSED_TTL_MS = 1500;
+  const markRecentlyClosedThread = useCallback((id: string) => {
+    recentlyClosedThreadsRef.current.set(id, Date.now());
+  }, []);
+  const isRecentlyClosedThread = useCallback((id: string) => {
+    const ts = recentlyClosedThreadsRef.current.get(id);
+    if (!ts) return false;
+    if (Date.now() - ts > RECENTLY_CLOSED_TTL_MS) {
+      recentlyClosedThreadsRef.current.delete(id);
+      return false;
+    }
+    return true;
+  }, []);
+  const clearThreadParamsFromUrl = useCallback(() => {
+    const url = new URL(window.location.href);
+    url.searchParams.delete("thread");
+    url.searchParams.delete("hilo");
+    url.searchParams.delete("mensaje");
+    url.searchParams.delete("extract");
+    window.history.replaceState(window.history.state, "", url);
+  }, []);
   /** Último `q` aplicado desde la URL: lo que el usuario tipea a mano (no
    *  toca la URL) no debe resetearse al abrir/cerrar un hilo (pushState). */
   const lastUrlQRef = useRef<string | null>(null);
@@ -599,8 +622,12 @@ export function CorreosClient() {
     // ya filtra por tenantId.
     const urlThread = isUuid(threadParam) ? threadParam : null;
     if (urlThread !== openIdRef.current) {
-      setOpenId(urlThread);
-      setAutoExtract(searchParams.get("extract") === "1");
+      if (urlThread && isRecentlyClosedThread(urlThread)) {
+        clearThreadParamsFromUrl();
+      } else {
+        setOpenId(urlThread);
+        setAutoExtract(searchParams.get("extract") === "1");
+      }
     }
     // Carpeta: solo cuando el link la trae (la UI no la escribe en la URL).
     const f = searchParams.get("folder");
@@ -623,7 +650,7 @@ export function CorreosClient() {
       }
     }
     setUrlSyncReady(true);
-  }, [searchParams]);
+  }, [searchParams, isRecentlyClosedThread, clearThreadParamsFromUrl]);
 
   // `?mensaje=` (deep-link del copiloto): mensaje a expandir/scrollear en el
   // lector. Derivado en render (no es estado): viaja con el hilo de la URL.
@@ -681,39 +708,42 @@ export function CorreosClient() {
   }, [statusReady, connected]);
 
   const lastRefreshAtRef = useRef(0);
-  /** Lista + detalle del hilo abierto (incrementa refreshToken del drawer). */
-  const refreshOpenThread = useCallback(() => {
-    setRealtimeRevision((value) => value + 1);
-    void fetchPage(null, true);
-  }, [fetchPage]);
-  const refreshMailbox = useCallback(() => {
+  /** Solo lista — sin recargar el hilo abierto (focus/visibility). */
+  const refreshListOnly = useCallback(() => {
     if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
     refreshTimerRef.current = setTimeout(() => {
       lastRefreshAtRef.current = Date.now();
-      refreshOpenThread();
+      void fetchPage(null, true);
     }, 150);
-  }, [refreshOpenThread]);
+  }, [fetchPage]);
+  /** Lista + detalle del hilo abierto (incrementa refreshToken del drawer). */
+  const refreshOpenThread = useCallback(() => {
+    if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
+    refreshTimerRef.current = setTimeout(() => {
+      lastRefreshAtRef.current = Date.now();
+      setRealtimeRevision((value) => value + 1);
+      void fetchPage(null, true);
+    }, 150);
+  }, [fetchPage]);
+  const refreshMailbox = refreshOpenThread;
   const realtimeStatus = useCorreosRealtime(
     realtimeChannel,
     refreshMailbox,
   );
 
   useEffect(() => {
-    // C18: revalidación condicional — con realtime vivo, focus/online no
-    // re-descargan lista+counts si hubo refresh hace <30 s (el canal Pusher
-    // ya habría avisado cualquier cambio). Sin realtime, se refresca igual.
     const refreshVisible = () => {
       if (document.visibilityState !== "visible") return;
-      const fresh = Date.now() - lastRefreshAtRef.current < 30_000;
-      if (realtimeStatus === "live" && fresh) return;
-      refreshMailbox();
+      const fresh = Date.now() - lastRefreshAtRef.current < 120_000;
+      if (fresh) return;
+      refreshListOnly();
     };
     window.addEventListener("focus", refreshVisible);
     window.addEventListener("online", refreshVisible);
     document.addEventListener("visibilitychange", refreshVisible);
     const interval =
       realtimeStatus === "fallback"
-        ? window.setInterval(refreshVisible, 30_000)
+        ? window.setInterval(refreshVisible, 120_000)
         : null;
     return () => {
       window.removeEventListener("focus", refreshVisible);
@@ -721,7 +751,7 @@ export function CorreosClient() {
       document.removeEventListener("visibilitychange", refreshVisible);
       if (interval != null) window.clearInterval(interval);
     };
-  }, [realtimeStatus, refreshMailbox]);
+  }, [realtimeStatus, refreshListOnly]);
 
   useEffect(
     () => () => {
@@ -760,7 +790,7 @@ export function CorreosClient() {
   }, [fetchPage]);
 
   /** Remoción optimista tras archivar/eliminar; los counts se corrigen al revalidar. */
-  function removeThreadLocally(id: string) {
+  const removeThreadLocally = useCallback((id: string) => {
     setItems((prev) => prev.filter((t) => t.id !== id));
     setCounts((c) =>
       c ? { ...c, inbox: Math.max(0, c.inbox - 1), all: Math.max(0, c.all - 1) } : c,
@@ -771,7 +801,7 @@ export function CorreosClient() {
       next.delete(id);
       return next;
     });
-  }
+  }, []);
 
   // La búsqueda ya viene filtrada del servidor; chips + "No leídos" son
   // client-side sobre metadata ya presente. "No leídos" se apaga durante
@@ -789,11 +819,19 @@ export function CorreosClient() {
     setAssoc("todos");
     setFlags(emptyFilterFlags());
   }, []);
-  const filtered = items.filter(
-    (t) =>
-      matchesCorreoFilters(t, assoc, flags) &&
-      (!unreadOnly || searching || t.isUnread),
+  const filtered = useMemo(
+    () =>
+      items.filter(
+        (t) =>
+          matchesCorreoFilters(t, assoc, flags) &&
+          (!unreadOnly || searching || t.isUnread),
+      ),
+    [items, assoc, flags, unreadOnly, searching],
   );
+  const filteredRef = useRef(filtered);
+  filteredRef.current = filtered;
+  const focusIndexRef = useRef(focusIndex);
+  focusIndexRef.current = focusIndex;
   const quickView: CorreoQuickView = withTasks
     ? "con_tareas"
     : unreadOnly
@@ -914,20 +952,21 @@ export function CorreosClient() {
    * siguiente como Gmail. En móvil vuelve a la bandeja — quedarse en el
    * siguiente hilo se sentía como “no vuelve a inicio” tras posponer.
    */
-  function removeThreadAndAdvance(id: string) {
+  const removeThreadAndAdvance = useCallback((id: string) => {
     const list = itemsRef.current.filter(
       (t) =>
         matchesCorreoFilters(t, assoc, flags) &&
         (!unreadOnly || searching || t.isUnread),
     );
     const { nextId, nextFocusIndex } = nextThreadAfterRemove(list, id);
-    const readerWasOnRemoved = openId === id;
-    const focusedId = focusIndex >= 0 ? list[focusIndex]?.id : undefined;
-    const readerOpen = openId !== null;
+    const readerWasOnRemoved = openIdRef.current === id;
+    const focusedId = focusIndexRef.current >= 0 ? list[focusIndexRef.current]?.id : undefined;
+    const readerOpen = openIdRef.current !== null;
     removeThreadLocally(id);
     if (nextFocusIndex >= 0) setFocusIndex(nextFocusIndex);
     else setFocusIndex(-1);
     if (readerWasOnRemoved || (readerOpen && focusedId === id)) {
+      markRecentlyClosedThread(id);
       // Móvil: cerrar lector de inmediato (lista = pantalla de inicio).
       if (isCoarse && readerWasOnRemoved) {
         setOpenId(null);
@@ -941,7 +980,6 @@ export function CorreosClient() {
         openCorreoThreadInHistory(nextId, true);
         setOpenId(nextId);
         setAutoExtract(false);
-        // Lectura optimista en lista (evita refetch al marcar leído).
         setItems((prev) =>
           prev.map((t) => (t.id === nextId && t.isUnread ? { ...t, isUnread: false } : t)),
         );
@@ -951,10 +989,19 @@ export function CorreosClient() {
         closeCorreoThreadInHistory();
       }
     }
-  }
+  }, [
+    assoc,
+    flags,
+    unreadOnly,
+    searching,
+    isCoarse,
+    advanceAfterRemove,
+    markRecentlyClosedThread,
+    removeThreadLocally,
+  ]);
 
-  function openThread(id: string, opts?: ReaderOpenOpts) {
-    openCorreoThreadInHistory(id, openId !== null);
+  const openThread = useCallback((id: string, opts?: ReaderOpenOpts) => {
+    openCorreoThreadInHistory(id, openIdRef.current !== null);
     setOpenId(id);
     setAutoExtract(opts?.extract === true);
     setWorkTabIntent(
@@ -968,9 +1015,9 @@ export function CorreosClient() {
     setItems((prev) =>
       prev.map((t) => (t.id === id && t.isUnread ? { ...t, isUnread: false } : t)),
     );
-    const idx = filtered.findIndex((t) => t.id === id);
+    const idx = filteredRef.current.findIndex((t) => t.id === id);
     if (idx >= 0) setFocusIndex(idx);
-  }
+  }, []);
 
   function openCompose(id: string, mode: ComposerMode, ai = false) {
     // Si el hilo ya está abierto, solo pedí el composer — no re-montar el
@@ -986,16 +1033,14 @@ export function CorreosClient() {
     openThread(id, { workTab: tab });
   }
 
-  function closeThread() {
-    // UI primero: antes solo limpiábamos estado si replaceState (deep-link).
-    // Con pushState el cierre hacía history.back() y esperaba popstate → el
-    // lector quedaba montado un frame (o más) y se sentía “pegajoso” en móvil.
+  const closeThread = useCallback(() => {
+    if (openIdRef.current) markRecentlyClosedThread(openIdRef.current);
     setOpenId(null);
     setAutoExtract(false);
     setWorkTabIntent(null);
     setComposeIntent(null);
     closeCorreoThreadInHistory();
-  }
+  }, [markRecentlyClosedThread]);
 
   // ── C12: selección múltiple + acciones masivas ──
   const toggleSelect = useCallback((id: string) => {
@@ -1325,10 +1370,11 @@ export function CorreosClient() {
       if (selectionMode && isCoarse) toggleSelect(id);
       else openThread(id);
     },
-    // openThread cierra sobre setters + filtered; selectionMode/isCoarse bastan.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [selectionMode, isCoarse, toggleSelect, openId, filtered],
+    [selectionMode, isCoarse, toggleSelect, openThread],
   );
+  const handleRowPrefetch = useCallback((id: string) => {
+    prefetchDetail(id);
+  }, []);
   const handleRowLongPress = useCallback(
     (id: string) => {
       const t = itemsRef.current.find((x) => x.id === id);
@@ -1996,6 +2042,7 @@ export function CorreosClient() {
                     onSnooze={handleRowSnooze}
                     onAiMenu={canUseCopiloto ? handleRowAiMenu : undefined}
                     onOpen={handleRowOpen}
+                    onPrefetch={handleRowPrefetch}
                     unified={showUnifiedChip}
                     mailboxColor={showUnifiedChip ? mb?.color ?? null : null}
                     mailboxLabel={showUnifiedChip ? mb?.displayLabel ?? null : null}
