@@ -47,11 +47,12 @@ function iframeSandboxEnabled(): boolean {
  * sigue el teal de marca OPAI.
  */
 export function buildEmailSrcDoc(safeHtml: string, night = false): string {
-  // Claro por defecto (fidelidad: firmas asumen fondo blanco). Noche: pizarra
-  // azul alineada al dark de la app (`--ds-text-1` / background slate).
-  const bg = night ? "hsl(222 28% 12%)" : "hsl(0 0% 100%)";
+  // Claro por defecto (fidelidad: firmas asumen fondo blanco). Noche: valores
+  // HSL que replican `--ds-surface-1` / `--ds-border-default` dark de
+  // globals.css — el srcDoc del iframe no accede a las CSS variables del padre.
+  const bg = night ? "hsl(218 32% 14%)" : "hsl(0 0% 100%)";
   const fg = night ? "hsl(210 40% 96%)" : "hsl(220 15% 18%)";
-  const border = night ? "hsl(220 16% 28%)" : "hsl(220 10% 85%)";
+  const border = night ? "hsl(218 24% 26%)" : "hsl(220 10% 85%)";
   const quote = night ? "hsl(215 20% 70%)" : "hsl(220 10% 40%)";
   const link = night ? "hsl(174 72% 55%)" : "hsl(174 72% 32%)";
   // Override agresivo solo en noche: el HTML de Outlook/Gmail pinta negros

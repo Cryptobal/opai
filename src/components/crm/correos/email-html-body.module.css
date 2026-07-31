@@ -8,9 +8,10 @@
   background-color: hsl(0 0% 100%);
 }
 
-/* Contenedor alineado al fondo noche del srcDoc (evita flash blanco). */
+/* Contenedor alineado al fondo noche del srcDoc (evita flash blanco).
+ * Mismo valor que `--ds-surface-1` dark en globals.css. */
 .frameNight {
-  background-color: hsl(222 28% 12%);
+  background-color: hsl(218 32% 14%);
 }
 
 /* Sandbox aislado del tema app: fondo claro fijo para HTML de correo.
