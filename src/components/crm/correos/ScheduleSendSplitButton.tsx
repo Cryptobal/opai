@@ -7,7 +7,7 @@
  *  3) "Elegir fecha y hora" → modal con Calendar DS + selects (sin nativos).
  */
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Archive, CalendarClock, CalendarDays, ChevronDown, Send, X } from "lucide-react";
 import { toast } from "sonner";
 import { Calendar } from "@/components/ui/calendar";
@@ -68,6 +68,10 @@ type Props = {
   sendShortcutHint?: string;
   sendAndArchiveShortcutHint?: string;
   onSchedule: (date: Date) => void;
+  /** Incrementar para abrir el modal de presets (⋯ móvil → Programar envío). */
+  openPresetsNonce?: number;
+  /** Oculta el split Enviar (topbar móvil ya tiene Enviar). */
+  hideSendButton?: boolean;
 };
 
 export function ScheduleSendSplitButton({
@@ -78,6 +82,8 @@ export function ScheduleSendSplitButton({
   sendShortcutHint,
   sendAndArchiveShortcutHint,
   onSchedule,
+  openPresetsNonce = 0,
+  hideSendButton = false,
 }: Props) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [presetsOpen, setPresetsOpen] = useState(false);
@@ -110,6 +116,11 @@ export function ScheduleSendSplitButton({
     setPresetsOpen(true);
   };
 
+  useEffect(() => {
+    if (openPresetsNonce > 0) openPresets();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openPresetsNonce]);
+
   const openCustom = () => {
     const slot = defaultCustomSlot();
     setCustomYmd(slot.ymd);
@@ -135,6 +146,7 @@ export function ScheduleSendSplitButton({
 
   return (
     <>
+      {!hideSendButton && (
       <div
         className={cn(
           "inline-flex h-10 overflow-hidden rounded-full bg-primary text-primary-foreground sm:h-9",
@@ -204,6 +216,7 @@ export function ScheduleSendSplitButton({
           </PopoverContent>
         </Popover>
       </div>
+      )}
 
       <Dialog open={presetsOpen} onOpenChange={setPresetsOpen}>
         <DialogContent
