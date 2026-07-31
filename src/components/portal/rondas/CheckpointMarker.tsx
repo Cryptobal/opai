@@ -30,10 +30,10 @@ export interface CheckpointInfo {
   id: string;
   name: string;
   instrucciones?: string | null;
-  lat: number;
-  lng: number;
+  lat: number | null;
+  lng: number | null;
   geoRadiusM: number;
-  verificationType: string; // "QR" | "GPS" | "BOTH"
+  verificationType: string; // "QR" | "GEOFENCE" | "BOTH"
   tasks?: CheckpointTaskInfo[];
 }
 
@@ -326,8 +326,9 @@ export function CheckpointMarker({
   const geoConfidence = geofenceEval?.confidence ?? "unknown";
 
   const requiresGeoInRange =
+    !needsQr &&
     !checkpoint.id.startsWith("ad-hoc") &&
-    (checkpoint.verificationType === "GEOFENCE" || checkpoint.verificationType === "BOTH");
+    checkpoint.verificationType === "GEOFENCE";
 
   const needsConfirmOutside = requiresGeoInRange && !inRange;
 
@@ -474,6 +475,13 @@ export function CheckpointMarker({
 
         if (!res.ok) {
           const errJson = await res.json().catch(() => null);
+          const errCode = errJson?.code as string | undefined;
+          if (errCode === "qr_mismatch" || errCode === "qr_required") {
+            setSubmitError(errJson?.error || "Error de código QR");
+            setQrCode(null);
+            if (needsQr) setShowQr(true);
+            return;
+          }
           throw new Error(errJson?.error || `Error del servidor (${res.status})`);
         }
 

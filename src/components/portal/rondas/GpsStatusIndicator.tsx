@@ -3,9 +3,17 @@
 interface GpsStatusProps {
   accuracy: number | null;
   isWatching: boolean;
+  /** true cuando hay un fix con accuracy <= 75 m */
+  hasQualityFix?: boolean;
 }
 
-export function GpsStatusIndicator({ accuracy, isWatching }: GpsStatusProps) {
+const INVALID_ACCURACY_SENTINEL = 999_999;
+
+export function GpsStatusIndicator({
+  accuracy,
+  isWatching,
+  hasQualityFix = false,
+}: GpsStatusProps) {
   if (!isWatching) {
     return (
       <div className="flex items-center gap-1.5 rounded-lg bg-card opai-glass-soft-m px-2.5 py-1.5">
@@ -15,11 +23,18 @@ export function GpsStatusIndicator({ accuracy, isWatching }: GpsStatusProps) {
     );
   }
 
-  if (accuracy == null) {
+  const noQualitySignal =
+    !hasQualityFix ||
+    accuracy == null ||
+    accuracy >= INVALID_ACCURACY_SENTINEL;
+
+  if (noQualitySignal) {
     return (
       <div className="flex items-center gap-1.5 rounded-lg bg-card opai-glass-soft-m px-2.5 py-1.5">
         <SignalIcon bars={1} color="text-status-warn-fg" />
-        <span className="text-xs font-medium text-status-warn-fg animate-pulse">Buscando...</span>
+        <span className="text-xs font-medium text-status-warn-fg animate-pulse">
+          Buscando señal GPS
+        </span>
       </div>
     );
   }
