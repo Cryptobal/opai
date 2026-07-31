@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Check, RotateCcw, Trash2, X } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import type { CrmStructureAssumption } from "@/modules/crm/email/email-to-crm-structure.types";
+import { PlanCollapsibleSection } from "./PlanCollapsibleSection";
 
 type Props = {
   items: CrmStructureAssumption[];
@@ -61,10 +62,11 @@ export function CorreoAiAssumptions({ items, onChange }: Props) {
   if (active.length === 0 && removedCount === 0) return null;
 
   return (
-    <section className="rounded-xl border border-ds-border-subtle bg-ds-surface-2 px-3 py-2.5">
-      <h3 className="mb-1.5 text-[12px] font-medium uppercase tracking-wide text-ds-text-3">
-        Supuestos que apliqué
-      </h3>
+    <PlanCollapsibleSection
+      title="Supuestos que apliqué"
+      count={active.length}
+      purpose="Se guardan como nota de trazabilidad en el negocio."
+    >
       <ul className="space-y-1.5">
         {active.map((a) => (
           <li key={a.id}>
@@ -130,12 +132,12 @@ export function CorreoAiAssumptions({ items, onChange }: Props) {
         <button
           type="button"
           onClick={restoreAll}
-          className="mt-2 text-[12px] text-ds-text-4 ds-tap hover:text-primary"
+          className="text-[12px] text-ds-text-4 ds-tap hover:text-primary"
         >
           {removedCount} eliminado{removedCount === 1 ? "" : "s"} · Restaurar
         </button>
       )}
-    </section>
+    </PlanCollapsibleSection>
   );
 }
 
