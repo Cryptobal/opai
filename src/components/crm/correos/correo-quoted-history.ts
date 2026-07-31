@@ -1,0 +1,89 @@
+/**
+ * Historial citado del composer (reply / reply-all / forward).
+ * Separado del doc Tiptap para un solo scroll de hoja estilo Gmail.
+ */
+
+const GMAIL_QUOTE_RE = /<div\b[^>]*\bclass=["'][^"']*\bgmail_quote\b[^"']*["'][^>]*>/i;
+
+/** true si el HTML (cuerpo o doc serializado) ya incluye un bloque gmail_quote. */
+export function htmlContainsGmailQuote(html: string | null | undefined): boolean {
+  if (!html) return false;
+  return GMAIL_QUOTE_RE.test(html);
+}
+
+/**
+ * Parte un borrador Gmail: cuerpo editable vs historial citado embebido.
+ * Si no hay marcador, todo el HTML es cuerpo y quotedHtml queda null.
+ */
+export function splitDraftBodyAndQuote(html: string | null | undefined): {
+  bodyHtml: string | null;
+  quotedHtml: string | null;
+} {
+  if (!html?.trim()) return { bodyHtml: html ?? null, quotedHtml: null };
+  const match = GMAIL_QUOTE_RE.exec(html);
+  if (!match || match.index == null) {
+    return { bodyHtml: html, quotedHtml: null };
+  }
+  const bodyHtml = html.slice(0, match.index).trim() || null;
+  const quotedHtml = html.slice(match.index).trim() || null;
+  return { bodyHtml, quotedHtml };
+}
+
+export type QuotedMessageSource = {
+  fromEmail: string;
+  sentAt: string | null;
+  subject: string;
+  toEmails: string[];
+  htmlBody: string | null;
+  textBody: string | null;
+};
+
+/** Meta + cuerpo del mensaje citado (sin wrapper gmail_quote). */
+export function buildQuotedMessageInnerHtml(msg: QuotedMessageSource): string {
+  const meta = [
+    `De: ${escapeHtml(msg.fromEmail)}`,
+    msg.sentAt ? `Fecha: ${escapeHtml(new Date(msg.sentAt).toLocaleString("es-CL"))}` : null,
+    `Asunto: ${escapeHtml(msg.subject)}`,
+    `Para: ${escapeHtml(msg.toEmails.join(", "))}`,
+  ]
+    .filter(Boolean)
+    .join("<br>");
+  const body =
+    msg.htmlBody?.trim() ||
+    (msg.textBody
+      ? escapeHtml(msg.textBody).replace(/\n/g, "<br>")
+      : "");
+  return `${meta}<br><br>${body}`;
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+/** Encabezado de cita al anexar en el HTML saliente. */
+export function quoteSendHeader(mode: "forward" | "reply"): string {
+  return mode === "forward"
+    ? "--------- Mensaje reenviado ---------"
+    : "--------- Mensaje original ---------";
+}
+
+/**
+ * Anexa el historial citado al HTML del envío sin duplicar si el cuerpo
+ * (o el propio quotedHtml de un borrador viejo) ya trae gmail_quote.
+ */
+export function appendQuotedHtmlToSend(
+  html: string,
+  quotedHtml: string | null | undefined,
+  mode: "forward" | "reply",
+): string {
+  if (!quotedHtml?.trim()) return html;
+  if (htmlContainsGmailQuote(html)) return html;
+  if (htmlContainsGmailQuote(quotedHtml)) {
+    return `${html}<br>${quotedHtml}`;
+  }
+  return `${html}<br><div class="gmail_quote">${quoteSendHeader(mode)}<br>${quotedHtml}</div>`;
+}

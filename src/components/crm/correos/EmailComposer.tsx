@@ -48,6 +48,8 @@ import {
 } from "./email-send-client";
 import { extractInlineImages } from "./email-inline-images";
 import { composerSnapshot, docPlainText, isComposerPristine } from "./composer-draft";
+import { CorreoQuotedHistory } from "./CorreoQuotedHistory";
+import { appendQuotedHtmlToSend } from "./correo-quoted-history";
 import { discardGmailDraft } from "./correo-discard-draft";
 import {
   ComposerCrmLink,
@@ -125,8 +127,13 @@ type Props = {
   replyAll?: { to: string[]; cc: string[] } | null;
   /** Contenido inicial del editor (doc Tiptap), p.ej. borrador IA. */
   initialContent?: object | null;
-  /** Forward: HTML del mensaje original, citado al final del envío. */
+  /**
+   * Historial citado (HTML sanitizado) — reply / reply-all / forward.
+   * Se muestra fuera del editor y se anexa al HTML saliente al enviar.
+   */
   quotedHtml?: string | null;
+  /** Encabezado de cita al enviar (`forward` vs `reply`). Default: según mode. */
+  quoteMode?: "forward" | "reply";
   forwardFromThreadId?: string | null;
   forwardAttachments?: ForwardAttachmentRefClient[];
   /** Draft existente a retomar (providerDraftId de Gmail). */
@@ -211,6 +218,7 @@ export const EmailComposer = forwardRef<EmailComposerHandle, Props>(function Ema
     replyAll = null,
     initialContent = null,
     quotedHtml = null,
+    quoteMode,
     forwardFromThreadId = null,
     forwardAttachments = [],
     resumeDraftId = null,
@@ -541,9 +549,9 @@ export const EmailComposer = forwardRef<EmailComposerHandle, Props>(function Ema
     setBusy(true);
     try {
       let html = currentHtml();
-      if (quotedHtml) {
-        html += `<br><div class="gmail_quote">--------- Mensaje reenviado ---------<br>${quotedHtml}</div>`;
-      }
+      const sendQuoteMode: "forward" | "reply" =
+        quoteMode ?? (mode === "forward" ? "forward" : "reply");
+      html = appendQuotedHtmlToSend(html, quotedHtml, sendQuoteMode);
       const { html: finalHtml, inlineImages } = await extractInlineImages(html);
       const result = await sendCrmEmail({
         to: toNorm,
@@ -784,11 +792,9 @@ export const EmailComposer = forwardRef<EmailComposerHandle, Props>(function Ema
             )}
         </p>
       )}
-      {quotedHtml && (
+      {forwardAttachments.length > 0 && (
         <p className="py-1.5 text-[12px] text-ds-text-3">
-          Se incluirá el mensaje original citado al final{forwardAttachments.length > 0
-            ? ` · ${forwardAttachments.length} adjunto(s) original(es) se re-adjuntan`
-            : ""}.
+          {forwardAttachments.length} adjunto(s) original(es) se re-adjuntan.
         </p>
       )}
       <AttachmentPicker
@@ -883,6 +889,7 @@ export const EmailComposer = forwardRef<EmailComposerHandle, Props>(function Ema
     >
       {headerFields}
       {editorBlock}
+      {quotedHtml ? <CorreoQuotedHistory html={quotedHtml} /> : null}
       {footerBlock}
     </div>
   );

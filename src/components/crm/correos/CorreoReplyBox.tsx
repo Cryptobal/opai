@@ -23,6 +23,9 @@ import {
   resolveCorreoPrimaryAction,
   type CorreoPrimaryAction,
 } from "./correo-primary-action";
+import { buildQuotedMessageInnerHtml } from "./correo-quoted-history";
+import { rewriteCidImages } from "./rewrite-cid-images";
+import { sanitizeEmailHtml } from "@/lib/sanitize-email-html";
 
 /** Contrato mínimo del reply box (CorreoDetail y EntityThreadDetail lo satisfacen). */
 export type ReplyBoxDetail = {
@@ -47,24 +50,38 @@ function normalizeReplyAll(ra: ReplyAll | null): ReplyAll | null {
   };
 }
 
-/** HTML citado del último mensaje del hilo para reenviar (C13). */
-function buildForwardQuote(detail: ReplyBoxDetail): string {
-  const last = detail.messages[detail.messages.length - 1];
+/**
+ * HTML citado del último mensaje no-borrador del hilo (reply / forward).
+ * Sanitizado con el mismo pipeline del lector; cid: → URL del API.
+ */
+export function buildThreadQuotedHtml(detail: ReplyBoxDetail): string {
+  let last: CorreoMessageDTO | undefined;
+  for (let i = detail.messages.length - 1; i >= 0; i -= 1) {
+    const m = detail.messages[i];
+    if (m && !m.isDraft) {
+      last = m;
+      break;
+    }
+  }
   if (!last) return "";
-  const meta = [
-    `De: ${last.fromEmail}`,
-    last.sentAt ? `Fecha: ${new Date(last.sentAt).toLocaleString("es-CL")}` : null,
-    `Asunto: ${last.subject}`,
-    `Para: ${last.toEmails.join(", ")}`,
-  ]
-    .filter(Boolean)
-    .join("<br>");
-  const body =
-    last.htmlBody ??
-    (last.textBody
-      ? last.textBody.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, "<br>")
-      : "");
-  return `${meta}<br><br>${body}`;
+  let bodyHtml = last.htmlBody;
+  if (bodyHtml?.trim() && detail.attachments.length > 0) {
+    bodyHtml = rewriteCidImages(
+      bodyHtml,
+      detail.thread.id,
+      detail.attachments,
+      last.providerMessageId ?? last.id,
+    );
+  }
+  const inner = buildQuotedMessageInnerHtml({
+    fromEmail: last.fromEmail,
+    sentAt: last.sentAt,
+    subject: last.subject,
+    toEmails: last.toEmails,
+    htmlBody: bodyHtml,
+    textBody: last.textBody,
+  });
+  return sanitizeEmailHtml(inner, { blockRemoteImages: true });
 }
 
 function scrollComposerIntoView() {
@@ -244,6 +261,8 @@ export function CorreoReplyBox({
     size: a.size,
   }));
 
+  const quotedHtml = useMemo(() => buildThreadQuotedHtml(detail), [detail]);
+
   if (!open) {
     const bar = (
       <CorreoActionBar
@@ -284,7 +303,7 @@ export function CorreoReplyBox({
       to={meta.to}
       replyAll={meta.replyAll}
       threadDraft={activeDraft}
-      forwardQuotedHtml={buildForwardQuote(detail)}
+      quotedHtml={quotedHtml}
       forwardAttachments={forwardAttachments}
       mode={open.mode}
       ai={open.ai}
