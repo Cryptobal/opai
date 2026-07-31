@@ -185,6 +185,8 @@ export function CorreoReplyBox({
   });
   const [metaReady, setMetaReady] = useState(false);
   const [open, setOpen] = useState<{ mode: ComposerMode; ai: boolean; expanded: boolean } | null>(null);
+  /** Solo incrementa en aperturas explícitas — no al togglear IA/modo/expand. */
+  const [openSeq, setOpenSeq] = useState(0);
   const [activeDraft, setActiveDraft] = useState<ThreadDraftSeed | null>(null);
 
   const threadDraft = useMemo(() => findThreadDraft(detail.messages), [detail.messages]);
@@ -192,14 +194,16 @@ export function CorreoReplyBox({
   function openComposer(mode: ComposerMode, ai = false, draft: CorreoMessageDTO | null = threadDraft) {
     setActiveDraft(draft && mode !== "forward" ? toThreadDraftSeed(draft) : null);
     setOpen({ mode, ai, expanded: false });
+    setOpenSeq((n) => n + 1);
   }
 
-  // Al abrir Responder / A todos / Reenviar / IA, bajar al composer
-  // (también cuando termina de cargar el meta y monta el box real).
+  // Al abrir Responder / A todos / Reenviar, bajar al composer (también cuando
+  // termina de cargar el meta). Alternar IA / modo / expand no reposiciona.
   useEffect(() => {
     if (!open) return;
     scrollComposerIntoView();
-  }, [open, metaReady]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openSeq, metaReady]);
 
   // Notifica apertura/cierre del composer (isla móvil = exclusividad) vía ref.
   const onOpenChangeRef = useRef(onOpenChange);
