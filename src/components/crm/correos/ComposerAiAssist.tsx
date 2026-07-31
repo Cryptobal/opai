@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import { ArrowUp, MoreVertical, WandSparkles, X } from "lucide-react";
 import { Spinner, Surface } from "@/components/opai-ds";
 import { hideKeyboardAccessoryBar } from "@/lib/capacitor/hideKeyboardAccessoryBar";
@@ -11,6 +10,7 @@ import {
   DRAFT_REFINE_CHIPS,
   type DraftRefineMode,
 } from "@/modules/crm/email/draft-reply-refine";
+import { ComposerSheetPortal } from "./ComposerSheetPortal";
 
 export type { DraftRefineMode };
 
@@ -83,10 +83,13 @@ export function ComposerAiPromptPill({
         setMenuOpen(false);
       }
     };
-    const onDown = (e: MouseEvent) => {
-      if (kebabRef.current && !kebabRef.current.contains(e.target as Node)) {
-        setMenuOpen(false);
-      }
+    const onDown = (e: PointerEvent) => {
+      const t = e.target as Node | null;
+      if (!t) return;
+      if (kebabRef.current?.contains(t)) return;
+      // Sheet móvil va a body (fuera del kebab); no cerrar antes del click del ítem.
+      if ((e.target as HTMLElement | null)?.closest?.("[data-composer-sheet]")) return;
+      setMenuOpen(false);
     };
     window.addEventListener("keydown", onKey, true);
     window.addEventListener("pointerdown", onDown);
@@ -192,7 +195,11 @@ export function ComposerAiPromptPill({
               aria-label="Más opciones de IA"
               aria-haspopup="menu"
               aria-expanded={menuOpen}
-              onClick={() => setMenuOpen((o) => !o)}
+              onPointerDown={(e) => e.preventDefault()}
+              onClick={() => {
+                inputRef.current?.blur();
+                setMenuOpen((o) => !o);
+              }}
               className={cn(
                 "inline-flex h-9 w-9 items-center justify-center rounded-full ds-tap sm:h-8 sm:w-8",
                 "text-ds-text-3 hover:bg-ds-surface-3 hover:text-ds-text-1",
@@ -258,34 +265,29 @@ export function ComposerAiPromptPill({
         </button>
       </div>
 
-      {menuOpen && !isDesktop &&
-        createPortal(
-          <div
-            className="fixed inset-0 z-[70] flex items-end justify-center bg-black/40 lg:hidden"
-            onClick={() => setMenuOpen(false)}
+      {!isDesktop && (
+        <ComposerSheetPortal open={menuOpen} onClose={() => setMenuOpen(false)}>
+          <Surface
+            elevation={4}
+            padding="none"
+            role="menu"
+            aria-label="Refinar borrador"
+            className="w-full rounded-b-none rounded-t-2xl pb-[calc(env(safe-area-inset-bottom,0px)+0.75rem)]"
+            onClick={(e) => e.stopPropagation()}
           >
-            <Surface
-              elevation={4}
-              padding="none"
-              role="menu"
-              aria-label="Refinar borrador"
-              className="w-full rounded-b-none rounded-t-2xl pb-[calc(env(safe-area-inset-bottom,0px)+0.75rem)]"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div aria-hidden className="mx-auto mt-2 h-1 w-10 rounded-full bg-ds-surface-3" />
-              <p className="px-4 pb-1 pt-2 font-display text-[15px] font-semibold text-ds-text-1">
-                Refinar borrador
+            <div aria-hidden className="mx-auto mt-2 h-1 w-10 rounded-full bg-ds-surface-3" />
+            <p className="px-4 pb-1 pt-2 font-display text-[15px] font-semibold text-ds-text-1">
+              Refinar borrador
+            </p>
+            {!hasDraft && (
+              <p className="px-4 pb-1 text-[12px] text-ds-text-3">
+                Escribí o generá un borrador para refinarlo
               </p>
-              {!hasDraft && (
-                <p className="px-4 pb-1 text-[12px] text-ds-text-3">
-                  Escribí o generá un borrador para refinarlo
-                </p>
-              )}
-              <div className="py-1">{menuItems}</div>
-            </Surface>
-          </div>,
-          document.body,
-        )}
+            )}
+            <div className="py-1">{menuItems}</div>
+          </Surface>
+        </ComposerSheetPortal>
+      )}
     </div>
   );
 }

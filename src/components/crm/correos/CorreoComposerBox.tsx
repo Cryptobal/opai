@@ -425,7 +425,12 @@ export function CorreoComposerBox(props: Props) {
             type="button"
             aria-label="Asistente IA"
             aria-pressed={ai}
-            onClick={props.onToggleAi}
+            onClick={() => {
+              if (document.activeElement instanceof HTMLElement) {
+                document.activeElement.blur();
+              }
+              props.onToggleAi();
+            }}
             className={`flex h-11 w-11 items-center justify-center rounded-full ds-tap ${
               ai ? "bg-tint-violet/15 text-tint-violet-fg" : "text-ds-text-2"
             }`}
@@ -453,7 +458,12 @@ export function CorreoComposerBox(props: Props) {
           <button
             type="button"
             aria-label="Más opciones"
-            onClick={() => setMoreOpen(true)}
+            onClick={() => {
+              if (document.activeElement instanceof HTMLElement) {
+                document.activeElement.blur();
+              }
+              setMoreOpen(true);
+            }}
             className="flex h-11 w-11 items-center justify-center rounded-full text-ds-text-2 ds-tap"
           >
             <MoreHorizontal className="h-5 w-5" />
