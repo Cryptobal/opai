@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { ChevronDown, ChevronUp, RefreshCw, Sparkles } from "lucide-react";
 import { Spinner } from "@/components/opai-ds";
 import { formatThreadSummary } from "@/modules/crm/email/thread-summary-format";
+import { SummaryBullets, relativeGeneratedAt } from "./correo-summary-view";
 import type { ContinueAction } from "@/modules/crm/email/correo-continue-actions";
 
 export type ThreadSummaryInitial = {
@@ -25,19 +26,6 @@ type Props = {
 };
 
 type CardState = "idle" | "cached" | "stale" | "loading" | "ready" | "error";
-
-function relativeGeneratedAt(iso: string | null): string | null {
-  if (!iso) return null;
-  const t = Date.parse(iso);
-  if (Number.isNaN(t)) return null;
-  const mins = Math.round((Date.now() - t) / 60_000);
-  if (mins < 1) return "hace un momento";
-  if (mins < 60) return `hace ${mins} min`;
-  const hours = Math.round(mins / 60);
-  if (hours < 48) return `hace ${hours} h`;
-  const days = Math.round(hours / 24);
-  return `hace ${days} d`;
-}
 
 function toneClass(tone: ContinueAction["tone"]): string {
   if (tone === "primary") {
@@ -185,18 +173,7 @@ export function CorreoThreadSummaryCard({
         </div>
       )}
 
-      {text && (
-        <ul className="space-y-1.5">
-          {visibleLines.map((line, i) => (
-            <li key={`${i}-${line.text.slice(0, 24)}`} className="flex gap-2 text-[13px] leading-5 text-ds-text-2">
-              <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-ds-text-3" aria-hidden />
-              <span className={line.emphasis ? "font-medium text-ds-text-1" : undefined}>
-                {line.text}
-              </span>
-            </li>
-          ))}
-        </ul>
-      )}
+      {text && <SummaryBullets lines={visibleLines} />}
 
       {hiddenCount > 0 && (
         <button

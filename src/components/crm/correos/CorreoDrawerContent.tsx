@@ -5,6 +5,7 @@ import { ChevronsUpDown, Sparkles } from "lucide-react";
 import { canEdit } from "@/lib/permissions";
 import { useEffectivePermissions } from "@/hooks/useEffectivePermissions";
 import { CorreoMessages } from "./CorreoMessages";
+import { CorreoReaderSummary } from "./CorreoReaderSummary";
 import { CorreoReplyBox } from "./CorreoReplyBox";
 import { CorreoSystemLabels } from "./CorreoSystemLabels";
 import { CorreoReaderTitleBlock } from "./CorreoReaderTitleBlock";
@@ -213,6 +214,12 @@ export function CorreoDrawerContent({
         )}
 
         <div className="min-w-0 space-y-2">
+          {/* Resumen IA sobre la cadena: cache-first, nunca autogenera. */}
+          <CorreoReaderSummary
+            threadId={t.id}
+            initialSummary={t.threadSummary}
+            messageCount={detail.messages.length}
+          />
           {detail.messages.length > 2 && (
             <div className="flex justify-end">
               <button
