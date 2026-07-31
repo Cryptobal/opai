@@ -419,14 +419,12 @@ export async function searchThreadLinkCandidatesMulti(params: {
 
   for (const type of types) {
     if (type === "account") {
-      const { findOwnCompanyAccountIds } = await import(
-        "@/modules/crm/email/own-tenant-company"
-      );
-      const ownIds = await findOwnCompanyAccountIds(tenantId);
+      // Exclusión de la cuenta propia del tenant: solo en la API (link-search).
+      // Este módulo también lo importan Client Components; no puede tirar de
+      // own-tenant-company → tenant-config (next/cache).
       const rows = await prisma.crmAccount.findMany({
         where: {
           tenantId,
-          ...(ownIds.length > 0 ? { id: { notIn: ownIds } } : {}),
           ...(q
             ? {
                 OR: [
