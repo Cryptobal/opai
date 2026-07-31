@@ -983,27 +983,12 @@ export function CorreoAiActionPanel({
                   void refineWithAnswers(next);
                 }}
                 onAssumptionsChange={draft.setAssumptions}
-                onCoverageChange={(inst) => {
-                  draft.setField("installations", inst);
-                  void draft.recalcStaffing({
-                    ...draft.proposal,
-                    installations: inst,
-                  });
+                onCoverageChange={(inst, opts) => {
+                  // Recálculo local determinista: sin fetch y sin perder filas.
+                  if (opts?.recalc === false) draft.setField("installations", inst);
+                  else draft.setInstallationsAndRecalc(inst);
                 }}
-                onWeeklyHoursChange={(h) => {
-                  draft.setField("weeklyHoursPerWorker", h);
-                  void draft.recalcStaffing({
-                    ...draft.proposal,
-                    weeklyHoursPerWorker: h,
-                  });
-                }}
-                onReservePctChange={(pct) => {
-                  draft.setField("reservePct", pct);
-                  void draft.recalcStaffing({
-                    ...draft.proposal,
-                    reservePct: pct,
-                  });
-                }}
+                onReservePctChange={(pct) => draft.setStaffingParam("reservePct", pct)}
                 onRefineAssumption={(a) => openRefine(`Cambiar supuesto: ${a}`)}
                 onRefineQuestion={(q) => openRefine(q)}
                 onOpenRefine={() => openRefine("Ajuste al plan")}

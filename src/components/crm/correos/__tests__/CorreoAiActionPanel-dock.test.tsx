@@ -29,7 +29,8 @@ vi.mock("../plan/usePlanDraft", () => ({
     resetToAi: vi.fn(),
     loadDraft: vi.fn(async () => null),
     clearDraft: vi.fn(async () => {}),
-    recalcStaffing: vi.fn(async () => {}),
+    setInstallationsAndRecalc: vi.fn(),
+    setStaffingParam: vi.fn(),
   }),
 }));
 

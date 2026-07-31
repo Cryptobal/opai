@@ -21,15 +21,21 @@ import {
 
 type Props = {
   proposal: CrmStructureProposal;
-  onChange?: (installations: CrmStructureInstallation[]) => void;
-  onRecalc?: () => void;
+  /**
+   * Commit de la cobertura editada. `recalc: false` = el cambio no afecta la
+   * dotación (ej. tipear el nombre) y el consumidor puede saltarse el recálculo.
+   */
+  onChange?: (
+    installations: CrmStructureInstallation[],
+    opts?: { recalc?: boolean },
+  ) => void;
 };
 
 /**
  * Tabla de cobertura agrupada por etapa + KPIs (peak / HH / base / total).
  * Firma pública estable para CorreoAiPlanSections.
  */
-export function CorreoAiCoverageTable({ proposal, onChange, onRecalc }: Props) {
+export function CorreoAiCoverageTable({ proposal, onChange }: Props) {
   const t = proposal.staffingTotals;
   const editable = Boolean(onChange);
   const groups = groupSlotsByEtapa(proposal.installations);
@@ -41,8 +47,7 @@ export function CorreoAiCoverageTable({ proposal, onChange, onRecalc }: Props) {
     opts?: { recalc?: boolean },
   ) {
     if (!onChange) return;
-    onChange(next);
-    if (opts?.recalc !== false) onRecalc?.();
+    onChange(next, opts);
   }
 
   function updateSlot(

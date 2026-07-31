@@ -16,6 +16,7 @@ import {
   emptyCrmStructureProposal,
   milestonesFromLicitacion,
 } from "@/modules/crm/email/email-to-crm-structure.types";
+import { recalcProposalStaffing } from "./staffing-local";
 
 // Tiny path setter — no lodash dep needed
 function setByPath(obj: unknown, path: string, value: unknown): unknown {
@@ -153,6 +154,47 @@ export function usePlanDraft(threadId: string) {
     [include, scheduleAutosave],
   );
 
+  /**
+   * Igual que `setField` pero recalculando dotación en cliente en el mismo
+   * `setProposal`: sin fetch, sin flicker y sin que el normalizador server
+   * descarte los puestos que el usuario acaba de agregar.
+   */
+  const setFieldAndRecalc = useCallback(
+    (
+      path: "installations" | "weeklyHoursPerWorker" | "reservePct",
+      value: unknown,
+    ) => {
+      setProposal((prev) => {
+        const patched = setByPath(prev, path, value) as CrmStructureProposal;
+        const next = recalcProposalStaffing(patched);
+        setLocks((lks) => {
+          const newLocks = lks.includes(path) ? lks : [...lks, path];
+          scheduleAutosave(next, include, newLocks);
+          return newLocks;
+        });
+        setDirty(true);
+        return next;
+      });
+    },
+    [include, scheduleAutosave],
+  );
+
+  /** Cobertura editada en la tabla → recalcula HH / dotación / KPIs al instante. */
+  const setInstallationsAndRecalc = useCallback(
+    (installations: CrmStructureProposal["installations"]) => {
+      setFieldAndRecalc("installations", installations);
+    },
+    [setFieldAndRecalc],
+  );
+
+  /** Parámetros de dotación (hoy solo la reserva %; la jornada es fija 42 h). */
+  const setStaffingParam = useCallback(
+    (field: "weeklyHoursPerWorker" | "reservePct", value: number) => {
+      setFieldAndRecalc(field, value);
+    },
+    [setFieldAndRecalc],
+  );
+
   const setIncludePartial = useCallback((partial: Partial<CreateCrmStructureInclude>) => {
     setInclude((prev) => {
       const next = { ...prev, ...partial };
@@ -193,7 +235,8 @@ export function usePlanDraft(threadId: string) {
   /** Reset state to a fresh AI proposal (no locks). */
   const resetToAi = useCallback(
     (newProposal: CrmStructureProposal, staged?: StagedFile[]) => {
-      setProposal(newProposal);
+      // Mismo cálculo puro que el servidor; solo corrige jornadas > 42 h.
+      setProposal(recalcProposalStaffing(newProposal));
       setLocks([]);
       setDirty(false);
       setDraftSavedAt(null);
@@ -212,7 +255,8 @@ export function usePlanDraft(threadId: string) {
       const j = (await res.json()) as { draft?: AiPlanDraft };
       if (!j.draft) return null;
       const d = j.draft;
-      setProposal(d.proposal);
+      // Drafts guardados con jornada 44 / 45 se cargan y recalculan a 42.
+      setProposal(recalcProposalStaffing(d.proposal));
       setInclude(d.include ?? defaultInclude);
       setLocks(d.locks ?? []);
       setTaskOverride(d.taskOverride ?? {});
@@ -253,28 +297,6 @@ export function usePlanDraft(threadId: string) {
     setDirty(false);
   }, [threadId]);
 
-  const recalcStaffing = useCallback(async (override?: CrmStructureProposal) => {
-    const body = override ?? proposal;
-    try {
-      const res = await fetch(`/api/crm/correos/${threadId}/recalc-staffing`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ proposal: body }),
-      });
-      if (!res.ok) return;
-      const j = (await res.json()) as { proposal?: CrmStructureProposal };
-      if (j.proposal) {
-        setProposal((prev) => ({
-          ...j.proposal!,
-          locks: prev.locks,
-          assumptionItems: prev.assumptionItems ?? j.proposal!.assumptionItems,
-        }));
-      }
-    } catch {
-      // silent
-    }
-  }, [threadId, proposal]);
-
   useEffect(() => {
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -294,6 +316,8 @@ export function usePlanDraft(threadId: string) {
     draftSavedAt,
     dirty,
     setField,
+    setInstallationsAndRecalc,
+    setStaffingParam,
     setInclude: setIncludePartial,
     toggleAction,
     applyPreset,
@@ -301,7 +325,6 @@ export function usePlanDraft(threadId: string) {
     resetToAi,
     loadDraft,
     clearDraft,
-    recalcStaffing,
     setTaskOverride,
     setAttachmentSelection,
     setQuoteInput,
