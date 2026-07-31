@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { ArrowUp, MoreVertical, WandSparkles, X } from "lucide-react";
 import { Spinner, Surface } from "@/components/opai-ds";
+import { hideKeyboardAccessoryBar } from "@/lib/capacitor/hideKeyboardAccessoryBar";
 import { cn } from "@/lib/utils";
 import {
   DRAFT_REFINE_CHIPS,
@@ -157,6 +158,10 @@ export function ComposerAiPromptPill({
             ref={inputRef}
             value={value}
             onChange={(e) => onChange(e.target.value)}
+            onFocus={() => {
+              // iOS reactiva ◀▶✓ al enfocar; re-ocultar al toque.
+              void hideKeyboardAccessoryBar();
+            }}
             onKeyDown={(e) => {
               e.stopPropagation();
               if (e.key === "Enter" && !e.shiftKey) {
@@ -174,6 +179,8 @@ export function ComposerAiPromptPill({
             enterKeyHint="send"
             autoComplete="off"
             autoCorrect="off"
+            autoCapitalize="sentences"
+            spellCheck={false}
             disabled={generating}
             aria-label={hasDraft ? "Describir cambio del borrador" : "Prompt para la IA"}
             className={cn(

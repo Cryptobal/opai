@@ -15,7 +15,10 @@ import {
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useVisualViewportFrame } from "@/hooks/useVisualViewportFrame";
-import { hideKeyboardAccessoryBar } from "@/lib/capacitor/hideKeyboardAccessoryBar";
+import {
+  hideKeyboardAccessoryBar,
+  subscribeHideKeyboardAccessoryBar,
+} from "@/lib/capacitor/hideKeyboardAccessoryBar";
 import { EmailComposer, type EmailComposerHandle } from "./EmailComposer";
 import {
   ComposerAiAssistToggle,
@@ -96,6 +99,7 @@ export function CorreoComposeSheet({
   useEffect(() => {
     if (!open || win === "minimized" || isDesktop) return;
     void hideKeyboardAccessoryBar();
+    return subscribeHideKeyboardAccessoryBar();
   }, [open, win, isDesktop]);
 
   useEffect(() => {
@@ -172,14 +176,19 @@ export function CorreoComposeSheet({
       const d = (await res.json().catch(() => ({}))) as {
         draft?: unknown;
         error?: string;
+        title?: string;
       };
       if (!res.ok || !d.draft) {
-        toast.error(d.error || "No se pudo generar el borrador");
+        toast.error(d.title || "No se pudo generar el borrador", {
+          description: d.error || "Reintentá en unos segundos.",
+        });
         return;
       }
       injectDraft(String(d.draft));
     } catch {
-      toast.error("No se pudo generar el borrador");
+      toast.error("No se pudo generar el borrador", {
+        description: "Sin conexión o error inesperado. Reintentá.",
+      });
     } finally {
       setGenerating(false);
     }
