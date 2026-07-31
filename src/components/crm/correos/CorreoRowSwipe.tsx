@@ -222,7 +222,9 @@ function CorreoRowSwipeInner({
     }
     onOpen(thread.id);
     window.setTimeout(() => {
-      document.getElementById("correo-suggested-reply")?.scrollIntoView({ block: "center" });
+      document
+        .querySelector<HTMLElement>("[data-correo-reply-anchor]")
+        ?.scrollIntoView({ block: "center" });
     }, 600);
   }
 

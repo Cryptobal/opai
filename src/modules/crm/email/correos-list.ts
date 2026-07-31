@@ -134,7 +134,8 @@ const THREAD_LIST_SELECT = {
  *
  * Alcance: si hay búsqueda activa y el query NO trae `in:`, el scope efectivo
  * es `all` (toda la casilla excepto trash/spam), no la carpeta de navegación.
- * `mode=semantic` se ignora (compatibilidad de deep-links).
+ * Por defecto la búsqueda de texto libre es léxica (`exactOnly`); la rama
+ * semántica se habilita con `exactOnly: false` (query `semantic=1`).
  */
 export async function listCorreoThreads(params: {
   tenantId: string;
@@ -146,8 +147,11 @@ export async function listCorreoThreads(params: {
   q?: string | null;
   /** Solo hilos con tareas abiertas. Ignorado si hay búsqueda `q`. */
   withTasks?: boolean;
-  /** @deprecated Ignorado — la búsqueda siempre es híbrida. */
-  semantic?: boolean;
+  /**
+   * Si true (default), no ejecuta la rama semántica. El endpoint mapea
+   * `semantic=1` → `exactOnly: false`.
+   */
+  exactOnly?: boolean;
 }): Promise<{
   items: CorreoThreadDTO[];
   nextCursor: string | null;
@@ -192,6 +196,7 @@ export async function listCorreoThreads(params: {
       folder: effectiveFolder,
       limit,
       offset,
+      exactOnly: params.exactOnly !== false,
     });
     const nextOffset = offset + hybrid.ids.length;
     const nextCursor =
@@ -212,6 +217,7 @@ export async function listCorreoThreads(params: {
           shownCount: 0,
           totalCount: hybrid.totalCount,
           totalIsLowerBound: hybrid.totalIsLowerBound,
+          semanticRan: hybrid.semanticRan,
         },
       };
     }
@@ -250,6 +256,7 @@ export async function listCorreoThreads(params: {
         shownCount: items.length,
         totalCount: hybrid.totalCount,
         totalIsLowerBound: hybrid.totalIsLowerBound,
+        semanticRan: hybrid.semanticRan,
       },
     };
   }

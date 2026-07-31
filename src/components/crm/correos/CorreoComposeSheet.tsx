@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { useVisualViewportFrame } from "@/hooks/useVisualViewportFrame";
 import {
   hideKeyboardAccessoryBar,
@@ -83,18 +84,11 @@ export function CorreoComposeSheet({
   const instructionsRef = useRef("");
   const [generating, setGenerating] = useState(false);
   const [hasAiDraft, setHasAiDraft] = useState(false);
-  const [isDesktop, setIsDesktop] = useState(false);
+  // Compose sheet: md (768) — distinto del reply composer (lg/1024).
+  const isDesktop = useMediaQuery("(min-width: 768px)");
   const vv = useVisualViewportFrame();
 
   useEffect(() => setMounted(true), []);
-
-  useEffect(() => {
-    const mq = window.matchMedia("(min-width: 768px)");
-    const update = () => setIsDesktop(mq.matches);
-    update();
-    mq.addEventListener("change", update);
-    return () => mq.removeEventListener("change", update);
-  }, []);
 
   useEffect(() => {
     if (!open || win === "minimized" || isDesktop) return;

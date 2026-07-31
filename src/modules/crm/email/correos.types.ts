@@ -53,6 +53,12 @@ export type CorreoSearchMeta = {
   totalCount?: number;
   /** true cuando totalCount alcanzó el techo de overfetch (puede haber más). */
   totalIsLowerBound?: boolean;
+  /**
+   * true si esta respuesta ya ejecutó la rama semántica (OpenAI + HNSW).
+   * false en búsquedas léxicas en vivo (`exactOnly`) o si embeddings no están
+   * disponibles — el cliente usa esto para no reintentar en bucle.
+   */
+  semanticRan: boolean;
 };
 
 /** Alcance efectivo de una búsqueda de texto (carpeta o toda la casilla). */

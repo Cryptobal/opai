@@ -39,7 +39,7 @@ export function CorreoActionBar({
 
   return (
     <div
-      id="correo-suggested-reply"
+      data-correo-reply-anchor
       className={cn(
         "grid w-full gap-0.5 rounded-xl border border-ds-border-subtle bg-ds-surface-1 p-0.5",
         cols === 1 && "grid-cols-1",

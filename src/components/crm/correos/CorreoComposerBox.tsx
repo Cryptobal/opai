@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { Spinner } from "@/components/opai-ds";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { useVisualViewportFrame } from "@/hooks/useVisualViewportFrame";
 import {
   hideKeyboardAccessoryBar,
@@ -127,20 +128,12 @@ export function CorreoComposerBox(props: Props) {
   const [hasAiDraft, setHasAiDraft] = useState(() =>
     Boolean(initialSeed && docPlainText(initialSeed.doc).trim()),
   );
-  const [isDesktop, setIsDesktop] = useState(false);
+  const isDesktop = useMediaQuery("(min-width: 1024px)");
   const [moreOpen, setMoreOpen] = useState(false);
   const [attachOpen, setAttachOpen] = useState(false);
   const [scheduleNonce, setScheduleNonce] = useState(0);
   const [sendBusy, setSendBusy] = useState(false);
   const vv = useVisualViewportFrame();
-
-  useEffect(() => {
-    const mq = window.matchMedia("(min-width: 1024px)");
-    const update = () => setIsDesktop(mq.matches);
-    update();
-    mq.addEventListener("change", update);
-    return () => mq.removeEventListener("change", update);
-  }, []);
 
   const isForward = mode === "forward";
   const asModal = expanded && isDesktop;
@@ -451,7 +444,9 @@ export function CorreoComposerBox(props: Props) {
           </button>
         </header>
         <div
-          id="correo-suggested-reply"
+          data-correo-reply-anchor
+          data-correo-composer-surface
+          data-composer-presentation="fullscreen"
           data-email-composer
           className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-2 [-webkit-overflow-scrolling:touch]"
         >
@@ -493,7 +488,9 @@ export function CorreoComposerBox(props: Props) {
       <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Redactar correo">
         <div className="absolute inset-0 bg-black/40" onClick={toggleExpand} aria-hidden />
         <div
-          id="correo-suggested-reply"
+          data-correo-reply-anchor
+          data-correo-composer-surface
+          data-composer-presentation="modal"
           data-email-composer
           className="relative z-10 flex h-[min(84dvh,780px)] w-[min(820px,94vw)] flex-col gap-1 overflow-y-auto rounded-2xl border border-ds-border-default bg-background px-4 py-3 shadow-2xl"
         >
@@ -506,7 +503,9 @@ export function CorreoComposerBox(props: Props) {
 
   return (
     <div
-      id="correo-suggested-reply"
+      data-correo-reply-anchor
+      data-correo-composer-surface
+      data-composer-presentation="inline"
       data-email-composer
       className="space-y-1 border-t border-ds-border-subtle bg-background pt-2"
     >

@@ -213,6 +213,8 @@ export function CorreosClient() {
   const [assocFiltersOpen, setAssocFiltersOpen] = useState(false);
   // C15: la búsqueda consulta al servidor (toda la casilla), con debounce.
   const [debouncedQuery, setDebouncedQuery] = useState("");
+  /** Fetch de búsqueda en vuelo — indicador en el campo, no spinner de lista. */
+  const [searchPending, setSearchPending] = useState(false);
   const [coverage, setCoverage] = useState<EmailIndexCoverage | null>(null);
   const [semanticAvailable, setSemanticAvailable] = useState(true);
   const [searchMeta, setSearchMeta] = useState<CorreoSearchMeta | null>(null);
@@ -321,26 +323,36 @@ export function CorreosClient() {
   /** Secuencia de requests: una respuesta reset huérfana (deep-links rápidos
    *  del copiloto) nunca pisa los resultados de la última búsqueda. */
   const fetchSeqRef = useRef(0);
+  /** Término ya reintentado con semántico (evita bucle bajo umbral). */
+  const semanticRetryTermRef = useRef<string | null>(null);
+  /** Enter / reintento: la próxima fetch de búsqueda lleva semantic=1. */
+  const pendingSemanticRef = useRef(false);
+  const SEMANTIC_FALLBACK_THRESHOLD = 5;
   const fetchPage = useCallback(async (
     cur: string | null,
     reset: boolean,
     nextFolder?: CorreoFolderTab,
-    opts?: { silent?: boolean; preserveItems?: boolean },
+    opts?: { silent?: boolean; preserveItems?: boolean; semantic?: boolean },
   ) => {
     const seq = ++fetchSeqRef.current;
     const isStaleReset = () => reset && seq !== fetchSeqRef.current;
     // Si ya hay filas en pantalla (snapshot o carga previa), refrescar en
-    // silencio: sin spinner ni opacity-70. Cambio de carpeta, búsqueda o
-    // primera pintura siguen con loading visible.
+    // silencio: sin spinner ni opacity-70. Incluye búsqueda (indicador en el
+    // campo). Cambio de carpeta o primera pintura siguen con loading visible.
     const hasRows = itemsRef.current.length > 0;
     const folderSwitch = nextFolder != null; // el effect de carpeta siempre pasa nextFolder
     const silent =
-      opts?.silent ??
-      (Boolean(reset) && hasRows && !debouncedQuery && !folderSwitch && !cur);
+      opts?.silent ?? (Boolean(reset) && hasRows && !folderSwitch && !cur);
     // Tras archivar/atajos: solo reconciliar counts/meta sin reemplazar filas
     // (la UI ya es optimista). Evita el pestañeo de remount de la lista.
     const preserveItems = Boolean(opts?.preserveItems);
+    const wantSemantic =
+      Boolean(opts?.semantic) ||
+      (Boolean(debouncedQuery) && pendingSemanticRef.current);
+    if (wantSemantic) pendingSemanticRef.current = false;
+    const isSearchFetch = Boolean(debouncedQuery) && reset && !folderSwitch;
     if (!silent) setLoading(true);
+    if (isSearchFetch) setSearchPending(true);
     try {
       const f = nextFolder ?? folder;
       const qs = new URLSearchParams();
@@ -348,6 +360,7 @@ export function CorreosClient() {
       if (f !== "inbox") qs.set("folder", f);
       if (debouncedQuery) qs.set("q", debouncedQuery);
       if (withTasks && !debouncedQuery) qs.set("withTasks", "1");
+      if (debouncedQuery && wantSemantic) qs.set("semantic", "1");
       const scopeId = activeAccountIdRef.current;
       if (scopeId) qs.set("accountId", scopeId);
       else if (scopeHydratedRef.current) qs.set("accountId", "all");
@@ -460,6 +473,7 @@ export function CorreosClient() {
       } else {
         setSearchMeta(null);
         setSearchScope(null);
+        semanticRetryTermRef.current = null;
       }
       setBackfillDone(typeof r.backfillDone === "boolean" ? r.backfillDone : null);
       setLastSyncAt(typeof r.lastSyncAt === "string" ? r.lastSyncAt : null);
@@ -478,8 +492,27 @@ export function CorreosClient() {
           void saveInboxSnapshot(r.items);
         }
       }
+      // Reintento semántico automático: léxico pobre (<5) y aún no corrió.
+      // Una sola vez por término; si embeddings no están disponibles, no loop.
+      if (
+        reset &&
+        debouncedQuery &&
+        !wantSemantic &&
+        r.searchMeta &&
+        r.searchMeta.semanticRan === false &&
+        r.semanticAvailable !== false &&
+        (r.items?.length ?? 0) < SEMANTIC_FALLBACK_THRESHOLD &&
+        semanticRetryTermRef.current !== debouncedQuery
+      ) {
+        semanticRetryTermRef.current = debouncedQuery;
+        pendingSemanticRef.current = true;
+        void fetchPage(null, true, undefined, { semantic: true, silent: true });
+      }
     } finally {
-      if (seq === fetchSeqRef.current) setLoading(false);
+      if (seq === fetchSeqRef.current) {
+        setLoading(false);
+        if (isSearchFetch) setSearchPending(false);
+      }
     }
   }, [folder, debouncedQuery, withTasks]);
 
@@ -1081,10 +1114,26 @@ export function CorreosClient() {
           ? `Buscar en ${mailboxEmail}`
           : "Buscá lo que recordás",
     value: query,
+    pending: searchPending,
     onChange: setQuery,
     onExit: () => {
       setQuery("");
       setDebouncedQuery("");
+      semanticRetryTermRef.current = null;
+      pendingSemanticRef.current = false;
+      setSearchPending(false);
+    },
+    onSubmit: () => {
+      const term = query.trim();
+      if (!term) return;
+      // Enter confirma: dispara semántico. Sincroniza debounce si aún no corrió.
+      semanticRetryTermRef.current = term;
+      pendingSemanticRef.current = true;
+      if (debouncedQuery !== term) {
+        setDebouncedQuery(term);
+      } else {
+        void fetchPage(null, true, undefined, { semantic: true, silent: true });
+      }
     },
     operators: CORREO_SEARCH_OPERATORS,
   });
@@ -2016,11 +2065,6 @@ export function CorreosClient() {
                   setCtxMenu({ thread: t, x: e.clientX, y: e.clientY });
                 }}
               >
-                {searching && loading && (
-                  <div className="flex items-center gap-2 border-b border-ds-border-subtle px-4 py-2 text-[12px] text-ds-text-3">
-                    <Spinner className="h-3.5 w-3.5" /> Buscando en toda la casilla…
-                  </div>
-                )}
                 {filtered.map((t, index) => {
                   const mb = t.emailAccountId
                     ? accountsById.get(t.emailAccountId)
@@ -2068,6 +2112,7 @@ export function CorreosClient() {
             )}
             {searching &&
               searchMeta &&
+              searchMeta.semanticRan &&
               !searchMeta.hasExactMatches &&
               (searchMeta.shownCount > 0 || items.length > 0) && (
               <div className="flex flex-wrap items-center gap-2 rounded-xl border border-status-warn-border bg-status-warn-soft px-3 py-2 text-[13px] text-status-warn-fg">

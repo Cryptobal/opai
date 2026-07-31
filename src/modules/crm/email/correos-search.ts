@@ -320,10 +320,24 @@ function buildStructuralConditions(parsed: ParsedCorreoSearch): Prisma.Sql[] {
   return conds;
 }
 
+/** Trigram solo acelera patrones de 3+ caracteres (gin_trgm_ops). */
+const MIN_TRGM_TERM_LENGTH = 3;
+
+/**
+ * Condiciones de texto libre. La expresión de cuerpo DEBE coincidir carácter
+ * a carácter con `idx_crm_email_messages_body_trgm`
+ * (migración 20261122000000_email_messages_body_trgm):
+ *   LOWER(public.f_unaccent(COALESCE(text_body, html_body, '')))
+ * Cobertura: text_body tiene precedencia; html_body actúa de respaldo cuando
+ * el primero es NULL (misma semántica que snippetFromBody en el módulo).
+ */
 function buildTextConditions(parsed: ParsedCorreoSearch): Prisma.Sql[] {
   const conds: Prisma.Sql[] = [];
   for (const term of parsed.terms) {
     const pattern = containsPattern(term);
+    // Bajo 3 chars el cuerpo degrada a seq scan: se restringe a asunto y
+    // participantes para no escanear HTML completo en cada tecla.
+    const searchesBody = term.length >= MIN_TRGM_TERM_LENGTH;
     conds.push(Prisma.sql`(
       LOWER(public.f_unaccent(t.subject)) LIKE LOWER(public.f_unaccent(${pattern}))
       OR EXISTS (
@@ -335,8 +349,11 @@ function buildTextConditions(parsed: ParsedCorreoSearch): Prisma.Sql[] {
               SELECT 1 FROM unnest(m.to_emails || m.cc_emails) AS rcpt(email)
               WHERE LOWER(rcpt.email) LIKE LOWER(${pattern})
             )
-            OR LOWER(public.f_unaccent(COALESCE(m.text_body, ''))) LIKE LOWER(public.f_unaccent(${pattern}))
-            OR LOWER(public.f_unaccent(COALESCE(m.html_body, ''))) LIKE LOWER(public.f_unaccent(${pattern}))
+            ${
+              searchesBody
+                ? Prisma.sql`OR LOWER(public.f_unaccent(COALESCE(m.text_body, m.html_body, ''))) LIKE LOWER(public.f_unaccent(${pattern}))`
+                : Prisma.empty
+            }
           )
       )
     )`);

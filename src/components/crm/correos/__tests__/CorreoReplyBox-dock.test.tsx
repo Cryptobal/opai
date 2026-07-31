@@ -78,9 +78,11 @@ describe("CorreoReplyBox dock Gmail", () => {
     );
 
     await waitFor(() => {
-      expect(host.querySelector("#correo-suggested-reply")).toBeTruthy();
+      expect(host.querySelector("[data-correo-reply-anchor]")).toBeTruthy();
     });
-    expect(screen.getByTestId("scroll").querySelector("#correo-suggested-reply")).toBeNull();
+    expect(
+      screen.getByTestId("scroll").querySelector("[data-correo-reply-anchor]"),
+    ).toBeNull();
     expect(host.querySelector('[aria-label="Responder"]')).toBeTruthy();
     expect(host.querySelector('[aria-label="Reenviar"]')).toBeTruthy();
 

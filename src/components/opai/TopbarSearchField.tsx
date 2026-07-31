@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useRef, useState, type KeyboardEvent } from "react";
-import { ListFilter, Search, X } from "lucide-react";
+import { ListFilter, Loader2, Search, X } from "lucide-react";
 import {
   useIslandSearchOpenListener,
   useModuleSurface,
@@ -64,6 +64,7 @@ export function TopbarSearchField() {
     }
     if (e.key === "Enter") {
       e.preventDefault();
+      search!.onSubmit?.();
       inputRef.current?.blur();
     }
   }
@@ -123,6 +124,12 @@ export function TopbarSearchField() {
           onBlur={() => setFocused(false)}
           onKeyDown={onKeyDown}
         />
+        {search.pending && (
+          <Loader2
+            className="h-3.5 w-3.5 shrink-0 animate-spin text-ds-text-4"
+            aria-label="Buscando"
+          />
+        )}
         {hasValue && (
           <button
             type="button"

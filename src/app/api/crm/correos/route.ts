@@ -121,6 +121,8 @@ export async function GET(req: NextRequest) {
   // C18 (PR-13): los 9 counts NO se calculan en cada request — solo cuando el
   // cliente los pide (carga inicial, cambio de carpeta, invalidación realtime).
   const wantCounts = req.nextUrl.searchParams.get("counts") === "1";
+  // Ausente o "0" → solo léxico; "1" habilita la rama semántica.
+  const exactOnly = req.nextUrl.searchParams.get("semantic") !== "1";
   void req.nextUrl.searchParams.get("mode");
 
   const activeAccount =
@@ -155,6 +157,7 @@ export async function GET(req: NextRequest) {
       folder,
       q: req.nextUrl.searchParams.get("q"),
       withTasks: req.nextUrl.searchParams.get("withTasks") === "1",
+      exactOnly,
     }),
     wantCounts
       ? countCorreoFolders({

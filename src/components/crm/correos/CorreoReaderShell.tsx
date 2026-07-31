@@ -38,6 +38,8 @@ type Props = {
   /** Default: true salvo contained. Activa el asa en split y overlay. */
   resizable?: boolean;
   manageBackHistory?: boolean;
+  /** Pausa el Tab-trap (p. ej. composer portado a document.body). Escape sigue. */
+  trapPaused?: boolean;
   children: ReactNode;
 };
 
@@ -59,12 +61,14 @@ export function CorreoReaderShell({
   desktopMode = "overlay",
   resizable,
   manageBackHistory = true,
+  trapPaused = false,
   children,
 }: Props) {
   useCloseOnBack(open && manageBackHistory, onClose);
 
   // C19: en móvil (y overlay/contained desktop) el lector es un modal real —
-  // focus-trap + Escape; en split desktop solo Escape.
+  // focus-trap + Escape; en split desktop solo Escape. Con composer abierto
+  // (portal a body) se pausa el trap para no ciclar Tab dentro del lector.
   const panelRef = useRef<HTMLDivElement | null>(null);
   const [isMobile, setIsMobile] = useState(
     () =>
@@ -80,7 +84,11 @@ export function CorreoReaderShell({
   }, []);
   const isOverlay =
     isMobile || desktopMode === "overlay" || desktopMode === "contained";
-  useFocusTrap(panelRef, { active: open, trap: isOverlay, onEscape: onClose });
+  useFocusTrap(panelRef, {
+    active: open,
+    trap: isOverlay && !trapPaused,
+    onEscape: onClose,
+  });
   // Host para sheets absolutos (guardar adjuntos) acotados al visor.
   const [overlayHost, setOverlayHost] = useState<HTMLDivElement | null>(null);
   // Dock inferior (fuera del scroll): Responder / Reenviar siempre visibles.

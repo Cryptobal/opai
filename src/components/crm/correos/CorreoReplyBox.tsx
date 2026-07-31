@@ -86,23 +86,29 @@ export function buildThreadQuotedHtml(detail: ReplyBoxDetail): string {
 
 function scrollComposerIntoView() {
   const run = () => {
-    const el = document.getElementById("correo-suggested-reply");
+    const surface = document.querySelector<HTMLElement>(
+      "[data-correo-composer-surface]",
+    );
+    // Full-screen y modal cubren la pantalla: desplazar el lector no aporta
+    // y en esas ramas la superficie es su propio scroller.
+    const presentation = surface?.dataset.composerPresentation;
+    if (presentation === "fullscreen" || presentation === "modal") return;
+
+    const el = document.querySelector<HTMLElement>("[data-correo-reply-anchor]");
     if (!el) return;
-    // El scroller real es el panel del lector (overflow-auto), no la ventana.
-    const scroller = el.closest(".overflow-auto, .overflow-y-auto");
-    if (scroller instanceof HTMLElement) {
-      const elRect = el.getBoundingClientRect();
-      const scRect = scroller.getBoundingClientRect();
-      const nextTop = scroller.scrollTop + (elRect.bottom - scRect.bottom) + 24;
-      scroller.scrollTo({ top: Math.max(0, nextTop), behavior: "smooth" });
+    const scroller = document.querySelector<HTMLElement>(
+      "[data-correo-reader-scroller]",
+    );
+    if (!scroller || !scroller.contains(el)) {
+      el.scrollIntoView({ behavior: "smooth", block: "end" });
       return;
     }
-    el.scrollIntoView({ behavior: "smooth", block: "end" });
+    const elRect = el.getBoundingClientRect();
+    const scRect = scroller.getBoundingClientRect();
+    const nextTop = scroller.scrollTop + (elRect.bottom - scRect.bottom) + 24;
+    scroller.scrollTo({ top: Math.max(0, nextTop), behavior: "smooth" });
   };
-  // Esperar al paint del composer (setState → mount) antes de scrollear.
-  window.requestAnimationFrame(() => {
-    window.requestAnimationFrame(run);
-  });
+  window.requestAnimationFrame(() => window.requestAnimationFrame(run));
   window.setTimeout(run, 80);
 }
 
@@ -179,6 +185,8 @@ export function CorreoReplyBox({
   });
   const [metaReady, setMetaReady] = useState(false);
   const [open, setOpen] = useState<{ mode: ComposerMode; ai: boolean; expanded: boolean } | null>(null);
+  /** Solo incrementa en aperturas explícitas — no al togglear IA/modo/expand. */
+  const [openSeq, setOpenSeq] = useState(0);
   const [activeDraft, setActiveDraft] = useState<ThreadDraftSeed | null>(null);
 
   const threadDraft = useMemo(() => findThreadDraft(detail.messages), [detail.messages]);
@@ -186,14 +194,16 @@ export function CorreoReplyBox({
   function openComposer(mode: ComposerMode, ai = false, draft: CorreoMessageDTO | null = threadDraft) {
     setActiveDraft(draft && mode !== "forward" ? toThreadDraftSeed(draft) : null);
     setOpen({ mode, ai, expanded: false });
+    setOpenSeq((n) => n + 1);
   }
 
-  // Al abrir Responder / A todos / Reenviar / IA, bajar al composer
-  // (también cuando termina de cargar el meta y monta el box real).
+  // Al abrir Responder / A todos / Reenviar, bajar al composer (también cuando
+  // termina de cargar el meta). Alternar IA / modo / expand no reposiciona.
   useEffect(() => {
     if (!open) return;
     scrollComposerIntoView();
-  }, [open, metaReady]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openSeq, metaReady]);
 
   // Notifica apertura/cierre del composer (isla móvil = exclusividad) vía ref.
   const onOpenChangeRef = useRef(onOpenChange);
@@ -287,7 +297,7 @@ export function CorreoReplyBox({
   // Si reanudamos un borrador ya tenemos destinatarios/cuerpo — no bloquear.
   if (!metaReady && open.mode !== "forward" && !activeDraft) {
     return (
-      <div id="correo-suggested-reply" className="flex justify-center py-4">
+      <div data-correo-reply-anchor className="flex justify-center py-4">
         <Spinner />
       </div>
     );
