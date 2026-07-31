@@ -1,7 +1,7 @@
 import type { CorreoDetail } from "@/modules/crm/email/correos.types";
 
 /**
- * Pendientes de Copiloto para un hilo (badge desktop + ✨/sheet móvil).
+ * Pendientes de Copiloto para un hilo (badge desktop + ✨ móvil).
  * Motivos: sin cuenta, adjuntos sin guardar, urgencia alta sin negocio,
  * adjuntos no cargados (`degraded`).
  */
