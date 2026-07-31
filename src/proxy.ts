@@ -62,8 +62,14 @@ function isPublicPath(pathname: string): boolean {
   // Placeholders de módulos
   if (pathname === '/hub' || pathname === '/crm') return true;
 
-  // Mockup RSVP correo (solo UI; sin datos ni APIs) — revisión de diseño sin login
+  // Mockups correo (solo UI; sin datos ni APIs) — revisión de diseño sin login
   if (pathname === '/opai-ds-playground/correo-rsvp' || pathname.startsWith('/opai-ds-playground/correo-rsvp/')) {
+    return true;
+  }
+  if (
+    pathname === '/opai-ds-playground/correo-reader-mobile' ||
+    pathname.startsWith('/opai-ds-playground/correo-reader-mobile/')
+  ) {
     return true;
   }
 

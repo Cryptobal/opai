@@ -38,7 +38,7 @@ export function CorreoMessageRow({ m, attachmentCount, unread = false, onOpen }:
       data-correo-draft={isDraft ? "true" : undefined}
       onClick={onOpen}
       aria-expanded={false}
-      className="flex h-11 min-h-11 w-full min-w-0 items-center gap-2 px-1 text-left ds-tap hover:bg-ds-surface-2 sm:px-2"
+      className="flex h-9 min-h-9 w-full min-w-0 items-center gap-2 px-1 text-left ds-tap hover:bg-ds-surface-2 sm:h-10 sm:min-h-10 sm:px-2"
     >
       <CorreoSenderAvatar fromEmail={m.fromEmail} compact />
       {isDraft ? (
