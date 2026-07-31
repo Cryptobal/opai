@@ -170,11 +170,11 @@ export default function CorreoReaderMobilePlayground() {
                       isUnread: false,
                       archived: false,
                       trashed: false,
-                      starred,
                       onArchive: () => {},
                       onTrash: () => {},
                       onToggleRead: () => {},
-                      onToggleStar: () => setStarred((s) => !s),
+                      onOpenCopilot: () => setSheet("assoc"),
+                      copilotPending: true,
                       onOpenTasks: () => setSheet("tasks"),
                     }}
                   />
@@ -190,7 +190,6 @@ export default function CorreoReaderMobilePlayground() {
                             accountName={detail.thread.accountName}
                             canEdit
                             onOpenAssociations={() => setSheet("assoc")}
-                            onOpenTasks={() => setSheet("tasks")}
                             onSearchAccount={() => setSheet("assoc")}
                           />
                         </div>
