@@ -75,9 +75,11 @@ ios/
 android-terreno/
 android-personas/
 android-erp/
+android-cliente/
 ios-terreno/
 ios-personas/
 ios-erp/
+ios-cliente/
 
 # iCloud/Dropbox/OneDrive sync conflict artifacts
 * 2.*

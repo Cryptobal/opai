@@ -40,7 +40,13 @@
     "cap:erp:open": "node scripts/cap-ensure-webdir.mjs && cp -r android-erp android && CAPACITOR_APP=erp npx cap open android",
     "cap:erp:ios:init": "node scripts/cap-ensure-webdir.mjs && CAPACITOR_APP=erp npx cap add ios && mv ios ios-erp",
     "cap:erp:ios:sync": "node scripts/cap-ensure-webdir.mjs && cp -r ios-erp ios && CAPACITOR_APP=erp npx cap sync ios && rm -rf ios-erp && mv ios ios-erp",
-    "cap:erp:ios:open": "node scripts/cap-ensure-webdir.mjs && cp -r ios-erp ios && CAPACITOR_APP=erp npx cap open ios"
+    "cap:erp:ios:open": "node scripts/cap-ensure-webdir.mjs && cp -r ios-erp ios && CAPACITOR_APP=erp npx cap open ios",
+    "cap:cliente:init": "node scripts/cap-ensure-webdir.mjs && CAPACITOR_APP=cliente npx cap add android && mv android android-cliente",
+    "cap:cliente:sync": "node scripts/cap-ensure-webdir.mjs && cp -r android-cliente android && CAPACITOR_APP=cliente npx cap sync android && rm -rf android-cliente && mv android android-cliente",
+    "cap:cliente:open": "node scripts/cap-ensure-webdir.mjs && cp -r android-cliente android && CAPACITOR_APP=cliente npx cap open android",
+    "cap:cliente:ios:init": "node scripts/cap-ensure-webdir.mjs && CAPACITOR_APP=cliente npx cap add ios && mv ios ios-cliente",
+    "cap:cliente:ios:sync": "node scripts/cap-ensure-webdir.mjs && cp -r ios-cliente ios && CAPACITOR_APP=cliente npx cap sync ios && rm -rf ios-cliente && mv ios ios-cliente",
+    "cap:cliente:ios:open": "node scripts/cap-ensure-webdir.mjs && cp -r ios-cliente ios && CAPACITOR_APP=cliente npx cap open ios"
   },
   "prisma": {
     "seed": "ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/seed.ts"
