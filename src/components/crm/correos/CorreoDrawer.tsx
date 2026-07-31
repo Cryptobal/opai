@@ -180,8 +180,9 @@ export function CorreoDrawer({
   }, [threadId]);
 
   // Deep-link / menú contextual: abrir Copiloto en una pestaña.
+  // Sin hilo abierto no hay dónde montarlo: se ignora el intent.
   useEffect(() => {
-    if (!workTabIntent) return;
+    if (!workTabIntent || !threadId) return;
     setWorkPanelTab(resolveWorkTab(workTabIntent.tab));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [workTabIntent?.nonce]);
@@ -195,8 +196,8 @@ export function CorreoDrawer({
   const workPanelTabChangeRef = useRef(onWorkPanelTabChange);
   workPanelTabChangeRef.current = onWorkPanelTabChange;
   useEffect(() => {
-    workPanelTabChangeRef.current?.(workPanelTab);
-  }, [workPanelTab]);
+    workPanelTabChangeRef.current?.(threadId ? workPanelTab : null);
+  }, [workPanelTab, threadId]);
   useEffect(() => {
     return () => workPanelTabChangeRef.current?.(null);
   }, []);
