@@ -218,7 +218,8 @@ export function CorreoComposeSheet({
           "bg-ds-surface-2",
           win === "minimized"
             ? "h-12 rounded-[inherit] border-b-0 pt-0"
-            : "h-12 pt-[calc(env(safe-area-inset-top,0px)+0.5rem)] md:h-11 md:pt-0",
+            : // Móvil fullscreen: pt safe-area suma altura (sin h-* fijo).
+              "min-h-12 pb-2 pt-[calc(env(safe-area-inset-top,0px)+0.5rem)] md:h-11 md:min-h-0 md:pb-0 md:pt-0",
         )}
       >
         <button

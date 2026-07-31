@@ -344,7 +344,9 @@ export function CorreoComposerBox(props: Props) {
         aria-modal="true"
         aria-label="Redactar correo"
       >
-        <header className="opai-glass-strong flex h-14 shrink-0 items-center gap-0.5 border-b border-ds-border-subtle px-2 pt-[env(safe-area-inset-top)]">
+        {/* Sin h-* fijo: el pt safe-area debe sumar altura, no comerse la fila
+            de botones (antes h-14 + pt dejaba los controles pegados al notch). */}
+        <header className="opai-glass-strong flex shrink-0 items-center gap-0.5 border-b border-ds-border-subtle px-2 pb-2 pt-[calc(env(safe-area-inset-top,0px)+0.5rem)]">
           <button
             type="button"
             aria-label="Cerrar"
