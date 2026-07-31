@@ -1,33 +1,27 @@
 "use client";
 
-import { Briefcase, ChevronRight } from "lucide-react";
+import { Briefcase } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useCorreoWorkOptional } from "./CorreoWorkContext";
 
 type Props = {
   accountId: string | null;
   accountName: string | null;
   canEdit: boolean;
   onOpenAssociations: () => void;
-  onOpenTasks: () => void;
   onSearchAccount: () => void;
 };
 
 /**
  * Franja de contexto del lector móvil: una sola línea (~28–32px).
- * Izquierda: cuenta ancla · Derecha: N tareas. La cascada vive en sheet.
+ * Solo cuenta ancla — las tareas viven en el header (sin duplicar).
  */
 export function CorreoReaderContextStrip({
   accountId,
   accountName,
   canEdit,
   onOpenAssociations,
-  onOpenTasks,
   onSearchAccount,
 }: Props) {
-  const work = useCorreoWorkOptional();
-  const openTasks = (work?.tasks.data ?? []).filter((t) => t.status !== "done").length;
-
   return (
     <div
       className={cn(
@@ -58,22 +52,6 @@ export function CorreoReaderContextStrip({
           <span className="truncate">{canEdit ? "Asociar cuenta" : "Sin cuenta"}</span>
         </button>
       )}
-
-      <button
-        type="button"
-        onClick={onOpenTasks}
-        aria-label={
-          openTasks > 0
-            ? `${openTasks} tarea${openTasks === 1 ? "" : "s"} abiertas`
-            : "Tareas del hilo"
-        }
-        className="inline-flex h-8 shrink-0 items-center gap-0.5 pl-1 text-[12px] font-medium text-ds-text-3 ds-tap hover:text-ds-text-1"
-      >
-        <span className="tabular-nums">
-          {openTasks > 0 ? `${openTasks} tarea${openTasks === 1 ? "" : "s"}` : "Tareas"}
-        </span>
-        <ChevronRight className="h-3.5 w-3.5" aria-hidden />
-      </button>
     </div>
   );
 }

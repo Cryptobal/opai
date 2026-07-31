@@ -432,7 +432,6 @@ export function CorreoDrawer({
           const isUnread = detail.thread.isUnread;
           const archived = Boolean(detail.thread.archivedAt);
           const trashed = Boolean(detail.thread.trashedAt);
-          const starred = Boolean(detail.thread.starredAt);
           const removeAfter = (
             action: "archive" | "trash",
             okMsg: string,
@@ -466,7 +465,6 @@ export function CorreoDrawer({
             isUnread,
             archived,
             trashed,
-            starred,
             onArchive: () =>
               archived
                 ? restoreAfter("unarchive", "Restaurado a bandeja")
@@ -485,15 +483,12 @@ export function CorreoDrawer({
                 onUndoDone,
               );
             },
-            onToggleStar: () => toggleStar?.(),
+            onOpenCopilot: () => setWorkPanelTab(resolveWorkTab("contexto")),
+            copilotPending: copilotoAttentionReasons(detail).length > 0,
             onOpenTasks: () => setWorkPanelTab(resolveWorkTab("trabajo")),
           };
         })()
       : null;
-
-  const copilotPending = Boolean(
-    detailReady && copilotoAttentionReasons(detail).length > 0,
-  );
 
   // Copiloto sigue abierto al cambiar de mail: actualiza al nuevo detalle y,
   // mientras carga, mantiene el anterior para no “desaparecer”.
@@ -530,8 +525,6 @@ export function CorreoDrawer({
                 threadId={detail.thread.id}
                 providerThreadId={detail.thread.providerThreadId}
                 onOpenSnooze={() => setSnoozeOpen(true)}
-                onOpenCopilot={() => setWorkPanelTab(resolveWorkTab("contexto"))}
-                copilotPending={copilotPending}
               />
             ) : undefined
           }

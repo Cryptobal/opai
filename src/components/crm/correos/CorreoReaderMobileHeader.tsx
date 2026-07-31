@@ -7,7 +7,7 @@ import {
   ListChecks,
   Mail,
   MailOpen,
-  Star,
+  Sparkles,
   Trash2,
   Undo2,
 } from "lucide-react";
@@ -27,11 +27,11 @@ type Props = {
     isUnread: boolean;
     archived: boolean;
     trashed: boolean;
-    starred: boolean;
     onArchive: () => void;
     onTrash: () => void;
     onToggleRead: () => void;
-    onToggleStar: () => void;
+    onOpenCopilot: () => void;
+    copilotPending?: boolean;
     onOpenTasks: () => void;
   } | null;
 };
@@ -39,7 +39,8 @@ type Props = {
 /**
  * Header adaptativo del lector móvil (`<lg`). En reposo: transparente, Volver
  * + acciones de hilo + `⋯`. Al scrollear (`scrolled`): glass + asunto truncado.
- * Patrón: Archivar · Eliminar · Leído · Destacar · Tareas · ⋯.
+ * Patrón: Archivar · Eliminar · Leído · Copiloto · Tareas · ⋯.
+ * Destacar vive junto al asunto (`CorreoReaderTitleBlock`).
  */
 export function CorreoReaderMobileHeader({
   subject,
@@ -104,27 +105,32 @@ export function CorreoReaderMobileHeader({
             >
               {a.isUnread ? <MailOpen className="h-5 w-5" /> : <Mail className="h-5 w-5" />}
             </HeaderIconBtn>
-            <HeaderIconBtn
-              label={a.starred ? "Quitar destacado" : "Destacar"}
-              onClick={a.onToggleStar}
-            >
-              <Star
-                className={cn(
-                  "h-5 w-5",
-                  a.starred && "fill-status-warn-fg text-status-warn-fg",
+            <HeaderIconBtn label="Copiloto" onClick={a.onOpenCopilot}>
+              <span className="relative inline-flex">
+                <Sparkles className="h-5 w-5" />
+                {a.copilotPending && (
+                  <span
+                    className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-status-warn"
+                    aria-hidden
+                  />
                 )}
-              />
+              </span>
             </HeaderIconBtn>
-            <HeaderIconBtn label="Tareas" onClick={a.onOpenTasks}>
+            <HeaderIconBtn
+              label={
+                openTasks > 0
+                  ? `Tareas (${openTasks} abierta${openTasks === 1 ? "" : "s"})`
+                  : "Tareas"
+              }
+              onClick={a.onOpenTasks}
+            >
               <span className="relative inline-flex">
                 <ListChecks className="h-5 w-5" />
                 {openTasks > 0 && (
                   <span
-                    className="absolute -right-2 -top-1.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-primary px-1 text-[12px] font-semibold leading-none text-primary-foreground tabular-nums"
+                    className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-primary ring-2 ring-background"
                     aria-hidden
-                  >
-                    {openTasks > 9 ? "9+" : openTasks}
-                  </span>
+                  />
                 )}
               </span>
             </HeaderIconBtn>

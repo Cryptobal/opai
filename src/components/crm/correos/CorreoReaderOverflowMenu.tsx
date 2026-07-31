@@ -8,7 +8,6 @@ import {
   ExternalLink,
   MoreHorizontal,
   Printer,
-  Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -17,21 +16,17 @@ type Props = {
   providerThreadId: string | null;
   /** Abre el sheet de posponer (lector móvil / desktop). */
   onOpenSnooze?: () => void;
-  /** Abre Copiloto (fuera del camino de lectura en móvil). */
-  onOpenCopilot?: () => void;
-  copilotPending?: boolean;
 };
 
 /**
  * Menú "⋯ Más acciones" del lector: Posponer · Gmail · Copiar enlace ·
- * Imprimir · Ver original. Firma y Estilo viven en el composer.
+ * Imprimir · Ver original. Copiloto vive en el header (móvil) / chip desktop;
+ * Firma y Estilo viven en el composer.
  */
 export function CorreoReaderOverflowMenu({
   threadId,
   providerThreadId,
   onOpenSnooze,
-  onOpenCopilot,
-  copilotPending = false,
 }: Props) {
   const [open, setOpen] = useState(false);
   const gmailUrl = providerThreadId
@@ -104,28 +99,6 @@ export function CorreoReaderOverflowMenu({
             role="menu"
             className="absolute right-0 z-[56] mt-1 w-52 overflow-hidden rounded-xl border border-ds-border-default bg-ds-surface-1 py-1 shadow-ds-lg"
           >
-            {onOpenCopilot && (
-              <button
-                type="button"
-                role="menuitem"
-                onClick={() => {
-                  setOpen(false);
-                  onOpenCopilot();
-                }}
-                className={itemCls}
-              >
-                <span className="relative inline-flex">
-                  <Sparkles className="h-4 w-4 text-ds-text-3" />
-                  {copilotPending && (
-                    <span
-                      className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-status-warn"
-                      aria-hidden
-                    />
-                  )}
-                </span>
-                Copiloto
-              </button>
-            )}
             {onOpenSnooze && (
               <button
                 type="button"
