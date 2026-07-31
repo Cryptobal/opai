@@ -98,4 +98,28 @@ describe("buildEmailSrcDoc", () => {
     expect(doc).toContain("color:hsl(210 40% 96%)!important");
     expect(doc).toContain("hsl(174 72% 55%)");
   });
+
+  it("en modo noche reafirma el fondo del body tras el override transparente (anti negro UA)", () => {
+    const doc = buildEmailSrcDoc("<p>Hola</p>", true);
+    const transparentIdx = doc.indexOf(
+      "background-color:transparent!important",
+    );
+    const bodyBgIdx = doc.indexOf(
+      "body{background-color:hsl(218 32% 14%)!important}",
+    );
+    expect(transparentIdx).toBeGreaterThan(-1);
+    expect(bodyBgIdx).toBeGreaterThan(transparentIdx);
+    expect(doc).toContain("color-scheme:dark");
+    expect(doc).toContain("hsl(218 24% 26%)");
+  });
+
+  it("en modo claro usa fondo blanco y no activa color-scheme dark", () => {
+    const doc = buildEmailSrcDoc("<p>Hola</p>", false);
+    expect(doc).toContain("background:hsl(0 0% 100%)");
+    expect(doc).toContain("color-scheme:light");
+    expect(doc).not.toContain("color-scheme:dark");
+    expect(doc).not.toContain(
+      "body{background-color:hsl(218 32% 14%)!important}",
+    );
+  });
 });

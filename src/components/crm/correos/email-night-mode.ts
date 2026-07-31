@@ -5,11 +5,11 @@ import { useSyncExternalStore } from "react";
 /**
  * Preferencia global "fondo oscuro del correo" (toggle 🌙/☀️ del cuerpo).
  *
- * Antes vivía como `useState` local en cada `EmailHtmlBody`: se reiniciaba en
- * cada refresh y en cada re-render del hilo (parpadeo del lector), y no se
- * compartía entre mensajes ni entre móvil/desktop. Ahora es un store externo
- * persistido en `localStorage`: se conserva al refrescar la página, es el mismo
- * en móvil y desktop, y todos los cuerpos abiertos se sincronizan al alternarlo.
+ * Persistida en `localStorage` y compartida entre mensajes / móvil / desktop.
+ * Default: noche (`true`) cuando no hay valor o el storage falla. Solo `"0"`
+ * explícito fuerza fondo claro. El consumidor (`EmailHtmlBody`) acopla esta
+ * preferencia al tema de la app: en tema claro el cuerpo es siempre blanco
+ * y el toggle no se muestra; en oscuro aplica `preferenciaNoche`.
  */
 const STORAGE_KEY = "opai.crm.correos.email-night.v1";
 
@@ -19,10 +19,11 @@ let storageBound = false;
 
 function readStorage(): boolean {
   try {
-    return localStorage.getItem(STORAGE_KEY) === "1";
+    // Solo `"0"` explícito = claro; ausencia / `"1"` / otro = noche.
+    return localStorage.getItem(STORAGE_KEY) !== "0";
   } catch {
-    // Safari/modo privado puede bloquear storage: fondo claro por defecto.
-    return false;
+    // Safari/modo privado puede bloquear storage: noche por defecto.
+    return true;
   }
 }
 
@@ -31,9 +32,9 @@ function getSnapshot(): boolean {
   return cached;
 }
 
-/** SSR/hidratación: fondo claro (evita mismatch; el cliente re-renderiza). */
+/** SSR/hidratación: noche (evita mismatch; el cliente re-renderiza si hay "0"). */
 function getServerSnapshot(): boolean {
-  return false;
+  return true;
 }
 
 function notify() {
