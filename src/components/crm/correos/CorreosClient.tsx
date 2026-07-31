@@ -321,11 +321,16 @@ export function CorreosClient() {
   /** Secuencia de requests: una respuesta reset huérfana (deep-links rápidos
    *  del copiloto) nunca pisa los resultados de la última búsqueda. */
   const fetchSeqRef = useRef(0);
+  /** Término ya reintentado con semántico (evita bucle bajo umbral). */
+  const semanticRetryTermRef = useRef<string | null>(null);
+  /** Enter / reintento: la próxima fetch de búsqueda lleva semantic=1. */
+  const pendingSemanticRef = useRef(false);
+  const SEMANTIC_FALLBACK_THRESHOLD = 5;
   const fetchPage = useCallback(async (
     cur: string | null,
     reset: boolean,
     nextFolder?: CorreoFolderTab,
-    opts?: { silent?: boolean; preserveItems?: boolean },
+    opts?: { silent?: boolean; preserveItems?: boolean; semantic?: boolean },
   ) => {
     const seq = ++fetchSeqRef.current;
     const isStaleReset = () => reset && seq !== fetchSeqRef.current;
@@ -340,6 +345,10 @@ export function CorreosClient() {
     // Tras archivar/atajos: solo reconciliar counts/meta sin reemplazar filas
     // (la UI ya es optimista). Evita el pestañeo de remount de la lista.
     const preserveItems = Boolean(opts?.preserveItems);
+    const wantSemantic =
+      Boolean(opts?.semantic) ||
+      (Boolean(debouncedQuery) && pendingSemanticRef.current);
+    if (wantSemantic) pendingSemanticRef.current = false;
     if (!silent) setLoading(true);
     try {
       const f = nextFolder ?? folder;
@@ -348,6 +357,7 @@ export function CorreosClient() {
       if (f !== "inbox") qs.set("folder", f);
       if (debouncedQuery) qs.set("q", debouncedQuery);
       if (withTasks && !debouncedQuery) qs.set("withTasks", "1");
+      if (debouncedQuery && wantSemantic) qs.set("semantic", "1");
       const scopeId = activeAccountIdRef.current;
       if (scopeId) qs.set("accountId", scopeId);
       else if (scopeHydratedRef.current) qs.set("accountId", "all");
@@ -460,6 +470,7 @@ export function CorreosClient() {
       } else {
         setSearchMeta(null);
         setSearchScope(null);
+        semanticRetryTermRef.current = null;
       }
       setBackfillDone(typeof r.backfillDone === "boolean" ? r.backfillDone : null);
       setLastSyncAt(typeof r.lastSyncAt === "string" ? r.lastSyncAt : null);
@@ -477,6 +488,22 @@ export function CorreosClient() {
         if (reset && f === "inbox" && !debouncedQuery && Array.isArray(r.items)) {
           void saveInboxSnapshot(r.items);
         }
+      }
+      // Reintento semántico automático: léxico pobre (<5) y aún no corrió.
+      // Una sola vez por término; si embeddings no están disponibles, no loop.
+      if (
+        reset &&
+        debouncedQuery &&
+        !wantSemantic &&
+        r.searchMeta &&
+        r.searchMeta.semanticRan === false &&
+        r.semanticAvailable !== false &&
+        (r.items?.length ?? 0) < SEMANTIC_FALLBACK_THRESHOLD &&
+        semanticRetryTermRef.current !== debouncedQuery
+      ) {
+        semanticRetryTermRef.current = debouncedQuery;
+        pendingSemanticRef.current = true;
+        void fetchPage(null, true, undefined, { semantic: true, silent: true });
       }
     } finally {
       if (seq === fetchSeqRef.current) setLoading(false);
@@ -1085,6 +1112,20 @@ export function CorreosClient() {
     onExit: () => {
       setQuery("");
       setDebouncedQuery("");
+      semanticRetryTermRef.current = null;
+      pendingSemanticRef.current = false;
+    },
+    onSubmit: () => {
+      const term = query.trim();
+      if (!term) return;
+      // Enter confirma: dispara semántico. Sincroniza debounce si aún no corrió.
+      semanticRetryTermRef.current = term;
+      pendingSemanticRef.current = true;
+      if (debouncedQuery !== term) {
+        setDebouncedQuery(term);
+      } else {
+        void fetchPage(null, true, undefined, { semantic: true, silent: true });
+      }
     },
     operators: CORREO_SEARCH_OPERATORS,
   });
@@ -2068,6 +2109,7 @@ export function CorreosClient() {
             )}
             {searching &&
               searchMeta &&
+              searchMeta.semanticRan &&
               !searchMeta.hasExactMatches &&
               (searchMeta.shownCount > 0 || items.length > 0) && (
               <div className="flex flex-wrap items-center gap-2 rounded-xl border border-status-warn-border bg-status-warn-soft px-3 py-2 text-[13px] text-status-warn-fg">

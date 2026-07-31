@@ -180,7 +180,9 @@ describe("hybridSearchThreadIds", () => {
       limit: 10,
     });
     expect(result.ids).toEqual(["lex1"]);
-    expect(result.semanticAvailable).toBe(false);
+    // Capacidad de entorno intacta; la rama simplemente no aportó esta vez.
+    expect(result.semanticAvailable).toBe(true);
+    expect(result.semanticRan).toBe(false);
     expect(result.reasonById.get("lex1")).toBe("lexical");
   });
 
@@ -309,25 +311,24 @@ describe("hybridSearchThreadIds", () => {
   });
 
   it("excerptById queda poblado para matches léxicos puros", async () => {
-    mocks.queryRaw.mockResolvedValue([
-      {
-        id: "lex-only",
-        last_message_at: new Date(),
-        subject: "cotización",
-        is_unread: false,
-        attachment_count: 0,
-        account_id: null,
-      },
-    ]);
+    mocks.queryRaw
+      .mockResolvedValueOnce([
+        {
+          id: "lex-only",
+          last_message_at: new Date(),
+          subject: "cotización",
+          is_unread: false,
+          attachment_count: 0,
+          account_id: null,
+        },
+      ])
+      .mockResolvedValueOnce([
+        {
+          thread_id: "lex-only",
+          body: "Necesitamos cotización de 4 guardias para Macronet.",
+        },
+      ]);
     mocks.semanticSearchChunks.mockResolvedValue([]);
-    mocks.messageFindMany.mockResolvedValue([
-      {
-        threadId: "lex-only",
-        textBody: "Necesitamos cotización de 4 guardias para Macronet.",
-        htmlBody: null,
-        sentAt: new Date(),
-      },
-    ]);
     const parsed = parseCorreoSearchQuery("cotización")!;
     const result = await hybridSearchThreadIds({
       tenantId: "ten",
@@ -338,5 +339,80 @@ describe("hybridSearchThreadIds", () => {
     });
     expect(result.reasonById.get("lex-only")).toBe("lexical");
     expect(result.excerptById.get("lex-only")).toMatch(/cotización/i);
+  });
+
+  it("con matches léxicos anexa solo-semánticos al final sin reordenar", async () => {
+    mocks.queryRaw.mockResolvedValue([
+      {
+        id: "lex-a",
+        last_message_at: new Date(),
+        subject: "dotación",
+        is_unread: false,
+        attachment_count: 0,
+        account_id: null,
+      },
+      {
+        id: "lex-b",
+        last_message_at: new Date(),
+        subject: "otro",
+        is_unread: false,
+        attachment_count: 0,
+        account_id: null,
+      },
+    ]);
+    mocks.semanticSearchChunks.mockResolvedValue([
+      {
+        threadId: "sem-only",
+        messageId: "m1",
+        content: "más personal",
+        distance: 0.1,
+      },
+      {
+        threadId: "lex-b",
+        messageId: "m2",
+        content: "dotación compartida",
+        distance: 0.15,
+      },
+    ]);
+    const parsed = parseCorreoSearchQuery("dotación")!;
+    const result = await hybridSearchThreadIds({
+      tenantId: "ten",
+      emailAccountIds: ["00000000-0000-0000-0000-000000000001"],
+      parsed,
+      folder: "inbox",
+      limit: 10,
+    });
+    expect(result.hasExactMatches).toBe(true);
+    expect(result.semanticRan).toBe(true);
+    // Bloque léxico primero; sem-only al final.
+    expect(result.ids.indexOf("lex-a")).toBeLessThan(result.ids.indexOf("sem-only"));
+    expect(result.ids.indexOf("lex-b")).toBeLessThan(result.ids.indexOf("sem-only"));
+    expect(result.ids[result.ids.length - 1]).toBe("sem-only");
+  });
+
+  it("exactOnly omite embeddings y marca semanticRan=false", async () => {
+    mocks.queryRaw.mockResolvedValue([
+      {
+        id: "lex1",
+        last_message_at: new Date(),
+        subject: "factura",
+        is_unread: false,
+        attachment_count: 0,
+        account_id: null,
+      },
+    ]);
+    const parsed = parseCorreoSearchQuery("factura")!;
+    const result = await hybridSearchThreadIds({
+      tenantId: "ten",
+      emailAccountIds: ["00000000-0000-0000-0000-000000000001"],
+      parsed,
+      folder: "inbox",
+      limit: 10,
+      exactOnly: true,
+    });
+    expect(mocks.semanticSearchChunks).not.toHaveBeenCalled();
+    expect(result.semanticRan).toBe(false);
+    expect(result.semanticAvailable).toBe(true);
+    expect(result.ids).toEqual(["lex1"]);
   });
 });

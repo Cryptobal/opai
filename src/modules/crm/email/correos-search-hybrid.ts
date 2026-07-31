@@ -49,7 +49,10 @@ const RECENCY_WINDOW_MS = 180 * 24 * 60 * 60 * 1000;
 export type HybridSearchResult = {
   ids: string[];
   reasonById: Map<string, MatchReason>;
+  /** Capacidad de entorno (API key + flag), independiente de exactOnly. */
   semanticAvailable: boolean;
+  /** true si esta invocación ejecutó la rama semántica. */
+  semanticRan: boolean;
   /** Mejor excerpt por hilo cuando la rama semántica aportó. */
   excerptById: Map<string, string>;
   /** Coincidencias léxicas (texto/operadores) antes del fuse. */
@@ -65,6 +68,9 @@ export type HybridSearchResult = {
   /** true si el ranking alcanzó el techo de overfetch (puede haber más). */
   totalIsLowerBound: boolean;
 };
+
+/** Bajo este umbral de resultados léxicos el cliente pide semántico. */
+export const SEMANTIC_FALLBACK_THRESHOLD = 5;
 
 /** Techo de overfetch / offset de paginación por score. */
 export const HYBRID_MAX_RANK = 500;
@@ -160,6 +166,7 @@ export async function hybridSearchThreadIds(params: {
       ids: [],
       reasonById: new Map(),
       semanticAvailable: semanticAvailableEnv,
+      semanticRan: false,
       excerptById: new Map(),
       lexicalCount: 0,
       semanticCount: 0,
@@ -191,6 +198,7 @@ export async function hybridSearchThreadIds(params: {
       ids: idRows.map((r) => r.id),
       reasonById,
       semanticAvailable: semanticAvailableEnv,
+      semanticRan: false,
       excerptById: new Map(),
       lexicalCount: idRows.length,
       semanticCount: 0,
@@ -241,8 +249,10 @@ export async function hybridSearchThreadIds(params: {
 
   const lexicalRows = lexSettled.status === "fulfilled" ? lexSettled.value : [];
   const rawSemanticHits = semSettled.status === "fulfilled" ? semSettled.value : [];
-  const semanticAvailable =
-    semanticAvailableEnv && !exactOnly && semSettled.status === "fulfilled";
+  // Capacidad de entorno (UI); independiente de si esta request pidió semántico.
+  const semanticAvailable = semanticAvailableEnv;
+  const semanticRan =
+    !exactOnly && semanticAvailableEnv && semSettled.status === "fulfilled";
 
   const acceptedHits = rawSemanticHits.filter(
     (h) => Number.isFinite(h.distance) && h.distance <= SEMANTIC_MAX_DISTANCE,
@@ -254,20 +264,38 @@ export async function hybridSearchThreadIds(params: {
   const semanticIds = rankThreadsFromHits(acceptedHits, overfetch);
   const lexicalMeta = new Map(lexicalRows.map((r) => [r.id, r]));
 
-  // Sin exactos: devolver semánticos (si pasan umbral) pero marcados — la UI
-  // muestra banner "Sin coincidencias exactas". Nunca inventar ranking vacío
-  // como si hubiera match léxico.
-  const scores = fuseRrfScores({
-    lexicalIds,
-    semanticIds: hasExactMatches || !exactOnly ? semanticIds : [],
-    lexicalMeta,
-    terms: params.parsed.terms,
-    now,
-  });
-
-  const rankedAll = Array.from(scores.entries())
-    .sort((a, b) => b[1] - a[1])
-    .map(([id]) => id);
+  // Con matches léxicos: preservar su orden (boosts deterministas) y anexar
+  // solo-semánticos al final — la lista ya pintada no se reordena al llegar
+  // el semántico. Sin exactos: RRF completo (banner "sin coincidencias exactas").
+  let rankedAll: string[];
+  if (hasExactMatches) {
+    const lexicalScores = fuseRrfScores({
+      lexicalIds,
+      semanticIds: [],
+      lexicalMeta,
+      terms: params.parsed.terms,
+      now,
+    });
+    const lexicalRanked = Array.from(lexicalScores.entries())
+      .sort((a, b) => b[1] - a[1])
+      .map(([id]) => id);
+    const lexicalSetForAppend = new Set(lexicalIds);
+    const semanticOnly = semanticRan
+      ? semanticIds.filter((id) => !lexicalSetForAppend.has(id))
+      : [];
+    rankedAll = [...lexicalRanked, ...semanticOnly];
+  } else {
+    const scores = fuseRrfScores({
+      lexicalIds,
+      semanticIds: semanticRan ? semanticIds : [],
+      lexicalMeta,
+      terms: params.parsed.terms,
+      now,
+    });
+    rankedAll = Array.from(scores.entries())
+      .sort((a, b) => b[1] - a[1])
+      .map(([id]) => id);
+  }
   const totalCount = rankedAll.length;
   const totalIsLowerBound =
     lexicalIds.length >= overfetch || semanticIds.length >= overfetch;
@@ -316,6 +344,7 @@ export async function hybridSearchThreadIds(params: {
     ids: ranked,
     reasonById,
     semanticAvailable,
+    semanticRan,
     excerptById,
     lexicalCount: lexicalIds.length,
     semanticCount: semanticIds.length,

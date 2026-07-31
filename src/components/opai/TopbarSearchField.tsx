@@ -64,6 +64,7 @@ export function TopbarSearchField() {
     }
     if (e.key === "Enter") {
       e.preventDefault();
+      search!.onSubmit?.();
       inputRef.current?.blur();
     }
   }

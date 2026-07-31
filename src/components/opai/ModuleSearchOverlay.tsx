@@ -72,6 +72,7 @@ export function ModuleSearchOverlay({
     }
     if (e.key === "Enter") {
       e.preventDefault();
+      search.onSubmit?.();
       onClose();
     }
   }

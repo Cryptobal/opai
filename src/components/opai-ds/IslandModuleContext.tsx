@@ -58,6 +58,8 @@ export interface IslandSearch {
   value: string;
   onChange: (q: string) => void;
   onExit?: () => void;
+  /** Enter en el campo: confirmar búsqueda (p. ej. rama semántica). */
+  onSubmit?: () => void;
   /** Operadores ofrecidos por el módulo (topbar desktop). */
   operators?: ModuleSearchOperator[];
 }
@@ -147,9 +149,11 @@ export function useSetIslandSearch(search: IslandSearch | null | undefined) {
   const operators = search?.operators;
   const onChangeRef = useRef(search?.onChange);
   const onExitRef = useRef(search?.onExit);
+  const onSubmitRef = useRef(search?.onSubmit);
   const operatorsRef = useRef(operators);
   onChangeRef.current = search?.onChange;
   onExitRef.current = search?.onExit;
+  onSubmitRef.current = search?.onSubmit;
   operatorsRef.current = operators;
 
   // Publicar / limpiar solo al montar o cambiar placeholder/operators.
@@ -164,6 +168,7 @@ export function useSetIslandSearch(search: IslandSearch | null | undefined) {
       value,
       onChange: (q: string) => onChangeRef.current?.(q),
       onExit: () => onExitRef.current?.(),
+      onSubmit: () => onSubmitRef.current?.(),
       operators: operatorsRef.current,
     });
     return () => setSearch(null);
@@ -179,6 +184,7 @@ export function useSetIslandSearch(search: IslandSearch | null | undefined) {
       value,
       onChange: (q: string) => onChangeRef.current?.(q),
       onExit: () => onExitRef.current?.(),
+      onSubmit: () => onSubmitRef.current?.(),
       operators: operatorsRef.current,
     });
   }, [setSearch, placeholder, value, operatorsKey]);
