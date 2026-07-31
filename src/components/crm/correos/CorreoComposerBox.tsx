@@ -395,7 +395,7 @@ export function CorreoComposerBox(props: Props) {
         <div
           id="correo-suggested-reply"
           data-email-composer
-          className="min-h-0 flex-1 overflow-y-auto px-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-2"
+          className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-2 [-webkit-overflow-scrolling:touch]"
         >
           {composer}
         </div>
