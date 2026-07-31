@@ -194,8 +194,8 @@ export function CorreoDrawerContent({
           }
         />
 
-        {/* Contexto móvil: breadcrumb siempre (cuenta·deal). Pendientes viven
-            en el sheet Copiloto (✨ del header). Desktop: fila de arriba. */}
+        {/* Contexto móvil: breadcrumb siempre (cuenta·deal). El Copiloto
+            completo (cascada, IA, Trabajo) se abre con ✨ del header. */}
         <div className="lg:hidden">
           <CorreoContextChain
             detail={detail}
@@ -206,7 +206,7 @@ export function CorreoDrawerContent({
           />
         </div>
 
-        {/* Degradado desktop; en móvil es motivo del sheet Copiloto. */}
+        {/* Degradado: desktop inline; en móvil también aparece en Copiloto. */}
         {detail.degraded && (
           <div className="hidden shrink-0 rounded-xl border border-status-warn-border bg-status-warn-soft px-3 py-2.5 text-[13px] text-status-warn-fg lg:block">
             No se pudieron cargar los adjuntos de este hilo desde Gmail. Reintentá en unos segundos.

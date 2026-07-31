@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import type { AccountSuggestion } from "./CorreoAccountSuggestionChips";
 
 /**
- * Caché por `threadId`: la cadena de contexto y el sheet Copiloto piden las
+ * Caché por `threadId`: la cadena de contexto y el Copiloto piden las
  * mismas cuentas sugeridas. Con este caché — resultado + petición en vuelo —
  * ambos consumidores comparten UNA sola petición a
  * `/api/crm/correos/{id}/suggest-account` (regla: no aumentar peticiones por

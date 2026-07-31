@@ -48,7 +48,7 @@ export function CorreoContextChain({
   );
   const pendingAttachments = detail.attachments.filter((a) => !a.savedFileId).length;
 
-  // Petición compartida con el sheet Copiloto (una sola por hilo).
+  // Petición compartida con el Copiloto (una sola por hilo).
   const suggestions = useCorreoSuggestedAccounts(t.id, t.accountId == null);
 
   if (!t.accountId) {
