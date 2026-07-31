@@ -86,23 +86,29 @@ export function buildThreadQuotedHtml(detail: ReplyBoxDetail): string {
 
 function scrollComposerIntoView() {
   const run = () => {
-    const el = document.getElementById("correo-suggested-reply");
+    const surface = document.querySelector<HTMLElement>(
+      "[data-correo-composer-surface]",
+    );
+    // Full-screen y modal cubren la pantalla: desplazar el lector no aporta
+    // y en esas ramas la superficie es su propio scroller.
+    const presentation = surface?.dataset.composerPresentation;
+    if (presentation === "fullscreen" || presentation === "modal") return;
+
+    const el = document.querySelector<HTMLElement>("[data-correo-reply-anchor]");
     if (!el) return;
-    // El scroller real es el panel del lector (overflow-auto), no la ventana.
-    const scroller = el.closest(".overflow-auto, .overflow-y-auto");
-    if (scroller instanceof HTMLElement) {
-      const elRect = el.getBoundingClientRect();
-      const scRect = scroller.getBoundingClientRect();
-      const nextTop = scroller.scrollTop + (elRect.bottom - scRect.bottom) + 24;
-      scroller.scrollTo({ top: Math.max(0, nextTop), behavior: "smooth" });
+    const scroller = document.querySelector<HTMLElement>(
+      "[data-correo-reader-scroller]",
+    );
+    if (!scroller || !scroller.contains(el)) {
+      el.scrollIntoView({ behavior: "smooth", block: "end" });
       return;
     }
-    el.scrollIntoView({ behavior: "smooth", block: "end" });
+    const elRect = el.getBoundingClientRect();
+    const scRect = scroller.getBoundingClientRect();
+    const nextTop = scroller.scrollTop + (elRect.bottom - scRect.bottom) + 24;
+    scroller.scrollTo({ top: Math.max(0, nextTop), behavior: "smooth" });
   };
-  // Esperar al paint del composer (setState → mount) antes de scrollear.
-  window.requestAnimationFrame(() => {
-    window.requestAnimationFrame(run);
-  });
+  window.requestAnimationFrame(() => window.requestAnimationFrame(run));
   window.setTimeout(run, 80);
 }
 
@@ -287,7 +293,7 @@ export function CorreoReplyBox({
   // Si reanudamos un borrador ya tenemos destinatarios/cuerpo — no bloquear.
   if (!metaReady && open.mode !== "forward" && !activeDraft) {
     return (
-      <div id="correo-suggested-reply" className="flex justify-center py-4">
+      <div data-correo-reply-anchor className="flex justify-center py-4">
         <Spinner />
       </div>
     );

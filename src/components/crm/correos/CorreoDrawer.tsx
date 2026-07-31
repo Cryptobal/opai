@@ -331,17 +331,24 @@ export function CorreoDrawer({
     (detailReady ? detail.thread.subject : null) || preview?.subject || "Correo";
   const scrollToReply = () => {
     const run = () => {
-      const el = document.getElementById("correo-suggested-reply");
+      const surface = document.querySelector<HTMLElement>(
+        "[data-correo-composer-surface]",
+      );
+      const presentation = surface?.dataset.composerPresentation;
+      if (presentation === "fullscreen" || presentation === "modal") return;
+      const el = document.querySelector<HTMLElement>("[data-correo-reply-anchor]");
       if (!el) return;
-      const scroller = el.closest(".overflow-auto, .overflow-y-auto");
-      if (scroller instanceof HTMLElement) {
-        const elRect = el.getBoundingClientRect();
-        const scRect = scroller.getBoundingClientRect();
-        const nextTop = scroller.scrollTop + (elRect.bottom - scRect.bottom) + 24;
-        scroller.scrollTo({ top: Math.max(0, nextTop), behavior: "smooth" });
+      const scroller = document.querySelector<HTMLElement>(
+        "[data-correo-reader-scroller]",
+      );
+      if (!scroller || !scroller.contains(el)) {
+        el.scrollIntoView({ behavior: "smooth", block: "end" });
         return;
       }
-      el.scrollIntoView({ behavior: "smooth", block: "end" });
+      const elRect = el.getBoundingClientRect();
+      const scRect = scroller.getBoundingClientRect();
+      const nextTop = scroller.scrollTop + (elRect.bottom - scRect.bottom) + 24;
+      scroller.scrollTo({ top: Math.max(0, nextTop), behavior: "smooth" });
     };
     window.requestAnimationFrame(() => window.requestAnimationFrame(run));
     window.setTimeout(run, 80);
