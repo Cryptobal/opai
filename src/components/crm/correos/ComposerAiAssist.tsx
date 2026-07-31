@@ -221,6 +221,7 @@ export function ComposerAiPromptPill({
           </div>
           <button
             type="button"
+            onPointerDown={(e) => e.preventDefault()}
             onClick={onGenerate}
             disabled={generating || (hasDraft && !value.trim())}
             title={
@@ -253,6 +254,7 @@ export function ComposerAiPromptPill({
         </div>
         <button
           type="button"
+          onPointerDown={(e) => e.preventDefault()}
           onClick={onClose}
           aria-label="Cerrar asistente IA"
           title="Cerrar"
