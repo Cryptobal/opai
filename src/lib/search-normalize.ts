@@ -377,6 +377,12 @@ export async function findOpsTicketIdsBySearch(params: {
  * Eventos de agenda (CalendarEvent) por título o ubicación.
  * Ventana temporal: desde now-60d hacia adelante (evita scan histórico).
  * Orden: proximidad a hoy.
+ *
+ * IMPORTANTE: `calendar_events` usa mapeo mixto — `tenant_id` / `created_by`
+ * son snake_case; el resto (`startAt`, `deletedAt`, `title`, `location`,
+ * `status`) son camelCase entre comillas en Postgres. Identificadores sin
+ * comillas se pliegan a minúsculas y producen 42703. No "normalizar" a
+ * snake_case en SQL crudo sin alinear el DDL.
  */
 export async function findCalendarEventIdsBySearch(params: {
   tenantId: string;
@@ -393,14 +399,14 @@ export async function findCalendarEventIdsBySearch(params: {
     SELECT e.id
     FROM public.calendar_events e
     WHERE e.tenant_id::text = ${tenantId}
-      AND e.deleted_at IS NULL
+      AND e."deletedAt" IS NULL
       AND e.status <> 'cancelled'
-      AND e.start_at >= ${from}
+      AND e."startAt" >= ${from}
       AND (
         LOWER(public.f_unaccent(e.title)) LIKE LOWER(public.f_unaccent(${pattern}))
         OR LOWER(public.f_unaccent(COALESCE(e.location, ''))) LIKE LOWER(public.f_unaccent(${pattern}))
       )
-    ORDER BY ABS(EXTRACT(EPOCH FROM (e.start_at - NOW()))) ASC
+    ORDER BY ABS(EXTRACT(EPOCH FROM (e."startAt" - NOW()))) ASC
     LIMIT ${limit}
   `);
 }
