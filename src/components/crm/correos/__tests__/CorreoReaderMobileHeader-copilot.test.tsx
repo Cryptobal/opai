@@ -21,8 +21,8 @@ vi.mock("../CorreoReaderScrollContext", () => ({
 describe("CorreoReaderMobileHeader — acciones", () => {
   afterEach(() => cleanup());
 
-  it("muestra Destacar y Tareas con badge; dispara callbacks", () => {
-    const onToggleStar = vi.fn();
+  it("muestra Copiloto y Tareas con badge de color; dispara callbacks", () => {
+    const onOpenCopilot = vi.fn();
     const onOpenTasks = vi.fn();
     render(
       <CorreoReaderMobileHeader
@@ -32,21 +32,24 @@ describe("CorreoReaderMobileHeader — acciones", () => {
           isUnread: false,
           archived: false,
           trashed: false,
-          starred: false,
           onArchive: () => {},
           onTrash: () => {},
           onToggleRead: () => {},
-          onToggleStar,
+          onOpenCopilot,
+          copilotPending: true,
           onOpenTasks,
         }}
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Destacar" }));
-    expect(onToggleStar).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("button", { name: "Destacar" })).toBeNull();
 
-    fireEvent.click(screen.getByRole("button", { name: "Tareas" }));
+    fireEvent.click(screen.getByRole("button", { name: "Copiloto" }));
+    expect(onOpenCopilot).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(screen.getByRole("button", { name: /Tareas \(1 abierta\)/ }));
     expect(onOpenTasks).toHaveBeenCalledTimes(1);
-    expect(screen.getByText("1")).toBeTruthy();
+    // Badge de color (punto), no contador numérico.
+    expect(screen.queryByText("1")).toBeNull();
   });
 });

@@ -33,7 +33,9 @@ describe("CorreoSmartReplies", () => {
         onCompose={() => {}}
       />,
     );
-    expect(screen.getByRole("button", { name: /Sugerir respuestas/ })).toBeTruthy();
+    const trigger = screen.getByRole("button", { name: /Sugerir respuestas/ });
+    expect(trigger).toBeTruthy();
+    expect(trigger.textContent).toMatch(/con contexto del hilo/);
     expect(fetch).not.toHaveBeenCalled();
   });
 

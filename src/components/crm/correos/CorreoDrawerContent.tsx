@@ -175,13 +175,11 @@ export function CorreoDrawerContent({
               threadId={t.id}
               providerThreadId={t.providerThreadId}
               onOpenSnooze={onSnooze}
-              onOpenCopilot={() => openPanel("contexto")}
-              copilotPending={reasons.length > 0}
             />
           </div>
         </div>
 
-        {/* Móvil: asunto compacto → remitente → franja cuenta+tareas. */}
+        {/* Móvil: asunto compacto → remitente → franja cuenta (tareas en header). */}
         <CorreoReaderTitleBlock
           detail={detail}
           canModify={Boolean(canModify)}
@@ -197,7 +195,6 @@ export function CorreoDrawerContent({
               accountName={t.accountName}
               canEdit={canEditCorreos}
               onOpenAssociations={() => setAssocSheetOpen(true)}
-              onOpenTasks={() => openPanel("trabajo")}
               onSearchAccount={() => setAssocSheetOpen(true)}
             />
           }

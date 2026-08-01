@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { Spinner } from "@/components/opai-ds";
+import { cn } from "@/lib/utils";
 import { useCorreoReaderDock } from "./CorreoReaderDockContext";
 import type { ReplyIntent } from "@/modules/crm/email/reply-intents.service";
 
@@ -74,17 +75,29 @@ export function CorreoSmartReplies({
   }
 
   const chipCls =
-    "inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-full border border-tint-violet/40 bg-tint-violet/10 px-3 text-[13px] font-medium text-tint-violet-fg ds-tap disabled:opacity-50 sm:min-h-9";
+    "inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-full border border-tint-violet/40 bg-tint-violet/10 px-3 text-[13px] font-medium text-tint-violet-fg ds-tap disabled:opacity-50 sm:min-h-9";
+  /** En la isla móvil el chip inicial ocupa el ancho para no flotar descentrado. */
+  const triggerCls =
+    variant === "inline"
+      ? cn(
+          chipCls,
+          "w-full min-h-10 justify-center rounded-2xl border-tint-violet/30 bg-tint-violet/8",
+        )
+      : chipCls;
 
   const content = composerOpen ? null : (
     <div className="flex items-center gap-1.5 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
       {loading && !intents ? (
         <>
-          <span className="inline-flex min-h-11 items-center gap-1.5 rounded-full bg-ds-surface-3 px-3 text-[12px] text-ds-text-3 sm:min-h-9">
+          <span className="inline-flex min-h-10 w-full items-center justify-center gap-1.5 rounded-2xl bg-ds-surface-3 px-3 text-[12px] text-ds-text-3 sm:min-h-9 sm:w-auto sm:justify-start sm:rounded-full">
             <Spinner className="h-3.5 w-3.5" /> Pensando respuestas…
           </span>
-          <span className="h-9 w-28 shrink-0 animate-pulse rounded-full bg-ds-surface-3 motion-reduce:animate-none" />
-          <span className="h-9 w-24 shrink-0 animate-pulse rounded-full bg-ds-surface-3 motion-reduce:animate-none" />
+          {variant !== "inline" && (
+            <>
+              <span className="h-9 w-28 shrink-0 animate-pulse rounded-full bg-ds-surface-3 motion-reduce:animate-none" />
+              <span className="h-9 w-24 shrink-0 animate-pulse rounded-full bg-ds-surface-3 motion-reduce:animate-none" />
+            </>
+          )}
         </>
       ) : intents ? (
         <>
@@ -114,7 +127,7 @@ export function CorreoSmartReplies({
           <button
             type="button"
             onClick={() => onCompose({ ai: true })}
-            className="inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-full border border-ds-border-default bg-ds-surface-1 px-3 text-[13px] font-medium text-ds-text-2 ds-tap sm:min-h-9"
+            className="inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-full border border-ds-border-default bg-ds-surface-1 px-3 text-[13px] font-medium text-ds-text-2 ds-tap sm:min-h-9"
           >
             ✦ Desde cero
           </button>
@@ -124,12 +137,12 @@ export function CorreoSmartReplies({
           type="button"
           disabled={loading}
           onClick={() => void loadIntents()}
-          className={chipCls}
+          className={triggerCls}
         >
           <Sparkles className="h-3.5 w-3.5 shrink-0" aria-hidden />
-          ✦ Sugerir respuestas
-          <span className="hidden text-[12px] font-normal text-ds-text-3 sm:inline">
-            · la IA propone, vos decidís
+          <span>Sugerir respuestas</span>
+          <span className="text-[12px] font-normal text-ds-text-3">
+            · con contexto del hilo
           </span>
         </button>
       )}

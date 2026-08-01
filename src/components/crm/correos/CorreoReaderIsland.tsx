@@ -23,7 +23,10 @@ type Props = {
   /** Composer abierto → la barra de respuesta se oculta (exclusividad). */
   composerOpen: boolean;
   onCompose: (mode: ComposerMode, ai?: boolean) => void;
-  /** Fila de chips de intención sobre la isla (misma exclusividad). */
+  /**
+   * Fila de chips de intención DENTRO de la misma isla glass (sobre Responder).
+   * Misma exclusividad que el composer.
+   */
   topSlot?: ReactNode;
 };
 
@@ -37,6 +40,7 @@ const OPTIMISTIC: CorreoPrimaryAction = {
 /**
  * Barra inferior del lector móvil (Liquid Glass / patrón Gmail): Responder ·
  * A todos (condicional) · Reenviar. Acciones de hilo viven en la topbar.
+ * Las sugerencias de respuesta van en la fila superior de la misma cápsula.
  * Absorbe el host de undo mientras el lector está montado.
  */
 export function CorreoReaderIsland({
@@ -67,59 +71,70 @@ export function CorreoReaderIsland({
 
   return (
     <div className={wrapCls} style={wrapStyle}>
-      {topSlot ? <div className="mb-1.5">{topSlot}</div> : null}
       <div
-        className="opai-glass-strong opai-glass-shell flex h-[56px] items-center gap-1.5 rounded-[26px] px-2"
-        role="toolbar"
-        aria-label="Responder"
+        className={cn(
+          "opai-glass-strong opai-glass-shell flex flex-col rounded-[26px] px-2",
+          topSlot ? "gap-1.5 py-1.5" : "py-0",
+        )}
       >
-        <button
-          type="button"
-          data-island-action=""
-          disabled={!primary.canReply}
-          onClick={() => onCompose("reply")}
-          aria-label={primary.canReply ? "Responder" : "Responder (no-reply)"}
-          title={primary.canReply ? "Responder" : "no-reply"}
-          className={cn(
-            "flex h-11 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-2xl text-[13px] font-semibold ds-tap",
-            "disabled:cursor-not-allowed disabled:opacity-40",
-            replyPrimary
-              ? "bg-primary text-primary-foreground"
-              : "bg-ds-surface-2 text-ds-text-2",
-          )}
+        {topSlot ? (
+          <div className="min-w-0 px-0.5" data-island-smart-replies="">
+            {topSlot}
+          </div>
+        ) : null}
+        <div
+          className="flex h-[56px] items-center gap-1.5"
+          role="toolbar"
+          aria-label="Responder"
         >
-          <Reply className="h-4 w-4 shrink-0" />
-          <span className="truncate">Responder</span>
-        </button>
-
-        {primary.replyAllAvailable && (
           <button
             type="button"
             data-island-action=""
-            onClick={() => onCompose("all")}
-            aria-label="Responder a todos"
-            className="flex h-11 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-2xl bg-ds-surface-2 text-[13px] font-semibold text-ds-text-1 ds-tap"
+            disabled={!primary.canReply}
+            onClick={() => onCompose("reply")}
+            aria-label={primary.canReply ? "Responder" : "Responder (no-reply)"}
+            title={primary.canReply ? "Responder" : "no-reply"}
+            className={cn(
+              "flex h-11 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-2xl text-[13px] font-semibold ds-tap",
+              "disabled:cursor-not-allowed disabled:opacity-40",
+              replyPrimary
+                ? "bg-primary text-primary-foreground"
+                : "bg-ds-surface-2 text-ds-text-2",
+            )}
           >
-            <ReplyAll className="h-4 w-4 shrink-0" />
-            <span className="truncate">A todos</span>
+            <Reply className="h-4 w-4 shrink-0" />
+            <span className="truncate">Responder</span>
           </button>
-        )}
 
-        <button
-          type="button"
-          data-island-action=""
-          onClick={() => onCompose("forward")}
-          aria-label="Reenviar"
-          className={cn(
-            "flex h-11 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-2xl text-[13px] font-semibold ds-tap",
-            forwardPrimary
-              ? "bg-primary text-primary-foreground"
-              : "bg-ds-surface-2 text-ds-text-1",
+          {primary.replyAllAvailable && (
+            <button
+              type="button"
+              data-island-action=""
+              onClick={() => onCompose("all")}
+              aria-label="Responder a todos"
+              className="flex h-11 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-2xl bg-ds-surface-2 text-[13px] font-semibold text-ds-text-1 ds-tap"
+            >
+              <ReplyAll className="h-4 w-4 shrink-0" />
+              <span className="truncate">A todos</span>
+            </button>
           )}
-        >
-          <Forward className="h-4 w-4 shrink-0" />
-          <span className="truncate">Reenviar</span>
-        </button>
+
+          <button
+            type="button"
+            data-island-action=""
+            onClick={() => onCompose("forward")}
+            aria-label="Reenviar"
+            className={cn(
+              "flex h-11 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-2xl text-[13px] font-semibold ds-tap",
+              forwardPrimary
+                ? "bg-primary text-primary-foreground"
+                : "bg-ds-surface-2 text-ds-text-1",
+            )}
+          >
+            <Forward className="h-4 w-4 shrink-0" />
+            <span className="truncate">Reenviar</span>
+          </button>
+        </div>
       </div>
     </div>
   );

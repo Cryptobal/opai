@@ -95,4 +95,20 @@ describe("CorreoReaderIsland", () => {
     const { container } = render(<CorreoReaderIsland {...baseProps} composerOpen />);
     expect(container.querySelectorAll("[data-island-action]")).toHaveLength(0);
   });
+
+  it("topSlot vive dentro de la misma cápsula glass", () => {
+    const { container } = render(
+      <CorreoReaderIsland
+        {...baseProps}
+        topSlot={<button type="button">Sugerir respuestas</button>}
+      />,
+    );
+    const smart = container.querySelector("[data-island-smart-replies]");
+    expect(smart).toBeTruthy();
+    expect(smart?.textContent).toContain("Sugerir respuestas");
+    // Misma cápsula: el slot y las acciones comparten el shell glass.
+    const shell = smart?.parentElement;
+    expect(shell?.querySelectorAll("[data-island-action]").length).toBeGreaterThan(0);
+  });
 });
+
