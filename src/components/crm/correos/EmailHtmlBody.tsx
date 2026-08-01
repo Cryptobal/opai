@@ -41,6 +41,28 @@ function iframeSandboxEnabled(): boolean {
 }
 
 /**
+ * Alto del iframe desde el canvas del mail. No usa body/documentElement
+ * scrollHeight: si el iframe se estira (p. ej. para medir), esos valores se
+ * inflan al viewport y el scroller del lector queda “infinito”.
+ */
+export function mailCanvasFrameHeight(
+  canvasScrollHeight: number,
+  canvasOffsetHeight: number,
+  scale: number,
+  visualHeightAfterScale: number | null,
+): number {
+  const naturalH = Math.max(canvasScrollHeight, canvasOffsetHeight, 0);
+  if (naturalH <= 0) return 0;
+  const scaled = Math.round(naturalH * Math.min(Math.max(scale, 0), 1));
+  const visual =
+    scale < 1 && visualHeightAfterScale && visualHeightAfterScale > 0
+      ? Math.ceil(visualHeightAfterScale)
+      : naturalH;
+  // Buffer subpíxel; tope de seguridad ante lecturas anómalas del UA.
+  return Math.min(Math.max(visual, scaled) + 12, 50_000);
+}
+
+/**
  * Documento completo para el iframe: tipografía/tablas base + tema claro u
  * oscuro (toggle 🌙/☀️). En noche forzamos texto legible: casi todos los
  * correos traen `color:#000` / `color:black` inline y, sin override, el
@@ -219,21 +241,16 @@ export function EmailHtmlBody({
     const canvas = doc.querySelector(".opai-mail-canvas") as HTMLElement | null;
     if (!canvas) return;
 
-    // 1) Quitar scale previo y estirar el iframe: si queda corto con
-    //    overflow:hidden, scrollHeight puede reportar el alto recortado y el
-    //    pie del mail (tablas / firmas) nunca aparece.
+    // Quitar scale y colapsar el iframe: scrollHeight del canvas sigue
+    // reportando el contenido. No estirar a 10000px — body/html se inflan
+    // al viewport y el lector queda con scroll “infinito”.
     if (canvas.style.transform) canvas.style.transform = "";
-    const prevH = iframe.style.height;
-    iframe.style.height = "10000px";
+    iframe.style.height = "0px";
 
-    const naturalH = Math.max(
-      canvas.scrollHeight,
-      canvas.offsetHeight,
-      doc.body?.scrollHeight ?? 0,
-      doc.documentElement?.scrollHeight ?? 0,
-    );
+    // Solo el canvas (el padding vive ahí). Nunca body/documentElement.
+    const naturalH = Math.max(canvas.scrollHeight, canvas.offsetHeight);
     if (!naturalH || naturalH <= 0) {
-      iframe.style.height = prevH;
+      iframe.style.height = `${lastHeightRef.current}px`;
       return;
     }
     if (watchdogRef.current) {
@@ -246,13 +263,7 @@ export function EmailHtmlBody({
     // Solo el outer: si midiéramos el inner con minWidth=naturalW,
     // availW ≈ naturalW → frameWidth=null → shrink → overflow → bucle.
     const availW = hostRef.current?.clientWidth || iframe.clientWidth;
-    const naturalW = Math.ceil(
-      Math.max(
-        canvas.scrollWidth,
-        doc.documentElement?.scrollWidth ?? 0,
-        doc.body?.scrollWidth ?? 0,
-      ),
-    );
+    const naturalW = Math.ceil(canvas.scrollWidth);
     if (availW > 0 && naturalW > availW + 1) {
       if (fitWidth) {
         const ideal = availW / naturalW;
@@ -275,13 +286,18 @@ export function EmailHtmlBody({
       doc.body.style.overflowX = "hidden";
     }
 
-    // 2) Alto visual real (getBoundingClientRect respeta scale). Buffer para
-    //    subpíxeles / bordes de tablas que si no, quedan cortados.
     const visualH =
-      scale < 1
-        ? Math.ceil(canvas.getBoundingClientRect().height)
-        : naturalH;
-    const h = Math.max(visualH, Math.round(naturalH * scale)) + 12;
+      scale < 1 ? canvas.getBoundingClientRect().height : null;
+    const h = mailCanvasFrameHeight(
+      canvas.scrollHeight,
+      canvas.offsetHeight,
+      scale,
+      visualH,
+    );
+    if (h <= 0) {
+      iframe.style.height = `${lastHeightRef.current}px`;
+      return;
+    }
     iframe.style.height = `${h}px`;
 
     lastHeightRef.current = h;
@@ -305,7 +321,7 @@ export function EmailHtmlBody({
       typeof ResizeObserver !== "undefined"
         ? new ResizeObserver(() => measure())
         : null;
-    if (doc?.body) ro?.observe(doc.body);
+    // Observar canvas + host (no body: su alto sigue al iframe y re-dispara).
     if (canvas) ro?.observe(canvas);
     // El asa de ancho del lector cambia el host sin mutar el documento.
     if (host) ro?.observe(host);

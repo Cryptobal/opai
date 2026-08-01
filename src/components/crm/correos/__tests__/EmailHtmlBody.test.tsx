@@ -10,7 +10,11 @@
  */
 import { describe, it, expect } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
-import { buildEmailSrcDoc, EmailHtmlBody } from "../EmailHtmlBody";
+import {
+  buildEmailSrcDoc,
+  EmailHtmlBody,
+  mailCanvasFrameHeight,
+} from "../EmailHtmlBody";
 
 const HTML_CON_IMG = '<p>Hola</p><img src="https://cdn.example.com/banner.png">';
 const HTML_SIN_IMG = "<p>Solo texto enriquecido</p>";
@@ -67,6 +71,21 @@ describe("EmailHtmlBody", () => {
     );
     expect(container.querySelector("iframe")).toBeNull();
     expect(screen.getByText("(sin contenido)")).toBeTruthy();
+  });
+});
+
+describe("mailCanvasFrameHeight", () => {
+  it("usa el alto del canvas + buffer (no se infla con body/viewport)", () => {
+    expect(mailCanvasFrameHeight(400, 400, 1, null)).toBe(412);
+  });
+
+  it("con scale usa el alto visual y no el layout sin escalar", () => {
+    // layout 1000, scale 0.5 → visual 500; resultado 500+12
+    expect(mailCanvasFrameHeight(1000, 1000, 0.5, 500)).toBe(512);
+  });
+
+  it("ignora lecturas anómalas enormes (tope de seguridad)", () => {
+    expect(mailCanvasFrameHeight(999_999, 999_999, 1, null)).toBe(50_000);
   });
 });
 
