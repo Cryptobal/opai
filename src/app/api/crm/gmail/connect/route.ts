@@ -13,7 +13,6 @@ import { getGmailTokenSecret } from "@/lib/crypto";
 import { createHmac } from "crypto";
 import { requireTenantModule } from "@/lib/require-module";
 import { safeGmailReturnPath } from "@/lib/google-workspace/gmail-return-path";
-import { resolveMultiAccount } from "@/modules/shared/multi-account";
 
 // El secreto se resuelve por request (no a nivel de módulo) para que el build
 // no dependa de la env y el error fail-closed ocurra en el request.
@@ -46,15 +45,9 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  // Fail-closed: tope antes de ir a Google (evita consentimiento inútil).
-  const multi = await resolveMultiAccount({
-    tenantId,
-    userId: session.user.id,
-    scope: "correo",
-  });
-  if (!multi.canConnect) {
-    return NextResponse.redirect(`${origin}${returnPath}?gmail=limit_reached`);
-  }
+  // El tope de casillas se valida en el callback SOLO al crear una cuenta
+  // nueva. Aquí no se bloquea: "Reconectar" con canConnect=false (1/1 sin
+  // multicuenta) debe poder ir a Google y hacer upsert de la misma casilla.
 
   try {
     const payload = JSON.stringify({

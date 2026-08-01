@@ -53,6 +53,13 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const code = searchParams.get("code");
   const state = searchParams.get("state");
+  const oauthError = searchParams.get("error");
+
+  if (oauthError) {
+    const reason =
+      oauthError === "access_denied" ? "google_access_denied" : `google_${oauthError}`;
+    return redirectWithGmail(origin, returnPath, reason);
+  }
 
   if (!code || !state) {
     return redirectWithGmail(origin, returnPath, "error");
