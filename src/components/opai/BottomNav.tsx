@@ -1,6 +1,14 @@
 'use client';
 
-import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+} from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { SignOutDialog } from './SignOutDialog';
@@ -231,14 +239,8 @@ export function BottomNav({
       featureFlags,
     );
     return (
-      <nav
-        ref={navRef}
-        className="fixed left-3 right-3 z-40 lg:hidden pointer-events-none md:mx-auto md:max-w-[640px]"
-        style={{
-          bottom: "calc(env(safe-area-inset-bottom) + 10px)",
-        }}
-      >
-        <div className="pointer-events-auto flex w-full items-end gap-2">
+      <nav ref={navRef} className={BOTTOM_NAV_SHELL} style={BOTTOM_NAV_INSET}>
+        <div className={BOTTOM_NAV_INNER}>
           <div className="opai-glass-strong opai-glass-shell flex h-14 min-w-0 flex-1 items-center justify-around overflow-hidden px-1">
             <ModuleSubNav
               items={productividadItems}
@@ -263,15 +265,9 @@ export function BottomNav({
   const isInModule = !forceMainNav && !!activeModule && moduleItems.length > 0;
 
   return (
-    <nav
-      ref={navRef}
-      className="fixed left-3 right-3 z-40 lg:hidden pointer-events-none md:mx-auto md:max-w-[640px]"
-      style={{
-        bottom: "calc(env(safe-area-inset-bottom) + 10px)",
-      }}
-    >
+    <nav ref={navRef} className={BOTTOM_NAV_SHELL} style={BOTTOM_NAV_INSET}>
       {/* Solo íconos — sin labels. Sin transform: scale (rompe backdrop-filter). */}
-      <div className="pointer-events-auto flex w-full items-end gap-2">
+      <div className={BOTTOM_NAV_INNER}>
         <div className="opai-glass-strong opai-glass-shell flex h-14 min-w-0 flex-1 items-center justify-around overflow-hidden px-1">
           {isInModule ? (
             <ModuleSubNav
@@ -295,6 +291,22 @@ export function BottomNav({
     </nav>
   );
 }
+
+/**
+ * Contención del chrome inferior — mismo patrón que MobileIsland:
+ * inset-x-0 + padding con safe-area, y el hijo se centra con max-width.
+ * Evita el bug `left/right` + `max-width` + `mx-auto` que dejaba la isla
+ * corrida a la izquierda en tablet / viewports anchos.
+ */
+const BOTTOM_NAV_SHELL =
+  "fixed inset-x-0 z-40 lg:hidden pointer-events-none";
+const BOTTOM_NAV_INSET: CSSProperties = {
+  bottom: "calc(env(safe-area-inset-bottom) + 10px)",
+  paddingLeft: "max(env(safe-area-inset-left), 0.75rem)",
+  paddingRight: "max(env(safe-area-inset-right), 0.75rem)",
+};
+const BOTTOM_NAV_INNER =
+  "pointer-events-auto mx-auto flex w-full max-w-[640px] items-end gap-2";
 
 /* ════════════════════════════════════════════════════
    ORBE OPAI — botón glass-teal integrado a la derecha de la isla.

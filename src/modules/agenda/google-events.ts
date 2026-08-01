@@ -5,7 +5,11 @@ import {
 } from "@/lib/google-workspace/clients";
 import type { calendar_v3 } from "googleapis";
 import type { AgendaListItem } from "./agenda.types";
-import { isoFromEventDate, isInsufficientScopeError } from "./google-events-helpers";
+import {
+  isoFromEventDate,
+  isInsufficientScopeError,
+  raceWithBudget,
+} from "./google-events-helpers";
 import {
   googleSourceKey,
   listCalendarSources,
@@ -15,6 +19,8 @@ export type GoogleAgendaStatus = "ok" | "no_account" | "error" | "missing_scope"
 export type GoogleAgendaResult = { items: AgendaListItem[]; status: GoogleAgendaStatus };
 
 const TTL_MS = 5 * 60_000;
+/** Tope duro para no bloquear Mi día /agenda cuando Google cuelga o va lento. */
+const GOOGLE_FETCH_BUDGET_MS = 2_500;
 const MAX_CALENDARS_PER_ACCOUNT = 6;
 const MAX_EVENTS_PER_ACCOUNT = 60;
 const MAX_EVENTS_TOTAL = 180;
@@ -136,6 +142,38 @@ export async function listGoogleCalendarEvents(
   const hit = cache.get(key);
   if (hit && Date.now() - hit.at < TTL_MS) return hit.result;
 
+  // Si Google cuelga, devolvemos vacío rápido; el fetch sigue y calienta el cache.
+  const timedOut: GoogleAgendaResult = { items: [], status: "error" };
+  const result = await raceWithBudget(
+    fetchGoogleCalendarEventsUncached(
+      tenantId,
+      userId,
+      from,
+      to,
+      accounts,
+      visibleByAccount,
+      key,
+    ),
+    GOOGLE_FETCH_BUDGET_MS,
+    timedOut,
+  );
+  if (result === timedOut) {
+    console.warn(
+      `[agenda] Google Calendar superó ${GOOGLE_FETCH_BUDGET_MS}ms — respondiendo sin eventos Google`,
+    );
+  }
+  return result;
+}
+
+async function fetchGoogleCalendarEventsUncached(
+  tenantId: string,
+  userId: string,
+  from: Date,
+  to: Date,
+  accounts: Awaited<ReturnType<typeof listCalendarAccounts>>,
+  visibleByAccount: Map<string, Set<string>>,
+  cacheKey: string,
+): Promise<GoogleAgendaResult> {
   const [agendaLinks, providerLinks] = await Promise.all([
     prisma.agendaEventLink.findMany({
       where: { tenantId, googleEventId: { not: null } },
@@ -162,22 +200,25 @@ export async function listGoogleCalendarEvents(
         return { items: [] as AgendaListItem[], scopeHits: 0, calAttempts: 0, accountError: true };
       }
       const calendars = await listVisibleCalendars(client.calendar, allowed);
+      // Paralelo por calendario: el loop secuencial sumaba latencia por cuenta.
+      const batches = await Promise.all(
+        calendars.map((cal) =>
+          eventsFromCalendar(
+            client.calendar,
+            cal,
+            from,
+            to,
+            userId,
+            account.id,
+            opaiIds,
+          ),
+        ),
+      );
       const items: AgendaListItem[] = [];
       const seen = new Set<string>();
       let scopeHits = 0;
-      let calAttempts = 0;
-      for (const cal of calendars) {
-        if (items.length >= MAX_EVENTS_PER_ACCOUNT) break;
-        calAttempts += 1;
-        const batch = await eventsFromCalendar(
-          client.calendar,
-          cal,
-          from,
-          to,
-          userId,
-          account.id,
-          opaiIds,
-        );
+      const calAttempts = batches.length;
+      for (const batch of batches) {
         if (batch.scopeError) scopeHits += 1;
         for (const it of batch.items) {
           const gid = it.googleEventId ?? it.id;
@@ -186,6 +227,7 @@ export async function listGoogleCalendarEvents(
           items.push(it);
           if (items.length >= MAX_EVENTS_PER_ACCOUNT) break;
         }
+        if (items.length >= MAX_EVENTS_PER_ACCOUNT) break;
       }
       return { items, scopeHits, calAttempts };
     }),
@@ -223,6 +265,6 @@ export async function listGoogleCalendarEvents(
   }
 
   const result: GoogleAgendaResult = { items, status };
-  cache.set(key, { at: Date.now(), result });
+  cache.set(cacheKey, { at: Date.now(), result });
   return result;
 }

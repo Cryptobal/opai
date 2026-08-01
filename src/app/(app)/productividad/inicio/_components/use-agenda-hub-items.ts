@@ -22,22 +22,36 @@ export function useAgendaHubItems(): UseAgendaHubItemsResult {
 
   useEffect(() => {
     let cancelled = false;
+    let silentTimer: ReturnType<typeof setTimeout> | undefined;
     setLoading(true);
     const from = startOfDayChile(new Date());
     const to = addDaysChile(from, expanded ? 7 : 4);
-    fetch(`/api/agenda?from=${from.toISOString()}&to=${to.toISOString()}`)
+    const url = `/api/agenda?from=${from.toISOString()}&to=${to.toISOString()}`;
+
+    const apply = (j: { items?: HubAgendaItem[] }) => {
+      if (!cancelled) setItems(j.items ?? []);
+    };
+
+    fetch(url)
       .then((r) => r.json())
-      .then((j) => {
-        if (!cancelled) setItems(j.items ?? []);
-      })
+      .then(apply)
       .catch(() => {
         if (!cancelled) setItems([]);
       })
       .finally(() => {
-        if (!cancelled) setLoading(false);
+        if (cancelled) return;
+        setLoading(false);
+        // Si Google llegó tarde al cache del server, refrescar sin spinner.
+        silentTimer = setTimeout(() => {
+          fetch(url)
+            .then((r) => r.json())
+            .then(apply)
+            .catch(() => {});
+        }, 3_000);
       });
     return () => {
       cancelled = true;
+      if (silentTimer) clearTimeout(silentTimer);
     };
   }, [expanded]);
 
