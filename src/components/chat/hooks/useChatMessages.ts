@@ -18,6 +18,8 @@ export type UseChatMessagesOptions = {
   senderType?: ChatSenderType;
   /** Sender display name for optimistic messages (default: "Yo") */
   senderName?: string;
+  /** Sender avatar URL for optimistic messages */
+  senderAvatar?: string | null;
 };
 
 type UseChatMessagesReturn = {
@@ -98,6 +100,7 @@ export function useChatMessages(
   const extraHeaders = options?.headers ?? {};
   const senderType = options?.senderType ?? "ADMIN";
   const senderName = options?.senderName ?? "Yo";
+  const senderAvatar = options?.senderAvatar ?? null;
   const [messages, setMessages] = useState<ChatMessageData[]>([]);
   const [mentionDisplayMap, setMentionDisplayMap] = useState<Record<string, string>>({});
   const mentionDisplayMapRef = useRef<Record<string, string>>({});
@@ -267,7 +270,7 @@ export function useChatMessages(
         return null;
       }
     },
-    [channelId, apiBase, extraHeaders]
+    [channelId, apiBase, extraHeaders, senderType, senderName, senderAvatar]
   );
 
   // Send a new message with optimistic update.
@@ -284,7 +287,7 @@ export function useChatMessages(
         senderType: senderType,
         senderId: "current-user",
         senderName: senderName,
-        senderAvatar: null,
+        senderAvatar: senderAvatar,
         content: payload.content,
         contentHtml: null,
         replyTo: null,
@@ -305,7 +308,7 @@ export function useChatMessages(
 
       return postMessage(tempId, payload);
     },
-    [channelId, senderType, senderName, postMessage]
+    [channelId, senderType, senderName, senderAvatar, postMessage]
   );
 
   // Retry a failed optimistic message by its temp id.

@@ -8,6 +8,10 @@ import { attachSavedFileIds } from "./attachment-saved";
 import type { CorreoDetail, CorreoAttachmentDTO } from "./correos.types";
 import { parseThreadSummaryCache } from "./email-summary.service";
 import { healThreadAccountToDealAccount } from "./thread-account-deal-consistency";
+import {
+  attachFromPhotoUrl,
+  resolveCachedEmailAvatars,
+} from "./email-avatars";
 
 /** TTL del caché de detalle; la invalidación real es updatedAt del sync. */
 const DETAIL_CACHE_TTL_MS = 15 * 60_000;
@@ -256,12 +260,24 @@ export async function getCorreoDetail(params: {
       lastReadAt: thread.lastReadAt?.toISOString() ?? null,
       threadSummary,
     },
-    messages: messages.map((m) => ({
-      ...m,
-      sentAt: m.sentAt?.toISOString() ?? null,
-      isDraft: Boolean(m.isDraft),
-      providerDraftId: m.providerDraftId ?? null,
-    })),
+    messages: await (async () => {
+      const mapped = messages.map((m) => ({
+        ...m,
+        sentAt: m.sentAt?.toISOString() ?? null,
+        isDraft: Boolean(m.isDraft),
+        providerDraftId: m.providerDraftId ?? null,
+        fromPhotoUrl: null as string | null,
+      }));
+      try {
+        const avatars = await resolveCachedEmailAvatars(
+          tenantId,
+          mapped.map((m) => m.fromEmail),
+        );
+        return attachFromPhotoUrl(mapped, avatars);
+      } catch {
+        return mapped;
+      }
+    })(),
     attachments: attachmentsWithSaved,
     degraded,
   };

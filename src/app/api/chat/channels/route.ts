@@ -161,7 +161,10 @@ export async function GET(request: NextRequest) {
       .filter((ch) => ch.channelType === "DIRECT")
       .map((ch) => ch.id);
 
-    let dmParticipantMap = new Map<string, { id: string; name: string; email: string; image: null }>();
+    let dmParticipantMap = new Map<
+      string,
+      { id: string; name: string; email: string; image: string | null }
+    >();
     if (directChannelIds.length > 0) {
       const participants = await prisma.chatDmParticipant.findMany({
         where: {
@@ -178,13 +181,18 @@ export async function GET(request: NextRequest) {
       if (otherAdminIds.length > 0) {
         const admins = await prisma.admin.findMany({
           where: { id: { in: otherAdminIds } },
-          select: { id: true, name: true, email: true },
+          select: { id: true, name: true, email: true, photoUrl: true },
         });
         const adminMap = new Map(admins.map((a) => [a.id, a]));
         for (const p of participants) {
           const admin = adminMap.get(p.adminId);
           if (admin) {
-            dmParticipantMap.set(p.channelId, { ...admin, image: null });
+            dmParticipantMap.set(p.channelId, {
+              id: admin.id,
+              name: admin.name,
+              email: admin.email,
+              image: admin.photoUrl ?? null,
+            });
           }
         }
       }

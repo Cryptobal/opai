@@ -102,6 +102,7 @@ export const CorreoRowMobile = memo(function CorreoRowMobile({
       <div className="flex min-w-0 flex-1 items-start gap-3">
         <CorreoSenderAvatar
           fromEmail={thread.fromEmail}
+          photoUrl={thread.fromPhotoUrl}
           compact={compact}
           checked={checked}
           onPress={onAvatarPress}

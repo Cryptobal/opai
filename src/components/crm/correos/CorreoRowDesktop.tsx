@@ -92,7 +92,11 @@ export function CorreoRowDesktop({
         }`}
       >
         <span className="relative">
-          <CorreoSenderAvatar fromEmail={thread.fromEmail} compact />
+          <CorreoSenderAvatar
+            fromEmail={thread.fromEmail}
+            photoUrl={thread.fromPhotoUrl}
+            compact
+          />
           {unread && (
             <span
               aria-hidden
@@ -143,7 +147,13 @@ export function CorreoRowDesktop({
                 ariaLabel={`Seleccionar ${subject}`}
               />
             )}
-            {!compact && <CorreoSenderAvatar fromEmail={thread.fromEmail} compact />}
+            {!compact && (
+              <CorreoSenderAvatar
+                fromEmail={thread.fromEmail}
+                photoUrl={thread.fromPhotoUrl}
+                compact
+              />
+            )}
             <button
               type="button"
               onClick={onOpen}
@@ -212,7 +222,13 @@ export function CorreoRowDesktop({
               />
             </button>
           )}
-          {!compact && <CorreoSenderAvatar fromEmail={thread.fromEmail} compact />}
+          {!compact && (
+            <CorreoSenderAvatar
+              fromEmail={thread.fromEmail}
+              photoUrl={thread.fromPhotoUrl}
+              compact
+            />
+          )}
           <button
             type="button"
             onClick={onOpen}

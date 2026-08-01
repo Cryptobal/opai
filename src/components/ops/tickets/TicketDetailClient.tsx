@@ -69,7 +69,7 @@ import {
 import { TicketApprovalTimeline } from "./TicketApprovalTimeline";
 import { TicketFindingCard } from "./TicketFindingCard";
 import { SlaBar } from "./TicketsClient";
-import { useSetBreadcrumbTrailing } from "@/components/opai-ds";
+import { Avatar, useSetBreadcrumbTrailing } from "@/components/opai-ds";
 import {
   useReplyTemplates,
   renderTemplate,
@@ -106,7 +106,9 @@ export function TicketDetailClient({ ticketId, userRole, userId, userGroupIds }:
   const [transitioning, setTransitioning] = useState(false);
 
   // Assignee state
-  const [availableUsers, setAvailableUsers] = useState<Array<{ id: string; name: string }>>([]);
+  const [availableUsers, setAvailableUsers] = useState<
+    Array<{ id: string; name: string; photoUrl?: string | null }>
+  >([]);
   const [availableGroups, setAvailableGroups] = useState<Array<{ id: string; name: string }>>([]);
   const [assigningUser, setAssigningUser] = useState(false);
 
@@ -183,10 +185,18 @@ export function TicketDetailClient({ ticketId, userRole, userId, userGroupIds }:
       .then((d) => {
         if (d.success && Array.isArray(d.data)) {
           setAvailableUsers(
-            d.data.map((u: { id: string; name: string | null; email: string }) => ({
-              id: u.id,
-              name: u.name || u.email,
-            })),
+            d.data.map(
+              (u: {
+                id: string;
+                name: string | null;
+                email: string;
+                photoUrl?: string | null;
+              }) => ({
+                id: u.id,
+                name: u.name || u.email,
+                photoUrl: u.photoUrl ?? null,
+              }),
+            ),
           );
         }
       })
@@ -1207,7 +1217,12 @@ export function TicketDetailClient({ ticketId, userRole, userId, userGroupIds }:
                             insertMention(u.name);
                           }}
                         >
-                          <User className="h-3 w-3 text-muted-foreground" />
+                          <Avatar
+                            name={u.name}
+                            photoUrl={u.photoUrl}
+                            size="sm"
+                            variant="brand"
+                          />
                           {u.name}
                         </button>
                       ))}

@@ -135,7 +135,7 @@ export function CorreoMessageOpen({
         aria-expanded
         className="flex w-full min-w-0 items-center gap-2.5 px-3 py-2 text-left ds-tap hover:bg-ds-surface-2"
       >
-        <CorreoSenderAvatar fromEmail={m.fromEmail} />
+        <CorreoSenderAvatar fromEmail={m.fromEmail} photoUrl={m.fromPhotoUrl} />
         <span className="min-w-0 flex-1">
           <span className="flex min-w-0 items-center gap-1.5">
             {isDraft ? (

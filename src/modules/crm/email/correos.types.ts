@@ -2,6 +2,8 @@ export type CorreoThreadDTO = {
   id: string;
   subject: string;
   fromEmail: string | null;
+  /** Foto del remitente (Admin del tenant o cache People). */
+  fromPhotoUrl?: string | null;
   snippet: string | null;
   lastMessageAt: string | null;
   /** Casilla Gmail dueña del hilo (bandeja unificada). */
@@ -79,6 +81,8 @@ export type CorreoMessageDTO = {
   providerMessageId?: string | null;
   direction: string;
   fromEmail: string;
+  /** Foto del remitente (Admin del tenant o cache People). */
+  fromPhotoUrl?: string | null;
   /** Reply-To si difiere del From (listas / grupos Google). */
   replyToEmail?: string | null;
   toEmails: string[];

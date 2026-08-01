@@ -19,6 +19,10 @@ import {
   findThreadIdsWithOpenTasks,
   loadThreadTaskAgg,
 } from "./correos-thread-tasks";
+import {
+  attachFromPhotoUrl,
+  resolveCachedEmailAvatars,
+} from "./email-avatars";
 
 const KEYWORDS = ["cotiz", "licitac", "servicio", "propuesta", "bases", "presupuesto"];
 
@@ -439,7 +443,7 @@ async function mapThreadRowsInternal(
     lastInbounds.map((m) => [m.threadId, m.fromEmail]),
   );
 
-  return page.map((r) => {
+  const items: CorreoThreadDTO[] = page.map((r) => {
     const msg = r.messages[0];
     const from = msg?.fromEmail ?? null;
     // Solo keywords comerciales en el asunto. Un adjunto por sí solo NO es
@@ -473,6 +477,7 @@ async function mapThreadRowsInternal(
       id: r.id,
       subject: r.subject,
       fromEmail: from,
+      fromPhotoUrl: null,
       snippet,
       lastMessageAt: r.lastMessageAt?.toISOString() ?? null,
       emailAccountId: r.emailAccountId,
@@ -501,4 +506,15 @@ async function mapThreadRowsInternal(
       taskDueLevel: taskAgg.get(r.id)?.taskDueLevel ?? null,
     };
   });
+
+  try {
+    const avatars = await resolveCachedEmailAvatars(
+      tenantId,
+      items.map((i) => i.fromEmail),
+    );
+    return attachFromPhotoUrl(items, avatars);
+  } catch (err) {
+    console.warn("[CORREOS] avatar resolve failed:", err);
+    return items;
+  }
 }

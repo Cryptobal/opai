@@ -48,6 +48,7 @@ import { CorreoSelectionBar } from "./CorreoSelectionBar";
 import { CorreoRowSwipe } from "./CorreoRowSwipe";
 import { CorreoDrawer } from "./CorreoDrawer";
 import { CorreoSnoozeSheet } from "./CorreoSnoozeSheet";
+import { parseSender } from "./correo-sender";
 import { CorreoComposeSheet } from "./CorreoComposeSheet";
 import { CorreoScheduledList } from "./CorreoScheduledList";
 import type { MailboxAccount } from "./MailboxSwitcher";
@@ -341,6 +342,40 @@ export function CorreosClient() {
   /** Enter / reintento: la próxima fetch de búsqueda lleva semantic=1. */
   const pendingSemanticRef = useRef(false);
   const SEMANTIC_FALLBACK_THRESHOLD = 5;
+
+  /** Completa fotos faltantes vía People API (Admin/cache ya vienen en el listado). */
+  const enrichThreadAvatars = useCallback((threads: CorreoThreadDTO[]) => {
+    const missing = threads.filter((t) => t.fromEmail && !t.fromPhotoUrl);
+    if (missing.length === 0) return;
+    const emails = [
+      ...new Set(
+        missing
+          .map((t) => parseSender(t.fromEmail).email.trim().toLowerCase())
+          .filter(Boolean),
+      ),
+    ].slice(0, 40);
+    if (emails.length === 0) return;
+    void fetch("/api/crm/correos/avatars", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ emails }),
+    })
+      .then((r) => r.json())
+      .then((body: { success?: boolean; data?: Record<string, string> }) => {
+        if (!body?.success || !body.data) return;
+        const map = body.data;
+        setItems((prev) =>
+          prev.map((t) => {
+            if (t.fromPhotoUrl) return t;
+            const email = parseSender(t.fromEmail).email.trim().toLowerCase();
+            const url = email ? map[email] : undefined;
+            return url ? { ...t, fromPhotoUrl: url } : t;
+          }),
+        );
+      })
+      .catch(() => undefined);
+  }, []);
+
   const fetchPage = useCallback(async (
     cur: string | null,
     reset: boolean,
@@ -498,12 +533,14 @@ export function CorreosClient() {
           : null,
       );
       if (!preserveItems) {
-        setItems((prev) => (reset ? r.items ?? [] : [...prev, ...(r.items ?? [])]));
+        const nextItems = r.items ?? [];
+        setItems((prev) => (reset ? nextItems : [...prev, ...nextItems]));
         setCursor(r.nextCursor ?? null);
         // C22b: snapshot de los últimos 50 hilos del inbox para modo offline.
         if (reset && f === "inbox" && !debouncedQuery && Array.isArray(r.items)) {
           void saveInboxSnapshot(r.items);
         }
+        if (nextItems.length) enrichThreadAvatars(nextItems);
       }
       // Reintento semántico automático: léxico pobre (<5) y aún no corrió.
       // Una sola vez por término; si embeddings no están disponibles, no loop.
@@ -527,7 +564,7 @@ export function CorreosClient() {
         if (isSearchFetch) setSearchPending(false);
       }
     }
-  }, [folder, debouncedQuery, withTasks]);
+  }, [folder, debouncedQuery, withTasks, enrichThreadAvatars]);
 
   /** Refresh post-acción: counts/meta sin re-pintar la lista (anti-pestañeo). */
   const softRefresh = useCallback(() => {

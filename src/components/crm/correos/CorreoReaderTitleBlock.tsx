@@ -100,7 +100,11 @@ export function CorreoReaderTitleBlock({
       </div>
 
       <div className="flex items-center gap-2">
-        <CorreoSenderAvatar fromEmail={primary?.fromEmail ?? null} compact />
+        <CorreoSenderAvatar
+          fromEmail={primary?.fromEmail ?? null}
+          photoUrl={primary?.fromPhotoUrl}
+          compact
+        />
         <button
           type="button"
           onClick={() => setExpanded((v) => !v)}

@@ -1,7 +1,20 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { Briefcase, Loader2, Mail, Pencil, Phone, Save, Shield, User, X } from "lucide-react";
+import { useRef, useState, useTransition } from "react";
+import {
+  Briefcase,
+  Camera,
+  Loader2,
+  Mail,
+  Pencil,
+  Phone,
+  Save,
+  Shield,
+  Trash2,
+  User,
+  X,
+} from "lucide-react";
+import { Avatar } from "@/components/opai-ds";
 import { updateDisplayName, updateCargo, updatePhone } from "@/app/(app)/opai/perfil/actions";
 
 interface UserInfoProps {
@@ -11,6 +24,7 @@ interface UserInfoProps {
     role: string;
     cargo?: string | null;
     phone?: string | null;
+    photoUrl?: string | null;
   };
 }
 
@@ -27,6 +41,9 @@ const roleLabels: Record<string, string> = {
 
 export function UserInfo({ user }: UserInfoProps) {
   const [isPending, startTransition] = useTransition();
+  const [photoPending, setPhotoPending] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [photoUrl, setPhotoUrl] = useState<string | null>(user.photoUrl ?? null);
   const [isEditingName, setIsEditingName] = useState(false);
   const [currentName, setCurrentName] = useState(user.name ?? "");
   const [draftName, setDraftName] = useState(user.name ?? "");
@@ -40,6 +57,55 @@ export function UserInfo({ user }: UserInfoProps) {
     type: "success" | "error";
     message: string;
   } | null>(null);
+
+  const uploadPhoto = async (file: File) => {
+    setStatusMessage(null);
+    setPhotoPending(true);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const res = await fetch("/api/me/avatar", { method: "POST", body: form });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        setStatusMessage({
+          type: "error",
+          message: json.error || "No se pudo subir la foto",
+        });
+        return;
+      }
+      setPhotoUrl(json.data?.photoUrl ?? null);
+      setStatusMessage({
+        type: "success",
+        message: "Foto de perfil actualizada",
+      });
+    } catch {
+      setStatusMessage({ type: "error", message: "Error de red al subir la foto" });
+    } finally {
+      setPhotoPending(false);
+    }
+  };
+
+  const removePhoto = async () => {
+    setStatusMessage(null);
+    setPhotoPending(true);
+    try {
+      const res = await fetch("/api/me/avatar", { method: "DELETE" });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        setStatusMessage({
+          type: "error",
+          message: json.error || "No se pudo eliminar la foto",
+        });
+        return;
+      }
+      setPhotoUrl(null);
+      setStatusMessage({ type: "success", message: "Foto de perfil eliminada" });
+    } catch {
+      setStatusMessage({ type: "error", message: "Error de red al eliminar la foto" });
+    } finally {
+      setPhotoPending(false);
+    }
+  };
 
   const startEditName = () => {
     setStatusMessage(null);
@@ -151,6 +217,58 @@ export function UserInfo({ user }: UserInfoProps) {
       </h2>
 
       <div className="space-y-4">
+        <div className="flex items-start gap-3">
+          <Camera className="h-5 w-5 text-muted-foreground mt-0.5" />
+          <div className="min-w-0 flex-1">
+            <p className="text-xs text-muted-foreground uppercase tracking-wide">
+              Foto de perfil
+            </p>
+            <div className="mt-2 flex flex-wrap items-center gap-3">
+              <Avatar name={currentName || user.email} photoUrl={photoUrl} size="lg" />
+              <div className="flex flex-wrap items-center gap-2">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    e.target.value = "";
+                    if (file) void uploadPhoto(file);
+                  }}
+                />
+                <button
+                  type="button"
+                  disabled={photoPending}
+                  onClick={() => fileInputRef.current?.click()}
+                  className="inline-flex h-10 sm:h-9 items-center gap-1.5 rounded-md bg-primary px-3 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-60"
+                >
+                  {photoPending ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Camera className="h-3.5 w-3.5" />
+                  )}
+                  {photoUrl ? "Cambiar foto" : "Subir foto"}
+                </button>
+                {photoUrl && (
+                  <button
+                    type="button"
+                    disabled={photoPending}
+                    onClick={() => void removePhoto()}
+                    className="inline-flex h-10 sm:h-9 items-center gap-1.5 rounded-md border border-input px-3 text-xs font-medium text-foreground transition-colors hover:bg-accent disabled:opacity-60"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    Quitar
+                  </button>
+                )}
+              </div>
+            </div>
+            <p className="mt-1.5 text-[12px] text-ds-text-3">
+              Se muestra en chat, correo, tickets y menciones. JPG/PNG/WEBP, máx. 2 MB.
+            </p>
+          </div>
+        </div>
+
         <div className="flex items-start gap-3">
           <User className="h-5 w-5 text-muted-foreground mt-0.5" />
           <div className="min-w-0 flex-1">
