@@ -13,6 +13,11 @@ import { createContactSchema, updateContactSchema } from "@/lib/validations/crm"
 import { computeChangedFields, createCrmHistoryLog } from "@/lib/crm-history";
 import { requireTenantModule } from '@/lib/require-module';
 import { cleanRut, toSiiRut, formatRut } from "@/lib/chile-rut";
+import {
+  listCrmContacts,
+  type ContactListFilter,
+  type ContactListSort,
+} from "@/lib/crm/list-contacts";
 
 export async function GET(request: NextRequest) {
   try {
@@ -24,18 +29,29 @@ export async function GET(request: NextRequest) {
     const forbidden = await requireCrmView(ctx, "contacts");
     if (forbidden) return forbidden;
 
-    const accountIdParam = request.nextUrl.searchParams.get("accountId") || undefined;
-    const rutParam = request.nextUrl.searchParams.get("rut") || undefined;
-    const portalEnabled = request.nextUrl.searchParams.get("portalEnabled");
+    const sp = request.nextUrl.searchParams;
+    const accountIdParam = sp.get("accountId") || undefined;
+    const rutParam = sp.get("rut") || undefined;
+    const portalEnabled = sp.get("portalEnabled");
+    const search = sp.get("search") || undefined;
+    const filterRaw = sp.get("filter");
+    const filter = (
+      filterRaw === "active" || filterRaw === "all" || filterRaw === "with_account" || filterRaw === "without_account"
+        ? filterRaw
+        : undefined
+    ) as ContactListFilter | undefined;
+    const sortRaw = sp.get("sort");
+    const sort = (
+      sortRaw === "az" || sortRaw === "za" || sortRaw === "newest" || sortRaw === "oldest"
+        ? sortRaw
+        : undefined
+    ) as ContactListSort | undefined;
+    const includeCounts = sp.get("includeCounts") === "true";
+    const limitRaw = sp.get("limit") ?? sp.get("pageSize");
+    const pageRaw = sp.get("page");
+    const paginated = limitRaw != null || pageRaw != null;
 
     // Si viene RUT y no accountId, resolvemos la cuenta CRM por RUT.
-    // Caso de uso: DTEs viejos sin crmAccountId asignado pero con receiverRut
-    // que coincide con una cuenta CRM existente — queremos poder traer sus
-    // contactos sin que el caller tenga que hacer un lookup previo.
-    //
-    // El lookup es TOLERANTE AL FORMATO: el receiverRut del DTE puede venir
-    // con puntos (`11.111.111-1`) mientras la cuenta CRM lo guarda sin puntos
-    // (`11111111-1`) o viceversa. Comparamos contra las variantes canónicas.
     let accountId = accountIdParam;
     if (!accountId && rutParam && cleanRut(rutParam).length >= 2) {
       const variants = Array.from(
@@ -50,32 +66,42 @@ export async function GET(request: NextRequest) {
 
     // GUARD CRÍTICO: si el caller pidió por cuenta o RUT pero no se resolvió
     // a una cuenta, devolvemos VACÍO — NUNCA todos los contactos del tenant.
-    // El bug previo dejaba caer el filtro `accountId` y el findMany retornaba
-    // TODA la libreta del tenant, que luego se pre-marcaba como CC del DTE/NC
-    // (fuga de datos masiva + envío de miles de correos a terceros).
     const scopedByParam = !!accountIdParam || !!rutParam;
     if (scopedByParam && !accountId) {
       return NextResponse.json({ success: true, data: [] });
     }
 
-    const contacts = await prisma.crmContact.findMany({
-      where: {
-        tenantId: ctx.tenantId,
-        ...(accountId ? { accountId } : {}),
-        ...(portalEnabled === "true" ? { portalEnabled: true } : {}),
-      },
-      include: {
-        account: true,
-        companyPresentations: {
-          where: { status: { in: ['sent', 'viewed'] } },
-          select: { id: true, status: true },
-          take: 1,
-        },
-      },
-      orderBy: { createdAt: "desc" },
+    const result = await listCrmContacts({
+      tenantId: ctx.tenantId,
+      accountId,
+      portalEnabled: portalEnabled === "true" ? true : undefined,
+      search,
+      filter,
+      sort,
+      includeCounts: includeCounts || paginated,
+      ...(paginated
+        ? {
+            page: pageRaw != null ? Number.parseInt(pageRaw, 10) : 1,
+            pageSize: limitRaw != null ? Number.parseInt(limitRaw, 10) : undefined,
+          }
+        : {}),
     });
 
-    return NextResponse.json({ success: true, data: contacts });
+    if (!paginated) {
+      return NextResponse.json({ success: true, data: result.contacts });
+    }
+
+    return NextResponse.json({
+      success: true,
+      data: result.contacts,
+      meta: {
+        page: result.page,
+        pageSize: result.pageSize,
+        total: result.total,
+        hasMore: result.hasMore,
+        counts: result.counts,
+      },
+    });
   } catch (error) {
     console.error("Error fetching CRM contacts:", error);
     return NextResponse.json(

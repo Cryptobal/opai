@@ -5,7 +5,10 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView, canViewInstallations } from "@/lib/permissions-server";
-import { prisma } from "@/lib/prisma";
+import {
+  INSTALLATION_LIST_DEFAULT_PAGE_SIZE,
+  listCrmInstallations,
+} from "@/lib/crm/list-installations";
 import { CrmInstallationsListClient } from "@/components/crm";
 
 export default async function CrmInstallationsPage() {
@@ -17,65 +20,24 @@ export default async function CrmInstallationsPage() {
   if (!canViewInstallations(perms)) redirect("/crm");
   const tenantId = session.user.tenantId;
   const canSeeDeals = canView(perms, "crm", "deals");
-  const [installations, accounts, puestosData, asignacionesData] = await Promise.all([
-    prisma.crmInstallation.findMany({
-      where: { tenantId, ...(!canSeeDeals ? { status: "active" } : {}) },
-      select: {
-        id: true,
-        name: true,
-        address: true,
-        city: true,
-        commune: true,
-        lat: true,
-        lng: true,
-        status: true,
-        nocturnoEnabled: true,
-        createdAt: true,
-        updatedAt: true,
-        account: { select: { id: true, name: true, type: true, isActive: true } },
-      },
-      orderBy: [{ name: "asc" }],
-    }),
-    prisma.crmAccount.findMany({
-      where: { tenantId },
-      orderBy: { name: "asc" },
-      select: { id: true, name: true },
-    }),
-    prisma.opsPuestoOperativo.groupBy({
-      by: ["installationId"],
-      where: { tenantId, active: true },
-      _sum: { requiredGuards: true },
-    }),
-    prisma.opsAsignacionGuardia.groupBy({
-      by: ["installationId"],
-      where: { tenantId, isActive: true },
-      _count: { id: true },
-    }),
-  ]);
 
-  const slotsByInstallation = new Map<string, number>();
-  for (const row of puestosData) {
-    slotsByInstallation.set(row.installationId, row._sum.requiredGuards ?? 0);
-  }
-  const guardsByInstallation = new Map<string, number>();
-  for (const row of asignacionesData) {
-    guardsByInstallation.set(row.installationId, row._count.id);
-  }
-
-  const initialInstallations = JSON.parse(JSON.stringify(
-    installations.map((inst) => ({
-      ...inst,
-      totalSlots: slotsByInstallation.get(inst.id) ?? 0,
-      assignedGuards: guardsByInstallation.get(inst.id) ?? 0,
-    }))
-  ));
-  const initialAccounts = JSON.parse(JSON.stringify(accounts));
+  const result = await listCrmInstallations({
+    tenantId,
+    canSeeDeals,
+    status: "active",
+    sort: "az",
+    page: 1,
+    pageSize: INSTALLATION_LIST_DEFAULT_PAGE_SIZE,
+    includeCounts: true,
+  });
 
   return (
     <div className="min-w-0">
       <CrmInstallationsListClient
-        initialInstallations={initialInstallations}
-        accounts={initialAccounts}
+        initialInstallations={JSON.parse(JSON.stringify(result.installations))}
+        initialCounts={result.counts ?? { all: 0, active: 0, inactive: 0 }}
+        initialHasMore={result.hasMore}
+        initialTotal={result.total}
       />
     </div>
   );

@@ -12,6 +12,11 @@ import { createCrmHistoryLog } from "@/lib/crm-history";
 import { applyDefaultQuoteIncludes } from "@/lib/cpq/apply-default-quote-includes";
 import { computeCpqQuoteCosts } from "@/modules/cpq/costing/compute-quote-costs";
 import { requireTenantModule } from '@/lib/require-module';
+import {
+  listCrmQuotes,
+  type QuoteStatusFilter,
+  type QuoteListSort,
+} from "@/lib/crm/list-quotes";
 
 export async function GET(request: NextRequest) {
   try {
@@ -24,11 +29,64 @@ export async function GET(request: NextRequest) {
     if (forbidden) return forbidden;
     const tenantId = ctx.tenantId;
 
-    const { searchParams } = new URL(request.url);
-    const leadId = searchParams.get("leadId");
-    const dealId = searchParams.get("dealId");
+    const sp = request.nextUrl.searchParams;
+    const leadId = sp.get("leadId") || undefined;
+    const dealId = sp.get("dealId") || undefined;
+    const search = sp.get("search") || undefined;
+    const statusRaw = sp.get("status");
+    const status = (
+      statusRaw === "all" || statusRaw === "draft" || statusRaw === "sent"
+      || statusRaw === "approved" || statusRaw === "rejected"
+        ? statusRaw
+        : undefined
+    ) as QuoteStatusFilter | undefined;
+    const sortRaw = sp.get("sort");
+    const sort = (
+      sortRaw === "az" || sortRaw === "za" || sortRaw === "newest" || sortRaw === "oldest"
+        ? sortRaw
+        : undefined
+    ) as QuoteListSort | undefined;
+    const includeCounts = sp.get("includeCounts") === "true";
+    const limitRaw = sp.get("limit") ?? sp.get("pageSize");
+    const pageRaw = sp.get("page");
+    const paginated = limitRaw != null || pageRaw != null;
+    const listMode = sp.get("list") === "crm" || paginated || includeCounts;
 
-    const where: any = { tenantId };
+    // Modo listado CRM paginado / enriquecido
+    if (listMode) {
+      const result = await listCrmQuotes({
+        tenantId,
+        leadId,
+        dealId,
+        search,
+        status,
+        sort,
+        includeCounts: includeCounts || paginated,
+        ...(paginated
+          ? {
+              page: pageRaw != null ? Number.parseInt(pageRaw, 10) : 1,
+              pageSize: limitRaw != null ? Number.parseInt(limitRaw, 10) : undefined,
+            }
+          : {}),
+      });
+      if (!paginated) {
+        return NextResponse.json({ success: true, data: result.quotes });
+      }
+      return NextResponse.json({
+        success: true,
+        data: result.quotes,
+        meta: {
+          page: result.page,
+          pageSize: result.pageSize,
+          total: result.total,
+          hasMore: result.hasMore,
+          counts: result.counts,
+        },
+      });
+    }
+
+    // Legacy: lead/deal scoped raw rows (sin paginar)
+    const where: Record<string, unknown> = { tenantId };
     if (leadId) where.createdFromLeadId = leadId;
     if (dealId) where.dealId = dealId;
 
