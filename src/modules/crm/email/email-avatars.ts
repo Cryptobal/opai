@@ -203,7 +203,7 @@ async function upsertAvatarCache(
 export async function fetchMissingPeopleAvatars(opts: {
   tenantId: string;
   userId: string;
-  emails: string[];
+  emails: Array<string | null | undefined>;
   emailAccountId?: string | null;
 }): Promise<Map<string, string>> {
   const result = await resolveCachedEmailAvatars(opts.tenantId, opts.emails);
