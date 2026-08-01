@@ -4,6 +4,17 @@ import { render, waitFor } from "@testing-library/react";
 import { CorreoReaderShell } from "../CorreoReaderShell";
 import { CorreoReaderIsland } from "../CorreoReaderIsland";
 
+const shellProps = {
+  open: true,
+  onClose: () => {},
+  headerFrom: "remitente@ejemplo.cl",
+  headerSubject: "Asunto",
+  desktopWidth: 480,
+  onResizePointerDown: () => {},
+  onResizeKeyDown: () => {},
+  onResizeReset: () => {},
+};
+
 describe("CorreoReaderShell island clearance", () => {
   beforeEach(() => {
     vi.stubGlobal(
@@ -19,19 +30,19 @@ describe("CorreoReaderShell island clearance", () => {
         dispatchEvent: vi.fn(),
       })),
     );
-    // getBoundingClientRect: panel 700px alto; isla ocupa los últimos 140px.
+    // Panel 700px; isla alta (200px) para forzar extra sobre el piso 184px.
     Element.prototype.getBoundingClientRect = function getBoundingClientRect() {
       const el = this as HTMLElement;
       if (el.hasAttribute("data-correo-reader-island")) {
         return {
-          top: 560,
+          top: 500,
           bottom: 700,
           left: 12,
           right: 360,
           width: 348,
-          height: 140,
+          height: 200,
           x: 12,
-          y: 560,
+          y: 500,
           toJSON: () => ({}),
         } as DOMRect;
       }
@@ -53,17 +64,26 @@ describe("CorreoReaderShell island clearance", () => {
     vi.unstubAllGlobals();
   });
 
-  it("reserva padding-bottom ≥ distancia real a la isla (adjuntos no tapados)", async () => {
+  it("aplica piso CSS de holgura en móvil (mails cortos / sin adjuntos)", () => {
+    render(
+      <CorreoReaderShell {...shellProps} mobileActions={null}>
+        <p>Cuerpo corto sin adjuntos</p>
+      </CorreoReaderShell>,
+    );
+
+    const content = document.querySelector("[data-correo-island-clearance]");
+    expect(content).toBeTruthy();
+    expect(content?.getAttribute("data-correo-island-clearance")).toBe("floor");
+    // Piso CSS siempre presente — no depende de que la isla haya montado.
+    expect(content?.className).toMatch(
+      /pb-\[calc\(env\(safe-area-inset-bottom/,
+    );
+  });
+
+  it("si la isla supera el piso, suma padding extra (no recorta)", async () => {
     render(
       <CorreoReaderShell
-        open
-        onClose={() => {}}
-        headerFrom="remitente@ejemplo.cl"
-        headerSubject="Asunto"
-        desktopWidth={480}
-        onResizePointerDown={() => {}}
-        onResizeKeyDown={() => {}}
-        onResizeReset={() => {}}
+        {...shellProps}
         mobileActions={
           <CorreoReaderIsland
             primaryAction={{
@@ -78,7 +98,7 @@ describe("CorreoReaderShell island clearance", () => {
           />
         }
       >
-        <p>Adjunto el rol del servicio</p>
+        <p>Cuerpo del correo</p>
         <div data-testid="adjuntos">archivo.pdf</div>
       </CorreoReaderShell>,
     );
@@ -86,10 +106,9 @@ describe("CorreoReaderShell island clearance", () => {
     await waitFor(() => {
       const content = document.querySelector("[data-correo-island-clearance]");
       expect(content).toBeTruthy();
-      const clearance = Number(content?.getAttribute("data-correo-island-clearance"));
-      // panelBottom 700 − islandTop 560 + gap 12 = 152
-      expect(clearance).toBeGreaterThanOrEqual(152);
-      expect((content as HTMLElement).style.paddingBottom).toBe(`${clearance}px`);
+      // needed = 700 - 500 + 24 = 224; floor 184 → extra 40
+      expect(content?.getAttribute("data-correo-island-extra")).toBe("40");
+      expect((content as HTMLElement).style.paddingBottom).toContain("40px");
     });
   });
 });

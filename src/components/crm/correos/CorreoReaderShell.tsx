@@ -100,9 +100,10 @@ export function CorreoReaderShell({
   // Listener nativo passive; solo re-render al cruzar el umbral (sin spam).
   const scrollElRef = useRef<HTMLDivElement | null>(null);
   const [scrolled, setScrolled] = useState(false);
-  // Holgura inferior = distancia real panel→tope de la isla (Sugerir respuestas
-  // + Responder). Si queda corta, los adjuntos quedan tapados al final del scroll.
-  const [islandClearance, setIslandClearance] = useState(160);
+  // Holgura extra (px) por encima del piso CSS. La medición NUNCA baja el
+  // padding: si la isla aún no montó, el piso CSS ya cubre Sugerir respuestas
+  // + Responder (+ safe-area). Bajar a 0 cortaba mails cortos sin adjuntos.
+  const [islandExtraPx, setIslandExtraPx] = useState(0);
   useEffect(() => {
     const el = scrollElRef.current;
     if (!el) return;
@@ -115,27 +116,31 @@ export function CorreoReaderShell({
     return () => el.removeEventListener("scroll", onScroll);
   }, [open]);
 
-  // Mide la isla flotante y reserva ese espacio al final del scroller.
+  // Si la isla real supera el piso CSS, suma el remanente (undo más alto, etc.).
   useEffect(() => {
     if (!open || !isMobile) {
-      setIslandClearance(0);
+      setIslandExtraPx(0);
       return;
     }
     const panel = panelRef.current;
     if (!panel) return;
 
-    const GAP_PX = 12;
+    // Piso alineado con pb-[calc(env(safe-area-inset-bottom)+11.5rem)].
+    const FLOOR_PX = 184; // 11.5rem @ 16px; safe-area va en el CSS
+    const GAP_PX = 24;
     let raf = 0;
     const measure = () => {
       const island = panel.querySelector<HTMLElement>("[data-correo-reader-island]");
       if (!island) {
-        setIslandClearance((prev) => (prev === 0 ? prev : 0));
+        // Sin nodo: mantener piso CSS (extra=0). No pisar a padding 0.
+        setIslandExtraPx((prev) => (prev === 0 ? prev : 0));
         return;
       }
       const panelBottom = panel.getBoundingClientRect().bottom;
       const islandTop = island.getBoundingClientRect().top;
-      const next = Math.max(0, Math.ceil(panelBottom - islandTop + GAP_PX));
-      setIslandClearance((prev) => (prev === next ? prev : next));
+      const needed = Math.max(0, Math.ceil(panelBottom - islandTop + GAP_PX));
+      const extra = Math.max(0, needed - FLOOR_PX);
+      setIslandExtraPx((prev) => (prev === extra ? prev : extra));
     };
     const schedule = () => {
       if (raf) return;
@@ -152,7 +157,6 @@ export function CorreoReaderShell({
     const island = panel.querySelector("[data-correo-reader-island]");
     if (island) ro?.observe(island);
 
-    // La isla monta/desmonta (composer, undo): re-observar el nodo actual.
     const mo = new MutationObserver(() => {
       const node = panel.querySelector("[data-correo-reader-island]");
       if (node) ro?.observe(node);
@@ -265,8 +269,8 @@ export function CorreoReaderShell({
                 isMobile && scrolled
                   ? ({
                       "--fade-top": "40px",
-                      // Alinea el fade con la holgura real de la isla.
-                      "--fade-bot": `${Math.max(islandClearance, 112)}px`,
+                      // Piso 11.5rem + safe-area + extra medido.
+                      "--fade-bot": `calc(env(safe-area-inset-bottom, 0px) + 11.5rem + ${islandExtraPx}px)`,
                     } as CSSProperties)
                   : undefined
               }
@@ -307,13 +311,23 @@ export function CorreoReaderShell({
               )}
 
               <div
-                className="space-y-2 px-3 pt-1.5 md:space-y-4 md:px-4 md:pt-4 lg:pb-4"
+                className={cn(
+                  "space-y-2 px-3 pt-1.5 md:space-y-4 md:px-4 md:pt-4 lg:pb-4",
+                  // Piso CSS: isla unificada (Sugerir respuestas + acciones) +
+                  // safe-area. No depende de JS — evita cortar el cuerpo al
+                  // montar o en mails cortos sin adjuntos.
+                  isMobile &&
+                    "pb-[calc(env(safe-area-inset-bottom,0px)+11.5rem)]",
+                )}
                 style={
-                  isMobile
-                    ? { paddingBottom: islandClearance }
+                  isMobile && islandExtraPx > 0
+                    ? {
+                        paddingBottom: `calc(env(safe-area-inset-bottom, 0px) + 11.5rem + ${islandExtraPx}px)`,
+                      }
                     : undefined
                 }
-                data-correo-island-clearance={isMobile ? islandClearance : undefined}
+                data-correo-island-clearance={isMobile ? "floor" : undefined}
+                data-correo-island-extra={isMobile ? islandExtraPx : undefined}
               >
                 {children}
               </div>
