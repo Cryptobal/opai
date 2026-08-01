@@ -148,8 +148,8 @@ export interface NavNode extends NavVisibility {
   /** Rutas adicionales que pertenecen a este nodo para efectos de estado
    *  activo y breadcrumbs. Se matchean con la misma regla que `href`
    *  (prefijo, salvo que el path termine explícitamente igual). Útil para
-   *  familias de rutas hermanas planas (ej. Banca: /finanzas/flujo-caja,
-   *  /finanzas/conciliacion viven fuera de /finanzas/bancos). */
+   *  familias de rutas hermanas planas (ej. Banca: /finanzas/conciliacion
+   *  vive fuera de /finanzas/bancos; Flujo de Caja es N2 propio). */
   activePaths?: string[];
   /** Badge configuration */
   badge?: NavBadge;
@@ -533,7 +533,9 @@ export const NAV_MODULES: NavNode[] = [
         ],
       },
       // Banca — restringido a owner/admin (banking_view). Con N3:
-      // Flujo de Caja / Conciliación / Cuentas y cartolas.
+      // Conciliación / Cuentas y cartolas.
+      // Flujo de Caja es N2 hermano (no vive bajo Banca): evita la duplicación
+      // tab-in-page + bottom-nav que confundía en mobile.
       {
         key: "finance-banca",
         href: "/finanzas/bancos",
@@ -542,22 +544,9 @@ export const NAV_MODULES: NavNode[] = [
         module: "finance",
         submodule: "contabilidad",
         show: (perms) => hasCapability(perms, "banking_view"),
-        // Rutas hermanas planas que pertenecen a Banca. /finanzas/flujo-caja
-        // (ruta histórica que ahora redirige a la planilla) se mantiene para
-        // que el breadcrumb resuelva durante el redirect.
-        activePaths: ["/finanzas/flujo-caja", "/finanzas/conciliacion"],
+        // Conciliación vive fuera de /finanzas/bancos (ruta hermana plana).
+        activePaths: ["/finanzas/conciliacion"],
         children: [
-          // Flujo de Caja: el Modo Planilla es la ÚNICA vista del producto.
-          // La ruta histórica /finanzas/flujo-caja redirige acá; su grilla v2
-          // ya no tiene entrada de navegación (decisión del owner 2026-07-23).
-          {
-            key: "banca-flujo-planilla",
-            href: "/finanzas/flujo-caja/planilla",
-            label: "Flujo de Caja",
-            shortLabel: "Flujo",
-            icon: TrendingUp,
-            capability: "cashflow_view",
-          },
           {
             key: "banca-conciliacion",
             href: "/finanzas/conciliacion",
@@ -577,6 +566,18 @@ export const NAV_MODULES: NavNode[] = [
             show: (perms) => hasCapability(perms, "banking_view"),
           },
         ],
+      },
+      // Flujo de Caja — N2 propio (hermano de Banca). Modo Planilla es la
+      // ÚNICA vista del producto; /finanzas/flujo-caja redirige a planilla.
+      {
+        key: "finance-flujo-caja",
+        href: "/finanzas/flujo-caja/planilla",
+        label: "Flujo de Caja",
+        shortLabel: "Flujo",
+        icon: TrendingUp,
+        capability: "cashflow_view",
+        // Ruta histórica + sub-rutas (cierre/cuadratura redirigen a planilla).
+        activePaths: ["/finanzas/flujo-caja"],
       },
       // Contabilidad — restringido a owner/admin (accounting_view)
       {
@@ -1071,13 +1072,9 @@ export function getContextualBottomNavNodes(pathname: string): NavNode[] {
     if (sup?.children) return sup.children;
   }
 
-  // Banca — familia de rutas hermanas planas (flujo-caja, conciliacion, bancos)
-  const BANCA_ROUTES = ["/finanzas/bancos", "/finanzas/flujo-caja", "/finanzas/conciliacion"];
-  if (BANCA_ROUTES.some((r) => pathname === r || pathname.startsWith(r + "/"))) {
-    const fin = getModule("finance");
-    const banca = fin?.children?.find((c) => c.key === "finance-banca");
-    if (banca?.children) return banca.children;
-  }
+  // Banca / Flujo de Caja: igual que el resto de Finanzas (Reportes, C/V,
+  // Rendiciones) — el bottom nav siempre muestra N2. El N3 de Banca
+  // (Conciliación / Cuentas) vive en TopbarSubNav + FinanceN3Chips.
 
   // Default: top-level children of active module
   const active = findActiveModule(pathname);

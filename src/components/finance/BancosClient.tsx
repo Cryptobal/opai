@@ -139,7 +139,8 @@ const TX_SUB_TABS: { id: TxSubTab; label: string }[] = [
 /* ── Constants ── */
 
 const TABS = [
-  { id: "cashflow", label: "Flujo de caja", icon: Wallet },
+  // Flujo de Caja es N2 hermano de Banca (bottom nav / home Finanzas),
+  // no un tab in-page aquí — evita duplicarlo con el módulo principal.
   { id: "transactions", label: "Movimientos", icon: ArrowLeftRight },
   { id: "analysis", label: "Análisis", icon: BarChart3 },
   { id: "rules", label: "Reglas", icon: Settings2 },
@@ -227,11 +228,16 @@ export function BancosClient({
   const [activeTab, setActiveTab] = useState<TabId>("transactions");
 
   useEffect(() => {
-    const t = searchParams.get("tab") as TabId | null;
+    const t = searchParams.get("tab");
     if (!t) return;
-    const valid = TABS.some((tab) => tab.id === t) && t !== "cashflow";
+    // Legacy: ?tab=cashflow apuntaba al tab que ahora es N2 propio.
+    if (t === "cashflow") {
+      router.replace("/finanzas/flujo-caja/planilla");
+      return;
+    }
+    const valid = TABS.some((tab) => tab.id === t);
     if (valid) setActiveTab(t as TabId);
-  }, [searchParams]);
+  }, [searchParams, router]);
 
   // Auto-abrir el drawer de conciliación cuando llega `?txId=...` desde
   // un DTE pagado (deep link cross-módulo). El TransactionsTab observa
@@ -248,15 +254,7 @@ export function BancosClient({
             return (
               <button
                 key={tab.id}
-                onClick={() => {
-                  // "Flujo de caja" vive en su propia ruta (server component
-                  // que carga la proyección). El resto son tabs in-page.
-                  if (tab.id === "cashflow") {
-                    router.push("/finanzas/flujo-caja");
-                    return;
-                  }
-                  setActiveTab(tab.id);
-                }}
+                onClick={() => setActiveTab(tab.id)}
                 className={cn(
                   "whitespace-nowrap rounded-full px-3.5 py-1.5 text-xs font-medium transition-colors shrink-0 flex items-center gap-1.5",
                   isActive

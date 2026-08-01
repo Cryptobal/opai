@@ -89,12 +89,13 @@ describe("getBottomNavItems — back-compat snapshots", () => {
     expect(hrefs).not.toContain("/ops/inventario/configuracion");
   });
 
-  it("Finanzas main → compras y ventas, banca, contabilidad, informes, rendiciones", () => {
+  it("Finanzas main → compras y ventas, banca, flujo, contabilidad, informes, rendiciones", () => {
     const items = getBottomNavItems("/finanzas", "owner", ALL_ENABLED);
     const hrefs = items.map((i) => i.href);
     expect(hrefs).toContain("/finanzas/rendiciones");
     expect(hrefs).toContain("/finanzas/facturacion");
     expect(hrefs).toContain("/finanzas/bancos");
+    expect(hrefs).toContain("/finanzas/flujo-caja/planilla");
     expect(hrefs).toContain("/finanzas/contabilidad");
     expect(hrefs).toContain("/finanzas/reportes");
     // Proveedores dejó de ser N2 propio: ahora es N3 dentro de
@@ -109,11 +110,25 @@ describe("getBottomNavItems — back-compat snapshots", () => {
     expect(hrefs).toContain("/finanzas/rendiciones");
     expect(hrefs).toContain("/finanzas/facturacion");
     expect(hrefs).toContain("/finanzas/bancos");
+    expect(hrefs).toContain("/finanzas/flujo-caja/planilla");
     expect(hrefs).toContain("/finanzas/contabilidad");
     expect(hrefs).toContain("/finanzas/reportes");
     // N3 reportes children should NOT appear (chips live above the hero now)
     expect(hrefs).not.toContain("/finanzas/reportes/eerr");
     expect(hrefs).not.toContain("/finanzas/reportes/balance");
+  });
+
+  it("Banca / Flujo → bottom nav shows N2 peers, not Banca N3", () => {
+    for (const path of [
+      "/finanzas/bancos",
+      "/finanzas/conciliacion",
+      "/finanzas/flujo-caja/planilla",
+    ]) {
+      const hrefs = getBottomNavItems(path, "owner", ALL_ENABLED).map((i) => i.href);
+      expect(hrefs).toContain("/finanzas/bancos");
+      expect(hrefs).toContain("/finanzas/flujo-caja/planilla");
+      expect(hrefs).not.toContain("/finanzas/conciliacion");
+    }
   });
 
   it("Facturación inner → bottom nav shows N2 finance items, not N3 DTEs", () => {

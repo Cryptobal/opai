@@ -7,6 +7,7 @@ import {
 } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
 import { BancosClient } from "@/components/finance/BancosClient";
+import { FinanceN3Chips } from "@/components/finance/FinanceN3Chips";
 import { tenantInboxEmail } from "@/modules/finance/banking/cartola-inbox";
 
 export default async function BancosPage({
@@ -68,7 +69,8 @@ export default async function BancosPage({
   }));
 
   return (
-    <div className="min-w-0">
+    <div className="min-w-0 space-y-4">
+      <FinanceN3Chips submoduleKey="finance-banca" />
       <BancosClient
         accounts={data}
         accountPlans={accountPlans}
