@@ -228,7 +228,7 @@ export function BancosClient({
   const [activeTab, setActiveTab] = useState<TabId>("transactions");
 
   useEffect(() => {
-    const t = searchParams.get("tab") as TabId | null;
+    const t = searchParams.get("tab");
     if (!t) return;
     // Legacy: ?tab=cashflow apuntaba al tab que ahora es N2 propio.
     if (t === "cashflow") {
