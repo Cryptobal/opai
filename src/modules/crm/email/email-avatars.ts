@@ -43,7 +43,7 @@ export function extractEmails(rawList: Array<string | null | undefined>): string
 /** Lookup síncrono: Admin + cache. No llama a People. */
 export async function resolveCachedEmailAvatars(
   tenantId: string,
-  emails: string[],
+  emails: Array<string | null | undefined>,
 ): Promise<Map<string, string>> {
   const normalized = extractEmails(emails);
   const result = new Map<string, string>();
