@@ -15,6 +15,11 @@ import {
   MapPin, AlertTriangle, ChevronLeft, ChevronRight, Check, FileText,
 } from "lucide-react";
 import { toast } from "sonner";
+import {
+  clusterReasonLabel,
+  type DuplicateCluster,
+  type DuplicateClusterReason,
+} from "@/lib/crm/account-duplicates";
 
 // ──────────────────────────────────────────────
 // Types
@@ -47,10 +52,20 @@ type PreviewData = { master: PreviewAccount; duplicate: PreviewAccount; similari
 type FieldOverrides = Record<string, string | null>;
 
 type WizardStep = "search" | "fields" | "records" | "confirm";
+type SearchScope = "current" | "all";
+
+type ClusterView = Omit<DuplicateCluster, "accounts" | "reason"> & {
+  reason: DuplicateClusterReason;
+  accounts: AccountResult[];
+};
 
 type Props = {
   open: boolean; onOpenChange: (open: boolean) => void;
-  initialQuery?: string; onMerged?: () => void;
+  /** Prefill de búsqueda cuando se abre desde una cuenta concreta. */
+  initialQuery?: string;
+  /** "current" = esta cuenta; "all" = escanear todas. Default: current si hay query, si no all. */
+  defaultScope?: SearchScope;
+  onMerged?: () => void;
 };
 
 // ──────────────────────────────────────────────
@@ -85,69 +100,212 @@ function val(obj: Record<string, any>, key: string): string {
 // ──────────────────────────────────────────────
 // Step 0 — Search with role assignment
 // ──────────────────────────────────────────────
-function SearchStep({
-  query, setQuery, results, loading, masterAccount, duplicateAccount, onSelect,
+function AccountRoleCard({
+  acc, masterAccount, duplicateAccount, onSelect,
 }: {
-  query: string; setQuery: (v: string) => void; results: AccountResult[]; loading: boolean;
-  masterAccount: AccountResult | null; duplicateAccount: AccountResult | null;
+  acc: AccountResult;
+  masterAccount: AccountResult | null;
+  duplicateAccount: AccountResult | null;
   onSelect: (acc: AccountResult, role: "master" | "duplicate") => void;
 }) {
+  const isMaster = masterAccount?.id === acc.id;
+  const isDuplicate = duplicateAccount?.id === acc.id;
+  const lc = lifecycleLabel(acc);
+  return (
+    <div className={`rounded-lg border p-3 transition-all ${isMaster ? "border-status-ok-border bg-status-ok-soft" : isDuplicate ? "border-status-danger-border bg-status-danger-soft/30" : "border-ds-border-default"}`}>
+      {(isMaster || isDuplicate) && (
+        <span className={`text-[12px] font-bold px-1.5 py-0.5 rounded mb-1.5 inline-flex items-center gap-1 ${isMaster ? "bg-status-ok-soft text-status-ok-fg" : "bg-status-danger-soft text-status-danger-fg"}`}>
+          {isMaster ? <><Crown className="h-2.5 w-2.5" /> MASTER (se conserva)</> : <><Trash2 className="h-2.5 w-2.5" /> DUPLICADO (se elimina)</>}
+        </span>
+      )}
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
+          <p className="font-semibold text-sm">{acc.name}</p>
+          {acc.legalName && <p className="text-xs text-ds-text-3">{acc.legalName}</p>}
+          {acc.rut && <p className="text-xs text-ds-text-3 font-mono">{acc.rut}</p>}
+          <div className="flex gap-3 text-xs text-ds-text-3 mt-1">
+            <span className="flex items-center gap-1"><Users className="h-3 w-3" />{acc._count.contacts}</span>
+            <span className="flex items-center gap-1"><Briefcase className="h-3 w-3" />{acc._count.deals}</span>
+            <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{acc._count.installations}</span>
+          </div>
+        </div>
+        <Badge variant="outline" className={`text-xs shrink-0 ${lc.cls}`}>{lc.label}</Badge>
+      </div>
+      {!isMaster && !isDuplicate ? (
+        <div className="flex gap-2 mt-2">
+          <Button size="sm" variant="outline" className="flex-1 h-10 sm:h-8 text-xs border-status-ok-border text-status-ok-fg hover:bg-status-ok-soft" onClick={() => onSelect(acc, "master")}>
+            <Crown className="h-3 w-3 mr-1" /> Conservar
+          </Button>
+          <Button size="sm" variant="outline" className="flex-1 h-10 sm:h-8 text-xs border-status-danger-border text-status-danger-fg hover:bg-status-danger-soft" onClick={() => onSelect(acc, "duplicate")}>
+            <Trash2 className="h-3 w-3 mr-1" /> Eliminar
+          </Button>
+        </div>
+      ) : (
+        <Button size="sm" variant="ghost" className="mt-1 h-10 sm:h-8 text-xs text-ds-text-3 px-2"
+          onClick={() => onSelect(acc, isMaster ? "duplicate" : "master")}>Cambiar rol</Button>
+      )}
+    </div>
+  );
+}
+
+function SearchStep({
+  scope, setScope, hasCurrentContext,
+  query, setQuery, results, loading,
+  clusters, scanLoading, selectedClusterId, onSelectCluster, onClearCluster,
+  masterAccount, duplicateAccount, onSelect,
+}: {
+  scope: SearchScope;
+  setScope: (s: SearchScope) => void;
+  hasCurrentContext: boolean;
+  query: string;
+  setQuery: (v: string) => void;
+  results: AccountResult[];
+  loading: boolean;
+  clusters: ClusterView[];
+  scanLoading: boolean;
+  selectedClusterId: string | null;
+  onSelectCluster: (cluster: ClusterView) => void;
+  onClearCluster: () => void;
+  masterAccount: AccountResult | null;
+  duplicateAccount: AccountResult | null;
+  onSelect: (acc: AccountResult, role: "master" | "duplicate") => void;
+}) {
+  const selectedCluster = clusters.find((c) => c.id === selectedClusterId) ?? null;
+
   return (
     <div className="space-y-4">
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-        <Input value={query} onChange={(e) => setQuery(e.target.value)}
-          placeholder="Buscar por nombre de cuenta..." className="pl-9" autoFocus />
-        {loading && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />}
+      <div className="flex rounded-lg border border-ds-border-default p-1 bg-ds-surface-2 gap-1">
+        <button
+          type="button"
+          disabled={!hasCurrentContext}
+          onClick={() => setScope("current")}
+          className={`flex-1 min-h-10 sm:min-h-9 rounded-md text-[13px] font-medium transition-colors ${
+            scope === "current"
+              ? "bg-ds-surface-1 text-foreground shadow-sm"
+              : "text-ds-text-3 hover:text-foreground disabled:opacity-40"
+          }`}
+        >
+          Esta cuenta
+        </button>
+        <button
+          type="button"
+          onClick={() => setScope("all")}
+          className={`flex-1 min-h-10 sm:min-h-9 rounded-md text-[13px] font-medium transition-colors ${
+            scope === "all"
+              ? "bg-ds-surface-1 text-foreground shadow-sm"
+              : "text-ds-text-3 hover:text-foreground"
+          }`}
+        >
+          Todas
+        </button>
       </div>
-      {results.length === 0 && query.length >= 2 && !loading && (
-        <p className="text-center py-6 text-sm text-muted-foreground">
-          No se encontraron cuentas similares para <strong>&quot;{query}&quot;</strong>
-        </p>
-      )}
-      {results.length > 0 && (
-        <div className="space-y-2">
-          <p className="text-xs text-muted-foreground">{results.length} cuenta{results.length !== 1 ? "s" : ""} encontrada{results.length !== 1 ? "s" : ""}. Asigna un rol a cada cuenta.</p>
-          {results.map((acc) => {
-            const isMaster = masterAccount?.id === acc.id;
-            const isDuplicate = duplicateAccount?.id === acc.id;
-            const lc = lifecycleLabel(acc);
-            return (
-              <div key={acc.id} className={`rounded-lg border p-3 transition-all ${isMaster ? "border-status-ok-border bg-status-ok-soft" : isDuplicate ? "border-status-danger-border bg-status-danger-soft/30" : "border-border"}`}>
-                {(isMaster || isDuplicate) && (
-                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded mb-1.5 inline-flex items-center gap-1 ${isMaster ? "bg-status-ok-soft text-status-ok-fg" : "bg-status-danger-soft text-status-danger-fg"}`}>
-                    {isMaster ? <><Crown className="h-2.5 w-2.5" /> MASTER (se conserva)</> : <><Trash2 className="h-2.5 w-2.5" /> DUPLICADO (se elimina)</>}
-                  </span>
-                )}
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0 flex-1">
-                    <p className="font-semibold text-sm">{acc.name}</p>
-                    {acc.legalName && <p className="text-xs text-muted-foreground">{acc.legalName}</p>}
-                    {acc.rut && <p className="text-xs text-muted-foreground font-mono">{acc.rut}</p>}
-                    <div className="flex gap-3 text-xs text-muted-foreground mt-1">
-                      <span className="flex items-center gap-1"><Users className="h-3 w-3" />{acc._count.contacts}</span>
-                      <span className="flex items-center gap-1"><Briefcase className="h-3 w-3" />{acc._count.deals}</span>
-                      <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{acc._count.installations}</span>
+
+      {scope === "current" ? (
+        <>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ds-text-3 pointer-events-none" />
+            <Input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Buscar por nombre de cuenta..."
+              className="pl-9 h-10 sm:h-9"
+              autoFocus
+            />
+            {loading && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-ds-text-3" />}
+          </div>
+          {results.length === 0 && query.length >= 2 && !loading && (
+            <p className="text-center py-6 text-sm text-ds-text-3">
+              No se encontraron cuentas similares para <strong>&quot;{query}&quot;</strong>
+            </p>
+          )}
+          {results.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-xs text-ds-text-3">
+                {results.length} cuenta{results.length !== 1 ? "s" : ""} encontrada{results.length !== 1 ? "s" : ""}. Asigna un rol a cada cuenta.
+              </p>
+              {results.map((acc) => (
+                <AccountRoleCard
+                  key={acc.id}
+                  acc={acc}
+                  masterAccount={masterAccount}
+                  duplicateAccount={duplicateAccount}
+                  onSelect={onSelect}
+                />
+              ))}
+            </div>
+          )}
+        </>
+      ) : selectedCluster ? (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between gap-2">
+            <div className="min-w-0">
+              <p className="text-sm font-medium truncate">
+                Grupo · {clusterReasonLabel(selectedCluster.reason)}
+              </p>
+              <p className="text-xs text-ds-text-3">
+                {selectedCluster.accounts.length} cuentas · similitud {Math.round(selectedCluster.score * 100)}%
+              </p>
+            </div>
+            <Button type="button" variant="ghost" size="sm" className="h-10 sm:h-9 shrink-0" onClick={onClearCluster}>
+              <ChevronLeft className="h-4 w-4 mr-1" /> Ver todos
+            </Button>
+          </div>
+          <p className="text-xs text-ds-text-3">Asigna master y duplicado para fusionar este grupo.</p>
+          <div className="space-y-2">
+            {selectedCluster.accounts.map((acc) => (
+              <AccountRoleCard
+                key={acc.id}
+                acc={acc}
+                masterAccount={masterAccount}
+                duplicateAccount={duplicateAccount}
+                onSelect={onSelect}
+              />
+            ))}
+          </div>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          <p className="text-xs text-ds-text-3">
+            Posibles duplicados en todo el CRM (mismo RUT o nombre muy parecido). Elige un grupo para fusionar.
+          </p>
+          {scanLoading ? (
+            <div className="flex items-center justify-center py-12 gap-2 text-ds-text-3">
+              <Loader2 className="h-5 w-5 animate-spin" /> Escaneando cuentas...
+            </div>
+          ) : clusters.length === 0 ? (
+            <p className="text-center py-8 text-sm text-ds-text-3">
+              No se detectaron grupos de cuentas duplicadas.
+            </p>
+          ) : (
+            <div className="space-y-2">
+              <p className="text-xs text-ds-text-3">{clusters.length} grupo{clusters.length !== 1 ? "s" : ""} sugerido{clusters.length !== 1 ? "s" : ""}</p>
+              {clusters.map((cluster) => (
+                <button
+                  key={cluster.id}
+                  type="button"
+                  onClick={() => onSelectCluster(cluster)}
+                  className="w-full text-left rounded-lg border border-ds-border-default bg-ds-surface-1 p-3 hover:border-primary/40 transition-colors min-h-[44px]"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold truncate">
+                        {cluster.accounts.map((a) => a.name).join(" · ")}
+                      </p>
+                      <p className="text-xs text-ds-text-3 mt-0.5">
+                        {cluster.accounts.length} cuentas
+                        {cluster.accounts.find((a) => a.rut)?.rut
+                          ? ` · ${cluster.accounts.find((a) => a.rut)?.rut}`
+                          : ""}
+                      </p>
                     </div>
+                    <Badge variant="outline" className="text-[12px] shrink-0 border-status-warn-border text-status-warn-fg">
+                      {clusterReasonLabel(cluster.reason)}
+                    </Badge>
                   </div>
-                  <Badge variant="outline" className={`text-xs shrink-0 ${lc.cls}`}>{lc.label}</Badge>
-                </div>
-                {!isMaster && !isDuplicate ? (
-                  <div className="flex gap-2 mt-2">
-                    <Button size="sm" variant="outline" className="flex-1 h-7 text-xs border-status-ok-border text-status-ok-fg hover:bg-status-ok-soft" onClick={() => onSelect(acc, "master")}>
-                      <Crown className="h-3 w-3 mr-1" /> Conservar
-                    </Button>
-                    <Button size="sm" variant="outline" className="flex-1 h-7 text-xs border-status-danger-border text-status-danger-fg hover:bg-status-danger-soft" onClick={() => onSelect(acc, "duplicate")}>
-                      <Trash2 className="h-3 w-3 mr-1" /> Eliminar
-                    </Button>
-                  </div>
-                ) : (
-                  <Button size="sm" variant="ghost" className="mt-1 h-6 text-xs text-muted-foreground px-2"
-                    onClick={() => onSelect(acc, isMaster ? "duplicate" : "master")}>Cambiar rol</Button>
-                )}
-              </div>
-            );
-          })}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -393,10 +551,24 @@ const STEPS: { id: WizardStep; label: string }[] = [
   { id: "confirm", label: "Confirmar" },
 ];
 
-export function DuplicateAccountModal({ open, onOpenChange, initialQuery = "", onMerged }: Props) {
+export function DuplicateAccountModal({
+  open,
+  onOpenChange,
+  initialQuery = "",
+  defaultScope,
+  onMerged,
+}: Props) {
+  const hasCurrentContext = Boolean(initialQuery.trim());
+  const resolvedDefaultScope: SearchScope =
+    defaultScope ?? (hasCurrentContext ? "current" : "all");
+
+  const [scope, setScope] = useState<SearchScope>(resolvedDefaultScope);
   const [query, setQuery] = useState(initialQuery);
   const [results, setResults] = useState<AccountResult[]>([]);
   const [loading, setLoading] = useState(false);
+  const [clusters, setClusters] = useState<ClusterView[]>([]);
+  const [scanLoading, setScanLoading] = useState(false);
+  const [selectedClusterId, setSelectedClusterId] = useState<string | null>(null);
   const [step, setStep] = useState<WizardStep>("search");
   const [masterAccount, setMasterAccount] = useState<AccountResult | null>(null);
   const [duplicateAccount, setDuplicateAccount] = useState<AccountResult | null>(null);
@@ -422,14 +594,59 @@ export function DuplicateAccountModal({ open, onOpenChange, initialQuery = "", o
     } catch { /* silent */ } finally { setLoading(false); }
   }, []);
 
-  useEffect(() => {
-    if (open && initialQuery) { setQuery(initialQuery); void search(initialQuery); }
-  }, [open, initialQuery, search]);
+  const loadScan = useCallback(async () => {
+    setScanLoading(true);
+    try {
+      const res = await fetch("/api/crm/accounts/duplicates?mode=scan");
+      const data = await res.json();
+      if (data.success) {
+        setClusters(data.data?.clusters ?? []);
+      } else {
+        toast.error(data.error || "No se pudo escanear duplicados");
+      }
+    } catch {
+      toast.error("No se pudo escanear duplicados");
+    } finally {
+      setScanLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    const timer = setTimeout(() => { if (query.length >= 2) void search(query); else setResults([]); }, 350);
+    if (!open) return;
+    const nextScope = defaultScope ?? (hasCurrentContext ? "current" : "all");
+    setScope(nextScope);
+    setQuery(initialQuery);
+    setSelectedClusterId(null);
+    setMasterAccount(null);
+    setDuplicateAccount(null);
+    setStep("search");
+    if (nextScope === "current" && initialQuery) {
+      void search(initialQuery);
+    }
+    if (nextScope === "all") {
+      void loadScan();
+    }
+  }, [open, initialQuery, defaultScope, hasCurrentContext, search, loadScan]);
+
+  useEffect(() => {
+    if (!open || scope !== "current") return;
+    const timer = setTimeout(() => {
+      if (query.length >= 2) void search(query);
+      else setResults([]);
+    }, 350);
     return () => clearTimeout(timer);
-  }, [query, search]);
+  }, [open, scope, query, search]);
+
+  const handleScopeChange = (next: SearchScope) => {
+    if (next === scope) return;
+    setScope(next);
+    setMasterAccount(null);
+    setDuplicateAccount(null);
+    setSelectedClusterId(null);
+    setPreview(null);
+    if (next === "all") void loadScan();
+    if (next === "current" && query.length >= 2) void search(query);
+  };
 
   const loadPreview = useCallback(async (masterId: string, duplicateId: string) => {
     setPreviewLoading(true);
@@ -463,6 +680,17 @@ export function DuplicateAccountModal({ open, onOpenChange, initialQuery = "", o
     }
   };
 
+  const handleSelectCluster = (cluster: ClusterView) => {
+    setSelectedClusterId(cluster.id);
+    setMasterAccount(null);
+    setDuplicateAccount(null);
+    // Sugerencia: primera (más relaciones) = master, segunda = duplicado
+    if (cluster.accounts.length >= 2) {
+      setMasterAccount(cluster.accounts[0]);
+      setDuplicateAccount(cluster.accounts[1]);
+    }
+  };
+
   const canAdvance = masterAccount && duplicateAccount && masterAccount.id !== duplicateAccount.id;
 
   const goToFields = async () => {
@@ -491,6 +719,7 @@ export function DuplicateAccountModal({ open, onOpenChange, initialQuery = "", o
       if (!res.ok) throw new Error(data.error || "Error al fusionar");
       toast.success(data.message || "Cuentas fusionadas exitosamente");
       onMerged?.();
+      setClusters([]);
       handleClose();
     } catch (err: any) {
       toast.error(err?.message || "No se pudo fusionar");
@@ -503,9 +732,18 @@ export function DuplicateAccountModal({ open, onOpenChange, initialQuery = "", o
   };
 
   const resetAll = () => {
-    setQuery(initialQuery || ""); setResults([]); setStep("search");
-    setMasterAccount(null); setDuplicateAccount(null); setPreview(null);
-    setFieldOverrides({}); setExcludeContactIds([]); setExcludeDealIds([]); setExcludeInstallationIds([]);
+    setQuery(initialQuery || "");
+    setResults([]);
+    setStep("search");
+    setScope(resolvedDefaultScope);
+    setSelectedClusterId(null);
+    setMasterAccount(null);
+    setDuplicateAccount(null);
+    setPreview(null);
+    setFieldOverrides({});
+    setExcludeContactIds([]);
+    setExcludeDealIds([]);
+    setExcludeInstallationIds([]);
   };
 
   const stepIndex = STEPS.findIndex(s => s.id === step);
@@ -537,8 +775,27 @@ export function DuplicateAccountModal({ open, onOpenChange, initialQuery = "", o
 
         <div className="flex-1 overflow-y-auto py-2 pr-1">
           {step === "search" && (
-            <SearchStep query={query} setQuery={setQuery} results={results} loading={loading}
-              masterAccount={masterAccount} duplicateAccount={duplicateAccount} onSelect={handleSelect} />
+            <SearchStep
+              scope={scope}
+              setScope={handleScopeChange}
+              hasCurrentContext={hasCurrentContext}
+              query={query}
+              setQuery={setQuery}
+              results={results}
+              loading={loading}
+              clusters={clusters}
+              scanLoading={scanLoading}
+              selectedClusterId={selectedClusterId}
+              onSelectCluster={handleSelectCluster}
+              onClearCluster={() => {
+                setSelectedClusterId(null);
+                setMasterAccount(null);
+                setDuplicateAccount(null);
+              }}
+              masterAccount={masterAccount}
+              duplicateAccount={duplicateAccount}
+              onSelect={handleSelect}
+            />
           )}
 
           {step === "fields" && (previewLoading ? (

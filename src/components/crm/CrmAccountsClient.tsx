@@ -381,7 +381,7 @@ export function CrmAccountsClient({
               variant="outline"
               className="h-9 w-9 shrink-0"
               onClick={() => setDuplicateModalOpen(true)}
-              title="Buscar cuentas duplicadas"
+              title="Buscar duplicados (todas las cuentas)"
             >
               <GitMerge className="h-4 w-4" />
               <span className="sr-only">Buscar duplicados</span>
@@ -671,6 +671,7 @@ export function CrmAccountsClient({
       <DuplicateAccountModal
         open={duplicateModalOpen}
         onOpenChange={setDuplicateModalOpen}
+        defaultScope="all"
         onMerged={() => {
           void fetchAccounts(1, true);
         }}
