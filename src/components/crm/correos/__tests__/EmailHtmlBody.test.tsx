@@ -77,8 +77,11 @@ describe("buildEmailSrcDoc", () => {
     expect(doc).toContain("color-scheme:light");
     expect(doc).toContain('<base target="_blank">');
     expect(doc).toContain("opai-mail-canvas");
-    expect(doc).toContain("padding:16px 20px");
     expect(doc).toContain("<p>contenido</p>");
+    // Padding en el canvas (no en body): si está en body y se mide
+    // canvas.scrollHeight, el iframe corta ~32px del pie del mail.
+    expect(doc).toMatch(/\.opai-mail-canvas\{[^}]*padding:16px 20px/);
+    expect(doc).not.toMatch(/body\{[^}]*padding:16px 20px/);
     // Canvas al 100%: texto hace wrap; sin max-content (rompe wrap / tiritón).
     // overflow:hidden en html/body: el iframe mide al contenido → pan nativo
     // iOS encadena al scroller del shell (sin puente touch / touch-action:none).
