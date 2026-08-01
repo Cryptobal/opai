@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
     // Verify target admin exists and belongs to same tenant
     const targetAdmin = await prisma.admin.findFirst({
       where: { id: targetAdminId, tenantId: ctx.tenantId, status: "active" },
-      select: { id: true, name: true, email: true },
+      select: { id: true, name: true, email: true, photoUrl: true },
     });
 
     if (!targetAdmin) {
@@ -78,7 +78,7 @@ export async function POST(request: NextRequest) {
             id: targetAdmin.id,
             name: targetAdmin.name,
             email: targetAdmin.email,
-            image: null,
+            image: targetAdmin.photoUrl ?? null,
           },
           lastMessageAt: existingChannel.lastMessageAt?.toISOString() ?? null,
           lastMessagePreview: existingChannel.lastMessagePreview,
@@ -122,7 +122,7 @@ export async function POST(request: NextRequest) {
           id: targetAdmin.id,
           name: targetAdmin.name,
           email: targetAdmin.email,
-          image: null,
+          image: targetAdmin.photoUrl ?? null,
         },
         lastMessageAt: null,
         lastMessagePreview: null,

@@ -40,7 +40,7 @@ export function CorreoMessageRow({ m, attachmentCount, unread = false, onOpen }:
       aria-expanded={false}
       className="flex h-9 min-h-9 w-full min-w-0 items-center gap-2 px-1 text-left ds-tap hover:bg-ds-surface-2 sm:h-10 sm:min-h-10 sm:px-2"
     >
-      <CorreoSenderAvatar fromEmail={m.fromEmail} compact />
+      <CorreoSenderAvatar fromEmail={m.fromEmail} photoUrl={m.fromPhotoUrl} compact />
       {isDraft ? (
         <Tag variant="warn" size="sm">
           Borrador

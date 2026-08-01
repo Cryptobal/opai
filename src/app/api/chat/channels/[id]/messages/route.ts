@@ -267,12 +267,13 @@ export async function POST(
       }
     }
 
-    // Get admin sender name
+    // Get admin sender name + avatar
     const admin = await prisma.admin.findUnique({
       where: { id: ctx.userId },
-      select: { name: true },
+      select: { name: true, photoUrl: true },
     });
     const senderName = admin?.name ?? ctx.userEmail;
+    const senderAvatar = admin?.photoUrl ?? null;
 
     // Validate replyToId if provided
     const replyToId = typeof body.replyToId === "string" ? body.replyToId : null;
@@ -328,6 +329,7 @@ export async function POST(
           senderType: "ADMIN" as ChatSenderType,
           senderAdminId: ctx.userId,
           senderName,
+          senderAvatar,
           content,
           replyToId,
           threadRootId,

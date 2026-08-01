@@ -15,6 +15,8 @@ const PALETTE = [
 
 type Props = {
   fromEmail: string | null;
+  /** Foto real (Admin OPAI o Google People). Si hay, reemplaza iniciales. */
+  photoUrl?: string | null;
   /** Densidad 1 línea: círculo de 32px en vez de 40px. */
   compact?: boolean;
   /** Modo selección: el avatar muta a un check primario (morph ~150ms). */
@@ -23,8 +25,14 @@ type Props = {
   onPress?: () => void;
 };
 
-/** Avatar de remitente estilo Gmail: iniciales sobre color determinístico. */
-export function CorreoSenderAvatar({ fromEmail, compact, checked, onPress }: Props) {
+/** Avatar de remitente estilo Gmail: foto si hay, si no iniciales + color. */
+export function CorreoSenderAvatar({
+  fromEmail,
+  photoUrl,
+  compact,
+  checked,
+  onPress,
+}: Props) {
   const sender = parseSender(fromEmail);
   const tint = PALETTE[senderColorIndex(sender.email)] ?? PALETTE[0];
   const size = compact ? "h-8 w-8" : "h-10 w-10";
@@ -32,13 +40,22 @@ export function CorreoSenderAvatar({ fromEmail, compact, checked, onPress }: Pro
 
   const face = (
     <span aria-hidden className={`relative block shrink-0 ${size}`}>
-      <span
-        className={`${circle} ${tint} ${compact ? "text-[13px]" : "text-sm"} font-semibold ${
-          checked ? "scale-0 opacity-0" : "scale-100 opacity-100"
-        }`}
-      >
-        {sender.initials}
-      </span>
+      {photoUrl && !checked ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={photoUrl}
+          alt=""
+          className="absolute inset-0 h-full w-full rounded-full object-cover"
+        />
+      ) : (
+        <span
+          className={`${circle} ${tint} ${compact ? "text-[13px]" : "text-sm"} font-semibold ${
+            checked ? "scale-0 opacity-0" : "scale-100 opacity-100"
+          }`}
+        >
+          {sender.initials}
+        </span>
+      )}
       <span
         className={`${circle} bg-primary text-primary-foreground ${
           checked ? "scale-100 opacity-100" : "scale-0 opacity-0"

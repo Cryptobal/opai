@@ -20,7 +20,14 @@ export default async function PerfilPage() {
 
   const dbUser = await prisma.admin.findUnique({
     where: { id: session.user.id },
-    select: { name: true, email: true, role: true, cargo: true, phone: true },
+    select: {
+      name: true,
+      email: true,
+      role: true,
+      cargo: true,
+      phone: true,
+      photoUrl: true,
+    },
   });
 
   const userData = {
@@ -29,6 +36,7 @@ export default async function PerfilPage() {
     role: dbUser?.role ?? session.user.role,
     cargo: dbUser?.cargo ?? null,
     phone: dbUser?.phone ?? null,
+    photoUrl: dbUser?.photoUrl ?? null,
   };
 
   return (

@@ -548,6 +548,10 @@ model Admin {
   name                          String
   phone                         String?
   cargo                         String?
+  /// URL pública (R2) de la foto de perfil del usuario ERP.
+  photoUrl                      String?                        @map("photo_url")
+  /// Storage key R2 para poder borrar/reemplazar la foto.
+  photoKey                      String?                        @map("photo_key")
   role                          String                         @default("admin")
   roleTemplateId                String?                        @map("role_template_id")
   lastLoginAt                   DateTime?
@@ -2883,6 +2887,28 @@ model CrmEmailRecipient {
   @@index([tenantId, userId, lastSentAt(sort: Desc)], map: "idx_crm_email_recipients_recent")
   @@index([tenantId, userId, sendCount(sort: Desc)], map: "idx_crm_email_recipients_frequent")
   @@map("email_recipients")
+  @@schema("crm")
+}
+
+/// Cache de avatares de remitentes/destinatarios de correo.
+/// Fuentes: foto Admin del tenant (`admin`) o Google People API (`people`).
+/// `photoUrl` null + `source=none` = ya consultado sin foto (evita re-fetch).
+model CrmEmailContactAvatar {
+  id        String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId  String   @map("tenant_id")
+  /// Email normalizado (trim + lowercase).
+  email     String
+  photoUrl  String?  @map("photo_url")
+  /// admin | people | none
+  source    String   @default("none")
+  checkedAt DateTime @default(now()) @map("checked_at") @db.Timestamptz(6)
+  expiresAt DateTime @map("expires_at") @db.Timestamptz(6)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@unique([tenantId, email], map: "uq_crm_email_contact_avatars_tenant_email")
+  @@index([tenantId, expiresAt], map: "idx_crm_email_contact_avatars_expires")
+  @@map("email_contact_avatars")
   @@schema("crm")
 }
 

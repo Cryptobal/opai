@@ -55,6 +55,11 @@ export function ChatConversation({
   onMarkAsRead,
   onChannelSummaryChanged,
 }: ChatConversationProps) {
+  const [currentUserIdState, setCurrentUserIdState] = useState<string | null>(currentUserIdProp ?? null);
+  const [currentUserAvatar, setCurrentUserAvatar] = useState<string | null>(null);
+  const [currentUserName, setCurrentUserName] = useState<string>("Yo");
+  const currentUserId = currentUserIdProp ?? currentUserIdState;
+
   const {
     messages: apiMessages,
     mentionDisplayMap,
@@ -67,7 +72,10 @@ export function ChatConversation({
     editMessage,
     deleteMessage,
     setMessages: setApiMessages,
-  } = useChatMessages(channelId);
+  } = useChatMessages(channelId, {
+    senderName: currentUserName,
+    senderAvatar: currentUserAvatar,
+  });
 
   const {
     messages: rtMessages,
@@ -86,8 +94,6 @@ export function ChatConversation({
   // apiMessages porque el mensaje reaccionado casi siempre viene del historial.
   const appliedReactionCountRef = useRef(0);
 
-  const [currentUserIdState, setCurrentUserIdState] = useState<string | null>(currentUserIdProp ?? null);
-  const currentUserId = currentUserIdProp ?? currentUserIdState;
   const [readCursors, setReadCursors] = useState<{ readerId: string; lastReadAt: string; lastReadMessageId: string | null }[]>([]);
 
   const [clearConfirmOpen, setClearConfirmOpen] = useState(false);
@@ -107,12 +113,16 @@ export function ChatConversation({
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
   const lastReadMsgRef = useRef<string | null>(null);
 
-  // Fetch current user ID once (only if not provided as prop)
+  // Fetch current user ID + avatar once
   useEffect(() => {
-    if (currentUserIdProp) return; // already provided as prop
     fetch("/api/chat/me")
       .then((r) => r.json())
-      .then((j) => { if (j.success) setCurrentUserIdState(j.data.userId); })
+      .then((j) => {
+        if (!j.success) return;
+        if (!currentUserIdProp && j.data.userId) setCurrentUserIdState(j.data.userId);
+        if (j.data.photoUrl) setCurrentUserAvatar(j.data.photoUrl);
+        if (j.data.name) setCurrentUserName(j.data.name);
+      })
       .catch(() => {});
   }, [currentUserIdProp]);
 
