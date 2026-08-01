@@ -18,8 +18,6 @@ import {
   type AccountSort,
 } from "@/lib/crm/list-accounts";
 
-type AccountLifecycle = "prospect" | "client_active" | "client_inactive";
-
 function normalizeLifecycle(input?: string | null): AccountLifecycle | null {
   if (input === "prospect" || input === "client_active" || input === "client_inactive") {
     return input;

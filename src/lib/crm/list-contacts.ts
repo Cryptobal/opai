@@ -34,8 +34,8 @@ export type ListContactsParams = {
 function filterWhere(filter: ContactListFilter | undefined): Prisma.CrmContactWhereInput | undefined {
   if (!filter || filter === "all") return undefined;
   if (filter === "active") return { account: { status: "client_active" } };
-  if (filter === "with_account") return { accountId: { not: null } };
-  return { accountId: null };
+  if (filter === "with_account") return { NOT: { account: { is: null } } };
+  return { account: { is: null } };
 }
 
 function buildWhere(params: ListContactsParams): Prisma.CrmContactWhereInput {
@@ -78,8 +78,8 @@ export async function getContactListCounts(tenantId: string): Promise<ContactLis
   const [all, active, withAccount, withoutAccount] = await Promise.all([
     prisma.crmContact.count({ where: { tenantId } }),
     prisma.crmContact.count({ where: { tenantId, account: { status: "client_active" } } }),
-    prisma.crmContact.count({ where: { tenantId, accountId: { not: null } } }),
-    prisma.crmContact.count({ where: { tenantId, accountId: null } }),
+    prisma.crmContact.count({ where: { tenantId, NOT: { account: { is: null } } } }),
+    prisma.crmContact.count({ where: { tenantId, account: { is: null } } }),
   ]);
   return { all, active, withAccount, withoutAccount };
 }
