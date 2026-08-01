@@ -233,37 +233,39 @@ describe("nav registry", () => {
     });
   });
 
-  describe("Banca — N3 + activePaths (rutas hermanas planas)", () => {
+  describe("Banca + Flujo de Caja (N2 hermanos)", () => {
     const finance = NAV_MODULES.find((m) => m.key === "finance")!;
     const banca = finance.children!.find((c) => c.key === "finance-banca")!;
+    const flujo = finance.children!.find((c) => c.key === "finance-flujo-caja")!;
 
-    it("finance-banca tiene N3 (flujo-caja planilla / conciliación / cuentas)", () => {
+    it("finance-banca tiene N3 (conciliación / cuentas) sin Flujo de Caja", () => {
       const childKeys = (banca.children ?? []).map((c) => c.key);
-      // La planilla es la ÚNICA entrada de Flujo de Caja (sin gemelo legacy).
       expect(childKeys).toEqual([
-        "banca-flujo-planilla",
         "banca-conciliacion",
         "banca-cuentas",
       ]);
     });
 
-    it("Flujo de Caja apunta a la planilla", () => {
-      const planilla = banca.children!.find((c) => c.key === "banca-flujo-planilla")!;
-      expect(planilla.href).toBe("/finanzas/flujo-caja/planilla");
-      // Sin gate por flag: siempre visible con la capability.
-      expect(planilla.show).toBeUndefined();
+    it("Flujo de Caja es N2 hermano de Banca y apunta a la planilla", () => {
+      expect(flujo).toBeDefined();
+      expect(flujo.href).toBe("/finanzas/flujo-caja/planilla");
+      expect(flujo.children).toBeUndefined();
+      expect(pathMatchesNode("/finanzas/flujo-caja", flujo)).toBe(true);
+      expect(pathMatchesNode("/finanzas/flujo-caja/planilla", flujo)).toBe(true);
+      // Banca ya no reclama las rutas de flujo-caja.
+      expect(pathMatchesNode("/finanzas/flujo-caja", banca)).toBe(false);
     });
 
     it("findActiveModule resuelve finance para /finanzas/flujo-caja", () => {
       expect(findActiveModule("/finanzas/flujo-caja")?.key).toBe("finance");
     });
 
-    it("pathMatchesNode true para sub-ruta de un activePath de Banca", () => {
-      expect(pathMatchesNode("/finanzas/flujo-caja/cierre", banca)).toBe(true);
+    it("pathMatchesNode true para sub-ruta de activePath de Banca (conciliación)", () => {
+      expect(pathMatchesNode("/finanzas/conciliacion/123", banca)).toBe(true);
     });
 
-    it("findN3Parent resuelve finance-banca para /finanzas/flujo-caja (activePaths)", () => {
-      expect(findN3Parent("/finanzas/flujo-caja")?.key).toBe("finance-banca");
+    it("findN3Parent no resuelve finance-banca para /finanzas/flujo-caja", () => {
+      expect(findN3Parent("/finanzas/flujo-caja")?.key).not.toBe("finance-banca");
     });
 
     it("trail de /finanzas/conciliacion = [Finanzas, Banca, Conciliación]", () => {
@@ -281,12 +283,13 @@ describe("nav registry", () => {
       ]);
     });
 
-    it("getContextualBottomNavNodes devuelve Banca N3 para rutas de Banca", () => {
+    it("getContextualBottomNavNodes devuelve Finance N2 para Banca y Flujo", () => {
       for (const r of ["/finanzas/bancos", "/finanzas/flujo-caja", "/finanzas/conciliacion"]) {
         const keys = getContextualBottomNavNodes(r).map((n) => n.key);
-        expect(keys).toContain("banca-flujo-planilla");
-        expect(keys).toContain("banca-conciliacion");
-        expect(keys).toContain("banca-cuentas");
+        expect(keys).toContain("finance-banca");
+        expect(keys).toContain("finance-flujo-caja");
+        expect(keys).not.toContain("banca-conciliacion");
+        expect(keys).not.toContain("banca-cuentas");
       }
     });
 

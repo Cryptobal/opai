@@ -74,8 +74,9 @@ El registry tiene 4 niveles:
   Cuentas, Contactos, Negocios, Cotizaciones, Prospección, Instalaciones].
 - **N3** (sub-secciones): hijos de un N2. Ej. Finanzas → Reportes →
   [Dashboard, EERR, Balance, Ventas, Compras, Rentabilidad, Mayor]; y
-  Finanzas → Banca → [Flujo de Caja, Conciliación, Cuentas y cartolas]
-  (rutas hermanas planas unidas vía `activePaths`, ver abajo).
+  Finanzas → Banca → [Conciliación, Cuentas y cartolas]
+ (rutas hermanas planas unidas vía `activePaths`, ver abajo);
+ Finanzas → Flujo de Caja (N2 hermano de Banca).
 - **N4** (drill-down detalle): páginas `[id]` con `EntityDetailLayout` y
   `ChipTabs` (CRM, plan futuro para resto).
 
@@ -102,8 +103,9 @@ consumidores (sidebar, bottom nav, breadcrumbs, `SwipeTabs`, `ConfigShell`,
 Un nodo puede declarar `activePaths: string[]` — rutas hermanas planas que le
 "pertenecen" para estado activo + breadcrumbs, sin mover carpetas. Ejemplo:
 **Banca** (`href: /finanzas/bancos`) declara
-`activePaths: ["/finanzas/flujo-caja", "/finanzas/conciliacion"]` para que esas
-rutas hermanas activen el N2 Banca y produzcan el breadcrumb correcto. Igual el
+`activePaths: ["/finanzas/conciliacion"]` para que Conciliación active el N2
+Banca y produzca el breadcrumb correcto. **Flujo de Caja** es N2 hermano
+(`finance-flujo-caja`) con `activePaths: ["/finanzas/flujo-caja"]`. Igual el
 módulo Documentos declara `/opai/documentos-operativos` (hermano plano de
 `/opai/documentos`).
 
@@ -170,9 +172,9 @@ las pages hijas sin nav local. Ejemplos:
 - `src/app/(app)/ops/inventario/layout.tsx`
 - `src/app/(app)/finanzas/reportes/layout.tsx`
 - `src/app/(app)/finanzas/facturacion/layout.tsx`
-- `src/app/(app)/finanzas/flujo-caja/layout.tsx` (`moduleKey="finance-banca"`;
-  Conciliación y Bancos montan el mismo `<ModuleSubNav moduleKey="finance-banca" />`
-  por page porque no comparten prefijo de ruta con flujo-caja).
+- `src/app/(app)/finanzas/flujo-caja/layout.tsx` (N2 propio sin N3; guard de
+  capability). Conciliación y Bancos usan `<FinanceN3Chips submoduleKey="finance-banca" />`
+  en mobile; en desktop el N3 va por `TopbarSubNav`.
 
 ### Configuración (`/opai/configuracion`) — sub-sidebar
 

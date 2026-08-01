@@ -8,6 +8,7 @@ import {
 } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
 import { ConciliacionClient } from "@/components/finance/ConciliacionClient";
+import { FinanceN3Chips } from "@/components/finance/FinanceN3Chips";
 
 export default async function ConciliacionPage() {
   const session = await auth();
@@ -28,7 +29,8 @@ export default async function ConciliacionPage() {
   });
 
   return (
-    <div className="min-w-0">
+    <div className="min-w-0 space-y-4">
+      <FinanceN3Chips submoduleKey="finance-banca" />
       <ConciliacionClient bankAccounts={bankAccounts} canManage={canManage} />
     </div>
   );

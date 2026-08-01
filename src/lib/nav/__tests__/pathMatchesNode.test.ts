@@ -41,31 +41,37 @@ describe("pathMatchesNode", () => {
   describe("activePaths", () => {
     const banca = node({
       href: "/finanzas/bancos",
-      activePaths: ["/finanzas/flujo-caja", "/finanzas/conciliacion"],
+      activePaths: ["/finanzas/conciliacion"],
+    });
+    const flujo = node({
+      href: "/finanzas/flujo-caja/planilla",
+      activePaths: ["/finanzas/flujo-caja"],
     });
 
     it("matchea un activePath exacto", () => {
-      expect(pathMatchesNode("/finanzas/flujo-caja", banca)).toBe(true);
       expect(pathMatchesNode("/finanzas/conciliacion", banca)).toBe(true);
+      expect(pathMatchesNode("/finanzas/flujo-caja", flujo)).toBe(true);
     });
 
     it("matchea sub-rutas de un activePath (prefijo + '/')", () => {
-      expect(pathMatchesNode("/finanzas/flujo-caja/cierre", banca)).toBe(true);
       expect(pathMatchesNode("/finanzas/conciliacion/123", banca)).toBe(true);
+      expect(pathMatchesNode("/finanzas/flujo-caja/cierre", flujo)).toBe(true);
     });
 
     it("sigue matcheando el href propio además de los activePaths", () => {
       expect(pathMatchesNode("/finanzas/bancos", banca)).toBe(true);
       expect(pathMatchesNode("/finanzas/bancos/cuenta-1", banca)).toBe(true);
+      expect(pathMatchesNode("/finanzas/flujo-caja/planilla", flujo)).toBe(true);
     });
 
     it("NO matchea un prefijo de string parcial de un activePath (exige '/')", () => {
       // /finanzas/flujo NO debe activar /finanzas/flujo-caja
-      expect(pathMatchesNode("/finanzas/flujo", banca)).toBe(false);
+      expect(pathMatchesNode("/finanzas/flujo", flujo)).toBe(false);
     });
 
     it("NO matchea rutas fuera del href y de los activePaths", () => {
       expect(pathMatchesNode("/finanzas/reportes", banca)).toBe(false);
+      expect(pathMatchesNode("/finanzas/flujo-caja", banca)).toBe(false);
     });
   });
 
