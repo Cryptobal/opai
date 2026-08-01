@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-misused-promises */
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,14 +20,15 @@ import Link from "next/link";
 import { Loader2, Plus, ChevronRight, Globe, MessageSquare, GitMerge, ShieldCheck, Wallet } from "lucide-react";
 import { DuplicateAccountModal } from "./DuplicateAccountModal";
 import { CRM_MODULES } from "./CrmModuleIcons";
-import { EmptyState, Tag } from "@/components/opai-ds";
+import { EmptyState, Spinner, Tag } from "@/components/opai-ds";
 import { CrmEntityCard, type EntityCardChip } from "./cards/CrmEntityCard";
 import { CrmDates } from "@/components/crm/CrmDates";
 import { CrmToolbar } from "./CrmToolbar";
 import type { ViewMode } from "@/components/shared/ViewToggle";
-import { SearchableSelect, type SearchableOption } from "@/components/ui/SearchableSelect";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { toast } from "sonner";
 import { useUnreadNoteIds } from "@/lib/hooks";
+import { ACCOUNT_LIST_DEFAULT_PAGE_SIZE } from "@/lib/crm/list-accounts";
 
 type AccountFormState = {
   name: string;
@@ -141,18 +142,51 @@ const DEFAULT_FORM: AccountFormState = {
   type: "prospect",
 };
 
-export function CrmAccountsClient({ initialAccounts }: { initialAccounts: AccountRow[] }) {
+type LifecycleFilter = "client_active" | "prospect" | "client_inactive" | "all";
+
+type AccountCounts = {
+  prospects: number;
+  clientActive: number;
+  clientInactive: number;
+  total: number;
+};
+
+type CrmAccountsClientProps = {
+  initialAccounts: AccountRow[];
+  initialCounts: AccountCounts;
+  initialHasMore: boolean;
+  initialTotal: number;
+  initialLifecycle?: LifecycleFilter;
+};
+
+export function CrmAccountsClient({
+  initialAccounts,
+  initialCounts,
+  initialHasMore,
+  initialTotal,
+  initialLifecycle = "client_active",
+}: CrmAccountsClientProps) {
   const [accounts, setAccounts] = useState<AccountRow[]>(initialAccounts);
   const [form, setForm] = useState<AccountFormState>(DEFAULT_FORM);
   const [creating, setCreating] = useState(false);
   const [open, setOpen] = useState(false);
-  const [typeFilter, setTypeFilter] = useState<"client_active" | "prospect" | "client_inactive" | "all">("client_active");
+  const [typeFilter, setTypeFilter] = useState<LifecycleFilter>(initialLifecycle);
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [view, setView] = useState<ViewMode>("cards");
   const [sort, setSort] = useState("az");
   const unreadNoteIds = useUnreadNoteIds("ACCOUNT");
   const [industries, setIndustries] = useState<{ id: string; name: string }[]>([]);
   const [duplicateModalOpen, setDuplicateModalOpen] = useState(false);
+  const [counts, setCounts] = useState<AccountCounts>(initialCounts);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(initialHasMore);
+  const [listTotal, setListTotal] = useState(initialTotal);
+  const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const initialLoadDone = useRef(false);
+  // Evita refetch al montar con los mismos filtros del SSR.
+  const skipFirstFetch = useRef(true);
 
   useEffect(() => {
     fetch("/api/crm/industries?active=true")
@@ -161,45 +195,79 @@ export function CrmAccountsClient({ initialAccounts }: { initialAccounts: Accoun
       .catch(() => {});
   }, []);
 
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search.trim()), 300);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  const filterKey = useMemo(
+    () => JSON.stringify({ typeFilter, debouncedSearch, sort }),
+    [typeFilter, debouncedSearch, sort],
+  );
+
+  const fetchAccounts = useCallback(
+    async (pageNum: number, replace: boolean) => {
+      if (replace) setLoading(true);
+      else setLoadingMore(true);
+      try {
+        const params = new URLSearchParams({
+          page: String(pageNum),
+          limit: String(ACCOUNT_LIST_DEFAULT_PAGE_SIZE),
+          sort,
+          includeCounts: "true",
+        });
+        if (typeFilter !== "all") params.set("lifecycle", typeFilter);
+        else params.set("lifecycle", "all");
+        if (debouncedSearch) params.set("search", debouncedSearch);
+
+        const res = await fetch(`/api/crm/accounts?${params}`);
+        const payload = await res.json();
+        if (!payload.success) throw new Error(payload.error || "Error al cargar cuentas");
+
+        const incoming: AccountRow[] = payload.data ?? [];
+        setAccounts((prev) => (replace ? incoming : [...prev, ...incoming]));
+        setPage(pageNum);
+        setHasMore(Boolean(payload.meta?.hasMore));
+        setListTotal(payload.meta?.total ?? incoming.length);
+        if (payload.meta?.counts) setCounts(payload.meta.counts);
+      } catch (error) {
+        console.error(error);
+        toast.error("No se pudieron cargar las cuentas.");
+      } finally {
+        setLoading(false);
+        setLoadingMore(false);
+        initialLoadDone.current = true;
+      }
+    },
+    [typeFilter, debouncedSearch, sort],
+  );
+
+  useEffect(() => {
+    if (skipFirstFetch.current) {
+      skipFirstFetch.current = false;
+      // Si el SSR ya trajo el filtro default sin búsqueda, no refetch.
+      if (
+        typeFilter === initialLifecycle &&
+        !debouncedSearch &&
+        sort === "az"
+      ) {
+        initialLoadDone.current = true;
+        return;
+      }
+    }
+    void fetchAccounts(1, true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filterKey]);
+
+  const handleLoadMore = useCallback(() => {
+    if (loadingMore || !hasMore || loading) return;
+    void fetchAccounts(page + 1, false);
+  }, [fetchAccounts, page, loadingMore, hasMore, loading]);
+
   const inputClassName =
     "bg-background text-foreground placeholder:text-muted-foreground border-input focus-visible:ring-ring";
   const selectClassName =
     "flex h-9 min-h-[44px] w-full appearance-none rounded-md border border-input bg-background pl-3 pr-8 py-2 text-sm text-foreground bg-[url('data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2212%22%20height%3D%2212%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%236b7280%22%20stroke-width%3D%222%22%3E%3Cpath%20d%3D%22m6%209%206%206%206-6%22%2F%3E%3C%2Fsvg%3E')] bg-[length:12px] bg-[right_8px_center] bg-no-repeat focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
-
-  const filteredAccounts = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    let result = accounts.filter((a) => {
-      const lifecycle = getLifecycle(a);
-      if (typeFilter === "client_active" && lifecycle !== "client_active") return false;
-      if (typeFilter === "prospect" && lifecycle !== "prospect") return false;
-      if (typeFilter === "client_inactive" && lifecycle !== "client_inactive") return false;
-      if (q && !`${a.name} ${a.rut || ""} ${a.industry || ""}`.toLowerCase().includes(q)) return false;
-      return true;
-    });
-
-    result = [...result].sort((a, b) => {
-      switch (sort) {
-        case "oldest":
-          return (a.createdAt || "").localeCompare(b.createdAt || "");
-        case "az":
-          return a.name.localeCompare(b.name);
-        case "za":
-          return b.name.localeCompare(a.name);
-        case "newest":
-        default:
-          return (b.createdAt || "").localeCompare(a.createdAt || "");
-      }
-    });
-
-    return result;
-  }, [accounts, typeFilter, search, sort]);
-
-  const counts = useMemo(() => {
-    const prospects = accounts.filter((a) => getLifecycle(a) === "prospect").length;
-    const clientActive = accounts.filter((a) => getLifecycle(a) === "client_active").length;
-    const clientInactive = accounts.filter((a) => getLifecycle(a) === "client_inactive").length;
-    return { prospects, clientActive, clientInactive, total: accounts.length };
-  }, [accounts]);
 
   const updateForm = (key: keyof AccountFormState, value: string) => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -221,20 +289,34 @@ export function CrmAccountsClient({ initialAccounts }: { initialAccounts: Accoun
       if (!response.ok) {
         throw new Error(typeof payload?.error === "string" ? payload.error : "Error creando cuenta");
       }
-      setAccounts((prev) => [
-        {
-          ...payload.data,
-          _count: { contacts: 0, deals: 0, installations: 0 },
-          contractCoverage: {
-            totalInstallations: 0,
-            withContract: 0,
-            missingContract: 0,
-            expiredContract: 0,
-            expiringContract: 0,
-          },
+      const createdLifecycle =
+        form.type === "prospect" ? "prospect" : "client_inactive";
+      const created: AccountRow = {
+        ...payload.data,
+        _count: { contacts: 0, deals: 0, installations: 0 },
+        contractCoverage: {
+          totalInstallations: 0,
+          withContract: 0,
+          missingContract: 0,
+          expiredContract: 0,
+          expiringContract: 0,
         },
+        cashflowItemCount: 0,
+        cashflowMonthlyAmount: null,
+        activeGuardsCount: 0,
+      };
+      // Solo insertar en la lista visible si matchea el filtro actual.
+      if (typeFilter === "all" || typeFilter === createdLifecycle) {
+        setAccounts((prev) => [created, ...prev]);
+        setListTotal((n) => n + 1);
+      }
+      setCounts((prev) => ({
         ...prev,
-      ]);
+        prospects: prev.prospects + (createdLifecycle === "prospect" ? 1 : 0),
+        clientInactive:
+          prev.clientInactive + (createdLifecycle === "client_inactive" ? 1 : 0),
+        total: prev.total + 1,
+      }));
       setForm(DEFAULT_FORM);
       setOpen(false);
       toast.success(
@@ -418,7 +500,11 @@ export function CrmAccountsClient({ initialAccounts }: { initialAccounts: Accoun
       {/* ── Account list ── */}
       <Card>
         <CardContent className="pt-5">
-          {filteredAccounts.length === 0 ? (
+          {loading && accounts.length === 0 ? (
+            <div className="flex items-center justify-center py-12">
+              <Spinner />
+            </div>
+          ) : accounts.length === 0 ? (
             <EmptyState
               icon={CRM_MODULES.accounts.icon}
               title="Sin cuentas"
@@ -430,8 +516,8 @@ export function CrmAccountsClient({ initialAccounts }: { initialAccounts: Accoun
               compact
             />
           ) : view === "list" ? (
-            <div className="space-y-2">
-              {filteredAccounts.map((account) => {
+            <div className={`space-y-2 ${loading ? "opacity-60" : ""}`}>
+              {accounts.map((account) => {
                 const lifecycle = getLifecycle(account);
                 const statusLabel = lifecycle === "prospect" ? "Prospecto" : lifecycle === "client_active" ? "Cliente" : "Ex cliente";
                 const contractTag = getContractCoverageTag(account);
@@ -521,8 +607,8 @@ export function CrmAccountsClient({ initialAccounts }: { initialAccounts: Accoun
               })}
             </div>
           ) : (
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 min-w-0">
-              {filteredAccounts.map((account) => {
+            <div className={`grid gap-3 sm:grid-cols-2 lg:grid-cols-3 min-w-0 ${loading ? "opacity-60" : ""}`}>
+              {accounts.map((account) => {
                 const lifecycle = getLifecycle(account);
                 const statusLabel = lifecycle === "prospect" ? "Prospecto" : lifecycle === "client_active" ? "Cliente" : "Ex cliente";
                 const contractTag = getContractCoverageTag(account);
@@ -564,17 +650,29 @@ export function CrmAccountsClient({ initialAccounts }: { initialAccounts: Accoun
               })}
             </div>
           )}
+          {(hasMore || loadingMore) && (
+            <div className="mt-4 flex flex-col items-center gap-2">
+              <p className="text-ds-caption text-ds-text-3">
+                Mostrando {accounts.length} de {listTotal}
+              </p>
+              <Button
+                variant="outline"
+                className="h-10 sm:h-9 min-w-[160px]"
+                disabled={loadingMore || loading}
+                onClick={handleLoadMore}
+              >
+                {loadingMore && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Cargar más
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
       <DuplicateAccountModal
         open={duplicateModalOpen}
         onOpenChange={setDuplicateModalOpen}
         onMerged={() => {
-          // Reload accounts after merge
-          fetch("/api/crm/accounts")
-            .then((r) => r.json())
-            .then((d) => d.success && setAccounts(d.data))
-            .catch(() => {});
+          void fetchAccounts(1, true);
         }}
       />
     </div>
