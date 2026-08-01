@@ -1,7 +1,7 @@
+/* eslint-disable @typescript-eslint/no-misused-promises */
 "use client";
 
-import { useMemo, useState, useEffect } from "react";
-import Link from "next/link";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { MapPin, Search, ChevronRight, Plus, Loader2, Moon, ShieldAlert, Users, MessageSquare } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -16,7 +16,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Avatar, EmptyState, EntityRow, Tag, tintFromId, tintClasses } from "@/components/opai-ds";
+import { Avatar, EmptyState, EntityRow, Spinner, Tag, tintFromId, tintClasses } from "@/components/opai-ds";
 import { CrmEntityCard, type EntityCardChip } from "./cards/CrmEntityCard";
 import { cn } from "@/lib/utils";
 import { AddressAutocomplete, type AddressResult } from "@/components/ui/AddressAutocomplete";
@@ -24,8 +24,8 @@ import { MapsUrlPasteInput } from "@/components/ui/MapsUrlPasteInput";
 import { ViewToggle, type ViewMode } from "@/components/shared/ViewToggle";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { toast } from "sonner";
-import { useRouter } from "next/navigation";
 import { useUnreadNoteIds } from "@/lib/hooks";
+import { INSTALLATION_LIST_DEFAULT_PAGE_SIZE } from "@/lib/crm/list-page-sizes";
 
 export type InstallationRow = {
   id: string;
@@ -45,6 +45,14 @@ export type InstallationRow = {
 };
 
 type AccountOption = { id: string; name: string };
+
+type InstallationCounts = {
+  all: number;
+  active: number;
+  inactive: number;
+};
+
+type StatusFilter = "all" | "active" | "inactive";
 
 type FormState = {
   accountId: string;
@@ -68,44 +76,136 @@ const DEFAULT_FORM: FormState = {
   notes: "",
 };
 
+type CrmInstallationsListClientProps = {
+  initialInstallations: InstallationRow[];
+  initialCounts: InstallationCounts;
+  initialHasMore: boolean;
+  initialTotal: number;
+  /** Opcional; si no viene, se lazy-load al abrir el diálogo de crear. */
+  accounts?: AccountOption[];
+};
+
 export function CrmInstallationsListClient({
   initialInstallations,
+  initialCounts,
+  initialHasMore,
+  initialTotal,
   accounts = [],
-}: {
-  initialInstallations: InstallationRow[];
-  accounts?: AccountOption[];
-}) {
-  const router = useRouter();
+}: CrmInstallationsListClientProps) {
   const [installations, setInstallations] = useState<InstallationRow[]>(initialInstallations);
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [view, setView] = useState<ViewMode>("cards");
-  const [statusFilter, setStatusFilter] = useState<string>("active");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("active");
   const unreadNoteIds = useUnreadNoteIds("INSTALLATION");
+
+  const [counts, setCounts] = useState<InstallationCounts>(initialCounts);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(initialHasMore);
+  const [listTotal, setListTotal] = useState(initialTotal);
+  const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const initialLoadDone = useRef(false);
+  const skipFirstFetch = useRef(true);
 
   // Create form state
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<FormState>(DEFAULT_FORM);
-  const [loading, setLoading] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [accountOptions, setAccountOptions] = useState<AccountOption[]>(accounts);
+  const [accountsLoaded, setAccountsLoaded] = useState(accounts.length > 0);
+  const [loadingAccounts, setLoadingAccounts] = useState(false);
 
   const inputCn = "bg-background text-foreground placeholder:text-muted-foreground border-input focus-visible:ring-ring";
-  const selectCn = "flex h-9 min-h-[44px] w-full appearance-none rounded-md border border-input bg-background pl-3 pr-8 py-2 text-sm text-foreground bg-[url('data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2212%22%20height%3D%2212%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%236b7280%22%20stroke-width%3D%222%22%3E%3Cpath%20d%3D%22m6%209%206%206%206-6%22%2F%3E%3C%2Fsvg%3E')] bg-[length:12px] bg-[right_8px_center] bg-no-repeat focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
 
   useEffect(() => {
-    if (open) setForm(DEFAULT_FORM);
-  }, [open]);
+    const t = setTimeout(() => setDebouncedSearch(search.trim()), 300);
+    return () => clearTimeout(t);
+  }, [search]);
 
-  const filteredInstallations = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    return installations.filter((inst) => {
-      if (statusFilter === "active" && inst.status !== "active") return false;
-      if (statusFilter === "inactive" && inst.status !== "inactive" && inst.status !== "prospect") return false;
-      if (q) {
-        const searchable = `${inst.name} ${inst.address || ""} ${inst.city || ""} ${inst.commune || ""} ${inst.account?.name || ""}`.toLowerCase();
-        if (!searchable.includes(q)) return false;
+  const filterKey = useMemo(
+    () => JSON.stringify({ statusFilter, debouncedSearch }),
+    [statusFilter, debouncedSearch],
+  );
+
+  const fetchInstallations = useCallback(
+    async (pageNum: number, replace: boolean) => {
+      if (replace) setLoading(true);
+      else setLoadingMore(true);
+      try {
+        const params = new URLSearchParams({
+          page: String(pageNum),
+          limit: String(INSTALLATION_LIST_DEFAULT_PAGE_SIZE),
+          status: statusFilter,
+          sort: "az",
+          includeCounts: "true",
+        });
+        if (debouncedSearch) params.set("search", debouncedSearch);
+
+        const res = await fetch(`/api/crm/installations?${params}`);
+        const payload = await res.json();
+        if (!payload.success) throw new Error(payload.error || "Error al cargar instalaciones");
+
+        const incoming: InstallationRow[] = payload.data ?? [];
+        setInstallations((prev) => (replace ? incoming : [...prev, ...incoming]));
+        setPage(pageNum);
+        setHasMore(Boolean(payload.meta?.hasMore));
+        setListTotal(payload.meta?.total ?? incoming.length);
+        if (payload.meta?.counts) setCounts(payload.meta.counts);
+      } catch (error) {
+        console.error(error);
+        toast.error("No se pudieron cargar las instalaciones.");
+      } finally {
+        setLoading(false);
+        setLoadingMore(false);
+        initialLoadDone.current = true;
       }
-      return true;
-    });
-  }, [installations, search, statusFilter]);
+    },
+    [statusFilter, debouncedSearch],
+  );
+
+  useEffect(() => {
+    if (skipFirstFetch.current) {
+      skipFirstFetch.current = false;
+      // SSR ya trajo status=active sin búsqueda.
+      if (statusFilter === "active" && !debouncedSearch) {
+        initialLoadDone.current = true;
+        return;
+      }
+    }
+    void fetchInstallations(1, true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filterKey]);
+
+  const handleLoadMore = useCallback(() => {
+    if (loadingMore || !hasMore || loading) return;
+    void fetchInstallations(page + 1, false);
+  }, [fetchInstallations, page, loadingMore, hasMore, loading]);
+
+  useEffect(() => {
+    if (!open) return;
+    setForm(DEFAULT_FORM);
+    if (accountsLoaded) return;
+
+    let cancelled = false;
+    setLoadingAccounts(true);
+    fetch("/api/crm/accounts?limit=100&sort=az")
+      .then((r) => r.json())
+      .then((payload) => {
+        if (cancelled || !payload.success) return;
+        const rows = (payload.data ?? []) as Array<{ id: string; name: string }>;
+        setAccountOptions(rows.map((a) => ({ id: a.id, name: a.name })));
+        setAccountsLoaded(true);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setLoadingAccounts(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [open, accountsLoaded]);
 
   const handleAddressChange = (result: AddressResult) => {
     setForm((prev) => ({
@@ -127,7 +227,7 @@ export function CrmInstallationsListClient({
       toast.error("Selecciona una cuenta.");
       return;
     }
-    setLoading(true);
+    setCreating(true);
     try {
       const res = await fetch("/api/crm/installations", {
         method: "POST",
@@ -143,14 +243,20 @@ export function CrmInstallationsListClient({
       toast.success("Instalación creada");
       setOpen(false);
       setForm(DEFAULT_FORM);
-      // Refresh to get full data with account relation
-      router.refresh();
-    } catch (error: any) {
-      toast.error(error?.message || "No se pudo crear la instalación.");
+      await fetchInstallations(1, true);
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : "No se pudo crear la instalación.";
+      toast.error(msg);
     } finally {
-      setLoading(false);
+      setCreating(false);
     }
   };
+
+  const statusFilters = [
+    { key: "all" as const, label: "Todas", count: counts.all },
+    { key: "active" as const, label: "Activas", count: counts.active },
+    { key: "inactive" as const, label: "Inactivas", count: counts.inactive },
+  ];
 
   return (
     <div className="space-y-4">
@@ -169,11 +275,7 @@ export function CrmInstallationsListClient({
           <ViewToggle view={view} onChange={setView} />
           {/* Status filter */}
           <div className="flex gap-1 shrink-0">
-            {([
-              { key: "all", label: "Todas" },
-              { key: "active", label: "Activas" },
-              { key: "inactive", label: "Inactivas" },
-            ] as const).map((opt) => (
+            {statusFilters.map((opt) => (
               <button
                 key={opt.key}
                 type="button"
@@ -186,6 +288,7 @@ export function CrmInstallationsListClient({
                 )}
               >
                 {opt.label}
+                <span className="ml-1 tabular-nums opacity-70">{opt.count}</span>
               </button>
             ))}
           </div>
@@ -209,9 +312,9 @@ export function CrmInstallationsListClient({
                   <Label>Cuenta *</Label>
                   <SearchableSelect
                     value={form.accountId}
-                    options={accounts.map((acc) => ({ id: acc.id, label: acc.name }))}
-                    placeholder="Selecciona cuenta"
-                    disabled={loading}
+                    options={accountOptions.map((acc) => ({ id: acc.id, label: acc.name }))}
+                    placeholder={loadingAccounts ? "Cargando cuentas..." : "Selecciona cuenta"}
+                    disabled={creating || loadingAccounts}
                     onChange={(val) => setForm((p) => ({ ...p, accountId: val }))}
                   />
                 </div>
@@ -222,7 +325,7 @@ export function CrmInstallationsListClient({
                     onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
                     placeholder="Ej: Planta Norte, Bodega Central..."
                     className={inputCn}
-                    disabled={loading}
+                    disabled={creating}
                   />
                 </div>
                 <div className="space-y-2">
@@ -233,7 +336,7 @@ export function CrmInstallationsListClient({
                     placeholder="Buscar dirección en Google Maps..."
                     showMap={true}
                   />
-                  <MapsUrlPasteInput onResolve={handleAddressChange} disabled={loading} />
+                  <MapsUrlPasteInput onResolve={handleAddressChange} disabled={creating} />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-2">
@@ -243,7 +346,7 @@ export function CrmInstallationsListClient({
                       onChange={(e) => setForm((p) => ({ ...p, city: e.target.value }))}
                       placeholder="Santiago"
                       className={`${inputCn} text-sm`}
-                      disabled={loading}
+                      disabled={creating}
                     />
                   </div>
                   <div className="space-y-2">
@@ -253,7 +356,7 @@ export function CrmInstallationsListClient({
                       onChange={(e) => setForm((p) => ({ ...p, commune: e.target.value }))}
                       placeholder="Providencia"
                       className={`${inputCn} text-sm`}
-                      disabled={loading}
+                      disabled={creating}
                     />
                   </div>
                 </div>
@@ -264,16 +367,16 @@ export function CrmInstallationsListClient({
                     onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))}
                     placeholder="Observaciones..."
                     className={inputCn}
-                    disabled={loading}
+                    disabled={creating}
                   />
                 </div>
               </div>
               <DialogFooter>
-                <Button variant="outline" onClick={() => setOpen(false)} disabled={loading}>
+                <Button variant="outline" onClick={() => setOpen(false)} disabled={creating}>
                   Cancelar
                 </Button>
-                <Button onClick={createInstallation} disabled={loading} className="bg-status-ok hover:brightness-110">
-                  {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                <Button onClick={createInstallation} disabled={creating} className="bg-status-ok hover:brightness-110">
+                  {creating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   Crear
                 </Button>
               </DialogFooter>
@@ -285,7 +388,11 @@ export function CrmInstallationsListClient({
       {/* ── Installation list ── */}
       <Card>
         <CardContent className="pt-5">
-          {filteredInstallations.length === 0 ? (
+          {loading && installations.length === 0 ? (
+            <div className="flex items-center justify-center py-12">
+              <Spinner />
+            </div>
+          ) : installations.length === 0 ? (
             <EmptyState
               icon={MapPin}
               title="Sin instalaciones"
@@ -297,8 +404,8 @@ export function CrmInstallationsListClient({
               compact
             />
           ) : view === "list" ? (
-            <div className="space-y-1">
-              {filteredInstallations.map((inst) => {
+            <div className={`space-y-1 ${loading ? "opacity-60" : ""}`}>
+              {installations.map((inst) => {
                 const tint = tintFromId(inst.account?.id ?? inst.id);
                 const tc = tintClasses(tint);
                 const statusLabel =
@@ -394,8 +501,8 @@ export function CrmInstallationsListClient({
               })}
             </div>
           ) : (
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 min-w-0">
-              {filteredInstallations.map((inst) => {
+            <div className={`grid gap-3 sm:grid-cols-2 lg:grid-cols-3 min-w-0 ${loading ? "opacity-60" : ""}`}>
+              {installations.map((inst) => {
                 const ppc = Math.max(0, (inst.totalSlots ?? 0) - (inst.assignedGuards ?? 0));
                 const chips: EntityCardChip[] = [
                   {
@@ -445,6 +552,22 @@ export function CrmInstallationsListClient({
                   />
                 );
               })}
+            </div>
+          )}
+          {(hasMore || loadingMore) && (
+            <div className="mt-4 flex flex-col items-center gap-2">
+              <p className="text-ds-caption text-ds-text-3">
+                Mostrando {installations.length} de {listTotal}
+              </p>
+              <Button
+                variant="outline"
+                className="h-10 sm:h-9 min-w-[160px]"
+                disabled={loadingMore || loading}
+                onClick={handleLoadMore}
+              >
+                {loadingMore && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Cargar más
+              </Button>
             </div>
           )}
         </CardContent>

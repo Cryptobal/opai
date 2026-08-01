@@ -1,12 +1,12 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { EmptyState, Stat } from "@/components/opai-ds";
+import { EmptyState, Spinner, Stat } from "@/components/opai-ds";
 import { FileText, ChevronRight, Plus, Loader2, MessageSquare, ExternalLink, CalendarClock, Zap, Layers } from "lucide-react";
 import { formatCLP, formatNumber, formatUFSuffix } from "@/lib/utils";
 import { clpToUf } from "@/lib/uf-utils";
@@ -15,6 +15,7 @@ import { CrmToolbar } from "./CrmToolbar";
 import type { ViewMode } from "@/components/shared/ViewToggle";
 import { toast } from "sonner";
 import { useUnreadNoteIds } from "@/lib/hooks";
+import { QUOTE_LIST_DEFAULT_PAGE_SIZE } from "@/lib/crm/list-page-sizes";
 import {
   Dialog,
   DialogContent,
@@ -51,10 +52,15 @@ type QuoteRow = {
   createdFromLeadId?: string | null;
 };
 
-type AccountRow = {
-  id: string;
-  name: string;
+type QuoteCounts = {
+  total: number;
+  draft: number;
+  sent: number;
+  approved: number;
+  rejected: number;
 };
+
+type StatusFilter = "all" | "draft" | "sent" | "approved" | "rejected";
 
 const STATUS_MAP: Record<string, { label: string; className: string }> = {
   draft: { label: "Borrador", className: "border-status-warn-border text-status-warn-fg dark:text-status-warn-fg bg-status-warn-soft" },
@@ -63,21 +69,34 @@ const STATUS_MAP: Record<string, { label: string; className: string }> = {
   rejected: { label: "Rechazada", className: "border-status-danger-border text-status-danger-fg dark:text-status-danger-fg" },
 };
 
-export function CrmCotizacionesClient({
-  quotes,
-  accounts,
-  ufValue,
-}: {
+type CrmCotizacionesClientProps = {
   quotes: QuoteRow[];
-  accounts: AccountRow[];
   ufValue: number;
-}) {
+  initialCounts: QuoteCounts;
+  initialHasMore: boolean;
+  initialTotal: number;
+};
+
+export function CrmCotizacionesClient({
+  quotes: initialQuotes,
+  ufValue,
+  initialCounts,
+  initialHasMore,
+  initialTotal,
+}: CrmCotizacionesClientProps) {
   const router = useRouter();
+  const [quotes, setQuotes] = useState<QuoteRow[]>(initialQuotes);
+  const [counts, setCounts] = useState<QuoteCounts>(initialCounts);
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [accountFilter, setAccountFilter] = useState<string>("all");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [viewMode, setViewMode] = useState<ViewMode>("cards");
   const [sort, setSort] = useState("newest");
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(initialHasMore);
+  const [listTotal, setListTotal] = useState(initialTotal);
+  const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [creating, setCreating] = useState(false);
   const [bundleDialogOpen, setBundleDialogOpen] = useState(false);
   const [dealOptions, setDealOptions] = useState<
@@ -86,6 +105,74 @@ export function CrmCotizacionesClient({
   const [selectedDealId, setSelectedDealId] = useState("");
   const [creatingBundle, setCreatingBundle] = useState(false);
   const unreadNoteIds = useUnreadNoteIds("QUOTATION");
+  const initialLoadDone = useRef(false);
+  // Evita refetch al montar con los mismos filtros del SSR.
+  const skipFirstFetch = useRef(true);
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search.trim()), 300);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  const filterKey = useMemo(
+    () => JSON.stringify({ statusFilter, debouncedSearch, sort }),
+    [statusFilter, debouncedSearch, sort],
+  );
+
+  const fetchQuotes = useCallback(
+    async (pageNum: number, replace: boolean) => {
+      if (replace) setLoading(true);
+      else setLoadingMore(true);
+      try {
+        const params = new URLSearchParams({
+          list: "crm",
+          page: String(pageNum),
+          limit: String(QUOTE_LIST_DEFAULT_PAGE_SIZE),
+          sort,
+          includeCounts: "true",
+          status: statusFilter,
+        });
+        if (debouncedSearch) params.set("search", debouncedSearch);
+
+        const res = await fetch(`/api/cpq/quotes?${params}`);
+        const payload = await res.json();
+        if (!payload.success) throw new Error(payload.error || "Error al cargar cotizaciones");
+
+        const incoming: QuoteRow[] = payload.data ?? [];
+        setQuotes((prev) => (replace ? incoming : [...prev, ...incoming]));
+        setPage(pageNum);
+        setHasMore(Boolean(payload.meta?.hasMore));
+        setListTotal(payload.meta?.total ?? incoming.length);
+        if (payload.meta?.counts) setCounts(payload.meta.counts);
+      } catch (error) {
+        console.error(error);
+        toast.error("No se pudieron cargar las cotizaciones.");
+      } finally {
+        setLoading(false);
+        setLoadingMore(false);
+        initialLoadDone.current = true;
+      }
+    },
+    [statusFilter, debouncedSearch, sort],
+  );
+
+  useEffect(() => {
+    if (skipFirstFetch.current) {
+      skipFirstFetch.current = false;
+      // Si el SSR ya trajo el filtro default sin búsqueda, no refetch.
+      if (statusFilter === "all" && !debouncedSearch && sort === "newest") {
+        initialLoadDone.current = true;
+        return;
+      }
+    }
+    void fetchQuotes(1, true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filterKey]);
+
+  const handleLoadMore = useCallback(() => {
+    if (loadingMore || !hasMore || loading) return;
+    void fetchQuotes(page + 1, false);
+  }, [fetchQuotes, page, loadingMore, hasMore, loading]);
 
   const createQuote = async () => {
     if (creating) return;
@@ -164,43 +251,6 @@ export function CrmCotizacionesClient({
     }
   };
 
-  const filteredQuotes = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    let result = quotes.filter((quote) => {
-      if (statusFilter !== "all" && quote.status !== statusFilter) return false;
-      if (accountFilter !== "all") {
-        const matchesAccount = quote.clientName?.toLowerCase() === accounts.find((a) => a.id === accountFilter)?.name.toLowerCase();
-        if (!matchesAccount) return false;
-      }
-      if (q && !`${quote.code} ${quote.name || ""} ${quote.clientName || ""} ${quote.dealTitle || ""} ${quote.accountName || ""}`.toLowerCase().includes(q)) return false;
-      return true;
-    });
-
-    result = [...result].sort((a, b) => {
-      switch (sort) {
-        case "oldest":
-          return (a.createdAt || "").localeCompare(b.createdAt || "");
-        case "az":
-          return (a.code || "").localeCompare(b.code || "");
-        case "za":
-          return (b.code || "").localeCompare(a.code || "");
-        case "newest":
-        default:
-          return (b.createdAt || "").localeCompare(a.createdAt || "");
-      }
-    });
-
-    return result;
-  }, [quotes, search, statusFilter, accountFilter, accounts, sort]);
-
-  const counts = useMemo(() => ({
-    total: quotes.length,
-    draft: quotes.filter((q) => q.status === "draft").length,
-    sent: quotes.filter((q) => q.status === "sent").length,
-    approved: quotes.filter((q) => q.status === "approved").length,
-    rejected: quotes.filter((q) => q.status === "rejected").length,
-  }), [quotes]);
-
   const statusFilters = [
     { key: "all", label: "Todas", count: counts.total },
     { key: "draft", label: "Borrador", count: counts.draft, activeVariant: "amber" as const },
@@ -226,7 +276,7 @@ export function CrmCotizacionesClient({
         searchPlaceholder="Buscar por código, cliente o negocio..."
         filters={statusFilters}
         activeFilter={statusFilter}
-        onFilterChange={setStatusFilter}
+        onFilterChange={(key) => setStatusFilter(key as StatusFilter)}
         activeSort={sort}
         onSortChange={setSort}
         viewModes={["list", "cards"]}
@@ -299,7 +349,11 @@ export function CrmCotizacionesClient({
       {/* ── Quote list / cards ── */}
       <Card>
         <CardContent className="pt-5">
-          {filteredQuotes.length === 0 ? (
+          {loading && quotes.length === 0 ? (
+            <div className="flex justify-center py-10">
+              <Spinner />
+            </div>
+          ) : quotes.length === 0 ? (
             <EmptyState
               icon={FileText}
               title="Sin cotizaciones"
@@ -317,16 +371,32 @@ export function CrmCotizacionesClient({
               compact
             />
           ) : viewMode === "list" ? (
-            <div className="space-y-2 min-w-0">
-              {filteredQuotes.map((quote) => (
+            <div className={`space-y-2 min-w-0 ${loading ? "opacity-60" : ""}`}>
+              {quotes.map((quote) => (
                 <QuoteListRow key={quote.id} quote={quote} ufValue={ufValue} hasUnreadNotes={unreadNoteIds.has(quote.id)} />
               ))}
             </div>
           ) : (
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 min-w-0">
-              {filteredQuotes.map((quote) => (
+            <div className={`grid gap-3 sm:grid-cols-2 lg:grid-cols-3 min-w-0 ${loading ? "opacity-60" : ""}`}>
+              {quotes.map((quote) => (
                 <QuoteCardItem key={quote.id} quote={quote} ufValue={ufValue} hasUnreadNotes={unreadNoteIds.has(quote.id)} />
               ))}
+            </div>
+          )}
+          {(hasMore || loadingMore) && (
+            <div className="mt-4 flex flex-col items-center gap-2">
+              <p className="text-ds-caption text-ds-text-3">
+                Mostrando {quotes.length} de {listTotal}
+              </p>
+              <Button
+                variant="outline"
+                className="h-10 sm:h-9 min-w-[160px]"
+                disabled={loadingMore || loading}
+                onClick={handleLoadMore}
+              >
+                {loadingMore && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Cargar más
+              </Button>
             </div>
           )}
         </CardContent>

@@ -57,13 +57,17 @@ import {
 import { cn, formatCLP, formatUFSuffix } from "@/lib/utils";
 import { useLocalStorage } from "@/lib/hooks";
 import { CrmAccount, CrmDeal, CrmPipelineStage } from "@/types";
-import { EmptyState } from "@/components/opai-ds";
+import { EmptyState, Spinner } from "@/components/opai-ds";
 import { GripVertical, Loader2, Plus, ExternalLink, TrendingUp, ChevronRight, ChevronDown, Clock3, FileText, MessageSquare } from "lucide-react";
 import { CrmToolbar } from "./CrmToolbar";
 import type { ViewMode } from "@/components/shared/ViewToggle";
 import { toast } from "sonner";
 import { OnboardingClientModal } from "@/components/crm/onboarding/OnboardingClientModal";
 import { useUnreadNoteIds } from "@/lib/hooks";
+import {
+  DEAL_LIST_DEFAULT_PAGE_SIZE,
+  DEAL_LIST_KANBAN_PAGE_SIZE,
+} from "@/lib/crm/list-page-sizes";
 
 type DealFormState = {
   title: string;
@@ -654,17 +658,23 @@ function PipelineSummary({ columns }: { columns: { stage: CrmPipelineStage; deal
 
 export function CrmDealsClient({
   initialDeals,
-  accounts,
+  accounts: initialAccounts,
   stages,
   initialFocus = "all",
+  initialHasMore = false,
+  initialTotal = 0,
 }: {
   initialDeals: CrmDeal[];
   accounts: CrmAccount[];
   stages: CrmPipelineStage[];
   initialFocus?: DealsFocus;
+  initialHasMore?: boolean;
+  initialTotal?: number;
 }) {
   const router = useRouter();
   const [deals, setDeals] = useState<CrmDeal[]>(initialDeals);
+  const [accounts, setAccounts] = useState<CrmAccount[]>(initialAccounts);
+  const [loadingAccounts, setLoadingAccounts] = useState(false);
   const [form, setForm] = useState<DealFormState>(DEFAULT_FORM);
   const [creating, setCreating] = useState(false);
   const [open, setOpen] = useState(false);
@@ -672,8 +682,17 @@ export function CrmDealsClient({
   const unreadNoteIds = useUnreadNoteIds("DEAL");
   const [view, setView] = useLocalStorage<"kanban" | "list">("crm-deals-view", "kanban");
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [stageFilter, setStageFilter] = useState<string>("all");
   const [sort, setSort] = useState("newest");
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(initialHasMore);
+  const [listTotal, setListTotal] = useState(initialTotal);
+  const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const initialLoadDone = useRef(false);
+  // Evita refetch al montar con los mismos filtros del SSR (kanban page size).
+  const skipFirstFetch = useRef(true);
   const [desktopCollapsedStages, setDesktopCollapsedStages] = useState<Set<string>>(
     () => getDefaultDesktopCollapsedStages(stages)
   );
@@ -699,6 +718,96 @@ export function CrmDealsClient({
   const [onboardingTarget, setOnboardingTarget] = useState<
     { dealId: string; defaultPlaybookId?: string } | null
   >(null);
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search.trim()), 300);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  const filterKey = useMemo(
+    () => JSON.stringify({ focus: initialFocus, stageFilter, debouncedSearch, sort, view }),
+    [initialFocus, stageFilter, debouncedSearch, sort, view],
+  );
+
+  const fetchDeals = useCallback(
+    async (pageNum: number, replace: boolean) => {
+      if (replace) setLoading(true);
+      else setLoadingMore(true);
+      try {
+        const pageSize =
+          view === "kanban" ? DEAL_LIST_KANBAN_PAGE_SIZE : DEAL_LIST_DEFAULT_PAGE_SIZE;
+        const params = new URLSearchParams({
+          page: String(pageNum),
+          limit: String(pageSize),
+          focus: initialFocus,
+          sort,
+        });
+        if (debouncedSearch) params.set("search", debouncedSearch);
+        if (stageFilter !== "all") params.set("stageId", stageFilter);
+
+        const res = await fetch(`/api/crm/deals?${params}`);
+        const payload = await res.json();
+        if (!payload.success) throw new Error(payload.error || "Error al cargar negocios");
+
+        const incoming: CrmDeal[] = payload.data ?? [];
+        setDeals((prev) => (replace ? incoming : [...prev, ...incoming]));
+        setPage(pageNum);
+        setHasMore(Boolean(payload.meta?.hasMore));
+        setListTotal(payload.meta?.total ?? incoming.length);
+      } catch (error) {
+        console.error(error);
+        toast.error("No se pudieron cargar los negocios.");
+      } finally {
+        setLoading(false);
+        setLoadingMore(false);
+        initialLoadDone.current = true;
+      }
+    },
+    [view, initialFocus, sort, debouncedSearch, stageFilter],
+  );
+
+  useEffect(() => {
+    if (skipFirstFetch.current) {
+      skipFirstFetch.current = false;
+      // SSR trae focus + stage=all + sort=newest + pageSize kanban.
+      // Si el usuario tiene vista list en localStorage, hay que refetch.
+      if (
+        stageFilter === "all" &&
+        !debouncedSearch &&
+        sort === "newest" &&
+        view === "kanban"
+      ) {
+        initialLoadDone.current = true;
+        return;
+      }
+    }
+    void fetchDeals(1, true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filterKey]);
+
+  const handleLoadMore = useCallback(() => {
+    if (loadingMore || !hasMore || loading) return;
+    void fetchDeals(page + 1, false);
+  }, [fetchDeals, page, loadingMore, hasMore, loading]);
+
+  const ensureAccountsLoaded = useCallback(async () => {
+    if (accounts.length > 0 || loadingAccounts) return;
+    setLoadingAccounts(true);
+    try {
+      const res = await fetch(
+        "/api/crm/accounts?limit=100&sort=az&lifecycle=client_active",
+      );
+      const payload = await res.json();
+      if (payload.success) {
+        setAccounts(payload.data ?? []);
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error("No se pudieron cargar las cuentas.");
+    } finally {
+      setLoadingAccounts(false);
+    }
+  }, [accounts.length, loadingAccounts]);
 
   const resolveStageIdFromOverId = useCallback((overId: string): string | undefined => {
     if (overId.startsWith("stage-header-")) return overId.replace("stage-header-", "");
@@ -780,6 +889,7 @@ export function CrmDealsClient({
         throw new Error(payload?.error || "Error creando negocio");
       }
       setDeals((prev) => [payload.data, ...prev]);
+      setListTotal((n) => n + 1);
       setForm(DEFAULT_FORM);
       setOpen(false);
       toast.success("Negocio creado exitosamente");
@@ -879,44 +989,17 @@ export function CrmDealsClient({
     await updateStage(dealId, stageId, { serviceStartDate: acceptedDate });
   };
 
+  // Search/stage/sort vienen del servidor; solo reordenamos movimientos DnD locales.
   const filteredDeals = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    let result = deals.filter((deal) => {
-      if (stageFilter !== "all" && deal.stage?.id !== stageFilter) return false;
-      if (q) {
-        const searchable = `${deal.title} ${deal.account?.name || ""} ${deal.primaryContact?.firstName || ""} ${deal.primaryContact?.lastName || ""}`.toLowerCase();
-        if (!searchable.includes(q)) return false;
-      }
-      return true;
-    });
-
-    result = [...result].sort((a, b) => {
+    return [...deals].sort((a, b) => {
       const sameStage = a.stage?.id && b.stage?.id && a.stage.id === b.stage.id;
-      if (sameStage) {
-        const aMoveRank = recentMoveRankByDealId[a.id] ?? 0;
-        const bMoveRank = recentMoveRankByDealId[b.id] ?? 0;
-        if (aMoveRank !== bMoveRank) {
-          return bMoveRank - aMoveRank;
-        }
-      }
-
-      const aTime = new Date(a.createdAt || 0).getTime();
-      const bTime = new Date(b.createdAt || 0).getTime();
-      switch (sort) {
-        case "oldest":
-          return aTime - bTime;
-        case "az":
-          return (a.title || "").localeCompare(b.title || "");
-        case "za":
-          return (b.title || "").localeCompare(a.title || "");
-        case "newest":
-        default:
-          return bTime - aTime;
-      }
+      if (!sameStage) return 0;
+      const aMoveRank = recentMoveRankByDealId[a.id] ?? 0;
+      const bMoveRank = recentMoveRankByDealId[b.id] ?? 0;
+      if (aMoveRank === bMoveRank) return 0;
+      return bMoveRank - aMoveRank;
     });
-
-    return result;
-  }, [deals, stageFilter, search, sort, recentMoveRankByDealId]);
+  }, [deals, recentMoveRankByDealId]);
 
   const columns = useMemo(() => {
     return stages.map((stage) => ({
@@ -936,13 +1019,31 @@ export function CrmDealsClient({
   }, [deals]);
 
   const stageFilterOptions = useMemo(() => [
-    { key: "all", label: "Todos", count: deals.length },
+    { key: "all", label: "Todos", count: listTotal },
     ...stages.map((stage) => ({
       key: stage.id,
       label: stage.name,
       count: stageCounts[stage.id] || 0,
     })),
-  ], [deals.length, stages, stageCounts]);
+  ], [listTotal, stages, stageCounts]);
+
+  const loadMoreFooter =
+    hasMore || loadingMore ? (
+      <div className="mt-4 flex flex-col items-center gap-2">
+        <p className="text-ds-caption text-ds-text-3">
+          Mostrando {deals.length} de {listTotal}
+        </p>
+        <Button
+          variant="outline"
+          className="h-10 sm:h-9 min-w-[160px]"
+          disabled={loadingMore || loading}
+          onClick={handleLoadMore}
+        >
+          {loadingMore && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          Cargar más
+        </Button>
+      </div>
+    ) : null;
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -1100,7 +1201,13 @@ export function CrmDealsClient({
         activeView={view as ViewMode}
         onViewChange={(v) => setView(v as "kanban" | "list")}
         actionSlot={
-          <Dialog open={open} onOpenChange={setOpen}>
+          <Dialog
+            open={open}
+            onOpenChange={(next) => {
+              setOpen(next);
+              if (next) void ensureAccountsLoaded();
+            }}
+          >
             <DialogTrigger asChild>
               <Button size="icon" variant="secondary" className="h-9 w-9 shrink-0">
                 <Plus className="h-4 w-4" />
@@ -1119,7 +1226,11 @@ export function CrmDealsClient({
                   <Label>Cliente</Label>
                   <Select value={form.accountId} onValueChange={(v) => updateForm("accountId", v)}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Selecciona un cliente" />
+                      <SelectValue
+                        placeholder={
+                          loadingAccounts ? "Cargando clientes…" : "Selecciona un cliente"
+                        }
+                      />
                     </SelectTrigger>
                     <SelectContent>
                       {accounts.map((account) => (
@@ -1196,22 +1307,23 @@ export function CrmDealsClient({
 
       {view === "kanban" ? (
         <>
-          {deals.length === 0 ? (
+          {loading && deals.length === 0 ? (
+            <div className="flex items-center justify-center py-12">
+              <Spinner />
+            </div>
+          ) : deals.length === 0 ? (
             <EmptyState
               icon={TrendingUp}
               title="Sin negocios"
-              description="No hay negocios creados todavía."
-              compact
-            />
-          ) : filteredDeals.length === 0 ? (
-            <EmptyState
-              icon={TrendingUp}
-              title="Sin resultados"
-              description="No hay negocios para los filtros o búsqueda seleccionados."
+              description={
+                debouncedSearch || stageFilter !== "all"
+                  ? "No hay negocios para los filtros o búsqueda seleccionados."
+                  : "No hay negocios creados todavía."
+              }
               compact
             />
           ) : (
-            <>
+            <div className={loading ? "opacity-60" : undefined}>
               {/* Mobile: vertical grouped list */}
               <div className="md:hidden">
                 <MobileStageList
@@ -1290,19 +1402,24 @@ export function CrmDealsClient({
                   </DragOverlay>
                 </DndContext>
               </div>
-            </>
+              {loadMoreFooter}
+            </div>
           )}
         </>
       ) : (
         <Card>
           <CardContent className="p-0">
-            {filteredDeals.length === 0 ? (
+            {loading && deals.length === 0 ? (
+              <div className="flex items-center justify-center py-12">
+                <Spinner />
+              </div>
+            ) : filteredDeals.length === 0 ? (
               <div className="p-5">
                 <EmptyState
                   icon={TrendingUp}
                   title="Sin negocios"
                   description={
-                    search || stageFilter !== "all"
+                    debouncedSearch || stageFilter !== "all"
                       ? "No hay negocios para los filtros seleccionados."
                       : "No hay negocios creados todavía."
                   }
@@ -1310,7 +1427,7 @@ export function CrmDealsClient({
                 />
               </div>
             ) : (
-              <div className="divide-y divide-border">
+              <div className={`divide-y divide-border ${loading ? "opacity-60" : ""}`}>
                 {filteredDeals.map((deal) => {
                   const followUpIndicator = getDealFollowUpIndicator(deal);
                   const stageColor = deal.stage?.color || "#94a3b8";
@@ -1381,6 +1498,7 @@ export function CrmDealsClient({
                 })}
               </div>
             )}
+            {loadMoreFooter ? <div className="p-4 pt-0">{loadMoreFooter}</div> : null}
           </CardContent>
         </Card>
       )}

@@ -1,12 +1,17 @@
 /**
  * CRM Accounts Page
+ *
+ * Carga solo la primera página + conteos de lifecycle. El listado completo
+ * (~miles de prospectos) se pagina vía /api/crm/accounts en el cliente.
  */
 
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
-import { prisma } from "@/lib/prisma";
-import { getInstallationContractCoverage } from "@/lib/crm/installation-contracts";
+import {
+  ACCOUNT_LIST_DEFAULT_PAGE_SIZE,
+  listCrmAccounts,
+} from "@/lib/crm/list-accounts";
 import { CrmAccountsClient } from "@/components/crm";
 
 export default async function CrmAccountsPage() {
@@ -17,131 +22,38 @@ export default async function CrmAccountsPage() {
   const perms = await resolvePagePerms(session.user);
   if (!canView(perms, "crm", "accounts")) redirect("/crm");
   const tenantId = session.user.tenantId;
-
   const canSeeLeads = canView(perms, "crm", "leads");
-  const accounts = await prisma.crmAccount.findMany({
-    where: {
-      tenantId,
-      ...(!canSeeLeads ? { type: "client", isActive: true } : {}),
-    },
-    include: {
-      installations: {
-        orderBy: { name: "asc" },
-        select: { id: true, status: true },
-      },
-      _count: { select: { contacts: true, deals: true, installations: true } },
-    },
-    orderBy: { name: "asc" },
+
+  // Default del cliente: Clientes activos (filtro más liviano y útil).
+  const initialLifecycle = "client_active" as const;
+
+  const result = await listCrmAccounts({
+    tenantId,
+    canSeeLeads,
+    lifecycle: initialLifecycle,
+    sort: "az",
+    page: 1,
+    pageSize: ACCOUNT_LIST_DEFAULT_PAGE_SIZE,
+    includeCounts: true,
   });
 
-  const accountIds = accounts.map((a) => a.id);
-  const allInstallationIds = accounts.flatMap((a) => a.installations.map((i) => i.id));
-  // Mapa installationId → accountId para que la coverage también considere
-  // contratos asociados a la cuenta (contratos marco / legacy).
-  const installationAccountMap = new Map<string, string>();
-  for (const account of accounts) {
-    for (const inst of account.installations) {
-      installationAccountMap.set(inst.id, account.id);
-    }
-  }
-
-  // Batch: cobertura de contratos, FC items y puestos operativos en paralelo
-  const [contractCoverage, cashflowItems, puestos] = await Promise.all([
-    getInstallationContractCoverage({
-      tenantId,
-      installationIds: allInstallationIds,
-      installationAccountMap,
-    }),
-
-    // FC items de contratos activos: source=CONTRACT (nuevo) o source=OTHER
-    // con crmAccountId (legacy pre-11-may-2026). Ambos representan ingresos
-    // por contrato vinculados explícitamente a una cuenta.
-    accountIds.length > 0
-      ? prisma.financeCashflowItem.findMany({
-          where: {
-            tenantId,
-            source: { in: ["CONTRACT", "OTHER"] },
-            isActive: true,
-            crmAccountId: { in: accountIds },
-          },
-          select: { crmAccountId: true, amount: true, currency: true },
-        })
-      : Promise.resolve([]),
-
-    // Puestos operativos activos por instalación
-    allInstallationIds.length > 0
-      ? prisma.opsPuestoOperativo.findMany({
-          where: { tenantId, installationId: { in: allInstallationIds }, active: true },
-          select: { installationId: true, requiredGuards: true },
-        })
-      : Promise.resolve([]),
-  ]);
-
-  // FC: cuenta e importe mensual por cuenta. Soporta multi-moneda agrupando
-  // por currency (UF + CLP no se suman entre sí — se muestran como dos líneas).
-  const cashflowCountByAccount = new Map<string, number>();
-  const cashflowAmountsByAccount = new Map<string, Map<string, number>>();
-  for (const item of cashflowItems) {
-    if (!item.crmAccountId) continue;
-    cashflowCountByAccount.set(
-      item.crmAccountId,
-      (cashflowCountByAccount.get(item.crmAccountId) ?? 0) + 1,
-    );
-    const accMap =
-      cashflowAmountsByAccount.get(item.crmAccountId) ?? new Map<string, number>();
-    const cur = item.currency ?? "CLP";
-    accMap.set(cur, (accMap.get(cur) ?? 0) + Number(item.amount));
-    cashflowAmountsByAccount.set(item.crmAccountId, accMap);
-  }
-
-  // Guardias: requiredGuards por installationId
-  const guardsByInstallation = new Map<string, number>();
-  for (const p of puestos) {
-    guardsByInstallation.set(p.installationId, (guardsByInstallation.get(p.installationId) ?? 0) + p.requiredGuards);
-  }
-
-  const initialAccounts = JSON.parse(JSON.stringify(
-    accounts.map(({ installations, ...account }) => {
-      const activeInstallations = installations.filter((i) => i.status === "active");
-      const statuses = activeInstallations.map(
-        (i) => contractCoverage.get(i.id)?.status ?? "sin_documento",
-      );
-      const withContract = statuses.filter((s) => s !== "sin_documento").length;
-      const expiredContract = statuses.filter((s) => s === "vencido").length;
-      const expiringContract = statuses.filter((s) => s === "por_vencer").length;
-      const activeGuardsCount = activeInstallations.reduce(
-        (sum, i) => sum + (guardsByInstallation.get(i.id) ?? 0), 0,
-      );
-
-      return {
-        ...account,
-        contractCoverage: {
-          totalInstallations: activeInstallations.length,
-          withContract,
-          missingContract: activeInstallations.length - withContract,
-          expiredContract,
-          expiringContract,
-        },
-        cashflowItemCount: cashflowCountByAccount.get(account.id) ?? 0,
-        cashflowMonthlyAmount: (() => {
-          const m = cashflowAmountsByAccount.get(account.id);
-          if (!m || m.size === 0) return null;
-          // Backward-compat: si hay solo una moneda, devolvemos el shape viejo
-          // { amount, currency }. Si hay mezcla, devolvemos un array.
-          const entries = Array.from(m.entries()).map(([currency, amount]) => ({
-            amount,
-            currency,
-          }));
-          return entries.length === 1 ? entries[0] : entries;
-        })(),
-        activeGuardsCount,
-      };
-    }),
-  ));
+  const initialAccounts = JSON.parse(JSON.stringify(result.accounts));
+  const initialCounts = result.counts ?? {
+    prospects: 0,
+    clientActive: result.total,
+    clientInactive: 0,
+    total: result.total,
+  };
 
   return (
     <div className="min-w-0">
-      <CrmAccountsClient initialAccounts={initialAccounts} />
+      <CrmAccountsClient
+        initialAccounts={initialAccounts}
+        initialCounts={initialCounts}
+        initialHasMore={result.hasMore}
+        initialTotal={result.total}
+        initialLifecycle={initialLifecycle}
+      />
     </div>
   );
 }

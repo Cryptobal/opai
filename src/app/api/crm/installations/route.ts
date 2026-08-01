@@ -6,12 +6,18 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAuth, unauthorized, parseBody } from "@/lib/api-auth";
+import { requireAuth, unauthorized, parseBody, resolveApiPerms } from "@/lib/api-auth";
 import { requireCrmView, requireCrmEdit } from "@/lib/api-auth-crm";
 import { createInstallationSchema } from "@/lib/validations/crm";
 import { toSentenceCase } from "@/lib/text-format";
 import { createCrmHistoryLog } from "@/lib/crm-history";
 import { requireTenantModule } from '@/lib/require-module';
+import { canView } from "@/lib/permissions";
+import {
+  listCrmInstallations,
+  type InstallationStatusFilter,
+  type InstallationListSort,
+} from "@/lib/crm/list-installations";
 
 export async function GET(request: NextRequest) {
   try {
@@ -23,35 +29,60 @@ export async function GET(request: NextRequest) {
     const forbidden = await requireCrmView(ctx, "installations");
     if (forbidden) return forbidden;
 
-    const accountId = request.nextUrl.searchParams.get("accountId") || undefined;
+    const sp = request.nextUrl.searchParams;
+    const accountId = sp.get("accountId") || undefined;
+    const search = sp.get("search") || undefined;
+    const statusRaw = sp.get("status");
+    const status = (
+      statusRaw === "all" || statusRaw === "active" || statusRaw === "inactive"
+        ? statusRaw
+        : undefined
+    ) as InstallationStatusFilter | undefined;
+    const sortRaw = sp.get("sort");
+    const sort = (
+      sortRaw === "az" || sortRaw === "za" || sortRaw === "newest" || sortRaw === "oldest"
+        ? sortRaw
+        : undefined
+    ) as InstallationListSort | undefined;
+    const includeCounts = sp.get("includeCounts") === "true";
+    const limitRaw = sp.get("limit") ?? sp.get("pageSize");
+    const pageRaw = sp.get("page");
+    const paginated = limitRaw != null || pageRaw != null;
 
-    const installations = await prisma.crmInstallation.findMany({
-      where: {
-        tenantId: ctx.tenantId,
-        ...(accountId ? { accountId } : {}),
-      },
-      select: {
-        id: true,
-        name: true,
-        address: true,
-        city: true,
-        commune: true,
-        lat: true,
-        lng: true,
-        status: true,
-        isActive: true,
-        createdAt: true,
-        updatedAt: true,
-        geoRadiusM: true,
-        teMontoClp: true,
-        notes: true,
-        accountId: true,
-        account: { select: { id: true, name: true, type: true, status: true, isActive: true } },
-      },
-      orderBy: { createdAt: "desc" },
+    const perms = await resolveApiPerms(ctx);
+    const canSeeDeals = canView(perms, "crm", "deals");
+
+    const result = await listCrmInstallations({
+      tenantId: ctx.tenantId,
+      accountId,
+      search,
+      status,
+      sort,
+      canSeeDeals,
+      includeCounts: includeCounts || paginated,
+      ...(paginated
+        ? {
+            page: pageRaw != null ? Number.parseInt(pageRaw, 10) : 1,
+            pageSize: limitRaw != null ? Number.parseInt(limitRaw, 10) : undefined,
+          }
+        : {}),
     });
 
-    return NextResponse.json({ success: true, data: installations });
+    if (!paginated) {
+      return NextResponse.json({ success: true, data: result.installations });
+    }
+
+    return NextResponse.json({
+      success: true,
+      data: result.installations,
+      meta: {
+        page: result.page,
+        pageSize: result.pageSize,
+        total: result.total,
+        hasMore: result.hasMore,
+        counts: result.counts,
+      },
+    });
   } catch (error) {
     console.error("Error fetching installations:", error);
     return NextResponse.json(

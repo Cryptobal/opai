@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-misused-promises */
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,17 +16,18 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Plus, Pencil, Loader2, ChevronRight, Mail, Phone, MessageSquare } from "lucide-react";
+import { Plus, Loader2, ChevronRight, Mail, MessageSquare } from "lucide-react";
 import { CRM_MODULES } from "./CrmModuleIcons";
-import { EmptyState } from "@/components/opai-ds";
+import { EmptyState, Spinner } from "@/components/opai-ds";
 import { CrmEntityCard, type EntityCardChip } from "./cards/CrmEntityCard";
 import { CrmDates } from "@/components/crm/CrmDates";
 import { CrmToolbar } from "./CrmToolbar";
 import type { ViewMode } from "@/components/shared/ViewToggle";
-import { SearchableSelect, type SearchableOption } from "@/components/ui/SearchableSelect";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { toast } from "sonner";
 import Link from "next/link";
 import { useUnreadNoteIds } from "@/lib/hooks";
+import { CONTACT_LIST_DEFAULT_PAGE_SIZE } from "@/lib/crm/list-page-sizes";
 
 type ContactRow = {
   id: string;
@@ -64,6 +65,15 @@ type ContactFormState = {
   recibeCesion: boolean;
 };
 
+type ContactFilter = "active" | "all" | "with_account" | "without_account";
+
+type ContactCounts = {
+  active: number;
+  all: number;
+  withAccount: number;
+  withoutAccount: number;
+};
+
 const DEFAULT_FORM: ContactFormState = {
   accountId: "",
   firstName: "",
@@ -75,75 +85,147 @@ const DEFAULT_FORM: ContactFormState = {
   recibeCesion: false,
 };
 
+function contactMatchesFilter(contact: ContactRow, filter: ContactFilter): boolean {
+  if (filter === "all") return true;
+  if (filter === "active") return contact.account?.status === "client_active";
+  if (filter === "with_account") return !!contact.account;
+  return !contact.account;
+}
+
+type CrmContactsClientProps = {
+  initialContacts: ContactRow[];
+  initialCounts: ContactCounts;
+  initialHasMore: boolean;
+  initialTotal: number;
+};
+
 export function CrmContactsClient({
   initialContacts,
-  accounts,
-}: {
-  initialContacts: ContactRow[];
-  accounts: AccountRow[];
-}) {
+  initialCounts,
+  initialHasMore,
+  initialTotal,
+}: CrmContactsClientProps) {
   const [contacts, setContacts] = useState<ContactRow[]>(initialContacts);
+  const [accounts, setAccounts] = useState<AccountRow[]>([]);
   const [form, setForm] = useState<ContactFormState>(DEFAULT_FORM);
-  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const unreadNoteIds = useUnreadNoteIds("CONTACT");
   const [editOpen, setEditOpen] = useState(false);
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [view, setView] = useState<ViewMode>("cards");
   const [sort, setSort] = useState("newest");
-  const [contactFilter, setContactFilter] = useState("active");
+  const [contactFilter, setContactFilter] = useState<ContactFilter>("active");
+  const [counts, setCounts] = useState<ContactCounts>(initialCounts);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(initialHasMore);
+  const [listTotal, setListTotal] = useState(initialTotal);
+  const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const initialLoadDone = useRef(false);
+  // Evita refetch al montar con los mismos filtros del SSR.
+  const skipFirstFetch = useRef(true);
+  const accountsFetchStarted = useRef(false);
 
   const inputClassName =
     "bg-background text-foreground placeholder:text-muted-foreground border-input focus-visible:ring-ring";
-  const selectClassName =
-    "flex h-9 min-h-[44px] w-full appearance-none rounded-md border border-input bg-background pl-3 pr-8 py-2 text-sm text-foreground bg-[url('data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2212%22%20height%3D%2212%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%236b7280%22%20stroke-width%3D%222%22%3E%3Cpath%20d%3D%22m6%209%206%206%206-6%22%2F%3E%3C%2Fsvg%3E')] bg-[length:12px] bg-[right_8px_center] bg-no-repeat focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
 
-  const filteredContacts = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    let result = contacts;
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search.trim()), 300);
+    return () => clearTimeout(t);
+  }, [search]);
 
-    // Filter by type
-    if (contactFilter === "active") {
-      result = result.filter((c) => c.account?.status === "client_active");
-    } else if (contactFilter === "with_account") {
-      result = result.filter((c) => !!c.account);
-    } else if (contactFilter === "without_account") {
-      result = result.filter((c) => !c.account);
-    }
-
-    // Search
-    if (q) {
-      result = result.filter((c) => {
-        const searchable = `${c.firstName} ${c.lastName} ${c.email || ""} ${c.phone || ""} ${c.account?.name || ""} ${c.portalPinVisible || ""}`.toLowerCase();
-        return searchable.includes(q);
+  const ensureAccountsLoaded = useCallback(() => {
+    if (accounts.length > 0 || accountsFetchStarted.current) return;
+    accountsFetchStarted.current = true;
+    fetch("/api/crm/accounts?limit=100&sort=az")
+      .then((r) => r.json())
+      .then((res) => {
+        if (res.success) setAccounts(res.data || []);
+      })
+      .catch(() => {
+        accountsFetchStarted.current = false;
       });
-    }
+  }, [accounts.length]);
 
-    // Sort
-    result = [...result].sort((a, b) => {
-      switch (sort) {
-        case "oldest":
-          return (a.createdAt || "").localeCompare(b.createdAt || "");
-        case "az":
-          return `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`);
-        case "za":
-          return `${b.firstName} ${b.lastName}`.localeCompare(`${a.firstName} ${a.lastName}`);
-        case "newest":
-        default:
-          return (b.createdAt || "").localeCompare(a.createdAt || "");
+  useEffect(() => {
+    if (open || editOpen) ensureAccountsLoaded();
+  }, [open, editOpen, ensureAccountsLoaded]);
+
+  const filterKey = useMemo(
+    () => JSON.stringify({ contactFilter, debouncedSearch, sort }),
+    [contactFilter, debouncedSearch, sort],
+  );
+
+  const fetchContacts = useCallback(
+    async (pageNum: number, replace: boolean) => {
+      if (replace) setLoading(true);
+      else setLoadingMore(true);
+      try {
+        const params = new URLSearchParams({
+          page: String(pageNum),
+          limit: String(CONTACT_LIST_DEFAULT_PAGE_SIZE),
+          sort,
+          filter: contactFilter,
+          includeCounts: "true",
+        });
+        if (debouncedSearch) params.set("search", debouncedSearch);
+
+        const res = await fetch(`/api/crm/contacts?${params}`);
+        const payload = await res.json();
+        if (!payload.success) throw new Error(payload.error || "Error al cargar contactos");
+
+        const incoming: ContactRow[] = payload.data ?? [];
+        setContacts((prev) => (replace ? incoming : [...prev, ...incoming]));
+        setPage(pageNum);
+        setHasMore(Boolean(payload.meta?.hasMore));
+        setListTotal(payload.meta?.total ?? incoming.length);
+        if (payload.meta?.counts) setCounts(payload.meta.counts);
+      } catch (error) {
+        console.error(error);
+        toast.error("No se pudieron cargar los contactos.");
+      } finally {
+        setLoading(false);
+        setLoadingMore(false);
+        initialLoadDone.current = true;
       }
-    });
+    },
+    [contactFilter, debouncedSearch, sort],
+  );
 
-    return result;
-  }, [contacts, search, sort, contactFilter]);
+  useEffect(() => {
+    if (skipFirstFetch.current) {
+      skipFirstFetch.current = false;
+      // Si el SSR ya trajo el filtro default sin búsqueda, no refetch.
+      if (
+        contactFilter === "active" &&
+        !debouncedSearch &&
+        sort === "newest"
+      ) {
+        initialLoadDone.current = true;
+        return;
+      }
+    }
+    void fetchContacts(1, true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filterKey]);
 
-  const contactFilterOptions = useMemo(() => [
-    { key: "active", label: "Activos", count: contacts.filter((c) => c.account?.status === "client_active").length },
-    { key: "all", label: "Todos", count: contacts.length },
-    { key: "with_account", label: "Con cuenta", count: contacts.filter((c) => !!c.account).length },
-    { key: "without_account", label: "Sin cuenta", count: contacts.filter((c) => !c.account).length },
-  ], [contacts]);
+  const handleLoadMore = useCallback(() => {
+    if (loadingMore || !hasMore || loading) return;
+    void fetchContacts(page + 1, false);
+  }, [fetchContacts, page, loadingMore, hasMore, loading]);
+
+  const contactFilterOptions = useMemo(
+    () => [
+      { key: "active", label: "Activos", count: counts.active },
+      { key: "all", label: "Todos", count: counts.all },
+      { key: "with_account", label: "Con cuenta", count: counts.withAccount },
+      { key: "without_account", label: "Sin cuenta", count: counts.withoutAccount },
+    ],
+    [counts],
+  );
 
   const updateForm = (key: keyof ContactFormState, value: string | boolean) => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -166,7 +248,7 @@ export function CrmContactsClient({
       toast.error("El email es obligatorio.");
       return;
     }
-    setLoading(true);
+    setSaving(true);
     try {
       const response = await fetch("/api/crm/contacts", {
         method: "POST",
@@ -177,7 +259,18 @@ export function CrmContactsClient({
       if (!response.ok) {
         throw new Error(payload?.error || "Error creando contacto");
       }
-      setContacts((prev) => [payload.data, ...prev]);
+      const created: ContactRow = payload.data;
+      if (contactMatchesFilter(created, contactFilter)) {
+        setContacts((prev) => [created, ...prev]);
+        setListTotal((n) => n + 1);
+      }
+      setCounts((prev) => ({
+        ...prev,
+        all: prev.all + 1,
+        withAccount: prev.withAccount + (created.account ? 1 : 0),
+        withoutAccount: prev.withoutAccount + (!created.account ? 1 : 0),
+        active: prev.active + (created.account?.status === "client_active" ? 1 : 0),
+      }));
       setForm(DEFAULT_FORM);
       setOpen(false);
       toast.success("Contacto creado");
@@ -185,7 +278,7 @@ export function CrmContactsClient({
       console.error(error);
       toast.error("No se pudo crear el contacto.");
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
   };
 
@@ -206,7 +299,7 @@ export function CrmContactsClient({
 
   const saveEdit = async () => {
     if (!editingId) return;
-    setLoading(true);
+    setSaving(true);
     try {
       const response = await fetch(`/api/crm/contacts/${editingId}`, {
         method: "PATCH",
@@ -236,7 +329,7 @@ export function CrmContactsClient({
       console.error(error);
       toast.error("No se pudo actualizar el contacto.");
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
   };
 
@@ -252,7 +345,7 @@ export function CrmContactsClient({
         searchPlaceholder="Buscar por nombre, email o teléfono..."
         filters={contactFilterOptions}
         activeFilter={contactFilter}
-        onFilterChange={setContactFilter}
+        onFilterChange={(k) => setContactFilter(k as ContactFilter)}
         activeSort={sort}
         onSortChange={setSort}
         viewModes={["list", "cards"]}
@@ -356,8 +449,8 @@ export function CrmContactsClient({
                 </div>
               </div>
               <DialogFooter>
-                <Button onClick={createContact} disabled={loading}>
-                  {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                <Button onClick={createContact} disabled={saving}>
+                  {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   Guardar contacto
                 </Button>
               </DialogFooter>
@@ -442,8 +535,8 @@ export function CrmContactsClient({
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditOpen(false)}>Cancelar</Button>
-            <Button onClick={saveEdit} disabled={loading}>
-              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            <Button onClick={saveEdit} disabled={saving}>
+              {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Guardar
             </Button>
           </DialogFooter>
@@ -453,20 +546,24 @@ export function CrmContactsClient({
       {/* ── Contact list ── */}
       <Card>
         <CardContent className="pt-5">
-          {filteredContacts.length === 0 ? (
+          {loading && contacts.length === 0 ? (
+            <div className="flex items-center justify-center py-12">
+              <Spinner />
+            </div>
+          ) : contacts.length === 0 ? (
             <EmptyState
               icon={CRM_MODULES.contacts.icon}
               title="Sin contactos"
               description={
-                search
-                  ? "No hay contactos para la búsqueda."
+                search || contactFilter !== "all"
+                  ? "No hay contactos para los filtros seleccionados."
                   : "No hay contactos registrados todavía."
               }
               compact
             />
           ) : view === "list" ? (
-            <div className="space-y-2">
-              {filteredContacts.map((contact) => (
+            <div className={`space-y-2 ${loading ? "opacity-60" : ""}`}>
+              {contacts.map((contact) => (
                 <div
                   key={contact.id}
                   className="flex items-center gap-2 rounded-lg border p-3 sm:p-4 transition-colors group hover:bg-accent/30"
@@ -517,8 +614,8 @@ export function CrmContactsClient({
               ))}
             </div>
           ) : (
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 min-w-0">
-              {filteredContacts.map((contact) => {
+            <div className={`grid gap-3 sm:grid-cols-2 lg:grid-cols-3 min-w-0 ${loading ? "opacity-60" : ""}`}>
+              {contacts.map((contact) => {
                 const chips: EntityCardChip[] = [];
                 if (contact.isPrimary) chips.push({ label: "Principal", variant: "info", dot: true });
                 if (contact.account?.status === "prospect") chips.push({ label: "Prospecto", variant: "warn", dot: true });
@@ -552,6 +649,22 @@ export function CrmContactsClient({
                   />
                 );
               })}
+            </div>
+          )}
+          {(hasMore || loadingMore) && (
+            <div className="mt-4 flex flex-col items-center gap-2">
+              <p className="text-ds-caption text-ds-text-3">
+                Mostrando {contacts.length} de {listTotal}
+              </p>
+              <Button
+                variant="outline"
+                className="h-10 sm:h-9 min-w-[160px]"
+                disabled={loadingMore || loading}
+                onClick={handleLoadMore}
+              >
+                {loadingMore && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                Cargar más
+              </Button>
             </div>
           )}
         </CardContent>
