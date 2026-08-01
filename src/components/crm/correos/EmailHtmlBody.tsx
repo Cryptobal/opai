@@ -74,13 +74,16 @@ body blockquote{color:${quote}!important;border-left-color:${border}!important}`
   // (fitWidth, default) o ensancha el iframe para que scrollee el panel padre.
   // Nunca width:max-content en el canvas: eso evita el wrap (max-content = sin
   // soft-wrap) y dispara el "tiritón" al mediar/ensanchar en bucle.
+  // Padding en el canvas (no en body): si vive en body y medimos
+  // canvas.scrollHeight, el iframe queda ~32px corto y corta el pie del mail.
+  // Con scale(fitWidth) el padding debe escalar junto al contenido.
   return `<!doctype html><html><head><meta charset="utf-8"><base target="_blank"><style>
 :root{color-scheme:${night ? "dark" : "light"}}
 html,body{margin:0;padding:0;width:100%;max-width:100%;overflow:hidden}
 body{font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
   font-size:13px;line-height:1.55;color:${fg};background:${bg};
-  word-break:break-word;overflow-wrap:anywhere;overflow-x:hidden;padding:16px 20px;box-sizing:border-box}
-.opai-mail-canvas{display:block;width:100%;max-width:100%;box-sizing:border-box}
+  word-break:break-word;overflow-wrap:anywhere;overflow-x:hidden;box-sizing:border-box}
+.opai-mail-canvas{display:block;width:100%;max-width:100%;box-sizing:border-box;padding:16px 20px}
 a{color:${link};text-decoration:underline;text-underline-offset:2px}
 img{max-width:100%;height:auto}
 table{border-collapse:collapse;max-width:100%;margin:.5rem 0}
@@ -214,11 +217,25 @@ export function EmailHtmlBody({
     const doc = iframe?.contentDocument;
     if (!iframe || !doc) return;
     const canvas = doc.querySelector(".opai-mail-canvas") as HTMLElement | null;
-    const naturalH =
-      canvas?.scrollHeight ??
-      doc.documentElement?.scrollHeight ??
-      doc.body?.scrollHeight;
-    if (!naturalH || naturalH <= 0) return;
+    if (!canvas) return;
+
+    // 1) Quitar scale previo y estirar el iframe: si queda corto con
+    //    overflow:hidden, scrollHeight puede reportar el alto recortado y el
+    //    pie del mail (tablas / firmas) nunca aparece.
+    if (canvas.style.transform) canvas.style.transform = "";
+    const prevH = iframe.style.height;
+    iframe.style.height = "10000px";
+
+    const naturalH = Math.max(
+      canvas.scrollHeight,
+      canvas.offsetHeight,
+      doc.body?.scrollHeight ?? 0,
+      doc.documentElement?.scrollHeight ?? 0,
+    );
+    if (!naturalH || naturalH <= 0) {
+      iframe.style.height = prevH;
+      return;
+    }
     if (watchdogRef.current) {
       clearTimeout(watchdogRef.current);
       watchdogRef.current = null;
@@ -226,42 +243,47 @@ export function EmailHtmlBody({
 
     let scale = 1;
     let nextFrameWidth: number | null = null;
-    if (canvas) {
-      // Solo el outer: si midiéramos el inner con minWidth=naturalW,
-      // availW ≈ naturalW → frameWidth=null → shrink → overflow → bucle.
-      const availW = hostRef.current?.clientWidth || iframe.clientWidth;
-      const naturalW = Math.ceil(
-        Math.max(
-          canvas.scrollWidth,
-          doc.documentElement?.scrollWidth ?? 0,
-          doc.body?.scrollWidth ?? 0,
-        ),
-      );
-      if (availW > 0 && naturalW > availW + 1) {
-        if (fitWidth) {
-          const ideal = availW / naturalW;
-          if (ideal >= 0.55) {
-            scale = ideal;
-          } else {
-            nextFrameWidth = naturalW;
-          }
+    // Solo el outer: si midiéramos el inner con minWidth=naturalW,
+    // availW ≈ naturalW → frameWidth=null → shrink → overflow → bucle.
+    const availW = hostRef.current?.clientWidth || iframe.clientWidth;
+    const naturalW = Math.ceil(
+      Math.max(
+        canvas.scrollWidth,
+        doc.documentElement?.scrollWidth ?? 0,
+        doc.body?.scrollWidth ?? 0,
+      ),
+    );
+    if (availW > 0 && naturalW > availW + 1) {
+      if (fitWidth) {
+        const ideal = availW / naturalW;
+        if (ideal >= 0.55) {
+          scale = ideal;
         } else {
           nextFrameWidth = naturalW;
         }
-      }
-      const desiredTransform = scale < 1 ? `scale(${scale})` : "";
-      if (canvas.style.transformOrigin !== "top left") {
-        canvas.style.transformOrigin = "top left";
-      }
-      if (canvas.style.transform !== desiredTransform) {
-        canvas.style.transform = desiredTransform;
-      }
-      if (doc.body && doc.body.style.overflowX !== "hidden") {
-        doc.body.style.overflowX = "hidden";
+      } else {
+        nextFrameWidth = naturalW;
       }
     }
 
-    const h = Math.round(naturalH * scale) + 4;
+    const desiredTransform = scale < 1 ? `scale(${scale})` : "";
+    if (canvas.style.transformOrigin !== "top left") {
+      canvas.style.transformOrigin = "top left";
+    }
+    canvas.style.transform = desiredTransform;
+    if (doc.body && doc.body.style.overflowX !== "hidden") {
+      doc.body.style.overflowX = "hidden";
+    }
+
+    // 2) Alto visual real (getBoundingClientRect respeta scale). Buffer para
+    //    subpíxeles / bordes de tablas que si no, quedan cortados.
+    const visualH =
+      scale < 1
+        ? Math.ceil(canvas.getBoundingClientRect().height)
+        : naturalH;
+    const h = Math.max(visualH, Math.round(naturalH * scale)) + 12;
+    iframe.style.height = `${h}px`;
+
     lastHeightRef.current = h;
     // Evitar setState redundantes que re-disparan layout/RO.
     setHeight((prev) => (prev === h ? prev : h));
@@ -275,16 +297,38 @@ export function EmailHtmlBody({
 
   useEffect(() => {
     if (!useIframe || mode !== "html") return;
-    if (typeof ResizeObserver === "undefined") return;
     const doc = iframeRef.current?.contentDocument;
     const host = hostRef.current;
-    const ro = new ResizeObserver(() => measure());
-    if (doc?.body) ro.observe(doc.body);
+    const canvas = doc?.querySelector(".opai-mail-canvas") ?? null;
+
+    const ro =
+      typeof ResizeObserver !== "undefined"
+        ? new ResizeObserver(() => measure())
+        : null;
+    if (doc?.body) ro?.observe(doc.body);
+    if (canvas) ro?.observe(canvas);
     // El asa de ancho del lector cambia el host sin mutar el documento.
-    if (host) ro.observe(host);
-    // fitWidth / documento nuevo: medir ya (RO solo dispara en resize).
+    if (host) ro?.observe(host);
+
+    // Imágenes (cid / remotas al desbloquear) cambian el alto tras el load.
+    const onImg = () => measure();
+    const imgs = doc ? Array.from(doc.images) : [];
+    for (const img of imgs) {
+      if (!img.complete) img.addEventListener("load", onImg);
+      img.addEventListener("error", onImg);
+    }
+
     measure();
-    return () => ro.disconnect();
+    // Segunda pasada tras layout/fuentes (tablas que reflowean al wrap).
+    const t = window.setTimeout(measure, 120);
+    return () => {
+      ro?.disconnect();
+      window.clearTimeout(t);
+      for (const img of imgs) {
+        img.removeEventListener("load", onImg);
+        img.removeEventListener("error", onImg);
+      }
+    };
   }, [useIframe, mode, safeHtml, measure]);
 
   // El foco/rueda dentro del iframe no burbujean al padre: sin estos puentes,
