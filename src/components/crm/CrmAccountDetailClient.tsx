@@ -1700,6 +1700,7 @@ export function CrmAccountDetailClient({
         open={duplicateModalOpen}
         onOpenChange={setDuplicateModalOpen}
         initialQuery={account.name}
+        defaultScope="current"
         onMerged={() => router.refresh()}
       />
 
