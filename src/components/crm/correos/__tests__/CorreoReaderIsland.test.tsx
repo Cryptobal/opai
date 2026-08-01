@@ -110,5 +110,15 @@ describe("CorreoReaderIsland", () => {
     const shell = smart?.parentElement;
     expect(shell?.querySelectorAll("[data-island-action]").length).toBeGreaterThan(0);
   });
+
+  it("expone data-correo-reader-island para medir holgura del scroller", () => {
+    const { container } = render(
+      <CorreoReaderIsland
+        {...baseProps}
+        topSlot={<button type="button">Sugerir respuestas</button>}
+      />,
+    );
+    expect(container.querySelector("[data-correo-reader-island]")).toBeTruthy();
+  });
 });
 

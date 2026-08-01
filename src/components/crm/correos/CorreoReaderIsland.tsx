@@ -62,7 +62,11 @@ export function CorreoReaderIsland({
 
   if (undo) {
     return (
-      <div className={wrapCls} style={wrapStyle}>
+      <div
+        className={wrapCls}
+        style={wrapStyle}
+        data-correo-reader-island=""
+      >
         <CorreoIslandUndoBar payload={undo} />
       </div>
     );
@@ -70,7 +74,11 @@ export function CorreoReaderIsland({
   if (composerOpen) return null;
 
   return (
-    <div className={wrapCls} style={wrapStyle}>
+    <div
+      className={wrapCls}
+      style={wrapStyle}
+      data-correo-reader-island=""
+    >
       <div
         className={cn(
           "opai-glass-strong opai-glass-shell flex flex-col rounded-[26px] px-2",
