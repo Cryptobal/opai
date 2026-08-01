@@ -4,6 +4,9 @@
 
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { INSTALLATION_LIST_DEFAULT_PAGE_SIZE } from "@/lib/crm/list-page-sizes";
+
+export { INSTALLATION_LIST_DEFAULT_PAGE_SIZE } from "@/lib/crm/list-page-sizes";
 
 export type InstallationStatusFilter = "all" | "active" | "inactive";
 export type InstallationListSort = "az" | "za" | "newest" | "oldest";
@@ -14,7 +17,6 @@ export type InstallationListCounts = {
   inactive: number;
 };
 
-export const INSTALLATION_LIST_DEFAULT_PAGE_SIZE = 50;
 const MAX_PAGE_SIZE = 200;
 
 export type ListInstallationsParams = {

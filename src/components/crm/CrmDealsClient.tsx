@@ -67,7 +67,7 @@ import { useUnreadNoteIds } from "@/lib/hooks";
 import {
   DEAL_LIST_DEFAULT_PAGE_SIZE,
   DEAL_LIST_KANBAN_PAGE_SIZE,
-} from "@/lib/crm/list-deals";
+} from "@/lib/crm/list-page-sizes";
 
 type DealFormState = {
   title: string;

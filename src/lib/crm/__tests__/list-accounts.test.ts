@@ -1,8 +1,6 @@
 import { describe, expect, it } from "vitest";
-import {
-  ACCOUNT_LIST_DEFAULT_PAGE_SIZE,
-  buildAccountListWhere,
-} from "@/lib/crm/list-accounts";
+import { ACCOUNT_LIST_DEFAULT_PAGE_SIZE } from "@/lib/crm/list-page-sizes";
+import { buildAccountListWhere } from "@/lib/crm/list-accounts";
 
 describe("buildAccountListWhere", () => {
   it("filtra por tenant siempre", () => {

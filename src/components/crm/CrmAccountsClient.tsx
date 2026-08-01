@@ -28,7 +28,7 @@ import type { ViewMode } from "@/components/shared/ViewToggle";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { toast } from "sonner";
 import { useUnreadNoteIds } from "@/lib/hooks";
-import { ACCOUNT_LIST_DEFAULT_PAGE_SIZE } from "@/lib/crm/list-accounts";
+import { ACCOUNT_LIST_DEFAULT_PAGE_SIZE } from "@/lib/crm/list-page-sizes";
 
 type AccountFormState = {
   name: string;

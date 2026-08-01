@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { CONTACT_LIST_DEFAULT_PAGE_SIZE } from "@/lib/crm/list-contacts";
-import { INSTALLATION_LIST_DEFAULT_PAGE_SIZE } from "@/lib/crm/list-installations";
-import { QUOTE_LIST_DEFAULT_PAGE_SIZE } from "@/lib/crm/list-quotes";
 import {
+  ACCOUNT_LIST_DEFAULT_PAGE_SIZE,
+  CONTACT_LIST_DEFAULT_PAGE_SIZE,
+  INSTALLATION_LIST_DEFAULT_PAGE_SIZE,
+  QUOTE_LIST_DEFAULT_PAGE_SIZE,
   DEAL_LIST_DEFAULT_PAGE_SIZE,
   DEAL_LIST_KANBAN_PAGE_SIZE,
-} from "@/lib/crm/list-deals";
-import { ACCOUNT_LIST_DEFAULT_PAGE_SIZE } from "@/lib/crm/list-accounts";
+} from "@/lib/crm/list-page-sizes";
 
 describe("CRM list page sizes", () => {
   it("usa 50 como page size estándar en listados", () => {

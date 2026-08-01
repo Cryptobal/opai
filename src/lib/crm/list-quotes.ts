@@ -8,6 +8,9 @@
 
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { QUOTE_LIST_DEFAULT_PAGE_SIZE } from "@/lib/crm/list-page-sizes";
+
+export { QUOTE_LIST_DEFAULT_PAGE_SIZE } from "@/lib/crm/list-page-sizes";
 
 export type QuoteStatusFilter = "all" | "draft" | "sent" | "approved" | "rejected";
 export type QuoteListSort = "az" | "za" | "newest" | "oldest";
@@ -20,7 +23,6 @@ export type QuoteListCounts = {
   rejected: number;
 };
 
-export const QUOTE_LIST_DEFAULT_PAGE_SIZE = 50;
 const MAX_PAGE_SIZE = 200;
 
 export type ListQuotesParams = {

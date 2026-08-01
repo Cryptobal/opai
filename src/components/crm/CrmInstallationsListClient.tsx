@@ -25,7 +25,7 @@ import { ViewToggle, type ViewMode } from "@/components/shared/ViewToggle";
 import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { toast } from "sonner";
 import { useUnreadNoteIds } from "@/lib/hooks";
-import { INSTALLATION_LIST_DEFAULT_PAGE_SIZE } from "@/lib/crm/list-installations";
+import { INSTALLATION_LIST_DEFAULT_PAGE_SIZE } from "@/lib/crm/list-page-sizes";
 
 export type InstallationRow = {
   id: string;

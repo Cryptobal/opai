@@ -4,6 +4,9 @@
 
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { CONTACT_LIST_DEFAULT_PAGE_SIZE } from "@/lib/crm/list-page-sizes";
+
+export { CONTACT_LIST_DEFAULT_PAGE_SIZE } from "@/lib/crm/list-page-sizes";
 
 export type ContactListFilter = "active" | "all" | "with_account" | "without_account";
 export type ContactListSort = "az" | "za" | "newest" | "oldest";
@@ -15,7 +18,6 @@ export type ContactListCounts = {
   withoutAccount: number;
 };
 
-export const CONTACT_LIST_DEFAULT_PAGE_SIZE = 50;
 const MAX_PAGE_SIZE = 200;
 
 export type ListContactsParams = {

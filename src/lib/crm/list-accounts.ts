@@ -6,6 +6,9 @@
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getInstallationContractCoverage } from "@/lib/crm/installation-contracts";
+import { ACCOUNT_LIST_DEFAULT_PAGE_SIZE } from "@/lib/crm/list-page-sizes";
+
+export { ACCOUNT_LIST_DEFAULT_PAGE_SIZE } from "@/lib/crm/list-page-sizes";
 
 export type AccountLifecycle = "prospect" | "client_active" | "client_inactive";
 export type AccountSort = "az" | "za" | "newest" | "oldest";
@@ -322,7 +325,6 @@ export async function getAccountListCounts(
   };
 }
 
-export const ACCOUNT_LIST_DEFAULT_PAGE_SIZE = 50;
 const ACCOUNT_LIST_MAX_PAGE_SIZE = 200;
 
 export async function listCrmAccounts(params: ListAccountsParams): Promise<ListAccountsResult> {

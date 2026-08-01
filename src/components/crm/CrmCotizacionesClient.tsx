@@ -15,7 +15,7 @@ import { CrmToolbar } from "./CrmToolbar";
 import type { ViewMode } from "@/components/shared/ViewToggle";
 import { toast } from "sonner";
 import { useUnreadNoteIds } from "@/lib/hooks";
-import { QUOTE_LIST_DEFAULT_PAGE_SIZE } from "@/lib/crm/list-quotes";
+import { QUOTE_LIST_DEFAULT_PAGE_SIZE } from "@/lib/crm/list-page-sizes";
 import {
   Dialog,
   DialogContent,

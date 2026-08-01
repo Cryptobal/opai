@@ -27,7 +27,7 @@ import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { toast } from "sonner";
 import Link from "next/link";
 import { useUnreadNoteIds } from "@/lib/hooks";
-import { CONTACT_LIST_DEFAULT_PAGE_SIZE } from "@/lib/crm/list-contacts";
+import { CONTACT_LIST_DEFAULT_PAGE_SIZE } from "@/lib/crm/list-page-sizes";
 
 type ContactRow = {
   id: string;

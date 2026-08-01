@@ -9,6 +9,15 @@ import {
   collectLinkedQuoteIds,
   resolveDealActiveQuotationSummary,
 } from "@/lib/crm-deal-active-quotation";
+import {
+  DEAL_LIST_DEFAULT_PAGE_SIZE,
+  DEAL_LIST_KANBAN_PAGE_SIZE,
+} from "@/lib/crm/list-page-sizes";
+
+export {
+  DEAL_LIST_DEFAULT_PAGE_SIZE,
+  DEAL_LIST_KANBAN_PAGE_SIZE,
+} from "@/lib/crm/list-page-sizes";
 
 export type DealsFocus =
   | "all"
@@ -19,9 +28,6 @@ export type DealsFocus =
 
 export type DealListSort = "az" | "za" | "newest" | "oldest";
 
-export const DEAL_LIST_DEFAULT_PAGE_SIZE = 50;
-/** Kanban necesita más filas visibles por etapa. */
-export const DEAL_LIST_KANBAN_PAGE_SIZE = 200;
 const MAX_PAGE_SIZE = 500;
 
 export type ListDealsParams = {
