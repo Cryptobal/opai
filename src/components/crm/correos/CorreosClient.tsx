@@ -755,7 +755,9 @@ export function CorreosClient() {
     if (sp.get("compose") === "1") setComposeOpen(true);
     const gmailStatus = sp.get("gmail");
     if (gmailStatus === "limit_reached") {
-      toast.error("Máximo 5 casillas Gmail por usuario");
+      toast.error(
+        "Máximo de casillas Gmail alcanzado. Reconectá la misma cuenta o pedí activar multicuenta.",
+      );
       const url = new URL(window.location.href);
       url.searchParams.delete("gmail");
       window.history.replaceState({}, "", url.toString());

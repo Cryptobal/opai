@@ -37,6 +37,10 @@ const MESSAGES: Record<string, { tone: Tone; text: string }> = {
     tone: "danger",
     text: "Necesitás rol owner o admin para conectar esta integración.",
   },
+  limit_reached: {
+    tone: "danger",
+    text: "Ya alcanzaste el máximo de casillas Gmail. Reconectá la misma cuenta o pedí activar multicuenta.",
+  },
   error: { tone: "danger", text: "No se pudo completar la conexión, reintentá." },
 };
 
