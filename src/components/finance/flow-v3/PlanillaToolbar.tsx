@@ -237,7 +237,15 @@ export function PlanillaToolbar(p: Props) {
         <Button variant="ghost" size="sm" className={btn} onClick={p.onCollapseGroups} aria-label="Contraer grupos" title="Contraer grupos">
           <ChevronsDownUp className={icon} />
         </Button>
-        <Button variant="ghost" size="sm" className={btn} onClick={p.onSearch} aria-label="Buscar" title="Buscar (⌘F)">
+        <Button
+          variant={p.searchOpen ? "default" : "ghost"}
+          size="sm"
+          className={btn}
+          onClick={p.onSearch}
+          aria-label="Buscar"
+          title="Buscar (⌘F)"
+          aria-pressed={!!p.searchOpen}
+        >
           <Search className={icon} />
         </Button>
         <div className="mx-1 h-5 w-px bg-ds-border-default" aria-hidden />

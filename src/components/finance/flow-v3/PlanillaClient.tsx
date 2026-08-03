@@ -127,6 +127,32 @@ export function PlanillaClient({
     if (searchOpen) searchInputRef.current?.focus();
   }, [searchOpen]);
 
+  const toggleSearch = useCallback(() => {
+    setSearchOpen((o) => {
+      if (o) setSearchQuery("");
+      return !o;
+    });
+  }, []);
+
+  // Esc global: cierra búsqueda si está abierta (edición/popover tienen prioridad
+  // vía stopPropagation en sus propios handlers).
+  useEffect(() => {
+    if (!searchOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) {
+        // El input de búsqueda maneja Esc en su onKeyDown; otros inputs (edición) también.
+        return;
+      }
+      e.preventDefault();
+      setSearchQuery("");
+      setSearchOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [searchOpen]);
+
   const doArchive = async () => {
     if (!archiving) return;
     const r = await actions.archiveRow(archiving.id);
@@ -282,7 +308,7 @@ export function PlanillaClient({
       if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
       if (e.key === "f" || e.key === "F") {
         e.preventDefault();
-        setSearchOpen(true);
+        toggleSearch();
       } else if (e.key === "b" || e.key === "B") {
         if (!cellSel || !selectedWeekStart) return;
         e.preventDefault();
@@ -291,7 +317,7 @@ export function PlanillaClient({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [cellSel, selectedWeekStart, view]);
+  }, [cellSel, selectedWeekStart, view, toggleSearch]);
 
   return (
     <div
@@ -315,7 +341,7 @@ export function PlanillaClient({
         onRedo={() => void handleRedo()}
         onCopy={() => void doCopy()}
         onFillRight={() => toast.message("Selecciona una celda y usa ⌘D")}
-        onSearch={() => setSearchOpen(true)}
+        onSearch={toggleSearch}
         onTheme={view.setTheme}
         onFreeze={view.setFreeze}
         onChips={view.setShowChips}
@@ -362,7 +388,8 @@ export function PlanillaClient({
         onToggleFreeze={() => view.setFreeze(!view.prefs.freeze)}
         onExpandGroups={() => collapseApiRef.current?.expandAll()}
         onCollapseGroups={() => collapseApiRef.current?.collapseAll()}
-        onSearch={() => setSearchOpen(true)}
+        onSearch={toggleSearch}
+        searchOpen={searchOpen}
         onExportXlsx={() => void doExportXlsx()}
         onExportCsv={doExportCsv}
         onPrint={printPlanilla}
