@@ -35,7 +35,7 @@ export function PlanillaFxBar({ selection, onOpenLayers }: Props) {
       : "";
 
   let body: ReactNode = (
-    <span className="text-ds-text-4">Selecciona una celda</span>
+    <span className="planilla-fx-placeholder text-ds-text-3">Selecciona una celda</span>
   );
 
   if (selection?.balanceKind === "flow") {
@@ -107,25 +107,25 @@ export function PlanillaFxBar({ selection, onOpenLayers }: Props) {
 
   return (
     <div
-      className="planilla-chrome-print-hide hidden h-[var(--plnx-fxbar-h)] items-center gap-2 border-b border-ds-border-subtle bg-ds-surface-2 px-2 lg:flex"
+      className="planilla-chrome-print-hide hidden h-[var(--plnx-fxbar-h)] items-center gap-2 border-b border-ds-border-subtle bg-ds-surface-2 px-2 text-ds-text-1 lg:flex"
       role="status"
       aria-label="Barra de fórmula"
     >
       <div
-        className="flex h-6 w-14 shrink-0 items-center justify-center rounded border border-ds-border-default bg-ds-surface-1 text-[12px] font-medium tabular-nums text-ds-text-2"
+        className="planilla-fx-input flex h-6 w-14 shrink-0 items-center justify-center rounded border border-ds-border-default bg-ds-surface-3 text-[12px] font-medium tabular-nums text-ds-text-1"
         title="Referencia de celda"
       >
         {ref || "—"}
       </div>
-      <div className="flex h-6 min-w-0 flex-1 items-center gap-2 overflow-hidden rounded border border-ds-border-default bg-ds-surface-1 px-2 text-[12px]">
-        <span className="shrink-0 text-ds-text-4" aria-hidden>ƒx</span>
+      <div className="planilla-fx-input flex h-6 min-w-0 flex-1 items-center gap-2 overflow-hidden rounded border border-ds-border-default bg-ds-surface-3 px-2 text-[12px] text-ds-text-1">
+        <span className="shrink-0 font-medium text-ds-text-2" aria-hidden>ƒx</span>
         {body}
       </div>
       <button
         type="button"
         disabled={!canLayers}
         onClick={onOpenLayers}
-        className="h-6 shrink-0 rounded border border-ds-border-default px-2 text-[12px] text-ds-text-2 hover:bg-ds-surface-3 disabled:opacity-40"
+        className="h-6 shrink-0 rounded border border-ds-border-default bg-ds-surface-3 px-2 text-[12px] font-medium text-ds-text-1 hover:bg-ds-surface-4 disabled:opacity-40"
       >
         Ver capas
       </button>

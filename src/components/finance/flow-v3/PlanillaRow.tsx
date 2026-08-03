@@ -114,7 +114,7 @@ export function PlanillaRow(p: Props) {
     <tr className={`${ROW_H} group`}>
       <td
         aria-hidden
-        className={`${GUTTER_W} ${ROW_H} ${GUTTER_CELL} z-10 ${p.rowSelected ? "bg-[var(--plnx-sel-hdr,#d3e3fd)]" : ""}`}
+        className={`${GUTTER_W} ${ROW_H} ${GUTTER_CELL} z-10 ${p.rowSelected ? "bg-[hsl(var(--plnx-sel-hdr))]" : ""}`}
       >
         {p.rowNumber}
       </td>

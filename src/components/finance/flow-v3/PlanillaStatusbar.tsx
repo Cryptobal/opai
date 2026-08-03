@@ -23,7 +23,7 @@ export function PlanillaStatusbar({
 }: Props) {
   return (
     <div
-      className="planilla-chrome-print-hide mt-0.5 hidden h-[var(--plnx-statusbar-h)] items-center gap-3 border-t border-ds-border-subtle bg-ds-surface-2 px-2 text-[12px] text-ds-text-3 lg:flex"
+      className="planilla-chrome-print-hide mt-0.5 hidden h-[var(--plnx-statusbar-h)] items-center gap-3 border-t border-ds-border-subtle bg-ds-surface-2 px-2 text-[12px] text-ds-text-2 lg:flex"
       role="status"
       aria-label="Barra de estado"
     >

@@ -53,7 +53,8 @@ export function PlanillaHeader({ columns, granularity, closedWeeks, selectedColI
 
   const thBase = `border-b border-r border-ds-border-subtle/60 bg-ds-surface-2 px-1 max-md:px-[3px] ${EYEBROW}`;
   const cornerBase = `sticky z-40 border-b border-r bg-ds-surface-2 ${EYEBROW}`;
-  const selHdr = "bg-[var(--plnx-sel-hdr,#d3e3fd)]";
+  // Sin fallback claro: en noche el #d3e3fd filtraba y dejaba headers blancos.
+  const selHdr = "bg-[hsl(var(--plnx-sel-hdr))]";
 
   return (
     <thead>

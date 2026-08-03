@@ -71,8 +71,8 @@ export const CORNER_WARN =
 /** Selección Sheets: borde azul + handle (ver globals.css `.planilla-selected`). */
 export const SELECTED_CELL = "planilla-selected";
 
-/** Header de columna/fila seleccionado (tinte azul Sheets). */
-export const SELECTED_HDR = "bg-[var(--plnx-sel-hdr,#d3e3fd)]";
+/** Header de columna/fila seleccionado (tinte azul Sheets / teal en noche). */
+export const SELECTED_HDR = "bg-[hsl(var(--plnx-sel-hdr))]";
 
 export const SECTION_LABELS: Record<string, string> = {
   INGRESOS: "Ingresos",
