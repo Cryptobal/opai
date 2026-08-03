@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { MoreHorizontal } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuTrigger,
@@ -51,6 +51,42 @@ interface Props {
   getCellStyle?: (rowId: string, weekStart: string) => CellStyle | undefined;
   /** Tintar gutter cuando la fila tiene celda seleccionada. */
   rowSelected?: boolean;
+  /** Query de búsqueda para resaltar coincidencias en el nombre. */
+  searchQuery?: string;
+}
+
+function highlightName(name: string, query: string): ReactNode {
+  const q = query.trim();
+  if (!q) return name;
+  const norm = (s: string) => s.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
+  const ni = norm(name).indexOf(norm(q));
+  if (ni < 0) return name;
+  // Mapear índice normalizado → índice original (aprox. por prefijo).
+  let oi = 0;
+  let ni2 = 0;
+  const nName = norm(name);
+  while (ni2 < ni && oi < name.length) {
+    const ch = name[oi];
+    const nch = ch.normalize("NFD").replace(/\p{M}/gu, "");
+    ni2 += nch.length;
+    oi += 1;
+  }
+  let end = oi;
+  let consumed = 0;
+  const nq = norm(q);
+  while (consumed < nq.length && end < name.length) {
+    const ch = name[end];
+    const nch = ch.normalize("NFD").replace(/\p{M}/gu, "");
+    consumed += nch.length;
+    end += 1;
+  }
+  return (
+    <>
+      {name.slice(0, oi)}
+      <mark className="rounded-sm bg-status-warn-soft text-ds-text-1">{name.slice(oi, end)}</mark>
+      {name.slice(end)}
+    </>
+  );
 }
 
 export function PlanillaRow(p: Props) {
@@ -114,10 +150,10 @@ export function PlanillaRow(p: Props) {
               className={`truncate text-xs max-md:text-[12px] max-md:leading-none ${row.isArchived ? "text-ds-text-3" : "text-ds-text-2"}`}
               title={row.name}
             >
-              {row.name}
+              {highlightName(row.name, p.searchQuery ?? "")}
             </span>
             {row.isArchived && (
-              <span className="shrink-0 rounded border border-ds-border-subtle px-0.5 font-mono text-[11px] uppercase leading-tight tracking-tight text-ds-text-3">
+              <span className="shrink-0 rounded border border-ds-border-subtle px-0.5 text-[12px] leading-tight text-ds-text-3">
                 cerrada
               </span>
             )}

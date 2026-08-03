@@ -514,6 +514,7 @@ export function PlanillaGrid({
                       numberFormat={numberFormat}
                       getCellStyle={getCellStyle}
                       rowSelected={kb.sel?.rowId === row.id}
+                      searchQuery={searchQuery}
                     />
                   ))}
                 </tbody>
