@@ -9,6 +9,7 @@ import { todayInChile, ymdInChile, addDaysChile } from "@/lib/dates-cl";
 import { TareaDetailFields } from "./TareaDetailFields";
 import { TareaPriorityChips } from "./TareaPriorityChips";
 import { TareaOriginCard } from "./TareaOriginCard";
+import { TareaCrmLinkFields } from "./TareaCrmLinkFields";
 import { TareaActivityTimeline } from "./TareaActivityTimeline";
 import { useTareaDetailDraft } from "./useTareaDetailDraft";
 import { dueFromYmd, DEFAULT_MINUTE, type DueValue } from "./TareaDatePopover";
@@ -88,6 +89,12 @@ export function TareaDetailPanel({
           portalContainer={portalRef.current}
         />
         <TareaOriginCard task={task} />
+        <TareaCrmLinkFields
+          value={draft.crmLinks}
+          canEdit={canEdit}
+          fromEmail={Boolean(task.emailThreadId)}
+          onChange={draft.setCrmLinks}
+        />
         <TareaActivityTimeline task={task} nameById={nameById} canEdit={canEdit} />
       </div>
 

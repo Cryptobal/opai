@@ -33,16 +33,40 @@ function applyTareaPatch(t: TareaItem, input: TareaUpdateInput): TareaItem {
     next.assigneeIds = input.assigneeIds;
     next.assignedTo = input.assigneeIds[0] ?? null;
   }
+  if (input.accountId !== undefined) next.accountId = input.accountId;
+  if (input.dealId !== undefined) next.dealId = input.dealId;
+  if (input.quoteId !== undefined) next.quoteId = input.quoteId;
+  if (input.installationId !== undefined) next.installationId = input.installationId;
+  if (input.accountName !== undefined) next.accountName = input.accountName;
+  if (input.dealTitle !== undefined) next.dealTitle = input.dealTitle;
+  if (input.quoteLabel !== undefined) next.quoteLabel = input.quoteLabel;
+  if (input.installationName !== undefined) next.installationName = input.installationName;
   return next;
+}
+
+/** Body JSON para PATCH: quita labels que solo sirven al optimismo local. */
+function toApiPatch(input: TareaUpdateInput): Record<string, unknown> {
+  const {
+    accountName: _a,
+    dealTitle: _d,
+    quoteLabel: _q,
+    installationName: _i,
+    ...rest
+  } = input;
+  return rest;
 }
 
 function normalizeTask(raw: TareaItem): TareaItem {
   return {
     ...raw,
     priority: (raw.priority as TareaItem["priority"]) ?? null,
+    quoteId: raw.quoteId ?? null,
+    installationId: raw.installationId ?? null,
     emailThreadSubject: raw.emailThreadSubject ?? null,
     accountName: raw.accountName ?? null,
     dealTitle: raw.dealTitle ?? null,
+    quoteLabel: raw.quoteLabel ?? null,
+    installationName: raw.installationName ?? null,
   };
 }
 
@@ -92,6 +116,10 @@ export function useTareas() {
         dueAt: input.dueAt ?? undefined,
         allDay: input.allDay,
         assigneeIds: input.assigneeIds.length ? input.assigneeIds : undefined,
+        accountId: input.accountId ?? undefined,
+        dealId: input.dealId ?? undefined,
+        quoteId: input.quoteId ?? undefined,
+        installationId: input.installationId ?? undefined,
       }),
     }).catch(() => null);
     if (!res?.ok) {
@@ -109,12 +137,29 @@ export function useTareas() {
     const res = await fetch(`/api/crm/tasks/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(input),
+      body: JSON.stringify(toApiPatch(input)),
     }).catch(() => null);
     if (!res?.ok) {
       setTasks(snapshot);
       toast.error("No se pudo guardar la tarea");
       return false;
+    }
+    const json = await res.json().catch(() => null);
+    if (json?.data) {
+      const enriched = normalizeTask(json.data as TareaItem);
+      setTasks((prev) =>
+        prev.map((t) =>
+          t.id === id
+            ? {
+                ...t,
+                ...enriched,
+                assigneeIds: Array.isArray(enriched.assigneeIds)
+                  ? enriched.assigneeIds
+                  : t.assigneeIds,
+              }
+            : t,
+        ),
+      );
     }
     const f = filtersRef.current;
     const affectsView =

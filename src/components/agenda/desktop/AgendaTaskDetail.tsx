@@ -41,9 +41,13 @@ function toTareaItem(raw: Record<string, unknown>): TareaItem {
     dealId: (raw.dealId as string | null) ?? null,
     accountId: (raw.accountId as string | null) ?? null,
     emailThreadId: (raw.emailThreadId as string | null) ?? null,
+    quoteId: (raw.quoteId as string | null) ?? null,
+    installationId: (raw.installationId as string | null) ?? null,
     emailThreadSubject: (raw.emailThreadSubject as string | null) ?? null,
     accountName: (raw.accountName as string | null) ?? null,
     dealTitle: (raw.dealTitle as string | null) ?? null,
+    quoteLabel: (raw.quoteLabel as string | null) ?? null,
+    installationName: (raw.installationName as string | null) ?? null,
     createdAt: raw.createdAt ? new Date(raw.createdAt as string).toISOString() : new Date().toISOString(),
     createdBy: (raw.createdBy as string | null) ?? null,
     assigneeIds: assignees,
@@ -103,10 +107,17 @@ export function AgendaTaskDetail({
 
   const onSave = useCallback(
     async (id: string, input: TareaUpdateInput): Promise<boolean> => {
+      const {
+        accountName: _a,
+        dealTitle: _d,
+        quoteLabel: _q,
+        installationName: _i,
+        ...apiInput
+      } = input;
       const r = await fetch(`/api/crm/tasks/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(input),
+        body: JSON.stringify(apiInput),
       }).catch(() => null);
       if (!r?.ok) {
         toast.error("No se pudo guardar la tarea");

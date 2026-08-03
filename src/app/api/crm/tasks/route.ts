@@ -17,6 +17,12 @@ import { auditTaskAction } from "@/lib/audit-productividad";
 import { OPEN_TASK_STATUSES } from "@/modules/tareas/tareas.service";
 import { logTaskActivity } from "@/modules/tareas/tarea-activity";
 import { loadTaskOriginMaps, originFromMaps, parsePriority } from "@/modules/tareas/tarea-origin";
+import {
+  EMPTY_CRM_LINKS,
+  hasCrmLinksPatch,
+  parseCrmLinksPatch,
+  resolveCrmLinks,
+} from "@/modules/tareas/tarea-crm-links";
 
 const MAX_ASSIGNEES = 20;
 const NOTES_MAX = 5000;
@@ -102,6 +108,8 @@ export async function GET(request: NextRequest) {
         dealId: true,
         accountId: true,
         emailThreadId: true,
+        quoteId: true,
+        installationId: true,
         createdBy: true,
         createdAt: true,
         assignees: { select: { userId: true } },
@@ -183,18 +191,17 @@ export async function POST(request: NextRequest) {
     }
     const primary = assigneeIds[0];
 
-    let dealId: string | null = null;
-    if (typeof body?.dealId === "string" && body.dealId) {
-      const deal = await prisma.crmDeal.findFirst({ where: { id: body.dealId, tenantId: ctx.tenantId }, select: { id: true } });
-      if (!deal) return NextResponse.json({ success: false, error: "Negocio inválido" }, { status: 400 });
-      dealId = deal.id;
+    const linksParsed = parseCrmLinksPatch(body);
+    if ("error" in linksParsed) {
+      return NextResponse.json({ success: false, error: linksParsed.error }, { status: 400 });
     }
-
-    let accountId: string | null = null;
-    if (typeof body?.accountId === "string" && body.accountId) {
-      const account = await prisma.crmAccount.findFirst({ where: { id: body.accountId, tenantId: ctx.tenantId }, select: { id: true } });
-      if (!account) return NextResponse.json({ success: false, error: "Cuenta inválida" }, { status: 400 });
-      accountId = account.id;
+    let crmLinks = EMPTY_CRM_LINKS;
+    if (hasCrmLinksPatch(linksParsed)) {
+      const resolved = await resolveCrmLinks(ctx.tenantId, EMPTY_CRM_LINKS, linksParsed);
+      if (!resolved.ok) {
+        return NextResponse.json({ success: false, error: resolved.error }, { status: 400 });
+      }
+      crmLinks = resolved.value;
     }
 
     const task = await prisma.$transaction(async (tx) => {
@@ -210,13 +217,16 @@ export async function POST(request: NextRequest) {
           allDay: body?.allDay === true,
           assignedTo: primary, // denormalización de compatibilidad
           createdBy: ctx.userId,
-          dealId,
-          accountId,
+          dealId: crmLinks.dealId,
+          accountId: crmLinks.accountId,
+          quoteId: crmLinks.quoteId,
+          installationId: crmLinks.installationId,
         },
         select: {
           id: true, title: true, notes: true, priority: true, status: true, type: true, dueAt: true,
           allDay: true, assignedTo: true, createdAt: true,
           dealId: true, accountId: true, emailThreadId: true,
+          quoteId: true, installationId: true,
         },
       });
       await tx.crmTaskAssignee.createMany({

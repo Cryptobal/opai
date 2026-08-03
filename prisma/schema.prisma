@@ -2721,6 +2721,9 @@ model CrmTask {
   accountId     String?   @map("account_id") @db.Uuid
   contactId     String?   @map("contact_id") @db.Uuid
   emailThreadId String?   @map("email_thread_id") @db.Uuid
+  /// Vinculación CRM opcional en cascada (cuenta → negocio → cotización / instalación).
+  quoteId         String?   @map("quote_id") @db.Uuid
+  installationId  String?   @map("installation_id") @db.Uuid
   title         String
   /// Contexto libre de la tarea (detalles, condiciones de cierre, enlaces).
   notes         String?   @db.Text
@@ -2753,6 +2756,8 @@ model CrmTask {
   @@index([dealId], map: "idx_crm_tasks_deal")
   @@index([accountId], map: "idx_crm_tasks_account")
   @@index([emailThreadId], map: "idx_crm_tasks_email_thread")
+  @@index([quoteId], map: "idx_crm_tasks_quote")
+  @@index([installationId], map: "idx_crm_tasks_installation")
   @@map("tasks")
   @@schema("crm")
 }
