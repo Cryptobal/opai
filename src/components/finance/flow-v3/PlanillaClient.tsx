@@ -14,6 +14,7 @@ import { LegendPopover } from "./LegendPopover";
 import { BankBalancePopover } from "./BankBalancePopover";
 import { WeeklyCloseDialog } from "./WeeklyCloseDialog";
 import { fmtClp, fmtShortDate } from "./format";
+import { usePlanillaViewPrefs } from "./usePlanillaViewPrefs";
 
 const ZEROS_PREF_KEY = "opai-planilla-show-zeros";
 
@@ -31,10 +32,18 @@ function daysSince(ymd: string | null, todayYmd: string): number | null {
  * matrix (con deshacer/rehacer) y las mutaciones de estructura, y añade el
  * cierre semanal y el desglose del saldo bancario.
  */
-export function PlanillaClient({ canManage }: { canManage: boolean; flagOn?: boolean }) {
+export function PlanillaClient({
+  canManage,
+  tenantId = "",
+}: {
+  canManage: boolean;
+  tenantId?: string;
+  flagOn?: boolean;
+}) {
   const isMobile = useIsMobileViewport();
   const m = usePlanillaMatrix();
   const actions = usePlanillaActions(m.refetch);
+  const view = usePlanillaViewPrefs(tenantId);
   const [addOpen, setAddOpen] = useState(false);
   const [legendOpen, setLegendOpen] = useState(false);
   const [bankOpen, setBankOpen] = useState(false);
@@ -137,7 +146,11 @@ export function PlanillaClient({ canManage }: { canManage: boolean; flagOn?: boo
   const txtBtn = "h-10 px-2.5 text-xs lg:h-7 lg:px-2";
 
   return (
-    <div className="planilla-sheet">
+    <div
+      className={`planilla-sheet${view.prefs.freeze ? "" : " no-freeze"}`}
+      data-planilla-theme={view.prefs.theme}
+      style={view.containerStyle}
+    >
       <div className="mb-1 flex h-[var(--plnx-toolbar-h)] items-center gap-1 overflow-x-auto scrollbar-none px-2 lg:px-0">
         <Button variant="outline" size="sm" className={navBtn} onClick={() => nav(-1)} aria-label="Semanas anteriores">
           <ChevronLeft className="h-3.5 w-3.5" />
