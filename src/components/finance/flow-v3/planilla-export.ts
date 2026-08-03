@@ -52,9 +52,23 @@ export async function exportXlsx(data: FlowMatrixResponse): Promise<void> {
   for (const sec of SECTION_ORDER) {
     const rows = data.rows.filter((r) => r.section === sec);
     if (rows.length === 0) continue;
-    const secRow = ws.addRow([SECTION_LABELS[sec] ?? sec, ...cols.map(() => "")]);
+    const subtotals = cols.map((_, wi) =>
+      rows.reduce((sum, r) => {
+        const cell = r.cells[wi];
+        return sum + displayValue(r.section, cell?.layer ?? "empty", cell?.effective ?? 0);
+      }, 0),
+    );
+    const secRow = ws.addRow([
+      SECTION_LABELS[sec] ?? sec,
+      ...subtotals.map((v) => (v === 0 ? null : Math.round(v))),
+    ]);
     secRow.font = { bold: true, size: 10 };
     secRow.getCell(1).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFE8EAED" } };
+    for (let i = 0; i < cols.length; i++) {
+      const cell = secRow.getCell(i + 2);
+      cell.numFmt = NUMFMT;
+      cell.font = { bold: true, size: 10 };
+    }
 
     for (const row of rows) {
       const values = row.cells.map((cell) => {
@@ -108,7 +122,17 @@ export function exportCsv(data: FlowMatrixResponse): void {
   for (const sec of SECTION_ORDER) {
     const rows = data.rows.filter((r) => r.section === sec);
     if (rows.length === 0) continue;
-    lines.push([SECTION_LABELS[sec] ?? sec, ...cols.map(() => "")].map(esc).join(";"));
+    const subtotals = cols.map((_, wi) =>
+      rows.reduce((sum, r) => {
+        const cell = r.cells[wi];
+        return sum + displayValue(r.section, cell?.layer ?? "empty", cell?.effective ?? 0);
+      }, 0),
+    );
+    lines.push(
+      [SECTION_LABELS[sec] ?? sec, ...subtotals.map((v) => (v === 0 ? "" : String(Math.round(v))))]
+        .map(esc)
+        .join(";"),
+    );
     for (const row of rows) {
       const vals = row.cells.map((cell) => {
         const v = displayValue(row.section, cell.layer, cell.effective);
