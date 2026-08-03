@@ -19,10 +19,10 @@ import { assembleMatrix, type AssembleRowInput } from "./matrix-assemble";
 import { reduceMonthly, weeklyColumns } from "./matrix-monthly";
 import { listClosedV3Weeks } from "./weekly-close.adapter";
 import type { FlowMatrixResponse, OpeningBalanceDetail } from "./matrix-types";
+import { compareFlowRows } from "./row-sort";
 
 export type { FlowMatrixResponse } from "./matrix-types";
 
-const SECTION_ORDER = ["INGRESOS", "REMUNERACIONES", "IMPUESTOS", "GAV", "FINANCIAMIENTO", "OTROS"];
 /** Fallback del umbral de alerta del saldo si el tenant no tiene config (F2). */
 const WARN_THRESHOLD_CLP = 8_000_000;
 
@@ -138,12 +138,9 @@ export async function buildFlowMatrix(
       });
     }
   }
-  assembleRows.sort(
-    (a, b) =>
-      SECTION_ORDER.indexOf(a.section) - SECTION_ORDER.indexOf(b.section) ||
-      a.orderIndex - b.orderIndex ||
-      a.name.localeCompare(b.name),
-  );
+  // Presentación A→Z por sección; virtuales ("Otros clientes") al final.
+  // orderIndex se conserva en datos pero no define el orden visible.
+  assembleRows.sort(compareFlowRows);
 
   const assembled = assembleMatrix({
     rows: assembleRows, weeks, currentWeek,
