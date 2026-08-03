@@ -6,7 +6,6 @@ import {
   useIslandSearchOpenListener,
   useModuleSurface,
 } from "@/components/opai-ds";
-import { paletteSoft } from "@/lib/design/calendar-palette";
 import { chipsFromQuery, removeChipFromQuery } from "@/lib/search-tokens";
 import { cn } from "@/lib/utils";
 import { TopbarSearchOperators } from "./TopbarSearchOperators";
@@ -31,7 +30,6 @@ export function TopbarSearchField() {
   const chips = chipsFromQuery(search.value);
   const operators = search.operators ?? [];
   const hasValue = search.value.length > 0;
-  const scopeChip = search.scopeChip ?? null;
 
   function insertOp(token: string) {
     const next = search!.value.trim()
@@ -86,19 +84,6 @@ export function TopbarSearchField() {
           className="pointer-events-none h-4 w-4 shrink-0 text-ds-text-4"
           aria-hidden
         />
-        {scopeChip && (
-          <span
-            title={scopeChip.title ?? scopeChip.label}
-            className={cn(
-              "inline-flex h-6 max-w-[11rem] shrink-0 items-center truncate rounded-md px-1.5 text-[12px] font-medium",
-              scopeChip.color
-                ? paletteSoft(scopeChip.color)
-                : "bg-ds-surface-1 text-ds-text-3",
-            )}
-          >
-            {scopeChip.label}
-          </span>
-        )}
         {chips.length > 0 && (
           <div className="flex shrink-0 max-w-[45%] items-center gap-1 overflow-x-auto scrollbar-none">
             {chips.map((chip) => (
