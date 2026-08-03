@@ -1,36 +1,86 @@
 "use client";
 
+import type { ReactNode } from "react";
 import Link from "next/link";
-import { Briefcase, Mail } from "lucide-react";
+import { Briefcase, Building2, FileText, Mail, MapPin } from "lucide-react";
 import type { TareaItem } from "./types";
 
-/** Chip de origen en la fila (correo o negocio) con stopPropagation. */
+/** Chips de origen / vinculación CRM en la fila (con stopPropagation). */
 export function TareaOriginChip({ task }: { task: TareaItem }) {
+  const chips: ReactNode[] = [];
+
   if (task.emailThreadId) {
     const label = task.emailThreadSubject?.trim() || "Correo";
-    return (
+    chips.push(
       <Link
+        key="mail"
         href={`/crm/correos?thread=${task.emailThreadId}`}
         onClick={(e) => e.stopPropagation()}
         className="opai-glass-soft inline-flex max-w-[12rem] items-center gap-1 rounded-lg px-1.5 py-0.5 text-[12px] text-ds-text-4 hover:text-primary"
       >
         <Mail className="h-3 w-3 shrink-0" />
         <span className="truncate">{label}</span>
-      </Link>
+      </Link>,
     );
   }
+
+  if (task.accountId && task.accountName) {
+    chips.push(
+      <Link
+        key="account"
+        href={`/crm/accounts/${task.accountId}`}
+        onClick={(e) => e.stopPropagation()}
+        className="opai-glass-soft inline-flex max-w-[10rem] items-center gap-1 rounded-lg px-1.5 py-0.5 text-[12px] text-ds-text-4 hover:text-primary"
+      >
+        <Building2 className="h-3 w-3 shrink-0" />
+        <span className="truncate">{task.accountName}</span>
+      </Link>,
+    );
+  }
+
   if (task.dealId) {
     const label = task.dealTitle?.trim() || "Negocio";
-    return (
+    chips.push(
       <Link
+        key="deal"
         href={`/crm/deals/${task.dealId}`}
         onClick={(e) => e.stopPropagation()}
-        className="opai-glass-soft inline-flex max-w-[12rem] items-center gap-1 rounded-lg px-1.5 py-0.5 text-[12px] text-ds-text-4 hover:text-primary"
+        className="opai-glass-soft inline-flex max-w-[10rem] items-center gap-1 rounded-lg px-1.5 py-0.5 text-[12px] text-ds-text-4 hover:text-primary"
       >
         <Briefcase className="h-3 w-3 shrink-0" />
         <span className="truncate">{label}</span>
-      </Link>
+      </Link>,
     );
   }
-  return null;
+
+  if (task.quoteId && task.quoteLabel) {
+    chips.push(
+      <Link
+        key="quote"
+        href={`/cpq/quotes/${task.quoteId}`}
+        onClick={(e) => e.stopPropagation()}
+        className="opai-glass-soft inline-flex max-w-[10rem] items-center gap-1 rounded-lg px-1.5 py-0.5 text-[12px] text-ds-text-4 hover:text-primary"
+      >
+        <FileText className="h-3 w-3 shrink-0" />
+        <span className="truncate">{task.quoteLabel}</span>
+      </Link>,
+    );
+  }
+
+  if (task.installationId && task.installationName) {
+    chips.push(
+      <Link
+        key="inst"
+        href={`/crm/installations/${task.installationId}`}
+        onClick={(e) => e.stopPropagation()}
+        className="opai-glass-soft inline-flex max-w-[10rem] items-center gap-1 rounded-lg px-1.5 py-0.5 text-[12px] text-ds-text-4 hover:text-primary"
+      >
+        <MapPin className="h-3 w-3 shrink-0" />
+        <span className="truncate">{task.installationName}</span>
+      </Link>,
+    );
+  }
+
+  if (!chips.length) return null;
+  return <>{chips}</>;
 }

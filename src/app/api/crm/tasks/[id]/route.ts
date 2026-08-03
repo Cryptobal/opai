@@ -18,6 +18,11 @@ import { requireTasksAccess, canDeleteTask, taskDeleteForbidden } from "@/lib/ap
 import { auditTaskAction } from "@/lib/audit-productividad";
 import { logTaskActivity } from "@/modules/tareas/tarea-activity";
 import { loadTaskOriginMaps, originFromMaps, parsePriority } from "@/modules/tareas/tarea-origin";
+import {
+  hasCrmLinksPatch,
+  parseCrmLinksPatch,
+  resolveCrmLinks,
+} from "@/modules/tareas/tarea-crm-links";
 
 const MAX_ASSIGNEES = 20;
 const NOTES_MAX = 5000;
@@ -37,6 +42,8 @@ const TASK_DETAIL_SELECT = {
   dealId: true,
   accountId: true,
   emailThreadId: true,
+  quoteId: true,
+  installationId: true,
   createdBy: true,
   createdAt: true,
   assignees: { select: { userId: true } },
@@ -104,6 +111,10 @@ export async function PATCH(
         dueAt: true,
         allDay: true,
         priority: true,
+        accountId: true,
+        dealId: true,
+        quoteId: true,
+        installationId: true,
         assignees: { select: { userId: true } },
         assignedTo: true,
       },
@@ -128,7 +139,35 @@ export async function PATCH(
       assignedTo?: string | null;
       completedBy?: string | null;
       completedAt?: Date | null;
+      accountId?: string | null;
+      dealId?: string | null;
+      quoteId?: string | null;
+      installationId?: string | null;
     } = {};
+
+    const linksParsed = parseCrmLinksPatch(body);
+    if ("error" in linksParsed) {
+      return NextResponse.json({ success: false, error: linksParsed.error }, { status: 400 });
+    }
+    if (hasCrmLinksPatch(linksParsed)) {
+      const resolved = await resolveCrmLinks(
+        ctx.tenantId,
+        {
+          accountId: existing.accountId,
+          dealId: existing.dealId,
+          quoteId: existing.quoteId,
+          installationId: existing.installationId,
+        },
+        linksParsed,
+      );
+      if (!resolved.ok) {
+        return NextResponse.json({ success: false, error: resolved.error }, { status: 400 });
+      }
+      data.accountId = resolved.value.accountId;
+      data.dealId = resolved.value.dealId;
+      data.quoteId = resolved.value.quoteId;
+      data.installationId = resolved.value.installationId;
+    }
 
     if (body?.allDay !== undefined) data.allDay = body.allDay === true;
 
@@ -229,6 +268,7 @@ export async function PATCH(
         select: {
           id: true, title: true, notes: true, status: true, type: true, dueAt: true,
           allDay: true, priority: true, assignedTo: true, completedBy: true, completedAt: true, createdAt: true,
+          accountId: true, dealId: true, emailThreadId: true, quoteId: true, installationId: true,
         },
       });
       if (nextAssignees) {
@@ -320,7 +360,11 @@ export async function PATCH(
       request,
     });
 
-    return NextResponse.json({ success: true, data: task });
+    const originMaps = await loadTaskOriginMaps(ctx.tenantId, [task]);
+    return NextResponse.json({
+      success: true,
+      data: { ...task, ...originFromMaps(task, originMaps) },
+    });
   } catch (error) {
     console.error("Error updating task:", error);
     return NextResponse.json({ success: false, error: "Error al actualizar tarea" }, { status: 500 });

@@ -7,12 +7,18 @@ import type { AgendaTeamMember } from "@/components/agenda/agenda-calendar.types
 import { TaskAssigneePicker } from "@/components/agenda/TaskAssigneePicker";
 import { TareaDueChips, type DueValue } from "./TareaDueChips";
 import { TareaPriorityChips } from "./TareaPriorityChips";
-import type { TareaCreateInput, TareaPriority } from "./types";
+import { TareaCrmLinkFields } from "./TareaCrmLinkFields";
+import {
+  EMPTY_CRM_LINK_DRAFT,
+  type TareaCreateInput,
+  type TareaCrmLinkDraft,
+  type TareaPriority,
+} from "./types";
 
 const INPUT =
   "w-full rounded-xl border border-ds-border-default bg-ds-surface-1 px-3 text-[13px] text-ds-text-1 opai-glass-soft placeholder:text-ds-text-4";
 
-/** Creación inline: una línea colapsada → expande con due/prioridad/responsables. */
+/** Creación inline: una línea colapsada → expande con due/prioridad/responsables/CRM. */
 export function TareaCreateBar({
   users,
   onCreate,
@@ -28,6 +34,7 @@ export function TareaCreateBar({
   const [priority, setPriority] = useState<TareaPriority>(null);
   const [due, setDue] = useState<DueValue>({ dueAt: null, allDay: true });
   const [assigneeIds, setAssigneeIds] = useState<string[]>([]);
+  const [crmLinks, setCrmLinks] = useState<TareaCrmLinkDraft>(EMPTY_CRM_LINK_DRAFT);
   const [saving, setSaving] = useState(false);
 
   const reset = () => {
@@ -35,6 +42,7 @@ export function TareaCreateBar({
     setPriority(null);
     setDue({ dueAt: null, allDay: true });
     setAssigneeIds([]);
+    setCrmLinks(EMPTY_CRM_LINK_DRAFT);
     setExpanded(false);
   };
 
@@ -47,6 +55,10 @@ export function TareaCreateBar({
       dueAt: due.dueAt,
       allDay: due.allDay,
       assigneeIds,
+      accountId: crmLinks.accountId,
+      dealId: crmLinks.dealId,
+      quoteId: crmLinks.quoteId,
+      installationId: crmLinks.installationId,
     });
     setSaving(false);
     if (ok) {
@@ -113,6 +125,7 @@ export function TareaCreateBar({
               <Plus className="h-4 w-4" /> Agregar
             </button>
           </div>
+          <TareaCrmLinkFields value={crmLinks} canEdit onChange={setCrmLinks} />
         </>
       )}
     </div>

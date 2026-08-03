@@ -84,7 +84,7 @@ export function TareaRow({
       <div className="min-w-0 flex-1 py-1">
         <p className={cn("truncate text-[14px] text-ds-text-1", done && "text-ds-text-4 line-through")}>{task.title}</p>
         {notesPreview && <p className="truncate text-[12px] text-ds-text-4">{notesPreview}</p>}
-        {(due || task.emailThreadId || task.dealId) && (
+        {(due || task.emailThreadId || task.dealId || task.accountId || task.quoteId || task.installationId) && (
           <div className="mt-1 flex flex-wrap items-center gap-1.5">
             {due && (
               <span className={cn("inline-flex items-center gap-1 rounded-lg px-1.5 py-0.5 text-[12px]", toneClass)}>

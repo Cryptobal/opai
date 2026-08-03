@@ -12,6 +12,7 @@ import type { AgendaTeamMember } from "@/components/agenda/agenda-calendar.types
 import { TareaDetailFields } from "./TareaDetailFields";
 import { TareaPriorityChips } from "./TareaPriorityChips";
 import { TareaOriginCard } from "./TareaOriginCard";
+import { TareaCrmLinkFields } from "./TareaCrmLinkFields";
 import { TareaActivityTimeline } from "./TareaActivityTimeline";
 import { useTareaDetailDraft } from "./useTareaDetailDraft";
 import { dueFromYmd, DEFAULT_MINUTE, type DueValue } from "./TareaDatePopover";
@@ -101,6 +102,12 @@ export function TareaDetailSheet({
               portalContainer={portalEl}
             />
             <TareaOriginCard task={task} />
+            <TareaCrmLinkFields
+              value={draft.crmLinks}
+              canEdit={canEdit}
+              fromEmail={Boolean(task.emailThreadId)}
+              onChange={draft.setCrmLinks}
+            />
             <TareaActivityTimeline task={task} nameById={nameById} canEdit={canEdit} compact />
           </div>
 
