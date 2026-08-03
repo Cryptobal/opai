@@ -17,10 +17,12 @@
  *    ventana (`realNetAfterWindow`, lo aporta el service);
  *  - ventana enteramente futura: ancla aproximada en saldo hoy (el gap sin
  *    cargar se documenta en QA).
- *  - sellos de cierre (`sealedBalances`): anclan exactamente su semana; el
- *    tramo anterior deriva hacia atrás desde el sello con `realNet`.
- *    Descuadre sello↔derivado se reporta en `balanceBreaks` (no se inventan
- *    ajustes).
+ *  - sellos de cierre (`sealedBalances`): el sello MANDA. Su saldo es el fin
+ *    de esa semana y el INICIO de la siguiente: hacia adelante se acumula
+ *    `flows` desde el sello (no desde banco-hoy). Hacia atrás, el tramo
+ *    anterior deriva con `realNet`. Banco-hoy solo ancla si no hay sello
+ *    en/antes de la semana actual. Descuadre ⚠ solo entre dos sellos que
+ *    no cuadran (no se inventan ajustes).
  */
 import type { CommittedByRow, CommittedCell, RealByRow, RealCell } from "./types";
 
@@ -149,83 +151,86 @@ export function assembleMatrix(args: AssembleArgs): AssembledMatrix {
   const allPast = n > 0 && currentWeek > weeks[n - 1];
   const allFuture = n > 0 && currentWeek < weeks[0];
   let ci = weeks.indexOf(currentWeek);
+  if (allPast) ci = n - 1;
+  else if (allFuture) ci = 0;
 
-  if (allPast) {
-    // Ancla al final de ventana; sellos pisan hacia atrás.
-    balances[n - 1] = sealedAt.has(n - 1)
-      ? sealedAt.get(n - 1)!
-      : openingBalance - (args.realNetAfterWindow ?? 0);
-    for (let i = n - 2; i >= 0; i--) {
+  /** Flujo de la semana i para acumular saldo: real en pasado, effective en actual/futuro. */
+  const weekFlow = (i: number): number =>
+    weeks[i] < currentWeek ? realNet[i] : flows[i];
+
+  /**
+   * Aplica sello en `k` y propaga: atrás con realNet, adelante con weekFlow.
+   * Si hay otro sello en el camino, ese valor pisa (manda).
+   */
+  const applySealAnchor = (k: number) => {
+    balances[k] = sealedAt.get(k)!;
+    for (let i = k + 1; i < n; i++) {
+      if (sealedAt.has(i)) balances[i] = sealedAt.get(i)!;
+      else balances[i] = balances[i - 1] + weekFlow(i);
+    }
+    for (let i = k - 1; i >= 0; i--) {
       if (sealedAt.has(i)) balances[i] = sealedAt.get(i)!;
       else balances[i] = balances[i + 1] - realNet[i + 1];
     }
-    ci = n - 1;
-  } else if (allFuture) {
-    balances[0] = sealedAt.has(0) ? sealedAt.get(0)! : openingBalance + flows[0];
-    for (let i = 1; i < n; i++) {
-      if (sealedAt.has(i)) balances[i] = sealedAt.get(i)!;
-      else balances[i] = balances[i - 1] + flows[i];
-    }
-    ci = 0;
-  } else if (ci >= 0) {
-    const naturalCurrent = openingBalance + pendingNet[ci];
-    balances[ci] = sealedAt.has(ci) ? sealedAt.get(ci)! : naturalCurrent;
+  };
 
+  // Último sello en/antes de la semana de ancla (actual / fin de ventana).
+  let latestSealIdx: number | null = null;
+  for (let i = 0; i <= ci && i < n; i++) {
+    if (sealedAt.has(i)) latestSealIdx = i;
+  }
+
+  if (latestSealIdx != null) {
+    // El sello MANDA: S_k sellada es fin de S_k e inicio de S_{k+1}.
+    applySealAnchor(latestSealIdx);
+    // Sellos posteriores a ci (raro) también pisan su semana y re-encadenan.
     for (let i = ci + 1; i < n; i++) {
-      if (sealedAt.has(i)) balances[i] = sealedAt.get(i)!;
-      else balances[i] = balances[i - 1] + flows[i];
+      if (sealedAt.has(i)) {
+        balances[i] = sealedAt.get(i)!;
+        for (let j = i + 1; j < n; j++) {
+          if (sealedAt.has(j)) balances[j] = sealedAt.get(j)!;
+          else balances[j] = balances[j - 1] + weekFlow(j);
+        }
+      }
     }
-
-    for (let i = ci - 1; i >= 0; i--) {
+  } else if (args.priorSealed && n > 0) {
+    // Sello fuera de ventana: ancla el tramo visible hacia adelante.
+    let cursor = args.priorSealed.balance;
+    for (let i = 0; i < n; i++) {
       if (sealedAt.has(i)) {
         balances[i] = sealedAt.get(i)!;
       } else {
-        // Misma regla que el ancla sin sellos: la semana previa a la actual
-        // des-acumula desde banco-hoy (sin pendiente), no desde balances[ci].
-        const nextBase =
-          i === ci - 1 && !sealedAt.has(ci) ? openingBalance : balances[i + 1];
-        balances[i] = nextBase - realNet[i + 1];
+        balances[i] = cursor + weekFlow(i);
       }
+      cursor = balances[i];
     }
-
-    // Sello previo al rango: re-ancla el tramo [0 .. firstSealOrCi) caminando
-    // hacia adelante desde el sello (fin de esa semana previa).
-    if (args.priorSealed && !sealedAt.has(0)) {
-      let firstAnchor = ci;
-      for (let i = 0; i < ci; i++) {
-        if (sealedAt.has(i)) {
-          firstAnchor = i;
-          break;
-        }
-      }
-      let cursor = args.priorSealed.balance;
-      for (let i = 0; i < firstAnchor; i++) {
-        balances[i] = cursor + realNet[i];
-        cursor = balances[i];
-      }
-    }
-
-    // Descuadre sello ↔ siguiente (y sello actual vs banco-hoy).
-    if (sealedAt.has(ci) && Math.abs(balances[ci] - naturalCurrent) > BREAK_TOLERANCE) {
-      balanceBreaks[ci] = {
-        vsWeek: weeks[ci],
-        delta: Math.round(naturalCurrent - balances[ci]),
-      };
+  } else if (allPast) {
+    balances[n - 1] = openingBalance - (args.realNetAfterWindow ?? 0);
+    for (let i = n - 2; i >= 0; i--) balances[i] = balances[i + 1] - realNet[i + 1];
+  } else if (allFuture) {
+    balances[0] = openingBalance + flows[0];
+    for (let i = 1; i < n; i++) balances[i] = balances[i - 1] + flows[i];
+  } else if (ci >= 0) {
+    // Sin sellos: ancla banco-hoy (comportamiento histórico).
+    balances[ci] = openingBalance + pendingNet[ci];
+    for (let i = ci + 1; i < n; i++) balances[i] = balances[i - 1] + flows[i];
+    for (let i = ci - 1; i >= 0; i--) {
+      const next = i === ci - 1 ? openingBalance : balances[i + 1];
+      balances[i] = next - realNet[i + 1];
     }
   }
 
-  for (let i = 0; i < n - 1; i++) {
-    if (!sealedAt.has(i) && !sealedAt.has(i + 1)) continue;
-    // Flujo de la semana i+1: real en pasado; pending en actual; flows en futuro.
-    const flujo =
-      weeks[i + 1] < currentWeek
-        ? realNet[i + 1]
-        : weeks[i + 1] === currentWeek
-          ? pendingNet[i + 1]
-          : flows[i + 1];
-    const delta = Math.round(balances[i] + flujo - balances[i + 1]);
+  // ⚠ solo entre dos semanas SELLADAS que no cuadran (el sello pisa la cadena).
+  // No se marca descuadre sello→semana derivada: esa cadena es exacta a propósito.
+  const sealIndices = [...sealedAt.keys()].sort((a, b) => a - b);
+  for (let s = 1; s < sealIndices.length; s++) {
+    const prev = sealIndices[s - 1];
+    const cur = sealIndices[s];
+    let expected = balances[prev];
+    for (let i = prev + 1; i <= cur; i++) expected += weekFlow(i);
+    const delta = Math.round(expected - balances[cur]);
     if (Math.abs(delta) > BREAK_TOLERANCE) {
-      balanceBreaks[i + 1] = { vsWeek: weeks[i], delta };
+      balanceBreaks[cur] = { vsWeek: weeks[prev], delta };
     }
   }
 
