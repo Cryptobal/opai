@@ -61,6 +61,15 @@ export function usePlanillaKeyboard(opts: {
     [rowIds, colCount],
   );
 
+  /** Toda la hoja (todas las filas × todas las columnas de datos). */
+  const selectAll = useCallback(() => {
+    if (rowIds.length === 0 || colCount <= 0) return;
+    setRange({
+      anchor: { rowId: rowIds[0], colIdx: 0 },
+      head: { rowId: rowIds[rowIds.length - 1], colIdx: colCount - 1 },
+    });
+  }, [rowIds, colCount]);
+
   const move = useCallback(
     (dRow: number, dCol: number, extend: boolean) => {
       setRange((r) => {
@@ -116,6 +125,11 @@ export function usePlanillaKeyboard(opts: {
         opts.onCopy?.();
         return;
       }
+      if (mod && (k === "a" || k === "A")) {
+        e.preventDefault();
+        selectAll();
+        return;
+      }
       if (!sel || !range) return;
       if (mod && (k === "d" || k === "D")) {
         e.preventDefault();
@@ -136,7 +150,7 @@ export function usePlanillaKeyboard(opts: {
         startEdit(sel, k);
       }
     },
-    [editing, sel, range, move, startEdit, opts],
+    [editing, sel, range, move, startEdit, selectAll, opts],
   );
 
   return {
@@ -146,6 +160,7 @@ export function usePlanillaKeyboard(opts: {
     extendTo,
     selectRow,
     selectCol,
+    selectAll,
     setRange,
     editing,
     setEditing,

@@ -87,6 +87,65 @@ describe("deriveCommittedIncome — DTEs emitidos", () => {
     expect(out.get(UNMATCHED_INCOME_KEY)?.get("2026-07-20")?.total).toBe(20);
   });
 
+  it("1 programación = 1 fila: dos templates de la misma cuenta no se mezclan", () => {
+    const rows: FlowRowRef[] = [
+      {
+        id: "row-20", name: "Transmat 20%", crmAccountId: "acc-T", installationId: "inst-1",
+        recurringTemplateId: "tpl-20", categoryId: null,
+      },
+      {
+        id: "row-80", name: "Transmat 80%", crmAccountId: "acc-T", installationId: "inst-1",
+        recurringTemplateId: "tpl-80", categoryId: null,
+      },
+    ];
+    const out = deriveCommittedIncome({
+      ...base,
+      rows,
+      templates: [
+        makeTemplate({
+          id: "tpl-20", name: "Transmat 20%", crmAccountId: "acc-T", installationId: "inst-1",
+          dayOfMonth: 20, grossPerRunClp: 200_000,
+        }),
+        makeTemplate({
+          id: "tpl-80", name: "Transmat 80%", crmAccountId: "acc-T", installationId: "inst-1",
+          dayOfMonth: 1, grossPerRunClp: 800_000,
+          facturaTiming: "AL_EMITIR",
+        }),
+      ],
+    });
+    const items20 = [...(out.get("row-20")?.values() ?? [])].flatMap((c) => c.items);
+    const items80 = [...(out.get("row-80")?.values() ?? [])].flatMap((c) => c.items);
+    expect(items20.length).toBeGreaterThan(0);
+    expect(items80.length).toBeGreaterThan(0);
+    expect(items20.every((i) => i.templateId === "tpl-20")).toBe(true);
+    expect(items80.every((i) => i.templateId === "tpl-80")).toBe(true);
+    expect(out.get(UNMATCHED_INCOME_KEY)).toBeUndefined();
+  });
+
+  it("DTE con recurringTemplateId cae en la fila del template, no en la genérica", () => {
+    const rows: FlowRowRef[] = [
+      {
+        id: "row-tpl", name: "ASAP Mensual", crmAccountId: "acc-ASAP", installationId: null,
+        recurringTemplateId: "tpl-asap", categoryId: null,
+      },
+      {
+        id: "row-acc", name: "ASAP", crmAccountId: "acc-ASAP", installationId: null,
+        recurringTemplateId: null, categoryId: null,
+      },
+    ];
+    const out = deriveCommittedIncome({
+      ...base,
+      rows,
+      dtes: [{
+        id: "dte-asap", folio: 999, dateYmd: "2026-07-21", dueDateYmd: null,
+        pendingClp: 1_000_000, crmAccountId: "acc-ASAP", installationId: null,
+        recurringTemplateId: "tpl-asap", receiverName: "ASAP",
+      }],
+    });
+    expect(out.get("row-tpl")?.get("2026-07-20")?.total).toBe(1_000_000);
+    expect(out.get("row-acc")).toBeUndefined();
+  });
+
   it("crmAccountId resuelto por RUT (loader) cae en la fila del cliente, no en Otros", () => {
     // El loader rellena crmAccountId vía cleanRut(receiverRut)→CrmAccount;
     // el derivador solo ve el id ya resuelto.

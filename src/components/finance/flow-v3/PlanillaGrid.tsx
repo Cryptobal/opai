@@ -561,6 +561,16 @@ export function PlanillaGrid({
                 closedWeeks={data.closedWeeks}
                 selectedColIndices={selectedColIndices}
                 onSelectCol={(i) => { setPopover(null); kb.selectCol(i); }}
+                onSelectAll={() => { setPopover(null); kb.selectAll(); }}
+                allSelected={
+                  !!activeRect &&
+                  activeRect.r0 === 0 &&
+                  activeRect.r1 === visibleRowIds.length - 1 &&
+                  activeRect.c0 === 0 &&
+                  activeRect.c1 === data.columns.length - 1 &&
+                  visibleRowIds.length > 0 &&
+                  data.columns.length > 0
+                }
                 sortBy={amountSort}
                 nameW={nameW}
                 onNameWChange={onNameWChange}

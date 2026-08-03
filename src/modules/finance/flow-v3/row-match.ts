@@ -9,20 +9,41 @@ import {
 } from "./types";
 
 /**
- * Matcher de INGRESOS: fila exacta (cuenta+instalación) → fila genérica de la
- * cuenta (sin instalación) → "Otros clientes" (UNMATCHED_INCOME_KEY).
+ * Matcher de INGRESOS (prioridad):
+ *  1. Fila de la programación (`recurringTemplateId`) — 1 fila = 1 template.
+ *  2. Fila exacta cuenta+instalación (solo filas SIN template).
+ *  3. Fila genérica de la cuenta (sin instalación, sin template).
+ *  4. "Otros clientes" (UNMATCHED_INCOME_KEY).
+ *
+ * Las filas ligadas a template NO saturan exact/generic: así Transmat 20% y
+ * Transmat 80% conviven y las facturas one-shot siguen yendo a la fila de cuenta.
  */
 export function buildIncomeMatcher(
   rows: FlowRowRef[],
-): (accountId: string | null, installationId: string | null) => string {
+): (
+  accountId: string | null,
+  installationId: string | null,
+  templateId?: string | null,
+) => string {
+  const byTemplate = new Map<string, string>();
   const exact = new Map<string, string>();
   const generic = new Map<string, string>();
   for (const r of rows) {
+    if (r.recurringTemplateId) {
+      if (!byTemplate.has(r.recurringTemplateId)) {
+        byTemplate.set(r.recurringTemplateId, r.id);
+      }
+      continue;
+    }
     if (!r.crmAccountId) continue;
     if (r.installationId) exact.set(`${r.crmAccountId}::${r.installationId}`, r.id);
     else if (!generic.has(r.crmAccountId)) generic.set(r.crmAccountId, r.id);
   }
-  return (accountId, installationId) => {
+  return (accountId, installationId, templateId) => {
+    if (templateId) {
+      const hit = byTemplate.get(templateId);
+      if (hit) return hit;
+    }
     if (!accountId) return UNMATCHED_INCOME_KEY;
     if (installationId) {
       const hit = exact.get(`${accountId}::${installationId}`);

@@ -13,6 +13,7 @@ export interface CreateRowInput {
   mapping: FlowRowMapping;
   crmAccountId?: string | null;
   installationId?: string | null;
+  recurringTemplateId?: string | null;
   categoryId?: string | null;
   supplierId?: string | null;
 }
@@ -52,6 +53,17 @@ async function assertMappingRefs(tenantId: string, input: CreateRowInput): Promi
         select: { id: true },
       });
       if (!inst) throw new Error("Instalación no encontrada para esa cuenta");
+    }
+    if (input.recurringTemplateId) {
+      const tpl = await prisma.financeDteRecurringTemplate.findFirst({
+        where: {
+          id: input.recurringTemplateId,
+          tenantId,
+          crmAccountId: input.crmAccountId,
+        },
+        select: { id: true },
+      });
+      if (!tpl) throw new Error("Programación no encontrada para esa cuenta");
     }
   } else if (input.mapping === "CATEGORY") {
     if (!input.categoryId) throw new Error("categoryId requerido para mapping CATEGORY");
@@ -96,6 +108,8 @@ export async function createRow(
       orderIndex: (last?.orderIndex ?? -1) + 1,
       crmAccountId: input.mapping === "ACCOUNT_INSTALLATION" ? input.crmAccountId : null,
       installationId: input.mapping === "ACCOUNT_INSTALLATION" ? (input.installationId ?? null) : null,
+      recurringTemplateId:
+        input.mapping === "ACCOUNT_INSTALLATION" ? (input.recurringTemplateId ?? null) : null,
       categoryId: input.mapping === "CATEGORY" ? input.categoryId : null,
       supplierId: input.mapping === "SUPPLIER" ? input.supplierId : null,
     },
@@ -182,6 +196,7 @@ async function rowHasDerivedActivity(
   const ref: FlowRowRef = {
     id: row.id, name: row.name, section: row.section, mapping: row.mapping,
     crmAccountId: row.crmAccountId, installationId: row.installationId,
+    recurringTemplateId: row.recurringTemplateId,
     categoryId: row.categoryId, supplierId: row.supplierId,
   };
   const currentMonday = startOfIsoWeekUTC(new Date());
@@ -267,8 +282,12 @@ export async function archiveRow(tenantId: string, rowId: string): Promise<Archi
       where: {
         tenantId,
         isActive: true,
-        crmAccountId: row.crmAccountId,
-        ...(row.installationId ? { installationId: row.installationId } : {}),
+        ...(row.recurringTemplateId
+          ? { id: row.recurringTemplateId }
+          : {
+              crmAccountId: row.crmAccountId,
+              ...(row.installationId ? { installationId: row.installationId } : {}),
+            }),
       },
       select: { id: true },
     });

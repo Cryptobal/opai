@@ -42,6 +42,8 @@ export interface DteRefInput {
   direction: "ISSUED" | "RECEIVED";
   crmAccountId: string | null;
   installationId: string | null;
+  /** Programación origen (solo ISSUED); rutea a la fila 1:1 del template. */
+  recurringTemplateId?: string | null;
   supplierId: string | null;
   /** Categoría resuelta por el loader para RECEIVED (líneas → cuentas). */
   categoryId: string | null;
@@ -79,7 +81,9 @@ export function deriveReal(args: RealArgs): RealByRow {
     if (isCredit) {
       if (link.targetType === "DTE_ISSUED" && link.targetId) {
         const dte = args.dteById.get(link.targetId);
-        if (dte) return matchIncome(dte.crmAccountId, dte.installationId);
+        if (dte) {
+          return matchIncome(dte.crmAccountId, dte.installationId, dte.recurringTemplateId);
+        }
       }
       return UNMATCHED_INCOME_KEY;
     }

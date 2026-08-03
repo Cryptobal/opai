@@ -8904,6 +8904,9 @@ model FinanceFlowRow {
   mapping        FlowRowMapping @default(MANUAL)
   crmAccountId   String?        @map("crm_account_id") @db.Uuid
   installationId String?        @map("installation_id") @db.Uuid
+  /// Programación de facturación (1 fila = 1 template). Null en filas
+  /// genéricas de cuenta (facturas one-shot) o egresos.
+  recurringTemplateId String?   @map("recurring_template_id") @db.Uuid
   /// Reutiliza FinanceCashflowCategory para egresos (sin FK dura: la categoría
   /// pertenece al módulo viejo que se retirará; validación a nivel servicio).
   categoryId     String?        @map("category_id") @db.Uuid
@@ -8919,6 +8922,7 @@ model FinanceFlowRow {
 
   @@index([tenantId, section, orderIndex], map: "idx_finance_flow_row_tenant_section")
   @@index([tenantId, crmAccountId, installationId], map: "idx_finance_flow_row_account_inst")
+  @@index([tenantId, recurringTemplateId], map: "idx_finance_flow_row_tenant_template")
   @@map("finance_flow_rows")
   @@schema("finance")
 }

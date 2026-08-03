@@ -131,7 +131,7 @@ export async function loadCommittedIncome(
         dte: {
           select: {
             folio: true, receiverName: true, receiverRut: true,
-            crmAccountId: true, installationId: true,
+            crmAccountId: true, installationId: true, recurringTemplateId: true,
           },
         },
       },
@@ -232,6 +232,7 @@ export async function loadCommittedIncome(
       pendingClp: Number(d.totalAmount) - Number(d.amountPaid),
       crmAccountId: resolveAccount(d.crmAccountId, d.receiverRut),
       installationId: d.installationId,
+      recurringTemplateId: d.recurringTemplateId,
       receiverName: d.receiverName ?? "",
       templateDiasCobro: d.recurringTemplateId
         ? (diasCobroByTemplate.get(d.recurringTemplateId) ?? null)
@@ -278,7 +279,7 @@ export async function loadCommittedIncome(
       label: e.dte.receiverName ?? "",
       reason: e.reason,
       createdAt: e.createdAt.toISOString(),
-      rowId: matchRow(accId, e.dte.installationId),
+      rowId: matchRow(accId, e.dte.installationId, e.dte.recurringTemplateId),
     };
   });
 

@@ -6,6 +6,7 @@ import {
   startOfIsoWeekUTC, toYmd, weekStartYmd, ymdToDate,
 } from "./weeks";
 import { ensureFlowBootstrap } from "./bootstrap.service";
+import { ensureIncomeRows } from "./ensure-income-rows.service";
 import { loadPlanCells } from "./plan.service";
 import { loadCommittedIncome } from "./load-committed-income";
 import { loadCommittedExpense } from "./load-committed-expense";
@@ -57,14 +58,18 @@ export async function buildFlowMatrix(
 
   // Primera vez sin filas: bootstrap automático (programaciones activas +
   // canónicas + backfill de términos por contrato). Nadie corre scripts.
-  // Solo lo dispara un usuario con permiso de gestión: este GET no debe
-  // escribir cuando lo abre alguien de solo-lectura.
-  if (q.allowBootstrap) await ensureFlowBootstrap(tenantId);
+  // Luego sync continuo: programaciones/clientes nuevos → fila propia
+  // (evita que caigan en "Otros clientes"). Solo con permiso de gestión.
+  if (q.allowBootstrap) {
+    await ensureFlowBootstrap(tenantId);
+    await ensureIncomeRows(tenantId);
+  }
 
   const dbRows = await prisma.financeFlowRow.findMany({ where: { tenantId } });
   const refs: FlowRowRef[] = dbRows.map((r) => ({
     id: r.id, name: r.name, section: r.section, mapping: r.mapping,
     crmAccountId: r.crmAccountId, installationId: r.installationId,
+    recurringTemplateId: r.recurringTemplateId,
     categoryId: r.categoryId, supplierId: r.supplierId,
   }));
 
@@ -123,9 +128,10 @@ export async function buildFlowMatrix(
   // Nombres canónicos desde la fuente (para detectar alias manuales).
   const accountIds = [...new Set(dbRows.map((r) => r.crmAccountId).filter(Boolean))] as string[];
   const installationIds = [...new Set(dbRows.map((r) => r.installationId).filter(Boolean))] as string[];
+  const templateIds = [...new Set(dbRows.map((r) => r.recurringTemplateId).filter(Boolean))] as string[];
   const categoryIds = [...new Set(dbRows.map((r) => r.categoryId).filter(Boolean))] as string[];
   const supplierIds = [...new Set(dbRows.map((r) => r.supplierId).filter(Boolean))] as string[];
-  const [accounts, installations, categories, suppliers] = await Promise.all([
+  const [accounts, installations, templateNames, categories, suppliers] = await Promise.all([
     accountIds.length
       ? prisma.crmAccount.findMany({
           where: { tenantId, id: { in: accountIds } },
@@ -135,6 +141,12 @@ export async function buildFlowMatrix(
     installationIds.length
       ? prisma.crmInstallation.findMany({
           where: { tenantId, id: { in: installationIds } },
+          select: { id: true, name: true },
+        })
+      : Promise.resolve([]),
+    templateIds.length
+      ? prisma.financeDteRecurringTemplate.findMany({
+          where: { tenantId, id: { in: templateIds } },
           select: { id: true, name: true },
         })
       : Promise.resolve([]),
@@ -153,11 +165,17 @@ export async function buildFlowMatrix(
   ]);
   const accountNameById = new Map(accounts.map((a) => [a.id, a.name]));
   const installationNameById = new Map(installations.map((i) => [i.id, i.name]));
+  const templateNameById = new Map(templateNames.map((t) => [t.id, t.name]));
   const categoryNameById = new Map(categories.map((c) => [c.id, c.name]));
   const supplierNameById = new Map(suppliers.map((s) => [s.id, s.name]));
 
   const sourceNameFor = (r: (typeof dbRows)[number]): string | null => {
-    if (r.mapping === "ACCOUNT_INSTALLATION" && r.crmAccountId) {
+    if (r.mapping === "ACCOUNT_INSTALLATION") {
+      // Fila de programación: el canónico es el nombre del template.
+      if (r.recurringTemplateId) {
+        return templateNameById.get(r.recurringTemplateId) ?? null;
+      }
+      if (!r.crmAccountId) return null;
       const acc = accountNameById.get(r.crmAccountId);
       if (!acc) return null;
       const inst = r.installationId ? installationNameById.get(r.installationId) : null;
@@ -182,6 +200,7 @@ export async function buildFlowMatrix(
     assembleRows.push({
       id: r.id, name: r.name, section: r.section, mapping: r.mapping,
       orderIndex: r.orderIndex, crmAccountId: r.crmAccountId, installationId: r.installationId,
+      recurringTemplateId: r.recurringTemplateId,
       categoryId: r.categoryId, supplierId: r.supplierId,
       isArchived: !!r.archivedAt, archivedWeekCutoff: cutoff, isVirtual: false,
       sourceName, nameIsManual,
@@ -191,7 +210,8 @@ export async function buildFlowMatrix(
     if (hasData(v.id, null)) {
       assembleRows.push({
         id: v.id, name: v.name, section: v.section, mapping: "MANUAL", orderIndex: 9999,
-        crmAccountId: null, installationId: null, categoryId: null, supplierId: null,
+        crmAccountId: null, installationId: null, recurringTemplateId: null,
+        categoryId: null, supplierId: null,
         isArchived: false, archivedWeekCutoff: null, isVirtual: true,
         sourceName: null, nameIsManual: false,
       });

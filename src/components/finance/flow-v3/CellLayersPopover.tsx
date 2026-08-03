@@ -31,7 +31,7 @@ interface Props {
 }
 
 const MAPPING_LABEL: Record<string, string> = {
-  ACCOUNT_INSTALLATION: "Cuenta CRM + instalación",
+  ACCOUNT_INSTALLATION: "Cuenta CRM / programación",
   CATEGORY: "Categoría de egreso",
   SUPPLIER: "Proveedor",
   MANUAL: "Manual",
