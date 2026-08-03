@@ -5,12 +5,15 @@
  * signado. La UI muestra magnitudes en secciones de egreso; flujo y saldo
  * suman `effective` directo.
  *
- * Capa efectiva por celda: real > comprometido > plan. Semanas pasadas: SOLO
- * real (sin movimiento = 0; jamás caen al plan — el plan queda para desvío).
+ * Capa efectiva por celda (semana actual/futura):
+ *   real > ingreso facturado (DTE) > plan manual > comprometido > vacío.
+ * El plan manual pisa proyecciones (sueldos, IVA, GAV, cuotas sin factura)
+ * para que "Editar monto de plan" mueva el flujo. Excepción: ingreso con
+ * DTE emitido — la factura manda. Semanas pasadas: SOLO real.
  *
  * Saldo acumulado (fin de semana):
- *  - semana actual = saldo banco hoy + pendiente de la semana (comprometido
- *    de la semana + plan de celdas sin real ni comprometido);
+ *  - semana actual = saldo banco hoy + pendiente de la semana (capa
+ *    efectiva plan/comprometido de celdas sin real);
  *  - futuras: acumula `effective`;
  *  - pasadas: des-acumula el real desde hoy hacia atrás;
  *  - ventana enteramente pasada: ancla = saldo hoy − real posterior a la
@@ -24,7 +27,8 @@
  *    en/antes de la semana actual. Descuadre ⚠ solo entre dos sellos que
  *    no cuadran (no se inventan ajustes).
  */
-import type { CommittedByRow, CommittedCell, RealByRow, RealCell } from "./types";
+import { hasInvoicedIncome } from "./cell-editability";
+import type { CommittedByRow, RealByRow } from "./types";
 
 export interface AssembleRowInput {
   id: string;
@@ -115,6 +119,7 @@ export function assembleMatrix(args: AssembleArgs): AssembledMatrix {
       const committedCash =
         committed == null ? 0 : r.section === "INGRESOS" ? committed.total : -committed.total;
       const planCash = planCashSign(r.section, plan);
+      const invoiced = hasInvoicedIncome(r.section, committed);
 
       const isPast = w < currentWeek;
       let layer: FlowMatrixCellDto["layer"] = "empty";
@@ -122,17 +127,25 @@ export function assembleMatrix(args: AssembleArgs): AssembledMatrix {
       if (real && real.total !== 0) {
         layer = "real";
         effective = real.total;
-      } else if (!isPast && committed && committed.total !== 0) {
+      } else if (!isPast && invoiced && committed && committed.total !== 0) {
+        // Ingreso facturado: la factura manda sobre el plan manual.
         layer = "committed";
         effective = committedCash;
       } else if (!isPast && plan !== 0) {
+        // Plan manual pisa proyecciones (sueldos, impuestos, GAV, cuotas…).
         layer = "plan";
         effective = planCash;
+      } else if (!isPast && committed && committed.total !== 0) {
+        layer = "committed";
+        effective = committedCash;
       }
 
       flows[i] += effective;
       if (real) realNet[i] += real.total;
-      if (!isPast) pendingNet[i] += committedCash + (layer === "plan" ? planCash : 0);
+      if (!isPast) {
+        if (layer === "plan") pendingNet[i] += planCash;
+        else if (layer === "committed") pendingNet[i] += committedCash;
+      }
       return { weekStart: w, plan, committed, real, effective, layer };
     });
     return { ...r, cells };

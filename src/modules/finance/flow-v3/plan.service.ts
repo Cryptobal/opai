@@ -1,5 +1,6 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
+import { recordPlanChange } from "./plan-history.service";
 import { isMondayYmd, weekStartYmd, ymdToDate } from "./weeks";
 
 export interface PlanCellDto {
@@ -9,6 +10,11 @@ export interface PlanCellDto {
   /** 0 = celda borrada (sin plan). */
   amount: number;
   updatedBy: string | null;
+}
+
+export interface PlanAuditCtx {
+  userId: string | null;
+  userEmail?: string | null;
 }
 
 type EditableRow = { id: string; archivedAt: Date | null };
@@ -67,7 +73,8 @@ async function readCell(
 /**
  * Upsert de una celda plan. amount 0 ⇒ delete (celda vacía). El plan es
  * signado (FINANCIAMIENTO puede ser negativo). Retorna la celda releída
- * de DB, nunca el eco del input.
+ * de DB, nunca el eco del input. Deja rastro en AuditLog para el historial
+ * del popover de capas.
  */
 export async function upsertCell(
   tenantId: string,
@@ -75,11 +82,14 @@ export async function upsertCell(
   weekStart: string,
   amount: number,
   updatedBy: string | null,
+  audit?: PlanAuditCtx,
 ): Promise<PlanCellDto> {
   const row = await assertEditableRow(tenantId, rowId);
   const week = assertWeek(weekStart);
   assertPlanWeekWritable(row, weekStart);
   if (!Number.isFinite(amount)) throw new Error("Monto inválido");
+
+  const previous = await readCell(tenantId, rowId, weekStart);
 
   if (amount === 0) {
     await prisma.financeFlowPlanCell.deleteMany({
@@ -92,6 +102,17 @@ export async function upsertCell(
       update: { amount, updatedBy },
     });
   }
+
+  await recordPlanChange({
+    tenantId,
+    userId: audit?.userId ?? updatedBy,
+    userEmail: audit?.userEmail,
+    rowId,
+    weekStart,
+    previousAmount: previous.amount,
+    newAmount: amount,
+  });
+
   return readCell(tenantId, rowId, weekStart);
 }
 
@@ -105,12 +126,15 @@ export async function bulkFill(
   weekStarts: string[],
   amount: number,
   updatedBy: string | null,
+  audit?: PlanAuditCtx,
 ): Promise<PlanCellDto[]> {
   const row = await assertEditableRow(tenantId, rowId);
   if (!Number.isFinite(amount)) throw new Error("Monto inválido");
   const weeks = weekStarts.map((w) => ({ ymd: w, date: assertWeek(w) }));
   for (const w of weeks) assertPlanWeekWritable(row, w.ymd);
   if (weeks.length === 0) return [];
+
+  const previous = await Promise.all(weeks.map((w) => readCell(tenantId, rowId, w.ymd)));
 
   if (amount === 0) {
     await prisma.financeFlowPlanCell.deleteMany({
@@ -129,6 +153,21 @@ export async function bulkFill(
       ),
     );
   }
+
+  await Promise.all(
+    previous.map((p) =>
+      recordPlanChange({
+        tenantId,
+        userId: audit?.userId ?? updatedBy,
+        userEmail: audit?.userEmail,
+        rowId,
+        weekStart: p.weekStart,
+        previousAmount: p.amount,
+        newAmount: amount,
+      }),
+    ),
+  );
+
   return Promise.all(weeks.map((w) => readCell(tenantId, rowId, w.ymd)));
 }
 

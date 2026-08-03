@@ -23,6 +23,7 @@ export async function POST(request: NextRequest) {
       parsed.data.weekStarts,
       parsed.data.amount,
       guard.ctx.userId,
+      { userId: guard.ctx.userId, userEmail: guard.ctx.userEmail },
     );
     return NextResponse.json({ success: true, data: cells });
   } catch (error) {

@@ -67,6 +67,9 @@ export const CORNER_DTE =
   "after:absolute after:right-0 after:top-0 after:h-0 after:w-0 after:border-l-[6px] after:border-t-[6px] after:border-l-transparent after:border-t-status-info after:content-['']";
 export const CORNER_WARN =
   "after:absolute after:right-0 after:top-0 after:h-0 after:w-0 after:border-l-[6px] after:border-t-[6px] after:border-l-transparent after:border-t-status-warn after:content-['']";
+/** Plan manual (override): esquina primary sutil — el usuario escribió el monto. */
+export const CORNER_PLAN =
+  "after:absolute after:right-0 after:top-0 after:h-0 after:w-0 after:border-l-[6px] after:border-t-[6px] after:border-l-transparent after:border-t-primary after:content-['']";
 
 /** Selección Sheets: borde azul + handle (ver globals.css `.planilla-selected`). */
 export const SELECTED_CELL = "planilla-selected";

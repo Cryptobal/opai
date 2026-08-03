@@ -43,8 +43,8 @@ interface Props {
   rowMenu: MenuItemDesc[];
   /** Registra esta fila como objetivo del menú contextual del grid. */
   onRowContext: () => void;
-  /** ¿La columna admite escritura de plan (no pasada, no sellada, semanal)? */
-  colWritable: (colIdx: number) => boolean;
+  /** Editabilidad completa por celda (semana abierta + no facturado, etc.). */
+  canEditCell: (rowId: string, colIdx: number) => boolean;
   enableDrag: boolean;
   dropTarget: { rowId: string; colIdx: number } | null;
   onCellContext: (sel: CellSel) => void;
@@ -112,8 +112,6 @@ export function PlanillaRow(p: Props) {
       return next;
     });
   };
-  const editableRow =
-    p.canManage && p.granularity === "week" && !row.isArchived && !row.isVirtual;
   const showMenu = p.canManage && !row.isVirtual && p.rowMenu.length > 0;
 
   return (
@@ -190,7 +188,7 @@ export function PlanillaRow(p: Props) {
           p.editing != null &&
           p.editing.sel.rowId === row.id &&
           p.editing.sel.colIdx === colIdx;
-        const writable = editableRow && p.colWritable(colIdx);
+        const writable = p.canEditCell(row.id, colIdx);
         const draggable =
           p.enableDrag && writable && cell.layer === "plan" && cell.plan !== 0;
         const dragBlocked =

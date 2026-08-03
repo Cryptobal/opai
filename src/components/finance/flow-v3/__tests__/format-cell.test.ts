@@ -33,7 +33,7 @@ describe("cornerKind / primaryCellTag", () => {
     expect(cornerKind(cell({ layer: "real", effective: 100 }))).toBe("real");
     expect(primaryCellTag(cell({ layer: "real" }))?.tag).toBe("REAL");
   });
-  it("programada sin marca; dte con marca azul", () => {
+  it("programada sin marca; dte con marca azul; plan manual con marca primary", () => {
     const scheduled = cell({
       layer: "committed",
       committed: {
@@ -55,5 +55,9 @@ describe("cornerKind / primaryCellTag", () => {
     });
     expect(cornerKind(dte)).toBe("dte");
     expect(primaryCellTag(dte)?.tag).toBe("F°1234");
+
+    const plan = cell({ layer: "plan", plan: 70_000_000, effective: -70_000_000 });
+    expect(cornerKind(plan)).toBe("plan");
+    expect(primaryCellTag(plan)?.tag).toBe("Plan");
   });
 });

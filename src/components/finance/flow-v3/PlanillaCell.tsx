@@ -7,8 +7,8 @@ import {
 } from "./format";
 import {
   CELL_BASE, COL_W, COMMITTED_DRAFT_CELL, COMMITTED_DTE_CELL,
-  COMMITTED_PROFORMA_CELL, COMMITTED_SCHEDULED_CELL, CORNER_DTE, CORNER_REAL,
-  CORNER_WARN, displayValue, REAL_CELL, ROW_H,   TODAY_COL,
+  COMMITTED_PROFORMA_CELL, COMMITTED_SCHEDULED_CELL, CORNER_DTE, CORNER_PLAN,
+  CORNER_REAL, CORNER_WARN, displayValue, REAL_CELL, ROW_H, TODAY_COL,
 } from "./grid-classes";
 import { committedPriority, cornerKind, primaryCellTag, toneClass } from "./cell-meta";
 import type { CellStyle } from "./usePlanillaViewPrefs";
@@ -121,7 +121,15 @@ export function PlanillaCell(p: Props) {
   const tag = primaryCellTag(cell);
   const corner = showChips ? null : cornerKind(cell);
   const cornerClass =
-    corner === "real" ? CORNER_REAL : corner === "dte" ? CORNER_DTE : corner === "warn" ? CORNER_WARN : "";
+    corner === "real"
+      ? CORNER_REAL
+      : corner === "dte"
+        ? CORNER_DTE
+        : corner === "warn"
+          ? CORNER_WARN
+          : corner === "plan"
+            ? CORNER_PLAN
+            : "";
 
   // Con chips OFF no tintamos el fondo (la marca de esquina basta); con chips
   // ON se conserva el sistema §5F de fondos/bordes.
@@ -197,7 +205,7 @@ export function PlanillaCell(p: Props) {
     >
       {isEditing ? (
         <EditInput initial={p.editingInitial!} onCommit={p.onCommit} onCancel={p.onCancel} />
-      ) : showChips && tag && cell.layer === "committed" ? (
+      ) : showChips && tag && (cell.layer === "committed" || cell.layer === "plan") ? (
         <span
           className={`pointer-events-none absolute inset-0 flex flex-col gap-px px-1.5 max-md:px-[3px] leading-none ${chipItemsH} ${chipJustifyV}`}
         >
