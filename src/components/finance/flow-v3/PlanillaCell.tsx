@@ -8,7 +8,7 @@ import {
 import {
   CELL_BASE, COL_W, COMMITTED_DRAFT_CELL, COMMITTED_DTE_CELL,
   COMMITTED_PROFORMA_CELL, COMMITTED_SCHEDULED_CELL, CORNER_DTE, CORNER_REAL,
-  CORNER_WARN, displayValue, REAL_CELL, ROW_H, SELECTED_CELL, TODAY_COL,
+  CORNER_WARN, displayValue, REAL_CELL, ROW_H,   TODAY_COL,
 } from "./grid-classes";
 import { committedPriority, cornerKind, primaryCellTag, toneClass } from "./cell-meta";
 import type { CellStyle } from "./usePlanillaViewPrefs";
@@ -20,9 +20,11 @@ interface Props {
   dataRc: string;
   isCurrentCol: boolean;
   editable: boolean;
-  selected: boolean;
+  /** Clases de selección/rango (planilla-selected | planilla-range*). */
+  rangeClass: string;
   editingInitial: string | null;
-  onSelect: () => void;
+  /** shift=true extiende el rango desde el ancla. */
+  onSelect: (extend: boolean) => void;
   onStartEdit: () => void;
   onCommit: (raw: string, move: "down" | "right" | "none") => void;
   onCancel: () => void;
@@ -174,7 +176,7 @@ export function PlanillaCell(p: Props) {
         CELL_BASE, COL_W, ROW_H, NUM_CLASS, longValue, layerClass,
         projAttenuate || textClass, cornerClass,
         p.isCurrentCol ? TODAY_COL : "",
-        p.selected ? SELECTED_CELL : "",
+        p.rangeClass,
         cursorClass, styleClass,
         p.isDropTarget ? "outline outline-2 -outline-offset-2 outline-primary/70" : "",
         dragBlocked ? "[cursor:not-allowed]" : "",
@@ -187,9 +189,9 @@ export function PlanillaCell(p: Props) {
       onDrop={p.onDropCell}
       onDragEnd={p.onDragEndCell}
       onContextMenu={p.onContextTarget}
-      onClick={() => {
-        // Clic = solo selección. Capas: Espacio / "Ver capas" / menú contextual.
-        p.onSelect();
+      onClick={(e) => {
+        // Clic = selección; shift-clic extiende. Capas: Espacio / Ver capas / menú.
+        p.onSelect(e.shiftKey);
       }}
       onDoubleClick={() => p.editable && p.onStartEdit()}
     >

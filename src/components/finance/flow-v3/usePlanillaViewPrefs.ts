@@ -50,6 +50,17 @@ export interface PlanillaViewPrefs {
   numberFormat: NumberFormatMode;
   freeze: boolean;
   cellStyles: CellStylesMap;
+  /** Ancho columna Concepto (desktop), px. */
+  nameW: number;
+}
+
+const NAME_W_MIN = 140;
+const NAME_W_MAX = 320;
+const NAME_W_DEFAULT = 200;
+
+export function clampNameW(n: number): number {
+  if (!Number.isFinite(n)) return NAME_W_DEFAULT;
+  return Math.min(NAME_W_MAX, Math.max(NAME_W_MIN, Math.round(n)));
 }
 
 const ZOOM_STEPS = [0.8, 0.9, 1, 1.15, 1.3] as const;
@@ -75,6 +86,7 @@ const DEFAULTS: PlanillaViewPrefs = {
   numberFormat: "clp",
   freeze: true,
   cellStyles: {},
+  nameW: NAME_W_DEFAULT,
 };
 
 function storageKey(tenantId: string): string {
@@ -102,6 +114,7 @@ function sanitize(raw: unknown): PlanillaViewPrefs {
   const numberFormat: NumberFormatMode =
     o.numberFormat === "m" || o.numberFormat === "mm" ? o.numberFormat : "clp";
   const freeze = o.freeze !== false;
+  const nameW = typeof o.nameW === "number" ? clampNameW(o.nameW) : NAME_W_DEFAULT;
   const cellStyles: CellStylesMap = {};
   if (o.cellStyles && typeof o.cellStyles === "object") {
     for (const [k, v] of Object.entries(o.cellStyles as Record<string, unknown>)) {
@@ -116,7 +129,7 @@ function sanitize(raw: unknown): PlanillaViewPrefs {
       if (Object.keys(style).length > 0) cellStyles[k] = style;
     }
   }
-  return { theme, density, zoom, showChips, numberFormat, freeze, cellStyles };
+  return { theme, density, zoom, showChips, numberFormat, freeze, cellStyles, nameW };
 }
 
 export function cellStyleKey(rowId: string, weekStart: string): string {
@@ -189,6 +202,7 @@ export function usePlanillaViewPrefs(tenantId: string) {
     [patch],
   );
   const setFreeze = useCallback((freeze: boolean) => patch({ freeze }), [patch]);
+  const setNameW = useCallback((nameW: number) => patch({ nameW: clampNameW(nameW) }), [patch]);
 
   const getCellStyle = useCallback(
     (rowId: string, weekStart: string): CellStyle | undefined =>
@@ -265,8 +279,10 @@ export function usePlanillaViewPrefs(tenantId: string) {
         "--plnx-section-h":
           prefs.density === "compact" ? "16px" : prefs.density === "comfortable" ? "22px" : "18px",
         "--plnx-zoom": String(prefs.zoom),
+        // Pref desktop; móvil fuerza 100px en globals (media query gana sobre esta var).
+        "--plnx-name-w-pref": `${prefs.nameW}px`,
       }) as CSSProperties,
-    [prefs.density, prefs.zoom],
+    [prefs.density, prefs.zoom, prefs.nameW],
   );
 
   return {
@@ -280,6 +296,7 @@ export function usePlanillaViewPrefs(tenantId: string) {
     setShowChips,
     setNumberFormat,
     setFreeze,
+    setNameW,
     getCellStyle,
     setCellStyle,
     setCellStylesBulk,

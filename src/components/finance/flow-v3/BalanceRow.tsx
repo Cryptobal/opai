@@ -13,6 +13,7 @@ interface Props {
   startNumber: number;
   numberFormat?: NumberFormatMode;
   selectedColIdx?: number | null;
+  selectedColIndices?: Set<number>;
 }
 
 const EYEBROW = "font-sans font-normal tabular-nums leading-none";
@@ -25,12 +26,16 @@ function heatClass(balance: number, warnThreshold: number): string {
 }
 
 export function BalanceRow({
-  columns, flows, balances, warnThreshold, startNumber, numberFormat = "clp", selectedColIdx,
+  columns, flows, balances, warnThreshold, startNumber, numberFormat = "clp",
+  selectedColIdx, selectedColIndices,
 }: Props) {
   const nameTh = `planilla-name-col ${NAME_W} sticky ${NAME_LEFT} z-10 border-r border-t border-ds-border-default bg-ds-surface-2 px-1.5 max-md:px-1 text-left overflow-hidden whitespace-nowrap ${EYEBROW} text-ds-text-3`;
   const gutterTh = `${GUTTER_W} ${GUTTER_CELL} z-10 border-t border-ds-border-default`;
   const cellBase = `${COL_W} border-r border-t border-ds-border-subtle/60 px-1.5 max-md:px-[3px] text-right overflow-hidden whitespace-nowrap ${NUM_CLASS}`;
-  const sel = (i: number) => (selectedColIdx === i ? "bg-[hsl(var(--plnx-sel-hdr))]" : "");
+  const sel = (i: number) =>
+    (selectedColIndices?.has(i) || selectedColIdx === i)
+      ? "bg-[hsl(var(--plnx-sel-hdr))]"
+      : "";
 
   return (
     <tfoot className="sticky bottom-0 z-20">

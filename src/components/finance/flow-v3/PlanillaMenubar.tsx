@@ -38,6 +38,8 @@ interface Props {
   onCloseWeek: () => void;
   onExpand: () => void;
   onCollapse: () => void;
+  onSortByAmount?: () => void;
+  sortByAmountLabel?: string;
 }
 
 const MENUS: { key: Exclude<MenuKey, null>; label: string }[] = [
@@ -191,6 +193,12 @@ export function PlanillaMenubar(p: Props) {
                   <Item label="Cerrar semana…" onClick={close(p.onCloseWeek)} disabled={!p.canManage} />
                   <Item label="Expandir grupos" onClick={close(p.onExpand)} />
                   <Item label="Contraer grupos" onClick={close(p.onCollapse)} />
+                  {p.onSortByAmount && (
+                    <Item
+                      label={p.sortByAmountLabel ?? "Ordenar por montos"}
+                      onClick={close(p.onSortByAmount)}
+                    />
+                  )}
                   <Item label="Filtro…" disabled hint="próximamente" />
                 </>
               )}

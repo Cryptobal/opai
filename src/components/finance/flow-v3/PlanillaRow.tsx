@@ -10,6 +10,8 @@ import { GUTTER_CELL, GUTTER_W, NAME_LEFT, NAME_W, ROW_H } from "./grid-classes"
 import { PlanillaCell } from "./PlanillaCell";
 import { MenuItems, type MenuItemDesc } from "./menu-render";
 import type { CellSel } from "./usePlanillaKeyboard";
+import type { RangeRect } from "./range-sel";
+import { cellRangeClass } from "./range-sel";
 import type { NumberFormatMode } from "./format";
 import type { CellStyle } from "./usePlanillaViewPrefs";
 
@@ -23,8 +25,12 @@ interface Props {
   canManage: boolean;
   granularity: "week" | "month";
   sel: CellSel | null;
+  /** Índice de esta fila en el orden visible (para pintar el rango). */
+  visibleRowIdx: number;
+  rangeRect: RangeRect | null;
   editing: { sel: CellSel; initial: string } | null;
-  onSelect: (sel: CellSel) => void;
+  onSelect: (sel: CellSel, extend: boolean) => void;
+  onSelectRow: () => void;
   onStartEdit: (sel: CellSel) => void;
   onCommit: (raw: string, move: "down" | "right" | "none") => void;
   onCancelEdit: () => void;
@@ -114,7 +120,9 @@ export function PlanillaRow(p: Props) {
     <tr className={`${ROW_H} group`}>
       <td
         aria-hidden
-        className={`${GUTTER_W} ${ROW_H} ${GUTTER_CELL} z-10 ${p.rowSelected ? "bg-[hsl(var(--plnx-sel-hdr))]" : ""}`}
+        className={`${GUTTER_W} ${ROW_H} ${GUTTER_CELL} z-10 cursor-pointer ${p.rowSelected ? "bg-[hsl(var(--plnx-sel-hdr))]" : ""}`}
+        onClick={(e) => { e.stopPropagation(); p.onSelectRow(); }}
+        title="Seleccionar fila"
       >
         {p.rowNumber}
       </td>
@@ -178,7 +186,6 @@ export function PlanillaRow(p: Props) {
         )}
       </th>
       {row.cells.map((cell, colIdx) => {
-        const isSel = p.sel?.rowId === row.id && p.sel.colIdx === colIdx;
         const isEditing =
           p.editing != null &&
           p.editing.sel.rowId === row.id &&
@@ -190,6 +197,9 @@ export function PlanillaRow(p: Props) {
           p.enableDrag && (cell.layer === "committed" || cell.layer === "real")
             ? DRAG_BLOCKED_MSG
             : undefined;
+        const rangeClass = isEditing
+          ? ""
+          : cellRangeClass(p.visibleRowIdx, colIdx, p.rangeRect, p.sel, row.id);
         return (
           <PlanillaCell
             key={cell.weekStart + colIdx}
@@ -198,9 +208,9 @@ export function PlanillaRow(p: Props) {
             dataRc={`${row.id}:${colIdx}`}
             isCurrentCol={p.granularity === "week" && cell.weekStart === p.currentWeek}
             editable={writable}
-            selected={!!isSel && !isEditing}
+            rangeClass={rangeClass}
             editingInitial={isEditing ? p.editing!.initial : null}
-            onSelect={() => p.onSelect({ rowId: row.id, colIdx })}
+            onSelect={(extend) => p.onSelect({ rowId: row.id, colIdx }, extend)}
             onStartEdit={() => p.onStartEdit({ rowId: row.id, colIdx })}
             onCommit={p.onCommit}
             onCancel={p.onCancelEdit}
