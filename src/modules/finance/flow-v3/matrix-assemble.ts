@@ -28,7 +28,7 @@
  *    no cuadran (no se inventan ajustes).
  */
 import { hasInvoicedIncome } from "./cell-editability";
-import type { CommittedByRow, RealByRow } from "./types";
+import type { CommittedByRow, CommittedCell, RealByRow, RealCell } from "./types";
 
 export interface AssembleRowInput {
   id: string;
