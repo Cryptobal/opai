@@ -186,6 +186,14 @@ export function CorreosClient() {
       null
     );
   }, [accounts, activeAccountId, defaultAccountId]);
+  /** Casilla concreta del alcance de búsqueda (no aplica en vista unificada multicuenta). */
+  const searchScopeMailbox = useMemo(() => {
+    if (activeAccountId) {
+      return accounts.find((a) => a.id === activeAccountId) ?? null;
+    }
+    if (accounts.length === 1) return accounts[0] ?? null;
+    return null;
+  }, [accounts, activeAccountId]);
   const accountsById = useMemo(() => {
     const map = new Map<string, MailboxAccount>();
     for (const a of accounts) map.set(a.id, a);
@@ -1162,9 +1170,16 @@ export function CorreosClient() {
     placeholder:
       accounts.length > 1 && unified
         ? `Buscar en las ${accounts.length} casillas`
-        : mailboxEmail
-          ? `Buscar en ${mailboxEmail}`
+        : searchScopeMailbox
+          ? "Buscar"
           : "Buscá lo que recordás",
+    scopeChip: searchScopeMailbox
+      ? {
+          label: searchScopeMailbox.email,
+          title: searchScopeMailbox.email,
+          color: searchScopeMailbox.color,
+        }
+      : null,
     value: query,
     pending: searchPending,
     onChange: setQuery,

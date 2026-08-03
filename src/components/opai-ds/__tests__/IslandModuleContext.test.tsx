@@ -18,6 +18,7 @@ function Reader() {
       <span data-testid="badge">{moduleMenu?.badge ?? 0}</span>
       <span data-testid="search">{search?.placeholder ?? "none"}</span>
       <span data-testid="value">{search?.value ?? ""}</span>
+      <span data-testid="scope">{search?.scopeChip?.label ?? "none"}</span>
       <span data-testid="suppressed">{String(suppressed)}</span>
     </div>
   );
@@ -51,6 +52,11 @@ function Publisher({
           value: query,
           onChange: () => {},
           onExit: () => {},
+          scopeChip: {
+            label: "casilla@gard.cl",
+            title: "casilla@gard.cl",
+            color: "teal",
+          },
         }
       : null,
   );
@@ -70,6 +76,7 @@ describe("IslandModuleContext", () => {
     expect(screen.getByTestId("badge").textContent).toBe("9");
     expect(screen.getByTestId("search").textContent).toBe("Buscá lo que recordás");
     expect(screen.getByTestId("value").textContent).toBe("hola");
+    expect(screen.getByTestId("scope").textContent).toBe("casilla@gard.cl");
 
     rerender(
       <IslandModuleProvider>
@@ -78,6 +85,7 @@ describe("IslandModuleContext", () => {
       </IslandModuleProvider>,
     );
     expect(screen.getByTestId("menu").textContent).toBe("none");
+    expect(screen.getByTestId("scope").textContent).toBe("none");
     expect(screen.getByTestId("search").textContent).toBe("none");
 
     // Remount and unmount publisher

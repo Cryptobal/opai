@@ -22,6 +22,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { ArrowLeft, Bell, ChevronLeft, MessageCircle, Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { paletteSoft } from "@/lib/design/calendar-palette";
 import { ThemeLogo } from "./ThemeLogo";
 import {
   IconBubble,
@@ -185,6 +186,7 @@ export function MobileIsland({
 
   const fieldValue = usingModuleSearch ? (moduleSearch?.value ?? "") : searchValue;
   const fieldPlaceholder = moduleSearch?.placeholder ?? "Buscar…";
+  const scopeChip = usingModuleSearch ? (moduleSearch?.scopeChip ?? null) : null;
   const onFieldChange = (value: string) => {
     if (usingModuleSearch) {
       moduleSearch?.onChange(value);
@@ -228,6 +230,19 @@ export function MobileIsland({
             >
               <ArrowLeft className="h-5 w-5" />
             </button>
+            {scopeChip && (
+              <span
+                title={scopeChip.title ?? scopeChip.label}
+                className={cn(
+                  "inline-flex h-6 max-w-[9rem] shrink-0 items-center truncate rounded-md px-1.5 text-[12px] font-medium",
+                  scopeChip.color
+                    ? paletteSoft(scopeChip.color)
+                    : "bg-ds-surface-2 text-ds-text-3",
+                )}
+              >
+                {scopeChip.label}
+              </span>
+            )}
             <input
               ref={searchInputRef}
               id={usingModuleSearch ? "correos-search-input-mobile" : undefined}
@@ -257,7 +272,13 @@ export function MobileIsland({
                 "min-w-0 flex-1 bg-transparent text-[13px] text-ds-text-1 placeholder:text-ds-text-4",
                 "outline-none border-0 focus:ring-0",
               )}
-              aria-label={usingModuleSearch ? fieldPlaceholder : "Buscar en OPAI"}
+              aria-label={
+                usingModuleSearch
+                  ? scopeChip
+                    ? `Buscar en ${scopeChip.title ?? scopeChip.label}`
+                    : fieldPlaceholder
+                  : "Buscar en OPAI"
+              }
             />
             {fieldValue.length > 0 && (
               <button

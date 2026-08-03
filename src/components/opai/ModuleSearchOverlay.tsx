@@ -4,6 +4,7 @@ import { useEffect, useId, useRef, type KeyboardEvent } from "react";
 import { createPortal } from "react-dom";
 import { Loader2, Search, X } from "lucide-react";
 import type { IslandSearch } from "@/components/opai-ds";
+import { paletteSoft } from "@/lib/design/calendar-palette";
 import { chipsFromQuery, removeChipFromQuery } from "@/lib/search-tokens";
 import { cn } from "@/lib/utils";
 import { ModuleSearchOperators } from "./ModuleSearchOperators";
@@ -99,15 +100,28 @@ export function ModuleSearchOverlay({
         <p id={titleId} className="sr-only">
           Buscar en el módulo
         </p>
-        <div className="relative flex items-center gap-2">
+        <div className="relative flex items-center gap-2 rounded-xl bg-ds-surface-2 px-3">
           <Search
-            className="pointer-events-none absolute left-3 h-4 w-4 text-ds-text-4"
+            className="pointer-events-none h-4 w-4 shrink-0 text-ds-text-4"
             aria-hidden
           />
+          {search.scopeChip && (
+            <span
+              title={search.scopeChip.title ?? search.scopeChip.label}
+              className={cn(
+                "inline-flex h-6 max-w-[11rem] shrink-0 items-center truncate rounded-md px-1.5 text-[12px] font-medium",
+                search.scopeChip.color
+                  ? paletteSoft(search.scopeChip.color)
+                  : "bg-ds-surface-1 text-ds-text-3",
+              )}
+            >
+              {search.scopeChip.label}
+            </span>
+          )}
           <input
             ref={inputRef}
             id="module-search-input"
-            className="h-11 w-full rounded-xl bg-ds-surface-2 pl-9 pr-10 text-[13px] text-ds-text-1 outline-none placeholder:text-ds-text-4 sm:h-10"
+            className="h-11 min-w-0 flex-1 bg-transparent text-[13px] text-ds-text-1 outline-none placeholder:text-ds-text-4 sm:h-10"
             placeholder={search.placeholder}
             value={search.value}
             maxLength={MAX_SEARCH_LENGTH}
@@ -117,7 +131,7 @@ export function ModuleSearchOverlay({
           />
           {search.pending && (
             <Loader2
-              className="pointer-events-none absolute right-11 h-4 w-4 animate-spin text-ds-text-4"
+              className="h-4 w-4 shrink-0 animate-spin text-ds-text-4"
               aria-label="Buscando"
             />
           )}
@@ -126,7 +140,7 @@ export function ModuleSearchOverlay({
               type="button"
               onClick={clearAndClose}
               aria-label="Limpiar y cerrar búsqueda"
-              className="absolute right-1.5 inline-flex h-9 w-9 items-center justify-center rounded-full text-ds-text-3 ds-tap hover:bg-ds-surface-3 hover:text-ds-text-1"
+              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-ds-text-3 ds-tap hover:bg-ds-surface-3 hover:text-ds-text-1"
             >
               <X className="h-4 w-4" />
             </button>
