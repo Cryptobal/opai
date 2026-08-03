@@ -99,7 +99,7 @@ export function CorreoReaderIsland({
             type="button"
             data-island-action=""
             disabled={!primary.canReply}
-            onClick={() => onCompose("reply")}
+            onClick={() => onCompose("reply", true)}
             aria-label={primary.canReply ? "Responder" : "Responder (no-reply)"}
             title={primary.canReply ? "Responder" : "no-reply"}
             className={cn(
@@ -118,7 +118,7 @@ export function CorreoReaderIsland({
             <button
               type="button"
               data-island-action=""
-              onClick={() => onCompose("all")}
+              onClick={() => onCompose("all", true)}
               aria-label="Responder a todos"
               className="flex h-11 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-2xl bg-ds-surface-2 text-[13px] font-semibold text-ds-text-1 ds-tap"
             >
@@ -130,7 +130,7 @@ export function CorreoReaderIsland({
           <button
             type="button"
             data-island-action=""
-            onClick={() => onCompose("forward")}
+            onClick={() => onCompose("forward", true)}
             aria-label="Reenviar"
             className={cn(
               "flex h-11 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-2xl text-[13px] font-semibold ds-tap",

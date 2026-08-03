@@ -23,6 +23,7 @@ import {
   resolveCorreoPrimaryAction,
   type CorreoPrimaryAction,
 } from "./correo-primary-action";
+import { scrollComposerIntoView } from "./correo-composer-scroll";
 import { buildQuotedMessageInnerHtml } from "./correo-quoted-history";
 import { rewriteCidImages } from "./rewrite-cid-images";
 import { sanitizeEmailHtml } from "@/lib/sanitize-email-html";
@@ -84,34 +85,6 @@ export function buildThreadQuotedHtml(detail: ReplyBoxDetail): string {
   return sanitizeEmailHtml(inner, { blockRemoteImages: true });
 }
 
-function scrollComposerIntoView() {
-  const run = () => {
-    const surface = document.querySelector<HTMLElement>(
-      "[data-correo-composer-surface]",
-    );
-    // Full-screen y modal cubren la pantalla: desplazar el lector no aporta
-    // y en esas ramas la superficie es su propio scroller.
-    const presentation = surface?.dataset.composerPresentation;
-    if (presentation === "fullscreen" || presentation === "modal") return;
-
-    const el = document.querySelector<HTMLElement>("[data-correo-reply-anchor]");
-    if (!el) return;
-    const scroller = document.querySelector<HTMLElement>(
-      "[data-correo-reader-scroller]",
-    );
-    if (!scroller || !scroller.contains(el)) {
-      el.scrollIntoView({ behavior: "smooth", block: "end" });
-      return;
-    }
-    const elRect = el.getBoundingClientRect();
-    const scRect = scroller.getBoundingClientRect();
-    const nextTop = scroller.scrollTop + (elRect.bottom - scRect.bottom) + 24;
-    scroller.scrollTo({ top: Math.max(0, nextTop), behavior: "smooth" });
-  };
-  window.requestAnimationFrame(() => window.requestAnimationFrame(run));
-  window.setTimeout(run, 80);
-}
-
 /** Último borrador del hilo con id de Gmail (el que se puede descartar/reanudar). */
 export function findThreadDraft(messages: CorreoMessageDTO[]): CorreoMessageDTO | null {
   for (let i = messages.length - 1; i >= 0; i -= 1) {
@@ -136,11 +109,12 @@ function toThreadDraftSeed(m: CorreoMessageDTO): ThreadDraftSeed {
  * Orquesta la respuesta del lector (Bloque 2): barra de acciones Gmail (cerrado)
  * ⇄ composer con modos (abierto). IA = panel tipo Gmail (pill + toggle abajo),
  * abierto por defecto en Responder / A todos / Reenviar. Atajos R/A/F →
- * composeIntent (también con foco en el iframe del cuerpo).
+ * composeIntent (foco en la casilla IA al abrir).
  *
  * La barra de acciones se muestra de inmediato (sin esperar suggest-reply): el
  * meta se hidrata en background para no bloquear la lectura con un spinner.
- * Con dock del shell, se porta fuera del scroll (fija abajo, estilo Gmail).
+ * Con dock del shell, barra y composer se portan fuera del scroll (fijos abajo,
+ * estilo Gmail).
  *
  * Si el hilo tiene un borrador, Responder/Continuar lo reanuda (mismo
  * providerDraftId) en vez de crear otro.
@@ -208,8 +182,9 @@ export function CorreoReplyBox({
     setOpenSeq((n) => n + 1);
   }
 
-  // Al abrir Responder / A todos / Reenviar, bajar al composer (también cuando
-  // termina de cargar el meta). Alternar IA / modo / expand no reposiciona.
+  // Al abrir Responder / A todos / Reenviar, llevar al inicio del composer
+  // (también cuando termina de cargar el meta). Alternar IA / modo / expand
+  // no reposiciona.
   useEffect(() => {
     if (!open) return;
     scrollComposerIntoView();
@@ -312,14 +287,20 @@ export function CorreoReplyBox({
   // Composer abierto antes de que llegue el meta: spinner mínimo en el box.
   // Si reanudamos un borrador ya tenemos destinatarios/cuerpo — no bloquear.
   if (!metaReady && open.mode !== "forward" && !activeDraft) {
-    return (
+    const spinner = (
       <div data-correo-reply-anchor className="flex justify-center py-4">
         <Spinner />
       </div>
     );
+    // Mismo dock sticky que la barra: no empujar el spinner al fondo del hilo.
+    if (dock.enabled) {
+      if (!dock.host) return null;
+      return createPortal(spinner, dock.host);
+    }
+    return spinner;
   }
 
-  return (
+  const composer = (
     <CorreoComposerBox
       threadId={threadId}
       subject={detail.thread.subject}
@@ -335,10 +316,10 @@ export function CorreoReplyBox({
       ai={open.ai}
       expanded={open.expanded}
       autoDraftInstructions={open.instructions ?? null}
-      // Responder / A todos / Reenviar dejan el caret en el cuerpo aunque el
-      // panel IA venga abierto; el pill solo roba el foco si el usuario lo
-      // abre después. Con chip de intención manda la inyección del borrador.
-      autoFocusBody={!open.instructions}
+      // Con panel IA abierto el caret va a la casilla IA; el cuerpo solo si
+      // no hay asistente (p. ej. continuar borrador). Chip de intención
+      // inyecta el borrador y mueve el caret al cuerpo vía contentEpoch.
+      autoFocusBody={!open.ai && !open.instructions}
       openSeq={openSeq}
       onModeChange={(mode) =>
         // El panel IA se mantiene en Responder / A todos / Reenviar.
@@ -364,4 +345,11 @@ export function CorreoReplyBox({
       onOpenSignature={onOpenSignature}
     />
   );
+
+  // Desktop: composer sticky en el dock (fuera del scroll del hilo), como Gmail.
+  // Móvil: host ausente → CorreoComposerBox hace fullscreen a document.body.
+  if (dock.enabled && dock.host) {
+    return createPortal(composer, dock.host);
+  }
+  return composer;
 }

@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { CorreoReplyBox } from "../CorreoReplyBox";
 import { CorreoReaderDockContext } from "../CorreoReaderDockContext";
 import type { ReplyBoxDetail } from "../CorreoReplyBox";
@@ -85,6 +85,33 @@ describe("CorreoReplyBox dock Gmail", () => {
     ).toBeNull();
     expect(host.querySelector('[aria-label="Responder"]')).toBeTruthy();
     expect(host.querySelector('[aria-label="Reenviar"]')).toBeTruthy();
+
+    host.remove();
+  });
+
+  it("al abrir Responder porta el composer al dock (sticky, fuera del scroll)", async () => {
+    const host = document.createElement("div");
+    document.body.appendChild(host);
+
+    render(
+      <CorreoReaderDockContext.Provider value={{ host, enabled: true }}>
+        <div data-testid="scroll">
+          <CorreoReplyBox detail={detail} onSent={() => {}} />
+        </div>
+      </CorreoReaderDockContext.Provider>,
+    );
+
+    await waitFor(() => {
+      expect(host.querySelector('[aria-label="Responder"]')).toBeTruthy();
+    });
+    fireEvent.click(host.querySelector('[aria-label="Responder"]')!);
+
+    await waitFor(() => {
+      expect(host.querySelector("[data-testid='composer']")).toBeTruthy();
+    });
+    expect(
+      screen.getByTestId("scroll").querySelector("[data-testid='composer']"),
+    ).toBeNull();
 
     host.remove();
   });

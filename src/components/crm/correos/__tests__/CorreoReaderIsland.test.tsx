@@ -79,9 +79,9 @@ describe("CorreoReaderIsland", () => {
     fireEvent.click(screen.getByRole("button", { name: "Responder" }));
     fireEvent.click(screen.getByRole("button", { name: "Responder a todos" }));
     fireEvent.click(screen.getByRole("button", { name: "Reenviar" }));
-    expect(onCompose).toHaveBeenCalledWith("reply");
-    expect(onCompose).toHaveBeenCalledWith("all");
-    expect(onCompose).toHaveBeenCalledWith("forward");
+    expect(onCompose).toHaveBeenCalledWith("reply", true);
+    expect(onCompose).toHaveBeenCalledWith("all", true);
+    expect(onCompose).toHaveBeenCalledWith("forward", true);
   });
 
   it("al montar reclama el host de undo y al desmontar lo libera", () => {

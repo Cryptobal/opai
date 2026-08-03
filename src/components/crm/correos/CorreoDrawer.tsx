@@ -28,6 +28,7 @@ import type { CorreoShortcuts, CorreoSnoozeConfig } from "./useCorreosViewPrefer
 import { nextIntentNonce, type ComposeIntent } from "./correo-reader-intent";
 import type { ComposerMode } from "./CorreoComposerBox";
 import type { CorreoPrimaryAction } from "./correo-primary-action";
+import { scrollComposerIntoView } from "./correo-composer-scroll";
 import { resolveWorkTab, type WorkTab } from "./work-panel-tabs";
 import { toast } from "sonner";
 
@@ -338,41 +339,18 @@ export function CorreoDrawer({
   const from = sender.name || sender.email || rawFrom;
   const headerSubject =
     (detailReady ? detail.thread.subject : null) || preview?.subject || "Correo";
-  const scrollToReply = () => {
-    const run = () => {
-      const surface = document.querySelector<HTMLElement>(
-        "[data-correo-composer-surface]",
-      );
-      const presentation = surface?.dataset.composerPresentation;
-      if (presentation === "fullscreen" || presentation === "modal") return;
-      const el = document.querySelector<HTMLElement>("[data-correo-reply-anchor]");
-      if (!el) return;
-      const scroller = document.querySelector<HTMLElement>(
-        "[data-correo-reader-scroller]",
-      );
-      if (!scroller || !scroller.contains(el)) {
-        el.scrollIntoView({ behavior: "smooth", block: "end" });
-        return;
-      }
-      const elRect = el.getBoundingClientRect();
-      const scRect = scroller.getBoundingClientRect();
-      const nextTop = scroller.scrollTop + (elRect.bottom - scRect.bottom) + 24;
-      scroller.scrollTo({ top: Math.max(0, nextTop), behavior: "smooth" });
-    };
-    window.requestAnimationFrame(() => window.requestAnimationFrame(run));
-    window.setTimeout(run, 80);
-  };
-
-  const requestCompose = (mode: ComposerMode, ai = false, instructions?: string) => {
+  const requestCompose = (mode: ComposerMode, ai = true, instructions?: string) => {
     setLocalComposeIntent({
       mode,
       ai,
       ...(instructions ? { instructions } : {}),
       nonce: nextIntentNonce(),
     });
-    scrollToReply();
+    // Posiciona al inicio del composer (casilla IA); CorreoReplyBox también
+    // lo dispara al montar — doble pase por si el meta aún no llegó.
+    scrollComposerIntoView();
   };
-  const requestReply = () => requestCompose("reply");
+  const requestReply = () => requestCompose("reply", true);
 
   // Chips de intención: mismo componente en el dock desktop y sobre la isla
   // móvil (el shell monta uno u otro host según viewport).
@@ -562,7 +540,7 @@ export function CorreoDrawer({
           onRemove={onRemove}
           onRemoveDone={onRemoveDone}
           onUndoDone={onUndoDone}
-          onReply={scrollToReply}
+          onReply={requestReply}
           onRequestReply={requestReply}
           onSnooze={() => setSnoozeOpen(true)}
           alwaysShowImages={alwaysShowImages}

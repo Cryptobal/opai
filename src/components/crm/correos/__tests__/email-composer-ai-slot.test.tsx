@@ -66,6 +66,23 @@ vi.mock("@/hooks/useSpeechDictation", () => ({
 import { EmailComposer } from "../EmailComposer";
 
 describe("EmailComposer AI slot", () => {
+  it("Cc/Cco quedan contraídos aunque haya destinatarios en CC", () => {
+    render(
+      <EmailComposer
+        mode="reply"
+        threadId="t1"
+        initialTo={["a@b.cl"]}
+        initialCc={["cc1@b.cl", "cc2@b.cl"]}
+        initialSubject="Re: test"
+        onSent={() => {}}
+        onClose={() => {}}
+      />,
+    );
+    expect(screen.getByRole("button", { name: "Cc/Cco" })).toBeTruthy();
+    expect(screen.queryByText("CC")).toBeNull();
+    expect(screen.queryByText("CCO")).toBeNull();
+  });
+
   it("monta aboveFooter entre el cuerpo y el historial citado", () => {
     const { container } = render(
       <EmailComposer

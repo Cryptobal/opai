@@ -265,7 +265,8 @@ export const EmailComposer = forwardRef<EmailComposerHandle, Props>(function Ema
   const [to, setTo] = useState<string[]>(() => normalizeRecipientList(initialTo));
   const [cc, setCc] = useState<string[]>(() => normalizeRecipientList(initialCc));
   const [bcc, setBcc] = useState<string[]>([]);
-  const [showCcBcc, setShowCcBcc] = useState(() => normalizeRecipientList(initialCc).length > 0);
+  // Cc/Cco contraídos por defecto aunque haya destinatarios en CC (p. ej. A todos).
+  const [showCcBcc, setShowCcBcc] = useState(false);
   const [subject, setSubject] = useState(initialSubject);
   const [content, setContent] = useState<object | null>(initialContent);
   const [busy, setBusy] = useState(false);
@@ -706,7 +707,7 @@ export const EmailComposer = forwardRef<EmailComposerHandle, Props>(function Ema
               setTo(replyAll.to);
               onToChange?.(replyAll.to);
               setCc(replyAll.cc);
-              if (replyAll.cc.length > 0) setShowCcBcc(true);
+              // Mantener Cc/Cco contraídos; los valores quedan en estado.
             }}
             className="text-[12px] text-ds-text-3 hover:text-ds-text-1 ds-tap"
           >

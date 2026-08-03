@@ -32,8 +32,8 @@ type PillProps = {
   /** reply = respuesta a hilo; compose = mensaje nuevo. */
   mode?: AssistMode;
   /**
-   * Foco al montar. `false` cuando el panel abre junto al composer: ahí el
-   * caret pertenece al cuerpo (Responder / A todos / Reenviar).
+   * Foco al montar. Por defecto true: al abrir Responder / A todos / Reenviar
+   * el caret queda en la casilla IA ("Indica cómo querés responder…").
    */
   autoFocus?: boolean;
 };

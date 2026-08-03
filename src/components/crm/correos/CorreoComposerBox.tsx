@@ -64,7 +64,10 @@ type Props = {
   expanded: boolean;
   /** Chip de intención: genera el borrador apenas abre (mismo flujo que el pill). */
   autoDraftInstructions?: string | null;
-  /** Deja el caret en el cuerpo al abrir (Responder / A todos / Reenviar). */
+  /**
+   * Deja el caret en el cuerpo al abrir. Con panel IA abierto el host pasa
+   * `false` para que el foco vaya a la casilla IA.
+   */
   autoFocusBody?: boolean;
   /** Cambia en cada apertura explícita: re-dispara foco y borrador automático. */
   openSeq?: number;
@@ -213,18 +216,7 @@ export function CorreoComposerBox(props: Props) {
     return () => document.removeEventListener("keydown", onKey, { capture: true });
   }, [asModal, showAiPrompt, props, moreOpen]);
 
-  /**
-   * true solo si el usuario abrió el asistente estando ya en el composer. Con
-   * el panel abierto "de fábrica" (Responder / A todos / Reenviar) el foco es
-   * del cuerpo, no del pill.
-   */
-  const [aiOpenedByUser, setAiOpenedByUser] = useState(false);
-  useEffect(() => {
-    setAiOpenedByUser(false);
-  }, [openSeq]);
-
   function toggleAi() {
-    setAiOpenedByUser(!ai);
     props.onToggleAi();
   }
 
@@ -295,12 +287,10 @@ export function CorreoComposerBox(props: Props) {
     }
   }, [showAiPrompt, ai]);
 
-  // Caret en el cuerpo al abrir Responder / A todos / Reenviar (desktop y
-  // móvil). Doble rAF + timeout: el editor puede seguir montando tras el tap.
-  // En móvil el foco va dentro de la cadena del gesto para que iOS levante el
-  // teclado; si el WKWebView lo bloquea, al menos el caret queda listo.
+  // Caret en el cuerpo solo cuando no hay casilla IA (p. ej. continuar
+  // borrador). Con IA abierta el pill toma el foco (ver ComposerAiPromptPill).
   useEffect(() => {
-    if (!autoFocusBody) return;
+    if (!autoFocusBody || ai) return;
     let cancelled = false;
     const focus = () => {
       if (!cancelled) composerRef.current?.focusBody("start");
@@ -312,7 +302,7 @@ export function CorreoComposerBox(props: Props) {
       window.cancelAnimationFrame(raf);
       window.clearTimeout(t);
     };
-  }, [autoFocusBody, openSeq]);
+  }, [autoFocusBody, ai, openSeq]);
 
   // Chip de intención: genera el borrador completo apenas abre el composer.
   // `injectDraft` deja el cuerpo editable con el caret al final (contentEpoch).
@@ -385,9 +375,8 @@ export function CorreoComposerBox(props: Props) {
       aboveFooter={
         showAiPrompt ? (
           <ComposerAiPromptPill
-            // Abierto junto al composer el foco es del cuerpo; solo si el
-            // usuario abre el asistente el caret salta al prompt.
-            autoFocus={aiOpenedByUser}
+            // Responder / A todos / Reenviar: caret en la casilla IA.
+            autoFocus
             value={instructions}
             onChange={setAiInstructions}
             onGenerate={() => void runAi()}
@@ -600,7 +589,7 @@ export function CorreoComposerBox(props: Props) {
       data-correo-composer-surface
       data-composer-presentation="inline"
       data-email-composer
-      className="relative space-y-1 border-t border-ds-border-subtle bg-background pt-2"
+      className="relative max-h-[min(70dvh,720px)] space-y-1 overflow-y-auto overscroll-contain border-t border-ds-border-subtle bg-background pt-2 [-webkit-overflow-scrolling:touch]"
     >
       {nativeFileInput}
       {desktopChrome}
