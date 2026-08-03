@@ -3,6 +3,7 @@ import {
   coverageSlotTracePrefix,
   preferredRolName,
 } from "../coverage-slots-to-quote-positions";
+import { resolveSlotBaseSalary } from "../resolve-slot-base-salary";
 
 describe("coverageSlotTracePrefix", () => {
   it("antepone etapa y vigencia", () => {
@@ -42,5 +43,22 @@ describe("preferredRolName", () => {
     expect(preferredRolName(null)).toBeNull();
     expect(preferredRolName(undefined)).toBeNull();
     expect(preferredRolName("")).toBeNull();
+  });
+});
+
+describe("resolveSlotBaseSalary", () => {
+  it("prioriza bruto del puesto sobre piso del pliego", () => {
+    expect(resolveSlotBaseSalary(600000, 500000)).toBe(600000);
+  });
+
+  it("usa piso del pliego si el puesto no tiene bruto", () => {
+    expect(resolveSlotBaseSalary(null, 620000)).toBe(620000);
+    expect(resolveSlotBaseSalary(undefined, 620000)).toBe(620000);
+    expect(resolveSlotBaseSalary(0, 620000)).toBe(620000);
+  });
+
+  it("cae al default interno si no hay piso ni bruto", () => {
+    expect(resolveSlotBaseSalary(null, null)).toBe(550000);
+    expect(resolveSlotBaseSalary(undefined, undefined, 400000)).toBe(400000);
   });
 });

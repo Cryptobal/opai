@@ -152,6 +152,7 @@ function installationMetadata(proposal: CrmStructureProposal, instName: string) 
     coverageIsRequirementNotStaffing: proposal.coverageIsRequirementNotStaffing,
     weeklyHoursPerWorker: proposal.weeklyHoursPerWorker,
     coverageSlots: inst.coverageSlots,
+    ...(inst.mapsUrl ? { mapsUrl: inst.mapsUrl } : {}),
     staffingSubtotal: {
       weeklyHH: inst.coverageSlots.reduce((a, s) => a + s.weeklyHH, 0),
       headcount: inst.coverageSlots.reduce((a, s) => a + s.headcount, 0),
@@ -357,6 +358,11 @@ export async function createCrmStructureFromProposal(params: {
   } else {
     for (const inst of proposal.installations) {
       const meta = installationMetadata(proposal, inst.name);
+      const hasCoords =
+        typeof inst.lat === "number" &&
+        Number.isFinite(inst.lat) &&
+        typeof inst.lng === "number" &&
+        Number.isFinite(inst.lng);
       const row = await prisma.crmInstallation.create({
         data: {
           tenantId,
@@ -365,6 +371,7 @@ export async function createCrmStructureFromProposal(params: {
           address: inst.address,
           city: inst.city,
           commune: inst.commune,
+          ...(hasCoords ? { lat: inst.lat!, lng: inst.lng! } : {}),
           status: "prospect",
           notes: inst.coverageSlots
             .map((s) => `${s.name}: cob. ${s.simultaneous} → dot. ${s.headcount} (${s.pattern})`)
