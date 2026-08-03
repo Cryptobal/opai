@@ -18,7 +18,12 @@ export interface CreateRowInput {
 }
 
 export interface UpdateRowInput {
-  /** Solo para filas MANUAL (las demás derivan el nombre de su fuente). */
+  /**
+   * Nombre visible en la planilla. Se puede fijar en cualquier mapping no
+   * virtual: es un alias de visualización (la fuente CRM/categoría/proveedor
+   * no se toca). Para volver al nombre de origen, el cliente envía el
+   * `sourceName` calculado por el matrix.
+   */
   name?: string;
   section?: FlowSection;
   /** Solo para filas mapping=CATEGORY. null volvería a "sin categoría" (no permitido). */
@@ -111,11 +116,11 @@ export async function renameRow(
 }
 
 /**
- * Edita atributos LOCALES de la fila (nombre manual, sección, categoría). El
- * nombre solo se cambia en filas MANUAL; la categoría solo en filas CATEGORY, y
- * se revalida contra el tenant antes de escribir. Cambiar de sección reubica la
- * fila al final de la sección destino (el signo de su plan cambia — la UI lo
- * advierte). Read-after-write.
+ * Edita atributos LOCALES de la fila (nombre visible, sección, categoría).
+ * El nombre es un alias de planilla: se puede fijar aunque el mapping venga de
+ * cuenta/categoría/proveedor (no muta la fuente). La categoría solo en filas
+ * CATEGORY. Cambiar de sección reubica la fila al final de la sección destino
+ * (el signo de su plan cambia — la UI lo advierte). Read-after-write.
  */
 export async function updateRow(
   tenantId: string,
@@ -133,9 +138,6 @@ export async function updateRow(
   } = {};
 
   if (input.name != null) {
-    if (row.mapping !== "MANUAL") {
-      throw new Error("Solo las filas manuales pueden renombrarse");
-    }
     const trimmed = input.name.trim();
     if (!trimmed) throw new Error("El nombre no puede estar vacío");
     data.name = trimmed;

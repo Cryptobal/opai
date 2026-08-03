@@ -33,29 +33,45 @@ function makeTemplate(over: Partial<TemplateProjectionInput> = {}): TemplateProj
 const base = { rows: ROWS, weeks: WEEKS, todayYmd: TODAY, dtes: [], drafts: [], templates: [], coveredPeriods: new Set<string>() };
 
 describe("deriveCommittedIncome — DTEs emitidos", () => {
-  it("emitida no pagada cae en la semana del vencimiento", () => {
+  it("emitida no pagada cae en la semana de emisión (la factura manda)", () => {
     const out = deriveCommittedIncome({
       ...base,
       dtes: [{
-        id: "dte-1", folio: 101, dateYmd: "2026-07-01", dueDateYmd: "2026-08-05",
+        // Emisión en la semana actual del fixture; dueDate NO desplaza.
+        id: "dte-1", folio: 101, dateYmd: "2026-07-21", dueDateYmd: "2026-08-20",
         pendingClp: 1_190_000, crmAccountId: "acc-A", installationId: "inst-1", receiverName: "Cliente A",
       }],
     });
-    const cell = out.get("row-a-i1")?.get("2026-08-03");
+    const cell = out.get("row-a-i1")?.get("2026-07-20");
     expect(cell?.total).toBe(1_190_000);
-    expect(cell?.items[0]).toMatchObject({ kind: "dte", folio: 101, dteId: "dte-1" });
+    expect(cell?.items[0]).toMatchObject({ kind: "dte", folio: 101, dteId: "dte-1", fecha: "2026-07-21" });
   });
 
-  it("sin dueDate usa emisión+30d; vencida clampea a la semana actual", () => {
+  it("emisión pasada clampea a la semana actual; overdue usa dueDate/emisión+lag", () => {
     const out = deriveCommittedIncome({
       ...base,
       dtes: [{
-        id: "dte-2", folio: 90, dateYmd: "2026-05-01", dueDateYmd: null,
+        id: "dte-2", folio: 90, dateYmd: "2026-04-01", dueDateYmd: null,
         pendingClp: 200_000, crmAccountId: "acc-A", installationId: "inst-1", receiverName: "Cliente A",
       }],
     });
-    // 2026-05-31 quedó en el pasado → cobrable AHORA (semana actual).
+    // Emisión 2026-04-01 quedó en el pasado → visible AHORA (semana actual).
     expect(out.get("row-a-i1")?.get("2026-07-20")?.total).toBe(200_000);
+    // 2026-04-01+30d = 2026-05-01 → >60d vs TODAY → cartera zombie.
+    expect(out.get("row-a-i1")?.get("2026-07-20")?.items[0]?.overdueOver60).toBe(true);
+  });
+
+  it("override de visibilidad mueve la factura a otra semana", () => {
+    const out = deriveCommittedIncome({
+      ...base,
+      dtes: [{
+        id: "dte-ov", folio: 1789, dateYmd: "2026-08-03", dueDateYmd: null,
+        overrideDateYmd: "2026-08-31",
+        pendingClp: 5_200_768, crmAccountId: "acc-A", installationId: "inst-1", receiverName: "Ametel",
+      }],
+    });
+    expect(out.get("row-a-i1")?.get("2026-08-31")?.total).toBe(5_200_768);
+    expect(out.get("row-a-i1")?.get("2026-08-03")).toBeUndefined();
   });
 
   it("instalación sin fila exacta cae en la fila genérica de la cuenta; cuenta sin fila → unmatched", () => {
@@ -66,8 +82,9 @@ describe("deriveCommittedIncome — DTEs emitidos", () => {
         { id: "d4", folio: 2, dateYmd: "2026-07-21", dueDateYmd: "2026-08-20", pendingClp: 20, crmAccountId: "acc-Z", installationId: null, receiverName: "Z" },
       ],
     });
-    expect(out.get("row-a")?.get("2026-08-17")?.total).toBe(10);
-    expect(out.get(UNMATCHED_INCOME_KEY)?.get("2026-08-17")?.total).toBe(20);
+    // Emisión 2026-07-21 → lunes 2026-07-20 (semana actual del fixture).
+    expect(out.get("row-a")?.get("2026-07-20")?.total).toBe(10);
+    expect(out.get(UNMATCHED_INCOME_KEY)?.get("2026-07-20")?.total).toBe(20);
   });
 
   it("crmAccountId resuelto por RUT (loader) cae en la fila del cliente, no en Otros", () => {

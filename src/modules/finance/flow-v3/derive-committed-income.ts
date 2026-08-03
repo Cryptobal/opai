@@ -4,8 +4,11 @@
  * Capas que produce por fila ACCOUNT_INSTALLATION:
  *  0. kind="draft": borradores reales de programación (con proformaSent si el
  *     estado de pago ya se envió al cliente).
- *  1. kind="dte": DTEs emitidos (33/34) no pagados → semana de cobro estimada
- *     (dueDate ?? emisión+30d), clampeada a la semana actual si ya venció.
+ *  1. kind="dte": DTEs emitidos (33/34) no pagados → semana de la FECHA DE
+ *     EMISIÓN (o override de visibilidad si el usuario la movió). Regla de
+ *     producto alineada con cashflow v2: manda el DTE emitido, no el término
+ *     de pago. Si esa semana ya pasó, se clampea a la semana actual para que
+ *     la cartera vencida siga visible en el horizonte operable.
  *  2. kind="scheduled": borradores de programación (DRAFT con template) y
  *     proyección de FinanceDteRecurringTemplate activas hasta `endDate`
  *     inclusive (contratos a plazo dejan de proyectarse solos al término).
@@ -31,6 +34,11 @@ export interface IssuedDteInput {
   folio: number;
   dateYmd: string;
   dueDateYmd: string | null;
+  /**
+   * Override de visibilidad en el flujo (`FinanceCashflowDteDateOverride`).
+   * Si existe, la factura se ubica en esa fecha en vez de la de emisión.
+   */
+  overrideDateYmd?: string | null;
   /** totalAmount − amountPaid, en CLP bruto. */
   pendingClp: number;
   crmAccountId: string | null;
@@ -114,9 +122,15 @@ export function deriveCommittedIncome(args: CommittedIncomeArgs): CommittedByRow
   const lagDays = args.collectionLagDays ?? DEFAULT_COLLECTION_LAG_DAYS;
 
   for (const d of args.dtes) {
-    const est = d.dueDateYmd ?? addDaysYmd(d.dateYmd, d.templateDiasCobro ?? lagDays);
-    const { week, fecha } = collectionWeek(est, args.todayYmd);
+    // Emitida: manda la factura (emisión) o el override manual de cobro.
+    // dueDate / término de pago NO desplazan la celda — el usuario mueve la
+    // factura cuando el pago se aplaza (override de visibilidad).
+    const placementYmd = d.overrideDateYmd ?? d.dateYmd;
+    const { week, fecha } = collectionWeek(placementYmd, args.todayYmd);
     if (!inRange(week) || d.pendingClp <= 0) continue;
+    // Cartera zombie: vencimiento contractual (dueDate o emisión+lag), no la
+    // celda de visibilidad — una factura recién emitida no es "vencida".
+    const dueYmd = d.dueDateYmd ?? addDaysYmd(d.dateYmd, d.templateDiasCobro ?? lagDays);
     pushCommitted(out, matchRow(d.crmAccountId, d.installationId), week, {
       kind: "dte",
       dteId: d.id,
@@ -124,7 +138,7 @@ export function deriveCommittedIncome(args: CommittedIncomeArgs): CommittedByRow
       label: d.receiverName,
       fecha,
       monto: Math.round(d.pendingClp),
-      overdueOver60: daysBetween(fecha, args.todayYmd) > 60,
+      overdueOver60: daysBetween(dueYmd, args.todayYmd) > 60,
     });
   }
 

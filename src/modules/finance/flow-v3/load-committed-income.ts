@@ -161,6 +161,17 @@ export async function loadCommittedIncome(
   };
 
   const excludedIds = new Set(exclusions.map((e) => e.dteId));
+  const issuedIds = dtes.filter((d) => !excludedIds.has(d.id)).map((d) => d.id);
+  const overrideRows =
+    issuedIds.length > 0
+      ? await prisma.financeCashflowDteDateOverride.findMany({
+          where: { tenantId, dteId: { in: issuedIds } },
+          select: { dteId: true, customDate: true },
+        })
+      : [];
+  const overrideByDteId = new Map(
+    overrideRows.map((o) => [o.dteId, o.customDate.toISOString().slice(0, 10)]),
+  );
   const someUf = templates.some(
     (t) =>
       t.currency === "UF" ||
@@ -217,6 +228,7 @@ export async function loadCommittedIncome(
       folio: d.folio,
       dateYmd: d.date.toISOString().slice(0, 10),
       dueDateYmd: d.dueDate ? d.dueDate.toISOString().slice(0, 10) : null,
+      overrideDateYmd: overrideByDteId.get(d.id) ?? null,
       pendingClp: Number(d.totalAmount) - Number(d.amountPaid),
       crmAccountId: resolveAccount(d.crmAccountId, d.receiverRut),
       installationId: d.installationId,

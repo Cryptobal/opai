@@ -83,7 +83,7 @@ function renderItems(items: MenuItemDesc[], C: Bag): React.ReactNode[] {
           onSelect={it.onSelect ? () => it.onSelect!() : undefined}
           className={it.danger ? "text-status-danger-fg" : undefined}
         >
-          {labelWithReason(it.label, it.disabled ? it.reason : undefined)}
+          {labelWithReason(it.label, it.reason)}
         </C.Item>,
       );
     }

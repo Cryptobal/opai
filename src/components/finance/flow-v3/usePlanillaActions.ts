@@ -258,10 +258,28 @@ export function usePlanillaActions(refetch: () => void) {
     [run],
   );
 
+  /**
+   * Mueve la visibilidad de una factura emitida a otra semana (override de
+   * fecha en el flujo). No toca el DTE ni el SII — solo dónde aparece en la
+   * planilla cuando el cobro se aplaza.
+   */
+  const moveDte = useCallback(
+    (dteId: string, newDateYmd: string) =>
+      run(
+        () =>
+          api(`/api/finance/cashflow/dtes/${dteId}/move-cashflow`, {
+            method: "POST",
+            body: JSON.stringify({ newDate: newDateYmd }),
+          }),
+        "Factura movida en el flujo",
+      ),
+    [run],
+  );
+
   return {
     busy, createRow, renameRow, updateRow, unarchiveRow, deleteRow,
     archiveRow, setTemplateEndDate, setTemplateDiasCobro, deactivateTemplate,
     createRecurring, updateRecurring, deleteRecurring, closeWeek, reopenWeek, bulkFill,
-    excludeDte, restoreDte,
+    excludeDte, restoreDte, moveDte,
   };
 }

@@ -120,15 +120,71 @@ export async function buildFlowMatrix(
     return check(committed) || check(realResolved);
   };
 
+  // Nombres canónicos desde la fuente (para detectar alias manuales).
+  const accountIds = [...new Set(dbRows.map((r) => r.crmAccountId).filter(Boolean))] as string[];
+  const installationIds = [...new Set(dbRows.map((r) => r.installationId).filter(Boolean))] as string[];
+  const categoryIds = [...new Set(dbRows.map((r) => r.categoryId).filter(Boolean))] as string[];
+  const supplierIds = [...new Set(dbRows.map((r) => r.supplierId).filter(Boolean))] as string[];
+  const [accounts, installations, categories, suppliers] = await Promise.all([
+    accountIds.length
+      ? prisma.crmAccount.findMany({
+          where: { tenantId, id: { in: accountIds } },
+          select: { id: true, name: true },
+        })
+      : Promise.resolve([]),
+    installationIds.length
+      ? prisma.crmInstallation.findMany({
+          where: { tenantId, id: { in: installationIds } },
+          select: { id: true, name: true },
+        })
+      : Promise.resolve([]),
+    categoryIds.length
+      ? prisma.financeCashflowCategory.findMany({
+          where: { tenantId, id: { in: categoryIds } },
+          select: { id: true, name: true },
+        })
+      : Promise.resolve([]),
+    supplierIds.length
+      ? prisma.financeSupplier.findMany({
+          where: { tenantId, id: { in: supplierIds } },
+          select: { id: true, name: true },
+        })
+      : Promise.resolve([]),
+  ]);
+  const accountNameById = new Map(accounts.map((a) => [a.id, a.name]));
+  const installationNameById = new Map(installations.map((i) => [i.id, i.name]));
+  const categoryNameById = new Map(categories.map((c) => [c.id, c.name]));
+  const supplierNameById = new Map(suppliers.map((s) => [s.id, s.name]));
+
+  const sourceNameFor = (r: (typeof dbRows)[number]): string | null => {
+    if (r.mapping === "ACCOUNT_INSTALLATION" && r.crmAccountId) {
+      const acc = accountNameById.get(r.crmAccountId);
+      if (!acc) return null;
+      const inst = r.installationId ? installationNameById.get(r.installationId) : null;
+      return inst ? `${acc} · ${inst}` : acc;
+    }
+    if (r.mapping === "CATEGORY" && r.categoryId) {
+      return categoryNameById.get(r.categoryId) ?? null;
+    }
+    if (r.mapping === "SUPPLIER" && r.supplierId) {
+      return supplierNameById.get(r.supplierId) ?? null;
+    }
+    return null;
+  };
+
   const assembleRows: AssembleRowInput[] = [];
   for (const r of dbRows) {
     const cutoff = r.archivedAt ? weekStartYmd(r.archivedAt) : null;
     if (r.archivedAt && !hasData(r.id, cutoff)) continue; // archivada sin movimiento en la ventana
+    const sourceName = sourceNameFor(r);
+    const nameIsManual =
+      sourceName != null && r.name.trim().localeCompare(sourceName.trim(), undefined, { sensitivity: "accent" }) !== 0;
     assembleRows.push({
       id: r.id, name: r.name, section: r.section, mapping: r.mapping,
       orderIndex: r.orderIndex, crmAccountId: r.crmAccountId, installationId: r.installationId,
       categoryId: r.categoryId, supplierId: r.supplierId,
       isArchived: !!r.archivedAt, archivedWeekCutoff: cutoff, isVirtual: false,
+      sourceName, nameIsManual,
     });
   }
   for (const v of Object.values(VIRTUAL_ROWS)) {
@@ -137,6 +193,7 @@ export async function buildFlowMatrix(
         id: v.id, name: v.name, section: v.section, mapping: "MANUAL", orderIndex: 9999,
         crmAccountId: null, installationId: null, categoryId: null, supplierId: null,
         isArchived: false, archivedWeekCutoff: null, isVirtual: true,
+        sourceName: null, nameIsManual: false,
       });
     }
   }

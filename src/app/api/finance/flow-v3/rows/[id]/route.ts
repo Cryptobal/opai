@@ -5,7 +5,7 @@ import { flowRowUpdateSchema } from "@/lib/validations/flow-v3";
 
 export const dynamic = "force-dynamic";
 
-/** Edita nombre (solo MANUAL) / sección / categoría (solo CATEGORY) de la fila. */
+/** Edita nombre visible / sección / categoría (solo CATEGORY) de la fila. */
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
