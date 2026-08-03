@@ -395,6 +395,8 @@ export function OpsPautaMensualClient({
     dateKey: string;
     puestoName: string;
     guardiaId?: string;
+    /** Si true, el modal ofrece eliminar (paridad con clic derecho / long-press). */
+    canEliminar?: boolean;
   } | null>(null);
   const [pintarSoloDiaSaving, setPintarSoloDiaSaving] = useState(false);
 
@@ -429,9 +431,27 @@ export function OpsPautaMensualClient({
     return () => clearInterval(id);
   }, [lastSyncAt]);
 
-  // Long-press en móvil: emular clic derecho → eliminar (evitar que el tap abra pintar)
+  // Long-press en móvil/touch: emular clic derecho → eliminar.
+  // No usar pointerLeave (celdas ~28px: cualquier micro-movimiento lo cancelaba).
+  const LONG_PRESS_MS = 480;
+  const LONG_PRESS_MOVE_PX = 12;
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const longPressTargetRef = useRef<{ puestoId: string; slotNumber: number; dateKey: string } | null>(null);
+  const longPressFiredRef = useRef(false);
+  const longPressOriginRef = useRef<{ x: number; y: number } | null>(null);
+
+  const clearLongPressTimer = () => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  };
+
+  const cancelLongPressGesture = () => {
+    clearLongPressTimer();
+    longPressOriginRef.current = null;
+  };
+
+  useEffect(() => () => clearLongPressTimer(), []);
 
   // Lista plana: todas las instalaciones con cliente para un solo buscador (buscar por instalación o cliente)
   const allInstallations = useMemo(
@@ -1205,6 +1225,7 @@ export function OpsPautaMensualClient({
     dateKey: string;
     puestoName: string;
     guardiaId?: string;
+    canEliminar?: boolean;
   }) => {
     setPintarOpcionesContext(ctx);
     setPintarOpcionesModalOpen(true);
@@ -2197,7 +2218,7 @@ export function OpsPautaMensualClient({
                                       >
                                         {hasCell ? (
                                           <div
-                                            className={`relative inline-flex items-center justify-center w-7 h-7 min-w-7 sm:w-8 sm:h-7 rounded text-[10px] sm:text-[10px] font-medium border cursor-pointer transition-colors active:scale-95 ${showAsPpc
+                                            className={`relative inline-flex items-center justify-center w-7 h-7 min-w-7 sm:w-8 sm:h-7 rounded text-[10px] sm:text-[10px] font-medium border cursor-pointer select-none touch-manipulation transition-colors active:scale-95 ${showAsPpc
                                               ? "border-dashed border-zinc-500/40 bg-zinc-500/10 text-zinc-400"
                                               : isEmpty
                                                 ? "border-dashed border-border/40 text-muted-foreground/30 hover:border-primary/50 hover:text-primary/50"
@@ -2218,44 +2239,43 @@ export function OpsPautaMensualClient({
                                                       ? formatPersonName(cell.plannedGuardia.persona.firstName, cell.plannedGuardia.persona.lastName)
                                                       : "Sin asignar"
                                             }
-                                            onPointerDown={() => {
-                                              longPressTargetRef.current = {
-                                                puestoId: clickPuestoId,
-                                                slotNumber: clickSlotNumber,
-                                                dateKey,
-                                              };
+                                            onPointerDown={(e) => {
+                                              // Mouse: clic derecho vía onContextMenu. Touch/pen: long-press.
+                                              if (e.pointerType === "mouse") return;
+                                              longPressFiredRef.current = false;
+                                              longPressOriginRef.current = { x: e.clientX, y: e.clientY };
+                                              clearLongPressTimer();
                                               longPressTimerRef.current = setTimeout(() => {
                                                 longPressTimerRef.current = null;
+                                                longPressOriginRef.current = null;
+                                                longPressFiredRef.current = true;
+                                                try {
+                                                  navigator.vibrate?.(12);
+                                                } catch {
+                                                  /* Vibration API opcional */
+                                                }
                                                 openEliminarSerieModal({
                                                   puestoId: clickPuestoId,
                                                   slotNumber: clickSlotNumber,
                                                   dateKey,
                                                   puestoName: row.puestoName,
                                                 });
-                                              }, 450);
+                                              }, LONG_PRESS_MS);
                                             }}
-                                            onPointerUp={() => {
-                                              if (longPressTimerRef.current) {
-                                                clearTimeout(longPressTimerRef.current);
-                                                longPressTimerRef.current = null;
-                                                longPressTargetRef.current = null;
+                                            onPointerMove={(e) => {
+                                              const origin = longPressOriginRef.current;
+                                              if (!origin || !longPressTimerRef.current) return;
+                                              const dx = e.clientX - origin.x;
+                                              const dy = e.clientY - origin.y;
+                                              if (dx * dx + dy * dy > LONG_PRESS_MOVE_PX * LONG_PRESS_MOVE_PX) {
+                                                cancelLongPressGesture();
                                               }
                                             }}
-                                            onPointerLeave={() => {
-                                              if (longPressTimerRef.current) {
-                                                clearTimeout(longPressTimerRef.current);
-                                                longPressTimerRef.current = null;
-                                                longPressTargetRef.current = null;
-                                              }
-                                            }}
+                                            onPointerUp={cancelLongPressGesture}
+                                            onPointerCancel={cancelLongPressGesture}
                                             onClick={() => {
-                                              const wasLongPress =
-                                                longPressTargetRef.current &&
-                                                longPressTargetRef.current.puestoId === clickPuestoId &&
-                                                longPressTargetRef.current.slotNumber === clickSlotNumber &&
-                                                longPressTargetRef.current.dateKey === dateKey;
-                                              if (wasLongPress) {
-                                                longPressTargetRef.current = null;
+                                              if (longPressFiredRef.current) {
+                                                longPressFiredRef.current = false;
                                                 return;
                                               }
                                               openPintarOpcionesModal({
@@ -2264,11 +2284,13 @@ export function OpsPautaMensualClient({
                                                 dateKey,
                                                 puestoName: row.puestoName,
                                                 guardiaId: clickGuardiaId,
+                                                canEliminar: true,
                                               });
                                             }}
                                             onContextMenu={(e) => {
                                               e.preventDefault();
                                               if (!hasCell) return;
+                                              cancelLongPressGesture();
                                               openEliminarSerieModal({
                                                 puestoId: clickPuestoId,
                                                 slotNumber: clickSlotNumber,
@@ -2448,8 +2470,8 @@ export function OpsPautaMensualClient({
                     <span className="flex items-center gap-1"><span className="rounded px-1 py-px bg-zinc-600 text-zinc-100 text-[10px] font-semibold">PPC</span> Slot PPC</span>
                   </div>
                   <div className="mt-1.5 text-[11px] sm:text-[10px] text-muted-foreground/50">
-                    <span className="hidden sm:inline">Click izquierdo = pintar · Click derecho / mantener presionado = eliminar</span>
-                    <span className="sm:hidden">Toca = pintar · Mantén presionado = eliminar</span>
+                    <span className="hidden sm:inline">Click izquierdo = pintar · Click derecho / mantener = eliminar</span>
+                    <span className="sm:hidden">Toca = opciones (pintar o eliminar) · Mantén ~0,5 s = eliminar</span>
                   </div>
                 </div>
               </>
@@ -2726,6 +2748,28 @@ export function OpsPautaMensualClient({
                 </Button>
               </div>
             </div>
+            {pintarOpcionesContext?.canEliminar ? (
+              <Button
+                variant="outline"
+                className="justify-start text-status-danger-fg border-status-danger-border hover:bg-status-danger-soft"
+                disabled={pintarSoloDiaSaving}
+                onClick={() => {
+                  if (!pintarOpcionesContext) return;
+                  const ctx = {
+                    puestoId: pintarOpcionesContext.puestoId,
+                    slotNumber: pintarOpcionesContext.slotNumber,
+                    dateKey: pintarOpcionesContext.dateKey,
+                    puestoName: pintarOpcionesContext.puestoName,
+                  };
+                  setPintarOpcionesModalOpen(false);
+                  setPintarOpcionesContext(null);
+                  openEliminarSerieModal(ctx);
+                }}
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Eliminar serie / día…
+              </Button>
+            ) : null}
           </div>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setPintarOpcionesModalOpen(false)}>
@@ -2735,7 +2779,7 @@ export function OpsPautaMensualClient({
         </DialogContent>
       </Dialog>
 
-      {/* Eliminar serie / día (clic derecho en celda) */}
+      {/* Eliminar serie / día (clic derecho / long-press / desde modal pintar) */}
       <Dialog open={eliminarSerieModalOpen} onOpenChange={setEliminarSerieModalOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
