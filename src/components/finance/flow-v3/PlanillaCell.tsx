@@ -171,12 +171,8 @@ export function PlanillaCell(p: Props) {
       onDrop={p.onDropCell}
       onDragEnd={p.onDragEndCell}
       onContextMenu={p.onContextTarget}
-      onClick={(e) => {
-        // Primer clic: seleccionar + notificar fx. Segundo clic misma celda → capas.
-        if (p.selected && (cell.committed || cell.real || cell.plan !== 0)) {
-          p.onOpenPopover((e.currentTarget as HTMLElement).getBoundingClientRect());
-          return;
-        }
+      onClick={() => {
+        // Clic = solo selección. Capas: Espacio / "Ver capas" / menú contextual.
         p.onSelect();
       }}
       onDoubleClick={() => p.editable && p.onStartEdit()}
