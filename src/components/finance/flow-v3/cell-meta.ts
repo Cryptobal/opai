@@ -6,7 +6,7 @@ import type { CommittedItem } from "@/modules/finance/flow-v3/types";
 import type { FlowMatrixCellDto } from "@/modules/finance/flow-v3/matrix-types";
 import { folioChip } from "./format";
 
-export type CornerKind = "real" | "dte" | "warn" | null;
+export type CornerKind = "real" | "dte" | "warn" | "plan" | null;
 
 export const LAYER_LABEL = {
   real: "REAL",
@@ -30,9 +30,10 @@ export function committedPriority(cell: FlowMatrixCellDto): {
   return { hasDte, hasProforma, hasDraft, dteFolio };
 }
 
-/** Marca de esquina: real > F°/programada (azul) > EP/B (ámbar); P sin marca. */
+/** Marca de esquina: real > F° > EP/B > plan manual; P programada sin marca. */
 export function cornerKind(cell: FlowMatrixCellDto): CornerKind {
   if (cell.layer === "real") return "real";
+  if (cell.layer === "plan" && cell.plan !== 0) return "plan";
   if (cell.layer !== "committed") return null;
   const { hasDte, hasProforma, hasDraft } = committedPriority(cell);
   if (hasDte) return "dte";

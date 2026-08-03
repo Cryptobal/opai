@@ -36,9 +36,10 @@ const CORNER_ITEMS: Array<{ swatch: string; title: string; desc: string }> = [
     desc: "Sin marca — cuota proyectada; monto en tono atenuado.",
   },
   {
-    swatch: "border border-ds-border-default",
-    title: "Plan",
-    desc: "Monto escrito a mano en una semana abierta. Sin marca.",
+    swatch:
+      "relative bg-ds-surface-1 border border-ds-border-default after:absolute after:right-0 after:top-0 after:h-0 after:w-0 after:border-l-[6px] after:border-t-[6px] after:border-l-transparent after:border-t-primary after:content-['']",
+    title: "Plan manual",
+    desc: "Marca teal — monto editado a mano; pisa la proyección (salvo factura emitida).",
   },
 ];
 
@@ -72,9 +73,9 @@ const CHIP_ITEMS: Array<{ swatch: string; title: string; desc: string }> = [
     desc: "Chip «B» — borrador sin enviar.",
   },
   {
-    swatch: "border border-ds-border-default",
-    title: "Plan",
-    desc: "Monto que escribiste tú a mano.",
+    swatch: "border border-primary/40 bg-ds-surface-1",
+    title: "Plan manual",
+    desc: "Monto que escribiste tú a mano (pisa proyecciones).",
   },
 ];
 

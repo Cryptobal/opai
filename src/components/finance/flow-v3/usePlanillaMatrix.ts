@@ -160,9 +160,23 @@ export function usePlanillaMatrix() {
         const sign = row.section === "INGRESOS" || row.section === "FINANCIAMIENTO" ? 1 : -1;
         const oldEffective = cell.effective;
         cell.plan = amount;
-        if (cell.layer === "plan" || cell.layer === "empty") {
-          cell.effective = sign * amount;
-          cell.layer = amount === 0 ? "empty" : "plan";
+        // Plan manual pisa proyecciones (committed), salvo real o ingreso facturado.
+        // La reconciliación con el servidor confirma; aquí solo optimismo de UI.
+        const invoiced =
+          row.section === "INGRESOS" &&
+          (cell.committed?.items.some((i) => i.kind === "dte") ?? false);
+        if (cell.layer !== "real" && !invoiced) {
+          if (amount !== 0) {
+            cell.effective = sign * amount;
+            cell.layer = "plan";
+          } else if (cell.committed && cell.committed.total !== 0) {
+            cell.effective =
+              row.section === "INGRESOS" ? cell.committed.total : -cell.committed.total;
+            cell.layer = "committed";
+          } else {
+            cell.effective = 0;
+            cell.layer = "empty";
+          }
           const delta = cell.effective - oldEffective;
           next.flows[colIdx] += delta;
           for (let i = colIdx; i < next.balances.length; i++) {

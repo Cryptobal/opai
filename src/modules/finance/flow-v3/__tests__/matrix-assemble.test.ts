@@ -21,7 +21,7 @@ const realOf = (rowId: string, week: string, total: number): RealByRow =>
   new Map([[rowId, new Map([[week, { total, items: [] }]])]]);
 
 describe("assembleMatrix — capa efectiva", () => {
-  it("real > comprometido > plan; semanas pasadas solo real", () => {
+  it("real > plan manual > comprometido; semanas pasadas solo real", () => {
     const rows = [row({})];
     const m = assembleMatrix({
       rows, weeks: WEEKS, currentWeek: CURRENT, openingBalance: 10_000_000,
@@ -34,8 +34,89 @@ describe("assembleMatrix — capa efectiva", () => {
     expect(cells[0]).toMatchObject({ layer: "empty", effective: 0, plan: 500 });
     // Semana pasada con real.
     expect(cells[1]).toMatchObject({ layer: "real", effective: 700 });
-    // Futura: comprometido pisa al plan (que queda visible para desvío).
-    expect(cells[3]).toMatchObject({ layer: "committed", effective: 1000, plan: 800 });
+    // Futura: plan manual pisa la proyección comprometida.
+    expect(cells[3]).toMatchObject({ layer: "plan", effective: 800, plan: 800 });
+  });
+
+  it("ingreso facturado (DTE) pisa al plan manual", () => {
+    const rows = [row({ section: "INGRESOS" })];
+    const committed: CommittedByRow = new Map([
+      [
+        "r1",
+        new Map([
+          [
+            "2026-07-27",
+            {
+              total: 1000,
+              items: [
+                {
+                  kind: "dte",
+                  dteId: "d1",
+                  folio: 123,
+                  label: "Cli",
+                  fecha: "2026-07-28",
+                  monto: 1000,
+                },
+              ],
+            },
+          ],
+        ]),
+      ],
+    ]);
+    const m = assembleMatrix({
+      rows,
+      weeks: WEEKS,
+      currentWeek: CURRENT,
+      openingBalance: 0,
+      plan: new Map([["r1", new Map([["2026-07-27", 800]])]]),
+      committed,
+      real: new Map(),
+    });
+    expect(m.rows[0].cells[3]).toMatchObject({
+      layer: "committed",
+      effective: 1000,
+      plan: 800,
+    });
+  });
+
+  it("egreso programado (sueldos) cede al plan manual", () => {
+    const rows = [row({ id: "rem", section: "REMUNERACIONES" })];
+    const committed: CommittedByRow = new Map([
+      [
+        "rem",
+        new Map([
+          [
+            "2026-07-27",
+            {
+              total: 103_962_638,
+              items: [
+                {
+                  kind: "scheduled",
+                  label: "Sueldos líquidos",
+                  fecha: "2026-08-05",
+                  monto: 103_962_638,
+                },
+              ],
+            },
+          ],
+        ]),
+      ],
+    ]);
+    const m = assembleMatrix({
+      rows,
+      weeks: WEEKS,
+      currentWeek: CURRENT,
+      openingBalance: 0,
+      plan: new Map([["rem", new Map([["2026-07-27", 70_000_000]])]]),
+      committed,
+      real: new Map(),
+    });
+    // Egreso: plan cash-signed negativo.
+    expect(m.rows[0].cells[3]).toMatchObject({
+      layer: "plan",
+      effective: -70_000_000,
+      plan: 70_000_000,
+    });
   });
 
   it("egresos restan y FINANCIAMIENTO respeta el signo del plan", () => {

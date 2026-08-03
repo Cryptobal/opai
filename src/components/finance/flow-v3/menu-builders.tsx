@@ -219,7 +219,12 @@ export function buildCellMenu(
       : undefined,
   });
 
-  items.push({ key: "detail", label: "Ver detalle", separatorBefore: true, onSelect: cb.onViewDetail });
+  items.push({
+    key: "detail",
+    label: "Ver detalle e historial",
+    separatorBefore: true,
+    onSelect: cb.onViewDetail,
+  });
 
   const dteId = cell.committed?.items.find((i) => i.kind === "dte" && i.dteId)?.dteId;
   if (dteId) {

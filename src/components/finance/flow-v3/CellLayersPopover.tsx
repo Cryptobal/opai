@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { FlowExcludedDte } from "@/modules/finance/flow-v3/types";
 import type { FlowMatrixCellDto, FlowMatrixRowDto } from "@/modules/finance/flow-v3/matrix-types";
+import { hasManualPlanOverride } from "@/modules/finance/flow-v3/cell-editability";
 import { fmtClp, fmtShortDate } from "./format";
 import { committedItemMeta, LAYER_LABEL, toneClass } from "./cell-meta";
 
@@ -10,6 +11,14 @@ export interface PopoverState {
   row: FlowMatrixRowDto;
   cell: FlowMatrixCellDto;
   anchor: { left: number; top: number; bottom: number };
+}
+
+interface PlanHistoryEntry {
+  id: string;
+  createdAt: string;
+  userEmail: string | null;
+  previousAmount: number;
+  newAmount: number;
 }
 
 interface Props {
@@ -41,6 +50,9 @@ export function CellLayersPopover({
   const [reasonError, setReasonError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [showExcluded, setShowExcluded] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
+  const [history, setHistory] = useState<PlanHistoryEntry[] | null>(null);
+  const [historyLoading, setHistoryLoading] = useState(false);
 
   useEffect(() => {
     if (!state) return;
@@ -48,7 +60,31 @@ export function CellLayersPopover({
     setReason("");
     setReasonError(null);
     setShowExcluded(false);
+    setShowHistory(false);
+    setHistory(null);
   }, [state]);
+
+  useEffect(() => {
+    if (!state || !showHistory || history !== null) return;
+    let cancelled = false;
+    setHistoryLoading(true);
+    void fetch(
+      `/api/finance/flow-v3/plan/history?rowId=${encodeURIComponent(state.row.id)}&weekStart=${encodeURIComponent(state.cell.weekStart)}`,
+    )
+      .then((r) => r.json())
+      .then((json: { success?: boolean; data?: PlanHistoryEntry[] }) => {
+        if (!cancelled) setHistory(json.success ? (json.data ?? []) : []);
+      })
+      .catch(() => {
+        if (!cancelled) setHistory([]);
+      })
+      .finally(() => {
+        if (!cancelled) setHistoryLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [state, showHistory, history]);
 
   useEffect(() => {
     if (!state) return;
@@ -82,6 +118,7 @@ export function CellLayersPopover({
   const top = Math.min(state.anchor.bottom + 4, window.innerHeight - 340);
   const excluded = excludedForRow ?? [];
   const overdueN = (cell.committed?.items ?? []).filter((it) => it.overdueOver60).length;
+  const manualPlan = hasManualPlanOverride(cell.plan, cell.layer);
 
   const block = (title: string, active: boolean, body: React.ReactNode) => (
     <div
@@ -141,8 +178,27 @@ export function CellLayersPopover({
       {block(
         "Plan",
         cell.layer === "plan",
-        <div className="text-right text-ds-text-2">
-          {cell.plan !== 0 ? fmtClp(cell.plan) : <span className="text-ds-text-4">sin plan</span>}
+        <div className="space-y-0.5">
+          <div className="flex items-center justify-end gap-1.5 text-ds-text-2">
+            {manualPlan && (
+              <span
+                className="rounded border border-primary/40 px-1 text-[12px] leading-tight text-primary"
+                title="Modificado manualmente"
+              >
+                manual
+              </span>
+            )}
+            {cell.plan !== 0 ? (
+              <span className="tabular-nums">{fmtClp(cell.plan)}</span>
+            ) : (
+              <span className="text-ds-text-4">sin plan</span>
+            )}
+          </div>
+          {manualPlan && cell.committed && cell.committed.total !== 0 && (
+            <p className="text-right text-[12px] text-ds-text-4">
+              Proyección: {fmtClp(cell.committed.total)}
+            </p>
+          )}
         </div>,
       )}
 
@@ -305,9 +361,51 @@ export function CellLayersPopover({
         </div>
       )}
 
+      <div className="rounded border border-ds-border-subtle px-2 py-1.5">
+        <button
+          type="button"
+          className="flex w-full items-center justify-between text-[12px] text-ds-text-3"
+          onClick={() => setShowHistory((v) => !v)}
+          aria-expanded={showHistory}
+        >
+          <span>Historial de cambios</span>
+          <span aria-hidden>{showHistory ? "▾" : "▸"}</span>
+        </button>
+        {showHistory && (
+          historyLoading ? (
+            <p className="mt-1 text-[12px] text-ds-text-4">Cargando…</p>
+          ) : !history || history.length === 0 ? (
+            <p className="mt-1 text-[12px] text-ds-text-4">
+              Sin cambios manuales registrados en esta celda.
+            </p>
+          ) : (
+            <ul className="mt-1 max-h-28 space-y-1 overflow-y-auto">
+              {history.map((h) => (
+                <li key={h.id} className="text-[12px] text-ds-text-2">
+                  <div className="flex justify-between gap-2 tabular-nums">
+                    <span>
+                      {h.previousAmount === 0 ? "—" : fmtClp(h.previousAmount)}
+                      {" → "}
+                      {h.newAmount === 0 ? "borrado" : fmtClp(h.newAmount)}
+                    </span>
+                    <span className="shrink-0 text-ds-text-4">
+                      {fmtShortDate(h.createdAt.slice(0, 10))}
+                    </span>
+                  </div>
+                  {h.userEmail && (
+                    <span className="block truncate text-ds-text-4">{h.userEmail}</span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )
+        )}
+      </div>
+
       <div className="pt-0.5 text-[12px] text-ds-text-4">
         Mapping: {MAPPING_LABEL[row.mapping] ?? row.mapping}
         {row.isArchived ? " · fila archivada" : ""}
+        {manualPlan ? " · plan manual" : ""}
       </div>
     </div>
   );

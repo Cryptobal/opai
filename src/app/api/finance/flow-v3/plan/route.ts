@@ -23,6 +23,7 @@ export async function PATCH(request: NextRequest) {
       parsed.data.weekStart,
       parsed.data.amount,
       guard.ctx.userId,
+      { userId: guard.ctx.userId, userEmail: guard.ctx.userEmail },
     );
     return NextResponse.json({ success: true, data: cell });
   } catch (error) {

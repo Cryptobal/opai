@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import type { FlowMatrixResponse, FlowMatrixRowDto } from "@/modules/finance/flow-v3/matrix-types";
+import { hasInvoicedIncome } from "@/modules/finance/flow-v3/cell-editability";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
   ContextMenu, ContextMenuContent, ContextMenuTrigger,
@@ -13,7 +14,9 @@ import {
   COL_W, displayValue, GUTTER_CELL, GUTTER_W, isZeroRow, NAME_LEFT, NAME_W, SECTION_H,
   SECTION_LABELS, SECTION_ORDER, TODAY_COL,
 } from "./grid-classes";
-import { fmtCell, numSizeClass, parseSignedAmount, type NumberFormatMode } from "./format";
+import {
+  fmtCell, formatThousands, numSizeClass, parseSignedAmount, type NumberFormatMode,
+} from "./format";
 import { PlanillaHeader } from "./PlanillaHeader";
 import { PlanillaRow } from "./PlanillaRow";
 import { BalanceRow } from "./BalanceRow";
@@ -215,9 +218,13 @@ export function PlanillaGrid({
   const canEditCell = useCallback(
     (rowId: string, colIdx: number) => {
       const row = rowById.get(rowId);
-      return (
-        !!row && canManage && !row.isArchived && !row.isVirtual && colWritable(colIdx)
-      );
+      if (!row || !canManage || row.isArchived || row.isVirtual || !colWritable(colIdx)) {
+        return false;
+      }
+      const cell = row.cells[colIdx];
+      // Ingreso facturado: la factura manda; no se edita el plan encima.
+      if (hasInvoicedIncome(row.section, cell?.committed)) return false;
+      return true;
     },
     [rowById, canManage, colWritable],
   );
@@ -427,7 +434,18 @@ export function PlanillaGrid({
       onEditAmount: () => {
         setPopover(null);
         kb.setSel(sel);
-        kb.startEdit(sel, "");
+        const row = rowById.get(sel.rowId);
+        const cell = row?.cells[sel.colIdx];
+        // Prefill con el plan actual; si no hay, con el monto visible (proyección).
+        const seed =
+          cell && row
+            ? cell.plan !== 0
+              ? cell.plan
+              : displayValue(row.section, cell.layer, cell.effective)
+            : 0;
+        const initial =
+          seed !== 0 ? formatThousands(String(Math.round(Math.abs(seed)))) : "";
+        kb.startEdit(sel, initial);
       },
       onFillRight: () => requestFillRight(sel),
       onClearPlan: () => void matrix.patchPlan(sel.rowId, week, 0),
@@ -435,7 +453,7 @@ export function PlanillaGrid({
       onViewDetail: () => openPopover(sel),
       onViewDte: (dteId: string) => router.push(`/finanzas/facturacion/dtes?dte=${dteId}`),
     }),
-    [kb, matrix, openPopover, requestFillRight, router],
+    [kb, matrix, openPopover, requestFillRight, router, rowById],
   );
 
   const rowMenuFor = useCallback(
@@ -467,7 +485,9 @@ export function PlanillaGrid({
               ? "Semana pasada (solo real)"
               : closedSet.has(col.key)
                 ? "Semana cerrada"
-                : "";
+                : hasInvoicedIncome(row.section, cell.committed)
+                  ? "Ingreso facturado (la factura manda)"
+                  : "";
     const openWeeks = data.columns.filter((_, i) => i !== colIdx && canEditCell(rowId, i));
     return buildCellMenu(row, cell, { editable, reason, openWeeks }, cellCallbacksFor(ctxTarget.sel, col.key));
   }, [ctxTarget, rowById, data.columns, data.granularity, canEditCell, canManage, closedSet, rowMenuFor, cellCallbacksFor]);
@@ -616,7 +636,7 @@ export function PlanillaGrid({
                       onRenameCancel={() => setRenamingRowId(null)}
                       rowMenu={rowMenuFor(row)}
                       onRowContext={() => setCtxTarget({ kind: "row", rowId: row.id })}
-                      colWritable={colWritable}
+                      canEditCell={canEditCell}
                       enableDrag={enableDrag}
                       dropTarget={dropTarget}
                       onCellContext={(sel) => setCtxTarget({ kind: "cell", sel })}
