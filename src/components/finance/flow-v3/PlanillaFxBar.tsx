@@ -78,12 +78,28 @@ export function PlanillaFxBar({ selection, onOpenLayers }: Props) {
             <span className="shrink-0 tabular-nums text-ds-text-1">{fmtClp(value)}</span>
           </>
         )}
-        {items.length > 0 && (
-          <span className="truncate text-ds-text-3">
-            — {items.map((it) => committedItemMeta(it).title).join(", ")}
-            {items[0]?.label ? `: ${items[0].label}` : ""}
-          </span>
-        )}
+        {(() => {
+          const overdueN = items.filter((it) => it.overdueOver60).length;
+          const folioParts = items.map((it) => committedItemMeta(it).title);
+          const shown = folioParts.slice(0, 6);
+          const more = folioParts.length - shown.length;
+          return (
+            <>
+              {overdueN > 0 && (
+                <span className="shrink-0 text-status-warn-fg">
+                  ⚠ {overdueN} vencida{overdueN === 1 ? "" : "s"} +60d
+                </span>
+              )}
+              {items.length > 0 && (
+                <span className="truncate text-ds-text-3">
+                  — {shown.join(", ")}
+                  {more > 0 ? ` +${more} más` : ""}
+                  {items[0]?.label ? `: ${items[0].label}` : ""}
+                </span>
+              )}
+            </>
+          );
+        })()}
         {cell.layer === "real" && cell.real?.items[0] && (
           <span className="truncate text-ds-text-3">
             — {cell.real.items[0].label}

@@ -230,9 +230,38 @@ export function usePlanillaActions(refetch: () => void) {
     [run],
   );
 
+  /** Excluye un DTE del comprometido del flujo (ledger intacto). */
+  const excludeDte = useCallback(
+    (dteId: string, reason: string) =>
+      run(
+        () =>
+          api("/api/finance/flow-v3/income-exclusions", {
+            method: "POST",
+            body: JSON.stringify({ dteId, reason }),
+          }),
+        "Factura excluida del flujo",
+      ),
+    [run],
+  );
+
+  /** Restaura un DTE previamente excluido. */
+  const restoreDte = useCallback(
+    (dteId: string) =>
+      run(
+        () =>
+          api("/api/finance/flow-v3/income-exclusions", {
+            method: "DELETE",
+            body: JSON.stringify({ dteId }),
+          }),
+        "Factura restaurada al flujo",
+      ),
+    [run],
+  );
+
   return {
     busy, createRow, renameRow, updateRow, unarchiveRow, deleteRow,
     archiveRow, setTemplateEndDate, setTemplateDiasCobro, deactivateTemplate,
     createRecurring, updateRecurring, deleteRecurring, closeWeek, reopenWeek, bulkFill,
+    excludeDte, restoreDte,
   };
 }
