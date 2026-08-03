@@ -6,7 +6,16 @@ import { es } from "date-fns/locale";
 import { formatCalendarDateDisplay } from "@/lib/fx-date";
 import { toast } from "sonner";
 import { notifyEmitResult } from "./emit-toast";
-import { FileText, Loader2, Send, RefreshCw, MapPin, Repeat, Building2 } from "lucide-react";
+import {
+  FileText,
+  Loader2,
+  Send,
+  RefreshCw,
+  MapPin,
+  Repeat,
+  Building2,
+  Trash2,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Surface, EmptyState, DataTable, type DataTableColumn } from "@/components/opai-ds";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -60,13 +69,15 @@ function compareDrafts(a: DraftListItem, b: DraftListItem, field: DraftSortField
   }
 }
 
-export function DraftsMobileList({ canIssue, canManage: _canManage }: Props) {
+export function DraftsMobileList({ canIssue, canManage }: Props) {
   const [drafts, setDrafts] = useState<DraftListItem[] | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   /** Editor completo (DteForm) en modal — sin sheet intermedio ni navegar a /emitir. */
   const [openEditId, setOpenEditId] = useState<string | null>(null);
   const [issuing, setIssuing] = useState<string | null>(null);
   const [confirmingDraft, setConfirmingDraft] = useState<DraftListItem | null>(null);
+  const [draftToDelete, setDraftToDelete] = useState<DraftListItem | null>(null);
+  const [deleting, setDeleting] = useState<string | null>(null);
   const [sortField, setSortField] = useState<DraftSortField>("receptor");
   const [sortDir, setSortDir] = useState<TableSortDir>("asc");
 
@@ -121,6 +132,28 @@ export function DraftsMobileList({ canIssue, canManage: _canManage }: Props) {
     },
     [canIssue, loadDrafts],
   );
+
+  const confirmDeleteDraft = useCallback(async () => {
+    if (!draftToDelete || !canManage) return;
+    const id = draftToDelete.id;
+    setDeleting(id);
+    try {
+      const res = await fetch(`/api/finance/billing/drafts/${id}`, {
+        method: "DELETE",
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || json.success === false) {
+        throw new Error(json.error || "Error al eliminar borrador");
+      }
+      toast.success("Borrador eliminado");
+      setDraftToDelete(null);
+      await loadDrafts();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Error inesperado");
+    } finally {
+      setDeleting(null);
+    }
+  }, [canManage, draftToDelete, loadDrafts]);
 
   const totals = useMemo(() => {
     if (!drafts) return { count: 0, sum: 0 };
@@ -303,39 +336,62 @@ export function DraftsMobileList({ canIssue, canManage: _canManage }: Props) {
         </div>
       ),
     },
-    ...(canIssue
+    ...(canIssue || canManage
       ? [
           {
             id: "actions",
             header: "",
-            width: "w-[120px]",
+            width: canIssue && canManage ? "w-[168px]" : "w-[120px]",
             align: "right" as const,
             sticky: "right" as const,
             cell: (d: DraftListItem) => (
-              <Button
-                variant="default"
-                size="sm"
-                className="h-8 px-2.5 text-xs"
-                disabled={issuing === d.id}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setConfirmingDraft(d);
-                }}
-              >
-                {issuing === d.id ? (
-                  <Loader2 className="h-3 w-3 animate-spin" />
-                ) : (
-                  <>
-                    <Send className="h-3 w-3 mr-1" />
-                    Emitir
-                  </>
+              <div className="inline-flex items-center justify-end gap-1">
+                {canManage && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 w-8 px-0 text-status-danger-fg hover:text-status-danger-fg hover:bg-status-danger-soft"
+                    disabled={deleting === d.id || issuing === d.id}
+                    aria-label="Eliminar borrador"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setDraftToDelete(d);
+                    }}
+                  >
+                    {deleting === d.id ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Trash2 className="h-3.5 w-3.5" />
+                    )}
+                  </Button>
                 )}
-              </Button>
+                {canIssue && (
+                  <Button
+                    variant="default"
+                    size="sm"
+                    className="h-8 px-2.5 text-xs"
+                    disabled={issuing === d.id || deleting === d.id}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setConfirmingDraft(d);
+                    }}
+                  >
+                    {issuing === d.id ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <>
+                        <Send className="h-3 w-3 mr-1" />
+                        Emitir
+                      </>
+                    )}
+                  </Button>
+                )}
+              </div>
             ),
           },
         ]
       : []),
-  ], [canIssue, handleSort, issuing, sortDir, sortField]);
+  ], [canIssue, canManage, deleting, handleSort, issuing, sortDir, sortField]);
 
   if (drafts === null || sortedDrafts === null) {
     return (
@@ -527,16 +583,33 @@ export function DraftsMobileList({ canIssue, canManage: _canManage }: Props) {
                     variant="ghost"
                     size="sm"
                     onClick={() => setOpenEditId(d.id)}
+                    disabled={deleting === d.id}
                     className="flex-1 justify-center h-11"
                   >
                     Editar
                   </Button>
+                  {canManage && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setDraftToDelete(d)}
+                      disabled={deleting === d.id || issuing === d.id}
+                      className="h-11 w-11 justify-center text-status-danger-fg hover:text-status-danger-fg hover:bg-status-danger-soft"
+                      aria-label="Eliminar borrador"
+                    >
+                      {deleting === d.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Trash2 className="h-4 w-4" />
+                      )}
+                    </Button>
+                  )}
                   {canIssue && (
                     <Button
                       variant="default"
                       size="sm"
                       onClick={() => setConfirmingDraft(d)}
-                      disabled={issuing === d.id}
+                      disabled={issuing === d.id || deleting === d.id}
                       className="flex-1 justify-center h-11"
                     >
                       {issuing === d.id ? (
@@ -622,6 +695,32 @@ export function DraftsMobileList({ canIssue, canManage: _canManage }: Props) {
             // toast del error ya se mostró en handleIssue.
           }
         }}
+      />
+
+      <ConfirmDialog
+        open={!!draftToDelete}
+        onOpenChange={(open) => {
+          if (!open && !deleting) setDraftToDelete(null);
+        }}
+        title="¿Eliminar borrador?"
+        description={
+          draftToDelete ? (
+            <>
+              Se eliminará el borrador de{" "}
+              <strong>{draftToDelete.receiverName ?? "Sin cliente"}</strong> por{" "}
+              <strong>{fmtCLP.format(draftToDelete.totalAmount)}</strong>. Esta
+              acción no se puede deshacer.
+            </>
+          ) : (
+            ""
+          )
+        }
+        confirmLabel="Eliminar"
+        cancelLabel="Cancelar"
+        variant="destructive"
+        loading={!!draftToDelete && deleting === draftToDelete.id}
+        loadingLabel="Eliminando..."
+        onConfirm={confirmDeleteDraft}
       />
     </>
   );
