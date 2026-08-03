@@ -1,7 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("server-only", () => ({}));
-vi.mock("../load-committed-income", () => ({ loadCommittedIncome: vi.fn(async () => new Map()) }));
+vi.mock("../load-committed-income", () => ({
+  loadCommittedIncome: vi.fn(async () => ({ committed: new Map(), excluded: [] })),
+}));
 vi.mock("../load-committed-expense", () => ({ loadCommittedExpense: vi.fn(async () => new Map()) }));
 vi.mock("../load-real", () => ({ loadReal: vi.fn(async () => new Map()) }));
 vi.mock("@/lib/prisma", () => ({
@@ -135,9 +137,10 @@ describe("deleteRow", () => {
   it("409 (archívala) si la fila muestra comprometido/real", async () => {
     asMock(prisma.financeFlowRow.findFirst).mockResolvedValue(cleanRow);
     asMock(prisma.financeFlowPlanCell.count).mockResolvedValue(0);
-    asMock(loadCommittedIncome).mockResolvedValueOnce(
-      new Map([["row-1", new Map([["2026-07-20", { total: 100 }]])]]),
-    );
+    asMock(loadCommittedIncome).mockResolvedValueOnce({
+      committed: new Map([["row-1", new Map([["2026-07-20", { total: 100 }]])]]),
+      excluded: [],
+    });
     await expect(deleteRow(TENANT, "row-1")).rejects.toThrow(/archívala/i);
     expect(prisma.financeFlowRow.delete).not.toHaveBeenCalled();
   });

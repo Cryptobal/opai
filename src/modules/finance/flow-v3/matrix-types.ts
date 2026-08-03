@@ -4,6 +4,7 @@
  */
 import type { BalanceBreak, FlowMatrixRowDto } from "./matrix-assemble";
 import type { MatrixColumn } from "./matrix-monthly";
+import type { FlowExcludedDte } from "./types";
 
 /** Desglose del saldo bancario por cuenta (número SIEMPRE enmascarado). */
 export interface OpeningBalanceAccount {
@@ -38,6 +39,8 @@ export interface FlowMatrixResponse {
   balances: number[];
   /** Descuadre sello↔derivado por columna (null = ok). */
   balanceBreaks: Array<BalanceBreak | null>;
+  /** DTEs excluidos del flujo (auditable; restaurables). */
+  excludedIncome: FlowExcludedDte[];
   kpis: { saldoHoy: number; minBalance: number; minWeek: string };
 }
 

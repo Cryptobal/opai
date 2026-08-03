@@ -68,7 +68,7 @@ export async function buildFlowMatrix(
     categoryId: r.categoryId, supplierId: r.supplierId,
   }));
 
-  const [plan, cIncome, cExpense, real, opening, config, closedWeeks, seals] = await Promise.all([
+  const [plan, cIncomeLoad, cExpense, real, opening, config, closedWeeks, seals] = await Promise.all([
     loadPlanCells(tenantId, ymdToDate(weeks[0])!, ymdToDate(lastWeek)!),
     loadCommittedIncome(tenantId, refs, weeks, todayYmd),
     loadCommittedExpense(tenantId, refs, weeks, todayYmd),
@@ -81,6 +81,7 @@ export async function buildFlowMatrix(
     listClosedV3Weeks(tenantId, weeks),
     loadSealedBalancesForMatrix(tenantId, weeks),
   ]);
+  const cIncome = cIncomeLoad.committed;
 
   // Ventana enteramente pasada: real del gap (fin de ventana → hoy) para anclar el saldo.
   let realNetAfterWindow = 0;
@@ -173,12 +174,22 @@ export async function buildFlowMatrix(
     lastSnapshotYmd,
   };
 
+  // Remap rowIds de exclusiones con el mismo criterio de sentinels.
+  const excludedIncome = cIncomeLoad.excluded.map((e) => ({
+    ...e,
+    rowId:
+      e.rowId === UNMATCHED_INCOME_KEY || e.rowId === UNMATCHED_EXPENSE_KEY
+        ? keyFor(e.rowId)
+        : e.rowId,
+  }));
+
   const base = {
     currentWeek, todayYmd,
     openingBalance: Math.round(opening.currentTotalClp),
     openingBalanceDetail,
     closedWeeks,
     warnThreshold: config?.flowWarnThresholdClp ?? WARN_THRESHOLD_CLP,
+    excludedIncome,
     kpis: assembled.kpis,
   };
   if (q.granularity === "month") {

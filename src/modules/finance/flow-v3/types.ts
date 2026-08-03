@@ -25,6 +25,19 @@ export interface CommittedItem {
   endDate?: string | null;
   /** Solo kind=scheduled: término de pago del contrato en días (null = default tenant). */
   diasCobro?: number | null;
+  /** true si la fecha de cobro venció hace más de 60 días (cartera zombie). */
+  overdueOver60?: boolean;
+}
+
+/** DTE excluido del flujo (solo capa planilla; ledger intacto). */
+export interface FlowExcludedDte {
+  dteId: string;
+  folio: number | null;
+  label: string;
+  reason: string | null;
+  createdAt: string;
+  /** Fila de la planilla a la que pertenecería (post RUT fallback). */
+  rowId: string;
 }
 
 export interface CommittedCell {

@@ -96,6 +96,14 @@ function collectionWeek(fechaYmd: string, todayYmd: string): { week: string; fec
   return week < currentWeek ? { week: currentWeek, fecha: fechaYmd } : { week, fecha: fechaYmd };
 }
 
+/** Días calendarios UTC de `fromYmd` a `toYmd` (positivo si to > from). */
+function daysBetween(fromYmd: string, toYmd: string): number {
+  const a = ymdToDate(fromYmd);
+  const b = ymdToDate(toYmd);
+  if (!a || !b) return 0;
+  return Math.floor((b.getTime() - a.getTime()) / 86_400_000);
+}
+
 export function deriveCommittedIncome(args: CommittedIncomeArgs): CommittedByRow {
   const out: CommittedByRow = new Map();
   if (args.weeks.length === 0) return out;
@@ -116,6 +124,7 @@ export function deriveCommittedIncome(args: CommittedIncomeArgs): CommittedByRow
       label: d.receiverName,
       fecha,
       monto: Math.round(d.pendingClp),
+      overdueOver60: daysBetween(fecha, args.todayYmd) > 60,
     });
   }
 

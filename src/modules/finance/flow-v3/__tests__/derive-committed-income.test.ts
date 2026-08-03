@@ -69,6 +69,22 @@ describe("deriveCommittedIncome — DTEs emitidos", () => {
     expect(out.get("row-a")?.get("2026-08-17")?.total).toBe(10);
     expect(out.get(UNMATCHED_INCOME_KEY)?.get("2026-08-17")?.total).toBe(20);
   });
+
+  it("crmAccountId resuelto por RUT (loader) cae en la fila del cliente, no en Otros", () => {
+    // El loader rellena crmAccountId vía cleanRut(receiverRut)→CrmAccount;
+    // el derivador solo ve el id ya resuelto.
+    const out = deriveCommittedIncome({
+      ...base,
+      dtes: [{
+        id: "dte-old", folio: 1234, dateYmd: "2024-06-01", dueDateYmd: "2024-07-01",
+        pendingClp: 500_000, crmAccountId: "acc-A", installationId: null,
+        receiverName: "Transmat",
+      }],
+    });
+    expect(out.get("row-a")?.get("2026-07-20")?.total).toBe(500_000);
+    expect(out.get(UNMATCHED_INCOME_KEY)).toBeUndefined();
+    expect(out.get("row-a")?.get("2026-07-20")?.items[0]?.overdueOver60).toBe(true);
+  });
 });
 
 describe("deriveCommittedIncome — programaciones", () => {
