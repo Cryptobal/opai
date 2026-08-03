@@ -58,6 +58,9 @@ interface Props {
   onAdd: () => void;
   onCloseWeek: () => void;
   onLegend: () => void;
+  /** Modo Σ: selección discontinua. */
+  sumMode?: boolean;
+  onToggleSumMode?: () => void;
 }
 
 /** Toolbar píldora estilo Sheets: comandos de vista/formato + controles operativos. */
@@ -292,6 +295,18 @@ export function PlanillaToolbar(p: Props) {
       >
         Chips
       </Button>
+      {p.onToggleSumMode && (
+        <Button
+          variant={p.sumMode ? "default" : "outline"}
+          size="sm"
+          className={`${txt} ml-0.5 font-display`}
+          onClick={p.onToggleSumMode}
+          aria-pressed={!!p.sumMode}
+          title="Sumar celdas discontinuas (Σ). Ctrl/Cmd+clic en desktop"
+        >
+          Σ
+        </Button>
+      )}
       {p.canManage && (
         <Button size="sm" className={`${btn} ml-0.5 lg:px-2`} onClick={p.onAdd} aria-label="Agregar concepto">
           <Plus className={icon} />

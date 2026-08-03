@@ -52,6 +52,8 @@ export interface AssembleRowInput {
   sourceName?: string | null;
   /** true si `name` difiere del canónico (alias manual de visualización). */
   nameIsManual?: boolean;
+  /** Caption UF de egreso recurrente (ej. "UF 24,5"), si aplica. */
+  ufCaption?: string | null;
 }
 
 export interface FlowMatrixCellDto {

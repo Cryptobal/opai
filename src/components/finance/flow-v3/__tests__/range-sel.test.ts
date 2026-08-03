@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
-  cellRangeClass, cellsInRect, rangeRect, rangeToTsv, type RangeSel,
+  cellKey, cellRangeClass, cellsInRect, discreteStats, rangeRect, rangeToTsv,
+  toggleDiscreteCell, type RangeSel,
 } from "../range-sel";
 
 const rows = ["a", "b", "c", "d"];
@@ -46,5 +47,21 @@ describe("rangeToTsv", () => {
 
   it("serializa grilla con tabs y saltos", () => {
     expect(rangeToTsv([[1, -2], [3, 4]])).toBe("1\t-2\n3\t4");
+  });
+});
+
+describe("discreteStats / toggleDiscreteCell", () => {
+  it("promedia solo celdas ≠ 0", () => {
+    expect(discreteStats([100, 0, 200])).toEqual({
+      sum: 300, avg: 150, count: 3, nonzeroCount: 2,
+    });
+  });
+
+  it("toggle agrega y quita por cellKey", () => {
+    let m = new Map<string, number>();
+    m = toggleDiscreteCell(m, cellKey("a", 0), 10);
+    expect(m.get("a:0")).toBe(10);
+    m = toggleDiscreteCell(m, cellKey("a", 0), 10);
+    expect(m.has("a:0")).toBe(false);
   });
 });

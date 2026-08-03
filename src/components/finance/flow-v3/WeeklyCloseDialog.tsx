@@ -9,6 +9,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { fmtClp, formatThousands, parseSignedAmount } from "./format";
 
+/** Formatea CLP firmado para el input (formatThousands solo digitos). */
+function formatSigned(n: number): string {
+  const rounded = Math.round(n);
+  const sign = rounded < 0 ? "-" : "";
+  return sign + formatThousands(String(Math.abs(rounded)));
+}
+
 interface Snapshot {
   weekStartYmd: string;
   weekEndYmd: string;
@@ -78,7 +85,8 @@ export function WeeklyCloseDialog({
     const monday = mondayOf(initialWeekEnd);
     const proj = getProjected(monday);
     if (proj != null) {
-      setBalanceStr(formatThousands(String(Math.abs(Math.round(proj)))));
+      // Prefill firmado: saldo negativo (línea de crédito) debe conservar el signo.
+      setBalanceStr(formatSigned(proj));
     } else {
       setBalanceStr("");
     }
@@ -88,7 +96,8 @@ export function WeeklyCloseDialog({
   const applySnap = useCallback((s: Snapshot) => {
     setSnap(s);
     if (!userEditedRef.current) {
-      setBalanceStr(formatThousands(String(Math.abs(s.bankBalanceClp))));
+      // Prefill firmado (permite saldo bancario negativo).
+      setBalanceStr(formatSigned(s.bankBalanceClp));
     }
     setManualReason("");
   }, []);
@@ -133,7 +142,7 @@ export function WeeklyCloseDialog({
       const monday = mondayOf(weekEnd);
       const proj = getProjected(monday);
       if (proj != null) {
-        setBalanceStr(formatThousands(String(Math.abs(Math.round(proj)))));
+        setBalanceStr(formatSigned(proj));
       }
     }
     // Si hay caché, aplicar al instante.
@@ -198,7 +207,7 @@ export function WeeklyCloseDialog({
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md max-lg:fixed max-lg:inset-x-0 max-lg:bottom-0 max-lg:top-auto max-lg:max-h-[90vh] max-lg:translate-x-0 max-lg:translate-y-0 max-lg:rounded-t-2xl max-lg:rounded-b-none max-lg:overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Cerrar semana</DialogTitle>
         </DialogHeader>
@@ -278,7 +287,9 @@ export function WeeklyCloseDialog({
                 value={balanceStr}
                 onChange={(e) => {
                   userEditedRef.current = true;
-                  setBalanceStr(formatThousands(e.target.value));
+                  const raw = e.target.value;
+                  const neg = raw.trim().startsWith("-") ? "-" : "";
+                  setBalanceStr(neg + formatThousands(raw));
                 }}
               />
             </label>

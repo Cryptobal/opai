@@ -5,6 +5,52 @@ export interface RangeSel {
   head: CellSel;
 }
 
+/** Clave estable de celda para selección discontinua (modo Σ). */
+export function cellKey(rowId: string, colIdx: number): string {
+  return `${rowId}:${colIdx}`;
+}
+
+export interface DiscreteSelStats {
+  sum: number;
+  avg: number | null;
+  count: number;
+  /** N de celdas con valor ≠ 0 (denominador del promedio). */
+  nonzeroCount: number;
+}
+
+/**
+ * Stats puras del set discontinuo. Promedio solo sobre celdas ≠ 0
+ * (misma convención que el statusbar / SumPill).
+ */
+export function discreteStats(values: Iterable<number>): DiscreteSelStats {
+  let sum = 0;
+  let count = 0;
+  let nonzeroCount = 0;
+  for (const v of values) {
+    sum += v;
+    count += 1;
+    if (v !== 0) nonzeroCount += 1;
+  }
+  return {
+    sum,
+    avg: nonzeroCount > 0 ? Math.round(sum / nonzeroCount) : null,
+    count,
+    nonzeroCount,
+  };
+}
+
+/** Toggle de una celda en el Map de selección discontinua. */
+export function toggleDiscreteCell(
+  prev: Map<string, number>,
+  key: string,
+  value: number,
+): Map<string, number> {
+  const next = new Map(prev);
+  if (next.has(key)) next.delete(key);
+  else next.set(key, value);
+  return next;
+}
+
 export interface RangeRect {
   r0: number;
   r1: number;

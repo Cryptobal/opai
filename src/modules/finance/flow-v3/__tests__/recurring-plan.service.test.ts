@@ -1,8 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("server-only", () => ({}));
-vi.mock("../plan.service", () => ({ bulkFill: vi.fn(async () => []) }));
+vi.mock("../plan.service", () => ({
+  bulkFill: vi.fn(async () => []),
+  upsertCell: vi.fn(async () => ({})),
+}));
 vi.mock("../weekly-close.adapter", () => ({ listClosedV3Weeks: vi.fn(async () => []) }));
+vi.mock("@/lib/uf", () => ({ getUfValueForDate: vi.fn(async () => 39_000) }));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     financeFlowPlanRecurrence: { findFirst: vi.fn(), update: vi.fn() },
@@ -53,12 +57,14 @@ describe("updateRecurrence — no reescribe el pasado", () => {
   it("solo materializa (bulkFill) semanas ≥ la semana actual", async () => {
     asMock(prisma.financeFlowPlanRecurrence.findFirst).mockResolvedValue({
       id: "rec-1", rowId: "row-1", tenantId: "t1",
-      amount: "1000", frequency: "MONTHLY", dayOfMonth: 1,
+      amount: "1000", currency: "CLP", amountUf: null, ufPolicy: null, ufCustomDay: null,
+      frequency: "MONTHLY", dayOfMonth: 1,
       startDate: new Date("2020-01-01T00:00:00.000Z"), endDate: null,
     });
     asMock(prisma.financeFlowPlanRecurrence.update).mockResolvedValue({
       id: "rec-1", rowId: "row-1", tenantId: "t1",
-      amount: "2000", frequency: "MONTHLY", dayOfMonth: 1,
+      amount: "2000", currency: "CLP", amountUf: null, ufPolicy: null, ufCustomDay: null,
+      frequency: "MONTHLY", dayOfMonth: 1,
       startDate: new Date("2020-01-01T00:00:00.000Z"), endDate: null,
     });
 

@@ -23,6 +23,8 @@ export function usePlanillaKeyboard(opts: {
   onRedo?: () => void;
   /** ⌘C: copiar rango (delegado al cliente). */
   onCopy?: () => void;
+  /** Escape: limpiar selección discontinua (modo Σ) u otros overlays. */
+  onEscape?: () => void;
 }) {
   const [range, setRange] = useState<RangeSel | null>(null);
   const [editing, setEditing] = useState<{ sel: CellSel; initial: string } | null>(null);
@@ -145,9 +147,12 @@ export function usePlanillaKeyboard(opts: {
       else if (k === "Delete" || k === "Backspace") {
         e.preventDefault();
         if (opts.canEditCell(sel.rowId, sel.colIdx)) opts.onCommit(sel.rowId, sel.colIdx, "0");
-      } else if (/^[0-9-]$/.test(k)) {
+      } else if (/^[0-9-=]$/.test(k)) {
         e.preventDefault();
         startEdit(sel, k);
+      } else if (k === "Escape") {
+        e.preventDefault();
+        opts.onEscape?.();
       }
     },
     [editing, sel, range, move, startEdit, selectAll, opts],

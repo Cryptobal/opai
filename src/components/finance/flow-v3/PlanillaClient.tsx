@@ -21,8 +21,13 @@ import { PlanillaStatusbar } from "./PlanillaStatusbar";
 import { exportCsv, exportXlsx, printPlanilla } from "./planilla-export";
 import { displayValue } from "./grid-classes";
 import type { CellSel } from "./usePlanillaKeyboard";
-import { cellsInRect, rangeRect, rangeToTsv, type RangeSel } from "./range-sel";
+import {
+  cellsInRect, rangeRect, rangeToTsv, type DiscreteSelStats, type RangeSel,
+} from "./range-sel";
 import { fmtClp } from "./format";
+import { PanelView } from "./PanelView";
+import { FlowChatSheet } from "./FlowChatSheet";
+import { MessageCircle } from "lucide-react";
 
 const ZEROS_PREF_KEY = "opai-planilla-show-zeros";
 
@@ -75,6 +80,10 @@ export function PlanillaClient({
   const [layersReq, setLayersReq] = useState(0);
   /** Orden por monto de sesión: desc → asc → null (A→Z). */
   const [amountSort, setAmountSort] = useState<{ weekStart: string; dir: "asc" | "desc" } | null>(null);
+  const [sumMode, setSumMode] = useState(false);
+  const [discreteStats, setDiscreteStats] = useState<DiscreteSelStats | null>(null);
+  const [viewTab, setViewTab] = useState<"planilla" | "panel">("planilla");
+  const [chatOpen, setChatOpen] = useState(false);
 
   const [showZeros, setShowZeros] = useState(false);
   useEffect(() => {
@@ -279,6 +288,15 @@ export function PlanillaClient({
   }, [rangeCellKeys, view]);
 
   const rangeStats = useMemo(() => {
+    // Modo Σ: el statusbar consume las stats del set discontinuo.
+    if (sumMode && discreteStats && discreteStats.count > 0) {
+      return {
+        sum: discreteStats.sum,
+        avg: discreteStats.avg,
+        count: discreteStats.count,
+        title: `Σ exacta ${fmtClp(discreteStats.sum)} · ${discreteStats.count} celdas`,
+      };
+    }
     if (!selRange || !m.data || visibleRowIds.length === 0) {
       return { sum: null as number | null, avg: null as number | null, count: 0, title: "" };
     }
@@ -302,7 +320,7 @@ export function PlanillaClient({
         ? `Suma exacta ${fmtClp(sum)} · magnitudes visibles del rango`
         : "",
     };
-  }, [selRange, visibleRowIds, m.data]);
+  }, [selRange, visibleRowIds, m.data, sumMode, discreteStats]);
 
   const cycleAmountSort = useCallback(() => {
     const week = selectedWeekStart ?? m.data?.currentWeek;
@@ -497,7 +515,34 @@ export function PlanillaClient({
         onAdd={() => setAddOpen(true)}
         onCloseWeek={() => setCloseOpen(true)}
         onLegend={() => setLegendOpen(true)}
+        sumMode={sumMode}
+        onToggleSumMode={() => {
+          setSumMode((v) => {
+            if (v) setDiscreteStats(null);
+            return !v;
+          });
+        }}
       />
+
+      {/* Segmented Planilla | Panel */}
+      <div className="planilla-chrome-print-hide mb-1 flex h-9 items-center justify-center">
+        <div className="inline-flex h-9 overflow-hidden rounded-full border border-ds-border-default bg-ds-surface-2 p-0.5">
+          {(["planilla", "panel"] as const).map((tab) => (
+            <button
+              key={tab}
+              type="button"
+              onClick={() => setViewTab(tab)}
+              className={`min-h-8 min-w-[5.5rem] rounded-full px-3 text-[13px] font-medium transition-colors ${
+                viewTab === tab
+                  ? "bg-primary text-primary-foreground"
+                  : "text-ds-text-3 hover:text-ds-text-1"
+              }`}
+            >
+              {tab === "planilla" ? "Planilla" : "Panel"}
+            </button>
+          ))}
+        </div>
+      </div>
 
       {searchOpen && (
         <div className="planilla-chrome-print-hide mb-1 flex items-center gap-2 rounded-md border border-ds-border-default bg-ds-surface-2 px-2 py-1">
@@ -539,7 +584,9 @@ export function PlanillaClient({
         onOpenLayers={() => setLayersReq((n) => n + 1)}
       />
 
-      {m.loading && !m.data ? (
+      {viewTab === "panel" ? (
+        <PanelView canManage={canManage} />
+      ) : m.loading && !m.data ? (
         <div className="flex h-64 items-center justify-center rounded-lg border border-ds-border-subtle text-sm text-ds-text-3">
           Cargando planilla…
         </div>
@@ -572,6 +619,10 @@ export function PlanillaClient({
             nameW={view.prefs.nameW}
             onNameWChange={view.setNameW}
             amountSort={amountSort}
+            sumMode={sumMode}
+            onSumModeChange={setSumMode}
+            onDiscreteStats={setDiscreteStats}
+            onRefresh={() => void m.refetch()}
           />
         </div>
       ) : (
@@ -580,19 +631,38 @@ export function PlanillaClient({
         </div>
       )}
 
-      <PlanillaStatusbar
-        saldoHoy={kpis?.saldoHoy ?? null}
-        minBalance={kpis?.minBalance ?? null}
-        minWeek={kpis?.minWeek ?? null}
-        bankStale={bankStale}
-        minTone={minTone}
-        onOpenBank={() => setBankOpen(true)}
-        rangeSum={rangeStats.sum}
-        rangeAvg={rangeStats.avg}
-        rangeCount={rangeStats.count}
-        numberFormat={view.prefs.numberFormat}
-        rangeTitle={rangeStats.title}
-      />
+      {viewTab === "planilla" && (
+        <PlanillaStatusbar
+          saldoHoy={kpis?.saldoHoy ?? null}
+          minBalance={kpis?.minBalance ?? null}
+          minWeek={kpis?.minWeek ?? null}
+          bankStale={bankStale}
+          minTone={minTone}
+          onOpenBank={() => setBankOpen(true)}
+          rangeSum={rangeStats.sum}
+          rangeAvg={rangeStats.avg}
+          rangeCount={rangeStats.count}
+          numberFormat={view.prefs.numberFormat}
+          rangeTitle={rangeStats.title}
+        />
+      )}
+
+      {viewTab === "planilla" && canManage && (
+        <button
+          type="button"
+          onClick={() => setChatOpen(true)}
+          className="fixed z-40 flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg"
+          style={{
+            right: "max(1rem, env(safe-area-inset-right))",
+            bottom: "max(5.5rem, calc(env(safe-area-inset-bottom) + 4.5rem))",
+          }}
+          aria-label="Chat del flujo de caja"
+        >
+          <MessageCircle className="h-5 w-5" />
+        </button>
+      )}
+
+      <FlowChatSheet open={chatOpen} onOpenChange={setChatOpen} />
 
       <AddRowDialog open={addOpen} onOpenChange={setAddOpen} busy={actions.busy} onCreate={handleCreateRow} />
 

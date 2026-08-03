@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { MoreHorizontal } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuTrigger,
@@ -11,9 +11,10 @@ import { PlanillaCell } from "./PlanillaCell";
 import { MenuItems, type MenuItemDesc } from "./menu-render";
 import type { CellSel } from "./usePlanillaKeyboard";
 import type { RangeRect } from "./range-sel";
-import { cellRangeClass } from "./range-sel";
+import { cellKey, cellRangeClass } from "./range-sel";
 import type { NumberFormatMode } from "./format";
 import type { CellStyle } from "./usePlanillaViewPrefs";
+import { useLongPress } from "./useLongPress";
 
 const DRAG_BLOCKED_MSG =
   "Las facturas no se arrastran: usa clic derecho → Mover factura a…";
@@ -29,7 +30,7 @@ interface Props {
   visibleRowIdx: number;
   rangeRect: RangeRect | null;
   editing: { sel: CellSel; initial: string } | null;
-  onSelect: (sel: CellSel, extend: boolean) => void;
+  onSelect: (sel: CellSel, extend: boolean, meta?: boolean) => void;
   onSelectRow: () => void;
   onStartEdit: (sel: CellSel) => void;
   onCommit: (raw: string, move: "down" | "right" | "none") => void;
@@ -43,11 +44,16 @@ interface Props {
   rowMenu: MenuItemDesc[];
   /** Registra esta fila como objetivo del menú contextual del grid. */
   onRowContext: () => void;
+  /** Long-press en nombre → sheet de fila (móvil). */
+  onOpenRowSheet?: () => void;
   /** Editabilidad completa por celda (semana abierta + no facturado, etc.). */
   canEditCell: (rowId: string, colIdx: number) => boolean;
   enableDrag: boolean;
   dropTarget: { rowId: string; colIdx: number } | null;
   onCellContext: (sel: CellSel) => void;
+  onOpenCellSheet?: (sel: CellSel) => void;
+  sumMode?: boolean;
+  discreteKeys?: Set<string>;
   onCellDragStart: (rowId: string, week: string) => void;
   onCellDragOver: (e: React.DragEvent, rowId: string, colIdx: number, week: string) => void;
   onCellDrop: (rowId: string, week: string) => void;
@@ -59,6 +65,8 @@ interface Props {
   rowSelected?: boolean;
   /** Query de búsqueda para resaltar coincidencias en el nombre. */
   searchQuery?: string;
+  /** Caption UF de la fila (misma etiqueta en todas las celdas). */
+  ufCaption?: string | null;
 }
 
 function highlightName(name: string, query: string): ReactNode {
@@ -113,6 +121,13 @@ export function PlanillaRow(p: Props) {
     });
   };
   const showMenu = p.canManage && !row.isVirtual && p.rowMenu.length > 0;
+  const openRowSheet = p.onOpenRowSheet;
+  const handleNameLongPress = useCallback(() => {
+    openRowSheet?.();
+  }, [openRowSheet]);
+  const nameLp = useLongPress(handleNameLongPress, {
+    disabled: !showMenu || !openRowSheet || p.isRenaming,
+  });
 
   return (
     <tr className={`${ROW_H} group`}>
@@ -126,8 +141,15 @@ export function PlanillaRow(p: Props) {
       </td>
       <th
         scope="row"
-        onClick={togglePeek}
+        onClick={() => {
+          if (nameLp.didFire()) return;
+          togglePeek();
+        }}
         onContextMenu={showMenu ? p.onRowContext : undefined}
+        onPointerDown={nameLp.onPointerDown}
+        onPointerMove={nameLp.onPointerMove}
+        onPointerUp={nameLp.onPointerUp}
+        onPointerCancel={nameLp.onPointerCancel}
         className={`planilla-name-col ${NAME_W} ${ROW_H} sticky ${NAME_LEFT} z-10 border-b border-r border-ds-border-subtle/60 bg-ds-surface-1 px-1.5 max-md:px-1 text-left align-middle`}
       >
         {peek && (
@@ -151,30 +173,32 @@ export function PlanillaRow(p: Props) {
             onBlur={() => p.onRenameCancel()}
           />
         ) : (
-          <span className="flex items-center gap-1">
-            <span
-              className={`truncate text-xs max-md:text-[12px] max-md:leading-none ${row.isArchived ? "text-ds-text-3" : "text-ds-text-2"}`}
-              title={
-                row.nameIsManual && row.sourceName
-                  ? `${row.name} (nombre manual · origen: ${row.sourceName})`
-                  : row.name
-              }
-            >
-              {highlightName(row.name, p.searchQuery ?? "")}
-            </span>
-            {row.nameIsManual && (
+          <span className="flex min-w-0 items-start gap-0.5">
+            <span className="min-w-0 flex-1">
               <span
-                className="shrink-0 rounded border border-ds-border-subtle bg-ds-surface-2 px-0.5 text-[12px] leading-tight text-ds-text-3"
-                title={row.sourceName ? `Origen: ${row.sourceName}` : "Nombre manual"}
+                className={`line-clamp-2 text-xs max-md:text-[12px] max-md:leading-tight ${row.isArchived ? "text-ds-text-3" : "text-ds-text-2"}`}
+                title={
+                  row.nameIsManual && row.sourceName
+                    ? `${row.name} (nombre manual · origen: ${row.sourceName})`
+                    : row.name
+                }
               >
-                alias
+                {highlightName(row.name, p.searchQuery ?? "")}
               </span>
-            )}
-            {row.isArchived && (
-              <span className="shrink-0 rounded border border-ds-border-subtle px-0.5 text-[12px] leading-tight text-ds-text-3">
-                cerrada
-              </span>
-            )}
+              {row.nameIsManual && row.sourceName && (
+                <span
+                  className="block truncate text-[12px] leading-tight text-ds-text-4"
+                  title={`Origen: ${row.sourceName}`}
+                >
+                  ↳ {row.sourceName}
+                </span>
+              )}
+              {row.isArchived && (
+                <span className="mt-0.5 inline-block rounded border border-ds-border-subtle px-0.5 text-[12px] leading-tight text-ds-text-3">
+                  cerrada
+                </span>
+              )}
+            </span>
             {showMenu && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -220,12 +244,20 @@ export function PlanillaRow(p: Props) {
             editable={writable}
             rangeClass={rangeClass}
             editingInitial={isEditing ? p.editing!.initial : null}
-            onSelect={(extend) => p.onSelect({ rowId: row.id, colIdx }, extend)}
+            onSelect={(extend, meta) => p.onSelect({ rowId: row.id, colIdx }, extend, meta)}
             onStartEdit={() => p.onStartEdit({ rowId: row.id, colIdx })}
             onCommit={p.onCommit}
             onCancel={p.onCancelEdit}
             onOpenPopover={(anchor) => p.onOpenPopover({ rowId: row.id, colIdx }, anchor)}
             onContextTarget={() => p.onCellContext({ rowId: row.id, colIdx })}
+            onOpenCellSheet={
+              p.onOpenCellSheet
+                ? () => p.onOpenCellSheet!({ rowId: row.id, colIdx })
+                : undefined
+            }
+            sumMode={p.sumMode}
+            inDiscreteSel={p.discreteKeys?.has(cellKey(row.id, colIdx))}
+            caption={p.ufCaption ?? null}
             draggable={draggable}
             onDragStartCell={() => p.onCellDragStart(row.id, cell.weekStart)}
             onDragOverCell={(e) => p.onCellDragOver(e, row.id, colIdx, cell.weekStart)}

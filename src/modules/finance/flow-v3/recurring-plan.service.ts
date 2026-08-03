@@ -1,19 +1,22 @@
 import "server-only";
-import type { FinanceFlowPlanRecurrence, FlowRecurrenceFrequency } from "@prisma/client";
+import type {
+  FinanceFlowPlanRecurrence, FlowPlanCurrency, FlowRecurrenceFrequency,
+} from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { getUfValueForDate } from "@/lib/uf";
 import { toYmd, weekStartYmd, ymdToDate } from "./weeks";
-import { bulkFill, type PlanCellDto } from "./plan.service";
+import { bulkFill, upsertCell, type PlanCellDto } from "./plan.service";
 import { listClosedV3Weeks } from "./weekly-close.adapter";
+import { ufTargetDate, ufToClp } from "./uf-occurrence";
 
 /**
- * Egresos recurrentes de PLAN (§5J). La regla se persiste
+ * Egresos recurrentes de PLAN (§5J / v4 UF). La regla se persiste
  * (FinanceFlowPlanRecurrence) y se materializa en celdas FinanceFlowPlanCell
  * normales hacia adelante. Editar reescribe SOLO las celdas futuras (semanas ≥
- * la semana actual); las pasadas nunca se tocan. Si se elimina la regla, las
- * celdas ya materializadas pueden conservarse (keepCells) o borrarse a futuro.
+ * la semana actual); las pasadas nunca se tocan. Semanas selladas se saltan.
  *
- * Invariante de aislamiento: escribe únicamente en FinanceFlowPlanRecurrence y
- * (vía bulkFill) FinanceFlowPlanCell. Nunca en DTE/banco/programaciones.
+ * currency=UF: cada ocurrencia resuelve CLP con la política UF y se materializa
+ * como entero. rematerializeUfRecurrences recalcula futuras no selladas.
  */
 
 const EGRESO_SECTIONS = new Set(["REMUNERACIONES", "IMPUESTOS", "GAV", "OTROS"]);
@@ -24,6 +27,10 @@ export interface RecurrenceInput {
   dayOfMonth?: number | null;
   startDate: string;
   endDate?: string | null;
+  currency?: FlowPlanCurrency;
+  amountUf?: number | null;
+  ufPolicy?: string | null;
+  ufCustomDay?: number | null;
 }
 
 /** Horizonte de materialización: min(endDate, hoy + 12 meses). */
@@ -76,8 +83,7 @@ export function expandOccurrenceDates(
   return out;
 }
 
-/** Semanas ISO (lunes YMD) únicas de las ocurrencias de la regla. */
-function occurrenceWeeks(rule: {
+function occurrenceDates(rule: {
   frequency: FlowRecurrenceFrequency;
   startDate: Date;
   endDate: Date | null;
@@ -85,12 +91,21 @@ function occurrenceWeeks(rule: {
 }): string[] {
   const startYmd = toYmd(rule.startDate);
   const endYmd = horizonEndYmd(rule.endDate ? toYmd(rule.endDate) : null);
-  const dates = expandOccurrenceDates(rule.frequency, startYmd, endYmd, rule.dayOfMonth);
-  return Array.from(new Set(dates.map((d) => weekStartYmd(ymdToDate(d)!))));
+  return expandOccurrenceDates(rule.frequency, startYmd, endYmd, rule.dayOfMonth);
 }
 
-/** Escribe `amount` en las semanas dadas, saltando las selladas. */
-async function materialize(
+/** Semanas ISO (lunes YMD) únicas de las ocurrencias de la regla. */
+function occurrenceWeeks(rule: {
+  frequency: FlowRecurrenceFrequency;
+  startDate: Date;
+  endDate: Date | null;
+  dayOfMonth: number | null;
+}): string[] {
+  return Array.from(new Set(occurrenceDates(rule).map((d) => weekStartYmd(ymdToDate(d)!))));
+}
+
+/** CLP fijo: escribe `amount` en las semanas, saltando selladas. */
+async function materializeClp(
   tenantId: string,
   rowId: string,
   weeks: string[],
@@ -102,6 +117,49 @@ async function materialize(
   const writable = weeks.filter((w) => !sealed.has(w));
   if (writable.length === 0) return [];
   return bulkFill(tenantId, rowId, writable, amount, updatedBy);
+}
+
+/** UF: CLP distinto por ocurrencia; agrupa por semana (última ocurrencia gana). */
+async function materializeUf(
+  tenantId: string,
+  rowId: string,
+  rule: FinanceFlowPlanRecurrence,
+  weekFilter: (w: string) => boolean,
+  updatedBy: string | null,
+): Promise<PlanCellDto[]> {
+  const amountUf = Number(rule.amountUf ?? 0);
+  if (!(amountUf > 0)) return [];
+  const dates = occurrenceDates(rule);
+  const weekToClp = new Map<string, number>();
+  for (const ymd of dates) {
+    const week = weekStartYmd(ymdToDate(ymd)!);
+    if (!weekFilter(week)) continue;
+    const target = ufTargetDate(rule.ufPolicy, rule.ufCustomDay, ymdToDate(ymd)!);
+    const uf = await getUfValueForDate(target);
+    weekToClp.set(week, ufToClp(amountUf, uf));
+  }
+  const weeks = [...weekToClp.keys()];
+  if (weeks.length === 0) return [];
+  const sealed = new Set(await listClosedV3Weeks(tenantId, weeks));
+  const cells: PlanCellDto[] = [];
+  for (const [week, clp] of weekToClp) {
+    if (sealed.has(week)) continue;
+    cells.push(await upsertCell(tenantId, rowId, week, clp, updatedBy));
+  }
+  return cells;
+}
+
+async function materializeRule(
+  tenantId: string,
+  rule: FinanceFlowPlanRecurrence,
+  weeks: string[],
+  updatedBy: string | null,
+): Promise<PlanCellDto[]> {
+  if (rule.currency === "UF") {
+    const allow = new Set(weeks);
+    return materializeUf(tenantId, rule.rowId, rule, (w) => allow.has(w), updatedBy);
+  }
+  return materializeClp(tenantId, rule.rowId, weeks, Number(rule.amount), updatedBy);
 }
 
 async function assertEgresoRow(tenantId: string, rowId: string): Promise<{ section: string }> {
@@ -121,6 +179,10 @@ export interface RecurrenceDto {
   id: string;
   rowId: string;
   amount: number;
+  currency: FlowPlanCurrency;
+  amountUf: number | null;
+  ufPolicy: string | null;
+  ufCustomDay: number | null;
   frequency: FlowRecurrenceFrequency;
   dayOfMonth: number | null;
   startDate: string;
@@ -132,6 +194,10 @@ export function toRecurrenceDto(r: FinanceFlowPlanRecurrence): RecurrenceDto {
     id: r.id,
     rowId: r.rowId,
     amount: Number(r.amount),
+    currency: r.currency,
+    amountUf: r.amountUf != null ? Number(r.amountUf) : null,
+    ufPolicy: r.ufPolicy,
+    ufCustomDay: r.ufCustomDay,
     frequency: r.frequency,
     dayOfMonth: r.dayOfMonth,
     startDate: toYmd(r.startDate),
@@ -144,6 +210,15 @@ export interface RecurrenceResult {
   cells: PlanCellDto[];
 }
 
+async function estimateClpForStorage(input: RecurrenceInput): Promise<number> {
+  if (input.currency === "UF") {
+    const ufAmt = input.amountUf ?? 0;
+    const uf = await getUfValueForDate(new Date());
+    return ufToClp(ufAmt, uf);
+  }
+  return input.amount;
+}
+
 export async function createRecurrence(
   tenantId: string,
   rowId: string,
@@ -154,11 +229,22 @@ export async function createRecurrence(
   if (input.endDate && input.endDate < input.startDate) {
     throw new Error("endDate no puede ser anterior a startDate");
   }
+  const currency: FlowPlanCurrency = input.currency ?? "CLP";
+  if (currency === "UF" && !(input.amountUf != null && input.amountUf > 0)) {
+    throw new Error("amountUf requerido para moneda UF");
+  }
+  const amountClp = await estimateClpForStorage(input);
   const rule = await prisma.financeFlowPlanRecurrence.create({
     data: {
       tenantId,
       rowId,
-      amount: input.amount,
+      amount: amountClp,
+      currency,
+      amountUf: currency === "UF" ? input.amountUf! : null,
+      ufPolicy: currency === "UF" ? (input.ufPolicy ?? "RUN_DAY") : null,
+      ufCustomDay: currency === "UF" && input.ufPolicy === "CUSTOM_DAY"
+        ? (input.ufCustomDay ?? 1)
+        : null,
       frequency: input.frequency,
       dayOfMonth: input.frequency === "MONTHLY" ? (input.dayOfMonth ?? null) : null,
       startDate: ymdToDate(input.startDate)!,
@@ -167,7 +253,7 @@ export async function createRecurrence(
     },
   });
   const weeks = occurrenceWeeks(rule);
-  const cells = await materialize(tenantId, rowId, weeks, Number(rule.amount), createdBy);
+  const cells = await materializeRule(tenantId, rule, weeks, createdBy);
   return { rule, cells };
 }
 
@@ -182,8 +268,20 @@ export async function updateRecurrence(
   });
   if (!old) throw new Error("Regla recurrente no encontrada");
 
+  const currency = input.currency ?? old.currency;
   const next = {
     amount: input.amount ?? Number(old.amount),
+    currency,
+    amountUf:
+      input.amountUf !== undefined
+        ? input.amountUf
+        : old.amountUf != null
+          ? Number(old.amountUf)
+          : null,
+    ufPolicy:
+      input.ufPolicy !== undefined ? input.ufPolicy : old.ufPolicy,
+    ufCustomDay:
+      input.ufCustomDay !== undefined ? input.ufCustomDay : old.ufCustomDay,
     frequency: input.frequency ?? old.frequency,
     dayOfMonth:
       input.dayOfMonth !== undefined ? input.dayOfMonth : old.dayOfMonth,
@@ -198,19 +296,39 @@ export async function updateRecurrence(
   if (next.endDate && next.endDate < next.startDate) {
     throw new Error("endDate no puede ser anterior a startDate");
   }
+  if (next.currency === "UF" && !(next.amountUf != null && next.amountUf > 0)) {
+    throw new Error("amountUf requerido para moneda UF");
+  }
+
+  const amountClp = await estimateClpForStorage({
+    amount: next.amount,
+    frequency: next.frequency,
+    startDate: next.startDate,
+    currency: next.currency,
+    amountUf: next.amountUf,
+    ufPolicy: next.ufPolicy,
+    ufCustomDay: next.ufCustomDay,
+  });
 
   const currentWeek = weekStartYmd(new Date());
   const isFuture = (w: string) => w >= currentWeek;
 
-  // Solo el futuro se reescribe. Se limpian las celdas futuras de la regla
-  // ANTERIOR y se materializan las de la nueva; el pasado queda intacto.
   const oldFuture = occurrenceWeeks(old).filter(isFuture);
-  if (oldFuture.length > 0) await materialize(tenantId, old.rowId, oldFuture, 0, updatedBy);
+  if (oldFuture.length > 0) {
+    await materializeClp(tenantId, old.rowId, oldFuture, 0, updatedBy);
+  }
 
   const rule = await prisma.financeFlowPlanRecurrence.update({
     where: { id: old.id },
     data: {
-      amount: next.amount,
+      amount: amountClp,
+      currency: next.currency,
+      amountUf: next.currency === "UF" ? next.amountUf : null,
+      ufPolicy: next.currency === "UF" ? (next.ufPolicy ?? "RUN_DAY") : null,
+      ufCustomDay:
+        next.currency === "UF" && next.ufPolicy === "CUSTOM_DAY"
+          ? (next.ufCustomDay ?? 1)
+          : null,
       frequency: next.frequency,
       dayOfMonth: next.frequency === "MONTHLY" ? (next.dayOfMonth ?? null) : null,
       startDate: ymdToDate(next.startDate)!,
@@ -219,7 +337,7 @@ export async function updateRecurrence(
   });
 
   const newFuture = occurrenceWeeks(rule).filter(isFuture);
-  const cells = await materialize(tenantId, rule.rowId, newFuture, Number(rule.amount), updatedBy);
+  const cells = await materializeRule(tenantId, rule, newFuture, updatedBy);
   return { rule, cells };
 }
 
@@ -237,10 +355,31 @@ export async function deleteRecurrence(
   if (!keepCells) {
     const currentWeek = weekStartYmd(new Date());
     const future = occurrenceWeeks(rule).filter((w) => w >= currentWeek);
-    if (future.length > 0) await materialize(tenantId, rule.rowId, future, 0, updatedBy);
+    if (future.length > 0) await materializeClp(tenantId, rule.rowId, future, 0, updatedBy);
   }
   await prisma.financeFlowPlanRecurrence.delete({ where: { id: rule.id } });
   return { deleted: true };
+}
+
+/**
+ * Recalcula CLP de reglas UF en semanas futuras no selladas.
+ * Idempotente; invocado desde cron cashflow-sync y al guardar.
+ */
+export async function rematerializeUfRecurrences(
+  tenantId: string,
+): Promise<{ rules: number; cells: number }> {
+  const rules = await prisma.financeFlowPlanRecurrence.findMany({
+    where: { tenantId, currency: "UF" },
+  });
+  const currentWeek = weekStartYmd(new Date());
+  let cells = 0;
+  for (const rule of rules) {
+    if (rule.endDate && toYmd(rule.endDate) < toYmd(new Date())) continue;
+    const future = occurrenceWeeks(rule).filter((w) => w >= currentWeek);
+    const written = await materializeRule(tenantId, rule, future, null);
+    cells += written.length;
+  }
+  return { rules: rules.length, cells };
 }
 
 /** Reglas recurrentes de una fila (para editarlas desde el menú). */

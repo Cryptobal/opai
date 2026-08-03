@@ -23,7 +23,10 @@ import { BalanceRow } from "./BalanceRow";
 import { CellLayersPopover, type PopoverState } from "./CellLayersPopover";
 import { FillRightDialog, type FillRightRequest } from "./FillRightDialog";
 import { usePlanillaKeyboard, type CellSel } from "./usePlanillaKeyboard";
-import { cellsInRect, rangeRect, rangeToTsv, type RangeSel } from "./range-sel";
+import {
+  cellKey, cellsInRect, discreteStats, rangeRect, rangeToTsv, toggleDiscreteCell,
+  type DiscreteSelStats, type RangeSel,
+} from "./range-sel";
 import { MenuItems } from "./menu-render";
 import {
   buildCellMenu, buildRowMenu, extractRowTemplates, type RowTemplate,
@@ -32,6 +35,9 @@ import {
   ChangeCategoryDialog, ChangeSectionDialog, DeferTermDialog, DiasCobroDialog,
 } from "./RowDialogs";
 import { RecurringExpenseDialog } from "./RecurringExpenseDialog";
+import { CellActionSheet } from "./CellActionSheet";
+import { SumPill } from "./SumPill";
+import { UnmatchedIncomeList } from "./UnmatchedIncomeList";
 import type { HistoryEntry } from "./usePlanillaHistory";
 import type { usePlanillaActions } from "./usePlanillaActions";
 import type { CellStyle } from "./usePlanillaViewPrefs";
@@ -79,6 +85,13 @@ interface Props {
   onNameWChange?: (w: number) => void;
   /** Orden por monto (sesión): null = A→Z del servidor. */
   amountSort?: { weekStart: string; dir: "asc" | "desc" } | null;
+  /** Modo Σ: selección discontinua por tap / Ctrl+click. */
+  sumMode?: boolean;
+  onSumModeChange?: (on: boolean) => void;
+  /** Stats del set discontinuo → statusbar desktop. */
+  onDiscreteStats?: (stats: DiscreteSelStats | null) => void;
+  /** Refetch de matriz (tras crear fila desde Otros clientes). */
+  onRefresh?: () => void;
 }
 
 type RowDialogState =
@@ -116,6 +129,7 @@ export function PlanillaGrid({
   showChips, numberFormat, getCellStyle, onSelectionChange,
   searchQuery, collapseApiRef, openLayersRequest,
   onCopyRange, nameW, onNameWChange, amountSort,
+  sumMode = false, onSumModeChange, onDiscreteStats, onRefresh,
 }: Props) {
   const router = useRouter();
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
@@ -124,6 +138,8 @@ export function PlanillaGrid({
   const [renamingRowId, setRenamingRowId] = useState<string | null>(null);
   const [rowDialog, setRowDialog] = useState<RowDialogState>(null);
   const [ctxTarget, setCtxTarget] = useState<CtxTarget>(null);
+  const [sheetTarget, setSheetTarget] = useState<CtxTarget>(null);
+  const [discreteSel, setDiscreteSel] = useState<Map<string, number>>(() => new Map());
   const [dropTarget, setDropTarget] = useState<{ rowId: string; colIdx: number } | null>(null);
   const dragRef = useRef<{ rowId: string; week: string } | null>(null);
   const localRef = useRef<HTMLDivElement | null>(null);
@@ -330,6 +346,12 @@ export function PlanillaGrid({
     onCopyRange(rangeToTsv(grid));
   }, [onCopyRange, visibleRowIds, visibleRowIdxById, rowById]);
 
+  const clearDiscrete = useCallback(() => {
+    setDiscreteSel(new Map());
+    onSumModeChange?.(false);
+    onDiscreteStats?.(null);
+  }, [onSumModeChange, onDiscreteStats]);
+
   const kb = usePlanillaKeyboard({
     data: kbData,
     canEditCell,
@@ -339,8 +361,54 @@ export function PlanillaGrid({
     onUndo: () => void handleUndo(),
     onRedo: () => void handleRedo(),
     onCopy: copyRangeTsv,
+    onEscape: clearDiscrete,
   });
   kbRef.current = kb;
+
+  const discreteKeys = useMemo(() => new Set(discreteSel.keys()), [discreteSel]);
+  const discreteSelStats = useMemo(() => discreteStats(discreteSel.values()), [discreteSel]);
+
+  useEffect(() => {
+    if (!sumMode || discreteSel.size === 0) {
+      onDiscreteStats?.(sumMode ? discreteSelStats : null);
+      return;
+    }
+    onDiscreteStats?.(discreteSelStats);
+  }, [sumMode, discreteSelStats, discreteSel.size, onDiscreteStats]);
+
+  // Recalcular valores del set Σ cuando cambia la matriz (edición).
+  useEffect(() => {
+    if (discreteSel.size === 0) return;
+    setDiscreteSel((prev) => {
+      let changed = false;
+      const next = new Map<string, number>();
+      for (const [key] of prev) {
+        const [rowId, colStr] = key.split(":");
+        const colIdx = Number(colStr);
+        const row = rowById.get(rowId!);
+        const cell = row?.cells[colIdx];
+        if (!row || !cell) {
+          changed = true;
+          continue;
+        }
+        const v = displayValue(row.section, cell.layer, cell.effective);
+        next.set(key, v);
+        if (v !== prev.get(key)) changed = true;
+      }
+      return changed ? next : prev;
+    });
+  }, [data.rows, rowById, discreteSel.size]);
+
+  const toggleDiscrete = useCallback(
+    (sel: CellSel) => {
+      const row = rowById.get(sel.rowId);
+      const cell = row?.cells[sel.colIdx];
+      if (!row || !cell) return;
+      const v = displayValue(row.section, cell.layer, cell.effective);
+      setDiscreteSel((prev) => toggleDiscreteCell(prev, cellKey(sel.rowId, sel.colIdx), v));
+    },
+    [rowById],
+  );
 
   const activeRect = useMemo(
     () => (kb.range ? rangeRect(kb.range, visibleRowIds) : null),
@@ -468,52 +536,67 @@ export function PlanillaGrid({
     [rowCallbacks],
   );
 
-  const ctxItems = useMemo(() => {
-    if (!ctxTarget) return null;
-    if (ctxTarget.kind === "row") {
-      const row = rowById.get(ctxTarget.rowId);
-      return row ? rowMenuFor(row) : null;
-    }
-    const { rowId, colIdx } = ctxTarget.sel;
-    const row = rowById.get(rowId);
-    const cell = row?.cells[colIdx];
-    const col = data.columns[colIdx];
-    if (!row || !cell || !col) return null;
-    const editable = canEditCell(rowId, colIdx);
-    const reason = !canManage
-      ? "Sin permiso de edición"
-      : data.granularity !== "week"
-        ? "Cambia a vista semanal"
-        : row.isVirtual
-          ? "Fila calculada"
-          : row.isArchived
-            ? "Fila archivada"
-            : col.isPast
-              ? "Semana pasada (solo real)"
-              : closedSet.has(col.key)
-                ? "Semana cerrada"
-                : hasInvoicedIncome(row.section, cell.committed)
-                  ? "Ingreso facturado (la factura manda)"
-                  : "";
-    const openWeeks = data.columns.filter((_, i) => i !== colIdx && canEditCell(rowId, i));
-    // Facturas: se pueden reubicar a semanas abiertas (no pasadas/cerradas),
-    // aunque la celda origen esté bloqueada por "la factura manda".
-    const dteMoveWeeks = data.columns.filter(
-      (c, i) =>
-        i !== colIdx &&
-        data.granularity === "week" &&
-        !c.isPast &&
-        !closedSet.has(c.key) &&
-        !row.isArchived &&
-        !row.isVirtual,
-    );
-    return buildCellMenu(
-      row,
-      cell,
-      { editable, reason, openWeeks, dteMoveWeeks, canManage },
-      cellCallbacksFor(ctxTarget.sel, col.key),
-    );
-  }, [ctxTarget, rowById, data.columns, data.granularity, canEditCell, canManage, closedSet, rowMenuFor, cellCallbacksFor]);
+  const menuItemsFor = useCallback(
+    (target: CtxTarget) => {
+      if (!target) return null;
+      if (target.kind === "row") {
+        const row = rowById.get(target.rowId);
+        return row ? rowMenuFor(row) : null;
+      }
+      const { rowId, colIdx } = target.sel;
+      const row = rowById.get(rowId);
+      const cell = row?.cells[colIdx];
+      const col = data.columns[colIdx];
+      if (!row || !cell || !col) return null;
+      const editable = canEditCell(rowId, colIdx);
+      const reason = !canManage
+        ? "Sin permiso de edición"
+        : data.granularity !== "week"
+          ? "Cambia a vista semanal"
+          : row.isVirtual
+            ? "Fila calculada"
+            : row.isArchived
+              ? "Fila archivada"
+              : col.isPast
+                ? "Semana pasada (solo real)"
+                : closedSet.has(col.key)
+                  ? "Semana cerrada"
+                  : hasInvoicedIncome(row.section, cell.committed)
+                    ? "Ingreso facturado (la factura manda)"
+                    : "";
+      const openWeeks = data.columns.filter((_, i) => i !== colIdx && canEditCell(rowId, i));
+      const dteMoveWeeks = data.columns.filter(
+        (c, i) =>
+          i !== colIdx &&
+          data.granularity === "week" &&
+          !c.isPast &&
+          !closedSet.has(c.key) &&
+          !row.isArchived &&
+          !row.isVirtual,
+      );
+      return buildCellMenu(
+        row,
+        cell,
+        { editable, reason, openWeeks, dteMoveWeeks, canManage },
+        cellCallbacksFor(target.sel, col.key),
+      );
+    },
+    [rowById, data.columns, data.granularity, canEditCell, canManage, closedSet, rowMenuFor, cellCallbacksFor],
+  );
+
+  const ctxItems = useMemo(() => menuItemsFor(ctxTarget), [menuItemsFor, ctxTarget]);
+  const sheetItems = useMemo(() => menuItemsFor(sheetTarget) ?? [], [menuItemsFor, sheetTarget]);
+  const sheetRow = sheetTarget?.kind === "row"
+    ? rowById.get(sheetTarget.rowId) ?? null
+    : sheetTarget?.kind === "cell"
+      ? rowById.get(sheetTarget.sel.rowId) ?? null
+      : null;
+  const sheetCell = sheetTarget?.kind === "cell"
+    ? sheetRow?.cells[sheetTarget.sel.colIdx] ?? null
+    : null;
+  const sheetWeekLabel = sheetTarget?.kind === "cell"
+    ? data.columns[sheetTarget.sel.colIdx]?.label
+    : undefined;
 
   const anchoredRef = useRef(false);
   useEffect(() => {
@@ -654,8 +737,14 @@ export function PlanillaGrid({
                       visibleRowIdx={visibleRowIdxById.get(row.id) ?? 0}
                       rangeRect={activeRect}
                       editing={kb.editing}
-                      onSelect={(sel, extend) => {
+                      onSelect={(sel, extend, meta) => {
                         setPopover(null);
+                        if (sumMode || meta) {
+                          if (!sumMode) onSumModeChange?.(true);
+                          toggleDiscrete(sel);
+                          kb.setSel(sel);
+                          return;
+                        }
                         if (extend) kb.extendTo(sel);
                         else kb.setSel(sel);
                       }}
@@ -669,10 +758,14 @@ export function PlanillaGrid({
                       onRenameCancel={() => setRenamingRowId(null)}
                       rowMenu={rowMenuFor(row)}
                       onRowContext={() => setCtxTarget({ kind: "row", rowId: row.id })}
+                      onOpenRowSheet={() => setSheetTarget({ kind: "row", rowId: row.id })}
                       canEditCell={canEditCell}
-                      enableDrag={enableDrag}
+                      enableDrag={enableDrag && !sumMode}
                       dropTarget={dropTarget}
                       onCellContext={(sel) => setCtxTarget({ kind: "cell", sel })}
+                      onOpenCellSheet={(sel) => setSheetTarget({ kind: "cell", sel })}
+                      sumMode={sumMode}
+                      discreteKeys={discreteKeys}
                       onCellDragStart={onCellDragStart}
                       onCellDragOver={onCellDragOver}
                       onCellDrop={onCellDrop}
@@ -686,6 +779,7 @@ export function PlanillaGrid({
                         (visibleRowIdxById.get(row.id) ?? -1) <= activeRect.r1
                       }
                       searchQuery={searchQuery}
+                      ufCaption={row.ufCaption}
                     />
                   ))}
                 </tbody>
@@ -817,6 +911,40 @@ export function PlanillaGrid({
           setRowDialog(null);
         }}
       />
+
+      <CellActionSheet
+        open={
+          sheetTarget != null &&
+          (sheetItems.length > 0 ||
+            !!(sheetRow && (sheetRow.isVirtual || sheetRow.name === "Otros clientes") && sheetCell))
+        }
+        onOpenChange={(o) => { if (!o) setSheetTarget(null); }}
+        row={sheetRow}
+        cell={sheetCell}
+        weekLabel={sheetWeekLabel}
+        items={sheetItems}
+      >
+        {sheetRow &&
+          (sheetRow.isVirtual || sheetRow.name === "Otros clientes") &&
+          sheetCell &&
+          sheetCell.effective !== 0 && (
+            <UnmatchedIncomeList
+              weekStart={sheetCell.weekStart}
+              onCreated={() => {
+                setSheetTarget(null);
+                onRefresh?.();
+              }}
+            />
+          )}
+      </CellActionSheet>
+
+      {sumMode && (
+        <SumPill
+          stats={discreteSelStats}
+          numberFormat={numberFormat}
+          onDone={clearDiscrete}
+        />
+      )}
     </>
   );
 }
