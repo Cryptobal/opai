@@ -1,13 +1,15 @@
 "use client";
 
-import type { MatrixColumn } from "@/modules/finance/flow-v3/matrix-types";
-import { fmtCell, NUM_CLASS, numSizeClass, type NumberFormatMode } from "./format";
+import type { BalanceBreak, MatrixColumn } from "@/modules/finance/flow-v3/matrix-types";
+import { weekLabel } from "@/modules/finance/flow-v3/weeks";
+import { fmtCell, fmtClp, NUM_CLASS, numSizeClass, type NumberFormatMode } from "./format";
 import { COL_W, GUTTER_CELL, GUTTER_W, NAME_LEFT, NAME_W, TODAY_COL } from "./grid-classes";
 
 interface Props {
   columns: MatrixColumn[];
   flows: number[];
   balances: number[];
+  balanceBreaks?: Array<BalanceBreak | null>;
   warnThreshold: number;
   /** Número de gutter de la primera fila del resumen (correlativo de la hoja). */
   startNumber: number;
@@ -26,7 +28,7 @@ function heatClass(balance: number, warnThreshold: number): string {
 }
 
 export function BalanceRow({
-  columns, flows, balances, warnThreshold, startNumber, numberFormat = "clp",
+  columns, flows, balances, balanceBreaks, warnThreshold, startNumber, numberFormat = "clp",
   selectedColIdx, selectedColIndices,
 }: Props) {
   const nameTh = `planilla-name-col ${NAME_W} sticky ${NAME_LEFT} z-10 border-r border-t border-ds-border-default bg-ds-surface-2 px-1.5 max-md:px-1 text-left overflow-hidden whitespace-nowrap ${EYEBROW} text-ds-text-3`;
@@ -74,12 +76,26 @@ export function BalanceRow({
         </th>
         {columns.map((c, i) => {
           const text = fmtCell(balances[i], numberFormat);
+          const brk = balanceBreaks?.[i] ?? null;
+          const exactTitle = numberFormat !== "clp" && balances[i] !== 0 ? fmtCell(balances[i], "clp") : undefined;
+          const breakTitle = brk
+            ? `Descuadre no conciliado vs cierre ${weekLabel(brk.vsWeek)}: ${fmtClp(brk.delta)}`
+            : undefined;
+          const title = [breakTitle, exactTitle].filter(Boolean).join(" · ") || undefined;
           return (
             <td
               key={c.key}
-              title={numberFormat !== "clp" && balances[i] !== 0 ? fmtCell(balances[i], "clp") : undefined}
-              className={`${cellBase} border-t-0 font-semibold ${numSizeClass(text)} ${heatClass(balances[i], warnThreshold)} ${c.isCurrent ? TODAY_COL : ""} ${sel(i)}`}
+              title={title}
+              className={`relative ${cellBase} border-t-0 font-semibold ${numSizeClass(text)} ${heatClass(balances[i], warnThreshold)} ${c.isCurrent ? TODAY_COL : ""} ${sel(i)}`}
             >
+              {brk && (
+                <span
+                  aria-label={breakTitle}
+                  className="absolute right-0.5 top-0 text-[12px] leading-none text-status-warn-fg"
+                >
+                  ⚠
+                </span>
+              )}
               {text}
             </td>
           );

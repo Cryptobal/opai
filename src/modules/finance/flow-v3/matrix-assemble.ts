@@ -17,6 +17,10 @@
  *    ventana (`realNetAfterWindow`, lo aporta el service);
  *  - ventana enteramente futura: ancla aproximada en saldo hoy (el gap sin
  *    cargar se documenta en QA).
+ *  - sellos de cierre (`sealedBalances`): anclan exactamente su semana; el
+ *    tramo anterior deriva hacia atrás desde el sello con `realNet`.
+ *    Descuadre sello↔derivado se reporta en `balanceBreaks` (no se inventan
+ *    ajustes).
  */
 import type { CommittedByRow, CommittedCell, RealByRow, RealCell } from "./types";
 
@@ -50,6 +54,14 @@ export interface FlowMatrixRowDto extends AssembleRowInput {
   cells: FlowMatrixCellDto[];
 }
 
+/** Descuadre de saldo vs un sello de cierre (para marca ⚠ en UI). */
+export interface BalanceBreak {
+  /** Lunes ISO de la semana sellada contra la que descuadra. */
+  vsWeek: string;
+  /** `balances[vs] + flujo[esta] − balances[esta]` (signed). */
+  delta: number;
+}
+
 export interface AssembleArgs {
   rows: AssembleRowInput[];
   weeks: string[];
@@ -61,18 +73,26 @@ export interface AssembleArgs {
   /** Σ real cash-signed de las semanas ENTRE el fin de ventana y hoy (solo
    *  ventanas enteramente pasadas). */
   realNetAfterWindow?: number;
+  /** Sellos de cierre: lunes ISO → bankBalanceClp (o forced si manual). */
+  sealedBalances?: Map<string, number>;
+  /** Último sello previo al rango (ancla el tramo más antiguo visible). */
+  priorSealed?: { mondayYmd: string; balance: number } | null;
 }
 
 export interface AssembledMatrix {
   rows: FlowMatrixRowDto[];
   flows: number[];
   balances: number[];
+  /** Descuadre por índice de columna (null = ok). */
+  balanceBreaks: Array<BalanceBreak | null>;
   kpis: { saldoHoy: number; minBalance: number; minWeek: string };
 }
 
 /** Plan cash-signed: INGRESOS +, FINANCIAMIENTO tal como se tipeó, resto −. */
 const planCashSign = (section: string, value: number): number =>
   section === "INGRESOS" || section === "FINANCIAMIENTO" ? value : -value;
+
+const BREAK_TOLERANCE = 1;
 
 export function assembleMatrix(args: AssembleArgs): AssembledMatrix {
   const { weeks, currentWeek, openingBalance } = args;
@@ -116,24 +136,96 @@ export function assembleMatrix(args: AssembleArgs): AssembledMatrix {
     return { ...r, cells };
   });
 
+  const sealedAt = new Map<number, number>();
+  if (args.sealedBalances) {
+    for (let i = 0; i < n; i++) {
+      const s = args.sealedBalances.get(weeks[i]);
+      if (s != null) sealedAt.set(i, s);
+    }
+  }
+
   const balances = new Array<number>(n).fill(0);
+  const balanceBreaks: Array<BalanceBreak | null> = new Array(n).fill(null);
   const allPast = n > 0 && currentWeek > weeks[n - 1];
   const allFuture = n > 0 && currentWeek < weeks[0];
   let ci = weeks.indexOf(currentWeek);
+
   if (allPast) {
-    balances[n - 1] = openingBalance - (args.realNetAfterWindow ?? 0);
-    for (let i = n - 2; i >= 0; i--) balances[i] = balances[i + 1] - realNet[i + 1];
+    // Ancla al final de ventana; sellos pisan hacia atrás.
+    balances[n - 1] = sealedAt.has(n - 1)
+      ? sealedAt.get(n - 1)!
+      : openingBalance - (args.realNetAfterWindow ?? 0);
+    for (let i = n - 2; i >= 0; i--) {
+      if (sealedAt.has(i)) balances[i] = sealedAt.get(i)!;
+      else balances[i] = balances[i + 1] - realNet[i + 1];
+    }
     ci = n - 1;
   } else if (allFuture) {
-    balances[0] = openingBalance + flows[0];
-    for (let i = 1; i < n; i++) balances[i] = balances[i - 1] + flows[i];
+    balances[0] = sealedAt.has(0) ? sealedAt.get(0)! : openingBalance + flows[0];
+    for (let i = 1; i < n; i++) {
+      if (sealedAt.has(i)) balances[i] = sealedAt.get(i)!;
+      else balances[i] = balances[i - 1] + flows[i];
+    }
     ci = 0;
   } else if (ci >= 0) {
-    balances[ci] = openingBalance + pendingNet[ci];
-    for (let i = ci + 1; i < n; i++) balances[i] = balances[i - 1] + flows[i];
+    const naturalCurrent = openingBalance + pendingNet[ci];
+    balances[ci] = sealedAt.has(ci) ? sealedAt.get(ci)! : naturalCurrent;
+
+    for (let i = ci + 1; i < n; i++) {
+      if (sealedAt.has(i)) balances[i] = sealedAt.get(i)!;
+      else balances[i] = balances[i - 1] + flows[i];
+    }
+
     for (let i = ci - 1; i >= 0; i--) {
-      const next = i === ci - 1 ? openingBalance : balances[i + 1];
-      balances[i] = next - realNet[i + 1];
+      if (sealedAt.has(i)) {
+        balances[i] = sealedAt.get(i)!;
+      } else {
+        // Misma regla que el ancla sin sellos: la semana previa a la actual
+        // des-acumula desde banco-hoy (sin pendiente), no desde balances[ci].
+        const nextBase =
+          i === ci - 1 && !sealedAt.has(ci) ? openingBalance : balances[i + 1];
+        balances[i] = nextBase - realNet[i + 1];
+      }
+    }
+
+    // Sello previo al rango: re-ancla el tramo [0 .. firstSealOrCi) caminando
+    // hacia adelante desde el sello (fin de esa semana previa).
+    if (args.priorSealed && !sealedAt.has(0)) {
+      let firstAnchor = ci;
+      for (let i = 0; i < ci; i++) {
+        if (sealedAt.has(i)) {
+          firstAnchor = i;
+          break;
+        }
+      }
+      let cursor = args.priorSealed.balance;
+      for (let i = 0; i < firstAnchor; i++) {
+        balances[i] = cursor + realNet[i];
+        cursor = balances[i];
+      }
+    }
+
+    // Descuadre sello ↔ siguiente (y sello actual vs banco-hoy).
+    if (sealedAt.has(ci) && Math.abs(balances[ci] - naturalCurrent) > BREAK_TOLERANCE) {
+      balanceBreaks[ci] = {
+        vsWeek: weeks[ci],
+        delta: Math.round(naturalCurrent - balances[ci]),
+      };
+    }
+  }
+
+  for (let i = 0; i < n - 1; i++) {
+    if (!sealedAt.has(i) && !sealedAt.has(i + 1)) continue;
+    // Flujo de la semana i+1: real en pasado; pending en actual; flows en futuro.
+    const flujo =
+      weeks[i + 1] < currentWeek
+        ? realNet[i + 1]
+        : weeks[i + 1] === currentWeek
+          ? pendingNet[i + 1]
+          : flows[i + 1];
+    const delta = Math.round(balances[i] + flujo - balances[i + 1]);
+    if (Math.abs(delta) > BREAK_TOLERANCE) {
+      balanceBreaks[i + 1] = { vsWeek: weeks[i], delta };
     }
   }
 
@@ -146,5 +238,11 @@ export function assembleMatrix(args: AssembleArgs): AssembledMatrix {
     }
   }
 
-  return { rows, flows, balances, kpis: { saldoHoy: openingBalance, minBalance, minWeek } };
+  return {
+    rows,
+    flows,
+    balances,
+    balanceBreaks,
+    kpis: { saldoHoy: openingBalance, minBalance, minWeek },
+  };
 }

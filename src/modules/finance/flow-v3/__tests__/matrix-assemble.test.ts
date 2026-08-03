@@ -80,6 +80,84 @@ describe("assembleMatrix — saldo acumulado", () => {
     expect(m.balances[3]).toBe(11_000);
     expect(m.balances[4]).toBe(13_000);
     expect(m.kpis.minBalance).toBe(11_000);
+    expect(m.balanceBreaks.every((b) => b == null)).toBe(true);
+  });
+
+  it("sin sellos: balances idénticos al comportamiento previo (byte a byte)", () => {
+    const rows = [row({ id: "ing" })];
+    const args = {
+      rows, weeks: WEEKS, currentWeek: CURRENT, openingBalance: 4_696_418,
+      plan: new Map() as Map<string, Map<string, number>>,
+      committed: committedOf("ing", "2026-07-20", 100),
+      real: realOf("ing", "2026-07-13", 50_000),
+    };
+    const m = assembleMatrix(args);
+    const mEmpty = assembleMatrix({ ...args, sealedBalances: new Map() });
+    expect(mEmpty.balances).toEqual(m.balances);
+  });
+
+  it("un sello ancla su semana y el tramo anterior deriva hacia atrás", () => {
+    // WEEKS[0..4] = S28..S32 approx; CURRENT = index 2.
+    // Sello en index 1 (2026-07-13) = 28_455_846.
+    const rows = [row({ id: "ing" })];
+    const sealed = new Map([["2026-07-13", 28_455_846]]);
+    const m = assembleMatrix({
+      rows, weeks: WEEKS, currentWeek: CURRENT, openingBalance: 10_000,
+      plan: new Map(),
+      committed: new Map(),
+      real: realOf("ing", "2026-07-13", 5_000),
+      sealedBalances: sealed,
+    });
+    expect(m.balances[1]).toBe(28_455_846);
+    // Semana 0 deriva desde el sello: 28_455_846 − realNet[1] = 28_455_846 − 5_000.
+    expect(m.balances[0]).toBe(28_450_846);
+    // Semana actual sigue anclada en banco-hoy.
+    expect(m.balances[2]).toBe(10_000);
+  });
+
+  it("dos sellos: cada uno manda en su semana; descuadre si frontera no cuadra", () => {
+    const rows = [row({ id: "ing" })];
+    const sealed = new Map([
+      ["2026-07-06", 1_000_000],
+      ["2026-07-13", 28_455_846],
+    ]);
+    const m = assembleMatrix({
+      rows, weeks: WEEKS, currentWeek: CURRENT, openingBalance: 4_696_418,
+      plan: new Map(),
+      committed: new Map(),
+      real: (() => {
+        const map: RealByRow = new Map([
+          ["ing", new Map([
+            ["2026-07-06", { total: 100, items: [] }],
+            ["2026-07-13", { total: 200, items: [] }],
+            ["2026-07-20", { total: 0, items: [] }],
+          ])],
+        ]);
+        return map;
+      })(),
+      sealedBalances: sealed,
+    });
+    expect(m.balances[0]).toBe(1_000_000);
+    expect(m.balances[1]).toBe(28_455_846);
+    // Frontera sello S28 → S29: 1_000_000 + 200 − 28_455_846 ≠ 0 → descuadre en idx 1.
+    expect(m.balanceBreaks[1]).toMatchObject({ vsWeek: "2026-07-06" });
+    expect(Math.abs(m.balanceBreaks[1]!.delta)).toBeGreaterThan(1);
+  });
+
+  it("sello ≠ derivado respecto de la semana actual marca descuadre", () => {
+    const rows = [row({ id: "ing" })];
+    // Sello en semana previa (idx 1) muy distinto del ancla banco-hoy.
+    const sealed = new Map([["2026-07-13", 28_455_846]]);
+    const m = assembleMatrix({
+      rows, weeks: WEEKS, currentWeek: CURRENT, openingBalance: 4_696_418,
+      plan: new Map(),
+      committed: new Map(),
+      real: realOf("ing", "2026-07-20", 0),
+      sealedBalances: sealed,
+    });
+    expect(m.balances[1]).toBe(28_455_846);
+    // Continuidad sello → actual: 28_455_846 + pending(0) − 4_696_418 >> 1.
+    expect(m.balanceBreaks[2]).toMatchObject({ vsWeek: "2026-07-13" });
   });
 
   it("fila archivada vacía sus celdas posteriores al cutoff", () => {

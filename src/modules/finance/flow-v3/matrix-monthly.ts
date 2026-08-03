@@ -70,7 +70,13 @@ export function reduceMonthly(
   weeks: string[],
   currentWeek: string,
   m: AssembledMatrix,
-): { columns: MatrixColumn[]; rows: FlowMatrixRowDto[]; flows: number[]; balances: number[] } {
+): {
+  columns: MatrixColumn[];
+  rows: FlowMatrixRowDto[];
+  flows: number[];
+  balances: number[];
+  balanceBreaks: AssembledMatrix["balanceBreaks"];
+} {
   const groups: Array<{ key: string; idx: number[] }> = [];
   weeks.forEach((w, i) => {
     const key = monthKeyOf(w);
@@ -99,5 +105,6 @@ export function reduceMonthly(
   }));
   const flows = groups.map((g) => g.idx.reduce((s, i) => s + m.flows[i], 0));
   const balances = groups.map((g) => m.balances[g.idx[g.idx.length - 1]]);
-  return { columns, rows, flows, balances };
+  const balanceBreaks = groups.map((g) => m.balanceBreaks[g.idx[g.idx.length - 1]] ?? null);
+  return { columns, rows, flows, balances, balanceBreaks };
 }

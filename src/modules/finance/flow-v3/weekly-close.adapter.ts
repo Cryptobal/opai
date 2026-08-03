@@ -254,24 +254,41 @@ export async function loadSealedBalancesForMatrix(
   const min = new Date(Math.min(...ends.map((d) => d.getTime())));
   const max = new Date(Math.max(...ends.map((d) => d.getTime())));
 
+  const sealSelect = {
+    weekEndDate: true,
+    bankBalanceClp: true,
+    isManual: true,
+    forcedBalanceClp: true,
+  } as const;
+  const resolvedSeal = (c: {
+    bankBalanceClp: { toString(): string } | number;
+    isManual: boolean;
+    forcedBalanceClp: { toString(): string } | number | null;
+  }) =>
+    Math.round(
+      Number(
+        c.isManual && c.forcedBalanceClp != null ? c.forcedBalanceClp : c.bankBalanceClp,
+      ),
+    );
+
   const [inRange, prior] = await Promise.all([
     prisma.financeCashflowWeeklyClose.findMany({
       where: {
         tenantId,
         weekEndDate: { gte: min, lte: new Date(max.getTime() + 86_400_000) },
       },
-      select: { weekEndDate: true, bankBalanceClp: true },
+      select: sealSelect,
     }),
     prisma.financeCashflowWeeklyClose.findFirst({
       where: { tenantId, weekEndDate: { lt: min } },
       orderBy: { weekEndDate: "desc" },
-      select: { weekEndDate: true, bankBalanceClp: true },
+      select: sealSelect,
     }),
   ]);
 
   const byEndYmd = new Map<string, number>();
   for (const c of inRange) {
-    byEndYmd.set(c.weekEndDate.toISOString().slice(0, 10), Math.round(Number(c.bankBalanceClp)));
+    byEndYmd.set(c.weekEndDate.toISOString().slice(0, 10), resolvedSeal(c));
   }
   for (const m of mapped) {
     const bal = byEndYmd.get(m.endYmd);
@@ -281,10 +298,7 @@ export async function loadSealedBalancesForMatrix(
   if (prior) {
     const priorEndYmd = prior.weekEndDate.toISOString().slice(0, 10);
     const priorMonday = toYmd(startOfIsoWeekUTC(ymdToDate(priorEndYmd)!));
-    priorSealed = {
-      mondayYmd: priorMonday,
-      balance: Math.round(Number(prior.bankBalanceClp)),
-    };
+    priorSealed = { mondayYmd: priorMonday, balance: resolvedSeal(prior) };
   }
 
   return { sealedBalances, priorSealed };

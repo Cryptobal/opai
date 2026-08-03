@@ -623,6 +623,7 @@ export function PlanillaGrid({
                 columns={data.columns}
                 flows={data.flows}
                 balances={data.balances}
+                balanceBreaks={data.balanceBreaks}
                 warnThreshold={data.warnThreshold}
                 startNumber={footerStart}
                 numberFormat={numberFormat}
