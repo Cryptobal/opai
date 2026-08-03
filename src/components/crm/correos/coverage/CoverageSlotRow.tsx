@@ -5,6 +5,9 @@ import { Copy, Minus, Plus, Trash2 } from "lucide-react";
 import { Tag } from "@/components/opai-ds";
 import { SimpleSelect } from "@/components/ui/simple-select";
 import { HOURS_24 } from "@/components/cpq/position-matrix/shift-utils";
+import { useLiquidoPreview } from "@/components/cpq/position-matrix/useLiquidoPreview";
+import { resolveSlotBaseSalary } from "@/lib/crm/resolve-slot-base-salary";
+import { formatNumber, parseLocalizedNumber } from "@/lib/utils";
 import { WEEKDAYS_FULL } from "@/modules/crm/email/email-to-lead.types";
 import type {
   CrmStructureCoverageSlot,
@@ -47,6 +50,8 @@ export type CoverageSlotRowProps = {
   onAutoFocusDone?: () => void;
   /** Roles de turno del tenant (catálogo CPQ); sin dato usa la lista estática. */
   regimenOptions?: RegimenOption[];
+  /** Piso salarial del pliego (si existe) para sembrar el bruto. */
+  salaryFloor?: number | null;
 };
 
 export function CoverageSlotRow({
@@ -55,10 +60,13 @@ export function CoverageSlotRow({
   onBumpSim, onBumpHeadcount, onDuplicate, onRemove,
   autoFocusName = false, onAutoFocusDone,
   regimenOptions = DEFAULT_REGIMEN_OPTIONS,
+  salaryFloor = null,
 }: CoverageSlotRowProps) {
   const regimenValue = slot.regimen ?? "";
   const regimenInList = regimenOptions.some((o) => o.value === regimenValue);
   const nameRef = useRef<HTMLInputElement | null>(null);
+  const bruto = resolveSlotBaseSalary(slot.baseSalary, salaryFloor);
+  const liquidoPreview = useLiquidoPreview(bruto, { disabled: !editable });
 
   useEffect(() => {
     if (!autoFocusName || !editable) return;
@@ -209,21 +217,57 @@ export function CoverageSlotRow({
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-ds-border-subtle pt-2">
-        <div className="flex items-center gap-2">
-          <span className="text-[12px] font-medium text-ds-text-3">Dotación</span>
-          {editable ? (
-            <div className="flex items-center gap-1">
-              <Stepper value={slot.headcount} onBump={onBumpHeadcount} label="dotación" />
-              {slot.headcountLocked && (
-                <span className="text-[12px] text-ds-text-4">manual</span>
-              )}
-            </div>
-          ) : (
-            <span className="text-[14px] tabular-nums font-semibold text-ds-text-1">
-              {slot.headcount}
-            </span>
-          )}
+      <div className="flex flex-wrap items-end justify-between gap-3 border-t border-ds-border-subtle pt-2">
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="flex items-center gap-2">
+            <span className="text-[12px] font-medium text-ds-text-3">Dotación</span>
+            {editable ? (
+              <div className="flex items-center gap-1">
+                <Stepper value={slot.headcount} onBump={onBumpHeadcount} label="dotación" />
+                {slot.headcountLocked && (
+                  <span className="text-[12px] text-ds-text-4">manual</span>
+                )}
+              </div>
+            ) : (
+              <span className="text-[14px] tabular-nums font-semibold text-ds-text-1">
+                {slot.headcount}
+              </span>
+            )}
+          </div>
+          <label className="block space-y-1">
+            <span className="text-[12px] font-medium text-ds-text-3">Bruto · Líquido</span>
+            {editable ? (
+              <div className="space-y-0.5">
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  aria-label="Sueldo bruto"
+                  value={formatNumber(bruto, { minDecimals: 0, maxDecimals: 0 })}
+                  onChange={(e) => {
+                    const n = parseLocalizedNumber(e.target.value) || 0;
+                    onUpdate("baseSalary", n > 0 ? n : null, { recalc: false });
+                  }}
+                  className={`${FIELD} w-[7.5rem] font-mono tabular-nums text-ds-text-1`}
+                />
+                <p className="font-mono text-[12px] text-ds-text-4">
+                  {liquidoPreview?.net
+                    ? `líq ${Math.round(liquidoPreview.net).toLocaleString("es-CL")}`
+                    : "líq —"}
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-0.5">
+                <p className="font-mono text-[13px] tabular-nums text-ds-text-2">
+                  {formatNumber(bruto, { minDecimals: 0, maxDecimals: 0 })}
+                </p>
+                <p className="font-mono text-[12px] text-ds-text-4">
+                  {liquidoPreview?.net
+                    ? `líq ${Math.round(liquidoPreview.net).toLocaleString("es-CL")}`
+                    : "líq —"}
+                </p>
+              </div>
+            )}
+          </label>
         </div>
         <span className="font-mono text-[12px] text-ds-text-4">
           {slot.weeklyHH} HH/sem{slot.pattern ? ` · ${slot.pattern}` : ""}

@@ -39,6 +39,11 @@ export type CrmStructureCoverageSlot = {
   vigenciaHasta?: string | null;
   /** true si el documento no declaró horas y se usó el default 08–20 / 20–08. */
   horarioAsumido?: boolean;
+  /**
+   * Sueldo bruto CLP/mes del puesto (editable en Plan, se materializa en CPQ).
+   * null/undefined = usar piso del pliego o default interno al crear la cotización.
+   */
+  baseSalary?: number | null;
 };
 
 /** Peak de dotación simultánea entre vigencias (calculado en servidor). */
@@ -55,6 +60,9 @@ export type CrmStructureInstallation = {
   commune: string | null;
   city: string | null;
   mapsUrl: string | null;
+  /** Coordenadas resueltas vía Google Maps / URL (persistidas al crear). */
+  lat?: number | null;
+  lng?: number | null;
   coverageSlots: CrmStructureCoverageSlot[];
 };
 

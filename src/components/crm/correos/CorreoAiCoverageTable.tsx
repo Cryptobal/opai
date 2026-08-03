@@ -79,6 +79,7 @@ export function CorreoAiCoverageTable({ proposal, onChange, regimenOptions }: Pr
             field !== "role" &&
             field !== "notes" &&
             field !== "etapa" &&
+            field !== "baseSalary" &&
             !opts?.lockHeadcount
           ) {
             delete patched.headcountLocked;
@@ -121,6 +122,8 @@ export function CorreoAiCoverageTable({ proposal, onChange, regimenOptions }: Pr
         commune: null,
         city: null,
         mapsUrl: null,
+        lat: null,
+        lng: null,
         coverageSlots: [],
       },
     ];
@@ -133,12 +136,14 @@ export function CorreoAiCoverageTable({ proposal, onChange, regimenOptions }: Pr
     const instIdx = group?.slots[0]?.instIdx ?? 0;
     const etapa = groupKey === GENERAL_ETAPA_KEY ? null : groupKey;
     const groupSlots = (group?.slots ?? []).map(({ slot: s }) => s);
+    const floor = proposal.condicionesEconomicas?.sueldoBaseMinimo;
     const slot = emptyCoverageSlot({
       etapa,
       // Nunca sin nombre: el coerce del refine descartaría la fila.
       name: nextSlotName(groupSlots, kind === "rondin" ? "Rondín" : "Puesto"),
       vigenciaDesde: group?.vigenciaDesde ?? null,
       vigenciaHasta: group?.vigenciaHasta ?? null,
+      ...(typeof floor === "number" && floor > 0 ? { baseSalary: floor } : {}),
       ...(kind === "rondin"
         ? { regimen: "Rondín", horaInicio: "20:00", horaFin: "08:00" }
         : {}),
@@ -209,6 +214,7 @@ export function CorreoAiCoverageTable({ proposal, onChange, regimenOptions }: Pr
                   autoFocusName={focusKey === `${instIdx}-${slotIdx}`}
                   onAutoFocusDone={() => setFocusKey(null)}
                   regimenOptions={regimenOptions}
+                  salaryFloor={proposal.condicionesEconomicas?.sueldoBaseMinimo}
                   onUpdate={(field, value, opts) =>
                     updateSlot(instIdx, slotIdx, field, value, opts)
                   }

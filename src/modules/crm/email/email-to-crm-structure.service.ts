@@ -348,6 +348,9 @@ function enrichSlot(
   const vigenciaDesde = ymd(raw.vigenciaDesde);
   const vigenciaHasta = ymd(raw.vigenciaHasta);
   const horarioAsumido = bool(raw.horarioAsumido);
+  // Preservar bruto editado en el Plan (o extraído); no inventar default acá.
+  const baseSalary =
+    num(raw.baseSalary) ?? num(raw.sueldoBruto) ?? num(raw.bruto);
   return {
     name,
     role: str(raw.role) ?? str(raw.rol),
@@ -366,6 +369,7 @@ function enrichSlot(
     vigenciaDesde,
     vigenciaHasta,
     ...(horarioAsumido ? { horarioAsumido: true } : {}),
+    ...(baseSalary != null ? { baseSalary } : {}),
   };
 }
 
@@ -382,12 +386,17 @@ function enrichInstallation(raw: unknown, weeklyHours: number): CrmStructureInst
         : null,
     )
     .filter((s): s is CrmStructureCoverageSlot => !!s);
+  const latRaw = Number(r.lat);
+  const lngRaw = Number(r.lng);
+  const lat = Number.isFinite(latRaw) ? latRaw : null;
+  const lng = Number.isFinite(lngRaw) ? lngRaw : null;
   return {
     name,
     address: str(r.address) ?? str(r.direccion),
     commune: str(r.commune) ?? str(r.comuna),
     city: str(r.city) ?? str(r.ciudad),
     mapsUrl: str(r.mapsUrl),
+    ...(lat != null && lng != null ? { lat, lng } : {}),
     coverageSlots,
   };
 }

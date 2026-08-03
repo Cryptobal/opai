@@ -239,6 +239,47 @@ describe("normalizeCrmStructureProposal", () => {
     expect(proposal.condicionesEconomicas?.sueldoBaseMinimo).toBe(620000);
   });
 
+  it("conserva baseSalary del puesto y lat/lng de la instalación", () => {
+    const proposal = normalizeCrmStructureProposal({
+      account: { name: "CGE" },
+      installations: [
+        {
+          name: "Subestación",
+          address: "Padre las Casas",
+          commune: "Padre las Casas",
+          city: "Temuco",
+          mapsUrl: "https://www.google.com/maps?q=-38.7,-72.6",
+          lat: -38.7,
+          lng: -72.6,
+          coverageSlots: [
+            {
+              name: "Guardia Diurna",
+              regimen: "24/7",
+              dias: [
+                "lunes",
+                "martes",
+                "miercoles",
+                "jueves",
+                "viernes",
+                "sabado",
+                "domingo",
+              ],
+              horaInicio: "08:00",
+              horaFin: "20:00",
+              simultaneous: 1,
+              baseSalary: 600000,
+            },
+          ],
+        },
+      ],
+    });
+    const inst = proposal.installations[0];
+    expect(inst.lat).toBe(-38.7);
+    expect(inst.lng).toBe(-72.6);
+    expect(inst.mapsUrl).toContain("google.com/maps");
+    expect(inst.coverageSlots[0].baseSalary).toBe(600000);
+  });
+
   it("conserva etapa/vigencia/horarioAsumido y calcula staffingPeak (no suma total)", () => {
     const week = [
       "lunes",

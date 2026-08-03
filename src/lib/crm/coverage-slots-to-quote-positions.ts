@@ -16,7 +16,10 @@ import {
   getCoveragePatternMeta,
 } from "@/lib/cpq/coverage-patterns";
 import { normalizeWeekdays } from "@/lib/cpq/weekdays";
+import { resolveSlotBaseSalary } from "@/lib/crm/resolve-slot-base-salary";
 import type { CrmStructureProposal } from "@/modules/crm/email/email-to-crm-structure.types";
+
+export { resolveSlotBaseSalary } from "@/lib/crm/resolve-slot-base-salary";
 
 function normalizePositiveInt(value: unknown, fallback: number): number {
   const n = typeof value === "number" ? value : Number(value);
@@ -156,12 +159,11 @@ export async function materializeCoverageSlotsOnQuote(params: {
     const endTime = slot.horaFin || "20:00";
     const numGuards = normalizePositiveInt(slot.headcount, 1);
     const numPuestos = normalizePositiveInt(slot.simultaneous, 1);
-    // Piso del pliego si la extracción lo detectó; si no, default interno.
-    const floor = proposal.condicionesEconomicas?.sueldoBaseMinimo;
-    const baseSalary =
-      typeof floor === "number" && Number.isFinite(floor) && floor > 0
-        ? Math.round(floor)
-        : 550000;
+    // Bruto del puesto (Plan) > piso del pliego > default interno.
+    const baseSalary = resolveSlotBaseSalary(
+      slot.baseSalary,
+      proposal.condicionesEconomicas?.sueldoBaseMinimo,
+    );
 
     let employerCost = 0;
     let netSalary = 0;
