@@ -1,6 +1,6 @@
 "use client";
 
-import { fmtClp, fmtShortDate } from "./format";
+import { fmtClp, fmtCell, fmtShortDate, type NumberFormatMode } from "./format";
 
 interface Props {
   saldoHoy: number | null;
@@ -9,18 +9,24 @@ interface Props {
   bankStale: boolean;
   minTone: string;
   onOpenBank: () => void;
-  /** Suma de la fila seleccionada (celdas no vacías) y conteo. */
-  rowSum: number | null;
-  rowCellCount: number;
+  /** Stats del rango (o fila si 1×N). Vacías cuentan 0 en suma, no en avg/N. */
+  rangeSum: number | null;
+  rangeAvg: number | null;
+  rangeCount: number;
+  numberFormat?: NumberFormatMode;
+  /** Title con suma exacta CLP. */
+  rangeTitle?: string;
 }
 
 /**
- * Statusbar (26px): KPIs Banco/Mín a la izquierda + suma de fila a la derecha.
+ * Statusbar (26px): KPIs Banco/Mín + suma/promedio/N del rango.
  * Solo desktop (≥lg); móvil los omite.
  */
 export function PlanillaStatusbar({
-  saldoHoy, minBalance, minWeek, bankStale, minTone, onOpenBank, rowSum, rowCellCount,
+  saldoHoy, minBalance, minWeek, bankStale, minTone, onOpenBank,
+  rangeSum, rangeAvg, rangeCount, numberFormat = "clp", rangeTitle,
 }: Props) {
+  const fmt = (n: number) => fmtCell(n, numberFormat);
   return (
     <div
       className="planilla-chrome-print-hide mt-0.5 hidden h-[var(--plnx-statusbar-h)] items-center gap-3 border-t border-ds-border-subtle bg-ds-surface-2 px-2 text-[12px] text-ds-text-2 lg:flex"
@@ -49,14 +55,19 @@ export function PlanillaStatusbar({
           </span>
         </>
       )}
-      <div className="ml-auto tabular-nums">
-        {rowSum != null && rowCellCount > 0 ? (
+      <div className="ml-auto tabular-nums" title={rangeTitle}>
+        {rangeSum != null && rangeCount > 0 ? (
           <span>
-            Fila: suma <span className="text-ds-text-1">{fmtClp(rowSum)}</span>
-            <span className="text-ds-text-4"> · {rowCellCount} celdas</span>
+            Suma <span className="text-ds-text-1">{fmt(rangeSum)}</span>
+            {rangeAvg != null && (
+              <>
+                {" · "}Promedio <span className="text-ds-text-1">{fmt(rangeAvg)}</span>
+              </>
+            )}
+            <span className="text-ds-text-4"> · {rangeCount} celdas</span>
           </span>
         ) : (
-          <span className="text-ds-text-4">Sin fila seleccionada</span>
+          <span className="text-ds-text-4">Sin selección</span>
         )}
       </div>
     </div>

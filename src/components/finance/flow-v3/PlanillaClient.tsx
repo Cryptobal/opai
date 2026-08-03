@@ -21,6 +21,8 @@ import { PlanillaStatusbar } from "./PlanillaStatusbar";
 import { exportCsv, exportXlsx, printPlanilla } from "./planilla-export";
 import { displayValue } from "./grid-classes";
 import type { CellSel } from "./usePlanillaKeyboard";
+import { cellsInRect, rangeRect, rangeToTsv, type RangeSel } from "./range-sel";
+import { fmtClp } from "./format";
 
 const ZEROS_PREF_KEY = "opai-planilla-show-zeros";
 
@@ -68,7 +70,11 @@ export function PlanillaClient({
   const [searchQuery, setSearchQuery] = useState("");
   const [fxSel, setFxSel] = useState<FxSelection | null>(null);
   const [cellSel, setCellSel] = useState<CellSel | null>(null);
+  const [selRange, setSelRange] = useState<RangeSel | null>(null);
+  const [visibleRowIds, setVisibleRowIds] = useState<string[]>([]);
   const [layersReq, setLayersReq] = useState(0);
+  /** Orden por monto de sesión: desc → asc → null (A→Z). */
+  const [amountSort, setAmountSort] = useState<{ weekStart: string; dir: "asc" | "desc" } | null>(null);
 
   const [showZeros, setShowZeros] = useState(false);
   useEffect(() => {
@@ -125,6 +131,32 @@ export function PlanillaClient({
 
   useEffect(() => {
     if (searchOpen) searchInputRef.current?.focus();
+  }, [searchOpen]);
+
+  const toggleSearch = useCallback(() => {
+    setSearchOpen((o) => {
+      if (o) setSearchQuery("");
+      return !o;
+    });
+  }, []);
+
+  // Esc global: cierra búsqueda si está abierta (edición/popover tienen prioridad
+  // vía stopPropagation en sus propios handlers).
+  useEffect(() => {
+    if (!searchOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) {
+        // El input de búsqueda maneja Esc en su onKeyDown; otros inputs (edición) también.
+        return;
+      }
+      e.preventDefault();
+      setSearchQuery("");
+      setSearchOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
   }, [searchOpen]);
 
   const doArchive = async () => {
@@ -187,9 +219,13 @@ export function PlanillaClient({
         rowName: string;
         colIdx: number;
         weekStart: string;
+        range?: RangeSel | null;
+        visibleRowIds?: string[];
       } | null,
     ) => {
       setCellSel(sel);
+      setSelRange(meta?.range ?? (sel ? { anchor: sel, head: sel } : null));
+      setVisibleRowIds(meta?.visibleRowIds ?? []);
       if (!sel || !meta || !m.data) {
         setFxSel(null);
         return;
@@ -197,7 +233,10 @@ export function PlanillaClient({
       const row = m.data.rows.find((r) => r.id === sel.rowId);
       const cell = row?.cells[sel.colIdx];
       setFxSel({
-        ...meta,
+        rowNumber: meta.rowNumber,
+        rowName: meta.rowName,
+        colIdx: meta.colIdx,
+        weekStart: meta.weekStart,
         row,
         cell,
       });
@@ -216,27 +255,71 @@ export function PlanillaClient({
     view.getCellStyle(cellSel.rowId, selectedWeekStart)?.bold
   );
 
+  const rangeCellKeys = useMemo(() => {
+    if (!selRange || !m.data || visibleRowIds.length === 0) return [] as Array<{ rowId: string; weekStart: string }>;
+    const rect = rangeRect(selRange, visibleRowIds);
+    if (!rect) return [];
+    return cellsInRect(rect, visibleRowIds).map(({ rowId, colIdx }) => ({
+      rowId,
+      weekStart: m.data!.columns[colIdx]?.weekStart ?? "",
+    })).filter((k) => k.weekStart);
+  }, [selRange, visibleRowIds, m.data]);
+
   const applyStyle = useCallback(
     (partial: Parameters<typeof view.setCellStyle>[2]) => {
-      if (!cellSel || !selectedWeekStart) return;
-      view.setCellStyle(cellSel.rowId, selectedWeekStart, partial);
+      if (rangeCellKeys.length === 0) return;
+      view.setCellStylesBulk(rangeCellKeys, partial);
     },
-    [cellSel, selectedWeekStart, view],
+    [rangeCellKeys, view],
   );
 
-  const rowStats = useMemo(() => {
-    if (!cellSel || !m.data) return { sum: null as number | null, count: 0 };
-    const row = m.data.rows.find((r) => r.id === cellSel.rowId);
-    if (!row) return { sum: null, count: 0 };
+  const clearFormat = useCallback(() => {
+    if (rangeCellKeys.length === 0) return;
+    view.setCellStylesBulk(rangeCellKeys, null);
+  }, [rangeCellKeys, view]);
+
+  const rangeStats = useMemo(() => {
+    if (!selRange || !m.data || visibleRowIds.length === 0) {
+      return { sum: null as number | null, avg: null as number | null, count: 0, title: "" };
+    }
+    const rect = rangeRect(selRange, visibleRowIds);
+    if (!rect) return { sum: null, avg: null, count: 0, title: "" };
     let sum = 0;
     let count = 0;
-    for (const cell of row.cells) {
-      if (cell.layer === "empty") continue;
+    for (const { rowId, colIdx } of cellsInRect(rect, visibleRowIds)) {
+      const row = m.data.rows.find((r) => r.id === rowId);
+      const cell = row?.cells[colIdx];
+      if (!row || !cell || cell.layer === "empty") continue;
       sum += displayValue(row.section, cell.layer, cell.effective);
       count += 1;
     }
-    return { sum, count };
-  }, [cellSel, m.data]);
+    const avg = count > 0 ? Math.round(sum / count) : null;
+    return {
+      sum: count > 0 ? sum : null,
+      avg,
+      count,
+      title: count > 0
+        ? `Suma exacta ${fmtClp(sum)} · magnitudes visibles del rango`
+        : "",
+    };
+  }, [selRange, visibleRowIds, m.data]);
+
+  const cycleAmountSort = useCallback(() => {
+    const week = selectedWeekStart ?? m.data?.currentWeek;
+    if (!week) return;
+    setAmountSort((cur) => {
+      if (!cur || cur.weekStart !== week) return { weekStart: week, dir: "desc" };
+      if (cur.dir === "desc") return { weekStart: week, dir: "asc" };
+      return null;
+    });
+  }, [selectedWeekStart, m.data?.currentWeek]);
+
+  const sortWeekLabel = useMemo(() => {
+    const week = amountSort?.weekStart ?? selectedWeekStart ?? m.data?.currentWeek;
+    if (!week || !m.data) return "semana";
+    const col = m.data.columns.find((c) => c.weekStart === week);
+    return col?.label ?? week;
+  }, [amountSort, selectedWeekStart, m.data]);
 
   const doExportXlsx = async () => {
     if (!m.data) return;
@@ -262,15 +345,42 @@ export function PlanillaClient({
     }
   };
 
-  const doCopy = async () => {
-    if (!fxSel?.cell || !fxSel.row) return;
-    const v = displayValue(fxSel.row.section, fxSel.cell.layer, fxSel.cell.effective);
+  const doCopyTsv = useCallback(async (tsv: string) => {
     try {
-      await navigator.clipboard.writeText(String(Math.round(v)));
+      await navigator.clipboard.writeText(tsv);
       toast.message("Copiado");
     } catch {
       toast.message("No se pudo copiar");
     }
+  }, []);
+
+  /** Fallback menú Editar → Copiar (usa rango actual vía grid onCopyRange). */
+  const doCopy = async () => {
+    if (!selRange || !m.data || visibleRowIds.length === 0) {
+      if (!fxSel?.cell || !fxSel.row) return;
+      const v = displayValue(fxSel.row.section, fxSel.cell.layer, fxSel.cell.effective);
+      await doCopyTsv(String(Math.round(v)));
+      return;
+    }
+    const rect = rangeRect(selRange, visibleRowIds);
+    if (!rect) return;
+    const grid: number[][] = [];
+    let rowVals: number[] = [];
+    let lastR = -1;
+    const idx = new Map(visibleRowIds.map((id, i) => [id, i]));
+    for (const { rowId, colIdx } of cellsInRect(rect, visibleRowIds)) {
+      const ri = idx.get(rowId) ?? -1;
+      if (lastR >= 0 && ri !== lastR) {
+        grid.push(rowVals);
+        rowVals = [];
+      }
+      lastR = ri;
+      const row = m.data.rows.find((r) => r.id === rowId);
+      const cell = row?.cells[colIdx];
+      rowVals.push(row && cell ? displayValue(row.section, cell.layer, cell.effective) : 0);
+    }
+    if (rowVals.length) grid.push(rowVals);
+    await doCopyTsv(rangeToTsv(grid));
   };
 
   // Atajos globales ⌘F / ⌘B (el grid maneja Z/D/flechas/Espacio).
@@ -282,16 +392,19 @@ export function PlanillaClient({
       if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
       if (e.key === "f" || e.key === "F") {
         e.preventDefault();
-        setSearchOpen(true);
+        toggleSearch();
       } else if (e.key === "b" || e.key === "B") {
-        if (!cellSel || !selectedWeekStart) return;
+        if (rangeCellKeys.length === 0) return;
         e.preventDefault();
-        view.toggleBold(cellSel.rowId, selectedWeekStart);
+        const allBold = rangeCellKeys.every(
+          (k) => view.getCellStyle(k.rowId, k.weekStart)?.bold,
+        );
+        view.setCellStylesBulk(rangeCellKeys, { bold: allBold ? null : true });
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [cellSel, selectedWeekStart, view]);
+  }, [rangeCellKeys, view, toggleSearch]);
 
   return (
     <div
@@ -315,22 +428,30 @@ export function PlanillaClient({
         onRedo={() => void handleRedo()}
         onCopy={() => void doCopy()}
         onFillRight={() => toast.message("Selecciona una celda y usa ⌘D")}
-        onSearch={() => setSearchOpen(true)}
+        onSearch={toggleSearch}
         onTheme={view.setTheme}
         onFreeze={view.setFreeze}
         onChips={view.setShowChips}
         onZeros={toggleZeros}
         onDensity={view.setDensity}
         onFullscreen={() => void doFullscreen()}
-        onBold={() => cellSel && selectedWeekStart && view.toggleBold(cellSel.rowId, selectedWeekStart)}
+        onBold={() => {
+          if (rangeCellKeys.length === 0) return;
+          const allBold = rangeCellKeys.every(
+            (k) => view.getCellStyle(k.rowId, k.weekStart)?.bold,
+          );
+          view.setCellStylesBulk(rangeCellKeys, { bold: allBold ? null : true });
+        }}
         onAlignH={(a) => applyStyle({ align: a })}
         onAlignV={(a) => applyStyle({ valign: a })}
         onNumberFormat={view.setNumberFormat}
-        onClearFormat={() => cellSel && selectedWeekStart && view.clearCellStyle(cellSel.rowId, selectedWeekStart)}
+        onClearFormat={clearFormat}
         onAdd={() => setAddOpen(true)}
         onCloseWeek={() => setCloseOpen(true)}
         onExpand={() => collapseApiRef.current?.expandAll()}
         onCollapse={() => collapseApiRef.current?.collapseAll()}
+        onSortByAmount={cycleAmountSort}
+        sortByAmountLabel={`Ordenar por montos de ${sortWeekLabel}`}
       />
 
       <PlanillaToolbar
@@ -354,15 +475,22 @@ export function PlanillaClient({
         onToggleTheme={() => view.setTheme(view.prefs.theme === "paper" ? "dark" : "paper")}
         onZoom={view.setZoom}
         onNumberFormat={view.setNumberFormat}
-        onToggleBold={() => cellSel && selectedWeekStart && view.toggleBold(cellSel.rowId, selectedWeekStart)}
+        onToggleBold={() => {
+          if (rangeCellKeys.length === 0) return;
+          const allBold = rangeCellKeys.every(
+            (k) => view.getCellStyle(k.rowId, k.weekStart)?.bold,
+          );
+          view.setCellStylesBulk(rangeCellKeys, { bold: allBold ? null : true });
+        }}
         onAlignH={(a) => applyStyle({ align: a })}
         onAlignV={(a) => applyStyle({ valign: a })}
-        onFill={(hex) => applyStyle({ fill: hex as FillColor })}
-        onColor={(hex) => applyStyle({ color: hex as TextColor })}
+        onFill={(hex) => applyStyle(hex == null ? { fill: null } : { fill: hex as FillColor })}
+        onColor={(hex) => applyStyle(hex == null ? { color: null } : { color: hex as TextColor })}
         onToggleFreeze={() => view.setFreeze(!view.prefs.freeze)}
         onExpandGroups={() => collapseApiRef.current?.expandAll()}
         onCollapseGroups={() => collapseApiRef.current?.collapseAll()}
-        onSearch={() => setSearchOpen(true)}
+        onSearch={toggleSearch}
+        searchOpen={searchOpen}
         onExportXlsx={() => void doExportXlsx()}
         onExportCsv={doExportCsv}
         onPrint={printPlanilla}
@@ -440,6 +568,10 @@ export function PlanillaClient({
             searchQuery={searchQuery}
             collapseApiRef={collapseApiRef}
             openLayersRequest={layersReq}
+            onCopyRange={(tsv) => void doCopyTsv(tsv)}
+            nameW={view.prefs.nameW}
+            onNameWChange={view.setNameW}
+            amountSort={amountSort}
           />
         </div>
       ) : (
@@ -455,8 +587,11 @@ export function PlanillaClient({
         bankStale={bankStale}
         minTone={minTone}
         onOpenBank={() => setBankOpen(true)}
-        rowSum={rowStats.sum}
-        rowCellCount={rowStats.count}
+        rangeSum={rangeStats.sum}
+        rangeAvg={rangeStats.avg}
+        rangeCount={rangeStats.count}
+        numberFormat={view.prefs.numberFormat}
+        rangeTitle={rangeStats.title}
       />
 
       <AddRowDialog open={addOpen} onOpenChange={setAddOpen} busy={actions.busy} onCreate={handleCreateRow} />

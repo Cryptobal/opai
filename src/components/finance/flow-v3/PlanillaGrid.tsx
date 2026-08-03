@@ -10,15 +10,17 @@ import {
   ContextMenu, ContextMenuContent, ContextMenuTrigger,
 } from "@/components/ui/context-menu";
 import {
-  GUTTER_CELL, GUTTER_W, isZeroRow, NAME_LEFT, NAME_W, SECTION_H, SECTION_LABELS, SECTION_ORDER,
+  displayValue, GUTTER_CELL, GUTTER_W, isZeroRow, NAME_LEFT, NAME_W, SECTION_H,
+  SECTION_LABELS, SECTION_ORDER,
 } from "./grid-classes";
-import { parseSignedAmount } from "./format";
+import { parseSignedAmount, type NumberFormatMode } from "./format";
 import { PlanillaHeader } from "./PlanillaHeader";
 import { PlanillaRow } from "./PlanillaRow";
 import { BalanceRow } from "./BalanceRow";
 import { CellLayersPopover, type PopoverState } from "./CellLayersPopover";
 import { FillRightDialog, type FillRightRequest } from "./FillRightDialog";
 import { usePlanillaKeyboard, type CellSel } from "./usePlanillaKeyboard";
+import { cellsInRect, rangeRect, rangeToTsv, type RangeSel } from "./range-sel";
 import { MenuItems } from "./menu-render";
 import {
   buildCellMenu, buildRowMenu, extractRowTemplates, type RowTemplate,
@@ -29,7 +31,6 @@ import {
 import { RecurringExpenseDialog } from "./RecurringExpenseDialog";
 import type { HistoryEntry } from "./usePlanillaHistory";
 import type { usePlanillaActions } from "./usePlanillaActions";
-import type { NumberFormatMode } from "./format";
 import type { CellStyle } from "./usePlanillaViewPrefs";
 
 interface PlanMutators {
@@ -61,12 +62,20 @@ interface Props {
     colIdx: number;
     weekStart: string;
     isBalance?: "flow" | "balance";
+    range: RangeSel | null;
+    visibleRowIds: string[];
   } | null) => void;
   searchQuery?: string;
   /** Expone API de colapso al toolbar. */
   collapseApiRef?: React.MutableRefObject<{ expandAll: () => void; collapseAll: () => void } | null>;
   /** Solicitud externa de abrir popover de capas (fx bar / Espacio). */
   openLayersRequest?: number;
+  /** Copiar rango (⌘C) — el cliente serializa TSV. */
+  onCopyRange?: (tsv: string) => void;
+  nameW?: number;
+  onNameWChange?: (w: number) => void;
+  /** Orden por monto (sesión): null = A→Z del servidor. */
+  amountSort?: { weekStart: string; dir: "asc" | "desc" } | null;
 }
 
 type RowDialogState =
@@ -103,6 +112,7 @@ export function PlanillaGrid({
   showZeros, alwaysVisibleRowIds, scrollerRef,
   showChips, numberFormat, getCellStyle, onSelectionChange,
   searchQuery, collapseApiRef, openLayersRequest,
+  onCopyRange, nameW, onNameWChange, amountSort,
 }: Props) {
   const router = useRouter();
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
@@ -127,6 +137,9 @@ export function PlanillaGrid({
   }, [searchQuery]);
 
   const sections = useMemo(() => {
+    const weekIdx = amountSort
+      ? data.columns.findIndex((c) => c.weekStart === amountSort.weekStart)
+      : -1;
     return SECTION_ORDER.map((s) => {
       const all = data.rows.filter((r) => r.section === s);
       let rows = showZeros
@@ -137,9 +150,18 @@ export function PlanillaGrid({
           r.name.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase().includes(normSearch),
         );
       }
+      if (amountSort && weekIdx >= 0) {
+        const dir = amountSort.dir === "desc" ? -1 : 1;
+        rows = [...rows].sort((a, b) => {
+          if (a.isVirtual !== b.isVirtual) return a.isVirtual ? 1 : -1;
+          const va = displayValue(a.section, a.cells[weekIdx]?.layer ?? "empty", a.cells[weekIdx]?.effective ?? 0);
+          const vb = displayValue(b.section, b.cells[weekIdx]?.layer ?? "empty", b.cells[weekIdx]?.effective ?? 0);
+          return (va - vb) * dir || a.name.localeCompare(b.name, "es", { sensitivity: "base", numeric: true });
+        });
+      }
       return { key: s, rows, total: all.length, matchCount: rows.length };
     }).filter((s) => (normSearch ? s.matchCount > 0 : s.total > 0));
-  }, [data.rows, showZeros, alwaysVisibleRowIds, normSearch]);
+  }, [data.rows, data.columns, showZeros, alwaysVisibleRowIds, normSearch, amountSort]);
 
   const { numbered, footerStart } = useMemo(() => {
     let n = 1;
@@ -257,6 +279,42 @@ export function PlanillaGrid({
     applyHistoryResult(entry, "Rehecho");
   }, [matrix, applyHistoryResult]);
 
+  const visibleRowIds = useMemo(
+    () => numbered.flatMap((s) => s.numberedRows.map((x) => x.row.id)),
+    [numbered],
+  );
+
+  const visibleRowIdxById = useMemo(() => {
+    const m = new Map<string, number>();
+    visibleRowIds.forEach((id, i) => m.set(id, i));
+    return m;
+  }, [visibleRowIds]);
+
+  const copyRangeTsv = useCallback(() => {
+    if (!kbRef.current?.range || !onCopyRange) return;
+    const rect = rangeRect(kbRef.current.range, visibleRowIds);
+    if (!rect) return;
+    const cells = cellsInRect(rect, visibleRowIds);
+    const grid: number[][] = [];
+    let row: number[] = [];
+    let lastR = -1;
+    for (const { rowId, colIdx } of cells) {
+      const ri = visibleRowIdxById.get(rowId) ?? -1;
+      if (lastR >= 0 && ri !== lastR) {
+        grid.push(row);
+        row = [];
+      }
+      lastR = ri;
+      const r = rowById.get(rowId);
+      const cell = r?.cells[colIdx];
+      row.push(
+        r && cell ? displayValue(r.section, cell.layer, cell.effective) : 0,
+      );
+    }
+    if (row.length) grid.push(row);
+    onCopyRange(rangeToTsv(grid));
+  }, [onCopyRange, visibleRowIds, visibleRowIdxById, rowById]);
+
   const kb = usePlanillaKeyboard({
     data: kbData,
     canEditCell,
@@ -265,8 +323,24 @@ export function PlanillaGrid({
     onFillRight: requestFillRight,
     onUndo: () => void handleUndo(),
     onRedo: () => void handleRedo(),
+    onCopy: copyRangeTsv,
   });
   kbRef.current = kb;
+
+  const activeRect = useMemo(
+    () => (kb.range ? rangeRect(kb.range, visibleRowIds) : null),
+    [kb.range, visibleRowIds],
+  );
+
+  const selectedColIndices = useMemo(() => {
+    const s = new Set<number>();
+    if (!activeRect) {
+      if (kb.sel) s.add(kb.sel.colIdx);
+      return s;
+    }
+    for (let c = activeRect.c0; c <= activeRect.c1; c++) s.add(c);
+    return s;
+  }, [activeRect, kb.sel]);
 
   // Propagar selección al chrome (fx / statusbar).
   useEffect(() => {
@@ -281,8 +355,10 @@ export function PlanillaGrid({
       rowName: row.name,
       colIdx: sel.colIdx,
       weekStart: col.weekStart,
+      range: kb.range,
+      visibleRowIds,
     });
-  }, [kb.sel, onSelectionChange, rowById, data.columns, rowNumberById]);
+  }, [kb.sel, kb.range, onSelectionChange, rowById, data.columns, rowNumberById, visibleRowIds]);
 
   // Abrir capas desde fx bar / atajo externo.
   const lastLayersReq = useRef(0);
@@ -432,7 +508,20 @@ export function PlanillaGrid({
                 columns={data.columns}
                 granularity={data.granularity}
                 closedWeeks={data.closedWeeks}
-                selectedColIdx={kb.sel?.colIdx ?? null}
+                selectedColIndices={selectedColIndices}
+                onSelectCol={(i) => { setPopover(null); kb.selectCol(i); }}
+                sortBy={amountSort}
+                nameW={nameW}
+                onNameWChange={onNameWChange}
+                onNameWAutoFit={() => {
+                  // Autoajuste: máximo truncado visible ≤ 320.
+                  let max = 140;
+                  for (const id of visibleRowIds) {
+                    const name = rowById.get(id)?.name ?? "";
+                    max = Math.max(max, Math.min(320, 24 + name.length * 7));
+                  }
+                  onNameWChange?.(max);
+                }}
               />
               {numbered.length === 0 && normSearch ? (
                 <tbody>
@@ -491,8 +580,15 @@ export function PlanillaGrid({
                       canManage={canManage}
                       granularity={data.granularity}
                       sel={kb.sel}
+                      visibleRowIdx={visibleRowIdxById.get(row.id) ?? 0}
+                      rangeRect={activeRect}
                       editing={kb.editing}
-                      onSelect={(sel) => { setPopover(null); kb.setSel(sel); }}
+                      onSelect={(sel, extend) => {
+                        setPopover(null);
+                        if (extend) kb.extendTo(sel);
+                        else kb.setSel(sel);
+                      }}
+                      onSelectRow={() => { setPopover(null); kb.selectRow(row.id); }}
                       onStartEdit={(sel) => { setPopover(null); kb.setSel(sel); kb.startEdit(sel, ""); }}
                       onCommit={kb.commitEdit}
                       onCancelEdit={() => kb.setEditing(null)}
@@ -513,7 +609,11 @@ export function PlanillaGrid({
                       showChips={showChips}
                       numberFormat={numberFormat}
                       getCellStyle={getCellStyle}
-                      rowSelected={kb.sel?.rowId === row.id}
+                      rowSelected={
+                        !!activeRect &&
+                        (visibleRowIdxById.get(row.id) ?? -1) >= activeRect.r0 &&
+                        (visibleRowIdxById.get(row.id) ?? -1) <= activeRect.r1
+                      }
                       searchQuery={searchQuery}
                     />
                   ))}
@@ -527,6 +627,7 @@ export function PlanillaGrid({
                 startNumber={footerStart}
                 numberFormat={numberFormat}
                 selectedColIdx={kb.sel?.colIdx ?? null}
+                selectedColIndices={selectedColIndices}
               />
             </table>
           </div>

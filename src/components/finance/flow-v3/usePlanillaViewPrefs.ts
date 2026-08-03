@@ -8,9 +8,8 @@ export type PlanillaDensity = "compact" | "standard" | "comfortable";
 export type AlignH = "left" | "center" | "right";
 export type AlignV = "top" | "middle" | "bottom";
 
-/** Paleta fija de rellenos (6) y colores de texto (4). */
+/** Paleta de rellenos (5 tintes; sin blanco — "Sin relleno" es reset UI). */
 export const FILL_PALETTE = [
-  "#ffffff",
   "#fce8e6",
   "#fef7e0",
   "#e6f4ea",
@@ -36,6 +35,11 @@ export interface CellStyle {
   color?: TextColor;
 }
 
+/** Patch que admite `null` para eliminar una propiedad individual. */
+export type CellStylePatch = {
+  [K in keyof CellStyle]?: CellStyle[K] | null;
+};
+
 export type CellStylesMap = Record<string, CellStyle>;
 
 export interface PlanillaViewPrefs {
@@ -46,6 +50,17 @@ export interface PlanillaViewPrefs {
   numberFormat: NumberFormatMode;
   freeze: boolean;
   cellStyles: CellStylesMap;
+  /** Ancho columna Concepto (desktop), px. */
+  nameW: number;
+}
+
+const NAME_W_MIN = 140;
+const NAME_W_MAX = 320;
+const NAME_W_DEFAULT = 200;
+
+export function clampNameW(n: number): number {
+  if (!Number.isFinite(n)) return NAME_W_DEFAULT;
+  return Math.min(NAME_W_MAX, Math.max(NAME_W_MIN, Math.round(n)));
 }
 
 const ZOOM_STEPS = [0.8, 0.9, 1, 1.15, 1.3] as const;
@@ -71,6 +86,7 @@ const DEFAULTS: PlanillaViewPrefs = {
   numberFormat: "clp",
   freeze: true,
   cellStyles: {},
+  nameW: NAME_W_DEFAULT,
 };
 
 function storageKey(tenantId: string): string {
@@ -98,6 +114,7 @@ function sanitize(raw: unknown): PlanillaViewPrefs {
   const numberFormat: NumberFormatMode =
     o.numberFormat === "m" || o.numberFormat === "mm" ? o.numberFormat : "clp";
   const freeze = o.freeze !== false;
+  const nameW = typeof o.nameW === "number" ? clampNameW(o.nameW) : NAME_W_DEFAULT;
   const cellStyles: CellStylesMap = {};
   if (o.cellStyles && typeof o.cellStyles === "object") {
     for (const [k, v] of Object.entries(o.cellStyles as Record<string, unknown>)) {
@@ -112,7 +129,7 @@ function sanitize(raw: unknown): PlanillaViewPrefs {
       if (Object.keys(style).length > 0) cellStyles[k] = style;
     }
   }
-  return { theme, density, zoom, showChips, numberFormat, freeze, cellStyles };
+  return { theme, density, zoom, showChips, numberFormat, freeze, cellStyles, nameW };
 }
 
 export function cellStyleKey(rowId: string, weekStart: string): string {
@@ -185,6 +202,7 @@ export function usePlanillaViewPrefs(tenantId: string) {
     [patch],
   );
   const setFreeze = useCallback((freeze: boolean) => patch({ freeze }), [patch]);
+  const setNameW = useCallback((nameW: number) => patch({ nameW: clampNameW(nameW) }), [patch]);
 
   const getCellStyle = useCallback(
     (rowId: string, weekStart: string): CellStyle | undefined =>
@@ -193,16 +211,44 @@ export function usePlanillaViewPrefs(tenantId: string) {
   );
 
   const setCellStyle = useCallback(
-    (rowId: string, weekStart: string, style: Partial<CellStyle> | null) => {
+    (rowId: string, weekStart: string, style: CellStylePatch | null) => {
       setPrefs((p) => {
         const k = cellStyleKey(rowId, weekStart);
         const next = { ...p.cellStyles };
         if (style === null) {
           delete next[k];
         } else {
-          const merged = { ...next[k], ...style };
-          // Toggle bold: si llega bold:false, limpia la clave.
-          if (merged.bold === false) delete merged.bold;
+          const merged: Record<string, unknown> = { ...next[k] };
+          for (const [prop, val] of Object.entries(style)) {
+            if (val === null || val === false) delete merged[prop];
+            else merged[prop] = val;
+          }
+          if (Object.keys(merged).length === 0) delete next[k];
+          else next[k] = merged as CellStyle;
+        }
+        return { ...p, cellStyles: next };
+      });
+    },
+    [],
+  );
+
+  /** Aplica el mismo patch a muchas celdas en un solo setPrefs. */
+  const setCellStylesBulk = useCallback(
+    (keys: Array<{ rowId: string; weekStart: string }>, style: CellStylePatch | null) => {
+      if (keys.length === 0) return;
+      setPrefs((p) => {
+        const next = { ...p.cellStyles };
+        for (const { rowId, weekStart } of keys) {
+          const k = cellStyleKey(rowId, weekStart);
+          if (style === null) {
+            delete next[k];
+            continue;
+          }
+          const merged: Record<string, unknown> = { ...next[k] };
+          for (const [prop, val] of Object.entries(style)) {
+            if (val === null || val === false) delete merged[prop];
+            else merged[prop] = val;
+          }
           if (Object.keys(merged).length === 0) delete next[k];
           else next[k] = merged as CellStyle;
         }
@@ -233,8 +279,10 @@ export function usePlanillaViewPrefs(tenantId: string) {
         "--plnx-section-h":
           prefs.density === "compact" ? "16px" : prefs.density === "comfortable" ? "22px" : "18px",
         "--plnx-zoom": String(prefs.zoom),
+        // Pref desktop; móvil fuerza 100px en globals (media query gana sobre esta var).
+        "--plnx-name-w-pref": `${prefs.nameW}px`,
       }) as CSSProperties,
-    [prefs.density, prefs.zoom],
+    [prefs.density, prefs.zoom, prefs.nameW],
   );
 
   return {
@@ -248,8 +296,10 @@ export function usePlanillaViewPrefs(tenantId: string) {
     setShowChips,
     setNumberFormat,
     setFreeze,
+    setNameW,
     getCellStyle,
     setCellStyle,
+    setCellStylesBulk,
     clearCellStyle,
     toggleBold,
     densityRowPx: DENSITY_ROW[prefs.density],

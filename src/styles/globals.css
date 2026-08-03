@@ -1766,7 +1766,7 @@ html {
   /* Desktop (Sheets UI): fila 20px estándar, concepto 200px, semana 86px,
      gutter de números 38px, headers letras/mes/semana. */
   --plnx-gutter-w: 38px;
-  --plnx-name-w: 200px;
+  --plnx-name-w: var(--plnx-name-w-pref, 200px);
   --plnx-week-w: 86px;
   --plnx-row-h: 20px;
   --plnx-section-h: 18px;
@@ -1781,6 +1781,7 @@ html {
   --plnx-statusbar-h: 26px;
   --plnx-sel: #0b57d0;
   --plnx-sel-hdr: #d3e3fd;
+  --plnx-sel-fill: color-mix(in srgb, var(--plnx-sel) 12%, transparent);
   /* Altura útil desktop: 100dvh − topbar (3rem) − breadcrumb (~44px)
      − chrome planilla (menubar + toolbar + fx + status + gaps) − padding. */
   --plnx-grid-h: calc(
@@ -1808,6 +1809,7 @@ html {
   background: #fff;
   --plnx-sel: #0b57d0;
   --plnx-sel-hdr: 214 90% 91%; /* #d3e3fd en HSL components */
+  --plnx-sel-fill: color-mix(in srgb, #0b57d0 14%, transparent);
   --plnx-gridline: #e1e1e1;
   --plnx-freeze-border: #b5b8bd;
   --plnx-neg: #cc0000;
@@ -1863,6 +1865,7 @@ html {
   background: hsl(218 32% 14%);
   --plnx-sel: #14a88a;
   --plnx-sel-hdr: 217 60% 22%;
+  --plnx-sel-fill: color-mix(in srgb, #14a88a 18%, transparent);
   --plnx-gridline: hsl(218 24% 22%);
   --plnx-freeze-border: hsl(218 24% 34%);
   --plnx-neg: hsl(0 80% 70%);
@@ -1955,7 +1958,8 @@ html {
   outline: 2px solid var(--plnx-sel, #0b57d0);
   outline-offset: -2px;
 }
-.planilla-sheet td.planilla-selected::after {
+.planilla-sheet td.planilla-selected::after,
+.planilla-sheet td.planilla-range-head::after {
   content: "";
   position: absolute;
   right: -1px;
@@ -1965,6 +1969,27 @@ html {
   background: var(--plnx-sel, #0b57d0);
   z-index: 2;
   pointer-events: none;
+}
+
+/* Rango multi-celda: tinte interior + borde de perímetro. */
+.planilla-sheet td.planilla-range {
+  background-color: var(--plnx-sel-fill);
+}
+.planilla-sheet td.planilla-range-t {
+  border-top-width: 2px;
+  border-top-color: var(--plnx-sel, #0b57d0);
+}
+.planilla-sheet td.planilla-range-b {
+  border-bottom-width: 2px;
+  border-bottom-color: var(--plnx-sel, #0b57d0);
+}
+.planilla-sheet td.planilla-range-l {
+  border-left-width: 2px;
+  border-left-color: var(--plnx-sel, #0b57d0);
+}
+.planilla-sheet td.planilla-range-r {
+  border-right-width: 2px;
+  border-right-color: var(--plnx-sel, #0b57d0);
 }
 
 /* Print: forzar papel, ocultar chrome. */
