@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Briefcase, Building2, FileText, MapPin, Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { TareaAccountBadge } from "./TareaAccountBadge";
 
 export type CrmLinkOption = {
   id: string;
@@ -106,20 +107,38 @@ export function TareaCrmLinkPicker({
     <div ref={rootRef} className="space-y-1.5">
       <span className="px-1 text-[12px] font-medium text-ds-text-4">{label}</span>
       {!open ? (
-        <div className="opai-glass-soft flex min-h-[44px] items-center gap-2 rounded-2xl px-3">
-          <Icon className="h-4 w-4 shrink-0 text-ds-text-4" />
-          <button
-            type="button"
-            disabled={disabled}
-            onClick={() => !disabled && setOpen(true)}
-            className={cn(
-              "min-h-[44px] min-w-0 flex-1 truncate text-left text-[13px] sm:min-h-0 sm:py-2",
-              value ? "text-ds-text-1" : "text-ds-text-4",
-              disabled && "opacity-70",
-            )}
-          >
-            {selectedLabel?.trim() || placeholder}
-          </button>
+        <div
+          className={cn(
+            "opai-glass-soft flex min-h-[44px] items-center gap-2 rounded-2xl px-3",
+            type === "accounts" && value && "border border-status-info-border bg-status-info-soft/40",
+          )}
+        >
+          {type === "accounts" && value && selectedLabel ? (
+            <button
+              type="button"
+              disabled={disabled}
+              onClick={() => !disabled && setOpen(true)}
+              className="flex min-h-[44px] min-w-0 flex-1 items-center gap-2 text-left sm:min-h-0 sm:py-1.5"
+            >
+              <TareaAccountBadge name={selectedLabel} size="md" />
+            </button>
+          ) : (
+            <>
+              <Icon className="h-4 w-4 shrink-0 text-ds-text-4" />
+              <button
+                type="button"
+                disabled={disabled}
+                onClick={() => !disabled && setOpen(true)}
+                className={cn(
+                  "min-h-[44px] min-w-0 flex-1 truncate text-left text-[13px] sm:min-h-0 sm:py-2",
+                  value ? "text-ds-text-1" : "text-ds-text-4",
+                  disabled && "opacity-70",
+                )}
+              >
+                {selectedLabel?.trim() || placeholder}
+              </button>
+            </>
+          )}
           {value && !disabled && (
             <button
               type="button"
@@ -133,10 +152,20 @@ export function TareaCrmLinkPicker({
         </div>
       ) : (
         <div className="space-y-1.5">
+          {type === "accounts" && selectedLabel?.trim() && (
+            <div className="px-0.5">
+              <TareaAccountBadge name={selectedLabel} active size="md" />
+            </div>
+          )}
           <div className="relative">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ds-text-4" />
             <input
-              className="h-10 w-full rounded-2xl border border-ds-border-default bg-ds-surface-1 pl-9 pr-3 text-[13px] text-ds-text-1 placeholder:text-ds-text-4 focus:outline-none focus:ring-1 focus:ring-primary/40 sm:h-9"
+              className={cn(
+                "h-10 w-full rounded-2xl border bg-ds-surface-1 pl-9 pr-3 text-[13px] text-ds-text-1 placeholder:text-ds-text-4 focus:outline-none focus:ring-1 sm:h-9",
+                type === "accounts"
+                  ? "border-primary/40 focus:ring-primary/50"
+                  : "border-ds-border-default focus:ring-primary/40",
+              )}
               placeholder={placeholder}
               value={q}
               onChange={(e) => setQ(e.target.value)}
