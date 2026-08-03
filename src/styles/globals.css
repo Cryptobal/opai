@@ -1763,20 +1763,135 @@ html {
 }
 
 .planilla-sheet {
-  /* Desktop (specs v3.1): fila 22px, concepto 200px, semana 86px,
+  /* Desktop (Sheets UI): fila 20px estándar, concepto 200px, semana 86px,
      gutter de números 38px, headers letras/mes/semana. */
   --plnx-gutter-w: 38px;
   --plnx-name-w: 200px;
   --plnx-week-w: 86px;
-  --plnx-row-h: 22px;
-  --plnx-section-h: 20px;
+  --plnx-row-h: 20px;
+  --plnx-section-h: 18px;
   --plnx-hdr-1: 16px;
   --plnx-hdr-2: 17px;
   --plnx-hdr-3: 17px;
-  --plnx-toolbar-h: 36px;
+  --plnx-font: 11px;
+  --plnx-zoom: 1;
+  --plnx-menubar-h: 32px;
+  --plnx-toolbar-h: 40px;
+  --plnx-fxbar-h: 30px;
+  --plnx-statusbar-h: 26px;
+  --plnx-sel: #0b57d0;
+  --plnx-sel-hdr: #d3e3fd;
   /* Altura útil desktop: 100dvh − topbar (3rem) − breadcrumb (~44px)
-     − toolbar planilla (36px + 8px gap) − padding inferior (24px). */
-  --plnx-grid-h: calc(100dvh - 3rem - 44px - var(--plnx-toolbar-h) - 8px - 24px);
+     − chrome planilla (menubar + toolbar + fx + status + gaps) − padding. */
+  --plnx-grid-h: calc(
+    100dvh - 3rem - 44px
+    - var(--plnx-menubar-h) - var(--plnx-toolbar-h) - var(--plnx-fxbar-h)
+    - var(--plnx-statusbar-h) - 16px - 24px
+  );
+}
+
+.planilla-sheet table {
+  font-size: calc(var(--plnx-font) * var(--plnx-zoom));
+}
+
+/* Desactivar sticky de gutter/concepto (toggle Inmovilizar). */
+.planilla-sheet.no-freeze .sticky {
+  position: static;
+}
+
+/* ── Tema papel (Google Sheets): scoped a .planilla-sheet ──
+   Redefine SOLO las custom properties que la grilla consume
+   (superficies, textos, bordes, status). Popovers en portal
+   fuera de este contenedor NO heredan el papel. */
+.planilla-sheet[data-planilla-theme="paper"] {
+  color: #202124;
+  background: #fff;
+  --plnx-sel: #0b57d0;
+  --plnx-sel-hdr: #d3e3fd;
+  --plnx-gridline: #e1e1e1;
+  --plnx-freeze-border: #b5b8bd;
+  --plnx-neg: #cc0000;
+
+  /* Superficies: blanco / headers #f8f9fa */
+  --ds-surface-0: 0 0% 100%;
+  --ds-surface-1: 0 0% 100%;
+  --ds-surface-2: 210 17% 98%; /* #f8f9fa */
+  --ds-surface-3: 210 17% 98%;
+  --ds-surface-4: 0 0% 100%;
+
+  /* Textos Sheets */
+  --ds-text-1: 0 0% 13%;       /* #202124 */
+  --ds-text-2: 0 0% 26%;
+  --ds-text-3: 210 5% 39%;     /* #5f6368 */
+  --ds-text-4: 210 4% 55%;
+
+  /* Gridlines */
+  --ds-border-subtle: 0 0% 88%; /* #e1e1e1 */
+  --ds-border-default: 0 0% 82%;
+  --ds-border-strong: 210 3% 72%; /* #b5b8bd */
+
+  /* Status claros (equivalentes light del §5) */
+  --ds-ok: 142 50% 36%;
+  --ds-ok-fg: 142 60% 28%;
+  --ds-ok-soft: 142 45% 94%;
+  --ds-ok-border: 142 40% 72%;
+
+  --ds-warn: 38 92% 45%;
+  --ds-warn-fg: 32 90% 32%;
+  --ds-warn-soft: 42 95% 94%;
+  --ds-warn-border: 38 80% 72%;
+
+  --ds-danger: 0 80% 40%;
+  --ds-danger-fg: 0 100% 40%; /* #cc0000 */
+  --ds-danger-soft: 0 80% 96%;
+  --ds-danger-border: 0 70% 80%;
+
+  --ds-info: 214 82% 43%; /* #0b57d0-ish */
+  --ds-info-fg: 214 82% 38%;
+  --ds-info-soft: 214 90% 95%;
+  --ds-info-border: 214 70% 75%;
+
+  /* Primary (línea HOY) se conserva teal brand — no override. */
+}
+
+/* Borde de congelado a la derecha de Concepto (tema papel). */
+.planilla-sheet[data-planilla-theme="paper"] [data-plnx-cola],
+.planilla-sheet[data-planilla-theme="paper"] th.sticky.left-\[var\(--plnx-gutter-w\)\],
+.planilla-sheet[data-planilla-theme="paper"] .planilla-name-col {
+  border-right-width: 2px;
+  border-right-color: var(--plnx-freeze-border);
+}
+
+/* Handle de selección 6px (esquina inf-der), estilo Sheets. */
+.planilla-sheet td.planilla-selected {
+  outline: 2px solid var(--plnx-sel, #0b57d0);
+  outline-offset: -2px;
+}
+.planilla-sheet td.planilla-selected::after {
+  content: "";
+  position: absolute;
+  right: -1px;
+  bottom: -1px;
+  width: 6px;
+  height: 6px;
+  background: var(--plnx-sel, #0b57d0);
+  z-index: 2;
+  pointer-events: none;
+}
+
+/* Print: forzar papel, ocultar chrome. */
+@media print {
+  .planilla-sheet .planilla-chrome-print-hide {
+    display: none !important;
+  }
+  .planilla-sheet {
+    --plnx-grid-h: none;
+  }
+  .planilla-sheet .planilla-grid-scroll {
+    max-height: none !important;
+    overflow: visible !important;
+    border: none !important;
+  }
 }
 
 /* Mobile + tablet (< lg): sin topbar desktop; la hoja vive entre la
@@ -1788,6 +1903,10 @@ html {
    arrastrando toolbar y encabezados. */
 @media (max-width: 1023px) {
   .planilla-sheet {
+    /* Móvil: sin menubar / fx / statusbar — solo toolbar compacta. */
+    --plnx-menubar-h: 0px;
+    --plnx-fxbar-h: 0px;
+    --plnx-statusbar-h: 0px;
     --plnx-toolbar-h: 44px;
     --plnx-grid-h: calc(
       100svh - 4rem - env(safe-area-inset-top, 0px)

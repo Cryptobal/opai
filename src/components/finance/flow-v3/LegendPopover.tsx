@@ -7,58 +7,92 @@ import {
 interface Props {
   open: boolean;
   onOpenChange: (v: boolean) => void;
+  /** Si true, describe chips de texto; si false, marcas de esquina. */
+  showChips?: boolean;
 }
 
-/**
- * Muestra (swatch, título, descripción) de cada estado de celda. Debe coincidir
- * EXACTAMENTE con lo que renderiza PlanillaCell (grid-classes.ts). Regla: fondo
- * relleno = documento existe; sin fondo + borde izquierdo punteado = proyección.
- */
-const ITEMS: Array<{ swatch: string; title: string; desc: string }> = [
+const CORNER_ITEMS: Array<{ swatch: string; title: string; desc: string }> = [
   {
     swatch:
-      "bg-status-ok-soft border border-status-ok-border relative before:absolute before:left-[3px] before:top-1/2 before:-translate-y-1/2 before:h-[4px] before:w-[4px] before:rounded-full before:bg-primary before:content-['']",
+      "relative bg-ds-surface-1 border border-ds-border-default after:absolute after:right-0 after:top-0 after:h-0 after:w-0 after:border-l-[6px] after:border-t-[6px] after:border-l-transparent after:border-t-status-ok after:content-['']",
     title: "Real (conciliado)",
-    desc: "Movimiento bancario conciliado — la plata ya entró o salió. Punto azul.",
+    desc: "Marca de esquina verde — la plata ya entró o salió.",
+  },
+  {
+    swatch:
+      "relative bg-ds-surface-1 border border-ds-border-default after:absolute after:right-0 after:top-0 after:h-0 after:w-0 after:border-l-[6px] after:border-t-[6px] after:border-l-transparent after:border-t-status-info after:content-['']",
+    title: "Factura emitida",
+    desc: "Marca azul — DTE con folio (ej. F°1234). Folio en el tooltip.",
+  },
+  {
+    swatch:
+      "relative bg-ds-surface-1 border border-ds-border-default after:absolute after:right-0 after:top-0 after:h-0 after:w-0 after:border-l-[6px] after:border-t-[6px] after:border-l-transparent after:border-t-status-warn after:content-['']",
+    title: "Proforma / Borrador",
+    desc: "Marca ámbar — EP enviado o borrador sin enviar.",
+  },
+  {
+    swatch: "bg-ds-surface-1 border border-ds-border-default",
+    title: "Programada",
+    desc: "Sin marca — cuota proyectada; monto en tono atenuado.",
+  },
+  {
+    swatch: "border border-ds-border-default",
+    title: "Plan",
+    desc: "Monto escrito a mano en una semana abierta. Sin marca.",
+  },
+];
+
+const CHIP_ITEMS: Array<{ swatch: string; title: string; desc: string }> = [
+  {
+    swatch:
+      "bg-status-ok-soft border border-status-ok-border",
+    title: "Real (conciliado)",
+    desc: "Fondo teal — movimiento bancario conciliado.",
   },
   {
     swatch: "bg-status-info-soft border border-status-info-border",
     title: "Factura emitida",
-    desc: "DTE con folio, aún por cobrar. Chip con el folio (ej. F°1234).",
+    desc: "Chip con el folio (ej. F°1234).",
   },
   {
     swatch:
       "border-y border-r border-ds-border-subtle border-l-2 border-l-status-info-border [border-left-style:dotted]",
     title: "Programada",
-    desc: "Cuota proyectada de una programación, todavía sin documento. Chip «P».",
+    desc: "Chip «P» — cuota sin documento.",
   },
   {
     swatch: "bg-status-warn-soft border border-status-warn-border",
     title: "Proforma / EP enviado",
-    desc: "Borrador ya enviado al cliente, pendiente de emitir. Chip «EP».",
+    desc: "Chip «EP» — borrador enviado al cliente.",
   },
   {
     swatch:
       "border-y border-r border-ds-border-subtle border-l-2 border-l-status-warn-border [border-left-style:dotted]",
     title: "Borrador",
-    desc: "Borrador de factura sin enviar. Chip «B».",
+    desc: "Chip «B» — borrador sin enviar.",
   },
   {
     swatch: "border border-ds-border-default",
     title: "Plan",
-    desc: "Monto que escribiste tú a mano en una semana abierta.",
+    desc: "Monto que escribiste tú a mano.",
   },
 ];
 
-export function LegendPopover({ open, onOpenChange }: Props) {
+export function LegendPopover({ open, onOpenChange, showChips }: Props) {
+  const items = showChips ? CHIP_ITEMS : CORNER_ITEMS;
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-sm">
         <DialogHeader>
           <DialogTitle>Qué significan los colores</DialogTitle>
         </DialogHeader>
+        <p className="text-[12px] text-ds-text-3">
+          {showChips
+            ? "Modo chips: fondo tintado + etiqueta de texto."
+            : "Modo marcas: triángulo de esquina por estado (toggle Chips para etiquetas)."}
+        </p>
         <ul className="space-y-2.5">
-          {ITEMS.map((it) => (
+          {items.map((it) => (
             <li key={it.title} className="flex items-start gap-2.5">
               <span className={`mt-0.5 h-4 w-6 shrink-0 rounded-sm ${it.swatch}`} aria-hidden />
               <div className="min-w-0">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { MoreHorizontal } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuTrigger,
@@ -10,6 +10,8 @@ import { GUTTER_CELL, GUTTER_W, NAME_LEFT, NAME_W, ROW_H } from "./grid-classes"
 import { PlanillaCell } from "./PlanillaCell";
 import { MenuItems, type MenuItemDesc } from "./menu-render";
 import type { CellSel } from "./usePlanillaKeyboard";
+import type { NumberFormatMode } from "./format";
+import type { CellStyle } from "./usePlanillaViewPrefs";
 
 const DRAG_BLOCKED_MSG =
   "Las facturas y los movimientos conciliados no se mueven desde la planilla.";
@@ -44,6 +46,47 @@ interface Props {
   onCellDragOver: (e: React.DragEvent, rowId: string, colIdx: number, week: string) => void;
   onCellDrop: (rowId: string, week: string) => void;
   onCellDragEnd: () => void;
+  showChips?: boolean;
+  numberFormat?: NumberFormatMode;
+  getCellStyle?: (rowId: string, weekStart: string) => CellStyle | undefined;
+  /** Tintar gutter cuando la fila tiene celda seleccionada. */
+  rowSelected?: boolean;
+  /** Query de búsqueda para resaltar coincidencias en el nombre. */
+  searchQuery?: string;
+}
+
+function highlightName(name: string, query: string): ReactNode {
+  const q = query.trim();
+  if (!q) return name;
+  const norm = (s: string) => s.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
+  const ni = norm(name).indexOf(norm(q));
+  if (ni < 0) return name;
+  // Mapear índice normalizado → índice original (aprox. por prefijo).
+  let oi = 0;
+  let ni2 = 0;
+  const nName = norm(name);
+  while (ni2 < ni && oi < name.length) {
+    const ch = name[oi];
+    const nch = ch.normalize("NFD").replace(/\p{M}/gu, "");
+    ni2 += nch.length;
+    oi += 1;
+  }
+  let end = oi;
+  let consumed = 0;
+  const nq = norm(q);
+  while (consumed < nq.length && end < name.length) {
+    const ch = name[end];
+    const nch = ch.normalize("NFD").replace(/\p{M}/gu, "");
+    consumed += nch.length;
+    end += 1;
+  }
+  return (
+    <>
+      {name.slice(0, oi)}
+      <mark className="rounded-sm bg-status-warn-soft text-ds-text-1">{name.slice(oi, end)}</mark>
+      {name.slice(end)}
+    </>
+  );
 }
 
 export function PlanillaRow(p: Props) {
@@ -69,14 +112,17 @@ export function PlanillaRow(p: Props) {
 
   return (
     <tr className={`${ROW_H} group`}>
-      <td aria-hidden className={`${GUTTER_W} ${ROW_H} ${GUTTER_CELL} z-10`}>
+      <td
+        aria-hidden
+        className={`${GUTTER_W} ${ROW_H} ${GUTTER_CELL} z-10 ${p.rowSelected ? "bg-[var(--plnx-sel-hdr,#d3e3fd)]" : ""}`}
+      >
         {p.rowNumber}
       </td>
       <th
         scope="row"
         onClick={togglePeek}
         onContextMenu={showMenu ? p.onRowContext : undefined}
-        className={`${NAME_W} ${ROW_H} sticky ${NAME_LEFT} z-10 border-b border-r border-ds-border-subtle/60 bg-ds-surface-1 px-1.5 max-md:px-1 text-left align-middle`}
+        className={`planilla-name-col ${NAME_W} ${ROW_H} sticky ${NAME_LEFT} z-10 border-b border-r border-ds-border-subtle/60 bg-ds-surface-1 px-1.5 max-md:px-1 text-left align-middle`}
       >
         {peek && (
           <span
@@ -104,10 +150,10 @@ export function PlanillaRow(p: Props) {
               className={`truncate text-xs max-md:text-[12px] max-md:leading-none ${row.isArchived ? "text-ds-text-3" : "text-ds-text-2"}`}
               title={row.name}
             >
-              {row.name}
+              {highlightName(row.name, p.searchQuery ?? "")}
             </span>
             {row.isArchived && (
-              <span className="shrink-0 rounded border border-ds-border-subtle px-0.5 font-mono text-[11px] uppercase leading-tight tracking-tight text-ds-text-3">
+              <span className="shrink-0 rounded border border-ds-border-subtle px-0.5 text-[12px] leading-tight text-ds-text-3">
                 cerrada
               </span>
             )}
@@ -167,6 +213,9 @@ export function PlanillaRow(p: Props) {
             onDragEndCell={p.onCellDragEnd}
             isDropTarget={p.dropTarget?.rowId === row.id && p.dropTarget.colIdx === colIdx}
             dragBlockedTitle={dragBlocked}
+            showChips={p.showChips}
+            numberFormat={p.numberFormat}
+            cellStyle={p.getCellStyle?.(row.id, cell.weekStart)}
           />
         );
       })}

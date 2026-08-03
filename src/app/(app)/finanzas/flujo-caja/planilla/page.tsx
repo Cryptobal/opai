@@ -14,6 +14,7 @@ export default async function FlujoPlanillaPage() {
   const perms = await resolvePagePerms(session.user);
   if (!hasCapability(perms, "cashflow_view")) redirect("/finanzas");
   const canManage = hasCapability(perms, "cashflow_manage");
+  const tenantId = session.user.tenantId ?? "";
 
-  return <PlanillaClient canManage={canManage} />;
+  return <PlanillaClient canManage={canManage} tenantId={tenantId} />;
 }

@@ -1,8 +1,8 @@
 "use client";
 
-import type { CommittedItem } from "@/modules/finance/flow-v3/types";
 import type { FlowMatrixCellDto, FlowMatrixRowDto } from "@/modules/finance/flow-v3/matrix-types";
 import { fmtClp, fmtShortDate } from "./format";
+import { committedItemMeta, LAYER_LABEL, toneClass } from "./cell-meta";
 
 export interface PopoverState {
   row: FlowMatrixRowDto;
@@ -21,20 +21,6 @@ const MAPPING_LABEL: Record<string, string> = {
   SUPPLIER: "Proveedor",
   MANUAL: "Manual",
 };
-
-const LAYER_LABEL = { real: "Real", committed: "Comprometido", plan: "Plan", empty: "Sin dato" } as const;
-
-/** Tipo + tono del item comprometido, alineado con el color de la celda (§5F):
- *  factura/programada = azul (info); borrador/proforma = ámbar (warn). */
-function committedItemMeta(it: CommittedItem): { label: string; tone: string } {
-  if (it.kind === "dte") return { label: `F°${it.folio ?? "?"}`, tone: "text-status-info-fg" };
-  if (it.kind === "draft") {
-    return it.proformaSent
-      ? { label: "EP enviado", tone: "text-status-warn-fg" }
-      : { label: "Borrador", tone: "text-status-warn-fg" };
-  }
-  return { label: "Programada", tone: "text-status-info-fg" };
-}
 
 /**
  * Visor de SOLO LECTURA de las capas de una celda (§5B). Las acciones de
@@ -56,9 +42,9 @@ export function CellLayersPopover({ state, onClose }: Props) {
       }`}
     >
       <div className="mb-0.5 flex items-center justify-between">
-        <span className="font-mono text-[11px] uppercase tracking-wide text-ds-text-3">{title}</span>
+        <span className="text-[12px] text-ds-text-3">{title}</span>
         {active && (
-          <span className="font-mono text-[11px] uppercase tracking-wide text-primary">efectiva</span>
+          <span className="text-[12px] text-primary">efectiva</span>
         )}
       </div>
       {body}
@@ -77,7 +63,7 @@ export function CellLayersPopover({ state, onClose }: Props) {
       >
         <div className="flex items-baseline justify-between gap-2">
           <span className="truncate font-medium text-ds-text-1">{row.name}</span>
-          <span className="shrink-0 font-mono text-[11px] uppercase tracking-wide text-ds-text-3">
+          <span className="shrink-0 text-[12px] text-ds-text-3">
             sem {fmtShortDate(cell.weekStart)} · {LAYER_LABEL[cell.layer]}
           </span>
         </div>
@@ -101,8 +87,8 @@ export function CellLayersPopover({ state, onClose }: Props) {
                   <li key={i} className="text-ds-text-2">
                     <div className="flex items-center justify-between gap-2">
                       <span className="flex min-w-0 items-center gap-1">
-                        <span className={`shrink-0 font-mono text-[11px] uppercase tracking-tight ${meta.tone}`}>
-                          {meta.label}
+                        <span className={`shrink-0 font-sans tabular-nums ${toneClass(meta.tone)}`}>
+                          {meta.tag}
                         </span>
                         <span className="truncate text-ds-text-3">{it.label}</span>
                       </span>
@@ -138,7 +124,7 @@ export function CellLayersPopover({ state, onClose }: Props) {
           ),
         )}
 
-        <div className="pt-0.5 font-mono text-[11px] uppercase tracking-wide text-ds-text-4">
+        <div className="pt-0.5 text-[12px] text-ds-text-4">
           Mapping: {MAPPING_LABEL[row.mapping] ?? row.mapping}
           {row.isArchived ? " · fila archivada" : ""}
         </div>
