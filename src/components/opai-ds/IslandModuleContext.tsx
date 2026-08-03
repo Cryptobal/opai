@@ -53,16 +53,6 @@ export interface ModuleSearchOperator {
   hint?: string;
 }
 
-/** Chip de alcance (p. ej. casilla Gmail activa) junto al placeholder. */
-export interface IslandSearchScopeChip {
-  /** Texto corto visible (puede truncarse). */
-  label: string;
-  /** Tooltip / title con el valor completo (email). */
-  title?: string;
-  /** Clave de tint DS (`teal`, `violet`, …) para color sutil. */
-  color?: string | null;
-}
-
 export interface IslandSearch {
   placeholder: string;
   value: string;
@@ -74,11 +64,6 @@ export interface IslandSearch {
   pending?: boolean;
   /** Operadores ofrecidos por el módulo (topbar desktop). */
   operators?: ModuleSearchOperator[];
-  /**
-   * Alcance de la búsqueda (casilla activa). Se muestra como chip sutil
-   * con el tint de la cuenta; el placeholder queda genérico ("Buscar").
-   */
-  scopeChip?: IslandSearchScopeChip | null;
 }
 
 interface IslandModuleState {
@@ -165,22 +150,16 @@ export function useSetIslandSearch(search: IslandSearch | null | undefined) {
   const operatorsKey =
     search?.operators?.map((o) => `${o.token}|${o.hint ?? ""}`).join(",") ?? "";
   const operators = search?.operators;
-  const scopeChip = search?.scopeChip ?? null;
-  const scopeChipKey = scopeChip
-    ? `${scopeChip.label}|${scopeChip.color ?? ""}|${scopeChip.title ?? ""}`
-    : "";
   const onChangeRef = useRef(search?.onChange);
   const onExitRef = useRef(search?.onExit);
   const onSubmitRef = useRef(search?.onSubmit);
   const operatorsRef = useRef(operators);
-  const scopeChipRef = useRef(scopeChip);
   onChangeRef.current = search?.onChange;
   onExitRef.current = search?.onExit;
   onSubmitRef.current = search?.onSubmit;
   operatorsRef.current = operators;
-  scopeChipRef.current = scopeChip;
 
-  // Publicar / limpiar solo al montar o cambiar placeholder/operators/scope.
+  // Publicar / limpiar solo al montar o cambiar placeholder/operators.
   useEffect(() => {
     if (!setSearch) return;
     if (!placeholder) {
@@ -195,14 +174,13 @@ export function useSetIslandSearch(search: IslandSearch | null | undefined) {
       onExit: () => onExitRef.current?.(),
       onSubmit: () => onSubmitRef.current?.(),
       operators: operatorsRef.current,
-      scopeChip: scopeChipRef.current,
     });
     return () => setSearch(null);
     // value/pending se sincronizan en el efecto de abajo.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [setSearch, placeholder, operatorsKey, scopeChipKey]);
+  }, [setSearch, placeholder, operatorsKey]);
 
-  // Sincronizar value/pending/scope sin teardown (input controlado en isla/overlay).
+  // Sincronizar value/pending sin teardown (input controlado en isla/overlay).
   useEffect(() => {
     if (!setSearch || !placeholder) return;
     setSearch({
@@ -213,9 +191,8 @@ export function useSetIslandSearch(search: IslandSearch | null | undefined) {
       onExit: () => onExitRef.current?.(),
       onSubmit: () => onSubmitRef.current?.(),
       operators: operatorsRef.current,
-      scopeChip: scopeChipRef.current,
     });
-  }, [setSearch, placeholder, value, pending, operatorsKey, scopeChipKey]);
+  }, [setSearch, placeholder, value, pending, operatorsKey]);
 }
 
 /** Alias neutral respecto de plataforma. */
