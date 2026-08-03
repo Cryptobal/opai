@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import type { FlowMatrixRowDto } from "@/modules/finance/flow-v3/matrix-types";
 import { useIsMobileViewport } from "@/hooks/useIsMobileViewport";
+import { useTheme } from "@/components/opai/ThemeProvider";
 import { usePlanillaMatrix } from "./usePlanillaMatrix";
 import { usePlanillaActions } from "./usePlanillaActions";
 import { anchorTargetWeek, PlanillaGrid, scrollToWeek } from "./PlanillaGrid";
@@ -44,9 +45,18 @@ export function PlanillaClient({
   flagOn?: boolean;
 }) {
   const isMobile = useIsMobileViewport();
+  const { theme: appTheme } = useTheme();
   const m = usePlanillaMatrix();
   const actions = usePlanillaActions(m.refetch);
   const view = usePlanillaViewPrefs(tenantId);
+
+  // Hoja sigue al shell: noche → planilla dark; día → papel. Solo scoped.
+  useEffect(() => {
+    if (!view.hydrated) return;
+    view.syncWithShellTheme(appTheme);
+    // syncWithShellTheme es estable; prefs.theme no debe reentrar el efecto.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [appTheme, view.hydrated]);
 
   const [addOpen, setAddOpen] = useState(false);
   const [legendOpen, setLegendOpen] = useState(false);

@@ -140,7 +140,7 @@ export function PlanillaMenubar(p: Props) {
               {m.key === "ver" && (
                 <>
                   <Item
-                    label={p.theme === "paper" ? "Tema oscuro" : "Tema papel"}
+                    label={p.theme === "paper" ? "Hoja noche" : "Hoja papel"}
                     onClick={close(() => p.onTheme(p.theme === "paper" ? "dark" : "paper"))}
                   />
                   <Item

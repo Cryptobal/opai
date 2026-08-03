@@ -1854,6 +1854,61 @@ html {
   /* Primary (línea HOY) se conserva teal brand — no override. */
 }
 
+/* ── Tema noche (scoped): hoja completa oscura DS v3 ──
+   Fuerza superficies/textos oscuros DENTRO de .planilla-sheet
+   aunque el html esté en light, y garantiza contraste cuando
+   el shell está en dark. Solo afecta la planilla. */
+.planilla-sheet[data-planilla-theme="dark"] {
+  color: hsl(210 40% 98%);
+  background: hsl(218 32% 14%);
+  --plnx-sel: #14a88a;
+  --plnx-sel-hdr: hsl(217 60% 18%);
+  --plnx-gridline: hsl(218 24% 22%);
+  --plnx-freeze-border: hsl(218 24% 34%);
+  --plnx-neg: hsl(0 80% 70%);
+
+  --ds-surface-0: 218 36% 12%;
+  --ds-surface-1: 218 32% 14%;
+  --ds-surface-2: 218 30% 17%;
+  --ds-surface-3: 218 28% 20%;
+  --ds-surface-4: 218 26% 23%;
+
+  --ds-text-1: 210 40% 98%;
+  --ds-text-2: 214 24% 84%;
+  --ds-text-3: 214 18% 66%;
+  --ds-text-4: 214 14% 48%;
+
+  --ds-border-subtle: 218 24% 20%;
+  --ds-border-default: 218 24% 26%;
+  --ds-border-strong: 218 24% 34%;
+
+  --ds-ok: 160 76% 42%;
+  --ds-ok-fg: 160 76% 60%;
+  --ds-ok-soft: 160 76% 14%;
+  --ds-ok-border: 160 60% 28%;
+
+  --ds-warn: 35 92% 55%;
+  --ds-warn-fg: 38 92% 65%;
+  --ds-warn-soft: 35 60% 14%;
+  --ds-warn-border: 35 60% 28%;
+
+  --ds-danger: 0 76% 58%;
+  --ds-danger-fg: 0 80% 70%;
+  --ds-danger-soft: 0 60% 14%;
+  --ds-danger-border: 0 60% 28%;
+
+  --ds-info: 217 90% 60%;
+  --ds-info-fg: 217 90% 72%;
+  --ds-info-soft: 217 60% 14%;
+  --ds-info-border: 217 60% 28%;
+}
+
+.planilla-sheet[data-planilla-theme="dark"] [data-plnx-cola],
+.planilla-sheet[data-planilla-theme="dark"] .planilla-name-col {
+  border-right-width: 2px;
+  border-right-color: var(--plnx-freeze-border);
+}
+
 /* Borde de congelado a la derecha de Concepto (tema papel). */
 .planilla-sheet[data-planilla-theme="paper"] [data-plnx-cola],
 .planilla-sheet[data-planilla-theme="paper"] th.sticky.left-\[var\(--plnx-gutter-w\)\],

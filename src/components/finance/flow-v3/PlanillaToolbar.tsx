@@ -5,6 +5,7 @@ import {
   ChevronsDownUp, ChevronsUpDown, Download, Info, Lock, PaintBucket,
   Plus, Redo2, Search, Snowflake, Type, Undo2, ZoomIn,
 } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
@@ -59,7 +60,13 @@ interface Props {
 
 /** Toolbar píldora estilo Sheets: comandos de vista/formato + controles operativos. */
 export function PlanillaToolbar(p: Props) {
-  const styleOff = !p.hasSelection;
+  const needSel = (fn: () => void) => {
+    if (!p.hasSelection) {
+      toast.message("Selecciona una celda primero");
+      return;
+    }
+    fn();
+  };
 
   return (
     <div className="planilla-chrome-print-hide mb-1 flex h-[var(--plnx-toolbar-h)] items-center gap-0.5 overflow-x-auto scrollbar-none rounded-full border border-ds-border-default bg-ds-surface-2 px-1.5 lg:px-2">
@@ -71,19 +78,19 @@ export function PlanillaToolbar(p: Props) {
         <Button variant="ghost" size="sm" className={btn} onClick={p.onRedo} aria-label="Rehacer" title="Rehacer (⌘⇧Z)">
           <Redo2 className={icon} />
         </Button>
-        <DropdownMenu>
+        <DropdownMenu modal={false}>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="sm" className={btn} aria-label="Exportar" title="Exportar">
               <Download className={icon} />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start">
-            <DropdownMenuItem onClick={p.onExportXlsx}>Excel (.xlsx)</DropdownMenuItem>
-            <DropdownMenuItem onClick={p.onExportCsv}>CSV</DropdownMenuItem>
-            <DropdownMenuItem onClick={p.onPrint}>Imprimir</DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => p.onExportXlsx()}>Excel (.xlsx)</DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => p.onExportCsv()}>CSV</DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => p.onPrint()}>Imprimir</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
-        <DropdownMenu>
+        <DropdownMenu modal={false}>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="sm" className={`${txt} gap-1`} aria-label="Zoom" title="Zoom">
               <ZoomIn className={icon} />
@@ -92,13 +99,13 @@ export function PlanillaToolbar(p: Props) {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start">
             {ZOOM_STEPS.map((z) => (
-              <DropdownMenuItem key={z} onClick={() => p.onZoom(z)}>
+              <DropdownMenuItem key={z} onSelect={() => p.onZoom(z)}>
                 {Math.round(z * 100)}%{z === p.zoom ? " ✓" : ""}
               </DropdownMenuItem>
             ))}
           </DropdownMenuContent>
         </DropdownMenu>
-        <DropdownMenu>
+        <DropdownMenu modal={false}>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="sm" className={txt} aria-label="Formato número" title="Formato de número">
               {p.numberFormat === "clp" ? "$ CLP" : p.numberFormat === "m" ? "M$" : "MM$"}
@@ -106,7 +113,7 @@ export function PlanillaToolbar(p: Props) {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start">
             {([["clp", "$ CLP"], ["m", "M$ (miles)"], ["mm", "MM$ (millones)"]] as const).map(([k, l]) => (
-              <DropdownMenuItem key={k} onClick={() => p.onNumberFormat(k)}>{l}</DropdownMenuItem>
+              <DropdownMenuItem key={k} onSelect={() => p.onNumberFormat(k)}>{l}</DropdownMenuItem>
             ))}
           </DropdownMenuContent>
         </DropdownMenu>
@@ -114,48 +121,47 @@ export function PlanillaToolbar(p: Props) {
           variant={p.selectedBold ? "default" : "ghost"}
           size="sm"
           className={btn}
-          disabled={styleOff}
-          onClick={p.onToggleBold}
+          onClick={() => needSel(p.onToggleBold)}
           aria-label="Negrita"
           title="Negrita (⌘B)"
         >
           <Bold className={icon} />
         </Button>
-        <DropdownMenu>
+        <DropdownMenu modal={false}>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="sm" className={btn} disabled={styleOff} aria-label="Color de texto" title="Color de texto">
+            <Button variant="ghost" size="sm" className={btn} aria-label="Color de texto" title="Color de texto">
               <Type className={icon} />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="flex gap-1 p-2">
             {COLOR_PALETTE.map((c) => (
-              <button
+              <DropdownMenuItem
                 key={c}
-                type="button"
-                className="h-6 w-6 rounded-sm border border-ds-border-default"
-                style={{ backgroundColor: c }}
+                className="h-7 w-7 cursor-pointer rounded-sm p-0"
+                onSelect={() => needSel(() => p.onColor(c))}
                 aria-label={`Color ${c}`}
-                onClick={() => p.onColor(c)}
-              />
+              >
+                <span className="h-6 w-6 rounded-sm border border-ds-border-default" style={{ backgroundColor: c }} />
+              </DropdownMenuItem>
             ))}
           </DropdownMenuContent>
         </DropdownMenu>
-        <DropdownMenu>
+        <DropdownMenu modal={false}>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="sm" className={btn} disabled={styleOff} aria-label="Relleno" title="Relleno">
+            <Button variant="ghost" size="sm" className={btn} aria-label="Relleno" title="Relleno">
               <PaintBucket className={icon} />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="flex gap-1 p-2">
             {FILL_PALETTE.map((c) => (
-              <button
+              <DropdownMenuItem
                 key={c}
-                type="button"
-                className="h-6 w-6 rounded-sm border border-ds-border-default"
-                style={{ backgroundColor: c }}
+                className="h-7 w-7 cursor-pointer rounded-sm p-0"
+                onSelect={() => needSel(() => p.onFill(c))}
                 aria-label={`Relleno ${c}`}
-                onClick={() => p.onFill(c)}
-              />
+              >
+                <span className="h-6 w-6 rounded-sm border border-ds-border-default" style={{ backgroundColor: c }} />
+              </DropdownMenuItem>
             ))}
           </DropdownMenuContent>
         </DropdownMenu>
@@ -166,8 +172,7 @@ export function PlanillaToolbar(p: Props) {
               variant="ghost"
               size="sm"
               className={btn}
-              disabled={styleOff}
-              onClick={() => p.onAlignH(a as AlignH)}
+              onClick={() => needSel(() => p.onAlignH(a as AlignH))}
               aria-label={`Alinear ${a}`}
               title={`Alinear ${a}`}
             >
@@ -175,15 +180,15 @@ export function PlanillaToolbar(p: Props) {
             </Button>
           ))}
         </div>
-        <DropdownMenu>
+        <DropdownMenu modal={false}>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="sm" className={txt} disabled={styleOff} aria-label="Alineación vertical" title="Alineación vertical">
+            <Button variant="ghost" size="sm" className={txt} aria-label="Alineación vertical" title="Alineación vertical">
               V
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start">
             {([["top", "Superior"], ["middle", "Medio"], ["bottom", "Inferior"]] as const).map(([k, l]) => (
-              <DropdownMenuItem key={k} onClick={() => p.onAlignV(k as AlignV)}>{l}</DropdownMenuItem>
+              <DropdownMenuItem key={k} onSelect={() => needSel(() => p.onAlignV(k as AlignV))}>{l}</DropdownMenuItem>
             ))}
           </DropdownMenuContent>
         </DropdownMenu>
@@ -272,9 +277,9 @@ export function PlanillaToolbar(p: Props) {
         className={`${txt} ml-0.5`}
         onClick={p.onToggleTheme}
         aria-pressed={p.theme === "dark"}
-        title={p.theme === "paper" ? "Tema oscuro" : "Tema papel"}
+        title={p.theme === "paper" ? "Hoja oscura" : "Hoja papel"}
       >
-        Tema
+        {p.theme === "paper" ? "Noche" : "Papel"}
       </Button>
     </div>
   );

@@ -57,8 +57,14 @@ const DENSITY_ROW: Record<PlanillaDensity, string> = {
   comfortable: "24px",
 };
 
+/** Tema inicial según el shell (html.dark). Evita hoja papel blanca en app noche. */
+function themeFromDocument(): PlanillaTheme {
+  if (typeof document === "undefined") return "dark";
+  return document.documentElement.classList.contains("dark") ? "dark" : "paper";
+}
+
 const DEFAULTS: PlanillaViewPrefs = {
-  theme: "paper",
+  theme: "dark", // se rehidrata con themeFromDocument / sync del shell
   density: "standard",
   zoom: 1,
   showChips: false,
@@ -129,12 +135,32 @@ export function usePlanillaViewPrefs(tenantId: string) {
   useEffect(() => {
     try {
       const raw = localStorage.getItem(key);
-      if (raw) setPrefs(sanitize(JSON.parse(raw)));
+      if (raw) {
+        const saved = sanitize(JSON.parse(raw));
+        // Si el shell está en noche y la pref guardada es papel, preferir
+        // noche para no dejar la hoja blanca dentro del app oscuro.
+        const shell = themeFromDocument();
+        if (shell === "dark" && saved.theme === "paper") {
+          setPrefs({ ...saved, theme: "dark" });
+        } else {
+          setPrefs(saved);
+        }
+      } else {
+        setPrefs({ ...DEFAULTS, theme: themeFromDocument(), cellStyles: {} });
+      }
     } catch {
-      setPrefs({ ...DEFAULTS, cellStyles: {} });
+      setPrefs({ ...DEFAULTS, theme: themeFromDocument(), cellStyles: {} });
     }
     setHydrated(true);
   }, [key]);
+
+  /** Sincroniza la hoja con el tema del shell (solo scoped a .planilla-sheet). */
+  const syncWithShellTheme = useCallback((appTheme: "light" | "dark") => {
+    setPrefs((p) => {
+      const next: PlanillaTheme = appTheme === "dark" ? "dark" : "paper";
+      return p.theme === next ? p : { ...p, theme: next };
+    });
+  }, []);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -216,6 +242,7 @@ export function usePlanillaViewPrefs(tenantId: string) {
     hydrated,
     containerStyle,
     setTheme,
+    syncWithShellTheme,
     setDensity,
     setZoom,
     setShowChips,
