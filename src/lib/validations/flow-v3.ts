@@ -91,20 +91,36 @@ export const flowPlanMoveSchema = z.object({
 });
 
 export const flowRecurrenceFrequencySchema = z.enum(["WEEKLY", "BIWEEKLY", "MONTHLY"]);
+export const flowPlanCurrencySchema = z.enum(["CLP", "UF"]);
+export const flowUfPolicySchema = z.enum([
+  "RUN_DAY",
+  "LAST_DAY_MONTH",
+  "LAST_DAY_PREV_MONTH",
+  "CUSTOM_DAY",
+  "FIRST_DAY_MONTH",
+]);
 
-/** Egreso recurrente de plan (§5J). dayOfMonth 1–31 solo para MONTHLY. */
+/** Egreso recurrente de plan (§5J / v4 UF). dayOfMonth 1–31 solo para MONTHLY. */
 export const flowRecurringPlanCreateSchema = z
   .object({
     rowId: z.string().uuid(),
-    amount: planAmount,
+    amount: planAmount.optional().default(0),
     frequency: flowRecurrenceFrequencySchema,
     dayOfMonth: z.number().int().min(1).max(31).nullish(),
     startDate: ymd,
     endDate: ymd.nullish(),
+    currency: flowPlanCurrencySchema.optional().default("CLP"),
+    amountUf: z.number().finite().positive().max(1_000_000).nullish(),
+    ufPolicy: flowUfPolicySchema.nullish(),
+    ufCustomDay: z.number().int().min(1).max(31).nullish(),
   })
   .refine((v) => !v.endDate || v.endDate >= v.startDate, {
     message: "endDate no puede ser anterior a startDate",
-  });
+  })
+  .refine(
+    (v) => (v.currency === "UF" ? v.amountUf != null && v.amountUf > 0 : (v.amount ?? 0) > 0),
+    { message: "Monto requerido (CLP o UF)" },
+  );
 
 export const flowRecurringPlanUpdateSchema = z
   .object({
@@ -113,6 +129,10 @@ export const flowRecurringPlanUpdateSchema = z
     dayOfMonth: z.number().int().min(1).max(31).nullish(),
     startDate: ymd.optional(),
     endDate: ymd.nullish(),
+    currency: flowPlanCurrencySchema.optional(),
+    amountUf: z.number().finite().positive().max(1_000_000).nullish(),
+    ufPolicy: flowUfPolicySchema.nullish(),
+    ufCustomDay: z.number().int().min(1).max(31).nullish(),
   })
   .refine(
     (v) =>
@@ -120,9 +140,21 @@ export const flowRecurringPlanUpdateSchema = z
       v.frequency != null ||
       v.dayOfMonth !== undefined ||
       v.startDate != null ||
-      v.endDate !== undefined,
+      v.endDate !== undefined ||
+      v.currency != null ||
+      v.amountUf != null ||
+      v.ufPolicy !== undefined ||
+      v.ufCustomDay !== undefined,
     { message: "Nada que actualizar" },
   );
+
+export const flowUnmatchedIncomeCreateSchema = z.object({
+  dteId: z.string().uuid(),
+});
+
+export const flowChatSchema = z.object({
+  message: z.string().trim().min(1).max(2000),
+});
 
 export const flowRecurringPlanDeleteSchema = z.object({
   keepCells: z.boolean().optional(),

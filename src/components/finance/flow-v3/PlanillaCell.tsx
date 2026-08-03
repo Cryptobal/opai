@@ -1,10 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useCallback, type CSSProperties } from "react";
 import type { FlowMatrixCellDto } from "@/modules/finance/flow-v3/matrix-types";
-import {
-  fmtCell, formatThousands, NUM_CLASS, numSizeClass, type NumberFormatMode,
-} from "./format";
+import { fmtCell, NUM_CLASS, numSizeClass, type NumberFormatMode } from "./format";
 import {
   CELL_BASE, COL_W, COMMITTED_DRAFT_CELL, COMMITTED_DTE_CELL,
   COMMITTED_PROFORMA_CELL, COMMITTED_SCHEDULED_CELL, CORNER_DTE, CORNER_PLAN,
@@ -12,6 +10,8 @@ import {
 } from "./grid-classes";
 import { committedPriority, cornerKind, primaryCellTag, toneClass } from "./cell-meta";
 import type { CellStyle } from "./usePlanillaViewPrefs";
+import { InlineCellEditor } from "./InlineCellEditor";
+import { useLongPress } from "./useLongPress";
 
 interface Props {
   cell: FlowMatrixCellDto;
@@ -23,14 +23,20 @@ interface Props {
   /** Clases de selección/rango (planilla-selected | planilla-range*). */
   rangeClass: string;
   editingInitial: string | null;
-  /** shift=true extiende el rango desde el ancla. */
-  onSelect: (extend: boolean) => void;
+  /** shift=true extiende el rango desde el ancla; meta=Ctrl/Cmd para Σ. */
+  onSelect: (extend: boolean, meta?: boolean) => void;
   onStartEdit: () => void;
   onCommit: (raw: string, move: "down" | "right" | "none") => void;
   onCancel: () => void;
   onOpenPopover: (anchor: DOMRect) => void;
   /** Registra esta celda como objetivo del menú contextual del grid. */
   onContextTarget: () => void;
+  /** Long-press táctil → action sheet (móvil). */
+  onOpenCellSheet?: () => void;
+  /** Modo Σ activo: tap togglea la celda en el set discontinuo. */
+  sumMode?: boolean;
+  /** Está en el set Σ. */
+  inDiscreteSel?: boolean;
   /** Drag de plan (desktop): la celda es arrastrable (capa plan editable con monto). */
   draggable: boolean;
   onDragStartCell: () => void;
@@ -43,40 +49,8 @@ interface Props {
   showChips?: boolean;
   numberFormat?: NumberFormatMode;
   cellStyle?: CellStyle;
-}
-
-function EditInput({ initial, onCommit, onCancel }: {
-  initial: string;
-  onCommit: (raw: string, move: "down" | "right" | "none") => void;
-  onCancel: () => void;
-}) {
-  const [value, setValue] = useState(initial);
-  const ref = useRef<HTMLInputElement>(null);
-  useEffect(() => {
-    ref.current?.focus();
-    ref.current?.setSelectionRange(value.length, value.length);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-  const format = (raw: string) => {
-    const neg = raw.trim().startsWith("-") ? "-" : "";
-    return neg + formatThousands(raw);
-  };
-  return (
-    <input
-      ref={ref}
-      value={value}
-      inputMode="numeric"
-      onChange={(e) => setValue(format(e.target.value))}
-      onKeyDown={(e) => {
-        e.stopPropagation();
-        if (e.key === "Enter") { e.preventDefault(); onCommit(value, "down"); }
-        else if (e.key === "Tab") { e.preventDefault(); onCommit(value, "right"); }
-        else if (e.key === "Escape") { e.preventDefault(); onCancel(); }
-      }}
-      onBlur={() => onCommit(value, "none")}
-      className={`h-[calc(var(--plnx-row-h)-2px)] max-md:h-7 w-full rounded-none border border-primary bg-ds-surface-2 px-1 max-md:px-0.5 text-right text-ds-text-1 outline-none ${NUM_CLASS}`}
-    />
-  );
+  /** Caption opcional bajo el monto (ej. "UF 24,5"). */
+  caption?: string | null;
 }
 
 const ALIGN_H_CSS: Record<string, CSSProperties["textAlign"]> = {
@@ -131,8 +105,6 @@ export function PlanillaCell(p: Props) {
             ? CORNER_PLAN
             : "";
 
-  // Con chips OFF no tintamos el fondo (la marca de esquina basta); con chips
-  // ON se conserva el sistema §5F de fondos/bordes.
   const layerClass = showChips
     ? cell.layer === "real"
       ? REAL_CELL
@@ -147,7 +119,6 @@ export function PlanillaCell(p: Props) {
       : cell.layer === "plan"
         ? "text-ds-text-2"
         : "text-ds-text-4";
-  // Proyección P (committed sin marca): monto atenuado.
   const projAttenuate =
     !showChips && cell.layer === "committed" && corner === null ? "text-ds-text-3" : "";
 
@@ -156,14 +127,12 @@ export function PlanillaCell(p: Props) {
   const dragBlocked = !!p.dragBlockedTitle;
 
   const style = p.cellStyle;
-  // Inline textAlign/verticalAlign vencen a CELL_BASE (text-right align-middle).
   const styleInline: CSSProperties = {};
   if (style?.fill) styleInline.backgroundColor = style.fill;
   if (style?.color) styleInline.color = style.color;
   if (style?.align) styleInline.textAlign = ALIGN_H_CSS[style.align];
   if (style?.valign) {
     styleInline.verticalAlign = ALIGN_V_CSS[style.valign];
-    // En filas 17–20px el padding hace perceptible top/bottom.
     if (style.valign === "top") styleInline.paddingTop = "1px";
     if (style.valign === "bottom") styleInline.paddingBottom = "1px";
   }
@@ -176,6 +145,14 @@ export function PlanillaCell(p: Props) {
   if (tag?.title) titleParts.push(tag.title);
   if (p.dragBlockedTitle) titleParts.push(p.dragBlockedTitle);
   if (mode !== "clp" && value !== 0) titleParts.push(`Exacto: ${fmtCell(value, "clp")}`);
+  if (p.caption) titleParts.push(p.caption);
+
+  const openSheet = p.onOpenCellSheet;
+  const handleLongPress = useCallback(() => {
+    openSheet?.();
+  }, [openSheet]);
+
+  const lp = useLongPress(handleLongPress, { disabled: !openSheet || isEditing });
 
   return (
     <td
@@ -188,23 +165,44 @@ export function PlanillaCell(p: Props) {
         cursorClass, styleClass,
         p.isDropTarget ? "outline outline-2 -outline-offset-2 outline-primary/70" : "",
         dragBlocked ? "[cursor:not-allowed]" : "",
+        p.inDiscreteSel ? "ring-2 ring-inset ring-primary/60 bg-primary/10" : "",
+        p.sumMode ? "cursor-pointer" : "",
       ].join(" ")}
       style={Object.keys(styleInline).length ? styleInline : undefined}
       title={titleParts.join(" · ") || undefined}
-      draggable={p.draggable}
-      onDragStart={p.draggable ? p.onDragStartCell : undefined}
+      draggable={p.draggable && !p.sumMode}
+      onDragStart={p.draggable && !p.sumMode ? p.onDragStartCell : undefined}
       onDragOver={p.onDragOverCell}
       onDrop={p.onDropCell}
       onDragEnd={p.onDragEndCell}
       onContextMenu={p.onContextTarget}
+      onPointerDown={lp.onPointerDown}
+      onPointerMove={lp.onPointerMove}
+      onPointerUp={lp.onPointerUp}
+      onPointerCancel={lp.onPointerCancel}
       onClick={(e) => {
-        // Clic = selección; shift-clic extiende. Capas: Espacio / Ver capas / menú.
-        p.onSelect(e.shiftKey);
+        if (lp.didFire()) {
+          e.preventDefault();
+          e.stopPropagation();
+          return;
+        }
+        if (p.sumMode) {
+          p.onSelect(false, true);
+          return;
+        }
+        p.onSelect(e.shiftKey, e.metaKey || e.ctrlKey);
       }}
-      onDoubleClick={() => p.editable && p.onStartEdit()}
+      onDoubleClick={() => {
+        if (p.sumMode) return;
+        p.editable && p.onStartEdit();
+      }}
     >
       {isEditing ? (
-        <EditInput initial={p.editingInitial!} onCommit={p.onCommit} onCancel={p.onCancel} />
+        <InlineCellEditor
+          initial={p.editingInitial!}
+          onCommit={p.onCommit}
+          onCancel={p.onCancel}
+        />
       ) : showChips && tag && (cell.layer === "committed" || cell.layer === "plan") ? (
         <span
           className={`pointer-events-none absolute inset-0 flex flex-col gap-px px-1.5 max-md:px-[3px] leading-none ${chipItemsH} ${chipJustifyV}`}
@@ -218,9 +216,19 @@ export function PlanillaCell(p: Props) {
           {formatted && (
             <span className="max-w-full truncate leading-[10px]">{formatted}</span>
           )}
+          {p.caption && (
+            <span className="max-w-full truncate text-[12px] leading-tight text-ds-text-4">
+              {p.caption}
+            </span>
+          )}
         </span>
       ) : (
-        formatted
+        <>
+          {formatted}
+          {p.caption && formatted && (
+            <span className="ml-0.5 text-[12px] text-ds-text-4">{p.caption}</span>
+          )}
+        </>
       )}
     </td>
   );

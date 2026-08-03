@@ -2046,17 +2046,33 @@ html {
 @media (max-width: 767px) {
   .planilla-sheet {
     --plnx-gutter-w: 28px;
-    --plnx-name-w: 100px;
+    /* v4: 118px para nombres en 2 líneas sin chip "alias". */
+    --plnx-name-w: 118px;
     --plnx-week-w: calc((100vw - var(--plnx-gutter-w) - var(--plnx-name-w)) / 4);
     --plnx-hdr-1: 15px;
     --plnx-hdr-2: 15px;
     --plnx-hdr-3: 16px;
+    /* Mín. ~28px para line-clamp-2 (+ subtítulo origen si aplica). */
     --plnx-row-h: clamp(
-      15px,
-      calc((var(--plnx-grid-h) - var(--plnx-hdr-1) - var(--plnx-hdr-2) - var(--plnx-hdr-3)) / 40),
-      20px
+      28px,
+      calc((var(--plnx-grid-h) - var(--plnx-hdr-1) - var(--plnx-hdr-2) - var(--plnx-hdr-3)) / 28),
+      36px
     );
     --plnx-section-h: var(--plnx-row-h);
+  }
+
+  /* Evitar zoom por double-tap y selección de texto en celdas táctiles. */
+  .planilla-sheet .planilla-grid-scroll,
+  .planilla-sheet .planilla-grid-scroll td,
+  .planilla-sheet .planilla-grid-scroll th {
+    touch-action: manipulation;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  .planilla-sheet .planilla-grid-scroll input {
+    -webkit-user-select: text;
+    user-select: text;
+    touch-action: manipulation;
   }
 }
 

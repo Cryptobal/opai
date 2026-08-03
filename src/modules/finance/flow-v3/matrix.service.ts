@@ -190,6 +190,22 @@ export async function buildFlowMatrix(
     return null;
   };
 
+  // Captions UF (v4): una etiqueta por fila con egreso recurrente en UF.
+  const ufRules = await prisma.financeFlowPlanRecurrence.findMany({
+    where: { tenantId, currency: "UF", amountUf: { not: null } },
+    select: { rowId: true, amountUf: true },
+  });
+  const ufCaptionByRow = new Map<string, string>();
+  for (const rule of ufRules) {
+    if (ufCaptionByRow.has(rule.rowId)) continue;
+    const uf = Number(rule.amountUf);
+    if (!(uf > 0)) continue;
+    ufCaptionByRow.set(
+      rule.rowId,
+      `UF ${uf.toLocaleString("es-CL", { maximumFractionDigits: 4 })}`,
+    );
+  }
+
   const assembleRows: AssembleRowInput[] = [];
   for (const r of dbRows) {
     const cutoff = r.archivedAt ? weekStartYmd(r.archivedAt) : null;
@@ -204,6 +220,7 @@ export async function buildFlowMatrix(
       categoryId: r.categoryId, supplierId: r.supplierId,
       isArchived: !!r.archivedAt, archivedWeekCutoff: cutoff, isVirtual: false,
       sourceName, nameIsManual,
+      ufCaption: ufCaptionByRow.get(r.id) ?? null,
     });
   }
   for (const v of Object.values(VIRTUAL_ROWS)) {

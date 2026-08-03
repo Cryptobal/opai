@@ -8935,17 +8935,32 @@ enum FlowRecurrenceFrequency {
   @@schema("finance")
 }
 
+enum FlowPlanCurrency {
+  CLP
+  UF
+
+  @@schema("finance")
+}
+
 // Regla de egreso recurrente de PLAN (§5J). Materializa celdas
 // FinanceFlowPlanCell hacia adelante; la regla se persiste para poder
 // extenderla y editarla (reescribiendo solo las celdas futuras). Aditivo: si
 // se elimina, las celdas ya materializadas quedan como plan normal.
+// v4: currency UF materializa CLP por ocurrencia según ufPolicy.
 model FinanceFlowPlanRecurrence {
   id         String                  @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   tenantId   String                  @map("tenant_id")
   rowId      String                  @map("row_id") @db.Uuid
   row        FinanceFlowRow          @relation(fields: [rowId], references: [id], onDelete: Cascade)
   /// Monto BRUTO por ocurrencia en CLP (magnitud; el signo lo pone la sección).
+  /// Si currency=UF, es el último CLP estimado (materialización usa amountUf).
   amount     Decimal                 @db.Decimal(14, 2)
+  currency   FlowPlanCurrency        @default(CLP)
+  /// Monto en UF cuando currency=UF (hasta 4 decimales).
+  amountUf   Decimal?                @map("amount_uf") @db.Decimal(10, 4)
+  /// Política de valor UF: RUN_DAY | LAST_DAY_MONTH | LAST_DAY_PREV_MONTH | CUSTOM_DAY.
+  ufPolicy   String?                 @map("uf_policy")
+  ufCustomDay Int?                   @map("uf_custom_day")
   frequency  FlowRecurrenceFrequency
   /// Solo MONTHLY: día del mes objetivo (1–31; se ajusta al último día si el mes es más corto).
   dayOfMonth Int?                    @map("day_of_month")
