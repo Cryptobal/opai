@@ -15,6 +15,10 @@ import { notify } from "@/lib/notifications/notify";
 import { reserveNextFolio } from "./folio-tracker.service";
 import { sendDteEmail, sendDteXmlToBackoffice } from "./dte-email.service";
 import {
+  enrichDteEmailRecipientsFromCrm,
+  normalizeAdditionalReferencesForSii,
+} from "./dte-xml-compliance";
+import {
   parseYmdToDbDate,
   todayChileStr,
 } from "@/lib/fx-date";
@@ -126,25 +130,12 @@ export type IssueDteInput = {
   }>;
 };
 
-/** Solo filas con folio y fecha YYYY-MM-DD válida van al XML SII. */
+/** Solo filas con folio y fecha YYYY-MM-DD válida van al XML SII.
+ *  Normaliza HES→802 y GD→52 (portales SAP / casillas DTE). */
 function additionalReferencesForSii(
   refs: IssueDteInput["additionalReferences"] | undefined,
 ): NonNullable<IssueDteInput["additionalReferences"]> {
-  if (!refs?.length) return [];
-  const out: NonNullable<IssueDteInput["additionalReferences"]> = [];
-  for (const r of refs) {
-    const folio = (r.folioRef ?? "").trim();
-    const fch = (r.fchRef ?? "").trim();
-    if (folio && /^\d{4}-\d{2}-\d{2}$/.test(fch)) {
-      out.push({
-        tipoDocRef: r.tipoDocRef,
-        folioRef: folio,
-        fchRef: fch,
-        razonRef: (r.razonRef ?? "").trim(),
-      });
-    }
-  }
-  return out;
+  return normalizeAdditionalReferencesForSii(refs);
 }
 
 const DTE_TYPES_REQUIRING_REFERENCE = [56, 61] as const;
@@ -214,6 +205,26 @@ export async function issueDte(
       });
       const match = candidates.find((a) => cleanRut(a.rut ?? "") === receiverKey);
       if (match) input.crmAccountId = match.id;
+    }
+  }
+
+  // 2c. Enrutar email PDF+XML a la casilla DTE del CRM (si existe) y
+  // sumar contactos con recibeFacturacion. Afecta CorreoRecep del XML,
+  // receiverEmail/Cc persistidos y el auto-send. Regla general (no
+  // hardcodeada a un cliente): detecta emails tipo recepciondte*.
+  if (input.crmAccountId) {
+    const routed = await enrichDteEmailRecipientsFromCrm({
+      tenantId,
+      crmAccountId: input.crmAccountId,
+      currentTo: input.receiverEmail,
+      currentCc: input.receiverEmailCc,
+    });
+    if (routed.adjusted) {
+      input.receiverEmail = routed.to ?? input.receiverEmail;
+      input.receiverEmailCc = routed.cc;
+      console.info(
+        `[FINANCE] DTE email routing adjusted for account ${input.crmAccountId}: TO=${input.receiverEmail ?? "(none)"} CC=${routed.cc.length}`,
+      );
     }
   }
 
