@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, Lock } from "lucide-react";
 import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
@@ -23,8 +23,17 @@ interface Snapshot {
   v2WeekEndYmd: string;
 }
 
-/** Diálogo de cierre semanal (§5G). Cierra la semana v3 reutilizando el servicio
- *  v2 vía el adaptador; saldo bancario sugerido editable, varianza en vivo. */
+/** Lunes ISO (UTC) del domingo/día `ymd`. */
+function mondayOf(ymd: string): string {
+  const d = new Date(`${ymd}T00:00:00Z`);
+  if (Number.isNaN(d.getTime())) return ymd;
+  const dow = d.getUTCDay(); // 0=dom … 1=lun
+  const offset = dow === 0 ? -6 : 1 - dow;
+  return new Date(d.getTime() + offset * 86_400_000).toISOString().slice(0, 10);
+}
+
+/** Diálogo de cierre semanal. Formulario inmediato; el sugerido del banco
+ *  llega con skeleton inline. Caché por weekEnd; navegación ‹ › con debounce. */
 export function WeeklyCloseDialog({
   open, initialWeekEnd, busy, getProjected, onClose, onConfirm, onReopen,
 }: {
@@ -45,56 +54,127 @@ export function WeeklyCloseDialog({
 }) {
   const [weekEnd, setWeekEnd] = useState(initialWeekEnd);
   const [snap, setSnap] = useState<Snapshot | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loadingBank, setLoadingBank] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [balanceStr, setBalanceStr] = useState("");
   const [notes, setNotes] = useState("");
   const [manualReason, setManualReason] = useState("");
+  /** true si el usuario editó el input: no pisar con el sugerido del banco. */
+  const userEditedRef = useRef(false);
+  const cacheRef = useRef<Map<string, Snapshot>>(new Map());
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const loadGenRef = useRef(0);
 
+  // Al abrir: resetear estado local y caché (invalidar al reabrir).
   useEffect(() => {
-    if (open) setWeekEnd(initialWeekEnd);
-  }, [open, initialWeekEnd]);
+    if (!open) return;
+    setWeekEnd(initialWeekEnd);
+    setNotes("");
+    setManualReason("");
+    setError(null);
+    userEditedRef.current = false;
+    cacheRef.current.clear();
+    // Prefill inmediato con proyectado de la matriz.
+    const monday = mondayOf(initialWeekEnd);
+    const proj = getProjected(monday);
+    if (proj != null) {
+      setBalanceStr(formatThousands(String(Math.abs(Math.round(proj)))));
+    } else {
+      setBalanceStr("");
+    }
+    setSnap(null);
+  }, [open, initialWeekEnd, getProjected]);
+
+  const applySnap = useCallback((s: Snapshot) => {
+    setSnap(s);
+    if (!userEditedRef.current) {
+      setBalanceStr(formatThousands(String(Math.abs(s.bankBalanceClp))));
+    }
+    setManualReason("");
+  }, []);
 
   const load = useCallback(async (we: string) => {
-    setLoading(true);
+    const cached = cacheRef.current.get(we);
+    if (cached) {
+      applySnap(cached);
+      setLoadingBank(false);
+      setError(null);
+      return;
+    }
+    const gen = ++loadGenRef.current;
+    setLoadingBank(true);
     setError(null);
     try {
       const res = await fetch(`/api/finance/flow-v3/weekly-close/snapshot?weekEnd=${we}`, {
         cache: "no-store",
       });
       const json = await res.json();
+      if (gen !== loadGenRef.current) return;
       if (!json.success) throw new Error(json.error ?? "Error");
       const s = json.data as Snapshot;
-      setSnap(s);
-      setBalanceStr(formatThousands(String(Math.abs(s.bankBalanceClp))));
-      setManualReason("");
+      cacheRef.current.set(we, s);
+      applySnap(s);
     } catch (err) {
+      if (gen !== loadGenRef.current) return;
       setError(err instanceof Error ? err.message : "No se pudo cargar el cierre");
-      setSnap(null);
     } finally {
-      setLoading(false);
+      if (gen === loadGenRef.current) setLoadingBank(false);
     }
-  }, []);
+  }, [applySnap]);
 
+  // Carga con debounce 250 ms al cambiar weekEnd (navegación ‹ ›).
   useEffect(() => {
-    if (open) void load(weekEnd);
-  }, [open, weekEnd, load]);
+    if (!open) return;
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    // Primera carga (sin snap aún) sin debounce; navegación sí.
+    const delay = snap == null && !cacheRef.current.has(weekEnd) ? 0 : 250;
+    // Prefill proyectado al navegar si el usuario no editó.
+    if (!userEditedRef.current) {
+      const monday = mondayOf(weekEnd);
+      const proj = getProjected(monday);
+      if (proj != null) {
+        setBalanceStr(formatThousands(String(Math.abs(Math.round(proj)))));
+      }
+    }
+    // Si hay caché, aplicar al instante.
+    const cached = cacheRef.current.get(weekEnd);
+    if (cached) {
+      applySnap(cached);
+      setLoadingBank(false);
+      return;
+    }
+    setSnap(null);
+    debounceRef.current = setTimeout(() => {
+      void load(weekEnd);
+    }, delay);
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- snap solo para decidir delay inicial
+  }, [open, weekEnd, load, getProjected, applySnap]);
 
   if (!open) return null;
 
   const shiftWeek = (dir: -1 | 1) => {
     const base = Date.parse(`${weekEnd}T00:00:00Z`);
     if (Number.isNaN(base)) return;
+    userEditedRef.current = false;
     setWeekEnd(new Date(base + dir * 7 * 86_400_000).toISOString().slice(0, 10));
   };
 
+  const monday = snap?.weekStartYmd ?? mondayOf(weekEnd);
+  const sunday = snap?.weekEndYmd ?? weekEnd;
+  const label = snap?.weekLabel ?? "";
   const closedBalance = parseSignedAmount(balanceStr || "0");
-  const bankSuggested = snap?.bankBalanceClp ?? 0;
-  const projected = snap ? getProjected(snap.weekStartYmd) ?? snap.projectedBalanceClp : 0;
+  const bankSuggested = snap?.bankBalanceClp;
+  const projected = getProjected(monday) ?? snap?.projectedBalanceClp ?? 0;
   const variance = closedBalance - projected;
-  const differsFromBank = snap ? Math.abs(closedBalance - bankSuggested) > 1 : false;
+  const differsFromBank =
+    bankSuggested != null ? Math.abs(closedBalance - bankSuggested) > 1 : false;
   const needsReason = differsFromBank;
   const reasonOk = !needsReason || manualReason.trim().length >= 5;
+  const alreadyClosed = snap?.alreadyClosed ?? false;
+  const isFuture = snap?.isFuture ?? monday > mondayOf(new Date().toISOString().slice(0, 10));
 
   const varianceTone =
     variance === 0
@@ -104,15 +184,16 @@ export function WeeklyCloseDialog({
         : "text-status-danger-fg";
 
   const confirm = async () => {
-    if (!snap) return;
     const r = await onConfirm({
-      weekEnd: snap.weekEndYmd,
+      weekEnd: sunday,
       closedBalance,
       notes: notes.trim() || undefined,
       manualReason: needsReason ? manualReason.trim() : undefined,
     });
-    if (r.ok) onClose();
-    else setError(r.reason);
+    if (r.ok) {
+      cacheRef.current.clear();
+      onClose();
+    } else setError(r.reason);
   };
 
   return (
@@ -127,20 +208,20 @@ export function WeeklyCloseDialog({
             <ChevronLeft className="h-4 w-4" />
           </Button>
           <span className="font-mono text-[13px] uppercase tracking-wide text-ds-text-2">
-            {snap ? `${snap.weekLabel} · ${snap.weekStartYmd} → ${snap.weekEndYmd}` : weekEnd}
+            {label ? `${label} · ${monday} → ${sunday}` : `${monday} → ${sunday}`}
           </span>
           <Button variant="outline" size="sm" onClick={() => shiftWeek(1)} aria-label="Semana siguiente">
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
 
-        {loading ? (
-          <div className="flex h-40 items-center justify-center text-sm text-ds-text-3">Cargando…</div>
-        ) : error ? (
-          <div className="rounded border border-status-danger-border bg-status-danger-soft/40 px-2 py-2 text-sm text-status-danger-fg">
+        {error && (
+          <div className="mb-2 rounded border border-status-danger-border bg-status-danger-soft/40 px-2 py-2 text-sm text-status-danger-fg">
             {error}
           </div>
-        ) : !snap ? null : snap.alreadyClosed ? (
+        )}
+
+        {alreadyClosed ? (
           <div className="space-y-3">
             <div className="flex items-center gap-2 rounded border border-ds-border-default bg-ds-surface-2 px-2 py-2 text-sm text-ds-text-2">
               <Lock className="h-4 w-4 shrink-0 text-ds-text-3" />
@@ -148,12 +229,16 @@ export function WeeklyCloseDialog({
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={onClose}>Cerrar</Button>
-              <Button variant="destructive" disabled={busy} onClick={() => onReopen(snap.weekEndYmd)}>
+              <Button
+                variant="destructive"
+                disabled={busy || !snap}
+                onClick={() => snap && onReopen(snap.weekEndYmd)}
+              >
                 {busy ? "Reabriendo…" : "Reabrir semana"}
               </Button>
             </DialogFooter>
           </div>
-        ) : snap.isFuture ? (
+        ) : isFuture && snap ? (
           <div className="space-y-3">
             <p className="rounded border border-status-warn-border bg-status-warn-soft/40 px-2 py-2 text-sm text-status-warn-fg">
               No se puede cerrar una semana futura.
@@ -176,20 +261,40 @@ export function WeeklyCloseDialog({
             </div>
 
             <label className="block space-y-1 text-xs text-ds-text-3">
-              <span>Saldo de cierre (sugerido: banco {fmtClp(bankSuggested)})</span>
+              <span className="inline-flex items-center gap-1.5">
+                Saldo de cierre (sugerido: banco{" "}
+                {loadingBank || bankSuggested == null ? (
+                  <span
+                    aria-busy
+                    className="inline-block h-3.5 w-16 animate-pulse rounded bg-ds-surface-3"
+                  />
+                ) : (
+                  fmtClp(bankSuggested)
+                )}
+                )
+              </span>
               <Input
                 inputMode="numeric"
                 value={balanceStr}
-                onChange={(e) => setBalanceStr(formatThousands(e.target.value))}
+                onChange={(e) => {
+                  userEditedRef.current = true;
+                  setBalanceStr(formatThousands(e.target.value));
+                }}
               />
             </label>
 
             <div className="flex gap-3 text-xs text-ds-text-3">
               <span>
-                Sin asignar: <span className="text-ds-text-1">{snap.unassignedBankCount}</span>
+                Sin asignar:{" "}
+                <span className="text-ds-text-1">
+                  {snap ? snap.unassignedBankCount : loadingBank ? "…" : "—"}
+                </span>
               </span>
               <span>
-                Proy. no cumplidas: <span className="text-ds-text-1">{snap.unfulfilledProjCount}</span>
+                Proy. no cumplidas:{" "}
+                <span className="text-ds-text-1">
+                  {snap ? snap.unfulfilledProjCount : loadingBank ? "…" : "—"}
+                </span>
               </span>
             </div>
 
