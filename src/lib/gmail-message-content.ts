@@ -31,8 +31,25 @@ function isCalendarPart(part: GmailMessagePart): boolean {
   return mt.includes("text/calendar") || mt.includes("application/ics") || fn.endsWith(".ics") || fn.endsWith(".ical");
 }
 
+function isImagePart(part: GmailMessagePart): boolean {
+  return (part.mimeType || "").toLowerCase().startsWith("image/");
+}
+
+function defaultAttachmentFilename(part: GmailMessagePart): string {
+  if (part.filename) return part.filename;
+  if (isCalendarPart(part)) return "invite.ics";
+  const mt = (part.mimeType || "").toLowerCase();
+  if (mt === "image/png") return "inline.png";
+  if (mt === "image/jpeg" || mt === "image/jpg") return "inline.jpg";
+  if (mt === "image/gif") return "inline.gif";
+  if (mt === "image/webp") return "inline.webp";
+  if (mt.startsWith("image/")) return "inline-image";
+  return "attachment";
+}
+
 /** Recorre el árbol de partes y devuelve los adjuntos (con attachmentId).
- *  Incluye partes `text/calendar` aunque vengan sin filename (invites Outlook/Google). */
+ *  Incluye partes `text/calendar` e `image/*` aunque vengan sin filename
+ *  (invites Outlook/Google; capturas inline CID en el cuerpo del mail). */
 export function extractGmailAttachments(payload?: GmailMessagePart): GmailAttachmentMeta[] {
   const out: GmailAttachmentMeta[] = [];
   if (!payload) return out;
@@ -40,10 +57,13 @@ export function extractGmailAttachments(payload?: GmailMessagePart): GmailAttach
   while (stack.length > 0) {
     const part = stack.pop();
     if (!part) continue;
-    if (part.body?.attachmentId && (part.filename || isCalendarPart(part))) {
+    if (
+      part.body?.attachmentId &&
+      (part.filename || isCalendarPart(part) || isImagePart(part))
+    ) {
       out.push({
         attachmentId: part.body.attachmentId,
-        filename: part.filename || (isCalendarPart(part) ? "invite.ics" : "attachment"),
+        filename: defaultAttachmentFilename(part),
         mimeType: part.mimeType || "application/octet-stream",
         size: part.body.size ?? 0,
         contentId: contentIdFromPartHeaders(part.headers),

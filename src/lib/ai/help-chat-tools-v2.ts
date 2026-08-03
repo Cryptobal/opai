@@ -95,6 +95,16 @@ import {
   aiTool_update_quote_status,
 } from "@/lib/ai/help-chat-cpq-ai-handlers";
 import {
+  billingDraftReadToolDefinitions,
+  billingDraftWriteToolDefinitions,
+  toolPreviewUpdateInvoiceDraftRefs,
+  toolPreviewUpdateRecurringInvoiceRefs,
+  toolSearchInvoiceDrafts,
+  toolSearchRecurringInvoices,
+  toolUpdateInvoiceDraftRefs,
+  toolUpdateRecurringInvoiceRefs,
+} from "@/lib/ai/help-chat-billing-draft-tools";
+import {
   aiTool_get_quote_share_link,
   aiTool_manage_quote_extras,
   aiTool_update_quote,
@@ -204,7 +214,7 @@ function v2ToolDefinitions() {
       function: {
         name: "read_email_attachments",
         description:
-          "Analiza los adjuntos del hilo (PDF, DOCX, Excel, CSV, imágenes) y devuelve texto extraído + fuentes. Úsala cuando el usuario mencione bases, TDR, cotización adjunta o pida considerar los archivos del mail. threadId opcional con page context crm_email_thread.",
+          "Analiza los adjuntos del hilo (PDF, DOCX, Excel, CSV, IMÁGENES/capturas) y devuelve texto extraído + visión de pantallazos. OBLIGATORIA cuando el usuario pida leer una imagen/captura del mail (HES, OC, SAP, 'para pedido', montos). Corre visión LLM sobre PNG/JPEG y PDFs escaneados y devuelve visionExtract con hes/oc/pedido/montos. threadId opcional con page context crm_email_thread.",
         parameters: {
           type: "object",
           properties: {
@@ -813,13 +823,13 @@ function v2ToolDefinitions() {
       function: {
         name: "search_dtes",
         description:
-          "Busca DTEs emitidos (facturas/boletas/NC/ND) por folio, RUT, nombre del receptor (razón social), nombre de la cuenta CRM (nombre de fantasía), monto exacto, rango de monto 'min-max', o período YYYY-MM. Devuelve lista paginada con datos clave (folio, fecha, receptor, accountName, monto, estado SII, estado de pago).",
+          "Busca DTEs por folio, RUT, nombre del receptor/cuenta CRM, monto o período YYYY-MM. Default status=issued (emitidos). Para BORRADORES pendientes de Programación preferí search_invoice_drafts (más rico: instalación, plantilla, refs HES/OC). Si usás status=draft acá, también funciona pero sin templateName.",
         parameters: {
           type: "object",
           properties: {
             search: { type: "string", description: "Búsqueda fuzzy: folio, RUT, nombre o monto." },
             periodo: { type: "string", description: "Formato YYYY-MM para filtrar por mes." },
-            status: { type: "string", enum: ["all", "draft", "issued"], description: "Default issued." },
+            status: { type: "string", enum: ["all", "draft", "issued"], description: "Default issued. Usa draft solo si no llamás search_invoice_drafts." },
             accountId: { type: "string" },
             installationId: { type: "string" },
             limit: { type: "number", description: "Máximo 50, default 15." },
@@ -2254,6 +2264,14 @@ export const PREVIEW_TO_CONFIRM: Record<string, { confirmToolName: string; label
   preview_credit_note_draft: { confirmToolName: "create_credit_note_draft", label: "Crear nota de crédito" },
   preview_debit_note_draft: { confirmToolName: "create_debit_note_draft", label: "Crear nota de débito" },
   preview_recurring_invoice: { confirmToolName: "create_recurring_invoice", label: "Crear plantilla de facturación recurrente" },
+  preview_update_invoice_draft_refs: {
+    confirmToolName: "update_invoice_draft_refs",
+    label: "Actualizar referencias HES/OC del borrador",
+  },
+  preview_update_recurring_invoice_refs: {
+    confirmToolName: "update_recurring_invoice_refs",
+    label: "Actualizar referencias HES/OC de la plantilla",
+  },
   preview_send_quote_proposal: { confirmToolName: "send_quote_proposal", label: "Enviar propuesta de cotización" },
   preview_update_quote_position: { confirmToolName: "update_quote_position", label: "Actualizar puesto de la cotización" },
   preview_remove_quote_position: { confirmToolName: "remove_quote_position", label: "Eliminar puesto de la cotización" },
@@ -2296,6 +2314,8 @@ export const WRITE_TOOL_LABELS: Record<string, string> = {
   create_credit_note_draft: "Crear nota de crédito",
   create_debit_note_draft: "Crear nota de débito",
   create_recurring_invoice: "Crear plantilla de facturación recurrente",
+  update_invoice_draft_refs: "Actualizar referencias HES/OC del borrador",
+  update_recurring_invoice_refs: "Actualizar referencias HES/OC de la plantilla",
   create_factoring_company: "Crear empresa de factoring",
   create_ticket: "Crear ticket",
   create_reminder: "Crear recordatorio",
@@ -2371,7 +2391,7 @@ const WRITE_SECTION_FORCE_WRITE: ReadonlySet<string> = new Set([]);
  * solo para el texto de la tarjeta.
  */
 export const WRITE_TOOL_NAMES: ReadonlySet<string> = new Set(
-  writeToolDefinitions()
+  [...writeToolDefinitions(), ...billingDraftWriteToolDefinitions()]
     .map((d) => d.function.name)
     .filter(
       (n) =>
@@ -2382,8 +2402,14 @@ export const WRITE_TOOL_NAMES: ReadonlySet<string> = new Set(
 
 export function getToolDefinitionsV2(allowDataQuestions: boolean, allowWrites: boolean = false) {
   if (!allowDataQuestions) return [];
-  const reads = [...baseToolDefinitions(), ...v2ToolDefinitions()];
-  return allowWrites ? [...reads, ...writeToolDefinitions()] : reads;
+  const reads = [
+    ...baseToolDefinitions(),
+    ...v2ToolDefinitions(),
+    ...billingDraftReadToolDefinitions(),
+  ];
+  return allowWrites
+    ? [...reads, ...writeToolDefinitions(), ...billingDraftWriteToolDefinitions()]
+    : reads;
 }
 
 async function executeLegacyTool(
@@ -8103,6 +8129,25 @@ async function toolSummarizeEmailThread(
   };
 }
 
+const EMAIL_ATTACHMENT_VISION_PROMPT = `Analizá estas capturas/imágenes de documentos (ERP SAP, HES, órdenes de compra, hojas de entrada de servicio, pantallazos).
+Extraé SOLO lo que se ve. Respondé JSON estricto:
+{
+  "hes": [{"folio":"string","fecha":"YYYY-MM-DD o null","texto":"texto breve visible","ubicacion":"lugar servicio o null"}],
+  "oc": [{"folio":"string","fecha":"YYYY-MM-DD o null","texto":"string o null"}],
+  "pedido": [{"folio":"string","fecha":"YYYY-MM-DD o null","texto":"string o null"}],
+  "montos": [{"descripcion":"string","monto":number}],
+  "periodo": "string o null",
+  "lugarServicio": "string o null",
+  "numeroExterno": "string o null",
+  "rawNotes": "otros datos útiles en 1-3 líneas"
+}
+Reglas:
+- HES = "Hoja de entrada" / "Hoja de entrada servicio" / número HES.
+- OC = "Orden de compra". Si el campo se llama "Para pedido", es OC (orden de compra / pedido).
+- Copiá los números literales (ej. 1001252217, 4420005793). No inventes.
+- monto sin puntos de miles (6380000 no 6.380.000).
+- Si no hay un campo, usá array vacío o null.`;
+
 async function toolReadEmailAttachments(
   tenantId: string,
   userId: string,
@@ -8144,6 +8189,58 @@ async function toolReadEmailAttachments(
   const page = truncateDocText(docText, DOC_TEXT_MAX_PER_FILE, {
     label: "adjuntos del correo",
   });
+
+  let visionExtract: unknown = null;
+  let visionMode: "images" | "pdf" | "none" | "error" = "none";
+  let visionError: string | null = null;
+
+  const hasImages = prepared.images.length > 0;
+  const hasPdfs = prepared.pdfsForVision.length > 0;
+
+  if (hasImages || hasPdfs) {
+    try {
+      const { aiService } = await import("@/lib/ai-service");
+      const cfg = await aiService.getActiveConfig({
+        tenantId,
+        feature: "help-chat-email-attachments-vision",
+      });
+      const providerType = cfg?.providerType ?? "openai";
+      const pdfVisionSupported =
+        providerType === "anthropic" || providerType === "google";
+
+      if (hasPdfs && pdfVisionSupported && !hasImages) {
+        visionMode = "pdf";
+        visionExtract = await aiService.processDocument(
+          prepared.pdfsForVision[0]!.base64,
+          EMAIL_ATTACHMENT_VISION_PROMPT,
+          2500,
+          { tenantId, feature: "help-chat-email-attachments-vision" },
+        );
+      } else if (hasImages) {
+        visionMode = "images";
+        // Limitar a 4 imágenes para costo/latencia.
+        const imgs = prepared.images.slice(0, 4);
+        const mimes = prepared.imageMimes.slice(0, 4);
+        visionExtract = await aiService.generateFromImages(
+          imgs,
+          mimes,
+          EMAIL_ATTACHMENT_VISION_PROMPT,
+          { maxTokens: 2500 },
+          { tenantId, feature: "help-chat-email-attachments-vision" },
+        );
+      } else if (hasPdfs && !pdfVisionSupported) {
+        visionMode = "error";
+        visionError =
+          "Hay PDF escaneado sin texto, pero el proveedor de IA activo no soporta visión de PDF. Pedile al usuario el número de HES/OC o una captura PNG/JPEG.";
+      }
+    } catch (e) {
+      visionMode = "error";
+      visionError =
+        e instanceof Error ? e.message : "No pude analizar las imágenes con visión.";
+      console.error("[help-chat] read_email_attachments vision falló", e);
+    }
+  }
+
   return {
     ok: true,
     data: {
@@ -8158,9 +8255,14 @@ async function toolReadEmailAttachments(
       truncated: page.truncated,
       totalLength: page.totalLength,
       nextOffset: page.nextOffset,
+      visionMode,
+      visionExtract,
+      visionError,
       instruction:
-        `${docUntrustedBanner()} Usá el texto de adjuntos como evidencia para proponer CRM/cotización. ` +
-        "No inventes montos ni cláusulas que no estén en el extracto. " +
+        `${docUntrustedBanner()} Usá el texto de adjuntos y visionExtract como evidencia. ` +
+        "Si visionExtract trae hes[].folio / oc[].folio / pedido[].folio, ESOS son los valores reales — NO pidas al usuario que los tipee. " +
+        "Para actualizar un borrador de Programación con esas refs: search_invoice_drafts → preview_update_invoice_draft_refs → confirmación → update_invoice_draft_refs. " +
+        "No inventes montos ni folios que no estén en el extracto. " +
         "Si nextOffset no es null, hay más texto: continuá leyendo o pedí read_document sobre el archivo stageado.",
     },
   };
@@ -8193,6 +8295,24 @@ export async function executeToolCallV2(
   }
   if (toolName === "read_email_attachments") {
     return await toolReadEmailAttachments(tenantId, userId, args, pageContext);
+  }
+  if (toolName === "search_invoice_drafts") {
+    return await toolSearchInvoiceDrafts(tenantId, args);
+  }
+  if (toolName === "search_recurring_invoices") {
+    return await toolSearchRecurringInvoices(tenantId, args);
+  }
+  if (toolName === "preview_update_invoice_draft_refs") {
+    return await toolPreviewUpdateInvoiceDraftRefs(tenantId, userId, perms, args);
+  }
+  if (toolName === "update_invoice_draft_refs") {
+    return await toolUpdateInvoiceDraftRefs(tenantId, userId, perms, args);
+  }
+  if (toolName === "preview_update_recurring_invoice_refs") {
+    return await toolPreviewUpdateRecurringInvoiceRefs(tenantId, userId, perms, args);
+  }
+  if (toolName === "update_recurring_invoice_refs") {
+    return await toolUpdateRecurringInvoiceRefs(tenantId, userId, perms, args);
   }
   if (toolName === "search_emails" || toolName === "search_emails_semantic") {
     return await toolSearchEmails(tenantId, userId, args, perms);
