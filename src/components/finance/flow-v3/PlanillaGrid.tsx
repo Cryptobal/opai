@@ -76,7 +76,6 @@ interface Props {
   onNameWChange?: (w: number) => void;
   /** Orden por monto (sesión): null = A→Z del servidor. */
   amountSort?: { weekStart: string; dir: "asc" | "desc" } | null;
-  onAmountSortCycle?: () => void;
 }
 
 type RowDialogState =
