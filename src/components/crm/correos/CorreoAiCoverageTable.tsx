@@ -109,8 +109,26 @@ export function CorreoAiCoverageTable({ proposal, onChange, regimenOptions }: Pr
     commit(next);
   }
 
+  function ensureInstallations(
+    installations: CrmStructureInstallation[],
+  ): CrmStructureInstallation[] {
+    if (installations.length > 0) return installations;
+    // Sin instalación de la IA: semilla mínima para poder cargar puestos a mano.
+    return [
+      {
+        name: "Instalación principal",
+        address: null,
+        commune: null,
+        city: null,
+        mapsUrl: null,
+        coverageSlots: [],
+      },
+    ];
+  }
+
   function addSlotInGroup(groupKey: string, kind: "puesto" | "rondin") {
-    if (!onChange || proposal.installations.length === 0) return;
+    if (!onChange) return;
+    const base = ensureInstallations(proposal.installations);
     const group = groups.find((g) => g.key === groupKey);
     const instIdx = group?.slots[0]?.instIdx ?? 0;
     const etapa = groupKey === GENERAL_ETAPA_KEY ? null : groupKey;
@@ -125,8 +143,8 @@ export function CorreoAiCoverageTable({ proposal, onChange, regimenOptions }: Pr
         ? { regimen: "Rondín", horaInicio: "20:00", horaFin: "08:00" }
         : {}),
     });
-    const newSlotIdx = proposal.installations[instIdx]?.coverageSlots.length ?? 0;
-    const next = proposal.installations.map((inst, i) =>
+    const newSlotIdx = base[instIdx]?.coverageSlots.length ?? 0;
+    const next = base.map((inst, i) =>
       i === instIdx
         ? { ...inst, coverageSlots: [...inst.coverageSlots, slot] }
         : inst,
@@ -248,16 +266,25 @@ export function CorreoAiCoverageTable({ proposal, onChange, regimenOptions }: Pr
       ) : (
         <div className="space-y-2">
           <p className="text-[13px] text-ds-text-3">
-            Sin puestos de cobertura en la propuesta.
+            Sin puestos aún. Agregá la cobertura a mano si la IA no la leyó bien.
           </p>
-          {editable && proposal.installations.length > 0 && (
-            <button
-              type="button"
-              onClick={() => addSlotInGroup(GENERAL_ETAPA_KEY, "puesto")}
-              className="flex h-10 items-center gap-1.5 rounded-lg border border-dashed border-ds-border-default px-3 text-[13px] text-ds-text-3 ds-tap hover:border-primary hover:text-primary sm:h-9"
-            >
-              ＋ Puesto en General
-            </button>
+          {editable && (
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => addSlotInGroup(GENERAL_ETAPA_KEY, "puesto")}
+                className="flex h-10 items-center gap-1.5 rounded-lg border border-dashed border-ds-border-default px-3 text-[13px] text-ds-text-3 ds-tap hover:border-primary hover:text-primary sm:h-9"
+              >
+                ＋ Puesto en General
+              </button>
+              <button
+                type="button"
+                onClick={() => addSlotInGroup(GENERAL_ETAPA_KEY, "rondin")}
+                className="flex h-10 items-center gap-1.5 rounded-lg border border-dashed border-ds-border-default px-3 text-[13px] text-ds-text-3 ds-tap hover:border-primary hover:text-primary sm:h-9"
+              >
+                ＋ Rondín
+              </button>
+            </div>
           )}
         </div>
       )}

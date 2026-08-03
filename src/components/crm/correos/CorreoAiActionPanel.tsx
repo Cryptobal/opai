@@ -34,6 +34,7 @@ import {
   diffStaffingTotals,
   type StaffingDelta,
 } from "./CorreoAiPlanSections";
+import { CorreoAiCoverageTable } from "./CorreoAiCoverageTable";
 import { CorreoAiResultList } from "./CorreoAiResultList";
 import { CorreoAiRefineChat, type RefineChatMessage } from "./CorreoAiRefineChat";
 import type { CrmStructureRefineAnswer } from "@/modules/crm/email/email-to-crm-structure.types";
@@ -257,16 +258,36 @@ function buildStructureActions(
       optional: true,
       group: "calendario",
     },
-    {
-      id: "quote",
-      label: "Cotización (CPQ)",
-      detail: dealSelected ? undefined : "Sin negocio — borrador en la cuenta",
-      tag: "opcional",
-      optional: !proposal.deal.isLicitacion,
-      disabled: !canCreateQuote,
-      reasonDisabled: !canCreateQuote ? "Sin permiso para crear cotizaciones" : undefined,
-      group: "comercial",
-    },
+    (() => {
+      const slotCount = proposal.installations.reduce(
+        (n, i) => n + i.coverageSlots.length,
+        0,
+      );
+      const hasCoverage = slotCount > 0;
+      // Con cobertura del pliego / licitación, la cotización es parte del plan
+      // (no "opcional" desmarcada por defecto).
+      const quoteCore = proposal.deal.isLicitacion || hasCoverage;
+      const detailParts = [
+        hasCoverage ? `${slotCount} puesto${slotCount === 1 ? "" : "s"}` : "Sin puestos aún",
+        dealSelected
+          ? null
+          : existingDealId
+            ? "Se vincula al negocio del hilo"
+            : "Sin negocio — borrador en la cuenta",
+      ].filter(Boolean);
+      return {
+        id: "quote" as const,
+        label: "Cotización (CPQ)",
+        detail: detailParts.join(" · ") || undefined,
+        tag: quoteCore ? ("cotización" as const) : ("opcional" as const),
+        optional: !quoteCore,
+        disabled: !canCreateQuote,
+        reasonDisabled: !canCreateQuote
+          ? "Sin permiso para crear cotizaciones"
+          : undefined,
+        group: "comercial" as const,
+      };
+    })(),
   );
 
   if (proposal.deal.isLicitacion) {
@@ -545,21 +566,40 @@ export function CorreoAiActionPanel({
             const focused = selectionForCascadeAi(focusEntity);
             d.setSelectedIds(focused.selectedIds);
             d.setInclude(focused.include);
+            if (focusEntity === "quote") {
+              setExpandedIds(new Set(["quote"]));
+            }
           } else {
-            const actions = buildStructureActions(j.proposal, false, existingDealId, true, true, true);
-            d.setSelectedIds(
-              new Set(actions.filter((a) => !a.optional && !a.disabled).map((a) => a.id).concat(["account"])),
-            );
             const hasSlots = j.proposal.installations.some((i) => i.coverageSlots.length > 0);
+            const wantQuote = Boolean(j.proposal.deal.isLicitacion || hasSlots);
+            const actions = buildStructureActions(
+              j.proposal,
+              false,
+              existingDealId,
+              true,
+              true,
+              true,
+            );
+            const ids = new Set(
+              actions
+                .filter((a) => !a.optional && !a.disabled)
+                .map((a) => a.id)
+                .concat(["account"]),
+            );
+            // Defensa: quote con cobertura debe quedar seleccionada aunque el
+            // tag "opcional" legacy diga lo contrario.
+            if (wantQuote) ids.add("quote");
+            d.setSelectedIds(ids);
             d.setInclude({
               contact: true,
               deal: true,
               installations: j.proposal.installations.length > 0,
               attachments: true,
               followUpTask: false,
-              quote: Boolean(j.proposal.deal.isLicitacion || hasSlots),
+              quote: wantQuote,
               milestones: Boolean(j.proposal.deal.isLicitacion),
             });
+            if (wantQuote) setExpandedIds(new Set(["quote"]));
           }
         } else {
           d.setStagedFiles(j.stagedFiles ?? []);
@@ -568,6 +608,11 @@ export function CorreoAiActionPanel({
             const focused = selectionForCascadeAi(focusEntity);
             d.setSelectedIds(focused.selectedIds);
             d.setInclude(focused.include);
+            if (focusEntity === "quote") {
+              setExpandedIds(new Set(["quote"]));
+            }
+          } else if (d.include.quote) {
+            setExpandedIds(new Set(["quote"]));
           }
         }
         setSources(j.sources ?? []);
@@ -689,10 +734,56 @@ export function CorreoAiActionPanel({
         );
       case "quote":
         return (
-          <PlanQuoteForm
-            quoteInput={draft.quoteInput}
-            onChange={(partial) => draft.setQuoteInput((prev) => ({ ...prev, ...partial }))}
-          />
+          <div className="space-y-4">
+            <PlanQuoteForm
+              quoteInput={draft.quoteInput}
+              onChange={(partial) =>
+                draft.setQuoteInput((prev) => ({ ...prev, ...partial }))
+              }
+            />
+            <div className="space-y-2 border-t border-ds-border-subtle pt-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h4 className="text-[12px] font-medium uppercase tracking-wide text-ds-text-3">
+                  Cobertura y puestos
+                </h4>
+                <p className="text-[12px] text-ds-text-4">
+                  Se materializan como puestos CPQ al crear la cotización
+                </p>
+              </div>
+              <div className="mb-2 space-y-1.5">
+                <div className="flex flex-wrap items-center gap-3">
+                  <span className="text-[12px] text-ds-text-3">
+                    Jornada legal 42 h/sem
+                  </span>
+                  <label className="flex items-center gap-2 text-[13px] text-ds-text-2">
+                    Reserva %
+                    <input
+                      type="number"
+                      min={0}
+                      max={100}
+                      className="h-10 w-16 rounded-lg border border-ds-border-default bg-ds-surface-1 px-2 sm:h-9"
+                      value={p.reservePct ?? 10}
+                      onChange={(e) =>
+                        draft.setStaffingParam("reservePct", Number(e.target.value) || 0)
+                      }
+                    />
+                  </label>
+                </div>
+                <p className="text-[12px] text-ds-text-4">
+                  Dotación adicional sugerida para vacaciones y licencias.
+                  Informativo: no crea puestos por sí sola.
+                </p>
+              </div>
+              <CorreoAiCoverageTable
+                proposal={p}
+                onChange={(inst, opts) => {
+                  if (opts?.recalc === false) draft.setField("installations", inst);
+                  else draft.setInstallationsAndRecalc(inst);
+                }}
+                regimenOptions={regimenOptions}
+              />
+            </div>
+          </div>
         );
       case "milestones":
         return (
@@ -1000,7 +1091,14 @@ export function CorreoAiActionPanel({
                 proposal={draft.proposal}
                 actions={structureActions}
                 selected={draft.selectedIds}
-                onToggle={draft.toggleAction}
+                onToggle={(id) => {
+                  const turningOn = !draft.selectedIds.has(id);
+                  draft.toggleAction(id);
+                  // Al marcar Cotización, abrir cobertura/puestos de inmediato.
+                  if (id === "quote" && turningOn) {
+                    setExpandedIds((prev) => new Set(prev).add("quote"));
+                  }
+                }}
                 sources={sources}
                 durationMs={durationMs}
                 delta={delta}
@@ -1017,13 +1115,6 @@ export function CorreoAiActionPanel({
                   void refineWithAnswers(next);
                 }}
                 onAssumptionsChange={draft.setAssumptions}
-                onCoverageChange={(inst, opts) => {
-                  // Recálculo local determinista: sin fetch y sin perder filas.
-                  if (opts?.recalc === false) draft.setField("installations", inst);
-                  else draft.setInstallationsAndRecalc(inst);
-                }}
-                onReservePctChange={(pct) => draft.setStaffingParam("reservePct", pct)}
-                regimenOptions={regimenOptions}
                 onRefineAssumption={(a) => openRefine(`Cambiar supuesto: ${a}`)}
                 onRefineQuestion={(q) => openRefine(q)}
                 onOpenRefine={() => openRefine("Ajuste al plan")}
