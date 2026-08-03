@@ -76,7 +76,7 @@ export function PlanillaRow(p: Props) {
         scope="row"
         onClick={togglePeek}
         onContextMenu={showMenu ? p.onRowContext : undefined}
-        className={`${NAME_W} ${ROW_H} sticky ${NAME_LEFT} z-10 border-b border-r border-ds-border-subtle/60 bg-ds-surface-1 px-1.5 max-md:px-1 text-left align-middle`}
+        className={`planilla-name-col ${NAME_W} ${ROW_H} sticky ${NAME_LEFT} z-10 border-b border-r border-ds-border-subtle/60 bg-ds-surface-1 px-1.5 max-md:px-1 text-left align-middle`}
       >
         {peek && (
           <span

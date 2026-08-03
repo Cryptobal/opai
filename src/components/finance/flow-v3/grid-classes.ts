@@ -68,8 +68,8 @@ export const CORNER_DTE =
 export const CORNER_WARN =
   "after:absolute after:right-0 after:top-0 after:h-0 after:w-0 after:border-l-[6px] after:border-t-[6px] after:border-l-transparent after:border-t-status-warn after:content-['']";
 
-export const SELECTED_CELL =
-  "outline outline-2 -outline-offset-2 outline-[var(--plnx-sel,#0b57d0)]";
+/** Selección Sheets: borde azul + handle (ver globals.css `.planilla-selected`). */
+export const SELECTED_CELL = "planilla-selected";
 
 /** Header de columna/fila seleccionado (tinte azul Sheets). */
 export const SELECTED_HDR = "bg-[var(--plnx-sel-hdr,#d3e3fd)]";

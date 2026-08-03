@@ -348,7 +348,7 @@ export function PlanillaGrid({
             tabIndex={0}
             onKeyDown={kb.onGridKeyDown}
             onContextMenuCapture={() => setCtxTarget(null)}
-            className="planilla-sheet relative max-h-[var(--plnx-grid-h)] overflow-auto overscroll-contain [-webkit-overflow-scrolling:touch] rounded-lg border border-ds-border-default bg-ds-surface-1 outline-none focus-visible:ring-1 focus-visible:ring-primary/40 max-lg:rounded-none max-lg:border-x-0"
+            className="planilla-grid-scroll relative max-h-[var(--plnx-grid-h)] overflow-auto overscroll-contain [-webkit-overflow-scrolling:touch] rounded-lg border border-ds-border-default bg-ds-surface-1 outline-none focus-visible:ring-1 focus-visible:ring-primary/40 max-lg:rounded-none max-lg:border-x-0"
             onScroll={() => popover && setPopover(null)}
           >
             <table className="w-max border-separate border-spacing-0">
@@ -361,7 +361,7 @@ export function PlanillaGrid({
                     </td>
                     <th
                       scope="rowgroup"
-                      className={`${NAME_W} ${SECTION_H} sticky ${NAME_LEFT} z-10 border-b border-r border-ds-border-default bg-ds-surface-2 px-1.5 max-md:px-1 text-left`}
+                      className={`planilla-name-col ${NAME_W} ${SECTION_H} sticky ${NAME_LEFT} z-10 border-b border-r border-ds-border-default bg-ds-surface-2 px-1.5 max-md:px-1 text-left`}
                     >
                       <button
                         onClick={() => toggleSection(section.key)}

@@ -66,7 +66,7 @@ export function PlanillaHeader({ columns, granularity, closedWeeks, selectedColI
         />
         <th
           data-plnx-cola=""
-          className={`${NAME_W} ${cornerBase} ${NAME_LEFT} top-0 border-ds-border-default text-center text-ds-text-4`}
+          className={`planilla-name-col ${NAME_W} ${cornerBase} ${NAME_LEFT} top-0 border-ds-border-default text-center text-ds-text-4`}
         >
           A
         </th>
@@ -88,7 +88,7 @@ export function PlanillaHeader({ columns, granularity, closedWeeks, selectedColI
         />
         <th
           rowSpan={2}
-          className={`${NAME_W} ${cornerBase} ${NAME_LEFT} top-[var(--plnx-hdr-1)] border-ds-border-default px-1.5 max-md:px-1 text-left align-bottom pb-0.5 text-ds-text-3`}
+          className={`planilla-name-col ${NAME_W} ${cornerBase} ${NAME_LEFT} top-[var(--plnx-hdr-1)] border-ds-border-default px-1.5 max-md:px-1 text-left align-bottom pb-0.5 text-ds-text-3`}
         >
           Concepto
         </th>
