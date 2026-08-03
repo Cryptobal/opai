@@ -67,10 +67,6 @@ export function CorreoRowDesktop({
         : !thread.accountId
           ? { label: "sin cuenta", tone: "warn" as const }
           : null;
-  const chainLabel = hasDeal
-    ? [thread.accountName, thread.dealTitle].filter(Boolean).join(" › ")
-      + (thread.dealStageName ? ` · ${thread.dealStageName}` : "")
-    : null;
   const tip = `${senderLabel} — ${subject}`;
 
   if (listMode === "mini") {
@@ -262,15 +258,25 @@ export function CorreoRowDesktop({
                   <span className={unread ? "font-semibold text-ds-text-1" : "text-ds-text-2"}>
                     {subject}
                   </span>
-                  {chainLabel && (
-                    <span className="text-ds-text-3"> — {chainLabel}</span>
+                  {(thread.accountName || thread.dealTitle) && (
+                    <span className="text-ds-text-3">
+                      {" — "}
+                      {thread.accountName && (
+                        <span className="font-medium text-status-info-fg">
+                          {thread.accountName}
+                        </span>
+                      )}
+                      {thread.accountName && thread.dealTitle ? " › " : null}
+                      {thread.dealTitle}
+                      {thread.dealStageName ? ` · ${thread.dealStageName}` : ""}
+                    </span>
                   )}
                 </>
               ) : (
                 <>
                   {thread.accountName && (
                     <>
-                      <span className="inline-block max-w-[130px] truncate align-bottom font-medium text-ds-text-3">
+                      <span className="inline-block max-w-[130px] truncate align-bottom font-medium text-status-info-fg">
                         {thread.accountName}
                       </span>
                       <span className="mx-1.5 text-ds-border-strong">·</span>

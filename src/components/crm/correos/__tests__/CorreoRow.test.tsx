@@ -100,7 +100,9 @@ describe("CorreoRow (desktop denso)", () => {
         onOpen={vi.fn()}
       />,
     );
-    expect(screen.getByText("Coexpan")).toBeTruthy();
+    const account = screen.getByText("Coexpan");
+    expect(account).toBeTruthy();
+    expect(account.className).toMatch(/text-status-info-fg/);
   });
 });
 
@@ -135,6 +137,8 @@ describe("CorreoRowMobile", () => {
         onOpen={vi.fn()}
       />,
     );
-    expect(screen.getByText("Coexpan")).toBeTruthy();
+    const account = screen.getByText("Coexpan");
+    expect(account).toBeTruthy();
+    expect(account.className).toMatch(/text-status-info-fg/);
   });
 });

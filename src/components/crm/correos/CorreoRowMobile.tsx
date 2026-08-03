@@ -62,7 +62,7 @@ export const CorreoRowMobile = memo(function CorreoRowMobile({
     <>
       {thread.accountName && (
         <>
-          <span className="max-w-[40%] shrink-0 truncate font-medium text-ds-text-3">
+          <span className="max-w-[40%] shrink-0 truncate font-medium text-status-info-fg">
             {thread.accountName}
           </span>
           <span className="mx-1.5 shrink-0 text-ds-border-strong">·</span>
@@ -73,7 +73,11 @@ export const CorreoRowMobile = memo(function CorreoRowMobile({
   );
   const line3 = hasDeal ? (
     <span className="block truncate text-[13px] leading-5 text-ds-text-3">
-      {[thread.accountName, thread.dealTitle].filter(Boolean).join(" › ")}
+      {thread.accountName && (
+        <span className="font-medium text-status-info-fg">{thread.accountName}</span>
+      )}
+      {thread.accountName && thread.dealTitle ? " › " : null}
+      {thread.dealTitle}
       {thread.dealStageName ? ` · ${thread.dealStageName}` : ""}
     </span>
   ) : !compact && thread.snippet ? (
