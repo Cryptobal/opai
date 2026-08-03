@@ -31,6 +31,10 @@ interface Props {
   /** Índices de columna en el rango (tinte de header). */
   selectedColIndices?: Set<number>;
   onSelectCol?: (colIdx: number) => void;
+  /** Clic en la esquina: seleccionar toda la hoja. */
+  onSelectAll?: () => void;
+  /** true cuando el rango cubre toda la hoja (tinte de esquina). */
+  allSelected?: boolean;
   /** Orden por monto de sesión (indicador ▼/▲). */
   sortBy?: { weekStart: string; dir: "asc" | "desc" } | null;
   /** Ancho de Concepto (solo desktop; null = no resize). */
@@ -46,7 +50,7 @@ interface Props {
  */
 export function PlanillaHeader({
   columns, granularity, closedWeeks, selectedColIndices,
-  onSelectCol, sortBy, nameW, onNameWChange, onNameWAutoFit,
+  onSelectCol, onSelectAll, allSelected, sortBy, nameW, onNameWChange, onNameWAutoFit,
 }: Props) {
   const closedSet = new Set(closedWeeks ?? []);
   const groups: Array<{ label: string; span: number }> = [];
@@ -99,13 +103,17 @@ export function PlanillaHeader({
     <thead>
       <tr className="h-[var(--plnx-hdr-1)]">
         <th
-          aria-label="Esquina"
+          aria-label="Seleccionar toda la hoja"
+          title="Seleccionar toda la hoja"
           data-plnx-corner=""
-          className={`${GUTTER_W} ${cornerBase} left-0 top-0 border-ds-border-default`}
+          className={`${GUTTER_W} ${cornerBase} left-0 top-0 cursor-pointer border-ds-border-default ${allSelected ? selHdr : ""}`}
+          onClick={() => onSelectAll?.()}
         />
         <th
           data-plnx-cola=""
-          className={`planilla-name-col relative ${NAME_W} ${cornerBase} ${NAME_LEFT} top-0 border-ds-border-default text-center text-ds-text-4`}
+          className={`planilla-name-col relative ${NAME_W} ${cornerBase} ${NAME_LEFT} top-0 cursor-pointer border-ds-border-default text-center text-ds-text-4 ${allSelected ? selHdr : ""}`}
+          onClick={() => onSelectAll?.()}
+          title="Seleccionar toda la hoja"
         >
           A
           {onNameWChange && (

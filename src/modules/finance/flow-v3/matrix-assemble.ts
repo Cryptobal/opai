@@ -38,6 +38,7 @@ export interface AssembleRowInput {
   orderIndex: number;
   crmAccountId: string | null;
   installationId: string | null;
+  recurringTemplateId?: string | null;
   categoryId: string | null;
   supplierId: string | null;
   isArchived: boolean;
@@ -45,8 +46,8 @@ export interface AssembleRowInput {
   archivedWeekCutoff: string | null;
   isVirtual: boolean;
   /**
-   * Nombre canónico desde la fuente (cuenta·instalación / categoría /
-   * proveedor). null en filas MANUAL o virtuales.
+   * Nombre canónico desde la fuente (template / cuenta·instalación /
+   * categoría / proveedor). null en filas MANUAL o virtuales.
    */
   sourceName?: string | null;
   /** true si `name` difiere del canónico (alias manual de visualización). */

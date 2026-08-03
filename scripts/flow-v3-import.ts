@@ -4,8 +4,8 @@
  * celdas por unique(rowId, weekStart)). NO conecta a Google Sheets.
  *
  * 1. Filas automáticas:
- *    - INGRESOS: una fila ACCOUNT_INSTALLATION por cada cuenta+instalación
- *      con programación de facturación ACTIVA (FinanceDteRecurringTemplate).
+ *    - INGRESOS: una fila ACCOUNT_INSTALLATION por cada programación ACTIVA
+ *      (1 FinanceDteRecurringTemplate = 1 fila; nombre = template.name).
  *    - Canónicas: REMUNERACIONES / IMPUESTOS / GAV / FINANCIAMIENTO según
  *      CANONICAL_ROWS (mapea a categorías del módulo viejo si existen) +
  *      fallbacks "Otros clientes" / "Otros gastos".
@@ -48,17 +48,24 @@ async function ensureRow(args: {
   mapping: "ACCOUNT_INSTALLATION" | "CATEGORY" | "MANUAL";
   crmAccountId?: string | null;
   installationId?: string | null;
+  recurringTemplateId?: string | null;
   categoryId?: string | null;
 }): Promise<{ id: string; created: boolean }> {
   const where =
-    args.mapping === "ACCOUNT_INSTALLATION"
+    args.mapping === "ACCOUNT_INSTALLATION" && args.recurringTemplateId
       ? {
           tenantId: args.tenantId,
-          mapping: args.mapping,
-          crmAccountId: args.crmAccountId,
-          installationId: args.installationId ?? null,
+          recurringTemplateId: args.recurringTemplateId,
         }
-      : { tenantId: args.tenantId, section: args.section, name: args.name };
+      : args.mapping === "ACCOUNT_INSTALLATION"
+        ? {
+            tenantId: args.tenantId,
+            mapping: args.mapping,
+            crmAccountId: args.crmAccountId,
+            installationId: args.installationId ?? null,
+            recurringTemplateId: null,
+          }
+        : { tenantId: args.tenantId, section: args.section, name: args.name };
   const existing = await prisma.financeFlowRow.findFirst({ where });
   if (existing) return { id: existing.id, created: false };
 
@@ -76,6 +83,7 @@ async function ensureRow(args: {
       orderIndex: (last?.orderIndex ?? -1) + 1,
       crmAccountId: args.crmAccountId ?? null,
       installationId: args.installationId ?? null,
+      recurringTemplateId: args.recurringTemplateId ?? null,
       categoryId: args.categoryId ?? null,
     },
   });
@@ -85,32 +93,25 @@ async function ensureRow(args: {
 async function importTenant(tenantId: string, slug: string) {
   let created = 0;
 
-  // 1a. Filas INGRESOS desde programaciones activas (cuenta+instalación).
+  // 1a. Filas INGRESOS: 1 programación activa = 1 fila.
   const templates = await prisma.financeDteRecurringTemplate.findMany({
     where: { tenantId, isActive: true, crmAccountId: { not: null } },
-    select: { crmAccountId: true, installationId: true, receiverName: true },
+    select: { id: true, name: true, crmAccountId: true, installationId: true },
   });
-  const seen = new Set<string>();
+  const seenTpl = new Set<string>();
   for (const t of templates) {
-    const key = `${t.crmAccountId}::${t.installationId ?? ""}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
+    if (seenTpl.has(t.id)) continue;
+    seenTpl.add(t.id);
     const account = await prisma.crmAccount.findFirst({
       where: { id: t.crmAccountId!, tenantId },
       select: { name: true },
     });
     if (!account) continue;
-    let name = account.name;
-    if (t.installationId) {
-      const inst = await prisma.crmInstallation.findFirst({
-        where: { id: t.installationId, tenantId },
-        select: { name: true },
-      });
-      if (inst) name = `${account.name} · ${inst.name}`;
-    }
+    const name = (t.name || account.name).trim() || account.name;
     const r = await ensureRow({
       tenantId, section: "INGRESOS", name, mapping: "ACCOUNT_INSTALLATION",
       crmAccountId: t.crmAccountId, installationId: t.installationId,
+      recurringTemplateId: t.id,
     });
     if (r.created) created++;
   }

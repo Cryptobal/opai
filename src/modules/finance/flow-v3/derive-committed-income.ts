@@ -43,6 +43,8 @@ export interface IssuedDteInput {
   pendingClp: number;
   crmAccountId: string | null;
   installationId: string | null;
+  /** Programación origen — rutea a la fila 1:1 del template. */
+  recurringTemplateId?: string | null;
   receiverName: string;
   /** Término del contrato origen (template) si la factura viene de uno. */
   templateDiasCobro?: number | null;
@@ -131,7 +133,7 @@ export function deriveCommittedIncome(args: CommittedIncomeArgs): CommittedByRow
     // Cartera zombie: vencimiento contractual (dueDate o emisión+lag), no la
     // celda de visibilidad — una factura recién emitida no es "vencida".
     const dueYmd = d.dueDateYmd ?? addDaysYmd(d.dateYmd, d.templateDiasCobro ?? lagDays);
-    pushCommitted(out, matchRow(d.crmAccountId, d.installationId), week, {
+    pushCommitted(out, matchRow(d.crmAccountId, d.installationId, d.recurringTemplateId), week, {
       kind: "dte",
       dteId: d.id,
       folio: d.folio,
@@ -146,7 +148,7 @@ export function deriveCommittedIncome(args: CommittedIncomeArgs): CommittedByRow
     const est = addDaysYmd(dr.dateYmd, dr.templateDiasCobro ?? lagDays);
     const { week, fecha } = collectionWeek(est, args.todayYmd);
     if (!inRange(week) || dr.totalClp <= 0) continue;
-    pushCommitted(out, matchRow(dr.crmAccountId, dr.installationId), week, {
+    pushCommitted(out, matchRow(dr.crmAccountId, dr.installationId, dr.templateId), week, {
       // Borrador real (ocupa el período de su template) — distinto de una
       // cuota proyectada: tiene documento y puede llevar proforma enviada.
       kind: "draft",
@@ -178,7 +180,7 @@ export function deriveCommittedIncome(args: CommittedIncomeArgs): CommittedByRow
         const est = addDaysYmd(issueYmd, tpl.diasCobro ?? lagDays);
         const { week, fecha } = collectionWeek(est, args.todayYmd);
         if (inRange(week)) {
-          pushCommitted(out, matchRow(tpl.crmAccountId, tpl.installationId), week, {
+          pushCommitted(out, matchRow(tpl.crmAccountId, tpl.installationId, tpl.id), week, {
             kind: "scheduled",
             templateId: tpl.id,
             label: tpl.name,

@@ -24,11 +24,15 @@ export const flowRowCreateSchema = z
     mapping: z.enum(["ACCOUNT_INSTALLATION", "CATEGORY", "SUPPLIER", "MANUAL"]),
     crmAccountId: z.string().uuid().nullish(),
     installationId: z.string().uuid().nullish(),
+    recurringTemplateId: z.string().uuid().nullish(),
     categoryId: z.string().uuid().nullish(),
     supplierId: z.string().uuid().nullish(),
   })
   .refine((v) => v.mapping !== "ACCOUNT_INSTALLATION" || !!v.crmAccountId, {
     message: "crmAccountId requerido para mapping ACCOUNT_INSTALLATION",
+  })
+  .refine((v) => !v.recurringTemplateId || v.mapping === "ACCOUNT_INSTALLATION", {
+    message: "recurringTemplateId solo aplica a mapping ACCOUNT_INSTALLATION",
   })
   .refine((v) => v.mapping !== "CATEGORY" || !!v.categoryId, {
     message: "categoryId requerido para mapping CATEGORY",

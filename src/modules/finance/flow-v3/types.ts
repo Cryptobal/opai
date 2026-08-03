@@ -80,6 +80,8 @@ export interface FlowRowRef {
   mapping?: string;
   crmAccountId: string | null;
   installationId: string | null;
+  /** 1 fila = 1 programación; null en filas genéricas de cuenta/egreso. */
+  recurringTemplateId?: string | null;
   categoryId: string | null;
   supplierId?: string | null;
 }

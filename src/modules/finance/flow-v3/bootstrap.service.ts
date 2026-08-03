@@ -8,7 +8,7 @@ type Tx = Prisma.TransactionClient;
 /**
  * Auto-bootstrap de la planilla: si el tenant NO tiene ninguna fila, las crea
  * en la primera carga del matrix — nadie corre scripts:
- *  1. Una fila INGRESOS por cuenta+instalación con programación activa.
+ *  1. Una fila INGRESOS por cada programación activa (1 template = 1 fila).
  *  2. Filas canónicas de egresos (CATEGORY si la categoría del viejo existe).
  *  3. Backfill de término de pago POR CONTRATO: copia diasCobroDesdeFactura
  *     de los items del módulo viejo (source CONTRACT/OTHER, donde Carlos ya
@@ -19,6 +19,9 @@ type Tx = Prisma.TransactionClient;
  * primeras cargas concurrentes podrían duplicar filas. Se serializa con un
  * advisory lock transaccional por tenant + doble chequeo del rowCount dentro
  * de la transacción (el segundo request encuentra filas y sale sin escribir).
+ *
+ * Programaciones/clientes NUEVOS después del bootstrap los crea
+ * `ensureIncomeRows` en cada carga con permiso de gestión.
  */
 export async function ensureFlowBootstrap(tenantId: string): Promise<void> {
   // Fast path sin lock: la enorme mayoría de las cargas ya tienen filas.
@@ -44,7 +47,7 @@ async function runBootstrap(tx: Tx, tenantId: string): Promise<void> {
     tx.financeDteRecurringTemplate.findMany({
       where: { tenantId, isActive: true, crmAccountId: { not: null } },
       select: {
-        id: true, crmAccountId: true, installationId: true,
+        id: true, name: true, crmAccountId: true, installationId: true,
         diasCobroDesdeFactura: true,
       },
     }),
@@ -71,6 +74,7 @@ async function runBootstrap(tx: Tx, tenantId: string): Promise<void> {
     mapping: "ACCOUNT_INSTALLATION" | "CATEGORY" | "MANUAL";
     crmAccountId?: string | null;
     installationId?: string | null;
+    recurringTemplateId?: string | null;
     categoryId?: string | null;
   }) => {
     // Bajo el lock + recount=0 no hay filas previas, así que el create es
@@ -81,33 +85,30 @@ async function runBootstrap(tx: Tx, tenantId: string): Promise<void> {
         orderIndex: orderIndex++,
         crmAccountId: data.crmAccountId ?? null,
         installationId: data.installationId ?? null,
+        recurringTemplateId: data.recurringTemplateId ?? null,
         categoryId: data.categoryId ?? null,
       },
     });
   };
 
-  // 1. Filas de ingreso por cuenta+instalación con programación activa.
-  const seen = new Set<string>();
+  // 1. Una fila por programación activa (nombre = template.name).
+  const seenTpl = new Set<string>();
   for (const t of templates) {
-    const key = `${t.crmAccountId}::${t.installationId ?? ""}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
+    if (seenTpl.has(t.id)) continue;
+    seenTpl.add(t.id);
     const account = await tx.crmAccount.findFirst({
       where: { id: t.crmAccountId!, tenantId },
       select: { name: true },
     });
     if (!account) continue;
-    let name = account.name;
-    if (t.installationId) {
-      const inst = await tx.crmInstallation.findFirst({
-        where: { id: t.installationId, tenantId },
-        select: { name: true },
-      });
-      if (inst) name = `${account.name} · ${inst.name}`;
-    }
+    const name = (t.name || account.name).trim() || account.name;
     await createRow({
-      section: "INGRESOS", name, mapping: "ACCOUNT_INSTALLATION",
-      crmAccountId: t.crmAccountId, installationId: t.installationId,
+      section: "INGRESOS",
+      name,
+      mapping: "ACCOUNT_INSTALLATION",
+      crmAccountId: t.crmAccountId,
+      installationId: t.installationId,
+      recurringTemplateId: t.id,
     });
   }
 
