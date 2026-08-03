@@ -69,7 +69,7 @@ export function PlanillaToolbar(p: Props) {
   };
 
   return (
-    <div className="planilla-chrome-print-hide mb-1 flex h-[var(--plnx-toolbar-h)] items-center gap-0.5 overflow-x-auto scrollbar-none rounded-full border border-ds-border-default bg-ds-surface-2 px-1.5 lg:px-2">
+    <div className="planilla-chrome-print-hide mb-1 flex h-[var(--plnx-toolbar-h)] items-center gap-0.5 overflow-x-auto scrollbar-none rounded-full border border-ds-border-default bg-ds-surface-2 px-1.5 text-ds-text-1 lg:px-2">
       {/* Desktop: undo/redo + export + zoom + formato */}
       <div className="hidden items-center gap-0.5 lg:flex">
         <Button variant="ghost" size="sm" className={btn} onClick={p.onUndo} aria-label="Deshacer" title="Deshacer (⌘Z)">

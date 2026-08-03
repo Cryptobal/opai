@@ -97,7 +97,7 @@ export function PlanillaMenubar(p: Props) {
   return (
     <div
       ref={root}
-      className="planilla-chrome-print-hide relative mb-0.5 hidden h-[var(--plnx-menubar-h)] items-center gap-1 px-1 lg:flex"
+      className="planilla-chrome-print-hide relative mb-0.5 hidden h-[var(--plnx-menubar-h)] items-center gap-1 px-1 text-ds-text-1 lg:flex"
       role="menubar"
       aria-label="Menú de la planilla"
     >

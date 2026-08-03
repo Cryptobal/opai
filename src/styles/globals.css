@@ -1807,7 +1807,7 @@ html {
   color: #202124;
   background: #fff;
   --plnx-sel: #0b57d0;
-  --plnx-sel-hdr: #d3e3fd;
+  --plnx-sel-hdr: 214 90% 91%; /* #d3e3fd en HSL components */
   --plnx-gridline: #e1e1e1;
   --plnx-freeze-border: #b5b8bd;
   --plnx-neg: #cc0000;
@@ -1862,7 +1862,7 @@ html {
   color: hsl(210 40% 98%);
   background: hsl(218 32% 14%);
   --plnx-sel: #14a88a;
-  --plnx-sel-hdr: hsl(217 60% 18%);
+  --plnx-sel-hdr: 217 60% 22%;
   --plnx-gridline: hsl(218 24% 22%);
   --plnx-freeze-border: hsl(218 24% 34%);
   --plnx-neg: hsl(0 80% 70%);
@@ -1873,14 +1873,24 @@ html {
   --ds-surface-3: 218 28% 20%;
   --ds-surface-4: 218 26% 23%;
 
+  /* Textos con contraste alto para chrome (fx/toolbar/menubar). */
   --ds-text-1: 210 40% 98%;
-  --ds-text-2: 214 24% 84%;
-  --ds-text-3: 214 18% 66%;
-  --ds-text-4: 214 14% 48%;
+  --ds-text-2: 214 28% 90%;
+  --ds-text-3: 214 22% 78%;
+  --ds-text-4: 214 18% 68%;
 
-  --ds-border-subtle: 218 24% 20%;
-  --ds-border-default: 218 24% 26%;
-  --ds-border-strong: 218 24% 34%;
+  /* Buttons shadcn (ghost/outline) leen muted/foreground, no ds-*. */
+  --foreground: 210 40% 98%;
+  --muted-foreground: 214 22% 82%;
+  --accent: 218 28% 22%;
+  --accent-foreground: 210 40% 98%;
+  --border: 218 24% 30%;
+  --input: 218 24% 26%;
+  --ring: 168 78% 38%;
+
+  --ds-border-subtle: 218 24% 24%;
+  --ds-border-default: 218 24% 32%;
+  --ds-border-strong: 218 24% 42%;
 
   --ds-ok: 160 76% 42%;
   --ds-ok-fg: 160 76% 60%;
@@ -1901,6 +1911,29 @@ html {
   --ds-info-fg: 217 90% 72%;
   --ds-info-soft: 217 60% 14%;
   --ds-info-border: 217 60% 28%;
+}
+
+/* Chrome (menubar / toolbar / fx / status): texto legible en noche.
+   No pisa botones primary (p. ej. Agregar concepto). */
+.planilla-sheet[data-planilla-theme="dark"] .planilla-chrome-print-hide {
+  color: hsl(var(--ds-text-1));
+}
+.planilla-sheet[data-planilla-theme="dark"] .planilla-chrome-print-hide button:not(.bg-primary):not([class*="bg-primary"]),
+.planilla-sheet[data-planilla-theme="dark"] .planilla-chrome-print-hide [role="menuitem"] {
+  color: hsl(var(--ds-text-2));
+}
+.planilla-sheet[data-planilla-theme="dark"] .planilla-fx-input {
+  background: hsl(var(--ds-surface-3));
+  color: hsl(var(--ds-text-1));
+  border-color: hsl(var(--ds-border-default));
+}
+.planilla-sheet[data-planilla-theme="dark"] .planilla-fx-placeholder {
+  color: hsl(var(--ds-text-3));
+}
+/* Headers de columna: superficie oscura consistente. */
+.planilla-sheet[data-planilla-theme="dark"] thead th {
+  background-color: hsl(var(--ds-surface-2));
+  color: hsl(var(--ds-text-3));
 }
 
 .planilla-sheet[data-planilla-theme="dark"] [data-plnx-cola],
