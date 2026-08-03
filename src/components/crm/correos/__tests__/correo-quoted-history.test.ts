@@ -69,6 +69,29 @@ describe("splitMessageQuote", () => {
     expect(quotedHtml).toContain("Enviado el");
   });
 
+  it("outlook móvil IT: corta en mail-editor-reference + Da:/Data:/Oggetto:", () => {
+    const html = [
+      "<div>Thanks Andrea, see below.</div>",
+      '<div id="mail-editor-reference-message-container">',
+      '<div class="ms-outlook-mobile-reference-message skipProofing" ',
+      'style="padding: 3pt 0in 0in; border-width: 1pt medium medium; ',
+      'border-style: solid none none; border-color: rgb(181, 196, 223)">',
+      "<b>Da: </b>Carlos Irigoyen<br>",
+      "<b>Data: </b>venerdì, 24 luglio 2026<br>",
+      "<b>A: </b>Andrea Pasquale<br>",
+      "<b>Oggetto: </b>Re: Leaf Space</div>",
+      '<div class="gmail_attr">El vie escribió:</div>',
+      '<div class="gmail_quote">Dear Andrea, price basis…</div>',
+      "</div>",
+    ].join("");
+    const { bodyHtml, quotedHtml } = splitMessageQuote(html);
+    expect(bodyHtml).toContain("Thanks Andrea");
+    expect(bodyHtml).not.toContain("Da:");
+    expect(bodyHtml).not.toContain("Dear Andrea");
+    expect(quotedHtml).toContain("mail-editor-reference-message-container");
+    expect(quotedHtml).toContain("Oggetto");
+  });
+
   it("separador textual Mensaje original / Original Message", () => {
     const es =
       "<p>Nuevo</p><div>-----Mensaje original-----</div><div>viejo</div>";
