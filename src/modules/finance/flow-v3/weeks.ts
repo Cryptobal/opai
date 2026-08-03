@@ -92,3 +92,20 @@ export function weekLabel(weekYmd: string): string {
   if (!d) return weekYmd;
   return `S${String(isoWeekNumber(d)).padStart(2, "0")}`;
 }
+
+/**
+ * Día de cierre v2 (mediodía UTC) de la semana ISO cuyo lunes es `mondayYmd`.
+ * offset = (dow - 1) mod 7 días desde el lunes ISO (getUTCDay(lunes)=1).
+ * Compartido por el adapter de cierre y el matrix.service (sellos).
+ */
+export function v2WeekEndDate(mondayYmd: string, dow: number): Date {
+  const monday = ymdToDate(mondayYmd)!;
+  const offset = ((dow - 1) % 7 + 7) % 7;
+  const day = new Date(monday.getTime() + offset * 86_400_000);
+  return new Date(Date.UTC(day.getUTCFullYear(), day.getUTCMonth(), day.getUTCDate(), 12));
+}
+
+/** YMD del día de cierre v2 de la semana ISO. */
+export function v2WeekEndYmd(mondayYmd: string, dow: number): string {
+  return toYmd(v2WeekEndDate(mondayYmd, dow));
+}
