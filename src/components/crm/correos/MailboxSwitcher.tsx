@@ -8,7 +8,7 @@ import {
   MAX_MAILBOXES_PER_USER,
   type MailboxColorKey,
 } from "@/modules/crm/email/mailbox-identity";
-import { tintSoft } from "./mailbox-tints";
+import { tintSoft, tintText } from "./mailbox-tints";
 
 export type MailboxAccount = {
   id: string;
@@ -33,7 +33,7 @@ type Props = {
   canConnect?: boolean;
 };
 
-export { tintBar, tintSoft } from "./mailbox-tints";
+export { tintBar, tintSoft, tintText } from "./mailbox-tints";
 
 /** Selector de casillas Gmail (unificada + por cuenta) para riel y drawer. */
 export function MailboxSwitcher({
@@ -97,7 +97,13 @@ export function MailboxSwitcher({
               <span className={swatchCls}>{initials}</span>
             )}
             <button type="button" onClick={() => onScopeChange(a.id)} className={`${lbl} min-w-0 flex-1 text-left`} aria-pressed={activeAccountId === a.id}>
-              <span className="block truncate">{a.email}</span>
+              <span
+                className={`block truncate ${
+                  activeAccountId === a.id ? "" : tintText(a.color)
+                }`}
+              >
+                {a.email}
+              </span>
               <span className="block truncate text-[12px] font-normal text-ds-text-4">
                 {a.isDefault ? "Casilla por defecto" : "Gmail"}
               </span>

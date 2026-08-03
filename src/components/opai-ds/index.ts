@@ -89,6 +89,7 @@ export {
   ISLAND_OPEN_SEARCH_EVENT,
   type IslandModuleMenu,
   type IslandSearch,
+  type IslandSearchScopeChip,
   type ModuleSearchOperator,
 } from "./IslandModuleContext";
 export { ConfigShell, useConfigCategories, type ConfigShellProps, type CategoryGroup } from "./ConfigShell";

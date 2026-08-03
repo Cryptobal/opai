@@ -76,6 +76,23 @@ describe("TopbarSearchField", () => {
     expect(onChange).toHaveBeenCalledWith("");
     expect(onExit).toHaveBeenCalledTimes(1);
   });
+
+  it("muestra scopeChip de casilla con tint sutil", () => {
+    mockSearch.mockReturnValue(
+      searchStub({
+        placeholder: "Buscar",
+        scopeChip: {
+          label: "carlos.irigoyen@gard.cl",
+          title: "carlos.irigoyen@gard.cl",
+          color: "teal",
+        },
+      }),
+    );
+    render(<TopbarSearchField />);
+    const chip = screen.getByTitle("carlos.irigoyen@gard.cl");
+    expect(chip.textContent).toBe("carlos.irigoyen@gard.cl");
+    expect(chip.className).toMatch(/text-tint-teal-fg/);
+  });
 });
 
 describe("TopbarSearchField — popover de operadores", () => {
