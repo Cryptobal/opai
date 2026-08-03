@@ -1,5 +1,21 @@
 import { p, t, bold, tk, hClause } from "./helpers";
 
+/** Texto común de reajuste por modificaciones legales (PDF Gard v2). */
+const REAJUSTE_LEGAL = [
+  bold("Reajuste por modificaciones legales y regulatorias: "),
+  t("Se incluirá en carácter de reajuste sobre la tarifa el "),
+  bold("100% de la variación de costos"),
+  t(" que imponga la ley, el Gobierno u otra autoridad competente en materia de costos laborales y de seguridad privada, cuyas normas se pongan en vigencia con posterioridad a la fecha del presente contrato. A modo enunciativo y no taxativo: "),
+  bold("incrementos del salario mínimo"),
+  t(", modificaciones al sistema de descansos o a la jornada laboral ("),
+  bold("Ley N° 21.561"),
+  t("), gratificación legal, cotizaciones previsionales o de salud y aportes de cargo del empleador —incluida la aplicación gradual de la "),
+  bold("Ley N° 21.735 de Reforma Previsional"),
+  t("—, seguros legales obligatorios y nuevas exigencias de habilitación, capacitación o equipamiento derivadas de la "),
+  bold("Ley N° 21.659"),
+  t(" y su reglamento, o cualquier otra remuneración o beneficio que implique aumento de costos remunerativos."),
+];
+
 export const CLAUSE_5_QUINTA = [
   hClause(2, "quinta", [bold("QUINTA: Reajuste del Precio")]),
   // CASO 1: UF
@@ -31,12 +47,8 @@ export const CLAUSE_5_QUINTA = [
   ]),
   p([t("{{/if}}")]),
   p([
-    bold("c) Reajuste por modificaciones legales y regulatorias: "),
-    t("Se incluirá en carácter de reajuste sobre la tarifa el "),
-    bold("100% de la variación"),
-    t(" que imponga el Gobierno de Chile, el Congreso u otra autoridad competente en materia de costos remunerativos, cuyas normas se pongan en vigencia con posterioridad a la fecha del presente contrato. A modo enunciativo y no taxativo: "),
-    bold("incrementos del salario mínimo"),
-    t(", modificaciones al sistema de descanso, jornada, gratificación legal, seguros obligatorios, cotizaciones previsionales o de salud, o cualquier otra remuneración o beneficio que implique aumento de costos remunerativos."),
+    bold("c) "),
+    ...REAJUSTE_LEGAL,
   ]),
   // CASO 2: CLP + POLINOMIO
   p([t('{{else}}{{#if quote.adjustmentType=="POLYNOMIAL"}}')]),
@@ -58,12 +70,7 @@ export const CLAUSE_5_QUINTA = [
     t(", destinado a cubrir los incrementos reales y beneficios del personal."),
   ]),
   p([t("{{/if}}")]),
-  p([
-    bold("Reajuste por modificaciones legales y regulatorias: "),
-    t("Se incluirá en carácter de reajuste sobre la tarifa el "),
-    bold("100% de la variación"),
-    t(" que imponga el Gobierno u otra autoridad competente en materia de costos remunerativos (incrementos del salario mínimo, modificaciones de jornada, gratificación, cotizaciones, etc.), cuyas normas se pongan en vigencia con posterioridad a la fecha del presente contrato."),
-  ]),
+  p(REAJUSTE_LEGAL),
   // CASO 3: CLP + otro tipo
   p([t("{{else}}")]),
   p([
@@ -84,10 +91,8 @@ export const CLAUSE_5_QUINTA = [
   ]),
   p([t("{{/if}}")]),
   p([
-    bold("c) Reajuste por modificaciones legales y regulatorias: "),
-    t("Se incluirá en carácter de reajuste sobre la tarifa el "),
-    bold("100% de la variación"),
-    t(" que imponga el Gobierno u otra autoridad competente en materia de costos remunerativos (incrementos del salario mínimo, modificaciones de jornada, gratificación, cotizaciones, etc.), cuyas normas se pongan en vigencia con posterioridad a la fecha del presente contrato."),
+    bold("c) "),
+    ...REAJUSTE_LEGAL,
   ]),
   p([t("{{/if}}{{/if}}")]),
   p([
