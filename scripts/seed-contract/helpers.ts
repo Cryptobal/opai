@@ -21,3 +21,12 @@ export function hClause(level: number, clauseId: string, children: any[]): any {
 export function hr(): any {
   return { type: "horizontalRule" };
 }
+export function ul(items: string[]): any {
+  return {
+    type: "bulletList",
+    content: items.map((item) => ({
+      type: "listItem",
+      content: [p([t(item)])],
+    })),
+  };
+}

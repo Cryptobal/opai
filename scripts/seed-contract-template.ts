@@ -14,6 +14,7 @@ import { CLAUSES_6_12 } from "./seed-contract/clauses-6-12";
 import { CLAUSES_13_18 } from "./seed-contract/clauses-13-18";
 import { CLAUSES_19_23 } from "./seed-contract/clauses-19-23";
 import { FOOTER_NODES } from "./seed-contract/footer";
+import { ANEXO_2_NODES } from "./seed-contract/anexo-2-normas";
 
 const TENANT_ID = process.argv[2];
 const CREATED_BY = process.argv[3] || "system";
@@ -33,12 +34,14 @@ const TEMPLATE_CONTENT = {
     ...CLAUSES_13_18,
     ...CLAUSES_19_23,
     ...FOOTER_NODES,
+    ...ANEXO_2_NODES,
   ],
 };
 
 const TOKENS_USED = [
   "empresa.razonSocial", "empresa.rut", "empresa.direccion", "empresa.comuna",
   "empresa.repLegalNombre", "empresa.repLegalRut",
+  "empresa.fechaEscrituraPublica", "empresa.nombreNotaria",
   "account.legalName", "account.rut", "account.legalRepresentativeName",
   "account.legalRepresentativeRut", "account.address", "account.commune",
   "account.notaryName", "account.notaryDate",
@@ -47,6 +50,7 @@ const TOKENS_USED = [
   "quote.paymentDays", "quote.contractMonths", "quote.precioTotal",
   "quote.contractStartDate", "quote.contractEndDate",
   "quote.liabilityMonths", "quote.insurancePolicyUF",
+  "quote.realAnnualIncrement",
   "quote.adjustmentFreq", "quote.adjustmentType",
   "quote.ipcWeight", "quote.imoWeight",
   "quote.cctvRetentionDays",
@@ -60,19 +64,25 @@ async function main() {
     where: {
       tenantId: TENANT_ID,
       module: "crm",
-      category: "contrato_servicio",
       name: "Contrato de Servicio de Seguridad",
     },
   });
 
   const description =
-    "Contrato blindado de prestación de servicios de seguridad y vigilancia privada — 23 cláusulas con tokens dinámicos CPQ y lógica condicional UF/CLP/Polinomio.";
+    "Contrato blindado de prestación de servicios de seguridad y vigilancia privada (Plantilla Gard v2) — 23 cláusulas + Anexo Normas del Puesto, tokens dinámicos CPQ y lógica condicional UF/CLP/Polinomio.";
 
   if (existing) {
     console.log(`Template already exists: ${existing.id}. Updating content...`);
     await prisma.docTemplate.update({
       where: { id: existing.id },
-      data: { content: TEMPLATE_CONTENT, tokensUsed: TOKENS_USED, description },
+      data: {
+        content: TEMPLATE_CONTENT,
+        tokensUsed: TOKENS_USED,
+        description,
+        category: "contrato_cliente",
+        isActive: true,
+        isDefault: true,
+      },
     });
     console.log(`Updated template ${existing.id}`);
   } else {
@@ -83,7 +93,7 @@ async function main() {
         description,
         content: TEMPLATE_CONTENT,
         module: "crm",
-        category: "contrato_servicio",
+        category: "contrato_cliente",
         tokensUsed: TOKENS_USED,
         isActive: true,
         isDefault: true,

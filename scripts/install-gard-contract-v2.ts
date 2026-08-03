@@ -4,6 +4,7 @@
  *
  * - Archiva el template legacy "Contrato Prestación Servicios de Vigilancia"
  * - Crea o actualiza "Contrato de Servicio de Seguridad" con las 23 cláusulas
+ *   + Anexo 2 Normas del Puesto (Plantilla Gard v2 PDF)
  * - Deja isActive=true, isDefault=true
  *
  * Uso:
@@ -17,6 +18,7 @@ import { CLAUSES_6_12 } from "./seed-contract/clauses-6-12";
 import { CLAUSES_13_18 } from "./seed-contract/clauses-13-18";
 import { CLAUSES_19_23 } from "./seed-contract/clauses-19-23";
 import { FOOTER_NODES } from "./seed-contract/footer";
+import { ANEXO_2_NODES } from "./seed-contract/anexo-2-normas";
 
 const TENANT_SLUG = process.argv[2];
 const CREATED_BY = process.argv[3] ?? "system";
@@ -39,12 +41,14 @@ const TEMPLATE_CONTENT = {
     ...CLAUSES_13_18,
     ...CLAUSES_19_23,
     ...FOOTER_NODES,
+    ...ANEXO_2_NODES,
   ],
 };
 
 const TOKENS_USED = [
   "empresa.razonSocial", "empresa.rut", "empresa.direccion", "empresa.comuna",
   "empresa.repLegalNombre", "empresa.repLegalRut",
+  "empresa.fechaEscrituraPublica", "empresa.nombreNotaria",
   "account.legalName", "account.rut", "account.legalRepresentativeName",
   "account.legalRepresentativeRut", "account.address", "account.commune",
   "account.notaryName", "account.notaryDate",
@@ -53,6 +57,7 @@ const TOKENS_USED = [
   "quote.paymentDays", "quote.contractMonths", "quote.precioTotal",
   "quote.contractStartDate", "quote.contractEndDate",
   "quote.liabilityMonths", "quote.insurancePolicyUF",
+  "quote.realAnnualIncrement",
   "quote.adjustmentFreq", "quote.adjustmentType",
   "quote.ipcWeight", "quote.imoWeight",
   "quote.cctvRetentionDays",
@@ -92,10 +97,11 @@ async function archiveLegacy(prisma: PrismaClient, tenantId: string) {
 
 async function upsertTemplate(prisma: PrismaClient, tenantId: string) {
   const description =
-    "Contrato blindado de prestación de servicios de seguridad y vigilancia privada — 23 cláusulas con tokens dinámicos CPQ y lógica condicional UF/CLP/Polinomio.";
+    "Contrato blindado de prestación de servicios de seguridad y vigilancia privada (Plantilla Gard v2) — 23 cláusulas + Anexo Normas del Puesto, tokens dinámicos CPQ y lógica condicional UF/CLP/Polinomio.";
 
+  // Match by unique (tenant, module, name). Gard usa category "contrato_cliente".
   const existing = await prisma.docTemplate.findFirst({
-    where: { tenantId, module: "crm", category: "contrato_servicio", name: TEMPLATE_NAME },
+    where: { tenantId, module: "crm", name: TEMPLATE_NAME },
   });
 
   if (existing) {
@@ -105,6 +111,7 @@ async function upsertTemplate(prisma: PrismaClient, tenantId: string) {
         content: TEMPLATE_CONTENT,
         tokensUsed: TOKENS_USED,
         description,
+        category: "contrato_cliente",
         isActive: true,
         isDefault: true,
       },
@@ -120,7 +127,7 @@ async function upsertTemplate(prisma: PrismaClient, tenantId: string) {
       description,
       content: TEMPLATE_CONTENT,
       module: "crm",
-      category: "contrato_servicio",
+      category: "contrato_cliente",
       tokensUsed: TOKENS_USED,
       isActive: true,
       isDefault: true,
