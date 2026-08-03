@@ -29,6 +29,8 @@ import {
 import { RecurringExpenseDialog } from "./RecurringExpenseDialog";
 import type { HistoryEntry } from "./usePlanillaHistory";
 import type { usePlanillaActions } from "./usePlanillaActions";
+import type { NumberFormatMode } from "./format";
+import type { CellStyle } from "./usePlanillaViewPrefs";
 
 interface PlanMutators {
   patchPlan: (rowId: string, weekStart: string, amount: number, opts?: { skipHistory?: boolean }) => Promise<void>;
@@ -49,6 +51,22 @@ interface Props {
   showZeros: boolean;
   alwaysVisibleRowIds?: Set<string>;
   scrollerRef?: React.RefObject<HTMLDivElement | null>;
+  showChips?: boolean;
+  numberFormat?: NumberFormatMode;
+  getCellStyle?: (rowId: string, weekStart: string) => CellStyle | undefined;
+  /** Notifica selección al chrome (fx bar / statusbar). */
+  onSelectionChange?: (sel: CellSel | null, meta: {
+    rowNumber: number;
+    rowName: string;
+    colIdx: number;
+    weekStart: string;
+    isBalance?: "flow" | "balance";
+  } | null) => void;
+  searchQuery?: string;
+  /** Expone API de colapso al toolbar. */
+  collapseApiRef?: React.MutableRefObject<{ expandAll: () => void; collapseAll: () => void } | null>;
+  /** Solicitud externa de abrir popover de capas (fx bar / Espacio). */
+  openLayersRequest?: number;
 }
 
 type RowDialogState =
@@ -83,6 +101,8 @@ export function scrollToWeek(el: HTMLElement, weekStart: string, smooth = true) 
 export function PlanillaGrid({
   data, canManage, matrix, actions, onArchive, enableDrag,
   showZeros, alwaysVisibleRowIds, scrollerRef,
+  showChips, numberFormat, getCellStyle, onSelectionChange,
+  searchQuery, collapseApiRef, openLayersRequest,
 }: Props) {
   const router = useRouter();
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
@@ -100,15 +120,26 @@ export function PlanillaGrid({
   const rowById = useMemo(() => new Map(data.rows.map((r) => [r.id, r])), [data.rows]);
   const closedSet = useMemo(() => new Set(data.closedWeeks), [data.closedWeeks]);
 
+  const normSearch = useMemo(() => {
+    const q = (searchQuery ?? "").trim();
+    if (!q) return "";
+    return q.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
+  }, [searchQuery]);
+
   const sections = useMemo(() => {
     return SECTION_ORDER.map((s) => {
       const all = data.rows.filter((r) => r.section === s);
-      const rows = showZeros
+      let rows = showZeros
         ? all
         : all.filter((r) => !isZeroRow(r) || alwaysVisibleRowIds?.has(r.id));
-      return { key: s, rows, total: all.length };
-    }).filter((s) => s.total > 0);
-  }, [data.rows, showZeros, alwaysVisibleRowIds]);
+      if (normSearch) {
+        rows = rows.filter((r) =>
+          r.name.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase().includes(normSearch),
+        );
+      }
+      return { key: s, rows, total: all.length, matchCount: rows.length };
+    }).filter((s) => (normSearch ? s.matchCount > 0 : s.total > 0));
+  }, [data.rows, showZeros, alwaysVisibleRowIds, normSearch]);
 
   const { numbered, footerStart } = useMemo(() => {
     let n = 1;
@@ -119,6 +150,23 @@ export function PlanillaGrid({
     });
     return { numbered: out, footerStart: n };
   }, [sections, collapsed]);
+
+  const rowNumberById = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const sec of numbered) {
+      for (const { row, number } of sec.numberedRows) m.set(row.id, number);
+    }
+    return m;
+  }, [numbered]);
+
+  useEffect(() => {
+    if (!collapseApiRef) return;
+    collapseApiRef.current = {
+      expandAll: () => setCollapsed(new Set()),
+      collapseAll: () => setCollapsed(new Set(SECTION_ORDER)),
+    };
+    return () => { collapseApiRef.current = null; };
+  }, [collapseApiRef]);
 
   const kbData = useMemo(
     () => ({ ...data, rows: numbered.flatMap((s) => s.numberedRows.map((x) => x.row)) }),
@@ -199,10 +247,14 @@ export function PlanillaGrid({
     [data.columns, scroller],
   );
   const handleUndo = useCallback(async () => {
-    applyHistoryResult(await matrix.undo(), "Deshecho");
+    const entry = await matrix.undo();
+    if (!entry) { toast.message("Nada que deshacer"); return; }
+    applyHistoryResult(entry, "Deshecho");
   }, [matrix, applyHistoryResult]);
   const handleRedo = useCallback(async () => {
-    applyHistoryResult(await matrix.redo(), "Rehecho");
+    const entry = await matrix.redo();
+    if (!entry) { toast.message("Nada que rehacer"); return; }
+    applyHistoryResult(entry, "Rehecho");
   }, [matrix, applyHistoryResult]);
 
   const kb = usePlanillaKeyboard({
@@ -215,6 +267,30 @@ export function PlanillaGrid({
     onRedo: () => void handleRedo(),
   });
   kbRef.current = kb;
+
+  // Propagar selección al chrome (fx / statusbar).
+  useEffect(() => {
+    if (!onSelectionChange) return;
+    const sel = kb.sel;
+    if (!sel) { onSelectionChange(null, null); return; }
+    const row = rowById.get(sel.rowId);
+    const col = data.columns[sel.colIdx];
+    if (!row || !col) { onSelectionChange(null, null); return; }
+    onSelectionChange(sel, {
+      rowNumber: rowNumberById.get(sel.rowId) ?? 0,
+      rowName: row.name,
+      colIdx: sel.colIdx,
+      weekStart: col.weekStart,
+    });
+  }, [kb.sel, onSelectionChange, rowById, data.columns, rowNumberById]);
+
+  // Abrir capas desde fx bar / atajo externo.
+  const lastLayersReq = useRef(0);
+  useEffect(() => {
+    if (!openLayersRequest || openLayersRequest === lastLayersReq.current) return;
+    lastLayersReq.current = openLayersRequest;
+    if (kb.sel) openPopover(kb.sel);
+  }, [openLayersRequest, kb.sel, openPopover]);
 
   // ── Drag & drop de plan (desktop). ──
   const onCellDragStart = useCallback((rowId: string, week: string) => {
@@ -352,7 +428,24 @@ export function PlanillaGrid({
             onScroll={() => popover && setPopover(null)}
           >
             <table className="w-max border-separate border-spacing-0">
-              <PlanillaHeader columns={data.columns} granularity={data.granularity} closedWeeks={data.closedWeeks} />
+              <PlanillaHeader
+                columns={data.columns}
+                granularity={data.granularity}
+                closedWeeks={data.closedWeeks}
+                selectedColIdx={kb.sel?.colIdx ?? null}
+              />
+              {numbered.length === 0 && normSearch ? (
+                <tbody>
+                  <tr>
+                    <td
+                      colSpan={data.columns.length + 2}
+                      className="px-4 py-8 text-center text-sm text-ds-text-3"
+                    >
+                      Sin conceptos que coincidan
+                    </td>
+                  </tr>
+                </tbody>
+              ) : null}
               {numbered.map((section) => (
                 <tbody key={section.key}>
                   <tr className={SECTION_H}>
@@ -417,6 +510,10 @@ export function PlanillaGrid({
                       onCellDragOver={onCellDragOver}
                       onCellDrop={onCellDrop}
                       onCellDragEnd={onCellDragEnd}
+                      showChips={showChips}
+                      numberFormat={numberFormat}
+                      getCellStyle={getCellStyle}
+                      rowSelected={kb.sel?.rowId === row.id}
                     />
                   ))}
                 </tbody>
@@ -427,6 +524,8 @@ export function PlanillaGrid({
                 balances={data.balances}
                 warnThreshold={data.warnThreshold}
                 startNumber={footerStart}
+                numberFormat={numberFormat}
+                selectedColIdx={kb.sel?.colIdx ?? null}
               />
             </table>
           </div>

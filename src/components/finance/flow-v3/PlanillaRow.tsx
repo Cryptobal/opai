@@ -10,6 +10,8 @@ import { GUTTER_CELL, GUTTER_W, NAME_LEFT, NAME_W, ROW_H } from "./grid-classes"
 import { PlanillaCell } from "./PlanillaCell";
 import { MenuItems, type MenuItemDesc } from "./menu-render";
 import type { CellSel } from "./usePlanillaKeyboard";
+import type { NumberFormatMode } from "./format";
+import type { CellStyle } from "./usePlanillaViewPrefs";
 
 const DRAG_BLOCKED_MSG =
   "Las facturas y los movimientos conciliados no se mueven desde la planilla.";
@@ -44,6 +46,11 @@ interface Props {
   onCellDragOver: (e: React.DragEvent, rowId: string, colIdx: number, week: string) => void;
   onCellDrop: (rowId: string, week: string) => void;
   onCellDragEnd: () => void;
+  showChips?: boolean;
+  numberFormat?: NumberFormatMode;
+  getCellStyle?: (rowId: string, weekStart: string) => CellStyle | undefined;
+  /** Tintar gutter cuando la fila tiene celda seleccionada. */
+  rowSelected?: boolean;
 }
 
 export function PlanillaRow(p: Props) {
@@ -69,7 +76,10 @@ export function PlanillaRow(p: Props) {
 
   return (
     <tr className={`${ROW_H} group`}>
-      <td aria-hidden className={`${GUTTER_W} ${ROW_H} ${GUTTER_CELL} z-10`}>
+      <td
+        aria-hidden
+        className={`${GUTTER_W} ${ROW_H} ${GUTTER_CELL} z-10 ${p.rowSelected ? "bg-[var(--plnx-sel-hdr,#d3e3fd)]" : ""}`}
+      >
         {p.rowNumber}
       </td>
       <th
@@ -167,6 +177,9 @@ export function PlanillaRow(p: Props) {
             onDragEndCell={p.onCellDragEnd}
             isDropTarget={p.dropTarget?.rowId === row.id && p.dropTarget.colIdx === colIdx}
             dragBlockedTitle={dragBlocked}
+            showChips={p.showChips}
+            numberFormat={p.numberFormat}
+            cellStyle={p.getCellStyle?.(row.id, cell.weekStart)}
           />
         );
       })}
