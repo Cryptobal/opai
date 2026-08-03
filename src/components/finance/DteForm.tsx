@@ -1694,12 +1694,12 @@ export function DteForm({
                       <SelectTrigger className="h-10 sm:h-9 text-sm"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="801">801 — Orden de Compra</SelectItem>
-                        <SelectItem value="802">802 — Nota de Pedido</SelectItem>
+                        <SelectItem value="802">802 — HES / MIGO (recepción)</SelectItem>
                         <SelectItem value="803">803 — Contrato</SelectItem>
                         <SelectItem value="804">804 — Resolución</SelectItem>
-                        <SelectItem value="HES">HES — Hoja Entrada Servicios</SelectItem>
-                        <SelectItem value="GD">GD — Guía Despacho manual</SelectItem>
-                        <SelectItem value="52">52 — Guía Despacho electrónica</SelectItem>
+                        <SelectItem value="HES">HES — (se emite como 802 en el XML)</SelectItem>
+                        <SelectItem value="GD">GD — (se emite como 52 en el XML)</SelectItem>
+                        <SelectItem value="52">52 — Guía de Despacho</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>

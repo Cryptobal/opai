@@ -16,6 +16,7 @@ import { getDteTypeName as dteTypeName } from "../shared/constants/dte-types";
 import { renderDteEmailHtml, renderDteEmailSubject } from "./dte-email-template";
 import { getFileBuffer } from "@/lib/storage";
 import { buildDteAttachmentBaseName } from "./dte-filename";
+import { enrichDteEmailRecipientsFromCrm } from "./dte-xml-compliance";
 
 /**
  * Resuelve el kind del catálogo transaccional según el tipo de DTE.
@@ -130,6 +131,23 @@ export async function sendDteEmail(
       ccSource = ccSource.filter((e) => e !== firstCc);
     }
   }
+
+  // Re-envíos: si el CRM tiene casilla DTE (recepciondte*) y no estaba
+  // en TO/CC, la promovemos a TO para que el XML llegue al buzón automático.
+  // No mutamos el DTE persistido — solo el envelope de este envío.
+  if (dte.crmAccountId) {
+    const routed = await enrichDteEmailRecipientsFromCrm({
+      tenantId,
+      crmAccountId: dte.crmAccountId,
+      currentTo: primary,
+      currentCc: ccSource,
+    });
+    if (routed.adjusted) {
+      primary = routed.to;
+      ccSource = routed.cc;
+    }
+  }
+
   if (!primary?.trim()) return { success: false, error: "Receptor no tiene email" };
 
   // CC real: filtrar duplicados con el primario y emails inválidos.

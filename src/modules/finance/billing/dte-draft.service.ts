@@ -14,6 +14,7 @@ import { Prisma } from "@prisma/client";
 import { isDteTypeValid } from "../shared/constants/dte-types";
 import { issueDte, type IssueDteInput } from "./dte-issuer.service";
 import { computeDteAmounts } from "./dte-amounts.helper";
+import { enrichDteEmailRecipientsFromCrm } from "./dte-xml-compliance";
 import {
   matchDraftToOccurrence,
   rebindDraftOccurrencesToIssued,
@@ -75,6 +76,21 @@ export async function createDraftDte(
     strict: false,
     ufOverride: opts?.ufOverride,
   });
+
+  // Casilla DTE / recibeFacturacion → TO/CC del borrador (misma regla
+  // que al emitir). Así la UI ya muestra el destino correcto antes de emitir.
+  if (input.crmAccountId) {
+    const routed = await enrichDteEmailRecipientsFromCrm({
+      tenantId,
+      crmAccountId: input.crmAccountId,
+      currentTo: input.receiverEmail,
+      currentCc: input.receiverEmailCc,
+    });
+    if (routed.adjusted) {
+      input.receiverEmail = routed.to ?? input.receiverEmail;
+      input.receiverEmailCc = routed.cc;
+    }
+  }
 
   const emissionDate =
     input.issueDate?.trim() != null && input.issueDate.trim() !== ""

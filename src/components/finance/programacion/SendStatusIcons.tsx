@@ -107,7 +107,9 @@ export function OcReferenceChip({ references }: OcChipProps) {
   // "OC #" o "HES #" sin número y eso confunde al usuario.
   const visible = references.filter(
     (r) =>
-      (r.tipoDocRef === "801" || r.tipoDocRef === "HES") &&
+      (r.tipoDocRef === "801" ||
+        r.tipoDocRef === "HES" ||
+        r.tipoDocRef === "802") &&
       (r.folioRef ?? "").trim().length > 0,
   );
   if (visible.length === 0) return null;

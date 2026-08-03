@@ -1293,12 +1293,12 @@ export function RecurringTemplateForm({
                               <SelectTrigger className="h-10 sm:h-9 text-sm"><SelectValue /></SelectTrigger>
                               <SelectContent>
                                 <SelectItem value="801">801 — Orden de Compra</SelectItem>
-                                <SelectItem value="802">802 — Nota de Pedido</SelectItem>
+                                <SelectItem value="802">802 — HES / MIGO (recepción)</SelectItem>
                                 <SelectItem value="803">803 — Contrato</SelectItem>
                                 <SelectItem value="804">804 — Resolución</SelectItem>
-                                <SelectItem value="HES">HES</SelectItem>
-                                <SelectItem value="GD">GD — Guía manual</SelectItem>
-                                <SelectItem value="52">52 — Guía electrónica</SelectItem>
+                                <SelectItem value="HES">HES — (XML como 802)</SelectItem>
+                                <SelectItem value="GD">GD — (XML como 52)</SelectItem>
+                                <SelectItem value="52">52 — Guía de Despacho</SelectItem>
                               </SelectContent>
                             </Select>
                           </div>
