@@ -44,8 +44,10 @@ interface Props {
   onToggleBold: () => void;
   onAlignH: (a: AlignH) => void;
   onAlignV: (a: AlignV) => void;
-  onFill: (hex: string) => void;
-  onColor: (hex: string) => void;
+  /** `null` = Sin relleno / Automático (elimina la propiedad). */
+  onFill: (hex: string | null) => void;
+  onColor: (hex: string | null) => void;
+  searchOpen?: boolean;
   onToggleFreeze: () => void;
   onExpandGroups: () => void;
   onCollapseGroups: () => void;
@@ -134,6 +136,19 @@ export function PlanillaToolbar(p: Props) {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="flex gap-1 p-2">
+            <DropdownMenuItem
+              className="h-7 w-7 cursor-pointer rounded-sm p-0"
+              onSelect={() => needSel(() => p.onColor(null))}
+              aria-label="Automático"
+              title="Automático"
+            >
+              <span
+                className="relative h-6 w-6 rounded-sm border border-ds-border-default bg-ds-surface-1"
+                aria-hidden
+              >
+                <span className="absolute inset-0 block origin-center rotate-45 border-t border-status-danger" />
+              </span>
+            </DropdownMenuItem>
             {COLOR_PALETTE.map((c) => (
               <DropdownMenuItem
                 key={c}
@@ -153,6 +168,19 @@ export function PlanillaToolbar(p: Props) {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="flex gap-1 p-2">
+            <DropdownMenuItem
+              className="h-7 w-7 cursor-pointer rounded-sm p-0"
+              onSelect={() => needSel(() => p.onFill(null))}
+              aria-label="Sin relleno"
+              title="Sin relleno"
+            >
+              <span
+                className="relative h-6 w-6 rounded-sm border border-ds-border-default bg-ds-surface-1"
+                aria-hidden
+              >
+                <span className="absolute inset-0 block origin-center rotate-45 border-t border-status-danger" />
+              </span>
+            </DropdownMenuItem>
             {FILL_PALETTE.map((c) => (
               <DropdownMenuItem
                 key={c}

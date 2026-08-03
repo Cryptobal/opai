@@ -8,9 +8,8 @@ export type PlanillaDensity = "compact" | "standard" | "comfortable";
 export type AlignH = "left" | "center" | "right";
 export type AlignV = "top" | "middle" | "bottom";
 
-/** Paleta fija de rellenos (6) y colores de texto (4). */
+/** Paleta de rellenos (5 tintes; sin blanco — "Sin relleno" es reset UI). */
 export const FILL_PALETTE = [
-  "#ffffff",
   "#fce8e6",
   "#fef7e0",
   "#e6f4ea",
@@ -35,6 +34,11 @@ export interface CellStyle {
   fill?: FillColor;
   color?: TextColor;
 }
+
+/** Patch que admite `null` para eliminar una propiedad individual. */
+export type CellStylePatch = {
+  [K in keyof CellStyle]?: CellStyle[K] | null;
+};
 
 export type CellStylesMap = Record<string, CellStyle>;
 
@@ -193,16 +197,44 @@ export function usePlanillaViewPrefs(tenantId: string) {
   );
 
   const setCellStyle = useCallback(
-    (rowId: string, weekStart: string, style: Partial<CellStyle> | null) => {
+    (rowId: string, weekStart: string, style: CellStylePatch | null) => {
       setPrefs((p) => {
         const k = cellStyleKey(rowId, weekStart);
         const next = { ...p.cellStyles };
         if (style === null) {
           delete next[k];
         } else {
-          const merged = { ...next[k], ...style };
-          // Toggle bold: si llega bold:false, limpia la clave.
-          if (merged.bold === false) delete merged.bold;
+          const merged: Record<string, unknown> = { ...next[k] };
+          for (const [prop, val] of Object.entries(style)) {
+            if (val === null || val === false) delete merged[prop];
+            else merged[prop] = val;
+          }
+          if (Object.keys(merged).length === 0) delete next[k];
+          else next[k] = merged as CellStyle;
+        }
+        return { ...p, cellStyles: next };
+      });
+    },
+    [],
+  );
+
+  /** Aplica el mismo patch a muchas celdas en un solo setPrefs. */
+  const setCellStylesBulk = useCallback(
+    (keys: Array<{ rowId: string; weekStart: string }>, style: CellStylePatch | null) => {
+      if (keys.length === 0) return;
+      setPrefs((p) => {
+        const next = { ...p.cellStyles };
+        for (const { rowId, weekStart } of keys) {
+          const k = cellStyleKey(rowId, weekStart);
+          if (style === null) {
+            delete next[k];
+            continue;
+          }
+          const merged: Record<string, unknown> = { ...next[k] };
+          for (const [prop, val] of Object.entries(style)) {
+            if (val === null || val === false) delete merged[prop];
+            else merged[prop] = val;
+          }
           if (Object.keys(merged).length === 0) delete next[k];
           else next[k] = merged as CellStyle;
         }
@@ -250,6 +282,7 @@ export function usePlanillaViewPrefs(tenantId: string) {
     setFreeze,
     getCellStyle,
     setCellStyle,
+    setCellStylesBulk,
     clearCellStyle,
     toggleBold,
     densityRowPx: DENSITY_ROW[prefs.density],

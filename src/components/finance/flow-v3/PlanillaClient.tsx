@@ -357,8 +357,8 @@ export function PlanillaClient({
         onToggleBold={() => cellSel && selectedWeekStart && view.toggleBold(cellSel.rowId, selectedWeekStart)}
         onAlignH={(a) => applyStyle({ align: a })}
         onAlignV={(a) => applyStyle({ valign: a })}
-        onFill={(hex) => applyStyle({ fill: hex as FillColor })}
-        onColor={(hex) => applyStyle({ color: hex as TextColor })}
+        onFill={(hex) => applyStyle(hex == null ? { fill: null } : { fill: hex as FillColor })}
+        onColor={(hex) => applyStyle(hex == null ? { color: null } : { color: hex as TextColor })}
         onToggleFreeze={() => view.setFreeze(!view.prefs.freeze)}
         onExpandGroups={() => collapseApiRef.current?.expandAll()}
         onCollapseGroups={() => collapseApiRef.current?.collapseAll()}
