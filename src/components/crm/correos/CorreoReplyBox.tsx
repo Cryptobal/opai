@@ -113,8 +113,8 @@ function toThreadDraftSeed(m: CorreoMessageDTO): ThreadDraftSeed {
  *
  * La barra de acciones se muestra de inmediato (sin esperar suggest-reply): el
  * meta se hidrata en background para no bloquear la lectura con un spinner.
- * Con dock del shell, barra y composer se portan fuera del scroll (fijos abajo,
- * estilo Gmail).
+ * Con dock del shell, la barra Responder/Reenviar queda fija abajo; el
+ * composer abre inline al final del último mail (como Gmail).
  *
  * Si el hilo tiene un borrador, Responder/Continuar lo reanuda (mismo
  * providerDraftId) en vez de crear otro.
@@ -286,21 +286,18 @@ export function CorreoReplyBox({
 
   // Composer abierto antes de que llegue el meta: spinner mínimo en el box.
   // Si reanudamos un borrador ya tenemos destinatarios/cuerpo — no bloquear.
+  // Inline tras el último mail (estilo Gmail); la barra cerrada sigue en el dock.
   if (!metaReady && open.mode !== "forward" && !activeDraft) {
-    const spinner = (
+    return (
       <div data-correo-reply-anchor className="flex justify-center py-4">
         <Spinner />
       </div>
     );
-    // Mismo dock sticky que la barra: no empujar el spinner al fondo del hilo.
-    if (dock.enabled) {
-      if (!dock.host) return null;
-      return createPortal(spinner, dock.host);
-    }
-    return spinner;
   }
 
-  const composer = (
+  // Composer al final del último mensaje del hilo (mismo scroll). En móvil
+  // CorreoComposerBox porta fullscreen a document.body.
+  return (
     <CorreoComposerBox
       threadId={threadId}
       subject={detail.thread.subject}
@@ -345,11 +342,4 @@ export function CorreoReplyBox({
       onOpenSignature={onOpenSignature}
     />
   );
-
-  // Desktop: composer sticky en el dock (fuera del scroll del hilo), como Gmail.
-  // Móvil: host ausente → CorreoComposerBox hace fullscreen a document.body.
-  if (dock.enabled && dock.host) {
-    return createPortal(composer, dock.host);
-  }
-  return composer;
 }

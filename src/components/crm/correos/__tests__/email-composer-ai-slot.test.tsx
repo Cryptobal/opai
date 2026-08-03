@@ -21,9 +21,18 @@ vi.mock("../EmailToolbar", () => ({
 }));
 
 vi.mock("../CorreoQuotedHistory", () => ({
-  CorreoQuotedHistory: ({ html }: { html: string }) => (
-    <div data-testid="quoted-history">{html}</div>
-  ),
+  CorreoQuotedHistory: ({
+    html,
+    defaultExpanded = true,
+  }: {
+    html?: string;
+    defaultExpanded?: boolean;
+  }) =>
+    defaultExpanded ? (
+      <div data-testid="quoted-history">{html}</div>
+    ) : (
+      <button type="button">⋯ Historial</button>
+    ),
 }));
 
 vi.mock("../AttachmentPicker", () => ({
@@ -99,14 +108,13 @@ describe("EmailComposer AI slot", () => {
 
     const body = container.querySelector("[data-email-composer-body]");
     const ai = screen.getByTestId("ai-pill");
-    const history = screen.getByTestId("quoted-history");
     expect(body).toBeTruthy();
     expect(ai).toBeTruthy();
-    expect(history).toBeTruthy();
+    // Historial contraído por defecto (estilo Gmail …): no monta el HTML.
+    expect(screen.queryByTestId("quoted-history")).toBeNull();
+    expect(screen.getByRole("button", { name: /historial/i })).toBeTruthy();
 
     const position = body!.compareDocumentPosition(ai);
     expect(position & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    const aiThenHistory = ai.compareDocumentPosition(history);
-    expect(aiThenHistory & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 });

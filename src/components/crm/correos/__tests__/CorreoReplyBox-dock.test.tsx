@@ -89,7 +89,7 @@ describe("CorreoReplyBox dock Gmail", () => {
     host.remove();
   });
 
-  it("al abrir Responder porta el composer al dock (sticky, fuera del scroll)", async () => {
+  it("al abrir Responder el composer queda inline tras el hilo (no en el dock)", async () => {
     const host = document.createElement("div");
     document.body.appendChild(host);
 
@@ -107,11 +107,13 @@ describe("CorreoReplyBox dock Gmail", () => {
     fireEvent.click(host.querySelector('[aria-label="Responder"]')!);
 
     await waitFor(() => {
-      expect(host.querySelector("[data-testid='composer']")).toBeTruthy();
+      expect(
+        screen.getByTestId("scroll").querySelector("[data-testid='composer']"),
+      ).toBeTruthy();
     });
-    expect(
-      screen.getByTestId("scroll").querySelector("[data-testid='composer']"),
-    ).toBeNull();
+    // La barra salió del dock; el composer vive al final del último mail.
+    expect(host.querySelector("[data-testid='composer']")).toBeNull();
+    expect(host.querySelector('[aria-label="Responder"]')).toBeNull();
 
     host.remove();
   });

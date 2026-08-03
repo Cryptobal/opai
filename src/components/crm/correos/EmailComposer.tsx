@@ -928,7 +928,9 @@ export const EmailComposer = forwardRef<EmailComposerHandle, Props>(function Ema
       {editorBlock}
       {/* IA junto al cuerpo: antes del historial (si va en footer queda “abajo”). */}
       {aboveFooter}
-      {quotedHtml ? <CorreoQuotedHistory html={quotedHtml} /> : null}
+      {quotedHtml ? (
+        <CorreoQuotedHistory html={quotedHtml} defaultExpanded={false} />
+      ) : null}
       {footerBlock}
     </div>
   );

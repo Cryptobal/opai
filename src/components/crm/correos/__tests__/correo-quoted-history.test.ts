@@ -49,6 +49,35 @@ describe("splitMessageQuote", () => {
     expect(splitMessageQuote(fwd).quotedHtml).toContain("divRplyFwdMsg");
   });
 
+  it("outlook Word ES: corta en border-top + De:/Enviado el (sin divRplyFwdMsg)", () => {
+    const html = [
+      '<p class="MsoNormal">Estimado Carlos, buenas tardes.</p>',
+      '<p class="MsoNormal">Firma</p>',
+      '<div>',
+      '<div style="border:none;border-top:solid #E1E1E1 1.0pt;padding:3.0pt 0cm 0cm 0cm">',
+      '<p class="MsoNormal"><b><span lang="ES">De:</span></b><span lang="ES"> Juan Carlos',
+      '<br><b>Enviado el:</b> viernes, 24 de julio de 2026 11:57<br>',
+      "<b>Para:</b> Carlos<br>",
+      "<b>Asunto:</b> RE: Cotización</span></p>",
+      "</div></div>",
+      '<p class="MsoNormal">Estimado Carlos, buen día.</p>',
+    ].join("");
+    const { bodyHtml, quotedHtml } = splitMessageQuote(html);
+    expect(bodyHtml).toContain("buenas tardes");
+    expect(bodyHtml).not.toContain("Enviado el");
+    expect(quotedHtml).toContain("border-top:solid");
+    expect(quotedHtml).toContain("Enviado el");
+  });
+
+  it("separador textual Mensaje original / Original Message", () => {
+    const es =
+      "<p>Nuevo</p><div>-----Mensaje original-----</div><div>viejo</div>";
+    expect(splitMessageQuote(es).quotedHtml).toContain("Mensaje original");
+    const en =
+      "<p>New</p><div>-----Original Message-----</div><div>old</div>";
+    expect(splitMessageQuote(en).bodyHtml).toBe("<p>New</p>");
+  });
+
   it("yahoo y thunderbird tienen su marcador", () => {
     expect(
       splitMessageQuote('<p>a</p><div class="yahoo_quoted">viejo</div>').quotedHtml,

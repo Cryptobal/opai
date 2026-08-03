@@ -1,10 +1,9 @@
 /**
- * Al abrir Responder / A todos / Reenviar, deja el composer al inicio
- * (Para / Asunto / cuerpo / casilla IA), no al final del historial citado.
+ * Al abrir Responder / A todos / Reenviar, muestra el composer al final del
+ * último mail (tope de la caja de escribir), no el historial citado.
  *
- * - Fullscreen / modal: scrollea la superficie del composer.
- * - Inline en el dock (fuera del lector): igual, solo la superficie.
- * - Inline dentro del scroller del lector: alinea el tope del composer.
+ * - Fullscreen / modal: resetea scroll interno de la superficie.
+ * - Inline en el scroller del lector: alinea el tope del composer.
  */
 export function scrollComposerIntoView() {
   const run = () => {
@@ -24,7 +23,6 @@ export function scrollComposerIntoView() {
         const scroller = document.querySelector<HTMLElement>(
           "[data-correo-reader-scroller]",
         );
-        // Composer en dock (sticky): no desplazar el hilo.
         if (!scroller || !scroller.contains(surface)) return;
 
         const elRect = surface.getBoundingClientRect();

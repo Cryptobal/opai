@@ -41,14 +41,14 @@ describe("scrollComposerIntoView", () => {
     });
   });
 
-  it("en dock (fuera del scroller) solo resetea scroll de la superficie", () => {
+  it("en fullscreen (fuera del scroller) solo resetea scroll de la superficie", () => {
     const scroller = document.createElement("div");
     scroller.setAttribute("data-correo-reader-scroller", "");
     scroller.scrollTo = vi.fn();
 
     const surface = document.createElement("div");
     surface.setAttribute("data-correo-composer-surface", "");
-    surface.dataset.composerPresentation = "inline";
+    surface.dataset.composerPresentation = "fullscreen";
     surface.scrollTop = 120;
     surface.scrollTo = vi.fn();
 

@@ -41,6 +41,8 @@ const QUOTE_MARKERS: RegExp[] = [
   /<(?:div|hr)\b[^>]*\bid\s*=\s*["'](?:divRplyFwdMsg|appendonsend)["'][^>]*>/i,
   /<div\b[^>]*\bclass=["'][^"']*\byahoo_quoted\b[^"']*["'][^>]*>/i,
   /<div\b[^>]*\bclass=["'][^"']*\bmoz-cite-prefix\b[^"']*["'][^>]*>/i,
+  // Separadores textuales de reenvío / mensaje original (incluye el tag contenedor).
+  /(?:<(?:div|p|span)\b[^>]*>\s*)?[-_]{2,}\s*(?:Mensaje original|Original Message|Forwarded message|Mensaje reenviado)\s*[-_]{2,}/i,
 ];
 
 /**
@@ -50,6 +52,12 @@ const QUOTE_MARKERS: RegExp[] = [
  */
 const TEXT_QUOTE_HEADER_RE =
   /(?:^|<(?:div|p|blockquote|td|span)\b[^>]*>|<br\s*\/?>)\s*(?:El|On)\s[^<>]{5,240}?\s(?:escribi[oó]|wrote)\s*:/i;
+
+/** Cabeceras típicas del bloque citado Outlook (ES/EN). */
+const OUTLOOK_HEADER_PLAIN_RE =
+  /\b(?:De|From)\s*:/i;
+const OUTLOOK_HEADER_META_RE =
+  /\b(?:Enviado(?:\s+el)?|Sent|Para|To|CC|CCO|BCC|Asunto|Subject)\s*:/i;
 
 /** true si el HTML conserva contenido útil (texto, imagen o tabla). */
 function hasVisibleContent(html: string): boolean {
@@ -61,6 +69,41 @@ function hasVisibleContent(html: string): boolean {
       .replace(/\s+/g, " ")
       .trim(),
   );
+}
+
+function plainWindow(html: string, start: number, len: number): string {
+  return html
+    .slice(start, start + len)
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/\s+/g, " ");
+}
+
+/**
+ * Outlook Word/desktop: el historial va tras un div con `border-top:solid`
+ * (o un `<hr>`) seguido de cabeceras De/From + Enviado/Para/Asunto.
+ * `De:` suele vivir dentro de `<b><span>De:</span></b>`, no en id divRplyFwdMsg.
+ */
+export function findOutlookQuoteIndex(html: string): number {
+  const borderRe =
+    /<div\b[^>]*\bstyle=["'][^"']*border-top\s*:\s*solid[^"']*["'][^>]*>/gi;
+  let match: RegExpExecArray | null;
+  while ((match = borderRe.exec(html)) !== null) {
+    const plain = plainWindow(html, match.index, 900);
+    if (OUTLOOK_HEADER_PLAIN_RE.test(plain) && OUTLOOK_HEADER_META_RE.test(plain)) {
+      return match.index;
+    }
+  }
+
+  const hrRe = /<hr\b[^>]*>/gi;
+  while ((match = hrRe.exec(html)) !== null) {
+    const plain = plainWindow(html, match.index, 700);
+    if (OUTLOOK_HEADER_PLAIN_RE.test(plain) && OUTLOOK_HEADER_META_RE.test(plain)) {
+      return match.index;
+    }
+  }
+
+  return -1;
 }
 
 /**
@@ -80,6 +123,9 @@ export function splitMessageQuote(html: string | null | undefined): {
     if (!match || match.index == null) continue;
     if (cut === -1 || match.index < cut) cut = match.index;
   }
+  const outlookCut = findOutlookQuoteIndex(html);
+  if (outlookCut > 0 && (cut === -1 || outlookCut < cut)) cut = outlookCut;
+
   if (cut <= 0) return { bodyHtml: html, quotedHtml: null };
 
   const bodyHtml = html.slice(0, cut).trim();

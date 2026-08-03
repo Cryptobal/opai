@@ -589,7 +589,7 @@ export function CorreoComposerBox(props: Props) {
       data-correo-composer-surface
       data-composer-presentation="inline"
       data-email-composer
-      className="relative max-h-[min(70dvh,720px)] space-y-1 overflow-y-auto overscroll-contain border-t border-ds-border-subtle bg-background pt-2 [-webkit-overflow-scrolling:touch]"
+      className="relative space-y-1 border-t border-ds-border-subtle bg-background pt-2"
     >
       {nativeFileInput}
       {desktopChrome}
