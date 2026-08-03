@@ -128,4 +128,24 @@ describe("extractGmailAttachments + Content-ID", () => {
       },
     ]);
   });
+
+  it("incluye imágenes inline sin filename (capturas CID)", () => {
+    const atts = extractGmailAttachments({
+      mimeType: "multipart/related",
+      parts: [
+        {
+          mimeType: "image/png",
+          headers: [{ name: "Content-ID", value: "<ii_abc@gmail>" }],
+          body: { attachmentId: "att-img", size: 50000 },
+        },
+      ],
+    });
+    expect(atts).toHaveLength(1);
+    expect(atts[0]).toMatchObject({
+      attachmentId: "att-img",
+      filename: "inline.png",
+      mimeType: "image/png",
+      contentId: "ii_abc@gmail",
+    });
+  });
 });
