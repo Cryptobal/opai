@@ -35,10 +35,14 @@ export function splitDraftBodyAndQuote(html: string | null | undefined): {
  */
 const QUOTE_MARKERS: RegExp[] = [
   GMAIL_QUOTE_RE,
+  // Prefijo Gmail ("El … escribió:") justo antes del blockquote citado.
+  /<div\b[^>]*\bclass=["'][^"']*\bgmail_attr\b[^"']*["'][^>]*>/i,
   // Apple Mail / clientes que citan con blockquote semántico.
   /<blockquote\b[^>]*\btype\s*=\s*["']cite["'][^>]*>/i,
   // Outlook (web y escritorio): separador de respuesta / reenvío.
-  /<(?:div|hr)\b[^>]*\bid\s*=\s*["'](?:divRplyFwdMsg|appendonsend)["'][^>]*>/i,
+  /<(?:div|hr)\b[^>]*\bid\s*=\s*["'](?:divRplyFwdMsg|appendonsend|mail-editor-reference-message-container)["'][^>]*>/i,
+  // Outlook móvil / new Outlook: contenedor del mensaje de referencia.
+  /<div\b[^>]*\bclass=["'][^"']*\bms-outlook-mobile-reference-message\b[^"']*["'][^>]*>/i,
   /<div\b[^>]*\bclass=["'][^"']*\byahoo_quoted\b[^"']*["'][^>]*>/i,
   /<div\b[^>]*\bclass=["'][^"']*\bmoz-cite-prefix\b[^"']*["'][^>]*>/i,
   // Separadores textuales de reenvío / mensaje original (incluye el tag contenedor).
@@ -51,13 +55,16 @@ const QUOTE_MARKERS: RegExp[] = [
  * debe recortar el correo.
  */
 const TEXT_QUOTE_HEADER_RE =
-  /(?:^|<(?:div|p|blockquote|td|span)\b[^>]*>|<br\s*\/?>)\s*(?:El|On)\s[^<>]{5,240}?\s(?:escribi[oó]|wrote)\s*:/i;
+  /(?:^|<(?:div|p|blockquote|td|span)\b[^>]*>|<br\s*\/?>)\s*(?:El|On|Il|Le)\s[^<>]{5,240}?\s(?:escribi[oó]|wrote|scritto)\s*:/i;
 
-/** Cabeceras típicas del bloque citado Outlook (ES/EN). */
+/**
+ * Cabeceras del bloque citado Outlook (ES / EN / IT / FR / DE).
+ * "Da" = From (IT); "A" solo cuenta junto a otras metas para evitar falsos.
+ */
 const OUTLOOK_HEADER_PLAIN_RE =
-  /\b(?:De|From)\s*:/i;
+  /\b(?:De|From|Da|Von)\s*:/i;
 const OUTLOOK_HEADER_META_RE =
-  /\b(?:Enviado(?:\s+el)?|Sent|Para|To|CC|CCO|BCC|Asunto|Subject)\s*:/i;
+  /\b(?:Enviado(?:\s+el)?|Sent|Para|To|CC|CCO|BCC|Asunto|Subject|Data|Oggetto|Envoyé|Objet|Gesendet|An|Betreff)\s*:/i;
 
 /** true si el HTML conserva contenido útil (texto, imagen o tabla). */
 function hasVisibleContent(html: string): boolean {
@@ -80,13 +87,13 @@ function plainWindow(html: string, start: number, len: number): string {
 }
 
 /**
- * Outlook Word/desktop: el historial va tras un div con `border-top:solid`
- * (o un `<hr>`) seguido de cabeceras De/From + Enviado/Para/Asunto.
- * `De:` suele vivir dentro de `<b><span>De:</span></b>`, no en id divRplyFwdMsg.
+ * Outlook Word / new Outlook / móvil: el historial va tras un div con borde
+ * superior (`border-top:solid` o `border-style: solid none none`) o un `<hr>`,
+ * seguido de cabeceras De/From/Da + Enviado/Data/Oggetto/….
  */
 export function findOutlookQuoteIndex(html: string): number {
   const borderRe =
-    /<div\b[^>]*\bstyle=["'][^"']*border-top\s*:\s*solid[^"']*["'][^>]*>/gi;
+    /<div\b[^>]*\bstyle=["'][^"']*border(?:-top\s*:\s*solid|-style\s*:\s*solid\s+none\s+none)[^"']*["'][^>]*>/gi;
   let match: RegExpExecArray | null;
   while ((match = borderRe.exec(html)) !== null) {
     const plain = plainWindow(html, match.index, 900);
@@ -101,6 +108,19 @@ export function findOutlookQuoteIndex(html: string): number {
     if (OUTLOOK_HEADER_PLAIN_RE.test(plain) && OUTLOOK_HEADER_META_RE.test(plain)) {
       return match.index;
     }
+  }
+
+  // Cabecera `<b>Da:</b>` / `<b>From:</b>` sin borde reconocible: subir al
+  // contenedor div más cercano (new Outlook a veces omite el border shorthand).
+  const boldFromRe =
+    /<b\b[^>]*>\s*(?:De|From|Da|Von)\s*:\s*<\/b>/gi;
+  while ((match = boldFromRe.exec(html)) !== null) {
+    const plain = plainWindow(html, match.index, 700);
+    if (!OUTLOOK_HEADER_META_RE.test(plain)) continue;
+    const before = html.slice(Math.max(0, match.index - 400), match.index);
+    const divOpen = before.lastIndexOf("<div");
+    if (divOpen >= 0) return Math.max(0, match.index - 400) + divOpen;
+    return match.index;
   }
 
   return -1;
