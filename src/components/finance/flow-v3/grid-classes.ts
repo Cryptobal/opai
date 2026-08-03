@@ -1,9 +1,8 @@
 /**
  * Geometría de la hoja por CSS variables (--plnx-*, definidas en globals.css
- * bajo .planilla-sheet). Desktop: fila 22px, concepto 200px, semana 86px,
- * gutter 38px (≥22 filas de datos en 1440×900). Teléfonos: gutter 28px,
- * concepto 100px, 4 semanas exactas en el ancho útil y fila dinámica
- * 13–18px según 100dvh (objetivo 46 filas de hoja en un Pro Max).
+ * bajo .planilla-sheet). Desktop: fila 20px (estándar), concepto 200px,
+ * semana 86px, gutter 38px. Teléfonos: gutter 28px, concepto 100px, 4 semanas
+ * exactas y fila dinámica clamp(15–20px).
  */
 import type { FlowMatrixRowDto } from "@/modules/finance/flow-v3/matrix-types";
 
@@ -22,7 +21,7 @@ export const NAME_LEFT = "left-[var(--plnx-gutter-w)]";
 
 /** Celda del gutter: número de fila, sticky izquierda, tinte de encabezado. */
 export const GUTTER_CELL =
-  "sticky left-0 border-b border-r border-ds-border-subtle/60 bg-ds-surface-2 px-0 text-center align-middle font-mono uppercase tracking-tight text-[11px] leading-none text-ds-text-4";
+  "sticky left-0 border-b border-r border-ds-border-subtle/60 bg-ds-surface-2 px-0 text-center align-middle font-sans font-normal tabular-nums leading-none text-ds-text-4";
 
 export const CELL_BASE =
   "relative px-1.5 max-md:px-[3px] text-right align-middle border-b border-r border-ds-border-subtle/60 overflow-hidden whitespace-nowrap";
@@ -31,15 +30,15 @@ export const CELL_BASE =
 export const TODAY_COL = "border-l-2 border-l-primary";
 
 /**
- * Sistema de 5 estados de celda (§5F). Regla de lectura a 22px:
+ * Sistema de 5 estados de celda (§5F). Con chips OFF la lectura es por marca
+ * de esquina; con chips ON se conservan fondos tintados + chip de texto.
  *   fondo relleno         = el documento EXISTE (real / factura / proforma-EP);
  *   sin fondo + borde izq. = PROYECCIÓN (programada / borrador).
- * El color (teal/azul/ámbar) distingue la naturaleza; el chip la refina.
  */
 
-/** REAL (conciliado): fondo teal + borde inferior sólido + punto primary. */
+/** REAL (conciliado): fondo teal + borde inferior sólido. */
 export const REAL_CELL =
-  "bg-status-ok-soft/60 border-b-status-ok-border before:absolute before:left-[3px] before:top-1/2 before:-translate-y-1/2 before:h-[4px] before:w-[4px] before:rounded-full before:bg-primary before:content-['']";
+  "bg-status-ok-soft/60 border-b-status-ok-border";
 
 /** FACTURA EMITIDA (folio): documento azul, fondo relleno + borde sólido. */
 export const COMMITTED_DTE_CELL =
@@ -58,7 +57,22 @@ export const COMMITTED_PROFORMA_CELL =
 export const COMMITTED_DRAFT_CELL =
   "border-l-2 border-l-status-warn-border [border-left-style:dotted]";
 
-export const SELECTED_CELL = "outline outline-1 -outline-offset-1 outline-primary";
+/**
+ * Marca de esquina 6px (triángulo sup-der). Prioridad: real > dte/scheduled >
+ * draft/proforma. Proyección P no lleva marca (monto atenuado).
+ */
+export const CORNER_REAL =
+  "after:absolute after:right-0 after:top-0 after:h-0 after:w-0 after:border-l-[6px] after:border-t-[6px] after:border-l-transparent after:border-t-status-ok after:content-['']";
+export const CORNER_DTE =
+  "after:absolute after:right-0 after:top-0 after:h-0 after:w-0 after:border-l-[6px] after:border-t-[6px] after:border-l-transparent after:border-t-status-info after:content-['']";
+export const CORNER_WARN =
+  "after:absolute after:right-0 after:top-0 after:h-0 after:w-0 after:border-l-[6px] after:border-t-[6px] after:border-l-transparent after:border-t-status-warn after:content-['']";
+
+export const SELECTED_CELL =
+  "outline outline-2 -outline-offset-2 outline-[var(--plnx-sel,#0b57d0)]";
+
+/** Header de columna/fila seleccionado (tinte azul Sheets). */
+export const SELECTED_HDR = "bg-[var(--plnx-sel-hdr,#d3e3fd)]";
 
 export const SECTION_LABELS: Record<string, string> = {
   INGRESOS: "Ingresos",

@@ -1763,20 +1763,40 @@ html {
 }
 
 .planilla-sheet {
-  /* Desktop (specs v3.1): fila 22px, concepto 200px, semana 86px,
+  /* Desktop (Sheets UI): fila 20px estándar, concepto 200px, semana 86px,
      gutter de números 38px, headers letras/mes/semana. */
   --plnx-gutter-w: 38px;
   --plnx-name-w: 200px;
   --plnx-week-w: 86px;
-  --plnx-row-h: 22px;
-  --plnx-section-h: 20px;
+  --plnx-row-h: 20px;
+  --plnx-section-h: 18px;
   --plnx-hdr-1: 16px;
   --plnx-hdr-2: 17px;
   --plnx-hdr-3: 17px;
-  --plnx-toolbar-h: 36px;
+  --plnx-font: 11px;
+  --plnx-zoom: 1;
+  --plnx-menubar-h: 32px;
+  --plnx-toolbar-h: 40px;
+  --plnx-fxbar-h: 30px;
+  --plnx-statusbar-h: 26px;
+  --plnx-sel: #0b57d0;
+  --plnx-sel-hdr: #d3e3fd;
   /* Altura útil desktop: 100dvh − topbar (3rem) − breadcrumb (~44px)
-     − toolbar planilla (36px + 8px gap) − padding inferior (24px). */
-  --plnx-grid-h: calc(100dvh - 3rem - 44px - var(--plnx-toolbar-h) - 8px - 24px);
+     − chrome planilla (menubar + toolbar + fx + status + gaps) − padding. */
+  --plnx-grid-h: calc(
+    100dvh - 3rem - 44px
+    - var(--plnx-menubar-h) - var(--plnx-toolbar-h) - var(--plnx-fxbar-h)
+    - var(--plnx-statusbar-h) - 16px - 24px
+  );
+}
+
+.planilla-sheet table {
+  font-size: calc(var(--plnx-font) * var(--plnx-zoom));
+}
+
+/* Desactivar sticky de gutter/concepto (toggle Inmovilizar). */
+.planilla-sheet.no-freeze .sticky {
+  position: static;
 }
 
 /* Mobile + tablet (< lg): sin topbar desktop; la hoja vive entre la

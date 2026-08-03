@@ -13,7 +13,7 @@ interface Props {
   startNumber: number;
 }
 
-const EYEBROW = "font-mono uppercase tracking-wide text-[11px] leading-none";
+const EYEBROW = "font-sans font-normal tabular-nums leading-none";
 
 /** Heat del saldo: ok / warn (< umbral) / danger (< 0). */
 function heatClass(balance: number, warnThreshold: number): string {

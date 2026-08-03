@@ -365,7 +365,7 @@ export function PlanillaGrid({
                     >
                       <button
                         onClick={() => toggleSection(section.key)}
-                        className="flex w-full min-w-0 items-center gap-1 max-md:gap-0.5 overflow-hidden whitespace-nowrap font-mono text-[11px] uppercase tracking-wide leading-none text-ds-text-2"
+                        className="flex w-full min-w-0 items-center gap-1 max-md:gap-0.5 overflow-hidden whitespace-nowrap font-sans font-medium leading-none text-ds-text-2"
                       >
                         {collapsed.has(section.key) ? (
                           <ChevronRight className="h-3 w-3 shrink-0 max-md:h-2.5 max-md:w-2.5" />

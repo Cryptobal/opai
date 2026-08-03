@@ -7,6 +7,8 @@ import { formatThousands, parseAmount } from "@/components/finance/cashflow/v2/a
 
 export { formatThousands };
 
+export type NumberFormatMode = "clp" | "m" | "mm";
+
 /** "1.234.567" / "-1.234.567" → número signado. */
 export function parseSignedAmount(formatted: string): number {
   const negative = formatted.trim().startsWith("-");
@@ -14,12 +16,25 @@ export function parseSignedAmount(formatted: string): number {
   return negative ? -abs : abs;
 }
 
-/** Número → "1.234.567" (sin símbolo $; la grilla es densa). */
-export function fmtCell(value: number): string {
+/**
+ * Número → texto de celda. Modo clp: "1.234.567"; m: miles redondeados;
+ * mm: millones redondeados. Sin símbolo $ (la grilla es densa).
+ */
+export function fmtCell(value: number, mode: NumberFormatMode = "clp"): string {
   if (!Number.isFinite(value) || value === 0) return "";
-  const abs = Math.round(Math.abs(value));
-  const s = abs.toLocaleString("es-CL");
-  return value < 0 ? `-${s}` : s;
+  const sign = value < 0 ? "-" : "";
+  const abs = Math.abs(value);
+  if (mode === "m") {
+    const scaled = Math.round(abs / 1_000);
+    if (scaled === 0) return "";
+    return `${sign}${scaled.toLocaleString("es-CL")}`;
+  }
+  if (mode === "mm") {
+    const scaled = Math.round(abs / 1_000_000);
+    if (scaled === 0) return "";
+    return `${sign}${scaled.toLocaleString("es-CL")}`;
+  }
+  return `${sign}${Math.round(abs).toLocaleString("es-CL")}`;
 }
 
 /** Número → "$1.234.567" para KPIs/popover. */
@@ -49,18 +64,15 @@ export function folioChip(folio: number): { text: string; title: string } {
   return { text: `F°…${String(folio).slice(-2)}`, title: full };
 }
 
-/** Clase tipográfica numérica de la grilla (11px mono tabular desktop; el
- *  uppercase/tracking cumple el patrón eyebrow del DS y es no-op sobre
- *  dígitos). En teléfonos sube a 12px (mínimo legible del DS) con leading
- *  compacto para las filas densas de 13–18px. */
+/**
+ * Tipografía numérica de la grilla: sans proporcional del DS (Inter) con
+ * tabular-nums, peso 400. El tamaño lo hereda del contenedor
+ * (`--plnx-font * --plnx-zoom`). En móvil el mínimo legible del DS es 12px.
+ */
 export const NUM_CLASS =
-  "font-mono uppercase tracking-tight tabular-nums text-[11px] max-md:text-[12px] leading-none";
+  "font-sans font-normal tabular-nums leading-none max-md:text-[12px]";
 
-/** Montos largos (≥ $10M con separadores) bajan a 11px mono-eyebrow SOLO en
- *  teléfonos para no recortar dígitos en celdas de ~65px (11px es el patrón
- *  aceptado por el DS para esta grilla densa). */
+/** Montos largos (≥ $10M con separadores) bajan tracking en móviles densos. */
 export function numSizeClass(formatted: string): string {
-  return formatted.length >= 10
-    ? "font-mono uppercase tracking-tighter max-md:text-[11px]"
-    : "";
+  return formatted.length >= 10 ? "tracking-tighter max-md:text-[11px]" : "";
 }

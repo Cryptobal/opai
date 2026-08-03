@@ -19,13 +19,15 @@ function isQuincenaWeek(weekStart: string): boolean {
 }
 
 const MONTHS = ["ENE", "FEB", "MAR", "ABR", "MAY", "JUN", "JUL", "AGO", "SEP", "OCT", "NOV", "DIC"];
-const EYEBROW = "font-mono uppercase tracking-wide text-[11px] leading-none";
+const EYEBROW = "font-sans font-normal tabular-nums leading-none text-[length:inherit]";
 
 interface Props {
   columns: MatrixColumn[];
   granularity: "week" | "month";
   /** Lunes ISO de semanas selladas por cierre (candado + celdas de solo lectura). */
   closedWeeks?: string[];
+  /** Índice de columna de datos seleccionada (0-based) para tintar el header. */
+  selectedColIdx?: number | null;
 }
 
 /**
@@ -35,7 +37,7 @@ interface Props {
  *  3. semana ISO + fecha de inicio (fusionadas).
  * El gutter y Concepto son sticky-left; la esquina resuelve ambos ejes (z-40).
  */
-export function PlanillaHeader({ columns, granularity, closedWeeks }: Props) {
+export function PlanillaHeader({ columns, granularity, closedWeeks, selectedColIdx }: Props) {
   const closedSet = new Set(closedWeeks ?? []);
   // Fila MES: agrupa columnas consecutivas por monthKey (o año en mensual).
   const groups: Array<{ label: string; span: number }> = [];
@@ -51,6 +53,7 @@ export function PlanillaHeader({ columns, granularity, closedWeeks }: Props) {
 
   const thBase = `border-b border-r border-ds-border-subtle/60 bg-ds-surface-2 px-1 max-md:px-[3px] ${EYEBROW}`;
   const cornerBase = `sticky z-40 border-b border-r bg-ds-surface-2 ${EYEBROW}`;
+  const selHdr = "bg-[var(--plnx-sel-hdr,#d3e3fd)]";
 
   return (
     <thead>
@@ -70,7 +73,7 @@ export function PlanillaHeader({ columns, granularity, closedWeeks }: Props) {
         {columns.map((c, i) => (
           <th
             key={c.key}
-            className={`sticky top-0 z-30 ${COL_W} ${thBase} text-center text-ds-text-4 ${c.isCurrent ? TODAY_COL : ""}`}
+            className={`sticky top-0 z-30 ${COL_W} ${thBase} text-center text-ds-text-4 ${c.isCurrent ? TODAY_COL : ""} ${selectedColIdx === i ? selHdr : ""}`}
           >
             {columnLetter(i + 1)}
           </th>
@@ -113,7 +116,7 @@ export function PlanillaHeader({ columns, granularity, closedWeeks }: Props) {
                 )}
                 <span className={c.isCurrent ? "text-primary" : "text-ds-text-2"}>{c.label}</span>
                 {isQuincenaWeek(c.weekStart) && (
-                  <sup className="font-mono text-[8px] text-status-warn-fg">Q</sup>
+                  <sup className="text-[9px] text-status-warn-fg">Q</sup>
                 )}{" "}
                 {fmtDayMonth(c.weekStart)}
               </>
