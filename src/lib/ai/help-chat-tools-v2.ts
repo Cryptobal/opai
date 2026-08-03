@@ -73,6 +73,7 @@ import { factoringCompanyInputSchema } from "@/lib/validations/factoring";
 import { createFactoringCompany } from "@/modules/finance/factoring/factoring-companies.service";
 import { toSentenceCase } from "@/lib/text-format";
 import { isUuid } from "@/lib/utils/uuid";
+import { resolveContactIdForCpqQuote } from "@/lib/ai/resolve-quote-contact";
 import { formatWeekdaysShort } from "@/lib/cpq/weekdays";
 import type { HelpChatPageContext } from "@/lib/ai/help-chat-page-context";
 import {
@@ -986,13 +987,18 @@ function writeToolDefinitions() {
       function: {
         name: "update_quote",
         description:
-          "Edita los campos generales de una cotización (nombre, validez, condiciones comerciales, notas). Para puestos usa add/update_quote_position; para margen update_quote_margin; para estado update_quote_status; para adicionales manage_quote_extras; para bullets Incluye manage_quote_includes.",
+          "Edita los campos generales de una cotización (nombre, validez, condiciones comerciales, notas, contacto). Para puestos usa add/update_quote_position; para margen update_quote_margin; para estado update_quote_status; para adicionales manage_quote_extras; para bullets Incluye manage_quote_includes.",
         parameters: {
           type: "object",
           properties: {
             quoteIdOrCode: { type: "string", description: "Código CPQ-XXXX-XXX o UUID. OBLIGATORIO." },
             name: { type: "string", description: "Nombre interno de la cotización." },
             clientName: { type: "string", description: "Nombre del cliente que aparece en la propuesta." },
+            contactId: {
+              type: "string",
+              description:
+                "UUID del contacto a asociar a la cotización (debe pertenecer a la cuenta de la cotización). Obligatorio para poder enviar la propuesta.",
+            },
             validUntil: { type: "string", description: "Validez de la oferta (YYYY-MM-DD). String vacío la limpia." },
             notes: { type: "string", description: "Notas comerciales de la cotización." },
             paymentTerms: { type: "string", description: "Condiciones de pago (ej. contrafactura, 30 días)." },
@@ -1224,11 +1230,16 @@ function writeToolDefinitions() {
       function: {
         name: "create_quote",
         description:
-          "Crea una cotización CPQ en estado borrador. Requiere accountId (busca con search_accounts si solo te dan nombre). Opcionalmente vincula a deal o instalación. La cotización se crea con sus 'includes' por defecto del catálogo CPQ. Genera código único CPQ-YYYY-NNN automáticamente.",
+          "Crea una cotización CPQ en estado borrador. Requiere accountId (busca con search_accounts si solo te dan nombre). SIEMPRE asocia un contacto: pásalo con contactId (preferido) o se hereda del deal.primaryContactId / contacto principal de la cuenta. Si la cuenta no tiene contactos, crea uno antes con create_contact. Opcionalmente vincula a deal o instalación. Genera código único CPQ-YYYY-NNN automáticamente.",
         parameters: {
           type: "object",
           properties: {
             accountId: { type: "string", description: "UUID de la cuenta. OBLIGATORIO." },
+            contactId: {
+              type: "string",
+              description:
+                "UUID del contacto a asociar (preferido). Si se omite, se usa el contacto principal del deal o de la cuenta. La cotización NO puede crearse sin contacto.",
+            },
             name: { type: "string", description: "Nombre descriptivo de la cotización." },
             clientName: { type: "string", description: "Nombre del cliente para mostrar en el PDF (default: usa el nombre del account)." },
             dealId: { type: "string", description: "UUID del deal a vincular (opcional)." },
@@ -5977,6 +5988,28 @@ async function toolCreateQuote(
     }
   }
 
+  const explicitContactId =
+    typeof args.contactId === "string" && args.contactId.trim() ? args.contactId.trim() : null;
+  const contactResolved = await resolveContactIdForCpqQuote({
+    tenantId,
+    accountId,
+    dealId,
+    explicitContactId,
+  });
+  if (!contactResolved.ok) {
+    await logAiAction({
+      tenantId,
+      userId,
+      toolName: "create_quote",
+      args,
+      status: "validation_error",
+      errorMessage: contactResolved.error,
+      startedAt: t0,
+    });
+    return { ok: false, error: contactResolved.error };
+  }
+  const contactId = contactResolved.contactId;
+
   const name = typeof args.name === "string" && args.name.trim() ? args.name.trim() : null;
   const clientName =
     typeof args.clientName === "string" && args.clientName.trim()
@@ -5994,7 +6027,15 @@ async function toolCreateQuote(
 
   try {
     const year = new Date().getFullYear();
-    let quote: { id: string; code: string; name: string | null; validUntil: Date | null; status: string; accountId: string | null } | null = null;
+    let quote: {
+      id: string;
+      code: string;
+      name: string | null;
+      validUntil: Date | null;
+      status: string;
+      accountId: string | null;
+      contactId: string | null;
+    } | null = null;
     let attempts = 0;
     const maxAttempts = 10;
 
@@ -6014,10 +6055,19 @@ async function toolCreateQuote(
             notes,
             insurancePolicyUF: 1500,
             accountId,
+            contactId,
             ...(dealId ? { dealId } : {}),
             ...(installationId ? { installationId } : {}),
           },
-          select: { id: true, code: true, name: true, validUntil: true, status: true, accountId: true },
+          select: {
+            id: true,
+            code: true,
+            name: true,
+            validUntil: true,
+            status: true,
+            accountId: true,
+            contactId: true,
+          },
         });
       } catch (err: unknown) {
         const code =
@@ -6045,7 +6095,7 @@ async function toolCreateQuote(
         entityType: "quote",
         entityId: quote.id,
         action: "quote_created",
-        details: { code: quote.code, clientName },
+        details: { code: quote.code, clientName, contactId, contactSource: contactResolved.source },
         createdBy: userId,
       });
     } catch (err) {
@@ -6094,6 +6144,8 @@ async function toolCreateQuote(
         url: `/crm/cotizaciones/${quote.id}`,
         accountId: quote.accountId,
         accountName: account.name,
+        contactId: quote.contactId,
+        contactSource: contactResolved.source,
         validUntil: quote.validUntil,
         status: quote.status,
       },
