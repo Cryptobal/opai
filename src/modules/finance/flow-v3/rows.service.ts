@@ -185,7 +185,7 @@ async function rowHasDerivedActivity(
   const currentMonday = startOfIsoWeekUTC(new Date());
   const weeks = enumerateWeeks(addWeeksUTC(currentMonday, -104), addWeeksUTC(currentMonday, 16));
   const todayYmd = toYmd(new Date());
-  const [inc, exp, real] = await Promise.all([
+  const [incLoad, exp, real] = await Promise.all([
     loadCommittedIncome(tenantId, [ref], weeks, todayYmd),
     loadCommittedExpense(tenantId, [ref], weeks, todayYmd),
     loadReal(tenantId, [ref], weeks),
@@ -196,7 +196,7 @@ async function rowHasDerivedActivity(
     for (const cell of byWeek.values()) if (cell.total !== 0) return true;
     return false;
   };
-  return nonEmpty(inc) || nonEmpty(exp) || nonEmpty(real);
+  return nonEmpty(incLoad.committed) || nonEmpty(exp) || nonEmpty(real);
 }
 
 /**

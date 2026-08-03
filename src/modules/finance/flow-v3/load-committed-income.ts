@@ -1,5 +1,6 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
+import { cleanRut } from "@/lib/chile-rut";
 import { getUfValue } from "@/lib/uf";
 import {
   deriveCommittedIncome,
@@ -7,7 +8,8 @@ import {
   type ScheduledDraftInput,
   type TemplateProjectionInput,
 } from "./derive-committed-income";
-import type { CommittedByRow, FlowRowRef } from "./types";
+import { buildIncomeMatcher } from "./row-match";
+import type { CommittedByRow, FlowExcludedDte, FlowRowRef } from "./types";
 
 const IVA = 1.19;
 
@@ -53,17 +55,26 @@ export function grossPerRunFromLines(
   return Math.round(total);
 }
 
+export interface LoadCommittedIncomeResult {
+  committed: CommittedByRow;
+  excluded: FlowExcludedDte[];
+}
+
 /**
  * Carga fuentes y deriva el comprometido de ingresos para las filas
  * ACCOUNT_INSTALLATION. Solo lecturas.
+ *
+ * Fallback RUT: DTEs/borradores/templates con `crmAccountId` null se
+ * resuelven contra cuentas CRM del tenant por `receiverRut` normalizado
+ * (`cleanRut`). Ante duplicados, gana la cuenta más antigua (createdAt).
  */
 export async function loadCommittedIncome(
   tenantId: string,
   rows: FlowRowRef[],
   weeks: string[],
   todayYmd: string,
-): Promise<CommittedByRow> {
-  const [config, dtes, recurringLinked, templates, exclusions] = await Promise.all([
+): Promise<LoadCommittedIncomeResult> {
+  const [config, dtes, recurringLinked, templates, exclusions, accounts] = await Promise.all([
     prisma.financeCashflowConfig.findUnique({
       where: { tenantId },
       select: { collectionLagDays: true },
@@ -82,11 +93,9 @@ export async function loadCommittedIncome(
         id: true, folio: true, date: true, dueDate: true,
         totalAmount: true, amountPaid: true,
         crmAccountId: true, installationId: true, receiverName: true,
-        recurringTemplateId: true,
+        receiverRut: true, recurringTemplateId: true,
       },
     }),
-    // Todo DTE colgado de una programación (borrador, emitido o pagado) ocupa
-    // su (template, período) para la dedupe de cuotas proyectadas.
     prisma.financeDte.findMany({
       where: {
         tenantId,
@@ -97,7 +106,7 @@ export async function loadCommittedIncome(
       },
       select: {
         id: true, siiStatus: true, dteType: true, date: true,
-        totalAmount: true, receiverName: true,
+        totalAmount: true, receiverName: true, receiverRut: true,
         crmAccountId: true, installationId: true,
         recurringTemplateId: true, billingPeriod: true,
         proformaStatus: true,
@@ -107,6 +116,7 @@ export async function loadCommittedIncome(
       where: { tenantId, isActive: true, dteType: { in: [33, 34] } },
       select: {
         id: true, name: true, crmAccountId: true, installationId: true,
+        receiverRut: true,
         frequency: true, dayOfMonth: true, dayOfWeek: true, monthOfYear: true,
         startDate: true, endDate: true, lastRunAt: true, nextRunAt: true,
         facturaTiming: true, facturaDay: true, facturaMesRelativo: true,
@@ -116,11 +126,41 @@ export async function loadCommittedIncome(
     }),
     prisma.financeCashflowDteFlowExclusion.findMany({
       where: { tenantId },
-      select: { dteId: true },
+      select: {
+        dteId: true, reason: true, createdAt: true,
+        dte: {
+          select: {
+            folio: true, receiverName: true, receiverRut: true,
+            crmAccountId: true, installationId: true,
+          },
+        },
+      },
+    }),
+    prisma.crmAccount.findMany({
+      where: { tenantId, rut: { not: null } },
+      select: { id: true, rut: true, createdAt: true },
+      orderBy: { createdAt: "asc" },
     }),
   ]);
 
-  const excluded = new Set(exclusions.map((e) => e.dteId));
+  // RUT normalizado → primera cuenta (más antigua).
+  const accountByRut = new Map<string, string>();
+  for (const a of accounts) {
+    if (!a.rut) continue;
+    const key = cleanRut(a.rut);
+    if (key && !accountByRut.has(key)) accountByRut.set(key, a.id);
+  }
+  const resolveAccount = (
+    crmAccountId: string | null,
+    receiverRut: string | null | undefined,
+  ): string | null => {
+    if (crmAccountId) return crmAccountId;
+    if (!receiverRut) return null;
+    const key = cleanRut(receiverRut);
+    return key ? (accountByRut.get(key) ?? null) : null;
+  };
+
+  const excludedIds = new Set(exclusions.map((e) => e.dteId));
   const someUf = templates.some(
     (t) =>
       t.currency === "UF" ||
@@ -136,10 +176,6 @@ export async function loadCommittedIncome(
     templates.map((t) => [t.id, t.diasCobroDesdeFactura]),
   );
 
-  // El término por contrato también debe aplicar a facturas/borradores de
-  // programaciones YA TERMINADAS (contrato a plazo cuyas cuentas por cobrar
-  // siguen pendientes). El query de arriba es solo isActive=true; buscamos el
-  // término de los templates referenciados que falten en el mapa.
   const referencedTemplateIds = new Set<string>();
   for (const d of dtes) if (d.recurringTemplateId) referencedTemplateIds.add(d.recurringTemplateId);
   for (const d of recurringLinked) if (d.recurringTemplateId) referencedTemplateIds.add(d.recurringTemplateId);
@@ -157,7 +193,7 @@ export async function loadCommittedIncome(
     if (d.recurringTemplateId && d.billingPeriod) {
       coveredPeriods.add(`${d.recurringTemplateId}::${d.billingPeriod}`);
     }
-    if (d.siiStatus === "DRAFT" && d.recurringTemplateId && !excluded.has(d.id)) {
+    if (d.siiStatus === "DRAFT" && d.recurringTemplateId && !excludedIds.has(d.id)) {
       const tplEnd = endDateByTemplate.get(d.recurringTemplateId);
       drafts.push({
         id: d.id,
@@ -165,9 +201,8 @@ export async function loadCommittedIncome(
         dateYmd: d.date.toISOString().slice(0, 10),
         totalClp: Number(d.totalAmount),
         receiverName: d.receiverName ?? "",
-        crmAccountId: d.crmAccountId,
+        crmAccountId: resolveAccount(d.crmAccountId, d.receiverRut),
         installationId: d.installationId,
-        // Proforma/estado de pago ya enviada al cliente (distinción visual).
         proformaSent: ["SENT", "VIEWED", "APPROVED"].includes(d.proformaStatus),
         templateEndDateYmd: tplEnd ? tplEnd.toISOString().slice(0, 10) : null,
         templateDiasCobro: diasCobroByTemplate.get(d.recurringTemplateId) ?? null,
@@ -176,14 +211,14 @@ export async function loadCommittedIncome(
   }
 
   const dteInputs: IssuedDteInput[] = dtes
-    .filter((d) => !excluded.has(d.id))
+    .filter((d) => !excludedIds.has(d.id))
     .map((d) => ({
       id: d.id,
       folio: d.folio,
       dateYmd: d.date.toISOString().slice(0, 10),
       dueDateYmd: d.dueDate ? d.dueDate.toISOString().slice(0, 10) : null,
       pendingClp: Number(d.totalAmount) - Number(d.amountPaid),
-      crmAccountId: d.crmAccountId,
+      crmAccountId: resolveAccount(d.crmAccountId, d.receiverRut),
       installationId: d.installationId,
       receiverName: d.receiverName ?? "",
       templateDiasCobro: d.recurringTemplateId
@@ -194,7 +229,7 @@ export async function loadCommittedIncome(
   const templateInputs: TemplateProjectionInput[] = templates.map((t) => ({
     id: t.id,
     name: t.name,
-    crmAccountId: t.crmAccountId,
+    crmAccountId: resolveAccount(t.crmAccountId, t.receiverRut),
     installationId: t.installationId,
     frequency: t.frequency,
     dayOfMonth: t.dayOfMonth,
@@ -211,7 +246,7 @@ export async function loadCommittedIncome(
     diasCobro: t.diasCobroDesdeFactura,
   }));
 
-  return deriveCommittedIncome({
+  const committed = deriveCommittedIncome({
     rows,
     weeks,
     todayYmd,
@@ -221,4 +256,19 @@ export async function loadCommittedIncome(
     coveredPeriods,
     collectionLagDays: config?.collectionLagDays ?? undefined,
   });
+
+  const matchRow = buildIncomeMatcher(rows);
+  const excluded: FlowExcludedDte[] = exclusions.map((e) => {
+    const accId = resolveAccount(e.dte.crmAccountId, e.dte.receiverRut);
+    return {
+      dteId: e.dteId,
+      folio: e.dte.folio,
+      label: e.dte.receiverName ?? "",
+      reason: e.reason,
+      createdAt: e.createdAt.toISOString(),
+      rowId: matchRow(accId, e.dte.installationId),
+    };
+  });
+
+  return { committed, excluded };
 }

@@ -1,53 +1,34 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
 import {
-  computeWeeklyCloseSnapshot,
   persistWeeklyClose,
   reopenWeeklyClose,
 } from "@/modules/finance/cashflow/weekly-close.service";
-import { startOfIsoWeekUTC, toYmd, weekLabel, ymdToDate } from "./weeks";
+import { weekStartForClosing, weekEndForClosing } from "@/modules/finance/cashflow/recurrence-engine";
+import {
+  startOfIsoWeekUTC,
+  toYmd,
+  v2WeekEndDate,
+  v2WeekEndYmd,
+  weekLabel,
+  ymdToDate,
+} from "./weeks";
 
 /**
  * Puente entre el cierre semanal v3 y el servicio v2 (weekly-close.service.ts),
- * que se REUTILIZA sin modificar su lógica.
+ * que se REUTILIZA sin modificar su lógica de persistencia.
  *
- * §4 hipótesis comprobadas:
- *  1. Límites de semana. v3 planifica en semanas ISO (lunes→domingo, UTC). v2
- *     cierra en semanas terminadas en `weekClosingDow` (viernes por defecto ⇒
- *     sábado→viernes). NO se reinterpreta el modelo v2: se NORMALIZA aquí. Cada
- *     semana ISO se representa por su día de cierre v2 (lunes + offset del dow),
- *     calculado en UTC para evitar el bug de zona horaria de date-fns
- *     (getDay() local) documentado en recurrence-engine. La diferencia de
- *     borde (±1–2 días) se reporta: el diálogo muestra la etiqueta ISO y este
- *     adaptador cierra la semana v2 que la contiene.
- *  2. Occurrence de ajuste. El cierre manual crea una FinanceCashflowOccurrence
- *     (isClosingAdjust) en v2. Se verificó que la matriz v3 NO lee occurrences
- *     (load-committed-income/expense y load-real leen DTE, programaciones y
- *     banco, nunca FinanceCashflowOccurrence), así que ese ajuste NO produce filas fantasma
- *     en v3. Por eso el cierre manual SÍ se expone en esta fase.
+ * Snapshot lite: el diálogo aporta el proyectado desde la matriz (`getProjected`).
+ * `getV3WeeklyCloseSnapshotLite` resuelve en paralelo banco + contadores +
+ * alreadyClosed, sin `buildProjection` (costo dominante del servicio v2).
  */
 
-async function closingDow(tenantId: string): Promise<number> {
+export async function closingDow(tenantId: string): Promise<number> {
   const cfg = await prisma.financeCashflowConfig.findUnique({
     where: { tenantId },
     select: { weekClosingDow: true },
   });
   return cfg?.weekClosingDow ?? 5;
-}
-
-/** Día de cierre v2 (mediodía UTC) de la semana ISO cuyo lunes es `mondayYmd`.
- *  offset = (dow - 1) mod 7 días desde el lunes ISO (getUTCDay(lunes)=1). El
- *  mediodía UTC mantiene el día calendario en servidores UTC y en Chile (−3/−4). */
-function v2WeekEndDate(mondayYmd: string, dow: number): Date {
-  const monday = ymdToDate(mondayYmd)!;
-  const offset = ((dow - 1) % 7 + 7) % 7;
-  const day = new Date(monday.getTime() + offset * 86_400_000);
-  return new Date(Date.UTC(day.getUTCFullYear(), day.getUTCMonth(), day.getUTCDate(), 12));
-}
-
-/** YMD del día de cierre v2 de la semana ISO (para comparar contra closes). */
-function v2WeekEndYmd(mondayYmd: string, dow: number): string {
-  return toYmd(v2WeekEndDate(mondayYmd, dow));
 }
 
 export interface V3WeeklyCloseSnapshot {
@@ -56,9 +37,14 @@ export interface V3WeeklyCloseSnapshot {
   /** Domingo ISO (fin de la semana v3). */
   weekEndYmd: string;
   weekLabel: string;
-  /** Saldo banco sugerido (del snapshot v2). */
+  /** Saldo banco sugerido. */
   bankBalanceClp: number;
+  /**
+   * Proyectado del motor v2. En la vía lite queda en 0: el diálogo prefiere
+   * `getProjected` de la matriz. Se mantiene el campo por compatibilidad de shape.
+   */
   projectedBalanceClp: number;
+  /** `bank − projected`. En lite: 0 (el cliente calcula con el proyectado de matriz). */
   varianceClp: number;
   unassignedBankCount: number;
   unfulfilledProjCount: number;
@@ -84,7 +70,6 @@ async function isWeekClosed(tenantId: string, mondayYmd: string, dow: number): P
   const close = await prisma.financeCashflowWeeklyClose.findFirst({
     where: {
       tenantId,
-      // el weekEndDate v2 se guarda como @db.Date (medianoche UTC del día de cierre)
       weekEndDate: { gte: target, lt: new Date(target.getTime() + 86_400_000) },
     },
     select: { id: true },
@@ -92,31 +77,82 @@ async function isWeekClosed(tenantId: string, mondayYmd: string, dow: number): P
   return !!close;
 }
 
-/** Snapshot de cierre para la semana v3 que contiene `anyDayYmd`. */
-export async function getV3WeeklyCloseSnapshot(
+/**
+ * Saldo banco consolidado a una fecha (misma lógica que el helper privado del
+ * servicio v2). Copiado aquí para no tocar weekly-close.service.ts.
+ */
+async function bankBalanceAsOf(tenantId: string, asOf: Date): Promise<number> {
+  const accounts = await prisma.financeBankAccount.findMany({
+    where: { tenantId, isActive: true, currency: "CLP" },
+    select: { id: true, currentBalance: true },
+  });
+  let total = 0;
+  for (const acc of accounts) {
+    const snap = await prisma.financeBankAccountBalance.findFirst({
+      where: { tenantId, bankAccountId: acc.id, asOfDate: { lte: asOf } },
+      orderBy: [{ asOfDate: "desc" }, { createdAt: "desc" }],
+      select: { balance: true },
+    });
+    total += snap ? Number(snap.balance) : Number(acc.currentBalance ?? 0);
+  }
+  return total;
+}
+
+/**
+ * Snapshot rápido para el diálogo v3: sin `buildProjection`, contadores con
+ * `.count`, queries en paralelo. `projectedBalanceClp`/`varianceClp` = 0
+ * (el cliente usa la matriz).
+ */
+export async function getV3WeeklyCloseSnapshotLite(
   tenantId: string,
   anyDayYmd: string,
 ): Promise<V3WeeklyCloseSnapshot> {
   const { monday, sunday } = resolveWeek(anyDayYmd);
   const dow = await closingDow(tenantId);
   const weekEnd = v2WeekEndDate(monday, dow);
-  const snap = await computeWeeklyCloseSnapshot(tenantId, weekEnd);
-  const alreadyClosed = await isWeekClosed(tenantId, monday, dow);
+  const weekEndNorm = weekEndForClosing(weekEnd, dow);
+  const weekStart = weekStartForClosing(weekEnd, dow);
   const currentMonday = toYmd(startOfIsoWeekUTC(new Date()));
+
+  const [bankBalanceClp, unassignedBankCount, unfulfilledProjCount, alreadyClosed] =
+    await Promise.all([
+      bankBalanceAsOf(tenantId, weekEndNorm),
+      prisma.financeBankTransaction.count({
+        where: {
+          tenantId,
+          hiddenAt: null,
+          transactionDate: { gte: weekStart, lte: weekEndNorm },
+          links: { none: {} },
+        },
+      }),
+      prisma.financeCashflowOccurrence.count({
+        where: {
+          tenantId,
+          status: "PROJECTED",
+          bankTransactionId: null,
+          scheduledDate: { gte: weekStart, lte: weekEndNorm },
+        },
+      }),
+      isWeekClosed(tenantId, monday, dow),
+    ]);
+
   return {
     weekStartYmd: monday,
     weekEndYmd: sunday,
     weekLabel: weekLabel(monday),
-    bankBalanceClp: Math.round(snap.bankBalanceClp),
-    projectedBalanceClp: Math.round(snap.projectedBalanceClp),
-    varianceClp: Math.round(snap.varianceClp),
-    unassignedBankCount: snap.unassignedBank.length,
-    unfulfilledProjCount: snap.unfulfilledProj.length,
+    bankBalanceClp: Math.round(bankBalanceClp),
+    projectedBalanceClp: 0,
+    varianceClp: 0,
+    unassignedBankCount,
+    unfulfilledProjCount,
     alreadyClosed,
     isFuture: monday > currentMonday,
     v2WeekEndYmd: v2WeekEndYmd(monday, dow),
   };
 }
+
+/** Alias de la vía lite (la ruta snapshot v3 siempre usa lite). */
+export const getV3WeeklyCloseSnapshot = getV3WeeklyCloseSnapshotLite;
 
 export interface PersistV3CloseInput {
   anyDayYmd: string;
@@ -130,9 +166,8 @@ export interface PersistV3CloseInput {
 /**
  * Persiste el cierre de la semana v3. Si el saldo confirmado difiere del banco
  * sugerido → cierre MANUAL (manualReason obligatorio, genera la occurrence de
- * ajuste v2 — invisible en v3). No es anchor: el saldo de la matriz v3 se ancla
- * en el banco de hoy (resolveOpeningBalance), independiente de la proyección v2,
- * así que el cierre solo SELLA la semana sin mover el anchor de v2.
+ * ajuste v2 — invisible en v3). El saldo sellado (`bankBalanceClp`) ancla la
+ * cadena de Saldo acumulado en la matriz v3 (ver matrix-assemble).
  */
 export async function persistV3WeeklyClose(
   tenantId: string,
@@ -148,8 +183,9 @@ export async function persistV3WeeklyClose(
   }
 
   const weekEnd = v2WeekEndDate(monday, dow);
-  const snap = await computeWeeklyCloseSnapshot(tenantId, weekEnd);
-  const isManual = Math.abs(input.closedBalance - Number(snap.bankBalanceClp)) > 1;
+  const weekEndNorm = weekEndForClosing(weekEnd, dow);
+  const bankBalanceClp = await bankBalanceAsOf(tenantId, weekEndNorm);
+  const isManual = Math.abs(input.closedBalance - bankBalanceClp) > 1;
   if (isManual && (!input.manualReason || input.manualReason.trim().length < 5)) {
     throw new Error("manualReason requerido (mínimo 5 caracteres) para un saldo distinto del banco");
   }
@@ -195,6 +231,77 @@ export async function listClosedV3Weeks(
   });
   const closedEndYmds = new Set(closes.map((c) => c.weekEndDate.toISOString().slice(0, 10)));
   return mapped.filter((x) => closedEndYmds.has(x.endYmd)).map((x) => x.monday);
+}
+
+/**
+ * Carga sellos de cierre (`bankBalanceClp`) cuyo weekEndDate v2 cae en el
+ * rango de semanas ISO (+ el último sello previo al rango).
+ */
+export async function loadSealedBalancesForMatrix(
+  tenantId: string,
+  mondayYmds: string[],
+): Promise<{
+  sealedBalances: Map<string, number>;
+  priorSealed: { mondayYmd: string; balance: number } | null;
+}> {
+  const sealedBalances = new Map<string, number>();
+  let priorSealed: { mondayYmd: string; balance: number } | null = null;
+  if (mondayYmds.length === 0) return { sealedBalances, priorSealed };
+
+  const dow = await closingDow(tenantId);
+  const mapped = mondayYmds.map((m) => ({ monday: m, endYmd: v2WeekEndYmd(m, dow) }));
+  const ends = mapped.map((x) => ymdToDate(x.endYmd)!);
+  const min = new Date(Math.min(...ends.map((d) => d.getTime())));
+  const max = new Date(Math.max(...ends.map((d) => d.getTime())));
+
+  const sealSelect = {
+    weekEndDate: true,
+    bankBalanceClp: true,
+    isManual: true,
+    forcedBalanceClp: true,
+  } as const;
+  const resolvedSeal = (c: {
+    bankBalanceClp: { toString(): string } | number;
+    isManual: boolean;
+    forcedBalanceClp: { toString(): string } | number | null;
+  }) =>
+    Math.round(
+      Number(
+        c.isManual && c.forcedBalanceClp != null ? c.forcedBalanceClp : c.bankBalanceClp,
+      ),
+    );
+
+  const [inRange, prior] = await Promise.all([
+    prisma.financeCashflowWeeklyClose.findMany({
+      where: {
+        tenantId,
+        weekEndDate: { gte: min, lte: new Date(max.getTime() + 86_400_000) },
+      },
+      select: sealSelect,
+    }),
+    prisma.financeCashflowWeeklyClose.findFirst({
+      where: { tenantId, weekEndDate: { lt: min } },
+      orderBy: { weekEndDate: "desc" },
+      select: sealSelect,
+    }),
+  ]);
+
+  const byEndYmd = new Map<string, number>();
+  for (const c of inRange) {
+    byEndYmd.set(c.weekEndDate.toISOString().slice(0, 10), resolvedSeal(c));
+  }
+  for (const m of mapped) {
+    const bal = byEndYmd.get(m.endYmd);
+    if (bal != null) sealedBalances.set(m.monday, bal);
+  }
+
+  if (prior) {
+    const priorEndYmd = prior.weekEndDate.toISOString().slice(0, 10);
+    const priorMonday = toYmd(startOfIsoWeekUTC(ymdToDate(priorEndYmd)!));
+    priorSealed = { mondayYmd: priorMonday, balance: resolvedSeal(prior) };
+  }
+
+  return { sealedBalances, priorSealed };
 }
 
 /** Rechaza (en servidor) escrituras de plan sobre semanas selladas. */

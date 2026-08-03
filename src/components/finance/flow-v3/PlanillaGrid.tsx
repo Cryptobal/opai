@@ -10,10 +10,10 @@ import {
   ContextMenu, ContextMenuContent, ContextMenuTrigger,
 } from "@/components/ui/context-menu";
 import {
-  displayValue, GUTTER_CELL, GUTTER_W, isZeroRow, NAME_LEFT, NAME_W, SECTION_H,
-  SECTION_LABELS, SECTION_ORDER,
+  COL_W, displayValue, GUTTER_CELL, GUTTER_W, isZeroRow, NAME_LEFT, NAME_W, SECTION_H,
+  SECTION_LABELS, SECTION_ORDER, TODAY_COL,
 } from "./grid-classes";
-import { parseSignedAmount, type NumberFormatMode } from "./format";
+import { fmtCell, numSizeClass, parseSignedAmount, type NumberFormatMode } from "./format";
 import { PlanillaHeader } from "./PlanillaHeader";
 import { PlanillaRow } from "./PlanillaRow";
 import { BalanceRow } from "./BalanceRow";
@@ -159,7 +159,15 @@ export function PlanillaGrid({
           return (va - vb) * dir || a.name.localeCompare(b.name, "es", { sensitivity: "base", numeric: true });
         });
       }
-      return { key: s, rows, total: all.length, matchCount: rows.length };
+      // Subtotales por semana: suma de displayValue de TODAS las filas de la
+      // sección (dato, no vista — independiente de colapso/ceros/búsqueda).
+      const subtotals = data.columns.map((_, wi) =>
+        all.reduce((sum, r) => {
+          const cell = r.cells[wi];
+          return sum + displayValue(r.section, cell?.layer ?? "empty", cell?.effective ?? 0);
+        }, 0),
+      );
+      return { key: s, rows, total: all.length, matchCount: rows.length, subtotals };
     }).filter((s) => (normSearch ? s.matchCount > 0 : s.total > 0));
   }, [data.rows, data.columns, showZeros, alwaysVisibleRowIds, normSearch, amountSort]);
 
@@ -565,11 +573,21 @@ export function PlanillaGrid({
                         )}
                       </button>
                     </th>
-                    <td
-                      aria-hidden
-                      colSpan={data.columns.length}
-                      className={`${SECTION_H} border-b border-ds-border-default bg-ds-surface-2`}
-                    />
+                    {data.columns.map((c, i) => {
+                      const v = section.subtotals[i] ?? 0;
+                      const text = fmtCell(v, numberFormat);
+                      return (
+                        <td
+                          key={c.key}
+                          title={numberFormat !== "clp" && v !== 0 ? fmtCell(v, "clp") : undefined}
+                          className={`${COL_W} ${SECTION_H} border-b border-r border-ds-border-default bg-ds-surface-2 px-1.5 max-md:px-[3px] text-right font-bold tabular-nums overflow-hidden whitespace-nowrap ${numSizeClass(text)} ${
+                            v < 0 ? "text-status-danger-fg" : "text-ds-text-1"
+                          } ${c.isCurrent ? TODAY_COL : ""}`}
+                        >
+                          {text}
+                        </td>
+                      );
+                    })}
                   </tr>
                   {section.numberedRows.map(({ row, number }) => (
                     <PlanillaRow
@@ -623,6 +641,7 @@ export function PlanillaGrid({
                 columns={data.columns}
                 flows={data.flows}
                 balances={data.balances}
+                balanceBreaks={data.balanceBreaks}
                 warnThreshold={data.warnThreshold}
                 startNumber={footerStart}
                 numberFormat={numberFormat}
@@ -639,7 +658,24 @@ export function PlanillaGrid({
         )}
       </ContextMenu>
 
-      <CellLayersPopover state={popover} onClose={() => setPopover(null)} />
+      <CellLayersPopover
+        state={popover}
+        onClose={() => setPopover(null)}
+        canManage={canManage}
+        excludedForRow={
+          popover
+            ? (data.excludedIncome ?? []).filter((e) => e.rowId === popover.row.id)
+            : []
+        }
+        onExcludeDte={async (dteId, reason) => {
+          await actions.excludeDte(dteId, reason);
+          setPopover(null);
+        }}
+        onRestoreDte={async (dteId) => {
+          await actions.restoreDte(dteId);
+          setPopover(null);
+        }}
+      />
       <FillRightDialog
         request={fillRight}
         busy={busy}

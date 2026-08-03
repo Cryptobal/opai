@@ -17,7 +17,7 @@ import {
 } from "./types";
 import { assembleMatrix, type AssembleRowInput } from "./matrix-assemble";
 import { reduceMonthly, weeklyColumns } from "./matrix-monthly";
-import { listClosedV3Weeks } from "./weekly-close.adapter";
+import { listClosedV3Weeks, loadSealedBalancesForMatrix } from "./weekly-close.adapter";
 import type { FlowMatrixResponse, OpeningBalanceDetail } from "./matrix-types";
 import { compareFlowRows } from "./row-sort";
 
@@ -68,7 +68,7 @@ export async function buildFlowMatrix(
     categoryId: r.categoryId, supplierId: r.supplierId,
   }));
 
-  const [plan, cIncome, cExpense, real, opening, config, closedWeeks] = await Promise.all([
+  const [plan, cIncomeLoad, cExpense, real, opening, config, closedWeeks, seals] = await Promise.all([
     loadPlanCells(tenantId, ymdToDate(weeks[0])!, ymdToDate(lastWeek)!),
     loadCommittedIncome(tenantId, refs, weeks, todayYmd),
     loadCommittedExpense(tenantId, refs, weeks, todayYmd),
@@ -79,7 +79,9 @@ export async function buildFlowMatrix(
       select: { flowWarnThresholdClp: true },
     }),
     listClosedV3Weeks(tenantId, weeks),
+    loadSealedBalancesForMatrix(tenantId, weeks),
   ]);
+  const cIncome = cIncomeLoad.committed;
 
   // Ventana enteramente pasada: real del gap (fin de ventana → hoy) para anclar el saldo.
   let realNetAfterWindow = 0;
@@ -146,6 +148,8 @@ export async function buildFlowMatrix(
     rows: assembleRows, weeks, currentWeek,
     openingBalance: Math.round(opening.currentTotalClp),
     plan, committed, real: realResolved, realNetAfterWindow,
+    sealedBalances: seals.sealedBalances,
+    priorSealed: seals.priorSealed,
   });
 
   // Desglose bancario por cuenta (§5H). El número SIEMPRE se enmascara a los
@@ -170,17 +174,35 @@ export async function buildFlowMatrix(
     lastSnapshotYmd,
   };
 
+  // Remap rowIds de exclusiones con el mismo criterio de sentinels.
+  const excludedIncome = cIncomeLoad.excluded.map((e) => ({
+    ...e,
+    rowId:
+      e.rowId === UNMATCHED_INCOME_KEY || e.rowId === UNMATCHED_EXPENSE_KEY
+        ? keyFor(e.rowId)
+        : e.rowId,
+  }));
+
   const base = {
     currentWeek, todayYmd,
     openingBalance: Math.round(opening.currentTotalClp),
     openingBalanceDetail,
     closedWeeks,
     warnThreshold: config?.flowWarnThresholdClp ?? WARN_THRESHOLD_CLP,
+    excludedIncome,
     kpis: assembled.kpis,
   };
   if (q.granularity === "month") {
     const m = reduceMonthly(weeks, currentWeek, assembled);
-    return { granularity: "month", columns: m.columns, rows: m.rows, flows: m.flows, balances: m.balances, ...base };
+    return {
+      granularity: "month",
+      columns: m.columns,
+      rows: m.rows,
+      flows: m.flows,
+      balances: m.balances,
+      balanceBreaks: m.balanceBreaks,
+      ...base,
+    };
   }
   return {
     granularity: "week",
@@ -188,6 +210,7 @@ export async function buildFlowMatrix(
     rows: assembled.rows,
     flows: assembled.flows,
     balances: assembled.balances,
+    balanceBreaks: assembled.balanceBreaks,
     ...base,
   };
 }

@@ -2,8 +2,9 @@
  * Tipos del response del matrix v3, en archivo PURO (sin "server-only") para
  * que los componentes client de la planilla los importen sin arrastrar prisma.
  */
-import type { FlowMatrixRowDto } from "./matrix-assemble";
+import type { BalanceBreak, FlowMatrixRowDto } from "./matrix-assemble";
 import type { MatrixColumn } from "./matrix-monthly";
+import type { FlowExcludedDte } from "./types";
 
 /** Desglose del saldo bancario por cuenta (número SIEMPRE enmascarado). */
 export interface OpeningBalanceAccount {
@@ -36,8 +37,12 @@ export interface FlowMatrixResponse {
   rows: FlowMatrixRowDto[];
   flows: number[];
   balances: number[];
+  /** Descuadre sello↔derivado por columna (null = ok). */
+  balanceBreaks: Array<BalanceBreak | null>;
+  /** DTEs excluidos del flujo (auditable; restaurables). */
+  excludedIncome: FlowExcludedDte[];
   kpis: { saldoHoy: number; minBalance: number; minWeek: string };
 }
 
-export type { FlowMatrixRowDto, MatrixColumn };
+export type { FlowMatrixRowDto, MatrixColumn, BalanceBreak };
 export type { FlowMatrixCellDto } from "./matrix-assemble";
