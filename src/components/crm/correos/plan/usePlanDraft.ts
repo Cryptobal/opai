@@ -70,6 +70,35 @@ const defaultAttachmentSelection: PlanAttachmentSelection = {
   target: "deal",
 };
 
+/** Fuente de verdad de `include` a partir de la selección del plan. */
+export function includeFromSelectedIds(
+  ids: Set<string>,
+): CreateCrmStructureInclude {
+  return {
+    contact: ids.has("contact"),
+    deal: ids.has("deal"),
+    installations: ids.has("installations"),
+    attachments: ids.has("attachments"),
+    followUpTask: ids.has("followUpTask"),
+    quote: ids.has("quote"),
+    milestones: ids.has("milestones"),
+  };
+}
+
+export function selectedIdsFromInclude(
+  include: CreateCrmStructureInclude | null | undefined,
+): Set<string> {
+  const ids = new Set<string>(["account"]);
+  if (include?.contact !== false) ids.add("contact");
+  if (include?.deal !== false) ids.add("deal");
+  if (include?.installations !== false) ids.add("installations");
+  if (include?.attachments !== false) ids.add("attachments");
+  if (include?.followUpTask) ids.add("followUpTask");
+  if (include?.quote) ids.add("quote");
+  if (include?.milestones) ids.add("milestones");
+  return ids;
+}
+
 export function usePlanDraft(threadId: string) {
   const [proposal, setProposal] = useState<CrmStructureProposal>(emptyCrmStructureProposal);
   const [include, setInclude] = useState<CreateCrmStructureInclude>(defaultInclude);
@@ -216,16 +245,26 @@ export function usePlanDraft(threadId: string) {
       } else {
         next.add(id);
       }
+      const nextInclude = includeFromSelectedIds(next);
+      setInclude(nextInclude);
+      scheduleAutosave(proposal, nextInclude, locks);
       return next;
     });
     setDirty(true);
-  }, []);
+  }, [locks, proposal, scheduleAutosave]);
 
   /** Aplica un preset de selección (account siempre implícito). */
-  const applyPreset = useCallback((ids: string[]) => {
-    setSelectedIds(new Set(["account", ...ids]));
-    setDirty(true);
-  }, []);
+  const applyPreset = useCallback(
+    (ids: string[]) => {
+      const next = new Set(["account", ...ids]);
+      const nextInclude = includeFromSelectedIds(next);
+      setSelectedIds(next);
+      setInclude(nextInclude);
+      scheduleAutosave(proposal, nextInclude, locks);
+      setDirty(true);
+    },
+    [locks, proposal, scheduleAutosave],
+  );
 
   const setAssumptions = useCallback((items: CrmStructureAssumption[]) => {
     setProposal((prev) => ({ ...prev, assumptionItems: items }));
@@ -272,15 +311,7 @@ export function usePlanDraft(threadId: string) {
       setDraftSavedAt(d.savedAt);
       setDirty(false);
       // Selección por defecto desde include del borrador.
-      const ids = new Set<string>(["account"]);
-      if (d.include?.contact !== false) ids.add("contact");
-      if (d.include?.deal !== false) ids.add("deal");
-      if (d.include?.installations !== false) ids.add("installations");
-      if (d.include?.attachments !== false) ids.add("attachments");
-      if (d.include?.followUpTask) ids.add("followUpTask");
-      if (d.include?.quote) ids.add("quote");
-      if (d.include?.milestones) ids.add("milestones");
-      setSelectedIds(ids);
+      setSelectedIds(selectedIdsFromInclude(d.include));
       return d;
     } catch {
       return null;

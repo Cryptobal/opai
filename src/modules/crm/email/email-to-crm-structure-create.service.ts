@@ -606,6 +606,18 @@ export async function createCrmStructureFromProposal(params: {
   }
 
   // Cotización CPQ borrador — deal opcional (dealId nullable en schema).
+  // Si el plan no marcó "negocio" pero el hilo ya tiene uno de la misma cuenta,
+  // reutilizarlo para CrmDealQuote (cascada "Crear Cotización con IA").
+  if (flags.quote && !dealId && thread.dealId) {
+    const existingDealForQuote = await prisma.crmDeal.findFirst({
+      where: { id: thread.dealId, tenantId, accountId: account.id },
+      select: { id: true },
+    });
+    if (existingDealForQuote) {
+      dealId = existingDealForQuote.id;
+      dealUrl = `/crm/deals/${existingDealForQuote.id}`;
+    }
+  }
   if (flags.quote) {
     if (!params.canCreateQuote) {
       skip("quote", "sin_permiso");

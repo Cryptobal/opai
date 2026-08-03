@@ -240,6 +240,18 @@ describe("CorreoAiCoverageTable", () => {
     vi.unstubAllGlobals();
   });
 
+  it("sin instalaciones de la IA permite agregar puesto a mano", () => {
+    const proposal = baseProposal({ installations: [] });
+    const onChange = vi.fn();
+    render(<CorreoAiCoverageTable proposal={proposal} onChange={onChange} />);
+    fireEvent.click(screen.getByText(/Puesto en General/));
+    const next = onChange.mock.calls[0][0] as CrmStructureInstallation[];
+    expect(next).toHaveLength(1);
+    expect(next[0].name).toBe("Instalación principal");
+    expect(next[0].coverageSlots).toHaveLength(1);
+    expect(next[0].coverageSlots[0].name).toBe("Puesto 1");
+  });
+
   it("segundo puesto en el grupo numera correlativo", () => {
     const proposal = baseProposal({
       installations: [

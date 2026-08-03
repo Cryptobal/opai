@@ -18,7 +18,9 @@ describe("selectionForCascadeAi", () => {
     expect(s.include.installations).toBe(false);
   });
 
-  it("cotización: account + quote (sin forzar negocio)", () => {
+  it("cotización: account + quote (negocio del hilo se reutiliza en create)", () => {
+    // No fuerza deal en el plan: createCrmStructureFromProposal vincula al
+    // dealId del hilo si existe y es de la misma cuenta.
     const s = selectionForCascadeAi("quote");
     expect([...s.selectedIds].sort()).toEqual(["account", "quote"]);
     expect(s.include.quote).toBe(true);

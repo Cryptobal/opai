@@ -302,7 +302,13 @@ export function CorreoContextCascade({
         editable={editable && Boolean(t.accountId)}
         disabled={!t.accountId}
         href={quote?.href ?? null}
-        onAdd={() => setOmnibox("quote")}
+        // Sin cotización: + abre el plan IA (crear), no el omnibox de vincular.
+        // Vincular existente queda en el lápiz cuando ya hay una, o vía omnibox
+        // si no hay handler IA.
+        onAdd={() => {
+          if (onCreateWithAi) onCreateWithAi("quote");
+          else setOmnibox("quote");
+        }}
         onEdit={() => setOmnibox("quote")}
         onCreateWithAi={aiFor("quote")}
       />

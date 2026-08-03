@@ -3,12 +3,9 @@
 import type {
   CrmStructureProposal,
   CrmStructureAssumption,
-  CrmStructureInstallation,
 } from "@/modules/crm/email/email-to-crm-structure.types";
 import type { CrmStructureRefineAnswer } from "@/modules/crm/email/email-to-crm-structure.types";
 import { CorreoAiPlanCard, type PlanAction } from "./CorreoAiPlanCard";
-import { CorreoAiCoverageTable } from "./CorreoAiCoverageTable";
-import type { RegimenOption } from "./coverage/coverage-grouping";
 import { CorreoAiAssumptions } from "./plan/CorreoAiAssumptions";
 import { CorreoAiQuestions } from "./plan/CorreoAiQuestions";
 
@@ -32,14 +29,6 @@ type Props = {
   remainingRefines?: number;
   onAnswer?: (answer: CrmStructureRefineAnswer) => void;
   onAssumptionsChange?: (items: CrmStructureAssumption[]) => void;
-  /** `recalc: false` = edición que no afecta dotación (ej. tipear el nombre). */
-  onCoverageChange?: (
-    installations: CrmStructureInstallation[],
-    opts?: { recalc?: boolean },
-  ) => void;
-  onReservePctChange?: (pct: number) => void;
-  /** Roles de turno del tenant (catálogo CPQ); sin dato usa la lista estática. */
-  regimenOptions?: RegimenOption[];
   /** Legacy callbacks (backward compat with CorreoAiActionPanel older usage). */
   onRefineAssumption?: (assumption: string) => void;
   onRefineQuestion?: (question: string) => void;
@@ -81,14 +70,12 @@ export function CorreoAiPlanSections({
   remainingRefines,
   onAnswer,
   onAssumptionsChange,
-  onCoverageChange,
-  onReservePctChange,
-  regimenOptions,
   onRefineAssumption,
   onRefineQuestion,
   onOpenRefine,
 }: Props) {
   const assumptionItems = proposal.assumptionItems ?? [];
+  const quoteSelected = selected.has("quote");
 
   return (
     <div className="ds-page-enter space-y-4">
@@ -135,41 +122,12 @@ export function CorreoAiPlanSections({
           onExpand={onExpand}
           renderExpanded={renderExpanded}
         />
-      </section>
-
-      <section>
-        <h3 className="mb-2 text-[12px] font-medium uppercase tracking-wide text-ds-text-3">
-          Cobertura y dotación
-        </h3>
-        {onReservePctChange && (
-          <div className="mb-2 space-y-1.5">
-            <div className="flex flex-wrap items-center gap-3">
-              <span className="text-[12px] text-ds-text-3">
-                Jornada legal 42 h/sem
-              </span>
-              <label className="flex items-center gap-2 text-[13px] text-ds-text-2">
-                Reserva %
-                <input
-                  type="number"
-                  min={0}
-                  max={100}
-                  className="h-10 w-16 rounded-lg border border-ds-border-default bg-ds-surface-1 px-2 sm:h-9"
-                  value={proposal.reservePct ?? 10}
-                  onChange={(e) => onReservePctChange(Number(e.target.value) || 0)}
-                />
-              </label>
-            </div>
-            <p className="text-[12px] text-ds-text-4">
-              Dotación adicional sugerida para vacaciones y licencias.
-              Informativo: no crea puestos ni afecta la cotización.
-            </p>
-          </div>
+        {!quoteSelected && (
+          <p className="mt-2 text-[12px] text-ds-text-4">
+            Marcá <span className="text-ds-text-3">Cotización (CPQ)</span> para
+            revisar cobertura, agregar puestos y crear la cotización.
+          </p>
         )}
-        <CorreoAiCoverageTable
-          proposal={proposal}
-          onChange={onCoverageChange}
-          regimenOptions={regimenOptions}
-        />
       </section>
 
       {/* Assumptions v2 — inline editable */}
