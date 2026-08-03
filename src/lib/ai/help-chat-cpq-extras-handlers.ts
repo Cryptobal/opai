@@ -18,7 +18,9 @@ import {
   hcMapQuoteResolveError,
 } from "@/lib/ai/help-chat-cpq-ai-shared";
 import { resolveAiHelpChatCpqQuote } from "@/lib/ai/help-chat-ai-cpq-quote";
+import { resolveContactIdForCpqQuote } from "@/lib/ai/resolve-quote-contact";
 import { computeCpqQuoteCosts } from "@/modules/cpq/costing/compute-quote-costs";
+import { isUuid } from "@/lib/utils/uuid";
 
 type PageCx = HelpChatPageContext | null | undefined;
 
@@ -364,10 +366,39 @@ export async function aiTool_update_quote(
         data.validUntil = d;
       }
     }
+    if (has("contactId")) {
+      const rawContactId = asStr(args, "contactId");
+      if (!rawContactId) {
+        await hcAiLog({ tenantId, userId, toolName: TOOL, args, status: "validation_error", errorMessage: "contactId vacío", startedAt: t0 });
+        return { ok: false, error: "contactId no puede quedar vacío. Pasa el UUID del contacto (search_contacts)." };
+      }
+      if (!isUuid(rawContactId)) {
+        await hcAiLog({ tenantId, userId, toolName: TOOL, args, status: "validation_error", errorMessage: "contactId inválido", startedAt: t0 });
+        return { ok: false, error: "El contactId no tiene formato válido. Usa search_contacts." };
+      }
+      const full = await prisma.cpqQuote.findFirst({
+        where: { id: quote.id, tenantId },
+        select: { accountId: true },
+      });
+      if (!full?.accountId) {
+        await hcAiLog({ tenantId, userId, toolName: TOOL, args, status: "validation_error", errorMessage: "quote sin account", startedAt: t0 });
+        return { ok: false, error: "La cotización no tiene cuenta asociada; no se puede validar el contacto." };
+      }
+      const resolved = await resolveContactIdForCpqQuote({
+        tenantId,
+        accountId: full.accountId,
+        explicitContactId: rawContactId,
+      });
+      if (!resolved.ok) {
+        await hcAiLog({ tenantId, userId, toolName: TOOL, args, status: "validation_error", errorMessage: resolved.error, startedAt: t0 });
+        return { ok: false, error: resolved.error };
+      }
+      data.contactId = resolved.contactId;
+    }
 
     if (Object.keys(data).length === 0) {
       await hcAiLog({ tenantId, userId, toolName: TOOL, args, status: "validation_error", errorMessage: "nofields", startedAt: t0 });
-      return { ok: false, error: "Indica al menos un campo a cambiar (name, clientName, validUntil, notes, paymentTerms, serviceStartDays, contractDuration, isOngoingService)." };
+      return { ok: false, error: "Indica al menos un campo a cambiar (name, clientName, contactId, validUntil, notes, paymentTerms, serviceStartDays, contractDuration, isOngoingService)." };
     }
 
     const res = await prisma.cpqQuote.updateMany({ where: { id: quote.id, tenantId }, data });
@@ -376,7 +407,7 @@ export async function aiTool_update_quote(
     const updated = await prisma.cpqQuote.findFirst({
       where: { id: quote.id, tenantId },
       select: {
-        id: true, code: true, name: true, clientName: true, validUntil: true, notes: true,
+        id: true, code: true, name: true, clientName: true, contactId: true, validUntil: true, notes: true,
         paymentTerms: true, serviceStartDays: true, contractDuration: true, isOngoingService: true,
       },
     });
