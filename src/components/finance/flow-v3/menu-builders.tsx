@@ -34,6 +34,7 @@ export function extractRowTemplates(row: FlowMatrixRowDto): RowTemplate[] {
 
 export interface RowMenuCallbacks {
   onRename: (row: FlowMatrixRowDto) => void;
+  onRestoreName: (row: FlowMatrixRowDto) => void;
   onChangeSection: (row: FlowMatrixRowDto) => void;
   onChangeCategory: (row: FlowMatrixRowDto) => void;
   onDeferTerm: (row: FlowMatrixRowDto, t: RowTemplate) => void;
@@ -42,6 +43,13 @@ export interface RowMenuCallbacks {
   onArchive: (row: FlowMatrixRowDto) => void;
   onUnarchive: (row: FlowMatrixRowDto) => void;
   onDelete: (row: FlowMatrixRowDto) => void;
+}
+
+function mappingSourceLabel(mapping: string): string {
+  if (mapping === "ACCOUNT_INSTALLATION") return "la cuenta";
+  if (mapping === "SUPPLIER") return "el proveedor";
+  if (mapping === "CATEGORY") return "la categoría";
+  return "la fuente";
 }
 
 /** Menú de la fila (§5C). Sin ítems para filas virtuales. */
@@ -53,22 +61,30 @@ export function buildRowMenu(
   if (row.isVirtual) return [];
   const items: MenuItemDesc[] = [];
 
-  items.push(
-    row.mapping === "MANUAL"
-      ? { key: "rename", label: "Renombrar", onSelect: () => cb.onRename(row) }
-      : {
-          key: "rename",
-          label: "Renombrar",
-          disabled: true,
-          reason: `El nombre viene de ${
-            row.mapping === "ACCOUNT_INSTALLATION"
-              ? "la cuenta"
-              : row.mapping === "SUPPLIER"
-                ? "el proveedor"
-                : "la categoría"
-          }`,
-        },
-  );
+  // Alias de visualización: se puede renombrar aunque el mapping venga de
+  // cuenta/categoría/proveedor. Si ya hay override, el menú lo deja explícito.
+  if (row.nameIsManual && row.sourceName) {
+    items.push({
+      key: "rename",
+      label: "Renombrar",
+      reason: `Nombre manual (origen: ${row.sourceName})`,
+      onSelect: () => cb.onRename(row),
+    });
+    items.push({
+      key: "restore-name",
+      label: `Restaurar nombre de ${mappingSourceLabel(row.mapping)}`,
+      onSelect: () => cb.onRestoreName(row),
+    });
+  } else if (row.mapping !== "MANUAL" && row.sourceName) {
+    items.push({
+      key: "rename",
+      label: "Renombrar",
+      reason: `Visible en planilla · origen: ${mappingSourceLabel(row.mapping)}`,
+      onSelect: () => cb.onRename(row),
+    });
+  } else {
+    items.push({ key: "rename", label: "Renombrar", onSelect: () => cb.onRename(row) });
+  }
 
   items.push({ key: "section", label: "Cambiar sección…", onSelect: () => cb.onChangeSection(row) });
 
@@ -155,6 +171,7 @@ export interface CellMenuCallbacks {
   onFillRight: () => void;
   onClearPlan: () => void;
   onMovePlan: (targetWeek: string) => void;
+  onMoveDte: (dteId: string, targetWeek: string) => void;
   onViewDetail: () => void;
   onViewDte: (dteId: string) => void;
 }
@@ -165,6 +182,12 @@ export interface CellMenuContext {
   reason: string;
   /** Semanas abiertas de la misma fila a las que se puede mover (no la propia). */
   openWeeks: MatrixColumn[];
+  /**
+   * Semanas actuales/futuras no selladas (distintas de la propia) a las que se
+   * puede reubicar una factura emitida cuando el cobro se aplaza.
+   */
+  dteMoveWeeks: MatrixColumn[];
+  canManage: boolean;
 }
 
 /** Menú de la celda (§5D). Ítems inaplicables van deshabilitados con motivo. */
@@ -219,6 +242,47 @@ export function buildCellMenu(
       : undefined,
   });
 
+  const dteItems = (cell.committed?.items ?? []).filter(
+    (i): i is typeof i & { dteId: string } => i.kind === "dte" && !!i.dteId,
+  );
+  if (dteItems.length > 0) {
+    const canMoveDte = ctx.canManage && ctx.dteMoveWeeks.length > 0;
+    const weekSubmenu = (dteId: string): MenuItemDesc[] =>
+      ctx.dteMoveWeeks.map((c) => ({
+        key: `mdte-${dteId}-${c.key}`,
+        label: `${c.label} · ${fmtDayMonth(c.weekStart)}`,
+        onSelect: () => cb.onMoveDte(dteId, c.key),
+      }));
+    if (dteItems.length === 1) {
+      const d = dteItems[0];
+      items.push({
+        key: "move-dte",
+        label: d.folio != null ? `Mover F°${d.folio} a…` : "Mover factura a…",
+        disabled: !canMoveDte,
+        reason: !ctx.canManage
+          ? "Sin permiso de edición"
+          : "No hay semanas abiertas",
+        submenu: canMoveDte ? weekSubmenu(d.dteId) : undefined,
+      });
+    } else {
+      items.push({
+        key: "move-dte",
+        label: "Mover factura a…",
+        disabled: !canMoveDte,
+        reason: !ctx.canManage
+          ? "Sin permiso de edición"
+          : "No hay semanas abiertas",
+        submenu: canMoveDte
+          ? dteItems.map((d) => ({
+              key: `mdte-pick-${d.dteId}`,
+              label: d.folio != null ? `F°${d.folio}` : d.label || "Factura",
+              submenu: weekSubmenu(d.dteId),
+            }))
+          : undefined,
+      });
+    }
+  }
+
   items.push({
     key: "detail",
     label: "Ver detalle e historial",
@@ -226,7 +290,7 @@ export function buildCellMenu(
     onSelect: cb.onViewDetail,
   });
 
-  const dteId = cell.committed?.items.find((i) => i.kind === "dte" && i.dteId)?.dteId;
+  const dteId = dteItems[0]?.dteId;
   if (dteId) {
     items.push({ key: "dte", label: "Ver factura", onSelect: () => cb.onViewDte(dteId) });
   }

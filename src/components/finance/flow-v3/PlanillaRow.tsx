@@ -16,7 +16,7 @@ import type { NumberFormatMode } from "./format";
 import type { CellStyle } from "./usePlanillaViewPrefs";
 
 const DRAG_BLOCKED_MSG =
-  "Las facturas y los movimientos conciliados no se mueven desde la planilla.";
+  "Las facturas no se arrastran: usa clic derecho → Mover factura a…";
 
 interface Props {
   row: FlowMatrixRowDto;
@@ -154,10 +154,22 @@ export function PlanillaRow(p: Props) {
           <span className="flex items-center gap-1">
             <span
               className={`truncate text-xs max-md:text-[12px] max-md:leading-none ${row.isArchived ? "text-ds-text-3" : "text-ds-text-2"}`}
-              title={row.name}
+              title={
+                row.nameIsManual && row.sourceName
+                  ? `${row.name} (nombre manual · origen: ${row.sourceName})`
+                  : row.name
+              }
             >
               {highlightName(row.name, p.searchQuery ?? "")}
             </span>
+            {row.nameIsManual && (
+              <span
+                className="shrink-0 rounded border border-ds-border-subtle bg-ds-surface-2 px-0.5 text-[12px] leading-tight text-ds-text-3"
+                title={row.sourceName ? `Origen: ${row.sourceName}` : "Nombre manual"}
+              >
+                alias
+              </span>
+            )}
             {row.isArchived && (
               <span className="shrink-0 rounded border border-ds-border-subtle px-0.5 text-[12px] leading-tight text-ds-text-3">
                 cerrada

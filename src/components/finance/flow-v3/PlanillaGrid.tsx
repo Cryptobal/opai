@@ -417,6 +417,10 @@ export function PlanillaGrid({
   const rowCallbacks = useMemo(
     () => ({
       onRename: (row: FlowMatrixRowDto) => setRenamingRowId(row.id),
+      onRestoreName: (row: FlowMatrixRowDto) => {
+        if (!row.sourceName) return;
+        void actions.renameRow(row.id, row.sourceName);
+      },
       onChangeSection: (row: FlowMatrixRowDto) => setRowDialog({ kind: "section", row }),
       onChangeCategory: (row: FlowMatrixRowDto) => setRowDialog({ kind: "category", row }),
       onDeferTerm: (row: FlowMatrixRowDto, template: RowTemplate) => setRowDialog({ kind: "defer", row, template }),
@@ -450,10 +454,13 @@ export function PlanillaGrid({
       onFillRight: () => requestFillRight(sel),
       onClearPlan: () => void matrix.patchPlan(sel.rowId, week, 0),
       onMovePlan: (target: string) => void matrix.movePlan(sel.rowId, week, target),
+      onMoveDte: (dteId: string, targetWeek: string) => {
+        void actions.moveDte(dteId, targetWeek);
+      },
       onViewDetail: () => openPopover(sel),
       onViewDte: (dteId: string) => router.push(`/finanzas/facturacion/dtes?dte=${dteId}`),
     }),
-    [kb, matrix, openPopover, requestFillRight, router, rowById],
+    [actions, kb, matrix, openPopover, requestFillRight, router, rowById],
   );
 
   const rowMenuFor = useCallback(
@@ -489,7 +496,23 @@ export function PlanillaGrid({
                   ? "Ingreso facturado (la factura manda)"
                   : "";
     const openWeeks = data.columns.filter((_, i) => i !== colIdx && canEditCell(rowId, i));
-    return buildCellMenu(row, cell, { editable, reason, openWeeks }, cellCallbacksFor(ctxTarget.sel, col.key));
+    // Facturas: se pueden reubicar a semanas abiertas (no pasadas/cerradas),
+    // aunque la celda origen esté bloqueada por "la factura manda".
+    const dteMoveWeeks = data.columns.filter(
+      (c, i) =>
+        i !== colIdx &&
+        data.granularity === "week" &&
+        !c.isPast &&
+        !closedSet.has(c.key) &&
+        !row.isArchived &&
+        !row.isVirtual,
+    );
+    return buildCellMenu(
+      row,
+      cell,
+      { editable, reason, openWeeks, dteMoveWeeks, canManage },
+      cellCallbacksFor(ctxTarget.sel, col.key),
+    );
   }, [ctxTarget, rowById, data.columns, data.granularity, canEditCell, canManage, closedSet, rowMenuFor, cellCallbacksFor]);
 
   const anchoredRef = useRef(false);
