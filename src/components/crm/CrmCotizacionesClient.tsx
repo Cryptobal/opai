@@ -261,8 +261,8 @@ export function CrmCotizacionesClient({
   );
 
   // "Agrupar propuestas": colapsa las cotizaciones de una misma propuesta a un
-  // único representante (el de menor displayOrder ya viene primero del server),
-  // dejando visibles las cotizaciones sueltas.
+  // único representante (el primero según el orden actual del listado), dejando
+  // visibles las cotizaciones sueltas.
   const visibleQuotes = useMemo(() => {
     if (!groupProposals) return quotes;
     const seenBundles = new Set<string>();
