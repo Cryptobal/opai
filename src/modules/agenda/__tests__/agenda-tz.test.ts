@@ -12,6 +12,7 @@ import {
 import { ymdInChile } from "@/lib/dates-cl";
 import { isoFromEventDate } from "@/modules/agenda/google-events-helpers";
 import { buildVisitaEventPayload } from "@/lib/google-workspace/calendar-payloads";
+import { isAgendaVisitaAllDay } from "@/modules/agenda/agenda-sync";
 
 describe("dateAtChileSlot — ancla a America/Santiago", () => {
   it("día del fin de DST (2026-04-05, -04): 09:00 Chile = 13:00 UTC", () => {
@@ -100,5 +101,42 @@ describe("buildVisitaEventPayload — timeZone explícita (audit 1.6)", () => {
     expect(payload.start.timeZone).toBe("America/Santiago");
     expect(payload.end.timeZone).toBe("America/Santiago");
     expect(payload.start.dateTime).toBe("2026-07-22T13:00:00.000Z");
+  });
+
+  it("detecta hitos all-day Chile por duración", () => {
+    expect(
+      isAgendaVisitaAllDay(
+        new Date("2026-08-17T04:00:00.000Z"),
+        new Date("2026-08-18T03:59:00.000Z"),
+      ),
+    ).toBe(true);
+    expect(
+      isAgendaVisitaAllDay(
+        new Date("2026-08-07T04:00:00.000Z"),
+        new Date("2026-08-07T05:00:00.000Z"),
+      ),
+    ).toBe(false);
+  });
+
+  it("usa el título OPAI y all-day con end exclusivo", () => {
+    // 17-ago 00:00 → 17-ago 23:59 Chile (UTC-4 en invierno)
+    const payload = buildVisitaEventPayload(
+      {
+        title: "Cierre de consultas",
+        startAt: new Date("2026-08-17T04:00:00.000Z"),
+        endAt: new Date("2026-08-18T03:59:00.000Z"),
+      },
+      {
+        typeLabel: "Visita",
+        accountName: "Coexpan",
+        opaiUrl: "https://opai.example/agenda",
+        inviteContacts: false,
+        allDay: true,
+      },
+    );
+    expect(payload.summary).toBe("Cierre de consultas");
+    expect(payload.start).toEqual({ date: "2026-08-17" });
+    expect(payload.end).toEqual({ date: "2026-08-18" });
+    expect(payload.start.dateTime).toBeUndefined();
   });
 });

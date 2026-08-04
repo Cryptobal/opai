@@ -17,14 +17,12 @@ export async function retryPendingAgendaLinks(params: {
   sourceType?: "licitacion" | "agenda_visita";
   cap?: number;
 }): Promise<{ retried: number }> {
-  const sourceFilter = params.sourceType
-    ? { sourceType: params.sourceType }
-    : { sourceType: { in: ["licitacion", "agenda_visita"] as const } };
-
   const links = await prisma.agendaEventLink.findMany({
     where: {
       tenantId: params.tenantId,
-      ...sourceFilter,
+      sourceType: params.sourceType
+        ? params.sourceType
+        : { in: ["licitacion", "agenda_visita"] },
       OR: [
         { syncStatus: "PENDING" },
         {

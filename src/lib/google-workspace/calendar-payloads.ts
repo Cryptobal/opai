@@ -1,5 +1,7 @@
 /** Payloads de eventos Google Calendar (visitas y licitaciones). */
 
+import { addDaysChile, startOfDayChile, ymdInChile } from "@/lib/dates-cl";
+
 const CHILE_TZ = "America/Santiago";
 
 export type VisitaEventCtx = {
@@ -16,6 +18,8 @@ export type VisitaEventCtx = {
   }>;
   opaiUrl: string;
   inviteContacts: boolean;
+  /** Si true → evento all-day Google (`date` exclusivo en end). */
+  allDay?: boolean;
 };
 
 export type CalendarEventPayload = {
@@ -32,11 +36,13 @@ export type CalendarEventPayload = {
 };
 
 export function buildVisitaEventPayload(
-  visita: { startAt: Date; endAt: Date },
+  visita: { startAt: Date; endAt: Date; title?: string | null },
   ctx: VisitaEventCtx,
 ): CalendarEventPayload {
   const install = ctx.installationName ? ` — ${ctx.installationName}` : "";
-  const summary = `[${ctx.typeLabel}] ${ctx.accountName}${install}`;
+  const fallback = `[${ctx.typeLabel}] ${ctx.accountName}${install}`;
+  // Preferir el título OPAI (hitos de licitación: "Cierre de consultas", etc.).
+  const summary = visita.title?.trim() || fallback;
 
   const contactLines = (ctx.contacts ?? [])
     .map((c) => `- ${c.name}${c.role ? ` (${c.role})` : ""}${c.phone ? ` · ${c.phone}` : ""}`)
@@ -57,12 +63,35 @@ export function buildVisitaEventPayload(
         .map((email) => ({ email }))
     : undefined;
 
+  const startEnd = ctx.allDay
+    ? (() => {
+        const startYmd = ymdInChile(visita.startAt);
+        // Google all-day usa end exclusivo. Si endAt cae después de las
+        // 00:01 del día Chile de fin (p.ej. 23:59), ese día es inclusive → +1.
+        const endSod = startOfDayChile(visita.endAt);
+        const endExclusive =
+          visita.endAt.getTime() > endSod.getTime() + 60_000
+            ? ymdInChile(addDaysChile(visita.endAt, 1))
+            : ymdInChile(visita.endAt);
+        const endYmd =
+          endExclusive <= startYmd
+            ? ymdInChile(addDaysChile(visita.startAt, 1))
+            : endExclusive;
+        return {
+          start: { date: startYmd },
+          end: { date: endYmd },
+        };
+      })()
+    : {
+        start: { dateTime: visita.startAt.toISOString(), timeZone: CHILE_TZ },
+        end: { dateTime: visita.endAt.toISOString(), timeZone: CHILE_TZ },
+      };
+
   return {
     summary,
     description,
     location: ctx.address || undefined,
-    start: { dateTime: visita.startAt.toISOString(), timeZone: CHILE_TZ },
-    end: { dateTime: visita.endAt.toISOString(), timeZone: CHILE_TZ },
+    ...startEnd,
     attendees: attendees?.length ? attendees : undefined,
     reminders: {
       useDefault: false,
