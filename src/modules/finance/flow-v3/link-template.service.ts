@@ -19,6 +19,151 @@ export interface LinkTemplateResult {
  * Setea recurringTemplateId + billingPeriod (calendario del template) y
  * crmAccountId si faltaba (resolución RUT). Idempotente si ya está al mismo tpl.
  */
+export interface LinkTemplateBulkResult {
+  linked: LinkTemplateResult[];
+  skipped: Array<{ dteId: string; reason: string }>;
+  templateId: string;
+}
+
+/**
+ * Vincula N DTEs a una misma programación (transacción).
+ * Omite los ya vinculados a otra programación (no pisa).
+ * Si un DTE falla por cuenta/tipo, aborta todo el lote.
+ */
+export async function linkDtesToTemplateBulk(
+  tenantId: string,
+  dteIds: string[],
+  templateId: string,
+): Promise<LinkTemplateBulkResult> {
+  const uniqueIds = [...new Set(dteIds)];
+  if (uniqueIds.length === 0) {
+    throw new Error("Sin facturas para vincular");
+  }
+
+  const skipped: Array<{ dteId: string; reason: string }> = [];
+  const linked: LinkTemplateResult[] = [];
+
+  await prisma.$transaction(async (tx) => {
+    // Reusa la lógica unitaria contra el cliente de tx vía monkey-patch
+    // de los métodos usados. Más simple: llamar guards inline con tx.
+    const template = await tx.financeDteRecurringTemplate.findFirst({
+      where: { id: templateId, tenantId },
+      select: {
+        id: true, crmAccountId: true, receiverRut: true,
+        frequency: true, dayOfMonth: true, dayOfWeek: true, monthOfYear: true,
+        startDate: true, endDate: true, lastRunAt: true,
+        facturaTiming: true, facturaDay: true, facturaMesRelativo: true,
+      },
+    });
+    if (!template) throw new Error("Programación no encontrada");
+    if (!template.crmAccountId) {
+      throw new Error("La programación no tiene cuenta CRM");
+    }
+
+    const accounts = await tx.crmAccount.findMany({
+      where: { tenantId, rut: { not: null } },
+      select: { id: true, rut: true, createdAt: true },
+      orderBy: { createdAt: "asc" },
+      take: 5000,
+    });
+    const accountByRut = new Map<string, string>();
+    for (const a of accounts) {
+      if (!a.rut) continue;
+      const key = cleanRut(a.rut);
+      if (key && !accountByRut.has(key)) accountByRut.set(key, a.id);
+    }
+
+    for (const dteId of uniqueIds) {
+      const dte = await tx.financeDte.findFirst({
+        where: { id: dteId, tenantId, direction: "ISSUED" },
+        select: {
+          id: true, crmAccountId: true, receiverRut: true, date: true,
+          recurringTemplateId: true, billingPeriod: true, dteType: true,
+        },
+      });
+      if (!dte) throw new Error(`DTE no encontrado: ${dteId}`);
+      if (![33, 34].includes(dte.dteType)) {
+        throw new Error("Solo facturas 33/34 se vinculan a programación");
+      }
+
+      let accountId = dte.crmAccountId;
+      if (!accountId && dte.receiverRut) {
+        const rutKey = cleanRut(dte.receiverRut);
+        if (rutKey) accountId = accountByRut.get(rutKey) ?? null;
+      }
+      if (!accountId) throw new Error(`El DTE ${dteId} no tiene cuenta CRM resoluble`);
+      if (accountId !== template.crmAccountId) {
+        throw new Error("La programación no pertenece a la misma cuenta del DTE");
+      }
+
+      // Guard: omitir si ya está vinculado a otra programación (no pisar).
+      if (dte.recurringTemplateId && dte.recurringTemplateId !== templateId) {
+        skipped.push({
+          dteId: dte.id,
+          reason: "Ya vinculado a otra programación",
+        });
+        continue;
+      }
+
+      const dteDateYmd = dte.date.toISOString().slice(0, 10);
+      const billingPeriod = resolveBillingPeriodForDate(template, dteDateYmd);
+
+      if (dte.recurringTemplateId === templateId && dte.billingPeriod === billingPeriod) {
+        const other = await tx.financeDte.count({
+          where: {
+            tenantId,
+            recurringTemplateId: templateId,
+            billingPeriod,
+            id: { not: dte.id },
+            siiStatus: { notIn: ["ANNULLED", "REJECTED"] },
+            voidedByCreditNoteId: null,
+          },
+        });
+        linked.push({
+          dteId: dte.id,
+          recurringTemplateId: templateId,
+          billingPeriod,
+          crmAccountId: accountId,
+          noop: true,
+          periodHasOtherDte: other > 0,
+        });
+        continue;
+      }
+
+      const other = await tx.financeDte.count({
+        where: {
+          tenantId,
+          recurringTemplateId: templateId,
+          billingPeriod,
+          id: { not: dte.id },
+          siiStatus: { notIn: ["ANNULLED", "REJECTED"] },
+          voidedByCreditNoteId: null,
+        },
+      });
+
+      await tx.financeDte.update({
+        where: { id: dte.id },
+        data: {
+          recurringTemplateId: templateId,
+          billingPeriod,
+          crmAccountId: accountId,
+        },
+      });
+
+      linked.push({
+        dteId: dte.id,
+        recurringTemplateId: templateId,
+        billingPeriod,
+        crmAccountId: accountId,
+        noop: false,
+        periodHasOtherDte: other > 0,
+      });
+    }
+  });
+
+  return { linked, skipped, templateId };
+}
+
 export async function linkDteToTemplate(
   tenantId: string,
   dteId: string,

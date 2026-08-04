@@ -9,7 +9,8 @@ import {
   CORNER_REAL, CORNER_WARN, displayValue, REAL_CELL, ROW_H, TODAY_COL,
 } from "./grid-classes";
 import {
-  committedPriority, cornerKind, dteCountInCell, primaryCellTag, toneClass,
+  committedPriority, cornerKind, dteCountInCell, pastPendingDteMeta,
+  primaryCellTag, toneClass,
 } from "./cell-meta";
 import type { CellStyle } from "./usePlanillaViewPrefs";
 import { InlineCellEditor } from "./InlineCellEditor";
@@ -21,6 +22,8 @@ interface Props {
   /** Ancla para reabrir el popover con teclado: "rowId:colIdx". */
   dataRc: string;
   isCurrentCol: boolean;
+  /** Semana < currentWeek: pendientes F° se muestran atenuadas sin sumar. */
+  isPast?: boolean;
   editable: boolean;
   /** Clases de selección/rango (planilla-selected | planilla-range*). */
   rangeClass: string;
@@ -80,10 +83,16 @@ const CHIP_JUSTIFY_V: Record<string, string> = {
 export function PlanillaCell(p: Props) {
   const { cell } = p;
   const isEditing = p.editingInitial != null;
+  const isPast = p.isPast === true;
   const mode = p.numberFormat ?? "clp";
   const value = displayValue(p.section, cell.layer, cell.effective);
   const formatted = value !== 0 ? fmtCell(value, mode) : "";
   const showChips = p.showChips === true;
+  const pastPend = pastPendingDteMeta(cell, isPast);
+  /** Pasado sin real: mostrar monto pendiente atenuado (no suma a effective). */
+  const pastPendOnly = !!pastPend && cell.layer === "empty";
+  const pastPendFormatted =
+    pastPendOnly && pastPend.total !== 0 ? fmtCell(pastPend.total, mode) : "";
 
   const { hasDte, hasProforma, hasDraft } = committedPriority(cell);
   const committedClass = hasDte
@@ -94,7 +103,7 @@ export function PlanillaCell(p: Props) {
         ? COMMITTED_DRAFT_CELL
         : COMMITTED_SCHEDULED_CELL;
 
-  const tag = primaryCellTag(cell);
+  const tag = primaryCellTag(cell, { isPast });
   const multiDteN = dteCountInCell(cell);
   const corner = showChips ? null : cornerKind(cell);
   const cornerClass =
@@ -113,19 +122,26 @@ export function PlanillaCell(p: Props) {
       ? REAL_CELL
       : cell.layer === "committed"
         ? committedClass
-        : ""
-    : "";
+        : pastPendOnly
+          ? `${COMMITTED_DTE_CELL} opacity-60`
+          : ""
+    : pastPendOnly
+      ? "opacity-60"
+      : "";
 
   const textClass =
-    cell.layer === "real" || cell.layer === "committed"
-      ? "text-ds-text-1"
-      : cell.layer === "plan"
-        ? "text-ds-text-2"
-        : "text-ds-text-4";
+    pastPendOnly
+      ? "text-ds-text-3"
+      : cell.layer === "real" || cell.layer === "committed"
+        ? "text-ds-text-1"
+        : cell.layer === "plan"
+          ? "text-ds-text-2"
+          : "text-ds-text-4";
   const projAttenuate =
     !showChips && cell.layer === "committed" && corner === null ? "text-ds-text-3" : "";
 
-  const longValue = formatted ? numSizeClass(formatted) : "";
+  const displayFormatted = pastPendOnly ? pastPendFormatted : formatted;
+  const longValue = displayFormatted ? numSizeClass(displayFormatted) : "";
   const cursorClass = p.draggable ? "cursor-grab" : p.editable ? "cursor-cell" : "cursor-default";
   const dragBlocked = !!p.dragBlockedTitle;
 
@@ -146,8 +162,13 @@ export function PlanillaCell(p: Props) {
 
   const titleParts: string[] = [];
   if (tag?.title) titleParts.push(tag.title);
+  if (pastPend && cell.layer === "real") titleParts.push(pastPend.title);
   if (p.dragBlockedTitle) titleParts.push(p.dragBlockedTitle);
-  if (mode !== "clp" && value !== 0) titleParts.push(`Exacto: ${fmtCell(value, "clp")}`);
+  if (mode !== "clp" && (pastPendOnly ? pastPend!.total : value) !== 0) {
+    titleParts.push(
+      `Exacto: ${fmtCell(pastPendOnly ? pastPend!.total : value, "clp")}`,
+    );
+  }
   if (p.caption) titleParts.push(p.caption);
 
   const openSheet = p.onOpenCellSheet;
@@ -206,7 +227,9 @@ export function PlanillaCell(p: Props) {
           onCommit={p.onCommit}
           onCancel={p.onCancel}
         />
-      ) : showChips && tag && (cell.layer === "committed" || cell.layer === "plan") ? (
+      ) : showChips && tag && (
+        cell.layer === "committed" || cell.layer === "plan" || pastPendOnly
+      ) ? (
         <span
           className={`pointer-events-none absolute inset-0 flex flex-col gap-px px-1.5 max-md:px-[3px] leading-none ${chipItemsH} ${chipJustifyV}`}
         >
@@ -216,8 +239,10 @@ export function PlanillaCell(p: Props) {
           >
             {tag.tag}
           </span>
-          {formatted && (
-            <span className="max-w-full truncate leading-[10px]">{formatted}</span>
+          {displayFormatted && (
+            <span className={`max-w-full truncate leading-[10px] ${pastPendOnly ? "text-ds-text-3" : ""}`}>
+              {displayFormatted}
+            </span>
           )}
           {p.caption && (
             <span className="max-w-full truncate text-[12px] leading-tight text-ds-text-4">
@@ -227,16 +252,33 @@ export function PlanillaCell(p: Props) {
         </span>
       ) : (
         <>
-          {formatted}
-          {p.caption && formatted && (
+          {displayFormatted}
+          {p.caption && displayFormatted && (
             <span className="ml-0.5 text-[12px] text-ds-text-4">{p.caption}</span>
           )}
-          {!showChips && multiDteN >= 2 && (
+          {/* Real + F° pendiente en semana pasada: badge mixto. */}
+          {pastPend && cell.layer === "real" && (
+            <span
+              className="ml-0.5 text-[12px] font-medium text-status-info-fg opacity-70"
+              title={pastPend.title}
+            >
+              +F° pend.
+            </span>
+          )}
+          {!showChips && !pastPendOnly && multiDteN >= 2 && (
             <span
               className="ml-0.5 text-[12px] font-medium text-status-info-fg"
               title={tag?.title}
             >
               ×{multiDteN}
+            </span>
+          )}
+          {!showChips && pastPendOnly && pastPend.count >= 2 && (
+            <span
+              className="ml-0.5 text-[12px] font-medium text-status-info-fg opacity-70"
+              title={pastPend.title}
+            >
+              ×{pastPend.count}
             </span>
           )}
         </>

@@ -1,7 +1,36 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
 import { buildFlowMatrix } from "./matrix.service";
-import { addWeeksUTC, toYmd, weekStartYmd, ymdToDate } from "./weeks";
+import {
+  addDaysYmd,
+  DEFAULT_COLLECTION_LAG_DAYS,
+} from "./types";
+import { listClosedV3Weeks } from "./weekly-close.adapter";
+import {
+  addWeeksUTC,
+  toYmd,
+  weekLabel,
+  weekStartYmd,
+  ymdToDate,
+} from "./weeks";
+
+export interface CarteraPendienteItem {
+  dteId: string;
+  folio: number | null;
+  receiverName: string | null;
+  issueDate: string;
+  dueDate: string;
+  overdueDays: number;
+  pendingClp: number;
+  /** Semana (lunes YMD) donde está anclada (emisión u override). */
+  anchoredWeek: string;
+  anchoredWeekLabel: string;
+}
+
+export interface OpenMoveWeek {
+  weekStart: string;
+  label: string;
+}
 
 export interface FlowInsightsDto {
   saldoHoy: number | null;
@@ -9,6 +38,10 @@ export interface FlowInsightsDto {
   min12: { weekStart: string; balance: number } | null;
   porCobrarTotal: number;
   aging: { alDia: number; d1_15: number; d16_30: number; d30plus: number };
+  /** Cartera global post-exclusiones, ordenada por atraso desc. */
+  cartera: CarteraPendienteItem[];
+  /** Semanas abiertas (actual + futuras no selladas) para "Mover a…". */
+  openMoveWeeks: OpenMoveWeek[];
   balanceSeries: Array<{ weekStart: string; label: string; balance: number }>;
   recentSeals: Array<{
     weekEnd: string;
@@ -19,7 +52,14 @@ export interface FlowInsightsDto {
   warnThresholdClp: number;
 }
 
-/** Panel read-only: 12 semanas desde hoy + aging DTEs + últimos sellos. */
+function daysBetween(fromYmd: string, toYmd: string): number {
+  const a = Date.parse(`${fromYmd}T00:00:00Z`);
+  const b = Date.parse(`${toYmd}T00:00:00Z`);
+  if (!Number.isFinite(a) || !Number.isFinite(b)) return 0;
+  return Math.max(0, Math.round((b - a) / 86_400_000));
+}
+
+/** Panel read-only: 12 semanas desde hoy + aging DTEs + cartera drill + sellos. */
 export async function buildFlowInsights(tenantId: string): Promise<FlowInsightsDto> {
   const today = new Date();
   const fromMonday = weekStartYmd(today);
@@ -50,39 +90,102 @@ export async function buildFlowInsights(tenantId: string): Promise<FlowInsightsD
 
   const saldoHoy = matrix.kpis?.saldoHoy ?? null;
 
-  const dtes = await prisma.financeDte.findMany({
-    where: {
-      tenantId,
-      direction: "ISSUED",
-      dteType: { in: [33, 34] },
-      siiStatus: { in: ["ACCEPTED", "PENDING", "SENT"] },
-      voidedByCreditNoteId: null,
-      paymentStatus: { in: ["UNPAID", "PARTIAL", "OVERDUE"] },
-    },
-    select: { date: true, totalAmount: true, amountPaid: true },
-    take: 2000,
-  });
+  // Candidatos de "Mover a…" (actual + 11 futuras) para filtrar selladas.
+  const moveCandidates: string[] = [];
+  {
+    let w = fromDate;
+    for (let i = 0; i < 12; i++) {
+      moveCandidates.push(toYmd(w));
+      w = addWeeksUTC(w, 1);
+    }
+  }
 
+  const [config, dtes, exclusions, overrides, closedMondays] = await Promise.all([
+    prisma.financeCashflowConfig.findUnique({
+      where: { tenantId },
+      select: { collectionLagDays: true },
+    }),
+    prisma.financeDte.findMany({
+      where: {
+        tenantId,
+        direction: "ISSUED",
+        dteType: { in: [33, 34] },
+        siiStatus: { in: ["ACCEPTED", "PENDING", "SENT"] },
+        voidedByCreditNoteId: null,
+        paymentStatus: { in: ["UNPAID", "PARTIAL", "OVERDUE"] },
+      },
+      select: {
+        id: true,
+        folio: true,
+        date: true,
+        dueDate: true,
+        totalAmount: true,
+        amountPaid: true,
+        receiverName: true,
+      },
+      take: 2000,
+    }),
+    prisma.financeCashflowDteFlowExclusion.findMany({
+      where: { tenantId },
+      select: { dteId: true },
+    }),
+    prisma.financeCashflowDteDateOverride.findMany({
+      where: { tenantId },
+      select: { dteId: true, customDate: true },
+    }),
+    listClosedV3Weeks(tenantId, moveCandidates),
+  ]);
+
+  const excludedIds = new Set(exclusions.map((e) => e.dteId));
+  const overrideByDteId = new Map(
+    overrides.map((o) => [o.dteId, o.customDate.toISOString().slice(0, 10)]),
+  );
+  const lagDays = config?.collectionLagDays ?? DEFAULT_COLLECTION_LAG_DAYS;
   const todayYmd = toYmd(today);
+  const sealedMondays = new Set(closedMondays);
+
   const aging = { alDia: 0, d1_15: 0, d16_30: 0, d30plus: 0 };
   let porCobrarTotal = 0;
+  const cartera: CarteraPendienteItem[] = [];
+
   for (const d of dtes) {
+    if (excludedIds.has(d.id)) continue;
     const pending = Number(d.totalAmount) - Number(d.amountPaid ?? 0);
     if (pending <= 0) continue;
     porCobrarTotal += pending;
+
     const issue = d.date.toISOString().slice(0, 10);
-    const days = Math.max(
-      0,
-      Math.round(
-        (Date.parse(`${todayYmd}T00:00:00Z`) - Date.parse(`${issue}T00:00:00Z`)) /
-          86_400_000,
-      ),
-    );
-    if (days <= 0) aging.alDia += pending;
-    else if (days <= 15) aging.d1_15 += pending;
-    else if (days <= 30) aging.d16_30 += pending;
+    const dueYmd = d.dueDate
+      ? d.dueDate.toISOString().slice(0, 10)
+      : addDaysYmd(issue, lagDays);
+    const overdueDays = daysBetween(dueYmd, todayYmd);
+    // Aging del panel: por días desde emisión (histórico del KPI).
+    const daysSinceIssue = daysBetween(issue, todayYmd);
+    if (daysSinceIssue <= 0) aging.alDia += pending;
+    else if (daysSinceIssue <= 15) aging.d1_15 += pending;
+    else if (daysSinceIssue <= 30) aging.d16_30 += pending;
     else aging.d30plus += pending;
+
+    const placementYmd = overrideByDteId.get(d.id) ?? issue;
+    const anchoredWeek = weekStartYmd(ymdToDate(placementYmd) ?? d.date);
+    cartera.push({
+      dteId: d.id,
+      folio: d.folio,
+      receiverName: d.receiverName,
+      issueDate: issue,
+      dueDate: dueYmd,
+      overdueDays,
+      pendingClp: Math.round(pending),
+      anchoredWeek,
+      anchoredWeekLabel: weekLabel(anchoredWeek),
+    });
   }
+
+  cartera.sort((a, b) => b.overdueDays - a.overdueDays || b.pendingClp - a.pendingClp);
+
+  const openMoveWeeks: OpenMoveWeek[] = moveCandidates
+    .filter((ws) => !sealedMondays.has(ws))
+    .map((ws) => ({ weekStart: ws, label: weekLabel(ws) }));
 
   const seals = await prisma.financeCashflowWeeklyClose.findMany({
     where: { tenantId },
@@ -116,6 +219,8 @@ export async function buildFlowInsights(tenantId: string): Promise<FlowInsightsD
     min12,
     porCobrarTotal,
     aging,
+    cartera,
+    openMoveWeeks,
     balanceSeries: matrix.columns.map((c, i) => ({
       weekStart: c.weekStart,
       label: c.label,

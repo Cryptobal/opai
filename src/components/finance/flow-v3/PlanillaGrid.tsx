@@ -1065,13 +1065,19 @@ export function PlanillaGrid({
         row={sheetRow}
         cell={sheetCell}
         weekLabel={sheetWeekLabel}
+        isPast={
+          !!sheetCell &&
+          data.granularity === "week" &&
+          sheetCell.weekStart < data.currentWeek
+        }
         items={sheetItems}
         folioGroups={sheetFolioGroups}
       >
         {sheetRow &&
           (sheetRow.isVirtual || sheetRow.name === "Otros ingresos" || sheetRow.name === "Otros clientes") &&
           sheetCell &&
-          sheetCell.effective !== 0 && (
+          (sheetCell.effective !== 0 ||
+            (sheetCell.committed?.items.some((i) => i.kind === "dte") ?? false)) && (
             <UnmatchedIncomeList
               weekStart={sheetCell.weekStart}
               focusDteId={linkFocusDteId}

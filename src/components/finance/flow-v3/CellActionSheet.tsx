@@ -6,7 +6,7 @@ import {
 import type { FlowMatrixCellDto, FlowMatrixRowDto } from "@/modules/finance/flow-v3/matrix-types";
 import { fmtCell, fmtShortDate } from "./format";
 import { displayValue } from "./grid-classes";
-import { primaryCellTag } from "./cell-meta";
+import { pastPendingDteMeta, primaryCellTag } from "./cell-meta";
 import { MenuItems, type MenuItemDesc } from "./menu-render";
 import type { FolioSheetGroup } from "./menu-builders";
 
@@ -16,6 +16,8 @@ interface Props {
   row: FlowMatrixRowDto | null;
   cell: FlowMatrixCellDto | null;
   weekLabel?: string;
+  /** Semana pasada: muestra F° pendientes informativas en el card. */
+  isPast?: boolean;
   items: MenuItemDesc[];
   /** Grupos por folio (v4.3). Si hay, se renderizan antes de `items`. */
   folioGroups?: FolioSheetGroup[];
@@ -32,12 +34,13 @@ const BORDER_BY_LAYER: Record<string, string> = {
 
 /** Bottom-sheet móvil: cell-card + grupos por folio + MenuItems. */
 export function CellActionSheet({
-  open, onOpenChange, row, cell, weekLabel, items, folioGroups, children,
+  open, onOpenChange, row, cell, weekLabel, isPast, items, folioGroups, children,
 }: Props) {
   const value = row && cell
     ? displayValue(row.section, cell.layer, cell.effective)
     : 0;
-  const tag = cell ? primaryCellTag(cell) : null;
+  const tag = cell ? primaryCellTag(cell, { isPast }) : null;
+  const pastPend = cell ? pastPendingDteMeta(cell, isPast === true) : null;
   const border = BORDER_BY_LAYER[cell?.layer ?? "empty"] ?? BORDER_BY_LAYER.empty;
   const groups = folioGroups ?? [];
 
@@ -68,8 +71,22 @@ export function CellActionSheet({
                 )}
               </div>
               <div className="mt-0.5 text-right font-display text-lg tabular-nums text-ds-text-1">
-                {value !== 0 ? fmtCell(value, "clp") : "—"}
+                {value !== 0
+                  ? fmtCell(value, "clp")
+                  : pastPend && cell.layer === "empty"
+                    ? fmtCell(pastPend.total, "clp")
+                    : "—"}
               </div>
+              {pastPend && cell.layer === "real" && (
+                <p className="mt-1 text-right text-[12px] text-status-info-fg opacity-80">
+                  +F° pend. {fmtCell(pastPend.total, "clp")}
+                </p>
+              )}
+              {pastPend && cell.layer === "empty" && (
+                <p className="mt-1 text-right text-[12px] text-ds-text-3">
+                  Pendiente (no suma al flujo)
+                </p>
+              )}
             </div>
           )}
         </SheetHeader>

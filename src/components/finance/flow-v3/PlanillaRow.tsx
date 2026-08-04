@@ -246,6 +246,7 @@ export function PlanillaRow(p: Props) {
             section={row.section}
             dataRc={`${row.id}:${colIdx}`}
             isCurrentCol={p.granularity === "week" && cell.weekStart === p.currentWeek}
+            isPast={p.granularity === "week" && cell.weekStart < p.currentWeek}
             editable={writable}
             rangeClass={rangeClass}
             editingInitial={isEditing ? p.editing!.initial : null}
