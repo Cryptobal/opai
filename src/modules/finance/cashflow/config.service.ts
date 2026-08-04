@@ -71,6 +71,10 @@ export async function updateCashflowConfig(
     flowWarnThresholdClp: number;
     /** YYYY-MM-DD o null para quitar el corte. Validado ≤ hoy. */
     flowCutoffYmd: string | null;
+    projectReceivedDtesAsExpense: boolean;
+    finiquitosAvgMonths: number;
+    finiquitosManualMonthlyClp: number | null;
+    f29CreditAvgMonths: number;
   }>,
 ): Promise<FinanceCashflowConfig> {
   await getOrCreateCashflowConfig(tenantId);

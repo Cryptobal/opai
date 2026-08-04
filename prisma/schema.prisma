@@ -8576,6 +8576,18 @@ model FinanceCashflowConfig {
   /// cartera. NULL = sin corte. La capa real (pagos) no se filtra.
   /// Validado ≤ hoy en la API de config; reversible poniendo null.
   flowCutoffYmd                  DateTime?              @map("flow_cutoff_ymd") @db.Date
+  /// Si true (default), los DTEs recibidos por pagar generan comprometido
+  /// de egresos en la planilla v3. Gard lo apaga: las compras suelen ser
+  /// solo aprovechamiento de IVA crédito; el egreso real viene de cartola.
+  projectReceivedDtesAsExpense   Boolean                @default(true) @map("project_received_dtes_as_expense")
+  /// Meses de historia para el promedio móvil de finiquitos reales.
+  finiquitosAvgMonths            Int                    @default(6) @map("finiquitos_avg_months")
+  /// Override manual mensual de finiquitos (CLP). Si está seteado, pisa el
+  /// promedio móvil. NULL = usar promedio.
+  finiquitosManualMonthlyClp     Int?                   @map("finiquitos_manual_monthly_clp")
+  /// Meses de historia para el promedio móvil del crédito fiscal F29
+  /// (fracción no transcurrida del período en curso / futuros).
+  f29CreditAvgMonths             Int                    @default(6) @map("f29_credit_avg_months")
   createdAt                      DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt                      DateTime               @updatedAt @map("updated_at") @db.Timestamptz(6)
 
@@ -8971,6 +8983,10 @@ model FinanceFlowPlanRecurrence {
   dayOfMonth Int?                    @map("day_of_month")
   startDate  DateTime                @map("start_date") @db.Date
   endDate    DateTime?               @map("end_date") @db.Date
+  /// Término por cantidad de repeticiones (alternativa o complemento a
+  /// endDate). Si ambos están, gana el que ocurra primero. NULL = sin tope
+  /// por conteo (solo horizonte / endDate).
+  endAfterOccurrences Int?           @map("end_after_occurrences")
   createdBy  String?                 @map("created_by")
   createdAt  DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt  DateTime                @updatedAt @map("updated_at") @db.Timestamptz(6)

@@ -138,6 +138,8 @@ export function PlanillaGrid({
   sumMode = false, onSumModeChange, onDiscreteStats, onRefresh, onViewDte,
 }: Props) {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  /** Filas en cero reveladas al tocar "n/m" del encabezado de sección. */
+  const [revealedZeroRowIds, setRevealedZeroRowIds] = useState<Set<string>>(() => new Set());
   const [popover, setPopover] = useState<PopoverState | null>(null);
   const [fillRight, setFillRight] = useState<FillRightRequest | null>(null);
   const [renamingRowId, setRenamingRowId] = useState<string | null>(null);
@@ -224,7 +226,12 @@ export function PlanillaGrid({
       const all = data.rows.filter((r) => r.section === s);
       let rows = showZeros
         ? all
-        : all.filter((r) => !isZeroRow(r) || alwaysVisibleRowIds?.has(r.id));
+        : all.filter(
+            (r) =>
+              !isZeroRow(r) ||
+              alwaysVisibleRowIds?.has(r.id) ||
+              revealedZeroRowIds.has(r.id),
+          );
       if (normSearch) {
         rows = rows.filter((r) =>
           r.name.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase().includes(normSearch),
@@ -247,9 +254,12 @@ export function PlanillaGrid({
           return sum + displayValue(r.section, cell?.layer ?? "empty", cell?.effective ?? 0);
         }, 0),
       );
-      return { key: s, rows, total: all.length, matchCount: rows.length, subtotals };
+      const hiddenZeroIds = showZeros
+        ? []
+        : all.filter((r) => isZeroRow(r) && !alwaysVisibleRowIds?.has(r.id) && !revealedZeroRowIds.has(r.id)).map((r) => r.id);
+      return { key: s, rows, total: all.length, matchCount: rows.length, subtotals, hiddenZeroIds };
     }).filter((s) => (normSearch ? s.matchCount > 0 : s.total > 0));
-  }, [data.rows, data.columns, showZeros, alwaysVisibleRowIds, normSearch, amountSort]);
+  }, [data.rows, data.columns, showZeros, alwaysVisibleRowIds, revealedZeroRowIds, normSearch, amountSort]);
 
   const { numbered, footerStart } = useMemo(() => {
     let n = 1;
@@ -839,7 +849,34 @@ export function PlanillaGrid({
                         {section.rows.length === section.total ? (
                           <span className="shrink-0 text-ds-text-4 max-md:hidden">({section.total})</span>
                         ) : (
-                          <span className="shrink-0 text-ds-text-4">
+                          <span
+                            role="button"
+                            tabIndex={0}
+                            aria-label={`Mostrar ${section.hiddenZeroIds.length} filas en cero de ${SECTION_LABELS[section.key]}`}
+                            title="Mostrar filas en cero de esta sección"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (section.hiddenZeroIds.length === 0) return;
+                              setRevealedZeroRowIds((prev) => {
+                                const next = new Set(prev);
+                                for (const id of section.hiddenZeroIds) next.add(id);
+                                return next;
+                              });
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" || e.key === " ") {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                if (section.hiddenZeroIds.length === 0) return;
+                                setRevealedZeroRowIds((prev) => {
+                                  const next = new Set(prev);
+                                  for (const id of section.hiddenZeroIds) next.add(id);
+                                  return next;
+                                });
+                              }
+                            }}
+                            className="shrink-0 text-ds-text-4 hover:text-ds-text-2 hover:underline cursor-pointer"
+                          >
                             <span className="md:hidden">{section.rows.length}/{section.total}</span>
                             <span className="max-md:hidden">({section.rows.length}/{section.total})</span>
                           </span>
