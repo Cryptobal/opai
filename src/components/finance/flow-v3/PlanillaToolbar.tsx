@@ -446,7 +446,7 @@ export function PlanillaToolbar(p: Props) {
 
           <div className="space-y-4">
             <section>
-              <p className="mb-2 text-[12px] font-medium uppercase tracking-wide text-ds-text-3">Edición</p>
+              <p className="mb-2 text-ds-caption font-medium uppercase tracking-wide text-ds-text-3">Edición</p>
               <div className="grid grid-cols-3 gap-2">
                 <SheetAction label="Deshacer" onClick={closeMore(p.onUndo)} icon={<Undo2 className="h-4 w-4" />} />
                 <SheetAction label="Rehacer" onClick={closeMore(p.onRedo)} icon={<Redo2 className="h-4 w-4" />} />
@@ -469,7 +469,7 @@ export function PlanillaToolbar(p: Props) {
             </section>
 
             <section>
-              <p className="mb-2 text-[12px] font-medium uppercase tracking-wide text-ds-text-3">Vista</p>
+              <p className="mb-2 text-ds-caption font-medium uppercase tracking-wide text-ds-text-3">Vista</p>
               <div className="grid grid-cols-2 gap-2">
                 <SheetAction
                   label={p.showZeros ? "Ocultar ceros" : "Mostrar ceros"}
@@ -497,7 +497,7 @@ export function PlanillaToolbar(p: Props) {
             </section>
 
             <section>
-              <p className="mb-2 text-[12px] font-medium uppercase tracking-wide text-ds-text-3">Formato número</p>
+              <p className="mb-2 text-ds-caption font-medium uppercase tracking-wide text-ds-text-3">Formato número</p>
               <div className="flex gap-2">
                 {([["clp", "$ CLP"], ["m", "M$"], ["mm", "MM$"]] as const).map(([k, l]) => (
                   <SheetAction
@@ -511,7 +511,7 @@ export function PlanillaToolbar(p: Props) {
             </section>
 
             <section>
-              <p className="mb-2 text-[12px] font-medium uppercase tracking-wide text-ds-text-3">Datos</p>
+              <p className="mb-2 text-ds-caption font-medium uppercase tracking-wide text-ds-text-3">Datos</p>
               <div className="grid grid-cols-2 gap-2">
                 {p.canManage && (
                   <SheetAction
@@ -544,7 +544,7 @@ function SheetAction({
     <button
       type="button"
       onClick={onClick}
-      className={`flex min-h-11 items-center justify-center gap-1.5 rounded-xl border px-3 py-2 text-[13px] transition-colors ${
+        className={`flex min-h-11 items-center justify-center gap-1.5 rounded-xl border px-3 py-2 text-ds-body transition-colors ${
         active
           ? "border-primary bg-primary text-primary-foreground"
           : "border-ds-border-default bg-ds-surface-1 text-ds-text-1 hover:bg-ds-surface-2"
