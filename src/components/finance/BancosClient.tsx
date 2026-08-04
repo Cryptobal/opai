@@ -2617,61 +2617,95 @@ function TransactionsTab({
         );
       })()}
 
-      {/* Barra flotante: conciliar el lote y acciones secundarias */}
-      {selectedTxIds.size > 0 && (
-        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex flex-wrap items-center gap-3 rounded-full border border-border bg-card px-4 py-2 shadow-lg max-w-[95vw]">
-          <Button
-            size="sm"
-            className="h-10 sm:h-9 shrink-0"
-            onClick={openBulkReconcilePanel}
-          >
-            Conciliar selección ({selectedTxIds.size})
-          </Button>
-          <span className="hidden sm:inline h-4 w-px bg-border" />
-          <span className="text-[13px] font-mono text-ds-text-3">
-            Σ{" "}
-            <span
-              className={
-                selectedBulkSum >= 0 ? "text-status-ok-fg" : "text-status-danger-fg"
-              }
+      {/* Barra de selección: dock inferior en móvil, chip horizontal en desktop.
+          Se oculta si ya hay un sheet/dialog abierto para no pelear z-index. */}
+      {selectedTxIds.size > 0 &&
+        !bulkReconcileTxs &&
+        !reconcileTx &&
+        !bulkAssignOpen &&
+        !bulkCashflowOpen &&
+        !bulkHideOpen && (
+        <div
+          className={cn(
+            "fixed z-50 border border-ds-border-default bg-ds-surface-1 shadow-lg",
+            // Móvil: dock ancho sobre la bottom nav (no pastilla rounded-full).
+            "left-3 right-3 bottom-[calc(env(safe-area-inset-bottom,0px)+4.75rem)] rounded-2xl p-3",
+            // Desktop: barra compacta centrada.
+            "sm:left-1/2 sm:right-auto sm:bottom-6 sm:w-auto sm:max-w-[min(920px,95vw)] sm:-translate-x-1/2 sm:rounded-full sm:px-4 sm:py-2 sm:p-0",
+          )}
+          role="toolbar"
+          aria-label="Acciones sobre movimientos seleccionados"
+        >
+          <div className="flex flex-col gap-2.5 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3">
+            <Button
+              size="sm"
+              className="h-11 sm:h-9 shrink-0 w-full sm:w-auto"
+              onClick={openBulkReconcilePanel}
             >
-              {fmtCLP.format(selectedBulkSum)}
-            </span>
-          </span>
-          <div className="h-4 w-px bg-border hidden sm:block" />
-          <span className="text-[13px] text-ds-text-3 sm:hidden basis-full pt-1">
-            {selectedTxIds.size} movimiento
-            {selectedTxIds.size === 1 ? "" : "s"}
-          </span>
-          <div className="h-4 w-px bg-border" />
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => setBulkAssignOpen(true)}
-            title="Asignar todos los seleccionados a una cuenta contable sin conciliar contra DTE"
-          >
-            Asignar cuenta…
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => setBulkCashflowOpen(true)}
-            title="Asignar los seleccionados a una categoría de flujo de caja (el real consume el proyectado)"
-          >
-            Asignar a flujo…
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => setBulkHideOpen(true)}
-            title="Ocultar todos los movimientos seleccionados"
-            className="text-status-danger-fg hover:bg-status-danger-soft"
-          >
-            Ocultar seleccionados
-          </Button>
-          <Button size="sm" variant="ghost" onClick={clearSelection}>
-            Limpiar selección
-          </Button>
+              Conciliar selección ({selectedTxIds.size})
+            </Button>
+
+            <div className="flex items-center justify-between gap-2 px-0.5 sm:contents">
+              <p className="text-[13px] text-ds-text-3 sm:hidden">
+                {selectedTxIds.size} movimiento
+                {selectedTxIds.size === 1 ? "" : "s"}
+              </p>
+              <p className="text-[13px] font-mono text-ds-text-3">
+                Σ{" "}
+                <span
+                  className={
+                    selectedBulkSum >= 0
+                      ? "text-status-ok-fg"
+                      : "text-status-danger-fg"
+                  }
+                >
+                  {fmtCLP.format(selectedBulkSum)}
+                </span>
+              </p>
+            </div>
+
+            <div className="hidden sm:block h-4 w-px bg-ds-border-default" />
+
+            <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center sm:gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-11 sm:h-9"
+                onClick={() => setBulkAssignOpen(true)}
+                title="Asignar todos los seleccionados a una cuenta contable sin conciliar contra DTE"
+              >
+                Asignar cuenta…
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-11 sm:h-9"
+                onClick={() => setBulkCashflowOpen(true)}
+                title="Asignar los seleccionados a una categoría de flujo de caja (el real consume el proyectado)"
+              >
+                Asignar a flujo…
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setBulkHideOpen(true)}
+                title="Ocultar todos los movimientos seleccionados"
+                className="h-11 sm:h-9 text-status-danger-fg hover:bg-status-danger-soft"
+              >
+                <span className="sm:hidden">Ocultar</span>
+                <span className="hidden sm:inline">Ocultar seleccionados</span>
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-11 sm:h-9"
+                onClick={clearSelection}
+              >
+                <span className="sm:hidden">Limpiar</span>
+                <span className="hidden sm:inline">Limpiar selección</span>
+              </Button>
+            </div>
+          </div>
         </div>
       )}
 
