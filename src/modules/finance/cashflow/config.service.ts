@@ -72,6 +72,7 @@ export async function updateCashflowConfig(
     /** YYYY-MM-DD o null para quitar el corte. Validado ≤ hoy. */
     flowCutoffYmd: string | null;
     projectReceivedDtesAsExpense: boolean;
+    bandejaIncomeBankOnly: boolean;
     finiquitosAvgMonths: number;
     finiquitosManualMonthlyClp: number | null;
     f29CreditAvgMonths: number;

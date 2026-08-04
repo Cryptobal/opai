@@ -58,13 +58,19 @@ function groupStatus(g: GroupRow): { label: string; variant: "ok" | "warn" | "ne
   return { label: "sin cuenta en CRM", variant: "warn" };
 }
 
-/** Lista DTEs de "Otros ingresos" agrupados por cliente (v4.6). */
+/**
+ * Bandeja / panel de ingresos sin clasificar.
+ * - `mode="bandeja"`: solo abonos bancarios (cartola-first).
+ * - `mode="unrouted"`: solo facturas emitidas sin fila.
+ * - `mode="all"`: ambos (deep-link / legacy).
+ */
 export function UnmatchedIncomeList({
   weekStart,
   onCreated,
   focusDteId,
   onViewDte,
   onExcludeGroup,
+  mode = "all",
 }: {
   weekStart: string;
   onCreated: () => void;
@@ -72,6 +78,7 @@ export function UnmatchedIncomeList({
   onViewDte?: (dteId: string) => void;
   /** Excluye todas las facturas del grupo (opcional, desde planilla). */
   onExcludeGroup?: (dteIds: string[]) => Promise<void>;
+  mode?: "bandeja" | "unrouted" | "all";
 }) {
   const [groups, setGroups] = useState<GroupRow[]>([]);
   const [bankTxs, setBankTxs] = useState<BankTxRow[]>([]);
@@ -297,14 +304,20 @@ export function UnmatchedIncomeList({
     }
   };
 
+  const showBank = mode === "bandeja" || mode === "all";
+  const showUnrouted = mode === "unrouted" || mode === "all";
+  const visibleGroups = showUnrouted ? groups : [];
+  const visibleBank = showBank ? bankTxs : [];
+
   if (loading) {
     return (
       <div className="flex items-center gap-2 px-5 py-3 text-[12px] text-ds-text-4">
-        <Spinner size="sm" /> Cargando facturas…
+        <Spinner size="sm" />{" "}
+        {mode === "bandeja" ? "Cargando abonos…" : "Cargando facturas…"}
       </div>
     );
   }
-  if (groups.length === 0 && bankTxs.length === 0 && !error) return null;
+  if (visibleGroups.length === 0 && visibleBank.length === 0 && !error) return null;
 
   const clientLabel = (g: GroupRow) => g.receiverName ?? g.receiverRut ?? "Cliente";
 
@@ -364,16 +377,16 @@ export function UnmatchedIncomeList({
 
   return (
     <div className="border-t border-ds-border-subtle px-5 py-3">
-      {bankTxs.length > 0 && (
+      {visibleBank.length > 0 && (
         <div className="mb-4 space-y-2">
           <p className="text-[12px] font-medium uppercase tracking-wide text-ds-text-3">
-            Abonos bancarios sin clasificar ({bankTxs.length})
+            Abonos bancarios sin clasificar ({visibleBank.length})
           </p>
           {classifyHint && (
             <p className="text-[12px] text-status-info-fg">{classifyHint}</p>
           )}
           <ul className="space-y-2">
-            {bankTxs.map((tx) => (
+            {visibleBank.map((tx) => (
               <li
                 key={tx.bankTransactionId}
                 className="flex flex-col gap-2 rounded-lg border border-ds-border-subtle bg-ds-surface-2 p-3 sm:flex-row sm:items-center sm:justify-between"
@@ -401,12 +414,15 @@ export function UnmatchedIncomeList({
           </ul>
         </div>
       )}
+      {showUnrouted && visibleGroups.length > 0 && (
       <p className="mb-2 text-[12px] font-medium uppercase tracking-wide text-ds-text-3">
-        Facturas en Otros ingresos
+        Facturas sin fila ({visibleGroups.length})
       </p>
+      )}
       {error && <p className="mb-2 text-[12px] text-status-danger-fg">{error}</p>}
+      {showUnrouted && (
       <ul className="ds-list-cascade space-y-2">
-        {groups.map((g) => {
+        {visibleGroups.map((g) => {
           const st = groupStatus(g);
           const isOpen = expanded.has(g.key);
           const templates = g.templates.length > 0 ? g.templates : g.items[0]?.templates ?? [];
@@ -561,8 +577,9 @@ export function UnmatchedIncomeList({
           );
         })}
       </ul>
+      )}
 
-      {oldPortfolio && oldPortfolio.count > 0 && (
+      {showUnrouted && oldPortfolio && oldPortfolio.count > 0 && (
         <Surface elevation={1} padding="md" className="mt-4 space-y-2">
           <p className="text-[13px] text-ds-text-2">
             🧹 Cartera antigua: {oldPortfolio.count} factura

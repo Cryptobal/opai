@@ -365,6 +365,7 @@ export async function buildFlowMatrix(
     warnThreshold: config?.flowWarnThresholdClp ?? WARN_THRESHOLD_CLP,
     driftAlertThresholdClp: config?.driftAlertThresholdClp ?? 100_000,
     excludedIncome,
+    unroutedIncome: cIncomeLoad.unroutedIncome,
     kpis: assembled.kpis,
   };
   if (q.granularity === "month") {

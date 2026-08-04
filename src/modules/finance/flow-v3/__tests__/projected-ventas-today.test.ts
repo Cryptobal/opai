@@ -30,7 +30,7 @@ describe("arrastre multi-mes — clamp con todayYmd falso (causa raíz)", () => 
   it("con hoy = fin de septiembre, un borrador de mayo cae en semanas de septiembre", () => {
     const septWeeks = HORIZON.filter((w) => w.startsWith("2026-09"));
     const fakeToday = "2026-09-28"; // fin del mes objetivo (bug pre-v5.1)
-    const out = deriveCommittedIncome({
+    const { committed: out } = deriveCommittedIncome({
       rows: ROWS,
       weeks: septWeeks,
       todayYmd: fakeToday,
@@ -57,7 +57,7 @@ describe("arrastre multi-mes — clamp con todayYmd falso (causa raíz)", () => 
 
   it("con hoy real (julio), el mismo borrador NO aparece en semanas de septiembre", () => {
     const septWeeks = HORIZON.filter((w) => w.startsWith("2026-09"));
-    const out = deriveCommittedIncome({
+    const { committed: out } = deriveCommittedIncome({
       rows: ROWS,
       weeks: septWeeks,
       todayYmd: REAL_TODAY,

@@ -8581,6 +8581,9 @@ model FinanceCashflowConfig {
   /// se define en GAV/plan; el real viene de cartola. Las facturas siguen
   /// contando para crédito IVA F29. Tenants existentes conservan su valor.
   projectReceivedDtesAsExpense   Boolean                @default(false) @map("project_received_dtes_as_expense")
+  /// La fila "Otros ingresos" contiene solo abonos bancarios sin identificar.
+  /// Las facturas emitidas sin fila se listan aparte (panel unrouted).
+  bandejaIncomeBankOnly          Boolean                @default(true) @map("bandeja_income_bank_only")
   /// Meses de historia para el promedio móvil de finiquitos reales.
   finiquitosAvgMonths            Int                    @default(6) @map("finiquitos_avg_months")
   /// Override manual mensual de finiquitos (CLP). Si está seteado, pisa el
