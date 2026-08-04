@@ -24,6 +24,7 @@ import {
   parseYmdToDbDate,
   todayChileStr,
 } from "@/lib/fx-date";
+import { applyTemplateLinkInheritance } from "./inherit-template-link";
 
 const DRAFT_REQUIRED_REFERENCE = [56, 61] as const;
 
@@ -92,10 +93,21 @@ export async function createDraftDte(
     }
   }
 
-  const emissionDate =
+  const emissionYmd =
     input.issueDate?.trim() != null && input.issueDate.trim() !== ""
-      ? parseYmdToDbDate(input.issueDate.trim())
-      : parseYmdToDbDate(todayChileStr());
+      ? input.issueDate.trim()
+      : todayChileStr();
+  const emissionDate = parseYmdToDbDate(emissionYmd);
+
+  // Herencia de vínculo cuando la cuenta tiene una sola programación activa
+  // y el caller no declaró recurringTemplateId (null explícito = extra).
+  const templateLink = await applyTemplateLinkInheritance(tenantId, {
+    dteType: input.dteType,
+    crmAccountId: input.crmAccountId,
+    issueDateYmd: emissionYmd,
+    recurringTemplateId: input.recurringTemplateId,
+    billingPeriod: input.billingPeriod,
+  });
 
   const draft = await prisma.financeDte.create({
     data: {
@@ -150,8 +162,8 @@ export async function createDraftDte(
       estadoPagoRecipientContactIds: input.estadoPagoRecipientContactIds ?? [],
       estadoPagoPeriodoMode: input.estadoPagoPeriodoMode ?? "PREVIOUS",
       // Vínculo programación + período (capa para dedupe period-aware del flujo).
-      recurringTemplateId: input.recurringTemplateId ?? null,
-      billingPeriod: input.billingPeriod ?? null,
+      recurringTemplateId: templateLink.recurringTemplateId,
+      billingPeriod: templateLink.billingPeriod,
       lines: {
         create: calc.lines.map((l, i) => ({
           lineNumber: i + 1,
@@ -466,6 +478,9 @@ export async function issueDraftDte(
     autoSendEmail: resolvedAutoSendEmail,
     sendXmlToBackoffice: overrides?.sendXmlToBackoffice,
     backofficeEmailsOverride: overrides?.backofficeEmailsOverride,
+    // Conservar vínculo del borrador (null explícito = no heredar de nuevo).
+    recurringTemplateId: draft.recurringTemplateId,
+    billingPeriod: draft.billingPeriod,
     lines: draft.lines.map((l) => ({
       itemCode: l.itemCode ?? undefined,
       itemName: l.itemName,

@@ -178,3 +178,48 @@ export function computeRecurringIssueYmd(
   }
   return toIssueYmd(y, m, template.dayOfMonth ?? 1);
 }
+
+/** YYYY-MM del mes de servicio (ancla de la cuota). */
+export function billingPeriodFromAnchor(anchor: Date): string {
+  return `${anchor.getUTCFullYear()}-${String(anchor.getUTCMonth() + 1).padStart(2, "0")}`;
+}
+
+export type BillingPeriodTemplate = ComputeInput &
+  Pick<
+    FinanceDteRecurringTemplate,
+    "facturaTiming" | "facturaDay" | "facturaMesRelativo"
+  >;
+
+/**
+ * Período de cuota (YYYY-MM) correspondiente a la fecha de un DTE según el
+ * calendario del template. Busca la ocurrencia cuya fecha de emisión calza
+ * (o la más cercana) con `dteDateYmd`. Misma fuente que la proyección del flujo.
+ */
+export function resolveBillingPeriodForDate(
+  template: BillingPeriodTemplate,
+  dteDateYmd: string,
+): string {
+  // Recorrido sin lastRunAt para no saltar la primera cuota.
+  const walkTpl: ComputeInput = { ...template, lastRunAt: null };
+  let anchor = computeNextRunAt(walkTpl);
+  let bestPeriod = dteDateYmd.slice(0, 7);
+  let bestDist = Number.POSITIVE_INFINITY;
+  let guard = 0;
+  const targetMs = Date.parse(`${dteDateYmd}T00:00:00.000Z`);
+
+  while (anchor && guard < 130) {
+    guard += 1;
+    const issueYmd = computeRecurringIssueYmd(template, anchor);
+    const period = billingPeriodFromAnchor(anchor);
+    if (issueYmd === dteDateYmd) return period;
+    const dist = Math.abs(Date.parse(`${issueYmd}T00:00:00.000Z`) - targetMs);
+    if (dist < bestDist) {
+      bestDist = dist;
+      bestPeriod = period;
+    }
+    // Si ya pasamos lejos del target hacia el futuro, cortar.
+    if (issueYmd > dteDateYmd && dist > 62 * 86_400_000) break;
+    anchor = computeNextRunAt(walkTpl, anchor);
+  }
+  return bestPeriod;
+}

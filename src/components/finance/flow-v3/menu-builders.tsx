@@ -174,6 +174,8 @@ export interface CellMenuCallbacks {
   onMoveDte: (dteId: string, targetWeek: string) => void;
   onViewDetail: () => void;
   onViewDte: (dteId: string) => void;
+  /** Vincular F° de "Otros ingresos" a una programación de su cuenta. */
+  onLinkTemplate?: (dteId: string) => void;
 }
 
 export interface CellMenuContext {
@@ -293,6 +295,30 @@ export function buildCellMenu(
   const dteId = dteItems[0]?.dteId;
   if (dteId) {
     items.push({ key: "dte", label: "Ver factura", onSelect: () => cb.onViewDte(dteId) });
+  }
+
+  const isOtrosIngresos =
+    row.isVirtual || row.name === "Otros ingresos" || row.name === "Otros clientes";
+  if (isOtrosIngresos && dteItems.length > 0 && ctx.canManage && cb.onLinkTemplate) {
+    if (dteItems.length === 1) {
+      items.push({
+        key: "link-tpl",
+        label: "Vincular a programación…",
+        separatorBefore: true,
+        onSelect: () => cb.onLinkTemplate!(dteItems[0].dteId),
+      });
+    } else {
+      items.push({
+        key: "link-tpl",
+        label: "Vincular a programación…",
+        separatorBefore: true,
+        submenu: dteItems.map((d) => ({
+          key: `link-${d.dteId}`,
+          label: d.folio != null ? `F°${d.folio}` : d.label || "Factura",
+          onSelect: () => cb.onLinkTemplate!(d.dteId),
+        })),
+      });
+    }
   }
 
   return items;

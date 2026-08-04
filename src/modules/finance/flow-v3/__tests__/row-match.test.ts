@@ -7,14 +7,17 @@ describe("buildIncomeMatcher — 1 fila por programación", () => {
     {
       id: "r-20", name: "Transmat 20%", crmAccountId: "acc-T", installationId: "i1",
       recurringTemplateId: "tpl-20", categoryId: null,
+      mapping: "ACCOUNT_INSTALLATION", section: "INGRESOS",
     },
     {
       id: "r-80", name: "Transmat 80%", crmAccountId: "acc-T", installationId: "i1",
       recurringTemplateId: "tpl-80", categoryId: null,
+      mapping: "ACCOUNT_INSTALLATION", section: "INGRESOS",
     },
     {
       id: "r-gen", name: "Cliente Gen", crmAccountId: "acc-G", installationId: null,
       recurringTemplateId: null, categoryId: null,
+      mapping: "ACCOUNT_INSTALLATION", section: "INGRESOS",
     },
   ];
   const match = buildIncomeMatcher(rows);
@@ -24,8 +27,7 @@ describe("buildIncomeMatcher — 1 fila por programación", () => {
     expect(match("acc-T", "i1", "tpl-80")).toBe("r-80");
   });
 
-  it("filas de template no saturan el match genérico de cuenta", () => {
-    // Sin templateId y sin fila genérica de acc-T → unmatched (no roba r-20/r-80).
+  it("Transmat 20/80: DTE sin vínculo y misma instalación → UNMATCHED (ambiguo)", () => {
     expect(match("acc-T", "i1", null)).toBe(UNMATCHED_INCOME_KEY);
     expect(match("acc-T", null, null)).toBe(UNMATCHED_INCOME_KEY);
   });
@@ -38,5 +40,82 @@ describe("buildIncomeMatcher — 1 fila por programación", () => {
   it("cuenta desconocida → Otros ingresos", () => {
     expect(match("acc-Z", null, null)).toBe(UNMATCHED_INCOME_KEY);
     expect(match(null, null, null)).toBe(UNMATCHED_INCOME_KEY);
+  });
+});
+
+describe("buildIncomeMatcher — fallback cuenta v4.2", () => {
+  it("cuenta con una sola fila de template captura DTE sin vínculo", () => {
+    const rows: FlowRowRef[] = [
+      {
+        id: "r-asap", name: "ASAP", crmAccountId: "acc-A", installationId: "i1",
+        recurringTemplateId: "tpl-a", categoryId: null,
+        mapping: "ACCOUNT_INSTALLATION", section: "INGRESOS",
+      },
+    ];
+    const match = buildIncomeMatcher(rows);
+    expect(match("acc-A", "i1", null)).toBe("r-asap");
+    expect(match("acc-A", null, null)).toBe("r-asap");
+    expect(match("acc-A", "otra", null)).toBe("r-asap");
+  });
+
+  it("multi-programación: instalación que matchea una fila de template → esa", () => {
+    const rows: FlowRowRef[] = [
+      {
+        id: "r-pine-pemuco", name: "Pine - Pemuco", crmAccountId: "acc-P",
+        installationId: "inst-pemuco", recurringTemplateId: "tpl-pemuco", categoryId: null,
+        mapping: "ACCOUNT_INSTALLATION", section: "INGRESOS",
+      },
+      {
+        id: "r-pine-llay", name: "Pine - Llay Llay", crmAccountId: "acc-P",
+        installationId: "inst-llay", recurringTemplateId: "tpl-llay", categoryId: null,
+        mapping: "ACCOUNT_INSTALLATION", section: "INGRESOS",
+      },
+    ];
+    const match = buildIncomeMatcher(rows);
+    expect(match("acc-P", "inst-llay", null)).toBe("r-pine-llay");
+    expect(match("acc-P", "inst-pemuco", null)).toBe("r-pine-pemuco");
+    expect(match("acc-P", null, null)).toBe(UNMATCHED_INCOME_KEY);
+    expect(match("acc-P", "inst-otra", null)).toBe(UNMATCHED_INCOME_KEY);
+  });
+
+  it("cuenta sin filas → UNMATCHED", () => {
+    const match = buildIncomeMatcher([]);
+    expect(match("acc-X", null, null)).toBe(UNMATCHED_INCOME_KEY);
+  });
+
+  it("fallback no roba DTEs con templateId válido", () => {
+    const rows: FlowRowRef[] = [
+      {
+        id: "r-a", name: "A", crmAccountId: "acc-A", installationId: "i1",
+        recurringTemplateId: "tpl-a", categoryId: null,
+        mapping: "ACCOUNT_INSTALLATION", section: "INGRESOS",
+      },
+      {
+        id: "r-b", name: "B", crmAccountId: "acc-B", installationId: "i2",
+        recurringTemplateId: "tpl-b", categoryId: null,
+        mapping: "ACCOUNT_INSTALLATION", section: "INGRESOS",
+      },
+    ];
+    const match = buildIncomeMatcher(rows);
+    expect(match("acc-A", "i1", "tpl-a")).toBe("r-a");
+    expect(match("acc-A", "i1", "tpl-b")).toBe("r-b");
+  });
+
+  it("fila MANUAL de ingreso no cuenta para el fallback de cuenta", () => {
+    const rows: FlowRowRef[] = [
+      {
+        id: "r-manual", name: "Devolución préstamo socios", crmAccountId: "acc-A",
+        installationId: null, recurringTemplateId: null, categoryId: null,
+        mapping: "MANUAL", section: "INGRESOS",
+      },
+      {
+        id: "r-tpl", name: "Cliente A", crmAccountId: "acc-A", installationId: "i1",
+        recurringTemplateId: "tpl-a", categoryId: null,
+        mapping: "ACCOUNT_INSTALLATION", section: "INGRESOS",
+      },
+    ];
+    const match = buildIncomeMatcher(rows);
+    // Solo 1 ACCOUNT_INSTALLATION → fallback aplica pese al MANUAL.
+    expect(match("acc-A", null, null)).toBe("r-tpl");
   });
 });

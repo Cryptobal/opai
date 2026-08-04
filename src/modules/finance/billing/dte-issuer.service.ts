@@ -22,6 +22,7 @@ import {
   parseYmdToDbDate,
   todayChileStr,
 } from "@/lib/fx-date";
+import { applyTemplateLinkInheritance } from "./inherit-template-link";
 
 /** Resuelve YYYY-MM-DD de emisión: body explícito o hoy en Chile (no UTC servidor). */
 function resolveIssueDateYmd(input: IssueDteInput): string {
@@ -128,6 +129,14 @@ export type IssueDteInput = {
     fchRef: string;
     razonRef: string;
   }>;
+  /**
+   * Vínculo con programación (dedupe period-aware del flujo).
+   * undefined = heredar si la cuenta tiene una sola programación activa;
+   * null = factura EXTRA (sin cuota).
+   */
+  recurringTemplateId?: string | null;
+  /** Período facturado YYYY-MM. Acompaña a recurringTemplateId. */
+  billingPeriod?: string | null;
 };
 
 /** Solo filas con folio y fecha YYYY-MM-DD válida van al XML SII.
@@ -258,6 +267,16 @@ export async function issueDte(
     );
   }
 
+  // Vínculo programación + período (flujo de caja). Hereda si la cuenta tiene
+  // una sola programación activa y el caller no declaró el campo.
+  const templateLink = await applyTemplateLinkInheritance(tenantId, {
+    dteType: input.dteType,
+    crmAccountId: input.crmAccountId,
+    issueDateYmd: emissionYmd,
+    recurringTemplateId: input.recurringTemplateId,
+    billingPeriod: input.billingPeriod,
+  });
+
   // 5–9. Folio reservation + provider call + DTE persistence inside one
   // transaction so a provider error rolls back the folio increment too.
   const { dte, nextFolio } = await prisma.$transaction(
@@ -378,6 +397,9 @@ export async function issueDte(
           // Centros de costo: cliente CRM e instalación.
           crmAccountId: input.crmAccountId ?? null,
           installationId: input.installationId ?? null,
+          // Vínculo programación + período (dedupe del flujo).
+          recurringTemplateId: templateLink.recurringTemplateId,
+          billingPeriod: templateLink.billingPeriod,
           currency: (input.currency as any) ?? "CLP",
           // Para facturas en UF guardamos también la UF del día y la
           // fecha exacta de conversión. exchangeRate replica ufValueAtIssue

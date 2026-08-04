@@ -59,6 +59,36 @@ import {
 import { formatCLP, formatUFSuffix } from "@/lib/utils";
 import { todayChileStr } from "@/lib/fx-date";
 import { normalizeEmailList } from "@/lib/email-address";
+import {
+  resolveBillingPeriodForDate,
+  type BillingPeriodTemplate,
+} from "@/modules/finance/billing/dte-recurring-schedule";
+
+function toBillingPeriodTpl(t: {
+  frequency: string;
+  dayOfMonth: number | null;
+  dayOfWeek: number | null;
+  monthOfYear: number | null;
+  startDate: string;
+  endDate: string | null;
+  lastRunAt: string | null;
+  facturaTiming: string | null;
+  facturaDay: number | null;
+  facturaMesRelativo: string | null;
+}): BillingPeriodTemplate {
+  return {
+    frequency: t.frequency,
+    dayOfMonth: t.dayOfMonth,
+    dayOfWeek: t.dayOfWeek,
+    monthOfYear: t.monthOfYear,
+    startDate: new Date(t.startDate),
+    endDate: t.endDate ? new Date(t.endDate) : null,
+    lastRunAt: t.lastRunAt ? new Date(t.lastRunAt) : null,
+    facturaTiming: t.facturaTiming ?? "AL_EMITIR",
+    facturaDay: t.facturaDay,
+    facturaMesRelativo: t.facturaMesRelativo ?? "MES_SIGUIENTE",
+  };
+}
 
 /* ── Types ── */
 
@@ -159,6 +189,26 @@ export function DteForm({
   const [billingPeriod, setBillingPeriod] = useState<string>(() =>
     todayChileStr().slice(0, 7),
   );
+  /** Vínculo a programación: null = factura extra (sin cuota). */
+  const [recurringTemplateId, setRecurringTemplateId] = useState<string | null>(null);
+  type AccountTplOpt = {
+    id: string;
+    name: string;
+    isActive: boolean;
+    frequency: string;
+    dayOfMonth: number | null;
+    dayOfWeek: number | null;
+    monthOfYear: number | null;
+    startDate: string;
+    endDate: string | null;
+    lastRunAt: string | null;
+    facturaTiming: string | null;
+    facturaDay: number | null;
+    facturaMesRelativo: string | null;
+  };
+  const [accountTemplates, setAccountTemplates] = useState<AccountTplOpt[]>([]);
+  /** Evita que el fetch de templates pise un vínculo ya cargado del draft. */
+  const skipTemplateAutofillRef = useRef(false);
   /** Resta un mes a un "YYYY-MM" en UTC (sin correrse de año). */
   const prevYm = (ym: string) => {
     const [y, m] = ym.split("-").map(Number);
@@ -460,6 +510,13 @@ export function DteForm({
         if (typeof d.billingPeriod === "string" && d.billingPeriod) {
           setBillingPeriod(d.billingPeriod);
         }
+        if (typeof d.recurringTemplateId === "string" && d.recurringTemplateId) {
+          setRecurringTemplateId(d.recurringTemplateId);
+          skipTemplateAutofillRef.current = true;
+        } else if (d.recurringTemplateId === null) {
+          setRecurringTemplateId(null);
+          skipTemplateAutofillRef.current = true;
+        }
         // Reconstruir el `customer` (CustomerOption) del CRM cuando el draft
         // tiene crmAccountId. Sin esto el combobox queda vacío y, peor, la
         // BillingPlanSection cree que no hay cliente y deshabilita el plan.
@@ -582,6 +639,48 @@ export function DteForm({
         if (j?.success && Array.isArray(j.data)) setInstallationLookup(j.data);
       })
       .catch(() => {});
+    return () => ctrl.abort();
+  }, [customer?.id]);
+
+  // Programaciones activas de la cuenta: 1 → default vinculable/removible;
+  // varias → selector sin default (salvo vínculo ya cargado del draft).
+  useEffect(() => {
+    if (!customer?.id) {
+      setAccountTemplates([]);
+      if (!skipTemplateAutofillRef.current) setRecurringTemplateId(null);
+      return;
+    }
+    const ctrl = new AbortController();
+    fetch("/api/finance/billing/recurring", { signal: ctrl.signal, cache: "no-store" })
+      .then((r) => r.json())
+      .then((j) => {
+        const all = Array.isArray(j?.data) ? j.data : [];
+        const forAccount = all.filter(
+          (t: { crmAccountId?: string; isActive?: boolean; dteType?: number }) =>
+            t.crmAccountId === customer.id &&
+            t.isActive !== false &&
+            (t.dteType === 33 || t.dteType === 34 || t.dteType == null),
+        ) as AccountTplOpt[];
+        setAccountTemplates(forAccount);
+        if (skipTemplateAutofillRef.current) {
+          skipTemplateAutofillRef.current = false;
+          return;
+        }
+        if (forAccount.length === 1) {
+          const t = forAccount[0];
+          setRecurringTemplateId(t.id);
+          try {
+            setBillingPeriod(resolveBillingPeriodForDate(toBillingPeriodTpl(t), issueDate));
+          } catch {
+            /* conservar período actual */
+          }
+        } else {
+          setRecurringTemplateId(null);
+        }
+      })
+      .catch(() => {
+        setAccountTemplates([]);
+      });
     return () => ctrl.abort();
   }, [customer?.id]);
 
@@ -914,6 +1013,8 @@ export function DteForm({
       estadoPagoPeriodoMode: billingPlan.estadoPagoPeriodoMode,
       // Período (cuota) que ocupa esta factura en el flujo de caja.
       billingPeriod: billingPeriod || null,
+      // Vínculo a programación (null = factura extra).
+      recurringTemplateId,
       notes: notes.trim() || null,
       autoSendEmail: overrides?.autoSendEmail ?? autoSendEmail,
       sendXmlToBackoffice: overrides?.sendXmlToBackoffice,
@@ -1299,6 +1400,45 @@ export function DteForm({
           </div>
 
           <div className="grid gap-4 md:grid-cols-2 mt-4">
+            {accountTemplates.length > 0 && (
+              <div className="space-y-1.5 md:col-span-2">
+                <Label htmlFor="dte-recurring-template">Programación (flujo de caja)</Label>
+                <Select
+                  value={recurringTemplateId ?? "__extra__"}
+                  onValueChange={(v) => {
+                    if (v === "__extra__") {
+                      setRecurringTemplateId(null);
+                      return;
+                    }
+                    setRecurringTemplateId(v);
+                    const t = accountTemplates.find((x) => x.id === v);
+                    if (!t) return;
+                    try {
+                      setBillingPeriod(resolveBillingPeriodForDate(toBillingPeriodTpl(t), issueDate));
+                    } catch {
+                      /* noop */
+                    }
+                  }}
+                >
+                  <SelectTrigger id="dte-recurring-template" className="h-10 sm:h-9 max-w-md">
+                    <SelectValue placeholder="Sin programación (extra)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__extra__">Sin programación (factura extra)</SelectItem>
+                    {accountTemplates.map((t) => (
+                      <SelectItem key={t.id} value={t.id}>
+                        {t.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-ds-text-3">
+                  {accountTemplates.length === 1
+                    ? "Cliente con una programación: se vincula por defecto (podés quitarlo)."
+                    : "Varias programaciones: elegí cuál ocupa esta factura, o dejala como extra."}
+                </p>
+              </div>
+            )}
             <div className="space-y-1.5 md:col-span-2">
               <Label htmlFor="dte-billing-period">Período facturado *</Label>
               <div className="flex items-center gap-2 flex-wrap">
