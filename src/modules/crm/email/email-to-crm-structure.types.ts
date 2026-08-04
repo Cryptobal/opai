@@ -240,6 +240,17 @@ export type CreateCrmStructureResult = {
   taskId?: string;
   quoteId?: string;
   quoteUrl?: string;
+  /** Propuesta multi-instalación (PROP) cuando hay 2+ instalaciones con puestos. */
+  bundleId?: string;
+  bundleCode?: string;
+  bundleUrl?: string;
+  quotes?: Array<{
+    id: string;
+    code: string;
+    url: string;
+    installationName: string;
+    positionsCreated: number;
+  }>;
   milestones?: Array<{
     kind: PlanMilestone["kind"];
     eventId: string;

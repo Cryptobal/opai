@@ -54,7 +54,29 @@ export function CorreoAiResultList({ result }: Props) {
         {result.installations?.map((i) => (
           <ResultLink key={i.id} href={i.url} label={i.name} />
         ))}
-        {result.quoteUrl && <ResultLink href={result.quoteUrl} label="Cotización" badge="CPQ" />}
+        {result.quotes && result.quotes.length > 0 ? (
+          <>
+            {result.bundleUrl && (
+              <ResultLink
+                href={result.bundleUrl}
+                label="Propuesta"
+                badge={result.bundleCode ? `PROP ${result.bundleCode}` : "PROP"}
+              />
+            )}
+            {result.quotes.map((q) => (
+              <ResultLink
+                key={q.id}
+                href={q.url}
+                label={q.installationName}
+                badge="CPQ"
+              />
+            ))}
+          </>
+        ) : (
+          result.quoteUrl && (
+            <ResultLink href={result.quoteUrl} label="Cotización" badge="CPQ" />
+          )
+        )}
         {result.milestones && result.milestones.length > 0 && (
           <li className="rounded-xl border border-ds-border-subtle bg-ds-surface-2 px-3 py-2.5">
             <p className="mb-1.5 text-[12px] font-medium uppercase tracking-wide text-ds-text-3">
