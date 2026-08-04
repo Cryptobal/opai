@@ -10,28 +10,20 @@ import { hasCapability } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 
 /**
- * PATCH masivo de los campos del ciclo de cobro de items source=CONTRACT.
+ * PATCH masivo de monto, vigencia e IPC de items source=CONTRACT.
  *
- * Se invoca desde la vista de setup masivo
- * (`/finanzas/configuracion/contratos-cobro`) con un batch de items
- * editados inline. Solo accesible con capability `cashflow_configure`.
+ * Se invoca desde `/finanzas/configuracion/contratos`. El calendario de
+ * emisión/cobro ya no se edita acá (vive en programaciones).
  *
- * Normalización (FIX 2 de Fase 3): cuando un item tiene
- * `emiteProforma=true`, los campos `diaEmisionFactura` y
- * `mesFacturaRelativo` no aplican (la fecha se deriva de proforma +
- * días). Forzamos `null` / `MISMO_MES` antes de persistir para evitar
- * contaminar la DB con valores residuales.
- *
- * Side effect: borra las `FinanceCashflowOccurrence` PROYECTADAS
- * futuras de cada item afectado, para que la próxima proyección las
- * regenere con el calendario nuevo. Las occurrences pagadas/conciliadas
- * (status != PROJECTED) se conservan.
+ * Side effect: borra las `FinanceCashflowOccurrence` PROYECTADAS futuras
+ * de cada item afectado. Aunque el calendario no cambie, un cambio de
+ * monto/vigencia/IPC deja stale el amountClp y las fechas de las
+ * occurrences del módulo v2; se regeneran en la próxima proyección.
  */
 const itemUpdateSchema = z
   .object({
     id: z.string().uuid(),
     nickname: z.string().max(100).nullable(),
-    // Bloque 6 Fase 2 — campos del contrato:
     amount: z.number().positive(),
     currency: z.enum(["CLP", "UF"]),
     startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
@@ -45,14 +37,6 @@ const itemUpdateSchema = z
       .string()
       .regex(/^\d{4}-\d{2}-\d{2}$/)
       .nullable(),
-    // Calendario de cobro existente:
-    emiteProforma: z.boolean(),
-    diaEmisionProforma: z.number().int().nullable(),
-    diasFacturaDesdeProforma: z.number().int().min(0).max(60).nullable(),
-    diaEmisionFactura: z.number().int().nullable(),
-    mesFacturaRelativo: z.enum(["MISMO_MES", "MES_SIGUIENTE"]),
-    modoCobro: z.enum(["DIRECTO", "FACTORING"]),
-    diasCobroDesdeFactura: z.number().int().min(0).max(180),
   })
   .refine(
     (d) => !d.hasIpcAdjustment || d.ipcAdjustmentMonths != null,
@@ -97,55 +81,36 @@ export async function PATCH(request: NextRequest) {
   }
 
   await prisma.$transaction([
-    ...parsed.data.items.flatMap((item) => {
-      // Normalización: cuando hay proforma, diaEmisionFactura no aplica
-      // y mesFacturaRelativo es irrelevante. Forzamos null/MISMO_MES.
-      const normDiaFactura = item.emiteProforma
-        ? null
-        : item.diaEmisionFactura;
-      const normMesFactura: "MISMO_MES" | "MES_SIGUIENTE" = item.emiteProforma
-        ? "MISMO_MES"
-        : item.mesFacturaRelativo;
-      return [
-        prisma.financeCashflowItem.update({
-          where: { id: item.id },
-          data: {
-            nickname: item.nickname,
-            // Bloque 6 Fase 2 — campos del contrato:
-            amount: item.amount,
-            currency: item.currency,
-            startDate: new Date(item.startDate + "T00:00:00Z"),
-            endDate: item.endDate
-              ? new Date(item.endDate + "T00:00:00Z")
-              : null,
-            hasIpcAdjustment: item.hasIpcAdjustment,
-            ipcAdjustmentMonths: item.hasIpcAdjustment
-              ? item.ipcAdjustmentMonths
-              : null,
-            ipcStartDate: item.ipcStartDate
-              ? new Date(item.ipcStartDate + "T00:00:00Z")
-              : null,
-            // Calendario de cobro existente:
-            emiteProforma: item.emiteProforma,
-            diaEmisionProforma: item.diaEmisionProforma,
-            diasFacturaDesdeProforma: item.diasFacturaDesdeProforma,
-            diaEmisionFactura: normDiaFactura,
-            mesFacturaRelativo: normMesFactura,
-            modoCobro: item.modoCobro,
-            diasCobroDesdeFactura: item.diasCobroDesdeFactura,
-          },
-        }),
-        // Limpiar Occurrences PROYECTADAS futuras al cambiar calendario.
-        prisma.financeCashflowOccurrence.deleteMany({
-          where: {
-            tenantId: ctx.tenantId,
-            itemId: item.id,
-            status: "PROJECTED",
-            scheduledDate: { gte: new Date() },
-          },
-        }),
-      ];
-    }),
+    ...parsed.data.items.flatMap((item) => [
+      prisma.financeCashflowItem.update({
+        where: { id: item.id },
+        data: {
+          nickname: item.nickname,
+          amount: item.amount,
+          currency: item.currency,
+          startDate: new Date(item.startDate + "T00:00:00Z"),
+          endDate: item.endDate
+            ? new Date(item.endDate + "T00:00:00Z")
+            : null,
+          hasIpcAdjustment: item.hasIpcAdjustment,
+          ipcAdjustmentMonths: item.hasIpcAdjustment
+            ? item.ipcAdjustmentMonths
+            : null,
+          ipcStartDate: item.ipcStartDate
+            ? new Date(item.ipcStartDate + "T00:00:00Z")
+            : null,
+        },
+      }),
+      // Monto/vigencia cambian → regenerar occurrences PROJECTED del v2.
+      prisma.financeCashflowOccurrence.deleteMany({
+        where: {
+          tenantId: ctx.tenantId,
+          itemId: item.id,
+          status: "PROJECTED",
+          scheduledDate: { gte: new Date() },
+        },
+      }),
+    ]),
   ]);
 
   return NextResponse.json({

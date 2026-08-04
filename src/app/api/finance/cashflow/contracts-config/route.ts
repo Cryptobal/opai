@@ -9,14 +9,12 @@ import { prisma } from "@/lib/prisma";
 
 /**
  * Listado de items source=CONTRACT del tenant para la vista de
- * configuración masiva en `/finanzas/configuracion/contratos-cobro`.
+ * configuración masiva en `/finanzas/configuracion/contratos`.
  *
  * Solo accesible con capability `cashflow_configure`.
  *
- * Devuelve los campos necesarios para que el `ContractsCobroBatchTable`
- * pueda editar inline el ciclo de proforma/factura y modo de cobro.
- * Enriquece con `accountName` e `installationName` para que cada fila
- * se identifique sin lookups extra del cliente.
+ * Expone monto, moneda, vigencia e IPC. El calendario de emisión/cobro
+ * vive en FinanceDteRecurringTemplate (vista programaciones-cobro).
  */
 export async function GET() {
   const ctx = await requireAuth();
@@ -44,20 +42,11 @@ export async function GET() {
       amount: true,
       currency: true,
       dayOfMonth: true,
-      // Bloque 6 Fase 2 — campos del contrato:
       startDate: true,
       endDate: true,
       hasIpcAdjustment: true,
       ipcAdjustmentMonths: true,
       ipcStartDate: true,
-      // Calendario de cobro existente:
-      emiteProforma: true,
-      diaEmisionProforma: true,
-      diasFacturaDesdeProforma: true,
-      diaEmisionFactura: true,
-      mesFacturaRelativo: true,
-      modoCobro: true,
-      diasCobroDesdeFactura: true,
     },
     orderBy: { name: "asc" },
   });
@@ -72,13 +61,13 @@ export async function GET() {
   const [accounts, installations] = await Promise.all([
     accountIds.length > 0
       ? prisma.crmAccount.findMany({
-          where: { id: { in: accountIds } },
+          where: { id: { in: accountIds }, tenantId: ctx.tenantId },
           select: { id: true, name: true },
         })
       : Promise.resolve([]),
     installationIds.length > 0
       ? prisma.crmInstallation.findMany({
-          where: { id: { in: installationIds } },
+          where: { id: { in: installationIds }, tenantId: ctx.tenantId },
           select: { id: true, name: true },
         })
       : Promise.resolve([]),
@@ -90,7 +79,6 @@ export async function GET() {
   const enriched = items.map((it) => ({
     ...it,
     amount: Number(it.amount),
-    // Serializar fechas a ISO date (YYYY-MM-DD) para inputs HTML type="date".
     startDate: it.startDate.toISOString().slice(0, 10),
     endDate: it.endDate ? it.endDate.toISOString().slice(0, 10) : null,
     ipcStartDate: it.ipcStartDate
