@@ -69,24 +69,23 @@ export function UnmatchedIncomeList({
           const items = (j.data as DteRow[]) ?? [];
           const byKey = new Map<string, GroupRow>();
           for (const it of items) {
-            const key = it.crmAccountId
-              ? `acc:${it.crmAccountId}`
+            const accId = it.crmAccountId ?? null;
+            const key = accId
+              ? `acc:${accId}`
               : it.receiverRut
                 ? `rut:${it.receiverRut}`
                 : `dte:${it.dteId}`;
-            let g = byKey.get(key);
-            if (!g) {
-              g = {
-                key,
-                crmAccountId: it.crmAccountId,
-                receiverName: it.receiverName,
-                receiverRut: it.receiverRut,
-                subtotalClp: 0,
-                items: [],
-                templates: [],
-              };
-              byKey.set(key, g);
-            }
+            const existing = byKey.get(key);
+            const g: GroupRow = existing ?? {
+              key,
+              crmAccountId: accId,
+              receiverName: it.receiverName,
+              receiverRut: it.receiverRut,
+              subtotalClp: 0,
+              items: [],
+              templates: [],
+            };
+            if (!existing) byKey.set(key, g);
             g.items.push(it);
             g.subtotalClp += it.amountClp;
             if (g.templates.length === 0 && (it.templates?.length ?? 0) > 0) {
