@@ -25,6 +25,18 @@ export interface QuoteSummary {
   dealId: string | null;
   dealTitle: string | null;
   proposalLink: string | null;
+  /** Id del bundle/propuesta multi-instalación (null si es cotización standalone). */
+  proposalId?: string | null;
+}
+
+/** Propuesta multi-instalación agrupada (bundle) que devuelve el endpoint del portal. */
+export interface ProposalGroup {
+  id: string;
+  code: string;
+  name: string | null;
+  currency: string;
+  totalMonthly: number;
+  installations: QuoteSummary[];
 }
 
 export interface Position {
@@ -217,6 +229,27 @@ export function isActionable(quote: QuoteSummary): boolean {
 /** Propuesta “abierta” para el cliente: todo lo que no está cerrado por aprobación o rechazo (incl. borrador). */
 export function isOpenPortalQuote(quote: QuoteSummary): boolean {
   return quote.status !== "approved" && quote.status !== "rejected";
+}
+
+/**
+ * Separa una lista de cotizaciones (ya filtrada) en propuestas multi-instalación
+ * y cotizaciones standalone. Las propuestas se recortan a las instalaciones que
+ * quedaron tras el filtro, preservando el orden que envió el endpoint.
+ */
+export function splitByProposal(
+  quotes: QuoteSummary[],
+  proposals: ProposalGroup[],
+): { proposalGroups: ProposalGroup[]; standalone: QuoteSummary[] } {
+  const visibleIds = new Set(quotes.map((q) => q.id));
+  const proposalGroups: ProposalGroup[] = [];
+  for (const p of proposals) {
+    const installations = p.installations.filter((q) => visibleIds.has(q.id));
+    if (installations.length > 0) {
+      proposalGroups.push({ ...p, installations });
+    }
+  }
+  const standalone = quotes.filter((q) => !q.proposalId);
+  return { proposalGroups, standalone };
 }
 
 export function groupByDeal(quotes: QuoteSummary[]): DealGroup[] {

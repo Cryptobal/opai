@@ -1,13 +1,13 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { FileText, Loader2, XCircle, MessageSquare } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { FileText, Loader2, XCircle, MessageSquare, Layers } from "lucide-react";
+import { cn, formatCurrency } from "@/lib/utils";
 import { ClienteSession } from "@/lib/portal-cliente-types";
 import { PortalContractForm } from "./PortalContractForm";
 import {
-  QuoteSummary, QuoteDetail, DealGroup,
-  getDisplayStatus, isActionable, groupByDeal,
+  QuoteSummary, QuoteDetail, DealGroup, ProposalGroup,
+  getDisplayStatus, isActionable, groupByDeal, splitByProposal,
 } from "./cotizaciones/types";
 import { CotizacionCard } from "./cotizaciones/CotizacionCard";
 import { CotizacionApproveDialog } from "./cotizaciones/CotizacionApproveDialog";
@@ -49,6 +49,7 @@ interface Props {
 
 export function PortalCotizaciones({ session, isProspect, onNavigate }: Props) {
   const [quotes, setQuotes] = useState<QuoteSummary[]>([]);
+  const [proposals, setProposals] = useState<ProposalGroup[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<FilterTab>("todas");
@@ -77,8 +78,10 @@ export function PortalCotizaciones({ session, isProspect, onNavigate }: Props) {
         return r.json();
       })
       .then((json) => {
-        if (json.success) setQuotes(json.data);
-        else setError(json.error ?? "Error al cargar cotizaciones");
+        if (json.success) {
+          setQuotes(json.data);
+          setProposals(Array.isArray(json.proposals) ? json.proposals : []);
+        } else setError(json.error ?? "Error al cargar cotizaciones");
       })
       .catch(() => setError("Error de conexión"))
       .finally(() => setLoading(false));
@@ -90,6 +93,13 @@ export function PortalCotizaciones({ session, isProspect, onNavigate }: Props) {
     if (!isProspect) return [];
     return groupByDeal(filtered);
   }, [filtered, isProspect]);
+
+  // Cliente (no prospecto): agrupa las propuestas multi-instalación como unidad
+  // y deja las cotizaciones standalone en lista plana.
+  const { proposalGroups, standalone } = useMemo(
+    () => splitByProposal(filtered, proposals),
+    [filtered, proposals],
+  );
 
   /* ── Load detail ── */
   async function loadDetail(id: string) {
@@ -337,35 +347,97 @@ export function PortalCotizaciones({ session, isProspect, onNavigate }: Props) {
         );
       })}
 
-      {/* ── Client: Flat list view ── */}
-      {!isProspect && filtered.map((quote) => (
-        <div key={quote.id} className="space-y-0">
-          <CotizacionCard
-            cotizacion={quote}
-            detail={expandedId === quote.id ? detail : null}
-            detailLoading={expandedId === quote.id && detailLoading}
-            variant="full"
-            context="client"
-            isExpanded={expandedId === quote.id}
-            onToggleExpand={() => loadDetail(quote.id)}
-            onApprove={() => setApproveQuoteId(quote.id)}
-            onReject={() => setRejectQuoteId(quote.id)}
-            onConsult={() => onNavigate?.("chat")}
-            onViewContractDraft={() => setContractDraftQuoteId(quote.id)}
-          />
-
-          {/* Contract form: shown inline after client approval */}
-          {(showContractForm === quote.id || (quote.status === "approved" && expandedId === quote.id)) && (
-            <div className="mt-2">
-              <PortalContractForm
-                quoteId={quote.id}
-                accountName={session.accountName}
-                onComplete={() => setShowContractForm(null)}
-              />
+      {/* ── Client: proposal-grouped + standalone flat view ── */}
+      {!isProspect && (
+        <>
+          {/* Propuestas multi-instalación: se presentan como una unidad. El
+              detalle de cada instalación sigue disponible al expandir su card. */}
+          {proposalGroups.map((group) => (
+            <div
+              key={group.id}
+              className="rounded-xl border border-status-info-border bg-card opai-glass-soft-m overflow-hidden"
+            >
+              <div className="px-4 py-3 border-b border-border flex items-start gap-2 flex-wrap">
+                <Layers className="w-4 h-4 text-status-info-fg mt-0.5 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-sm font-semibold truncate">
+                    {group.name?.trim() || `Propuesta ${group.code}`}
+                  </h3>
+                  <p className="text-xs text-muted-foreground">
+                    {group.code} · {group.installations.length} instalaci
+                    {group.installations.length !== 1 ? "ones" : "ón"}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <span className="text-sm font-semibold text-primary">
+                    {formatCurrency(group.totalMonthly, group.currency === "UF" ? "UF" : "CLP")}
+                    <span className="text-xs font-normal text-muted-foreground"> /mes</span>
+                  </span>
+                  <p className="text-[12px] text-muted-foreground">Total propuesta</p>
+                </div>
+              </div>
+              <div className="p-3 space-y-3">
+                {group.installations.map((quote) => (
+                  <div key={quote.id} className="space-y-0">
+                    <CotizacionCard
+                      cotizacion={quote}
+                      detail={expandedId === quote.id ? detail : null}
+                      detailLoading={expandedId === quote.id && detailLoading}
+                      variant="full"
+                      context="client"
+                      isExpanded={expandedId === quote.id}
+                      onToggleExpand={() => loadDetail(quote.id)}
+                      onApprove={() => setApproveQuoteId(quote.id)}
+                      onReject={() => setRejectQuoteId(quote.id)}
+                      onConsult={() => onNavigate?.("chat")}
+                      onViewContractDraft={() => setContractDraftQuoteId(quote.id)}
+                    />
+                    {(showContractForm === quote.id || (quote.status === "approved" && expandedId === quote.id)) && (
+                      <div className="mt-2">
+                        <PortalContractForm
+                          quoteId={quote.id}
+                          accountName={session.accountName}
+                          onComplete={() => setShowContractForm(null)}
+                        />
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
-          )}
-        </div>
-      ))}
+          ))}
+
+          {/* Cotizaciones standalone */}
+          {standalone.map((quote) => (
+            <div key={quote.id} className="space-y-0">
+              <CotizacionCard
+                cotizacion={quote}
+                detail={expandedId === quote.id ? detail : null}
+                detailLoading={expandedId === quote.id && detailLoading}
+                variant="full"
+                context="client"
+                isExpanded={expandedId === quote.id}
+                onToggleExpand={() => loadDetail(quote.id)}
+                onApprove={() => setApproveQuoteId(quote.id)}
+                onReject={() => setRejectQuoteId(quote.id)}
+                onConsult={() => onNavigate?.("chat")}
+                onViewContractDraft={() => setContractDraftQuoteId(quote.id)}
+              />
+
+              {/* Contract form: shown inline after client approval */}
+              {(showContractForm === quote.id || (quote.status === "approved" && expandedId === quote.id)) && (
+                <div className="mt-2">
+                  <PortalContractForm
+                    quoteId={quote.id}
+                    accountName={session.accountName}
+                    onComplete={() => setShowContractForm(null)}
+                  />
+                </div>
+              )}
+            </div>
+          ))}
+        </>
+      )}
 
       {/* ── Approve dialog ── */}
       {approveQuote && (
