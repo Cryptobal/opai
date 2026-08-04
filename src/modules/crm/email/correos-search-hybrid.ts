@@ -343,24 +343,32 @@ export async function hybridSearchThreadIds(params: {
 
   // Matches léxicos puros: una fila por hilo, cuerpo truncado en BD.
   // Evita traer textBody/htmlBody completos de todos los mensajes del set.
+  // thread_id es uuid: sin ::uuid Postgres falla con "operator does not exist: uuid = text".
   const missingExcerpt = ranked.filter((id) => !excerptById.has(id));
   if (missingExcerpt.length > 0) {
-    const rows = await prisma.$queryRaw<
-      Array<{ thread_id: string; body: string | null }>
-    >(Prisma.sql`
-      SELECT DISTINCT ON (m.thread_id)
-             m.thread_id,
-             LEFT(COALESCE(m.text_body, m.html_body, ''), 2000) AS body
-      FROM crm.email_messages m
-      WHERE m.tenant_id::text = ${params.tenantId}
-        AND m.thread_id IN (${Prisma.join(missingExcerpt)})
-        AND m.is_draft = false
-      ORDER BY m.thread_id, m.sent_at DESC
-    `);
-    for (const row of rows) {
-      if (!row.body) continue;
-      const snippet = snippetFromBody(row.body.replace(/<[^>]+>/g, " "));
-      if (snippet) excerptById.set(row.thread_id, snippet.slice(0, 240));
+    try {
+      const rows = await prisma.$queryRaw<
+        Array<{ thread_id: string; body: string | null }>
+      >(Prisma.sql`
+        SELECT DISTINCT ON (m.thread_id)
+               m.thread_id,
+               LEFT(COALESCE(m.text_body, m.html_body, ''), 2000) AS body
+        FROM crm.email_messages m
+        WHERE m.tenant_id::text = ${params.tenantId}
+          AND m.thread_id IN (${Prisma.join(
+            missingExcerpt.map((id) => Prisma.sql`${id}::uuid`),
+          )})
+          AND m.is_draft = false
+        ORDER BY m.thread_id, m.sent_at DESC
+      `);
+      for (const row of rows) {
+        if (!row.body) continue;
+        const snippet = snippetFromBody(row.body.replace(/<[^>]+>/g, " "));
+        if (snippet) excerptById.set(row.thread_id, snippet.slice(0, 240));
+      }
+    } catch (err) {
+      // No tumbar la búsqueda por fallos de snippet; el listado ya tiene IDs.
+      console.warn("[correo-search] excerpt hydrate falló:", err);
     }
   }
 

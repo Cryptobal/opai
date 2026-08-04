@@ -341,6 +341,71 @@ describe("hybridSearchThreadIds", () => {
     expect(result.excerptById.get("lex-only")).toMatch(/cotización/i);
   });
 
+  it("excerpt SQL caste a uuid (evita 500 uuid = text en prod)", async () => {
+    const threadId = "6c61af2e-e5e2-4b34-9393-ee5d3072842e";
+    mocks.queryRaw
+      .mockResolvedValueOnce([
+        {
+          id: threadId,
+          last_message_at: new Date(),
+          subject: "coexpan",
+          is_unread: false,
+          attachment_count: 0,
+          account_id: null,
+        },
+      ])
+      .mockResolvedValueOnce([{ thread_id: threadId, body: "Coexpan factura" }]);
+    mocks.semanticSearchChunks.mockResolvedValue([]);
+    const parsed = parseCorreoSearchQuery("coexpan")!;
+    await hybridSearchThreadIds({
+      tenantId: "ten",
+      emailAccountIds: ["00000000-0000-0000-0000-000000000001"],
+      parsed,
+      folder: "all",
+      limit: 10,
+      exactOnly: false,
+    });
+    expect(mocks.queryRaw).toHaveBeenCalledTimes(2);
+    const excerptSql = mocks.queryRaw.mock.calls[1][0] as {
+      sql: string;
+      values: unknown[];
+    };
+    expect(excerptSql.sql).toContain("m.thread_id IN");
+    // Prisma embebe el cast junto al placeholder: "... IN ($2::uuid)"
+    expect(excerptSql.sql).toMatch(/::uuid/);
+    expect(excerptSql.values).toContain(threadId);
+  });
+
+  it("excerpt que falla no tumba la búsqueda (sin 500)", async () => {
+    mocks.queryRaw
+      .mockResolvedValueOnce([
+        {
+          id: "lex1",
+          last_message_at: new Date(),
+          subject: "coexpan",
+          is_unread: false,
+          attachment_count: 0,
+          account_id: null,
+        },
+      ])
+      .mockRejectedValueOnce(
+        Object.assign(new Error("operator does not exist: uuid = text"), {
+          code: "P2010",
+        }),
+      );
+    mocks.semanticSearchChunks.mockResolvedValue([]);
+    const parsed = parseCorreoSearchQuery("coexpan")!;
+    const result = await hybridSearchThreadIds({
+      tenantId: "ten",
+      emailAccountIds: ["00000000-0000-0000-0000-000000000001"],
+      parsed,
+      folder: "all",
+      limit: 10,
+    });
+    expect(result.ids).toEqual(["lex1"]);
+    expect(result.excerptById.has("lex1")).toBe(false);
+  });
+
   it("con matches léxicos anexa solo-semánticos al final sin reordenar", async () => {
     mocks.queryRaw.mockResolvedValue([
       {
