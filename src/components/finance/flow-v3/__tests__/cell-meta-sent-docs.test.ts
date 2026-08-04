@@ -4,11 +4,15 @@ import {
   draftGroupLabel,
   draftTag,
   primaryCellTag,
+  secondaryMarks,
   terminoStatusLine,
 } from "../cell-meta";
 import type { FlowMatrixCellDto } from "@/modules/finance/flow-v3/matrix-types";
 
-function cell(items: FlowMatrixCellDto["committed"]): FlowMatrixCellDto {
+function cell(
+  items: FlowMatrixCellDto["committed"],
+  over: Partial<FlowMatrixCellDto> = {},
+): FlowMatrixCellDto {
   return {
     weekStart: "2026-08-03",
     plan: 0,
@@ -16,6 +20,7 @@ function cell(items: FlowMatrixCellDto["committed"]): FlowMatrixCellDto {
     real: null,
     effective: items?.total ?? 0,
     layer: "committed",
+    ...over,
   };
 }
 
@@ -64,6 +69,81 @@ describe("sentDocs — etiquetas EP vs Proforma", () => {
       }],
     });
     expect(primaryCellTag(pf)?.tag).toBe("Proforma");
+  });
+
+  it("secondaryMarks: EP y Proforma abajo a la derecha (ámbar arriba intacto)", () => {
+    expect(
+      secondaryMarks(cell({
+        total: 100,
+        items: [{
+          kind: "draft", label: "T", fecha: "2026-08-04", monto: 100,
+          sentDocs: { proforma: false, estadoPago: true },
+        }],
+      })),
+    ).toEqual(["estadoPago"]);
+    expect(
+      secondaryMarks(cell({
+        total: 100,
+        items: [{
+          kind: "draft", label: "P", fecha: "2026-08-04", monto: 100,
+          sentDocs: { proforma: true, estadoPago: false },
+        }],
+      })),
+    ).toEqual(["proforma"]);
+    expect(
+      secondaryMarks(cell({
+        total: 100,
+        items: [{
+          kind: "draft", label: "Both", fecha: "2026-08-04", monto: 100,
+          sentDocs: { proforma: true, estadoPago: true },
+        }],
+      })),
+    ).toEqual(["estadoPago", "proforma"]);
+    expect(
+      secondaryMarks(cell({
+        total: 100,
+        items: [{
+          kind: "draft", label: "B", fecha: "2026-08-04", monto: 100,
+          sentDocs: { proforma: false, estadoPago: false },
+        }],
+      })),
+    ).toEqual([]);
+  });
+
+  it("secondaryMarks: cedida en committed y se conserva en real conciliado", () => {
+    expect(
+      secondaryMarks(cell({
+        total: 200,
+        items: [{
+          kind: "dte", label: "Bienestar", fecha: "2026-08-04", monto: 200,
+          folio: 555, ceded: true,
+        }],
+      })),
+    ).toEqual(["ceded"]);
+
+    expect(
+      secondaryMarks(cell(null, {
+        layer: "real",
+        effective: 200,
+        real: {
+          total: 200,
+          items: [{
+            bankTransactionId: "tx-1", folio: 555, dteId: "dte-1",
+            label: "Bienestar", fecha: "2026-08-04", monto: 200, ceded: true,
+          }],
+        },
+      })),
+    ).toEqual(["ceded"]);
+
+    expect(
+      secondaryMarks(cell({
+        total: 200,
+        items: [{
+          kind: "dte", label: "Directo", fecha: "2026-08-04", monto: 200,
+          folio: 100, ceded: false,
+        }],
+      })),
+    ).toEqual([]);
   });
 
   it("terminoStatusLine solo con término > 0", () => {

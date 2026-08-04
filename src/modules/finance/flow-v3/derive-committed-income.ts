@@ -50,6 +50,8 @@ export interface IssuedDteInput {
   receiverName: string;
   /** Término del contrato origen (template) si la factura viene de uno. */
   templateDiasCobro?: number | null;
+  /** paymentStatus=CEDED — sigue en planilla con marca secundaria. */
+  ceded?: boolean;
 }
 
 export interface ScheduledDraftInput {
@@ -166,6 +168,7 @@ export function deriveCommittedIncome(args: CommittedIncomeArgs): CommittedByRow
       overdueOver60: overdueDays > 60,
       emissionYmd: d.dateYmd,
       dueYmd,
+      ceded: d.ceded === true,
     });
   }
 

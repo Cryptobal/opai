@@ -6,12 +6,20 @@ import { fmtCell, NUM_CLASS, numSizeClass, type NumberFormatMode } from "./forma
 import {
   CELL_BASE, COL_W, COMMITTED_DRAFT_CELL, COMMITTED_DTE_CELL,
   COMMITTED_PROFORMA_CELL, COMMITTED_SCHEDULED_CELL, CORNER_DTE, CORNER_PLAN,
-  CORNER_REAL, CORNER_WARN, NOTE_DOT, displayValue, REAL_CELL, ROW_H, TODAY_COL,
+  CORNER_REAL, CORNER_WARN, NOTE_DOT, SUB_CORNER_CEDED, SUB_CORNER_EP,
+  SUB_CORNER_PROFORMA, displayValue, REAL_CELL, ROW_H, TODAY_COL,
 } from "./grid-classes";
 import {
   committedPriority, cornerKind, dteCountInCell, pastPendingDteMeta,
-  primaryCellTag, toneClass,
+  primaryCellTag, secondaryMarkTitle, secondaryMarks, toneClass,
+  type SecondaryMark,
 } from "./cell-meta";
+
+const SUB_CORNER_CLASS: Record<SecondaryMark, string> = {
+  ceded: SUB_CORNER_CEDED,
+  proforma: SUB_CORNER_PROFORMA,
+  estadoPago: SUB_CORNER_EP,
+};
 import type { CellStyle } from "./usePlanillaViewPrefs";
 import { InlineCellEditor } from "./InlineCellEditor";
 import { useLongPress } from "./useLongPress";
@@ -119,6 +127,8 @@ export function PlanillaCell(p: Props) {
             ? CORNER_PLAN
             : "";
   const noteClass = cell.note?.trim() ? NOTE_DOT : "";
+  const subMarks = secondaryMarks(cell);
+  const subTitle = secondaryMarkTitle(subMarks);
 
   const layerClass = showChips
     ? cell.layer === "real"
@@ -165,6 +175,7 @@ export function PlanillaCell(p: Props) {
 
   const titleParts: string[] = [];
   if (tag?.title) titleParts.push(tag.title);
+  if (subTitle) titleParts.push(subTitle);
   if (pastPend && cell.layer === "real") titleParts.push(pastPend.title);
   if (cell.note?.trim()) titleParts.push(`Nota: ${cell.note.trim()}`);
   if (p.dragBlockedTitle) titleParts.push(p.dragBlockedTitle);
@@ -234,6 +245,16 @@ export function PlanillaCell(p: Props) {
         p.editable && p.onStartEdit();
       }}
     >
+      {subMarks.length > 0 && (
+        <span
+          className="pointer-events-none absolute bottom-0 right-0 z-[1] flex flex-col-reverse items-end"
+          aria-hidden
+        >
+          {subMarks.map((m) => (
+            <span key={m} className={SUB_CORNER_CLASS[m]} />
+          ))}
+        </span>
+      )}
       {isEditing ? (
         <InlineCellEditor
           initial={p.editingInitial!}

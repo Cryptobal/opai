@@ -410,6 +410,26 @@ describe("deriveCommittedIncome — anclaje en emisión (v4.7)", () => {
   });
 });
 
+describe("deriveCommittedIncome — facturas cedidas", () => {
+  it("DTE cedido sigue en la planilla con flag ceded", () => {
+    const out = deriveCommittedIncome({
+      ...base,
+      dtes: [{
+        id: "dte-ced", folio: 555, dateYmd: "2026-07-21", dueDateYmd: "2026-08-20",
+        pendingClp: 2_000_000, crmAccountId: "acc-A", installationId: "inst-1",
+        receiverName: "Bienestar", ceded: true,
+      }],
+    });
+    const cell = out.get("row-a-i1")?.get("2026-07-20");
+    expect(cell?.total).toBe(2_000_000);
+    expect(cell?.items[0]).toMatchObject({
+      kind: "dte",
+      folio: 555,
+      ceded: true,
+    });
+  });
+});
+
 describe("grossPerRunFromLines", () => {
   it("línea CLP afecta suma IVA; exenta no; dteType 34 todo exento", () => {
     const lines = [

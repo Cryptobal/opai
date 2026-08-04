@@ -22,13 +22,31 @@ const CORNER_ITEMS: Array<{ swatch: string; title: string; desc: string }> = [
     swatch:
       "relative bg-ds-surface-1 border border-ds-border-default after:absolute after:right-0 after:top-0 after:h-0 after:w-0 after:border-l-[6px] after:border-t-[6px] after:border-l-transparent after:border-t-status-info after:content-['']",
     title: "Factura emitida",
-    desc: "Marca azul — DTE con folio (ej. F°1234). Folio en el tooltip.",
+    desc: "Marca azul arriba — DTE con folio (ej. F°1234). Folio en el tooltip.",
+  },
+  {
+    swatch:
+      "relative bg-ds-surface-1 border border-ds-border-default after:absolute after:right-0 after:top-0 after:h-0 after:w-0 after:border-l-[6px] after:border-t-[6px] after:border-l-transparent after:border-t-status-info after:content-[''] before:absolute before:right-0 before:bottom-0 before:h-0 before:w-0 before:border-l-[5px] before:border-b-[5px] before:border-l-transparent before:border-b-status-ok before:content-['']",
+    title: "Factura cedida",
+    desc: "Azul arriba + verde abajo — emitida y cedida a factoring. Al conciliar queda verde arriba y se mantiene el verde abajo.",
   },
   {
     swatch:
       "relative bg-ds-surface-1 border border-ds-border-default after:absolute after:right-0 after:top-0 after:h-0 after:w-0 after:border-l-[6px] after:border-t-[6px] after:border-l-transparent after:border-t-status-warn after:content-['']",
-    title: "EP / Proforma / Borrador",
-    desc: "Marca ámbar — EP, Proforma o borrador sin enviar.",
+    title: "Borrador",
+    desc: "Marca ámbar arriba — borrador sin enviar (o con docs de cobro; ver abajo).",
+  },
+  {
+    swatch:
+      "relative bg-ds-surface-1 border border-ds-border-default after:absolute after:right-0 after:top-0 after:h-0 after:w-0 after:border-l-[6px] after:border-t-[6px] after:border-l-transparent after:border-t-status-warn after:content-[''] before:absolute before:right-0 before:bottom-0 before:h-0 before:w-0 before:border-l-[5px] before:border-b-[5px] before:border-l-transparent before:border-b-primary before:content-['']",
+    title: "EP enviado",
+    desc: "Ámbar arriba + teal abajo — borrador con estado de pago enviado.",
+  },
+  {
+    swatch:
+      "relative bg-ds-surface-1 border border-ds-border-default after:absolute after:right-0 after:top-0 after:h-0 after:w-0 after:border-l-[6px] after:border-t-[6px] after:border-l-transparent after:border-t-status-warn after:content-[''] before:absolute before:right-0 before:bottom-0 before:h-0 before:w-0 before:border-l-[5px] before:border-b-[5px] before:border-l-transparent before:border-b-status-info before:content-['']",
+    title: "Proforma enviada",
+    desc: "Ámbar arriba + azul abajo — borrador con proforma enviada. Si tiene EP y proforma, aparecen ambos abajo.",
   },
   {
     swatch: "bg-ds-surface-1 border border-ds-border-default",
@@ -59,7 +77,7 @@ const CHIP_ITEMS: Array<{ swatch: string; title: string; desc: string }> = [
   {
     swatch: "bg-status-info-soft border border-status-info-border",
     title: "Factura emitida",
-    desc: "Chip con el folio (ej. F°1234).",
+    desc: "Chip con el folio (ej. F°1234). Si está cedida, marca verde abajo a la derecha.",
   },
   {
     swatch:
@@ -70,7 +88,7 @@ const CHIP_ITEMS: Array<{ swatch: string; title: string; desc: string }> = [
   {
     swatch: "bg-status-warn-soft border border-status-warn-border",
     title: "EP / Proforma enviados",
-    desc: "Chip «EP» o «Proforma» — documento de cobro enviado.",
+    desc: "Chip «EP» o «Proforma» — documento de cobro enviado (también marca abajo a la derecha).",
   },
   {
     swatch:
@@ -95,8 +113,8 @@ export function LegendPopover({ open, onOpenChange, showChips }: Props) {
         </DialogHeader>
         <p className="text-[12px] text-ds-text-3">
           {showChips
-            ? "Modo chips: fondo tintado + etiqueta de texto."
-            : "Modo marcas: triángulo de esquina por estado (toggle Chips para etiquetas)."}
+            ? "Modo chips: fondo tintado + etiqueta de texto. Marcas abajo a la derecha: cedida / EP / proforma."
+            : "Modo marcas: triángulo arriba a la derecha = estado principal; abajo a la derecha = cedida / EP / proforma."}
         </p>
         <ul className="space-y-2.5">
           {items.map((it) => (

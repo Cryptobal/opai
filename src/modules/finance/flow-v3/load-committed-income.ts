@@ -87,11 +87,13 @@ export async function loadCommittedIncome(
         siiStatus: { in: ["ACCEPTED", "PENDING", "SENT"] },
         voidedByCreditNoteId: null,
         creditedNetAmount: 0,
-        paymentStatus: { in: ["UNPAID", "PARTIAL", "OVERDUE"] },
+        // CEDED: factura cedida a factoring — sigue en la planilla (marca
+        // secundaria) hasta que el depósito del cesionario la concilie.
+        paymentStatus: { in: ["UNPAID", "PARTIAL", "OVERDUE", "CEDED"] },
       },
       select: {
         id: true, folio: true, date: true, dueDate: true,
-        totalAmount: true, amountPaid: true,
+        totalAmount: true, amountPaid: true, paymentStatus: true,
         crmAccountId: true, installationId: true, receiverName: true,
         receiverRut: true, recurringTemplateId: true,
       },
@@ -255,6 +257,7 @@ export async function loadCommittedIncome(
       templateDiasCobro: d.recurringTemplateId
         ? (diasCobroByTemplate.get(d.recurringTemplateId) ?? null)
         : null,
+      ceded: d.paymentStatus === "CEDED",
     }));
 
   const templateInputs: TemplateProjectionInput[] = templates.map((t) => ({
