@@ -260,6 +260,131 @@ export interface CandidateFactoring {
   confidence: number;
   matchSignals: string[];
   isSuggested: boolean;
+  /** Lote de cesión (N operaciones bajo una simulación), si aplica. */
+  batchId: string | null;
+  batchCode: string | null;
+  batchTotalMontoAGirar: number | null;
+  batchOperationsCount: number | null;
+}
+
+/** Lote de cesión ofrecido para asignar completo contra un depósito. */
+export interface CandidateFactoringBatch {
+  id: string;
+  code: string;
+  factoringCompanyName: string;
+  fechaCesion: string;
+  operationsCount: number;
+  totalMontoAGirar: number;
+  totalSource: "batch" | "sum_sim" | "sum_net";
+  matchesDeposit: boolean;
+  operationIds: string[];
+}
+
+/** Tolerancia de calce lote vs depósito: máx($1.000, 0,5 % del total). */
+export const BATCH_DEPOSIT_MATCH_TOLERANCE = (totalAbs: number): number =>
+  Math.max(1000, totalAbs * 0.005);
+
+export type ReconcileSearchScope = "factoring" | "ceded" | "open" | "all";
+
+const FACTORING_OP_SELECT = {
+  id: true,
+  code: true,
+  factoringCompany: true,
+  factoringCompanyId: true,
+  fechaCesion: true,
+  fechaVencimiento: true,
+  invoiceAmount: true,
+  simMontoAGirar: true,
+  netAdvance: true,
+  status: true,
+  batchId: true,
+  batch: {
+    select: {
+      id: true,
+      code: true,
+      totalMontoAGirar: true,
+      operationsCount: true,
+    },
+  },
+  dte: {
+    select: {
+      folio: true,
+      receiverName: true,
+      installationId: true,
+      paymentStatus: true,
+      issuerName: true,
+      issuerRut: true,
+      receiverRut: true,
+    },
+  },
+} as const;
+
+type FactoringOpRow = {
+  id: string;
+  code: string;
+  factoringCompany: string;
+  factoringCompanyId: string | null;
+  fechaCesion: Date | null;
+  fechaVencimiento: Date | null;
+  invoiceAmount: { toNumber(): number } | number;
+  simMontoAGirar: { toNumber(): number } | number | null;
+  netAdvance: { toNumber(): number } | number | null;
+  status: string;
+  batchId: string | null;
+  batch: {
+    id: string;
+    code: string;
+    totalMontoAGirar: { toNumber(): number } | number | null;
+    operationsCount: number;
+  } | null;
+  dte: {
+    folio: number | null;
+    receiverName: string | null;
+    installationId: string | null;
+    paymentStatus?: string;
+    issuerName?: string | null;
+    issuerRut?: string | null;
+    receiverRut?: string | null;
+  } | null;
+};
+
+function decimalToNumber(
+  v: { toNumber(): number } | number | null | undefined,
+): number | null {
+  if (v == null) return null;
+  return typeof v === "number" ? v : v.toNumber();
+}
+
+/** Resuelve el total a girar de un lote con cadena de fallback. */
+export function resolveBatchTotal(params: {
+  batchTotal: number | null;
+  operations: Array<{ simMontoAGirar: number | null; netAdvance: number | null }>;
+}): { total: number | null; source: "batch" | "sum_sim" | "sum_net" } {
+  if (params.batchTotal != null && Number.isFinite(params.batchTotal)) {
+    return { total: Math.round(params.batchTotal), source: "batch" };
+  }
+  const sumSim = params.operations.reduce(
+    (s, op) => s + (op.simMontoAGirar ?? 0),
+    0,
+  );
+  if (sumSim > 0) {
+    return { total: Math.round(sumSim), source: "sum_sim" };
+  }
+  const sumNet = params.operations.reduce(
+    (s, op) => s + (op.netAdvance ?? 0),
+    0,
+  );
+  if (sumNet > 0) {
+    return { total: Math.round(sumNet), source: "sum_net" };
+  }
+  return { total: null, source: "sum_net" };
+}
+
+export function batchMatchesDeposit(
+  batchTotal: number,
+  totalAbs: number,
+): boolean {
+  return Math.abs(batchTotal - totalAbs) <= BATCH_DEPOSIT_MATCH_TOLERANCE(totalAbs);
 }
 
 /**
@@ -500,9 +625,9 @@ export async function findDteCandidates(
   // N:M (factoring, cobros parciales) ahora son alcanzables. La UI ya tiene
   // filtros (search/monto/fecha) para que el usuario refine.
   //
-  // Para factoring incluimos facturas PAID: el usuario puede haber marcado
-  // la factura como pagada al ceder, y quiere matchear el depósito contra
-  // la(s) factura(s) cedida(s) igual.
+  // CEDED nunca se ofrece como candidato DTE: el cobro lo gestiona el
+  // factoring y el vínculo correcto es FACTORING_OPERATION (ver
+  // findFactoringCandidates / resolveCededIntoFactoring).
   const dtes = await prisma.financeDte.findMany({
     where: {
       tenantId,
@@ -513,19 +638,12 @@ export async function findDteCandidates(
       // Las NCs/NDs se vinculan al DTE original vía
       // recomputeDtePaymentAggregate, no por candidato directo.
       dteType: { notIn: [56, 61] },
-      ...(isFactoring
-        ? {}
-        : {
-            // Solo facturas realmente pendientes con saldo > 0.
-            // ELIMINAMOS la rama "PAID + reconciledAt=null" porque generaba
-            // ruido: facturas marcadas PAID manualmente (bulk-mark-paid) NO
-            // deberían ofrecerse como candidatas — el usuario ya las cerró
-            // contablemente; si quiere conciliarlas, debe primero desmarcar.
-            paymentStatus: {
-              in: ["UNPAID", "PARTIAL", "OVERDUE"] as Prisma.EnumFinancePaymentStatusFilter["in"],
-            },
-            amountPending: { gt: 0 },
-          }),
+      paymentStatus: {
+        in: (isFactoring
+          ? ["UNPAID", "PARTIAL", "OVERDUE", "PAID"]
+          : ["UNPAID", "PARTIAL", "OVERDUE"]) as Prisma.EnumFinancePaymentStatusFilter["in"],
+      },
+      ...(isFactoring ? {} : { amountPending: { gt: 0 } }),
       date: { gte: minDate, lte: maxDate },
     },
     orderBy: { date: "desc" },
@@ -552,6 +670,11 @@ export async function findDteCandidates(
     );
     filteredByExistingLink = dtes.filter((d) => !linkedSet.has(d.id));
   }
+
+  // Salvaguarda contable: CEDED no se concilia como DTE_ISSUED.
+  filteredByExistingLink = filteredByExistingLink.filter(
+    (d) => d.paymentStatus !== "CEDED",
+  );
 
   // Sort por afinidad: delta absoluto al monto del banco (tomando el menor
   // entre amountPending y totalAmount). Empuja matches 1:1 al tope sin
@@ -605,7 +728,9 @@ export async function findDteCandidates(
  *   suma < 0 → egreso  → buscamos compras (RECEIVED).
  * - La ventana de fecha se calcula desde min/max de las
  *   `transactionDate` de los movimientos.
- * - No detectamos factoring en modo bulk (factoring es per-tx).
+ * - Detecta factoring desde la glosa del movimiento de mayor monto
+ *   (misma heurística que single) para ampliar ventana y estados.
+ * - CEDED nunca se ofrece como candidato DTE (salvaguarda contable).
  * - Excluye DTEs ya conciliados con CUALQUIERA de los bankTxIds.
  */
 export async function findDteCandidatesForBulk(
@@ -619,7 +744,13 @@ export async function findDteCandidatesForBulk(
 
   const txs = await prisma.financeBankTransaction.findMany({
     where: { id: { in: bankTxIds }, tenantId },
-    select: { id: true, amount: true, transactionDate: true },
+    select: {
+      id: true,
+      amount: true,
+      transactionDate: true,
+      description: true,
+      reference: true,
+    },
   });
   if (txs.length === 0) return [];
 
@@ -630,11 +761,22 @@ export async function findDteCandidatesForBulk(
   const isIncome = totalSigned > 0;
   const direction = isIncome ? "ISSUED" : "RECEIVED";
 
+  // Detección de factoring: glosa del movimiento de mayor monto absoluto.
+  const largest = [...txs].sort(
+    (a, b) => Math.abs(b.amount.toNumber()) - Math.abs(a.amount.toNumber()),
+  )[0]!;
+  const detection = await detectFactoringFromTx(
+    tenantId,
+    largest.description,
+    largest.reference,
+  );
+  const isFactoring = isIncome && detection.isFactoring;
+
   const dates = txs.map((t) => t.transactionDate.getTime());
   const minDate = new Date(Math.min(...dates));
-  minDate.setDate(minDate.getDate() - 90);
+  minDate.setDate(minDate.getDate() - (isFactoring ? 180 : 90));
   const maxDate = new Date(Math.max(...dates));
-  maxDate.setDate(maxDate.getDate() + 30);
+  maxDate.setDate(maxDate.getDate() + (isFactoring ? 7 : 30));
 
   const dtes = await prisma.financeDte.findMany({
     where: {
@@ -643,9 +785,11 @@ export async function findDteCandidatesForBulk(
       // Excluir NCs (61) y NDs (56) — no son documentos cobrables.
       dteType: { notIn: [56, 61] },
       paymentStatus: {
-        in: ["UNPAID", "PARTIAL", "OVERDUE"] as Prisma.EnumFinancePaymentStatusFilter["in"],
+        in: (isFactoring
+          ? ["UNPAID", "PARTIAL", "OVERDUE", "PAID"]
+          : ["UNPAID", "PARTIAL", "OVERDUE"]) as Prisma.EnumFinancePaymentStatusFilter["in"],
       },
-      amountPending: { gt: 0 },
+      ...(isFactoring ? {} : { amountPending: { gt: 0 } }),
       date: { gte: minDate, lte: maxDate },
     },
     orderBy: { date: "desc" },
@@ -653,7 +797,7 @@ export async function findDteCandidatesForBulk(
   });
 
   let filtered = dtes;
-  if (dtes.length > 0) {
+  if (!isFactoring && dtes.length > 0) {
     const dteIds = dtes.map((d) => d.id);
     const linked = await prisma.financeBankTransactionLink.findMany({
       where: {
@@ -668,6 +812,9 @@ export async function findDteCandidatesForBulk(
     );
     filtered = dtes.filter((d) => !linkedSet.has(d.id));
   }
+
+  // Salvaguarda contable: CEDED → cesión, nunca DTE directo.
+  filtered = filtered.filter((d) => d.paymentStatus !== "CEDED");
 
   const sorted = [...filtered].sort((a, b) => {
     const da = Math.min(
@@ -709,8 +856,156 @@ export async function findDteCandidatesForBulk(
 }
 
 /**
- * Cesiones candidatas: query por ventana monto/fecha y/o folio DTE en glosa;
- * puntúa cada fila (confidence 0–100) y ordena descendente.
+ * Query interna de operaciones de factoring. La banda de monto es opcional
+ * (rama prioritaria por empresa detectada la omite).
+ */
+async function queryFactoringOps(params: {
+  tenantId: string;
+  companyId?: string | null;
+  minDate: Date;
+  maxDate: Date;
+  amountBand?: { minAmount: number; maxAmount: number; invoiceMax?: number };
+  folios?: number[];
+  take: number;
+}): Promise<FactoringOpRow[]> {
+  const amountBandOr: Prisma.FinanceFactoringOperationWhereInput[] | null =
+    params.amountBand
+      ? [
+          {
+            simMontoAGirar: {
+              gte: params.amountBand.minAmount,
+              lte: params.amountBand.maxAmount,
+            },
+          },
+          {
+            netAdvance: {
+              gte: params.amountBand.minAmount,
+              lte: params.amountBand.maxAmount,
+            },
+          },
+          ...(params.amountBand.invoiceMax != null
+            ? [
+                {
+                  invoiceAmount: {
+                    gte: params.amountBand.minAmount,
+                    lte: params.amountBand.invoiceMax,
+                  },
+                },
+              ]
+            : []),
+        ]
+      : null;
+
+  const dateAndAmount: Prisma.FinanceFactoringOperationWhereInput = {
+    fechaCesion: { gte: params.minDate, lte: params.maxDate },
+    ...(amountBandOr ? { OR: amountBandOr } : {}),
+  };
+
+  const orBranches: Prisma.FinanceFactoringOperationWhereInput[] = [
+    dateAndAmount,
+  ];
+  if (params.folios && params.folios.length > 0) {
+    orBranches.push({ dte: { folio: { in: params.folios } } });
+  }
+
+  const rows = await prisma.financeFactoringOperation.findMany({
+    where: {
+      tenantId: params.tenantId,
+      status: { notIn: ["CANCELLED"] },
+      ...(params.companyId ? { factoringCompanyId: params.companyId } : {}),
+      OR: orBranches,
+    },
+    select: FACTORING_OP_SELECT,
+    orderBy: { fechaCesion: "desc" },
+    take: params.take,
+  });
+  return rows as unknown as FactoringOpRow[];
+}
+
+async function mapOpsToCandidates(
+  tenantId: string,
+  ops: FactoringOpRow[],
+  scoreCtx: {
+    bankAmount: number;
+    txDate: Date;
+    glossNorm: string;
+    folioSet: Set<number>;
+    detectionCompanyId: string | null;
+  },
+): Promise<CandidateFactoring[]> {
+  const instNames = await fetchInstallationNames(
+    tenantId,
+    ops.map((op) => op.dte?.installationId),
+  );
+
+  return ops.map((op) => {
+    const sim = decimalToNumber(op.simMontoAGirar);
+    const net = decimalToNumber(op.netAdvance) ?? 0;
+    const expectedDeposit = sim ?? net;
+    const invoiceAmount = decimalToNumber(op.invoiceAmount) ?? 0;
+    const fechaCesion = op.fechaCesion ? new Date(op.fechaCesion) : null;
+    const batchTotal = decimalToNumber(op.batch?.totalMontoAGirar ?? null);
+
+    const { confidence, matchSignals } = scoreFactoringOperationCandidate({
+      bankAmount: scoreCtx.bankAmount,
+      txDate: scoreCtx.txDate,
+      glossNorm: scoreCtx.glossNorm,
+      folioSet: scoreCtx.folioSet,
+      detectionCompanyId: scoreCtx.detectionCompanyId,
+      invoiceAmount,
+      expectedDeposit,
+      fechaCesion,
+      factoringCompanyId: op.factoringCompanyId ?? null,
+      dteFolio: op.dte?.folio ?? null,
+    });
+
+    return {
+      id: op.id,
+      code: op.code,
+      factoringCompanyName: op.factoringCompany,
+      factoringCompanyId: op.factoringCompanyId ?? null,
+      fechaCesion: op.fechaCesion ? op.fechaCesion.toISOString() : "",
+      fechaVencimiento: op.fechaVencimiento
+        ? op.fechaVencimiento.toISOString()
+        : "",
+      invoiceAmount,
+      expectedDeposit,
+      expectedDepositSource: sim != null ? ("simulation" as const) : ("computed" as const),
+      status: op.status,
+      dteFolio: op.dte?.folio ?? null,
+      dteReceiverName: op.dte?.receiverName ?? null,
+      installationName: op.dte?.installationId
+        ? instNames.get(op.dte.installationId) ?? null
+        : null,
+      confidence,
+      matchSignals,
+      isSuggested: confidence >= 90,
+      batchId: op.batchId ?? op.batch?.id ?? null,
+      batchCode: op.batch?.code ?? null,
+      batchTotalMontoAGirar: batchTotal,
+      batchOperationsCount: op.batch?.operationsCount ?? null,
+    };
+  });
+}
+
+function mergeCandidatesById(
+  lists: CandidateFactoring[][],
+): CandidateFactoring[] {
+  const byId = new Map<string, CandidateFactoring>();
+  for (const list of lists) {
+    for (const c of list) {
+      const prev = byId.get(c.id);
+      if (!prev || c.confidence > prev.confidence) byId.set(c.id, c);
+    }
+  }
+  return [...byId.values()].sort((a, b) => b.confidence - a.confidence);
+}
+
+/**
+ * Cesiones candidatas con dos ramas:
+ *  A) empresa detectada + ventana fecha −90/+15, sin banda de monto
+ *  B) banda de monto + fecha (comportamiento histórico)
+ * Deduplica por id, puntúa y corta a 60.
  */
 export async function findFactoringCandidates(
   tenantId: string,
@@ -743,125 +1038,69 @@ export async function findFactoringCandidates(
   const minAmount = isFactoring ? amount * 0.5 : amount - tolerance;
   const maxAmount = amount + tolerance;
 
-  const minDate = new Date(tx.transactionDate);
-  minDate.setDate(minDate.getDate() - (isFactoring ? 60 : 14));
-  const maxDate = new Date(tx.transactionDate);
-  maxDate.setDate(maxDate.getDate() + (isFactoring ? 7 : 1));
+  const bandMinDate = new Date(tx.transactionDate);
+  bandMinDate.setDate(bandMinDate.getDate() - (isFactoring ? 60 : 14));
+  const bandMaxDate = new Date(tx.transactionDate);
+  bandMaxDate.setDate(bandMaxDate.getDate() + (isFactoring ? 7 : 1));
+
+  const companyMinDate = new Date(tx.transactionDate);
+  companyMinDate.setDate(companyMinDate.getDate() - 90);
+  const companyMaxDate = new Date(tx.transactionDate);
+  companyMaxDate.setDate(companyMaxDate.getDate() + 15);
 
   const glossRaw = `${tx.description ?? ""} ${tx.reference ?? ""}`;
   const glossNorm = stripDiacritics(glossRaw.toLowerCase());
   const folioList = extractCandidateFoliosFromGloss(glossRaw);
   const folioSet = new Set(folioList);
-
-  const amountBandOr: Prisma.FinanceFactoringOperationWhereInput[] = [
-    { simMontoAGirar: { gte: minAmount, lte: maxAmount } },
-    { netAdvance: { gte: minAmount, lte: maxAmount } },
-  ];
-  if (isFactoring) {
-    amountBandOr.push({
-      invoiceAmount: { gte: minAmount, lte: amount * 1.5 },
-    });
-  }
-
-  const ops = await prisma.financeFactoringOperation.findMany({
-    where: {
-      tenantId,
-      status: { notIn: ["CANCELLED"] },
-      OR: [
-        {
-          AND: [
-            { fechaCesion: { gte: minDate, lte: maxDate } },
-            { OR: amountBandOr },
-          ],
-        },
-        ...(folioList.length > 0
-          ? [{ dte: { folio: { in: folioList } } }]
-          : []),
-      ],
-    },
-    select: {
-      id: true,
-      code: true,
-      factoringCompany: true,
-      factoringCompanyId: true,
-      fechaCesion: true,
-      fechaVencimiento: true,
-      invoiceAmount: true,
-      simMontoAGirar: true,
-      netAdvance: true,
-      status: true,
-      dte: {
-        select: { folio: true, receiverName: true, installationId: true },
-      },
-    },
-    orderBy: { fechaCesion: "desc" },
-    take: 100,
-  });
-
-  const instNames = await fetchInstallationNames(
-    tenantId,
-    ops.map((op) => op.dte?.installationId),
-  );
-
   const txDate =
     tx.transactionDate instanceof Date
       ? tx.transactionDate
       : new Date(tx.transactionDate);
 
-  const mapped: CandidateFactoring[] = ops.map((op) => {
-    const sim = op.simMontoAGirar ? Number(op.simMontoAGirar) : null;
-    const net = op.netAdvance ? Number(op.netAdvance) : 0;
-    const expectedDeposit = sim ?? net;
-    const invoiceAmount = Number(op.invoiceAmount);
-    const fechaCesion = op.fechaCesion ? new Date(op.fechaCesion) : null;
+  const scoreCtx = {
+    bankAmount: amount,
+    txDate,
+    glossNorm,
+    folioSet,
+    detectionCompanyId: detection.companyId,
+  };
 
-    const { confidence, matchSignals } = scoreFactoringOperationCandidate({
-      bankAmount: amount,
-      txDate,
-      glossNorm,
-      folioSet,
-      detectionCompanyId: detection.companyId,
-      invoiceAmount,
-      expectedDeposit,
-      fechaCesion,
-      factoringCompanyId: op.factoringCompanyId ?? null,
-      dteFolio: op.dte?.folio ?? null,
-    });
+  const [branchA, branchB] = await Promise.all([
+    detection.companyId
+      ? queryFactoringOps({
+          tenantId,
+          companyId: detection.companyId,
+          minDate: companyMinDate,
+          maxDate: companyMaxDate,
+          folios: folioList,
+          take: 60,
+        })
+      : Promise.resolve([] as FactoringOpRow[]),
+    queryFactoringOps({
+      tenantId,
+      minDate: bandMinDate,
+      maxDate: bandMaxDate,
+      amountBand: {
+        minAmount,
+        maxAmount,
+        invoiceMax: isFactoring ? amount * 1.5 : undefined,
+      },
+      folios: folioList,
+      take: 100,
+    }),
+  ]);
 
-    return {
-      id: op.id,
-      code: op.code,
-      factoringCompanyName: op.factoringCompany,
-      factoringCompanyId: op.factoringCompanyId ?? null,
-      fechaCesion: op.fechaCesion ? op.fechaCesion.toISOString() : "",
-      fechaVencimiento: op.fechaVencimiento
-        ? op.fechaVencimiento.toISOString()
-        : "",
-      invoiceAmount,
-      expectedDeposit,
-      expectedDepositSource: sim != null ? "simulation" : "computed",
-      status: op.status,
-      dteFolio: op.dte?.folio ?? null,
-      dteReceiverName: op.dte?.receiverName ?? null,
-      installationName: op.dte?.installationId
-        ? instNames.get(op.dte.installationId) ?? null
-        : null,
-      confidence,
-      matchSignals,
-      isSuggested: confidence >= 90,
-    };
-  });
-
-  mapped.sort((a, b) => b.confidence - a.confidence);
-  return mapped.slice(0, 25);
+  const mapped = await mapOpsToCandidates(
+    tenantId,
+    [...branchA, ...branchB],
+    scoreCtx,
+  );
+  return mergeCandidatesById([mapped]).slice(0, 60);
 }
 
 /**
- * Versión bulk de `findFactoringCandidates`. La detección de factoring es
- * per-tx (depende de la glosa/monto de cada movimiento), así que corremos la
- * búsqueda por cada bankTxId y unimos las cesiones por id de operación,
- * conservando la mayor confianza. Caso típico: N depósitos del mismo factoring
- * (ej. 3×$7.000.000 de "SCF SERVICIOS") → las mismas cesiones candidatas.
+ * Versión bulk: une candidatos per-tx (glosas distintas) + una pasada contra
+ * la SUMA absoluta del lote (causa raíz: cesiones grandes invisibles).
  */
 export async function findFactoringCandidatesForBulk(
   tenantId: string,
@@ -871,19 +1110,473 @@ export async function findFactoringCandidatesForBulk(
   if (bankTxIds.length === 1) {
     return findFactoringCandidates(tenantId, bankTxIds[0]);
   }
-  const perTx = await Promise.all(
-    bankTxIds.map((id) => findFactoringCandidates(tenantId, id)),
+
+  const txs = await prisma.financeBankTransaction.findMany({
+    where: { id: { in: bankTxIds }, tenantId },
+    select: {
+      id: true,
+      amount: true,
+      transactionDate: true,
+      description: true,
+      reference: true,
+    },
+  });
+  if (txs.length === 0) return [];
+
+  const totalAbs = txs.reduce((s, t) => s + Math.abs(t.amount.toNumber()), 0);
+  if (totalAbs <= 0) return [];
+
+  const largest = [...txs].sort(
+    (a, b) => Math.abs(b.amount.toNumber()) - Math.abs(a.amount.toNumber()),
+  )[0]!;
+  const detection = await detectFactoringFromTx(
+    tenantId,
+    largest.description,
+    largest.reference,
   );
-  const byId = new Map<string, CandidateFactoring>();
-  for (const list of perTx) {
-    for (const c of list) {
-      const prev = byId.get(c.id);
-      if (!prev || c.confidence > prev.confidence) byId.set(c.id, c);
+
+  const dates = txs.map((t) => t.transactionDate.getTime());
+  const companyMinDate = new Date(Math.min(...dates));
+  companyMinDate.setDate(companyMinDate.getDate() - 90);
+  const companyMaxDate = new Date(Math.max(...dates));
+  companyMaxDate.setDate(companyMaxDate.getDate() + 15);
+
+  const bandMinDate = new Date(Math.min(...dates));
+  bandMinDate.setDate(bandMinDate.getDate() - (detection.isFactoring ? 60 : 14));
+  const bandMaxDate = new Date(Math.max(...dates));
+  bandMaxDate.setDate(bandMaxDate.getDate() + (detection.isFactoring ? 7 : 1));
+
+  const glossRaw = txs
+    .map((t) => `${t.description ?? ""} ${t.reference ?? ""}`)
+    .join(" ");
+  const glossNorm = stripDiacritics(glossRaw.toLowerCase());
+  const folioList = extractCandidateFoliosFromGloss(glossRaw);
+  const folioSet = new Set(folioList);
+  const txDate = new Date(Math.max(...dates));
+
+  const tolerance = detection.isFactoring
+    ? Math.max(totalAbs * 0.25, 1000)
+    : Math.max(totalAbs * 0.05, 1000);
+  const minAmount = detection.isFactoring ? totalAbs * 0.5 : totalAbs - tolerance;
+  const maxAmount = totalAbs + tolerance;
+
+  const scoreCtx = {
+    bankAmount: totalAbs,
+    txDate,
+    glossNorm,
+    folioSet,
+    detectionCompanyId: detection.companyId,
+  };
+
+  const [branchA, branchB, perTx] = await Promise.all([
+    detection.companyId
+      ? queryFactoringOps({
+          tenantId,
+          companyId: detection.companyId,
+          minDate: companyMinDate,
+          maxDate: companyMaxDate,
+          folios: folioList,
+          take: 60,
+        })
+      : Promise.resolve([] as FactoringOpRow[]),
+    queryFactoringOps({
+      tenantId,
+      minDate: bandMinDate,
+      maxDate: bandMaxDate,
+      amountBand: {
+        minAmount,
+        maxAmount,
+        invoiceMax: detection.isFactoring ? totalAbs * 1.5 : undefined,
+      },
+      folios: folioList,
+      take: 100,
+    }),
+    Promise.all(bankTxIds.map((id) => findFactoringCandidates(tenantId, id))),
+  ]);
+
+  const fromTotal = await mapOpsToCandidates(
+    tenantId,
+    [...branchA, ...branchB],
+    scoreCtx,
+  );
+  return mergeCandidatesById([fromTotal, ...perTx]).slice(0, 60);
+}
+
+/**
+ * Lotes de cesión de la empresa detectada dentro de la ventana de fecha.
+ * Ordena con matchesDeposit primero.
+ */
+export async function findFactoringBatches(
+  tenantId: string,
+  params: {
+    companyId: string;
+    minDate: Date;
+    maxDate: Date;
+    totalAbs: number;
+  },
+): Promise<CandidateFactoringBatch[]> {
+  const batches = await prisma.financeFactoringBatch.findMany({
+    where: {
+      tenantId,
+      factoringCompanyId: params.companyId,
+      fechaCesion: { gte: params.minDate, lte: params.maxDate },
+    },
+    select: {
+      id: true,
+      code: true,
+      fechaCesion: true,
+      totalMontoAGirar: true,
+      operationsCount: true,
+      factoringCompany: { select: { razonSocial: true } },
+      operations: {
+        where: { status: { notIn: ["CANCELLED"] }, tenantId },
+        select: {
+          id: true,
+          simMontoAGirar: true,
+          netAdvance: true,
+        },
+      },
+    },
+    orderBy: { fechaCesion: "desc" },
+    take: 40,
+  });
+
+  const mapped: CandidateFactoringBatch[] = [];
+  for (const b of batches) {
+    // Lote de una sola operación: se ofrece como cesión suelta, no tarjeta.
+    if (b.operations.length <= 1) continue;
+
+    const { total, source } = resolveBatchTotal({
+      batchTotal: decimalToNumber(b.totalMontoAGirar),
+      operations: b.operations.map((op) => ({
+        simMontoAGirar: decimalToNumber(op.simMontoAGirar),
+        netAdvance: decimalToNumber(op.netAdvance),
+      })),
+    });
+    if (total == null) continue;
+
+    mapped.push({
+      id: b.id,
+      code: b.code,
+      factoringCompanyName: b.factoringCompany.razonSocial,
+      fechaCesion: b.fechaCesion.toISOString(),
+      operationsCount: b.operations.length,
+      totalMontoAGirar: total,
+      totalSource: source,
+      matchesDeposit: batchMatchesDeposit(total, params.totalAbs),
+      operationIds: b.operations.map((op) => op.id),
+    });
+  }
+
+  mapped.sort((a, b) => {
+    if (a.matchesDeposit !== b.matchesDeposit) {
+      return a.matchesDeposit ? -1 : 1;
+    }
+    return (
+      Math.abs(a.totalMontoAGirar - params.totalAbs) -
+      Math.abs(b.totalMontoAGirar - params.totalAbs)
+    );
+  });
+  return mapped;
+}
+
+/**
+ * Resuelve contexto de fechas/monto/empresa desde bankTxIds (tenant-scoped).
+ */
+async function resolveBankTxContext(
+  tenantId: string,
+  bankTxIds: string[],
+): Promise<{
+  totalAbs: number;
+  companyId: string | null;
+  isFactoring: boolean;
+  minDate: Date;
+  maxDate: Date;
+  glossRaw: string;
+  largestDescription: string | null;
+  largestReference: string | null;
+} | null> {
+  const txs = await prisma.financeBankTransaction.findMany({
+    where: { id: { in: bankTxIds }, tenantId },
+    select: {
+      amount: true,
+      transactionDate: true,
+      description: true,
+      reference: true,
+    },
+  });
+  if (txs.length === 0) return null;
+
+  const totalAbs = txs.reduce((s, t) => s + Math.abs(t.amount.toNumber()), 0);
+  const largest = [...txs].sort(
+    (a, b) => Math.abs(b.amount.toNumber()) - Math.abs(a.amount.toNumber()),
+  )[0]!;
+  const detection = await detectFactoringFromTx(
+    tenantId,
+    largest.description,
+    largest.reference,
+  );
+  const dates = txs.map((t) => t.transactionDate.getTime());
+  const minDate = new Date(Math.min(...dates));
+  minDate.setDate(minDate.getDate() - 90);
+  const maxDate = new Date(Math.max(...dates));
+  maxDate.setDate(maxDate.getDate() + 15);
+
+  return {
+    totalAbs,
+    companyId: detection.companyId,
+    isFactoring: detection.isFactoring,
+    minDate,
+    maxDate,
+    glossRaw: txs
+      .map((t) => `${t.description ?? ""} ${t.reference ?? ""}`)
+      .join(" "),
+    largestDescription: largest.description,
+    largestReference: largest.reference,
+  };
+}
+
+/** Carga lotes de factoring para los endpoints de candidatos. */
+export async function findFactoringBatchesForBankTxs(
+  tenantId: string,
+  bankTxIds: string[],
+): Promise<CandidateFactoringBatch[]> {
+  const ctx = await resolveBankTxContext(tenantId, bankTxIds);
+  if (!ctx || !ctx.companyId || ctx.totalAbs <= 0) return [];
+  return findFactoringBatches(tenantId, {
+    companyId: ctx.companyId,
+    minDate: ctx.minDate,
+    maxDate: ctx.maxDate,
+    totalAbs: ctx.totalAbs,
+  });
+}
+
+/**
+ * Búsqueda server-side de candidatos (folio, razón social, RUT, instalación,
+ * código de cesión). Aplica la regla CEDED → cesión.
+ */
+export async function searchReconcileCandidates(
+  tenantId: string,
+  params: {
+    bankTxIds: string[];
+    query: string;
+    scope?: ReconcileSearchScope;
+    limit?: number;
+  },
+): Promise<{ data: CandidateDte[]; factoring: CandidateFactoring[] }> {
+  const q = params.query.trim();
+  if (!q || params.bankTxIds.length === 0) {
+    return { data: [], factoring: [] };
+  }
+  if (q.length > 80) {
+    return { data: [], factoring: [] };
+  }
+
+  const ctx = await resolveBankTxContext(tenantId, params.bankTxIds);
+  if (!ctx) return { data: [], factoring: [] };
+
+  const limit = Math.min(Math.max(params.limit ?? 40, 1), 100);
+  const scope: ReconcileSearchScope =
+    params.scope ??
+    (ctx.companyId || ctx.isFactoring ? "factoring" : "open");
+
+  const isNumeric = /^\d{3,7}$/.test(q);
+  const folioNum = isNumeric ? Number.parseInt(q, 10) : null;
+  const rutNorm = normalizeRutForMatch(q);
+  const qLower = stripDiacritics(q.toLowerCase());
+
+  const wantOpen = scope === "open" || scope === "all";
+  const wantFactoring =
+    scope === "factoring" || scope === "ceded" || scope === "all";
+
+  let dteCandidates: CandidateDte[] = [];
+  let factoringCandidates: CandidateFactoring[] = [];
+
+  if (wantOpen || scope === "all") {
+    const dteWhere: Prisma.FinanceDteWhereInput = {
+      tenantId,
+      dteType: { notIn: [56, 61] },
+      paymentStatus: {
+        in: ["UNPAID", "PARTIAL", "OVERDUE"] as Prisma.EnumFinancePaymentStatusFilter["in"],
+      },
+      amountPending: { gt: 0 },
+      OR: [
+        ...(folioNum != null ? [{ folio: folioNum }] : []),
+        { receiverName: { contains: q, mode: "insensitive" as const } },
+        { issuerName: { contains: q, mode: "insensitive" as const } },
+        ...(rutNorm
+          ? [
+              { receiverRut: { contains: rutNorm.replace(/[^0-9kK]/g, ""), mode: "insensitive" as const } },
+              { issuerRut: { contains: rutNorm.replace(/[^0-9kK]/g, ""), mode: "insensitive" as const } },
+            ]
+          : []),
+      ],
+    };
+
+    const dtes = await prisma.financeDte.findMany({
+      where: dteWhere,
+      orderBy: { date: "desc" },
+      take: limit,
+    });
+
+    // Nunca CEDED como DTE.
+    const openDtes = dtes.filter((d) => d.paymentStatus !== "CEDED");
+    const instNames = await fetchInstallationNames(
+      tenantId,
+      openDtes.map((d) => d.installationId),
+    );
+    dteCandidates = openDtes.map((d) => ({
+      id: d.id,
+      direction: d.direction as "ISSUED" | "RECEIVED",
+      documentType: d.code,
+      dteType: d.dteType,
+      folio: d.folio,
+      issuerName: d.issuerName ?? "",
+      receiverName: d.receiverName ?? "",
+      receiverRut: d.receiverRut ?? null,
+      issuerRut: d.issuerRut ?? null,
+      total: d.totalAmount.toNumber(),
+      amountPaid: d.amountPaid.toNumber(),
+      amountPending: d.amountPending.toNumber(),
+      issuedAt: d.date.toISOString(),
+      paymentStatus: d.paymentStatus,
+      installationName: d.installationId
+        ? instNames.get(d.installationId) ?? null
+        : null,
+      glosa: d.notes ?? null,
+    }));
+  }
+
+  if (wantFactoring) {
+    const opWhere: Prisma.FinanceFactoringOperationWhereInput = {
+      tenantId,
+      status: { notIn: ["CANCELLED"] },
+      ...(scope === "factoring" && ctx.companyId
+        ? { factoringCompanyId: ctx.companyId }
+        : {}),
+      OR: [
+        { code: { contains: q, mode: "insensitive" as const } },
+        { factoringCompany: { contains: q, mode: "insensitive" as const } },
+        ...(folioNum != null ? [{ dte: { folio: folioNum } }] : []),
+        {
+          dte: {
+            OR: [
+              { receiverName: { contains: q, mode: "insensitive" as const } },
+              { issuerName: { contains: q, mode: "insensitive" as const } },
+            ],
+          },
+        },
+      ],
+    };
+
+    // Scope "ceded": solo ops cuyo DTE está CEDED.
+    if (scope === "ceded") {
+      opWhere.dte = {
+        ...(typeof opWhere.dte === "object" && opWhere.dte ? opWhere.dte : {}),
+        paymentStatus: "CEDED",
+      };
+    }
+
+    const ops = await prisma.financeFactoringOperation.findMany({
+      where: opWhere,
+      select: FACTORING_OP_SELECT,
+      orderBy: { fechaCesion: "desc" },
+      take: limit,
+    });
+
+    // Filtro adicional por nombre de instalación (no hay join directo).
+    const instNames = await fetchInstallationNames(
+      tenantId,
+      (ops as unknown as FactoringOpRow[]).map((op) => op.dte?.installationId),
+    );
+    let filteredOps = ops as unknown as FactoringOpRow[];
+    if (!isNumeric) {
+      filteredOps = filteredOps.filter((op) => {
+        const hay = [
+          op.code,
+          op.factoringCompany,
+          String(op.dte?.folio ?? ""),
+          op.dte?.receiverName ?? "",
+          op.dte?.issuerName ?? "",
+          op.dte?.installationId
+            ? instNames.get(op.dte.installationId) ?? ""
+            : "",
+        ]
+          .join(" ")
+          .toLowerCase();
+        return stripDiacritics(hay).includes(qLower);
+      });
+    }
+
+    const folioSet = new Set(
+      extractCandidateFoliosFromGloss(ctx.glossRaw + " " + q),
+    );
+    factoringCandidates = await mapOpsToCandidates(tenantId, filteredOps, {
+      bankAmount: ctx.totalAbs,
+      txDate: ctx.maxDate,
+      glossNorm: stripDiacritics((ctx.glossRaw + " " + q).toLowerCase()),
+      folioSet,
+      detectionCompanyId: ctx.companyId,
+    });
+  }
+
+  // Si la búsqueda numérica encontró un DTE CEDED, elevar su cesión.
+  if (folioNum != null && wantFactoring) {
+    const ceded = await prisma.financeDte.findMany({
+      where: {
+        tenantId,
+        folio: folioNum,
+        paymentStatus: "CEDED",
+        dteType: { notIn: [56, 61] },
+      },
+      select: { id: true },
+      take: 10,
+    });
+    if (ceded.length > 0) {
+      const existingIds = new Set(factoringCandidates.map((c) => c.id));
+      const ops = await prisma.financeFactoringOperation.findMany({
+        where: {
+          tenantId,
+          dteId: { in: ceded.map((d) => d.id) },
+          status: { notIn: ["CANCELLED"] },
+          ...(scope === "factoring" && ctx.companyId
+            ? { factoringCompanyId: ctx.companyId }
+            : {}),
+        },
+        select: FACTORING_OP_SELECT,
+        take: limit,
+      });
+      const mapped = await mapOpsToCandidates(
+        tenantId,
+        ops as unknown as FactoringOpRow[],
+        {
+          bankAmount: ctx.totalAbs,
+          txDate: ctx.maxDate,
+          glossNorm: stripDiacritics((ctx.glossRaw + " " + q).toLowerCase()),
+          folioSet: new Set([folioNum]),
+          detectionCompanyId: ctx.companyId,
+        },
+      );
+      for (const c of mapped) {
+        if (!existingIds.has(c.id)) factoringCandidates.push(c);
+      }
     }
   }
-  return [...byId.values()]
-    .sort((a, b) => b.confidence - a.confidence)
-    .slice(0, 25);
+
+  // Scope open no debe devolver DTE; factoring/ceded no deben devolver open.
+  if (scope === "factoring" || scope === "ceded") {
+    dteCandidates = [];
+  }
+  if (scope === "open") {
+    factoringCandidates = [];
+  }
+
+  return {
+    data: dteCandidates.slice(0, limit),
+    factoring: factoringCandidates
+      .sort((a, b) => b.confidence - a.confidence)
+      .slice(0, limit),
+  };
 }
 
 // ── Listar links existentes de una tx ──
