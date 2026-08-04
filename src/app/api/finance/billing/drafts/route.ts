@@ -11,6 +11,10 @@ import {
   createDraftDte,
   listDraftDtes,
 } from "@/modules/finance/billing/dte-draft.service";
+import {
+  isTemplateLinkRequiredError,
+  templateLinkRequiredResponse,
+} from "@/modules/finance/billing/template-link-error-response";
 
 export async function GET(request: NextRequest) {
   try {
@@ -65,12 +69,11 @@ export async function POST(request: NextRequest) {
     });
     return NextResponse.json({ success: true, data: draft }, { status: 201 });
   } catch (error) {
+    if (isTemplateLinkRequiredError(error)) {
+      return templateLinkRequiredResponse(error);
+    }
     console.error("[Finance/Billing/Drafts] Create error:", error);
     const message = error instanceof Error ? error.message : "Error al crear borrador";
-    const status =
-      error instanceof Error && error.name === "TemplateLinkRequiredError"
-        ? 400
-        : 500;
-    return NextResponse.json({ success: false, error: message }, { status });
+    return NextResponse.json({ success: false, error: message }, { status: 500 });
   }
 }

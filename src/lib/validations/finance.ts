@@ -264,6 +264,8 @@ export const issueDteSchema = z.object({
   forceIssueDateToToday: z.boolean().optional(),
   /** Confirmación: mantener fecha de emisión futura. */
   allowFutureDate: z.boolean().optional(),
+  /** Confirmación: mantener fecha en semana sellada/pasada. */
+  allowAnchoredDate: z.boolean().optional(),
   // ── Vínculo con la programación (flujo de caja) ──
   // undefined = heredar si la cuenta tiene una sola programación activa;
   // null = extra explícito (solo válido con 0–1 programaciones);

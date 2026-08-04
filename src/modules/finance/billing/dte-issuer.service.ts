@@ -22,7 +22,12 @@ import {
   parseYmdToDbDate,
   todayChileStr,
 } from "@/lib/fx-date";
-import { applyTemplateLinkInheritance } from "./inherit-template-link";
+import { listClosedV3Weeks } from "@/modules/finance/flow-v3/weekly-close.adapter";
+import { weekLabel, weekStartYmd, ymdToDate } from "@/modules/finance/flow-v3/weeks";
+import {
+  applyTemplateLinkInheritance,
+  countActiveAccountTemplates,
+} from "./inherit-template-link";
 
 /** Resuelve YYYY-MM-DD de emisión: body explícito o hoy en Chile (no UTC servidor). */
 function resolveIssueDateYmd(input: IssueDteInput): string {
@@ -47,6 +52,35 @@ export class FutureIssueDateError extends Error {
     this.name = "FutureIssueDateError";
     this.issueDate = issueDate;
     this.todayYmd = todayYmd;
+  }
+}
+
+/**
+ * Emisión con fecha en semana sellada o pasada: aviso + confirmación.
+ * Default: emitir con fecha de hoy. Alternativa: mantener la fecha.
+ */
+export class AnchoredIssueDateError extends Error {
+  readonly code = "ANCHORED_ISSUE_DATE" as const;
+  readonly issueDate: string;
+  readonly todayYmd: string;
+  readonly weekLabel: string;
+  readonly reason: "sealed" | "past";
+
+  constructor(args: {
+    issueDate: string;
+    todayYmd: string;
+    weekLabel: string;
+    reason: "sealed" | "past";
+  }) {
+    const reasonTxt = args.reason === "sealed" ? "sellada" : "pasada";
+    super(
+      `La fecha de emisión ${args.issueDate} quedará anclada en ${args.weekLabel} (${reasonTxt}). Confirmá para emitir con fecha de hoy o mantener ${args.issueDate}.`,
+    );
+    this.name = "AnchoredIssueDateError";
+    this.issueDate = args.issueDate;
+    this.todayYmd = args.todayYmd;
+    this.weekLabel = args.weekLabel;
+    this.reason = args.reason;
   }
 }
 
@@ -172,8 +206,8 @@ export type IssueDteOpts = {
   /** UF a usar en lugar de la del día. */
   ufOverride?: number;
   /**
-   * Si la fecha de emisión es > hoy: reescribe a hoy (opción por defecto
-   * del diálogo de confirmación).
+   * Si la fecha de emisión es > hoy o cae en semana sellada/pasada:
+   * reescribe a hoy (opción por defecto del diálogo de confirmación).
    */
   forceIssueDateToToday?: boolean;
   /**
@@ -181,6 +215,11 @@ export type IssueDteOpts = {
    * (opción secundaria "Mantener {fecha}").
    */
   allowFutureDate?: boolean;
+  /**
+   * Si la fecha cae en semana sellada/pasada: permite emitir con esa fecha
+   * (opción secundaria "Mantener {fecha}").
+   */
+  allowAnchoredDate?: boolean;
 };
 
 /**
@@ -304,6 +343,25 @@ export async function issueDte(
     } else if (!opts?.allowFutureDate) {
       throw new FutureIssueDateError(emissionYmd, todayYmd);
     }
+  } else if (emissionYmd < todayYmd && !opts?.forceIssueDateToToday && !opts?.allowAnchoredDate) {
+    // v4.7: fecha en semana sellada o pasada → confirmación (default: hoy).
+    const issueWeek = weekStartYmd(ymdToDate(emissionYmd) ?? new Date());
+    const currentWeek = weekStartYmd(ymdToDate(todayYmd) ?? new Date());
+    const sealed = await listClosedV3Weeks(tenantId, [issueWeek]);
+    const isSealed = sealed.includes(issueWeek);
+    const isPastWeek = issueWeek < currentWeek;
+    if (isSealed || isPastWeek) {
+      throw new AnchoredIssueDateError({
+        issueDate: emissionYmd,
+        todayYmd,
+        weekLabel: weekLabel(issueWeek),
+        reason: isSealed ? "sealed" : "past",
+      });
+    }
+  }
+  if (opts?.forceIssueDateToToday && emissionYmd !== todayYmd) {
+    emissionYmd = todayYmd;
+    input.issueDate = todayYmd;
   }
   let emissionDbDate: Date;
   try {
@@ -685,7 +743,18 @@ export async function issueDte(
     }
   }
 
-  return Object.assign(dte, { emailStatus, emailError });
+  // v4.7: huérfana post-emisión → el cliente muestra banner "Vincular ahora".
+  let needsTemplateLink = false;
+  if (
+    (input.dteType === 33 || input.dteType === 34) &&
+    !templateLink.recurringTemplateId &&
+    input.crmAccountId
+  ) {
+    const n = await countActiveAccountTemplates(tenantId, input.crmAccountId);
+    needsTemplateLink = n >= 1;
+  }
+
+  return Object.assign(dte, { emailStatus, emailError, needsTemplateLink });
 }
 
 /**

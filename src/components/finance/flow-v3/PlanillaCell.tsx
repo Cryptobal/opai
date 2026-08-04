@@ -94,10 +94,10 @@ export function PlanillaCell(p: Props) {
   const pastPendFormatted =
     pastPendOnly && pastPend.total !== 0 ? fmtCell(pastPend.total, mode) : "";
 
-  const { hasDte, hasProforma, hasDraft } = committedPriority(cell);
+  const { hasDte, hasSentDoc, hasDraft } = committedPriority(cell);
   const committedClass = hasDte
     ? COMMITTED_DTE_CELL
-    : hasProforma
+    : hasSentDoc
       ? COMMITTED_PROFORMA_CELL
       : hasDraft
         ? COMMITTED_DRAFT_CELL

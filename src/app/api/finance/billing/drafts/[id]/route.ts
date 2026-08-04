@@ -12,6 +12,10 @@ import {
   deleteDraftDte,
   getDraftDteById,
 } from "@/modules/finance/billing/dte-draft.service";
+import {
+  isTemplateLinkRequiredError,
+  templateLinkRequiredResponse,
+} from "@/modules/finance/billing/template-link-error-response";
 
 export async function GET(
   _request: NextRequest,
@@ -62,14 +66,12 @@ export async function PATCH(
     });
     return NextResponse.json({ success: true, data: updated });
   } catch (error) {
+    if (isTemplateLinkRequiredError(error)) {
+      return templateLinkRequiredResponse(error);
+    }
     console.error("[Finance/Billing/Drafts] Update error:", error);
     const message = error instanceof Error ? error.message : "Error al actualizar borrador";
-    const status =
-      message.includes("no encontrado")
-        ? 404
-        : error instanceof Error && error.name === "TemplateLinkRequiredError"
-          ? 400
-          : 500;
+    const status = message.includes("no encontrado") ? 404 : 500;
     return NextResponse.json({ success: false, error: message }, { status });
   }
 }

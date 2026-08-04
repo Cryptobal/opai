@@ -4,6 +4,8 @@
  *
  * v4.3: con 2+ programaciones activas el vínculo es obligatorio en el camino
  * manual (undefined hereda; null = extra solo válido con 0–1 programaciones).
+ * v4.7: el 400 incluye las opciones candidatas para el selector; un template
+ * de otra cuenta se trata como ausente (cierra el bypass duplicar→cambiar receptor).
  */
 import "server-only";
 import { prisma } from "@/lib/prisma";
@@ -14,10 +16,20 @@ export interface InheritedTemplateLink {
   billingPeriod: string;
 }
 
+export interface TemplateLinkOption {
+  id: string;
+  name: string;
+  installationId: string | null;
+}
+
 export class TemplateLinkRequiredError extends Error {
-  constructor(message: string) {
+  readonly code = "TEMPLATE_LINK_REQUIRED" as const;
+  readonly options: TemplateLinkOption[];
+
+  constructor(message: string, options: TemplateLinkOption[] = []) {
     super(message);
     this.name = "TemplateLinkRequiredError";
+    this.options = options;
   }
 }
 
@@ -34,6 +46,27 @@ export async function countActiveAccountTemplates(
       dteType: { in: [33, 34] },
     },
   });
+}
+
+async function listActiveAccountTemplates(
+  tenantId: string,
+  crmAccountId: string,
+): Promise<TemplateLinkOption[]> {
+  const rows = await prisma.financeDteRecurringTemplate.findMany({
+    where: {
+      tenantId,
+      crmAccountId,
+      isActive: true,
+      dteType: { in: [33, 34] },
+    },
+    select: { id: true, name: true, installationId: true },
+    orderBy: { name: "asc" },
+  });
+  return rows.map((r) => ({
+    id: r.id,
+    name: r.name,
+    installationId: r.installationId,
+  }));
 }
 
 /**
@@ -62,7 +95,7 @@ export async function resolveDefaultTemplateLink(
     take: 2,
   });
   if (templates.length !== 1) return null;
-  const t = templates[0];
+  const t = templates[0]!;
   return {
     recurringTemplateId: t.id,
     billingPeriod: resolveBillingPeriodForDate(t, dteDateYmd),
@@ -110,14 +143,34 @@ export async function applyTemplateLinkInheritance(
     }
   }
 
+  // v4.7: template de otra cuenta (p.ej. tras duplicar y cambiar receptor)
+  // se trata como ausente → fuerza selector si hay 2+.
+  if (tplId && opts.crmAccountId && isSalesInvoice) {
+    const owned = await prisma.financeDteRecurringTemplate.findFirst({
+      where: {
+        id: tplId,
+        tenantId,
+        crmAccountId: opts.crmAccountId,
+        isActive: true,
+        dteType: { in: [33, 34] },
+      },
+      select: { id: true },
+    });
+    if (!owned) {
+      tplId = null;
+      period = null;
+    }
+  }
+
   const resolvedTpl = tplId ?? null;
   const resolvedPeriod = period ?? null;
 
   if (isSalesInvoice && opts.crmAccountId && !resolvedTpl) {
-    const n = await countActiveAccountTemplates(tenantId, opts.crmAccountId);
-    if (n >= 2) {
+    const options = await listActiveAccountTemplates(tenantId, opts.crmAccountId);
+    if (options.length >= 2) {
       throw new TemplateLinkRequiredError(
         "Este cliente tiene varias programaciones: elegí a cuál fila va la factura (cuota del período o factura extra en esa fila).",
+        options,
       );
     }
   }

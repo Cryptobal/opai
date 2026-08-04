@@ -2,7 +2,7 @@
  * Metadatos de capa / item comprometido compartidos entre PlanillaCell,
  * PlanillaFxBar y CellLayersPopover — una sola fuente de labels y tonos.
  */
-import type { CommittedItem } from "@/modules/finance/flow-v3/types";
+import type { CommittedItem, SentDocs } from "@/modules/finance/flow-v3/types";
 import type { FlowMatrixCellDto } from "@/modules/finance/flow-v3/matrix-types";
 import { folioChip } from "./format";
 
@@ -15,19 +15,53 @@ export const LAYER_LABEL = {
   empty: "Sin dato",
 } as const;
 
+function draftSentDocs(it: CommittedItem): SentDocs {
+  return {
+    proforma: it.sentDocs?.proforma === true,
+    estadoPago: it.sentDocs?.estadoPago === true,
+  };
+}
+
+/** Etiqueta corta fiel: EP / Proforma / EP+Prof. / B. */
+export function draftTag(sent: SentDocs): { tag: string; title: string } {
+  if (sent.estadoPago && sent.proforma) {
+    return { tag: "EP+Prof.", title: "EP + Proforma enviados" };
+  }
+  if (sent.estadoPago) return { tag: "EP", title: "EP enviado" };
+  if (sent.proforma) return { tag: "Proforma", title: "Proforma enviada" };
+  return { tag: "B", title: "Borrador" };
+}
+
+/** Prefijo de grupo en menú/sheet: "EP {cliente}" / … */
+export function draftGroupLabel(sent: SentDocs, clientName: string): string {
+  const name = clientName.trim() || "cliente";
+  if (sent.estadoPago && sent.proforma) return `EP+Proforma ${name}`;
+  if (sent.estadoPago) return `EP ${name}`;
+  if (sent.proforma) return `Proforma ${name}`;
+  return `Borrador ${name}`;
+}
+
 /** Prioridad de sub-capa comprometida alineada con PlanillaCell. */
 export function committedPriority(cell: FlowMatrixCellDto): {
   hasDte: boolean;
-  hasProforma: boolean;
+  hasSentDoc: boolean;
   hasDraft: boolean;
   dteFolio?: number;
 } {
   const items = cell.committed?.items ?? [];
   const hasDte = items.some((i) => i.kind === "dte");
-  const hasProforma = items.some((i) => i.kind === "draft" && i.proformaSent);
-  const hasDraft = items.some((i) => i.kind === "draft" && !i.proformaSent);
+  const hasSentDoc = items.some((i) => {
+    if (i.kind !== "draft") return false;
+    const s = draftSentDocs(i);
+    return s.proforma || s.estadoPago;
+  });
+  const hasDraft = items.some((i) => {
+    if (i.kind !== "draft") return false;
+    const s = draftSentDocs(i);
+    return !s.proforma && !s.estadoPago;
+  });
   const dteFolio = hasDte ? items.find((i) => i.folio)?.folio : undefined;
-  return { hasDte, hasProforma, hasDraft, dteFolio };
+  return { hasDte, hasSentDoc, hasDraft, dteFolio };
 }
 
 /** Marca de esquina: real > F° > EP/B > plan manual; P programada sin marca. */
@@ -35,9 +69,9 @@ export function cornerKind(cell: FlowMatrixCellDto): CornerKind {
   if (cell.layer === "real") return "real";
   if (cell.layer === "plan" && cell.plan !== 0) return "plan";
   if (cell.layer !== "committed") return null;
-  const { hasDte, hasProforma, hasDraft } = committedPriority(cell);
+  const { hasDte, hasSentDoc, hasDraft } = committedPriority(cell);
   if (hasDte) return "dte";
-  if (hasProforma || hasDraft) return "warn";
+  if (hasSentDoc || hasDraft) return "warn";
   return null; // programada (P): sin marca
 }
 
@@ -52,9 +86,8 @@ export function committedItemMeta(it: CommittedItem): {
     return { tag: folio.text, label: it.label, tone: "info", title: folio.title };
   }
   if (it.kind === "draft") {
-    return it.proformaSent
-      ? { tag: "EP", label: it.label, tone: "warn", title: "EP enviado" }
-      : { tag: "B", label: it.label, tone: "warn", title: "Borrador" };
+    const { tag, title } = draftTag(draftSentDocs(it));
+    return { tag, label: it.label, tone: "warn", title };
   }
   return { tag: "P", label: it.label, tone: "info", title: "Programada" };
 }
@@ -117,7 +150,7 @@ export function primaryCellTag(
     return null;
   }
   if (cell.layer !== "committed") return null;
-  const { hasDte, hasProforma, hasDraft, dteFolio } = committedPriority(cell);
+  const { hasDte, hasSentDoc, hasDraft, dteFolio } = committedPriority(cell);
   if (hasDte) {
     const n = dteCountInCell(cell);
     if (n >= 2) {
@@ -130,8 +163,13 @@ export function primaryCellTag(
     const f = dteFolio != null ? folioChip(dteFolio) : { text: "F°", title: "Factura emitida" };
     return { tag: f.text, tone: "info", title: f.title };
   }
-  if (hasProforma) return { tag: "EP", tone: "warn", title: "EP enviado" };
-  if (hasDraft) return { tag: "B", tone: "warn", title: "Borrador" };
+  if (hasSentDoc || hasDraft) {
+    const draft = (cell.committed?.items ?? []).find((i) => i.kind === "draft");
+    if (draft) {
+      const meta = draftTag(draftSentDocs(draft));
+      return { tag: meta.tag, tone: "warn", title: meta.title };
+    }
+  }
   return { tag: "P", tone: "info", title: "Programada" };
 }
 
@@ -140,4 +178,18 @@ export function toneClass(tone: "info" | "warn" | "ok" | "neutral"): string {
   if (tone === "warn") return "text-status-warn-fg";
   if (tone === "info") return "text-status-info-fg";
   return "text-ds-text-3";
+}
+
+/** Línea "Emite dd/mm · término N d → cobro est. dd/mm" solo si hay término > 0. */
+export function terminoStatusLine(
+  it: Pick<CommittedItem, "issueYmd" | "fecha" | "terminoDias" | "cobroEstYmd">,
+  fmt: (ymd: string) => string,
+): string {
+  const issue = it.issueYmd ?? it.fecha;
+  const parts: string[] = [];
+  if (issue) parts.push(`Emite ${fmt(issue)}`);
+  if (it.terminoDias != null && it.terminoDias > 0 && it.cobroEstYmd) {
+    parts.push(`término ${it.terminoDias} d → cobro est. ${fmt(it.cobroEstYmd)}`);
+  }
+  return parts.join(" · ");
 }

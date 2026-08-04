@@ -6,25 +6,42 @@
  * flujo lo pone la sección: INGRESOS y FINANCIAMIENTO suman, el resto resta.
  */
 
+/** Documentos de cobro enviados asociados a un borrador. */
+export interface SentDocs {
+  proforma: boolean;
+  estadoPago: boolean;
+}
+
 export interface CommittedItem {
   /** dte = factura EMITIDA · draft = borrador (aún sin folio) · scheduled =
    *  cuota programada todavía no generada. */
   kind: "dte" | "draft" | "scheduled";
-  /** Solo kind=draft: la proforma/estado de pago ya fue enviada al cliente. */
-  proformaSent?: boolean;
+  /** Solo kind=draft: proforma y/o estado de pago enviados al cliente. */
+  sentDocs?: SentDocs;
   dteId?: string;
   templateId?: string;
   folio?: number;
   /** Nombre visible: cliente/proveedor/hito (popover). */
   label: string;
-  /** Fecha estimada de cobro/pago (YYYY-MM-DD). */
+  /** Fecha de anclaje en la celda (YYYY-MM-DD): emisión/doc u override. */
   fecha: string;
   /** CLP bruto (magnitud). */
   monto: number;
-  /** Solo kind=scheduled: término de la programación (null = sin término). */
+  /** Solo kind=scheduled|draft: término de la programación (null = sin término). */
   endDate?: string | null;
-  /** Solo kind=scheduled: término de pago del contrato en días (null = default tenant). */
-  diasCobro?: number | null;
+  /**
+   * Término de pago del contrato en días, SOLO si está configurado
+   * explícitamente en la programación. null/undefined = no mostrar.
+   * Informativo: no desplaza la celda (v4.7).
+   */
+  terminoDias?: number | null;
+  /** Fecha de emisión/documento (YYYY-MM-DD). Informativo en draft/scheduled. */
+  issueYmd?: string;
+  /**
+   * Cobro estimado = issueYmd + terminoDias cuando el término está
+   * configurado y > 0. Informativo; no ubica la celda.
+   */
+  cobroEstYmd?: string | null;
   /** true si la fecha de cobro venció hace más de 60 días (cartera zombie). */
   overdueOver60?: boolean;
   /** Días de atraso contractual (0 = al día). Solo kind=dte. */
@@ -135,7 +152,28 @@ export function addDaysYmd(ymd: string, days: number): string {
 
 /**
  * Término de pago default cuando no hay dueDate ni término configurado.
- * Ni CrmAccount ni FinanceDteRecurringTemplate tienen término de pago en el
- * schema (ver AUDIT.md §3.1) — 30 días es el estándar B2B chileno.
+ * Solo alimenta "vencida hace N días" de emitidas sin dueDate (v4.7).
+ * Ya NO desplaza celdas de cuotas ni borradores.
  */
 export const DEFAULT_COLLECTION_LAG_DAYS = 30;
+
+/**
+ * Campos informativos de término de pago. Solo cuando la programación tiene
+ * `diasCobro` explícito. Con 0 días no se expone cobroEst (redundante con emisión).
+ */
+export function terminoInfo(
+  issueYmd: string,
+  diasCobro: number | null | undefined,
+): { issueYmd: string; terminoDias: number | null; cobroEstYmd: string | null } {
+  if (diasCobro == null) {
+    return { issueYmd, terminoDias: null, cobroEstYmd: null };
+  }
+  if (diasCobro === 0) {
+    return { issueYmd, terminoDias: 0, cobroEstYmd: null };
+  }
+  return {
+    issueYmd,
+    terminoDias: diasCobro,
+    cobroEstYmd: addDaysYmd(issueYmd, diasCobro),
+  };
+}

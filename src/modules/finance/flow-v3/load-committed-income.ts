@@ -109,7 +109,7 @@ export async function loadCommittedIncome(
         totalAmount: true, receiverName: true, receiverRut: true,
         crmAccountId: true, installationId: true,
         recurringTemplateId: true, billingPeriod: true,
-        proformaStatus: true,
+        proformaStatus: true, estadoPagoStatus: true,
       },
     }),
     prisma.financeDteRecurringTemplate.findMany({
@@ -170,10 +170,15 @@ export async function loadCommittedIncome(
   const issuedIds = dtes
     .filter((d) => !excludedIds.has(d.id) && afterCutoff(d))
     .map((d) => d.id);
+  // Overrides también para borradores (v4.7: mover todo borrador).
+  const draftCandidateIds = recurringLinked
+    .filter((d) => d.siiStatus === "DRAFT" && !excludedIds.has(d.id))
+    .map((d) => d.id);
+  const overrideIds = [...new Set([...issuedIds, ...draftCandidateIds])];
   const overrideRows =
-    issuedIds.length > 0
+    overrideIds.length > 0
       ? await prisma.financeCashflowDteDateOverride.findMany({
-          where: { tenantId, dteId: { in: issuedIds } },
+          where: { tenantId, dteId: { in: overrideIds } },
           select: { dteId: true, customDate: true },
         })
       : [];
@@ -214,6 +219,7 @@ export async function loadCommittedIncome(
     }
     if (d.siiStatus === "DRAFT" && d.recurringTemplateId && !excludedIds.has(d.id)) {
       const tplEnd = endDateByTemplate.get(d.recurringTemplateId);
+      const sent = (s: string) => ["SENT", "VIEWED", "APPROVED"].includes(s);
       drafts.push({
         id: d.id,
         templateId: d.recurringTemplateId,
@@ -222,9 +228,13 @@ export async function loadCommittedIncome(
         receiverName: d.receiverName ?? "",
         crmAccountId: resolveAccount(d.crmAccountId, d.receiverRut),
         installationId: d.installationId,
-        proformaSent: ["SENT", "VIEWED", "APPROVED"].includes(d.proformaStatus),
+        sentDocs: {
+          proforma: sent(d.proformaStatus),
+          estadoPago: sent(d.estadoPagoStatus),
+        },
         templateEndDateYmd: tplEnd ? tplEnd.toISOString().slice(0, 10) : null,
         templateDiasCobro: diasCobroByTemplate.get(d.recurringTemplateId) ?? null,
+        overrideDateYmd: overrideByDteId.get(d.id) ?? null,
       });
     }
   }

@@ -5,7 +5,7 @@ import type { FlowExcludedDte } from "@/modules/finance/flow-v3/types";
 import type { FlowMatrixCellDto, FlowMatrixRowDto } from "@/modules/finance/flow-v3/matrix-types";
 import { hasManualPlanOverride } from "@/modules/finance/flow-v3/cell-editability";
 import { fmtClp, fmtShortDate } from "./format";
-import { committedItemMeta, LAYER_LABEL, toneClass } from "./cell-meta";
+import { committedItemMeta, LAYER_LABEL, terminoStatusLine, toneClass } from "./cell-meta";
 
 export interface PopoverState {
   row: FlowMatrixRowDto;
@@ -231,8 +231,11 @@ export function CellLayersPopover({
                 </button>
                 <div className="flex items-center justify-between gap-2 pl-1 text-ds-text-4">
                   <span>
-                    {it.emissionYmd ? fmtShortDate(it.emissionYmd) : fmtShortDate(it.fecha)}
-                    {it.dueYmd ? ` · vence ${fmtShortDate(it.dueYmd)}` : ""}
+                    {it.kind === "dte"
+                      ? `${it.emissionYmd ? fmtShortDate(it.emissionYmd) : fmtShortDate(it.fecha)}${
+                          it.dueYmd ? ` · vence ${fmtShortDate(it.dueYmd)}` : ""
+                        }`
+                      : terminoStatusLine(it, fmtShortDate) || fmtShortDate(it.fecha)}
                   </span>
                   {canExclude && excludingId !== it.dteId && (
                     <button

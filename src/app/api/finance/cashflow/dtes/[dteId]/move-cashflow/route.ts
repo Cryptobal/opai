@@ -36,23 +36,28 @@ export async function POST(
       return NextResponse.json({ success: true });
     }
 
+    // Admitir emitidos y borradores (v4.7: mover todo borrador).
+    const dte = await prisma.financeDte.findFirst({
+      where: {
+        id: dteId,
+        tenantId: ctx.tenantId,
+        direction: "ISSUED",
+        siiStatus: { notIn: ["ANNULLED", "REJECTED"] },
+      },
+      select: { id: true, date: true, siiStatus: true },
+    });
+    if (!dte) {
+      return NextResponse.json({ success: false, error: "DTE no encontrado" }, { status: 404 });
+    }
+
     let target: Date;
     if (newDate) {
       target = newDate;
     } else if (daysFromCurrent !== undefined) {
-      const [dte, existing] = await Promise.all([
-        prisma.financeDte.findFirst({
-          where: { id: dteId, tenantId: ctx.tenantId },
-          select: { date: true },
-        }),
-        prisma.financeCashflowDteDateOverride.findUnique({
-          where: { tenantId_dteId: { tenantId: ctx.tenantId, dteId } },
-          select: { customDate: true },
-        }),
-      ]);
-      if (!dte) {
-        return NextResponse.json({ success: false, error: "DTE no encontrado" }, { status: 404 });
-      }
+      const existing = await prisma.financeCashflowDteDateOverride.findUnique({
+        where: { tenantId_dteId: { tenantId: ctx.tenantId, dteId } },
+        select: { customDate: true },
+      });
       const base = existing?.customDate ?? dte.date;
       target = new Date(base);
       target.setDate(target.getDate() + daysFromCurrent);
@@ -68,7 +73,7 @@ export async function POST(
       dteId,
       customDate: target,
       createdBy: ctx.userId,
-      reason,
+      reason: reason ?? (dte.siiStatus === "DRAFT" ? "move-draft" : reason),
     });
 
     return NextResponse.json({ success: true });

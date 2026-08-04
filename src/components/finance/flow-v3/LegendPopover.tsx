@@ -27,8 +27,8 @@ const CORNER_ITEMS: Array<{ swatch: string; title: string; desc: string }> = [
   {
     swatch:
       "relative bg-ds-surface-1 border border-ds-border-default after:absolute after:right-0 after:top-0 after:h-0 after:w-0 after:border-l-[6px] after:border-t-[6px] after:border-l-transparent after:border-t-status-warn after:content-['']",
-    title: "Proforma / Borrador",
-    desc: "Marca ámbar — EP enviado o borrador sin enviar.",
+    title: "EP / Proforma / Borrador",
+    desc: "Marca ámbar — EP, Proforma o borrador sin enviar.",
   },
   {
     swatch: "bg-ds-surface-1 border border-ds-border-default",
@@ -63,8 +63,8 @@ const CHIP_ITEMS: Array<{ swatch: string; title: string; desc: string }> = [
   },
   {
     swatch: "bg-status-warn-soft border border-status-warn-border",
-    title: "Proforma / EP enviado",
-    desc: "Chip «EP» — borrador enviado al cliente.",
+    title: "EP / Proforma enviados",
+    desc: "Chip «EP» o «Proforma» — documento de cobro enviado.",
   },
   {
     swatch:

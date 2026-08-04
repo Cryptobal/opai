@@ -39,6 +39,8 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { issueDraftWithDateGuard } from "@/components/finance/programacion/issue-with-date-guard";
+import { notifyEmitResult } from "@/components/finance/programacion/emit-toast";
 import { EmisionConfirmDialog } from "./EmisionConfirmDialog";
 import { PdfPreviewDialog } from "./PdfPreviewDialog";
 import {
@@ -1102,52 +1104,71 @@ export function DteForm({
         });
         if (!patchRes.ok) {
           const err = await patchRes.json();
+          if (err?.code === "TEMPLATE_LINK_REQUIRED") {
+            toast.error(err.error || "Elegí la programación de destino");
+            return;
+          }
           throw new Error(err.error || "Error al guardar borrador antes de emitir");
         }
         const ufOverride =
           currency === "UF" ? parseManualUf(manualUfStr) : undefined;
-        const issueRes = await fetch(`/api/finance/billing/drafts/${draftIdParam}/issue`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            autoSendEmail: opts.autoSendEmail,
-            sendXmlToBackoffice: opts.sendXmlToBackoffice,
-            ufOverride,
-          }),
+        const result = await issueDraftWithDateGuard(draftIdParam, {
+          autoSendEmail: opts.autoSendEmail,
+          sendXmlToBackoffice: opts.sendXmlToBackoffice,
+          ufOverride,
         });
-        if (!issueRes.ok) {
-          const err = await issueRes.json();
-          throw new Error(err.error || "Error al emitir borrador");
+        if (!result.ok) {
+          if (result.code === "TEMPLATE_LINK_REQUIRED") {
+            toast.error(result.error || "Elegí la programación de destino");
+            return;
+          }
+          throw new Error(result.error || "Error al emitir borrador");
         }
+        notifyEmitResult(result.data);
       } else {
-        const res = await fetch("/api/finance/billing/issued", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-        const json = await res.json().catch(() => ({}));
+        const postIssued = async (extra: Record<string, unknown> = {}) => {
+          const res = await fetch("/api/finance/billing/issued", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ ...payload, ...extra }),
+          });
+          const json = await res.json().catch(() => ({}));
+          return { res, json };
+        };
+        let { res, json } = await postIssued();
+        if (
+          !res.ok &&
+          (json?.code === "FUTURE_ISSUE_DATE" || json?.code === "ANCHORED_ISSUE_DATE") &&
+          json?.issueDate
+        ) {
+          const weekBit =
+            json.code === "ANCHORED_ISSUE_DATE" && json.weekLabel
+              ? ` quedará anclada en ${json.weekLabel} (${
+                  json.reason === "sealed" ? "sellada" : "pasada"
+                })`
+              : " (posterior a hoy)";
+          const useToday = window.confirm(
+            `La fecha de emisión es ${json.issueDate}${weekBit}.\n\n` +
+              `Aceptar = emitir con fecha de hoy.\n` +
+              `Cancelar = mantener ${json.issueDate}.`,
+          );
+          ({ res, json } = await postIssued(
+            useToday
+              ? { forceIssueDateToToday: true }
+              : json.code === "ANCHORED_ISSUE_DATE"
+                ? { allowAnchoredDate: true }
+                : { allowFutureDate: true },
+          ));
+        }
         if (!res.ok) {
+          if (json?.code === "TEMPLATE_LINK_REQUIRED") {
+            toast.error(json.error || "Elegí la programación de destino");
+            return;
+          }
           throw new Error(json.error || "Error al emitir DTE");
         }
-        // Reportar el resultado del auto-send email.
-        const emailStatus = json?.data?.emailStatus as
-          | "sent"
-          | "failed"
-          | "no_receiver"
-          | "skipped"
-          | undefined;
-        if (emailStatus === "failed") {
-          toast.warning(
-            `Email automático no se envió: ${json?.data?.emailError ?? "error desconocido"}. Reenviá manualmente desde la lista.`,
-            { duration: 8000 },
-          );
-        } else if (emailStatus === "no_receiver") {
-          toast.warning("No se envió email: el receptor no tiene dirección registrada.", { duration: 6000 });
-        } else if (emailStatus === "sent") {
-          toast.success("Email enviado al receptor");
-        }
+        notifyEmitResult(json?.data);
       }
-      toast.success("DTE emitido exitosamente");
       setConfirmOpen(false);
       if (onIssued) {
         onIssued();

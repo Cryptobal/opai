@@ -1,8 +1,10 @@
 "use client";
 
 import type React from "react";
+import type { CommittedItem } from "@/modules/finance/flow-v3/types";
 import type { FlowMatrixCellDto, FlowMatrixRowDto } from "@/modules/finance/flow-v3/matrix-types";
 import type { MatrixColumn } from "@/modules/finance/flow-v3/matrix-types";
+import { draftGroupLabel, terminoStatusLine } from "./cell-meta";
 import { fmtClp, fmtDayMonth, fmtShortDate } from "./format";
 import type { MenuItemDesc } from "./menu-render";
 
@@ -13,6 +15,8 @@ export interface RowTemplate {
   label: string;
   endDate: string | null;
   diasCobro: number | null;
+  /** Próxima fecha de emisión proyectada (YYYY-MM-DD). */
+  nextIssueYmd: string | null;
 }
 
 /** Programaciones (cuotas scheduled) presentes en la fila, deduplicadas. */
@@ -20,13 +24,22 @@ export function extractRowTemplates(row: FlowMatrixRowDto): RowTemplate[] {
   const byId = new Map<string, RowTemplate>();
   for (const cell of row.cells) {
     for (const it of cell.committed?.items ?? []) {
-      if (it.kind === "scheduled" && it.templateId && !byId.has(it.templateId)) {
+      if (it.kind !== "scheduled" || !it.templateId) continue;
+      const issue = it.issueYmd ?? it.fecha;
+      const existing = byId.get(it.templateId);
+      if (!existing) {
         byId.set(it.templateId, {
           templateId: it.templateId,
           label: it.label,
           endDate: it.endDate ?? null,
-          diasCobro: it.diasCobro ?? null,
+          diasCobro: it.terminoDias ?? null,
+          nextIssueYmd: issue,
         });
+      } else if (
+        issue &&
+        (!existing.nextIssueYmd || issue < existing.nextIssueYmd)
+      ) {
+        existing.nextIssueYmd = issue;
       }
     }
   }
@@ -99,21 +112,30 @@ export function buildRowMenu(
   );
 
   if (templates.length > 0) {
-    const actionsFor = (t: RowTemplate): MenuItemDesc[] => [
-      {
+    const actionsFor = (t: RowTemplate): MenuItemDesc[] => {
+      const out: MenuItemDesc[] = [];
+      if (t.nextIssueYmd) {
+        out.push({
+          key: `next-${t.templateId}`,
+          label: `Próxima: emite ${fmtShortDate(t.nextIssueYmd)}`,
+          disabled: true,
+        });
+      }
+      out.push({
         key: `defer-${t.templateId}`,
         label: "Aplazar/fijar término…",
         onSelect: () => cb.onDeferTerm(row, t),
-      },
-      {
+      });
+      out.push({
         key: `dias-${t.templateId}`,
         label: "Días de cobro…",
         onSelect: () => cb.onSetDiasCobro(row, t),
-      },
-    ];
+      });
+      return out;
+    };
     const submenu: MenuItemDesc[] =
       templates.length === 1
-        ? actionsFor(templates[0])
+        ? actionsFor(templates[0]!)
         : templates.map((t) => ({
             key: `tpl-${t.templateId}`,
             label: t.label || "Programación",
@@ -200,6 +222,17 @@ type DteMenuItem = {
   dueYmd?: string;
 };
 
+type DraftMenuItem = {
+  dteId: string;
+  label: string;
+  monto: number;
+  issueYmd?: string;
+  fecha: string;
+  terminoDias?: number | null;
+  cobroEstYmd?: string | null;
+  sentDocs: { proforma: boolean; estadoPago: boolean };
+};
+
 function cellDteItems(cell: FlowMatrixCellDto): DteMenuItem[] {
   const items = (cell.committed?.items ?? [])
     .filter((i): i is typeof i & { dteId: string } => i.kind === "dte" && !!i.dteId)
@@ -214,6 +247,26 @@ function cellDteItems(cell: FlowMatrixCellDto): DteMenuItem[] {
       dueYmd: i.dueYmd,
     }));
   return items.sort((a, b) => (b.overdueDays ?? 0) - (a.overdueDays ?? 0));
+}
+
+function cellDraftItems(cell: FlowMatrixCellDto): DraftMenuItem[] {
+  return (cell.committed?.items ?? [])
+    .filter((i): i is CommittedItem & { dteId: string; kind: "draft" } =>
+      i.kind === "draft" && !!i.dteId,
+    )
+    .map((i) => ({
+      dteId: i.dteId,
+      label: i.label,
+      monto: i.monto,
+      issueYmd: i.issueYmd,
+      fecha: i.fecha,
+      terminoDias: i.terminoDias,
+      cobroEstYmd: i.cobroEstYmd,
+      sentDocs: {
+        proforma: i.sentDocs?.proforma === true,
+        estadoPago: i.sentDocs?.estadoPago === true,
+      },
+    }));
 }
 
 function folioLabel(d: DteMenuItem): string {
@@ -306,6 +359,55 @@ function folioStatusLine(d: DteMenuItem): string {
 
 function folioTitleLine(d: DteMenuItem, rowName: string): string {
   return `${folioLabel(d)} · ${rowName} · ${fmtClp(d.monto)}`;
+}
+
+function draftStatusLine(d: DraftMenuItem): string {
+  const base = terminoStatusLine(
+    {
+      issueYmd: d.issueYmd,
+      fecha: d.fecha,
+      terminoDias: d.terminoDias,
+      cobroEstYmd: d.cobroEstYmd,
+    },
+    fmtShortDate,
+  );
+  if (base) return base.startsWith("Emite")
+    ? base.replace(/^Emite/, "Fecha doc")
+    : `Fecha doc ${fmtShortDate(d.issueYmd ?? d.fecha)}`;
+  return `Fecha doc ${fmtShortDate(d.issueYmd ?? d.fecha)}`;
+}
+
+function draftTitleLine(d: DraftMenuItem): string {
+  return `${draftGroupLabel(d.sentDocs, d.label)} · ${fmtClp(d.monto)}`;
+}
+
+/** Acciones por borrador (mover + ver). */
+function draftActions(
+  d: DraftMenuItem,
+  ctx: CellMenuContext,
+  cb: CellMenuCallbacks,
+  opts?: { separatorBeforeFirst?: boolean },
+): MenuItemDesc[] {
+  const canMove = ctx.canManage && ctx.dteMoveWeeks.length > 0;
+  const out: MenuItemDesc[] = [];
+  out.push({
+    key: `move-draft-${d.dteId}`,
+    label: "Mover a otra semana",
+    separatorBefore: opts?.separatorBeforeFirst,
+    disabled: !canMove,
+    reason: !ctx.canManage
+      ? "Sin permiso de edición"
+      : "No hay semanas abiertas",
+    submenu: canMove
+      ? weekSubmenu(d.dteId, ctx.dteMoveWeeks, ctx, cb.onMoveDte)
+      : undefined,
+  });
+  out.push({
+    key: `view-draft-${d.dteId}`,
+    label: "Ver borrador",
+    onSelect: () => cb.onViewDte(d.dteId),
+  });
+  return out;
 }
 
 /** Acciones por folio (compartidas entre context-menu y sheet). */
@@ -415,7 +517,7 @@ function planCellItems(
   return items;
 }
 
-/** Menú de la celda (§5D / v4.6 por folio). */
+/** Menú de la celda (§5D / v4.6 por folio · v4.7 borradores movibles). */
 export function buildCellMenu(
   row: FlowMatrixRowDto,
   cell: FlowMatrixCellDto,
@@ -423,8 +525,9 @@ export function buildCellMenu(
   cb: CellMenuCallbacks,
 ): MenuItemDesc[] {
   const dteItems = cellDteItems(cell);
-  const items: MenuItemDesc[] =
-    dteItems.length > 0 ? [] : planCellItems(cell, ctx, cb);
+  const draftItems = cellDraftItems(cell);
+  const hasDocs = dteItems.length > 0 || draftItems.length > 0;
+  const items: MenuItemDesc[] = hasDocs ? [] : planCellItems(cell, ctx, cb);
 
   if (dteItems.length === 1) {
     items.push(...folioActions(dteItems[0]!, row, ctx, cb));
@@ -494,6 +597,35 @@ export function buildCellMenu(
     }
   }
 
+  if (draftItems.length === 1) {
+    items.push(...draftActions(draftItems[0]!, ctx, cb, { separatorBeforeFirst: dteItems.length > 0 }));
+  } else if (draftItems.length > 1) {
+    const canMove = ctx.canManage && ctx.dteMoveWeeks.length > 0;
+    items.push({
+      key: "move-draft",
+      label: "Mover borrador a…",
+      separatorBefore: true,
+      disabled: !canMove,
+      reason: !ctx.canManage ? "Sin permiso de edición" : "No hay semanas abiertas",
+      submenu: canMove
+        ? draftItems.map((d) => ({
+            key: `mdraft-pick-${d.dteId}`,
+            label: draftGroupLabel(d.sentDocs, d.label),
+            submenu: weekSubmenu(d.dteId, ctx.dteMoveWeeks, ctx, cb.onMoveDte),
+          }))
+        : undefined,
+    });
+    items.push({
+      key: "view-draft",
+      label: "Ver borrador",
+      submenu: draftItems.map((d) => ({
+        key: `view-draft-${d.dteId}`,
+        label: draftGroupLabel(d.sentDocs, d.label),
+        onSelect: () => cb.onViewDte(d.dteId),
+      })),
+    });
+  }
+
   items.push({
     key: "detail",
     label: "Ver detalle e historial",
@@ -521,7 +653,7 @@ export interface CellSheetModel {
   commonItems: MenuItemDesc[];
 }
 
-/** Modelo agrupado por folio para el sheet móvil (v4.6). */
+/** Modelo agrupado por folio/borrador para el sheet móvil (v4.6/v4.7). */
 export function buildCellSheetModel(
   row: FlowMatrixRowDto,
   cell: FlowMatrixCellDto,
@@ -529,33 +661,44 @@ export function buildCellSheetModel(
   cb: CellMenuCallbacks,
 ): CellSheetModel {
   const dteItems = cellDteItems(cell);
+  const draftItems = cellDraftItems(cell);
   const rowName = ctx.rowName ?? row.name;
-  const folioGroups: FolioSheetGroup[] = dteItems.map((d) => ({
-    key: d.dteId,
-    header: {
-      titleLine: folioTitleLine(d, rowName),
-      statusLine: folioStatusLine(d),
-    },
-    items: folioActions(d, row, ctx, cb),
-  }));
-  const commonItems: MenuItemDesc[] =
-    dteItems.length > 0
-      ? [
-          {
-            key: "detail",
-            label: "Ver detalle e historial",
-            separatorBefore: true,
-            onSelect: cb.onViewDetail,
-          },
-        ]
-      : [
-          ...planCellItems(cell, ctx, cb),
-          {
-            key: "detail",
-            label: "Ver detalle e historial",
-            separatorBefore: true,
-            onSelect: cb.onViewDetail,
-          },
-        ];
+  const folioGroups: FolioSheetGroup[] = [
+    ...dteItems.map((d) => ({
+      key: d.dteId,
+      header: {
+        titleLine: folioTitleLine(d, rowName),
+        statusLine: folioStatusLine(d),
+      },
+      items: folioActions(d, row, ctx, cb),
+    })),
+    ...draftItems.map((d) => ({
+      key: d.dteId,
+      header: {
+        titleLine: draftTitleLine(d),
+        statusLine: draftStatusLine(d),
+      },
+      items: draftActions(d, ctx, cb),
+    })),
+  ];
+  const hasDocs = dteItems.length > 0 || draftItems.length > 0;
+  const commonItems: MenuItemDesc[] = hasDocs
+    ? [
+        {
+          key: "detail",
+          label: "Ver detalle e historial",
+          separatorBefore: true,
+          onSelect: cb.onViewDetail,
+        },
+      ]
+    : [
+        ...planCellItems(cell, ctx, cb),
+        {
+          key: "detail",
+          label: "Ver detalle e historial",
+          separatorBefore: true,
+          onSelect: cb.onViewDetail,
+        },
+      ];
   return { folioGroups, commonItems };
 }
