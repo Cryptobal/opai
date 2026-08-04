@@ -62,6 +62,7 @@ import {
 import { DuplicateAccountModal } from "./DuplicateAccountModal";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { confirmDialog, promptDialog } from "@/components/ui/confirm-service";
 import { cn } from "@/lib/utils";
 import { FileAttachments } from "./FileAttachments";
 import { NotesSection } from "./NotesSection";
@@ -156,6 +157,46 @@ type QuoteRow = {
   monthlyCost: number | string;
   createdAt: string;
 };
+
+type DeleteBlocker = { code: string; label: string };
+
+type AccountDeleteImpact = {
+  counts: {
+    deals: number;
+    quotes: number;
+    bundles: number;
+  };
+  blockers: DeleteBlocker[];
+  warnings: string[];
+};
+
+function formatAccountDeleteImpact(impact: AccountDeleteImpact | null) {
+  if (!impact) {
+    return "No se pudo calcular el impacto completo. El servidor validará dependencias antes de eliminar.";
+  }
+  const lines = [
+    "Se eliminará la cuenta y su cascada asociada.",
+    "",
+    `Negocios eliminados: ${impact.counts.deals}`,
+    `Cotizaciones a papelera: ${impact.counts.quotes}`,
+    `Propuestas eliminadas: ${impact.counts.bundles}`,
+  ];
+  if (impact.warnings.length > 0) {
+    lines.push("", "Advertencias:", ...impact.warnings.map((w) => `- ${w}`));
+  }
+  if (impact.blockers.length > 0) {
+    lines.push("", "Bloqueos:", ...impact.blockers.map((b) => `- ${b.label}`));
+  }
+  return lines.join("\n");
+}
+
+function deleteUrlWithParams(base: string, force: boolean, reason: string | null) {
+  const params = new URLSearchParams();
+  if (force) params.set("force", "true");
+  if (reason) params.set("reason", reason);
+  const qs = params.toString();
+  return qs ? `${base}?${qs}` : base;
+}
 
 type AccountDetail = {
   id: string;
@@ -385,7 +426,6 @@ export function CrmAccountDetailClient({
   const [creatingContact, setCreatingContact] = useState(false);
 
   // ── Delete state ──
-  const [deleteAccountConfirm, setDeleteAccountConfirm] = useState(false);
   const [deleteContactConfirm, setDeleteContactConfirm] = useState<{ open: boolean; id: string }>({ open: false, id: "" });
 
   // ── Cambio de contacto principal (solo uno por cuenta) ──
@@ -463,15 +503,68 @@ export function CrmAccountDetailClient({
     }
   };
 
-  const deleteAccount = async () => {
+  const deleteAccount = async (opts: { force?: boolean; reason?: string | null } = {}) => {
     try {
-      const res = await fetch(`/api/crm/accounts/${account.id}`, { method: "DELETE" });
-      if (!res.ok) throw new Error();
+      const res = await fetch(
+        deleteUrlWithParams(
+          `/api/crm/accounts/${account.id}`,
+          Boolean(opts.force),
+          opts.reason ?? null,
+        ),
+        { method: "DELETE" },
+      );
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json.success) {
+        throw new Error(json.error || "No se pudo eliminar");
+      }
       toast.success("Cuenta eliminada");
       router.push("/crm/accounts");
-    } catch {
-      toast.error("No se pudo eliminar");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "No se pudo eliminar");
     }
+  };
+
+  const requestDeleteAccount = async () => {
+    let impact: AccountDeleteImpact | null = null;
+    try {
+      const res = await fetch(`/api/crm/accounts/${account.id}/delete-impact`);
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.error || "No se pudo calcular el impacto");
+      }
+      impact = json.data as AccountDeleteImpact;
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "No se pudo calcular el impacto");
+      return;
+    }
+    if (!impact) return;
+
+    const description = formatAccountDeleteImpact(impact);
+    if (impact.blockers.length > 0) {
+      const typed = await promptDialog({
+        title: "Eliminar cuenta con bloqueos",
+        description: `${description}\n\nPara forzar la eliminación escribe exactamente el nombre de la cuenta:\n${account.name}`,
+        placeholder: account.name,
+        confirmLabel: "Eliminar de todas formas",
+        validate: (value) =>
+          value.trim() === account.name ? null : "El texto debe coincidir con el nombre de la cuenta.",
+      });
+      if (typed === null) return;
+      await deleteAccount({
+        force: true,
+        reason: "Eliminación forzada confirmada escribiendo el nombre de la cuenta.",
+      });
+      return;
+    }
+
+    const confirmed = await confirmDialog({
+      title: "Eliminar cuenta",
+      description,
+      confirmLabel: "Eliminar cuenta",
+      variant: "destructive",
+    });
+    if (!confirmed) return;
+    await deleteAccount();
   };
 
   /**
@@ -1189,7 +1282,7 @@ export function CrmAccountDetailClient({
       hidden: lifecycle === "prospect",
     },
     { label: "Buscar duplicados", icon: GitMerge, onClick: () => setDuplicateModalOpen(true) },
-    { label: "Eliminar cuenta", icon: Trash2, onClick: () => setDeleteAccountConfirm(true), variant: "destructive" },
+    { label: "Eliminar cuenta", icon: Trash2, onClick: () => void requestDeleteAccount(), variant: "destructive" },
   ];
 
   // ── Tab content: General ──
@@ -2217,15 +2310,6 @@ export function CrmAccountDetailClient({
       </Dialog>
 
       {/* ── Confirm Dialogs ── */}
-      <ConfirmDialog
-        open={deleteAccountConfirm}
-        onOpenChange={setDeleteAccountConfirm}
-        title="Eliminar cuenta"
-        description="Se eliminarán también contactos, negocios e instalaciones asociados. Esta acción no se puede deshacer."
-        confirmLabel="Eliminar"
-        variant="destructive"
-        onConfirm={deleteAccount}
-      />
       <ConfirmDialog
         open={accountStatusConfirmOpen}
         onOpenChange={setAccountStatusConfirmOpen}
