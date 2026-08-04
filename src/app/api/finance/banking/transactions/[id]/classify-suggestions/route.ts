@@ -6,13 +6,15 @@ import {
 } from "@/lib/api-auth";
 import { hasCapability } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
-import { findMatchingRule, flowRowSuggestionFromEvaluation, isFlowRowAction } from "@/modules/finance/banking/automatch-rule.service";
+import { findMatchingRule, flowRowSuggestionFromEvaluation, isFlowRowAction, upsertFlowRowRuleForRut } from "@/modules/finance/banking/automatch-rule.service";
 import {
   normalizeClassifyRut,
   rankClassifySuggestions,
+  isTgrRut,
   type ClassifySuggestion,
 } from "@/modules/finance/banking/flow-classify.service";
-import { extractCanonicalRutFromBankText } from "@/modules/finance/banking/rut-recognition.service";
+import { extractCanonicalRutFromBankText } from "@/modules/finance/banking/rut-extract";
+import { resolveAccountPlanIdForFlowRow } from "@/modules/finance/banking/flow-row-account-plan.service";
 import { setTransactionLinks } from "@/modules/finance/banking/bank-tx-link.service";
 import { normalizeNameForDedupe } from "@/modules/finance/flow-v3/row-visibility";
 
@@ -166,6 +168,7 @@ export async function POST(
       flowRowId?: string;
       accountPlanId?: string | null;
       note?: string;
+      learnRule?: boolean;
     };
 
     if (body.kind !== "FLOW_ROW" || !body.flowRowId) {
@@ -177,7 +180,7 @@ export async function POST(
 
     const tx = await prisma.financeBankTransaction.findFirst({
       where: { id, tenantId: ctx.tenantId, hiddenAt: null },
-      select: { id: true, amount: true },
+      select: { id: true, amount: true, description: true, reference: true },
     });
     if (!tx) {
       return NextResponse.json({ success: false, error: "Tx no encontrada" }, { status: 404 });
@@ -191,22 +194,11 @@ export async function POST(
       return NextResponse.json({ success: false, error: "Fila no encontrada" }, { status: 404 });
     }
 
-    // Resolver cuenta: body → categoría.accountPlanId → mapeo N:M primario.
-    let accountPlanId = body.accountPlanId ?? null;
-    if (!accountPlanId && row.categoryId) {
-      const cat = await prisma.financeCashflowCategory.findFirst({
-        where: { id: row.categoryId, tenantId: ctx.tenantId },
-        select: {
-          accountPlanId: true,
-          accountMappings: {
-            select: { accountPlanId: true, isPrimary: true },
-            orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }],
-            take: 1,
-          },
-        },
-      });
-      accountPlanId = cat?.accountPlanId ?? cat?.accountMappings[0]?.accountPlanId ?? null;
-    }
+    const accountPlanId = await resolveAccountPlanIdForFlowRow(
+      ctx.tenantId,
+      row,
+      body.accountPlanId ?? null,
+    );
     if (!accountPlanId) {
       return NextResponse.json({
         success: false,
@@ -234,9 +226,33 @@ export async function POST(
       ],
     );
 
+    let ruleLearned: { ruleId: string; created: boolean } | null = null;
+    const shouldLearn = body.learnRule !== false;
+    if (shouldLearn) {
+      const rutFromText =
+        extractCanonicalRutFromBankText(tx.description ?? "") ??
+        extractCanonicalRutFromBankText(tx.reference ?? "");
+      const rutCanon = normalizeClassifyRut(rutFromText);
+      if (rutCanon && !isTgrRut(rutCanon)) {
+        ruleLearned = await upsertFlowRowRuleForRut({
+          tenantId: ctx.tenantId,
+          rut: rutCanon,
+          flowRowId: row.id,
+          rowName: row.name,
+          userId: ctx.userId,
+        });
+      }
+    }
+
     return NextResponse.json({
       success: true,
-      data: { transactionId: tx.id, flowRowId: row.id, linked: true },
+      data: {
+        transactionId: tx.id,
+        flowRowId: row.id,
+        linked: true,
+        ruleId: ruleLearned?.ruleId ?? null,
+        ruleCreated: ruleLearned?.created ?? false,
+      },
     });
   } catch (error) {
     console.error("[Finance/Banking/ClassifySuggestions] POST:", error);

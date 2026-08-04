@@ -37,6 +37,7 @@ export async function reconcileIncomeRows(tenantId: string): Promise<void> {
     await applySectionMoves(tx, tenantId);
     await ensureCanonicalRows(tx, tenantId);
     await adoptOrCreateTemplateRows(tx, tenantId);
+    await createRowsForAccountsWithPendingDtes(tx, tenantId);
     await archiveSurplusRows(tx, tenantId);
     await purgeRetiredCanonicalRows(tx, tenantId);
   });
@@ -244,6 +245,118 @@ async function adoptOrCreateTemplateRows(tx: Tx, tenantId: string): Promise<void
     } catch (e) {
       if (!(e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002")) throw e;
     }
+  }
+}
+
+/** Crea filas INGRESOS por cuenta CRM con DTEs pendientes sin fila propia (cap 50). */
+async function createRowsForAccountsWithPendingDtes(tx: Tx, tenantId: string): Promise<void> {
+  const [config, dtes, existingRows, accounts, last] = await Promise.all([
+    tx.financeCashflowConfig.findUnique({
+      where: { tenantId },
+      select: { flowCutoffYmd: true },
+    }),
+    tx.financeDte.findMany({
+      where: {
+        tenantId,
+        direction: "ISSUED",
+        dteType: { in: [33, 34] },
+        siiStatus: { in: ["ACCEPTED", "PENDING", "SENT"] },
+        voidedByCreditNoteId: null,
+        creditedNetAmount: 0,
+        paymentStatus: { in: ["UNPAID", "PARTIAL", "OVERDUE", "CEDED"] },
+      },
+      select: {
+        crmAccountId: true,
+        receiverRut: true,
+        totalAmount: true,
+        amountPaid: true,
+        date: true,
+      },
+    }),
+    tx.financeFlowRow.findMany({
+      where: {
+        tenantId,
+        section: "INGRESOS",
+        mapping: "ACCOUNT_INSTALLATION",
+        archivedAt: null,
+        crmAccountId: { not: null },
+      },
+      select: { crmAccountId: true },
+    }),
+    tx.crmAccount.findMany({
+      where: { tenantId },
+      select: { id: true, name: true, rut: true },
+    }),
+    tx.financeFlowRow.findFirst({
+      where: { tenantId, section: "INGRESOS" },
+      orderBy: { orderIndex: "desc" },
+      select: { orderIndex: true },
+    }),
+  ]);
+
+  const cutoffYmd = config?.flowCutoffYmd
+    ? config.flowCutoffYmd.toISOString().slice(0, 10)
+    : null;
+  const afterCutoff = (d: { date: Date }) =>
+    !cutoffYmd || d.date.toISOString().slice(0, 10) >= cutoffYmd;
+
+  const accountByRut = new Map<string, string>();
+  for (const a of accounts) {
+    if (!a.rut) continue;
+    const key = cleanRut(a.rut);
+    if (key && !accountByRut.has(key)) accountByRut.set(key, a.id);
+  }
+
+  const coveredAccounts = new Set(
+    existingRows.map((r) => r.crmAccountId).filter((x): x is string => !!x),
+  );
+
+  const accountsWithPending = new Set<string>();
+  for (const d of dtes) {
+    if (!afterCutoff(d)) continue;
+    const pending = Number(d.totalAmount) - Number(d.amountPaid);
+    if (pending <= 0) continue;
+    let accId = d.crmAccountId;
+    if (!accId && d.receiverRut) {
+      const key = cleanRut(d.receiverRut);
+      accId = key ? (accountByRut.get(key) ?? null) : null;
+    }
+    if (!accId || coveredAccounts.has(accId)) continue;
+    accountsWithPending.add(accId);
+  }
+
+  if (accountsWithPending.size === 0) return;
+
+  const accountById = new Map(accounts.map((a) => [a.id, a]));
+  let orderIndex = (last?.orderIndex ?? -1) + 1;
+  let created = 0;
+  const CAP = 50;
+
+  for (const accId of accountsWithPending) {
+    if (created >= CAP) break;
+    const acc = accountById.get(accId);
+    if (!acc) continue;
+    try {
+      await tx.financeFlowRow.create({
+        data: {
+          tenantId,
+          section: "INGRESOS",
+          name: acc.name,
+          mapping: "ACCOUNT_INSTALLATION",
+          orderIndex: orderIndex++,
+          crmAccountId: accId,
+          installationId: null,
+        },
+      });
+      coveredAccounts.add(accId);
+      created++;
+    } catch (e) {
+      if (!(e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002")) throw e;
+    }
+  }
+
+  if (created > 0) {
+    console.log(`[FLOW-V3] createRowsForAccountsWithPendingDtes: created ${created} income row(s)`);
   }
 }
 

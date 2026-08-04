@@ -214,3 +214,30 @@ glob + historia git). B7 implementa las specs numéricas del prompt v3.1
 
 Ninguna discrepancia arquitectónica que amerite STOP: todas las fuentes
 existen y tienen forma equivalente a la asumida por el prompt.
+
+---
+
+## Cartola-first (v6) — modelo de capas
+
+Fecha: 2026-08-04 · Branch: `cursor/flujo-caja-cartola-first-e1f1`
+
+### Qué alimenta cada capa
+
+| Capa | Fuente | Notas |
+|---|---|---|
+| **REAL** | Movimientos bancarios (`FinanceBankTransaction` + links) | Única verdad del pasado/presente. Invariante: suma real semana = suma cartola visible. |
+| **PROYECTADA (comprometido)** | Ingresos: DTEs emitidos + borradores + templates. Egresos: hitos payroll/F29/TE + plan/GAV recurrente. | **No** incluye DTEs recibidos salvo `projectReceivedDtesAsExpense=true` (opt-in). |
+| **PLAN** | `FinanceFlowPlanCell` + recurrencias GAV | Editable; semanas selladas bloqueadas. |
+
+### Filas bandeja
+
+- **Otros ingresos**: solo abonos bancarios sin link (o remanente). Flag `bandejaIncomeBankOnly` (default true).
+- **Otros egresos**: solo cargos bancarios sin link (o remanente).
+- Las facturas emitidas sin fila **no** van a la bandeja: viven en `unroutedIncome` / panel "Facturas sin fila".
+- Las facturas de compra **no proyectan egreso** por defecto. Opt-in puntual: `POST .../pin-to-flow` (celda de plan + nota con folio). Crédito IVA F29 intacto.
+
+### Clasificación RUT → fila
+
+Al confirmar clasificación de un movimiento a una fila se crea/actualiza
+`FinanceAutoMatchRule` (`BENEFICIARY_RUT RUT_MATCHES` → `{kind:"FLOW_ROW"}`)
+y `run-rules-only` re-aplica al histórico `UNMATCHED` del mismo RUT.

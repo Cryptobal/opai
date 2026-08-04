@@ -18,6 +18,7 @@ import type {
   FinanceAutoMatchRule,
   FinanceAutoMatchScope,
 } from "@prisma/client";
+import { normalizeRutForMatch } from "./auto-match-payment.service";
 
 // ── Schemas de conditions / action ──
 
@@ -492,4 +493,93 @@ export async function deleteRule(tenantId: string, id: string): Promise<void> {
   });
   if (!existing) throw new Error("Regla no encontrada");
   await prisma.financeAutoMatchRule.delete({ where: { id } });
+}
+
+function rutRuleConditionsMatch(
+  stored: unknown,
+  normalizedRut: string,
+): boolean {
+  const c = stored as RuleConditions;
+  if (c?.mode !== "ALL" || !Array.isArray(c.items) || c.items.length !== 1) {
+    return false;
+  }
+  const item = c.items[0];
+  return (
+    item.field === "BENEFICIARY_RUT" &&
+    item.operator === "RUT_MATCHES" &&
+    normalizeRutForMatch(String(item.value ?? "")) === normalizedRut
+  );
+}
+
+/**
+ * Crea o actualiza regla RUT → fila de flujo (idempotente por RUT normalizado).
+ */
+export async function upsertFlowRowRuleForRut(input: {
+  tenantId: string;
+  rut: string;
+  flowRowId: string;
+  rowName: string;
+  userId: string | null;
+}): Promise<{ ruleId: string; created: boolean }> {
+  const normalizedRut = normalizeRutForMatch(input.rut);
+  if (normalizedRut.length < 8) throw new Error("RUT inválido");
+
+  const row = await prisma.financeFlowRow.findFirst({
+    where: { id: input.flowRowId, tenantId: input.tenantId, archivedAt: null },
+    select: { id: true },
+  });
+  if (!row) throw new Error("Fila de flujo no encontrada");
+
+  const conditions: RuleConditions = {
+    mode: "ALL",
+    items: [
+      {
+        field: "BENEFICIARY_RUT",
+        operator: "RUT_MATCHES",
+        value: normalizedRut,
+      },
+    ],
+  };
+  const action: FlowRowRuleAction = {
+    kind: "FLOW_ROW",
+    flowRowId: input.flowRowId,
+    requiresReview: false,
+  };
+  const ruleName = `RUT → ${input.rowName.trim() || "fila flujo"}`;
+
+  const candidates = await prisma.financeAutoMatchRule.findMany({
+    where: { tenantId: input.tenantId },
+    select: { id: true, conditions: true },
+  });
+  const existing = candidates.find((r) =>
+    rutRuleConditionsMatch(r.conditions, normalizedRut),
+  );
+
+  if (existing) {
+    await prisma.financeAutoMatchRule.update({
+      where: { id: existing.id },
+      data: {
+        name: ruleName,
+        priority: 50,
+        action: action as unknown as object,
+      },
+    });
+    console.log("[Finance/Banking/Rules] upsertFlowRowRuleForRut: updated 1 rule");
+    return { ruleId: existing.id, created: false };
+  }
+
+  const created = await prisma.financeAutoMatchRule.create({
+    data: {
+      tenantId: input.tenantId,
+      name: ruleName,
+      enabled: true,
+      priority: 50,
+      appliesTo: "BOTH",
+      conditions: conditions as unknown as object,
+      action: action as unknown as object,
+      createdById: input.userId,
+    },
+  });
+  console.log("[Finance/Banking/Rules] upsertFlowRowRuleForRut: created 1 rule");
+  return { ruleId: created.id, created: true };
 }
