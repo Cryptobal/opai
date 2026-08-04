@@ -203,6 +203,7 @@ export function DteForm({
     id: string;
     name: string;
     isActive: boolean;
+    installationId?: string | null;
     frequency: string;
     dayOfMonth: number | null;
     dayOfWeek: number | null;
@@ -525,7 +526,8 @@ export function DteForm({
         } else if (d.recurringTemplateId === null) {
           setRecurringTemplateId(null);
           setLinkMode("cuota");
-          skipTemplateAutofillRef.current = true;
+          // Sin vínculo persistido: permitir autofill por instalación (2+ filas).
+          skipTemplateAutofillRef.current = false;
         }
         // Reconstruir el `customer` (CustomerOption) del CRM cuando el draft
         // tiene crmAccountId. Sin esto el combobox queda vacío y, peor, la
@@ -652,8 +654,8 @@ export function DteForm({
     return () => ctrl.abort();
   }, [customer?.id]);
 
-  // Programaciones activas de la cuenta: 1 → default vinculable/removible;
-  // varias → selector sin default (salvo vínculo ya cargado del draft).
+  // Programaciones activas de la cuenta: 1 → default; varias → desambiguar
+  // por instalación (misma regla que cashflow / inherit-template-link v4.8).
   useEffect(() => {
     if (!customer?.id) {
       setAccountTemplates([]);
@@ -664,7 +666,9 @@ export function DteForm({
     fetch("/api/finance/billing/recurring", { signal: ctrl.signal, cache: "no-store" })
       .then((r) => r.json())
       .then((j) => {
-        const all = Array.isArray(j?.data) ? j.data : [];
+        // API canónica: { data: { templates: [...] } }. Compat: data como array.
+        const raw = j?.data?.templates ?? j?.data;
+        const all = Array.isArray(raw) ? raw : [];
         const forAccount = all.filter(
           (t: { crmAccountId?: string; isActive?: boolean; dteType?: number }) =>
             t.crmAccountId === customer.id &&
@@ -686,9 +690,22 @@ export function DteForm({
             /* conservar período actual */
           }
         } else if (forAccount.length >= 2) {
-          // Obligatorio elegir: sin default.
-          setRecurringTemplateId(null);
-          setLinkMode("cuota");
+          const byInst = installationId
+            ? forAccount.filter((t) => t.installationId === installationId)
+            : [];
+          if (byInst.length === 1) {
+            const t = byInst[0]!;
+            setRecurringTemplateId(t.id);
+            setLinkMode("cuota");
+            try {
+              setBillingPeriod(resolveBillingPeriodForDate(toBillingPeriodTpl(t), issueDate));
+            } catch {
+              /* conservar período actual */
+            }
+          } else {
+            setRecurringTemplateId(null);
+            setLinkMode("cuota");
+          }
         } else {
           setRecurringTemplateId(null);
           setLinkMode("cuota");
@@ -698,7 +715,33 @@ export function DteForm({
         setAccountTemplates([]);
       });
     return () => ctrl.abort();
+    // installationId: solo para el primer autofill al cargar templates; el
+    // efecto siguiente reacciona a cambios de instalación.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [customer?.id]);
+
+  // Si el usuario elige/cambia instalación y hay 2+ programaciones, apuntar
+  // a la fila de esa instalación (no pisar si ya eligió otra a mano y la
+  // instalación actual coincide con la selección).
+  useEffect(() => {
+    if (accountTemplates.length < 2 || !installationId) return;
+    const byInst = accountTemplates.filter((t) => t.installationId === installationId);
+    if (byInst.length !== 1) return;
+    const t = byInst[0]!;
+    if (recurringTemplateId === t.id) return;
+    // Si ya hay una selección de otra instalación, actualizar al cambiar;
+    // si no hay selección, rellenar.
+    const current = accountTemplates.find((x) => x.id === recurringTemplateId);
+    if (current && current.installationId === installationId) return;
+    setRecurringTemplateId(t.id);
+    if (linkMode === "cuota") {
+      try {
+        setBillingPeriod(resolveBillingPeriodForDate(toBillingPeriodTpl(t), issueDate));
+      } catch {
+        /* noop */
+      }
+    }
+  }, [installationId, accountTemplates, recurringTemplateId, linkMode, issueDate]);
 
   // Trigger fetch a /receiver-suggestions para mostrar contactos CC del CRM.
   // Usa el RUT efectivo (customer del CRM si está seleccionado, sino manual).
@@ -1519,7 +1562,15 @@ export function DteForm({
                   <p className="text-xs text-ds-text-3">
                     {accountTemplates.length === 1
                       ? "Cliente con una programación: la factura va a esa fila."
-                      : "Varias programaciones: elegí a cuál fila va esta factura."}
+                      : recurringTemplateId &&
+                          accountTemplates.some(
+                            (t) =>
+                              t.id === recurringTemplateId &&
+                              t.installationId &&
+                              t.installationId === installationId,
+                          )
+                        ? "Fila tomada de la instalación seleccionada (programación de esa cuenta)."
+                        : "Varias programaciones: elegí a cuál fila va esta factura."}
                   </p>
                 </div>
                 <div className="space-y-1.5">

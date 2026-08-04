@@ -267,6 +267,39 @@ describe("applyTemplateLinkInheritance — destino v4.3/v4.7", () => {
     ).rejects.toBeInstanceOf(TemplateLinkRequiredError);
   });
 
+  it("v4.8b: null explícito + installationId inequívoco → hereda (emitir borrador)", async () => {
+    const schedule = {
+      frequency: "monthly",
+      dayOfMonth: 5,
+      dayOfWeek: null,
+      monthOfYear: null,
+      startDate: new Date("2026-01-01"),
+      endDate: null,
+      lastRunAt: null,
+      facturaTiming: "AL_EMITIR",
+      facturaDay: null,
+      facturaMesRelativo: "MISMO_MES",
+    };
+    // resolveDefaultTemplateLink (antes del throw): lista con schedule fields
+    findMany.mockResolvedValue([
+      { id: "tpl-pemuco", installationId: "inst-pemuco", ...schedule },
+      { id: "tpl-llay", installationId: "inst-llay", ...schedule },
+    ]);
+
+    const out = await applyTemplateLinkInheritance("t1", {
+      dteType: 33,
+      crmAccountId: "acc-Pine",
+      installationId: "inst-llay",
+      issueDateYmd: "2026-08-05",
+      recurringTemplateId: null, // form sin selector / payload vacío
+      billingPeriod: null,
+    });
+    expect(out).toEqual({
+      recurringTemplateId: "tpl-llay",
+      billingPeriod: "2026-08",
+    });
+  });
+
   it("v4.8: installationId que no matchea ninguna fila → exige selector", async () => {
     findMany
       .mockResolvedValueOnce([
