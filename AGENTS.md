@@ -280,6 +280,7 @@ Un único material Liquid Glass aplica al 100% de pantallas **mobile (`< lg`, 10
   - `.opai-glass-soft` — fill translúcido **SIN** `backdrop-filter` (filas, celdas, chips, elementos internos).
   - `.opai-glass` — base con blur (cards nivel página, popovers).
   - `.opai-glass-strong` — blur fuerte (barras, sheets, modales, header flotante, isla nav).
+  - `.opai-glass-sheet-island` — variante de `-strong` para sheets flotantes (drawer Más / overflow): underlay más bajo (`card/0.55`) + radio 26px + márgenes. **Exige scrim liviano** (`bg-black/35`); un scrim denso (`bg-black/80`) anula el `backdrop-filter` y el vidrio se lee opaco. Se aplica vía `SheetContent surface="glass-island"`.
 - **Regla de performance (crítica):** `backdrop-filter` SOLO en superficies contenedoras. Filas/celdas/chips usan `glass-soft`. Máx ~10 superficies con blur por viewport. En grids/tablas densas: el contenedor es glass, las celdas **jamás**.
 - **Acento:** teal brand (`hsl(var(--primary))`). Nada de paletas azul/índigo propias.
 - **Fallbacks obligatorios:** `@supports not (backdrop-filter)` y `prefers-reduced-transparency` → opaco `hsl(var(--card))` sin blur; `prefers-reduced-motion` → sin animaciones. Tema claro vía overrides `:root:not(.dark)`.
