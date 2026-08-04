@@ -35,10 +35,10 @@ export {
 } from "./dte-recurring-schedule";
 import {
   computeNextRunAt,
-  computeRecurringIssueYmd,
   resolveUfDateForPolicy,
   type UfFixingPolicy,
 } from "./dte-recurring-schedule";
+import { formatDateOnlyUtcYmd } from "@/lib/fx-date";
 
 /**
  * Shape de cada línea en el JSON `lines` del template. Algunos campos
@@ -401,11 +401,12 @@ export async function runTemplate(
     // Ancla = la ocurrencia que se está cumpliendo (nextRunAt), no hoy. Fallback
     // a la primera ocurrencia (plantilla sin schedule) o hoy en último caso.
     const issueAnchor = template.nextRunAt ?? computeNextRunAt(template) ?? new Date();
-    const issueDate = computeRecurringIssueYmd(template, issueAnchor);
-    // Período de caja = mes de SERVICIO (mes de la programación). Para
-    // DIA_ESPECIFICO/MES_SIGUIENTE la factura sale el mes siguiente pero factura
-    // el período del mes de la programación (igual que estadoPagoPeriodoMode=
-    // PREVIOUS). Anclar a nextRunAt lo hace robusto a runs atrasados.
+    // Fecha del DOCUMENTO = día de la ocurrencia. `facturaTiming` /
+    // `facturaMesRelativo` SOLO mueven la proyección del flujo mientras no
+    // exista factura real (ver schema); nunca post-fechan el borrador.
+    const issueDate = formatDateOnlyUtcYmd(issueAnchor);
+    // Período de caja = mes de SERVICIO (mes de la programación). Anclar a
+    // nextRunAt lo hace robusto a runs atrasados.
     const billingPeriod = `${issueAnchor.getUTCFullYear()}-${String(
       issueAnchor.getUTCMonth() + 1,
     ).padStart(2, "0")}`;

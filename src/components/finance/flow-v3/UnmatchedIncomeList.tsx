@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { fmtClp } from "./format";
-import { Spinner } from "@/components/opai-ds";
+import { ChevronDown, ChevronRight } from "lucide-react";
+import { Surface, Spinner, Tag } from "@/components/opai-ds";
+import { fmtClp, fmtShortDate } from "./format";
 
 interface TemplateOpt {
   id: string;
@@ -18,6 +19,9 @@ interface DteRow {
   receiverName: string | null;
   receiverRut: string | null;
   amountClp: number;
+  issueDate?: string | null;
+  dueDate?: string | null;
+  overdueDays?: number;
   crmAccountId?: string | null;
   templates: TemplateOpt[];
 }
@@ -32,27 +36,47 @@ interface GroupRow {
   templates: TemplateOpt[];
 }
 
-/** Lista DTEs de "Otros ingresos" agrupados por cliente + vincular unitario/masivo. */
+function groupStatus(g: GroupRow): { label: string; variant: "ok" | "warn" | "neutral" } {
+  if (g.crmAccountId && g.templates.length > 0) {
+    return {
+      label: `tiene cuenta y ${g.templates.length} programación${g.templates.length === 1 ? "" : "es"}`,
+      variant: "ok",
+    };
+  }
+  if (g.crmAccountId) {
+    return { label: "tiene cuenta en CRM", variant: "neutral" };
+  }
+  return { label: "sin cuenta en CRM", variant: "warn" };
+}
+
+/** Lista DTEs de "Otros ingresos" agrupados por cliente (v4.6). */
 export function UnmatchedIncomeList({
   weekStart,
   onCreated,
   focusDteId,
+  onViewDte,
+  onExcludeGroup,
 }: {
   weekStart: string;
   onCreated: () => void;
-  /** Si viene, abre el picker de vincular para ese DTE. */
   focusDteId?: string | null;
+  onViewDte?: (dteId: string) => void;
+  /** Excluye todas las facturas del grupo (opcional, desde planilla). */
+  onExcludeGroup?: (dteIds: string[]) => Promise<void>;
 }) {
   const [groups, setGroups] = useState<GroupRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [linking, setLinking] = useState<{
-    mode: "one" | "bulk";
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [linkPickerKey, setLinkPickerKey] = useState<string | null>(null);
+  const [oldPortfolio, setOldPortfolio] = useState<{
+    cutoffYmd: string;
+    count: number;
+    totalClp: number;
     dteIds: string[];
-    label: string;
-    templates: TemplateOpt[];
   } | null>(null);
+  const [excludingOld, setExcludingOld] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -64,8 +88,8 @@ export function UnmatchedIncomeList({
         if (cancelled) return;
         if (Array.isArray(j.groups) && j.groups.length > 0) {
           setGroups(j.groups as GroupRow[]);
+          setExpanded(new Set((j.groups as GroupRow[]).map((g) => g.key)));
         } else {
-          // Fallback: agrupar plano en cliente.
           const items = (j.data as DteRow[]) ?? [];
           const byKey = new Map<string, GroupRow>();
           for (const it of items) {
@@ -92,7 +116,9 @@ export function UnmatchedIncomeList({
               g.templates = it.templates;
             }
           }
-          setGroups([...byKey.values()]);
+          const next = [...byKey.values()];
+          setGroups(next);
+          setExpanded(new Set(next.map((g) => g.key)));
         }
       })
       .catch((e: unknown) => {
@@ -109,16 +135,31 @@ export function UnmatchedIncomeList({
     for (const g of groups) {
       const hit = g.items.find((i) => i.dteId === focusDteId);
       if (hit) {
-        setLinking({
-          mode: "one",
-          dteIds: [hit.dteId],
-          label: hit.folio != null ? `F°${hit.folio}` : "factura",
-          templates: hit.templates?.length ? hit.templates : g.templates,
-        });
+        setExpanded((s) => new Set(s).add(g.key));
+        setLinkPickerKey(g.key);
         break;
       }
     }
   }, [focusDteId, groups]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetch("/api/finance/flow-v3/old-portfolio", { cache: "no-store" })
+      .then(async (r) => {
+        const j = await r.json();
+        if (!j.success || cancelled) return;
+        const d = j.data as {
+          cutoffYmd: string;
+          count: number;
+          totalClp: number;
+          dteIds: string[];
+        };
+        if (d.count > 0) setOldPortfolio(d);
+        else setOldPortfolio(null);
+      })
+      .catch(() => { /* no-op */ });
+    return () => { cancelled = true; };
+  }, [weekStart, groups.length]);
 
   const createRow = async (dteId: string) => {
     setBusyKey(dteId);
@@ -179,7 +220,6 @@ export function UnmatchedIncomeList({
               (x) => x.dteId,
             ),
       );
-      // En unitario, linkedIds tiene el único; en bulk, los vinculados (no skipped).
       if (dteIds.length === 1) linkedIds.add(dteIds[0]!);
       const skipped = (j.data?.skipped as Array<{ dteId: string; reason: string }> | undefined) ?? [];
       if (skipped.length > 0) {
@@ -198,7 +238,44 @@ export function UnmatchedIncomeList({
           }))
           .filter((g) => g.items.length > 0),
       );
-      setLinking(null);
+      setLinkPickerKey(null);
+      onCreated();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Error");
+    } finally {
+      setBusyKey(null);
+    }
+  };
+
+  const excludeGroup = async (g: GroupRow) => {
+    const ids = g.items.map((i) => i.dteId);
+    if (onExcludeGroup) {
+      setBusyKey(g.key);
+      setError(null);
+      try {
+        await onExcludeGroup(ids);
+        setGroups((prev) => prev.filter((x) => x.key !== g.key));
+        onCreated();
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Error");
+      } finally {
+        setBusyKey(null);
+      }
+      return;
+    }
+    setBusyKey(g.key);
+    setError(null);
+    try {
+      for (const id of ids) {
+        const res = await fetch("/api/finance/flow-v3/income-exclusions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ dteId: id, reason: "Excluidas desde Otros ingresos" }),
+        });
+        const j = await res.json();
+        if (!j.success) throw new Error(j.error ?? "Error");
+      }
+      setGroups((prev) => prev.filter((x) => x.key !== g.key));
       onCreated();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Error");
@@ -224,139 +301,207 @@ export function UnmatchedIncomeList({
         Facturas en Otros ingresos
       </p>
       {error && <p className="mb-2 text-[12px] text-status-danger-fg">{error}</p>}
-      <ul className="space-y-3">
-        {groups.map((g) => (
-          <li
-            key={g.key}
-            className="rounded-lg border border-ds-border-subtle bg-ds-surface-2 px-3 py-2"
-          >
-            <div className="mb-2 flex items-baseline justify-between gap-2">
-              <span className="min-w-0 truncate text-[13px] font-medium text-ds-text-1">
-                {clientLabel(g)}
-                <span className="ml-1.5 font-normal text-ds-text-3">
-                  · {g.items.length} F°
-                </span>
-              </span>
-              <span className="shrink-0 tabular-nums text-[13px] text-ds-text-1">
-                {fmtClp(g.subtotalClp)}
-              </span>
-            </div>
-
-            <ul className="mb-2 space-y-1.5">
-              {g.items.map((d) => (
-                <li
-                  key={d.dteId}
-                  className="flex flex-col gap-1 rounded-md bg-ds-surface-1/60 px-2 py-1.5"
+      <ul className="ds-list-cascade space-y-2">
+        {groups.map((g) => {
+          const st = groupStatus(g);
+          const isOpen = expanded.has(g.key);
+          const templates = g.templates.length > 0 ? g.templates : g.items[0]?.templates ?? [];
+          const showPicker = linkPickerKey === g.key && templates.length > 0;
+          return (
+            <li key={g.key}>
+              <Surface elevation={1} padding="sm" className="space-y-2">
+                <button
+                  type="button"
+                  className="flex w-full items-start gap-2 text-left"
+                  onClick={() =>
+                    setExpanded((s) => {
+                      const n = new Set(s);
+                      if (n.has(g.key)) n.delete(g.key);
+                      else n.add(g.key);
+                      return n;
+                    })
+                  }
+                  aria-expanded={isOpen}
                 >
-                  <div className="flex items-baseline justify-between gap-2 text-[13px]">
-                    <span className="min-w-0 truncate text-ds-text-2">
-                      {d.folio != null ? `F°${d.folio}` : "Sin folio"}
+                  {isOpen ? (
+                    <ChevronDown className="mt-0.5 h-4 w-4 shrink-0 text-ds-text-3" />
+                  ) : (
+                    <ChevronRight className="mt-0.5 h-4 w-4 shrink-0 text-ds-text-3" />
+                  )}
+                  <span className="min-w-0 flex-1">
+                    <span className="flex flex-wrap items-baseline justify-between gap-2">
+                      <span className="text-[13px] font-medium text-ds-text-1">
+                        {clientLabel(g)}
+                      </span>
+                      <span className="shrink-0 tabular-nums text-[13px] text-ds-text-1">
+                        {fmtClp(g.subtotalClp)}
+                      </span>
                     </span>
-                    <span className="shrink-0 tabular-nums text-ds-text-2">
-                      {fmtClp(d.amountClp)}
+                    <span className="mt-0.5 flex flex-wrap items-center gap-2">
+                      <Tag size="sm" variant={st.variant === "ok" ? "ok" : st.variant === "warn" ? "warn" : "neutral"}>
+                        {st.label}
+                      </Tag>
+                      <span className="text-[12px] text-ds-text-3">
+                        {g.items.length} factura{g.items.length === 1 ? "" : "s"}
+                      </span>
                     </span>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    {(d.templates?.length ?? g.templates?.length ?? 0) > 0 && (
-                      <button
-                        type="button"
-                        disabled={busyKey === d.dteId}
-                        onClick={() =>
-                          setLinking({
-                            mode: "one",
-                            dteIds: [d.dteId],
-                            label: d.folio != null ? `F°${d.folio}` : "factura",
-                            templates: d.templates?.length ? d.templates : g.templates,
-                          })
-                        }
-                        className="min-h-10 shrink-0 rounded-full border border-ds-border-default bg-ds-surface-1 px-3 py-1.5 text-[12px] font-medium text-ds-text-1"
-                      >
-                        Vincular…
-                      </button>
-                    )}
-                    <button
-                      type="button"
-                      disabled={busyKey === d.dteId}
-                      onClick={() => void createRow(d.dteId)}
-                      className="min-h-10 shrink-0 rounded-full border border-ds-border-default bg-ds-surface-1 px-3 py-1.5 text-[12px] font-medium text-ds-text-1"
-                    >
-                      {busyKey === d.dteId ? "Creando…" : "Crear fila"}
-                    </button>
-                  </div>
-                </li>
-              ))}
-            </ul>
+                  </span>
+                </button>
 
-            {g.items.length >= 2 && (g.templates?.length ?? 0) > 0 && (
-              <button
-                type="button"
-                disabled={busyKey != null}
-                onClick={() =>
-                  setLinking({
-                    mode: "bulk",
-                    dteIds: g.items.map((i) => i.dteId),
-                    label: `las ${g.items.length} de ${clientLabel(g)}`,
-                    templates: g.templates,
-                  })
-                }
-                className="min-h-10 w-full rounded-full bg-primary px-3 py-1.5 text-[12px] font-medium text-primary-foreground"
-              >
-                Vincular las {g.items.length} de {clientLabel(g)} a…
-              </button>
-            )}
-          </li>
-        ))}
+                {isOpen && (
+                  <>
+                    <ul className="space-y-1 border-t border-ds-border-subtle pt-2">
+                      {g.items.map((d) => (
+                        <li
+                          key={d.dteId}
+                          className="flex items-center justify-between gap-2 rounded-md px-1 py-1 text-[13px]"
+                        >
+                          <button
+                            type="button"
+                            className="min-w-0 flex-1 text-left text-ds-text-2 hover:text-primary"
+                            onClick={() => onViewDte?.(d.dteId)}
+                            disabled={!onViewDte}
+                          >
+                            <span className="font-medium">
+                              {d.folio != null ? `F°${d.folio}` : "Sin folio"}
+                            </span>
+                            {d.issueDate && (
+                              <span className="ml-1.5 text-[12px] text-ds-text-3">
+                                {fmtShortDate(d.issueDate)}
+                                {(d.overdueDays ?? 0) > 0 && (
+                                  <span className="text-status-warn-fg">
+                                    {" "}· vencida hace {d.overdueDays}d
+                                  </span>
+                                )}
+                              </span>
+                            )}
+                          </button>
+                          <span className="shrink-0 tabular-nums text-ds-text-2">
+                            {fmtClp(d.amountClp)}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+
+                    <div className="flex flex-wrap gap-2 border-t border-ds-border-subtle pt-2">
+                      {templates.length > 0 && g.items.length >= 1 && (
+                        <button
+                          type="button"
+                          disabled={busyKey != null}
+                          onClick={() =>
+                            setLinkPickerKey((k) => (k === g.key ? null : g.key))
+                          }
+                          className="min-h-10 shrink-0 rounded-full bg-primary px-3 py-1.5 text-[12px] font-medium text-primary-foreground"
+                        >
+                          Vincular las {g.items.length} a…
+                        </button>
+                      )}
+                      {!g.crmAccountId && g.items.length === 1 && (
+                        <button
+                          type="button"
+                          disabled={busyKey === g.items[0]!.dteId}
+                          onClick={() => void createRow(g.items[0]!.dteId)}
+                          className="min-h-10 shrink-0 rounded-full border border-ds-border-default bg-ds-surface-1 px-3 py-1.5 text-[12px] font-medium text-ds-text-1"
+                        >
+                          {busyKey === g.items[0]!.dteId ? "Creando…" : "Crear fila…"}
+                        </button>
+                      )}
+                      {!g.crmAccountId && g.items.length > 1 && (
+                        <span className="self-center text-[12px] text-ds-text-3">
+                          Crear fila… (una por factura)
+                        </span>
+                      )}
+                      {g.items.length >= 1 && (
+                        <button
+                          type="button"
+                          disabled={busyKey === g.key}
+                          onClick={() => void excludeGroup(g)}
+                          className="min-h-10 shrink-0 rounded-full border border-ds-border-default px-3 py-1.5 text-[12px] font-medium text-status-danger-fg"
+                        >
+                          {busyKey === g.key ? "Excluyendo…" : `Excluir las ${g.items.length}`}
+                        </button>
+                      )}
+                    </div>
+
+                    {showPicker && (
+                      <ul className="space-y-1.5 border-t border-ds-border-subtle pt-2">
+                        {templates.map((t) => (
+                          <li key={t.id}>
+                            <button
+                              type="button"
+                              disabled={busyKey != null}
+                              onClick={() =>
+                                void linkTemplate(
+                                  g.items.map((i) => i.dteId),
+                                  t.id,
+                                  t.periodHasOtherDte,
+                                )
+                              }
+                              className="flex min-h-11 w-full flex-col items-start gap-0.5 rounded-xl border border-ds-border-subtle bg-ds-surface-2 px-3 py-2 text-left transition-colors hover:border-primary/40"
+                            >
+                              <span className="text-[13px] font-medium text-ds-text-1">{t.name}</span>
+                              <span className="text-[12px] text-ds-text-3">
+                                Período {t.suggestedBillingPeriod}
+                                {!t.isActive ? " · pausada" : ""}
+                                {t.periodHasOtherDte ? " · ya hay F° en el período" : ""}
+                              </span>
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </>
+                )}
+              </Surface>
+            </li>
+          );
+        })}
       </ul>
 
-      {linking && (
-        <div
-          className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Vincular a programación"
-          onClick={() => setLinking(null)}
-        >
-          <div
-            className="opai-glass-strong w-full max-w-md rounded-t-2xl border border-ds-border-subtle bg-ds-surface-1 p-4 sm:rounded-2xl"
-            onClick={(e) => e.stopPropagation()}
+      {oldPortfolio && oldPortfolio.count > 0 && (
+        <Surface elevation={1} padding="md" className="mt-4 space-y-2">
+          <p className="text-[13px] text-ds-text-2">
+            🧹 Cartera antigua: {oldPortfolio.count} factura
+            {oldPortfolio.count === 1 ? "" : "s"} anteriores a{" "}
+            {fmtShortDate(oldPortfolio.cutoffYmd)} · {fmtClp(oldPortfolio.totalClp)}
+          </p>
+          <button
+            type="button"
+            disabled={excludingOld}
+            className="min-h-10 rounded-full border border-ds-border-default bg-ds-surface-1 px-3 py-1.5 text-[12px] font-medium text-ds-text-1 disabled:opacity-50"
+            onClick={() => {
+              const { count, totalClp, dteIds, cutoffYmd } = oldPortfolio;
+              if (
+                !window.confirm(
+                  `Excluir ${count} factura(s) anteriores a ${fmtShortDate(cutoffYmd)} por ${fmtClp(totalClp)}?\n\nReversible desde exclusiones del flujo.`,
+                )
+              ) {
+                return;
+              }
+              setExcludingOld(true);
+              void fetch("/api/finance/flow-v3/income-exclusions", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  dteIds,
+                  reason: `Cartera antigua anterior a ${cutoffYmd}`,
+                }),
+              })
+                .then(async (r) => {
+                  const j = await r.json();
+                  if (!j.success) throw new Error(j.error ?? "Error");
+                  setOldPortfolio(null);
+                  onCreated();
+                })
+                .catch((e: unknown) => {
+                  setError(e instanceof Error ? e.message : "Error");
+                })
+                .finally(() => setExcludingOld(false));
+            }}
           >
-            <p className="mb-1 text-[13px] font-medium text-ds-text-1">
-              Vincular {linking.label}
-            </p>
-            <p className="mb-3 text-[12px] text-ds-text-3">
-              Elegí UNA programación — se aplica a {linking.dteIds.length} factura
-              {linking.dteIds.length === 1 ? "" : "s"}
-            </p>
-            <ul className="max-h-[50vh] space-y-2 overflow-y-auto">
-              {linking.templates.map((t) => (
-                <li key={t.id}>
-                  <button
-                    type="button"
-                    disabled={busyKey != null}
-                    onClick={() =>
-                      void linkTemplate(linking.dteIds, t.id, t.periodHasOtherDte)
-                    }
-                    className="flex min-h-11 w-full flex-col items-start gap-0.5 rounded-xl border border-ds-border-subtle bg-ds-surface-2 px-3 py-2.5 text-left transition-colors hover:border-primary/40"
-                  >
-                    <span className="text-[13px] font-medium text-ds-text-1">{t.name}</span>
-                    <span className="text-[12px] text-ds-text-3">
-                      Período {t.suggestedBillingPeriod}
-                      {!t.isActive ? " · pausada" : ""}
-                      {t.periodHasOtherDte ? " · ya hay F° en el período" : ""}
-                    </span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-            <button
-              type="button"
-              onClick={() => setLinking(null)}
-              className="mt-3 min-h-10 w-full rounded-full text-[13px] text-ds-text-3"
-            >
-              Cancelar
-            </button>
-          </div>
-        </div>
+            Excluir anteriores a {fmtShortDate(oldPortfolio.cutoffYmd)}
+          </button>
+        </Surface>
       )}
     </div>
   );

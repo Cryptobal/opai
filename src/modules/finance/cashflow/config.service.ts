@@ -1,6 +1,7 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
 import type { FinanceCashflowConfig } from "@prisma/client";
+import { todayChileStr } from "@/lib/fx-date";
 
 export async function getOrCreateCashflowConfig(
   tenantId: string,
@@ -68,11 +69,28 @@ export async function updateCashflowConfig(
     writeOffOverPaymentAccountId: string | null;
     collectionLagDays: number;
     flowWarnThresholdClp: number;
+    /** YYYY-MM-DD o null para quitar el corte. Validado ≤ hoy. */
+    flowCutoffYmd: string | null;
   }>,
 ): Promise<FinanceCashflowConfig> {
   await getOrCreateCashflowConfig(tenantId);
+  const { flowCutoffYmd, ...rest } = patch;
+  const data: Record<string, unknown> = { ...rest };
+  if (flowCutoffYmd !== undefined) {
+    if (flowCutoffYmd === null) {
+      data.flowCutoffYmd = null;
+    } else {
+      const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(flowCutoffYmd.trim());
+      if (!m) throw new Error("flowCutoffYmd inválido (YYYY-MM-DD)");
+      const ymd = flowCutoffYmd.trim();
+      if (ymd > todayChileStr()) {
+        throw new Error("flowCutoffYmd no puede ser posterior a hoy");
+      }
+      data.flowCutoffYmd = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]), 12));
+    }
+  }
   return prisma.financeCashflowConfig.update({
     where: { tenantId },
-    data: patch,
+    data,
   });
 }

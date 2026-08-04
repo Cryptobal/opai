@@ -7,7 +7,10 @@ import {
 } from "@/lib/api-auth";
 import { hasFacturacionCapability } from "@/lib/permissions";
 import { issueDteSchema } from "@/lib/validations/finance";
-import { issueDte } from "@/modules/finance/billing/dte-issuer.service";
+import {
+  issueDte,
+  FutureIssueDateError,
+} from "@/modules/finance/billing/dte-issuer.service";
 import { prisma } from "@/lib/prisma";
 import { cleanRut, toSiiRut, formatRut } from "@/lib/chile-rut";
 
@@ -628,16 +631,34 @@ export async function POST(request: NextRequest) {
     if (parsed.error) return parsed.error;
     const body = parsed.data;
 
-    // ufOverride viaja en el body pero NO es parte del input del issuer:
-    // se pasa como opción para que el cálculo use ese valor en vez del UF
-    // del día. El emisor lo lee aparte para no contaminar el shape del DTE.
-    const { ufOverride, ...issueInput } = body;
+    // Flags de emisión viajan en el body pero NO son parte del input del
+    // issuer: se pasan como opts (UF override + confirmación de fecha futura).
+    const {
+      ufOverride,
+      forceIssueDateToToday,
+      allowFutureDate,
+      ...issueInput
+    } = body;
     const result = await issueDte(ctx.tenantId, ctx.userId, issueInput, {
       ufOverride: ufOverride ?? undefined,
+      forceIssueDateToToday: forceIssueDateToToday ?? undefined,
+      allowFutureDate: allowFutureDate ?? undefined,
     });
 
     return NextResponse.json({ success: true, data: result }, { status: 201 });
   } catch (error) {
+    if (error instanceof FutureIssueDateError) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: error.message,
+          code: error.code,
+          issueDate: error.issueDate,
+          todayYmd: error.todayYmd,
+        },
+        { status: 409 },
+      );
+    }
     console.error("[Finance/Billing] Error issuing DTE:", error);
     // Propagar el mensaje del servicio (no enmascarar) para que el cliente
     // pueda mostrar la causa real (ej: "Falta CAF tipo 33", "SimpleAPI HTTP 401",

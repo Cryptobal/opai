@@ -103,7 +103,7 @@ export async function buildFlowInsights(tenantId: string): Promise<FlowInsightsD
   const [config, dtes, exclusions, overrides, closedMondays] = await Promise.all([
     prisma.financeCashflowConfig.findUnique({
       where: { tenantId },
-      select: { collectionLagDays: true },
+      select: { collectionLagDays: true, flowCutoffYmd: true },
     }),
     prisma.financeDte.findMany({
       where: {
@@ -143,6 +143,9 @@ export async function buildFlowInsights(tenantId: string): Promise<FlowInsightsD
   const lagDays = config?.collectionLagDays ?? DEFAULT_COLLECTION_LAG_DAYS;
   const todayYmd = toYmd(today);
   const sealedMondays = new Set(closedMondays);
+  const cutoffYmd = config?.flowCutoffYmd
+    ? config.flowCutoffYmd.toISOString().slice(0, 10)
+    : null;
 
   const aging = { alDia: 0, d1_15: 0, d16_30: 0, d30plus: 0 };
   let porCobrarTotal = 0;
@@ -150,11 +153,12 @@ export async function buildFlowInsights(tenantId: string): Promise<FlowInsightsD
 
   for (const d of dtes) {
     if (excludedIds.has(d.id)) continue;
+    const issue = d.date.toISOString().slice(0, 10);
+    if (cutoffYmd && issue < cutoffYmd) continue;
     const pending = Number(d.totalAmount) - Number(d.amountPaid ?? 0);
     if (pending <= 0) continue;
     porCobrarTotal += pending;
 
-    const issue = d.date.toISOString().slice(0, 10);
     const dueYmd = d.dueDate
       ? d.dueDate.toISOString().slice(0, 10)
       : addDaysYmd(issue, lagDays);

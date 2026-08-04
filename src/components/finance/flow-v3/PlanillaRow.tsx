@@ -190,14 +190,6 @@ export function PlanillaRow(p: Props) {
               >
                 {highlightName(row.name, p.searchQuery ?? "")}
               </span>
-              {row.nameIsManual && row.sourceName && (
-                <span
-                  className="block truncate text-[12px] leading-tight text-ds-text-4"
-                  title={`Origen: ${row.sourceName}`}
-                >
-                  ↳ {row.sourceName}
-                </span>
-              )}
               {row.isArchived && (
                 <span className="mt-0.5 inline-block rounded border border-ds-border-subtle px-0.5 text-[12px] leading-tight text-ds-text-3">
                   cerrada

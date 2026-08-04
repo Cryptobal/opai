@@ -35,10 +35,12 @@ function cellWithDtes(n: number): FlowMatrixCellDto {
     fecha: "2026-07-01",
     monto: 100_000 * (i + 1),
     overdueDays: i === 0 ? 40 : 0,
+    emissionYmd: "2026-06-01",
+    dueYmd: i === 0 ? "2026-06-25" : "2026-08-01",
   }));
   return {
     weekStart: "2026-08-03",
-    plan: 0,
+    plan: 500_000,
     committed: { total: items.reduce((s, x) => s + x.monto, 0), items },
     real: null,
     effective: items.reduce((s, x) => s + x.monto, 0),
@@ -47,8 +49,9 @@ function cellWithDtes(n: number): FlowMatrixCellDto {
 }
 
 const weeks = [
-  { key: "2026-08-10", weekStart: "2026-08-10", label: "S33", isCurrent: false, isPast: false, isFuture: true },
-  { key: "2026-08-17", weekStart: "2026-08-17", label: "S34", isCurrent: false, isPast: false, isFuture: true },
+  { key: "2026-06-22", weekStart: "2026-06-22", label: "S26", isCurrent: false, isPast: true, weekCount: 1, monthKey: "2026-06" },
+  { key: "2026-08-10", weekStart: "2026-08-10", label: "S33", isCurrent: false, isPast: false, weekCount: 1, monthKey: "2026-08" },
+  { key: "2026-08-17", weekStart: "2026-08-17", label: "S34", isCurrent: false, isPast: false, weekCount: 1, monthKey: "2026-08" },
 ];
 
 const ctx: CellMenuContext = {
@@ -58,6 +61,8 @@ const ctx: CellMenuContext = {
   dteMoveWeeks: weeks,
   canManage: true,
   rowName: "Berlintexx",
+  currentWeek: "2026-08-03",
+  cellWeekStart: "2026-08-03",
 };
 
 function cbs(): CellMenuCallbacks {
@@ -75,35 +80,59 @@ function cbs(): CellMenuCallbacks {
 }
 
 describe("buildCellSheetModel — grupos por folio", () => {
-  it("ordena vencidas primero y arma cabecera + acciones", () => {
+  it("ordena vencidas primero y arma cabecera v4.6 + acciones", () => {
     const model = buildCellSheetModel(row(), cellWithDtes(2), ctx, cbs());
     expect(model.folioGroups).toHaveLength(2);
-    expect(model.folioGroups[0]!.header.folioLabel).toBe("F°1000");
-    expect(model.folioGroups[0]!.header.overdueDays).toBe(40);
-    expect(model.folioGroups[0]!.header.status).toBe("Vencida");
-    expect(model.folioGroups[1]!.header.receiver).toBe("Otro receptor");
+    expect(model.folioGroups[0]!.header.titleLine).toContain("F°1000");
+    expect(model.folioGroups[0]!.header.titleLine).toContain("Berlintexx");
+    expect(model.folioGroups[0]!.header.statusLine).toContain("Emitida");
+    expect(model.folioGroups[0]!.header.statusLine).toContain("vencida hace 40 d");
+    expect(model.folioGroups[1]!.header.statusLine).toContain("Pendiente");
     const keys = model.folioGroups[0]!.items.map((i) => i.key);
     expect(keys.some((k) => k.startsWith("move-dte-"))).toBe(true);
     expect(keys.some((k) => k.startsWith("view-dte-"))).toBe(true);
     expect(keys.some((k) => k.startsWith("exclude-"))).toBe(true);
     expect(keys.some((k) => k.startsWith("pay-"))).toBe(true);
     expect(model.commonItems.some((i) => i.key === "detail")).toBe(true);
+    expect(model.commonItems.some((i) => i.key === "edit")).toBe(false);
   });
 });
 
 describe("buildCellMenu — por folio en desktop", () => {
-  it("con 2+ DTEs expone Ver/Excluir/Pago como submenús", () => {
+  it("con 2+ DTEs no muestra acciones de plan y expone submenús por folio", () => {
     const items = buildCellMenu(row(), cellWithDtes(2), ctx, cbs());
+    expect(items.find((i) => i.key === "edit")).toBeUndefined();
     expect(items.find((i) => i.key === "view-dte")?.submenu?.length).toBe(2);
     expect(items.find((i) => i.key === "exclude-dte")?.submenu?.length).toBe(2);
     expect(items.find((i) => i.key === "pay-dte")?.submenu?.length).toBe(2);
     expect(items.find((i) => i.key === "move-dte")?.submenu?.length).toBe(2);
+    const moveSub = items.find((i) => i.key === "move-dte")?.submenu?.[0]?.submenu ?? [];
+    expect(moveSub.some((i) => String(i.label).includes("HACIA ATRÁS"))).toBe(true);
+    expect(moveSub.some((i) => String(i.label).includes("HACIA ADELANTE"))).toBe(true);
   });
 
-  it("con 1 DTE acciones planas por folio", () => {
+  it("con 1 DTE acciones planas por folio sin plan", () => {
     const items = buildCellMenu(row(), cellWithDtes(1), ctx, cbs());
     expect(items.some((i) => i.key.startsWith("view-dte-"))).toBe(true);
     expect(items.some((i) => i.key.startsWith("pay-"))).toBe(true);
     expect(items.find((i) => i.key === "view-dte")).toBeUndefined();
+    expect(items.find((i) => i.key === "edit")).toBeUndefined();
+  });
+
+  it("celda solo plan usa etiquetas humanas", () => {
+    const planCell: FlowMatrixCellDto = {
+      weekStart: "2026-08-03",
+      plan: 100_000,
+      committed: null,
+      real: null,
+      effective: 100_000,
+      layer: "plan",
+    };
+    const planCtx = { ...ctx, editable: true, reason: "" };
+    const items = buildCellMenu(row(), planCell, planCtx, cbs());
+    expect(items.find((i) => i.key === "edit")?.label).toBe("Editar monto");
+    expect(items.find((i) => i.key === "fill")?.label).toBe("Copiar a las semanas siguientes…");
+    expect(items.find((i) => i.key === "move")?.label).toBe("Mover a otra semana");
+    expect(items.find((i) => i.key === "clear")?.label).toBe("Quitar de esta semana");
   });
 });

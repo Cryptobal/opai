@@ -61,4 +61,49 @@ export async function restoreIncomeDte(tenantId: string, dteId: string): Promise
   await includeDteInFlow(tenantId, dteId);
 }
 
+/**
+ * Exclusión masiva transaccional (cartera antigua / bandeja por grupo).
+ * Valida pertenencia de cada DTE al tenant antes de escribir.
+ */
+export async function excludeIncomeDteBulk(args: {
+  tenantId: string;
+  userId: string;
+  dteIds: string[];
+  reason: string;
+}): Promise<{ excluded: number; skipped: string[] }> {
+  const reason = (args.reason ?? "").trim();
+  if (reason.length < REASON_MIN) {
+    throw new Error(`reason requerido (mínimo ${REASON_MIN} caracteres)`);
+  }
+  if (reason.length > REASON_MAX) {
+    throw new Error(`reason demasiado largo (máx. ${REASON_MAX})`);
+  }
+  if (args.dteIds.length === 0) return { excluded: 0, skipped: [] };
+
+  const owned = await prisma.financeDte.findMany({
+    where: {
+      tenantId: args.tenantId,
+      id: { in: args.dteIds },
+      direction: "ISSUED",
+    },
+    select: { id: true },
+  });
+  const ownedIds = new Set(owned.map((d) => d.id));
+  const skipped = args.dteIds.filter((id) => !ownedIds.has(id));
+  const toExclude = args.dteIds.filter((id) => ownedIds.has(id));
+
+  await prisma.$transaction(async () => {
+    for (const dteId of toExclude) {
+      await excludeDteFromFlow({
+        tenantId: args.tenantId,
+        dteId,
+        createdBy: args.userId,
+        reason: reason.slice(0, REASON_MAX),
+      });
+    }
+  });
+
+  return { excluded: toExclude.length, skipped };
+}
+
 export { loadExcludedDteIds };

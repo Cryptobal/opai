@@ -6,6 +6,7 @@ import { es } from "date-fns/locale";
 import { formatCalendarDateDisplay } from "@/lib/fx-date";
 import { toast } from "sonner";
 import { notifyEmitResult } from "./emit-toast";
+import { issueDraftWithDateGuard } from "./issue-with-date-guard";
 import {
   FileText,
   Loader2,
@@ -114,17 +115,12 @@ export function DraftsMobileList({ canIssue, canManage }: Props) {
       if (!canIssue) return;
       setIssuing(id);
       try {
-        const res = await fetch(`/api/finance/billing/drafts/${id}/issue`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: "{}",
-        });
-        const json = await res.json();
-        if (!json.success) {
-          toast.error(json.error ?? "Error emitiendo");
-          throw new Error(json.error);
+        const result = await issueDraftWithDateGuard(id);
+        if (!result.ok) {
+          toast.error(result.error);
+          throw new Error(result.error);
         }
-        notifyEmitResult(json.data);
+        notifyEmitResult(result.data);
         await loadDrafts();
       } finally {
         setIssuing(null);

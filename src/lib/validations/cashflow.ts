@@ -43,6 +43,13 @@ export const updateCashflowConfigSchema = z.object({
   collectionLagDays: z.number().int().min(0).max(180).optional(),
   // Umbral CLP del semáforo del saldo (ámbar bajo este valor).
   flowWarnThresholdClp: z.number().int().min(0).max(1_000_000_000).optional(),
+  // Corte de cartera (YYYY-MM-DD) o null para quitar. Validado ≤ hoy en service.
+  flowCutoffYmd: z
+    .union([
+      z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha YYYY-MM-DD"),
+      z.null(),
+    ])
+    .optional(),
 });
 
 export const createCashflowCategorySchema = z.object({

@@ -77,7 +77,7 @@ export async function loadCommittedIncome(
   const [config, dtes, recurringLinked, templates, exclusions, accounts] = await Promise.all([
     prisma.financeCashflowConfig.findUnique({
       where: { tenantId },
-      select: { collectionLagDays: true },
+      select: { collectionLagDays: true, flowCutoffYmd: true },
     }),
     prisma.financeDte.findMany({
       where: {
@@ -161,7 +161,15 @@ export async function loadCommittedIncome(
   };
 
   const excludedIds = new Set(exclusions.map((e) => e.dteId));
-  const issuedIds = dtes.filter((d) => !excludedIds.has(d.id)).map((d) => d.id);
+  // Corte de cartera (v4.6): emitidos antes del cutoff salen del comprometido.
+  const cutoffYmd = config?.flowCutoffYmd
+    ? config.flowCutoffYmd.toISOString().slice(0, 10)
+    : null;
+  const afterCutoff = (d: { date: Date }) =>
+    !cutoffYmd || d.date.toISOString().slice(0, 10) >= cutoffYmd;
+  const issuedIds = dtes
+    .filter((d) => !excludedIds.has(d.id) && afterCutoff(d))
+    .map((d) => d.id);
   const overrideRows =
     issuedIds.length > 0
       ? await prisma.financeCashflowDteDateOverride.findMany({
@@ -222,7 +230,7 @@ export async function loadCommittedIncome(
   }
 
   const dteInputs: IssuedDteInput[] = dtes
-    .filter((d) => !excludedIds.has(d.id))
+    .filter((d) => !excludedIds.has(d.id) && afterCutoff(d))
     .map((d) => ({
       id: d.id,
       folio: d.folio,

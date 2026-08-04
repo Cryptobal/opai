@@ -44,7 +44,14 @@ describe("deriveCommittedIncome — DTEs emitidos", () => {
     });
     const cell = out.get("row-a-i1")?.get("2026-07-20");
     expect(cell?.total).toBe(1_190_000);
-    expect(cell?.items[0]).toMatchObject({ kind: "dte", folio: 101, dteId: "dte-1", fecha: "2026-07-21" });
+    expect(cell?.items[0]).toMatchObject({
+      kind: "dte",
+      folio: 101,
+      dteId: "dte-1",
+      fecha: "2026-07-21",
+      emissionYmd: "2026-07-21",
+      dueYmd: "2026-08-20",
+    });
   });
 
   it("emisión pasada queda en su semana (sin arrastre); overdue usa dueDate/emisión+lag", () => {
@@ -60,8 +67,12 @@ describe("deriveCommittedIncome — DTEs emitidos", () => {
     expect(out.get("row-a-i1")?.get("2026-07-20")).toBeUndefined();
     expect(out.get("row-a-i1")?.get("2026-06-22")?.total).toBe(200_000);
     // 2026-06-25+30d = 2026-07-25 → aún no vencida vs TODAY 2026-07-21.
-    expect(out.get("row-a-i1")?.get("2026-06-22")?.items[0]?.overdueOver60).toBe(false);
-    expect(out.get("row-a-i1")?.get("2026-06-22")?.items[0]?.overdueDays).toBe(0);
+    expect(out.get("row-a-i1")?.get("2026-06-22")?.items[0]).toMatchObject({
+      emissionYmd: "2026-06-25",
+      dueYmd: "2026-07-25",
+      overdueOver60: false,
+      overdueDays: 0,
+    });
   });
 
   it("emisión pasada fuera del horizonte no aparece en la semana actual", () => {

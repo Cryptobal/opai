@@ -260,6 +260,10 @@ export const issueDteSchema = z.object({
   // pasar `ufOverride`. Se aplica tanto al cálculo del borrador como al
   // emitir al SII. Si se omite, el sistema usa la UF oficial del día.
   ufOverride: z.number().positive().optional(),
+  /** Confirmación: emitir con fecha de hoy si la del body es futura. */
+  forceIssueDateToToday: z.boolean().optional(),
+  /** Confirmación: mantener fecha de emisión futura. */
+  allowFutureDate: z.boolean().optional(),
   // ── Vínculo con la programación (flujo de caja) ──
   // undefined = heredar si la cuenta tiene una sola programación activa;
   // null = extra explícito (solo válido con 0–1 programaciones);

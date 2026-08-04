@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import type { FlowMatrixResponse, FlowMatrixRowDto } from "@/modules/finance/flow-v3/matrix-types";
@@ -97,6 +96,8 @@ interface Props {
   onDiscreteStats?: (stats: DiscreteSelStats | null) => void;
   /** Refetch de matriz (tras crear fila desde Otros ingresos). */
   onRefresh?: () => void;
+  /** Abre el drawer de detalle del DTE emitido (in-place). */
+  onViewDte?: (dteId: string) => void;
 }
 
 type RowDialogState =
@@ -134,9 +135,8 @@ export function PlanillaGrid({
   showChips, numberFormat, getCellStyle, onSelectionChange,
   searchQuery, collapseApiRef, openLayersRequest,
   onCopyRange, nameW, onNameWChange, amountSort,
-  sumMode = false, onSumModeChange, onDiscreteStats, onRefresh,
+  sumMode = false, onSumModeChange, onDiscreteStats, onRefresh, onViewDte,
 }: Props) {
-  const router = useRouter();
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [popover, setPopover] = useState<PopoverState | null>(null);
   const [fillRight, setFillRight] = useState<FillRightRequest | null>(null);
@@ -560,7 +560,7 @@ export function PlanillaGrid({
         void actions.moveDte(dteId, targetWeek);
       },
       onViewDetail: () => openPopover(sel),
-      onViewDte: (dteId: string) => router.push(`/finanzas/facturacion/dtes?dte=${dteId}`),
+      onViewDte: (dteId: string) => onViewDte?.(dteId),
       onLinkTemplate: (dteId: string) => {
         setLinkFocusDteId(dteId);
         setSheetTarget({ kind: "cell", sel });
@@ -568,11 +568,9 @@ export function PlanillaGrid({
       onExcludeDte: (dteId: string) => {
         void actions.excludeDte(dteId, "Excluida desde la planilla");
       },
-      // B0: no hay diálogo de pago reutilizable en planilla → deep-link al DTE.
-      onRegisterPayment: (dteId: string) =>
-        router.push(`/finanzas/facturacion/dtes?dte=${dteId}`),
+      onRegisterPayment: (dteId: string) => onViewDte?.(dteId),
     }),
-    [actions, kb, matrix, openPopover, requestFillRight, router, rowById],
+    [actions, kb, matrix, openPopover, requestFillRight, onViewDte, rowById],
   );
 
   const rowMenuFor = useCallback(
@@ -613,7 +611,6 @@ export function PlanillaGrid({
         (c, i) =>
           i !== colIdx &&
           data.granularity === "week" &&
-          !c.isPast &&
           !closedSet.has(c.key) &&
           !row.isArchived &&
           !row.isVirtual,
@@ -621,7 +618,16 @@ export function PlanillaGrid({
       return buildCellMenu(
         row,
         cell,
-        { editable, reason, openWeeks, dteMoveWeeks, canManage, rowName: row.name },
+        {
+          editable,
+          reason,
+          openWeeks,
+          dteMoveWeeks,
+          canManage,
+          rowName: row.name,
+          currentWeek: data.currentWeek,
+          cellWeekStart: col.weekStart,
+        },
         cellCallbacksFor(target.sel, col.key),
       );
     },
@@ -675,7 +681,6 @@ export function PlanillaGrid({
       (c, i) =>
         i !== sheetTarget.sel.colIdx &&
         data.granularity === "week" &&
-        !c.isPast &&
         !closedSet.has(c.key) &&
         !row.isArchived &&
         !row.isVirtual,
@@ -683,7 +688,16 @@ export function PlanillaGrid({
     const model = buildCellSheetModel(
       row,
       cell,
-      { editable, reason, openWeeks, dteMoveWeeks, canManage, rowName: row.name },
+      {
+        editable,
+        reason,
+        openWeeks,
+        dteMoveWeeks,
+        canManage,
+        rowName: row.name,
+        currentWeek: data.currentWeek,
+        cellWeekStart: col.weekStart,
+      },
       cellCallbacksFor(sheetTarget.sel, col.key),
     );
     return { items: model.commonItems, folioGroups: model.folioGroups };
@@ -952,6 +966,7 @@ export function PlanillaGrid({
             ? (data.excludedIncome ?? []).filter((e) => e.rowId === popover.row.id)
             : []
         }
+        onViewDte={onViewDte}
         onExcludeDte={async (dteId, reason) => {
           await actions.excludeDte(dteId, reason);
           setPopover(null);
@@ -1081,6 +1096,7 @@ export function PlanillaGrid({
             <UnmatchedIncomeList
               weekStart={sheetCell.weekStart}
               focusDteId={linkFocusDteId}
+              onViewDte={onViewDte}
               onCreated={() => {
                 setSheetTarget(null);
                 setLinkFocusDteId(null);

@@ -8571,6 +8571,11 @@ model FinanceCashflowConfig {
   /// Umbral CLP del semáforo del saldo en la planilla (ámbar bajo este
   /// valor, rojo bajo 0). Default $8.000.000.
   flowWarnThresholdClp           Int                    @default(8000000) @map("flow_warn_threshold_clp")
+  /// Corte de cartera del flujo (v4.6): DTEs de ingreso emitidos ANTES de
+  /// esta fecha quedan fuera de comprometido / drill / bandeja / KPI de
+  /// cartera. NULL = sin corte. La capa real (pagos) no se filtra.
+  /// Validado ≤ hoy en la API de config; reversible poniendo null.
+  flowCutoffYmd                  DateTime?              @map("flow_cutoff_ymd") @db.Date
   createdAt                      DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt                      DateTime               @updatedAt @map("updated_at") @db.Timestamptz(6)
 

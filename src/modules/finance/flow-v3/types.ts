@@ -29,6 +29,10 @@ export interface CommittedItem {
   overdueOver60?: boolean;
   /** Días de atraso contractual (0 = al día). Solo kind=dte. */
   overdueDays?: number;
+  /** Solo kind=dte: fecha de emisión SII (YYYY-MM-DD). */
+  emissionYmd?: string;
+  /** Solo kind=dte: fecha de vencimiento contractual (YYYY-MM-DD). */
+  dueYmd?: string;
 }
 
 /** DTE excluido del flujo (solo capa planilla; ledger intacto). */

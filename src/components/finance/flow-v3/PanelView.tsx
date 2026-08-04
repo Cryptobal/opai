@@ -29,11 +29,26 @@ interface Insights {
   warnThresholdClp: number;
 }
 
-export function PanelView({ canManage }: { canManage: boolean }) {
+export function PanelView({
+  canManage,
+  onViewDte,
+}: {
+  canManage: boolean;
+  onViewDte?: (dteId: string) => void;
+}) {
   const [data, setData] = useState<Insights | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [carteraOpen, setCarteraOpen] = useState(false);
+  const [reanchorBusy, setReanchorBusy] = useState(false);
+  const [futureDated, setFutureDated] = useState<Array<{
+    dteId: string;
+    folio: number;
+    receiverName: string;
+    docDateYmd: string;
+    sendYmd: string;
+    amountClp: number;
+  }>>([]);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -67,8 +82,16 @@ export function PanelView({ canManage }: { canManage: boolean }) {
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
+    if (canManage) {
+      void fetch("/api/finance/flow-v3/reanchor-to-send", { cache: "no-store" })
+        .then(async (r) => {
+          const j = await r.json();
+          if (j.success && !cancelled) setFutureDated(j.data ?? []);
+        })
+        .catch(() => { /* no-op */ });
+    }
     return () => { cancelled = true; };
-  }, []);
+  }, [canManage]);
 
   if (loading && !data) {
     return (
@@ -148,6 +171,70 @@ export function PanelView({ canManage }: { canManage: boolean }) {
         <PanelBalanceChart series={data.balanceSeries} warn={data.warnThresholdClp} />
       </Surface>
 
+      {canManage && futureDated.length > 0 && (
+        <Surface elevation={1} padding="md" className="space-y-2 border border-status-warn-border">
+          <h3 className="text-xs font-medium uppercase tracking-wide text-status-warn-fg">
+            ⚠ Facturas con fecha futura ({futureDated.length})
+          </h3>
+          <p className="text-[12px] text-ds-text-3">
+            Documentos con FchEmis posterior a hoy. La fecha tributaria no se
+            puede reescribir (SII). Podés reanclarlas en el flujo a la semana
+            del envío real (override reversible). NC + refacturación queda como
+            decisión manual.
+          </p>
+          <ul className="space-y-1 text-[13px]">
+            {futureDated.slice(0, 8).map((d) => (
+              <li key={d.dteId} className="flex justify-between gap-2">
+                <button
+                  type="button"
+                  className="text-left text-ds-text-1 hover:text-primary"
+                  onClick={() => onViewDte?.(d.dteId)}
+                >
+                  F°{d.folio} · {d.receiverName}
+                </button>
+                <span className="shrink-0 tabular-nums text-ds-text-3">
+                  {fmtShortDate(d.docDateYmd)} · envío {fmtShortDate(d.sendYmd)}
+                </span>
+              </li>
+            ))}
+          </ul>
+          <button
+            type="button"
+            disabled={reanchorBusy}
+            className="min-h-10 rounded-full bg-primary px-3 py-1.5 text-[12px] font-medium text-primary-foreground disabled:opacity-50"
+            onClick={() => {
+              const n = futureDated.length;
+              const total = futureDated.reduce((s, d) => s + d.amountClp, 0);
+              if (
+                !window.confirm(
+                  `Reanclar ${n} factura(s) ($${total.toLocaleString("es-CL")}) a la semana del envío real?\n\nNo toca el documento tributario.`,
+                )
+              ) {
+                return;
+              }
+              setReanchorBusy(true);
+              void fetch("/api/finance/flow-v3/reanchor-to-send", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ dteIds: futureDated.map((d) => d.dteId) }),
+              })
+                .then(async (r) => {
+                  const j = await r.json();
+                  if (!j.success) throw new Error(j.error ?? "Error");
+                  setFutureDated([]);
+                  void load();
+                })
+                .catch((e: unknown) => {
+                  window.alert(e instanceof Error ? e.message : "Error");
+                })
+                .finally(() => setReanchorBusy(false));
+            }}
+          >
+            Reanclar las {futureDated.length} a semana de envío real
+          </button>
+        </Surface>
+      )}
+
       <Surface elevation={1} padding="md" className="space-y-2">
         <h3 className="text-xs font-medium uppercase tracking-wide text-ds-text-3">
           Últimos sellos
@@ -185,6 +272,7 @@ export function PanelView({ canManage }: { canManage: boolean }) {
         items={cartera}
         openMoveWeeks={openMoveWeeks}
         canManage={canManage}
+        onViewDte={onViewDte}
         onMoved={() => {
           void load().then(() => {
             /* keep sheet open with refreshed list */
