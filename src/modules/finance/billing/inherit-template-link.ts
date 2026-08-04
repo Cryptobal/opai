@@ -177,8 +177,26 @@ export async function applyTemplateLinkInheritance(
     }
   }
 
-  const resolvedTpl = tplId ?? null;
-  const resolvedPeriod = period ?? null;
+  let resolvedTpl = tplId ?? null;
+  let resolvedPeriod = period ?? null;
+
+  // v4.8b: el form a veces manda null explícito (p.ej. sin selector cargado).
+  // Antes del 400, si la instalación apunta a una sola fila, heredar ahí.
+  // No aplica a "factura extra" intencional: esa manda templateId + período null.
+  if (isSalesInvoice && opts.crmAccountId && !resolvedTpl && opts.installationId) {
+    const byInst = await resolveDefaultTemplateLink(
+      tenantId,
+      opts.crmAccountId,
+      opts.issueDateYmd,
+      opts.installationId,
+    );
+    if (byInst) {
+      resolvedTpl = byInst.recurringTemplateId;
+      if (resolvedPeriod === null || resolvedPeriod === "") {
+        resolvedPeriod = byInst.billingPeriod;
+      }
+    }
+  }
 
   if (isSalesInvoice && opts.crmAccountId && !resolvedTpl) {
     const options = await listActiveAccountTemplates(tenantId, opts.crmAccountId);
