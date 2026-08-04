@@ -107,10 +107,16 @@ async function sumIssuedNetSalesForMonth(
   return Math.round(sum);
 }
 
-async function sumIncomeFlowForMonth(
+/**
+ * Ventas netas del flujo (plan≠0 sino comprometido) para un mes calendario.
+ * v5.1: `todayYmd` debe ser el hoy real — un hoy falso (fin del mes objetivo)
+ * clampea borradores/programados previos dentro del mes y acumula ventas.
+ */
+export async function sumIncomeFlowForMonth(
   tenantId: string,
   rows: FlowRowRef[],
   weeks: string[],
+  todayYmd: string,
   y: number,
   monthZeroIdx: number,
 ): Promise<number> {
@@ -121,7 +127,7 @@ async function sumIncomeFlowForMonth(
   const to = ymdToDate(monthWeeks[monthWeeks.length - 1])!;
   const [plan, incomeCommitted] = await Promise.all([
     loadPlanCells(tenantId, from, to),
-    loadCommittedIncome(tenantId, rows, monthWeeks, to.toISOString().slice(0, 10)),
+    loadCommittedIncome(tenantId, rows, monthWeeks, todayYmd),
   ]);
   const incomeRowIds = new Set(
     rows.filter((r) => r.section === "INGRESOS").map((r) => r.id),
@@ -139,7 +145,7 @@ async function sumIncomeFlowForMonth(
   return Math.round(total / 1.19);
 }
 
-async function resolveVentasNetasPrevMonth(
+export async function resolveVentasNetasPrevMonth(
   tenantId: string,
   rows: FlowRowRef[],
   weeks: string[],
@@ -151,7 +157,9 @@ async function resolveVentasNetasPrevMonth(
   const dteNet = await sumIssuedNetSalesForMonth(tenantId, prev.y, prev.m);
   const prevEnd = monthEndYmd(prev.y, prev.m);
   if (todayYmd > prevEnd) return dteNet;
-  const flowNet = await sumIncomeFlowForMonth(tenantId, rows, weeks, prev.y, prev.m);
+  const flowNet = await sumIncomeFlowForMonth(
+    tenantId, rows, weeks, todayYmd, prev.y, prev.m,
+  );
   return flowNet > 0 ? flowNet : dteNet;
 }
 
@@ -202,10 +210,16 @@ async function avgHistoricalCreditoFiscal(
   return Math.round(credits.reduce((a, b) => a + b, 0) / credits.length);
 }
 
-async function sumProjectedVentasNetasForPeriod(
+/**
+ * Ventas netas proyectadas del período M (solo semanas de M).
+ * v5.1: pasa el hoy real a `loadCommittedIncome` para no arrastrar
+ * facturación proyectada de meses anteriores al mes objetivo.
+ */
+export async function sumProjectedVentasNetasForPeriod(
   tenantId: string,
   rows: FlowRowRef[],
   weeks: string[],
+  todayYmd: string,
   periodo: string,
 ): Promise<number> {
   const monthWeeks = weeks.filter((w) => w.startsWith(periodo));
@@ -214,7 +228,7 @@ async function sumProjectedVentasNetasForPeriod(
   const to = ymdToDate(monthWeeks[monthWeeks.length - 1])!;
   const [plan, incomeCommitted] = await Promise.all([
     loadPlanCells(tenantId, from, to),
-    loadCommittedIncome(tenantId, rows, monthWeeks, to.toISOString().slice(0, 10)),
+    loadCommittedIncome(tenantId, rows, monthWeeks, todayYmd),
   ]);
   const incomeRowIds = rows
     .filter((r) => r.section === "INGRESOS")
@@ -465,7 +479,7 @@ export async function loadExpenseParametrics(
     if (payYmd < fromYmd || payYmd > toYmd) continue;
 
     const [ventasNetas, netoRecibidas] = await Promise.all([
-      sumProjectedVentasNetasForPeriod(tenantId, rows, weeks, periodo),
+      sumProjectedVentasNetasForPeriod(tenantId, rows, weeks, todayYmd, periodo),
       sumReceivedNetForPeriod(tenantId, periodo),
     ]);
     const ventasBrutas = Math.round(ventasNetas * 1.19);
