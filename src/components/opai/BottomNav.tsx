@@ -457,148 +457,156 @@ function MasDrawer({
   return (
     <>
       <Sheet open={open} onOpenChange={onOpenChange}>
-        <SheetContent side="bottom" className="max-h-[70vh] rounded-t-2xl px-4 pt-3 pb-6">
+        <SheetContent
+          side="bottom"
+          surface="glass-island"
+          showCloseButton={false}
+          overlayClassName="bg-black/35"
+          className="flex max-h-[78dvh] flex-col gap-0 p-0"
+        >
           <SheetHeader className="sr-only">
             <SheetTitle>Más opciones</SheetTitle>
             <SheetDescription>Módulos, herramientas y preferencias</SheetDescription>
           </SheetHeader>
 
-          {/* Drag handle */}
-          <div className="flex justify-center mb-4">
+          {/* Drag handle — fijo fuera del scroll */}
+          <div className="flex shrink-0 justify-center pt-3 pb-2">
             <div className="w-10 h-1 rounded-full bg-muted-foreground/30" />
           </div>
 
-          {/* Módulos */}
-          {visibleModules.length > 0 && (
-            <div className="mb-5">
-              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2 px-1">Módulos</p>
-              <div className="grid grid-cols-3 gap-2">
-                {visibleModules.map((item) => (
-                  <button
-                    key={item.key}
-                    type="button"
-                    onClick={() => item.href && handleNavigate(item.href)}
-                    className="flex flex-col items-center justify-center gap-1.5 h-20 rounded-xl bg-muted/30 hover:bg-muted/50 active:scale-95 transition-all"
-                  >
-                    <item.icon className={cn("h-6 w-6", item.color)} />
-                    <span className="text-[11px] font-medium text-foreground/80">{item.label}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Herramientas */}
-          {visibleTools.length > 0 && (
-            <div className="mb-5">
-              <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2 px-1">Herramientas</p>
-              <div className="grid grid-cols-3 gap-2">
-                {visibleTools.map((item) => {
-                  if (item.action === 'role-switcher') {
-                    return (
-                      <div key={item.key} className="flex flex-col items-center justify-center gap-1.5 h-20 rounded-xl bg-muted/30">
-                        <RoleSwitcher />
-                      </div>
-                    );
-                  }
-                  return (
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[max(env(safe-area-inset-bottom),1rem)]">
+            {/* Módulos */}
+            {visibleModules.length > 0 && (
+              <div className="mb-5">
+                <p className="text-[12px] font-semibold text-muted-foreground uppercase tracking-wider mb-2 px-1">Módulos</p>
+                <div className="grid grid-cols-3 gap-2">
+                  {visibleModules.map((item) => (
                     <button
                       key={item.key}
                       type="button"
                       onClick={() => item.href && handleNavigate(item.href)}
-                      className="flex flex-col items-center justify-center gap-1.5 h-20 rounded-xl bg-muted/30 hover:bg-muted/50 active:scale-95 transition-all"
+                      className="flex flex-col items-center justify-center gap-1.5 h-20 rounded-2xl opai-glass-soft hover:bg-ds-surface-2 active:scale-95 transition-all"
                     >
                       <item.icon className={cn("h-6 w-6", item.color)} />
-                      <span className="text-[11px] font-medium text-foreground/80">{item.label}</span>
+                      <span className="text-[12px] font-medium text-foreground/80">{item.label}</span>
                     </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* Preferencias — paridad con SidebarUserMenu */}
-          <div>
-            <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2 px-1">Preferencias</p>
-            <div className="space-y-0.5">
-              <BarCustomizer
-                allOptions={ALL_NAV_OPTIONS}
-                selectedKeys={navConfig.navKeys}
-                onUpdate={navConfig.updateKeys}
-                maxVisible={4}
-                allowDeselect
-              />
-
-              <div className="flex items-center gap-3 rounded-lg px-3 py-2.5">
-                <Avatar name={displayName} size="md" />
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-foreground">{displayName}</p>
-                  {userEmail && (
-                    <p className="truncate text-[12px] text-ds-text-3">{userEmail}</p>
-                  )}
-                  {userRole && (
-                    <p className="truncate text-[12px] text-ds-text-4">{userRole}</p>
-                  )}
+                  ))}
                 </div>
               </div>
+            )}
 
-              <button
-                type="button"
-                onClick={() => handleNavigate('/opai/perfil')}
-                className="flex min-h-11 items-center gap-3 w-full rounded-lg px-3 py-2.5 text-sm text-foreground/80 hover:bg-muted/50 active:scale-[0.98] transition-all"
-              >
-                <User className="h-4.5 w-4.5" />
-                <span>Mi perfil</span>
-              </button>
+            {/* Herramientas */}
+            {visibleTools.length > 0 && (
+              <div className="mb-5">
+                <p className="text-[12px] font-semibold text-muted-foreground uppercase tracking-wider mb-2 px-1">Herramientas</p>
+                <div className="grid grid-cols-3 gap-2">
+                  {visibleTools.map((item) => {
+                    if (item.action === 'role-switcher') {
+                      return (
+                        <div key={item.key} className="flex flex-col items-center justify-center gap-1.5 h-20 rounded-2xl opai-glass-soft">
+                          <RoleSwitcher />
+                        </div>
+                      );
+                    }
+                    return (
+                      <button
+                        key={item.key}
+                        type="button"
+                        onClick={() => item.href && handleNavigate(item.href)}
+                        className="flex flex-col items-center justify-center gap-1.5 h-20 rounded-2xl opai-glass-soft hover:bg-ds-surface-2 active:scale-95 transition-all"
+                      >
+                        <item.icon className={cn("h-6 w-6", item.color)} />
+                        <span className="text-[12px] font-medium text-foreground/80">{item.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
-              <button
-                type="button"
-                onClick={() => handleNavigate('/opai/perfil/notificaciones')}
-                className="flex min-h-11 items-center gap-3 w-full rounded-lg px-3 py-2.5 text-sm text-foreground/80 hover:bg-muted/50 active:scale-[0.98] transition-all"
-              >
-                <Bell className="h-4.5 w-4.5" />
-                <span className="flex-1 text-left">Mis notificaciones</span>
-                {unreadCount > 0 && (
-                  <span className="rounded-full bg-status-danger px-1.5 text-[12px] font-medium text-primary-foreground tabular-nums">
-                    {unreadCount > 9 ? "9+" : unreadCount}
-                  </span>
-                )}
-              </button>
+            {/* Preferencias — paridad con SidebarUserMenu */}
+            <div>
+              <p className="text-[12px] font-semibold text-muted-foreground uppercase tracking-wider mb-2 px-1">Preferencias</p>
+              <div className="space-y-0.5">
+                <BarCustomizer
+                  allOptions={ALL_NAV_OPTIONS}
+                  selectedKeys={navConfig.navKeys}
+                  onUpdate={navConfig.updateKeys}
+                  maxVisible={4}
+                  allowDeselect
+                />
 
-              {hasConfigAccess && (
+                <div className="flex items-center gap-3 rounded-lg px-3 py-2.5">
+                  <Avatar name={displayName} size="md" />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-foreground">{displayName}</p>
+                    {userEmail && (
+                      <p className="truncate text-[12px] text-ds-text-3">{userEmail}</p>
+                    )}
+                    {userRole && (
+                      <p className="truncate text-[12px] text-ds-text-4">{userRole}</p>
+                    )}
+                  </div>
+                </div>
+
                 <button
                   type="button"
-                  onClick={() => handleNavigate('/opai/configuracion')}
+                  onClick={() => handleNavigate('/opai/perfil')}
                   className="flex min-h-11 items-center gap-3 w-full rounded-lg px-3 py-2.5 text-sm text-foreground/80 hover:bg-muted/50 active:scale-[0.98] transition-all"
                 >
-                  <Settings className="h-4.5 w-4.5" />
-                  <span>Configuración</span>
+                  <User className="h-4.5 w-4.5" />
+                  <span>Mi perfil</span>
                 </button>
-              )}
 
-              <div className="flex min-h-11 items-center justify-between gap-3 rounded-lg px-3 py-2.5 text-sm text-foreground/80">
-                <span className="flex items-center gap-3">
-                  {theme === 'dark' ? (
-                    <Moon className="h-4.5 w-4.5 text-status-info-fg" />
-                  ) : (
-                    <Sun className="h-4.5 w-4.5 text-status-warn-fg" />
+                <button
+                  type="button"
+                  onClick={() => handleNavigate('/opai/perfil/notificaciones')}
+                  className="flex min-h-11 items-center gap-3 w-full rounded-lg px-3 py-2.5 text-sm text-foreground/80 hover:bg-muted/50 active:scale-[0.98] transition-all"
+                >
+                  <Bell className="h-4.5 w-4.5" />
+                  <span className="flex-1 text-left">Mis notificaciones</span>
+                  {unreadCount > 0 && (
+                    <span className="rounded-full bg-status-danger px-1.5 text-[12px] font-medium text-primary-foreground tabular-nums">
+                      {unreadCount > 9 ? "9+" : unreadCount}
+                    </span>
                   )}
-                  <span>Tema</span>
-                </span>
-                <ThemeToggle compact />
-              </div>
+                </button>
 
-              <button
-                type="button"
-                onClick={() => {
-                  onOpenChange(false);
-                  setShowSignOutDialog(true);
-                }}
-                className="flex min-h-11 items-center gap-3 w-full rounded-lg px-3 py-2.5 text-sm text-status-danger-fg hover:bg-status-danger-soft active:scale-[0.98] transition-all"
-              >
-                <LogOut className="h-4.5 w-4.5" />
-                <span>Cerrar sesión</span>
-              </button>
+                {hasConfigAccess && (
+                  <button
+                    type="button"
+                    onClick={() => handleNavigate('/opai/configuracion')}
+                    className="flex min-h-11 items-center gap-3 w-full rounded-lg px-3 py-2.5 text-sm text-foreground/80 hover:bg-muted/50 active:scale-[0.98] transition-all"
+                  >
+                    <Settings className="h-4.5 w-4.5" />
+                    <span>Configuración</span>
+                  </button>
+                )}
+
+                <div className="flex min-h-11 items-center justify-between gap-3 rounded-lg px-3 py-2.5 text-sm text-foreground/80">
+                  <span className="flex items-center gap-3">
+                    {theme === 'dark' ? (
+                      <Moon className="h-4.5 w-4.5 text-status-info-fg" />
+                    ) : (
+                      <Sun className="h-4.5 w-4.5 text-status-warn-fg" />
+                    )}
+                    <span>Tema</span>
+                  </span>
+                  <ThemeToggle compact />
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    onOpenChange(false);
+                    setShowSignOutDialog(true);
+                  }}
+                  className="flex min-h-11 items-center gap-3 w-full rounded-lg px-3 py-2.5 text-sm text-status-danger-fg hover:bg-status-danger-soft active:scale-[0.98] transition-all"
+                >
+                  <LogOut className="h-4.5 w-4.5" />
+                  <span>Cerrar sesión</span>
+                </button>
+              </div>
             </div>
           </div>
         </SheetContent>
@@ -907,48 +915,56 @@ function ModuleSubNav({
 
       {/* Overflow + customizer sheet */}
       <Sheet open={overflowOpen} onOpenChange={setOverflowOpen}>
-        <SheetContent side="bottom" className="max-h-[60vh] rounded-t-2xl px-4 pt-3 pb-6">
+        <SheetContent
+          side="bottom"
+          surface="glass-island"
+          showCloseButton={false}
+          overlayClassName="bg-black/35"
+          className="flex max-h-[70dvh] flex-col gap-0 p-0"
+        >
           <SheetHeader className="sr-only">
             <SheetTitle>Más opciones</SheetTitle>
             <SheetDescription>Sub-items y personalización del módulo</SheetDescription>
           </SheetHeader>
-          <div className="flex justify-center mb-4">
+          <div className="flex shrink-0 justify-center pt-3 pb-2">
             <div className="w-10 h-1 rounded-full bg-muted-foreground/30" />
           </div>
 
-          {/* Overflow navigation items */}
-          {overflowItems.length > 0 && (
-            <div className="space-y-1 mb-4">
-              {overflowItems.map((item: BottomNavItem) => {
-                const Icon = item.icon;
-                const isActive = item.href === activeHref;
-                return (
-                  <Link
-                    key={item.key}
-                    href={item.href}
-                    onClick={() => setOverflowOpen(false)}
-                    className={cn(
-                      "flex items-center gap-3 rounded-lg px-3 py-3 text-sm transition-colors",
-                      isActive
-                        ? "bg-status-ok-soft text-status-ok-fg font-medium"
-                        : "text-foreground/80 hover:bg-muted/50"
-                    )}
-                  >
-                    <Icon className="h-5 w-5 shrink-0" />
-                    <span>{item.label}</span>
-                  </Link>
-                );
-              })}
-            </div>
-          )}
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[max(env(safe-area-inset-bottom),1rem)]">
+            {/* Overflow navigation items */}
+            {overflowItems.length > 0 && (
+              <div className="space-y-1 mb-4">
+                {overflowItems.map((item: BottomNavItem) => {
+                  const Icon = item.icon;
+                  const isActive = item.href === activeHref;
+                  return (
+                    <Link
+                      key={item.key}
+                      href={item.href}
+                      onClick={() => setOverflowOpen(false)}
+                      className={cn(
+                        "flex items-center gap-3 rounded-lg px-3 py-3 text-sm transition-colors",
+                        isActive
+                          ? "bg-status-ok-soft text-status-ok-fg font-medium"
+                          : "text-foreground/80 hover:bg-muted/50"
+                      )}
+                    >
+                      <Icon className="h-5 w-5 shrink-0" />
+                      <span>{item.label}</span>
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
 
-          {/* Customizer for this module's bar */}
-          <BarCustomizer
-            allOptions={items}
-            selectedKeys={orderedKeys}
-            onUpdate={handleUpdateOrder}
-            maxVisible={MAX_VISIBLE}
-          />
+            {/* Customizer for this module's bar */}
+            <BarCustomizer
+              allOptions={items}
+              selectedKeys={orderedKeys}
+              onUpdate={handleUpdateOrder}
+              maxVisible={MAX_VISIBLE}
+            />
+          </div>
         </SheetContent>
       </Sheet>
     </>
