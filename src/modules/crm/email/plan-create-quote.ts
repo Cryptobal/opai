@@ -4,19 +4,40 @@ import { applyDefaultQuoteIncludes } from "@/lib/cpq/apply-default-quote-include
 import { materializeCoverageSlotsOnQuote } from "@/lib/crm/coverage-slots-to-quote-positions";
 import type { CrmStructureProposal, PlanQuoteInput } from "./email-to-crm-structure.types";
 
-function coverageServiceDetail(proposal: CrmStructureProposal): string {
+function coverageServiceDetail(
+  proposal: CrmStructureProposal,
+  onlyInstallationIndex?: number,
+): string {
   const lines: string[] = [];
-  for (const inst of proposal.installations) {
+  const installations =
+    typeof onlyInstallationIndex === "number"
+      ? (() => {
+          const inst = proposal.installations[onlyInstallationIndex];
+          return inst ? [inst] : [];
+        })()
+      : proposal.installations;
+
+  for (const inst of installations) {
     for (const s of inst.coverageSlots) {
       lines.push(
         `${inst.name} · ${s.name}: cob. ${s.simultaneous} ${s.horaInicio}-${s.horaFin} → dot. ${s.headcount}`,
       );
     }
   }
-  const t = proposal.staffingTotals;
-  lines.push(
-    `Totales: ${t.headcountBase} base + ${t.reserveHeadcount} reserva = ${t.headcountWithReserve} · ${t.weeklyHH} HH/sem`,
-  );
+
+  if (typeof onlyInstallationIndex === "number") {
+    const inst = proposal.installations[onlyInstallationIndex];
+    const weeklyHH = Math.round(
+      (inst?.coverageSlots.reduce((acc, s) => acc + (s.weeklyHH || 0), 0) ?? 0) * 10,
+    ) / 10;
+    const headcount = inst?.coverageSlots.reduce((acc, s) => acc + (s.headcount || 0), 0) ?? 0;
+    lines.push(`Totales instalación: ${headcount} dot. · ${weeklyHH} HH/sem`);
+  } else {
+    const t = proposal.staffingTotals;
+    lines.push(
+      `Totales: ${t.headcountBase} base + ${t.reserveHeadcount} reserva = ${t.headcountWithReserve} · ${t.weeklyHH} HH/sem`,
+    );
+  }
   return lines.join("\n").slice(0, 4000);
 }
 
@@ -33,6 +54,10 @@ export async function createPlanQuote(params: {
   threadId?: string;
   proposal: CrmStructureProposal;
   quoteInput?: PlanQuoteInput;
+  /** Materializa solo los slots de esta instalación (índice en proposal.installations). */
+  onlyInstallationIndex?: number;
+  /** Sobrescribe el nombre de la cotización (p. ej. multi: "base — Instalación"). */
+  nameOverride?: string;
 }): Promise<{ quoteId: string; quoteUrl: string; code: string; positionsCreated: number }> {
   const { tenantId, userId, accountId } = params;
   const dealId = params.dealId?.trim() || null;
@@ -49,6 +74,7 @@ export async function createPlanQuote(params: {
 
   const input = params.quoteInput;
   const name =
+    params.nameOverride?.trim() ||
     input?.name?.trim() ||
     params.proposal.deal.title?.trim() ||
     dealTitle ||
@@ -64,7 +90,10 @@ export async function createPlanQuote(params: {
         d.setDate(d.getDate() + 90);
         return d;
       })();
-  const serviceDetail = coverageServiceDetail(params.proposal);
+  const serviceDetail = coverageServiceDetail(
+    params.proposal,
+    params.onlyInstallationIndex,
+  );
 
   const year = new Date().getFullYear();
   let quote: { id: string; code: string } | null = null;
@@ -143,6 +172,7 @@ export async function createPlanQuote(params: {
       tenantId,
       quoteId: quote.id,
       proposal: params.proposal,
+      onlyInstallationIndex: params.onlyInstallationIndex,
     });
     positionsCreated = mat.positionsCreated;
   } catch (err) {
