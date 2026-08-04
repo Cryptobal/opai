@@ -96,24 +96,12 @@ export function CellActionSheet({
             {groups.map((g) => (
               <div key={g.key} className="border-b border-ds-border-subtle last:border-b-0">
                 <div className="bg-ds-surface-2 px-5 py-3">
-                  <div className="flex items-baseline justify-between gap-2">
-                    <span className="text-[14px] font-medium text-ds-text-1">
-                      {g.header.folioLabel}
-                    </span>
-                    <span className="text-[13px] tabular-nums text-ds-text-2">
-                      {fmtCell(g.header.pendingClp, "clp")}
-                    </span>
-                  </div>
-                  <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[12px] text-ds-text-3">
-                    {g.header.receiver && <span>{g.header.receiver}</span>}
-                    <span>{g.header.status}</span>
-                    {g.header.overdueDays != null && g.header.overdueDays > 0 && (
-                      <span className="text-status-warn-fg">
-                        vencida hace {g.header.overdueDays} día
-                        {g.header.overdueDays === 1 ? "" : "s"}
-                      </span>
-                    )}
-                  </div>
+                  <p className="text-[14px] font-medium text-ds-text-1">
+                    {g.header.titleLine}
+                  </p>
+                  <p className="mt-0.5 text-[12px] text-ds-text-3">
+                    {g.header.statusLine}
+                  </p>
                 </div>
                 <MenuItems
                   items={g.items}

@@ -440,6 +440,10 @@ export async function issueDraftDte(
      * dejó pactada). Para forzar la UF del día, pasar `ufOverride: undefined`
      * y borrar `ufValueAtIssue` antes en el draft. */
     ufOverride?: number;
+    /** Reescribe fecha futura del borrador a hoy al emitir. */
+    forceIssueDateToToday?: boolean;
+    /** Permite emitir con la fecha futura del borrador (confirmación explícita). */
+    allowFutureDate?: boolean;
   },
 ) {
   const draft = await prisma.financeDte.findFirst({
@@ -530,7 +534,11 @@ export async function issueDraftDte(
         ? Number(draft.ufValueAtIssue)
         : undefined);
 
-  const issued = await issueDte(tenantId, issuedBy, input, { ufOverride });
+  const issued = await issueDte(tenantId, issuedBy, input, {
+    ufOverride,
+    forceIssueDateToToday: overrides?.forceIssueDateToToday,
+    allowFutureDate: overrides?.allowFutureDate,
+  });
 
   // Reasignar occurrences que apuntaban al draft → al nuevo DTE emitido,
   // antes de borrar el draft (la FK es ON DELETE SET NULL, pero queremos

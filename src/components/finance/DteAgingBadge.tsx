@@ -68,6 +68,16 @@ function getAgingBadge(input: DteAgingInput): BadgeShape {
   const issueYmd = formatDateOnlyUtcYmd(new Date(input.date));
   const daysSinceIssue = calendarDaysDiff(todayYmd, issueYmd);
 
+  // Fecha tributaria futura (bug de post-fechado u emisión adelantada).
+  if (daysSinceIssue < 0) {
+    return {
+      label: `⚠ fecha futura`,
+      className:
+        "bg-status-warn-soft text-status-warn-fg border-status-warn-border",
+      icon: "danger",
+    };
+  }
+
   // Vencida: dueDate ya pasó.
   if (input.dueDate) {
     const dueYmd = formatDateOnlyUtcYmd(new Date(input.dueDate));

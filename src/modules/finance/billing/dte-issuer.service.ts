@@ -31,6 +31,25 @@ function resolveIssueDateYmd(input: IssueDteInput): string {
   return todayChileStr();
 }
 
+/**
+ * Emisión con fecha futura bloqueada hasta confirmación explícita.
+ * El cliente ofrece "Emitir con fecha de hoy" (default) o "Mantener {fecha}".
+ */
+export class FutureIssueDateError extends Error {
+  readonly code = "FUTURE_ISSUE_DATE" as const;
+  readonly issueDate: string;
+  readonly todayYmd: string;
+
+  constructor(issueDate: string, todayYmd: string) {
+    super(
+      `La fecha de emisión ${issueDate} es posterior a hoy (${todayYmd}). Confirmá para emitir con fecha de hoy o mantener la fecha futura.`,
+    );
+    this.name = "FutureIssueDateError";
+    this.issueDate = issueDate;
+    this.todayYmd = todayYmd;
+  }
+}
+
 export type IssueDteInput = {
   /** Fecha de emisión tributaria YYYY-MM-DD (SII). Default: hoy en Chile. */
   issueDate?: string;
@@ -149,6 +168,21 @@ function additionalReferencesForSii(
 
 const DTE_TYPES_REQUIRING_REFERENCE = [56, 61] as const;
 
+export type IssueDteOpts = {
+  /** UF a usar en lugar de la del día. */
+  ufOverride?: number;
+  /**
+   * Si la fecha de emisión es > hoy: reescribe a hoy (opción por defecto
+   * del diálogo de confirmación).
+   */
+  forceIssueDateToToday?: boolean;
+  /**
+   * Si la fecha de emisión es > hoy: permite emitir con esa fecha
+   * (opción secundaria "Mantener {fecha}").
+   */
+  allowFutureDate?: boolean;
+};
+
 /**
  * Issue a new DTE (factura, boleta, etc.)
  *
@@ -156,12 +190,16 @@ const DTE_TYPES_REQUIRING_REFERENCE = [56, 61] as const;
  * propaga a `computeDteAmounts` y se persiste en `ufValueAtIssue`). Útil
  * cuando el usuario emite con la UF que pactó con el cliente y no con la
  * oficial del día.
+ *
+ * Fechas futuras: sin `forceIssueDateToToday` ni `allowFutureDate` lanza
+ * `FutureIssueDateError` — nunca se envía al SII una FchEmis futura en
+ * silencio.
  */
 export async function issueDte(
   tenantId: string,
   createdBy: string,
   input: IssueDteInput,
-  opts?: { ufOverride?: number },
+  opts?: IssueDteOpts,
 ) {
   // 1. Validate DTE type
   if (!isDteTypeValid(input.dteType)) {
@@ -257,7 +295,16 @@ export async function issueDte(
   const calculatedLines = calc.lines;
   const ufValueAtIssue = calc.ufValue;
   const ufDateAtIssue = calc.ufDate;
-  const emissionYmd = resolveIssueDateYmd(input);
+  let emissionYmd = resolveIssueDateYmd(input);
+  const todayYmd = todayChileStr();
+  if (emissionYmd > todayYmd) {
+    if (opts?.forceIssueDateToToday) {
+      emissionYmd = todayYmd;
+      input.issueDate = todayYmd;
+    } else if (!opts?.allowFutureDate) {
+      throw new FutureIssueDateError(emissionYmd, todayYmd);
+    }
+  }
   let emissionDbDate: Date;
   try {
     emissionDbDate = parseYmdToDbDate(emissionYmd);

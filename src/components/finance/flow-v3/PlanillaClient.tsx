@@ -26,6 +26,7 @@ import {
 } from "./range-sel";
 import { fmtClp } from "./format";
 import { PanelView } from "./PanelView";
+import { IssuedDteSlideOver } from "@/components/finance/dtes/IssuedDteSlideOver";
 
 const ZEROS_PREF_KEY = "opai-planilla-show-zeros";
 
@@ -81,6 +82,7 @@ export function PlanillaClient({
   const [sumMode, setSumMode] = useState(false);
   const [discreteStats, setDiscreteStats] = useState<DiscreteSelStats | null>(null);
   const [viewTab, setViewTab] = useState<"planilla" | "panel">("planilla");
+  const [viewDteId, setViewDteId] = useState<string | null>(null);
 
   const [showZeros, setShowZeros] = useState(false);
   useEffect(() => {
@@ -518,27 +520,9 @@ export function PlanillaClient({
             return !v;
           });
         }}
+        viewTab={viewTab}
+        onViewTab={setViewTab}
       />
-
-      {/* Segmented Planilla | Panel */}
-      <div className="planilla-chrome-print-hide mb-1 flex h-9 items-center justify-center">
-        <div className="inline-flex h-9 overflow-hidden rounded-full border border-ds-border-default bg-ds-surface-2 p-0.5">
-          {(["planilla", "panel"] as const).map((tab) => (
-            <button
-              key={tab}
-              type="button"
-              onClick={() => setViewTab(tab)}
-              className={`min-h-8 min-w-[5.5rem] rounded-full px-3 text-[13px] font-medium transition-colors ${
-                viewTab === tab
-                  ? "bg-primary text-primary-foreground"
-                  : "text-ds-text-3 hover:text-ds-text-1"
-              }`}
-            >
-              {tab === "planilla" ? "Planilla" : "Panel"}
-            </button>
-          ))}
-        </div>
-      </div>
 
       {searchOpen && (
         <div className="planilla-chrome-print-hide mb-1 flex items-center gap-2 rounded-md border border-ds-border-default bg-ds-surface-2 px-2 py-1">
@@ -583,7 +567,7 @@ export function PlanillaClient({
         />
 
         {viewTab === "panel" ? (
-          <PanelView canManage={canManage} />
+          <PanelView canManage={canManage} onViewDte={setViewDteId} />
         ) : m.loading && !m.data ? (
           <div className="flex h-64 items-center justify-center rounded-lg border border-ds-border-subtle text-sm text-ds-text-3">
             Cargando planilla…
@@ -621,6 +605,7 @@ export function PlanillaClient({
               onSumModeChange={setSumMode}
               onDiscreteStats={setDiscreteStats}
               onRefresh={() => void m.refetch()}
+              onViewDte={setViewDteId}
             />
           </div>
         ) : (
@@ -694,6 +679,23 @@ export function PlanillaClient({
       />
 
       <LegendPopover open={legendOpen} onOpenChange={setLegendOpen} showChips={view.prefs.showChips} />
+
+      {viewDteId && (
+        <div className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] right-4 z-[60] sm:bottom-6">
+          <a
+            href={`/finanzas/facturacion/dtes?dte=${viewDteId}`}
+            className="inline-flex min-h-10 items-center rounded-full border border-ds-border-default bg-ds-surface-1 px-3 py-2 text-[12px] font-medium text-ds-text-1 shadow-sm hover:border-primary/40"
+          >
+            Abrir en Facturación ↗
+          </a>
+        </div>
+      )}
+      <IssuedDteSlideOver
+        open={viewDteId !== null}
+        onClose={() => setViewDteId(null)}
+        dteId={viewDteId}
+        canManage={canManage}
+      />
     </div>
   );
 }

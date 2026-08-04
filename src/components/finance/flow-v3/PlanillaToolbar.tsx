@@ -61,6 +61,8 @@ interface Props {
   /** Modo Σ: selección discontinua. */
   sumMode?: boolean;
   onToggleSumMode?: () => void;
+  viewTab?: "planilla" | "panel";
+  onViewTab?: (tab: "planilla" | "panel") => void;
 }
 
 /** Toolbar píldora estilo Sheets: comandos de vista/formato + controles operativos. */
@@ -275,6 +277,20 @@ export function PlanillaToolbar(p: Props) {
           </button>
         ))}
       </div>
+      {p.onViewTab && (
+        <div className="ml-0.5 flex h-10 shrink-0 overflow-hidden rounded-md border border-ds-border-default lg:h-7">
+          {(["planilla", "panel"] as const).map((tab) => (
+            <button
+              key={tab}
+              type="button"
+              onClick={() => p.onViewTab!(tab)}
+              className={`px-2 text-xs ${p.viewTab === tab ? "bg-primary text-primary-foreground" : "bg-ds-surface-1 text-ds-text-3 hover:bg-ds-surface-2"}`}
+            >
+              {tab === "planilla" ? "Planilla" : "Panel"}
+            </button>
+          ))}
+        </div>
+      )}
       <Button
         variant={p.showZeros ? "default" : "outline"}
         size="sm"

@@ -8,6 +8,7 @@ import {
 } from "@/lib/api-auth";
 import { hasFacturacionCapability } from "@/lib/permissions";
 import { issueDraftDte } from "@/modules/finance/billing/dte-draft.service";
+import { FutureIssueDateError } from "@/modules/finance/billing/dte-issuer.service";
 
 const issueDraftSchema = z.object({
   autoSendEmail: z.boolean().optional(),
@@ -15,6 +16,10 @@ const issueDraftSchema = z.object({
   backofficeEmailsOverride: z.array(z.string().email()).max(5).optional(),
   // Si el usuario quiere forzar una UF distinta a la del borrador / del día.
   ufOverride: z.number().positive().optional(),
+  /** Confirmación: emitir con fecha de hoy en vez de la del borrador (si es futura). */
+  forceIssueDateToToday: z.boolean().optional(),
+  /** Confirmación: mantener la fecha futura del borrador. */
+  allowFutureDate: z.boolean().optional(),
 });
 
 export async function POST(
@@ -44,6 +49,18 @@ export async function POST(
     const issued = await issueDraftDte(ctx.tenantId, id, ctx.userId, parsed.data);
     return NextResponse.json({ success: true, data: issued }, { status: 201 });
   } catch (error) {
+    if (error instanceof FutureIssueDateError) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: error.message,
+          code: error.code,
+          issueDate: error.issueDate,
+          todayYmd: error.todayYmd,
+        },
+        { status: 409 },
+      );
+    }
     console.error("[Finance/Billing/Drafts] Issue error:", error);
     const message = error instanceof Error ? error.message : "Error al emitir borrador";
     const status =

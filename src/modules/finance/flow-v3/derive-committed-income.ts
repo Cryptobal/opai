@@ -155,6 +155,8 @@ export function deriveCommittedIncome(args: CommittedIncomeArgs): CommittedByRow
       monto: Math.round(d.pendingClp),
       overdueDays,
       overdueOver60: overdueDays > 60,
+      emissionYmd: d.dateYmd,
+      dueYmd,
     });
   }
 

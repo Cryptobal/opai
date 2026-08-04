@@ -153,15 +153,14 @@ function toIssueYmd(year: number, monthZeroIdx: number, day: number): string {
 }
 
 /**
- * Fecha de EMISIÓN (campo `date` del DTE) de la cuota que se está generando.
- * Espeja `calcularFechaEmisionProyectada` (cashflow) para que el borrador nazca
- * con la MISMA fecha que el flujo proyectó:
- *   - AL_EMITIR: el día de la programación (mes del anchor + dayOfMonth).
+ * Fecha de PROYECCIÓN de la cuota en el flujo de caja (capa scheduled),
+ * mientras no exista borrador/DTE real. NO es la fecha del documento:
+ * el generador de borradores usa el día de la ocurrencia (`nextRunAt`).
+ *   - AL_EMITIR: día de la programación (mes del anchor + dayOfMonth).
  *   - DIA_ESPECIFICO: facturaDay del mes indicado por facturaMesRelativo
  *     (MISMO_MES / MES_SIGUIENTE) relativo al mes de la programación.
- * `anchor` = la ocurrencia que se cumple (nextRunAt), NO hoy: si el cron corre
- * tarde o es el primer run de onboarding, la factura igual queda fechada el día
- * correcto (antes usaba todayChileStr y se corría de fecha).
+ * También la usa `resolveBillingPeriodForDate` para mapear un DTE a su
+ * período de servicio según el calendario del template.
  */
 export function computeRecurringIssueYmd(
   template: Pick<

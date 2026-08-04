@@ -61,6 +61,8 @@ interface CashflowConfig {
   collectionLagDays: number;
   /** Flujo v3: umbral CLP del semáforo del saldo (ámbar bajo este valor). */
   flowWarnThresholdClp: number;
+  /** Flujo v4.6: corte de cartera (YYYY-MM-DD) o null. */
+  flowCutoffYmd: string | null;
 }
 
 /** Prisma serializa campos Decimal como string en JSON; esta interfaz refleja esa realidad. */
@@ -74,6 +76,7 @@ type RawCashflowConfig = Omit<
   | "quincenaPctLiquido"
   | "writeOffMaxPercent"
   | "ppmRatePct"
+  | "flowCutoffYmd"
 > & {
   ufMonthlyGrowthPct?: number | string;
   ppmRatePct?: number | string;
@@ -83,6 +86,7 @@ type RawCashflowConfig = Omit<
   retiroSocioPctVentas: number | string;
   quincenaPctLiquido: number | string;
   writeOffMaxPercent: number | string;
+  flowCutoffYmd?: string | Date | null;
 };
 
 interface Category {
@@ -150,6 +154,9 @@ export function CashflowConfigClient({ initialConfig, initialCategories, account
     retiroSocioPctVentas: Number(initialConfig.retiroSocioPctVentas ?? 0),
     quincenaPctLiquido: Number(initialConfig.quincenaPctLiquido ?? 0.1),
     writeOffMaxPercent: Number(initialConfig.writeOffMaxPercent ?? 0.005),
+    flowCutoffYmd: initialConfig.flowCutoffYmd
+      ? String(initialConfig.flowCutoffYmd).slice(0, 10)
+      : null,
   });
   const [categories, setCategories] = useState<Category[]>(initialCategories);
   const [savingConfig, setSavingConfig] = useState(false);
@@ -453,6 +460,26 @@ export function CashflowConfigClient({ initialConfig, initialCategories, account
               La fila SALDO ACUMULADO se pinta <strong>ámbar</strong> cuando el
               saldo proyectado baja de este monto (rojo bajo $0). Ajústalo a tu
               colchón mínimo de caja.
+            </p>
+          </div>
+          <div>
+            <Label>Corte de cartera (flujo) — Planilla v4.6</Label>
+            <Input
+              className="h-10 sm:h-9"
+              type="date"
+              value={config.flowCutoffYmd?.slice(0, 10) ?? ""}
+              max={new Date().toISOString().slice(0, 10)}
+              onChange={(e) => {
+                const v = e.target.value.trim();
+                setField("flowCutoffYmd", v === "" ? null : v);
+              }}
+            />
+            <p className="mt-1 text-[12px] text-ds-text-3">
+              Las facturas de ingreso emitidas <strong>antes</strong> de esta
+              fecha quedan fuera del comprometido, la bandeja y el KPI de
+              cartera (los pagos reales no se tocan). Vacío = sin corte.
+              Reversible. Típico: <strong>01/01/2025</strong> para limpiar
+              cartera antigua.
             </p>
           </div>
           <div>

@@ -2,7 +2,7 @@ import "server-only";
 import { prisma } from "@/lib/prisma";
 import { cleanRut, formatRut } from "@/lib/chile-rut";
 import { buildIncomeMatcher } from "./row-match";
-import { UNMATCHED_INCOME_KEY, type FlowRowRef } from "./types";
+import { UNMATCHED_INCOME_KEY, addDaysYmd, DEFAULT_COLLECTION_LAG_DAYS, type FlowRowRef } from "./types";
 import { weekStartYmd } from "./weeks";
 import { reconcileIncomeRows } from "./reconcile-income-rows.service";
 import {
@@ -17,6 +17,8 @@ export interface UnmatchedDteDto {
   receiverRut: string | null;
   amountClp: number;
   issueDate: string | null;
+  dueDate: string | null;
+  overdueDays: number;
   crmAccountId: string | null;
   /** Programaciones de la cuenta (para "Vincular a programación…"). */
   templates: AccountTemplateOption[];
@@ -51,7 +53,7 @@ export async function listUnmatchedIncomeForWeek(
   tenantId: string,
   weekStart: string,
 ): Promise<UnmatchedDteDto[]> {
-  const [rows, dtes, accounts] = await Promise.all([
+  const [rows, dtes, accounts, config] = await Promise.all([
     prisma.financeFlowRow.findMany({
       where: { tenantId, section: "INGRESOS", archivedAt: null },
       select: {
@@ -81,7 +83,14 @@ export async function listUnmatchedIncomeForWeek(
       select: { id: true, rut: true, createdAt: true },
       orderBy: { createdAt: "asc" },
     }),
+    prisma.financeCashflowConfig.findUnique({
+      where: { tenantId },
+      select: { flowCutoffYmd: true },
+    }),
   ]);
+  const cutoffYmd = config?.flowCutoffYmd
+    ? config.flowCutoffYmd.toISOString().slice(0, 10)
+    : null;
 
   const dteIds = dtes.map((d) => d.id);
   const overrideRows =
@@ -131,24 +140,43 @@ export async function listUnmatchedIncomeForWeek(
     receiverRut: string | null;
     amountClp: number;
     issueDate: string | null;
+    dueDate: string | null;
+    overdueDays: number;
     crmAccountId: string | null;
   }> = [];
+
+  const todayYmd = new Date().toISOString().slice(0, 10);
 
   for (const d of dtes) {
     const pending = Number(d.totalAmount ?? 0) - Number(d.amountPaid ?? 0);
     if (pending <= 0) continue;
+    const issueYmd = d.date.toISOString().slice(0, 10);
+    if (cutoffYmd && issueYmd < cutoffYmd) continue;
     if (flowWeekOfDte(d.date, overrideByDteId.get(d.id) ?? null) !== weekStart) continue;
     const accId = resolveAccount(d.crmAccountId, d.receiverRut);
     if (match(accId, d.installationId, d.recurringTemplateId) !== UNMATCHED_INCOME_KEY) {
       continue;
     }
+    const issueDate = d.date.toISOString().slice(0, 10);
+    const dueDate = d.dueDate
+      ? d.dueDate.toISOString().slice(0, 10)
+      : addDaysYmd(issueDate, DEFAULT_COLLECTION_LAG_DAYS);
+    const overdueDays = Math.max(
+      0,
+      Math.floor(
+        (Date.parse(`${todayYmd}T00:00:00Z`) - Date.parse(`${dueDate}T00:00:00Z`)) /
+          86_400_000,
+      ),
+    );
     unmatched.push({
       dteId: d.id,
       folio: d.folio,
       receiverName: d.receiverName,
       receiverRut: d.receiverRut,
       amountClp: pending,
-      issueDate: d.date.toISOString().slice(0, 10),
+      issueDate,
+      dueDate,
+      overdueDays,
       crmAccountId: accId,
     });
   }

@@ -30,6 +30,7 @@ interface Props {
   items: CarteraItem[];
   openMoveWeeks: OpenMoveWeek[];
   canManage: boolean;
+  onViewDte?: (dteId: string) => void;
   onMoved?: () => void;
 }
 
@@ -38,7 +39,7 @@ interface Props {
  * con Mover a… / Ver F°. Bottom-sheet móvil; desktop hereda el mismo sheet.
  */
 export function CarteraPendienteSheet({
-  open, onOpenChange, items, openMoveWeeks, canManage, onMoved,
+  open, onOpenChange, items, openMoveWeeks, canManage, onViewDte, onMoved,
 }: Props) {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [movingId, setMovingId] = useState<string | null>(null);
@@ -137,11 +138,27 @@ export function CarteraPendienteSheet({
                       )}
                     </button>
                   )}
+                  {onViewDte ? (
+                    <button
+                      type="button"
+                      onClick={() => onViewDte(d.dteId)}
+                      className="inline-flex min-h-10 items-center rounded-full border border-ds-border-default bg-ds-surface-1 px-3 py-1.5 text-[12px] font-medium text-ds-text-1"
+                    >
+                      Ver F°
+                    </button>
+                  ) : (
+                    <a
+                      href={`/finanzas/facturacion/dtes?dte=${d.dteId}`}
+                      className="inline-flex min-h-10 items-center rounded-full border border-ds-border-default bg-ds-surface-1 px-3 py-1.5 text-[12px] font-medium text-ds-text-1"
+                    >
+                      Ver F°
+                    </a>
+                  )}
                   <a
                     href={`/finanzas/facturacion/dtes?dte=${d.dteId}`}
-                    className="inline-flex min-h-10 items-center rounded-full border border-ds-border-default bg-ds-surface-1 px-3 py-1.5 text-[12px] font-medium text-ds-text-1"
+                    className="inline-flex min-h-10 items-center rounded-full border border-ds-border-default bg-ds-surface-1 px-3 py-1.5 text-[12px] font-medium text-ds-text-3"
                   >
-                    Ver F°
+                    Abrir en Facturación ↗
                   </a>
                 </div>
               </li>

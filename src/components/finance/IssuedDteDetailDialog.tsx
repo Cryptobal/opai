@@ -19,7 +19,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { formatCalendarDateDisplay } from "@/lib/fx-date";
+import { formatCalendarDateDisplay, todayChileStr } from "@/lib/fx-date";
 import {
   Dialog,
   DialogContent,
@@ -924,9 +924,19 @@ export function IssuedDteDetailDialog({
                   <span className="text-right">{siiGlosa}</span>
                 </div>
               )}
-              <div className="flex justify-between">
+              <div className="flex justify-between items-center gap-2">
                 <span className="text-muted-foreground">Fecha emisión:</span>
-                <span>{formatCalendarDateDisplay(dte.date, "dd 'de' MMMM yyyy", es)}</span>
+                <span className="inline-flex items-center gap-2">
+                  {formatCalendarDateDisplay(dte.date, "dd 'de' MMMM yyyy", es)}
+                  {dte.date.slice(0, 10) > todayChileStr() && (
+                    <Badge
+                      variant="outline"
+                      className="text-xs bg-status-warn-soft text-status-warn-fg border-status-warn-border"
+                    >
+                      ⚠ fecha futura
+                    </Badge>
+                  )}
+                </span>
               </div>
               {dte.siiLastStatusCheckAt && (
                 <div className="flex justify-between">
