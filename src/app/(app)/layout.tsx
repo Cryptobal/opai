@@ -33,7 +33,7 @@ export default async function AppLayout({
     redirect('/opai/login');
   }
 
-  const { session, permissions, tenantModules, tenantFlags, companyConfig } = ctx;
+  const { session, permissions, tenantModules, tenantFlags, companyConfig, photoUrl } = ctx;
   const isImpersonating = (session as { impersonating?: boolean }).impersonating === true;
 
   const cookieStore = await cookies();
@@ -62,6 +62,7 @@ export default async function AppLayout({
             userName={session.user?.name}
             userEmail={session.user?.email}
             userRole={session.user.role}
+            userPhotoUrl={photoUrl}
             permissions={permissions}
             currentUserId={session.user.id}
             tenantId={session.user.tenantId}

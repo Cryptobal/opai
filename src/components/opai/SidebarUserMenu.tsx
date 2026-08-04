@@ -21,6 +21,8 @@ export type SidebarUserMenuProps = {
   userName?: string;
   userEmail?: string;
   userRole?: string;
+  /** URL pública de la foto de perfil del Admin (R2). */
+  userPhotoUrl?: string | null;
   collapsed?: boolean;
   onNavigate?: () => void;
   tenantName?: string;
@@ -31,6 +33,7 @@ export function SidebarUserMenu({
   userName,
   userEmail,
   userRole,
+  userPhotoUrl,
   collapsed = false,
   onNavigate,
   tenantName,
@@ -72,7 +75,7 @@ export function SidebarUserMenu({
                 : "items-center gap-2.5 px-2 py-1.5 mb-2 min-h-11",
             )}
           >
-            <Avatar name={displayName} size="sm" />
+            <Avatar name={displayName} photoUrl={userPhotoUrl} size="sm" />
             {!collapsed && (
               <>
                 <span className="min-w-0 flex-1 text-left">
@@ -101,7 +104,7 @@ export function SidebarUserMenu({
           className="w-64"
         >
           <div className="flex items-start gap-3 px-2 py-2">
-            <Avatar name={displayName} size="md" />
+            <Avatar name={displayName} photoUrl={userPhotoUrl} size="md" />
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-medium text-foreground">{displayName}</p>
               {userEmail && (

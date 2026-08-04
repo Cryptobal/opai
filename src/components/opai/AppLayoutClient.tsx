@@ -40,6 +40,8 @@ interface AppLayoutClientProps {
   userName?: string;
   userEmail?: string;
   userRole: string;
+  /** URL pública de la foto de perfil del Admin (R2). */
+  userPhotoUrl?: string | null;
   permissions: RolePermissions;
   currentUserId?: string;
   tenantId?: string;
@@ -86,6 +88,7 @@ function AppLayoutClientInner({
   children,
   userName,
   userEmail,
+  userPhotoUrl,
   tenantId,
   userRole,
   permissions: realPermissions,
@@ -175,12 +178,14 @@ function AppLayoutClientInner({
             userName={userName ?? undefined}
             userEmail={userEmail ?? undefined}
             userRole={userRole}
+            userPhotoUrl={userPhotoUrl}
             surface={surface}
           />
         }
         userName={userName ?? undefined}
         userEmail={userEmail ?? undefined}
         userRole={userRole}
+        userPhotoUrl={userPhotoUrl}
         surface={surface}
       >
         {idleReady && currentUserId && tenantId && (
