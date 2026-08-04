@@ -39,7 +39,7 @@ function daysSince(ymd: string | null, todayYmd: string): number | null {
 }
 
 /**
- * Modo Planilla v3 — chrome estilo Google Sheets (menubar, toolbar, fx, statusbar)
+ * Modo Planilla v3 — chrome (menubar, toolbar contexto+edición, fx, statusbar)
  * + grilla. Preferencias de vista en localStorage; sin cambios de API.
  */
 export function PlanillaClient({

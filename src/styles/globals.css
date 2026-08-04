@@ -1776,7 +1776,8 @@ html {
   --plnx-font: 11px;
   --plnx-zoom: 1;
   --plnx-menubar-h: 32px;
-  --plnx-toolbar-h: 40px;
+  /* Desktop: fila contexto (36) + edición (32) + gap (4). */
+  --plnx-toolbar-h: 72px;
   --plnx-fxbar-h: 30px;
   --plnx-statusbar-h: 26px;
   --plnx-sel: #0b57d0;
@@ -2020,11 +2021,11 @@ html {
    arrastrando toolbar y encabezados. */
 @media (max-width: 1023px) {
   .planilla-sheet {
-    /* Móvil: sin menubar / fx / statusbar — solo toolbar compacta. */
+    /* Móvil: sin menubar / fx / statusbar — solo fila contexto (+ sheet). */
     --plnx-menubar-h: 0px;
     --plnx-fxbar-h: 0px;
     --plnx-statusbar-h: 0px;
-    --plnx-toolbar-h: 44px;
+    --plnx-toolbar-h: 48px;
     --plnx-grid-h: calc(
       100svh - 4rem - env(safe-area-inset-top, 0px)
       - var(--plnx-toolbar-h)
