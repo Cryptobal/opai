@@ -44,7 +44,8 @@ export async function GET(
 
   try {
     const isUuid = uuidSchema.safeParse(id).success;
-    const quote = await prisma.cpqQuote.findUnique({
+    // code ya no es único global (unicidad por tenant); findFirst para OG público
+    const quote = await prisma.cpqQuote.findFirst({
       where: isUuid ? { id } : { code: id },
       select: {
         code: true,

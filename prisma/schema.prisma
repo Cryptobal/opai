@@ -1503,7 +1503,7 @@ model PayrollAttendancePeriod {
 model CpqQuote {
   id                    String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   tenantId              String    @map("tenant_id")
-  code                  String    @unique @map("code")
+  code                  String    @map("code")
   name                  String?   @map("name")
   status                String    @default("draft")
   /// null = legado: visible en portal si no es borrador; true = forzar visible (p. ej. borrador editable); false = ocultar del portal
@@ -1568,6 +1568,7 @@ model CpqQuote {
   visitasTecnicas  OpsVisitaTecnica[]       @relation("ops_visita_tecnica_quote")
   proposalBundleQuote CpqProposalBundleQuote?
 
+  @@unique([tenantId, code], map: "uq_cpq_quotes_tenant_code")
   @@index([tenantId], map: "idx_cpq_quotes_tenant")
   @@index([status], map: "idx_cpq_quotes_status")
   @@index([createdAt(sort: Desc)], map: "idx_cpq_quotes_created_desc")
@@ -1579,12 +1580,27 @@ model CpqQuote {
   @@schema("cpq")
 }
 
+/// Contador atómico de correlativos CPQ por tenant+año.
+/// kind: "quote" → CPQ-YYYY-NNN | "bundle" → PROP-YYYY-NNN
+model CpqDocumentCounter {
+  id         String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId   String   @map("tenant_id")
+  kind       String   @map("kind") // quote | bundle
+  year       Int      @map("year")
+  lastNumber Int      @default(0) @map("last_number")
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@unique([tenantId, kind, year], map: "uq_cpq_document_counter")
+  @@map("document_counters")
+  @@schema("cpq")
+}
+
 /// Agrupa N cotizaciones (1 por instalación) como unidad enviable consolidada.
 /// Invariante intacto: 1 CpqQuote = 1 instalación; el bundle es capa fina encima.
 model CpqProposalBundle {
   id                    String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   tenantId              String    @map("tenant_id")
-  code                  String    @unique @map("code")
+  code                  String    @map("code")
   name                  String?   @map("name")
   status                String    @default("draft") // draft | sent | accepted | rejected
   accountId             String?   @map("account_id") @db.Uuid
@@ -1620,6 +1636,7 @@ model CpqProposalBundle {
 
   quotes CpqProposalBundleQuote[]
 
+  @@unique([tenantId, code], map: "uq_cpq_proposal_bundles_tenant_code")
   @@index([tenantId], map: "idx_cpq_proposal_bundles_tenant")
   @@index([dealId], map: "idx_cpq_proposal_bundles_deal")
   @@index([status], map: "idx_cpq_proposal_bundles_status")
