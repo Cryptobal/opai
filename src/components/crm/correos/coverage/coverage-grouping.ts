@@ -60,55 +60,48 @@ export function emptyCoverageSlot(
   };
 }
 
-/**
- * Agrupa slots por `etapa` (o "General"). Orden: por vigenciaDesde asc,
- * luego label; General al final si no tiene fechas.
- */
-export function groupSlotsByEtapa(
-  installations: CrmStructureInstallation[],
-): CoverageStageGroup[] {
-  const map = new Map<string, CoverageStageGroup>();
+function accumulateSlotIntoStageMap(
+  map: Map<string, CoverageStageGroup>,
+  instIdx: number,
+  slotIdx: number,
+  slot: CrmStructureCoverageSlot,
+) {
+  const label = (slot.etapa || "").trim() || GENERAL_ETAPA_KEY;
+  const key = label;
+  let group = map.get(key);
+  if (!group) {
+    group = {
+      key,
+      label,
+      vigenciaDesde: slot.vigenciaDesde ?? null,
+      vigenciaHasta: slot.vigenciaHasta ?? null,
+      slots: [],
+      subtotalHH: 0,
+      subtotalHeadcount: 0,
+    };
+    map.set(key, group);
+  }
+  group.slots.push({ instIdx, slotIdx, slot });
+  group.subtotalHH += slot.weeklyHH || 0;
+  group.subtotalHeadcount += slot.headcount || 0;
+  if (slot.vigenciaDesde) {
+    if (!group.vigenciaDesde || slot.vigenciaDesde < group.vigenciaDesde) {
+      group.vigenciaDesde = slot.vigenciaDesde;
+    }
+  }
+  if (slot.vigenciaHasta) {
+    if (!group.vigenciaHasta || slot.vigenciaHasta > group.vigenciaHasta) {
+      group.vigenciaHasta = slot.vigenciaHasta;
+    }
+  }
+}
 
-  installations.forEach((inst, instIdx) => {
-    inst.coverageSlots.forEach((slot, slotIdx) => {
-      const label = (slot.etapa || "").trim() || GENERAL_ETAPA_KEY;
-      const key = label;
-      let group = map.get(key);
-      if (!group) {
-        group = {
-          key,
-          label,
-          vigenciaDesde: slot.vigenciaDesde ?? null,
-          vigenciaHasta: slot.vigenciaHasta ?? null,
-          slots: [],
-          subtotalHH: 0,
-          subtotalHeadcount: 0,
-        };
-        map.set(key, group);
-      }
-      group.slots.push({ instIdx, slotIdx, slot });
-      group.subtotalHH += slot.weeklyHH || 0;
-      group.subtotalHeadcount += slot.headcount || 0;
-      // Header dates: first non-null wins, then extend max hasta / min desde.
-      if (slot.vigenciaDesde) {
-        if (!group.vigenciaDesde || slot.vigenciaDesde < group.vigenciaDesde) {
-          group.vigenciaDesde = slot.vigenciaDesde;
-        }
-      }
-      if (slot.vigenciaHasta) {
-        if (!group.vigenciaHasta || slot.vigenciaHasta > group.vigenciaHasta) {
-          group.vigenciaHasta = slot.vigenciaHasta;
-        }
-      }
-    });
-  });
-
-  const groups = Array.from(map.values()).map((g) => ({
+function sortStageGroups(groups: CoverageStageGroup[]): CoverageStageGroup[] {
+  const next = groups.map((g) => ({
     ...g,
     subtotalHH: Math.round(g.subtotalHH * 10) / 10,
   }));
-
-  groups.sort((a, b) => {
+  next.sort((a, b) => {
     const aGen = a.key === GENERAL_ETAPA_KEY;
     const bGen = b.key === GENERAL_ETAPA_KEY;
     if (aGen !== bGen) return aGen ? 1 : -1;
@@ -117,8 +110,68 @@ export function groupSlotsByEtapa(
     if (ad !== bd) return ad < bd ? -1 : 1;
     return a.label.localeCompare(b.label, "es");
   });
+  return next;
+}
 
-  return groups;
+/**
+ * Agrupa slots por `etapa` (o "General"). Orden: por vigenciaDesde asc,
+ * luego label; General al final si no tiene fechas.
+ */
+export function groupSlotsByEtapa(
+  installations: CrmStructureInstallation[],
+): CoverageStageGroup[] {
+  const map = new Map<string, CoverageStageGroup>();
+  installations.forEach((inst, instIdx) => {
+    inst.coverageSlots.forEach((slot, slotIdx) => {
+      accumulateSlotIntoStageMap(map, instIdx, slotIdx, slot);
+    });
+  });
+  return sortStageGroups(Array.from(map.values()));
+}
+
+export type CoverageInstallationGroup = {
+  instIdx: number;
+  name: string;
+  addressSummary: string;
+  slotCount: number;
+  subtotalHH: number;
+  subtotalHeadcount: number;
+  stages: CoverageStageGroup[];
+  installation: CrmStructureInstallation;
+};
+
+/** Una fila por instalación con etapas anidadas (scoped a esa instalación). */
+export function groupSlotsByInstallation(
+  installations: CrmStructureInstallation[],
+): CoverageInstallationGroup[] {
+  return installations.map((inst, instIdx) => {
+    const map = new Map<string, CoverageStageGroup>();
+    inst.coverageSlots.forEach((slot, slotIdx) => {
+      accumulateSlotIntoStageMap(map, instIdx, slotIdx, slot);
+    });
+    const stages = sortStageGroups(Array.from(map.values()));
+    const subtotalHH = Math.round(
+      inst.coverageSlots.reduce((acc, s) => acc + (s.weeklyHH || 0), 0) * 10,
+    ) / 10;
+    const subtotalHeadcount = inst.coverageSlots.reduce(
+      (acc, s) => acc + (s.headcount || 0),
+      0,
+    );
+    const addressSummary = [inst.address, inst.commune, inst.city]
+      .map((p) => (p ?? "").trim())
+      .filter(Boolean)
+      .join(", ");
+    return {
+      instIdx,
+      name: inst.name || `Instalación ${instIdx + 1}`,
+      addressSummary,
+      slotCount: inst.coverageSlots.length,
+      subtotalHH,
+      subtotalHeadcount,
+      stages,
+      installation: inst,
+    };
+  });
 }
 
 /** Duplica el slot en la misma instalación, justo después del original. */
@@ -144,21 +197,25 @@ export function bulkSetVigencia(
   groupKey: string,
   desde: string | null,
   hasta: string | null,
+  onlyInstIdx?: number,
 ): CrmStructureInstallation[] {
   const etapaVal = groupKey === GENERAL_ETAPA_KEY ? null : groupKey;
-  return installations.map((inst) => ({
-    ...inst,
-    coverageSlots: inst.coverageSlots.map((slot) => {
-      const slotKey = (slot.etapa || "").trim() || GENERAL_ETAPA_KEY;
-      if (slotKey !== groupKey) return slot;
-      return {
-        ...slot,
-        etapa: etapaVal ?? slot.etapa ?? null,
-        vigenciaDesde: desde,
-        vigenciaHasta: hasta,
-      };
-    }),
-  }));
+  return installations.map((inst, i) => {
+    if (typeof onlyInstIdx === "number" && i !== onlyInstIdx) return inst;
+    return {
+      ...inst,
+      coverageSlots: inst.coverageSlots.map((slot) => {
+        const slotKey = (slot.etapa || "").trim() || GENERAL_ETAPA_KEY;
+        if (slotKey !== groupKey) return slot;
+        return {
+          ...slot,
+          etapa: etapaVal ?? slot.etapa ?? null,
+          vigenciaDesde: desde,
+          vigenciaHasta: hasta,
+        };
+      }),
+    };
+  });
 }
 
 /** Fallback cliente si el proposal aún no trae staffingPeak. */
