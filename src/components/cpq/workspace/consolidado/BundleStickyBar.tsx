@@ -9,7 +9,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, FileDown, Send, Users } from "lucide-react";
+import { ArrowLeft, FileDown, MoreVertical, Send, Trash2, Unlink, Users } from "lucide-react";
 import { Tag } from "@/components/opai-ds";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -29,14 +29,17 @@ export function BundleStickyBar({
   ufValue,
   saving,
   onSend,
+  onRequestDeleteBundle,
 }: {
   bundle: BundleDetail;
   billing: BundleBilling;
   ufValue: number | null;
   saving: boolean;
   onSend: () => void;
+  onRequestDeleteBundle?: (mode: "unlink" | "cascade") => void;
 }) {
   const [pdfLoading, setPdfLoading] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const t = bundle.totals;
   const margin =
     t.weightedMarginPct != null ? `${t.weightedMarginPct.toFixed(1)}%` : "—";
@@ -163,6 +166,67 @@ export function BundleStickyBar({
           <Send className="h-4 w-4" />
           Enviar
         </Button>
+        {onRequestDeleteBundle ? (
+          <div className="relative">
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              className="h-9 w-9"
+              aria-label="Acciones de propuesta"
+              onClick={() => setMenuOpen((v) => !v)}
+            >
+              <MoreVertical className="h-4 w-4" />
+            </Button>
+            {menuOpen ? (
+              <>
+                <button
+                  type="button"
+                  className="fixed inset-0 z-20 cursor-default"
+                  aria-label="Cerrar menú"
+                  onClick={() => setMenuOpen(false)}
+                />
+                <div className="absolute right-0 top-full z-30 mt-1 min-w-[280px] rounded-md border border-ds-border-subtle bg-popover p-1 shadow-md">
+                  <p className="px-2 py-1.5 text-[12px] font-semibold uppercase tracking-wide text-ds-text-3">
+                    Eliminar propuesta
+                  </p>
+                  <button
+                    type="button"
+                    className="flex w-full items-start gap-2 rounded-sm px-2 py-2 text-left text-[13px] hover:bg-accent"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      onRequestDeleteBundle("unlink");
+                    }}
+                  >
+                    <Unlink className="mt-0.5 h-4 w-4 shrink-0" />
+                    <span>
+                      <span className="block font-medium">Eliminar solo propuesta</span>
+                      <span className="block text-[12px] text-ds-text-3">
+                        Conserva las cotizaciones en el negocio.
+                      </span>
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    className="flex w-full items-start gap-2 rounded-sm px-2 py-2 text-left text-[13px] text-status-danger-fg hover:bg-accent"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      onRequestDeleteBundle("cascade");
+                    }}
+                  >
+                    <Trash2 className="mt-0.5 h-4 w-4 shrink-0" />
+                    <span>
+                      <span className="block font-medium">Eliminar propuesta y cotizaciones</span>
+                      <span className="block text-[12px] text-status-danger-fg/80">
+                        Envía las cotizaciones a la papelera.
+                      </span>
+                    </span>
+                  </button>
+                </div>
+              </>
+            ) : null}
+          </div>
+        ) : null}
       </div>
     </div>
   );

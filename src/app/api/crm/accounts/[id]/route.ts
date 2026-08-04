@@ -13,6 +13,11 @@ import { createAccountSchema, updateAccountSchema } from "@/lib/validations/crm"
 import { computeChangedFields, createCrmHistoryLog } from "@/lib/crm-history";
 import { shutdownInstallationOperations } from "@/lib/crm/installation-operational-shutdown";
 import { requireTenantModule } from '@/lib/require-module';
+import {
+  buildAccountDeleteImpact,
+  resolveDealQuoteIds,
+} from "@/modules/cpq/quote-delete-impact";
+import { deleteQuoteToTrash } from "@/modules/cpq/quote-trash.service";
 
 type AccountLifecycle = "prospect" | "client_active" | "client_inactive";
 
@@ -293,7 +298,7 @@ export async function PATCH(
 }
 
 export async function DELETE(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
@@ -306,9 +311,13 @@ export async function DELETE(
     if (forbidden) return forbidden;
 
     const { id } = await params;
+    const tenantId = ctx.tenantId;
+    const url = new URL(request.url);
+    const force = url.searchParams.get("force") === "true";
+    const reason = url.searchParams.get("reason")?.trim() || null;
 
     const existing = await prisma.crmAccount.findFirst({
-      where: { id, tenantId: ctx.tenantId },
+      where: { id, tenantId },
     });
     if (!existing) {
       return NextResponse.json(
@@ -317,21 +326,89 @@ export async function DELETE(
       );
     }
 
-    await prisma.crmAccount.delete({ where: { id } });
-    await createCrmHistoryLog({
-      tenantId: ctx.tenantId,
-      entityType: "account",
-      entityId: id,
-      action: "account_deleted",
-      details: {
-        name: existing.name,
-        type: existing.type,
-        status: existing.status,
-      },
-      createdBy: ctx.userId,
+    // Reunir toda la cascada CPQ de la cuenta: cotizaciones por cada negocio
+    // (FK directa ∪ links) + cotizaciones colgando de la cuenta sin negocio.
+    const deals = await prisma.crmDeal.findMany({
+      where: { tenantId, accountId: id },
+      select: { id: true },
+    });
+    const dealIds = deals.map((d) => d.id);
+
+    const [dealQuoteIdLists, orphanQuotes, bundles, impact] = await Promise.all([
+      Promise.all(dealIds.map((dealId) => resolveDealQuoteIds(tenantId, dealId))),
+      prisma.cpqQuote.findMany({
+        where: { tenantId, accountId: id, dealId: null },
+        select: { id: true },
+      }),
+      dealIds.length > 0
+        ? prisma.cpqProposalBundle.findMany({
+            where: { tenantId, dealId: { in: dealIds } },
+            select: { id: true },
+          })
+        : Promise.resolve([]),
+      buildAccountDeleteImpact(tenantId, id),
+    ]);
+
+    const quoteIds = [
+      ...new Set([
+        ...dealQuoteIdLists.flat(),
+        ...orphanQuotes.map((q) => q.id),
+      ]),
+    ];
+    const bundleIds = bundles.map((b) => b.id);
+
+    if (impact && impact.blockers.length > 0 && !force) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "La cuenta tiene cotizaciones con dependencias que impiden eliminarlas",
+          blockers: impact.blockers,
+        },
+        { status: 409 }
+      );
+    }
+
+    // Cascada real: cotizaciones → papelera, propuestas eliminadas, y la cuenta
+    // (que arrastra sus negocios por cascade) al final.
+    const trashedQuoteIds: string[] = [];
+    await prisma.$transaction(async (tx) => {
+      for (const quoteId of quoteIds) {
+        await deleteQuoteToTrash({ tx, tenantId, quoteId, userId: ctx.userId, reason });
+        trashedQuoteIds.push(quoteId);
+      }
+      if (bundleIds.length > 0) {
+        await tx.cpqProposalBundle.deleteMany({
+          where: { id: { in: bundleIds }, tenantId },
+        });
+      }
+      await tx.crmAccount.delete({ where: { id } });
+      await createCrmHistoryLog(
+        {
+          tenantId,
+          entityType: "account",
+          entityId: id,
+          action: "account_deleted",
+          details: {
+            name: existing.name,
+            type: existing.type,
+            status: existing.status,
+            cascaded: { quotes: trashedQuoteIds, bundles: bundleIds, deals: dealIds },
+            reason,
+          },
+          createdBy: ctx.userId,
+        },
+        tx as unknown as Parameters<typeof createCrmHistoryLog>[1],
+      );
     });
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({
+      success: true,
+      cascaded: {
+        quotes: trashedQuoteIds.length,
+        bundles: bundleIds.length,
+        deals: dealIds.length,
+      },
+    });
   } catch (error) {
     console.error("Error deleting account:", error);
     return NextResponse.json(

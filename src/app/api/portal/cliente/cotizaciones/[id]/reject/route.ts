@@ -8,6 +8,7 @@ import { resend } from "@/lib/resend";
 import { getTenantCompanyConfig } from "@/lib/tenant-config";
 import { notify } from "@/lib/notifications/notify";
 import { propagateDealLost } from "@/lib/crm/deal-propagation";
+import { maybePropagateBundleDealResolution } from "@/modules/cpq/bundles/bundle-resolution";
 
 export async function POST(
   request: Request,
@@ -53,8 +54,26 @@ export async function POST(
     },
   });
 
-  // ── 2. Move deal to "Perdido" stage ──
-  if (quote.dealId) {
+  // ── 2. Resolución del deal — bundle-aware ──
+  // Si la cotización pertenece a una propuesta multi-instalación, el negocio
+  // sólo se resuelve cuando TODAS las instalaciones incluidas están en estado
+  // terminal. Si hay mezcla de aprobadas y rechazadas, se prefiere "ganado" y
+  // se registra el rechazo parcial. Las cotizaciones standalone conservan el
+  // flujo directo (mover a "Perdido" + propagar).
+  const bundleMember = await prisma.cpqProposalBundleQuote.findFirst({
+    where: { quoteId: id, tenantId: session.tenantId },
+    select: { bundleId: true },
+  });
+
+  if (bundleMember) {
+    try {
+      await prisma.$transaction(async (tx) => {
+        await maybePropagateBundleDealResolution(tx, session.tenantId, id);
+      });
+    } catch (e) {
+      console.error("[Portal] Error resolving bundle deal (reject):", e);
+    }
+  } else if (quote.dealId) {
     let perdidoStage = await prisma.crmPipelineStage.findFirst({
       where: {
         tenantId: session.tenantId,

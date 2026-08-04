@@ -29,6 +29,7 @@ import { MobileTotalBar } from "./MobileTotalBar";
 import { ConsolidadoPanel } from "./consolidado/ConsolidadoPanel";
 import { BundleStickyBar } from "./consolidado/BundleStickyBar";
 import { computeBundleBilling } from "./consolidado/bundle-billing";
+import { useQuoteDeleteFlow } from "@/components/cpq/useQuoteDeleteFlow";
 
 type ActivityEvent = {
   id: string;
@@ -71,6 +72,11 @@ export function QuoteWorkspace({
   const [cloneFromQuoteId, setCloneFromQuoteId] = useState<string | null>(null);
   const [sendOpen, setSendOpen] = useState(false);
   const ufValue = useUfValue();
+  const {
+    requestDeleteQuote,
+    requestUnlinkQuote,
+    requestDeleteBundle,
+  } = useQuoteDeleteFlow();
 
   /** El servidor manda: el modo lo decide la relación real, no un flag del cliente. */
   const isMulti = Boolean(bundle && bundle.quotes.length > 1);
@@ -118,6 +124,88 @@ export function QuoteWorkspace({
       if (newQuoteId) openInstall(newQuoteId);
     },
     [refreshBundle, openInstall],
+  );
+
+  const redirectAfterBundleDeleted = useCallback(() => {
+    setBundleId(null);
+    router.push("/crm/cotizaciones");
+    router.refresh();
+  }, [router]);
+
+  const getMemberLabel = useCallback(
+    (qid: string) => {
+      const member = bundle?.quotes.find((m) => m.quoteId === qid);
+      return member?.quote.installation?.name || member?.quote.name || member?.quote.code || "esta cotización";
+    },
+    [bundle],
+  );
+
+  const handleRequestUnlink = useCallback(
+    async (qid: string) => {
+      if (!bundle) return;
+      const result = await requestUnlinkQuote({
+        bundleId: bundle.id,
+        quoteId: qid,
+        quoteLabel: getMemberLabel(qid),
+      });
+      if (!result) return;
+      if (result.bundleDeleted) {
+        redirectAfterBundleDeleted();
+        return;
+      }
+      if (activeQuoteId === qid) setTab("consolidated");
+      await refreshBundle();
+      router.refresh();
+    },
+    [
+      activeQuoteId,
+      bundle,
+      getMemberLabel,
+      redirectAfterBundleDeleted,
+      refreshBundle,
+      requestUnlinkQuote,
+      router,
+    ],
+  );
+
+  const handleRequestDeleteQuote = useCallback(
+    async (qid: string) => {
+      const result = await requestDeleteQuote({
+        quoteId: qid,
+        quoteLabel: getMemberLabel(qid),
+      });
+      if (!result) return;
+      if (result.bundleDeleted) {
+        redirectAfterBundleDeleted();
+        return;
+      }
+      if (activeQuoteId === qid) setTab("consolidated");
+      await refreshBundle();
+      router.refresh();
+    },
+    [
+      activeQuoteId,
+      getMemberLabel,
+      redirectAfterBundleDeleted,
+      refreshBundle,
+      requestDeleteQuote,
+      router,
+    ],
+  );
+
+  const handleRequestDeleteBundle = useCallback(
+    async (mode: "unlink" | "cascade") => {
+      if (!bundle) return;
+      const result = await requestDeleteBundle({
+        bundleId: bundle.id,
+        bundleLabel: bundle.name || bundle.code,
+        memberCount: bundle.quotes.length,
+        mode,
+      });
+      if (!result) return;
+      redirectAfterBundleDeleted();
+    },
+    [bundle, redirectAfterBundleDeleted, requestDeleteBundle],
   );
 
   // Si se quita del bundle la cotización de la URL, la ruta deja de
@@ -200,6 +288,8 @@ export function QuoteWorkspace({
       active={effectiveTab}
       onChange={setTab}
       onAdd={() => openAdd(null)}
+      onRequestUnlink={(member) => void handleRequestUnlink(member.quoteId)}
+      onRequestDelete={(member) => void handleRequestDeleteQuote(member.quoteId)}
     />
   );
 
@@ -211,6 +301,7 @@ export function QuoteWorkspace({
         ufValue={ufValue}
         saving={saving}
         onSend={() => setSendOpen(true)}
+        onRequestDeleteBundle={(mode) => void handleRequestDeleteBundle(mode)}
       />
 
       {/* Pestañas sticky bajo la barra KPI (desktop). En móvil viajan dentro
@@ -243,6 +334,8 @@ export function QuoteWorkspace({
             onOpenInstall={openInstall}
             onAdd={() => openAdd(null)}
             onDuplicate={(qid) => openAdd(qid)}
+            onRequestUnlink={(member) => void handleRequestUnlink(member.quoteId)}
+            onRequestDelete={(member) => void handleRequestDeleteQuote(member.quoteId)}
             auditRefreshKey={bundleRevision}
           />
         </>
@@ -260,6 +353,8 @@ export function QuoteWorkspace({
           mobileTabsSlot={<div className="px-2 pb-1.5">{tabs}</div>}
           mobileTotalClpOverride={billing.monthlyClp}
           onQuoteSaved={() => void refreshBundle()}
+          onRequestUnlink={handleRequestUnlink}
+          onRequestDelete={handleRequestDeleteQuote}
         />
       )}
 

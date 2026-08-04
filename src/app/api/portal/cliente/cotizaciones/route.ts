@@ -30,15 +30,30 @@ export async function GET() {
     orderBy: { createdAt: "desc" },
   });
 
-  // Fetch deal titles for quotes that have a dealId
+  // Fetch deal titles for quotes that have a dealId (scoped por tenant — seguridad)
   const dealIds = [...new Set(quotes.map((q) => q.dealId).filter(Boolean))] as string[];
   const deals = dealIds.length
     ? await prisma.crmDeal.findMany({
-        where: { id: { in: dealIds } },
+        where: { id: { in: dealIds }, tenantId: session.tenantId },
         select: { id: true, title: true, proposalLink: true },
       })
     : [];
   const dealMap = new Map(deals.map((d) => [d.id, d]));
+
+  // Propuestas multi-instalación: qué cotizaciones pertenecen a un bundle.
+  const quoteIdsAll = quotes.map((q) => q.id);
+  const bundleMembers = quoteIdsAll.length
+    ? await prisma.cpqProposalBundleQuote.findMany({
+        where: { quoteId: { in: quoteIdsAll }, tenantId: session.tenantId },
+        select: {
+          quoteId: true,
+          includedInProposal: true,
+          displayOrder: true,
+          bundle: { select: { id: true, code: true, name: true, currency: true } },
+        },
+      })
+    : [];
+  const memberByQuoteId = new Map(bundleMembers.map((m) => [m.quoteId, m]));
 
   const needsUf = quotes.some((q) => (q.currency || "CLP") === "UF");
   const ufValue = needsUf ? await getUfValue() : 0;
@@ -104,6 +119,8 @@ export async function GET() {
     const currency = (q.currency || "CLP") as string;
     const monthlyCost = currency === "UF" && ufValue > 0 ? clpToUf(rawCost, ufValue) : rawCost;
 
+    const member = memberByQuoteId.get(q.id);
+
     return {
       id: q.id,
       code: q.code,
@@ -121,8 +138,56 @@ export async function GET() {
       dealId: q.dealId ?? null,
       dealTitle: deal?.title ?? null,
       proposalLink: presentationMap.get(q.id) ?? deal?.proposalLink ?? null,
+      // Referencia liviana al bundle (null si es cotización standalone).
+      proposalId: member?.bundle.id ?? null,
     };
   });
 
-  return NextResponse.json({ success: true, data });
+  // ── Agrupar por propuesta (bundle) para el portal ──
+  // Cada propuesta multi-instalación se presenta como una unidad; el detalle por
+  // instalación sigue disponible a través de las cotizaciones individuales.
+  type QuoteRow = (typeof data)[number];
+  const proposalMap = new Map<
+    string,
+    {
+      id: string;
+      code: string;
+      name: string | null;
+      currency: string;
+      totalMonthly: number;
+      installations: QuoteRow[];
+    }
+  >();
+  for (const row of data) {
+    if (!row.proposalId) continue;
+    const member = memberByQuoteId.get(row.id);
+    if (!member) continue;
+    let group = proposalMap.get(row.proposalId);
+    if (!group) {
+      group = {
+        id: member.bundle.id,
+        code: member.bundle.code,
+        name: member.bundle.name,
+        currency: member.bundle.currency,
+        totalMonthly: 0,
+        installations: [],
+      };
+      proposalMap.set(row.proposalId, group);
+    }
+    group.installations.push(row);
+    // El total sólo suma instalaciones incluidas en la propuesta.
+    if (member.includedInProposal) {
+      group.totalMonthly += row.monthlyCost;
+    }
+  }
+  const proposals = Array.from(proposalMap.values()).map((p) => ({
+    ...p,
+    installations: p.installations.sort((a, b) => {
+      const ma = memberByQuoteId.get(a.id)?.displayOrder ?? 0;
+      const mb = memberByQuoteId.get(b.id)?.displayOrder ?? 0;
+      return ma - mb;
+    }),
+  }));
+
+  return NextResponse.json({ success: true, data, proposals });
 }

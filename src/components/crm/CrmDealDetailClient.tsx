@@ -61,6 +61,7 @@ import { useWaTemplate } from "@/lib/whatsapp/use-wa-template";
 import { buildAdjudicacionDatosBlock, buildAdjudicacionDotacionBlock } from "@/lib/docs/wa-blocks";
 import { Textarea } from "@/components/ui/textarea";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { confirmDialog, promptDialog } from "@/components/ui/confirm-service";
 import { AttachmentPicker, EmptyState } from "@/components/opai-ds";
 import { SearchableSelect, type SearchableOption } from "@/components/ui/SearchableSelect";
 import { toast } from "sonner";
@@ -158,6 +159,48 @@ type ActivityEvent = {
   createdBy?: string | null;
   createdByName?: string | null;
 };
+
+type DeleteBlocker = { code: string; label: string };
+
+type DealDeleteImpact = {
+  counts: {
+    quotes: number;
+    bundles: number;
+    positions: number;
+    attachments: number;
+  };
+  blockers: DeleteBlocker[];
+  warnings: string[];
+};
+
+function formatDealDeleteImpact(impact: DealDeleteImpact | null) {
+  if (!impact) {
+    return "No se pudo calcular el impacto completo. El servidor validará dependencias antes de eliminar.";
+  }
+  const lines = [
+    "Se eliminará el negocio y su cascada asociada.",
+    "",
+    `Cotizaciones a papelera: ${impact.counts.quotes}`,
+    `Propuestas eliminadas: ${impact.counts.bundles}`,
+    `Puestos afectados: ${impact.counts.positions}`,
+    `Adjuntos asociados: ${impact.counts.attachments}`,
+  ];
+  if (impact.warnings.length > 0) {
+    lines.push("", "Advertencias:", ...impact.warnings.map((w) => `- ${w}`));
+  }
+  if (impact.blockers.length > 0) {
+    lines.push("", "Bloqueos:", ...impact.blockers.map((b) => `- ${b.label}`));
+  }
+  return lines.join("\n");
+}
+
+function deleteUrlWithParams(base: string, force: boolean, reason: string | null) {
+  const params = new URLSearchParams();
+  if (force) params.set("force", "true");
+  if (reason) params.set("reason", reason);
+  const qs = params.toString();
+  return qs ? `${base}?${qs}` : base;
+}
 
 export type DealDetail = {
   id: string;
@@ -699,7 +742,6 @@ export function CrmDealDetailClient({
   }, []);
 
   const router = useRouter();
-  const [deleteConfirm, setDeleteConfirm] = useState(false);
   const createInstallationRef = useRef<{ open: () => void } | null>(null);
   // Ancla para el filtro "Notas" del timeline (hace scroll al compositor).
   const notesRef = useRef<HTMLDivElement>(null);
@@ -953,9 +995,68 @@ export function CrmDealDetailClient({
   );
   const localFollowUpLogsDesc = followUpLogsDesc;
 
-  const deleteDeal = async () => {
-    try { const res = await fetch(`/api/crm/deals/${deal.id}`, { method: "DELETE" }); if (!res.ok) throw new Error(); toast.success("Negocio eliminado"); router.push("/crm/deals"); }
-    catch { toast.error("No se pudo eliminar"); }
+  const deleteDeal = async (opts: { force?: boolean; reason?: string | null } = {}) => {
+    try {
+      const res = await fetch(
+        deleteUrlWithParams(
+          `/api/crm/deals/${deal.id}`,
+          Boolean(opts.force),
+          opts.reason ?? null,
+        ),
+        { method: "DELETE" },
+      );
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json.success) {
+        throw new Error(json.error || "No se pudo eliminar");
+      }
+      toast.success("Negocio eliminado");
+      router.push("/crm/deals");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "No se pudo eliminar");
+    }
+  };
+
+  const requestDeleteDeal = async () => {
+    let impact: DealDeleteImpact | null = null;
+    try {
+      const res = await fetch(`/api/crm/deals/${deal.id}/delete-impact`);
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.error || "No se pudo calcular el impacto");
+      }
+      impact = json.data as DealDeleteImpact;
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "No se pudo calcular el impacto");
+      return;
+    }
+    if (!impact) return;
+
+    const description = formatDealDeleteImpact(impact);
+    if (impact.blockers.length > 0) {
+      const typed = await promptDialog({
+        title: "Eliminar negocio con bloqueos",
+        description: `${description}\n\nPara forzar la eliminación escribe exactamente el título del negocio:\n${deal.title}`,
+        placeholder: deal.title,
+        confirmLabel: "Eliminar de todas formas",
+        validate: (value) =>
+          value.trim() === deal.title ? null : "El texto debe coincidir con el título del negocio.",
+      });
+      if (typed === null) return;
+      await deleteDeal({
+        force: true,
+        reason: "Eliminación forzada confirmada escribiendo el título del negocio.",
+      });
+      return;
+    }
+
+    const confirmed = await confirmDialog({
+      title: "Eliminar negocio",
+      description,
+      confirmLabel: "Eliminar negocio",
+      variant: "destructive",
+    });
+    if (!confirmed) return;
+    await deleteDeal();
   };
 
   const applyPlaceholders = (value: string) => {
@@ -2106,7 +2207,7 @@ export function CrmDealDetailClient({
       hidden: dealStatus !== "won",
     },
     { label: "Enviar correo", icon: Mail, onClick: openNewEmail, hidden: !gmailConnected },
-    { label: "Eliminar negocio", icon: Trash2, onClick: () => setDeleteConfirm(true), variant: "destructive" },
+    { label: "Eliminar negocio", icon: Trash2, onClick: () => void requestDeleteDeal(), variant: "destructive" },
   ];
 
   const entregaLabel = licitacion.fechaEntrega
@@ -2524,8 +2625,6 @@ export function CrmDealDetailClient({
         loading={addingContact}
         loadingLabel="Vinculando..."
       />
-
-      <ConfirmDialog open={deleteConfirm} onOpenChange={setDeleteConfirm} title="Eliminar negocio" description="Se eliminarán las cotizaciones vinculadas y el historial." onConfirm={deleteDeal} />
 
       <ConfirmDialog
         open={wonConfirmOpen}

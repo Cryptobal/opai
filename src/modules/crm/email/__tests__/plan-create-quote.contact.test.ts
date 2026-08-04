@@ -2,22 +2,28 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   dealFindFirst: vi.fn(),
-  quoteCount: vi.fn(),
   quoteCreate: vi.fn(),
   dealQuoteCreate: vi.fn(),
   threadLinkUpsert: vi.fn(),
   historyLog: vi.fn(),
   applyIncludes: vi.fn(),
   materialize: vi.fn(),
+  nextDocumentCode: vi.fn(),
+  transaction: vi.fn(),
 }));
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     crmDeal: { findFirst: mocks.dealFindFirst },
-    cpqQuote: { count: mocks.quoteCount, create: mocks.quoteCreate },
+    cpqQuote: { create: mocks.quoteCreate },
     crmDealQuote: { create: mocks.dealQuoteCreate },
     crmEmailThreadLink: { upsert: mocks.threadLinkUpsert },
+    $transaction: (fn: (tx: unknown) => unknown) => mocks.transaction(fn),
   },
+}));
+
+vi.mock("@/lib/cpq/document-counter", () => ({
+  nextDocumentCode: (...args: unknown[]) => mocks.nextDocumentCode(...args),
 }));
 
 vi.mock("@/lib/crm-history", () => ({
@@ -39,13 +45,22 @@ describe("createPlanQuote contactId + positions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.dealFindFirst.mockResolvedValue({ id: "deal-1", title: "Licitación" });
-    mocks.quoteCount.mockResolvedValue(10);
+    mocks.nextDocumentCode.mockResolvedValue("CPQ-2026-011");
     mocks.quoteCreate.mockResolvedValue({ id: "quote-1", code: "CPQ-2026-011" });
     mocks.dealQuoteCreate.mockResolvedValue({});
     mocks.threadLinkUpsert.mockResolvedValue({});
     mocks.historyLog.mockResolvedValue(undefined);
     mocks.applyIncludes.mockResolvedValue(undefined);
     mocks.materialize.mockResolvedValue({ positionsCreated: 2 });
+    mocks.transaction.mockImplementation(async (fn: (tx: unknown) => unknown) => {
+      const tx = {
+        cpqQuote: { create: mocks.quoteCreate },
+        cpqDocumentCounter: {
+          upsert: vi.fn().mockResolvedValue({ lastNumber: 11 }),
+        },
+      };
+      return fn(tx);
+    });
   });
 
   it("persiste contactId e installationId en CpqQuote", async () => {
@@ -63,6 +78,7 @@ describe("createPlanQuote contactId + positions", () => {
       proposal,
     });
 
+    expect(mocks.nextDocumentCode).toHaveBeenCalled();
     expect(mocks.quoteCreate).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
@@ -70,6 +86,7 @@ describe("createPlanQuote contactId + positions", () => {
           installationId: "inst-1",
           accountId: "acc-1",
           dealId: "deal-1",
+          code: "CPQ-2026-011",
         }),
       }),
     );

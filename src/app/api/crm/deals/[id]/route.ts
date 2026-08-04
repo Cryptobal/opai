@@ -12,6 +12,11 @@ import { requireCrmView, requireCrmEdit, requireCrmDelete } from "@/lib/api-auth
 import { createDealSchema } from "@/lib/validations/crm";
 import { computeChangedFields, createCrmHistoryLog } from "@/lib/crm-history";
 import { requireTenantModule } from '@/lib/require-module';
+import {
+  buildDealDeleteImpact,
+  resolveDealQuoteIds,
+} from "@/modules/cpq/quote-delete-impact";
+import { deleteQuoteToTrash } from "@/modules/cpq/quote-trash.service";
 
 export async function GET(
   _request: NextRequest,
@@ -223,7 +228,7 @@ export async function PATCH(
 }
 
 export async function DELETE(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
@@ -236,9 +241,13 @@ export async function DELETE(
     if (forbidden) return forbidden;
 
     const { id } = await params;
+    const tenantId = ctx.tenantId;
+    const url = new URL(request.url);
+    const force = url.searchParams.get("force") === "true";
+    const reason = url.searchParams.get("reason")?.trim() || null;
 
     const existing = await prisma.crmDeal.findFirst({
-      where: { id, tenantId: ctx.tenantId },
+      where: { id, tenantId },
     });
     if (!existing) {
       return NextResponse.json(
@@ -247,21 +256,65 @@ export async function DELETE(
       );
     }
 
-    // Cascade: stageHistory, dealQuotes, tasks se eliminan por onDelete: Cascade
-    await prisma.crmDeal.delete({ where: { id } });
-    await createCrmHistoryLog({
-      tenantId: ctx.tenantId,
-      entityType: "deal",
-      entityId: id,
-      action: "deal_deleted",
-      details: {
-        title: existing.title,
-        accountId: existing.accountId,
-      },
-      createdBy: ctx.userId,
+    // Cotizaciones del negocio: FK directa (dealId) ∪ links crm.deal_quotes.
+    const [quoteIds, impact, bundles] = await Promise.all([
+      resolveDealQuoteIds(tenantId, id),
+      buildDealDeleteImpact(tenantId, id),
+      prisma.cpqProposalBundle.findMany({
+        where: { tenantId, dealId: id },
+        select: { id: true },
+      }),
+    ]);
+    const bundleIds = bundles.map((b) => b.id);
+
+    if (impact && impact.blockers.length > 0 && !force) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "El negocio tiene cotizaciones con dependencias que impiden eliminarlas",
+          blockers: impact.blockers,
+        },
+        { status: 409 }
+      );
+    }
+
+    // Cascada real: cada cotización va a la papelera (restaurable), las
+    // propuestas se eliminan (unlink — sus membresías caen por FK cascade) y
+    // finalmente el negocio (stageHistory, dealQuotes, tasks caen por cascade).
+    const trashedQuoteIds: string[] = [];
+    await prisma.$transaction(async (tx) => {
+      for (const quoteId of quoteIds) {
+        await deleteQuoteToTrash({ tx, tenantId, quoteId, userId: ctx.userId, reason });
+        trashedQuoteIds.push(quoteId);
+      }
+      if (bundleIds.length > 0) {
+        await tx.cpqProposalBundle.deleteMany({
+          where: { id: { in: bundleIds }, tenantId },
+        });
+      }
+      await tx.crmDeal.delete({ where: { id } });
+      await createCrmHistoryLog(
+        {
+          tenantId,
+          entityType: "deal",
+          entityId: id,
+          action: "deal_deleted",
+          details: {
+            title: existing.title,
+            accountId: existing.accountId,
+            cascaded: { quotes: trashedQuoteIds, bundles: bundleIds },
+            reason,
+          },
+          createdBy: ctx.userId,
+        },
+        tx as unknown as Parameters<typeof createCrmHistoryLog>[1],
+      );
     });
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({
+      success: true,
+      cascaded: { quotes: trashedQuoteIds.length, bundles: bundleIds.length },
+    });
   } catch (error) {
     console.error("Error deleting deal:", error);
     return NextResponse.json(

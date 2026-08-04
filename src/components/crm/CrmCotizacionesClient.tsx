@@ -1,13 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyState, Spinner, Stat } from "@/components/opai-ds";
-import { FileText, ChevronRight, Plus, Loader2, MessageSquare, ExternalLink, CalendarClock, Zap, Layers } from "lucide-react";
+import { FileText, ChevronRight, Plus, Loader2, MessageSquare, ExternalLink, CalendarClock, Zap, Layers, MoreVertical, Copy, Trash2, FolderTree } from "lucide-react";
 import { formatCLP, formatNumber, formatUFSuffix } from "@/lib/utils";
 import { clpToUf } from "@/lib/uf-utils";
 import { CrmDates } from "@/components/crm/CrmDates";
@@ -16,6 +16,14 @@ import type { ViewMode } from "@/components/shared/ViewToggle";
 import { toast } from "sonner";
 import { useUnreadNoteIds } from "@/lib/hooks";
 import { QUOTE_LIST_DEFAULT_PAGE_SIZE } from "@/lib/crm/list-page-sizes";
+import { useQuoteDeleteFlow } from "@/components/cpq/useQuoteDeleteFlow";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Dialog,
   DialogContent,
@@ -25,6 +33,17 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+
+const GROUP_PROPOSALS_KEY = "crm-quotes-group-proposals";
+
+type QuoteProposal = {
+  bundleId: string;
+  code: string;
+  name?: string | null;
+  status: string;
+  memberCount: number;
+  includedInProposal: boolean;
+};
 
 type QuoteRow = {
   id: string;
@@ -50,6 +69,7 @@ type QuoteRow = {
   dealStageColor?: string | null;
   pendingFollowUps?: number;
   createdFromLeadId?: string | null;
+  proposal?: QuoteProposal | null;
 };
 
 type QuoteCounts = {
@@ -75,6 +95,7 @@ type CrmCotizacionesClientProps = {
   initialCounts: QuoteCounts;
   initialHasMore: boolean;
   initialTotal: number;
+  canDelete?: boolean;
 };
 
 export function CrmCotizacionesClient({
@@ -83,6 +104,7 @@ export function CrmCotizacionesClient({
   initialCounts,
   initialHasMore,
   initialTotal,
+  canDelete = false,
 }: CrmCotizacionesClientProps) {
   const router = useRouter();
   const [quotes, setQuotes] = useState<QuoteRow[]>(initialQuotes);
@@ -104,6 +126,8 @@ export function CrmCotizacionesClient({
   >([]);
   const [selectedDealId, setSelectedDealId] = useState("");
   const [creatingBundle, setCreatingBundle] = useState(false);
+  const [groupProposals, setGroupProposals] = useState(false);
+  const [duplicatingId, setDuplicatingId] = useState<string | null>(null);
   const unreadNoteIds = useUnreadNoteIds("QUOTATION");
   const initialLoadDone = useRef(false);
   // Evita refetch al montar con los mismos filtros del SSR.
@@ -113,6 +137,26 @@ export function CrmCotizacionesClient({
     const t = setTimeout(() => setDebouncedSearch(search.trim()), 300);
     return () => clearTimeout(t);
   }, [search]);
+
+  useEffect(() => {
+    try {
+      if (localStorage.getItem(GROUP_PROPOSALS_KEY) === "1") setGroupProposals(true);
+    } catch {
+      /* localStorage no disponible */
+    }
+  }, []);
+
+  const toggleGroupProposals = useCallback(() => {
+    setGroupProposals((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem(GROUP_PROPOSALS_KEY, next ? "1" : "0");
+      } catch {
+        /* localStorage no disponible */
+      }
+      return next;
+    });
+  }, []);
 
   const filterKey = useMemo(
     () => JSON.stringify({ statusFilter, debouncedSearch, sort }),
@@ -173,6 +217,63 @@ export function CrmCotizacionesClient({
     if (loadingMore || !hasMore || loading) return;
     void fetchQuotes(page + 1, false);
   }, [fetchQuotes, page, loadingMore, hasMore, loading]);
+
+  const { deleteQuote, deletingId } = useQuoteDeleteFlow({
+    onDeleted: (id) => {
+      setQuotes((prev) => {
+        const removed = prev.find((q) => q.id === id);
+        if (removed) {
+          setListTotal((t) => Math.max(0, t - 1));
+          setCounts((c) => {
+            const next = { ...c, total: Math.max(0, c.total - 1) };
+            if (removed.status in next) {
+              const key = removed.status as keyof QuoteCounts;
+              next[key] = Math.max(0, next[key] - 1);
+            }
+            return next;
+          });
+        }
+        return prev.filter((q) => q.id !== id);
+      });
+    },
+    onRestored: () => void fetchQuotes(1, true),
+  });
+
+  const duplicateQuote = useCallback(
+    async (id: string) => {
+      if (duplicatingId) return;
+      setDuplicatingId(id);
+      try {
+        const res = await fetch(`/api/cpq/quotes/${id}/clone`, { method: "POST" });
+        const json = await res.json();
+        if (!res.ok || !json.success) {
+          throw new Error(json.error || "No se pudo duplicar la cotización");
+        }
+        toast.success(`Cotización duplicada: ${json.data?.code ?? ""}`.trim());
+        await fetchQuotes(1, true);
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "No se pudo duplicar la cotización");
+      } finally {
+        setDuplicatingId(null);
+      }
+    },
+    [duplicatingId, fetchQuotes],
+  );
+
+  // "Agrupar propuestas": colapsa las cotizaciones de una misma propuesta a un
+  // único representante (el primero según el orden actual del listado), dejando
+  // visibles las cotizaciones sueltas.
+  const visibleQuotes = useMemo(() => {
+    if (!groupProposals) return quotes;
+    const seenBundles = new Set<string>();
+    return quotes.filter((q) => {
+      const bundleId = q.proposal?.bundleId;
+      if (!bundleId) return true;
+      if (seenBundles.has(bundleId)) return false;
+      seenBundles.add(bundleId);
+      return true;
+    });
+  }, [quotes, groupProposals]);
 
   const createQuote = async () => {
     if (creating) return;
@@ -286,6 +387,31 @@ export function CrmCotizacionesClient({
           <div className="flex items-center gap-1.5">
             <Button
               size="icon"
+              variant={groupProposals ? "secondary" : "outline"}
+              className="h-9 w-9 shrink-0"
+              onClick={toggleGroupProposals}
+              title={groupProposals ? "Mostrar todas las cotizaciones" : "Agrupar propuestas"}
+              aria-pressed={groupProposals}
+            >
+              <FolderTree className="h-4 w-4" />
+              <span className="sr-only">Agrupar propuestas</span>
+            </Button>
+            {canDelete && (
+              <Button
+                asChild
+                size="icon"
+                variant="outline"
+                className="h-9 w-9 shrink-0"
+                title="Papelera de cotizaciones"
+              >
+                <Link href="/crm/cotizaciones/papelera">
+                  <Trash2 className="h-4 w-4" />
+                  <span className="sr-only">Papelera de cotizaciones</span>
+                </Link>
+              </Button>
+            )}
+            <Button
+              size="icon"
               variant="outline"
               className="h-9 w-9 shrink-0"
               onClick={() => void openBundleDialog()}
@@ -372,14 +498,42 @@ export function CrmCotizacionesClient({
             />
           ) : viewMode === "list" ? (
             <div className={`space-y-2 min-w-0 ${loading ? "opacity-60" : ""}`}>
-              {quotes.map((quote) => (
-                <QuoteListRow key={quote.id} quote={quote} ufValue={ufValue} hasUnreadNotes={unreadNoteIds.has(quote.id)} />
+              {visibleQuotes.map((quote) => (
+                <QuoteListRow
+                  key={quote.id}
+                  quote={quote}
+                  ufValue={ufValue}
+                  hasUnreadNotes={unreadNoteIds.has(quote.id)}
+                  actions={
+                    <QuoteRowActions
+                      quote={quote}
+                      canDelete={canDelete}
+                      busy={deletingId === quote.id || duplicatingId === quote.id}
+                      onDuplicate={() => void duplicateQuote(quote.id)}
+                      onDelete={() => void deleteQuote({ id: quote.id, code: quote.code })}
+                    />
+                  }
+                />
               ))}
             </div>
           ) : (
             <div className={`grid gap-3 sm:grid-cols-2 lg:grid-cols-3 min-w-0 ${loading ? "opacity-60" : ""}`}>
-              {quotes.map((quote) => (
-                <QuoteCardItem key={quote.id} quote={quote} ufValue={ufValue} hasUnreadNotes={unreadNoteIds.has(quote.id)} />
+              {visibleQuotes.map((quote) => (
+                <QuoteCardItem
+                  key={quote.id}
+                  quote={quote}
+                  ufValue={ufValue}
+                  hasUnreadNotes={unreadNoteIds.has(quote.id)}
+                  actions={
+                    <QuoteRowActions
+                      quote={quote}
+                      canDelete={canDelete}
+                      busy={deletingId === quote.id || duplicatingId === quote.id}
+                      onDuplicate={() => void duplicateQuote(quote.id)}
+                      onDelete={() => void deleteQuote({ id: quote.id, code: quote.code })}
+                    />
+                  }
+                />
               ))}
             </div>
           )}
@@ -405,18 +559,95 @@ export function CrmCotizacionesClient({
   );
 }
 
+/* ── Proposal badge ── */
+function ProposalBadge({ proposal }: { proposal: QuoteProposal }) {
+  return (
+    <Link
+      href={`/crm/propuestas/${proposal.bundleId}`}
+      onClick={(e) => e.stopPropagation()}
+      title={proposal.name || proposal.code}
+    >
+      <Badge
+        variant="outline"
+        className="text-[11px] gap-1 px-1.5 py-0 border-primary/40 text-primary hover:bg-primary/10 transition-colors cursor-pointer"
+      >
+        <Layers className="h-3 w-3" />
+        Propuesta · {proposal.memberCount}
+      </Badge>
+    </Link>
+  );
+}
+
+/* ── Row action menu (⋯) — vive fuera del Link de la fila ── */
+function QuoteRowActions({
+  quote,
+  canDelete,
+  busy,
+  onDuplicate,
+  onDelete,
+}: {
+  quote: QuoteRow;
+  canDelete: boolean;
+  busy?: boolean;
+  onDuplicate: () => void;
+  onDelete: () => void;
+}) {
+  const router = useRouter();
+  return (
+    <div onClick={(e) => e.stopPropagation()}>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            size="icon"
+            variant="ghost"
+            className="h-10 w-10 sm:h-9 sm:w-9 shrink-0 text-muted-foreground"
+            disabled={busy}
+            title="Acciones"
+          >
+            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <MoreVertical className="h-4 w-4" />}
+            <span className="sr-only">Acciones de la cotización</span>
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-44">
+          <DropdownMenuItem onSelect={() => router.push(`/crm/cotizaciones/${quote.id}`)}>
+            <ExternalLink className="mr-2 h-4 w-4" />
+            Abrir
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={onDuplicate}>
+            <Copy className="mr-2 h-4 w-4" />
+            Duplicar
+          </DropdownMenuItem>
+          {canDelete && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onSelect={onDelete}
+                className="text-status-danger-fg focus:text-status-danger-fg"
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Eliminar
+              </DropdownMenuItem>
+            </>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+  );
+}
+
 /* ── List row ── */
-function QuoteListRow({ quote, ufValue, hasUnreadNotes }: { quote: QuoteRow; ufValue: number; hasUnreadNotes?: boolean }) {
+function QuoteListRow({ quote, ufValue, hasUnreadNotes, actions }: { quote: QuoteRow; ufValue: number; hasUnreadNotes?: boolean; actions?: ReactNode }) {
   const status = STATUS_MAP[quote.status] || STATUS_MAP.draft;
   const salePriceClp = Number(quote.salePriceMonthly);
   const salePriceUf = ufValue > 0 ? formatUFSuffix(clpToUf(salePriceClp, ufValue)) : null;
   return (
+    <div className="flex items-stretch rounded-lg border transition-colors hover:bg-accent/30 group min-w-0 overflow-hidden">
     <Link
       href={`/crm/cotizaciones/${quote.id}`}
-      className="flex items-center justify-between rounded-lg border p-3 sm:p-4 transition-colors hover:bg-accent/30 group min-w-0 overflow-hidden"
+      className="flex flex-1 items-center justify-between p-3 sm:p-4 min-w-0 overflow-hidden"
     >
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <span className="font-mono text-sm font-medium">{quote.code}</span>
           {quote.name && <span className="text-sm text-foreground truncate">{quote.name}</span>}
           {hasUnreadNotes && (
@@ -428,6 +659,7 @@ function QuoteListRow({ quote, ufValue, hasUnreadNotes }: { quote: QuoteRow; ufV
           <Badge variant="outline" className={status.className}>
             {status.label}
           </Badge>
+          {quote.proposal && <ProposalBadge proposal={quote.proposal} />}
           {quote.createdFromLeadId && (
             <Link
               href={`/crm/leads/${quote.createdFromLeadId}`}
@@ -540,20 +772,24 @@ function QuoteListRow({ quote, ufValue, hasUnreadNotes }: { quote: QuoteRow; ufV
         <ChevronRight className="h-4 w-4 text-muted-foreground/40 transition-transform group-hover:translate-x-0.5 hidden sm:block" />
       </div>
     </Link>
+      {actions ? <div className="flex items-center pr-1.5">{actions}</div> : null}
+    </div>
   );
 }
 
 /* ── Card item ── */
-function QuoteCardItem({ quote, ufValue, hasUnreadNotes }: { quote: QuoteRow; ufValue: number; hasUnreadNotes?: boolean }) {
+function QuoteCardItem({ quote, ufValue, hasUnreadNotes, actions }: { quote: QuoteRow; ufValue: number; hasUnreadNotes?: boolean; actions?: ReactNode }) {
   const status = STATUS_MAP[quote.status] || STATUS_MAP.draft;
   const salePriceClp = Number(quote.salePriceMonthly);
   const salePriceUf = ufValue > 0 ? formatUFSuffix(clpToUf(salePriceClp, ufValue)) : null;
   return (
+    <div className="relative rounded-lg border transition-colors hover:bg-accent/30 group min-w-0 overflow-hidden">
+    {actions ? <div className="absolute right-1.5 top-1.5 z-10">{actions}</div> : null}
     <Link
       href={`/crm/cotizaciones/${quote.id}`}
-      className="block rounded-lg border p-4 transition-colors hover:bg-accent/30 group min-w-0 overflow-hidden"
+      className="block p-4 min-w-0 overflow-hidden"
     >
-      <div className="flex items-center justify-between gap-2 mb-2">
+      <div className={`flex items-center justify-between gap-2 mb-2 ${actions ? "pr-8" : ""}`}>
         <span className="flex items-center gap-1.5">
           <span className="font-mono text-sm font-medium truncate">{quote.code}</span>
           {hasUnreadNotes && (
@@ -567,9 +803,10 @@ function QuoteCardItem({ quote, ufValue, hasUnreadNotes }: { quote: QuoteRow; uf
           {status.label}
         </Badge>
       </div>
-      {/* Stage, follow-up & lead-origin badges */}
-      {(quote.dealStageName || (quote.pendingFollowUps ?? 0) > 0 || quote.createdFromLeadId) && (
+      {/* Proposal, stage, follow-up & lead-origin badges */}
+      {(quote.proposal || quote.dealStageName || (quote.pendingFollowUps ?? 0) > 0 || quote.createdFromLeadId) && (
         <div className="flex items-center gap-1.5 flex-wrap mb-1">
+          {quote.proposal && <ProposalBadge proposal={quote.proposal} />}
           {quote.createdFromLeadId && (
             <Link
               href={`/crm/leads/${quote.createdFromLeadId}`}
@@ -665,6 +902,7 @@ function QuoteCardItem({ quote, ufValue, hasUnreadNotes }: { quote: QuoteRow; uf
       </div>
       <CrmDates createdAt={quote.createdAt} updatedAt={quote.updatedAt} className="mt-2" />
     </Link>
+    </div>
   );
 }
 

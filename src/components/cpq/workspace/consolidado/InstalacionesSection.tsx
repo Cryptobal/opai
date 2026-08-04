@@ -7,10 +7,9 @@
  */
 
 import { toast } from "sonner";
-import { Building2, Copy, ExternalLink, Plus, Trash2 } from "lucide-react";
+import { Building2, Copy, ExternalLink, Plus, Trash2, Unlink } from "lucide-react";
 import { Surface, EmptyState } from "@/components/opai-ds";
 import { Button } from "@/components/ui/button";
-import { confirmDialog } from "@/components/ui/confirm-service";
 import type { BundleDetail, BundleMember } from "@/components/cpq/bundle/useBundle";
 import { fmtBundleMoney, memberMonthlyClp } from "./bundle-billing";
 
@@ -21,6 +20,8 @@ export function InstalacionesSection({
   onOpenInstall,
   onAdd,
   onDuplicate,
+  onRequestUnlink,
+  onRequestDelete,
 }: {
   bundle: BundleDetail;
   ufValue: number | null;
@@ -29,6 +30,8 @@ export function InstalacionesSection({
   onAdd: () => void;
   /** Abre el modal Agregar con la dotación de esta cotización preseleccionada. */
   onDuplicate: (quoteId: string) => void;
+  onRequestUnlink: (member: BundleMember) => void;
+  onRequestDelete: (member: BundleMember) => void;
 }) {
   const toggleInclude = async (m: BundleMember, next: boolean) => {
     const res = await fetch(`/api/cpq/bundles/${bundle.id}/quotes`, {
@@ -43,26 +46,6 @@ export function InstalacionesSection({
       toast.error(json.error || "No se pudo actualizar");
       return;
     }
-    await onRefresh();
-  };
-
-  const removeMember = async (m: BundleMember) => {
-    const confirmed = await confirmDialog({
-      description: `Quitar "${m.quote.installation?.name || m.quote.code}" de la propuesta. La cotización NO se elimina: queda disponible en el negocio. ¿Continuar?`,
-      confirmLabel: "Quitar",
-      variant: "destructive",
-    });
-    if (!confirmed) return;
-    const res = await fetch(
-      `/api/cpq/bundles/${bundle.id}/quotes?quoteId=${m.quoteId}`,
-      { method: "DELETE" },
-    );
-    const json = await res.json();
-    if (!res.ok || !json.success) {
-      toast.error(json.error || "No se pudo quitar la instalación");
-      return;
-    }
-    toast.success("Instalación quitada de la propuesta");
     await onRefresh();
   };
 
@@ -99,12 +82,23 @@ export function InstalacionesSection({
       </Button>
       <Button
         variant="ghost"
-        size="icon"
-        className="h-9 w-9 text-status-danger-fg/70 hover:text-status-danger-fg"
+        size="sm"
+        className="h-10 sm:h-9 gap-1.5 px-2 text-[12px]"
         title="Quitar de la propuesta"
-        onClick={() => void removeMember(m)}
+        onClick={() => onRequestUnlink(m)}
+      >
+        <Unlink className="h-3.5 w-3.5" />
+        Quitar de propuesta
+      </Button>
+      <Button
+        variant="ghost"
+        size="sm"
+        className="h-10 sm:h-9 gap-1.5 px-2 text-[12px] text-status-danger-fg hover:text-status-danger-fg"
+        title="Eliminar cotización"
+        onClick={() => onRequestDelete(m)}
       >
         <Trash2 className="h-3.5 w-3.5" />
+        Eliminar cotización
       </Button>
     </div>
   );

@@ -8,6 +8,7 @@ import { resend } from "@/lib/resend";
 import { getTenantCompanyConfig } from "@/lib/tenant-config";
 import { notify } from "@/lib/notifications/notify";
 import { propagateDealWon } from "@/lib/crm/deal-propagation";
+import { maybePropagateBundleDealResolution } from "@/modules/cpq/bundles/bundle-resolution";
 import { syncContractItemForQuote } from "@/modules/finance/cashflow/generators/sales-contract-sync";
 
 export async function POST(
@@ -64,27 +65,43 @@ export async function POST(
     createdBy: null,
   });
 
-  // ── 3. Find or create "Aprobado por Cliente" pipeline stage ──
-  let stage = await prisma.crmPipelineStage.findFirst({
-    where: {
-      tenantId: session.tenantId,
-      name: { contains: "Aprobado" },
-    },
+  // ── 3. Resolución del deal — bundle-aware ──
+  // Si la cotización pertenece a una propuesta multi-instalación, el negocio
+  // sólo se resuelve cuando TODAS las instalaciones incluidas están en estado
+  // terminal. Las cotizaciones standalone conservan el flujo directo.
+  const bundleMember = await prisma.cpqProposalBundleQuote.findFirst({
+    where: { quoteId: id, tenantId: session.tenantId },
+    select: { bundleId: true },
   });
 
-  if (!stage) {
-    stage = await prisma.crmPipelineStage.create({
-      data: {
+  if (bundleMember) {
+    try {
+      await prisma.$transaction(async (tx) => {
+        await maybePropagateBundleDealResolution(tx, session.tenantId, id);
+      });
+    } catch (e) {
+      console.error("[Portal] Error resolving bundle deal (approve):", e);
+    }
+  } else if (quote.dealId) {
+    // Find or create "Aprobado por Cliente" pipeline stage
+    let stage = await prisma.crmPipelineStage.findFirst({
+      where: {
         tenantId: session.tenantId,
-        name: "Aprobado por Cliente",
-        isActive: true,
-        order: 99,
+        name: { contains: "Aprobado" },
       },
     });
-  }
 
-  // ── 4. Update CrmDeal stage if deal exists ──
-  if (quote.dealId) {
+    if (!stage) {
+      stage = await prisma.crmPipelineStage.create({
+        data: {
+          tenantId: session.tenantId,
+          name: "Aprobado por Cliente",
+          isActive: true,
+          order: 99,
+        },
+      });
+    }
+
     await prisma.crmDeal.update({
       where: { id: quote.dealId },
       data: { stageId: stage.id },
