@@ -152,6 +152,12 @@ export const flowUnmatchedIncomeCreateSchema = z.object({
   dteId: z.string().uuid(),
 });
 
+/** Vincular DTE de "Otros ingresos" a una programación de su cuenta. */
+export const flowUnmatchedIncomeLinkTemplateSchema = z.object({
+  dteId: z.string().uuid(),
+  templateId: z.string().uuid(),
+});
+
 export const flowChatSchema = z.object({
   message: z.string().trim().min(1).max(2000),
 });

@@ -139,6 +139,8 @@ export function PlanillaGrid({
   const [rowDialog, setRowDialog] = useState<RowDialogState>(null);
   const [ctxTarget, setCtxTarget] = useState<CtxTarget>(null);
   const [sheetTarget, setSheetTarget] = useState<CtxTarget>(null);
+  /** DTE a enfocar en el picker "Vincular a programación…" del drill. */
+  const [linkFocusDteId, setLinkFocusDteId] = useState<string | null>(null);
   const [discreteSel, setDiscreteSel] = useState<Map<string, number>>(() => new Map());
   const [dropTarget, setDropTarget] = useState<{ rowId: string; colIdx: number } | null>(null);
   const dragRef = useRef<{ rowId: string; week: string } | null>(null);
@@ -527,6 +529,10 @@ export function PlanillaGrid({
       },
       onViewDetail: () => openPopover(sel),
       onViewDte: (dteId: string) => router.push(`/finanzas/facturacion/dtes?dte=${dteId}`),
+      onLinkTemplate: (dteId: string) => {
+        setLinkFocusDteId(dteId);
+        setSheetTarget({ kind: "cell", sel });
+      },
     }),
     [actions, kb, matrix, openPopover, requestFillRight, router, rowById],
   );
@@ -918,7 +924,12 @@ export function PlanillaGrid({
           (sheetItems.length > 0 ||
             !!(sheetRow && (sheetRow.isVirtual || sheetRow.name === "Otros ingresos" || sheetRow.name === "Otros clientes") && sheetCell))
         }
-        onOpenChange={(o) => { if (!o) setSheetTarget(null); }}
+        onOpenChange={(o) => {
+          if (!o) {
+            setSheetTarget(null);
+            setLinkFocusDteId(null);
+          }
+        }}
         row={sheetRow}
         cell={sheetCell}
         weekLabel={sheetWeekLabel}
@@ -930,8 +941,10 @@ export function PlanillaGrid({
           sheetCell.effective !== 0 && (
             <UnmatchedIncomeList
               weekStart={sheetCell.weekStart}
+              focusDteId={linkFocusDteId}
               onCreated={() => {
                 setSheetTarget(null);
+                setLinkFocusDteId(null);
                 onRefresh?.();
               }}
             />

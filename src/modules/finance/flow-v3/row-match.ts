@@ -8,15 +8,26 @@ import {
   type FlowRowRef,
 } from "./types";
 
+/** ¿Fila de ingresos por cuenta/instalación? (excluye MANUAL/CATEGORY). */
+function isAccountInstallationIncome(r: FlowRowRef): boolean {
+  if (r.section != null && r.section !== "INGRESOS") return false;
+  if (r.mapping != null && r.mapping !== "ACCOUNT_INSTALLATION") return false;
+  return !!r.crmAccountId;
+}
+
 /**
  * Matcher de INGRESOS (prioridad):
  *  1. Fila de la programación (`recurringTemplateId`) — 1 fila = 1 template.
  *  2. Fila exacta cuenta+instalación (solo filas SIN template).
  *  3. Fila genérica de la cuenta (sin instalación, sin template).
+ *  3.5 Fallback cuenta: exactamente una fila ACCOUNT_INSTALLATION activa
+ *      (aunque sea de template); si hay varias, match por instalación entre
+ *      filas de template; si sigue ambiguo → Otros ingresos.
  *  4. "Otros ingresos" (UNMATCHED_INCOME_KEY).
  *
  * Las filas ligadas a template NO saturan exact/generic: así Transmat 20% y
- * Transmat 80% conviven y las facturas one-shot siguen yendo a la fila de cuenta.
+ * Transmat 80% conviven. El paso 3.5 recupera facturas sin vínculo cuando
+ * la cuenta tiene una sola fila (o instalación inequívoca).
  */
 export function buildIncomeMatcher(
   rows: FlowRowRef[],
@@ -28,17 +39,26 @@ export function buildIncomeMatcher(
   const byTemplate = new Map<string, string>();
   const exact = new Map<string, string>();
   const generic = new Map<string, string>();
+  const byAccount = new Map<string, FlowRowRef[]>();
+
   for (const r of rows) {
     if (r.recurringTemplateId) {
       if (!byTemplate.has(r.recurringTemplateId)) {
         byTemplate.set(r.recurringTemplateId, r.id);
       }
-      continue;
+    } else if (isAccountInstallationIncome(r)) {
+      // exact/generic solo ACCOUNT_INSTALLATION (no MANUAL/CATEGORY).
+      if (r.installationId) exact.set(`${r.crmAccountId}::${r.installationId}`, r.id);
+      else if (!generic.has(r.crmAccountId!)) generic.set(r.crmAccountId!, r.id);
     }
-    if (!r.crmAccountId) continue;
-    if (r.installationId) exact.set(`${r.crmAccountId}::${r.installationId}`, r.id);
-    else if (!generic.has(r.crmAccountId)) generic.set(r.crmAccountId, r.id);
+
+    if (isAccountInstallationIncome(r)) {
+      const list = byAccount.get(r.crmAccountId!) ?? [];
+      list.push(r);
+      byAccount.set(r.crmAccountId!, list);
+    }
   }
+
   return (accountId, installationId, templateId) => {
     if (templateId) {
       const hit = byTemplate.get(templateId);
@@ -49,7 +69,19 @@ export function buildIncomeMatcher(
       const hit = exact.get(`${accountId}::${installationId}`);
       if (hit) return hit;
     }
-    return generic.get(accountId) ?? UNMATCHED_INCOME_KEY;
+    const gen = generic.get(accountId);
+    if (gen) return gen;
+
+    // 3.5 — fallback cuenta (filas de template incluidas).
+    const candidates = byAccount.get(accountId) ?? [];
+    if (candidates.length === 1) return candidates[0].id;
+    if (candidates.length > 1 && installationId) {
+      const byInst = candidates.filter(
+        (r) => r.recurringTemplateId && r.installationId === installationId,
+      );
+      if (byInst.length === 1) return byInst[0].id;
+    }
+    return UNMATCHED_INCOME_KEY;
   };
 }
 

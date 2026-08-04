@@ -30,7 +30,7 @@ export async function requireFlowV3(
 export function flowV3Error(error: unknown, fallback = "Error interno"): NextResponse {
   const message = error instanceof Error ? error.message : fallback;
   const known =
-    /no encontrada|no encontrado|requerido|inválid|archivada|no puede|no pertenece|no está vinculada/i.test(
+    /no encontrada|no encontrado|requerido|inválid|archivada|no puede|no pertenece|no está vinculada|vinculad|programación|misma cuenta/i.test(
       message,
     );
   return NextResponse.json(
