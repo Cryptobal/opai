@@ -8,7 +8,8 @@
  * anterior/siguiente sin volver a la lista).
  *
  * No captura nada cuando el foco está en un input/textarea/contenteditable
- * (incluye el command palette y el composer Tiptap) ni con modificadores —
+ * (incluye el command palette, el composer Tiptap y widgets con Shadow DOM
+ * como `gmp-place-autocomplete` del plan de acciones) ni con modificadores —
  * así no colisiona con los atajos globales (⌘K etc.). Excepción: `?` abre la
  * ayuda de atajos aunque venga con Shift.
  */
@@ -50,8 +51,39 @@ export type CorreoKeyboardHandlers = {
   replyHandledExternally?: boolean;
 };
 
-function isEditableTarget(target: EventTarget | null): boolean {
-  const el = target as HTMLElement | null;
+const EDITABLE_SCOPE_SELECTOR = [
+  "input",
+  "textarea",
+  "select",
+  '[contenteditable="true"]',
+  '[contenteditable=""]',
+  '[role="textbox"]',
+  '[role="searchbox"]',
+  '[role="combobox"]',
+  '[role="listbox"]',
+  "[data-email-composer]",
+  "[data-recipient-field]",
+  // PlaceAutocompleteElement: el input vive en Shadow DOM; el keydown llega
+  // retargeteado al host y sin esto `e`/`r`/`a` archivaban el correo.
+  "gmp-place-autocomplete",
+].join(", ");
+
+function asHtmlElement(node: EventTarget | null | undefined): HTMLElement | null {
+  return node instanceof HTMLElement ? node : null;
+}
+
+/** Baja por shadow roots hasta el elemento realmente enfocado. */
+function deepActiveElement(
+  root: Document | ShadowRoot = document,
+): Element | null {
+  let el: Element | null = root.activeElement;
+  while (el?.shadowRoot?.activeElement) {
+    el = el.shadowRoot.activeElement;
+  }
+  return el;
+}
+
+function isEditableElement(el: HTMLElement | null): boolean {
   if (!el) return false;
   const tag = el.tagName;
   if (
@@ -62,13 +94,24 @@ function isEditableTarget(target: EventTarget | null): boolean {
   ) {
     return true;
   }
-  // Typeahead de destinatarios (portal listbox) y composer de correo: no
-  // dejar que ↑/↓ cambien de hilo mientras se elige un Para/CC.
-  return Boolean(
-    el.closest?.(
-      '[data-email-composer], [data-recipient-field], [role="combobox"], [role="listbox"]',
-    ),
-  );
+  const role = el.getAttribute("role");
+  if (role === "textbox" || role === "searchbox") return true;
+  if (tag === "GMP-PLACE-AUTOCOMPLETE") return true;
+  return Boolean(el.closest?.(EDITABLE_SCOPE_SELECTOR));
+}
+
+/**
+ * True si el keydown no debe disparar atajos de bandeja (usuario escribiendo).
+ * Exportado para tests unitarios.
+ */
+export function isEditableKeyboardTarget(event: KeyboardEvent): boolean {
+  const path =
+    typeof event.composedPath === "function" ? event.composedPath() : [];
+  for (const node of path) {
+    if (isEditableElement(asHtmlElement(node))) return true;
+  }
+  if (isEditableElement(asHtmlElement(event.target))) return true;
+  return isEditableElement(asHtmlElement(deepActiveElement()));
 }
 
 function keysMatch(eventKey: string, bound: string): boolean {
@@ -83,7 +126,7 @@ export function useCorreosKeyboard(handlers: CorreoKeyboardHandlers): void {
     const onKeyDown = (event: KeyboardEvent) => {
       const h = handlersRef.current;
       if (h.enabled === false) return;
-      if (isEditableTarget(event.target)) return;
+      if (isEditableKeyboardTarget(event)) return;
 
       const key = event.key;
       const run = (fn: () => void) => {
