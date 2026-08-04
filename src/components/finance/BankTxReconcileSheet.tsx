@@ -48,10 +48,8 @@ import {
   Loader2,
   CheckCircle2,
   Circle,
-  Trash2,
   Layers,
   Receipt,
-  Search,
   Filter,
   Pencil,
   Link2Off,
@@ -65,8 +63,18 @@ import { cn } from "@/lib/utils";
 import { useIsMobileViewport } from "@/hooks/useIsMobileViewport";
 import { CategoryMappingDialog } from "./cashflow/CategoryMappingDialog";
 import { SaveAsRuleModal } from "./SaveAsRuleModal";
-import { Tag } from "@/components/opai-ds";
 import { DTE_TYPE_SHORT_LABELS } from "@/components/finance/dtes/shared/constants";
+import { AllocationRail } from "./reconcile/AllocationRail";
+import { AllocationDetailPanel } from "./reconcile/AllocationDetailPanel";
+import { CandidateSearchBar } from "./reconcile/CandidateSearchBar";
+import { FactoringBatchCard } from "./reconcile/FactoringBatchCard";
+import { CandidateRow } from "./reconcile/CandidateRow";
+import { ReconcileFooter } from "./reconcile/ReconcileFooter";
+import type {
+  FactoringBatchCandidate,
+  FooterState,
+  SearchScope,
+} from "./reconcile/types";
 
 const FACTORING_SIGNAL_LABELS: Record<string, string> = {
   monto_simulacion: "Monto simulación",
@@ -129,6 +137,10 @@ interface FactoringCandidate {
   confidence: number;
   matchSignals: string[];
   isSuggested: boolean;
+  batchId?: string | null;
+  batchCode?: string | null;
+  batchTotalMontoAGirar?: number | null;
+  batchOperationsCount?: number | null;
 }
 
 interface LocalLink {
@@ -321,10 +333,22 @@ export function BankTxReconcileSheet({
   const [factoringCandidates, setFactoringCandidates] = useState<
     FactoringCandidate[]
   >([]);
+  const [factoringBatches, setFactoringBatches] = useState<
+    FactoringBatchCandidate[]
+  >([]);
   const [loadingCandidates, setLoadingCandidates] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
-  // Filtros del tab "Comparar transacciones" (estilo Zoho)
-  const [filterText, setFilterText] = useState("");
+  // Filtros locales (monto/fecha/dirección). Texto → búsqueda server-side.
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchScope, setSearchScope] = useState<SearchScope>("open");
+  const [searchActive, setSearchActive] = useState(false);
+  const [searchDtes, setSearchDtes] = useState<Candidate[]>([]);
+  const [searchFactoring, setSearchFactoring] = useState<FactoringCandidate[]>(
+    [],
+  );
+  const [detailOpen, setDetailOpen] = useState(false);
+  const searchAbortRef = useRef<AbortController | null>(null);
   const [filterMinAmount, setFilterMinAmount] = useState("");
   const [filterMaxAmount, setFilterMaxAmount] = useState("");
   const [filterDateFrom, setFilterDateFrom] = useState("");
@@ -444,7 +468,18 @@ export function BankTxReconcileSheet({
       const json = await res.json();
       if (!res.ok || !json.success) throw new Error(json.error);
       setCandidates(json.data ?? []);
-      setFactoringCandidates(json.factoring ?? []);
+      const factoring = (json.factoring ?? []) as FactoringCandidate[];
+      setFactoringCandidates(factoring);
+      const batches = (json.factoringBatches ?? []) as FactoringBatchCandidate[];
+      setFactoringBatches(batches);
+      const hasFactoringCompany = factoring.some(
+        (c) => Boolean(c.factoringCompanyId),
+      );
+      if (batches.length > 0 || hasFactoringCompany) {
+        setSearchScope("factoring");
+      } else {
+        setSearchScope("open");
+      }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Error al cargar");
     } finally {
@@ -539,7 +574,15 @@ export function BankTxReconcileSheet({
     setDiffMode("prorate");
     setDiffAccountPlanId("");
     setDiffLabel("");
-    setFilterText("");
+    setSearchQuery("");
+    setSearchLoading(false);
+    setSearchActive(false);
+    setSearchDtes([]);
+    setSearchFactoring([]);
+    setSearchScope("open");
+    setDetailOpen(false);
+    searchAbortRef.current?.abort();
+    searchAbortRef.current = null;
     setFilterMinAmount("");
     setFilterMaxAmount("");
     setFilterDateFrom("");
@@ -549,6 +592,7 @@ export function BankTxReconcileSheet({
     setShowFilters(false);
     setCandidates([]);
     setFactoringCandidates([]);
+    setFactoringBatches([]);
 
     let cancelled = false;
     (async () => {
@@ -663,32 +707,16 @@ export function BankTxReconcileSheet({
     }
   };
 
-  // Filtrado client-side de los candidatos según los filtros del usuario.
-  // El endpoint trae sugerencias por monto cercano + fecha; los filtros
-  // permiten al usuario afinar (ej. ver solo emitidos, expandir el rango).
+  // Filtrado: fuente = resultados de búsqueda server-side si hay query;
+  // si no, candidatos cargados. Filtros locales solo monto/fecha/dirección.
   const filteredCandidates = useMemo(() => {
-    return candidates.filter((c) => {
+    const source = searchQuery.trim() ? searchDtes : candidates;
+    return source.filter((c) => {
       // Por defecto ocultamos PAID (son ruido cuando hay match exacto
       // con UNPAID/PARTIAL). El usuario puede mostrarlas con el toggle.
       if (!filterIncludePaid && c.paymentStatus === "PAID") return false;
       if (filterDirection !== "all" && c.direction !== filterDirection)
         return false;
-      if (filterText.trim()) {
-        const q = filterText.trim().toLowerCase();
-        const txt = [
-          c.documentType,
-          dteShortLabel(c.dteType, c.folio),
-          String(c.folio ?? ""),
-          c.issuerName,
-          c.receiverName,
-          c.issuerRut ?? "",
-          c.receiverRut ?? "",
-          c.installationName ?? "",
-        ]
-          .join(" ")
-          .toLowerCase();
-        if (!txt.includes(q)) return false;
-      }
       if (filterMinAmount) {
         const min = parseCLPInput(filterMinAmount);
         if (min != null && c.amountPending < min) return false;
@@ -707,7 +735,8 @@ export function BankTxReconcileSheet({
     });
   }, [
     candidates,
-    filterText,
+    searchDtes,
+    searchQuery,
     filterMinAmount,
     filterMaxAmount,
     filterDateFrom,
@@ -716,27 +745,10 @@ export function BankTxReconcileSheet({
     filterIncludePaid,
   ]);
 
-  // Mismo filtro de texto/monto/fecha aplicado a las cesiones a factoring, para
-  // que el buscador "Buscar por folio, cliente o RUT…" filtre AMBAS listas. Sin
-  // esto la sección de cesiones quedaba siempre completa (se sentía como que el
-  // buscador no funcionaba). El filtro de dirección no aplica (las cesiones son
-  // siempre ingresos) y no ocultamos por "ya pagada" (las cedidas pueden estar
-  // marcadas PAID al ceder y aun así se concilian).
+  // Cesiones: misma fuente (search vs base) + filtros locales monto/fecha.
   const filteredFactoring = useMemo(() => {
-    return factoringCandidates.filter((c) => {
-      if (filterText.trim()) {
-        const q = filterText.trim().toLowerCase();
-        const txt = [
-          c.code,
-          c.factoringCompanyName,
-          String(c.dteFolio ?? ""),
-          c.dteReceiverName ?? "",
-          c.installationName ?? "",
-        ]
-          .join(" ")
-          .toLowerCase();
-        if (!txt.includes(q)) return false;
-      }
+    const source = searchQuery.trim() ? searchFactoring : factoringCandidates;
+    return source.filter((c) => {
       if (filterMinAmount) {
         const min = parseCLPInput(filterMinAmount);
         if (min != null && c.expectedDeposit < min) return false;
@@ -755,12 +767,115 @@ export function BankTxReconcileSheet({
     });
   }, [
     factoringCandidates,
-    filterText,
+    searchFactoring,
+    searchQuery,
     filterMinAmount,
     filterMaxAmount,
     filterDateFrom,
     filterDateTo,
   ]);
+
+  // Lotes multi-op (>1) para cards; ops de esos lotes se excluyen de la lista suelta.
+  const multiOpBatches = useMemo(
+    () => factoringBatches.filter((b) => b.operationsCount > 1),
+    [factoringBatches],
+  );
+  const batchOpIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const b of multiOpBatches) {
+      for (const id of b.operationIds) ids.add(id);
+    }
+    return ids;
+  }, [multiOpBatches]);
+  const looseFactoring = useMemo(
+    () => filteredFactoring.filter((c) => !batchOpIds.has(c.id)),
+    [filteredFactoring, batchOpIds],
+  );
+
+  const selectedIds = useMemo(
+    () => new Set(links.map((l) => l.key)),
+    [links],
+  );
+
+  /** Diff pendiente = falta resolver remainder o shortfall. */
+  const footerState: FooterState = useMemo(() => {
+    if (links.length === 0) return "empty";
+    const remainingUnresolved = remaining > 0.01 && !restAccountId;
+    const shortfallUnresolved =
+      hasShortfall &&
+      (!allLinksAreReconcilable ||
+        (diffMode !== "manual" && !diffAccountPlanId));
+    if (remainingUnresolved || shortfallUnresolved) return "diff";
+    return "ready";
+  }, [
+    links.length,
+    remaining,
+    restAccountId,
+    hasShortfall,
+    allLinksAreReconcilable,
+    diffMode,
+    diffAccountPlanId,
+  ]);
+
+  // Búsqueda server-side con debounce 300ms.
+  useEffect(() => {
+    if (!open || txs.length === 0) return;
+    const q = searchQuery.trim();
+    if (!q) {
+      searchAbortRef.current?.abort();
+      searchAbortRef.current = null;
+      setSearchDtes([]);
+      setSearchFactoring([]);
+      setSearchActive(false);
+      setSearchLoading(false);
+      return;
+    }
+
+    const ctrl = new AbortController();
+    searchAbortRef.current?.abort();
+    searchAbortRef.current = ctrl;
+    setSearchLoading(true);
+
+    const timer = window.setTimeout(async () => {
+      try {
+        const res = await fetch(
+          "/api/finance/banking/transactions/candidates-search",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            signal: ctrl.signal,
+            body: JSON.stringify({
+              bankTxIds: txs.map((t) => t.id),
+              query: q,
+              scope: searchScope,
+            }),
+          },
+        );
+        const json = await res.json();
+        if (ctrl.signal.aborted) return;
+        if (!res.ok || !json.success) {
+          throw new Error(json.error ?? "Error al buscar");
+        }
+        setSearchDtes(json.data ?? []);
+        setSearchFactoring(json.factoring ?? []);
+        setSearchActive(true);
+      } catch (err) {
+        if (ctrl.signal.aborted) return;
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        toast.error(err instanceof Error ? err.message : "Error al buscar");
+        setSearchDtes([]);
+        setSearchFactoring([]);
+        setSearchActive(true);
+      } finally {
+        if (!ctrl.signal.aborted) setSearchLoading(false);
+      }
+    }, 300);
+
+    return () => {
+      window.clearTimeout(timer);
+      ctrl.abort();
+    };
+  }, [open, searchQuery, searchScope, txs]);
 
   const toggleCandidate = (c: Candidate) => {
     const isLinked = links.some((l) => l.key === c.id);
@@ -813,6 +928,46 @@ export function BankTxReconcileSheet({
         }`,
       },
     ]);
+  };
+
+  const toggleBatch = (batch: FactoringBatchCandidate) => {
+    const allSelected =
+      batch.operationIds.length > 0 &&
+      batch.operationIds.every((id) => links.some((l) => l.key === id));
+    if (allSelected) {
+      const idSet = new Set(batch.operationIds);
+      setLinks((prev) => prev.filter((l) => !idSet.has(l.key)));
+      return;
+    }
+    const pool = [
+      ...(searchQuery.trim() ? searchFactoring : []),
+      ...factoringCandidates,
+    ];
+    const byId = new Map<string, FactoringCandidate>();
+    for (const c of pool) byId.set(c.id, c);
+
+    setLinks((prev) => {
+      const next = [...prev];
+      const existing = new Set(prev.map((l) => l.key));
+      for (const opId of batch.operationIds) {
+        if (existing.has(opId)) continue;
+        const c = byId.get(opId);
+        if (!c) continue;
+        next.push({
+          key: c.id,
+          targetType: "FACTORING_OPERATION",
+          targetId: c.id,
+          amount: c.expectedDeposit,
+          accountPlanId: null,
+          note: null,
+          label: `Cesión ${c.code} · ${c.factoringCompanyName}${
+            c.dteFolio ? ` · Factura ${c.dteFolio}` : ""
+          }`,
+        });
+        existing.add(opId);
+      }
+      return next;
+    });
   };
 
   const updateLinkAmount = (key: string, amount: number) => {
@@ -1051,18 +1206,20 @@ export function BankTxReconcileSheet({
       <SheetContent
         side={isMobile ? "bottom" : "right"}
         className={cn(
-          "overflow-y-auto",
+          "flex flex-col overflow-hidden relative p-0 gap-0",
           isMobile
             ? "w-full max-h-[92dvh] rounded-t-2xl"
-            : "w-full sm:max-w-2xl",
+            : "w-full sm:w-[560px] md:w-[600px] lg:w-[640px] sm:max-w-[88vw]",
         )}
       >
+        {/* Zona 1 — header fijo */}
+        <div className="shrink-0 px-4 sm:px-6 pt-6 space-y-3">
         <SheetHeader>
           <SheetTitle>{sheetTitle}</SheetTitle>
         </SheetHeader>
 
         {rutConflicts && rutConflicts.length > 1 && (
-          <div className="mt-3 rounded-md border border-status-warn-border bg-status-warn-soft p-2.5 text-[12px]">
+          <div className="rounded-md border border-status-warn-border bg-status-warn-soft p-2.5 text-[12px]">
             <div className="flex items-start gap-2">
               <AlertTriangle className="h-3.5 w-3.5 text-status-warn-fg shrink-0 mt-0.5" />
               <div className="flex-1 min-w-0">
@@ -1109,7 +1266,7 @@ export function BankTxReconcileSheet({
             en modo cola desde la barra masiva, mostramos el progreso y
             botones para saltar/cancelar la cola completa. */}
         {queueInfo && (
-          <div className="mt-3 rounded-lg border border-primary/30 bg-primary/5 p-3 space-y-2">
+          <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 space-y-2">
             <div className="flex items-center justify-between text-sm">
               <span className="font-medium">
                 Cola: movimiento {queueInfo.index + 1} de {queueInfo.total}
@@ -1151,7 +1308,7 @@ export function BankTxReconcileSheet({
             individual; multi-tx muestra una sumatoria con la lista de
             cada mov en una caja compacta. */}
         {isMulti ? (
-          <div className="mt-3 rounded-lg border border-border bg-muted/30 p-3 text-sm space-y-2">
+          <div className="rounded-lg border border-border bg-muted/30 p-3 text-sm space-y-2">
             <div className="flex items-center justify-between gap-2 flex-wrap">
               <span className="text-foreground font-medium">
                 {txs.length} {isIncomeTx ? "ingresos" : "egresos"}
@@ -1196,7 +1353,7 @@ export function BankTxReconcileSheet({
             </ul>
           </div>
         ) : (
-          <div className="mt-3 rounded-lg border border-border bg-muted/30 p-3 text-sm space-y-1">
+          <div className="rounded-lg border border-border bg-muted/30 p-3 text-sm space-y-1">
             <div className="flex items-center justify-between gap-2 flex-wrap">
               <span className="text-foreground font-medium">{tx.description}</span>
               <span
@@ -1224,6 +1381,55 @@ export function BankTxReconcileSheet({
           </div>
         )}
 
+        {/* Tabs (solo en modo create / edit) */}
+        {(mode === "create" || mode === "edit") && (
+          <div className="border-b border-border">
+            <div className="flex gap-4">
+              <button
+                type="button"
+                onClick={() => setTab("compare")}
+                className={cn(
+                  "px-1 py-2 text-sm font-medium transition-colors border-b-2",
+                  tab === "compare"
+                    ? "border-primary text-foreground"
+                    : "border-transparent text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <Layers className="h-3.5 w-3.5 inline-block mr-1.5" />
+                Comparar transacciones
+              </button>
+              <button
+                type="button"
+                onClick={() => setTab("manual")}
+                className={cn(
+                  "px-1 py-2 text-sm font-medium transition-colors border-b-2",
+                  tab === "manual"
+                    ? "border-primary text-foreground"
+                    : "border-transparent text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <Receipt className="h-3.5 w-3.5 inline-block mr-1.5" />
+                Categorizar manual
+              </button>
+            </div>
+          </div>
+        )}
+
+        {(mode === "create" || mode === "edit") && tab === "compare" && (
+          <AllocationRail
+            links={links}
+            txAmountAbs={txAmountAbs}
+            linksTotal={linksTotal}
+            remaining={remaining}
+            overflow={overflow}
+            onOpenDetail={() => setDetailOpen(true)}
+          />
+        )}
+        </div>
+        {/* /Zona 1 */}
+
+        {/* Zona 2 — contenido scrolleable */}
+        <div className="flex-1 min-h-0 overflow-y-auto px-4 sm:px-6 pb-4">
         {/* Loading inicial: GET /links en curso. */}
         {mode === "loading" && (
           <div className="flex items-center justify-center py-12">
@@ -1441,300 +1647,36 @@ export function BankTxReconcileSheet({
           </div>
         )}
 
-        {/* Tabs (solo en modo create / edit) */}
         {(mode === "create" || mode === "edit") && (
         <>
-        <div className="mt-4 border-b border-border">
-          <div className="flex gap-4">
-            <button
-              type="button"
-              onClick={() => setTab("compare")}
-              className={cn(
-                "px-1 py-2 text-sm font-medium transition-colors border-b-2",
-                tab === "compare"
-                  ? "border-primary text-foreground"
-                  : "border-transparent text-muted-foreground hover:text-foreground"
-              )}
-            >
-              <Layers className="h-3.5 w-3.5 inline-block mr-1.5" />
-              Comparar transacciones
-            </button>
-            <button
-              type="button"
-              onClick={() => setTab("manual")}
-              className={cn(
-                "px-1 py-2 text-sm font-medium transition-colors border-b-2",
-                tab === "manual"
-                  ? "border-primary text-foreground"
-                  : "border-transparent text-muted-foreground hover:text-foreground"
-              )}
-            >
-              <Receipt className="h-3.5 w-3.5 inline-block mr-1.5" />
-              Categorizar manual
-            </button>
-          </div>
-        </div>
-
-        {/* Acciones primarias debajo del tab — sticky para que "Coincidir"
-            siga visible al hacer scroll por la lista de candidatos. */}
-        <div className="sticky top-0 z-[40] -mx-6 flex flex-wrap items-center gap-2 border-b border-ds-border-default bg-background/98 px-6 py-3 backdrop-blur-sm">
-          <Button
-            onClick={handleSave}
-            disabled={saving || links.length === 0}
-            className="h-10 sm:h-9"
-          >
-            {saving && <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />}
-            {mode === "edit" ? "Guardar cambios" : "Coincidir"}
-          </Button>
-          <Button
-            variant="outline"
-            className="h-10 sm:h-9"
-            onClick={() => {
-              if (mode === "edit") {
-                setLinks([]);
-                setMode("view");
-              } else {
-                onOpenChange(false);
-              }
-            }}
-            disabled={saving}
-          >
-            {mode === "edit" ? "Cancelar edición" : "Cancelar"}
-          </Button>
-        </div>
-
         {/* Content */}
         {tab === "compare" && (
           <div className="mt-4 space-y-4">
-            {/* Resumen: vínculos y diferencias arriba; la lista de candidatos queda debajo. */}
-            {links.length > 0 && (
-              <div className="sticky top-[5.25rem] z-[15] space-y-2 rounded-lg border border-ds-border-default bg-background/95 backdrop-blur-sm p-3 shadow-sm">
-                <p className="text-xs font-mono uppercase tracking-[0.08em] text-muted-foreground">
-                  Vínculos seleccionados
+
+            <div className="sticky top-0 z-10 -mx-4 sm:-mx-6 px-4 sm:px-6 pt-1 bg-background/95 backdrop-blur-sm">
+              <CandidateSearchBar
+                value={searchQuery}
+                onChange={setSearchQuery}
+                scope={searchScope}
+                onScopeChange={setSearchScope}
+                loading={searchLoading}
+              />
+              <div className="flex items-center justify-between gap-2 pb-2">
+                <p className="text-[12px] font-mono uppercase tracking-[0.08em] text-ds-text-3">
+                  Coincidencias
                 </p>
-                <ul className="space-y-1.5">
-                  {links.map((l) => (
-                    <li
-                      key={l.key}
-                      className="flex items-center gap-2 text-sm"
-                    >
-                      <span className="flex-1 truncate">{l.label}</span>
-                      <Input
-                        type="text"
-                        inputMode="numeric"
-                        className="h-8 w-32 font-mono text-right"
-                        value={formatCLPInput(String(l.amount))}
-                        onChange={(e) =>
-                          updateLinkAmount(
-                            l.key,
-                            parseCLPInput(e.target.value) ?? 0,
-                          )
-                        }
-                      />
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 w-8 p-0 shrink-0"
-                        onClick={() => removeLink(l.key)}
-                      >
-                        <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                      </Button>
-                    </li>
-                  ))}
-                </ul>
-                <div className="border-t border-border pt-2 space-y-1 text-sm">
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">Asignado</span>
-                    <span className="font-mono font-medium">
-                      {fmtCLP.format(linksTotal)}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">
-                      Monto del movimiento
-                    </span>
-                    <span className="font-mono">
-                      {fmtCLP.format(txAmountAbs)}
-                    </span>
-                  </div>
-                  <div
-                    className={cn(
-                      "flex items-center justify-between font-medium",
-                      remaining > 0.01 || hasShortfall
-                        ? "text-status-warn-fg"
-                        : "text-status-ok-fg"
-                    )}
-                  >
-                    <span>
-                      {hasShortfall
-                        ? "Diferencia (banco < facturas)"
-                        : remaining > 0.01
-                          ? "Falta asignar"
-                          : "Cuadrado"}
-                    </span>
-                    <span className="font-mono">
-                      {hasShortfall
-                        ? `−${fmtCLP.format(overflow)}`
-                        : remaining > 0.01
-                          ? fmtCLP.format(remaining)
-                          : "✓"}
-                    </span>
-                  </div>
-                </div>
-                {/* Shortfall block: las facturas suman MÁS que el banco
-                    (típico factoring). (Antes vivía en un modal aparte; ahora todo en el sidebar.)
-                    Sólo aplica cuando todos los vínculos son DTE. */}
-                {hasShortfall && allLinksAreReconcilable && (
-                  <div className="rounded-lg border border-status-warn-border bg-status-warn-soft/10 p-3 space-y-3">
-                    <div className="space-y-1">
-                      <p className="text-sm font-medium">
-                        ¿Cómo manejar la diferencia de{" "}
-                        <span className="font-mono tabular-nums">
-                          {fmtCLP.format(overflow)}
-                        </span>
-                        ?
-                      </p>
-                      <p className="text-[11px] text-muted-foreground">
-                        {isIncomeTx
-                          ? "El banco recibió menos que el bruto de las facturas (típico: comisión factoring, retención)."
-                          : "Las facturas suman más que el egreso bancario (descuento recibido)."}
-                      </p>
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="flex items-start gap-2 text-xs cursor-pointer p-2 rounded-md hover:bg-muted/40">
-                        <input
-                          type="radio"
-                          name="reconcile-diff-mode"
-                          checked={diffMode === "prorate"}
-                          onChange={() => setDiffMode("prorate")}
-                          className="mt-0.5 accent-primary"
-                        />
-                        <span>
-                          <span className="font-medium text-foreground">
-                            Prorratear por centro de costo
-                          </span>
-                          <span className="block text-muted-foreground mt-0.5">
-                            Reparte la diferencia entre los centros de costo
-                            de las líneas de cada factura, ponderado por
-                            subtotal × asignación.
-                          </span>
-                        </span>
-                      </label>
-                      <label className="flex items-start gap-2 text-xs cursor-pointer p-2 rounded-md hover:bg-muted/40">
-                        <input
-                          type="radio"
-                          name="reconcile-diff-mode"
-                          checked={diffMode === "single"}
-                          onChange={() => setDiffMode("single")}
-                          className="mt-0.5 accent-primary"
-                        />
-                        <span>
-                          <span className="font-medium text-foreground">
-                            Todo a una sola cuenta (sin prorrateo)
-                          </span>
-                          <span className="block text-muted-foreground mt-0.5">
-                            Imputa los {fmtCLP.format(overflow)} completos a
-                            la cuenta elegida abajo.
-                          </span>
-                        </span>
-                      </label>
-                      <label className="flex items-start gap-2 text-xs cursor-pointer p-2 rounded-md hover:bg-muted/40">
-                        <input
-                          type="radio"
-                          name="reconcile-diff-mode"
-                          checked={diffMode === "manual"}
-                          onChange={() => setDiffMode("manual")}
-                          className="mt-0.5 accent-primary"
-                        />
-                        <span>
-                          <span className="font-medium text-foreground">
-                            Manual (asignar después)
-                          </span>
-                          <span className="block text-muted-foreground mt-0.5">
-                            No asignar costo ahora. Las facturas quedan
-                            PARTIAL y registrás el costo en un asiento aparte.
-                          </span>
-                        </span>
-                      </label>
-                    </div>
-                    {diffMode !== "manual" && (
-                      <div className="space-y-2 pt-1">
-                        <AccountPlanCombobox
-                          items={eligibleShortfallAccounts}
-                          value={diffAccountPlanId}
-                          onChange={setDiffAccountPlanId}
-                          placeholder={
-                            isIncomeTx
-                              ? "Buscar cuenta de gasto / costo factoring…"
-                              : "Buscar cuenta de ingreso / descuento…"
-                          }
-                          emptyLabel="Seleccionar cuenta"
-                          triggerClassName="w-full"
-                        />
-                        <Input
-                          value={diffLabel}
-                          onChange={(e) => setDiffLabel(e.target.value)}
-                          placeholder={
-                            isIncomeTx
-                              ? "Nota del asiento (ej. 'Comisión factoring AMIFACTOR')"
-                              : "Nota del asiento (ej. 'Descuento proveedor')"
-                          }
-                          className="h-11 sm:h-9 text-base sm:text-sm"
-                        />
-                      </div>
-                    )}
-                  </div>
-                )}
-                {hasShortfall && !allLinksAreReconcilable && (
-                  <p className="text-xs text-status-danger-fg pt-2">
-                    Para imputar la diferencia contablemente hay ítems
-                    manuales en el lote. Quitálos o procesá la
-                    categorización manual aparte.
-                  </p>
-                )}
-                {remaining > 0.01 && (
-                  <div className="rounded-lg border border-status-info-border bg-status-info-soft/10 p-3 space-y-3">
-                    <div className="space-y-1">
-                      <p className="text-sm font-medium">
-                        {isIncomeTx ? "Sobra " : "Falta cubrir "}
-                        <span className="font-mono tabular-nums">
-                          {fmtCLP.format(remaining)}
-                        </span>
-                        {isIncomeTx ? " del depósito" : " del egreso"}
-                      </p>
-                      <p className="text-[11px] text-muted-foreground">
-                        {isIncomeTx
-                          ? "El banco trajo más que el total de facturas asignadas. Probablemente: anticipo, pago duplicado, o ingreso no facturado."
-                          : "El egreso bancario supera el total de facturas/pagos asignados. Probablemente: cargo bancario, comisión, o pago no documentado."}
-                      </p>
-                    </div>
-                    <AccountPlanCombobox
-                      items={eligibleRemainderAccounts}
-                      value={restAccountId}
-                      onChange={setRestAccountId}
-                      placeholder={
-                        isIncomeTx
-                          ? "Buscar cuenta de ingreso…"
-                          : "Buscar cuenta de gasto…"
-                      }
-                      emptyLabel="Seleccionar cuenta"
-                      triggerClassName="w-full"
-                    />
-                    <Input
-                      placeholder={
-                        isIncomeTx
-                          ? "Nota del asiento (ej. 'Anticipo cliente RUT 12345678-9')"
-                          : "Nota del asiento (ej. 'Cargo bancario por mantención')"
-                      }
-                      value={restNote}
-                      onChange={(e) => setRestNote(e.target.value)}
-                      maxLength={300}
-                      className="h-11 sm:h-9 text-base sm:text-sm"
-                    />
-                  </div>
-                )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-11 sm:h-9 text-[13px]"
+                  onClick={() => setShowFilters((v) => !v)}
+                >
+                  <Filter className="h-3 w-3 mr-1" />
+                  {showFilters ? "Ocultar filtros" : "Filtrar"}
+                </Button>
               </div>
-            )}
+            </div>
+
             {/* Sugerencia destacada: la cesión con mayor confidence se
                 renderiza prominente sobre el search para que el usuario no
                 la confunda con los DTEs del listado. Aparece solo en modo
@@ -1844,366 +1786,294 @@ export function BankTxReconcileSheet({
               );
             })()}
 
-            <div>
-              <div className="flex items-center justify-between gap-2 mb-2">
-                <p className="text-xs font-mono uppercase tracking-[0.08em] text-muted-foreground">
-                  Coincidencias posibles
-                </p>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-7 text-xs"
-                  onClick={() => setShowFilters((v) => !v)}
+            {showFilters && (
+              <div className="rounded-lg border border-ds-border-default bg-ds-surface-2 p-3 space-y-2.5">
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="relative">
+                    <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[12px] text-ds-text-3">
+                      $
+                    </span>
+                    <Input
+                      type="text"
+                      inputMode="numeric"
+                      placeholder="Monto desde"
+                      value={filterMinAmount}
+                      onChange={(e) =>
+                        setFilterMinAmount(formatCLPInput(e.target.value))
+                      }
+                      className="h-11 sm:h-9 text-sm pl-5 font-mono"
+                    />
+                  </div>
+                  <div className="relative">
+                    <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[12px] text-ds-text-3">
+                      $
+                    </span>
+                    <Input
+                      type="text"
+                      inputMode="numeric"
+                      placeholder="Monto hasta"
+                      value={filterMaxAmount}
+                      onChange={(e) =>
+                        setFilterMaxAmount(formatCLPInput(e.target.value))
+                      }
+                      className="h-11 sm:h-9 text-sm pl-5 font-mono"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <Input
+                    type="date"
+                    value={filterDateFrom}
+                    onChange={(e) => setFilterDateFrom(e.target.value)}
+                    className="h-11 sm:h-9 text-sm"
+                  />
+                  <Input
+                    type="date"
+                    value={filterDateTo}
+                    onChange={(e) => setFilterDateTo(e.target.value)}
+                    className="h-11 sm:h-9 text-sm"
+                  />
+                </div>
+                <Select
+                  value={filterDirection}
+                  onValueChange={(v) =>
+                    setFilterDirection(v as "all" | "ISSUED" | "RECEIVED")
+                  }
                 >
-                  <Filter className="h-3 w-3 mr-1" />
-                  {showFilters ? "Ocultar filtros" : "Filtrar"}
-                </Button>
+                  <SelectTrigger className="h-11 sm:h-9 text-sm">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos los tipos</SelectItem>
+                    <SelectItem value="ISSUED">Solo ventas</SelectItem>
+                    <SelectItem value="RECEIVED">Solo compras</SelectItem>
+                  </SelectContent>
+                </Select>
+                <label className="flex items-center gap-2 text-[13px] cursor-pointer select-none min-h-11">
+                  <input
+                    type="checkbox"
+                    checked={filterIncludePaid}
+                    onChange={(e) => setFilterIncludePaid(e.target.checked)}
+                    className="h-4 w-4 rounded border-ds-border-default accent-primary"
+                  />
+                  <span>Incluir facturas ya pagadas</span>
+                </label>
               </div>
+            )}
 
-              {/* Buscador siempre visible — el usuario no debe abrir
-                  "Filtrar" para tipear un folio / cliente / instalación. */}
-              <div className="relative mb-3">
-                <Search className="h-3.5 w-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  placeholder="Buscar por folio, cliente, RUT o instalación…"
-                  value={filterText}
-                  onChange={(e) => setFilterText(e.target.value)}
-                  className="h-11 sm:h-9 pl-8 text-base sm:text-sm"
-                />
+            {/* Lotes de factoring multi-op */}
+            {multiOpBatches.length > 0 && (
+              <div className="space-y-2">
+                {multiOpBatches.map((batch) => {
+                  const ops = filteredFactoring.filter((c) =>
+                    batch.operationIds.includes(c.id),
+                  );
+                  return (
+                    <FactoringBatchCard
+                      key={batch.id}
+                      batch={batch}
+                      operations={ops}
+                      selectedIds={selectedIds}
+                      onToggleBatch={() => toggleBatch(batch)}
+                      onToggleOperation={toggleFactoring}
+                    />
+                  );
+                })}
               </div>
+            )}
 
-              {showFilters && (
-                <div className="rounded-lg border border-border bg-muted/30 p-3 mb-3 space-y-2.5">
-                  <div className="grid grid-cols-2 gap-2">
-                    {/* CLP con separador de miles. Almacenamos el string
-                        formateado en state; el filtrado parsea on-the-fly. */}
-                    <div className="relative">
-                      <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
-                        $
-                      </span>
-                      <Input
-                        type="text"
-                        inputMode="numeric"
-                        placeholder="Monto desde"
-                        value={filterMinAmount}
-                        onChange={(e) =>
-                          setFilterMinAmount(formatCLPInput(e.target.value))
-                        }
-                        className="h-9 text-sm pl-5 font-mono"
-                      />
-                    </div>
-                    <div className="relative">
-                      <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
-                        $
-                      </span>
-                      <Input
-                        type="text"
-                        inputMode="numeric"
-                        placeholder="Monto hasta"
-                        value={filterMaxAmount}
-                        onChange={(e) =>
-                          setFilterMaxAmount(formatCLPInput(e.target.value))
-                        }
-                        className="h-9 text-sm pl-5 font-mono"
-                      />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <Input
-                      type="date"
-                      value={filterDateFrom}
-                      onChange={(e) => setFilterDateFrom(e.target.value)}
-                      className="h-11 sm:h-9 text-sm"
-                    />
-                    <Input
-                      type="date"
-                      value={filterDateTo}
-                      onChange={(e) => setFilterDateTo(e.target.value)}
-                      className="h-11 sm:h-9 text-sm"
-                    />
-                  </div>
-                  <Select
-                    value={filterDirection}
-                    onValueChange={(v) =>
-                      setFilterDirection(v as "all" | "ISSUED" | "RECEIVED")
-                    }
-                  >
-                    <SelectTrigger className="h-11 sm:h-9 text-sm">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todos los tipos</SelectItem>
-                      <SelectItem value="ISSUED">Solo ventas</SelectItem>
-                      <SelectItem value="RECEIVED">Solo compras</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
-                    <input
-                      type="checkbox"
-                      checked={filterIncludePaid}
-                      onChange={(e) => setFilterIncludePaid(e.target.checked)}
-                      className="h-4 w-4 rounded border-border accent-primary"
-                    />
-                    <span>Incluir facturas ya pagadas</span>
-                  </label>
-                  <p className="text-xs text-muted-foreground">
-                    {filteredCandidates.length + filteredFactoring.length} de{" "}
-                    {candidates.length + factoringCandidates.length} candidatos
-                  </p>
-                </div>
-              )}
-
-              {/* Cesiones a factoring (Fase 4 — conciliación con monto a girar).
-                  Se filtran con el mismo buscador que las facturas. */}
-              {filteredFactoring.length > 0 && (
-                <div className="mb-4 space-y-2">
-                  <p className="text-xs font-mono uppercase tracking-wide text-primary">
-                    Cesiones a factoring ({filteredFactoring.length})
-                  </p>
-                  <ul className="space-y-2">
-                    {filteredFactoring.map((c) => {
-                      const selected = links.some((l) => l.key === c.id);
-                      const suggested = c.isSuggested ?? false;
-                      const confidence = c.confidence ?? 0;
-                      const signals = c.matchSignals ?? [];
-                      // Título prominente = la factura cedida (folio + cliente),
-                      // homologado con las tarjetas de factura. El código de la
-                      // cesión pasa a ser un badge secundario.
-                      const title = c.dteFolio
-                        ? `Factura ${c.dteFolio}`
-                        : `Cesión ${c.code}`;
-                      return (
-                        <li
-                          key={c.id}
-                          className={cn(
-                            "flex items-start gap-3 rounded-lg border p-3 cursor-pointer transition-colors",
-                            selected
-                              ? "border-primary bg-primary/5"
-                              : suggested
-                                ? "border-primary/50 bg-primary/[0.04]"
-                                : "border-border hover:bg-muted/30",
-                          )}
-                          onClick={() => toggleFactoring(c)}
-                        >
-                          <div className="shrink-0 pt-0.5">
-                            {selected ? (
-                              <CheckCircle2 className="h-5 w-5 text-primary" />
-                            ) : (
-                              <Circle className="h-5 w-5 text-muted-foreground" />
-                            )}
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className="text-sm font-medium">
-                                {title}
-                              </span>
-                              <Badge
-                                variant="outline"
-                                className="text-xs bg-primary/5 text-primary border-primary/30"
-                              >
-                                Cesión {c.code}
-                              </Badge>
-                              <Badge variant="outline" className="text-xs">
-                                {c.factoringCompanyName}
-                              </Badge>
-                              {suggested ? (
-                                <>
-                                  <Badge variant="brand" className="text-xs">
-                                    Sugerido
-                                  </Badge>
-                                  <span className="text-xs text-muted-foreground">
-                                    {confidence}% de coincidencia
-                                  </span>
-                                </>
-                              ) : null}
-                              {c.expectedDepositSource === "simulation" ? (
-                                <Badge
-                                  variant="outline"
-                                  className="text-xs bg-status-ok-soft text-status-ok-fg border-status-ok-border"
-                                >
-                                  desde PDF
-                                </Badge>
-                              ) : (
-                                <Badge variant="outline" className="text-xs">
-                                  estimado
-                                </Badge>
-                              )}
-                            </div>
-                            {c.dteReceiverName ? (
-                              <p className="text-sm text-muted-foreground mt-0.5 truncate">
-                                {c.dteReceiverName}
-                              </p>
-                            ) : null}
-                            {c.installationName ? (
-                              <p className="text-xs text-muted-foreground/80 mt-0.5 truncate">
-                                📍 {c.installationName}
-                              </p>
-                            ) : null}
-                            {signals.length > 0 ? (
-                              <div className="flex flex-wrap gap-1 mt-1.5">
-                                {signals.map((sig) => (
-                                  <Tag key={sig} variant="neutral" size="sm">
-                                    {FACTORING_SIGNAL_LABELS[sig] ?? sig}
-                                  </Tag>
-                                ))}
-                              </div>
-                            ) : null}
-                            <div className="flex items-center justify-between mt-1.5">
-                              <span className="text-xs text-muted-foreground">
-                                Cedida{" "}
-                                {format(new Date(c.fechaCesion), "dd MMM yyyy", {
-                                  locale: es,
-                                })}
-                              </span>
-                              <p className="font-mono text-sm font-medium">
-                                {fmtCLP.format(c.expectedDeposit)}
-                              </p>
-                            </div>
-                          </div>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </div>
-              )}
-
-              {loadingCandidates ? (
-                <div className="flex items-center justify-center py-8">
-                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-                </div>
-              ) : filteredCandidates.length === 0 &&
-                filteredFactoring.length === 0 ? (
-                <p className="text-sm text-muted-foreground py-4">
-                  {candidates.length === 0 && factoringCandidates.length === 0
-                    ? "No se encontraron facturas candidatas. Probá con “Categorizar manual” o ajustá la fecha."
-                    : "Ninguno de los candidatos coincide con tus filtros. Limpiá los filtros para ver todos."}
+            {/* Cesiones sueltas (sin batch multi-op) */}
+            {looseFactoring.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-[12px] font-mono uppercase tracking-wide text-primary">
+                  Cesiones a factoring ({looseFactoring.length})
                 </p>
-              ) : filteredCandidates.length === 0 ? null : (
                 <ul className="space-y-2">
-                  {filteredCandidates.map((c) => {
-                    const selected = links.some((l) => l.key === c.id);
-                    // En modo multi-tx (2+ movimientos seleccionados) el monto
-                    // de referencia es la SUMA absoluta del lote. El delta y
-                    // el badge "Match exacto" deben calcularse contra esa suma.
-                    const refAmountAbs = isMulti ? totalAmountAbs : (tx ? Math.abs(tx.amount) : 0);
-                    // Para PAID, el "pendiente" es 0 pero el match relevante es
-                    // contra el total: tomamos el menor delta entre pending y total.
-                    const deltaPending = c.amountPending - refAmountAbs;
-                    const deltaTotal = c.total - refAmountAbs;
-                    const delta = Math.abs(deltaPending) <= Math.abs(deltaTotal)
-                      ? deltaPending
-                      : deltaTotal;
-                    const deltaPct = refAmountAbs > 0 ? Math.abs(delta) / refAmountAbs : 0;
-                    const isExact = Math.abs(delta) <= 1;
-                    const isFactoringLike = !isExact && delta > 0 && deltaPct <= 0.3;
+                  {looseFactoring.map((c) => {
+                    const badges: Array<{
+                      label: string;
+                      variant?:
+                        | "brand"
+                        | "ok"
+                        | "warn"
+                        | "danger"
+                        | "info"
+                        | "neutral";
+                    }> = [
+                      { label: `Cesión ${c.code}`, variant: "brand" },
+                      { label: c.factoringCompanyName },
+                    ];
+                    if (c.isSuggested) {
+                      badges.push({
+                        label: `Sugerido ${c.confidence}%`,
+                        variant: "brand",
+                      });
+                    }
+                    if (c.expectedDepositSource === "simulation") {
+                      badges.push({ label: "desde PDF", variant: "ok" });
+                    } else {
+                      badges.push({ label: "estimado" });
+                    }
+                    for (const sig of c.matchSignals ?? []) {
+                      badges.push({
+                        label: FACTORING_SIGNAL_LABELS[sig] ?? sig,
+                      });
+                    }
+                    const metaParts = [
+                      c.fechaCesion
+                        ? `Cedida ${format(new Date(c.fechaCesion), "dd MMM yyyy", { locale: es })}`
+                        : null,
+                      c.installationName ? `📍 ${c.installationName}` : null,
+                    ].filter(Boolean);
                     return (
-                      <li
-                        key={c.id}
-                        className={cn(
-                          "flex items-start gap-3 rounded-lg border p-3 cursor-pointer transition-colors",
-                          selected
-                            ? "border-primary bg-primary/5"
-                            : isExact
-                              ? "border-status-ok-border bg-status-ok-soft/30 hover:bg-status-ok-soft/50"
-                              : "border-border hover:bg-muted/30"
-                        )}
-                        onClick={() => toggleCandidate(c)}
-                      >
-                        <div className="shrink-0 pt-0.5">
-                          {selected ? (
-                            <CheckCircle2 className="h-5 w-5 text-primary" />
-                          ) : (
-                            <Circle className="h-5 w-5 text-muted-foreground" />
-                          )}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-sm font-medium">
-                              {dteShortLabel(c.dteType, c.folio)}
-                            </span>
-                            <Badge variant="outline" className="text-xs">
-                              {c.direction === "ISSUED"
-                                ? "Venta"
-                                : "Compra"}
-                            </Badge>
-                            <Badge
-                              variant="outline"
-                              className={cn(
-                                "text-xs",
-                                c.paymentStatus === "PARTIAL"
-                                  ? "bg-status-warn-soft text-status-warn-fg border-status-warn-border"
-                                  : c.paymentStatus === "OVERDUE"
-                                    ? "bg-status-danger-soft text-status-danger-fg border-status-danger-border"
-                                    : "bg-muted"
-                              )}
-                            >
-                              {c.paymentStatus}
-                            </Badge>
-                            {isExact && (
-                              <Badge
-                                variant="outline"
-                                className="text-[11px] bg-status-ok-soft text-status-ok-fg border-status-ok-border"
-                              >
-                                Match exacto
-                              </Badge>
-                            )}
-                            {isFactoringLike && (
-                              <Badge
-                                variant="outline"
-                                className="text-[11px] bg-status-info-soft text-status-info-fg border-status-info-border"
-                                title="La diferencia puede ser comisión de factoring/descuento"
-                              >
-                                +{fmtCLP.format(delta)} (posible comisión)
-                              </Badge>
-                            )}
-                          </div>
-                          <p className="text-xs text-muted-foreground mt-0.5">
-                            {c.direction === "ISSUED"
-                              ? c.receiverName
-                              : c.issuerName}
-                          </p>
-                          {c.installationName ? (
-                            <p className="text-xs text-muted-foreground/80 mt-0.5 truncate">
-                              📍 {c.installationName}
-                            </p>
-                          ) : null}
-                          <div className="flex items-center justify-between mt-1.5">
-                            <span className="text-xs text-muted-foreground">
-                              {format(new Date(c.issuedAt), "dd MMM yyyy", {
-                                locale: es,
-                              })}
-                            </span>
-                            <div className="text-right">
-                              {c.paymentStatus === "PAID" ? (
-                                <>
-                                  <p className="font-mono text-sm font-medium">
-                                    {fmtCLP.format(c.total)}
-                                  </p>
-                                  <p className="text-[11px] text-muted-foreground">
-                                    ya pagada
-                                  </p>
-                                </>
-                              ) : (
-                                <>
-                                  <p className="font-mono text-sm font-medium">
-                                    {fmtCLP.format(c.amountPending)}
-                                  </p>
-                                  {c.amountPending !== c.total && (
-                                    <p className="text-[11px] text-muted-foreground">
-                                      de {fmtCLP.format(c.total)}
-                                    </p>
-                                  )}
-                                </>
-                              )}
-                            </div>
-                          </div>
-                        </div>
+                      <li key={c.id}>
+                        <CandidateRow
+                          selected={selectedIds.has(c.id)}
+                          onToggle={() => toggleFactoring(c)}
+                          title={
+                            c.dteFolio
+                              ? `Factura ${c.dteFolio}`
+                              : `Cesión ${c.code}`
+                          }
+                          counterparty={c.dteReceiverName ?? ""}
+                          badges={badges}
+                          meta={metaParts.join(" · ") || undefined}
+                          amount={c.expectedDeposit}
+                          strikeAmount={
+                            Math.abs(c.invoiceAmount - c.expectedDeposit) > 1
+                              ? c.invoiceAmount
+                              : null
+                          }
+                          suggested={c.isSuggested}
+                        />
                       </li>
                     );
                   })}
                 </ul>
-              )}
-            </div>
+              </div>
+            )}
+
+            {loadingCandidates || searchLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-5 w-5 animate-spin text-ds-text-3" />
+              </div>
+            ) : filteredCandidates.length === 0 &&
+              looseFactoring.length === 0 &&
+              multiOpBatches.length === 0 ? (
+              <div className="py-6 space-y-3">
+                {searchQuery.trim() ? (
+                  <>
+                    <p className="text-[13px] text-ds-text-3">
+                      No hay coincidencias en este scope
+                      {searchActive ? ` (“${searchScope}”)` : ""}.
+                    </p>
+                    {searchScope !== "all" && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="h-11 sm:h-9"
+                        onClick={() => setSearchScope("all")}
+                      >
+                        Ampliar a todas
+                      </Button>
+                    )}
+                  </>
+                ) : (
+                  <p className="text-[13px] text-ds-text-3">
+                    No se encontraron facturas candidatas. Probá con
+                    “Categorizar manual” o buscá por folio / cliente.
+                  </p>
+                )}
+              </div>
+            ) : filteredCandidates.length === 0 ? null : (
+              <ul className="space-y-2">
+                {filteredCandidates.map((c) => {
+                  const selected = selectedIds.has(c.id);
+                  const refAmountAbs = isMulti
+                    ? totalAmountAbs
+                    : tx
+                      ? Math.abs(tx.amount)
+                      : 0;
+                  const deltaPending = c.amountPending - refAmountAbs;
+                  const deltaTotal = c.total - refAmountAbs;
+                  const delta =
+                    Math.abs(deltaPending) <= Math.abs(deltaTotal)
+                      ? deltaPending
+                      : deltaTotal;
+                  const deltaPct =
+                    refAmountAbs > 0 ? Math.abs(delta) / refAmountAbs : 0;
+                  const isExact = Math.abs(delta) <= 1;
+                  const isFactoringLike =
+                    !isExact && delta > 0 && deltaPct <= 0.3;
+                  const badges: Array<{
+                    label: string;
+                    variant?:
+                      | "brand"
+                      | "ok"
+                      | "warn"
+                      | "danger"
+                      | "info"
+                      | "neutral";
+                  }> = [
+                    {
+                      label: c.direction === "ISSUED" ? "Venta" : "Compra",
+                    },
+                    {
+                      label: c.paymentStatus,
+                      variant:
+                        c.paymentStatus === "PARTIAL"
+                          ? "warn"
+                          : c.paymentStatus === "OVERDUE"
+                            ? "danger"
+                            : "neutral",
+                    },
+                  ];
+                  if (isExact) {
+                    badges.push({ label: "Match exacto", variant: "ok" });
+                  }
+                  if (isFactoringLike) {
+                    badges.push({
+                      label: `+${fmtCLP.format(delta)} (posible comisión)`,
+                      variant: "info",
+                    });
+                  }
+                  const counterparty =
+                    c.direction === "ISSUED" ? c.receiverName : c.issuerName;
+                  const amount =
+                    c.paymentStatus === "PAID" ? c.total : c.amountPending;
+                  return (
+                    <li key={c.id}>
+                      <CandidateRow
+                        selected={selected}
+                        onToggle={() => toggleCandidate(c)}
+                        title={dteShortLabel(c.dteType, c.folio)}
+                        counterparty={counterparty}
+                        badges={badges}
+                        meta={[
+                          format(new Date(c.issuedAt), "dd MMM yyyy", {
+                            locale: es,
+                          }),
+                          c.installationName
+                            ? `📍 ${c.installationName}`
+                            : null,
+                          c.paymentStatus === "PAID" ? "ya pagada" : null,
+                        ]
+                          .filter(Boolean)
+                          .join(" · ")}
+                        amount={amount}
+                        strikeAmount={
+                          c.paymentStatus !== "PAID" &&
+                          c.amountPending !== c.total
+                            ? c.total
+                            : null
+                        }
+                        suggested={isExact}
+                      />
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
 
           </div>
         )}
@@ -2299,6 +2169,58 @@ export function BankTxReconcileSheet({
         )}
         </>
         )}
+        </div>
+        {/* /Zona 2 */}
+
+        {/* Zona 3 — footer fijo (solo create/edit) */}
+        {(mode === "create" || mode === "edit") && (
+          <ReconcileFooter
+            state={footerState}
+            saving={saving}
+            amountAbs={txAmountAbs}
+            remaining={remaining}
+            overflow={overflow}
+            modeLabel={mode === "edit" ? "edit" : "create"}
+            onPrimary={handleSave}
+            onOpenDetail={() => setDetailOpen(true)}
+            onCancel={() => {
+              if (mode === "edit") {
+                setLinks([]);
+                setMode("view");
+                setDetailOpen(false);
+              } else {
+                onOpenChange(false);
+              }
+            }}
+          />
+        )}
+
+        <AllocationDetailPanel
+          open={detailOpen}
+          onClose={() => setDetailOpen(false)}
+          links={links}
+          linksTotal={linksTotal}
+          txAmountAbs={txAmountAbs}
+          remaining={remaining}
+          overflow={overflow}
+          hasShortfall={hasShortfall}
+          allLinksAreReconcilable={allLinksAreReconcilable}
+          isIncomeTx={isIncomeTx}
+          diffMode={diffMode}
+          setDiffMode={setDiffMode}
+          diffAccountPlanId={diffAccountPlanId}
+          setDiffAccountPlanId={setDiffAccountPlanId}
+          diffLabel={diffLabel}
+          setDiffLabel={setDiffLabel}
+          restAccountId={restAccountId}
+          setRestAccountId={setRestAccountId}
+          restNote={restNote}
+          setRestNote={setRestNote}
+          eligibleShortfallAccounts={eligibleShortfallAccounts}
+          eligibleRemainderAccounts={eligibleRemainderAccounts}
+          updateLinkAmount={updateLinkAmount}
+          removeLink={removeLink}
+        />
 
         {unmappedQueue.length > 0 && tx && (
           <CategoryMappingDialog

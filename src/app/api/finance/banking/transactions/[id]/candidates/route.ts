@@ -8,12 +8,13 @@ import { hasCapability } from "@/lib/permissions";
 import {
   findDteCandidates,
   findFactoringCandidates,
+  findFactoringBatchesForBankTxs,
 } from "@/modules/finance/banking/bank-tx-link.service";
 
 /**
  * GET /api/finance/banking/transactions/[id]/candidates
- * Devuelve DTEs candidatos + operaciones de factoring candidatas para
- * conciliar con un movimiento bancario.
+ * Devuelve DTEs candidatos + operaciones de factoring candidatas + lotes
+ * para conciliar con un movimiento bancario.
  */
 export async function GET(
   _request: NextRequest,
@@ -30,14 +31,16 @@ export async function GET(
       );
     }
     const { id } = await params;
-    const [dtes, factoring] = await Promise.all([
+    const [dtes, factoring, factoringBatches] = await Promise.all([
       findDteCandidates(ctx.tenantId, id),
       findFactoringCandidates(ctx.tenantId, id),
+      findFactoringBatchesForBankTxs(ctx.tenantId, [id]),
     ]);
     return NextResponse.json({
       success: true,
       data: dtes,
       factoring,
+      factoringBatches,
     });
   } catch (error) {
     console.error("[Finance/Banking/Candidates] error:", error);
