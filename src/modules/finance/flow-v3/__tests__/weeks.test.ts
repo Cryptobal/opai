@@ -5,6 +5,7 @@ import {
   enumerateWeeks,
   defaultHorizon,
   monthKeyOf,
+  monthKeyOfDate,
   weekLabel,
   ymdToDate,
 } from "../weeks";
@@ -45,6 +46,12 @@ describe("flow-v3 weeks", () => {
     expect(monthKeyOf("2026-07-27")).toBe("2026-07");
     // Semana que cruza mes: lunes 31-ago → agosto
     expect(monthKeyOf("2026-08-31")).toBe("2026-08");
+  });
+
+  it("monthKeyOfDate usa el mes calendario de la fecha del ítem", () => {
+    // Semana frontera: lunes 2027-05-31 → MAY; ítem 02/06 → JUN
+    expect(monthKeyOf("2027-05-31")).toBe("2027-05");
+    expect(monthKeyOfDate("2027-06-02")).toBe("2027-06");
   });
 
   it("weekLabel usa número de semana ISO", () => {

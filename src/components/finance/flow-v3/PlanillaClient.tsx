@@ -81,6 +81,10 @@ export function PlanillaClient({
   }, []);
 
   const [addOpen, setAddOpen] = useState(false);
+  /** Sección prefijada desde el "+" del encabezado (null = botón global). */
+  const [addPresetSection, setAddPresetSection] = useState<string | null>(null);
+  /** Encadena recurrencia tras crear fila (v5.2). */
+  const [pendingRecurringRowId, setPendingRecurringRowId] = useState<string | null>(null);
   /** Catálogo EXPENSE para el diálogo de recurrencia (Nueva fila → Categoría). */
   const [expenseCategories, setExpenseCategories] = useState<
     Array<{ id: string; code: string; name: string; kind: string }>
@@ -117,10 +121,20 @@ export function PlanillaClient({
     });
 
   const sessionRowIds = useRef<Set<string>>(new Set());
+  const openAddDialog = (section?: string | null) => {
+    setAddPresetSection(section ?? null);
+    setAddOpen(true);
+  };
   const handleCreateRow = async (body: Record<string, unknown>) => {
-    const r = (await actions.createRow(body)) as { id?: string } | null;
+    const r = (await actions.createRow(body)) as { id?: string; section?: string; name?: string } | null;
     if (r?.id) sessionRowIds.current.add(r.id);
     return r;
+  };
+  const handleRowCreated = (
+    row: { id: string; section: string; name: string },
+    opts: { configureRecurrence: boolean },
+  ) => {
+    if (opts.configureRecurrence) setPendingRecurringRowId(row.id);
   };
 
   const gridScrollRef = useRef<HTMLDivElement | null>(null);
@@ -482,7 +496,7 @@ export function PlanillaClient({
         onAlignV={(a) => applyStyle({ valign: a })}
         onNumberFormat={view.setNumberFormat}
         onClearFormat={clearFormat}
-        onAdd={() => setAddOpen(true)}
+        onAdd={() => openAddDialog()}
         onCloseWeek={() => setCloseOpen(true)}
         onExpand={() => collapseApiRef.current?.expandAll()}
         onCollapse={() => collapseApiRef.current?.collapseAll()}
@@ -530,7 +544,7 @@ export function PlanillaClient({
         onExportXlsx={() => void doExportXlsx()}
         onExportCsv={doExportCsv}
         onPrint={printPlanilla}
-        onAdd={() => setAddOpen(true)}
+        onAdd={() => openAddDialog()}
         onCloseWeek={() => setCloseOpen(true)}
         onLegend={() => setLegendOpen(true)}
         sumMode={sumMode}
@@ -628,6 +642,9 @@ export function PlanillaClient({
               onRefresh={() => void m.refetch()}
               onViewDte={setViewDteId}
               expenseCategories={expenseCategories}
+              onAddInSection={(section) => openAddDialog(section)}
+              openRecurringRowId={pendingRecurringRowId}
+              onRecurringOpened={() => setPendingRecurringRowId(null)}
             />
           </div>
         ) : (
@@ -653,7 +670,17 @@ export function PlanillaClient({
         )}
       </div>
 
-      <AddRowDialog open={addOpen} onOpenChange={setAddOpen} busy={actions.busy} onCreate={handleCreateRow} />
+      <AddRowDialog
+        open={addOpen}
+        onOpenChange={(o) => {
+          setAddOpen(o);
+          if (!o) setAddPresetSection(null);
+        }}
+        busy={actions.busy}
+        onCreate={handleCreateRow}
+        lockedSection={addPresetSection}
+        onCreated={handleRowCreated}
+      />
 
       {detail && m.data && (
         <BankBalancePopover

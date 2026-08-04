@@ -368,7 +368,11 @@ export async function buildFlowMatrix(
     kpis: assembled.kpis,
   };
   if (q.granularity === "month") {
-    const m = reduceMonthly(weeks, currentWeek, assembled);
+    const m = reduceMonthly(weeks, currentWeek, assembled, {
+      sealedBalances: seals.sealedBalances,
+      priorSealed: seals.priorSealed,
+      realNetAfterWindow,
+    });
     return {
       granularity: "month",
       columns: m.columns,
