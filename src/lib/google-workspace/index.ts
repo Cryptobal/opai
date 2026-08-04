@@ -42,6 +42,10 @@ export {
 } from "./calendar-payloads";
 export { syncEventLink } from "./calendar.service";
 export {
+  GOOGLE_CALENDAR_DISCONNECT_ERROR,
+  reactivateDisconnectedCalendarLinks,
+} from "./calendar-disconnect";
+export {
   buildGoogleWorkspaceInviteLinks,
   GOOGLE_WORKSPACE_CONNECT_PATHS,
 } from "./invite-links";

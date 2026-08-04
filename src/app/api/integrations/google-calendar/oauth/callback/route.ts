@@ -88,6 +88,7 @@ export async function GET(request: NextRequest) {
         },
       },
     });
+    let accountId: string;
     if (existing) {
       await prisma.googleCalendarAccount.update({
         where: { id: existing.id },
@@ -98,6 +99,7 @@ export async function GET(request: NextRequest) {
           status: "ACTIVE",
         },
       });
+      accountId = existing.id;
     } else {
       const siblings = await prisma.googleCalendarAccount.findMany({
         where: {
@@ -116,7 +118,7 @@ export async function GET(request: NextRequest) {
         return NextResponse.redirect(withCal("limit_reached"));
       }
       const maxSort = siblings.reduce((m, s) => Math.max(m, s.sortIndex), -1);
-      await prisma.googleCalendarAccount.create({
+      const created = await prisma.googleCalendarAccount.create({
         data: {
           tenantId: decoded.tenantId,
           userId: session.user.id,
@@ -132,6 +134,7 @@ export async function GET(request: NextRequest) {
           sortIndex: maxSort + 1,
         },
       });
+      accountId = created.id;
     }
 
     // Registrar push channel (best-effort; cron renueva).
@@ -139,11 +142,19 @@ export async function GET(request: NextRequest) {
       headers: { authorization: `Bearer ${process.env.CRON_SECRET ?? ""}` },
     }).catch((err) => console.warn("[gcal-oauth]", "channel-renew", err));
 
-    // Reintentar links PENDING (licitaciones/visitas que esperaban Calendar).
-    void import("@/modules/agenda/agenda-retry-pending")
-      .then(({ retryPendingAgendaLinks }) =>
-        retryPendingAgendaLinks({ tenantId: decoded.tenantId, actorUserId: session.user.id }),
-      )
+    // Links marcados ERROR al desconectar → PENDING, luego reintento (PENDING
+    // “sin cuenta” + los reactivados). Sin esto, reconectar no sana el sync.
+    void import("@/lib/google-workspace/calendar-disconnect")
+      .then(async ({ reactivateDisconnectedCalendarLinks }) => {
+        await reactivateDisconnectedCalendarLinks(decoded.tenantId, accountId);
+        const { retryPendingAgendaLinks } = await import(
+          "@/modules/agenda/agenda-retry-pending"
+        );
+        return retryPendingAgendaLinks({
+          tenantId: decoded.tenantId,
+          actorUserId: session.user.id,
+        });
+      })
       .catch((err) => console.warn("[calendar] retry post-oauth:", err));
 
     void import("@/modules/calendar/calendar-retry-pending")
