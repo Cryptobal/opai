@@ -6,6 +6,9 @@
  * manual (undefined hereda; null = extra solo válido con 0–1 programaciones).
  * v4.7: el 400 incluye las opciones candidatas para el selector; un template
  * de otra cuenta se trata como ausente (cierra el bypass duplicar→cambiar receptor).
+ * v4.8: con 2+ programaciones, si hay `installationId` que matchea exactamente
+ * una fila activa, hereda esa (misma regla que cashflow row-match 3.5). Así
+ * duplicar una factura de Pine Llay Llay no pide elegir entre Pemuco/Llay.
  */
 import "server-only";
 import { prisma } from "@/lib/prisma";
@@ -71,13 +74,15 @@ async function listActiveAccountTemplates(
 
 /**
  * Si la cuenta tiene exactamente una programación activa 33/34, propone
- * ese vínculo + período para la fecha de emisión. Con 0 o >1 → null
- * (el form ofrece selector sin default).
+ * ese vínculo + período para la fecha de emisión.
+ * Con 2+ y `installationId` que matchea una sola fila → esa.
+ * Con 0 o aún ambiguo → null (el form ofrece selector sin default).
  */
 export async function resolveDefaultTemplateLink(
   tenantId: string,
   crmAccountId: string,
   dteDateYmd: string,
+  installationId?: string | null,
 ): Promise<InheritedTemplateLink | null> {
   const templates = await prisma.financeDteRecurringTemplate.findMany({
     where: {
@@ -88,17 +93,24 @@ export async function resolveDefaultTemplateLink(
     },
     select: {
       id: true,
+      installationId: true,
       frequency: true, dayOfMonth: true, dayOfWeek: true, monthOfYear: true,
       startDate: true, endDate: true, lastRunAt: true,
       facturaTiming: true, facturaDay: true, facturaMesRelativo: true,
     },
-    take: 2,
   });
-  if (templates.length !== 1) return null;
-  const t = templates[0]!;
+
+  let chosen: (typeof templates)[number] | null = null;
+  if (templates.length === 1) {
+    chosen = templates[0]!;
+  } else if (templates.length > 1 && installationId) {
+    const byInst = templates.filter((t) => t.installationId === installationId);
+    if (byInst.length === 1) chosen = byInst[0]!;
+  }
+  if (!chosen) return null;
   return {
-    recurringTemplateId: t.id,
-    billingPeriod: resolveBillingPeriodForDate(t, dteDateYmd),
+    recurringTemplateId: chosen.id,
+    billingPeriod: resolveBillingPeriodForDate(chosen, dteDateYmd),
   };
 }
 
@@ -115,6 +127,8 @@ export async function applyTemplateLinkInheritance(
   opts: {
     dteType: number;
     crmAccountId?: string | null;
+    /** Desambiguación cuando la cuenta tiene 2+ programaciones (1 por instalación). */
+    installationId?: string | null;
     issueDateYmd: string;
     recurringTemplateId?: string | null;
     billingPeriod?: string | null;
@@ -134,6 +148,7 @@ export async function applyTemplateLinkInheritance(
       tenantId,
       opts.crmAccountId,
       opts.issueDateYmd,
+      opts.installationId,
     );
     if (inherited) {
       tplId = inherited.recurringTemplateId;

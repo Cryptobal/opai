@@ -104,6 +104,7 @@ export async function createDraftDte(
   const templateLink = await applyTemplateLinkInheritance(tenantId, {
     dteType: input.dteType,
     crmAccountId: input.crmAccountId,
+    installationId: input.installationId,
     issueDateYmd: emissionYmd,
     recurringTemplateId: input.recurringTemplateId,
     billingPeriod: input.billingPeriod,
@@ -243,6 +244,10 @@ export async function cloneDraftDte(
     accountId: original.accountId ?? undefined,
     currency: original.currency,
     notes: original.notes ?? undefined,
+    // Misma fila de programación que el borrador origen (cuota o extra).
+    // Si el origen no tenía vínculo, createDraftDte desambigua por instalación.
+    recurringTemplateId: original.recurringTemplateId ?? undefined,
+    billingPeriod: original.billingPeriod ?? undefined,
     lines: original.lines.map((l) => ({
       itemCode: l.itemCode ?? undefined,
       itemName: l.itemName,
@@ -314,6 +319,7 @@ export async function updateDraftDte(
   const templateLink = await applyTemplateLinkInheritance(tenantId, {
     dteType: input.dteType,
     crmAccountId: input.crmAccountId,
+    installationId: input.installationId,
     issueDateYmd: emissionYmd,
     recurringTemplateId: input.recurringTemplateId,
     billingPeriod: input.billingPeriod,

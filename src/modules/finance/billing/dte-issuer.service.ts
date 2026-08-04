@@ -377,6 +377,7 @@ export async function issueDte(
   const templateLink = await applyTemplateLinkInheritance(tenantId, {
     dteType: input.dteType,
     crmAccountId: input.crmAccountId,
+    installationId: input.installationId,
     issueDateYmd: emissionYmd,
     recurringTemplateId: input.recurringTemplateId,
     billingPeriod: input.billingPeriod,
