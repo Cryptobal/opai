@@ -7,7 +7,7 @@ import { dateAtChileSlot } from "../agenda-calendar-utils";
 import type { AccountOption } from "../nueva-visita/types";
 import { hhmmChile } from "./agenda-mobile-utils";
 
-export type ComposerType = "cliente" | "tecnica" | "supervision" | "reunion" | "otra";
+export type ComposerType = "cliente" | "supervision" | "reunion" | "otra";
 
 export type BusyUser = {
   userId: string;
@@ -20,9 +20,14 @@ export type Availability = {
   suggestions: Array<{ start: string; end: string }>;
 };
 
-export function useEventComposer(open: boolean, prefillDate?: string | null) {
+export function useEventComposer(
+  open: boolean,
+  prefillDate?: string | null,
+  dealId?: string | null,
+) {
   const [type, setType] = useState<ComposerType>("cliente");
   const [title, setTitle] = useState("");
+  const [label, setLabel] = useState("");
   const [date, setDate] = useState(() => todayInChile());
   const [time, setTime] = useState("09:00");
   const [durationMin, setDurationMin] = useState(60);
@@ -31,6 +36,8 @@ export function useEventComposer(open: boolean, prefillDate?: string | null) {
   const [account, setAccount] = useState<AccountOption | null>(null);
   const [installationId, setInstallationId] = useState("");
   const [customAddress, setCustomAddress] = useState("");
+  const [lat, setLat] = useState<number | null>(null);
+  const [lng, setLng] = useState<number | null>(null);
   const [participantIds, setParticipantIds] = useState<string[]>([]);
   const [externalEmails, setExternalEmails] = useState<string[]>([]);
   const [syncGoogle, setSyncGoogle] = useState(true);
@@ -49,7 +56,6 @@ export function useEventComposer(open: boolean, prefillDate?: string | null) {
     return dateAtChileSlot(date, allDay ? 0 : hh * 60 + mm);
   }, [date, time, allDay]);
 
-  // Free/busy inline al cambiar horario o participantes (B6).
   useEffect(() => {
     if (!open || !startAt || participantIds.length === 0) {
       setAvailability(null);
@@ -67,7 +73,6 @@ export function useEventComposer(open: boolean, prefillDate?: string | null) {
     return () => clearTimeout(timer);
   }, [open, startAt, durationMin, participantIds]);
 
-  /** Conflictos del horario elegido: [{userId, label}] */
   const conflicts = useMemo(() => {
     if (!availability || !startAt) return [];
     const end = startAt.getTime() + durationMin * 60_000;
@@ -102,7 +107,8 @@ export function useEventComposer(open: boolean, prefillDate?: string | null) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         type,
-        title: title.trim() || "Nuevo evento",
+        title: title.trim() || label.trim() || "Nuevo evento",
+        label: label.trim() || null,
         date,
         time,
         allDay,
@@ -111,11 +117,15 @@ export function useEventComposer(open: boolean, prefillDate?: string | null) {
         accountId: account?.id ?? null,
         installationId: installationId || null,
         customAddress: installationId ? null : customAddress || null,
+        address: installationId ? null : customAddress || null,
+        lat: installationId ? null : lat,
+        lng: installationId ? null : lng,
+        dealId: dealId ?? null,
         participantIds,
         externalEmails: externalEmails.map((email) => ({ email })),
         syncGoogle,
         notifyOpai,
-        slackReminder,
+        slackReminderPrevDay: slackReminder,
       }),
     }).catch(() => null);
     setSaving(false);
@@ -130,11 +140,70 @@ export function useEventComposer(open: boolean, prefillDate?: string | null) {
         : "Evento creado",
     );
     return true;
-  }, [saving, type, title, date, time, allDay, durationMin, notes, account, installationId, customAddress, participantIds, externalEmails, syncGoogle, notifyOpai, slackReminder]);
+  }, [
+    saving,
+    type,
+    title,
+    label,
+    date,
+    time,
+    allDay,
+    durationMin,
+    notes,
+    account,
+    installationId,
+    customAddress,
+    lat,
+    lng,
+    dealId,
+    participantIds,
+    externalEmails,
+    syncGoogle,
+    notifyOpai,
+    slackReminder,
+  ]);
 
   return {
-    form: { type, title, date, time, durationMin, allDay, notes, account, installationId, customAddress, participantIds, externalEmails, syncGoogle, notifyOpai, slackReminder },
-    set: { setType, setTitle, setDate, setTime, setDurationMin, setAllDay, setNotes, setAccount, setInstallationId, setCustomAddress, setParticipantIds, setExternalEmails, setSyncGoogle, setNotifyOpai, setSlackReminder },
+    form: {
+      type,
+      title,
+      label,
+      date,
+      time,
+      durationMin,
+      allDay,
+      notes,
+      account,
+      installationId,
+      customAddress,
+      lat,
+      lng,
+      participantIds,
+      externalEmails,
+      syncGoogle,
+      notifyOpai,
+      slackReminder,
+    },
+    set: {
+      setType,
+      setTitle,
+      setLabel,
+      setDate,
+      setTime,
+      setDurationMin,
+      setAllDay,
+      setNotes,
+      setAccount,
+      setInstallationId,
+      setCustomAddress,
+      setLat,
+      setLng,
+      setParticipantIds,
+      setExternalEmails,
+      setSyncGoogle,
+      setNotifyOpai,
+      setSlackReminder,
+    },
     availability,
     conflicts,
     applySuggestion,

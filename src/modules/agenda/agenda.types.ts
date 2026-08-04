@@ -14,6 +14,8 @@ export type AgendaListItem = {
   source: AgendaItemSource;
   type: AgendaItemType;
   title: string;
+  /** Etiqueta libre del evento (chip); null en fuentes sin etiqueta. */
+  label?: string | null;
   start: string;
   end: string;
   allDay: boolean;

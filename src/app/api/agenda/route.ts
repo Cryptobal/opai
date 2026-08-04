@@ -21,9 +21,19 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "fechas inválidas" }, { status: 400 });
   }
 
+  const dealId = searchParams.get("dealId");
+
   const [opai, google] = await Promise.all([
-    listAgenda(ctx.tenantId, from, to, ctx.userId),
-    listGoogleCalendarEvents(ctx.tenantId, ctx.userId, from, to),
+    listAgenda(
+      ctx.tenantId,
+      from,
+      to,
+      dealId ? undefined : ctx.userId,
+      dealId ? { dealId } : undefined,
+    ),
+    dealId
+      ? Promise.resolve({ items: [], status: "skipped" as const })
+      : listGoogleCalendarEvents(ctx.tenantId, ctx.userId, from, to),
   ]);
   const items = [...opai, ...google.items].sort((a, b) => a.start.localeCompare(b.start));
   return NextResponse.json({ items, googleStatus: google.status });

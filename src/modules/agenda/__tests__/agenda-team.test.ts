@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
@@ -16,7 +16,10 @@ vi.mock("@/lib/prisma", () => ({
 
 vi.mock("../agenda-sync", () => ({
   syncAgendaVisitaToCalendar: vi.fn(),
-  syncVisitaTecnicaToCalendar: vi.fn(),
+}));
+
+vi.mock("@/modules/calendar/calendar-mapper", () => ({
+  mirrorVisitaToV2: vi.fn(),
 }));
 
 import { prisma } from "@/lib/prisma";
@@ -28,13 +31,6 @@ const asMock = (fn: unknown) => fn as ReturnType<typeof vi.fn>;
 
 beforeEach(() => {
   vi.clearAllMocks();
-  // Este archivo prueba el flujo legacy: la reasignación v2 (CALENDAR_V2 on,
-  // sin delete+recreate) se cubre en modules/calendar/__tests__.
-  process.env.CALENDAR_V2 = "0";
-});
-
-afterEach(() => {
-  delete process.env.CALENDAR_V2;
 });
 
 describe("agenda de equipo", () => {
@@ -113,7 +109,7 @@ describe("agenda de equipo", () => {
     });
   });
 
-  it("mueve una visita al calendario del nuevo responsable", async () => {
+  it("reasigna sin delete+recreate del evento Google", async () => {
     const start = new Date("2026-07-24T14:00:00.000Z");
     const end = new Date("2026-07-24T15:00:00.000Z");
     asMock(prisma.agendaVisita.findFirst).mockResolvedValue({
@@ -127,9 +123,7 @@ describe("agenda de equipo", () => {
       startAt: start,
       endAt: end,
     });
-    asMock(syncAgendaVisitaToCalendar)
-      .mockResolvedValueOnce({ syncStatus: "CANCELLED" })
-      .mockResolvedValueOnce({ syncStatus: "SYNCED" });
+    asMock(syncAgendaVisitaToCalendar).mockResolvedValue({ syncStatus: "SYNCED" });
 
     const result = await reprogramAgendaVisita(
       "tenant-1",
@@ -139,21 +133,9 @@ describe("agenda de equipo", () => {
       "user-2",
     );
 
-    expect(syncAgendaVisitaToCalendar).toHaveBeenNthCalledWith(
-      1,
-      "tenant-1",
-      "visit-1",
-      "delete",
-    );
-    expect(prisma.agendaEventLink.updateMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: expect.objectContaining({
-          googleEventId: null,
-          googleCalendarId: null,
-          syncStatus: "PENDING",
-        }),
-      }),
-    );
+    expect(syncAgendaVisitaToCalendar).toHaveBeenCalledTimes(1);
+    expect(syncAgendaVisitaToCalendar).toHaveBeenCalledWith("tenant-1", "visit-1");
+    expect(prisma.agendaEventLink.updateMany).not.toHaveBeenCalled();
     expect(prisma.agendaVisita.update).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({ assignedUserId: "user-2" }),

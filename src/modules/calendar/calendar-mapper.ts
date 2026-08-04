@@ -7,8 +7,10 @@ import { prisma } from "@/lib/prisma";
 import { createCalendarEvent } from "./calendar.service";
 import { setEventOwner } from "./calendar-participants";
 import { recordCalendarAudit } from "./calendar-audit";
+import { labelToKindSlug } from "./calendar-label";
 
-export function kindFromVisitaType(type: string): string {
+export function kindFromVisitaType(type: string, label?: string | null): string {
+  if (label?.trim()) return labelToKindSlug(label);
   if (type === "cliente") return "visita_cliente";
   if (type === "supervision") return "supervision";
   if (type === "tecnica") return "visita_tecnica";
@@ -27,12 +29,14 @@ type VisitaLike = {
   tenantId: string;
   type: string;
   title: string;
+  label?: string | null;
   accountId: string | null;
   installationId: string | null;
   dealId: string | null;
   assignedUserId: string;
   startAt: Date;
   endAt: Date;
+  allDay?: boolean;
   notes: string | null;
   customAddress: string | null;
   lat: number | null;
@@ -52,7 +56,8 @@ export async function mirrorVisitaToV2(
   opts?: { allDay?: boolean },
 ): Promise<void> {
   try {
-    const allDay = opts?.allDay === true;
+    const allDay =
+      opts?.allDay !== undefined ? opts.allDay === true : visita.allDay === true;
     const existing = await prisma.calendarEvent.findFirst({
       where: { id: visita.id, tenantId: visita.tenantId },
       select: { id: true },
@@ -63,7 +68,7 @@ export async function mirrorVisitaToV2(
         tenantId: visita.tenantId,
         createdBy: visita.createdBy,
         id: visita.id,
-        kind: kindFromVisitaType(visita.type),
+        kind: kindFromVisitaType(visita.type, visita.label),
         title: visita.title,
         description: visita.notes,
         location: visita.customAddress,
@@ -91,13 +96,14 @@ export async function mirrorVisitaToV2(
       where: { id: visita.id },
       data: {
         title: visita.title,
+        kind: kindFromVisitaType(visita.type, visita.label),
         description: visita.notes,
         location: visita.customAddress,
         lat: visita.lat,
         lng: visita.lng,
         startAt: visita.startAt,
         endAt: visita.endAt,
-        ...(opts?.allDay !== undefined ? { allDay } : {}),
+        allDay,
         status: STATUS_MAP[visita.status] ?? "confirmed",
         version: { increment: 1 },
       },

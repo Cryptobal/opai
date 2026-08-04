@@ -14,6 +14,7 @@ import { CHILE_TZ } from "@/lib/dates-cl";
 import { dateAtChileSlot } from "../agenda-calendar-utils";
 import { hhmmChile, TYPE_LABELS } from "./agenda-mobile-utils";
 import { ContextBlock, ParticipantsBlock, type DetailExternal, type DetailParticipant } from "./AgendaDetailBlocks";
+import { EditEventDialog } from "../evento/EditEventDialog";
 
 type VisitaDetail = {
   visita: {
@@ -45,6 +46,7 @@ export function AgendaDetailSheet({ visitaId, onClose, onChanged }: Props) {
   const [detail, setDetail] = useState<VisitaDetail | null>(null);
   const [snap, setSnap] = useState<"half" | "full">("half");
   const [confirmCancel, setConfirmCancel] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
   const [reprogramOpen, setReprogramOpen] = useState(false);
   const [newDate, setNewDate] = useState("");
   const [newTime, setNewTime] = useState("");
@@ -186,6 +188,16 @@ export function AgendaDetailSheet({ visitaId, onClose, onChanged }: Props) {
             <button
               type="button"
               disabled={busy}
+              onClick={() => setEditOpen(true)}
+              className="h-11 flex-1 rounded-xl border border-ds-border-default text-[13px] font-medium text-ds-text-1 ds-tap"
+            >
+              Editar
+            </button>
+          )}
+          {v && (
+            <button
+              type="button"
+              disabled={busy}
               onClick={() => {
                 const local = new Date(v.startAt).toLocaleString("sv-SE", { timeZone: CHILE_TZ });
                 setNewDate(local.slice(0, 10));
@@ -291,6 +303,17 @@ export function AgendaDetailSheet({ visitaId, onClose, onChanged }: Props) {
           </div>
         </DialogContent>
       </Dialog>
+
+      <EditEventDialog
+        eventId={visitaId}
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        onSaved={() => {
+          onChanged();
+          setEditOpen(false);
+          onClose();
+        }}
+      />
     </div>
   );
 }

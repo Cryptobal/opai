@@ -43,15 +43,39 @@ export async function requireAgendaAccess(): Promise<AgendaAuthResult> {
 const PRIVILEGED_ROLES = new Set(["owner", "admin"]);
 
 /**
- * Mutar (reprogramar/completar/cancelar) una visita requiere ser su creador,
- * su responsable asignado, o tener rol owner/admin en el tenant.
+ * Mutar (reprogramar/completar/cancelar/editar) una visita requiere ser su
+ * creador, su responsable asignado, participante organizer/owner, o rol
+ * owner/admin en el tenant.
  */
 export function canMutateVisita(
   ctx: AuthContext,
-  visita: { createdBy: string | null; assignedUserId: string | null },
+  visita: {
+    createdBy: string | null;
+    assignedUserId: string | null;
+    /** Roles de CalendarEventParticipant del actor (si se consultaron). */
+    participantRoles?: string[] | null;
+  },
 ): boolean {
   if (PRIVILEGED_ROLES.has(ctx.userRole)) return true;
-  return ctx.userId === visita.createdBy || ctx.userId === visita.assignedUserId;
+  if (ctx.userId === visita.createdBy || ctx.userId === visita.assignedUserId) {
+    return true;
+  }
+  const roles = visita.participantRoles ?? [];
+  return roles.some((r) => r === "organizer" || r === "owner");
+}
+
+/** Carga roles de participante del actor para extender canMutateVisita. */
+export async function loadParticipantRolesForActor(
+  tenantId: string,
+  eventId: string,
+  userId: string,
+): Promise<string[]> {
+  const { prisma } = await import("@/lib/prisma");
+  const rows = await prisma.calendarEventParticipant.findMany({
+    where: { tenantId, eventId, userId },
+    select: { role: true },
+  });
+  return rows.map((r) => r.role);
 }
 
 export function visitaForbidden(): NextResponse {

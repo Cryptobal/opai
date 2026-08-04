@@ -1,12 +1,18 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { dateAtChileSlot } from "../agenda-calendar-utils";
-import type { AccountOption, TeamMember, VisitType } from "./types";
+import { toZonedTime } from "date-fns-tz";
+import { CHILE_TZ } from "@/lib/dates-cl";
+import type { EventoFormValue, TenantUser } from "../evento/EventoFormFields";
+import type { AccountOption, VisitType } from "./types";
 
 export type FormState = {
   type: VisitType;
   title: string;
+  label: string;
+  allDay: boolean;
+  participantIds: string[];
+  externalEmails: Array<{ email: string; name?: string }>;
   account: AccountOption | null;
   installationId: string;
   customAddress: string;
@@ -23,9 +29,22 @@ export type FormState = {
   slackReminder: boolean;
 };
 
+function localParts(iso: string): { date: string; time: string } {
+  const d = toZonedTime(new Date(iso), CHILE_TZ);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return {
+    date: `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`,
+    time: `${pad(d.getHours())}:${pad(d.getMinutes())}`,
+  };
+}
+
 const emptyForm = (installationId?: string | null): FormState => ({
   type: "cliente",
   title: "",
+  label: "",
+  allDay: false,
+  participantIds: [],
+  externalEmails: [],
   account: null,
   installationId: installationId ?? "",
   customAddress: "",
@@ -42,17 +61,81 @@ const emptyForm = (installationId?: string | null): FormState => ({
   slackReminder: true,
 });
 
+export function formToEventoValue(
+  form: FormState,
+  dealId?: string | null,
+): EventoFormValue {
+  return {
+    title: form.title,
+    label: form.label,
+    date: form.date,
+    time: form.time,
+    durationMin: form.durationMin,
+    allDay: form.allDay,
+    address: form.installationId ? null : form.customAddress || null,
+    lat: form.installationId ? null : form.lat,
+    lng: form.installationId ? null : form.lng,
+    notes: form.notes,
+    assignedUserId: form.assignedUserId,
+    participantIds: form.participantIds,
+    externalEmails: form.externalEmails,
+    contactIds: form.contactIds,
+    syncGoogle: form.createEvent,
+    notifyOpai: form.inviteContacts,
+    slackReminderPrevDay: form.slackReminder,
+    accountId: form.account?.id ?? null,
+    installationId: form.installationId || null,
+    dealId: dealId ?? null,
+  };
+}
+
+export function eventoPatchToForm(
+  patch: Partial<EventoFormValue>,
+  form: FormState,
+): FormState {
+  const next = { ...form };
+  if (patch.title !== undefined) next.title = patch.title;
+  if (patch.label !== undefined) next.label = patch.label;
+  if (patch.allDay !== undefined) next.allDay = patch.allDay;
+  if (patch.participantIds !== undefined) next.participantIds = patch.participantIds;
+  if (patch.externalEmails !== undefined) next.externalEmails = patch.externalEmails;
+  if (patch.date !== undefined) next.date = patch.date;
+  if (patch.time !== undefined) next.time = patch.time;
+  if (patch.durationMin !== undefined) next.durationMin = patch.durationMin;
+  if (patch.notes !== undefined) next.notes = patch.notes;
+  if (patch.assignedUserId !== undefined) next.assignedUserId = patch.assignedUserId;
+  if (patch.contactIds !== undefined) next.contactIds = patch.contactIds ?? [];
+  if (patch.syncGoogle !== undefined) next.createEvent = patch.syncGoogle;
+  if (patch.notifyOpai !== undefined) next.inviteContacts = patch.notifyOpai;
+  if (patch.slackReminderPrevDay !== undefined) next.slackReminder = patch.slackReminderPrevDay;
+  if (patch.accountId !== undefined) {
+    if (patch.accountId === null) {
+      next.account = null;
+    } else if (form.account?.id !== patch.accountId) {
+      next.account = { id: patch.accountId, name: patch.accountId, rut: null };
+    }
+  }
+  if (patch.installationId !== undefined) next.installationId = patch.installationId ?? "";
+  if (patch.address !== undefined) next.customAddress = patch.address ?? "";
+  if (patch.lat !== undefined) next.lat = patch.lat;
+  if (patch.lng !== undefined) next.lng = patch.lng;
+  return next;
+}
+
 export function useNuevaVisita(props: {
   open: boolean;
   dealId?: string | null;
   accountId?: string | null;
   installationId?: string | null;
+  editEventId?: string | null;
   onOpenChange: (v: boolean) => void;
   onCreated?: () => void;
 }) {
-  const { open, dealId, accountId, installationId, onOpenChange, onCreated } = props;
+  const { open, dealId, accountId, installationId, editEventId, onOpenChange, onCreated } =
+    props;
   const [form, setForm] = useState<FormState>(emptyForm(installationId));
-  const [team, setTeam] = useState<TeamMember[]>([]);
+  const [users, setUsers] = useState<TenantUser[]>([]);
+  const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -60,89 +143,182 @@ export function useNuevaVisita(props: {
     setForm((f) => ({ ...f, [key]: value }));
   }, []);
 
+  const applyEventoPatch = useCallback((patch: Partial<EventoFormValue>) => {
+    setForm((f) => eventoPatchToForm(patch, f));
+  }, []);
+
   useEffect(() => {
     if (!open) return;
-    setForm(emptyForm(installationId));
     setError(null);
-    // Estado de calendario del equipo + prefs para defaults de toggles.
+
+    if (!editEventId) {
+      setForm(emptyForm(installationId));
+    }
+
+    fetch("/api/crm/users")
+      .then((r) => r.json())
+      .then((json) => {
+        const list: TenantUser[] = (json.data?.users ?? []).map(
+          (u: { id: string; name: string; email?: string }) => ({
+            id: u.id,
+            name: u.name,
+            email: u.email,
+          }),
+        );
+        setUsers(list);
+        if (!editEventId) {
+          setForm((f) => ({
+            ...f,
+            assignedUserId: f.assignedUserId || list[0]?.id || "",
+          }));
+        }
+      })
+      .catch(() => undefined);
+
     fetch("/api/integrations/google-calendar/status")
       .then((r) => r.json())
       .then((j) => {
-        const list: TeamMember[] = j.team ?? [];
         const prefs = j.prefs ?? {};
-        setTeam(list);
-        setForm((f) => ({
-          ...f,
-          assignedUserId: f.assignedUserId || list[0]?.userId || "",
-          inviteContacts: prefs.inviteContacts !== false,
-          slackReminder: prefs.slackReminderPrevDay !== false,
-        }));
+        if (!editEventId) {
+          setForm((f) => ({
+            ...f,
+            inviteContacts: prefs.inviteContacts !== false,
+            slackReminder: prefs.slackReminderPrevDay !== false,
+          }));
+        }
       })
       .catch(() => undefined);
-    // Nombre de la cuenta prefijada (para mostrarla bloqueada).
-    if (accountId) {
+
+    if (!editEventId && accountId) {
       fetch(`/api/agenda/cuentas?id=${accountId}`)
         .then((r) => r.json())
         .then((j) => setForm((f) => ({ ...f, account: j.items?.[0] ?? null })))
         .catch(() => undefined);
     }
-  }, [open, accountId, installationId]);
+
+    if (editEventId) {
+      setLoading(true);
+      fetch(`/api/calendar/events/${editEventId}`)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((data) => {
+          if (!data?.visita) return;
+          const v = data.visita;
+          const parts = localParts(v.startAt);
+          const durationMin = Math.max(
+            15,
+            Math.round(
+              (new Date(v.endAt).getTime() - new Date(v.startAt).getTime()) / 60_000,
+            ),
+          );
+          const contactIds = Array.isArray(v.contactIds) ? (v.contactIds as string[]) : [];
+          setForm({
+            type: (["cliente", "supervision", "otra"].includes(v.type)
+              ? v.type
+              : "otra") as VisitType,
+            title: v.title ?? "",
+            label: v.label ?? "",
+            allDay: v.allDay === true,
+            participantIds: (data.v2?.participants ?? []).map(
+              (p: { userId: string }) => p.userId,
+            ),
+            externalEmails: (data.v2?.externals ?? []).map(
+              (e: { email: string; name?: string | null }) => ({
+                email: e.email,
+                name: e.name ?? undefined,
+              }),
+            ),
+            account: v.account
+              ? { id: v.account.id, name: v.account.name, rut: null }
+              : null,
+            installationId: v.installationId ?? "",
+            customAddress: v.customAddress ?? "",
+            lat: v.lat ?? null,
+            lng: v.lng ?? null,
+            date: parts.date,
+            time: v.allDay ? "" : parts.time,
+            durationMin,
+            assignedUserId: v.assignedUserId ?? "",
+            contactIds,
+            notes: v.notes ?? "",
+            createEvent: true,
+            inviteContacts: true,
+            slackReminder: true,
+          });
+        })
+        .catch(() => setError("No se pudo cargar el evento"))
+        .finally(() => setLoading(false));
+    }
+  }, [open, accountId, installationId, editEventId]);
 
   const accId = form.account?.id ?? null;
-  const tecnicaBlocked = form.type === "tecnica" && (!accId || !form.installationId);
-  const canSubmit = Boolean(form.assignedUserId && form.date && form.time) && !tecnicaBlocked;
+  const canSubmit =
+    Boolean(form.assignedUserId && form.date && (form.allDay || form.time)) && !loading;
 
   const submit = useCallback(async () => {
     if (!canSubmit) return;
-    // Ancla la fecha/hora elegida a America/Santiago, no a la TZ del navegador.
-    const [hh, mm] = form.time.split(":").map(Number);
-    const startAt = dateAtChileSlot(form.date, hh * 60 + mm);
-    const endAt = new Date(startAt.getTime() + form.durationMin * 60_000);
     setSaving(true);
     setError(null);
+    const body = {
+      type: form.type,
+      title: form.title || form.label || "Evento",
+      label: form.label || null,
+      date: form.date,
+      time: form.time || "09:00",
+      allDay: form.allDay,
+      durationMin: form.durationMin,
+      notes: form.notes || null,
+      accountId: accId,
+      installationId: form.installationId || null,
+      customAddress: form.installationId ? null : form.customAddress || null,
+      address: form.installationId ? null : form.customAddress || null,
+      lat: form.installationId ? null : form.lat,
+      lng: form.installationId ? null : form.lng,
+      dealId: dealId || null,
+      contactIds: form.contactIds.length ? form.contactIds : null,
+      assignedUserId: form.assignedUserId,
+      participantIds: form.participantIds,
+      externalEmails: form.externalEmails,
+      syncGoogle: form.createEvent,
+      notifyOpai: form.inviteContacts,
+      slackReminderPrevDay: form.slackReminder,
+    };
     try {
-      const res = await fetch("/api/agenda/visitas", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          type: form.type,
-          title: form.title || `Visita ${form.type}`,
-          assignedUserId: form.assignedUserId,
-          startAt: startAt.toISOString(),
-          endAt: endAt.toISOString(),
-          notes: form.notes || null,
-          accountId: accId,
-          installationId: form.installationId || null,
-          customAddress: form.installationId ? null : form.customAddress || null,
-          lat: form.installationId ? null : form.lat,
-          lng: form.installationId ? null : form.lng,
-          dealId: dealId || null,
-          contactIds: form.contactIds.length ? form.contactIds : null,
-          syncCalendar: form.createEvent,
-          inviteContacts: form.inviteContacts,
-          slackReminderPrevDay: form.slackReminder,
-        }),
-      });
+      const res = editEventId
+        ? await fetch(`/api/calendar/events/${editEventId}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+          })
+        : await fetch("/api/calendar/events", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+          });
       const json = await res.json();
       if (!res.ok) {
-        setError(json.error || "No se pudo crear la visita");
+        setError(json.error || "No se pudo guardar el evento");
         return;
       }
-      const status = json.sync?.syncStatus ?? "PENDING";
       const { toast } = await import("sonner");
-      toast.success(
-        status === "SKIPPED"
-          ? "Visita creada (sin evento de calendario)."
-          : status === "PENDING"
-            ? "Visita creada — se sincronizará cuando el asignado conecte Calendar."
-            : "Visita creada y evento de calendario creado.",
-      );
+      toast.success(editEventId ? "Evento actualizado" : "Evento agendado");
       onCreated?.();
       onOpenChange(false);
     } finally {
       setSaving(false);
     }
-  }, [canSubmit, form, accId, dealId, onCreated, onOpenChange]);
+  }, [canSubmit, form, accId, dealId, editEventId, onCreated, onOpenChange]);
 
-  return { form, set, setForm, team, saving, error, tecnicaBlocked, canSubmit, submit };
+  return {
+    form,
+    set,
+    setForm,
+    users,
+    loading,
+    saving,
+    error,
+    canSubmit,
+    submit,
+    applyEventoPatch,
+    eventoValue: formToEventoValue(form, dealId),
+  };
 }

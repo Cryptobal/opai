@@ -4,6 +4,7 @@ import type { PlanMilestone } from "@/modules/crm/email/email-to-crm-structure.t
 
 function base(partial: Partial<PlanMilestone> = {}): PlanMilestone {
   return {
+    id: "test-milestone-id",
     kind: "consultas",
     date: "2026-08-17",
     time: "09:00",

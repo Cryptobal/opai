@@ -2,14 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAgendaAccess } from "@/lib/api-auth-agenda";
 import { auditAgendaAction } from "@/lib/audit-productividad";
 import { dateAtChileSlot } from "@/components/agenda/agenda-calendar-utils";
-import { createAgendaEventWithPeople } from "@/modules/agenda/deal-milestones";
+import {
+  createOpaiEvent,
+  OpaiEventValidationError,
+} from "@/modules/calendar/calendar-write";
 
 const LEGACY_TYPES = new Set(["cliente", "supervision", "otra"]);
 
 /**
- * POST /api/calendar/events — creación desde el composer móvil (B12).
- * Crea la visita legacy + participantes; sync Google por UN solo camino
- * (vía createAgendaEventWithPeople, compartido con hitos del Plan).
+ * POST /api/calendar/events — único punto de creación de eventos OPAI.
  */
 export async function POST(request: NextRequest) {
   const access = await requireAgendaAccess();
@@ -19,20 +20,43 @@ export async function POST(request: NextRequest) {
   const body = await request.json();
   const rawType = String(body.type ?? "otra");
   const type = rawType === "reunion" ? "otra" : rawType;
-  if (type !== "tecnica" && !LEGACY_TYPES.has(type)) {
+  if (type === "tecnica") {
+    return NextResponse.json(
+      {
+        error:
+          "Las visitas técnicas de supervisor se solicitan desde cotización (CPQ), no desde la agenda",
+      },
+      { status: 400 },
+    );
+  }
+  if (!LEGACY_TYPES.has(type)) {
     return NextResponse.json({ error: "Tipo inválido" }, { status: 400 });
   }
+
   const date = String(body.date ?? "");
   const [hh, mm] = String(body.time ?? "09:00").split(":").map(Number);
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(hh) || Number.isNaN(mm)) {
-    return NextResponse.json({ error: "Fecha/hora inválida" }, { status: 400 });
+  const hasIso =
+    typeof body.startAt === "string" && !Number.isNaN(new Date(body.startAt).getTime());
+
+  let startAt: Date;
+  let endAt: Date;
+  let allDay = body.allDay === true;
+
+  if (hasIso) {
+    startAt = new Date(body.startAt);
+    endAt = body.endAt
+      ? new Date(body.endAt)
+      : new Date(startAt.getTime() + 60 * 60_000);
+  } else {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(hh) || Number.isNaN(mm)) {
+      return NextResponse.json({ error: "Fecha/hora inválida" }, { status: 400 });
+    }
+    const durationMin = Math.max(15, Math.min(24 * 60, Number(body.durationMin) || 60));
+    startAt = dateAtChileSlot(date, allDay ? 0 : hh * 60 + mm);
+    endAt = allDay
+      ? dateAtChileSlot(date, 24 * 60 - 1)
+      : new Date(startAt.getTime() + durationMin * 60_000);
   }
-  const allDay = body.allDay === true;
-  const durationMin = Math.max(15, Math.min(24 * 60, Number(body.durationMin) || 60));
-  const startAt = dateAtChileSlot(date, allDay ? 0 : hh * 60 + mm);
-  const endAt = allDay
-    ? dateAtChileSlot(date, 24 * 60 - 1)
-    : new Date(startAt.getTime() + durationMin * 60_000);
 
   const participantIds: string[] = Array.isArray(body.participantIds)
     ? body.participantIds.filter((v: unknown): v is string => typeof v === "string")
@@ -44,69 +68,64 @@ export async function POST(request: NextRequest) {
         (e: { email?: unknown }) => typeof e?.email === "string" && e.email.includes("@"),
       )
     : [];
+  const contactIds: string[] = Array.isArray(body.contactIds)
+    ? body.contactIds.filter((v: unknown): v is string => typeof v === "string")
+    : [];
 
-  if (type === "tecnica") {
-    if (!body.accountId || !body.installationId) {
-      return NextResponse.json(
-        { error: "Visita técnica requiere cuenta e instalación" },
-        { status: 400 },
-      );
-    }
-    const { createVisitaTecnicaFromAgenda } = await import(
-      "@/modules/agenda/agenda.service"
-    );
-    const result = await createVisitaTecnicaFromAgenda({
+  try {
+    const result = await createOpaiEvent({
       tenantId: ctx.tenantId,
-      assignedUserId: typeof body.ownerId === "string" ? body.ownerId : ctx.userId,
-      accountId: body.accountId,
-      installationId: body.installationId,
-      dealId: body.dealId ?? null,
+      actorUserId: ctx.userId,
+      type: type as "cliente" | "supervision" | "otra",
+      title: String(body.title || "Nuevo evento"),
+      label: typeof body.label === "string" ? body.label : null,
+      assignedUserId:
+        typeof body.assignedUserId === "string"
+          ? body.assignedUserId
+          : typeof body.ownerId === "string"
+            ? body.ownerId
+            : ctx.userId,
       startAt,
+      endAt,
+      allDay,
       notes: body.notes ?? null,
+      address: body.customAddress ?? body.address ?? null,
+      lat: typeof body.lat === "number" ? body.lat : null,
+      lng: typeof body.lng === "number" ? body.lng : null,
+      accountId: body.accountId ?? null,
+      installationId: body.installationId ?? null,
+      dealId: body.dealId ?? null,
+      participantIds,
+      externalEmails: externals,
+      contactIds,
+      syncGoogle: body.syncGoogle !== false && body.syncCalendar !== false,
+      notifyOpai: body.notifyOpai !== false,
+      slackReminderPrevDay: body.slackReminderPrevDay === true,
     });
+
     void auditAgendaAction({
       tenantId: ctx.tenantId,
       userId: ctx.userId,
       userEmail: ctx.userEmail,
       action: "created",
-      visitaId: result.visita.id,
-      meta: { title: "Visita técnica", type: "tecnica" },
+      visitaId: result.eventId,
+      meta: { title: result.visita.title, type: result.visita.type, label: result.visita.label },
       request,
     });
+
     return NextResponse.json(
-      { visita: result.visita, syncStatus: result.sync.syncStatus },
+      {
+        visita: result.visita,
+        syncStatus: result.syncStatus,
+        htmlLink: result.htmlLink,
+        eventId: result.eventId,
+      },
       { status: 201 },
     );
+  } catch (err) {
+    if (err instanceof OpaiEventValidationError) {
+      return NextResponse.json({ error: err.message }, { status: 400 });
+    }
+    throw err;
   }
-
-  const { visita, syncStatus } = await createAgendaEventWithPeople({
-    tenantId: ctx.tenantId,
-    actorUserId: typeof body.ownerId === "string" ? body.ownerId : ctx.userId,
-    type: type as "cliente" | "supervision" | "otra",
-    title: String(body.title || "Nuevo evento"),
-    accountId: body.accountId ?? null,
-    installationId: body.installationId ?? null,
-    dealId: body.dealId ?? null,
-    startAt,
-    endAt,
-    allDay,
-    notes: body.notes ?? null,
-    customAddress: body.customAddress ?? null,
-    participantIds,
-    externalEmails: externals,
-    syncGoogle: body.syncGoogle !== false,
-    notifyOpai: body.notifyOpai !== false,
-  });
-
-  void auditAgendaAction({
-    tenantId: ctx.tenantId,
-    userId: ctx.userId,
-    userEmail: ctx.userEmail,
-    action: "created",
-    visitaId: visita.id,
-    meta: { title: visita.title, type: visita.type },
-    request,
-  });
-
-  return NextResponse.json({ visita, syncStatus }, { status: 201 });
 }

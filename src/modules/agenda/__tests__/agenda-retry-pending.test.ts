@@ -5,7 +5,6 @@ const mocks = vi.hoisted(() => ({
   findMany: vi.fn(),
   syncVisita: vi.fn(),
   syncLic: vi.fn(),
-  isV2: vi.fn(() => false),
   retryV2: vi.fn(),
 }));
 
@@ -23,10 +22,6 @@ vi.mock("../agenda-sync-licitacion", () => ({
   syncLicitacionToCalendar: (...args: unknown[]) => mocks.syncLic(...args),
 }));
 
-vi.mock("@/modules/calendar/calendar-flags", () => ({
-  isCalendarV2Enabled: () => mocks.isV2(),
-}));
-
 vi.mock("@/modules/calendar/calendar-retry-pending", () => ({
   retryPendingCalendarV2Links: (...args: unknown[]) => mocks.retryV2(...args),
 }));
@@ -38,7 +33,7 @@ describe("retryPendingAgendaLinks", () => {
     vi.clearAllMocks();
     mocks.syncVisita.mockResolvedValue({ syncStatus: "SYNCED" });
     mocks.syncLic.mockResolvedValue({ syncStatus: "SYNCED" });
-    mocks.isV2.mockReturnValue(false);
+    mocks.retryV2.mockResolvedValue({ retried: 0 });
   });
 
   it("incluye ERROR por disconnect además de PENDING", async () => {

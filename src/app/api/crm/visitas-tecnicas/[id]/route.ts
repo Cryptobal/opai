@@ -126,6 +126,11 @@ export async function DELETE(
       );
     }
 
+    // Limpiar vínculo huérfano de agenda (histórico; ya no se sincroniza a Google).
+    await prisma.agendaEventLink.deleteMany({
+      where: { tenantId, sourceType: "visita_tecnica", sourceId: id },
+    });
+
     await prisma.opsVisitaTecnica.delete({
       where: { id },
     });

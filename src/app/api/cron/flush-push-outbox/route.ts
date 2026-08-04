@@ -89,13 +89,10 @@ export async function GET(req: NextRequest) {
   // Recordatorios de agenda v2 (60 min antes) — mismo cron por correr cada minuto.
   let agendaReminders = 0;
   try {
-    const [{ isCalendarV2Enabled }, { sendCalendarEventReminders }] = await Promise.all([
-      import("@/modules/calendar/calendar-flags"),
-      import("@/modules/calendar/calendar-notify"),
-    ]);
-    if (isCalendarV2Enabled()) {
-      agendaReminders = (await sendCalendarEventReminders(now)).notified;
-    }
+    const { sendCalendarEventReminders } = await import(
+      "@/modules/calendar/calendar-notify"
+    );
+    agendaReminders = (await sendCalendarEventReminders(now)).notified;
   } catch (err) {
     console.error("[flush-push-outbox] agenda reminders failed", err);
   }

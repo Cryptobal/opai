@@ -263,7 +263,6 @@ export function CpqQuoteDetail({
     scheduledAt: string;
     quoteCode?: string;
     puestosDetail?: Array<{ name: string; cargo?: string | null; numGuards: number; numPuestos: number; startTime?: string | null; endTime?: string | null }>;
-    googleCalendarUrl?: string;
   } | null>(null);
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
   const [savingFinancials, setSavingFinancials] = useState(false);
@@ -2773,14 +2772,13 @@ export function CpqQuoteDetail({
             scheduledAt: data.scheduledAt,
             quoteCode: data.quoteCode,
             puestosDetail: data.puestosDetail,
-            googleCalendarUrl: data.googleCalendarUrl,
           });
           setVisitaTecnicaWaModalOpen(true);
           refresh();
         }}
       />
 
-      {/* ── Modal WhatsApp + Google Calendar post visita técnica ── */}
+      {/* ── Modal WhatsApp post visita técnica ── */}
       <Dialog open={visitaTecnicaWaModalOpen} onOpenChange={setVisitaTecnicaWaModalOpen}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
@@ -2799,19 +2797,6 @@ export function CpqQuoteDetail({
                 )}
               </p>
 
-              {/* Google Calendar */}
-              {visitaTecnicaWaData.googleCalendarUrl && (
-                <Button
-                  className="w-full gap-2"
-                  variant="outline"
-                  onClick={() => {
-                    window.open(visitaTecnicaWaData.googleCalendarUrl!, "_blank");
-                  }}
-                >
-                  <CalendarDays className="h-4 w-4 text-status-info-fg" />
-                  Agregar a Google Calendar
-                </Button>
-              )}
               {visitaWaResolved && (
                 <div className="rounded-lg border border-status-ok-border bg-status-ok-soft/30 p-3 space-y-2">
                   <p className="text-xs font-semibold text-status-ok-fg uppercase tracking-wide">Mensaje prellenado</p>

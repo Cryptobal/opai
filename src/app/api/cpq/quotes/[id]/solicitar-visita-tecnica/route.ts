@@ -136,13 +136,6 @@ export async function POST(
       },
     });
 
-    // Sync Google Calendar (best-effort; no bloquea el flujo CPQ).
-    void import("@/modules/agenda/agenda-sync").then(({ syncVisitaTecnicaToCalendar }) =>
-      syncVisitaTecnicaToCalendar(ctx.tenantId, visita.id).catch((err) =>
-        console.warn("[solicitar-visita-tecnica] calendar sync:", err),
-      ),
-    );
-
     // Construir link Google Maps
     const { installation } = quote;
     const mapsUrl = installation.address
@@ -231,39 +224,6 @@ export async function POST(
       createdBy: ctx.userId,
     });
 
-    // Construir URL de Google Calendar
-    const startDate = new Date(scheduledAt);
-    const endDate = new Date(startDate.getTime() + 90 * 60 * 1000); // 1.5h duración
-    const formatGCalDate = (d: Date) => d.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
-    const gcalDates = `${formatGCalDate(startDate)}/${formatGCalDate(endDate)}`;
-
-    const puestosLines = puestosDetail.map((p) =>
-      `• ${p.name}${p.cargo ? ` — ${p.cargo}` : ""}: ${p.numGuards} guardia${p.numGuards !== 1 ? "s" : ""} · ${p.startTime}–${p.endTime}`
-    ).join("\n");
-    const gcalDetails = [
-      `Cotización: ${quote.code}`,
-      "",
-      "Dotación solicitada:",
-      puestosLines,
-      "",
-      contactName ? `Contacto: ${contactName}` : "",
-      contactPhone ? `Teléfono: ${contactPhone}` : "",
-      "",
-      `Supervisores notificados: ${allSupervisors.map((s) => s.name).join(", ")}`,
-      "",
-      `Mis visitas: ${portalUrl}`,
-    ].filter(Boolean).join("\n");
-
-    const gcalGuests = allSupervisors.map((s) => s.email).join(",");
-
-    const googleCalendarUrl = new URL("https://calendar.google.com/calendar/render");
-    googleCalendarUrl.searchParams.set("action", "TEMPLATE");
-    googleCalendarUrl.searchParams.set("text", `Visita Técnica — ${installation.name}`);
-    googleCalendarUrl.searchParams.set("dates", gcalDates);
-    googleCalendarUrl.searchParams.set("details", gcalDetails);
-    if (installation.address) googleCalendarUrl.searchParams.set("location", installation.address);
-    googleCalendarUrl.searchParams.set("add", gcalGuests);
-
     return NextResponse.json({
       success: true,
       data: {
@@ -280,7 +240,6 @@ export async function POST(
         quoteCode: quote.code,
         puestosDetail,
         emailSent: anyEmailSent,
-        googleCalendarUrl: googleCalendarUrl.toString(),
       },
     });
   } catch (error) {
