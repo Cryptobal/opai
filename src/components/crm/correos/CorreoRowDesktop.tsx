@@ -3,6 +3,7 @@
 import { Paperclip, Sparkles, Star } from "lucide-react";
 import type { CorreoThreadDTO } from "@/modules/crm/email/correos.types";
 import { CorreoCheckbox } from "./CorreoCheckbox";
+import { CorreoDraftLabel } from "./CorreoDraftLabel";
 import { CorreoSenderAvatar } from "./CorreoSenderAvatar";
 import { parseSender } from "./correo-sender";
 import { formatGmailDateChile } from "@/modules/crm/email/gmail-date-format";
@@ -155,8 +156,9 @@ export function CorreoRowDesktop({
               onClick={onOpen}
               className="flex min-w-0 flex-1 items-center gap-2 text-left outline-none focus-visible:ring-0"
             >
-              <span className={`min-w-0 flex-1 truncate text-[13px] ${unread ? "font-semibold text-ds-text-1" : "text-ds-text-2"}`}>
-                {senderLabel}
+              <span className={`flex min-w-0 flex-1 items-center gap-1.5 truncate text-[13px] ${unread ? "font-semibold text-ds-text-1" : "text-ds-text-2"}`}>
+                <span className="min-w-0 truncate">{senderLabel}</span>
+                {thread.hasDraft ? <CorreoDraftLabel /> : null}
               </span>
               <span className={`flex-none text-[12px] tabular-nums ${unread ? "font-semibold text-primary" : "text-ds-text-4"}`}>
                 {thread.snoozedUntil
@@ -232,16 +234,17 @@ export function CorreoRowDesktop({
             className="flex h-full min-w-0 flex-1 items-center gap-3 text-left outline-none focus-visible:ring-0 focus-visible:ring-offset-0"
           >
             <span
-              className={`flex w-44 flex-none items-center gap-1.5 truncate text-[13px] ${
+              className={`flex w-44 flex-none items-center gap-1.5 text-[13px] ${
                 unread ? "font-semibold text-ds-text-1" : "text-ds-text-2"
               }`}
             >
-              <span className="min-w-0 truncate">
-                {senderLabel}
-                {thread.messageCount > 1 && (
-                  <span className="font-normal text-ds-text-4"> ({thread.messageCount})</span>
-                )}
-              </span>
+              <span className="min-w-0 truncate">{senderLabel}</span>
+              {thread.hasDraft ? <CorreoDraftLabel /> : null}
+              {thread.messageCount > 1 && (
+                <span className="shrink-0 font-normal text-ds-text-4">
+                  ({thread.messageCount})
+                </span>
+              )}
               {showMailbox && mailboxLabel && (
                 <span
                   className={`inline-flex h-5 shrink-0 items-center rounded-md px-1.5 text-[12px] font-medium ${

@@ -104,6 +104,24 @@ describe("CorreoRow (desktop denso)", () => {
     expect(account).toBeTruthy();
     expect(account.className).toMatch(/text-status-info-fg/);
   });
+
+  it("muestra etiqueta Borrador junto al remitente cuando hasDraft", () => {
+    const { container } = render(
+      <CorreoRow
+        thread={{ ...thread, hasDraft: true, messageCount: 5 }}
+        canModify={false}
+        onOpen={vi.fn()}
+      />,
+    );
+    expect(screen.getByText("Borrador")).toBeTruthy();
+    expect(container.querySelector("[data-correo-draft-label]")).toBeTruthy();
+    expect(screen.getByText("(5)")).toBeTruthy();
+  });
+
+  it("no muestra Borrador sin hasDraft", () => {
+    render(<CorreoRow thread={thread} canModify={false} onOpen={vi.fn()} />);
+    expect(screen.queryByText("Borrador")).toBeNull();
+  });
 });
 
 describe("CorreoRowMobile", () => {
@@ -140,5 +158,15 @@ describe("CorreoRowMobile", () => {
     const account = screen.getByText("Coexpan");
     expect(account).toBeTruthy();
     expect(account.className).toMatch(/text-status-info-fg/);
+  });
+
+  it("muestra etiqueta Borrador junto al remitente cuando hasDraft", () => {
+    render(
+      <CorreoRowMobile
+        thread={{ ...thread, hasDraft: true }}
+        onOpen={vi.fn()}
+      />,
+    );
+    expect(screen.getByText("Borrador")).toBeTruthy();
   });
 });
