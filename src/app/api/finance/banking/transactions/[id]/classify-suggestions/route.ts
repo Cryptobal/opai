@@ -85,7 +85,42 @@ export async function GET(
       select: { id: true, name: true },
     });
 
-    // Stub: payroll/DTE resolution queda para follow-up; cascada pura aún cubre TGR/regla/TE/NONE.
+    // DTE recibido pendiente por RUT emisor + monto ± tolerancia.
+    let dteReceived: { dteId: string; label: string } | null = null;
+    if (beneficiaryRut && amount < 0) {
+      const cfg = await prisma.financeCashflowConfig.findUnique({
+        where: { tenantId: ctx.tenantId },
+        select: { matchAmountToleranceClp: true },
+      });
+      const tol = cfg?.matchAmountToleranceClp ?? 5000;
+      const pending = await prisma.financeDte.findMany({
+        where: {
+          tenantId: ctx.tenantId,
+          direction: "RECEIVED",
+          paymentStatus: { in: ["UNPAID", "PARTIAL", "OVERDUE"] },
+          voidedByCreditNoteId: null,
+          issuerRut: { not: "" },
+        },
+        select: {
+          id: true, folio: true, issuerName: true, issuerRut: true,
+          totalAmount: true, amountPaid: true,
+        },
+        take: 200,
+      });
+      const hit = pending.find((d) => {
+        const rut = normalizeClassifyRut(d.issuerRut);
+        if (!rut || rut !== beneficiaryRut) return false;
+        const pendingClp = Number(d.totalAmount) - Number(d.amountPaid);
+        return Math.abs(pendingClp - amountAbs) <= tol;
+      });
+      if (hit) {
+        dteReceived = {
+          dteId: hit.id,
+          label: `${hit.issuerName ?? "Proveedor"} F°${hit.folio}`,
+        };
+      }
+    }
+
     const suggestions: ClassifySuggestion[] = rankClassifySuggestions({
       beneficiaryRut,
       amountAbs,
@@ -93,7 +128,7 @@ export async function GET(
       teRowId: teRow?.id ?? null,
       teRowLabel: teRow?.name,
       payrollItem: null,
-      dteReceived: null,
+      dteReceived,
     });
 
     return NextResponse.json({
@@ -149,27 +184,35 @@ export async function POST(
     }
 
     const row = await prisma.financeFlowRow.findFirst({
-      where: { id: body.flowRowId, tenantId: ctx.tenantId },
-      select: { id: true, name: true, section: true },
+      where: { id: body.flowRowId, tenantId: ctx.tenantId, archivedAt: null },
+      select: { id: true, name: true, section: true, categoryId: true },
     });
     if (!row) {
       return NextResponse.json({ success: false, error: "Fila no encontrada" }, { status: 404 });
     }
 
-    // Link INCOME/EXPENSE exige accountPlanId en bank-tx-link. Sin él,
-    // devolvemos confirmación tipada (UI quick-picks / regla follow-up).
-    if (!body.accountPlanId) {
-      return NextResponse.json({
-        success: true,
-        data: {
-          stub: true,
-          transactionId: tx.id,
-          flowRowId: row.id,
-          flowRowName: row.name,
-          message:
-            "Sugerencia aceptada. Pasá accountPlanId para crear el vínculo contable.",
+    // Resolver cuenta: body → categoría.accountPlanId → mapeo N:M primario.
+    let accountPlanId = body.accountPlanId ?? null;
+    if (!accountPlanId && row.categoryId) {
+      const cat = await prisma.financeCashflowCategory.findFirst({
+        where: { id: row.categoryId, tenantId: ctx.tenantId },
+        select: {
+          accountPlanId: true,
+          accountMappings: {
+            select: { accountPlanId: true, isPrimary: true },
+            orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }],
+            take: 1,
+          },
         },
       });
+      accountPlanId = cat?.accountPlanId ?? cat?.accountMappings[0]?.accountPlanId ?? null;
+    }
+    if (!accountPlanId) {
+      return NextResponse.json({
+        success: false,
+        error:
+          "La fila no tiene cuenta contable asociada. Asigná una categoría con cuenta o enviá accountPlanId.",
+      }, { status: 400 });
     }
 
     const amountAbs = Math.abs(Number(tx.amount));
@@ -183,7 +226,7 @@ export async function POST(
           targetType: isIncome ? "INCOME" : "EXPENSE",
           targetId: null,
           amount: amountAbs,
-          accountPlanId: body.accountPlanId,
+          accountPlanId,
           note:
             body.note ??
             `Clasificado a fila flujo: ${row.name} (${normalizeNameForDedupe(row.name)})`,

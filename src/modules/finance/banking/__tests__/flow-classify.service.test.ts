@@ -17,7 +17,7 @@ describe("normalizeClassifyRut / isTgrRut / isPersonaRut", () => {
   it("distingue persona (<50M) vs empresa", () => {
     expect(isPersonaRut("123456785")).toBe(true);
     expect(isPersonaRut("256609789")).toBe(true); // 25M persona
-    expect(isPersonaRut("760835072")).toBe(false); // 76M empresa
+    expect(isPersonaRut("761234567")).toBe(false); // 76M empresa (placeholder)
     expect(isPersonaRut(TGR_RUT)).toBe(false);
   });
 });

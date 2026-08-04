@@ -103,7 +103,7 @@ export const flowUfPolicySchema = z.enum([
 /** Egreso/financiamiento recurrente de plan (v5: N repeticiones, monto signado). */
 export const flowRecurringPlanCreateSchema = z
   .object({
-    rowId: z.string().uuid(),
+    rowId: z.string().uuid().optional(),
     /** CLP por ocurrencia. FINANCIAMIENTO acepta signo (− egreso / + ingreso). */
     amount: planAmount.optional().default(0),
     frequency: flowRecurrenceFrequencySchema,
@@ -123,6 +123,9 @@ export const flowRecurringPlanCreateSchema = z
         categoryId: z.string().uuid().nullish(),
       })
       .nullish(),
+  })
+  .refine((v) => !!v.rowId || !!v.newRow, {
+    message: "rowId o newRow requerido",
   })
   .refine((v) => !v.endDate || v.endDate >= v.startDate, {
     message: "endDate no puede ser anterior a startDate",
