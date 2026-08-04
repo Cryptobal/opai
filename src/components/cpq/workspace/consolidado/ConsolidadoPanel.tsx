@@ -7,7 +7,7 @@
  * auditoría consolidada.
  */
 
-import type { BundleDetail } from "@/components/cpq/bundle/useBundle";
+import type { BundleDetail, BundleMember } from "@/components/cpq/bundle/useBundle";
 import { ResumenSection } from "./ResumenSection";
 import { DatosPropuestaSection } from "./DatosPropuestaSection";
 import { BundleCondicionesSection } from "./BundleCondicionesSection";
@@ -26,6 +26,8 @@ export function ConsolidadoPanel({
   onOpenInstall,
   onAdd,
   onDuplicate,
+  onRequestUnlink,
+  onRequestDelete,
   auditRefreshKey,
 }: {
   bundle: BundleDetail;
@@ -36,6 +38,8 @@ export function ConsolidadoPanel({
   onOpenInstall: (quoteId: string) => void;
   onAdd: () => void;
   onDuplicate: (quoteId: string) => void;
+  onRequestUnlink: (member: BundleMember) => void;
+  onRequestDelete: (member: BundleMember) => void;
   /** Cambia tras cada acción para recargar la auditoría consolidada. */
   auditRefreshKey: unknown;
 }) {
@@ -49,6 +53,8 @@ export function ConsolidadoPanel({
         onOpenInstall={onOpenInstall}
         onAdd={onAdd}
         onDuplicate={onDuplicate}
+        onRequestUnlink={onRequestUnlink}
+        onRequestDelete={onRequestDelete}
       />
       <BundleCondicionesSection bundle={bundle} saving={saving} onPatch={onPatch} />
       <DatosPropuestaSection bundle={bundle} onPatch={onPatch} />

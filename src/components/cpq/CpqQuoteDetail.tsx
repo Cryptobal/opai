@@ -47,7 +47,6 @@ import type {
   CpqServiceGroup,
 } from "@/types/cpq";
 import { toast } from "sonner";
-import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { confirmDialog } from "@/components/ui/confirm-service";
 import {
   Dialog,
@@ -56,7 +55,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { ArrowLeft, ChevronDown, Copy, RefreshCw, Users, MoreVertical, Trash2, Loader2, Building2, Plus, MessageCircle, Send, CheckCircle2, Briefcase, Phone, PencilLine, CalendarDays, FileSignature, Eye, PanelRightClose, PanelRightOpen } from "lucide-react";
+import { ArrowLeft, ChevronDown, Copy, RefreshCw, Users, MoreVertical, Trash2, Loader2, Building2, Plus, MessageCircle, Send, CheckCircle2, Briefcase, Phone, PencilLine, CalendarDays, FileSignature, Eye, PanelRightClose, PanelRightOpen, Unlink } from "lucide-react";
 import { DatosSection } from "@/components/cpq/DatosSection";
 import MarginSection from "@/components/cpq/MarginSection";
 import { QuoteAttachmentsSection } from "@/components/cpq/QuoteAttachmentsSection";
@@ -91,6 +90,7 @@ import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { ConvertToBundleButton } from "@/components/cpq/workspace/ConvertToBundleButton";
 import { ControlCenterSheet, ControlCenterTrigger } from "@/components/cpq/workspace/ControlCenterSheet";
 import type { QuoteFormState, WorkspaceSectionId } from "@/components/cpq/workspace/types";
+import { useQuoteDeleteFlow } from "@/components/cpq/useQuoteDeleteFlow";
 
 type ActivityEvent = {
   id: string;
@@ -128,6 +128,12 @@ interface CpqQuoteDetailProps {
   mobileTotalClpOverride?: number | null;
   /** Notifica cambios guardados para refrescar totales del bundle (multi). */
   onQuoteSaved?: () => void;
+  /** Workspace: solicita eliminación de la cotización desde un contenedor padre. */
+  onRequestDelete?: (quoteId: string) => Promise<void> | void;
+  /** Workspace: solicita quitar la cotización de la propuesta sin eliminarla. */
+  onRequestUnlink?: (quoteId: string) => Promise<void> | void;
+  /** Permiso efectivo para mostrar/habilitar acciones destructivas. */
+  canDelete?: boolean;
 }
 
 type CrmInstallationOption = {
@@ -178,6 +184,9 @@ export function CpqQuoteDetail({
   mobileTabsSlot,
   mobileTotalClpOverride = null,
   onQuoteSaved,
+  onRequestDelete,
+  onRequestUnlink,
+  canDelete,
 }: CpqQuoteDetailProps) {
   const router = useRouter();
   const { resolve: resolveWaTemplate } = useWaTemplate();
@@ -233,9 +242,8 @@ export function CpqQuoteDetail({
   const [marginPct, setMarginPct] = useState(13);
   const [marginMode, setMarginMode] = useState<MarginMode>("margin_on_sale");
   const [cloning, setCloning] = useState(false);
-  const [deleting, setDeleting] = useState(false);
-  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [overflowMenuOpen, setOverflowMenuOpen] = useState(false);
+  const [embeddedMenuOpen, setEmbeddedMenuOpen] = useState(false);
   /** Sheet de acciones abierto desde el ⋮ de la barra sticky móvil. */
   const [stickyActionSheetOpen, setStickyActionSheetOpen] = useState(false);
   const [generatingContract, setGeneratingContract] = useState(false);
@@ -324,6 +332,12 @@ export function CpqQuoteDetail({
   const [serviceDetailInstruction, setServiceDetailInstruction] = useState("");
 
   const isLocked = quote?.status === "sent";
+  const canDeleteQuote = canDelete ?? true;
+  const {
+    deleting,
+    requestDeleteQuote,
+    requestUnlinkQuote,
+  } = useQuoteDeleteFlow();
 
   const portalListedEffective = useMemo(() => {
     if (!quote) return false;
@@ -1181,23 +1195,36 @@ export function CpqQuoteDetail({
   };
 
   const handleDelete = async () => {
-    setDeleting(true);
-    try {
-      const response = await fetch(`/api/cpq/quotes/${quoteId}`, {
-        method: "DELETE",
-      });
-      const data = await response.json();
-      if (!data.success) {
-        throw new Error(data.error || "Error");
-      }
-      toast.success("Cotizacion eliminada");
+    if (!canDeleteQuote || deleting) return;
+    if (onRequestDelete) {
+      await onRequestDelete(quoteId);
+      return;
+    }
+    const result = await requestDeleteQuote({
+      quoteId,
+      quoteLabel: quote?.name || quote?.code,
+    });
+    if (!result) return;
+    router.push("/crm/cotizaciones");
+    router.refresh();
+  };
+
+  const handleUnlinkFromBundle = async () => {
+    if (!bundleId || deleting) return;
+    if (onRequestUnlink) {
+      await onRequestUnlink(quoteId);
+      return;
+    }
+    const result = await requestUnlinkQuote({
+      bundleId,
+      quoteId,
+      quoteLabel: quote?.name || quote?.code,
+    });
+    if (!result) return;
+    if (result.bundleDeleted) {
       router.push("/crm/cotizaciones");
+    } else {
       router.refresh();
-    } catch (error) {
-      console.error("Error deleting quote:", error);
-      toast.error("No se pudo eliminar la cotizacion");
-    } finally {
-      setDeleting(false);
     }
   };
 
@@ -1823,6 +1850,68 @@ export function CpqQuoteDetail({
         />
       </div>
 
+      {embedded ? (
+        <div className="relative flex items-start justify-between gap-3 rounded-lg border border-ds-border-subtle bg-ds-surface-1 px-3 py-2">
+          <div className="min-w-0">
+            <p className="text-[12px] font-semibold uppercase tracking-wide text-ds-text-3">
+              Instalación
+            </p>
+            <h2 className="truncate font-display text-base text-foreground" title={quote.name || quote.code}>
+              {quote.name || quote.code}
+            </h2>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-10 shrink-0 gap-1.5 sm:h-9"
+            aria-label="Acciones de instalación"
+            onClick={() => setEmbeddedMenuOpen((v) => !v)}
+          >
+            <MoreVertical className="h-4 w-4" />
+            Acciones
+          </Button>
+          {embeddedMenuOpen ? (
+            <>
+              <button
+                type="button"
+                className="fixed inset-0 z-20 cursor-default"
+                aria-label="Cerrar menú"
+                onClick={() => setEmbeddedMenuOpen(false)}
+              />
+              <div className="absolute right-3 top-[calc(100%-0.25rem)] z-30 min-w-[230px] rounded-md border border-ds-border-subtle bg-popover p-1 shadow-md">
+                {bundleId ? (
+                  <button
+                    type="button"
+                    className="flex w-full items-center gap-2 rounded-sm px-2 py-2 text-[13px] hover:bg-accent"
+                    onClick={() => {
+                      setEmbeddedMenuOpen(false);
+                      void handleUnlinkFromBundle();
+                    }}
+                    disabled={deleting}
+                  >
+                    <Unlink className="h-4 w-4" />
+                    Quitar de la propuesta
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  className="flex w-full items-center gap-2 rounded-sm px-2 py-2 text-[13px] text-status-danger-fg hover:bg-accent"
+                  onClick={() => {
+                    setEmbeddedMenuOpen(false);
+                    void handleDelete();
+                  }}
+                  disabled={deleting || !canDeleteQuote}
+                >
+                  <Trash2 className="h-4 w-4" />
+                  {deleting ? "Eliminando cotización..." : "Eliminar cotización"}
+                </button>
+              </div>
+            </>
+          ) : null}
+        </div>
+      ) : null}
+
       {/* -- Desktop sticky KPI bar (fuera del grid: sticky respecto al viewport) --
            top = debajo del topbar fijo (--app-topbar-offset). Sin overflow-x en el path
            hacia el viewport (html/body usan clip). En multi (embedded) la provee
@@ -1973,8 +2062,12 @@ export function CpqQuoteDetail({
                     <RefreshCw className="h-3.5 w-3.5" /> Refrescar
                   </button>
                   <div className="my-1 h-px bg-border" />
-                  <button className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-xs text-destructive hover:bg-accent" onClick={() => { setOverflowMenuOpen(false); setDeleteConfirmOpen(true); }} disabled={deleting || isLocked}>
-                    <Trash2 className="h-3.5 w-3.5" /> {deleting ? "Eliminando..." : "Eliminar"}
+                  <button
+                    className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-xs text-status-danger-fg hover:bg-accent"
+                    onClick={() => { setOverflowMenuOpen(false); void handleDelete(); }}
+                    disabled={deleting || !canDeleteQuote}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" /> {deleting ? "Eliminando cotización..." : "Eliminar cotización"}
                   </button>
                 </div>
               </>
@@ -2649,8 +2742,12 @@ export function CpqQuoteDetail({
               </button>
             ) : null}
             <div className="my-1 h-px bg-border" />
-            <button className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-destructive hover:bg-accent" onClick={() => setDeleteConfirmOpen(true)} disabled={deleting || isLocked}>
-              <Trash2 className="h-4 w-4" /> {deleting ? "Eliminando..." : "Eliminar"}
+            <button
+              className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-status-danger-fg hover:bg-accent"
+              onClick={() => void handleDelete()}
+              disabled={deleting || !canDeleteQuote}
+            >
+              <Trash2 className="h-4 w-4" /> {deleting ? "Eliminando cotización..." : "Eliminar cotización"}
             </button>
           </>
         }
@@ -2856,14 +2953,6 @@ export function CpqQuoteDetail({
           onPdfTemplateSlugChange: (slug) => { setPdfTemplateSlug(slug); setPdfPreviewUrl(null); },
           onGeneratePdfPreview: handleGeneratePdfPreview,
         }}
-      />
-
-      <ConfirmDialog
-        open={deleteConfirmOpen}
-        onOpenChange={setDeleteConfirmOpen}
-        title="Eliminar cotizacion"
-        description="La cotizacion sera eliminada permanentemente. Esta accion no se puede deshacer."
-        onConfirm={handleDelete}
       />
 
     </div>
