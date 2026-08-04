@@ -38,6 +38,8 @@ export interface AppSidebarProps {
   userName?: string;
   userEmail?: string;
   userRole?: string;
+  /** URL pública de la foto de perfil del Admin (R2). */
+  userPhotoUrl?: string | null;
   tenantName?: string;
   onNavigate?: () => void;
   onToggleSidebar?: () => void;
@@ -61,6 +63,7 @@ export function AppSidebar({
   userName,
   userEmail,
   userRole,
+  userPhotoUrl,
   tenantName,
   onNavigate,
   onToggleSidebar,
@@ -529,6 +532,7 @@ export function AppSidebar({
           userName={userName}
           userEmail={userEmail}
           userRole={userRole}
+          userPhotoUrl={userPhotoUrl}
           tenantName={tenantName}
           collapsed={collapsed}
           onNavigate={onNavigate}

@@ -54,6 +54,8 @@ export interface AppShellProps {
   userName?: string;
   userEmail?: string;
   userRole?: string;
+  /** URL pública de la foto de perfil del Admin (R2). */
+  userPhotoUrl?: string | null;
   className?: string;
   /** Superficie activa (erp | productividad). Solo presentación. */
   surface?: Surface;
@@ -112,6 +114,7 @@ function AppShellInner({
   userName,
   userEmail,
   userRole,
+  userPhotoUrl,
   className,
   surface = DEFAULT_SURFACE,
 }: AppShellProps) {
@@ -397,6 +400,7 @@ function AppShellInner({
           userRole={userRole}
           userName={userName}
           userEmail={userEmail}
+          userPhotoUrl={userPhotoUrl}
           surface={surface}
         />
       </BottomNavPortal>

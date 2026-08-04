@@ -65,6 +65,8 @@ interface BottomNavProps {
   userRole?: string;
   userName?: string;
   userEmail?: string;
+  /** URL pública de la foto de perfil del Admin (R2). */
+  userPhotoUrl?: string | null;
   /** Superficie activa. En `productividad` solo se muestran hijos del portal. */
   surface?: Surface;
 }
@@ -191,6 +193,7 @@ export function BottomNav({
   userRole,
   userName,
   userEmail,
+  userPhotoUrl,
   surface = DEFAULT_SURFACE,
 }: BottomNavProps) {
   const pathname = usePathname();
@@ -282,6 +285,7 @@ export function BottomNav({
               userRole={userRole}
               userName={userName}
               userEmail={userEmail}
+              userPhotoUrl={userPhotoUrl}
               navConfig={navConfig}
             />
           )}
@@ -337,12 +341,14 @@ function MainNav({
   userRole,
   userName,
   userEmail,
+  userPhotoUrl,
   navConfig,
 }: {
   pathname: string;
   userRole: string;
   userName?: string;
   userEmail?: string;
+  userPhotoUrl?: string | null;
   navConfig: ReturnType<typeof useNavConfig>;
 }) {
   const [masOpen, setMasOpen] = useState(false);
@@ -387,6 +393,7 @@ function MainNav({
         userRole={userRole}
         userName={userName}
         userEmail={userEmail}
+        userPhotoUrl={userPhotoUrl}
         navConfig={navConfig}
       />
     </>
@@ -413,6 +420,7 @@ function MasDrawer({
   userRole,
   userName,
   userEmail,
+  userPhotoUrl,
   navConfig,
 }: {
   open: boolean;
@@ -420,6 +428,7 @@ function MasDrawer({
   userRole: string;
   userName?: string;
   userEmail?: string;
+  userPhotoUrl?: string | null;
   navConfig: ReturnType<typeof useNavConfig>;
 }) {
   const permissions = usePermissions();
@@ -537,7 +546,7 @@ function MasDrawer({
                 />
 
                 <div className="flex items-center gap-3 rounded-lg px-3 py-2.5">
-                  <Avatar name={displayName} size="md" />
+                  <Avatar name={displayName} photoUrl={userPhotoUrl} size="md" />
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium text-foreground">{displayName}</p>
                     {userEmail && (

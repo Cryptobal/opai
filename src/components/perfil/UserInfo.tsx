@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import {
   Briefcase,
   Camera,
@@ -40,6 +41,7 @@ const roleLabels: Record<string, string> = {
 };
 
 export function UserInfo({ user }: UserInfoProps) {
+  const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [photoPending, setPhotoPending] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -78,6 +80,8 @@ export function UserInfo({ user }: UserInfoProps) {
         type: "success",
         message: "Foto de perfil actualizada",
       });
+      // Refresca el shell para que sidebar / bottom nav muestren la foto.
+      router.refresh();
     } catch {
       setStatusMessage({ type: "error", message: "Error de red al subir la foto" });
     } finally {
@@ -100,6 +104,7 @@ export function UserInfo({ user }: UserInfoProps) {
       }
       setPhotoUrl(null);
       setStatusMessage({ type: "success", message: "Foto de perfil eliminada" });
+      router.refresh();
     } catch {
       setStatusMessage({ type: "error", message: "Error de red al eliminar la foto" });
     } finally {
