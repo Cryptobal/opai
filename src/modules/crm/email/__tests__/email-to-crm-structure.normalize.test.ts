@@ -484,6 +484,7 @@ describe("applyInstallationLocationToMilestones", () => {
     const out = applyInstallationLocationToMilestones(
       [
         {
+          id: "visita-1",
           kind: "visita_tecnica",
           date: "2026-08-10",
           time: "09:00",

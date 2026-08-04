@@ -58,7 +58,6 @@ interface Props {
     quoteCode?: string;
     puestosDetail?: Array<{ name: string; cargo?: string | null; numGuards: number; numPuestos: number; startTime?: string | null; endTime?: string | null }>;
     emailSent: boolean;
-    googleCalendarUrl?: string;
   }) => void;
 }
 

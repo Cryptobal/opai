@@ -40,21 +40,17 @@ export async function syncAgendaVisitaToCalendar(
   });
   if (!visita) return { syncStatus: "ERROR" };
 
-  // Delegación v2: si el evento ya sincroniza vía CalendarProviderLink
-  // (creado por el composer con participantes), UN solo camino de sync —
-  // evita duplicar el evento en Google.
-  const { isCalendarV2Enabled } = await import("@/modules/calendar/calendar-flags");
-  if (isCalendarV2Enabled()) {
-    const v2Link = await prisma.calendarProviderLink.findFirst({
-      where: { tenantId, eventId: visita.id, provider: "google" },
-      select: { id: true },
-    });
-    if (v2Link) {
-      const { syncCalendarEventToGoogle } = await import(
-        "@/modules/calendar/calendar-google-sync"
-      );
-      return syncCalendarEventToGoogle(tenantId, visita.id);
-    }
+  // Calendar v2 es el único camino cuando existe el espejo CalendarEvent.
+  // Eventos legacy sin espejo siguen por AgendaEventLink (resolveSyncUserId).
+  const v2Event = await prisma.calendarEvent.findFirst({
+    where: { id: visita.id, tenantId },
+    select: { id: true },
+  });
+  if (v2Event) {
+    const { syncCalendarEventToGoogle } = await import(
+      "@/modules/calendar/calendar-google-sync"
+    );
+    return syncCalendarEventToGoogle(tenantId, visita.id);
   }
 
   // Si el link ya tiene un evento Google creado, seguir sincronizando con la
@@ -146,59 +142,4 @@ async function resolveSyncUserId(
     select: { userId: true },
   });
   return owner?.userId ?? assignedUserId;
-}
-
-export async function syncVisitaTecnicaToCalendar(
-  tenantId: string,
-  visitaId: string,
-  mode: "upsert" | "delete" = "upsert",
-): Promise<{ syncStatus: string }> {
-  const visita = await prisma.opsVisitaTecnica.findFirst({
-    where: { id: visitaId, tenantId },
-    include: {
-      account: { select: { name: true } },
-      installation: { select: { name: true, address: true } },
-    },
-  });
-  if (!visita?.scheduledAt) return { syncStatus: "PENDING" };
-
-  if (mode === "delete" || visita.status === "completada") {
-    // No borrar evento al completar; solo al cancelar explícito
-    if (mode === "delete") {
-      return syncEventLink(
-        {
-          tenantId,
-          sourceType: "visita_tecnica",
-          sourceId: visita.id,
-          assignedUserId: visita.userId,
-        },
-        null,
-      );
-    }
-  }
-
-  const endAt = new Date(visita.scheduledAt.getTime() + 60 * 60_000);
-  const payload = buildVisitaEventPayload(
-    { startAt: visita.scheduledAt, endAt },
-    {
-      typeLabel: "Técnica",
-      accountName: visita.account?.name ?? "Sin cuenta",
-      installationName: visita.installation?.name,
-      address: visita.installation?.address,
-      notes: null,
-      contacts: [],
-      opaiUrl: `${getCanonicalSiteUrl()}/crm/visitas-tecnicas/${visita.id}`,
-      inviteContacts: false,
-    },
-  );
-
-  return syncEventLink(
-    {
-      tenantId,
-      sourceType: "visita_tecnica",
-      sourceId: visita.id,
-      assignedUserId: visita.userId,
-    },
-    payload,
-  );
 }

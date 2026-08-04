@@ -1,13 +1,20 @@
-import { prisma } from "@/lib/prisma";
 import { dateAtChileSlot } from "@/components/agenda/agenda-calendar-utils";
-import { createAgendaVisita } from "@/modules/agenda/agenda.service";
-import { isCalendarV2Enabled } from "@/modules/calendar/calendar-flags";
+import {
+  createOpaiEvent,
+  type OpaiEventInput,
+} from "@/modules/calendar/calendar-write";
 import type { PlanMilestone } from "@/modules/crm/email/email-to-crm-structure.types";
 
-const MILESTONE_TITLES: Record<PlanMilestone["kind"], string> = {
+const MILESTONE_TITLES: Partial<Record<PlanMilestone["kind"], string>> = {
   consultas: "Cierre de consultas",
   visita_tecnica: "Visita técnica",
   entrega: "Entrega de la oferta",
+};
+
+const MILESTONE_LABELS: Partial<Record<PlanMilestone["kind"], string>> = {
+  consultas: "Consultas",
+  visita_tecnica: "Visita técnica",
+  entrega: "Entrega de oferta",
 };
 
 export type CreateAgendaEventWithPeopleParams = {
@@ -15,6 +22,7 @@ export type CreateAgendaEventWithPeopleParams = {
   actorUserId: string;
   type?: "cliente" | "supervision" | "otra";
   title: string;
+  label?: string | null;
   dealId?: string | null;
   accountId?: string | null;
   installationId?: string | null;
@@ -27,120 +35,65 @@ export type CreateAgendaEventWithPeopleParams = {
   lng?: number | null;
   participantIds?: string[];
   externalEmails?: Array<{ email: string; name?: string | null }>;
+  contactIds?: string[];
+  assignedUserId?: string;
   syncGoogle?: boolean;
   notifyOpai?: boolean;
+  slackReminderPrevDay?: boolean;
 };
 
 /**
- * Crea AgendaVisita + participantes internos/externos + sync Google (un solo camino).
- * Usado por POST /api/calendar/events y por hitos del Plan de acciones.
+ * Envoltorio delgado sobre createOpaiEvent (compat con composer / hitos).
  */
 export async function createAgendaEventWithPeople(
   params: CreateAgendaEventWithPeopleParams,
-): Promise<{ visita: { id: string; title: string; type: string; assignedUserId: string | null }; syncStatus: string }> {
-  const {
-    tenantId,
-    actorUserId,
-    type = "otra",
-    title,
-    dealId,
-    accountId,
-    installationId,
-    startAt,
-    endAt,
-    allDay = false,
-    notes,
-    customAddress,
-    lat,
-    lng,
-    syncGoogle = true,
-    notifyOpai = true,
-  } = params;
-
-  const rawIds = Array.isArray(params.participantIds) ? params.participantIds : [];
-  const validAdmins =
-    rawIds.length > 0
-      ? await prisma.admin.findMany({
-          where: { tenantId, id: { in: rawIds }, status: "active" },
-          select: { id: true },
-        })
-      : [];
-  const participantIds = validAdmins.map((a) => a.id);
-
-  const externals = (params.externalEmails ?? [])
-    .filter((e) => typeof e?.email === "string" && e.email.includes("@"))
-    .slice(0, 20)
-    .map((e) => ({ email: e.email.trim().toLowerCase(), name: e.name ?? null }));
-
-  const v2 = isCalendarV2Enabled();
-  const hasPeople = participantIds.length > 0 || externals.length > 0;
-  const useV2Sync = v2 && hasPeople;
-
-  const { visita } = await createAgendaVisita({
-    tenantId,
-    createdBy: actorUserId,
-    type,
-    title,
-    accountId: accountId ?? null,
-    installationId: installationId ?? null,
-    dealId: dealId || null,
-    assignedUserId: actorUserId,
-    startAt,
-    endAt,
-    allDay,
-    notes: notes ?? null,
-    customAddress: customAddress ?? null,
-    lat: lat ?? null,
-    lng: lng ?? null,
-    syncCalendar: syncGoogle && !useV2Sync,
-    inviteContacts: false,
-  });
-
-  let syncStatus = "SKIPPED";
-  if (v2) {
-    const extras = participantIds.filter((id) => id !== visita.assignedUserId);
-    const { addEventParticipants } = await import(
-      "@/modules/calendar/calendar-participants"
-    );
-    await addEventParticipants(
-      tenantId,
-      visita.id,
-      extras.map((userId) => ({ userId, role: "required" as const })),
-      actorUserId,
-    );
-    for (const ext of externals) {
-      await prisma.calendarExternalAttendee.upsert({
-        where: { eventId_email: { eventId: visita.id, email: ext.email } },
-        create: {
-          tenantId,
-          eventId: visita.id,
-          email: ext.email,
-          name: ext.name,
-        },
-        update: { name: ext.name },
-      });
-    }
-
-    if (useV2Sync && syncGoogle) {
-      const { syncCalendarEventToGoogle } = await import(
-        "@/modules/calendar/calendar-google-sync"
-      );
-      syncStatus = (await syncCalendarEventToGoogle(tenantId, visita.id)).syncStatus;
-    }
-
-    if (notifyOpai && extras.length) {
-      const { notifyCalendarEvent } = await import("@/modules/calendar/calendar-notify");
-      await notifyCalendarEvent({
-        tenantId,
-        eventId: visita.id,
-        kind: "invited",
-        actorId: actorUserId,
-        targetUserIds: extras,
-      }).catch(() => undefined);
-    }
-  }
-
-  return { visita, syncStatus };
+): Promise<{
+  visita: {
+    id: string;
+    title: string;
+    type: string;
+    assignedUserId: string | null;
+    label?: string | null;
+  };
+  syncStatus: string;
+  htmlLink: string | null;
+}> {
+  const input: OpaiEventInput = {
+    tenantId: params.tenantId,
+    actorUserId: params.actorUserId,
+    type: params.type ?? "otra",
+    title: params.title,
+    label: params.label ?? null,
+    assignedUserId: params.assignedUserId ?? params.actorUserId,
+    startAt: params.startAt,
+    endAt: params.endAt,
+    allDay: params.allDay,
+    notes: params.notes ?? null,
+    address: params.customAddress ?? null,
+    lat: params.lat ?? null,
+    lng: params.lng ?? null,
+    accountId: params.accountId ?? null,
+    installationId: params.installationId ?? null,
+    dealId: params.dealId ?? null,
+    participantIds: params.participantIds,
+    externalEmails: params.externalEmails,
+    contactIds: params.contactIds,
+    syncGoogle: params.syncGoogle,
+    notifyOpai: params.notifyOpai ?? true,
+    slackReminderPrevDay: params.slackReminderPrevDay,
+  };
+  const result = await createOpaiEvent(input);
+  return {
+    visita: {
+      id: result.visita.id,
+      title: result.visita.title,
+      type: result.visita.type,
+      assignedUserId: result.visita.assignedUserId,
+      label: result.visita.label,
+    },
+    syncStatus: result.syncStatus,
+    htmlLink: result.htmlLink,
+  };
 }
 
 export async function createDealMilestoneEvent(params: {
@@ -154,6 +107,7 @@ export async function createDealMilestoneEvent(params: {
   endAt: Date;
   allDay?: boolean;
   title?: string;
+  label?: string;
   notes?: string | null;
   customAddress?: string | null;
   lat?: number | null;
@@ -161,29 +115,37 @@ export async function createDealMilestoneEvent(params: {
   participantIds?: string[];
   externalEmails?: Array<{ email: string; name?: string | null }>;
   syncGoogle?: boolean;
-}): Promise<{ eventId: string; syncStatus: string; title: string }> {
-  const title = params.title?.trim() || MILESTONE_TITLES[params.kind];
-  const { visita, syncStatus } = await createAgendaEventWithPeople({
+}): Promise<{ eventId: string; syncStatus: string; title: string; htmlLink: string | null }> {
+  const title =
+    params.title?.trim() ||
+    MILESTONE_TITLES[params.kind] ||
+    params.label?.trim() ||
+    "Evento";
+  const label = params.label?.trim() || MILESTONE_LABELS[params.kind] || null;
+  const { visita, syncStatus, htmlLink } = await createAgendaEventWithPeople({
     tenantId: params.tenantId,
     actorUserId: params.actorUserId,
     type: "otra",
     title,
+    label,
     dealId: params.dealId,
     accountId: params.accountId,
     installationId: params.installationId,
     startAt: params.startAt,
     endAt: params.endAt,
     allDay: params.allDay,
-    notes: params.notes ?? `Hito licitación: ${params.kind}`,
+    notes:
+      params.notes ??
+      (params.kind === "otro" ? null : `Hito: ${params.kind}`),
     customAddress: params.customAddress ?? null,
     lat: params.lat ?? null,
     lng: params.lng ?? null,
     participantIds: params.participantIds,
     externalEmails: params.externalEmails,
     syncGoogle: params.syncGoogle,
-    notifyOpai: false,
+    notifyOpai: true,
   });
-  return { eventId: visita.id, syncStatus, title };
+  return { eventId: visita.id, syncStatus, title, htmlLink };
 }
 
 /** Construye start/end en TZ Chile desde date+time del plan. */

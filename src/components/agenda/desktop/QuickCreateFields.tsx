@@ -4,15 +4,17 @@ import { cn } from "@/lib/utils";
 import type { AgendaTeamMember } from "../agenda-calendar.types";
 import { AccountField } from "../nueva-visita/AccountField";
 import { InstallationField } from "../nueva-visita/InstallationField";
+import { EVENT_LABEL_SUGGESTIONS } from "../evento/EventoFormFields";
+import { EventAddressField } from "../evento/EventAddressField";
 import type { useEventComposer, ComposerType } from "../mobile/useEventComposer";
 import type { useQuickCreateTask } from "./useQuickCreateTask";
 import { QuickCreateParticipants } from "./QuickCreateParticipants";
 import { TareaDueChips } from "@/components/tareas/TareaDueChips";
 import { TaskAssigneePicker } from "../TaskAssigneePicker";
+import { Tag } from "@/components/opai-ds";
 
 const EVENT_TYPES: Array<{ id: ComposerType; label: string }> = [
   { id: "cliente", label: "Cliente" },
-  { id: "tecnica", label: "Técnica" },
   { id: "supervision", label: "Supervisión" },
   { id: "reunion", label: "Reunión" },
 ];
@@ -63,6 +65,29 @@ export function QuickCreateEventFields({
               {t.label}
             </button>
           ))}
+        </div>
+      </Row>
+
+      <Row label="Etiqueta">
+        <div className="space-y-1.5">
+          <div className="flex flex-wrap gap-1">
+            {EVENT_LABEL_SUGGESTIONS.slice(0, 4).map((suggestion) => (
+              <button key={suggestion} type="button" onClick={() => set.setLabel(suggestion)}>
+                <Tag
+                  variant={form.label === suggestion ? "brand" : "neutral"}
+                  size="sm"
+                >
+                  {suggestion}
+                </Tag>
+              </button>
+            ))}
+          </div>
+          <input
+            value={form.label}
+            onChange={(e) => set.setLabel(e.target.value)}
+            placeholder="Etiqueta…"
+            className={cn(INPUT, "w-full")}
+          />
         </div>
       </Row>
 
@@ -146,8 +171,25 @@ export function QuickCreateEventFields({
             allowCustom
             customAddress={form.customAddress}
             onCustomAddress={set.setCustomAddress}
+            onCustomCoords={(la, ln) => {
+              set.setLat(la);
+              set.setLng(ln);
+            }}
           />
         </div>
+      </Row>
+
+      <Row label="Dirección">
+        <EventAddressField
+          address={form.customAddress}
+          lat={form.lat}
+          lng={form.lng}
+          onChange={({ address, lat, lng }) => {
+            set.setCustomAddress(address ?? "");
+            set.setLat(lat);
+            set.setLng(lng);
+          }}
+        />
       </Row>
     </div>
   );

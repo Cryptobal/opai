@@ -516,14 +516,12 @@ export async function createCrmStructureFromProposal(params: {
     }
   }
 
-  // Hitos de licitación — requieren deal.
+  // Eventos en agenda — requieren deal (cualquier negocio, no solo licitación).
   if (flags.milestones) {
     if (!params.canCreateMilestones) {
       skip("milestones", "sin_permiso");
     } else if (!dealId) {
       skip("milestones", "requiere_negocio");
-    } else if (!proposal.deal.isLicitacion) {
-      skip("milestones", "sin_datos");
     } else {
       const { createDealMilestoneEvent, milestoneRangeFromPlan } = await import(
         "@/modules/agenda/deal-milestones"
@@ -543,24 +541,17 @@ export async function createCrmStructureFromProposal(params: {
         }
         try {
           const instLoc = proposal.installations[0];
-          const address =
-            m.address?.trim() ||
-            (m.kind === "visita_tecnica" ? instLoc?.address?.trim() : null) ||
-            null;
+          const address = m.address?.trim() || instLoc?.address?.trim() || null;
           const lat =
             typeof m.lat === "number" && Number.isFinite(m.lat)
               ? m.lat
-              : m.kind === "visita_tecnica" &&
-                  typeof instLoc?.lat === "number" &&
-                  Number.isFinite(instLoc.lat)
+              : typeof instLoc?.lat === "number" && Number.isFinite(instLoc.lat)
                 ? instLoc.lat
                 : null;
           const lng =
             typeof m.lng === "number" && Number.isFinite(m.lng)
               ? m.lng
-              : m.kind === "visita_tecnica" &&
-                  typeof instLoc?.lng === "number" &&
-                  Number.isFinite(instLoc.lng)
+              : typeof instLoc?.lng === "number" && Number.isFinite(instLoc.lng)
                 ? instLoc.lng
                 : null;
           const created = await createDealMilestoneEvent({
@@ -570,6 +561,8 @@ export async function createCrmStructureFromProposal(params: {
             accountId: account.id,
             installationId: createdInstallations[0]?.id ?? null,
             kind: m.kind,
+            title: m.title,
+            label: m.label,
             startAt: range.startAt,
             endAt: range.endAt,
             allDay: range.allDay,

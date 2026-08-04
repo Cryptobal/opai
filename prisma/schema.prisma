@@ -12434,12 +12434,14 @@ model AgendaVisita {
   tenantId       String    @map("tenant_id")
   type           String // cliente|supervision|otra
   title          String
+  label          String? // etiqueta libre (chip); no restringe capacidades
   accountId      String?   @map("account_id") @db.Uuid
   installationId String?   @map("installation_id") @db.Uuid
   dealId         String?   @map("deal_id") @db.Uuid
   assignedUserId String    @map("assigned_user_id")
   startAt        DateTime  @map("start_at") @db.Timestamptz(6)
   endAt          DateTime  @map("end_at") @db.Timestamptz(6)
+  allDay         Boolean   @default(false) @map("all_day")
   notes          String?   @db.Text
   customAddress  String?   @map("custom_address") @db.Text // dirección libre para tipo "otra" sin instalación
   lat            Float? // coords Places (opcional; no bloquea guardado)

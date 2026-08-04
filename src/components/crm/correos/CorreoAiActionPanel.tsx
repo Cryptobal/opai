@@ -325,22 +325,20 @@ function buildStructureActions(
     })(),
   );
 
-  if (proposal.deal.isLicitacion) {
-    actions.push({
-      id: "milestones",
-      label: "Hitos de licitación en agenda",
-      detail: "Consultas, visita técnica, entrega",
-      tag: "opcional",
-      optional: false,
-      disabled: !canCreateMilestones || !dealSelected,
-      reasonDisabled: !dealSelected
-        ? "Requiere negocio"
-        : !canCreateMilestones
-          ? "Sin acceso a agenda"
-          : undefined,
-      group: "calendario",
-    });
-  }
+  actions.push({
+    id: "milestones",
+    label: "Eventos en agenda",
+    detail: "Visitas, reuniones e hitos del negocio",
+    tag: "opcional",
+    optional: false,
+    disabled: !canCreateMilestones || !dealSelected,
+    reasonDisabled: !dealSelected
+      ? "Requiere negocio"
+      : !canCreateMilestones
+        ? "Sin acceso a agenda"
+        : undefined,
+    group: "calendario",
+  });
 
   return actions;
 }
@@ -632,7 +630,7 @@ export function CorreoAiActionPanel({
               attachments: true,
               followUpTask: false,
               quote: wantQuote,
-              milestones: Boolean(j.proposal.deal.isLicitacion),
+              milestones: true,
             });
             if (wantQuote) setExpandedIds(new Set(["quote"]));
           }
@@ -701,7 +699,7 @@ export function CorreoAiActionPanel({
 
   const structureActions = useMemo(() => {
     if (!draft.proposal) return [];
-    return buildStructureActions(
+    const actions = buildStructureActions(
       draft.proposal,
       false,
       existingDealId,
@@ -709,7 +707,19 @@ export function CorreoAiActionPanel({
       true,
       dealSelected,
     );
-  }, [draft.proposal, existingDealId, dealSelected]);
+    const enabledCount = (draft.milestones ?? []).filter((m) => m.enabled !== false).length;
+    return actions.map((a) =>
+      a.id === "milestones"
+        ? {
+            ...a,
+            detail:
+              enabledCount > 0
+                ? `${enabledCount} evento${enabledCount === 1 ? "" : "s"} en agenda`
+                : "Visitas, reuniones e hitos del negocio",
+          }
+        : a,
+    );
+  }, [draft.proposal, existingDealId, dealSelected, draft.milestones]);
 
   function handleExpand(id: string) {
     setExpandedIds((prev) => {

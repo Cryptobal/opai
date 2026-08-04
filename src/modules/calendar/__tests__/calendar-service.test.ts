@@ -1,9 +1,7 @@
 /**
  * Tests unitarios Calendar v2 (prisma mockeado):
  * - createCalendarEvent: creador organizer/owner según participantes.
- * - reprogramAgendaVisita con CALENDAR_V2: reasignar NO borra el evento Google
- *   del organizador (sin delete, sin limpiar link) — fix B2.
- * - Con flag off: comportamiento legacy delete+recreate intacto.
+ * - reprogramAgendaVisita: reasignar NO borra el evento Google del organizador.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
@@ -18,7 +16,6 @@ const visitaUpdate = vi.fn();
 const adminFindFirst = vi.fn();
 const linkUpdateMany = vi.fn();
 const syncMock = vi.fn();
-const flagMock = vi.fn();
 
 vi.mock("server-only", () => ({}));
 
@@ -40,21 +37,19 @@ vi.mock("@/modules/agenda/agenda-sync", () => ({
   syncAgendaVisitaToCalendar: syncMock,
 }));
 
-vi.mock("@/modules/calendar/calendar-flags", () => ({
-  isCalendarV2Enabled: flagMock,
-}));
-
 const BASE_VISITA = {
   id: "11111111-1111-1111-1111-111111111111",
   tenantId: "t1",
   type: "cliente",
   title: "Visita Codelco",
+  label: null,
   accountId: null,
   installationId: null,
   dealId: null,
   assignedUserId: "user-old",
   startAt: new Date("2026-07-22T13:00:00Z"),
   endAt: new Date("2026-07-22T14:00:00Z"),
+  allDay: false,
   notes: null,
   customAddress: null,
   lat: null,
@@ -111,8 +106,7 @@ describe("createCalendarEvent — roles", () => {
 });
 
 describe("reprogramAgendaVisita — reasignación", () => {
-  it("CALENDAR_V2 on: no borra evento Google ni limpia el link", async () => {
-    flagMock.mockReturnValue(true);
+  it("no borra evento Google ni limpia el link al reasignar", async () => {
     const { reprogramAgendaVisita } = await import("@/modules/agenda/agenda.service");
     const result = await reprogramAgendaVisita(
       "t1",
@@ -122,26 +116,10 @@ describe("reprogramAgendaVisita — reasignación", () => {
       "user-new",
     );
     expect(result).not.toBeNull();
-    // Nunca se llamó el sync en modo delete y el link no se reseteó.
     expect(syncMock).not.toHaveBeenCalledWith("t1", BASE_VISITA.id, "delete");
     expect(linkUpdateMany).not.toHaveBeenCalled();
-    // La visita quedó reasignada.
     expect(visitaUpdate.mock.calls[0][0].data).toMatchObject({
       assignedUserId: "user-new",
     });
-  });
-
-  it("CALENDAR_V2 off: conserva legacy delete+recreate", async () => {
-    flagMock.mockReturnValue(false);
-    const { reprogramAgendaVisita } = await import("@/modules/agenda/agenda.service");
-    await reprogramAgendaVisita(
-      "t1",
-      BASE_VISITA.id,
-      new Date("2026-07-23T13:00:00Z"),
-      new Date("2026-07-23T14:00:00Z"),
-      "user-new",
-    );
-    expect(syncMock).toHaveBeenCalledWith("t1", BASE_VISITA.id, "delete");
-    expect(linkUpdateMany).toHaveBeenCalled();
   });
 });

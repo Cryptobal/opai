@@ -4,6 +4,7 @@ import {
   requireAgendaAccess,
   canMutateVisita,
   visitaForbidden,
+  loadParticipantRolesForActor,
 } from "@/lib/api-auth-agenda";
 import { auditAgendaAction } from "@/lib/audit-productividad";
 import {
@@ -11,6 +12,10 @@ import {
   completeAgendaVisita,
   reprogramAgendaVisita,
 } from "@/modules/agenda/agenda.service";
+import {
+  OpaiEventValidationError,
+  updateOpaiEvent,
+} from "@/modules/calendar/calendar-write";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -36,11 +41,8 @@ export async function GET(_req: NextRequest, routeCtx: Ctx) {
   // Detalle v2 (participantes + RSVP) si el espejo existe; best-effort.
   let v2 = null;
   try {
-    const { isCalendarV2Enabled } = await import("@/modules/calendar/calendar-flags");
-    if (isCalendarV2Enabled()) {
-      const { getCalendarEventDetail } = await import("@/modules/calendar/calendar-detail");
-      v2 = await getCalendarEventDetail(ctx.tenantId, id);
-    }
+    const { getCalendarEventDetail } = await import("@/modules/calendar/calendar-detail");
+    v2 = await getCalendarEventDetail(ctx.tenantId, id);
   } catch {
     v2 = null;
   }
@@ -70,7 +72,8 @@ export async function PATCH(request: NextRequest, routeCtx: Ctx) {
 
   const existing = await loadOwnedVisita(tenantId, id);
   if (!existing) return NextResponse.json({ error: "No encontrada" }, { status: 404 });
-  if (!canMutateVisita(ctx, existing)) return visitaForbidden();
+  const participantRoles = await loadParticipantRolesForActor(tenantId, id, ctx.userId);
+  if (!canMutateVisita(ctx, { ...existing, participantRoles })) return visitaForbidden();
 
   if (body.action === "complete") {
     const result = await completeAgendaVisita(tenantId, id, body.resultNote ?? "");
@@ -120,7 +123,18 @@ export async function PATCH(request: NextRequest, routeCtx: Ctx) {
     return NextResponse.json(result);
   }
 
-  if (body.startAt && body.endAt) {
+  // Reprogramación rápida (solo fechas / responsable).
+  if (
+    body.startAt &&
+    body.endAt &&
+    body.title === undefined &&
+    body.label === undefined &&
+    body.participantIds === undefined &&
+    body.externalEmails === undefined &&
+    body.customAddress === undefined &&
+    body.address === undefined &&
+    body.notes === undefined
+  ) {
     const result = await reprogramAgendaVisita(
       tenantId,
       id,
@@ -145,7 +159,64 @@ export async function PATCH(request: NextRequest, routeCtx: Ctx) {
     return NextResponse.json(result);
   }
 
-  return NextResponse.json({ error: "Acción no soportada" }, { status: 400 });
+  // Patch completo → servicio único.
+  try {
+    const result = await updateOpaiEvent(
+      tenantId,
+      id,
+      {
+        title: typeof body.title === "string" ? body.title : undefined,
+        label: body.label !== undefined ? body.label : undefined,
+        assignedUserId:
+          typeof body.assignedUserId === "string" ? body.assignedUserId : undefined,
+        startAt: body.startAt ? new Date(body.startAt) : undefined,
+        endAt: body.endAt ? new Date(body.endAt) : undefined,
+        allDay: body.allDay === true ? true : body.allDay === false ? false : undefined,
+        notes: body.notes !== undefined ? body.notes : undefined,
+        address:
+          body.customAddress !== undefined
+            ? body.customAddress
+            : body.address !== undefined
+              ? body.address
+              : undefined,
+        lat: body.lat !== undefined ? body.lat : undefined,
+        lng: body.lng !== undefined ? body.lng : undefined,
+        accountId: body.accountId !== undefined ? body.accountId : undefined,
+        installationId:
+          body.installationId !== undefined ? body.installationId : undefined,
+        dealId: body.dealId !== undefined ? body.dealId : undefined,
+        participantIds: Array.isArray(body.participantIds)
+          ? body.participantIds
+          : undefined,
+        externalEmails: Array.isArray(body.externalEmails)
+          ? body.externalEmails
+          : undefined,
+        contactIds: Array.isArray(body.contactIds) ? body.contactIds : undefined,
+        syncGoogle: body.syncCalendar !== false && body.syncGoogle !== false,
+        slackReminderPrevDay:
+          body.slackReminderPrevDay !== undefined
+            ? body.slackReminderPrevDay === true
+            : undefined,
+      },
+      ctx.userId,
+    );
+    if (!result) return NextResponse.json({ error: "No encontrada" }, { status: 404 });
+    void auditAgendaAction({
+      tenantId,
+      userId: ctx.userId,
+      userEmail: ctx.userEmail,
+      action: "reprogrammed",
+      visitaId: id,
+      meta: { title: result.visita.title, via: "full_patch" },
+      request,
+    });
+    return NextResponse.json(result);
+  } catch (err) {
+    if (err instanceof OpaiEventValidationError) {
+      return NextResponse.json({ error: err.message }, { status: 400 });
+    }
+    throw err;
+  }
 }
 
 export async function DELETE(request: NextRequest, routeCtx: Ctx) {
@@ -156,7 +227,10 @@ export async function DELETE(request: NextRequest, routeCtx: Ctx) {
 
   const existing = await loadOwnedVisita(ctx.tenantId, id);
   if (!existing) return NextResponse.json({ error: "No encontrada" }, { status: 404 });
-  if (!canMutateVisita(ctx, existing)) return visitaForbidden();
+  const deleteRoles = await loadParticipantRolesForActor(ctx.tenantId, id, ctx.userId);
+  if (!canMutateVisita(ctx, { ...existing, participantRoles: deleteRoles })) {
+    return visitaForbidden();
+  }
 
   const result = await cancelAgendaVisita(ctx.tenantId, id);
   if (!result) return NextResponse.json({ error: "No encontrada" }, { status: 404 });

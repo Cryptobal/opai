@@ -17,46 +17,53 @@ export async function listAgenda(
   to: Date,
   /** Con userId, incluye las tareas del equipo en la agenda del usuario autenticado. */
   userId?: string,
+  opts?: { dealId?: string | null },
 ): Promise<AgendaListItem[]> {
-  const [visitas, tecnicas, deals, links, admins] = await Promise.all([
+  const dealIdFilter = opts?.dealId?.trim() || null;
+  const [visitas, tecnicas, deals, links, admins, providerLinks] = await Promise.all([
     prisma.agendaVisita.findMany({
       where: {
         tenantId,
         startAt: { lt: to },
         endAt: { gt: from },
         status: { not: "cancelada" },
+        ...(dealIdFilter ? { dealId: dealIdFilter } : {}),
       },
       include: {
         account: { select: { name: true } },
         installation: { select: { name: true, address: true } },
       },
     }),
-    prisma.opsVisitaTecnica.findMany({
-      where: {
-        tenantId,
-        scheduledAt: { gte: from, lt: to },
-        status: { in: ["programada", "en_curso", "borrador"] },
-      },
-      include: {
-        account: { select: { name: true } },
-        installation: { select: { name: true, address: true } },
-        user: { select: { name: true } },
-      },
-    }),
-    prisma.crmDeal.findMany({
-      where: {
-        tenantId,
-        isLicitacion: true,
-        // @db.Date: comparar por calendario Chile. Sin cota superior: el rango
-        // "corriendo" (rangeStartYmd → entrega) puede pisar la ventana aunque
-        // la entrega caiga después de `to`.
-        fechaEntrega: { gte: utcDateFromYmd(ymdInChile(from)) },
-        status: "open",
-      },
-      include: {
-        account: { select: { name: true, ownerId: true } },
-      },
-    }),
+    dealIdFilter
+      ? Promise.resolve([])
+      : prisma.opsVisitaTecnica.findMany({
+          where: {
+            tenantId,
+            scheduledAt: { gte: from, lt: to },
+            status: { in: ["programada", "en_curso", "borrador"] },
+          },
+          include: {
+            account: { select: { name: true } },
+            installation: { select: { name: true, address: true } },
+            user: { select: { name: true } },
+          },
+        }),
+    dealIdFilter
+      ? Promise.resolve([])
+      : prisma.crmDeal.findMany({
+          where: {
+            tenantId,
+            isLicitacion: true,
+            // @db.Date: comparar por calendario Chile. Sin cota superior: el rango
+            // "corriendo" (rangeStartYmd → entrega) puede pisar la ventana aunque
+            // la entrega caiga después de `to`.
+            fechaEntrega: { gte: utcDateFromYmd(ymdInChile(from)) },
+            status: "open",
+          },
+          include: {
+            account: { select: { name: true, ownerId: true } },
+          },
+        }),
     prisma.agendaEventLink.findMany({
       where: { tenantId },
       select: {
@@ -65,20 +72,34 @@ export async function listAgenda(
         syncStatus: true,
         rangeStartYmd: true,
         allDay: true,
+        htmlLink: true,
       },
     }),
     prisma.admin.findMany({
       where: { tenantId },
       select: { id: true, name: true },
     }),
+    prisma.calendarProviderLink.findMany({
+      where: {
+        tenantId,
+        provider: "google",
+        role: "organizer",
+        htmlLink: { not: null },
+      },
+      select: { eventId: true, htmlLink: true, syncStatus: true },
+    }),
   ]);
 
   const syncMap = new Map(links.map((l) => [`${l.sourceType}:${l.sourceId}`, l.syncStatus]));
-  const allDayMap = new Map(
+  const htmlLinkMap = new Map(
     links
-      .filter((l) => l.sourceType === "agenda_visita")
-      .map((l) => [l.sourceId, l.allDay === true]),
+      .filter((l) => l.htmlLink)
+      .map((l) => [`${l.sourceType}:${l.sourceId}`, l.htmlLink as string]),
   );
+  for (const pl of providerLinks) {
+    if (pl.htmlLink) htmlLinkMap.set(`agenda_visita:${pl.eventId}`, pl.htmlLink);
+    if (pl.syncStatus) syncMap.set(`agenda_visita:${pl.eventId}`, pl.syncStatus);
+  }
   const rangeStartMap = new Map(
     links
       .filter((l) => l.sourceType === "licitacion" && l.rangeStartYmd)
@@ -91,15 +112,15 @@ export async function listAgenda(
     const allDay = isAgendaVisitaAllDay(
       v.startAt,
       v.endAt,
-      // Solo confiar en el link si ya quedó marcado all-day; si está false
-      // (bug legacy del sync), la heurística de duración lo corrige.
-      allDayMap.get(v.id) === true ? true : null,
+      // Columna propia es fuente; si false y duración ≥23h, heurística legacy.
+      v.allDay === true ? true : null,
     );
     items.push({
       id: v.id,
       source: "agenda_visita",
       type: v.type as AgendaListItem["type"],
       title: v.title,
+      label: v.label ?? null,
       start: v.startAt.toISOString(),
       end: v.endAt.toISOString(),
       allDay,
@@ -107,8 +128,9 @@ export async function listAgenda(
       assignedName: nameMap.get(v.assignedUserId) ?? null,
       accountName: v.account?.name ?? null,
       installationName: v.installation?.name ?? null,
-      address: v.installation?.address ?? null,
+      address: v.installation?.address ?? v.customAddress ?? null,
       syncStatus: syncMap.get(`agenda_visita:${v.id}`) ?? "PENDING",
+      htmlLink: htmlLinkMap.get(`agenda_visita:${v.id}`) ?? null,
       dealId: v.dealId,
       status: v.status,
       sourceKey: opaiSourceKey("cliente"),
@@ -118,11 +140,13 @@ export async function listAgenda(
   for (const v of tecnicas) {
     if (!v.scheduledAt) continue;
     const end = new Date(v.scheduledAt.getTime() + 60 * 60_000);
+    // Chip informativo de solo lectura: sin sync Google ni sourceKey de sync.
     items.push({
       id: v.id,
       source: "visita_tecnica",
       type: "tecnica",
       title: `Visita técnica · ${v.account?.name ?? ""}`.trim(),
+      label: "Visita técnica (terreno)",
       start: v.scheduledAt.toISOString(),
       end: end.toISOString(),
       allDay: false,
@@ -131,7 +155,7 @@ export async function listAgenda(
       accountName: v.account?.name ?? null,
       installationName: v.installation?.name ?? null,
       address: v.installation?.address ?? null,
-      syncStatus: syncMap.get(`visita_tecnica:${v.id}`) ?? null,
+      syncStatus: null,
       dealId: v.dealId,
       status: v.status,
       sourceKey: opaiSourceKey("tecnica"),
@@ -162,7 +186,7 @@ export async function listAgenda(
     );
   }
 
-  if (userId) {
+  if (userId && !dealIdFilter) {
     items.push(...(await listAgendaTasks(tenantId, from, to)));
   }
 

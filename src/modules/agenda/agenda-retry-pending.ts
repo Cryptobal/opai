@@ -55,14 +55,11 @@ export async function retryPendingAgendaLinks(params: {
   // Calendar v2: materializar copias attendee_copy del usuario que conectó.
   if (params.actorUserId) {
     try {
-      const [{ isCalendarV2Enabled }, { retryPendingCalendarV2Links }] = await Promise.all([
-        import("@/modules/calendar/calendar-flags"),
-        import("@/modules/calendar/calendar-retry-pending"),
-      ]);
-      if (isCalendarV2Enabled()) {
-        const v2 = await retryPendingCalendarV2Links(params.tenantId, params.actorUserId);
-        retried += v2.retried;
-      }
+      const { retryPendingCalendarV2Links } = await import(
+        "@/modules/calendar/calendar-retry-pending"
+      );
+      const v2 = await retryPendingCalendarV2Links(params.tenantId, params.actorUserId);
+      retried += v2.retried;
     } catch (err) {
       console.warn("[calendar] retry v2 attendee_copy:", err);
     }

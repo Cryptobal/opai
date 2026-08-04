@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { WEEKDAYS_FULL } from "./email-to-lead.types";
 import type { StagedFile } from "./email-to-lead.types";
 
@@ -203,7 +204,10 @@ export type PlanQuoteInput = {
 };
 
 export type PlanMilestone = {
-  kind: "consultas" | "visita_tecnica" | "entrega";
+  id: string;
+  kind: "consultas" | "visita_tecnica" | "entrega" | "otro";
+  title?: string;
+  label?: string;
   date: string;
   time: string;
   durationMin: number;
@@ -216,7 +220,7 @@ export type PlanMilestone = {
   enabled?: boolean;
   /** true cuando la fecha vino de la extracción del pliego (UI marca origen). */
   fromDocument?: boolean;
-  /** Dirección física del evento (visita técnica / entrega presencial) → agenda + Google. */
+  /** Dirección física del evento → agenda + Google. */
   address?: string | null;
   lat?: number | null;
   lng?: number | null;
@@ -361,6 +365,7 @@ export function milestonesFromLicitacion(
   const push = (kind: PlanMilestone["kind"], date: string | null) => {
     if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return;
     out.push({
+      id: randomUUID(),
       kind,
       date,
       time: "09:00",

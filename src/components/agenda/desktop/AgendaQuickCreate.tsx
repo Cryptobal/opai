@@ -96,15 +96,8 @@ export function AgendaQuickCreate({ state, users, onClose, onCreated, onOpenTask
       }
       return;
     }
-    if (!title.trim()) {
-      toast.error("Ponle un título al evento");
-      return;
-    }
-    if (
-      composer.form.type === "tecnica" &&
-      (!composer.form.account || !composer.form.installationId)
-    ) {
-      toast.error("La visita técnica necesita cuenta e instalación");
+    if (!title.trim() && !composer.form.label.trim()) {
+      toast.error("Ponle un título o etiqueta al evento");
       return;
     }
     if (await composer.submit()) {

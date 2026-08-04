@@ -19,6 +19,7 @@ import {
 import { CHILE_TZ } from "@/lib/dates-cl";
 import { dateAtChileSlot, formatAgendaTime } from "./agenda-calendar-utils";
 import { TaskTimePicker } from "./TaskTimePicker";
+import { EditEventDialog } from "./evento/EditEventDialog";
 import type { AgendaCalendarItem, AgendaTeamMember } from "./agenda-calendar.types";
 
 type Props = {
@@ -67,6 +68,7 @@ export function AgendaInspector({ item, users, onClose, onChanged }: Props) {
   const [assignedUserId, setAssignedUserId] = useState("");
   const [busy, setBusy] = useState(false);
   const [confirmCancel, setConfirmCancel] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
   const [visitDetail, setVisitDetail] = useState<{
     notes: string | null;
     address: string | null;
@@ -272,6 +274,17 @@ export function AgendaInspector({ item, users, onClose, onChanged }: Props) {
       )}
 
       <div className="mt-auto flex flex-wrap gap-2 border-t border-ds-border-subtle pt-3">
+        {item.source === "agenda_visita" && (
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => setEditOpen(true)}
+            className="inline-flex h-10 flex-1 items-center justify-center rounded-xl border border-ds-border-default text-[13px] text-ds-text-2 ds-tap sm:h-9"
+          >
+            Editar
+          </button>
+        )}
+
         {item.href && (
           <Link
             href={item.href}
@@ -335,6 +348,16 @@ export function AgendaInspector({ item, users, onClose, onChanged }: Props) {
           </div>
         </DialogContent>
       </Dialog>
+
+      <EditEventDialog
+        eventId={item.source === "agenda_visita" ? item.id : null}
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        onSaved={() => {
+          onChanged();
+          setEditOpen(false);
+        }}
+      />
     </Surface>
   );
 }

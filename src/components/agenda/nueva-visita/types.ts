@@ -24,14 +24,16 @@ export type ContactOption = {
 
 export type TeamMember = { userId: string; name: string; connected: boolean };
 
+/** Tipos creables desde la agenda (sin visita técnica de supervisor — eso es CPQ). */
 export const VISIT_TYPES = [
-  { id: "tecnica", label: "Técnica" },
   { id: "cliente", label: "Cliente" },
   { id: "supervision", label: "Supervisión" },
   { id: "otra", label: "Otra" },
 ] as const;
 
 export type VisitType = (typeof VISIT_TYPES)[number]["id"];
+
+export { EVENT_LABEL_SUGGESTIONS } from "../evento/EventoFormFields";
 
 export const DURATIONS = [
   { min: 30, label: "30 min" },
