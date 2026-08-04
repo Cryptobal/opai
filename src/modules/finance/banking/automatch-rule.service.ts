@@ -50,7 +50,9 @@ export interface RuleConditions {
   items: RuleCondition[];
 }
 
-export interface RuleAction {
+/** Acción legacy (cuenta contable / contraparte). */
+export interface LegacyRuleAction {
+  kind?: undefined;
   /**
    * RECOGNIZED: la tx queda vinculada a una entidad (counterparty/cuenta).
    * CATEGORIZED: la tx solo recibe una cuenta contable, sin vínculo a entidad.
@@ -67,6 +69,33 @@ export interface RuleAction {
    * humana antes de quedar conciliada. Si false, se aplica automático.
    */
   requiresReview: boolean;
+}
+
+/** Acción v5: enrutar a fila de flujo de caja. */
+export interface FlowRowRuleAction {
+  kind: "FLOW_ROW";
+  flowRowId: string;
+  requiresReview?: boolean;
+}
+
+/** Acción v5: pedir pick TGR (F29 / finiquito / convenio). */
+export interface TgrPickRuleAction {
+  kind: "TGR_PICK";
+  requiresReview?: boolean;
+}
+
+export type RuleAction = LegacyRuleAction | FlowRowRuleAction | TgrPickRuleAction;
+
+export function isFlowRowAction(a: RuleAction): a is FlowRowRuleAction {
+  return (a as FlowRowRuleAction).kind === "FLOW_ROW";
+}
+
+export function isTgrPickAction(a: RuleAction): a is TgrPickRuleAction {
+  return (a as TgrPickRuleAction).kind === "TGR_PICK";
+}
+
+export function isLegacyAction(a: RuleAction): a is LegacyRuleAction {
+  return !("kind" in a) || a.kind == null;
 }
 
 export interface AutoMatchTx {
@@ -222,6 +251,24 @@ export async function findMatchingRule(
     }
   }
   return null;
+}
+
+/**
+ * Evalúa si una regla matched tiene acción FLOW_ROW por condición RUT
+ * (BENEFICIARY_RUT + RUT_MATCHES). Devuelve sugerencia tipada o null.
+ */
+export function flowRowSuggestionFromEvaluation(
+  evaluation: AutoMatchEvaluation | null,
+): { flowRowId: string; ruleId: string; ruleName: string; requiresReview: boolean } | null {
+  if (!evaluation) return null;
+  const action = evaluation.action;
+  if (!isFlowRowAction(action)) return null;
+  return {
+    flowRowId: action.flowRowId,
+    ruleId: evaluation.ruleId,
+    ruleName: evaluation.ruleName,
+    requiresReview: action.requiresReview !== false,
+  };
 }
 
 /**
@@ -386,13 +433,14 @@ export async function runHistoricalForRule(
         reference: tx.reference,
       });
       if (!evaluation || evaluation.ruleId !== ruleId) continue;
-      if (!evaluation.action.accountPlanId) continue;
-      if (evaluation.action.requiresReview) {
+      const action = evaluation.action;
+      if (!isLegacyAction(action) || !action.accountPlanId) continue;
+      if (action.requiresReview) {
         await prisma.financeBankTransaction.update({
           where: { id: tx.id },
           data: {
             suggestedRuleId: evaluation.ruleId,
-            suggestedAccountPlanId: evaluation.action.accountPlanId,
+            suggestedAccountPlanId: action.accountPlanId,
           },
         });
         suggested++;
@@ -407,7 +455,7 @@ export async function runHistoricalForRule(
               targetType: isIncome ? "INCOME" : "EXPENSE",
               targetId: null,
               amount: new Decimal(amountAbs),
-              accountPlanId: evaluation.action.accountPlanId,
+              accountPlanId: action.accountPlanId,
               note: `Auto-aplicado al crear/editar regla: ${evaluation.ruleName}`,
               createdById: userId,
             },

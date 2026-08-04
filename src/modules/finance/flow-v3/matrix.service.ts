@@ -95,7 +95,7 @@ export async function buildFlowMatrix(
     resolveOpeningBalance(tenantId),
     prisma.financeCashflowConfig.findUnique({
       where: { tenantId },
-      select: { flowWarnThresholdClp: true },
+      select: { flowWarnThresholdClp: true, driftAlertThresholdClp: true },
     }),
     listClosedV3Weeks(tenantId, weeks),
     loadSealedBalancesForMatrix(tenantId, weeks),
@@ -361,6 +361,7 @@ export async function buildFlowMatrix(
     openingBalanceDetail,
     closedWeeks,
     warnThreshold: config?.flowWarnThresholdClp ?? WARN_THRESHOLD_CLP,
+    driftAlertThresholdClp: config?.driftAlertThresholdClp ?? 100_000,
     excludedIncome,
     kpis: assembled.kpis,
   };

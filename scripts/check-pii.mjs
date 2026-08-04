@@ -44,6 +44,11 @@ const ALLOWED_RUT_PLACEHOLDERS = new Set([
   // contribuyente, es la entidad destinataria.
   "60803000-K",
   "60.803.000-K",
+  // RUT publico de la Tesoreria General de la Republica (TGR). Usado en
+  // clasificacion de cargos bancarios del flujo de caja (quick-picks F29 /
+  // Finiquito / Convenio). No es PII de un contribuyente.
+  "61808000-5",
+  "61.808.000-5",
 ]);
 
 const SAMPLE_PATHS_ALLOWLIST = [

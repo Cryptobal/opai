@@ -34,6 +34,8 @@ export interface FlowMatrixResponse {
   /** Lunes ISO (YMD) de las semanas selladas por cierre (§5G). */
   closedWeeks: string[];
   warnThreshold: number;
+  /** Umbral |delta| CLP para alertar desviación real vs proyectado. */
+  driftAlertThresholdClp?: number;
   rows: FlowMatrixRowDto[];
   flows: number[];
   balances: number[];

@@ -56,6 +56,8 @@ interface Props {
   cellStyle?: CellStyle;
   /** Caption opcional bajo el monto (ej. "UF 24,5"). */
   caption?: string | null;
+  /** Umbral |delta| para chip de desviación (default 100000). */
+  driftAlertThresholdClp?: number;
 }
 
 const ALIGN_H_CSS: Record<string, CSSProperties["textAlign"]> = {
@@ -171,6 +173,15 @@ export function PlanillaCell(p: Props) {
   }
   if (p.caption) titleParts.push(p.caption);
 
+  const driftThreshold = p.driftAlertThresholdClp ?? 100_000;
+  const showDriftChip =
+    cell.drift != null && Math.abs(cell.drift.delta) >= driftThreshold;
+  if (showDriftChip && cell.drift) {
+    titleParts.push(
+      `Desviación ${cell.drift.delta > 0 ? "▲" : "▼"} ${Math.abs(Math.round(cell.drift.delta)).toLocaleString("es-CL")}`,
+    );
+  }
+
   const openSheet = p.onOpenCellSheet;
   const handleLongPress = useCallback(() => {
     openSheet?.();
@@ -249,6 +260,15 @@ export function PlanillaCell(p: Props) {
               {p.caption}
             </span>
           )}
+          {showDriftChip && cell.drift && (
+            <span
+              className={`text-[12px] font-medium leading-tight ${
+                cell.drift.delta > 0 ? "text-status-ok-fg" : "text-status-danger-fg"
+              }`}
+            >
+              {cell.drift.delta > 0 ? "▲" : "▼"}
+            </span>
+          )}
         </span>
       ) : (
         <>
@@ -279,6 +299,16 @@ export function PlanillaCell(p: Props) {
               title={pastPend.title}
             >
               ×{pastPend.count}
+            </span>
+          )}
+          {showDriftChip && cell.drift && (
+            <span
+              className={`ml-0.5 text-[12px] font-medium ${
+                cell.drift.delta > 0 ? "text-status-ok-fg" : "text-status-danger-fg"
+              }`}
+              aria-label="Desviación vs proyectado"
+            >
+              {cell.drift.delta > 0 ? "▲" : "▼"}
             </span>
           )}
         </>

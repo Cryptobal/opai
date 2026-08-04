@@ -50,6 +50,14 @@ export const updateCashflowConfigSchema = z.object({
       z.null(),
     ])
     .optional(),
+  // Flujo v5: proyectar DTEs recibidos como egreso comprometido.
+  projectReceivedDtesAsExpense: z.boolean().optional(),
+  // Promedio móvil de finiquitos (meses de historia).
+  finiquitosAvgMonths: z.number().int().min(1).max(36).optional(),
+  // Override manual mensual de finiquitos (CLP) o null para usar promedio.
+  finiquitosManualMonthlyClp: z.number().int().min(0).max(1_000_000_000).nullable().optional(),
+  // Promedio móvil del crédito fiscal F29 (meses).
+  f29CreditAvgMonths: z.number().int().min(1).max(36).optional(),
 });
 
 export const createCashflowCategorySchema = z.object({

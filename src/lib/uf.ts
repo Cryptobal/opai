@@ -100,4 +100,18 @@ function isoToDateOnly(iso: string): string {
   return iso.slice(0, 10);
 }
 
+/**
+ * Última UF publicada en BD (valor + fecha YMD). No llama a la API.
+ * Usado por proyección UF con growth en recurrencias flow-v3.
+ */
+export async function getLatestPublishedUf(): Promise<{ value: number; ymd: string } | null> {
+  try {
+    const latest = await prisma.fxUfRate.findFirst({ orderBy: { date: "desc" } });
+    if (!latest) return null;
+    return { value: Number(latest.value), ymd: latest.date.toISOString().slice(0, 10) };
+  } catch {
+    return null;
+  }
+}
+
 export { clpToUf, ufToClp };

@@ -4,11 +4,33 @@ import type React from "react";
 import type { CommittedItem } from "@/modules/finance/flow-v3/types";
 import type { FlowMatrixCellDto, FlowMatrixRowDto } from "@/modules/finance/flow-v3/matrix-types";
 import type { MatrixColumn } from "@/modules/finance/flow-v3/matrix-types";
+import { normalizeNameForDedupe } from "@/modules/finance/flow-v3/row-visibility";
 import { draftGroupLabel, terminoStatusLine } from "./cell-meta";
 import { fmtClp, fmtDayMonth, fmtShortDate } from "./format";
 import type { MenuItemDesc } from "./menu-render";
 
-const EGRESO_SECTIONS = new Set(["REMUNERACIONES", "IMPUESTOS", "GAV", "OTROS"]);
+const PLAN_RECURRENCE_SECTIONS = new Set([
+  "REMUNERACIONES", "IMPUESTOS", "GAV", "OTROS", "FINANCIAMIENTO",
+]);
+
+/** Filas paramétricas v5 que admiten "Mover" desde capa committed. */
+const PARAMETRIC_MOVE_NAMES = new Set([
+  "retiro socios",
+  "retiro socio",
+  "finiquitos",
+  "finiquito",
+  "turnos extra",
+  "turno extra",
+]);
+
+export function isParametricMoveRow(rowName: string): boolean {
+  return PARAMETRIC_MOVE_NAMES.has(normalizeNameForDedupe(rowName));
+}
+
+export function isRetiroSociosRow(rowName: string): boolean {
+  const n = normalizeNameForDedupe(rowName);
+  return n === "retiro socios" || n === "retiro socio";
+}
 
 export interface RowTemplate {
   templateId: string;
@@ -144,10 +166,10 @@ export function buildRowMenu(
     items.push({ key: "prog", label: "Programación", separatorBefore: true, submenu });
   }
 
-  if (EGRESO_SECTIONS.has(row.section)) {
+  if (PLAN_RECURRENCE_SECTIONS.has(row.section)) {
     items.push({
       key: "recurring",
-      label: "Egreso recurrente…",
+      label: row.section === "FINANCIAMIENTO" ? "Recurrencia…" : "Egreso recurrente…",
       separatorBefore: true,
       onSelect: () => cb.onRecurring(row),
     });
@@ -190,6 +212,8 @@ export interface CellMenuCallbacks {
   onFillRight: () => void;
   onClearPlan: () => void;
   onMovePlan: (targetWeek: string) => void;
+  /** Mueve proyección paramétrica committed vía plan overrides (origen→destino). */
+  onMoveParametricCommitted?: (targetWeek: string) => void;
   onMoveDte: (dteId: string, targetWeek: string) => void;
   onViewDetail: () => void;
   onViewDte: (dteId: string) => void;
@@ -517,6 +541,39 @@ function planCellItems(
   return items;
 }
 
+/** Acciones para mover committed paramétrico (Retiro / opcional TE·Finiquitos). */
+function parametricCommittedMoveItems(
+  row: FlowMatrixRowDto,
+  cell: FlowMatrixCellDto,
+  ctx: CellMenuContext,
+  cb: CellMenuCallbacks,
+): MenuItemDesc[] {
+  if (cell.layer !== "committed") return [];
+  if (!isParametricMoveRow(row.name)) return [];
+  if (!cb.onMoveParametricCommitted) return [];
+  const amount = cell.committed?.total ?? 0;
+  if (amount === 0) return [];
+  const canMove = ctx.canManage && ctx.openWeeks.length > 0;
+  return [
+    {
+      key: "move-parametric",
+      label: "Mover a otra semana…",
+      separatorBefore: true,
+      disabled: !canMove,
+      reason: !ctx.canManage
+        ? "Sin permiso de edición"
+        : "No hay semanas abiertas",
+      submenu: canMove
+        ? ctx.openWeeks.map((c) => ({
+            key: `move-param-${c.key}`,
+            label: `${c.label} · ${fmtDayMonth(c.weekStart)}`,
+            onSelect: () => cb.onMoveParametricCommitted!(c.key),
+          }))
+        : undefined,
+    },
+  ];
+}
+
 /** Menú de la celda (§5D / v4.6 por folio · v4.7 borradores movibles). */
 export function buildCellMenu(
   row: FlowMatrixRowDto,
@@ -528,6 +585,17 @@ export function buildCellMenu(
   const draftItems = cellDraftItems(cell);
   const hasDocs = dteItems.length > 0 || draftItems.length > 0;
   const items: MenuItemDesc[] = hasDocs ? [] : planCellItems(cell, ctx, cb);
+
+  if (!hasDocs) {
+    items.push(...parametricCommittedMoveItems(row, cell, ctx, cb));
+  } else {
+    // Con docs: aún permitir mover paramétrico si la capa es committed sin DTE.
+    const onlyScheduled =
+      (cell.committed?.items ?? []).every((it) => it.kind === "scheduled");
+    if (cell.layer === "committed" && onlyScheduled) {
+      items.push(...parametricCommittedMoveItems(row, cell, ctx, cb));
+    }
+  }
 
   if (dteItems.length === 1) {
     items.push(...folioActions(dteItems[0]!, row, ctx, cb));
@@ -684,6 +752,7 @@ export function buildCellSheetModel(
   const hasDocs = dteItems.length > 0 || draftItems.length > 0;
   const commonItems: MenuItemDesc[] = hasDocs
     ? [
+        ...parametricCommittedMoveItems(row, cell, ctx, cb),
         {
           key: "detail",
           label: "Ver detalle e historial",
@@ -693,6 +762,7 @@ export function buildCellSheetModel(
       ]
     : [
         ...planCellItems(cell, ctx, cb),
+        ...parametricCommittedMoveItems(row, cell, ctx, cb),
         {
           key: "detail",
           label: "Ver detalle e historial",

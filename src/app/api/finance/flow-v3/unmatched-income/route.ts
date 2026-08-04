@@ -16,11 +16,12 @@ export async function GET(req: NextRequest) {
   }
   try {
     const data = await listUnmatchedIncomeGrouped(auth.ctx.tenantId, week);
-    // Back-compat: `data` plano = items; también expone groups.
+    // Back-compat: `data` plano = items; también expone groups + bankTxs.
     return NextResponse.json({
       success: true,
       data: data.items,
       groups: data.groups,
+      bankTxs: data.bankTxs,
     });
   } catch (error) {
     console.error("[Finance/FlowV3] GET unmatched-income:", error);

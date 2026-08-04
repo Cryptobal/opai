@@ -9,7 +9,7 @@ import {
 import { hasCapability } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { Decimal } from "@prisma/client/runtime/library";
-import { findMatchingRule } from "@/modules/finance/banking/automatch-rule.service";
+import { findMatchingRule, isLegacyAction } from "@/modules/finance/banking/automatch-rule.service";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -88,14 +88,15 @@ export async function POST(request: NextRequest) {
             });
             if (!evaluation) return;
             if (targetRuleId && evaluation.ruleId !== targetRuleId) return;
-            if (!evaluation.action.accountPlanId) return;
+            const action = evaluation.action;
+            if (!isLegacyAction(action) || !action.accountPlanId) return;
 
-            if (evaluation.action.requiresReview) {
+            if (action.requiresReview) {
               await prisma.financeBankTransaction.update({
                 where: { id: tx.id },
                 data: {
                   suggestedRuleId: evaluation.ruleId,
-                  suggestedAccountPlanId: evaluation.action.accountPlanId,
+                  suggestedAccountPlanId: action.accountPlanId,
                 },
               });
               suggested++;
@@ -110,7 +111,7 @@ export async function POST(request: NextRequest) {
                     targetType: isIncome ? "INCOME" : "EXPENSE",
                     targetId: null,
                     amount: new Decimal(amountAbs),
-                    accountPlanId: evaluation.action.accountPlanId,
+                    accountPlanId: action.accountPlanId,
                     note: `Re-evaluación de regla: ${evaluation.ruleName}`,
                     createdById: ctx.userId,
                   },

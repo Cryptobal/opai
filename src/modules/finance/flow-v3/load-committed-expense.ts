@@ -9,6 +9,7 @@ import {
   type ExpenseMilestoneInput,
   type ReceivedDteExpenseInput,
 } from "./derive-committed-expense";
+import { loadExpenseParametrics } from "./load-committed-expense-params";
 import type { CommittedByRow, FlowRowRef } from "./types";
 
 function ymdOf(y: number, monthZeroIdx: number, day: number): string {
@@ -39,9 +40,10 @@ function monthsBetween(fromYmd: string, toYmd: string): Array<{ y: number; m: nu
  * Solo lecturas. Reutiliza los cómputos de los generators del módulo viejo
  * (exportados) y el F29 canónico; NO usa FinanceCashflowItem/Occurrence.
  *
- * Diferencias documentadas vs módulo viejo: no descuenta turnos extra del
- * líquido (TE no se deriva en v3 — es Plan del usuario) y el F29 comprometido
- * cubre SOLO períodos vencidos con DTEs reales (futuros = Plan).
+ * v5: `projectReceivedDtesAsExpense=false` omite DTEs recibidos del
+ * comprometido (siguen alimentando crédito IVA). Los hitos payroll/F29
+ * vencidos se mantienen; proyección paramétrica (TE/retiro/finiquitos/IVA
+ * futuro) se agrega en loaders hermanos.
  */
 export async function loadCommittedExpense(
   tenantId: string,
@@ -60,6 +62,7 @@ export async function loadCommittedExpense(
         payrollPayDay: true, previRedPayDay: true, quincenaPayDay: true,
         quincenaMode: true, quincenaPctLiquido: true, ivaPayDay: true,
         collectionLagDays: true,
+        projectReceivedDtesAsExpense: true,
       },
     }),
     prisma.crmInstallation.findMany({ where: { tenantId }, select: { id: true } }),
@@ -169,37 +172,75 @@ export async function loadCommittedExpense(
     }
   }
 
-  // ── DTEs recibidos por pagar ──
-  const excluded = new Set(exclusions.map((e) => e.dteId));
-  const allAccountIds = [
-    ...new Set(
-      receivedRaw.flatMap((d) => d.lines.map((l) => l.accountId).filter((x): x is string => !!x)),
-    ),
-  ];
-  const accountToCategory = await bulkResolveCategoriesFromAccounts(tenantId, allAccountIds);
-
-  const receivedDtes: ReceivedDteExpenseInput[] = receivedRaw
-    .filter((d) => !excluded.has(d.id))
-    .map((d) => {
-      let categoryId: string | null = null;
-      for (const l of d.lines) {
-        if (l.accountId && accountToCategory.has(l.accountId)) {
-          categoryId = accountToCategory.get(l.accountId)!.id;
-          break;
-        }
-      }
-      return {
-        id: d.id,
-        folio: d.folio,
-        dateYmd: d.date.toISOString().slice(0, 10),
-        dueDateYmd: d.dueDate ? d.dueDate.toISOString().slice(0, 10) : null,
-        paymentTermDays: d.supplier?.paymentTermDays ?? config?.collectionLagDays ?? 30,
-        pendingClp: Number(d.totalAmount) - Number(d.amountPaid),
-        supplierId: d.supplierId,
-        categoryId,
-        issuerName: d.issuerName ?? "",
+  // ── v5: proyección paramétrica (retiro, TE, finiquitos, F29 futuro) ──
+  const parametrics = await loadExpenseParametrics(
+    tenantId,
+    rows,
+    weeks,
+    todayYmd,
+    fromYmd,
+    toYmd,
+    {
+      liquidoTotal,
+      previRedTotal,
+      payDay,
+      previredDay: previredDay,
+      ivaDay,
+      pendingTeTotal: teTotal,
+    },
+  );
+  for (const patch of parametrics.payrollPatches) {
+    const idx = milestones.findIndex(
+      (m) => m.key === patch.key && m.dateYmd === patch.dateYmd,
+    );
+    if (idx >= 0) {
+      milestones[idx] = {
+        ...milestones[idx],
+        amountClp: patch.amountClp,
+        label: patch.label,
+        metaNote: patch.metaNote,
       };
-    });
+    }
+  }
+  milestones.push(...parametrics.milestones);
+
+  // ── DTEs recibidos por pagar ──
+  // Switch tenant: si projectReceivedDtesAsExpense=false, no generan
+  // comprometido de egresos (siguen sirviendo para crédito IVA F29).
+  const projectReceived = config?.projectReceivedDtesAsExpense !== false;
+  let receivedDtes: ReceivedDteExpenseInput[] = [];
+  if (projectReceived) {
+    const excluded = new Set(exclusions.map((e) => e.dteId));
+    const allAccountIds = [
+      ...new Set(
+        receivedRaw.flatMap((d) => d.lines.map((l) => l.accountId).filter((x): x is string => !!x)),
+      ),
+    ];
+    const accountToCategory = await bulkResolveCategoriesFromAccounts(tenantId, allAccountIds);
+
+    receivedDtes = receivedRaw
+      .filter((d) => !excluded.has(d.id))
+      .map((d) => {
+        let categoryId: string | null = null;
+        for (const l of d.lines) {
+          if (l.accountId && accountToCategory.has(l.accountId)) {
+            categoryId = accountToCategory.get(l.accountId)!.id;
+            break;
+          }
+        }
+        return {
+          id: d.id,
+          folio: d.folio,
+          dateYmd: d.date.toISOString().slice(0, 10),
+          dueDateYmd: d.dueDate ? d.dueDate.toISOString().slice(0, 10) : null,
+          paymentTermDays: d.supplier?.paymentTermDays ?? config?.collectionLagDays ?? 30,
+          pendingClp: Number(d.totalAmount) - Number(d.amountPaid),
+          supplierId: d.supplierId,
+          categoryId,
+          issuerName: d.issuerName ?? "",
+        };
+      });
+  }
 
   return deriveCommittedExpense({
     rows,
@@ -208,5 +249,8 @@ export async function loadCommittedExpense(
     milestones,
     receivedDtes,
     categoryCodeById: new Map(categories.map((c) => [c.id, c.code])),
+    teWeeklyProjections: parametrics.teWeeklyProjections,
+    teRowId: parametrics.teRowId,
+    tePlanBlockedWeeks: parametrics.tePlanBlockedWeeks,
   });
 }

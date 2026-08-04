@@ -64,6 +64,10 @@ export interface FlowMatrixCellDto {
   /** Cash-signed (+ entra / − sale). */
   effective: number;
   layer: "real" | "committed" | "plan" | "empty";
+  /** Magnitud proyectada (plan≠0 ? plan : |committed|) cuando hay real — drift v5. */
+  projected?: number | null;
+  /** Desviación real vs proyectado (solo si hay real). */
+  drift?: { delta: number; pct: number | null } | null;
 }
 
 export interface FlowMatrixRowDto extends AssembleRowInput {
@@ -156,7 +160,31 @@ export function assembleMatrix(args: AssembleArgs): AssembledMatrix {
         if (layer === "plan") pendingNet[i] += planCash;
         else if (layer === "committed") pendingNet[i] += committedCash;
       }
-      return { weekStart: w, plan, committed, real, effective, layer };
+
+      const committedMag = committed?.total ?? 0;
+      let projected: number | null = null;
+      let drift: { delta: number; pct: number | null } | null = null;
+      if (real && real.total !== 0) {
+        const projSigned =
+          plan !== 0 ? planCash : committed && committed.total !== 0 ? committedCash : 0;
+        const projMag = plan !== 0 ? Math.abs(plan) : committedMag;
+        if (projMag > 0) projected = projMag;
+        if (projSigned !== 0) {
+          const delta = real.total - projSigned;
+          drift = { delta, pct: (delta / projSigned) * 100 };
+        }
+      }
+
+      return {
+        weekStart: w,
+        plan,
+        committed,
+        real,
+        effective,
+        layer,
+        projected,
+        drift,
+      };
     });
     return { ...r, cells };
   });

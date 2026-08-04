@@ -229,6 +229,47 @@ export async function movePlanCell(
   return { from, to };
 }
 
+/**
+ * Mueve una proyección paramétrica (capa committed) creando overrides de plan:
+ * origen → 0, destino → amount (signado). Valida semanas lunes ISO; el caller
+ * debe haber filtrado selladas/pasadas vía assertV3WeeksWritable.
+ */
+export async function moveParametricCommitted(
+  tenantId: string,
+  rowId: string,
+  fromWeek: string,
+  toWeek: string,
+  amount: number,
+  updatedBy: string | null,
+  audit?: PlanAuditCtx,
+): Promise<{ from: PlanCellDto; to: PlanCellDto }> {
+  if (!Number.isFinite(amount) || amount === 0) {
+    throw new Error("Monto inválido para mover proyección");
+  }
+  if (fromWeek === toWeek) {
+    const cell = await readCell(tenantId, rowId, fromWeek);
+    return { from: cell, to: cell };
+  }
+  await assertV3WritableLocal(tenantId, rowId, fromWeek, toWeek);
+  const from = await upsertCell(tenantId, rowId, fromWeek, 0, updatedBy, audit);
+  const to = await upsertCell(tenantId, rowId, toWeek, amount, updatedBy, audit);
+  return { from, to };
+}
+
+/** Validación local mínima (fila + lunes); sellado lo valida la ruta. */
+async function assertV3WritableLocal(
+  tenantId: string,
+  rowId: string,
+  fromWeek: string,
+  toWeek: string,
+): Promise<void> {
+  const row = await assertEditableRow(tenantId, rowId);
+  assertWeek(fromWeek);
+  assertWeek(toWeek);
+  assertPlanWeekWritable(row, fromWeek);
+  assertPlanWeekWritable(row, toWeek);
+}
+
 /** Celdas plan del tenant en el rango [from, to] (lunes ISO), por fila. */
 export async function loadPlanCells(
   tenantId: string,

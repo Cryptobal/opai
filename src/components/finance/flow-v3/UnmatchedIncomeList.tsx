@@ -36,6 +36,15 @@ interface GroupRow {
   templates: TemplateOpt[];
 }
 
+interface BankTxRow {
+  bankTransactionId: string;
+  amountClp: number;
+  dateYmd: string;
+  description: string;
+  reference: string | null;
+  beneficiaryRut: string | null;
+}
+
 function groupStatus(g: GroupRow): { label: string; variant: "ok" | "warn" | "neutral" } {
   if (g.crmAccountId && g.templates.length > 0) {
     return {
@@ -65,6 +74,9 @@ export function UnmatchedIncomeList({
   onExcludeGroup?: (dteIds: string[]) => Promise<void>;
 }) {
   const [groups, setGroups] = useState<GroupRow[]>([]);
+  const [bankTxs, setBankTxs] = useState<BankTxRow[]>([]);
+  const [classifyBusyId, setClassifyBusyId] = useState<string | null>(null);
+  const [classifyHint, setClassifyHint] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -86,6 +98,7 @@ export function UnmatchedIncomeList({
         const j = await r.json();
         if (!j.success) throw new Error(j.error ?? "Error");
         if (cancelled) return;
+        setBankTxs(Array.isArray(j.bankTxs) ? (j.bankTxs as BankTxRow[]) : []);
         if (Array.isArray(j.groups) && j.groups.length > 0) {
           setGroups(j.groups as GroupRow[]);
           setExpanded(new Set((j.groups as GroupRow[]).map((g) => g.key)));
@@ -291,12 +304,103 @@ export function UnmatchedIncomeList({
       </div>
     );
   }
-  if (groups.length === 0 && !error) return null;
+  if (groups.length === 0 && bankTxs.length === 0 && !error) return null;
 
   const clientLabel = (g: GroupRow) => g.receiverName ?? g.receiverRut ?? "Cliente";
 
+  const classifyBankTx = async (txId: string) => {
+    setClassifyBusyId(txId);
+    setClassifyHint(null);
+    setError(null);
+    try {
+      const res = await fetch(
+        `/api/finance/banking/transactions/${txId}/classify-suggestions`,
+        { cache: "no-store" },
+      );
+      const j = await res.json();
+      if (!j.success) throw new Error(j.error ?? "Error");
+      const suggestions = (j.data?.suggestions ?? []) as Array<{
+        kind: string;
+        label?: string;
+        flowRowId?: string;
+        options?: string[];
+      }>;
+      const top = suggestions[0];
+      if (!top || top.kind === "NONE") {
+        setClassifyHint("Sin sugerencia automática — clasificá en Bancos.");
+        return;
+      }
+      if (top.kind === "TGR_PICK") {
+        setClassifyHint(`TGR: elegí ${ (top.options ?? []).join(" / ") } en Bancos.`);
+        return;
+      }
+      if (top.kind === "FLOW_ROW" && top.flowRowId) {
+        const conf = await fetch(
+          `/api/finance/banking/transactions/${txId}/classify-suggestions`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ kind: "FLOW_ROW", flowRowId: top.flowRowId }),
+          },
+        );
+        const cj = await conf.json();
+        if (!cj.success) throw new Error(cj.error ?? "Error");
+        setClassifyHint(
+          cj.data?.stub
+            ? `Sugerido: ${top.label ?? "fila"} (completar cuenta en Bancos)`
+            : `Clasificado → ${top.label ?? "fila"}`,
+        );
+        setBankTxs((prev) => prev.filter((t) => t.bankTransactionId !== txId));
+        onCreated();
+        return;
+      }
+      setClassifyHint(`Sugerencia: ${top.kind} — revisá en Bancos.`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Error");
+    } finally {
+      setClassifyBusyId(null);
+    }
+  };
+
   return (
     <div className="border-t border-ds-border-subtle px-5 py-3">
+      {bankTxs.length > 0 && (
+        <div className="mb-4 space-y-2">
+          <p className="text-[12px] font-medium uppercase tracking-wide text-ds-text-3">
+            Abonos bancarios sin clasificar ({bankTxs.length})
+          </p>
+          {classifyHint && (
+            <p className="text-[12px] text-status-info-fg">{classifyHint}</p>
+          )}
+          <ul className="space-y-2">
+            {bankTxs.map((tx) => (
+              <li
+                key={tx.bankTransactionId}
+                className="flex flex-col gap-2 rounded-lg border border-ds-border-subtle bg-ds-surface-2 p-3 sm:flex-row sm:items-center sm:justify-between"
+              >
+                <div className="min-w-0">
+                  <p className="truncate text-[13px] text-ds-text-1">
+                    {fmtShortDate(tx.dateYmd)} · {tx.description || "Sin glosa"}
+                  </p>
+                  <p className="text-[12px] text-ds-text-4">
+                    {tx.beneficiaryRut ? `RUT ${tx.beneficiaryRut}` : "Sin RUT"}
+                    {" · "}
+                    <span className="tabular-nums">{fmtClp(tx.amountClp)}</span>
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  disabled={classifyBusyId === tx.bankTransactionId}
+                  onClick={() => void classifyBankTx(tx.bankTransactionId)}
+                  className="h-11 shrink-0 rounded-ds-md bg-primary px-3 text-[13px] font-medium text-primary-foreground disabled:opacity-50 sm:h-10"
+                >
+                  {classifyBusyId === tx.bankTransactionId ? "…" : "Clasificar…"}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
       <p className="mb-2 text-[12px] font-medium uppercase tracking-wide text-ds-text-3">
         Facturas en Otros ingresos
       </p>

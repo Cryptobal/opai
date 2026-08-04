@@ -63,6 +63,14 @@ interface CashflowConfig {
   flowWarnThresholdClp: number;
   /** Flujo v4.6: corte de cartera (YYYY-MM-DD) o null. */
   flowCutoffYmd: string | null;
+  /** Flujo v5: proyectar DTEs recibidos como egreso comprometido. */
+  projectReceivedDtesAsExpense: boolean;
+  /** Meses de historia para promedio móvil de finiquitos. */
+  finiquitosAvgMonths: number;
+  /** Override manual mensual de finiquitos (CLP) o null. */
+  finiquitosManualMonthlyClp: number | null;
+  /** Meses de historia para promedio móvil del crédito F29. */
+  f29CreditAvgMonths: number;
 }
 
 /** Prisma serializa campos Decimal como string en JSON; esta interfaz refleja esa realidad. */
@@ -77,6 +85,10 @@ type RawCashflowConfig = Omit<
   | "writeOffMaxPercent"
   | "ppmRatePct"
   | "flowCutoffYmd"
+  | "projectReceivedDtesAsExpense"
+  | "finiquitosAvgMonths"
+  | "finiquitosManualMonthlyClp"
+  | "f29CreditAvgMonths"
 > & {
   ufMonthlyGrowthPct?: number | string;
   ppmRatePct?: number | string;
@@ -87,6 +99,10 @@ type RawCashflowConfig = Omit<
   quincenaPctLiquido: number | string;
   writeOffMaxPercent: number | string;
   flowCutoffYmd?: string | Date | null;
+  projectReceivedDtesAsExpense?: boolean;
+  finiquitosAvgMonths?: number;
+  finiquitosManualMonthlyClp?: number | null;
+  f29CreditAvgMonths?: number;
 };
 
 interface Category {
@@ -157,6 +173,13 @@ export function CashflowConfigClient({ initialConfig, initialCategories, account
     flowCutoffYmd: initialConfig.flowCutoffYmd
       ? String(initialConfig.flowCutoffYmd).slice(0, 10)
       : null,
+    projectReceivedDtesAsExpense: initialConfig.projectReceivedDtesAsExpense !== false,
+    finiquitosAvgMonths: Number(initialConfig.finiquitosAvgMonths ?? 6),
+    finiquitosManualMonthlyClp:
+      initialConfig.finiquitosManualMonthlyClp == null
+        ? null
+        : Number(initialConfig.finiquitosManualMonthlyClp),
+    f29CreditAvgMonths: Number(initialConfig.f29CreditAvgMonths ?? 6),
   });
   const [categories, setCategories] = useState<Category[]>(initialCategories);
   const [savingConfig, setSavingConfig] = useState(false);
@@ -481,6 +504,71 @@ export function CashflowConfigClient({ initialConfig, initialCategories, account
               Reversible. Típico: <strong>01/01/2025</strong> para limpiar
               cartera antigua.
             </p>
+          </div>
+          <div className="sm:col-span-2 rounded-ds-md border border-ds-border-subtle bg-ds-surface-2/40 p-3 space-y-3">
+            <div>
+              <h3 className="font-medium text-[13px]">Supuestos de proyección</h3>
+              <p className="text-[12px] text-ds-text-3">
+                Knobs que alimentan la planilla v3 (comprometido derive-on-read).
+                Con defaults, el comportamiento es idéntico al anterior.
+              </p>
+            </div>
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="font-medium text-[13px]">Proyectar facturas recibidas como egreso</p>
+                <p className="text-[12px] text-ds-text-3">
+                  Si está apagado, los DTEs recibidos no generan comprometido de
+                  egresos (siguen contando para crédito IVA F29). Útil cuando
+                  varias compras son solo aprovechamiento de IVA.
+                </p>
+              </div>
+              <Switch
+                checked={config.projectReceivedDtesAsExpense}
+                onCheckedChange={(v) => setField("projectReceivedDtesAsExpense", v)}
+              />
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <Label>Finiquitos — promedio (meses)</Label>
+                <Input
+                  className="h-10 sm:h-9"
+                  type="number"
+                  min={1}
+                  max={36}
+                  value={config.finiquitosAvgMonths}
+                  onChange={(e) => setField("finiquitosAvgMonths", Number(e.target.value) || 6)}
+                />
+              </div>
+              <div>
+                <Label>Finiquitos — monto manual mensual (CLP)</Label>
+                <Input
+                  className="h-10 sm:h-9"
+                  type="number"
+                  min={0}
+                  placeholder="Vacío = usar promedio"
+                  value={config.finiquitosManualMonthlyClp ?? ""}
+                  onChange={(e) => {
+                    const v = e.target.value.trim();
+                    setField("finiquitosManualMonthlyClp", v === "" ? null : Number(v));
+                  }}
+                />
+              </div>
+              <div>
+                <Label>IVA F29 — promedio crédito (meses)</Label>
+                <Input
+                  className="h-10 sm:h-9"
+                  type="number"
+                  min={1}
+                  max={36}
+                  value={config.f29CreditAvgMonths}
+                  onChange={(e) => setField("f29CreditAvgMonths", Number(e.target.value) || 6)}
+                />
+                <p className="mt-1 text-[12px] text-ds-text-3">
+                  Para períodos en curso/futuros: fracción no transcurrida del
+                  crédito fiscal se estima con este promedio móvil.
+                </p>
+              </div>
+            </div>
           </div>
           <div>
             <Label>Modo de proyección turnos extra</Label>

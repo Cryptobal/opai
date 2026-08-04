@@ -72,6 +72,8 @@ interface Props {
   searchQuery?: string;
   /** Caption UF de la fila (misma etiqueta en todas las celdas). */
   ufCaption?: string | null;
+  /** Umbral |delta| para chip de desviación en celdas. */
+  driftAlertThresholdClp?: number;
 }
 
 function highlightName(name: string, query: string): ReactNode {
@@ -270,6 +272,7 @@ export function PlanillaRow(p: Props) {
             showChips={p.showChips}
             numberFormat={p.numberFormat}
             cellStyle={p.getCellStyle?.(row.id, cell.weekStart)}
+            driftAlertThresholdClp={p.driftAlertThresholdClp}
           />
         );
       })}

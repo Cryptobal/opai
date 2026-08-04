@@ -68,6 +68,8 @@ interface Props {
   showChips?: boolean;
   numberFormat?: NumberFormatMode;
   getCellStyle?: (rowId: string, weekStart: string) => CellStyle | undefined;
+  /** Umbral |delta| para chip ▲/▼ de desviación (default 100000). */
+  driftAlertThresholdClp?: number;
   /** Notifica selección al chrome (fx bar / statusbar). */
   onSelectionChange?: (sel: CellSel | null, meta: {
     rowNumber: number;
@@ -136,8 +138,11 @@ export function PlanillaGrid({
   searchQuery, collapseApiRef, openLayersRequest,
   onCopyRange, nameW, onNameWChange, amountSort,
   sumMode = false, onSumModeChange, onDiscreteStats, onRefresh, onViewDte,
+  driftAlertThresholdClp,
 }: Props) {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  /** Filas en cero reveladas al tocar "n/m" del encabezado de sección. */
+  const [revealedZeroRowIds, setRevealedZeroRowIds] = useState<Set<string>>(() => new Set());
   const [popover, setPopover] = useState<PopoverState | null>(null);
   const [fillRight, setFillRight] = useState<FillRightRequest | null>(null);
   const [renamingRowId, setRenamingRowId] = useState<string | null>(null);
@@ -161,6 +166,15 @@ export function PlanillaGrid({
   );
   const unmatchedExpenseN = useMemo(
     () => countAssignPendingInWindow(data.rows, "GAV"),
+    [data.rows],
+  );
+  const recurringRows = useMemo(
+    () =>
+      data.rows.filter(
+        (r) =>
+          !r.isArchived
+          && ["REMUNERACIONES", "IMPUESTOS", "GAV", "OTROS", "FINANCIAMIENTO"].includes(r.section),
+      ),
     [data.rows],
   );
 
@@ -224,7 +238,12 @@ export function PlanillaGrid({
       const all = data.rows.filter((r) => r.section === s);
       let rows = showZeros
         ? all
-        : all.filter((r) => !isZeroRow(r) || alwaysVisibleRowIds?.has(r.id));
+        : all.filter(
+            (r) =>
+              !isZeroRow(r) ||
+              alwaysVisibleRowIds?.has(r.id) ||
+              revealedZeroRowIds.has(r.id),
+          );
       if (normSearch) {
         rows = rows.filter((r) =>
           r.name.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase().includes(normSearch),
@@ -247,9 +266,12 @@ export function PlanillaGrid({
           return sum + displayValue(r.section, cell?.layer ?? "empty", cell?.effective ?? 0);
         }, 0),
       );
-      return { key: s, rows, total: all.length, matchCount: rows.length, subtotals };
+      const hiddenZeroIds = showZeros
+        ? []
+        : all.filter((r) => isZeroRow(r) && !alwaysVisibleRowIds?.has(r.id) && !revealedZeroRowIds.has(r.id)).map((r) => r.id);
+      return { key: s, rows, total: all.length, matchCount: rows.length, subtotals, hiddenZeroIds };
     }).filter((s) => (normSearch ? s.matchCount > 0 : s.total > 0));
-  }, [data.rows, data.columns, showZeros, alwaysVisibleRowIds, normSearch, amountSort]);
+  }, [data.rows, data.columns, showZeros, alwaysVisibleRowIds, revealedZeroRowIds, normSearch, amountSort]);
 
   const { numbered, footerStart } = useMemo(() => {
     let n = 1;
@@ -583,6 +605,19 @@ export function PlanillaGrid({
       onFillRight: () => requestFillRight(sel),
       onClearPlan: () => void matrix.patchPlan(sel.rowId, week, 0),
       onMovePlan: (target: string) => void matrix.movePlan(sel.rowId, week, target),
+      onMoveParametricCommitted: (target: string) => {
+        const row = rowById.get(sel.rowId);
+        const cell = row?.cells[sel.colIdx];
+        if (!row || !cell) return;
+        const mag = Math.round(Math.abs(cell.committed?.total ?? cell.effective ?? 0));
+        if (mag === 0) return;
+        // FINANCIAMIENTO: plan signado (egreso −). Resto: magnitud positiva (planCashSign niega).
+        const amount = row.section === "FINANCIAMIENTO" ? -mag : mag;
+        void (async () => {
+          await matrix.patchPlan(sel.rowId, week, 0);
+          await matrix.patchPlan(sel.rowId, target, amount);
+        })();
+      },
       onMoveDte: (dteId: string, targetWeek: string) => {
         void actions.moveDte(dteId, targetWeek);
       },
@@ -839,7 +874,34 @@ export function PlanillaGrid({
                         {section.rows.length === section.total ? (
                           <span className="shrink-0 text-ds-text-4 max-md:hidden">({section.total})</span>
                         ) : (
-                          <span className="shrink-0 text-ds-text-4">
+                          <span
+                            role="button"
+                            tabIndex={0}
+                            aria-label={`Mostrar ${section.hiddenZeroIds.length} filas en cero de ${SECTION_LABELS[section.key]}`}
+                            title="Mostrar filas en cero de esta sección"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (section.hiddenZeroIds.length === 0) return;
+                              setRevealedZeroRowIds((prev) => {
+                                const next = new Set(prev);
+                                for (const id of section.hiddenZeroIds) next.add(id);
+                                return next;
+                              });
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" || e.key === " ") {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                if (section.hiddenZeroIds.length === 0) return;
+                                setRevealedZeroRowIds((prev) => {
+                                  const next = new Set(prev);
+                                  for (const id of section.hiddenZeroIds) next.add(id);
+                                  return next;
+                                });
+                              }
+                            }}
+                            className="shrink-0 text-ds-text-4 hover:text-ds-text-2 hover:underline cursor-pointer"
+                          >
                             <span className="md:hidden">{section.rows.length}/{section.total}</span>
                             <span className="max-md:hidden">({section.rows.length}/{section.total})</span>
                           </span>
@@ -952,6 +1014,9 @@ export function PlanillaGrid({
                       showChips={showChips}
                       numberFormat={numberFormat}
                       getCellStyle={getCellStyle}
+                      driftAlertThresholdClp={
+                        driftAlertThresholdClp ?? data.driftAlertThresholdClp ?? 100_000
+                      }
                       rowSelected={
                         !!activeRect &&
                         (visibleRowIdxById.get(row.id) ?? -1) >= activeRect.r0 &&
@@ -1052,6 +1117,7 @@ export function PlanillaGrid({
       />
       <RecurringExpenseDialog
         row={rowDialog?.kind === "recurring" ? rowDialog.row : null}
+        rows={rowDialog?.kind === "recurring" ? recurringRows : undefined}
         busy={busy}
         onClose={() => setRowDialog(null)}
         onConfirm={(body) => actions.createRecurring(body)}

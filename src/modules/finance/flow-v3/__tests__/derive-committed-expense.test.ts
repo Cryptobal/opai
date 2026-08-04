@@ -15,6 +15,8 @@ const ROWS: FlowRowRef[] = [
   { id: "row-arriendo", name: "Arriendo", mapping: "CATEGORY", crmAccountId: null, installationId: null, categoryId: "cat-arriendo", supplierId: null },
   { id: "row-prov", name: "Proveedor X", mapping: "SUPPLIER", crmAccountId: null, installationId: null, categoryId: null, supplierId: "sup-1" },
   { id: "row-te", name: "Turnos extra", mapping: "MANUAL", crmAccountId: null, installationId: null, categoryId: null, supplierId: null },
+  { id: "row-retiro", name: "Retiro socios", section: "FINANCIAMIENTO", mapping: "MANUAL", crmAccountId: null, installationId: null, categoryId: null, supplierId: null },
+  { id: "row-finiquitos", name: "Finiquitos", mapping: "MANUAL", crmAccountId: null, installationId: null, categoryId: null, supplierId: null },
 ];
 const CODES = new Map([
   ["cat-sueldo", "EGR_SUELDO"],
@@ -67,6 +69,72 @@ describe("deriveCommittedExpense — hitos payroll/F29", () => {
     });
     expect(out.get("row-sueldos")?.get("2026-06-29")?.total).toBe(100);
     expect(out.get("row-sueldos")?.get("2026-07-20")).toBeUndefined();
+  });
+
+  it("retiro socios cae en fila FINANCIAMIENTO por nombre", () => {
+    const out = deriveCommittedExpense({
+      ...base,
+      milestones: [{
+        key: "retiro_socio",
+        label: "Retiro socios 2026-08",
+        dateYmd: "2026-08-05",
+        amountClp: 500_000,
+      }],
+    });
+    expect(out.get("row-retiro")?.get("2026-08-03")?.total).toBe(500_000);
+  });
+
+  it("finiquitos cae en fila canónica", () => {
+    const out = deriveCommittedExpense({
+      ...base,
+      milestones: [{
+        key: "finiquitos",
+        label: "Finiquitos",
+        dateYmd: "2026-08-30",
+        amountClp: 2_000_000,
+      }],
+    });
+    expect(out.get("row-finiquitos")?.get("2026-08-24")?.total).toBe(2_000_000);
+  });
+
+  it("TE semanal proyectado respeta semanas bloqueadas por plan", () => {
+    const out = deriveCommittedExpense({
+      ...base,
+      teRowId: "row-te",
+      tePlanBlockedWeeks: new Set(["2026-08-03"]),
+      teWeeklyProjections: [
+        { weekYmd: "2026-08-03", amountClp: 100, label: "TE proy" },
+        { weekYmd: "2026-08-10", amountClp: 100, label: "TE proy" },
+      ],
+    });
+    expect(out.get("row-te")?.get("2026-08-03")).toBeUndefined();
+    expect(out.get("row-te")?.get("2026-08-10")?.total).toBe(100);
+  });
+
+  it("metaNote se incluye en label del item", () => {
+    const out = deriveCommittedExpense({
+      ...base,
+      milestones: [{
+        key: "f29",
+        label: "IVA F29 2026-08",
+        dateYmd: "2026-09-12",
+        amountClp: 0,
+        metaNote: "IVA a favor",
+      }],
+    });
+    // amount 0 se omite
+    expect(out.get("row-f29")?.get("2026-09-07")).toBeUndefined();
+    const out2 = deriveCommittedExpense({
+      ...base,
+      milestones: [{
+        key: "f29",
+        label: "IVA F29 2026-08",
+        dateYmd: "2026-09-12",
+        amountClp: 100,
+        metaNote: "IVA a favor",
+      }],
+    });
+    expect(out2.get("row-f29")?.get("2026-09-07")?.items[0].label).toContain("IVA a favor");
   });
 });
 

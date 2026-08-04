@@ -301,6 +301,43 @@ export function CellLayersPopover({
         </ul>,
       )}
 
+      {(cell.layer === "real" || hasReal) && cell.drift != null && (
+        <div className="rounded border border-ds-border-subtle px-2 py-1.5 space-y-0.5">
+          <div className="mb-0.5 text-[12px] text-ds-text-3">Desviación</div>
+          <div className="flex justify-between gap-2 text-ds-text-2">
+            <span>Proyectado</span>
+            <span className="tabular-nums">
+              {cell.projected != null ? fmtClp(cell.projected) : "—"}
+            </span>
+          </div>
+          <div className="flex justify-between gap-2 text-ds-text-2">
+            <span>Real</span>
+            <span className="tabular-nums">{fmtClp(Math.abs(realTotal))}</span>
+          </div>
+          <div className="flex justify-between gap-2">
+            <span className="text-ds-text-2">Desviación</span>
+            <span
+              className={`tabular-nums ${
+                cell.drift.delta === 0
+                  ? "text-ds-text-2"
+                  : cell.drift.delta > 0
+                    ? "text-status-ok-fg"
+                    : "text-status-danger-fg"
+              }`}
+            >
+              {cell.drift.delta > 0 ? "▲" : cell.drift.delta < 0 ? "▼" : "·"}{" "}
+              {fmtClp(Math.abs(cell.drift.delta))}
+              {cell.drift.pct != null && (
+                <span className="ml-1 text-[12px]">
+                  ({cell.drift.pct > 0 ? "+" : ""}
+                  {cell.drift.pct.toFixed(1)}%)
+                </span>
+              )}
+            </span>
+          </div>
+        </div>
+      )}
+
       {hasReal && layerBlock(
         `PAGOS RECIBIDOS · ${fmtClp(realTotal)}`,
         cell.layer === "real",

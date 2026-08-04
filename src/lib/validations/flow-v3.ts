@@ -100,25 +100,41 @@ export const flowUfPolicySchema = z.enum([
   "FIRST_DAY_MONTH",
 ]);
 
-/** Egreso recurrente de plan (§5J / v4 UF). dayOfMonth 1–31 solo para MONTHLY. */
+/** Egreso/financiamiento recurrente de plan (v5: N repeticiones, monto signado). */
 export const flowRecurringPlanCreateSchema = z
   .object({
-    rowId: z.string().uuid(),
+    rowId: z.string().uuid().optional(),
+    /** CLP por ocurrencia. FINANCIAMIENTO acepta signo (− egreso / + ingreso). */
     amount: planAmount.optional().default(0),
     frequency: flowRecurrenceFrequencySchema,
     dayOfMonth: z.number().int().min(1).max(31).nullish(),
     startDate: ymd,
     endDate: ymd.nullish(),
+    endAfterOccurrences: z.number().int().min(1).max(240).nullish(),
     currency: flowPlanCurrencySchema.optional().default("CLP"),
     amountUf: z.number().finite().positive().max(1_000_000).nullish(),
     ufPolicy: flowUfPolicySchema.nullish(),
     ufCustomDay: z.number().int().min(1).max(31).nullish(),
+    /** Crear fila destino nueva (nombre + categoría opcional) en vez de usar rowId. */
+    newRow: z
+      .object({
+        section: flowSectionSchema,
+        name: z.string().trim().min(1).max(120),
+        categoryId: z.string().uuid().nullish(),
+      })
+      .nullish(),
+  })
+  .refine((v) => !!v.rowId || !!v.newRow, {
+    message: "rowId o newRow requerido",
   })
   .refine((v) => !v.endDate || v.endDate >= v.startDate, {
     message: "endDate no puede ser anterior a startDate",
   })
   .refine(
-    (v) => (v.currency === "UF" ? v.amountUf != null && v.amountUf > 0 : (v.amount ?? 0) > 0),
+    (v) =>
+      v.currency === "UF"
+        ? v.amountUf != null && v.amountUf > 0
+        : (v.amount ?? 0) !== 0,
     { message: "Monto requerido (CLP o UF)" },
   );
 
@@ -129,6 +145,7 @@ export const flowRecurringPlanUpdateSchema = z
     dayOfMonth: z.number().int().min(1).max(31).nullish(),
     startDate: ymd.optional(),
     endDate: ymd.nullish(),
+    endAfterOccurrences: z.number().int().min(1).max(240).nullish(),
     currency: flowPlanCurrencySchema.optional(),
     amountUf: z.number().finite().positive().max(1_000_000).nullish(),
     ufPolicy: flowUfPolicySchema.nullish(),
@@ -141,6 +158,7 @@ export const flowRecurringPlanUpdateSchema = z
       v.dayOfMonth !== undefined ||
       v.startDate != null ||
       v.endDate !== undefined ||
+      v.endAfterOccurrences !== undefined ||
       v.currency != null ||
       v.amountUf != null ||
       v.ufPolicy !== undefined ||
