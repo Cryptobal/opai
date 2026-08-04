@@ -9,6 +9,7 @@ import {
   type ExpenseMilestoneInput,
   type ReceivedDteExpenseInput,
 } from "./derive-committed-expense";
+import { loadExpenseParametrics } from "./load-committed-expense-params";
 import type { CommittedByRow, FlowRowRef } from "./types";
 
 function ymdOf(y: number, monthZeroIdx: number, day: number): string {
@@ -171,6 +172,38 @@ export async function loadCommittedExpense(
     }
   }
 
+  // ── v5: proyección paramétrica (retiro, TE, finiquitos, F29 futuro) ──
+  const parametrics = await loadExpenseParametrics(
+    tenantId,
+    rows,
+    weeks,
+    todayYmd,
+    fromYmd,
+    toYmd,
+    {
+      liquidoTotal,
+      previRedTotal,
+      payDay,
+      previredDay: previredDay,
+      ivaDay,
+      pendingTeTotal: teTotal,
+    },
+  );
+  for (const patch of parametrics.payrollPatches) {
+    const idx = milestones.findIndex(
+      (m) => m.key === patch.key && m.dateYmd === patch.dateYmd,
+    );
+    if (idx >= 0) {
+      milestones[idx] = {
+        ...milestones[idx],
+        amountClp: patch.amountClp,
+        label: patch.label,
+        metaNote: patch.metaNote,
+      };
+    }
+  }
+  milestones.push(...parametrics.milestones);
+
   // ── DTEs recibidos por pagar ──
   // Switch tenant: si projectReceivedDtesAsExpense=false, no generan
   // comprometido de egresos (siguen sirviendo para crédito IVA F29).
@@ -216,5 +249,8 @@ export async function loadCommittedExpense(
     milestones,
     receivedDtes,
     categoryCodeById: new Map(categories.map((c) => [c.id, c.code])),
+    teWeeklyProjections: parametrics.teWeeklyProjections,
+    teRowId: parametrics.teRowId,
+    tePlanBlockedWeeks: parametrics.tePlanBlockedWeeks,
   });
 }

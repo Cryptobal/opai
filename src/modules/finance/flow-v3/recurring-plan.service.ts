@@ -3,11 +3,12 @@ import type {
   FinanceFlowPlanRecurrence, FlowPlanCurrency, FlowRecurrenceFrequency,
 } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { getUfValueForDate } from "@/lib/uf";
+import { getLatestPublishedUf, getUfValueForDate } from "@/lib/uf";
 import { toYmd, weekStartYmd, ymdToDate } from "./weeks";
 import { bulkFill, upsertCell, type PlanCellDto } from "./plan.service";
 import { listClosedV3Weeks } from "./weekly-close.adapter";
-import { ufTargetDate, ufToClp } from "./uf-occurrence";
+import { projectUfWithGrowth, ufTargetDate, ufToClp } from "./uf-occurrence";
+import { normalizeNameForDedupe } from "./row-visibility";
 
 /**
  * Egresos recurrentes de PLAN (§5J / v4 UF). La regla se persiste
@@ -19,7 +20,10 @@ import { ufTargetDate, ufToClp } from "./uf-occurrence";
  * como entero. rematerializeUfRecurrences recalcula futuras no selladas.
  */
 
-const EGRESO_SECTIONS = new Set(["REMUNERACIONES", "IMPUESTOS", "GAV", "OTROS"]);
+/** Secciones que admiten egreso recurrente de plan (v5: + FINANCIAMIENTO). */
+const PLAN_RECURRENCE_SECTIONS = new Set([
+  "REMUNERACIONES", "IMPUESTOS", "GAV", "OTROS", "FINANCIAMIENTO",
+]);
 
 export interface RecurrenceInput {
   amount: number;
@@ -27,6 +31,8 @@ export interface RecurrenceInput {
   dayOfMonth?: number | null;
   startDate: string;
   endDate?: string | null;
+  /** Término tras N repeticiones; gana el que ocurra primero vs endDate. */
+  endAfterOccurrences?: number | null;
   currency?: FlowPlanCurrency;
   amountUf?: number | null;
   ufPolicy?: string | null;
@@ -53,10 +59,15 @@ export function expandOccurrenceDates(
   startYmd: string,
   endYmd: string,
   dayOfMonth: number | null | undefined,
+  endAfterOccurrences?: number | null,
 ): string[] {
   const start = ymdToDate(startYmd);
   const end = ymdToDate(endYmd);
   if (!start || !end || end.getTime() < start.getTime()) return [];
+  const maxN =
+    endAfterOccurrences != null && Number.isFinite(endAfterOccurrences) && endAfterOccurrences > 0
+      ? Math.floor(endAfterOccurrences)
+      : null;
   const out: string[] = [];
 
   if (frequency === "MONTHLY") {
@@ -64,6 +75,7 @@ export function expandOccurrenceDates(
     let y = start.getUTCFullYear();
     let m = start.getUTCMonth();
     for (let guard = 0; guard < 240; guard++) {
+      if (maxN != null && out.length >= maxN) break;
       const clamped = Math.min(day, daysInMonthUTC(y, m));
       const d = new Date(Date.UTC(y, m, clamped));
       if (d.getTime() > end.getTime()) break;
@@ -77,6 +89,7 @@ export function expandOccurrenceDates(
   const stepDays = frequency === "BIWEEKLY" ? 14 : 7;
   let t = start.getTime();
   for (let guard = 0; guard < 1200 && t <= end.getTime(); guard++) {
+    if (maxN != null && out.length >= maxN) break;
     out.push(toYmd(new Date(t)));
     t += stepDays * 86_400_000;
   }
@@ -88,10 +101,17 @@ function occurrenceDates(rule: {
   startDate: Date;
   endDate: Date | null;
   dayOfMonth: number | null;
+  endAfterOccurrences?: number | null;
 }): string[] {
   const startYmd = toYmd(rule.startDate);
   const endYmd = horizonEndYmd(rule.endDate ? toYmd(rule.endDate) : null);
-  return expandOccurrenceDates(rule.frequency, startYmd, endYmd, rule.dayOfMonth);
+  return expandOccurrenceDates(
+    rule.frequency,
+    startYmd,
+    endYmd,
+    rule.dayOfMonth,
+    rule.endAfterOccurrences,
+  );
 }
 
 /** Semanas ISO (lunes YMD) únicas de las ocurrencias de la regla. */
@@ -100,6 +120,7 @@ function occurrenceWeeks(rule: {
   startDate: Date;
   endDate: Date | null;
   dayOfMonth: number | null;
+  endAfterOccurrences?: number | null;
 }): string[] {
   return Array.from(new Set(occurrenceDates(rule).map((d) => weekStartYmd(ymdToDate(d)!))));
 }
@@ -119,7 +140,10 @@ async function materializeClp(
   return bulkFill(tenantId, rowId, writable, amount, updatedBy);
 }
 
-/** UF: CLP distinto por ocurrencia; agrupa por semana (última ocurrencia gana). */
+/** UF: CLP distinto por ocurrencia; agrupa por semana (última ocurrencia gana).
+ *  Fechas posteriores a la última UF publicada usan growth compuesto
+ *  (`ufMonthlyGrowthPct` del tenant). Al publicarse la UF real, rematerialize
+ *  corrige (selladas intactas). */
 async function materializeUf(
   tenantId: string,
   rowId: string,
@@ -129,14 +153,30 @@ async function materializeUf(
 ): Promise<PlanCellDto[]> {
   const amountUf = Number(rule.amountUf ?? 0);
   if (!(amountUf > 0)) return [];
+  const [cfg, latest] = await Promise.all([
+    prisma.financeCashflowConfig.findUnique({
+      where: { tenantId },
+      select: { ufMonthlyGrowthPct: true },
+    }),
+    getLatestPublishedUf(),
+  ]);
+  const growthPct = Number(cfg?.ufMonthlyGrowthPct ?? 0);
   const dates = occurrenceDates(rule);
   const weekToClp = new Map<string, number>();
   for (const ymd of dates) {
     const week = weekStartYmd(ymdToDate(ymd)!);
     if (!weekFilter(week)) continue;
     const target = ufTargetDate(rule.ufPolicy, rule.ufCustomDay, ymdToDate(ymd)!);
-    const uf = await getUfValueForDate(target);
-    weekToClp.set(week, ufToClp(amountUf, uf));
+    const targetYmd = toYmd(target);
+    let uf: number;
+    if (latest && targetYmd > latest.ymd && growthPct > 0) {
+      uf = projectUfWithGrowth(latest.value, latest.ymd, targetYmd, growthPct);
+    } else {
+      uf = await getUfValueForDate(target);
+    }
+    // Monto CLP de la regla puede ser negativo (FINANCIAMIENTO egreso).
+    const sign = Number(rule.amount) < 0 ? -1 : 1;
+    weekToClp.set(week, sign * ufToClp(amountUf, uf));
   }
   const weeks = [...weekToClp.keys()];
   if (weeks.length === 0) return [];
@@ -162,15 +202,15 @@ async function materializeRule(
   return materializeClp(tenantId, rule.rowId, weeks, Number(rule.amount), updatedBy);
 }
 
-async function assertEgresoRow(tenantId: string, rowId: string): Promise<{ section: string }> {
+async function assertPlanRecurrenceRow(tenantId: string, rowId: string): Promise<{ section: string }> {
   const row = await prisma.financeFlowRow.findFirst({
     where: { id: rowId, tenantId },
     select: { section: true, archivedAt: true },
   });
   if (!row) throw new Error("Fila no encontrada");
   if (row.archivedAt) throw new Error("Fila archivada: no admite egreso recurrente");
-  if (!EGRESO_SECTIONS.has(row.section)) {
-    throw new Error("El egreso recurrente solo aplica a secciones de egreso");
+  if (!PLAN_RECURRENCE_SECTIONS.has(row.section)) {
+    throw new Error("El egreso recurrente solo aplica a secciones de egreso o Financiamiento");
   }
   return { section: row.section };
 }
@@ -187,6 +227,7 @@ export interface RecurrenceDto {
   dayOfMonth: number | null;
   startDate: string;
   endDate: string | null;
+  endAfterOccurrences: number | null;
 }
 
 export function toRecurrenceDto(r: FinanceFlowPlanRecurrence): RecurrenceDto {
@@ -202,6 +243,7 @@ export function toRecurrenceDto(r: FinanceFlowPlanRecurrence): RecurrenceDto {
     dayOfMonth: r.dayOfMonth,
     startDate: toYmd(r.startDate),
     endDate: r.endDate ? toYmd(r.endDate) : null,
+    endAfterOccurrences: r.endAfterOccurrences ?? null,
   };
 }
 
@@ -219,25 +261,89 @@ async function estimateClpForStorage(input: RecurrenceInput): Promise<number> {
   return input.amount;
 }
 
+export interface NewRecurrenceRowInput {
+  section: string;
+  name: string;
+  categoryId?: string | null;
+}
+
+/**
+ * Resuelve fila destino: reutiliza por dedupe de nombre en la sección, o crea
+ * CATEGORY (con categoryId) / MANUAL.
+ */
+async function resolveOrCreateTargetRow(
+  tenantId: string,
+  rowId: string | null | undefined,
+  newRow: NewRecurrenceRowInput | null | undefined,
+): Promise<string> {
+  if (newRow) {
+    if (!PLAN_RECURRENCE_SECTIONS.has(newRow.section)) {
+      throw new Error("Sección no admitida para recurrencia de plan");
+    }
+    const key = normalizeNameForDedupe(newRow.name);
+    const existing = await prisma.financeFlowRow.findMany({
+      where: { tenantId, section: newRow.section as never, archivedAt: null },
+      select: { id: true, name: true },
+    });
+    const hit = existing.find((r) => normalizeNameForDedupe(r.name) === key);
+    if (hit) {
+      await assertPlanRecurrenceRow(tenantId, hit.id);
+      return hit.id;
+    }
+    if (newRow.categoryId) {
+      const cat = await prisma.financeCashflowCategory.findFirst({
+        where: { id: newRow.categoryId, tenantId },
+        select: { id: true },
+      });
+      if (!cat) throw new Error("Categoría no encontrada");
+    }
+    const last = await prisma.financeFlowRow.findFirst({
+      where: { tenantId },
+      orderBy: { orderIndex: "desc" },
+      select: { orderIndex: true },
+    });
+    const created = await prisma.financeFlowRow.create({
+      data: {
+        tenantId,
+        section: newRow.section as never,
+        name: newRow.name.trim(),
+        mapping: newRow.categoryId ? "CATEGORY" : "MANUAL",
+        categoryId: newRow.categoryId ?? null,
+        orderIndex: (last?.orderIndex ?? -1) + 1,
+      },
+      select: { id: true },
+    });
+    return created.id;
+  }
+  if (!rowId) throw new Error("rowId o newRow requerido");
+  await assertPlanRecurrenceRow(tenantId, rowId);
+  return rowId;
+}
+
 export async function createRecurrence(
   tenantId: string,
-  rowId: string,
-  input: RecurrenceInput,
+  rowId: string | null | undefined,
+  input: RecurrenceInput & { newRow?: NewRecurrenceRowInput | null },
   createdBy: string | null,
 ): Promise<RecurrenceResult> {
-  await assertEgresoRow(tenantId, rowId);
+  const resolvedRowId = await resolveOrCreateTargetRow(tenantId, rowId, input.newRow);
   if (input.endDate && input.endDate < input.startDate) {
     throw new Error("endDate no puede ser anterior a startDate");
+  }
+  if (input.endAfterOccurrences != null && input.endAfterOccurrences < 1) {
+    throw new Error("endAfterOccurrences debe ser ≥ 1");
   }
   const currency: FlowPlanCurrency = input.currency ?? "CLP";
   if (currency === "UF" && !(input.amountUf != null && input.amountUf > 0)) {
     throw new Error("amountUf requerido para moneda UF");
   }
+  // FINANCIAMIENTO: monto signado tal como viene (ingreso + / egreso −).
+  // Otras secciones: magnitud positiva (el signo lo pone el ensamblado).
   const amountClp = await estimateClpForStorage(input);
   const rule = await prisma.financeFlowPlanRecurrence.create({
     data: {
       tenantId,
-      rowId,
+      rowId: resolvedRowId,
       amount: amountClp,
       currency,
       amountUf: currency === "UF" ? input.amountUf! : null,
@@ -249,6 +355,7 @@ export async function createRecurrence(
       dayOfMonth: input.frequency === "MONTHLY" ? (input.dayOfMonth ?? null) : null,
       startDate: ymdToDate(input.startDate)!,
       endDate: input.endDate ? ymdToDate(input.endDate) : null,
+      endAfterOccurrences: input.endAfterOccurrences ?? null,
       createdBy,
     },
   });
@@ -292,9 +399,16 @@ export async function updateRecurrence(
         : old.endDate
           ? toYmd(old.endDate)
           : null,
+    endAfterOccurrences:
+      input.endAfterOccurrences !== undefined
+        ? input.endAfterOccurrences
+        : old.endAfterOccurrences,
   };
   if (next.endDate && next.endDate < next.startDate) {
     throw new Error("endDate no puede ser anterior a startDate");
+  }
+  if (next.endAfterOccurrences != null && next.endAfterOccurrences < 1) {
+    throw new Error("endAfterOccurrences debe ser ≥ 1");
   }
   if (next.currency === "UF" && !(next.amountUf != null && next.amountUf > 0)) {
     throw new Error("amountUf requerido para moneda UF");
@@ -333,6 +447,7 @@ export async function updateRecurrence(
       dayOfMonth: next.frequency === "MONTHLY" ? (next.dayOfMonth ?? null) : null,
       startDate: ymdToDate(next.startDate)!,
       endDate: next.endDate ? ymdToDate(next.endDate) : null,
+      endAfterOccurrences: next.endAfterOccurrences ?? null,
     },
   });
 

@@ -24,7 +24,9 @@ export type ExpenseMilestoneKey =
   | "quincena"
   | "previred"
   | "f29"
-  | "turnos_extra";
+  | "turnos_extra"
+  | "retiro_socio"
+  | "finiquitos";
 
 export interface ExpenseMilestoneInput {
   key: ExpenseMilestoneKey;
@@ -32,6 +34,14 @@ export interface ExpenseMilestoneInput {
   /** Fecha de pago del hito (YYYY-MM-DD). */
   dateYmd: string;
   amountClp: number;
+  /** Nota de desglose (descuento TE, F29 clamp, etc.) — va al label si existe. */
+  metaNote?: string;
+}
+
+export interface TeWeeklyProjectionInput {
+  weekYmd: string;
+  amountClp: number;
+  label: string;
 }
 
 export interface ReceivedDteExpenseInput {
@@ -56,6 +66,12 @@ export interface CommittedExpenseArgs {
   receivedDtes: ReceivedDteExpenseInput[];
   /** categoryId → code (para el mapa fijo de hitos). */
   categoryCodeById: Map<string, string>;
+  /** Proyección semanal TE (v5); semanas sin plan manual en fila TE. */
+  teWeeklyProjections?: TeWeeklyProjectionInput[];
+  /** rowId de la fila TE — si falta, se omite teWeeklyProjections. */
+  teRowId?: string | null;
+  /** Semanas con plan manual ≠0 en fila TE (no proyectar encima). */
+  tePlanBlockedWeeks?: Set<string>;
 }
 
 /** Mapa fijo hito → fila canónica (documentado en AUDIT.md §2/B4). */
@@ -68,6 +84,8 @@ const MILESTONE_ROW_MAP: Record<
   previred: { categoryCode: "EGR_PREVIRED", canonicalNames: ["imposiciones (previred)", "previred", "imposiciones"] },
   f29: { categoryCode: "EGR_IVA_F29", canonicalNames: ["iva f29", "f29 (iva + ppm)", "f29"] },
   turnos_extra: { categoryCode: "EGR_TURNO_EXTRA", canonicalNames: ["turnos extra", "turno extra"] },
+  retiro_socio: { categoryCode: "EGR_RETIRO_SOCIO", canonicalNames: ["retiro socios", "retiro socio"] },
+  finiquitos: { categoryCode: "__NONE__", canonicalNames: ["finiquitos", "finiquito"] },
 };
 
 /** Semana de pago; si venció, clampea a la semana actual (pagable ya). */
@@ -96,12 +114,32 @@ export function deriveCommittedExpense(args: CommittedExpenseArgs): CommittedByR
       idx.byCategoryCode.get(map.categoryCode) ??
       map.canonicalNames.map((n) => idx.byName.get(n)).find(Boolean) ??
       UNMATCHED_EXPENSE_KEY;
+    const label = m.metaNote ? `${m.label} (${m.metaNote})` : m.label;
     pushCommitted(out, rowKey, week, {
       kind: "scheduled",
-      label: m.label,
+      label,
       fecha: m.dateYmd,
       monto: Math.round(m.amountClp),
     });
+  }
+
+  if (args.teWeeklyProjections?.length && args.teRowId) {
+    const blocked = args.tePlanBlockedWeeks ?? new Set<string>();
+    const map = MILESTONE_ROW_MAP.turnos_extra;
+    const teRowKey =
+      args.teRowId ??
+      idx.byCategoryCode.get(map.categoryCode) ??
+      map.canonicalNames.map((n) => idx.byName.get(n)).find(Boolean) ??
+      UNMATCHED_EXPENSE_KEY;
+    for (const te of args.teWeeklyProjections) {
+      if (te.amountClp <= 0 || !inRange(te.weekYmd) || blocked.has(te.weekYmd)) continue;
+      pushCommitted(out, teRowKey, te.weekYmd, {
+        kind: "scheduled",
+        label: te.label,
+        fecha: te.weekYmd,
+        monto: Math.round(te.amountClp),
+      });
+    }
   }
 
   for (const d of args.receivedDtes) {

@@ -15,8 +15,13 @@ export async function POST(request: NextRequest) {
       const issues = parsed.error.issues.map((i) => i.message).join("; ");
       return NextResponse.json({ success: false, error: issues }, { status: 400 });
     }
-    const { rowId, ...input } = parsed.data;
-    const result = await createRecurrence(guard.ctx.tenantId, rowId, input, guard.ctx.userId);
+    const { rowId, newRow, ...input } = parsed.data;
+    const result = await createRecurrence(
+      guard.ctx.tenantId,
+      rowId,
+      { ...input, newRow: newRow ?? null },
+      guard.ctx.userId,
+    );
     return NextResponse.json({
       success: true,
       data: { rule: toRecurrenceDto(result.rule), cells: result.cells },

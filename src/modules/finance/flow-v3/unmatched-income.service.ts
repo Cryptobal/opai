@@ -24,6 +24,16 @@ export interface UnmatchedDteDto {
   templates: AccountTemplateOption[];
 }
 
+/** Abono bancario de la semana que cayó a Otros ingresos (sin link / unmatched). */
+export interface UnmatchedBankTxDto {
+  bankTransactionId: string;
+  amountClp: number;
+  dateYmd: string;
+  description: string;
+  reference: string | null;
+  beneficiaryRut: string | null;
+}
+
 /** Grupo por cliente en el drill de Otros (v4.5). */
 export interface UnmatchedIncomeGroupDto {
   key: string;
@@ -233,9 +243,74 @@ export function groupUnmatchedByClient(items: UnmatchedDteDto[]): UnmatchedIncom
 export async function listUnmatchedIncomeGrouped(
   tenantId: string,
   weekStart: string,
-): Promise<{ items: UnmatchedDteDto[]; groups: UnmatchedIncomeGroupDto[] }> {
-  const items = await listUnmatchedIncomeForWeek(tenantId, weekStart);
-  return { items, groups: groupUnmatchedByClient(items) };
+): Promise<{
+  items: UnmatchedDteDto[];
+  groups: UnmatchedIncomeGroupDto[];
+  bankTxs: UnmatchedBankTxDto[];
+}> {
+  const [items, bankTxs] = await Promise.all([
+    listUnmatchedIncomeForWeek(tenantId, weekStart),
+    listUnmatchedBankIncomeForWeek(tenantId, weekStart),
+  ]);
+  return { items, groups: groupUnmatchedByClient(items), bankTxs };
+}
+
+/**
+ * Abonos bancarios de la semana sin links (o solo remanente unmatched)
+ * que alimentarían UNMATCHED_INCOME_KEY en derive-real.
+ */
+export async function listUnmatchedBankIncomeForWeek(
+  tenantId: string,
+  weekStart: string,
+): Promise<UnmatchedBankTxDto[]> {
+  const weekDate = new Date(`${weekStart}T00:00:00.000Z`);
+  if (Number.isNaN(weekDate.getTime())) return [];
+  const weekEnd = new Date(weekDate.getTime() + 7 * 86_400_000);
+
+  const txs = await prisma.financeBankTransaction.findMany({
+    where: {
+      tenantId,
+      hiddenAt: null,
+      amount: { gt: 0 },
+      transactionDate: { gte: weekDate, lt: weekEnd },
+      reconciliationStatus: "UNMATCHED",
+    },
+    select: {
+      id: true,
+      amount: true,
+      transactionDate: true,
+      description: true,
+      reference: true,
+      links: {
+        select: { amount: true },
+      },
+    },
+    take: 200,
+    orderBy: { transactionDate: "asc" },
+  });
+
+  const out: UnmatchedBankTxDto[] = [];
+  for (const tx of txs) {
+    const amountAbs = Math.abs(Number(tx.amount));
+    const linked = tx.links.reduce((s, l) => s + Number(l.amount), 0);
+    // Si ya hay links que cubren el monto, no es unmatched.
+    const unmatched = amountAbs - linked;
+    if (unmatched <= 1) continue;
+    const desc = tx.description ?? "";
+    const ref = tx.reference;
+    const rutMatch = (desc + " " + (ref ?? "")).match(
+      /\d{1,2}\.?\d{3}\.?\d{3}-?[\dKk]/,
+    );
+    out.push({
+      bankTransactionId: tx.id,
+      amountClp: Math.round(unmatched),
+      dateYmd: tx.transactionDate.toISOString().slice(0, 10),
+      description: desc,
+      reference: ref,
+      beneficiaryRut: rutMatch ? cleanRut(rutMatch[0]) : null,
+    });
+  }
+  return out;
 }
 
 /**

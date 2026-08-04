@@ -71,6 +71,7 @@ function cbs(): CellMenuCallbacks {
     onFillRight: vi.fn(),
     onClearPlan: vi.fn(),
     onMovePlan: vi.fn(),
+    onMoveParametricCommitted: vi.fn(),
     onMoveDte: vi.fn(),
     onViewDetail: vi.fn(),
     onViewDte: vi.fn(),
@@ -134,6 +135,45 @@ describe("buildCellMenu — por folio en desktop", () => {
     expect(items.find((i) => i.key === "fill")?.label).toBe("Copiar a las semanas siguientes…");
     expect(items.find((i) => i.key === "move")?.label).toBe("Mover a otra semana");
     expect(items.find((i) => i.key === "clear")?.label).toBe("Quitar de esta semana");
+  });
+
+  it("Retiro socios committed ofrece Mover a otra semana…", () => {
+    const committedCell: FlowMatrixCellDto = {
+      weekStart: "2026-08-03",
+      plan: 0,
+      committed: {
+        total: 2_000_000,
+        items: [{
+          kind: "scheduled",
+          label: "Retiro socios 2026-08",
+          fecha: "2026-08-05",
+          monto: 2_000_000,
+        }],
+      },
+      real: null,
+      effective: -2_000_000,
+      layer: "committed",
+    };
+    const openWeeks = [
+      { key: "2026-08-10", weekStart: "2026-08-10", label: "10–16 ago", isCurrent: false, isPast: false },
+    ];
+    const moveCtx = {
+      ...ctx,
+      editable: true,
+      reason: "",
+      openWeeks,
+      canManage: true,
+    };
+    const items = buildCellMenu(
+      row({ name: "Retiro socios", section: "FINANCIAMIENTO" }),
+      committedCell,
+      moveCtx,
+      cbs(),
+    );
+    const move = items.find((i) => i.key === "move-parametric");
+    expect(move?.label).toBe("Mover a otra semana…");
+    expect(move?.disabled).toBe(false);
+    expect(move?.submenu?.length).toBe(1);
   });
 
   it("borrador con EP ofrece Mover a otra semana y Ver borrador", () => {

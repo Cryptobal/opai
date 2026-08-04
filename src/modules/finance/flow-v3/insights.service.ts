@@ -50,6 +50,47 @@ export interface FlowInsightsDto {
     delta: number;
   }>;
   warnThresholdClp: number;
+  /** Desviaciones mensuales (proyectado vs real) para filas clave v5. */
+  monthlyDrifts: MonthlyDriftRow[];
+}
+
+export interface MonthlyDriftCell {
+  monthKey: string; // YYYY-MM
+  projected: number;
+  real: number;
+  delta: number;
+}
+
+export interface MonthlyDriftRow {
+  rowId: string;
+  name: string;
+  months: MonthlyDriftCell[];
+}
+
+const DRIFT_ROW_NAMES = [
+  "sueldos liquidos",
+  "sueldos líquidos",
+  "imposiciones (previred)",
+  "previred",
+  "imposiciones",
+  "turnos extra",
+  "finiquitos",
+  "iva f29",
+  "f29 (iva + ppm)",
+  "retiro socios",
+];
+
+function normalizeInsightName(s: string): string {
+  return s
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "");
+}
+
+function isDriftKeyRow(name: string): boolean {
+  const n = normalizeInsightName(name);
+  return DRIFT_ROW_NAMES.some((k) => n === k || n.includes(k));
 }
 
 function daysBetween(fromYmd: string, toYmd: string): number {
@@ -62,9 +103,11 @@ function daysBetween(fromYmd: string, toYmd: string): number {
 /** Panel read-only: 12 semanas desde hoy + aging DTEs + cartera drill + sellos. */
 export async function buildFlowInsights(tenantId: string): Promise<FlowInsightsDto> {
   const today = new Date();
-  const fromMonday = weekStartYmd(today);
+  const currentMonday = weekStartYmd(today);
+  // Horizonte para desviaciones: ~14 sem hacia atrás (3 meses) + 12 adelante.
+  const fromMonday = toYmd(addWeeksUTC(ymdToDate(currentMonday)!, -14));
   const fromDate = ymdToDate(fromMonday)!;
-  const toDate = addWeeksUTC(fromDate, 11);
+  const toDate = addWeeksUTC(ymdToDate(currentMonday)!, 11);
 
   const matrix = await buildFlowMatrix(tenantId, {
     from: fromDate,
@@ -76,10 +119,11 @@ export async function buildFlowInsights(tenantId: string): Promise<FlowInsightsD
   let redWeek: FlowInsightsDto["redWeek"] = null;
   let min12: FlowInsightsDto["min12"] = null;
 
+  // KPIs de "próximas 12 sem" solo miran desde la semana actual.
   for (let i = 0; i < matrix.balances.length; i++) {
-    const balance = matrix.balances[i] ?? 0;
     const weekStart = matrix.columns[i]?.weekStart ?? matrix.columns[i]?.key ?? "";
-    if (!weekStart) continue;
+    if (!weekStart || weekStart < currentMonday) continue;
+    const balance = matrix.balances[i] ?? 0;
     if (min12 == null || balance < min12.balance) {
       min12 = { weekStart, balance };
     }
@@ -93,7 +137,7 @@ export async function buildFlowInsights(tenantId: string): Promise<FlowInsightsD
   // Candidatos de "Mover a…" (actual + 11 futuras) para filtrar selladas.
   const moveCandidates: string[] = [];
   {
-    let w = fromDate;
+    let w = ymdToDate(currentMonday)!;
     for (let i = 0; i < 12; i++) {
       moveCandidates.push(toYmd(w));
       w = addWeeksUTC(w, 1);
@@ -217,6 +261,61 @@ export async function buildFlowInsights(tenantId: string): Promise<FlowInsightsD
     };
   });
 
+  // Desviaciones mensuales: agrega celdas con real de filas clave
+  // (últimos 3 meses cerrados + mes actual del horizonte de matriz).
+  const todayMonth = todayYmd.slice(0, 7);
+  const monthKeys: string[] = [];
+  {
+    const [y, m] = todayMonth.split("-").map(Number);
+    for (let i = 3; i >= 0; i--) {
+      let mm = m - i;
+      let yy = y;
+      while (mm <= 0) {
+        mm += 12;
+        yy -= 1;
+      }
+      monthKeys.push(`${yy}-${String(mm).padStart(2, "0")}`);
+    }
+  }
+
+  const monthlyDrifts: MonthlyDriftRow[] = [];
+  for (const row of matrix.rows) {
+    if (!isDriftKeyRow(row.name)) continue;
+    const byMonth = new Map<string, { projected: number; real: number }>();
+    for (const mk of monthKeys) byMonth.set(mk, { projected: 0, real: 0 });
+    for (const cell of row.cells) {
+      const mk = cell.weekStart.slice(0, 7);
+      const bucket = byMonth.get(mk);
+      if (!bucket) continue;
+      const realMag = cell.real ? Math.abs(cell.real.total) : 0;
+      const projMag =
+        cell.projected != null
+          ? cell.projected
+          : cell.plan !== 0
+            ? Math.abs(cell.plan)
+            : Math.abs(cell.committed?.total ?? 0);
+      if (realMag > 0 || cell.drift) {
+        bucket.real += realMag;
+        bucket.projected += projMag;
+      } else if (projMag > 0 && mk === todayMonth && cell.weekStart >= currentMonday) {
+        bucket.projected += projMag;
+      }
+    }
+    monthlyDrifts.push({
+      rowId: row.id,
+      name: row.name,
+      months: monthKeys.map((mk) => {
+        const b = byMonth.get(mk)!;
+        return {
+          monthKey: mk,
+          projected: Math.round(b.projected),
+          real: Math.round(b.real),
+          delta: Math.round(b.real - b.projected),
+        };
+      }),
+    });
+  }
+
   return {
     saldoHoy,
     redWeek,
@@ -225,12 +324,15 @@ export async function buildFlowInsights(tenantId: string): Promise<FlowInsightsD
     aging,
     cartera,
     openMoveWeeks,
-    balanceSeries: matrix.columns.map((c, i) => ({
-      weekStart: c.weekStart,
-      label: c.label,
-      balance: matrix.balances[i] ?? 0,
-    })),
+    balanceSeries: matrix.columns
+      .map((c, i) => ({
+        weekStart: c.weekStart,
+        label: c.label,
+        balance: matrix.balances[i] ?? 0,
+      }))
+      .filter((c) => c.weekStart >= currentMonday),
     recentSeals,
     warnThresholdClp: warn,
+    monthlyDrifts,
   };
 }

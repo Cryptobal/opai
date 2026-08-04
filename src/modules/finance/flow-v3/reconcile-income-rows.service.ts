@@ -5,6 +5,7 @@ import { cleanRut } from "@/lib/chile-rut";
 import {
   CANONICAL_FLOW_ROWS,
   FALLBACK_RENAMES,
+  SECTION_MOVES,
 } from "./canonical-rows";
 import { normalizeRowName } from "./row-match";
 import {
@@ -31,6 +32,7 @@ export async function reconcileIncomeRows(tenantId: string): Promise<void> {
   await prisma.$transaction(async (tx) => {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`flow-v3-income-rows:${tenantId}`})::int8)`;
     await renameFallbacks(tx, tenantId);
+    await applySectionMoves(tx, tenantId);
     await ensureCanonicalRows(tx, tenantId);
     await adoptOrCreateTemplateRows(tx, tenantId);
     await archiveSurplusRows(tx, tenantId);
@@ -54,6 +56,24 @@ async function renameFallbacks(tx: Tx, tenantId: string): Promise<void> {
       await tx.financeFlowRow.update({
         where: { id: r.id },
         data: { name: to },
+      });
+    }
+  }
+}
+
+/** Mueve filas canónicas entre secciones (idempotente, sin duplicar). */
+async function applySectionMoves(tx: Tx, tenantId: string): Promise<void> {
+  for (const { name, fromSection, toSection } of SECTION_MOVES) {
+    const nameKey = normalizeNameForDedupe(name);
+    const rows = await tx.financeFlowRow.findMany({
+      where: { tenantId, section: fromSection, archivedAt: null },
+      select: { id: true, name: true },
+    });
+    for (const r of rows) {
+      if (normalizeNameForDedupe(r.name) !== nameKey) continue;
+      await tx.financeFlowRow.update({
+        where: { id: r.id },
+        data: { section: toSection as FlowSection },
       });
     }
   }

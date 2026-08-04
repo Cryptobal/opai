@@ -2,6 +2,7 @@
  * Resolución pura de fecha de UF según política (testable sin Prisma).
  * Políticas alineadas con cashflow v2 uf-resolver.
  */
+import { ymdToDate } from "./weeks";
 export type UfPolicy =
   | "RUN_DAY"
   | "LAST_DAY_MONTH"
@@ -62,4 +63,34 @@ export function ufTargetDate(
 export function ufToClp(amountUf: number, ufValue: number): number {
   if (!Number.isFinite(amountUf) || !Number.isFinite(ufValue)) return 0;
   return Math.round(amountUf * ufValue);
+}
+
+function calendarMonthsBetween(fromYmd: string, toYmd: string): number {
+  const from = ymdToDate(fromYmd);
+  const to = ymdToDate(toYmd);
+  if (!from || !to) return 0;
+  return (to.getUTCFullYear() - from.getUTCFullYear()) * 12 + (to.getUTCMonth() - from.getUTCMonth());
+}
+
+/**
+ * Proyecta UF con growth compuesto mensual.
+ * months = meses calendario enteros desde lastPublishedYmd hasta targetYmd (si target <= last → retorna lastUfValue).
+ * projected = lastUfValue * (1 + growthPct/100)^months
+ * growthPct=0 → idéntico a lastUfValue.
+ */
+export function projectUfWithGrowth(
+  lastUfValue: number,
+  lastPublishedYmd: string,
+  targetYmd: string,
+  growthPct: number,
+): number {
+  if (!Number.isFinite(lastUfValue)) return 0;
+  const last = ymdToDate(lastPublishedYmd);
+  const target = ymdToDate(targetYmd);
+  if (!last || !target) return lastUfValue;
+  if (target.getTime() <= last.getTime()) return lastUfValue;
+  if (!Number.isFinite(growthPct) || growthPct === 0) return lastUfValue;
+  const months = calendarMonthsBetween(lastPublishedYmd, targetYmd);
+  if (months <= 0) return lastUfValue;
+  return lastUfValue * Math.pow(1 + growthPct / 100, months);
 }

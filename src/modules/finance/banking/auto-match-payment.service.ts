@@ -33,7 +33,7 @@
  */
 import { prisma } from "@/lib/prisma";
 import { Decimal } from "@prisma/client/runtime/library";
-import { findMatchingRule } from "./automatch-rule.service";
+import { findMatchingRule, isLegacyAction } from "./automatch-rule.service";
 import { tryAutoMatchBankTransactionToTurnoExtra } from "./auto-match-turno-extra.service";
 
 export interface AutoMatchResult {
@@ -521,24 +521,26 @@ async function tryApplyRule(
     options?.onlyRuleId ? { onlyRuleId: options.onlyRuleId } : undefined,
   );
   if (!evaluation) return "none";
-  if (evaluation.action.requiresReview) {
+  const action = evaluation.action;
+  if (!isLegacyAction(action)) return "none";
+  if (action.requiresReview) {
     // La regla aplica pero pide revisión humana — guardamos la sugerencia
     // en la propia tx para que aparezca en el sub-tab "Reconocidos" y
     // pueda autorizarse 1-clic o en bulk. La tx sigue UNMATCHED hasta que
     // el usuario confirme.
-    if (evaluation.action.accountPlanId) {
+    if (action.accountPlanId) {
       await prisma.financeBankTransaction.update({
         where: { id: bankTransactionId },
         data: {
           suggestedRuleId: evaluation.ruleId,
-          suggestedAccountPlanId: evaluation.action.accountPlanId,
+          suggestedAccountPlanId: action.accountPlanId,
         },
       });
       return "suggested";
     }
     return "none";
   }
-  if (!evaluation.action.accountPlanId) {
+  if (!action.accountPlanId) {
     // Regla sin cuenta contable destino → no podemos crear el link.
     return "none";
   }
@@ -554,7 +556,7 @@ async function tryApplyRule(
         targetType: isIncome ? "INCOME" : "EXPENSE",
         targetId: null,
         amount: new Decimal(amountAbs),
-        accountPlanId: evaluation.action.accountPlanId,
+        accountPlanId: action.accountPlanId,
         note: `Auto-match por regla: ${evaluation.ruleName}`,
         createdById: userId,
       },

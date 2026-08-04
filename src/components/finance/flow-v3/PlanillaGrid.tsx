@@ -68,6 +68,8 @@ interface Props {
   showChips?: boolean;
   numberFormat?: NumberFormatMode;
   getCellStyle?: (rowId: string, weekStart: string) => CellStyle | undefined;
+  /** Umbral |delta| para chip ▲/▼ de desviación (default 100000). */
+  driftAlertThresholdClp?: number;
   /** Notifica selección al chrome (fx bar / statusbar). */
   onSelectionChange?: (sel: CellSel | null, meta: {
     rowNumber: number;
@@ -136,6 +138,7 @@ export function PlanillaGrid({
   searchQuery, collapseApiRef, openLayersRequest,
   onCopyRange, nameW, onNameWChange, amountSort,
   sumMode = false, onSumModeChange, onDiscreteStats, onRefresh, onViewDte,
+  driftAlertThresholdClp,
 }: Props) {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   /** Filas en cero reveladas al tocar "n/m" del encabezado de sección. */
@@ -163,6 +166,15 @@ export function PlanillaGrid({
   );
   const unmatchedExpenseN = useMemo(
     () => countAssignPendingInWindow(data.rows, "GAV"),
+    [data.rows],
+  );
+  const recurringRows = useMemo(
+    () =>
+      data.rows.filter(
+        (r) =>
+          !r.isArchived
+          && ["REMUNERACIONES", "IMPUESTOS", "GAV", "OTROS", "FINANCIAMIENTO"].includes(r.section),
+      ),
     [data.rows],
   );
 
@@ -593,6 +605,19 @@ export function PlanillaGrid({
       onFillRight: () => requestFillRight(sel),
       onClearPlan: () => void matrix.patchPlan(sel.rowId, week, 0),
       onMovePlan: (target: string) => void matrix.movePlan(sel.rowId, week, target),
+      onMoveParametricCommitted: (target: string) => {
+        const row = rowById.get(sel.rowId);
+        const cell = row?.cells[sel.colIdx];
+        if (!row || !cell) return;
+        const mag = Math.round(Math.abs(cell.committed?.total ?? cell.effective ?? 0));
+        if (mag === 0) return;
+        // FINANCIAMIENTO: plan signado (egreso −). Resto: magnitud positiva (planCashSign niega).
+        const amount = row.section === "FINANCIAMIENTO" ? -mag : mag;
+        void (async () => {
+          await matrix.patchPlan(sel.rowId, week, 0);
+          await matrix.patchPlan(sel.rowId, target, amount);
+        })();
+      },
       onMoveDte: (dteId: string, targetWeek: string) => {
         void actions.moveDte(dteId, targetWeek);
       },
@@ -989,6 +1014,9 @@ export function PlanillaGrid({
                       showChips={showChips}
                       numberFormat={numberFormat}
                       getCellStyle={getCellStyle}
+                      driftAlertThresholdClp={
+                        driftAlertThresholdClp ?? data.driftAlertThresholdClp ?? 100_000
+                      }
                       rowSelected={
                         !!activeRect &&
                         (visibleRowIdxById.get(row.id) ?? -1) >= activeRect.r0 &&
@@ -1089,6 +1117,7 @@ export function PlanillaGrid({
       />
       <RecurringExpenseDialog
         row={rowDialog?.kind === "recurring" ? rowDialog.row : null}
+        rows={rowDialog?.kind === "recurring" ? recurringRows : undefined}
         busy={busy}
         onClose={() => setRowDialog(null)}
         onConfirm={(body) => actions.createRecurring(body)}

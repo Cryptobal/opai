@@ -27,6 +27,16 @@ interface Insights {
     delta: number;
   }>;
   warnThresholdClp: number;
+  monthlyDrifts?: Array<{
+    rowId: string;
+    name: string;
+    months: Array<{
+      monthKey: string;
+      projected: number;
+      real: number;
+      delta: number;
+    }>;
+  }>;
 }
 
 export function PanelView({
@@ -170,6 +180,99 @@ export function PanelView({
         </h3>
         <PanelBalanceChart series={data.balanceSeries} warn={data.warnThresholdClp} />
       </Surface>
+
+      {(data.monthlyDrifts?.length ?? 0) > 0 && (
+        <Surface elevation={1} padding="md" className="space-y-3">
+          <h3 className="text-xs font-medium uppercase tracking-wide text-ds-text-3">
+            Desviaciones mensuales
+          </h3>
+          <p className="text-[12px] text-ds-text-4">
+            Proyectado vs real (últimos 3 meses + actual) · filas clave
+          </p>
+          {/* Desktop table */}
+          <div className="hidden sm:block overflow-x-auto">
+            <table className="w-full min-w-[520px] text-left text-[13px]">
+              <thead>
+                <tr className="border-b border-ds-border-subtle text-[12px] text-ds-text-4">
+                  <th className="py-1.5 pr-2 font-medium">Fila</th>
+                  {(data.monthlyDrifts![0]?.months ?? []).map((m) => (
+                    <th key={m.monthKey} className="px-1 py-1.5 font-medium tabular-nums">
+                      {m.monthKey}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {data.monthlyDrifts!.map((row) => (
+                  <tr key={row.rowId} className="border-b border-ds-border-subtle/60">
+                    <td className="py-2 pr-2 text-ds-text-1">{row.name}</td>
+                    {row.months.map((m) => (
+                      <td key={m.monthKey} className="px-1 py-2 align-top">
+                        <div className="tabular-nums text-ds-text-3 text-[12px]">
+                          P {fmtClp(m.projected)}
+                        </div>
+                        <div className="tabular-nums text-ds-text-2 text-[12px]">
+                          R {fmtClp(m.real)}
+                        </div>
+                        <div
+                          className={`tabular-nums text-[12px] ${
+                            m.delta === 0
+                              ? "text-ds-text-4"
+                              : m.delta > 0
+                                ? "text-status-ok-fg"
+                                : "text-status-danger-fg"
+                          }`}
+                        >
+                          {m.delta > 0 ? "▲" : m.delta < 0 ? "▼" : "·"}{" "}
+                          {fmtClp(Math.abs(m.delta))}
+                        </div>
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {/* Mobile stacked */}
+          <ul className="space-y-3 sm:hidden ds-list-cascade">
+            {data.monthlyDrifts!.map((row) => (
+              <li
+                key={row.rowId}
+                className="rounded-lg border border-ds-border-subtle bg-ds-surface-2 p-3"
+              >
+                <p className="mb-2 text-[13px] font-medium text-ds-text-1">{row.name}</p>
+                <div className="space-y-2">
+                  {row.months.map((m) => (
+                    <div
+                      key={m.monthKey}
+                      className="flex items-baseline justify-between gap-2 text-[12px]"
+                    >
+                      <span className="text-ds-text-4 tabular-nums">{m.monthKey}</span>
+                      <span className="text-right">
+                        <span className="block tabular-nums text-ds-text-3">
+                          P {fmtClp(m.projected)} · R {fmtClp(m.real)}
+                        </span>
+                        <span
+                          className={`tabular-nums ${
+                            m.delta === 0
+                              ? "text-ds-text-4"
+                              : m.delta > 0
+                                ? "text-status-ok-fg"
+                                : "text-status-danger-fg"
+                          }`}
+                        >
+                          {m.delta > 0 ? "▲" : m.delta < 0 ? "▼" : "·"}{" "}
+                          {fmtClp(Math.abs(m.delta))}
+                        </span>
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </li>
+            ))}
+          </ul>
+        </Surface>
+      )}
 
       {canManage && futureDated.length > 0 && (
         <Surface elevation={1} padding="md" className="space-y-2 border border-status-warn-border">

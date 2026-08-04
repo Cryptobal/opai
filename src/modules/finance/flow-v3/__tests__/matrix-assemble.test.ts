@@ -165,6 +165,22 @@ describe("assembleMatrix — capa efectiva", () => {
     });
   });
 
+  it("expone projected y drift cuando hay real vs plan", () => {
+    const rows = [row({ id: "ing", section: "INGRESOS" })];
+    const m = assembleMatrix({
+      rows,
+      weeks: WEEKS,
+      currentWeek: CURRENT,
+      openingBalance: 0,
+      plan: new Map([["ing", new Map([["2026-07-20", 1_000_000]])]]),
+      committed: new Map(),
+      real: realOf("ing", "2026-07-20", 1_100_000),
+    });
+    const cell = m.rows[0].cells[2];
+    expect(cell.projected).toBe(1_000_000);
+    expect(cell.drift).toMatchObject({ delta: 100_000, pct: 10 });
+  });
+
   it("egresos restan y FINANCIAMIENTO respeta el signo del plan", () => {
     const rows = [
       row({ id: "ing", section: "INGRESOS" }),

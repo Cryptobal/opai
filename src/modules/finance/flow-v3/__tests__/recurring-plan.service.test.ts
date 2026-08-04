@@ -51,6 +51,16 @@ describe("expandOccurrenceDates", () => {
   it("endDate anterior a startDate ⇒ vacío", () => {
     expect(expandOccurrenceDates("WEEKLY", "2026-07-20", "2026-07-01", null)).toEqual([]);
   });
+
+  it("termina tras N=3 repeticiones mensuales", () => {
+    const out = expandOccurrenceDates("MONTHLY", "2026-01-01", "2026-12-31", 1, 3);
+    expect(out).toEqual(["2026-01-01", "2026-02-01", "2026-03-01"]);
+  });
+
+  it("endDate y N=10: gana el que ocurra primero (endDate)", () => {
+    const out = expandOccurrenceDates("MONTHLY", "2026-01-15", "2026-02-20", 15, 10);
+    expect(out).toEqual(["2026-01-15", "2026-02-15"]);
+  });
 });
 
 describe("updateRecurrence — no reescribe el pasado", () => {
