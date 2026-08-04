@@ -58,6 +58,10 @@ export const updateCashflowConfigSchema = z.object({
   finiquitosManualMonthlyClp: z.number().int().min(0).max(1_000_000_000).nullable().optional(),
   // Promedio móvil del crédito fiscal F29 (meses).
   f29CreditAvgMonths: z.number().int().min(1).max(36).optional(),
+  // AFP para proyección de cotizaciones (null = "Modelo").
+  payrollAfpName: z.string().trim().min(1).max(40).nullable().optional(),
+  // Tasa total de mutualidad (fracción 0–0.15). Null = security_industry.
+  payrollMutualRatePct: z.number().min(0).max(0.15).nullable().optional(),
 });
 
 export const createCashflowCategorySchema = z.object({

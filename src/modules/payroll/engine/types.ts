@@ -256,12 +256,18 @@ export interface EmployerCostInput {
   
   // Haberes adicionales
   include_gratification?: boolean; // Default: true
+  /** Override de gratificación (CLP). Si viene, reemplaza el cálculo legal 25 %. */
+  gratification_clp?: number;
   overtime_hours_50?: number;
   commissions?: number;
+  /** Bonos / asignaciones imponibles adicionales (CLP). */
+  other_taxable_allowances?: number;
   
   // Haberes no imponibles
   transport_allowance?: number;
   meal_allowance?: number;
+  /** Otros no imponibles (bonos no imponibles, etc.). */
+  other_non_taxable_allowances?: number;
   
   // Asignación familiar
   num_dependents?: number;

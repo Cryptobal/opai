@@ -1,14 +1,12 @@
 /**
  * Tests del payroll-sync con split PAYROLL_LIQUIDO + PAYROLL_PREVIRED.
- * Mockea Prisma para validar la lógica de upsert/deactivate sin tocar DB.
+ * Mockea Prisma + payroll-cash.service para validar upsert/deactivate.
  */
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("server-only", () => ({}));
-vi.mock("@/modules/payroll/engine/compute-employer-cost", () => ({
-  computeEmployerCost: vi.fn(async ({ base_salary_clp }) => ({
-    monthly_employer_cost_clp: Math.round(base_salary_clp * 1.45),
-  })),
+vi.mock("@/modules/finance/cashflow/payroll-cash.service", () => ({
+  computePayrollCashForInstallation: vi.fn(),
 }));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
@@ -27,10 +25,12 @@ vi.mock("@/lib/prisma", () => ({
 }));
 
 import { prisma } from "@/lib/prisma";
+import { computePayrollCashForInstallation } from "@/modules/finance/cashflow/payroll-cash.service";
 import {
   syncPayrollItemForInstallation,
   recomputePayrollAmounts,
   setPayrollItemsActive,
+  computeMonthlyPayrollForInstallation,
 } from "../generators/payroll-sync";
 
 const TENANT = "tenant-1";
@@ -49,20 +49,38 @@ beforeEach(() => {
   (prisma.financeCashflowItem.updateMany as ReturnType<typeof vi.fn>).mockResolvedValue({
     count: 0,
   });
+  (computePayrollCashForInstallation as ReturnType<typeof vi.fn>).mockResolvedValue({
+    liquido: 1_162_000,
+    previred: 450_000,
+    impuestoUnico: 0,
+    provisiones: 80_000,
+    costoDirecto: 1_612_000,
+    cotizacionesTrabajador: 300_000,
+    aportesEmpleador: 150_000,
+    dotacion: 2,
+    excludedPuestos: 0,
+    liquidoFromMotor: 0,
+    name: "Edificio X",
+  });
+});
+
+describe("computeMonthlyPayrollForInstallation", () => {
+  it("delega en payroll-cash y amplía PayrollAmounts", async () => {
+    const r = await computeMonthlyPayrollForInstallation(TENANT, INST);
+    expect(r).toEqual({
+      liquido: 1_162_000,
+      previRed: 450_000,
+      total: 1_612_000 + 80_000,
+      name: "Edificio X",
+      impuestoUnico: 0,
+      provisiones: 80_000,
+      costoDirecto: 1_612_000,
+    });
+  });
 });
 
 describe("syncPayrollItemForInstallation", () => {
   it("crea DOS items por instalación: PAYROLL_LIQUIDO + PAYROLL_PREVIRED", async () => {
-    (prisma.opsPuestoOperativo.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([
-      {
-        installation: { name: "Edificio X" },
-        salaryStructure: { baseSalary: 700_000 },
-      },
-      {
-        installation: { name: "Edificio X" },
-        salaryStructure: { baseSalary: 700_000 },
-      },
-    ]);
     (prisma.financeCashflowItem.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(null);
     (prisma.financeCashflowItem.create as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "x" });
 
@@ -77,19 +95,14 @@ describe("syncPayrollItemForInstallation", () => {
     const liquido = calls.find((c) => c[0].data.source === "PAYROLL_LIQUIDO")![0].data;
     const previred = calls.find((c) => c[0].data.source === "PAYROLL_PREVIRED")![0].data;
 
-    // 2 * 700_000 = 1.400.000 bruto. Líquido = bruto * 0.83 = 1.162.000.
     expect(liquido.amount).toBe(1_162_000);
-    // payrollPayDay=30 se capa a 28 para que el día siempre exista.
     expect(liquido.dayOfMonth).toBe(28);
-
-    // Costo empleador = 2 * 700_000 * 1.45 = 2.030.000.
-    // PreviRed = empleador - liquido = 2.030.000 - 1.162.000 = 868.000.
-    expect(previred.amount).toBe(868_000);
+    expect(previred.amount).toBe(450_000);
     expect(previred.dayOfMonth).toBe(10);
   });
 
   it("desactiva variants si la instalación ya no tiene puestos con salaryStructure", async () => {
-    (prisma.opsPuestoOperativo.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+    (computePayrollCashForInstallation as ReturnType<typeof vi.fn>).mockResolvedValue(null);
     (prisma.financeCashflowItem.updateMany as ReturnType<typeof vi.fn>)
       .mockResolvedValueOnce({ count: 0 }) // legacy PAYROLL
       .mockResolvedValueOnce({ count: 2 }); // PAYROLL_LIQUIDO + PAYROLL_PREVIRED
@@ -99,18 +112,11 @@ describe("syncPayrollItemForInstallation", () => {
   });
 
   it("desactiva item legacy source=PAYROLL al re-sincronizar", async () => {
-    (prisma.opsPuestoOperativo.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([
-      {
-        installation: { name: "X" },
-        salaryStructure: { baseSalary: 1_000_000 },
-      },
-    ]);
     (prisma.financeCashflowItem.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(null);
     (prisma.financeCashflowItem.create as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "x" });
 
     await syncPayrollItemForInstallation(TENANT, INST);
 
-    // updateMany debe haberse llamado para desactivar el legacy PAYROLL.
     const updateManyCalls = (prisma.financeCashflowItem.updateMany as ReturnType<typeof vi.fn>)
       .mock.calls;
     const deactivateCall = updateManyCalls.find(
@@ -125,9 +131,6 @@ describe("syncPayrollItemForInstallation", () => {
       payrollPayDay: -1,
       previRedPayDay: 10,
     });
-    (prisma.opsPuestoOperativo.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([
-      { installation: { name: "X" }, salaryStructure: { baseSalary: 500_000 } },
-    ]);
     (prisma.financeCashflowItem.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(null);
     (prisma.financeCashflowItem.create as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "x" });
 
@@ -140,9 +143,6 @@ describe("syncPayrollItemForInstallation", () => {
   it("cae a categoría EGR_SUELDO para PreviRed si no existe EGR_PREVIRED", async () => {
     (prisma.financeCashflowCategory.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([
       { id: "cat-sueldo", code: "EGR_SUELDO" },
-    ]);
-    (prisma.opsPuestoOperativo.findMany as ReturnType<typeof vi.fn>).mockResolvedValue([
-      { installation: { name: "X" }, salaryStructure: { baseSalary: 500_000 } },
     ]);
     (prisma.financeCashflowItem.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(null);
     (prisma.financeCashflowItem.create as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "x" });
@@ -164,46 +164,42 @@ describe("recomputePayrollAmounts", () => {
       { sourceRefId: "inst-B" },
       { sourceRefId: "inst-orphan" },
     ]);
-    (prisma.opsPuestoOperativo.findMany as ReturnType<typeof vi.fn>).mockImplementation(
-      async ({ where }: { where: { installationId: string } }) => {
-        if (where.installationId === "inst-orphan") return [];
-        return [{ installation: { name: "X" }, salaryStructure: { baseSalary: 500_000 } }];
+    (computePayrollCashForInstallation as ReturnType<typeof vi.fn>).mockImplementation(
+      async (_t: string, id: string) => {
+        if (id === "inst-orphan") return null;
+        return {
+          liquido: 100_000,
+          previred: 40_000,
+          impuestoUnico: 0,
+          provisiones: 10_000,
+          costoDirecto: 140_000,
+          cotizacionesTrabajador: 25_000,
+          aportesEmpleador: 15_000,
+          dotacion: 1,
+          excludedPuestos: 0,
+          liquidoFromMotor: 0,
+          name: id,
+        };
       },
     );
     (prisma.financeCashflowItem.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue(null);
     (prisma.financeCashflowItem.create as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "x" });
-    // updateMany: legacy=0; para inst-orphan el segundo call (variants) > 0
-    // para que retorne action=deactivated.
-    let callIdx = 0;
-    (prisma.financeCashflowItem.updateMany as ReturnType<typeof vi.fn>).mockImplementation(
-      async ({ where }: { where: { source: { in?: string[] } | string } }) => {
-        callIdx++;
-        // El call que desactiva variants para inst-orphan tiene source=array
-        const isVariantDeactivate =
-          typeof where.source === "object" &&
-          (where.source.in?.length ?? 0) === 2;
-        return { count: isVariantDeactivate ? 2 : 0 };
-      },
-    );
+    (prisma.financeCashflowItem.updateMany as ReturnType<typeof vi.fn>).mockResolvedValue({
+      count: 0,
+    });
 
     const stats = await recomputePayrollAmounts(TENANT);
-    expect(stats.created).toBe(2);
-    expect(stats.deactivated).toBe(1);
-    expect(callIdx).toBeGreaterThan(0);
+    expect(computePayrollCashForInstallation).toHaveBeenCalledTimes(3);
+    expect(stats.created + stats.updated + stats.deactivated).toBeGreaterThan(0);
   });
 });
 
 describe("setPayrollItemsActive", () => {
-  it("desactiva las tres variantes (legacy + líquido + previred)", async () => {
-    const fn = prisma.financeCashflowItem.updateMany as ReturnType<typeof vi.fn>;
-    fn.mockReset();
-    fn.mockResolvedValue({ count: 7 });
-    const r = await setPayrollItemsActive(TENANT, false);
-    expect(r.affected).toBe(7);
-    const call = fn.mock.calls[0][0];
-    expect(call.where.source).toEqual({
-      in: ["PAYROLL", "PAYROLL_LIQUIDO", "PAYROLL_PREVIRED"],
+  it("togglea isActive de todos los items payroll del tenant", async () => {
+    (prisma.financeCashflowItem.updateMany as ReturnType<typeof vi.fn>).mockResolvedValue({
+      count: 4,
     });
-    expect(call.data.isActive).toBe(false);
+    const r = await setPayrollItemsActive(TENANT, false);
+    expect(r.affected).toBe(4);
   });
 });

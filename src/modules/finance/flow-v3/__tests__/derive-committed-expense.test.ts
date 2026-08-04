@@ -44,6 +44,34 @@ describe("deriveCommittedExpense — hitos payroll/F29", () => {
     expect(out.get("row-f29")?.get("2026-08-10")?.total).toBe(2_500_000);
   });
 
+  it("impuesto_unico cae en fila F29 (EGR_IVA_F29 / nombre canónico)", () => {
+    const out = deriveCommittedExpense({
+      ...base,
+      milestones: [{
+        key: "impuesto_unico",
+        label: "Impuesto único 2ª categoría (retenciones)",
+        dateYmd: "2026-08-12",
+        amountClp: 150_000,
+      }],
+    });
+    expect(out.get("row-f29")?.get("2026-08-10")?.total).toBe(150_000);
+  });
+
+  it("impuesto_unico sin fila F29 cae en UNMATCHED sin romper", () => {
+    const rowsSinF29 = ROWS.filter((r) => r.id !== "row-f29");
+    const out = deriveCommittedExpense({
+      ...base,
+      rows: rowsSinF29,
+      milestones: [{
+        key: "impuesto_unico",
+        label: "Impuesto único",
+        dateYmd: "2026-08-12",
+        amountClp: 50_000,
+      }],
+    });
+    expect(out.get(UNMATCHED_EXPENSE_KEY)?.get("2026-08-10")?.total).toBe(50_000);
+  });
+
   it("hito sin fila conocida cae en UNMATCHED (Otros gastos)", () => {
     const out = deriveCommittedExpense({
       ...base,

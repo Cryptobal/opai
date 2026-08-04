@@ -75,6 +75,10 @@ export async function updateCashflowConfig(
     finiquitosAvgMonths: number;
     finiquitosManualMonthlyClp: number | null;
     f29CreditAvgMonths: number;
+    /** AFP para proyección Previred. Null = default "Modelo". */
+    payrollAfpName: string | null;
+    /** Tasa mutualidad (fracción 0–0.15). Null = security_industry. */
+    payrollMutualRatePct: number | null;
   }>,
 ): Promise<FinanceCashflowConfig> {
   await getOrCreateCashflowConfig(tenantId);

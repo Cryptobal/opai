@@ -1,6 +1,6 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
-import { computeMonthlyPayrollForInstallation } from "@/modules/finance/cashflow/generators/payroll-sync";
+import { computePayrollCashForTenant } from "@/modules/finance/cashflow/payroll-cash.service";
 import { computeFromFichas } from "@/modules/finance/cashflow/generators/quincena-sync";
 import { computeF29Period } from "@/modules/finance/billing/f29.service";
 import { bulkResolveCategoriesFromAccounts } from "@/modules/finance/cashflow/categoryAccount.service";
@@ -55,7 +55,7 @@ export async function loadCommittedExpense(
   const toYmd = weeks[weeks.length - 1];
   if (!fromYmd || !toYmd) return new Map();
 
-  const [config, installations, categories, receivedRaw, exclusions, pendingTes] = await Promise.all([
+  const [config, categories, receivedRaw, exclusions, pendingTes, payrollCash] = await Promise.all([
     prisma.financeCashflowConfig.findUnique({
       where: { tenantId },
       select: {
@@ -65,7 +65,6 @@ export async function loadCommittedExpense(
         projectReceivedDtesAsExpense: true,
       },
     }),
-    prisma.crmInstallation.findMany({ where: { tenantId }, select: { id: true } }),
     prisma.financeCashflowCategory.findMany({
       where: { tenantId },
       select: { id: true, code: true },
@@ -99,23 +98,18 @@ export async function loadCommittedExpense(
       where: { tenantId, status: "approved", paidAt: null },
       select: { amountClp: true },
     }),
+    // Fuente única: cotizaciones explícitas (sin residual ni provisiones).
+    computePayrollCashForTenant(tenantId),
   ]);
 
-  // ── Hitos payroll (dotación planificada, mismos cómputos del módulo viejo) ──
-  // En PARALELO: secuencial eran N instalaciones × varios round-trips cada una
-  // (el hotspot de latencia del matrix en tenants reales). El pool de Prisma
-  // serializa por sobre connection_limit; Promise.all solo satura el pool.
-  let liquidoTotal = 0;
-  let previRedTotal = 0;
-  const payrollByInst = await Promise.all(
-    installations.map((inst) => computeMonthlyPayrollForInstallation(tenantId, inst.id)),
-  );
-  for (const r of payrollByInst) {
-    if (r) {
-      liquidoTotal += r.liquido;
-      previRedTotal += r.previRed;
-    }
-  }
+  const liquidoTotal = payrollCash.total.liquido;
+  const previRedTotal = payrollCash.total.previred;
+  const impuestoUnicoTotal = payrollCash.total.impuestoUnico;
+  const previredMetaNote =
+    previRedTotal > 0
+      ? `trab $${payrollCash.total.cotizacionesTrabajador.toLocaleString("es-CL")} + patronal $${payrollCash.total.aportesEmpleador.toLocaleString("es-CL")} · provisiones excluidas $${payrollCash.total.provisiones.toLocaleString("es-CL")}`
+      : undefined;
+
   const quincenaMode = config?.quincenaMode ?? "FICHA";
   const quincenaPct = Number(config?.quincenaPctLiquido ?? 0.1);
   const quincenaTotal =
@@ -135,7 +129,25 @@ export async function loadCommittedExpense(
     if (quincenaTotal > 0)
       milestones.push({ key: "quincena", label: "Quincena / anticipos", dateYmd: ymdOf(y, m, quincenaDay), amountClp: quincenaTotal });
     if (previRedTotal > 0)
-      milestones.push({ key: "previred", label: "Previred (imposiciones)", dateYmd: ymdOf(y, m, previredDay), amountClp: previRedTotal });
+      milestones.push({
+        key: "previred",
+        label: "Previred (imposiciones)",
+        dateYmd: ymdOf(y, m, previredDay),
+        amountClp: previRedTotal,
+        metaNote: previredMetaNote,
+      });
+    // Impuesto único 2ª categoría: se entera con el F29 del mes siguiente.
+    if (impuestoUnicoTotal > 0) {
+      const payYmd = ymdOf(m === 11 ? y + 1 : y, (m + 1) % 12, ivaDay);
+      if (payYmd >= fromYmd && payYmd <= toYmd) {
+        milestones.push({
+          key: "impuesto_unico",
+          label: "Impuesto único 2ª categoría (retenciones)",
+          dateYmd: payYmd,
+          amountClp: impuestoUnicoTotal,
+        });
+      }
+    }
   }
 
   // ── Turnos extra aprobados por pagar → semana actual (pagables ya) ──
@@ -194,11 +206,15 @@ export async function loadCommittedExpense(
       (m) => m.key === patch.key && m.dateYmd === patch.dateYmd,
     );
     if (idx >= 0) {
+      const prev = milestones[idx];
+      // Concatenar metaNote: el patch de descuento TE no debe pisar el
+      // desglose de cotizaciones del hito Previred.
+      const metaNote = [prev.metaNote, patch.metaNote].filter(Boolean).join(" · ") || undefined;
       milestones[idx] = {
-        ...milestones[idx],
+        ...prev,
         amountClp: patch.amountClp,
         label: patch.label,
-        metaNote: patch.metaNote,
+        metaNote,
       };
     }
   }

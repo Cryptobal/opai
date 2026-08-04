@@ -1623,7 +1623,7 @@ function StaffingSection({
                   <th className="px-3 py-2 text-right font-medium text-muted-foreground">Dotación</th>
                   <th className="px-3 py-2 text-right font-medium text-muted-foreground">Sueldo base</th>
                   <th className="px-3 py-2 text-right font-medium text-muted-foreground">Líquido est.</th>
-                  <th className="px-3 py-2 text-right font-medium text-muted-foreground" title="Cotizaciones legales empresa + trabajador (AFP + Salud + AFC + SIS + mutual). Estimado ≈ 30% del sueldo base (24% del imponible con gratificación legal). La línea 'Previred' del flujo de caja puede ser ligeramente mayor: incluye provisiones (vacaciones, indemnización).">
+                  <th className="px-3 py-2 text-right font-medium text-muted-foreground" title="Cotizaciones legales empresa + trabajador (AFP + Salud + AFC + SIS + reforma + mutual). Estimado ≈ 30% del sueldo base (referencia rápida). El flujo de caja proyecta exactamente esta base — cotizaciones explícitas, sin provisiones contables.">
                     Cotiz. leyes
                   </th>
                   <th className="px-3 py-2 text-right font-medium text-muted-foreground w-[160px]">Acciones</th>
@@ -1637,10 +1637,8 @@ function StaffingSection({
                   const salary = Number(item.baseSalary ?? 0);
                   const ss = (item as any).salaryStructure;
                   const net = ss ? Number(ss.netSalaryEstimate ?? 0) : 0;
-                  // Cotizaciones de leyes sociales (empresa + trabajador): AFP +
-                  // Salud + AFC + SIS + Mutual ≈ 24% del imponible. El imponible
-                  // ≈ base × 1,25 (con grat legal 25%), así que cotiz ≈ base × 0,30.
-                  // No depende del líquido (no genera ceros cuando hay bonos altos).
+                  // Estimación rápida ≈ base × 0,30. Fuente de verdad del flujo
+                  // de caja: payroll-cash.service.ts (cotizaciones explícitas).
                   const cotiz = Math.round(salary * 0.3);
                   return (
                     <tr key={item.id} className="border-b border-border/60 last:border-0">
@@ -1733,10 +1731,8 @@ function StaffingSection({
                   const salary = Number(item.baseSalary ?? 0);
                   const ss = (item as any).salaryStructure;
                   const net = ss ? Number(ss.netSalaryEstimate ?? 0) : 0;
-                  // Cotizaciones de leyes sociales (empresa + trabajador): AFP +
-                  // Salud + AFC + SIS + Mutual ≈ 24% del imponible. El imponible
-                  // ≈ base × 1,25 (con grat legal 25%), así que cotiz ≈ base × 0,30.
-                  // No depende del líquido (no genera ceros cuando hay bonos altos).
+                  // Estimación rápida ≈ base × 0,30. Fuente de verdad del flujo
+                  // de caja: payroll-cash.service.ts (cotizaciones explícitas).
                   const cotiz = Math.round(salary * 0.3);
                   totalDot += count;
                   totalBase += salary * count;

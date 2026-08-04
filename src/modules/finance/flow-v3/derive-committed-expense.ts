@@ -23,6 +23,7 @@ export type ExpenseMilestoneKey =
   | "liquido"
   | "quincena"
   | "previred"
+  | "impuesto_unico"
   | "f29"
   | "turnos_extra"
   | "retiro_socio"
@@ -99,6 +100,7 @@ const MILESTONE_ROW_MAP: Record<
   liquido: { categoryCode: "EGR_SUELDO", canonicalNames: ["sueldos líquidos", "sueldos liquidos", "sueldos"] },
   quincena: { categoryCode: "EGR_QUINCENA", canonicalNames: ["quincena (anticipos)", "quincena", "anticipos"] },
   previred: { categoryCode: "EGR_PREVIRED", canonicalNames: ["imposiciones (previred)", "previred", "imposiciones"] },
+  impuesto_unico: { categoryCode: "EGR_IVA_F29", canonicalNames: ["iva f29", "f29 (iva + ppm)", "f29"] },
   f29: { categoryCode: "EGR_IVA_F29", canonicalNames: ["iva f29", "f29 (iva + ppm)", "f29"] },
   turnos_extra: { categoryCode: "EGR_TURNO_EXTRA", canonicalNames: ["turnos extra", "turno extra"] },
   retiro_socio: { categoryCode: "EGR_RETIRO_SOCIO", canonicalNames: ["retiro socios", "retiro socio"] },
