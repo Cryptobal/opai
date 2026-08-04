@@ -47,18 +47,50 @@ describe("deriveCommittedIncome — DTEs emitidos", () => {
     expect(cell?.items[0]).toMatchObject({ kind: "dte", folio: 101, dteId: "dte-1", fecha: "2026-07-21" });
   });
 
-  it("emisión pasada clampea a la semana actual; overdue usa dueDate/emisión+lag", () => {
+  it("emisión pasada queda en su semana (sin arrastre); overdue usa dueDate/emisión+lag", () => {
     const out = deriveCommittedIncome({
       ...base,
       dtes: [{
-        id: "dte-2", folio: 90, dateYmd: "2026-04-01", dueDateYmd: null,
+        // Emisión en semana pasada dentro del horizonte (lunes 2026-06-22).
+        id: "dte-2", folio: 90, dateYmd: "2026-06-25", dueDateYmd: null,
         pendingClp: 200_000, crmAccountId: "acc-A", installationId: "inst-1", receiverName: "Cliente A",
       }],
     });
-    // Emisión 2026-04-01 quedó en el pasado → visible AHORA (semana actual).
-    expect(out.get("row-a-i1")?.get("2026-07-20")?.total).toBe(200_000);
-    // 2026-04-01+30d = 2026-05-01 → >60d vs TODAY → cartera zombie.
-    expect(out.get("row-a-i1")?.get("2026-07-20")?.items[0]?.overdueOver60).toBe(true);
+    // v4.5: no se arrastra a la semana actual.
+    expect(out.get("row-a-i1")?.get("2026-07-20")).toBeUndefined();
+    expect(out.get("row-a-i1")?.get("2026-06-22")?.total).toBe(200_000);
+    // 2026-06-25+30d = 2026-07-25 → aún no vencida vs TODAY 2026-07-21.
+    expect(out.get("row-a-i1")?.get("2026-06-22")?.items[0]?.overdueOver60).toBe(false);
+    expect(out.get("row-a-i1")?.get("2026-06-22")?.items[0]?.overdueDays).toBe(0);
+  });
+
+  it("emisión pasada fuera del horizonte no aparece en la semana actual", () => {
+    const out = deriveCommittedIncome({
+      ...base,
+      dtes: [{
+        id: "dte-old", folio: 91, dateYmd: "2026-04-01", dueDateYmd: null,
+        pendingClp: 200_000, crmAccountId: "acc-A", installationId: "inst-1", receiverName: "Cliente A",
+      }],
+    });
+    expect(out.get("row-a-i1")?.get("2026-07-20")).toBeUndefined();
+    // Fuera de weeks → no entra en ninguna celda del rango.
+    const all = [...(out.get("row-a-i1")?.values() ?? [])].flatMap((c) => c.items);
+    expect(all.filter((i) => i.dteId === "dte-old")).toHaveLength(0);
+  });
+
+  it("override pasado también queda anclado (sin clamp); overdue >60d", () => {
+    const out = deriveCommittedIncome({
+      ...base,
+      dtes: [{
+        id: "dte-ov-past", folio: 92, dateYmd: "2026-07-21", dueDateYmd: "2026-04-01",
+        overrideDateYmd: "2026-06-24",
+        pendingClp: 150_000, crmAccountId: "acc-A", installationId: "inst-1", receiverName: "Cliente A",
+      }],
+    });
+    expect(out.get("row-a-i1")?.get("2026-06-22")?.total).toBe(150_000);
+    expect(out.get("row-a-i1")?.get("2026-07-20")).toBeUndefined();
+    // dueDate 2026-04-01 → >60d vs TODAY.
+    expect(out.get("row-a-i1")?.get("2026-06-22")?.items[0]?.overdueOver60).toBe(true);
   });
 
   it("override de visibilidad mueve la factura a otra semana", () => {
@@ -152,7 +184,7 @@ describe("deriveCommittedIncome — DTEs emitidos", () => {
     const out = deriveCommittedIncome({
       ...base,
       dtes: [{
-        id: "dte-old", folio: 1234, dateYmd: "2024-06-01", dueDateYmd: "2024-07-01",
+        id: "dte-rut", folio: 1234, dateYmd: "2026-07-21", dueDateYmd: "2024-07-01",
         pendingClp: 500_000, crmAccountId: "acc-A", installationId: null,
         receiverName: "Transmat",
       }],
@@ -160,6 +192,41 @@ describe("deriveCommittedIncome — DTEs emitidos", () => {
     expect(out.get("row-a")?.get("2026-07-20")?.total).toBe(500_000);
     expect(out.get(UNMATCHED_INCOME_KEY)).toBeUndefined();
     expect(out.get("row-a")?.get("2026-07-20")?.items[0]?.overdueOver60).toBe(true);
+  });
+
+  it("borrador vencido sigue clampeando a la semana actual", () => {
+    const out = deriveCommittedIncome({
+      ...base,
+      drafts: [{
+        // emisión 2026-05-01 + 30d = 2026-05-31 → pasado → clamp a actual.
+        id: "draft-past", templateId: "tpl-2", dateYmd: "2026-05-01", totalClp: 300_000,
+        receiverName: "Cliente A", crmAccountId: "acc-A", installationId: null,
+        templateEndDateYmd: null,
+      }],
+    });
+    expect(out.get("row-a")?.get("2026-07-20")?.total).toBe(300_000);
+    expect(out.get("row-a")?.get("2026-07-20")?.items[0]?.kind).toBe("draft");
+  });
+
+  it("cuota programada vencida sigue clampeando a la semana actual", () => {
+    // Template con nextRunAt en el pasado cuyo cobro (emisión+30d) ya venció.
+    const out = deriveCommittedIncome({
+      ...base,
+      templates: [makeTemplate({
+        lastRunAt: new Date("2026-05-05"),
+        nextRunAt: new Date("2026-06-05"),
+        // endDate futuro para que proyecte; cobro 5-jun+30d=5-jul → pasado → clamp.
+        endDate: new Date("2026-12-31"),
+      })],
+      // Cubrir periodos futuros para aislar solo la cuota vencida clampeada.
+      coveredPeriods: new Set([
+        "tpl-1::2026-08", "tpl-1::2026-09", "tpl-1::2026-10",
+        "tpl-1::2026-11", "tpl-1::2026-12", "tpl-1::2027-01",
+      ]),
+    });
+    const current = out.get("row-a-i1")?.get("2026-07-20");
+    expect(current?.items.some((i) => i.kind === "scheduled")).toBe(true);
+    expect(current?.total).toBeGreaterThan(0);
   });
 });
 

@@ -6,9 +6,9 @@
  *     estado de pago ya se envió al cliente).
  *  1. kind="dte": DTEs emitidos (33/34) no pagados → semana de la FECHA DE
  *     EMISIÓN (o override de visibilidad si el usuario la movió). Regla de
- *     producto alineada con cashflow v2: manda el DTE emitido, no el término
- *     de pago. Si esa semana ya pasó, se clampea a la semana actual para que
- *     la cartera vencida siga visible en el horizonte operable.
+ *     producto: una factura emitida impaga NUNCA se arrastra a la semana
+ *     actual; vive en su semana de emisión/override hasta que el owner la
+ *     mueva a mano o se pague. `overdueDays` se calcula contra hoy.
  *  2. kind="scheduled": borradores de programación (DRAFT con template) y
  *     proyección de FinanceDteRecurringTemplate activas hasta `endDate`
  *     inclusive (contratos a plazo dejan de proyectarse solos al término).
@@ -99,10 +99,21 @@ export interface CommittedIncomeArgs {
   collectionLagDays?: number;
 }
 
-/** Semana (lunes YMD) de cobro estimada, clampeada a la semana actual si venció. */
-function collectionWeek(fechaYmd: string, todayYmd: string): { week: string; fecha: string } {
-  const currentWeek = weekStartYmd(ymdToDate(todayYmd) ?? new Date());
+/**
+ * Semana (lunes YMD) de colocación.
+ * - `clampOverdue=true` (drafts/scheduled): si venció, mueve a la semana actual
+ *   — facturación pendiente de correr, el owner debe verla hoy.
+ * - `clampOverdue=false` (DTEs emitidos): se queda en su semana natural
+ *   (emisión u override). Cartera no se arrastra.
+ */
+function collectionWeek(
+  fechaYmd: string,
+  todayYmd: string,
+  clampOverdue = true,
+): { week: string; fecha: string } {
   const week = weekStartYmd(ymdToDate(fechaYmd) ?? new Date());
+  if (!clampOverdue) return { week, fecha: fechaYmd };
+  const currentWeek = weekStartYmd(ymdToDate(todayYmd) ?? new Date());
   return week < currentWeek ? { week: currentWeek, fecha: fechaYmd } : { week, fecha: fechaYmd };
 }
 
@@ -128,7 +139,8 @@ export function deriveCommittedIncome(args: CommittedIncomeArgs): CommittedByRow
     // dueDate / término de pago NO desplazan la celda — el usuario mueve la
     // factura cuando el pago se aplaza (override de visibilidad).
     const placementYmd = d.overrideDateYmd ?? d.dateYmd;
-    const { week, fecha } = collectionWeek(placementYmd, args.todayYmd);
+    // Emitidas: sin clamp — anclaje en emisión/override (v4.5).
+    const { week, fecha } = collectionWeek(placementYmd, args.todayYmd, false);
     if (!inRange(week) || d.pendingClp <= 0) continue;
     // Cartera zombie: vencimiento contractual (dueDate o emisión+lag), no la
     // celda de visibilidad — una factura recién emitida no es "vencida".

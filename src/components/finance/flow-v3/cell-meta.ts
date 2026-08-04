@@ -71,14 +71,51 @@ export function dteFoliosInCell(cell: FlowMatrixCellDto): number[] {
     .map((i) => i.folio);
 }
 
+/** Pendiente de F° en semana pasada (no suma a effective; solo informativo). */
+export function pastPendingDteMeta(cell: FlowMatrixCellDto, isPast: boolean): {
+  count: number;
+  total: number;
+  tag: string;
+  title: string;
+} | null {
+  if (!isPast) return null;
+  const items = (cell.committed?.items ?? []).filter((i) => i.kind === "dte");
+  if (items.length === 0) return null;
+  const total = items.reduce((s, i) => s + i.monto, 0);
+  const folios = items
+    .filter((i): i is typeof i & { folio: number } => i.folio != null)
+    .map((i) => i.folio);
+  const title = folios.length
+    ? `Pendiente: ${folios.map((f) => `F°${f}`).join(", ")}`
+    : `${items.length} factura${items.length === 1 ? "" : "s"} pendiente${items.length === 1 ? "" : "s"}`;
+  const tag =
+    items.length >= 2
+      ? `×${items.length}`
+      : items[0]?.folio != null
+        ? folioChip(items[0].folio).text
+        : "F°";
+  return { count: items.length, total, tag, title };
+}
+
 /** Tag primario de la celda para fx bar / chip. */
-export function primaryCellTag(cell: FlowMatrixCellDto): {
+export function primaryCellTag(
+  cell: FlowMatrixCellDto,
+  opts?: { isPast?: boolean },
+): {
   tag: string;
   tone: "info" | "warn" | "ok" | "neutral";
   title: string;
 } | null {
+  const isPast = opts?.isPast === true;
+  // Semana pasada con real: el tag REAL manda; el badge "+F° pend." va aparte.
   if (cell.layer === "real") return { tag: "REAL", tone: "ok", title: "Conciliado" };
   if (cell.layer === "plan") return { tag: "Plan", tone: "neutral", title: "Plan manual" };
+  // Pasado sin real pero con F° pendiente anclada → chip atenuado (informativo).
+  if (isPast && cell.layer === "empty") {
+    const pend = pastPendingDteMeta(cell, true);
+    if (pend) return { tag: pend.tag, tone: "info", title: pend.title };
+    return null;
+  }
   if (cell.layer !== "committed") return null;
   const { hasDte, hasProforma, hasDraft, dteFolio } = committedPriority(cell);
   if (hasDte) {

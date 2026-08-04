@@ -152,11 +152,17 @@ export const flowUnmatchedIncomeCreateSchema = z.object({
   dteId: z.string().uuid(),
 });
 
-/** Vincular DTE de "Otros ingresos" a una programación de su cuenta. */
-export const flowUnmatchedIncomeLinkTemplateSchema = z.object({
-  dteId: z.string().uuid(),
-  templateId: z.string().uuid(),
-});
+/** Vincular DTE(s) de "Otros ingresos" a una programación de su cuenta. */
+export const flowUnmatchedIncomeLinkTemplateSchema = z
+  .object({
+    dteId: z.string().uuid().optional(),
+    /** Lote (v4.5): vincular N facturas del mismo cliente. */
+    dteIds: z.array(z.string().uuid()).min(1).max(100).optional(),
+    templateId: z.string().uuid(),
+  })
+  .refine((v) => !!v.dteId || (v.dteIds != null && v.dteIds.length > 0), {
+    message: "dteId o dteIds requerido",
+  });
 
 export const flowChatSchema = z.object({
   message: z.string().trim().min(1).max(2000),

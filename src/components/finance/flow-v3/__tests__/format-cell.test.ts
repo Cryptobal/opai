@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { fmtCell } from "../format";
-import { cornerKind, primaryCellTag } from "../cell-meta";
+import { cornerKind, pastPendingDteMeta, primaryCellTag } from "../cell-meta";
 import type { FlowMatrixCellDto } from "@/modules/finance/flow-v3/matrix-types";
 
 function cell(partial: Partial<FlowMatrixCellDto>): FlowMatrixCellDto {
@@ -73,5 +73,22 @@ describe("cornerKind / primaryCellTag", () => {
     const plan = cell({ layer: "plan", plan: 70_000_000, effective: -70_000_000 });
     expect(cornerKind(plan)).toBe("plan");
     expect(primaryCellTag(plan)?.tag).toBe("Plan");
+  });
+
+  it("semana pasada con F° pendiente → chip informativo; sin isPast no aparece", () => {
+    const past = cell({
+      layer: "empty",
+      effective: 0,
+      committed: {
+        total: 200_000,
+        items: [
+          { kind: "dte", folio: 1582, label: "SCRB", fecha: "2026-03-10", monto: 200_000 },
+        ],
+      },
+    });
+    expect(primaryCellTag(past)).toBeNull();
+    expect(primaryCellTag(past, { isPast: true })?.tag).toBe("F°1582");
+    expect(pastPendingDteMeta(past, true)?.total).toBe(200_000);
+    expect(pastPendingDteMeta(past, false)).toBeNull();
   });
 });

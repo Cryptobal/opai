@@ -22,8 +22,25 @@ export interface UnmatchedDteDto {
   templates: AccountTemplateOption[];
 }
 
-function flowWeekOfDte(dueDate: Date | null, date: Date): string {
-  return weekStartYmd(dueDate ?? date);
+/** Grupo por cliente en el drill de Otros (v4.5). */
+export interface UnmatchedIncomeGroupDto {
+  key: string;
+  crmAccountId: string | null;
+  receiverName: string | null;
+  receiverRut: string | null;
+  subtotalClp: number;
+  items: UnmatchedDteDto[];
+  /** Programaciones comunes de la cuenta (del primer ítem con templates). */
+  templates: AccountTemplateOption[];
+}
+
+/** Semana de anclaje alineada con deriveCommittedIncome (emisión u override). */
+function flowWeekOfDte(date: Date, overrideYmd?: string | null): string {
+  if (overrideYmd) {
+    const d = new Date(`${overrideYmd}T00:00:00.000Z`);
+    if (!Number.isNaN(d.getTime())) return weekStartYmd(d);
+  }
+  return weekStartYmd(date);
 }
 
 /**
@@ -54,7 +71,7 @@ export async function listUnmatchedIncomeForWeek(
       },
       select: {
         id: true, folio: true, receiverName: true, receiverRut: true,
-        totalAmount: true, date: true, dueDate: true,
+        totalAmount: true, amountPaid: true, date: true, dueDate: true,
         crmAccountId: true, installationId: true, recurringTemplateId: true,
       },
       take: 500,
@@ -65,6 +82,18 @@ export async function listUnmatchedIncomeForWeek(
       orderBy: { createdAt: "asc" },
     }),
   ]);
+
+  const dteIds = dtes.map((d) => d.id);
+  const overrideRows =
+    dteIds.length > 0
+      ? await prisma.financeCashflowDteDateOverride.findMany({
+          where: { tenantId, dteId: { in: dteIds } },
+          select: { dteId: true, customDate: true },
+        })
+      : [];
+  const overrideByDteId = new Map(
+    overrideRows.map((o) => [o.dteId, o.customDate.toISOString().slice(0, 10)]),
+  );
 
   const accountByRut = new Map<string, string>();
   for (const a of accounts) {
@@ -106,7 +135,9 @@ export async function listUnmatchedIncomeForWeek(
   }> = [];
 
   for (const d of dtes) {
-    if (flowWeekOfDte(d.dueDate, d.date) !== weekStart) continue;
+    const pending = Number(d.totalAmount ?? 0) - Number(d.amountPaid ?? 0);
+    if (pending <= 0) continue;
+    if (flowWeekOfDte(d.date, overrideByDteId.get(d.id) ?? null) !== weekStart) continue;
     const accId = resolveAccount(d.crmAccountId, d.receiverRut);
     if (match(accId, d.installationId, d.recurringTemplateId) !== UNMATCHED_INCOME_KEY) {
       continue;
@@ -116,7 +147,7 @@ export async function listUnmatchedIncomeForWeek(
       folio: d.folio,
       receiverName: d.receiverName,
       receiverRut: d.receiverRut,
-      amountClp: Number(d.totalAmount ?? 0),
+      amountClp: pending,
       issueDate: d.date.toISOString().slice(0, 10),
       crmAccountId: accId,
     });
@@ -135,6 +166,48 @@ export async function listUnmatchedIncomeForWeek(
     out.push({ ...u, templates });
   }
   return out;
+}
+
+/** Agrupa DTEs unmatched por cuenta (id) o RUT normalizado. */
+export function groupUnmatchedByClient(items: UnmatchedDteDto[]): UnmatchedIncomeGroupDto[] {
+  const byKey = new Map<string, UnmatchedIncomeGroupDto>();
+  for (const it of items) {
+    const rutKey = it.receiverRut ? cleanRut(it.receiverRut) : "";
+    const key = it.crmAccountId
+      ? `acc:${it.crmAccountId}`
+      : rutKey
+        ? `rut:${rutKey}`
+        : `dte:${it.dteId}`;
+    let g = byKey.get(key);
+    if (!g) {
+      g = {
+        key,
+        crmAccountId: it.crmAccountId,
+        receiverName: it.receiverName,
+        receiverRut: it.receiverRut,
+        subtotalClp: 0,
+        items: [],
+        templates: [],
+      };
+      byKey.set(key, g);
+    }
+    g.items.push(it);
+    g.subtotalClp += it.amountClp;
+    if (g.templates.length === 0 && it.templates.length > 0) {
+      g.templates = it.templates;
+    }
+    if (!g.receiverName && it.receiverName) g.receiverName = it.receiverName;
+  }
+  return [...byKey.values()].sort((a, b) => b.subtotalClp - a.subtotalClp);
+}
+
+/** Lista + agrupación por cliente para el drill de Otros. */
+export async function listUnmatchedIncomeGrouped(
+  tenantId: string,
+  weekStart: string,
+): Promise<{ items: UnmatchedDteDto[]; groups: UnmatchedIncomeGroupDto[] }> {
+  const items = await listUnmatchedIncomeForWeek(tenantId, weekStart);
+  return { items, groups: groupUnmatchedByClient(items) };
 }
 
 /**

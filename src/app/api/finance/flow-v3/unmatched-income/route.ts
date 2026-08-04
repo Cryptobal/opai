@@ -2,11 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireFlowV3, flowV3Error } from "@/modules/finance/flow-v3/api-guard";
 import {
   createRowFromUnmatchedDte,
-  listUnmatchedIncomeForWeek,
+  listUnmatchedIncomeGrouped,
 } from "@/modules/finance/flow-v3/unmatched-income.service";
 import { flowUnmatchedIncomeCreateSchema } from "@/lib/validations/flow-v3";
 
-/** GET ?week=YYYY-MM-DD — DTEs de "Otros ingresos" esa semana. */
+/** GET ?week=YYYY-MM-DD — DTEs de "Otros ingresos" esa semana (items + groups). */
 export async function GET(req: NextRequest) {
   const auth = await requireFlowV3("cashflow_view");
   if (auth.error) return auth.error;
@@ -15,8 +15,13 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ success: false, error: "week requerido (lunes YMD)" }, { status: 400 });
   }
   try {
-    const data = await listUnmatchedIncomeForWeek(auth.ctx.tenantId, week);
-    return NextResponse.json({ success: true, data });
+    const data = await listUnmatchedIncomeGrouped(auth.ctx.tenantId, week);
+    // Back-compat: `data` plano = items; también expone groups.
+    return NextResponse.json({
+      success: true,
+      data: data.items,
+      groups: data.groups,
+    });
   } catch (error) {
     console.error("[Finance/FlowV3] GET unmatched-income:", error);
     return flowV3Error(error);

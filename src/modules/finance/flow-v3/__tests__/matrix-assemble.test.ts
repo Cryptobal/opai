@@ -38,6 +38,52 @@ describe("assembleMatrix — capa efectiva", () => {
     expect(cells[3]).toMatchObject({ layer: "plan", effective: 800, plan: 800 });
   });
 
+  it("semana pasada conserva committed en DTO pero effective/flujo no lo suman", () => {
+    const rows = [row({ section: "INGRESOS" })];
+    const committed: CommittedByRow = new Map([
+      [
+        "r1",
+        new Map([
+          [
+            "2026-07-06",
+            {
+              total: 500_000,
+              items: [
+                {
+                  kind: "dte",
+                  dteId: "d-past",
+                  folio: 1582,
+                  label: "SCRB",
+                  fecha: "2026-07-08",
+                  monto: 500_000,
+                },
+              ],
+            },
+          ],
+        ]),
+      ],
+    ]);
+    const m = assembleMatrix({
+      rows,
+      weeks: WEEKS,
+      currentWeek: CURRENT,
+      openingBalance: 1_000_000,
+      plan: new Map(),
+      committed,
+      real: new Map(),
+    });
+    const past = m.rows[0].cells[0];
+    expect(past).toMatchObject({
+      layer: "empty",
+      effective: 0,
+      weekStart: "2026-07-06",
+    });
+    expect(past.committed?.total).toBe(500_000);
+    expect(past.committed?.items[0]?.folio).toBe(1582);
+    // Flujo de semana pasada = solo real (0) — no arrastra el pendiente.
+    expect(m.flows[0]).toBe(0);
+  });
+
   it("ingreso facturado (DTE) pisa al plan manual", () => {
     const rows = [row({ section: "INGRESOS" })];
     const committed: CommittedByRow = new Map([

@@ -1,10 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { BarChart3 } from "lucide-react";
 import { Surface, Stat, StatGrid, Spinner, EmptyState } from "@/components/opai-ds";
 import { fmtClp, fmtShortDate } from "./format";
 import { PanelBalanceChart } from "./PanelBalanceChart";
+import {
+  CarteraPendienteSheet,
+  type CarteraItem,
+  type OpenMoveWeek,
+} from "./CarteraPendienteSheet";
 
 interface Insights {
   saldoHoy: number | null;
@@ -12,6 +17,8 @@ interface Insights {
   min12: { weekStart: string; balance: number } | null;
   porCobrarTotal: number;
   aging: { alDia: number; d1_15: number; d16_30: number; d30plus: number };
+  cartera: CarteraItem[];
+  openMoveWeeks: OpenMoveWeek[];
   balanceSeries: Array<{ weekStart: string; label: string; balance: number }>;
   recentSeals: Array<{
     weekEnd: string;
@@ -26,6 +33,24 @@ export function PanelView({ canManage }: { canManage: boolean }) {
   const [data, setData] = useState<Insights | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [carteraOpen, setCarteraOpen] = useState(false);
+
+  const load = useCallback(() => {
+    setLoading(true);
+    return fetch("/api/finance/flow-v3/insights", { cache: "no-store" })
+      .then(async (r) => {
+        const j = await r.json();
+        if (!j.success) throw new Error(j.error ?? "Error");
+        setData(j.data as Insights);
+        setError(null);
+      })
+      .catch((e: unknown) => {
+        setError(e instanceof Error ? e.message : "Error");
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -45,7 +70,7 @@ export function PanelView({ canManage }: { canManage: boolean }) {
     return () => { cancelled = true; };
   }, []);
 
-  if (loading) {
+  if (loading && !data) {
     return (
       <div className="flex h-64 items-center justify-center">
         <Spinner />
@@ -63,6 +88,9 @@ export function PanelView({ canManage }: { canManage: boolean }) {
   }
 
   const a = data.aging;
+  const cartera = data.cartera ?? [];
+  const openMoveWeeks = data.openMoveWeeks ?? [];
+
   return (
     <div className="ds-page-enter space-y-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
       <StatGrid>
@@ -80,7 +108,18 @@ export function PanelView({ canManage }: { canManage: boolean }) {
           value={data.min12 ? fmtClp(data.min12.balance) : "—"}
           hint={data.min12 ? fmtShortDate(data.min12.weekStart) : undefined}
         />
-        <Stat label="Por cobrar" value={fmtClp(data.porCobrarTotal)} />
+        <Stat
+          label="Por cobrar"
+          value={fmtClp(data.porCobrarTotal)}
+          hint={
+            cartera.length > 0
+              ? `${cartera.length} F° · tocar para listar`
+              : "Sin pendientes"
+          }
+          onClick={
+            cartera.length > 0 ? () => setCarteraOpen(true) : undefined
+          }
+        />
       </StatGrid>
 
       <Surface elevation={1} padding="md" className="space-y-2">
@@ -139,6 +178,19 @@ export function PanelView({ canManage }: { canManage: boolean }) {
           <p className="text-[12px] text-ds-text-4">Solo lectura</p>
         )}
       </Surface>
+
+      <CarteraPendienteSheet
+        open={carteraOpen}
+        onOpenChange={setCarteraOpen}
+        items={cartera}
+        openMoveWeeks={openMoveWeeks}
+        canManage={canManage}
+        onMoved={() => {
+          void load().then(() => {
+            /* keep sheet open with refreshed list */
+          });
+        }}
+      />
     </div>
   );
 }
