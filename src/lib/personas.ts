@@ -140,6 +140,8 @@ export const CHILE_BANKS = [
   { code: "TENPO", name: "Tenpo Prepago / Cuenta", sbifCode: "730" },
   { code: "MACH", name: "MACH (Bci)", sbifCode: "016" },
   { code: "MP", name: "Mercado Pago", sbifCode: "299" },
+  { code: "COPEUCH", name: "Coopeuch", sbifCode: "672" },
+  { code: "PREX", name: "Prex", sbifCode: "743" },
 ].sort((a, b) => a.name.localeCompare(b.name, "es"));
 
 export const CHILE_BANK_CODES = CHILE_BANKS.map((b) => b.code);
