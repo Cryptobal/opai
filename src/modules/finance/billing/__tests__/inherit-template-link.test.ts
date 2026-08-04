@@ -188,4 +188,129 @@ describe("applyTemplateLinkInheritance — destino v4.3/v4.7", () => {
     expect(out.recurringTemplateId).toBe("tpl-auto");
     expect(findMany).not.toHaveBeenCalled();
   });
+
+  it("v4.8: 2+ programaciones + installationId inequívoco → hereda esa fila", async () => {
+    const schedule = {
+      frequency: "monthly",
+      dayOfMonth: 5,
+      dayOfWeek: null,
+      monthOfYear: null,
+      startDate: new Date("2026-01-01"),
+      endDate: null,
+      lastRunAt: null,
+      facturaTiming: "AL_EMITIR",
+      facturaDay: null,
+      facturaMesRelativo: "MISMO_MES",
+    };
+    findMany.mockResolvedValue([
+      { id: "tpl-pemuco", installationId: "inst-pemuco", ...schedule },
+      { id: "tpl-llay", installationId: "inst-llay", ...schedule },
+    ]);
+    findFirst.mockResolvedValue({ id: "tpl-llay" });
+
+    const out = await applyTemplateLinkInheritance("t1", {
+      dteType: 33,
+      crmAccountId: "acc-Pine",
+      installationId: "inst-llay",
+      issueDateYmd: "2026-08-05",
+      // undefined → heredar (caso duplicar factura sin vínculo previo)
+    });
+    expect(out).toEqual({
+      recurringTemplateId: "tpl-llay",
+      billingPeriod: "2026-08",
+    });
+  });
+
+  it("v4.8: 2+ programaciones sin installationId → sigue exigiendo selector", async () => {
+    findMany
+      .mockResolvedValueOnce([
+        {
+          id: "tpl-pemuco",
+          installationId: "inst-pemuco",
+          frequency: "monthly",
+          dayOfMonth: 5,
+          dayOfWeek: null,
+          monthOfYear: null,
+          startDate: new Date("2026-01-01"),
+          endDate: null,
+          lastRunAt: null,
+          facturaTiming: "AL_EMITIR",
+          facturaDay: null,
+          facturaMesRelativo: "MISMO_MES",
+        },
+        {
+          id: "tpl-llay",
+          installationId: "inst-llay",
+          frequency: "monthly",
+          dayOfMonth: 5,
+          dayOfWeek: null,
+          monthOfYear: null,
+          startDate: new Date("2026-01-01"),
+          endDate: null,
+          lastRunAt: null,
+          facturaTiming: "AL_EMITIR",
+          facturaDay: null,
+          facturaMesRelativo: "MISMO_MES",
+        },
+      ])
+      .mockResolvedValueOnce([
+        { id: "tpl-pemuco", name: "Pine - Pemuco", installationId: "inst-pemuco" },
+        { id: "tpl-llay", name: "Pine - Llay Llay", installationId: "inst-llay" },
+      ]);
+
+    await expect(
+      applyTemplateLinkInheritance("t1", {
+        dteType: 33,
+        crmAccountId: "acc-Pine",
+        issueDateYmd: "2026-08-05",
+      }),
+    ).rejects.toBeInstanceOf(TemplateLinkRequiredError);
+  });
+
+  it("v4.8: installationId que no matchea ninguna fila → exige selector", async () => {
+    findMany
+      .mockResolvedValueOnce([
+        {
+          id: "tpl-a",
+          installationId: "inst-a",
+          frequency: "monthly",
+          dayOfMonth: 1,
+          dayOfWeek: null,
+          monthOfYear: null,
+          startDate: new Date("2026-01-01"),
+          endDate: null,
+          lastRunAt: null,
+          facturaTiming: "AL_EMITIR",
+          facturaDay: null,
+          facturaMesRelativo: "MISMO_MES",
+        },
+        {
+          id: "tpl-b",
+          installationId: "inst-b",
+          frequency: "monthly",
+          dayOfMonth: 1,
+          dayOfWeek: null,
+          monthOfYear: null,
+          startDate: new Date("2026-01-01"),
+          endDate: null,
+          lastRunAt: null,
+          facturaTiming: "AL_EMITIR",
+          facturaDay: null,
+          facturaMesRelativo: "MISMO_MES",
+        },
+      ])
+      .mockResolvedValueOnce([
+        { id: "tpl-a", name: "A", installationId: "inst-a" },
+        { id: "tpl-b", name: "B", installationId: "inst-b" },
+      ]);
+
+    await expect(
+      applyTemplateLinkInheritance("t1", {
+        dteType: 33,
+        crmAccountId: "acc-A",
+        installationId: "inst-otra",
+        issueDateYmd: "2026-08-05",
+      }),
+    ).rejects.toBeInstanceOf(TemplateLinkRequiredError);
+  });
 });
