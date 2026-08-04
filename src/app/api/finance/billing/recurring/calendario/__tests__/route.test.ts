@@ -9,17 +9,29 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { computeRecurringIssueYmd } from "@/modules/finance/billing/dte-recurring-schedule";
 import { addDaysYmd } from "@/modules/finance/flow-v3/types";
 
-const requireAuthMock = vi.fn();
-const resolveApiPermsMock = vi.fn();
-const hasCapabilityMock = vi.fn();
-const hasFacturacionCapabilityMock = vi.fn();
-
-const findManyTemplates = vi.fn();
-const updateTemplate = vi.fn();
-const transactionMock = vi.fn();
-const syncRecurringDteItemMock = vi.fn();
-const accountFindMany = vi.fn();
-const installationFindMany = vi.fn();
+const {
+  requireAuthMock,
+  resolveApiPermsMock,
+  hasCapabilityMock,
+  hasFacturacionCapabilityMock,
+  findManyTemplates,
+  updateTemplate,
+  transactionMock,
+  syncRecurringDteItemMock,
+  accountFindMany,
+  installationFindMany,
+} = vi.hoisted(() => ({
+  requireAuthMock: vi.fn(),
+  resolveApiPermsMock: vi.fn(),
+  hasCapabilityMock: vi.fn(),
+  hasFacturacionCapabilityMock: vi.fn(),
+  findManyTemplates: vi.fn(),
+  updateTemplate: vi.fn(),
+  transactionMock: vi.fn(),
+  syncRecurringDteItemMock: vi.fn(),
+  accountFindMany: vi.fn(),
+  installationFindMany: vi.fn(),
+}));
 
 vi.mock("server-only", () => ({}));
 
@@ -95,9 +107,9 @@ vi.mock("@/lib/prisma", () => ({
 
 import { PATCH } from "../route";
 
-const TENANT = "11111111-1111-1111-1111-111111111111";
-const TPL_A = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
-const TPL_B = "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb";
+const TENANT = "11111111-1111-4111-8111-111111111111";
+const TPL_A = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+const TPL_B = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 
 function baseTpl(overrides: Record<string, unknown> = {}) {
   return {
@@ -144,7 +156,7 @@ beforeEach(() => {
 
 describe("PATCH /api/finance/billing/recurring/calendario", () => {
   it("rechaza id de otro tenant sin escribir nada", async () => {
-    findManyTemplates.mockResolvedValue([baseTpl()]); // solo 1 de 2
+    findManyTemplates.mockResolvedValue([baseTpl()]);
     const req = new Request("http://localhost/api", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
