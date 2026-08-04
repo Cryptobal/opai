@@ -44,7 +44,6 @@ import { usePlanDraft } from "./plan/usePlanDraft";
 import { PlanAccountForm } from "./plan/forms/PlanAccountForm";
 import { PlanContactForm } from "./plan/forms/PlanContactForm";
 import { PlanDealForm } from "./plan/forms/PlanDealForm";
-import { PlanInstallationsForm } from "./plan/forms/PlanInstallationsForm";
 import { PlanAttachmentsForm } from "./plan/forms/PlanAttachmentsForm";
 import { PlanTaskForm } from "./plan/forms/PlanTaskForm";
 import { PlanQuoteForm } from "./plan/forms/PlanQuoteForm";
@@ -212,7 +211,12 @@ function buildStructureActions(
     {
       id: "installations",
       label: `Instalaciones (${proposal.installations.length})`,
-      detail: proposal.installations.map((i) => i.name).slice(0, 3).join(", ") || undefined,
+      detail: [
+        proposal.installations.map((i) => i.name).slice(0, 3).join(", ") || null,
+        "Editá datos y puestos en Instalaciones y puestos",
+      ]
+        .filter(Boolean)
+        .join(" · ") || undefined,
       tag: "nueva",
       disabled: noInstallations,
       reasonDisabled: noInstallations ? "Sin instalaciones en la propuesta" : undefined,
@@ -259,14 +263,45 @@ function buildStructureActions(
       group: "calendario",
     },
     (() => {
+      const installationsWithSlots = proposal.installations.filter(
+        (i) => i.coverageSlots.length > 0,
+      );
       const slotCount = proposal.installations.reduce(
         (n, i) => n + i.coverageSlots.length,
         0,
       );
       const hasCoverage = slotCount > 0;
+      const isMulti = installationsWithSlots.length >= 2;
+      const needsDeal = isMulti && !dealSelected && !existingDealId;
       // Con cobertura del pliego / licitación, la cotización es parte del plan
       // (no "opcional" desmarcada por defecto).
       const quoteCore = proposal.deal.isLicitacion || hasCoverage;
+
+      if (isMulti) {
+        const tree = installationsWithSlots
+          .map((inst) => {
+            const n = inst.coverageSlots.length;
+            const d = inst.coverageSlots.reduce((acc, s) => acc + (s.headcount || 0), 0);
+            return `${inst.name || "Instalación"}: ${n} puestos · dot ${d}`;
+          })
+          .join(" → ");
+        return {
+          id: "quote" as const,
+          label: "Propuesta multi-instalación",
+          detail: `PROP → CPQ por instalación (${tree})`,
+          tag: "cotización" as const,
+          tagLabel: `PROP + ${installationsWithSlots.length} CPQ`,
+          optional: !quoteCore,
+          disabled: !canCreateQuote || needsDeal,
+          reasonDisabled: !canCreateQuote
+            ? "Sin permiso para crear cotizaciones"
+            : needsDeal
+              ? "Requiere negocio"
+              : undefined,
+          group: "comercial" as const,
+        };
+      }
+
       const detailParts = [
         hasCoverage ? `${slotCount} puesto${slotCount === 1 ? "" : "s"}` : "Sin puestos aún",
         dealSelected
@@ -712,10 +747,11 @@ export function CorreoAiActionPanel({
         );
       case "installations":
         return (
-          <PlanInstallationsForm
-            installations={p.installations}
-            onChange={(inst) => draft.setField("installations", inst)}
-          />
+          <p className="text-[13px] text-ds-text-3">
+            Editá datos y puestos en{" "}
+            <span className="font-medium text-ds-text-2">Instalaciones y puestos</span>{" "}
+            (dentro de Cotización).
+          </p>
         );
       case "attachments":
         return (
@@ -744,10 +780,10 @@ export function CorreoAiActionPanel({
             <div className="space-y-2 border-t border-ds-border-subtle pt-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <h4 className="text-[12px] font-medium uppercase tracking-wide text-ds-text-3">
-                  Cobertura y puestos
+                  Instalaciones y puestos
                 </h4>
                 <p className="text-[12px] text-ds-text-4">
-                  Se materializan como puestos CPQ al crear la cotización
+                  Se materializan como cotizaciones CPQ, una por instalación
                 </p>
               </div>
               <div className="mb-2 space-y-1.5">
