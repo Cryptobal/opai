@@ -68,6 +68,8 @@ export interface FlowMatrixCellDto {
   projected?: number | null;
   /** Desviación real vs proyectado (solo si hay real). */
   drift?: { delta: number; pct: number | null } | null;
+  /** Nota libre del usuario (motivo de desvío / cambio). */
+  note?: string | null;
 }
 
 export interface FlowMatrixRowDto extends AssembleRowInput {
@@ -90,6 +92,8 @@ export interface AssembleArgs {
   plan: Map<string, Map<string, number>>;
   committed: CommittedByRow;
   real: RealByRow;
+  /** Notas libres por fila → semana → texto. */
+  notes?: Map<string, Map<string, string>>;
   /** Σ real cash-signed de las semanas ENTRE el fin de ventana y hoy (solo
    *  ventanas enteramente pasadas). */
   realNetAfterWindow?: number;
@@ -125,11 +129,13 @@ export function assembleMatrix(args: AssembleArgs): AssembledMatrix {
     const planRow = args.plan.get(r.id);
     const committedRow = args.committed.get(r.id);
     const realRow = args.real.get(r.id);
+    const notesRow = args.notes?.get(r.id);
     const cells: FlowMatrixCellDto[] = weeks.map((w, i) => {
       const hidden = r.archivedWeekCutoff != null && w > r.archivedWeekCutoff;
       const plan = hidden ? 0 : (planRow?.get(w) ?? 0);
       const committed = hidden ? null : (committedRow?.get(w) ?? null);
       const real = hidden ? null : (realRow?.get(w) ?? null);
+      const note = hidden ? null : (notesRow?.get(w) ?? null);
       // INGRESOS: total cash-signed (+). FINANCIAMIENTO/egresos: magnitud
       // positiva en committed ⇒ resta (legado hitos/retiro). PCT_SALES en
       // FINANCIAMIENTO usa +mag egreso / −mag ingreso para respetar signo.
@@ -187,6 +193,7 @@ export function assembleMatrix(args: AssembleArgs): AssembledMatrix {
         layer,
         projected,
         drift,
+        note,
       };
     });
     return { ...r, cells };

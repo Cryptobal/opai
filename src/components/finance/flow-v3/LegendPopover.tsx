@@ -41,6 +41,12 @@ const CORNER_ITEMS: Array<{ swatch: string; title: string; desc: string }> = [
     title: "Plan manual",
     desc: "Marca teal — monto editado a mano; pisa la proyección (salvo factura emitida).",
   },
+  {
+    swatch:
+      "relative bg-ds-surface-1 border border-ds-border-default before:absolute before:bottom-0.5 before:left-0.5 before:h-1.5 before:w-1.5 before:rounded-full before:bg-status-info before:content-['']",
+    title: "Nota",
+    desc: "Punto azul abajo a la izquierda — hay una nota en la celda (clic → Nota).",
+  },
 ];
 
 const CHIP_ITEMS: Array<{ swatch: string; title: string; desc: string }> = [

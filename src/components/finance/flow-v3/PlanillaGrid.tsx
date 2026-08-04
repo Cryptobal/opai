@@ -50,6 +50,7 @@ interface PlanMutators {
   patchPlan: (rowId: string, weekStart: string, amount: number, opts?: { skipHistory?: boolean }) => Promise<void>;
   patchPlanBulk: (rowId: string, weekStarts: string[], amount: number, opts?: { skipHistory?: boolean }) => Promise<unknown>;
   movePlan: (rowId: string, from: string, to: string, opts?: { skipHistory?: boolean }) => Promise<unknown>;
+  patchCellNote: (rowId: string, weekStart: string, body: string | null) => Promise<boolean>;
   undo: () => Promise<HistoryEntry | null>;
   redo: () => Promise<HistoryEntry | null>;
 }
@@ -158,6 +159,7 @@ export function PlanillaGrid({
   /** Filas en cero reveladas al tocar "n/m" del encabezado de sección. */
   const [revealedZeroRowIds, setRevealedZeroRowIds] = useState<Set<string>>(() => new Set());
   const [popover, setPopover] = useState<PopoverState | null>(null);
+  const [popoverFocusNote, setPopoverFocusNote] = useState(false);
   const [fillRight, setFillRight] = useState<FillRightRequest | null>(null);
   const [renamingRowId, setRenamingRowId] = useState<string | null>(null);
   const [rowDialog, setRowDialog] = useState<RowDialogState>(null);
@@ -361,7 +363,7 @@ export function PlanillaGrid({
   );
 
   const openPopover = useCallback(
-    (sel: CellSel, anchor?: DOMRect) => {
+    (sel: CellSel, anchor?: DOMRect, opts?: { focusNote?: boolean }) => {
       const row = rowById.get(sel.rowId);
       const cell = row?.cells[sel.colIdx];
       if (!row || !cell) return;
@@ -369,6 +371,7 @@ export function PlanillaGrid({
         anchor ??
         document.querySelector(`[data-rc="${sel.rowId}:${sel.colIdx}"]`)?.getBoundingClientRect();
       if (!rect) return;
+      setPopoverFocusNote(!!opts?.focusNote);
       setPopover({ row, cell, anchor: { left: rect.left, top: rect.top, bottom: rect.bottom } });
     },
     [rowById],
@@ -645,6 +648,7 @@ export function PlanillaGrid({
         void actions.moveDte(dteId, targetWeek);
       },
       onViewDetail: () => openPopover(sel),
+      onEditNote: canManage ? () => openPopover(sel, undefined, { focusNote: true }) : undefined,
       onViewDte: (dteId: string) => onViewDte?.(dteId),
       onLinkTemplate: (dteId: string) => {
         setLinkFocusDteId(dteId);
@@ -655,7 +659,7 @@ export function PlanillaGrid({
       },
       onRegisterPayment: (dteId: string) => onViewDte?.(dteId),
     }),
-    [actions, kb, matrix, openPopover, requestFillRight, onViewDte, rowById],
+    [actions, canManage, kb, matrix, openPopover, requestFillRight, onViewDte, rowById],
   );
 
   const rowMenuFor = useCallback(
@@ -1090,8 +1094,12 @@ export function PlanillaGrid({
 
       <CellLayersPopover
         state={popover}
-        onClose={() => setPopover(null)}
+        onClose={() => {
+          setPopover(null);
+          setPopoverFocusNote(false);
+        }}
         canManage={canManage}
+        focusNote={popoverFocusNote}
         excludedForRow={
           popover
             ? (data.excludedIncome ?? []).filter((e) => e.rowId === popover.row.id)
@@ -1106,6 +1114,11 @@ export function PlanillaGrid({
           await actions.restoreDte(dteId);
           setPopover(null);
         }}
+        onSaveNote={
+          canManage
+            ? async (rowId, weekStart, body) => matrix.patchCellNote(rowId, weekStart, body)
+            : undefined
+        }
       />
       <FillRightDialog
         request={fillRight}

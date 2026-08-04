@@ -9,6 +9,7 @@ import { ensureFlowBootstrap } from "./bootstrap.service";
 import { reconcileIncomeRows } from "./reconcile-income-rows.service";
 import { FALLBACK_EXPENSE_NAME, FALLBACK_INCOME_NAME } from "./canonical-rows";
 import { loadPlanCells } from "./plan.service";
+import { loadCellNotes } from "./cell-note.service";
 import { loadCommittedIncome } from "./load-committed-income";
 import { loadCommittedExpense } from "./load-committed-expense";
 import { loadReal } from "./load-real";
@@ -87,8 +88,9 @@ export async function buildFlowMatrix(
       categoryId: r.categoryId, supplierId: r.supplierId,
     }));
 
-  const [plan, cIncomeLoad, cExpense, real, opening, config, closedWeeks, seals] = await Promise.all([
+  const [plan, notes, cIncomeLoad, cExpense, real, opening, config, closedWeeks, seals] = await Promise.all([
     loadPlanCells(tenantId, ymdToDate(weeks[0])!, ymdToDate(lastWeek)!),
+    loadCellNotes(tenantId, ymdToDate(weeks[0])!, ymdToDate(lastWeek)!),
     loadCommittedIncome(tenantId, activeRefs, weeks, todayYmd),
     loadCommittedExpense(tenantId, activeRefs, weeks, todayYmd),
     loadReal(tenantId, activeRefs, weeks),
@@ -319,7 +321,7 @@ export async function buildFlowMatrix(
   const assembled = assembleMatrix({
     rows: assembleRows, weeks, currentWeek,
     openingBalance: Math.round(opening.currentTotalClp),
-    plan, committed, real: realResolved, realNetAfterWindow,
+    plan, notes, committed, real: realResolved, realNetAfterWindow,
     sealedBalances: seals.sealedBalances,
     priorSealed: seals.priorSealed,
   });

@@ -615,6 +615,7 @@ export function PlanillaClient({
                 patchPlan: m.patchPlan,
                 patchPlanBulk: m.patchPlanBulk,
                 movePlan: m.movePlan,
+                patchCellNote: m.patchCellNote,
                 undo: m.undo,
                 redo: m.redo,
               }}

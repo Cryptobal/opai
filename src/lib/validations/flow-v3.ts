@@ -72,6 +72,13 @@ export const flowPlanUpsertSchema = z.object({
   amount: planAmount,
 });
 
+/** Nota libre de celda (body vacío/null ⇒ borrar). */
+export const flowCellNoteUpsertSchema = z.object({
+  rowId: z.string().uuid(),
+  weekStart: ymd,
+  body: z.string().max(2000).nullable(),
+});
+
 export const flowPlanBulkFillSchema = z.object({
   rowId: z.string().uuid(),
   weekStarts: z.array(ymd).min(1).max(60),

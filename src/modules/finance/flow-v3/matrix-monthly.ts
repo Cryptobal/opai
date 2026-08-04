@@ -94,12 +94,14 @@ interface ItemBucket {
   plan: number;
   committedItems: CommittedItem[];
   realItems: RealItem[];
+  /** Notas de semanas cuyo lunes cae en este mes. */
+  notes: string[];
   /** Contador de ítems sin fecha (fallback al lunes de su semana). */
   fallbackFechaCount: number;
 }
 
 function emptyBucket(): ItemBucket {
-  return { plan: 0, committedItems: [], realItems: [], fallbackFechaCount: 0 };
+  return { plan: 0, committedItems: [], realItems: [], notes: [], fallbackFechaCount: 0 };
 }
 
 function attributeItemsToBuckets(
@@ -123,7 +125,10 @@ function attributeItemsToBuckets(
     if (!cell) continue;
 
     const planBucket = buckets.get(weekMonth);
-    if (planBucket) planBucket.plan += cell.plan;
+    if (planBucket) {
+      planBucket.plan += cell.plan;
+      if (cell.note?.trim()) planBucket.notes.push(cell.note.trim());
+    }
 
     if (cell.committed) {
       if (cell.committed.items.length === 0 && cell.committed.total !== 0) {
@@ -244,6 +249,7 @@ function cellFromBucket(
     layer,
     projected,
     drift,
+    note: bucket.notes.length > 0 ? bucket.notes.join(" · ") : null,
   };
 }
 

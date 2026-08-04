@@ -57,5 +57,12 @@ export const CANONICAL_FLOW_ROWS: CanonicalFlowRow[] = [
   { section: "FINANCIAMIENTO", name: "Aporte socios", categoryCode: null },
   { section: "FINANCIAMIENTO", name: "Retiro socios", categoryCode: null },
   { section: "FINANCIAMIENTO", name: "Devolución a socios", categoryCode: null },
-  { section: "FINANCIAMIENTO", name: "Devolución préstamo socios", categoryCode: null },
+];
+
+/**
+ * Filas que dejaron de ser canónicas. El reconcile las elimina si no tienen
+ * plan/comprometido/real; si tienen histórico, las archiva (no se recrean).
+ */
+export const RETIRED_CANONICAL_ROW_NAMES: readonly string[] = [
+  "Devolución préstamo socios",
 ];

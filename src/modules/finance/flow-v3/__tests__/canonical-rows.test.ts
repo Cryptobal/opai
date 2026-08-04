@@ -1,8 +1,13 @@
 import { describe, it, expect } from "vitest";
-import { CANONICAL_FLOW_ROWS, resolveSectionMove, SECTION_MOVES } from "../canonical-rows";
+import {
+  CANONICAL_FLOW_ROWS,
+  RETIRED_CANONICAL_ROW_NAMES,
+  resolveSectionMove,
+  SECTION_MOVES,
+} from "../canonical-rows";
 
 describe("SECTION_MOVES", () => {
-  it("incluye Devolución préstamo socios INGRESOS → FINANCIAMIENTO", () => {
+  it("incluye Devolución préstamo socios INGRESOS → FINANCIAMIENTO (migración)", () => {
     expect(SECTION_MOVES).toContainEqual({
       name: "Devolución préstamo socios",
       fromSection: "INGRESOS",
@@ -17,11 +22,9 @@ describe("SECTION_MOVES", () => {
     expect(resolveSectionMove("Otros ingresos", "INGRESOS")).toBeNull();
   });
 
-  it("canónicas no duplican Devolución préstamo socios en INGRESOS", () => {
-    const ingresos = CANONICAL_FLOW_ROWS.filter((r) => r.section === "INGRESOS");
-    expect(ingresos.some((r) => r.name === "Devolución préstamo socios")).toBe(false);
-    const fin = CANONICAL_FLOW_ROWS.filter((r) => r.section === "FINANCIAMIENTO");
-    expect(fin.some((r) => r.name === "Devolución préstamo socios")).toBe(true);
+  it("ya no es canónica: Devolución préstamo socios está retirada", () => {
+    expect(CANONICAL_FLOW_ROWS.some((r) => r.name === "Devolución préstamo socios")).toBe(false);
+    expect(RETIRED_CANONICAL_ROW_NAMES).toContain("Devolución préstamo socios");
   });
 
   it("incluye fila Finiquitos en REMUNERACIONES", () => {

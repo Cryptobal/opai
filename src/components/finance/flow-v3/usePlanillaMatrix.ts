@@ -357,9 +357,46 @@ export function usePlanillaMatrix() {
     }
   }, [history, refetch]);
 
+  /** Guarda / borra nota de celda y refresca la matriz. */
+  const patchCellNote = useCallback(
+    async (rowId: string, weekStart: string, body: string | null): Promise<boolean> => {
+      try {
+        const res = await fetch("/api/finance/flow-v3/plan/note", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ rowId, weekStart, body }),
+        });
+        const json = await res.json();
+        if (!json.success) throw new Error(json.error ?? "No se pudo guardar la nota");
+        // Actualización optimista local + refetch de consistencia.
+        setData((prev) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            rows: prev.rows.map((r) => {
+              if (r.id !== rowId) return r;
+              return {
+                ...r,
+                cells: r.cells.map((c) =>
+                  c.weekStart === weekStart ? { ...c, note: body?.trim() || null } : c,
+                ),
+              };
+            }),
+          };
+        });
+        toast.success(body?.trim() ? "Nota guardada" : "Nota eliminada");
+        return true;
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "No se pudo guardar la nota");
+        return false;
+      }
+    },
+    [],
+  );
+
   return {
     data, loading, granularity, setGranularity,
     extendPast, extendFuture, resetWindow, refetch,
-    patchPlan, patchPlanBulk, movePlan, undo, redo,
+    patchPlan, patchPlanBulk, movePlan, patchCellNote, undo, redo,
   };
 }
