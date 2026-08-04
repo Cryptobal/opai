@@ -4,7 +4,7 @@
 
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
-import { resolvePagePerms, canView } from "@/lib/permissions-server";
+import { resolvePagePerms, canView, canDelete } from "@/lib/permissions-server";
 import { getUfValue } from "@/lib/uf";
 import {
   QUOTE_LIST_DEFAULT_PAGE_SIZE,
@@ -20,6 +20,7 @@ export default async function CrmCotizacionesPage() {
   const perms = await resolvePagePerms(session.user);
   if (!canView(perms, "crm", "quotes")) redirect("/crm");
   const tenantId = session.user.tenantId;
+  const userCanDelete = canDelete(perms, "cpq") || canDelete(perms, "crm", "quotes");
 
   const [result, ufValue] = await Promise.all([
     listCrmQuotes({
@@ -38,6 +39,7 @@ export default async function CrmCotizacionesPage() {
       <CrmCotizacionesClient
         quotes={JSON.parse(JSON.stringify(result.quotes))}
         ufValue={ufValue}
+        canDelete={userCanDelete}
         initialCounts={result.counts ?? {
           total: 0,
           draft: 0,

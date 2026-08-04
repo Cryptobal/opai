@@ -37,38 +37,58 @@ export type ListQuotesParams = {
   dealId?: string;
 };
 
-async function buildWhereAsync(params: ListQuotesParams): Promise<Prisma.CpqQuoteWhereInput> {
+/**
+ * Cláusula OR de búsqueda (código/nombre/cliente + negocios/cuentas que hacen
+ * match). Se resuelve una sola vez para reutilizarla tanto en el `where` del
+ * listado (con status) como en el de los conteos (sin status).
+ */
+async function resolveSearchOr(
+  params: ListQuotesParams,
+): Promise<Prisma.CpqQuoteWhereInput | null> {
+  const q = params.search?.trim();
+  if (!q) return null;
+  const [matchingDeals, matchingAccounts] = await Promise.all([
+    prisma.crmDeal.findMany({
+      where: { tenantId: params.tenantId, title: { contains: q, mode: "insensitive" } },
+      select: { id: true },
+      take: 500,
+    }),
+    prisma.crmAccount.findMany({
+      where: { tenantId: params.tenantId, name: { contains: q, mode: "insensitive" } },
+      select: { id: true },
+      take: 500,
+    }),
+  ]);
+  const dealIds = matchingDeals.map((d) => d.id);
+  const accountIds = matchingAccounts.map((a) => a.id);
+  return {
+    OR: [
+      { code: { contains: q, mode: "insensitive" } },
+      { name: { contains: q, mode: "insensitive" } },
+      { clientName: { contains: q, mode: "insensitive" } },
+      ...(dealIds.length > 0 ? [{ dealId: { in: dealIds } }] : []),
+      ...(accountIds.length > 0 ? [{ accountId: { in: accountIds } }] : []),
+    ],
+  };
+}
+
+/**
+ * AND base del listado (tenant + lead/deal + búsqueda), SIN el filtro de
+ * status. Los conteos por status se derivan de este mismo conjunto para que
+ * las pills reflejen la búsqueda activa.
+ */
+function buildBaseAnd(
+  params: ListQuotesParams,
+  searchOr: Prisma.CpqQuoteWhereInput | null,
+): Prisma.CpqQuoteWhereInput[] {
   const and: Prisma.CpqQuoteWhereInput[] = [{ tenantId: params.tenantId }];
   if (params.leadId) and.push({ createdFromLeadId: params.leadId });
   if (params.dealId) and.push({ dealId: params.dealId });
-  if (params.status && params.status !== "all") and.push({ status: params.status });
+  if (searchOr) and.push(searchOr);
+  return and;
+}
 
-  const q = params.search?.trim();
-  if (q) {
-    const [matchingDeals, matchingAccounts] = await Promise.all([
-      prisma.crmDeal.findMany({
-        where: { tenantId: params.tenantId, title: { contains: q, mode: "insensitive" } },
-        select: { id: true },
-        take: 100,
-      }),
-      prisma.crmAccount.findMany({
-        where: { tenantId: params.tenantId, name: { contains: q, mode: "insensitive" } },
-        select: { id: true },
-        take: 100,
-      }),
-    ]);
-    const dealIds = matchingDeals.map((d) => d.id);
-    const accountIds = matchingAccounts.map((a) => a.id);
-    and.push({
-      OR: [
-        { code: { contains: q, mode: "insensitive" } },
-        { name: { contains: q, mode: "insensitive" } },
-        { clientName: { contains: q, mode: "insensitive" } },
-        ...(dealIds.length > 0 ? [{ dealId: { in: dealIds } }] : []),
-        ...(accountIds.length > 0 ? [{ accountId: { in: accountIds } }] : []),
-      ],
-    });
-  }
+function andToWhere(and: Prisma.CpqQuoteWhereInput[]): Prisma.CpqQuoteWhereInput {
   return and.length === 1 ? and[0]! : { AND: and };
 }
 
@@ -87,9 +107,20 @@ function orderBy(sort: QuoteListSort | undefined): Prisma.CpqQuoteOrderByWithRel
 }
 
 export async function getQuoteListCounts(tenantId: string): Promise<QuoteListCounts> {
+  return countsFromWhere({ tenantId });
+}
+
+/**
+ * Conteos por status a partir de un `where` arbitrario (mismo conjunto que el
+ * listado, sin el filtro de status). Se usa cuando hay búsqueda activa para que
+ * las pills muestren los totales del subconjunto encontrado.
+ */
+async function countsFromWhere(
+  where: Prisma.CpqQuoteWhereInput,
+): Promise<QuoteListCounts> {
   const grouped = await prisma.cpqQuote.groupBy({
     by: ["status"],
-    where: { tenantId },
+    where,
     _count: { _all: true },
   });
   let draft = 0;
@@ -115,13 +146,27 @@ export async function getQuoteListCounts(tenantId: string): Promise<QuoteListCou
 }
 
 export async function listCrmQuotes(params: ListQuotesParams) {
-  const where = await buildWhereAsync(params);
+  const searchOr = await resolveSearchOr(params);
+  const baseAnd = buildBaseAnd(params, searchOr);
+  const listAnd =
+    params.status && params.status !== "all"
+      ? [...baseAnd, { status: params.status }]
+      : baseAnd;
+  const where = andToWhere(listAnd);
   const paginated = params.page != null || params.pageSize != null;
   const pageSize = paginated
     ? Math.min(Math.max(params.pageSize ?? QUOTE_LIST_DEFAULT_PAGE_SIZE, 1), MAX_PAGE_SIZE)
     : undefined;
   const page = paginated ? Math.max(params.page ?? 1, 1) : 1;
   const skip = pageSize != null ? (page - 1) * pageSize : undefined;
+
+  // Con búsqueda activa los conteos se calculan sobre el mismo subconjunto
+  // (base sin status); sin búsqueda usamos el conteo global rápido por tenant.
+  const countsPromise = !params.includeCounts
+    ? Promise.resolve(undefined)
+    : searchOr
+      ? countsFromWhere(andToWhere(baseAnd))
+      : getQuoteListCounts(params.tenantId);
 
   const [total, quotes, counts] = await Promise.all([
     prisma.cpqQuote.count({ where }),
@@ -152,9 +197,25 @@ export async function listCrmQuotes(params: ListQuotesParams) {
         additionalLines: {
           select: { precio: true },
         },
+        proposalBundleQuote: {
+          select: {
+            bundleId: true,
+            includedInProposal: true,
+            displayOrder: true,
+            bundle: {
+              select: {
+                id: true,
+                code: true,
+                name: true,
+                status: true,
+                _count: { select: { quotes: true } },
+              },
+            },
+          },
+        },
       },
     }),
-    params.includeCounts ? getQuoteListCounts(params.tenantId) : Promise.resolve(undefined),
+    countsPromise,
   ]);
 
   const dealIds = Array.from(
@@ -234,6 +295,18 @@ export async function listCrmQuotes(params: ListQuotesParams) {
     const resolvedContactId =
       q.contactId || (q.dealId ? dealsRaw.find((d) => d.id === q.dealId)?.primaryContactId : null) || null;
 
+    const link = q.proposalBundleQuote;
+    const proposal = link
+      ? {
+          bundleId: link.bundleId,
+          code: link.bundle.code,
+          name: link.bundle.name,
+          status: link.bundle.status,
+          memberCount: link.bundle._count.quotes,
+          includedInProposal: link.includedInProposal,
+        }
+      : null;
+
     return {
       id: q.id,
       code: q.code,
@@ -258,6 +331,7 @@ export async function listCrmQuotes(params: ListQuotesParams) {
       dealStageColor: (q.dealId && dealStageMap.get(q.dealId)?.color) || null,
       pendingFollowUps: (q.dealId && followUpCounts.get(q.dealId)) || 0,
       createdFromLeadId: q.createdFromLeadId || null,
+      proposal,
     };
   });
 
