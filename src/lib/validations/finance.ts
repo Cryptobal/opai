@@ -260,6 +260,17 @@ export const issueDteSchema = z.object({
   // pasar `ufOverride`. Se aplica tanto al cálculo del borrador como al
   // emitir al SII. Si se omite, el sistema usa la UF oficial del día.
   ufOverride: z.number().positive().optional(),
+  // ── Vínculo con la programación (flujo de caja) ──
+  // undefined = heredar si la cuenta tiene una sola programación activa;
+  // null = extra explícito (solo válido con 0–1 programaciones);
+  // string = fila elegida. Con billingPeriod null + template = extra en la fila
+  // (no suprime la cuota P); con ambos = cuota del período.
+  recurringTemplateId: z.string().uuid().nullable().optional(),
+  billingPeriod: z
+    .string()
+    .regex(/^\d{4}-\d{2}$/, "Período debe ser YYYY-MM")
+    .nullable()
+    .optional(),
 });
 
 // Schema para plantillas de facturación recurrente. El cron diario crea
@@ -418,17 +429,7 @@ export const draftDteSchema = issueDteSchema.extend({
   // Periodo del Estado de Pago relativo a la fecha de emisión del DTE:
   // "CURRENT" = mes de emisión, "PREVIOUS" = mes anterior (servicio atrasado).
   estadoPagoPeriodoMode: z.enum(["CURRENT", "PREVIOUS"]).optional(),
-  // ── Vínculo con la programación (para dedupe period-aware del flujo) ──
-  // recurringTemplateId = la programación que esta factura factura; billingPeriod
-  // = el período ocupado ("YYYY-MM"). Ambos null/ausentes = factura EXTRA (suma,
-  // no ocupa cuota). Nullable (no solo optional) para poder mandar "extra"
-  // explícito desde la UI.
-  recurringTemplateId: z.string().uuid().nullable().optional(),
-  billingPeriod: z
-    .string()
-    .regex(/^\d{4}-\d{2}$/, "Período debe ser YYYY-MM")
-    .nullable()
-    .optional(),
+  // recurringTemplateId / billingPeriod heredan de issueDteSchema.
 });
 
 export const dteCreditNoteSchema = z.object({

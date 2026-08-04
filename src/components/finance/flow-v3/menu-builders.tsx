@@ -176,6 +176,13 @@ export interface CellMenuCallbacks {
   onViewDte: (dteId: string) => void;
   /** Vincular F° de "Otros ingresos" a una programación de su cuenta. */
   onLinkTemplate?: (dteId: string) => void;
+  /** Excluir DTE del flujo (por folio). */
+  onExcludeDte?: (dteId: string) => void;
+  /**
+   * Registrar pago por folio. B0: no hay diálogo reutilizable en planilla →
+   * abre el DTE en facturación (deep-link).
+   */
+  onRegisterPayment?: (dteId: string) => void;
 }
 
 export interface CellMenuContext {
@@ -190,19 +197,113 @@ export interface CellMenuContext {
    */
   dteMoveWeeks: MatrixColumn[];
   canManage: boolean;
+  /** Nombre de la fila (para omitir receptor en cabecera si coincide). */
+  rowName?: string;
 }
 
-/** Menú de la celda (§5D). Ítems inaplicables van deshabilitados con motivo. */
-export function buildCellMenu(
+type DteMenuItem = {
+  dteId: string;
+  folio?: number;
+  label: string;
+  monto: number;
+  overdueDays?: number;
+  overdueOver60?: boolean;
+};
+
+function cellDteItems(cell: FlowMatrixCellDto): DteMenuItem[] {
+  const items = (cell.committed?.items ?? [])
+    .filter((i): i is typeof i & { dteId: string } => i.kind === "dte" && !!i.dteId)
+    .map((i) => ({
+      dteId: i.dteId,
+      folio: i.folio,
+      label: i.label,
+      monto: i.monto,
+      overdueDays: i.overdueDays,
+      overdueOver60: i.overdueOver60,
+    }));
+  // Vencidas primero (sheet / menú).
+  return items.sort((a, b) => (b.overdueDays ?? 0) - (a.overdueDays ?? 0));
+}
+
+function folioLabel(d: DteMenuItem): string {
+  return d.folio != null ? `F°${d.folio}` : d.label || "Factura";
+}
+
+function weekSubmenu(
+  dteId: string,
+  weeks: MatrixColumn[],
+  onMove: (dteId: string, targetWeek: string) => void,
+): MenuItemDesc[] {
+  return weeks.map((c) => ({
+    key: `mdte-${dteId}-${c.key}`,
+    label: `${c.label} · ${fmtDayMonth(c.weekStart)}`,
+    onSelect: () => onMove(dteId, c.key),
+  }));
+}
+
+/** Acciones por folio (compartidas entre context-menu y sheet). */
+function folioActions(
+  d: DteMenuItem,
   row: FlowMatrixRowDto,
+  ctx: CellMenuContext,
+  cb: CellMenuCallbacks,
+  opts?: { separatorBeforeFirst?: boolean },
+): MenuItemDesc[] {
+  const canMoveDte = ctx.canManage && ctx.dteMoveWeeks.length > 0;
+  const isOtros =
+    row.isVirtual ||
+    row.name === "Otros ingresos" ||
+    row.name === "Otros clientes";
+  const out: MenuItemDesc[] = [];
+
+  out.push({
+    key: `move-dte-${d.dteId}`,
+    label: `Mover ${folioLabel(d)} a…`,
+    separatorBefore: opts?.separatorBeforeFirst,
+    disabled: !canMoveDte,
+    reason: !ctx.canManage
+      ? "Sin permiso de edición"
+      : "No hay semanas abiertas",
+    submenu: canMoveDte ? weekSubmenu(d.dteId, ctx.dteMoveWeeks, cb.onMoveDte) : undefined,
+  });
+  out.push({
+    key: `view-dte-${d.dteId}`,
+    label: `Ver ${folioLabel(d)}`,
+    onSelect: () => cb.onViewDte(d.dteId),
+  });
+  if (isOtros && ctx.canManage && cb.onLinkTemplate) {
+    out.push({
+      key: `link-${d.dteId}`,
+      label: "Vincular/corregir programación…",
+      onSelect: () => cb.onLinkTemplate!(d.dteId),
+    });
+  }
+  if (ctx.canManage && cb.onExcludeDte) {
+    out.push({
+      key: `exclude-${d.dteId}`,
+      label: "Excluir del flujo",
+      danger: true,
+      onSelect: () => cb.onExcludeDte!(d.dteId),
+    });
+  }
+  if (cb.onRegisterPayment) {
+    out.push({
+      key: `pay-${d.dteId}`,
+      label: "Registrar pago…",
+      onSelect: () => cb.onRegisterPayment!(d.dteId),
+    });
+  }
+  return out;
+}
+
+function planCellItems(
   cell: FlowMatrixCellDto,
   ctx: CellMenuContext,
   cb: CellMenuCallbacks,
 ): MenuItemDesc[] {
-  const items: MenuItemDesc[] = [];
   const ed = ctx.editable;
   const r = ctx.reason;
-
+  const items: MenuItemDesc[] = [];
   items.push({
     key: "edit",
     label: "Editar monto de plan",
@@ -224,7 +325,6 @@ export function buildCellMenu(
     reason: !ed ? r : "Sin plan en la celda",
     onSelect: ed && cell.plan !== 0 ? cb.onClearPlan : undefined,
   });
-
   const canMove = ed && cell.layer === "plan" && cell.plan !== 0 && ctx.openWeeks.length > 0;
   items.push({
     key: "move",
@@ -243,44 +343,84 @@ export function buildCellMenu(
         }))
       : undefined,
   });
+  return items;
+}
 
-  const dteItems = (cell.committed?.items ?? []).filter(
-    (i): i is typeof i & { dteId: string } => i.kind === "dte" && !!i.dteId,
-  );
-  if (dteItems.length > 0) {
+/** Menú de la celda (§5D / v4.3 por folio). */
+export function buildCellMenu(
+  row: FlowMatrixRowDto,
+  cell: FlowMatrixCellDto,
+  ctx: CellMenuContext,
+  cb: CellMenuCallbacks,
+): MenuItemDesc[] {
+  const items = planCellItems(cell, ctx, cb);
+  const dteItems = cellDteItems(cell);
+
+  if (dteItems.length === 1) {
+    items.push(...folioActions(dteItems[0]!, row, ctx, cb, { separatorBeforeFirst: true }));
+  } else if (dteItems.length > 1) {
+    // Desktop: submenús por folio (mismo patrón que "Mover").
     const canMoveDte = ctx.canManage && ctx.dteMoveWeeks.length > 0;
-    const weekSubmenu = (dteId: string): MenuItemDesc[] =>
-      ctx.dteMoveWeeks.map((c) => ({
-        key: `mdte-${dteId}-${c.key}`,
-        label: `${c.label} · ${fmtDayMonth(c.weekStart)}`,
-        onSelect: () => cb.onMoveDte(dteId, c.key),
-      }));
-    if (dteItems.length === 1) {
-      const d = dteItems[0];
+    items.push({
+      key: "move-dte",
+      label: "Mover factura a…",
+      separatorBefore: true,
+      disabled: !canMoveDte,
+      reason: !ctx.canManage ? "Sin permiso de edición" : "No hay semanas abiertas",
+      submenu: canMoveDte
+        ? dteItems.map((d) => ({
+            key: `mdte-pick-${d.dteId}`,
+            label: folioLabel(d),
+            submenu: weekSubmenu(d.dteId, ctx.dteMoveWeeks, cb.onMoveDte),
+          }))
+        : undefined,
+    });
+    items.push({
+      key: "view-dte",
+      label: "Ver factura",
+      submenu: dteItems.map((d) => ({
+        key: `view-${d.dteId}`,
+        label: folioLabel(d),
+        onSelect: () => cb.onViewDte(d.dteId),
+      })),
+    });
+    if (ctx.canManage && cb.onExcludeDte) {
       items.push({
-        key: "move-dte",
-        label: d.folio != null ? `Mover F°${d.folio} a…` : "Mover factura a…",
-        disabled: !canMoveDte,
-        reason: !ctx.canManage
-          ? "Sin permiso de edición"
-          : "No hay semanas abiertas",
-        submenu: canMoveDte ? weekSubmenu(d.dteId) : undefined,
+        key: "exclude-dte",
+        label: "Excluir del flujo",
+        danger: true,
+        submenu: dteItems.map((d) => ({
+          key: `exclude-${d.dteId}`,
+          label: folioLabel(d),
+          danger: true,
+          onSelect: () => cb.onExcludeDte!(d.dteId),
+        })),
       });
-    } else {
+    }
+    if (cb.onRegisterPayment) {
       items.push({
-        key: "move-dte",
-        label: "Mover factura a…",
-        disabled: !canMoveDte,
-        reason: !ctx.canManage
-          ? "Sin permiso de edición"
-          : "No hay semanas abiertas",
-        submenu: canMoveDte
-          ? dteItems.map((d) => ({
-              key: `mdte-pick-${d.dteId}`,
-              label: d.folio != null ? `F°${d.folio}` : d.label || "Factura",
-              submenu: weekSubmenu(d.dteId),
-            }))
-          : undefined,
+        key: "pay-dte",
+        label: "Registrar pago…",
+        submenu: dteItems.map((d) => ({
+          key: `pay-${d.dteId}`,
+          label: folioLabel(d),
+          onSelect: () => cb.onRegisterPayment!(d.dteId),
+        })),
+      });
+    }
+    const isOtros =
+      row.isVirtual ||
+      row.name === "Otros ingresos" ||
+      row.name === "Otros clientes";
+    if (isOtros && ctx.canManage && cb.onLinkTemplate) {
+      items.push({
+        key: "link-tpl",
+        label: "Vincular a programación…",
+        submenu: dteItems.map((d) => ({
+          key: `link-${d.dteId}`,
+          label: folioLabel(d),
+          onSelect: () => cb.onLinkTemplate!(d.dteId),
+        })),
       });
     }
   }
@@ -292,34 +432,66 @@ export function buildCellMenu(
     onSelect: cb.onViewDetail,
   });
 
-  const dteId = dteItems[0]?.dteId;
-  if (dteId) {
-    items.push({ key: "dte", label: "Ver factura", onSelect: () => cb.onViewDte(dteId) });
-  }
-
-  const isOtrosIngresos =
-    row.isVirtual || row.name === "Otros ingresos" || row.name === "Otros clientes";
-  if (isOtrosIngresos && dteItems.length > 0 && ctx.canManage && cb.onLinkTemplate) {
-    if (dteItems.length === 1) {
-      items.push({
-        key: "link-tpl",
-        label: "Vincular a programación…",
-        separatorBefore: true,
-        onSelect: () => cb.onLinkTemplate!(dteItems[0].dteId),
-      });
-    } else {
-      items.push({
-        key: "link-tpl",
-        label: "Vincular a programación…",
-        separatorBefore: true,
-        submenu: dteItems.map((d) => ({
-          key: `link-${d.dteId}`,
-          label: d.folio != null ? `F°${d.folio}` : d.label || "Factura",
-          onSelect: () => cb.onLinkTemplate!(d.dteId),
-        })),
-      });
-    }
-  }
-
   return items;
+}
+
+/** Cabecera de grupo por folio en el CellActionSheet. */
+export interface FolioSheetHeader {
+  folioLabel: string;
+  receiver?: string;
+  pendingClp: number;
+  status: string;
+  overdueDays?: number;
+}
+
+export interface FolioSheetGroup {
+  key: string;
+  header: FolioSheetHeader;
+  items: MenuItemDesc[];
+}
+
+export interface CellSheetModel {
+  folioGroups: FolioSheetGroup[];
+  /** Acciones de plan/celda comunes (al final). */
+  commonItems: MenuItemDesc[];
+}
+
+/** Modelo agrupado por folio para el sheet móvil (v4.3). */
+export function buildCellSheetModel(
+  row: FlowMatrixRowDto,
+  cell: FlowMatrixCellDto,
+  ctx: CellMenuContext,
+  cb: CellMenuCallbacks,
+): CellSheetModel {
+  const dteItems = cellDteItems(cell);
+  const folioGroups: FolioSheetGroup[] = dteItems.map((d) => {
+    const overdue = d.overdueDays && d.overdueDays > 0 ? d.overdueDays : undefined;
+    const receiver =
+      d.label && d.label.trim() !== (ctx.rowName ?? row.name).trim()
+        ? d.label
+        : undefined;
+    return {
+      key: d.dteId,
+      header: {
+        folioLabel: folioLabel(d),
+        receiver,
+        pendingClp: d.monto,
+        status: overdue ? "Vencida" : "Pendiente",
+        overdueDays: overdue,
+      },
+      items: folioActions(d, row, ctx, cb),
+    };
+  });
+  return {
+    folioGroups,
+    commonItems: [
+      ...planCellItems(cell, ctx, cb),
+      {
+        key: "detail",
+        label: "Ver detalle e historial",
+        separatorBefore: true,
+        onSelect: cb.onViewDetail,
+      },
+    ],
+  };
 }

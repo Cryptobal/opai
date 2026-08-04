@@ -59,6 +59,18 @@ export function committedItemMeta(it: CommittedItem): {
   return { tag: "P", label: it.label, tone: "info", title: "Programada" };
 }
 
+/** Cantidad de DTEs emitidos en la celda. */
+export function dteCountInCell(cell: FlowMatrixCellDto): number {
+  return (cell.committed?.items ?? []).filter((i) => i.kind === "dte").length;
+}
+
+/** Folios de DTEs de la celda (para tooltip ×N). */
+export function dteFoliosInCell(cell: FlowMatrixCellDto): number[] {
+  return (cell.committed?.items ?? [])
+    .filter((i): i is typeof i & { folio: number } => i.kind === "dte" && i.folio != null)
+    .map((i) => i.folio);
+}
+
 /** Tag primario de la celda para fx bar / chip. */
 export function primaryCellTag(cell: FlowMatrixCellDto): {
   tag: string;
@@ -70,6 +82,14 @@ export function primaryCellTag(cell: FlowMatrixCellDto): {
   if (cell.layer !== "committed") return null;
   const { hasDte, hasProforma, hasDraft, dteFolio } = committedPriority(cell);
   if (hasDte) {
+    const n = dteCountInCell(cell);
+    if (n >= 2) {
+      const folios = dteFoliosInCell(cell);
+      const folioTxt = folios.length
+        ? folios.map((f) => `F°${f}`).join(", ")
+        : `${n} facturas`;
+      return { tag: `×${n}`, tone: "info", title: folioTxt };
+    }
     const f = dteFolio != null ? folioChip(dteFolio) : { text: "F°", title: "Factura emitida" };
     return { tag: f.text, tone: "info", title: f.title };
   }

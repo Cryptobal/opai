@@ -1,6 +1,9 @@
 /**
  * Herencia de vínculo programación↔DTE al emitir/crear borrador directo.
  * Puro respecto de prisma salvo la query de templates activos de la cuenta.
+ *
+ * v4.3: con 2+ programaciones activas el vínculo es obligatorio en el camino
+ * manual (undefined hereda; null = extra solo válido con 0–1 programaciones).
  */
 import "server-only";
 import { prisma } from "@/lib/prisma";
@@ -9,6 +12,28 @@ import { resolveBillingPeriodForDate } from "./dte-recurring-schedule";
 export interface InheritedTemplateLink {
   recurringTemplateId: string;
   billingPeriod: string;
+}
+
+export class TemplateLinkRequiredError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "TemplateLinkRequiredError";
+  }
+}
+
+/** Cuenta programaciones activas 33/34 de la cuenta (tope 3: basta para 0/1/2+). */
+export async function countActiveAccountTemplates(
+  tenantId: string,
+  crmAccountId: string,
+): Promise<number> {
+  return prisma.financeDteRecurringTemplate.count({
+    where: {
+      tenantId,
+      crmAccountId,
+      isActive: true,
+      dteType: { in: [33, 34] },
+    },
+  });
 }
 
 /**
@@ -46,7 +71,11 @@ export async function resolveDefaultTemplateLink(
 
 /**
  * Aplica herencia solo cuando el caller NO declaró el vínculo
- * (`recurringTemplateId === undefined`). `null` explícito = factura extra.
+ * (`recurringTemplateId === undefined`). `null` explícito = factura extra
+ * (válido solo con 0–1 programaciones activas).
+ *
+ * Con 2+ programaciones y sin vínculo resuelto → TemplateLinkRequiredError
+ * (camino manual; los flujos automáticos siempre declaran el id).
  */
 export async function applyTemplateLinkInheritance(
   tenantId: string,
@@ -61,10 +90,12 @@ export async function applyTemplateLinkInheritance(
   let tplId = opts.recurringTemplateId;
   let period = opts.billingPeriod;
 
+  const isSalesInvoice = opts.dteType === 33 || opts.dteType === 34;
+
   if (
     tplId === undefined &&
     opts.crmAccountId &&
-    (opts.dteType === 33 || opts.dteType === 34)
+    isSalesInvoice
   ) {
     const inherited = await resolveDefaultTemplateLink(
       tenantId,
@@ -79,8 +110,20 @@ export async function applyTemplateLinkInheritance(
     }
   }
 
+  const resolvedTpl = tplId ?? null;
+  const resolvedPeriod = period ?? null;
+
+  if (isSalesInvoice && opts.crmAccountId && !resolvedTpl) {
+    const n = await countActiveAccountTemplates(tenantId, opts.crmAccountId);
+    if (n >= 2) {
+      throw new TemplateLinkRequiredError(
+        "Este cliente tiene varias programaciones: elegí a cuál fila va la factura (cuota del período o factura extra en esa fila).",
+      );
+    }
+  }
+
   return {
-    recurringTemplateId: tplId ?? null,
-    billingPeriod: period ?? null,
+    recurringTemplateId: resolvedTpl,
+    billingPeriod: resolvedPeriod,
   };
 }

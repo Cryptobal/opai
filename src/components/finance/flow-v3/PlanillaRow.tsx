@@ -15,6 +15,11 @@ import { cellKey, cellRangeClass } from "./range-sel";
 import type { NumberFormatMode } from "./format";
 import type { CellStyle } from "./usePlanillaViewPrefs";
 import { useLongPress } from "./useLongPress";
+import {
+  assignPendingCaption,
+  countAssignPendingInCell,
+  isFallbackBandejaRow,
+} from "@/modules/finance/flow-v3/unmatched-count";
 
 const DRAG_BLOCKED_MSG =
   "Las facturas no se arrastran: usa clic derecho → Mover factura a…";
@@ -257,7 +262,11 @@ export function PlanillaRow(p: Props) {
             }
             sumMode={p.sumMode}
             inDiscreteSel={p.discreteKeys?.has(cellKey(row.id, colIdx))}
-            caption={p.ufCaption ?? null}
+            caption={
+              isFallbackBandejaRow(row)
+                ? assignPendingCaption(countAssignPendingInCell(cell))
+                : (p.ufCaption ?? null)
+            }
             draggable={draggable}
             onDragStartCell={() => p.onCellDragStart(row.id, cell.weekStart)}
             onDragOverCell={(e) => p.onCellDragOver(e, row.id, colIdx, cell.weekStart)}

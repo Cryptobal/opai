@@ -189,8 +189,14 @@ export function DteForm({
   const [billingPeriod, setBillingPeriod] = useState<string>(() =>
     todayChileStr().slice(0, 7),
   );
-  /** Vínculo a programación: null = factura extra (sin cuota). */
+  /** Vínculo a programación: con 1+ programaciones siempre apunta a una fila. */
   const [recurringTemplateId, setRecurringTemplateId] = useState<string | null>(null);
+  /**
+   * cuota = templateId + billingPeriod (suprime la P del período).
+   * extra = templateId + período nulo (cae en la fila sin borrar la cuota P).
+   * Con 0 programaciones no aplica (cae a bandeja "Otros ingresos").
+   */
+  const [linkMode, setLinkMode] = useState<"cuota" | "extra">("cuota");
   type AccountTplOpt = {
     id: string;
     name: string;
@@ -512,9 +518,11 @@ export function DteForm({
         }
         if (typeof d.recurringTemplateId === "string" && d.recurringTemplateId) {
           setRecurringTemplateId(d.recurringTemplateId);
+          setLinkMode(d.billingPeriod ? "cuota" : "extra");
           skipTemplateAutofillRef.current = true;
         } else if (d.recurringTemplateId === null) {
           setRecurringTemplateId(null);
+          setLinkMode("cuota");
           skipTemplateAutofillRef.current = true;
         }
         // Reconstruir el `customer` (CustomerOption) del CRM cuando el draft
@@ -669,13 +677,19 @@ export function DteForm({
         if (forAccount.length === 1) {
           const t = forAccount[0];
           setRecurringTemplateId(t.id);
+          setLinkMode("cuota");
           try {
             setBillingPeriod(resolveBillingPeriodForDate(toBillingPeriodTpl(t), issueDate));
           } catch {
             /* conservar período actual */
           }
+        } else if (forAccount.length >= 2) {
+          // Obligatorio elegir: sin default.
+          setRecurringTemplateId(null);
+          setLinkMode("cuota");
         } else {
           setRecurringTemplateId(null);
+          setLinkMode("cuota");
         }
       })
       .catch(() => {
@@ -934,6 +948,27 @@ export function DteForm({
     }
     void primaryEmail;
 
+    const dteTypeNum = parseInt(dteType, 10);
+    if (
+      (dteTypeNum === 33 || dteTypeNum === 34) &&
+      accountTemplates.length >= 2 &&
+      !recurringTemplateId
+    ) {
+      toast.error(
+        "Elegí la programación de destino: este cliente tiene varias filas en el flujo de caja.",
+      );
+      return;
+    }
+    if (
+      (dteTypeNum === 33 || dteTypeNum === 34) &&
+      accountTemplates.length >= 1 &&
+      linkMode === "cuota" &&
+      !billingPeriod
+    ) {
+      toast.error("Indicá el período (cuota) que ocupa esta factura.");
+      return;
+    }
+
     // Validación pasada — abrir modal de confirmación. La emisión real
     // se dispara desde EmisionConfirmDialog.onConfirm → submitToServer.
     setConfirmOpen(true);
@@ -1011,10 +1046,17 @@ export function DteForm({
       estadoPagoRecipientContactIds:
         billingPlan.estadoPagoRecipientContactIds,
       estadoPagoPeriodoMode: billingPlan.estadoPagoPeriodoMode,
-      // Período (cuota) que ocupa esta factura en el flujo de caja.
-      billingPeriod: billingPeriod || null,
-      // Vínculo a programación (null = factura extra).
-      recurringTemplateId,
+      // Destino en flujo de caja (v4.3):
+      // - 0 programaciones → sin vínculo (bandeja).
+      // - 1+ → siempre templateId; cuota setea período, extra lo deja nulo.
+      recurringTemplateId:
+        accountTemplates.length === 0 ? null : recurringTemplateId,
+      billingPeriod:
+        accountTemplates.length === 0
+          ? billingPeriod || null
+          : linkMode === "cuota"
+            ? billingPeriod || null
+            : null,
       notes: notes.trim() || null,
       autoSendEmail: overrides?.autoSendEmail ?? autoSendEmail,
       sendXmlToBackoffice: overrides?.sendXmlToBackoffice,
@@ -1249,6 +1291,17 @@ export function DteForm({
 
   /** Guardar como borrador (sin emitir, sin reservar folio). */
   const handleSaveDraft = async () => {
+    const dteTypeNum = parseInt(dteType, 10);
+    if (
+      (dteTypeNum === 33 || dteTypeNum === 34) &&
+      accountTemplates.length >= 2 &&
+      !recurringTemplateId
+    ) {
+      toast.error(
+        "Elegí la programación de destino: este cliente tiene varias filas en el flujo de caja.",
+      );
+      return;
+    }
     setSaving(true);
     try {
       const payload = buildPayload();
@@ -1401,79 +1454,138 @@ export function DteForm({
 
           <div className="grid gap-4 md:grid-cols-2 mt-4">
             {accountTemplates.length > 0 && (
+              <div className="space-y-3 md:col-span-2">
+                <div className="space-y-1.5">
+                  <Label htmlFor="dte-recurring-template">
+                    Programación (flujo de caja)
+                    {accountTemplates.length >= 2 ? " *" : ""}
+                  </Label>
+                  {accountTemplates.length === 1 ? (
+                    <p className="text-[13px] text-ds-text-2">
+                      {accountTemplates[0]?.name ?? "Programación del cliente"}
+                    </p>
+                  ) : (
+                    <Select
+                      value={recurringTemplateId ?? undefined}
+                      onValueChange={(v) => {
+                        setRecurringTemplateId(v);
+                        const t = accountTemplates.find((x) => x.id === v);
+                        if (!t || linkMode !== "cuota") return;
+                        try {
+                          setBillingPeriod(
+                            resolveBillingPeriodForDate(toBillingPeriodTpl(t), issueDate),
+                          );
+                        } catch {
+                          /* noop */
+                        }
+                      }}
+                    >
+                      <SelectTrigger
+                        id="dte-recurring-template"
+                        className="h-11 sm:h-9 max-w-md"
+                      >
+                        <SelectValue placeholder="Elegí la fila de destino…" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {accountTemplates.map((t) => (
+                          <SelectItem key={t.id} value={t.id}>
+                            {t.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                  <p className="text-xs text-ds-text-3">
+                    {accountTemplates.length === 1
+                      ? "Cliente con una programación: la factura va a esa fila."
+                      : "Varias programaciones: elegí a cuál fila va esta factura."}
+                  </p>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Tipo de vínculo</Label>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      variant={linkMode === "cuota" ? "default" : "outline"}
+                      size="sm"
+                      className="h-11 sm:h-9 min-w-[140px]"
+                      onClick={() => {
+                        setLinkMode("cuota");
+                        const t = accountTemplates.find((x) => x.id === recurringTemplateId)
+                          ?? accountTemplates[0];
+                        if (!t) return;
+                        if (!recurringTemplateId) setRecurringTemplateId(t.id);
+                        try {
+                          setBillingPeriod(
+                            resolveBillingPeriodForDate(toBillingPeriodTpl(t), issueDate),
+                          );
+                        } catch {
+                          /* noop */
+                        }
+                      }}
+                    >
+                      Cuota del período
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={linkMode === "extra" ? "default" : "outline"}
+                      size="sm"
+                      className="h-11 sm:h-9 min-w-[140px]"
+                      onClick={() => {
+                        setLinkMode("extra");
+                        if (!recurringTemplateId && accountTemplates.length === 1) {
+                          setRecurringTemplateId(accountTemplates[0]!.id);
+                        }
+                      }}
+                    >
+                      Factura extra en esta fila
+                    </Button>
+                  </div>
+                  <p className="text-xs text-ds-text-3">
+                    {linkMode === "cuota"
+                      ? "Reemplaza la cuota proyectada (P) del período elegido."
+                      : "Suma en la fila elegida sin borrar la cuota P del período."}
+                  </p>
+                </div>
+              </div>
+            )}
+            {linkMode === "cuota" && (
               <div className="space-y-1.5 md:col-span-2">
-                <Label htmlFor="dte-recurring-template">Programación (flujo de caja)</Label>
-                <Select
-                  value={recurringTemplateId ?? "__extra__"}
-                  onValueChange={(v) => {
-                    if (v === "__extra__") {
-                      setRecurringTemplateId(null);
-                      return;
-                    }
-                    setRecurringTemplateId(v);
-                    const t = accountTemplates.find((x) => x.id === v);
-                    if (!t) return;
-                    try {
-                      setBillingPeriod(resolveBillingPeriodForDate(toBillingPeriodTpl(t), issueDate));
-                    } catch {
-                      /* noop */
-                    }
-                  }}
-                >
-                  <SelectTrigger id="dte-recurring-template" className="h-10 sm:h-9 max-w-md">
-                    <SelectValue placeholder="Sin programación (extra)" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__extra__">Sin programación (factura extra)</SelectItem>
-                    {accountTemplates.map((t) => (
-                      <SelectItem key={t.id} value={t.id}>
-                        {t.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label htmlFor="dte-billing-period">Período facturado *</Label>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Input
+                    id="dte-billing-period"
+                    type="month"
+                    value={billingPeriod}
+                    onChange={(e) => setBillingPeriod(e.target.value)}
+                    className="h-10 sm:h-9 max-w-[180px]"
+                  />
+                  <Button
+                    type="button"
+                    variant={billingPeriod === issueDate.slice(0, 7) ? "default" : "outline"}
+                    size="sm"
+                    className="h-8 text-xs"
+                    onClick={() => setBillingPeriod(issueDate.slice(0, 7))}
+                  >
+                    Mes de emisión
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={billingPeriod === prevYm(issueDate.slice(0, 7)) ? "default" : "outline"}
+                    size="sm"
+                    className="h-8 text-xs"
+                    onClick={() => setBillingPeriod(prevYm(issueDate.slice(0, 7)))}
+                  >
+                    Mes anterior
+                  </Button>
+                </div>
                 <p className="text-xs text-ds-text-3">
-                  {accountTemplates.length === 1
-                    ? "Cliente con una programación: se vincula por defecto (podés quitarlo)."
-                    : "Varias programaciones: elegí cuál ocupa esta factura, o dejala como extra."}
+                  Mes (cuota) al que corresponde esta factura en el flujo de caja.
+                  Por defecto el mes de emisión; si facturás el servicio del mes
+                  pasado, elegí &quot;Mes anterior&quot;. No cambia la fecha SII.
                 </p>
               </div>
             )}
-            <div className="space-y-1.5 md:col-span-2">
-              <Label htmlFor="dte-billing-period">Período facturado *</Label>
-              <div className="flex items-center gap-2 flex-wrap">
-                <Input
-                  id="dte-billing-period"
-                  type="month"
-                  value={billingPeriod}
-                  onChange={(e) => setBillingPeriod(e.target.value)}
-                  className="h-10 sm:h-9 max-w-[180px]"
-                />
-                <Button
-                  type="button"
-                  variant={billingPeriod === issueDate.slice(0, 7) ? "default" : "outline"}
-                  size="sm"
-                  className="h-8 text-xs"
-                  onClick={() => setBillingPeriod(issueDate.slice(0, 7))}
-                >
-                  Mes de emisión
-                </Button>
-                <Button
-                  type="button"
-                  variant={billingPeriod === prevYm(issueDate.slice(0, 7)) ? "default" : "outline"}
-                  size="sm"
-                  className="h-8 text-xs"
-                  onClick={() => setBillingPeriod(prevYm(issueDate.slice(0, 7)))}
-                >
-                  Mes anterior
-                </Button>
-              </div>
-              <p className="text-xs text-ds-text-3">
-                Mes (cuota) al que corresponde esta factura en el flujo de caja.
-                Por defecto el mes de emisión; si facturás el servicio del mes
-                pasado, elegí "Mes anterior". No cambia la fecha SII.
-              </p>
-            </div>
           </div>
 
           <div className="grid gap-4 md:grid-cols-2 mt-4">

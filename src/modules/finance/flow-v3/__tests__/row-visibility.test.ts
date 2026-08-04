@@ -249,4 +249,44 @@ describe("shouldIncludeFlowRow — visibilidad universal", () => {
       }),
     ).toBe(true);
   });
+
+  it("fallback canónico vacío → oculta (v4.3)", () => {
+    expect(
+      shouldIncludeFlowRow({
+        ...base,
+        row: {
+          id: "otros",
+          mapping: "MANUAL",
+          archivedAt: null,
+          isCanonicalFallback: true,
+        },
+        hasDataInWindow: false,
+      }),
+    ).toBe(false);
+  });
+
+  it("fallback canónico con datos → visible", () => {
+    expect(
+      shouldIncludeFlowRow({
+        ...base,
+        row: {
+          id: "otros",
+          mapping: "MANUAL",
+          archivedAt: null,
+          isCanonicalFallback: true,
+        },
+        hasDataInWindow: true,
+      }),
+    ).toBe(true);
+  });
+
+  it("MANUAL de socios vacía sigue siempre visible", () => {
+    expect(
+      shouldIncludeFlowRow({
+        ...base,
+        row: { id: "socio", mapping: "MANUAL", archivedAt: null },
+        hasDataInWindow: false,
+      }),
+    ).toBe(true);
+  });
 });

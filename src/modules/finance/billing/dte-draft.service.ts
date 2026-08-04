@@ -307,6 +307,18 @@ export async function updateDraftDte(
     ufOverride: opts?.ufOverride,
   });
 
+  const emissionYmd =
+    input.issueDate?.trim() != null && input.issueDate.trim() !== ""
+      ? input.issueDate.trim()
+      : todayChileStr();
+  const templateLink = await applyTemplateLinkInheritance(tenantId, {
+    dteType: input.dteType,
+    crmAccountId: input.crmAccountId,
+    issueDateYmd: emissionYmd,
+    recurringTemplateId: input.recurringTemplateId,
+    billingPeriod: input.billingPeriod,
+  });
+
   return prisma.$transaction(async (tx) => {
     await tx.financeDteLine.deleteMany({ where: { dteId: draftId } });
     return tx.financeDte.update({
@@ -353,8 +365,8 @@ export async function updateDraftDte(
         requireEstadoPago: input.requireEstadoPago ?? false,
         estadoPagoRecipientContactIds: input.estadoPagoRecipientContactIds ?? [],
         estadoPagoPeriodoMode: input.estadoPagoPeriodoMode ?? "PREVIOUS",
-        recurringTemplateId: input.recurringTemplateId ?? null,
-        billingPeriod: input.billingPeriod ?? null,
+        recurringTemplateId: templateLink.recurringTemplateId,
+        billingPeriod: templateLink.billingPeriod,
         lines: {
           create: calc.lines.map((l, i) => ({
             lineNumber: i + 1,

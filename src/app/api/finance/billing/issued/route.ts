@@ -644,9 +644,13 @@ export async function POST(request: NextRequest) {
     // "Certificado expirado", etc).
     const message =
       error instanceof Error ? error.message : "Error al emitir DTE";
+    const status =
+      error instanceof Error && error.name === "TemplateLinkRequiredError"
+        ? 400
+        : 500;
     return NextResponse.json(
       { success: false, error: message },
-      { status: 500 }
+      { status },
     );
   }
 }

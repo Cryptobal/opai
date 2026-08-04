@@ -46,7 +46,12 @@ export async function POST(
   } catch (error) {
     console.error("[Finance/Billing/Drafts] Issue error:", error);
     const message = error instanceof Error ? error.message : "Error al emitir borrador";
-    const status = message.includes("no encontrado") ? 404 : 500;
+    const status =
+      message.includes("no encontrado")
+        ? 404
+        : error instanceof Error && error.name === "TemplateLinkRequiredError"
+          ? 400
+          : 500;
     return NextResponse.json({ success: false, error: message }, { status });
   }
 }

@@ -56,6 +56,20 @@ describe("cornerKind / primaryCellTag", () => {
     expect(cornerKind(dte)).toBe("dte");
     expect(primaryCellTag(dte)?.tag).toBe("F°1234");
 
+    const multi = cell({
+      layer: "committed",
+      committed: {
+        total: 200,
+        items: [
+          { kind: "dte", folio: 1, label: "A", fecha: "2026-08-01", monto: 100 },
+          { kind: "dte", folio: 2, label: "B", fecha: "2026-08-02", monto: 100 },
+        ],
+      },
+      effective: 200,
+    });
+    expect(primaryCellTag(multi)?.tag).toBe("×2");
+    expect(primaryCellTag(multi)?.title).toContain("F°1");
+
     const plan = cell({ layer: "plan", plan: 70_000_000, effective: -70_000_000 });
     expect(cornerKind(plan)).toBe("plan");
     expect(primaryCellTag(plan)?.tag).toBe("Plan");
