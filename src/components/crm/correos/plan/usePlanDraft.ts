@@ -280,7 +280,10 @@ export function usePlanDraft(threadId: string) {
       setDirty(false);
       setDraftSavedAt(null);
       // Sembrar hitos desde el pliego cuando el draft no trae hitos guardados.
-      const seeded = milestonesFromLicitacion(newProposal.licitacion);
+      const seeded = milestonesFromLicitacion(
+        newProposal.licitacion,
+        newProposal.installations[0],
+      );
       setMilestones(seeded);
       if (staged) setStagedFiles(staged);
     },
@@ -306,7 +309,10 @@ export function usePlanDraft(threadId: string) {
       setMilestones(
         savedMs.length > 0
           ? savedMs
-          : milestonesFromLicitacion(d.proposal?.licitacion),
+          : milestonesFromLicitacion(
+              d.proposal?.licitacion,
+              d.proposal?.installations?.[0],
+            ),
       );
       setDraftSavedAt(d.savedAt);
       setDirty(false);

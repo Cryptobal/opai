@@ -1,11 +1,16 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { X } from "lucide-react";
+import { ExternalLink, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Avatar } from "@/components/opai-ds";
+import {
+  AddressAutocomplete,
+  type AddressResult,
+} from "@/components/ui/AddressAutocomplete";
+import { MapsUrlPasteInput } from "@/components/ui/MapsUrlPasteInput";
 import type { PlanMilestone } from "@/modules/crm/email/email-to-crm-structure.types";
 
 const MILESTONE_KINDS: PlanMilestone["kind"][] = [
@@ -20,11 +25,26 @@ const MILESTONE_LABELS: Record<PlanMilestone["kind"], string> = {
   entrega: "Entrega de oferta",
 };
 
+/** Hitos presenciales donde tiene sentido una dirección en agenda/Google. */
+const KINDS_WITH_ADDRESS = new Set<PlanMilestone["kind"]>([
+  "visita_tecnica",
+  "entrega",
+]);
+
 type TenantUser = { id: string; name: string; email?: string | null };
+
+type InstallationLocationHint = {
+  address?: string | null;
+  lat?: number | null;
+  lng?: number | null;
+  mapsUrl?: string | null;
+};
 
 type Props = {
   milestones: PlanMilestone[];
   onChange: (milestones: PlanMilestone[]) => void;
+  /** Dirección de la 1ª instalación del plan — sugerencia / “usar”. */
+  installationLocation?: InstallationLocationHint | null;
 };
 
 const defaultMilestone = (kind: PlanMilestone["kind"]): PlanMilestone => ({
@@ -36,13 +56,21 @@ const defaultMilestone = (kind: PlanMilestone["kind"]): PlanMilestone => ({
   participantIds: [],
   externalEmails: [],
   enabled: true,
+  address: null,
+  lat: null,
+  lng: null,
+  mapsUrl: null,
 });
 
 function isEmailLike(value: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 }
 
-export function PlanMilestonesForm({ milestones, onChange }: Props) {
+export function PlanMilestonesForm({
+  milestones,
+  onChange,
+  installationLocation,
+}: Props) {
   const [users, setUsers] = useState<TenantUser[]>([]);
 
   useEffect(() => {
@@ -156,6 +184,17 @@ export function PlanMilestonesForm({ milestones, onChange }: Props) {
                     </>
                   )}
                 </div>
+                {KINDS_WITH_ADDRESS.has(kind) && (
+                  <MilestoneAddressField
+                    kind={kind}
+                    address={m.address}
+                    lat={m.lat}
+                    lng={m.lng}
+                    mapsUrl={m.mapsUrl}
+                    installationLocation={installationLocation}
+                    onChange={(next) => update(kind, next)}
+                  />
+                )}
                 <MilestoneInviteesField
                   kind={kind}
                   users={users}
@@ -168,6 +207,121 @@ export function PlanMilestonesForm({ milestones, onChange }: Props) {
           </div>
         );
       })}
+    </div>
+  );
+}
+
+function MilestoneAddressField({
+  kind,
+  address,
+  lat,
+  lng,
+  mapsUrl,
+  installationLocation,
+  onChange,
+}: {
+  kind: PlanMilestone["kind"];
+  address?: string | null;
+  lat?: number | null;
+  lng?: number | null;
+  mapsUrl?: string | null;
+  installationLocation?: InstallationLocationHint | null;
+  onChange: (
+    next: Pick<PlanMilestone, "address" | "lat" | "lng" | "mapsUrl">,
+  ) => void;
+}) {
+  const applyAddress = (result: AddressResult) => {
+    const nextMaps =
+      Number.isFinite(result.lat) && Number.isFinite(result.lng)
+        ? `https://www.google.com/maps?q=${result.lat},${result.lng}`
+        : mapsUrl ?? null;
+    onChange({
+      address: result.address || address || null,
+      lat: result.lat,
+      lng: result.lng,
+      mapsUrl: nextMaps,
+    });
+  };
+
+  const mapsHref =
+    mapsUrl ||
+    (lat != null && lng != null
+      ? `https://www.google.com/maps?q=${lat},${lng}`
+      : null);
+  const hasValidatedCoords =
+    typeof lat === "number" &&
+    Number.isFinite(lat) &&
+    typeof lng === "number" &&
+    Number.isFinite(lng);
+  const instAddress = installationLocation?.address?.trim() || "";
+  const canUseInstallation =
+    Boolean(instAddress) &&
+    instAddress !== (address ?? "").trim();
+
+  return (
+    <div className="relative z-[5] space-y-1">
+      <div className="flex items-center justify-between gap-2">
+        <Label className="text-[12px] text-ds-text-3">
+          Dirección (Google Maps)
+        </Label>
+        {mapsHref && (
+          <a
+            href={mapsHref}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-1 text-[12px] text-status-ok-fg"
+            title="Abrir en Google Maps"
+          >
+            <ExternalLink className="h-3 w-3" />
+            Abrir en Maps
+          </a>
+        )}
+      </div>
+      <AddressAutocomplete
+        value={address ?? ""}
+        onChange={applyAddress}
+        placeholder={
+          kind === "visita_tecnica"
+            ? "Dirección de la visita técnica…"
+            : "Dirección del evento…"
+        }
+        showMap={false}
+      />
+      <MapsUrlPasteInput onResolve={applyAddress} className="mt-1.5" />
+      {canUseInstallation && (
+        <button
+          type="button"
+          onClick={() =>
+            onChange({
+              address: instAddress,
+              lat: installationLocation?.lat ?? null,
+              lng: installationLocation?.lng ?? null,
+              mapsUrl:
+                installationLocation?.mapsUrl ??
+                (installationLocation?.lat != null &&
+                installationLocation?.lng != null
+                  ? `https://www.google.com/maps?q=${installationLocation.lat},${installationLocation.lng}`
+                  : null),
+            })
+          }
+          className="text-left text-[12px] text-primary underline-offset-2 hover:underline"
+        >
+          Usar dirección de la instalación
+        </button>
+      )}
+      {hasValidatedCoords ? (
+        <p className="text-[12px] text-status-ok-fg">
+          Coordenadas validadas: {lat!.toFixed(5)}, {lng!.toFixed(5)}
+        </p>
+      ) : address ? (
+        <p className="text-[12px] text-status-warn-fg">
+          Seleccioná una sugerencia de Maps o pegá un link para validar.
+        </p>
+      ) : (
+        <p className="text-[12px] text-ds-text-4">
+          Queda en la agenda y en Google Calendar como ubicación del evento.
+        </p>
+      )}
     </div>
   );
 }

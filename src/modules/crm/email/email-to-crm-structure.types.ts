@@ -216,6 +216,11 @@ export type PlanMilestone = {
   enabled?: boolean;
   /** true cuando la fecha vino de la extracción del pliego (UI marca origen). */
   fromDocument?: boolean;
+  /** Dirección física del evento (visita técnica / entrega presencial) → agenda + Google. */
+  address?: string | null;
+  lat?: number | null;
+  lng?: number | null;
+  mapsUrl?: string | null;
 };
 
 /** Motivo tipado de omisión al crear la estructura (Command Layer). */
@@ -319,9 +324,37 @@ export function emptyCrmStructureProposal(): CrmStructureProposal {
   };
 }
 
+type MilestoneLocationSeed = {
+  address?: string | null;
+  lat?: number | null;
+  lng?: number | null;
+  mapsUrl?: string | null;
+};
+
+/** Rellena dirección en hitos presenciales (visita técnica) si aún no tienen. */
+export function applyInstallationLocationToMilestones(
+  milestones: PlanMilestone[],
+  installation?: MilestoneLocationSeed | null,
+): PlanMilestone[] {
+  const address = installation?.address?.trim();
+  if (!address) return milestones;
+  return milestones.map((m) => {
+    if (m.kind !== "visita_tecnica") return m;
+    if (m.address?.trim()) return m;
+    return {
+      ...m,
+      address,
+      lat: installation?.lat ?? null,
+      lng: installation?.lng ?? null,
+      mapsUrl: installation?.mapsUrl ?? null,
+    };
+  });
+}
+
 /** Semilla PlanMilestone[] desde proposal.licitacion (solo fechas no nulas). */
 export function milestonesFromLicitacion(
   licitacion: CrmStructureLicitacion | undefined | null,
+  installation?: MilestoneLocationSeed | null,
 ): PlanMilestone[] {
   if (!licitacion) return [];
   const out: PlanMilestone[] = [];
@@ -342,7 +375,7 @@ export function milestonesFromLicitacion(
   push("consultas", licitacion.fechaConsultas);
   push("visita_tecnica", licitacion.fechaVisitaTecnica);
   push("entrega", licitacion.fechaEntrega);
-  return out;
+  return applyInstallationLocationToMilestones(out, installation);
 }
 
 /** Deriva assumptions + assumptionOrigins desde assumptionItems (retrocompat). */

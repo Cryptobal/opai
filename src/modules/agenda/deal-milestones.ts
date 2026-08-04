@@ -23,6 +23,8 @@ export type CreateAgendaEventWithPeopleParams = {
   allDay?: boolean;
   notes?: string | null;
   customAddress?: string | null;
+  lat?: number | null;
+  lng?: number | null;
   participantIds?: string[];
   externalEmails?: Array<{ email: string; name?: string | null }>;
   syncGoogle?: boolean;
@@ -49,6 +51,8 @@ export async function createAgendaEventWithPeople(
     allDay = false,
     notes,
     customAddress,
+    lat,
+    lng,
     syncGoogle = true,
     notifyOpai = true,
   } = params;
@@ -86,6 +90,8 @@ export async function createAgendaEventWithPeople(
     allDay,
     notes: notes ?? null,
     customAddress: customAddress ?? null,
+    lat: lat ?? null,
+    lng: lng ?? null,
     syncCalendar: syncGoogle && !useV2Sync,
     inviteContacts: false,
   });
@@ -149,6 +155,9 @@ export async function createDealMilestoneEvent(params: {
   allDay?: boolean;
   title?: string;
   notes?: string | null;
+  customAddress?: string | null;
+  lat?: number | null;
+  lng?: number | null;
   participantIds?: string[];
   externalEmails?: Array<{ email: string; name?: string | null }>;
   syncGoogle?: boolean;
@@ -166,6 +175,9 @@ export async function createDealMilestoneEvent(params: {
     endAt: params.endAt,
     allDay: params.allDay,
     notes: params.notes ?? `Hito licitación: ${params.kind}`,
+    customAddress: params.customAddress ?? null,
+    lat: params.lat ?? null,
+    lng: params.lng ?? null,
     participantIds: params.participantIds,
     externalEmails: params.externalEmails,
     syncGoogle: params.syncGoogle,

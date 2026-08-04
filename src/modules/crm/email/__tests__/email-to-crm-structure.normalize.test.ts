@@ -448,4 +448,56 @@ describe("milestonesFromLicitacion", () => {
     expect(ms.map((m) => m.kind)).toEqual(["consultas", "entrega"]);
     expect(ms.every((m) => m.fromDocument && m.enabled && m.time === "09:00")).toBe(true);
   });
+
+  it("prellena dirección de visita técnica desde la instalación", async () => {
+    const { milestonesFromLicitacion } = await import(
+      "../email-to-crm-structure.types"
+    );
+    const ms = milestonesFromLicitacion(
+      {
+        fechaConsultas: null,
+        fechaVisitaTecnica: "2026-08-10",
+        fechaEntrega: null,
+        inicioServicio: null,
+        visitaObligatoria: true,
+      },
+      {
+        address: "Av. Apoquindo 3000, Las Condes",
+        lat: -33.41,
+        lng: -70.58,
+        mapsUrl: "https://www.google.com/maps?q=-33.41,-70.58",
+      },
+    );
+    expect(ms).toHaveLength(1);
+    expect(ms[0].kind).toBe("visita_tecnica");
+    expect(ms[0].address).toBe("Av. Apoquindo 3000, Las Condes");
+    expect(ms[0].lat).toBe(-33.41);
+    expect(ms[0].lng).toBe(-70.58);
+  });
+});
+
+describe("applyInstallationLocationToMilestones", () => {
+  it("no pisa una dirección ya definida en el hito", async () => {
+    const { applyInstallationLocationToMilestones } = await import(
+      "../email-to-crm-structure.types"
+    );
+    const out = applyInstallationLocationToMilestones(
+      [
+        {
+          kind: "visita_tecnica",
+          date: "2026-08-10",
+          time: "09:00",
+          durationMin: 60,
+          participantIds: [],
+          externalEmails: [],
+          address: "Dirección ya cargada",
+          lat: 1,
+          lng: 2,
+        },
+      ],
+      { address: "Otra", lat: 9, lng: 9 },
+    );
+    expect(out[0].address).toBe("Dirección ya cargada");
+    expect(out[0].lat).toBe(1);
+  });
 });

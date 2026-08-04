@@ -92,6 +92,9 @@ export async function mirrorVisitaToV2(
       data: {
         title: visita.title,
         description: visita.notes,
+        location: visita.customAddress,
+        lat: visita.lat,
+        lng: visita.lng,
         startAt: visita.startAt,
         endAt: visita.endAt,
         ...(opts?.allDay !== undefined ? { allDay } : {}),
