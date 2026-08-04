@@ -104,17 +104,7 @@ export async function GET(
         ipcStartDate: true,
         startDate: true,
         endDate: true,
-        // Bloque 5 — calendario de cobro por contrato. Necesarios
-        // para que `openCfItemDialog` pueda pre-popular el form de
-        // edición sin un fetch extra al endpoint single-cashflow.
         nickname: true,
-        emiteProforma: true,
-        diaEmisionProforma: true,
-        diasFacturaDesdeProforma: true,
-        diaEmisionFactura: true,
-        mesFacturaRelativo: true,
-        modoCobro: true,
-        diasCobroDesdeFactura: true,
         ipcAdjustments: {
           where: { status: "PENDING" },
           orderBy: { dueDate: "asc" },
@@ -192,15 +182,7 @@ export async function GET(
           ipcStartDate: cf.ipcStartDate
             ? cf.ipcStartDate.toISOString().slice(0, 10)
             : null,
-          // Bloque 5 — calendario de cobro
           nickname: cf.nickname,
-          emiteProforma: cf.emiteProforma,
-          diaEmisionProforma: cf.diaEmisionProforma,
-          diasFacturaDesdeProforma: cf.diasFacturaDesdeProforma,
-          diaEmisionFactura: cf.diaEmisionFactura,
-          mesFacturaRelativo: cf.mesFacturaRelativo,
-          modoCobro: cf.modoCobro,
-          diasCobroDesdeFactura: cf.diasCobroDesdeFactura,
           pendingIpcAdjustments: cf.ipcAdjustments.map((a) => ({
             id: a.id,
             dueDate: a.dueDate.toISOString().slice(0, 10),
