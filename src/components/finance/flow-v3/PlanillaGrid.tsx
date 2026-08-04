@@ -42,9 +42,12 @@ import type { HistoryEntry } from "./usePlanillaHistory";
 import type { usePlanillaActions } from "./usePlanillaActions";
 import type { CellStyle } from "./usePlanillaViewPrefs";
 import {
-  countAssignPendingInWindow,
+  bandejaBadgeText,
+  collectBandejaRutGroups,
   isFallbackBandejaRow,
+  summarizeBandejaRow,
 } from "@/modules/finance/flow-v3/unmatched-count";
+import { BandejaRutList } from "./BandejaRutList";
 
 interface PlanMutators {
   patchPlan: (rowId: string, weekStart: string, amount: number, opts?: { skipHistory?: boolean }) => Promise<void>;
@@ -165,6 +168,9 @@ export function PlanillaGrid({
   const [rowDialog, setRowDialog] = useState<RowDialogState>(null);
   const [ctxTarget, setCtxTarget] = useState<CtxTarget>(null);
   const [sheetTarget, setSheetTarget] = useState<CtxTarget>(null);
+  const [bandejaRutSection, setBandejaRutSection] = useState<string | null>(null);
+  /** Panel "Facturas sin fila" (DTEs emitidos unrouted). */
+  const [unroutedOpen, setUnroutedOpen] = useState(false);
   /** DTE a enfocar en el picker "Vincular a programación…" del drill. */
   const [linkFocusDteId, setLinkFocusDteId] = useState<string | null>(null);
   const [discreteSel, setDiscreteSel] = useState<Map<string, number>>(() => new Map());
@@ -176,14 +182,36 @@ export function PlanillaGrid({
 
   const rowById = useMemo(() => new Map(data.rows.map((r) => [r.id, r])), [data.rows]);
   const closedSet = useMemo(() => new Set(data.closedWeeks), [data.closedWeeks]);
-  const unmatchedIncomeN = useMemo(
-    () => countAssignPendingInWindow(data.rows, "INGRESOS"),
+  const bandejaIncomeSummary = useMemo(
+    () => summarizeBandejaRow(data.rows, "INGRESOS"),
     [data.rows],
   );
-  const unmatchedExpenseN = useMemo(
-    () => countAssignPendingInWindow(data.rows, "GAV"),
+  const bandejaExpenseSummary = useMemo(
+    () => summarizeBandejaRow(data.rows, "GAV"),
     [data.rows],
   );
+  const bandejaIncomeBadge = useMemo(
+    () => bandejaBadgeText(bandejaIncomeSummary, "INGRESOS"),
+    [bandejaIncomeSummary],
+  );
+  const bandejaExpenseBadge = useMemo(
+    () => bandejaBadgeText(bandejaExpenseSummary, "GAV"),
+    [bandejaExpenseSummary],
+  );
+  const bandejaRutGroups = useMemo(
+    () => (bandejaRutSection ? collectBandejaRutGroups(data.rows, bandejaRutSection) : []),
+    [data.rows, bandejaRutSection],
+  );
+  const bandejaFlowRows = useMemo(() => {
+    const expenseSections = new Set(["GAV", "OTROS", "IMPUESTOS", "FINANCIAMIENTO", "REMUNERACIONES"]);
+    return data.rows
+      .filter((r) => {
+        if (r.isVirtual || r.isArchived || isFallbackBandejaRow(r)) return false;
+        if (bandejaRutSection === "INGRESOS") return r.section === "INGRESOS";
+        return expenseSections.has(r.section);
+      })
+      .map((r) => ({ id: r.id, name: r.name }));
+  }, [data.rows, bandejaRutSection]);
   const recurringRows = useMemo(
     () =>
       data.rows.filter(
@@ -203,9 +231,15 @@ export function PlanillaGrid({
     onRecurringOpened?.();
   }, [openRecurringRowId, rowById, onRecurringOpened]);
 
-  /** Abre el sheet de la primera celda bandeja con DTEs (asignador). */
+  /** Abre bandeja cartola (RUT) o asignador DTE legacy según sección. */
   const openUnmatchedAssigner = useCallback(
     (section: string, focusDteId?: string | null) => {
+      const summary = summarizeBandejaRow(data.rows, section);
+      if (summary.totalClp > 0 || summary.distinctRutCount > 0) {
+        setBandejaRutSection(section);
+        return;
+      }
+      if (section !== "INGRESOS") return;
       for (const row of data.rows) {
         if (!isFallbackBandejaRow(row) || row.section !== section) continue;
         for (let colIdx = 0; colIdx < row.cells.length; colIdx++) {
@@ -218,7 +252,6 @@ export function PlanillaGrid({
           return;
         }
       }
-      // Si el DTE no está en la ventana visible, abrir bandeja genérica.
       if (focusDteId) {
         for (const row of data.rows) {
           if (!isFallbackBandejaRow(row) || row.section !== section) continue;
@@ -235,6 +268,62 @@ export function PlanillaGrid({
       }
     },
     [data.rows],
+  );
+
+  const handleClassifyRut = useCallback(
+    async (rut: string, flowRowId: string) => {
+      const group = collectBandejaRutGroups(data.rows, bandejaRutSection ?? "GAV").find(
+        (g) => g.rut === rut,
+      );
+      if (!group || group.items.length === 0) return;
+      // Primera tx: clasifica + aprende regla. Luego re-aplica en masa.
+      const first = group.items[0]!;
+      const res = await fetch(
+        `/api/finance/banking/transactions/${first.bankTransactionId}/classify-suggestions`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ kind: "FLOW_ROW", flowRowId, learnRule: true }),
+        },
+      );
+      const j = await res.json();
+      if (!res.ok || !j.success) throw new Error(j.error ?? "Error al clasificar");
+      const ruleId = j.data?.ruleId as string | null | undefined;
+      let autoMatched = 0;
+      if (ruleId) {
+        const run = await fetch("/api/finance/banking/automatch-rules/run-rules-only", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ruleId }),
+        });
+        const rj = await run.json();
+        if (run.ok && rj.success) {
+          autoMatched = Number(rj.data?.autoMatched ?? 0);
+        }
+      } else {
+        // Sin RUT/regla: clasificar el resto a mano.
+        for (const item of group.items.slice(1)) {
+          const r2 = await fetch(
+            `/api/finance/banking/transactions/${item.bankTransactionId}/classify-suggestions`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ kind: "FLOW_ROW", flowRowId, learnRule: false }),
+            },
+          );
+          const j2 = await r2.json();
+          if (!r2.ok || !j2.success) throw new Error(j2.error ?? "Error al clasificar");
+        }
+      }
+      toast.success(
+        autoMatched > 0
+          ? `Clasificado · ${autoMatched} movimiento${autoMatched === 1 ? "" : "s"} histórico${autoMatched === 1 ? "" : "s"} re-ruteado${autoMatched === 1 ? "" : "s"}`
+          : "Clasificado a fila",
+      );
+      setBandejaRutSection(null);
+      onRefresh?.();
+    },
+    [data.rows, bandejaRutSection, onRefresh],
   );
 
   // Deep-link post-emisión huérfana: /finanzas/flujo-caja/planilla?focusDte=…
@@ -934,7 +1023,7 @@ export function PlanillaGrid({
                               <span className="max-md:hidden">({section.rows.length}/{section.total})</span>
                             </span>
                           )}
-                          {section.key === "INGRESOS" && unmatchedIncomeN > 0 && (
+                          {section.key === "INGRESOS" && bandejaIncomeBadge && (
                             <span
                               role="button"
                               tabIndex={0}
@@ -949,13 +1038,35 @@ export function PlanillaGrid({
                                   openUnmatchedAssigner("INGRESOS");
                                 }
                               }}
-                              className="ml-1 shrink-0 rounded-full bg-status-warn-soft px-1.5 py-0.5 text-[12px] font-medium text-status-warn-fg hover:underline"
-                              title="Abrir asignador de Otros ingresos"
+                              className="ml-1 max-w-[min(280px,45vw)] shrink truncate rounded-full bg-ds-surface-2 px-1.5 py-0.5 text-[12px] font-medium text-ds-text-2 hover:bg-ds-surface-3 hover:underline"
+                              title={bandejaIncomeBadge}
                             >
-                              ⚠ {unmatchedIncomeN} por asignar
+                              {bandejaIncomeBadge}
                             </span>
                           )}
-                          {section.key === "GAV" && unmatchedExpenseN > 0 && (
+                          {section.key === "INGRESOS" &&
+                            (data.unroutedIncome?.count ?? 0) > 0 && (
+                            <span
+                              role="button"
+                              tabIndex={0}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setUnroutedOpen(true);
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter" || e.key === " ") {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  setUnroutedOpen(true);
+                                }
+                              }}
+                              className="ml-1 max-w-[min(220px,40vw)] shrink truncate rounded-full bg-ds-surface-2 px-1.5 py-0.5 text-[12px] font-medium text-ds-text-2 hover:bg-ds-surface-3 hover:underline"
+                              title={`Facturas sin fila · ${data.unroutedIncome!.count} · ${data.unroutedIncome!.totalClp.toLocaleString("es-CL")}`}
+                            >
+                              Facturas sin fila ({data.unroutedIncome!.count})
+                            </span>
+                          )}
+                          {section.key === "GAV" && bandejaExpenseBadge && (
                             <span
                               role="button"
                               tabIndex={0}
@@ -970,10 +1081,10 @@ export function PlanillaGrid({
                                   openUnmatchedAssigner("GAV");
                                 }
                               }}
-                              className="ml-1 shrink-0 rounded-full bg-status-warn-soft px-1.5 py-0.5 text-[12px] font-medium text-status-warn-fg hover:underline"
-                              title="Abrir asignador de Otros egresos"
+                              className="ml-1 max-w-[min(280px,45vw)] shrink truncate rounded-full bg-ds-surface-2 px-1.5 py-0.5 text-[12px] font-medium text-ds-text-2 hover:bg-ds-surface-3 hover:underline"
+                              title={bandejaExpenseBadge}
                             >
-                              ⚠ {unmatchedExpenseN} por asignar
+                              {bandejaExpenseBadge}
                             </span>
                           )}
                         </button>
@@ -1240,6 +1351,7 @@ export function PlanillaGrid({
           (sheetCell.effective !== 0 ||
             (sheetCell.committed?.items.some((i) => i.kind === "dte") ?? false)) && (
             <UnmatchedIncomeList
+              mode="bandeja"
               weekStart={sheetCell.weekStart}
               focusDteId={linkFocusDteId}
               onViewDte={onViewDte}
@@ -1250,6 +1362,43 @@ export function PlanillaGrid({
               }}
             />
           )}
+      </CellActionSheet>
+
+      <BandejaRutList
+        open={bandejaRutSection != null}
+        onOpenChange={(o) => {
+          if (!o) setBandejaRutSection(null);
+        }}
+        section={bandejaRutSection ?? "GAV"}
+        groups={bandejaRutGroups}
+        flowRows={bandejaFlowRows}
+        onClassifyRut={handleClassifyRut}
+      />
+
+      <CellActionSheet
+        open={unroutedOpen}
+        onOpenChange={setUnroutedOpen}
+        row={
+          data.rows.find(
+            (r) =>
+              isFallbackBandejaRow(r) && r.section === "INGRESOS",
+          ) ?? null
+        }
+        cell={null}
+        weekLabel="Facturas sin fila"
+        isPast={false}
+        items={[]}
+        folioGroups={[]}
+      >
+        <UnmatchedIncomeList
+          mode="unrouted"
+          weekStart={data.currentWeek}
+          onViewDte={onViewDte}
+          onCreated={() => {
+            setUnroutedOpen(false);
+            onRefresh?.();
+          }}
+        />
       </CellActionSheet>
 
       {sumMode && (

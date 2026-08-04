@@ -43,6 +43,8 @@ export interface FlowMatrixResponse {
   balanceBreaks: Array<BalanceBreak | null>;
   /** DTEs excluidos del flujo (auditable; restaurables). */
   excludedIncome: FlowExcludedDte[];
+  /** Facturas emitidas sin fila (no van a la bandeja "Otros ingresos"). */
+  unroutedIncome: { count: number; totalClp: number };
   kpis: { saldoHoy: number; minBalance: number; minWeek: string };
 }
 

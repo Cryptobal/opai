@@ -26,10 +26,23 @@ import {
   DEFAULT_COLLECTION_LAG_DAYS,
   pushCommitted,
   terminoInfo,
+  UNMATCHED_INCOME_KEY,
   type CommittedByRow,
   type FlowRowRef,
   type SentDocs,
 } from "./types";
+
+/** DTE emitido que no resolvió fila (panel "Facturas sin fila"). */
+export interface UnroutedIncomeDte {
+  dteId: string;
+  folio: number;
+  label: string;
+  fecha: string;
+  monto: number;
+  crmAccountId: string | null;
+  installationId: string | null;
+  recurringTemplateId?: string | null;
+}
 
 export interface IssuedDteInput {
   id: string;
@@ -107,6 +120,17 @@ export interface CommittedIncomeArgs {
    * sin dueDate. Ya NO desplaza cuotas ni borradores (v4.7).
    */
   collectionLagDays?: number;
+  /**
+   * Si true, DTEs emitidos sin fila NO entran a la bandeja "Otros ingresos"
+   * (se listan en `unrouted`). Default false en la función pura (tests);
+   * el loader pasa el valor del tenant (schema default true).
+   */
+  bandejaIncomeBankOnly?: boolean;
+}
+
+export interface DeriveCommittedIncomeResult {
+  committed: CommittedByRow;
+  unrouted: UnroutedIncomeDte[];
 }
 
 /**
@@ -135,13 +159,15 @@ function daysBetween(fromYmd: string, toYmd: string): number {
   return Math.floor((b.getTime() - a.getTime()) / 86_400_000);
 }
 
-export function deriveCommittedIncome(args: CommittedIncomeArgs): CommittedByRow {
+export function deriveCommittedIncome(args: CommittedIncomeArgs): DeriveCommittedIncomeResult {
   const out: CommittedByRow = new Map();
-  if (args.weeks.length === 0) return out;
+  const unrouted: UnroutedIncomeDte[] = [];
+  if (args.weeks.length === 0) return { committed: out, unrouted };
   const firstWeek = args.weeks[0];
   const lastWeek = args.weeks[args.weeks.length - 1];
   const inRange = (w: string) => w >= firstWeek && w <= lastWeek;
   const matchRow = buildIncomeMatcher(args.rows);
+  const bankOnly = args.bandejaIncomeBankOnly === true;
   // Lag SOLO para vencimiento informativo de emitidas sin dueDate.
   const lagDays = args.collectionLagDays ?? DEFAULT_COLLECTION_LAG_DAYS;
 
@@ -157,7 +183,21 @@ export function deriveCommittedIncome(args: CommittedIncomeArgs): CommittedByRow
     // celda de visibilidad — una factura recién emitida no es "vencida".
     const dueYmd = d.dueDateYmd ?? addDaysYmd(d.dateYmd, d.templateDiasCobro ?? lagDays);
     const overdueDays = Math.max(0, daysBetween(dueYmd, args.todayYmd));
-    pushCommitted(out, matchRow(d.crmAccountId, d.installationId, d.recurringTemplateId), week, {
+    const rowKey = matchRow(d.crmAccountId, d.installationId, d.recurringTemplateId);
+    if (bankOnly && rowKey === UNMATCHED_INCOME_KEY) {
+      unrouted.push({
+        dteId: d.id,
+        folio: d.folio,
+        label: d.receiverName,
+        fecha,
+        monto: Math.round(d.pendingClp),
+        crmAccountId: d.crmAccountId,
+        installationId: d.installationId,
+        recurringTemplateId: d.recurringTemplateId,
+      });
+      continue;
+    }
+    pushCommitted(out, rowKey, week, {
       kind: "dte",
       dteId: d.id,
       folio: d.folio,
@@ -234,5 +274,5 @@ export function deriveCommittedIncome(args: CommittedIncomeArgs): CommittedByRow
     }
   }
 
-  return out;
+  return { committed: out, unrouted };
 }

@@ -34,7 +34,7 @@ const base = { rows: ROWS, weeks: WEEKS, todayYmd: TODAY, dtes: [], drafts: [], 
 
 describe("deriveCommittedIncome — DTEs emitidos", () => {
   it("emitida no pagada cae en la semana de emisión (la factura manda)", () => {
-    const out = deriveCommittedIncome({
+    const { committed: out } = deriveCommittedIncome({
       ...base,
       dtes: [{
         // Emisión en la semana actual del fixture; dueDate NO desplaza.
@@ -55,7 +55,7 @@ describe("deriveCommittedIncome — DTEs emitidos", () => {
   });
 
   it("emisión pasada queda en su semana (sin arrastre); overdue usa dueDate/emisión+lag", () => {
-    const out = deriveCommittedIncome({
+    const { committed: out } = deriveCommittedIncome({
       ...base,
       dtes: [{
         // Emisión en semana pasada dentro del horizonte (lunes 2026-06-22).
@@ -76,7 +76,7 @@ describe("deriveCommittedIncome — DTEs emitidos", () => {
   });
 
   it("emisión pasada fuera del horizonte no aparece en la semana actual", () => {
-    const out = deriveCommittedIncome({
+    const { committed: out } = deriveCommittedIncome({
       ...base,
       dtes: [{
         id: "dte-old", folio: 91, dateYmd: "2026-04-01", dueDateYmd: null,
@@ -90,7 +90,7 @@ describe("deriveCommittedIncome — DTEs emitidos", () => {
   });
 
   it("override pasado también queda anclado (sin clamp); overdue >60d", () => {
-    const out = deriveCommittedIncome({
+    const { committed: out } = deriveCommittedIncome({
       ...base,
       dtes: [{
         id: "dte-ov-past", folio: 92, dateYmd: "2026-07-21", dueDateYmd: "2026-04-01",
@@ -105,7 +105,7 @@ describe("deriveCommittedIncome — DTEs emitidos", () => {
   });
 
   it("override de visibilidad mueve la factura a otra semana", () => {
-    const out = deriveCommittedIncome({
+    const { committed: out } = deriveCommittedIncome({
       ...base,
       dtes: [{
         id: "dte-ov", folio: 1789, dateYmd: "2026-08-03", dueDateYmd: null,
@@ -118,7 +118,7 @@ describe("deriveCommittedIncome — DTEs emitidos", () => {
   });
 
   it("instalación sin fila exacta cae en la fila genérica de la cuenta; cuenta sin fila → unmatched", () => {
-    const out = deriveCommittedIncome({
+    const { committed: out } = deriveCommittedIncome({
       ...base,
       dtes: [
         { id: "d3", folio: 1, dateYmd: "2026-07-21", dueDateYmd: "2026-08-20", pendingClp: 10, crmAccountId: "acc-A", installationId: "inst-otra", receiverName: "A" },
@@ -128,6 +128,20 @@ describe("deriveCommittedIncome — DTEs emitidos", () => {
     // Emisión 2026-07-21 → lunes 2026-07-20 (semana actual del fixture).
     expect(out.get("row-a")?.get("2026-07-20")?.total).toBe(10);
     expect(out.get(UNMATCHED_INCOME_KEY)?.get("2026-07-20")?.total).toBe(20);
+  });
+
+  it("bandejaIncomeBankOnly: DTE sin fila va a unrouted, no a la bandeja", () => {
+    const { committed, unrouted } = deriveCommittedIncome({
+      ...base,
+      bandejaIncomeBankOnly: true,
+      dtes: [
+        { id: "d4", folio: 2, dateYmd: "2026-07-21", dueDateYmd: "2026-08-20", pendingClp: 20, crmAccountId: "acc-Z", installationId: null, receiverName: "Z" },
+      ],
+    });
+    expect(committed.get(UNMATCHED_INCOME_KEY)).toBeUndefined();
+    expect(unrouted).toHaveLength(1);
+    expect(unrouted[0]?.dteId).toBe("d4");
+    expect(unrouted[0]?.monto).toBe(20);
   });
 
   it("1 programación = 1 fila: dos templates de la misma cuenta no se mezclan", () => {
@@ -141,7 +155,7 @@ describe("deriveCommittedIncome — DTEs emitidos", () => {
         recurringTemplateId: "tpl-80", categoryId: null,
       },
     ];
-    const out = deriveCommittedIncome({
+    const { committed: out } = deriveCommittedIncome({
       ...base,
       rows,
       templates: [
@@ -176,7 +190,7 @@ describe("deriveCommittedIncome — DTEs emitidos", () => {
         recurringTemplateId: null, categoryId: null,
       },
     ];
-    const out = deriveCommittedIncome({
+    const { committed: out } = deriveCommittedIncome({
       ...base,
       rows,
       dtes: [{
@@ -192,7 +206,7 @@ describe("deriveCommittedIncome — DTEs emitidos", () => {
   it("crmAccountId resuelto por RUT (loader) cae en la fila del cliente, no en Otros", () => {
     // El loader rellena crmAccountId vía cleanRut(receiverRut)→CrmAccount;
     // el derivador solo ve el id ya resuelto.
-    const out = deriveCommittedIncome({
+    const { committed: out } = deriveCommittedIncome({
       ...base,
       dtes: [{
         id: "dte-rut", folio: 1234, dateYmd: "2026-07-21", dueDateYmd: "2024-07-01",
@@ -206,7 +220,7 @@ describe("deriveCommittedIncome — DTEs emitidos", () => {
   });
 
   it("borrador atrasado sin override clampea a la semana actual (v4.5)", () => {
-    const out = deriveCommittedIncome({
+    const { committed: out } = deriveCommittedIncome({
       ...base,
       drafts: [{
         // fecha doc 2026-05-01 → pasado → clamp a actual (sin +lag).
@@ -220,7 +234,7 @@ describe("deriveCommittedIncome — DTEs emitidos", () => {
   });
 
   it("borrador con override no clampea (override manda)", () => {
-    const out = deriveCommittedIncome({
+    const { committed: out } = deriveCommittedIncome({
       ...base,
       drafts: [{
         id: "draft-ov", templateId: "tpl-2", dateYmd: "2026-05-01", totalClp: 300_000,
@@ -235,7 +249,7 @@ describe("deriveCommittedIncome — DTEs emitidos", () => {
 
   it("cuota programada vencida sigue clampeando a la semana actual", () => {
     // Template con nextRunAt en el pasado cuya emisión ya venció.
-    const out = deriveCommittedIncome({
+    const { committed: out } = deriveCommittedIncome({
       ...base,
       templates: [makeTemplate({
         lastRunAt: new Date("2026-05-05"),
@@ -256,7 +270,7 @@ describe("deriveCommittedIncome — DTEs emitidos", () => {
 
 describe("deriveCommittedIncome — anclaje en emisión (v4.7)", () => {
   it("proyecta cuotas en la semana de emisión (sin +diasCobro)", () => {
-    const out = deriveCommittedIncome({ ...base, templates: [makeTemplate()] });
+    const { committed: out } = deriveCommittedIncome({ ...base, templates: [makeTemplate()] });
     const cells = out.get("row-a-i1");
     // anchors 5-ago/5-sep/5-oct: emiten esos días → semanas 03-ago / 31-ago / 05-oct.
     // 5-nov > endDate 31-oct NO existe.
@@ -272,7 +286,7 @@ describe("deriveCommittedIncome — anclaje en emisión (v4.7)", () => {
   });
 
   it("GL Events: cuota del 20/08 ancla en su semana de emisión (sin +30)", () => {
-    const out = deriveCommittedIncome({
+    const { committed: out } = deriveCommittedIncome({
       ...base,
       templates: [makeTemplate({
         id: "tpl-gl", name: "GL Events", dayOfMonth: 20,
@@ -296,7 +310,7 @@ describe("deriveCommittedIncome — anclaje en emisión (v4.7)", () => {
   });
 
   it("endDate null proyecta hasta el fin del horizonte", () => {
-    const out = deriveCommittedIncome({
+    const { committed: out } = deriveCommittedIncome({
       ...base,
       templates: [makeTemplate({ endDate: null })],
     });
@@ -306,7 +320,7 @@ describe("deriveCommittedIncome — anclaje en emisión (v4.7)", () => {
   });
 
   it("término configurado es informativo y NO mueve la celda", () => {
-    const out = deriveCommittedIncome({
+    const { committed: out } = deriveCommittedIncome({
       ...base,
       templates: [makeTemplate({ diasCobro: 60 })],
     });
@@ -323,7 +337,7 @@ describe("deriveCommittedIncome — anclaje en emisión (v4.7)", () => {
   });
 
   it("término 0 no expone cobroEst redundante", () => {
-    const out = deriveCommittedIncome({
+    const { committed: out } = deriveCommittedIncome({
       ...base,
       templates: [makeTemplate({ diasCobro: 0 })],
       coveredPeriods: new Set([
@@ -336,7 +350,7 @@ describe("deriveCommittedIncome — anclaje en emisión (v4.7)", () => {
   });
 
   it("collectionLagDays del tenant no desplaza cuotas ni borradores", () => {
-    const out = deriveCommittedIncome({
+    const { committed: out } = deriveCommittedIncome({
       ...base,
       collectionLagDays: 45,
       templates: [makeTemplate()],
@@ -357,7 +371,7 @@ describe("deriveCommittedIncome — anclaje en emisión (v4.7)", () => {
   });
 
   it("dedup: el período cubierto por DTE emitido no se proyecta", () => {
-    const out = deriveCommittedIncome({
+    const { committed: out } = deriveCommittedIncome({
       ...base,
       templates: [makeTemplate()],
       coveredPeriods: new Set(["tpl-1::2026-08"]),
@@ -368,7 +382,7 @@ describe("deriveCommittedIncome — anclaje en emisión (v4.7)", () => {
   });
 
   it("borrador ancla en fecha del documento (sin +lag)", () => {
-    const out = deriveCommittedIncome({
+    const { committed: out } = deriveCommittedIncome({
       ...base,
       drafts: [{
         id: "draft-1", templateId: "tpl-2", dateYmd: "2026-08-01", totalClp: 700_000,
@@ -389,7 +403,7 @@ describe("deriveCommittedIncome — anclaje en emisión (v4.7)", () => {
   });
 
   it("borrador distingue EP y Proforma en sentDocs", () => {
-    const out = deriveCommittedIncome({
+    const { committed: out } = deriveCommittedIncome({
       ...base,
       drafts: [{
         id: "draft-2", templateId: "tpl-2", dateYmd: "2026-08-01", totalClp: 500_000,
@@ -412,7 +426,7 @@ describe("deriveCommittedIncome — anclaje en emisión (v4.7)", () => {
 
 describe("deriveCommittedIncome — facturas cedidas", () => {
   it("DTE cedido sigue en la planilla con flag ceded", () => {
-    const out = deriveCommittedIncome({
+    const { committed: out } = deriveCommittedIncome({
       ...base,
       dtes: [{
         id: "dte-ced", folio: 555, dateYmd: "2026-07-21", dueDateYmd: "2026-08-20",

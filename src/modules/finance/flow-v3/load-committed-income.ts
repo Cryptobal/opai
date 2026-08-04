@@ -58,6 +58,8 @@ export function grossPerRunFromLines(
 export interface LoadCommittedIncomeResult {
   committed: CommittedByRow;
   excluded: FlowExcludedDte[];
+  /** DTEs emitidos sin fila (panel lateral; no van a la bandeja). */
+  unroutedIncome: { count: number; totalClp: number };
 }
 
 /**
@@ -77,7 +79,11 @@ export async function loadCommittedIncome(
   const [config, dtes, recurringLinked, templates, exclusions, accounts] = await Promise.all([
     prisma.financeCashflowConfig.findUnique({
       where: { tenantId },
-      select: { collectionLagDays: true, flowCutoffYmd: true },
+      select: {
+        collectionLagDays: true,
+        flowCutoffYmd: true,
+        bandejaIncomeBankOnly: true,
+      },
     }),
     prisma.financeDte.findMany({
       where: {
@@ -280,7 +286,7 @@ export async function loadCommittedIncome(
     diasCobro: t.diasCobroDesdeFactura,
   }));
 
-  const committed = deriveCommittedIncome({
+  const derived = deriveCommittedIncome({
     rows,
     weeks,
     todayYmd,
@@ -289,6 +295,8 @@ export async function loadCommittedIncome(
     templates: templateInputs,
     coveredPeriods,
     collectionLagDays: config?.collectionLagDays ?? undefined,
+    // Schema default true; sin config ⇒ bank-only (cartola-first).
+    bandejaIncomeBankOnly: config?.bandejaIncomeBankOnly !== false,
   });
 
   const matchRow = buildIncomeMatcher(rows);
@@ -304,5 +312,10 @@ export async function loadCommittedIncome(
     };
   });
 
-  return { committed, excluded };
+  const unroutedIncome = {
+    count: derived.unrouted.length,
+    totalClp: derived.unrouted.reduce((s, u) => s + u.monto, 0),
+  };
+
+  return { committed: derived.committed, excluded, unroutedIncome };
 }

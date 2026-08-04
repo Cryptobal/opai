@@ -73,6 +73,7 @@ import {
   type DataTableColumn,
   type TagVariant,
 } from "@/components/opai-ds";
+import { PinDteToFlowDialog } from "@/components/finance/flow-v3/PinDteToFlowDialog";
 import {
   DocumentTag,
   DtePaymentTag,
@@ -1342,6 +1343,7 @@ function ReceivedDteDetailDialog({
   onDecided?: () => void;
 }) {
   const isMobileViewport = useIsMobileViewport();
+  const [pinOpen, setPinOpen] = useState(false);
   const [attachments, setAttachments] = useState<DteAttachment[]>([]);
   const [loadingAtt, setLoadingAtt] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -1542,6 +1544,20 @@ function ReceivedDteDetailDialog({
                 Pago: {payCfg.label}
               </Tag>
             </div>
+
+            {canManage &&
+              dte.amountPending > 0 &&
+              dte.paymentStatus !== "PAID" &&
+              dte.paymentStatus !== "WRITTEN_OFF" && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-10 sm:h-9"
+                  onClick={() => setPinOpen(true)}
+                >
+                  Fijar al flujo
+                </Button>
+              )}
 
             {/* Botones de Acuse al SII — solo cuando el DTE está
                 PENDING_REVIEW y el usuario tiene permisos. */}
@@ -1953,6 +1969,14 @@ function ReceivedDteDetailDialog({
         onChange={(p) => setAcusePending(p)}
         onConfirm={confirmAcuse}
         onCancel={() => setAcusePending(null)}
+      />
+      <PinDteToFlowDialog
+        open={pinOpen}
+        onOpenChange={setPinOpen}
+        dteId={dte.id}
+        folio={dte.folio}
+        issuerName={dte.issuerName}
+        pendingClp={Math.round(Number(dte.amountPending))}
       />
     </Sheet>
   );

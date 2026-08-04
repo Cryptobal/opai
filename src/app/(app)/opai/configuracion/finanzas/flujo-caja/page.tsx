@@ -19,16 +19,25 @@ export default async function CashflowConfigPage() {
   }
 
   const tenantId = session.user.tenantId;
-  const [config, categories] = await Promise.all([
+  const [config, categories, unpaidReceivedDteCount, accountOptions] = await Promise.all([
     getOrCreateCashflowConfig(tenantId),
     listCategories(tenantId),
+    prisma.financeDte.count({
+      where: {
+        tenantId,
+        direction: "RECEIVED",
+        dteType: { in: [33, 34, 46, 56] },
+        paymentStatus: { in: ["UNPAID", "PARTIAL", "OVERDUE"] },
+        voidedByCreditNoteId: null,
+        OR: [{ receptionStatus: null }, { receptionStatus: { not: "CLAIMED" } }],
+      },
+    }),
+    prisma.financeAccountPlan.findMany({
+      where: { tenantId, isActive: true, acceptsEntries: true },
+      select: { id: true, code: true, name: true },
+      orderBy: { code: "asc" },
+    }),
   ]);
-
-  const accountOptions = await prisma.financeAccountPlan.findMany({
-    where: { tenantId, isActive: true, acceptsEntries: true },
-    select: { id: true, code: true, name: true },
-    orderBy: { code: "asc" },
-  });
 
   return (
     <ConfigPageLayout
@@ -40,6 +49,7 @@ export default async function CashflowConfigPage() {
         initialConfig={JSON.parse(JSON.stringify(config))}
         initialCategories={JSON.parse(JSON.stringify(categories))}
         accountOptions={accountOptions}
+        unpaidReceivedDteCount={unpaidReceivedDteCount}
       />
     </ConfigPageLayout>
   );

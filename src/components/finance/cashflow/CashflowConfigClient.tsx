@@ -128,6 +128,8 @@ interface Props {
   initialConfig: RawCashflowConfig;
   initialCategories: Category[];
   accountOptions: { id: string; code: string; name: string }[];
+  /** DTEs recibidos impagos actuales (informativo bajo el toggle de proyección). */
+  unpaidReceivedDteCount?: number;
 }
 
 const GENERATORS: Array<{
@@ -164,7 +166,12 @@ const GENERATORS: Array<{
   },
 ];
 
-export function CashflowConfigClient({ initialConfig, initialCategories, accountOptions }: Props) {
+export function CashflowConfigClient({
+  initialConfig,
+  initialCategories,
+  accountOptions,
+  unpaidReceivedDteCount = 0,
+}: Props) {
   // Prisma serializa Decimal como string en JSON.stringify; coercionar a number
   // para evitar "expected number, received string" en el validador del API.
   const [config, setConfig] = useState<CashflowConfig>({
@@ -569,10 +576,19 @@ export function CashflowConfigClient({ initialConfig, initialCategories, account
               <div className="min-w-0">
                 <p className="font-medium text-[13px]">Proyectar facturas recibidas como egreso</p>
                 <p className="text-[12px] text-ds-text-3">
-                  Si está apagado, los DTEs recibidos no generan comprometido de
-                  egresos (siguen contando para crédito IVA F29). Útil cuando
-                  varias compras son solo aprovechamiento de IVA.
+                  Las facturas de compra no proyectan egreso. El egreso proyectado
+                  se define en GAV; el egreso real viene de cartola. Las facturas
+                  siguen contando para crédito IVA F29.
                 </p>
+                {unpaidReceivedDteCount > 0 && (
+                  <p className="mt-1 text-[12px] text-ds-text-3">
+                    Hoy hay {unpaidReceivedDteCount.toLocaleString("es-CL")} facturas
+                    de compra impagas
+                    {config.projectReceivedDtesAsExpense
+                      ? " que se proyectan como egreso si el switch está encendido."
+                      : " (no se proyectan con el switch apagado)."}
+                  </p>
+                )}
               </div>
               <Switch
                 checked={config.projectReceivedDtesAsExpense}

@@ -221,9 +221,9 @@ export async function loadCommittedExpense(
   milestones.push(...parametrics.milestones);
 
   // ── DTEs recibidos por pagar ──
-  // Switch tenant: si projectReceivedDtesAsExpense=false, no generan
-  // comprometido de egresos (siguen sirviendo para crédito IVA F29).
-  const projectReceived = config?.projectReceivedDtesAsExpense !== false;
+  // Switch tenant (opt-in, default false): solo proyecta si está explícitamente
+  // encendido. Sin config o false ⇒ cartola-first (crédito IVA F29 intacto).
+  const projectReceived = config?.projectReceivedDtesAsExpense === true;
   let receivedDtes: ReceivedDteExpenseInput[] = [];
   if (projectReceived) {
     const excluded = new Set(exclusions.map((e) => e.dteId));

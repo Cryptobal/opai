@@ -239,20 +239,30 @@ export function groupUnmatchedByClient(items: UnmatchedDteDto[]): UnmatchedIncom
   return [...byKey.values()].sort((a, b) => b.subtotalClp - a.subtotalClp);
 }
 
-/** Lista + agrupación por cliente para el drill de Otros. */
+/** Lista + agrupación: bandeja = abonos; facturas sin fila aparte. */
 export async function listUnmatchedIncomeGrouped(
   tenantId: string,
   weekStart: string,
 ): Promise<{
+  /** @deprecated alias de unroutedDtes (back-compat). */
   items: UnmatchedDteDto[];
   groups: UnmatchedIncomeGroupDto[];
+  /** @deprecated alias de bankCredits. */
   bankTxs: UnmatchedBankTxDto[];
+  bankCredits: UnmatchedBankTxDto[];
+  unroutedDtes: UnmatchedDteDto[];
 }> {
-  const [items, bankTxs] = await Promise.all([
+  const [unroutedDtes, bankCredits] = await Promise.all([
     listUnmatchedIncomeForWeek(tenantId, weekStart),
     listUnmatchedBankIncomeForWeek(tenantId, weekStart),
   ]);
-  return { items, groups: groupUnmatchedByClient(items), bankTxs };
+  return {
+    items: unroutedDtes,
+    unroutedDtes,
+    groups: groupUnmatchedByClient(unroutedDtes),
+    bankTxs: bankCredits,
+    bankCredits,
+  };
 }
 
 /**

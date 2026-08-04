@@ -8576,10 +8576,14 @@ model FinanceCashflowConfig {
   /// cartera. NULL = sin corte. La capa real (pagos) no se filtra.
   /// Validado ≤ hoy en la API de config; reversible poniendo null.
   flowCutoffYmd                  DateTime?              @map("flow_cutoff_ymd") @db.Date
-  /// Si true (default), los DTEs recibidos por pagar generan comprometido
-  /// de egresos en la planilla v3. Gard lo apaga: las compras suelen ser
-  /// solo aprovechamiento de IVA crédito; el egreso real viene de cartola.
-  projectReceivedDtesAsExpense   Boolean                @default(true) @map("project_received_dtes_as_expense")
+  /// Si true, los DTEs recibidos por pagar generan comprometido de egresos
+  /// en la planilla v3. Default false (cartola-first): el egreso proyectado
+  /// se define en GAV/plan; el real viene de cartola. Las facturas siguen
+  /// contando para crédito IVA F29. Tenants existentes conservan su valor.
+  projectReceivedDtesAsExpense   Boolean                @default(false) @map("project_received_dtes_as_expense")
+  /// La fila "Otros ingresos" contiene solo abonos bancarios sin identificar.
+  /// Las facturas emitidas sin fila se listan aparte (panel unrouted).
+  bandejaIncomeBankOnly          Boolean                @default(true) @map("bandeja_income_bank_only")
   /// Meses de historia para el promedio móvil de finiquitos reales.
   finiquitosAvgMonths            Int                    @default(6) @map("finiquitos_avg_months")
   /// Override manual mensual de finiquitos (CLP). Si está seteado, pisa el

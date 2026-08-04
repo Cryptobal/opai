@@ -16,12 +16,14 @@ export async function GET(req: NextRequest) {
   }
   try {
     const data = await listUnmatchedIncomeGrouped(auth.ctx.tenantId, week);
-    // Back-compat: `data` plano = items; también expone groups + bankTxs.
+    // Bandeja = bankCredits; facturas sin fila = unroutedDtes (panel aparte).
     return NextResponse.json({
       success: true,
-      data: data.items,
+      data: data.unroutedDtes,
       groups: data.groups,
-      bankTxs: data.bankTxs,
+      bankTxs: data.bankCredits,
+      unroutedDtes: data.unroutedDtes,
+      bankCredits: data.bankCredits,
     });
   } catch (error) {
     console.error("[Finance/FlowV3] GET unmatched-income:", error);

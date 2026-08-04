@@ -52,6 +52,8 @@ export const updateCashflowConfigSchema = z.object({
     .optional(),
   // Flujo v5: proyectar DTEs recibidos como egreso comprometido.
   projectReceivedDtesAsExpense: z.boolean().optional(),
+  // Cartola-first: "Otros ingresos" = solo abonos bancarios.
+  bandejaIncomeBankOnly: z.boolean().optional(),
   // Promedio móvil de finiquitos (meses de historia).
   finiquitosAvgMonths: z.number().int().min(1).max(36).optional(),
   // Override manual mensual de finiquitos (CLP) o null para usar promedio.

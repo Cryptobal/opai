@@ -385,3 +385,19 @@ de programación que ya existían) ni `FinanceBankTransaction`.
   cubre el caso celda→celda y se desactiva bajo `md`.
 - Validación con datos reales pendiente en Vercel preview (sin merge a `main` sin
   aprobación explícita de Carlos).
+
+---
+
+## Cartola-first (v6) — casos de aceptación
+
+- [ ] Con `projectReceivedDtesAsExpense=false`, ningún DTE recibido aparece en comprometido ni en drill de celda.
+- [ ] `computeF29Period` (crédito IVA) idéntico antes/después de apagar el toggle.
+- [ ] Badge GAV muestra monto + N RUT (no conteo de documentos); cero badge si no hay plata sin clasificar.
+- [ ] "Otros ingresos" no contiene ítems `kind:"dte"` en ninguna semana.
+- [ ] Facturas emitidas sin fila aparecen en panel "Facturas sin fila" con crear/vincular/excluir.
+- [ ] `reconcileIncomeRows` crea fila por cuenta con pendientes post-corte; idempotente; respeta tope 50.
+- [ ] Fijar factura de compra al flujo escribe plan + nota; idempotente; 409 en semana cerrada.
+- [ ] Clasificar un RUT crea regla y `run-rules-only` re-ruta históricos; badge baja.
+- [ ] `run-rules-only` ejecuta `FLOW_ROW` y reporta `autoMatched` / `errors` (fila sin cuenta contable).
+- [ ] Saldos reales de semanas pasadas y sellados idénticos antes/después.
+- [ ] Migraciones aditivas; valor de tenants existentes no se toca por migración.
