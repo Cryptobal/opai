@@ -8936,6 +8936,7 @@ model FinanceFlowRow {
 
   planCells       FinanceFlowPlanCell[]
   planRecurrences FinanceFlowPlanRecurrence[]
+  cellNotes       FinanceFlowCellNote[]
 
   @@index([tenantId, section, orderIndex], map: "idx_finance_flow_row_tenant_section")
   @@index([tenantId, crmAccountId, installationId], map: "idx_finance_flow_row_account_inst")
@@ -9027,6 +9028,26 @@ model FinanceFlowPlanCell {
   @@unique([tenantId, rowId, weekStart], map: "uq_finance_flow_plan_cell")
   @@index([tenantId, weekStart], map: "idx_finance_flow_plan_cell_week")
   @@map("finance_flow_plan_cells")
+  @@schema("finance")
+}
+
+/// Nota libre por celda (fila × semana). Independiente del monto de plan:
+/// sirve para documentar el motivo de un desvío o cambio manual.
+model FinanceFlowCellNote {
+  id        String         @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId  String         @map("tenant_id")
+  rowId     String         @map("row_id") @db.Uuid
+  row       FinanceFlowRow @relation(fields: [rowId], references: [id], onDelete: Cascade)
+  /// Lunes ISO de la semana (@db.Date, sin hora).
+  weekStart DateTime       @map("week_start") @db.Date
+  body      String         @db.Text
+  updatedBy String?        @map("updated_by")
+  createdAt DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@unique([tenantId, rowId, weekStart], map: "uq_finance_flow_cell_note")
+  @@index([tenantId, weekStart], map: "idx_finance_flow_cell_note_week")
+  @@map("finance_flow_cell_notes")
   @@schema("finance")
 }
 

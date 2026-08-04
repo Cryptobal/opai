@@ -6,7 +6,7 @@ import { fmtCell, NUM_CLASS, numSizeClass, type NumberFormatMode } from "./forma
 import {
   CELL_BASE, COL_W, COMMITTED_DRAFT_CELL, COMMITTED_DTE_CELL,
   COMMITTED_PROFORMA_CELL, COMMITTED_SCHEDULED_CELL, CORNER_DTE, CORNER_PLAN,
-  CORNER_REAL, CORNER_WARN, displayValue, REAL_CELL, ROW_H, TODAY_COL,
+  CORNER_REAL, CORNER_WARN, NOTE_DOT, displayValue, REAL_CELL, ROW_H, TODAY_COL,
 } from "./grid-classes";
 import {
   committedPriority, cornerKind, dteCountInCell, pastPendingDteMeta,
@@ -118,6 +118,7 @@ export function PlanillaCell(p: Props) {
           : corner === "plan"
             ? CORNER_PLAN
             : "";
+  const noteClass = cell.note?.trim() ? NOTE_DOT : "";
 
   const layerClass = showChips
     ? cell.layer === "real"
@@ -165,6 +166,7 @@ export function PlanillaCell(p: Props) {
   const titleParts: string[] = [];
   if (tag?.title) titleParts.push(tag.title);
   if (pastPend && cell.layer === "real") titleParts.push(pastPend.title);
+  if (cell.note?.trim()) titleParts.push(`Nota: ${cell.note.trim()}`);
   if (p.dragBlockedTitle) titleParts.push(p.dragBlockedTitle);
   if (mode !== "clp" && (pastPendOnly ? pastPend!.total : value) !== 0) {
     titleParts.push(
@@ -194,7 +196,7 @@ export function PlanillaCell(p: Props) {
       data-rc={p.dataRc}
       className={[
         CELL_BASE, COL_W, ROW_H, NUM_CLASS, longValue, layerClass,
-        projAttenuate || textClass, cornerClass,
+        projAttenuate || textClass, cornerClass, noteClass,
         p.isCurrentCol ? TODAY_COL : "",
         p.rangeClass,
         cursorClass, styleClass,

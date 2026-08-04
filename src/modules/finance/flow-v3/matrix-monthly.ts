@@ -45,7 +45,9 @@ function mergeCells(cells: FlowMatrixCellDto[]): FlowMatrixCellDto {
     real: null,
     effective: 0,
     layer: "empty",
+    note: null,
   };
+  const noteParts: string[] = [];
   for (const c of cells) {
     merged.plan += c.plan;
     merged.effective += c.effective;
@@ -59,10 +61,12 @@ function mergeCells(cells: FlowMatrixCellDto[]): FlowMatrixCellDto {
       merged.real.total += c.real.total;
       merged.real.items.push(...c.real.items);
     }
+    if (c.note?.trim()) noteParts.push(c.note.trim());
   }
   if (merged.real && merged.real.total !== 0) merged.layer = "real";
   else if (merged.committed && merged.committed.total !== 0) merged.layer = "committed";
   else if (merged.plan !== 0) merged.layer = "plan";
+  merged.note = noteParts.length > 0 ? noteParts.join(" · ") : null;
   return merged;
 }
 

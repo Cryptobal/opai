@@ -216,6 +216,8 @@ export interface CellMenuCallbacks {
   onMoveParametricCommitted?: (targetWeek: string) => void;
   onMoveDte: (dteId: string, targetWeek: string) => void;
   onViewDetail: () => void;
+  /** Abre el detalle enfocado en el editor de nota. */
+  onEditNote?: () => void;
   onViewDte: (dteId: string) => void;
   onLinkTemplate?: (dteId: string) => void;
   onExcludeDte?: (dteId: string) => void;
@@ -700,6 +702,13 @@ export function buildCellMenu(
     separatorBefore: true,
     onSelect: cb.onViewDetail,
   });
+  if (cb.onEditNote) {
+    items.push({
+      key: "note",
+      label: cell.note?.trim() ? "Editar nota…" : "Agregar nota…",
+      onSelect: cb.onEditNote,
+    });
+  }
 
   return items;
 }
@@ -750,6 +759,13 @@ export function buildCellSheetModel(
     })),
   ];
   const hasDocs = dteItems.length > 0 || draftItems.length > 0;
+  const noteItem: MenuItemDesc | null = cb.onEditNote
+    ? {
+        key: "note",
+        label: cell.note?.trim() ? "Editar nota…" : "Agregar nota…",
+        onSelect: cb.onEditNote,
+      }
+    : null;
   const commonItems: MenuItemDesc[] = hasDocs
     ? [
         ...parametricCommittedMoveItems(row, cell, ctx, cb),
@@ -759,6 +775,7 @@ export function buildCellSheetModel(
           separatorBefore: true,
           onSelect: cb.onViewDetail,
         },
+        ...(noteItem ? [noteItem] : []),
       ]
     : [
         ...planCellItems(cell, ctx, cb),
@@ -769,6 +786,7 @@ export function buildCellSheetModel(
           separatorBefore: true,
           onSelect: cb.onViewDetail,
         },
+        ...(noteItem ? [noteItem] : []),
       ];
   return { folioGroups, commonItems };
 }

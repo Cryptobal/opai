@@ -25,10 +25,13 @@ interface Props {
   state: PopoverState | null;
   onClose: () => void;
   canManage?: boolean;
+  /** Si true, enfoca el editor de nota al abrir. */
+  focusNote?: boolean;
   excludedForRow?: FlowExcludedDte[];
   onViewDte?: (dteId: string) => void;
   onExcludeDte?: (dteId: string, reason: string) => Promise<void>;
   onRestoreDte?: (dteId: string) => Promise<void>;
+  onSaveNote?: (rowId: string, weekStart: string, body: string | null) => Promise<boolean>;
 }
 
 /**
@@ -36,9 +39,11 @@ interface Props {
  * Solo muestra capas con contenido; pagos reales como líneas clicables.
  */
 export function CellLayersPopover({
-  state, onClose, canManage, excludedForRow, onViewDte, onExcludeDte, onRestoreDte,
+  state, onClose, canManage, focusNote, excludedForRow,
+  onViewDte, onExcludeDte, onRestoreDte, onSaveNote,
 }: Props) {
   const panelRef = useRef<HTMLDivElement>(null);
+  const noteRef = useRef<HTMLTextAreaElement>(null);
   const [excludingId, setExcludingId] = useState<string | null>(null);
   const [reason, setReason] = useState("");
   const [reasonError, setReasonError] = useState<string | null>(null);
@@ -47,6 +52,8 @@ export function CellLayersPopover({
   const [showHistory, setShowHistory] = useState(false);
   const [history, setHistory] = useState<PlanHistoryEntry[] | null>(null);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [noteDraft, setNoteDraft] = useState("");
+  const [noteDirty, setNoteDirty] = useState(false);
 
   useEffect(() => {
     if (!state) return;
@@ -56,7 +63,15 @@ export function CellLayersPopover({
     setShowExcluded(false);
     setShowHistory(false);
     setHistory(null);
+    setNoteDraft(state.cell.note ?? "");
+    setNoteDirty(false);
   }, [state]);
+
+  useEffect(() => {
+    if (!state || !focusNote) return;
+    const t = window.setTimeout(() => noteRef.current?.focus(), 50);
+    return () => window.clearTimeout(t);
+  }, [state, focusNote]);
 
   useEffect(() => {
     if (!state || !showHistory || history !== null) return;
@@ -407,6 +422,64 @@ export function CellLayersPopover({
           )}
         </div>
       )}
+
+      <div className="rounded border border-ds-border-subtle px-2 py-1.5">
+        <div className="mb-1 flex items-center justify-between">
+          <span className="text-[12px] text-ds-text-3">Nota</span>
+          {canManage && noteDirty && (
+            <button
+              type="button"
+              disabled={busy || !onSaveNote}
+              className="text-[12px] text-primary underline-offset-2 hover:underline disabled:opacity-50"
+              onClick={async () => {
+                if (!onSaveNote) return;
+                setBusy(true);
+                try {
+                  const ok = await onSaveNote(
+                    row.id,
+                    cell.weekStart,
+                    noteDraft.trim() || null,
+                  );
+                  if (ok) setNoteDirty(false);
+                } finally {
+                  setBusy(false);
+                }
+              }}
+            >
+              Guardar
+            </button>
+          )}
+        </div>
+        {canManage && onSaveNote ? (
+          <textarea
+            ref={noteRef}
+            value={noteDraft}
+            maxLength={2000}
+            rows={3}
+            placeholder="Motivo del cambio o desvío…"
+            disabled={busy}
+            onChange={(e) => {
+              setNoteDraft(e.target.value);
+              setNoteDirty(true);
+            }}
+            onKeyDown={(e) => {
+              // Evitar que Esc/atajos de planilla cierren sin querer mientras se escribe.
+              e.stopPropagation();
+              if (e.key === "Escape") {
+                e.preventDefault();
+                setNoteDraft(cell.note ?? "");
+                setNoteDirty(false);
+                noteRef.current?.blur();
+              }
+            }}
+            className="w-full resize-none rounded border border-ds-border-subtle bg-ds-surface-1 px-1.5 py-1 text-[13px] text-ds-text-1 placeholder:text-ds-text-4 focus:border-primary focus:outline-none"
+          />
+        ) : (
+          <p className="whitespace-pre-wrap text-[13px] text-ds-text-2">
+            {cell.note?.trim() || "Sin nota."}
+          </p>
+        )}
+      </div>
 
       <div className="rounded border border-ds-border-subtle px-2 py-1.5">
         <button

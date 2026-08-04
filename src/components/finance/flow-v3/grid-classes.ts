@@ -71,6 +71,10 @@ export const CORNER_WARN =
 export const CORNER_PLAN =
   "after:absolute after:right-0 after:top-0 after:h-0 after:w-0 after:border-l-[6px] after:border-t-[6px] after:border-l-transparent after:border-t-primary after:content-['']";
 
+/** Indicador de nota (punto inf-izq) — no compite con el triángulo de esquina. */
+export const NOTE_DOT =
+  "before:absolute before:bottom-0.5 before:left-0.5 before:h-1.5 before:w-1.5 before:rounded-full before:bg-status-info before:content-['']";
+
 /** Selección Sheets: borde azul + handle (ver globals.css `.planilla-selected`). */
 export const SELECTED_CELL = "planilla-selected";
 

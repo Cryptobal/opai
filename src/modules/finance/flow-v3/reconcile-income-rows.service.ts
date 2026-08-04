@@ -5,6 +5,7 @@ import { cleanRut } from "@/lib/chile-rut";
 import {
   CANONICAL_FLOW_ROWS,
   FALLBACK_RENAMES,
+  RETIRED_CANONICAL_ROW_NAMES,
   SECTION_MOVES,
 } from "./canonical-rows";
 import { normalizeRowName } from "./row-match";
@@ -25,6 +26,7 @@ type Tx = Prisma.TransactionClient;
  *  3. Adopta filas libres de la misma cuenta para templates activos sin fila
  *     (o crea si no hay candidata). Sin rama "missing accounts".
  *  4. Archiva sobrantes ACCOUNT_INSTALLATION sin template activo ni plan.
+ *  5. Purga canónicas retiradas (borra vacías / archiva con histórico).
  *
  * Lock advisory por tenant. Dos ejecuciones seguidas = cero cambios.
  */
@@ -36,6 +38,7 @@ export async function reconcileIncomeRows(tenantId: string): Promise<void> {
     await ensureCanonicalRows(tx, tenantId);
     await adoptOrCreateTemplateRows(tx, tenantId);
     await archiveSurplusRows(tx, tenantId);
+    await purgeRetiredCanonicalRows(tx, tenantId);
   });
 }
 
@@ -80,9 +83,11 @@ async function applySectionMoves(tx: Tx, tenantId: string): Promise<void> {
 }
 
 async function ensureCanonicalRows(tx: Tx, tenantId: string): Promise<void> {
+  // Incluye archivadas: si el usuario archivó una canónica, NO recrearla
+  // (bug previo: solo miraba activas → archivar "volvía" la fila al instante).
   const [existing, categories, last] = await Promise.all([
     tx.financeFlowRow.findMany({
-      where: { tenantId, archivedAt: null },
+      where: { tenantId },
       select: { id: true, name: true, section: true },
     }),
     tx.financeCashflowCategory.findMany({
@@ -314,4 +319,52 @@ async function archiveSurplusRows(tx: Tx, tenantId: string): Promise<void> {
     where: { tenantId, id: { in: [...archiveIds] } },
     data: { archivedAt: now },
   });
+}
+
+/**
+ * Canónicas retiradas (ej. "Devolución préstamo socios"):
+ * - sin plan → delete físico (la UI ya no las quiere);
+ * - con plan → archivar (histórico conservado; no se recrean).
+ */
+async function purgeRetiredCanonicalRows(tx: Tx, tenantId: string): Promise<void> {
+  if (RETIRED_CANONICAL_ROW_NAMES.length === 0) return;
+  const retiredKeys = new Set(
+    RETIRED_CANONICAL_ROW_NAMES.map((n) => normalizeNameForDedupe(n)),
+  );
+  const candidates = await tx.financeFlowRow.findMany({
+    where: { tenantId },
+    select: { id: true, name: true, archivedAt: true },
+  });
+  const retired = candidates.filter((r) =>
+    retiredKeys.has(normalizeNameForDedupe(r.name)),
+  );
+  if (retired.length === 0) return;
+
+  const withPlan = await tx.financeFlowPlanCell.findMany({
+    where: {
+      tenantId,
+      rowId: { in: retired.map((r) => r.id) },
+      amount: { not: 0 },
+    },
+    select: { rowId: true },
+    distinct: ["rowId"],
+  });
+  const planIds = new Set(withPlan.map((p) => p.rowId));
+
+  const toDelete = retired.filter((r) => !planIds.has(r.id)).map((r) => r.id);
+  const toArchive = retired
+    .filter((r) => planIds.has(r.id) && !r.archivedAt)
+    .map((r) => r.id);
+
+  if (toDelete.length > 0) {
+    await tx.financeFlowRow.deleteMany({
+      where: { tenantId, id: { in: toDelete } },
+    });
+  }
+  if (toArchive.length > 0) {
+    await tx.financeFlowRow.updateMany({
+      where: { tenantId, id: { in: toArchive } },
+      data: { archivedAt: new Date() },
+    });
+  }
 }
