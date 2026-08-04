@@ -3,8 +3,15 @@
  * Toda query filtra por tenantId.
  */
 
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { nextDocumentCode } from "@/lib/cpq/document-counter";
+import { createCrmHistoryLog } from "@/lib/crm-history";
+import { deleteQuoteToTrash } from "@/modules/cpq/quote-trash.service";
+import {
+  buildQuoteDeleteImpact,
+  type QuoteDeleteBlocker,
+} from "@/modules/cpq/quote-delete-impact";
 import {
   computeBundleTotals,
   conditionsAreSynced,
@@ -26,6 +33,18 @@ export class BundleServiceError extends Error {
   ) {
     super(message);
     this.name = "BundleServiceError";
+  }
+}
+
+/**
+ * La eliminación en cascada de una propuesta arrastra bloqueos de sus
+ * cotizaciones hijas (contratos, huella de flujo, aceptación). Se lanza cuando
+ * hay bloqueos y el caller no pasó `force`.
+ */
+export class BundleDeleteBlockedError extends Error {
+  constructor(public blockers: QuoteDeleteBlocker[]) {
+    super("BUNDLE_DELETE_BLOCKED");
+    this.name = "BundleDeleteBlockedError";
   }
 }
 
@@ -548,4 +567,114 @@ export async function assertBundleOwned(tenantId: string, bundleId: string) {
     throw new BundleServiceError("Propuesta no encontrada", "NOT_FOUND", 404);
   }
   return b;
+}
+
+/**
+ * Si la propuesta se quedó sin cotizaciones (p. ej. tras enviar la última a la
+ * papelera), la elimina: una propuesta vacía no tiene sentido operativo.
+ */
+export async function ensureBundleNotEmpty(opts: {
+  tx?: Prisma.TransactionClient;
+  tenantId: string;
+  bundleId: string;
+}): Promise<{ bundleDeleted: boolean }> {
+  const run = async (tx: Prisma.TransactionClient): Promise<{ bundleDeleted: boolean }> => {
+    const remaining = await tx.cpqProposalBundleQuote.count({
+      where: { tenantId: opts.tenantId, bundleId: opts.bundleId },
+    });
+    if (remaining > 0) return { bundleDeleted: false };
+    await tx.cpqProposalBundle.deleteMany({
+      where: { id: opts.bundleId, tenantId: opts.tenantId },
+    });
+    return { bundleDeleted: true };
+  };
+  return opts.tx ? run(opts.tx) : prisma.$transaction(run);
+}
+
+export type DeleteBundleResult = {
+  bundleDeleted: true;
+  mode: "unlink" | "cascade";
+  trashedQuoteIds: string[];
+};
+
+/**
+ * Elimina una propuesta:
+ * - `unlink`: borra solo la propuesta; las membresías caen por FK cascade y las
+ *   cotizaciones sobreviven (quedan "sueltas" en el negocio).
+ * - `cascade`: envía cada cotización miembro a la papelera y luego borra la
+ *   propuesta. Respeta los bloqueos de las hijas salvo `force`.
+ */
+export async function deleteBundle(opts: {
+  tenantId: string;
+  bundleId: string;
+  mode: "unlink" | "cascade";
+  userId?: string | null;
+  force?: boolean;
+  reason?: string | null;
+}): Promise<DeleteBundleResult> {
+  const bundle = await assertBundleOwned(opts.tenantId, opts.bundleId);
+
+  const members = await prisma.cpqProposalBundleQuote.findMany({
+    where: { tenantId: opts.tenantId, bundleId: opts.bundleId },
+    orderBy: { displayOrder: "asc" },
+    select: { quoteId: true },
+  });
+  const quoteIds = members.map((m) => m.quoteId);
+
+  if (opts.mode === "cascade" && !opts.force && quoteIds.length > 0) {
+    const impacts = await Promise.all(
+      quoteIds.map((id) => buildQuoteDeleteImpact(opts.tenantId, id)),
+    );
+    const blockers = dedupeBundleBlockers(
+      impacts.flatMap((impact) => impact?.blockers ?? []),
+    );
+    if (blockers.length > 0) throw new BundleDeleteBlockedError(blockers);
+  }
+
+  const trashedQuoteIds: string[] = [];
+  await prisma.$transaction(async (tx) => {
+    if (opts.mode === "cascade") {
+      for (const quoteId of quoteIds) {
+        await deleteQuoteToTrash({
+          tx,
+          tenantId: opts.tenantId,
+          quoteId,
+          userId: opts.userId ?? null,
+          reason: opts.reason ?? null,
+        });
+        trashedQuoteIds.push(quoteId);
+      }
+    }
+    // unlink: las membresías caen por onDelete: Cascade del FK bundle.
+    await tx.cpqProposalBundle.deleteMany({
+      where: { id: opts.bundleId, tenantId: opts.tenantId },
+    });
+    await createCrmHistoryLog(
+      {
+        tenantId: opts.tenantId,
+        entityType: "bundle",
+        entityId: opts.bundleId,
+        action: "bundle_deleted",
+        details: {
+          code: bundle.code,
+          name: bundle.name,
+          mode: opts.mode,
+          trashedQuoteIds,
+          reason: opts.reason ?? null,
+        },
+        createdBy: opts.userId ?? null,
+      },
+      tx as unknown as Parameters<typeof createCrmHistoryLog>[1],
+    );
+  });
+
+  return { bundleDeleted: true, mode: opts.mode, trashedQuoteIds };
+}
+
+function dedupeBundleBlockers(blockers: QuoteDeleteBlocker[]): QuoteDeleteBlocker[] {
+  const byCode = new Map<string, QuoteDeleteBlocker>();
+  for (const b of blockers) {
+    if (!byCode.has(b.code)) byCode.set(b.code, b);
+  }
+  return [...byCode.values()];
 }

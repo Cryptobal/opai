@@ -6,11 +6,13 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
-import { requireCpqView, requireCpqEdit } from "@/lib/api-auth-cpq";
+import { requireCpqView, requireCpqEdit, requireQuoteDelete } from "@/lib/api-auth-cpq";
 import { requireTenantModule } from "@/lib/require-module";
 import {
   BUNDLE_CONDITION_PATCH_KEYS,
+  BundleDeleteBlockedError,
   BundleServiceError,
+  deleteBundle,
   getBundleById,
   syncStatusFromBundle,
   totalsFromBundle,
@@ -186,6 +188,63 @@ export async function PATCH(
     console.error("[cpq/bundles/[id] PATCH]", error);
     return NextResponse.json(
       { success: false, error: "Error al actualizar propuesta" },
+      { status: 500 },
+    );
+  }
+}
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  try {
+    const modCheck = await requireTenantModule("cpq");
+    if (!modCheck.authorized) return modCheck.response;
+
+    const ctx = await requireAuth();
+    if (!ctx) return unauthorized();
+    const forbidden = await requireQuoteDelete(ctx);
+    if (forbidden) return forbidden;
+
+    const { id } = await params;
+    const url = new URL(request.url);
+    const mode = url.searchParams.get("mode") === "cascade" ? "cascade" : "unlink";
+    const force = url.searchParams.get("force") === "true";
+    const reason = url.searchParams.get("reason")?.trim() || null;
+
+    try {
+      const result = await deleteBundle({
+        tenantId: ctx.tenantId,
+        bundleId: id,
+        mode,
+        userId: ctx.userId,
+        force,
+        reason,
+      });
+      return NextResponse.json({ success: true, data: result });
+    } catch (e) {
+      if (e instanceof BundleDeleteBlockedError) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "La propuesta tiene cotizaciones con dependencias que impiden eliminarlas",
+            blockers: e.blockers,
+          },
+          { status: 409 },
+        );
+      }
+      if (e instanceof BundleServiceError) {
+        return NextResponse.json(
+          { success: false, error: e.message },
+          { status: e.status },
+        );
+      }
+      throw e;
+    }
+  } catch (error) {
+    console.error("[cpq/bundles/[id] DELETE]", error);
+    return NextResponse.json(
+      { success: false, error: "Error al eliminar propuesta" },
       { status: 500 },
     );
   }

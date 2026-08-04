@@ -7,13 +7,16 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
-import { requireCpqView, requireCpqEdit, requireCpqDelete } from "@/lib/api-auth-cpq";
+import { requireCpqView, requireCpqEdit, requireQuoteDelete } from "@/lib/api-auth-cpq";
 import { prisma } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { computeChangedFields, createCrmHistoryLog } from "@/lib/crm-history";
 import { syncCrmDealQuoteLink } from "@/lib/crm-sync-quote-deal-link";
 import { requireTenantModule } from '@/lib/require-module';
 import { syncContractItemForQuote } from "@/modules/finance/cashflow/generators/sales-contract-sync";
+import { buildQuoteDeleteImpact } from "@/modules/cpq/quote-delete-impact";
+import { deleteQuoteToTrash } from "@/modules/cpq/quote-trash.service";
+import { ensureBundleNotEmpty } from "@/modules/cpq/bundles/bundle.service";
 
 export async function GET(
   _request: NextRequest,
@@ -260,7 +263,7 @@ export async function PATCH(
 }
 
 export async function DELETE(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
@@ -270,41 +273,61 @@ export async function DELETE(
     const { id } = await params;
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
-    const forbidden = await requireCpqDelete(ctx);
+    const forbidden = await requireQuoteDelete(ctx);
     if (forbidden) return forbidden;
     const tenantId = ctx.tenantId;
 
-    const existing = await prisma.cpqQuote.findFirst({
-      where: { id, tenantId },
-      select: { id: true, code: true, name: true, clientName: true },
-    });
+    const url = new URL(request.url);
+    const force = url.searchParams.get("force") === "true";
+    const reason = url.searchParams.get("reason")?.trim() || null;
 
-    if (!existing) {
+    const impact = await buildQuoteDeleteImpact(tenantId, id);
+    if (!impact) {
       return NextResponse.json(
         { success: false, error: "Quote not found" },
         { status: 404 }
       );
     }
 
-    await prisma.$transaction(async (tx) => {
-      await tx.crmDealQuote.deleteMany({ where: { tenantId, quoteId: id } });
-      await tx.crmEmailThreadLink.deleteMany({
-        where: { tenantId, entityType: "quote", entityId: id },
+    if (impact.blockers.length > 0 && !force) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "La cotización tiene dependencias que impiden eliminarla directamente",
+          blockers: impact.blockers,
+        },
+        { status: 409 }
+      );
+    }
+
+    // deleteQuoteToTrash guarda snapshot restaurable + borra la cotización
+    // (sus membresías de propuesta caen por FK cascade). Luego, si la propuesta
+    // quedó vacía, se elimina.
+    const result = await prisma.$transaction(async (tx) => {
+      const trash = await deleteQuoteToTrash({
+        tx,
+        tenantId,
+        quoteId: id,
+        userId: ctx.userId,
+        reason,
       });
-      await tx.cpqQuote.delete({ where: { id } });
+      let bundleDeleted = false;
+      if (trash.bundleId) {
+        const state = await ensureBundleNotEmpty({
+          tx,
+          tenantId,
+          bundleId: trash.bundleId,
+        });
+        bundleDeleted = state.bundleDeleted;
+      }
+      return { trashId: trash.trashId, bundleDeleted };
     });
-    await createCrmHistoryLog({
-      tenantId: ctx.tenantId,
-      entityType: "quote",
-      entityId: id,
-      action: "quote_deleted",
-      details: {
-        code: existing.code,
-        name: existing.name ?? existing.clientName,
-      },
-      createdBy: ctx.userId,
+
+    return NextResponse.json({
+      success: true,
+      trashId: result.trashId,
+      bundleDeleted: result.bundleDeleted,
     });
-    return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Error deleting CPQ quote:", error);
     return NextResponse.json(
