@@ -9,13 +9,31 @@ vi.mock("../weekly-close.adapter", () => ({ listClosedV3Weeks: vi.fn(async () =>
 vi.mock("@/lib/uf", () => ({ getUfValueForDate: vi.fn(async () => 39_000) }));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
-    financeFlowPlanRecurrence: { findFirst: vi.fn(), update: vi.fn() },
+    financeFlowPlanRecurrence: {
+      findFirst: vi.fn(),
+      findMany: vi.fn(),
+      create: vi.fn(),
+      update: vi.fn(),
+      delete: vi.fn(),
+      deleteMany: vi.fn(),
+    },
+    financeFlowRow: {
+      findFirst: vi.fn(),
+      findMany: vi.fn(),
+      create: vi.fn(),
+    },
+    financeCashflowCategory: { findFirst: vi.fn() },
+    financeCashflowConfig: { findUnique: vi.fn() },
   },
 }));
 
 import { prisma } from "@/lib/prisma";
 import { bulkFill } from "../plan.service";
-import { expandOccurrenceDates, updateRecurrence } from "../recurring-plan.service";
+import {
+  createRecurrence,
+  expandOccurrenceDates,
+  updateRecurrence,
+} from "../recurring-plan.service";
 import { weekStartYmd } from "../weeks";
 
 const asMock = (fn: unknown) => fn as ReturnType<typeof vi.fn>;
@@ -87,5 +105,107 @@ describe("updateRecurrence — no reescribe el pasado", () => {
       const weeks = call[2] as string[];
       for (const w of weeks) expect(w >= currentWeek).toBe(true);
     }
+  });
+});
+
+describe("createRecurrence — Nueva fila con categoría", () => {
+  it("crea fila mapping CATEGORY con categoryId del catálogo", async () => {
+    asMock(prisma.financeFlowRow.findMany).mockResolvedValue([]);
+    asMock(prisma.financeCashflowCategory.findFirst).mockResolvedValue({ id: "cat-1" });
+    asMock(prisma.financeFlowRow.findFirst).mockResolvedValue({ orderIndex: 3 });
+    asMock(prisma.financeFlowRow.create).mockResolvedValue({ id: "row-new" });
+    asMock(prisma.financeFlowPlanRecurrence.create).mockResolvedValue({
+      id: "rec-new",
+      tenantId: "t1",
+      rowId: "row-new",
+      amount: "500000",
+      currency: "CLP",
+      amountUf: null,
+      ufPolicy: null,
+      ufCustomDay: null,
+      frequency: "MONTHLY",
+      dayOfMonth: 5,
+      startDate: new Date("2026-08-01T00:00:00.000Z"),
+      endDate: null,
+      endAfterOccurrences: null,
+    });
+
+    const result = await createRecurrence(
+      "t1",
+      null,
+      {
+        amount: 500_000,
+        frequency: "MONTHLY",
+        dayOfMonth: 5,
+        startDate: "2026-08-01",
+        currency: "CLP",
+        newRow: {
+          section: "GAV",
+          name: "Arriendo oficina",
+          categoryId: "cat-1",
+        },
+      },
+      "u1",
+    );
+
+    expect(asMock(prisma.financeCashflowCategory.findFirst)).toHaveBeenCalledWith({
+      where: { id: "cat-1", tenantId: "t1" },
+      select: { id: true },
+    });
+    expect(asMock(prisma.financeFlowRow.create)).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          tenantId: "t1",
+          section: "GAV",
+          name: "Arriendo oficina",
+          mapping: "CATEGORY",
+          categoryId: "cat-1",
+        }),
+      }),
+    );
+    expect(result.rule.rowId).toBe("row-new");
+  });
+
+  it("sin categoryId crea fila MANUAL", async () => {
+    asMock(prisma.financeFlowRow.findMany).mockResolvedValue([]);
+    asMock(prisma.financeFlowRow.findFirst).mockResolvedValue({ orderIndex: 0 });
+    asMock(prisma.financeFlowRow.create).mockResolvedValue({ id: "row-manual" });
+    asMock(prisma.financeFlowPlanRecurrence.create).mockResolvedValue({
+      id: "rec-m",
+      tenantId: "t1",
+      rowId: "row-manual",
+      amount: "100",
+      currency: "CLP",
+      amountUf: null,
+      ufPolicy: null,
+      ufCustomDay: null,
+      frequency: "MONTHLY",
+      dayOfMonth: 1,
+      startDate: new Date("2026-08-01T00:00:00.000Z"),
+      endDate: null,
+      endAfterOccurrences: null,
+    });
+
+    await createRecurrence(
+      "t1",
+      null,
+      {
+        amount: 100,
+        frequency: "MONTHLY",
+        dayOfMonth: 1,
+        startDate: "2026-08-01",
+        newRow: { section: "OTROS", name: "Misc" },
+      },
+      null,
+    );
+
+    expect(asMock(prisma.financeFlowRow.create)).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          mapping: "MANUAL",
+          categoryId: null,
+        }),
+      }),
+    );
   });
 });

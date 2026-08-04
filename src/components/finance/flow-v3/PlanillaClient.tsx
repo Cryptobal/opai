@@ -64,7 +64,27 @@ export function PlanillaClient({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [appTheme, view.hydrated]);
 
+  // Catálogo de categorías (mismo endpoint que AddRowDialog / RowDialogs).
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/finance/cashflow/categorias?kind=EXPENSE", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((j) => {
+        if (cancelled) return;
+        const list = (j.data ?? []) as Array<{ id: string; code: string; name: string; kind: string }>;
+        setExpenseCategories(list.filter((c) => c.kind === "EXPENSE"));
+      })
+      .catch(() => {
+        if (!cancelled) setExpenseCategories([]);
+      });
+    return () => { cancelled = true; };
+  }, []);
+
   const [addOpen, setAddOpen] = useState(false);
+  /** Catálogo EXPENSE para el diálogo de recurrencia (Nueva fila → Categoría). */
+  const [expenseCategories, setExpenseCategories] = useState<
+    Array<{ id: string; code: string; name: string; kind: string }>
+  >([]);
   const [legendOpen, setLegendOpen] = useState(false);
   const [bankOpen, setBankOpen] = useState(false);
   const [closeOpen, setCloseOpen] = useState(false);
@@ -606,6 +626,7 @@ export function PlanillaClient({
               onDiscreteStats={setDiscreteStats}
               onRefresh={() => void m.refetch()}
               onViewDte={setViewDteId}
+              expenseCategories={expenseCategories}
             />
           </div>
         ) : (

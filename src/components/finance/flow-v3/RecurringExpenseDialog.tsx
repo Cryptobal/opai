@@ -250,21 +250,24 @@ export function RecurringExpenseDialog({
                   placeholder="Ej. Leasing vehículo"
                 />
               </label>
-              {expenseCategories.length > 0 && (
-                <label className="block space-y-1 text-xs text-ds-text-3">
-                  <span>Categoría (opcional)</span>
-                  <select
-                    className={SELECT_CLASS}
-                    value={newRowCategoryId}
-                    onChange={(e) => setNewRowCategoryId(e.target.value)}
-                  >
-                    <option value="">Sin categoría (manual)</option>
-                    {expenseCategories.map((c) => (
-                      <option key={c.id} value={c.id}>{c.name}</option>
-                    ))}
-                  </select>
-                </label>
-              )}
+              <label className="block space-y-1 text-xs text-ds-text-3">
+                <span>Categoría</span>
+                <select
+                  className={SELECT_CLASS}
+                  value={newRowCategoryId}
+                  onChange={(e) => setNewRowCategoryId(e.target.value)}
+                >
+                  <option value="">Sin categoría (manual)</option>
+                  {expenseCategories.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+                {expenseCategories.length === 0 && (
+                  <span className="block text-[12px] text-ds-text-4">
+                    No hay categorías de egreso en el catálogo.
+                  </span>
+                )}
+              </label>
             </div>
           )}
 
