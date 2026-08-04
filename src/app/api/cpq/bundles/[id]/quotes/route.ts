@@ -7,9 +7,12 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorized, ensureCanCreateQuote } from "@/lib/api-auth";
-import { requireCpqEdit } from "@/lib/api-auth-cpq";
+import { requireCpqEdit, requireQuoteDelete } from "@/lib/api-auth-cpq";
 import { requireTenantModule } from "@/lib/require-module";
-import { BundleServiceError } from "@/modules/cpq/bundles/bundle.service";
+import {
+  BundleDeleteBlockedError,
+  BundleServiceError,
+} from "@/modules/cpq/bundles/bundle.service";
 import {
   addInstallationToBundle,
   patchBundleQuotes,
@@ -131,12 +134,22 @@ export async function DELETE(
 
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
-    const forbidden = await requireCpqEdit(ctx);
+
+    const url = new URL(request.url);
+    const deleteQuote = url.searchParams.get("deleteQuote") === "true";
+    const force = url.searchParams.get("force") === "true";
+    const reason = url.searchParams.get("reason")?.trim() || null;
+
+    // Desvincular solo necesita edición; enviar la cotización a papelera exige
+    // permiso de eliminación.
+    const forbidden = deleteQuote
+      ? await requireQuoteDelete(ctx)
+      : await requireCpqEdit(ctx);
     if (forbidden) return forbidden;
 
     const { id: bundleId } = await params;
     const quoteId =
-      new URL(request.url).searchParams.get("quoteId")?.trim() ||
+      url.searchParams.get("quoteId")?.trim() ||
       (await request.json().catch(() => ({})))?.quoteId?.trim();
 
     if (!quoteId) {
@@ -152,9 +165,22 @@ export async function DELETE(
         bundleId,
         quoteId,
         userId: ctx.userId,
+        deleteQuote,
+        force,
+        reason,
       });
       return NextResponse.json({ success: true, data: result });
     } catch (e) {
+      if (e instanceof BundleDeleteBlockedError) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "La cotización tiene dependencias que impiden eliminarla directamente",
+            blockers: e.blockers,
+          },
+          { status: 409 },
+        );
+      }
       if (e instanceof BundleServiceError) {
         return NextResponse.json(
           { success: false, error: e.message },

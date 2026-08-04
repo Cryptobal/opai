@@ -7,7 +7,6 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { randomBytes } from "crypto";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
@@ -18,6 +17,7 @@ import { computeEmployerCost } from "@/modules/payroll/engine/compute-employer-c
 import { buildCpqStyleEmployerCostInput } from "@/lib/cpq/cpq-employer-cost-input";
 import { computeCpqQuoteCosts, refreshQuoteTotals } from "@/modules/cpq/costing/compute-quote-costs";
 import { applyDefaultQuoteIncludes } from "@/lib/cpq/apply-default-quote-includes";
+import { nextDocumentCode } from "@/lib/cpq/document-counter";
 import { requireTenantModule } from '@/lib/require-module';
 
 const CPQ_WEEKDAYS = ["lunes", "martes", "miercoles", "jueves", "viernes", "sabado", "domingo"] as const;
@@ -615,9 +615,7 @@ export async function POST(
       const activeCargoIds = new Set(activeCargos.map((c) => c.id));
       const activeRolIds = new Set(activeRoles.map((r) => r.id));
 
-      // Generar código de cotización
-      const year = new Date().getFullYear();
-      let quoteCodeCounter = await tx.cpqQuote.count({ where: { tenantId: ctx.tenantId } });
+      // Códigos vía contador atómico (nextDocumentCode) dentro de esta tx
       let anyQuoteCreated = false;
       const createdQuotes: { id: string; code: string; installationName: string | null }[] = [];
 
@@ -693,9 +691,7 @@ export async function POST(
             },
             { totalPositions: 0, totalGuards: 0 }
           );
-          quoteCodeCounter++;
-          const baseCode = `CPQ-${year}-${String(quoteCodeCounter).padStart(3, "0")}`;
-          const quoteCode = `${baseCode}-${randomBytes(2).toString("hex")}`;
+          const quoteCode = await nextDocumentCode(tx, ctx.tenantId, "quote");
 
           const instConditions = instCpq?.conditions ?? {};
           const instCurrency = instCpq?.currency || "CLP";
@@ -1196,9 +1192,7 @@ export async function POST(
 
       // ── Cotización fallback: si ninguna instalación tenía dotación, crear cotización básica ──
       if (!anyQuoteCreated) {
-        quoteCodeCounter++;
-        const baseCode = `CPQ-${year}-${String(quoteCodeCounter).padStart(3, "0")}`;
-        const fallbackQuoteCode = `${baseCode}-${randomBytes(2).toString("hex")}`;
+        const fallbackQuoteCode = await nextDocumentCode(tx, ctx.tenantId, "quote");
         // Buscar la primera instalación creada para vincularla (si existe)
         const firstInstallation = await tx.crmInstallation.findFirst({
           where: { tenantId: ctx.tenantId, accountId: account.id },

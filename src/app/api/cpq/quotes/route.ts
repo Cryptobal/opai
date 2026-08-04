@@ -17,6 +17,7 @@ import {
   type QuoteStatusFilter,
   type QuoteListSort,
 } from "@/lib/crm/list-quotes";
+import { nextDocumentCode } from "@/lib/cpq/document-counter";
 
 export async function GET(request: NextRequest) {
   try {
@@ -145,48 +146,27 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Generar código único con retry para evitar race condition
-    const year = new Date().getFullYear();
-    let quote = null;
-    let attempts = 0;
-    const maxAttempts = 10;
-
-    while (!quote && attempts < maxAttempts) {
-      attempts++;
-      const count = await prisma.cpqQuote.count({ where: { tenantId } });
-      const code = `CPQ-${year}-${String(count + attempts).padStart(3, "0")}`;
-
-      try {
-        quote = await prisma.cpqQuote.create({
-          data: {
-            tenantId,
-            code,
-            name,
-            status: "draft",
-            clientName,
-            validUntil,
-            notes,
-            // Standard initial poliza amount for security-service contracts
-            // (token {{quote.insurancePolicyUF}} in CUARTA/SÉPTIMA clauses).
-            // Users can override in Commercial Conditions.
-            insurancePolicyUF: 1500,
-            ...(accountId ? { accountId } : {}),
-            ...(dealId ? { dealId } : {}),
-            ...(installationId ? { installationId } : {}),
-          },
-        });
-      } catch (err: any) {
-        // Si es error de código duplicado, reintentar
-        if (err.code === 'P2002' && attempts < maxAttempts) {
-          continue;
-        }
-        throw err;
-      }
-    }
-
-    if (!quote) {
-      throw new Error('No se pudo generar código único después de múltiples intentos');
-    }
+    const quote = await prisma.$transaction(async (tx) => {
+      const code = await nextDocumentCode(tx, tenantId, "quote");
+      return tx.cpqQuote.create({
+        data: {
+          tenantId,
+          code,
+          name,
+          status: "draft",
+          clientName,
+          validUntil,
+          notes,
+          // Standard initial poliza amount for security-service contracts
+          // (token {{quote.insurancePolicyUF}} in CUARTA/SÉPTIMA clauses).
+          // Users can override in Commercial Conditions.
+          insurancePolicyUF: 1500,
+          ...(accountId ? { accountId } : {}),
+          ...(dealId ? { dealId } : {}),
+          ...(installationId ? { installationId } : {}),
+        },
+      });
+    });
 
     await createCrmHistoryLog({
       tenantId: ctx.tenantId,

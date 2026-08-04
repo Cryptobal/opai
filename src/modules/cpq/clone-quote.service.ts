@@ -4,6 +4,7 @@
 
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { nextDocumentCode } from "@/lib/cpq/document-counter";
 import { createCrmHistoryLog } from "@/lib/crm-history";
 import { syncCrmDealQuoteLink } from "@/lib/crm-sync-quote-deal-link";
 
@@ -49,21 +50,6 @@ export async function cloneCpqQuote(opts: {
     throw new Error("QUOTE_NOT_FOUND");
   }
 
-  const year = new Date().getFullYear();
-  let code = "";
-  for (let attempt = 1; attempt <= 10; attempt++) {
-    const count = await prisma.cpqQuote.count({ where: { tenantId } });
-    const candidate = `CPQ-${year}-${String(count + attempt).padStart(3, "0")}`;
-    const exists = await prisma.cpqQuote.findFirst({ where: { code: candidate } });
-    if (!exists) {
-      code = candidate;
-      break;
-    }
-  }
-  if (!code) {
-    throw new Error("QUOTE_CODE_UNAVAILABLE");
-  }
-
   const clonedName =
     typeof overrideName === "string" && overrideName.trim()
       ? overrideName.trim()
@@ -72,6 +58,7 @@ export async function cloneCpqQuote(opts: {
         : null;
 
   const cloned = await prisma.$transaction(async (tx) => {
+    const code = await nextDocumentCode(tx, tenantId, "quote");
     const newQuote = await tx.cpqQuote.create({
       data: {
         tenantId,

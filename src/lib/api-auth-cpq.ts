@@ -38,3 +38,18 @@ export async function requireCpqDelete(ctx: AuthContext): Promise<NextResponse |
   }
   return null;
 }
+
+/**
+ * Permiso unificado para eliminar cotizaciones: acepta borrado full en CPQ o en
+ * CRM → Cotizaciones (las cotizaciones viven a caballo de ambos módulos).
+ */
+export async function requireQuoteDelete(ctx: AuthContext): Promise<NextResponse | null> {
+  const perms = await resolveApiPerms(ctx);
+  if (!canDelete(perms, "cpq") && !canDelete(perms, "crm", "quotes")) {
+    return NextResponse.json(
+      { error: "Sin permisos para eliminar cotizaciones" },
+      { status: 403 }
+    );
+  }
+  return null;
+}

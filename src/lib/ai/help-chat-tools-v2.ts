@@ -75,6 +75,7 @@ import { toSentenceCase } from "@/lib/text-format";
 import { isUuid } from "@/lib/utils/uuid";
 import { resolveContactIdForCpqQuote } from "@/lib/ai/resolve-quote-contact";
 import { formatWeekdaysShort } from "@/lib/cpq/weekdays";
+import { nextDocumentCode } from "@/lib/cpq/document-counter";
 import type { HelpChatPageContext } from "@/lib/ai/help-chat-page-context";
 import {
   resolveEmailThreadId,
@@ -6067,60 +6068,34 @@ async function toolCreateQuote(
   const notes = typeof args.notes === "string" && args.notes.trim() ? args.notes.trim() : null;
 
   try {
-    const year = new Date().getFullYear();
-    let quote: {
-      id: string;
-      code: string;
-      name: string | null;
-      validUntil: Date | null;
-      status: string;
-      accountId: string | null;
-      contactId: string | null;
-    } | null = null;
-    let attempts = 0;
-    const maxAttempts = 10;
-
-    while (!quote && attempts < maxAttempts) {
-      attempts++;
-      const count = await prisma.cpqQuote.count({ where: { tenantId } });
-      const code = `CPQ-${year}-${String(count + attempts).padStart(3, "0")}`;
-      try {
-        quote = await prisma.cpqQuote.create({
-          data: {
-            tenantId,
-            code,
-            name,
-            status: "draft",
-            clientName,
-            validUntil,
-            notes,
-            insurancePolicyUF: 1500,
-            accountId,
-            contactId,
-            ...(dealId ? { dealId } : {}),
-            ...(installationId ? { installationId } : {}),
-          },
-          select: {
-            id: true,
-            code: true,
-            name: true,
-            validUntil: true,
-            status: true,
-            accountId: true,
-            contactId: true,
-          },
-        });
-      } catch (err: unknown) {
-        const code =
-          err && typeof err === "object" && "code" in err
-            ? (err as { code: string }).code
-            : "";
-        if (code === "P2002" && attempts < maxAttempts) continue;
-        throw err;
-      }
-    }
-
-    if (!quote) throw new Error("No se pudo generar código único");
+    const quote = await prisma.$transaction(async (tx) => {
+      const code = await nextDocumentCode(tx, tenantId, "quote");
+      return tx.cpqQuote.create({
+        data: {
+          tenantId,
+          code,
+          name,
+          status: "draft",
+          clientName,
+          validUntil,
+          notes,
+          insurancePolicyUF: 1500,
+          accountId,
+          contactId,
+          ...(dealId ? { dealId } : {}),
+          ...(installationId ? { installationId } : {}),
+        },
+        select: {
+          id: true,
+          code: true,
+          name: true,
+          validUntil: true,
+          status: true,
+          accountId: true,
+          contactId: true,
+        },
+      });
+    });
 
     try {
       const { applyDefaultQuoteIncludes } = await import("@/lib/cpq/apply-default-quote-includes");

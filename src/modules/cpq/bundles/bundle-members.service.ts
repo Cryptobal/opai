@@ -4,33 +4,23 @@
 
 import { prisma } from "@/lib/prisma";
 import { applyDefaultQuoteIncludes } from "@/lib/cpq/apply-default-quote-includes";
+import { nextDocumentCode } from "@/lib/cpq/document-counter";
 import { createCrmHistoryLog } from "@/lib/crm-history";
 import { syncCrmDealQuoteLink } from "@/lib/crm-sync-quote-deal-link";
 import { cloneCpqQuote } from "@/modules/cpq/clone-quote.service";
+import { deleteQuoteToTrash } from "@/modules/cpq/quote-trash.service";
+import {
+  buildQuoteDeleteImpact,
+  type QuoteDeleteBlocker,
+} from "@/modules/cpq/quote-delete-impact";
 import {
   assertBundleOwned,
+  BundleDeleteBlockedError,
   BundleServiceError,
+  ensureBundleNotEmpty,
 } from "./bundle.service";
 import { SYNCABLE_CONDITION_FIELDS } from "./bundle-totals";
 import { propagateBundleConditions } from "./propagate-bundle-conditions";
-
-async function generateQuoteCode(tenantId: string): Promise<string> {
-  const year = new Date().getFullYear();
-  for (let attempt = 1; attempt <= 10; attempt++) {
-    const count = await prisma.cpqQuote.count({ where: { tenantId } });
-    const code = `CPQ-${year}-${String(count + attempt).padStart(3, "0")}`;
-    const exists = await prisma.cpqQuote.findFirst({
-      where: { code },
-      select: { id: true },
-    });
-    if (!exists) return code;
-  }
-  throw new BundleServiceError(
-    "No se pudo generar código único CPQ-",
-    "CONFLICT",
-    409,
-  );
-}
 
 export async function linkQuoteToBundle(opts: {
   tenantId: string;
@@ -270,22 +260,24 @@ export async function addInstallationToBundle(opts: {
   }
 
   // ── Cotización vacía nueva ──
-  const code = await generateQuoteCode(opts.tenantId);
-  const quote = await prisma.cpqQuote.create({
-    data: {
-      tenantId: opts.tenantId,
-      code,
-      name:
-        opts.quoteName?.trim() ||
-        `Cotización — ${installation.name}`,
-      status: "draft",
-      currency: bundle.currency,
-      accountId: bundle.accountId,
-      contactId: bundle.contactId,
-      dealId: bundle.dealId,
-      installationId: installation.id,
-      insurancePolicyUF: 1500,
-    },
+  const quote = await prisma.$transaction(async (tx) => {
+    const code = await nextDocumentCode(tx, opts.tenantId, "quote");
+    return tx.cpqQuote.create({
+      data: {
+        tenantId: opts.tenantId,
+        code,
+        name:
+          opts.quoteName?.trim() ||
+          `Cotización — ${installation.name}`,
+        status: "draft",
+        currency: bundle.currency,
+        accountId: bundle.accountId,
+        contactId: bundle.contactId,
+        dealId: bundle.dealId,
+        installationId: installation.id,
+        insurancePolicyUF: 1500,
+      },
+    });
   });
 
   try {
@@ -392,7 +384,12 @@ export async function removeQuoteFromBundle(opts: {
   bundleId: string;
   quoteId: string;
   userId?: string | null;
-}) {
+  /** Además de desvincular, envía la cotización a la papelera. */
+  deleteQuote?: boolean;
+  /** Ignora los bloqueos de eliminación de la cotización. */
+  force?: boolean;
+  reason?: string | null;
+}): Promise<{ ok: true; bundleDeleted: boolean; trashId?: string }> {
   await assertBundleOwned(opts.tenantId, opts.bundleId);
   const member = await prisma.cpqProposalBundleQuote.findFirst({
     where: {
@@ -408,16 +405,48 @@ export async function removeQuoteFromBundle(opts: {
       404,
     );
   }
-  await prisma.cpqProposalBundleQuote.delete({ where: { id: member.id } });
-  await createCrmHistoryLog({
-    tenantId: opts.tenantId,
-    entityType: "bundle",
-    entityId: opts.bundleId,
-    action: "bundle_installation_removed",
-    details: { quoteId: opts.quoteId },
-    createdBy: opts.userId ?? null,
+
+  if (opts.deleteQuote && !opts.force) {
+    const impact = await buildQuoteDeleteImpact(opts.tenantId, opts.quoteId);
+    const blockers: QuoteDeleteBlocker[] = impact?.blockers ?? [];
+    if (blockers.length > 0) throw new BundleDeleteBlockedError(blockers);
+  }
+
+  const result = await prisma.$transaction(async (tx) => {
+    let trashId: string | undefined;
+    if (opts.deleteQuote) {
+      // deleteQuoteToTrash borra la cotización; su membresía cae por FK cascade.
+      const trash = await deleteQuoteToTrash({
+        tx,
+        tenantId: opts.tenantId,
+        quoteId: opts.quoteId,
+        userId: opts.userId ?? null,
+        reason: opts.reason ?? null,
+      });
+      trashId = trash.trashId;
+    } else {
+      await tx.cpqProposalBundleQuote.delete({ where: { id: member.id } });
+    }
+    await createCrmHistoryLog(
+      {
+        tenantId: opts.tenantId,
+        entityType: "bundle",
+        entityId: opts.bundleId,
+        action: "bundle_installation_removed",
+        details: { quoteId: opts.quoteId, deleted: Boolean(opts.deleteQuote), trashId: trashId ?? null },
+        createdBy: opts.userId ?? null,
+      },
+      tx as unknown as Parameters<typeof createCrmHistoryLog>[1],
+    );
+    const bundleState = await ensureBundleNotEmpty({
+      tx,
+      tenantId: opts.tenantId,
+      bundleId: opts.bundleId,
+    });
+    return { bundleDeleted: bundleState.bundleDeleted, trashId };
   });
-  return { ok: true };
+
+  return { ok: true, bundleDeleted: result.bundleDeleted, trashId: result.trashId };
 }
 
 export async function patchBundleQuotes(opts: {

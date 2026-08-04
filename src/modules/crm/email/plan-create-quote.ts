@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { createCrmHistoryLog } from "@/lib/crm-history";
 import { applyDefaultQuoteIncludes } from "@/lib/cpq/apply-default-quote-includes";
+import { nextDocumentCode } from "@/lib/cpq/document-counter";
 import { materializeCoverageSlotsOnQuote } from "@/lib/crm/coverage-slots-to-quote-positions";
 import type { CrmStructureProposal, PlanQuoteInput } from "./email-to-crm-structure.types";
 
@@ -95,47 +96,32 @@ export async function createPlanQuote(params: {
     params.onlyInstallationIndex,
   );
 
-  const year = new Date().getFullYear();
-  let quote: { id: string; code: string } | null = null;
-  let attempts = 0;
-  while (!quote && attempts < 10) {
-    attempts++;
-    const count = await prisma.cpqQuote.count({ where: { tenantId } });
-    const code = `CPQ-${year}-${String(count + attempts).padStart(3, "0")}`;
-    try {
-      quote = await prisma.cpqQuote.create({
-        data: {
-          tenantId,
-          code,
-          name,
-          status: "draft",
-          clientName: params.proposal.account.name,
-          validUntil,
-          insurancePolicyUF: 1500,
-          accountId,
-          ...(dealId ? { dealId } : {}),
-          ...(params.contactId ? { contactId: params.contactId } : {}),
-          ...(params.installationId ? { installationId: params.installationId } : {}),
-          contractDuration,
-          isOngoingService: input?.isOngoingService ?? true,
-          currency,
-          serviceDetail,
-          ...(input?.proposalTemplateId
-            ? { proposalTemplateId: input.proposalTemplateId }
-            : {}),
-        },
-        select: { id: true, code: true },
-      });
-    } catch (err: unknown) {
-      const code =
-        err && typeof err === "object" && "code" in err
-          ? (err as { code: string }).code
-          : "";
-      if (code === "P2002" && attempts < 10) continue;
-      throw err;
-    }
-  }
-  if (!quote) throw new Error("No se pudo generar código único de cotización");
+  const quote = await prisma.$transaction(async (tx) => {
+    const code = await nextDocumentCode(tx, tenantId, "quote");
+    return tx.cpqQuote.create({
+      data: {
+        tenantId,
+        code,
+        name,
+        status: "draft",
+        clientName: params.proposal.account.name,
+        validUntil,
+        insurancePolicyUF: 1500,
+        accountId,
+        ...(dealId ? { dealId } : {}),
+        ...(params.contactId ? { contactId: params.contactId } : {}),
+        ...(params.installationId ? { installationId: params.installationId } : {}),
+        contractDuration,
+        isOngoingService: input?.isOngoingService ?? true,
+        currency,
+        serviceDetail,
+        ...(input?.proposalTemplateId
+          ? { proposalTemplateId: input.proposalTemplateId }
+          : {}),
+      },
+      select: { id: true, code: true },
+    });
+  });
 
   await createCrmHistoryLog({
     tenantId,
