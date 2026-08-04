@@ -5,7 +5,10 @@ import { Download, File as FileIcon, RefreshCw, Share2 } from "lucide-react";
 import { MediaZoom } from "./MediaZoom";
 import { PdfCanvas } from "./PdfCanvas";
 import {
-  isSpreadsheetAttachment,
+  classifyAttachment,
+  type AttachmentPreviewKind,
+} from "./attachment-preview-kind";
+import {
   parseXlsxPreview,
   XLSX_PREVIEW_MAX_BYTES,
   type XlsxPreview,
@@ -29,34 +32,7 @@ function cacheBlob(url: string, blob: Blob) {
   }
 }
 
-type Kind = "pdf" | "image" | "text" | "docx" | "xlsx" | "other";
-
-/** Clasifica el adjunto por MIME/extensión. HTML/XML/SVG nunca se renderizan
- *  inline (riesgo XSS: el endpoint ya los fuerza a descarga). */
-function classify(mimeType: string, filename: string): Kind {
-  const mt = (mimeType || "").toLowerCase();
-  const ext = filename.toLowerCase().split(".").pop() ?? "";
-  // Excel ANTES del bloque XSS: el MIME spreadsheetml contiene "xml".
-  if (isSpreadsheetAttachment(mimeType, filename)) return "xlsx";
-  if (mt.includes("html") || mt.includes("xml") || mt.includes("svg") || ["html", "htm", "xml", "svg"].includes(ext)) {
-    return "other";
-  }
-  if (mt.includes("pdf") || ext === "pdf") return "pdf";
-  if (mt.startsWith("image/")) return "image";
-  if (
-    mt.includes("wordprocessingml") ||
-    mt === "application/msword" ||
-    ext === "docx"
-  ) {
-    // .doc (binario legacy) no lo convierte mammoth; solo docx/OOXML.
-    if (ext === "doc" && !mt.includes("wordprocessingml")) return "other";
-    return "docx";
-  }
-  if (mt.startsWith("text/") || mt === "application/json" || ["txt", "csv", "md", "log", "json"].includes(ext)) {
-    return "text";
-  }
-  return "other";
-}
+type Kind = AttachmentPreviewKind;
 
 function fmtSize(bytes: number): string {
   if (!bytes || bytes <= 0) return "";
@@ -111,12 +87,17 @@ async function blobToState(blob: Blob, kind: Kind): Promise<State> {
   }
   if (kind === "docx") {
     if (blob.size > DOCX_MAX) return { phase: "other" };
-    const mammoth = await import("mammoth");
-    const arrayBuffer = await blob.arrayBuffer();
-    const result = await mammoth.convertToHtml({ arrayBuffer });
-    const DOMPurify = (await import("isomorphic-dompurify")).default;
-    const html = DOMPurify.sanitize(result.value || "<p>(Documento vacío)</p>");
-    return { phase: "docx", html };
+    try {
+      const mammoth = await import("mammoth");
+      const arrayBuffer = await blob.arrayBuffer();
+      const result = await mammoth.convertToHtml({ arrayBuffer });
+      const DOMPurify = (await import("isomorphic-dompurify")).default;
+      const html = DOMPurify.sanitize(result.value || "<p>(Documento vacío)</p>");
+      return { phase: "docx", html };
+    } catch {
+      // DOCX corruptos / no estándar: tarjeta de descarga, no pantalla en blanco.
+      return { phase: "other" };
+    }
   }
   if (kind === "xlsx") {
     if (blob.size > XLSX_PREVIEW_MAX_BYTES) return { phase: "other" };
@@ -158,7 +139,7 @@ export function AttachmentPreview({
   const [attempt, setAttempt] = useState(0);
   const [sharing, setSharing] = useState(false);
   const [sheetIdx, setSheetIdx] = useState(0);
-  const kind = classify(mimeType, filename);
+  const kind = classifyAttachment(mimeType, filename);
 
   useEffect(() => {
     setSheetIdx(0);
