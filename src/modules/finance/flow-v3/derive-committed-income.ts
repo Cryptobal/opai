@@ -133,6 +133,7 @@ export function deriveCommittedIncome(args: CommittedIncomeArgs): CommittedByRow
     // Cartera zombie: vencimiento contractual (dueDate o emisión+lag), no la
     // celda de visibilidad — una factura recién emitida no es "vencida".
     const dueYmd = d.dueDateYmd ?? addDaysYmd(d.dateYmd, d.templateDiasCobro ?? lagDays);
+    const overdueDays = Math.max(0, daysBetween(dueYmd, args.todayYmd));
     pushCommitted(out, matchRow(d.crmAccountId, d.installationId, d.recurringTemplateId), week, {
       kind: "dte",
       dteId: d.id,
@@ -140,7 +141,8 @@ export function deriveCommittedIncome(args: CommittedIncomeArgs): CommittedByRow
       label: d.receiverName,
       fecha,
       monto: Math.round(d.pendingClp),
-      overdueOver60: daysBetween(dueYmd, args.todayYmd) > 60,
+      overdueDays,
+      overdueOver60: overdueDays > 60,
     });
   }
 

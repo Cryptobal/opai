@@ -8,7 +8,9 @@ import {
   COMMITTED_PROFORMA_CELL, COMMITTED_SCHEDULED_CELL, CORNER_DTE, CORNER_PLAN,
   CORNER_REAL, CORNER_WARN, displayValue, REAL_CELL, ROW_H, TODAY_COL,
 } from "./grid-classes";
-import { committedPriority, cornerKind, primaryCellTag, toneClass } from "./cell-meta";
+import {
+  committedPriority, cornerKind, dteCountInCell, primaryCellTag, toneClass,
+} from "./cell-meta";
 import type { CellStyle } from "./usePlanillaViewPrefs";
 import { InlineCellEditor } from "./InlineCellEditor";
 import { useLongPress } from "./useLongPress";
@@ -93,6 +95,7 @@ export function PlanillaCell(p: Props) {
         : COMMITTED_SCHEDULED_CELL;
 
   const tag = primaryCellTag(cell);
+  const multiDteN = dteCountInCell(cell);
   const corner = showChips ? null : cornerKind(cell);
   const cornerClass =
     corner === "real"
@@ -227,6 +230,14 @@ export function PlanillaCell(p: Props) {
           {formatted}
           {p.caption && formatted && (
             <span className="ml-0.5 text-[12px] text-ds-text-4">{p.caption}</span>
+          )}
+          {!showChips && multiDteN >= 2 && (
+            <span
+              className="ml-0.5 text-[12px] font-medium text-status-info-fg"
+              title={tag?.title}
+            >
+              ×{multiDteN}
+            </span>
           )}
         </>
       )}

@@ -34,8 +34,9 @@ export function normalizeNameForDedupe(s: string): string {
 /**
  * ¿La fila debe incluirse en la matriz de la ventana?
  *
- * (a) mapping MANUAL / CATEGORY / SUPPLIER, o canónica fallback
- *     (egresos operativos y filas de socios siempre visibles)
+ * (a) mapping MANUAL / CATEGORY / SUPPLIER (filas de socios y egresos
+ *     operativos siempre visibles). Las canónicas fallback
+ *     ("Otros ingresos" / "Otros egresos") NO entran aquí: solo por (b).
  * (b) alguna celda ≠ 0 (plan, committed o real) en la ventana
  * (c) template vinculado activo (isActive y endDate nulo o ≥ inicio de ventana)
  *
@@ -59,11 +60,15 @@ export function shouldIncludeFlowRow(opts: {
     return opts.hasDataBeforeCutoff;
   }
 
+  // v4.3: fallback canónico solo por datos (b). Sin exención (a).
+  if (row.isCanonicalFallback) {
+    return opts.hasDataInWindow;
+  }
+
   if (
     row.mapping === "MANUAL" ||
     row.mapping === "CATEGORY" ||
-    row.mapping === "SUPPLIER" ||
-    row.isCanonicalFallback
+    row.mapping === "SUPPLIER"
   ) {
     return true;
   }

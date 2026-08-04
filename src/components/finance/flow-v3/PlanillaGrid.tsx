@@ -29,7 +29,8 @@ import {
 } from "./range-sel";
 import { MenuItems } from "./menu-render";
 import {
-  buildCellMenu, buildRowMenu, extractRowTemplates, type RowTemplate,
+  buildCellMenu, buildCellSheetModel, buildRowMenu, extractRowTemplates,
+  type FolioSheetGroup, type RowTemplate,
 } from "./menu-builders";
 import {
   ChangeCategoryDialog, ChangeSectionDialog, DeferTermDialog, DiasCobroDialog,
@@ -41,6 +42,10 @@ import { UnmatchedIncomeList } from "./UnmatchedIncomeList";
 import type { HistoryEntry } from "./usePlanillaHistory";
 import type { usePlanillaActions } from "./usePlanillaActions";
 import type { CellStyle } from "./usePlanillaViewPrefs";
+import {
+  countAssignPendingInWindow,
+  isFallbackBandejaRow,
+} from "@/modules/finance/flow-v3/unmatched-count";
 
 interface PlanMutators {
   patchPlan: (rowId: string, weekStart: string, amount: number, opts?: { skipHistory?: boolean }) => Promise<void>;
@@ -150,6 +155,33 @@ export function PlanillaGrid({
 
   const rowById = useMemo(() => new Map(data.rows.map((r) => [r.id, r])), [data.rows]);
   const closedSet = useMemo(() => new Set(data.closedWeeks), [data.closedWeeks]);
+  const unmatchedIncomeN = useMemo(
+    () => countAssignPendingInWindow(data.rows, "INGRESOS"),
+    [data.rows],
+  );
+  const unmatchedExpenseN = useMemo(
+    () => countAssignPendingInWindow(data.rows, "GAV"),
+    [data.rows],
+  );
+
+  /** Abre el sheet de la primera celda bandeja con DTEs (asignador). */
+  const openUnmatchedAssigner = useCallback(
+    (section: string) => {
+      for (const row of data.rows) {
+        if (!isFallbackBandejaRow(row) || row.section !== section) continue;
+        for (let colIdx = 0; colIdx < row.cells.length; colIdx++) {
+          const cell = row.cells[colIdx]!;
+          const n = (cell.committed?.items ?? []).filter((i) => i.kind === "dte").length;
+          if (n > 0) {
+            setSheetTarget({ kind: "cell", sel: { rowId: row.id, colIdx } });
+            setLinkFocusDteId(null);
+            return;
+          }
+        }
+      }
+    },
+    [data.rows],
+  );
 
   const normSearch = useMemo(() => {
     const q = (searchQuery ?? "").trim();
@@ -533,6 +565,12 @@ export function PlanillaGrid({
         setLinkFocusDteId(dteId);
         setSheetTarget({ kind: "cell", sel });
       },
+      onExcludeDte: (dteId: string) => {
+        void actions.excludeDte(dteId, "Excluida desde la planilla");
+      },
+      // B0: no hay diálogo de pago reutilizable en planilla → deep-link al DTE.
+      onRegisterPayment: (dteId: string) =>
+        router.push(`/finanzas/facturacion/dtes?dte=${dteId}`),
     }),
     [actions, kb, matrix, openPopover, requestFillRight, router, rowById],
   );
@@ -583,7 +621,7 @@ export function PlanillaGrid({
       return buildCellMenu(
         row,
         cell,
-        { editable, reason, openWeeks, dteMoveWeeks, canManage },
+        { editable, reason, openWeeks, dteMoveWeeks, canManage, rowName: row.name },
         cellCallbacksFor(target.sel, col.key),
       );
     },
@@ -591,7 +629,6 @@ export function PlanillaGrid({
   );
 
   const ctxItems = useMemo(() => menuItemsFor(ctxTarget), [menuItemsFor, ctxTarget]);
-  const sheetItems = useMemo(() => menuItemsFor(sheetTarget) ?? [], [menuItemsFor, sheetTarget]);
   const sheetRow = sheetTarget?.kind === "row"
     ? rowById.get(sheetTarget.rowId) ?? null
     : sheetTarget?.kind === "cell"
@@ -603,6 +640,59 @@ export function PlanillaGrid({
   const sheetWeekLabel = sheetTarget?.kind === "cell"
     ? data.columns[sheetTarget.sel.colIdx]?.label
     : undefined;
+
+  const sheetModel = useMemo(() => {
+    if (!sheetTarget) return { items: [] as ReturnType<typeof buildCellMenu>, folioGroups: [] as FolioSheetGroup[] };
+    if (sheetTarget.kind === "row") {
+      return { items: menuItemsFor(sheetTarget) ?? [], folioGroups: [] as FolioSheetGroup[] };
+    }
+    const row = sheetRow;
+    const cell = sheetCell;
+    const col = data.columns[sheetTarget.sel.colIdx];
+    if (!row || !cell || !col) {
+      return { items: [], folioGroups: [] as FolioSheetGroup[] };
+    }
+    const editable = canEditCell(row.id, sheetTarget.sel.colIdx);
+    const reason = !canManage
+      ? "Sin permiso de edición"
+      : data.granularity !== "week"
+        ? "Cambia a vista semanal"
+        : row.isVirtual
+          ? "Fila calculada"
+          : row.isArchived
+            ? "Fila archivada"
+            : col.isPast
+              ? "Semana pasada (solo real)"
+              : closedSet.has(col.key)
+                ? "Semana cerrada"
+                : hasInvoicedIncome(row.section, cell.committed)
+                  ? "Ingreso facturado (la factura manda)"
+                  : "";
+    const openWeeks = data.columns.filter(
+      (_, i) => i !== sheetTarget.sel.colIdx && canEditCell(row.id, i),
+    );
+    const dteMoveWeeks = data.columns.filter(
+      (c, i) =>
+        i !== sheetTarget.sel.colIdx &&
+        data.granularity === "week" &&
+        !c.isPast &&
+        !closedSet.has(c.key) &&
+        !row.isArchived &&
+        !row.isVirtual,
+    );
+    const model = buildCellSheetModel(
+      row,
+      cell,
+      { editable, reason, openWeeks, dteMoveWeeks, canManage, rowName: row.name },
+      cellCallbacksFor(sheetTarget.sel, col.key),
+    );
+    return { items: model.commonItems, folioGroups: model.folioGroups };
+  }, [
+    sheetTarget, sheetRow, sheetCell, data.columns, data.granularity,
+    canEditCell, canManage, closedSet, cellCallbacksFor, menuItemsFor,
+  ]);
+  const sheetItems = sheetModel.items;
+  const sheetFolioGroups = sheetModel.folioGroups;
 
   const anchoredRef = useRef(false);
   useEffect(() => {
@@ -711,6 +801,48 @@ export function PlanillaGrid({
                           <span className="shrink-0 text-ds-text-4">
                             <span className="md:hidden">{section.rows.length}/{section.total}</span>
                             <span className="max-md:hidden">({section.rows.length}/{section.total})</span>
+                          </span>
+                        )}
+                        {section.key === "INGRESOS" && unmatchedIncomeN > 0 && (
+                          <span
+                            role="button"
+                            tabIndex={0}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openUnmatchedAssigner("INGRESOS");
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" || e.key === " ") {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                openUnmatchedAssigner("INGRESOS");
+                              }
+                            }}
+                            className="ml-1 shrink-0 rounded-full bg-status-warn-soft px-1.5 py-0.5 text-[12px] font-medium text-status-warn-fg hover:underline"
+                            title="Abrir asignador de Otros ingresos"
+                          >
+                            ⚠ {unmatchedIncomeN} por asignar
+                          </span>
+                        )}
+                        {section.key === "GAV" && unmatchedExpenseN > 0 && (
+                          <span
+                            role="button"
+                            tabIndex={0}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openUnmatchedAssigner("GAV");
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" || e.key === " ") {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                openUnmatchedAssigner("GAV");
+                              }
+                            }}
+                            className="ml-1 shrink-0 rounded-full bg-status-warn-soft px-1.5 py-0.5 text-[12px] font-medium text-status-warn-fg hover:underline"
+                            title="Abrir asignador de Otros egresos"
+                          >
+                            ⚠ {unmatchedExpenseN} por asignar
                           </span>
                         )}
                       </button>
@@ -934,6 +1066,7 @@ export function PlanillaGrid({
         cell={sheetCell}
         weekLabel={sheetWeekLabel}
         items={sheetItems}
+        folioGroups={sheetFolioGroups}
       >
         {sheetRow &&
           (sheetRow.isVirtual || sheetRow.name === "Otros ingresos" || sheetRow.name === "Otros clientes") &&

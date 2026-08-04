@@ -27,6 +27,8 @@ export interface CommittedItem {
   diasCobro?: number | null;
   /** true si la fecha de cobro venció hace más de 60 días (cartera zombie). */
   overdueOver60?: boolean;
+  /** Días de atraso contractual (0 = al día). Solo kind=dte. */
+  overdueDays?: number;
 }
 
 /** DTE excluido del flujo (solo capa planilla; ledger intacto). */

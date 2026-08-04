@@ -8,6 +8,7 @@ import { fmtCell, fmtShortDate } from "./format";
 import { displayValue } from "./grid-classes";
 import { primaryCellTag } from "./cell-meta";
 import { MenuItems, type MenuItemDesc } from "./menu-render";
+import type { FolioSheetGroup } from "./menu-builders";
 
 interface Props {
   open: boolean;
@@ -16,6 +17,8 @@ interface Props {
   cell: FlowMatrixCellDto | null;
   weekLabel?: string;
   items: MenuItemDesc[];
+  /** Grupos por folio (v4.3). Si hay, se renderizan antes de `items`. */
+  folioGroups?: FolioSheetGroup[];
   /** Contenido extra bajo el cell-card (ej. lista DTEs de Otros ingresos). */
   children?: React.ReactNode;
 }
@@ -27,15 +30,16 @@ const BORDER_BY_LAYER: Record<string, string> = {
   empty: "border-l-ds-border-default",
 };
 
-/** Bottom-sheet móvil: cell-card + MenuItems (misma lógica que context menu). */
+/** Bottom-sheet móvil: cell-card + grupos por folio + MenuItems. */
 export function CellActionSheet({
-  open, onOpenChange, row, cell, weekLabel, items, children,
+  open, onOpenChange, row, cell, weekLabel, items, folioGroups, children,
 }: Props) {
   const value = row && cell
     ? displayValue(row.section, cell.layer, cell.effective)
     : 0;
   const tag = cell ? primaryCellTag(cell) : null;
   const border = BORDER_BY_LAYER[cell?.layer ?? "empty"] ?? BORDER_BY_LAYER.empty;
+  const groups = folioGroups ?? [];
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -70,6 +74,39 @@ export function CellActionSheet({
           )}
         </SheetHeader>
         {children}
+        {groups.length > 0 && (
+          <div className="border-t border-ds-border-subtle">
+            {groups.map((g) => (
+              <div key={g.key} className="border-b border-ds-border-subtle last:border-b-0">
+                <div className="bg-ds-surface-2 px-5 py-3">
+                  <div className="flex items-baseline justify-between gap-2">
+                    <span className="text-[14px] font-medium text-ds-text-1">
+                      {g.header.folioLabel}
+                    </span>
+                    <span className="text-[13px] tabular-nums text-ds-text-2">
+                      {fmtCell(g.header.pendingClp, "clp")}
+                    </span>
+                  </div>
+                  <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[12px] text-ds-text-3">
+                    {g.header.receiver && <span>{g.header.receiver}</span>}
+                    <span>{g.header.status}</span>
+                    {g.header.overdueDays != null && g.header.overdueDays > 0 && (
+                      <span className="text-status-warn-fg">
+                        vencida hace {g.header.overdueDays} día
+                        {g.header.overdueDays === 1 ? "" : "s"}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <MenuItems
+                  items={g.items}
+                  variant="sheet"
+                  onSheetClose={() => onOpenChange(false)}
+                />
+              </div>
+            ))}
+          </div>
+        )}
         <div className="border-t border-ds-border-subtle">
           <MenuItems
             items={items}

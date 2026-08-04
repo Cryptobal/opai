@@ -67,6 +67,10 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error("[Finance/Billing/Drafts] Create error:", error);
     const message = error instanceof Error ? error.message : "Error al crear borrador";
-    return NextResponse.json({ success: false, error: message }, { status: 500 });
+    const status =
+      error instanceof Error && error.name === "TemplateLinkRequiredError"
+        ? 400
+        : 500;
+    return NextResponse.json({ success: false, error: message }, { status });
   }
 }
