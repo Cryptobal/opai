@@ -363,7 +363,7 @@ describe("assembleMatrix — saldo acumulado", () => {
 });
 
 describe("reduceMonthly", () => {
-  it("agrupa por mes del lunes, suma flujos y toma el último saldo", () => {
+  it("agrupa por mes del lunes, suma flujos y encadena saldo desde ancla", () => {
     const rows = [row({})];
     const m = assembleMatrix({
       rows, weeks: WEEKS, currentWeek: CURRENT, openingBalance: 100,
@@ -377,5 +377,222 @@ describe("reduceMonthly", () => {
     expect(r.flows).toEqual([50, 70]);
     expect(r.balances).toEqual([150, 220]);
     expect(r.rows[0].cells[0].plan).toBe(50);
+  });
+
+  /**
+   * v5.2 — caso Ametel (frontera mayo→junio):
+   * Factura con fecha 02/06 en semana del lunes 31/05.
+   * Pre-v5.2 (mes del lunes): ambas caían en MAY (×2) y JUN vacío.
+   * Post-v5.2 (mes de `fecha`): MAY 1× y JUN 1×.
+   */
+  it("v5.2 atribuye ítem frontera por fecha (caso Ametel MAY/JUN)", () => {
+    // 2027-05-31 = lunes; la semana incluye 01–06 jun.
+    const frontierWeeks = [
+      "2027-05-03", "2027-05-10", "2027-05-17", "2027-05-24", "2027-05-31",
+      "2027-06-07", "2027-06-14",
+    ];
+    const current = "2027-05-03"; // todo futuro → committed cuenta
+    const amount = 5_200_767;
+    const committed: CommittedByRow = new Map([
+      [
+        "r1",
+        new Map([
+          [
+            "2027-05-10",
+            {
+              total: amount,
+              items: [{
+                kind: "scheduled" as const,
+                templateId: "tpl-ametel",
+                label: "Ametel Los Poetas",
+                fecha: "2027-05-05",
+                monto: amount,
+                issueYmd: "2027-05-05",
+              }],
+            },
+          ],
+          [
+            "2027-05-31", // semana frontera (lunes MAY)
+            {
+              total: amount,
+              items: [{
+                kind: "scheduled" as const,
+                templateId: "tpl-ametel",
+                label: "Ametel Los Poetas",
+                fecha: "2027-06-02", // emisión JUN
+                monto: amount,
+                issueYmd: "2027-06-02",
+              }],
+            },
+          ],
+        ]),
+      ],
+    ]);
+    const m = assembleMatrix({
+      rows: [row({ name: "Ametel Los Poetas" })],
+      weeks: frontierWeeks,
+      currentWeek: current,
+      openingBalance: 10_000_000,
+      plan: new Map(),
+      committed,
+      real: new Map(),
+    });
+    const r = reduceMonthly(frontierWeeks, current, m);
+    expect(r.columns.map((c) => c.key)).toEqual(["2027-05", "2027-06"]);
+    const may = r.rows[0]!.cells[0]!;
+    const jun = r.rows[0]!.cells[1]!;
+    expect(may.committed?.total).toBe(amount);
+    expect(jun.committed?.total).toBe(amount);
+    expect(may.effective).toBe(amount);
+    expect(jun.effective).toBe(amount);
+    // Σ anual de la fila idéntica a la vista semanal.
+    const weekSum = m.flows.reduce((s, f) => s + f, 0);
+    const monthSum = r.flows.reduce((s, f) => s + f, 0);
+    expect(monthSum).toBe(weekSum);
+    expect(monthSum).toBe(amount * 2);
+  });
+
+  it("v5.2 semana frontera: ítem entrante y saliente en la misma fila", () => {
+    const weeks = ["2027-05-24", "2027-05-31", "2027-06-07"];
+    const current = "2027-05-24";
+    const committed: CommittedByRow = new Map([
+      [
+        "r1",
+        new Map([
+          [
+            "2027-05-31",
+            {
+              total: 300,
+              items: [
+                {
+                  kind: "draft" as const,
+                  label: "sale a jun",
+                  fecha: "2027-06-01",
+                  monto: 100,
+                  issueYmd: "2027-06-01",
+                },
+                {
+                  kind: "draft" as const,
+                  label: "queda en may",
+                  fecha: "2027-05-31",
+                  monto: 200,
+                  issueYmd: "2027-05-31",
+                },
+              ],
+            },
+          ],
+        ]),
+      ],
+    ]);
+    const m = assembleMatrix({
+      rows: [row({})],
+      weeks,
+      currentWeek: current,
+      openingBalance: 0,
+      plan: new Map(),
+      committed,
+      real: new Map(),
+    });
+    const r = reduceMonthly(weeks, current, m);
+    expect(r.rows[0]!.cells[0]!.committed?.total).toBe(200); // MAY
+    expect(r.rows[0]!.cells[1]!.committed?.total).toBe(100); // JUN
+  });
+
+  it("v5.2 mes sin ítems propios queda vacío (no hereda frontera)", () => {
+    const weeks = ["2027-05-31", "2027-06-07", "2027-06-14"];
+    const current = "2027-05-31";
+    const committed: CommittedByRow = new Map([
+      [
+        "r1",
+        new Map([
+          [
+            "2027-05-31",
+            {
+              total: 1_000,
+              items: [{
+                kind: "scheduled" as const,
+                label: "solo junio",
+                fecha: "2027-06-03",
+                monto: 1_000,
+                issueYmd: "2027-06-03",
+              }],
+            },
+          ],
+        ]),
+      ],
+    ]);
+    const m = assembleMatrix({
+      rows: [row({})],
+      weeks,
+      currentWeek: current,
+      openingBalance: 0,
+      plan: new Map(),
+      committed,
+      real: new Map(),
+    });
+    const r = reduceMonthly(weeks, current, m);
+    expect(r.rows[0]!.cells[0]!.layer).toBe("empty"); // MAY vacío
+    expect(r.rows[0]!.cells[0]!.effective).toBe(0);
+    expect(r.rows[0]!.cells[1]!.committed?.total).toBe(1_000); // JUN
+  });
+
+  it("v5.2 plan sigue por mes del lunes; real por fecha del movimiento", () => {
+    const weeks = ["2027-05-31", "2027-06-07"];
+    const current = "2027-06-07";
+    const real: RealByRow = new Map([
+      [
+        "r1",
+        new Map([
+          [
+            "2027-05-31",
+            {
+              total: 500,
+              items: [{
+                bankTransactionId: "tx1",
+                label: "cobro jun",
+                fecha: "2027-06-02",
+                monto: 500,
+              }],
+            },
+          ],
+        ]),
+      ],
+    ]);
+    const m = assembleMatrix({
+      rows: [row({})],
+      weeks,
+      currentWeek: current,
+      openingBalance: 1_000,
+      plan: new Map([["r1", new Map([["2027-05-31", 200]])]]),
+      committed: new Map(),
+      real,
+    });
+    const r = reduceMonthly(weeks, current, m);
+    // Plan de la semana 31/05 → MAY; real con fecha 02/06 → JUN
+    expect(r.rows[0]!.cells[0]!.plan).toBe(200);
+    expect(r.rows[0]!.cells[0]!.real).toBeNull();
+    expect(r.rows[0]!.cells[1]!.real?.total).toBe(500);
+  });
+
+  it("v5.2 sellos anclan saldo mensual sin balanceBreaks falsos", () => {
+    const weeks = ["2026-07-06", "2026-07-13", "2026-07-20", "2026-07-27", "2026-08-03"];
+    const current = "2026-07-20";
+    const sealed = new Map([["2026-07-13", 5_000]]);
+    const m = assembleMatrix({
+      rows: [row({})],
+      weeks,
+      currentWeek: current,
+      openingBalance: 10_000,
+      plan: new Map([["r1", new Map([["2026-07-27", 100], ["2026-08-03", 50]])]]),
+      committed: new Map(),
+      real: realOf("r1", "2026-07-06", 200),
+      sealedBalances: sealed,
+    });
+    const r = reduceMonthly(weeks, current, m, { sealedBalances: sealed });
+    expect(r.balanceBreaks.every((b) => b == null)).toBe(true);
+    // Mes con sello: saldo = sello (último del mes).
+    expect(r.balances[0]).toBe(5_000);
+    // Agosto encadena desde el sello + flujos futuros del mes.
+    expect(r.balances[1]).toBe(5_000 + 50);
   });
 });

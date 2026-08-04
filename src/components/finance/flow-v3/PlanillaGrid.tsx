@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronRight, Plus } from "lucide-react";
 import type { FlowMatrixResponse, FlowMatrixRowDto } from "@/modules/finance/flow-v3/matrix-types";
 import { hasInvoicedIncome } from "@/modules/finance/flow-v3/cell-editability";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -102,6 +102,14 @@ interface Props {
   onViewDte?: (dteId: string) => void;
   /** Catálogo EXPENSE para el diálogo de recurrencia (Nueva fila → Categoría). */
   expenseCategories?: Array<{ id: string; code: string; name: string; kind: string }>;
+  /** Abre "Agregar concepto" con la sección del encabezado prefijada. */
+  onAddInSection?: (section: string) => void;
+  /**
+   * Tras crear fila con "Configurar recurrencia": id de la fila a abrir
+   * en RecurringExpenseDialog (espera a que aparezca en `data.rows`).
+   */
+  openRecurringRowId?: string | null;
+  onRecurringOpened?: () => void;
 }
 
 type RowDialogState =
@@ -142,6 +150,9 @@ export function PlanillaGrid({
   sumMode = false, onSumModeChange, onDiscreteStats, onRefresh, onViewDte,
   driftAlertThresholdClp,
   expenseCategories,
+  onAddInSection,
+  openRecurringRowId = null,
+  onRecurringOpened,
 }: Props) {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   /** Filas en cero reveladas al tocar "n/m" del encabezado de sección. */
@@ -180,6 +191,15 @@ export function PlanillaGrid({
       ),
     [data.rows],
   );
+
+  // Encadena AddRowDialog → RecurringExpenseDialog (v5.2).
+  useEffect(() => {
+    if (!openRecurringRowId) return;
+    const row = rowById.get(openRecurringRowId);
+    if (!row) return;
+    setRowDialog({ kind: "recurring", row });
+    onRecurringOpened?.();
+  }, [openRecurringRowId, rowById, onRecurringOpened]);
 
   /** Abre el sheet de la primera celda bandeja con DTEs (asignador). */
   const openUnmatchedAssigner = useCallback(
@@ -862,38 +882,28 @@ export function PlanillaGrid({
                     </td>
                     <th
                       scope="rowgroup"
-                      className={`planilla-name-col ${NAME_W} ${SECTION_H} sticky ${NAME_LEFT} z-10 border-b border-r border-ds-border-default bg-ds-surface-2 px-1.5 max-md:px-1 text-left`}
+                      className={`planilla-name-col group ${NAME_W} ${SECTION_H} sticky ${NAME_LEFT} z-10 border-b border-r border-ds-border-default bg-ds-surface-2 px-1.5 max-md:px-1 text-left`}
                     >
-                      <button
-                        onClick={() => toggleSection(section.key)}
-                        className="flex w-full min-w-0 items-center gap-1 max-md:gap-0.5 overflow-hidden whitespace-nowrap font-sans font-medium leading-none text-ds-text-2"
-                      >
-                        {collapsed.has(section.key) ? (
-                          <ChevronRight className="h-3 w-3 shrink-0 max-md:h-2.5 max-md:w-2.5" />
-                        ) : (
-                          <ChevronDown className="h-3 w-3 shrink-0 max-md:h-2.5 max-md:w-2.5" />
-                        )}
-                        <span className="truncate">{SECTION_LABELS[section.key]}</span>
-                        {section.rows.length === section.total ? (
-                          <span className="shrink-0 text-ds-text-4 max-md:hidden">({section.total})</span>
-                        ) : (
-                          <span
-                            role="button"
-                            tabIndex={0}
-                            aria-label={`Mostrar ${section.hiddenZeroIds.length} filas en cero de ${SECTION_LABELS[section.key]}`}
-                            title="Mostrar filas en cero de esta sección"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (section.hiddenZeroIds.length === 0) return;
-                              setRevealedZeroRowIds((prev) => {
-                                const next = new Set(prev);
-                                for (const id of section.hiddenZeroIds) next.add(id);
-                                return next;
-                              });
-                            }}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter" || e.key === " ") {
-                                e.preventDefault();
+                      <div className="flex w-full min-w-0 items-center gap-0.5">
+                        <button
+                          onClick={() => toggleSection(section.key)}
+                          className="flex min-w-0 flex-1 items-center gap-1 max-md:gap-0.5 overflow-hidden whitespace-nowrap font-sans font-medium leading-none text-ds-text-2"
+                        >
+                          {collapsed.has(section.key) ? (
+                            <ChevronRight className="h-3 w-3 shrink-0 max-md:h-2.5 max-md:w-2.5" />
+                          ) : (
+                            <ChevronDown className="h-3 w-3 shrink-0 max-md:h-2.5 max-md:w-2.5" />
+                          )}
+                          <span className="truncate">{SECTION_LABELS[section.key]}</span>
+                          {section.rows.length === section.total ? (
+                            <span className="shrink-0 text-ds-text-4 max-md:hidden">({section.total})</span>
+                          ) : (
+                            <span
+                              role="button"
+                              tabIndex={0}
+                              aria-label={`Mostrar ${section.hiddenZeroIds.length} filas en cero de ${SECTION_LABELS[section.key]}`}
+                              title="Mostrar filas en cero de esta sección"
+                              onClick={(e) => {
                                 e.stopPropagation();
                                 if (section.hiddenZeroIds.length === 0) return;
                                 setRevealedZeroRowIds((prev) => {
@@ -901,57 +911,83 @@ export function PlanillaGrid({
                                   for (const id of section.hiddenZeroIds) next.add(id);
                                   return next;
                                 });
-                              }
-                            }}
-                            className="shrink-0 text-ds-text-4 hover:text-ds-text-2 hover:underline cursor-pointer"
-                          >
-                            <span className="md:hidden">{section.rows.length}/{section.total}</span>
-                            <span className="max-md:hidden">({section.rows.length}/{section.total})</span>
-                          </span>
-                        )}
-                        {section.key === "INGRESOS" && unmatchedIncomeN > 0 && (
-                          <span
-                            role="button"
-                            tabIndex={0}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              openUnmatchedAssigner("INGRESOS");
-                            }}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter" || e.key === " ") {
-                                e.preventDefault();
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter" || e.key === " ") {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  if (section.hiddenZeroIds.length === 0) return;
+                                  setRevealedZeroRowIds((prev) => {
+                                    const next = new Set(prev);
+                                    for (const id of section.hiddenZeroIds) next.add(id);
+                                    return next;
+                                  });
+                                }
+                              }}
+                              className="shrink-0 text-ds-text-4 hover:text-ds-text-2 hover:underline cursor-pointer"
+                            >
+                              <span className="md:hidden">{section.rows.length}/{section.total}</span>
+                              <span className="max-md:hidden">({section.rows.length}/{section.total})</span>
+                            </span>
+                          )}
+                          {section.key === "INGRESOS" && unmatchedIncomeN > 0 && (
+                            <span
+                              role="button"
+                              tabIndex={0}
+                              onClick={(e) => {
                                 e.stopPropagation();
                                 openUnmatchedAssigner("INGRESOS");
-                              }
-                            }}
-                            className="ml-1 shrink-0 rounded-full bg-status-warn-soft px-1.5 py-0.5 text-[12px] font-medium text-status-warn-fg hover:underline"
-                            title="Abrir asignador de Otros ingresos"
-                          >
-                            ⚠ {unmatchedIncomeN} por asignar
-                          </span>
-                        )}
-                        {section.key === "GAV" && unmatchedExpenseN > 0 && (
-                          <span
-                            role="button"
-                            tabIndex={0}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              openUnmatchedAssigner("GAV");
-                            }}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter" || e.key === " ") {
-                                e.preventDefault();
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter" || e.key === " ") {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  openUnmatchedAssigner("INGRESOS");
+                                }
+                              }}
+                              className="ml-1 shrink-0 rounded-full bg-status-warn-soft px-1.5 py-0.5 text-[12px] font-medium text-status-warn-fg hover:underline"
+                              title="Abrir asignador de Otros ingresos"
+                            >
+                              ⚠ {unmatchedIncomeN} por asignar
+                            </span>
+                          )}
+                          {section.key === "GAV" && unmatchedExpenseN > 0 && (
+                            <span
+                              role="button"
+                              tabIndex={0}
+                              onClick={(e) => {
                                 e.stopPropagation();
                                 openUnmatchedAssigner("GAV");
-                              }
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter" || e.key === " ") {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  openUnmatchedAssigner("GAV");
+                                }
+                              }}
+                              className="ml-1 shrink-0 rounded-full bg-status-warn-soft px-1.5 py-0.5 text-[12px] font-medium text-status-warn-fg hover:underline"
+                              title="Abrir asignador de Otros egresos"
+                            >
+                              ⚠ {unmatchedExpenseN} por asignar
+                            </span>
+                          )}
+                        </button>
+                        {canManage && onAddInSection && (
+                          <button
+                            type="button"
+                            aria-label={`Agregar concepto en ${SECTION_LABELS[section.key]}`}
+                            title={`Agregar en ${SECTION_LABELS[section.key]}`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onAddInSection(section.key);
                             }}
-                            className="ml-1 shrink-0 rounded-full bg-status-warn-soft px-1.5 py-0.5 text-[12px] font-medium text-status-warn-fg hover:underline"
-                            title="Abrir asignador de Otros egresos"
+                            className="ml-0.5 inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-ds-text-3 hover:bg-ds-surface-3 hover:text-ds-text-1 opacity-100 sm:h-7 sm:w-7 sm:opacity-0 sm:group-hover:opacity-100 sm:focus-visible:opacity-100"
                           >
-                            ⚠ {unmatchedExpenseN} por asignar
-                          </span>
+                            <Plus className="h-4 w-4" aria-hidden />
+                          </button>
                         )}
-                      </button>
+                      </div>
                     </th>
                     {data.columns.map((c, i) => {
                       const v = section.subtotals[i] ?? 0;

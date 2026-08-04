@@ -1,8 +1,14 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
+import { getUfValue } from "@/lib/uf";
+import {
+  billingPeriodFromAnchor,
+  computeNextRunAt,
+  computeRecurringIssueYmd,
+} from "@/modules/finance/billing/dte-recurring-schedule";
 import { computeF29Period } from "@/modules/finance/billing/f29.service";
 import { loadPlanCells } from "./plan.service";
-import { loadCommittedIncome } from "./load-committed-income";
+import { grossPerRunFromLines } from "./load-committed-income";
 import {
   applyTeDiscountToLiquido,
   computeF29FutureClp,
@@ -23,6 +29,8 @@ import { loadReal } from "./load-real";
 import { expandOccurrenceDates } from "./recurring-plan.service";
 import { weekStartYmd, ymdToDate, enumerateWeeks, toYmd as dateToYmd } from "./weeks";
 import type { FlowRowRef } from "./types";
+
+const IVA = 1.19;
 
 export interface PayrollMilestonePatch {
   key: "liquido" | "previred";
@@ -84,6 +92,33 @@ function prevMonth(y: number, m: number): { y: number; m: number } {
   return { y, m: m - 1 };
 }
 
+/** Neto CLP de un doc emitido: 33/34 suman; 61 (NC) resta — criterio F29. */
+function issuedSalesDocNet(d: {
+  netAmount: unknown;
+  totalAmount: unknown;
+  dteType: number;
+}): number {
+  const net = Number(d.netAmount);
+  const total = Number(d.totalAmount);
+  let mag: number;
+  if (Number.isFinite(net) && net > 0) mag = net;
+  else if (d.dteType === 33 || d.dteType === 56) mag = Math.round(total / IVA);
+  else mag = Math.round(total); // 34 exenta / 61 NC
+  if (d.dteType === 61) return -mag;
+  return mag;
+}
+
+/** Bruto → neto: 34 = bruto (exento); resto ÷ 1.19. */
+export function grossToNetSalesClp(grossClp: number, dteType: number): number {
+  if (!Number.isFinite(grossClp) || grossClp <= 0) return 0;
+  if (dteType === 34) return Math.round(grossClp);
+  return Math.round(grossClp / IVA);
+}
+
+/**
+ * Σ neto DTEs emitidos (33/34) del mes calendario − NC 61 del mismo mes.
+ * Respeta exclusiones de flujo. Misma semántica F29 para NC (ppmBase).
+ */
 async function sumIssuedNetSalesForMonth(
   tenantId: string,
   y: number,
@@ -91,62 +126,183 @@ async function sumIssuedNetSalesForMonth(
 ): Promise<number> {
   const start = new Date(Date.UTC(y, monthZeroIdx, 1));
   const end = new Date(Date.UTC(y, monthZeroIdx + 1, 1));
-  const dtes = await prisma.financeDte.findMany({
-    where: {
-      tenantId,
-      direction: "ISSUED",
-      dteType: { in: [33, 34] },
-      date: { gte: start, lt: end },
-      siiStatus: { in: ["ACCEPTED", "PENDING", "SENT"] },
-    },
-    select: { netAmount: true, totalAmount: true, dteType: true },
-  });
+  const [dtes, exclusions] = await Promise.all([
+    prisma.financeDte.findMany({
+      where: {
+        tenantId,
+        direction: "ISSUED",
+        dteType: { in: [33, 34, 61] },
+        date: { gte: start, lt: end },
+        siiStatus: { in: ["ACCEPTED", "PENDING", "SENT"] },
+      },
+      select: { id: true, netAmount: true, totalAmount: true, dteType: true },
+    }),
+    prisma.financeCashflowDteFlowExclusion.findMany({
+      where: { tenantId },
+      select: { dteId: true },
+    }),
+  ]);
+  const excludedIds = new Set(exclusions.map((e) => e.dteId));
   let sum = 0;
   for (const d of dtes) {
-    const net = Number(d.netAmount);
-    if (net > 0) sum += net;
-    else if (d.dteType === 33) sum += Math.round(Number(d.totalAmount) / 1.19);
-    else sum += Number(d.totalAmount);
+    if (excludedIds.has(d.id)) continue;
+    sum += issuedSalesDocNet(d);
   }
   return Math.round(sum);
 }
 
 /**
- * Ventas netas del flujo (plan≠0 sino comprometido) para un mes calendario.
- * v5.1: `todayYmd` debe ser el hoy real — un hoy falso (fin del mes objetivo)
- * clampea borradores/programados previos dentro del mes y acumula ventas.
+ * Borradores + cuotas programadas con `issueYmd` en el período, aún no
+ * emitidos (dedupe por templateId::billingPeriod). Sin weeks.filter.
+ */
+async function sumProjectedUnissuedNetForPeriod(
+  tenantId: string,
+  periodo: string,
+): Promise<number> {
+  const [y, mo] = periodo.split("-").map(Number);
+  const start = new Date(Date.UTC(y, mo - 1, 1));
+  const end = new Date(Date.UTC(y, mo, 1));
+  const periodEndYmd = monthEndYmd(y, mo - 1);
+
+  const [drafts, recurringLinked, templates, exclusions] = await Promise.all([
+    prisma.financeDte.findMany({
+      where: {
+        tenantId,
+        direction: "ISSUED",
+        siiStatus: "DRAFT",
+        dteType: { in: [33, 34] },
+        date: { gte: start, lt: end },
+      },
+      select: {
+        id: true,
+        totalAmount: true,
+        dteType: true,
+        recurringTemplateId: true,
+        billingPeriod: true,
+      },
+    }),
+    prisma.financeDte.findMany({
+      where: {
+        tenantId,
+        direction: "ISSUED",
+        recurringTemplateId: { not: null },
+        siiStatus: { notIn: ["ANNULLED", "REJECTED"] },
+        voidedByCreditNoteId: null,
+      },
+      select: {
+        id: true,
+        recurringTemplateId: true,
+        billingPeriod: true,
+        siiStatus: true,
+      },
+    }),
+    prisma.financeDteRecurringTemplate.findMany({
+      where: { tenantId, isActive: true, dteType: { in: [33, 34] } },
+      select: {
+        id: true,
+        frequency: true,
+        dayOfMonth: true,
+        dayOfWeek: true,
+        monthOfYear: true,
+        startDate: true,
+        endDate: true,
+        lastRunAt: true,
+        nextRunAt: true,
+        facturaTiming: true,
+        facturaDay: true,
+        facturaMesRelativo: true,
+        currency: true,
+        lines: true,
+        dteType: true,
+      },
+    }),
+    prisma.financeCashflowDteFlowExclusion.findMany({
+      where: { tenantId },
+      select: { dteId: true },
+    }),
+  ]);
+
+  const excludedIds = new Set(exclusions.map((e) => e.dteId));
+  const coveredPeriods = new Set<string>();
+  for (const d of recurringLinked) {
+    if (d.recurringTemplateId && d.billingPeriod) {
+      coveredPeriods.add(`${d.recurringTemplateId}::${d.billingPeriod}`);
+    }
+  }
+
+  let sum = 0;
+  for (const d of drafts) {
+    if (excludedIds.has(d.id)) continue;
+    sum += grossToNetSalesClp(Number(d.totalAmount), d.dteType);
+    // El borrador ya cubre su período: no proyectar la cuota scheduled.
+    if (d.recurringTemplateId && d.billingPeriod) {
+      coveredPeriods.add(`${d.recurringTemplateId}::${d.billingPeriod}`);
+    }
+  }
+
+  const someUf = templates.some(
+    (t) =>
+      t.currency === "UF" ||
+      ((t.lines as Array<{ priceCurrency?: string; unitPriceUf?: unknown }> | null) ?? []).some(
+        (l) => l.priceCurrency === "UF" || l.unitPriceUf != null,
+      ),
+  );
+  const ufValue = someUf ? await getUfValue().catch(() => null) : null;
+
+  for (const tpl of templates) {
+    const gross = grossPerRunFromLines(tpl.lines, tpl.currency, tpl.dteType, ufValue);
+    if (gross <= 0) continue;
+    const net = grossToNetSalesClp(gross, tpl.dteType);
+    let anchor = tpl.nextRunAt ?? computeNextRunAt(tpl);
+    let guard = 0;
+    while (anchor && guard < 130) {
+      guard += 1;
+      if (tpl.endDate && anchor > tpl.endDate) break;
+      const issueYmd = computeRecurringIssueYmd(tpl, anchor);
+      if (issueYmd > periodEndYmd) break;
+      const period = billingPeriodFromAnchor(anchor);
+      if (issueYmd.startsWith(periodo) && !coveredPeriods.has(`${tpl.id}::${period}`)) {
+        sum += net;
+        coveredPeriods.add(`${tpl.id}::${period}`);
+      }
+      anchor = computeNextRunAt(tpl, anchor);
+    }
+  }
+
+  return Math.round(sum);
+}
+
+/**
+ * v5.2 — base de ventas del período por fecha de emisión calendario:
+ * emitidos 33/34 (NC 61 netea) + borradores/programados con issueYmd en el
+ * período aún no emitidos. Sin filtro de semanas ni proxy de cobros.
+ */
+export async function sumEmissionNetSalesForPeriod(
+  tenantId: string,
+  periodo: string,
+): Promise<number> {
+  const [y, mo] = periodo.split("-").map(Number);
+  if (!y || !mo) return 0;
+  const [issued, projected] = await Promise.all([
+    sumIssuedNetSalesForMonth(tenantId, y, mo - 1),
+    sumProjectedUnissuedNetForPeriod(tenantId, periodo),
+  ]);
+  return Math.round(issued + projected);
+}
+
+/**
+ * Ventas netas del mes (abierto): base por emisión v5.2.
+ * Firma conserva rows/weeks/todayYmd por compat de callers; ya no filtran.
  */
 export async function sumIncomeFlowForMonth(
   tenantId: string,
-  rows: FlowRowRef[],
-  weeks: string[],
-  todayYmd: string,
+  _rows: FlowRowRef[],
+  _weeks: string[],
+  _todayYmd: string,
   y: number,
   monthZeroIdx: number,
 ): Promise<number> {
-  const monthPrefix = periodoKey(y, monthZeroIdx);
-  const monthWeeks = weeks.filter((w) => w.startsWith(monthPrefix));
-  if (monthWeeks.length === 0) return 0;
-  const from = ymdToDate(monthWeeks[0])!;
-  const to = ymdToDate(monthWeeks[monthWeeks.length - 1])!;
-  const [plan, incomeCommitted] = await Promise.all([
-    loadPlanCells(tenantId, from, to),
-    loadCommittedIncome(tenantId, rows, monthWeeks, todayYmd),
-  ]);
-  const incomeRowIds = new Set(
-    rows.filter((r) => r.section === "INGRESOS").map((r) => r.id),
-  );
-  let total = 0;
-  for (const rowId of incomeRowIds) {
-    const planRow = plan.get(rowId);
-    const committedRow = incomeCommitted.committed.get(rowId);
-    for (const w of monthWeeks) {
-      const p = planRow?.get(w) ?? 0;
-      const c = committedRow?.get(w)?.total ?? 0;
-      total += p !== 0 ? p : c;
-    }
-  }
-  return Math.round(total / 1.19);
+  return sumEmissionNetSalesForPeriod(tenantId, periodoKey(y, monthZeroIdx));
 }
 
 export async function resolveVentasNetasPrevMonth(
@@ -160,11 +316,16 @@ export async function resolveVentasNetasPrevMonth(
   const prev = prevMonth(targetY, targetM);
   const dteNet = await sumIssuedNetSalesForMonth(tenantId, prev.y, prev.m);
   const prevEnd = monthEndYmd(prev.y, prev.m);
+  // Mes cerrado: solo DTEs reales (ya correcto).
   if (todayYmd > prevEnd) return dteNet;
-  const flowNet = await sumIncomeFlowForMonth(
-    tenantId, rows, weeks, todayYmd, prev.y, prev.m,
+  // Mes abierto: emitidos + proyectados por emisión (no cobros/semanas).
+  void rows;
+  void weeks;
+  const emissionNet = await sumEmissionNetSalesForPeriod(
+    tenantId,
+    periodoKey(prev.y, prev.m),
   );
-  return flowNet > 0 ? flowNet : dteNet;
+  return emissionNet > 0 ? emissionNet : dteNet;
 }
 
 async function sumReceivedNetForPeriod(
@@ -215,39 +376,18 @@ async function avgHistoricalCreditoFiscal(
 }
 
 /**
- * Ventas netas proyectadas del período M (solo semanas de M).
- * v5.1: pasa el hoy real a `loadCommittedIncome` para no arrastrar
- * facturación proyectada de meses anteriores al mes objetivo.
+ * Ventas netas proyectadas del período M (IVA F29 futuro).
+ * v5.2: base por emisión calendario (emitidos + borradores/programados
+ * con issueYmd en M). `rows`/`weeks`/`todayYmd` se conservan por firma.
  */
 export async function sumProjectedVentasNetasForPeriod(
   tenantId: string,
-  rows: FlowRowRef[],
-  weeks: string[],
-  todayYmd: string,
+  _rows: FlowRowRef[],
+  _weeks: string[],
+  _todayYmd: string,
   periodo: string,
 ): Promise<number> {
-  const monthWeeks = weeks.filter((w) => w.startsWith(periodo));
-  if (monthWeeks.length === 0) return 0;
-  const from = ymdToDate(monthWeeks[0])!;
-  const to = ymdToDate(monthWeeks[monthWeeks.length - 1])!;
-  const [plan, incomeCommitted] = await Promise.all([
-    loadPlanCells(tenantId, from, to),
-    loadCommittedIncome(tenantId, rows, monthWeeks, todayYmd),
-  ]);
-  const incomeRowIds = rows
-    .filter((r) => r.section === "INGRESOS")
-    .map((r) => r.id);
-  let gross = 0;
-  for (const rowId of incomeRowIds) {
-    const planRow = plan.get(rowId);
-    const committedRow = incomeCommitted.committed.get(rowId);
-    for (const w of monthWeeks) {
-      const p = planRow?.get(w) ?? 0;
-      const c = committedRow?.get(w)?.total ?? 0;
-      gross += p !== 0 ? p : c;
-    }
-  }
-  return Math.round(gross / 1.19);
+  return sumEmissionNetSalesForPeriod(tenantId, periodo);
 }
 
 function fractionElapsedInPeriod(todayYmd: string, y: number, monthZeroIdx: number): number {
