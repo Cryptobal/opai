@@ -18,6 +18,7 @@ interface DteRow {
   receiverName: string | null;
   receiverRut: string | null;
   amountClp: number;
+  crmAccountId?: string | null;
   templates: TemplateOpt[];
 }
 
