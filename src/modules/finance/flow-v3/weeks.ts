@@ -81,6 +81,14 @@ export function monthKeyOf(weekYmd: string): string {
   return weekYmd.slice(0, 7);
 }
 
+/**
+ * Mes calendario (`YYYY-MM`) de una fecha YMD cualquiera (día del ítem).
+ * v5.2: distinto de `monthKeyOf` (mes del lunes de la semana).
+ */
+export function monthKeyOfDate(ymd: string): string {
+  return ymd.slice(0, 7);
+}
+
 /** Lunes ISO (YMD) de la semana actual. */
 export function currentWeekYmd(today: Date = new Date()): string {
   return weekStartYmd(today);
