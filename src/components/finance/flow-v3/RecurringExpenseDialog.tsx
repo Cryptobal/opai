@@ -75,9 +75,11 @@ export function RecurringExpenseDialog({
   const [newRowCategoryId, setNewRowCategoryId] = useState("");
   const [newRowSection, setNewRowSection] = useState(defaultSection(row));
 
-  const [currency, setCurrency] = useState<"CLP" | "UF">("CLP");
+  type AmountMode = "CLP" | "UF" | "PCT_SALES";
+  const [amountMode, setAmountMode] = useState<AmountMode>("CLP");
   const [amountStr, setAmountStr] = useState("");
   const [amountUfStr, setAmountUfStr] = useState("");
+  const [pctSalesStr, setPctSalesStr] = useState("10");
   const [ufPolicy, setUfPolicy] = useState<UfPolicy>("LAST_DAY_MONTH");
   const [ufCustomDay, setUfCustomDay] = useState("1");
   const [frequency, setFrequency] = useState("MONTHLY");
@@ -101,9 +103,10 @@ export function RecurringExpenseDialog({
     setNewRowName("");
     setNewRowCategoryId("");
     setNewRowSection(defaultSection(row));
-    setCurrency("CLP");
+    setAmountMode("CLP");
     setAmountStr("");
     setAmountUfStr("");
+    setPctSalesStr("10");
     setUfPolicy("LAST_DAY_MONTH");
     setUfCustomDay("1");
     setFrequency("MONTHLY");
@@ -123,16 +126,20 @@ export function RecurringExpenseDialog({
 
   const amountMag = Math.abs(parseSignedAmount(amountStr || "0"));
   const amountUfMag = Math.abs(Number(String(amountUfStr).replace(",", ".")));
+  const pctSales = Number(String(pctSalesStr).replace(",", "."));
+  const effectiveFrequency = amountMode === "PCT_SALES" ? "MONTHLY" : frequency;
   const dom = Number(dayOfMonth);
-  const validDom = frequency !== "MONTHLY" || (Number.isInteger(dom) && dom >= 1 && dom <= 31);
+  const validDom = effectiveFrequency !== "MONTHLY" || (Number.isInteger(dom) && dom >= 1 && dom <= 31);
   const validDates = !!startDate && (termMode !== "date" && termMode !== "both" || !endDate || endDate >= startDate);
   const nOcc = Number(endAfterOccurrences);
   const validOcc =
     termMode !== "occurrences" && termMode !== "both"
     || (Number.isInteger(nOcc) && nOcc >= 1);
-  const amountOk = currency === "UF"
-    ? Number.isFinite(amountUfMag) && amountUfMag > 0
-    : amountMag > 0;
+  const amountOk = amountMode === "PCT_SALES"
+    ? Number.isFinite(pctSales) && pctSales > 0 && pctSales <= 100
+    : amountMode === "UF"
+      ? Number.isFinite(amountUfMag) && amountUfMag > 0
+      : amountMag > 0;
   const newRowOk = targetMode !== "new" || newRowName.trim().length > 0;
   const rowOk = targetMode !== "existing" || !!selectedRowId;
   const termOk =
@@ -142,7 +149,7 @@ export function RecurringExpenseDialog({
   const canSubmit = amountOk && validDom && validDates && termOk && newRowOk && rowOk && !busy;
 
   const previewClp =
-    currency === "UF" && ufToday != null && Number.isFinite(amountUfMag)
+    amountMode === "UF" && ufToday != null && Number.isFinite(amountUfMag)
       ? Math.round(amountUfMag * ufToday)
       : null;
 
@@ -159,10 +166,9 @@ export function RecurringExpenseDialog({
 
   const submit = async () => {
     const body: Record<string, unknown> = {
-      frequency,
+      frequency: effectiveFrequency,
       startDate,
-      currency,
-      ...(frequency === "MONTHLY" ? { dayOfMonth: dom } : {}),
+      ...(effectiveFrequency === "MONTHLY" ? { dayOfMonth: dom } : {}),
     };
 
     if (targetMode === "new") {
@@ -182,12 +188,22 @@ export function RecurringExpenseDialog({
       body.endAfterOccurrences = nOcc;
     }
 
-    if (currency === "UF") {
+    if (amountMode === "PCT_SALES") {
+      body.amountMode = "PCT_SALES";
+      body.pctSales = pctSales;
+      body.currency = "CLP";
+      // FINANCIAMIENTO: −1 egreso / +1 ingreso (cash-signed); egresos: 0.
+      body.amount = isFinanciamiento ? (finSign === "out" ? -1 : 1) : 0;
+    } else if (amountMode === "UF") {
+      body.amountMode = "FIXED";
+      body.currency = "UF";
       body.amountUf = amountUfMag;
       body.ufPolicy = ufPolicy;
       if (ufPolicy === "CUSTOM_DAY") body.ufCustomDay = Number(ufCustomDay) || 1;
       body.amount = signedPreviewClp ?? (isFinanciamiento ? -amountUfMag : amountUfMag);
     } else {
+      body.amountMode = "FIXED";
+      body.currency = "CLP";
       body.amount = signedClp;
     }
 
@@ -250,21 +266,24 @@ export function RecurringExpenseDialog({
                   placeholder="Ej. Leasing vehículo"
                 />
               </label>
-              {expenseCategories.length > 0 && (
-                <label className="block space-y-1 text-xs text-ds-text-3">
-                  <span>Categoría (opcional)</span>
-                  <select
-                    className={SELECT_CLASS}
-                    value={newRowCategoryId}
-                    onChange={(e) => setNewRowCategoryId(e.target.value)}
-                  >
-                    <option value="">Sin categoría (manual)</option>
-                    {expenseCategories.map((c) => (
-                      <option key={c.id} value={c.id}>{c.name}</option>
-                    ))}
-                  </select>
-                </label>
-              )}
+              <label className="block space-y-1 text-xs text-ds-text-3">
+                <span>Categoría</span>
+                <select
+                  className={SELECT_CLASS}
+                  value={newRowCategoryId}
+                  onChange={(e) => setNewRowCategoryId(e.target.value)}
+                >
+                  <option value="">Sin categoría (manual)</option>
+                  {expenseCategories.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+                {expenseCategories.length === 0 && (
+                  <span className="block text-[12px] text-ds-text-4">
+                    No hay categorías de egreso en el catálogo.
+                  </span>
+                )}
+              </label>
             </div>
           )}
 
@@ -291,22 +310,29 @@ export function RecurringExpenseDialog({
             </div>
           )}
 
-          <div className="inline-flex h-10 sm:h-9 overflow-hidden rounded-full border border-ds-border-default bg-ds-surface-2 p-0.5">
-            {(["CLP", "UF"] as const).map((c) => (
+          <div className="inline-flex h-10 sm:h-9 max-w-full overflow-x-auto overflow-y-hidden rounded-full border border-ds-border-default bg-ds-surface-2 p-0.5">
+            {([
+              { key: "CLP" as const, label: "CLP" },
+              { key: "UF" as const, label: "UF" },
+              { key: "PCT_SALES" as const, label: "% ventas" },
+            ]).map(({ key, label }) => (
               <button
-                key={c}
+                key={key}
                 type="button"
-                onClick={() => setCurrency(c)}
-                className={`min-h-9 min-w-14 rounded-full px-3 text-[13px] font-medium ${
-                  currency === c ? "bg-primary text-primary-foreground" : "text-ds-text-3"
+                onClick={() => {
+                  setAmountMode(key);
+                  if (key === "PCT_SALES") setFrequency("MONTHLY");
+                }}
+                className={`min-h-9 shrink-0 rounded-full px-3 text-[13px] font-medium ${
+                  amountMode === key ? "bg-primary text-primary-foreground" : "text-ds-text-3"
                 }`}
               >
-                {c}
+                {label}
               </button>
             ))}
           </div>
 
-          {currency === "CLP" ? (
+          {amountMode === "CLP" ? (
             <label className="block space-y-1 text-xs text-ds-text-3">
               <span>Monto por ocurrencia (CLP)</span>
               <Input
@@ -317,7 +343,7 @@ export function RecurringExpenseDialog({
                 placeholder="1.500.000"
               />
             </label>
-          ) : (
+          ) : amountMode === "UF" ? (
             <>
               <label className="block space-y-1 text-xs text-ds-text-3">
                 <span>Monto por ocurrencia (UF)</span>
@@ -363,17 +389,46 @@ export function RecurringExpenseDialog({
                 </p>
               )}
             </>
+          ) : (
+            <>
+              <label className="block space-y-1 text-xs text-ds-text-3">
+                <span>% de ventas netas del mes anterior</span>
+                <Input
+                  className="h-10 sm:h-9"
+                  inputMode="decimal"
+                  value={pctSalesStr}
+                  onChange={(e) => setPctSalesStr(e.target.value)}
+                  placeholder="10"
+                />
+              </label>
+              <p className="text-[12px] text-ds-text-3">
+                Se proyecta como comprometido (no materializa celdas). En «Retiro socios»
+                esta regla pisa el % global de configuración. Solo una regla % activa por fila
+                (crear otra la reemplaza).
+              </p>
+              {Number.isFinite(pctSales) && pctSales > 0 && pctSales <= 100 && (
+                <p className="text-[12px] text-ds-text-4">
+                  Próximo mes ≈ {pctSales.toLocaleString("es-CL", { maximumFractionDigits: 2 })}%
+                  de las ventas netas del mes anterior (estimado al cargar la planilla).
+                </p>
+              )}
+            </>
           )}
 
           <label className="block space-y-1 text-xs text-ds-text-3">
             <span>Periodicidad</span>
-            <select className={SELECT_CLASS} value={frequency} onChange={(e) => setFrequency(e.target.value)}>
+            <select
+              className={SELECT_CLASS}
+              value={effectiveFrequency}
+              disabled={amountMode === "PCT_SALES"}
+              onChange={(e) => setFrequency(e.target.value)}
+            >
               {Object.entries(FREQ_LABELS).map(([k, v]) => (
                 <option key={k} value={k}>{v}</option>
               ))}
             </select>
           </label>
-          {frequency === "MONTHLY" && (
+          {effectiveFrequency === "MONTHLY" && (
             <label className="block space-y-1 text-xs text-ds-text-3">
               <span>Día del mes (1–31; se ajusta al último día en meses cortos)</span>
               <Input
@@ -442,13 +497,22 @@ export function RecurringExpenseDialog({
             )}
           </div>
 
-          <p className="rounded border border-status-warn-border bg-status-warn-soft/40 px-2 py-1.5 text-xs text-status-warn-fg">
-            Editar esta recurrencia reescribe celdas futuras no selladas (pisa ajustes manuales futuros).
-          </p>
-          <p className="text-[12px] text-ds-text-3">
-            Materializa celdas de plan hacia adelante hasta el término (o 12 meses). En UF se
-            recalcula el CLP al cambiar el valor; nunca toca semanas selladas ni el pasado.
-          </p>
+          {amountMode !== "PCT_SALES" ? (
+            <>
+              <p className="rounded border border-status-warn-border bg-status-warn-soft/40 px-2 py-1.5 text-xs text-status-warn-fg">
+                Editar esta recurrencia reescribe celdas futuras no selladas (pisa ajustes manuales futuros).
+              </p>
+              <p className="text-[12px] text-ds-text-3">
+                Materializa celdas de plan hacia adelante hasta el término (o 12 meses). En UF se
+                recalcula el CLP al cambiar el valor; nunca toca semanas selladas ni el pasado.
+              </p>
+            </>
+          ) : (
+            <p className="text-[12px] text-ds-text-3">
+              Modo % ventas: no escribe celdas de plan. La proyección aparece como comprometido;
+              un monto de plan en el mes (o «Mover») la pisa. Semanas selladas muestran solo real.
+            </p>
+          )}
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Cancelar</Button>

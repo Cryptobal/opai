@@ -130,6 +130,9 @@ export function assembleMatrix(args: AssembleArgs): AssembledMatrix {
       const plan = hidden ? 0 : (planRow?.get(w) ?? 0);
       const committed = hidden ? null : (committedRow?.get(w) ?? null);
       const real = hidden ? null : (realRow?.get(w) ?? null);
+      // INGRESOS: total cash-signed (+). FINANCIAMIENTO/egresos: magnitud
+      // positiva en committed ⇒ resta (legado hitos/retiro). PCT_SALES en
+      // FINANCIAMIENTO usa +mag egreso / −mag ingreso para respetar signo.
       const committedCash =
         committed == null ? 0 : r.section === "INGRESOS" ? committed.total : -committed.total;
       const planCash = planCashSign(r.section, plan);

@@ -100,6 +100,8 @@ interface Props {
   onRefresh?: () => void;
   /** Abre el drawer de detalle del DTE emitido (in-place). */
   onViewDte?: (dteId: string) => void;
+  /** Catálogo EXPENSE para el diálogo de recurrencia (Nueva fila → Categoría). */
+  expenseCategories?: Array<{ id: string; code: string; name: string; kind: string }>;
 }
 
 type RowDialogState =
@@ -139,6 +141,7 @@ export function PlanillaGrid({
   onCopyRange, nameW, onNameWChange, amountSort,
   sumMode = false, onSumModeChange, onDiscreteStats, onRefresh, onViewDte,
   driftAlertThresholdClp,
+  expenseCategories,
 }: Props) {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   /** Filas en cero reveladas al tocar "n/m" del encabezado de sección. */
@@ -1118,6 +1121,7 @@ export function PlanillaGrid({
       <RecurringExpenseDialog
         row={rowDialog?.kind === "recurring" ? rowDialog.row : null}
         rows={rowDialog?.kind === "recurring" ? recurringRows : undefined}
+        categories={expenseCategories}
         busy={busy}
         onClose={() => setRowDialog(null)}
         onConfirm={(body) => actions.createRecurring(body)}

@@ -1,6 +1,9 @@
 import "server-only";
 import type {
-  FinanceFlowPlanRecurrence, FlowPlanCurrency, FlowRecurrenceFrequency,
+  FinanceFlowPlanRecurrence,
+  FlowPlanCurrency,
+  FlowRecurrenceAmountMode,
+  FlowRecurrenceFrequency,
 } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getLatestPublishedUf, getUfValueForDate } from "@/lib/uf";
@@ -34,6 +37,10 @@ export interface RecurrenceInput {
   /** Término tras N repeticiones; gana el que ocurra primero vs endDate. */
   endAfterOccurrences?: number | null;
   currency?: FlowPlanCurrency;
+  /** FIXED (default) o PCT_SALES (% ventas netas mes anterior, derive-on-read). */
+  amountMode?: FlowRecurrenceAmountMode;
+  /** Porcentaje 0–100 desde API; se persiste como fracción 0–1. */
+  pctSales?: number | null;
   amountUf?: number | null;
   ufPolicy?: string | null;
   ufCustomDay?: number | null;
@@ -195,11 +202,35 @@ async function materializeRule(
   weeks: string[],
   updatedBy: string | null,
 ): Promise<PlanCellDto[]> {
+  // PCT_SALES: derive-on-read como comprometido; no materializa celdas de plan.
+  if (rule.amountMode === "PCT_SALES") return [];
   if (rule.currency === "UF") {
     const allow = new Set(weeks);
     return materializeUf(tenantId, rule.rowId, rule, (w) => allow.has(w), updatedBy);
   }
   return materializeClp(tenantId, rule.rowId, weeks, Number(rule.amount), updatedBy);
+}
+
+/** Una sola regla PCT_SALES activa por fila: borra la anterior (reemplazo). */
+async function replaceExistingPctSalesRule(
+  tenantId: string,
+  rowId: string,
+  exceptId?: string,
+): Promise<void> {
+  await prisma.financeFlowPlanRecurrence.deleteMany({
+    where: {
+      tenantId,
+      rowId,
+      amountMode: "PCT_SALES",
+      ...(exceptId ? { id: { not: exceptId } } : {}),
+    },
+  });
+}
+
+function pctSalesFractionFromInput(pctSalesPercent: number | null | undefined): number | null {
+  if (pctSalesPercent == null || !Number.isFinite(pctSalesPercent)) return null;
+  if (pctSalesPercent <= 0 || pctSalesPercent > 100) return null;
+  return Math.round(pctSalesPercent * 10_000) / 1_000_000; // 2–4 decimales de fracción
 }
 
 async function assertPlanRecurrenceRow(tenantId: string, rowId: string): Promise<{ section: string }> {
@@ -220,6 +251,9 @@ export interface RecurrenceDto {
   rowId: string;
   amount: number;
   currency: FlowPlanCurrency;
+  amountMode: FlowRecurrenceAmountMode;
+  /** Porcentaje 0–100 para la UI (BD guarda fracción). */
+  pctSales: number | null;
   amountUf: number | null;
   ufPolicy: string | null;
   ufCustomDay: number | null;
@@ -231,11 +265,14 @@ export interface RecurrenceDto {
 }
 
 export function toRecurrenceDto(r: FinanceFlowPlanRecurrence): RecurrenceDto {
+  const frac = r.pctSales != null ? Number(r.pctSales) : null;
   return {
     id: r.id,
     rowId: r.rowId,
     amount: Number(r.amount),
     currency: r.currency,
+    amountMode: r.amountMode ?? "FIXED",
+    pctSales: frac != null && Number.isFinite(frac) ? Math.round(frac * 10_000) / 100 : null,
     amountUf: r.amountUf != null ? Number(r.amountUf) : null,
     ufPolicy: r.ufPolicy,
     ufCustomDay: r.ufCustomDay,
@@ -333,6 +370,36 @@ export async function createRecurrence(
   if (input.endAfterOccurrences != null && input.endAfterOccurrences < 1) {
     throw new Error("endAfterOccurrences debe ser ≥ 1");
   }
+  const amountMode: FlowRecurrenceAmountMode = input.amountMode ?? "FIXED";
+  if (amountMode === "PCT_SALES") {
+    if (input.frequency !== "MONTHLY") {
+      throw new Error("La recurrencia % ventas exige periodicidad mensual");
+    }
+    const frac = pctSalesFractionFromInput(input.pctSales);
+    if (frac == null) throw new Error("pctSales debe estar entre 0 y 100");
+    await replaceExistingPctSalesRule(tenantId, resolvedRowId);
+    const rule = await prisma.financeFlowPlanRecurrence.create({
+      data: {
+        tenantId,
+        rowId: resolvedRowId,
+        amount: input.amount ?? 0,
+        currency: "CLP",
+        amountMode: "PCT_SALES",
+        pctSales: frac,
+        amountUf: null,
+        ufPolicy: null,
+        ufCustomDay: null,
+        frequency: "MONTHLY",
+        dayOfMonth: input.dayOfMonth ?? 1,
+        startDate: ymdToDate(input.startDate)!,
+        endDate: input.endDate ? ymdToDate(input.endDate) : null,
+        endAfterOccurrences: input.endAfterOccurrences ?? null,
+        createdBy,
+      },
+    });
+    return { rule, cells: [] };
+  }
+
   const currency: FlowPlanCurrency = input.currency ?? "CLP";
   if (currency === "UF" && !(input.amountUf != null && input.amountUf > 0)) {
     throw new Error("amountUf requerido para moneda UF");
@@ -346,6 +413,8 @@ export async function createRecurrence(
       rowId: resolvedRowId,
       amount: amountClp,
       currency,
+      amountMode: "FIXED",
+      pctSales: null,
       amountUf: currency === "UF" ? input.amountUf! : null,
       ufPolicy: currency === "UF" ? (input.ufPolicy ?? "RUN_DAY") : null,
       ufCustomDay: currency === "UF" && input.ufPolicy === "CUSTOM_DAY"
@@ -375,10 +444,19 @@ export async function updateRecurrence(
   });
   if (!old) throw new Error("Regla recurrente no encontrada");
 
+  const amountMode: FlowRecurrenceAmountMode =
+    input.amountMode ?? old.amountMode ?? "FIXED";
   const currency = input.currency ?? old.currency;
   const next = {
     amount: input.amount ?? Number(old.amount),
     currency,
+    amountMode,
+    pctSales:
+      input.pctSales !== undefined
+        ? input.pctSales
+        : old.pctSales != null
+          ? Number(old.pctSales) * 100
+          : null,
     amountUf:
       input.amountUf !== undefined
         ? input.amountUf
@@ -410,6 +488,45 @@ export async function updateRecurrence(
   if (next.endAfterOccurrences != null && next.endAfterOccurrences < 1) {
     throw new Error("endAfterOccurrences debe ser ≥ 1");
   }
+
+  const currentWeek = weekStartYmd(new Date());
+  const isFuture = (w: string) => w >= currentWeek;
+
+  // Limpiar celdas futuras materializadas de la regla anterior (FIXED→PCT o edit FIXED).
+  if (old.amountMode !== "PCT_SALES") {
+    const oldFuture = occurrenceWeeks(old).filter(isFuture);
+    if (oldFuture.length > 0) {
+      await materializeClp(tenantId, old.rowId, oldFuture, 0, updatedBy);
+    }
+  }
+
+  if (next.amountMode === "PCT_SALES") {
+    if (next.frequency !== "MONTHLY") {
+      throw new Error("La recurrencia % ventas exige periodicidad mensual");
+    }
+    const frac = pctSalesFractionFromInput(next.pctSales);
+    if (frac == null) throw new Error("pctSales debe estar entre 0 y 100");
+    await replaceExistingPctSalesRule(tenantId, old.rowId, old.id);
+    const rule = await prisma.financeFlowPlanRecurrence.update({
+      where: { id: old.id },
+      data: {
+        amount: next.amount,
+        currency: "CLP",
+        amountMode: "PCT_SALES",
+        pctSales: frac,
+        amountUf: null,
+        ufPolicy: null,
+        ufCustomDay: null,
+        frequency: "MONTHLY",
+        dayOfMonth: next.dayOfMonth ?? 1,
+        startDate: ymdToDate(next.startDate)!,
+        endDate: next.endDate ? ymdToDate(next.endDate) : null,
+        endAfterOccurrences: next.endAfterOccurrences ?? null,
+      },
+    });
+    return { rule, cells: [] };
+  }
+
   if (next.currency === "UF" && !(next.amountUf != null && next.amountUf > 0)) {
     throw new Error("amountUf requerido para moneda UF");
   }
@@ -424,19 +541,13 @@ export async function updateRecurrence(
     ufCustomDay: next.ufCustomDay,
   });
 
-  const currentWeek = weekStartYmd(new Date());
-  const isFuture = (w: string) => w >= currentWeek;
-
-  const oldFuture = occurrenceWeeks(old).filter(isFuture);
-  if (oldFuture.length > 0) {
-    await materializeClp(tenantId, old.rowId, oldFuture, 0, updatedBy);
-  }
-
   const rule = await prisma.financeFlowPlanRecurrence.update({
     where: { id: old.id },
     data: {
       amount: amountClp,
       currency: next.currency,
+      amountMode: "FIXED",
+      pctSales: null,
       amountUf: next.currency === "UF" ? next.amountUf : null,
       ufPolicy: next.currency === "UF" ? (next.ufPolicy ?? "RUN_DAY") : null,
       ufCustomDay:
@@ -467,7 +578,7 @@ export async function deleteRecurrence(
   });
   if (!rule) throw new Error("Regla recurrente no encontrada");
 
-  if (!keepCells) {
+  if (!keepCells && rule.amountMode !== "PCT_SALES") {
     const currentWeek = weekStartYmd(new Date());
     const future = occurrenceWeeks(rule).filter((w) => w >= currentWeek);
     if (future.length > 0) await materializeClp(tenantId, rule.rowId, future, 0, updatedBy);

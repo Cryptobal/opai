@@ -26,7 +26,8 @@ export type ExpenseMilestoneKey =
   | "f29"
   | "turnos_extra"
   | "retiro_socio"
-  | "finiquitos";
+  | "finiquitos"
+  | "pct_sales";
 
 export interface ExpenseMilestoneInput {
   key: ExpenseMilestoneKey;
@@ -36,12 +37,26 @@ export interface ExpenseMilestoneInput {
   amountClp: number;
   /** Nota de desglose (descuento TE, F29 clamp, etc.) — va al label si existe. */
   metaNote?: string;
+  /** v5.1: fila destino explícita (PCT_SALES); salta el mapa canónico. */
+  targetRowId?: string;
 }
 
 export interface TeWeeklyProjectionInput {
   weekYmd: string;
   amountClp: number;
   label: string;
+}
+
+/** Proyección % ventas por fila (derive-on-read). Monto SIGNADO cash en FINANCIAMIENTO. */
+export interface PctSalesProjectionInput {
+  rowId: string;
+  weekYmd: string;
+  dateYmd: string;
+  /** Magnitud positiva en egresos; cash-signed en FINANCIAMIENTO (+ entra / − sale). */
+  amountClp: number;
+  label: string;
+  /** Si true, amountClp ya es cash-signed (FINANCIAMIENTO). */
+  cashSigned?: boolean;
 }
 
 export interface ReceivedDteExpenseInput {
@@ -72,6 +87,8 @@ export interface CommittedExpenseArgs {
   teRowId?: string | null;
   /** Semanas con plan manual ≠0 en fila TE (no proyectar encima). */
   tePlanBlockedWeeks?: Set<string>;
+  /** v5.1: reglas PCT_SALES evaluate-on-read por fila. */
+  pctSalesProjections?: PctSalesProjectionInput[];
 }
 
 /** Mapa fijo hito → fila canónica (documentado en AUDIT.md §2/B4). */
@@ -86,6 +103,7 @@ const MILESTONE_ROW_MAP: Record<
   turnos_extra: { categoryCode: "EGR_TURNO_EXTRA", canonicalNames: ["turnos extra", "turno extra"] },
   retiro_socio: { categoryCode: "EGR_RETIRO_SOCIO", canonicalNames: ["retiro socios", "retiro socio"] },
   finiquitos: { categoryCode: "__NONE__", canonicalNames: ["finiquitos", "finiquito"] },
+  pct_sales: { categoryCode: "__NONE__", canonicalNames: [] },
 };
 
 /** Semana de pago; si venció, clampea a la semana actual (pagable ya). */
@@ -104,13 +122,15 @@ export function deriveCommittedExpense(args: CommittedExpenseArgs): CommittedByR
   const idx = buildExpenseIndexes(args.rows, args.categoryCodeById);
 
   for (const m of args.milestones) {
-    if (m.amountClp <= 0) continue;
+    if (m.amountClp === 0) continue;
+    if (m.amountClp < 0 && !m.targetRowId) continue;
     // Hitos pasados quedan en su semana natural (el real ya los capturó);
     // no clampean para no duplicar visualmente contra la semana actual.
     const week = weekStartYmd(ymdToDate(m.dateYmd) ?? new Date());
     if (!inRange(week)) continue;
     const map = MILESTONE_ROW_MAP[m.key];
     const rowKey =
+      m.targetRowId ??
       idx.byCategoryCode.get(map.categoryCode) ??
       map.canonicalNames.map((n) => idx.byName.get(n)).find(Boolean) ??
       UNMATCHED_EXPENSE_KEY;
@@ -121,6 +141,18 @@ export function deriveCommittedExpense(args: CommittedExpenseArgs): CommittedByR
       fecha: m.dateYmd,
       monto: Math.round(m.amountClp),
     });
+  }
+
+  if (args.pctSalesProjections?.length) {
+    for (const p of args.pctSalesProjections) {
+      if (p.amountClp === 0 || !inRange(p.weekYmd)) continue;
+      pushCommitted(out, p.rowId, p.weekYmd, {
+        kind: "scheduled",
+        label: p.label,
+        fecha: p.dateYmd,
+        monto: Math.round(p.amountClp),
+      });
+    }
   }
 
   if (args.teWeeklyProjections?.length && args.teRowId) {

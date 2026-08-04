@@ -4,11 +4,32 @@
  */
 import { weekStartYmd, ymdToDate } from "./weeks";
 
-/** Retiro socios: pct (fracción) × ventasNetasMesAnterior; 0 si pct<=0. */
+/** Retiro socios / regla %: pct (fracción) × ventasNetasMesAnterior; 0 si pct<=0. */
 export function computeRetiroSocioClp(pct: number, ventasNetasPrevMonth: number): number {
   if (!Number.isFinite(pct) || pct <= 0) return 0;
   if (!Number.isFinite(ventasNetasPrevMonth)) return 0;
   return Math.round(pct * ventasNetasPrevMonth);
+}
+
+/** Alias semántico v5.1 para recurrencias PCT_SALES. */
+export function computePctSalesClp(pctSalesFraction: number, ventasNetasPrevMonth: number): number {
+  return computeRetiroSocioClp(pctSalesFraction, ventasNetasPrevMonth);
+}
+
+/**
+ * Precedencia retiro: regla PCT_SALES de la fila pisa el knob global.
+ */
+export function resolveRetiroPctFraction(args: {
+  rowHasPctSalesRule: boolean;
+  rulePctFraction: number | null | undefined;
+  globalPctFraction: number;
+}): number {
+  if (args.rowHasPctSalesRule) {
+    const p = Number(args.rulePctFraction ?? 0);
+    return Number.isFinite(p) && p > 0 ? p : 0;
+  }
+  const g = Number(args.globalPctFraction ?? 0);
+  return Number.isFinite(g) && g > 0 ? g : 0;
 }
 
 /** Semana ISO (lunes YMD) que contiene el día de pago del mes. */

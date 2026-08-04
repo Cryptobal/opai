@@ -252,5 +252,6 @@ export async function loadCommittedExpense(
     teWeeklyProjections: parametrics.teWeeklyProjections,
     teRowId: parametrics.teRowId,
     tePlanBlockedWeeks: parametrics.tePlanBlockedWeeks,
+    pctSalesProjections: parametrics.pctSalesProjections,
   });
 }
