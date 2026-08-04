@@ -1205,23 +1205,28 @@ export function BankTxReconcileSheet({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side={isMobile ? "bottom" : "right"}
-        // Overlay denso (black/80) + glass del sheet = panel ilegible en
-        // móvil (parece "pantalla negra"). Scrim liviano + z por encima de
-        // la barra de selección / bottom nav (ambos z-50).
+        // Formulario denso: sin Liquid Glass (vidrio + scrim = panel
+        // ilegible). Scrim liviano + z por encima de barra de selección /
+        // bottom nav (z-50).
+        surface="opaque"
         overlayClassName={
           isMobile ? "bg-black/40 z-[60]" : "z-[60]"
         }
         className={cn(
-          "flex flex-col overflow-hidden relative p-0 gap-0 z-[60]",
+          // IMPORTANTE: no poner `relative` aquí. twMerge lo pelea con
+          // `fixed` del Sheet y gana `relative` → el panel deja de anclarse
+          // al viewport, queda en el flujo del <body> y sólo se ve el
+          // overlay gris. El positioning context para AllocationDetailPanel
+          // va en el wrapper interno más abajo.
+          "flex flex-col overflow-hidden p-0 gap-0 z-[60]",
           isMobile
-            ? // Altura explícita: el layout 3 zonas (flex-1 + min-h-0)
-              // colapsa sin h-* y solo queda el overlay negro.
-              // !bg-background vence el glass del sheet bottom (ilegible
-              // sobre scrim) — este panel es un formulario denso.
-              "w-full h-[92dvh] max-h-[92dvh] rounded-t-2xl !bg-background"
+            ? // Altura explícita: layout 3 zonas (flex-1 + min-h-0)
+              // colapsa sin h-* y solo queda el overlay.
+              "w-full h-[92dvh] max-h-[92dvh] rounded-t-2xl"
             : "w-full sm:w-[560px] md:w-[600px] lg:w-[640px] sm:max-w-[88vw]",
         )}
       >
+        <div className="relative flex flex-col flex-1 min-h-0 overflow-hidden">
         {/* Zona 1 — header fijo */}
         <div className="shrink-0 px-4 sm:px-6 pt-6 space-y-3">
         <SheetHeader>
@@ -2294,6 +2299,7 @@ export function BankTxReconcileSheet({
             }}
           />
         )}
+        </div>
       </SheetContent>
     </Sheet>
   );

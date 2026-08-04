@@ -41,23 +41,51 @@ const sheetVariants = cva(
   {
     variants: {
       side: {
-        top: "inset-x-0 top-0 border-b data-[state=closed]:slide-out-to-top data-[state=open]:slide-in-from-top opai-ios-surface-sheet-top",
+        // Glass (opai-ios-surface-sheet-*) vive en compoundVariants de
+        // surface="default" para poder optar out con surface="opaque".
+        top: "inset-x-0 top-0 border-b data-[state=closed]:slide-out-to-top data-[state=open]:slide-in-from-top",
         bottom:
           "data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom",
-        left: "inset-y-0 left-0 h-full w-3/4 border-r data-[state=closed]:slide-out-to-left data-[state=open]:slide-in-from-left sm:max-w-sm opai-ios-surface-sheet-side",
+        left: "inset-y-0 left-0 h-full w-3/4 border-r data-[state=closed]:slide-out-to-left data-[state=open]:slide-in-from-left sm:max-w-sm",
         right:
-          "inset-y-0 right-0 h-full w-3/4  border-l data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right sm:max-w-sm opai-ios-surface-sheet-side",
+          "inset-y-0 right-0 h-full w-3/4  border-l data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right sm:max-w-sm",
       },
       surface: {
         default: "bg-background",
         "glass-island": "opai-glass-sheet-island",
+        /**
+         * Fondo opaco sin Liquid Glass. Usar en sheets densos (formularios,
+         * conciliación) donde el vidrio + scrim deja el panel ilegible o
+         * “invisible” sobre el overlay.
+         */
+        opaque: "bg-background",
       },
     },
     compoundVariants: [
       {
+        side: "top",
+        surface: "default",
+        class: "opai-ios-surface-sheet-top",
+      },
+      {
         side: "bottom",
         surface: "default",
         class: "inset-x-0 bottom-0 border-t opai-ios-surface-sheet-bottom",
+      },
+      {
+        side: "left",
+        surface: "default",
+        class: "opai-ios-surface-sheet-side",
+      },
+      {
+        side: "right",
+        surface: "default",
+        class: "opai-ios-surface-sheet-side",
+      },
+      {
+        side: "bottom",
+        surface: "opaque",
+        class: "inset-x-0 bottom-0 border-t bg-background",
       },
       {
         side: "bottom",
