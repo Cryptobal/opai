@@ -1,23 +1,30 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useSyncExternalStore } from "react";
 
 /**
  * Returns true if viewport width is below `breakpoint` (default 768px).
- * Uses matchMedia for performance and SSR safety.
- * Returns false on initial render to avoid hydration mismatch.
+ * Uses matchMedia via useSyncExternalStore so the first client paint
+ * already has the correct value (avoids a false→true flip that remounts
+ * Sheet side="right"→"bottom" and can leave a black overlay with no panel).
  */
 export function useIsMobileViewport(breakpoint = 768): boolean {
-  const [isMobile, setIsMobile] = useState(false);
+  const subscribe = useCallback(
+    (onStoreChange: () => void) => {
+      if (typeof window === "undefined") return () => {};
+      const mq = window.matchMedia(`(max-width: ${breakpoint - 1}px)`);
+      mq.addEventListener("change", onStoreChange);
+      return () => mq.removeEventListener("change", onStoreChange);
+    },
+    [breakpoint],
+  );
 
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const mq = window.matchMedia(`(max-width: ${breakpoint - 1}px)`);
-    const update = () => setIsMobile(mq.matches);
-    update();
-    mq.addEventListener("change", update);
-    return () => mq.removeEventListener("change", update);
+  const getSnapshot = useCallback(() => {
+    if (typeof window === "undefined") return false;
+    return window.matchMedia(`(max-width: ${breakpoint - 1}px)`).matches;
   }, [breakpoint]);
 
-  return isMobile;
+  const getServerSnapshot = useCallback(() => false, []);
+
+  return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 }
