@@ -48,6 +48,8 @@ export interface DteRefInput {
   /** Categoría resuelta por el loader para RECEIVED (líneas → cuentas). */
   categoryId: string | null;
   name: string;
+  /** ISSUED con paymentStatus=CEDED — marca secundaria tras conciliar. */
+  ceded?: boolean;
 }
 
 export interface RealArgs {
@@ -125,6 +127,7 @@ export function deriveReal(args: RealArgs): RealByRow {
         fecha: tx.dateYmd,
         // Signado por dirección de caja: + abono / − cargo.
         monto: isCredit ? Math.round(monto) : -Math.round(monto),
+        ceded: dte?.ceded === true,
       });
     }
 

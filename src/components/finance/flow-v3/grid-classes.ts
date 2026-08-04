@@ -75,6 +75,18 @@ export const CORNER_PLAN =
 export const NOTE_DOT =
   "before:absolute before:bottom-0.5 before:left-0.5 before:h-1.5 before:w-1.5 before:rounded-full before:bg-status-info before:content-['']";
 
+/**
+ * Marcas secundarias inf-der (triángulo 5px). Complementan la esquina
+ * superior: cedida / proforma enviada / EP enviado. Se renderizan como
+ * elementos (before/after ya ocupados por nota + esquina principal).
+ */
+export const SUB_CORNER_BASE =
+  "block h-0 w-0 border-l-[5px] border-b-[5px] border-l-transparent";
+export const SUB_CORNER_CEDED = `${SUB_CORNER_BASE} border-b-status-ok`;
+export const SUB_CORNER_PROFORMA = `${SUB_CORNER_BASE} border-b-status-info`;
+/** EP usa primary (teal) para no chocar con ámbar (arriba) ni azul (proforma). */
+export const SUB_CORNER_EP = `${SUB_CORNER_BASE} border-b-primary`;
+
 /** Selección Sheets: borde azul + handle (ver globals.css `.planilla-selected`). */
 export const SELECTED_CELL = "planilla-selected";
 

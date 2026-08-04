@@ -59,7 +59,7 @@ export async function loadReal(
     ? await prisma.financeDte.findMany({
         where: { tenantId, id: { in: [...dteIds] } },
         select: {
-          id: true, folio: true, direction: true,
+          id: true, folio: true, direction: true, paymentStatus: true,
           crmAccountId: true, installationId: true, supplierId: true,
           recurringTemplateId: true,
           receiverName: true, issuerName: true,
@@ -95,6 +95,7 @@ export async function loadReal(
       supplierId: d.supplierId,
       categoryId,
       name: d.direction === "ISSUED" ? (d.receiverName ?? "") : (d.issuerName ?? ""),
+      ceded: d.direction === "ISSUED" && d.paymentStatus === "CEDED",
     });
   }
 

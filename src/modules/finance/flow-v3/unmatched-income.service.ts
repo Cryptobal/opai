@@ -79,7 +79,7 @@ export async function listUnmatchedIncomeForWeek(
         dteType: { in: [33, 34] },
         siiStatus: { in: ["ACCEPTED", "PENDING", "SENT"] },
         voidedByCreditNoteId: null,
-        paymentStatus: { in: ["UNPAID", "PARTIAL", "OVERDUE"] },
+        paymentStatus: { in: ["UNPAID", "PARTIAL", "OVERDUE", "CEDED"] },
       },
       select: {
         id: true, folio: true, receiverName: true, receiverRut: true,

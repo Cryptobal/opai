@@ -8,6 +8,9 @@ import { folioChip } from "./format";
 
 export type CornerKind = "real" | "dte" | "warn" | "plan" | null;
 
+/** Marca secundaria inf-der: cedida / docs de cobro enviados. */
+export type SecondaryMark = "ceded" | "proforma" | "estadoPago";
+
 export const LAYER_LABEL = {
   real: "REAL",
   committed: "Comprometido",
@@ -75,6 +78,36 @@ export function cornerKind(cell: FlowMatrixCellDto): CornerKind {
   return null; // programada (P): sin marca
 }
 
+/**
+ * Marcas inf-der (no reemplazan la esquina superior):
+ *  - cedida: factura emitida (o real conciliado de una cedida)
+ *  - estadoPago / proforma: borrador con doc de cobro enviado
+ * Cedida tiene prioridad sobre docs de borrador si coexisten.
+ */
+export function secondaryMarks(cell: FlowMatrixCellDto): SecondaryMark[] {
+  const cededCommitted = (cell.committed?.items ?? []).some(
+    (i) => i.kind === "dte" && i.ceded === true,
+  );
+  const cededReal = (cell.real?.items ?? []).some((i) => i.ceded === true);
+  if (cededCommitted || cededReal) return ["ceded"];
+
+  const drafts = (cell.committed?.items ?? []).filter((i) => i.kind === "draft");
+  if (drafts.length === 0) return [];
+  const marks: SecondaryMark[] = [];
+  if (drafts.some((i) => draftSentDocs(i).estadoPago)) marks.push("estadoPago");
+  if (drafts.some((i) => draftSentDocs(i).proforma)) marks.push("proforma");
+  return marks;
+}
+
+export function secondaryMarkTitle(marks: SecondaryMark[]): string | null {
+  if (marks.length === 0) return null;
+  const parts: string[] = [];
+  if (marks.includes("ceded")) parts.push("Cedida a factoring");
+  if (marks.includes("estadoPago")) parts.push("EP enviado");
+  if (marks.includes("proforma")) parts.push("Proforma enviada");
+  return parts.join(" · ");
+}
+
 export function committedItemMeta(it: CommittedItem): {
   tag: string;
   label: string;
@@ -83,7 +116,8 @@ export function committedItemMeta(it: CommittedItem): {
 } {
   if (it.kind === "dte") {
     const folio = it.folio != null ? folioChip(it.folio) : { text: "F°", title: "Factura emitida" };
-    return { tag: folio.text, label: it.label, tone: "info", title: folio.title };
+    const title = it.ceded ? `${folio.title} · Cedida` : folio.title;
+    return { tag: folio.text, label: it.label, tone: "info", title };
   }
   if (it.kind === "draft") {
     const { tag, title } = draftTag(draftSentDocs(it));
@@ -153,15 +187,26 @@ export function primaryCellTag(
   const { hasDte, hasSentDoc, hasDraft, dteFolio } = committedPriority(cell);
   if (hasDte) {
     const n = dteCountInCell(cell);
+    const anyCeded = (cell.committed?.items ?? []).some(
+      (i) => i.kind === "dte" && i.ceded === true,
+    );
     if (n >= 2) {
       const folios = dteFoliosInCell(cell);
       const folioTxt = folios.length
         ? folios.map((f) => `F°${f}`).join(", ")
         : `${n} facturas`;
-      return { tag: `×${n}`, tone: "info", title: folioTxt };
+      return {
+        tag: `×${n}`,
+        tone: "info",
+        title: anyCeded ? `${folioTxt} · Cedida` : folioTxt,
+      };
     }
     const f = dteFolio != null ? folioChip(dteFolio) : { text: "F°", title: "Factura emitida" };
-    return { tag: f.text, tone: "info", title: f.title };
+    return {
+      tag: f.text,
+      tone: "info",
+      title: anyCeded ? `${f.title} · Cedida` : f.title,
+    };
   }
   if (hasSentDoc || hasDraft) {
     const draft = (cell.committed?.items ?? []).find((i) => i.kind === "draft");

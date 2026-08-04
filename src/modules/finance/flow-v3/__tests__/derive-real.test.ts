@@ -48,6 +48,27 @@ describe("deriveReal", () => {
     const cell = out.get("row-cliA")?.get("2026-07-13");
     expect(cell?.total).toBe(1_000_000);
     expect(cell?.items[0]).toMatchObject({ folio: 321, bankTransactionId: "tx-1" });
+    expect(cell?.items[0]?.ceded).toBeFalsy();
+  });
+
+  it("abono de DTE cedido conserva flag ceded en el real", () => {
+    const dteById = new Map<string, DteRefInput>([
+      ["dte-ced", {
+        folio: 555, direction: "ISSUED", crmAccountId: "acc-A", installationId: null,
+        supplierId: null, categoryId: null, name: "Bienestar", ceded: true,
+      }],
+    ]);
+    const out = deriveReal({
+      ...base,
+      dteById,
+      txs: [tx({
+        links: [{ targetType: "DTE_ISSUED", targetId: "dte-ced", amountClp: 1_000_000, accountPlanId: null }],
+      })],
+    });
+    expect(out.get("row-cliA")?.get("2026-07-13")?.items[0]).toMatchObject({
+      folio: 555,
+      ceded: true,
+    });
   });
 
   it("cargo con link EXPENSE rutea por cuenta contable → categoría → fila", () => {

@@ -50,6 +50,8 @@ export interface CommittedItem {
   emissionYmd?: string;
   /** Solo kind=dte: fecha de vencimiento contractual (YYYY-MM-DD). */
   dueYmd?: string;
+  /** Solo kind=dte: factura cedida a factoring (paymentStatus=CEDED). */
+  ceded?: boolean;
 }
 
 /** DTE excluido del flujo (solo capa planilla; ledger intacto). */
@@ -81,6 +83,8 @@ export interface RealItem {
   fecha: string;
   /** CLP SIGNADO por dirección de caja: + abono / − cargo. */
   monto: number;
+  /** DTE vinculado estaba cedido a factoring (marca secundaria en celda real). */
+  ceded?: boolean;
 }
 
 export interface RealCell {
