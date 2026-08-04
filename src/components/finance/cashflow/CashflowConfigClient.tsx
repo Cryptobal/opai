@@ -71,6 +71,10 @@ interface CashflowConfig {
   finiquitosManualMonthlyClp: number | null;
   /** Meses de historia para promedio móvil del crédito F29. */
   f29CreditAvgMonths: number;
+  /** AFP para proyección Previred. Null ⇒ "Modelo". */
+  payrollAfpName: string | null;
+  /** Tasa mutualidad (fracción). Null ⇒ security_industry. */
+  payrollMutualRatePct: number | null;
 }
 
 /** Prisma serializa campos Decimal como string en JSON; esta interfaz refleja esa realidad. */
@@ -84,6 +88,7 @@ type RawCashflowConfig = Omit<
   | "quincenaPctLiquido"
   | "writeOffMaxPercent"
   | "ppmRatePct"
+  | "payrollMutualRatePct"
   | "flowCutoffYmd"
   | "projectReceivedDtesAsExpense"
   | "finiquitosAvgMonths"
@@ -92,6 +97,7 @@ type RawCashflowConfig = Omit<
 > & {
   ufMonthlyGrowthPct?: number | string;
   ppmRatePct?: number | string;
+  payrollMutualRatePct?: number | string | null;
   turnosExtraPercentage: number | string;
   turnosExtraLiquidoDiscountPct: number | string;
   turnosExtraPreviRedDiscountPct: number | string;
@@ -103,6 +109,7 @@ type RawCashflowConfig = Omit<
   finiquitosAvgMonths?: number;
   finiquitosManualMonthlyClp?: number | null;
   f29CreditAvgMonths?: number;
+  payrollAfpName?: string | null;
 };
 
 interface Category {
@@ -180,6 +187,11 @@ export function CashflowConfigClient({ initialConfig, initialCategories, account
         ? null
         : Number(initialConfig.finiquitosManualMonthlyClp),
     f29CreditAvgMonths: Number(initialConfig.f29CreditAvgMonths ?? 6),
+    payrollAfpName: initialConfig.payrollAfpName ?? null,
+    payrollMutualRatePct:
+      initialConfig.payrollMutualRatePct == null || initialConfig.payrollMutualRatePct === ""
+        ? null
+        : Number(initialConfig.payrollMutualRatePct),
   });
   const [categories, setCategories] = useState<Category[]>(initialCategories);
   const [savingConfig, setSavingConfig] = useState(false);
@@ -391,6 +403,46 @@ export function CashflowConfigClient({ initialConfig, initialCategories, account
             />
             <p className="mt-1 text-[12px] text-ds-text-3">
               Día del mes siguiente en que pagás imposiciones (AFP + Salud + AFC + SIS + mutual). Plazo legal: día 10 hábil.
+            </p>
+          </div>
+          <div>
+            <Label>AFP para proyección Previred</Label>
+            <Input
+              className="h-10 sm:h-9"
+              type="text"
+              placeholder="Modelo"
+              value={config.payrollAfpName ?? ""}
+              onChange={(e) =>
+                setField(
+                  "payrollAfpName",
+                  e.target.value.trim() === "" ? null : e.target.value.trim(),
+                )
+              }
+            />
+            <p className="mt-1 text-[12px] text-ds-text-3">
+              Misma AFP con que se estima el líquido del puesto. Vacío = Modelo. Claves válidas de la versión activa de parámetros (habitat, modelo, capital…).
+            </p>
+          </div>
+          <div>
+            <Label>Tasa mutualidad (fracción)</Label>
+            <Input
+              className="h-10 sm:h-9"
+              type="number"
+              min={0}
+              max={0.15}
+              step={0.0001}
+              placeholder="0.012"
+              value={config.payrollMutualRatePct ?? ""}
+              onChange={(e) => {
+                const v = e.target.value;
+                setField(
+                  "payrollMutualRatePct",
+                  v === "" ? null : Number(v),
+                );
+              }}
+            />
+            <p className="mt-1 text-[12px] text-ds-text-3">
+              Tasa total de accidentes del trabajo (ej. 0,012 = 1,2%). Vacío = tasa del rubro seguridad de la versión activa de parámetros.
             </p>
           </div>
           <div>

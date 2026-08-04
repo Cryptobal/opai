@@ -95,8 +95,11 @@ export async function computeEmployerCost(
   const base_salary = input.base_salary_clp;
 
   // ── 6. GRATIFICACIÓN LEGAL (Art. 50 CT) ──────────────────
+  // Misma semántica que simulate-payslip: override explícito gana.
   let gratification = 0;
-  if (includeGratification) {
+  if (input.gratification_clp !== undefined) {
+    gratification = input.gratification_clp;
+  } else if (includeGratification) {
     const monthly_rate = params.gratification?.regime_25_monthly?.monthly_rate || 0.25;
     const cap_multiple = params.gratification?.regime_25_monthly?.annual_cap_imm_multiple || 4.75;
     const monthly_gratification = base_salary * monthly_rate;
@@ -112,11 +115,13 @@ export async function computeEmployerCost(
     overtime = input.overtime_hours_50 * hour_value * 1.5;
   }
 
-  // ── 8. COMISIONES ────────────────────────────────────────
+  // ── 8. COMISIONES + OTROS IMPONIBLES ─────────────────────
   const commissions = input.commissions || 0;
+  const other_taxable = input.other_taxable_allowances || 0;
 
   // ── 9. TOTAL IMPONIBLE ───────────────────────────────────
-  const total_taxable = base_salary + gratification + overtime + commissions;
+  const total_taxable =
+    base_salary + gratification + overtime + commissions + other_taxable;
   const imponible_pension = Math.min(total_taxable, pension_cap_clp);
   const imponible_health = Math.min(total_taxable, health_cap_clp);
   const imponible_afc = Math.min(total_taxable, afc_cap_clp);
@@ -124,13 +129,15 @@ export async function computeEmployerCost(
   // ── 10. HABERES NO IMPONIBLES ────────────────────────────
   const transport_allowance = input.transport_allowance || 0;
   const meal_allowance = input.meal_allowance || 0;
+  const other_non_taxable = input.other_non_taxable_allowances || 0;
   const family_allowance = calculateFamilyAllowance(
     total_taxable,
     input.num_dependents || 0,
     input.has_maternal_allowance || false,
     params
   );
-  const total_non_taxable = transport_allowance + meal_allowance + family_allowance;
+  const total_non_taxable =
+    transport_allowance + meal_allowance + family_allowance + other_non_taxable;
 
   // ── 11. AFC EMPLEADOR ────────────────────────────────────
   const afc_config =
@@ -195,12 +202,20 @@ export async function computeEmployerCost(
   const total_cost = direct_cost + vacation_provision + severance_provision;
 
   // ── 17. ESTIMACIÓN DESCUENTOS TRABAJADOR ─────────────────
+  // Lookup AFP case-insensitive (mismas claves en params: "modelo", "habitat"…).
+  const afp_key =
+    Object.keys(params.afp.commissions).find(
+      (k) => k.toLowerCase() === afp_name.toLowerCase()
+    ) || afp_name;
   const afp_commission =
-    params.afp.commissions[afp_name]?.commission_rate || 0;
+    params.afp.commissions[afp_key]?.commission_rate || 0;
   const afp_total_rate = params.afp.base_rate + afp_commission;
   const afp_worker = Math.floor(imponible_pension * afp_total_rate);
 
-  const health_rate = health_system === "fonasa" ? 0.07 : health_plan_pct;
+  const health_rate =
+    health_system === "fonasa"
+      ? params.health?.fonasa?.rate || 0.07
+      : health_plan_pct;
   const health_worker = Math.floor(imponible_health * health_rate);
 
   const afc_worker_config =

@@ -1,28 +1,29 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
 import { startOfMonth } from "date-fns";
-import { computeEmployerCost } from "@/modules/payroll/engine/compute-employer-cost";
+import {
+  computePayrollCashForInstallation,
+} from "@/modules/finance/cashflow/payroll-cash.service";
 
 const PAYROLL_CATEGORY_CODE = "EGR_SUELDO";
 const PREVIRED_CATEGORY_CODE = "EGR_PREVIRED";
 
 type SyncAction = "created" | "updated" | "deactivated" | "reactivated" | "noop";
 
-/**
- * Fallback de descuentos al trabajador cuando el puesto no tiene
- * `netSalaryEstimate` calculado: AFP 10–12% + Salud 7% + AFC trab 0.6% ≈ 17.6%.
- * Usamos 17% (subestima imposiciones, sobreestima líquido).
- */
-const WORKER_DEDUCTION_FALLBACK = 0.17;
-
 export interface PayrollAmounts {
   /** Líquido total mensual a guardias (lo que se transfiere fin de mes). */
   liquido: number;
   /** Pago a PreviRed (imposiciones trab + aportes empleador). */
   previRed: number;
-  /** Costo empleador total (línea legacy). */
+  /** Costo empleador contable (costo directo + provisiones). */
   total: number;
   name: string | null;
+  /** Retención IUSC (se entera en F29). */
+  impuestoUnico: number;
+  /** Provisiones vacaciones + indemnización (NO son caja). */
+  provisiones: number;
+  /** liquido + previred + impuestoUnico. */
+  costoDirecto: number;
 }
 
 // Exportada: el derivador de egresos del Flujo v3 la reutiliza en LECTURA
@@ -31,70 +32,17 @@ export async function computeMonthlyPayrollForInstallation(
   tenantId: string,
   installationId: string,
 ): Promise<PayrollAmounts | null> {
-  // Cada `OpsPuestoOperativo` representa un puesto de trabajo con N guardias
-  // requeridos (`requiredGuards`). El sueldo y el costo son POR guardia; hay
-  // que multiplicar por la dotación para obtener el costo real del puesto.
-  const puestos = await prisma.opsPuestoOperativo.findMany({
-    where: {
-      tenantId,
-      installationId,
-      active: true,
-      salaryStructureId: { not: null },
-    },
-    select: {
-      requiredGuards: true,
-      installation: { select: { name: true } },
-      salaryStructure: {
-        select: { baseSalary: true, netSalaryEstimate: true },
-      },
-    },
-  });
-  if (puestos.length === 0) return null;
-
-  const useFullCompute = puestos.length <= 50;
-  let liquidoTotal = 0;
-  let employerTotal = 0;
-  let name: string | null = null;
-  for (const p of puestos) {
-    if (!p.salaryStructure) continue;
-    if (!name) name = p.installation?.name ?? null;
-    const baseSalary = Number(p.salaryStructure.baseSalary ?? 0);
-    if (baseSalary <= 0) continue;
-
-    const count = Math.max(1, p.requiredGuards ?? 1);
-
-    // Líquido por guardia: preferimos `netSalaryEstimate` (incluye gratifica-
-    // ción, colación, movilización y bonos). Si no existe, fallback al factor
-    // 0.83 × base.
-    const netPerGuard = Number(p.salaryStructure.netSalaryEstimate ?? 0);
-    const liquidoPerGuard =
-      netPerGuard > 0 ? netPerGuard : baseSalary * (1 - WORKER_DEDUCTION_FALLBACK);
-
-    // Costo empleador por guardia: payroll engine (real, con AFP/Salud/SIS/
-    // mutual/AFC patronal/grat) o fallback 1.45 × base.
-    let employerCostPerGuard = baseSalary * 1.45;
-    if (useFullCompute) {
-      try {
-        const r = await computeEmployerCost({
-          base_salary_clp: baseSalary,
-          contract_type: "indefinite",
-        });
-        if (r?.monthly_employer_cost_clp) {
-          employerCostPerGuard = r.monthly_employer_cost_clp;
-        }
-      } catch {
-        // fallback al factor
-      }
-    }
-
-    liquidoTotal += liquidoPerGuard * count;
-    employerTotal += employerCostPerGuard * count;
-  }
-  if (employerTotal <= 0) return null;
-
-  const liquido = Math.round(liquidoTotal);
-  const previRed = Math.max(0, Math.round(employerTotal - liquido));
-  return { liquido, previRed, total: Math.round(employerTotal), name };
+  const r = await computePayrollCashForInstallation(tenantId, installationId);
+  if (!r) return null;
+  return {
+    liquido: r.liquido,
+    previRed: r.previred,
+    total: r.costoDirecto + r.provisiones,
+    name: r.name,
+    impuestoUnico: r.impuestoUnico,
+    provisiones: r.provisiones,
+    costoDirecto: r.costoDirecto,
+  };
 }
 
 /** Crea/actualiza un FinanceCashflowItem para una variante específica. */

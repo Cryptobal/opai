@@ -8588,6 +8588,12 @@ model FinanceCashflowConfig {
   /// Meses de historia para el promedio móvil del crédito fiscal F29
   /// (fracción no transcurrida del período en curso / futuros).
   f29CreditAvgMonths             Int                    @default(6) @map("f29_credit_avg_months")
+  /// AFP usada para proyectar cotizaciones de caja (Previred). Null ⇒ "Modelo"
+  /// (misma AFP con que se calcula `netSalaryEstimate` en puestos).
+  payrollAfpName                 String?                @map("payroll_afp_name")
+  /// Tasa total de mutualidad (fracción, ej. 0.012 = 1,2%). Null ⇒
+  /// `work_injury_risk: security_industry` de la versión activa de parámetros.
+  payrollMutualRatePct           Decimal?               @map("payroll_mutual_rate_pct") @db.Decimal(6, 4)
   createdAt                      DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt                      DateTime               @updatedAt @map("updated_at") @db.Timestamptz(6)
 
