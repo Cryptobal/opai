@@ -10,17 +10,44 @@ import { SearchableSelect, type SearchableOption } from "@/components/ui/Searcha
 import { SimpleSelect } from "@/components/ui/simple-select";
 import { SECTION_LABELS, SECTION_ORDER } from "./grid-classes";
 
+/** Secciones que admiten egreso/recurrencia de plan (mismo set que RecurringExpenseDialog). */
+export const PLAN_RECURRENCE_SECTIONS = [
+  "REMUNERACIONES", "IMPUESTOS", "GAV", "OTROS", "FINANCIAMIENTO",
+] as const;
+
+export type CreatedFlowRow = { id: string; section: string; name: string };
+
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   busy: boolean;
   onCreate: (body: Record<string, unknown>) => Promise<unknown>;
+  /**
+   * Sección prefijada desde el "+" del encabezado. Si se setea, el select
+   * queda bloqueado (no editable).
+   */
+  lockedSection?: string | null;
+  /**
+   * Tras crear con éxito: fila creada + si el usuario pidió encadenar
+   * el diálogo de recurrencia.
+   */
+  onCreated?: (
+    row: CreatedFlowRow,
+    opts: { configureRecurrence: boolean },
+  ) => void;
 }
 
 const SELECT_CLASS =
   "h-9 w-full rounded-md border border-ds-border-default bg-ds-surface-1 px-2 text-sm text-ds-text-1";
 
-export function AddRowDialog({ open, onOpenChange, busy, onCreate }: Props) {
+export function AddRowDialog({
+  open,
+  onOpenChange,
+  busy,
+  onCreate,
+  lockedSection = null,
+  onCreated,
+}: Props) {
   const [section, setSection] = useState("INGRESOS");
   const [accounts, setAccounts] = useState<SearchableOption[]>([]);
   const [installations, setInstallations] = useState<SearchableOption[]>([]);
@@ -32,6 +59,23 @@ export function AddRowDialog({ open, onOpenChange, busy, onCreate }: Props) {
   // Ingreso asociado a una cuenta CRM (default) o manual/libre (sin cuenta).
   const [linkAccount, setLinkAccount] = useState(true);
   const [name, setName] = useState("");
+  const [configureRecurrence, setConfigureRecurrence] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    setSection(
+      lockedSection && (SECTION_ORDER as readonly string[]).includes(lockedSection)
+        ? lockedSection
+        : "INGRESOS",
+    );
+    setConfigureRecurrence(false);
+    setName("");
+    setAccountId("");
+    setInstallationId("");
+    setCategoryId("");
+    setManual(false);
+    setLinkAccount(true);
+  }, [open, lockedSection]);
 
   useEffect(() => {
     if (!open) return;
@@ -60,7 +104,9 @@ export function AddRowDialog({ open, onOpenChange, busy, onCreate }: Props) {
       .catch(() => setInstallations([]));
   }, [accountId]);
 
+  const sectionLocked = !!lockedSection;
   const isIncome = section === "INGRESOS";
+  const canConfigureRecurrence = (PLAN_RECURRENCE_SECTIONS as readonly string[]).includes(section);
   const expenseCategories = useMemo(
     () => categories.filter((c) => c.kind === "EXPENSE"),
     [categories],
@@ -99,9 +145,14 @@ export function AddRowDialog({ open, onOpenChange, busy, onCreate }: Props) {
         ? { section, name: finalName, mapping: "MANUAL" }
         : { section, name: finalName, mapping: "CATEGORY", categoryId };
     const r = await onCreate(body);
-    if (r != null) {
+    if (r != null && typeof r === "object" && "id" in r && typeof (r as { id: unknown }).id === "string") {
+      const created = r as CreatedFlowRow;
       onOpenChange(false);
       setName(""); setAccountId(""); setInstallationId(""); setCategoryId("");
+      onCreated?.(
+        { id: created.id, section: created.section ?? section, name: created.name ?? finalName },
+        { configureRecurrence: canConfigureRecurrence && configureRecurrence },
+      );
     }
   };
 
@@ -114,15 +165,26 @@ export function AddRowDialog({ open, onOpenChange, busy, onCreate }: Props) {
         <div className="space-y-3">
           <label className="block space-y-1 text-xs text-ds-text-3">
             <span>Sección</span>
-            <SimpleSelect
-              className={SELECT_CLASS}
-              value={section}
-              onValueChange={(v) => setSection(v)}
-              options={SECTION_ORDER.map((s) => ({
-                value: s,
-                label: SECTION_LABELS[s],
-              }))}
-            />
+            {sectionLocked ? (
+              <Input
+                className={SELECT_CLASS}
+                value={SECTION_LABELS[section] ?? section}
+                disabled
+                readOnly
+                aria-label="Sección (fija)"
+                data-testid="add-row-section-locked"
+              />
+            ) : (
+              <SimpleSelect
+                className={SELECT_CLASS}
+                value={section}
+                onValueChange={(v) => setSection(v)}
+                options={SECTION_ORDER.map((s) => ({
+                  value: s,
+                  label: SECTION_LABELS[s],
+                }))}
+              />
+            )}
           </label>
 
           {isIncome ? (
@@ -176,6 +238,18 @@ export function AddRowDialog({ open, onOpenChange, busy, onCreate }: Props) {
             <span>Nombre de la fila</span>
             <Input value={name} onChange={(e) => setName(e.target.value)} placeholder={autoName || "Nombre visible en la planilla"} />
           </label>
+
+          {canConfigureRecurrence && (
+            <label className="flex items-center gap-2 text-xs text-ds-text-2">
+              <input
+                type="checkbox"
+                checked={configureRecurrence}
+                onChange={(e) => setConfigureRecurrence(e.target.checked)}
+                data-testid="add-row-configure-recurrence"
+              />
+              Configurar recurrencia al crear
+            </label>
+          )}
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
