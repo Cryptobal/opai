@@ -14,7 +14,7 @@ const SEGMENT_TONES = [
   "bg-status-ok",
   "bg-primary",
   "bg-status-warn",
-  "bg-tint-violet-fg",
+  "bg-status-danger",
 ] as const;
 
 export interface AllocationRailProps {

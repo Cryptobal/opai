@@ -990,6 +990,7 @@ async function mapOpsToCandidates(
 
 function mergeCandidatesById(
   lists: CandidateFactoring[][],
+  detectionCompanyId?: string | null,
 ): CandidateFactoring[] {
   const byId = new Map<string, CandidateFactoring>();
   for (const list of lists) {
@@ -998,7 +999,16 @@ function mergeCandidatesById(
       if (!prev || c.confidence > prev.confidence) byId.set(c.id, c);
     }
   }
-  return [...byId.values()].sort((a, b) => b.confidence - a.confidence);
+  return [...byId.values()].sort((a, b) => {
+    // Empresa detectada primero: evita que otra factoring en banda
+    // de monto quede por encima de cesiones SCF fuera de banda.
+    if (detectionCompanyId) {
+      const aHit = a.factoringCompanyId === detectionCompanyId ? 1 : 0;
+      const bHit = b.factoringCompanyId === detectionCompanyId ? 1 : 0;
+      if (aHit !== bHit) return bHit - aHit;
+    }
+    return b.confidence - a.confidence;
+  });
 }
 
 /**
@@ -1095,7 +1105,7 @@ export async function findFactoringCandidates(
     [...branchA, ...branchB],
     scoreCtx,
   );
-  return mergeCandidatesById([mapped]).slice(0, 60);
+  return mergeCandidatesById([mapped], detection.companyId).slice(0, 60);
 }
 
 /**
@@ -1199,7 +1209,10 @@ export async function findFactoringCandidatesForBulk(
     [...branchA, ...branchB],
     scoreCtx,
   );
-  return mergeCandidatesById([fromTotal, ...perTx]).slice(0, 60);
+  return mergeCandidatesById(
+    [fromTotal, ...perTx],
+    detection.companyId,
+  ).slice(0, 60);
 }
 
 /**
@@ -1392,7 +1405,7 @@ export async function searchReconcileCandidates(
   let dteCandidates: CandidateDte[] = [];
   let factoringCandidates: CandidateFactoring[] = [];
 
-  if (wantOpen || scope === "all") {
+  if (wantOpen) {
     const dteWhere: Prisma.FinanceDteWhereInput = {
       tenantId,
       dteType: { notIn: [56, 61] },
@@ -1448,34 +1461,29 @@ export async function searchReconcileCandidates(
   }
 
   if (wantFactoring) {
+    const dteTextFilter: Prisma.FinanceDteWhereInput = {
+      OR: [
+        { receiverName: { contains: q, mode: "insensitive" as const } },
+        { issuerName: { contains: q, mode: "insensitive" as const } },
+        ...(folioNum != null ? [{ folio: folioNum }] : []),
+      ],
+      ...(scope === "ceded" ? { paymentStatus: "CEDED" as const } : {}),
+    };
+
     const opWhere: Prisma.FinanceFactoringOperationWhereInput = {
       tenantId,
       status: { notIn: ["CANCELLED"] },
       ...(scope === "factoring" && ctx.companyId
         ? { factoringCompanyId: ctx.companyId }
         : {}),
+      ...(scope === "ceded" ? { dte: { paymentStatus: "CEDED" } } : {}),
       OR: [
         { code: { contains: q, mode: "insensitive" as const } },
         { factoringCompany: { contains: q, mode: "insensitive" as const } },
         ...(folioNum != null ? [{ dte: { folio: folioNum } }] : []),
-        {
-          dte: {
-            OR: [
-              { receiverName: { contains: q, mode: "insensitive" as const } },
-              { issuerName: { contains: q, mode: "insensitive" as const } },
-            ],
-          },
-        },
+        { dte: dteTextFilter },
       ],
     };
-
-    // Scope "ceded": solo ops cuyo DTE está CEDED.
-    if (scope === "ceded") {
-      opWhere.dte = {
-        ...(typeof opWhere.dte === "object" && opWhere.dte ? opWhere.dte : {}),
-        paymentStatus: "CEDED",
-      };
-    }
 
     const ops = await prisma.financeFactoringOperation.findMany({
       where: opWhere,
