@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
 import { hasFacturacionCapability } from "@/lib/permissions";
 import { cloneDraftDte } from "@/modules/finance/billing/dte-draft.service";
+import {
+  isTemplateLinkRequiredError,
+  templateLinkRequiredResponse,
+} from "@/modules/finance/billing/template-link-error-response";
 
 /**
  * POST /api/finance/billing/drafts/[id]/duplicate
@@ -32,6 +36,9 @@ export async function POST(
     const draft = await cloneDraftDte(ctx.tenantId, ctx.userId, id);
     return NextResponse.json({ success: true, data: draft }, { status: 201 });
   } catch (error) {
+    if (isTemplateLinkRequiredError(error)) {
+      return templateLinkRequiredResponse(error);
+    }
     console.error("[Finance/Billing] Draft duplicate error:", error);
     const message = error instanceof Error ? error.message : "Error al duplicar borrador";
     const status = message.includes("no encontrado") ? 404 : 500;

@@ -166,22 +166,49 @@ export function PlanillaGrid({
 
   /** Abre el sheet de la primera celda bandeja con DTEs (asignador). */
   const openUnmatchedAssigner = useCallback(
-    (section: string) => {
+    (section: string, focusDteId?: string | null) => {
       for (const row of data.rows) {
         if (!isFallbackBandejaRow(row) || row.section !== section) continue;
         for (let colIdx = 0; colIdx < row.cells.length; colIdx++) {
           const cell = row.cells[colIdx]!;
-          const n = (cell.committed?.items ?? []).filter((i) => i.kind === "dte").length;
-          if (n > 0) {
-            setSheetTarget({ kind: "cell", sel: { rowId: row.id, colIdx } });
-            setLinkFocusDteId(null);
-            return;
+          const items = (cell.committed?.items ?? []).filter((i) => i.kind === "dte");
+          if (items.length === 0) continue;
+          if (focusDteId && !items.some((i) => i.dteId === focusDteId)) continue;
+          setSheetTarget({ kind: "cell", sel: { rowId: row.id, colIdx } });
+          setLinkFocusDteId(focusDteId ?? null);
+          return;
+        }
+      }
+      // Si el DTE no está en la ventana visible, abrir bandeja genérica.
+      if (focusDteId) {
+        for (const row of data.rows) {
+          if (!isFallbackBandejaRow(row) || row.section !== section) continue;
+          for (let colIdx = 0; colIdx < row.cells.length; colIdx++) {
+            const cell = row.cells[colIdx]!;
+            const n = (cell.committed?.items ?? []).filter((i) => i.kind === "dte").length;
+            if (n > 0) {
+              setSheetTarget({ kind: "cell", sel: { rowId: row.id, colIdx } });
+              setLinkFocusDteId(focusDteId);
+              return;
+            }
           }
         }
       }
     },
     [data.rows],
   );
+
+  // Deep-link post-emisión huérfana: /finanzas/flujo-caja/planilla?focusDte=…
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const focus = params.get("focusDte");
+    if (!focus) return;
+    openUnmatchedAssigner("INGRESOS", focus);
+    params.delete("focusDte");
+    const next = `${window.location.pathname}${params.toString() ? `?${params}` : ""}`;
+    window.history.replaceState({}, "", next);
+  }, [openUnmatchedAssigner]);
 
   const normSearch = useMemo(() => {
     const q = (searchQuery ?? "").trim();

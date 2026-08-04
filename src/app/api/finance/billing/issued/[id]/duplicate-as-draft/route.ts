@@ -3,6 +3,10 @@ import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
 import { hasFacturacionCapability } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { createDraftDte } from "@/modules/finance/billing/dte-draft.service";
+import {
+  isTemplateLinkRequiredError,
+  templateLinkRequiredResponse,
+} from "@/modules/finance/billing/template-link-error-response";
 import { formatDateOnlyUtcYmd } from "@/lib/fx-date";
 
 /**
@@ -112,6 +116,9 @@ export async function POST(
 
     return NextResponse.json({ success: true, data: draft }, { status: 201 });
   } catch (error) {
+    if (isTemplateLinkRequiredError(error)) {
+      return templateLinkRequiredResponse(error);
+    }
     console.error("[Finance/Billing] Duplicate-as-draft error:", error);
     const message = error instanceof Error ? error.message : "Error al duplicar";
     return NextResponse.json({ success: false, error: message }, { status: 500 });

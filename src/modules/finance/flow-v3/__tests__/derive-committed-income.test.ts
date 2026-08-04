@@ -205,11 +205,11 @@ describe("deriveCommittedIncome — DTEs emitidos", () => {
     expect(out.get("row-a")?.get("2026-07-20")?.items[0]?.overdueOver60).toBe(true);
   });
 
-  it("borrador vencido sigue clampeando a la semana actual", () => {
+  it("borrador atrasado sin override clampea a la semana actual (v4.5)", () => {
     const out = deriveCommittedIncome({
       ...base,
       drafts: [{
-        // emisión 2026-05-01 + 30d = 2026-05-31 → pasado → clamp a actual.
+        // fecha doc 2026-05-01 → pasado → clamp a actual (sin +lag).
         id: "draft-past", templateId: "tpl-2", dateYmd: "2026-05-01", totalClp: 300_000,
         receiverName: "Cliente A", crmAccountId: "acc-A", installationId: null,
         templateEndDateYmd: null,
@@ -219,14 +219,27 @@ describe("deriveCommittedIncome — DTEs emitidos", () => {
     expect(out.get("row-a")?.get("2026-07-20")?.items[0]?.kind).toBe("draft");
   });
 
+  it("borrador con override no clampea (override manda)", () => {
+    const out = deriveCommittedIncome({
+      ...base,
+      drafts: [{
+        id: "draft-ov", templateId: "tpl-2", dateYmd: "2026-05-01", totalClp: 300_000,
+        receiverName: "Cliente A", crmAccountId: "acc-A", installationId: null,
+        templateEndDateYmd: null,
+        overrideDateYmd: "2026-06-24",
+      }],
+    });
+    expect(out.get("row-a")?.get("2026-06-22")?.total).toBe(300_000);
+    expect(out.get("row-a")?.get("2026-07-20")).toBeUndefined();
+  });
+
   it("cuota programada vencida sigue clampeando a la semana actual", () => {
-    // Template con nextRunAt en el pasado cuyo cobro (emisión+30d) ya venció.
+    // Template con nextRunAt en el pasado cuya emisión ya venció.
     const out = deriveCommittedIncome({
       ...base,
       templates: [makeTemplate({
         lastRunAt: new Date("2026-05-05"),
         nextRunAt: new Date("2026-06-05"),
-        // endDate futuro para que proyecte; cobro 5-jun+30d=5-jul → pasado → clamp.
         endDate: new Date("2026-12-31"),
       })],
       // Cubrir periodos futuros para aislar solo la cuota vencida clampeada.
@@ -241,18 +254,45 @@ describe("deriveCommittedIncome — DTEs emitidos", () => {
   });
 });
 
-describe("deriveCommittedIncome — programaciones", () => {
-  it("proyecta cuotas futuras solo hasta endDate inclusive", () => {
+describe("deriveCommittedIncome — anclaje en emisión (v4.7)", () => {
+  it("proyecta cuotas en la semana de emisión (sin +diasCobro)", () => {
     const out = deriveCommittedIncome({ ...base, templates: [makeTemplate()] });
     const cells = out.get("row-a-i1");
-    // anchors 5-ago/5-sep/5-oct (+30d cobro): 5-nov > endDate 31-oct NO existe.
+    // anchors 5-ago/5-sep/5-oct: emiten esos días → semanas 03-ago / 31-ago / 05-oct.
+    // 5-nov > endDate 31-oct NO existe.
+    expect(cells?.get("2026-08-03")?.total).toBe(500_000);
     expect(cells?.get("2026-08-31")?.total).toBe(500_000);
     expect(cells?.get("2026-10-05")?.total).toBe(500_000);
-    expect(cells?.get("2026-11-02")?.total).toBe(500_000);
     const all = [...cells!.values()].flatMap((c) => c.items);
     expect(all).toHaveLength(3);
     expect(all.every((i) => i.kind === "scheduled" && i.templateId === "tpl-1")).toBe(true);
     expect(all.every((i) => i.endDate === "2026-10-31")).toBe(true);
+    // Sin término configurado: no inventar cobro estimado.
+    expect(all.every((i) => i.terminoDias == null && i.cobroEstYmd == null)).toBe(true);
+  });
+
+  it("GL Events: cuota del 20/08 ancla en su semana de emisión (sin +30)", () => {
+    const out = deriveCommittedIncome({
+      ...base,
+      templates: [makeTemplate({
+        id: "tpl-gl", name: "GL Events", dayOfMonth: 20,
+        nextRunAt: new Date("2026-08-20"), lastRunAt: new Date("2026-07-20"),
+        endDate: new Date("2026-12-31"),
+      })],
+      coveredPeriods: new Set([
+        "tpl-gl::2026-09", "tpl-gl::2026-10", "tpl-gl::2026-11",
+        "tpl-gl::2026-12", "tpl-gl::2027-01",
+      ]),
+    });
+    // 20-ago-2026 = jueves → lunes 2026-08-17. Antes (v4.6) caía en ~S38 (+30).
+    expect(out.get("row-a-i1")?.get("2026-08-17")?.total).toBe(500_000);
+    expect(out.get("row-a-i1")?.get("2026-08-17")?.items[0]).toMatchObject({
+      kind: "scheduled",
+      issueYmd: "2026-08-20",
+      fecha: "2026-08-20",
+    });
+    // El default del tenant (+30) NO mueve la celda.
+    expect(out.get("row-a-i1")?.get("2026-09-14")).toBeUndefined();
   });
 
   it("endDate null proyecta hasta el fin del horizonte", () => {
@@ -261,22 +301,59 @@ describe("deriveCommittedIncome — programaciones", () => {
       templates: [makeTemplate({ endDate: null })],
     });
     const count = [...out.get("row-a-i1")!.values()].flatMap((c) => c.items).length;
-    // ago..dic = emisiones 5-ago → 5-dic cuyos cobros entran al rango.
+    // ago..dic = emisiones 5-ago → 5-dic.
     expect(count).toBeGreaterThanOrEqual(4);
   });
 
-  it("término de pago POR CONTRATO mueve la semana de cobro (diasCobro del template)", () => {
-    // Contrato que cobra a 60 días en vez del default 30: la cuota de ago
-    // (emisión 5-ago) cobra ~4-oct en vez de ~4-sep.
+  it("término configurado es informativo y NO mueve la celda", () => {
     const out = deriveCommittedIncome({
       ...base,
       templates: [makeTemplate({ diasCobro: 60 })],
     });
     const cells = out.get("row-a-i1");
-    // 5-ago + 60d = 4-oct → semana del lunes 2026-09-28.
-    expect(cells?.get("2026-09-28")?.total).toBe(500_000);
-    // Con 30d habría caído en 2026-08-31; con 60d no debe estar ahí.
-    expect(cells?.get("2026-08-31")).toBeUndefined();
+    // Emisión 5-ago → semana 2026-08-03 (sin +60).
+    expect(cells?.get("2026-08-03")?.total).toBe(500_000);
+    expect(cells?.get("2026-08-03")?.items[0]).toMatchObject({
+      issueYmd: "2026-08-05",
+      terminoDias: 60,
+      cobroEstYmd: "2026-10-04",
+    });
+    // Con el lag viejo habría caído en 2026-09-28; ya no.
+    expect(cells?.get("2026-09-28")).toBeUndefined();
+  });
+
+  it("término 0 no expone cobroEst redundante", () => {
+    const out = deriveCommittedIncome({
+      ...base,
+      templates: [makeTemplate({ diasCobro: 0 })],
+      coveredPeriods: new Set([
+        "tpl-1::2026-09", "tpl-1::2026-10", "tpl-1::2026-11",
+        "tpl-1::2026-12", "tpl-1::2027-01",
+      ]),
+    });
+    const item = out.get("row-a-i1")?.get("2026-08-03")?.items[0];
+    expect(item).toMatchObject({ terminoDias: 0, cobroEstYmd: null, issueYmd: "2026-08-05" });
+  });
+
+  it("collectionLagDays del tenant no desplaza cuotas ni borradores", () => {
+    const out = deriveCommittedIncome({
+      ...base,
+      collectionLagDays: 45,
+      templates: [makeTemplate()],
+      coveredPeriods: new Set([
+        "tpl-1::2026-09", "tpl-1::2026-10", "tpl-1::2026-11",
+        "tpl-1::2026-12", "tpl-1::2027-01",
+      ]),
+      drafts: [{
+        id: "draft-lag", templateId: "tpl-2", dateYmd: "2026-08-04", totalClp: 100_000,
+        receiverName: "Cliente A", crmAccountId: "acc-A", installationId: null,
+        templateEndDateYmd: null,
+      }],
+    });
+    // Cuota: emisión 5-ago → S 2026-08-03 (no +45).
+    expect(out.get("row-a-i1")?.get("2026-08-03")?.total).toBe(500_000);
+    // Borrador: fecha doc 4-ago → S 2026-08-03 (no +45).
+    expect(out.get("row-a")?.get("2026-08-03")?.total).toBe(100_000);
   });
 
   it("dedup: el período cubierto por DTE emitido no se proyecta", () => {
@@ -286,11 +363,11 @@ describe("deriveCommittedIncome — programaciones", () => {
       coveredPeriods: new Set(["tpl-1::2026-08"]),
     });
     const cells = out.get("row-a-i1");
-    expect(cells?.get("2026-08-31")).toBeUndefined();
-    expect(cells?.get("2026-10-05")?.total).toBe(500_000);
+    expect(cells?.get("2026-08-03")).toBeUndefined();
+    expect(cells?.get("2026-08-31")?.total).toBe(500_000);
   });
 
-  it("borrador de programación entra como draft con su monto real", () => {
+  it("borrador ancla en fecha del documento (sin +lag)", () => {
     const out = deriveCommittedIncome({
       ...base,
       drafts: [{
@@ -299,22 +376,37 @@ describe("deriveCommittedIncome — programaciones", () => {
         templateEndDateYmd: null,
       }],
     });
-    const cell = out.get("row-a")?.get("2026-08-31");
+    // 1-ago-2026 = sábado → lunes 2026-07-27. Antes (+30) caía en 2026-08-31.
+    const cell = out.get("row-a")?.get("2026-07-27");
     expect(cell?.total).toBe(700_000);
-    expect(cell?.items[0]).toMatchObject({ kind: "draft", dteId: "draft-1", templateId: "tpl-2", proformaSent: false });
+    expect(cell?.items[0]).toMatchObject({
+      kind: "draft",
+      dteId: "draft-1",
+      templateId: "tpl-2",
+      issueYmd: "2026-08-01",
+      sentDocs: { proforma: false, estadoPago: false },
+    });
   });
 
-  it("borrador con estado de pago enviado marca proformaSent", () => {
+  it("borrador distingue EP y Proforma en sentDocs", () => {
     const out = deriveCommittedIncome({
       ...base,
       drafts: [{
         id: "draft-2", templateId: "tpl-2", dateYmd: "2026-08-01", totalClp: 500_000,
         receiverName: "Cliente A", crmAccountId: "acc-A", installationId: null,
-        proformaSent: true, templateEndDateYmd: null,
+        sentDocs: { proforma: false, estadoPago: true },
+        templateEndDateYmd: null,
+        templateDiasCobro: 3,
       }],
     });
-    const cell = out.get("row-a")?.get("2026-08-31");
-    expect(cell?.items[0]).toMatchObject({ kind: "draft", proformaSent: true });
+    const cell = out.get("row-a")?.get("2026-07-27");
+    expect(cell?.items[0]).toMatchObject({
+      kind: "draft",
+      sentDocs: { proforma: false, estadoPago: true },
+      terminoDias: 3,
+      cobroEstYmd: "2026-08-04",
+      issueYmd: "2026-08-01",
+    });
   });
 });
 

@@ -46,6 +46,12 @@ vi.mock("../inherit-template-link", () => ({
     recurringTemplateId: null,
     billingPeriod: null,
   })),
+  countActiveAccountTemplates: vi.fn(async () => 0),
+}));
+vi.mock("@/modules/finance/flow-v3/weekly-close.adapter", () => ({
+  listClosedV3Weeks: vi.fn(async (_t: string, mondays: string[]) =>
+    mondays.includes("2026-07-27") ? ["2026-07-27"] : [],
+  ),
 }));
 vi.mock("@/lib/fx-date", async () => {
   const actual = await vi.importActual<typeof import("@/lib/fx-date")>("@/lib/fx-date");
@@ -53,6 +59,7 @@ vi.mock("@/lib/fx-date", async () => {
 });
 
 import {
+  AnchoredIssueDateError,
   FutureIssueDateError,
   issueDte,
 } from "../dte-issuer.service";
@@ -112,6 +119,68 @@ describe("issueDte — guard fecha futura", () => {
   it("forceIssueDateToToday reescribe a hoy y pasa el guard", async () => {
     prismaMock.$transaction.mockRejectedValue(new Error("no config (test)"));
     const input = { ...baseInput };
+    await expect(
+      issueDte("t1", "u1", input, { forceIssueDateToToday: true }),
+    ).rejects.toThrow("no config (test)");
+    expect(input.issueDate).toBe("2026-08-04");
+  });
+});
+
+describe("issueDte — guard fecha sellada/pasada (v4.7)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    computeDteAmountsMock.mockResolvedValue({
+      totalNet: 1000,
+      totalExempt: 0,
+      taxRate: 19,
+      taxAmount: 190,
+      totalAmount: 1190,
+      ufValue: null,
+      ufDate: null,
+      lines: [
+        {
+          itemName: "Servicio",
+          quantity: 1,
+          unitPrice: 1000,
+          netAmount: 1000,
+          isExempt: false,
+        },
+      ],
+    });
+    prismaMock.crmAccount.findMany.mockResolvedValue([]);
+  });
+
+  it("bloquea emisión con fecha en semana sellada sin confirmación", async () => {
+    // 2026-08-01 = sábado → lunes 2026-07-27 (S31 sellada en el mock).
+    await expect(
+      issueDte("t1", "u1", { ...baseInput, issueDate: "2026-08-01" }),
+    ).rejects.toMatchObject({
+      name: "AnchoredIssueDateError",
+      code: "ANCHORED_ISSUE_DATE",
+      reason: "sealed",
+      weekLabel: "S31",
+    });
+  });
+
+  it("bloquea emisión con fecha en semana pasada abierta", async () => {
+    // 2026-07-20 = lunes de semana pasada (no sellada en el mock).
+    await expect(
+      issueDte("t1", "u1", { ...baseInput, issueDate: "2026-07-20" }),
+    ).rejects.toBeInstanceOf(AnchoredIssueDateError);
+  });
+
+  it("allowAnchoredDate permite continuar", async () => {
+    prismaMock.$transaction.mockRejectedValue(new Error("no config (test)"));
+    await expect(
+      issueDte("t1", "u1", { ...baseInput, issueDate: "2026-08-01" }, {
+        allowAnchoredDate: true,
+      }),
+    ).rejects.toThrow("no config (test)");
+  });
+
+  it("forceIssueDateToToday reescribe fecha sellada a hoy", async () => {
+    prismaMock.$transaction.mockRejectedValue(new Error("no config (test)"));
+    const input = { ...baseInput, issueDate: "2026-08-01" };
     await expect(
       issueDte("t1", "u1", input, { forceIssueDateToToday: true }),
     ).rejects.toThrow("no config (test)");

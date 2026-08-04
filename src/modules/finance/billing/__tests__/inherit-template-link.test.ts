@@ -3,12 +3,14 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 vi.mock("server-only", () => ({}));
 
 const findMany = vi.fn();
+const findFirst = vi.fn();
 const count = vi.fn();
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     financeDteRecurringTemplate: {
       findMany: (...a: unknown[]) => findMany(...a),
+      findFirst: (...a: unknown[]) => findFirst(...a),
       count: (...a: unknown[]) => count(...a),
     },
   },
@@ -23,14 +25,25 @@ import {
   TemplateLinkRequiredError,
 } from "../inherit-template-link";
 
-describe("applyTemplateLinkInheritance — destino v4.3", () => {
+describe("applyTemplateLinkInheritance — destino v4.3/v4.7", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    findFirst.mockResolvedValue(null);
   });
 
-  it("con 2+ programaciones y sin vínculo → rechaza", async () => {
-    findMany.mockResolvedValue([]); // herencia no aplica (>1)
-    count.mockResolvedValue(2);
+  it("con 2+ programaciones y sin vínculo → rechaza con opciones", async () => {
+    findMany
+      .mockResolvedValueOnce([]) // herencia (take 2) no aplica cuando null explícito… no se llama
+      .mockResolvedValueOnce([
+        { id: "tpl-a", name: "20%", installationId: null },
+        { id: "tpl-b", name: "80%", installationId: null },
+      ]);
+    // Con null explícito no corre herencia (solo undefined). Solo listActive.
+    findMany.mockReset();
+    findMany.mockResolvedValue([
+      { id: "tpl-a", name: "20%", installationId: null },
+      { id: "tpl-b", name: "80%", installationId: null },
+    ]);
 
     await expect(
       applyTemplateLinkInheritance("t1", {
@@ -40,10 +53,36 @@ describe("applyTemplateLinkInheritance — destino v4.3", () => {
         recurringTemplateId: null,
         billingPeriod: null,
       }),
+    ).rejects.toMatchObject({
+      name: "TemplateLinkRequiredError",
+      code: "TEMPLATE_LINK_REQUIRED",
+      options: [
+        { id: "tpl-a", name: "20%" },
+        { id: "tpl-b", name: "80%" },
+      ],
+    });
+  });
+
+  it("template de otra cuenta se trata como ausente y exige selector si hay 2+", async () => {
+    findFirst.mockResolvedValue(null); // no pertenece a la cuenta
+    findMany.mockResolvedValue([
+      { id: "tpl-a", name: "20%", installationId: null },
+      { id: "tpl-b", name: "80%", installationId: null },
+    ]);
+
+    await expect(
+      applyTemplateLinkInheritance("t1", {
+        dteType: 33,
+        crmAccountId: "acc-Transmat",
+        issueDateYmd: "2026-08-05",
+        recurringTemplateId: "tpl-east-west",
+        billingPeriod: "2026-08",
+      }),
     ).rejects.toBeInstanceOf(TemplateLinkRequiredError);
   });
 
   it("con 2+ programaciones y template elegido (extra, período nulo) → ok", async () => {
+    findFirst.mockResolvedValue({ id: "tpl-1" });
     const out = await applyTemplateLinkInheritance("t1", {
       dteType: 33,
       crmAccountId: "acc-A",
@@ -55,10 +94,10 @@ describe("applyTemplateLinkInheritance — destino v4.3", () => {
       recurringTemplateId: "tpl-1",
       billingPeriod: null,
     });
-    expect(count).not.toHaveBeenCalled();
   });
 
   it("con 2+ programaciones y cuota (template + período) → ok", async () => {
+    findFirst.mockResolvedValue({ id: "tpl-2" });
     const out = await applyTemplateLinkInheritance("t1", {
       dteType: 33,
       crmAccountId: "acc-A",
@@ -73,9 +112,9 @@ describe("applyTemplateLinkInheritance — destino v4.3", () => {
   });
 
   it("con 1 programación y extra explícito (null) → permitido (bandeja o sin vínculo)", async () => {
-    findMany.mockResolvedValue([]);
-    count.mockResolvedValue(1);
-    // null explícito: no hereda; count=1 → no exige vínculo
+    findMany.mockResolvedValue([
+      { id: "tpl-only", name: "Única", installationId: null },
+    ]);
     const out = await applyTemplateLinkInheritance("t1", {
       dteType: 33,
       crmAccountId: "acc-A",
@@ -102,6 +141,7 @@ describe("applyTemplateLinkInheritance — destino v4.3", () => {
         facturaMesRelativo: "MISMO_MES",
       },
     ]);
+    findFirst.mockResolvedValue({ id: "tpl-only" });
     const out = await applyTemplateLinkInheritance("t1", {
       dteType: 33,
       crmAccountId: "acc-A",
@@ -112,12 +152,10 @@ describe("applyTemplateLinkInheritance — destino v4.3", () => {
       recurringTemplateId: "tpl-only",
       billingPeriod: "2026-08",
     });
-    expect(count).not.toHaveBeenCalled();
   });
 
   it("con 0 programaciones y sin vínculo → permitido (bandeja)", async () => {
     findMany.mockResolvedValue([]);
-    count.mockResolvedValue(0);
     const out = await applyTemplateLinkInheritance("t1", {
       dteType: 33,
       crmAccountId: "acc-A",
@@ -135,10 +173,11 @@ describe("applyTemplateLinkInheritance — destino v4.3", () => {
       recurringTemplateId: null,
     });
     expect(out.recurringTemplateId).toBeNull();
-    expect(count).not.toHaveBeenCalled();
+    expect(findMany).not.toHaveBeenCalled();
   });
 
-  it("flujos automáticos con vínculo explícito no consultan count", async () => {
+  it("flujos automáticos con vínculo explícito no listan si pertenece", async () => {
+    findFirst.mockResolvedValue({ id: "tpl-auto" });
     const out = await applyTemplateLinkInheritance("t1", {
       dteType: 33,
       crmAccountId: "acc-A",
@@ -148,6 +187,5 @@ describe("applyTemplateLinkInheritance — destino v4.3", () => {
     });
     expect(out.recurringTemplateId).toBe("tpl-auto");
     expect(findMany).not.toHaveBeenCalled();
-    expect(count).not.toHaveBeenCalled();
   });
 });

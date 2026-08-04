@@ -2,18 +2,18 @@
  * Derivador COMPROMETIDO · ingresos (función pura, cero writes).
  *
  * Capas que produce por fila ACCOUNT_INSTALLATION:
- *  0. kind="draft": borradores reales de programación (con proformaSent si el
- *     estado de pago ya se envió al cliente).
+ *  0. kind="draft": borradores reales de programación (con sentDocs si
+ *     proforma y/o estado de pago ya se enviaron al cliente).
  *  1. kind="dte": DTEs emitidos (33/34) no pagados → semana de la FECHA DE
  *     EMISIÓN (o override de visibilidad si el usuario la movió). Regla de
  *     producto: una factura emitida impaga NUNCA se arrastra a la semana
  *     actual; vive en su semana de emisión/override hasta que el owner la
  *     mueva a mano o se pague. `overdueDays` se calcula contra hoy.
- *  2. kind="scheduled": borradores de programación (DRAFT con template) y
- *     proyección de FinanceDteRecurringTemplate activas hasta `endDate`
- *     inclusive (contratos a plazo dejan de proyectarse solos al término).
- *     Dedupe period-aware: si existe un DTE (borrador o emitido) con
- *     (recurringTemplateId, billingPeriod) de la cuota, la cuota no se proyecta.
+ *  2. kind="scheduled": proyección de FinanceDteRecurringTemplate activas
+ *     hasta `endDate` inclusive. Celda = semana de emisión (issueYmd), sin
+ *     lag de cobro (v4.7). Dedupe period-aware: si existe un DTE (borrador
+ *     o emitido) con (recurringTemplateId, billingPeriod) de la cuota, la
+ *     cuota no se proyecta.
  */
 import {
   computeNextRunAt,
@@ -25,8 +25,10 @@ import {
   addDaysYmd,
   DEFAULT_COLLECTION_LAG_DAYS,
   pushCommitted,
+  terminoInfo,
   type CommittedByRow,
   type FlowRowRef,
+  type SentDocs,
 } from "./types";
 
 export interface IssuedDteInput {
@@ -58,10 +60,13 @@ export interface ScheduledDraftInput {
   receiverName: string;
   crmAccountId: string | null;
   installationId: string | null;
-  /** Proforma/estado de pago ya enviada al cliente. */
-  proformaSent?: boolean;
+  /** Proforma / Estado de Pago enviados (documentos distintos). */
+  sentDocs?: SentDocs;
   templateEndDateYmd: string | null;
+  /** Término explícito de la programación (null = no configurado). */
   templateDiasCobro?: number | null;
+  /** Override de visibilidad del borrador (misma tabla que emitidos). */
+  overrideDateYmd?: string | null;
 }
 
 export interface TemplateProjectionInput {
@@ -82,7 +87,7 @@ export interface TemplateProjectionInput {
   facturaMesRelativo: string;
   /** Monto bruto CLP por cuota, ya resuelto por el loader (líneas + IVA + UF). */
   grossPerRunClp: number;
-  /** Término de pago del contrato (null = default del tenant). */
+  /** Término de pago del contrato (null = no configurado; no inventar lag). */
   diasCobro?: number | null;
 }
 
@@ -95,16 +100,19 @@ export interface CommittedIncomeArgs {
   templates: TemplateProjectionInput[];
   /** Set "templateId::YYYY-MM" de períodos ya cubiertos por un DTE real/borrador. */
   coveredPeriods: Set<string>;
-  /** Término de pago (días) cuando no hay dueDate. Default 30 (config F1). */
+  /**
+   * Lag default del tenant. Solo para "vencida hace N días" de emitidas
+   * sin dueDate. Ya NO desplaza cuotas ni borradores (v4.7).
+   */
   collectionLagDays?: number;
 }
 
 /**
  * Semana (lunes YMD) de colocación.
- * - `clampOverdue=true` (drafts/scheduled): si venció, mueve a la semana actual
- *   — facturación pendiente de correr, el owner debe verla hoy.
- * - `clampOverdue=false` (DTEs emitidos): se queda en su semana natural
- *   (emisión u override). Cartera no se arrastra.
+ * - `clampOverdue=true` (drafts/scheduled sin override): si venció, mueve a
+ *   la semana actual — facturación pendiente de correr, el owner debe verla hoy.
+ * - `clampOverdue=false` (DTEs emitidos y drafts con override): se queda en
+ *   su semana natural. El override manda.
  */
 function collectionWeek(
   fechaYmd: string,
@@ -132,6 +140,7 @@ export function deriveCommittedIncome(args: CommittedIncomeArgs): CommittedByRow
   const lastWeek = args.weeks[args.weeks.length - 1];
   const inRange = (w: string) => w >= firstWeek && w <= lastWeek;
   const matchRow = buildIncomeMatcher(args.rows);
+  // Lag SOLO para vencimiento informativo de emitidas sin dueDate.
   const lagDays = args.collectionLagDays ?? DEFAULT_COLLECTION_LAG_DAYS;
 
   for (const d of args.dtes) {
@@ -161,20 +170,29 @@ export function deriveCommittedIncome(args: CommittedIncomeArgs): CommittedByRow
   }
 
   for (const dr of args.drafts) {
-    const est = addDaysYmd(dr.dateYmd, dr.templateDiasCobro ?? lagDays);
-    const { week, fecha } = collectionWeek(est, args.todayYmd);
+    // v4.7: ancla en fecha del documento u override. Sin +diasCobro / lag.
+    const hasOverride = !!dr.overrideDateYmd;
+    const placementYmd = dr.overrideDateYmd ?? dr.dateYmd;
+    // Con override el owner mandó: sin clamp. Sin override: clamp v4.5.
+    const { week, fecha } = collectionWeek(placementYmd, args.todayYmd, !hasOverride);
     if (!inRange(week) || dr.totalClp <= 0) continue;
+    const term = terminoInfo(dr.dateYmd, dr.templateDiasCobro);
+    const sentDocs: SentDocs = {
+      proforma: dr.sentDocs?.proforma === true,
+      estadoPago: dr.sentDocs?.estadoPago === true,
+    };
     pushCommitted(out, matchRow(dr.crmAccountId, dr.installationId, dr.templateId), week, {
-      // Borrador real (ocupa el período de su template) — distinto de una
-      // cuota proyectada: tiene documento y puede llevar proforma enviada.
       kind: "draft",
-      proformaSent: dr.proformaSent === true,
+      sentDocs,
       dteId: dr.id,
       templateId: dr.templateId,
       label: dr.receiverName,
       fecha,
       monto: Math.round(dr.totalClp),
       endDate: dr.templateEndDateYmd,
+      issueYmd: term.issueYmd,
+      terminoDias: term.terminoDias,
+      cobroEstYmd: term.cobroEstYmd,
     });
   }
 
@@ -184,8 +202,7 @@ export function deriveCommittedIncome(args: CommittedIncomeArgs): CommittedByRow
     const endYmd = tpl.endDate ? tpl.endDate.toISOString().slice(0, 10) : null;
     let anchor = tpl.nextRunAt ?? computeNextRunAt(tpl);
     let guard = 0;
-    // Margen: la emisión puede caer semanas antes del cobro; proyectamos
-    // anchors hasta fin de rango (el cobro cae ≥ anchor, se filtra por semana).
+    // Proyectamos anchors hasta fin de rango; la celda es la semana de emisión.
     while (anchor && guard < 130) {
       guard += 1;
       if (tpl.endDate && anchor > tpl.endDate) break; // endDate inclusive
@@ -193,9 +210,10 @@ export function deriveCommittedIncome(args: CommittedIncomeArgs): CommittedByRow
       const issueYmd = computeRecurringIssueYmd(tpl, anchor);
       if (issueYmd > lastWeek) break;
       if (!args.coveredPeriods.has(`${tpl.id}::${period}`)) {
-        const est = addDaysYmd(issueYmd, tpl.diasCobro ?? lagDays);
-        const { week, fecha } = collectionWeek(est, args.todayYmd);
+        // v4.7: celda = semana de emisión. Sin +diasCobro / lag.
+        const { week, fecha } = collectionWeek(issueYmd, args.todayYmd);
         if (inRange(week)) {
+          const term = terminoInfo(issueYmd, tpl.diasCobro);
           pushCommitted(out, matchRow(tpl.crmAccountId, tpl.installationId, tpl.id), week, {
             kind: "scheduled",
             templateId: tpl.id,
@@ -203,7 +221,9 @@ export function deriveCommittedIncome(args: CommittedIncomeArgs): CommittedByRow
             fecha,
             monto: Math.round(tpl.grossPerRunClp),
             endDate: endYmd,
-            diasCobro: tpl.diasCobro ?? null,
+            issueYmd: term.issueYmd,
+            terminoDias: term.terminoDias,
+            cobroEstYmd: term.cobroEstYmd,
           });
         }
       }

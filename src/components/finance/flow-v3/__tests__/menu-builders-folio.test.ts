@@ -135,4 +135,66 @@ describe("buildCellMenu — por folio en desktop", () => {
     expect(items.find((i) => i.key === "move")?.label).toBe("Mover a otra semana");
     expect(items.find((i) => i.key === "clear")?.label).toBe("Quitar de esta semana");
   });
+
+  it("borrador con EP ofrece Mover a otra semana y Ver borrador", () => {
+    const draftCell: FlowMatrixCellDto = {
+      weekStart: "2026-08-03",
+      plan: 0,
+      committed: {
+        total: 500_000,
+        items: [{
+          kind: "draft",
+          dteId: "draft-ep",
+          label: "Transmat",
+          fecha: "2026-08-04",
+          monto: 500_000,
+          issueYmd: "2026-08-04",
+          terminoDias: 3,
+          cobroEstYmd: "2026-08-07",
+          sentDocs: { proforma: false, estadoPago: true },
+        }],
+      },
+      real: null,
+      effective: 500_000,
+      layer: "committed",
+    };
+    const items = buildCellMenu(row({ name: "Transmat 20%" }), draftCell, ctx, cbs());
+    expect(items.find((i) => i.key === "edit")).toBeUndefined();
+    expect(items.find((i) => i.key === "move-draft-draft-ep")?.label).toBe("Mover a otra semana");
+    expect(items.find((i) => i.key === "view-draft-draft-ep")?.label).toBe("Ver borrador");
+    const moveSub = items.find((i) => i.key === "move-draft-draft-ep")?.submenu ?? [];
+    expect(moveSub.some((i) => String(i.label).includes("HACIA ATRÁS"))).toBe(true);
+  });
+});
+
+describe("buildCellSheetModel — grupos borrador", () => {
+  it("etiqueta fiel EP + línea fecha doc / término", () => {
+    const draftCell: FlowMatrixCellDto = {
+      weekStart: "2026-08-03",
+      plan: 0,
+      committed: {
+        total: 500_000,
+        items: [{
+          kind: "draft",
+          dteId: "draft-ep",
+          label: "Transmat",
+          fecha: "2026-08-04",
+          monto: 500_000,
+          issueYmd: "2026-08-04",
+          terminoDias: 3,
+          cobroEstYmd: "2026-08-07",
+          sentDocs: { proforma: false, estadoPago: true },
+        }],
+      },
+      real: null,
+      effective: 500_000,
+      layer: "committed",
+    };
+    const model = buildCellSheetModel(row(), draftCell, ctx, cbs());
+    expect(model.folioGroups).toHaveLength(1);
+    expect(model.folioGroups[0]!.header.titleLine).toContain("EP Transmat");
+    expect(model.folioGroups[0]!.header.statusLine).toContain("Fecha doc");
+    expect(model.folioGroups[0]!.header.statusLine).toContain("término 3 d");
+    expect(model.folioGroups[0]!.items.some((i) => i.key.startsWith("move-draft-"))).toBe(true);
+  });
 });

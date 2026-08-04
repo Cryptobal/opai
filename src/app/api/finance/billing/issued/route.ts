@@ -9,8 +9,13 @@ import { hasFacturacionCapability } from "@/lib/permissions";
 import { issueDteSchema } from "@/lib/validations/finance";
 import {
   issueDte,
+  AnchoredIssueDateError,
   FutureIssueDateError,
 } from "@/modules/finance/billing/dte-issuer.service";
+import {
+  isTemplateLinkRequiredError,
+  templateLinkRequiredResponse,
+} from "@/modules/finance/billing/template-link-error-response";
 import { prisma } from "@/lib/prisma";
 import { cleanRut, toSiiRut, formatRut } from "@/lib/chile-rut";
 
@@ -637,12 +642,14 @@ export async function POST(request: NextRequest) {
       ufOverride,
       forceIssueDateToToday,
       allowFutureDate,
+      allowAnchoredDate,
       ...issueInput
     } = body;
     const result = await issueDte(ctx.tenantId, ctx.userId, issueInput, {
       ufOverride: ufOverride ?? undefined,
       forceIssueDateToToday: forceIssueDateToToday ?? undefined,
       allowFutureDate: allowFutureDate ?? undefined,
+      allowAnchoredDate: allowAnchoredDate ?? undefined,
     });
 
     return NextResponse.json({ success: true, data: result }, { status: 201 });
@@ -659,19 +666,32 @@ export async function POST(request: NextRequest) {
         { status: 409 },
       );
     }
+    if (error instanceof AnchoredIssueDateError) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: error.message,
+          code: error.code,
+          issueDate: error.issueDate,
+          todayYmd: error.todayYmd,
+          weekLabel: error.weekLabel,
+          reason: error.reason,
+        },
+        { status: 409 },
+      );
+    }
+    if (isTemplateLinkRequiredError(error)) {
+      return templateLinkRequiredResponse(error);
+    }
     console.error("[Finance/Billing] Error issuing DTE:", error);
     // Propagar el mensaje del servicio (no enmascarar) para que el cliente
     // pueda mostrar la causa real (ej: "Falta CAF tipo 33", "SimpleAPI HTTP 401",
     // "Certificado expirado", etc).
     const message =
       error instanceof Error ? error.message : "Error al emitir DTE";
-    const status =
-      error instanceof Error && error.name === "TemplateLinkRequiredError"
-        ? 400
-        : 500;
     return NextResponse.json(
       { success: false, error: message },
-      { status },
+      { status: 500 },
     );
   }
 }
