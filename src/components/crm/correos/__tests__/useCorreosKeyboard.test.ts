@@ -4,11 +4,14 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook } from "@testing-library/react";
-import { useCorreosKeyboard } from "../useCorreosKeyboard";
+import {
+  isEditableKeyboardTarget,
+  useCorreosKeyboard,
+} from "../useCorreosKeyboard";
 import { DEFAULT_CORREO_SHORTCUTS } from "../useCorreosViewPreferences";
 
-function dispatchKey(key: string) {
-  window.dispatchEvent(
+function dispatchKey(key: string, target: EventTarget = window) {
+  target.dispatchEvent(
     new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true }),
   );
 }
@@ -104,9 +107,7 @@ describe("useCorreosKeyboard", () => {
     );
     const input = document.createElement("input");
     document.body.appendChild(input);
-    input.dispatchEvent(
-      new KeyboardEvent("keydown", { key: "r", bubbles: true, cancelable: true }),
-    );
+    dispatchKey("r", input);
     expect(handlers.onReply).not.toHaveBeenCalled();
     input.remove();
   });
@@ -126,14 +127,52 @@ describe("useCorreosKeyboard", () => {
     input.setAttribute("role", "combobox");
     wrap.appendChild(input);
     document.body.appendChild(wrap);
-    input.dispatchEvent(
-      new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true, cancelable: true }),
-    );
-    input.dispatchEvent(
-      new KeyboardEvent("keydown", { key: "ArrowUp", bubbles: true, cancelable: true }),
-    );
+    dispatchKey("ArrowDown", input);
+    dispatchKey("ArrowUp", input);
     expect(handlers.onDown).not.toHaveBeenCalled();
     expect(handlers.onUp).not.toHaveBeenCalled();
     wrap.remove();
+  });
+
+  it("no captura archivar al escribir en gmp-place-autocomplete (Shadow DOM)", () => {
+    renderHook(() =>
+      useCorreosKeyboard({
+        ...handlers,
+        shortcuts: DEFAULT_CORREO_SHORTCUTS,
+        replyHandledExternally: true,
+        enabled: true,
+      }),
+    );
+    const host = document.createElement("gmp-place-autocomplete");
+    document.body.appendChild(host);
+    dispatchKey("e", host);
+    expect(handlers.onArchive).not.toHaveBeenCalled();
+    host.remove();
+  });
+
+  it("isEditableKeyboardTarget reconoce host gmp y activeElement profundo", () => {
+    const host = document.createElement("gmp-place-autocomplete");
+    document.body.appendChild(host);
+    const fromHost = new KeyboardEvent("keydown", {
+      key: "e",
+      bubbles: true,
+      cancelable: true,
+    });
+    Object.defineProperty(fromHost, "target", { value: host });
+    expect(isEditableKeyboardTarget(fromHost)).toBe(true);
+
+    const input = document.createElement("input");
+    document.body.appendChild(input);
+    input.focus();
+    const fromWindow = new KeyboardEvent("keydown", {
+      key: "e",
+      bubbles: true,
+      cancelable: true,
+    });
+    Object.defineProperty(fromWindow, "target", { value: window });
+    expect(isEditableKeyboardTarget(fromWindow)).toBe(true);
+
+    input.remove();
+    host.remove();
   });
 });
