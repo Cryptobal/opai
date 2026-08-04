@@ -3,6 +3,7 @@ import {
   buildTenantDomains,
   domainOf,
   isSystemSender,
+  pickThreadListPreview,
 } from "../correos-list-helpers";
 
 describe("domainOf", () => {
@@ -68,5 +69,41 @@ describe("buildTenantDomains", () => {
     );
     expect(domains.has("empresa.cl")).toBe(true);
     expect(domains.has("gmail.com")).toBe(false);
+  });
+});
+
+describe("pickThreadListPreview", () => {
+  it("usa el no-borrador como remitente y el borrador como snippet", () => {
+    const preview = pickThreadListPreview([
+      {
+        fromEmail: "yo@gard.cl",
+        textBody: "Estimado Luis, acusamos recibo…",
+        htmlBody: null,
+        isDraft: true,
+      },
+      {
+        fromEmail: "Luis PEREZ <luis@coexpan.cl>",
+        textBody: "Adjunto bases de licitación",
+        htmlBody: null,
+        isDraft: false,
+      },
+    ]);
+    expect(preview.hasDraftInWindow).toBe(true);
+    expect(preview.fromEmail).toBe("Luis PEREZ <luis@coexpan.cl>");
+    expect(preview.snippet).toMatch(/Estimado Luis/);
+  });
+
+  it("sin borrador usa el último mensaje", () => {
+    const preview = pickThreadListPreview([
+      {
+        fromEmail: "cliente@x.cl",
+        textBody: "Hola",
+        htmlBody: null,
+        isDraft: false,
+      },
+    ]);
+    expect(preview.hasDraftInWindow).toBe(false);
+    expect(preview.fromEmail).toBe("cliente@x.cl");
+    expect(preview.snippet).toBe("Hola");
   });
 });

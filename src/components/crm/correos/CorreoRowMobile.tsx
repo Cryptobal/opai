@@ -3,6 +3,7 @@
 import { memo } from "react";
 import { Paperclip, Star } from "lucide-react";
 import type { CorreoThreadDTO } from "@/modules/crm/email/correos.types";
+import { CorreoDraftLabel } from "./CorreoDraftLabel";
 import { CorreoSenderAvatar } from "./CorreoSenderAvatar";
 import { parseSender } from "./correo-sender";
 import { PREVIEW_LINE_CLASS } from "./CorreoRow";
@@ -128,6 +129,7 @@ export const CorreoRowMobile = memo(function CorreoRowMobile({
               <span className="min-w-0 truncate">
                 {sender.name || sender.email || "—"}
               </span>
+              {thread.hasDraft ? <CorreoDraftLabel /> : null}
               {showMailbox && mailboxLabel && (
                 <span
                   className={`inline-flex h-5 shrink-0 items-center rounded-md px-1.5 text-[12px] font-medium ${

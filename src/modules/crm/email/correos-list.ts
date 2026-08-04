@@ -4,7 +4,7 @@ import type { CorreoThreadDTO } from "./correos.types";
 import {
   buildTenantDomains,
   isSystemSender,
-  snippetFromBody,
+  pickThreadListPreview,
 } from "./correos-list-helpers";
 import {
   buildCorreoSearchIdsQuery,
@@ -121,9 +121,11 @@ const THREAD_LIST_SELECT = {
   spamAt: true,
   isUnread: true,
   messages: {
+    // Ventana corta: remitente = último no-borrador; snippet prioriza borrador.
+    // hasDraft definitivo se confirma con query distinct por threadId.
     select: { fromEmail: true, textBody: true, htmlBody: true, isDraft: true },
     orderBy: { sentAt: "desc" as const },
-    take: 1,
+    take: 8,
   },
   _count: { select: { messages: true } },
 } as const;
@@ -398,7 +400,8 @@ async function mapThreadRowsInternal(
     .map((r) => r.id);
 
   const threadIds = page.map((r) => r.id);
-  const [accounts, deals, thresholds, lastInbounds, taskAgg] = await Promise.all([
+  const [accounts, deals, thresholds, lastInbounds, taskAgg, draftRows] =
+    await Promise.all([
     accountIds.length
       ? prisma.crmAccount.findMany({
           where: { tenantId, id: { in: accountIds } },
@@ -431,6 +434,17 @@ async function mapThreadRowsInternal(
         })
       : [],
     loadThreadTaskAgg(tenantId, threadIds),
+    threadIds.length
+      ? prisma.crmEmailMessage.findMany({
+          where: {
+            tenantId,
+            threadId: { in: threadIds },
+            isDraft: true,
+          },
+          distinct: ["threadId"],
+          select: { threadId: true },
+        })
+      : [],
   ]);
   const accMap = new Map(accounts.map((a) => [a.id, a.name]));
   const dealMap = new Map(
@@ -442,18 +456,17 @@ async function mapThreadRowsInternal(
   const inboundFromByThread = new Map(
     lastInbounds.map((m) => [m.threadId, m.fromEmail]),
   );
+  const draftThreadIds = new Set(draftRows.map((m) => m.threadId));
 
   const items: CorreoThreadDTO[] = page.map((r) => {
-    const msg = r.messages[0];
-    const from = msg?.fromEmail ?? null;
+    const preview = pickThreadListPreview(r.messages);
+    const from = preview.fromEmail;
     // Solo keywords comerciales en el asunto. Un adjunto por sí solo NO es
     // señal de lead (comprobantes bancarios, facturas y reportes traen
     // adjuntos y generaban falsos "Posible lead").
     const kw = KEYWORDS.some((k) => r.subject.toLowerCase().includes(k));
     const system = isSystemSender(from, tenantDomains);
-    const snippet =
-      snippetFromBody(msg?.textBody) ??
-      snippetFromBody(msg?.htmlBody?.replace(/<[^>]+>/g, " ") ?? null);
+    const snippet = preview.snippet;
     const deal = r.dealId ? dealMap.get(r.dealId) : undefined;
     const inboundFrom = inboundFromByThread.get(r.id) ?? null;
     const inboundIsOwnOrSystem = isSystemSender(inboundFrom, tenantDomains);
@@ -497,7 +510,7 @@ async function mapThreadRowsInternal(
       snoozedUntil: r.snoozedUntil?.toISOString() ?? null,
       starredAt: r.starredAt?.toISOString() ?? null,
       spamAt: r.spamAt?.toISOString() ?? null,
-      hasDraft: Boolean(msg?.isDraft),
+      hasDraft: draftThreadIds.has(r.id) || preview.hasDraftInWindow,
       pendingSince: sla.pendingSince,
       slaLevel: sla.level,
       slaLabel: sla.label,

@@ -34,6 +34,33 @@ export function snippetFromBody(textBody: string | null | undefined): string | n
   return cleaned.length > 140 ? `${cleaned.slice(0, 140)}…` : cleaned;
 }
 
+type ListPreviewMessage = {
+  fromEmail: string;
+  textBody: string | null;
+  htmlBody: string | null;
+  isDraft: boolean;
+};
+
+/**
+ * Preview de fila (estilo Gmail): remitente del último no-borrador,
+ * snippet del borrador si hay uno en la ventana, si no del último mensaje.
+ */
+export function pickThreadListPreview(messages: ListPreviewMessage[]) {
+  const latest = messages[0] ?? null;
+  const draft = messages.find((m) => m.isDraft) ?? null;
+  const nonDraft = messages.find((m) => !m.isDraft) ?? null;
+  const fromMsg = nonDraft ?? latest;
+  const snippetMsg = draft ?? latest;
+  const snippet =
+    snippetFromBody(snippetMsg?.textBody) ??
+    snippetFromBody(snippetMsg?.htmlBody?.replace(/<[^>]+>/g, " ") ?? null);
+  return {
+    fromEmail: fromMsg?.fromEmail ?? null,
+    snippet,
+    hasDraftInWindow: Boolean(draft),
+  };
+}
+
 export function isSystemSender(fromEmail: string | null, tenantDomains: Set<string>): boolean {
   if (!fromEmail) return false;
   const address = extractEmailAddresses(fromEmail)[0] ?? fromEmail.toLowerCase().trim();
