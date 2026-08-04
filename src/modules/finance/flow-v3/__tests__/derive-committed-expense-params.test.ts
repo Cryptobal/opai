@@ -4,10 +4,12 @@ import {
   computeCellDrift,
   computeF29FutureClp,
   computeFiniquitosMonthly,
+  computePctSalesClp,
   computeRetiroSocioClp,
   computeTeHistoricalWeekly,
   computeTePctPayrollWeekly,
   payWeekForMonthDay,
+  resolveRetiroPctFraction,
 } from "../derive-committed-expense-params";
 
 describe("computeRetiroSocioClp", () => {
@@ -19,6 +21,36 @@ describe("computeRetiroSocioClp", () => {
   it("redondea pct × ventas netas del mes anterior", () => {
     expect(computeRetiroSocioClp(0.05, 10_000_000)).toBe(500_000);
     expect(computeRetiroSocioClp(0.033, 9_999_999)).toBe(Math.round(0.033 * 9_999_999));
+  });
+
+  it("ventas 0 ⇒ proyección 0 (sin negativo espurio)", () => {
+    expect(computePctSalesClp(0.1, 0)).toBe(0);
+  });
+});
+
+describe("resolveRetiroPctFraction — precedencia regla % vs knob global", () => {
+  it("regla PCT_SALES de la fila pisa el knob global", () => {
+    expect(resolveRetiroPctFraction({
+      rowHasPctSalesRule: true,
+      rulePctFraction: 0.1,
+      globalPctFraction: 0.05,
+    })).toBe(0.1);
+  });
+
+  it("sin regla, manda el knob global", () => {
+    expect(resolveRetiroPctFraction({
+      rowHasPctSalesRule: false,
+      rulePctFraction: 0.1,
+      globalPctFraction: 0.05,
+    })).toBe(0.05);
+  });
+
+  it("regla presente pero pct inválido ⇒ 0 (no cae al global)", () => {
+    expect(resolveRetiroPctFraction({
+      rowHasPctSalesRule: true,
+      rulePctFraction: 0,
+      globalPctFraction: 0.05,
+    })).toBe(0);
   });
 });
 

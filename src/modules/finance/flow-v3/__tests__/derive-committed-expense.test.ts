@@ -16,6 +16,7 @@ const ROWS: FlowRowRef[] = [
   { id: "row-prov", name: "Proveedor X", mapping: "SUPPLIER", crmAccountId: null, installationId: null, categoryId: null, supplierId: "sup-1" },
   { id: "row-te", name: "Turnos extra", mapping: "MANUAL", crmAccountId: null, installationId: null, categoryId: null, supplierId: null },
   { id: "row-retiro", name: "Retiro socios", section: "FINANCIAMIENTO", mapping: "MANUAL", crmAccountId: null, installationId: null, categoryId: null, supplierId: null },
+  { id: "row-fin", name: "Crédito banco", section: "FINANCIAMIENTO", mapping: "MANUAL", crmAccountId: null, installationId: null, categoryId: null, supplierId: null },
   { id: "row-finiquitos", name: "Finiquitos", mapping: "MANUAL", crmAccountId: null, installationId: null, categoryId: null, supplierId: null },
 ];
 const CODES = new Map([
@@ -109,6 +110,35 @@ describe("deriveCommittedExpense — hitos payroll/F29", () => {
     });
     expect(out.get("row-te")?.get("2026-08-03")).toBeUndefined();
     expect(out.get("row-te")?.get("2026-08-10")?.total).toBe(100);
+  });
+
+  it("PCT_SALES proyecta en la fila destino (magnitud positiva en egreso)", () => {
+    const out = deriveCommittedExpense({
+      ...base,
+      pctSalesProjections: [{
+        rowId: "row-retiro",
+        weekYmd: "2026-08-03",
+        dateYmd: "2026-08-05",
+        amountClp: 1_450_000,
+        label: "10% ventas 2026-07",
+      }],
+    });
+    expect(out.get("row-retiro")?.get("2026-08-03")?.total).toBe(1_450_000);
+  });
+
+  it("PCT_SALES en FINANCIAMIENTO: +mag egreso / −mag ingreso (ensamblado −total)", () => {
+    const out = deriveCommittedExpense({
+      ...base,
+      pctSalesProjections: [{
+        rowId: "row-fin",
+        weekYmd: "2026-08-03",
+        dateYmd: "2026-08-05",
+        amountClp: 500_000, // egreso → flujo −500k tras assemble
+        label: "5% ventas",
+        cashSigned: true,
+      }],
+    });
+    expect(out.get("row-fin")?.get("2026-08-03")?.total).toBe(500_000);
   });
 
   it("metaNote se incluye en label del item", () => {

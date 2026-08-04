@@ -85,15 +85,19 @@ describe("updateRecurrence — no reescribe el pasado", () => {
   it("solo materializa (bulkFill) semanas ≥ la semana actual", async () => {
     asMock(prisma.financeFlowPlanRecurrence.findFirst).mockResolvedValue({
       id: "rec-1", rowId: "row-1", tenantId: "t1",
-      amount: "1000", currency: "CLP", amountUf: null, ufPolicy: null, ufCustomDay: null,
+      amount: "1000", currency: "CLP", amountMode: "FIXED", pctSales: null,
+      amountUf: null, ufPolicy: null, ufCustomDay: null,
       frequency: "MONTHLY", dayOfMonth: 1,
       startDate: new Date("2020-01-01T00:00:00.000Z"), endDate: null,
+      endAfterOccurrences: null,
     });
     asMock(prisma.financeFlowPlanRecurrence.update).mockResolvedValue({
       id: "rec-1", rowId: "row-1", tenantId: "t1",
-      amount: "2000", currency: "CLP", amountUf: null, ufPolicy: null, ufCustomDay: null,
+      amount: "2000", currency: "CLP", amountMode: "FIXED", pctSales: null,
+      amountUf: null, ufPolicy: null, ufCustomDay: null,
       frequency: "MONTHLY", dayOfMonth: 1,
       startDate: new Date("2020-01-01T00:00:00.000Z"), endDate: null,
+      endAfterOccurrences: null,
     });
 
     await updateRecurrence("t1", "rec-1", { amount: 2000 }, "u");
@@ -120,6 +124,8 @@ describe("createRecurrence — Nueva fila con categoría", () => {
       rowId: "row-new",
       amount: "500000",
       currency: "CLP",
+      amountMode: "FIXED",
+      pctSales: null,
       amountUf: null,
       ufPolicy: null,
       ufCustomDay: null,
@@ -176,6 +182,8 @@ describe("createRecurrence — Nueva fila con categoría", () => {
       rowId: "row-manual",
       amount: "100",
       currency: "CLP",
+      amountMode: "FIXED",
+      pctSales: null,
       amountUf: null,
       ufPolicy: null,
       ufCustomDay: null,
@@ -207,5 +215,61 @@ describe("createRecurrence — Nueva fila con categoría", () => {
         }),
       }),
     );
+  });
+});
+
+describe("createRecurrence — PCT_SALES", () => {
+  it("no materializa celdas y reemplaza regla % previa de la fila", async () => {
+    asMock(prisma.financeFlowRow.findFirst).mockResolvedValue({
+      section: "GAV", archivedAt: null,
+    });
+    asMock(prisma.financeFlowPlanRecurrence.deleteMany).mockResolvedValue({ count: 1 });
+    asMock(prisma.financeFlowPlanRecurrence.create).mockResolvedValue({
+      id: "rec-pct",
+      tenantId: "t1",
+      rowId: "row-retiro",
+      amount: "0",
+      currency: "CLP",
+      amountMode: "PCT_SALES",
+      pctSales: "0.1000",
+      amountUf: null,
+      ufPolicy: null,
+      ufCustomDay: null,
+      frequency: "MONTHLY",
+      dayOfMonth: 5,
+      startDate: new Date("2026-08-01T00:00:00.000Z"),
+      endDate: null,
+      endAfterOccurrences: null,
+    });
+
+    const result = await createRecurrence(
+      "t1",
+      "row-retiro",
+      {
+        amount: 0,
+        frequency: "MONTHLY",
+        dayOfMonth: 5,
+        startDate: "2026-08-01",
+        amountMode: "PCT_SALES",
+        pctSales: 10,
+      },
+      "u1",
+    );
+
+    expect(asMock(prisma.financeFlowPlanRecurrence.deleteMany)).toHaveBeenCalledWith({
+      where: { tenantId: "t1", rowId: "row-retiro", amountMode: "PCT_SALES" },
+    });
+    expect(asMock(prisma.financeFlowPlanRecurrence.create)).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          amountMode: "PCT_SALES",
+          pctSales: 0.1,
+          frequency: "MONTHLY",
+          dayOfMonth: 5,
+        }),
+      }),
+    );
+    expect(result.cells).toEqual([]);
+    expect(asMock(bulkFill)).not.toHaveBeenCalled();
   });
 });

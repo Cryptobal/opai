@@ -8959,11 +8959,21 @@ enum FlowPlanCurrency {
   @@schema("finance")
 }
 
+/// Modo de monto de recurrencia de plan (v5.1).
+/// FIXED = CLP/UF materializado; PCT_SALES = % ventas netas mes anterior (derive-on-read).
+enum FlowRecurrenceAmountMode {
+  FIXED
+  PCT_SALES
+
+  @@schema("finance")
+}
+
 // Regla de egreso recurrente de PLAN (§5J). Materializa celdas
 // FinanceFlowPlanCell hacia adelante; la regla se persiste para poder
 // extenderla y editarla (reescribiendo solo las celdas futuras). Aditivo: si
 // se elimina, las celdas ya materializadas quedan como plan normal.
 // v4: currency UF materializa CLP por ocurrencia según ufPolicy.
+// v5.1: amountMode=PCT_SALES no materializa; se evalúa como comprometido.
 model FinanceFlowPlanRecurrence {
   id         String                  @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   tenantId   String                  @map("tenant_id")
@@ -8971,8 +8981,13 @@ model FinanceFlowPlanRecurrence {
   row        FinanceFlowRow          @relation(fields: [rowId], references: [id], onDelete: Cascade)
   /// Monto BRUTO por ocurrencia en CLP (magnitud; el signo lo pone la sección).
   /// Si currency=UF, es el último CLP estimado (materialización usa amountUf).
+  /// Si amountMode=PCT_SALES: 0 en egresos; en FINANCIAMIENTO ±1 indica signo cash.
   amount     Decimal                 @db.Decimal(14, 2)
   currency   FlowPlanCurrency        @default(CLP)
+  /// FIXED (default) o PCT_SALES (% ventas netas del mes anterior).
+  amountMode FlowRecurrenceAmountMode @default(FIXED) @map("amount_mode")
+  /// Fracción 0–1 cuando amountMode=PCT_SALES (ej. 0.10 = 10%). NULL si FIXED.
+  pctSales   Decimal?                @map("pct_sales") @db.Decimal(6, 4)
   /// Monto en UF cuando currency=UF (hasta 4 decimales).
   amountUf   Decimal?                @map("amount_uf") @db.Decimal(10, 4)
   /// Política de valor UF: RUN_DAY | LAST_DAY_MONTH | LAST_DAY_PREV_MONTH | CUSTOM_DAY.
@@ -8992,6 +9007,7 @@ model FinanceFlowPlanRecurrence {
   updatedAt  DateTime                @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   @@index([tenantId, rowId], map: "idx_finance_flow_plan_recurrence_tenant_row")
+  @@index([tenantId, amountMode], map: "idx_finance_flow_plan_recurrence_tenant_mode")
   @@map("finance_flow_plan_recurrences")
   @@schema("finance")
 }

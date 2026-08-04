@@ -7,6 +7,7 @@ import {
   applyTeDiscountToLiquido,
   computeF29FutureClp,
   computeFiniquitosMonthly,
+  computePctSalesClp,
   computeRetiroSocioClp,
   computeTeHistoricalWeekly,
   computeTePctPayrollWeekly,
@@ -14,11 +15,13 @@ import {
 } from "./derive-committed-expense-params";
 import type {
   ExpenseMilestoneInput,
+  PctSalesProjectionInput,
   TeWeeklyProjectionInput,
 } from "./derive-committed-expense";
 import { normalizeRowName } from "./row-match";
 import { loadReal } from "./load-real";
-import { weekStartYmd, ymdToDate, enumerateWeeks } from "./weeks";
+import { expandOccurrenceDates } from "./recurring-plan.service";
+import { weekStartYmd, ymdToDate, enumerateWeeks, toYmd as dateToYmd } from "./weeks";
 import type { FlowRowRef } from "./types";
 
 export interface PayrollMilestonePatch {
@@ -35,6 +38,7 @@ export interface ExpenseParametricsResult {
   tePlanBlockedWeeks: Set<string>;
   teRowId: string | null;
   payrollPatches: PayrollMilestonePatch[];
+  pctSalesProjections: PctSalesProjectionInput[];
 }
 
 function ymdOf(y: number, monthZeroIdx: number, day: number): string {
@@ -284,6 +288,7 @@ export async function loadExpenseParametrics(
 ): Promise<ExpenseParametricsResult> {
   const milestones: ExpenseMilestoneInput[] = [];
   const teWeeklyProjections: TeWeeklyProjectionInput[] = [];
+  const pctSalesProjections: PctSalesProjectionInput[] = [];
   const payrollPatches: PayrollMilestonePatch[] = [];
   const today = new Date(`${todayYmd}T00:00:00.000Z`);
   const currentWeek = weekStartYmd(today);
@@ -335,7 +340,88 @@ export async function loadExpenseParametrics(
     }
   }
 
-  // ── A. Retiro socios ──
+  // ── A0. Recurrencias PCT_SALES (derive-on-read; pisan knob global en esa fila) ──
+  const pctRules = await prisma.financeFlowPlanRecurrence.findMany({
+    where: {
+      tenantId,
+      amountMode: "PCT_SALES",
+      row: { archivedAt: null },
+    },
+    select: {
+      id: true,
+      rowId: true,
+      amount: true,
+      pctSales: true,
+      dayOfMonth: true,
+      startDate: true,
+      endDate: true,
+      endAfterOccurrences: true,
+      row: { select: { section: true, name: true, archivedAt: true } },
+    },
+  });
+  const rowsWithPctSales = new Set(pctRules.map((r) => r.rowId));
+  const horizonEndYmd = dateToYmd(
+    new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() + 12, today.getUTCDate())),
+  );
+
+  for (const rule of pctRules) {
+    if (rule.row.archivedAt) continue;
+    const pctFrac = Number(rule.pctSales ?? 0);
+    if (!(pctFrac > 0)) continue;
+    const day = rule.dayOfMonth ?? 1;
+    const startYmd = dateToYmd(rule.startDate);
+    const endCap = rule.endDate
+      ? (() => {
+          const e = dateToYmd(rule.endDate!);
+          return e < horizonEndYmd ? e : horizonEndYmd;
+        })()
+      : horizonEndYmd;
+    const dates = expandOccurrenceDates(
+      "MONTHLY",
+      startYmd,
+      endCap,
+      day,
+      rule.endAfterOccurrences,
+    );
+    const planByWeek = plan.get(rule.rowId);
+    const monthsWithPlan = new Set<string>();
+    if (planByWeek) {
+      for (const [w, amt] of planByWeek) {
+        if (amt !== 0) monthsWithPlan.add(w.slice(0, 7));
+      }
+    }
+    const isFin = rule.row.section === "FINANCIAMIENTO";
+    // amount en regla sigue convención plan (− egreso / + ingreso).
+    // committed FINANCIAMIENTO: el ensamblado hace −total, así que egreso = +mag
+    // e ingreso = −mag. amount≤0 (default) = egreso.
+    const planOut = Number(rule.amount) <= 0;
+
+    for (const payYmd of dates) {
+      if (payYmd < fromYmd || payYmd > toYmd) continue;
+      if (payYmd < todayYmd) continue; // no proyectar ocurrencias ya pasadas
+      const y = Number(payYmd.slice(0, 4));
+      const m = Number(payYmd.slice(5, 7)) - 1;
+      const monthKey = periodoKey(y, m);
+      if (monthsWithPlan.has(monthKey)) continue; // plan pisa (incl. "Mover")
+      const payWeek = weekStartYmd(ymdToDate(payYmd)!);
+      if (payWeek < fromYmd || payWeek > toYmd) continue;
+      const ventas = await resolveVentasNetasPrevMonth(tenantId, rows, weeks, todayYmd, y, m);
+      const mag = computePctSalesClp(pctFrac, ventas);
+      if (mag <= 0) continue;
+      const prev = prevMonth(y, m);
+      const amountClp = isFin ? (planOut ? mag : -mag) : mag;
+      pctSalesProjections.push({
+        rowId: rule.rowId,
+        weekYmd: payWeek,
+        dateYmd: payYmd,
+        amountClp,
+        label: `${(pctFrac * 100).toFixed(1)}% ventas ${periodoKey(prev.y, prev.m)}`,
+        cashSigned: isFin,
+      });
+    }
+  }
+
+  // ── A. Retiro socios (knob global; omitido si la fila ya tiene regla PCT_SALES) ──
   const retiroRowId = findRowId(rows, "Retiro socios");
   const retiroPlanByWeek = retiroRowId ? plan.get(retiroRowId) : undefined;
   const monthsWithRetiroPlan = new Set<string>();
@@ -344,8 +430,9 @@ export async function loadExpenseParametrics(
       if (amt !== 0) monthsWithRetiroPlan.add(w.slice(0, 7));
     }
   }
+  const retiroHasPctRule = !!retiroRowId && rowsWithPctSales.has(retiroRowId);
 
-  if (retiroPct > 0) {
+  if (retiroPct > 0 && !retiroHasPctRule) {
     for (const { y, m } of horizonMonths) {
       const payYmd = ymdOf(y, m, retiroPayDay);
       const payWeek = payWeekForMonthDay(y, m, retiroPayDay);
@@ -507,6 +594,7 @@ export async function loadExpenseParametrics(
     tePlanBlockedWeeks,
     teRowId,
     payrollPatches,
+    pctSalesProjections,
   };
 }
 

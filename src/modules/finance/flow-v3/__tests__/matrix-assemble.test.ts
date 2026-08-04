@@ -199,6 +199,37 @@ describe("assembleMatrix — capa efectiva", () => {
     });
     expect(m.flows[3]).toBe(1_000 - 400 - 300);
   });
+
+  it("FINANCIAMIENTO comprometido: +mag = egreso; plan pisa; −mag = ingreso", () => {
+    const rows = [row({ id: "fin", section: "FINANCIAMIENTO" })];
+    // Comprometido +500 → flujo −500 (legado −committed.total).
+    const m1 = assembleMatrix({
+      rows, weeks: WEEKS, currentWeek: CURRENT, openingBalance: 0,
+      plan: new Map(),
+      committed: committedOf("fin", "2026-07-27", 500),
+      real: new Map(),
+    });
+    expect(m1.flows[3]).toBe(-500);
+
+    // Comprometido −200 → flujo +200 (ingreso PCT_SALES).
+    const mIn = assembleMatrix({
+      rows, weeks: WEEKS, currentWeek: CURRENT, openingBalance: 0,
+      plan: new Map(),
+      committed: committedOf("fin", "2026-07-27", -200),
+      real: new Map(),
+    });
+    expect(mIn.flows[3]).toBe(200);
+
+    // Plan +200 (ingreso) pisa el comprometido.
+    const m2 = assembleMatrix({
+      rows, weeks: WEEKS, currentWeek: CURRENT, openingBalance: 0,
+      plan: new Map([["fin", new Map([["2026-07-27", 200]])]]),
+      committed: committedOf("fin", "2026-07-27", 500),
+      real: new Map(),
+    });
+    expect(m2.rows[0]!.cells[3]!.layer).toBe("plan");
+    expect(m2.flows[3]).toBe(200);
+  });
 });
 
 describe("assembleMatrix — saldo acumulado", () => {

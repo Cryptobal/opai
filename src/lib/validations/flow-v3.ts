@@ -92,6 +92,7 @@ export const flowPlanMoveSchema = z.object({
 
 export const flowRecurrenceFrequencySchema = z.enum(["WEEKLY", "BIWEEKLY", "MONTHLY"]);
 export const flowPlanCurrencySchema = z.enum(["CLP", "UF"]);
+export const flowRecurrenceAmountModeSchema = z.enum(["FIXED", "PCT_SALES"]);
 export const flowUfPolicySchema = z.enum([
   "RUN_DAY",
   "LAST_DAY_MONTH",
@@ -100,11 +101,13 @@ export const flowUfPolicySchema = z.enum([
   "FIRST_DAY_MONTH",
 ]);
 
-/** Egreso/financiamiento recurrente de plan (v5: N repeticiones, monto signado). */
+/** Egreso/financiamiento recurrente de plan (v5: N repeticiones, monto signado).
+ *  v5.1: amountMode PCT_SALES = % ventas netas mes anterior (derive-on-read). */
 export const flowRecurringPlanCreateSchema = z
   .object({
     rowId: z.string().uuid().optional(),
-    /** CLP por ocurrencia. FINANCIAMIENTO acepta signo (− egreso / + ingreso). */
+    /** CLP por ocurrencia. FINANCIAMIENTO acepta signo (− egreso / + ingreso).
+     *  PCT_SALES: 0 en egresos; ±1 en FINANCIAMIENTO indica signo cash. */
     amount: planAmount.optional().default(0),
     frequency: flowRecurrenceFrequencySchema,
     dayOfMonth: z.number().int().min(1).max(31).nullish(),
@@ -112,6 +115,9 @@ export const flowRecurringPlanCreateSchema = z
     endDate: ymd.nullish(),
     endAfterOccurrences: z.number().int().min(1).max(240).nullish(),
     currency: flowPlanCurrencySchema.optional().default("CLP"),
+    amountMode: flowRecurrenceAmountModeSchema.optional().default("FIXED"),
+    /** Porcentaje 0–100 (UI). Se persiste como fracción en BD. */
+    pctSales: z.number().finite().gt(0).lte(100).nullish(),
     amountUf: z.number().finite().positive().max(1_000_000).nullish(),
     ufPolicy: flowUfPolicySchema.nullish(),
     ufCustomDay: z.number().int().min(1).max(31).nullish(),
@@ -131,11 +137,16 @@ export const flowRecurringPlanCreateSchema = z
     message: "endDate no puede ser anterior a startDate",
   })
   .refine(
-    (v) =>
-      v.currency === "UF"
+    (v) => {
+      if (v.amountMode === "PCT_SALES") {
+        return v.pctSales != null && v.pctSales > 0 && v.pctSales <= 100
+          && v.frequency === "MONTHLY";
+      }
+      return v.currency === "UF"
         ? v.amountUf != null && v.amountUf > 0
-        : (v.amount ?? 0) !== 0,
-    { message: "Monto requerido (CLP o UF)" },
+        : (v.amount ?? 0) !== 0;
+    },
+    { message: "Monto requerido (CLP, UF o % ventas 0–100; PCT_SALES exige MONTHLY)" },
   );
 
 export const flowRecurringPlanUpdateSchema = z
@@ -147,6 +158,8 @@ export const flowRecurringPlanUpdateSchema = z
     endDate: ymd.nullish(),
     endAfterOccurrences: z.number().int().min(1).max(240).nullish(),
     currency: flowPlanCurrencySchema.optional(),
+    amountMode: flowRecurrenceAmountModeSchema.optional(),
+    pctSales: z.number().finite().gt(0).lte(100).nullish(),
     amountUf: z.number().finite().positive().max(1_000_000).nullish(),
     ufPolicy: flowUfPolicySchema.nullish(),
     ufCustomDay: z.number().int().min(1).max(31).nullish(),
@@ -160,10 +173,19 @@ export const flowRecurringPlanUpdateSchema = z
       v.endDate !== undefined ||
       v.endAfterOccurrences !== undefined ||
       v.currency != null ||
+      v.amountMode != null ||
+      v.pctSales != null ||
       v.amountUf != null ||
       v.ufPolicy !== undefined ||
       v.ufCustomDay !== undefined,
     { message: "Nada que actualizar" },
+  )
+  .refine(
+    (v) =>
+      v.amountMode !== "PCT_SALES"
+      || (v.pctSales != null && v.pctSales > 0 && v.pctSales <= 100
+        && (v.frequency == null || v.frequency === "MONTHLY")),
+    { message: "PCT_SALES requiere pctSales 0–100 y frecuencia MONTHLY" },
   );
 
 export const flowUnmatchedIncomeCreateSchema = z.object({
