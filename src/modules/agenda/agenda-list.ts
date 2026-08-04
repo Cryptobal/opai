@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { todayInChile, utcDateFromYmd, ymdInChile } from "@/lib/dates-cl";
 import { expandLicitacionAgendaItems } from "./agenda-list-licitacion";
+import { isAgendaVisitaAllDay } from "./agenda-sync";
 import { listAgendaTasks } from "./agenda-tasks";
 import type { AgendaListItem, LicitacionListItem } from "./agenda.types";
 import { opaiSourceKey } from "@/modules/calendar/calendar-sources";
@@ -58,7 +59,13 @@ export async function listAgenda(
     }),
     prisma.agendaEventLink.findMany({
       where: { tenantId },
-      select: { sourceType: true, sourceId: true, syncStatus: true, rangeStartYmd: true },
+      select: {
+        sourceType: true,
+        sourceId: true,
+        syncStatus: true,
+        rangeStartYmd: true,
+        allDay: true,
+      },
     }),
     prisma.admin.findMany({
       where: { tenantId },
@@ -67,6 +74,11 @@ export async function listAgenda(
   ]);
 
   const syncMap = new Map(links.map((l) => [`${l.sourceType}:${l.sourceId}`, l.syncStatus]));
+  const allDayMap = new Map(
+    links
+      .filter((l) => l.sourceType === "agenda_visita")
+      .map((l) => [l.sourceId, l.allDay === true]),
+  );
   const rangeStartMap = new Map(
     links
       .filter((l) => l.sourceType === "licitacion" && l.rangeStartYmd)
@@ -76,6 +88,13 @@ export async function listAgenda(
   const items: AgendaListItem[] = [];
 
   for (const v of visitas) {
+    const allDay = isAgendaVisitaAllDay(
+      v.startAt,
+      v.endAt,
+      // Solo confiar en el link si ya quedó marcado all-day; si está false
+      // (bug legacy del sync), la heurística de duración lo corrige.
+      allDayMap.get(v.id) === true ? true : null,
+    );
     items.push({
       id: v.id,
       source: "agenda_visita",
@@ -83,7 +102,7 @@ export async function listAgenda(
       title: v.title,
       start: v.startAt.toISOString(),
       end: v.endAt.toISOString(),
-      allDay: false,
+      allDay,
       assignedUserId: v.assignedUserId,
       assignedName: nameMap.get(v.assignedUserId) ?? null,
       accountName: v.account?.name ?? null,

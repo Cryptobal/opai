@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-
-const DISCONNECT_ERROR = "Cuenta de Google Calendar desconectada por el usuario";
+import { GOOGLE_CALENDAR_DISCONNECT_ERROR } from "@/lib/google-workspace/calendar-disconnect";
 
 export async function POST(request: NextRequest) {
   const session = await auth();
@@ -49,7 +48,7 @@ export async function POST(request: NextRequest) {
       },
       data: {
         syncStatus: "ERROR",
-        lastError: DISCONNECT_ERROR,
+        lastError: GOOGLE_CALENDAR_DISCONNECT_ERROR,
         lastSyncAt: new Date(),
       },
     });
@@ -62,7 +61,7 @@ export async function POST(request: NextRequest) {
       },
       data: {
         syncStatus: "ERROR",
-        lastError: DISCONNECT_ERROR,
+        lastError: GOOGLE_CALENDAR_DISCONNECT_ERROR,
         lastSyncAt: new Date(),
       },
     });

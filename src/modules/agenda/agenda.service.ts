@@ -54,6 +54,7 @@ export async function createAgendaVisita(input: {
       ? { syncStatus: "SKIPPED" }
       : await syncAgendaVisitaToCalendar(input.tenantId, visita.id, "upsert", {
           inviteContacts: input.inviteContacts,
+          allDay: input.allDay === true,
         });
   return { visita, sync };
 }

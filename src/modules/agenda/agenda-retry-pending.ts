@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { GOOGLE_CALENDAR_DISCONNECT_ERROR } from "@/lib/google-workspace/calendar-disconnect";
 import { syncAgendaVisitaToCalendar } from "./agenda-sync";
 import { syncLicitacionToCalendar } from "./agenda-sync-licitacion";
 
@@ -7,6 +8,7 @@ const DEFAULT_CAP = 20;
 /**
  * Reintenta AgendaEventLink en PENDING de un tenant (cap 20): licitaciones y
  * visitas cuyo dueño no tenía Google Calendar conectado al momento del sync.
+ * También incluye ERROR por disconnect (si aún no se reactivaron a PENDING).
  * Best-effort: cada fallo se loguea y no corta el resto.
  */
 export async function retryPendingAgendaLinks(params: {
@@ -18,10 +20,16 @@ export async function retryPendingAgendaLinks(params: {
   const links = await prisma.agendaEventLink.findMany({
     where: {
       tenantId: params.tenantId,
-      syncStatus: "PENDING",
-      ...(params.sourceType
-        ? { sourceType: params.sourceType }
-        : { sourceType: { in: ["licitacion", "agenda_visita"] } }),
+      sourceType: params.sourceType
+        ? params.sourceType
+        : { in: ["licitacion", "agenda_visita"] },
+      OR: [
+        { syncStatus: "PENDING" },
+        {
+          syncStatus: "ERROR",
+          lastError: GOOGLE_CALENDAR_DISCONNECT_ERROR,
+        },
+      ],
     },
     orderBy: { updatedAt: "desc" },
     take: params.cap ?? DEFAULT_CAP,
