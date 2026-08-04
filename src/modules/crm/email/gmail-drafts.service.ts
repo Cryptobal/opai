@@ -22,7 +22,9 @@ import { buildGmailRawMessage } from "./gmail-mime";
 import { upsertLinkedThread } from "./thread-linking";
 import type { EmailAccountLite } from "./gmail-sync-state";
 
-const DRAFT_SYNC_CAP = 50;
+/** Por página de `drafts.list`; se pagina mientras haya presupuesto. */
+const DRAFT_SYNC_PAGE = 50;
+const DRAFT_SYNC_MAX_PAGES = 4;
 
 type DraftUpsertResult = {
   providerDraftId: string;
@@ -304,11 +306,24 @@ export async function syncGmailDrafts(params: {
   const { gmail, tenantId, emailAccount, deadline } = params;
   let synced = 0;
   try {
-    const list = await gmail.users.drafts.list({
-      userId: "me",
-      maxResults: DRAFT_SYNC_CAP,
-    });
-    const remote = list.data.drafts ?? [];
+    const remote: gmail_v1.Schema$Draft[] = [];
+    let pageToken: string | undefined;
+    let listComplete = true;
+    for (let page = 0; page < DRAFT_SYNC_MAX_PAGES; page += 1) {
+      if (Date.now() >= deadline) {
+        listComplete = false;
+        break;
+      }
+      const list = await gmail.users.drafts.list({
+        userId: "me",
+        maxResults: DRAFT_SYNC_PAGE,
+        ...(pageToken ? { pageToken } : {}),
+      });
+      remote.push(...(list.data.drafts ?? []));
+      pageToken = list.data.nextPageToken ?? undefined;
+      if (!pageToken) break;
+      if (page === DRAFT_SYNC_MAX_PAGES - 1) listComplete = false;
+    }
     const remoteIds = new Set(
       remote.map((d) => d.id).filter((x): x is string => Boolean(x)),
     );
@@ -363,9 +378,9 @@ export async function syncGmailDrafts(params: {
       }
     }
 
-    // Solo confiable si la lista remota está completa (sin nextPageToken).
+    // Solo confiable si la lista remota está completa (sin páginas pendientes).
     let removed = 0;
-    if (!list.data.nextPageToken) {
+    if (listComplete) {
       for (const [draftId] of localByDraftId) {
         if (remoteIds.has(draftId)) continue;
         await deleteLocalDraftMirror({

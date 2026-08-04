@@ -193,7 +193,11 @@ export async function queueOfflineSend(body: Record<string, unknown>): Promise<v
   await tx("pendingSends", "readwrite", (s) => s.put(item));
 }
 
-/** Postea los envíos pendientes; la idempotencyKey garantiza cero duplicados. */
+/**
+ * Postea los envíos pendientes; la idempotencyKey garantiza cero duplicados.
+ * Cuenta enqueues (202) como éxito de flush — el despacho real lo confirma
+ * el outbox; el caller debe etiquetar como "encolados", no "entregados".
+ */
 export async function flushOfflineSends(): Promise<number> {
   const pending = await allOf<PendingSend>("pendingSends");
   let sent = 0;

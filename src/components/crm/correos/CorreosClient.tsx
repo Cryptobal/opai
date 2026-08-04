@@ -445,11 +445,43 @@ export function CorreosClient() {
         multiAccount?: { enabled?: boolean; canConnect?: boolean };
       };
       try {
-        r = await fetch(`/api/crm/correos?${qs}`).then((x) => x.json());
+        const res = await fetch(`/api/crm/correos?${qs}`);
         if (isStaleReset()) return;
+        // HTTP/gateway error (504 HTML, 500, etc.): NO es "sin conexión".
+        // El banner C22b solo aplica a fallo de red real.
+        if (!res.ok) {
+          if (wantSemantic) {
+            // Reintento semántico falló: conservar resultados léxicos ya pintados.
+            return;
+          }
+          if (debouncedQuery && !preserveItems) {
+            setItems([]);
+            setCursor(null);
+            setSearchMeta(null);
+            toast.error("No se pudo buscar. Probá de nuevo en unos segundos.");
+          }
+          return;
+        }
+        let parsed: unknown;
+        try {
+          parsed = await res.json();
+        } catch {
+          if (isStaleReset()) return;
+          if (wantSemantic) return;
+          if (debouncedQuery && !preserveItems) {
+            setItems([]);
+            setCursor(null);
+            setSearchMeta(null);
+            toast.error("No se pudo buscar. Probá de nuevo en unos segundos.");
+          }
+          return;
+        }
+        r = parsed as typeof r;
         setOfflineSince(null);
       } catch {
         if (isStaleReset()) return;
+        // Reintento semántico: no contaminar UI con banner offline.
+        if (wantSemantic) return;
         // C22b: sin red — servir el snapshot local del inbox con banner.
         if (reset && f === "inbox" && !debouncedQuery) {
           const snapshot = await loadInboxSnapshot();
@@ -461,6 +493,12 @@ export function CorreosClient() {
             setOfflineSince(snapshot.savedAt);
             return;
           }
+        }
+        // Búsqueda offline: no dejar la bandeja previa sin filtrar.
+        if (debouncedQuery && !preserveItems) {
+          setItems([]);
+          setCursor(null);
+          setSearchMeta(null);
         }
         setOfflineSince(new Date().toISOString());
         return;
@@ -646,7 +684,8 @@ export function CorreosClient() {
         toast.success(
           [
             actions > 0 ? `${actions} acción(es) aplicadas` : null,
-            sends > 0 ? `${sends} correo(s) enviados` : null,
+            // Flush solo confirma enqueue al outbox (202), no entrega a Gmail.
+            sends > 0 ? `${sends} correo(s) en cola de envío` : null,
           ]
             .filter(Boolean)
             .join(" · "),

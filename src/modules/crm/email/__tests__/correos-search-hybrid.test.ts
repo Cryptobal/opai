@@ -414,5 +414,36 @@ describe("hybridSearchThreadIds", () => {
     expect(result.semanticRan).toBe(false);
     expect(result.semanticAvailable).toBe(true);
     expect(result.ids).toEqual(["lex1"]);
+    // Palette + excerpt (hay hits → no 2ª pasada de cuerpo).
+    expect(mocks.queryRaw).toHaveBeenCalledTimes(2);
+  });
+
+  it("exactOnly con 0 hits palette expande a búsqueda con cuerpo", async () => {
+    mocks.queryRaw
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([
+        {
+          id: "body1",
+          last_message_at: new Date(),
+          subject: "otro",
+          is_unread: false,
+          attachment_count: 0,
+          account_id: null,
+        },
+      ])
+      .mockResolvedValueOnce([]); // excerpt
+    const parsed = parseCorreoSearchQuery("coexpan")!;
+    const result = await hybridSearchThreadIds({
+      tenantId: "ten",
+      emailAccountIds: ["00000000-0000-0000-0000-000000000001"],
+      parsed,
+      folder: "inbox",
+      limit: 10,
+      exactOnly: true,
+    });
+    // palette vacía → cuerpo → excerpt
+    expect(mocks.queryRaw).toHaveBeenCalledTimes(3);
+    expect(mocks.semanticSearchChunks).not.toHaveBeenCalled();
+    expect(result.ids).toEqual(["body1"]);
   });
 });

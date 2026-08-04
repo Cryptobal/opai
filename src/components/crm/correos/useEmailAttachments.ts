@@ -53,6 +53,8 @@ export function useEmailAttachments() {
   const [items, setItems] = useState<EmailAttachmentItem[]>([]);
   const uploadsRef = useRef(new Map<string, XMLHttpRequest>());
   const itemsRef = useRef<EmailAttachmentItem[]>([]);
+  /** Keys ya entregadas al outbox: el unmount NO debe borrarlas de R2. */
+  const committedKeysRef = useRef(new Set<string>());
 
   useEffect(() => {
     itemsRef.current = items;
@@ -63,6 +65,9 @@ export function useEmailAttachments() {
       for (const xhr of uploadsRef.current.values()) xhr.abort();
       for (const item of itemsRef.current) {
         if (!item.storageKey) continue;
+        // Tras enqueue exitoso el outbox es dueño del staged file; borrarlo
+        // aquí rompe el despacho (~10s después) y el correo nunca sale.
+        if (committedKeysRef.current.has(item.storageKey)) continue;
         void fetch("/api/crm/gmail/attachments/presign", {
           method: "DELETE",
           headers: { "Content-Type": "application/json" },
@@ -241,7 +246,13 @@ export function useEmailAttachments() {
     retry,
     discardAll,
     resetAfterSend: () => {
+      // Marcar ownership al outbox ANTES de vaciar: el unmount del composer
+      // corre en el mismo tick y leería itemsRef con las keys viejas.
+      for (const item of itemsRef.current) {
+        if (item.storageKey) committedKeysRef.current.add(item.storageKey);
+      }
       uploadsRef.current.clear();
+      itemsRef.current = [];
       setItems([]);
     },
     readyAttachments,
