@@ -26,8 +26,6 @@ import {
 } from "./range-sel";
 import { fmtClp } from "./format";
 import { PanelView } from "./PanelView";
-import { FlowChatSheet } from "./FlowChatSheet";
-import { MessageCircle } from "lucide-react";
 
 const ZEROS_PREF_KEY = "opai-planilla-show-zeros";
 
@@ -83,7 +81,6 @@ export function PlanillaClient({
   const [sumMode, setSumMode] = useState(false);
   const [discreteStats, setDiscreteStats] = useState<DiscreteSelStats | null>(null);
   const [viewTab, setViewTab] = useState<"planilla" | "panel">("planilla");
-  const [chatOpen, setChatOpen] = useState(false);
 
   const [showZeros, setShowZeros] = useState(false);
   useEffect(() => {
@@ -427,7 +424,6 @@ export function PlanillaClient({
   return (
     <div
       className={`planilla-sheet${view.prefs.freeze ? "" : " no-freeze"}`}
-      data-planilla-theme={view.prefs.theme}
       style={view.containerStyle}
     >
       <PlanillaMenubar
@@ -579,90 +575,76 @@ export function PlanillaClient({
         </div>
       )}
 
-      <PlanillaFxBar
-        selection={fxSel}
-        onOpenLayers={() => setLayersReq((n) => n + 1)}
-      />
-
-      {viewTab === "panel" ? (
-        <PanelView canManage={canManage} />
-      ) : m.loading && !m.data ? (
-        <div className="flex h-64 items-center justify-center rounded-lg border border-ds-border-subtle text-sm text-ds-text-3">
-          Cargando planilla…
-        </div>
-      ) : m.data ? (
-        <div className={m.loading ? "pointer-events-none opacity-60 transition-opacity" : ""}>
-          <PlanillaGrid
-            data={m.data}
-            canManage={canManage}
-            matrix={{
-              patchPlan: m.patchPlan,
-              patchPlanBulk: m.patchPlanBulk,
-              movePlan: m.movePlan,
-              undo: m.undo,
-              redo: m.redo,
-            }}
-            actions={actions}
-            onArchive={setArchiving}
-            enableDrag={!isMobile}
-            showZeros={showZeros}
-            alwaysVisibleRowIds={sessionRowIds.current}
-            scrollerRef={gridScrollRef}
-            showChips={view.prefs.showChips}
-            numberFormat={view.prefs.numberFormat}
-            getCellStyle={view.getCellStyle}
-            onSelectionChange={onSelectionChange}
-            searchQuery={searchQuery}
-            collapseApiRef={collapseApiRef}
-            openLayersRequest={layersReq}
-            onCopyRange={(tsv) => void doCopyTsv(tsv)}
-            nameW={view.prefs.nameW}
-            onNameWChange={view.setNameW}
-            amountSort={amountSort}
-            sumMode={sumMode}
-            onSumModeChange={setSumMode}
-            onDiscreteStats={setDiscreteStats}
-            onRefresh={() => void m.refetch()}
-          />
-        </div>
-      ) : (
-        <div className="flex h-64 items-center justify-center rounded-lg border border-ds-border-subtle text-sm text-status-danger-fg">
-          No se pudo cargar la planilla.
-        </div>
-      )}
-
-      {viewTab === "planilla" && (
-        <PlanillaStatusbar
-          saldoHoy={kpis?.saldoHoy ?? null}
-          minBalance={kpis?.minBalance ?? null}
-          minWeek={kpis?.minWeek ?? null}
-          bankStale={bankStale}
-          minTone={minTone}
-          onOpenBank={() => setBankOpen(true)}
-          rangeSum={rangeStats.sum}
-          rangeAvg={rangeStats.avg}
-          rangeCount={rangeStats.count}
-          numberFormat={view.prefs.numberFormat}
-          rangeTitle={rangeStats.title}
+      {/* Tema papel/dark solo en grilla + fx + status (toolbar/tabs = shell). */}
+      <div className="planilla-theme-scope" data-planilla-theme={view.prefs.theme}>
+        <PlanillaFxBar
+          selection={fxSel}
+          onOpenLayers={() => setLayersReq((n) => n + 1)}
         />
-      )}
 
-      {viewTab === "planilla" && canManage && (
-        <button
-          type="button"
-          onClick={() => setChatOpen(true)}
-          className="fixed z-40 flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg"
-          style={{
-            right: "max(1rem, env(safe-area-inset-right))",
-            bottom: "max(5.5rem, calc(env(safe-area-inset-bottom) + 4.5rem))",
-          }}
-          aria-label="Chat del flujo de caja"
-        >
-          <MessageCircle className="h-5 w-5" />
-        </button>
-      )}
+        {viewTab === "panel" ? (
+          <PanelView canManage={canManage} />
+        ) : m.loading && !m.data ? (
+          <div className="flex h-64 items-center justify-center rounded-lg border border-ds-border-subtle text-sm text-ds-text-3">
+            Cargando planilla…
+          </div>
+        ) : m.data ? (
+          <div className={m.loading ? "pointer-events-none opacity-60 transition-opacity" : ""}>
+            <PlanillaGrid
+              data={m.data}
+              canManage={canManage}
+              matrix={{
+                patchPlan: m.patchPlan,
+                patchPlanBulk: m.patchPlanBulk,
+                movePlan: m.movePlan,
+                undo: m.undo,
+                redo: m.redo,
+              }}
+              actions={actions}
+              onArchive={setArchiving}
+              enableDrag={!isMobile}
+              showZeros={showZeros}
+              alwaysVisibleRowIds={sessionRowIds.current}
+              scrollerRef={gridScrollRef}
+              showChips={view.prefs.showChips}
+              numberFormat={view.prefs.numberFormat}
+              getCellStyle={view.getCellStyle}
+              onSelectionChange={onSelectionChange}
+              searchQuery={searchQuery}
+              collapseApiRef={collapseApiRef}
+              openLayersRequest={layersReq}
+              onCopyRange={(tsv) => void doCopyTsv(tsv)}
+              nameW={view.prefs.nameW}
+              onNameWChange={view.setNameW}
+              amountSort={amountSort}
+              sumMode={sumMode}
+              onSumModeChange={setSumMode}
+              onDiscreteStats={setDiscreteStats}
+              onRefresh={() => void m.refetch()}
+            />
+          </div>
+        ) : (
+          <div className="flex h-64 items-center justify-center rounded-lg border border-ds-border-subtle text-sm text-status-danger-fg">
+            No se pudo cargar la planilla.
+          </div>
+        )}
 
-      <FlowChatSheet open={chatOpen} onOpenChange={setChatOpen} />
+        {viewTab === "planilla" && (
+          <PlanillaStatusbar
+            saldoHoy={kpis?.saldoHoy ?? null}
+            minBalance={kpis?.minBalance ?? null}
+            minWeek={kpis?.minWeek ?? null}
+            bankStale={bankStale}
+            minTone={minTone}
+            onOpenBank={() => setBankOpen(true)}
+            rangeSum={rangeStats.sum}
+            rangeAvg={rangeStats.avg}
+            rangeCount={rangeStats.count}
+            numberFormat={view.prefs.numberFormat}
+            rangeTitle={rangeStats.title}
+          />
+        )}
+      </div>
 
       <AddRowDialog open={addOpen} onOpenChange={setAddOpen} busy={actions.busy} onCreate={handleCreateRow} />
 

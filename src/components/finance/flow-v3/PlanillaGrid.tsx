@@ -90,7 +90,7 @@ interface Props {
   onSumModeChange?: (on: boolean) => void;
   /** Stats del set discontinuo → statusbar desktop. */
   onDiscreteStats?: (stats: DiscreteSelStats | null) => void;
-  /** Refetch de matriz (tras crear fila desde Otros clientes). */
+  /** Refetch de matriz (tras crear fila desde Otros ingresos). */
   onRefresh?: () => void;
 }
 
@@ -916,7 +916,7 @@ export function PlanillaGrid({
         open={
           sheetTarget != null &&
           (sheetItems.length > 0 ||
-            !!(sheetRow && (sheetRow.isVirtual || sheetRow.name === "Otros clientes") && sheetCell))
+            !!(sheetRow && (sheetRow.isVirtual || sheetRow.name === "Otros ingresos" || sheetRow.name === "Otros clientes") && sheetCell))
         }
         onOpenChange={(o) => { if (!o) setSheetTarget(null); }}
         row={sheetRow}
@@ -925,7 +925,7 @@ export function PlanillaGrid({
         items={sheetItems}
       >
         {sheetRow &&
-          (sheetRow.isVirtual || sheetRow.name === "Otros clientes") &&
+          (sheetRow.isVirtual || sheetRow.name === "Otros ingresos" || sheetRow.name === "Otros clientes") &&
           sheetCell &&
           sheetCell.effective !== 0 && (
             <UnmatchedIncomeList

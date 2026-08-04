@@ -4,7 +4,7 @@ import { cleanRut, formatRut } from "@/lib/chile-rut";
 import { buildIncomeMatcher } from "./row-match";
 import { UNMATCHED_INCOME_KEY, type FlowRowRef } from "./types";
 import { weekStartYmd } from "./weeks";
-import { ensureIncomeRows } from "./ensure-income-rows.service";
+import { reconcileIncomeRows } from "./reconcile-income-rows.service";
 
 export interface UnmatchedDteDto {
   dteId: string;
@@ -164,6 +164,6 @@ export async function createRowFromUnmatchedDte(
     });
   }
 
-  await ensureIncomeRows(tenantId);
+  await reconcileIncomeRows(tenantId);
   return { accountId, rowId: row.id, createdAccount };
 }

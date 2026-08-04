@@ -13,7 +13,7 @@ import {
  *  1. Fila de la programación (`recurringTemplateId`) — 1 fila = 1 template.
  *  2. Fila exacta cuenta+instalación (solo filas SIN template).
  *  3. Fila genérica de la cuenta (sin instalación, sin template).
- *  4. "Otros clientes" (UNMATCHED_INCOME_KEY).
+ *  4. "Otros ingresos" (UNMATCHED_INCOME_KEY).
  *
  * Las filas ligadas a template NO saturan exact/generic: así Transmat 20% y
  * Transmat 80% conviven y las facturas one-shot siguen yendo a la fila de cuenta.
@@ -84,7 +84,7 @@ export function buildExpenseIndexes(
   return { byCategoryId, byCategoryCode, bySupplierId, byName };
 }
 
-/** Fila para un egreso por categoría/proveedor, con fallback "Otros gastos". */
+/** Fila para un egreso por categoría/proveedor, con fallback "Otros egresos". */
 export function matchExpenseRow(
   idx: ExpenseIndexes,
   opts: { supplierId?: string | null; categoryId?: string | null; categoryCode?: string | null },

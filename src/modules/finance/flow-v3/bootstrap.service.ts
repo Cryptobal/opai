@@ -20,8 +20,8 @@ type Tx = Prisma.TransactionClient;
  * advisory lock transaccional por tenant + doble chequeo del rowCount dentro
  * de la transacción (el segundo request encuentra filas y sale sin escribir).
  *
- * Programaciones/clientes NUEVOS después del bootstrap los crea
- * `ensureIncomeRows` en cada carga con permiso de gestión.
+ * Programaciones NUEVAS después del bootstrap las adopta/crea
+ * `reconcileIncomeRows` en cada carga con permiso de gestión.
  */
 export async function ensureFlowBootstrap(tenantId: string): Promise<void> {
   // Fast path sin lock: la enorme mayoría de las cargas ya tienen filas.

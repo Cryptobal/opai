@@ -557,6 +557,21 @@ function v2ToolDefinitions() {
     {
       type: "function" as const,
       function: {
+        name: "flow_cashflow_overview",
+        description:
+          "Planilla de flujo de caja (v3/v4): saldos proyectados, KPIs (saldo hoy, mínimo), " +
+          "semanas selladas y montos por fila/semana (plan/comprometido/real) del tenant. " +
+          "Usar para preguntas como '¿cuándo quedo en rojo?', saldo proyectado, ingresos/egresos de la planilla. Solo lectura; sin IDs internos.",
+        parameters: {
+          type: "object",
+          properties: {},
+          additionalProperties: false,
+        },
+      },
+    },
+    {
+      type: "function" as const,
+      function: {
         name: "get_user_context",
         description: "Contexto del usuario actual: nombre, rol y plantilla de rol.",
         parameters: { type: "object", properties: {}, additionalProperties: false },
@@ -8481,6 +8496,20 @@ export async function executeToolCallV2(
       case "get_finance_summary": {
         const days = typeof args.days_back === "number" ? args.days_back : 30;
         return { ok: true, data: await toolGetFinanceSummary(tenantId, days) };
+      }
+      case "flow_cashflow_overview": {
+        try {
+          const { buildFlowChatContext } = await import(
+            "@/modules/finance/flow-v3/chat-context"
+          );
+          const overview = await buildFlowChatContext(tenantId);
+          return { ok: true, data: { overview } };
+        } catch {
+          return {
+            ok: false,
+            error: "No fue posible consultar el flujo de caja en este momento.",
+          };
+        }
       }
       case "get_user_context":
         return await toolGetUserContext(tenantId, userId);

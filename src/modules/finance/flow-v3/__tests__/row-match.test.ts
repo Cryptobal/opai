@@ -35,7 +35,7 @@ describe("buildIncomeMatcher — 1 fila por programación", () => {
     expect(match("acc-G", "otra-inst", null)).toBe("r-gen");
   });
 
-  it("cuenta desconocida → Otros clientes", () => {
+  it("cuenta desconocida → Otros ingresos", () => {
     expect(match("acc-Z", null, null)).toBe(UNMATCHED_INCOME_KEY);
     expect(match(null, null, null)).toBe(UNMATCHED_INCOME_KEY);
   });

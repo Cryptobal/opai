@@ -12,7 +12,7 @@ interface DteRow {
   amountClp: number;
 }
 
-/** Lista DTEs de "Otros clientes" + acción crear fila. */
+/** Lista DTEs de "Otros ingresos" + acción crear fila. */
 export function UnmatchedIncomeList({
   weekStart,
   onCreated,
@@ -75,7 +75,7 @@ export function UnmatchedIncomeList({
   return (
     <div className="border-t border-ds-border-subtle px-5 py-3">
       <p className="mb-2 text-[12px] font-medium uppercase tracking-wide text-ds-text-3">
-        Facturas en Otros clientes
+        Facturas en Otros ingresos
       </p>
       {error && <p className="mb-2 text-[12px] text-status-danger-fg">{error}</p>}
       <ul className="space-y-2">

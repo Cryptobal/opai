@@ -16,7 +16,7 @@ interface Props {
   cell: FlowMatrixCellDto | null;
   weekLabel?: string;
   items: MenuItemDesc[];
-  /** Contenido extra bajo el cell-card (ej. lista DTEs de Otros clientes). */
+  /** Contenido extra bajo el cell-card (ej. lista DTEs de Otros ingresos). */
   children?: React.ReactNode;
 }
 
