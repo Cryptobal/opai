@@ -1244,6 +1244,21 @@ html {
       box-shadow: var(--glass-specular), 0 -12px 32px rgba(0, 0, 0, 0.35) !important;
     }
 
+    /* Sheet flotante tipo isla — mismo lenguaje que la isla nav.
+       Underlay 0.55: más bajo que -strong (0.72) porque el scrim de este
+       sheet es liviano (35%) y el vidrio debe dejar ver el contenido. */
+    .opai-glass-sheet-island {
+      background: var(--glass-fill-strong), hsl(var(--card) / 0.55);
+      backdrop-filter: var(--glass-blur-3);
+      -webkit-backdrop-filter: var(--glass-blur-3);
+      border: 1px solid var(--glass-border);
+      box-shadow: var(--glass-specular), 0 -20px 60px rgba(0, 0, 0, 0.55);
+    }
+    :root:not(.dark) .opai-glass-sheet-island {
+      background: var(--glass-fill-strong), hsl(var(--card) / 0.68);
+      box-shadow: var(--glass-specular), 0 -20px 60px rgba(0, 0, 0, 0.12);
+    }
+
     .opai-ios-surface-sheet-top {
       background: var(--glass-fill-strong), hsl(var(--card) / 0.6) !important;
       backdrop-filter: var(--glass-blur-3) !important;
@@ -1535,6 +1550,7 @@ html {
     .opai-glass-shell,
     .opai-glass-soft,
     .opai-glass-pill,
+    .opai-glass-sheet-island,
     .opai-ios-surface-sheet-bottom,
     .opai-ios-surface-sheet-top,
     .opai-ios-surface-sheet-side,
@@ -1558,6 +1574,7 @@ html {
     .opai-glass-shell,
     .opai-glass-soft,
     .opai-glass-pill,
+    .opai-glass-sheet-island,
     .opai-ios-surface-sheet-bottom,
     .opai-ios-surface-sheet-top,
     .opai-ios-surface-sheet-side,
