@@ -4,6 +4,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { applyDefaultQuoteIncludes } from "@/lib/cpq/apply-default-quote-includes";
+import { nextDocumentCode } from "@/lib/cpq/document-counter";
 import { createCrmHistoryLog } from "@/lib/crm-history";
 import { syncCrmDealQuoteLink } from "@/lib/crm-sync-quote-deal-link";
 import { cloneCpqQuote } from "@/modules/cpq/clone-quote.service";
@@ -13,24 +14,6 @@ import {
 } from "./bundle.service";
 import { SYNCABLE_CONDITION_FIELDS } from "./bundle-totals";
 import { propagateBundleConditions } from "./propagate-bundle-conditions";
-
-async function generateQuoteCode(tenantId: string): Promise<string> {
-  const year = new Date().getFullYear();
-  for (let attempt = 1; attempt <= 10; attempt++) {
-    const count = await prisma.cpqQuote.count({ where: { tenantId } });
-    const code = `CPQ-${year}-${String(count + attempt).padStart(3, "0")}`;
-    const exists = await prisma.cpqQuote.findFirst({
-      where: { code },
-      select: { id: true },
-    });
-    if (!exists) return code;
-  }
-  throw new BundleServiceError(
-    "No se pudo generar código único CPQ-",
-    "CONFLICT",
-    409,
-  );
-}
 
 export async function linkQuoteToBundle(opts: {
   tenantId: string;
@@ -270,22 +253,24 @@ export async function addInstallationToBundle(opts: {
   }
 
   // ── Cotización vacía nueva ──
-  const code = await generateQuoteCode(opts.tenantId);
-  const quote = await prisma.cpqQuote.create({
-    data: {
-      tenantId: opts.tenantId,
-      code,
-      name:
-        opts.quoteName?.trim() ||
-        `Cotización — ${installation.name}`,
-      status: "draft",
-      currency: bundle.currency,
-      accountId: bundle.accountId,
-      contactId: bundle.contactId,
-      dealId: bundle.dealId,
-      installationId: installation.id,
-      insurancePolicyUF: 1500,
-    },
+  const quote = await prisma.$transaction(async (tx) => {
+    const code = await nextDocumentCode(tx, opts.tenantId, "quote");
+    return tx.cpqQuote.create({
+      data: {
+        tenantId: opts.tenantId,
+        code,
+        name:
+          opts.quoteName?.trim() ||
+          `Cotización — ${installation.name}`,
+        status: "draft",
+        currency: bundle.currency,
+        accountId: bundle.accountId,
+        contactId: bundle.contactId,
+        dealId: bundle.dealId,
+        installationId: installation.id,
+        insurancePolicyUF: 1500,
+      },
+    });
   });
 
   try {

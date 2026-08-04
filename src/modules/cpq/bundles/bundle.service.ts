@@ -4,6 +4,7 @@
  */
 
 import { prisma } from "@/lib/prisma";
+import { nextDocumentCode } from "@/lib/cpq/document-counter";
 import {
   computeBundleTotals,
   conditionsAreSynced,
@@ -28,22 +29,9 @@ export class BundleServiceError extends Error {
   }
 }
 
+/** @deprecated Preferir nextDocumentCode(tx, …) dentro de la transacción del caller. */
 export async function generateBundleCode(tenantId: string): Promise<string> {
-  const year = new Date().getFullYear();
-  for (let attempt = 1; attempt <= 10; attempt++) {
-    const count = await prisma.cpqProposalBundle.count({ where: { tenantId } });
-    const code = `PROP-${year}-${String(count + attempt).padStart(3, "0")}`;
-    const exists = await prisma.cpqProposalBundle.findFirst({
-      where: { code },
-      select: { id: true },
-    });
-    if (!exists) return code;
-  }
-  throw new BundleServiceError(
-    "No se pudo generar código único PROP-",
-    "CONFLICT",
-    409,
-  );
+  return prisma.$transaction((tx) => nextDocumentCode(tx, tenantId, "bundle"));
 }
 
 const quoteInclude = {
@@ -105,9 +93,8 @@ export async function createBundle(opts: {
     throw new BundleServiceError("Negocio no encontrado", "DEAL_NOT_FOUND", 404);
   }
 
-  const code = await generateBundleCode(tenantId);
-
   const bundle = await prisma.$transaction(async (tx) => {
+    const code = await nextDocumentCode(tx, tenantId, "bundle");
     const created = await tx.cpqProposalBundle.create({
       data: {
         tenantId,
