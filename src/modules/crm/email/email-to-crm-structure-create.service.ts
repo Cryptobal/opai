@@ -542,6 +542,27 @@ export async function createCrmStructureFromProposal(params: {
           proposal.deal.fechaLimite = m.date;
         }
         try {
+          const instLoc = proposal.installations[0];
+          const address =
+            m.address?.trim() ||
+            (m.kind === "visita_tecnica" ? instLoc?.address?.trim() : null) ||
+            null;
+          const lat =
+            typeof m.lat === "number" && Number.isFinite(m.lat)
+              ? m.lat
+              : m.kind === "visita_tecnica" &&
+                  typeof instLoc?.lat === "number" &&
+                  Number.isFinite(instLoc.lat)
+                ? instLoc.lat
+                : null;
+          const lng =
+            typeof m.lng === "number" && Number.isFinite(m.lng)
+              ? m.lng
+              : m.kind === "visita_tecnica" &&
+                  typeof instLoc?.lng === "number" &&
+                  Number.isFinite(instLoc.lng)
+                ? instLoc.lng
+                : null;
           const created = await createDealMilestoneEvent({
             tenantId,
             actorUserId: userId,
@@ -553,6 +574,9 @@ export async function createCrmStructureFromProposal(params: {
             endAt: range.endAt,
             allDay: range.allDay,
             notes: m.notes,
+            customAddress: address,
+            lat,
+            lng,
             participantIds: m.participantIds,
             externalEmails: m.externalEmails,
           });

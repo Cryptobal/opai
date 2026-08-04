@@ -826,6 +826,7 @@ export function CorreoAiActionPanel({
           <PlanMilestonesForm
             milestones={draft.milestones}
             onChange={draft.setMilestones}
+            installationLocation={draft.proposal?.installations?.[0] ?? null}
           />
         );
       default:
