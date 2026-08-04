@@ -32,7 +32,7 @@ async function generateQuoteCode(tenantId: string): Promise<string> {
   );
 }
 
-async function linkQuoteToBundle(opts: {
+export async function linkQuoteToBundle(opts: {
   tenantId: string;
   bundleId: string;
   quoteId: string;

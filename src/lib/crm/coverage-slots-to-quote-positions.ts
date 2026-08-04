@@ -61,11 +61,26 @@ export async function materializeCoverageSlotsOnQuote(params: {
   tenantId: string;
   quoteId: string;
   proposal: CrmStructureProposal;
+  /**
+   * Si se indica, solo materializa los slots de esa instalación (índice del
+   * array `proposal.installations`). Sin parámetro → todas (comportamiento histórico).
+   */
+  onlyInstallationIndex?: number;
 }): Promise<{ positionsCreated: number }> {
   const { tenantId, quoteId, proposal } = params;
-  const slots = proposal.installations.flatMap((inst) =>
-    inst.coverageSlots.map((slot) => ({ inst, slot })),
-  );
+  const slots =
+    typeof params.onlyInstallationIndex === "number"
+      ? (() => {
+          const inst = proposal.installations[params.onlyInstallationIndex!];
+          if (!inst) return [] as Array<{
+            inst: (typeof proposal.installations)[number];
+            slot: (typeof proposal.installations)[number]["coverageSlots"][number];
+          }>;
+          return inst.coverageSlots.map((slot) => ({ inst, slot }));
+        })()
+      : proposal.installations.flatMap((inst) =>
+          inst.coverageSlots.map((slot) => ({ inst, slot })),
+        );
   if (slots.length === 0) return { positionsCreated: 0 };
 
   const tenantOrShared = { OR: [{ tenantId }, { tenantId: null }] };

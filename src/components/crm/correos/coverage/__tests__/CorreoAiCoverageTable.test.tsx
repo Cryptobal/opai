@@ -27,6 +27,12 @@ vi.mock("@/components/ui/simple-select", () => ({
   ),
 }));
 
+vi.mock("@/components/ui/popover", () => ({
+  Popover: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  PopoverTrigger: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  PopoverContent: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+}));
+
 function baseProposal(
   overrides: Partial<CrmStructureProposal> = {},
 ): CrmStructureProposal {
@@ -46,7 +52,7 @@ const week = [
 describe("CorreoAiCoverageTable", () => {
   afterEach(() => cleanup());
 
-  it("agrupa por etapa, muestra peak y chips en draft multi-etapa", () => {
+  it("tarjeta por instalación con etapas anidadas, peak y chips", () => {
     const proposal = baseProposal({
       staffingTotals: {
         weeklyHH: 500,
@@ -128,6 +134,7 @@ describe("CorreoAiCoverageTable", () => {
 
     render(<CorreoAiCoverageTable proposal={proposal} onChange={() => {}} />);
 
+    expect(screen.getByText("Obra")).toBeTruthy();
     expect(screen.getAllByText("Etapa 1").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Etapa 3A").length).toBeGreaterThan(0);
     expect(screen.getByText("Peak simultáneo")).toBeTruthy();
@@ -136,9 +143,10 @@ describe("CorreoAiCoverageTable", () => {
     expect(screen.getByText("rondín")).toBeTruthy();
     expect(screen.getByText("Timeline de etapas")).toBeTruthy();
     expect(screen.getAllByText(/Puesto en esta etapa/).length).toBeGreaterThan(0);
+    expect(screen.getByText(/Puesto en esta instalación/)).toBeTruthy();
   });
 
-  it("draft legacy: grupo General, sin peak ni timeline", () => {
+  it("draft legacy: tarjeta de instalación con puesto plano, sin peak ni timeline", () => {
     const proposal = baseProposal({
       staffingTotals: {
         weeklyHH: 40,
@@ -177,13 +185,13 @@ describe("CorreoAiCoverageTable", () => {
 
     render(<CorreoAiCoverageTable proposal={proposal} />);
 
-    expect(screen.getByText("General")).toBeTruthy();
+    expect(screen.getByText("Planta")).toBeTruthy();
     expect(screen.queryByText("Peak simultáneo")).toBeNull();
     expect(screen.queryByText("Timeline de etapas")).toBeNull();
     expect(screen.getByText("Portería")).toBeTruthy();
   });
 
-  it("agregar puesto: fila persistente con nombre por defecto, foco y sin red", () => {
+  it("agregar puesto cae en la instalación correcta con nombre y foco", () => {
     const fetchSpy = vi.fn();
     vi.stubGlobal("fetch", fetchSpy);
 
@@ -208,7 +216,6 @@ describe("CorreoAiCoverageTable", () => {
           proposal={p}
           onChange={(next, opts) => {
             const patched = { ...p, installations: next };
-            // Igual que CorreoAiActionPanel: recálculo local, cero red.
             const committed =
               opts?.recalc === false ? patched : recalcProposalStaffing(patched);
             installations = committed.installations;
@@ -219,18 +226,15 @@ describe("CorreoAiCoverageTable", () => {
     }
 
     render(<Harness />);
-    fireEvent.click(screen.getByText(/Puesto en General/));
+    fireEvent.click(screen.getByText(/Puesto en esta instalación/));
 
-    // La fila sobrevive al commit (antes la borraba el recalc por red).
     const nameInput = screen.getByLabelText("Nombre del puesto") as HTMLInputElement;
     expect(nameInput.value).toBe("Puesto 1");
     expect(document.activeElement).toBe(nameInput);
     expect(installations[0].coverageSlots).toHaveLength(1);
-    // Dotación calculada en cliente: L-D 08–20 → 4x4, 2 personas.
     expect(installations[0].coverageSlots[0].headcount).toBe(2);
     expect(fetchSpy).not.toHaveBeenCalled();
 
-    // Tipear no remonta la fila: el input conserva el foco.
     fireEvent.change(nameInput, { target: { value: "Portería norte" } });
     const after = screen.getByLabelText("Nombre del puesto") as HTMLInputElement;
     expect(after.value).toBe("Portería norte");
@@ -252,7 +256,7 @@ describe("CorreoAiCoverageTable", () => {
     expect(next[0].coverageSlots[0].name).toBe("Puesto 1");
   });
 
-  it("segundo puesto en el grupo numera correlativo", () => {
+  it("segundo puesto en la instalación numera correlativo", () => {
     const proposal = baseProposal({
       installations: [
         {
@@ -269,7 +273,7 @@ describe("CorreoAiCoverageTable", () => {
     const { rerender } = render(
       <CorreoAiCoverageTable proposal={proposal} onChange={onChange} />,
     );
-    fireEvent.click(screen.getByText(/Puesto en General/));
+    fireEvent.click(screen.getByText(/Puesto en esta instalación/));
     const first = onChange.mock.calls[0][0] as CrmStructureInstallation[];
     expect(first[0].coverageSlots[0].name).toBe("Puesto 1");
 
@@ -279,11 +283,69 @@ describe("CorreoAiCoverageTable", () => {
         onChange={onChange}
       />,
     );
-    fireEvent.click(screen.getByText(/Puesto en esta etapa/));
+    fireEvent.click(screen.getByText(/Puesto en esta instalación/));
     const second = onChange.mock.calls[1][0] as CrmStructureInstallation[];
     expect(second[0].coverageSlots.map((s) => s.name)).toEqual([
       "Puesto 1",
       "Puesto 2",
     ]);
+  });
+
+  it("mover puesto entre instalaciones recalcula subtotales en tarjetas", () => {
+    const slotA = {
+      name: "A",
+      role: null,
+      regimen: "4x4",
+      dias: week,
+      horaInicio: "08:00",
+      horaFin: "20:00",
+      simultaneous: 1,
+      notes: null,
+      weeklyHH: 100,
+      headcount: 4,
+      pattern: "4x4",
+      staffingRationale: "",
+    };
+    const slotB = {
+      ...slotA,
+      name: "B",
+      weeklyHH: 50,
+      headcount: 2,
+    };
+    const proposal = baseProposal({
+      installations: [
+        {
+          name: "Planta",
+          address: null,
+          commune: null,
+          city: null,
+          mapsUrl: null,
+          coverageSlots: [slotA],
+        },
+        {
+          name: "Centro",
+          address: null,
+          commune: null,
+          city: null,
+          mapsUrl: null,
+          coverageSlots: [slotB],
+        },
+      ],
+    });
+    const onChange = vi.fn();
+    render(<CorreoAiCoverageTable proposal={proposal} onChange={onChange} />);
+
+    expect(screen.getByText(/1 puestos · 100 HH\/sem · 4/)).toBeTruthy();
+    expect(screen.getByText(/1 puestos · 50 HH\/sem · 2/)).toBeTruthy();
+
+    // Mover el puesto A (Planta) → Centro. Hay un botón por puesto.
+    const moveBtns = screen.getAllByLabelText("Mover a otra instalación");
+    fireEvent.click(moveBtns[0]);
+    // En el menú del puesto A el destino es "Centro".
+    fireEvent.click(screen.getAllByRole("button", { name: "Centro" })[0]);
+
+    const next = onChange.mock.calls[0][0] as CrmStructureInstallation[];
+    expect(next[0].coverageSlots).toHaveLength(0);
+    expect(next[1].coverageSlots.map((s) => s.name)).toEqual(["B", "A"]);
   });
 });

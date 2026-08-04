@@ -7,6 +7,7 @@ import {
   clientPeakFallback,
   duplicateSlotAt,
   groupSlotsByEtapa,
+  groupSlotsByInstallation,
   isRondinRegimen,
   nextSlotName,
 } from "../coverage-grouping";
@@ -67,6 +68,78 @@ describe("coverage-grouping", () => {
     expect(groups[0].slots[0].slot.name).toBe("B");
     expect(groups[2].label).toBe(GENERAL_ETAPA_KEY);
     expect(groups[0].subtotalHeadcount).toBe(2);
+  });
+
+  it("groupSlotsByInstallation separa por índice con etapas anidadas", () => {
+    const multi: CrmStructureInstallation[] = [
+      {
+        name: "Planta",
+        address: "Av. Uno",
+        commune: "Maipú",
+        city: "Santiago",
+        mapsUrl: null,
+        coverageSlots: [
+          slot({
+            name: "A",
+            etapa: "Etapa 1",
+            vigenciaDesde: "2026-09-01",
+            vigenciaHasta: "2026-09-30",
+            headcount: 14,
+            weeklyHH: 549,
+          }),
+        ],
+      },
+      {
+        name: "Centro Logístico",
+        address: null,
+        commune: null,
+        city: null,
+        mapsUrl: null,
+        coverageSlots: [
+          slot({
+            name: "B",
+            etapa: "Etapa 2",
+            vigenciaDesde: "2026-10-01",
+            vigenciaHasta: "2026-10-31",
+            headcount: 12,
+            weeklyHH: 504,
+          }),
+          slot({ name: "C", headcount: 1, weeklyHH: 40 }),
+        ],
+      },
+      {
+        name: "Vacía",
+        address: null,
+        commune: null,
+        city: null,
+        mapsUrl: null,
+        coverageSlots: [],
+      },
+      {
+        name: "Planta",
+        address: null,
+        commune: null,
+        city: null,
+        mapsUrl: null,
+        coverageSlots: [slot({ name: "D", headcount: 2, weeklyHH: 80 })],
+      },
+    ];
+    const groups = groupSlotsByInstallation(multi);
+    expect(groups).toHaveLength(4);
+    expect(groups[0].name).toBe("Planta");
+    expect(groups[0].addressSummary).toBe("Av. Uno, Maipú, Santiago");
+    expect(groups[0].slotCount).toBe(1);
+    expect(groups[0].subtotalHH).toBe(549);
+    expect(groups[0].subtotalHeadcount).toBe(14);
+    expect(groups[0].stages.map((s) => s.key)).toEqual(["Etapa 1"]);
+    expect(groups[1].stages.map((s) => s.key)).toEqual(["Etapa 2", GENERAL_ETAPA_KEY]);
+    expect(groups[1].subtotalHH).toBe(544);
+    expect(groups[2].slotCount).toBe(0);
+    expect(groups[2].stages).toHaveLength(0);
+    // Nombres duplicados quedan separados por índice.
+    expect(groups[3].instIdx).toBe(3);
+    expect(groups[3].name).toBe("Planta");
+    expect(groups[3].slotCount).toBe(1);
   });
 
   it("duplicateSlotAt inserta copia con lock preservado", () => {

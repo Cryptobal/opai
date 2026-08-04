@@ -30,6 +30,7 @@ type Props = {
   label: string;
   detail?: string;
   tag?: PlanActionTag;
+  tagLabel?: string;
   checked: boolean;
   disabled?: boolean;
   locked?: boolean;
@@ -49,6 +50,7 @@ export function PlanRow({
   label,
   detail,
   tag,
+  tagLabel,
   checked,
   disabled,
   locked,
@@ -89,7 +91,7 @@ export function PlanRow({
               <span className="text-[13px] font-medium text-ds-text-1">{label}</span>
               {tag && (
                 <Tag variant={TAG_VARIANT[tag]} size="sm">
-                  {TAG_LABEL[tag]}
+                  {tagLabel ?? TAG_LABEL[tag]}
                 </Tag>
               )}
               {locked && (

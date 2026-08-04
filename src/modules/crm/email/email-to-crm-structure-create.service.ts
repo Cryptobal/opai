@@ -419,6 +419,10 @@ export async function createCrmStructureFromProposal(params: {
   let agendaSync: CreateCrmStructureResult["agendaSync"];
   let quoteId: string | undefined;
   let quoteUrl: string | undefined;
+  let bundleId: string | undefined;
+  let bundleCode: string | undefined;
+  let bundleUrl: string | undefined;
+  let quotes: CreateCrmStructureResult["quotes"];
   let milestoneResults: NonNullable<CreateCrmStructureResult["milestones"]> = [];
 
   if (!flags.deal) {
@@ -629,25 +633,81 @@ export async function createCrmStructureFromProposal(params: {
     if (!params.canCreateQuote) {
       skip("quote", "sin_permiso");
     } else {
-      try {
-        const { createPlanQuote } = await import("./plan-create-quote");
-        const q = await createPlanQuote({
-          tenantId,
-          userId,
-          dealId: dealId ?? null,
-          accountId: account.id,
-          contactId,
-          installationId: createdInstallations[0]?.id,
-          threadId: thread.id,
-          proposal,
-          quoteInput: params.quoteInput,
-        });
-        quoteId = q.quoteId;
-        quoteUrl = q.quoteUrl;
-        positionsCreated = q.positionsCreated;
-      } catch (e) {
-        console.error("[email-to-crm-structure] quote:", e);
-        skip("quote", "error");
+      const installationsWithSlots = proposal.installations
+        .map((inst, idx) => ({ inst, idx }))
+        .filter(({ inst }) => inst.coverageSlots.length > 0);
+
+      if (installationsWithSlots.length >= 2) {
+        if (!dealId) {
+          skip("quote", "requiere_negocio");
+        } else {
+          try {
+            const { createPlanQuotesMultiInstallation } = await import(
+              "./plan-create-quote-multi"
+            );
+            const multi = await createPlanQuotesMultiInstallation({
+              tenantId,
+              userId,
+              dealId,
+              accountId: account.id,
+              contactId,
+              threadId: thread.id,
+              proposal,
+              quoteInput: params.quoteInput,
+              createdInstallations: createdInstallations.map((c) => ({
+                id: c.id,
+                name: c.name,
+              })),
+            });
+            bundleId = multi.bundleId;
+            bundleCode = multi.bundleCode;
+            bundleUrl = multi.bundleUrl;
+            quotes = multi.quotes;
+            quoteId = multi.quotes[0]?.id;
+            quoteUrl = multi.bundleUrl;
+            positionsCreated = multi.positionsCreated;
+          } catch (e) {
+            console.error("[email-to-crm-structure] quote multi:", e);
+            skip("quote", "error");
+          }
+        }
+      } else {
+        try {
+          const { createPlanQuote } = await import("./plan-create-quote");
+          const sole = installationsWithSlots[0];
+          const consumed = new Set<string>();
+          let installationId: string | undefined;
+          if (sole) {
+            const match = createdInstallations.find(
+              (c) => c.name === sole.inst.name && !consumed.has(c.id),
+            );
+            if (match) {
+              consumed.add(match.id);
+              installationId = match.id;
+            }
+          }
+          if (!installationId) {
+            installationId = createdInstallations[0]?.id;
+          }
+          const q = await createPlanQuote({
+            tenantId,
+            userId,
+            dealId: dealId ?? null,
+            accountId: account.id,
+            contactId,
+            installationId,
+            threadId: thread.id,
+            proposal,
+            quoteInput: params.quoteInput,
+            onlyInstallationIndex: sole?.idx,
+          });
+          quoteId = q.quoteId;
+          quoteUrl = q.quoteUrl;
+          positionsCreated = q.positionsCreated;
+        } catch (e) {
+          console.error("[email-to-crm-structure] quote:", e);
+          skip("quote", "error");
+        }
       }
     }
   }
@@ -748,11 +808,13 @@ export async function createCrmStructureFromProposal(params: {
     flags.installations
       ? `${createdInstallations.length} instalación(es)`
       : "instalaciones omitidas",
-    quoteId
-      ? positionsCreated > 0
-        ? `cotización borrador con ${positionsCreated} puesto(s)${dealId ? "" : " (sin negocio)"}`
-        : `cotización borrador${dealId ? "" : " (sin negocio)"}`
-      : null,
+    bundleId
+      ? `propuesta ${bundleCode ?? "PROP"} con ${quotes?.length ?? 0} cotización(es) · ${positionsCreated} puesto(s)`
+      : quoteId
+        ? positionsCreated > 0
+          ? `cotización borrador con ${positionsCreated} puesto(s)${dealId ? "" : " (sin negocio)"}`
+          : `cotización borrador${dealId ? "" : " (sin negocio)"}`
+        : null,
     taskId ? "tarea de seguimiento" : null,
     flags.attachments ? "adjuntos guardados" : null,
   ].filter(Boolean);
@@ -770,6 +832,10 @@ export async function createCrmStructureFromProposal(params: {
     taskId,
     quoteId,
     quoteUrl,
+    bundleId,
+    bundleCode,
+    bundleUrl,
+    quotes,
     milestones: milestoneResults.length ? milestoneResults : undefined,
     skipped: skipped.length ? skipped : undefined,
     skippedDetail: skippedDetail.length ? skippedDetail : undefined,

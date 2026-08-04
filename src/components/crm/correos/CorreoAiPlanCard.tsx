@@ -19,6 +19,8 @@ export type PlanAction = {
   label: string;
   detail?: string;
   tag?: PlanActionTag;
+  /** Texto del chip; si falta, usa el label canónico del tag. */
+  tagLabel?: string;
   /** Si true, el checkbox arranca desmarcado. */
   optional?: boolean;
   disabled?: boolean;
@@ -169,7 +171,7 @@ function ActionList({
                   <span className="text-[13px] font-medium text-ds-text-1">{a.label}</span>
                   {a.tag && (
                     <Tag variant={TAG_VARIANT[a.tag]} size="sm">
-                      {TAG_LABEL[a.tag]}
+                      {a.tagLabel ?? TAG_LABEL[a.tag]}
                     </Tag>
                   )}
                   {a.locked && (

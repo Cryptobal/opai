@@ -1,9 +1,14 @@
 "use client";
 
-import { useEffect, useRef } from "react";
-import { Copy, Minus, Plus, Trash2 } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { ArrowRightLeft, Copy, Minus, Plus, Trash2 } from "lucide-react";
 import { Tag } from "@/components/opai-ds";
 import { SimpleSelect } from "@/components/ui/simple-select";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { HOURS_24 } from "@/components/cpq/position-matrix/shift-utils";
 import { useLiquidoPreview } from "@/components/cpq/position-matrix/useLiquidoPreview";
 import { resolveSlotBaseSalary } from "@/lib/crm/resolve-slot-base-salary";
@@ -32,7 +37,10 @@ export type CoverageSlotRowProps = {
   slot: CrmStructureCoverageSlot;
   instIdx: number;
   slotIdx: number;
-  installations: CrmStructureInstallation[];
+  /** @deprecated Preferí `moveTargets`. Se mantiene por compat de tests/call sites. */
+  installations?: CrmStructureInstallation[];
+  /** Destinos para "Mover a …" (otras instalaciones). */
+  moveTargets?: Array<{ idx: number; name: string }>;
   editable: boolean;
   onUpdate: (
     field: keyof CrmStructureCoverageSlot,
@@ -55,7 +63,7 @@ export type CoverageSlotRowProps = {
 };
 
 export function CoverageSlotRow({
-  slot, instIdx, installations, editable,
+  slot, instIdx, installations = [], moveTargets, editable,
   onUpdate, onMoveInstallation, onToggleDay,
   onBumpSim, onBumpHeadcount, onDuplicate, onRemove,
   autoFocusName = false, onAutoFocusDone,
@@ -65,8 +73,14 @@ export function CoverageSlotRow({
   const regimenValue = slot.regimen ?? "";
   const regimenInList = regimenOptions.some((o) => o.value === regimenValue);
   const nameRef = useRef<HTMLInputElement | null>(null);
+  const [moveOpen, setMoveOpen] = useState(false);
   const bruto = resolveSlotBaseSalary(slot.baseSalary, salaryFloor);
   const liquidoPreview = useLiquidoPreview(bruto, { disabled: !editable });
+  const targets =
+    moveTargets ??
+    installations
+      .map((inst, i) => ({ idx: i, name: inst.name || `Instalación ${i + 1}` }))
+      .filter((t) => t.idx !== instIdx);
 
   useEffect(() => {
     if (!autoFocusName || !editable) return;
@@ -103,6 +117,40 @@ export function CoverageSlotRow({
         </div>
         {editable && (
           <div className="flex shrink-0 items-center gap-0.5">
+            {targets.length > 0 && (
+              <Popover open={moveOpen} onOpenChange={setMoveOpen}>
+                <PopoverTrigger asChild>
+                  <button
+                    type="button"
+                    aria-label="Mover a otra instalación"
+                    className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-ds-text-4 ds-tap hover:text-primary sm:h-9 sm:w-9"
+                  >
+                    <ArrowRightLeft className="h-3.5 w-3.5" />
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent
+                  align="end"
+                  className="w-56 border-ds-border-default bg-ds-surface-1 p-1"
+                >
+                  <p className="px-2 py-1.5 text-[12px] font-medium text-ds-text-3">
+                    Mover a…
+                  </p>
+                  {targets.map((t) => (
+                    <button
+                      key={t.idx}
+                      type="button"
+                      onClick={() => {
+                        onMoveInstallation(t.idx);
+                        setMoveOpen(false);
+                      }}
+                      className="flex min-h-11 w-full items-center rounded-lg px-2 text-left text-[13px] text-ds-text-1 ds-tap hover:bg-ds-surface-2"
+                    >
+                      {t.name}
+                    </button>
+                  ))}
+                </PopoverContent>
+              </Popover>
+            )}
             <button type="button" aria-label="Duplicar puesto" onClick={onDuplicate}
               className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-ds-text-4 ds-tap hover:text-primary sm:h-9 sm:w-9">
               <Copy className="h-3.5 w-3.5" />
@@ -115,27 +163,7 @@ export function CoverageSlotRow({
         )}
       </div>
 
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
-        {installations.length > 1 && (
-          <label className="block space-y-1 col-span-2 sm:col-span-1">
-            <span className="text-[12px] font-medium text-ds-text-3">Instalación</span>
-            {editable ? (
-              <SimpleSelect
-                className={`${FIELD} w-full`}
-                value={String(instIdx)}
-                onValueChange={(v) => onMoveInstallation(Number(v))}
-                options={installations.map((inst, i) => ({
-                  value: String(i),
-                  label: inst.name || `Instalación ${i + 1}`,
-                }))}
-              />
-            ) : (
-              <p className="text-[13px] text-ds-text-2 truncate">
-                {installations[instIdx]?.name ?? "—"}
-              </p>
-            )}
-          </label>
-        )}
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         <label className="block space-y-1">
           <span className="text-[12px] font-medium text-ds-text-3">Régimen</span>
           {editable ? (
