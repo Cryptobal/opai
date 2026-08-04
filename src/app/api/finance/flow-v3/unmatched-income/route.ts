@@ -6,7 +6,7 @@ import {
 } from "@/modules/finance/flow-v3/unmatched-income.service";
 import { flowUnmatchedIncomeCreateSchema } from "@/lib/validations/flow-v3";
 
-/** GET ?week=YYYY-MM-DD — DTEs de "Otros clientes" esa semana. */
+/** GET ?week=YYYY-MM-DD — DTEs de "Otros ingresos" esa semana. */
 export async function GET(req: NextRequest) {
   const auth = await requireFlowV3("cashflow_view");
   if (auth.error) return auth.error;

@@ -1800,11 +1800,10 @@ html {
   position: static;
 }
 
-/* ── Tema papel (Google Sheets): scoped a .planilla-sheet ──
-   Redefine SOLO las custom properties que la grilla consume
-   (superficies, textos, bordes, status). Popovers en portal
-   fuera de este contenedor NO heredan el papel. */
-.planilla-sheet[data-planilla-theme="paper"] {
+/* ── Tema papel (Google Sheets): scoped a .planilla-theme-scope ──
+   Solo grilla + fxbar + statusbar. Toolbar/tabs/menubar quedan con
+   el tema del shell (evita blanco-sobre-blanco en Papel). */
+.planilla-theme-scope[data-planilla-theme="paper"] {
   color: #202124;
   background: #fff;
   --plnx-sel: #0b57d0;
@@ -1856,11 +1855,10 @@ html {
   /* Primary (línea HOY) se conserva teal brand — no override. */
 }
 
-/* ── Tema noche (scoped): hoja completa oscura DS v3 ──
-   Fuerza superficies/textos oscuros DENTRO de .planilla-sheet
-   aunque el html esté en light, y garantiza contraste cuando
-   el shell está en dark. Solo afecta la planilla. */
-.planilla-sheet[data-planilla-theme="dark"] {
+/* ── Tema noche (scoped): grilla/fx/status oscuros DS v3 ──
+   Fuerza superficies/textos oscuros DENTRO del scope aunque el
+   html esté en light. Toolbar/tabs siguen el shell. */
+.planilla-theme-scope[data-planilla-theme="dark"] {
   color: hsl(210 40% 98%);
   background: hsl(218 32% 14%);
   --plnx-sel: #14a88a;
@@ -1916,41 +1914,47 @@ html {
   --ds-info-border: 217 60% 28%;
 }
 
-/* Chrome (menubar / toolbar / fx / status): texto legible en noche.
-   No pisa botones primary (p. ej. Agregar concepto). */
-.planilla-sheet[data-planilla-theme="dark"] .planilla-chrome-print-hide {
-  color: hsl(var(--ds-text-1));
-}
-.planilla-sheet[data-planilla-theme="dark"] .planilla-chrome-print-hide button:not(.bg-primary):not([class*="bg-primary"]),
-.planilla-sheet[data-planilla-theme="dark"] .planilla-chrome-print-hide [role="menuitem"] {
-  color: hsl(var(--ds-text-2));
-}
-.planilla-sheet[data-planilla-theme="dark"] .planilla-fx-input {
+/* Fx bar legible en noche (vive dentro del theme-scope). */
+.planilla-theme-scope[data-planilla-theme="dark"] .planilla-fx-input {
   background: hsl(var(--ds-surface-3));
   color: hsl(var(--ds-text-1));
   border-color: hsl(var(--ds-border-default));
 }
-.planilla-sheet[data-planilla-theme="dark"] .planilla-fx-placeholder {
+.planilla-theme-scope[data-planilla-theme="dark"] .planilla-fx-placeholder {
   color: hsl(var(--ds-text-3));
 }
 /* Headers de columna: superficie oscura consistente. */
-.planilla-sheet[data-planilla-theme="dark"] thead th {
+.planilla-theme-scope[data-planilla-theme="dark"] thead th {
   background-color: hsl(var(--ds-surface-2));
   color: hsl(var(--ds-text-3));
 }
 
-.planilla-sheet[data-planilla-theme="dark"] [data-plnx-cola],
-.planilla-sheet[data-planilla-theme="dark"] .planilla-name-col {
+.planilla-theme-scope[data-planilla-theme="dark"] [data-plnx-cola],
+.planilla-theme-scope[data-planilla-theme="dark"] .planilla-name-col {
   border-right-width: 2px;
   border-right-color: var(--plnx-freeze-border);
 }
 
 /* Borde de congelado a la derecha de Concepto (tema papel). */
-.planilla-sheet[data-planilla-theme="paper"] [data-plnx-cola],
-.planilla-sheet[data-planilla-theme="paper"] th.sticky.left-\[var\(--plnx-gutter-w\)\],
-.planilla-sheet[data-planilla-theme="paper"] .planilla-name-col {
+.planilla-theme-scope[data-planilla-theme="paper"] [data-plnx-cola],
+.planilla-theme-scope[data-planilla-theme="paper"] th.sticky.left-\[var\(--plnx-gutter-w\)\],
+.planilla-theme-scope[data-planilla-theme="paper"] .planilla-name-col {
   border-right-width: 2px;
   border-right-color: var(--plnx-freeze-border);
+}
+
+/* Toolbar: swipe horizontal sin arrastrar el scroll vertical de página. */
+.planilla-toolbar-scroll {
+  touch-action: pan-x;
+  overscroll-behavior-x: contain;
+}
+
+/* Print: forzar papel en la grilla aunque el scope esté en dark. */
+@media print {
+  .planilla-theme-scope {
+    color: #202124 !important;
+    background: #fff !important;
+  }
 }
 
 /* Handle de selección 6px (esquina inf-der), estilo Sheets. */

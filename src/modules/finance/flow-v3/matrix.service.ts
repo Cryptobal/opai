@@ -6,12 +6,14 @@ import {
   startOfIsoWeekUTC, toYmd, weekStartYmd, ymdToDate,
 } from "./weeks";
 import { ensureFlowBootstrap } from "./bootstrap.service";
-import { ensureIncomeRows } from "./ensure-income-rows.service";
+import { reconcileIncomeRows } from "./reconcile-income-rows.service";
+import { FALLBACK_EXPENSE_NAME, FALLBACK_INCOME_NAME } from "./canonical-rows";
 import { loadPlanCells } from "./plan.service";
 import { loadCommittedIncome } from "./load-committed-income";
 import { loadCommittedExpense } from "./load-committed-expense";
 import { loadReal } from "./load-real";
 import { normalizeRowName } from "./row-match";
+import { shouldIncludeFlowRow, type ActiveTemplateRef } from "./row-visibility";
 import {
   UNMATCHED_EXPENSE_KEY, UNMATCHED_INCOME_KEY,
   type CommittedByRow, type FlowRowRef, type RealByRow,
@@ -28,9 +30,17 @@ export type { FlowMatrixResponse } from "./matrix-types";
 const WARN_THRESHOLD_CLP = 8_000_000;
 
 const VIRTUAL_ROWS = {
-  [UNMATCHED_INCOME_KEY]: { id: "virtual:otros-ingresos", name: "Otros clientes", section: "INGRESOS" },
-  [UNMATCHED_EXPENSE_KEY]: { id: "virtual:otros-gastos", name: "Otros gastos", section: "GAV" },
+  [UNMATCHED_INCOME_KEY]: { id: "virtual:otros-ingresos", name: FALLBACK_INCOME_NAME, section: "INGRESOS" },
+  [UNMATCHED_EXPENSE_KEY]: { id: "virtual:otros-gastos", name: FALLBACK_EXPENSE_NAME, section: "GAV" },
 } as const;
+
+const FALLBACK_NAME_KEYS = new Set([
+  normalizeRowName(FALLBACK_INCOME_NAME),
+  normalizeRowName(FALLBACK_EXPENSE_NAME),
+  // Alias viejos por si el rename aún no corrió en este request.
+  normalizeRowName("Otros clientes"),
+  normalizeRowName("Otros gastos"),
+]);
 
 /** Re-mapea los buckets sentinel a la fila canónica real (si existe) o virtual. */
 function remapSentinels<T>(map: Map<string, T>, keyFor: (sentinel: string) => string): Map<string, T> {
@@ -57,27 +67,30 @@ export async function buildFlowMatrix(
   const lastWeek = weeks[weeks.length - 1];
 
   // Primera vez sin filas: bootstrap automático (programaciones activas +
-  // canónicas + backfill de términos por contrato). Nadie corre scripts.
-  // Luego sync continuo: programaciones/clientes nuevos → fila propia
-  // (evita que caigan en "Otros clientes"). Solo con permiso de gestión.
+  // canónicas + backfill de términos por contrato). Luego reconcile:
+  // adoptar/archivar/canónicas (sin crear filas por DTE suelto).
   if (q.allowBootstrap) {
     await ensureFlowBootstrap(tenantId);
-    await ensureIncomeRows(tenantId);
+    await reconcileIncomeRows(tenantId);
   }
 
   const dbRows = await prisma.financeFlowRow.findMany({ where: { tenantId } });
-  const refs: FlowRowRef[] = dbRows.map((r) => ({
-    id: r.id, name: r.name, section: r.section, mapping: r.mapping,
-    crmAccountId: r.crmAccountId, installationId: r.installationId,
-    recurringTemplateId: r.recurringTemplateId,
-    categoryId: r.categoryId, supplierId: r.supplierId,
-  }));
+  // Matcher solo con filas activas: archivadas no capturan DTEs (van a
+  // template u "Otros ingresos"). Plan/histórico de archivadas sigue en BD.
+  const activeRefs: FlowRowRef[] = dbRows
+    .filter((r) => !r.archivedAt)
+    .map((r) => ({
+      id: r.id, name: r.name, section: r.section, mapping: r.mapping,
+      crmAccountId: r.crmAccountId, installationId: r.installationId,
+      recurringTemplateId: r.recurringTemplateId,
+      categoryId: r.categoryId, supplierId: r.supplierId,
+    }));
 
   const [plan, cIncomeLoad, cExpense, real, opening, config, closedWeeks, seals] = await Promise.all([
     loadPlanCells(tenantId, ymdToDate(weeks[0])!, ymdToDate(lastWeek)!),
-    loadCommittedIncome(tenantId, refs, weeks, todayYmd),
-    loadCommittedExpense(tenantId, refs, weeks, todayYmd),
-    loadReal(tenantId, refs, weeks),
+    loadCommittedIncome(tenantId, activeRefs, weeks, todayYmd),
+    loadCommittedExpense(tenantId, activeRefs, weeks, todayYmd),
+    loadReal(tenantId, activeRefs, weeks),
     resolveOpeningBalance(tenantId),
     prisma.financeCashflowConfig.findUnique({
       where: { tenantId },
@@ -92,7 +105,7 @@ export async function buildFlowMatrix(
   let realNetAfterWindow = 0;
   if (currentWeek > lastWeek) {
     const gapWeeks = enumerateWeeks(addWeeksUTC(ymdToDate(lastWeek)!, 1), ymdToDate(currentWeek)!);
-    const gapReal = await loadReal(tenantId, refs, gapWeeks);
+    const gapReal = await loadReal(tenantId, activeRefs, gapWeeks);
     for (const byWeek of gapReal.values())
       for (const cell of byWeek.values()) realNetAfterWindow += cell.total;
   }
@@ -115,15 +128,30 @@ export async function buildFlowMatrix(
   }
   const realResolved: RealByRow = remapSentinels(real, keyFor);
 
-  const hasData = (rowId: string, cutoff: string | null) => {
-    const check = (m: Map<string, Map<string, { total: number }>>) => {
-      const byWeek = m.get(rowId);
-      if (!byWeek) return false;
-      for (const [w, cell] of byWeek) if ((cutoff == null || w <= cutoff) && cell.total !== 0) return true;
-      return false;
-    };
-    return check(committed) || check(realResolved);
+  const hasLayerData = (
+    rowId: string,
+    cutoff: string | null,
+    m: Map<string, Map<string, { total: number }>>,
+  ) => {
+    const byWeek = m.get(rowId);
+    if (!byWeek) return false;
+    for (const [w, cell] of byWeek) {
+      if ((cutoff == null || w <= cutoff) && cell.total !== 0) return true;
+    }
+    return false;
   };
+  const hasPlanData = (rowId: string, cutoff: string | null) => {
+    const byWeek = plan.get(rowId);
+    if (!byWeek) return false;
+    for (const [w, amount] of byWeek) {
+      if ((cutoff == null || w <= cutoff) && amount !== 0) return true;
+    }
+    return false;
+  };
+  const hasAnyData = (rowId: string, cutoff: string | null) =>
+    hasLayerData(rowId, cutoff, committed) ||
+    hasLayerData(rowId, cutoff, realResolved) ||
+    hasPlanData(rowId, cutoff);
 
   // Nombres canónicos desde la fuente (para detectar alias manuales).
   const accountIds = [...new Set(dbRows.map((r) => r.crmAccountId).filter(Boolean))] as string[];
@@ -131,7 +159,7 @@ export async function buildFlowMatrix(
   const templateIds = [...new Set(dbRows.map((r) => r.recurringTemplateId).filter(Boolean))] as string[];
   const categoryIds = [...new Set(dbRows.map((r) => r.categoryId).filter(Boolean))] as string[];
   const supplierIds = [...new Set(dbRows.map((r) => r.supplierId).filter(Boolean))] as string[];
-  const [accounts, installations, templateNames, categories, suppliers] = await Promise.all([
+  const [accounts, installations, templatesMeta, categories, suppliers] = await Promise.all([
     accountIds.length
       ? prisma.crmAccount.findMany({
           where: { tenantId, id: { in: accountIds } },
@@ -147,7 +175,7 @@ export async function buildFlowMatrix(
     templateIds.length
       ? prisma.financeDteRecurringTemplate.findMany({
           where: { tenantId, id: { in: templateIds } },
-          select: { id: true, name: true },
+          select: { id: true, name: true, isActive: true, endDate: true },
         })
       : Promise.resolve([]),
     categoryIds.length
@@ -165,9 +193,20 @@ export async function buildFlowMatrix(
   ]);
   const accountNameById = new Map(accounts.map((a) => [a.id, a.name]));
   const installationNameById = new Map(installations.map((i) => [i.id, i.name]));
-  const templateNameById = new Map(templateNames.map((t) => [t.id, t.name]));
+  const templateNameById = new Map(templatesMeta.map((t) => [t.id, t.name]));
+  const templateActiveById = new Map<string, ActiveTemplateRef>(
+    templatesMeta.map((t) => [
+      t.id,
+      {
+        id: t.id,
+        isActive: t.isActive,
+        endDateYmd: t.endDate ? toYmd(t.endDate) : null,
+      },
+    ]),
+  );
   const categoryNameById = new Map(categories.map((c) => [c.id, c.name]));
   const supplierNameById = new Map(suppliers.map((s) => [s.id, s.name]));
+  const windowStartYmd = weeks[0]!;
 
   const sourceNameFor = (r: (typeof dbRows)[number]): string | null => {
     if (r.mapping === "ACCOUNT_INSTALLATION") {
@@ -209,7 +248,26 @@ export async function buildFlowMatrix(
   const assembleRows: AssembleRowInput[] = [];
   for (const r of dbRows) {
     const cutoff = r.archivedAt ? weekStartYmd(r.archivedAt) : null;
-    if (r.archivedAt && !hasData(r.id, cutoff)) continue; // archivada sin movimiento en la ventana
+    const tpl = r.recurringTemplateId
+      ? templateActiveById.get(r.recurringTemplateId) ?? null
+      : null;
+    // Template eliminado físicamente → huérfano: tratar como sin template
+    // (solo regla b: datos en ventana).
+    const include = shouldIncludeFlowRow({
+      row: {
+        id: r.id,
+        mapping: r.mapping,
+        archivedAt: r.archivedAt,
+        recurringTemplateId: r.recurringTemplateId,
+        isCanonicalFallback: FALLBACK_NAME_KEYS.has(normalizeRowName(r.name)),
+      },
+      windowStartYmd,
+      hasDataInWindow: hasAnyData(r.id, null),
+      hasDataBeforeCutoff: cutoff != null ? hasAnyData(r.id, cutoff) : false,
+      archivedCutoffYmd: cutoff,
+      template: tpl,
+    });
+    if (!include) continue;
     const sourceName = sourceNameFor(r);
     const nameIsManual =
       sourceName != null && r.name.trim().localeCompare(sourceName.trim(), undefined, { sensitivity: "accent" }) !== 0;
@@ -224,7 +282,7 @@ export async function buildFlowMatrix(
     });
   }
   for (const v of Object.values(VIRTUAL_ROWS)) {
-    if (hasData(v.id, null)) {
+    if (hasAnyData(v.id, null)) {
       assembleRows.push({
         id: v.id, name: v.name, section: v.section, mapping: "MANUAL", orderIndex: 9999,
         crmAccountId: null, installationId: null, recurringTemplateId: null,
@@ -234,7 +292,7 @@ export async function buildFlowMatrix(
       });
     }
   }
-  // Presentación A→Z por sección; virtuales ("Otros clientes") al final.
+  // Presentación A→Z por sección; virtuales ("Otros ingresos") al final.
   // orderIndex se conserva en datos pero no define el orden visible.
   assembleRows.sort(compareFlowRows);
 

@@ -22,12 +22,12 @@ describe("compareFlowRows — orden alfabético de presentación", () => {
 
   it("deja filas virtuales al final de su sección", () => {
     const rows = [
-      { section: "INGRESOS", name: "Otros clientes", isVirtual: true },
+      { section: "INGRESOS", name: "Otros ingresos", isVirtual: true },
       { section: "INGRESOS", name: "Zurich" },
       { section: "INGRESOS", name: "Ametel Spa" },
     ];
     const sorted = [...rows].sort(compareFlowRows).map((r) => r.name);
-    expect(sorted).toEqual(["Ametel Spa", "Zurich", "Otros clientes"]);
+    expect(sorted).toEqual(["Ametel Spa", "Zurich", "Otros ingresos"]);
   });
 
   it("respeta el orden de secciones", () => {

@@ -67,9 +67,9 @@ export interface RealCell {
 
 export type RealByRow = Map<string, Map<string, RealCell>>;
 
-/** Ingresos sin fila (cuenta sin fila propia) → fila fallback "Otros clientes". */
+/** Ingresos sin fila (cuenta sin fila propia) → fila fallback "Otros ingresos". */
 export const UNMATCHED_INCOME_KEY = "__unmatched_income__";
-/** Egresos sin fila/categoría → fila fallback "Otros gastos". */
+/** Egresos sin fila/categoría → fila fallback "Otros egresos". */
 export const UNMATCHED_EXPENSE_KEY = "__unmatched_expense__";
 
 /** Referencia mínima de fila para el match de derivadores. */

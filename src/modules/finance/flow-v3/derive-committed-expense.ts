@@ -5,7 +5,7 @@
  *  1. Hitos payroll/F29 pre-computados por el loader (líquido, quincena,
  *     Previred, IVA F29) → fila por MAPA FIJO: primero fila CATEGORY con el
  *     código canónico, si no fila MANUAL por nombre canónico, si no
- *     "Otros gastos".
+ *     "Otros egresos".
  *  2. DTEs RECIBIDOS por pagar → semana de vencimiento (dueDate ?? emisión +
  *     término del proveedor), vencidos clampean a la semana actual. Fila:
  *     SUPPLIER del proveedor → CATEGORY de sus cuentas contables → fallback.
