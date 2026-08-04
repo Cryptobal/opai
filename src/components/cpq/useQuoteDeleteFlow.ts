@@ -34,6 +34,27 @@ export type QuoteDeleteImpact = {
 
 export type QuoteDeleteTarget = { id: string; code?: string | null };
 
+export type QuoteDeleteFlowResult = {
+  bundleDeleted?: boolean;
+  data?: unknown;
+};
+
+type RequestDeleteQuoteTarget = {
+  quoteId: string;
+  quoteLabel?: string | null;
+};
+
+type RequestUnlinkQuoteTarget = RequestDeleteQuoteTarget & {
+  bundleId: string;
+};
+
+type RequestDeleteBundleTarget = {
+  bundleId: string;
+  bundleLabel?: string | null;
+  memberCount: number;
+  mode: "unlink" | "cascade";
+};
+
 type UseQuoteDeleteFlowOptions = {
   /** Se llama tras eliminar OK (para remover optimista de la lista). */
   onDeleted?: (quoteId: string) => void;
@@ -49,6 +70,28 @@ function buildImpactSummary(impact: QuoteDeleteImpact): string {
   if (c.emailThreads) parts.push(`${c.emailThreads} hilo${c.emailThreads === 1 ? "" : "s"} de correo`);
   if (c.tasks) parts.push(`${c.tasks} tarea${c.tasks === 1 ? "" : "s"}`);
   return parts.length > 0 ? `Se archivarán también: ${parts.join(", ")}.` : "";
+}
+
+function formatBlockers(blockers: DeleteBlocker[]) {
+  return blockers.map((b) => `• ${b.label}`).join("\n");
+}
+
+function withDeleteParams(
+  baseUrl: string,
+  params: Record<string, string | boolean | null | undefined>,
+) {
+  const search = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value == null || value === false) continue;
+    search.set(key, value === true ? "true" : value);
+  }
+  return search.size > 0 ? `${baseUrl}?${search.toString()}` : baseUrl;
+}
+
+async function fetchJson<T>(url: string, init?: RequestInit): Promise<{ res: Response; json: T }> {
+  const res = await fetch(url, init);
+  const json = (await res.json().catch(() => ({}))) as T;
+  return { res, json };
 }
 
 export function useQuoteDeleteFlow(options: UseQuoteDeleteFlowOptions = {}) {
@@ -149,5 +192,205 @@ export function useQuoteDeleteFlow(options: UseQuoteDeleteFlowOptions = {}) {
     [onDeleted, restore],
   );
 
-  return { deleteQuote, deletingId };
+  const requestDeleteQuote = useCallback(
+    async ({
+      quoteId,
+      quoteLabel,
+    }: RequestDeleteQuoteTarget): Promise<QuoteDeleteFlowResult | null> => {
+      const label = quoteLabel || "la cotización";
+      let impact: QuoteDeleteImpact | null = null;
+      try {
+        const res = await fetch(`/api/cpq/quotes/${quoteId}/delete-impact`);
+        const json = await res.json();
+        if (res.ok && json.success) impact = json.data as QuoteDeleteImpact;
+      } catch {
+        // Sin impacto: seguimos con una confirmación genérica.
+      }
+
+      const blockers = impact?.blockers ?? [];
+      const summary = impact ? buildImpactSummary(impact) : "";
+      const warnings = impact?.warnings ?? [];
+      const extraLines = [summary, ...warnings].filter(Boolean).join(" ");
+      let force = false;
+      let reason: string | null = null;
+
+      if (blockers.length > 0) {
+        const value = await promptDialog({
+          title: `Eliminar ${label}`,
+          description: `Esta cotización tiene dependencias que normalmente impiden eliminarla:\n${formatBlockers(blockers)}\n\nPara forzar el archivado indica un motivo.${extraLines ? `\n\n${extraLines}` : ""}`,
+          placeholder: "Motivo de la eliminación forzada",
+          confirmLabel: "Eliminar de todas formas",
+          multiline: true,
+          validate: (v) => (v.trim().length < 3 ? "Indica un motivo (mín. 3 caracteres)" : null),
+        });
+        if (value === null) return null;
+        force = true;
+        reason = value.trim();
+      } else {
+        const ok = await confirmDialog({
+          title: `Eliminar ${label}`,
+          description: `Se moverá a la papelera y podrás restaurarla.${extraLines ? ` ${extraLines}` : ""}`,
+          confirmLabel: "Eliminar cotización",
+          variant: "destructive",
+        });
+        if (!ok) return null;
+      }
+
+      const deleteOnce = (nextForce: boolean, nextReason: string | null) =>
+        fetchJson<{
+          success?: boolean;
+          error?: string;
+          blockers?: DeleteBlocker[];
+          trashId?: string;
+          bundleDeleted?: boolean;
+        }>(withDeleteParams(`/api/cpq/quotes/${quoteId}`, {
+          force: nextForce,
+          reason: nextReason,
+        }), { method: "DELETE" });
+
+      setDeletingId(quoteId);
+      try {
+        let { res, json } = await deleteOnce(force, reason);
+        if (res.status === 409 && json.blockers?.length) {
+          const value = await promptDialog({
+            title: `Eliminar ${label}`,
+            description: `Esta cotización tiene dependencias que normalmente impiden eliminarla:\n${formatBlockers(json.blockers)}\n\nPara forzar el archivado indica un motivo.`,
+            placeholder: "Motivo de la eliminación forzada",
+            confirmLabel: "Eliminar de todas formas",
+            multiline: true,
+            validate: (v) => (v.trim().length < 3 ? "Indica un motivo (mín. 3 caracteres)" : null),
+          });
+          if (value === null) return null;
+          ({ res, json } = await deleteOnce(true, value.trim()));
+        }
+
+        if (!res.ok || !json.success) {
+          throw new Error(json.error || "No se pudo eliminar la cotización");
+        }
+        onDeleted?.(quoteId);
+        toast.success("Cotización eliminada", {
+          description: json.bundleDeleted
+            ? "La propuesta quedó vacía y también se eliminó."
+            : undefined,
+          action: json.trashId
+            ? { label: "Deshacer", onClick: () => void restore(json.trashId!, quoteId) }
+            : undefined,
+        });
+        return { bundleDeleted: json.bundleDeleted };
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "No se pudo eliminar la cotización");
+        return null;
+      } finally {
+        setDeletingId(null);
+      }
+    },
+    [onDeleted, restore],
+  );
+
+  const requestUnlinkQuote = useCallback(
+    async ({
+      bundleId,
+      quoteId,
+      quoteLabel,
+    }: RequestUnlinkQuoteTarget): Promise<QuoteDeleteFlowResult | null> => {
+      const label = quoteLabel || "esta cotización";
+      const ok = await confirmDialog({
+        title: "Quitar de la propuesta",
+        description: `Quitar "${label}" de la propuesta. La cotización no se elimina y queda disponible en el negocio.`,
+        confirmLabel: "Quitar de la propuesta",
+        variant: "destructive",
+      });
+      if (!ok) return null;
+
+      setDeletingId(quoteId);
+      try {
+        const { res, json } = await fetchJson<{
+          success?: boolean;
+          error?: string;
+          data?: { bundleDeleted?: boolean };
+        }>(withDeleteParams(`/api/cpq/bundles/${bundleId}/quotes`, { quoteId }), {
+          method: "DELETE",
+        });
+        if (!res.ok || !json.success) {
+          throw new Error(json.error || "No se pudo quitar de la propuesta");
+        }
+        toast.success("Cotización quitada de la propuesta");
+        return { bundleDeleted: json.data?.bundleDeleted, data: json.data };
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "No se pudo quitar de la propuesta");
+        return null;
+      } finally {
+        setDeletingId(null);
+      }
+    },
+    [],
+  );
+
+  const requestDeleteBundle = useCallback(
+    async ({
+      bundleId,
+      bundleLabel,
+      memberCount,
+      mode,
+    }: RequestDeleteBundleTarget): Promise<QuoteDeleteFlowResult | null> => {
+      const cascade = mode === "cascade";
+      const label = bundleLabel || "esta propuesta";
+      const ok = await confirmDialog({
+        title: cascade ? "Eliminar propuesta y cotizaciones" : "Eliminar propuesta",
+        description: cascade
+          ? `Se eliminará "${label}" y sus ${memberCount} cotizaciones irán a la papelera.`
+          : `Se eliminará "${label}" y sus ${memberCount} cotizaciones se conservarán en el negocio, fuera de la propuesta.`,
+        confirmLabel: cascade ? "Eliminar propuesta y cotizaciones" : "Eliminar solo propuesta",
+        variant: "destructive",
+      });
+      if (!ok) return null;
+
+      const deleteOnce = (force: boolean, reason: string | null) =>
+        fetchJson<{
+          success?: boolean;
+          error?: string;
+          blockers?: DeleteBlocker[];
+          data?: { bundleDeleted?: boolean };
+        }>(withDeleteParams(`/api/cpq/bundles/${bundleId}`, { mode, force, reason }), {
+          method: "DELETE",
+        });
+
+      setDeletingId(bundleId);
+      try {
+        let { res, json } = await deleteOnce(false, null);
+        if (res.status === 409 && json.blockers?.length) {
+          const value = await promptDialog({
+            title: "Eliminar propuesta con bloqueos",
+            description: `Bloqueos:\n${formatBlockers(json.blockers)}\n\nIngresa el motivo para forzar la eliminación.`,
+            placeholder: "Motivo de eliminación",
+            confirmLabel: "Eliminar de todas formas",
+            multiline: true,
+            validate: (v) => (v.trim().length < 3 ? "Indica un motivo (mín. 3 caracteres)" : null),
+          });
+          if (value === null) return null;
+          ({ res, json } = await deleteOnce(true, value.trim()));
+        }
+        if (!res.ok || !json.success) {
+          throw new Error(json.error || "No se pudo eliminar la propuesta");
+        }
+        toast.success(cascade ? "Propuesta y cotizaciones eliminadas" : "Propuesta eliminada");
+        return { bundleDeleted: json.data?.bundleDeleted, data: json.data };
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "No se pudo eliminar la propuesta");
+        return null;
+      } finally {
+        setDeletingId(null);
+      }
+    },
+    [],
+  );
+
+  return {
+    deleteQuote,
+    deletingId,
+    deleting: deletingId !== null,
+    requestDeleteQuote,
+    requestUnlinkQuote,
+    requestDeleteBundle,
+  };
 }
