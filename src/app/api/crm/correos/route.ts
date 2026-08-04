@@ -11,6 +11,9 @@ import { resolveMailboxScope } from "@/modules/crm/email/mailbox-scope";
 import { resolveMultiAccount } from "@/modules/shared/multi-account";
 import { hasGmailModify } from "@/lib/gmail";
 
+/** Búsqueda híbrida + hydrate; sin techo el gateway corta con HTML → falso offline. */
+export const maxDuration = 30;
+
 function parseFolder(raw: string | null): CorreoListFilter {
   if (
     raw === "archived" ||

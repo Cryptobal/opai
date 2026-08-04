@@ -146,10 +146,21 @@ export async function performGmailSend(input: GmailSendInput): Promise<GmailSend
         };
       }
       const metadata = await getStagedEmailFileMetadata(attachment.storageKey);
+      const stagedMime = (metadata.mimeType ?? "")
+        .split(";")[0]
+        ?.trim()
+        .toLowerCase();
+      const clientMime = (attachment.mimeType ?? "")
+        .split(";")[0]
+        ?.trim()
+        .toLowerCase();
+      // R2 a veces omite Content-Type o agrega charset; size+eTag bastan.
+      const mimeMismatch =
+        Boolean(stagedMime) && Boolean(clientMime) && stagedMime !== clientMime;
       if (
         metadata.size !== attachment.size ||
         !metadata.eTag ||
-        metadata.mimeType !== attachment.mimeType ||
+        mimeMismatch ||
         actualAttachmentBytes + metadata.size > MAX_EMAIL_ATTACHMENT_BYTES
       ) {
         return {

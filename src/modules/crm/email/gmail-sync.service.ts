@@ -137,6 +137,26 @@ export async function syncGmailAccount(params: {
     mode === "incremental" || result.state.backfillDone === true;
 
   if (!maintenance) {
+    // C08: drafts Gmail→OPAI también en delta/push. Sin esto, un borrador
+    // creado en Gmail nativo solo aparece tras maintenance (cron */10 o
+    // "Sincronizar") y a menudo se salta por presupuesto. Cap corto para no
+    // retrasar el history realtime.
+    const draftBudget = Math.min(
+      4_000,
+      Math.max(0, globalDeadline - Date.now() - 250),
+    );
+    if (draftBudget >= 1_500) {
+      try {
+        await syncGmailDrafts({
+          gmail,
+          tenantId: params.tenantId,
+          emailAccount: runArgs.emailAccount,
+          deadline: Date.now() + draftBudget,
+        });
+      } catch (err) {
+        console.warn("[gmail] syncGmailDrafts (delta):", err);
+      }
+    }
     return {
       syncedCount: result.synced,
       fetched: result.fetched,
@@ -216,15 +236,15 @@ export async function syncGmailAccount(params: {
     console.warn("[gmail] detachForeignDraftMirrors:", err);
   }
 
-  // Fase 3.5 — espejo de borradores Gmail→OPAI (C08). Presupuesto corto,
-  // best-effort: un draft creado en Gmail aparece en OPAI y viceversa.
+  // Fase 3.5 — espejo de borradores Gmail→OPAI (C08). Umbral bajo (1.5s):
+  // antes con <3s se saltaba tras heal caro y los drafts nunca entraban.
   const draftsRemaining = globalDeadline - Date.now();
-  if (draftsRemaining >= 3_000) {
+  if (draftsRemaining >= 1_500) {
     await syncGmailDrafts({
       gmail,
       tenantId: params.tenantId,
       emailAccount: runArgs.emailAccount,
-      deadline: Date.now() + Math.min(8_000, draftsRemaining * 0.4),
+      deadline: Date.now() + Math.min(8_000, draftsRemaining * 0.5),
     });
   }
 

@@ -216,6 +216,10 @@ export async function hybridSearchThreadIds(params: {
     ...(params.vertical ? [Prisma.sql`t.ai_vertical = ${params.vertical}`] : []),
   ];
 
+  // Tipado en vivo (exactOnly): asunto + participantes — evita seq scan de
+  // cuerpos HTML que dispara timeouts/504 y el falso "Sin conexión" del cliente.
+  // Si 0 hits, expandimos a cuerpo en la misma request (recall). Con semantic=1
+  // ya vamos directo al léxico completo + embeddings.
   const lexicalPromise = prisma.$queryRaw<LexicalRow[]>(
     buildCorreoSearchIdsQuery({
       tenantId: params.tenantId,
@@ -226,6 +230,7 @@ export async function hybridSearchThreadIds(params: {
       cursorDate: null,
       take: overfetch,
       now,
+      paletteTextOnly: exactOnly,
     }),
   );
 
@@ -247,7 +252,26 @@ export async function hybridSearchThreadIds(params: {
     semanticPromise,
   ]);
 
-  const lexicalRows = lexSettled.status === "fulfilled" ? lexSettled.value : [];
+  let lexicalRows = lexSettled.status === "fulfilled" ? lexSettled.value : [];
+  if (exactOnly && lexicalRows.length === 0 && hasTextTerms) {
+    try {
+      lexicalRows = await prisma.$queryRaw<LexicalRow[]>(
+        buildCorreoSearchIdsQuery({
+          tenantId: params.tenantId,
+          emailAccountIds,
+          parsed: params.parsed,
+          folder,
+          vertical: params.vertical ?? null,
+          cursorDate: null,
+          take: overfetch,
+          now,
+          paletteTextOnly: false,
+        }),
+      );
+    } catch {
+      // Mantener vacío: el cliente muestra "sin resultados", no offline.
+    }
+  }
   const rawSemanticHits = semSettled.status === "fulfilled" ? semSettled.value : [];
   // Capacidad de entorno (UI); independiente de si esta request pidió semántico.
   const semanticAvailable = semanticAvailableEnv;
