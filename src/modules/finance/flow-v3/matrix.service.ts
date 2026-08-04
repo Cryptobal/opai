@@ -23,6 +23,7 @@ import { reduceMonthly, weeklyColumns } from "./matrix-monthly";
 import { listClosedV3Weeks, loadSealedBalancesForMatrix } from "./weekly-close.adapter";
 import type { FlowMatrixResponse, OpeningBalanceDetail } from "./matrix-types";
 import { compareFlowRows } from "./row-sort";
+import { isFallbackBandejaRow } from "./unmatched-count";
 
 export type { FlowMatrixResponse } from "./matrix-types";
 
@@ -292,9 +293,28 @@ export async function buildFlowMatrix(
       });
     }
   }
-  // Presentación A→Z por sección; virtuales ("Otros ingresos") al final.
-  // orderIndex se conserva en datos pero no define el orden visible.
-  assembleRows.sort(compareFlowRows);
+  // Presentación v4.8: sección → cuenta/prog → manual → bandeja → virtual,
+  // A→Z dentro de cada bloque. orderIndex se conserva pero no define el orden.
+  assembleRows.sort((a, b) =>
+    compareFlowRows(
+      {
+        section: a.section,
+        name: a.name,
+        isVirtual: a.isVirtual,
+        mapping: a.mapping,
+        isBandeja: isFallbackBandejaRow(a),
+        id: a.id,
+      },
+      {
+        section: b.section,
+        name: b.name,
+        isVirtual: b.isVirtual,
+        mapping: b.mapping,
+        isBandeja: isFallbackBandejaRow(b),
+        id: b.id,
+      },
+    ),
+  );
 
   const assembled = assembleMatrix({
     rows: assembleRows, weeks, currentWeek,
