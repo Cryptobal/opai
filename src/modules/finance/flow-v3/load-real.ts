@@ -61,7 +61,7 @@ export async function loadReal(
         select: {
           id: true, folio: true, direction: true, paymentStatus: true,
           crmAccountId: true, installationId: true, supplierId: true,
-          recurringTemplateId: true,
+          recurringTemplateId: true, flowRouting: true,
           receiverName: true, issuerName: true,
           lines: { select: { accountId: true } },
         },
@@ -92,6 +92,7 @@ export async function loadReal(
       crmAccountId: d.crmAccountId,
       installationId: d.installationId,
       recurringTemplateId: d.direction === "ISSUED" ? d.recurringTemplateId : null,
+      flowRouting: d.direction === "ISSUED" ? d.flowRouting : null,
       supplierId: d.supplierId,
       categoryId,
       name: d.direction === "ISSUED" ? (d.receiverName ?? "") : (d.issuerName ?? ""),
