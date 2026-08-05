@@ -22,6 +22,7 @@ import { prisma } from "@/lib/prisma";
 import { Decimal } from "@prisma/client/runtime/library";
 import type {
   FinanceLinkTarget,
+  FinanceSiiStatus,
   Prisma,
 } from "@prisma/client";
 import { createManualEntry } from "../accounting/journal-entry.service";
@@ -34,6 +35,22 @@ import {
 } from "./write-off.service";
 
 // ── Helpers internos ──
+
+/**
+ * Filtros comunes de DTE elegible para conciliación bancaria.
+ * - Excluye NC (61) / ND (56): no son documentos cobrables.
+ * - Excluye facturas anuladas por NC total (`voidedByCreditNoteId`) o
+ *   rechazadas/anuladas en SII: no deben ofrecerse como candidatos.
+ * Las NC parciales (creditedNetAmount > 0, voidedByCreditNoteId null)
+ * SÍ permanecen — el saldo pendiente ya refleja el ajuste.
+ */
+const RECONCILE_ELIGIBLE_DTE: Prisma.FinanceDteWhereInput = {
+  dteType: { notIn: [56, 61] },
+  voidedByCreditNoteId: null,
+  siiStatus: {
+    notIn: ["ANNULLED", "REJECTED"] as FinanceSiiStatus[],
+  },
+};
 
 /**
  * Calcula el siguiente código secuencial para un FinancePaymentRecord.
@@ -254,6 +271,8 @@ export interface CandidateFactoring {
   status: string;
   dteFolio: number | null;
   dteReceiverName: string | null;
+  /** Fecha de emisión del DTE cedido (ISO). Null si la op no tiene DTE. */
+  dteIssuedAt: string | null;
   /** Nombre de la instalación del DTE cedido (de su creación/programación). */
   installationName: string | null;
   /** 0–100: combinación de monto, fecha, folio en glosa, catálogo factoring, banda bruta. */
@@ -316,6 +335,10 @@ const FACTORING_OP_SELECT = {
       issuerRut: true,
       receiverRut: true,
       notes: true,
+      date: true,
+      dteType: true,
+      voidedByCreditNoteId: true,
+      siiStatus: true,
     },
   },
 } as const;
@@ -347,8 +370,23 @@ type FactoringOpRow = {
     issuerRut?: string | null;
     receiverRut?: string | null;
     notes?: string | null;
+    date?: Date | null;
+    dteType?: number | null;
+    voidedByCreditNoteId?: string | null;
+    siiStatus?: string | null;
   } | null;
 };
+
+/** True si el DTE de la cesión no es cobrable (NC/ND, anulada o rechazada). */
+function isIneligibleReconcileDte(
+  dte: FactoringOpRow["dte"],
+): boolean {
+  if (!dte) return false;
+  if (dte.voidedByCreditNoteId) return true;
+  if (dte.siiStatus === "ANNULLED" || dte.siiStatus === "REJECTED") return true;
+  if (dte.dteType === 56 || dte.dteType === 61) return true;
+  return false;
+}
 
 function decimalToNumber(
   v: { toNumber(): number } | number | null | undefined,
@@ -584,7 +622,8 @@ function scoreFactoringOperationCandidate(params: {
  * ingreso → emitidos; egreso → recibidos. Si `detectFactoringFromTx` marca
  * factoring, amplía la ventana de fechas como antes.
  *
- * Ordena por proximidad de monto y fecha.
+ * Ordena por fecha de emisión (más reciente primero). Excluye NC/ND,
+ * facturas anuladas por NC total y rechazadas/anuladas en SII.
  */
 export async function findDteCandidates(
   tenantId: string,
@@ -634,12 +673,7 @@ export async function findDteCandidates(
     where: {
       tenantId,
       direction,
-      // Excluir NCs (61) y NDs (56) — no son documentos cobrables, son
-      // ajustes al DTE original. Cuando aparece un mov bancario, debe
-      // matchearse contra la factura original, no contra la NC/ND.
-      // Las NCs/NDs se vinculan al DTE original vía
-      // recomputeDtePaymentAggregate, no por candidato directo.
-      dteType: { notIn: [56, 61] },
+      ...RECONCILE_ELIGIBLE_DTE,
       paymentStatus: {
         in: (isFactoring
           ? ["UNPAID", "PARTIAL", "OVERDUE", "PAID"]
@@ -648,6 +682,7 @@ export async function findDteCandidates(
       ...(isFactoring ? {} : { amountPending: { gt: 0 } }),
       date: { gte: minDate, lte: maxDate },
     },
+    // Siempre por fecha de emisión (más reciente primero).
     orderBy: { date: "desc" },
     take: 200,
   });
@@ -678,27 +713,12 @@ export async function findDteCandidates(
     (d) => d.paymentStatus !== "CEDED",
   );
 
-  // Sort por afinidad: delta absoluto al monto del banco (tomando el menor
-  // entre amountPending y totalAmount). Empuja matches 1:1 al tope sin
-  // ocultar los N:M.
-  const sorted = [...filteredByExistingLink].sort((a, b) => {
-    const da = Math.min(
-      Math.abs(a.amountPending.toNumber() - amountAbs),
-      Math.abs(a.totalAmount.toNumber() - amountAbs),
-    );
-    const db = Math.min(
-      Math.abs(b.amountPending.toNumber() - amountAbs),
-      Math.abs(b.totalAmount.toNumber() - amountAbs),
-    );
-    return da - db;
-  });
-
   const instNames = await fetchInstallationNames(
     tenantId,
-    sorted.map((d) => d.installationId),
+    filteredByExistingLink.map((d) => d.installationId),
   );
 
-  return sorted.map((d) => ({
+  return filteredByExistingLink.map((d) => ({
     id: d.id,
     direction: d.direction as "ISSUED" | "RECEIVED",
     documentType: d.code,
@@ -734,6 +754,7 @@ export async function findDteCandidates(
  *   (misma heurística que single) para ampliar ventana y estados.
  * - CEDED nunca se ofrece como candidato DTE (salvaguarda contable).
  * - Excluye DTEs ya conciliados con CUALQUIERA de los bankTxIds.
+ * - Orden por fecha de emisión desc; excluye NC/ND y anuladas por NC/SII.
  */
 export async function findDteCandidatesForBulk(
   tenantId: string,
@@ -784,8 +805,7 @@ export async function findDteCandidatesForBulk(
     where: {
       tenantId,
       direction,
-      // Excluir NCs (61) y NDs (56) — no son documentos cobrables.
-      dteType: { notIn: [56, 61] },
+      ...RECONCILE_ELIGIBLE_DTE,
       paymentStatus: {
         in: (isFactoring
           ? ["UNPAID", "PARTIAL", "OVERDUE", "PAID"]
@@ -794,6 +814,7 @@ export async function findDteCandidatesForBulk(
       ...(isFactoring ? {} : { amountPending: { gt: 0 } }),
       date: { gte: minDate, lte: maxDate },
     },
+    // Siempre por fecha de emisión (más reciente primero).
     orderBy: { date: "desc" },
     take: 200,
   });
@@ -818,24 +839,12 @@ export async function findDteCandidatesForBulk(
   // Salvaguarda contable: CEDED → cesión, nunca DTE directo.
   filtered = filtered.filter((d) => d.paymentStatus !== "CEDED");
 
-  const sorted = [...filtered].sort((a, b) => {
-    const da = Math.min(
-      Math.abs(a.amountPending.toNumber() - totalAbs),
-      Math.abs(a.totalAmount.toNumber() - totalAbs),
-    );
-    const db = Math.min(
-      Math.abs(b.amountPending.toNumber() - totalAbs),
-      Math.abs(b.totalAmount.toNumber() - totalAbs),
-    );
-    return da - db;
-  });
-
   const instNames = await fetchInstallationNames(
     tenantId,
-    sorted.map((d) => d.installationId),
+    filtered.map((d) => d.installationId),
   );
 
-  return sorted.map((d) => ({
+  return filtered.map((d) => ({
     id: d.id,
     direction: d.direction as "ISSUED" | "RECEIVED",
     documentType: d.code,
@@ -915,13 +924,17 @@ async function queryFactoringOps(params: {
       tenantId: params.tenantId,
       status: { notIn: ["CANCELLED"] },
       ...(params.companyId ? { factoringCompanyId: params.companyId } : {}),
+      // Excluir cesiones cuya factura esté anulada por NC / SII / sea NC-ND.
+      dte: RECONCILE_ELIGIBLE_DTE,
       OR: orBranches,
     },
     select: FACTORING_OP_SELECT,
-    orderBy: { fechaCesion: "desc" },
+    orderBy: [{ dte: { date: "desc" } }, { fechaCesion: "desc" }],
     take: params.take,
   });
-  return rows as unknown as FactoringOpRow[];
+  return (rows as unknown as FactoringOpRow[]).filter(
+    (op) => !isIneligibleReconcileDte(op.dte),
+  );
 }
 
 async function mapOpsToCandidates(
@@ -940,54 +953,58 @@ async function mapOpsToCandidates(
     ops.map((op) => op.dte?.installationId),
   );
 
-  return ops.map((op) => {
-    const sim = decimalToNumber(op.simMontoAGirar);
-    const net = decimalToNumber(op.netAdvance) ?? 0;
-    const expectedDeposit = sim ?? net;
-    const invoiceAmount = decimalToNumber(op.invoiceAmount) ?? 0;
-    const fechaCesion = op.fechaCesion ? new Date(op.fechaCesion) : null;
-    const batchTotal = decimalToNumber(op.batch?.totalMontoAGirar ?? null);
+  return ops
+    .filter((op) => !isIneligibleReconcileDte(op.dte))
+    .map((op) => {
+      const sim = decimalToNumber(op.simMontoAGirar);
+      const net = decimalToNumber(op.netAdvance) ?? 0;
+      const expectedDeposit = sim ?? net;
+      const invoiceAmount = decimalToNumber(op.invoiceAmount) ?? 0;
+      const fechaCesion = op.fechaCesion ? new Date(op.fechaCesion) : null;
+      const batchTotal = decimalToNumber(op.batch?.totalMontoAGirar ?? null);
 
-    const { confidence, matchSignals } = scoreFactoringOperationCandidate({
-      bankAmount: scoreCtx.bankAmount,
-      txDate: scoreCtx.txDate,
-      glossNorm: scoreCtx.glossNorm,
-      folioSet: scoreCtx.folioSet,
-      detectionCompanyId: scoreCtx.detectionCompanyId,
-      invoiceAmount,
-      expectedDeposit,
-      fechaCesion,
-      factoringCompanyId: op.factoringCompanyId ?? null,
-      dteFolio: op.dte?.folio ?? null,
+      const { confidence, matchSignals } = scoreFactoringOperationCandidate({
+        bankAmount: scoreCtx.bankAmount,
+        txDate: scoreCtx.txDate,
+        glossNorm: scoreCtx.glossNorm,
+        folioSet: scoreCtx.folioSet,
+        detectionCompanyId: scoreCtx.detectionCompanyId,
+        invoiceAmount,
+        expectedDeposit,
+        fechaCesion,
+        factoringCompanyId: op.factoringCompanyId ?? null,
+        dteFolio: op.dte?.folio ?? null,
+      });
+
+      return {
+        id: op.id,
+        code: op.code,
+        factoringCompanyName: op.factoringCompany,
+        factoringCompanyId: op.factoringCompanyId ?? null,
+        fechaCesion: op.fechaCesion ? op.fechaCesion.toISOString() : "",
+        fechaVencimiento: op.fechaVencimiento
+          ? op.fechaVencimiento.toISOString()
+          : "",
+        invoiceAmount,
+        expectedDeposit,
+        expectedDepositSource:
+          sim != null ? ("simulation" as const) : ("computed" as const),
+        status: op.status,
+        dteFolio: op.dte?.folio ?? null,
+        dteReceiverName: op.dte?.receiverName ?? null,
+        dteIssuedAt: op.dte?.date ? op.dte.date.toISOString() : null,
+        installationName: op.dte?.installationId
+          ? instNames.get(op.dte.installationId) ?? null
+          : null,
+        confidence,
+        matchSignals,
+        isSuggested: confidence >= 90,
+        batchId: op.batchId ?? op.batch?.id ?? null,
+        batchCode: op.batch?.code ?? null,
+        batchTotalMontoAGirar: batchTotal,
+        batchOperationsCount: op.batch?.operationsCount ?? null,
+      };
     });
-
-    return {
-      id: op.id,
-      code: op.code,
-      factoringCompanyName: op.factoringCompany,
-      factoringCompanyId: op.factoringCompanyId ?? null,
-      fechaCesion: op.fechaCesion ? op.fechaCesion.toISOString() : "",
-      fechaVencimiento: op.fechaVencimiento
-        ? op.fechaVencimiento.toISOString()
-        : "",
-      invoiceAmount,
-      expectedDeposit,
-      expectedDepositSource: sim != null ? ("simulation" as const) : ("computed" as const),
-      status: op.status,
-      dteFolio: op.dte?.folio ?? null,
-      dteReceiverName: op.dte?.receiverName ?? null,
-      installationName: op.dte?.installationId
-        ? instNames.get(op.dte.installationId) ?? null
-        : null,
-      confidence,
-      matchSignals,
-      isSuggested: confidence >= 90,
-      batchId: op.batchId ?? op.batch?.id ?? null,
-      batchCode: op.batch?.code ?? null,
-      batchTotalMontoAGirar: batchTotal,
-      batchOperationsCount: op.batch?.operationsCount ?? null,
-    };
-  });
 }
 
 function mergeCandidatesById(
@@ -1009,6 +1026,10 @@ function mergeCandidatesById(
       const bHit = b.factoringCompanyId === detectionCompanyId ? 1 : 0;
       if (aHit !== bHit) return bHit - aHit;
     }
+    // Luego por fecha de emisión del DTE (más reciente primero).
+    const aDate = a.dteIssuedAt || a.fechaCesion || "";
+    const bDate = b.dteIssuedAt || b.fechaCesion || "";
+    if (aDate !== bDate) return bDate.localeCompare(aDate);
     return b.confidence - a.confidence;
   });
 }
@@ -1421,7 +1442,7 @@ export async function searchReconcileCandidates(
   if (wantOpen) {
     const dteWhere: Prisma.FinanceDteWhereInput = {
       tenantId,
-      dteType: { notIn: [56, 61] },
+      ...RECONCILE_ELIGIBLE_DTE,
       paymentStatus: {
         in: ["UNPAID", "PARTIAL", "OVERDUE"] as Prisma.EnumFinancePaymentStatusFilter["in"],
       },
@@ -1477,6 +1498,7 @@ export async function searchReconcileCandidates(
 
   if (wantFactoring) {
     const dteTextFilter: Prisma.FinanceDteWhereInput = {
+      ...RECONCILE_ELIGIBLE_DTE,
       OR: [
         { receiverName: { contains: q, mode: "insensitive" as const } },
         { issuerName: { contains: q, mode: "insensitive" as const } },
@@ -1492,7 +1514,10 @@ export async function searchReconcileCandidates(
       ...(scope === "factoring" && ctx.companyId
         ? { factoringCompanyId: ctx.companyId }
         : {}),
-      ...(scope === "ceded" ? { dte: { paymentStatus: "CEDED" } } : {}),
+      dte: {
+        ...RECONCILE_ELIGIBLE_DTE,
+        ...(scope === "ceded" ? { paymentStatus: "CEDED" as const } : {}),
+      },
       OR: [
         { code: { contains: q, mode: "insensitive" as const } },
         { factoringCompany: { contains: q, mode: "insensitive" as const } },
@@ -1504,7 +1529,7 @@ export async function searchReconcileCandidates(
     const ops = await prisma.financeFactoringOperation.findMany({
       where: opWhere,
       select: FACTORING_OP_SELECT,
-      orderBy: { fechaCesion: "desc" },
+      orderBy: [{ dte: { date: "desc" } }, { fechaCesion: "desc" }],
       take: limit,
     });
 
@@ -1552,7 +1577,7 @@ export async function searchReconcileCandidates(
         tenantId,
         folio: folioNum,
         paymentStatus: "CEDED",
-        dteType: { notIn: [56, 61] },
+        ...RECONCILE_ELIGIBLE_DTE,
       },
       select: { id: true },
       take: 10,
@@ -1564,11 +1589,13 @@ export async function searchReconcileCandidates(
           tenantId,
           dteId: { in: ceded.map((d) => d.id) },
           status: { notIn: ["CANCELLED"] },
+          dte: RECONCILE_ELIGIBLE_DTE,
           ...(scope === "factoring" && ctx.companyId
             ? { factoringCompanyId: ctx.companyId }
             : {}),
         },
         select: FACTORING_OP_SELECT,
+        orderBy: [{ dte: { date: "desc" } }, { fechaCesion: "desc" }],
         take: limit,
       });
       const mapped = await mapOpsToCandidates(

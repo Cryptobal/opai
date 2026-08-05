@@ -32,6 +32,8 @@ export interface FactoringCandidate {
   status: string;
   dteFolio: number | null;
   dteReceiverName: string | null;
+  /** Fecha de emisión del DTE (ISO), si existe. */
+  dteIssuedAt?: string | null;
   installationName: string | null;
   confidence: number;
   matchSignals: string[];

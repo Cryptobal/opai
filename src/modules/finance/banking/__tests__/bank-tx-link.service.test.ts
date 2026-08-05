@@ -225,6 +225,42 @@ describe("findFactoringCandidatesForBulk", () => {
   });
 });
 
+describe("findDteCandidatesForBulk — excluye anuladas por NC", () => {
+  it("el where de candidatos incluye voidedByCreditNoteId null y excluye NC/ND", async () => {
+    asMock(prisma.financeBankTransaction.findMany).mockResolvedValue([
+      {
+        id: "t1",
+        amount: dec(1_000_000),
+        transactionDate: new Date("2026-07-15"),
+        description: "pago",
+        reference: null,
+      },
+      {
+        id: "t2",
+        amount: dec(1_000_000),
+        transactionDate: new Date("2026-07-15"),
+        description: "pago",
+        reference: null,
+      },
+    ]);
+    asMock(prisma.financeDte.findMany).mockResolvedValue([]);
+
+    await findDteCandidatesForBulk("tenant-a", ["t1", "t2"]);
+
+    expect(prisma.financeDte.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          tenantId: "tenant-a",
+          voidedByCreditNoteId: null,
+          dteType: { notIn: [56, 61] },
+          siiStatus: { notIn: ["ANNULLED", "REJECTED"] },
+        }),
+        orderBy: { date: "desc" },
+      }),
+    );
+  });
+});
+
 describe("findDteCandidatesForBulk — regla CEDED", () => {
   it("excluye DTE CEDED con operación viva del array data", async () => {
     const txs = [

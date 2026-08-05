@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { X, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { AccountPlanCombobox } from "../AccountPlanCombobox";
@@ -80,6 +81,17 @@ export function AllocationDetailPanel({
 }: AllocationDetailPanelProps) {
   const panelRef = useRef<HTMLDivElement>(null);
 
+  const needsShortfallAccount =
+    hasShortfall &&
+    allLinksAreReconcilable &&
+    diffMode !== "manual" &&
+    !diffAccountPlanId;
+  const needsRemainderAccount = remaining > 0.01 && !restAccountId;
+  const canAccept = useMemo(
+    () => !needsShortfallAccount && !needsRemainderAccount,
+    [needsShortfallAccount, needsRemainderAccount],
+  );
+
   useEffect(() => {
     if (!open) return;
     const prev = document.activeElement as HTMLElement | null;
@@ -100,6 +112,18 @@ export function AllocationDetailPanel({
   }, [open, onClose]);
 
   if (!open) return null;
+
+  const handleAccept = () => {
+    if (needsShortfallAccount) {
+      toast.error("Seleccioná una cuenta contable para la diferencia");
+      return;
+    }
+    if (needsRemainderAccount) {
+      toast.error("Seleccioná una cuenta contable para el resto");
+      return;
+    }
+    onClose();
+  };
 
   return (
     <div
@@ -333,6 +357,32 @@ export function AllocationDetailPanel({
             />
           </div>
         )}
+      </div>
+
+      <div
+        className={cn(
+          "shrink-0 flex items-center gap-2 border-t border-ds-border-default",
+          "bg-background px-4 sm:px-6",
+          "h-[72px]",
+          "pb-[env(safe-area-inset-bottom)]",
+        )}
+      >
+        <Button
+          type="button"
+          variant="outline"
+          className="h-11 sm:h-10 shrink-0"
+          onClick={onClose}
+        >
+          Cancelar
+        </Button>
+        <Button
+          type="button"
+          className="h-11 sm:h-10 flex-1 min-w-0"
+          onClick={handleAccept}
+          disabled={!canAccept}
+        >
+          Aceptar
+        </Button>
       </div>
     </div>
   );

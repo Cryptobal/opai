@@ -60,6 +60,7 @@ import {
   Sparkles,
   ChevronRight,
   ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useIsMobileViewport } from "@/hooks/useIsMobileViewport";
@@ -135,6 +136,7 @@ interface FactoringCandidate {
   status: string;
   dteFolio: number | null;
   dteReceiverName: string | null;
+  dteIssuedAt?: string | null;
   installationName: string | null;
   confidence: number;
   matchSignals: string[];
@@ -352,6 +354,8 @@ export function BankTxReconcileSheet({
     [],
   );
   const [detailOpen, setDetailOpen] = useState(false);
+  /** En móvil: contrae resumen del mov + asignación para liberar espacio de búsqueda. */
+  const [headerExpanded, setHeaderExpanded] = useState(true);
   const searchAbortRef = useRef<AbortController | null>(null);
   const [filterMinAmount, setFilterMinAmount] = useState("");
   const [filterMaxAmount, setFilterMaxAmount] = useState("");
@@ -589,6 +593,7 @@ export function BankTxReconcileSheet({
     setSearchFactoring([]);
     setSearchScope("open");
     setDetailOpen(false);
+    setHeaderExpanded(true);
     searchAbortRef.current?.abort();
     searchAbortRef.current = null;
     setFilterMinAmount("");
@@ -730,32 +735,35 @@ export function BankTxReconcileSheet({
 
   // Filtrado: fuente = resultados de búsqueda server-side si hay query;
   // si no, candidatos cargados. Filtros locales solo monto/fecha/dirección.
+  // Orden final siempre por fecha de emisión (más reciente primero).
   const filteredCandidates = useMemo(() => {
     const source = searchQuery.trim() ? searchDtes : candidates;
     const selectedKeys = new Set(links.map((l) => l.key));
-    return source.filter((c) => {
-      if (onlySelected && !selectedKeys.has(c.id)) return false;
-      // Por defecto ocultamos PAID (son ruido cuando hay match exacto
-      // con UNPAID/PARTIAL). El usuario puede mostrarlas con el toggle.
-      if (!filterIncludePaid && c.paymentStatus === "PAID") return false;
-      if (filterDirection !== "all" && c.direction !== filterDirection)
-        return false;
-      if (filterMinAmount) {
-        const min = parseCLPInput(filterMinAmount);
-        if (min != null && c.amountPending < min) return false;
-      }
-      if (filterMaxAmount) {
-        const max = parseCLPInput(filterMaxAmount);
-        if (max != null && c.amountPending > max) return false;
-      }
-      if (filterDateFrom) {
-        if (c.issuedAt.slice(0, 10) < filterDateFrom) return false;
-      }
-      if (filterDateTo) {
-        if (c.issuedAt.slice(0, 10) > filterDateTo) return false;
-      }
-      return true;
-    });
+    return source
+      .filter((c) => {
+        if (onlySelected && !selectedKeys.has(c.id)) return false;
+        // Por defecto ocultamos PAID (son ruido cuando hay match exacto
+        // con UNPAID/PARTIAL). El usuario puede mostrarlas con el toggle.
+        if (!filterIncludePaid && c.paymentStatus === "PAID") return false;
+        if (filterDirection !== "all" && c.direction !== filterDirection)
+          return false;
+        if (filterMinAmount) {
+          const min = parseCLPInput(filterMinAmount);
+          if (min != null && c.amountPending < min) return false;
+        }
+        if (filterMaxAmount) {
+          const max = parseCLPInput(filterMaxAmount);
+          if (max != null && c.amountPending > max) return false;
+        }
+        if (filterDateFrom) {
+          if (c.issuedAt.slice(0, 10) < filterDateFrom) return false;
+        }
+        if (filterDateTo) {
+          if (c.issuedAt.slice(0, 10) > filterDateTo) return false;
+        }
+        return true;
+      })
+      .sort((a, b) => b.issuedAt.localeCompare(a.issuedAt));
   }, [
     candidates,
     searchDtes,
@@ -820,8 +828,11 @@ export function BankTxReconcileSheet({
   const looseFactoring = useMemo(() => {
     const loose = filteredFactoring.filter((c) => !batchOpIds.has(c.id));
     return [...loose].sort((a, b) => {
-      if (a.isSuggested === b.isSuggested) return 0;
-      return a.isSuggested ? -1 : 1;
+      // Sugeridas primero; dentro de cada grupo, fecha de emisión del DTE.
+      if (a.isSuggested !== b.isSuggested) return a.isSuggested ? -1 : 1;
+      const aDate = a.dteIssuedAt || a.fechaCesion || "";
+      const bDate = b.dteIssuedAt || b.fechaCesion || "";
+      return bDate.localeCompare(aDate);
     });
   }, [filteredFactoring, batchOpIds]);
 
@@ -1369,23 +1380,21 @@ export function BankTxReconcileSheet({
             </div>
           </div>
         )}
-        {/* Preview del/los movimiento(s). Single-tx muestra el detalle
-            individual; multi-tx muestra una sumatoria con la lista de
-            cada mov en una caja compacta. */}
-        {isMulti ? (
-          <div className="rounded-lg border border-border bg-muted/30 p-3 text-sm space-y-2">
-            {isMobile && !movsOpen ? (
-              <button
-                type="button"
-                onClick={() => setMovsOpen(true)}
-                aria-expanded={false}
-                className="w-full flex items-center justify-between gap-2 min-h-[44px] text-left"
-              >
-                <span className="text-foreground font-medium truncate">
-                  {txs.length} {isIncomeTx ? "ingresos" : "egresos"}{" "}
-                  seleccionados
-                </span>
-                <span className="inline-flex items-center gap-1 shrink-0">
+        {/* En móvil: contraer resumen del mov + asignación para dar espacio
+            a la búsqueda de facturas. Desktop siempre expandido. */}
+        {isMobile && (mode === "create" || mode === "edit") && (
+          <button
+            type="button"
+            onClick={() => setHeaderExpanded((v) => !v)}
+            aria-expanded={headerExpanded}
+            className="w-full flex items-center justify-between gap-2 min-h-11 rounded-lg border border-ds-border-default bg-ds-surface-1 px-3 py-2 text-left"
+          >
+            <span className="min-w-0 flex-1">
+              <span className="block text-[12px] font-mono uppercase tracking-[0.08em] text-ds-text-3">
+                {headerExpanded ? "Resumen del movimiento" : "Resumen"}
+              </span>
+              {!headerExpanded && (
+                <span className="block text-[13px] text-ds-text-1 truncate">
                   <span
                     className={cn(
                       "font-mono font-semibold",
@@ -1396,103 +1405,167 @@ export function BankTxReconcileSheet({
                   >
                     {fmtCLP.format(totalAmountSigned)}
                   </span>
-                  <ChevronRight className="h-4 w-4 text-ds-text-3" />
-                </span>
-              </button>
-            ) : (
-              <>
-                <button
-                  type="button"
-                  onClick={() => isMobile && setMovsOpen(false)}
-                  aria-expanded={movsOpen}
-                  className={cn(
-                    "w-full flex items-center justify-between gap-2 flex-wrap text-left",
-                    isMobile && "min-h-[44px]",
-                  )}
-                  disabled={!isMobile}
-                >
-                  <span className="text-foreground font-medium">
-                    {txs.length} {isIncomeTx ? "ingresos" : "egresos"}
-                    {isMobile ? " seleccionados" : ""}
-                  </span>
-                  <span className="inline-flex items-center gap-1">
-                    <span
-                      className={cn(
-                        "font-mono font-semibold",
-                        isIncomeTx
-                          ? "text-status-ok-fg"
-                          : "text-status-danger-fg",
-                      )}
-                    >
-                      {fmtCLP.format(totalAmountSigned)}
+                  {links.length > 0 && (
+                    <span className="text-ds-text-3">
+                      {" · "}
+                      {links.length} vínculo{links.length === 1 ? "" : "s"}
                     </span>
-                    {isMobile && (
-                      <ChevronDown className="h-4 w-4 text-ds-text-3" />
-                    )}
-                  </span>
-                </button>
-                <ul
-                  className={cn(
-                    "space-y-1 overflow-y-auto pr-1",
-                    isMobile ? "max-h-[118px]" : "max-h-40",
                   )}
-                >
-                  {txs.map((t) => (
-                    <li
-                      key={t.id}
-                      className="flex items-center justify-between gap-2 text-xs"
-                    >
-                      <span className="min-w-0 flex-1 truncate">
-                        <span className="text-muted-foreground mr-1.5">
-                          {format(new Date(t.transactionDate), "dd MMM", {
-                            locale: es,
-                          })}
-                        </span>
-                        {t.description}
-                      </span>
+                  {overflow > 1 && (
+                    <span className="text-status-danger-fg">
+                      {" · "}Excede {fmtCLP.format(overflow)}
+                    </span>
+                  )}
+                  {remaining > 0.01 && overflow <= 1 && (
+                    <span className="text-status-warn-fg">
+                      {" · "}Falta {fmtCLP.format(remaining)}
+                    </span>
+                  )}
+                  {links.length > 0 && overflow <= 1 && remaining <= 0.01 && (
+                    <span className="text-status-ok-fg">{" · "}Calza</span>
+                  )}
+                </span>
+              )}
+            </span>
+            {headerExpanded ? (
+              <ChevronUp className="h-4 w-4 shrink-0 text-ds-text-3" />
+            ) : (
+              <ChevronDown className="h-4 w-4 shrink-0 text-ds-text-3" />
+            )}
+          </button>
+        )}
+
+        {(!isMobile || headerExpanded) && (
+          <>
+            {/* Preview del/los movimiento(s). Single-tx muestra el detalle
+                individual; multi-tx muestra una sumatoria con la lista de
+                cada mov en una caja compacta. */}
+            {isMulti ? (
+              <div className="rounded-lg border border-border bg-muted/30 p-3 text-sm space-y-2">
+                {isMobile && !movsOpen ? (
+                  <button
+                    type="button"
+                    onClick={() => setMovsOpen(true)}
+                    aria-expanded={false}
+                    className="w-full flex items-center justify-between gap-2 min-h-[44px] text-left"
+                  >
+                    <span className="text-foreground font-medium truncate">
+                      {txs.length} {isIncomeTx ? "ingresos" : "egresos"}{" "}
+                      seleccionados
+                    </span>
+                    <span className="inline-flex items-center gap-1 shrink-0">
                       <span
                         className={cn(
-                          "font-mono shrink-0",
-                          t.amount >= 0
+                          "font-mono font-semibold",
+                          isIncomeTx
                             ? "text-status-ok-fg"
                             : "text-status-danger-fg",
                         )}
                       >
-                        {fmtCLP.format(t.amount)}
+                        {fmtCLP.format(totalAmountSigned)}
                       </span>
-                    </li>
-                  ))}
-                </ul>
-              </>
-            )}
-          </div>
-        ) : (
-          <div className="rounded-lg border border-border bg-muted/30 p-3 text-sm space-y-1">
-            <div className="flex items-center justify-between gap-2 flex-wrap">
-              <span className="text-foreground font-medium">{tx.description}</span>
-              <span
-                className={cn(
-                  "font-mono font-semibold",
-                  tx.amount >= 0
-                    ? "text-status-ok-fg"
-                    : "text-status-danger-fg"
+                      <ChevronRight className="h-4 w-4 text-ds-text-3" />
+                    </span>
+                  </button>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => isMobile && setMovsOpen(false)}
+                      aria-expanded={movsOpen}
+                      className={cn(
+                        "w-full flex items-center justify-between gap-2 flex-wrap text-left",
+                        isMobile && "min-h-[44px]",
+                      )}
+                      disabled={!isMobile}
+                    >
+                      <span className="text-foreground font-medium">
+                        {txs.length} {isIncomeTx ? "ingresos" : "egresos"}
+                        {isMobile ? " seleccionados" : ""}
+                      </span>
+                      <span className="inline-flex items-center gap-1">
+                        <span
+                          className={cn(
+                            "font-mono font-semibold",
+                            isIncomeTx
+                              ? "text-status-ok-fg"
+                              : "text-status-danger-fg",
+                          )}
+                        >
+                          {fmtCLP.format(totalAmountSigned)}
+                        </span>
+                        {isMobile && (
+                          <ChevronDown className="h-4 w-4 text-ds-text-3" />
+                        )}
+                      </span>
+                    </button>
+                    <ul
+                      className={cn(
+                        "space-y-1 overflow-y-auto pr-1",
+                        isMobile ? "max-h-[118px]" : "max-h-40",
+                      )}
+                    >
+                      {txs.map((t) => (
+                        <li
+                          key={t.id}
+                          className="flex items-center justify-between gap-2 text-xs"
+                        >
+                          <span className="min-w-0 flex-1 truncate">
+                            <span className="text-muted-foreground mr-1.5">
+                              {format(new Date(t.transactionDate), "dd MMM", {
+                                locale: es,
+                              })}
+                            </span>
+                            {t.description}
+                          </span>
+                          <span
+                            className={cn(
+                              "font-mono shrink-0",
+                              t.amount >= 0
+                                ? "text-status-ok-fg"
+                                : "text-status-danger-fg",
+                            )}
+                          >
+                            {fmtCLP.format(t.amount)}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </>
                 )}
-              >
-                {fmtCLP.format(tx.amount)}
-              </span>
-            </div>
-            <div className="text-xs text-muted-foreground">
-              {format(new Date(tx.transactionDate), "dd MMM yyyy", {
-                locale: es,
-              })}
-              {tx.reference && (
-                <>
-                  {" · "}
-                  <span className="font-mono">{tx.reference}</span>
-                </>
-              )}
-            </div>
-          </div>
+              </div>
+            ) : (
+              <div className="rounded-lg border border-border bg-muted/30 p-3 text-sm space-y-1">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <span className="text-foreground font-medium">
+                    {tx.description}
+                  </span>
+                  <span
+                    className={cn(
+                      "font-mono font-semibold",
+                      tx.amount >= 0
+                        ? "text-status-ok-fg"
+                        : "text-status-danger-fg",
+                    )}
+                  >
+                    {fmtCLP.format(tx.amount)}
+                  </span>
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  {format(new Date(tx.transactionDate), "dd MMM yyyy", {
+                    locale: es,
+                  })}
+                  {tx.reference && (
+                    <>
+                      {" · "}
+                      <span className="font-mono">{tx.reference}</span>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+
+          </>
         )}
 
         {/* Tabs (solo en modo create / edit) — segmented en móvil */}
@@ -1553,17 +1626,19 @@ export function BankTxReconcileSheet({
           </div>
         )}
 
-        {(mode === "create" || mode === "edit") && tab === "compare" && (
-          <AllocationRail
-            links={links}
-            txAmountAbs={txAmountAbs}
-            linksTotal={linksTotal}
-            remaining={remaining}
-            overflow={overflow}
-            onOpenDetail={() => setDetailOpen(true)}
-            onRemoveLink={removeLink}
-          />
-        )}
+        {(!isMobile || headerExpanded) &&
+          (mode === "create" || mode === "edit") &&
+          tab === "compare" && (
+            <AllocationRail
+              links={links}
+              txAmountAbs={txAmountAbs}
+              linksTotal={linksTotal}
+              remaining={remaining}
+              overflow={overflow}
+              onOpenDetail={() => setDetailOpen(true)}
+              onRemoveLink={removeLink}
+            />
+          )}
         </div>
         {/* /Zona 1 */}
 
