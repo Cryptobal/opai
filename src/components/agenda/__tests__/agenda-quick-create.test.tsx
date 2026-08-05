@@ -29,8 +29,8 @@ describe("AgendaQuickCreate", () => {
     expect(body).not.toBeNull();
     expect(body!.className).not.toContain("h-[322px]");
 
-    // Cambiar tipo de evento intercambia sólo el contenido de la fila.
-    fireEvent.click(screen.getByText("Técnica"));
+    // Cambiar tipo de evento (chips: Cliente / Supervisión / Reunión).
+    fireEvent.click(screen.getByText("Reunión"));
     expect(screen.getByText("Participantes")).toBeInTheDocument();
 
     // Cambiar a Tarea muestra los campos de tarea.
@@ -68,7 +68,7 @@ describe("AgendaQuickCreate", () => {
     // Altura fija h-9 (token exacto) recortaría la 2.ª línea al envolver.
     expect(tipoRow!.className.split(/\s+/)).not.toContain("h-9");
 
-    for (const label of ["Cliente", "Técnica", "Supervisión", "Reunión"]) {
+    for (const label of ["Cliente", "Supervisión", "Reunión"]) {
       expect(screen.getByRole("button", { name: label })).toBeInTheDocument();
     }
 

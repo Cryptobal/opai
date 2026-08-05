@@ -23,6 +23,7 @@ const requireTenantModuleMock = vi.fn();
 const resolveApiPermsMock = vi.fn();
 const visitaFindFirst = vi.fn();
 const linkFindUnique = vi.fn();
+const participantFindMany = vi.fn();
 const reprogramMock = vi.fn();
 const cancelMock = vi.fn();
 const completeMock = vi.fn();
@@ -47,6 +48,8 @@ vi.mock("@/lib/prisma", () => ({
   prisma: {
     agendaVisita: { findFirst: visitaFindFirst },
     agendaEventLink: { findUnique: linkFindUnique },
+    // loadParticipantRolesForActor (canMutateVisita) consulta participantes.
+    calendarEventParticipant: { findMany: participantFindMany },
   },
 }));
 
@@ -93,6 +96,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   requireTenantModuleMock.mockResolvedValue({ authorized: true, ctx: CTX });
   resolveApiPermsMock.mockResolvedValue(PERMS_WITH_AGENDA);
+  participantFindMany.mockResolvedValue([]);
 });
 
 describe("GET /api/agenda", () => {
