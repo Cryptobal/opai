@@ -117,7 +117,7 @@ export function CorreoAiResultList({ result }: Props) {
               ))}
             </ul>
             <Link
-              href="/agenda"
+              href="/opai/agenda"
               className="mt-2 inline-flex min-h-10 items-center gap-1 text-[13px] text-primary ds-tap"
             >
               Abrir agenda <ExternalLink className="h-3.5 w-3.5" />
@@ -147,7 +147,7 @@ export function CorreoAiResultList({ result }: Props) {
                 </p>
                 {result.dealUrl && result.agendaSync.ok && (
                   <Link
-                    href="/agenda"
+                    href="/opai/agenda"
                     className="inline-flex min-h-10 items-center gap-1 text-[13px] text-primary ds-tap"
                   >
                     Abrir agenda <ExternalLink className="h-3.5 w-3.5" />
