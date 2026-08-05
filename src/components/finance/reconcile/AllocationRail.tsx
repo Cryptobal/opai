@@ -1,5 +1,6 @@
 "use client";
 
+import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { AllocationRailStatus, LocalLink } from "./types";
 
@@ -7,6 +8,13 @@ const fmtCLP = new Intl.NumberFormat("es-CL", {
   style: "currency",
   currency: "CLP",
   minimumFractionDigits: 0,
+});
+
+const fmtCompact = new Intl.NumberFormat("es-CL", {
+  style: "currency",
+  currency: "CLP",
+  notation: "compact",
+  maximumFractionDigits: 1,
 });
 
 const SEGMENT_TONES = [
@@ -24,6 +32,7 @@ export interface AllocationRailProps {
   remaining: number;
   overflow: number;
   onOpenDetail: () => void;
+  onRemoveLink?: (key: string) => void;
 }
 
 function resolveStatus(
@@ -37,6 +46,11 @@ function resolveStatus(
   return "calza";
 }
 
+function formatChipAmount(amount: number): string {
+  if (Math.abs(amount) >= 1_000_000) return fmtCompact.format(amount);
+  return fmtCLP.format(amount);
+}
+
 export function AllocationRail({
   links,
   txAmountAbs,
@@ -44,6 +58,7 @@ export function AllocationRail({
   remaining,
   overflow,
   onOpenDetail,
+  onRemoveLink,
 }: AllocationRailProps) {
   const status = resolveStatus(links.length, remaining, overflow);
   const assignedPct =
@@ -61,17 +76,12 @@ export function AllocationRail({
           : `Falta ${fmtCLP.format(remaining)}`;
 
   return (
-    <button
-      type="button"
-      onClick={onOpenDetail}
-      className={cn(
-        "w-full rounded-xl border border-ds-border-default bg-ds-surface-1 p-3 text-left",
-        "min-h-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
-        "hover:bg-ds-surface-2 transition-colors",
-      )}
-      aria-label="Abrir detalle de asignación"
+    <div
+      role="group"
+      aria-label="Asignación de conciliación"
+      className="w-full rounded-xl border border-ds-border-default bg-ds-surface-1 p-2.5 space-y-2"
     >
-      <div className="flex items-center justify-between gap-2 mb-2">
+      <div className="flex items-center justify-between gap-2">
         <div className="min-w-0">
           <p className="text-[12px] font-mono uppercase tracking-[0.08em] text-ds-text-3">
             Asignación
@@ -100,14 +110,19 @@ export function AllocationRail({
           >
             {statusLabel}
           </span>
-          <p className="text-[12px] text-ds-text-3 mt-0.5">
+          <button
+            type="button"
+            onClick={onOpenDetail}
+            className="block w-full text-right text-[12px] text-ds-text-3 mt-0.5 min-h-11 sm:min-h-0 sm:mt-0.5 hover:text-ds-text-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 rounded"
+            aria-label="Abrir detalle de asignación"
+          >
             {links.length} vínculo{links.length === 1 ? "" : "s"} · ver detalle
-          </p>
+          </button>
         </div>
       </div>
 
       <div
-        className="relative h-2.5 w-full overflow-hidden rounded-full bg-ds-surface-2 border border-ds-border-subtle"
+        className="relative h-1.5 w-full overflow-hidden rounded-full bg-ds-surface-2 border border-ds-border-subtle"
         aria-hidden
       >
         <div className="absolute inset-0 flex">
@@ -151,6 +166,52 @@ export function AllocationRail({
           )}
         </div>
       </div>
-    </button>
+
+      {links.length > 0 && onRemoveLink && (
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-[12px] text-ds-text-3">
+              {links.length} factura{links.length === 1 ? "" : "s"}{" "}
+              seleccionada{links.length === 1 ? "" : "s"}
+            </p>
+            <button
+              type="button"
+              onClick={onOpenDetail}
+              className="text-[12px] text-primary font-medium min-h-11 sm:min-h-0 inline-flex items-center px-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 rounded"
+            >
+              Ver detalle ›
+            </button>
+          </div>
+          <div className="flex gap-1.5 overflow-x-auto scrollbar-hide pb-0.5">
+            {links.map((l) => {
+              const chipLabel =
+                l.shortLabel ??
+                (l.folio != null ? String(l.folio) : l.label.slice(0, 18));
+              return (
+                <div
+                  key={l.key}
+                  className="inline-flex items-center gap-1 shrink-0 h-[30px] pl-2.5 pr-0.5 rounded-full border border-ds-border-default bg-ds-surface-2 text-[12px]"
+                >
+                  <span className="font-medium text-ds-text-1 truncate max-w-[72px]">
+                    {chipLabel}
+                  </span>
+                  <span className="text-ds-text-3 tabular-nums">
+                    {formatChipAmount(l.amount)}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => onRemoveLink(l.key)}
+                    className="inline-flex items-center justify-center min-w-[44px] min-h-[44px] -my-2 text-ds-text-3 hover:text-status-danger-fg"
+                    aria-label={`Quitar ${chipLabel}`}
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }

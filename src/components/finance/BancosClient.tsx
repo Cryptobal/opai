@@ -30,6 +30,7 @@ import { PaginationControls } from "./PaginationControls";
 import { BankBalanceSheet } from "./BankBalanceSheet";
 import { BankRulesClient } from "./BankRulesClient";
 import { BankTxReconcileSheet } from "./BankTxReconcileSheet";
+import { BankTxSearchBar } from "./BankTxSearchBar";
 import { CategoryMappingDialog } from "./cashflow/CategoryMappingDialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { BulkAssignDialog } from "./BulkAssignDialog";
@@ -948,10 +949,10 @@ function TransactionsTab({
   // tabla de movimientos. En desktop siempre visibles inline.
   const isMobile = useIsMobileViewport();
   const [filtersOpenMobile, setFiltersOpenMobile] = useState(false);
+  // La búsqueda ya es visible siempre (BankTxSearchBar); no cuenta como filtro oculto.
   const activeFiltersCount =
     (dateFrom ? 1 : 0) +
     (dateTo ? 1 : 0) +
-    (search.trim() ? 1 : 0) +
     (direction !== "all" ? 1 : 0);
   const selectedAccountLabel = useMemo(() => {
     const a = accounts.find((x) => x.id === selectedAccount);
@@ -1989,21 +1990,6 @@ function TransactionsTab({
             onChange={(e) => setDateTo(e.target.value)}
           />
         </div>
-        <div className="space-y-1.5 flex-1 min-w-[220px]">
-          <Label htmlFor="tx-search">Buscar</Label>
-          <div className="relative">
-            <Search className="h-4 w-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              id="tx-search"
-              type="text"
-              placeholder="Descripción o referencia…"
-              className="h-11 sm:h-9 pl-8"
-              style={{ fontSize: 16 }}
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
-        </div>
         <div className="space-y-1.5 sm:flex-initial">
           <Label>Tipo</Label>
           <div className="flex h-9 rounded-md border border-input overflow-hidden text-[13px]">
@@ -2079,6 +2065,16 @@ function TransactionsTab({
           )}
         </div>
       </div>
+
+      {/* Buscador siempre visible (móvil + desktop). El estado `search` /
+          `debouncedSearch` alimenta GET /transactions; no vive en el drawer. */}
+      <BankTxSearchBar
+        value={search}
+        onChange={setSearch}
+        loading={loading}
+        resultCount={transactions.length}
+        total={total}
+      />
 
       {/* Mobile-only quick toggle Ingresos/Egresos: 1-tap, sin abrir el drawer.
           Comparte state (`direction`) con el control desktop dentro del drawer. */}
