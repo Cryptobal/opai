@@ -4,6 +4,7 @@ import {
   resolvePagePerms,
   hasModuleAccess,
   hasFacturacionCapability,
+  hasCapability,
 } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
 import { FinanceN3Chips } from "@/components/finance/FinanceN3Chips";
@@ -33,6 +34,7 @@ export default async function EmitirDtePage() {
   }
 
   const tenantId = session.user.tenantId;
+  const canManageCashflow = hasCapability(perms, "cashflow_manage");
 
   const accounts = await prisma.financeAccountPlan.findMany({
     where: { tenantId, isActive: true, acceptsEntries: true },
@@ -49,6 +51,7 @@ export default async function EmitirDtePage() {
       <DteForm
         availableTypes={availableTypes}
         accounts={accounts}
+        canManageCashflow={canManageCashflow}
       />
     </div>
   );
