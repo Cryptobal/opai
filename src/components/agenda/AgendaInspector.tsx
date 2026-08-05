@@ -17,7 +17,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { CHILE_TZ } from "@/lib/dates-cl";
+import type { InvitedVia } from "@/modules/calendar/calendar-detail";
 import { dateAtChileSlot, formatAgendaTime } from "./agenda-calendar-utils";
+import { RsvpBadge } from "./RsvpBadge";
 import { TaskTimePicker } from "./TaskTimePicker";
 import { EditEventDialog } from "./evento/EditEventDialog";
 import type { AgendaCalendarItem, AgendaTeamMember } from "./agenda-calendar.types";
@@ -32,22 +34,8 @@ type Props = {
 type InspectorParticipant = {
   name: string;
   responseStatus: string;
-  hasGoogle: boolean;
+  invitedVia: InvitedVia;
 };
-
-/** Badge RSVP: ✓ Va / ✗ No va / ? pendiente / ◉ OPAI (sin Google). */
-function RsvpBadge({ participant }: { participant: InspectorParticipant }) {
-  if (!participant.hasGoogle) {
-    return <Tag size="sm" variant="neutral">◉ OPAI</Tag>;
-  }
-  if (participant.responseStatus === "accepted") {
-    return <Tag size="sm" variant="ok">✓ Va</Tag>;
-  }
-  if (participant.responseStatus === "declined") {
-    return <Tag size="sm" variant="danger">✗ No va</Tag>;
-  }
-  return <Tag size="sm" variant="neutral">?</Tag>;
-}
 
 function localParts(iso: string): { date: string; time: string } {
   const d = toZonedTime(new Date(iso), CHILE_TZ);
@@ -101,10 +89,18 @@ export function AgendaInspector({ item, users, onClose, onChanged }: Props) {
             syncReason: data.syncReason ?? null,
             participants: Array.isArray(data.v2?.participants)
               ? data.v2.participants.map(
-                  (p: { name?: string; responseStatus?: string; hasGoogle?: boolean }) => ({
+                  (p: {
+                    name?: string;
+                    responseStatus?: string;
+                    hasGoogle?: boolean;
+                    invitedVia?: InvitedVia;
+                  }) => ({
                     name: p.name ?? "—",
                     responseStatus: p.responseStatus ?? "needs_action",
-                    hasGoogle: p.hasGoogle === true,
+                    // Retrocompat: APIs viejas solo mandaban hasGoogle.
+                    invitedVia:
+                      p.invitedVia ??
+                      (p.hasGoogle === true ? "google_account" : "none"),
                   }),
                 )
               : [],
