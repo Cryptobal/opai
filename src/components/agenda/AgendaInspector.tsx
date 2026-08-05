@@ -62,16 +62,19 @@ function localParts(iso: string): { date: string; time: string } {
   };
 }
 
-/** True si fecha/hora/responsable difieren del item cargado. */
+/** True si fecha/hora/responsable/allDay difieren del item cargado. */
 export function isInspectorScheduleDirty(
   item: Pick<AgendaCalendarItem, "start" | "allDay" | "assignedUserId">,
-  draft: { date: string; time: string; assignedUserId: string },
+  draft: { date: string; time: string; assignedUserId: string; allDay?: boolean },
 ): boolean {
   const parts = localParts(item.start);
   const baselineTime = item.allDay ? "" : parts.time;
+  const draftAllDay = draft.allDay === true;
+  const itemAllDay = item.allDay === true;
   return (
     draft.date !== parts.date ||
-    draft.time !== baselineTime ||
+    draftAllDay !== itemAllDay ||
+    (!draftAllDay && draft.time !== baselineTime) ||
     draft.assignedUserId !== (item.assignedUserId ?? "")
   );
 }
@@ -83,9 +86,11 @@ export function isInspectorScheduleDirty(
 export function AgendaInspector({ item, users, onClose, onChanged }: Props) {
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
+  const [allDay, setAllDay] = useState(false);
   const [assignedUserId, setAssignedUserId] = useState("");
   const [busy, setBusy] = useState(false);
   const [confirmCancel, setConfirmCancel] = useState(false);
+  const [confirmResync, setConfirmResync] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [visitDetail, setVisitDetail] = useState<{
     notes: string | null;
@@ -100,6 +105,7 @@ export function AgendaInspector({ item, users, onClose, onChanged }: Props) {
     if (!item) return;
     const parts = localParts(item.start);
     setDate(parts.date);
+    setAllDay(Boolean(item.allDay));
     setTime(item.allDay ? "" : parts.time);
     setAssignedUserId(item.assignedUserId ?? "");
     setVisitDetail(null);
@@ -137,6 +143,15 @@ export function AgendaInspector({ item, users, onClose, onChanged }: Props) {
           });
         })
         .catch(() => setVisitDetail(null));
+    } else if (item.source === "licitacion") {
+      setVisitDetail({
+        notes: null,
+        address: null,
+        htmlLink: item.htmlLink ?? null,
+        syncStatus: item.syncStatus ?? null,
+        syncReason: item.syncReason ?? null,
+        participants: [],
+      });
     }
   }, [item]);
 
@@ -148,6 +163,7 @@ export function AgendaInspector({ item, users, onClose, onChanged }: Props) {
     date,
     time,
     assignedUserId,
+    allDay,
   });
 
   async function saveVisit(body: Record<string, unknown>, okMsg: string) {
@@ -174,7 +190,43 @@ export function AgendaInspector({ item, users, onClose, onChanged }: Props) {
   }
 
   const saveSchedule = () => {
-    if (!date || item.source !== "agenda_visita") return;
+    if (!date) return;
+    if (item.source === "licitacion") {
+      const dealId = item.dealId ?? item.spanKey;
+      if (!dealId) {
+        toast.error("No se encontró el negocio de la licitación");
+        return;
+      }
+      setBusy(true);
+      fetch(`/api/crm/deals/${dealId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fechaEntrega: date }),
+      })
+        .then(async (r) => {
+          if (!r.ok) throw new Error();
+          toast.success("Fecha de entrega actualizada");
+          onChanged();
+        })
+        .catch(() => toast.error("No se pudo actualizar la entrega"))
+        .finally(() => setBusy(false));
+      return;
+    }
+    if (item.source !== "agenda_visita") return;
+    if (allDay) {
+      const start = dateAtChileSlot(date, 0);
+      const end = dateAtChileSlot(date, 24 * 60 - 1);
+      void saveVisit(
+        {
+          startAt: start.toISOString(),
+          endAt: end.toISOString(),
+          allDay: true,
+          assignedUserId: assignedUserId || undefined,
+        },
+        "Visita actualizada",
+      );
+      return;
+    }
     const [hour, minute] = (time || "09:00").split(":").map(Number);
     const start = dateAtChileSlot(date, hour * 60 + minute);
     const durationMs = Math.max(
@@ -186,10 +238,33 @@ export function AgendaInspector({ item, users, onClose, onChanged }: Props) {
       {
         startAt: start.toISOString(),
         endAt: end.toISOString(),
+        allDay: false,
         assignedUserId: assignedUserId || undefined,
       },
       "Visita actualizada",
     );
+  };
+
+  const resyncToGoogle = () => {
+    setBusy(true);
+    fetch(`/api/calendar/events/${item.id}/resync`, { method: "POST" })
+      .then(async (r) => {
+        const j = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(j.error || "Error");
+        if (j.syncStatus === "SYNCED") {
+          toast.success("Reenviado a Google Calendar");
+        } else {
+          toast.error(j.syncReason || "No se pudo sincronizar completamente");
+        }
+        onChanged();
+      })
+      .catch((e) =>
+        toast.error(e instanceof Error ? e.message : "No se pudo reenviar"),
+      )
+      .finally(() => {
+        setBusy(false);
+        setConfirmResync(false);
+      });
   };
 
   const inputClass =
@@ -207,13 +282,23 @@ export function AgendaInspector({ item, users, onClose, onChanged }: Props) {
           <Tag size="sm" variant="neutral">
             {item.source === "google"
               ? "Google Calendar"
-              : inspectorTypeLabel(item)}
+              : item.source === "licitacion"
+                ? "Licitación"
+                : inspectorTypeLabel(item)}
           </Tag>
-          <h2 className="font-display text-base font-semibold text-ds-text-1">{item.title}</h2>
+          <h2 className="font-display text-base font-semibold text-ds-text-1">
+            {item.source === "licitacion"
+              ? item.accountName
+                ? item.title.replace(/^ENTREGA · |^Licitación · /, "").replace(/ · entrega .*$/, "")
+                : item.title.replace(/^ENTREGA · /, "")
+              : item.title}
+          </h2>
           <p className="text-[13px] text-ds-text-3">
-            {item.allDay
-              ? "Todo el día"
-              : `${formatAgendaTime(new Date(item.start))} – ${formatAgendaTime(new Date(item.end))}`}
+            {item.source === "licitacion"
+              ? `Entrega: ${date || "—"}`
+              : allDay || item.allDay
+                ? "Todo el día"
+                : `${formatAgendaTime(new Date(item.start))} – ${formatAgendaTime(new Date(item.end))}`}
           </p>
         </div>
         <button
@@ -240,37 +325,90 @@ export function AgendaInspector({ item, users, onClose, onChanged }: Props) {
         </div>
       )}
 
-      {item.source === "agenda_visita" && (
+      {item.source === "google" && (
+        <p className="rounded-xl border border-ds-border-subtle bg-ds-surface-2 px-3 py-2 text-[13px] text-ds-text-2">
+          Evento de Google Calendar: se edita desde Google.
+          {calendarLink ? (
+            <>
+              {" "}
+              <a
+                href={calendarLink}
+                target="_blank"
+                rel="noreferrer"
+                className="text-primary underline"
+              >
+                Abrir en Google
+              </a>
+            </>
+          ) : null}
+        </p>
+      )}
+
+      {(item.source === "agenda_visita" || item.source === "licitacion") && (
         <div className="space-y-3">
-          <div className="grid grid-cols-[1fr_auto] gap-2">
-            <input
-              type="date"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-              aria-label="Fecha"
-              className={inputClass}
-            />
-            <TaskTimePicker value={time} onChange={setTime} ariaLabel="Hora" />
+          <div className="grid grid-cols-1 gap-2">
+            <label className="block space-y-1.5">
+              <span className="text-[12px] font-medium text-ds-text-4">
+                {item.source === "licitacion" ? "Fecha de entrega" : "Fecha"}
+              </span>
+              <input
+                type="date"
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+                aria-label={item.source === "licitacion" ? "Fecha de entrega" : "Fecha"}
+                className={inputClass}
+              />
+            </label>
+            {item.source === "agenda_visita" && (
+              <>
+                <label className="flex min-h-11 items-center gap-2 text-[13px] text-ds-text-2">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 accent-primary"
+                    checked={allDay}
+                    onChange={(e) => {
+                      setAllDay(e.target.checked);
+                      if (e.target.checked) setTime("");
+                    }}
+                  />
+                  Todo el día
+                </label>
+                {!allDay && (
+                  <TaskTimePicker value={time} onChange={setTime} ariaLabel="Hora" />
+                )}
+              </>
+            )}
           </div>
 
-          <label className="block space-y-1.5">
-            <span className="text-[12px] font-medium text-ds-text-4">Responsable</span>
-            <div className="flex items-center gap-2">
-              {assignee && <Avatar name={assignee} size="sm" variant="brand" />}
-              <select
-                value={assignedUserId}
-                onChange={(e) => setAssignedUserId(e.target.value)}
-                className={inputClass}
-              >
-                <option value="">Sin asignar</option>
-                {users.map((user) => (
-                  <option key={user.id} value={user.id}>
-                    {user.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </label>
+          {item.source === "agenda_visita" && (
+            <label className="block space-y-1.5">
+              <span className="text-[12px] font-medium text-ds-text-4">Responsable</span>
+              <div className="flex items-center gap-2">
+                {assignee && <Avatar name={assignee} size="sm" variant="brand" />}
+                <select
+                  value={assignedUserId}
+                  onChange={(e) => setAssignedUserId(e.target.value)}
+                  className={inputClass}
+                >
+                  <option value="">Sin asignar</option>
+                  {users.map((user) => (
+                    <option key={user.id} value={user.id}>
+                      {user.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </label>
+          )}
+
+          {(visitDetail?.syncStatus || item.syncStatus) && (
+            <p className="text-[12px] text-ds-text-3">
+              Sync: {visitDetail?.syncStatus ?? item.syncStatus}
+              {(visitDetail?.syncReason || item.syncReason)
+                ? ` · ${visitDetail?.syncReason ?? item.syncReason}`
+                : ""}
+            </p>
+          )}
 
           <button
             type="button"
@@ -280,6 +418,17 @@ export function AgendaInspector({ item, users, onClose, onChanged }: Props) {
           >
             Guardar cambios
           </button>
+
+          {item.source === "agenda_visita" && (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => setConfirmResync(true)}
+              className="h-10 w-full rounded-xl border border-ds-border-default text-[13px] text-ds-text-2 ds-tap disabled:opacity-50 sm:h-9"
+            >
+              Reenviar a Google
+            </button>
+          )}
         </div>
       )}
 
@@ -377,6 +526,34 @@ export function AgendaInspector({ item, users, onClose, onChanged }: Props) {
               className="h-11 flex-1 rounded-xl bg-status-danger-soft text-[13px] font-semibold text-status-danger-fg ds-tap sm:h-9"
             >
               Cancelar visita
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={confirmResync} onOpenChange={setConfirmResync}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>¿Reenviar a Google Calendar?</DialogTitle>
+          </DialogHeader>
+          <p className="text-[13px] text-ds-text-3">
+            Puede reenviar invitaciones a los asistentes. El evento no se borra.
+          </p>
+          <div className="flex gap-2 pt-1">
+            <button
+              type="button"
+              onClick={() => setConfirmResync(false)}
+              className="h-11 flex-1 rounded-xl border border-ds-border-default text-[13px] font-medium ds-tap sm:h-9"
+            >
+              Volver
+            </button>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={resyncToGoogle}
+              className="h-11 flex-1 rounded-xl bg-primary text-[13px] font-semibold text-primary-foreground ds-tap sm:h-9"
+            >
+              Reenviar
             </button>
           </div>
         </DialogContent>

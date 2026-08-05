@@ -176,6 +176,14 @@ export async function listAgenda(
   for (const d of deals) {
     if (!d.fechaEntrega) continue;
     const ownerId = d.account.ownerId ?? null;
+    const entregaYmd = d.fechaEntrega.toISOString().slice(0, 10);
+    const hasEntregaMilestoneOnEnd = visitas.some(
+      (v) =>
+        v.dealId === d.id &&
+        v.status !== "cancelada" &&
+        v.label === "Entrega de oferta" &&
+        ymdInChile(v.startAt) === entregaYmd,
+    );
     items.push(
       ...expandLicitacionAgendaItems({
         deal: {
@@ -192,6 +200,8 @@ export async function listAgenda(
         toYmdExcl,
         syncStatus: syncMap.get(`licitacion:${d.id}`) ?? null,
         syncReason: syncReasonMap.get(`licitacion:${d.id}`) ?? null,
+        htmlLink: htmlLinkMap.get(`licitacion:${d.id}`) ?? null,
+        hasEntregaMilestoneOnEnd,
       }),
     );
   }

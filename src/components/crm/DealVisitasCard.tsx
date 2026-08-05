@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Surface, Tag, Spinner } from "@/components/opai-ds";
+import { Surface, Spinner, StatusDot } from "@/components/opai-ds";
 import { Button } from "@/components/ui/button";
 import { ExternalLink, Pencil } from "lucide-react";
 import { NuevaVisitaModal } from "@/components/agenda/NuevaVisitaModal";
+import { syncStatusMeta } from "@/components/agenda/agenda-sync-status";
 
 type VisitRow = {
   id: string;
@@ -13,9 +14,12 @@ type VisitRow = {
   title?: string;
   label?: string | null;
   start: string;
+  end?: string;
+  allDay?: boolean;
   assignedName: string | null;
   status: string;
   syncStatus: string | null;
+  syncReason?: string | null;
   htmlLink?: string | null;
 };
 
@@ -24,6 +28,21 @@ type Props = {
   accountId?: string | null;
   installationId?: string | null;
 };
+
+function formatWhen(r: VisitRow): string {
+  const start = new Date(r.start);
+  const date = start.toLocaleDateString("es-CL", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+  if (r.allDay) return `${date} · Todo el día`;
+  const time = start.toLocaleTimeString("es-CL", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+  return `${date} · ${time}`;
+}
 
 export function DealVisitasCard({ dealId, accountId, installationId }: Props) {
   const [rows, setRows] = useState<VisitRow[]>([]);
@@ -57,7 +76,7 @@ export function DealVisitasCard({ dealId, accountId, installationId }: Props) {
   }, [dealId, refreshKey]);
 
   return (
-    <Surface elevation={1} padding="md" className="space-y-3">
+    <Surface elevation={1} padding="md" className="w-full min-w-0 space-y-3">
       <NuevaVisitaModal
         open={modalOpen}
         onOpenChange={(v) => {
@@ -94,71 +113,78 @@ export function DealVisitasCard({ dealId, accountId, installationId }: Props) {
         </p>
       ) : (
         <ul className="divide-y divide-ds-border-subtle rounded-xl border border-ds-border-subtle">
-          {rows.map((r) => (
-            <li
-              key={`${r.source}-${r.id}`}
-              className="flex items-center justify-between gap-2 px-3 py-2.5"
-            >
-              <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-1.5">
-                  {r.label && (
-                    <Tag variant="neutral" size="sm">
-                      {r.label}
-                    </Tag>
-                  )}
-                  <p className="truncate text-[13px] font-medium text-ds-text-1">
-                    {r.title || r.type}
-                  </p>
+          {rows.map((r) => {
+            const sync = syncStatusMeta(r.syncStatus, r.syncReason);
+            return (
+              <li
+                key={`${r.source}-${r.id}`}
+                className="flex flex-col gap-2 px-3 py-3"
+              >
+                <div className="flex min-w-0 items-start gap-2">
+                  <div className="min-w-0 flex-1 space-y-0.5">
+                    <p className="text-[13px] font-medium text-ds-text-1">
+                      {r.label ? (
+                        <span className="text-ds-text-3">{r.label} · </span>
+                      ) : null}
+                      <span className="break-words">{r.title || r.type}</span>
+                    </p>
+                    <p className="text-[12px] text-ds-text-3">
+                      {formatWhen(r)}
+                      {r.assignedName ? ` · ${r.assignedName}` : ""}
+                    </p>
+                  </div>
+                  {r.syncStatus ? (
+                    <span
+                      className="mt-1 shrink-0"
+                      title={sync.label}
+                      aria-label={sync.ariaLabel}
+                    >
+                      <StatusDot
+                        kind={
+                          sync.tone === "ok"
+                            ? "ok"
+                            : sync.tone === "danger"
+                              ? "danger"
+                              : sync.tone === "warn"
+                                ? "warn"
+                                : "neutral"
+                        }
+                      />
+                    </span>
+                  ) : null}
                 </div>
-                <p className="truncate text-[12px] text-ds-text-4">
-                  {new Date(r.start).toLocaleString("es-CL")}
-                  {r.assignedName ? ` · ${r.assignedName}` : ""}
-                </p>
-              </div>
-              <div className="flex shrink-0 items-center gap-1.5">
-                {r.syncStatus && (
-                  <Tag
-                    variant={
-                      r.syncStatus === "SYNCED"
-                        ? "ok"
-                        : r.syncStatus === "ERROR"
-                          ? "danger"
-                          : "warn"
-                    }
-                    size="sm"
-                  >
-                    {r.syncStatus}
-                  </Tag>
-                )}
-                {r.htmlLink && (
-                  <a
-                    href={r.htmlLink}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="flex h-10 w-10 items-center justify-center rounded-lg text-ds-text-3 hover:bg-ds-surface-2 hover:text-ds-text-1 sm:h-9 sm:w-9"
-                    title="Abrir en Google"
-                    aria-label="Abrir en Google"
-                  >
-                    <ExternalLink className="h-4 w-4" />
-                  </a>
-                )}
-                {r.source === "agenda_visita" && (
-                  <button
-                    type="button"
-                    className="flex h-10 w-10 items-center justify-center rounded-lg text-ds-text-3 hover:bg-ds-surface-2 hover:text-ds-text-1 sm:h-9 sm:w-9"
-                    title="Editar"
-                    aria-label="Editar evento"
-                    onClick={() => {
-                      setEditId(r.id);
-                      setModalOpen(true);
-                    }}
-                  >
-                    <Pencil className="h-4 w-4" />
-                  </button>
-                )}
-              </div>
-            </li>
-          ))}
+                <div className="flex flex-wrap gap-1">
+                  {r.htmlLink && (
+                    <a
+                      href={r.htmlLink}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex h-11 min-w-11 items-center justify-center gap-1.5 rounded-lg px-2 text-[12px] text-ds-text-3 hover:bg-ds-surface-2 hover:text-ds-text-1 sm:h-10"
+                      title="Abrir en Google"
+                    >
+                      <ExternalLink className="h-4 w-4" />
+                      <span className="sm:hidden">Google</span>
+                    </a>
+                  )}
+                  {r.source === "agenda_visita" && (
+                    <button
+                      type="button"
+                      className="inline-flex h-11 min-w-11 items-center justify-center gap-1.5 rounded-lg px-2 text-[12px] text-ds-text-3 hover:bg-ds-surface-2 hover:text-ds-text-1 sm:h-10"
+                      title="Editar"
+                      aria-label="Editar evento"
+                      onClick={() => {
+                        setEditId(r.id);
+                        setModalOpen(true);
+                      }}
+                    >
+                      <Pencil className="h-4 w-4" />
+                      <span className="sm:hidden">Editar</span>
+                    </button>
+                  )}
+                </div>
+              </li>
+            );
+          })}
         </ul>
       )}
     </Surface>
