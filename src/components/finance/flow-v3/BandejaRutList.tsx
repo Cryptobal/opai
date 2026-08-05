@@ -6,7 +6,7 @@ import {
 } from "@/components/ui/sheet";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { Surface } from "@/components/opai-ds";
-import type { BandejaRutGroup } from "@/modules/finance/flow-v3/unmatched-count";
+import type { BandejaGroup } from "@/modules/finance/flow-v3/unmatched-count";
 import { fmtClp, fmtShortDate } from "./format";
 
 interface FlowRowOption {
@@ -18,9 +18,9 @@ interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   section: string;
-  groups: BandejaRutGroup[];
+  groups: BandejaGroup[];
   flowRows: FlowRowOption[];
-  onClassifyRut: (rut: string, flowRowId: string) => void | Promise<void>;
+  onClassifyRut: (groupKey: string, flowRowId: string) => void | Promise<void>;
 }
 
 /** Sheet: RUTs sin regla en bandeja (capa real), agrupados por monto. */
@@ -83,13 +83,13 @@ export function BandejaRutList({
           ) : (
             <ul className="ds-list-cascade">
               {groups.map((g) => {
-                const isOpen = expanded.has(g.rut);
-                const picking = pickRut === g.rut;
+                const isOpen = expanded.has(g.key);
+                const picking = pickRut === g.key;
                 return (
-                  <li key={g.rut} className="border-b border-ds-border-subtle last:border-b-0">
+                  <li key={g.key} className="border-b border-ds-border-subtle last:border-b-0">
                     <button
                       type="button"
-                      onClick={() => toggle(g.rut)}
+                      onClick={() => toggle(g.key)}
                       className="flex min-h-11 w-full items-center gap-2 px-5 py-3 text-left hover:bg-ds-surface-2"
                     >
                       {isOpen ? (
@@ -98,7 +98,7 @@ export function BandejaRutList({
                         <ChevronRight className="h-4 w-4 shrink-0 text-ds-text-3" aria-hidden />
                       )}
                       <span className="min-w-0 flex-1 truncate font-mono text-[13px] text-ds-text-1">
-                        {g.rut}
+                        {g.label}
                       </span>
                       <span className="shrink-0 tabular-nums text-[13px] text-ds-text-2">
                         {fmtClp(g.totalClp)}
@@ -129,8 +129,8 @@ export function BandejaRutList({
                         {!picking ? (
                           <button
                             type="button"
-                            disabled={busyRut === g.rut || flowRows.length === 0}
-                            onClick={() => setPickRut(g.rut)}
+                            disabled={busyRut === g.key || flowRows.length === 0}
+                            onClick={() => setPickRut(g.key)}
                             className="flex min-h-11 w-full items-center justify-center rounded-lg border border-ds-border-default bg-ds-surface-1 px-3 text-[13px] font-medium text-ds-text-1 hover:bg-ds-surface-2 disabled:opacity-50"
                           >
                             Asignar a fila…
@@ -142,8 +142,8 @@ export function BandejaRutList({
                               <button
                                 key={row.id}
                                 type="button"
-                                disabled={busyRut === g.rut}
-                                onClick={() => void assign(g.rut, row.id)}
+                                disabled={busyRut === g.key}
+                                onClick={() => void assign(g.key, row.id)}
                                 className="flex min-h-11 w-full items-center rounded-md px-2 text-left text-[13px] text-ds-text-1 hover:bg-ds-surface-2 disabled:opacity-50"
                               >
                                 {row.name}

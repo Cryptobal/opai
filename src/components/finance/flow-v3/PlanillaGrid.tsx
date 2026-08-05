@@ -48,7 +48,7 @@ import type { usePlanillaActions } from "./usePlanillaActions";
 import type { CellStyle } from "./usePlanillaViewPrefs";
 import {
   bandejaBadgeText,
-  collectBandejaRutGroups,
+  collectBandejaGroups,
   isFallbackBandejaRow,
   summarizeBandejaRow,
 } from "@/modules/finance/flow-v3/unmatched-count";
@@ -225,7 +225,7 @@ export function PlanillaGrid({
     [bandejaExpenseSummary],
   );
   const bandejaRutGroups = useMemo(
-    () => (bandejaRutSection ? collectBandejaRutGroups(data.rows, bandejaRutSection) : []),
+    () => (bandejaRutSection ? collectBandejaGroups(data.rows, bandejaRutSection) : []),
     [data.rows, bandejaRutSection],
   );
   const bandejaFlowRows = useMemo(() => {
@@ -261,7 +261,7 @@ export function PlanillaGrid({
   const openUnmatchedAssigner = useCallback(
     (section: string, focusDteId?: string | null) => {
       const summary = summarizeBandejaRow(data.rows, section);
-      if (summary.totalClp > 0 || summary.distinctRutCount > 0) {
+      if (summary.totalClp > 0 || summary.distinctGroupCount > 0) {
         setBandejaRutSection(section);
         return;
       }
@@ -298,8 +298,8 @@ export function PlanillaGrid({
 
   const handleClassifyRut = useCallback(
     async (rut: string, flowRowId: string) => {
-      const group = collectBandejaRutGroups(data.rows, bandejaRutSection ?? "GAV").find(
-        (g) => g.rut === rut,
+      const group = collectBandejaGroups(data.rows, bandejaRutSection ?? "GAV").find(
+        (g) => g.key === rut,
       );
       if (!group || group.items.length === 0) return;
       // Primera tx: clasifica + aprende regla. Luego re-aplica en masa.

@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   assignPendingCaption,
   bandejaBadgeText,
-  collectBandejaRutGroups,
+  collectBandejaGroups,
   countAssignPendingInCell,
   countAssignPendingInWindow,
   isFallbackBandejaRow,
@@ -48,7 +48,7 @@ describe("unmatched-count", () => {
     ).toBe(2);
   });
 
-  it("summarizeBandejaRow agrega real CLP y RUT distintos", () => {
+  it("summarizeBandejaRow agrega real CLP, RUT y grupos", () => {
     const rows = [
       row({
         name: "Otros ingresos",
@@ -85,21 +85,22 @@ describe("unmatched-count", () => {
     const s = summarizeBandejaRow(rows, "INGRESOS");
     expect(s.totalClp).toBe(150_000);
     expect(s.distinctRutCount).toBe(2);
-    expect(bandejaBadgeText(s, "INGRESOS")).toContain("2 RUT sin regla");
+    expect(s.distinctGroupCount).toBe(2);
+    expect(s.itemCount).toBe(2);
+    expect(bandejaBadgeText(s, "INGRESOS")).toContain("2 mov");
+    expect(bandejaBadgeText(s, "INGRESOS")).toContain("2 sin clasificar");
   });
 
-  it("badge oculto si total y RUT son cero", () => {
-    expect(bandejaBadgeText({ totalClp: 0, distinctRutCount: 0 }, "GAV")).toBeNull();
+  it("badge oculto si total y grupos son cero", () => {
+    expect(
+      bandejaBadgeText(
+        { totalClp: 0, distinctRutCount: 0, distinctGroupCount: 0, itemCount: 0 },
+        "GAV",
+      ),
+    ).toBeNull();
   });
 
-  it("badge muestra monto sin RUT", () => {
-    const text = bandejaBadgeText({ totalClp: 80_000, distinctRutCount: 0 }, "GAV");
-    expect(text).toContain("Otros egresos");
-    expect(text).toContain("$80.000");
-    expect(text).not.toContain("RUT");
-  });
-
-  it("collectBandejaRutGroups ordena por monto desc", () => {
+  it("agrupa sin RUT por comerciante y residual", () => {
     const rows = [
       row({
         name: "Otros egresos",
@@ -111,7 +112,69 @@ describe("unmatched-count", () => {
             plan: 0,
             committed: null,
             real: {
-              total: -30_000,
+              total: -200_000,
+              items: [
+                {
+                  bankTransactionId: "tx-v1",
+                  label: "Compra VERCEL MKT NEON",
+                  fecha: "2026-08-01",
+                  monto: -80_000,
+                },
+                {
+                  bankTransactionId: "tx-v2",
+                  label: "Compra VERCEL INC.",
+                  fecha: "2026-08-02",
+                  monto: -40_000,
+                },
+                {
+                  bankTransactionId: "tx-s",
+                  label: "Compra SLACK T06FG8K2M",
+                  fecha: "2026-08-02",
+                  monto: -50_000,
+                },
+                {
+                  bankTransactionId: "tx-x",
+                  label: "XX",
+                  fecha: "2026-08-03",
+                  monto: -30_000,
+                },
+              ],
+            },
+            effective: -200_000,
+            layer: "real",
+          },
+        ],
+      }),
+    ];
+    const groups = collectBandejaGroups(rows, "GAV");
+    expect(groups.map((g) => g.key)).toEqual([
+      "M:VERCEL",
+      "M:SLACK",
+      "__other__",
+    ]);
+    expect(groups[0]!.totalClp).toBe(120_000);
+    expect(groups[0]!.kind).toBe("MERCHANT");
+    expect(groups[2]!.kind).toBe("OTHER");
+    const s = summarizeBandejaRow(rows, "GAV");
+    expect(s.totalClp).toBe(200_000);
+    expect(s.itemCount).toBe(4);
+    expect(s.distinctGroupCount).toBe(3);
+    expect(s.distinctRutCount).toBe(0);
+  });
+
+  it("collectBandejaGroups ordena por monto desc y prioriza RUT", () => {
+    const rows = [
+      row({
+        name: "Otros egresos",
+        isVirtual: true,
+        section: "GAV",
+        cells: [
+          {
+            weekStart: "2026-08-03",
+            plan: 0,
+            committed: null,
+            real: {
+              total: -150_000,
               items: [
                 {
                   bankTransactionId: "tx-a",
@@ -125,16 +188,25 @@ describe("unmatched-count", () => {
                   fecha: "2026-08-02",
                   monto: -90_000,
                 },
+                {
+                  bankTransactionId: "tx-c",
+                  label: "Compra VERCEL INC.",
+                  fecha: "2026-08-02",
+                  monto: -30_000,
+                },
               ],
             },
-            effective: -120_000,
+            effective: -150_000,
             layer: "real",
           },
         ],
       }),
     ];
-    const groups = collectBandejaRutGroups(rows, "GAV");
-    expect(groups[0].totalClp).toBeGreaterThan(groups[1]?.totalClp ?? 0);
+    const groups = collectBandejaGroups(rows, "GAV");
+    expect(groups[0]!.totalClp).toBeGreaterThanOrEqual(groups[1]?.totalClp ?? 0);
+    expect(groups.some((g) => g.kind === "RUT")).toBe(true);
+    expect(groups.some((g) => g.kind === "MERCHANT" && g.key === "M:VERCEL")).toBe(true);
+    expect(groups.reduce((s, g) => s + g.totalClp, 0)).toBe(150_000);
   });
 
   it("countAssignPendingInWindow cuenta ítems real (deprecated)", () => {
