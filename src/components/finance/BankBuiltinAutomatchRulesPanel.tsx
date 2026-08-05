@@ -24,8 +24,13 @@ export function BankBuiltinAutomatchRulesPanel() {
               <strong>Conciliar histórico</strong> aquí ejecutan el mismo motor
               en cadena. Lo que sí podés configurar en{" "}
               <span className="text-foreground font-medium">Mis reglas</span>{" "}
-              son patrones de categorización / reconocimiento contable cuando no
-              aplica un match DTE ni planilla TE.
+              son patrones que apuntan a una{" "}
+              <span className="text-foreground font-medium">cuenta contable</span>{" "}
+              o directamente a una{" "}
+              <span className="text-foreground font-medium">
+                fila del flujo de caja
+              </span>{" "}
+              cuando no aplica un match DTE ni planilla TE.
             </p>
           </div>
         </CardContent>
@@ -65,8 +70,19 @@ export function BankBuiltinAutomatchRulesPanel() {
         title="Reglas configurables (esta pestaña, lista inferior)"
         tone="neutral"
         bullets={[
-          "Condiciones sobre descripción, referencia, monto, RUT en regla. Pueden marcar la cuenta contable y dejar el movimiento como «Reconocido» para que autorices, o conciliar directo si no requieren revisión.",
+          "Condiciones sobre descripción, referencia, monto, RUT en regla. Pueden apuntar a una cuenta contable o a una fila del flujo de caja, y dejar el movimiento como «Reconocido» para que autorices, o conciliar directo si no requieren revisión.",
           "Solo se evalúan si los pasos 1 y 2 no dejaron el movimiento conciliado (y en algunos casos de «sin candidato» o «ambiguo» según el servicio).",
+        ]}
+      />
+
+      <RuleBlock
+        step={4}
+        title="Cascada por RUT de la contraparte"
+        tone="info"
+        bullets={[
+          "Se aplica cuando se clasifica un movimiento desde la bandeja de la planilla.",
+          "Orden fijo: (1) regla configurada para ese RUT — siempre gana; (2) RUT 61.808.000-5 (Tesorería General de la República) → pide elegir entre F29, finiquito o convenio, nunca se auto-aplica; (3) RUT con cuerpo menor a 50.000.000 = persona natural → ítem de nómina pendiente que calce por monto, o en su defecto la fila «Turnos extra»; (4) RUT con cuerpo igual o mayor a 50.000.000 = empresa → factura de proveedor pendiente que calce por RUT y monto dentro de la tolerancia del tenant; (5) sin coincidencia → el movimiento queda en la bandeja.",
+          "El corte en 50.000.000 corresponde a los rangos de RUT chilenos y no es configurable; para forzar un destino distinto, crear una regla de RUT, que tiene precedencia sobre toda la cascada.",
         ]}
       />
 
@@ -74,10 +90,14 @@ export function BankBuiltinAutomatchRulesPanel() {
         Los textos resumen el comportamiento implementado en{" "}
         <code className="text-[12px] font-mono bg-muted px-1 rounded">
           auto-match-payment.service.ts
+        </code>
+        ,{" "}
+        <code className="text-[12px] font-mono bg-muted px-1 rounded">
+          auto-match-turno-extra.service.ts
         </code>{" "}
         y{" "}
         <code className="text-[12px] font-mono bg-muted px-1 rounded">
-          auto-match-turno-extra.service.ts
+          flow-classify.service.ts
         </code>
         . Si el negocio cambia, hay que ajustar código o ampliar reglas
         configurables.
