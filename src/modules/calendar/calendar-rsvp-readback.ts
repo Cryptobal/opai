@@ -1,6 +1,7 @@
 /**
  * Vuelca los responseStatus de attendees Google a CalendarEventParticipant
- * (internos, mapeados por googleEmail) y CalendarExternalAttendee (por email).
+ * (internos, mapeados por email corporativo o googleEmail) y
+ * CalendarExternalAttendee (por email).
  */
 import { prisma } from "@/lib/prisma";
 
@@ -17,11 +18,15 @@ type EventWithPeople = {
   externals: Array<{ id: string; email: string; responseStatus: string }>;
 };
 
+/**
+ * @param emailByUser mapa userId → email lowercase usado como attendee en Google
+ *   (googleEmail de la cuenta conectada, o Admin.email corporativo).
+ */
 export async function applyAttendeeResponses(
   tenantId: string,
   event: EventWithPeople,
   attendees: Array<{ email?: string | null; responseStatus?: string | null }>,
-  accountByUser: Map<string, { googleEmail: string }>,
+  emailByUser: Map<string, string>,
 ): Promise<void> {
   if (!attendees.length) return;
   const byEmail = new Map<string, string>();
@@ -32,7 +37,7 @@ export async function applyAttendeeResponses(
   if (!byEmail.size) return;
 
   for (const p of event.participants) {
-    const email = accountByUser.get(p.userId)?.googleEmail?.toLowerCase();
+    const email = emailByUser.get(p.userId)?.toLowerCase();
     const status = email ? byEmail.get(email) : undefined;
     if (status && status !== p.responseStatus) {
       await prisma.calendarEventParticipant.update({

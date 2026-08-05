@@ -81,6 +81,10 @@ export type CrmStructureLicitacion = {
   fechaConsultas: string | null;
   fechaVisitaTecnica: string | null;
   fechaEntrega: string | null;
+  /** Hora opcional del pliego (HH:mm). Null → fallback 09:00 al sembrar hitos. */
+  horaConsultas: string | null;
+  horaVisitaTecnica: string | null;
+  horaEntrega: string | null;
   inicioServicio: string | null;
   visitaObligatoria: boolean | null;
 };
@@ -274,6 +278,8 @@ export type CreateCrmStructureResult = {
   agendaSync?: {
     attempted: boolean;
     ok: boolean;
+    /** Estado crudo del link (SYNCED|PENDING|ERROR|…). */
+    syncStatus?: string;
     skippedReason?: string;
   };
   /** Conversación anclada (Fase 2); opcional. */
@@ -362,13 +368,17 @@ export function milestonesFromLicitacion(
 ): PlanMilestone[] {
   if (!licitacion) return [];
   const out: PlanMilestone[] = [];
-  const push = (kind: PlanMilestone["kind"], date: string | null) => {
+  const push = (
+    kind: PlanMilestone["kind"],
+    date: string | null,
+    time: string | null,
+  ) => {
     if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return;
     out.push({
       id: newUuid(),
       kind,
       date,
-      time: "09:00",
+      time: time && /^\d{2}:\d{2}$/.test(time) ? time : "09:00",
       durationMin: 60,
       allDay: false,
       participantIds: [],
@@ -377,9 +387,9 @@ export function milestonesFromLicitacion(
       fromDocument: true,
     });
   };
-  push("consultas", licitacion.fechaConsultas);
-  push("visita_tecnica", licitacion.fechaVisitaTecnica);
-  push("entrega", licitacion.fechaEntrega);
+  push("consultas", licitacion.fechaConsultas, licitacion.horaConsultas);
+  push("visita_tecnica", licitacion.fechaVisitaTecnica, licitacion.horaVisitaTecnica);
+  push("entrega", licitacion.fechaEntrega, licitacion.horaEntrega);
   return applyInstallationLocationToMilestones(out, installation);
 }
 

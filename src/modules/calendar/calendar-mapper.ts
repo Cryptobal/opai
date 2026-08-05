@@ -4,10 +4,20 @@
  * upserts idempotentes sin columna de vínculo adicional.
  */
 import { prisma } from "@/lib/prisma";
+import { getCanonicalSiteUrl } from "@/lib/emails/site-url";
 import { createCalendarEvent } from "./calendar.service";
 import { setEventOwner } from "./calendar-participants";
 import { recordCalendarAudit } from "./calendar-audit";
 import { labelToKindSlug } from "./calendar-label";
+
+/** Descripción del espejo v2: notes + deep link a OPAI (patrón legacy). */
+export function visitaDescriptionForV2(
+  visita: { id: string; notes: string | null },
+): string | null {
+  const notes = visita.notes?.trim() || null;
+  const link = `Ver en OPAI: ${getCanonicalSiteUrl()}/opai/agenda?visita=${visita.id}`;
+  return notes ? `${notes}\n\n${link}` : link;
+}
 
 export function kindFromVisitaType(type: string, label?: string | null): string {
   if (label?.trim()) return labelToKindSlug(label);
@@ -70,7 +80,7 @@ export async function mirrorVisitaToV2(
         id: visita.id,
         kind: kindFromVisitaType(visita.type, visita.label),
         title: visita.title,
-        description: visita.notes,
+        description: visitaDescriptionForV2(visita),
         location: visita.customAddress,
         lat: visita.lat,
         lng: visita.lng,
@@ -97,7 +107,7 @@ export async function mirrorVisitaToV2(
       data: {
         title: visita.title,
         kind: kindFromVisitaType(visita.type, visita.label),
-        description: visita.notes,
+        description: visitaDescriptionForV2(visita),
         location: visita.customAddress,
         lat: visita.lat,
         lng: visita.lng,
