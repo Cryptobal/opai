@@ -22,6 +22,8 @@ export interface UnmatchedDteDto {
   crmAccountId: string | null;
   /** Programaciones de la cuenta (para "Vincular a programación…"). */
   templates: AccountTemplateOption[];
+  /** true si el usuario eligió explícitamente "Otros ingresos" al emitir. */
+  routedToOtherIncome: boolean;
 }
 
 /**
@@ -88,6 +90,7 @@ export async function listUnmatchedIncomeForWeek(
         id: true, folio: true, receiverName: true, receiverRut: true,
         totalAmount: true, amountPaid: true, date: true, dueDate: true,
         crmAccountId: true, installationId: true, recurringTemplateId: true,
+        flowRouting: true,
       },
       take: 500,
     }),
@@ -156,6 +159,7 @@ export async function listUnmatchedIncomeForWeek(
     dueDate: string | null;
     overdueDays: number;
     crmAccountId: string | null;
+    routedToOtherIncome: boolean;
   }> = [];
 
   const todayYmd = new Date().toISOString().slice(0, 10);
@@ -167,7 +171,11 @@ export async function listUnmatchedIncomeForWeek(
     if (cutoffYmd && issueYmd < cutoffYmd) continue;
     if (flowWeekOfDte(d.date, overrideByDteId.get(d.id) ?? null) !== weekStart) continue;
     const accId = resolveAccount(d.crmAccountId, d.receiverRut);
-    if (match(accId, d.installationId, d.recurringTemplateId) !== UNMATCHED_INCOME_KEY) {
+    const forcedOther = d.flowRouting === "OTHER_INCOME";
+    const rowKey = forcedOther
+      ? UNMATCHED_INCOME_KEY
+      : match(accId, d.installationId, d.recurringTemplateId);
+    if (rowKey !== UNMATCHED_INCOME_KEY) {
       continue;
     }
     const issueDate = d.date.toISOString().slice(0, 10);
@@ -191,6 +199,7 @@ export async function listUnmatchedIncomeForWeek(
       dueDate,
       overdueDays,
       crmAccountId: accId,
+      routedToOtherIncome: forcedOther,
     });
   }
 
@@ -255,14 +264,17 @@ export async function listUnmatchedIncomeGrouped(
   bankCredits: UnmatchedBankTxDto[];
   unroutedDtes: UnmatchedDteDto[];
 }> {
-  const [unroutedDtes, bankCredits] = await Promise.all([
+  const [allDtes, bankCredits] = await Promise.all([
     listUnmatchedIncomeForWeek(tenantId, weekStart),
     listUnmatchedBankIncomeForWeek(tenantId, weekStart),
   ]);
+  // Panel "Facturas sin fila": solo las que piden resolución (no OTHER_INCOME).
+  const unroutedDtes = allDtes.filter((d) => !d.routedToOtherIncome);
+  // Drill de "Otros ingresos": incluye las ruteadas a propósito.
   return {
     items: unroutedDtes,
     unroutedDtes,
-    groups: groupUnmatchedByClient(unroutedDtes),
+    groups: groupUnmatchedByClient(allDtes),
     bankTxs: bankCredits,
     bankCredits,
   };
