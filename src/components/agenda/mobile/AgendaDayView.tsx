@@ -9,6 +9,7 @@ import {
   layoutTimedItems,
   minutesInChile,
 } from "../agenda-calendar-utils";
+import { allDaySpanContextLabel } from "../agenda-calendar-utils";
 import type { AgendaCalendarItem } from "../agenda-calendar.types";
 import { dayParts, hhmmChile, monthTitle, typeBarClass } from "./agenda-mobile-utils";
 
@@ -86,17 +87,30 @@ export function AgendaDayView({
 
       {allDay.length > 0 && (
         <div className="mb-2 space-y-1.5">
-          {allDay.map((item) => (
-            <button
-              key={`${item.source}:${item.id}`}
-              type="button"
-              onClick={() => onSelect(item)}
-              className="opai-glass-soft flex w-full items-center gap-2 rounded-[16px] px-3 py-2 text-left ds-tap"
-            >
-              <span className={cn("h-4 w-[3px] rounded-full", typeBarClass(item, colorBySource))} />
-              <span className="truncate text-[13px] font-medium text-ds-text-1">{item.title}</span>
-            </button>
-          ))}
+          <p className="px-1 text-[12px] font-semibold uppercase tracking-wide text-ds-text-3">
+            Todo el día
+          </p>
+          {allDay.map((item) => {
+            const spanCtx = allDaySpanContextLabel(item, selectedYmd);
+            return (
+              <button
+                key={`${item.source}:${item.id}`}
+                type="button"
+                onClick={() => onSelect(item)}
+                className="opai-glass-soft flex w-full items-center gap-2 rounded-[16px] px-3 py-2 text-left ds-tap"
+              >
+                <span className={cn("h-4 w-[3px] rounded-full", typeBarClass(item, colorBySource))} />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-[13px] font-medium text-ds-text-1">
+                    {item.title}
+                  </span>
+                  {spanCtx && (
+                    <span className="block truncate text-[12px] text-ds-text-3">{spanCtx}</span>
+                  )}
+                </span>
+              </button>
+            );
+          })}
         </div>
       )}
 

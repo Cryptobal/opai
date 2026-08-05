@@ -5,7 +5,9 @@ import { Check, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import { Avatar, Tag } from "@/components/opai-ds";
 import { cn } from "@/lib/utils";
+import { allDaySpanContextLabel, agendaItemDayKey } from "../agenda-calendar-utils";
 import type { AgendaCalendarItem } from "../agenda-calendar.types";
+import { syncStatusMeta } from "../agenda-sync-status";
 import { hhmmChile, mobileTypeLabel, typeBarClass } from "./agenda-mobile-utils";
 
 type Props = {
@@ -42,6 +44,7 @@ export function AgendaListRow({ item, colorBySource, onSelect, onChanged }: Prop
   };
 
   if (isLic) {
+    const spanCtx = allDaySpanContextLabel(item, agendaItemDayKey(item));
     return (
       <button
         type="button"
@@ -58,7 +61,7 @@ export function AgendaListRow({ item, colorBySource, onSelect, onChanged }: Prop
           </p>
           <div className="mt-1 flex flex-wrap items-center gap-1.5">
             <Tag variant="warn" size="md">
-              {licDeadlineLabel(item)}
+              {spanCtx ?? licDeadlineLabel(item)}
             </Tag>
           </div>
         </div>
@@ -127,16 +130,17 @@ export function AgendaListRow({ item, colorBySource, onSelect, onChanged }: Prop
           {item.assignedName && (
             <Avatar name={item.assignedName} size="sm" className="h-5 w-5 text-[12px]" />
           )}
-          {item.syncStatus === "SYNCED" && (
-            <Tag variant="ok" size="md">
-              ☁ sync
-            </Tag>
-          )}
-          {item.syncStatus === "PENDING" && (
-            <Tag variant="warn" size="md">
-              ◌ pendiente
-            </Tag>
-          )}
+          {(() => {
+            const sync = syncStatusMeta(item.syncStatus, item.syncReason);
+            if (sync.status === "NONE") return null;
+            const variant =
+              sync.tone === "ok" ? "ok" : sync.tone === "danger" ? "danger" : "warn";
+            return (
+              <Tag variant={variant} size="md" aria-label={sync.ariaLabel}>
+                {sync.label}
+              </Tag>
+            );
+          })()}
         </div>
       </button>
     </div>

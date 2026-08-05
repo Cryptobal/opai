@@ -45,7 +45,11 @@ export function AgendaListView({
       map.get(key)?.push(item);
     }
     for (const list of map.values()) {
-      list.sort((a, b) => a.start.localeCompare(b.start));
+      // All-day primero; dentro de cada grupo, orden cronológico.
+      list.sort((a, b) => {
+        if (a.allDay !== b.allDay) return a.allDay ? -1 : 1;
+        return a.start.localeCompare(b.start);
+      });
     }
     return map;
   }, [days, items]);
@@ -113,15 +117,26 @@ export function AgendaListView({
               </div>
             ) : (
               <div className="space-y-2">
-                {dayItems.map((item) => (
-                  <AgendaListRow
-                    key={`${item.source}:${item.id}`}
-                    item={item}
-                    colorBySource={colorBySource}
-                    onSelect={onSelect}
-                    onChanged={onChanged}
-                  />
-                ))}
+                {dayItems.map((item, index) => {
+                  const prev = dayItems[index - 1];
+                  const showTimedSep = Boolean(prev?.allDay && !item.allDay);
+                  return (
+                    <div key={`${item.source}:${item.id}`}>
+                      {showTimedSep && (
+                        <div
+                          className="mb-2 mt-1 h-px bg-ds-border-subtle"
+                          aria-hidden
+                        />
+                      )}
+                      <AgendaListRow
+                        item={item}
+                        colorBySource={colorBySource}
+                        onSelect={onSelect}
+                        onChanged={onChanged}
+                      />
+                    </div>
+                  );
+                })}
               </div>
             )}
           </section>
