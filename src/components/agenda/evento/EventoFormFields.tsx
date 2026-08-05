@@ -42,6 +42,8 @@ export type EventoFormValue = {
   notifyOpai: boolean;
   slackReminderPrevDay: boolean;
   accountId?: string | null;
+  /** Nombre de la cuenta (para no mostrar el UUID en el picker). */
+  accountName?: string | null;
   installationId?: string | null;
   dealId?: string | null;
 };
@@ -57,6 +59,7 @@ export function EventoFormFields({
   showContextPickers = false,
   showToggles = true,
   showAssignee = true,
+  currentUserId,
 }: {
   value: EventoFormValue;
   onChange: (patch: Partial<EventoFormValue>) => void;
@@ -71,12 +74,20 @@ export function EventoFormFields({
   showContextPickers?: boolean;
   showToggles?: boolean;
   showAssignee?: boolean;
+  /** Si hay sesión, "Yo" usa este id (no string vacío). */
+  currentUserId?: string;
 }): JSX.Element {
   const compact = density === "compact";
   const spaceY = compact ? "space-y-2" : "space-y-3";
   const account: AccountOption | null = value.accountId
-    ? { id: value.accountId, name: value.accountId, rut: null }
+    ? {
+        id: value.accountId,
+        name: value.accountName?.trim() || value.accountId,
+        rut: null,
+      }
     : null;
+  const meOptionId = currentUserId?.trim() || "";
+  const meUser = meOptionId ? users.find((u) => u.id === meOptionId) : undefined;
 
   return (
     <div className={spaceY}>
@@ -223,17 +234,29 @@ export function EventoFormFields({
           </Label>
           <select
             id="evento-assignee"
-            value={value.assignedUserId}
+            value={value.assignedUserId || meOptionId}
             onChange={(e) => onChange({ assignedUserId: e.target.value })}
             className="h-10 w-full rounded-xl border border-ds-border-default bg-ds-surface-1 px-3 text-[13px] text-ds-text-1 sm:h-9"
           >
-            <option value="">Yo (por defecto)</option>
-            {users.map((u) => (
-              <option key={u.id} value={u.id}>
-                {u.name}
+            {meOptionId ? (
+              <option value={meOptionId}>
+                Yo{meUser ? ` (${meUser.name})` : ""}
               </option>
-            ))}
+            ) : (
+              <option value="">Yo (por defecto)</option>
+            )}
+            {users
+              .filter((u) => u.id !== meOptionId)
+              .map((u) => (
+                <option key={u.id} value={u.id}>
+                  {u.name}
+                </option>
+              ))}
           </select>
+          <p className="text-[12px] text-ds-text-4">
+            Responsable del evento: en su Google Calendar se crea/actualiza el
+            evento si la sync está activa. Los invitados solo asisten.
+          </p>
         </div>
       )}
 
@@ -244,12 +267,14 @@ export function EventoFormFields({
             onSelect={(a) =>
               onChange({
                 accountId: a.id,
+                accountName: a.name,
                 installationId: null,
               })
             }
             onClear={() =>
               onChange({
                 accountId: null,
+                accountName: null,
                 installationId: null,
               })
             }
