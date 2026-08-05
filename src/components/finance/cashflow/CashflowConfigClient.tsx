@@ -187,7 +187,9 @@ export function CashflowConfigClient({
     flowCutoffYmd: initialConfig.flowCutoffYmd
       ? String(initialConfig.flowCutoffYmd).slice(0, 10)
       : null,
-    projectReceivedDtesAsExpense: initialConfig.projectReceivedDtesAsExpense !== false,
+    // Opt-in estricto (schema default false). `!== false` reencendía el switch
+    // ante undefined y pelearía el modelo cartola-first.
+    projectReceivedDtesAsExpense: initialConfig.projectReceivedDtesAsExpense === true,
     finiquitosAvgMonths: Number(initialConfig.finiquitosAvgMonths ?? 6),
     finiquitosManualMonthlyClp:
       initialConfig.finiquitosManualMonthlyClp == null
@@ -576,17 +578,17 @@ export function CashflowConfigClient({
               <div className="min-w-0">
                 <p className="font-medium text-[13px]">Proyectar facturas recibidas como egreso</p>
                 <p className="text-[12px] text-ds-text-3">
-                  Las facturas de compra no proyectan egreso. El egreso proyectado
-                  se define en GAV; el egreso real viene de cartola. Las facturas
-                  siguen contando para crédito IVA F29.
+                  {config.projectReceivedDtesAsExpense
+                    ? "Encendido: las facturas de compra impagas aparecen en el proyectado (y sin categoría caen en Otros egresos)."
+                    : "Apagado (recomendado): Otros egresos solo muestra cargos de cartola. El egreso proyectado se define en GAV; las facturas siguen contando para crédito IVA F29."}
                 </p>
                 {unpaidReceivedDteCount > 0 && (
                   <p className="mt-1 text-[12px] text-ds-text-3">
                     Hoy hay {unpaidReceivedDteCount.toLocaleString("es-CL")} facturas
                     de compra impagas
                     {config.projectReceivedDtesAsExpense
-                      ? " que se proyectan como egreso si el switch está encendido."
-                      : " (no se proyectan con el switch apagado)."}
+                      ? " proyectándose como egreso."
+                      : " (no se proyectan)."}
                   </p>
                 )}
               </div>
