@@ -54,7 +54,7 @@ describe("buildHoverCardContent", () => {
     expect(model.ref).toBe("AJ35");
   });
 
-  it("comprometido trunca a 3 ítems con +N más", () => {
+  it("comprometido lista todos los ítems (sin truncar)", () => {
     const items = Array.from({ length: 5 }, (_, i) => ({
       kind: "dte" as const,
       dteId: `d${i}`,
@@ -75,12 +75,34 @@ describe("buildHoverCardContent", () => {
       colIdx: 0,
       rowNumber: 1,
     });
-    expect(model.items).toHaveLength(3);
-    expect(model.itemsMore).toBe(2);
+    expect(model.items).toHaveLength(5);
+    expect(model.items[0]?.tag).toMatch(/F°|F/);
     expect(model.lines[0]?.emphasize).toBe(true);
   });
 
-  it("comprometido con 1 ítem no muestra +N", () => {
+  it("real lista todos los egresos/ingresos de cartola", () => {
+    const items = Array.from({ length: 49 }, (_, i) => ({
+      bankTransactionId: `bt${i}`,
+      label: `Pago Compra ${i}`,
+      monto: -1000 * (i + 1),
+      fecha: "2026-08-03",
+      ...(i === 0 ? { folio: 43 } : {}),
+    }));
+    const model = buildHoverCardContent({
+      row: baseRow({ section: "EGRESOS", name: "Otros egresos" }),
+      cell: cell({
+        layer: "real",
+        real: { total: -17_799_879, items },
+        effective: -17_799_879,
+      }),
+      colIdx: 0,
+      rowNumber: 12,
+    });
+    expect(model.items).toHaveLength(49);
+    expect(model.lines[0]?.label).toBe("Real");
+  });
+
+  it("comprometido con 1 ítem", () => {
     const model = buildHoverCardContent({
       row: baseRow(),
       cell: cell({
@@ -103,7 +125,6 @@ describe("buildHoverCardContent", () => {
       rowNumber: 2,
     });
     expect(model.items).toHaveLength(1);
-    expect(model.itemsMore).toBe(0);
   });
 
   it("real con drift", () => {

@@ -53,9 +53,11 @@ export const CellHoverCard = forwardRef<CellHoverCardHandle, Props>(function Cel
   pinnedRef.current = pinned;
   visibleRef.current = visible;
 
-  const place = useCallback((rect: DOMRect) => {
-    const w = 268;
-    const estH = 220;
+  const place = useCallback((rect: DOMRect, itemCount = 0) => {
+    const w = 288;
+    // Lista scrollable ~max-h-56; estimar alto para no abrir fuera de viewport.
+    const listH = itemCount > 0 ? Math.min(224, itemCount * 36) : 0;
+    const estH = 160 + listH;
     const left = Math.max(8, Math.min(rect.left, window.innerWidth - w - 8));
     let top = rect.bottom + 4;
     if (top + estH > window.innerHeight - 8) top = Math.max(8, rect.top - estH - 4);
@@ -71,8 +73,14 @@ export const CellHoverCard = forwardRef<CellHoverCardHandle, Props>(function Cel
 
   useImperativeHandle(ref, () => ({
     show(next, rect) {
+      const itemCount =
+        next.cell.layer === "real"
+          ? (next.cell.real?.items.length ?? 0)
+          : next.cell.layer === "committed"
+            ? (next.cell.committed?.items.length ?? 0)
+            : 0;
       setCtx(next);
-      place(rect);
+      place(rect, itemCount);
       setVisible(true);
       setPinned(true);
       setEditingNote(false);
@@ -105,11 +113,12 @@ export const CellHoverCard = forwardRef<CellHoverCardHandle, Props>(function Cel
 
   return (
     <div
-      className="planilla-cell-hover fixed z-50 rounded-lg border border-ds-border-default bg-ds-surface-3 p-2 text-[13px] shadow-lg"
+      className="planilla-cell-hover fixed z-50 w-[288px] rounded-lg border border-ds-border-default bg-ds-surface-3 p-2 text-[13px] shadow-lg"
       data-visible="true"
       role="dialog"
       aria-label={editingNote ? `Nota · ${model.concept}` : `Detalle · ${model.concept}`}
       style={{ left: pos.left, top: pos.top }}
+      onWheel={(e) => e.stopPropagation()}
     >
       <CellHoverCardBody
         model={model}
