@@ -19,7 +19,7 @@ export interface CellHoverShowCtx {
 export interface CellHoverCardHandle {
   show: (ctx: CellHoverShowCtx, rect: DOMRect) => void;
   hide: () => void;
-  /** Cierra aunque esté anclada (Esc / selección nueva). */
+  /** Cierra aunque esté anclada (Esc / selección nueva / clic fuera). */
   forceHide: () => void;
   pin: () => void;
   unpin: () => void;
@@ -36,8 +36,8 @@ interface Props {
 }
 
 /**
- * Ficha de hover de instancia única. Estado local propio; API imperativa
- * para no re-renderizar el grid al mover el puntero.
+ * Ficha de detalle de instancia única. Se abre con clic izquierdo (anclada);
+ * se cierra con Esc, clic fuera, scroll o al pasar a edición.
  */
 export const CellHoverCard = forwardRef<CellHoverCardHandle, Props>(function CellHoverCard(
   { canManage, onSaveNote, onOpenActions },
@@ -50,7 +50,6 @@ export const CellHoverCard = forwardRef<CellHoverCardHandle, Props>(function Cel
   const [editingNote, setEditingNote] = useState(false);
   const pinnedRef = useRef(false);
   const visibleRef = useRef(false);
-  const leaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   pinnedRef.current = pinned;
   visibleRef.current = visible;
 
@@ -58,14 +57,12 @@ export const CellHoverCard = forwardRef<CellHoverCardHandle, Props>(function Cel
     const w = 268;
     const estH = 220;
     const left = Math.max(8, Math.min(rect.left, window.innerWidth - w - 8));
-    // Sin hueco: solapa 2 px la celda para que el puntero no “caiga” en la de abajo.
-    let top = rect.bottom - 2;
-    if (top + estH > window.innerHeight - 8) top = Math.max(8, rect.top - estH + 2);
+    let top = rect.bottom + 4;
+    if (top + estH > window.innerHeight - 8) top = Math.max(8, rect.top - estH - 4);
     setPos({ left, top });
   }, []);
 
   const hardHide = useCallback(() => {
-    if (leaveTimer.current) clearTimeout(leaveTimer.current);
     setPinned(false);
     setEditingNote(false);
     setVisible(false);
@@ -74,15 +71,14 @@ export const CellHoverCard = forwardRef<CellHoverCardHandle, Props>(function Cel
 
   useImperativeHandle(ref, () => ({
     show(next, rect) {
-      if (leaveTimer.current) clearTimeout(leaveTimer.current);
       setCtx(next);
       place(rect);
       setVisible(true);
-      if (!pinnedRef.current) setEditingNote(false);
+      setPinned(true);
+      setEditingNote(false);
     },
     hide() {
       if (pinnedRef.current) return;
-      if (leaveTimer.current) clearTimeout(leaveTimer.current);
       setVisible(false);
       setEditingNote(false);
       setCtx(null);
@@ -109,30 +105,12 @@ export const CellHoverCard = forwardRef<CellHoverCardHandle, Props>(function Cel
 
   return (
     <div
-      className="planilla-cell-hover fixed rounded-lg border border-ds-border-default bg-ds-surface-3 p-2 text-[13px] shadow-lg"
+      className="planilla-cell-hover fixed z-50 rounded-lg border border-ds-border-default bg-ds-surface-3 p-2 text-[13px] shadow-lg"
       data-visible="true"
-      role={editingNote ? "dialog" : "tooltip"}
+      role="dialog"
       aria-label={editingNote ? `Nota · ${model.concept}` : `Detalle · ${model.concept}`}
       style={{ left: pos.left, top: pos.top }}
-      onPointerEnter={() => {
-        if (leaveTimer.current) clearTimeout(leaveTimer.current);
-      }}
-      onPointerLeave={() => {
-        if (pinnedRef.current) return;
-        if (leaveTimer.current) clearTimeout(leaveTimer.current);
-        leaveTimer.current = setTimeout(() => {
-          if (pinnedRef.current) return;
-          setVisible(false);
-          setEditingNote(false);
-          setCtx(null);
-        }, 180);
-      }}
     >
-      {/* Puente invisible hacia la celda fuente: evita el hueco que robaba el hover. */}
-      <div
-        aria-hidden
-        className="pointer-events-auto absolute -top-3 left-0 right-0 h-3"
-      />
       <CellHoverCardBody
         model={model}
         editingNote={editingNote}
@@ -143,9 +121,13 @@ export const CellHoverCard = forwardRef<CellHoverCardHandle, Props>(function Cel
         onSaveNote={onSaveNote}
         onStartNote={() => { if (canManage) { setPinned(true); setEditingNote(true); } }}
         onNoteClose={() => {
-          setEditingNote(false); setPinned(false); setVisible(false); setCtx(null);
+          setEditingNote(false);
+          setPinned(true);
         }}
-        onNoteDone={() => { setEditingNote(false); setPinned(false); }}
+        onNoteDone={() => {
+          setEditingNote(false);
+          setPinned(true);
+        }}
         onOpenActions={(el) => onOpenActions(ctx, el.getBoundingClientRect())}
       />
     </div>
