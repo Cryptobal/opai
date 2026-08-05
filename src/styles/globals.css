@@ -2196,3 +2196,45 @@ html {
     scroll-margin-top: calc(var(--app-island-bottom, 3.5rem) + var(--cpq-sticky-h, 5.375rem) + 0.5rem);
   }
 }
+
+/* ── CRM · Negocios — tablero ─────────────────────────── */
+.deals-shell {
+  container-type: inline-size;
+  container-name: deals;
+}
+
+.deals-col {
+  flex: 1 1 230px;
+  min-width: 230px;
+  max-width: 360px;
+}
+
+.deals-col-body {
+  mask-image: linear-gradient(to bottom, black 0%, black calc(100% - 1.25rem), transparent 100%);
+}
+
+@container deals (max-width: 1499px) {
+  .deals-col-uf {
+    display: none;
+  }
+}
+
+@container deals (max-width: 1200px) {
+  .deals-touch {
+    min-height: 44px;
+  }
+}
+
+@container deals (max-width: 1023px) {
+  .deals-col {
+    flex: 0 0 268px;
+    min-width: 268px;
+    max-width: 268px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .deals-shell * {
+    scroll-behavior: auto !important;
+  }
+}
