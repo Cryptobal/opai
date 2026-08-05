@@ -2,17 +2,28 @@
  * Derivador REAL (función pura, cero writes).
  *
  * Movimientos bancarios visibles del rango → semana del movimiento (fecha del
- * abono/cargo, NO la planificada). El ruteo a fila usa los links de
- * conciliación; el movimiento SIN links (o el remanente no asignado) cae en
- * "Otros" del signo correspondiente — así el saldo real de la planilla nunca
- * pierde plata aunque la conciliación esté incompleta.
+ * abono/cargo, NO la planificada).
+ *
+ * Ingresos (abonos):
+ *  - Solo entran a la planilla si el link es `DTE_ISSUED` y matchea una fila
+ *    de cliente/programación. Anticipos de cesión (`FACTORING_OPERATION`),
+ *    abonos sin conciliar y remanentes NO van a "Otros ingresos" — esa fila
+ *    es manual.
+ *  - La merma de factoring (link `EXPENSE` + cuenta en un abono, shortfall
+ *    de conciliación) cae en la fila canónica "Costo factoring"
+ *    (FINANCIAMIENTO), con monto negativo.
+ *
+ * Egresos (cargos): se rutean por links (DTE recibido, payroll, categoría);
+ * el remanente sin conciliar sigue yendo a "Otros egresos".
  */
 import { weekStartYmd, ymdToDate } from "./weeks";
 import {
   buildExpenseIndexes,
   buildIncomeMatcher,
   matchExpenseRow,
+  normalizeRowName,
 } from "./row-match";
+import { COST_FACTORING_ROW_NAME } from "./canonical-rows";
 import {
   pushReal,
   UNMATCHED_EXPENSE_KEY,
@@ -71,6 +82,29 @@ const PAYROLL_LINK_CODE: Record<string, string> = {
   TE_TURNO: "EGR_TURNO_EXTRA",
 };
 
+/**
+ * Links de diferencia contable (shortfall/surplus) que NO consumen el cupo
+ * del monto bancario. En abonos: EXPENSE/INCOME con cuenta. En cargos:
+ * INCOME con cuenta (descuento recibido en shortfall de egreso).
+ */
+function isAccountingDiffLink(isCredit: boolean, link: RealLinkInput): boolean {
+  if (!link.accountPlanId) return false;
+  if (isCredit) {
+    return link.targetType === "EXPENSE" || link.targetType === "INCOME";
+  }
+  return link.targetType === "INCOME";
+}
+
+function findCostoFactoringRowId(rows: FlowRowRef[]): string | null {
+  const key = normalizeRowName(COST_FACTORING_ROW_NAME);
+  for (const r of rows) {
+    if (normalizeRowName(r.name) !== key) continue;
+    if (r.section != null && r.section !== "FINANCIAMIENTO") continue;
+    return r.id;
+  }
+  return null;
+}
+
 export function deriveReal(args: RealArgs): RealByRow {
   const out: RealByRow = new Map();
   if (args.weeks.length === 0) return out;
@@ -78,17 +112,9 @@ export function deriveReal(args: RealArgs): RealByRow {
   const lastWeek = args.weeks[args.weeks.length - 1];
   const matchIncome = buildIncomeMatcher(args.rows);
   const idx = buildExpenseIndexes(args.rows, args.categoryCodeById);
+  const costoFactoringRowId = findCostoFactoringRowId(args.rows);
 
-  const resolveLinkRow = (isCredit: boolean, link: RealLinkInput): string => {
-    if (isCredit) {
-      if (link.targetType === "DTE_ISSUED" && link.targetId) {
-        const dte = args.dteById.get(link.targetId);
-        if (dte) {
-          return matchIncome(dte.crmAccountId, dte.installationId, dte.recurringTemplateId);
-        }
-      }
-      return UNMATCHED_INCOME_KEY;
-    }
+  const resolveExpenseLinkRow = (link: RealLinkInput): string => {
     const payrollCode = PAYROLL_LINK_CODE[link.targetType];
     if (payrollCode) return matchExpenseRow(idx, { categoryCode: payrollCode });
     if (link.targetType === "DTE_RECEIVED" && link.targetId) {
@@ -115,30 +141,93 @@ export function deriveReal(args: RealArgs): RealByRow {
 
     let assigned = 0;
     for (const link of tx.links) {
+      if (isAccountingDiffLink(isCredit, link)) continue;
+
       const monto = Math.min(Math.abs(link.amountClp), txMagnitude - assigned);
       if (monto <= 0) continue;
       assigned += monto;
+
+      if (isCredit) {
+        // Anticipo de cesión: la factura ya está en committed/cedida.
+        if (link.targetType === "FACTORING_OPERATION") continue;
+
+        if (link.targetType === "DTE_ISSUED" && link.targetId) {
+          const dte = args.dteById.get(link.targetId);
+          if (!dte) continue;
+          const rowKey = matchIncome(
+            dte.crmAccountId,
+            dte.installationId,
+            dte.recurringTemplateId,
+          );
+          // Sin fila de programación/cuenta → no inventar Otros ingresos.
+          if (rowKey === UNMATCHED_INCOME_KEY) continue;
+          pushReal(out, rowKey, week, {
+            bankTransactionId: tx.id,
+            folio: dte.folio,
+            dteId: link.targetId,
+            label: dte.name || tx.description,
+            fecha: tx.dateYmd,
+            monto: Math.round(monto),
+            ceded: dte.ceded === true,
+          });
+        }
+        // Cualquier otro link de abono: no auto-rutea a bandeja.
+        continue;
+      }
+
+      // Cargos: ruteo clásico a fila de egreso / Otros egresos.
       const dte = link.targetId ? args.dteById.get(link.targetId) : undefined;
-      pushReal(out, resolveLinkRow(isCredit, link), week, {
+      pushReal(out, resolveExpenseLinkRow(link), week, {
         bankTransactionId: tx.id,
         folio: dte?.folio,
         dteId: link.targetType.startsWith("DTE") ? (link.targetId ?? undefined) : undefined,
         label: dte?.name ?? tx.description,
         fecha: tx.dateYmd,
-        // Signado por dirección de caja: + abono / − cargo.
-        monto: isCredit ? Math.round(monto) : -Math.round(monto),
-        ceded: dte?.ceded === true,
+        monto: -Math.round(monto),
       });
     }
 
-    // Remanente sin conciliar (o movimiento sin links) → "Otros".
+    // Merma de factoring (y diffs contables) — fuera del cupo bancario.
+    for (const link of tx.links) {
+      if (!isAccountingDiffLink(isCredit, link)) continue;
+      const monto = Math.round(Math.abs(link.amountClp));
+      if (monto <= 0) continue;
+
+      if (isCredit && link.targetType === "EXPENSE") {
+        const rowKey = costoFactoringRowId;
+        if (!rowKey) continue;
+        pushReal(out, rowKey, week, {
+          bankTransactionId: tx.id,
+          label: `Costo factoring · ${tx.description}`.slice(0, 200),
+          fecha: tx.dateYmd,
+          monto: -monto,
+        });
+        continue;
+      }
+
+      // Surplus INCOME en abono: no auto-ingreso (Otros ingresos es manual).
+      // Shortfall INCOME en cargo: descuento → Otros egresos o categoría.
+      if (!isCredit && link.targetType === "INCOME") {
+        const rowKey = resolveExpenseLinkRow(link);
+        pushReal(out, rowKey, week, {
+          bankTransactionId: tx.id,
+          label: tx.description,
+          fecha: tx.dateYmd,
+          // Descuento en egreso = reduce el cargo → monto positivo en caja.
+          monto: Math.round(monto),
+        });
+      }
+    }
+
+    // Remanente sin conciliar: solo egresos → Otros egresos.
+    // Abonos huérfanos NO van a Otros ingresos (fila manual).
     const remainder = txMagnitude - assigned;
-    if (remainder > 0.5) {
-      pushReal(out, isCredit ? UNMATCHED_INCOME_KEY : UNMATCHED_EXPENSE_KEY, week, {
+    if (remainder > 0.5 && !isCredit) {
+      pushReal(out, UNMATCHED_EXPENSE_KEY, week, {
         bankTransactionId: tx.id,
         label: tx.description,
         fecha: tx.dateYmd,
-        monto: isCredit ? Math.round(remainder) : -Math.round(remainder),
+        monto: -Math.round(remainder),
       });
     }
   }

@@ -34,4 +34,12 @@ describe("SECTION_MOVES", () => {
       categoryCode: null,
     });
   });
+
+  it("incluye Costo factoring en FINANCIAMIENTO", () => {
+    expect(CANONICAL_FLOW_ROWS).toContainEqual({
+      section: "FINANCIAMIENTO",
+      name: "Costo factoring",
+      categoryCode: null,
+    });
+  });
 });

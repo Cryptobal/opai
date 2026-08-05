@@ -54,10 +54,14 @@ export const CANONICAL_FLOW_ROWS: CanonicalFlowRow[] = [
   { section: "IMPUESTOS", name: "IVA F29", categoryCode: "EGR_IVA_F29" },
   { section: "GAV", name: FALLBACK_EXPENSE_NAME, categoryCode: null },
   { section: "FINANCIAMIENTO", name: "Créditos / financiamiento", categoryCode: null },
+  { section: "FINANCIAMIENTO", name: "Costo factoring", categoryCode: null },
   { section: "FINANCIAMIENTO", name: "Aporte socios", categoryCode: null },
   { section: "FINANCIAMIENTO", name: "Retiro socios", categoryCode: null },
   { section: "FINANCIAMIENTO", name: "Devolución a socios", categoryCode: null },
 ];
+
+/** Nombre canónico de la fila de merma de cesión (shortfall al conciliar). */
+export const COST_FACTORING_ROW_NAME = "Costo factoring";
 
 /**
  * Filas que dejaron de ser canónicas. El reconcile las elimina si no tienen
