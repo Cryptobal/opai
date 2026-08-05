@@ -5,3 +5,16 @@ const UUID_RE =
 export function isUuid(value: unknown): value is string {
   return typeof value === "string" && UUID_RE.test(value.trim());
 }
+
+/**
+ * UUID isomórfico (cliente + servidor). No usar `node:crypto` en módulos
+ * compartidos con el browser: en Safari/WebView iOS el import queda
+ * `undefined` y revienta con `randomUUID is not a function`.
+ */
+export function newUuid(): string {
+  const c = globalThis.crypto;
+  if (c && typeof c.randomUUID === "function") {
+    return c.randomUUID();
+  }
+  return `id-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 11)}`;
+}

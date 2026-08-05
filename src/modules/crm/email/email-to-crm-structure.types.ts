@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { newUuid } from "@/lib/utils/uuid";
 import { WEEKDAYS_FULL } from "./email-to-lead.types";
 import type { StagedFile } from "./email-to-lead.types";
 
@@ -365,7 +365,7 @@ export function milestonesFromLicitacion(
   const push = (kind: PlanMilestone["kind"], date: string | null) => {
     if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return;
     out.push({
-      id: randomUUID(),
+      id: newUuid(),
       kind,
       date,
       time: "09:00",
