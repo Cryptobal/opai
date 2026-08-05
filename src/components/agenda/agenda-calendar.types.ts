@@ -27,6 +27,17 @@ export type AgendaCalendarItem = {
   createdBy?: string | null;
   /** Clave estable de fuente para color/filtro (multicuenta). */
   sourceKey?: string;
+  /**
+   * Clave de agrupamiento para bandas all-day multi-día (licitación = dealId).
+   * Si falta, el item es un tramo de un solo día.
+   */
+  spanKey?: string;
+  /** Inicio (ymd) del rango all-day completo, aunque quede fuera de la ventana. */
+  spanStartYmd?: string;
+  /** Fin (ymd) del rango all-day completo (p. ej. fecha de entrega). */
+  spanEndYmd?: string;
+  /** Motivo legible del estado de sync (nunca lastError crudo). */
+  syncReason?: string | null;
 };
 
 /** Alias legacy usado por TaskDrawer/VisitList (ex AgendaWeekStrip, retirado). */

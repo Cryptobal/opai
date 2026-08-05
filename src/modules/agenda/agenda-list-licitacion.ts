@@ -30,6 +30,7 @@ export function expandLicitacionAgendaItems(params: {
   fromYmd: string;
   toYmdExcl: string;
   syncStatus: string | null;
+  syncReason?: string | null;
 }): AgendaListItem[] {
   const { deal } = params;
   const entregaYmd = deal.fechaEntrega.toISOString().slice(0, 10);
@@ -39,6 +40,9 @@ export function expandLicitacionAgendaItems(params: {
 
   const items: AgendaListItem[] = [];
   let guard = 0;
+  const spanStartYmd =
+    params.rangeStartYmd > entregaYmd ? entregaYmd : params.rangeStartYmd;
+
   while (day <= entregaYmd && day < params.toYmdExcl && guard < MAX_RANGE_DAYS) {
     const isEntrega = day === entregaYmd;
     items.push({
@@ -57,9 +61,14 @@ export function expandLicitacionAgendaItems(params: {
       installationName: null,
       address: null,
       syncStatus: params.syncStatus,
+      syncReason: params.syncReason ?? null,
       dealId: deal.id,
       status: deal.status,
       sourceKey: "opai:licitaciones",
+      // Campos aditivos: agrupan el tramo multi-día en la capa de presentación.
+      spanKey: deal.id,
+      spanStartYmd,
+      spanEndYmd: entregaYmd,
     });
     day = addDaysYmd(day, 1);
     guard += 1;

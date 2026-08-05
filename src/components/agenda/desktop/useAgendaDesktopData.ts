@@ -39,6 +39,7 @@ function normalizeItem(item: AgendaListItem): AgendaCalendarItem {
     end: item.end,
     allDay: item.allDay,
     syncStatus: item.syncStatus,
+    syncReason: item.syncReason ?? null,
     dealId: item.dealId,
     assignedUserId: item.assignedUserId,
     assignedName: item.assignedName,
@@ -53,6 +54,9 @@ function normalizeItem(item: AgendaListItem): AgendaCalendarItem {
     href: item.href,
     createdBy: item.createdBy,
     sourceKey: item.sourceKey,
+    spanKey: item.spanKey,
+    spanStartYmd: item.spanStartYmd,
+    spanEndYmd: item.spanEndYmd,
   };
 }
 

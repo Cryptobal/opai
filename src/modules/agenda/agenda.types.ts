@@ -29,6 +29,20 @@ export type AgendaListItem = {
   installationName: string | null;
   address: string | null;
   syncStatus: string | null;
+  /**
+   * Motivo legible del estado de sync (sanitizado en servidor).
+   * `null`/ausente = sin causa conocida o no aplica.
+   */
+  syncReason?: string | null;
+  /**
+   * Clave de agrupamiento para bandas all-day multi-día.
+   * Licitación: `dealId`. Ausente = tramo de un día.
+   */
+  spanKey?: string;
+  /** Inicio (ymd) del rango all-day completo. */
+  spanStartYmd?: string;
+  /** Fin (ymd) del rango all-day completo. */
+  spanEndYmd?: string;
   dealId: string | null;
   status: string;
   /** Sólo eventos Google: URL del evento en Google Calendar (abre en pestaña nueva). */

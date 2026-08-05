@@ -376,6 +376,173 @@ export function itemKey(item: AgendaCalendarItem): string {
   return `${item.source}:${item.id}`;
 }
 
+export type AllDaySegment = {
+  item: AgendaCalendarItem;
+  /** Índice 0-based en `dayKeys` (inclusive). */
+  startIndex: number;
+  /** Índice 0-based en `dayKeys` (inclusive). */
+  endIndex: number;
+  continuesBefore: boolean;
+  continuesAfter: boolean;
+  /** El extremo derecho visible es el día de entrega de la licitación. */
+  isEntregaEnd: boolean;
+};
+
+export type AllDayLane = {
+  segments: AllDaySegment[];
+};
+
+type SpanDraft = {
+  key: string;
+  item: AgendaCalendarItem;
+  spanStartYmd: string;
+  spanEndYmd: string;
+};
+
+function resolveSpanDraft(item: AgendaCalendarItem): SpanDraft {
+  const day = agendaItemDayKey(item);
+  const key = item.spanKey ?? itemKey(item);
+  return {
+    key,
+    item,
+    spanStartYmd: item.spanStartYmd ?? day,
+    spanEndYmd: item.spanEndYmd ?? day,
+  };
+}
+
+function preferSpanItem(current: AgendaCalendarItem, next: AgendaCalendarItem): AgendaCalendarItem {
+  const curEntrega = current.title.startsWith("ENTREGA");
+  const nextEntrega = next.title.startsWith("ENTREGA");
+  if (curEntrega && !nextEntrega) return next;
+  if (!curEntrega && nextEntrega) return current;
+  return current.start <= next.start ? current : next;
+}
+
+/**
+ * Agrupa items all-day en carriles con segmentos horizontales multi-día.
+ * Orden estable: spanStartYmd, luego title. Solapes → carril siguiente.
+ */
+export function buildAllDayLanes(
+  items: AgendaCalendarItem[],
+  dayKeys: string[],
+): AllDayLane[] {
+  if (dayKeys.length === 0) return [];
+  const firstDay = dayKeys[0]!;
+  const lastDay = dayKeys[dayKeys.length - 1]!;
+  const indexByDay = new Map(dayKeys.map((d, i) => [d, i]));
+
+  const drafts = new Map<string, SpanDraft>();
+  for (const item of items) {
+    if (!item.allDay) continue;
+    const draft = resolveSpanDraft(item);
+    const prev = drafts.get(draft.key);
+    if (!prev) {
+      drafts.set(draft.key, draft);
+      continue;
+    }
+    drafts.set(draft.key, {
+      key: draft.key,
+      item: preferSpanItem(prev.item, draft.item),
+      spanStartYmd:
+        prev.spanStartYmd < draft.spanStartYmd ? prev.spanStartYmd : draft.spanStartYmd,
+      spanEndYmd: prev.spanEndYmd > draft.spanEndYmd ? prev.spanEndYmd : draft.spanEndYmd,
+    });
+  }
+
+  const segments: AllDaySegment[] = [];
+  for (const draft of drafts.values()) {
+    if (draft.spanEndYmd < firstDay || draft.spanStartYmd > lastDay) continue;
+
+    let startIndex = 0;
+    let endIndex = dayKeys.length - 1;
+    const continuesBefore = draft.spanStartYmd < firstDay;
+    const continuesAfter = draft.spanEndYmd > lastDay;
+
+    if (!continuesBefore) {
+      const idx = indexByDay.get(draft.spanStartYmd);
+      if (idx != null) startIndex = idx;
+      else {
+        // Día de inicio oculto (p. ej. fin de semana): primer día visible ≥ spanStart.
+        startIndex = dayKeys.findIndex((d) => d >= draft.spanStartYmd);
+        if (startIndex < 0) continue;
+      }
+    }
+    if (!continuesAfter) {
+      const idx = indexByDay.get(draft.spanEndYmd);
+      if (idx != null) endIndex = idx;
+      else {
+        // Día de fin oculto: último día visible ≤ spanEnd.
+        for (let i = dayKeys.length - 1; i >= 0; i -= 1) {
+          if (dayKeys[i]! <= draft.spanEndYmd) {
+            endIndex = i;
+            break;
+          }
+        }
+      }
+    }
+    if (endIndex < startIndex) continue;
+
+    const endDay = dayKeys[endIndex]!;
+    segments.push({
+      item: draft.item,
+      startIndex,
+      endIndex,
+      continuesBefore,
+      continuesAfter,
+      isEntregaEnd:
+        (draft.item.source === "licitacion" || draft.item.type === "licitacion") &&
+        !continuesAfter &&
+        endDay === draft.spanEndYmd,
+    });
+  }
+
+  segments.sort((a, b) => {
+    const startCmp = (a.item.spanStartYmd ?? dayKeys[a.startIndex]!).localeCompare(
+      b.item.spanStartYmd ?? dayKeys[b.startIndex]!,
+    );
+    if (startCmp !== 0) return startCmp;
+    return a.item.title.localeCompare(b.item.title, "es");
+  });
+
+  const lanes: AllDayLane[] = [];
+  const laneEnds: number[] = [];
+  for (const segment of segments) {
+    let laneIdx = laneEnds.findIndex((end) => end < segment.startIndex);
+    if (laneIdx < 0) {
+      laneIdx = lanes.length;
+      lanes.push({ segments: [] });
+      laneEnds.push(-1);
+    }
+    lanes[laneIdx]!.segments.push(segment);
+    laneEnds[laneIdx] = segment.endIndex;
+  }
+  return lanes;
+}
+
+/** Posición legible de un día dentro de un rango all-day (móvil). */
+export function allDaySpanContextLabel(
+  item: Pick<AgendaCalendarItem, "spanKey" | "spanStartYmd" | "spanEndYmd" | "start" | "allDay">,
+  dayYmd: string,
+): string | null {
+  if (!item.spanKey || !item.spanStartYmd || !item.spanEndYmd) return null;
+  const start = item.spanStartYmd;
+  const end = item.spanEndYmd;
+  if (end < start) return null;
+  const dayIndex =
+    Math.round(
+      (Date.parse(`${dayYmd}T12:00:00.000Z`) - Date.parse(`${start}T12:00:00.000Z`)) /
+        86_400_000,
+    ) + 1;
+  const total =
+    Math.round(
+      (Date.parse(`${end}T12:00:00.000Z`) - Date.parse(`${start}T12:00:00.000Z`)) /
+        86_400_000,
+    ) + 1;
+  if (total < 1 || dayIndex < 1 || dayIndex > total) return null;
+  const [, mm, dd] = end.split("-");
+  return `día ${dayIndex} de ${total} · entrega ${dd}-${mm}`;
+}
+
 export function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
 }
