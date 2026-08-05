@@ -33,10 +33,31 @@ vi.mock("@/components/ui/popover", () => ({
   PopoverContent: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
 
+vi.mock("@/lib/cpq/use-cpq-catalogs", () => ({
+  useCpqCatalogs: () => ({ puestos: [], cargos: [], roles: [] }),
+  refreshCpqCatalogs: vi.fn(),
+}));
+
+vi.mock("@/components/cpq/position-matrix/useLiquidoPreview", () => ({
+  useLiquidoPreview: () => null,
+}));
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn(), prefetch: vi.fn() }),
+}));
+
 function baseProposal(
   overrides: Partial<CrmStructureProposal> = {},
 ): CrmStructureProposal {
   return { ...emptyCrmStructureProposal(), ...overrides };
+}
+
+/** Expande la tarjeta de instalación (contraída por defecto). No-op si ya está abierta. */
+function expandInstallation(name: string) {
+  const btn = screen.getByRole("button", { name: new RegExp(name, "i") });
+  if (btn.getAttribute("aria-expanded") !== "true") {
+    fireEvent.click(btn);
+  }
 }
 
 const week = [
@@ -135,13 +156,16 @@ describe("CorreoAiCoverageTable", () => {
     render(<CorreoAiCoverageTable proposal={proposal} onChange={() => {}} />);
 
     expect(screen.getByText("Obra")).toBeTruthy();
-    expect(screen.getAllByText("Etapa 1").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Etapa 3A").length).toBeGreaterThan(0);
     expect(screen.getByText("Peak simultáneo")).toBeTruthy();
     expect(screen.getByText("Σ etapas, no simultáneo")).toBeTruthy();
+    expect(screen.getByText("Timeline de etapas")).toBeTruthy();
+    // Instalación contraída: el detalle de etapas/puestos aparece al expandir.
+    expect(screen.queryByText("horario asumido")).toBeNull();
+    expandInstallation("Obra");
+    expect(screen.getAllByText("Etapa 1").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Etapa 3A").length).toBeGreaterThan(0);
     expect(screen.getByText("horario asumido")).toBeTruthy();
     expect(screen.getByText("rondín")).toBeTruthy();
-    expect(screen.getByText("Timeline de etapas")).toBeTruthy();
     expect(screen.getAllByText(/Puesto en esta etapa/).length).toBeGreaterThan(0);
     expect(screen.getByText(/Puesto en esta instalación/)).toBeTruthy();
   });
@@ -188,6 +212,9 @@ describe("CorreoAiCoverageTable", () => {
     expect(screen.getByText("Planta")).toBeTruthy();
     expect(screen.queryByText("Peak simultáneo")).toBeNull();
     expect(screen.queryByText("Timeline de etapas")).toBeNull();
+    // Puesto contraído dentro de instalación contraída: abrir instalación.
+    expect(screen.queryByText("Portería")).toBeNull();
+    expandInstallation("Planta");
     expect(screen.getByText("Portería")).toBeTruthy();
   });
 
@@ -226,6 +253,7 @@ describe("CorreoAiCoverageTable", () => {
     }
 
     render(<Harness />);
+    expandInstallation("Planta");
     fireEvent.click(screen.getByText(/Puesto en esta instalación/));
 
     const nameInput = screen.getByLabelText("Nombre del puesto") as HTMLInputElement;
@@ -273,6 +301,7 @@ describe("CorreoAiCoverageTable", () => {
     const { rerender } = render(
       <CorreoAiCoverageTable proposal={proposal} onChange={onChange} />,
     );
+    expandInstallation("Planta");
     fireEvent.click(screen.getByText(/Puesto en esta instalación/));
     const first = onChange.mock.calls[0][0] as CrmStructureInstallation[];
     expect(first[0].coverageSlots[0].name).toBe("Puesto 1");
@@ -283,6 +312,8 @@ describe("CorreoAiCoverageTable", () => {
         onChange={onChange}
       />,
     );
+    // Tras rerender la instalación vuelve contraída (estado local inicial).
+    expandInstallation("Planta");
     fireEvent.click(screen.getByText(/Puesto en esta instalación/));
     const second = onChange.mock.calls[1][0] as CrmStructureInstallation[];
     expect(second[0].coverageSlots.map((s) => s.name)).toEqual([
@@ -338,10 +369,11 @@ describe("CorreoAiCoverageTable", () => {
     expect(screen.getByText(/1 puestos · 100 HH\/sem · 4/)).toBeTruthy();
     expect(screen.getByText(/1 puestos · 50 HH\/sem · 2/)).toBeTruthy();
 
-    // Mover el puesto A (Planta) → Centro. Hay un botón por puesto.
+    // Abrir Planta, expandir el puesto A y moverlo a Centro.
+    expandInstallation("Planta");
+    fireEvent.click(screen.getByRole("button", { name: /Día\s+A\b/i }));
     const moveBtns = screen.getAllByLabelText("Mover a otra instalación");
     fireEvent.click(moveBtns[0]);
-    // En el menú del puesto A el destino es "Centro".
     fireEvent.click(screen.getAllByRole("button", { name: "Centro" })[0]);
 
     const next = onChange.mock.calls[0][0] as CrmStructureInstallation[];

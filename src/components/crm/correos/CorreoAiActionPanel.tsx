@@ -588,6 +588,7 @@ export function CorreoAiActionPanel({
     setAnswers([]);
     setRefineMessages([]);
     setDelta(undefined);
+    setExpandedIds(new Set());
     setActiveQuestion("Ajuste al plan");
     const t0 = Date.now();
     const d = draftRef.current;
@@ -604,9 +605,7 @@ export function CorreoAiActionPanel({
             const focused = selectionForCascadeAi(focusEntity);
             d.setSelectedIds(focused.selectedIds);
             d.setInclude(focused.include);
-            if (focusEntity === "quote") {
-              setExpandedIds(new Set(["quote"]));
-            }
+            // Plan contraído: el usuario expande la fila que quiere editar.
           } else {
             const hasSlots = j.proposal.installations.some((i) => i.coverageSlots.length > 0);
             const wantQuote = Boolean(j.proposal.deal.isLicitacion || hasSlots);
@@ -637,7 +636,6 @@ export function CorreoAiActionPanel({
               quote: wantQuote,
               milestones: true,
             });
-            if (wantQuote) setExpandedIds(new Set(["quote"]));
           }
         } else {
           d.setStagedFiles(j.stagedFiles ?? []);
@@ -646,11 +644,6 @@ export function CorreoAiActionPanel({
             const focused = selectionForCascadeAi(focusEntity);
             d.setSelectedIds(focused.selectedIds);
             d.setInclude(focused.include);
-            if (focusEntity === "quote") {
-              setExpandedIds(new Set(["quote"]));
-            }
-          } else if (d.include.quote) {
-            setExpandedIds(new Set(["quote"]));
           }
         }
         setSources(j.sources ?? []);
@@ -799,30 +792,6 @@ export function CorreoAiActionPanel({
                 </h4>
                 <p className="text-[12px] text-ds-text-4">
                   Se materializan como cotizaciones CPQ, una por instalación
-                </p>
-              </div>
-              <div className="mb-2 space-y-1.5">
-                <div className="flex flex-wrap items-center gap-3">
-                  <span className="text-[12px] text-ds-text-3">
-                    Jornada legal 42 h/sem
-                  </span>
-                  <label className="flex items-center gap-2 text-[13px] text-ds-text-2">
-                    Reserva %
-                    <input
-                      type="number"
-                      min={0}
-                      max={100}
-                      className="h-10 w-16 rounded-lg border border-ds-border-default bg-ds-surface-1 px-2 sm:h-9"
-                      value={p.reservePct ?? 10}
-                      onChange={(e) =>
-                        draft.setStaffingParam("reservePct", Number(e.target.value) || 0)
-                      }
-                    />
-                  </label>
-                </div>
-                <p className="text-[12px] text-ds-text-4">
-                  Dotación adicional sugerida para vacaciones y licencias.
-                  Informativo: no crea puestos por sí sola.
                 </p>
               </div>
               <CorreoAiCoverageTable
@@ -1163,12 +1132,7 @@ export function CorreoAiActionPanel({
                 actions={structureActions}
                 selected={draft.selectedIds}
                 onToggle={(id) => {
-                  const turningOn = !draft.selectedIds.has(id);
                   draft.toggleAction(id);
-                  // Al marcar Cotización, abrir cobertura/puestos de inmediato.
-                  if (id === "quote" && turningOn) {
-                    setExpandedIds((prev) => new Set(prev).add("quote"));
-                  }
                 }}
                 sources={sources}
                 durationMs={durationMs}

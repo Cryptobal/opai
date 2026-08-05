@@ -173,6 +173,8 @@ export function CorreoAiCoverageTable({ proposal, onChange, regimenOptions }: Pr
         ? { ...inst, coverageSlots: [...inst.coverageSlots, slot] }
         : inst,
     );
+    // Abrir la instalación y el puesto recién creado (resto queda contraído).
+    setCollapsed((prev) => ({ ...prev, [targetIdx]: false }));
     setFocusKey(`${targetIdx}-${newSlotIdx}`);
     commit(next);
   }
@@ -192,7 +194,7 @@ export function CorreoAiCoverageTable({ proposal, onChange, regimenOptions }: Pr
         </div>
       )}
 
-      <StatGrid cols={2} lgCols={peak ? 4 : 3}>
+      <StatGrid cols={2} lgCols={peak ? 3 : 2}>
         {peak && (
           <Stat
             label="Peak simultáneo"
@@ -203,12 +205,11 @@ export function CorreoAiCoverageTable({ proposal, onChange, regimenOptions }: Pr
         )}
         <Stat label="HH / sem" value={t.weeklyHH} animate />
         <Stat
-          label="Base"
+          label="Dotación"
           value={t.headcountBase}
           animate
           hint={peak ? "Σ etapas, no simultáneo" : undefined}
         />
-        <Stat label="Total c/reserva" value={t.headcountWithReserve} animate />
       </StatGrid>
 
       <CoverageTimeline groups={stageGroups} />
@@ -216,7 +217,8 @@ export function CorreoAiCoverageTable({ proposal, onChange, regimenOptions }: Pr
       {instGroups.length > 0 ? (
         <div className="space-y-3">
           {instGroups.map((group) => {
-            const isOpen = collapsed[group.instIdx] !== true;
+            // Contraídas por defecto; solo abiertas si el usuario (o un alta) las abre.
+            const isOpen = collapsed[group.instIdx] === false;
             const others = instGroups
               .filter((g) => g.instIdx !== group.instIdx)
               .map((g) => ({ idx: g.instIdx, name: g.name }));
