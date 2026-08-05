@@ -420,6 +420,9 @@ export async function runHistoricalForRule(
   ruleId: string,
 ): Promise<{ suggested: number; autoMatched: number } | null> {
   try {
+    // Import dinámico: evita ciclo estático con rule-action-resolver
+    // (resolver importa tipos/guards de este módulo).
+    const { resolveRuleAction } = await import("./rule-action-resolver");
     const txs = await prisma.financeBankTransaction.findMany({
       where: {
         tenantId,
@@ -439,14 +442,14 @@ export async function runHistoricalForRule(
         reference: tx.reference,
       });
       if (!evaluation || evaluation.ruleId !== ruleId) continue;
-      const action = evaluation.action;
-      if (!isLegacyAction(action) || !action.accountPlanId) continue;
-      if (action.requiresReview) {
+      const resolved = await resolveRuleAction(tenantId, evaluation.action);
+      if (!resolved.ok) continue;
+      if (resolved.requiresReview) {
         await prisma.financeBankTransaction.update({
           where: { id: tx.id },
           data: {
             suggestedRuleId: evaluation.ruleId,
-            suggestedAccountPlanId: action.accountPlanId,
+            suggestedAccountPlanId: resolved.accountPlanId,
           },
         });
         suggested++;
@@ -461,7 +464,7 @@ export async function runHistoricalForRule(
               targetType: isIncome ? "INCOME" : "EXPENSE",
               targetId: null,
               amount: new Decimal(amountAbs),
-              accountPlanId: action.accountPlanId,
+              accountPlanId: resolved.accountPlanId,
               note: `Auto-aplicado al crear/editar regla: ${evaluation.ruleName}`,
               createdById: userId,
             },

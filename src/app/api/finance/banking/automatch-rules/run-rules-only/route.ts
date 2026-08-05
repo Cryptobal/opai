@@ -9,8 +9,11 @@ import {
 import { hasCapability } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { Decimal } from "@prisma/client/runtime/library";
-import { findMatchingRule, isFlowRowAction, isLegacyAction } from "@/modules/finance/banking/automatch-rule.service";
-import { resolveAccountPlanIdForFlowRow } from "@/modules/finance/banking/flow-row-account-plan.service";
+import { findMatchingRule } from "@/modules/finance/banking/automatch-rule.service";
+import {
+  reasonToUserMessage,
+  resolveRuleAction,
+} from "@/modules/finance/banking/rule-action-resolver";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -89,47 +92,26 @@ export async function POST(request: NextRequest) {
             });
             if (!evaluation) return;
             if (targetRuleId && evaluation.ruleId !== targetRuleId) return;
-            const action = evaluation.action;
-
-            let accountPlanId: string | null = null;
-            if (isFlowRowAction(action)) {
-              const flowRow = await prisma.financeFlowRow.findFirst({
-                where: {
-                  id: action.flowRowId,
-                  tenantId: ctx.tenantId,
-                  archivedAt: null,
-                },
-                select: { id: true, categoryId: true },
-              });
-              if (!flowRow) {
-                errors.push({ id: tx.id, message: "Fila de flujo de la regla no encontrada" });
-                return;
-              }
-              accountPlanId = await resolveAccountPlanIdForFlowRow(ctx.tenantId, flowRow);
-              if (!accountPlanId) {
+            const resolved = await resolveRuleAction(ctx.tenantId, evaluation.action);
+            if (!resolved.ok) {
+              if (
+                resolved.reason === "ROW_NOT_FOUND" ||
+                resolved.reason === "ROW_WITHOUT_ACCOUNT"
+              ) {
                 errors.push({
                   id: tx.id,
-                  message:
-                    "La fila de flujo no tiene cuenta contable asociada; asigná categoría con cuenta",
+                  message: reasonToUserMessage(resolved.reason),
                 });
-                return;
               }
-            } else if (!isLegacyAction(action) || !action.accountPlanId) {
               return;
-            } else {
-              accountPlanId = action.accountPlanId;
             }
 
-            const requiresReview = isFlowRowAction(action)
-              ? action.requiresReview !== false
-              : action.requiresReview;
-
-            if (requiresReview) {
+            if (resolved.requiresReview) {
               await prisma.financeBankTransaction.update({
                 where: { id: tx.id },
                 data: {
                   suggestedRuleId: evaluation.ruleId,
-                  suggestedAccountPlanId: accountPlanId,
+                  suggestedAccountPlanId: resolved.accountPlanId,
                 },
               });
               suggested++;
@@ -144,7 +126,7 @@ export async function POST(request: NextRequest) {
                     targetType: isIncome ? "INCOME" : "EXPENSE",
                     targetId: null,
                     amount: new Decimal(amountAbs),
-                    accountPlanId,
+                    accountPlanId: resolved.accountPlanId,
                     note: `Re-evaluación de regla: ${evaluation.ruleName}`,
                     createdById: ctx.userId,
                   },

@@ -33,7 +33,8 @@
  */
 import { prisma } from "@/lib/prisma";
 import { Decimal } from "@prisma/client/runtime/library";
-import { findMatchingRule, isLegacyAction } from "./automatch-rule.service";
+import { findMatchingRule } from "./automatch-rule.service";
+import { resolveRuleAction } from "./rule-action-resolver";
 import { tryAutoMatchBankTransactionToTurnoExtra } from "./auto-match-turno-extra.service";
 
 export interface AutoMatchResult {
@@ -521,28 +522,22 @@ async function tryApplyRule(
     options?.onlyRuleId ? { onlyRuleId: options.onlyRuleId } : undefined,
   );
   if (!evaluation) return "none";
-  const action = evaluation.action;
-  if (!isLegacyAction(action)) return "none";
-  if (action.requiresReview) {
+  const resolved = await resolveRuleAction(tenantId, evaluation.action);
+  if (!resolved.ok) return "none";
+
+  if (resolved.requiresReview) {
     // La regla aplica pero pide revisión humana — guardamos la sugerencia
     // en la propia tx para que aparezca en el sub-tab "Reconocidos" y
     // pueda autorizarse 1-clic o en bulk. La tx sigue UNMATCHED hasta que
     // el usuario confirme.
-    if (action.accountPlanId) {
-      await prisma.financeBankTransaction.update({
-        where: { id: bankTransactionId },
-        data: {
-          suggestedRuleId: evaluation.ruleId,
-          suggestedAccountPlanId: action.accountPlanId,
-        },
-      });
-      return "suggested";
-    }
-    return "none";
-  }
-  if (!action.accountPlanId) {
-    // Regla sin cuenta contable destino → no podemos crear el link.
-    return "none";
+    await prisma.financeBankTransaction.update({
+      where: { id: bankTransactionId },
+      data: {
+        suggestedRuleId: evaluation.ruleId,
+        suggestedAccountPlanId: resolved.accountPlanId,
+      },
+    });
+    return "suggested";
   }
 
   const isIncome = tx.amount.toNumber() > 0;
@@ -556,7 +551,7 @@ async function tryApplyRule(
         targetType: isIncome ? "INCOME" : "EXPENSE",
         targetId: null,
         amount: new Decimal(amountAbs),
-        accountPlanId: action.accountPlanId,
+        accountPlanId: resolved.accountPlanId,
         note: `Auto-match por regla: ${evaluation.ruleName}`,
         createdById: userId,
       },
