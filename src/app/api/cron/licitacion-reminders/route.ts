@@ -14,23 +14,29 @@ export async function GET(req: NextRequest) {
   }
 
   // Paso 1: reprocesar links PENDING de licitaciones (dueño sin Calendar al
-  // momento del sync). Cap 20 por corrida, agrupado por tenant.
+  // momento del sync). Cap 20 por corrida; actor = owner de la cuenta del deal.
   let retriedPending = 0;
   try {
     const pending = await prisma.agendaEventLink.findMany({
       where: { sourceType: "licitacion", syncStatus: "PENDING" },
-      select: { tenantId: true },
-      distinct: ["tenantId"],
-      take: 5,
+      select: { id: true, tenantId: true, sourceId: true },
+      take: 20,
+      orderBy: { updatedAt: "asc" },
     });
-    const { retryPendingAgendaLinks } = await import("@/modules/agenda/agenda-retry-pending");
-    for (const p of pending) {
-      const { retried } = await retryPendingAgendaLinks({
-        tenantId: p.tenantId,
-        sourceType: "licitacion",
-        cap: 20,
+    const { syncLicitacionToCalendar } = await import(
+      "@/modules/agenda/agenda-sync-licitacion"
+    );
+    for (const link of pending) {
+      const deal = await prisma.crmDeal.findFirst({
+        where: { id: link.sourceId, tenantId: link.tenantId },
+        select: { account: { select: { ownerId: true } } },
       });
-      retriedPending += retried;
+      const actorUserId = deal?.account.ownerId ?? null;
+      if (!actorUserId) continue; // sin dueño → syncLicitacion deja ERROR legible
+      await syncLicitacionToCalendar(link.tenantId, link.sourceId, "upsert", {
+        actorUserId,
+      });
+      retriedPending += 1;
     }
   } catch (err) {
     console.warn("[calendar] retry pending licitaciones:", err);

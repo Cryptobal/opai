@@ -70,16 +70,39 @@ export async function syncLicitacionToCalendar(
     mode !== "delete" && deal.isLicitacion && Boolean(deal.fechaEntrega) && deal.status === "open";
 
   if (!assignedUserId) {
+    const noOwnerError =
+      "La cuenta del negocio no tiene dueño asignado: asigná un responsable para sincronizar con Google Calendar.";
     if (isActive && deal.fechaEntrega) {
       await resolveRangeStartYmd(tenantId, dealId, deal.fechaEntrega);
+      await prisma.agendaEventLink.updateMany({
+        where: { tenantId, sourceType: "licitacion", sourceId: dealId },
+        data: {
+          syncStatus: "ERROR",
+          lastError: noOwnerError,
+          allDay: true,
+          lastSyncAt: new Date(),
+        },
+      });
     } else {
       await prisma.agendaEventLink.upsert({
         where: { sourceType_sourceId: { sourceType: "licitacion", sourceId: dealId } },
-        create: { tenantId, sourceType: "licitacion", sourceId: dealId, allDay: true, syncStatus: "PENDING" },
-        update: { syncStatus: "PENDING", allDay: true },
+        create: {
+          tenantId,
+          sourceType: "licitacion",
+          sourceId: dealId,
+          allDay: true,
+          syncStatus: "ERROR",
+          lastError: noOwnerError,
+        },
+        update: {
+          syncStatus: "ERROR",
+          lastError: noOwnerError,
+          allDay: true,
+          lastSyncAt: new Date(),
+        },
       });
     }
-    return { syncStatus: "PENDING" };
+    return { syncStatus: "ERROR" };
   }
 
   if (!isActive || !deal.fechaEntrega) {

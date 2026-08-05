@@ -281,7 +281,7 @@ export async function createCrmStructureFromProposal(params: {
   // Nunca reutilizar la cuenta propia del tenant aunque el nombre coincida.
   let account = await prisma.crmAccount.findFirst({
     where: { tenantId, name: { equals: accountName, mode: "insensitive" } },
-    select: { id: true, name: true, website: true },
+    select: { id: true, name: true, website: true, ownerId: true },
   });
   if (account && isOwnCompanyAccount(account, ownTenant)) {
     account = null;
@@ -293,15 +293,22 @@ export async function createCrmStructureFromProposal(params: {
         tenantId,
         name: accountName,
         type: "prospect",
+        ownerId: userId,
         rut: proposal.account.rut,
         legalName: proposal.account.legalName,
         industry: proposal.account.industry,
         segment: proposal.account.segment ?? (proposal.deal.isLicitacion ? "Sector Público" : null),
         notes: proposal.requerimiento?.slice(0, 2000) ?? null,
       },
-      select: { id: true, name: true, website: true },
+      select: { id: true, name: true, website: true, ownerId: true },
     });
     accountReused = false;
+  } else if (!account.ownerId) {
+    await prisma.crmAccount.updateMany({
+      where: { id: account.id, tenantId, ownerId: null },
+      data: { ownerId: userId },
+    });
+    account = { ...account, ownerId: userId };
   }
 
   // Contactos — independientes del deal. Crea todos los seleccionados
@@ -526,12 +533,19 @@ export async function createCrmStructureFromProposal(params: {
       const { createDealMilestoneEvent, milestoneRangeFromPlan } = await import(
         "@/modules/agenda/deal-milestones"
       );
-      const today = new Date().toISOString().slice(0, 10);
+      const { todayInChile } = await import("@/lib/dates-cl");
+      const today = todayInChile();
       for (const m of params.milestones ?? []) {
         if (m.enabled === false) continue;
-        if (m.date < today) continue;
+        if (m.date < today) {
+          skippedDetail.push({ id: m.id, reason: "sin_datos" });
+          continue;
+        }
         const range = milestoneRangeFromPlan(m);
-        if (!range) continue;
+        if (!range) {
+          skippedDetail.push({ id: m.id, reason: "sin_datos" });
+          continue;
+        }
         if (m.kind === "entrega" && m.date !== proposal.deal.fechaLimite) {
           await prisma.crmDeal.update({
             where: { id: dealId },
@@ -591,11 +605,11 @@ export async function createCrmStructureFromProposal(params: {
     }
   }
 
-  // Banda all-day de licitación (solo en deal nuevo).
-  if (proposal.deal.isLicitacion && dealId && createdNewDeal) {
+  // Banda all-day de licitación (idempotente; también en deals reutilizados).
+  if (proposal.deal.isLicitacion && dealId) {
+    const { todayInChile } = await import("@/lib/dates-cl");
     const pastDeadline =
-      proposal.deal.fechaLimite &&
-      proposal.deal.fechaLimite < new Date().toISOString().slice(0, 10);
+      proposal.deal.fechaLimite && proposal.deal.fechaLimite < todayInChile();
     if (pastDeadline) {
       agendaSync = { attempted: false, ok: false, skippedReason: "fecha_pasada" };
     } else if (!proposal.deal.fechaLimite) {
@@ -603,11 +617,29 @@ export async function createCrmStructureFromProposal(params: {
     } else {
       const { syncLicitacionToCalendar } = await import("@/modules/agenda/agenda-sync");
       try {
-        const sync = await syncLicitacionToCalendar(tenantId, dealId);
-        agendaSync = { attempted: true, ok: sync.syncStatus !== "ERROR" };
+        const sync = await syncLicitacionToCalendar(tenantId, dealId, "upsert", {
+          actorUserId: userId,
+        });
+        const syncStatus = sync.syncStatus;
+        agendaSync = {
+          attempted: true,
+          ok: syncStatus === "SYNCED",
+          syncStatus,
+          skippedReason:
+            syncStatus === "SYNCED"
+              ? undefined
+              : syncStatus === "PENDING"
+                ? "pendiente"
+                : "error",
+        };
       } catch (e) {
         console.error("[email-to-crm-structure] sync licitación:", e);
-        agendaSync = { attempted: true, ok: false, skippedReason: "error" };
+        agendaSync = {
+          attempted: true,
+          ok: false,
+          syncStatus: "ERROR",
+          skippedReason: "error",
+        };
       }
     }
   }
