@@ -678,7 +678,10 @@ export function DteForm({
   useEffect(() => {
     if (!customer?.id) {
       setAccountTemplates([]);
-      if (!skipTemplateAutofillRef.current) setRecurringTemplateId(null);
+      if (!skipTemplateAutofillRef.current) {
+        setRecurringTemplateId(null);
+        setFlowDestination(null);
+      }
       return;
     }
     const ctrl = new AbortController();
@@ -699,6 +702,8 @@ export function DteForm({
           skipTemplateAutofillRef.current = false;
           return;
         }
+        // Cambio de cliente: reiniciar destino puntual (sin preselección).
+        if (forAccount.length === 0) setFlowDestination(null);
         if (forAccount.length === 1) {
           const t = forAccount[0];
           setRecurringTemplateId(t.id);

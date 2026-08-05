@@ -5,7 +5,7 @@ import {
   resolveApiPerms,
   parseBody,
 } from "@/lib/api-auth";
-import { hasFacturacionCapability } from "@/lib/permissions";
+import { hasCapability, hasFacturacionCapability } from "@/lib/permissions";
 import { issueDteSchema } from "@/lib/validations/finance";
 import {
   issueDte,
@@ -645,7 +645,6 @@ export async function POST(request: NextRequest) {
       allowAnchoredDate,
       ...issueInput
     } = body;
-    const { hasCapability } = await import("@/lib/permissions");
     const result = await issueDte(ctx.tenantId, ctx.userId, issueInput, {
       ufOverride: ufOverride ?? undefined,
       forceIssueDateToToday: forceIssueDateToToday ?? undefined,
