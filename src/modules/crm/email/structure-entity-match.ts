@@ -47,11 +47,20 @@ export type StructureDealMatch = {
   score: number;
 };
 
+export type StructureAgendaEventMatch = {
+  id: string;
+  title: string;
+  label: string | null;
+  startAt: string;
+  status: string;
+};
+
 export type StructureEntityConflicts = {
   accounts: StructureAccountMatch[];
   installations: StructureInstallationMatch[];
   contacts: StructureContactMatch[];
   deal: StructureDealMatch | null;
+  agendaEvents: StructureAgendaEventMatch[];
 };
 
 const ACCOUNT_SIMILARITY_THRESHOLD = 0.7;
@@ -413,7 +422,7 @@ export async function detectStructureConflicts(params: {
 
   const accountId = accounts[0]?.id;
   if (!accountId) {
-    return { accounts, installations: [], contacts: [], deal: null };
+    return { accounts, installations: [], contacts: [], deal: null, agendaEvents: [] };
   }
 
   const [installations, contacts, deal] = await Promise.all([
@@ -441,7 +450,44 @@ export async function detectStructureConflicts(params: {
       : Promise.resolve(null),
   ]);
 
-  return { accounts, installations, contacts, deal };
+  const agendaDealId = deal?.id ?? params.threadDealId ?? null;
+  const agendaEvents = agendaDealId
+    ? await findStructureAgendaEvents({
+        tenantId: params.tenantId,
+        dealId: agendaDealId,
+      })
+    : [];
+
+  return { accounts, installations, contacts, deal, agendaEvents };
+}
+
+async function findStructureAgendaEvents(params: {
+  tenantId: string;
+  dealId: string;
+}): Promise<StructureAgendaEventMatch[]> {
+  const rows = await prisma.agendaVisita.findMany({
+    where: {
+      tenantId: params.tenantId,
+      dealId: params.dealId,
+      status: { not: "cancelada" },
+    },
+    select: {
+      id: true,
+      title: true,
+      label: true,
+      startAt: true,
+      status: true,
+    },
+    orderBy: { startAt: "asc" },
+    take: 20,
+  });
+  return rows.map((r) => ({
+    id: r.id,
+    title: r.title,
+    label: r.label,
+    startAt: r.startAt.toISOString(),
+    status: r.status,
+  }));
 }
 
 export function conflictsNeedConfirmation(conflicts: StructureEntityConflicts): boolean {
@@ -449,5 +495,6 @@ export function conflictsNeedConfirmation(conflicts: StructureEntityConflicts): 
   if (conflicts.installations.length > 0) return true;
   if (conflicts.contacts.length > 0) return true;
   if (conflicts.deal) return true;
+  if (conflicts.agendaEvents.length > 0) return true;
   return false;
 }

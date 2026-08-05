@@ -177,12 +177,25 @@ export function PlanMilestonesForm({
                   onCheckedChange={(v) => updateRow(m, { enabled: Boolean(v) })}
                   className="h-5 w-5"
                 />
-                <Label
-                  htmlFor={`ms-${key}-enabled`}
-                  className="cursor-pointer text-[13px] font-medium text-ds-text-1"
-                >
-                  {rowTitle(m)}
-                </Label>
+                <div className="min-w-0">
+                  <Label
+                    htmlFor={`ms-${key}-enabled`}
+                    className="cursor-pointer text-[13px] font-medium text-ds-text-1"
+                  >
+                    {rowTitle(m)}
+                  </Label>
+                  {(m.participantIds.length > 0 || m.externalEmails.length > 0) && (
+                    <p className="truncate text-[12px] text-ds-text-3">
+                      Invitados:{" "}
+                      {[
+                        ...m.participantIds.map(
+                          (id) => users.find((u) => u.id === id)?.name ?? "Usuario",
+                        ),
+                        ...m.externalEmails.map((e) => e.name || e.email),
+                      ].join(", ")}
+                    </p>
+                  )}
+                </div>
               </div>
               {m.kind === "otro" && (
                 <Button

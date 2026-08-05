@@ -122,6 +122,23 @@ export function CorreoAiConflictDialog({
               </p>
             </ConflictBlock>
           )}
+
+          {(conflicts.agendaEvents?.length ?? 0) > 0 && (
+            <ConflictBlock
+              title={`Eventos de agenda · ${conflicts.agendaEvents!.length} hito${
+                conflicts.agendaEvents!.length === 1 ? "" : "s"
+              } ya creado${conflicts.agendaEvents!.length === 1 ? "" : "s"}`}
+            >
+              <ul className="space-y-1">
+                {conflicts.agendaEvents!.map((ev) => (
+                  <li key={ev.id}>
+                    {ev.label ? `${ev.label} · ` : ""}
+                    {ev.title}
+                  </li>
+                ))}
+              </ul>
+            </ConflictBlock>
+          )}
         </div>
 
         <DialogFooter className="flex-col gap-2 border-t border-ds-border-subtle px-4 py-3 sm:flex-col sm:space-x-0">

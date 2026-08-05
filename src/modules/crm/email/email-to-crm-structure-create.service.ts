@@ -746,7 +746,7 @@ export async function createCrmStructureFromProposal(params: {
     } else if (!dealId) {
       skip("milestones", "requiere_negocio");
     } else {
-      const { createDealMilestoneEvent, milestoneRangeFromPlan } = await import(
+      const { upsertDealMilestoneEvent, milestoneRangeFromPlan } = await import(
         "@/modules/agenda/deal-milestones"
       );
       const { todayInChile } = await import("@/lib/dates-cl");
@@ -784,7 +784,7 @@ export async function createCrmStructureFromProposal(params: {
               : typeof instLoc?.lng === "number" && Number.isFinite(instLoc.lng)
                 ? instLoc.lng
                 : null;
-          const created = await createDealMilestoneEvent({
+          const upserted = await upsertDealMilestoneEvent({
             tenantId,
             actorUserId: userId,
             dealId,
@@ -805,8 +805,9 @@ export async function createCrmStructureFromProposal(params: {
           });
           milestoneResults.push({
             kind: m.kind,
-            eventId: created.eventId,
-            syncStatus: created.syncStatus,
+            eventId: upserted.eventId,
+            syncStatus: upserted.syncStatus,
+            action: upserted.action,
           });
           if (m.kind === "visita_tecnica") {
             await prisma.crmDeal.update({
