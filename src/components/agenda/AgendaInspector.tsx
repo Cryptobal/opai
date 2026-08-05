@@ -37,6 +37,22 @@ type InspectorParticipant = {
   invitedVia: InvitedVia;
 };
 
+const TYPE_LABELS: Record<string, string> = {
+  cliente: "Cliente",
+  supervision: "Supervisión",
+  tecnica: "Visita técnica",
+  otra: "Evento",
+  licitacion: "Licitación",
+  google: "Google Calendar",
+  tarea: "Tarea",
+};
+
+function inspectorTypeLabel(item: AgendaCalendarItem): string {
+  const label = item.label?.trim();
+  if (label) return label;
+  return TYPE_LABELS[item.type] ?? "Evento";
+}
+
 function localParts(iso: string): { date: string; time: string } {
   const d = toZonedTime(new Date(iso), CHILE_TZ);
   const pad = (n: number) => String(n).padStart(2, "0");
@@ -172,7 +188,7 @@ export function AgendaInspector({ item, users, onClose, onChanged }: Props) {
           <Tag size="sm" variant="neutral">
             {item.source === "google"
               ? "Google Calendar"
-              : item.type}
+              : inspectorTypeLabel(item)}
           </Tag>
           <h2 className="font-display text-base font-semibold text-ds-text-1">{item.title}</h2>
           <p className="text-[13px] text-ds-text-3">

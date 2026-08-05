@@ -50,3 +50,35 @@ describe("createDealMilestoneEvent — kind otro", () => {
     );
   });
 });
+
+describe("createDealMilestoneEvent — notes legibles", () => {
+  it("usa etiqueta humana en notes, no el slug crudo", async () => {
+    createOpai.mockResolvedValue({
+      eventId: "ev-2",
+      syncStatus: "SYNCED",
+      htmlLink: null,
+      visita: {
+        id: "ev-2",
+        title: "Visita técnica",
+        type: "otra",
+        label: "Visita técnica",
+        assignedUserId: "u1",
+        dealId: "d1",
+        status: "programada",
+      },
+    });
+    await createDealMilestoneEvent({
+      tenantId: "t1",
+      actorUserId: "u1",
+      dealId: "d1",
+      kind: "visita_tecnica",
+      startAt: new Date("2026-08-10T13:00:00Z"),
+      endAt: new Date("2026-08-10T14:00:00Z"),
+    });
+    expect(createOpai).toHaveBeenCalledWith(
+      expect.objectContaining({
+        notes: "Hito: Visita técnica",
+      }),
+    );
+  });
+});

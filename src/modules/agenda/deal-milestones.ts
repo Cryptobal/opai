@@ -136,7 +136,9 @@ export async function createDealMilestoneEvent(params: {
     allDay: params.allDay,
     notes:
       params.notes ??
-      (params.kind === "otro" ? null : `Hito: ${params.kind}`),
+      (params.kind === "otro"
+        ? null
+        : `Hito: ${MILESTONE_LABELS[params.kind] ?? params.kind}`),
     customAddress: params.customAddress ?? null,
     lat: params.lat ?? null,
     lng: params.lng ?? null,
