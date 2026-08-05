@@ -569,6 +569,16 @@ export function PlanillaGrid({
     onDiscreteStats?.(null);
   }, [onSumModeChange, onDiscreteStats]);
 
+  /** Esc: cierra ficha/menú/panel y limpia selección (y Σ si aplica). */
+  const handleEscape = useCallback(() => {
+    hoverRef.current?.forceHide();
+    setCaretMenu(null);
+    setPopover(null);
+    setPopoverFocusNote(false);
+    clearDiscrete();
+    kbRef.current?.setSel(null);
+  }, [clearDiscrete]);
+
   const cellEditReason = useCallback(
     (rowId: string, colIdx: number): string => {
       const row = rowById.get(rowId);
@@ -632,7 +642,7 @@ export function PlanillaGrid({
     onUndo: () => void handleUndo(),
     onRedo: () => void handleRedo(),
     onCopy: copyRangeTsv,
-    onEscape: clearDiscrete,
+    onEscape: handleEscape,
   });
   kbRef.current = kb;
 

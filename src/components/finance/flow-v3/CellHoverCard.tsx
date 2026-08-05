@@ -19,6 +19,8 @@ export interface CellHoverShowCtx {
 export interface CellHoverCardHandle {
   show: (ctx: CellHoverShowCtx, rect: DOMRect) => void;
   hide: () => void;
+  /** Cierra aunque esté anclada (Esc / selección nueva). */
+  forceHide: () => void;
   pin: () => void;
   unpin: () => void;
   flush: () => Promise<void>;
@@ -56,9 +58,18 @@ export const CellHoverCard = forwardRef<CellHoverCardHandle, Props>(function Cel
     const w = 268;
     const estH = 220;
     const left = Math.max(8, Math.min(rect.left, window.innerWidth - w - 8));
-    let top = rect.bottom + 4;
-    if (top + estH > window.innerHeight - 8) top = Math.max(8, rect.top - estH - 4);
+    // Sin hueco: solapa 2 px la celda para que el puntero no “caiga” en la de abajo.
+    let top = rect.bottom - 2;
+    if (top + estH > window.innerHeight - 8) top = Math.max(8, rect.top - estH + 2);
     setPos({ left, top });
+  }, []);
+
+  const hardHide = useCallback(() => {
+    if (leaveTimer.current) clearTimeout(leaveTimer.current);
+    setPinned(false);
+    setEditingNote(false);
+    setVisible(false);
+    setCtx(null);
   }, []);
 
   useImperativeHandle(ref, () => ({
@@ -76,6 +87,7 @@ export const CellHoverCard = forwardRef<CellHoverCardHandle, Props>(function Cel
       setEditingNote(false);
       setCtx(null);
     },
+    forceHide: hardHide,
     pin() { setPinned(true); },
     unpin() { setPinned(false); },
     async flush() {},
@@ -86,7 +98,7 @@ export const CellHoverCard = forwardRef<CellHoverCardHandle, Props>(function Cel
     },
     isPinned: () => pinnedRef.current,
     isVisible: () => visibleRef.current,
-  }), [place]);
+  }), [place, hardHide]);
 
   if (!visible || !ctx) return null;
 
@@ -113,9 +125,14 @@ export const CellHoverCard = forwardRef<CellHoverCardHandle, Props>(function Cel
           setVisible(false);
           setEditingNote(false);
           setCtx(null);
-        }, 130);
+        }, 180);
       }}
     >
+      {/* Puente invisible hacia la celda fuente: evita el hueco que robaba el hover. */}
+      <div
+        aria-hidden
+        className="pointer-events-auto absolute -top-3 left-0 right-0 h-3"
+      />
       <CellHoverCardBody
         model={model}
         editingNote={editingNote}
