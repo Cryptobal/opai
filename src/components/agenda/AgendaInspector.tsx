@@ -17,7 +17,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { CHILE_TZ } from "@/lib/dates-cl";
+import type { InvitedVia } from "@/modules/calendar/calendar-detail";
 import { dateAtChileSlot, formatAgendaTime } from "./agenda-calendar-utils";
+import { RsvpBadge } from "./RsvpBadge";
 import { TaskTimePicker } from "./TaskTimePicker";
 import { EditEventDialog } from "./evento/EditEventDialog";
 import type { AgendaCalendarItem, AgendaTeamMember } from "./agenda-calendar.types";
@@ -32,21 +34,23 @@ type Props = {
 type InspectorParticipant = {
   name: string;
   responseStatus: string;
-  hasGoogle: boolean;
+  invitedVia: InvitedVia;
 };
 
-/** Badge RSVP: ✓ Va / ✗ No va / ? pendiente / ◉ OPAI (sin Google). */
-function RsvpBadge({ participant }: { participant: InspectorParticipant }) {
-  if (!participant.hasGoogle) {
-    return <Tag size="sm" variant="neutral">◉ OPAI</Tag>;
-  }
-  if (participant.responseStatus === "accepted") {
-    return <Tag size="sm" variant="ok">✓ Va</Tag>;
-  }
-  if (participant.responseStatus === "declined") {
-    return <Tag size="sm" variant="danger">✗ No va</Tag>;
-  }
-  return <Tag size="sm" variant="neutral">?</Tag>;
+const TYPE_LABELS: Record<string, string> = {
+  cliente: "Cliente",
+  supervision: "Supervisión",
+  tecnica: "Visita técnica",
+  otra: "Evento",
+  licitacion: "Licitación",
+  google: "Google Calendar",
+  tarea: "Tarea",
+};
+
+function inspectorTypeLabel(item: AgendaCalendarItem): string {
+  const label = item.label?.trim();
+  if (label) return label;
+  return TYPE_LABELS[item.type] ?? "Evento";
 }
 
 function localParts(iso: string): { date: string; time: string } {
@@ -56,6 +60,20 @@ function localParts(iso: string): { date: string; time: string } {
     date: `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`,
     time: `${pad(d.getHours())}:${pad(d.getMinutes())}`,
   };
+}
+
+/** True si fecha/hora/responsable difieren del item cargado. */
+export function isInspectorScheduleDirty(
+  item: Pick<AgendaCalendarItem, "start" | "allDay" | "assignedUserId">,
+  draft: { date: string; time: string; assignedUserId: string },
+): boolean {
+  const parts = localParts(item.start);
+  const baselineTime = item.allDay ? "" : parts.time;
+  return (
+    draft.date !== parts.date ||
+    draft.time !== baselineTime ||
+    draft.assignedUserId !== (item.assignedUserId ?? "")
+  );
 }
 
 /**
@@ -101,10 +119,18 @@ export function AgendaInspector({ item, users, onClose, onChanged }: Props) {
             syncReason: data.syncReason ?? null,
             participants: Array.isArray(data.v2?.participants)
               ? data.v2.participants.map(
-                  (p: { name?: string; responseStatus?: string; hasGoogle?: boolean }) => ({
+                  (p: {
+                    name?: string;
+                    responseStatus?: string;
+                    hasGoogle?: boolean;
+                    invitedVia?: InvitedVia;
+                  }) => ({
                     name: p.name ?? "—",
                     responseStatus: p.responseStatus ?? "needs_action",
-                    hasGoogle: p.hasGoogle === true,
+                    // Retrocompat: APIs viejas solo mandaban hasGoogle.
+                    invitedVia:
+                      p.invitedVia ??
+                      (p.hasGoogle === true ? "google_account" : "none"),
                   }),
                 )
               : [],
@@ -118,6 +144,11 @@ export function AgendaInspector({ item, users, onClose, onChanged }: Props) {
 
   const assignee =
     users.find((user) => user.id === assignedUserId)?.name ?? item.assignedName;
+  const scheduleDirty = isInspectorScheduleDirty(item, {
+    date,
+    time,
+    assignedUserId,
+  });
 
   async function saveVisit(body: Record<string, unknown>, okMsg: string) {
     setBusy(true);
@@ -176,7 +207,7 @@ export function AgendaInspector({ item, users, onClose, onChanged }: Props) {
           <Tag size="sm" variant="neutral">
             {item.source === "google"
               ? "Google Calendar"
-              : item.type}
+              : inspectorTypeLabel(item)}
           </Tag>
           <h2 className="font-display text-base font-semibold text-ds-text-1">{item.title}</h2>
           <p className="text-[13px] text-ds-text-3">
@@ -243,7 +274,7 @@ export function AgendaInspector({ item, users, onClose, onChanged }: Props) {
 
           <button
             type="button"
-            disabled={busy || !date}
+            disabled={busy || !date || !scheduleDirty}
             onClick={saveSchedule}
             className="h-10 w-full rounded-xl bg-primary text-[13px] font-medium text-primary-foreground ds-tap disabled:opacity-50 sm:h-9"
           >

@@ -15,6 +15,7 @@ type Props = {
 const MILESTONE_LABEL: Record<string, string> = {
   consultas: "Plazo consultas",
   visita_tecnica: "Visita técnica",
+  entrega_bases: "Entrega de bases",
   entrega: "Entrega de oferta",
 };
 

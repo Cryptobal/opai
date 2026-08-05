@@ -8,12 +8,14 @@ import type { PlanMilestone } from "@/modules/crm/email/email-to-crm-structure.t
 const MILESTONE_TITLES: Partial<Record<PlanMilestone["kind"], string>> = {
   consultas: "Cierre de consultas",
   visita_tecnica: "Visita técnica",
+  entrega_bases: "Entrega de bases",
   entrega: "Entrega de la oferta",
 };
 
 const MILESTONE_LABELS: Partial<Record<PlanMilestone["kind"], string>> = {
   consultas: "Consultas",
   visita_tecnica: "Visita técnica",
+  entrega_bases: "Entrega de bases",
   entrega: "Entrega de oferta",
 };
 
@@ -136,7 +138,9 @@ export async function createDealMilestoneEvent(params: {
     allDay: params.allDay,
     notes:
       params.notes ??
-      (params.kind === "otro" ? null : `Hito: ${params.kind}`),
+      (params.kind === "otro"
+        ? null
+        : `Hito: ${MILESTONE_LABELS[params.kind] ?? params.kind}`),
     customAddress: params.customAddress ?? null,
     lat: params.lat ?? null,
     lng: params.lng ?? null,

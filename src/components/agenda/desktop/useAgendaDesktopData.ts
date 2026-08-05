@@ -35,6 +35,7 @@ function normalizeItem(item: AgendaListItem): AgendaCalendarItem {
     source: item.source,
     type: item.type,
     title: item.title,
+    label: item.label ?? null,
     start: item.start,
     end: item.end,
     allDay: item.allDay,

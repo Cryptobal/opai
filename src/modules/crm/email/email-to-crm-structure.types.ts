@@ -209,7 +209,7 @@ export type PlanQuoteInput = {
 
 export type PlanMilestone = {
   id: string;
-  kind: "consultas" | "visita_tecnica" | "entrega" | "otro";
+  kind: "consultas" | "visita_tecnica" | "entrega_bases" | "entrega" | "otro";
   title?: string;
   label?: string;
   date: string;

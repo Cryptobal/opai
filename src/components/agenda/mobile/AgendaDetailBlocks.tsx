@@ -2,6 +2,7 @@
 
 import { Avatar, Tag } from "@/components/opai-ds";
 import { cn } from "@/lib/utils";
+import type { InvitedVia } from "@/modules/calendar/calendar-detail";
 
 export type DetailParticipant = {
   userId: string;
@@ -9,6 +10,7 @@ export type DetailParticipant = {
   role: string;
   responseStatus: string;
   hasGoogle: boolean;
+  invitedVia?: InvitedVia;
 };
 
 export type DetailExternal = {
@@ -25,8 +27,21 @@ const ROLE_LABELS: Record<string, string> = {
   watcher: "Seguidor",
 };
 
-/** Badge RSVP (spec §6): ✓ Va / ? Sin responder / ◉ OPAI / ✕ No va. */
-function RsvpBadge({ status, hasGoogle }: { status: string; hasGoogle: boolean }) {
+/** Badge RSVP: ✓ Va / ? Sin responder / ◉ Sin invitar / ✕ No va. */
+function MobileRsvpBadge({
+  status,
+  invitedVia,
+}: {
+  status: string;
+  invitedVia: InvitedVia;
+}) {
+  if (invitedVia === "none") {
+    return (
+      <span className="rounded-full bg-primary/[0.12] px-2 py-0.5 text-[12px] text-primary">
+        ◉ Sin invitar
+      </span>
+    );
+  }
   if (status === "accepted") {
     return <span className="rounded-full bg-status-ok-soft px-2 py-0.5 text-[12px] text-status-ok-fg">✓ Va</span>;
   }
@@ -35,9 +50,6 @@ function RsvpBadge({ status, hasGoogle }: { status: string; hasGoogle: boolean }
   }
   if (status === "tentative") {
     return <span className="rounded-full bg-status-warn-soft px-2 py-0.5 text-[12px] text-status-warn-fg">? Tentativo</span>;
-  }
-  if (!hasGoogle) {
-    return <span className="rounded-full bg-primary/[0.12] px-2 py-0.5 text-[12px] text-primary">◉ OPAI</span>;
   }
   return <span className="rounded-full bg-status-warn-soft px-2 py-0.5 text-[12px] text-status-warn-fg">? Sin responder</span>;
 }
@@ -76,7 +88,12 @@ export function ParticipantsBlock({
             <p className="truncate text-[13px] font-medium text-ds-text-1">{p.name}</p>
             <p className="text-[12px] text-ds-text-4">{ROLE_LABELS[p.role] ?? p.role}</p>
           </div>
-          <RsvpBadge status={p.responseStatus} hasGoogle={p.hasGoogle} />
+          <MobileRsvpBadge
+            status={p.responseStatus}
+            invitedVia={
+              p.invitedVia ?? (p.hasGoogle ? "google_account" : "none")
+            }
+          />
         </div>
       ))}
       {externals.map((e) => (
@@ -86,7 +103,7 @@ export function ParticipantsBlock({
             <p className="truncate text-[13px] font-medium text-ds-text-1">{e.name ?? e.email}</p>
             <p className="truncate text-[12px] text-ds-text-4">{e.email}</p>
           </div>
-          <RsvpBadge status={e.responseStatus} hasGoogle />
+          <MobileRsvpBadge status={e.responseStatus} invitedVia="email" />
         </div>
       ))}
     </section>
