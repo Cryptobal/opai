@@ -81,6 +81,9 @@ export default async function CrmDealDetailPage({
             salePriceMonthly: true,
           },
         },
+        proposalBundleQuote: {
+          select: { bundleId: true, includedInProposal: true },
+        },
       },
     }),
     prisma.crmPipelineStage.findMany({
@@ -268,7 +271,16 @@ export default async function CrmDealDetailPage({
 
   const linkedQuoteIds = new Set((deal.quotes ?? []).map((quote) => quote.quoteId));
   const linkedQuotes = quotes.filter((quote) => linkedQuoteIds.has(quote.id));
-  const linkedQuoteById = new Map(linkedQuotes.map((quote) => [quote.id, quote]));
+  const linkedQuoteById = new Map(
+    linkedQuotes.map((quote) => [
+      quote.id,
+      {
+        ...quote,
+        bundleId: quote.proposalBundleQuote?.bundleId ?? null,
+        includedInProposal: quote.proposalBundleQuote?.includedInProposal ?? true,
+      },
+    ])
+  );
   const activeQuoteSummary = resolveDealActiveQuotationSummary(
     deal,
     linkedQuoteById,

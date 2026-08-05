@@ -187,10 +187,22 @@ export async function listCrmDeals(params: ListDealsParams) {
             createdAt: true,
             updatedAt: true,
             parameters: { select: { salePriceMonthly: true } },
+            proposalBundleQuote: {
+              select: { bundleId: true, includedInProposal: true },
+            },
           },
         })
       : [];
-  const quoteById = new Map(linkedQuotes.map((q) => [q.id, q]));
+  const quoteById = new Map(
+    linkedQuotes.map((q) => [
+      q.id,
+      {
+        ...q,
+        bundleId: q.proposalBundleQuote?.bundleId ?? null,
+        includedInProposal: q.proposalBundleQuote?.includedInProposal ?? true,
+      },
+    ])
+  );
 
   const items = deals.map((deal) => ({
     ...deal,

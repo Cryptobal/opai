@@ -16,6 +16,10 @@ export type QuoteForActiveQuotation = {
   createdAt?: Date | string | null;
   updatedAt?: Date | string | null;
   parameters?: QuoteParametersInput;
+  /** Si la cotización pertenece a una propuesta multi-instalación. */
+  bundleId?: string | null;
+  /** Miembro incluido en la propuesta (default true si no viene). */
+  includedInProposal?: boolean | null;
 };
 
 export type DealWithQuoteLinks = {
@@ -39,6 +43,13 @@ export type ActiveQuotationSummary = {
 // (Antes solo "sent" → un negocio con la cotización "Aprobada" mostraba $0,
 // incoherente con pickWinningQuote, que sí trata "approved" como ganadora.)
 const FIRM_QUOTE_STATUSES = new Set(["sent", "approved"]);
+const REJECTED_QUOTE_STATUSES = new Set([
+  "rejected",
+  "lost",
+  "cancelled",
+  "canceled",
+  "trash",
+]);
 const DEFAULT_UF_VALUE = 38000;
 
 function normalizeUfValue(ufValue: number): number {
@@ -87,6 +98,29 @@ function isFirmQuote(quote: QuoteForActiveQuotation): boolean {
   return FIRM_QUOTE_STATUSES.has(quote.status.toLowerCase());
 }
 
+function isRejectedQuote(quote: QuoteForActiveQuotation): boolean {
+  return REJECTED_QUOTE_STATUSES.has(quote.status.toLowerCase());
+}
+
+function isIncludedInProposal(quote: QuoteForActiveQuotation): boolean {
+  return quote.includedInProposal !== false;
+}
+
+function sortByRecencyDesc(
+  a: QuoteForActiveQuotation,
+  b: QuoteForActiveQuotation
+): number {
+  const bTime = getQuoteSentAt(b)?.getTime() ?? 0;
+  const aTime = getQuoteSentAt(a)?.getTime() ?? 0;
+  return bTime - aTime;
+}
+
+function pickRepresentativeStatus(quotes: QuoteForActiveQuotation[]): string {
+  if (quotes.some((q) => q.status.toLowerCase() === "approved")) return "approved";
+  if (quotes.some((q) => q.status.toLowerCase() === "sent")) return "sent";
+  return quotes[0]?.status ?? "draft";
+}
+
 function toSummary(
   quote: QuoteForActiveQuotation,
   ufValue: number,
@@ -105,6 +139,81 @@ function toSummary(
     isManual,
     sentAt: sentAt ? sentAt.toISOString() : null,
   };
+}
+
+/**
+ * Consolida montos/guardias de varias cotizaciones de la misma propuesta
+ * multi-instalación (bundle). El `quoteId`/`code` apuntan a la miembro más
+ * reciente para navegación; los montos son la suma incluida.
+ */
+function toAggregatedBundleSummary(
+  members: QuoteForActiveQuotation[],
+  ufValue: number
+): ActiveQuotationSummary {
+  const ordered = [...members].sort(sortByRecencyDesc);
+  const representative = ordered[0];
+  let amountClp = 0;
+  let totalGuards = 0;
+
+  for (const quote of members) {
+    amountClp += toQuotationAmounts(quote, ufValue).amountClp;
+    totalGuards += parseNumber(quote.totalGuards);
+  }
+
+  const normalizedUf = normalizeUfValue(ufValue);
+  const amountUf = normalizedUf > 0 ? amountClp / normalizedUf : 0;
+  const sentAt = getQuoteSentAt(representative);
+
+  return {
+    quoteId: representative.id,
+    code: representative.code ?? null,
+    status: pickRepresentativeStatus(members),
+    amountClp,
+    amountUf,
+    totalGuards,
+    isManual: false,
+    sentAt: sentAt ? sentAt.toISOString() : null,
+  };
+}
+
+/**
+ * Si el pool comparte un único bundleId, devuelve los miembros incluidos
+ * ligados al negocio (cualquier largo ≥1). Null si no hay bundle común.
+ */
+function findBundleIncludedMembers(
+  linkedQuotes: QuoteForActiveQuotation[],
+  pool: QuoteForActiveQuotation[]
+): QuoteForActiveQuotation[] | null {
+  const bundleIds = Array.from(
+    new Set(
+      pool
+        .map((q) => q.bundleId)
+        .filter((id): id is string => Boolean(id))
+    )
+  );
+  if (bundleIds.length !== 1) return null;
+
+  const bundleId = bundleIds[0];
+  if (!pool.every((q) => q.bundleId === bundleId)) return null;
+
+  const members = linkedQuotes.filter(
+    (q) =>
+      q.bundleId === bundleId &&
+      isIncludedInProposal(q) &&
+      !isRejectedQuote(q)
+  );
+  return members.length > 0 ? members : null;
+}
+
+/** Consolida si hay ≥2 miembros; si hay 1, usa esa cotización sola. */
+function summarizeBundleOrSingle(
+  members: QuoteForActiveQuotation[],
+  ufValue: number
+): ActiveQuotationSummary {
+  if (members.length >= 2) {
+    return toAggregatedBundleSummary(members, ufValue);
+  }
+  return toSummary(members[0], ufValue, false);
 }
 
 export function collectLinkedQuoteIds<T extends { quotes?: QuoteLinkInput[] }>(
@@ -145,15 +254,26 @@ export function resolveDealActiveQuotationSummary(
   }
 
   const firmQuotes = linkedQuotes.filter(isFirmQuote);
-  if (firmQuotes.length === 0) {
-    return null;
+  if (firmQuotes.length > 0) {
+    const bundleMembers = findBundleIncludedMembers(linkedQuotes, firmQuotes);
+    if (bundleMembers) {
+      return summarizeBundleOrSingle(bundleMembers, ufValue);
+    }
+
+    firmQuotes.sort(sortByRecencyDesc);
+    return toSummary(firmQuotes[0], ufValue, false);
   }
 
-  firmQuotes.sort((a, b) => {
-    const bTime = getQuoteSentAt(b)?.getTime() ?? 0;
-    const aTime = getQuoteSentAt(a)?.getTime() ?? 0;
-    return bTime - aTime;
-  });
+  // Varias cotizaciones sin enviadas/aprobadas: no dejar el negocio en $0.
+  // Multicotización (mismo bundle) → suma consolidada; si no, la más reciente.
+  const draftPool = linkedQuotes.filter((q) => !isRejectedQuote(q));
+  if (draftPool.length === 0) return null;
 
-  return toSummary(firmQuotes[0], ufValue, false);
+  const bundleMembers = findBundleIncludedMembers(linkedQuotes, draftPool);
+  if (bundleMembers) {
+    return summarizeBundleOrSingle(bundleMembers, ufValue);
+  }
+
+  draftPool.sort(sortByRecencyDesc);
+  return toSummary(draftPool[0], ufValue, false);
 }
