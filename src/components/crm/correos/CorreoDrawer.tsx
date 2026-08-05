@@ -23,7 +23,13 @@ import { parseSender } from "./correo-sender";
 import { loadOfflineDetail } from "./offline-store";
 import { copilotoAttentionReasons } from "./correo-copiloto-reasons";
 import { triggerHaptic } from "@/lib/haptics";
-import type { CorreoDetail } from "@/modules/crm/email/correos.types";
+import type {
+  CorreoDetail,
+  CorreoThreadDTO,
+} from "@/modules/crm/email/correos.types";
+import type { CorreoAiCommandId } from "@/modules/crm/email/correo-ai-commands";
+import type { CorreoCascadeAiTarget } from "@/modules/crm/email/correo-cascade-ai";
+import { threadDtoFromDetail } from "@/modules/crm/email/thread-dto-from-detail";
 import type { CorreoShortcuts, CorreoSnoozeConfig } from "./useCorreosViewPreferences";
 import { nextIntentNonce, type ComposeIntent } from "./correo-reader-intent";
 import type { ComposerMode } from "./CorreoComposerBox";
@@ -69,12 +75,15 @@ type Props = {
   shortcuts?: CorreoShortcuts;
   workTabIntent?: { tab: import("./work-panel-tabs").WorkTab; nonce: number } | null;
   composeIntent?: ComposeIntent | null;
-  onOpenAiLead?: () => void;
-  onAiCommand?: (commandId: import("@/modules/crm/email/correo-ai-commands").CorreoAiCommandId) => void;
-  onCreateWithAi?: (
-    target: import("@/modules/crm/email/correo-cascade-ai").CorreoCascadeAiTarget,
-  ) => void;
-  onOpenAiMenu?: () => void;
+  /**
+   * Acciones IA del Copiloto. El drawer proyecta el detalle abierto a un
+   * `CorreoThreadDTO` — no depende de que el hilo esté en la página actual
+   * de la lista (búsqueda, deep-link, paginación).
+   */
+  onOpenAiLead?: (thread: CorreoThreadDTO) => void;
+  onAiCommand?: (commandId: CorreoAiCommandId, thread: CorreoThreadDTO) => void;
+  onCreateWithAi?: (target: CorreoCascadeAiTarget, thread: CorreoThreadDTO) => void;
+  onOpenAiMenu?: (thread: CorreoThreadDTO) => void;
   onOpenAiStyle?: () => void;
   onOpenSignature?: () => void;
   /** Incrementar para forzar cierre del dock Copiloto (mini-lista → expandir). */
@@ -264,7 +273,9 @@ export function CorreoDrawer({
   }, [refreshToken]);
 
   useEffect(() => {
-    if (autoExtract && detail && !detail.thread.leadId) onOpenAiLead?.();
+    if (autoExtract && detail && !detail.thread.leadId) {
+      onOpenAiLead?.(threadDtoFromDetail(detail));
+    }
   }, [autoExtract, detail, onOpenAiLead]);
 
   const refresh = useCallback(() => {
@@ -580,9 +591,16 @@ export function CorreoDrawer({
             detail={workPanelDetail}
             readCursorAt={workPanelSynced ? readCursorAt : null}
             workTabIntent={workTabIntent}
-            onOpenAiLead={() => onOpenAiLead?.()}
-            onAiCommand={onAiCommand}
-            onCreateWithAi={onCreateWithAi}
+            onOpenAiLead={() => {
+              // Fuente: detalle del lector (no la página de la lista).
+              onOpenAiLead?.(threadDtoFromDetail(workPanelDetail));
+            }}
+            onAiCommand={(commandId) => {
+              onAiCommand?.(commandId, threadDtoFromDetail(workPanelDetail));
+            }}
+            onCreateWithAi={(target) => {
+              onCreateWithAi?.(target, threadDtoFromDetail(workPanelDetail));
+            }}
             onAssociate={workPanelSynced ? associate : async () => {}}
             onRefresh={workPanelSynced ? refresh : () => {}}
             onRequestReply={workPanelSynced ? requestReply : undefined}
