@@ -24,7 +24,7 @@ import type { CellSel } from "./usePlanillaKeyboard";
 import {
   cellsInRect, rangeRect, rangeToTsv, type DiscreteSelStats, type RangeSel,
 } from "./range-sel";
-import { fmtClp } from "./format";
+import { fmtClp, parseSignedAmount } from "./format";
 import { PanelView } from "./PanelView";
 import { IssuedDteSlideOver } from "@/components/finance/dtes/IssuedDteSlideOver";
 
@@ -97,6 +97,8 @@ export function PlanillaClient({
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [fxSel, setFxSel] = useState<FxSelection | null>(null);
+  const [fxEditable, setFxEditable] = useState(false);
+  const [fxEditReason, setFxEditReason] = useState("");
   const [cellSel, setCellSel] = useState<CellSel | null>(null);
   const [selRange, setSelRange] = useState<RangeSel | null>(null);
   const [visibleRowIds, setVisibleRowIds] = useState<string[]>([]);
@@ -263,6 +265,8 @@ export function PlanillaClient({
         weekStart: string;
         range?: RangeSel | null;
         visibleRowIds?: string[];
+        canEditPlan?: boolean;
+        editReason?: string;
       } | null,
     ) => {
       setCellSel(sel);
@@ -270,6 +274,8 @@ export function PlanillaClient({
       setVisibleRowIds(meta?.visibleRowIds ?? []);
       if (!sel || !meta || !m.data) {
         setFxSel(null);
+        setFxEditable(false);
+        setFxEditReason("");
         return;
       }
       const row = m.data.rows.find((r) => r.id === sel.rowId);
@@ -282,6 +288,8 @@ export function PlanillaClient({
         row,
         cell,
       });
+      setFxEditable(!!meta.canEditPlan);
+      setFxEditReason(meta.editReason ?? "");
     },
     [m.data],
   );
@@ -598,6 +606,17 @@ export function PlanillaClient({
         <PlanillaFxBar
           selection={fxSel}
           onOpenLayers={() => setLayersReq((n) => n + 1)}
+          editable={fxEditable}
+          editReason={fxEditReason}
+          onCommitPlan={(raw) => {
+            if (!cellSel || !m.data) return;
+            const col = m.data.columns[cellSel.colIdx];
+            if (!col) return;
+            void m.patchPlan(cellSel.rowId, col.key, parseSignedAmount(raw || "0"));
+          }}
+          onFxBlurFocusGrid={() => {
+            gridScrollRef.current?.focus({ preventScroll: true });
+          }}
         />
 
         {viewTab === "panel" ? (
