@@ -51,6 +51,7 @@ import {
   collectBandejaGroups,
   isFallbackBandejaRow,
   summarizeBandejaRow,
+  type BandejaGroup,
 } from "@/modules/finance/flow-v3/unmatched-count";
 import { BandejaGroupList } from "./BandejaGroupList";
 
@@ -304,7 +305,7 @@ export function PlanillaGrid({
 
   const handleClassifyGroup = useCallback(
     async (args: {
-      group: import("@/modules/finance/flow-v3/unmatched-count").BandejaGroup;
+      group: BandejaGroup;
       flowRowId: string;
       needle: string | null;
     }) => {
