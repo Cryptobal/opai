@@ -42,6 +42,15 @@ describe("isInspectorScheduleDirty", () => {
     expect(
       isInspectorScheduleDirty(
         { ...baseItem, allDay: true },
+        { date: "2026-08-10", time: "", assignedUserId: "u1", allDay: true },
+      ),
+    ).toBe(false);
+  });
+
+  it("all-day omitido en draft no marca dirty", () => {
+    expect(
+      isInspectorScheduleDirty(
+        { ...baseItem, allDay: true },
         { date: "2026-08-10", time: "", assignedUserId: "u1" },
       ),
     ).toBe(false);

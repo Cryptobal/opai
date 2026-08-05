@@ -2,7 +2,7 @@
  * Extracción de RUT desde glosas bancarias (puro, sin prisma — usable en client).
  */
 import { validateRut } from "@/lib/access-control/utils";
-import { normalizeRutForMatch } from "./auto-match-payment.service";
+import { normalizeRutForMatch } from "./rut-normalize";
 
 /** Con guión explícito y/o puntos (evita comerse sólo dígitos al azar). */
 const RUT_FORMATTED_REGEX =

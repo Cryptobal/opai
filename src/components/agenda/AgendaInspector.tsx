@@ -69,8 +69,9 @@ export function isInspectorScheduleDirty(
 ): boolean {
   const parts = localParts(item.start);
   const baselineTime = item.allDay ? "" : parts.time;
-  const draftAllDay = draft.allDay === true;
   const itemAllDay = item.allDay === true;
+  // Si el draft omite allDay, asumir el del item (tests / callers parciales).
+  const draftAllDay = draft.allDay === undefined ? itemAllDay : draft.allDay === true;
   return (
     draft.date !== parts.date ||
     draftAllDay !== itemAllDay ||
