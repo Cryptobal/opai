@@ -22,10 +22,12 @@ export function NuevaVisitaModal(props: Props) {
   const {
     form,
     users,
+    currentUserId,
     loading,
     saving,
     error,
     canSubmit,
+    submitHint,
     submit,
     applyEventoPatch,
     eventoValue,
@@ -49,6 +51,7 @@ export function NuevaVisitaModal(props: Props) {
                 value={eventoValue}
                 onChange={applyEventoPatch}
                 users={users}
+                currentUserId={currentUserId}
                 density="default"
                 showContextPickers
                 installationLocation={
@@ -74,13 +77,18 @@ export function NuevaVisitaModal(props: Props) {
           {error && <p className="text-[12px] text-status-danger-fg">{error}</p>}
         </div>
 
-        <div className="flex justify-end gap-2 border-t border-ds-border-default pt-3">
-          <Button variant="outline" disabled={saving} onClick={() => onOpenChange(false)}>
-            Cancelar
-          </Button>
-          <Button disabled={saving || !canSubmit} onClick={() => void submit()}>
-            {saving ? "Guardando…" : editEventId ? "Guardar" : "Agendar"}
-          </Button>
+        <div className="flex flex-col items-end gap-1.5 border-t border-ds-border-default pt-3">
+          {!canSubmit && submitHint ? (
+            <p className="w-full text-right text-[12px] text-ds-text-4">{submitHint}</p>
+          ) : null}
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" disabled={saving} onClick={() => onOpenChange(false)}>
+              Cancelar
+            </Button>
+            <Button disabled={saving || !canSubmit} onClick={() => void submit()}>
+              {saving ? "Guardando…" : editEventId ? "Guardar" : "Agendar"}
+            </Button>
+          </div>
         </div>
       </DialogContent>
     </Dialog>

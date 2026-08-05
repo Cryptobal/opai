@@ -18,6 +18,7 @@ import {
   type TenantUser,
 } from "./EventoFormFields";
 import { ContactsField } from "../nueva-visita/ContactsField";
+import { canSubmitVisitaForm } from "../nueva-visita/visita-form-utils";
 
 function localParts(iso: string): { date: string; time: string } {
   const d = toZonedTime(new Date(iso), CHILE_TZ);
@@ -135,6 +136,7 @@ export function EditEventDialog({ eventId, open, onOpenChange, onSaved }: Props)
           notifyOpai: true,
           slackReminderPrevDay: true,
           accountId: v.account?.id ?? v.accountId ?? null,
+          accountName: v.account?.name ?? null,
           installationId: v.installationId ?? null,
           dealId: v.dealId ?? null,
         });
@@ -143,7 +145,12 @@ export function EditEventDialog({ eventId, open, onOpenChange, onSaved }: Props)
       .finally(() => setLoading(false));
   }, [open, eventId]);
 
-  const canSave = Boolean(value.date && value.assignedUserId && (value.allDay || value.time));
+  const canSave = canSubmitVisitaForm({
+    date: value.date,
+    time: value.time,
+    allDay: value.allDay,
+    loading,
+  });
 
   const save = async () => {
     if (!eventId || !canSave) return;

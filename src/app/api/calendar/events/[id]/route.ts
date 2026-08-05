@@ -120,7 +120,9 @@ export async function PATCH(request: NextRequest, routeCtx: Ctx) {
           ? body.type
           : undefined,
         assignedUserId:
-          typeof body.assignedUserId === "string" ? body.assignedUserId : undefined,
+          typeof body.assignedUserId === "string" && body.assignedUserId.trim()
+            ? body.assignedUserId.trim()
+            : undefined,
         startAt,
         endAt,
         allDay,

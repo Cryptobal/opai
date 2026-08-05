@@ -80,11 +80,9 @@ export async function POST(request: NextRequest) {
       title: String(body.title || "Nuevo evento"),
       label: typeof body.label === "string" ? body.label : null,
       assignedUserId:
-        typeof body.assignedUserId === "string"
-          ? body.assignedUserId
-          : typeof body.ownerId === "string"
-            ? body.ownerId
-            : ctx.userId,
+        (typeof body.assignedUserId === "string" && body.assignedUserId.trim()) ||
+        (typeof body.ownerId === "string" && body.ownerId.trim()) ||
+        ctx.userId,
       startAt,
       endAt,
       allDay,

@@ -3,7 +3,9 @@
 import { useEffect, useState } from "react";
 import { Surface, Spinner, StatusDot } from "@/components/opai-ds";
 import { Button } from "@/components/ui/button";
-import { ExternalLink, Pencil } from "lucide-react";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { ExternalLink, Pencil, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 import { NuevaVisitaModal } from "@/components/agenda/NuevaVisitaModal";
 import { syncStatusMeta } from "@/components/agenda/agenda-sync-status";
 
@@ -49,6 +51,8 @@ export function DealVisitasCard({ dealId, accountId, installationId }: Props) {
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
@@ -88,6 +92,41 @@ export function DealVisitasCard({ dealId, accountId, installationId }: Props) {
         installationId={installationId}
         editEventId={editId}
         onCreated={() => setRefreshKey((k) => k + 1)}
+      />
+      <ConfirmDialog
+        open={Boolean(deleteId)}
+        onOpenChange={(open) => {
+          if (!open && !deleting) setDeleteId(null);
+        }}
+        title="¿Eliminar este evento?"
+        description="Se cancela en la agenda OPAI y se elimina también de Google Calendar si estaba sincronizado."
+        confirmLabel="Eliminar"
+        variant="destructive"
+        loading={deleting}
+        loadingLabel="Eliminando…"
+        onConfirm={async () => {
+          if (!deleteId || deleting) return;
+          setDeleting(true);
+          try {
+            const res = await fetch(`/api/calendar/events/${deleteId}`, {
+              method: "DELETE",
+            });
+            const json = await res.json().catch(() => ({}));
+            if (!res.ok) {
+              toast.error(json.error || "No se pudo eliminar el evento");
+              return;
+            }
+            toast.success(
+              json.syncStatus === "SYNCED" || json.syncStatus === "CANCELLED"
+                ? "Evento eliminado · Google Calendar actualizado"
+                : "Evento eliminado de la agenda",
+            );
+            setDeleteId(null);
+            setRefreshKey((k) => k + 1);
+          } finally {
+            setDeleting(false);
+          }
+        }}
       />
       <div className="flex items-center justify-between gap-2">
         <p className="text-xs font-medium uppercase tracking-wide text-ds-text-3">
@@ -167,19 +206,31 @@ export function DealVisitasCard({ dealId, accountId, installationId }: Props) {
                     </a>
                   )}
                   {r.source === "agenda_visita" && (
-                    <button
-                      type="button"
-                      className="inline-flex h-11 min-w-11 items-center justify-center gap-1.5 rounded-lg px-2 text-[12px] text-ds-text-3 hover:bg-ds-surface-2 hover:text-ds-text-1 sm:h-10"
-                      title="Editar"
-                      aria-label="Editar evento"
-                      onClick={() => {
-                        setEditId(r.id);
-                        setModalOpen(true);
-                      }}
-                    >
-                      <Pencil className="h-4 w-4" />
-                      <span className="sm:hidden">Editar</span>
-                    </button>
+                    <>
+                      <button
+                        type="button"
+                        className="inline-flex h-11 min-w-11 items-center justify-center gap-1.5 rounded-lg px-2 text-[12px] text-ds-text-3 hover:bg-ds-surface-2 hover:text-ds-text-1 sm:h-10"
+                        title="Editar"
+                        aria-label="Editar evento"
+                        onClick={() => {
+                          setEditId(r.id);
+                          setModalOpen(true);
+                        }}
+                      >
+                        <Pencil className="h-4 w-4" />
+                        <span className="sm:hidden">Editar</span>
+                      </button>
+                      <button
+                        type="button"
+                        className="inline-flex h-11 min-w-11 items-center justify-center gap-1.5 rounded-lg px-2 text-[12px] text-status-danger-fg hover:bg-status-danger-soft sm:h-10"
+                        title="Eliminar"
+                        aria-label="Eliminar evento"
+                        onClick={() => setDeleteId(r.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        <span className="sm:hidden">Eliminar</span>
+                      </button>
+                    </>
                   )}
                 </div>
               </li>

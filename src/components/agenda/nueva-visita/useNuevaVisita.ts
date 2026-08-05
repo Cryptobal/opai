@@ -5,6 +5,12 @@ import { toZonedTime } from "date-fns-tz";
 import { CHILE_TZ } from "@/lib/dates-cl";
 import type { EventoFormValue, TenantUser } from "../evento/EventoFormFields";
 import type { AccountOption, VisitType } from "./types";
+import {
+  canSubmitVisitaForm,
+  defaultScheduleParts,
+  missingVisitaSubmitHint,
+  resolveAssignedUserId,
+} from "./visita-form-utils";
 
 export type FormState = {
   type: VisitType;
@@ -38,28 +44,31 @@ function localParts(iso: string): { date: string; time: string } {
   };
 }
 
-const emptyForm = (installationId?: string | null): FormState => ({
-  type: "cliente",
-  title: "",
-  label: "",
-  allDay: false,
-  participantIds: [],
-  externalEmails: [],
-  account: null,
-  installationId: installationId ?? "",
-  customAddress: "",
-  lat: null,
-  lng: null,
-  date: "",
-  time: "",
-  durationMin: 60,
-  assignedUserId: "",
-  contactIds: [],
-  notes: "",
-  createEvent: true,
-  inviteContacts: true,
-  slackReminder: true,
-});
+const emptyForm = (installationId?: string | null): FormState => {
+  const schedule = defaultScheduleParts();
+  return {
+    type: "cliente",
+    title: "",
+    label: "",
+    allDay: false,
+    participantIds: [],
+    externalEmails: [],
+    account: null,
+    installationId: installationId ?? "",
+    customAddress: "",
+    lat: null,
+    lng: null,
+    date: schedule.date,
+    time: schedule.time,
+    durationMin: 60,
+    assignedUserId: "",
+    contactIds: [],
+    notes: "",
+    createEvent: true,
+    inviteContacts: true,
+    slackReminder: true,
+  };
+};
 
 export function formToEventoValue(
   form: FormState,
@@ -84,6 +93,7 @@ export function formToEventoValue(
     notifyOpai: form.inviteContacts,
     slackReminderPrevDay: form.slackReminder,
     accountId: form.account?.id ?? null,
+    accountName: form.account?.name ?? null,
     installationId: form.installationId || null,
     dealId: dealId ?? null,
   };
@@ -112,7 +122,17 @@ export function eventoPatchToForm(
     if (patch.accountId === null) {
       next.account = null;
     } else if (form.account?.id !== patch.accountId) {
-      next.account = { id: patch.accountId, name: patch.accountId, rut: null };
+      next.account = {
+        id: patch.accountId,
+        name: patch.accountName?.trim() || form.account?.name || patch.accountId,
+        rut: null,
+      };
+    } else if (patch.accountName?.trim()) {
+      next.account = {
+        id: patch.accountId,
+        name: patch.accountName.trim(),
+        rut: form.account?.rut ?? null,
+      };
     }
   }
   if (patch.installationId !== undefined) next.installationId = patch.installationId ?? "";
@@ -135,6 +155,7 @@ export function useNuevaVisita(props: {
     props;
   const [form, setForm] = useState<FormState>(emptyForm(installationId));
   const [users, setUsers] = useState<TenantUser[]>([]);
+  const [currentUserId, setCurrentUserId] = useState("");
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -155,6 +176,21 @@ export function useNuevaVisita(props: {
       setForm(emptyForm(installationId));
     }
 
+    fetch("/api/me")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        const id = typeof j?.user?.id === "string" ? j.user.id : "";
+        if (!id) return;
+        setCurrentUserId(id);
+        if (!editEventId) {
+          setForm((f) => ({
+            ...f,
+            assignedUserId: resolveAssignedUserId(f.assignedUserId, id),
+          }));
+        }
+      })
+      .catch(() => undefined);
+
     fetch("/api/crm/users")
       .then((r) => r.json())
       .then((json) => {
@@ -166,12 +202,6 @@ export function useNuevaVisita(props: {
           }),
         );
         setUsers(list);
-        if (!editEventId) {
-          setForm((f) => ({
-            ...f,
-            assignedUserId: f.assignedUserId || list[0]?.id || "",
-          }));
-        }
       })
       .catch(() => undefined);
 
@@ -251,13 +281,29 @@ export function useNuevaVisita(props: {
   }, [open, accountId, installationId, editEventId]);
 
   const accId = form.account?.id ?? null;
-  const canSubmit =
-    Boolean(form.assignedUserId && form.date && (form.allDay || form.time)) && !loading;
+  const canSubmit = canSubmitVisitaForm({
+    date: form.date,
+    time: form.time,
+    allDay: form.allDay,
+    loading,
+  });
+  const submitHint = missingVisitaSubmitHint({
+    date: form.date,
+    time: form.time,
+    allDay: form.allDay,
+    loading,
+  });
 
   const submit = useCallback(async () => {
     if (!canSubmit) return;
     setSaving(true);
     setError(null);
+    const assigned = resolveAssignedUserId(form.assignedUserId, currentUserId);
+    if (!assigned) {
+      setError("No se pudo determinar el responsable del evento");
+      setSaving(false);
+      return;
+    }
     const body = {
       type: form.type,
       title: form.title || form.label || "Evento",
@@ -275,7 +321,7 @@ export function useNuevaVisita(props: {
       lng: form.installationId ? null : form.lng,
       dealId: dealId || null,
       contactIds: form.contactIds.length ? form.contactIds : null,
-      assignedUserId: form.assignedUserId,
+      assignedUserId: assigned,
       participantIds: form.participantIds,
       externalEmails: form.externalEmails,
       syncGoogle: form.createEvent,
@@ -300,23 +346,43 @@ export function useNuevaVisita(props: {
         return;
       }
       const { toast } = await import("sonner");
-      toast.success(editEventId ? "Evento actualizado" : "Evento agendado");
+      const synced = json.syncStatus === "SYNCED";
+      toast.success(
+        editEventId
+          ? synced
+            ? "Evento actualizado · Google Calendar actualizado"
+            : "Evento actualizado"
+          : synced
+            ? "Evento agendado · Google Calendar actualizado"
+            : "Evento agendado",
+      );
       onCreated?.();
       onOpenChange(false);
     } finally {
       setSaving(false);
     }
-  }, [canSubmit, form, accId, dealId, editEventId, onCreated, onOpenChange]);
+  }, [
+    canSubmit,
+    form,
+    accId,
+    dealId,
+    editEventId,
+    currentUserId,
+    onCreated,
+    onOpenChange,
+  ]);
 
   return {
     form,
     set,
     setForm,
     users,
+    currentUserId,
     loading,
     saving,
     error,
     canSubmit,
+    submitHint,
     submit,
     applyEventoPatch,
     eventoValue: formToEventoValue(form, dealId),
