@@ -239,17 +239,68 @@ export type SkipReason =
   | "sin_datos"
   | "error";
 
+/** Política ante registros CRM ya existentes al ejecutar el plan. */
+export type CreateCrmStructureOnConflict = "reuse_overwrite" | "create_new";
+
+export type StructureConflictAccount = {
+  id: string;
+  name: string;
+  rut: string | null;
+  score: number;
+  reason: "thread" | "rut" | "exact_name" | "similar_name";
+};
+
+export type StructureConflictInstallation = {
+  proposalName: string;
+  id: string;
+  name: string;
+  address: string | null;
+};
+
+export type StructureConflictContact = {
+  proposalLabel: string;
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string | null;
+  reason: "email" | "name";
+};
+
+export type StructureConflictDeal = {
+  id: string;
+  title: string;
+  reason: "thread" | "similar_title";
+  score: number;
+};
+
+export type StructureEntityConflictsPayload = {
+  accounts: StructureConflictAccount[];
+  installations: StructureConflictInstallation[];
+  contacts: StructureConflictContact[];
+  deal: StructureConflictDeal | null;
+};
+
 export type CreateCrmStructureResult = {
   ok: boolean;
   error?: string;
+  /**
+   * Hay registros similares: el cliente debe confirmar
+   * `onConflict: reuse_overwrite | create_new` (y opcionalmente `useExistingAccountId`).
+   */
+  needsConfirmation?: boolean;
+  conflicts?: StructureEntityConflictsPayload;
   accountId?: string;
   accountUrl?: string;
   accountReused?: boolean;
   contactId?: string;
   contactUrl?: string;
+  /** true si el contacto principal se actualizó en lugar de crearse. */
+  contactReused?: boolean;
   dealId?: string;
   dealUrl?: string;
-  installations?: Array<{ id: string; name: string; url: string }>;
+  /** true si el negocio se reutilizó. */
+  dealReused?: boolean;
+  installations?: Array<{ id: string; name: string; url: string; reused?: boolean }>;
   taskId?: string;
   quoteId?: string;
   quoteUrl?: string;

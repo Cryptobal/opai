@@ -21,9 +21,11 @@ import {
   type CorreoCascadeAiTarget,
 } from "@/modules/crm/email/correo-cascade-ai";
 import type {
+  CreateCrmStructureOnConflict,
   CreateCrmStructureResult,
   CrmStructureProposal,
   PlanAttachmentSelection,
+  StructureEntityConflictsPayload,
 } from "@/modules/crm/email/email-to-crm-structure.types";
 import { LeadFromEmailPanel } from "./LeadFromEmailPanel";
 import { CorreoSourcePreview } from "./CorreoSourcePreview";
@@ -36,6 +38,7 @@ import {
 } from "./CorreoAiPlanSections";
 import { CorreoAiCoverageTable } from "./CorreoAiCoverageTable";
 import { CorreoAiResultList } from "./CorreoAiResultList";
+import { CorreoAiConflictDialog } from "./CorreoAiConflictDialog";
 import { CorreoAiRefineChat, type RefineChatMessage } from "./CorreoAiRefineChat";
 import type { CrmStructureRefineAnswer } from "@/modules/crm/email/email-to-crm-structure.types";
 import { dispatchAiCommand } from "@/lib/ai/ai-command-event";
@@ -405,6 +408,8 @@ export function CorreoAiActionPanel({
   const [sources, setSources] = useState<string[]>([]);
   const [verticalProposal, setVerticalProposal] = useState<VerticalProposal | null>(null);
   const [result, setResult] = useState<CreateCrmStructureResult | null>(null);
+  const [conflicts, setConflicts] = useState<StructureEntityConflictsPayload | null>(null);
+  const [showConflictDialog, setShowConflictDialog] = useState(false);
   const [durationMs, setDurationMs] = useState<number | null>(null);
   const [closing, setClosing] = useState(false);
   const sheetRef = useRef<HTMLDivElement | null>(null);
@@ -908,7 +913,10 @@ export function CorreoAiActionPanel({
     setShowRefine(true);
   }
 
-  async function executeStructure() {
+  async function executeStructure(opts?: {
+    onConflict?: CreateCrmStructureOnConflict;
+    useExistingAccountId?: string;
+  }) {
     if (!draft.proposal) return;
     setPhase("executing");
     setError(null);
@@ -937,14 +945,30 @@ export function CorreoAiActionPanel({
           ),
           quoteInput: draft.quoteInput,
           milestones: draft.milestones,
+          ...(opts?.onConflict ? { onConflict: opts.onConflict } : {}),
+          ...(opts?.useExistingAccountId
+            ? { useExistingAccountId: opts.useExistingAccountId }
+            : {}),
         }),
       });
       const j = (await res.json()) as CreateCrmStructureResult;
+      if (j.needsConfirmation && j.conflicts) {
+        setConflicts(j.conflicts);
+        setShowConflictDialog(true);
+        setPhase("structure");
+        return;
+      }
       if (!res.ok || !j.ok) throw new Error(j.error || "No se pudo crear la estructura");
+      setShowConflictDialog(false);
+      setConflicts(null);
       setResult(j);
       setPhase("done");
       onCreated?.();
-      toast.success("Estructura CRM creada");
+      toast.success(
+        j.accountReused || j.dealReused || j.contactReused
+          ? "Estructura CRM actualizada (sin duplicar)"
+          : "Estructura CRM creada",
+      );
       void draft.clearDraft();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Error al crear");
@@ -1193,6 +1217,25 @@ export function CorreoAiActionPanel({
               <p className="text-[13px] text-ds-text-2">Listo.</p>
             )
           )}
+
+          <CorreoAiConflictDialog
+            open={showConflictDialog}
+            conflicts={conflicts}
+            busy={phase === "executing"}
+            onReuseOverwrite={(accountId) => {
+              void executeStructure({
+                onConflict: "reuse_overwrite",
+                useExistingAccountId: accountId,
+              });
+            }}
+            onCreateNew={() => {
+              void executeStructure({ onConflict: "create_new" });
+            }}
+            onCancel={() => {
+              setShowConflictDialog(false);
+              setConflicts(null);
+            }}
+          />
         </div>
 
         {(phase === "structure" || phase === "executing" || phase === "vertical") && (

@@ -9,6 +9,7 @@ import { createCrmStructureFromProposal } from "@/modules/crm/email/email-to-crm
 import { coerceCrmStructureProposal } from "@/modules/crm/email/email-to-crm-structure.service";
 import type {
   CreateCrmStructureInclude,
+  CreateCrmStructureOnConflict,
   CrmStructureProposal,
   PlanAttachmentSelection,
   PlanMilestone,
@@ -45,10 +46,20 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     attachmentSelection?: PlanAttachmentSelection;
     quoteInput?: PlanQuoteInput;
     milestones?: PlanMilestone[];
+    onConflict?: CreateCrmStructureOnConflict;
+    useExistingAccountId?: string;
   };
   if (!body.proposal) {
     return NextResponse.json({ error: "Falta la propuesta" }, { status: 400 });
   }
+  const onConflict =
+    body.onConflict === "reuse_overwrite" || body.onConflict === "create_new"
+      ? body.onConflict
+      : undefined;
+  const useExistingAccountId =
+    typeof body.useExistingAccountId === "string" && body.useExistingAccountId.trim()
+      ? body.useExistingAccountId.trim()
+      : undefined;
 
   const { threadId } = await ctx.params;
   const owned = await requireThreadMailbox({
@@ -125,6 +136,8 @@ export async function POST(req: NextRequest, ctx: Ctx) {
     milestones: body.milestones,
     canCreateQuote,
     canCreateMilestones,
+    onConflict,
+    useExistingAccountId,
   });
 
   if (result.ok) {
@@ -143,10 +156,13 @@ export async function POST(req: NextRequest, ctx: Ctx) {
         quoteId: result.quoteId,
         skipped: result.skipped,
         include: body.include ?? null,
+        onConflict: onConflict ?? null,
+        accountReused: result.accountReused ?? false,
         feature: "correo-create-structure",
       },
     });
   }
 
-  return NextResponse.json(result, { status: result.ok ? 200 : 400 });
+  const status = result.ok ? 200 : result.needsConfirmation ? 409 : 400;
+  return NextResponse.json(result, { status });
 }
