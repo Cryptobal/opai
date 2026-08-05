@@ -7,7 +7,7 @@ import {
   loadParticipantRolesForActor,
 } from "@/lib/api-auth-agenda";
 import { auditAgendaAction } from "@/lib/audit-productividad";
-import { dateAtChileSlot } from "@/components/agenda/agenda-calendar-utils";
+import { scheduleFromFormParts } from "@/components/agenda/nueva-visita/visita-form-utils";
 import {
   cancelOpaiEvent,
   OpaiEventValidationError,
@@ -100,13 +100,18 @@ export async function PATCH(request: NextRequest, routeCtx: Ctx) {
     startAt = new Date(body.startAt);
     endAt = body.endAt ? new Date(body.endAt) : undefined;
   } else if (typeof body.date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(body.date)) {
-    const [hh, mm] = String(body.time ?? "09:00").split(":").map(Number);
     const isAllDay = allDay === true;
-    const durationMin = Math.max(15, Math.min(24 * 60, Number(body.durationMin) || 60));
-    startAt = dateAtChileSlot(body.date, isAllDay ? 0 : hh * 60 + mm);
-    endAt = isAllDay
-      ? dateAtChileSlot(body.date, 24 * 60 - 1)
-      : new Date(startAt.getTime() + durationMin * 60_000);
+    const schedule = scheduleFromFormParts({
+      date: body.date,
+      endDate: typeof body.endDate === "string" ? body.endDate : body.date,
+      time: typeof body.time === "string" ? body.time : "09:00",
+      allDay: isAllDay,
+      durationMin: Number(body.durationMin) || 60,
+    });
+    if (schedule) {
+      startAt = schedule.startAt;
+      endAt = schedule.endAt;
+    }
   }
 
   try {

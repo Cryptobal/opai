@@ -18,7 +18,11 @@ import {
   type TenantUser,
 } from "./EventoFormFields";
 import { ContactsField } from "../nueva-visita/ContactsField";
-import { canSubmitVisitaForm } from "../nueva-visita/visita-form-utils";
+import {
+  canSubmitVisitaForm,
+  endDateFromEndAt,
+  normalizeEndDate,
+} from "../nueva-visita/visita-form-utils";
 
 function localParts(iso: string): { date: string; time: string } {
   const d = toZonedTime(new Date(iso), CHILE_TZ);
@@ -33,6 +37,7 @@ const emptyValue = (): EventoFormValue => ({
   title: "",
   label: "",
   date: "",
+  endDate: "",
   time: "",
   durationMin: 60,
   allDay: false,
@@ -48,6 +53,7 @@ const emptyValue = (): EventoFormValue => ({
   notifyOpai: true,
   slackReminderPrevDay: true,
   accountId: null,
+  accountName: null,
   installationId: null,
   dealId: null,
 });
@@ -66,6 +72,11 @@ export function EditEventDialog({ eventId, open, onOpenChange, onSaved }: Props)
   const [users, setUsers] = useState<TenantUser[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [instLocation, setInstLocation] = useState<{
+    address?: string | null;
+    lat?: number | null;
+    lng?: number | null;
+  } | null>(null);
 
   const patch = useCallback((next: Partial<EventoFormValue>) => {
     setValue((v) => ({ ...v, ...next }));
@@ -91,6 +102,7 @@ export function EditEventDialog({ eventId, open, onOpenChange, onSaved }: Props)
     if (!open || !eventId) {
       setValue(emptyValue());
       setEventType("otra");
+      setInstLocation(null);
       return;
     }
     setLoading(true);
@@ -110,16 +122,19 @@ export function EditEventDialog({ eventId, open, onOpenChange, onSaved }: Props)
           ? (v.contactIds as string[])
           : [];
         setEventType(v.type ?? "otra");
+        const endYmd = endDateFromEndAt(v.endAt);
         setValue({
           title: v.title ?? "",
           label: v.label ?? "",
           date: parts.date,
+          endDate: v.allDay ? normalizeEndDate(parts.date, endYmd) : parts.date,
           time: v.allDay ? "" : parts.time,
           durationMin,
           allDay: v.allDay === true,
-          address: v.customAddress ?? v.installation?.address ?? null,
-          lat: v.lat ?? v.installation?.lat ?? null,
-          lng: v.lng ?? v.installation?.lng ?? null,
+          // Solo customAddress en el campo; la instalación va por installationLocation.
+          address: v.customAddress ?? null,
+          lat: v.lat ?? null,
+          lng: v.lng ?? null,
           notes: v.notes ?? "",
           assignedUserId: v.assignedUserId ?? "",
           participantIds: (data.v2?.participants ?? []).map(
@@ -140,6 +155,17 @@ export function EditEventDialog({ eventId, open, onOpenChange, onSaved }: Props)
           installationId: v.installationId ?? null,
           dealId: v.dealId ?? null,
         });
+        // Guardamos la dirección de instalación en un campo auxiliar del closure
+        // vía patch de installationLocation en el render (desde v.installation).
+        setInstLocation(
+          v.installation
+            ? {
+                address: v.installation.address ?? null,
+                lat: v.installation.lat ?? null,
+                lng: v.installation.lng ?? null,
+              }
+            : null,
+        );
       })
       .catch(() => toast.error("No se pudo cargar el evento"))
       .finally(() => setLoading(false));
@@ -147,6 +173,7 @@ export function EditEventDialog({ eventId, open, onOpenChange, onSaved }: Props)
 
   const canSave = canSubmitVisitaForm({
     date: value.date,
+    endDate: value.endDate,
     time: value.time,
     allDay: value.allDay,
     loading,
@@ -156,6 +183,7 @@ export function EditEventDialog({ eventId, open, onOpenChange, onSaved }: Props)
     if (!eventId || !canSave) return;
     setSaving(true);
     try {
+      const endDate = normalizeEndDate(value.date, value.endDate);
       const res = await fetch(`/api/calendar/events/${eventId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -164,16 +192,17 @@ export function EditEventDialog({ eventId, open, onOpenChange, onSaved }: Props)
           title: value.title || value.label || "Evento",
           label: value.label || null,
           date: value.date,
+          endDate: value.allDay ? endDate : value.date,
           time: value.time || "09:00",
           allDay: value.allDay,
           durationMin: value.durationMin,
           notes: value.notes || null,
           accountId: value.accountId,
           installationId: value.installationId,
-          customAddress: value.installationId ? null : value.address,
-          address: value.installationId ? null : value.address,
-          lat: value.installationId ? null : value.lat,
-          lng: value.installationId ? null : value.lng,
+          customAddress: value.address?.trim() || null,
+          address: value.address?.trim() || null,
+          lat: value.lat,
+          lng: value.lng,
           dealId: value.dealId,
           assignedUserId: value.assignedUserId,
           participantIds: value.participantIds,
@@ -214,15 +243,7 @@ export function EditEventDialog({ eventId, open, onOpenChange, onSaved }: Props)
                 users={users}
                 density="default"
                 showContextPickers
-                installationLocation={
-                  value.installationId
-                    ? {
-                        address: value.address,
-                        lat: value.lat,
-                        lng: value.lng,
-                      }
-                    : null
-                }
+                installationLocation={value.installationId ? instLocation : null}
               />
               {value.accountId && (
                 <ContactsField

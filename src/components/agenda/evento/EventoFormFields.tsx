@@ -26,6 +26,8 @@ export type EventoFormValue = {
   title: string;
   label: string;
   date: string;
+  /** Fecha de término inclusiva (solo relevante si allDay). */
+  endDate: string;
   time: string;
   durationMin: number;
   allDay: boolean;
@@ -135,13 +137,20 @@ export function EventoFormFields({
       <div className={cn("grid gap-2", compact ? "grid-cols-1" : "grid-cols-2")}>
         <div className="space-y-1">
           <Label htmlFor="evento-date" className="text-[12px] text-ds-text-3">
-            Fecha
+            {value.allDay ? "Fecha inicio" : "Fecha"}
           </Label>
           <Input
             id="evento-date"
             type="date"
             value={value.date}
-            onChange={(e) => onChange({ date: e.target.value })}
+            onChange={(e) => {
+              const date = e.target.value;
+              const patch: Partial<EventoFormValue> = { date };
+              if (value.allDay && (!value.endDate || value.endDate < date)) {
+                patch.endDate = date;
+              }
+              onChange(patch);
+            }}
             className="h-10 text-[13px] sm:h-9"
           />
         </div>
@@ -150,7 +159,17 @@ export function EventoFormFields({
             <Checkbox
               id="evento-allday"
               checked={value.allDay}
-              onCheckedChange={(v) => onChange({ allDay: Boolean(v) })}
+              onCheckedChange={(v) => {
+                const allDay = Boolean(v);
+                onChange({
+                  allDay,
+                  endDate: allDay
+                    ? value.endDate && value.endDate >= value.date
+                      ? value.endDate
+                      : value.date
+                    : value.endDate || value.date,
+                });
+              }}
               className="h-5 w-5"
             />
             <Label
@@ -161,7 +180,21 @@ export function EventoFormFields({
             </Label>
           </div>
         </div>
-        {!value.allDay && (
+        {value.allDay ? (
+          <div className="space-y-1">
+            <Label htmlFor="evento-end-date" className="text-[12px] text-ds-text-3">
+              Fecha término
+            </Label>
+            <Input
+              id="evento-end-date"
+              type="date"
+              value={value.endDate || value.date}
+              min={value.date || undefined}
+              onChange={(e) => onChange({ endDate: e.target.value })}
+              className="h-10 text-[13px] sm:h-9"
+            />
+          </div>
+        ) : (
           <>
             <div className="space-y-1">
               <Label htmlFor="evento-time" className="text-[12px] text-ds-text-3">

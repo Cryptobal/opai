@@ -60,6 +60,32 @@ type VisitaLike = {
  * Upsert best-effort del espejo v2 de una visita. Nunca lanza: la escritura
  * legacy es la fuente de verdad mientras dure la convivencia.
  */
+async function resolveVisitaLocation(visita: VisitaLike): Promise<{
+  location: string | null;
+  lat: number | null;
+  lng: number | null;
+}> {
+  if (visita.customAddress?.trim()) {
+    return {
+      location: visita.customAddress.trim(),
+      lat: visita.lat,
+      lng: visita.lng,
+    };
+  }
+  if (!visita.installationId) {
+    return { location: null, lat: visita.lat, lng: visita.lng };
+  }
+  const inst = await prisma.crmInstallation.findFirst({
+    where: { id: visita.installationId, tenantId: visita.tenantId },
+    select: { address: true, lat: true, lng: true },
+  });
+  return {
+    location: inst?.address?.trim() || null,
+    lat: visita.lat ?? inst?.lat ?? null,
+    lng: visita.lng ?? inst?.lng ?? null,
+  };
+}
+
 export async function mirrorVisitaToV2(
   visita: VisitaLike,
   actorId?: string | null,
@@ -68,6 +94,7 @@ export async function mirrorVisitaToV2(
   try {
     const allDay =
       opts?.allDay !== undefined ? opts.allDay === true : visita.allDay === true;
+    const loc = await resolveVisitaLocation(visita);
     const existing = await prisma.calendarEvent.findFirst({
       where: { id: visita.id, tenantId: visita.tenantId },
       select: { id: true },
@@ -81,9 +108,9 @@ export async function mirrorVisitaToV2(
         kind: kindFromVisitaType(visita.type, visita.label),
         title: visita.title,
         description: visitaDescriptionForV2(visita),
-        location: visita.customAddress,
-        lat: visita.lat,
-        lng: visita.lng,
+        location: loc.location,
+        lat: loc.lat,
+        lng: loc.lng,
         startAt: visita.startAt,
         endAt: visita.endAt,
         allDay,
@@ -108,9 +135,9 @@ export async function mirrorVisitaToV2(
         title: visita.title,
         kind: kindFromVisitaType(visita.type, visita.label),
         description: visitaDescriptionForV2(visita),
-        location: visita.customAddress,
-        lat: visita.lat,
-        lng: visita.lng,
+        location: loc.location,
+        lat: loc.lat,
+        lng: loc.lng,
         startAt: visita.startAt,
         endAt: visita.endAt,
         allDay,

@@ -100,7 +100,7 @@ export async function syncAgendaVisitaToCalendar(
       typeLabel: TYPE_LABELS[visita.type] ?? "Visita",
       accountName: visita.account?.name ?? "Sin cuenta",
       installationName: visita.installation?.name,
-      address: visita.installation?.address ?? visita.customAddress,
+      address: visita.customAddress ?? visita.installation?.address,
       notes: visita.notes,
       contacts: contacts.map((c) => ({
         name: `${c.firstName} ${c.lastName}`.trim(),
