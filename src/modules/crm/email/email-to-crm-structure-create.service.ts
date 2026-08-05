@@ -181,6 +181,22 @@ export function resolveCreateInclude(
   };
 }
 
+/**
+ * Resuelve el contacto primario para deal/hilo.
+ * - Prioriza el primer contacto del plan (creado o reutilizado en la cuenta destino).
+ * - El contactId del hilo solo se usa si fue validado (existe y pertenece a la cuenta);
+ *   `CrmEmailThread.contactId` no tiene FK y puede quedar huérfano → P2003 en deals.
+ */
+export function resolveStructurePrimaryContactId(params: {
+  forceCreateNew: boolean;
+  validatedThreadContactId: string | null;
+  firstPlanContactId: string | undefined;
+}): string | undefined {
+  if (params.firstPlanContactId) return params.firstPlanContactId;
+  if (params.forceCreateNew) return undefined;
+  return params.validatedThreadContactId ?? undefined;
+}
+
 export function followUpDueAt(
   fechaLimite: string | null,
   overrideDueAt?: string | null,
@@ -398,15 +414,26 @@ export async function createCrmStructureFromProposal(params: {
   }
 
   // Contactos — independientes del deal. Crea todos los seleccionados
-  // (contacts[] o el contact primario legacy); el primero es primary del hilo.
-  let contactId = thread.contactId ?? undefined;
+  // (contacts[] o el contact primario legacy); el primero del plan es primary.
+  // Importante: thread.contactId NO tiene FK en BD y puede apuntar a un contacto
+  // borrado u otra cuenta. Usarlo a ciegas como primaryContactId del deal → P2003.
+  let validatedThreadContactId: string | null = null;
+  if (thread.contactId && !forceCreateNew) {
+    const seed = await prisma.crmContact.findFirst({
+      where: { id: thread.contactId, tenantId, accountId: account.id },
+      select: { id: true },
+    });
+    validatedThreadContactId = seed?.id ?? null;
+  }
+
+  let firstPlanContactId: string | undefined;
   let contactReused = false;
   if (!flags.contact) {
     skip("contact", "no_seleccionado");
   } else if (contactsToCreate.length === 0) {
     skip("contact", "sin_datos");
   } else {
-    let primarySet = Boolean(contactId);
+    let primarySet = Boolean(validatedThreadContactId);
     for (const c of contactsToCreate) {
       let id: string | undefined;
       if (!forceCreateNew) {
@@ -478,9 +505,15 @@ export async function createCrmStructureFromProposal(params: {
         id = created.id;
         primarySet = true;
       }
-      if (!contactId) contactId = id;
+      if (!firstPlanContactId) firstPlanContactId = id;
     }
   }
+
+  const contactId = resolveStructurePrimaryContactId({
+    forceCreateNew,
+    validatedThreadContactId,
+    firstPlanContactId,
+  });
 
   // Instalaciones — cuelgan de la cuenta; no requieren deal.
   // Por defecto reutiliza por nombre (case-insensitive) y sobrescribe datos del plan.

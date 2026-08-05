@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { resolveCreateInclude } from "../email-to-crm-structure-create.service";
+import {
+  resolveCreateInclude,
+  resolveStructurePrimaryContactId,
+} from "../email-to-crm-structure-create.service";
 
 describe("resolveCreateInclude", () => {
   it("include undefined → defaults históricos (todo true salvo followUpTask/quote/milestones)", () => {
@@ -58,5 +61,61 @@ describe("resolveCreateInclude", () => {
       quote: false,
       milestones: false,
     });
+  });
+});
+
+describe("resolveStructurePrimaryContactId", () => {
+  it("prioriza el contacto del plan sobre el del hilo (evita FK huérfano)", () => {
+    expect(
+      resolveStructurePrimaryContactId({
+        forceCreateNew: false,
+        validatedThreadContactId: "thread-contact",
+        firstPlanContactId: "plan-contact",
+      }),
+    ).toBe("plan-contact");
+  });
+
+  it("si el hilo tenía contactId huérfano (null validado) usa el del plan", () => {
+    expect(
+      resolveStructurePrimaryContactId({
+        forceCreateNew: false,
+        validatedThreadContactId: null,
+        firstPlanContactId: "plan-contact",
+      }),
+    ).toBe("plan-contact");
+  });
+
+  it("sin contacto del plan, usa el del hilo solo si está validado", () => {
+    expect(
+      resolveStructurePrimaryContactId({
+        forceCreateNew: false,
+        validatedThreadContactId: "thread-contact",
+        firstPlanContactId: undefined,
+      }),
+    ).toBe("thread-contact");
+    expect(
+      resolveStructurePrimaryContactId({
+        forceCreateNew: false,
+        validatedThreadContactId: null,
+        firstPlanContactId: undefined,
+      }),
+    ).toBeUndefined();
+  });
+
+  it("create_new no reutiliza el contacto del hilo", () => {
+    expect(
+      resolveStructurePrimaryContactId({
+        forceCreateNew: true,
+        validatedThreadContactId: "thread-contact",
+        firstPlanContactId: undefined,
+      }),
+    ).toBeUndefined();
+    expect(
+      resolveStructurePrimaryContactId({
+        forceCreateNew: true,
+        validatedThreadContactId: "thread-contact",
+        firstPlanContactId: "plan-contact",
+      }),
+    ).toBe("plan-contact");
   });
 });
