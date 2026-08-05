@@ -89,10 +89,22 @@ export function CorreoAiResultList({ result }: Props) {
                   {MILESTONE_LABEL[m.kind] ?? m.kind}
                   {m.syncStatus && (
                     <Tag
-                      variant={m.syncStatus === "ok" ? "ok" : "warn"}
+                      variant={
+                        m.syncStatus === "SYNCED"
+                          ? "ok"
+                          : m.syncStatus === "ERROR"
+                            ? "danger"
+                            : "warn"
+                      }
                       size="sm"
                     >
-                      {m.syncStatus === "ok" ? "sincronizado" : m.syncStatus}
+                      {m.syncStatus === "SYNCED"
+                        ? "sincronizado"
+                        : m.syncStatus === "PENDING"
+                          ? "pendiente"
+                          : m.syncStatus === "ERROR"
+                            ? "no sincronizado"
+                            : m.syncStatus}
                     </Tag>
                   )}
                 </li>
@@ -119,7 +131,13 @@ export function CorreoAiResultList({ result }: Props) {
                       ? "No se sincronizó: la fecha límite ya pasó."
                       : result.agendaSync.skippedReason === "sin_fecha"
                         ? "No se sincronizó: falta fecha límite."
-                        : "El sync a agenda no completó; revisá el negocio."}
+                        : result.agendaSync.skippedReason === "pendiente" ||
+                            result.agendaSync.syncStatus === "PENDING"
+                          ? "Creado en OPAI, pendiente de sincronizar con Google Calendar."
+                          : result.agendaSync.skippedReason === "error" ||
+                              result.agendaSync.syncStatus === "ERROR"
+                            ? "No sincronizado con Google Calendar: revisá el dueño de la cuenta y la conexión de Calendar."
+                            : "El sync a agenda no completó; revisá el negocio."}
                 </p>
                 {result.dealUrl && result.agendaSync.ok && (
                   <Link
