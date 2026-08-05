@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import {
   requireAuth,
   unauthorized,
@@ -6,7 +7,13 @@ import {
 } from "@/lib/api-auth";
 import { hasCapability } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
-import { findMatchingRule, flowRowSuggestionFromEvaluation, isFlowRowAction, upsertFlowRowRuleForRut } from "@/modules/finance/banking/automatch-rule.service";
+import {
+  findMatchingRule,
+  flowRowSuggestionFromEvaluation,
+  isFlowRowAction,
+  upsertFlowRowRuleForDescription,
+  upsertFlowRowRuleForRut,
+} from "@/modules/finance/banking/automatch-rule.service";
 import {
   normalizeClassifyRut,
   rankClassifySuggestions,
@@ -17,6 +24,25 @@ import { extractCanonicalRutFromBankText } from "@/modules/finance/banking/rut-e
 import { resolveAccountPlanIdForFlowRow } from "@/modules/finance/banking/flow-row-account-plan.service";
 import { setTransactionLinks } from "@/modules/finance/banking/bank-tx-link.service";
 import { normalizeNameForDedupe } from "@/modules/finance/flow-v3/row-visibility";
+
+const classifyBodySchema = z.object({
+  kind: z.literal("FLOW_ROW"),
+  flowRowId: z.string().uuid(),
+  accountPlanId: z.string().uuid().nullable().optional(),
+  note: z.string().max(500).optional(),
+  /** Ids adicionales a clasificar junto al de la ruta. Máx 200. */
+  alsoBankTransactionIds: z.array(z.string().uuid()).max(200).optional(),
+  /**
+   * RUT (default histórico), DESCRIPTION o NONE.
+   * Compat: boolean true → RUT, false → NONE.
+   */
+  learnRule: z.preprocess((v) => {
+    if (v === true) return "RUT";
+    if (v === false) return "NONE";
+    return v;
+  }, z.enum(["RUT", "DESCRIPTION", "NONE"]).optional()),
+  descriptionNeedle: z.string().trim().max(120).optional(),
+});
 
 /**
  * GET /api/finance/banking/transactions/[id]/classify-suggestions
@@ -163,27 +189,41 @@ export async function POST(
       return NextResponse.json({ success: false, error: "Sin permisos" }, { status: 403 });
     }
     const { id } = await params;
-    const body = (await request.json()) as {
-      kind?: string;
-      flowRowId?: string;
-      accountPlanId?: string | null;
-      note?: string;
-      learnRule?: boolean;
-    };
-
-    if (body.kind !== "FLOW_ROW" || !body.flowRowId) {
+    const raw = await request.json();
+    const parsed = classifyBodySchema.safeParse(raw);
+    if (!parsed.success) {
       return NextResponse.json(
-        { success: false, error: "Stub: solo FLOW_ROW confirmado por ahora" },
+        {
+          success: false,
+          error: parsed.error.issues[0]?.message ?? "Body inválido",
+        },
+        { status: 400 },
+      );
+    }
+    const body = parsed.data;
+
+    const alsoIds = body.alsoBankTransactionIds ?? [];
+    const allIds = [...new Set([id, ...alsoIds])];
+    if (allIds.length > 201) {
+      return NextResponse.json(
+        { success: false, error: "Máximo 200 transacciones adicionales por request" },
         { status: 400 },
       );
     }
 
-    const tx = await prisma.financeBankTransaction.findFirst({
-      where: { id, tenantId: ctx.tenantId, hiddenAt: null },
+    const txs = await prisma.financeBankTransaction.findMany({
+      where: { id: { in: allIds }, tenantId: ctx.tenantId, hiddenAt: null },
       select: { id: true, amount: true, description: true, reference: true },
     });
-    if (!tx) {
-      return NextResponse.json({ success: false, error: "Tx no encontrada" }, { status: 404 });
+    if (txs.length !== allIds.length) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "Una o más transacciones no existen, están ocultas o no pertenecen al tenant",
+        },
+        { status: 400 },
+      );
     }
 
     const row = await prisma.financeFlowRow.findFirst({
@@ -207,31 +247,77 @@ export async function POST(
       }, { status: 400 });
     }
 
-    const amountAbs = Math.abs(Number(tx.amount));
-    const isIncome = Number(tx.amount) > 0;
-    await setTransactionLinks(
-      ctx.tenantId,
-      id,
-      ctx.userId,
-      [
+    const learnMode = body.learnRule; // undefined = legacy default (RUT si hay)
+    if (learnMode === "DESCRIPTION" && !body.descriptionNeedle?.trim()) {
+      return NextResponse.json(
         {
-          targetType: isIncome ? "INCOME" : "EXPENSE",
-          targetId: null,
-          amount: amountAbs,
-          accountPlanId,
-          note:
-            body.note ??
-            `Clasificado a fila flujo: ${row.name} (${normalizeNameForDedupe(row.name)})`,
+          success: false,
+          error: "descriptionNeedle es obligatorio para learnRule DESCRIPTION",
         },
-      ],
-    );
+        { status: 400 },
+      );
+    }
+
+    const existingLinks = await prisma.financeBankTransactionLink.findMany({
+      where: { tenantId: ctx.tenantId, bankTransactionId: { in: allIds } },
+      select: { bankTransactionId: true },
+    });
+    const withLinks = new Set(existingLinks.map((l) => l.bankTransactionId));
+
+    const errors: Array<{ id: string; message: string }> = [];
+    let classified = 0;
+
+    for (const tx of txs) {
+      if (withLinks.has(tx.id)) {
+        errors.push({
+          id: tx.id,
+          message:
+            "La transacción ya tiene vínculos de conciliación; no se sobrescribe",
+        });
+        continue;
+      }
+      try {
+        const amountAbs = Math.abs(Number(tx.amount));
+        const isIncome = Number(tx.amount) > 0;
+        await setTransactionLinks(ctx.tenantId, tx.id, ctx.userId, [
+          {
+            targetType: isIncome ? "INCOME" : "EXPENSE",
+            targetId: null,
+            amount: amountAbs,
+            accountPlanId,
+            note:
+              body.note ??
+              `Clasificado a fila flujo: ${row.name} (${normalizeNameForDedupe(row.name)})`,
+          },
+        ]);
+        classified++;
+      } catch (e) {
+        errors.push({
+          id: tx.id,
+          message: e instanceof Error ? e.message : "Error al clasificar",
+        });
+      }
+    }
 
     let ruleLearned: { ruleId: string; created: boolean } | null = null;
-    const shouldLearn = body.learnRule !== false;
-    if (shouldLearn) {
+    const primary =
+      txs.find((t) => t.id === id) ?? txs[0]!;
+
+    if (learnMode === "DESCRIPTION") {
+      const appliesTo = row.section === "INGRESOS" ? "DEPOSITS" : "WITHDRAWALS";
+      ruleLearned = await upsertFlowRowRuleForDescription({
+        tenantId: ctx.tenantId,
+        needle: body.descriptionNeedle!,
+        flowRowId: row.id,
+        rowName: row.name,
+        appliesTo,
+        userId: ctx.userId,
+      });
+    } else if (learnMode !== "NONE") {
+      // Default histórico / "RUT": aprender por RUT si hay y no es TGR
       const rutFromText =
-        extractCanonicalRutFromBankText(tx.description ?? "") ??
-        extractCanonicalRutFromBankText(tx.reference ?? "");
+        extractCanonicalRutFromBankText(primary.description ?? "") ??
+        extractCanonicalRutFromBankText(primary.reference ?? "");
       const rutCanon = normalizeClassifyRut(rutFromText);
       if (rutCanon && !isTgrRut(rutCanon)) {
         ruleLearned = await upsertFlowRowRuleForRut({
@@ -247,11 +333,15 @@ export async function POST(
     return NextResponse.json({
       success: true,
       data: {
-        transactionId: tx.id,
+        classified,
+        failed: errors.length,
+        errors,
         flowRowId: row.id,
-        linked: true,
         ruleId: ruleLearned?.ruleId ?? null,
         ruleCreated: ruleLearned?.created ?? false,
+        /** Compat callers que esperaban transactionId / linked */
+        transactionId: primary.id,
+        linked: classified > 0,
       },
     });
   } catch (error) {

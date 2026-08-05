@@ -19,6 +19,11 @@ import type {
   FinanceAutoMatchScope,
 } from "@prisma/client";
 import { normalizeRutForMatch } from "./auto-match-payment.service";
+import {
+  isForbiddenNeedle,
+  MERCHANT_NEEDLE_MIN_LEN,
+  normalizeMerchantText,
+} from "./merchant-key";
 
 // ── Schemas de conditions / action ──
 
@@ -415,6 +420,9 @@ export async function runHistoricalForRule(
   ruleId: string,
 ): Promise<{ suggested: number; autoMatched: number } | null> {
   try {
+    // Import dinámico: evita ciclo estático con rule-action-resolver
+    // (resolver importa tipos/guards de este módulo).
+    const { resolveRuleAction } = await import("./rule-action-resolver");
     const txs = await prisma.financeBankTransaction.findMany({
       where: {
         tenantId,
@@ -434,14 +442,14 @@ export async function runHistoricalForRule(
         reference: tx.reference,
       });
       if (!evaluation || evaluation.ruleId !== ruleId) continue;
-      const action = evaluation.action;
-      if (!isLegacyAction(action) || !action.accountPlanId) continue;
-      if (action.requiresReview) {
+      const resolved = await resolveRuleAction(tenantId, evaluation.action);
+      if (!resolved.ok) continue;
+      if (resolved.requiresReview) {
         await prisma.financeBankTransaction.update({
           where: { id: tx.id },
           data: {
             suggestedRuleId: evaluation.ruleId,
-            suggestedAccountPlanId: action.accountPlanId,
+            suggestedAccountPlanId: resolved.accountPlanId,
           },
         });
         suggested++;
@@ -456,7 +464,7 @@ export async function runHistoricalForRule(
               targetType: isIncome ? "INCOME" : "EXPENSE",
               targetId: null,
               amount: new Decimal(amountAbs),
-              accountPlanId: action.accountPlanId,
+              accountPlanId: resolved.accountPlanId,
               note: `Auto-aplicado al crear/editar regla: ${evaluation.ruleName}`,
               createdById: userId,
             },
@@ -581,5 +589,113 @@ export async function upsertFlowRowRuleForRut(input: {
     },
   });
   console.log("[Finance/Banking/Rules] upsertFlowRowRuleForRut: created 1 rule");
+  return { ruleId: created.id, created: true };
+}
+
+function descriptionRuleConditionsMatch(
+  stored: unknown,
+  needle: string,
+): boolean {
+  const c = stored as RuleConditions;
+  if (c?.mode !== "ALL" || !Array.isArray(c.items) || c.items.length !== 1) {
+    return false;
+  }
+  const item = c.items[0];
+  return (
+    item.field === "DESCRIPTION" &&
+    item.operator === "CONTAINS" &&
+    normalizeMerchantText(String(item.value ?? "")) === needle
+  );
+}
+
+/**
+ * Crea o actualiza regla DESCRIPTION CONTAINS → fila de flujo
+ * (idempotente por needle + appliesTo).
+ */
+export async function upsertFlowRowRuleForDescription(input: {
+  tenantId: string;
+  needle: string;
+  flowRowId: string;
+  rowName: string;
+  appliesTo: FinanceAutoMatchScope;
+  userId: string | null;
+}): Promise<{ ruleId: string; created: boolean }> {
+  const needle = normalizeMerchantText(input.needle).trim();
+  if (needle.length < MERCHANT_NEEDLE_MIN_LEN) {
+    throw new Error(
+      `El patrón de glosa debe tener al menos ${MERCHANT_NEEDLE_MIN_LEN} caracteres`,
+    );
+  }
+  if (isForbiddenNeedle(needle)) {
+    throw new Error(
+      `El patrón «${needle}» es demasiado genérico; elegí un comerciante más específico`,
+    );
+  }
+  if (input.appliesTo === "BOTH") {
+    throw new Error("Las reglas de glosa deben aplicar a depósitos o retiros, no a ambos");
+  }
+
+  const row = await prisma.financeFlowRow.findFirst({
+    where: { id: input.flowRowId, tenantId: input.tenantId, archivedAt: null },
+    select: { id: true },
+  });
+  if (!row) throw new Error("Fila de flujo no encontrada");
+
+  const conditions: RuleConditions = {
+    mode: "ALL",
+    items: [
+      {
+        field: "DESCRIPTION",
+        operator: "CONTAINS",
+        value: needle,
+      },
+    ],
+  };
+  const action: FlowRowRuleAction = {
+    kind: "FLOW_ROW",
+    flowRowId: input.flowRowId,
+    requiresReview: false,
+  };
+  const ruleName = `Glosa «${needle}» → ${input.rowName.trim() || "fila flujo"}`;
+
+  const candidates = await prisma.financeAutoMatchRule.findMany({
+    where: { tenantId: input.tenantId, appliesTo: input.appliesTo },
+    select: { id: true, conditions: true, appliesTo: true },
+  });
+  const existing = candidates.find((r) =>
+    descriptionRuleConditionsMatch(r.conditions, needle),
+  );
+
+  if (existing) {
+    await prisma.financeAutoMatchRule.update({
+      where: { id: existing.id },
+      data: {
+        name: ruleName,
+        priority: 60,
+        enabled: true,
+        action: action as unknown as object,
+      },
+    });
+    console.log(
+      "[Finance/Banking/Rules] upsertFlowRowRuleForDescription: updated 1 rule",
+    );
+    return { ruleId: existing.id, created: false };
+  }
+
+  const created = await prisma.financeAutoMatchRule.create({
+    data: {
+      tenantId: input.tenantId,
+      name: ruleName,
+      enabled: true,
+      priority: 60,
+      appliesTo: input.appliesTo,
+      conditions: conditions as unknown as object,
+      action: action as unknown as object,
+      createdById: input.userId,
+    },
+  });
+  console.log(
+    "[Finance/Banking/Rules] upsertFlowRowRuleForDescription: created 1 rule",
+  );
   return { ruleId: created.id, created: true };
 }

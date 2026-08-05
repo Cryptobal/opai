@@ -5,6 +5,8 @@
 import type { FlowMatrixRowDto } from "./matrix-assemble";
 import { FALLBACK_EXPENSE_NAME, FALLBACK_INCOME_NAME } from "./canonical-rows";
 import { extractCanonicalRutFromBankText } from "@/modules/finance/banking/rut-extract";
+import { deriveMerchantKey } from "@/modules/finance/banking/merchant-key";
+import { formatRut } from "@/lib/chile-rut";
 
 export function isFallbackBandejaRow(row: {
   isVirtual?: boolean;
@@ -22,9 +24,13 @@ export function isFallbackBandejaRow(row: {
 export interface BandejaSummary {
   totalClp: number;
   distinctRutCount: number;
+  distinctGroupCount: number;
+  itemCount: number;
 }
 
-export interface BandejaRutGroupItem {
+export type BandejaGroupKind = "RUT" | "MERCHANT" | "OTHER";
+
+export interface BandejaGroupItem {
   bankTransactionId: string;
   label: string;
   monto: number;
@@ -32,10 +38,37 @@ export interface BandejaRutGroupItem {
   weekStart: string;
 }
 
-export interface BandejaRutGroup {
-  rut: string;
+export interface BandejaGroup {
+  /** RUT canónico | "M:<needle>" | "__other__" */
+  key: string;
+  kind: BandejaGroupKind;
+  /** RUT formateado | needle | "Sin patrón reconocible" */
+  label: string;
+  /** Needle sugerido para la regla; null en OTHER */
+  needle: string | null;
   totalClp: number;
-  items: BandejaRutGroupItem[];
+  items: BandejaGroupItem[];
+}
+
+function pushItem(
+  map: Map<string, BandejaGroup>,
+  key: string,
+  kind: BandejaGroupKind,
+  label: string,
+  needle: string | null,
+  item: BandejaGroupItem,
+): void {
+  const g = map.get(key) ?? {
+    key,
+    kind,
+    label,
+    needle,
+    totalClp: 0,
+    items: [],
+  };
+  g.totalClp += item.monto;
+  g.items.push(item);
+  map.set(key, g);
 }
 
 /** Agrega movimientos REAL de filas bandeja en una sección. */
@@ -43,48 +76,72 @@ export function summarizeBandejaRow(
   rows: FlowMatrixRowDto[],
   section: string,
 ): BandejaSummary {
-  const ruts = new Set<string>();
+  const groups = collectBandejaGroups(rows, section);
+  const ruts = new Set(groups.filter((g) => g.kind === "RUT").map((g) => g.key));
   let totalClp = 0;
-  for (const row of rows) {
-    if (!isFallbackBandejaRow(row) || row.section !== section) continue;
-    for (const cell of row.cells) {
-      for (const item of cell.real?.items ?? []) {
-        totalClp += Math.abs(item.monto);
-        const rut = extractCanonicalRutFromBankText(item.label);
-        if (rut) ruts.add(rut);
-      }
-    }
+  let itemCount = 0;
+  for (const g of groups) {
+    totalClp += g.totalClp;
+    itemCount += g.items.length;
   }
-  return { totalClp, distinctRutCount: ruts.size };
+  return {
+    totalClp,
+    distinctRutCount: ruts.size,
+    distinctGroupCount: groups.length,
+    itemCount,
+  };
 }
 
-/** RUTs agrupados desde capa real de bandeja, ordenados por monto desc. */
-export function collectBandejaRutGroups(
+/**
+ * Agrupa ítems REAL de bandeja: RUT → MERCHANT → OTHER.
+ * Ordenados por monto desc. Ningún ítem queda fuera de un grupo.
+ */
+export function collectBandejaGroups(
   rows: FlowMatrixRowDto[],
   section: string,
-): BandejaRutGroup[] {
-  const byRut = new Map<string, BandejaRutGroup>();
+): BandejaGroup[] {
+  const byKey = new Map<string, BandejaGroup>();
   for (const row of rows) {
     if (!isFallbackBandejaRow(row) || row.section !== section) continue;
     for (const cell of row.cells) {
       for (const item of cell.real?.items ?? []) {
-        const rut = extractCanonicalRutFromBankText(item.label);
-        if (!rut) continue;
-        const g = byRut.get(rut) ?? { rut, totalClp: 0, items: [] };
         const monto = Math.abs(item.monto);
-        g.totalClp += monto;
-        g.items.push({
+        const groupItem: BandejaGroupItem = {
           bankTransactionId: item.bankTransactionId,
           label: item.label,
           monto,
           fecha: item.fecha,
           weekStart: cell.weekStart,
-        });
-        byRut.set(rut, g);
+        };
+        const rut = extractCanonicalRutFromBankText(item.label);
+        if (rut) {
+          pushItem(byKey, rut, "RUT", formatRut(rut), rut, groupItem);
+          continue;
+        }
+        const merchant = deriveMerchantKey(item.label);
+        if (merchant) {
+          pushItem(
+            byKey,
+            merchant.key,
+            "MERCHANT",
+            merchant.label,
+            merchant.needle,
+            groupItem,
+          );
+          continue;
+        }
+        pushItem(
+          byKey,
+          "__other__",
+          "OTHER",
+          "Sin patrón reconocible",
+          null,
+          groupItem,
+        );
       }
     }
   }
-  return [...byRut.values()].sort((a, b) => b.totalClp - a.totalClp);
+  return [...byKey.values()].sort((a, b) => b.totalClp - a.totalClp);
 }
 
 /** Texto del badge de sección bandeja; null si no hay nada que mostrar. */
@@ -92,15 +149,17 @@ export function bandejaBadgeText(
   summary: BandejaSummary,
   section: string,
 ): string | null {
-  if (summary.distinctRutCount === 0 && summary.totalClp === 0) return null;
+  if (summary.distinctGroupCount === 0 && summary.totalClp === 0) return null;
   const label = section === "INGRESOS" ? "Otros ingresos" : "Otros egresos";
   const parts: string[] = [label];
   if (summary.totalClp > 0) {
     parts.push(`$${Math.round(summary.totalClp).toLocaleString("es-CL")}`);
   }
-  if (summary.distinctRutCount > 0) {
-    const n = summary.distinctRutCount;
-    parts.push(`${n} RUT sin regla`);
+  if (summary.itemCount > 0) {
+    parts.push(`${summary.itemCount} mov`);
+  }
+  if (summary.distinctGroupCount > 0) {
+    parts.push(`${summary.distinctGroupCount} sin clasificar`);
   }
   return parts.join(" · ");
 }

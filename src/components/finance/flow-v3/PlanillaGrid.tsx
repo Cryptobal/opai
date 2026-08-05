@@ -48,11 +48,12 @@ import type { usePlanillaActions } from "./usePlanillaActions";
 import type { CellStyle } from "./usePlanillaViewPrefs";
 import {
   bandejaBadgeText,
-  collectBandejaRutGroups,
+  collectBandejaGroups,
   isFallbackBandejaRow,
   summarizeBandejaRow,
+  type BandejaGroup,
 } from "@/modules/finance/flow-v3/unmatched-count";
-import { BandejaRutList } from "./BandejaRutList";
+import { BandejaGroupList } from "./BandejaGroupList";
 
 interface PlanMutators {
   patchPlan: (rowId: string, weekStart: string, amount: number, opts?: { skipHistory?: boolean }) => Promise<void>;
@@ -224,8 +225,8 @@ export function PlanillaGrid({
     () => bandejaBadgeText(bandejaExpenseSummary, "GAV"),
     [bandejaExpenseSummary],
   );
-  const bandejaRutGroups = useMemo(
-    () => (bandejaRutSection ? collectBandejaRutGroups(data.rows, bandejaRutSection) : []),
+  const bandejaGroups = useMemo(
+    () => (bandejaRutSection ? collectBandejaGroups(data.rows, bandejaRutSection) : []),
     [data.rows, bandejaRutSection],
   );
   const bandejaFlowRows = useMemo(() => {
@@ -236,7 +237,13 @@ export function PlanillaGrid({
         if (bandejaRutSection === "INGRESOS") return r.section === "INGRESOS";
         return expenseSections.has(r.section);
       })
-      .map((r) => ({ id: r.id, name: r.name }));
+      .map((r) => ({
+        id: r.id,
+        name: r.name,
+        section: r.section,
+        hasCategory: r.categoryId != null,
+        categoryId: r.categoryId,
+      }));
   }, [data.rows, bandejaRutSection]);
   const recurringRows = useMemo(
     () =>
@@ -261,7 +268,7 @@ export function PlanillaGrid({
   const openUnmatchedAssigner = useCallback(
     (section: string, focusDteId?: string | null) => {
       const summary = summarizeBandejaRow(data.rows, section);
-      if (summary.totalClp > 0 || summary.distinctRutCount > 0) {
+      if (summary.totalClp > 0 || summary.distinctGroupCount > 0) {
         setBandejaRutSection(section);
         return;
       }
@@ -296,26 +303,54 @@ export function PlanillaGrid({
     [data.rows],
   );
 
-  const handleClassifyRut = useCallback(
-    async (rut: string, flowRowId: string) => {
-      const group = collectBandejaRutGroups(data.rows, bandejaRutSection ?? "GAV").find(
-        (g) => g.rut === rut,
-      );
-      if (!group || group.items.length === 0) return;
-      // Primera tx: clasifica + aprende regla. Luego re-aplica en masa.
-      const first = group.items[0]!;
-      const res = await fetch(
-        `/api/finance/banking/transactions/${first.bankTransactionId}/classify-suggestions`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ kind: "FLOW_ROW", flowRowId, learnRule: true }),
-        },
-      );
-      const j = await res.json();
-      if (!res.ok || !j.success) throw new Error(j.error ?? "Error al clasificar");
-      const ruleId = j.data?.ruleId as string | null | undefined;
+  const handleClassifyGroup = useCallback(
+    async (args: {
+      group: BandejaGroup;
+      flowRowId: string;
+      needle: string | null;
+    }) => {
+      const { group, flowRowId, needle } = args;
+      if (group.items.length === 0) return;
+
+      const BATCH = 200;
+      let classifiedTotal = 0;
+      let ruleId: string | null = null;
+      const learnRule =
+        group.kind === "RUT"
+          ? "RUT"
+          : group.kind === "MERCHANT"
+            ? "DESCRIPTION"
+            : "NONE";
+
+      for (let offset = 0; offset < group.items.length; offset += BATCH) {
+        const chunk = group.items.slice(offset, offset + BATCH);
+        const first = chunk[0]!;
+        const also = chunk.slice(1).map((i) => i.bankTransactionId);
+        const body: Record<string, unknown> = {
+          kind: "FLOW_ROW",
+          flowRowId,
+          alsoBankTransactionIds: also,
+          learnRule: offset === 0 ? learnRule : "NONE",
+        };
+        if (offset === 0 && learnRule === "DESCRIPTION" && needle) {
+          body.descriptionNeedle = needle;
+        }
+        const res = await fetch(
+          `/api/finance/banking/transactions/${first.bankTransactionId}/classify-suggestions`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+          },
+        );
+        const j = await res.json();
+        if (!res.ok || !j.success) throw new Error(j.error ?? "Error al clasificar");
+        classifiedTotal += Number(j.data?.classified ?? 0);
+        if (j.data?.ruleId) ruleId = j.data.ruleId as string;
+      }
+
       let autoMatched = 0;
+      let reachedCap = false;
       if (ruleId) {
         const run = await fetch("/api/finance/banking/automatch-rules/run-rules-only", {
           method: "POST",
@@ -325,31 +360,24 @@ export function PlanillaGrid({
         const rj = await run.json();
         if (run.ok && rj.success) {
           autoMatched = Number(rj.data?.autoMatched ?? 0);
-        }
-      } else {
-        // Sin RUT/regla: clasificar el resto a mano.
-        for (const item of group.items.slice(1)) {
-          const r2 = await fetch(
-            `/api/finance/banking/transactions/${item.bankTransactionId}/classify-suggestions`,
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ kind: "FLOW_ROW", flowRowId, learnRule: false }),
-            },
-          );
-          const j2 = await r2.json();
-          if (!r2.ok || !j2.success) throw new Error(j2.error ?? "Error al clasificar");
+          reachedCap = Boolean(rj.data?.reachedCap);
         }
       }
-      toast.success(
-        autoMatched > 0
-          ? `Clasificado · ${autoMatched} movimiento${autoMatched === 1 ? "" : "s"} histórico${autoMatched === 1 ? "" : "s"} re-ruteado${autoMatched === 1 ? "" : "s"}`
-          : "Clasificado a fila",
-      );
+
+      const parts = [
+        `${classifiedTotal} movimiento${classifiedTotal === 1 ? "" : "s"} clasificado${classifiedTotal === 1 ? "" : "s"}`,
+      ];
+      if (autoMatched > 0) {
+        parts.push(
+          `${autoMatched} histórico${autoMatched === 1 ? "" : "s"} re-ruteado${autoMatched === 1 ? "" : "s"}`,
+        );
+      }
+      if (reachedCap) parts.push("límite alcanzado — volvé a aplicar la regla");
+      toast.success(parts.join(" · "));
       setBandejaRutSection(null);
       onRefresh?.();
     },
-    [data.rows, bandejaRutSection, onRefresh],
+    [onRefresh],
   );
 
   // Deep-link post-emisión huérfana: /finanzas/flujo-caja/planilla?focusDte=…
@@ -1625,15 +1653,15 @@ export function PlanillaGrid({
           )}
       </CellActionSheet>
 
-      <BandejaRutList
+      <BandejaGroupList
         open={bandejaRutSection != null}
         onOpenChange={(o) => {
           if (!o) setBandejaRutSection(null);
         }}
         section={bandejaRutSection ?? "GAV"}
-        groups={bandejaRutGroups}
+        groups={bandejaGroups}
         flowRows={bandejaFlowRows}
-        onClassifyRut={handleClassifyRut}
+        onClassifyGroup={handleClassifyGroup}
       />
 
       <CellActionSheet

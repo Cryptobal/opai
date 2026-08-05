@@ -7,6 +7,7 @@ import {
   parseBody,
 } from "@/lib/api-auth";
 import { hasCapability } from "@/lib/permissions";
+import { prisma } from "@/lib/prisma";
 import {
   getRule,
   updateRule,
@@ -15,31 +16,11 @@ import {
   type RuleAction,
   type RuleConditions,
 } from "@/modules/finance/banking/automatch-rule.service";
-
-const conditionItemSchema = z.object({
-  field: z.enum(["DESCRIPTION", "REFERENCE", "AMOUNT", "BENEFICIARY_RUT"]),
-  operator: z.enum([
-    "CONTAINS",
-    "STARTS_WITH",
-    "EQUALS",
-    "IS_EMPTY",
-    "AMOUNT_BETWEEN",
-    "AMOUNT_GTE",
-    "AMOUNT_LTE",
-    "RUT_MATCHES",
-  ]),
-  value: z
-    .union([
-      z.string(),
-      z.number(),
-      z.object({
-        min: z.number().optional(),
-        max: z.number().optional(),
-      }),
-      z.null(),
-    ])
-    .optional(),
-});
+import {
+  conditionItemSchema,
+  isFlowRowActionBody,
+  ruleActionSchema,
+} from "@/modules/finance/banking/automatch-rule-schemas";
 
 const updateRuleSchema = z
   .object({
@@ -53,15 +34,7 @@ const updateRuleSchema = z
         items: z.array(conditionItemSchema).min(1),
       })
       .optional(),
-    action: z
-      .object({
-        handlingMode: z.enum(["RECOGNIZED", "CATEGORIZED"]),
-        accountPlanId: z.string().nullable().optional(),
-        supplierId: z.string().nullable().optional(),
-        counterpartyRut: z.string().nullable().optional(),
-        requiresReview: z.boolean(),
-      })
-      .optional(),
+    action: ruleActionSchema.optional(),
   })
   .refine((v) => Object.keys(v).length > 0, "Sin cambios");
 
@@ -114,6 +87,25 @@ export async function PATCH(
     const { id } = await params;
     const parsed = await parseBody(request, updateRuleSchema);
     if (parsed.error) return parsed.error;
+    if (parsed.data.action && isFlowRowActionBody(parsed.data.action)) {
+      const flowRow = await prisma.financeFlowRow.findFirst({
+        where: {
+          id: parsed.data.action.flowRowId,
+          tenantId: ctx.tenantId,
+          archivedAt: null,
+        },
+        select: { id: true },
+      });
+      if (!flowRow) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "La fila de flujo no existe o está archivada",
+          },
+          { status: 400 },
+        );
+      }
+    }
     const rule = await updateRule(ctx.tenantId, id, {
       ...parsed.data,
       conditions: parsed.data.conditions as RuleConditions | undefined,

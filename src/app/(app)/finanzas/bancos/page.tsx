@@ -53,6 +53,18 @@ export default async function BancosPage({
     orderBy: { code: "asc" },
   });
 
+  const flowRowsRaw = await prisma.financeFlowRow.findMany({
+    where: { tenantId, archivedAt: null },
+    select: { id: true, name: true, section: true, categoryId: true },
+    orderBy: [{ section: "asc" }, { orderIndex: "asc" }],
+  });
+  const flowRows = flowRowsRaw.map((r) => ({
+    id: r.id,
+    name: r.name,
+    section: r.section,
+    hasCategory: r.categoryId != null,
+  }));
+
   const data = bankAccounts.map((a) => ({
     id: a.id,
     bankCode: a.bankCode,
@@ -76,6 +88,7 @@ export default async function BancosPage({
         accountPlans={accountPlans}
         canManage={canManage}
         cartolaInboxEmail={tenantInboxEmail(tenantId)}
+        flowRows={flowRows}
       />
     </div>
   );

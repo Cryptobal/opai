@@ -89,13 +89,45 @@ interface RuleConditions {
   mode: "ALL" | "ANY";
   items: RuleCondition[];
 }
-interface RuleAction {
+interface LegacyRuleAction {
+  kind?: undefined;
   handlingMode: "RECOGNIZED" | "CATEGORIZED";
   accountPlanId?: string | null;
   supplierId?: string | null;
   counterpartyRut?: string | null;
   requiresReview: boolean;
 }
+interface FlowRowRuleAction {
+  kind: "FLOW_ROW";
+  flowRowId: string;
+  requiresReview?: boolean;
+}
+interface TgrPickRuleAction {
+  kind: "TGR_PICK";
+  requiresReview?: boolean;
+}
+type RuleAction = LegacyRuleAction | FlowRowRuleAction | TgrPickRuleAction;
+
+function isFlowRowAction(a: RuleAction): a is FlowRowRuleAction {
+  return (a as FlowRowRuleAction).kind === "FLOW_ROW";
+}
+function isTgrPickAction(a: RuleAction): a is TgrPickRuleAction {
+  return (a as TgrPickRuleAction).kind === "TGR_PICK";
+}
+function isLegacyAction(a: RuleAction): a is LegacyRuleAction {
+  return !("kind" in a) || a.kind == null;
+}
+function actionRequiresReview(a: RuleAction): boolean {
+  if (isFlowRowAction(a)) return a.requiresReview !== false;
+  if (isTgrPickAction(a)) return true;
+  return a.requiresReview;
+}
+function actionBadgeLabel(a: RuleAction): string {
+  if (isFlowRowAction(a)) return "Rutea a fila";
+  if (isTgrPickAction(a)) return "TGR (manual)";
+  return a.handlingMode === "RECOGNIZED" ? "Reconoce" : "Categoriza";
+}
+
 interface Rule {
   id: string;
   name: string;
@@ -116,6 +148,13 @@ interface AccountPlanOption {
   name: string;
   /** Tipo contable: ASSET, LIABILITY, EQUITY, REVENUE, COST, EXPENSE. */
   type?: string;
+}
+
+export interface FlowRowOption {
+  id: string;
+  name: string;
+  section: string;
+  hasCategory: boolean;
 }
 
 const ACCOUNT_TYPE_LABEL: Record<string, string> = {
@@ -160,6 +199,7 @@ function groupAccounts(
 interface BankRulesClientProps {
   canManage: boolean;
   accountPlans: AccountPlanOption[];
+  flowRows: FlowRowOption[];
 }
 
 const FIELD_LABEL: Record<RuleField, string> = {
@@ -212,13 +252,17 @@ const EMPTY_RULE: Omit<Rule, "id" | "timesMatched" | "lastMatchedAt" | "createdA
     supplierId: null,
     counterpartyRut: null,
     requiresReview: true,
-  },
+  } satisfies LegacyRuleAction,
 };
 
 /** Debe coincidir con el default del endpoint run-historical cuando viene `ruleId`. */
 const RULE_HISTORICAL_MONTHS_DEFAULT = 6;
 
-export function BankRulesClient({ canManage, accountPlans }: BankRulesClientProps) {
+export function BankRulesClient({
+  canManage,
+  accountPlans,
+  flowRows,
+}: BankRulesClientProps) {
   const [rules, setRules] = useState<Rule[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -308,7 +352,7 @@ export function BankRulesClient({ canManage, accountPlans }: BankRulesClientProp
     if (
       !(await confirmDialog({
         description:
-          "¿Conciliar histórico? Se toman hasta 2.500 movimientos sin conciliar más recientes (sin filtro de fecha), se evalúan DTE / turnos extra y después las reglas. Si una regla exige revisión humana, el movimiento queda como sugerencia y sigue «Sin conciliar» hasta autorizar.",
+          "¿Conciliar histórico? Se toman hasta 2.500 movimientos sin conciliar más recientes (sin filtro de fecha), se evalúan DTE / turnos extra y después las reglas (cuenta contable o fila de flujo). Si una regla exige revisión humana, el movimiento queda como sugerencia y sigue «Sin conciliar» hasta autorizar. Las reglas TGR nunca se auto-aplican.",
       }))
     ) {
       return;
@@ -529,16 +573,19 @@ export function BankRulesClient({ canManage, accountPlans }: BankRulesClientProp
                         variant="outline"
                         className={cn(
                           "text-xs",
-                          rule.action.handlingMode === "RECOGNIZED"
-                            ? "bg-status-info-soft text-status-info-fg border-status-info-border"
-                            : "bg-violet-500/15 text-violet-400 border-violet-500/30"
+                          isFlowRowAction(rule.action)
+                            ? "bg-status-ok-soft text-status-ok-fg border-status-ok-border"
+                            : isTgrPickAction(rule.action)
+                              ? "bg-status-warn-soft text-status-warn-fg border-status-warn-border"
+                              : isLegacyAction(rule.action) &&
+                                  rule.action.handlingMode === "RECOGNIZED"
+                                ? "bg-status-info-soft text-status-info-fg border-status-info-border"
+                                : "bg-ds-surface-2 text-ds-text-2 border-ds-border-default",
                         )}
                       >
-                        {rule.action.handlingMode === "RECOGNIZED"
-                          ? "Reconoce"
-                          : "Categoriza"}
+                        {actionBadgeLabel(rule.action)}
                       </Badge>
-                      {rule.action.requiresReview && (
+                      {actionRequiresReview(rule.action) && (
                         <Badge variant="outline" className="text-xs bg-status-warn-soft text-status-warn-fg border-status-warn-border">
                           Requiere revisión
                         </Badge>
@@ -563,14 +610,40 @@ export function BankRulesClient({ canManage, accountPlans }: BankRulesClientProp
                         </span>
                       ))}
                     </p>
-                    {rule.action.accountPlanId && (
+                    {isFlowRowAction(rule.action) && (() => {
+                      const row = flowRows.find(
+                        (r) => r.id === (rule.action as FlowRowRuleAction).flowRowId,
+                      );
+                      return (
+                        <p
+                          className={cn(
+                            "text-xs mt-1",
+                            row ? "text-muted-foreground" : "text-status-warn-fg",
+                          )}
+                        >
+                          →{" "}
+                          <span className={row ? "text-foreground" : undefined}>
+                            {row
+                              ? `${row.section} · ${row.name}`
+                              : "fila no encontrada"}
+                          </span>
+                        </p>
+                      );
+                    })()}
+                    {isLegacyAction(rule.action) && rule.action.accountPlanId && (
                       <p className="text-xs text-muted-foreground mt-1">
                         →{" "}
                         <span className="text-foreground">
-                          {accountPlans.find((p) => p.id === rule.action.accountPlanId)
-                            ?.code ?? "?"}{" "}
-                          {accountPlans.find((p) => p.id === rule.action.accountPlanId)
-                            ?.name ?? ""}
+                          {accountPlans.find(
+                            (p) =>
+                              p.id ===
+                              (rule.action as LegacyRuleAction).accountPlanId,
+                          )?.code ?? "?"}{" "}
+                          {accountPlans.find(
+                            (p) =>
+                              p.id ===
+                              (rule.action as LegacyRuleAction).accountPlanId,
+                          )?.name ?? ""}
                         </span>
                       </p>
                     )}
@@ -645,6 +718,7 @@ export function BankRulesClient({ canManage, accountPlans }: BankRulesClientProp
           onOpenChange={setEditorOpen}
           rule={editing}
           accountPlans={accountPlans}
+          flowRows={flowRows}
           onSaved={(saved) => {
             if (editing) {
               setRules((prev) =>
@@ -680,6 +754,7 @@ interface RuleEditorSheetProps {
   onOpenChange: (open: boolean) => void;
   rule: Rule | null;
   accountPlans: AccountPlanOption[];
+  flowRows: FlowRowOption[];
   onSaved: (rule: Rule) => void;
 }
 
@@ -688,11 +763,13 @@ function RuleEditorSheet({
   onOpenChange,
   rule,
   accountPlans,
+  flowRows,
   onSaved,
 }: RuleEditorSheetProps) {
   const [draft, setDraft] = useState(EMPTY_RULE);
   const [saving, setSaving] = useState(false);
   const [showPriorityHelp, setShowPriorityHelp] = useState(false);
+  const readOnlyTgr = rule != null && isTgrPickAction(rule.action);
   // Live preview result count + total (alimentado por LivePreviewPanel).
   const [livePreview, setLivePreview] = useState<{
     count: number;
@@ -762,6 +839,10 @@ function RuleEditorSheet({
   };
 
   const handleSave = async () => {
+    if (readOnlyTgr) {
+      toast.error("Las reglas TGR no se editan desde aquí");
+      return;
+    }
     if (!draft.name.trim()) {
       toast.error("Asigná un nombre");
       return;
@@ -769,6 +850,18 @@ function RuleEditorSheet({
     if (draft.conditions.items.length === 0) {
       toast.error("Agregá al menos un criterio");
       return;
+    }
+    const action = draft.action;
+    if (isFlowRowAction(action)) {
+      const row = flowRows.find((r) => r.id === action.flowRowId);
+      if (!row) {
+        toast.error("Elegí una fila de flujo destino");
+        return;
+      }
+      if (!row.hasCategory) {
+        toast.error("La fila elegida no tiene cuenta contable asociada");
+        return;
+      }
     }
     setSaving(true);
     try {
@@ -1035,21 +1128,110 @@ function RuleEditorSheet({
           {/* Bloque 3: Acción */}
           <div className="space-y-3 rounded-lg border border-border bg-muted/30 p-4">
             <p className="text-sm font-medium">Acción</p>
+            {readOnlyTgr ? (
+              <p className="text-[13px] text-status-warn-fg">
+                Esta regla exige elección manual (F29 / finiquito / convenio) y no
+                se auto-aplica.
+              </p>
+            ) : (
+              <>
+            <div className="space-y-1.5">
+              <Label>Destino</Label>
+              <Select
+                value={isFlowRowAction(draft.action) ? "FLOW_ROW" : "ACCOUNT"}
+                onValueChange={(v) =>
+                  setDraft((d) => ({
+                    ...d,
+                    action:
+                      v === "FLOW_ROW"
+                        ? {
+                            kind: "FLOW_ROW",
+                            flowRowId: flowRows.find((r) => r.hasCategory)?.id ?? "",
+                            requiresReview: false,
+                          }
+                        : {
+                            handlingMode: "CATEGORIZED",
+                            accountPlanId: null,
+                            supplierId: null,
+                            counterpartyRut: null,
+                            requiresReview: true,
+                          },
+                  }))
+                }
+              >
+                <SelectTrigger className="h-10 sm:h-9">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ACCOUNT">Cuenta contable</SelectItem>
+                  <SelectItem value="FLOW_ROW">Fila de flujo</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {isFlowRowAction(draft.action) ? (
+              <div className="space-y-1.5">
+                <Label>Fila de flujo</Label>
+                <Select
+                  value={draft.action.flowRowId || undefined}
+                  onValueChange={(id) =>
+                    setDraft((d) => ({
+                      ...d,
+                      action: {
+                        kind: "FLOW_ROW",
+                        flowRowId: id,
+                        requiresReview:
+                          isFlowRowAction(d.action) ? d.action.requiresReview : false,
+                      },
+                    }))
+                  }
+                >
+                  <SelectTrigger className="h-10 sm:h-9">
+                    <SelectValue placeholder="Elegir fila…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {flowRows.map((row) => (
+                      <SelectItem
+                        key={row.id}
+                        value={row.id}
+                        disabled={!row.hasCategory}
+                      >
+                        {row.section} · {row.name}
+                        {!row.hasCategory ? " (sin cuenta contable)" : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            ) : (
+              <>
             <div className="space-y-1.5">
               <Label>Tipo</Label>
               <Select
-                value={draft.action.handlingMode}
+                value={
+                  isLegacyAction(draft.action)
+                    ? draft.action.handlingMode
+                    : "CATEGORIZED"
+                }
                 onValueChange={(v) =>
                   setDraft((d) => ({
                     ...d,
                     action: {
-                      ...d.action,
                       handlingMode: v as "RECOGNIZED" | "CATEGORIZED",
+                      accountPlanId: isLegacyAction(d.action)
+                        ? d.action.accountPlanId
+                        : null,
+                      supplierId: isLegacyAction(d.action) ? d.action.supplierId : null,
+                      counterpartyRut: isLegacyAction(d.action)
+                        ? d.action.counterpartyRut
+                        : null,
+                      requiresReview: isLegacyAction(d.action)
+                        ? d.action.requiresReview
+                        : true,
                     },
                   }))
                 }
               >
-                <SelectTrigger className="h-9">
+                <SelectTrigger className="h-10 sm:h-9">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -1066,11 +1248,27 @@ function RuleEditorSheet({
               <Label>Cuenta contable</Label>
               <AccountPlanCombobox
                 items={groupAccounts(accountPlans).flatMap((g) => g.items)}
-                value={draft.action.accountPlanId ?? ""}
+                value={
+                  isLegacyAction(draft.action)
+                    ? draft.action.accountPlanId ?? ""
+                    : ""
+                }
                 onChange={(id) =>
                   setDraft((d) => ({
                     ...d,
-                    action: { ...d.action, accountPlanId: id || null },
+                    action: {
+                      handlingMode: isLegacyAction(d.action)
+                        ? d.action.handlingMode
+                        : "CATEGORIZED",
+                      accountPlanId: id || null,
+                      supplierId: isLegacyAction(d.action) ? d.action.supplierId : null,
+                      counterpartyRut: isLegacyAction(d.action)
+                        ? d.action.counterpartyRut
+                        : null,
+                      requiresReview: isLegacyAction(d.action)
+                        ? d.action.requiresReview
+                        : true,
+                    },
                   }))
                 }
                 placeholder="Buscar por código o nombre…"
@@ -1081,33 +1279,55 @@ function RuleEditorSheet({
               <Label htmlFor="rule-rut">RUT contraparte (opcional)</Label>
               <Input
                 id="rule-rut"
-                value={draft.action.counterpartyRut ?? ""}
+                value={
+                  isLegacyAction(draft.action)
+                    ? draft.action.counterpartyRut ?? ""
+                    : ""
+                }
                 onChange={(e) =>
                   setDraft((d) => ({
                     ...d,
                     action: {
-                      ...d.action,
+                      handlingMode: isLegacyAction(d.action)
+                        ? d.action.handlingMode
+                        : "CATEGORIZED",
+                      accountPlanId: isLegacyAction(d.action)
+                        ? d.action.accountPlanId
+                        : null,
+                      supplierId: isLegacyAction(d.action) ? d.action.supplierId : null,
                       counterpartyRut: e.target.value || null,
+                      requiresReview: isLegacyAction(d.action)
+                        ? d.action.requiresReview
+                        : true,
                     },
                   }))
                 }
                 placeholder="Ej. 76.123.456-7"
               />
             </div>
+              </>
+            )}
             <Label className="flex items-center gap-2 pt-1">
               <Switch
-                checked={draft.action.requiresReview}
+                checked={actionRequiresReview(draft.action)}
                 onCheckedChange={(v) =>
                   setDraft((d) => ({
                     ...d,
-                    action: { ...d.action, requiresReview: v },
+                    action: isFlowRowAction(d.action)
+                      ? { ...d.action, requiresReview: v }
+                      : isLegacyAction(d.action)
+                        ? { ...d.action, requiresReview: v }
+                        : d.action,
                   }))
                 }
+                disabled={readOnlyTgr}
               />
               <span className="text-sm">
                 Requiere revisión manual antes de conciliar
               </span>
             </Label>
+              </>
+            )}
           </div>
 
           {/* Bloque 4: Preview en vivo (debounce) */}
@@ -1122,7 +1342,11 @@ function RuleEditorSheet({
 
         {/* Footer sticky en el bottom — accesible con el pulgar en mobile */}
         <div className="border-t border-border bg-background px-6 py-3 flex items-center gap-2 flex-wrap">
-          <Button onClick={handleSave} disabled={saving} className="flex-1 sm:flex-initial">
+          <Button
+            onClick={handleSave}
+            disabled={saving || readOnlyTgr}
+            className="flex-1 sm:flex-initial"
+          >
             {saving && <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />}
             <Layers className="h-4 w-4 mr-1.5" />
             {rule ? "Guardar cambios" : "Crear regla"}
