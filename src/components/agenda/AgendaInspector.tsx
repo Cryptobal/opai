@@ -62,6 +62,20 @@ function localParts(iso: string): { date: string; time: string } {
   };
 }
 
+/** True si fecha/hora/responsable difieren del item cargado. */
+export function isInspectorScheduleDirty(
+  item: Pick<AgendaCalendarItem, "start" | "allDay" | "assignedUserId">,
+  draft: { date: string; time: string; assignedUserId: string },
+): boolean {
+  const parts = localParts(item.start);
+  const baselineTime = item.allDay ? "" : parts.time;
+  return (
+    draft.date !== parts.date ||
+    draft.time !== baselineTime ||
+    draft.assignedUserId !== (item.assignedUserId ?? "")
+  );
+}
+
 /**
  * Inspector lateral para visitas, licitaciones y eventos de Google.
  * Las tareas se editan exclusivamente en `TareaDetailSheet` (AgendaTaskDetail).
@@ -130,6 +144,11 @@ export function AgendaInspector({ item, users, onClose, onChanged }: Props) {
 
   const assignee =
     users.find((user) => user.id === assignedUserId)?.name ?? item.assignedName;
+  const scheduleDirty = isInspectorScheduleDirty(item, {
+    date,
+    time,
+    assignedUserId,
+  });
 
   async function saveVisit(body: Record<string, unknown>, okMsg: string) {
     setBusy(true);
@@ -255,7 +274,7 @@ export function AgendaInspector({ item, users, onClose, onChanged }: Props) {
 
           <button
             type="button"
-            disabled={busy || !date}
+            disabled={busy || !date || !scheduleDirty}
             onClick={saveSchedule}
             className="h-10 w-full rounded-xl bg-primary text-[13px] font-medium text-primary-foreground ds-tap disabled:opacity-50 sm:h-9"
           >
