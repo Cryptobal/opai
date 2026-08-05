@@ -5,6 +5,7 @@ import { AlertTriangle } from "lucide-react";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -56,10 +57,10 @@ export function CorreoAiConflictDialog({
               <DialogTitle className="font-display text-[17px] text-ds-text-1">
                 Ya existen registros similares
               </DialogTitle>
-              <p className="text-[13px] text-ds-text-3">
+              <DialogDescription className="text-[13px] text-ds-text-3">
                 Si volvés a crear, vas a duplicar. ¿Actualizamos los existentes con
                 los datos del plan, o preferís crear registros nuevos?
-              </p>
+              </DialogDescription>
             </div>
           </div>
         </DialogHeader>
