@@ -19,7 +19,6 @@ import {
   type DragStartEvent,
 } from "@dnd-kit/core";
 import { Surface } from "@/components/opai-ds";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { CHILE_TZ, todayInChile, ymdInChile } from "@/lib/dates-cl";
 import { cn } from "@/lib/utils";
 import {
@@ -43,6 +42,7 @@ import {
   resolveHourHeight,
 } from "./agenda-calendar-utils";
 import type { AgendaGridPrefs } from "./desktop/agenda-desktop-prefs";
+import { AgendaAllDayBand } from "./desktop/AgendaAllDayBand";
 import type {
   AgendaCalendarItem,
   AgendaSchedule,
@@ -63,6 +63,7 @@ type Props = {
   onMove: (item: AgendaCalendarItem, schedule: AgendaSchedule) => void;
   onResize: (item: AgendaCalendarItem, schedule: AgendaSchedule) => void;
   onOpenDay?: (dateKey: string) => void;
+  onAllDayExpandedChange?: (expanded: boolean) => void;
   onSlotClick?: (
     dateKey: string,
     minute: number,
@@ -167,6 +168,7 @@ export function AgendaCalendarGrid({
   onMove,
   onResize,
   onOpenDay,
+  onAllDayExpandedChange,
   onSlotClick,
 }: Props) {
   const anchorMonth = ymdInChile(anchor).slice(0, 7);
@@ -388,13 +390,16 @@ export function AgendaCalendarGrid({
               {days.map((day) => {
                 const key = ymdInChile(day);
                 const dayItems = itemsByDay.get(key) ?? [];
+                const allDay = dayItems.filter((i) => i.allDay);
+                const timed = dayItems.filter((i) => !i.allDay);
+                const ordered = [...allDay, ...timed];
                 const muted = key.slice(0, 7) !== anchorMonth;
                 return (
                   <MonthDayCell
                     key={key}
                     dateKey={key}
-                    items={dayItems.slice(0, ALL_DAY_VISIBLE)}
-                    overflow={Math.max(0, dayItems.length - ALL_DAY_VISIBLE)}
+                    items={ordered.slice(0, ALL_DAY_VISIBLE)}
+                    overflow={Math.max(0, ordered.length - ALL_DAY_VISIBLE)}
                     muted={muted}
                     selectedKey={selectedKey}
                     usersById={usersById}
@@ -480,31 +485,19 @@ export function AgendaCalendarGrid({
               })}
             </div>
 
-            <div
-              className="grid border-t border-ds-border-subtle"
-              style={{ gridTemplateColumns: columns }}
-              data-agenda-allday-band
-            >
-              <div className="border-r border-ds-border-subtle px-1.5 py-1.5 text-right text-[12px] leading-tight text-ds-text-4">
-                Todo el día
-              </div>
-              {days.map((day) => {
-                const key = ymdInChile(day);
-                const allDayItems = (itemsByDay.get(key) ?? []).filter((item) => item.allDay);
-                return (
-                  <AllDayColumn
-                    key={`allday-${key}`}
-                    dateKey={key}
-                    items={allDayItems}
-                    selectedKey={selectedKey}
-                    usersById={usersById}
-                    showOwner={gridPrefs.showOwner}
-                    colorBySource={colorBySource}
-                    onSelect={onSelect}
-                  />
-                );
-              })}
-            </div>
+            <AgendaAllDayBand
+              days={days}
+              dayKeys={days.map((d) => ymdInChile(d))}
+              columns={columns}
+              items={items}
+              selectedKey={selectedKey}
+              usersById={usersById}
+              showOwner={gridPrefs.showOwner}
+              expanded={gridPrefs.allDayExpanded}
+              colorBySource={colorBySource}
+              onSelect={onSelect}
+              onExpandedChange={(next) => onAllDayExpandedChange?.(next)}
+            />
           </div>
 
           <div
@@ -574,79 +567,6 @@ export function AgendaCalendarGrid({
         ) : null}
       </DragOverlay>
     </DndContext>
-  );
-}
-
-const ALL_DAY_CHIP = "h-[22px] min-h-0 min-w-0 sm:h-[22px] rounded";
-
-function AllDayColumn({
-  dateKey,
-  items,
-  selectedKey,
-  usersById,
-  showOwner,
-  colorBySource,
-  onSelect,
-}: {
-  dateKey: string;
-  items: AgendaCalendarItem[];
-  selectedKey: string | null;
-  usersById: Map<string, AgendaTeamMember>;
-  showOwner: boolean;
-  colorBySource?: Record<string, string>;
-  onSelect: (item: AgendaCalendarItem) => void;
-}) {
-  const { setNodeRef, isOver } = useDroppable({ id: `all-day:${dateKey}` });
-  const visible = items.slice(0, ALL_DAY_VISIBLE);
-  const overflow = items.slice(ALL_DAY_VISIBLE);
-
-  return (
-    <div
-      ref={setNodeRef}
-      data-agenda-allday={dateKey}
-      className={cn(
-        "max-h-[74px] min-h-[28px] min-w-0 space-y-0.5 overflow-hidden border-r border-ds-border-subtle px-1 py-1",
-        isOver && "bg-primary/5",
-      )}
-    >
-      {visible.map((item) => (
-        <AgendaCompactEvent
-          key={itemKey(item)}
-          item={item}
-          dense
-          selected={selectedKey === itemKey(item)}
-          user={usersById.get(item.assignedUserId)}
-          showOwner={showOwner}
-          className={ALL_DAY_CHIP}
-          colorBySource={colorBySource}
-          onSelect={onSelect}
-        />
-      ))}
-      {overflow.length > 0 && (
-        <Popover>
-          <PopoverTrigger className="flex h-[18px] w-full min-w-0 items-center rounded px-1.5 text-left text-[12px] font-medium text-ds-text-3 hover:bg-ds-surface-3 ds-tap">
-            +{overflow.length} más
-          </PopoverTrigger>
-          <PopoverContent
-            align="start"
-            className="w-64 min-w-0 max-w-none space-y-1 rounded-xl border-ds-border-default bg-ds-surface-1 p-1.5 shadow-ds-lg"
-          >
-            {overflow.map((item) => (
-              <AgendaCompactEvent
-                key={itemKey(item)}
-                item={item}
-                dense
-                selected={selectedKey === itemKey(item)}
-                user={usersById.get(item.assignedUserId)}
-                showOwner={showOwner}
-                colorBySource={colorBySource}
-                onSelect={onSelect}
-              />
-            ))}
-          </PopoverContent>
-        </Popover>
-      )}
-    </div>
   );
 }
 

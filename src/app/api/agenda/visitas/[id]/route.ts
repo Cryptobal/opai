@@ -12,6 +12,7 @@ import {
   completeAgendaVisita,
   reprogramAgendaVisita,
 } from "@/modules/agenda/agenda.service";
+import { sanitizeSyncReason } from "@/modules/agenda/agenda-sync-reason";
 import {
   OpaiEventValidationError,
   updateOpaiEvent,
@@ -49,7 +50,8 @@ export async function GET(_req: NextRequest, routeCtx: Ctx) {
 
   return NextResponse.json({
     visita,
-    syncStatus: link?.syncStatus ?? "PENDING",
+    syncStatus: link?.syncStatus ?? null,
+    syncReason: sanitizeSyncReason(link?.lastError),
     htmlLink: link?.htmlLink ?? null,
     v2,
   });

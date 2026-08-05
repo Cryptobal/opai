@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -11,7 +12,10 @@ import {
 import { Tag } from "@/components/opai-ds";
 import { cn } from "@/lib/utils";
 import { CHILE_TZ } from "@/lib/dates-cl";
+import { canView } from "@/lib/permissions";
+import { usePermissions } from "@/lib/permissions-context";
 import { dateAtChileSlot } from "../agenda-calendar-utils";
+import { syncStatusMeta } from "../agenda-sync-status";
 import { hhmmChile, TYPE_LABELS } from "./agenda-mobile-utils";
 import { ContextBlock, ParticipantsBlock, type DetailExternal, type DetailParticipant } from "./AgendaDetailBlocks";
 import { EditEventDialog } from "../evento/EditEventDialog";
@@ -30,7 +34,8 @@ type VisitaDetail = {
     installation: { id: string; name: string; address: string | null } | null;
     deal: { id: string; title: string } | null;
   };
-  syncStatus: string;
+  syncStatus: string | null;
+  syncReason?: string | null;
   htmlLink: string | null;
   v2: { participants: DetailParticipant[]; externals: DetailExternal[] } | null;
 };
@@ -43,6 +48,8 @@ type Props = {
 
 /** Detalle móvil (spec §6): bottom sheet glass con snap 50/100 y Dialog DS. */
 export function AgendaDetailSheet({ visitaId, onClose, onChanged }: Props) {
+  const permissions = usePermissions();
+  const canConnectGoogle = canView(permissions, "config", "integraciones");
   const [detail, setDetail] = useState<VisitaDetail | null>(null);
   const [snap, setSnap] = useState<"half" | "full">("half");
   const [confirmCancel, setConfirmCancel] = useState(false);
@@ -132,12 +139,35 @@ export function AgendaDetailSheet({ visitaId, onClose, onChanged }: Props) {
             <>
               <div className="flex flex-wrap items-center gap-1.5">
                 <Tag variant="info" className="text-[12px]">{TYPE_LABELS[v.type] ?? "Evento"}</Tag>
-                {detail.syncStatus === "SYNCED" ? (
-                  <span className="text-[12px] text-status-ok-fg">☁ Sincronizado</span>
-                ) : (
-                  <span className="text-[12px] text-status-warn-fg">◌ Pendiente de sync</span>
-                )}
+                {(() => {
+                  const sync = syncStatusMeta(detail.syncStatus, detail.syncReason);
+                  if (sync.status === "NONE") return null;
+                  const toneClass =
+                    sync.tone === "ok"
+                      ? "text-status-ok-fg"
+                      : sync.tone === "danger"
+                        ? "text-status-danger-fg"
+                        : "text-status-warn-fg";
+                  return (
+                    <span className={cn("text-[12px]", toneClass)} aria-label={sync.ariaLabel}>
+                      {sync.label}
+                    </span>
+                  );
+                })()}
               </div>
+              {(() => {
+                const sync = syncStatusMeta(detail.syncStatus, detail.syncReason);
+                if (!sync.needsGoogleConnect || !canConnectGoogle) return null;
+                return (
+                  <Link
+                    href="/opai/configuracion/integraciones/google-calendar"
+                    className="inline-flex h-11 items-center text-[13px] font-medium text-primary ds-tap"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    Conectar Google Calendar
+                  </Link>
+                );
+              })()}
               <div>
                 <h2 className="font-display text-[19px] font-semibold leading-snug text-ds-text-1">
                   {v.title}

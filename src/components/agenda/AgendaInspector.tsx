@@ -73,7 +73,8 @@ export function AgendaInspector({ item, users, onClose, onChanged }: Props) {
     notes: string | null;
     address: string | null;
     htmlLink: string | null;
-    syncStatus: string;
+    syncStatus: string | null;
+    syncReason?: string | null;
     participants: InspectorParticipant[];
   } | null>(null);
 
@@ -96,7 +97,8 @@ export function AgendaInspector({ item, users, onClose, onChanged }: Props) {
               data.visita?.customAddress ??
               null,
             htmlLink: data.htmlLink ?? null,
-            syncStatus: data.syncStatus ?? "PENDING",
+            syncStatus: data.syncStatus ?? null,
+            syncReason: data.syncReason ?? null,
             participants: Array.isArray(data.v2?.participants)
               ? data.v2.participants.map(
                   (p: { name?: string; responseStatus?: string; hasGoogle?: boolean }) => ({

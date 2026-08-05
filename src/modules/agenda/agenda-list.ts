@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { todayInChile, utcDateFromYmd, ymdInChile } from "@/lib/dates-cl";
+import { sanitizeSyncReason } from "./agenda-sync-reason";
 import { expandLicitacionAgendaItems } from "./agenda-list-licitacion";
 import { isAgendaVisitaAllDay } from "./agenda-sync";
 import { listAgendaTasks } from "./agenda-tasks";
@@ -70,6 +71,7 @@ export async function listAgenda(
         sourceType: true,
         sourceId: true,
         syncStatus: true,
+        lastError: true,
         rangeStartYmd: true,
         allDay: true,
         htmlLink: true,
@@ -86,11 +88,14 @@ export async function listAgenda(
         role: "organizer",
         htmlLink: { not: null },
       },
-      select: { eventId: true, htmlLink: true, syncStatus: true },
+      select: { eventId: true, htmlLink: true, syncStatus: true, lastError: true },
     }),
   ]);
 
   const syncMap = new Map(links.map((l) => [`${l.sourceType}:${l.sourceId}`, l.syncStatus]));
+  const syncReasonMap = new Map(
+    links.map((l) => [`${l.sourceType}:${l.sourceId}`, sanitizeSyncReason(l.lastError)]),
+  );
   const htmlLinkMap = new Map(
     links
       .filter((l) => l.htmlLink)
@@ -99,6 +104,9 @@ export async function listAgenda(
   for (const pl of providerLinks) {
     if (pl.htmlLink) htmlLinkMap.set(`agenda_visita:${pl.eventId}`, pl.htmlLink);
     if (pl.syncStatus) syncMap.set(`agenda_visita:${pl.eventId}`, pl.syncStatus);
+    if (pl.lastError) {
+      syncReasonMap.set(`agenda_visita:${pl.eventId}`, sanitizeSyncReason(pl.lastError));
+    }
   }
   const rangeStartMap = new Map(
     links
@@ -129,7 +137,8 @@ export async function listAgenda(
       accountName: v.account?.name ?? null,
       installationName: v.installation?.name ?? null,
       address: v.installation?.address ?? v.customAddress ?? null,
-      syncStatus: syncMap.get(`agenda_visita:${v.id}`) ?? "PENDING",
+      syncStatus: syncMap.get(`agenda_visita:${v.id}`) ?? null,
+      syncReason: syncReasonMap.get(`agenda_visita:${v.id}`) ?? null,
       htmlLink: htmlLinkMap.get(`agenda_visita:${v.id}`) ?? null,
       dealId: v.dealId,
       status: v.status,
@@ -182,6 +191,7 @@ export async function listAgenda(
         fromYmd,
         toYmdExcl,
         syncStatus: syncMap.get(`licitacion:${d.id}`) ?? null,
+        syncReason: syncReasonMap.get(`licitacion:${d.id}`) ?? null,
       }),
     );
   }

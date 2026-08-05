@@ -71,6 +71,8 @@ export type AgendaDesktopPrefs = {
   showWeekends: boolean;
   showTasks: boolean;
   showOwner: boolean;
+  /** Franja all-day expandida (muestra todos los carriles). */
+  allDayExpanded: boolean;
 };
 
 /** Subconjunto de prefs que consume la grilla. */
@@ -87,6 +89,7 @@ export type AgendaGridPrefs = Pick<
   | "showWeekends"
   | "showTasks"
   | "showOwner"
+  | "allDayExpanded"
 >;
 
 const VALID_VIEWS: AgendaViewMode[] = ["day", "multi", "week", "month"];
@@ -108,6 +111,7 @@ export const DEFAULT_AGENDA_PREFS: AgendaDesktopPrefs = {
   showWeekends: true,
   showTasks: true,
   showOwner: true,
+  allDayExpanded: false,
 };
 
 function clampInt(value: unknown, min: number, max: number, fallback: number): number {
@@ -182,6 +186,7 @@ export function readDesktopPrefs(): AgendaDesktopPrefs {
       showWeekends: parsed.showWeekends !== false,
       showTasks: parsed.showTasks !== false,
       showOwner: parsed.showOwner !== false,
+      allDayExpanded: parsed.allDayExpanded === true,
     };
   } catch {
     return { ...DEFAULT_AGENDA_PREFS };
@@ -209,5 +214,6 @@ export function toGridPrefs(prefs: AgendaDesktopPrefs): AgendaGridPrefs {
     showWeekends: prefs.showWeekends,
     showTasks: prefs.showTasks,
     showOwner: prefs.showOwner,
+    allDayExpanded: prefs.allDayExpanded,
   };
 }

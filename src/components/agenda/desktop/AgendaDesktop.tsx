@@ -424,6 +424,9 @@ export function AgendaDesktop({
                 setAnchor(dateAtChileSlot(ymd, 0));
                 setView("day");
               }}
+              onAllDayExpandedChange={(allDayExpanded) =>
+                updatePrefs({ ...prefs, allDayExpanded })
+              }
               onSlotClick={(dateKey, minute, origin) =>
                 setQuickCreate({ mode: "evento", origin, dateKey, minute })
               }
