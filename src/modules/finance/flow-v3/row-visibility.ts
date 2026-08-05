@@ -138,16 +138,21 @@ export function pickAdoptionCandidate(
 
 /**
  * ¿Archivar sobrante ACCOUNT_INSTALLATION sin template activo?
+ * Precedencia: linkedActiveTemplate → hasPlanData → hasExplicitOwnRowDte.
  * - Sin plan propio → archivable (DTEs caen en Otros ingresos / filas de template).
  * - Con plan ≠ 0 → conservar (datos propios).
+ * - Con DTE pendiente flowRouting=OWN_ROW → conservar (fila creada a propósito).
  */
 export function shouldArchiveSurplusAccountRow(opts: {
   hasPlanData: boolean;
   /** Template activo existente al que apunta recurringTemplateId. */
   linkedActiveTemplate: boolean;
+  /** Cuenta con al menos un DTE pendiente con flowRouting=OWN_ROW. */
+  hasExplicitOwnRowDte?: boolean;
 }): boolean {
   if (opts.linkedActiveTemplate) return false;
   if (opts.hasPlanData) return false;
+  if (opts.hasExplicitOwnRowDte) return false;
   return true;
 }
 

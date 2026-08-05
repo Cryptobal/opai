@@ -138,6 +138,16 @@ describe("shouldArchiveSurplusAccountRow", () => {
       shouldArchiveSurplusAccountRow({ hasPlanData: true, linkedActiveTemplate: false }),
     ).toBe(false);
   });
+
+  it("no archiva si hay DTE pendiente con flowRouting OWN_ROW", () => {
+    expect(
+      shouldArchiveSurplusAccountRow({
+        hasPlanData: false,
+        linkedActiveTemplate: false,
+        hasExplicitOwnRowDte: true,
+      }),
+    ).toBe(false);
+  });
 });
 
 describe("pickDuplicateKeeper", () => {

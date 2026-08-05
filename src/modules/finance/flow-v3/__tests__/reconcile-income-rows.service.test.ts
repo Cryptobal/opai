@@ -20,15 +20,17 @@ import { reconcileIncomeRows } from "../reconcile-income-rows.service";
 
 const TENANT = "tenant-1";
 const asMock = (fn: unknown) => fn as ReturnType<typeof vi.fn>;
+let updateManySpy: ReturnType<typeof vi.fn>;
 
 beforeEach(() => {
   vi.clearAllMocks();
+  updateManySpy = vi.fn().mockResolvedValue({ count: 0 });
   asMock(prisma.$transaction).mockImplementation(async (cb: (tx: typeof prisma) => Promise<void>) => {
     const tx = {
       $executeRaw: vi.fn().mockResolvedValue(undefined),
       financeFlowRow: {
         ...prisma.financeFlowRow,
-        updateMany: vi.fn().mockResolvedValue({ count: 0 }),
+        updateMany: updateManySpy,
         update: vi.fn().mockResolvedValue({}),
         deleteMany: vi.fn().mockResolvedValue({ count: 0 }),
       },
@@ -149,5 +151,111 @@ describe("createRowsForAccountsWithPendingDtes (via reconcileIncomeRows)", () =>
     );
     expect(pendingCreates).toHaveLength(1);
     expect(pendingCreates[0][0].data.crmAccountId).toBe("acc-2");
+  });
+
+  it("DTE OTHER_INCOME pendiente no crea fila ACCOUNT_INSTALLATION", async () => {
+    asMock(prisma.crmAccount.findMany).mockResolvedValue([
+      { id: "acc-oi", name: "Esporádico", rut: "76.999.999-9" },
+    ]);
+    asMock(prisma.financeDte.findMany).mockResolvedValue([
+      {
+        crmAccountId: "acc-oi",
+        receiverRut: null,
+        totalAmount: 100_000,
+        amountPaid: 0,
+        date: new Date("2026-08-01T12:00:00Z"),
+        flowRouting: "OTHER_INCOME",
+      },
+    ]);
+
+    await reconcileIncomeRows(TENANT);
+
+    const pendingCreates = asMock(prisma.financeFlowRow.create).mock.calls.filter(
+      (c) => c[0]?.data?.mapping === "ACCOUNT_INSTALLATION" && c[0]?.data?.crmAccountId === "acc-oi",
+    );
+    expect(pendingCreates).toHaveLength(0);
+  });
+
+  it("DTE OWN_ROW pendiente crea fila y no la archiva en el mismo pase", async () => {
+    let created = false;
+    const createdRow = {
+      id: "row-own",
+      name: "Cliente Beta",
+      crmAccountId: "acc-own",
+      installationId: null,
+      recurringTemplateId: null,
+      createdAt: new Date("2026-08-01T12:00:00Z"),
+    };
+    asMock(prisma.crmAccount.findMany).mockResolvedValue([
+      { id: "acc-own", name: "Cliente Beta", rut: "76.111.111-1" },
+    ]);
+    asMock(prisma.financeDte.findMany).mockResolvedValue([
+      {
+        crmAccountId: "acc-own",
+        receiverRut: null,
+        totalAmount: 80_000,
+        amountPaid: 0,
+        date: new Date("2026-08-01T12:00:00Z"),
+        flowRouting: "OWN_ROW",
+      },
+    ]);
+    asMock(prisma.financeFlowRow.create).mockImplementation(async () => {
+      created = true;
+      return createdRow;
+    });
+    asMock(prisma.financeFlowRow.findMany).mockImplementation(async (args) => {
+      if (
+        args?.where?.mapping === "ACCOUNT_INSTALLATION" &&
+        args?.where?.archivedAt === null &&
+        args?.select?.id
+      ) {
+        // archiveSurplusRows: ve la fila recién creada
+        return created ? [createdRow] : [];
+      }
+      return [];
+    });
+
+    await reconcileIncomeRows(TENANT);
+
+    expect(prisma.financeFlowRow.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          crmAccountId: "acc-own",
+          mapping: "ACCOUNT_INSTALLATION",
+        }),
+      }),
+    );
+    // Sin archive: updateMany no debe incluir row-own (ni correr si archiveIds vacío).
+    const archivedIds = updateManySpy.mock.calls.flatMap(
+      (c) => (c[0]?.where?.id?.in as string[] | undefined) ?? [],
+    );
+    expect(archivedIds).not.toContain("row-own");
+  });
+
+  it("DTE con flowRouting null conserva comportamiento actual (crea fila)", async () => {
+    asMock(prisma.crmAccount.findMany).mockResolvedValue([
+      { id: "acc-null", name: "Legacy", rut: "76.222.222-2" },
+    ]);
+    asMock(prisma.financeDte.findMany).mockResolvedValue([
+      {
+        crmAccountId: "acc-null",
+        receiverRut: null,
+        totalAmount: 40_000,
+        amountPaid: 0,
+        date: new Date("2026-08-01T12:00:00Z"),
+        flowRouting: null,
+      },
+    ]);
+
+    await reconcileIncomeRows(TENANT);
+
+    expect(prisma.financeFlowRow.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          crmAccountId: "acc-null",
+          mapping: "ACCOUNT_INSTALLATION",
+        }),
+      }),
+    );
   });
 });
