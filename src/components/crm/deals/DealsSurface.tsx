@@ -30,6 +30,7 @@ type Props = {
   onLoadMore: (stageId: string) => void;
   onAddDeal: (stageId: string) => void;
   onMoveDeal: (dealId: string, stageId: string) => void;
+  onClosedStage: (stageId: string) => void;
 };
 
 export function DealsSurface({
@@ -51,6 +52,7 @@ export function DealsSurface({
   onLoadMore,
   onAddDeal,
   onMoveDeal,
+  onClosedStage,
 }: Props) {
   if (summary.open.count === 0 && allDeals.length === 0) {
     return (
@@ -84,12 +86,13 @@ export function DealsSurface({
     stageFilter !== "all" && closedStages.some((s) => s.id === stageFilter);
 
   return (
-    <>
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
       {view === "board" ? (
         <>
-          <div className="hidden min-h-0 flex-1 md:flex">
+          <div className="deals-board-host hidden min-h-0 flex-1 md:flex">
             <DealsBoard
               openStages={openStages}
+              closedStages={closedStages}
               byStage={byStage}
               summary={summary}
               stageFilter={stageFilter}
@@ -99,35 +102,46 @@ export function DealsSurface({
               onLoadMore={onLoadMore}
               onAddDeal={onAddDeal}
               onMoveDeal={onMoveDeal}
+              onClosedStage={onClosedStage}
             />
           </div>
-          <DealsMobilePanes
-            stages={[...openStages, ...closedStages]}
-            byStage={byStage}
-            summary={summary}
-            activeStageId={mobileStageId}
-            onActiveStageChange={onMobileStageChange}
-            density={density}
-            unreadNoteIds={unreadNoteIds}
-            onOpenDeal={onOpenDeal}
-            onLoadMore={onLoadMore}
-          />
+          <div className="flex min-h-0 flex-1 flex-col md:hidden">
+            <DealsMobilePanes
+              stages={[...openStages, ...closedStages]}
+              byStage={byStage}
+              summary={summary}
+              activeStageId={mobileStageId}
+              onActiveStageChange={(id) => {
+                const closed = closedStages.some((s) => s.id === id);
+                if (closed) onClosedStage(id);
+                else onMobileStageChange(id);
+              }}
+              density={density}
+              unreadNoteIds={unreadNoteIds}
+              onOpenDeal={onOpenDeal}
+              onLoadMore={onLoadMore}
+            />
+          </div>
         </>
       ) : null}
 
       {view === "table" ? (
-        <DealsTable
-          deals={tableRows}
-          loading={tableLoading}
-          emptySearch={Boolean(debouncedSearch)}
-          onRowClick={(d) => onOpenDeal(d.id)}
-          localTotalClp={showClosedTotal ? tableLocalClp : undefined}
-        />
+        <div className="min-h-0 flex-1 overflow-auto">
+          <DealsTable
+            deals={tableRows}
+            loading={tableLoading}
+            emptySearch={Boolean(debouncedSearch)}
+            onRowClick={(d) => onOpenDeal(d.id)}
+            localTotalClp={showClosedTotal ? tableLocalClp : undefined}
+          />
+        </div>
       ) : null}
 
       {view === "focus" ? (
-        <DealsFocusView deals={allDeals} onOpen={(d) => onOpenDeal(d.id)} />
+        <div className="min-h-0 flex-1 overflow-auto">
+          <DealsFocusView deals={allDeals} onOpen={(d) => onOpenDeal(d.id)} />
+        </div>
       ) : null}
-    </>
+    </div>
   );
 }

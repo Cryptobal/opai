@@ -53,6 +53,7 @@ export function DealCard({
   const stageColor =
     sanitizeStageColor(deal.stage?.color) ?? "hsl(var(--ds-text-4))";
   const compact = density === "compact";
+  const detail = density === "detail";
   const quotesCount = (deal.quotes || []).length;
 
   return (
@@ -64,7 +65,8 @@ export function DealCard({
         borderLeftColor: stageColor,
       }}
       className={cn(
-        "rounded-md border border-ds-border-subtle border-l-[3px] bg-ds-surface-1 p-2 min-w-0 overflow-hidden transition-shadow hover:shadow-sm",
+        "rounded-md border border-ds-border-subtle border-l-[3px] bg-ds-surface-1 min-w-0 overflow-hidden transition-shadow hover:shadow-sm",
+        compact ? "p-1.5" : detail ? "p-2.5" : "p-2",
         isDragging && "opacity-60",
       )}
     >
@@ -76,7 +78,10 @@ export function DealCard({
           <span className="flex items-center gap-1">
             <Link
               href={`/crm/deals/${deal.id}`}
-              className="line-clamp-1 text-[13px] font-medium text-ds-text-1 hover:underline"
+              className={cn(
+                "line-clamp-1 font-medium text-ds-text-1 hover:underline",
+                compact ? "text-[12px]" : "text-[13px]",
+              )}
               onClick={(e) => e.stopPropagation()}
             >
               {deal.title}
@@ -95,28 +100,40 @@ export function DealCard({
             </p>
           ) : null}
 
-          <div className="mt-1">
+          <div className={cn(compact ? "mt-0.5" : "mt-1")}>
             {indicators.amountClp > 0 ? (
               <>
-                <p className="ds-num text-[13px] font-semibold text-ds-text-1">
+                <p
+                  className={cn(
+                    "ds-num font-semibold text-ds-text-1",
+                    compact ? "text-[12px]" : "text-[13px]",
+                  )}
+                >
                   {formatCLP(indicators.amountClp)}
                 </p>
-                <p className="ds-num text-[12px] text-ds-text-3">
-                  {formatUFSuffix(indicators.amountUf)}
-                </p>
+                {!compact ? (
+                  <p className="ds-num text-[12px] text-ds-text-3">
+                    {formatUFSuffix(indicators.amountUf)}
+                  </p>
+                ) : null}
               </>
             ) : (
               <p className="text-[12px] text-status-warn-fg">Sin cotización activa</p>
             )}
           </div>
 
-          <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+          <div
+            className={cn(
+              "flex flex-wrap items-center gap-1.5",
+              compact ? "mt-1" : "mt-1.5",
+            )}
+          >
             {indicators.totalGuards > 0 ? (
               <Tag variant="neutral" size="sm" icon={Shield}>
                 {indicators.totalGuards}
               </Tag>
             ) : null}
-            {deal.isLicitacion ? (
+            {!compact && deal.isLicitacion ? (
               <Tag variant="info" size="sm">Licitación</Tag>
             ) : null}
             <span
@@ -128,10 +145,13 @@ export function DealCard({
               }
             >
               <StatusDot kind={bucket} size="sm" />
-              {bucket === "ok" ? `${days} d` : `${days} d en etapa`}
+              {compact || bucket === "ok" ? `${days} d` : `${days} d en etapa`}
             </span>
             {!compact && quotesCount > 0 ? (
-              <FileText className="h-3.5 w-3.5 text-ds-text-3" aria-label={`${quotesCount} cotizaciones`} />
+              <FileText
+                className="h-3.5 w-3.5 text-ds-text-3"
+                aria-label={`${quotesCount} cotizaciones`}
+              />
             ) : null}
             {!compact && deal.proposalLink ? (
               <a
@@ -158,7 +178,7 @@ export function DealCard({
             ) : null}
           </div>
 
-          {!compact ? (
+          {detail ? (
             <div className="mt-2 flex items-center justify-between border-t border-dashed border-ds-border-subtle pt-1.5">
               <span className="truncate text-[12px] text-ds-text-4">Próxima acción</span>
               <Avatar name={deal.account?.name ?? "?"} size="sm" />
@@ -166,7 +186,7 @@ export function DealCard({
           ) : null}
         </div>
 
-        {!isOverlay ? (
+        {!isOverlay && !compact ? (
           <button
             ref={setActivatorNodeRef}
             className="deals-touch mt-0.5 hidden rounded-md p-1 text-ds-text-3 hover:text-ds-text-1 md:block"
@@ -175,6 +195,16 @@ export function DealCard({
             aria-label="Arrastrar negocio"
           >
             <GripVertical className="h-3.5 w-3.5" />
+          </button>
+        ) : !isOverlay && compact ? (
+          <button
+            ref={setActivatorNodeRef}
+            className="deals-touch mt-0.5 hidden rounded-md p-0.5 text-ds-text-3 hover:text-ds-text-1 md:block"
+            {...attributes}
+            {...listeners}
+            aria-label="Arrastrar negocio"
+          >
+            <GripVertical className="h-3 w-3" />
           </button>
         ) : null}
       </div>
