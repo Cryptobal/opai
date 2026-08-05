@@ -357,9 +357,14 @@ export function usePlanillaMatrix() {
     }
   }, [history, refetch]);
 
-  /** Guarda / borra nota de celda y refresca la matriz. */
+  /** Guarda / borra nota de celda. `silent` suprime toast (autoguardado). */
   const patchCellNote = useCallback(
-    async (rowId: string, weekStart: string, body: string | null): Promise<boolean> => {
+    async (
+      rowId: string,
+      weekStart: string,
+      body: string | null,
+      opts?: { silent?: boolean },
+    ): Promise<boolean> => {
       try {
         const res = await fetch("/api/finance/flow-v3/plan/note", {
           method: "PATCH",
@@ -368,7 +373,6 @@ export function usePlanillaMatrix() {
         });
         const json = await res.json();
         if (!json.success) throw new Error(json.error ?? "No se pudo guardar la nota");
-        // Actualización optimista local + refetch de consistencia.
         setData((prev) => {
           if (!prev) return prev;
           return {
@@ -384,10 +388,14 @@ export function usePlanillaMatrix() {
             }),
           };
         });
-        toast.success(body?.trim() ? "Nota guardada" : "Nota eliminada");
+        if (!opts?.silent) {
+          toast.success(body?.trim() ? "Nota guardada" : "Nota eliminada");
+        }
         return true;
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : "No se pudo guardar la nota");
+        if (!opts?.silent) {
+          toast.error(err instanceof Error ? err.message : "No se pudo guardar la nota");
+        }
         return false;
       }
     },

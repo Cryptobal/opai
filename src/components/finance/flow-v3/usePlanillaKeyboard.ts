@@ -18,6 +18,8 @@ export function usePlanillaKeyboard(opts: {
   canEditCell: (rowId: string, colIdx: number) => boolean;
   onCommit: (rowId: string, colIdx: number, raw: string) => void;
   onOpenPopover: (sel: CellSel) => void;
+  /** Tecla N: abrir editor de nota. */
+  onOpenNote?: (sel: CellSel) => void;
   onFillRight?: (sel: CellSel) => void;
   onUndo?: () => void;
   onRedo?: () => void;
@@ -144,6 +146,11 @@ export function usePlanillaKeyboard(opts: {
       else if (k === "ArrowLeft") { e.preventDefault(); move(0, -1, e.shiftKey); }
       else if (k === "Enter") { e.preventDefault(); startEdit(sel, ""); }
       else if (k === " ") { e.preventDefault(); opts.onOpenPopover(sel); }
+      else if (k === "n" || k === "N") {
+        if (mod) return;
+        e.preventDefault();
+        opts.onOpenNote?.(sel);
+      }
       else if (k === "Delete" || k === "Backspace") {
         e.preventDefault();
         if (opts.canEditCell(sel.rowId, sel.colIdx)) opts.onCommit(sel.rowId, sel.colIdx, "0");
