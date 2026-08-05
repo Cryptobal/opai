@@ -645,11 +645,13 @@ export async function POST(request: NextRequest) {
       allowAnchoredDate,
       ...issueInput
     } = body;
+    const { hasCapability } = await import("@/lib/permissions");
     const result = await issueDte(ctx.tenantId, ctx.userId, issueInput, {
       ufOverride: ufOverride ?? undefined,
       forceIssueDateToToday: forceIssueDateToToday ?? undefined,
       allowFutureDate: allowFutureDate ?? undefined,
       allowAnchoredDate: allowAnchoredDate ?? undefined,
+      canExcludeFromFlow: hasCapability(perms, "cashflow_manage"),
     });
 
     return NextResponse.json({ success: true, data: result }, { status: 201 });

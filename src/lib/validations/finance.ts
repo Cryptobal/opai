@@ -277,6 +277,13 @@ export const issueDteSchema = z.object({
     .regex(/^\d{4}-\d{2}$/, "Período debe ser YYYY-MM")
     .nullable()
     .optional(),
+  /**
+   * Destino explícito en la planilla de flujo (factura puntual sin programación).
+   * null/omitido = ruteo automático. Mutuamente excluyente con flowExclusionReason.
+   */
+  flowRouting: z.enum(["OWN_ROW", "OTHER_INCOME"]).nullable().optional(),
+  /** Motivo para excluir del flujo post-emisión (5–300 chars). Fuerza flowRouting=null. */
+  flowExclusionReason: z.string().trim().min(5).max(300).optional(),
 });
 
 // Schema para plantillas de facturación recurrente. El cron diario crea

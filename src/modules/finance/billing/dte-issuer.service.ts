@@ -190,6 +190,16 @@ export type IssueDteInput = {
   recurringTemplateId?: string | null;
   /** Período facturado YYYY-MM. Acompaña a recurringTemplateId. */
   billingPeriod?: string | null;
+  /**
+   * Destino explícito en planilla de flujo (factura puntual).
+   * null/undefined = ruteo automático. Si viene flowExclusionReason, se fuerza null.
+   */
+  flowRouting?: "OWN_ROW" | "OTHER_INCOME" | null;
+  /**
+   * Motivo para excluir del flujo post-emisión (best-effort, no revierte la emisión).
+   * Mutuamente excluyente con flowRouting.
+   */
+  flowExclusionReason?: string;
 };
 
 /** Solo filas con folio y fecha YYYY-MM-DD válida van al XML SII.
@@ -220,6 +230,11 @@ export type IssueDteOpts = {
    * (opción secundaria "Mantener {fecha}").
    */
   allowAnchoredDate?: boolean;
+  /**
+   * Si false, no intentar exclusión del flujo aunque venga flowExclusionReason
+   * (emisor sin capability cashflow_manage).
+   */
+  canExcludeFromFlow?: boolean;
 };
 
 /**
@@ -506,6 +521,10 @@ export async function issueDte(
           // Vínculo programación + período (dedupe del flujo).
           recurringTemplateId: templateLink.recurringTemplateId,
           billingPeriod: templateLink.billingPeriod,
+          // Destino explícito en planilla. Exclusión (motivo) fuerza null.
+          flowRouting: input.flowExclusionReason
+            ? null
+            : (input.flowRouting ?? null),
           currency: (input.currency as any) ?? "CLP",
           // Para facturas en UF guardamos también la UF del día y la
           // fecha exacta de conversión. exchangeRate replica ufValueAtIssue
@@ -745,17 +764,53 @@ export async function issueDte(
   }
 
   // v4.7: huérfana post-emisión → el cliente muestra banner "Vincular ahora".
+  // Con destino explícito (OWN_ROW / OTHER_INCOME / exclusión) no se pide vínculo.
   let needsTemplateLink = false;
+  const hasExplicitFlowDecision =
+    !!input.flowExclusionReason ||
+    input.flowRouting === "OWN_ROW" ||
+    input.flowRouting === "OTHER_INCOME";
   if (
     (input.dteType === 33 || input.dteType === 34) &&
     !templateLink.recurringTemplateId &&
-    input.crmAccountId
+    input.crmAccountId &&
+    !hasExplicitFlowDecision
   ) {
     const n = await countActiveAccountTemplates(tenantId, input.crmAccountId);
     needsTemplateLink = n >= 1;
   }
 
-  return Object.assign(dte, { emailStatus, emailError, needsTemplateLink });
+  // Exclusión del flujo post-commit (best-effort: no revierte la emisión SII).
+  let flowExclusion: { applied: boolean; error?: string } | undefined;
+  if (input.flowExclusionReason) {
+    if (opts?.canExcludeFromFlow === false) {
+      flowExclusion = {
+        applied: false,
+        error: "Sin permiso para excluir del flujo de caja",
+      };
+    } else {
+      try {
+        const { excludeDteFromFlow } = await import(
+          "@/modules/finance/cashflow/dte-exclusion.service"
+        );
+        await excludeDteFromFlow({
+          tenantId,
+          dteId: dte.id,
+          createdBy,
+          reason: input.flowExclusionReason.trim().slice(0, 300),
+        });
+        flowExclusion = { applied: true };
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "Error al excluir del flujo";
+        console.error(
+          `[FINANCE] flow exclusion failed for DTE ${dte.id}: ${msg}`,
+        );
+        flowExclusion = { applied: false, error: msg };
+      }
+    }
+  }
+
+  return Object.assign(dte, { emailStatus, emailError, needsTemplateLink, flowExclusion });
 }
 
 /**
