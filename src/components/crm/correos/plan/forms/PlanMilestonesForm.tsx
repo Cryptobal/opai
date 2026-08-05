@@ -10,13 +10,19 @@ import { InviteesField } from "@/components/agenda/evento/InviteesField";
 import { EventAddressField } from "@/components/agenda/evento/EventAddressField";
 import type { PlanMilestone } from "@/modules/crm/email/email-to-crm-structure.types";
 
-const PREDEFINED_KINDS = ["consultas", "visita_tecnica", "entrega"] as const;
+const PREDEFINED_KINDS = [
+  "consultas",
+  "visita_tecnica",
+  "entrega_bases",
+  "entrega",
+] as const;
 
 type PredefinedKind = (typeof PREDEFINED_KINDS)[number];
 
 const MILESTONE_LABELS: Record<PredefinedKind, string> = {
   consultas: "Plazo consultas",
   visita_tecnica: "Visita técnica",
+  entrega_bases: "Entrega de bases",
   entrega: "Entrega de oferta",
 };
 

@@ -8,12 +8,14 @@ import type { PlanMilestone } from "@/modules/crm/email/email-to-crm-structure.t
 const MILESTONE_TITLES: Partial<Record<PlanMilestone["kind"], string>> = {
   consultas: "Cierre de consultas",
   visita_tecnica: "Visita técnica",
+  entrega_bases: "Entrega de bases",
   entrega: "Entrega de la oferta",
 };
 
 const MILESTONE_LABELS: Partial<Record<PlanMilestone["kind"], string>> = {
   consultas: "Consultas",
   visita_tecnica: "Visita técnica",
+  entrega_bases: "Entrega de bases",
   entrega: "Entrega de oferta",
 };
 
