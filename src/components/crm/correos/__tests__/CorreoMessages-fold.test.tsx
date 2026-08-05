@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
-import { describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { CorreoMessages } from "../CorreoMessages";
 import type { CorreoMessageDTO } from "@/modules/crm/email/correos.types";
 
@@ -17,6 +17,21 @@ vi.mock("../CorreoMessageRecipients", () => ({
 vi.mock("../CorreoInviteRsvpCard", () => ({
   CorreoInviteRsvpCard: () => null,
 }));
+
+const scrollIntoViewMock = vi.fn();
+vi.mock("../correo-thread-scroll", async () => {
+  const actual = await vi.importActual<typeof import("../correo-thread-scroll")>(
+    "../correo-thread-scroll",
+  );
+  return {
+    ...actual,
+    scheduleThreadOpenScroll: (messageId: string, onDone?: () => void) => {
+      scrollIntoViewMock(messageId);
+      onDone?.();
+      return () => {};
+    },
+  };
+});
 
 function msg(i: number, patch: Partial<CorreoMessageDTO> = {}): CorreoMessageDTO {
   return {
@@ -37,6 +52,17 @@ function msg(i: number, patch: Partial<CorreoMessageDTO> = {}): CorreoMessageDTO
 const chain = (n: number) => Array.from({ length: n }, (_, i) => msg(i));
 
 describe("CorreoMessages — plegado estilo Gmail", () => {
+  afterEach(() => {
+    scrollIntoViewMock.mockClear();
+  });
+
+  it("al abrir ancla el scroll en el penúltimo (peek sobre el último)", async () => {
+    render(<CorreoMessages messages={chain(6)} threadId="t1" />);
+    await act(async () => {});
+    // n=6 → ids m0..m5; resolveThreadOpenScrollId → m4 (penúltimo).
+    expect(scrollIntoViewMock).toHaveBeenCalledWith("m4");
+  });
+
   it("hilo largo: solo 3 filas visibles, 1 cuerpo montado y contador de ocultos", () => {
     render(<CorreoMessages messages={chain(37)} threadId="t1" />);
 

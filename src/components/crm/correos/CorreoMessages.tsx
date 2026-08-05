@@ -7,6 +7,10 @@ import { CorreoMessageRow } from "./CorreoMessageRow";
 import { CorreoThreadFoldSeparator } from "./CorreoThreadFoldSeparator";
 import { attachmentsForMessage } from "./correo-attachments-scope";
 import { foldThread } from "./correo-thread-fold";
+import {
+  resolveThreadOpenScrollId,
+  scheduleThreadOpenScroll,
+} from "./correo-thread-scroll";
 import type { MessageImagePrefs, MessageSavePrefs } from "./correo-message-types";
 
 type Props = {
@@ -24,7 +28,9 @@ type Props = {
  * Cadena del hilo con plegado estilo Gmail: primero + penúltimo + último
  * visibles (más no leídos, borradores y el deep-link `?mensaje=`), el resto
  * detrás de una píldora contadora. El último mensaje abre expandido; los demás
- * visibles, colapsados en una línea. Solo los expandidos montan `EmailHtmlBody`.
+ * visibles, colapsados en una línea. Al abrir, el scroller se ancla en el
+ * penúltimo (peek de 1 línea) con el último debajo — como Gmail. Solo los
+ * expandidos montan `EmailHtmlBody`.
  */
 export function CorreoMessages({
   messages,
@@ -90,15 +96,19 @@ export function CorreoMessages({
     setExpanded(new Set(messages.map((m) => m.id)));
   }, [expandAllNonce, messages]);
 
-  // Scroll al mensaje del deep-link, una sola vez al abrir el hilo.
-  const deepLinkScrolledRef = useRef(false);
+  // Scroll de apertura estilo Gmail: penúltimo (peek) + último expandido.
+  // Deep-link a un mensaje intermedio prioriza ese id. Una vez por hilo/cadena.
+  const openScrolledKeyRef = useRef("");
   useEffect(() => {
-    if (deepLinkScrolledRef.current || !deepLinkedId) return;
-    deepLinkScrolledRef.current = true;
-    document
-      .querySelector(`[data-correo-message-id="${deepLinkedId}"]`)
-      ?.scrollIntoView({ block: "start" });
-  }, [deepLinkedId]);
+    const ids = messages.map((m) => m.id);
+    const targetId = resolveThreadOpenScrollId(ids, deepLinkedId);
+    if (!targetId) return;
+    const key = `${threadKey}:${ids.length}:${deepLinkedId ?? ""}:${ids[ids.length - 1] ?? ""}`;
+    if (openScrolledKeyRef.current === key) return;
+    return scheduleThreadOpenScroll(targetId, () => {
+      openScrolledKeyRef.current = key;
+    });
+  }, [threadKey, messages, deepLinkedId]);
 
   if (messages.length === 0) {
     return <p className="text-[13px] text-ds-text-4">Sin mensajes.</p>;
