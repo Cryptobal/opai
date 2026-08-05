@@ -60,6 +60,8 @@ export interface IssuedDteInput {
   installationId: string | null;
   /** Programación origen — rutea a la fila 1:1 del template. */
   recurringTemplateId?: string | null;
+  /** Destino explícito elegido al emitir. null/undefined = ruteo automático. */
+  flowRouting?: "OWN_ROW" | "OTHER_INCOME" | null;
   receiverName: string;
   /** Término del contrato origen (template) si la factura viene de uno. */
   templateDiasCobro?: number | null;
@@ -183,8 +185,12 @@ export function deriveCommittedIncome(args: CommittedIncomeArgs): DeriveCommitte
     // celda de visibilidad — una factura recién emitida no es "vencida".
     const dueYmd = d.dueDateYmd ?? addDaysYmd(d.dateYmd, d.templateDiasCobro ?? lagDays);
     const overdueDays = Math.max(0, daysBetween(dueYmd, args.todayYmd));
-    const rowKey = matchRow(d.crmAccountId, d.installationId, d.recurringTemplateId);
-    if (bankOnly && rowKey === UNMATCHED_INCOME_KEY) {
+    // Destino explícito OTHER_INCOME prevalece sobre matcher y bandejaIncomeBankOnly.
+    const forcedOther = d.flowRouting === "OTHER_INCOME";
+    const rowKey = forcedOther
+      ? UNMATCHED_INCOME_KEY
+      : matchRow(d.crmAccountId, d.installationId, d.recurringTemplateId);
+    if (bankOnly && rowKey === UNMATCHED_INCOME_KEY && !forcedOther) {
       unrouted.push({
         dteId: d.id,
         folio: d.folio,

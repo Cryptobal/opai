@@ -144,6 +144,50 @@ describe("deriveCommittedIncome — DTEs emitidos", () => {
     expect(unrouted[0]?.monto).toBe(20);
   });
 
+  it("OTHER_INCOME con bankOnly=true suma en UNMATCHED_INCOME_KEY, no en unrouted", () => {
+    const { committed, unrouted } = deriveCommittedIncome({
+      ...base,
+      bandejaIncomeBankOnly: true,
+      dtes: [{
+        id: "d-oi", folio: 50, dateYmd: "2026-07-21", dueDateYmd: "2026-08-20",
+        pendingClp: 100_000, crmAccountId: "acc-Z", installationId: null,
+        receiverName: "Esporádico", flowRouting: "OTHER_INCOME",
+      }],
+    });
+    expect(committed.get(UNMATCHED_INCOME_KEY)?.get("2026-07-20")?.total).toBe(100_000);
+    expect(unrouted).toHaveLength(0);
+  });
+
+  it("OTHER_INCOME fuerza UNMATCHED aunque la cuenta tenga fila propia", () => {
+    const { committed, unrouted } = deriveCommittedIncome({
+      ...base,
+      bandejaIncomeBankOnly: true,
+      dtes: [{
+        id: "d-oi2", folio: 51, dateYmd: "2026-07-21", dueDateYmd: null,
+        pendingClp: 75_000, crmAccountId: "acc-A", installationId: "inst-1",
+        receiverName: "Cliente A", flowRouting: "OTHER_INCOME",
+      }],
+    });
+    expect(committed.get(UNMATCHED_INCOME_KEY)?.get("2026-07-20")?.total).toBe(75_000);
+    expect(committed.get("row-a-i1")).toBeUndefined();
+    expect(unrouted).toHaveLength(0);
+  });
+
+  it("flowRouting ausente conserva ruteo automático (bankOnly → unrouted)", () => {
+    const { committed, unrouted } = deriveCommittedIncome({
+      ...base,
+      bandejaIncomeBankOnly: true,
+      dtes: [{
+        id: "d-null", folio: 52, dateYmd: "2026-07-21", dueDateYmd: null,
+        pendingClp: 30, crmAccountId: "acc-Z", installationId: null,
+        receiverName: "Z", flowRouting: null,
+      }],
+    });
+    expect(committed.get(UNMATCHED_INCOME_KEY)).toBeUndefined();
+    expect(unrouted).toHaveLength(1);
+    expect(unrouted[0]?.dteId).toBe("d-null");
+  });
+
   it("1 programación = 1 fila: dos templates de la misma cuenta no se mezclan", () => {
     const rows: FlowRowRef[] = [
       {

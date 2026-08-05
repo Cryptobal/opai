@@ -55,6 +55,8 @@ export interface DteRefInput {
   installationId: string | null;
   /** Programación origen (solo ISSUED); rutea a la fila 1:1 del template. */
   recurringTemplateId?: string | null;
+  /** Destino explícito elegido al emitir. null/undefined = ruteo automático. */
+  flowRouting?: "OWN_ROW" | "OTHER_INCOME" | null;
   supplierId: string | null;
   /** Categoría resuelta por el loader para RECEIVED (líneas → cuentas). */
   categoryId: string | null;
@@ -154,13 +156,18 @@ export function deriveReal(args: RealArgs): RealByRow {
         if (link.targetType === "DTE_ISSUED" && link.targetId) {
           const dte = args.dteById.get(link.targetId);
           if (!dte) continue;
-          const rowKey = matchIncome(
-            dte.crmAccountId,
-            dte.installationId,
-            dte.recurringTemplateId,
-          );
-          // Sin fila de programación/cuenta → no inventar Otros ingresos.
-          if (rowKey === UNMATCHED_INCOME_KEY) continue;
+          // Destino explícito OTHER_INCOME → fila canónica "Otros ingresos".
+          const forcedOther = dte.flowRouting === "OTHER_INCOME";
+          const rowKey = forcedOther
+            ? UNMATCHED_INCOME_KEY
+            : matchIncome(
+                dte.crmAccountId,
+                dte.installationId,
+                dte.recurringTemplateId,
+              );
+          // Sin fila de programación/cuenta → no inventar Otros ingresos
+          // (salvo decisión explícita OTHER_INCOME al emitir).
+          if (rowKey === UNMATCHED_INCOME_KEY && !forcedOther) continue;
           pushReal(out, rowKey, week, {
             bankTransactionId: tx.id,
             folio: dte.folio,
