@@ -39,9 +39,19 @@ type Status = {
 const CONNECT_HREF = "/api/integrations/google-calendar/oauth/start?return=/opai/configuracion/integraciones/google-calendar";
 const ADD_HREF = `${CONNECT_HREF}&add=1`;
 
+type PullCursor = {
+  hasSyncToken: boolean;
+  channelExpiresAt: string | null;
+  lastFullSyncAt: string | null;
+  updatedAt: string | null;
+  hasChannel?: boolean;
+};
+
 export function GoogleCalendarConfigClient() {
   const [data, setData] = useState<Status | null>(null);
   const [loading, setLoading] = useState(true);
+  const [pullCursor, setPullCursor] = useState<PullCursor | null>(null);
+  const [pulling, setPulling] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -49,6 +59,11 @@ export function GoogleCalendarConfigClient() {
       const res = await fetch("/api/integrations/google-calendar/status");
       if (!res.ok) throw new Error("fail");
       setData(await res.json());
+      const pullRes = await fetch("/api/integrations/google-calendar/pull");
+      if (pullRes.ok) {
+        const j = await pullRes.json();
+        setPullCursor(j.cursor ?? null);
+      }
     } catch {
       setData(null);
     } finally {
@@ -59,6 +74,23 @@ export function GoogleCalendarConfigClient() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  async function pullNow() {
+    setPulling(true);
+    try {
+      const res = await fetch("/api/integrations/google-calendar/pull", {
+        method: "POST",
+      });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(j.error || "No se pudo traer cambios");
+      setPullCursor(j.cursor ?? null);
+    } catch {
+      // El host de toast no está garantizado aquí; el estado del cursor basta.
+    } finally {
+      setPulling(false);
+      await load();
+    }
+  }
 
   async function patchAccount(accountId: string, body: Record<string, unknown>) {
     await fetch("/api/integrations/google-calendar/status", {
@@ -216,6 +248,37 @@ export function GoogleCalendarConfigClient() {
           </div>
         )}
       </Surface>
+
+      {connected && (
+        <Surface elevation={1} padding="md" className="space-y-3">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="font-display text-base font-semibold text-ds-text-1">
+                Sync Google → OPAI
+              </p>
+              <p className="text-[13px] text-ds-text-3">
+                {pullCursor?.hasSyncToken
+                  ? "Canal incremental listo"
+                  : "Sin syncToken: se sembrará al traer cambios"}
+                {pullCursor?.channelExpiresAt
+                  ? ` · canal hasta ${new Date(pullCursor.channelExpiresAt).toLocaleString("es-CL")}`
+                  : ""}
+                {pullCursor?.updatedAt
+                  ? ` · última sync ${new Date(pullCursor.updatedAt).toLocaleString("es-CL")}`
+                  : ""}
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              className="h-10 sm:h-9"
+              disabled={pulling}
+              onClick={() => void pullNow()}
+            >
+              {pulling ? "Trayendo…" : "Traer cambios ahora"}
+            </Button>
+          </div>
+        </Surface>
+      )}
 
       {connected && (
         <CalendarPrefsList

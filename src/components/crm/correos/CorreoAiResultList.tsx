@@ -27,7 +27,7 @@ const SKIP_ID_LABEL: Record<string, string> = {
   followUpTask: "Tarea de seguimiento",
   quote: "Cotización",
   milestones: "Hitos",
-  agendaDeadline: "Plazo en agenda",
+  agendaDeadline: "Banda de licitación",
 };
 
 const SKIP_REASON_LABEL: Record<SkipReason, string> = {
@@ -116,6 +116,21 @@ export function CorreoAiResultList({ result }: Props) {
                 </li>
               ))}
             </ul>
+            {result.agendaSync && (
+              <p className="mt-1 text-[12px] text-ds-text-3">
+                {result.agendaSync.ok
+                  ? "Incluye banda de licitación hasta la entrega en agenda."
+                  : result.agendaSync.skippedReason === "fecha_pasada"
+                    ? "Banda de licitación omitida: la fecha límite ya pasó."
+                    : result.agendaSync.skippedReason === "sin_fecha"
+                      ? "Banda de licitación omitida: falta fecha límite."
+                      : result.agendaSync.syncStatus === "PENDING"
+                        ? "Banda de licitación pendiente de sincronizar con Google."
+                        : result.agendaSync.syncStatus === "ERROR"
+                          ? "Banda de licitación no sincronizada con Google."
+                          : "Banda de licitación: sync incompleto."}
+              </p>
+            )}
             <Link
               href="/opai/agenda"
               className="mt-2 inline-flex min-h-10 items-center gap-1 text-[13px] text-primary ds-tap"
@@ -124,37 +139,11 @@ export function CorreoAiResultList({ result }: Props) {
             </Link>
           </li>
         )}
-        {result.agendaSync && (
-          <li className="rounded-xl border border-ds-border-subtle bg-ds-surface-2 px-3 py-2.5">
-            <div className="flex items-start gap-2 text-[13px] text-ds-text-2">
-              <CalendarDays className="mt-0.5 h-4 w-4 shrink-0 text-tint-violet-fg" />
-              <div className="min-w-0 space-y-1">
-                <p className="font-medium text-ds-text-1">Plazo en agenda</p>
-                <p className="text-[12px] text-ds-text-3">
-                  {result.agendaSync.ok
-                    ? "Sincronizado automáticamente con el calendario (banda hasta la entrega)."
-                    : result.agendaSync.skippedReason === "fecha_pasada"
-                      ? "No se sincronizó: la fecha límite ya pasó."
-                      : result.agendaSync.skippedReason === "sin_fecha"
-                        ? "No se sincronizó: falta fecha límite."
-                        : result.agendaSync.skippedReason === "pendiente" ||
-                            result.agendaSync.syncStatus === "PENDING"
-                          ? "Creado en OPAI, pendiente de sincronizar con Google Calendar."
-                          : result.agendaSync.skippedReason === "error" ||
-                              result.agendaSync.syncStatus === "ERROR"
-                            ? "No sincronizado con Google Calendar: revisá el dueño de la cuenta y la conexión de Calendar."
-                            : "El sync a agenda no completó; revisá el negocio."}
-                </p>
-                {result.dealUrl && result.agendaSync.ok && (
-                  <Link
-                    href="/opai/agenda"
-                    className="inline-flex min-h-10 items-center gap-1 text-[13px] text-primary ds-tap"
-                  >
-                    Abrir agenda <ExternalLink className="h-3.5 w-3.5" />
-                  </Link>
-                )}
-              </div>
-            </div>
+        {(!result.milestones || result.milestones.length === 0) && result.agendaSync && (
+          <li className="rounded-xl border border-ds-border-subtle bg-ds-surface-2 px-3 py-2.5 text-[12px] text-ds-text-3">
+            {result.agendaSync.ok
+              ? "Banda de licitación sincronizada en agenda hasta la entrega."
+              : "Banda de licitación: sync incompleto o pendiente."}
           </li>
         )}
       </ul>

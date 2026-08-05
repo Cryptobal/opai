@@ -1,6 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import {
+  isGoogleConnectReason,
+  sanitizeSyncReason,
+} from "@/modules/agenda/agenda-sync-reason";
 
 type SyncInfo = {
   syncStatus: string;
@@ -80,11 +84,13 @@ export function LicitacionSyncBadge({ dealId, refreshKey }: { dealId: string; re
     );
   }
 
-  const needsGoogleConnect = info.needsGoogleConnect === true;
+  const safeReason = sanitizeSyncReason(info.lastError);
+  const needsGoogleConnect =
+    info.needsGoogleConnect === true || isGoogleConnectReason(safeReason);
   if (info.syncStatus === "PENDING") {
     return (
       <SyncReasonText
-        text={info.lastError ?? "Pendiente de sincronizar"}
+        text={safeReason ?? "Pendiente de sincronizar"}
         tone="warn"
         needsGoogleConnect={needsGoogleConnect}
       />
@@ -93,7 +99,7 @@ export function LicitacionSyncBadge({ dealId, refreshKey }: { dealId: string; re
   if (info.syncStatus === "ERROR") {
     return (
       <SyncReasonText
-        text={info.lastError ?? "Error de sincronización"}
+        text={safeReason ?? "Error de sincronización"}
         tone="danger"
         needsGoogleConnect={needsGoogleConnect}
       />

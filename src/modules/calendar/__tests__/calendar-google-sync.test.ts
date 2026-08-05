@@ -15,9 +15,16 @@ const externalUpdate = vi.fn();
 const eventsInsert = vi.fn();
 const eventsPatch = vi.fn();
 const eventsDelete = vi.fn();
+const eventsGet = vi.fn();
 const getClientForUserMock = vi.fn();
 const getClientForAccountMock = vi.fn();
 const resolveCreateTargetMock = vi.fn();
+
+const FULL_ATTENDEES = [
+  { email: "lizeth@gard.cl", responseStatus: "accepted" },
+  { email: "hugo@gard.cl", responseStatus: "needsAction" },
+  { email: "cliente@ejemplo.cl", responseStatus: "needsAction" },
+];
 
 vi.mock("server-only", () => ({}));
 
@@ -98,7 +105,14 @@ const EVENT = {
 
 function clientFor(accountId: string, calendarId = "primary") {
   return {
-    calendar: { events: { insert: eventsInsert, patch: eventsPatch, delete: eventsDelete } },
+    calendar: {
+      events: {
+        insert: eventsInsert,
+        patch: eventsPatch,
+        delete: eventsDelete,
+        get: eventsGet,
+      },
+    },
     accountId,
     calendarId,
     googleEmail: `${accountId}@gard.cl`,
@@ -138,11 +152,13 @@ beforeEach(() => {
       id: "gev-1",
       htmlLink: "https://cal/x",
       etag: "etag-1",
-      attendees: [
-        { email: "lizeth@gard.cl", responseStatus: "accepted" },
-        { email: "hugo@gard.cl", responseStatus: "needsAction" },
-        { email: "cliente@ejemplo.cl", responseStatus: "needsAction" },
-      ],
+      attendees: FULL_ATTENDEES,
+    },
+  });
+  eventsGet.mockResolvedValue({
+    data: {
+      id: "gev-1",
+      attendees: FULL_ATTENDEES,
     },
   });
   getClientForUserMock.mockResolvedValue(clientFor("acc-jorge"));
@@ -278,7 +294,12 @@ describe("syncCalendarEventToGoogle", () => {
       providerCalendarId: "primary",
     });
     eventsPatch.mockResolvedValue({
-      data: { id: "gev-1", htmlLink: "https://cal/x", etag: "etag-2", attendees: [] },
+      data: {
+        id: "gev-1",
+        htmlLink: "https://cal/x",
+        etag: "etag-2",
+        attendees: FULL_ATTENDEES,
+      },
     });
     const { syncCalendarEventToGoogle } = await import("../calendar-google-sync");
     const res = await syncCalendarEventToGoogle("t1", "ev-1");
@@ -291,6 +312,21 @@ describe("syncCalendarEventToGoogle", () => {
     });
     const synced = linkUpsert.mock.calls.find((c) => c[0].update?.syncStatus === "SYNCED");
     expect(synced).toBeTruthy();
+  });
+
+  it("marca ERROR si Google no devuelve los invitados enviados", async () => {
+    eventsInsert.mockResolvedValue({
+      data: { id: "gev-1", htmlLink: "https://cal/x", attendees: [] },
+    });
+    eventsGet.mockResolvedValue({
+      data: { id: "gev-1", attendees: [{ email: "lizeth@gard.cl" }] },
+    });
+    const { syncCalendarEventToGoogle } = await import("../calendar-google-sync");
+    const res = await syncCalendarEventToGoogle("t1", "ev-1");
+    expect(res.syncStatus).toBe("ERROR");
+    expect(eventsGet).toHaveBeenCalled();
+    const errored = linkUpsert.mock.calls.find((c) => c[0].update?.syncStatus === "ERROR");
+    expect(errored?.[0].update?.lastError).toMatch(/no aceptó/i);
   });
 
   it("fallo de red al reprogramar deja el link PENDING sin revertir (reintentable)", async () => {
@@ -366,7 +402,12 @@ describe("syncCalendarEventToGoogle", () => {
       providerCalendarId: "primary",
     });
     eventsPatch.mockResolvedValue({
-      data: { id: "gev-A", htmlLink: "https://cal/a", etag: "e", attendees: [] },
+      data: {
+        id: "gev-A",
+        htmlLink: "https://cal/a",
+        etag: "e",
+        attendees: FULL_ATTENDEES,
+      },
     });
 
     const { syncCalendarEventToGoogle } = await import("../calendar-google-sync");

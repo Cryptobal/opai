@@ -76,8 +76,23 @@ describe("conflictsNeedConfirmation", () => {
       installations: [],
       contacts: [],
       deal: null,
+      agendaEvents: [],
     };
     expect(conflictsNeedConfirmation(empty)).toBe(false);
+    expect(
+      conflictsNeedConfirmation({
+        ...empty,
+        agendaEvents: [
+          {
+            id: "ev1",
+            title: "Cierre de consultas",
+            label: "Consultas",
+            startAt: "2026-08-17T13:00:00.000Z",
+            status: "programada",
+          },
+        ],
+      }),
+    ).toBe(true);
     expect(
       conflictsNeedConfirmation({
         ...empty,

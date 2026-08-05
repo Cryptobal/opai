@@ -273,11 +273,20 @@ export type StructureConflictDeal = {
   score: number;
 };
 
+export type StructureConflictAgendaEvent = {
+  id: string;
+  title: string;
+  label: string | null;
+  startAt: string;
+  status: string;
+};
+
 export type StructureEntityConflictsPayload = {
   accounts: StructureConflictAccount[];
   installations: StructureConflictInstallation[];
   contacts: StructureConflictContact[];
   deal: StructureConflictDeal | null;
+  agendaEvents?: StructureConflictAgendaEvent[];
 };
 
 export type CreateCrmStructureResult = {
@@ -319,6 +328,8 @@ export type CreateCrmStructureResult = {
     kind: PlanMilestone["kind"];
     eventId: string;
     syncStatus?: string;
+    /** `creado` | `actualizado` — idempotencia del copiloto. */
+    action?: "creado" | "actualizado";
   }>;
   /** Ids omitidos (retrocompat). Preferir `skippedDetail` en UI nueva. */
   skipped?: string[];
@@ -425,11 +436,14 @@ export function milestonesFromLicitacion(
     time: string | null,
   ) => {
     if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return;
+    // "00:00" = documento sin hora → sembrar 09:00 (nunca 12:00 a.m. en el form).
+    const normalizedTime =
+      time && /^\d{2}:\d{2}$/.test(time) && time !== "00:00" ? time : "09:00";
     out.push({
       id: newUuid(),
       kind,
       date,
-      time: time && /^\d{2}:\d{2}$/.test(time) ? time : "09:00",
+      time: normalizedTime,
       durationMin: 60,
       allDay: false,
       participantIds: [],

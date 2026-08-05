@@ -17,6 +17,10 @@ import {
   resolveDealQuoteIds,
 } from "@/modules/cpq/quote-delete-impact";
 import { deleteQuoteToTrash } from "@/modules/cpq/quote-trash.service";
+import {
+  cascadeCancelDealAgenda,
+  loadDealInstallationImpact,
+} from "@/modules/crm/deal-delete-cascade";
 
 export async function GET(
   _request: NextRequest,
@@ -245,6 +249,8 @@ export async function DELETE(
     const url = new URL(request.url);
     const force = url.searchParams.get("force") === "true";
     const reason = url.searchParams.get("reason")?.trim() || null;
+    const deleteInstallationParam = url.searchParams.get("deleteInstallation");
+    const wantDeleteInstallation = deleteInstallationParam === "true";
 
     const existing = await prisma.crmDeal.findFirst({
       where: { id, tenantId },
@@ -278,10 +284,28 @@ export async function DELETE(
       );
     }
 
+    // Agenda + Google ANTES de borrar el deal (fuera de la transacción).
+    const agendaCascade = await cascadeCancelDealAgenda({
+      tenantId,
+      dealId: id,
+      actorUserId: ctx.userId,
+    });
+
+    const installationImpact =
+      impact?.installation ??
+      (await loadDealInstallationImpact(tenantId, id, quoteIds));
+    const installationIdToDelete =
+      wantDeleteInstallation &&
+      installationImpact?.canDelete &&
+      installationImpact.id
+        ? installationImpact.id
+        : null;
+
     // Cascada real: cada cotización va a la papelera (restaurable), las
     // propuestas se eliminan (unlink — sus membresías caen por FK cascade) y
     // finalmente el negocio (stageHistory, dealQuotes, tasks caen por cascade).
     const trashedQuoteIds: string[] = [];
+    let installationDeleted = false;
     await prisma.$transaction(async (tx) => {
       for (const quoteId of quoteIds) {
         await deleteQuoteToTrash({ tx, tenantId, quoteId, userId: ctx.userId, reason });
@@ -291,6 +315,21 @@ export async function DELETE(
         await tx.cpqProposalBundle.deleteMany({
           where: { id: { in: bundleIds }, tenantId },
         });
+      }
+      if (installationIdToDelete) {
+        // Desvincular cotizaciones en papelera para poder borrar la instalación.
+        await tx.cpqQuote.updateMany({
+          where: { tenantId, installationId: installationIdToDelete },
+          data: { installationId: null },
+        });
+        await tx.agendaVisita.updateMany({
+          where: { tenantId, installationId: installationIdToDelete },
+          data: { installationId: null },
+        });
+        const deleted = await tx.crmInstallation.deleteMany({
+          where: { id: installationIdToDelete, tenantId },
+        });
+        installationDeleted = deleted.count > 0;
       }
       await tx.crmDeal.delete({ where: { id } });
       await createCrmHistoryLog(
@@ -302,7 +341,15 @@ export async function DELETE(
           details: {
             title: existing.title,
             accountId: existing.accountId,
-            cascaded: { quotes: trashedQuoteIds, bundles: bundleIds },
+            cascaded: {
+              quotes: trashedQuoteIds,
+              bundles: bundleIds,
+              agendaEvents: agendaCascade.deletedVisitas,
+              licitacionLinkDeleted: agendaCascade.licitacionLinkDeleted,
+              installationId: installationIdToDelete,
+              installationDeleted,
+              googleErrors: agendaCascade.googleErrors,
+            },
             reason,
           },
           createdBy: ctx.userId,
@@ -313,7 +360,14 @@ export async function DELETE(
 
     return NextResponse.json({
       success: true,
-      cascaded: { quotes: trashedQuoteIds.length, bundles: bundleIds.length },
+      cascaded: {
+        quotes: trashedQuoteIds.length,
+        bundles: bundleIds.length,
+        agendaEvents: agendaCascade.deletedVisitas.length,
+        licitacionBands: agendaCascade.licitacionLinkDeleted ? 1 : 0,
+        installationDeleted,
+        googleErrors: agendaCascade.googleErrors.length,
+      },
     });
   } catch (error) {
     console.error("Error deleting deal:", error);

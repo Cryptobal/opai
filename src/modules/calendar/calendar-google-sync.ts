@@ -393,7 +393,44 @@ export async function syncCalendarEventToGoogle(
       res = await calendar.events.insert({ calendarId, requestBody: body, sendUpdates });
     }
 
-    const googleAttendees = res.data.attendees ?? [];
+    let googleAttendees = res.data.attendees ?? [];
+    const providerEventId = res.data.id ?? link?.providerEventId ?? null;
+    const expectedEmails = new Set([
+      ...attendeeEmails.map((e) => e.toLowerCase()),
+      ...event.externals.map((e) => e.email.trim().toLowerCase()).filter(Boolean),
+    ]);
+    const returnedEmails = new Set(
+      googleAttendees
+        .map((a) => (typeof a.email === "string" ? a.email.trim().toLowerCase() : ""))
+        .filter(Boolean),
+    );
+    let missingAttendees = [...expectedEmails].filter((e) => !returnedEmails.has(e));
+
+    // Si faltan invitados en la respuesta del insert/patch, confirmar con events.get.
+    if (missingAttendees.length > 0 && providerEventId) {
+      try {
+        const fresh = await calendar.events.get({
+          calendarId: link?.providerCalendarId || calendarId,
+          eventId: providerEventId,
+        });
+        googleAttendees = fresh.data.attendees ?? googleAttendees;
+        const freshEmails = new Set(
+          googleAttendees
+            .map((a) => (typeof a.email === "string" ? a.email.trim().toLowerCase() : ""))
+            .filter(Boolean),
+        );
+        missingAttendees = [...expectedEmails].filter((e) => !freshEmails.has(e));
+      } catch {
+        // Si get falla, mantenemos missingAttendees del insert/patch.
+      }
+    }
+
+    const attendeesOk = missingAttendees.length === 0;
+    const syncStatus = attendeesOk ? "SYNCED" : "ERROR";
+    const lastError = attendeesOk
+      ? null
+      : `Google no aceptó ${missingAttendees.length} invitado(s). Usá «Reenviar a Google».`;
+
     const debugPayload = buildInviteSyncDebugPayload({
       eventId: event.id,
       participantsCount: event.participants.length,
@@ -402,7 +439,7 @@ export async function syncCalendarEventToGoogle(
       attendeeEmails,
       externalEmailsCount: externalEmails.size,
       sendUpdates,
-      googleEventId: res.data.id ?? null,
+      googleEventId: providerEventId,
       googleStatus: typeof res.data.status === "string" ? res.data.status : null,
       googleAttendeesReturned: googleAttendees.length,
     });
@@ -411,13 +448,18 @@ export async function syncCalendarEventToGoogle(
         ` googleId=${debugPayload.googleEventId ?? "null"}` +
         ` googleStatus=${debugPayload.googleStatus ?? "null"}` +
         ` googleAttendees=${debugPayload.googleAttendeesReturned}` +
-        ` sentAttendees=${debugPayload.attendeeEmailsCount}`,
+        ` sentAttendees=${debugPayload.attendeeEmailsCount}` +
+        ` syncStatus=${syncStatus}`,
     );
     await recordCalendarAudit({
       tenantId,
       eventId: event.id,
       action: "synced_out",
-      payload: debugPayload as unknown as Record<string, unknown>,
+      payload: {
+        ...(debugPayload as unknown as Record<string, unknown>),
+        missingAttendeesCount: missingAttendees.length,
+        syncStatus,
+      },
     });
 
     await prisma.calendarProviderLink.upsert({
@@ -428,19 +470,20 @@ export async function syncCalendarEventToGoogle(
         provider: "google",
         providerAccountId: accountId,
         providerCalendarId: calendarId,
-        providerEventId: res.data.id ?? null,
+        providerEventId,
         htmlLink: res.data.htmlLink ?? null,
         role: "organizer",
-        syncStatus: "SYNCED",
+        syncStatus,
+        lastError,
         etag: res.data.etag ?? null,
         localVersion: event.version,
         lastSyncAt: new Date(),
       },
       update: {
-        providerEventId: res.data.id ?? link?.providerEventId ?? null,
+        providerEventId,
         htmlLink: res.data.htmlLink ?? link?.htmlLink ?? null,
-        syncStatus: "SYNCED",
-        lastError: null,
+        syncStatus,
+        lastError,
         etag: res.data.etag ?? null,
         localVersion: event.version,
         lastSyncAt: new Date(),
@@ -448,7 +491,7 @@ export async function syncCalendarEventToGoogle(
     });
 
     await applyAttendeeResponses(tenantId, event, googleAttendees, emailByUser);
-    return { syncStatus: "SYNCED" };
+    return { syncStatus };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     // Un fallo remoto nunca revierte el cambio local (ya persistido arriba):

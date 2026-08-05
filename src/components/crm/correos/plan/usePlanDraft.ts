@@ -279,12 +279,28 @@ export function usePlanDraft(threadId: string) {
       setLocks([]);
       setDirty(false);
       setDraftSavedAt(null);
-      // Sembrar hitos desde el pliego cuando el draft no trae hitos guardados.
-      const seeded = milestonesFromLicitacion(
-        newProposal.licitacion,
-        newProposal.installations[0],
-      );
-      setMilestones(seeded);
+      // Sembrar hitos desde el pliego; conservar invitados de filas del mismo kind.
+      setMilestones((prev) => {
+        const seeded = milestonesFromLicitacion(
+          newProposal.licitacion,
+          newProposal.installations[0],
+        );
+        return seeded.map((m) => {
+          const prevSame = prev.find((p) => p.kind === m.kind && p.kind !== "otro");
+          if (!prevSame) return m;
+          return {
+            ...m,
+            participantIds:
+              prevSame.participantIds?.length > 0
+                ? prevSame.participantIds
+                : m.participantIds,
+            externalEmails:
+              prevSame.externalEmails?.length > 0
+                ? prevSame.externalEmails
+                : m.externalEmails,
+          };
+        });
+      });
       if (staged) setStagedFiles(staged);
     },
     [],

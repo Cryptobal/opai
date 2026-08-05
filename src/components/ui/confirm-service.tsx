@@ -31,13 +31,28 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 
+export interface ConfirmCheckOption {
+  key: string;
+  label: string;
+  defaultChecked?: boolean;
+  disabled?: boolean;
+  hint?: string;
+}
+
 export interface ConfirmOptions {
   title?: string;
   description?: React.ReactNode;
   confirmLabel?: string;
   cancelLabel?: string;
   variant?: "destructive" | "default";
+  /** Casillas opcionales (p. ej. «Eliminar también la instalación»). */
+  checks?: ConfirmCheckOption[];
 }
+
+export type ConfirmDialogResult = {
+  confirmed: boolean;
+  checks: Record<string, boolean>;
+};
 
 export interface PromptOptions {
   title?: string;
@@ -52,7 +67,10 @@ export interface PromptOptions {
   validate?: (value: string) => string | null | undefined;
 }
 
-type ConfirmRequest = { opts: ConfirmOptions; resolve: (ok: boolean) => void };
+type ConfirmRequest = {
+  opts: ConfirmOptions;
+  resolve: (result: ConfirmDialogResult) => void;
+};
 type PromptRequest = { opts: PromptOptions; resolve: (value: string | null) => void };
 
 type State = { confirm: ConfirmRequest | null; prompt: PromptRequest | null };
@@ -77,16 +95,35 @@ function subscribe(l: () => void) {
 const getSnapshot = () => state;
 const getServerSnapshot = () => SERVER_SNAPSHOT;
 
+function emptyChecks(opts: ConfirmOptions): Record<string, boolean> {
+  const checks: Record<string, boolean> = {};
+  for (const c of opts.checks ?? []) {
+    checks[c.key] = Boolean(c.defaultChecked) && !c.disabled;
+  }
+  return checks;
+}
+
+/**
+ * Confirmación con casillas opcionales. Preferir esta API cuando el diálogo
+ * necesita devolver estado de checks (p. ej. borrar instalación).
+ */
+export function confirmDialogDetailed(
+  opts: ConfirmOptions,
+): Promise<ConfirmDialogResult> {
+  return new Promise<ConfirmDialogResult>((resolve) => {
+    if (state.confirm) {
+      state.confirm.resolve({ confirmed: false, checks: emptyChecks(state.confirm.opts) });
+    }
+    setState({ ...state, confirm: { opts, resolve } });
+  });
+}
+
 /**
  * Muestra un diálogo de confirmación del DS. Resuelve `true` si el usuario
  * confirma, `false` si cancela o cierra. Reemplaza a `window.confirm()`.
  */
 export function confirmDialog(opts: ConfirmOptions): Promise<boolean> {
-  return new Promise<boolean>((resolve) => {
-    // Si ya hay uno abierto, lo resolvemos como cancelado antes de reemplazar.
-    if (state.confirm) state.confirm.resolve(false);
-    setState({ ...state, confirm: { opts, resolve } });
-  });
+  return confirmDialogDetailed(opts).then((r) => r.confirmed);
 }
 
 /**
@@ -162,6 +199,78 @@ function PromptModal({ req }: { req: PromptRequest }) {
   );
 }
 
+function ConfirmWithChecks({ req }: { req: ConfirmRequest }) {
+  const { opts, resolve } = req;
+  const [checks, setChecks] = React.useState<Record<string, boolean>>(() =>
+    emptyChecks(opts),
+  );
+
+  const finish = (confirmed: boolean) => {
+    resolve({ confirmed, checks });
+    setState({ ...state, confirm: null });
+  };
+
+  const checkList = opts.checks ?? [];
+  const description = (
+    <div className="space-y-3">
+      {opts.description ? (
+        typeof opts.description === "string" ? (
+          <p className="whitespace-pre-wrap text-sm text-muted-foreground">
+            {opts.description}
+          </p>
+        ) : (
+          opts.description
+        )
+      ) : null}
+      {checkList.length > 0 ? (
+        <div className="space-y-2 rounded-md border border-ds-border-subtle bg-ds-surface-2 p-3">
+          {checkList.map((c) => (
+            <label
+              key={c.key}
+              className={`flex items-start gap-3 text-sm ${
+                c.disabled ? "opacity-60" : "cursor-pointer"
+              }`}
+            >
+              <input
+                type="checkbox"
+                className="mt-1 h-4 w-4 accent-primary"
+                checked={Boolean(checks[c.key])}
+                disabled={c.disabled}
+                onChange={(e) =>
+                  setChecks((prev) => ({ ...prev, [c.key]: e.target.checked }))
+                }
+              />
+              <span className="min-w-0">
+                <span className="text-foreground">{c.label}</span>
+                {c.hint ? (
+                  <span className="mt-0.5 block text-[12px] text-ds-text-3">
+                    {c.hint}
+                  </span>
+                ) : null}
+              </span>
+            </label>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+
+  return (
+    <ConfirmDialog
+      open
+      onOpenChange={(o) => {
+        if (!o) finish(false);
+      }}
+      title={opts.title ?? "Confirmar acción"}
+      description={description}
+      confirmLabel={opts.confirmLabel ?? "Aceptar"}
+      cancelLabel={opts.cancelLabel ?? "Cancelar"}
+      variant={opts.variant ?? "default"}
+      onConfirm={() => finish(true)}
+    />
+  );
+}
+
 /**
  * Host global de confirm/prompt imperativos. Montar UNA sola vez (root layout).
  */
@@ -170,28 +279,7 @@ export function ConfirmHost() {
 
   return (
     <>
-      {snap.confirm ? (
-        <ConfirmDialog
-          open
-          onOpenChange={(o) => {
-            if (!o && state.confirm) {
-              state.confirm.resolve(false);
-              setState({ ...state, confirm: null });
-            }
-          }}
-          title={snap.confirm.opts.title ?? "Confirmar acción"}
-          description={snap.confirm.opts.description ?? ""}
-          confirmLabel={snap.confirm.opts.confirmLabel ?? "Aceptar"}
-          cancelLabel={snap.confirm.opts.cancelLabel ?? "Cancelar"}
-          variant={snap.confirm.opts.variant ?? "default"}
-          onConfirm={() => {
-            if (state.confirm) {
-              state.confirm.resolve(true);
-              setState({ ...state, confirm: null });
-            }
-          }}
-        />
-      ) : null}
+      {snap.confirm ? <ConfirmWithChecks req={snap.confirm} /> : null}
       {snap.prompt ? <PromptModal req={snap.prompt} /> : null}
     </>
   );

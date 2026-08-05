@@ -31,6 +31,9 @@ export function expandLicitacionAgendaItems(params: {
   toYmdExcl: string;
   syncStatus: string | null;
   syncReason?: string | null;
+  htmlLink?: string | null;
+  /** Si hay hito puntual `entrega` el mismo día, no rotular `ENTREGA ·`. */
+  hasEntregaMilestoneOnEnd?: boolean;
 }): AgendaListItem[] {
   const { deal } = params;
   const entregaYmd = deal.fechaEntrega.toISOString().slice(0, 10);
@@ -42,16 +45,19 @@ export function expandLicitacionAgendaItems(params: {
   let guard = 0;
   const spanStartYmd =
     params.rangeStartYmd > entregaYmd ? entregaYmd : params.rangeStartYmd;
+  const href = `/crm/deals/${deal.id}`;
 
   while (day <= entregaYmd && day < params.toYmdExcl && guard < MAX_RANGE_DAYS) {
     const isEntrega = day === entregaYmd;
+    const suppressEntregaLabel = isEntrega && params.hasEntregaMilestoneOnEnd === true;
     items.push({
       id: isEntrega ? deal.id : `${deal.id}:${day}`,
       source: "licitacion",
       type: "licitacion",
-      title: isEntrega
-        ? `ENTREGA · ${deal.title}`
-        : `Licitación · ${deal.title} · entrega ${dd}-${mm}`,
+      title:
+        isEntrega && !suppressEntregaLabel
+          ? `ENTREGA · ${deal.title}`
+          : `Licitación · ${deal.title} · entrega ${dd}-${mm}`,
       start: `${day}T12:00:00.000Z`,
       end: `${day}T12:00:00.000Z`,
       allDay: true,
@@ -65,6 +71,8 @@ export function expandLicitacionAgendaItems(params: {
       dealId: deal.id,
       status: deal.status,
       sourceKey: "opai:licitaciones",
+      href,
+      htmlLink: params.htmlLink ?? null,
       // Campos aditivos: agrupan el tramo multi-día en la capa de presentación.
       spanKey: deal.id,
       spanStartYmd,
