@@ -8,7 +8,9 @@ export type CalendarAuditAction =
   | "cancelled"
   | "completed"
   | "rsvp"
-  | "synced_in";
+  | "synced_in"
+  /** Push OPAI → Google: metadatos de invitados (sin correos en claro). */
+  | "synced_out";
 
 /** Registra un CalendarAuditEvent. Best-effort: nunca rompe la mutación. */
 export async function recordCalendarAudit(input: {

@@ -17,6 +17,8 @@ import {
   getCalendarClientForUser,
   pickDefaultAccount,
 } from "@/lib/google-workspace/clients";
+import { recordCalendarAudit } from "./calendar-audit";
+import { buildInviteSyncDebugPayload } from "./calendar-invite-sync-debug";
 import { buildCalendarEventGooglePayload, pendingAccountKey } from "./calendar-google-payload";
 import { applyAttendeeResponses } from "./calendar-rsvp-readback";
 import { resolveCreateTarget } from "./calendar-sources";
@@ -346,17 +348,38 @@ export async function syncCalendarEventToGoogle(
     const externalEmails = new Set(
       event.externals.map((e) => e.email.trim().toLowerCase()).filter(Boolean),
     );
+    const nonOrganizerIds = event.participants
+      .filter((p) => p.userId !== organizer.userId)
+      .map((p) => p.userId);
     const attendeeEmails = Array.from(
       new Set(
-        event.participants
-          .filter((p) => p.userId !== organizer.userId)
-          .map((p) => emailByUser.get(p.userId))
+        nonOrganizerIds
+          .map((id) => emailByUser.get(id))
           .filter((e): e is string => typeof e === "string" && !externalEmails.has(e)),
       ),
     );
+    const internalIdsResolvedCount = nonOrganizerIds.filter((id) => emailByUser.has(id)).length;
 
     const body = buildCalendarEventGooglePayload(event, attendeeEmails);
     const sendUpdates = body.attendees?.length ? "all" : "none";
+
+    // Bloque 0 — pre-push: conteos hasheados (sin correos en claro).
+    const preDebug = buildInviteSyncDebugPayload({
+      eventId: event.id,
+      participantsCount: event.participants.length,
+      internalIdsCount: nonOrganizerIds.length,
+      internalIdsResolvedCount,
+      attendeeEmails,
+      externalEmailsCount: externalEmails.size,
+      sendUpdates,
+    });
+    console.info(
+      `[calendar-v2] invite-sync pre_push eventId=${preDebug.eventId}` +
+        ` participants=${preDebug.participantsCount}` +
+        ` resolved=${preDebug.internalIdsResolvedCount}/${preDebug.internalIdsCount}` +
+        ` attendeeEmails=${preDebug.attendeeEmailsCount}` +
+        ` sendUpdates=${preDebug.sendUpdates}`,
+    );
 
     let res;
     if (link?.providerEventId) {
@@ -369,6 +392,33 @@ export async function syncCalendarEventToGoogle(
     } else {
       res = await calendar.events.insert({ calendarId, requestBody: body, sendUpdates });
     }
+
+    const googleAttendees = res.data.attendees ?? [];
+    const debugPayload = buildInviteSyncDebugPayload({
+      eventId: event.id,
+      participantsCount: event.participants.length,
+      internalIdsCount: nonOrganizerIds.length,
+      internalIdsResolvedCount,
+      attendeeEmails,
+      externalEmailsCount: externalEmails.size,
+      sendUpdates,
+      googleEventId: res.data.id ?? null,
+      googleStatus: typeof res.data.status === "string" ? res.data.status : null,
+      googleAttendeesReturned: googleAttendees.length,
+    });
+    console.info(
+      `[calendar-v2] invite-sync post_push eventId=${debugPayload.eventId}` +
+        ` googleId=${debugPayload.googleEventId ?? "null"}` +
+        ` googleStatus=${debugPayload.googleStatus ?? "null"}` +
+        ` googleAttendees=${debugPayload.googleAttendeesReturned}` +
+        ` sentAttendees=${debugPayload.attendeeEmailsCount}`,
+    );
+    await recordCalendarAudit({
+      tenantId,
+      eventId: event.id,
+      action: "synced_out",
+      payload: debugPayload as unknown as Record<string, unknown>,
+    });
 
     await prisma.calendarProviderLink.upsert({
       where: linkKey,
@@ -397,7 +447,7 @@ export async function syncCalendarEventToGoogle(
       },
     });
 
-    await applyAttendeeResponses(tenantId, event, res.data.attendees ?? [], emailByUser);
+    await applyAttendeeResponses(tenantId, event, googleAttendees, emailByUser);
     return { syncStatus: "SYNCED" };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);

@@ -69,6 +69,11 @@ vi.mock("../calendar-sources", () => ({
   resolveCreateTarget: resolveCreateTargetMock,
 }));
 
+const recordAuditMock = vi.fn().mockResolvedValue(undefined);
+vi.mock("../calendar-audit", () => ({
+  recordCalendarAudit: (...a: unknown[]) => recordAuditMock(...a),
+}));
+
 const EVENT = {
   id: "ev-1",
   tenantId: "t1",
@@ -160,6 +165,34 @@ describe("syncCalendarEventToGoogle", () => {
     expect(emails).toContain("cliente@ejemplo.cl");
     expect(call.requestBody.start.timeZone).toBe("America/Santiago");
     expect(call.requestBody.start.dateTime).toMatch(/[+-]\d{2}:\d{2}$/);
+  });
+
+  it("Bloque 0: audita conteos de invitados (sin correos en claro) tras el push", async () => {
+    const { syncCalendarEventToGoogle } = await import("../calendar-google-sync");
+    await syncCalendarEventToGoogle("t1", "ev-1");
+
+    expect(recordAuditMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tenantId: "t1",
+        eventId: "ev-1",
+        action: "synced_out",
+        payload: expect.objectContaining({
+          participantsCount: 3,
+          internalIdsCount: 2,
+          internalIdsResolvedCount: 2,
+          attendeeEmailsCount: 2,
+          sendUpdates: "all",
+          googleEventId: "gev-1",
+          googleAttendeesReturned: 3,
+        }),
+      }),
+    );
+    const payload = recordAuditMock.mock.calls[0][0].payload as Record<string, unknown>;
+    const flat = JSON.stringify(payload);
+    expect(flat).not.toMatch(/lizeth@gard\.cl|hugo@gard\.cl|cliente@ejemplo\.cl/i);
+    expect(payload.attendeeDomains).toEqual(["gard.cl"]);
+    expect(Array.isArray(payload.attendeeEmailHashes)).toBe(true);
+    expect((payload.attendeeEmailHashes as string[]).length).toBe(2);
   });
 
   it("interno sin Google pero con Admin.email NO genera attendee_copy", async () => {
