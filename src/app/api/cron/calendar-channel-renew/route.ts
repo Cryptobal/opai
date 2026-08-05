@@ -28,10 +28,21 @@ export async function GET(req: NextRequest) {
   }
 
   let renewed = 0;
+  let seeded = 0;
   if (webhook) {
+    // Priorizar cuentas próximas a expirar / sin canal (nulls first vía sort).
     const accounts = await prisma.googleCalendarAccount.findMany({
       where: { status: "ACTIVE" },
-      take: 40,
+      take: 120,
+    });
+    accounts.sort((a, b) => {
+      const ea = Number(
+        ((a.prefs ?? {}) as { expiration?: number }).expiration ?? 0,
+      );
+      const eb = Number(
+        ((b.prefs ?? {}) as { expiration?: number }).expiration ?? 0,
+      );
+      return ea - eb; // sin expiration (0) primero
     });
 
     const horizon = Date.now() + 48 * 3600_000;
@@ -109,6 +120,25 @@ export async function GET(req: NextRequest) {
           },
         });
         renewed++;
+
+        // Semilla syncToken si el cursor aún no tiene (pasada acotada).
+        try {
+          const { seedCalendarSyncToken } = await import(
+            "@/modules/calendar/calendar-inbound-sync"
+          );
+          await seedCalendarSyncToken({
+            tenantId: account.tenantId,
+            accountId: account.id,
+            calendarId,
+          });
+          seeded++;
+        } catch (seedErr) {
+          console.warn(
+            "[calendar-channel-renew] seed syncToken",
+            account.id,
+            seedErr instanceof Error ? seedErr.message : seedErr,
+          );
+        }
       } catch (err) {
         console.warn("[calendar-channel-renew] fail", account.id, err);
       }
@@ -148,6 +178,7 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     ok: true,
     renewed,
+    seeded,
     gmailWatchRenewed,
     calendarSkipped: !webhook,
   });
