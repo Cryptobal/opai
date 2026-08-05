@@ -74,6 +74,10 @@ interface Props {
   ufCaption?: string | null;
   /** Umbral |delta| para chip de desviación en celdas. */
   driftAlertThresholdClp?: number;
+  /** Ficha de hover desktop activa. */
+  hoverCards?: boolean;
+  onOpenNote?: (sel: CellSel) => void;
+  onOpenCaretMenu?: (sel: CellSel, anchor: DOMRect) => void;
 }
 
 function highlightName(name: string, query: string): ReactNode {
@@ -140,6 +144,7 @@ export function PlanillaRow(p: Props) {
     <tr className={`${ROW_H} group`}>
       <td
         aria-hidden
+        data-gutter-row={row.id}
         className={`${GUTTER_W} ${ROW_H} ${GUTTER_CELL} z-10 cursor-pointer ${p.rowSelected ? "bg-[hsl(var(--plnx-sel-hdr))]" : ""}`}
         onClick={(e) => { e.stopPropagation(); p.onSelectRow(); }}
         title="Seleccionar fila"
@@ -273,6 +278,15 @@ export function PlanillaRow(p: Props) {
             numberFormat={p.numberFormat}
             cellStyle={p.getCellStyle?.(row.id, cell.weekStart)}
             driftAlertThresholdClp={p.driftAlertThresholdClp}
+            hoverCards={p.hoverCards}
+            onOpenNote={
+              p.onOpenNote ? () => p.onOpenNote!({ rowId: row.id, colIdx }) : undefined
+            }
+            onOpenCaretMenu={
+              p.onOpenCaretMenu
+                ? (anchor) => p.onOpenCaretMenu!({ rowId: row.id, colIdx }, anchor)
+                : undefined
+            }
           />
         );
       })}

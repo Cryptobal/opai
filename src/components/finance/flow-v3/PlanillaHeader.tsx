@@ -130,6 +130,7 @@ export function PlanillaHeader({
         {columns.map((c, i) => (
           <th
             key={c.key}
+            data-ci={i}
             className={`sticky top-0 z-30 ${COL_W} ${thBase} cursor-pointer text-center text-ds-text-4 ${c.isCurrent ? TODAY_COL : ""} ${selectedColIndices?.has(i) ? selHdr : ""}`}
             onClick={() => onSelectCol?.(i)}
             title="Seleccionar columna"
@@ -175,6 +176,7 @@ export function PlanillaHeader({
           return (
             <th
               key={c.key}
+              data-ci={i}
               data-week={c.weekStart}
               data-current={c.isCurrent ? "true" : undefined}
               className={`sticky top-[calc(var(--plnx-hdr-1)+var(--plnx-hdr-2))] z-30 ${COL_W} ${thBase} cursor-pointer overflow-hidden whitespace-nowrap text-right ${

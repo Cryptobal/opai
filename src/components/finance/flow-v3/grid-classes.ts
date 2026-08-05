@@ -24,7 +24,7 @@ export const GUTTER_CELL =
   "sticky left-0 border-b border-r border-ds-border-subtle/60 bg-ds-surface-2 px-0 text-center align-middle font-sans font-normal tabular-nums leading-none text-ds-text-4";
 
 export const CELL_BASE =
-  "relative px-1.5 max-md:px-[3px] text-right align-middle border-b border-r border-ds-border-subtle/60 overflow-hidden whitespace-nowrap";
+  "relative px-1.5 max-md:px-[3px] text-right align-middle border-b border-r border-ds-border-subtle/60 overflow-hidden whitespace-nowrap hover:bg-ds-surface-2/70";
 
 /** Borde vertical primary de la columna de la semana actual (línea HOY). */
 export const TODAY_COL = "border-l-2 border-l-primary";
@@ -71,9 +71,16 @@ export const CORNER_WARN =
 export const CORNER_PLAN =
   "after:absolute after:right-0 after:top-0 after:h-0 after:w-0 after:border-l-[6px] after:border-t-[6px] after:border-l-transparent after:border-t-primary after:content-['']";
 
-/** Indicador de nota (punto inf-izq) — no compite con el triángulo de esquina. */
-export const NOTE_DOT =
-  "before:absolute before:bottom-0.5 before:left-0.5 before:h-1.5 before:w-1.5 before:rounded-full before:bg-status-info before:content-['']";
+/**
+ * Indicador de nota (elemento real inf-izq). Área táctil ampliada vía
+ * `::before` transparente; el punto visible es el propio span.
+ */
+export const NOTE_DOT_EL =
+  "planilla-note-dot absolute bottom-0.5 left-0.5 z-[3] h-1.5 w-1.5 cursor-pointer rounded-full bg-status-info pointer-events-auto";
+
+/** Chevron de acciones (solo celda seleccionada) — elemento real, 14 px. */
+export const CELL_CARET =
+  "planilla-cell-caret absolute right-0 top-1/2 z-[3] flex h-3.5 w-3.5 -translate-y-1/2 cursor-pointer items-center justify-center rounded-sm bg-ds-surface-3 text-ds-text-2 pointer-events-auto hover:bg-ds-surface-4 hover:text-ds-text-1";
 
 /**
  * Marcas secundarias inf-der (triángulo 5px). Complementan la esquina

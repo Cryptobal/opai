@@ -10,6 +10,9 @@ import {
   ContextMenu, ContextMenuContent, ContextMenuTrigger,
 } from "@/components/ui/context-menu";
 import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   COL_W, displayValue, GUTTER_CELL, GUTTER_W, isZeroRow, NAME_LEFT, NAME_W, SECTION_H,
   SECTION_LABELS, SECTION_ORDER, TODAY_COL,
 } from "./grid-classes";
@@ -20,6 +23,8 @@ import { PlanillaHeader } from "./PlanillaHeader";
 import { PlanillaRow } from "./PlanillaRow";
 import { BalanceRow } from "./BalanceRow";
 import { CellLayersPopover, type PopoverState } from "./CellLayersPopover";
+import { CellHoverCard, type CellHoverCardHandle, type CellHoverShowCtx } from "./CellHoverCard";
+import { useCellHover } from "./useCellHover";
 import { FillRightDialog, type FillRightRequest } from "./FillRightDialog";
 import { usePlanillaKeyboard, type CellSel } from "./usePlanillaKeyboard";
 import {
@@ -53,7 +58,12 @@ interface PlanMutators {
   patchPlan: (rowId: string, weekStart: string, amount: number, opts?: { skipHistory?: boolean }) => Promise<void>;
   patchPlanBulk: (rowId: string, weekStarts: string[], amount: number, opts?: { skipHistory?: boolean }) => Promise<unknown>;
   movePlan: (rowId: string, from: string, to: string, opts?: { skipHistory?: boolean }) => Promise<unknown>;
-  patchCellNote: (rowId: string, weekStart: string, body: string | null) => Promise<boolean>;
+  patchCellNote: (
+    rowId: string,
+    weekStart: string,
+    body: string | null,
+    opts?: { silent?: boolean },
+  ) => Promise<boolean>;
   undo: () => Promise<HistoryEntry | null>;
   redo: () => Promise<HistoryEntry | null>;
 }
@@ -83,6 +93,8 @@ interface Props {
     isBalance?: "flow" | "balance";
     range: RangeSel | null;
     visibleRowIds: string[];
+    canEditPlan?: boolean;
+    editReason?: string;
   } | null) => void;
   searchQuery?: string;
   /** Expone API de colapso al toolbar. */
@@ -179,6 +191,11 @@ export function PlanillaGrid({
   const localRef = useRef<HTMLDivElement | null>(null);
   const scroller = scrollerRef ?? localRef;
   const kbRef = useRef<ReturnType<typeof usePlanillaKeyboard> | null>(null);
+  const hoverRef = useRef<CellHoverCardHandle | null>(null);
+  const [caretMenu, setCaretMenu] = useState<{
+    sel: CellSel;
+    anchor: { x: number; y: number };
+  } | null>(null);
 
   const rowById = useMemo(() => new Map(data.rows.map((r) => [r.id, r])), [data.rows]);
   const closedSet = useMemo(() => new Set(data.closedWeeks), [data.closedWeeks]);
@@ -460,6 +477,8 @@ export function PlanillaGrid({
         anchor ??
         document.querySelector(`[data-rc="${sel.rowId}:${sel.colIdx}"]`)?.getBoundingClientRect();
       if (!rect) return;
+      hoverRef.current?.hide();
+      setCaretMenu(null);
       setPopoverFocusNote(!!opts?.focusNote);
       setPopover({ row, cell, anchor: { left: rect.left, top: rect.top, bottom: rect.bottom } });
     },
@@ -550,11 +569,65 @@ export function PlanillaGrid({
     onDiscreteStats?.(null);
   }, [onSumModeChange, onDiscreteStats]);
 
+  const cellEditReason = useCallback(
+    (rowId: string, colIdx: number): string => {
+      const row = rowById.get(rowId);
+      const cell = row?.cells[colIdx];
+      const col = data.columns[colIdx];
+      if (!row || !cell || !col) return "";
+      if (!canManage) return "Sin permiso de edición";
+      if (data.granularity !== "week") return "Cambia a vista semanal";
+      if (row.isVirtual) return "Fila calculada";
+      if (row.isArchived) return "Fila archivada";
+      if (col.isPast) return "Semana pasada (solo real)";
+      if (closedSet.has(col.key)) return "Semana cerrada";
+      if (hasInvoicedIncome(row.section, cell.committed)) {
+        return "Ingreso facturado (la factura manda)";
+      }
+      return "";
+    },
+    [rowById, data.columns, data.granularity, canManage, closedSet],
+  );
+
+  const openNoteEditor = useCallback(
+    (sel: CellSel) => {
+      const row = rowById.get(sel.rowId);
+      const cell = row?.cells[sel.colIdx];
+      if (!row || !cell) return;
+      if (!canManage) {
+        openPopover(sel, undefined, { focusNote: true });
+        return;
+      }
+      const td = document.querySelector(
+        `[data-rc="${sel.rowId}:${sel.colIdx}"]`,
+      ) as HTMLElement | null;
+      const rect = td?.getBoundingClientRect();
+      if (!rect) {
+        openPopover(sel, undefined, { focusNote: true });
+        return;
+      }
+      kbRef.current?.setSel(sel);
+      setPopover(null);
+      const ctx: CellHoverShowCtx = {
+        row,
+        cell,
+        colIdx: sel.colIdx,
+        rowNumber: rowNumberById.get(sel.rowId) ?? 0,
+        isPast: data.granularity === "week" && cell.weekStart < data.currentWeek,
+        reason: cellEditReason(sel.rowId, sel.colIdx),
+      };
+      hoverRef.current?.show(ctx, rect);
+      hoverRef.current?.openNoteEditor();
+    },
+    [rowById, openPopover, rowNumberById, data.granularity, data.currentWeek, cellEditReason, canManage],
+  );
+
   const kb = usePlanillaKeyboard({
     data: kbData,
     canEditCell,
     onCommit: commit,
     onOpenPopover: (sel) => openPopover(sel),
+    onOpenNote: openNoteEditor,
     onFillRight: requestFillRight,
     onUndo: () => void handleUndo(),
     onRedo: () => void handleRedo(),
@@ -562,6 +635,55 @@ export function PlanillaGrid({
     onEscape: clearDiscrete,
   });
   kbRef.current = kb;
+
+  const resolveHover = useCallback(
+    (rowId: string, colIdx: number) => {
+      const row = rowById.get(rowId);
+      const cell = row?.cells[colIdx];
+      if (!row || !cell || row.isVirtual) return null;
+      return {
+        row,
+        cell,
+        colIdx,
+        rowNumber: rowNumberById.get(rowId) ?? 0,
+        isPast: data.granularity === "week" && cell.weekStart < data.currentWeek,
+        reason: cellEditReason(rowId, colIdx),
+      };
+    },
+    [rowById, rowNumberById, data.granularity, data.currentWeek, cellEditReason],
+  );
+
+  const hoverSuppressed = useCallback(() => {
+    return (
+      !!kbRef.current?.isEditing ||
+      !!dragRef.current ||
+      !!sumMode ||
+      !!ctxTarget ||
+      !!popover ||
+      !!caretMenu ||
+      !!hoverRef.current?.isPinned()
+    );
+  }, [sumMode, ctxTarget, popover, caretMenu]);
+
+  useCellHover({
+    scrollerRef: scroller,
+    hoverRef,
+    resolve: resolveHover,
+    isSuppressed: hoverSuppressed,
+  });
+
+  const openCaretMenu = useCallback((sel: CellSel, anchor: DOMRect) => {
+    kbRef.current?.setSel(sel);
+    setPopover(null);
+    hoverRef.current?.hide();
+    setCaretMenu({ sel, anchor: { x: anchor.left, y: anchor.bottom } });
+  }, []);
+
+  const saveNoteSilent = useCallback(
+    (rowId: string, weekStart: string, body: string | null) =>
+      matrix.patchCellNote(rowId, weekStart, body, { silent: true }),
+    [matrix],
+  );
 
   const discreteKeys = useMemo(() => new Set(discreteSel.keys()), [discreteSel]);
   const discreteSelStats = useMemo(() => discreteStats(discreteSel.values()), [discreteSel]);
@@ -631,6 +753,7 @@ export function PlanillaGrid({
     const row = rowById.get(sel.rowId);
     const col = data.columns[sel.colIdx];
     if (!row || !col) { onSelectionChange(null, null); return; }
+    const reason = cellEditReason(sel.rowId, sel.colIdx);
     onSelectionChange(sel, {
       rowNumber: rowNumberById.get(sel.rowId) ?? 0,
       rowName: row.name,
@@ -638,8 +761,10 @@ export function PlanillaGrid({
       weekStart: col.weekStart,
       range: kb.range,
       visibleRowIds,
+      canEditPlan: canEditCell(sel.rowId, sel.colIdx),
+      editReason: reason,
     });
-  }, [kb.sel, kb.range, onSelectionChange, rowById, data.columns, rowNumberById, visibleRowIds]);
+  }, [kb.sel, kb.range, onSelectionChange, rowById, data.columns, rowNumberById, visibleRowIds, cellEditReason, canEditCell]);
 
   // Abrir capas desde fx bar / atajo externo.
   const lastLayersReq = useRef(0);
@@ -923,7 +1048,10 @@ export function PlanillaGrid({
             onKeyDown={kb.onGridKeyDown}
             onContextMenuCapture={() => setCtxTarget(null)}
             className="planilla-grid-scroll relative max-h-[var(--plnx-grid-h)] overflow-auto overscroll-contain [-webkit-overflow-scrolling:touch] rounded-lg border border-ds-border-default bg-ds-surface-1 outline-none focus-visible:ring-1 focus-visible:ring-primary/40 max-lg:rounded-none max-lg:border-x-0"
-            onScroll={() => popover && setPopover(null)}
+            onScroll={() => {
+              if (popover) setPopover(null);
+              if (caretMenu) setCaretMenu(null);
+            }}
           >
             <table className="w-max border-separate border-spacing-0">
               <PlanillaHeader
@@ -1178,6 +1306,9 @@ export function PlanillaGrid({
                       }
                       searchQuery={searchQuery}
                       ufCaption={row.ufCaption}
+                      hoverCards
+                      onOpenNote={openNoteEditor}
+                      onOpenCaretMenu={openCaretMenu}
                     />
                   ))}
                 </tbody>
@@ -1203,6 +1334,45 @@ export function PlanillaGrid({
         )}
       </ContextMenu>
 
+      <CellHoverCard
+        ref={hoverRef}
+        canManage={canManage}
+        onSaveNote={saveNoteSilent}
+        onOpenActions={(ctx, anchor) => {
+          openCaretMenu({ rowId: ctx.row.id, colIdx: ctx.colIdx }, anchor);
+        }}
+      />
+
+      <DropdownMenu
+        open={!!caretMenu}
+        onOpenChange={(open) => { if (!open) setCaretMenu(null); }}
+        modal={false}
+      >
+        <DropdownMenuTrigger asChild>
+          <span
+            className="fixed h-0 w-0 overflow-hidden"
+            style={
+              caretMenu
+                ? { left: caretMenu.anchor.x, top: caretMenu.anchor.y }
+                : { left: 0, top: 0 }
+            }
+            aria-hidden
+          />
+        </DropdownMenuTrigger>
+        {caretMenu && (
+          <DropdownMenuContent
+            align="start"
+            className="max-h-96 overflow-y-auto"
+            onCloseAutoFocus={(e) => e.preventDefault()}
+          >
+            <MenuItems
+              items={menuItemsFor({ kind: "cell", sel: caretMenu.sel }) ?? []}
+              variant="dropdown"
+            />
+          </DropdownMenuContent>
+        )}
+      </DropdownMenu>
+
       <CellLayersPopover
         state={popover}
         onClose={() => {
@@ -1227,7 +1397,8 @@ export function PlanillaGrid({
         }}
         onSaveNote={
           canManage
-            ? async (rowId, weekStart, body) => matrix.patchCellNote(rowId, weekStart, body)
+            ? async (rowId, weekStart, body) =>
+                matrix.patchCellNote(rowId, weekStart, body, { silent: true })
             : undefined
         }
       />
