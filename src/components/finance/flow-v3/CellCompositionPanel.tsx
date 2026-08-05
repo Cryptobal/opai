@@ -50,7 +50,9 @@ export function CellCompositionPanel({
   const openDteOrBank = (dteId?: string, bankTransactionId?: string) => {
     if (dteId && onViewDte) { onViewDte(dteId); onClose(); return; }
     if (bankTransactionId) {
-      window.open(`/finanzas/conciliacion?tx=${bankTransactionId}`, "_blank", "noopener");
+      // Banca abre el sheet del movimiento con ?txId=. `/finanzas/conciliacion`
+      // es el módulo de cierres de período y no lee `?tx=`.
+      window.open(`/finanzas/bancos?txId=${bankTransactionId}`, "_blank", "noopener");
       onClose();
     }
   };
