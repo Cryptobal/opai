@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import { useDroppable } from "@dnd-kit/core";
-import { ChevronDown, Plus } from "lucide-react";
+import { ChevronDown, ChevronRight, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/opai-ds";
 import { cn } from "@/lib/utils";
@@ -14,17 +14,20 @@ type Props = {
   stage: CrmPipelineStage;
   count: number;
   total: number;
-  clp: number;
+  clp: number | null;
   uf: number | null;
-  children: ReactNode;
+  children?: ReactNode;
   collapsed?: boolean;
+  /** Columna cerrada (ganado/perdido): siempre contraída, abre Tabla. */
+  closedRail?: boolean;
   onToggleCollapse?: () => void;
+  onClosedOpen?: () => void;
   highlightDropTarget?: boolean;
   loading?: boolean;
   hasMore?: boolean;
   onLoadMore?: () => void;
   onAddDeal?: () => void;
-  loadedCount: number;
+  loadedCount?: number;
 };
 
 export function DealColumn({
@@ -35,13 +38,15 @@ export function DealColumn({
   uf,
   children,
   collapsed = false,
+  closedRail = false,
   onToggleCollapse,
+  onClosedOpen,
   highlightDropTarget = false,
   loading = false,
   hasMore = false,
   onLoadMore,
   onAddDeal,
-  loadedCount,
+  loadedCount = 0,
 }: Props) {
   const { setNodeRef: setColumnNodeRef, isOver: isOverColumn } = useDroppable({
     id: `stage-${stage.id}`,
@@ -52,32 +57,54 @@ export function DealColumn({
 
   const stageColor = sanitizeStageColor(stage.color) ?? "hsl(var(--ds-text-4))";
   const isOver = isOverColumn || isOverHeader || highlightDropTarget;
+  const amountLabel = clp != null ? formatClpCompact(clp) : "—";
 
-  if (collapsed) {
+  if (collapsed || closedRail) {
     return (
       <div
         ref={setColumnNodeRef}
         className={cn(
-          "deals-col flex flex-col overflow-hidden rounded-lg border bg-ds-surface-2",
-          "w-11 min-w-[44px] max-w-[44px] flex-none",
+          "deals-col-collapsed flex h-full min-h-0 flex-none flex-col overflow-hidden rounded-lg border bg-ds-surface-2",
           isOver ? "border-primary/60 bg-primary/5" : "border-ds-border-subtle",
+          closedRail && "border-dashed",
         )}
       >
         <button
           type="button"
           ref={setHeaderNodeRef}
-          onClick={onToggleCollapse}
-          className="deals-touch flex h-full min-h-[120px] flex-col items-center gap-2 px-1 py-2.5"
-          style={{ backgroundColor: `${stageColor}18` }}
+          onClick={closedRail ? onClosedOpen : onToggleCollapse}
+          className="deals-touch flex h-full min-h-0 flex-col items-stretch gap-2 px-2.5 py-3 text-left"
+          style={{
+            backgroundColor: `${stageColor}14`,
+            borderLeft: `3px solid ${stageColor}`,
+          }}
+          title={
+            closedRail
+              ? `Ver ${stage.name} en tabla (${count})`
+              : `Expandir ${stage.name}`
+          }
         >
-          <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: stageColor }} />
           <span
-            className="text-[12px] font-semibold"
-            style={{ color: stageColor, writingMode: "vertical-rl", textOrientation: "mixed" }}
+            className="h-2.5 w-2.5 shrink-0 rounded-full"
+            style={{ backgroundColor: stageColor }}
+          />
+          <span
+            className="text-[12px] font-semibold leading-tight text-ds-text-1"
+            style={{ color: stageColor }}
           >
             {shortStageName(stage.name)}
           </span>
-          <span className="mt-auto text-[12px] tabular-nums text-ds-text-3">{count}</span>
+          <span className="ds-num text-[13px] font-semibold text-ds-text-1">
+            {count}
+          </span>
+          <span className="ds-num text-[12px] text-ds-text-2">{amountLabel}</span>
+          <span className="mt-auto text-ds-text-3" aria-hidden>
+            {closedRail ? (
+              <ChevronRight className="h-3.5 w-3.5" />
+            ) : (
+              <ChevronDown className="h-3.5 w-3.5 rotate-[-90deg]" />
+            )}
+          </span>
         </button>
       </div>
     );
@@ -87,7 +114,7 @@ export function DealColumn({
     <div
       ref={setColumnNodeRef}
       className={cn(
-        "deals-col flex min-h-0 flex-col overflow-hidden rounded-lg border bg-ds-surface-2",
+        "deals-col flex h-full min-h-0 flex-col overflow-hidden rounded-lg border bg-ds-surface-2",
         isOver ? "border-primary/60 bg-primary/5" : "border-ds-border-subtle",
       )}
     >
@@ -116,16 +143,25 @@ export function DealColumn({
           background: "var(--glass-fill)",
         }}
       >
-        <span className="min-w-0 flex-1 truncate text-[13px] font-semibold" style={{ color: stageColor }} title={stage.name}>
+        <span
+          className="min-w-0 flex-1 truncate text-[13px] font-semibold"
+          style={{ color: stageColor }}
+          title={stage.name}
+        >
           {shortStageName(stage.name)}
         </span>
         <span className="shrink-0 text-[12px] tabular-nums text-ds-text-3">
-          {count} · {formatClpCompact(clp)}
+          {count} · {amountLabel}
           {uf != null && uf > 0 ? (
-            <span className="deals-col-uf"> · {uf.toLocaleString("es-CL", { maximumFractionDigits: 1 })} UF</span>
+            <span className="deals-col-uf">
+              {" "}
+              · {uf.toLocaleString("es-CL", { maximumFractionDigits: 1 })} UF
+            </span>
           ) : null}
         </span>
-        {onToggleCollapse ? <ChevronDown className="h-3.5 w-3.5 shrink-0 text-ds-text-3" /> : null}
+        {onToggleCollapse ? (
+          <ChevronDown className="h-3.5 w-3.5 shrink-0 text-ds-text-3" />
+        ) : null}
       </div>
 
       <div className="deals-col-body relative min-h-0 flex-1 overflow-y-auto overscroll-contain p-2">

@@ -118,7 +118,7 @@ export function CrmDealsClient({
   };
 
   return (
-    <div className="deals-shell flex min-h-[calc(100dvh-var(--app-topbar-offset))] flex-col gap-3">
+    <div className="deals-shell flex h-[calc(100dvh-var(--app-topbar-offset))] min-h-0 flex-col gap-3 overflow-hidden pb-2">
       <DealsTopBar
         summary={board.summary}
         search={board.search}
@@ -168,6 +168,11 @@ export function CrmDealsClient({
         onLoadMore={onLoadMore}
         onAddDeal={(sid) => create.openCreate(sid)}
         onMoveDeal={(dealId, stageId) => void move.updateStage(dealId, stageId)}
+        onClosedStage={(stageId) => {
+          board.setStageFilter(stageId);
+          setView("table");
+          void loadTable(stageId);
+        }}
       />
 
       <Button

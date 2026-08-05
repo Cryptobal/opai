@@ -23,6 +23,7 @@ import type { DealsDensity, StageColumnState } from "./types";
 
 type Props = {
   openStages: CrmPipelineStage[];
+  closedStages: CrmPipelineStage[];
   byStage: Record<string, StageColumnState>;
   summary: DealsPipelineSummary;
   stageFilter: string;
@@ -32,10 +33,12 @@ type Props = {
   onLoadMore: (stageId: string) => void;
   onAddDeal: (stageId: string) => void;
   onMoveDeal: (dealId: string, stageId: string) => void;
+  onClosedStage: (stageId: string) => void;
 };
 
 export function DealsBoard({
   openStages,
+  closedStages,
   byStage,
   summary,
   stageFilter,
@@ -45,6 +48,7 @@ export function DealsBoard({
   onLoadMore,
   onAddDeal,
   onMoveDeal,
+  onClosedStage,
 }: Props) {
   const visible =
     stageFilter === "all"
@@ -89,7 +93,7 @@ export function DealsBoard({
       onDragEnd={dnd.handleDragEnd}
       onDragCancel={dnd.handleDragCancel}
     >
-      <div className="flex min-h-0 flex-1 gap-3 overflow-x-auto snap-x snap-proximity pb-1">
+      <div className="deals-board-scroll flex h-full min-h-0 flex-1 gap-3 overflow-x-auto snap-x snap-proximity">
         {visible.map((stage) => {
           const col = byStage[stage.id];
           const deals = col?.deals ?? [];
@@ -140,6 +144,28 @@ export function DealsBoard({
             </DealColumn>
           );
         })}
+
+        {/* Ganadas / perdidas: siempre contraídas al final → abren Tabla */}
+        {stageFilter === "all"
+          ? closedStages.map((stage) => {
+              const count =
+                summary.closedCounts[stage.id] ??
+                summary.stages[stage.id]?.count ??
+                0;
+              return (
+                <DealColumn
+                  key={stage.id}
+                  stage={stage}
+                  count={count}
+                  total={count}
+                  clp={null}
+                  uf={null}
+                  closedRail
+                  onClosedOpen={() => onClosedStage(stage.id)}
+                />
+              );
+            })
+          : null}
       </div>
       <DragOverlay
         dropAnimation={{

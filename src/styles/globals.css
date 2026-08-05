@@ -2203,14 +2203,53 @@ html {
   container-name: deals;
 }
 
+.deals-board-host {
+  min-height: 0;
+  flex: 1 1 auto;
+}
+
+.deals-board-host > * {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+}
+
+.deals-board-scroll {
+  align-items: stretch;
+}
+
 .deals-col {
   flex: 1 1 230px;
   min-width: 230px;
   max-width: 360px;
+  height: 100%;
+  min-height: 0;
+}
+
+/* Columna contraída: ficha vertical estrecha, texto horizontal legible */
+.deals-col-collapsed {
+  flex: 0 0 112px;
+  width: 112px;
+  min-width: 112px;
+  max-width: 112px;
+  height: 100%;
 }
 
 .deals-col-body {
-  mask-image: linear-gradient(to bottom, black 0%, black calc(100% - 1.25rem), transparent 100%);
+  -webkit-overflow-scrolling: touch;
+  scrollbar-gutter: stable;
+}
+
+.deals-col-body::after {
+  content: "";
+  pointer-events: none;
+  position: sticky;
+  bottom: 0;
+  display: block;
+  height: 1.25rem;
+  margin-top: -1.25rem;
+  background: linear-gradient(to bottom, transparent, hsl(var(--ds-surface-2)));
 }
 
 @container deals (max-width: 1499px) {
