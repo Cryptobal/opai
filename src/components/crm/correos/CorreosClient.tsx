@@ -134,11 +134,6 @@ const CORREO_URL_FOLDERS = new Set([
 /** Operadores del overlay — fuente única: `correos-operator-registry.ts`. */
 const CORREO_SEARCH_OPERATORS: ModuleSearchOperator[] = correoSearchOperatorChips();
 
-/** Feedback cuando una acción IA del lector no resuelve el hilo en la lista
- *  (hilo fuera de la página actual); antes era un no-op silencioso. */
-const AI_THREAD_OUT_OF_LIST_MSG =
-  "El hilo no está en la página actual de la lista; buscalo para ejecutar esta acción.";
-
 /** Inserta o reemplaza el operador `in:` en la query. */
 function withInFolder(query: string, folder: string): string {
   let next = query.trim();
@@ -259,6 +254,9 @@ export function CorreosClient() {
   } | null>(null);
   /** Edits del plan abierto — para confirmar al cambiar de hilo vía Copiloto. */
   const [aiPanelDirty, setAiPanelDirty] = useState(false);
+  /** DTO del hilo del Plan cuando no está en la página actual de `items`. */
+  const [aiPanelThreadCache, setAiPanelThreadCache] =
+    useState<CorreoThreadDTO | null>(null);
   /** Bottom-sheet de Acciones IA (móvil: long-press / chip del lector). */
   const [aiMenuSheet, setAiMenuSheet] = useState<CorreoThreadDTO | null>(null);
   const perms = useEffectivePermissions();
@@ -1467,6 +1465,9 @@ export function CorreosClient() {
     if (!aiPanel || aiPanel.threadId !== t.id) {
       setAiPanelDirty(false);
     }
+    // Cache del DTO para el label del Plan cuando el hilo no está en `items`
+    // (mismo caso que Armar licitación desde búsqueda / deep-link).
+    setAiPanelThreadCache(t);
     // Un solo dock: el Plan reemplaza al Copiloto (mismo carril derecho).
     const displacedTab = copilotTabRef.current;
     if (displacedTab) setWorkPanelCloseNonce((n) => n + 1);
@@ -1723,7 +1724,10 @@ export function CorreosClient() {
   }
 
   const aiPanelThread =
-    aiPanel != null ? items.find((x) => x.id === aiPanel.threadId) ?? null : null;
+    aiPanel != null
+      ? items.find((x) => x.id === aiPanel.threadId) ??
+        (aiPanelThreadCache?.id === aiPanel.threadId ? aiPanelThreadCache : null)
+      : null;
   const aiPanelThreadLabel = aiPanelThread
     ? (() => {
         const subject = aiPanelThread.subject?.trim();
@@ -2286,36 +2290,12 @@ export function CorreosClient() {
           onRemoveDone={softRefresh}
           onUndoDone={hardRefresh}
           onChanged={hardRefresh}
-          onOpenAiLead={() => {
-            if (openThreadPreview) {
-              openAiPanel(openThreadPreview, "lead");
-            } else {
-              toast.info(AI_THREAD_OUT_OF_LIST_MSG);
-            }
-          }}
-          onAiCommand={(commandId) => {
-            if (openThreadPreview) {
-              handleAiCommand(commandId, openThreadPreview);
-            } else {
-              toast.info(AI_THREAD_OUT_OF_LIST_MSG);
-            }
-          }}
-          onCreateWithAi={(target) => {
-            if (openThreadPreview) {
-              openAiPanel(openThreadPreview, "analizar", target);
-            } else {
-              toast.info(AI_THREAD_OUT_OF_LIST_MSG);
-            }
-          }}
+          onOpenAiLead={(t) => openAiPanel(t, "lead")}
+          onAiCommand={(commandId, t) => handleAiCommand(commandId, t)}
+          onCreateWithAi={(target, t) => openAiPanel(t, "analizar", target)}
           onOpenAiMenu={
             canUseCopiloto
-              ? () => {
-                  if (!openThreadPreview) {
-                    toast.info(AI_THREAD_OUT_OF_LIST_MSG);
-                    return;
-                  }
-                  openAiMenuSheetForThread(openThreadPreview);
-                }
+              ? (t) => openAiMenuSheetForThread(t)
               : undefined
           }
           onOpenAiStyle={openAiStyle}
