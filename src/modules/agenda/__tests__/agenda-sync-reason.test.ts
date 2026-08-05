@@ -21,6 +21,16 @@ describe("sanitizeSyncReason", () => {
       "Hay que volver a conectar Google Calendar",
     );
   });
+
+  it("mapea falta de dueño de cuenta a acción correcta", () => {
+    const raw =
+      "La cuenta del negocio no tiene dueño asignado: asigná un responsable para sincronizar con Google Calendar.";
+    expect(sanitizeSyncReason(raw)).toBe(
+      "La cuenta del negocio no tiene dueño asignado: asigná un responsable",
+    );
+    expect(isGoogleConnectReason(raw)).toBe(false);
+    expect(isGoogleConnectReason(sanitizeSyncReason(raw))).toBe(false);
+  });
 });
 
 describe("syncStatusMeta", () => {

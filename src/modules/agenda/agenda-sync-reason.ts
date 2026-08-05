@@ -21,6 +21,11 @@ export function sanitizeSyncReason(raw: string | null | undefined): string | nul
   if (!raw) return null;
   const trimmed = raw.trim();
   if (!trimmed) return null;
+  // Dueño de cuenta CRM (licitación): debe evaluarse antes de patrones Google
+  // genéricos que podrían coincidir con "cuenta"/"no".
+  if (/dueño|ownerId|asigná un responsable/i.test(trimmed)) {
+    return "La cuenta del negocio no tiene dueño asignado: asigná un responsable";
+  }
   if (isGoogleConnectReason(trimmed)) {
     return "Sin cuenta de Google Calendar conectada";
   }
