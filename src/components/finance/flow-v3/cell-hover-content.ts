@@ -40,14 +40,11 @@ export interface HoverCardModel {
   badges: string[];
   lines: HoverLine[];
   items: HoverItemLine[];
-  itemsMore: number;
   drift: HoverDrift | null;
   pastPending: string | null;
   note: string | null;
   footerHint: string;
 }
-
-const MAX_ITEMS = 3;
 
 function itemStatus(it: Parameters<typeof committedItemMeta>[0]): string {
   if (it.kind === "dte") {
@@ -75,7 +72,6 @@ export function buildHoverCardContent(args: {
 
   const lines: HoverLine[] = [];
   const items: HoverItemLine[] = [];
-  let itemsMore = 0;
   let drift: HoverDrift | null = null;
 
   if (cell.layer === "plan" || manual) {
@@ -99,8 +95,7 @@ export function buildHoverCardContent(args: {
       value: fmtClp(displayValue(row.section, "committed", total)),
       emphasize: true,
     });
-    const raw = cell.committed?.items ?? [];
-    for (const it of raw.slice(0, MAX_ITEMS)) {
+    for (const it of cell.committed?.items ?? []) {
       const meta = committedItemMeta(it);
       items.push({
         tag: meta.tag,
@@ -109,14 +104,12 @@ export function buildHoverCardContent(args: {
         amount: fmtClp(it.monto),
       });
     }
-    itemsMore = Math.max(0, raw.length - MAX_ITEMS);
   }
 
   if (cell.layer === "real") {
     const total = cell.real?.total ?? 0;
     lines.push({ label: "Real", value: fmtClp(Math.abs(total)), emphasize: true });
-    const raw = cell.real?.items ?? [];
-    for (const it of raw.slice(0, MAX_ITEMS)) {
+    for (const it of cell.real?.items ?? []) {
       items.push({
         tag: it.folio != null ? `F°${it.folio}` : "Pago",
         label: it.label,
@@ -124,7 +117,6 @@ export function buildHoverCardContent(args: {
         amount: fmtClp(it.monto),
       });
     }
-    itemsMore = Math.max(0, raw.length - MAX_ITEMS);
     if (cell.drift != null) {
       const d = cell.drift;
       drift = {
@@ -152,7 +144,6 @@ export function buildHoverCardContent(args: {
     badges,
     lines,
     items,
-    itemsMore,
     drift,
     pastPending,
     note: cell.note?.trim() || null,

@@ -49,7 +49,11 @@ export function CellHoverCardBody(p: Props) {
         </div>
       )}
       {model.items.length > 0 && (
-        <ul className="mb-1.5 max-h-24 space-y-0.5 overflow-y-auto border-t border-ds-border-subtle pt-1.5">
+        <ul
+          className="mb-1.5 max-h-56 space-y-0.5 overflow-y-auto overscroll-contain border-t border-ds-border-subtle pt-1.5 pr-0.5"
+          onWheel={(e) => e.stopPropagation()}
+          aria-label={`${model.items.length} movimientos`}
+        >
           {model.items.map((it, i) => (
             <li key={i} className="text-[12px] text-ds-text-2">
               <div className="flex justify-between gap-1">
@@ -61,9 +65,6 @@ export function CellHoverCardBody(p: Props) {
               <div className="truncate text-ds-text-4">{it.status}</div>
             </li>
           ))}
-          {model.itemsMore > 0 && (
-            <li className="text-[12px] text-ds-text-4">+{model.itemsMore} más</li>
-          )}
         </ul>
       )}
       {model.drift && (
