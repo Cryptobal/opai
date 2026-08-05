@@ -98,12 +98,20 @@ interface AccountOption {
   type?: string;
 }
 
+interface FlowRowOption {
+  id: string;
+  name: string;
+  section: string;
+  hasCategory: boolean;
+}
+
 interface Props {
   accounts: BankAccountRow[];
   accountPlans: AccountOption[];
   canManage: boolean;
   /** Email único del tenant para suscripción automática de cartolas. */
   cartolaInboxEmail: string;
+  flowRows: FlowRowOption[];
 }
 
 interface TransactionRow {
@@ -223,6 +231,7 @@ export function BancosClient({
   accountPlans,
   canManage,
   cartolaInboxEmail,
+  flowRows,
 }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -296,7 +305,11 @@ export function BancosClient({
         />
       )}
       {activeTab === "rules" && (
-        <BankRulesClient canManage={canManage} accountPlans={accountPlans} />
+        <BankRulesClient
+          canManage={canManage}
+          accountPlans={accountPlans}
+          flowRows={flowRows}
+        />
       )}
       {activeTab === "import" && (
         <ImportTab
