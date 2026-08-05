@@ -8,7 +8,9 @@ import type { AccountOption, VisitType } from "./types";
 import {
   canSubmitVisitaForm,
   defaultScheduleParts,
+  endDateFromEndAt,
   missingVisitaSubmitHint,
+  normalizeEndDate,
   resolveAssignedUserId,
 } from "./visita-form-utils";
 
@@ -21,10 +23,15 @@ export type FormState = {
   externalEmails: Array<{ email: string; name?: string }>;
   account: AccountOption | null;
   installationId: string;
+  /** Dirección de la instalación (solo para el atajo "Usar dirección…"). */
+  installationAddress: string;
+  installationLat: number | null;
+  installationLng: number | null;
   customAddress: string;
   lat: number | null;
   lng: number | null;
   date: string;
+  endDate: string;
   time: string;
   durationMin: number;
   assignedUserId: string;
@@ -55,10 +62,14 @@ const emptyForm = (installationId?: string | null): FormState => {
     externalEmails: [],
     account: null,
     installationId: installationId ?? "",
+    installationAddress: "",
+    installationLat: null,
+    installationLng: null,
     customAddress: "",
     lat: null,
     lng: null,
     date: schedule.date,
+    endDate: schedule.endDate,
     time: schedule.time,
     durationMin: 60,
     assignedUserId: "",
@@ -78,12 +89,14 @@ export function formToEventoValue(
     title: form.title,
     label: form.label,
     date: form.date,
+    endDate: form.endDate || form.date,
     time: form.time,
     durationMin: form.durationMin,
     allDay: form.allDay,
-    address: form.installationId ? null : form.customAddress || null,
-    lat: form.installationId ? null : form.lat,
-    lng: form.installationId ? null : form.lng,
+    // La dirección custom se guarda aunque haya instalación (override).
+    address: form.customAddress || null,
+    lat: form.lat,
+    lng: form.lng,
     notes: form.notes,
     assignedUserId: form.assignedUserId,
     participantIds: form.participantIds,
@@ -109,7 +122,11 @@ export function eventoPatchToForm(
   if (patch.allDay !== undefined) next.allDay = patch.allDay;
   if (patch.participantIds !== undefined) next.participantIds = patch.participantIds;
   if (patch.externalEmails !== undefined) next.externalEmails = patch.externalEmails;
-  if (patch.date !== undefined) next.date = patch.date;
+  if (patch.date !== undefined) {
+    next.date = patch.date;
+    if (next.allDay && next.endDate < patch.date) next.endDate = patch.date;
+  }
+  if (patch.endDate !== undefined) next.endDate = patch.endDate || next.date;
   if (patch.time !== undefined) next.time = patch.time;
   if (patch.durationMin !== undefined) next.durationMin = patch.durationMin;
   if (patch.notes !== undefined) next.notes = patch.notes;
@@ -234,6 +251,7 @@ export function useNuevaVisita(props: {
           if (!data?.visita) return;
           const v = data.visita;
           const parts = localParts(v.startAt);
+          const endYmd = endDateFromEndAt(v.endAt);
           const durationMin = Math.max(
             15,
             Math.round(
@@ -241,6 +259,10 @@ export function useNuevaVisita(props: {
             ),
           );
           const contactIds = Array.isArray(v.contactIds) ? (v.contactIds as string[]) : [];
+          const inst = v.installation as
+            | { id?: string; address?: string | null; lat?: number | null; lng?: number | null }
+            | null
+            | undefined;
           setForm({
             type: (["cliente", "supervision", "otra"].includes(v.type)
               ? v.type
@@ -261,10 +283,14 @@ export function useNuevaVisita(props: {
               ? { id: v.account.id, name: v.account.name, rut: null }
               : null,
             installationId: v.installationId ?? "",
+            installationAddress: inst?.address ?? "",
+            installationLat: inst?.lat ?? null,
+            installationLng: inst?.lng ?? null,
             customAddress: v.customAddress ?? "",
             lat: v.lat ?? null,
             lng: v.lng ?? null,
             date: parts.date,
+            endDate: v.allDay ? normalizeEndDate(parts.date, endYmd) : parts.date,
             time: v.allDay ? "" : parts.time,
             durationMin,
             assignedUserId: v.assignedUserId ?? "",
@@ -280,15 +306,41 @@ export function useNuevaVisita(props: {
     }
   }, [open, accountId, installationId, editEventId]);
 
+  // Cargar dirección de la instalación seleccionada (atajo + sync fallback).
+  useEffect(() => {
+    if (!open || !form.installationId) {
+      return;
+    }
+    const id = form.installationId;
+    fetch(`/api/crm/installations/${id}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        const row = j?.data ?? j?.installation ?? j;
+        if (!row || typeof row !== "object") return;
+        setForm((f) => {
+          if (f.installationId !== id) return f;
+          return {
+            ...f,
+            installationAddress: typeof row.address === "string" ? row.address : "",
+            installationLat: typeof row.lat === "number" ? row.lat : null,
+            installationLng: typeof row.lng === "number" ? row.lng : null,
+          };
+        });
+      })
+      .catch(() => undefined);
+  }, [open, form.installationId]);
+
   const accId = form.account?.id ?? null;
   const canSubmit = canSubmitVisitaForm({
     date: form.date,
+    endDate: form.endDate,
     time: form.time,
     allDay: form.allDay,
     loading,
   });
   const submitHint = missingVisitaSubmitHint({
     date: form.date,
+    endDate: form.endDate,
     time: form.time,
     allDay: form.allDay,
     loading,
@@ -304,21 +356,23 @@ export function useNuevaVisita(props: {
       setSaving(false);
       return;
     }
+    const endDate = normalizeEndDate(form.date, form.endDate);
     const body = {
       type: form.type,
       title: form.title || form.label || "Evento",
       label: form.label || null,
       date: form.date,
+      endDate: form.allDay ? endDate : form.date,
       time: form.time || "09:00",
       allDay: form.allDay,
       durationMin: form.durationMin,
       notes: form.notes || null,
       accountId: accId,
       installationId: form.installationId || null,
-      customAddress: form.installationId ? null : form.customAddress || null,
-      address: form.installationId ? null : form.customAddress || null,
-      lat: form.installationId ? null : form.lat,
-      lng: form.installationId ? null : form.lng,
+      customAddress: form.customAddress.trim() || null,
+      address: form.customAddress.trim() || null,
+      lat: form.lat,
+      lng: form.lng,
       dealId: dealId || null,
       contactIds: form.contactIds.length ? form.contactIds : null,
       assignedUserId: assigned,

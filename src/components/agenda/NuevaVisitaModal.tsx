@@ -57,9 +57,9 @@ export function NuevaVisitaModal(props: Props) {
                 installationLocation={
                   form.installationId
                     ? {
-                        address: form.customAddress || null,
-                        lat: form.lat,
-                        lng: form.lng,
+                        address: form.installationAddress || null,
+                        lat: form.installationLat,
+                        lng: form.installationLng,
                       }
                     : null
                 }

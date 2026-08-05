@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAgendaAccess } from "@/lib/api-auth-agenda";
 import { auditAgendaAction } from "@/lib/audit-productividad";
-import { dateAtChileSlot } from "@/components/agenda/agenda-calendar-utils";
+import { scheduleFromFormParts } from "@/components/agenda/nueva-visita/visita-form-utils";
 import {
   createOpaiEvent,
   OpaiEventValidationError,
@@ -34,7 +34,6 @@ export async function POST(request: NextRequest) {
   }
 
   const date = String(body.date ?? "");
-  const [hh, mm] = String(body.time ?? "09:00").split(":").map(Number);
   const hasIso =
     typeof body.startAt === "string" && !Number.isNaN(new Date(body.startAt).getTime());
 
@@ -48,14 +47,18 @@ export async function POST(request: NextRequest) {
       ? new Date(body.endAt)
       : new Date(startAt.getTime() + 60 * 60_000);
   } else {
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(hh) || Number.isNaN(mm)) {
+    const schedule = scheduleFromFormParts({
+      date,
+      endDate: typeof body.endDate === "string" ? body.endDate : date,
+      time: typeof body.time === "string" ? body.time : "09:00",
+      allDay,
+      durationMin: Number(body.durationMin) || 60,
+    });
+    if (!schedule) {
       return NextResponse.json({ error: "Fecha/hora inválida" }, { status: 400 });
     }
-    const durationMin = Math.max(15, Math.min(24 * 60, Number(body.durationMin) || 60));
-    startAt = dateAtChileSlot(date, allDay ? 0 : hh * 60 + mm);
-    endAt = allDay
-      ? dateAtChileSlot(date, 24 * 60 - 1)
-      : new Date(startAt.getTime() + durationMin * 60_000);
+    startAt = schedule.startAt;
+    endAt = schedule.endAt;
   }
 
   const participantIds: string[] = Array.isArray(body.participantIds)
