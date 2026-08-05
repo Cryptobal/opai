@@ -58,6 +58,8 @@ import {
   AlertTriangle,
   AlertCircle,
   Sparkles,
+  ChevronRight,
+  ChevronDown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useIsMobileViewport } from "@/hooks/useIsMobileViewport";
@@ -153,6 +155,8 @@ interface LocalLink {
   note: string | null;
   /** Etiqueta para mostrar (ej. "Factura 1234 - Cliente X"). */
   label: string;
+  folio?: number | null;
+  shortLabel?: string;
 }
 
 /** Forma del link enriquecido que devuelve GET /links (post 2026-05). */
@@ -355,6 +359,8 @@ export function BankTxReconcileSheet({
   const [filterDateTo, setFilterDateTo] = useState("");
   const [filterDirection, setFilterDirection] = useState<"all" | "ISSUED" | "RECEIVED">("all");
   const [filterIncludePaid, setFilterIncludePaid] = useState(false);
+  const [onlySelected, setOnlySelected] = useState(false);
+  const [movsOpen, setMovsOpen] = useState(!isMobile);
   const [links, setLinks] = useState<LocalLink[]>([]);
   const [saving, setSaving] = useState(false);
   // Form de "categorizar manual"
@@ -545,6 +551,8 @@ export function BankTxReconcileSheet({
         label: `Cesión ${c.code} · ${c.factoringCompanyName}${
           c.dteFolio ? ` · Factura ${c.dteFolio}` : ""
         }`,
+        folio: c.dteFolio ?? null,
+        shortLabel: c.dteFolio != null ? String(c.dteFolio) : c.code,
       },
     ]);
   }, [
@@ -590,6 +598,7 @@ export function BankTxReconcileSheet({
     setFilterDirection("all");
     setFilterIncludePaid(false);
     setShowFilters(false);
+    setOnlySelected(false);
     setCandidates([]);
     setFactoringCandidates([]);
     setFactoringBatches([]);
@@ -645,6 +654,11 @@ export function BankTxReconcileSheet({
     };
   }, [open, tx, loadCandidates]);
 
+  // Cabecera de movimientos: colapsada por defecto en móvil al abrir.
+  useEffect(() => {
+    if (open) setMovsOpen(!isMobile);
+  }, [open, isMobile]);
+
   /** Carga los links existentes en `links` (state local) y entra a modo edit. */
   const handleStartEdit = () => {
     if (!tx) return;
@@ -656,6 +670,11 @@ export function BankTxReconcileSheet({
       // tx con esos links, el resumen los preserva como un link "exotic"
       // — lo guardamos con su key y monto para no perderlos.
       const targetType = (l.targetType as LocalLinkType) ?? "EXPENSE";
+      const folio = l.dte?.folio ?? null;
+      const shortLabel =
+        folio != null
+          ? String(folio)
+          : l.factoring?.code ?? undefined;
       return {
         key: l.targetId ?? `existing-${l.id}`,
         targetType,
@@ -664,6 +683,8 @@ export function BankTxReconcileSheet({
         accountPlanId: l.accountPlan?.id ?? null,
         note: l.note,
         label,
+        folio,
+        shortLabel,
       };
     });
     setLinks(localLinks);
@@ -711,7 +732,9 @@ export function BankTxReconcileSheet({
   // si no, candidatos cargados. Filtros locales solo monto/fecha/dirección.
   const filteredCandidates = useMemo(() => {
     const source = searchQuery.trim() ? searchDtes : candidates;
+    const selectedKeys = new Set(links.map((l) => l.key));
     return source.filter((c) => {
+      if (onlySelected && !selectedKeys.has(c.id)) return false;
       // Por defecto ocultamos PAID (son ruido cuando hay match exacto
       // con UNPAID/PARTIAL). El usuario puede mostrarlas con el toggle.
       if (!filterIncludePaid && c.paymentStatus === "PAID") return false;
@@ -743,12 +766,16 @@ export function BankTxReconcileSheet({
     filterDateTo,
     filterDirection,
     filterIncludePaid,
+    onlySelected,
+    links,
   ]);
 
   // Cesiones: misma fuente (search vs base) + filtros locales monto/fecha.
   const filteredFactoring = useMemo(() => {
     const source = searchQuery.trim() ? searchFactoring : factoringCandidates;
+    const selectedKeys = new Set(links.map((l) => l.key));
     return source.filter((c) => {
+      if (onlySelected && !selectedKeys.has(c.id)) return false;
       if (filterMinAmount) {
         const min = parseCLPInput(filterMinAmount);
         if (min != null && c.expectedDeposit < min) return false;
@@ -773,6 +800,8 @@ export function BankTxReconcileSheet({
     filterMaxAmount,
     filterDateFrom,
     filterDateTo,
+    onlySelected,
+    links,
   ]);
 
   // Lotes multi-op (>1) para cards; ops de esos lotes se excluyen de la lista suelta.
@@ -787,15 +816,29 @@ export function BankTxReconcileSheet({
     }
     return ids;
   }, [multiOpBatches]);
-  const looseFactoring = useMemo(
-    () => filteredFactoring.filter((c) => !batchOpIds.has(c.id)),
-    [filteredFactoring, batchOpIds],
-  );
+  // En móvil la sugerida va como primera fila (banner degradado a CandidateRow).
+  const looseFactoring = useMemo(() => {
+    const loose = filteredFactoring.filter((c) => !batchOpIds.has(c.id));
+    return [...loose].sort((a, b) => {
+      if (a.isSuggested === b.isSuggested) return 0;
+      return a.isSuggested ? -1 : 1;
+    });
+  }, [filteredFactoring, batchOpIds]);
 
   const selectedIds = useMemo(
     () => new Set(links.map((l) => l.key)),
     [links],
   );
+
+  // Si se quitan todos los chips con "solo seleccionadas", volver al scope.
+  useEffect(() => {
+    if (onlySelected && links.length === 0) setOnlySelected(false);
+  }, [onlySelected, links.length]);
+
+  // Al cambiar la búsqueda, salir de "solo seleccionadas".
+  useEffect(() => {
+    setOnlySelected(false);
+  }, [searchQuery]);
 
   /** Diff pendiente = falta resolver remainder o shortfall. */
   const footerState: FooterState = useMemo(() => {
@@ -900,6 +943,8 @@ export function BankTxReconcileSheet({
         label: `${c.documentType} ${c.folio ?? ""} - ${
           c.direction === "ISSUED" ? c.receiverName : c.issuerName
         }`,
+        folio: c.folio ?? null,
+        shortLabel: c.folio != null ? String(c.folio) : c.documentType,
       },
     ]);
   };
@@ -926,6 +971,8 @@ export function BankTxReconcileSheet({
         label: `Cesión ${c.code} · ${c.factoringCompanyName}${
           c.dteFolio ? ` · Factura ${c.dteFolio}` : ""
         }`,
+        folio: c.dteFolio ?? null,
+        shortLabel: c.dteFolio != null ? String(c.dteFolio) : c.code,
       },
     ]);
   };
@@ -963,6 +1010,8 @@ export function BankTxReconcileSheet({
           label: `Cesión ${c.code} · ${c.factoringCompanyName}${
             c.dteFolio ? ` · Factura ${c.dteFolio}` : ""
           }`,
+          folio: c.dteFolio ?? null,
+          shortLabel: c.dteFolio != null ? String(c.dteFolio) : c.code,
         });
         existing.add(opId);
       }
@@ -1007,6 +1056,7 @@ export function BankTxReconcileSheet({
         accountPlanId: manualAccountId,
         note: noteWithDate,
         label: `${isIncome ? "Ingreso manual" : "Gasto manual"}: ${account?.code ?? ""} ${account?.name ?? ""}`,
+        shortLabel: account?.code ?? (isIncome ? "Ingreso" : "Gasto"),
       },
     ]);
     setManualAmount(formatCLPInput(String(remaining > 0 ? remaining - amt : 0)));
@@ -1324,48 +1374,97 @@ export function BankTxReconcileSheet({
             cada mov en una caja compacta. */}
         {isMulti ? (
           <div className="rounded-lg border border-border bg-muted/30 p-3 text-sm space-y-2">
-            <div className="flex items-center justify-between gap-2 flex-wrap">
-              <span className="text-foreground font-medium">
-                {txs.length} {isIncomeTx ? "ingresos" : "egresos"}
-              </span>
-              <span
-                className={cn(
-                  "font-mono font-semibold",
-                  isIncomeTx
-                    ? "text-status-ok-fg"
-                    : "text-status-danger-fg",
-                )}
+            {isMobile && !movsOpen ? (
+              <button
+                type="button"
+                onClick={() => setMovsOpen(true)}
+                aria-expanded={false}
+                className="w-full flex items-center justify-between gap-2 min-h-[44px] text-left"
               >
-                {fmtCLP.format(totalAmountSigned)}
-              </span>
-            </div>
-            <ul className="space-y-1 max-h-40 overflow-y-auto pr-1">
-              {txs.map((t) => (
-                <li
-                  key={t.id}
-                  className="flex items-center justify-between gap-2 text-xs"
-                >
-                  <span className="min-w-0 flex-1 truncate">
-                    <span className="text-muted-foreground mr-1.5">
-                      {format(new Date(t.transactionDate), "dd MMM", {
-                        locale: es,
-                      })}
-                    </span>
-                    {t.description}
-                  </span>
+                <span className="text-foreground font-medium truncate">
+                  {txs.length} {isIncomeTx ? "ingresos" : "egresos"}{" "}
+                  seleccionados
+                </span>
+                <span className="inline-flex items-center gap-1 shrink-0">
                   <span
                     className={cn(
-                      "font-mono shrink-0",
-                      t.amount >= 0
+                      "font-mono font-semibold",
+                      isIncomeTx
                         ? "text-status-ok-fg"
                         : "text-status-danger-fg",
                     )}
                   >
-                    {fmtCLP.format(t.amount)}
+                    {fmtCLP.format(totalAmountSigned)}
                   </span>
-                </li>
-              ))}
-            </ul>
+                  <ChevronRight className="h-4 w-4 text-ds-text-3" />
+                </span>
+              </button>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={() => isMobile && setMovsOpen(false)}
+                  aria-expanded={movsOpen}
+                  className={cn(
+                    "w-full flex items-center justify-between gap-2 flex-wrap text-left",
+                    isMobile && "min-h-[44px]",
+                  )}
+                  disabled={!isMobile}
+                >
+                  <span className="text-foreground font-medium">
+                    {txs.length} {isIncomeTx ? "ingresos" : "egresos"}
+                    {isMobile ? " seleccionados" : ""}
+                  </span>
+                  <span className="inline-flex items-center gap-1">
+                    <span
+                      className={cn(
+                        "font-mono font-semibold",
+                        isIncomeTx
+                          ? "text-status-ok-fg"
+                          : "text-status-danger-fg",
+                      )}
+                    >
+                      {fmtCLP.format(totalAmountSigned)}
+                    </span>
+                    {isMobile && (
+                      <ChevronDown className="h-4 w-4 text-ds-text-3" />
+                    )}
+                  </span>
+                </button>
+                <ul
+                  className={cn(
+                    "space-y-1 overflow-y-auto pr-1",
+                    isMobile ? "max-h-[118px]" : "max-h-40",
+                  )}
+                >
+                  {txs.map((t) => (
+                    <li
+                      key={t.id}
+                      className="flex items-center justify-between gap-2 text-xs"
+                    >
+                      <span className="min-w-0 flex-1 truncate">
+                        <span className="text-muted-foreground mr-1.5">
+                          {format(new Date(t.transactionDate), "dd MMM", {
+                            locale: es,
+                          })}
+                        </span>
+                        {t.description}
+                      </span>
+                      <span
+                        className={cn(
+                          "font-mono shrink-0",
+                          t.amount >= 0
+                            ? "text-status-ok-fg"
+                            : "text-status-danger-fg",
+                        )}
+                      >
+                        {fmtCLP.format(t.amount)}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
           </div>
         ) : (
           <div className="rounded-lg border border-border bg-muted/30 p-3 text-sm space-y-1">
@@ -1396,35 +1495,59 @@ export function BankTxReconcileSheet({
           </div>
         )}
 
-        {/* Tabs (solo en modo create / edit) */}
+        {/* Tabs (solo en modo create / edit) — segmented en móvil */}
         {(mode === "create" || mode === "edit") && (
-          <div className="border-b border-border">
-            <div className="flex gap-4">
+          <div
+            className={cn(
+              isMobile
+                ? "flex gap-[3px] p-[3px] rounded-lg bg-ds-surface-1 border border-ds-border-default"
+                : "border-b border-border",
+            )}
+          >
+            <div className={cn(isMobile ? "contents" : "flex gap-4")}>
               <button
                 type="button"
                 onClick={() => setTab("compare")}
                 className={cn(
-                  "px-1 py-2 text-sm font-medium transition-colors border-b-2",
-                  tab === "compare"
-                    ? "border-primary text-foreground"
-                    : "border-transparent text-muted-foreground hover:text-foreground"
+                  isMobile
+                    ? cn(
+                        "flex-1 h-8 rounded-md text-[13px] font-medium transition-colors inline-flex items-center justify-center gap-1.5",
+                        tab === "compare"
+                          ? "bg-background text-foreground shadow-sm"
+                          : "text-ds-text-3",
+                      )
+                    : cn(
+                        "px-1 py-2 text-sm font-medium transition-colors border-b-2",
+                        tab === "compare"
+                          ? "border-primary text-foreground"
+                          : "border-transparent text-muted-foreground hover:text-foreground",
+                      ),
                 )}
               >
-                <Layers className="h-3.5 w-3.5 inline-block mr-1.5" />
-                Comparar transacciones
+                <Layers className="h-3.5 w-3.5 hidden min-[360px]:inline-block" />
+                {isMobile ? "Comparar" : "Comparar transacciones"}
               </button>
               <button
                 type="button"
                 onClick={() => setTab("manual")}
                 className={cn(
-                  "px-1 py-2 text-sm font-medium transition-colors border-b-2",
-                  tab === "manual"
-                    ? "border-primary text-foreground"
-                    : "border-transparent text-muted-foreground hover:text-foreground"
+                  isMobile
+                    ? cn(
+                        "flex-1 h-8 rounded-md text-[13px] font-medium transition-colors inline-flex items-center justify-center gap-1.5",
+                        tab === "manual"
+                          ? "bg-background text-foreground shadow-sm"
+                          : "text-ds-text-3",
+                      )
+                    : cn(
+                        "px-1 py-2 text-sm font-medium transition-colors border-b-2",
+                        tab === "manual"
+                          ? "border-primary text-foreground"
+                          : "border-transparent text-muted-foreground hover:text-foreground",
+                      ),
                 )}
               >
-                <Receipt className="h-3.5 w-3.5 inline-block mr-1.5" />
-                Categorizar manual
+                <Receipt className="h-3.5 w-3.5 hidden min-[360px]:inline-block" />
+                {isMobile ? "Manual" : "Categorizar manual"}
               </button>
             </div>
           </div>
@@ -1438,6 +1561,7 @@ export function BankTxReconcileSheet({
             remaining={remaining}
             overflow={overflow}
             onOpenDetail={() => setDetailOpen(true)}
+            onRemoveLink={removeLink}
           />
         )}
         </div>
@@ -1675,131 +1799,135 @@ export function BankTxReconcileSheet({
                 scope={searchScope}
                 onScopeChange={setSearchScope}
                 loading={searchLoading}
+                resultCount={
+                  filteredCandidates.length +
+                  looseFactoring.length +
+                  multiOpBatches.length
+                }
+                selectedCount={links.length}
+                onlySelected={onlySelected}
+                onToggleOnlySelected={() => setOnlySelected((v) => !v)}
+                rightSlot={
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-11 sm:h-9 text-[13px] min-w-[44px] px-3"
+                    onClick={() => setShowFilters((v) => !v)}
+                    aria-label={showFilters ? "Ocultar filtros" : "Filtrar"}
+                  >
+                    <Filter className="h-3.5 w-3.5 sm:mr-1" />
+                    <span className="hidden sm:inline">
+                      {showFilters ? "Ocultar" : "Filtrar"}
+                    </span>
+                  </Button>
+                }
               />
-              <div className="flex items-center justify-between gap-2 pb-2">
-                <p className="text-[12px] font-mono uppercase tracking-[0.08em] text-ds-text-3">
-                  Coincidencias
-                </p>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-11 sm:h-9 text-[13px]"
-                  onClick={() => setShowFilters((v) => !v)}
-                >
-                  <Filter className="h-3 w-3 mr-1" />
-                  {showFilters ? "Ocultar filtros" : "Filtrar"}
-                </Button>
-              </div>
             </div>
 
-            {/* Sugerencia destacada: la cesión con mayor confidence se
-                renderiza prominente sobre el search para que el usuario no
-                la confunda con los DTEs del listado. Aparece solo en modo
-                crear/editar y cuando hay ≥1 cesión con confidence ≥ 90.
-                Si está seleccionada, el banner cambia a estado OK. Si el
-                expectedDeposit del PDF supera el monto del banco se
-                advierte la merma (queda sin imputar contablemente — el
-                manejo de ese costo se agrega en PR2). */}
-            {(() => {
-              const topSuggested = factoringCandidates.find(
-                (c) => c.isSuggested,
-              );
-              if (!topSuggested) return null;
-              const isSelected = links.some(
-                (l) => l.key === topSuggested.id,
-              );
-              const merma = topSuggested.expectedDeposit - txAmountAbs;
-              const hasMerma = merma > 1;
-              return (
-                <div
-                  className={cn(
-                    "rounded-lg border-2 p-4 transition-colors",
-                    isSelected
-                      ? "border-status-ok-border bg-status-ok-soft/30"
-                      : "border-primary/60 bg-primary/[0.06]",
-                  )}
-                >
-                  <div className="flex items-start gap-3">
-                    <div className="shrink-0 pt-0.5">
-                      {isSelected ? (
-                        <CheckCircle2 className="h-5 w-5 text-status-ok-fg" />
-                      ) : (
-                        <Layers className="h-5 w-5 text-primary" />
-                      )}
-                    </div>
-                    <div className="min-w-0 flex-1 space-y-2">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <Badge variant="brand" className="text-xs">
-                          Sugerencia · {topSuggested.confidence}% coincidencia
-                        </Badge>
-                        <Badge variant="outline" className="text-xs">
-                          {topSuggested.factoringCompanyName}
-                        </Badge>
-                        {topSuggested.expectedDepositSource ===
-                        "simulation" ? (
-                          <Badge
-                            variant="outline"
-                            className="text-xs bg-status-ok-soft text-status-ok-fg border-status-ok-border"
-                          >
-                            desde PDF
-                          </Badge>
-                        ) : null}
+            {/* Banner de sugerencia: solo desktop. En móvil la cesión
+                sugerida aparece como primera fila de la lista (CandidateRow).
+                La fuente es filteredFactoring para respetar la búsqueda. */}
+            {!isMobile &&
+              (() => {
+                const topSuggested = filteredFactoring.find(
+                  (c) => c.isSuggested,
+                );
+                if (!topSuggested) return null;
+                const isSelected = links.some(
+                  (l) => l.key === topSuggested.id,
+                );
+                const merma = topSuggested.expectedDeposit - txAmountAbs;
+                const hasMerma = merma > 1;
+                return (
+                  <div
+                    className={cn(
+                      "rounded-lg border-2 p-4 transition-colors",
+                      isSelected
+                        ? "border-status-ok-border bg-status-ok-soft/30"
+                        : "border-primary/60 bg-primary/[0.06]",
+                    )}
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className="shrink-0 pt-0.5">
+                        {isSelected ? (
+                          <CheckCircle2 className="h-5 w-5 text-status-ok-fg" />
+                        ) : (
+                          <Layers className="h-5 w-5 text-primary" />
+                        )}
                       </div>
-                      <div>
-                        <p className="text-sm font-medium">
-                          Cesión {topSuggested.code}
-                          {topSuggested.dteFolio
-                            ? ` · Factura ${topSuggested.dteFolio}`
-                            : ""}
-                        </p>
-                        {topSuggested.dteReceiverName ? (
-                          <p className="text-xs text-muted-foreground truncate">
-                            {topSuggested.dteReceiverName}
+                      <div className="min-w-0 flex-1 space-y-2">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <Badge variant="brand" className="text-xs">
+                            Sugerencia · {topSuggested.confidence}% coincidencia
+                          </Badge>
+                          <Badge variant="outline" className="text-xs">
+                            {topSuggested.factoringCompanyName}
+                          </Badge>
+                          {topSuggested.expectedDepositSource ===
+                          "simulation" ? (
+                            <Badge
+                              variant="outline"
+                              className="text-xs bg-status-ok-soft text-status-ok-fg border-status-ok-border"
+                            >
+                              desde PDF
+                            </Badge>
+                          ) : null}
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium">
+                            Cesión {topSuggested.code}
+                            {topSuggested.dteFolio
+                              ? ` · Factura ${topSuggested.dteFolio}`
+                              : ""}
+                          </p>
+                          {topSuggested.dteReceiverName ? (
+                            <p className="text-xs text-muted-foreground truncate">
+                              {topSuggested.dteReceiverName}
+                            </p>
+                          ) : null}
+                        </div>
+                        <div className="flex items-center justify-between gap-2 flex-wrap">
+                          <div className="text-xs text-muted-foreground">
+                            Cedida{" "}
+                            {format(
+                              new Date(topSuggested.fechaCesion),
+                              "dd MMM yyyy",
+                              { locale: es },
+                            )}
+                            {" · Esperado "}
+                            <span className="font-mono text-foreground">
+                              {fmtCLP.format(topSuggested.expectedDeposit)}
+                            </span>
+                          </div>
+                          {!isSelected ? (
+                            <Button
+                              size="sm"
+                              variant="default"
+                              onClick={() => toggleFactoring(topSuggested)}
+                              className="shrink-0"
+                            >
+                              <CheckCircle2 className="h-3.5 w-3.5 mr-1.5" />
+                              Usar esta cesión
+                            </Button>
+                          ) : (
+                            <span className="text-xs text-status-ok-fg font-medium">
+                              Seleccionada · revisá el monto abajo
+                            </span>
+                          )}
+                        </div>
+                        {hasMerma ? (
+                          <p className="text-xs text-status-warn-fg bg-status-warn-soft/40 border border-status-warn-border rounded px-2 py-1">
+                            El banco trajo {fmtCLP.format(merma)} menos que el
+                            PDF. Hoy la merma queda sin imputar contablemente
+                            al conciliar la cesión — se contabilizará desde la
+                            próxima versión.
                           </p>
                         ) : null}
                       </div>
-                      <div className="flex items-center justify-between gap-2 flex-wrap">
-                        <div className="text-xs text-muted-foreground">
-                          Cedida{" "}
-                          {format(
-                            new Date(topSuggested.fechaCesion),
-                            "dd MMM yyyy",
-                            { locale: es },
-                          )}
-                          {" · Esperado "}
-                          <span className="font-mono text-foreground">
-                            {fmtCLP.format(topSuggested.expectedDeposit)}
-                          </span>
-                        </div>
-                        {!isSelected ? (
-                          <Button
-                            size="sm"
-                            variant="default"
-                            onClick={() => toggleFactoring(topSuggested)}
-                            className="shrink-0"
-                          >
-                            <CheckCircle2 className="h-3.5 w-3.5 mr-1.5" />
-                            Usar esta cesión
-                          </Button>
-                        ) : (
-                          <span className="text-xs text-status-ok-fg font-medium">
-                            Seleccionada · revisá el monto abajo
-                          </span>
-                        )}
-                      </div>
-                      {hasMerma ? (
-                        <p className="text-xs text-status-warn-fg bg-status-warn-soft/40 border border-status-warn-border rounded px-2 py-1">
-                          El banco trajo {fmtCLP.format(merma)} menos que el
-                          PDF. Hoy la merma queda sin imputar contablemente
-                          al conciliar la cesión — se contabilizará desde la
-                          próxima versión.
-                        </p>
-                      ) : null}
                     </div>
                   </div>
-                </div>
-              );
-            })()}
+                );
+              })()}
 
             {showFilters && (
               <div className="rounded-lg border border-ds-border-default bg-ds-surface-2 p-3 space-y-2.5">
@@ -1905,6 +2033,8 @@ export function BankTxReconcileSheet({
                 </p>
                 <ul className="space-y-2">
                   {looseFactoring.map((c) => {
+                    const merma = c.expectedDeposit - txAmountAbs;
+                    const hasMerma = c.isSuggested && merma > 1;
                     const badges: Array<{
                       label: string;
                       variant?:
@@ -1920,8 +2050,16 @@ export function BankTxReconcileSheet({
                     ];
                     if (c.isSuggested) {
                       badges.push({
-                        label: `Sugerido ${c.confidence}%`,
+                        label: isMobile
+                          ? `Sugerida · ${c.confidence}%`
+                          : `Sugerido ${c.confidence}%`,
                         variant: "brand",
+                      });
+                    }
+                    if (hasMerma) {
+                      badges.push({
+                        label: `Merma ${fmtCLP.format(merma)}`,
+                        variant: "warn",
                       });
                     }
                     if (c.expectedDepositSource === "simulation") {

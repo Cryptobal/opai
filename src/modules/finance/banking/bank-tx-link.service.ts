@@ -315,6 +315,7 @@ const FACTORING_OP_SELECT = {
       issuerName: true,
       issuerRut: true,
       receiverRut: true,
+      notes: true,
     },
   },
 } as const;
@@ -345,6 +346,7 @@ type FactoringOpRow = {
     issuerName?: string | null;
     issuerRut?: string | null;
     receiverRut?: string | null;
+    notes?: string | null;
   } | null;
 };
 
@@ -1398,6 +1400,17 @@ export async function searchReconcileCandidates(
   const rutNorm = normalizeRutForMatch(q);
   const qLower = stripDiacritics(q.toLowerCase());
 
+  // Instalaciones por nombre (solo texto libre; queries numéricas van por folio).
+  let instIds: string[] = [];
+  if (!isNumeric) {
+    const instMatches = await prisma.crmInstallation.findMany({
+      where: { tenantId, name: { contains: q, mode: "insensitive" } },
+      select: { id: true },
+      take: 50,
+    });
+    instIds = instMatches.map((i) => i.id);
+  }
+
   const wantOpen = scope === "open" || scope === "all";
   const wantFactoring =
     scope === "factoring" || scope === "ceded" || scope === "all";
@@ -1417,6 +1430,8 @@ export async function searchReconcileCandidates(
         ...(folioNum != null ? [{ folio: folioNum }] : []),
         { receiverName: { contains: q, mode: "insensitive" as const } },
         { issuerName: { contains: q, mode: "insensitive" as const } },
+        { notes: { contains: q, mode: "insensitive" as const } },
+        ...(instIds.length ? [{ installationId: { in: instIds } }] : []),
         ...(rutNorm
           ? [
               { receiverRut: { contains: rutNorm.replace(/[^0-9kK]/g, ""), mode: "insensitive" as const } },
@@ -1465,6 +1480,7 @@ export async function searchReconcileCandidates(
       OR: [
         { receiverName: { contains: q, mode: "insensitive" as const } },
         { issuerName: { contains: q, mode: "insensitive" as const } },
+        { notes: { contains: q, mode: "insensitive" as const } },
         ...(folioNum != null ? [{ folio: folioNum }] : []),
       ],
       ...(scope === "ceded" ? { paymentStatus: "CEDED" as const } : {}),
@@ -1506,6 +1522,7 @@ export async function searchReconcileCandidates(
           String(op.dte?.folio ?? ""),
           op.dte?.receiverName ?? "",
           op.dte?.issuerName ?? "",
+          op.dte?.notes ?? "",
           op.dte?.installationId
             ? instNames.get(op.dte.installationId) ?? ""
             : "",

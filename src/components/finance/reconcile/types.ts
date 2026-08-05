@@ -13,6 +13,10 @@ export interface LocalLink {
   accountPlanId: string | null;
   note: string | null;
   label: string;
+  /** Folio DTE si aplica (estado local UI; no se serializa al API). */
+  folio?: number | null;
+  /** Etiqueta corta para chips (folio o código de cesión). */
+  shortLabel?: string;
 }
 
 export interface FactoringCandidate {
