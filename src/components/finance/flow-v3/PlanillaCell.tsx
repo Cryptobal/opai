@@ -3,10 +3,11 @@
 import { useCallback, type CSSProperties } from "react";
 import type { FlowMatrixCellDto } from "@/modules/finance/flow-v3/matrix-types";
 import { fmtCell, NUM_CLASS, numSizeClass, type NumberFormatMode } from "./format";
+import { ChevronDown } from "lucide-react";
 import {
-  CELL_BASE, COL_W, COMMITTED_DRAFT_CELL, COMMITTED_DTE_CELL,
+  CELL_BASE, CELL_CARET, COL_W, COMMITTED_DRAFT_CELL, COMMITTED_DTE_CELL,
   COMMITTED_PROFORMA_CELL, COMMITTED_SCHEDULED_CELL, CORNER_DTE, CORNER_PLAN,
-  CORNER_REAL, CORNER_WARN, NOTE_DOT, SUB_CORNER_CEDED, SUB_CORNER_EP,
+  CORNER_REAL, CORNER_WARN, NOTE_DOT_EL, SUB_CORNER_CEDED, SUB_CORNER_EP,
   SUB_CORNER_PROFORMA, displayValue, REAL_CELL, ROW_H, TODAY_COL,
 } from "./grid-classes";
 import {
@@ -46,6 +47,12 @@ interface Props {
   onContextTarget: () => void;
   /** Long-press táctil → action sheet (móvil). */
   onOpenCellSheet?: () => void;
+  /** Abre el editor de nota (indicador real). */
+  onOpenNote?: () => void;
+  /** Abre el menú de acciones vía chevron (solo celda seleccionada). */
+  onOpenCaretMenu?: (anchor: DOMRect) => void;
+  /** Ficha de hover activa: omite el title nativo del navegador. */
+  hoverCards?: boolean;
   /** Modo Σ activo: tap togglea la celda en el set discontinuo. */
   sumMode?: boolean;
   /** Está en el set Σ. */
@@ -126,7 +133,8 @@ export function PlanillaCell(p: Props) {
           : corner === "plan"
             ? CORNER_PLAN
             : "";
-  const noteClass = cell.note?.trim() ? NOTE_DOT : "";
+  const hasNote = !!cell.note?.trim();
+  const isSelected = p.rangeClass.includes("planilla-selected");
   const subMarks = secondaryMarks(cell);
   const subTitle = secondaryMarkTitle(subMarks);
 
@@ -207,7 +215,7 @@ export function PlanillaCell(p: Props) {
       data-rc={p.dataRc}
       className={[
         CELL_BASE, COL_W, ROW_H, NUM_CLASS, longValue, layerClass,
-        projAttenuate || textClass, cornerClass, noteClass,
+        projAttenuate || textClass, cornerClass,
         p.isCurrentCol ? TODAY_COL : "",
         p.rangeClass,
         cursorClass, styleClass,
@@ -217,7 +225,7 @@ export function PlanillaCell(p: Props) {
         p.sumMode ? "cursor-pointer" : "",
       ].join(" ")}
       style={Object.keys(styleInline).length ? styleInline : undefined}
-      title={titleParts.join(" · ") || undefined}
+      title={p.hoverCards ? undefined : (titleParts.join(" · ") || undefined)}
       draggable={p.draggable && !p.sumMode}
       onDragStart={p.draggable && !p.sumMode ? p.onDragStartCell : undefined}
       onDragOver={p.onDragOverCell}
@@ -254,6 +262,34 @@ export function PlanillaCell(p: Props) {
             <span key={m} className={SUB_CORNER_CLASS[m]} />
           ))}
         </span>
+      )}
+      {hasNote && (
+        <span
+          role="button"
+          tabIndex={-1}
+          aria-label="Editar nota"
+          className={NOTE_DOT_EL}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            p.onOpenNote?.();
+          }}
+        />
+      )}
+      {isSelected && !isEditing && p.onOpenCaretMenu && (
+        <button
+          type="button"
+          aria-label="Acciones de celda"
+          className={CELL_CARET}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+            p.onOpenCaretMenu?.(rect);
+          }}
+        >
+          <ChevronDown aria-hidden />
+        </button>
       )}
       {isEditing ? (
         <InlineCellEditor
