@@ -13,7 +13,10 @@ vi.mock("@/lib/prisma", () => ({
 }));
 
 import { prisma } from "@/lib/prisma";
-import { upsertFlowRowRuleForRut } from "../automatch-rule.service";
+import {
+  upsertFlowRowRuleForDescription,
+  upsertFlowRowRuleForRut,
+} from "../automatch-rule.service";
 
 const TENANT = "t1";
 const asMock = (fn: unknown) => fn as ReturnType<typeof vi.fn>;
@@ -82,5 +85,84 @@ describe("upsertFlowRowRuleForRut", () => {
         userId: null,
       }),
     ).rejects.toThrow(/Fila de flujo no encontrada/);
+  });
+});
+
+describe("upsertFlowRowRuleForDescription", () => {
+  it("crea regla DESCRIPTION CONTAINS con prioridad 60", async () => {
+    const out = await upsertFlowRowRuleForDescription({
+      tenantId: TENANT,
+      needle: "vercel",
+      flowRowId: "row-1",
+      rowName: "Sistemas",
+      appliesTo: "WITHDRAWALS",
+      userId: "user-1",
+    });
+    expect(out.created).toBe(true);
+    expect(out.ruleId).toBe("rule-new");
+    expect(prisma.financeAutoMatchRule.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          priority: 60,
+          appliesTo: "WITHDRAWALS",
+          name: "Glosa «VERCEL» → Sistemas",
+        }),
+      }),
+    );
+  });
+
+  it("actualiza regla existente con mismo needle y appliesTo", async () => {
+    asMock(prisma.financeAutoMatchRule.findMany).mockResolvedValue([
+      {
+        id: "rule-existing",
+        appliesTo: "WITHDRAWALS",
+        conditions: {
+          mode: "ALL",
+          items: [
+            { field: "DESCRIPTION", operator: "CONTAINS", value: "VERCEL" },
+          ],
+        },
+      },
+    ]);
+
+    const out = await upsertFlowRowRuleForDescription({
+      tenantId: TENANT,
+      needle: "VERCEL",
+      flowRowId: "row-1",
+      rowName: "Sistemas",
+      appliesTo: "WITHDRAWALS",
+      userId: "user-1",
+    });
+
+    expect(out.created).toBe(false);
+    expect(out.ruleId).toBe("rule-existing");
+    expect(prisma.financeAutoMatchRule.update).toHaveBeenCalledOnce();
+    expect(prisma.financeAutoMatchRule.create).not.toHaveBeenCalled();
+  });
+
+  it("rechaza needle corto", async () => {
+    await expect(
+      upsertFlowRowRuleForDescription({
+        tenantId: TENANT,
+        needle: "AB",
+        flowRowId: "row-1",
+        rowName: "Sistemas",
+        appliesTo: "WITHDRAWALS",
+        userId: null,
+      }),
+    ).rejects.toThrow(/al menos 4/);
+  });
+
+  it("rechaza needle prohibido", async () => {
+    await expect(
+      upsertFlowRowRuleForDescription({
+        tenantId: TENANT,
+        needle: "COMPRA",
+        flowRowId: "row-1",
+        rowName: "Sistemas",
+        appliesTo: "WITHDRAWALS",
+        userId: null,
+      }),
+    ).rejects.toThrow(/genérico/);
   });
 });
