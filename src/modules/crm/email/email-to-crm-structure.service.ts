@@ -85,6 +85,9 @@ Devuelve SOLO un objeto JSON con EXACTAMENTE estas claves:
     "fechaConsultas": "YYYY-MM-DD"|null,
     "fechaVisitaTecnica": "YYYY-MM-DD"|null,
     "fechaEntrega": "YYYY-MM-DD"|null,
+    "horaConsultas": "HH:mm"|null,
+    "horaVisitaTecnica": "HH:mm"|null,
+    "horaEntrega": "HH:mm"|null,
     "inicioServicio": "YYYY-MM-DD"|null,
     "visitaObligatoria": boolean|null
   },
@@ -140,7 +143,7 @@ Reglas CRÍTICAS:
 9. No inventes RUT, montos, fechas ni emails. Si no está en el documento → null y, si es relevante, openQuestions. Si el contacto solo trae teléfono, email puede ser null.
 9b. CONTACTOS: en "contacts" listá TODOS los interlocutores externos del cliente visibles en De/Para/CC, firma y cuerpo (personas con email o nombre+teléfono). Excluí casillas de la empresa receptora (seguridad privada / tenant). "contact" = el primario (remitente o firmante principal). No omitas CC externos.
 10. Extrae TODOS los slots del cuadro de cobertura; no resumas "9 dependencias" en un solo slot genérico.
-11. licitacion: fechas del cronograma del pliego normalizadas a YYYY-MM-DD. Fechas textuales chilenas ("10 de agosto de 2026") → ISO. Ante ambigüedad → null + openQuestions. deal.fechaLimite debe coincidir con licitacion.fechaEntrega cuando exista.
+11. licitacion: fechas del cronograma del pliego normalizadas a YYYY-MM-DD. Fechas textuales chilenas ("10 de agosto de 2026") → ISO. Si el pliego indica hora (ej. "hasta las 15:00"), rellená horaConsultas/horaVisitaTecnica/horaEntrega en HH:mm 24h; si no hay hora → null. Ante ambigüedad → null + openQuestions. deal.fechaLimite debe coincidir con licitacion.fechaEntrega cuando exista.
 12. condicionesEconomicas: piso salarial (sueldoBaseMinimo en CLP mensual), asignaciones, multas en UF (NO convertir a CLP), KPI contractuales. inadmisibleSiNoCumpleRemuneracion=true si el pliego declara inadmisibilidad por incumplimiento remuneracional. Si declara % de dotación de contingencia, ponelo en condicionesEconomicas.reservaPct Y en reservePct raíz.
 13. Si un dato aparece dos veces con valores distintos, NO elijas uno: null + conflicto en openQuestions.
 14. Si el documento trae una tabla frente/etapa/período/cobertura, emite los slots mapeando CADA fila 1:1; nunca cruces valores entre filas; conserva el nombre de etapa en \`etapa\` y el período en vigenciaDesde/vigenciaHasta (ISO).
@@ -188,6 +191,17 @@ function positiveNum(v: unknown): number | null {
   return Number.isFinite(n) && n > 0 ? n : null;
 }
 
+/** HH:mm opcional; null si ausente o inválido (no inventar 09:00 aquí). */
+function optionalTime(v: unknown): string | null {
+  if (typeof v !== "string" || !v.trim()) return null;
+  const m = v.trim().match(/^(\d{1,2}):(\d{2})/);
+  if (!m) return null;
+  const h = Number(m[1]);
+  const min = Number(m[2]);
+  if (!Number.isFinite(h) || !Number.isFinite(min) || h > 23 || min > 59) return null;
+  return `${String(h).padStart(2, "0")}:${String(min).padStart(2, "0")}`;
+}
+
 function normalizeLicitacion(raw: unknown): CrmStructureLicitacion | undefined {
   if (!raw || typeof raw !== "object") return undefined;
   const r = raw as Record<string, unknown>;
@@ -211,6 +225,9 @@ function normalizeLicitacion(raw: unknown): CrmStructureLicitacion | undefined {
     fechaConsultas,
     fechaVisitaTecnica: visita,
     fechaEntrega: entrega,
+    horaConsultas: fechaConsultas ? optionalTime(r.horaConsultas) : null,
+    horaVisitaTecnica: visita ? optionalTime(r.horaVisitaTecnica) : null,
+    horaEntrega: entrega ? optionalTime(r.horaEntrega) : null,
     inicioServicio,
     visitaObligatoria: nullableBool(r.visitaObligatoria),
   };

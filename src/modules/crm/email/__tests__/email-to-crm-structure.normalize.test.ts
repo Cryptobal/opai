@@ -177,6 +177,9 @@ describe("normalizeCrmStructureProposal", () => {
       fechaConsultas: "2026-08-10",
       fechaVisitaTecnica: "2026-08-15",
       fechaEntrega: "2026-08-30",
+      horaConsultas: null,
+      horaVisitaTecnica: null,
+      horaEntrega: null,
       inicioServicio: "2026-10-01",
       visitaObligatoria: true,
     });
@@ -442,11 +445,16 @@ describe("milestonesFromLicitacion", () => {
       fechaConsultas: "2026-08-10",
       fechaVisitaTecnica: null,
       fechaEntrega: "2026-08-30",
+      horaConsultas: "15:30",
+      horaVisitaTecnica: null,
+      horaEntrega: null,
       inicioServicio: "2026-10-01",
       visitaObligatoria: true,
     });
     expect(ms.map((m) => m.kind)).toEqual(["consultas", "entrega"]);
-    expect(ms.every((m) => m.fromDocument && m.enabled && m.time === "09:00")).toBe(true);
+    expect(ms.find((m) => m.kind === "consultas")?.time).toBe("15:30");
+    expect(ms.find((m) => m.kind === "entrega")?.time).toBe("09:00");
+    expect(ms.every((m) => m.fromDocument && m.enabled)).toBe(true);
     // Ids generados en cliente (no node:crypto) — evita crash iOS/Safari.
     expect(ms.every((m) => typeof m.id === "string" && m.id.length > 0)).toBe(true);
     expect(new Set(ms.map((m) => m.id)).size).toBe(ms.length);
@@ -461,6 +469,9 @@ describe("milestonesFromLicitacion", () => {
         fechaConsultas: null,
         fechaVisitaTecnica: "2026-08-10",
         fechaEntrega: null,
+        horaConsultas: null,
+        horaVisitaTecnica: "10:00",
+        horaEntrega: null,
         inicioServicio: null,
         visitaObligatoria: true,
       },
