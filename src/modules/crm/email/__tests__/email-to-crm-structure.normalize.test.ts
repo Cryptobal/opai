@@ -447,6 +447,9 @@ describe("milestonesFromLicitacion", () => {
     });
     expect(ms.map((m) => m.kind)).toEqual(["consultas", "entrega"]);
     expect(ms.every((m) => m.fromDocument && m.enabled && m.time === "09:00")).toBe(true);
+    // Ids generados en cliente (no node:crypto) — evita crash iOS/Safari.
+    expect(ms.every((m) => typeof m.id === "string" && m.id.length > 0)).toBe(true);
+    expect(new Set(ms.map((m) => m.id)).size).toBe(ms.length);
   });
 
   it("prellena dirección de visita técnica desde la instalación", async () => {
