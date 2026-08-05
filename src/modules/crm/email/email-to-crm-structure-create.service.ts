@@ -6,6 +6,7 @@ import { enqueueCrmFileToDrive } from "@/lib/google-workspace/drive-enqueue-hook
 import type { StagedFile } from "./email-to-lead.types";
 import type {
   CreateCrmStructureInclude,
+  CreateCrmStructureOnConflict,
   CreateCrmStructureResult,
   CrmStructureProposal,
   PlanAttachmentSelection,
@@ -21,6 +22,11 @@ import { anchorStructureConversation } from "./anchor-structure-conversation";
 import type { CrmStructureRefineAnswer } from "./email-to-crm-structure.types";
 import { clearPlanDraft } from "./plan-draft";
 import { selectedProposalContacts } from "./structure-contacts";
+import {
+  conflictsNeedConfirmation,
+  detectStructureConflicts,
+  pickAutoAccountMatch,
+} from "./structure-entity-match";
 
 async function attach(
   tenantId: string,
@@ -211,6 +217,15 @@ export async function createCrmStructureFromProposal(params: {
   /** Permisos resueltos en la ruta; sin ellos se reporta skipped. */
   canCreateQuote?: boolean;
   canCreateMilestones?: boolean;
+  /**
+   * Ante registros existentes:
+   * - omitido → si hay conflictos, retorna `needsConfirmation` (no crea).
+   * - `reuse_overwrite` → reutiliza y actualiza datos del plan.
+   * - `create_new` → crea registros nuevos aunque haya similares.
+   */
+  onConflict?: CreateCrmStructureOnConflict;
+  /** Cuenta elegida por el usuario cuando hay varios candidatos. */
+  useExistingAccountId?: string;
 }): Promise<CreateCrmStructureResult> {
   const { tenantId, userId, emailAccountId, threadId } = params;
   const proposal = coerceCrmStructureProposal(params.proposal);
@@ -221,6 +236,8 @@ export async function createCrmStructureFromProposal(params: {
     skipped.push(id);
     skippedDetail.push({ id, reason });
   };
+  const onConflict = params.onConflict;
+  const forceCreateNew = onConflict === "create_new";
 
   if (!proposal.account.name?.trim()) {
     return { ok: false, error: "La propuesta no tiene nombre de cuenta." };
@@ -277,16 +294,71 @@ export async function createCrmStructureFromProposal(params: {
     };
   }
 
-  // Reutilizar cuenta existente por nombre exacto (case-insensitive) en el tenant.
-  // Nunca reutilizar la cuenta propia del tenant aunque el nombre coincida.
-  let account = await prisma.crmAccount.findFirst({
-    where: { tenantId, name: { equals: accountName, mode: "insensitive" } },
-    select: { id: true, name: true, website: true, ownerId: true },
+  const contactsToCreate = selectedProposalContacts({
+    contact: proposal.contact,
+    contacts: proposal.contacts,
   });
-  if (account && isOwnCompanyAccount(account, ownTenant)) {
-    account = null;
+  const dealTitleForMatch =
+    proposal.deal.title?.trim() ||
+    (proposal.deal.isLicitacion
+      ? `Consulta / Licitación — ${accountName}`
+      : `Oportunidad — ${accountName}`);
+
+  // Detección de conflictos ANTES de crear (Command Layer con include explícito).
+  // La tool del chat (include undefined) conserva el path histórico más permisivo
+  // pero ya no duplica instalaciones/contactos de la misma cuenta.
+  const conflicts = await detectStructureConflicts({
+    tenantId,
+    accountName,
+    accountRut: proposal.account.rut,
+    threadAccountId: thread.accountId,
+    threadDealId: thread.dealId,
+    dealTitle: dealTitleForMatch,
+    installationNames: proposal.installations.map((i) => i.name),
+    contacts: contactsToCreate,
+    ownTenant,
+    useExistingAccountId: params.useExistingAccountId,
+    includeContact: flags.contact,
+    includeDeal: flags.deal,
+    includeInstallations: flags.installations,
+  });
+
+  if (
+    params.include !== undefined &&
+    onConflict == null &&
+    conflictsNeedConfirmation(conflicts)
+  ) {
+    return {
+      ok: false,
+      needsConfirmation: true,
+      conflicts,
+      error:
+        "Ya existen registros similares en CRM. Confirmá si querés actualizarlos o crear nuevos.",
+    };
   }
-  let accountReused = !!account;
+
+  // Resolver cuenta a reutilizar.
+  let account: { id: string; name: string; website: string | null; ownerId: string | null } | null =
+    null;
+  let accountReused = false;
+
+  if (!forceCreateNew) {
+    const chosenId =
+      params.useExistingAccountId?.trim() ||
+      pickAutoAccountMatch(conflicts.accounts)?.id ||
+      null;
+    if (chosenId) {
+      const found = await prisma.crmAccount.findFirst({
+        where: { id: chosenId, tenantId },
+        select: { id: true, name: true, website: true, ownerId: true },
+      });
+      if (found && !isOwnCompanyAccount(found, ownTenant)) {
+        account = found;
+        accountReused = true;
+      }
+    }
+  }
+
   if (!account) {
     account = await prisma.crmAccount.create({
       data: {
@@ -303,21 +375,32 @@ export async function createCrmStructureFromProposal(params: {
       select: { id: true, name: true, website: true, ownerId: true },
     });
     accountReused = false;
-  } else if (!account.ownerId) {
-    await prisma.crmAccount.updateMany({
-      where: { id: account.id, tenantId, ownerId: null },
-      data: { ownerId: userId },
+  } else {
+    // Actualizar datos del plan sobre la cuenta existente (overwrite).
+    await prisma.crmAccount.update({
+      where: { id: account.id },
+      data: {
+        ...(proposal.account.rut ? { rut: proposal.account.rut } : {}),
+        ...(proposal.account.legalName ? { legalName: proposal.account.legalName } : {}),
+        ...(proposal.account.industry ? { industry: proposal.account.industry } : {}),
+        ...(proposal.account.segment
+          ? { segment: proposal.account.segment }
+          : proposal.deal.isLicitacion
+            ? { segment: "Sector Público" }
+            : {}),
+        ...(proposal.requerimiento
+          ? { notes: proposal.requerimiento.slice(0, 2000) }
+          : {}),
+        ...(!account.ownerId ? { ownerId: userId } : {}),
+      },
     });
-    account = { ...account, ownerId: userId };
+    if (!account.ownerId) account = { ...account, ownerId: userId };
   }
 
   // Contactos — independientes del deal. Crea todos los seleccionados
   // (contacts[] o el contact primario legacy); el primero es primary del hilo.
   let contactId = thread.contactId ?? undefined;
-  const contactsToCreate = selectedProposalContacts({
-    contact: proposal.contact,
-    contacts: proposal.contacts,
-  });
+  let contactReused = false;
   if (!flags.contact) {
     skip("contact", "no_seleccionado");
   } else if (contactsToCreate.length === 0) {
@@ -326,18 +409,59 @@ export async function createCrmStructureFromProposal(params: {
     let primarySet = Boolean(contactId);
     for (const c of contactsToCreate) {
       let id: string | undefined;
-      if (c.email) {
-        const existing = await prisma.crmContact.findFirst({
-          where: {
-            tenantId,
-            accountId: account.id,
-            email: { equals: c.email, mode: "insensitive" },
-          },
-          select: { id: true },
-        });
-        if (existing) id = existing.id;
+      if (!forceCreateNew) {
+        if (c.email) {
+          const existing = await prisma.crmContact.findFirst({
+            where: {
+              tenantId,
+              accountId: account.id,
+              email: { equals: c.email, mode: "insensitive" },
+            },
+            select: { id: true },
+          });
+          if (existing) id = existing.id;
+        }
+        if (!id && (c.firstName || c.lastName)) {
+          const siblings = await prisma.crmContact.findMany({
+            where: { tenantId, accountId: account.id },
+            select: { id: true, firstName: true, lastName: true },
+            take: 100,
+          });
+          const norm = [c.firstName ?? "", c.lastName ?? ""]
+            .join(" ")
+            .toLowerCase()
+            .normalize("NFD")
+            .replace(/\p{Diacritic}/gu, "")
+            .replace(/[^a-z0-9\s]/g, "")
+            .replace(/\s+/g, " ")
+            .trim();
+          const byName = siblings.find((s) => {
+            const sn = [s.firstName, s.lastName]
+              .join(" ")
+              .toLowerCase()
+              .normalize("NFD")
+              .replace(/\p{Diacritic}/gu, "")
+              .replace(/[^a-z0-9\s]/g, "")
+              .replace(/\s+/g, " ")
+              .trim();
+            return sn.length >= 3 && sn === norm;
+          });
+          if (byName) id = byName.id;
+        }
       }
-      if (!id) {
+      if (id) {
+        contactReused = true;
+        await prisma.crmContact.update({
+          where: { id },
+          data: {
+            ...(c.firstName ? { firstName: c.firstName } : {}),
+            ...(c.lastName != null ? { lastName: c.lastName } : {}),
+            ...(c.email ? { email: c.email } : {}),
+            ...(c.phone ? { phone: c.phone } : {}),
+            ...(c.roleTitle ? { roleTitle: c.roleTitle } : {}),
+          },
+        });
+      } else {
         const created = await prisma.crmContact.create({
           data: {
             tenantId,
@@ -359,7 +483,13 @@ export async function createCrmStructureFromProposal(params: {
   }
 
   // Instalaciones — cuelgan de la cuenta; no requieren deal.
-  const createdInstallations: Array<{ id: string; name: string; url: string }> = [];
+  // Por defecto reutiliza por nombre (case-insensitive) y sobrescribe datos del plan.
+  const createdInstallations: Array<{
+    id: string;
+    name: string;
+    url: string;
+    reused?: boolean;
+  }> = [];
   if (!flags.installations) {
     skip("installations", "no_seleccionado");
   } else {
@@ -370,28 +500,61 @@ export async function createCrmStructureFromProposal(params: {
         Number.isFinite(inst.lat) &&
         typeof inst.lng === "number" &&
         Number.isFinite(inst.lng);
-      const row = await prisma.crmInstallation.create({
-        data: {
-          tenantId,
-          accountId: account.id,
-          name: inst.name,
-          address: inst.address,
-          city: inst.city,
-          commune: inst.commune,
-          ...(hasCoords ? { lat: inst.lat!, lng: inst.lng! } : {}),
-          status: "prospect",
-          notes: inst.coverageSlots
-            .map((s) => `${s.name}: cob. ${s.simultaneous} → dot. ${s.headcount} (${s.pattern})`)
-            .join(" · ")
-            .slice(0, 2000),
-          metadata: (meta ?? undefined) as Prisma.InputJsonValue | undefined,
-        },
-        select: { id: true, name: true },
-      });
+      const notes = inst.coverageSlots
+        .map((s) => `${s.name}: cob. ${s.simultaneous} → dot. ${s.headcount} (${s.pattern})`)
+        .join(" · ")
+        .slice(0, 2000);
+
+      let row: { id: string; name: string } | null = null;
+      let reusedInst = false;
+      if (!forceCreateNew) {
+        const existingInst = await prisma.crmInstallation.findFirst({
+          where: {
+            tenantId,
+            accountId: account.id,
+            name: { equals: inst.name, mode: "insensitive" },
+          },
+          select: { id: true, name: true },
+        });
+        if (existingInst) {
+          row = await prisma.crmInstallation.update({
+            where: { id: existingInst.id },
+            data: {
+              name: inst.name,
+              address: inst.address,
+              city: inst.city,
+              commune: inst.commune,
+              ...(hasCoords ? { lat: inst.lat!, lng: inst.lng! } : {}),
+              notes,
+              metadata: (meta ?? undefined) as Prisma.InputJsonValue | undefined,
+            },
+            select: { id: true, name: true },
+          });
+          reusedInst = true;
+        }
+      }
+      if (!row) {
+        row = await prisma.crmInstallation.create({
+          data: {
+            tenantId,
+            accountId: account.id,
+            name: inst.name,
+            address: inst.address,
+            city: inst.city,
+            commune: inst.commune,
+            ...(hasCoords ? { lat: inst.lat!, lng: inst.lng! } : {}),
+            status: "prospect",
+            notes,
+            metadata: (meta ?? undefined) as Prisma.InputJsonValue | undefined,
+          },
+          select: { id: true, name: true },
+        });
+      }
       createdInstallations.push({
         id: row.id,
         name: row.name,
         url: `/crm/installations/${row.id}`,
+        reused: reusedInst,
       });
       try {
         await prisma.crmEmailThreadLink.upsert({
@@ -422,6 +585,7 @@ export async function createCrmStructureFromProposal(params: {
   let dealId: string | undefined;
   let dealUrl: string | undefined;
   let createdNewDeal = false;
+  let dealReused = false;
   let positionsCreated = 0;
   let agendaSync: CreateCrmStructureResult["agendaSync"];
   let quoteId: string | undefined;
@@ -435,18 +599,43 @@ export async function createCrmStructureFromProposal(params: {
   if (!flags.deal) {
     skip("deal", "no_seleccionado");
   } else {
-    // Solo en el Command Layer (include explícito): reutilizar deal del hilo.
-    // La tool del chat (include undefined) siempre crea un deal nuevo.
-    // Nunca reutilizar un negocio de OTRA cuenta: eso deja el hilo con
-    // accountId=A y dealId de B (p. ej. Gard Security + Residencia Embajador).
-    if (params.include !== undefined && thread.dealId) {
-      const existingDeal = await prisma.crmDeal.findFirst({
-        where: { id: thread.dealId, tenantId, accountId: account.id },
-        select: { id: true },
-      });
-      if (existingDeal) {
-        dealId = existingDeal.id;
-        dealUrl = `/crm/deals/${existingDeal.id}`;
+    // Solo en el Command Layer (include explícito): reutilizar deal del hilo
+    // o un open deal con título muy similar en la misma cuenta.
+    // Nunca reutilizar un negocio de OTRA cuenta.
+    if (params.include !== undefined && !forceCreateNew) {
+      const existingDealId = conflicts.deal?.id ?? thread.dealId;
+      if (existingDealId) {
+        const existingDeal = await prisma.crmDeal.findFirst({
+          where: { id: existingDealId, tenantId, accountId: account.id },
+          select: { id: true },
+        });
+        if (existingDeal) {
+          dealId = existingDeal.id;
+          dealUrl = `/crm/deals/${existingDeal.id}`;
+          dealReused = true;
+          const primaryInst = createdInstallations[0]
+            ? proposal.installations.find((i) => i.name === createdInstallations[0].name) ??
+              proposal.installations[0]
+            : proposal.installations[0];
+          await prisma.crmDeal.update({
+            where: { id: dealId },
+            data: {
+              title: dealTitleForMatch,
+              isLicitacion: proposal.deal.isLicitacion,
+              notes: buildDealNotes(proposal),
+              fechaEntrega: proposal.deal.fechaLimite
+                ? new Date(`${proposal.deal.fechaLimite}T12:00:00Z`)
+                : null,
+              installationName: primaryInst?.name ?? null,
+              address: primaryInst?.address ?? null,
+              city: primaryInst?.city ?? null,
+              commune: primaryInst?.commune ?? null,
+              totalPuestos: proposal.staffingTotals.headcountBase,
+              service: proposal.requerimiento?.slice(0, 200) ?? null,
+              ...(contactId ? { primaryContactId: contactId } : {}),
+            },
+          });
+        }
       }
     }
 
@@ -454,12 +643,6 @@ export async function createCrmStructureFromProposal(params: {
       if (!stageId) {
         return { ok: false, error: "No hay etapas de pipeline configuradas." };
       }
-
-      const dealTitle =
-        proposal.deal.title?.trim() ||
-        (proposal.deal.isLicitacion
-          ? `Consulta / Licitación — ${accountName}`
-          : `Oportunidad — ${accountName}`);
 
       // Preferir instalación recién creada; si no, la de la propuesta.
       const primaryInst = createdInstallations[0]
@@ -471,7 +654,7 @@ export async function createCrmStructureFromProposal(params: {
           tenantId,
           accountId: account.id,
           stageId,
-          title: dealTitle,
+          title: dealTitleForMatch,
           amount: 0,
           isLicitacion: proposal.deal.isLicitacion,
           primaryContactId: contactId ?? null,
@@ -846,16 +1029,23 @@ export async function createCrmStructureFromProposal(params: {
 
   await clearPlanDraft({ tenantId, threadId, emailAccountId }).catch(() => undefined);
 
+  const reusedInstCount = createdInstallations.filter((i) => i.reused).length;
   const noteParts = [
-    `Estructura: ${accountReused ? "cuenta reutilizada" : "cuenta nueva"}`,
-    contactId ? "contacto" : null,
+    `Estructura: ${accountReused ? "cuenta actualizada" : "cuenta nueva"}`,
+    contactId
+      ? contactReused
+        ? "contacto actualizado"
+        : "contacto nuevo"
+      : null,
     dealId
-      ? thread.dealId === dealId
-        ? "negocio existente"
+      ? dealReused || thread.dealId === dealId
+        ? "negocio actualizado"
         : "negocio nuevo"
       : "sin negocio",
     flags.installations
-      ? `${createdInstallations.length} instalación(es)`
+      ? reusedInstCount > 0
+        ? `${createdInstallations.length} instalación(es) (${reusedInstCount} actualizada(s))`
+        : `${createdInstallations.length} instalación(es)`
       : "instalaciones omitidas",
     bundleId
       ? `propuesta ${bundleCode ?? "PROP"} con ${quotes?.length ?? 0} cotización(es) · ${positionsCreated} puesto(s)`
@@ -875,8 +1065,10 @@ export async function createCrmStructureFromProposal(params: {
     accountReused,
     contactId,
     contactUrl: contactId ? `/crm/contacts/${contactId}` : undefined,
+    contactReused: contactReused || undefined,
     dealId,
     dealUrl,
+    dealReused: dealReused || undefined,
     installations: createdInstallations,
     taskId,
     quoteId,

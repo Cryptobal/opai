@@ -53,7 +53,12 @@ export function CorreoAiResultList({ result }: Props) {
         {result.contactUrl && <ResultLink href={result.contactUrl} label="Contacto" />}
         {result.dealUrl && <ResultLink href={result.dealUrl} label="Negocio" />}
         {result.installations?.map((i) => (
-          <ResultLink key={i.id} href={i.url} label={i.name} />
+          <ResultLink
+            key={i.id}
+            href={i.url}
+            label={i.name}
+            badge={i.reused ? "actualizada" : undefined}
+          />
         ))}
         {result.quotes && result.quotes.length > 0 ? (
           <>
