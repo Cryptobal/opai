@@ -6948,6 +6948,15 @@ enum FinanceDteDirection {
   @@schema("finance")
 }
 
+/// Destino explícito en la planilla de flujo de caja al emitir una factura
+/// puntual (sin programación). NULL en FinanceDte = ruteo automático histórico.
+enum FinanceDteFlowRouting {
+  OWN_ROW
+  OTHER_INCOME
+
+  @@schema("finance")
+}
+
 enum FinanceCurrency {
   CLP
   USD
@@ -7198,6 +7207,9 @@ model FinanceDte {
   // mes siguiente. Ambos NULL = factura "extra" (no ocupa ninguna cuota, suma).
   recurringTemplateId String? @map("recurring_template_id") @db.Uuid
   billingPeriod       String? @map("billing_period")
+  /// Destino explícito en la planilla de flujo de caja, elegido al emitir una
+  /// factura puntual. NULL = ruteo automático (comportamiento histórico).
+  flowRouting FinanceDteFlowRouting? @map("flow_routing")
 
   issuerRut       String   @map("issuer_rut")
   issuerName      String   @map("issuer_name")
