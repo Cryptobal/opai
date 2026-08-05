@@ -1,5 +1,5 @@
 /**
- * CRM Deals Page
+ * CRM Deals Page — pipeline rediseñado
  */
 
 import { redirect } from "next/navigation";
@@ -7,10 +7,11 @@ import { auth } from "@/lib/auth";
 import { resolvePagePerms, canView } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
 import {
-  DEAL_LIST_KANBAN_PAGE_SIZE,
+  DEAL_LIST_BOARD_PAGE_SIZE_PER_STAGE,
   listCrmDeals,
   type DealsFocus,
 } from "@/lib/crm/list-deals";
+import { getDealsPipelineSummary } from "@/lib/crm/deals-pipeline-summary";
 import { CrmDealsClient } from "@/components/crm";
 import { triggerFollowUpProcessing } from "@/lib/followup-selfheal";
 
@@ -42,31 +43,49 @@ export default async function CrmDealsPage({
     triggerFollowUpProcessing();
   }
 
-  // SSR: primera página tamaño kanban (vista default) + stages.
-  // Las cuentas del diálogo crear se cargan bajo demanda en el cliente.
-  const [result, stages] = await Promise.all([
-    listCrmDeals({
-      tenantId,
-      focus,
-      sort: "newest",
-      page: 1,
-      pageSize: DEAL_LIST_KANBAN_PAGE_SIZE,
-    }),
-    prisma.crmPipelineStage.findMany({
-      where: { tenantId, isActive: true },
-      orderBy: { order: "asc" },
-    }),
+  const stages = await prisma.crmPipelineStage.findMany({
+    where: { tenantId, isActive: true },
+    orderBy: { order: "asc" },
+  });
+
+  const openStages = stages.filter((s) => !s.isClosedWon && !s.isClosedLost);
+
+  const [summary, ...stagePages] = await Promise.all([
+    getDealsPipelineSummary({ tenantId, focus }),
+    ...openStages.map((stage) =>
+      listCrmDeals({
+        tenantId,
+        focus,
+        stageId: stage.id,
+        sort: "newest",
+        page: 1,
+        pageSize: DEAL_LIST_BOARD_PAGE_SIZE_PER_STAGE,
+      }),
+    ),
   ]);
+
+  const initialByStage: Record<
+    string,
+    { deals: unknown[]; total: number; hasMore: boolean }
+  > = {};
+  openStages.forEach((stage, i) => {
+    const page = stagePages[i];
+    initialByStage[stage.id] = {
+      deals: page.deals,
+      total: page.total,
+      hasMore: page.hasMore,
+    };
+  });
 
   return (
     <div className="min-w-0">
       <CrmDealsClient
-        initialDeals={JSON.parse(JSON.stringify(result.deals))}
+        initialDeals={[]}
         accounts={[]}
         stages={JSON.parse(JSON.stringify(stages))}
         initialFocus={focus}
-        initialHasMore={result.hasMore}
-        initialTotal={result.total}
+        initialSummary={JSON.parse(JSON.stringify(summary))}
+        initialByStage={JSON.parse(JSON.stringify(initialByStage))}
       />
     </div>
   );

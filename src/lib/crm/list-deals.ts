@@ -9,14 +9,12 @@ import {
   collectLinkedQuoteIds,
   resolveDealActiveQuotationSummary,
 } from "@/lib/crm-deal-active-quotation";
-import {
-  DEAL_LIST_DEFAULT_PAGE_SIZE,
-  DEAL_LIST_KANBAN_PAGE_SIZE,
-} from "@/lib/crm/list-page-sizes";
+import { DEAL_LIST_DEFAULT_PAGE_SIZE } from "@/lib/crm/list-page-sizes";
 
 export {
   DEAL_LIST_DEFAULT_PAGE_SIZE,
   DEAL_LIST_KANBAN_PAGE_SIZE,
+  DEAL_LIST_BOARD_PAGE_SIZE_PER_STAGE,
 } from "@/lib/crm/list-page-sizes";
 
 export type DealsFocus =
@@ -83,7 +81,7 @@ async function focusWhere(
   }
 }
 
-async function buildWhere(params: ListDealsParams): Promise<Prisma.CrmDealWhereInput> {
+export async function buildDealListWhere(params: ListDealsParams): Promise<Prisma.CrmDealWhereInput> {
   const and: Prisma.CrmDealWhereInput[] = [
     { tenantId: params.tenantId },
     await focusWhere(params.tenantId, params.focus),
@@ -136,7 +134,8 @@ const includeRelations = {
   stageHistory: {
     orderBy: { changedAt: "desc" as const },
     select: { toStageId: true, changedAt: true },
-    take: 5,
+    // Auditoría: 7/32 abiertos tienen >5 entradas; 0 tienen >12. take:12 cubre rebotes.
+    take: 12,
   },
   followUpLogs: {
     where: { status: "pending" },
@@ -152,7 +151,7 @@ const includeRelations = {
 } satisfies Prisma.CrmDealInclude;
 
 export async function listCrmDeals(params: ListDealsParams) {
-  const where = await buildWhere(params);
+  const where = await buildDealListWhere(params);
   const paginated = params.page != null || params.pageSize != null;
   const pageSize = paginated
     ? Math.min(Math.max(params.pageSize ?? DEAL_LIST_DEFAULT_PAGE_SIZE, 1), MAX_PAGE_SIZE)
