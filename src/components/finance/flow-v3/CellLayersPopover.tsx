@@ -160,7 +160,9 @@ export function CellLayersPopover({
       return;
     }
     if (bankTransactionId) {
-      window.open(`/finanzas/conciliacion?tx=${bankTransactionId}`, "_blank", "noopener");
+      // Deep-link al movimiento en Banca (abre el sheet). `/finanzas/conciliacion`
+      // es el módulo de cierres de período — otra cosa, y no lee `?tx=`.
+      window.open(`/finanzas/bancos?txId=${bankTransactionId}`, "_blank", "noopener");
       onClose();
     }
   };
