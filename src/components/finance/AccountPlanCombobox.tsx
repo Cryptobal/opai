@@ -68,12 +68,12 @@ export function AccountPlanCombobox({
       setQ("");
       return;
     }
-    // Desktop: enfoque diferido para que el popover esté montado.
-    // Mobile: el input del portal usa autoFocus directamente.
-    if (!isMobile) {
-      const t = setTimeout(() => inputRef.current?.focus(), 30);
-      return () => clearTimeout(t);
-    }
+    // Enfoque diferido: el input vive en un portal (Popover/Sheet). En mobile
+    // anidado dentro de BankTxReconcileSheet, autoFocus solo a veces alcanza
+    // a montar el teclado con el input ya visible — el timeout lo refuerza.
+    const delay = isMobile ? 80 : 30;
+    const t = setTimeout(() => inputRef.current?.focus(), delay);
+    return () => clearTimeout(t);
   }, [open, isMobile]);
 
   const selected = items.find((i) => i.id === value) ?? null;
@@ -156,13 +156,21 @@ export function AccountPlanCombobox({
   // correctamente cuando el componente vive dentro de otro Sheet padre, ej.
   // BankTxReconcileSheet). Esto resuelve el bug de scroll-bleed que tenía
   // el portal manual anterior.
+  //
+  // z-[70]: BankTxReconcileSheet (y su AllocationDetailPanel) viven en z-[60].
+  // Si el picker quedara en el z-50 default del Sheet, el teclado enfoca el
+  // buscador pero la UI queda detrás del sheet padre — en móvil parece que
+  // "no hay dónde escribir". Mismo patrón que EmisionConfirmDialog / PdfPreview.
   if (isMobile) {
     return (
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetTrigger asChild>{triggerButton}</SheetTrigger>
         <SheetContent
           side="bottom"
-          className="p-0 gap-0 flex flex-col max-h-[85dvh] rounded-t-2xl"
+          surface="opaque"
+          showCloseButton={false}
+          overlayClassName="z-[70] bg-black/40"
+          className="p-0 gap-0 flex flex-col max-h-[85dvh] rounded-t-2xl z-[70]"
         >
           <div
             aria-hidden
@@ -173,16 +181,21 @@ export function AccountPlanCombobox({
               {emptyLabel}
             </SheetTitle>
           </SheetHeader>
-          <div className="border-b border-border px-3 pb-2 shrink-0">
+          <div className="border-b border-border px-3 pb-2 shrink-0 sticky top-0 bg-background z-10">
             <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
               <Input
+                ref={inputRef}
                 autoFocus
                 placeholder={placeholder}
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
                 className="h-11 pl-9"
                 style={{ fontSize: 16 }}
+                enterKeyHint="search"
+                autoComplete="off"
+                autoCorrect="off"
+                spellCheck={false}
               />
             </div>
           </div>
