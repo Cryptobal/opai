@@ -94,7 +94,11 @@ export interface RealCell {
 
 export type RealByRow = Map<string, Map<string, RealCell>>;
 
-/** Ingresos sin fila (cuenta sin fila propia) → fila fallback "Otros ingresos". */
+/**
+ * Sentinel histórico de ingresos sin fila. En REAL ya no se autollena
+ * (Otros ingresos es manual); en committed solo si `bandejaIncomeBankOnly`
+ * está off. Se mantiene para remap de sentinels / tests.
+ */
 export const UNMATCHED_INCOME_KEY = "__unmatched_income__";
 /** Egresos sin fila/categoría → fila fallback "Otros egresos". */
 export const UNMATCHED_EXPENSE_KEY = "__unmatched_expense__";

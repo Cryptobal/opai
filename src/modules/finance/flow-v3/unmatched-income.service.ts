@@ -24,7 +24,10 @@ export interface UnmatchedDteDto {
   templates: AccountTemplateOption[];
 }
 
-/** Abono bancario de la semana que cayó a Otros ingresos (sin link / unmatched). */
+/**
+ * Abono bancario de la semana sin links DTE (legado bandeja).
+ * El REAL de planilla ya no autollena Otros ingresos con estos abonos.
+ */
 export interface UnmatchedBankTxDto {
   bankTransactionId: string;
   amountClp: number;

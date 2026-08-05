@@ -13,9 +13,10 @@ const WEEKS = enumerateWeeks(
 );
 
 const ROWS: FlowRowRef[] = [
-  { id: "row-cliA", name: "Cliente A", crmAccountId: "acc-A", installationId: null, categoryId: null, supplierId: null },
-  { id: "row-arriendo", name: "Arriendo", crmAccountId: null, installationId: null, categoryId: "cat-arr", supplierId: null },
-  { id: "row-sueldos", name: "Sueldos líquidos", crmAccountId: null, installationId: null, categoryId: "cat-sueldo", supplierId: null },
+  { id: "row-cliA", name: "Cliente A", crmAccountId: "acc-A", installationId: null, categoryId: null, supplierId: null, mapping: "ACCOUNT_INSTALLATION", section: "INGRESOS" },
+  { id: "row-arriendo", name: "Arriendo", crmAccountId: null, installationId: null, categoryId: "cat-arr", supplierId: null, section: "GAV" },
+  { id: "row-sueldos", name: "Sueldos líquidos", crmAccountId: null, installationId: null, categoryId: "cat-sueldo", supplierId: null, section: "REMUNERACIONES" },
+  { id: "row-costo-fact", name: "Costo factoring", crmAccountId: null, installationId: null, categoryId: null, supplierId: null, mapping: "MANUAL", section: "FINANCIAMIENTO" },
 ];
 const CODES = new Map([
   ["cat-arr", "EGR_ARRIENDO"],
@@ -94,7 +95,7 @@ describe("deriveReal", () => {
     expect(out.get("row-sueldos")?.get("2026-07-13")?.total).toBe(-2_000_000);
   });
 
-  it("movimiento sin match cae en Otros según signo", () => {
+  it("abono sin match NO va a Otros ingresos (fila manual)", () => {
     const out = deriveReal({
       ...base,
       txs: [
@@ -102,11 +103,11 @@ describe("deriveReal", () => {
         tx({ id: "tx-out", amountClp: -55_000, description: "PAGO TARJETA" }),
       ],
     });
-    expect(out.get(UNMATCHED_INCOME_KEY)?.get("2026-07-13")?.total).toBe(99_000);
+    expect(out.get(UNMATCHED_INCOME_KEY)).toBeUndefined();
     expect(out.get(UNMATCHED_EXPENSE_KEY)?.get("2026-07-13")?.total).toBe(-55_000);
   });
 
-  it("remanente parcialmente conciliado va a Otros", () => {
+  it("remanente de abono parcialmente conciliado NO va a Otros ingresos", () => {
     const dteById = new Map<string, DteRefInput>([
       ["dte-2", { folio: 400, direction: "ISSUED", crmAccountId: "acc-A", installationId: null, supplierId: null, categoryId: null, name: "Cliente A" }],
     ]);
@@ -119,7 +120,44 @@ describe("deriveReal", () => {
       })],
     });
     expect(out.get("row-cliA")?.get("2026-07-13")?.total).toBe(500_000);
-    expect(out.get(UNMATCHED_INCOME_KEY)?.get("2026-07-13")?.total).toBe(300_000);
+    expect(out.get(UNMATCHED_INCOME_KEY)).toBeUndefined();
+  });
+
+  it("anticipo FACTORING_OPERATION no suma ingreso; shortfall EXPENSE → Costo factoring", () => {
+    const out = deriveReal({
+      ...base,
+      txs: [tx({
+        id: "tx-scf",
+        amountClp: 9_000_000,
+        description: "0774602593 Transf. SCF SERVICIOS F",
+        links: [
+          { targetType: "FACTORING_OPERATION", targetId: "op-1", amountClp: 4_000_000, accountPlanId: null },
+          { targetType: "FACTORING_OPERATION", targetId: "op-2", amountClp: 5_000_000, accountPlanId: null },
+          // Merma contable (fuera del cupo bancario).
+          { targetType: "EXPENSE", targetId: null, amountClp: 1_000_000, accountPlanId: "plan-factor" },
+        ],
+      })],
+    });
+    expect(out.get(UNMATCHED_INCOME_KEY)).toBeUndefined();
+    expect(out.get("row-cliA")).toBeUndefined();
+    const cell = out.get("row-costo-fact")?.get("2026-07-13");
+    expect(cell?.total).toBe(-1_000_000);
+    expect(cell?.items[0]?.label).toContain("Costo factoring");
+  });
+
+  it("DTE_ISSUED sin fila de cuenta no cae en Otros ingresos", () => {
+    const dteById = new Map<string, DteRefInput>([
+      ["dte-x", { folio: 1, direction: "ISSUED", crmAccountId: "acc-Z", installationId: null, supplierId: null, categoryId: null, name: "Desconocido" }],
+    ]);
+    const out = deriveReal({
+      ...base,
+      dteById,
+      txs: [tx({
+        links: [{ targetType: "DTE_ISSUED", targetId: "dte-x", amountClp: 1_000_000, accountPlanId: null }],
+      })],
+    });
+    expect(out.get(UNMATCHED_INCOME_KEY)).toBeUndefined();
+    expect(out.size).toBe(0);
   });
 
   it("movimiento fuera del rango se ignora", () => {
