@@ -1,9 +1,10 @@
 /**
  * Sync Google v2 (B5): un CalendarEvent se materializa como
- * - evento en el calendario del organizador con attendees[] = internos con
- *   Google + externos (RSVP nativo, sendUpdates:"all"), link role:"organizer";
- * - link PENDING role:"attendee_copy" por cada interno SIN cuenta, que se
- *   convierte en copia cuando conecte (retryPendingCalendarV2Links);
+ * - evento en el calendario del organizador con attendees[] = internos
+ *   (googleEmail o Admin.email) + externos (RSVP nativo, sendUpdates:"all"),
+ *   link role:"organizer";
+ * - link PENDING role:"attendee_copy" solo si el interno no tiene Google ni
+ *   email corporativo usable; se convierte en copia cuando conecte;
  * - lectura de responseStatus de attendees de vuelta a participantes/externos.
  * Idempotencia por @@unique([eventId, provider, providerAccountId]).
  *
@@ -19,6 +20,8 @@ import {
 import { buildCalendarEventGooglePayload, pendingAccountKey } from "./calendar-google-payload";
 import { applyAttendeeResponses } from "./calendar-rsvp-readback";
 import { resolveCreateTarget } from "./calendar-sources";
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /**
  * Clasifica un fallo de push a Google para decidir el estado del link sin
@@ -96,6 +99,64 @@ function buildAccountByUserMap<
   return result;
 }
 
+/** Precedencia: googleEmail conectado → Admin.email corporativo activo. */
+async function buildEmailByUserMap(
+  tenantId: string,
+  internalIds: string[],
+  accountByUser: Map<string, { googleEmail: string }>,
+): Promise<Map<string, string>> {
+  const emailByUser = new Map<string, string>();
+  for (const [userId, acc] of accountByUser) {
+    const email = acc.googleEmail?.trim().toLowerCase();
+    if (email && EMAIL_RE.test(email)) emailByUser.set(userId, email);
+  }
+  const missing = internalIds.filter((id) => !emailByUser.has(id));
+  if (!missing.length) return emailByUser;
+
+  const admins = await prisma.admin.findMany({
+    where: { tenantId, id: { in: missing }, status: "active" },
+    select: { id: true, email: true },
+  });
+  for (const a of admins) {
+    const email = a.email?.trim().toLowerCase();
+    if (email && EMAIL_RE.test(email)) emailByUser.set(a.id, email);
+  }
+  return emailByUser;
+}
+
+async function ensurePendingOrganizerLink(
+  tenantId: string,
+  eventId: string,
+  organizerUserId: string,
+  lastError: string,
+): Promise<void> {
+  await prisma.calendarProviderLink.upsert({
+    where: {
+      eventId_provider_providerAccountId: {
+        eventId,
+        provider: "google",
+        providerAccountId: pendingAccountKey(organizerUserId),
+      },
+    },
+    create: {
+      tenantId,
+      eventId,
+      provider: "google",
+      providerAccountId: pendingAccountKey(organizerUserId),
+      providerCalendarId: "primary",
+      role: "organizer",
+      syncStatus: "PENDING",
+      lastError,
+    },
+    update: {
+      role: "organizer",
+      syncStatus: "PENDING",
+      lastError,
+      lastSyncAt: new Date(),
+    },
+  });
+}
+
 export async function syncCalendarEventToGoogle(
   tenantId: string,
   eventId: string,
@@ -124,10 +185,32 @@ export async function syncCalendarEventToGoogle(
     },
   });
   const accountByUser = buildAccountByUserMap(accounts);
+  const emailByUser = await buildEmailByUserMap(tenantId, internalIds, accountByUser);
 
-  // Internos sin Google → link PENDING attendee_copy (se materializa al conectar).
+  // attendee_copy solo si no hay Google ni email corporativo usable.
+  // Si ya hay email nativo, cancelar copias PENDING previas para evitar duplicados.
   for (const p of event.participants) {
-    if (p.userId === organizer.userId || accountByUser.has(p.userId)) continue;
+    if (p.userId === organizer.userId) continue;
+    const hasNativeInvite = emailByUser.has(p.userId);
+    if (hasNativeInvite) {
+      await prisma.calendarProviderLink.updateMany({
+        where: {
+          tenantId,
+          eventId: event.id,
+          provider: "google",
+          role: "attendee_copy",
+          providerAccountId: pendingAccountKey(p.userId),
+          syncStatus: "PENDING",
+        },
+        data: {
+          syncStatus: "CANCELLED",
+          lastError: "invitado como attendee nativo",
+          lastSyncAt: new Date(),
+        },
+      });
+      continue;
+    }
+    if (accountByUser.has(p.userId)) continue;
     await prisma.calendarProviderLink.upsert({
       where: {
         eventId_provider_providerAccountId: {
@@ -150,6 +233,7 @@ export async function syncCalendarEventToGoogle(
   }
 
   // Resolver por vínculo existente (no por cuenta default vigente).
+  // Preferir link materializado; si solo hay PENDING sintético, se trata abajo.
   const existingLink = await prisma.calendarProviderLink.findFirst({
     where: {
       tenantId,
@@ -192,10 +276,41 @@ export async function syncCalendarEventToGoogle(
     const client = target
       ? await getCalendarClientForAccount(tenantId, target.accountId)
       : await getCalendarClientForUser(tenantId, organizer.userId);
-    if (!client) return { syncStatus: "PENDING" };
+    if (!client) {
+      await ensurePendingOrganizerLink(
+        tenantId,
+        event.id,
+        organizer.userId,
+        "El organizador no tiene Google Calendar conectado",
+      );
+      return { syncStatus: "PENDING" };
+    }
     accountId = client.accountId;
     calendarId = target?.calendarId ?? client.calendarId;
     calendar = client.calendar;
+
+    // Si había link PENDING sintético del organizador, se materializa abajo
+    // con la cuenta real (upsert por accountId distinto del pending key).
+    const pendingOrg = await prisma.calendarProviderLink.findFirst({
+      where: {
+        tenantId,
+        eventId: event.id,
+        provider: "google",
+        role: "organizer",
+        providerAccountId: pendingAccountKey(organizer.userId),
+        syncStatus: "PENDING",
+      },
+    });
+    if (pendingOrg) {
+      await prisma.calendarProviderLink.update({
+        where: { id: pendingOrg.id },
+        data: {
+          syncStatus: "CANCELLED",
+          lastError: "reemplazado por cuenta Google real",
+          lastSyncAt: new Date(),
+        },
+      });
+    }
   }
 
   const linkKey = {
@@ -227,12 +342,18 @@ export async function syncCalendarEventToGoogle(
       return { syncStatus: "CANCELLED" };
     }
 
-    // Attendees: googleEmail de la cuenta default del participante (mapa determinista).
-    // Internos sin Google → attendee_copy (no van como attendees nativos).
-    const attendeeEmails = event.participants
-      .filter((p) => p.userId !== organizer.userId)
-      .map((p) => accountByUser.get(p.userId)?.googleEmail)
-      .filter((e): e is string => Boolean(e));
+    // Attendees: googleEmail o Admin.email; dedupe lowercase vs externos.
+    const externalEmails = new Set(
+      event.externals.map((e) => e.email.trim().toLowerCase()).filter(Boolean),
+    );
+    const attendeeEmails = Array.from(
+      new Set(
+        event.participants
+          .filter((p) => p.userId !== organizer.userId)
+          .map((p) => emailByUser.get(p.userId))
+          .filter((e): e is string => typeof e === "string" && !externalEmails.has(e)),
+      ),
+    );
 
     const body = buildCalendarEventGooglePayload(event, attendeeEmails);
     const sendUpdates = body.attendees?.length ? "all" : "none";
@@ -276,7 +397,7 @@ export async function syncCalendarEventToGoogle(
       },
     });
 
-    await applyAttendeeResponses(tenantId, event, res.data.attendees ?? [], accountByUser);
+    await applyAttendeeResponses(tenantId, event, res.data.attendees ?? [], emailByUser);
     return { syncStatus: "SYNCED" };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -287,6 +408,26 @@ export async function syncCalendarEventToGoogle(
       await prisma.calendarProviderLink.update({
         where: { id: link.id },
         data: { syncStatus: nextStatus, lastError: msg.slice(0, 500), lastSyncAt: new Date() },
+      });
+    } else {
+      await prisma.calendarProviderLink.upsert({
+        where: linkKey,
+        create: {
+          tenantId,
+          eventId: event.id,
+          provider: "google",
+          providerAccountId: accountId,
+          providerCalendarId: calendarId,
+          role: "organizer",
+          syncStatus: nextStatus,
+          lastError: msg.slice(0, 500),
+          lastSyncAt: new Date(),
+        },
+        update: {
+          syncStatus: nextStatus,
+          lastError: msg.slice(0, 500),
+          lastSyncAt: new Date(),
+        },
       });
     }
     console.warn(

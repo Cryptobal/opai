@@ -21,15 +21,20 @@ const resolveCreateTargetMock = vi.fn();
 
 vi.mock("server-only", () => ({}));
 
+const adminFindMany = vi.fn();
+const linkUpdateMany = vi.fn();
+
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     calendarEvent: { findFirst: eventFindFirst },
     googleCalendarAccount: { findMany: accountFindMany },
+    admin: { findMany: adminFindMany },
     calendarProviderLink: {
       findUnique: linkFindUnique,
       findFirst: linkFindFirst,
       upsert: linkUpsert,
       update: linkUpdate,
+      updateMany: linkUpdateMany,
       findMany: vi.fn().mockResolvedValue([]),
     },
     calendarEventParticipant: { update: participantUpdate },
@@ -116,9 +121,12 @@ beforeEach(() => {
       sortIndex: 0,
     },
   ]);
+  // Hugo sin Google → se invita por Admin.email corporativo.
+  adminFindMany.mockResolvedValue([{ id: "hugo", email: "hugo@gard.cl" }]);
   linkFindFirst.mockResolvedValue(null);
   linkFindUnique.mockResolvedValue(null);
   linkUpsert.mockResolvedValue({});
+  linkUpdateMany.mockResolvedValue({ count: 0 });
   resolveCreateTargetMock.mockResolvedValue(null);
   eventsInsert.mockResolvedValue({
     data: {
@@ -127,6 +135,7 @@ beforeEach(() => {
       etag: "etag-1",
       attendees: [
         { email: "lizeth@gard.cl", responseStatus: "accepted" },
+        { email: "hugo@gard.cl", responseStatus: "needsAction" },
         { email: "cliente@ejemplo.cl", responseStatus: "needsAction" },
       ],
     },
@@ -138,7 +147,7 @@ beforeEach(() => {
 });
 
 describe("syncCalendarEventToGoogle", () => {
-  it("crea evento del organizador con internos-con-Google + externos y sendUpdates all", async () => {
+  it("crea evento del organizador con internos (Google o Admin.email) + externos y sendUpdates all", async () => {
     const { syncCalendarEventToGoogle } = await import("../calendar-google-sync");
     const res = await syncCalendarEventToGoogle("t1", "ev-1");
     expect(res.syncStatus).toBe("SYNCED");
@@ -147,12 +156,32 @@ describe("syncCalendarEventToGoogle", () => {
     expect(call.sendUpdates).toBe("all");
     const emails = call.requestBody.attendees.map((a: { email: string }) => a.email);
     expect(emails).toContain("lizeth@gard.cl");
+    expect(emails).toContain("hugo@gard.cl");
     expect(emails).toContain("cliente@ejemplo.cl");
-    expect(emails).not.toContain("hugo");
     expect(call.requestBody.start.timeZone).toBe("America/Santiago");
+    expect(call.requestBody.start.dateTime).toMatch(/[+-]\d{2}:\d{2}$/);
   });
 
-  it("interno sin Google genera link PENDING attendee_copy", async () => {
+  it("interno sin Google pero con Admin.email NO genera attendee_copy", async () => {
+    const { syncCalendarEventToGoogle } = await import("../calendar-google-sync");
+    await syncCalendarEventToGoogle("t1", "ev-1");
+    const copyUpsert = linkUpsert.mock.calls.find(
+      (c) => c[0].create?.role === "attendee_copy",
+    );
+    expect(copyUpsert).toBeFalsy();
+    expect(linkUpdateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          providerAccountId: "user:hugo",
+          role: "attendee_copy",
+        }),
+        data: expect.objectContaining({ syncStatus: "CANCELLED" }),
+      }),
+    );
+  });
+
+  it("interno sin Google ni email corporativo genera link PENDING attendee_copy", async () => {
+    adminFindMany.mockResolvedValue([]);
     const { syncCalendarEventToGoogle } = await import("../calendar-google-sync");
     await syncCalendarEventToGoogle("t1", "ev-1");
     const copyUpsert = linkUpsert.mock.calls.find(
@@ -162,6 +191,22 @@ describe("syncCalendarEventToGoogle", () => {
     expect(copyUpsert![0].create).toMatchObject({
       providerAccountId: "user:hugo",
       syncStatus: "PENDING",
+    });
+  });
+
+  it("organizador sin Google deja link organizer PENDING recuperable", async () => {
+    getClientForUserMock.mockResolvedValue(null);
+    getClientForAccountMock.mockResolvedValue(null);
+    const { syncCalendarEventToGoogle } = await import("../calendar-google-sync");
+    const res = await syncCalendarEventToGoogle("t1", "ev-1");
+    expect(res.syncStatus).toBe("PENDING");
+    const pendingUpsert = linkUpsert.mock.calls.find(
+      (c) => c[0].create?.role === "organizer" && c[0].create?.syncStatus === "PENDING",
+    );
+    expect(pendingUpsert).toBeTruthy();
+    expect(pendingUpsert![0].create).toMatchObject({
+      providerAccountId: "user:jorge",
+      lastError: expect.stringMatching(/no tiene Google Calendar/i),
     });
   });
 
