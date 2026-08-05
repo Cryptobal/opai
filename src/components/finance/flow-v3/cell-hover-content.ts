@@ -1,5 +1,5 @@
 /**
- * Contenido puro de la ficha de hover — testeable sin DOM.
+ * Contenido puro de la ficha de detalle (clic) — testeable sin DOM.
  */
 import type { FlowMatrixCellDto, FlowMatrixRowDto } from "@/modules/finance/flow-v3/matrix-types";
 import { hasManualPlanOverride } from "@/modules/finance/flow-v3/cell-editability";
@@ -156,6 +156,6 @@ export function buildHoverCardContent(args: {
     drift,
     pastPending,
     note: cell.note?.trim() || null,
-    footerHint: reason || "Enter editar · N nota · Espacio detalle",
+    footerHint: reason || "Doble clic editar · N nota · Acciones ▾",
   };
 }

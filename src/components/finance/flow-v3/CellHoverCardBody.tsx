@@ -19,7 +19,7 @@ interface Props {
   onOpenActions: (el: HTMLElement) => void;
 }
 
-/** Cuerpo presentacional de la ficha de hover. */
+/** Cuerpo presentacional de la ficha de detalle (clic en desktop). */
 export function CellHoverCardBody(p: Props) {
   const { model } = p;
   return (

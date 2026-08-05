@@ -24,7 +24,7 @@ import { PlanillaRow } from "./PlanillaRow";
 import { BalanceRow } from "./BalanceRow";
 import { CellLayersPopover, type PopoverState } from "./CellLayersPopover";
 import { CellHoverCard, type CellHoverCardHandle, type CellHoverShowCtx } from "./CellHoverCard";
-import { useCellHover } from "./useCellHover";
+import { isDesktopCellDetail, showPinnedCellDetail, useCellHover } from "./useCellHover";
 import { FillRightDialog, type FillRightRequest } from "./FillRightDialog";
 import { usePlanillaKeyboard, type CellSel } from "./usePlanillaKeyboard";
 import {
@@ -477,7 +477,7 @@ export function PlanillaGrid({
         anchor ??
         document.querySelector(`[data-rc="${sel.rowId}:${sel.colIdx}"]`)?.getBoundingClientRect();
       if (!rect) return;
-      hoverRef.current?.hide();
+      hoverRef.current?.forceHide();
       setCaretMenu(null);
       setPopoverFocusNote(!!opts?.focusNote);
       setPopover({ row, cell, anchor: { left: rect.left, top: rect.top, bottom: rect.bottom } });
@@ -646,6 +646,14 @@ export function PlanillaGrid({
   });
   kbRef.current = kb;
 
+  // Enter / tipeo abren el editor sin pasar por onStartEdit del row.
+  useEffect(() => {
+    if (kb.isEditing) {
+      hoverRef.current?.forceHide();
+      setSheetTarget(null);
+    }
+  }, [kb.isEditing]);
+
   const resolveHover = useCallback(
     (rowId: string, colIdx: number) => {
       const row = rowById.get(rowId);
@@ -670,8 +678,7 @@ export function PlanillaGrid({
       !!sumMode ||
       !!ctxTarget ||
       !!popover ||
-      !!caretMenu ||
-      !!hoverRef.current?.isPinned()
+      !!caretMenu
     );
   }, [sumMode, ctxTarget, popover, caretMenu]);
 
@@ -682,10 +689,37 @@ export function PlanillaGrid({
     isSuppressed: hoverSuppressed,
   });
 
+  /**
+   * Desktop (≥lg, puntero fino): clic izquierdo → ficha anclada.
+   * Móvil/touch: tap → sheet (detalle + «Editar monto»; el doble-tap no es usable).
+   * Long-press sigue abriendo el mismo sheet.
+   */
+  const openDetailOnSelect = useCallback(
+    (sel: CellSel) => {
+      if (kbRef.current?.isEditing) return;
+      const ctx = resolveHover(sel.rowId, sel.colIdx);
+      if (!ctx) return;
+      if (isDesktopCellDetail()) {
+        const td = document.querySelector(
+          `[data-rc="${sel.rowId}:${sel.colIdx}"]`,
+        ) as HTMLElement | null;
+        if (!td) return;
+        setPopover(null);
+        setSheetTarget(null);
+        showPinnedCellDetail(hoverRef.current, ctx, td.getBoundingClientRect());
+        return;
+      }
+      hoverRef.current?.forceHide();
+      setPopover(null);
+      setSheetTarget({ kind: "cell", sel });
+    },
+    [resolveHover],
+  );
+
   const openCaretMenu = useCallback((sel: CellSel, anchor: DOMRect) => {
     kbRef.current?.setSel(sel);
     setPopover(null);
-    hoverRef.current?.hide();
+    hoverRef.current?.forceHide();
     setCaretMenu({ sel, anchor: { x: anchor.left, y: anchor.bottom } });
   }, []);
 
@@ -1273,16 +1307,32 @@ export function PlanillaGrid({
                       onSelect={(sel, extend, meta) => {
                         setPopover(null);
                         if (sumMode || meta) {
+                          hoverRef.current?.forceHide();
                           if (!sumMode) onSumModeChange?.(true);
                           toggleDiscrete(sel);
                           kb.setSel(sel);
                           return;
                         }
-                        if (extend) kb.extendTo(sel);
-                        else kb.setSel(sel);
+                        if (extend) {
+                          hoverRef.current?.forceHide();
+                          kb.extendTo(sel);
+                          return;
+                        }
+                        kb.setSel(sel);
+                        openDetailOnSelect(sel);
                       }}
-                      onSelectRow={() => { setPopover(null); kb.selectRow(row.id); }}
-                      onStartEdit={(sel) => { setPopover(null); kb.setSel(sel); kb.startEdit(sel, ""); }}
+                      onSelectRow={() => {
+                        setPopover(null);
+                        hoverRef.current?.forceHide();
+                        kb.selectRow(row.id);
+                      }}
+                      onStartEdit={(sel) => {
+                        setPopover(null);
+                        hoverRef.current?.forceHide();
+                        setSheetTarget(null);
+                        kb.setSel(sel);
+                        kb.startEdit(sel, "");
+                      }}
                       onCommit={kb.commitEdit}
                       onCancelEdit={() => kb.setEditing(null)}
                       onOpenPopover={(sel, anchor) => { kb.setSel(sel); openPopover(sel, anchor); }}

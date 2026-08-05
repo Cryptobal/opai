@@ -1,13 +1,8 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import type { CellHoverCardHandle } from "./CellHoverCard";
+import type { CellHoverCardHandle, CellHoverShowCtx } from "./CellHoverCard";
 import type { FlowMatrixCellDto, FlowMatrixRowDto } from "@/modules/finance/flow-v3/matrix-types";
-
-/** Un poco más pausado que el tiro de 240 ms: da tiempo a cruzar celdas. */
-const OPEN_MS = 420;
-const CLOSE_MS = 180;
-const SWITCH_MS = 520;
 
 export interface HoverResolveResult {
   row: FlowMatrixRowDto;
@@ -18,16 +13,35 @@ export interface HoverResolveResult {
   reason?: string;
 }
 
+/** Desktop con puntero fino (≥ lg): ficha anclada al clic. Móvil usa sheet. */
+export function isDesktopCellDetail(): boolean {
+  if (typeof window === "undefined") return false;
+  return (
+    window.matchMedia("(hover: hover) and (pointer: fine)").matches &&
+    window.matchMedia("(min-width: 1024px)").matches
+  );
+}
+
+/** Abre la ficha anclada (clic izquierdo). Cierra con Esc / clic fuera / scroll. */
+export function showPinnedCellDetail(
+  hover: CellHoverCardHandle | null | undefined,
+  ctx: CellHoverShowCtx,
+  rect: DOMRect,
+): void {
+  if (!hover) return;
+  hover.show(ctx, rect);
+  hover.pin();
+}
+
 /**
- * Listener nativo delegado sobre `.planilla-grid-scroll`.
- * Cero setState en el grid: solo llama a la ref imperativa de CellHoverCard
- * y aplica resalte cruzado vía classList.
+ * Cierre por clic fuera / scroll + resalte cruzado ligero al pasar el puntero
+ * (sin abrir la ficha: eso es solo con clic).
  */
 export function useCellHover(opts: {
   scrollerRef: React.RefObject<HTMLElement | null>;
   hoverRef: React.RefObject<CellHoverCardHandle | null>;
   resolve: (rowId: string, colIdx: number) => HoverResolveResult | null;
-  /** true → no abrir (edición, drag, Σ, menú, panel, etc.). */
+  /** true → no resaltar ni interferir (edición, drag, Σ, menú, etc.). */
   isSuppressed: () => boolean;
 }) {
   const resolveRef = useRef(opts.resolve);
@@ -40,12 +54,9 @@ export function useCellHover(opts: {
     const hover = opts.hoverRef;
     if (!root) return;
 
-    let openTimer: ReturnType<typeof setTimeout> | null = null;
-    let closeTimer: ReturnType<typeof setTimeout> | null = null;
     let hlCol = -1;
     let hlRow: string | null = null;
     let fineHover = false;
-    let activeKey: string | null = null;
 
     const mqHover = window.matchMedia("(hover: hover) and (pointer: fine)");
     const mqDesktop = window.matchMedia("(min-width: 1024px)");
@@ -78,29 +89,7 @@ export function useCellHover(opts: {
       hlRow = rowId;
     };
 
-    const cancelOpen = () => {
-      if (openTimer) clearTimeout(openTimer);
-      openTimer = null;
-    };
-    const cancelClose = () => {
-      if (closeTimer) clearTimeout(closeTimer);
-      closeTimer = null;
-    };
-
-    const doHide = () => {
-      if (hover.current?.isPinned()) return;
-      hover.current?.hide();
-      clearHl();
-      activeKey = null;
-    };
-
-    const scheduleHide = () => {
-      cancelOpen();
-      cancelClose();
-      closeTimer = setTimeout(doHide, CLOSE_MS);
-    };
-
-    const parseRc = (el: Element | null): { rowId: string; colIdx: number; td: HTMLElement; key: string } | null => {
+    const parseRc = (el: Element | null): { rowId: string; colIdx: number } | null => {
       const td = el?.closest?.("td[data-rc]") as HTMLElement | null;
       if (!td) return null;
       const rc = td.getAttribute("data-rc");
@@ -108,124 +97,56 @@ export function useCellHover(opts: {
       const [rowId, colStr] = rc.split(":");
       const colIdx = Number(colStr);
       if (!rowId || !Number.isFinite(colIdx)) return null;
-      return { rowId, colIdx, td, key: rc };
+      return { rowId, colIdx };
     };
 
-    /** ¿El puntero está sobre la ficha (o el puente hacia ella)? */
-    const pointerOnCard = (x: number, y: number) => {
-      const el = document.querySelector(".planilla-cell-hover") as HTMLElement | null;
-      if (!el) return false;
-      const r = el.getBoundingClientRect();
-      // Margen superior generoso: puente desde la celda fuente hasta la ficha.
-      return x >= r.left - 4 && x <= r.right + 4 && y >= r.top - 20 && y <= r.bottom + 4;
-    };
-
-    /** Celdas tapadas por la ficha no deben robar el hover. */
-    const cellUnderCard = (td: HTMLElement) => {
-      const el = document.querySelector(".planilla-cell-hover") as HTMLElement | null;
-      if (!el || !hover.current?.isVisible()) return false;
-      const cr = el.getBoundingClientRect();
-      const tr = td.getBoundingClientRect();
-      const overlapX = tr.left < cr.right && tr.right > cr.left;
-      const overlapY = tr.top < cr.bottom && tr.bottom > cr.top;
-      return overlapX && overlapY;
-    };
-
-    const showFor = (hit: { rowId: string; colIdx: number; td: HTMLElement; key: string }) => {
-      if (suppressedRef.current() || hover.current?.isPinned()) return;
-      const ctx = resolveRef.current(hit.rowId, hit.colIdx);
-      if (!ctx) return;
-      const rect = hit.td.getBoundingClientRect();
-      hover.current?.show(ctx, rect);
-      applyHl(hit.rowId, hit.colIdx);
-      activeKey = hit.key;
-    };
-
+    /** Solo resalte cruzado; la ficha se abre por clic (PlanillaGrid). */
     const onOver = (e: PointerEvent) => {
-      if (!fineHover || suppressedRef.current()) {
-        cancelOpen();
-        return;
-      }
-      if (hover.current?.isPinned()) return;
-
-      // Puntero sobre/cerca de la ficha: mantener, no cambiar de celda.
-      if (pointerOnCard(e.clientX, e.clientY)) {
-        cancelClose();
-        cancelOpen();
-        return;
-      }
-
+      if (!fineHover || suppressedRef.current()) return;
       const hit = parseRc(e.target as Element);
-      if (!hit) {
-        if ((e.target as Element)?.closest?.(".planilla-cell-hover")) {
-          cancelClose();
-          return;
-        }
-        scheduleHide();
-        return;
-      }
-
-      // Misma celda ya mostrada: no reiniciar timers.
-      if (activeKey === hit.key && hover.current?.isVisible()) {
-        cancelClose();
-        cancelOpen();
-        return;
-      }
-
-      // Celda bajo la ficha abierta: ignorar (evita el salto al bajar a Acciones).
-      if (cellUnderCard(hit.td)) {
-        cancelClose();
-        cancelOpen();
-        return;
-      }
-
-      cancelClose();
-      cancelOpen();
-      const delay = activeKey && hover.current?.isVisible() ? SWITCH_MS : OPEN_MS;
-      openTimer = setTimeout(() => showFor(hit), delay);
+      if (!hit) return;
+      if (!resolveRef.current(hit.rowId, hit.colIdx)) return;
+      applyHl(hit.rowId, hit.colIdx);
     };
 
     const onOut = (e: PointerEvent) => {
       const related = e.relatedTarget as Element | null;
-      if (related?.closest?.(".planilla-cell-hover")) {
-        cancelClose();
-        return;
-      }
-      if (related?.closest?.("td[data-rc]")) {
-        // Cambio celda→celda: onOver de la nueva decide; no ocultar aquí.
-        return;
-      }
-      // Si el puntero sigue cerca de la ficha (relatedTarget null en algunos browsers).
-      if (hover.current?.isVisible() && pointerOnCard(e.clientX, e.clientY)) {
-        cancelClose();
-        return;
-      }
-      scheduleHide();
+      if (related?.closest?.("td[data-rc]")) return;
+      if (!hover.current?.isVisible()) clearHl();
     };
 
     const onScroll = () => {
-      cancelOpen();
-      cancelClose();
-      if (!hover.current?.isPinned()) {
-        hover.current?.hide();
-        clearHl();
-        activeKey = null;
-      }
+      if (hover.current?.isVisible()) hover.current.forceHide();
+      clearHl();
+    };
+
+    const onDocPointerDown = (e: PointerEvent) => {
+      if (!hover.current?.isVisible()) return;
+      const t = e.target as Element | null;
+      if (!t) return;
+      if (t.closest?.(".planilla-cell-hover")) return;
+      if (t.closest?.("td[data-rc]")) return;
+      // Menús / sheets / dialogs Radix encima de la planilla.
+      if (t.closest?.("[data-radix-popper-content-wrapper]")) return;
+      if (t.closest?.("[data-radix-menu-content]")) return;
+      if (t.closest?.("[role='dialog']")) return;
+      hover.current.forceHide();
+      clearHl();
     };
 
     root.addEventListener("pointerover", onOver);
     root.addEventListener("pointerout", onOut);
     root.addEventListener("scroll", onScroll, { passive: true });
+    document.addEventListener("pointerdown", onDocPointerDown, true);
 
     return () => {
-      cancelOpen();
-      cancelClose();
       clearHl();
       mqHover.removeEventListener("change", syncMq);
       mqDesktop.removeEventListener("change", syncMq);
       root.removeEventListener("pointerover", onOver);
       root.removeEventListener("pointerout", onOut);
       root.removeEventListener("scroll", onScroll);
+      document.removeEventListener("pointerdown", onDocPointerDown, true);
     };
   }, [opts.scrollerRef, opts.hoverRef]);
 }
