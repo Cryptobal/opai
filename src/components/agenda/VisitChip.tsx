@@ -1,6 +1,5 @@
 "use client";
 
-import { Cloud, CloudOff, Loader2 } from "lucide-react";
 import { Tag } from "@/components/opai-ds";
 import {
   paletteBorder,
@@ -8,6 +7,7 @@ import {
   paletteSoftBg,
 } from "@/lib/design/calendar-palette";
 import { cn } from "@/lib/utils";
+import { syncStatusMeta } from "./agenda-sync-status";
 
 const TYPE_CLASS: Record<string, string> = {
   tecnica: "bg-status-ok-soft text-status-ok-fg border-status-ok-border",
@@ -21,6 +21,7 @@ type Props = {
   title: string;
   start: string;
   syncStatus?: string | null;
+  syncReason?: string | null;
   eventColor?: string;
   onClick?: () => void;
   /** Con id, el chip se puede arrastrar a otro día (reprograma + Google Calendar). */
@@ -32,6 +33,7 @@ export function VisitChip({
   title,
   start,
   syncStatus,
+  syncReason,
   eventColor,
   onClick,
   draggableId,
@@ -40,8 +42,8 @@ export function VisitChip({
     hour: "2-digit",
     minute: "2-digit",
   });
-  const SyncIcon =
-    syncStatus === "SYNCED" ? Cloud : syncStatus === "PENDING" ? Loader2 : CloudOff;
+  const sync = syncStatusMeta(syncStatus, syncReason);
+  const SyncIcon = sync.icon;
 
   const tone = eventColor
     ? cn(
@@ -70,7 +72,18 @@ export function VisitChip({
     >
       <div className="flex items-center justify-between gap-1">
         <span className="font-medium">{time}</span>
-        {syncStatus && <SyncIcon className="h-3.5 w-3.5 shrink-0 opacity-70" />}
+        {SyncIcon && (
+          <SyncIcon
+            className={cn(
+              "h-3.5 w-3.5 shrink-0",
+              sync.tone === "ok" && "text-status-ok-fg",
+              sync.tone === "warn" && "text-status-warn-fg",
+              sync.tone === "danger" && "text-status-danger-fg",
+              sync.status === "PENDING" && "animate-spin",
+            )}
+            aria-label={sync.ariaLabel}
+          />
+        )}
       </div>
       <p className="truncate">{title}</p>
       <Tag size="sm" variant="neutral" className="mt-1">

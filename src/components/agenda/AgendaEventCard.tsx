@@ -3,7 +3,8 @@
 import { useRef, useState, type CSSProperties, type PointerEvent } from "react";
 import { useDraggable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
-import { Cloud, CloudOff, ExternalLink, GripHorizontal } from "lucide-react";
+import { ExternalLink, GripHorizontal } from "lucide-react";
+import { syncStatusMeta } from "./agenda-sync-status";
 import { Avatar } from "@/components/opai-ds";
 import {
   paletteBorder,
@@ -133,8 +134,23 @@ export function AgendaTimedEvent({
             {formatAgendaTime(new Date(item.end))}
           </span>
           {item.source === "google" && <ExternalLink className="h-3 w-3 shrink-0" />}
-          {item.syncStatus === "SYNCED" && <Cloud className="h-3 w-3 shrink-0" />}
-          {item.syncStatus === "ERROR" && <CloudOff className="h-3 w-3 shrink-0" />}
+          {(() => {
+            const sync = syncStatusMeta(item.syncStatus, item.syncReason);
+            if (!sync.icon || sync.status === "NONE") return null;
+            const Icon = sync.icon;
+            return (
+              <Icon
+                className={cn(
+                  "h-3 w-3 shrink-0",
+                  sync.tone === "ok" && "text-status-ok-fg",
+                  sync.tone === "warn" && "text-status-warn-fg",
+                  sync.tone === "danger" && "text-status-danger-fg",
+                  sync.status === "PENDING" && "animate-spin",
+                )}
+                aria-label={sync.ariaLabel}
+              />
+            );
+          })()}
         </span>
         {showDetails && assigneeName && (
           <span className="mt-1 flex min-w-0 items-center gap-1.5">
