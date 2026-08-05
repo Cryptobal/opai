@@ -8,6 +8,12 @@
 
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import {
+  loadDealAgendaImpact,
+  loadDealInstallationImpact,
+  type DealAgendaImpact,
+  type DealInstallationImpact,
+} from "@/modules/crm/deal-delete-cascade";
 
 export type QuoteDeleteBlocker = { code: string; label: string };
 
@@ -28,11 +34,15 @@ export type DealDeleteImpact = {
   deal: { id: string; title: string };
   quotes: QuoteDeleteImpact[];
   bundles: Array<{ id: string; code: string; memberCount: number }>;
+  agenda: DealAgendaImpact;
+  installation: DealInstallationImpact;
   counts: {
     quotes: number;
     bundles: number;
     positions: number;
     attachments: number;
+    agendaEvents: number;
+    licitacionBands: number;
   };
   blockers: QuoteDeleteBlocker[];
   warnings: string[];
@@ -248,18 +258,40 @@ export async function buildDealDeleteImpact(
     memberCount: b._count.quotes,
   }));
 
+  const [agenda, installation] = await Promise.all([
+    loadDealAgendaImpact(tenantId, dealId),
+    loadDealInstallationImpact(tenantId, dealId, quoteIds),
+  ]);
+
   const blockers = dedupeBlockers(quotes.flatMap((q) => q.blockers));
   const warnings = [...new Set(quotes.flatMap((q) => q.warnings))];
+  if (agenda.counts.agendaEvents > 0) {
+    warnings.push(
+      `${agenda.counts.agendaEvents} evento${agenda.counts.agendaEvents === 1 ? "" : "s"} de agenda se cancelarán también en Google Calendar`,
+    );
+  }
+  if (agenda.counts.licitacionBands > 0) {
+    warnings.push("La banda de licitación se eliminará de la agenda y de Google Calendar");
+  }
+  if (installation && !installation.canDelete) {
+    warnings.push(
+      `Instalación «${installation.name}» no se elimina: ${installation.blockers.map((b) => b.label).join("; ")}`,
+    );
+  }
 
   return {
     deal,
     quotes,
     bundles,
+    agenda,
+    installation,
     counts: {
       quotes: quotes.length,
       bundles: bundles.length,
       positions: quotes.reduce((sum, q) => sum + q.counts.positions, 0),
       attachments: quotes.reduce((sum, q) => sum + q.counts.attachments, 0),
+      agendaEvents: agenda.counts.agendaEvents,
+      licitacionBands: agenda.counts.licitacionBands,
     },
     blockers,
     warnings,

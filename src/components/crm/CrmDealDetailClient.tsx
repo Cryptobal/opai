@@ -61,7 +61,10 @@ import { useWaTemplate } from "@/lib/whatsapp/use-wa-template";
 import { buildAdjudicacionDatosBlock, buildAdjudicacionDotacionBlock } from "@/lib/docs/wa-blocks";
 import { Textarea } from "@/components/ui/textarea";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { confirmDialog, promptDialog } from "@/components/ui/confirm-service";
+import {
+  confirmDialogDetailed,
+  promptDialog,
+} from "@/components/ui/confirm-service";
 import { AttachmentPicker, EmptyState } from "@/components/opai-ds";
 import { SearchableSelect, type SearchableOption } from "@/components/ui/SearchableSelect";
 import { toast } from "sonner";
@@ -168,7 +171,16 @@ type DealDeleteImpact = {
     bundles: number;
     positions: number;
     attachments: number;
+    agendaEvents?: number;
+    licitacionBands?: number;
   };
+  installation?: {
+    id: string;
+    name: string;
+    canDelete: boolean;
+    deleteByDefault: boolean;
+    blockers: DeleteBlocker[];
+  } | null;
   blockers: DeleteBlocker[];
   warnings: string[];
 };
@@ -177,14 +189,29 @@ function formatDealDeleteImpact(impact: DealDeleteImpact | null) {
   if (!impact) {
     return "No se pudo calcular el impacto completo. El servidor validará dependencias antes de eliminar.";
   }
+  const agendaEvents = impact.counts.agendaEvents ?? 0;
+  const licitacionBands = impact.counts.licitacionBands ?? 0;
   const lines = [
     "Se eliminará el negocio y su cascada asociada.",
     "",
     `Cotizaciones a papelera: ${impact.counts.quotes}`,
     `Propuestas eliminadas: ${impact.counts.bundles}`,
+    `Eventos de agenda (también en Google): ${agendaEvents}`,
+    ...(licitacionBands > 0
+      ? [`Banda de licitación: ${licitacionBands}`]
+      : []),
     `Puestos afectados: ${impact.counts.positions}`,
     `Adjuntos asociados: ${impact.counts.attachments}`,
   ];
+  if (impact.installation) {
+    if (impact.installation.canDelete) {
+      lines.push(`Instalación candidata: ${impact.installation.name}`);
+    } else {
+      lines.push(
+        `Instalación no eliminable: ${impact.installation.name} (${impact.installation.blockers.map((b) => b.label).join("; ")})`,
+      );
+    }
+  }
   if (impact.warnings.length > 0) {
     lines.push("", "Advertencias:", ...impact.warnings.map((w) => `- ${w}`));
   }
@@ -194,10 +221,14 @@ function formatDealDeleteImpact(impact: DealDeleteImpact | null) {
   return lines.join("\n");
 }
 
-function deleteUrlWithParams(base: string, force: boolean, reason: string | null) {
+function deleteUrlWithParams(
+  base: string,
+  opts: { force?: boolean; reason?: string | null; deleteInstallation?: boolean } = {},
+) {
   const params = new URLSearchParams();
-  if (force) params.set("force", "true");
-  if (reason) params.set("reason", reason);
+  if (opts.force) params.set("force", "true");
+  if (opts.reason) params.set("reason", opts.reason);
+  if (opts.deleteInstallation) params.set("deleteInstallation", "true");
   const qs = params.toString();
   return qs ? `${base}?${qs}` : base;
 }
@@ -995,21 +1026,34 @@ export function CrmDealDetailClient({
   );
   const localFollowUpLogsDesc = followUpLogsDesc;
 
-  const deleteDeal = async (opts: { force?: boolean; reason?: string | null } = {}) => {
+  const deleteDeal = async (
+    opts: {
+      force?: boolean;
+      reason?: string | null;
+      deleteInstallation?: boolean;
+    } = {},
+  ) => {
     try {
       const res = await fetch(
-        deleteUrlWithParams(
-          `/api/crm/deals/${deal.id}`,
-          Boolean(opts.force),
-          opts.reason ?? null,
-        ),
+        deleteUrlWithParams(`/api/crm/deals/${deal.id}`, {
+          force: Boolean(opts.force),
+          reason: opts.reason ?? null,
+          deleteInstallation: Boolean(opts.deleteInstallation),
+        }),
         { method: "DELETE" },
       );
       const json = await res.json().catch(() => ({}));
       if (!res.ok || !json.success) {
         throw new Error(json.error || "No se pudo eliminar");
       }
-      toast.success("Negocio eliminado");
+      const googleErrors = Number(json.cascaded?.googleErrors ?? 0);
+      if (googleErrors > 0) {
+        toast.success(
+          `Negocio eliminado. ${googleErrors} evento(s) quedaron pendientes de cancelar en Google.`,
+        );
+      } else {
+        toast.success("Negocio eliminado");
+      }
       router.push("/crm/deals");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "No se pudo eliminar");
@@ -1032,6 +1076,21 @@ export function CrmDealDetailClient({
     if (!impact) return;
 
     const description = formatDealDeleteImpact(impact);
+    const installationCheck =
+      impact.installation != null
+        ? [
+            {
+              key: "deleteInstallation",
+              label: `Eliminar también la instalación «${impact.installation.name}»`,
+              defaultChecked: impact.installation.deleteByDefault,
+              disabled: !impact.installation.canDelete,
+              hint: impact.installation.canDelete
+                ? "Sin referencias fuera de este negocio."
+                : impact.installation.blockers.map((b) => b.label).join("; "),
+            },
+          ]
+        : undefined;
+
     if (impact.blockers.length > 0) {
       const typed = await promptDialog({
         title: "Eliminar negocio con bloqueos",
@@ -1045,18 +1104,22 @@ export function CrmDealDetailClient({
       await deleteDeal({
         force: true,
         reason: "Eliminación forzada confirmada escribiendo el título del negocio.",
+        deleteInstallation: Boolean(impact.installation?.canDelete),
       });
       return;
     }
 
-    const confirmed = await confirmDialog({
+    const result = await confirmDialogDetailed({
       title: "Eliminar negocio",
       description,
       confirmLabel: "Eliminar negocio",
       variant: "destructive",
+      checks: installationCheck,
     });
-    if (!confirmed) return;
-    await deleteDeal();
+    if (!result.confirmed) return;
+    await deleteDeal({
+      deleteInstallation: Boolean(result.checks.deleteInstallation),
+    });
   };
 
   const applyPlaceholders = (value: string) => {
