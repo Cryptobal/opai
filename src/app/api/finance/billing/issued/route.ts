@@ -5,7 +5,7 @@ import {
   resolveApiPerms,
   parseBody,
 } from "@/lib/api-auth";
-import { hasFacturacionCapability } from "@/lib/permissions";
+import { hasCapability, hasFacturacionCapability } from "@/lib/permissions";
 import { issueDteSchema } from "@/lib/validations/finance";
 import {
   issueDte,
@@ -650,6 +650,7 @@ export async function POST(request: NextRequest) {
       forceIssueDateToToday: forceIssueDateToToday ?? undefined,
       allowFutureDate: allowFutureDate ?? undefined,
       allowAnchoredDate: allowAnchoredDate ?? undefined,
+      canExcludeFromFlow: hasCapability(perms, "cashflow_manage"),
     });
 
     return NextResponse.json({ success: true, data: result }, { status: 201 });

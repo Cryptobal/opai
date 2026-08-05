@@ -6,7 +6,7 @@ import {
   resolveApiPerms,
   parseBody,
 } from "@/lib/api-auth";
-import { hasFacturacionCapability } from "@/lib/permissions";
+import { hasCapability, hasFacturacionCapability } from "@/lib/permissions";
 import { issueDraftDte } from "@/modules/finance/billing/dte-draft.service";
 import {
   AnchoredIssueDateError,
@@ -29,6 +29,8 @@ const issueDraftSchema = z.object({
   allowFutureDate: z.boolean().optional(),
   /** Confirmación: mantener fecha en semana sellada/pasada. */
   allowAnchoredDate: z.boolean().optional(),
+  /** Motivo para excluir del flujo post-emisión (efímero). */
+  flowExclusionReason: z.string().trim().min(5).max(300).optional(),
 });
 
 export async function POST(
@@ -55,7 +57,10 @@ export async function POST(
     const parsed = await parseBody(request, issueDraftSchema);
     if (parsed.error) return parsed.error;
 
-    const issued = await issueDraftDte(ctx.tenantId, id, ctx.userId, parsed.data);
+    const issued = await issueDraftDte(ctx.tenantId, id, ctx.userId, {
+      ...parsed.data,
+      canExcludeFromFlow: hasCapability(perms, "cashflow_manage"),
+    });
     return NextResponse.json({ success: true, data: issued }, { status: 201 });
   } catch (error) {
     if (error instanceof FutureIssueDateError) {

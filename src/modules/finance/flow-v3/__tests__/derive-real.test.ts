@@ -160,6 +160,43 @@ describe("deriveReal", () => {
     expect(out.size).toBe(0);
   });
 
+  it("abono conciliado de DTE OTHER_INCOME cae en UNMATCHED_INCOME_KEY", () => {
+    const dteById = new Map<string, DteRefInput>([
+      ["dte-oi", {
+        folio: 77, direction: "ISSUED", crmAccountId: "acc-Z", installationId: null,
+        supplierId: null, categoryId: null, name: "Esporádico",
+        flowRouting: "OTHER_INCOME",
+      }],
+    ]);
+    const out = deriveReal({
+      ...base,
+      dteById,
+      txs: [tx({
+        links: [{ targetType: "DTE_ISSUED", targetId: "dte-oi", amountClp: 1_000_000, accountPlanId: null }],
+      })],
+    });
+    expect(out.get(UNMATCHED_INCOME_KEY)?.get("2026-07-13")?.total).toBe(1_000_000);
+  });
+
+  it("OTHER_INCOME fuerza Otros ingresos aunque la cuenta tenga fila", () => {
+    const dteById = new Map<string, DteRefInput>([
+      ["dte-oi2", {
+        folio: 78, direction: "ISSUED", crmAccountId: "acc-A", installationId: null,
+        supplierId: null, categoryId: null, name: "Cliente A",
+        flowRouting: "OTHER_INCOME",
+      }],
+    ]);
+    const out = deriveReal({
+      ...base,
+      dteById,
+      txs: [tx({
+        links: [{ targetType: "DTE_ISSUED", targetId: "dte-oi2", amountClp: 500_000, accountPlanId: null }],
+      })],
+    });
+    expect(out.get(UNMATCHED_INCOME_KEY)?.get("2026-07-13")?.total).toBe(500_000);
+    expect(out.get("row-cliA")).toBeUndefined();
+  });
+
   it("movimiento fuera del rango se ignora", () => {
     const out = deriveReal({ ...base, txs: [tx({ dateYmd: "2026-09-15" })] });
     expect(out.size).toBe(0);

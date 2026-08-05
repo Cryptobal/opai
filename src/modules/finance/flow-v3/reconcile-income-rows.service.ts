@@ -37,8 +37,8 @@ export async function reconcileIncomeRows(tenantId: string): Promise<void> {
     await applySectionMoves(tx, tenantId);
     await ensureCanonicalRows(tx, tenantId);
     await adoptOrCreateTemplateRows(tx, tenantId);
-    await createRowsForAccountsWithPendingDtes(tx, tenantId);
-    await archiveSurplusRows(tx, tenantId);
+    const ownRowAccounts = await createRowsForAccountsWithPendingDtes(tx, tenantId);
+    await archiveSurplusRows(tx, tenantId, ownRowAccounts);
     await purgeRetiredCanonicalRows(tx, tenantId);
   });
 }
@@ -248,8 +248,16 @@ async function adoptOrCreateTemplateRows(tx: Tx, tenantId: string): Promise<void
   }
 }
 
-/** Crea filas INGRESOS por cuenta CRM con DTEs pendientes sin fila propia (cap 50). */
-async function createRowsForAccountsWithPendingDtes(tx: Tx, tenantId: string): Promise<void> {
+/**
+ * Crea filas INGRESOS por cuenta CRM con DTEs pendientes sin fila propia (cap 50).
+ * Salta DTEs con flowRouting=OTHER_INCOME. Devuelve cuentas con DTE OWN_ROW
+ * pendiente (para que archiveSurplusRows no las archive en el mismo pase).
+ */
+async function createRowsForAccountsWithPendingDtes(
+  tx: Tx,
+  tenantId: string,
+): Promise<Set<string>> {
+  const ownRowAccounts = new Set<string>();
   const [config, dtes, existingRows, accounts, last] = await Promise.all([
     tx.financeCashflowConfig.findUnique({
       where: { tenantId },
@@ -271,6 +279,7 @@ async function createRowsForAccountsWithPendingDtes(tx: Tx, tenantId: string): P
         totalAmount: true,
         amountPaid: true,
         date: true,
+        flowRouting: true,
       },
     }),
     tx.financeFlowRow.findMany({
@@ -316,16 +325,20 @@ async function createRowsForAccountsWithPendingDtes(tx: Tx, tenantId: string): P
     if (!afterCutoff(d)) continue;
     const pending = Number(d.totalAmount) - Number(d.amountPaid);
     if (pending <= 0) continue;
+    // OTHER_INCOME: no crear fila; cae en la canónica "Otros ingresos".
+    if (d.flowRouting === "OTHER_INCOME") continue;
     let accId = d.crmAccountId;
     if (!accId && d.receiverRut) {
       const key = cleanRut(d.receiverRut);
       accId = key ? (accountByRut.get(key) ?? null) : null;
     }
-    if (!accId || coveredAccounts.has(accId)) continue;
+    if (!accId) continue;
+    if (d.flowRouting === "OWN_ROW") ownRowAccounts.add(accId);
+    if (coveredAccounts.has(accId)) continue;
     accountsWithPending.add(accId);
   }
 
-  if (accountsWithPending.size === 0) return;
+  if (accountsWithPending.size === 0) return ownRowAccounts;
 
   const accountById = new Map(accounts.map((a) => [a.id, a]));
   let orderIndex = (last?.orderIndex ?? -1) + 1;
@@ -358,9 +371,14 @@ async function createRowsForAccountsWithPendingDtes(tx: Tx, tenantId: string): P
   if (created > 0) {
     console.log(`[FLOW-V3] createRowsForAccountsWithPendingDtes: created ${created} income row(s)`);
   }
+  return ownRowAccounts;
 }
 
-async function archiveSurplusRows(tx: Tx, tenantId: string): Promise<void> {
+async function archiveSurplusRows(
+  tx: Tx,
+  tenantId: string,
+  ownRowAccounts: Set<string> = new Set(),
+): Promise<void> {
   const [rows, activeTemplates, planRows] = await Promise.all([
     tx.financeFlowRow.findMany({
       where: {
@@ -420,6 +438,7 @@ async function archiveSurplusRows(tx: Tx, tenantId: string): Promise<void> {
       shouldArchiveSurplusAccountRow({
         hasPlanData: planRowIds.has(r.id),
         linkedActiveTemplate: linkedActive,
+        hasExplicitOwnRowDte: !!r.crmAccountId && ownRowAccounts.has(r.crmAccountId),
       })
     ) {
       archiveIds.add(r.id);

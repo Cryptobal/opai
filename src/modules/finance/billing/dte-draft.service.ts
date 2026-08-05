@@ -165,6 +165,7 @@ export async function createDraftDte(
       // Vínculo programación + período (capa para dedupe period-aware del flujo).
       recurringTemplateId: templateLink.recurringTemplateId,
       billingPeriod: templateLink.billingPeriod,
+      flowRouting: input.flowRouting ?? null,
       lines: {
         create: calc.lines.map((l, i) => ({
           lineNumber: i + 1,
@@ -373,6 +374,7 @@ export async function updateDraftDte(
         estadoPagoPeriodoMode: input.estadoPagoPeriodoMode ?? "PREVIOUS",
         recurringTemplateId: templateLink.recurringTemplateId,
         billingPeriod: templateLink.billingPeriod,
+        flowRouting: input.flowRouting ?? null,
         lines: {
           create: calc.lines.map((l, i) => ({
             lineNumber: i + 1,
@@ -452,6 +454,10 @@ export async function issueDraftDte(
     allowFutureDate?: boolean;
     /** Permite emitir con fecha en semana sellada/pasada (confirmación explícita). */
     allowAnchoredDate?: boolean;
+    /** Motivo de exclusión del flujo (efímero; no vive en el borrador). */
+    flowExclusionReason?: string;
+    /** Emisor con capability cashflow_manage. */
+    canExcludeFromFlow?: boolean;
   },
 ) {
   const draft = await prisma.financeDte.findFirst({
@@ -505,6 +511,8 @@ export async function issueDraftDte(
     // Conservar vínculo del borrador (null explícito = no heredar de nuevo).
     recurringTemplateId: draft.recurringTemplateId,
     billingPeriod: draft.billingPeriod,
+    flowRouting: draft.flowRouting,
+    flowExclusionReason: overrides?.flowExclusionReason,
     lines: draft.lines.map((l) => ({
       itemCode: l.itemCode ?? undefined,
       itemName: l.itemName,
@@ -547,6 +555,7 @@ export async function issueDraftDte(
     forceIssueDateToToday: overrides?.forceIssueDateToToday,
     allowFutureDate: overrides?.allowFutureDate,
     allowAnchoredDate: overrides?.allowAnchoredDate,
+    canExcludeFromFlow: overrides?.canExcludeFromFlow,
   });
 
   // Reasignar occurrences que apuntaban al draft → al nuevo DTE emitido,

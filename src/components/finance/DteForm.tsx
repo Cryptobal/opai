@@ -44,6 +44,10 @@ import { notifyEmitResult } from "@/components/finance/programacion/emit-toast";
 import { EmisionConfirmDialog } from "./EmisionConfirmDialog";
 import { PdfPreviewDialog } from "./PdfPreviewDialog";
 import {
+  DteFlowDestinationPicker,
+  type FlowDestination,
+} from "./DteFlowDestinationPicker";
+import {
   DteRecipientsPicker,
   type DteRecipientsValue,
 } from "./DteRecipientsPicker";
@@ -115,6 +119,8 @@ interface Props {
   onSaved?: () => void;
   /** Si se pasa, tras emitir llama esto en vez de navegar a DTEs. */
   onIssued?: () => void;
+  /** Capability cashflow_manage: habilita "No incluir en el flujo". */
+  canManageCashflow?: boolean;
 }
 
 interface DteLine extends LineDetailValue {
@@ -178,6 +184,7 @@ export function DteForm({
   onCancel,
   onSaved,
   onIssued,
+  canManageCashflow = false,
 }: Props) {
   const router = useRouter();
 
@@ -193,6 +200,15 @@ export function DteForm({
   );
   /** Vínculo a programación: con 1+ programaciones siempre apunta a una fila. */
   const [recurringTemplateId, setRecurringTemplateId] = useState<string | null>(null);
+  /**
+   * Destino en planilla cuando la cuenta no tiene programaciones activas.
+   * Sin preselección: el submit exige una elección.
+   */
+  const [flowDestination, setFlowDestination] = useState<FlowDestination | null>(null);
+  const [flowExclusionReason, setFlowExclusionReason] = useState(
+    "Factura puntual fuera del flujo de caja",
+  );
+  const [flowDestinationHighlight, setFlowDestinationHighlight] = useState(false);
   /**
    * cuota = templateId + billingPeriod (suprime la P del período).
    * extra = templateId + período nulo (cae en la fila sin borrar la cuota P).
@@ -529,6 +545,9 @@ export function DteForm({
           // Sin vínculo persistido: permitir autofill por instalación (2+ filas).
           skipTemplateAutofillRef.current = false;
         }
+        if (d.flowRouting === "OWN_ROW" || d.flowRouting === "OTHER_INCOME") {
+          setFlowDestination(d.flowRouting);
+        }
         // Reconstruir el `customer` (CustomerOption) del CRM cuando el draft
         // tiene crmAccountId. Sin esto el combobox queda vacío y, peor, la
         // BillingPlanSection cree que no hay cliente y deshabilita el plan.
@@ -659,7 +678,10 @@ export function DteForm({
   useEffect(() => {
     if (!customer?.id) {
       setAccountTemplates([]);
-      if (!skipTemplateAutofillRef.current) setRecurringTemplateId(null);
+      if (!skipTemplateAutofillRef.current) {
+        setRecurringTemplateId(null);
+        setFlowDestination(null);
+      }
       return;
     }
     const ctrl = new AbortController();
@@ -680,6 +702,8 @@ export function DteForm({
           skipTemplateAutofillRef.current = false;
           return;
         }
+        // Cambio de cliente: reiniciar destino puntual (sin preselección).
+        if (forAccount.length === 0) setFlowDestination(null);
         if (forAccount.length === 1) {
           const t = forAccount[0];
           setRecurringTemplateId(t.id);
@@ -1013,6 +1037,30 @@ export function DteForm({
       toast.error("Indicá el período (cuota) que ocupa esta factura.");
       return;
     }
+    // Factura puntual (0 programaciones): exigir destino en flujo de caja.
+    if (
+      (dteTypeNum === 33 || dteTypeNum === 34) &&
+      accountTemplates.length === 0 &&
+      customer?.id
+    ) {
+      if (!flowDestination) {
+        toast.error("Elegí dónde entra esta factura en el flujo de caja");
+        setFlowDestinationHighlight(true);
+        document
+          .getElementById("dte-flow-destination")
+          ?.scrollIntoView({ behavior: "smooth", block: "center" });
+        return;
+      }
+      if (
+        flowDestination === "EXCLUDE" &&
+        flowExclusionReason.trim().length < 5
+      ) {
+        toast.error("Indicá un motivo de al menos 5 caracteres para excluirla del flujo");
+        setFlowDestinationHighlight(true);
+        return;
+      }
+    }
+    setFlowDestinationHighlight(false);
 
     // Validación pasada — abrir modal de confirmación. La emisión real
     // se dispara desde EmisionConfirmDialog.onConfirm → submitToServer.
@@ -1091,8 +1139,8 @@ export function DteForm({
       estadoPagoRecipientContactIds:
         billingPlan.estadoPagoRecipientContactIds,
       estadoPagoPeriodoMode: billingPlan.estadoPagoPeriodoMode,
-      // Destino en flujo de caja (v4.3):
-      // - 0 programaciones → sin vínculo (bandeja).
+      // Destino en flujo de caja (v4.3 + destino explícito):
+      // - 0 programaciones → flowRouting / exclusión elegidos por el usuario.
       // - 1+ → siempre templateId; cuota setea período, extra lo deja nulo.
       recurringTemplateId:
         accountTemplates.length === 0 ? null : recurringTemplateId,
@@ -1102,6 +1150,19 @@ export function DteForm({
           : linkMode === "cuota"
             ? billingPeriod || null
             : null,
+      ...(accountTemplates.length === 0 &&
+      customer?.id &&
+      (dteType === "33" || dteType === "34")
+        ? {
+            flowRouting:
+              flowDestination === "EXCLUDE" || !flowDestination
+                ? null
+                : flowDestination,
+            ...(flowDestination === "EXCLUDE"
+              ? { flowExclusionReason: flowExclusionReason.trim() }
+              : {}),
+          }
+        : {}),
       notes: notes.trim() || null,
       autoSendEmail: overrides?.autoSendEmail ?? autoSendEmail,
       sendXmlToBackoffice: overrides?.sendXmlToBackoffice,
@@ -1159,6 +1220,9 @@ export function DteForm({
           autoSendEmail: opts.autoSendEmail,
           sendXmlToBackoffice: opts.sendXmlToBackoffice,
           ufOverride,
+          ...(flowDestination === "EXCLUDE"
+            ? { flowExclusionReason: flowExclusionReason.trim() }
+            : {}),
         });
         if (!result.ok) {
           if (result.code === "TEMPLATE_LINK_REQUIRED") {
@@ -1168,6 +1232,13 @@ export function DteForm({
           throw new Error(result.error || "Error al emitir borrador");
         }
         notifyEmitResult(result.data);
+        const fe = (result.data as { flowExclusion?: { applied: boolean; error?: string } } | undefined)
+          ?.flowExclusion;
+        if (fe && fe.applied === false) {
+          toast.warning(
+            `Emitida ✓ — pero no se pudo excluir del flujo: ${fe.error ?? "error desconocido"}. Resolvé desde la planilla.`,
+          );
+        }
       } else {
         const postIssued = async (extra: Record<string, unknown> = {}) => {
           const res = await fetch("/api/finance/billing/issued", {
@@ -1211,6 +1282,14 @@ export function DteForm({
           throw new Error(json.error || "Error al emitir DTE");
         }
         notifyEmitResult(json?.data);
+        const fe = json?.data?.flowExclusion as
+          | { applied: boolean; error?: string }
+          | undefined;
+        if (fe && fe.applied === false) {
+          toast.warning(
+            `Emitida ✓ — pero no se pudo excluir del flujo: ${fe.error ?? "error desconocido"}. Resolvé desde la planilla.`,
+          );
+        }
       }
       setConfirmOpen(false);
       if (onIssued) {
@@ -1517,6 +1596,21 @@ export function DteForm({
           </div>
 
           <div className="grid gap-4 md:grid-cols-2 mt-4">
+            {accountTemplates.length === 0 &&
+              customer &&
+              (dteType === "33" || dteType === "34") && (
+                <DteFlowDestinationPicker
+                  value={flowDestination}
+                  reason={flowExclusionReason}
+                  canManageCashflow={canManageCashflow}
+                  highlight={flowDestinationHighlight}
+                  onChange={(v) => {
+                    setFlowDestination(v);
+                    setFlowDestinationHighlight(false);
+                  }}
+                  onReasonChange={setFlowExclusionReason}
+                />
+              )}
             {accountTemplates.length > 0 && (
               <div className="space-y-3 md:col-span-2">
                 <div className="space-y-1.5">

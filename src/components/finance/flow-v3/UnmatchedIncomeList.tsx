@@ -106,13 +106,16 @@ export function UnmatchedIncomeList({
         if (!j.success) throw new Error(j.error ?? "Error");
         if (cancelled) return;
         setBankTxs(Array.isArray(j.bankTxs) ? (j.bankTxs as BankTxRow[]) : []);
-        if (Array.isArray(j.groups) && j.groups.length > 0) {
-          setGroups(j.groups as GroupRow[]);
-          setExpanded(new Set((j.groups as GroupRow[]).map((g) => g.key)));
-        } else {
-          const items = (j.data as DteRow[]) ?? [];
+        // Panel "Facturas sin fila": preferir unroutedDtes (excluye OTHER_INCOME).
+        // groups del API incluye ruteados a propósito (drill de Otros ingresos).
+        const unroutedItems: DteRow[] = Array.isArray(j.unroutedDtes)
+          ? (j.unroutedDtes as DteRow[])
+          : Array.isArray(j.data)
+            ? (j.data as DteRow[])
+            : [];
+        if (unroutedItems.length > 0 || mode === "unrouted" || mode === "all") {
           const byKey = new Map<string, GroupRow>();
-          for (const it of items) {
+          for (const it of unroutedItems) {
             const accId = it.crmAccountId ?? null;
             const key = accId
               ? `acc:${accId}`
@@ -139,6 +142,9 @@ export function UnmatchedIncomeList({
           const next = [...byKey.values()];
           setGroups(next);
           setExpanded(new Set(next.map((g) => g.key)));
+        } else if (Array.isArray(j.groups) && j.groups.length > 0) {
+          setGroups(j.groups as GroupRow[]);
+          setExpanded(new Set((j.groups as GroupRow[]).map((g) => g.key)));
         }
       })
       .catch((e: unknown) => {
