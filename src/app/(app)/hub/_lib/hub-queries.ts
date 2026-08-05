@@ -368,6 +368,9 @@ export async function getClosingHubData(
             createdAt: true,
             updatedAt: true,
             parameters: { select: { salePriceMonthly: true } },
+            proposalBundleQuote: {
+              select: { bundleId: true, includedInProposal: true },
+            },
           },
         })
       : [],
@@ -375,7 +378,16 @@ export async function getClosingHubData(
 
   // Build maps
   const stageChangedAtByDeal = new Map(stageHistoryRows.map((r) => [r.dealId, r.changedAt]));
-  const quoteById = new Map(negotiatingQuotes.map((q) => [q.id, q]));
+  const quoteById = new Map(
+    negotiatingQuotes.map((q) => [
+      q.id,
+      {
+        ...q,
+        bundleId: q.proposalBundleQuote?.bundleId ?? null,
+        includedInProposal: q.proposalBundleQuote?.includedInProposal ?? true,
+      },
+    ])
+  );
 
   // Group portal actions by quoteId (resource) and accountId
   const viewsByQuoteId = new Map<string, { total: number; lastAt: Date | null }>();
@@ -1112,12 +1124,23 @@ export async function getCommercialMetrics(
                 salePriceMonthly: true,
               },
             },
+            proposalBundleQuote: {
+              select: { bundleId: true, includedInProposal: true },
+            },
           },
         })
       : Promise.resolve([]),
   ]);
   const negotiatingQuoteById = new Map(
-    negotiatingQuotes.map((quote) => [quote.id, quote])
+    negotiatingQuotes.map((quote) => [
+      quote.id,
+      {
+        ...quote,
+        bundleId: quote.proposalBundleQuote?.bundleId ?? null,
+        includedInProposal:
+          quote.proposalBundleQuote?.includedInProposal ?? true,
+      },
+    ])
   );
   const activeNegotiationSummaries = negotiatingDeals
     .map((deal) =>

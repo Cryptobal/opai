@@ -1167,7 +1167,7 @@ export function CrmDealDetailClient({
       : "";
     const baseLabel =
       linkedQuotes.length > 1
-        ? "Automática (última enviada)"
+        ? "Automática (mejor disponible)"
         : "Automática (única cotización)";
     return `${baseLabel}${autoSummary}`;
   })();
@@ -1183,7 +1183,9 @@ export function CrmDealDetailClient({
   });
   const aboutQuoteHelperText = deal.activeQuoteSummary
     ? `Actual: ${deal.activeQuoteSummary.code || "Sin código"} (${deal.activeQuoteSummary.isManual ? "selección manual" : "selección automática"}).`
-    : "Sin cotización activa. El negocio mostrará $0 hasta tener una cotización enviada o aprobada.";
+    : linkedQuotes.length > 0
+      ? "No hay cotización usable para el monto. Revisa que las cotizaciones no estén rechazadas."
+      : "Sin cotizaciones vinculadas. El negocio mostrará $0 hasta asociar una cotización.";
 
   const updateActiveQuotation = async (value: string) => {
     const nextActiveQuotationId = value === "__auto__" ? null : value;
