@@ -32,6 +32,8 @@ export interface CashflowConfig {
   writeOffOverPaymentAccountId: string | null;
   collectionLagDays: number;
   flowWarnThresholdClp: number;
+  residualCarryEnabled: boolean;
+  residualMinClp: number;
   flowCutoffYmd: string | null;
   projectReceivedDtesAsExpense: boolean;
   finiquitosAvgMonths: number;
@@ -54,6 +56,8 @@ export type RawCashflowConfig = Omit<
   | "payrollMutualRatePct"
   | "flowCutoffYmd"
   | "projectReceivedDtesAsExpense"
+  | "residualCarryEnabled"
+  | "residualMinClp"
   | "finiquitosAvgMonths"
   | "finiquitosManualMonthlyClp"
   | "f29CreditAvgMonths"
@@ -69,6 +73,8 @@ export type RawCashflowConfig = Omit<
   writeOffMaxPercent: number | string;
   flowCutoffYmd?: string | Date | null;
   projectReceivedDtesAsExpense?: boolean;
+  residualCarryEnabled?: boolean;
+  residualMinClp?: number;
   finiquitosAvgMonths?: number;
   finiquitosManualMonthlyClp?: number | null;
   f29CreditAvgMonths?: number;
@@ -98,6 +104,8 @@ export function coerceCashflowConfig(initial: RawCashflowConfig): CashflowConfig
       ? String(initial.flowCutoffYmd).slice(0, 10)
       : null,
     projectReceivedDtesAsExpense: initial.projectReceivedDtesAsExpense === true,
+    residualCarryEnabled: initial.residualCarryEnabled !== false,
+    residualMinClp: Number(initial.residualMinClp ?? 10_000),
     finiquitosAvgMonths: Number(initial.finiquitosAvgMonths ?? 6),
     finiquitosManualMonthlyClp:
       initial.finiquitosManualMonthlyClp == null

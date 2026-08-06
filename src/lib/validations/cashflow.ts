@@ -43,6 +43,10 @@ export const updateCashflowConfigSchema = z.object({
   collectionLagDays: z.number().int().min(0).max(180).optional(),
   // Umbral CLP del semáforo del saldo (ámbar bajo este valor).
   flowWarnThresholdClp: z.number().int().min(0).max(1_000_000_000).optional(),
+  // Residual: remanente no ejecutado sigue pesando en la semana.
+  residualCarryEnabled: z.boolean().optional(),
+  // Remanente bajo el cual la proyección se da por cumplida sola.
+  residualMinClp: z.number().int().min(0).max(10_000_000).optional(),
   // Corte de cartera (YYYY-MM-DD) o null para quitar. Validado ≤ hoy en service.
   flowCutoffYmd: z
     .union([

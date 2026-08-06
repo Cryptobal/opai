@@ -241,3 +241,48 @@ Fecha: 2026-08-04 · Branch: `cursor/flujo-caja-cartola-first-e1f1`
 Al confirmar clasificación de un movimiento a una fila se crea/actualiza
 `FinanceAutoMatchRule` (`BENEFICIARY_RUT RUT_MATCHES` → `{kind:"FLOW_ROW"}`)
 y `run-rules-only` re-aplica al histórico `UNMATCHED` del mismo RUT.
+
+---
+
+## Residual / saldo por ejecutar (v3)
+
+Fecha: 2026-08-06 · Branch: `cursor/flow-v3-residual-carry-b328`
+
+### Problema
+
+Cuando una celda tenía real parcial, `layer === "real"` hacía `effective = real`
+y descartaba la proyección. El pendiente no entraba a `pendingNet` ni al saldo
+de la semana en curso.
+
+### Modelo
+
+Por celda (fila × semana, no pasada):
+
+```
+committedNet   = Σ items kind === "dte"     // ya neto de amountPaid (familia B)
+committedGross = committed.total − committedNet  // hitos / cuotas / borradores (familia A)
+si plan ≠ 0 && !invoiced:
+  projGrossCash = planCash; committedNetCash = 0   // plan pisa todo
+si no:
+  projGrossCash = sign × committedGross
+  committedNetCash = sign × committedNet
+residual = remanente de projGrossCash no ejecutado (clamp, tolerancia, CLOSED)
+effective = realSigned + committedNetCash + residual
+```
+
+- **Familia A** (plan / hitos brutos): el residual proyecta lo que falta.
+- **Familia B** (facturas `kind=dte`): el pendiente ya viene neto → no se estima
+  residual bruto; se suma `committedNetCash` al real.
+- `residualCarryEnabled=false` + real ≠ 0 ⇒ sólo real (legado byte a byte).
+- Semanas pasadas: sólo real. El residual no se arrastra entre semanas;
+  "Mover pendiente" crea/suma plan en la semana destino.
+- Liquidación por celda: `FinanceFlowCellSettlement` (`AUTO` = ausencia,
+  `CLOSED` = dar por cumplido). Config: `residualCarryEnabled` (default true),
+  `residualMinClp` (default 10.000).
+
+### UI
+
+Barra de ejecución 2,5 px al pie (partial/over), bloque Ejecución en ficha y
+panel Composición, acciones: Dar por cumplido · Reabrir · Ajustar proyección
+al real · Mover pendiente a la próxima semana. `drift.pct` normalizado a
+magnitud; el chip usa `execution.pct` (% ejecutado).
