@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { prisma } from "@/lib/prisma";
 import { deleteFile, uploadFile } from "@/lib/storage";
+import { invalidateAdminPhotoCache } from "@/lib/app-request-context";
 export const runtime = "nodejs";
 
 const MAX_BYTES = 2 * 1024 * 1024; // 2MB
@@ -121,6 +122,8 @@ export async function POST(request: NextRequest) {
       },
     }).catch(() => undefined);
 
+    invalidateAdminPhotoCache(admin.id);
+
     return NextResponse.json({ success: true, data: { photoUrl: updated.photoUrl } });
   } catch (err) {
     console.error("[ME/AVATAR] upload error:", err);
@@ -175,6 +178,8 @@ export async function DELETE() {
         entityId: admin.id,
       },
     }).catch(() => undefined);
+
+    invalidateAdminPhotoCache(admin.id);
 
     return NextResponse.json({ success: true });
   } catch (err) {

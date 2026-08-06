@@ -1,15 +1,14 @@
 import type { Metadata, Viewport } from "next";
 import Script from "next/script";
-import { Analytics } from "@vercel/analytics/react";
 import { BadgeClear } from "@/components/pwa/BadgeClear";
 import { PWAProvider } from "@/components/pwa/PWAProvider";
 import { ThemeProvider } from "@/components/opai/ThemeProvider";
-import { Toaster } from "@/components/ui/toaster";
-import { UndoSnackbarHost } from "@/components/opai-ds";
-import { ConfirmHost } from "@/components/ui/confirm-service";
-import { CookieConsentBanner } from "@/components/CookieConsent";
-import { ConditionalAnalytics } from "@/components/ConditionalAnalytics";
 import { PlatformDataAttribute } from "@/components/opai/portal-shell";
+import { NativeSplashGate } from "@/components/pwa/NativeSplashGate";
+import {
+  DeferredRootOverlays,
+  DeferredThemeOverlays,
+} from "@/components/pwa/DeferredRootChrome";
 import "../styles/globals.css";
 
 export const viewport: Viewport = {
@@ -103,18 +102,15 @@ export default function RootLayout({
       </head>
       <body>
         <PlatformDataAttribute />
-        <ConditionalAnalytics />
+        <NativeSplashGate />
         <ThemeProvider>
           <PWAProvider>
             <BadgeClear />
             {children}
           </PWAProvider>
-          <Toaster />
-          <UndoSnackbarHost />
-          <ConfirmHost />
+          <DeferredThemeOverlays />
         </ThemeProvider>
-        <CookieConsentBanner />
-        <Analytics />
+        <DeferredRootOverlays />
       </body>
     </html>
   );

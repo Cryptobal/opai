@@ -23,8 +23,9 @@ const config: CapacitorConfig = {
   appId: "cl.opai.erp",
   appName: "Opai ERP",
   webDir: "out",
+  backgroundColor: "#060a13",
   server: {
-    url: "https://www.opai.cl/opai/login",
+    url: "https://www.opai.cl/app-boot.html?to=/opai/login",
     allowNavigation: [
       "www.opai.cl",
       "opai.gard.cl",
@@ -34,16 +35,22 @@ const config: CapacitorConfig = {
   },
   plugins: {
     SplashScreen: {
-      launchShowDuration: 2000,
-      backgroundColor: "#0a1628",
-      showSpinner: false,
+      launchShowDuration: 20000, // red de seguridad; el hide real lo hace el JS
+      launchAutoHide: true, // nunca dejar el splash pegado
+      backgroundColor: "#060a13",
+      showSpinner: true,
+      androidSpinnerStyle: "large",
+      iosSpinnerStyle: "small",
+      spinnerColor: "#14b8a6",
+      splashFullScreen: true,
+      splashImmersive: true,
     },
     PushNotifications: {
       presentationOptions: ["badge", "sound", "alert"],
     },
     StatusBar: {
       style: "DARK",
-      backgroundColor: "#0a1628",
+      backgroundColor: "#060a13",
     },
     // resize None: el composer fullscreen se ancla a visualViewport en JS.
     // accessoryBarVisible se apaga en runtime al abrir el composer (iOS).

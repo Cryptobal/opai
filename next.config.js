@@ -196,6 +196,12 @@ const nextConfig = {
         ],
       },
       {
+        source: '/app-boot.html',
+        headers: [
+          { key: 'Cache-Control', value: 'public, max-age=0, s-maxage=300, stale-while-revalidate=86400' },
+        ],
+      },
+      {
         source: '/:path*manifest.json',
         headers: [
           { key: 'Content-Type', value: 'application/manifest+json' },
