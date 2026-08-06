@@ -8,6 +8,8 @@ import {
 } from "@/components/ui/sheet";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
+import { Archive, Trash2 } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -31,6 +33,9 @@ interface Props {
     name?: string;
     section?: string;
   }) => Promise<void>;
+  onDelete?: () => void;
+  onArchive?: () => void;
+  deleteBusy?: boolean;
 }
 
 export function RowConfigDrawer({
@@ -40,6 +45,9 @@ export function RowConfigDrawer({
   accountOptions,
   saving = false,
   onSave,
+  onDelete,
+  onArchive,
+  deleteBusy = false,
 }: Props) {
   if (!row) return null;
   const isIncome = row.section === "INGRESOS";
@@ -107,6 +115,38 @@ export function RowConfigDrawer({
                   ? "Renglón de sistema: la cuenta se muestra para referencia y no se edita aquí."
                   : "“Destino” = si un movimiento de cartola cae en esta cuenta y no hay otra regla, va a este renglón. Solo hace falta cuando dos renglones comparten la misma cuenta."}
               </p>
+            </div>
+          )}
+          {!isIncome && (
+            <div className="pt-4 mt-2 border-t border-ds-border-subtle space-y-2">
+              <p className="text-[12px] text-ds-text-3">
+                Archivar oculta el renglón hacia adelante y conserva el histórico.
+                Eliminar solo es posible si no tiene plan, comprometido ni real.
+              </p>
+              {onArchive && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full h-11 sm:h-10"
+                  disabled={saving || deleteBusy}
+                  onClick={onArchive}
+                >
+                  <Archive className="h-4 w-4 mr-2" />
+                  Archivar renglón
+                </Button>
+              )}
+              {onDelete && !systemLocked && (
+                <Button
+                  type="button"
+                  variant="destructive"
+                  className="w-full h-11 sm:h-10"
+                  disabled={saving || deleteBusy}
+                  onClick={onDelete}
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Eliminar renglón
+                </Button>
+              )}
             </div>
           )}
         </div>

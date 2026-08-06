@@ -22,6 +22,7 @@ import type { AccountOption } from "./cashflow-config-types";
 import { FlowRowConfigListItem } from "./FlowRowConfigListItem";
 import { RowConfigDrawer } from "./RowConfigDrawer";
 import { FlowHealthPanel } from "./FlowHealthPanel";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
   countProblems,
   normalizeHealth,
@@ -34,6 +35,12 @@ type Props = {
 };
 
 type SectionGroup = { key: string; rows: FlowRowConfigItem[] };
+
+type RowDialogState =
+  | { kind: "delete"; row: FlowRowConfigItem }
+  | { kind: "deleteBlocked"; row: FlowRowConfigItem; reason: string }
+  | { kind: "archive"; row: FlowRowConfigItem }
+  | null;
 
 /** Secciones donde se puede crear renglón desde configuración. */
 const ADDABLE_SECTIONS = [
@@ -67,6 +74,8 @@ export function FlowRowsConfigPanel({ accountOptions }: Props) {
   const [drawerRow, setDrawerRow] = useState<FlowRowConfigItem | null>(null);
   const [addSection, setAddSection] = useState<string | null>(null);
   const [addBusy, setAddBusy] = useState(false);
+  const [rowDialog, setRowDialog] = useState<RowDialogState>(null);
+  const [rowActionBusy, setRowActionBusy] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -182,6 +191,42 @@ export function FlowRowsConfigPanel({ accountOptions }: Props) {
       toast.error("Error de red al guardar");
     } finally {
       setSavingId(null);
+    }
+  }
+
+  async function deleteRow(rowId: string): Promise<{ ok: true } | { ok: false; reason: string }> {
+    setRowActionBusy(true);
+    try {
+      const r = await fetch(`/api/finance/flow-v3/rows/${rowId}`, { method: "DELETE" });
+      const j = await r.json();
+      if (!r.ok || !j?.success) {
+        return { ok: false, reason: j?.error ?? "No se pudo eliminar" };
+      }
+      toast.success("Renglón eliminado");
+      await load();
+      return { ok: true };
+    } catch {
+      return { ok: false, reason: "Error de red al eliminar" };
+    } finally {
+      setRowActionBusy(false);
+    }
+  }
+
+  async function archiveRow(rowId: string): Promise<void> {
+    setRowActionBusy(true);
+    try {
+      const r = await fetch(`/api/finance/flow-v3/rows/${rowId}/archive`, { method: "POST" });
+      const j = await r.json();
+      if (!r.ok || !j?.success) {
+        toast.error(j?.error ?? "No se pudo archivar");
+        return;
+      }
+      toast.success("Renglón archivado");
+      await load();
+    } catch {
+      toast.error("Error de red al archivar");
+    } finally {
+      setRowActionBusy(false);
     }
   }
 
@@ -352,9 +397,82 @@ export function FlowRowsConfigPanel({ accountOptions }: Props) {
         }}
         accountOptions={accountOptions}
         saving={!!drawerRow && savingId === drawerRow.id}
+        deleteBusy={rowActionBusy}
         onSave={async (patch) => {
           if (!drawerRow) return;
           await patchRow(drawerRow.id, patch);
+          setDrawerRow(null);
+        }}
+        onDelete={
+          drawerRow && drawerRow.section !== "INGRESOS" && !drawerRow.canonicalKey
+            ? () => setRowDialog({ kind: "delete", row: drawerRow })
+            : undefined
+        }
+        onArchive={
+          drawerRow && drawerRow.section !== "INGRESOS"
+            ? () => setRowDialog({ kind: "archive", row: drawerRow })
+            : undefined
+        }
+      />
+
+      <ConfirmDialog
+        open={rowDialog?.kind === "delete"}
+        onOpenChange={(o) => {
+          if (!o) setRowDialog(null);
+        }}
+        title={`Eliminar «${rowDialog?.kind === "delete" ? rowDialog.row.name : ""}»`}
+        description="El renglón se elimina definitivamente. Solo es posible si no tiene plan, comprometido ni real en ninguna semana."
+        confirmLabel="Eliminar"
+        loading={rowActionBusy}
+        onConfirm={async () => {
+          if (rowDialog?.kind !== "delete") return;
+          const row = rowDialog.row;
+          const r = await deleteRow(row.id);
+          if (r.ok) {
+            setRowDialog(null);
+            setDrawerRow(null);
+          } else {
+            setRowDialog({ kind: "deleteBlocked", row, reason: r.reason });
+          }
+        }}
+      />
+      <ConfirmDialog
+        open={rowDialog?.kind === "deleteBlocked"}
+        onOpenChange={(o) => {
+          if (!o) setRowDialog(null);
+        }}
+        variant="default"
+        title="No se puede eliminar el renglón"
+        description={
+          rowDialog?.kind === "deleteBlocked"
+            ? `${rowDialog.reason}. ¿Archivarlo en su lugar? (se oculta hacia adelante y conserva el histórico).`
+            : ""
+        }
+        confirmLabel="Archivar"
+        cancelLabel="Cancelar"
+        loading={rowActionBusy}
+        onConfirm={async () => {
+          if (rowDialog?.kind !== "deleteBlocked") return;
+          const row = rowDialog.row;
+          await archiveRow(row.id);
+          setRowDialog(null);
+          setDrawerRow(null);
+        }}
+      />
+      <ConfirmDialog
+        open={rowDialog?.kind === "archive"}
+        onOpenChange={(o) => {
+          if (!o) setRowDialog(null);
+        }}
+        variant="default"
+        title={`Archivar «${rowDialog?.kind === "archive" ? rowDialog.row.name : ""}»`}
+        description="El renglón dejará de aparecer hacia adelante en el flujo de caja. El histórico se conserva."
+        confirmLabel="Archivar"
+        loading={rowActionBusy}
+        onConfirm={async () => {
+          if (rowDialog?.kind !== "archive") return;
+          await archiveRow(rowDialog.row.id);
+          setRowDialog(null);
           setDrawerRow(null);
         }}
       />
