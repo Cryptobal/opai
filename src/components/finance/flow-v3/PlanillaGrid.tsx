@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { ChevronDown, ChevronRight, Plus } from "lucide-react";
+import { ChevronDown, ChevronRight, Inbox, Plus } from "lucide-react";
 import type { FlowMatrixResponse, FlowMatrixRowDto } from "@/modules/finance/flow-v3/matrix-types";
 import { hasInvoicedIncome } from "@/modules/finance/flow-v3/cell-editability";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -48,6 +48,7 @@ import type { usePlanillaActions } from "./usePlanillaActions";
 import type { CellStyle } from "./usePlanillaViewPrefs";
 import {
   bandejaBadgeText,
+  bandejaBadgeTitle,
   collectBandejaGroups,
   isFallbackBandejaRow,
   summarizeBandejaRow,
@@ -100,6 +101,12 @@ interface Props {
   searchQuery?: string;
   /** Expone API de colapso al toolbar. */
   collapseApiRef?: React.MutableRefObject<{ expandAll: () => void; collapseAll: () => void } | null>;
+  /** Expone apertura de bandeja (egresos/ingresos) al chrome. */
+  bandejaApiRef?: React.MutableRefObject<{
+    openUnmatchedAssigner: (section: string) => void;
+  } | null>;
+  /** Solicitud externa de abrir bandeja GAV (toolbar / menubar). */
+  openBandejaRequest?: number;
   /** Solicitud externa de abrir popover de capas (fx bar / Espacio). */
   openLayersRequest?: number;
   /** Copiar rango (⌘C) — el cliente serializa TSV. */
@@ -162,7 +169,7 @@ export function PlanillaGrid({
   data, canManage, matrix, actions, onArchive, enableDrag,
   showZeros, alwaysVisibleRowIds, scrollerRef,
   showChips, numberFormat, getCellStyle, onSelectionChange,
-  searchQuery, collapseApiRef, openLayersRequest,
+  searchQuery, collapseApiRef, bandejaApiRef, openBandejaRequest, openLayersRequest,
   onCopyRange, nameW, onNameWChange, amountSort,
   sumMode = false, onSumModeChange, onDiscreteStats, onRefresh, onViewDte,
   driftAlertThresholdClp,
@@ -223,6 +230,14 @@ export function PlanillaGrid({
   );
   const bandejaExpenseBadge = useMemo(
     () => bandejaBadgeText(bandejaExpenseSummary, "GAV"),
+    [bandejaExpenseSummary],
+  );
+  const bandejaIncomeTitle = useMemo(
+    () => bandejaBadgeTitle(bandejaIncomeSummary, "INGRESOS"),
+    [bandejaIncomeSummary],
+  );
+  const bandejaExpenseTitle = useMemo(
+    () => bandejaBadgeTitle(bandejaExpenseSummary, "GAV"),
     [bandejaExpenseSummary],
   );
   const bandejaGroups = useMemo(
@@ -467,6 +482,12 @@ export function PlanillaGrid({
     };
     return () => { collapseApiRef.current = null; };
   }, [collapseApiRef]);
+
+  useEffect(() => {
+    if (!bandejaApiRef) return;
+    bandejaApiRef.current = { openUnmatchedAssigner };
+    return () => { bandejaApiRef.current = null; };
+  }, [bandejaApiRef, openUnmatchedAssigner]);
 
   const kbData = useMemo(
     () => ({ ...data, rows: numbered.flatMap((s) => s.numberedRows.map((x) => x.row)) }),
@@ -875,6 +896,14 @@ export function PlanillaGrid({
     if (kb.sel) openPopover(kb.sel);
   }, [openLayersRequest, kb.sel, openPopover]);
 
+  // Abrir bandeja GAV desde toolbar / menubar (p.ej. tras volver de vista Panel).
+  const lastBandejaReq = useRef(0);
+  useEffect(() => {
+    if (!openBandejaRequest || openBandejaRequest === lastBandejaReq.current) return;
+    lastBandejaReq.current = openBandejaRequest;
+    openUnmatchedAssigner("GAV");
+  }, [openBandejaRequest, openUnmatchedAssigner]);
+
   // ── Drag & drop de plan (desktop). ──
   const onCellDragStart = useCallback((rowId: string, week: string) => {
     dragRef.current = { rowId, week };
@@ -1267,9 +1296,15 @@ export function PlanillaGrid({
                                   openUnmatchedAssigner("INGRESOS");
                                 }
                               }}
-                              className="ml-1 max-w-[min(280px,45vw)] shrink truncate rounded-full bg-ds-surface-2 px-1.5 py-0.5 text-[12px] font-medium text-ds-text-2 hover:bg-ds-surface-3 hover:underline"
-                              title={bandejaIncomeBadge}
+                              className="ml-1 inline-flex max-w-[min(280px,45vw)] shrink items-center gap-1 max-md:truncate rounded-full bg-ds-surface-2 px-1.5 py-0.5 text-[12px] font-medium text-ds-text-2 hover:bg-ds-surface-3 hover:underline"
+                              title={bandejaIncomeTitle ?? bandejaIncomeBadge}
+                              aria-label={
+                                bandejaIncomeTitle
+                                  ? `Abrir bandeja de ingresos · ${bandejaIncomeTitle}`
+                                  : "Abrir bandeja de ingresos sin clasificar"
+                              }
                             >
+                              <Inbox className="h-3 w-3 shrink-0" aria-hidden />
                               {bandejaIncomeBadge}
                             </span>
                           )}
@@ -1310,9 +1345,15 @@ export function PlanillaGrid({
                                   openUnmatchedAssigner("GAV");
                                 }
                               }}
-                              className="ml-1 max-w-[min(280px,45vw)] shrink truncate rounded-full bg-ds-surface-2 px-1.5 py-0.5 text-[12px] font-medium text-ds-text-2 hover:bg-ds-surface-3 hover:underline"
-                              title={bandejaExpenseBadge}
+                              className="ml-1 inline-flex max-w-[min(280px,45vw)] shrink items-center gap-1 max-md:truncate rounded-full bg-ds-surface-2 px-1.5 py-0.5 text-[12px] font-medium text-ds-text-2 hover:bg-ds-surface-3 hover:underline"
+                              title={bandejaExpenseTitle ?? bandejaExpenseBadge}
+                              aria-label={
+                                bandejaExpenseTitle
+                                  ? `Abrir bandeja de egresos · ${bandejaExpenseTitle}`
+                                  : "Abrir bandeja de egresos sin clasificar"
+                              }
                             >
+                              <Inbox className="h-3 w-3 shrink-0" aria-hidden />
                               {bandejaExpenseBadge}
                             </span>
                           )}

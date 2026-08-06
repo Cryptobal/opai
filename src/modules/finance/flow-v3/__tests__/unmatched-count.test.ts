@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   assignPendingCaption,
   bandejaBadgeText,
+  bandejaBadgeTitle,
   collectBandejaGroups,
   countAssignPendingInCell,
   countAssignPendingInWindow,
@@ -87,13 +88,21 @@ describe("unmatched-count", () => {
     expect(s.distinctRutCount).toBe(2);
     expect(s.distinctGroupCount).toBe(2);
     expect(s.itemCount).toBe(2);
-    expect(bandejaBadgeText(s, "INGRESOS")).toContain("2 mov");
-    expect(bandejaBadgeText(s, "INGRESOS")).toContain("2 sin clasificar");
+    expect(bandejaBadgeText(s, "INGRESOS")).toBe("Sin clasificar · 2");
+    expect(bandejaBadgeTitle(s, "INGRESOS")).toBe(
+      "Sin clasificar · 2 · $150.000",
+    );
   });
 
   it("badge oculto si total y grupos son cero", () => {
     expect(
       bandejaBadgeText(
+        { totalClp: 0, distinctRutCount: 0, distinctGroupCount: 0, itemCount: 0 },
+        "GAV",
+      ),
+    ).toBeNull();
+    expect(
+      bandejaBadgeTitle(
         { totalClp: 0, distinctRutCount: 0, distinctGroupCount: 0, itemCount: 0 },
         "GAV",
       ),

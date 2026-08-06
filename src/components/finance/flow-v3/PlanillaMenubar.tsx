@@ -40,6 +40,9 @@ interface Props {
   onCollapse: () => void;
   onSortByAmount?: () => void;
   sortByAmountLabel?: string;
+  /** Abre bandeja GAV; deshabilitado si no hay pendientes. */
+  onClassifyEgresos?: () => void;
+  egresosPendientesCount?: number;
 }
 
 const MENUS: { key: Exclude<MenuKey, null>; label: string }[] = [
@@ -191,6 +194,18 @@ export function PlanillaMenubar(p: Props) {
                 <>
                   <Item label="Agregar concepto…" onClick={close(p.onAdd)} disabled={!p.canManage} />
                   <Item label="Cerrar semana…" onClick={close(p.onCloseWeek)} disabled={!p.canManage} />
+                  {p.onClassifyEgresos && (
+                    <Item
+                      label="Clasificar egresos sin asignar…"
+                      onClick={close(p.onClassifyEgresos)}
+                      disabled={(p.egresosPendientesCount ?? 0) <= 0}
+                      hint={
+                        (p.egresosPendientesCount ?? 0) > 0
+                          ? String(p.egresosPendientesCount)
+                          : undefined
+                      }
+                    />
+                  )}
                   <Item label="Expandir grupos" onClick={close(p.onExpand)} />
                   <Item label="Contraer grupos" onClick={close(p.onCollapse)} />
                   {p.onSortByAmount && (

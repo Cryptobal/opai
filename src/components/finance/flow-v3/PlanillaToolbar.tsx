@@ -3,7 +3,7 @@
 import { useState, type ReactNode } from "react";
 import {
   AlignCenter, AlignLeft, AlignRight, Bold, ChevronLeft, ChevronRight,
-  ChevronsDownUp, ChevronsUpDown, Download, Info, Lock, MoreHorizontal,
+  ChevronsDownUp, ChevronsUpDown, Download, Inbox, Info, Lock, MoreHorizontal,
   PaintBucket, Plus, Redo2, Search, Snowflake, Type, Undo2, ZoomIn,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -16,6 +16,9 @@ import {
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle,
 } from "@/components/ui/sheet";
+import {
+  Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
+} from "@/components/ui/tooltip";
 import type { NumberFormatMode } from "./format";
 import {
   COLOR_PALETTE, FILL_PALETTE, ZOOM_STEPS,
@@ -65,6 +68,10 @@ interface Props {
   onAdd: () => void;
   onCloseWeek: () => void;
   onLegend: () => void;
+  /** Movimientos REAL pendientes en bandeja GAV. */
+  egresosPendientesCount?: number;
+  /** Abre la bandeja de egresos (GAV). */
+  onClassifyEgresos?: () => void;
   /** Modo Σ: selección discontinua. */
   sumMode?: boolean;
   onToggleSumMode?: () => void;
@@ -111,6 +118,8 @@ function ColorSwatch({
  */
 export function PlanillaToolbar(p: Props) {
   const [moreOpen, setMoreOpen] = useState(false);
+  const egresosPendientes = p.egresosPendientesCount ?? 0;
+  const classifyDisabled = egresosPendientes <= 0 || !p.onClassifyEgresos;
 
   const needSel = (fn: () => void) => {
     if (!p.hasSelection) {
@@ -124,6 +133,29 @@ export function PlanillaToolbar(p: Props) {
     fn?.();
     setMoreOpen(false);
   };
+
+  const classifyButton = (
+    <Button
+      variant="outline"
+      size="sm"
+      className={`${btn} shrink-0 sm:px-2.5`}
+      onClick={p.onClassifyEgresos}
+      disabled={classifyDisabled}
+      aria-label={
+        egresosPendientes > 0
+          ? `Clasificar egresos · ${egresosPendientes} sin clasificar`
+          : "Clasificar egresos · no hay pendientes"
+      }
+    >
+      <Inbox className={icon} />
+      <span className="ml-1 hidden sm:inline">Clasificar egresos</span>
+      {egresosPendientes > 0 && (
+        <span className="ml-1 inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-status-warn-soft px-1.5 text-[12px] font-medium tabular-nums text-status-warn-fg">
+          {egresosPendientes}
+        </span>
+      )}
+    </Button>
+  );
 
   return (
     <div className="planilla-chrome-print-hide mb-1 flex flex-col gap-1 text-ds-text-1">
@@ -203,6 +235,23 @@ export function PlanillaToolbar(p: Props) {
         )}
 
         <div className="min-w-1 flex-1" />
+
+        {p.onClassifyEgresos && (
+          classifyDisabled ? (
+            <TooltipProvider delayDuration={200}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="inline-flex shrink-0">{classifyButton}</span>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">
+                  No hay egresos sin clasificar
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          ) : (
+            classifyButton
+          )
+        )}
 
         {p.canManage && (
           <Button

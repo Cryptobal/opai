@@ -144,24 +144,24 @@ export function collectBandejaGroups(
   return [...byKey.values()].sort((a, b) => b.totalClp - a.totalClp);
 }
 
-/** Texto del badge de sección bandeja; null si no hay nada que mostrar. */
+/** Texto corto del badge de sección bandeja; null si no hay nada que mostrar. */
 export function bandejaBadgeText(
+  summary: BandejaSummary,
+  _section: string,
+): string | null {
+  if (summary.distinctGroupCount === 0 && summary.totalClp === 0) return null;
+  return `Sin clasificar · ${summary.itemCount}`;
+}
+
+/** Title/tooltip del badge: texto corto + monto (si hay). */
+export function bandejaBadgeTitle(
   summary: BandejaSummary,
   section: string,
 ): string | null {
-  if (summary.distinctGroupCount === 0 && summary.totalClp === 0) return null;
-  const label = section === "INGRESOS" ? "Otros ingresos" : "Otros egresos";
-  const parts: string[] = [label];
-  if (summary.totalClp > 0) {
-    parts.push(`$${Math.round(summary.totalClp).toLocaleString("es-CL")}`);
-  }
-  if (summary.itemCount > 0) {
-    parts.push(`${summary.itemCount} mov`);
-  }
-  if (summary.distinctGroupCount > 0) {
-    parts.push(`${summary.distinctGroupCount} sin clasificar`);
-  }
-  return parts.join(" · ");
+  const text = bandejaBadgeText(summary, section);
+  if (!text) return null;
+  if (summary.totalClp <= 0) return text;
+  return `${text} · $${Math.round(summary.totalClp).toLocaleString("es-CL")}`;
 }
 
 /** DTEs (kind=dte) en una celda de bandeja — legado committed. */
