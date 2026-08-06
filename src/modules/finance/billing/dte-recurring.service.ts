@@ -225,6 +225,10 @@ function templateToDraftInput(
     // normal del mes).
     recurringTemplateId: t.id,
     issueDate: opts.issueDate,
+    // Término de pago del contrato: si la programación lo declara, el
+    // borrador nace con ese vencimiento. Si es null, `createDraftDte` cae
+    // al default del tenant (collectionLagDays) y luego a 30 días.
+    dueDays: t.diasCobroDesdeFactura,
     billingPeriod: opts.billingPeriod,
   };
 }

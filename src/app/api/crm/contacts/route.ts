@@ -162,6 +162,10 @@ export async function POST(request: NextRequest) {
         roleTitle: body.roleTitle || null,
         isPrimary: body.isPrimary ?? false,
         recibeCesion: body.recibeCesion ?? false,
+        recibeFacturacion: body.recibeFacturacion ?? false,
+        recibeNotasCredito: body.recibeNotasCredito ?? false,
+        recibeCobranza: body.recibeCobranza ?? false,
+        recibeOperacional: body.recibeOperacional ?? false,
       },
       include: { account: true },
     });

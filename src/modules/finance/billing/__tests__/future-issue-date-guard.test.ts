@@ -13,6 +13,10 @@ const {
     crmAccount: { findMany: vi.fn() },
     tenantDteConfig: { findUnique: vi.fn() },
     financeDte: { findFirst: vi.fn(), create: vi.fn() },
+    // Lookups del término de pago (resolveIssuedDueDate) — corren antes de
+    // la transacción de emisión.
+    financeDteRecurringTemplate: { findFirst: vi.fn() },
+    financeCashflowConfig: { findUnique: vi.fn() },
     $transaction: vi.fn(),
   };
   return { computeDteAmountsMock, prismaMock };
@@ -101,6 +105,8 @@ describe("issueDte — guard fecha futura", () => {
       ],
     });
     prismaMock.crmAccount.findMany.mockResolvedValue([]);
+    prismaMock.financeDteRecurringTemplate.findFirst.mockResolvedValue(null);
+    prismaMock.financeCashflowConfig.findUnique.mockResolvedValue(null);
   });
 
   it("bloquea emisión con fecha futura sin confirmación", async () => {
@@ -148,6 +154,8 @@ describe("issueDte — guard fecha sellada/pasada (v4.7)", () => {
       ],
     });
     prismaMock.crmAccount.findMany.mockResolvedValue([]);
+    prismaMock.financeDteRecurringTemplate.findFirst.mockResolvedValue(null);
+    prismaMock.financeCashflowConfig.findUnique.mockResolvedValue(null);
   });
 
   it("bloquea emisión con fecha en semana sellada sin confirmación", async () => {

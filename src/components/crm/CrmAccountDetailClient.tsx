@@ -77,6 +77,18 @@ import { CrmActivityTimeline } from "./CrmActivityTimeline";
 import { NewExternalChatModal } from "@/components/chat/NewExternalChatModal";
 import { useChatSidePanelContext } from "@/components/chat/ChatFloatingProvider";
 import { useRegisterChatPageContext } from "@/components/opai/ChatPageContextProvider";
+import { InlineEditField } from "@/components/opai/InlineEditField";
+import { patchCrmField } from "@/components/crm/patchCrmField";
+import {
+  normalizeWebsite,
+  normalizeRut,
+  rutForApi,
+  normalizeDateYmd,
+} from "@/lib/validations/field-normalizers";
+import {
+  describeCobranzaSource,
+  pickCobranzaRecipients,
+} from "@/modules/finance/billing/cobranza-recipients";
 
 const ACCOUNT_LOGO_MARKER_PREFIX = "[[ACCOUNT_LOGO_URL:";
 const ACCOUNT_LOGO_MARKER_SUFFIX = "]]";
@@ -120,6 +132,7 @@ type ContactRow = {
   phone?: string | null;
   roleTitle?: string | null;
   isPrimary?: boolean;
+  recibeCobranza?: boolean;
   recibeCesion?: boolean;
   portalEnabled?: boolean;
   portalPinVisible?: string | null;
@@ -228,6 +241,8 @@ type AccountDetail = {
   numeroOrdenContrato?: string | null;
   contactoEstadoPagoId?: string | null;
   layoutDocumentoCobro?: "DTE_PREVIEW" | "PROFORMA" | "ESTADO_DE_PAGO";
+  // ── Cobranza ──
+  contactoCobranzaId?: string | null;
   contacts: ContactRow[];
   deals: DealRow[];
   installations: InstallationRow[];
@@ -284,16 +299,41 @@ export function CrmAccountDetailClient({
   activityEvents = [],
   currentUserId,
   facturacion = null,
+  canEdit = false,
 }: {
   account: AccountDetail;
   quotes?: QuoteRow[];
   activityEvents?: ActivityEvent[];
   currentUserId: string;
   facturacion?: AccountFacturacion | null;
+  canEdit?: boolean;
 }) {
   const router = useRouter();
   const chatCtx = useChatSidePanelContext();
   const [account, setAccount] = useState(initialAccount);
+  const websiteFieldRef = useRef<HTMLDivElement>(null);
+
+  const commitAccountField = async (key: string, value: string | null): Promise<string | null> => {
+    const apiValue = key === "rut" ? rutForApi(value) : value;
+    const data = await patchCrmField<Record<string, unknown>>({
+      url: `/api/crm/accounts/${account.id}`,
+      key,
+      value: apiValue,
+    });
+    setAccount((prev) => {
+      const raw = data[key] ?? value;
+      if (key === "startDate" || key === "endDate") {
+        return { ...prev, [key]: raw ? String(raw).slice(0, 10) : null };
+      }
+      return { ...prev, [key]: raw ?? value };
+    });
+    if (key === "startDate" || key === "endDate") {
+      const raw = data[key] ?? value;
+      return raw ? String(raw).slice(0, 10) : null;
+    }
+    const saved = data[key];
+    return saved != null ? String(saved) : value;
+  };
 
   // Registra contexto de página para el asistente OPAI Intelligence:
   // permite preguntas tipo "resúmeme este cliente", "qué documentos tiene",
@@ -479,19 +519,38 @@ export function CrmAccountDetailClient({
     if (!accountForm.name.trim()) { toast.error("El nombre es obligatorio."); return; }
     setSavingAccount(true);
     try {
+      const body = {
+        name: accountForm.name,
+        rut: accountForm.rut || null,
+        legalName: accountForm.legalName || null,
+        legalRepresentativeName: accountForm.legalRepresentativeName || null,
+        legalRepresentativeRut: accountForm.legalRepresentativeRut || null,
+        industry: accountForm.industry || null,
+        giro: accountForm.giro || null,
+        segment: accountForm.segment || null,
+        website: accountForm.website || null,
+        address: accountForm.address || null,
+        commune: accountForm.commune || null,
+        city: accountForm.city || null,
+        notaryName: accountForm.notaryName || null,
+        notaryDate: accountForm.notaryDate || null,
+        notes: withAccountLogoMarker(accountForm.notes, accountLogoUrl),
+        startDate: accountForm.startDate || null,
+        endDate: accountForm.endDate || null,
+      };
       const res = await fetch(`/api/crm/accounts/${account.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...accountForm,
-          notes: withAccountLogoMarker(accountForm.notes, accountLogoUrl),
-        }),
+        body: JSON.stringify(body),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error);
+      const updated = data.data ?? {};
       setAccount((prev) => ({
         ...prev,
-        ...accountForm,
+        ...updated,
+        startDate: updated.startDate ? String(updated.startDate).slice(0, 10) : prev.startDate,
+        endDate: updated.endDate ? String(updated.endDate).slice(0, 10) : prev.endDate,
         notes: withAccountLogoMarker(accountForm.notes, accountLogoUrl),
       }));
       setEditAccountOpen(false);
@@ -1319,6 +1378,16 @@ export function CrmAccountDetailClient({
               <ExternalLink className="h-3 w-3 shrink-0" />
             </a>
           )}
+          {canEdit && (
+            <button
+              type="button"
+              onClick={() => websiteFieldRef.current?.scrollIntoView({ behavior: "smooth", block: "center" })}
+              className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-border/60 text-muted-foreground hover:bg-muted/50"
+              title="Editar sitio web"
+            >
+              <Pencil className="h-3 w-3" />
+            </button>
+          )}
         </div>
         {account.legalName && (
           <p className="mt-2 truncate text-sm text-muted-foreground">{account.legalName}</p>
@@ -1381,80 +1450,97 @@ export function CrmAccountDetailClient({
           </div>
         </div>
         <div className="grid grid-cols-1 gap-x-4 gap-y-2 p-4 sm:grid-cols-2">
-          <div className="min-w-0">
-            <div className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">
-              Giro / Actividad económica
-            </div>
-            <div className="break-words text-[13px] leading-snug text-foreground">
-              {account.giro || (
-                <span className="italic text-muted-foreground/70">
-                  Sin cargar — requerido por SII al facturar
-                </span>
-              )}
-            </div>
-          </div>
-          <div className="min-w-0">
-            <div className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">
-              Dirección
-            </div>
-            <div className="break-words text-[13px] leading-snug text-foreground">
-              {account.address || <span className="italic text-muted-foreground/70">Sin cargar</span>}
-            </div>
-          </div>
-          <div className="min-w-0">
-            <div className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">
-              Comuna
-            </div>
-            <div className="break-words text-[13px] leading-snug text-foreground">
-              {account.commune || <span className="italic text-muted-foreground/70">Sin cargar</span>}
-            </div>
-          </div>
-          <div className="min-w-0">
-            <div className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">
-              Ciudad
-            </div>
-            <div className="break-words text-[13px] leading-snug text-foreground">
-              {account.city || (
-                <span className="italic text-muted-foreground/70">
-                  Sin cargar — SII pide ambas (comuna + ciudad)
-                </span>
-              )}
-            </div>
-          </div>
+          <InlineEditField
+            label="Razón social"
+            fieldKey="legalName"
+            type="text"
+            value={account.legalName ?? null}
+            canEdit={canEdit}
+            onCommit={commitAccountField}
+          />
+          <InlineEditField
+            label="Giro / Actividad económica"
+            fieldKey="giro"
+            type="text"
+            value={account.giro ?? null}
+            canEdit={canEdit}
+            placeholder="Sin cargar — requerido por SII al facturar"
+            onCommit={commitAccountField}
+          />
+          <InlineEditField
+            label="Dirección"
+            fieldKey="address"
+            type="text"
+            value={account.address ?? null}
+            canEdit={canEdit}
+            onCommit={commitAccountField}
+          />
+          <InlineEditField
+            label="Comuna"
+            fieldKey="commune"
+            type="text"
+            value={account.commune ?? null}
+            canEdit={canEdit}
+            onCommit={commitAccountField}
+          />
+          <InlineEditField
+            label="Ciudad"
+            fieldKey="city"
+            type="text"
+            value={account.city ?? null}
+            canEdit={canEdit}
+            placeholder="Sin cargar — SII pide ambas (comuna + ciudad)"
+            onCommit={commitAccountField}
+          />
+          <InlineEditField
+            label="RUT"
+            fieldKey="rut"
+            type="rut"
+            value={account.rut ?? null}
+            canEdit={canEdit}
+            mono
+            normalize={normalizeRut}
+            onCommit={commitAccountField}
+          />
         </div>
       </div>
 
       {/* ── Stats strip: datos clave (2 col mobile, 4 desktop) ── */}
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
-        <div className="min-w-0 rounded-xl border border-border bg-card p-3 sm:p-4">
-          <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">RUT</div>
-          <div className="truncate font-mono text-[13px] font-medium tabular-nums text-foreground">
-            {account.rut || <span className="font-sans text-muted-foreground/70">—</span>}
-          </div>
-        </div>
-        <div className="min-w-0 rounded-xl border border-border bg-card p-3 sm:p-4">
-          <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">Industria</div>
-          <div className="truncate text-[13px] font-medium text-foreground">
-            {account.industry || <span className="text-muted-foreground/70">—</span>}
-          </div>
-        </div>
-        <div className="min-w-0 rounded-xl border border-border bg-card p-3 sm:p-4">
-          <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">Segmento</div>
-          <div className="truncate text-[13px] font-medium text-foreground">
-            {account.segment || <span className="text-muted-foreground/70">—</span>}
-          </div>
-        </div>
-        <div className="min-w-0 rounded-xl border border-border bg-card p-3 sm:p-4">
-          <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">Vigencia</div>
-          <div className="truncate text-[13px] font-medium text-foreground">
-            {account.startDate
-              ? new Intl.DateTimeFormat("es-CL", { year: "numeric", month: "short" }).format(new Date(account.startDate))
-              : <span className="text-muted-foreground/70">—</span>}
-            {account.endDate && (
-              <> → {new Intl.DateTimeFormat("es-CL", { year: "numeric", month: "short" }).format(new Date(account.endDate))}</>
-            )}
-          </div>
-        </div>
+        <InlineEditField
+          label="Industria"
+          fieldKey="industry"
+          type="text"
+          value={account.industry ?? null}
+          canEdit={canEdit}
+          onCommit={commitAccountField}
+        />
+        <InlineEditField
+          label="Segmento"
+          fieldKey="segment"
+          type="text"
+          value={account.segment ?? null}
+          canEdit={canEdit}
+          onCommit={commitAccountField}
+        />
+        <InlineEditField
+          label="Inicio vigencia"
+          fieldKey="startDate"
+          type="date"
+          value={account.startDate ? String(account.startDate).slice(0, 10) : null}
+          canEdit={canEdit}
+          normalize={normalizeDateYmd}
+          onCommit={commitAccountField}
+        />
+        <InlineEditField
+          label="Fin vigencia"
+          fieldKey="endDate"
+          type="date"
+          value={account.endDate ? String(account.endDate).slice(0, 10) : null}
+          canEdit={canEdit}
+          normalize={normalizeDateYmd}
+          onCommit={commitAccountField}
+        />
       </div>
 
       {/* ── Representación legal (colapsable) ── */}
@@ -1572,6 +1658,72 @@ export function CrmAccountDetailClient({
         }
       />
 
+      {/* ── Cobranza ──
+          Quién recibe los recordatorios de pago de este cliente. Va aparte del
+          "Documento de cobro" a propósito: ese contacto firma el estado de pago
+          ANTES de emitir, y no siempre es la misma persona a la que después hay
+          que perseguir para que pague. Sin definir, la cobranza cae a los
+          contactos marcados "recibe cobranza" y luego al principal. */}
+      {(() => {
+        const effective = pickCobranzaRecipients({
+          contactoCobranzaId: account.contactoCobranzaId ?? null,
+          contacts: account.contacts,
+        });
+        const effectiveNames = effective.contacts
+          .map((c) => `${c.firstName ?? ""} ${c.lastName ?? ""}`.trim())
+          .filter(Boolean)
+          .join(", ");
+
+        return (
+          <div className="rounded-xl border border-border bg-card">
+            <div className="border-b border-border/50 px-4 py-2">
+              <p className="text-ds-caption font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">
+                Cobranza
+              </p>
+            </div>
+            <div className="grid grid-cols-1 gap-x-4 gap-y-2 p-4 sm:grid-cols-2">
+              <InlineEditField
+                label="Contacto de cobranza"
+                fieldKey="contactoCobranzaId"
+                type="select"
+                value={account.contactoCobranzaId ?? null}
+                canEdit={canEdit}
+                fullWidth
+                emptyLabel="Sin definir — usa el principal"
+                placeholder="Sin definir — usa el principal"
+                hint="Destinatario de los recordatorios de pago."
+                options={account.contacts.map((c) => ({
+                  value: c.id,
+                  label: [
+                    `${c.firstName} ${c.lastName}`.trim(),
+                    c.email ?? null,
+                    c.recibeCobranza
+                      ? "marcado cobranza"
+                      : c.isPrimary
+                        ? "principal"
+                        : null,
+                  ]
+                    .filter(Boolean)
+                    .join(" · "),
+                }))}
+                onCommit={commitAccountField}
+              />
+              <DetailField
+                label="A quién se le cobra hoy"
+                value={
+                  effective.source === "none"
+                    ? "Nadie — cargá un contacto en el cliente"
+                    : `${effectiveNames || "Contacto sin nombre"} — ${describeCobranzaSource(
+                        effective.source,
+                      ).toLowerCase()}`
+                }
+                fullWidth
+              />
+            </div>
+          </div>
+        );
+      })()}
+
       {/* ── Metadata (colapsable) ── */}
       <details className="group rounded-xl border border-border bg-card">
         <summary className="flex cursor-pointer list-none select-none items-center justify-between px-4 py-3 transition-colors hover:bg-muted/20">
@@ -1658,14 +1810,12 @@ export function CrmAccountDetailClient({
             <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Información de la empresa</span>
           </div>
           <div className="flex items-center gap-1.5">
-            {!account.website && (
-              <Input
-                value={enrichWebsiteInput}
-                onChange={(e) => setEnrichWebsiteInput(e.target.value)}
-                placeholder="https://www.empresa.cl"
-                className={`h-7 text-xs w-44 ${inputCn}`}
-              />
-            )}
+            <Input
+              value={enrichWebsiteInput}
+              onChange={(e) => setEnrichWebsiteInput(e.target.value)}
+              placeholder="https://www.empresa.cl"
+              className={`h-7 text-xs w-44 ${inputCn}`}
+            />
             <Button
               type="button"
               size="sm"
@@ -1679,13 +1829,44 @@ export function CrmAccountDetailClient({
             </Button>
           </div>
         </div>
+        <div ref={websiteFieldRef} className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <InlineEditField
+            label="Nombre comercial"
+            fieldKey="name"
+            type="text"
+            value={account.name}
+            canEdit={canEdit}
+            required
+            onCommit={commitAccountField}
+          />
+          <InlineEditField
+            label="Sitio web"
+            fieldKey="website"
+            type="url"
+            value={account.website ?? null}
+            canEdit={canEdit}
+            normalize={normalizeWebsite}
+            onCommit={commitAccountField}
+          />
+          <InlineEditField
+            label="Notas / descripción"
+            fieldKey="notes"
+            type="textarea"
+            value={stripAccountLogoMarker(account.notes) || null}
+            canEdit={canEdit}
+            fullWidth
+            onCommit={async (key, value) => {
+              const notesWithLogo = withAccountLogoMarker(value ?? "", accountLogoUrl);
+              const saved = await commitAccountField(key, notesWithLogo);
+              return stripAccountLogoMarker(saved) || null;
+            }}
+          />
+        </div>
         {stripAccountLogoMarker(account.notes) ? (
-          <p className="text-xs text-muted-foreground leading-relaxed">
+          <p className="text-xs text-muted-foreground leading-relaxed sr-only">
             {stripAccountLogoMarker(account.notes)}
           </p>
-        ) : (
-          <p className="text-xs text-muted-foreground/60 italic">Sin descripción. Usa &quot;Traer datos&quot; para obtener información automáticamente.</p>
-        )}
+        ) : null}
         <div className="flex items-center gap-2">
           <Input
             value={regenerateInstruction}

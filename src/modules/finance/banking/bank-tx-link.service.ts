@@ -33,6 +33,7 @@ import {
   applyAutoWriteOff,
   resolveCounterpartyAccountId,
 } from "./write-off.service";
+import { resolveUnpaidPaymentStatus } from "../billing/dte-overdue.service";
 
 // ── Helpers internos ──
 
@@ -125,8 +126,13 @@ async function recomputeDtePaymentAggregate(
   let writeOffApplied = false;
 
   if (paid <= 0) {
-    const overdue = dte.dueDate ? dte.dueDate.getTime() < Date.now() : false;
-    status = overdue ? "OVERDUE" : "UNPAID";
+    // Mismo criterio que el cron /api/cron/dte-overdue: el corte es el día
+    // calendario en Chile, no el instante UTC. Comparar contra `Date.now()`
+    // marcaba vencida a una factura que vence HOY (la columna `@db.Date` llega
+    // como medianoche UTC), así que desconciliar adelantaba el OVERDUE ~un día
+    // respecto del cron. Sin `dueDate` se preserva un OVERDUE previo en vez de
+    // degradarlo a UNPAID.
+    status = resolveUnpaidPaymentStatus(dte.dueDate, dte.paymentStatus);
   } else if (paid + 5 >= total) {
     // Tolerancia mínima de $5 CLP para absorber residuos de redondeo cuando
     // un pago se reparte entre N movimientos (bulk reconcile N→M). El

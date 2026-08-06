@@ -4,7 +4,7 @@
 
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
-import { resolvePagePerms, canView, hasCapability } from "@/lib/permissions-server";
+import { resolvePagePerms, canView, canEdit, hasCapability } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
 import { getInstallationContractCoverage } from "@/lib/crm/installation-contracts";
 import { CrmAccountDetailClient } from "@/components/crm/CrmAccountDetailClient";
@@ -21,6 +21,7 @@ export default async function CrmAccountDetailPage({
   }
   const perms = await resolvePagePerms(session.user);
   if (!canView(perms, "crm", "accounts")) redirect("/crm");
+  const canEditAccount = canEdit(perms, "crm", "accounts");
   const tenantId = session.user.tenantId;
 
   let [account, quotes, activityLogs] = await Promise.all([
@@ -215,6 +216,7 @@ export default async function CrmAccountDetailPage({
       activityEvents={JSON.parse(JSON.stringify(activityEvents))}
       currentUserId={session.user.id}
       facturacion={facturacion}
+      canEdit={canEditAccount}
     />
   );
 }

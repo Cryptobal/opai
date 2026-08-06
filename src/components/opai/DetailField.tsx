@@ -3,41 +3,37 @@
 import { type ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
-/* ── Types ── */
-
-interface DetailFieldProps {
-  /** Label del campo (ej: "RUT", "Industria") */
+export interface DetailFieldDisplayProps {
   label: string;
-  /** Valor del campo — string, number, o ReactNode para badges/links */
   value?: ReactNode;
-  /** Icono opcional a la izquierda del valor */
   icon?: ReactNode;
-  /** Si true, ocupa 2 columnas en un grid */
   fullWidth?: boolean;
-  /** Texto a mostrar cuando value es null/undefined/vacío */
   placeholder?: string;
-  /** Clases CSS adicionales */
   className?: string;
-  /** Si true, el valor se muestra como texto mono (ej: RUT, teléfono) */
   mono?: boolean;
-  /** Si true, copia al portapapeles al hacer clic */
   copyable?: boolean;
-  /** Si true, el campo se renderiza como una "caja" con borde y fondo card (estilo stats strip) */
   boxed?: boolean;
+  /** Affordance extra a la derecha del valor (lápiz, candado, spinner). */
+  trailing?: ReactNode;
+  /** Contenedor interactivo (botón) — props de accesibilidad. */
+  interactive?: {
+    onClick?: () => void;
+    onKeyDown?: (e: React.KeyboardEvent) => void;
+    tabIndex?: number;
+    "aria-label"?: string;
+    role?: string;
+  };
+  /** Barra de acento izquierda (hover/edit). */
+  accent?: boolean;
+  /** Estado visual de guardado. */
+  statusHint?: ReactNode;
 }
 
 /**
- * DetailField — Campo label:valor estandarizado para vistas de detalle.
- *
- * Uso:
- * ```tsx
- * <DetailField label="RUT" value="76.123.456-7" mono />
- * <DetailField label="Estado" value={<StatusBadge status="active" />} />
- * <DetailField label="Notas" value={longText} fullWidth />
- * <DetailField label="Banco" value="BancoEstado" boxed />
- * ```
+ * Markup de lectura compartido por DetailField e InlineEditField.
+ * No duplicar este markup en callers.
  */
-export function DetailField({
+export function DetailFieldDisplay({
   label,
   value,
   icon,
@@ -47,7 +43,11 @@ export function DetailField({
   mono = false,
   copyable = false,
   boxed = false,
-}: DetailFieldProps) {
+  trailing,
+  interactive,
+  accent = false,
+  statusHint,
+}: DetailFieldDisplayProps) {
   const isEmpty =
     value === null || value === undefined || value === "" || value === 0;
 
@@ -56,70 +56,91 @@ export function DetailField({
     navigator.clipboard.writeText(value).catch(() => {});
   };
 
+  const Tag = interactive ? "button" : "div";
+
   return (
-    <div
+    <Tag
+      type={interactive ? "button" : undefined}
       className={cn(
-        "min-w-0",
+        "min-w-0 relative text-left w-full",
         fullWidth && "sm:col-span-2",
         boxed &&
-          "rounded-xl border border-border/60 bg-card/40 p-3 sm:p-4 transition-colors hover:bg-card/60 hover:border-border",
+          "rounded-xl border border-ds-border-default/60 bg-ds-surface-1/40 p-3 sm:p-4 transition-colors hover:bg-ds-surface-1/60",
+        accent &&
+          "pl-3 before:absolute before:left-0 before:top-0 before:bottom-0 before:w-0.5 before:rounded-full before:bg-primary",
+        interactive &&
+          "min-h-11 sm:min-h-0 rounded-md -mx-1 px-1 py-0.5 hover:bg-ds-surface-2/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
         className
       )}
+      onClick={interactive?.onClick ?? (copyable ? handleCopy : undefined)}
+      onKeyDown={interactive?.onKeyDown}
+      tabIndex={interactive?.tabIndex}
+      aria-label={interactive?.["aria-label"]}
+      role={interactive?.role}
+      title={
+        !interactive && copyable && typeof value === "string"
+          ? "Clic para copiar"
+          : undefined
+      }
     >
       <dt
         className={cn(
-          "break-words",
+          "break-words flex items-center gap-1.5",
           boxed
-            ? "mb-1.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80"
-            : "text-xs font-medium text-muted-foreground mb-0.5 uppercase tracking-wide"
+            ? "mb-1.5 text-[12px] font-semibold uppercase tracking-[0.08em] text-ds-text-3"
+            : "text-xs font-medium text-ds-text-3 mb-0.5 uppercase tracking-wide"
         )}
       >
-        {label}
+        <span>{label}</span>
+        {statusHint}
       </dt>
       <dd
         className={cn(
           "min-w-0 break-words",
           boxed ? "text-[13px] font-medium text-foreground" : "text-sm text-foreground",
           mono && "font-mono tabular-nums",
-          copyable && !isEmpty && "cursor-copy hover:text-primary transition-colors",
-          isEmpty && "text-muted-foreground/60"
+          copyable && !isEmpty && !interactive && "cursor-copy hover:text-primary transition-colors",
+          isEmpty && "text-ds-text-4"
         )}
-        onClick={copyable ? handleCopy : undefined}
-        title={copyable && typeof value === "string" ? "Clic para copiar" : undefined}
       >
         <span className="flex items-start gap-1.5 min-w-0">
           {icon && <span className="shrink-0 mt-0.5">{icon}</span>}
-          <span className="min-w-0 break-words">
+          <span className="min-w-0 break-words flex-1">
             {isEmpty ? placeholder : value}
           </span>
+          {trailing && <span className="shrink-0 mt-0.5">{trailing}</span>}
         </span>
       </dd>
-    </div>
+    </Tag>
   );
 }
 
-/* ── DetailFieldGrid ── */
-
-interface DetailFieldGridProps {
-  children: ReactNode;
+interface DetailFieldProps {
+  label: string;
+  value?: ReactNode;
+  icon?: ReactNode;
+  fullWidth?: boolean;
+  placeholder?: string;
   className?: string;
-  /** Número de columnas: 2 (default) o 3 */
-  columns?: 2 | 3;
-  /** Si true, usa gap reducido apropiado para campos boxed */
+  mono?: boolean;
+  copyable?: boolean;
   boxed?: boolean;
 }
 
 /**
- * DetailFieldGrid — Grid wrapper para DetailField.
- *
- * Uso:
- * ```tsx
- * <DetailFieldGrid>
- *   <DetailField label="Nombre" value="ACME" />
- *   <DetailField label="RUT" value="76.123.456-7" />
- * </DetailFieldGrid>
- * ```
+ * DetailField — Campo label:valor estandarizado para vistas de detalle (solo lectura).
  */
+export function DetailField(props: DetailFieldProps) {
+  return <DetailFieldDisplay {...props} />;
+}
+
+interface DetailFieldGridProps {
+  children: ReactNode;
+  className?: string;
+  columns?: 2 | 3;
+  boxed?: boolean;
+}
+
 export function DetailFieldGrid({
   children,
   className,
