@@ -10,6 +10,7 @@ import { reconcileIncomeRows } from "./reconcile-income-rows.service";
 import { FALLBACK_EXPENSE_NAME, FALLBACK_INCOME_NAME } from "./canonical-rows";
 import { loadPlanCells } from "./plan.service";
 import { loadCellNotes } from "./cell-note.service";
+import { loadCellSettlements } from "./cell-settlement.service";
 import { loadCommittedIncome } from "./load-committed-income";
 import { loadCommittedExpense } from "./load-committed-expense";
 import { loadReal } from "./load-real";
@@ -81,16 +82,22 @@ export async function buildFlowMatrix(
       supplierId: r.supplierId,
     }));
 
-  const [plan, notes, cIncomeLoad, cExpense, real, opening, config, closedWeeks, seals] = await Promise.all([
+  const [plan, notes, settlements, cIncomeLoad, cExpense, real, opening, config, closedWeeks, seals] = await Promise.all([
     loadPlanCells(tenantId, ymdToDate(weeks[0])!, ymdToDate(lastWeek)!),
     loadCellNotes(tenantId, ymdToDate(weeks[0])!, ymdToDate(lastWeek)!),
+    loadCellSettlements(tenantId, ymdToDate(weeks[0])!, ymdToDate(lastWeek)!),
     loadCommittedIncome(tenantId, activeRefs, weeks, todayYmd),
     loadCommittedExpense(tenantId, activeRefs, weeks, todayYmd),
     loadReal(tenantId, activeRefs, weeks),
     resolveOpeningBalance(tenantId),
     prisma.financeCashflowConfig.findUnique({
       where: { tenantId },
-      select: { flowWarnThresholdClp: true, driftAlertThresholdClp: true },
+      select: {
+        flowWarnThresholdClp: true,
+        driftAlertThresholdClp: true,
+        residualCarryEnabled: true,
+        residualMinClp: true,
+      },
     }),
     listClosedV3Weeks(tenantId, weeks),
     loadSealedBalancesForMatrix(tenantId, weeks),
@@ -334,12 +341,17 @@ export async function buildFlowMatrix(
     ),
   );
 
+  const residualCarryEnabled = config?.residualCarryEnabled !== false;
+  const residualMinClp = config?.residualMinClp ?? 10_000;
+
   const assembled = assembleMatrix({
     rows: assembleRows, weeks, currentWeek,
     openingBalance: Math.round(opening.currentTotalClp),
-    plan, notes, committed, real: realResolved, realNetAfterWindow,
+    plan, notes, settlements, committed, real: realResolved, realNetAfterWindow,
     sealedBalances: seals.sealedBalances,
     priorSealed: seals.priorSealed,
+    residualCarryEnabled,
+    residualMinClp,
   });
 
   // Desglose bancario por cuenta (§5H). El número SIEMPRE se enmascara a los
@@ -380,6 +392,8 @@ export async function buildFlowMatrix(
     closedWeeks,
     warnThreshold: config?.flowWarnThresholdClp ?? WARN_THRESHOLD_CLP,
     driftAlertThresholdClp: config?.driftAlertThresholdClp ?? 100_000,
+    residualCarryEnabled,
+    residualMinClp,
     excludedIncome,
     unroutedIncome: cIncomeLoad.unroutedIncome,
     kpis: assembled.kpis,

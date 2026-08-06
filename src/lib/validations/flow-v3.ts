@@ -113,6 +113,15 @@ export const flowCellNoteUpsertSchema = z.object({
   body: z.string().max(2000).nullable(),
 });
 
+/** Liquidación de proyección vs real (AUTO = reabrir / CLOSED = dar por cumplido). */
+export const flowCellSettlementSchema = z.object({
+  rowId: z.string().uuid(),
+  weekStart: ymd,
+  mode: z.enum(["AUTO", "CLOSED"]),
+  /** Proyección vigente al cerrar (auditoría). Opcional. */
+  projectedClp: z.number().finite().optional(),
+});
+
 export const flowPlanBulkFillSchema = z.object({
   rowId: z.string().uuid(),
   weekStarts: z.array(ymd).min(1).max(60),

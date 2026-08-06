@@ -36,6 +36,10 @@ export interface FlowMatrixResponse {
   warnThreshold: number;
   /** Umbral |delta| CLP para alertar desviación real vs proyectado. */
   driftAlertThresholdClp?: number;
+  /** Si true, el remanente no ejecutado sigue pesando en la semana. */
+  residualCarryEnabled?: boolean;
+  /** Remanente CLP bajo el cual se da por cumplida la proyección. */
+  residualMinClp?: number;
   rows: FlowMatrixRowDto[];
   flows: number[];
   balances: number[];
