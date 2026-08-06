@@ -1,6 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("server-only", () => ({}));
+vi.mock("@/modules/finance/cashflow/category.service", () => ({
+  seedSystemCategoriesForTenant: vi.fn().mockResolvedValue(undefined),
+}));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     $transaction: vi.fn(),
