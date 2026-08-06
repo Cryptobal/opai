@@ -21,7 +21,8 @@ export function ChatDockDesktop(props: ChatPanelSharedProps) {
   return (
     <div
       className={cn(
-        "fixed top-0 right-0 z-40 flex h-full w-[400px] flex-col overflow-hidden text-ds-text-1",
+        // z-[70]: por encima del lector de correos (z-50) y Copiloto (z-55).
+        "fixed top-0 right-0 z-[70] flex h-full w-[400px] flex-col overflow-hidden text-ds-text-1",
         "border-l border-ds-border-default bg-ds-surface-3 shadow-[-8px_0_30px_-12px_rgba(0,0,0,0.25)]",
         isDragging && "ring-2 ring-primary/50",
       )}

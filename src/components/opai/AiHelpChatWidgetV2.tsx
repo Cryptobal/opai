@@ -193,7 +193,7 @@ export function AiHelpChatWidgetV2() {
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className="hidden lg:flex items-center justify-center fixed right-6 z-40 h-12 w-12 rounded-full bg-gradient-to-br from-primary via-primary to-primary/80 text-primary-foreground shadow-[0_10px_30px_hsl(var(--primary)/0.4)] transition-transform hover:scale-[1.05] lg:bottom-6"
+          className="hidden lg:flex items-center justify-center fixed right-6 z-[70] h-12 w-12 rounded-full bg-gradient-to-br from-primary via-primary to-primary/80 text-primary-foreground shadow-[0_10px_30px_hsl(var(--primary)/0.4)] transition-transform hover:scale-[1.05] lg:bottom-6"
           aria-label="Abrir OPAI Intelligence"
         >
           <Sparkles className="h-5 w-5" />

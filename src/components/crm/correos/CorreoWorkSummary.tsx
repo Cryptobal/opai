@@ -116,8 +116,8 @@ export function CorreoWorkSummary({
       prompt: `Respecto a este correo («${subject}»): `,
       autoSend: false,
     });
-    // El dock del asistente vive a z-40; Copiloto es z-55. Hay que cerrar
-    // el panel o el chat queda detrás (mismo patrón que CorreoAiActionPanel).
+    // El sheet/dock del asistente vive a z-[70]/[71] (sobre lector z-50 y
+    // Copiloto z-55). Igual cerramos Copiloto para no dejar dos paneles abiertos.
     onClose?.();
   }
 

@@ -53,14 +53,15 @@ export function ChatSheetMobile(props: ChatPanelSharedProps) {
 
   return (
     <>
+      {/* z-[70]/[71]: por encima del lector de correos (z-50) y Copiloto (z-55). */}
       <div
-        className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm"
+        className="fixed inset-0 z-[70] bg-black/50 backdrop-blur-sm"
         onClick={() => requestClose()}
         aria-hidden="true"
       />
       <div
         ref={sheetRef}
-        className="fixed inset-x-0 bottom-0 z-50 flex flex-col overflow-hidden text-ds-text-1 opai-glass-strong"
+        className="fixed inset-x-0 bottom-0 z-[71] flex flex-col overflow-hidden text-ds-text-1 opai-glass-strong"
         style={{
           height: sheetHeight,
           borderTopLeftRadius: 26,

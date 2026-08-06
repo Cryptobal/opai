@@ -78,4 +78,42 @@ describe("CorreoCascadeRow", () => {
     fireEvent.click(create);
     expect(onCreateWithAi).toHaveBeenCalledTimes(1);
   });
+
+  it("con hasValue y href abre la ficha en nueva ventana", () => {
+    const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
+    render(
+      <CorreoCascadeRow
+        icon={Building2}
+        label="Contactos"
+        value="Sergio Quiroga"
+        depth={1}
+        hasValue
+        editable
+        href="/crm/contacts/c1"
+        onEdit={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /^Contactos/i }));
+    expect(openSpy).toHaveBeenCalledWith(
+      "/crm/contacts/c1",
+      "_blank",
+      "noopener,noreferrer",
+    );
+    openSpy.mockRestore();
+  });
+
+  it("con hasValue sin href no navega (fila deshabilitada)", () => {
+    render(
+      <CorreoCascadeRow
+        icon={Building2}
+        label="Contactos"
+        value="Sergio Quiroga"
+        depth={1}
+        hasValue
+        editable
+        onEdit={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole("button", { name: /^Contactos/i })).toBeDisabled();
+  });
 });

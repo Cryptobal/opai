@@ -74,6 +74,7 @@ export function CorreoContextCascade({
     (l) => l.entityType === "installation" && !l.orphan,
   );
   const orphans = links.filter((l) => l.orphan);
+  const contactId = contactContext.data?.contact?.id ?? null;
   const contactName = contactContext.data?.contact?.name ?? null;
 
   const attachmentsPending = detail.attachments.filter((a) => !a.savedFileId).length;
@@ -271,6 +272,7 @@ export function CorreoContextCascade({
         hasValue={Boolean(contactName)}
         editable={editable && Boolean(t.accountId)}
         disabled={!t.accountId}
+        href={contactId ? `/crm/contacts/${contactId}` : null}
         onAdd={() => setOmnibox("contact")}
         onEdit={() => setOmnibox("contact")}
         onCreateWithAi={aiFor("contact")}
@@ -301,7 +303,11 @@ export function CorreoContextCascade({
         hasValue={Boolean(quote)}
         editable={editable && Boolean(t.accountId)}
         disabled={!t.accountId}
-        href={quote?.href ?? null}
+        href={
+          quote
+            ? quote.href ?? `/crm/cotizaciones/${quote.entityId}`
+            : null
+        }
         // Sin cotización: + abre el plan IA (crear), no el omnibox de vincular.
         // Vincular existente queda en el lápiz cuando ya hay una, o vía omnibox
         // si no hay handler IA.
@@ -320,7 +326,11 @@ export function CorreoContextCascade({
         hasValue={Boolean(installation)}
         editable={editable && Boolean(t.accountId)}
         disabled={!t.accountId}
-        href={installation?.href ?? null}
+        href={
+          installation
+            ? installation.href ?? `/crm/installations/${installation.entityId}`
+            : null
+        }
         onAdd={() => setOmnibox("installation")}
         onEdit={() => setOmnibox("installation")}
         onCreateWithAi={aiFor("installation")}

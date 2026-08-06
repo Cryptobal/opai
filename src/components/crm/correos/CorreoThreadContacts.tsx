@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Plus, X } from "lucide-react";
+import { ArrowUpRight, Plus, X } from "lucide-react";
 import { toast } from "sonner";
 import { Tag } from "@/components/opai-ds";
 import { confirmDialog } from "@/components/ui/confirm-service";
@@ -147,6 +147,23 @@ export function CorreoThreadContacts({
                 Principal
               </Tag>
             )}
+            <button
+              type="button"
+              aria-label={`Abrir ficha de ${c.name}`}
+              title="Abrir ficha"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                window.open(
+                  `/crm/contacts/${c.contactId}`,
+                  "_blank",
+                  "noopener,noreferrer",
+                );
+              }}
+              className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-ds-text-3 ds-tap hover:bg-ds-surface-3 hover:text-ds-text-1"
+            >
+              <ArrowUpRight className="h-3.5 w-3.5" />
+            </button>
             <button
               type="button"
               aria-label={`Quitar ${c.name}`}
