@@ -11,31 +11,7 @@ import {
   previewRuleMatches,
   type RuleConditions,
 } from "@/modules/finance/banking/automatch-rule.service";
-
-const conditionItemSchema = z.object({
-  field: z.enum(["DESCRIPTION", "REFERENCE", "AMOUNT", "BENEFICIARY_RUT"]),
-  operator: z.enum([
-    "CONTAINS",
-    "STARTS_WITH",
-    "EQUALS",
-    "IS_EMPTY",
-    "AMOUNT_BETWEEN",
-    "AMOUNT_GTE",
-    "AMOUNT_LTE",
-    "RUT_MATCHES",
-  ]),
-  value: z
-    .union([
-      z.string(),
-      z.number(),
-      z.object({
-        min: z.number().optional(),
-        max: z.number().optional(),
-      }),
-      z.null(),
-    ])
-    .optional(),
-});
+import { conditionItemSchema } from "@/modules/finance/banking/automatch-rule-schemas";
 
 const previewSchema = z.object({
   bankAccountId: z.string().nullable().optional(),
@@ -44,14 +20,19 @@ const previewSchema = z.object({
     mode: z.enum(["ALL", "ANY"]),
     items: z.array(conditionItemSchema).min(1),
   }),
-  /** Ventanas soportadas por la UI de vista previa. */
-  daysBack: z.union([z.literal(30), z.literal(90), z.literal(180)]).optional(),
+  /**
+   * null/omitido = toda la cartola (default).
+   * 30/90/180 = ventana opcional.
+   */
+  daysBack: z
+    .union([z.literal(30), z.literal(90), z.literal(180), z.null()])
+    .optional(),
 });
 
 /**
  * POST /api/finance/banking/automatch-rules/preview
- * Cuenta cuántos movimientos en los últimos N días (30/90/180) habría
- * matcheado una regla con las conditions dadas. No persiste nada.
+ * Cuenta cuántos movimientos matchearía una regla. Por defecto recorre
+ * toda la cartola (cap 5000). No persiste nada.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -61,7 +42,7 @@ export async function POST(request: NextRequest) {
     if (!hasCapability(perms, "banking_manage")) {
       return NextResponse.json(
         { success: false, error: "Sin permisos" },
-        { status: 403 }
+        { status: 403 },
       );
     }
     const parsed = await parseBody(request, previewSchema);
@@ -71,7 +52,7 @@ export async function POST(request: NextRequest) {
       parsed.data.bankAccountId ?? null,
       parsed.data.appliesTo,
       parsed.data.conditions as RuleConditions,
-      parsed.data.daysBack ?? 30,
+      parsed.data.daysBack ?? null,
     );
     return NextResponse.json({ success: true, data: result });
   } catch (error) {
@@ -80,7 +61,7 @@ export async function POST(request: NextRequest) {
       error instanceof Error ? error.message : "Error al probar regla";
     return NextResponse.json(
       { success: false, error: message },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

@@ -311,17 +311,24 @@ export async function previewRuleMatches(
   bankAccountId: string | null,
   scope: FinanceAutoMatchScope,
   conditions: RuleConditions,
-  daysBack: number = 30,
+  /** null/undefined = toda la cartola (cap 5000). 30/90/180 acotan por fecha. */
+  daysBack: number | null = null,
 ): Promise<PreviewRuleMatchesResult> {
-  const since = new Date();
-  since.setDate(since.getDate() - daysBack);
+  const since =
+    daysBack != null && daysBack > 0
+      ? (() => {
+          const d = new Date();
+          d.setDate(d.getDate() - daysBack);
+          return d;
+        })()
+      : null;
 
   const txs = await prisma.financeBankTransaction.findMany({
     where: {
       tenantId,
       ...(bankAccountId ? { bankAccountId } : {}),
       hiddenAt: null,
-      transactionDate: { gte: since },
+      ...(since ? { transactionDate: { gte: since } } : {}),
     },
     select: {
       id: true,

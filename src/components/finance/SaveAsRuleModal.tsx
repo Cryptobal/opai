@@ -24,6 +24,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Loader2, Sparkles, PlayCircle } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { formatRut } from "@/lib/chile-rut";
+import { extractAllCanonicalRutsFromBankText } from "@/modules/finance/banking/rut-extract";
 import { AccountPlanCombobox } from "./AccountPlanCombobox";
 import { RuleDestinationChain } from "./RuleDestinationChain";
 
@@ -148,6 +150,13 @@ export function SaveAsRuleModal({
     [sourceTx.reference],
   );
 
+  const extractedRutFromDescription = useMemo(() => {
+    const hits = extractAllCanonicalRutsFromBankText(sourceTx.description);
+    return hits[0] ? formatRut(hits[0]) : null;
+  }, [sourceTx.description]);
+
+  const effectiveDetectedRut = detectedRut ?? extractedRutFromDescription;
+
   const amountAbs = Math.abs(sourceTx.amount);
   const suggestedMin = Math.max(0, Math.floor(amountAbs * 0.9));
   const suggestedMax = Math.ceil(amountAbs * 1.1);
@@ -183,8 +192,8 @@ export function SaveAsRuleModal({
       setCriteriaReference(Boolean(suggestedRef));
       setReferenceOperator(suggestedRef ? "CONTAINS" : "IS_EMPTY");
       setReferenceValue(suggestedRef);
-      setCriteriaRut(!!detectedRut);
-      setRutValue(detectedRut ?? "");
+      setCriteriaRut(Boolean(effectiveDetectedRut));
+      setRutValue(effectiveDetectedRut ?? "");
       setCriteriaAmount(false);
       setAmountMin(suggestedMin);
       setAmountMax(suggestedMax);
@@ -210,6 +219,7 @@ export function SaveAsRuleModal({
     suggestedKeyword,
     suggestedRef,
     detectedRut,
+    effectiveDetectedRut,
     suggestedMin,
     suggestedMax,
     preselectedAccountId,
@@ -423,11 +433,11 @@ export function SaveAsRuleModal({
             </span>
             <span>·</span>
             <span>{appliesTo === "DEPOSITS" ? "Ingreso" : "Egreso"}</span>
-            {detectedRut && (
+            {effectiveDetectedRut && (
               <>
                 <span>·</span>
                 <span>
-                  RUT: <span className="font-mono">{detectedRut}</span>
+                  RUT: <span className="font-mono">{effectiveDetectedRut}</span>
                 </span>
               </>
             )}
@@ -594,7 +604,7 @@ export function SaveAsRuleModal({
           </div>
 
           {/* RUT */}
-          {detectedRut && (
+          {effectiveDetectedRut && (
             <div
               className={cn(
                 "rounded-md border p-3 transition-colors",

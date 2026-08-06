@@ -52,8 +52,11 @@ import {
   BookMarked,
   HelpCircle,
   CalendarClock,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { formatRut, isValidRut } from "@/lib/chile-rut";
+import { extractAllCanonicalRutsFromBankText } from "@/modules/finance/banking/rut-extract";
 import { AccountPlanCombobox } from "./AccountPlanCombobox";
 import { RuleDestinationChain } from "./RuleDestinationChain";
 import {
@@ -85,7 +88,7 @@ type RuleOperator =
 interface RuleCondition {
   field: RuleField;
   operator: RuleOperator;
-  value?: string | number | { min?: number; max?: number } | null;
+  value?: string | string[] | number | { min?: number; max?: number } | null;
 }
 interface RuleConditions {
   mode: "ALL" | "ANY";
@@ -739,6 +742,18 @@ export function BankRulesClient({
   );
 }
 
+function rutConditionToDisplayList(
+  value: RuleCondition["value"],
+): string[] {
+  if (Array.isArray(value)) {
+    return value.map((r) => formatRut(String(r))).filter(Boolean);
+  }
+  if (typeof value === "string" && value.trim()) {
+    return [formatRut(value.trim())];
+  }
+  return [];
+}
+
 function formatValue(c: RuleCondition): string {
   if (c.operator === "IS_EMPTY") return "";
   if (c.operator === "AMOUNT_BETWEEN") {
@@ -747,6 +762,10 @@ function formatValue(c: RuleCondition): string {
   }
   if (c.operator === "AMOUNT_GTE" || c.operator === "AMOUNT_LTE") {
     return `$${c.value ?? "?"}`;
+  }
+  if (c.operator === "RUT_MATCHES" || Array.isArray(c.value)) {
+    const ruts = rutConditionToDisplayList(c.value);
+    return ruts.length > 0 ? `"${ruts.join(", ")}"` : "";
   }
   return `"${c.value ?? ""}"`;
 }
@@ -1466,7 +1485,7 @@ interface LivePreviewProps {
   onPreviewMatchCount: (count: number, total: number) => void;
 }
 
-type PreviewDays = 30 | 90 | 180;
+type PreviewDays = 30 | 90 | 180 | null;
 
 interface PreviewMatchRow {
   id: string;
@@ -1499,7 +1518,7 @@ const STATUS_PREVIEW_LABEL: Record<string, string> = {
  */
 function LivePreviewPanel({ draft, onPreviewMatchCount }: LivePreviewProps) {
   const [loading, setLoading] = useState(false);
-  const [daysBack, setDaysBack] = useState<PreviewDays>(30);
+  const [daysBack, setDaysBack] = useState<PreviewDays>(null);
   const [result, setResult] = useState<PreviewResult | null>(null);
 
   useEffect(() => {
@@ -1513,6 +1532,10 @@ function LivePreviewPanel({ draft, onPreviewMatchCount }: LivePreviewProps) {
         const v = c.value as { min?: number; max?: number } | null;
         return v?.min != null || v?.max != null;
       }
+      if (c.operator === "RUT_MATCHES") {
+        return rutConditionToDisplayList(c.value).length > 0;
+      }
+      if (Array.isArray(c.value)) return c.value.length > 0;
       return c.value !== null && c.value !== undefined && c.value !== "";
     });
     if (!someValid) {
@@ -1554,13 +1577,16 @@ function LivePreviewPanel({ draft, onPreviewMatchCount }: LivePreviewProps) {
         <PlayCircle className="h-3.5 w-3.5 text-ds-text-3 shrink-0" />
         <span className="font-medium text-ds-text-2">Vista previa</span>
         <Select
-          value={String(daysBack)}
-          onValueChange={(v) => setDaysBack(Number(v) as PreviewDays)}
+          value={daysBack === null ? "all" : String(daysBack)}
+          onValueChange={(v) =>
+            setDaysBack(v === "all" ? null : (Number(v) as 30 | 90 | 180))
+          }
         >
-          <SelectTrigger className="h-10 sm:h-8 w-[140px] ml-auto">
+          <SelectTrigger className="h-10 sm:h-8 w-[160px] ml-auto">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
+            <SelectItem value="all">Toda la cartola</SelectItem>
             <SelectItem value="30">Últimos 30 días</SelectItem>
             <SelectItem value="90">Últimos 90 días</SelectItem>
             <SelectItem value="180">Últimos 180 días</SelectItem>
@@ -1688,10 +1714,61 @@ function ConditionEditor({
   const needsValue =
     condition.operator !== "IS_EMPTY" && condition.operator !== "AMOUNT_BETWEEN";
   const isAmountBetween = condition.operator === "AMOUNT_BETWEEN";
+  const isRutMatches = condition.operator === "RUT_MATCHES";
   const isAmount =
     condition.operator === "AMOUNT_GTE" ||
     condition.operator === "AMOUNT_LTE" ||
     (condition.operator === "EQUALS" && condition.field === "AMOUNT");
+
+  const [rutInput, setRutInput] = useState("");
+  const rutChips = rutConditionToDisplayList(condition.value);
+
+  const textValue =
+    typeof condition.value === "string" || typeof condition.value === "number"
+      ? String(condition.value)
+      : "";
+
+  const descriptionLooksLikeRut =
+    condition.field === "DESCRIPTION" &&
+    (condition.operator === "CONTAINS" ||
+      condition.operator === "EQUALS" ||
+      condition.operator === "STARTS_WITH") &&
+    textValue.trim().length > 0 &&
+    (isValidRut(textValue) ||
+      extractAllCanonicalRutsFromBankText(textValue).length > 0);
+
+  const convertDescriptionToRut = () => {
+    const canonical = isValidRut(textValue)
+      ? textValue
+      : extractAllCanonicalRutsFromBankText(textValue)[0];
+    if (!canonical) return;
+    onChange({
+      field: "BENEFICIARY_RUT",
+      operator: "RUT_MATCHES",
+      value: [formatRut(canonical)],
+    });
+  };
+
+  const addRutChip = (raw: string) => {
+    const trimmed = raw.trim().replace(/,+$/, "").trim();
+    if (!trimmed) return;
+    if (!isValidRut(trimmed)) {
+      toast.error("RUT inválido");
+      return;
+    }
+    const formatted = formatRut(trimmed);
+    if (rutChips.includes(formatted)) {
+      setRutInput("");
+      return;
+    }
+    onChange({ value: [...rutChips, formatted] });
+    setRutInput("");
+  };
+
+  const removeRutChip = (idx: number) => {
+    const next = rutChips.filter((_, i) => i !== idx);
+    onChange({ value: next });
+  };
 
   return (
     <div className="rounded-md border border-border bg-card p-2.5 sm:p-0 sm:bg-transparent sm:border-0 sm:grid sm:grid-cols-12 sm:gap-2 sm:items-start space-y-2 sm:space-y-0">
@@ -1716,11 +1793,12 @@ function ConditionEditor({
           onValueChange={(v) => {
             const newField = v as RuleField;
             const validOpsForNew = OPERATORS_BY_FIELD[newField] ?? [];
-            // Si el operador actual no es válido para el nuevo field, ajustar.
             const newOp = validOpsForNew.includes(condition.operator)
               ? condition.operator
               : validOpsForNew[0];
-            onChange({ field: newField, operator: newOp, value: "" });
+            const defaultValue =
+              newField === "BENEFICIARY_RUT" ? [] : "";
+            onChange({ field: newField, operator: newOp, value: defaultValue });
           }}
         >
           <SelectTrigger className="h-10 sm:h-9 text-sm">
@@ -1738,7 +1816,20 @@ function ConditionEditor({
       <div className="sm:col-span-3">
         <Select
           value={condition.operator}
-          onValueChange={(v) => onChange({ operator: v as RuleOperator })}
+          onValueChange={(v) => {
+            const op = v as RuleOperator;
+            const patch: Partial<RuleCondition> = { operator: op };
+            if (op === "RUT_MATCHES") {
+              patch.value = rutChips.length > 0 ? rutChips : [];
+            } else if (op === "IS_EMPTY") {
+              patch.value = null;
+            } else if (op === "AMOUNT_BETWEEN") {
+              patch.value = { min: undefined, max: undefined };
+            } else if (Array.isArray(condition.value)) {
+              patch.value = "";
+            }
+            onChange(patch);
+          }}
         >
           <SelectTrigger className="h-10 sm:h-9 text-sm">
             <SelectValue />
@@ -1752,28 +1843,55 @@ function ConditionEditor({
           </SelectContent>
         </Select>
       </div>
-      <div className="sm:col-span-4">
-        {needsValue && (
+      <div className="sm:col-span-4 space-y-2">
+        {needsValue && !isRutMatches && (
           <Input
             className="h-10 sm:h-9 text-sm"
             type={isAmount ? "number" : "text"}
-            value={
-              typeof condition.value === "string" ||
-              typeof condition.value === "number"
-                ? String(condition.value)
-                : ""
-            }
+            value={textValue}
             onChange={(e) =>
               onChange({
                 value: isAmount ? Number(e.target.value) : e.target.value,
               })
             }
-            placeholder={
-              condition.operator === "RUT_MATCHES"
-                ? "Ej. 76.123.456-7"
-                : "valor"
-            }
+            placeholder="valor"
           />
+        )}
+        {isRutMatches && (
+          <div className="space-y-2">
+            <div className="flex flex-wrap gap-1.5">
+              {rutChips.map((rut, i) => (
+                <span
+                  key={`${rut}-${i}`}
+                  className="inline-flex items-center gap-1 rounded-md border border-ds-border-default bg-ds-surface-2 px-2 py-1 text-[12px] font-mono text-ds-text-1"
+                >
+                  {rut}
+                  <button
+                    type="button"
+                    className="inline-flex h-6 w-6 items-center justify-center rounded-sm hover:bg-ds-surface-3 text-ds-text-3 hover:text-ds-text-1"
+                    onClick={() => removeRutChip(i)}
+                    aria-label={`Quitar ${rut}`}
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </span>
+              ))}
+            </div>
+            <Input
+              className="h-10 sm:h-9 text-sm font-mono"
+              value={rutInput}
+              onChange={(e) => setRutInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === ",") {
+                  e.preventDefault();
+                  addRutChip(rutInput);
+                }
+              }}
+              onBlur={() => addRutChip(rutInput)}
+              placeholder="Agregar RUT (Enter o coma)"
+            />
+            <RutVariantsInCartolaPanel ruts={rutChips} />
+          </div>
         )}
         {isAmountBetween && (
           <div className="flex items-center gap-1">
@@ -1814,6 +1932,23 @@ function ConditionEditor({
             />
           </div>
         )}
+        {descriptionLooksLikeRut && (
+          <div className="rounded-md border border-status-warn-border bg-status-warn-soft p-2.5 space-y-2">
+            <p className="text-[12px] text-status-warn-fg leading-snug">
+              Esto parece un RUT. Coincidir por descripción es frágil (formatos
+              distintos en la cartola).
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-10 sm:h-9 border-status-warn-border text-status-warn-fg hover:bg-status-warn-soft"
+              onClick={convertDescriptionToRut}
+            >
+              Convertir a criterio de RUT
+            </Button>
+          </div>
+        )}
       </div>
       <div className="hidden sm:flex sm:col-span-1 sm:justify-end sm:pt-1">
         {onRemove && (
@@ -1822,6 +1957,99 @@ function ConditionEditor({
           </Button>
         )}
       </div>
+    </div>
+  );
+}
+
+interface RutVariantRow {
+  sampleDescription: string;
+  normalizedKey: string;
+  count: number;
+  totalAmountAbs: number;
+  captured: boolean;
+}
+
+function RutVariantsInCartolaPanel({ ruts }: { ruts: string[] }) {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [variants, setVariants] = useState<RutVariantRow[]>([]);
+  const [scanned, setScanned] = useState(0);
+  const [reachedCap, setReachedCap] = useState(false);
+  const rutsKey = ruts.join(",");
+
+  useEffect(() => {
+    if (!rutsKey) {
+      setVariants([]);
+      setError(null);
+      setScanned(0);
+      setReachedCap(false);
+      return;
+    }
+    const t = setTimeout(async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await fetch(
+          `/api/finance/banking/rut-variants?ruts=${encodeURIComponent(rutsKey)}`,
+        );
+        const json = await res.json();
+        if (!res.ok || !json.success) {
+          throw new Error(json.error ?? `HTTP ${res.status}`);
+        }
+        setVariants((json.data?.variants as RutVariantRow[]) ?? []);
+        setScanned(json.data?.scanned ?? 0);
+        setReachedCap(Boolean(json.data?.reachedCap));
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Error al cargar variantes");
+        setVariants([]);
+      } finally {
+        setLoading(false);
+      }
+    }, 400);
+    return () => clearTimeout(t);
+  }, [rutsKey]);
+
+  if (!rutsKey) return null;
+
+  return (
+    <div className="rounded-md border border-ds-border-subtle bg-ds-surface-2 p-2.5 space-y-1.5">
+      <p className="text-[12px] font-medium text-ds-text-2">
+        Variantes en cartola
+      </p>
+      {loading ? (
+        <div className="flex items-center gap-2 text-[12px] text-ds-text-3 py-1">
+          <Loader2 className="h-3.5 w-3.5 animate-spin shrink-0" />
+          Buscando en cartola…
+        </div>
+      ) : error ? (
+        <p className="text-[12px] text-status-danger-fg">{error}</p>
+      ) : variants.length === 0 ? (
+        <p className="text-[12px] text-ds-text-3">
+          Sin variantes para estos RUT en la cartola escaneada.
+        </p>
+      ) : (
+        <ul className="space-y-1 max-h-40 overflow-y-auto">
+          {variants.map((v) => (
+            <li
+              key={v.normalizedKey}
+              className="flex items-start justify-between gap-2 rounded-md border border-ds-border-subtle bg-ds-surface-1 px-2 py-1.5 min-h-11"
+            >
+              <span className="text-[12px] text-ds-text-1 truncate flex-1 min-w-0">
+                {v.sampleDescription}
+              </span>
+              <span className="text-[12px] font-mono tabular-nums text-ds-text-3 shrink-0">
+                {v.count.toLocaleString("es-CL")}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+      {!loading && !error && scanned > 0 && (
+        <p className="text-[12px] text-ds-text-4">
+          {scanned.toLocaleString("es-CL")} mov. escaneados
+          {reachedCap ? " · tope alcanzado" : ""}
+        </p>
+      )}
     </div>
   );
 }

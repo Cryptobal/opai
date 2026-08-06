@@ -19,6 +19,7 @@ export const conditionItemSchema = z.object({
   value: z
     .union([
       z.string(),
+      z.array(z.string()).min(1).max(20),
       z.number(),
       z.object({
         min: z.number().optional(),
