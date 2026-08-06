@@ -61,6 +61,7 @@ export default async function ContabilidadPage() {
     description: a.description,
     taxCode: a.taxCode,
     isActive: a.isActive,
+    isSystem: a.isSystem,
   }));
 
   const journalData = journalEntries.map((je: typeof journalEntries[number]) => ({

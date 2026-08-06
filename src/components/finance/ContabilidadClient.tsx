@@ -34,6 +34,7 @@ import {
   Plus,
   Search,
   Pencil,
+  Trash2,
   ChevronRight,
   ChevronLeft,
   Loader2,
@@ -66,6 +67,7 @@ interface AccountRow {
   description: string | null;
   taxCode: string | null;
   isActive: boolean;
+  isSystem: boolean;
 }
 
 interface JournalRow {
@@ -251,6 +253,7 @@ function AccountsTab({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [seeding, setSeeding] = useState(false);
+  const [deleting, setDeleting] = useState<string | null>(null);
 
   const handleSeed = async () => {
     setSeeding(true);
@@ -345,6 +348,42 @@ function AccountsTab({
       toast.error(error instanceof Error ? error.message : "Error inesperado");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleDelete = async (account: AccountRow) => {
+    if (account.isSystem) {
+      toast.error("Las cuentas del plan base no se pueden eliminar");
+      return;
+    }
+    if (
+      !(await confirmDialog({
+        title: "Eliminar cuenta",
+        description: `¿Eliminar la cuenta ${account.code} — ${account.name}? Quedará inactiva y no se podrá usar en nuevos asientos.`,
+        variant: "destructive",
+        confirmLabel: "Eliminar",
+      }))
+    ) {
+      return;
+    }
+    setDeleting(account.id);
+    try {
+      const res = await fetch(`/api/finance/accounting/accounts/${account.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isActive: false }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Error al eliminar cuenta");
+      }
+      toast.success("Cuenta eliminada");
+      setDialogOpen(false);
+      router.refresh();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Error inesperado");
+    } finally {
+      setDeleting(null);
     }
   };
 
@@ -465,10 +504,35 @@ function AccountsTab({
                   ? [{
                       id: "_actions",
                       header: "",
+                      sticky: "right" as const,
                       cell: (row: AccountRow) => (
-                        <Button variant="ghost" size="sm" onClick={() => openEdit(row)}>
-                          <Pencil className="h-3.5 w-3.5" />
-                        </Button>
+                        <div className="flex items-center gap-0.5">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-9 w-9 p-0"
+                            title="Editar"
+                            onClick={() => openEdit(row)}
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                          {!row.isSystem && row.isActive && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-9 w-9 p-0"
+                              title="Eliminar"
+                              onClick={() => void handleDelete(row)}
+                              disabled={deleting === row.id}
+                            >
+                              {deleting === row.id ? (
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              ) : (
+                                <Trash2 className="h-3.5 w-3.5 text-status-danger-fg" />
+                              )}
+                            </Button>
+                          )}
+                        </div>
                       ),
                     } satisfies DataTableColumn<AccountRow>]
                   : []),
@@ -503,9 +567,33 @@ function AccountsTab({
                         </div>
                       </div>
                       {canManage && (
-                        <Button variant="ghost" size="sm" onClick={() => openEdit(a)}>
-                          <Pencil className="h-3.5 w-3.5" />
-                        </Button>
+                        <div className="flex items-center gap-0.5 shrink-0">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-11 w-11 p-0"
+                            title="Editar"
+                            onClick={() => openEdit(a)}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          {!a.isSystem && a.isActive && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-11 w-11 p-0"
+                              title="Eliminar"
+                              onClick={() => void handleDelete(a)}
+                              disabled={deleting === a.id}
+                            >
+                              {deleting === a.id ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <Trash2 className="h-4 w-4 text-status-danger-fg" />
+                              )}
+                            </Button>
+                          )}
+                        </div>
                       )}
                     </div>
                   </CardContent>
@@ -523,8 +611,15 @@ function AccountsTab({
           onOpenChange={setDialogOpen}
           form={form}
           setField={setField}
-          saving={saving}
+          saving={saving || deleting === editingId}
           onSave={handleSave}
+          onDelete={
+            (() => {
+              const acc = accounts.find((x) => x.id === editingId);
+              if (!acc || acc.isSystem || !acc.isActive) return undefined;
+              return () => void handleDelete(acc);
+            })()
+          }
         />
       ) : (
         <NewAccountWizard
@@ -551,6 +646,7 @@ function EditAccountDialog({
   setField,
   saving,
   onSave,
+  onDelete,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
@@ -558,6 +654,7 @@ function EditAccountDialog({
   setField: (key: string, value: string | boolean) => void;
   saving: boolean;
   onSave: () => void;
+  onDelete?: () => void;
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -590,14 +687,34 @@ function EditAccountDialog({
             <Label htmlFor="acc-entries-edit">Acepta movimientos</Label>
           </div>
         </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
-            Cancelar
-          </Button>
-          <Button onClick={onSave} disabled={saving}>
-            {saving && <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />}
-            Guardar
-          </Button>
+        <DialogFooter className="flex-col-reverse gap-2 sm:flex-row sm:justify-between">
+          {onDelete ? (
+            <Button
+              variant="outline"
+              className="w-full sm:w-auto text-status-danger-fg border-status-danger-border hover:bg-status-danger-soft"
+              onClick={onDelete}
+              disabled={saving}
+            >
+              <Trash2 className="h-4 w-4 mr-1.5" />
+              Eliminar
+            </Button>
+          ) : (
+            <span />
+          )}
+          <div className="flex w-full sm:w-auto gap-2">
+            <Button
+              variant="outline"
+              className="flex-1 sm:flex-none h-11 sm:h-9"
+              onClick={() => onOpenChange(false)}
+              disabled={saving}
+            >
+              Cancelar
+            </Button>
+            <Button className="flex-1 sm:flex-none h-11 sm:h-9" onClick={onSave} disabled={saving}>
+              {saving && <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />}
+              Guardar
+            </Button>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>

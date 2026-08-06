@@ -149,16 +149,16 @@ export function RowAccountsEditor({
       {mappings.map((m) => (
         <span
           key={m.accountPlanId}
-          className={`inline-flex items-center gap-1 rounded-ds-sm px-2 py-1 text-[12px] ${
+          className={`inline-flex items-center gap-1.5 rounded-ds-sm pl-2.5 pr-1 py-1 text-[12px] max-w-full ${
             m.isPrimary
               ? "bg-status-info-soft text-status-info-fg"
               : "bg-ds-surface-2 text-ds-text-2"
           }`}
           title={`${m.code} — ${m.name}`}
         >
-          <span className="font-mono">{m.code}</span>
-          <span className="text-ds-text-3">·</span>
-          <span className="truncate max-w-[160px]">{m.name}</span>
+          <span className="font-mono shrink-0">{m.code}</span>
+          <span className="text-ds-text-3 shrink-0">·</span>
+          <span className="truncate min-w-0 max-w-[160px]">{m.name}</span>
           {m.isDefaultTarget && (
             <Tag variant="ok" size="sm">
               destino
@@ -167,7 +167,7 @@ export function RowAccountsEditor({
           {canEdit && mappings.length > 1 && !m.isDefaultTarget && (
             <button
               type="button"
-              className="text-[12px] text-ds-text-3 hover:text-primary underline-offset-2 hover:underline"
+              className="text-[12px] text-ds-text-3 hover:text-primary underline-offset-2 hover:underline min-h-11 sm:min-h-0 px-1"
               onClick={() => void setDefaultTarget(m.accountPlanId)}
               disabled={saving}
             >
@@ -178,11 +178,12 @@ export function RowAccountsEditor({
             <button
               type="button"
               aria-label={`Quitar cuenta ${m.code}`}
+              title={`Quitar ${m.code}`}
               onClick={() => removeAccount(m.accountPlanId)}
               disabled={saving}
-              className="hover:text-status-warn-fg disabled:opacity-50"
+              className="inline-flex items-center justify-center shrink-0 min-h-11 min-w-11 sm:min-h-8 sm:min-w-8 rounded-ds-sm text-status-danger-fg hover:bg-status-danger-soft disabled:opacity-50"
             >
-              <X className="h-3 w-3" />
+              <X className="h-4 w-4" strokeWidth={2.25} />
             </button>
           )}
         </span>
