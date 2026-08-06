@@ -43,7 +43,7 @@ export default async function CashflowConfigPage() {
     <ConfigPageLayout
       icon={<Wallet className="h-[18px] w-[18px]" />}
       title="Flujo de Caja"
-      description="Horizontes de proyección, días de pago, generadores automáticos y categorías personalizadas."
+      description="Renglones del flujo, horizontes de proyección, días de pago y categorías (avanzado)."
     >
       <CashflowConfigClient
         initialConfig={JSON.parse(JSON.stringify(config))}

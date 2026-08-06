@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { SegmentedControl, Surface } from "@/components/opai-ds";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,14 +12,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Pencil, Trash2, Plus } from "lucide-react";
+import { ArrowDownUp, Search, Trash2, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { confirmDialog } from "@/components/ui/confirm-service";
 import { CategoryAccountsEditor } from "./CategoryAccountsEditor";
-import { CategoryRowExpandable } from "./CategoryRowExpandable";
-import { FlowHealthPanel } from "./FlowHealthPanel";
+import { FlowRowsConfigPanel } from "./FlowRowsConfigPanel";
 
-type ConfigTab = "parametros" | "categorias" | "salud";
+type ConfigTab = "renglones" | "parametros" | "avanzado";
+type CatSortKey = "code" | "name" | "kind";
 
 interface CashflowConfig {
   horizonWeeksDefault: number;
@@ -125,6 +125,7 @@ interface Category {
   isActive: boolean;
   isSystem: boolean;
   isTaxExempt: boolean;
+  accounts?: Array<{ id: string; code: string; name: string; isPrimary: boolean }>;
 }
 
 interface Props {
@@ -214,16 +215,56 @@ export function CashflowConfigClient({
   const [catError, setCatError] = useState<string | null>(null);
   const [backfillStatus, setBackfillStatus] = useState<string | null>(null);
   const [backfillRunning, setBackfillRunning] = useState(false);
-  const [tab, setTab] = useState<ConfigTab>("parametros");
+  const [tab, setTab] = useState<ConfigTab>("renglones");
   const [highlightAccountId, setHighlightAccountId] = useState<string | null>(
     null,
   );
+  const [catQuery, setCatQuery] = useState("");
+  const [catSort, setCatSort] = useState<CatSortKey>("code");
+  const [catSortAsc, setCatSortAsc] = useState(true);
+  const [editingCatId, setEditingCatId] = useState<string | null>(null);
+  const [editDraft, setEditDraft] = useState<{ code: string; name: string }>({
+    code: "",
+    name: "",
+  });
 
   useEffect(() => {
-    if (!highlightAccountId || tab !== "categorias") return;
+    if (!highlightAccountId || tab !== "avanzado") return;
     const el = document.getElementById(`cat-account-${highlightAccountId}`);
     el?.scrollIntoView({ behavior: "smooth", block: "center" });
   }, [highlightAccountId, tab]);
+
+  // Carga cuentas asociadas para buscar por cuenta en Avanzado (e inactivas).
+  useEffect(() => {
+    void reloadCategories();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const visibleCategories = useMemo(() => {
+    const q = catQuery.trim().toLowerCase();
+    let list = categories;
+    if (q) {
+      list = list.filter((c) => {
+        const accountHay = (c.accounts ?? [])
+          .map((a) => `${a.code} ${a.name}`)
+          .join(" ")
+          .toLowerCase();
+        return (
+          c.code.toLowerCase().includes(q) ||
+          c.name.toLowerCase().includes(q) ||
+          accountHay.includes(q)
+        );
+      });
+    }
+    const sorted = [...list].sort((a, b) => {
+      const av = String(a[catSort] ?? "").toLowerCase();
+      const bv = String(b[catSort] ?? "").toLowerCase();
+      if (av < bv) return catSortAsc ? -1 : 1;
+      if (av > bv) return catSortAsc ? 1 : -1;
+      return a.code.localeCompare(b.code);
+    });
+    return sorted;
+  }, [categories, catQuery, catSort, catSortAsc]);
 
   function setField<K extends keyof CashflowConfig>(key: K, value: CashflowConfig[K]) {
     setConfig((c) => ({ ...c, [key]: value }));
@@ -284,9 +325,47 @@ export function CashflowConfigClient({
   }
 
   async function reloadCategories() {
-    const r = await fetch("/api/finance/cashflow/categorias");
+    const r = await fetch("/api/finance/cashflow/categorias?includeInactive=1");
     const j = await r.json();
     if (j?.success) setCategories(j.data);
+  }
+
+  function beginEditCategory(c: Category) {
+    setEditingCatId(c.id);
+    setEditDraft({ code: c.code, name: c.name });
+  }
+
+  async function saveCategoryEdit(c: Category) {
+    const code = editDraft.code.trim().toUpperCase();
+    const name = editDraft.name.trim();
+    if (!/^[A-Z0-9_]{2,50}$/.test(code)) {
+      toast.error("Código inválido (MAYÚSCULAS, números y _)");
+      return;
+    }
+    if (name.length < 2) {
+      toast.error("El nombre debe tener al menos 2 caracteres");
+      return;
+    }
+    const body: { code?: string; name?: string } = {};
+    if (code !== c.code) body.code = code;
+    if (name !== c.name) body.name = name;
+    if (Object.keys(body).length === 0) {
+      setEditingCatId(null);
+      return;
+    }
+    const r = await fetch(`/api/finance/cashflow/categorias/${c.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const j = await r.json();
+    if (j?.success) {
+      setEditingCatId(null);
+      reloadCategories();
+      toast.success("Categoría actualizada");
+    } else {
+      toast.error(j?.error ?? "Error al guardar");
+    }
   }
 
   async function createCategory() {
@@ -342,9 +421,13 @@ export function CashflowConfigClient({
   }
 
   async function deleteCategory(c: Category) {
+    if (c.isActive) {
+      toast.error("Desactivá la categoría antes de eliminarla");
+      return;
+    }
     if (
       !(await confirmDialog({
-        description: `¿Eliminar categoría "${c.name}"?`,
+        description: `¿Eliminar categoría "${c.name}"? Solo si no tiene movimientos ni renglones vinculados.`,
         variant: "destructive",
         confirmLabel: "Eliminar",
       }))
@@ -364,17 +447,18 @@ export function CashflowConfigClient({
         onChange={setTab}
         size="md"
         items={[
+          { id: "renglones", label: "Renglones" },
           { id: "parametros", label: "Parámetros" },
-          { id: "categorias", label: "Categorías" },
-          { id: "salud", label: "Salud" },
+          { id: "avanzado", label: "Avanzado" },
         ]}
       />
 
-      {tab === "salud" && (
-        <FlowHealthPanel
+      {tab === "renglones" && (
+        <FlowRowsConfigPanel
+          categories={categories}
           onResolveAccount={(accountPlanId) => {
             setHighlightAccountId(accountPlanId);
-            setTab("categorias");
+            setTab("avanzado");
           }}
         />
       )}
@@ -1067,7 +1151,7 @@ export function CashflowConfigClient({
       </>
       )}
 
-      {tab === "categorias" && (
+      {tab === "avanzado" && (
       <>
       {highlightAccountId && (
         <Surface
@@ -1091,12 +1175,50 @@ export function CashflowConfigClient({
           </Button>
         </Surface>
       )}
-      {/* Sección 3: Categorías */}
       <Surface elevation={1} padding="md">
-        <h2 className="font-semibold mb-1">Categorías</h2>
+        <h2 className="font-semibold mb-1">Categorías (avanzado)</h2>
         <p className="text-[12px] text-ds-text-3 mb-3">
           Las flechas <span className="text-status-ok-fg">↑</span> indican <strong>ingresos</strong> y <span className="text-status-warn-fg">↓</span> indican <strong>egresos</strong>.
+          Podés editar código y nombre. Solo se eliminan categorías inactivas sin movimientos.
         </p>
+
+        <div className="flex flex-col sm:flex-row gap-2 mb-3">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ds-text-4" />
+            <Input
+              className="h-10 sm:h-9 pl-9"
+              placeholder="Buscar por código, nombre o cuenta…"
+              value={catQuery}
+              onChange={(e) => setCatQuery(e.target.value)}
+            />
+          </div>
+          <div className="flex gap-2">
+            <Select
+              value={catSort}
+              onValueChange={(v) => setCatSort(v as CatSortKey)}
+            >
+              <SelectTrigger className="h-10 sm:h-9 w-[160px]">
+                <SelectValue placeholder="Ordenar" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="code">Código</SelectItem>
+                <SelectItem value="name">Nombre</SelectItem>
+                <SelectItem value="kind">Tipo</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button
+              type="button"
+              variant="outline"
+              className="h-10 sm:h-9 px-3"
+              onClick={() => setCatSortAsc((a) => !a)}
+              aria-label={catSortAsc ? "Orden ascendente" : "Orden descendente"}
+            >
+              <ArrowDownUp className="h-4 w-4" />
+              <span className="ml-1.5 text-[12px]">{catSortAsc ? "A→Z" : "Z→A"}</span>
+            </Button>
+          </div>
+        </div>
+
         <div className="grid grid-cols-1 sm:grid-cols-[160px_1fr_140px_auto] sm:items-end gap-2 mb-2">
           <div>
             <Label>Código</Label>
@@ -1163,32 +1285,76 @@ export function CashflowConfigClient({
           <p className="mb-3 text-[12px] text-status-warn-fg">{catError}</p>
         )}
 
-        {/* Mobile: stacked card list */}
         <ul className="sm:hidden space-y-2">
-          {categories.map((c) => (
+          {visibleCategories.map((c) => (
             <li key={c.id} className="rounded-ds-md border border-border bg-background p-3">
               <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0 flex-1">
-                  <div className="font-medium text-[13px] truncate">{c.name}</div>
-                  <div className="font-mono text-[11px] uppercase tracking-[0.08em] text-ds-text-4 truncate">{c.code}</div>
-                  <div className="text-[12px] text-ds-text-3 mt-0.5">
+                <div className="min-w-0 flex-1 space-y-2">
+                  {editingCatId === c.id ? (
+                    <>
+                      <Input
+                        className="h-10 font-mono text-[12px]"
+                        value={editDraft.code}
+                        onChange={(e) =>
+                          setEditDraft((d) => ({
+                            ...d,
+                            code: e.target.value.toUpperCase(),
+                          }))
+                        }
+                      />
+                      <Input
+                        className="h-10 text-[13px]"
+                        value={editDraft.name}
+                        onChange={(e) =>
+                          setEditDraft((d) => ({ ...d, name: e.target.value }))
+                        }
+                      />
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          className="h-10"
+                          onClick={() => saveCategoryEdit(c)}
+                        >
+                          Guardar
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-10"
+                          onClick={() => setEditingCatId(null)}
+                        >
+                          Cancelar
+                        </Button>
+                      </div>
+                    </>
+                  ) : (
+                    <button
+                      type="button"
+                      className="text-left w-full min-h-11"
+                      onClick={() => beginEditCategory(c)}
+                    >
+                      <div className="font-medium text-[13px] truncate">{c.name}</div>
+                      <div className="font-mono text-[12px] uppercase tracking-[0.08em] text-ds-text-4 truncate">
+                        {c.code}
+                      </div>
+                    </button>
+                  )}
+                  <div className="text-[12px] text-ds-text-3">
                     {c.kind === "INCOME" ? "↑ Ingreso" : "↓ Egreso"}
                     {c.isSystem && (
-                      <span className="ml-2 text-[11px] px-1.5 py-0.5 rounded-ds-sm bg-status-info-soft text-status-info-fg font-mono uppercase tracking-[0.08em]">
+                      <span className="ml-2 text-[12px] px-1.5 py-0.5 rounded-ds-sm bg-status-info-soft text-status-info-fg font-mono uppercase tracking-[0.08em]">
                         Sistema
                       </span>
                     )}
                   </div>
-                  <div className="mt-2">
-                    <CategoryAccountsEditor
-                      categoryId={c.id}
-                      accountOptions={accountOptions}
-                      canEdit={true}
-                    />
-                  </div>
+                  <CategoryAccountsEditor
+                    categoryId={c.id}
+                    accountOptions={accountOptions}
+                    canEdit={true}
+                  />
                 </div>
                 <div className="flex flex-col items-end gap-2 shrink-0">
-                  <label className="flex items-center gap-1.5 text-[11px] text-ds-text-3">
+                  <label className="flex items-center gap-1.5 text-[12px] text-ds-text-3">
                     IVA
                     <Switch
                       checked={!c.isTaxExempt}
@@ -1197,10 +1363,10 @@ export function CashflowConfigClient({
                     />
                   </label>
                   <Switch checked={c.isActive} onCheckedChange={() => toggleCategoryActive(c)} />
-                  {!c.isSystem && (
+                  {!c.isActive && (
                     <button
                       onClick={() => deleteCategory(c)}
-                      className="p-1.5 hover:bg-status-warn-soft rounded text-status-warn-fg"
+                      className="p-2 min-h-11 min-w-11 hover:bg-status-warn-soft rounded text-status-warn-fg"
                       aria-label="Eliminar"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
@@ -1212,12 +1378,10 @@ export function CashflowConfigClient({
           ))}
         </ul>
 
-        {/* Tablet+: table */}
         <div className="hidden sm:block overflow-x-auto">
           <table className="w-full text-[12px]">
             <thead>
               <tr className="border-b border-border text-ds-text-3">
-                <th className="w-6 p-2"></th>
                 <th className="text-left p-2">Código</th>
                 <th className="text-left p-2">Nombre</th>
                 <th className="text-left p-2">Tipo</th>
@@ -1234,60 +1398,121 @@ export function CashflowConfigClient({
               </tr>
             </thead>
             <tbody>
-              {categories.map((c) => (
-                <CategoryRowExpandable
+              {visibleCategories.map((c) => (
+                <tr
                   key={c.id}
-                  categoryId={c.id}
-                  categoryCode={c.code}
-                  categoryName={c.name}
-                  categoryKind={c.kind}
-                  canManage={true}
-                  colSpan={8}
-                  header={
-                    <>
-                      <td className="p-2 font-mono text-ds-text-3">{c.code}</td>
-                      <td className="p-2">{c.name}</td>
-                      <td className="p-2">{c.kind === "INCOME" ? "↑ Ingreso" : "↓ Egreso"}</td>
-                      <td className="p-2">
-                        <CategoryAccountsEditor
-                          categoryId={c.id}
-                          accountOptions={accountOptions}
-                          canEdit={true}
+                  className="border-b border-ds-border-subtle align-top"
+                >
+                  <td className="p-2">
+                    {editingCatId === c.id ? (
+                      <Input
+                        className="h-9 font-mono text-[12px] min-w-[140px]"
+                        value={editDraft.code}
+                        onChange={(e) =>
+                          setEditDraft((d) => ({
+                            ...d,
+                            code: e.target.value.toUpperCase(),
+                          }))
+                        }
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") void saveCategoryEdit(c);
+                          if (e.key === "Escape") setEditingCatId(null);
+                        }}
+                      />
+                    ) : (
+                      <button
+                        type="button"
+                        className="font-mono text-ds-text-3 text-left hover:text-ds-text-1 underline-offset-2 hover:underline min-h-9"
+                        onClick={() => beginEditCategory(c)}
+                      >
+                        {c.code}
+                      </button>
+                    )}
+                  </td>
+                  <td className="p-2">
+                    {editingCatId === c.id ? (
+                      <div className="flex gap-1.5 items-center">
+                        <Input
+                          className="h-9 text-[13px] min-w-[160px]"
+                          value={editDraft.name}
+                          onChange={(e) =>
+                            setEditDraft((d) => ({ ...d, name: e.target.value }))
+                          }
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") void saveCategoryEdit(c);
+                            if (e.key === "Escape") setEditingCatId(null);
+                          }}
                         />
-                      </td>
-                      <td className="p-2 text-center">
-                        {c.isSystem ? (
-                          <span className="text-[11px] px-1.5 py-0.5 rounded-ds-sm bg-status-info-soft text-status-info-fg font-mono uppercase tracking-[0.08em]">
-                            Sistema
-                          </span>
-                        ) : (
-                          "—"
-                        )}
-                      </td>
-                      <td className="p-2 text-center">
-                        <Switch
-                          checked={!c.isTaxExempt}
-                          onCheckedChange={() => toggleCategoryTaxExempt(c)}
-                          aria-label="Afecto a IVA"
-                        />
-                      </td>
-                      <td className="p-2 text-center">
-                        <Switch checked={c.isActive} onCheckedChange={() => toggleCategoryActive(c)} />
-                      </td>
-                      <td className="p-2 text-center">
-                        {!c.isSystem && (
-                          <button
-                            onClick={() => deleteCategory(c)}
-                            className="p-1 hover:bg-status-warn-soft rounded text-status-warn-fg"
-                            aria-label="Eliminar"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
-                        )}
-                      </td>
-                    </>
-                  }
-                />
+                        <Button
+                          size="sm"
+                          className="h-9"
+                          onClick={() => saveCategoryEdit(c)}
+                        >
+                          Guardar
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-9"
+                          onClick={() => setEditingCatId(null)}
+                        >
+                          ×
+                        </Button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        className="text-left hover:underline underline-offset-2 min-h-9"
+                        onClick={() => beginEditCategory(c)}
+                      >
+                        {c.name}
+                      </button>
+                    )}
+                  </td>
+                  <td className="p-2">
+                    {c.kind === "INCOME" ? "↑ Ingreso" : "↓ Egreso"}
+                  </td>
+                  <td className="p-2">
+                    <CategoryAccountsEditor
+                      categoryId={c.id}
+                      accountOptions={accountOptions}
+                      canEdit={true}
+                    />
+                  </td>
+                  <td className="p-2 text-center">
+                    {c.isSystem ? (
+                      <span className="text-[12px] px-1.5 py-0.5 rounded-ds-sm bg-status-info-soft text-status-info-fg font-mono uppercase tracking-[0.08em]">
+                        Sistema
+                      </span>
+                    ) : (
+                      "—"
+                    )}
+                  </td>
+                  <td className="p-2 text-center">
+                    <Switch
+                      checked={!c.isTaxExempt}
+                      onCheckedChange={() => toggleCategoryTaxExempt(c)}
+                      aria-label="Afecto a IVA"
+                    />
+                  </td>
+                  <td className="p-2 text-center">
+                    <Switch
+                      checked={c.isActive}
+                      onCheckedChange={() => toggleCategoryActive(c)}
+                    />
+                  </td>
+                  <td className="p-2 text-center">
+                    {!c.isActive && (
+                      <button
+                        onClick={() => deleteCategory(c)}
+                        className="p-2 min-h-9 min-w-9 hover:bg-status-warn-soft rounded text-status-warn-fg"
+                        aria-label="Eliminar"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                  </td>
+                </tr>
               ))}
             </tbody>
           </table>

@@ -16,15 +16,33 @@ export async function GET(request: NextRequest) {
     const sp = new URL(request.url).searchParams;
     const kindParam = sp.get("kind");
     const kind = kindParam === "INCOME" || kindParam === "EXPENSE" ? kindParam : undefined;
+    const includeInactive = sp.get("includeInactive") === "1";
+    // Solo quien configura puede ver inactivas (borrado / edición en Avanzado).
+    if (includeInactive && !hasCapability(perms, "cashflow_configure")) {
+      return NextResponse.json(
+        { success: false, error: "Sin permisos" },
+        { status: 403 },
+      );
+    }
 
     // Upsert idempotente: asegura códigos sistema nuevos (p.ej. EGR_FINIQUITO)
     // también en tenants que ya tenían categorías sembradas.
     await seedSystemCategoriesForTenant(ctx.tenantId);
 
     const cats = await prisma.financeCashflowCategory.findMany({
-      where: { tenantId: ctx.tenantId, isActive: true, ...(kind && { kind }) },
+      where: {
+        tenantId: ctx.tenantId,
+        ...(includeInactive ? {} : { isActive: true }),
+        ...(kind && { kind }),
+      },
       orderBy: [{ kind: "asc" }, { sortOrder: "asc" }, { code: "asc" }],
-      include: { _count: { select: { accountMappings: true } } },
+      include: {
+        _count: { select: { accountMappings: true } },
+        accountMappings: {
+          include: { accountPlan: { select: { code: true, name: true } } },
+          orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }],
+        },
+      },
     });
     return NextResponse.json({
       success: true,
@@ -39,6 +57,12 @@ export async function GET(request: NextRequest) {
         isSystem: c.isSystem,
         isTaxExempt: c.isTaxExempt,
         mappedAccountCount: c._count.accountMappings,
+        accounts: c.accountMappings.map((m) => ({
+          id: m.accountPlanId,
+          code: m.accountPlan.code,
+          name: m.accountPlan.name,
+          isPrimary: m.isPrimary,
+        })),
       })),
     });
   } catch (error) {
