@@ -1772,6 +1772,8 @@ export function PlanillaGrid({
         busy={busy}
         onClose={() => setRowDialog(null)}
         onConfirm={(body) => actions.createRecurring(body)}
+        onUpdate={(id, body) => actions.updateRecurring(id, body)}
+        onDelete={(id) => actions.deleteRecurring(id, false)}
       />
 
       <ConfirmDialog

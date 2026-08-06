@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
@@ -28,6 +28,25 @@ const UF_OPTS = (["RUN_DAY", "LAST_DAY_MONTH", "LAST_DAY_PREV_MONTH", "CUSTOM_DA
 
 type TermMode = "date" | "occurrences" | "both";
 type TargetMode = "existing" | "new";
+type AmountMode = "CLP" | "UF" | "PCT_SALES";
+
+/** DTO del GET /api/finance/flow-v3/recurring-plan?rowId=… */
+export interface PlanRecurrenceDto {
+  id: string;
+  rowId: string;
+  amount: number;
+  currency: "CLP" | "UF";
+  amountMode: "FIXED" | "PCT_SALES";
+  pctSales: number | null;
+  amountUf: number | null;
+  ufPolicy: string | null;
+  ufCustomDay: number | null;
+  frequency: string;
+  dayOfMonth: number | null;
+  startDate: string;
+  endDate: string | null;
+  endAfterOccurrences: number | null;
+}
 
 function defaultSection(row: FlowMatrixRowDto | null): string {
   if (row?.section === "FINANCIAMIENTO") return "FINANCIAMIENTO";
@@ -37,6 +56,30 @@ function defaultSection(row: FlowMatrixRowDto | null): string {
   return "GAV";
 }
 
+function fmtShortYmd(ymd: string): string {
+  const [, m, d] = ymd.split("-");
+  return `${d}/${m}`;
+}
+
+function recurrenceOptionLabel(r: PlanRecurrenceDto): string {
+  const freq = FREQ_LABELS[r.frequency]?.split(" (")[0] ?? r.frequency;
+  let amountPart: string;
+  if (r.amountMode === "PCT_SALES") {
+    amountPart = `${r.pctSales ?? "?"}% ventas`;
+  } else if (r.currency === "UF") {
+    amountPart = `${r.amountUf ?? "?"} UF`;
+  } else {
+    amountPart = fmtClp(r.amount);
+  }
+  const from = fmtShortYmd(r.startDate);
+  const term = r.endDate
+    ? ` → ${fmtShortYmd(r.endDate)}`
+    : r.endAfterOccurrences
+      ? ` · ${r.endAfterOccurrences}×`
+      : "";
+  return `${freq} · ${amountPart} · desde ${from}${term}`;
+}
+
 /** Egreso / recurrencia de plan (v2) sobre fila existente o nueva. */
 export function RecurringExpenseDialog({
   row,
@@ -44,6 +87,8 @@ export function RecurringExpenseDialog({
   categories,
   busy,
   onConfirm,
+  onUpdate,
+  onDelete,
   onClose,
   ufToday,
 }: {
@@ -52,6 +97,8 @@ export function RecurringExpenseDialog({
   categories?: Array<{ id: string; code: string; name: string; kind: string }>;
   busy: boolean;
   onConfirm: (body: Record<string, unknown>) => Promise<unknown>;
+  onUpdate?: (id: string, body: Record<string, unknown>) => Promise<unknown>;
+  onDelete?: (id: string) => Promise<unknown>;
   onClose: () => void;
   ufToday?: number | null;
 }) {
@@ -75,7 +122,11 @@ export function RecurringExpenseDialog({
   const [newRowCategoryId, setNewRowCategoryId] = useState("");
   const [newRowSection, setNewRowSection] = useState(defaultSection(row));
 
-  type AmountMode = "CLP" | "UF" | "PCT_SALES";
+  const [existingRules, setExistingRules] = useState<PlanRecurrenceDto[]>([]);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [loadingRules, setLoadingRules] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
   const [amountMode, setAmountMode] = useState<AmountMode>("CLP");
   const [amountStr, setAmountStr] = useState("");
   const [amountUfStr, setAmountUfStr] = useState("");
@@ -90,19 +141,7 @@ export function RecurringExpenseDialog({
   const [endAfterOccurrences, setEndAfterOccurrences] = useState("12");
   const [finSign, setFinSign] = useState<"in" | "out">("out");
 
-  useEffect(() => {
-    if (!isOpen) return;
-    const list = rows?.length ? rows : row ? [row] : [];
-    const filtered = list.filter(
-      (r) => PLAN_RECURRENCE_SECTIONS.includes(r.section as typeof PLAN_RECURRENCE_SECTIONS[number])
-        && !r.isArchived,
-    );
-    const initialId = row?.id ?? filtered[0]?.id ?? "";
-    setTargetMode(initialId ? "existing" : "new");
-    setSelectedRowId(initialId);
-    setNewRowName("");
-    setNewRowCategoryId("");
-    setNewRowSection(defaultSection(row));
+  const resetCreateForm = useCallback((sectionHint?: string) => {
     setAmountMode("CLP");
     setAmountStr("");
     setAmountUfStr("");
@@ -116,13 +155,112 @@ export function RecurringExpenseDialog({
     setEndDate("");
     setEndAfterOccurrences("12");
     setFinSign("out");
-  }, [isOpen, row, rows]);
+    setConfirmDelete(false);
+    if (sectionHint) setNewRowSection(sectionHint);
+  }, []);
+
+  const applyRuleToForm = useCallback((rule: PlanRecurrenceDto) => {
+    if (rule.amountMode === "PCT_SALES") {
+      setAmountMode("PCT_SALES");
+      setPctSalesStr(String(rule.pctSales ?? 10));
+      setAmountStr("");
+      setAmountUfStr("");
+      setFinSign(rule.amount < 0 ? "out" : rule.amount > 0 ? "in" : "out");
+    } else if (rule.currency === "UF") {
+      setAmountMode("UF");
+      setAmountUfStr(String(rule.amountUf ?? ""));
+      setAmountStr("");
+      setUfPolicy((rule.ufPolicy as UfPolicy) || "LAST_DAY_MONTH");
+      setUfCustomDay(String(rule.ufCustomDay ?? 1));
+      setFinSign(rule.amount < 0 ? "out" : "in");
+    } else {
+      setAmountMode("CLP");
+      setAmountStr(formatThousands(String(Math.abs(rule.amount))));
+      setAmountUfStr("");
+      setFinSign(rule.amount < 0 ? "out" : rule.amount > 0 ? "in" : "out");
+    }
+    setFrequency(rule.frequency);
+    setDayOfMonth(String(rule.dayOfMonth ?? 1));
+    setStartDate(rule.startDate);
+    if (rule.endDate && rule.endAfterOccurrences) {
+      setTermMode("both");
+      setEndDate(rule.endDate);
+      setEndAfterOccurrences(String(rule.endAfterOccurrences));
+    } else if (rule.endAfterOccurrences) {
+      setTermMode("occurrences");
+      setEndDate("");
+      setEndAfterOccurrences(String(rule.endAfterOccurrences));
+    } else {
+      setTermMode("date");
+      setEndDate(rule.endDate ?? "");
+      setEndAfterOccurrences("12");
+    }
+    setConfirmDelete(false);
+  }, []);
+
+  // Reset al abrir / cambiar fila inicial.
+  useEffect(() => {
+    if (!isOpen) return;
+    const list = rows?.length ? rows : row ? [row] : [];
+    const filtered = list.filter(
+      (r) => PLAN_RECURRENCE_SECTIONS.includes(r.section as typeof PLAN_RECURRENCE_SECTIONS[number])
+        && !r.isArchived,
+    );
+    const initialId = row?.id ?? filtered[0]?.id ?? "";
+    setTargetMode(initialId ? "existing" : "new");
+    setSelectedRowId(initialId);
+    setNewRowName("");
+    setNewRowCategoryId("");
+    setNewRowSection(defaultSection(row));
+    setExistingRules([]);
+    setEditingId(null);
+    resetCreateForm(defaultSection(row));
+  }, [isOpen, row, rows, resetCreateForm]);
+
+  // Carga reglas de la fila seleccionada.
+  useEffect(() => {
+    if (!isOpen || targetMode !== "existing" || !selectedRowId) {
+      setExistingRules([]);
+      setEditingId(null);
+      return;
+    }
+    let cancelled = false;
+    setLoadingRules(true);
+    setConfirmDelete(false);
+    fetch(`/api/finance/flow-v3/recurring-plan?rowId=${encodeURIComponent(selectedRowId)}`, {
+      cache: "no-store",
+    })
+      .then((res) => res.json())
+      .then((json: { success?: boolean; data?: PlanRecurrenceDto[] }) => {
+        if (cancelled) return;
+        const rules = json.success && Array.isArray(json.data) ? json.data : [];
+        setExistingRules(rules);
+        if (rules.length > 0) {
+          const first = rules[0]!;
+          setEditingId(first.id);
+          applyRuleToForm(first);
+        } else {
+          setEditingId(null);
+          resetCreateForm();
+        }
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setExistingRules([]);
+        setEditingId(null);
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingRules(false);
+      });
+    return () => { cancelled = true; };
+  }, [isOpen, targetMode, selectedRowId, applyRuleToForm, resetCreateForm]);
 
   if (!isOpen) return null;
 
   const selectedRow = selectableRows.find((r) => r.id === selectedRowId) ?? null;
   const targetSection = targetMode === "new" ? newRowSection : (selectedRow?.section ?? newRowSection);
   const isFinanciamiento = targetSection === "FINANCIAMIENTO";
+  const isEditing = editingId != null;
 
   const amountMag = Math.abs(parseSignedAmount(amountStr || "0"));
   const amountUfMag = Math.abs(Number(String(amountUfStr).replace(",", ".")));
@@ -146,7 +284,7 @@ export function RecurringExpenseDialog({
     termMode === "date" ? true
     : termMode === "occurrences" ? validOcc
     : validOcc && (!endDate || endDate >= startDate);
-  const canSubmit = amountOk && validDom && validDates && termOk && newRowOk && rowOk && !busy;
+  const canSubmit = amountOk && validDom && validDates && termOk && newRowOk && rowOk && !busy && !loadingRules;
 
   const previewClp =
     amountMode === "UF" && ufToday != null && Number.isFinite(amountUfMag)
@@ -164,35 +302,40 @@ export function RecurringExpenseDialog({
     ? (selectedRow?.name ?? row?.name)
     : (newRowName.trim() || "nueva fila");
 
-  const submit = async () => {
+  const buildBody = (): Record<string, unknown> => {
     const body: Record<string, unknown> = {
       frequency: effectiveFrequency,
       startDate,
       ...(effectiveFrequency === "MONTHLY" ? { dayOfMonth: dom } : {}),
     };
 
-    if (targetMode === "new") {
-      body.newRow = {
-        section: newRowSection,
-        name: newRowName.trim(),
-        ...(newRowCategoryId ? { categoryId: newRowCategoryId } : {}),
-      };
-    } else {
-      body.rowId = selectedRowId;
+    if (!isEditing) {
+      if (targetMode === "new") {
+        body.newRow = {
+          section: newRowSection,
+          name: newRowName.trim(),
+          ...(newRowCategoryId ? { categoryId: newRowCategoryId } : {}),
+        };
+      } else {
+        body.rowId = selectedRowId;
+      }
     }
 
     if (termMode === "date" || termMode === "both") {
-      if (endDate) body.endDate = endDate;
+      body.endDate = endDate || null;
+    } else {
+      body.endDate = null;
     }
     if (termMode === "occurrences" || termMode === "both") {
       body.endAfterOccurrences = nOcc;
+    } else {
+      body.endAfterOccurrences = null;
     }
 
     if (amountMode === "PCT_SALES") {
       body.amountMode = "PCT_SALES";
       body.pctSales = pctSales;
       body.currency = "CLP";
-      // FINANCIAMIENTO: −1 egreso / +1 ingreso (cash-signed); egresos: 0.
       body.amount = isFinanciamiento ? (finSign === "out" ? -1 : 1) : 0;
     } else if (amountMode === "UF") {
       body.amountMode = "FIXED";
@@ -206,9 +349,37 @@ export function RecurringExpenseDialog({
       body.currency = "CLP";
       body.amount = signedClp;
     }
+    return body;
+  };
 
+  const submit = async () => {
+    const body = buildBody();
+    if (isEditing) {
+      if (!onUpdate || !editingId) return;
+      const r = await onUpdate(editingId, body);
+      if (r != null) onClose();
+      return;
+    }
     const r = await onConfirm(body);
     if (r != null) onClose();
+  };
+
+  const handleDelete = async () => {
+    if (!editingId || !onDelete) return;
+    const r = await onDelete(editingId);
+    if (r != null) onClose();
+  };
+
+  const selectRule = (value: string) => {
+    if (value === "__new__") {
+      setEditingId(null);
+      resetCreateForm();
+      return;
+    }
+    const rule = existingRules.find((r) => r.id === value);
+    if (!rule) return;
+    setEditingId(rule.id);
+    applyRuleToForm(rule);
   };
 
   return (
@@ -225,9 +396,13 @@ export function RecurringExpenseDialog({
             <select
               className={SELECT_CLASS}
               value={targetMode === "new" ? "__new__" : selectedRowId}
+              disabled={isEditing}
               onChange={(e) => {
                 if (e.target.value === "__new__") {
                   setTargetMode("new");
+                  setEditingId(null);
+                  setExistingRules([]);
+                  resetCreateForm(newRowSection);
                 } else {
                   setTargetMode("existing");
                   setSelectedRowId(e.target.value);
@@ -242,6 +417,36 @@ export function RecurringExpenseDialog({
               <option value="__new__">Nueva fila…</option>
             </select>
           </label>
+
+          {targetMode === "existing" && (
+            <label className="block space-y-1 text-xs text-ds-text-3">
+              <span>Recurrencia</span>
+              <select
+                data-testid="recurrence-selector"
+                className={SELECT_CLASS}
+                value={editingId ?? "__new__"}
+                disabled={loadingRules}
+                onChange={(e) => selectRule(e.target.value)}
+              >
+                {existingRules.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {recurrenceOptionLabel(r)}
+                  </option>
+                ))}
+                <option value="__new__">
+                  {existingRules.length > 0 ? "Crear nueva…" : "Nueva recurrencia"}
+                </option>
+              </select>
+              {loadingRules && (
+                <span className="block text-[12px] text-ds-text-4">Cargando…</span>
+              )}
+              {!loadingRules && existingRules.length === 0 && (
+                <span className="block text-[12px] text-ds-text-4">
+                  Esta fila aún no tiene recurrencias. Completa el formulario para crear una.
+                </span>
+              )}
+            </label>
+          )}
 
           {targetMode === "new" && (
             <div className="space-y-2 rounded border border-ds-border-subtle bg-ds-surface-2 p-2">
@@ -500,7 +705,9 @@ export function RecurringExpenseDialog({
           {amountMode !== "PCT_SALES" ? (
             <>
               <p className="rounded border border-status-warn-border bg-status-warn-soft/40 px-2 py-1.5 text-xs text-status-warn-fg">
-                Editar esta recurrencia reescribe celdas futuras no selladas (pisa ajustes manuales futuros).
+                {isEditing
+                  ? "Guardar reescribe celdas futuras no selladas (pisa ajustes manuales futuros)."
+                  : "Editar esta recurrencia reescribe celdas futuras no selladas (pisa ajustes manuales futuros)."}
               </p>
               <p className="text-[12px] text-ds-text-3">
                 Materializa celdas de plan hacia adelante hasta el término (o 12 meses). En UF se
@@ -513,12 +720,59 @@ export function RecurringExpenseDialog({
               un monto de plan en el mes (o «Mover») la pisa. Semanas selladas muestran solo real.
             </p>
           )}
+
+          {isEditing && confirmDelete && (
+            <div className="space-y-2 rounded border border-status-danger-border bg-status-danger-soft/40 p-2">
+              <p className="text-[13px] text-status-danger-fg">
+                ¿Eliminar esta recurrencia? Se borran las celdas futuras que no estén en semanas
+                cerradas. El pasado y las semanas selladas se conservan.
+              </p>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  className="h-10 sm:h-9"
+                  disabled={busy}
+                  onClick={() => setConfirmDelete(false)}
+                >
+                  No
+                </Button>
+                <Button
+                  variant="destructive"
+                  className="h-10 sm:h-9"
+                  disabled={busy || !onDelete}
+                  onClick={handleDelete}
+                >
+                  {busy ? "Eliminando…" : "Sí, eliminar"}
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>Cancelar</Button>
-          <Button disabled={!canSubmit} onClick={submit}>
-            {busy ? "Creando…" : "Crear recurrente"}
-          </Button>
+        <DialogFooter className="flex-col gap-2 sm:flex-row sm:justify-between">
+          <div className="flex w-full gap-2 sm:w-auto">
+            {isEditing && onDelete && !confirmDelete && (
+              <Button
+                variant="outline"
+                className="h-10 sm:h-9 border-status-danger-border text-status-danger-fg"
+                disabled={busy}
+                onClick={() => setConfirmDelete(true)}
+              >
+                Eliminar
+              </Button>
+            )}
+          </div>
+          <div className="flex w-full gap-2 sm:w-auto sm:justify-end">
+            <Button variant="outline" className="h-10 sm:h-9" onClick={onClose}>
+              Cancelar
+            </Button>
+            {!confirmDelete && (
+              <Button className="h-10 sm:h-9" disabled={!canSubmit} onClick={submit}>
+                {busy
+                  ? (isEditing ? "Guardando…" : "Creando…")
+                  : (isEditing ? "Guardar cambios" : "Crear recurrente")}
+              </Button>
+            )}
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>
