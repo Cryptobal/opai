@@ -80,6 +80,9 @@ import { DealNextStepBanner } from "./deal/DealNextStepBanner";
 import { DealUnifiedTimeline } from "./deal/DealUnifiedTimeline";
 import { SlackDealRoomCard } from "./deal/SlackDealRoomCard";
 import { useEmailAttachments } from "./correos/useEmailAttachments";
+import { InlineEditField } from "@/components/opai/InlineEditField";
+import { patchCrmField } from "@/components/crm/patchCrmField";
+import { normalizeWebsite, normalizeMoneyClp } from "@/lib/validations/field-normalizers";
 
 /** Convierte Tiptap JSON a HTML para email */
 function tiptapToEmailHtml(doc: any): string {
@@ -537,7 +540,7 @@ function DealPipelineStepper({
 }
 
 export function CrmDealDetailClient({
-  deal, quotes, pipelineStages, dealContacts: initialDealContacts, accountContacts, accountInstallations = [], dealInstallation = null, gmailConnected, docTemplatesMail = [], docTemplatesWhatsApp = [], followUpConfig = null, followUpLogs = [], activityEvents = [], ufValue, canConfigureCrm = false, currentUserId = "",
+  deal, quotes, pipelineStages, dealContacts: initialDealContacts, accountContacts, accountInstallations = [], dealInstallation = null, gmailConnected, docTemplatesMail = [], docTemplatesWhatsApp = [], followUpConfig = null, followUpLogs = [], activityEvents = [], ufValue, canConfigureCrm = false, canEdit = false, currentUserId = "",
 }: {
   deal: DealDetail; quotes: QuoteOption[];
   pipelineStages: PipelineStageOption[];
@@ -550,6 +553,7 @@ export function CrmDealDetailClient({
   activityEvents?: ActivityEvent[];
   ufValue: number;
   canConfigureCrm?: boolean;
+  canEdit?: boolean;
   currentUserId?: string;
 }) {
   // Contexto de página para OPAI Intelligence (chat contextual tipo Notion)
@@ -718,6 +722,11 @@ export function CrmDealDetailClient({
     setDealStatus(deal.status);
   }, [deal.status]);
   const [dealTitle, setDealTitle] = useState(deal.title);
+  const [dealAccount, setDealAccount] = useState(deal.account ?? null);
+
+  useEffect(() => {
+    setDealAccount(deal.account ?? null);
+  }, [deal.account]);
   // Estado local de licitación (mismo patrón que dealStatus): se actualiza al
   // instante cuando DealLicitacionCard persiste, y re-sincroniza con el prop.
   const [licitacion, setLicitacion] = useState<{ isLicitacion: boolean; fechaEntrega: string | null }>({
@@ -904,6 +913,48 @@ export function CrmDealDetailClient({
     proposalLink: deal.proposalLink || "",
     accountId: deal.account?.id ?? "",
   });
+
+  useEffect(() => {
+    if (!canEdit || accountOptions.length > 0) return;
+    fetch("/api/crm/accounts?limit=500")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.success && d.data) {
+          setAccountOptions(d.data.map((a: { id: string; name: string }) => ({ id: a.id, name: a.name })));
+        }
+      })
+      .catch(() => {});
+  }, [canEdit, accountOptions.length]);
+
+  const accountSelectOptions = useMemo(() => {
+    const opts = accountOptions.map((a) => ({ value: a.id, label: a.name }));
+    if (dealAccount && !opts.find((o) => o.value === dealAccount.id)) {
+      opts.unshift({ value: dealAccount.id, label: dealAccount.name });
+    }
+    return opts;
+  }, [accountOptions, dealAccount]);
+
+  const commitDealField = async (key: string, value: string | null): Promise<string | null> => {
+    const apiValue = key === "amount" ? Number(value ?? 0) : value;
+    const data = await patchCrmField<Record<string, unknown>>({
+      url: `/api/crm/deals/${deal.id}`,
+      key,
+      value: apiValue,
+    });
+    if (key === "title" && typeof data.title === "string") setDealTitle(data.title);
+    if (key === "amount") setDealAmount(String(data.amount ?? value ?? "0"));
+    if (key === "proposalLink") setDealProposalLink((data.proposalLink as string | null) ?? value);
+    if (key === "accountId" && typeof data.accountId === "string") {
+      const nextAccount = accountOptions.find((a) => a.id === data.accountId)
+        ?? (dealAccount?.id === data.accountId ? dealAccount : null);
+      if (nextAccount) {
+        setDealAccount({ id: nextAccount.id, name: nextAccount.name });
+      }
+      router.refresh();
+    }
+    const saved = data[key];
+    return saved != null ? String(saved) : value;
+  };
 
   const openDealEdit = () => {
     setEditDealForm({
@@ -2439,6 +2490,77 @@ export function CrmDealDetailClient({
       >
         {effectiveTab === "general" && (
           <div className="space-y-4">
+            <div className="rounded-xl border border-border bg-card p-4">
+              <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-ds-text-3">
+                Datos del negocio
+              </p>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <InlineEditField
+                  label="Título"
+                  fieldKey="title"
+                  type="text"
+                  value={dealTitle}
+                  canEdit={canEdit}
+                  required
+                  onCommit={async (key, value) => {
+                    const saved = await commitDealField(key, value);
+                    if (saved) setDealTitle(saved);
+                    return saved;
+                  }}
+                />
+                <InlineEditField
+                  label="Cliente (cuenta)"
+                  fieldKey="accountId"
+                  type="select"
+                  value={dealAccount?.id ?? null}
+                  canEdit={canEdit}
+                  options={accountSelectOptions}
+                  confirm={{
+                    title: "¿Mover el negocio a otro cliente?",
+                    description: (next) => {
+                      const toName = accountSelectOptions.find((o) => o.value === next)?.label ?? "otra cuenta";
+                      return `Vas a cambiar la cuenta de «${dealAccount?.name ?? "sin cuenta"}» a «${toName}». El negocio dejará de aparecer en el cliente actual.`;
+                    },
+                  }}
+                  onCommit={commitDealField}
+                />
+                <InlineEditField
+                  label="Monto"
+                  fieldKey="amount"
+                  type="money"
+                  value={dealAmount ? String(dealAmount) : null}
+                  canEdit={canEdit}
+                  normalize={normalizeMoneyClp}
+                  displayValue={(v) =>
+                    v ? `$${Number(v).toLocaleString("es-CL")}` : null
+                  }
+                  onCommit={async (key, value) => {
+                    const num = value ? Number(value) : 0;
+                    const data = await patchCrmField<Record<string, unknown>>({
+                      url: `/api/crm/deals/${deal.id}`,
+                      key,
+                      value: num,
+                    });
+                    const saved = String(data.amount ?? num);
+                    setDealAmount(saved);
+                    return saved;
+                  }}
+                />
+                <InlineEditField
+                  label="Link propuesta"
+                  fieldKey="proposalLink"
+                  type="url"
+                  value={dealProposalLink}
+                  canEdit={canEdit}
+                  normalize={normalizeWebsite}
+                  onCommit={async (key, value) => {
+                    const saved = await commitDealField(key, value);
+                    setDealProposalLink(saved);
+                    return saved;
+                  }}
+                />
+              </div>
+            </div>
             <DealNextStepBanner
               log={pendingLogsBySequence[0] ?? null}
               onSendNow={handleSendFollowUpNow}

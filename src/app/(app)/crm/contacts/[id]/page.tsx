@@ -4,7 +4,7 @@
 
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
-import { resolvePagePerms, canView } from "@/lib/permissions-server";
+import { resolvePagePerms, canView, canEdit } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
 import { normalizeEmailAddress } from "@/lib/email-address";
 import { CrmContactDetailClient } from "@/components/crm/CrmContactDetailClient";
@@ -20,6 +20,7 @@ export default async function CrmContactDetailPage({
   }
   const perms = await resolvePagePerms(session.user);
   if (!canView(perms, "crm", "contacts")) redirect("/crm");
+  const canEditContact = canEdit(perms, "crm", "contacts");
   const tenantId = session.user.tenantId;
 
   const contact = await prisma.crmContact.findFirst({
@@ -183,6 +184,7 @@ export default async function CrmContactDetailPage({
       docTemplatesWhatsApp={initialDocTemplatesWhatsApp}
       initialEmailCount={initialEmailCount}
       currentUserId={session.user.id}
+      canEdit={canEditContact}
     />
   );
 }

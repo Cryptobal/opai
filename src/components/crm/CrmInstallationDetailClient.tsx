@@ -28,6 +28,13 @@ import { MapCoordinatePicker } from "@/components/ui/MapCoordinatePicker";
 import { EmptyState, Tag, type TagVariant } from "@/components/opai-ds";
 import { EntityDetailLayout, useEntityTabs, type EntityTab, type EntityHeaderAction } from "./EntityDetailLayout";
 import { DetailField } from "./DetailField";
+import { InlineEditField } from "@/components/opai/InlineEditField";
+import { patchCrmField } from "@/components/crm/patchCrmField";
+import {
+  normalizeDateYmd,
+  normalizeIntRange,
+  normalizeMoneyClp,
+} from "@/lib/validations/field-normalizers";
 import { CrmRelatedRecordCard, CrmRelatedRecordGrid } from "./CrmRelatedRecordCard";
 import { AssociatedTicketsSection } from "./AssociatedTicketsSection";
 import { CRM_MODULES } from "./CrmModuleIcons";
@@ -1921,7 +1928,8 @@ function StaffingSection({
 /* ── Main Component ── */
 
 export function CrmInstallationDetailClient({
-  installation,
+  installation: initialInstallation,
+  canEdit = false,
   canEditDotacion = false,
   canForceDeletePuesto = false,
   canDeleteVisitasTecnicas = false,
@@ -1931,6 +1939,7 @@ export function CrmInstallationDetailClient({
   currentUserId = "",
 }: {
   installation: InstallationDetail;
+  canEdit?: boolean;
   canEditDotacion?: boolean;
   canForceDeletePuesto?: boolean;
   canDeleteVisitasTecnicas?: boolean;
@@ -1940,6 +1949,46 @@ export function CrmInstallationDetailClient({
   currentUserId?: string;
 }) {
   const router = useRouter();
+  const [installation, setInstallation] = useState(initialInstallation);
+
+  useEffect(() => {
+    setInstallation(initialInstallation);
+  }, [initialInstallation]);
+
+  const commitInstallationField = async (key: string, value: string | null): Promise<string | null> => {
+    const apiValue =
+      key === "geoRadiusM" ? (value ? Number(value) : null) :
+      key === "teMontoClp" ? (value ? Number(value) : 0) :
+      value;
+    const data = await patchCrmField<Record<string, unknown>>({
+      url: `/api/crm/installations/${installation.id}`,
+      key,
+      value: apiValue,
+    });
+    setInstallation((prev) => {
+      if (key === "startDate" || key === "endDate") {
+        const raw = data[key] ?? value;
+        return { ...prev, [key]: raw ? String(raw).slice(0, 10) : null };
+      }
+      if (key === "geoRadiusM" || key === "teMontoClp") {
+        return { ...prev, [key]: data[key] ?? apiValue };
+      }
+      return { ...prev, [key]: data[key] ?? value };
+    });
+    if (key === "startDate" || key === "endDate") {
+      const raw = data[key] ?? value;
+      return raw ? String(raw).slice(0, 10) : null;
+    }
+    const saved = data[key];
+    return saved != null ? String(saved) : value;
+  };
+
+  const installationStatusLabel =
+    installation.status === "active"
+      ? "Activa"
+      : installation.status === "inactive"
+        ? "Inactiva"
+        : "Prospecto";
 
   // Contexto de página para OPAI Intelligence (chat contextual tipo Notion)
   useRegisterChatPageContext({
@@ -2411,25 +2460,42 @@ export function CrmInstallationDetailClient({
           ) : null}
 
           {/* Dirección principal */}
-          <div className="min-w-0 flex-1 p-4 sm:order-1 sm:p-5">
-            <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">
-              Dirección
+          <div className="min-w-0 flex-1 p-4 sm:order-1 sm:p-5 space-y-3">
+            <InlineEditField
+              label="Nombre"
+              fieldKey="name"
+              type="text"
+              value={installation.name}
+              canEdit={canEdit}
+              required
+              onCommit={commitInstallationField}
+            />
+            <InlineEditField
+              label="Dirección"
+              fieldKey="address"
+              type="text"
+              value={installation.address ?? null}
+              canEdit={canEdit}
+              onCommit={commitInstallationField}
+            />
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <InlineEditField
+                label="Comuna"
+                fieldKey="commune"
+                type="text"
+                value={installation.commune ?? null}
+                canEdit={canEdit}
+                onCommit={commitInstallationField}
+              />
+              <InlineEditField
+                label="Ciudad"
+                fieldKey="city"
+                type="text"
+                value={installation.city ?? null}
+                canEdit={canEdit}
+                onCommit={commitInstallationField}
+              />
             </div>
-            {installation.address ? (
-              <div className="flex items-start gap-2">
-                <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-                <p className="break-words text-[15px] leading-snug text-foreground">
-                  {installation.address}
-                </p>
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground/60">—</p>
-            )}
-            {(installation.commune || installation.city) && (
-              <p className="mt-1 pl-6 text-xs text-muted-foreground">
-                {[installation.commune, installation.city].filter(Boolean).join(", ")}
-              </p>
-            )}
           </div>
         </div>
       </div>
@@ -2456,52 +2522,59 @@ export function CrmInstallationDetailClient({
       ) : null}
 
       {/* ── Stats strip: métricas operacionales clave ── */}
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
-        <div className="min-w-0 rounded-xl border border-border bg-card p-3 sm:p-4">
-          <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">
-            Valor turno extra
-          </div>
-          <div className="truncate text-[15px] font-semibold tabular-nums text-foreground">
-            {installation.teMontoClp != null && Number(installation.teMontoClp) > 0 ? (
-              `$ ${Number(installation.teMontoClp).toLocaleString("es-CL")}`
-            ) : (
-              <span className="text-sm font-normal text-muted-foreground/70">No definido</span>
-            )}
-          </div>
-        </div>
-        <div className="min-w-0 rounded-xl border border-border bg-card p-3 sm:p-4">
-          <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">
-            Radio GPS
-          </div>
-          <div className="flex items-center gap-1 text-[15px] font-semibold tabular-nums text-foreground">
-            <MapPin className="h-3.5 w-3.5 text-muted-foreground/70" />
-            {installation.geoRadiusM ?? 1000} m
-          </div>
-        </div>
-        <div className="min-w-0 rounded-xl border border-border bg-card p-3 sm:p-4">
-          <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">
-            Fecha inicio
-          </div>
-          <div className="truncate text-[13px] font-medium text-foreground">
-            {installation.startDate ? (
-              new Intl.DateTimeFormat("es-CL", { timeZone: "UTC" }).format(new Date(installation.startDate))
-            ) : (
-              <span className="text-sm font-normal text-muted-foreground/70">—</span>
-            )}
-          </div>
-        </div>
-        <div className="min-w-0 rounded-xl border border-border bg-card p-3 sm:p-4">
-          <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">
-            Fecha término
-          </div>
-          <div className="truncate text-[13px] font-medium text-foreground">
-            {installation.endDate ? (
-              new Intl.DateTimeFormat("es-CL", { timeZone: "UTC" }).format(new Date(installation.endDate))
-            ) : (
-              <span className="text-sm font-normal text-muted-foreground/70">—</span>
-            )}
-          </div>
-        </div>
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+        <InlineEditField
+          label="Estado"
+          fieldKey="status"
+          type="text"
+          value={installationStatusLabel}
+          canEdit={canEdit}
+          locked
+          lockedReason="El estado se cambia con Activar/Desactivar instalación por el impacto en cascada operacional."
+          onCommit={async () => installationStatusLabel}
+        />
+        <InlineEditField
+          label="Valor turno extra"
+          fieldKey="teMontoClp"
+          type="money"
+          value={
+            installation.teMontoClp != null && Number(installation.teMontoClp) > 0
+              ? String(installation.teMontoClp)
+              : null
+          }
+          canEdit={canEdit}
+          normalize={normalizeMoneyClp}
+          displayValue={(v) => (v ? `$ ${Number(v).toLocaleString("es-CL")}` : null)}
+          onCommit={commitInstallationField}
+        />
+        <InlineEditField
+          label="Radio GPS"
+          fieldKey="geoRadiusM"
+          type="int"
+          value={String(installation.geoRadiusM ?? 1000)}
+          canEdit={canEdit}
+          normalize={normalizeIntRange(10, 1000)}
+          displayValue={(v) => (v ? `${v} m` : null)}
+          onCommit={commitInstallationField}
+        />
+        <InlineEditField
+          label="Fecha inicio"
+          fieldKey="startDate"
+          type="date"
+          value={installation.startDate ? String(installation.startDate).slice(0, 10) : null}
+          canEdit={canEdit}
+          normalize={normalizeDateYmd}
+          onCommit={commitInstallationField}
+        />
+        <InlineEditField
+          label="Fecha término"
+          fieldKey="endDate"
+          type="date"
+          value={installation.endDate ? String(installation.endDate).slice(0, 10) : null}
+          canEdit={canEdit}
+          normalize={normalizeDateYmd}
+          onCommit={commitInstallationField}
+        />
       </div>
 
       {/* ── Configuración operacional (toggles) ── */}
@@ -2573,17 +2646,18 @@ export function CrmInstallationDetailClient({
         </div>
       </div>
 
-      {/* ── Notas (si existen) ── */}
-      {installation.notes && (
-        <div className="rounded-xl border border-border bg-card p-4 sm:p-5">
-          <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">
-            Notas
-          </div>
-          <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-foreground/90">
-            {installation.notes}
-          </p>
-        </div>
-      )}
+      {/* ── Notas ── */}
+      <div className="rounded-xl border border-border bg-card p-4 sm:p-5">
+        <InlineEditField
+          label="Notas"
+          fieldKey="notes"
+          type="textarea"
+          value={installation.notes ?? null}
+          canEdit={canEdit}
+          fullWidth
+          onCommit={commitInstallationField}
+        />
+      </div>
 
       {/* ── Metadata (colapsable) ── */}
       <details className="group rounded-xl border border-border bg-card">
