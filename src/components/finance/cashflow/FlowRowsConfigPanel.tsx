@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AlertTriangle, Search } from "lucide-react";
+import { AlertTriangle, ChevronDown, ChevronRight, Search } from "lucide-react";
 import {
   EmptyState,
   Spinner,
@@ -20,6 +20,7 @@ import {
 import { toast } from "sonner";
 import { FlowHealthPanel } from "./FlowHealthPanel";
 import type { FlowRowConfigItem } from "@/modules/finance/cashflow/flow-rows-config.service";
+import { FLOW_SECTION_ORDER } from "@/modules/finance/flow-v3/row-sort";
 
 type CategoryOption = {
   id: string;
@@ -33,6 +34,11 @@ type Props = {
   onResolveAccount?: (accountPlanId: string) => void;
 };
 
+type SectionGroup = {
+  key: string;
+  rows: FlowRowConfigItem[];
+};
+
 /**
  * Tab Renglones: filas del flujo con categoría/cuentas + diagnóstico de salud
  * (absorbido desde el antiguo tab Salud).
@@ -43,6 +49,7 @@ export function FlowRowsConfigPanel({ categories, onResolveAccount }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [savingId, setSavingId] = useState<string | null>(null);
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -86,6 +93,36 @@ export function FlowRowsConfigPanel({ categories, onResolveAccount }: Props) {
       return hay.includes(q);
     });
   }, [rows, query]);
+
+  const groups = useMemo((): SectionGroup[] => {
+    const bySection = new Map<string, FlowRowConfigItem[]>();
+    for (const row of filtered) {
+      const list = bySection.get(row.section);
+      if (list) list.push(row);
+      else bySection.set(row.section, [row]);
+    }
+    const known = new Set<string>(FLOW_SECTION_ORDER);
+    const ordered: SectionGroup[] = [];
+    for (const key of FLOW_SECTION_ORDER) {
+      const sectionRows = bySection.get(key);
+      if (sectionRows?.length) ordered.push({ key, rows: sectionRows });
+    }
+    for (const [key, sectionRows] of bySection) {
+      if (!known.has(key) && sectionRows.length) {
+        ordered.push({ key, rows: sectionRows });
+      }
+    }
+    return ordered;
+  }, [filtered]);
+
+  function toggleSection(key: string) {
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
 
   async function patchRow(
     rowId: string,
@@ -149,77 +186,114 @@ export function FlowRowsConfigPanel({ categories, onResolveAccount }: Props) {
             description="Probá otro término o revisá la planilla de flujo."
           />
         ) : (
-          <ul className="space-y-2 ds-list-cascade">
-            {filtered.map((row) => (
-              <li
-                key={row.id}
-                className="rounded-ds-md border border-ds-border-default bg-ds-surface-1 p-3"
-              >
-                <div className="flex flex-wrap items-start gap-3">
-                  <div className="min-w-0 flex-1 space-y-2">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Tag variant="neutral" size="sm">
-                        {row.section}
-                      </Tag>
-                      {!row.category && (
-                        <Tag variant="warn" size="sm">
-                          Sin categoría
-                        </Tag>
-                      )}
-                    </div>
-                    <div>
-                      <Label className="text-[12px] text-ds-text-3">Nombre</Label>
-                      <Input
-                        className="h-10 sm:h-9 mt-1"
-                        defaultValue={row.name}
-                        disabled={savingId === row.id}
-                        onBlur={(e) => {
-                          const next = e.target.value.trim();
-                          if (next && next !== row.name) {
-                            void patchRow(row.id, { name: next });
-                          }
-                        }}
-                      />
-                    </div>
-                    <div>
-                      <Label className="text-[12px] text-ds-text-3">
-                        Categoría
-                      </Label>
-                      <Select
-                        value={row.category?.id ?? "__none__"}
-                        onValueChange={(v) => {
-                          const categoryId = v === "__none__" ? null : v;
-                          if (categoryId !== (row.category?.id ?? null)) {
-                            void patchRow(row.id, { categoryId });
-                          }
-                        }}
-                        disabled={savingId === row.id}
-                      >
-                        <SelectTrigger className="h-10 sm:h-9 mt-1">
-                          <SelectValue placeholder="Sin categoría" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="__none__">Sin categoría</SelectItem>
-                          {expenseCats.map((c) => (
-                            <SelectItem key={c.id} value={c.id}>
-                              {c.code} · {c.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    {row.category && row.category.accounts.length > 0 && (
-                      <p className="text-[12px] text-ds-text-3 font-mono">
-                        {row.category.accounts
-                          .map((a) => `${a.code} · ${a.name}`)
-                          .join(" · ")}
-                      </p>
+          <div className="space-y-3 ds-list-cascade">
+            {groups.map((group) => {
+              const isCollapsed = collapsed.has(group.key);
+              return (
+                <div
+                  key={group.key}
+                  className="rounded-ds-md border border-ds-border-default overflow-hidden"
+                >
+                  <button
+                    type="button"
+                    onClick={() => toggleSection(group.key)}
+                    className="flex w-full items-center gap-2 min-h-11 px-3 py-2.5 bg-ds-surface-2 text-left hover:bg-ds-surface-3 transition-colors"
+                    aria-expanded={!isCollapsed}
+                  >
+                    {isCollapsed ? (
+                      <ChevronRight className="h-4 w-4 shrink-0 text-ds-text-3" />
+                    ) : (
+                      <ChevronDown className="h-4 w-4 shrink-0 text-ds-text-3" />
                     )}
-                  </div>
+                    <span className="font-semibold text-[13px] tracking-wide">
+                      {group.key}
+                    </span>
+                    <Tag variant="neutral" size="sm">
+                      {group.rows.length}
+                    </Tag>
+                  </button>
+                  {!isCollapsed && (
+                    <ul className="space-y-2 p-2 sm:p-3 border-t border-ds-border-subtle">
+                      {group.rows.map((row) => (
+                        <li
+                          key={row.id}
+                          className="rounded-ds-md border border-ds-border-default bg-ds-surface-1 p-3"
+                        >
+                          <div className="flex flex-wrap items-start gap-3">
+                            <div className="min-w-0 flex-1 space-y-2">
+                              {!row.category && (
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <Tag variant="warn" size="sm">
+                                    Sin categoría
+                                  </Tag>
+                                </div>
+                              )}
+                              <div>
+                                <Label className="text-[12px] text-ds-text-3">
+                                  Nombre
+                                </Label>
+                                <Input
+                                  className="h-10 sm:h-9 mt-1"
+                                  defaultValue={row.name}
+                                  disabled={savingId === row.id}
+                                  onBlur={(e) => {
+                                    const next = e.target.value.trim();
+                                    if (next && next !== row.name) {
+                                      void patchRow(row.id, { name: next });
+                                    }
+                                  }}
+                                />
+                              </div>
+                              <div>
+                                <Label className="text-[12px] text-ds-text-3">
+                                  Categoría
+                                </Label>
+                                <Select
+                                  value={row.category?.id ?? "__none__"}
+                                  onValueChange={(v) => {
+                                    const categoryId =
+                                      v === "__none__" ? null : v;
+                                    if (
+                                      categoryId !== (row.category?.id ?? null)
+                                    ) {
+                                      void patchRow(row.id, { categoryId });
+                                    }
+                                  }}
+                                  disabled={savingId === row.id}
+                                >
+                                  <SelectTrigger className="h-10 sm:h-9 mt-1">
+                                    <SelectValue placeholder="Sin categoría" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="__none__">
+                                      Sin categoría
+                                    </SelectItem>
+                                    {expenseCats.map((c) => (
+                                      <SelectItem key={c.id} value={c.id}>
+                                        {c.code} · {c.name}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              {row.category &&
+                                row.category.accounts.length > 0 && (
+                                  <p className="text-[12px] text-ds-text-3 font-mono">
+                                    {row.category.accounts
+                                      .map((a) => `${a.code} · ${a.name}`)
+                                      .join(" · ")}
+                                  </p>
+                                )}
+                            </div>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </div>
-              </li>
-            ))}
-          </ul>
+              );
+            })}
+          </div>
         )}
       </Surface>
 
