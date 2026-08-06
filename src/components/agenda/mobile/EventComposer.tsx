@@ -65,7 +65,7 @@ export function EventComposer({
     title: form.title,
     label: form.label,
     date: form.date,
-    endDate: form.date,
+    endDate: form.endDate || form.date,
     time: form.time,
     durationMin: form.durationMin,
     allDay: form.allDay,
@@ -87,10 +87,19 @@ export function EventComposer({
   const applyEventoPatch = (patch: Partial<EventoFormValue>) => {
     if (patch.title !== undefined) set.setTitle(patch.title);
     if (patch.label !== undefined) set.setLabel(patch.label);
-    if (patch.date !== undefined) set.setDate(patch.date);
+    if (patch.date !== undefined) {
+      set.setDate(patch.date);
+      if (!patch.endDate && form.endDate < patch.date) set.setEndDate(patch.date);
+    }
+    if (patch.endDate !== undefined) set.setEndDate(patch.endDate);
     if (patch.time !== undefined) set.setTime(patch.time);
     if (patch.durationMin !== undefined) set.setDurationMin(patch.durationMin);
-    if (patch.allDay !== undefined) set.setAllDay(patch.allDay);
+    if (patch.allDay !== undefined) {
+      set.setAllDay(patch.allDay);
+      if (patch.allDay && (!form.endDate || form.endDate < form.date)) {
+        set.setEndDate(form.date);
+      }
+    }
     if (patch.notes !== undefined) set.setNotes(patch.notes);
     if (patch.participantIds !== undefined) set.setParticipantIds(patch.participantIds);
     if (patch.externalEmails !== undefined) {

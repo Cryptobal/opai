@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { todayInChile } from "@/lib/dates-cl";
 import { dateAtChileSlot } from "../agenda-calendar-utils";
+import { normalizeEndDate } from "../nueva-visita/visita-form-utils";
 import type { AccountOption } from "../nueva-visita/types";
 import { hhmmChile } from "./agenda-mobile-utils";
 
@@ -29,6 +30,7 @@ export function useEventComposer(
   const [title, setTitle] = useState("");
   const [label, setLabel] = useState("");
   const [date, setDate] = useState(() => todayInChile());
+  const [endDate, setEndDate] = useState(() => todayInChile());
   const [time, setTime] = useState("09:00");
   const [durationMin, setDurationMin] = useState(60);
   const [allDay, setAllDay] = useState(false);
@@ -47,7 +49,10 @@ export function useEventComposer(
   const [availability, setAvailability] = useState<Availability | null>(null);
 
   useEffect(() => {
-    if (open && prefillDate) setDate(prefillDate);
+    if (open && prefillDate) {
+      setDate(prefillDate);
+      setEndDate((prev) => (prev < prefillDate ? prefillDate : prev));
+    }
   }, [open, prefillDate]);
 
   const startAt = useMemo(() => {
@@ -102,6 +107,7 @@ export function useEventComposer(
   const submit = useCallback(async (): Promise<boolean> => {
     if (saving) return false;
     setSaving(true);
+    const resolvedEnd = normalizeEndDate(date, endDate);
     const res = await fetch("/api/calendar/events", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -110,6 +116,7 @@ export function useEventComposer(
         title: title.trim() || label.trim() || "Nuevo evento",
         label: label.trim() || null,
         date,
+        endDate: allDay ? resolvedEnd : date,
         time,
         allDay,
         durationMin,
@@ -146,6 +153,7 @@ export function useEventComposer(
     title,
     label,
     date,
+    endDate,
     time,
     allDay,
     durationMin,
@@ -169,6 +177,7 @@ export function useEventComposer(
       title,
       label,
       date,
+      endDate,
       time,
       durationMin,
       allDay,
@@ -189,6 +198,7 @@ export function useEventComposer(
       setTitle,
       setLabel,
       setDate,
+      setEndDate,
       setTime,
       setDurationMin,
       setAllDay,

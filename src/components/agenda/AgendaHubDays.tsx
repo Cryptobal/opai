@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { ymdInChile } from "@/lib/dates-cl";
-import { agendaItemDayKey } from "./agenda-calendar-utils";
+import { agendaItemCoversDay } from "./agenda-calendar-utils";
 import {
   type HubAgendaItem,
   hhmm,
@@ -26,7 +26,7 @@ export function AgendaHubDays({
     <div className={`hidden gap-2 sm:grid ${expanded ? "sm:grid-cols-7" : "sm:grid-cols-3"}`}>
       {days.slice(1).map((d) => {
         const dayKey = ymdInChile(d);
-        const dayItems = items.filter((i) => agendaItemDayKey(i) === dayKey);
+        const dayItems = items.filter((i) => agendaItemCoversDay(i, dayKey));
         return (
           <div key={dayKey} className="min-w-0 rounded-xl border border-ds-border-subtle p-2">
             <Link

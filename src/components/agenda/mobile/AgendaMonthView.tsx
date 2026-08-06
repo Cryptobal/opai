@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 import { todayInChile, ymdInChile } from "@/lib/dates-cl";
 import {
   addMonthsChile,
-  agendaItemDayKey,
+  groupAgendaItemsByDay,
   dateAtChileSlot,
   monthGridDays,
 } from "../agenda-calendar-utils";
@@ -41,15 +41,9 @@ export function AgendaMonthView({
   const { month, year } = monthTitle(selectedYmd);
 
   const byDay = useMemo(() => {
-    const map = new Map<string, AgendaCalendarItem[]>();
-    for (const item of items) {
-      const key = agendaItemDayKey(item);
-      if (!map.has(key)) map.set(key, []);
-      map.get(key)!.push(item);
-    }
-    for (const list of map.values()) list.sort((a, b) => a.start.localeCompare(b.start));
-    return map;
-  }, [items]);
+    const dayKeys = days.map((day) => ymdInChile(day));
+    return groupAgendaItemsByDay(items, dayKeys);
+  }, [days, items]);
 
   const dayItems = byDay.get(selectedYmd) ?? [];
   const shiftMonth = (dir: -1 | 1) => onSelectDate(ymdInChile(addMonthsChile(anchor, dir)));

@@ -31,9 +31,9 @@ import {
   CALENDAR_END_HOUR,
   CALENDAR_GUTTER_WIDTH,
   CALENDAR_START_HOUR,
-  agendaItemDayKey,
   clamp,
   eventDurationMinutes,
+  groupAgendaItemsByDay,
   itemKey,
   layoutTimedItems,
   minuteFromOffset,
@@ -231,17 +231,8 @@ export function AgendaCalendarGrid({
   }, []);
 
   const itemsByDay = useMemo(() => {
-    const map = new Map<string, AgendaCalendarItem[]>();
-    for (const day of days) map.set(ymdInChile(day), []);
-    for (const item of items) {
-      const key = agendaItemDayKey(item);
-      if (!map.has(key)) map.set(key, []);
-      map.get(key)!.push(item);
-    }
-    for (const list of map.values()) {
-      list.sort((a, b) => a.start.localeCompare(b.start));
-    }
-    return map;
+    const dayKeys = days.map((day) => ymdInChile(day));
+    return groupAgendaItemsByDay(items, dayKeys);
   }, [days, items]);
 
   const pointerFromEvent = (event: DragEndEvent | DragMoveEvent) => {

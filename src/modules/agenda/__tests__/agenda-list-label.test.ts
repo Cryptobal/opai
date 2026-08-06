@@ -67,6 +67,42 @@ describe("listAgenda — label / allDay / técnicas", () => {
       allDay: true,
       address: "Av. Apoquindo 1",
     });
+    // Un solo día Chile (10 ago 00:00 → 10 ago 23:59) → sin banda span.
+    expect(items[0]?.spanKey).toBeUndefined();
+  });
+
+  it("all-day multi-día emite spanKey/spanStart/spanEnd", async () => {
+    mocks.visitaFindMany.mockResolvedValue([
+      {
+        id: "v-multi",
+        type: "otra",
+        title: "Capacitación",
+        label: null,
+        allDay: true,
+        startAt: new Date("2026-08-10T04:00:00Z"), // 00:00 Chile
+        endAt: new Date("2026-08-16T03:59:00Z"), // 23:59 Chile del 15
+        assignedUserId: "u1",
+        account: null,
+        installation: { name: "Planta", address: "Calle Inst 1" },
+        customAddress: "Av. Custom 9",
+        dealId: null,
+        status: "programada",
+      },
+    ]);
+    mocks.tecnicaFindMany.mockResolvedValue([]);
+
+    const items = await listAgenda(
+      "t1",
+      new Date("2026-08-01T00:00:00Z"),
+      new Date("2026-08-31T00:00:00Z"),
+    );
+    expect(items[0]).toMatchObject({
+      allDay: true,
+      address: "Av. Custom 9",
+      spanKey: "v-multi",
+      spanStartYmd: "2026-08-10",
+      spanEndYmd: "2026-08-15",
+    });
   });
 
   it("técnicas sin syncStatus", async () => {

@@ -5,7 +5,7 @@ import { CalendarDays } from "lucide-react";
 import { Surface, Spinner, EmptyState, Tag } from "@/components/opai-ds";
 import { addDaysChile, startOfDayChile, todayInChile } from "@/lib/dates-cl";
 import { cn } from "@/lib/utils";
-import { agendaItemDayKey } from "./agenda-calendar-utils";
+import { agendaItemCoversDay, agendaItemDayKey } from "./agenda-calendar-utils";
 import {
   type HubAgendaItem as Item,
   hhmm,
@@ -150,7 +150,7 @@ export function AgendaHubCardDense({
         <ul className="space-y-0.5">
           {upcomingDays.map((d) => {
             const key = d.toLocaleDateString("en-CA", { timeZone: "America/Santiago" });
-            const dayItems = items.filter((i) => agendaItemDayKey(i) === key);
+            const dayItems = items.filter((i) => agendaItemCoversDay(i, key));
             const first = dayItems[0];
             const label = d.toLocaleDateString("es-CL", {
               weekday: "short",

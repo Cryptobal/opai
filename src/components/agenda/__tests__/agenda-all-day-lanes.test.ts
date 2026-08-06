@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   allDaySpanContextLabel,
   buildAllDayLanes,
+  groupAgendaItemsByDay,
 } from "../agenda-calendar-utils";
 import type { AgendaCalendarItem } from "../agenda-calendar.types";
 
@@ -35,6 +36,54 @@ const WEEK = [
   "2026-07-25",
   "2026-07-26",
 ];
+
+describe("buildAllDayLanes — agenda_visita", () => {
+  it("evento OPAI multi-día (un solo item con span*) → barra continua", () => {
+    const items = [
+      item({
+        id: "visita-1",
+        source: "agenda_visita",
+        type: "otra",
+        title: "Capacitación",
+        start: "2026-07-21T04:00:00.000Z",
+        end: "2026-07-24T03:59:00.000Z",
+        spanKey: "visita-1",
+        spanStartYmd: "2026-07-21",
+        spanEndYmd: "2026-07-23",
+      }),
+    ];
+    const lanes = buildAllDayLanes(items, WEEK);
+    expect(lanes).toHaveLength(1);
+    const seg = lanes[0]!.segments[0]!;
+    expect(seg.startIndex).toBe(1);
+    expect(seg.endIndex).toBe(3);
+    expect(seg.continuesBefore).toBe(false);
+    expect(seg.continuesAfter).toBe(false);
+  });
+});
+
+describe("groupAgendaItemsByDay", () => {
+  it("repite all-day multi-día en cada día del rango", () => {
+    const items = [
+      item({
+        id: "visita-2",
+        source: "agenda_visita",
+        type: "otra",
+        title: "Banda",
+        start: "2026-07-21T04:00:00.000Z",
+        spanKey: "visita-2",
+        spanStartYmd: "2026-07-21",
+        spanEndYmd: "2026-07-23",
+      }),
+    ];
+    const map = groupAgendaItemsByDay(items, WEEK);
+    expect(map.get("2026-07-20")).toHaveLength(0);
+    expect(map.get("2026-07-21")).toHaveLength(1);
+    expect(map.get("2026-07-22")).toHaveLength(1);
+    expect(map.get("2026-07-23")).toHaveLength(1);
+    expect(map.get("2026-07-24")).toHaveLength(0);
+  });
+});
 
 describe("buildAllDayLanes", () => {
   it("rango completo dentro de la ventana → un segmento sin chevrons", () => {
@@ -157,7 +206,7 @@ describe("buildAllDayLanes", () => {
 });
 
 describe("allDaySpanContextLabel", () => {
-  it("formatea posición y entrega", () => {
+  it("formatea posición y entrega (licitación)", () => {
     expect(
       allDaySpanContextLabel(
         {
@@ -166,9 +215,28 @@ describe("allDaySpanContextLabel", () => {
           spanEndYmd: "2026-08-21",
           start: "2026-08-12T12:00:00.000Z",
           allDay: true,
+          source: "licitacion",
+          type: "licitacion",
         },
         "2026-08-12",
       ),
     ).toBe("día 3 de 12 · entrega 21-08");
+  });
+
+  it("evento OPAI multi-día sin rótulo de entrega", () => {
+    expect(
+      allDaySpanContextLabel(
+        {
+          spanKey: "ev-1",
+          spanStartYmd: "2026-08-10",
+          spanEndYmd: "2026-08-15",
+          start: "2026-08-10T04:00:00.000Z",
+          allDay: true,
+          source: "agenda_visita",
+          type: "otra",
+        },
+        "2026-08-12",
+      ),
+    ).toBe("día 3 de 6");
   });
 });

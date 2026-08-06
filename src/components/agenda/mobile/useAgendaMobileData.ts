@@ -6,6 +6,7 @@ import type { AgendaListItem } from "@/modules/agenda/agenda.types";
 import type { CalendarSource } from "../desktop/AgendaCalendarList";
 import { consumeLegacyHiddenSources, itemSourceKey } from "../desktop/agenda-desktop-prefs";
 import { agendaItemDayKey, dateAtChileSlot, monthGridDays } from "../agenda-calendar-utils";
+import { utcDateFromYmd } from "@/lib/dates-cl";
 import type {
   AgendaCalendarItem,
   AgendaContentFilter,
@@ -161,6 +162,20 @@ export function filterMobileItems(
 /** Días (ymd Chile) que tienen al menos un evento — dots de la tira y el mes. */
 export function daysWithEventsSet(items: AgendaCalendarItem[]): Set<string> {
   const set = new Set<string>();
-  for (const item of items) set.add(agendaItemDayKey(item));
+  for (const item of items) {
+    if (item.allDay && item.spanStartYmd && item.spanEndYmd) {
+      let day = item.spanStartYmd;
+      let guard = 0;
+      while (day <= item.spanEndYmd && guard < 90) {
+        set.add(day);
+        const next = utcDateFromYmd(day);
+        next.setUTCDate(next.getUTCDate() + 1);
+        day = next.toISOString().slice(0, 10);
+        guard += 1;
+      }
+      continue;
+    }
+    set.add(agendaItemDayKey(item));
+  }
   return set;
 }
