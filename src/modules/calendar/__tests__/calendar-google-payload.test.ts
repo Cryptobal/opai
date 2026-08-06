@@ -68,4 +68,22 @@ describe("buildCalendarEventGooglePayload", () => {
       "cliente@ejemplo.cl",
     ]);
   });
+
+  it("incluye location (dirección) en el payload Google", () => {
+    const start = chileLocal(2026, 8, 10, 9, 0);
+    const end = chileLocal(2026, 8, 10, 10, 0);
+    const body = buildCalendarEventGooglePayload(
+      {
+        title: "Visita",
+        description: null,
+        location: "Av. Apoquindo 3000, Las Condes",
+        startAt: start,
+        endAt: end,
+        allDay: false,
+        externals: [],
+      },
+      [],
+    );
+    expect(body.location).toBe("Av. Apoquindo 3000, Las Condes");
+  });
 });

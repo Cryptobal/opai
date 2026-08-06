@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 import { Plus } from "lucide-react";
 import { addDaysChile, ymdInChile } from "@/lib/dates-cl";
-import { agendaItemDayKey, dateAtChileSlot } from "../agenda-calendar-utils";
+import { dateAtChileSlot, groupAgendaItemsByDay } from "../agenda-calendar-utils";
 import type { AgendaCalendarItem } from "../agenda-calendar.types";
 import { listDayLabel } from "./agenda-mobile-utils";
 import { AgendaListRow } from "./AgendaListRow";
@@ -38,12 +38,7 @@ export function AgendaListView({
   }, [selectedYmd]);
 
   const byDay = useMemo(() => {
-    const map = new Map<string, AgendaCalendarItem[]>();
-    for (const day of days) map.set(day, []);
-    for (const item of items) {
-      const key = agendaItemDayKey(item);
-      map.get(key)?.push(item);
-    }
+    const map = groupAgendaItemsByDay(items, days);
     for (const list of map.values()) {
       // All-day primero; dentro de cada grupo, orden cronológico.
       list.sort((a, b) => {

@@ -159,6 +159,52 @@ export function agendaItemDayKey(item: Pick<AgendaCalendarItem, "start" | "allDa
   return ymdInChile(new Date(item.start));
 }
 
+/** True si el item all-day cubre `dayYmd` (rango inclusivo span* o solo día de inicio). */
+export function agendaItemCoversDay(
+  item: Pick<
+    AgendaCalendarItem,
+    "start" | "allDay" | "spanStartYmd" | "spanEndYmd"
+  >,
+  dayYmd: string,
+): boolean {
+  if (item.allDay && item.spanStartYmd && item.spanEndYmd) {
+    return dayYmd >= item.spanStartYmd && dayYmd <= item.spanEndYmd;
+  }
+  return agendaItemDayKey(item) === dayYmd;
+}
+
+/**
+ * Agrupa items por día visible. All-day multi-día con span* aparecen en cada
+ * día del rango (mes / lista); timed solo en su día de inicio.
+ */
+export function groupAgendaItemsByDay(
+  items: AgendaCalendarItem[],
+  dayKeys: string[],
+): Map<string, AgendaCalendarItem[]> {
+  const map = new Map<string, AgendaCalendarItem[]>();
+  for (const key of dayKeys) map.set(key, []);
+  const daySet = new Set(dayKeys);
+  for (const item of items) {
+    if (item.allDay && item.spanStartYmd && item.spanEndYmd) {
+      for (const key of dayKeys) {
+        if (key >= item.spanStartYmd && key <= item.spanEndYmd) {
+          map.get(key)!.push(item);
+        }
+      }
+      continue;
+    }
+    const key = agendaItemDayKey(item);
+    if (!daySet.has(key)) {
+      if (!map.has(key)) map.set(key, []);
+    }
+    map.get(key)?.push(item);
+  }
+  for (const list of map.values()) {
+    list.sort((a, b) => a.start.localeCompare(b.start));
+  }
+  return map;
+}
+
 export function minutesInChile(date: Date): number {
   const local = zonedLocalDate(date);
   return local.getHours() * 60 + local.getMinutes();
@@ -521,7 +567,10 @@ export function buildAllDayLanes(
 
 /** Posición legible de un día dentro de un rango all-day (móvil). */
 export function allDaySpanContextLabel(
-  item: Pick<AgendaCalendarItem, "spanKey" | "spanStartYmd" | "spanEndYmd" | "start" | "allDay">,
+  item: Pick<
+    AgendaCalendarItem,
+    "spanKey" | "spanStartYmd" | "spanEndYmd" | "start" | "allDay" | "source" | "type"
+  >,
   dayYmd: string,
 ): string | null {
   if (!item.spanKey || !item.spanStartYmd || !item.spanEndYmd) return null;
@@ -538,9 +587,13 @@ export function allDaySpanContextLabel(
       (Date.parse(`${end}T12:00:00.000Z`) - Date.parse(`${start}T12:00:00.000Z`)) /
         86_400_000,
     ) + 1;
-  if (total < 1 || dayIndex < 1 || dayIndex > total) return null;
-  const [, mm, dd] = end.split("-");
-  return `día ${dayIndex} de ${total} · entrega ${dd}-${mm}`;
+  if (total <= 1 || dayIndex < 1 || dayIndex > total) return null;
+  const isLicitacion = item.source === "licitacion" || item.type === "licitacion";
+  if (isLicitacion) {
+    const [, mm, dd] = end.split("-");
+    return `día ${dayIndex} de ${total} · entrega ${dd}-${mm}`;
+  }
+  return `día ${dayIndex} de ${total}`;
 }
 
 export function clamp(value: number, min: number, max: number): number {

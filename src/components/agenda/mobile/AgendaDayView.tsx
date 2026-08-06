@@ -5,11 +5,12 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { addDaysChile, todayInChile, ymdInChile } from "@/lib/dates-cl";
 import {
+  agendaItemCoversDay,
+  allDaySpanContextLabel,
   dateAtChileSlot,
   layoutTimedItems,
   minutesInChile,
 } from "../agenda-calendar-utils";
-import { allDaySpanContextLabel } from "../agenda-calendar-utils";
 import type { AgendaCalendarItem } from "../agenda-calendar.types";
 import { dayParts, hhmmChile, monthTitle, typeBarClass } from "./agenda-mobile-utils";
 
@@ -35,8 +36,12 @@ export function AgendaDayView({
   const scrollAnchor = useRef<HTMLDivElement>(null);
   const touchStart = useRef<{ x: number; y: number } | null>(null);
 
-  const layout = useMemo(() => layoutTimedItems(items), [items]);
-  const allDay = items.filter((i) => i.allDay);
+  const dayItems = useMemo(
+    () => items.filter((i) => agendaItemCoversDay(i, selectedYmd)),
+    [items, selectedYmd],
+  );
+  const layout = useMemo(() => layoutTimedItems(dayItems), [dayItems]);
+  const allDay = dayItems.filter((i) => i.allDay);
   const nowMinute = isToday ? minutesInChile(new Date()) : null;
 
   // Auto-scroll inicial: primer evento o 08:00.

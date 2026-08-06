@@ -5,6 +5,7 @@ import {
 } from "@/lib/google-workspace/clients";
 import type { calendar_v3 } from "googleapis";
 import type { AgendaListItem } from "./agenda.types";
+import { allDaySpanFromGoogleDates } from "./agenda-all-day-span";
 import {
   isoFromEventDate,
   isInsufficientScopeError,
@@ -88,8 +89,17 @@ async function eventsFromCalendar(
       const start = isoFromEventDate(ev.start);
       const end = isoFromEventDate(ev.end);
       if (!start) continue;
+      const id = `${accountId}:${cal.id}:${ev.id}`;
+      const span =
+        start.allDay && end?.allDay
+          ? allDaySpanFromGoogleDates({
+              id,
+              startYmd: start.iso,
+              endExclusiveYmd: end.iso,
+            })
+          : null;
       out.push({
-        id: `${accountId}:${cal.id}:${ev.id}`,
+        id,
         source: "google",
         type: "google",
         title: ev.summary?.trim() || "(sin título)",
@@ -108,6 +118,7 @@ async function eventsFromCalendar(
         calendarName: cal.primary ? null : cal.summary,
         googleEventId: ev.id,
         sourceKey,
+        ...(span ?? {}),
       });
     }
     return { items: out, scopeError: false };
