@@ -127,6 +127,15 @@ interface Props {
   flowRows: FlowRowOption[];
 }
 
+type LinkMatchSource =
+  | "RULE"
+  | "DTE"
+  | "TURNO_EXTRA"
+  | "PAYROLL"
+  | "FINIQUITO"
+  | "INFERRED"
+  | "MANUAL";
+
 interface TransactionRow {
   id: string;
   transactionDate: string;
@@ -141,6 +150,11 @@ interface TransactionRow {
   suggestedRuleName: string | null;
   suggestedAccountPlanId: string | null;
   suggestedAccountLabel: string | null;
+  matchSource: LinkMatchSource | null;
+  matchedByRuleId: string | null;
+  matchedByRuleName: string | null;
+  linkAccountLabel: string | null;
+  flowRowName: string | null;
   rutRecognition: {
     rut: string | null;
     kind: "client" | "factoring" | "supplier" | "guardia" | "unknown";
@@ -155,6 +169,34 @@ interface TransactionRow {
     } | null;
     alsoRegisteredAs?: Array<"client" | "guardia" | "supplier" | "factoring">;
   } | null;
+}
+
+function formatMatchSourceBadge(row: TransactionRow): {
+  label: string;
+  detail: string | null;
+} | null {
+  if (!row.matchSource) return null;
+  switch (row.matchSource) {
+    case "RULE":
+      return {
+        label: "Regla",
+        detail: row.matchedByRuleName ?? "regla eliminada",
+      };
+    case "PAYROLL":
+      return { label: "Nómina", detail: row.flowRowName };
+    case "FINIQUITO":
+      return { label: "Finiquito", detail: row.flowRowName };
+    case "DTE":
+      return { label: "Factura", detail: null };
+    case "TURNO_EXTRA":
+      return { label: "Turno extra", detail: null };
+    case "INFERRED":
+      return { label: "Inferido", detail: row.flowRowName };
+    case "MANUAL":
+      return { label: "Manual", detail: null };
+    default:
+      return null;
+  }
 }
 
 /** Badge de estado laboral del guardia (lista de movimientos). */
@@ -181,9 +223,19 @@ type TxSubTab = "all" | "recognized" | "unrecognized" | "matched";
 
 const TX_SUB_TABS: { id: TxSubTab; label: string }[] = [
   { id: "all", label: "Todos" },
-  { id: "recognized", label: "Reconocidos" },
+  { id: "recognized", label: "Por autorizar" },
   { id: "unrecognized", label: "Sin reconocer" },
   { id: "matched", label: "Conciliados" },
+];
+
+type OriginFilter = "" | "RULE" | "PAYROLL_GROUP" | "DTE" | "MANUAL";
+
+const ORIGIN_FILTERS: { id: OriginFilter; label: string }[] = [
+  { id: "", label: "Origen" },
+  { id: "RULE", label: "Por regla" },
+  { id: "PAYROLL_GROUP", label: "Por nómina" },
+  { id: "DTE", label: "Por factura" },
+  { id: "MANUAL", label: "Manual" },
 ];
 
 /* ── Constants ── */
@@ -955,6 +1007,11 @@ function normalizeTransaction(raw: any): TransactionRow {
         : typeof raw.balance === "string"
           ? Number(raw.balance)
           : raw.balance,
+    matchSource: raw.matchSource ?? null,
+    matchedByRuleId: raw.matchedByRuleId ?? null,
+    matchedByRuleName: raw.matchedByRuleName ?? null,
+    linkAccountLabel: raw.linkAccountLabel ?? null,
+    flowRowName: raw.flowRowName ?? null,
   };
 }
 
@@ -997,6 +1054,12 @@ function TransactionsTab({
   const [sortDir, setSortDir] = useState<TxSortDir>("desc");
   const [showHidden, setShowHidden] = useState(false);
   const [subTab, setSubTab] = useState<TxSubTab>("all");
+  const [originFilter, setOriginFilter] = useState<OriginFilter>("");
+  const [matchedByRuleId, setMatchedByRuleId] = useState("");
+  const [undoingByRule, setUndoingByRule] = useState(false);
+  const [rulesForOrigin, setRulesForOrigin] = useState<
+    Array<{ id: string; name: string }>
+  >([]);
   // Filtro por dirección del flujo (post 2026-05): "all" | "inflow" | "outflow".
   // Antes no existía y el usuario tenía que mirar el color/signo de cada fila.
   const [direction, setDirection] = useState<"all" | "inflow" | "outflow">("all");
@@ -1260,6 +1323,8 @@ function TransactionsTab({
       if (dateTo) params.set("dateTo", dateTo);
       if (debouncedSearch) params.set("search", debouncedSearch);
       if (direction !== "all") params.set("direction", direction);
+      if (matchedByRuleId) params.set("matchedByRuleId", matchedByRuleId);
+      else if (originFilter) params.set("matchSource", originFilter);
       const res = await fetch(`/api/finance/banking/transactions?${params}`);
       if (!res.ok) throw new Error();
       const json = await res.json();
@@ -1284,6 +1349,8 @@ function TransactionsTab({
     showHidden,
     subTab,
     direction,
+    originFilter,
+    matchedByRuleId,
     page,
     pageSize,
   ]);
@@ -1583,7 +1650,7 @@ function TransactionsTab({
     if (
       !(await confirmDialog({
         description:
-          "¿Autorizar todos los movimientos reconocidos visibles? Crearán los vínculos contables sugeridos por las reglas.",
+          "¿Autorizar todos los movimientos «Por autorizar» visibles (respetando filtros activos)? Crearán los vínculos contables sugeridos.",
       }))
     ) {
       return;
@@ -1608,6 +1675,46 @@ function TransactionsTab({
       toast.error(err instanceof Error ? err.message : "Error en autorización masiva");
     } finally {
       setBulkAuthorizing(false);
+    }
+  };
+
+  const undoByRule = async () => {
+    if (!matchedByRuleId || !canManage) return;
+    const countRes = await fetch(
+      `/api/finance/banking/transactions?${new URLSearchParams({
+        bankAccountId: selectedAccount,
+        tab: "matched",
+        matchedByRuleId,
+        pageSize: "1",
+      })}`,
+    );
+    const countJson = await countRes.json().catch(() => null);
+    const n = typeof countJson?.data?.total === "number" ? countJson.data.total : 0;
+    if (
+      !(await confirmDialog({
+        description: `¿Deshacer todo lo de esta regla? Se revertirán ${n.toLocaleString("es-CL")} movimiento(s) a «Sin conciliar».`,
+      }))
+    ) {
+      return;
+    }
+    setUndoingByRule(true);
+    try {
+      const res = await fetch("/api/finance/banking/links/undo-by-rule", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ruleId: matchedByRuleId }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) throw new Error(json.error);
+      toast.success(
+        `Deshechos ${json.data?.undone ?? 0} vínculos` +
+          (json.data?.reachedCap ? " · tope alcanzado — volvé a correr" : ""),
+      );
+      await loadTransactions();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Error al deshacer");
+    } finally {
+      setUndoingByRule(false);
     }
   };
 
@@ -1947,11 +2054,14 @@ function TransactionsTab({
               </Badge>
             );
           }
-          if (row.suggestedRuleId && row.reconciliationStatus === "UNMATCHED") {
+          if (
+            row.suggestedAccountPlanId &&
+            row.reconciliationStatus === "UNMATCHED"
+          ) {
             return (
               <div className="flex flex-col gap-0.5 min-w-0">
                 <Tag variant="warn" size="sm">
-                  Reconocido
+                  Por autorizar
                 </Tag>
                 {row.suggestedAccountLabel && (
                   <span className="text-[12px] text-ds-text-3 font-mono truncate max-w-[220px]">
@@ -1970,6 +2080,50 @@ function TransactionsTab({
             label: row.reconciliationStatus,
             className: "bg-muted",
           };
+          const origin = formatMatchSourceBadge(row);
+          const isMatched =
+            row.reconciliationStatus === "MATCHED" ||
+            row.reconciliationStatus === "RECONCILED";
+          if (isMatched) {
+            return (
+              <div className="flex flex-col gap-0.5 min-w-0">
+                <Badge
+                  variant="outline"
+                  className={cn("text-xs w-fit", rcCfg.className)}
+                >
+                  {rcCfg.label}
+                </Badge>
+                {origin && (
+                  <span
+                    className="text-[12px] text-ds-text-3 truncate max-w-[220px]"
+                    title={
+                      origin.detail
+                        ? `${origin.label} · ${origin.detail}`
+                        : origin.label
+                    }
+                  >
+                    <span className="sm:hidden">{origin.label}</span>
+                    <span className="hidden sm:inline">
+                      {origin.label}
+                      {origin.detail ? ` · ${origin.detail}` : ""}
+                    </span>
+                  </span>
+                )}
+                {(row.flowRowName || row.linkAccountLabel) && (
+                  <span
+                    className="text-[12px] text-ds-text-4 truncate max-w-[220px]"
+                    title={[row.flowRowName, row.linkAccountLabel]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  >
+                    {[row.flowRowName, row.linkAccountLabel]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </span>
+                )}
+              </div>
+            );
+          }
           return (
             <Badge
               variant="outline"
@@ -2374,6 +2528,94 @@ function TransactionsTab({
               );
             })}
           </div>
+          {/* Filtros de procedencia: chips en sm+, select «Origen» en mobile */}
+          <div className="hidden sm:flex gap-1 shrink-0">
+            {ORIGIN_FILTERS.filter((f) => f.id !== "").map((f) => (
+              <button
+                key={f.id}
+                type="button"
+                onClick={() => {
+                  setOriginFilter((prev) => (prev === f.id ? "" : f.id));
+                  setMatchedByRuleId("");
+                  setPage(1);
+                }}
+                className={cn(
+                  "whitespace-nowrap rounded-full px-3 py-1 text-xs font-medium min-h-[44px] sm:min-h-0 transition-colors",
+                  originFilter === f.id
+                    ? "bg-ds-surface-3 text-foreground border border-ds-border-default"
+                    : "text-ds-text-3 hover:bg-ds-surface-2 border border-transparent",
+                )}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+          <select
+            className="sm:hidden h-11 rounded-md border border-input bg-background px-3 text-[13px] min-w-[140px]"
+            value={originFilter}
+            onChange={(e) => {
+              setOriginFilter(e.target.value as OriginFilter);
+              setMatchedByRuleId("");
+              setPage(1);
+            }}
+            aria-label="Filtrar por origen"
+          >
+            {ORIGIN_FILTERS.map((f) => (
+              <option key={f.id || "all"} value={f.id}>
+                {f.id === "" ? "Todo origen" : f.label}
+              </option>
+            ))}
+          </select>
+          {originFilter === "RULE" && (
+            <select
+              className="h-10 sm:h-9 rounded-md border border-input bg-background px-2 text-[12px] max-w-[200px]"
+              value={matchedByRuleId}
+              onChange={(e) => {
+                setMatchedByRuleId(e.target.value);
+                setPage(1);
+              }}
+              onFocus={async () => {
+                if (rulesForOrigin.length > 0) return;
+                try {
+                  const res = await fetch(
+                    "/api/finance/banking/automatch-rules",
+                  );
+                  const json = await res.json();
+                  const list = json.data ?? json.rules ?? [];
+                  setRulesForOrigin(
+                    Array.isArray(list)
+                      ? list.map((r: { id: string; name: string }) => ({
+                          id: r.id,
+                          name: r.name,
+                        }))
+                      : [],
+                  );
+                } catch {
+                  /* ignore */
+                }
+              }}
+              aria-label="Regla"
+            >
+              <option value="">Todas las reglas</option>
+              {rulesForOrigin.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.name}
+                </option>
+              ))}
+            </select>
+          )}
+          {canManage && matchedByRuleId && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={undoingByRule}
+              onClick={undoByRule}
+              className="min-h-[44px] sm:min-h-0"
+            >
+              {undoingByRule ? "Deshaciendo…" : "Deshacer todo lo de esta regla"}
+            </Button>
+          )}
           {subTab === "recognized" && canManage && transactions.length > 0 && (
             <Button
               size="sm"
@@ -2592,7 +2834,7 @@ function TransactionsTab({
                               variant="outline"
                               className="text-[10px] bg-status-info-soft text-status-info-fg border-status-info-border"
                             >
-                              Reconocido
+                              Por autorizar
                             </Badge>
                           ) : (
                             <Badge
