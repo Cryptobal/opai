@@ -9,10 +9,13 @@ import {
 import { hasCapability } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { bulkAutoMatchBankTransactions } from "@/modules/finance/banking/auto-match-payment.service";
+import {
+  HISTORICAL_SCAN_BATCH,
+  HISTORICAL_SCAN_DEFAULT_MAX,
+  iterateUnmatchedBankTransactions,
+} from "@/modules/finance/banking/automatch-rule.service";
 
 const DEFAULT_RULE_HISTORICAL_MONTHS = 6;
-/** Máximo de movimientos por corrida (más recientes primero). */
-const RUN_HISTORICAL_CAP = 2500;
 
 const bodySchema = z.object({
   bankAccountId: z.string().nullable().optional(),
@@ -22,17 +25,20 @@ const bodySchema = z.object({
   ruleId: z.string().uuid().nullable().optional(),
   /**
    * Ventana en meses calendario hacia atrás desde hoy.
-   * Sin `monthsBack`: no hay filtro de fecha (solo tope RUN_HISTORICAL_CAP).
+   * Sin `monthsBack`: no hay filtro de fecha (solo tope maxScan).
    * Si enviás `ruleId` pero no `monthsBack`, por defecto = 6 meses.
    */
   monthsBack: z.number().int().min(1).max(36).nullable().optional(),
+  /** Tope duro de movimientos a escanear (default 20.000). */
+  maxScan: z.number().int().min(1).max(50_000).optional(),
 });
 
 /**
  * POST /api/finance/banking/automatch-rules/run-historical
  *
  * Corre el motor de auto-match (DTE + turnos extra + reglas) sobre
- * movimientos UNMATCHED visibles del tenant (o de una cuenta).
+ * movimientos UNMATCHED visibles del tenant (o de una cuenta),
+ * paginando con orden estable hasta agotar o alcanzar el tope.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -84,23 +90,75 @@ export async function POST(request: NextRequest) {
       where.transactionDate = { gte: since };
     }
 
-    const txs = await prisma.financeBankTransaction.findMany({
-      where,
-      select: { id: true },
-      orderBy: { transactionDate: "desc" },
-      take: RUN_HISTORICAL_CAP,
-    });
+    const maxScan = parsed.data.maxScan ?? HISTORICAL_SCAN_DEFAULT_MAX;
+    const batchIds: string[] = [];
+    let scanned = 0;
+    let reachedCap = false;
 
-    const summary = await bulkAutoMatchBankTransactions(
-      ctx.tenantId,
-      txs.map((t) => t.id),
-      ctx.userId,
-      parsed.data.ruleId ? { onlyRuleId: parsed.data.ruleId } : undefined
-    );
+    const aggregated = {
+      total: 0,
+      matched: 0,
+      ambiguous: 0,
+      noCandidate: 0,
+      skipped: 0,
+      ruleMatched: 0,
+      ruleSuggested: 0,
+      turnoExtraMatched: 0,
+      errors: [] as { bankTransactionId: string; message: string }[],
+    };
+
+    for await (const page of iterateUnmatchedBankTransactions(where, {
+      batchSize: HISTORICAL_SCAN_BATCH,
+      maxScan,
+    })) {
+      scanned = page.scanned;
+      reachedCap = page.reachedCap;
+      batchIds.push(page.row.id);
+
+      if (
+        batchIds.length >= HISTORICAL_SCAN_BATCH ||
+        page.reachedCap
+      ) {
+        const summary = await bulkAutoMatchBankTransactions(
+          ctx.tenantId,
+          batchIds,
+          ctx.userId,
+          parsed.data.ruleId ? { onlyRuleId: parsed.data.ruleId } : undefined,
+        );
+        aggregated.total += summary.total;
+        aggregated.matched += summary.matched;
+        aggregated.ambiguous += summary.ambiguous;
+        aggregated.noCandidate += summary.noCandidate;
+        aggregated.skipped += summary.skipped;
+        aggregated.ruleMatched += summary.ruleMatched;
+        aggregated.ruleSuggested += summary.ruleSuggested;
+        aggregated.turnoExtraMatched += summary.turnoExtraMatched;
+        aggregated.errors.push(...summary.errors);
+        batchIds.length = 0;
+      }
+    }
+
+    if (batchIds.length > 0) {
+      const summary = await bulkAutoMatchBankTransactions(
+        ctx.tenantId,
+        batchIds,
+        ctx.userId,
+        parsed.data.ruleId ? { onlyRuleId: parsed.data.ruleId } : undefined,
+      );
+      aggregated.total += summary.total;
+      aggregated.matched += summary.matched;
+      aggregated.ambiguous += summary.ambiguous;
+      aggregated.noCandidate += summary.noCandidate;
+      aggregated.skipped += summary.skipped;
+      aggregated.ruleMatched += summary.ruleMatched;
+      aggregated.ruleSuggested += summary.ruleSuggested;
+      aggregated.turnoExtraMatched += summary.turnoExtraMatched;
+      aggregated.errors.push(...summary.errors);
+    }
 
     return NextResponse.json({
       success: true,
-      data: { ...summary, scanned: txs.length },
+      data: { ...aggregated, scanned, reachedCap },
     });
   } catch (error) {
     console.error("[Finance/Banking/Rules/RunHistorical] error:", error);

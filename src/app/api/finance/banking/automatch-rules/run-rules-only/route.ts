@@ -9,7 +9,11 @@ import {
 import { hasCapability } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 import { Decimal } from "@prisma/client/runtime/library";
-import { findMatchingRule } from "@/modules/finance/banking/automatch-rule.service";
+import {
+  findMatchingRule,
+  HISTORICAL_SCAN_DEFAULT_MAX,
+  iterateUnmatchedBankTransactions,
+} from "@/modules/finance/banking/automatch-rule.service";
 import {
   reasonToUserMessage,
   resolveRuleAction,
@@ -26,6 +30,8 @@ const bodySchema = z.object({
    * (útil cuando se modificó una regla y queremos actualizar la sugerencia).
    */
   reEvaluateSuggested: z.boolean().optional(),
+  /** Tope duro de movimientos a escanear (default 20.000). */
+  maxScan: z.number().int().min(1).max(50_000).optional(),
 });
 
 /**
@@ -35,8 +41,8 @@ const bodySchema = z.object({
  * UNMATCHED del tenant. Mucho más rápido que run-historical porque
  * salta el matcher DTE y la búsqueda de turnos.
  *
- * Hard cap de 2000 por ejecución. Procesa lotes de 50 con
- * `findMatchingRule` para no saturar memoria.
+ * Paginación con orden estable; bucle secuencial por tx para evitar
+ * contención en `financeAutoMatchRule.update`.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -63,106 +69,100 @@ export async function POST(request: NextRequest) {
     }
 
     const targetRuleId = parsed.data.ruleId ?? null;
-
-    const txs = await prisma.financeBankTransaction.findMany({
-      where,
-      select: {
-        id: true,
-        amount: true,
-        description: true,
-        reference: true,
-      },
-      take: 2000,
-    });
+    const maxScan = parsed.data.maxScan ?? HISTORICAL_SCAN_DEFAULT_MAX;
 
     let suggested = 0;
     let autoMatched = 0;
+    let scanned = 0;
+    let reachedCap = false;
     const errors: Array<{ id: string; message: string }> = [];
 
-    const CHUNK = 50;
-    for (let i = 0; i < txs.length; i += CHUNK) {
-      const chunk = txs.slice(i, i + CHUNK);
-      await Promise.all(
-        chunk.map(async (tx) => {
-          try {
-            const evaluation = await findMatchingRule(ctx.tenantId, {
-              amount: tx.amount.toNumber(),
-              description: tx.description,
-              reference: tx.reference,
-            });
-            if (!evaluation) return;
-            if (targetRuleId && evaluation.ruleId !== targetRuleId) return;
-            const resolved = await resolveRuleAction(ctx.tenantId, evaluation.action);
-            if (!resolved.ok) {
-              if (
-                resolved.reason === "ROW_NOT_FOUND" ||
-                resolved.reason === "ROW_WITHOUT_ACCOUNT"
-              ) {
-                errors.push({
-                  id: tx.id,
-                  message: reasonToUserMessage(resolved.reason),
-                });
-              }
-              return;
-            }
-
-            if (resolved.requiresReview) {
-              await prisma.financeBankTransaction.update({
-                where: { id: tx.id },
-                data: {
-                  suggestedRuleId: evaluation.ruleId,
-                  suggestedAccountPlanId: resolved.accountPlanId,
-                },
-              });
-              suggested++;
-            } else {
-              const isIncome = tx.amount.toNumber() > 0;
-              const amountAbs = Math.abs(tx.amount.toNumber());
-              await prisma.$transaction([
-                prisma.financeBankTransactionLink.create({
-                  data: {
-                    tenantId: ctx.tenantId,
-                    bankTransactionId: tx.id,
-                    targetType: isIncome ? "INCOME" : "EXPENSE",
-                    targetId: null,
-                    amount: new Decimal(amountAbs),
-                    accountPlanId: resolved.accountPlanId,
-                    note: `Re-evaluación de regla: ${evaluation.ruleName}`,
-                    createdById: ctx.userId,
-                  },
-                }),
-                prisma.financeBankTransaction.update({
-                  where: { id: tx.id },
-                  data: { reconciliationStatus: "MATCHED" },
-                }),
-                prisma.financeAutoMatchRule.update({
-                  where: { id: evaluation.ruleId },
-                  data: {
-                    timesMatched: { increment: 1 },
-                    lastMatchedAt: new Date(),
-                  },
-                }),
-              ]);
-              autoMatched++;
-            }
-          } catch (err) {
+    for await (const page of iterateUnmatchedBankTransactions(where, {
+      maxScan,
+    })) {
+      scanned = page.scanned;
+      reachedCap = page.reachedCap;
+      const tx = page.row;
+      try {
+        const evaluation = await findMatchingRule(ctx.tenantId, {
+          amount: tx.amount.toNumber(),
+          description: tx.description,
+          reference: tx.reference,
+        });
+        if (!evaluation) continue;
+        if (targetRuleId && evaluation.ruleId !== targetRuleId) continue;
+        const resolved = await resolveRuleAction(
+          ctx.tenantId,
+          evaluation.action,
+        );
+        if (!resolved.ok) {
+          if (
+            resolved.reason === "ROW_NOT_FOUND" ||
+            resolved.reason === "ROW_WITHOUT_ACCOUNT"
+          ) {
             errors.push({
               id: tx.id,
-              message: err instanceof Error ? err.message : "Error",
+              message: reasonToUserMessage(resolved.reason),
             });
           }
-        }),
-      );
+          continue;
+        }
+
+        if (resolved.requiresReview) {
+          await prisma.financeBankTransaction.update({
+            where: { id: tx.id },
+            data: {
+              suggestedRuleId: evaluation.ruleId,
+              suggestedAccountPlanId: resolved.accountPlanId,
+            },
+          });
+          suggested++;
+        } else {
+          const isIncome = tx.amount.toNumber() > 0;
+          const amountAbs = Math.abs(tx.amount.toNumber());
+          await prisma.$transaction([
+            prisma.financeBankTransactionLink.create({
+              data: {
+                tenantId: ctx.tenantId,
+                bankTransactionId: tx.id,
+                targetType: isIncome ? "INCOME" : "EXPENSE",
+                targetId: null,
+                amount: new Decimal(amountAbs),
+                accountPlanId: resolved.accountPlanId,
+                note: `Re-evaluación de regla: ${evaluation.ruleName}`,
+                createdById: ctx.userId,
+              },
+            }),
+            prisma.financeBankTransaction.update({
+              where: { id: tx.id },
+              data: { reconciliationStatus: "MATCHED" },
+            }),
+            prisma.financeAutoMatchRule.update({
+              where: { id: evaluation.ruleId },
+              data: {
+                timesMatched: { increment: 1 },
+                lastMatchedAt: new Date(),
+              },
+            }),
+          ]);
+          autoMatched++;
+        }
+      } catch (err) {
+        errors.push({
+          id: tx.id,
+          message: err instanceof Error ? err.message : "Error",
+        });
+      }
     }
 
     return NextResponse.json({
       success: true,
       data: {
-        scanned: txs.length,
+        scanned,
         suggested,
         autoMatched,
         errors,
-        reachedCap: txs.length === 2000,
+        reachedCap,
       },
     });
   } catch (error) {

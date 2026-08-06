@@ -1627,8 +1627,10 @@ function TransactionsTab({
       if (!res.ok || !json.success) throw new Error(json.error ?? "Error");
       const { suggested, autoMatched, scanned, reachedCap } = json.data ?? {};
       toast.success(
-        `${scanned ?? 0} mov. revisados · ${suggested ?? 0} reconocidos · ${autoMatched ?? 0} conciliados` +
-          (reachedCap ? ` · cap 2000 alcanzado, corré de nuevo` : ""),
+        `${scanned ?? 0} mov. revisados · ${suggested ?? 0} por autorizar · ${autoMatched ?? 0} conciliados` +
+          (reachedCap
+            ? ` · tope de escaneo alcanzado — volvé a correr`
+            : ""),
       );
       await loadTransactions();
       await loadCounts();
@@ -1677,14 +1679,18 @@ function TransactionsTab({
         if (s.skipped) breakdown.push(`${s.skipped} omitidos`);
         const detail = breakdown.length > 0 ? ` (${breakdown.join(" · ")})` : "";
         toast.info(
-          `Escaneados ${s.scanned ?? 0} movimientos. Ningún match nuevo${detail}.`,
+          `Escaneados ${s.scanned ?? 0} movimientos. Ningún match nuevo${detail}.` +
+            (s.reachedCap ? " Tope de escaneo alcanzado — volvé a correr." : ""),
         );
       } else {
         const parts: string[] = [];
         if (dteCount) parts.push(`${dteCount} DTE`);
         if (teCount) parts.push(`${teCount} turno extra`);
         if (ruleCount) parts.push(`${ruleCount} por reglas`);
-        toast.success(`Conciliados: ${parts.join(" · ")}`);
+        toast.success(
+          `Conciliados: ${parts.join(" · ")}` +
+            (s.reachedCap ? " · tope de escaneo — volvé a correr" : ""),
+        );
       }
       loadTransactions();
     } catch (err) {

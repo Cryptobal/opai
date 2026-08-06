@@ -354,7 +354,7 @@ export function BankRulesClient({
     if (
       !(await confirmDialog({
         description:
-          "¿Conciliar histórico? Se toman hasta 2.500 movimientos sin conciliar más recientes (sin filtro de fecha), se evalúan DTE / turnos extra y después las reglas (cuenta contable o fila de flujo). Si una regla exige revisión humana, el movimiento queda como sugerencia y sigue «Sin conciliar» hasta autorizar. Las reglas TGR nunca se auto-aplican.",
+          "¿Conciliar histórico? Se recorre la cartola sin conciliar con orden estable (más recientes primero), se evalúan DTE / turnos extra y después las reglas (cuenta contable o fila de flujo). Si una regla exige revisión humana, el movimiento queda como sugerencia y sigue «Sin conciliar» hasta autorizar. Las reglas TGR nunca se auto-aplican.",
       }))
     ) {
       return;
@@ -376,7 +376,8 @@ export function BankRulesClient({
         `Escaneados ${(d.scanned ?? 0).toLocaleString("es-CL")} mov · ` +
           `${d.matched ?? 0} DTE · ${d.turnoExtraMatched ?? 0} TE · ` +
           `${d.ruleMatched ?? 0} regla aplicada · ` +
-          `${d.ruleSuggested ?? 0} sugerencia`,
+          `${d.ruleSuggested ?? 0} sugerencia` +
+          (d.reachedCap ? " · tope de escaneo — volvé a correr" : ""),
       );
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Error en re-evaluación");
@@ -394,7 +395,7 @@ export function BankRulesClient({
       !(await confirmDialog({
         description:
           `¿Aplicar solo la regla «${rule.name}» a los movimientos sin conciliar ` +
-          `de los últimos ${RULE_HISTORICAL_MONTHS_DEFAULT} meses (hasta 2.500, más recientes primero)?\n\n` +
+          `de los últimos ${RULE_HISTORICAL_MONTHS_DEFAULT} meses (orden estable, más recientes primero)?\n\n` +
           `Igual corre DTE y turnos extra antes de evaluar esa regla. Las reglas con «Requiere revisión» dejan ` +
           `sugerencias: el estado seguirá «Sin conciliar» hasta que autorices.`,
       }))
@@ -421,7 +422,8 @@ export function BankRulesClient({
       toast.success(
         `«${rule.name}» · Escaneados ${(d.scanned ?? 0).toLocaleString("es-CL")} mov · ` +
           `${d.matched ?? 0} DTE · ${d.turnoExtraMatched ?? 0} TE · ` +
-          `${d.ruleMatched ?? 0} regla aplicada · ${d.ruleSuggested ?? 0} sugerencias`,
+          `${d.ruleMatched ?? 0} regla aplicada · ${d.ruleSuggested ?? 0} sugerencias` +
+          (d.reachedCap ? " · tope de escaneo — volvé a correr" : ""),
       );
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Error en re-evaluación");
