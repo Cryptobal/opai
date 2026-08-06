@@ -6,8 +6,10 @@ import { syncLicitacionToCalendar } from "./agenda-sync-licitacion";
 const DEFAULT_CAP = 20;
 
 /**
- * Reintenta AgendaEventLink en PENDING de un tenant (cap 20): licitaciones y
- * visitas cuyo dueño no tenía Google Calendar conectado al momento del sync.
+ * Reintenta AgendaEventLink en PENDING de un tenant (cap 20).
+ * - `agenda_visita`: re-sync normal a Google Calendar.
+ * - `licitacion`: ya no se sincroniza; se cancela el vínculo legacy en Google
+ *   (incluye SYNCED pendientes de cleanup).
  * También incluye ERROR por disconnect (si aún no se reactivaron a PENDING).
  * Best-effort: cada fallo se loguea y no corta el resto.
  */
@@ -17,22 +19,40 @@ export async function retryPendingAgendaLinks(params: {
   sourceType?: "licitacion" | "agenda_visita";
   cap?: number;
 }): Promise<{ retried: number }> {
+  const cap = params.cap ?? DEFAULT_CAP;
+  const wantLic = params.sourceType !== "agenda_visita";
+  const wantVisita = params.sourceType !== "licitacion";
+
   const links = await prisma.agendaEventLink.findMany({
     where: {
       tenantId: params.tenantId,
-      sourceType: params.sourceType
-        ? params.sourceType
-        : { in: ["licitacion", "agenda_visita"] },
       OR: [
-        { syncStatus: "PENDING" },
-        {
-          syncStatus: "ERROR",
-          lastError: GOOGLE_CALENDAR_DISCONNECT_ERROR,
-        },
+        ...(wantVisita
+          ? [
+              {
+                sourceType: "agenda_visita" as const,
+                OR: [
+                  { syncStatus: "PENDING" },
+                  {
+                    syncStatus: "ERROR",
+                    lastError: GOOGLE_CALENDAR_DISCONNECT_ERROR,
+                  },
+                ],
+              },
+            ]
+          : []),
+        ...(wantLic
+          ? [
+              {
+                sourceType: "licitacion" as const,
+                syncStatus: { in: ["SYNCED", "PENDING", "ERROR"] },
+              },
+            ]
+          : []),
       ],
     },
     orderBy: { updatedAt: "desc" },
-    take: params.cap ?? DEFAULT_CAP,
+    take: cap,
     select: { sourceType: true, sourceId: true },
   });
 
@@ -40,7 +60,7 @@ export async function retryPendingAgendaLinks(params: {
   for (const link of links) {
     try {
       if (link.sourceType === "licitacion") {
-        await syncLicitacionToCalendar(params.tenantId, link.sourceId, "upsert", {
+        await syncLicitacionToCalendar(params.tenantId, link.sourceId, "delete", {
           actorUserId: params.actorUserId,
         });
       } else if (link.sourceType === "agenda_visita") {

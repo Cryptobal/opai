@@ -13,33 +13,34 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // Paso 1: reprocesar links PENDING de licitaciones (dueño sin Calendar al
-  // momento del sync). Cap 20 por corrida; actor = owner de la cuenta del deal.
-  let retriedPending = 0;
+  // Paso 1: cancelar bandas all-day legacy de licitación en Google Calendar
+  // (ya no se sincronizan; solo Agenda del negocio va a Calendar).
+  let cancelledLegacy = 0;
   try {
-    const pending = await prisma.agendaEventLink.findMany({
-      where: { sourceType: "licitacion", syncStatus: "PENDING" },
+    const legacy = await prisma.agendaEventLink.findMany({
+      where: {
+        sourceType: "licitacion",
+        syncStatus: { in: ["SYNCED", "PENDING", "ERROR"] },
+      },
       select: { id: true, tenantId: true, sourceId: true },
-      take: 20,
+      take: 40,
       orderBy: { updatedAt: "asc" },
     });
     const { syncLicitacionToCalendar } = await import(
       "@/modules/agenda/agenda-sync-licitacion"
     );
-    for (const link of pending) {
+    for (const link of legacy) {
       const deal = await prisma.crmDeal.findFirst({
         where: { id: link.sourceId, tenantId: link.tenantId },
         select: { account: { select: { ownerId: true } } },
       });
-      const actorUserId = deal?.account.ownerId ?? null;
-      if (!actorUserId) continue; // sin dueño → syncLicitacion deja ERROR legible
-      await syncLicitacionToCalendar(link.tenantId, link.sourceId, "upsert", {
-        actorUserId,
+      await syncLicitacionToCalendar(link.tenantId, link.sourceId, "delete", {
+        actorUserId: deal?.account.ownerId ?? undefined,
       });
-      retriedPending += 1;
+      cancelledLegacy += 1;
     }
   } catch (err) {
-    console.warn("[calendar] retry pending licitaciones:", err);
+    console.warn("[calendar] cancel legacy licitacion bands:", err);
   }
 
   const today = new Date();
@@ -76,5 +77,5 @@ export async function GET(req: NextRequest) {
     sent++;
   }
 
-  return NextResponse.json({ ok: true, sent, retriedPending });
+  return NextResponse.json({ ok: true, sent, cancelledLegacy });
 }

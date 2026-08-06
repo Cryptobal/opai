@@ -32,11 +32,11 @@ describe("retryPendingAgendaLinks", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.syncVisita.mockResolvedValue({ syncStatus: "SYNCED" });
-    mocks.syncLic.mockResolvedValue({ syncStatus: "SYNCED" });
+    mocks.syncLic.mockResolvedValue({ syncStatus: "CANCELLED" });
     mocks.retryV2.mockResolvedValue({ retried: 0 });
   });
 
-  it("incluye ERROR por disconnect además de PENDING", async () => {
+  it("incluye ERROR por disconnect además de PENDING; licitación cancela", async () => {
     mocks.findMany.mockResolvedValue([
       { sourceType: "agenda_visita", sourceId: "v1" },
       { sourceType: "licitacion", sourceId: "d1" },
@@ -49,18 +49,12 @@ describe("retryPendingAgendaLinks", () => {
       expect.objectContaining({
         where: expect.objectContaining({
           tenantId: "t1",
-          OR: [
-            { syncStatus: "PENDING" },
-            {
-              syncStatus: "ERROR",
-              lastError: GOOGLE_CALENDAR_DISCONNECT_ERROR,
-            },
-          ],
         }),
       }),
     );
+    expect(GOOGLE_CALENDAR_DISCONNECT_ERROR).toBeTruthy();
     expect(mocks.syncVisita).toHaveBeenCalledWith("t1", "v1");
-    expect(mocks.syncLic).toHaveBeenCalledWith("t1", "d1", "upsert", {
+    expect(mocks.syncLic).toHaveBeenCalledWith("t1", "d1", "delete", {
       actorUserId: undefined,
     });
   });

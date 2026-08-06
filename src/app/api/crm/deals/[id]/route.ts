@@ -112,12 +112,8 @@ export async function PATCH(
       const v = raw.fechaEntrega as string | null | undefined;
       data.fechaEntrega = v ? new Date(`${v}T12:00:00Z`) : null;
     }
-    if (raw.isLicitacion === true && !raw.fechaEntrega && !existing.fechaEntrega) {
-      return NextResponse.json(
-        { success: false, error: "fechaEntrega es requerida para licitaciones" },
-        { status: 400 },
-      );
-    }
+    // isLicitacion ya no exige fechaEntrega: la entrega se agenda en
+    // Agenda del negocio (no como banda all-day sync a Google).
 
     if ("activeQuotationId" in raw) {
       const nextActiveQuotationId = raw.activeQuotationId as string | null | undefined;
@@ -197,10 +193,11 @@ export async function PATCH(
       createdBy: ctx.userId,
     });
 
+    // Cleanup legacy: cancelar en Google cualquier banda all-day de licitación.
     if ("isLicitacion" in raw || "fechaEntrega" in raw || "status" in raw) {
       void import("@/modules/agenda/agenda-sync").then(({ syncLicitacionToCalendar }) =>
-        syncLicitacionToCalendar(ctx.tenantId, id, "upsert", { actorUserId: ctx.userId }).catch(
-          (err) => console.warn("[deals] licitacion calendar sync:", err),
+        syncLicitacionToCalendar(ctx.tenantId, id, "delete", { actorUserId: ctx.userId }).catch(
+          (err) => console.warn("[deals] licitacion calendar cancel:", err),
         ),
       );
     }

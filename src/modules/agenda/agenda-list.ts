@@ -1,7 +1,6 @@
 import { prisma } from "@/lib/prisma";
-import { todayInChile, utcDateFromYmd, ymdInChile } from "@/lib/dates-cl";
+import { todayInChile, utcDateFromYmd } from "@/lib/dates-cl";
 import { sanitizeSyncReason } from "./agenda-sync-reason";
-import { expandLicitacionAgendaItems } from "./agenda-list-licitacion";
 import { isAgendaVisitaAllDay } from "./agenda-sync";
 import { listAgendaTasks } from "./agenda-tasks";
 import type { AgendaListItem, LicitacionListItem } from "./agenda.types";
@@ -21,7 +20,10 @@ export async function listAgenda(
   opts?: { dealId?: string | null },
 ): Promise<AgendaListItem[]> {
   const dealIdFilter = opts?.dealId?.trim() || null;
-  const [visitas, tecnicas, deals, links, admins, providerLinks] = await Promise.all([
+  // Bandas all-day por fechaEntrega del deal: descontinuadas. La entrega y el
+  // cronograma viven como eventos de Agenda del negocio (agenda_visita) y esos
+  // sí sincronizan con Google Calendar.
+  const [visitas, tecnicas, links, admins, providerLinks] = await Promise.all([
     prisma.agendaVisita.findMany({
       where: {
         tenantId,
@@ -49,31 +51,13 @@ export async function listAgenda(
             user: { select: { name: true } },
           },
         }),
-    dealIdFilter
-      ? Promise.resolve([])
-      : prisma.crmDeal.findMany({
-          where: {
-            tenantId,
-            isLicitacion: true,
-            // @db.Date: comparar por calendario Chile. Sin cota superior: el rango
-            // "corriendo" (rangeStartYmd → entrega) puede pisar la ventana aunque
-            // la entrega caiga después de `to`.
-            fechaEntrega: { gte: utcDateFromYmd(ymdInChile(from)) },
-            status: "open",
-          },
-          include: {
-            account: { select: { name: true, ownerId: true } },
-          },
-        }),
     prisma.agendaEventLink.findMany({
-      where: { tenantId },
+      where: { tenantId, sourceType: { in: ["agenda_visita", "visita_tecnica"] } },
       select: {
         sourceType: true,
         sourceId: true,
         syncStatus: true,
         lastError: true,
-        rangeStartYmd: true,
-        allDay: true,
         htmlLink: true,
       },
     }),
@@ -108,11 +92,6 @@ export async function listAgenda(
       syncReasonMap.set(`agenda_visita:${pl.eventId}`, sanitizeSyncReason(pl.lastError));
     }
   }
-  const rangeStartMap = new Map(
-    links
-      .filter((l) => l.sourceType === "licitacion" && l.rangeStartYmd)
-      .map((l) => [l.sourceId, l.rangeStartYmd as string]),
-  );
   const nameMap = new Map(admins.map((a) => [a.id, a.name]));
   const items: AgendaListItem[] = [];
 
@@ -169,41 +148,6 @@ export async function listAgenda(
       status: v.status,
       sourceKey: opaiSourceKey("tecnica"),
     });
-  }
-
-  const fromYmd = ymdInChile(from);
-  const toYmdExcl = ymdInChile(to);
-  for (const d of deals) {
-    if (!d.fechaEntrega) continue;
-    const ownerId = d.account.ownerId ?? null;
-    const entregaYmd = d.fechaEntrega.toISOString().slice(0, 10);
-    const hasEntregaMilestoneOnEnd = visitas.some(
-      (v) =>
-        v.dealId === d.id &&
-        v.status !== "cancelada" &&
-        v.label === "Entrega de oferta" &&
-        ymdInChile(v.startAt) === entregaYmd,
-    );
-    items.push(
-      ...expandLicitacionAgendaItems({
-        deal: {
-          id: d.id,
-          title: d.title,
-          status: d.status,
-          fechaEntrega: d.fechaEntrega,
-          accountName: d.account.name,
-          ownerId,
-          ownerName: ownerId ? nameMap.get(ownerId) ?? null : null,
-        },
-        rangeStartYmd: rangeStartMap.get(d.id) ?? ymdInChile(d.updatedAt),
-        fromYmd,
-        toYmdExcl,
-        syncStatus: syncMap.get(`licitacion:${d.id}`) ?? null,
-        syncReason: syncReasonMap.get(`licitacion:${d.id}`) ?? null,
-        htmlLink: htmlLinkMap.get(`licitacion:${d.id}`) ?? null,
-        hasEntregaMilestoneOnEnd,
-      }),
-    );
   }
 
   if (userId && !dealIdFilter) {
