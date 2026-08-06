@@ -55,29 +55,23 @@ export async function PUT(
       const issues = parsed.error.issues.map((i) => i.message).join("; ");
       return NextResponse.json({ success: false, error: issues }, { status: 400 });
     }
-    const row = await prisma.financeFlowRow.findFirst({
-      where: { id, tenantId: guard.ctx.tenantId, archivedAt: null },
-      select: { id: true },
-    });
-    if (!row) {
-      return NextResponse.json(
-        { success: false, error: "Renglón no encontrado" },
-        { status: 404 },
-      );
-    }
-    await setAccountsForRow(
-      guard.ctx.tenantId,
-      id,
-      parsed.data.accountPlanIds,
-      {
-        defaultTargetAccountPlanId: parsed.data.defaultTargetAccountPlanId,
-      },
+    const { updateRow } = await import("@/modules/finance/flow-v3/rows.service");
+    const { setDefaultTarget } = await import(
+      "@/modules/finance/flow-v3/rowAccount.service"
     );
-    if (parsed.data.accountPlanIds.length > 0) {
-      await prisma.financeFlowRow.update({
-        where: { id },
-        data: { mapping: "ACCOUNTS" },
-      });
+    // updateRow aplica guardas de sección/bandeja y mapping ACCOUNTS.
+    await updateRow(guard.ctx.tenantId, id, {
+      accountPlanIds: parsed.data.accountPlanIds,
+    });
+    if (
+      parsed.data.defaultTargetAccountPlanId &&
+      parsed.data.accountPlanIds.includes(parsed.data.defaultTargetAccountPlanId)
+    ) {
+      await setDefaultTarget(
+        guard.ctx.tenantId,
+        id,
+        parsed.data.defaultTargetAccountPlanId,
+      );
     }
     const data = await listAccountsForRow(guard.ctx.tenantId, id);
     return NextResponse.json({ success: true, data });
