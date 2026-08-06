@@ -18,7 +18,10 @@ import type {
   FinanceAutoMatchRule,
   FinanceAutoMatchScope,
 } from "@prisma/client";
-import { normalizeRutForMatch } from "./auto-match-payment.service";
+import { normalizeRutForMatch } from "./rut-normalize";
+import {
+  extractAllCanonicalRutsFromBankText,
+} from "./rut-extract";
 import {
   isForbiddenNeedle,
   MERCHANT_NEEDLE_MIN_LEN,
@@ -46,8 +49,11 @@ export type RuleOperator =
 export interface RuleCondition {
   field: RuleField;
   operator: RuleOperator;
-  /** Valor esperado. Para AMOUNT_BETWEEN se usa { min, max }. */
-  value?: string | number | { min?: number; max?: number } | null;
+  /**
+   * Valor esperado. Para AMOUNT_BETWEEN se usa { min, max }.
+   * Para RUT_MATCHES acepta un string (legacy) o una lista de RUT.
+   */
+  value?: string | number | string[] | { min?: number; max?: number } | null;
 }
 
 export interface RuleConditions {
@@ -118,21 +124,19 @@ export interface AutoMatchEvaluation {
 
 // ── Helpers ──
 
-/** Quita puntos y guion. "12.345.678-K" → "12345678K". */
-function normalizeRut(s: string): string {
-  return s.toUpperCase().replace(/[.\-\s]/g, "");
-}
-
-/** Detecta el primer RUT presente en un string libre. */
-function extractRutFromText(text: string): string | null {
-  const match = text.match(/\d{1,2}\.?\d{3}\.?\d{3}-?[\dKk]/);
-  return match ? normalizeRut(match[0]) : null;
+function toRutExpectedList(value: RuleCondition["value"]): string[] {
+  if (value == null) return [];
+  const raw = Array.isArray(value) ? value : [value];
+  return raw
+    .map((v) => normalizeRutForMatch(String(v ?? "")))
+    .filter((r) => r.length >= 8);
 }
 
 /**
  * Evalúa una condición individual contra una transacción.
+ * Exportada para tests del criterio RUT_MATCHES.
  */
-function evaluateCondition(
+export function evaluateCondition(
   cond: RuleCondition,
   tx: AutoMatchTx
 ): boolean {
@@ -142,7 +146,6 @@ function evaluateCondition(
   // Campo target
   let textTarget: string | null = null;
   let numTarget: number | null = null;
-  let rutTarget: string | null = null;
 
   switch (cond.field) {
     case "DESCRIPTION":
@@ -155,9 +158,7 @@ function evaluateCondition(
       numTarget = Math.abs(tx.amount);
       break;
     case "BENEFICIARY_RUT":
-      rutTarget =
-        extractRutFromText(tx.description ?? "") ??
-        extractRutFromText(tx.reference ?? "");
+      // RUT se resuelve en el case RUT_MATCHES con el extractor canónico.
       break;
   }
 
@@ -190,9 +191,13 @@ function evaluateCondition(
       return okMin && okMax;
     }
     case "RUT_MATCHES": {
-      if (!rutTarget) return false;
-      const expected = normalizeRut(String(cond.value ?? ""));
-      return rutTarget === expected;
+      const found = new Set([
+        ...extractAllCanonicalRutsFromBankText(tx.description),
+        ...extractAllCanonicalRutsFromBankText(tx.reference),
+      ]);
+      if (found.size === 0) return false;
+      const expected = toRutExpectedList(cond.value);
+      return expected.some((e) => found.has(e));
     }
     default:
       return false;
