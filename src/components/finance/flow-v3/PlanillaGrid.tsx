@@ -54,7 +54,11 @@ import {
   summarizeBandejaRow,
   type BandejaGroup,
 } from "@/modules/finance/flow-v3/unmatched-count";
-import { BandejaGroupList } from "./BandejaGroupList";
+import {
+  BandejaGroupList,
+  type BandejaApplyItem,
+} from "./BandejaGroupList";
+import { learnRuleForSuggestionSource } from "./bandeja-suggestions";
 
 interface PlanMutators {
   patchPlan: (rowId: string, weekStart: string, amount: number, opts?: { skipHistory?: boolean }) => Promise<void>;
@@ -323,24 +327,39 @@ export function PlanillaGrid({
       group: BandejaGroup;
       flowRowId: string;
       needle: string | null;
+      bankTransactionIds?: string[];
+      learnRule?: "RUT" | "DESCRIPTION" | "NONE";
     }) => {
       const { group, flowRowId, needle } = args;
-      if (group.items.length === 0) return;
+      const ids =
+        args.bankTransactionIds ??
+        group.items.map((i) => i.bankTransactionId);
+      if (ids.length === 0) return;
+
+      const destRow = rowById.get(flowRowId);
+      if (destRow && !destRow.categoryId) {
+        throw new Error(
+          "La fila destino no tiene categoría; asigná una cuenta contable antes de clasificar.",
+        );
+      }
 
       const BATCH = 200;
       let classifiedTotal = 0;
+      let skippedLinked = 0;
+      let rulesLearned = 0;
       let ruleId: string | null = null;
       const learnRule =
-        group.kind === "RUT"
+        args.learnRule ??
+        (group.kind === "RUT"
           ? "RUT"
           : group.kind === "MERCHANT"
             ? "DESCRIPTION"
-            : "NONE";
+            : "NONE");
 
-      for (let offset = 0; offset < group.items.length; offset += BATCH) {
-        const chunk = group.items.slice(offset, offset + BATCH);
+      for (let offset = 0; offset < ids.length; offset += BATCH) {
+        const chunk = ids.slice(offset, offset + BATCH);
         const first = chunk[0]!;
-        const also = chunk.slice(1).map((i) => i.bankTransactionId);
+        const also = chunk.slice(1);
         const body: Record<string, unknown> = {
           kind: "FLOW_ROW",
           flowRowId,
@@ -351,7 +370,7 @@ export function PlanillaGrid({
           body.descriptionNeedle = needle;
         }
         const res = await fetch(
-          `/api/finance/banking/transactions/${first.bankTransactionId}/classify-suggestions`,
+          `/api/finance/banking/transactions/${first}/classify-suggestions`,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -361,7 +380,14 @@ export function PlanillaGrid({
         const j = await res.json();
         if (!res.ok || !j.success) throw new Error(j.error ?? "Error al clasificar");
         classifiedTotal += Number(j.data?.classified ?? 0);
-        if (j.data?.ruleId) ruleId = j.data.ruleId as string;
+        const errors = (j.data?.errors ?? []) as Array<{ id: string; message: string }>;
+        skippedLinked += errors.filter((e) =>
+          /ya tiene vínculos|no se sobrescribe/i.test(e.message),
+        ).length;
+        if (j.data?.ruleId) {
+          ruleId = j.data.ruleId as string;
+          rulesLearned += 1;
+        }
       }
 
       let autoMatched = 0;
@@ -382,9 +408,19 @@ export function PlanillaGrid({
       const parts = [
         `${classifiedTotal} movimiento${classifiedTotal === 1 ? "" : "s"} clasificado${classifiedTotal === 1 ? "" : "s"}`,
       ];
+      if (rulesLearned > 0) {
+        parts.push(
+          `${rulesLearned} regla${rulesLearned === 1 ? "" : "s"} aprendida${rulesLearned === 1 ? "" : "s"}`,
+        );
+      }
       if (autoMatched > 0) {
         parts.push(
           `${autoMatched} histórico${autoMatched === 1 ? "" : "s"} re-ruteado${autoMatched === 1 ? "" : "s"}`,
+        );
+      }
+      if (skippedLinked > 0) {
+        parts.push(
+          `${skippedLinked} con vínculos previos omitido${skippedLinked === 1 ? "" : "s"}`,
         );
       }
       if (reachedCap) parts.push("límite alcanzado — volvé a aplicar la regla");
@@ -392,7 +428,125 @@ export function PlanillaGrid({
       setBandejaRutSection(null);
       onRefresh?.();
     },
-    [onRefresh],
+    [onRefresh, rowById],
+  );
+
+  const handleApplySuggestions = useCallback(
+    async (items: BandejaApplyItem[]) => {
+      if (items.length === 0) return;
+
+      // Filtrar destinos hacia filas sin categoría.
+      const eligible: BandejaApplyItem[] = [];
+      let skippedNoCategory = 0;
+      for (const it of items) {
+        const row = rowById.get(it.flowRowId);
+        if (!row || !row.categoryId) {
+          skippedNoCategory += 1;
+          continue;
+        }
+        eligible.push(it);
+      }
+      if (skippedNoCategory > 0) {
+        toast.message(
+          `${skippedNoCategory} movimiento${skippedNoCategory === 1 ? "" : "s"} quedaron fuera: la fila destino no tiene categoría`,
+        );
+      }
+      if (eligible.length === 0) {
+        throw new Error(
+          "Ningún movimiento tiene una fila destino con categoría asignada",
+        );
+      }
+
+      // Agrupar por flowRowId + learnRule (nómina/TE → NONE).
+      const buckets = new Map<string, BandejaApplyItem[]>();
+      for (const it of eligible) {
+        const lr = learnRuleForSuggestionSource(it.source);
+        const key = `${it.flowRowId}::${lr}`;
+        const list = buckets.get(key) ?? [];
+        list.push(it);
+        buckets.set(key, list);
+      }
+
+      const BATCH = 200;
+      let classifiedTotal = 0;
+      let rulesLearned = 0;
+      let skippedLinked = 0;
+      let autoMatched = 0;
+      let reachedCap = false;
+      const ruleIds = new Set<string>();
+
+      for (const [key, bucket] of buckets) {
+        const [flowRowId, learnRule] = key.split("::") as [
+          string,
+          "NONE" | "RUT" | "DESCRIPTION",
+        ];
+        const ids = bucket.map((b) => b.bankTransactionId);
+        for (let offset = 0; offset < ids.length; offset += BATCH) {
+          const chunk = ids.slice(offset, offset + BATCH);
+          const first = chunk[0]!;
+          const also = chunk.slice(1);
+          const body: Record<string, unknown> = {
+            kind: "FLOW_ROW",
+            flowRowId,
+            alsoBankTransactionIds: also,
+            learnRule: offset === 0 ? learnRule : "NONE",
+          };
+          const res = await fetch(
+            `/api/finance/banking/transactions/${first}/classify-suggestions`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(body),
+            },
+          );
+          const j = await res.json();
+          if (!res.ok || !j.success) {
+            throw new Error(j.error ?? "Error al clasificar sugerencias");
+          }
+          classifiedTotal += Number(j.data?.classified ?? 0);
+          const errors = (j.data?.errors ?? []) as Array<{
+            id: string;
+            message: string;
+          }>;
+          skippedLinked += errors.filter((e) =>
+            /ya tiene vínculos|no se sobrescribe/i.test(e.message),
+          ).length;
+          if (j.data?.ruleId) {
+            ruleIds.add(j.data.ruleId as string);
+            rulesLearned += 1;
+          }
+        }
+      }
+
+      for (const ruleId of ruleIds) {
+        const run = await fetch("/api/finance/banking/automatch-rules/run-rules-only", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ruleId }),
+        });
+        const rj = await run.json();
+        if (run.ok && rj.success) {
+          autoMatched += Number(rj.data?.autoMatched ?? 0);
+          if (rj.data?.reachedCap) reachedCap = true;
+        }
+      }
+
+      const parts = [
+        `${classifiedTotal} movimientos clasificados`,
+        `${rulesLearned} reglas aprendidas`,
+        `${autoMatched} históricos re-ruteados`,
+      ];
+      if (skippedLinked > 0) {
+        parts.push(
+          `${skippedLinked} con vínculos previos omitido${skippedLinked === 1 ? "" : "s"}`,
+        );
+      }
+      if (reachedCap) parts.push("límite alcanzado — volvé a aplicar la regla");
+      toast.success(parts.join(" · "));
+      setBandejaRutSection(null);
+      onRefresh?.();
+    },
+    [onRefresh, rowById],
   );
 
   // Deep-link post-emisión huérfana: /finanzas/flujo-caja/planilla?focusDte=…
@@ -1706,6 +1860,21 @@ export function PlanillaGrid({
         groups={bandejaGroups}
         flowRows={bandejaFlowRows}
         onClassifyGroup={handleClassifyGroup}
+        onApplySuggestions={handleApplySuggestions}
+        onAssignCategory={(flowRowId) => {
+          const row = rowById.get(flowRowId);
+          if (!row) {
+            toast.error("No se encontró la fila destino");
+            return;
+          }
+          setBandejaRutSection(null);
+          setRowDialog({ kind: "category", row });
+        }}
+        onCreateRow={() => {
+          const sec = bandejaRutSection ?? "GAV";
+          setBandejaRutSection(null);
+          onAddInSection?.(sec);
+        }}
       />
 
       <CellActionSheet
