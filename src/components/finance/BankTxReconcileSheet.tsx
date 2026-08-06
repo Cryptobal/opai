@@ -278,6 +278,13 @@ interface BankTxReconcileSheetProps {
    */
   txs?: Tx[];
   accountPlans: AccountPlanOption[];
+  /** Filas de flujo para el wizard "Guardar como regla" (destino FLOW_ROW). */
+  flowRows?: Array<{
+    id: string;
+    name: string;
+    section: string;
+    hasCategory: boolean;
+  }>;
   onSaved: () => void;
   /**
    * Modo "cola" (legacy, antes de multi-tx): el sidebar acumula
@@ -310,6 +317,7 @@ export function BankTxReconcileSheet({
   tx,
   txs: txsProp,
   accountPlans,
+  flowRows = [],
   onSaved,
   queueInfo,
 }: BankTxReconcileSheetProps) {
@@ -2489,6 +2497,7 @@ export function BankTxReconcileSheet({
               amount: tx.amount,
             }}
             accountPlans={accountPlans}
+            flowRows={flowRows}
             preselectedAccountId={manualAccountId || null}
             detectedRut={
               // Extracción local rápida del RUT visible en la descripción/ref.

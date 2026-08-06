@@ -54,6 +54,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AccountPlanCombobox } from "./AccountPlanCombobox";
+import { RuleDestinationChain } from "./RuleDestinationChain";
 import {
   Dialog,
   DialogContent,
@@ -1201,6 +1202,11 @@ function RuleEditorSheet({
                     ))}
                   </SelectContent>
                 </Select>
+                {draft.action.flowRowId ? (
+                  <RuleDestinationChain
+                    lookup={{ flowRowId: draft.action.flowRowId }}
+                  />
+                ) : null}
               </div>
             ) : (
               <>
@@ -1274,6 +1280,11 @@ function RuleEditorSheet({
                 placeholder="Buscar por código o nombre…"
                 emptyLabel="Seleccionar cuenta"
               />
+              {isLegacyAction(draft.action) && draft.action.accountPlanId ? (
+                <RuleDestinationChain
+                  lookup={{ accountPlanId: draft.action.accountPlanId }}
+                />
+              ) : null}
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="rule-rut">RUT contraparte (opcional)</Label>

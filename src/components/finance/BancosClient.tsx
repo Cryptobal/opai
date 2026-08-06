@@ -36,6 +36,15 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { BulkAssignDialog } from "./BulkAssignDialog";
 import { BulkAssignCashflowDialog } from "./BulkAssignCashflowDialog";
 import { BankAnalysisClient } from "./BankAnalysisClient";
+import { SaveAsRuleModal } from "./SaveAsRuleModal";
+import { AddToExistingRuleModal } from "./AddToExistingRuleModal";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Landmark,
   ArrowLeftRight,
@@ -67,6 +76,10 @@ import {
   CheckCircle,
   Zap,
   Sparkles,
+  MoreHorizontal,
+  Ban,
+  GitBranch,
+  Layers,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -146,7 +159,9 @@ interface TransactionRow {
 
 /** Badge de estado laboral del guardia (lista de movimientos). */
 function formatGuardiaStateBadge(
-  state: NonNullable<NonNullable<BankTransaction["rutRecognition"]>["guardiaState"]>,
+  state: NonNullable<
+    NonNullable<TransactionRow["rutRecognition"]>["guardiaState"]
+  >,
 ): string {
   if (state.terminatedAt || state.lifecycleStatus === "inactivo") {
     if (state.terminatedAt) {
@@ -318,6 +333,7 @@ export function BancosClient({
           accounts={accounts}
           canManage={canManage}
           accountPlans={accountPlans}
+          flowRows={flowRows}
           onAccountsChanged={() => router.refresh()}
         />
       )}
@@ -942,15 +958,31 @@ function normalizeTransaction(raw: any): TransactionRow {
   };
 }
 
+function extractRutFromTx(tx: {
+  description: string;
+  reference: string | null;
+  rutRecognition?: TransactionRow["rutRecognition"];
+}): string | null {
+  if (tx.rutRecognition?.rut) return tx.rutRecognition.rut;
+  const extract = (text: string | null): string | null => {
+    if (!text) return null;
+    const m = text.match(/\d{1,2}\.?\d{3}\.?\d{3}-?[\dKk]/);
+    return m ? m[0] : null;
+  };
+  return extract(tx.description) ?? extract(tx.reference);
+}
+
 function TransactionsTab({
   accounts,
   canManage,
   accountPlans,
+  flowRows,
   onAccountsChanged,
 }: {
   accounts: BankAccountRow[];
   canManage: boolean;
   accountPlans: AccountOption[];
+  flowRows: FlowRowOption[];
   onAccountsChanged: () => void;
 }) {
   const [selectedAccount, setSelectedAccount] = useState(
@@ -1025,6 +1057,140 @@ function TransactionsTab({
   const [bulkHideOpen, setBulkHideOpen] = useState(false);
   const [bulkHideReason, setBulkHideReason] = useState("");
   const [bulkHiding, setBulkHiding] = useState(false);
+
+  // Menú ⋯ por fila: crear/ampliar reglas y clasificar a flujo.
+  const [saveAsRuleTx, setSaveAsRuleTx] = useState<TransactionRow | null>(null);
+  const [addToRuleTx, setAddToRuleTx] = useState<TransactionRow | null>(null);
+  const [classifyFlowTx, setClassifyFlowTx] = useState<TransactionRow | null>(
+    null,
+  );
+  const [classifyFlowRowId, setClassifyFlowRowId] = useState("");
+  const [classifyFlowSaving, setClassifyFlowSaving] = useState(false);
+  const [excludingTxId, setExcludingTxId] = useState<string | null>(null);
+
+  const markExcludedFromBalance = async (tx: TransactionRow) => {
+    setExcludingTxId(tx.id);
+    try {
+      const res = await fetch(
+        `/api/finance/banking/transactions/${tx.id}/mark-internal`,
+        { method: "POST" },
+      );
+      const json = await res.json().catch(() => null);
+      if (!res.ok || !json?.success) {
+        throw new Error(json?.error ?? "No se pudo excluir del saldo");
+      }
+      toast.success("Movimiento marcado como excluido del saldo");
+      loadTransactions();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Error al excluir");
+    } finally {
+      setExcludingTxId(null);
+    }
+  };
+
+  const classifyToFlowRow = async () => {
+    if (!classifyFlowTx || !classifyFlowRowId) {
+      toast.error("Elegí una fila de flujo");
+      return;
+    }
+    setClassifyFlowSaving(true);
+    try {
+      const res = await fetch(
+        `/api/finance/banking/transactions/${classifyFlowTx.id}/classify-suggestions`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            kind: "FLOW_ROW",
+            flowRowId: classifyFlowRowId,
+            learnRule: "NONE",
+          }),
+        },
+      );
+      const json = await res.json().catch(() => null);
+      if (!res.ok || !json?.success) {
+        throw new Error(json?.error ?? "No se pudo clasificar");
+      }
+      toast.success("Movimiento clasificado a la fila del flujo");
+      setClassifyFlowTx(null);
+      setClassifyFlowRowId("");
+      loadTransactions();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Error al clasificar");
+    } finally {
+      setClassifyFlowSaving(false);
+    }
+  };
+
+  const renderTxRowMenu = (row: TransactionRow) => (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-10 w-10 sm:h-8 sm:w-8 p-0"
+          title="Más acciones"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <MoreHorizontal className="h-4 w-4" />
+          <span className="sr-only">Más acciones</span>
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        align="end"
+        className="w-64"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <DropdownMenuItem
+          onSelect={() => {
+            setBulkReconcileTxs(null);
+            setReconcileTx(row);
+          }}
+        >
+          <FileText className="h-3.5 w-3.5 mr-2" />
+          Ver detalle y conciliar
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onSelect={() => {
+            setClassifyFlowRowId(
+              flowRows.find((r) => r.hasCategory)?.id ?? "",
+            );
+            setClassifyFlowTx(row);
+          }}
+        >
+          <GitBranch className="h-3.5 w-3.5 mr-2" />
+          Clasificar a fila del flujo…
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onSelect={() => setSaveAsRuleTx(row)}>
+          <Sparkles className="h-3.5 w-3.5 mr-2" />
+          Crear regla desde este movimiento…
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => setAddToRuleTx(row)}>
+          <Layers className="h-3.5 w-3.5 mr-2" />
+          Agregar a una regla existente…
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
+          disabled={excludingTxId === row.id}
+          onSelect={() => void markExcludedFromBalance(row)}
+        >
+          <Ban className="h-3.5 w-3.5 mr-2" />
+          Marcar como excluido del saldo
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          className="text-status-danger-fg focus:text-status-danger-fg"
+          onSelect={() => {
+            setHideDialog(row);
+            setHideReason("");
+          }}
+        >
+          <EyeOff className="h-3.5 w-3.5 mr-2" />
+          Ocultar movimiento
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
 
   const toggleSelectTx = (id: string) => {
     setSelectedTxIds((prev) => {
@@ -1862,18 +2028,7 @@ function TransactionsTab({
                     <RotateCcw className="h-3.5 w-3.5" />
                   </Button>
                 )}
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  title="Ocultar (no es caja)"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setHideDialog(row);
-                    setHideReason("");
-                  }}
-                >
-                  <EyeOff className="h-3.5 w-3.5" />
-                </Button>
+                {renderTxRowMenu(row)}
               </div>
             )
           ) : null,
@@ -1886,6 +2041,8 @@ function TransactionsTab({
       headerCheckboxState,
       toggleAllVisible,
       selectedTxIds,
+      excludingTxId,
+      flowRows,
     ]
   );
 
@@ -2525,18 +2682,7 @@ function TransactionsTab({
                                   <RotateCcw className="h-3.5 w-3.5" />
                                 </Button>
                               )}
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                title="Ocultar (no es caja)"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setHideDialog(tx);
-                                  setHideReason("");
-                                }}
-                              >
-                                <EyeOff className="h-3.5 w-3.5" />
-                              </Button>
+                              {renderTxRowMenu(tx)}
                             </>
                           )}
                         </div>
@@ -2657,6 +2803,7 @@ function TransactionsTab({
             tx={sheetTxs[0] ?? null}
             txs={sheetTxs}
             accountPlans={accountPlans}
+            flowRows={flowRows}
             onSaved={() => {
               setReconcileTx(null);
               setBulkReconcileTxs(null);
@@ -2667,6 +2814,135 @@ function TransactionsTab({
         );
       })()}
 
+      <SaveAsRuleModal
+        open={!!saveAsRuleTx}
+        onOpenChange={(o) => {
+          if (!o) setSaveAsRuleTx(null);
+        }}
+        sourceTx={
+          saveAsRuleTx
+            ? {
+                id: saveAsRuleTx.id,
+                description: saveAsRuleTx.description,
+                reference: saveAsRuleTx.reference,
+                amount: saveAsRuleTx.amount,
+              }
+            : { id: "", description: "", reference: null, amount: 0 }
+        }
+        accountPlans={accountPlans}
+        flowRows={flowRows}
+        detectedRut={saveAsRuleTx ? extractRutFromTx(saveAsRuleTx) : null}
+        onCreated={(_id, ruleName, historicalCount) => {
+          toast.success(
+            `Regla "${ruleName}" creada${
+              historicalCount > 0
+                ? ` · ${historicalCount} movimientos históricos procesados`
+                : ""
+            }`,
+          );
+          setSaveAsRuleTx(null);
+          loadTransactions();
+        }}
+      />
+
+      <AddToExistingRuleModal
+        open={!!addToRuleTx}
+        onOpenChange={(o) => {
+          if (!o) setAddToRuleTx(null);
+        }}
+        sourceTx={
+          addToRuleTx
+            ? {
+                id: addToRuleTx.id,
+                description: addToRuleTx.description,
+                reference: addToRuleTx.reference,
+                amount: addToRuleTx.amount,
+              }
+            : { id: "", description: "", reference: null, amount: 0 }
+        }
+        detectedRut={addToRuleTx ? extractRutFromTx(addToRuleTx) : null}
+        onRequestCreateNew={() => {
+          if (addToRuleTx) setSaveAsRuleTx(addToRuleTx);
+          setAddToRuleTx(null);
+        }}
+        onUpdated={(_id, ruleName) => {
+          toast.success(`Condición agregada a «${ruleName}»`);
+          setAddToRuleTx(null);
+        }}
+      />
+
+      <Dialog
+        open={!!classifyFlowTx}
+        onOpenChange={(o) => {
+          if (!o) {
+            setClassifyFlowTx(null);
+            setClassifyFlowRowId("");
+          }
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Clasificar a fila del flujo</DialogTitle>
+            <DialogDescription>
+              El movimiento se vincula a la fila elegida (sin crear regla).
+            </DialogDescription>
+          </DialogHeader>
+          {classifyFlowTx && (
+            <div className="rounded-md border border-ds-border-subtle bg-ds-surface-2 p-3 text-[12px] space-y-1">
+              <p className="font-medium text-ds-text-1 truncate">
+                {classifyFlowTx.description}
+              </p>
+              <p className="font-mono tabular-nums text-ds-text-3">
+                {fmtCLP.format(classifyFlowTx.amount)}
+              </p>
+            </div>
+          )}
+          <div className="space-y-1.5">
+            <Label>Fila de flujo</Label>
+            <Select
+              value={classifyFlowRowId || undefined}
+              onValueChange={setClassifyFlowRowId}
+            >
+              <SelectTrigger className="h-10 sm:h-9">
+                <SelectValue placeholder="Elegir fila…" />
+              </SelectTrigger>
+              <SelectContent>
+                {flowRows.map((row) => (
+                  <SelectItem
+                    key={row.id}
+                    value={row.id}
+                    disabled={!row.hasCategory}
+                  >
+                    {row.section} · {row.name}
+                    {!row.hasCategory ? " (sin cuenta contable)" : ""}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button
+              variant="ghost"
+              className="h-10 sm:h-9 w-full sm:w-auto"
+              onClick={() => setClassifyFlowTx(null)}
+              disabled={classifyFlowSaving}
+            >
+              Cancelar
+            </Button>
+            <Button
+              className="h-10 sm:h-9 w-full sm:w-auto"
+              onClick={() => void classifyToFlowRow()}
+              disabled={classifyFlowSaving || !classifyFlowRowId}
+            >
+              {classifyFlowSaving && (
+                <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+              )}
+              Clasificar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Barra de selección: dock inferior en móvil, chip horizontal en desktop.
           Se oculta si ya hay un sheet/dialog abierto para no pelear z-index. */}
       {selectedTxIds.size > 0 &&
@@ -2674,7 +2950,10 @@ function TransactionsTab({
         !reconcileTx &&
         !bulkAssignOpen &&
         !bulkCashflowOpen &&
-        !bulkHideOpen && (
+        !bulkHideOpen &&
+        !saveAsRuleTx &&
+        !addToRuleTx &&
+        !classifyFlowTx && (
         <div
           className={cn(
             "fixed z-50 border border-ds-border-default bg-ds-surface-1 shadow-lg",

@@ -24,12 +24,21 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Loader2, Sparkles, PlayCircle } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { AccountPlanCombobox } from "./AccountPlanCombobox";
+import { RuleDestinationChain } from "./RuleDestinationChain";
 
 interface AccountPlanOption {
   id: string;
   code: string;
   name: string;
   type?: string;
+}
+
+export interface FlowRowOption {
+  id: string;
+  name: string;
+  section: string;
+  hasCategory: boolean;
 }
 
 interface SourceTx {
@@ -44,8 +53,12 @@ interface Props {
   onOpenChange: (open: boolean) => void;
   sourceTx: SourceTx;
   accountPlans: AccountPlanOption[];
+  /** Filas de flujo para destino FLOW_ROW (mismo catálogo que BankRulesClient). */
+  flowRows?: FlowRowOption[];
   /** Cuenta contable que el usuario ya eligió en Categorizar manual. */
-  preselectedAccountId: string | null;
+  preselectedAccountId?: string | null;
+  /** Fila de flujo preseleccionada (opcional). */
+  preselectedFlowRowId?: string | null;
   /** Si hay un RUT detectado en la tx, viene acá para sugerir criterio RUT. */
   detectedRut: string | null;
   onCreated: (ruleId: string, ruleName: string, historicalCount: number) => void;
@@ -94,7 +107,9 @@ export function SaveAsRuleModal({
   onOpenChange,
   sourceTx,
   accountPlans,
-  preselectedAccountId,
+  flowRows = [],
+  preselectedAccountId = null,
+  preselectedFlowRowId = null,
   detectedRut,
   onCreated,
 }: Props) {
@@ -154,6 +169,9 @@ export function SaveAsRuleModal({
   const [requiresReview, setRequiresReview] = useState(true);
   const [runHistorical, setRunHistorical] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [destKind, setDestKind] = useState<"ACCOUNT" | "FLOW_ROW">("ACCOUNT");
+  const [accountPlanId, setAccountPlanId] = useState<string | null>(null);
+  const [flowRowId, setFlowRowId] = useState<string>("");
 
   // Reset al abrir.
   useEffect(() => {
@@ -172,6 +190,20 @@ export function SaveAsRuleModal({
       setAmountMax(suggestedMax);
       setRequiresReview(true);
       setRunHistorical(true);
+      const preferFlow =
+        !!preselectedFlowRowId ||
+        (!preselectedAccountId && flowRows.some((r) => r.hasCategory));
+      setDestKind(preferFlow && preselectedFlowRowId ? "FLOW_ROW" : "ACCOUNT");
+      if (preselectedFlowRowId) {
+        setDestKind("FLOW_ROW");
+        setFlowRowId(preselectedFlowRowId);
+      } else {
+        setFlowRowId(flowRows.find((r) => r.hasCategory)?.id ?? "");
+      }
+      setAccountPlanId(preselectedAccountId);
+      if (!preselectedAccountId && !preselectedFlowRowId) {
+        setDestKind("ACCOUNT");
+      }
     }
   }, [
     open,
@@ -180,6 +212,9 @@ export function SaveAsRuleModal({
     detectedRut,
     suggestedMin,
     suggestedMax,
+    preselectedAccountId,
+    preselectedFlowRowId,
+    flowRows,
   ]);
 
   const defaultNameHint = useMemo(() => {
@@ -204,14 +239,25 @@ export function SaveAsRuleModal({
     referenceOperator,
     referenceValue,
   ]);
-  const account = accountPlans.find((a) => a.id === preselectedAccountId);
+  const account = accountPlans.find((a) => a.id === accountPlanId);
   const appliesTo: "DEPOSITS" | "WITHDRAWALS" =
     sourceTx.amount > 0 ? "DEPOSITS" : "WITHDRAWALS";
 
   const handleSave = async () => {
-    if (!preselectedAccountId) {
-      toast.error("Faltó la cuenta contable.");
+    if (destKind === "ACCOUNT" && !accountPlanId) {
+      toast.error("Elegí una cuenta contable.");
       return;
+    }
+    if (destKind === "FLOW_ROW") {
+      if (!flowRowId) {
+        toast.error("Elegí una fila de flujo.");
+        return;
+      }
+      const row = flowRows.find((r) => r.id === flowRowId);
+      if (row && !row.hasCategory) {
+        toast.error("Esa fila no tiene categoría y no puede recibir movimientos.");
+        return;
+      }
     }
     if (
       criteriaDescription &&
@@ -276,6 +322,19 @@ export function SaveAsRuleModal({
       return;
     }
 
+    const action =
+      destKind === "FLOW_ROW"
+        ? {
+            kind: "FLOW_ROW" as const,
+            flowRowId,
+            requiresReview,
+          }
+        : {
+            handlingMode: "CATEGORIZED" as const,
+            accountPlanId,
+            requiresReview,
+          };
+
     setSaving(true);
     try {
       const res = await fetch("/api/finance/banking/automatch-rules", {
@@ -287,11 +346,7 @@ export function SaveAsRuleModal({
           priority: 100,
           appliesTo,
           conditions: { mode: "ALL", items },
-          action: {
-            handlingMode: "CATEGORIZED",
-            accountPlanId: preselectedAccountId,
-            requiresReview,
-          },
+          action,
         }),
       });
       const json = await res.json();
@@ -612,18 +667,78 @@ export function SaveAsRuleModal({
           </div>
         </div>
 
-        {/* Acción */}
+        {/* Acción / Destino */}
         <div className="space-y-2.5">
           <Label className="text-[12px] font-medium uppercase tracking-wide text-ds-text-3">
-            Acción
+            Destino
           </Label>
-          <div className="rounded-md border border-ds-border-subtle bg-ds-surface-2 p-3 text-[12.5px]">
-            <span className="text-ds-text-3">Categorizar a:</span>{" "}
-            <span className="font-mono font-medium">
-              {account?.code ?? "?"}
-            </span>{" "}
-            {account?.name ?? ""}
-          </div>
+          <Select
+            value={destKind}
+            onValueChange={(v) => setDestKind(v as "ACCOUNT" | "FLOW_ROW")}
+          >
+            <SelectTrigger className="h-10 sm:h-9">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ACCOUNT">Cuenta contable</SelectItem>
+              <SelectItem value="FLOW_ROW" disabled={flowRows.length === 0}>
+                Fila de flujo
+              </SelectItem>
+            </SelectContent>
+          </Select>
+
+          {destKind === "FLOW_ROW" ? (
+            <div className="space-y-1.5">
+              <Label>Fila de flujo</Label>
+              <Select
+                value={flowRowId || undefined}
+                onValueChange={setFlowRowId}
+              >
+                <SelectTrigger className="h-10 sm:h-9">
+                  <SelectValue placeholder="Elegir fila…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {flowRows.map((row) => (
+                    <SelectItem
+                      key={row.id}
+                      value={row.id}
+                      disabled={!row.hasCategory}
+                    >
+                      {row.section} · {row.name}
+                      {!row.hasCategory ? " (sin cuenta contable)" : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {flowRowId ? (
+                <RuleDestinationChain lookup={{ flowRowId }} />
+              ) : null}
+            </div>
+          ) : (
+            <div className="space-y-1.5">
+              <Label>Cuenta contable</Label>
+              {preselectedAccountId && account ? (
+                <div className="rounded-md border border-ds-border-subtle bg-ds-surface-2 p-3 text-[12.5px]">
+                  <span className="font-mono font-medium">
+                    {account.code}
+                  </span>{" "}
+                  {account.name}
+                </div>
+              ) : (
+                <AccountPlanCombobox
+                  items={accountPlans}
+                  value={accountPlanId ?? ""}
+                  onChange={(id) => setAccountPlanId(id || null)}
+                  placeholder="Buscar por código o nombre…"
+                  emptyLabel="Seleccionar cuenta"
+                />
+              )}
+              {accountPlanId ? (
+                <RuleDestinationChain lookup={{ accountPlanId }} />
+              ) : null}
+            </div>
+          )}
+
           <label className="flex items-start gap-2 cursor-pointer text-[12.5px]">
             <Switch
               checked={requiresReview}
@@ -636,7 +751,7 @@ export function SaveAsRuleModal({
               </span>
               <p className="text-[12px] text-ds-text-3 mt-0.5">
                 {requiresReview
-                  ? "Los movimientos quedarán en \"Reconocidos\" hasta que los autorices."
+                  ? 'Los movimientos quedarán en "Reconocidos" hasta que los autorices.'
                   : "Se conciliarán automáticamente sin pasar por revisión."}
               </p>
             </div>
@@ -673,7 +788,10 @@ export function SaveAsRuleModal({
           </Button>
           <Button
             onClick={handleSave}
-            disabled={saving || !preselectedAccountId}
+            disabled={
+              saving ||
+              (destKind === "ACCOUNT" ? !accountPlanId : !flowRowId)
+            }
             className="h-10 sm:h-9 w-full sm:w-auto"
           >
             {saving && <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />}
