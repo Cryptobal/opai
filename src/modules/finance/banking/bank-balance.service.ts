@@ -10,6 +10,9 @@
  * `balanceUpdatedAt` en `FinanceBankAccount` SI la fecha del snapshot es
  * la más reciente registrada — esto mantiene la pestaña "Cuentas" coherente
  * con el último saldo conocido.
+ *
+ * Precedencia de ancla: en la misma fecha, MANUAL gana sobre IMPORT/CALCULATED
+ * para que una cartola del mismo día no pise un saldo fijado a mano.
  */
 
 import { prisma } from "@/lib/prisma";
@@ -22,6 +25,41 @@ export interface ResolvedAccountBalance {
   txDeltaClp: number;
   txCount: number;
   resolvedBalanceClp: number;
+  /** Origen del snapshot ancla (si hay). */
+  anchorSource?: FinanceBalanceSource | null;
+}
+
+export interface BalanceAnchorCandidate {
+  balance: unknown;
+  asOfDate: Date;
+  source: FinanceBalanceSource;
+  createdAt: Date;
+}
+
+/**
+ * Elige el ancla entre candidatos ya filtrados (asOfDate ≤ hoy), ordenados
+ * por asOfDate desc / createdAt desc. En empate de fecha, MANUAL gana.
+ */
+export function pickBalanceAnchor(
+  candidates: BalanceAnchorCandidate[],
+): BalanceAnchorCandidate | null {
+  if (candidates.length === 0) return null;
+  const maxTime = candidates[0]!.asOfDate.getTime();
+  const sameDate = candidates.filter((c) => c.asOfDate.getTime() === maxTime);
+  const manual = sameDate.find((c) => c.source === "MANUAL");
+  return manual ?? sameDate[0] ?? null;
+}
+
+/**
+ * True si conviene crear un snapshot IMPORT de cierre de cartola.
+ * False cuando ya hay un MANUAL con fecha ≥ cierre (protege el saldo fijado).
+ */
+export function shouldApplyImportClosingBalance(args: {
+  importAsOfDate: Date;
+  protectingManualAsOfDate: Date | null;
+}): boolean {
+  if (!args.protectingManualAsOfDate) return true;
+  return args.protectingManualAsOfDate.getTime() < args.importAsOfDate.getTime();
 }
 
 function toLocalDateOnly(date: Date): Date {
@@ -48,15 +86,18 @@ export async function resolveAccountBalanceFromMovements(
 
   const todayDate = toLocalDateOnly(asOfDate ?? new Date());
 
-  const anchor = await prisma.financeBankAccountBalance.findFirst({
+  const candidates = await prisma.financeBankAccountBalance.findMany({
     where: {
       tenantId,
       bankAccountId,
       asOfDate: { lte: todayDate },
     },
     orderBy: [{ asOfDate: "desc" }, { createdAt: "desc" }],
-    select: { balance: true, asOfDate: true },
+    take: 20,
+    select: { balance: true, asOfDate: true, source: true, createdAt: true },
   });
+
+  const anchor = pickBalanceAnchor(candidates);
 
   if (!anchor) {
     const fallback = Number(account.currentBalance ?? 0);
@@ -66,6 +107,7 @@ export async function resolveAccountBalanceFromMovements(
       txDeltaClp: 0,
       txCount: 0,
       resolvedBalanceClp: fallback,
+      anchorSource: null,
     };
   }
 
@@ -89,6 +131,7 @@ export async function resolveAccountBalanceFromMovements(
     txDeltaClp,
     txCount: txAgg._count._all,
     resolvedBalanceClp: anchorBalanceClp + txDeltaClp,
+    anchorSource: anchor.source,
   };
 }
 
@@ -130,8 +173,8 @@ export interface SetBalanceSnapshotInput {
 
 /**
  * Crea un snapshot de saldo para una cuenta a una fecha. Si esta fecha
- * resulta ser la más reciente registrada, actualiza el `currentBalance`
- * de la cuenta. Devuelve el snapshot creado.
+ * resulta ser la ancla efectiva (tras precedencia MANUAL), actualiza
+ * `currentBalance`. Devuelve el snapshot creado.
  */
 export async function setBalanceSnapshot(
   tenantId: string,
@@ -158,15 +201,8 @@ export async function setBalanceSnapshot(
     },
   });
 
-  // Si este snapshot es el más reciente, alinear currentBalance con snapshot + tx.
-  const latest = await prisma.financeBankAccountBalance.findFirst({
-    where: { tenantId, bankAccountId: input.bankAccountId },
-    orderBy: [{ asOfDate: "desc" }, { createdAt: "desc" }],
-    select: { id: true },
-  });
-  if (latest?.id === created.id) {
-    await syncCurrentBalanceFromMovements(tenantId, input.bankAccountId);
-  }
+  // Alinear currentBalance con la ancla efectiva (MANUAL gana en empate).
+  await syncCurrentBalanceFromMovements(tenantId, input.bankAccountId);
 
   return created;
 }

@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     financeBankAccount: { findFirst: vi.fn(), update: vi.fn() },
-    financeBankAccountBalance: { findFirst: vi.fn() },
+    financeBankAccountBalance: { findMany: vi.fn() },
     financeBankTransaction: { aggregate: vi.fn() },
   },
 }));
@@ -20,7 +20,7 @@ const findAccount = prisma.financeBankAccount.findFirst as unknown as ReturnType
 const updateAccount = prisma.financeBankAccount.update as unknown as ReturnType<
   typeof vi.fn
 >;
-const findSnapshot = prisma.financeBankAccountBalance.findFirst as unknown as ReturnType<
+const findSnapshots = prisma.financeBankAccountBalance.findMany as unknown as ReturnType<
   typeof vi.fn
 >;
 const aggregate = prisma.financeBankTransaction.aggregate as unknown as ReturnType<
@@ -30,14 +30,14 @@ const aggregate = prisma.financeBankTransaction.aggregate as unknown as ReturnTy
 beforeEach(() => {
   findAccount.mockReset();
   updateAccount.mockReset();
-  findSnapshot.mockReset();
+  findSnapshots.mockReset();
   aggregate.mockReset();
 });
 
 describe("resolveAccountBalanceFromMovements", () => {
   it("sin snapshot devuelve currentBalance", async () => {
     findAccount.mockResolvedValueOnce({ currentBalance: 1_000_000 });
-    findSnapshot.mockResolvedValueOnce(null);
+    findSnapshots.mockResolvedValueOnce([]);
 
     const r = await resolveAccountBalanceFromMovements("t1", "a1");
     expect(r.resolvedBalanceClp).toBe(1_000_000);
@@ -46,10 +46,14 @@ describe("resolveAccountBalanceFromMovements", () => {
 
   it("suma movimientos posteriores al snapshot", async () => {
     findAccount.mockResolvedValueOnce({ currentBalance: 0 });
-    findSnapshot.mockResolvedValueOnce({
-      asOfDate: new Date("2026-06-30"),
-      balance: 22_312_708,
-    });
+    findSnapshots.mockResolvedValueOnce([
+      {
+        asOfDate: new Date("2026-06-30"),
+        balance: 22_312_708,
+        source: "IMPORT",
+        createdAt: new Date("2026-06-30T12:00:00Z"),
+      },
+    ]);
     aggregate.mockResolvedValueOnce({
       _sum: { amount: 2_191_733 },
       _count: { _all: 195 },
@@ -59,15 +63,45 @@ describe("resolveAccountBalanceFromMovements", () => {
     expect(r.resolvedBalanceClp).toBe(24_504_441);
     expect(r.txDeltaClp).toBe(2_191_733);
   });
+
+  it("en misma fecha usa MANUAL aunque IMPORT sea más nuevo", async () => {
+    findAccount.mockResolvedValueOnce({ currentBalance: 0 });
+    findSnapshots.mockResolvedValueOnce([
+      {
+        asOfDate: new Date("2026-08-06"),
+        balance: 3_999_000,
+        source: "IMPORT",
+        createdAt: new Date("2026-08-06T20:00:00Z"),
+      },
+      {
+        asOfDate: new Date("2026-08-06"),
+        balance: 17_000_000,
+        source: "MANUAL",
+        createdAt: new Date("2026-08-06T10:00:00Z"),
+      },
+    ]);
+    aggregate.mockResolvedValueOnce({
+      _sum: { amount: 0 },
+      _count: { _all: 0 },
+    });
+
+    const r = await resolveAccountBalanceFromMovements("t1", "a1");
+    expect(r.resolvedBalanceClp).toBe(17_000_000);
+    expect(r.anchorSource).toBe("MANUAL");
+  });
 });
 
 describe("syncCurrentBalanceFromMovements", () => {
   it("persiste snapshot + movimientos cuando hay ancla", async () => {
     findAccount.mockResolvedValueOnce({ currentBalance: 0 });
-    findSnapshot.mockResolvedValueOnce({
-      asOfDate: new Date("2026-06-30"),
-      balance: 100,
-    });
+    findSnapshots.mockResolvedValueOnce([
+      {
+        asOfDate: new Date("2026-06-30"),
+        balance: 100,
+        source: "MANUAL",
+        createdAt: new Date("2026-06-30T12:00:00Z"),
+      },
+    ]);
     aggregate.mockResolvedValueOnce({
       _sum: { amount: 50 },
       _count: { _all: 2 },
@@ -86,7 +120,7 @@ describe("syncCurrentBalanceFromMovements", () => {
 
   it("no persiste si no hay snapshot", async () => {
     findAccount.mockResolvedValueOnce({ currentBalance: 999 });
-    findSnapshot.mockResolvedValueOnce(null);
+    findSnapshots.mockResolvedValueOnce([]);
 
     await syncCurrentBalanceFromMovements("t1", "a1");
     expect(updateAccount).not.toHaveBeenCalled();

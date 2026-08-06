@@ -12,7 +12,10 @@ import {
   type BulkAutoMatchSummary,
 } from "./auto-match-payment.service";
 import { recognizeRutsForTransactions } from "./rut-recognition.service";
-import { syncCurrentBalanceFromMovements } from "./bank-balance.service";
+import {
+  shouldApplyImportClosingBalance,
+  syncCurrentBalanceFromMovements,
+} from "./bank-balance.service";
 
 /**
  * Genera un `apiTransactionId` determinístico para una transacción importada
@@ -698,23 +701,42 @@ export async function importBankTransactions(
   // Además registra un snapshot IMPORT en el historial para que quede trazable
   // qué cartola fijó qué saldo (la fecha del snapshot es la fecha de la última
   // transacción de la cartola, que aproxima el "Fecha hasta" del extracto).
+  // Si ya hay un MANUAL con fecha ≥ cierre de cartola, NO creamos el IMPORT
+  // como ancla: el saldo fijado a mano no se pisa en silencio.
   if (closingBalance !== null && closingBalance !== undefined) {
     const lastTxDate = transactions.reduce<string | null>((acc, tx) => {
       if (!acc || tx.transactionDate > acc) return tx.transactionDate;
       return acc;
     }, null);
     if (lastTxDate) {
-      await prisma.financeBankAccountBalance.create({
-        data: {
+      const importAsOfDate = new Date(lastTxDate);
+      const protectingManual = await prisma.financeBankAccountBalance.findFirst({
+        where: {
           tenantId,
           bankAccountId,
-          asOfDate: new Date(lastTxDate),
-          balance: new Decimal(closingBalance),
-          source: "IMPORT",
-          note: `Saldo de cierre de cartola importada (${transactions.length} mov.)`,
-          createdById: userId ?? null,
+          source: "MANUAL",
+          asOfDate: { gte: importAsOfDate },
         },
+        orderBy: [{ asOfDate: "desc" }, { createdAt: "desc" }],
+        select: { asOfDate: true },
       });
+      const applyImport = shouldApplyImportClosingBalance({
+        importAsOfDate,
+        protectingManualAsOfDate: protectingManual?.asOfDate ?? null,
+      });
+      if (applyImport) {
+        await prisma.financeBankAccountBalance.create({
+          data: {
+            tenantId,
+            bankAccountId,
+            asOfDate: importAsOfDate,
+            balance: new Decimal(closingBalance),
+            source: "IMPORT",
+            note: `Saldo de cierre de cartola importada (${transactions.length} mov.)`,
+            createdById: userId ?? null,
+          },
+        });
+      }
     }
   }
 

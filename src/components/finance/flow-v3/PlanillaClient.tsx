@@ -577,6 +577,9 @@ export function PlanillaClient({
         onLegend={() => setLegendOpen(true)}
         egresosPendientesCount={egresosPendientesCount}
         onClassifyEgresos={openClassifyEgresos}
+        saldoHoy={kpis?.saldoHoy ?? null}
+        bankStale={bankStale}
+        onOpenBank={() => setBankOpen(true)}
         sumMode={sumMode}
         onToggleSumMode={() => {
           setSumMode((v) => {
