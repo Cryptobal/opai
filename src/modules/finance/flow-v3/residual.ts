@@ -79,7 +79,8 @@ export function computeCellExecution(args: {
   let residual =
     s === 0 ? 0 : s * Math.min(projAbs, Math.max(0, projAbs - executed));
 
-  if (Math.abs(residual) <= residualMinClp) residual = 0;
+  // Tolerancia solo con ejecución real: no anula proyecciones pequeñas sin movimiento.
+  if (realSigned !== 0 && Math.abs(residual) <= residualMinClp) residual = 0;
   if (settlement === "CLOSED") residual = 0;
 
   // Legado: el real reemplaza la proyección (y el neto de facturas).

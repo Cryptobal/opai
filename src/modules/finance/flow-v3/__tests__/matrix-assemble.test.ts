@@ -230,6 +230,142 @@ describe("assembleMatrix — capa efectiva", () => {
     expect(m2.rows[0]!.cells[3]!.layer).toBe("plan");
     expect(m2.flows[3]).toBe(200);
   });
+
+  it("drift.pct usa magnitud (egreso: delta negativo no invierte el %)", () => {
+    const rows = [row({ id: "fin", section: "FINANCIAMIENTO" })];
+    const m = assembleMatrix({
+      rows,
+      weeks: WEEKS,
+      currentWeek: CURRENT,
+      openingBalance: 0,
+      plan: new Map([["fin", new Map([["2026-07-20", -10_000_000]])]]),
+      committed: new Map(),
+      real: realOf("fin", "2026-07-20", -2_200_000),
+    });
+    const cell = m.rows[0]!.cells[2]!;
+    // real − projSigned = −2.2M − (−10M) = +7.8M; pct = 7.8M/10M = 78
+    expect(cell.drift).toMatchObject({ delta: 7_800_000, pct: 78 });
+  });
+});
+
+describe("assembleMatrix — residual / saldo por ejecutar", () => {
+  it("real parcial suma residual a flows y baja balances[ci]", () => {
+    const rows = [row({ id: "fin", section: "FINANCIAMIENTO" })];
+    const m = assembleMatrix({
+      rows,
+      weeks: WEEKS,
+      currentWeek: CURRENT,
+      openingBalance: 85_000_000,
+      plan: new Map([["fin", new Map([["2026-07-20", -10_000_000]])]]),
+      committed: new Map(),
+      real: realOf("fin", "2026-07-20", -2_200_000),
+    });
+    const cell = m.rows[0]!.cells[2]!;
+    expect(cell.layer).toBe("real");
+    expect(cell.effective).toBe(-10_000_000);
+    expect(cell.execution).toMatchObject({
+      residual: -7_800_000,
+      state: "partial",
+    });
+    expect(m.flows[2]).toBe(-10_000_000);
+    // Ancla: banco hoy + (effective − real) = 85M + (−10M − (−2.2M)) = 77.2M
+    expect(m.balances[2]).toBe(77_200_000);
+  });
+
+  it("settlement CLOSED deja la celda en el real", () => {
+    const rows = [row({ id: "fin", section: "FINANCIAMIENTO" })];
+    const settlements = new Map([
+      ["fin", new Map([["2026-07-20", "CLOSED" as const]])],
+    ]);
+    const m = assembleMatrix({
+      rows,
+      weeks: WEEKS,
+      currentWeek: CURRENT,
+      openingBalance: 85_000_000,
+      plan: new Map([["fin", new Map([["2026-07-20", -10_000_000]])]]),
+      committed: new Map(),
+      real: realOf("fin", "2026-07-20", -2_200_000),
+      settlements,
+    });
+    const cell = m.rows[0]!.cells[2]!;
+    expect(cell.effective).toBe(-2_200_000);
+    expect(cell.execution?.state).toBe("closed");
+    expect(m.flows[2]).toBe(-2_200_000);
+    expect(m.balances[2]).toBe(85_000_000); // sin pendiente
+  });
+
+  it("residualCarryEnabled=false reproduce el legado (effective = real)", () => {
+    const rows = [row({ id: "fin", section: "FINANCIAMIENTO" })];
+    const m = assembleMatrix({
+      rows,
+      weeks: WEEKS,
+      currentWeek: CURRENT,
+      openingBalance: 85_000_000,
+      plan: new Map([["fin", new Map([["2026-07-20", -10_000_000]])]]),
+      committed: new Map(),
+      real: realOf("fin", "2026-07-20", -2_200_000),
+      residualCarryEnabled: false,
+    });
+    expect(m.rows[0]!.cells[2]!.effective).toBe(-2_200_000);
+    expect(m.flows[2]).toBe(-2_200_000);
+    expect(m.balances[2]).toBe(85_000_000);
+  });
+
+  it("semana pasada nunca suma residual", () => {
+    const rows = [row({ id: "fin", section: "FINANCIAMIENTO" })];
+    const m = assembleMatrix({
+      rows,
+      weeks: WEEKS,
+      currentWeek: CURRENT,
+      openingBalance: 10_000_000,
+      plan: new Map([["fin", new Map([["2026-07-13", -10_000_000]])]]),
+      committed: new Map(),
+      real: realOf("fin", "2026-07-13", -2_200_000),
+    });
+    const past = m.rows[0]!.cells[1]!;
+    expect(past.effective).toBe(-2_200_000);
+    expect(past.execution).toBeNull();
+    expect(m.flows[1]).toBe(-2_200_000);
+  });
+
+  it("factura parcial: real + committedNet sin doble conteo", () => {
+    const pending = 5_511_641;
+    const paid = 4_000_000;
+    const committed: CommittedByRow = new Map([
+      [
+        "ing",
+        new Map([
+          [
+            "2026-07-20",
+            {
+              total: pending,
+              items: [
+                {
+                  kind: "dte",
+                  dteId: "d1",
+                  folio: 9,
+                  label: "Cliente",
+                  fecha: "2026-07-21",
+                  monto: pending,
+                },
+              ],
+            },
+          ],
+        ]),
+      ],
+    ]);
+    const m = assembleMatrix({
+      rows: [row({ id: "ing", section: "INGRESOS" })],
+      weeks: WEEKS,
+      currentWeek: CURRENT,
+      openingBalance: 0,
+      plan: new Map(),
+      committed,
+      real: realOf("ing", "2026-07-20", paid),
+    });
+    expect(m.rows[0]!.cells[2]!.effective).toBe(9_511_641);
+    expect(m.flows[2]).toBe(9_511_641);
+  });
 });
 
 describe("assembleMatrix — saldo acumulado", () => {
