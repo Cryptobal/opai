@@ -27,6 +27,11 @@ interface Props {
    * queda bloqueado (no editable).
    */
   lockedSection?: string | null;
+  /**
+   * Sección sugerida editable (p.ej. Salud → Crear fila). Se ignora si hay
+   * lockedSection. Si hay presetCategoryId y no se pasa, usa GAV (egreso).
+   */
+  initialSection?: string | null;
   /** Precarga categoría (pestaña Salud → Crear fila). */
   presetCategoryId?: string | null;
   /** Precarga nombre de la fila. */
@@ -50,6 +55,7 @@ export function AddRowDialog({
   busy,
   onCreate,
   lockedSection = null,
+  initialSection = null,
   presetCategoryId = null,
   presetName = null,
   onCreated,
@@ -69,11 +75,19 @@ export function AddRowDialog({
 
   useEffect(() => {
     if (!open) return;
-    setSection(
-      lockedSection && (SECTION_ORDER as readonly string[]).includes(lockedSection)
+    const lockedOk =
+      lockedSection &&
+      (SECTION_ORDER as readonly string[]).includes(lockedSection)
         ? lockedSection
-        : "INGRESOS",
-    );
+        : null;
+    const initialOk =
+      initialSection &&
+      (SECTION_ORDER as readonly string[]).includes(initialSection)
+        ? initialSection
+        : null;
+    // Crear desde categoría de egreso: nunca abrir en INGRESOS.
+    const fallback = presetCategoryId ? "GAV" : "INGRESOS";
+    setSection(lockedOk ?? initialOk ?? fallback);
     setConfigureRecurrence(false);
     setName(presetName ?? "");
     setAccountId("");
@@ -81,7 +95,7 @@ export function AddRowDialog({
     setCategoryId(presetCategoryId ?? "");
     setManual(false);
     setLinkAccount(!presetCategoryId);
-  }, [open, lockedSection, presetCategoryId, presetName]);
+  }, [open, lockedSection, initialSection, presetCategoryId, presetName]);
 
   useEffect(() => {
     if (!open) return;
