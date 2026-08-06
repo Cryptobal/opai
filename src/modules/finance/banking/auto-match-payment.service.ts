@@ -318,6 +318,7 @@ export async function tryAutoMatchBankTransactionToDte(
           matchType === "STRICT"
             ? "Auto-match por RUT + monto exacto"
             : "Auto-match por monto único",
+        matchSource: "DTE",
         createdById: userId,
       },
     });
@@ -517,6 +518,8 @@ async function tryApplyRule(
         amount: new Decimal(amountAbs),
         accountPlanId: resolved.accountPlanId,
         note: `Auto-match por regla: ${evaluation.ruleName}`,
+        matchSource: "RULE",
+        matchedByRuleId: evaluation.ruleId,
         createdById: userId,
       },
     }),

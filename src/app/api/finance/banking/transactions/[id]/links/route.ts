@@ -31,6 +31,19 @@ const linkSchema = z.object({
   amount: z.number().positive(),
   accountPlanId: z.string().nullable().optional(),
   note: z.string().nullable().optional(),
+  matchSource: z
+    .enum([
+      "RULE",
+      "DTE",
+      "TURNO_EXTRA",
+      "PAYROLL",
+      "FINIQUITO",
+      "INFERRED",
+      "MANUAL",
+    ])
+    .nullable()
+    .optional(),
+  matchedByRuleId: z.string().uuid().nullable().optional(),
 });
 
 const setLinksSchema = z.object({
@@ -141,7 +154,10 @@ export async function PUT(
       ctx.tenantId,
       id,
       ctx.userId,
-      parsed.data.links,
+      parsed.data.links.map((l) => ({
+        ...l,
+        matchSource: l.matchSource ?? "MANUAL",
+      })),
       { allowPartial: parsed.data.allowPartial ?? false }
     );
 

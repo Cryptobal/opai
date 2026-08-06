@@ -130,6 +130,8 @@ export async function POST(request: NextRequest) {
                 amount: new Decimal(amountAbs),
                 accountPlanId: resolved.accountPlanId,
                 note: `Re-evaluación de regla: ${evaluation.ruleName}`,
+                matchSource: "RULE",
+                matchedByRuleId: evaluation.ruleId,
                 createdById: ctx.userId,
               },
             }),

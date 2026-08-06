@@ -615,6 +615,8 @@ export async function runHistoricalForRule(
               amount: new Decimal(amountAbs),
               accountPlanId: resolved.accountPlanId,
               note: `Auto-aplicado al crear/editar regla: ${evaluation.ruleName}`,
+              matchSource: "RULE",
+              matchedByRuleId: evaluation.ruleId,
               createdById: userId,
             },
           }),
