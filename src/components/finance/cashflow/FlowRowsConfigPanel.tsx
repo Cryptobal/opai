@@ -1,55 +1,54 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AlertTriangle, ChevronDown, ChevronRight, Search } from "lucide-react";
+import { ChevronDown, ChevronRight, Plus, Search, AlertTriangle, Inbox } from "lucide-react";
 import {
   EmptyState,
   Spinner,
+  Stat,
+  StatGrid,
   Surface,
   Tag,
 } from "@/components/opai-ds";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { FlowHealthPanel } from "./FlowHealthPanel";
-import type { FlowRowConfigItem } from "@/modules/finance/cashflow/flow-rows-config.service";
+import { SECTION_LABELS } from "@/components/finance/flow-v3/grid-classes";
 import { FLOW_SECTION_ORDER } from "@/modules/finance/flow-v3/row-sort";
-
-type CategoryOption = {
-  id: string;
-  code: string;
-  name: string;
-  kind: "INCOME" | "EXPENSE";
-};
+import type { FlowRowConfigItem } from "@/modules/finance/cashflow/flow-rows-config.service";
+import { AddRowDialog } from "@/components/finance/flow-v3/AddRowDialog";
+import type { AccountOption } from "./cashflow-config-types";
+import { FlowRowConfigListItem } from "./FlowRowConfigListItem";
+import { RowConfigDrawer } from "./RowConfigDrawer";
+import { FlowHealthPanel } from "./FlowHealthPanel";
+import {
+  countProblems,
+  normalizeHealth,
+  rowHasProblem,
+} from "./flow-row-config-helpers";
+import type { FlowHealthReportV2 } from "@/modules/finance/cashflow/flow-health.types";
 
 type Props = {
-  categories: CategoryOption[];
-  onResolveAccount?: (accountPlanId: string) => void;
+  accountOptions: AccountOption[];
 };
 
-type SectionGroup = {
-  key: string;
-  rows: FlowRowConfigItem[];
-};
+type SectionGroup = { key: string; rows: FlowRowConfigItem[] };
 
-/**
- * Tab Renglones: filas del flujo con categoría/cuentas + diagnóstico de salud
- * (absorbido desde el antiguo tab Salud).
- */
-export function FlowRowsConfigPanel({ categories, onResolveAccount }: Props) {
+export function FlowRowsConfigPanel({ accountOptions }: Props) {
   const [rows, setRows] = useState<FlowRowConfigItem[]>([]);
+  const [health, setHealth] = useState<FlowHealthReportV2 | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
+  const [onlyProblems, setOnlyProblems] = useState(false);
   const [savingId, setSavingId] = useState<string | null>(null);
-  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const [collapsed, setCollapsed] = useState<Set<string>>(
+    () => new Set(["INGRESOS"]),
+  );
+  const [drawerRow, setDrawerRow] = useState<FlowRowConfigItem | null>(null);
+  const [addIncomeOpen, setAddIncomeOpen] = useState(false);
+  const [addBusy, setAddBusy] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -62,12 +61,15 @@ export function FlowRowsConfigPanel({ categories, onResolveAccount }: Props) {
       if (!r.ok || !j?.success) {
         setError(j?.error ?? "No se pudieron cargar los renglones");
         setRows([]);
+        setHealth(null);
         return;
       }
       setRows((j.data?.rows ?? []) as FlowRowConfigItem[]);
+      setHealth(normalizeHealth(j.data?.health));
     } catch {
       setError("Error de red al cargar renglones");
       setRows([]);
+      setHealth(null);
     } finally {
       setLoading(false);
     }
@@ -79,20 +81,25 @@ export function FlowRowsConfigPanel({ categories, onResolveAccount }: Props) {
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return rows;
-    return rows.filter((row) => {
-      const hay = [
-        row.name,
-        row.section,
-        row.category?.code ?? "",
-        row.category?.name ?? "",
-        ...(row.category?.accounts.map((a) => `${a.code} ${a.name}`) ?? []),
-      ]
-        .join(" ")
-        .toLowerCase();
-      return hay.includes(q);
-    });
-  }, [rows, query]);
+    let list = rows;
+    if (q) {
+      list = list.filter((row) => {
+        const hay = [
+          row.name,
+          row.section,
+          row.canonicalKey ?? "",
+          ...row.accounts.map((a) => `${a.code} ${a.name}`),
+        ]
+          .join(" ")
+          .toLowerCase();
+        return hay.includes(q);
+      });
+    }
+    if (onlyProblems) {
+      list = list.filter((row) => rowHasProblem(row, health));
+    }
+    return list;
+  }, [rows, query, onlyProblems, health]);
 
   const groups = useMemo((): SectionGroup[] => {
     const bySection = new Map<string, FlowRowConfigItem[]>();
@@ -108,12 +115,15 @@ export function FlowRowsConfigPanel({ categories, onResolveAccount }: Props) {
       if (sectionRows?.length) ordered.push({ key, rows: sectionRows });
     }
     for (const [key, sectionRows] of bySection) {
-      if (!known.has(key) && sectionRows.length) {
-        ordered.push({ key, rows: sectionRows });
-      }
+      if (!known.has(key) && sectionRows.length) ordered.push({ key, rows: sectionRows });
     }
     return ordered;
   }, [filtered]);
+
+  const problemCount = useMemo(
+    () => countProblems(rows, health),
+    [rows, health],
+  );
 
   function toggleSection(key: string) {
     setCollapsed((prev) => {
@@ -126,7 +136,7 @@ export function FlowRowsConfigPanel({ categories, onResolveAccount }: Props) {
 
   async function patchRow(
     rowId: string,
-    patch: { name?: string; categoryId?: string | null },
+    patch: { name?: string; section?: string },
   ) {
     setSavingId(rowId);
     try {
@@ -148,24 +158,52 @@ export function FlowRowsConfigPanel({ categories, onResolveAccount }: Props) {
     }
   }
 
-  const expenseCats = categories.filter((c) => c.kind === "EXPENSE");
-
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 ds-page-enter">
       <Surface elevation={1} padding="md">
-        <h2 className="font-semibold mb-1">Renglones del flujo</h2>
-        <p className="text-[12px] text-ds-text-3 mb-3">
-          Cada renglón de la planilla puede vincularse a una categoría (y sus
-          cuentas contables). Buscá por nombre, categoría o cuenta.
-        </p>
-        <div className="relative mb-3">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ds-text-4" />
-          <Input
-            className="h-10 sm:h-9 pl-9"
-            placeholder="Buscar renglón, categoría o cuenta…"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-          />
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div className="min-w-0">
+            <h2 className="font-semibold text-[15px]">Renglones del flujo</h2>
+            <p className="text-[12px] text-ds-text-3 mt-0.5">
+              Cada renglón de egreso se vincula a cuentas contables para rutear cartola y comprometido.
+            </p>
+          </div>
+          {health && (
+            <StatGrid className="!grid-cols-2 sm:!grid-cols-4 gap-2">
+              <Stat
+                label="Sin cuentas"
+                value={health.rowsWithoutAccounts.length}
+                animate
+              />
+              <Stat
+                label="Cuentas ambiguas"
+                value={health.ambiguousAccounts.length}
+                animate
+              />
+              <Stat
+                label="Conectados"
+                value={health.connectedRowCount}
+                animate
+              />
+              <Stat label="Por revisar" value={problemCount} animate />
+            </StatGrid>
+          )}
+        </div>
+
+        <div className="mt-4 flex flex-col sm:flex-row gap-2 sm:items-center">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ds-text-4" />
+            <Input
+              className="h-10 sm:h-9 pl-9"
+              placeholder="Buscar renglón o cuenta…"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+            />
+          </div>
+          <label className="flex items-center gap-2 min-h-11 sm:min-h-9 px-1 text-[13px] text-ds-text-2 shrink-0">
+            <Switch checked={onlyProblems} onCheckedChange={setOnlyProblems} />
+            Solo con problemas
+          </label>
         </div>
 
         {loading ? (
@@ -176,117 +214,71 @@ export function FlowRowsConfigPanel({ categories, onResolveAccount }: Props) {
         ) : error ? (
           <EmptyState
             icon={AlertTriangle}
+            tone="warn"
             title="No se pudo cargar"
             description={error}
           />
         ) : filtered.length === 0 ? (
           <EmptyState
-            icon={AlertTriangle}
+            icon={Inbox}
             title="Sin coincidencias"
-            description="Probá otro término o revisá la planilla de flujo."
+            description="Probá otro término o desactivá el filtro de problemas."
           />
         ) : (
-          <div className="space-y-3 ds-list-cascade">
+          <div className="mt-4 space-y-3 ds-list-cascade">
             {groups.map((group) => {
               const isCollapsed = collapsed.has(group.key);
+              const isIncome = group.key === "INGRESOS";
               return (
                 <div
                   key={group.key}
                   className="rounded-ds-md border border-ds-border-default overflow-hidden"
                 >
-                  <button
-                    type="button"
-                    onClick={() => toggleSection(group.key)}
-                    className="flex w-full items-center gap-2 min-h-11 px-3 py-2.5 bg-ds-surface-2 text-left hover:bg-ds-surface-3 transition-colors"
-                    aria-expanded={!isCollapsed}
-                  >
-                    {isCollapsed ? (
-                      <ChevronRight className="h-4 w-4 shrink-0 text-ds-text-3" />
-                    ) : (
-                      <ChevronDown className="h-4 w-4 shrink-0 text-ds-text-3" />
+                  <div className="flex items-center gap-2 bg-ds-surface-2 px-2 py-1">
+                    <button
+                      type="button"
+                      onClick={() => toggleSection(group.key)}
+                      className="flex flex-1 items-center gap-2 min-h-11 px-1 text-left hover:bg-ds-surface-3 rounded-ds-sm transition-colors"
+                      aria-expanded={!isCollapsed}
+                    >
+                      {isCollapsed ? (
+                        <ChevronRight className="h-4 w-4 shrink-0 text-ds-text-3" />
+                      ) : (
+                        <ChevronDown className="h-4 w-4 shrink-0 text-ds-text-3" />
+                      )}
+                      <span className="font-semibold text-[13px]">
+                        {SECTION_LABELS[group.key] ?? group.key}
+                      </span>
+                      <Tag variant="neutral" size="sm">
+                        {group.rows.length}
+                      </Tag>
+                    </button>
+                    {isIncome && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="h-10 sm:h-9 shrink-0"
+                        onClick={() => setAddIncomeOpen(true)}
+                      >
+                        <Plus className="h-4 w-4 mr-1" />
+                        Renglón de ingreso
+                      </Button>
                     )}
-                    <span className="font-semibold text-[13px] tracking-wide">
-                      {group.key}
-                    </span>
-                    <Tag variant="neutral" size="sm">
-                      {group.rows.length}
-                    </Tag>
-                  </button>
+                  </div>
                   {!isCollapsed && (
                     <ul className="space-y-2 p-2 sm:p-3 border-t border-ds-border-subtle">
                       {group.rows.map((row) => (
-                        <li
+                        <FlowRowConfigListItem
                           key={row.id}
-                          className="rounded-ds-md border border-ds-border-default bg-ds-surface-1 p-3"
-                        >
-                          <div className="flex flex-wrap items-start gap-3">
-                            <div className="min-w-0 flex-1 space-y-2">
-                              {!row.category && (
-                                <div className="flex flex-wrap items-center gap-2">
-                                  <Tag variant="warn" size="sm">
-                                    Sin categoría
-                                  </Tag>
-                                </div>
-                              )}
-                              <div>
-                                <Label className="text-[12px] text-ds-text-3">
-                                  Nombre
-                                </Label>
-                                <Input
-                                  className="h-10 sm:h-9 mt-1"
-                                  defaultValue={row.name}
-                                  disabled={savingId === row.id}
-                                  onBlur={(e) => {
-                                    const next = e.target.value.trim();
-                                    if (next && next !== row.name) {
-                                      void patchRow(row.id, { name: next });
-                                    }
-                                  }}
-                                />
-                              </div>
-                              <div>
-                                <Label className="text-[12px] text-ds-text-3">
-                                  Categoría
-                                </Label>
-                                <Select
-                                  value={row.category?.id ?? "__none__"}
-                                  onValueChange={(v) => {
-                                    const categoryId =
-                                      v === "__none__" ? null : v;
-                                    if (
-                                      categoryId !== (row.category?.id ?? null)
-                                    ) {
-                                      void patchRow(row.id, { categoryId });
-                                    }
-                                  }}
-                                  disabled={savingId === row.id}
-                                >
-                                  <SelectTrigger className="h-10 sm:h-9 mt-1">
-                                    <SelectValue placeholder="Sin categoría" />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="__none__">
-                                      Sin categoría
-                                    </SelectItem>
-                                    {expenseCats.map((c) => (
-                                      <SelectItem key={c.id} value={c.id}>
-                                        {c.code} · {c.name}
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
-                              </div>
-                              {row.category &&
-                                row.category.accounts.length > 0 && (
-                                  <p className="text-[12px] text-ds-text-3 font-mono">
-                                    {row.category.accounts
-                                      .map((a) => `${a.code} · ${a.name}`)
-                                      .join(" · ")}
-                                  </p>
-                                )}
-                            </div>
-                          </div>
-                        </li>
+                          row={row}
+                          readOnly={isIncome}
+                          accountOptions={accountOptions}
+                          health={health}
+                          saving={savingId === row.id}
+                          onOpenDrawer={setDrawerRow}
+                          onRename={(id, name) => void patchRow(id, { name })}
+                        />
                       ))}
                     </ul>
                   )}
@@ -297,7 +289,60 @@ export function FlowRowsConfigPanel({ categories, onResolveAccount }: Props) {
         )}
       </Surface>
 
-      <FlowHealthPanel onResolveAccount={onResolveAccount} />
+      {health && (
+        <FlowHealthPanel
+          embedded
+          health={health}
+          onResolveRow={(rowId) => {
+            const row = rows.find((r) => r.id === rowId);
+            if (row) setDrawerRow(row);
+          }}
+          onResolveAccount={() => {
+            setOnlyProblems(true);
+          }}
+        />
+      )}
+
+      <RowConfigDrawer
+        row={drawerRow}
+        open={!!drawerRow}
+        onOpenChange={(o) => {
+          if (!o) setDrawerRow(null);
+        }}
+        accountOptions={accountOptions}
+        saving={!!drawerRow && savingId === drawerRow.id}
+        onSave={async (patch) => {
+          if (!drawerRow) return;
+          await patchRow(drawerRow.id, patch);
+          setDrawerRow(null);
+        }}
+      />
+
+      <AddRowDialog
+        open={addIncomeOpen}
+        onOpenChange={setAddIncomeOpen}
+        busy={addBusy}
+        lockedSection="INGRESOS"
+        onCreate={async (body) => {
+          setAddBusy(true);
+          try {
+            const r = await fetch("/api/finance/flow-v3/rows", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(body),
+            });
+            const j = await r.json();
+            if (!r.ok || !j?.success) {
+              throw new Error(j?.error ?? "No se pudo crear");
+            }
+            toast.success("Renglón de ingreso creado");
+            await load();
+            return j.data;
+          } finally {
+            setAddBusy(false);
+          }
+        }}
+      />
     </div>
   );
 }

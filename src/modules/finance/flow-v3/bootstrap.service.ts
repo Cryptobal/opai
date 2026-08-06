@@ -71,11 +71,12 @@ async function runBootstrap(tx: Tx, tenantId: string): Promise<void> {
   const createRow = async (data: {
     section: FlowSection;
     name: string;
-    mapping: "ACCOUNT_INSTALLATION" | "CATEGORY" | "MANUAL";
+    mapping: "ACCOUNT_INSTALLATION" | "CATEGORY" | "ACCOUNTS" | "MANUAL";
     crmAccountId?: string | null;
     installationId?: string | null;
     recurringTemplateId?: string | null;
     categoryId?: string | null;
+    canonicalKey?: import("@prisma/client").FlowRowKey | null;
   }) => {
     // Bajo el lock + recount=0 no hay filas previas, así que el create es
     // directo (sin findFirst): claves naturales garantizadas únicas por lote.
@@ -87,6 +88,7 @@ async function runBootstrap(tx: Tx, tenantId: string): Promise<void> {
         installationId: data.installationId ?? null,
         recurringTemplateId: data.recurringTemplateId ?? null,
         categoryId: data.categoryId ?? null,
+        canonicalKey: data.canonicalKey ?? null,
       },
     });
   };
@@ -118,7 +120,9 @@ async function runBootstrap(tx: Tx, tenantId: string): Promise<void> {
     const categoryId = c.categoryCode ? (catByCode.get(c.categoryCode) ?? null) : null;
     await createRow({
       section: c.section, name: c.name,
-      mapping: categoryId ? "CATEGORY" : "MANUAL", categoryId,
+      mapping: c.canonicalKey || categoryId ? "ACCOUNTS" : "MANUAL",
+      categoryId,
+      canonicalKey: c.canonicalKey,
     });
   }
 

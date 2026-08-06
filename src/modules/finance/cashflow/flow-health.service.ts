@@ -1,5 +1,6 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
+import { SYSTEM_ROW_KEYS, isBandejaKey } from "@/modules/finance/flow-v3/row-keys";
 import type {
   FlowHealthLookup,
   FlowHealthReport,
@@ -8,14 +9,14 @@ import type {
 export type { FlowHealthLookup, FlowHealthReport } from "./flow-health.types";
 
 /**
- * Diagnóstico de la cadena fila ↔ categoría ↔ cuenta del flujo de caja.
+ * Diagnóstico de la cadena renglón ↔ cuentas del flujo de caja.
  * Solo lecturas, siempre filtradas por tenantId.
  */
 export async function getFlowHealth(
   tenantId: string,
   lookup?: FlowHealthLookup,
 ): Promise<FlowHealthReport> {
-  const [rows, categories, mappings] = await Promise.all([
+  const [rows, mappings, activeAccounts] = await Promise.all([
     prisma.financeFlowRow.findMany({
       where: {
         tenantId,
@@ -27,125 +28,122 @@ export async function getFlowHealth(
         name: true,
         section: true,
         mapping: true,
-        categoryId: true,
+        canonicalKey: true,
       },
       orderBy: [{ section: "asc" }, { orderIndex: "asc" }],
     }),
-    prisma.financeCashflowCategory.findMany({
-      where: { tenantId, isActive: true },
-      select: {
-        id: true,
-        code: true,
-        name: true,
-        kind: true,
-        accountPlanId: true,
-      },
-      orderBy: { sortOrder: "asc" },
-    }),
-    prisma.financeCashflowCategoryAccount.findMany({
+    prisma.financeFlowRowAccount.findMany({
       where: {
         tenantId,
         ...(lookup?.accountPlanId
           ? { accountPlanId: lookup.accountPlanId }
           : {}),
+        row: { archivedAt: null },
       },
       select: {
-        categoryId: true,
+        rowId: true,
         accountPlanId: true,
         isPrimary: true,
+        isDefaultTarget: true,
         accountPlan: {
           select: { id: true, code: true, name: true, type: true },
         },
-        category: { select: { id: true, name: true, kind: true } },
+        row: {
+          select: { id: true, name: true, section: true, canonicalKey: true },
+        },
       },
+    }),
+    prisma.financeAccountPlan.findMany({
+      where: {
+        tenantId,
+        isActive: true,
+        acceptsEntries: true,
+        type: { in: ["EXPENSE", "COST"] },
+      },
+      select: { id: true, code: true, name: true },
     }),
   ]);
 
-  const categoryIdsUsedByRows = new Set(
-    rows.map((r) => r.categoryId).filter((id): id is string => !!id),
-  );
-
-  const accountsByCategory = new Map<
-    string,
-    Array<{ code: string; name: string }>
-  >();
+  const rowById = new Map(rows.map((r) => [r.id, r]));
+  const accountsByRow = new Map<string, typeof mappings>();
   for (const m of mappings) {
-    const list = accountsByCategory.get(m.categoryId) ?? [];
-    list.push({ code: m.accountPlan.code, name: m.accountPlan.name });
-    accountsByCategory.set(m.categoryId, list);
-  }
-  // Legacy: accountPlanId directo en la categoría si no hay mappings N:M.
-  const legacyAccountIds = categories
-    .filter((c) => !accountsByCategory.has(c.id) && c.accountPlanId)
-    .map((c) => c.accountPlanId as string);
-  if (legacyAccountIds.length > 0) {
-    const legacyAccounts = await prisma.financeAccountPlan.findMany({
-      where: { tenantId, id: { in: legacyAccountIds } },
-      select: { id: true, code: true, name: true },
-    });
-    const byId = new Map(legacyAccounts.map((a) => [a.id, a]));
-    for (const cat of categories) {
-      if (accountsByCategory.has(cat.id) || !cat.accountPlanId) continue;
-      const ap = byId.get(cat.accountPlanId);
-      if (ap) accountsByCategory.set(cat.id, [{ code: ap.code, name: ap.name }]);
-    }
+    const list = accountsByRow.get(m.rowId) ?? [];
+    list.push(m);
+    accountsByRow.set(m.rowId, list);
   }
 
-  const rowsWithoutCategory = rows
-    .filter(
-      (r) =>
-        !r.categoryId &&
-        r.section !== "INGRESOS" &&
-        // Fallbacks de bandeja no necesitan categoría (son el catch-all).
-        r.name !== "Otros egresos" &&
-        r.name !== "Otros ingresos",
-    )
+  const rowsWithoutAccounts = rows
+    .filter((r) => {
+      if (r.section === "INGRESOS" || r.section === "OTROS") return false;
+      if (isBandejaKey(r.canonicalKey)) return false;
+      if (r.mapping === "ACCOUNT_INSTALLATION" || r.mapping === "SUPPLIER") {
+        return false;
+      }
+      return !(accountsByRow.get(r.id)?.length);
+    })
     .map((r) => ({ id: r.id, name: r.name, section: r.section }));
 
-  const expenseCategories = categories.filter((c) => c.kind === "EXPENSE");
-  const categoriesWithoutRow = expenseCategories
-    .filter((c) => !categoryIdsUsedByRows.has(c.id))
-    .map((c) => ({
-      id: c.id,
-      code: c.code,
-      name: c.name,
-      accounts: accountsByCategory.get(c.id) ?? [],
+  const mappedAccountIds = new Set(mappings.map((m) => m.accountPlanId));
+  const accountsWithoutRow = activeAccounts
+    .filter((a) => !mappedAccountIds.has(a.id))
+    .map((a) => ({
+      accountPlanId: a.id,
+      code: a.code,
+      name: a.name,
     }));
 
-  // Cuentas usadas por más de una categoría.
-  const catsByAccount = new Map<
-    string,
-    { code: string; name: string; categories: Array<{ id: string; name: string }> }
-  >();
+  const byAccount = new Map<string, typeof mappings>();
   for (const m of mappings) {
-    const entry = catsByAccount.get(m.accountPlanId) ?? {
-      code: m.accountPlan.code,
-      name: m.accountPlan.name,
-      categories: [],
-    };
-    if (!entry.categories.some((c) => c.id === m.category.id)) {
-      entry.categories.push({ id: m.category.id, name: m.category.name });
-    }
-    catsByAccount.set(m.accountPlanId, entry);
+    const list = byAccount.get(m.accountPlanId) ?? [];
+    list.push(m);
+    byAccount.set(m.accountPlanId, list);
   }
-  const ambiguousAccounts = [...catsByAccount.entries()]
-    .filter(([, v]) => v.categories.length > 1)
-    .map(([accountPlanId, v]) => ({
+
+  const sharedAccountsWithoutDefault: FlowHealthReport["sharedAccountsWithoutDefault"] =
+    [];
+  for (const [accountPlanId, list] of byAccount) {
+    if (list.length < 2) continue;
+    if (list.some((m) => m.isDefaultTarget)) continue;
+    sharedAccountsWithoutDefault.push({
       accountPlanId,
-      code: v.code,
-      name: v.name,
-      categories: v.categories,
+      code: list[0].accountPlan.code,
+      name: list[0].accountPlan.name,
+      rows: list.map((m) => ({
+        id: m.row.id,
+        name: m.row.name,
+        section: m.row.section,
+      })),
+    });
+  }
+
+  const keyGroups = new Map<string, typeof rows>();
+  for (const r of rows) {
+    if (!r.canonicalKey) continue;
+    const list = keyGroups.get(r.canonicalKey) ?? [];
+    list.push(r);
+    keyGroups.set(r.canonicalKey, list);
+  }
+  const duplicateCanonicalKeys = [...keyGroups.entries()]
+    .filter(([, list]) => list.length > 1)
+    .map(([key, list]) => ({
+      key,
+      rows: list.map((r) => ({
+        id: r.id,
+        name: r.name,
+        section: r.section,
+      })),
     }));
 
-  const expenseCategoriesOnNonExpenseAccounts: FlowHealthReport["expenseCategoriesOnNonExpenseAccounts"] =
+  const expenseRowsOnNonExpenseAccounts: FlowHealthReport["expenseRowsOnNonExpenseAccounts"] =
     [];
   for (const m of mappings) {
-    if (m.category.kind !== "EXPENSE") continue;
+    const section = m.row.section;
+    if (section === "INGRESOS" || section === "OTROS") continue;
     const t = m.accountPlan.type;
     if (t === "ASSET" || t === "LIABILITY") {
-      expenseCategoriesOnNonExpenseAccounts.push({
-        categoryId: m.category.id,
-        categoryName: m.category.name,
+      expenseRowsOnNonExpenseAccounts.push({
+        rowId: m.row.id,
+        rowName: m.row.name,
         accountCode: m.accountPlan.code,
         accountName: m.accountPlan.name,
         accountType: t,
@@ -153,26 +151,34 @@ export async function getFlowHealth(
     }
   }
 
-  // Fila conectada: tiene categoría y esa categoría tiene al menos una cuenta.
+  const presentKeys = new Set(
+    rows.map((r) => r.canonicalKey).filter((k): k is NonNullable<typeof k> => !!k),
+  );
+  const missingSystemKeys = [...SYSTEM_ROW_KEYS].filter((k) => !presentKeys.has(k));
+
   let connectedRowCount = 0;
   for (const r of rows) {
-    if (!r.categoryId) continue;
-    const accs = accountsByCategory.get(r.categoryId);
-    if (accs && accs.length > 0) connectedRowCount += 1;
+    if (r.section === "INGRESOS" || isBandejaKey(r.canonicalKey)) continue;
+    const accs = accountsByRow.get(r.id);
+    if ((accs && accs.length > 0) || r.canonicalKey) connectedRowCount += 1;
   }
 
+  void rowById;
+
   return {
-    rowsWithoutCategory,
-    categoriesWithoutRow,
-    ambiguousAccounts,
-    expenseCategoriesOnNonExpenseAccounts,
+    rowsWithoutAccounts,
+    accountsWithoutRow,
+    sharedAccountsWithoutDefault,
+    duplicateCanonicalKeys,
+    expenseRowsOnNonExpenseAccounts,
+    missingSystemKeys,
     connectedRowCount,
+    ambiguousAccounts: sharedAccountsWithoutDefault,
   };
 }
 
 /**
  * Cadena derivada para un destino puntual (cuenta o fila).
- * Usado por los editores de regla sin recargar el reporte completo.
  */
 export async function getFlowDestinationChain(
   tenantId: string,
@@ -212,6 +218,7 @@ export async function getFlowDestinationChain(
         section: true,
         mapping: true,
         categoryId: true,
+        canonicalKey: true,
       },
     });
     if (!fr) {
@@ -224,33 +231,31 @@ export async function getFlowDestinationChain(
       section: fr.section,
       mapping: fr.mapping,
     };
-    if (!fr.categoryId) {
-      warnings.push("la fila no puede recibir movimientos");
-    } else {
+    const primary = await prisma.financeFlowRowAccount.findFirst({
+      where: { tenantId, rowId: fr.id },
+      orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }],
+      select: {
+        accountPlan: {
+          select: { id: true, code: true, name: true, type: true },
+        },
+      },
+    });
+    if (primary) {
+      account = {
+        id: primary.accountPlan.id,
+        code: primary.accountPlan.code,
+        name: primary.accountPlan.name,
+        type: primary.accountPlan.type,
+      };
+    } else if (!fr.canonicalKey) {
+      warnings.push("el renglón no tiene cuentas; lo pagado cae en Otros egresos");
+    }
+    if (fr.categoryId) {
       const cat = await prisma.financeCashflowCategory.findFirst({
         where: { id: fr.categoryId, tenantId },
         select: { id: true, code: true, name: true, kind: true },
       });
-      if (cat) {
-        category = cat;
-        const primary = await prisma.financeCashflowCategoryAccount.findFirst({
-          where: { tenantId, categoryId: cat.id },
-          orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }],
-          select: {
-            accountPlan: {
-              select: { id: true, code: true, name: true, type: true },
-            },
-          },
-        });
-        if (primary) {
-          account = {
-            id: primary.accountPlan.id,
-            code: primary.accountPlan.code,
-            name: primary.accountPlan.name,
-            type: primary.accountPlan.type,
-          };
-        }
-      }
+      if (cat) category = cat;
     }
   } else if (opts.accountPlanId) {
     const ap = await prisma.financeAccountPlan.findFirst({
@@ -262,41 +267,47 @@ export async function getFlowDestinationChain(
       return { account, category, row, warnings };
     }
     account = ap;
-    const mapping = await prisma.financeCashflowCategoryAccount.findFirst({
-      where: { tenantId, accountPlanId: ap.id },
-      orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }],
+
+    const mapping = await prisma.financeFlowRowAccount.findFirst({
+      where: { tenantId, accountPlanId: ap.id, row: { archivedAt: null } },
+      orderBy: [{ isDefaultTarget: "desc" }, { createdAt: "asc" }],
       select: {
-        category: {
-          select: { id: true, code: true, name: true, kind: true },
+        isDefaultTarget: true,
+        row: {
+          select: {
+            id: true,
+            name: true,
+            section: true,
+            mapping: true,
+            categoryId: true,
+          },
         },
       },
     });
     if (mapping) {
-      category = mapping.category;
-      const fr = await prisma.financeFlowRow.findFirst({
-        where: {
-          tenantId,
-          categoryId: mapping.category.id,
-          archivedAt: null,
-        },
-        select: {
-          id: true,
-          name: true,
-          section: true,
-          mapping: true,
-        },
-      });
-      if (fr) {
-        row = fr;
-      } else {
-        warnings.push(
-          "el movimiento se contabiliza pero en el flujo sigue cayendo en Otros egresos",
-        );
+      row = mapping.row;
+      if (!mapping.isDefaultTarget) {
+        const siblings = await prisma.financeFlowRowAccount.count({
+          where: {
+            tenantId,
+            accountPlanId: ap.id,
+            row: { archivedAt: null },
+          },
+        });
+        if (siblings > 1) {
+          warnings.push(
+            "esta cuenta alimenta varios renglones; elegí cuál recibe los cargos sin origen identificado",
+          );
+        }
       }
-      if (
-        mapping.category.kind === "EXPENSE" &&
-        (ap.type === "ASSET" || ap.type === "LIABILITY")
-      ) {
+      if (mapping.row.categoryId) {
+        const cat = await prisma.financeCashflowCategory.findFirst({
+          where: { id: mapping.row.categoryId, tenantId },
+          select: { id: true, code: true, name: true, kind: true },
+        });
+        if (cat) category = cat;
+      }
+      if (ap.type === "ASSET" || ap.type === "LIABILITY") {
         warnings.push("el gasto no llegará al Estado de Resultados");
       }
     } else {

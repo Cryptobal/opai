@@ -1,6 +1,8 @@
 /**
  * Índices de match fila↔fuente compartidos por los tres derivadores.
  * Puros, sin prisma.
+ *
+ * Precedencia de egreso: supplierId → canonicalKey → accountPlanId → bandeja.
  */
 import {
   UNMATCHED_EXPENSE_KEY,
@@ -8,7 +10,7 @@ import {
   type FlowRowRef,
 } from "./types";
 
-/** ¿Fila de ingresos por cuenta/instalación? (excluye MANUAL/CATEGORY). */
+/** ¿Fila de ingresos por cuenta/instalación? (excluye MANUAL/CATEGORY/ACCOUNTS). */
 function isAccountInstallationIncome(r: FlowRowRef): boolean {
   if (r.section != null && r.section !== "INGRESOS") return false;
   if (r.mapping != null && r.mapping !== "ACCOUNT_INSTALLATION") return false;
@@ -24,10 +26,6 @@ function isAccountInstallationIncome(r: FlowRowRef): boolean {
  *      (aunque sea de template); si hay varias, match por instalación entre
  *      filas de template; si sigue ambiguo → Otros ingresos.
  *  4. "Otros ingresos" (UNMATCHED_INCOME_KEY).
- *
- * Las filas ligadas a template NO saturan exact/generic: así Transmat 20% y
- * Transmat 80% conviven. El paso 3.5 recupera facturas sin vínculo cuando
- * la cuenta tiene una sola fila (o instalación inequívoca).
  */
 export function buildIncomeMatcher(
   rows: FlowRowRef[],
@@ -47,7 +45,6 @@ export function buildIncomeMatcher(
         byTemplate.set(r.recurringTemplateId, r.id);
       }
     } else if (isAccountInstallationIncome(r)) {
-      // exact/generic solo ACCOUNT_INSTALLATION (no MANUAL/CATEGORY).
       if (r.installationId) exact.set(`${r.crmAccountId}::${r.installationId}`, r.id);
       else if (!generic.has(r.crmAccountId!)) generic.set(r.crmAccountId!, r.id);
     }
@@ -72,7 +69,6 @@ export function buildIncomeMatcher(
     const gen = generic.get(accountId);
     if (gen) return gen;
 
-    // 3.5 — fallback cuenta (filas de template incluidas).
     const candidates = byAccount.get(accountId) ?? [];
     if (candidates.length === 1) return candidates[0].id;
     if (candidates.length > 1 && installationId) {
@@ -86,51 +82,76 @@ export function buildIncomeMatcher(
 }
 
 export interface ExpenseIndexes {
-  byCategoryId: Map<string, string>;
-  byCategoryCode: Map<string, string>;
   bySupplierId: Map<string, string>;
+  byCanonicalKey: Map<string, string>;
+  byAccountPlanId: Map<string, string>;
   byName: Map<string, string>;
 }
 
 export const normalizeRowName = (s: string) => s.trim().toLowerCase();
 
-/** Índices de EGRESOS: categoría (id y código canónico), proveedor y nombre. */
+/**
+ * Índices de EGRESOS.
+ * `accountToRowId` viene de `bulkAccountToRow` (destino por defecto).
+ * Si falta, se construye desde `row.accountPlanIds` (first-wins; útil en tests).
+ */
 export function buildExpenseIndexes(
   rows: FlowRowRef[],
-  categoryCodeById: Map<string, string>,
+  accountToRowId?: Map<string, string>,
 ): ExpenseIndexes {
-  const byCategoryId = new Map<string, string>();
-  const byCategoryCode = new Map<string, string>();
   const bySupplierId = new Map<string, string>();
+  const byCanonicalKey = new Map<string, string>();
+  const byAccountPlanId = new Map<string, string>();
   const byName = new Map<string, string>();
+
   for (const r of rows) {
-    if (r.categoryId) {
-      if (!byCategoryId.has(r.categoryId)) byCategoryId.set(r.categoryId, r.id);
-      const code = categoryCodeById.get(r.categoryId);
-      if (code && !byCategoryCode.has(code)) byCategoryCode.set(code, r.id);
+    if (r.canonicalKey && !byCanonicalKey.has(r.canonicalKey)) {
+      byCanonicalKey.set(r.canonicalKey, r.id);
     }
-    if (r.supplierId && !bySupplierId.has(r.supplierId)) bySupplierId.set(r.supplierId, r.id);
+    if (r.supplierId && !bySupplierId.has(r.supplierId)) {
+      bySupplierId.set(r.supplierId, r.id);
+    }
     const n = normalizeRowName(r.name);
     if (!byName.has(n)) byName.set(n, r.id);
+
+    if (!accountToRowId && r.accountPlanIds) {
+      for (const accId of r.accountPlanIds) {
+        if (!byAccountPlanId.has(accId)) byAccountPlanId.set(accId, r.id);
+      }
+    }
   }
-  return { byCategoryId, byCategoryCode, bySupplierId, byName };
+
+  if (accountToRowId) {
+    for (const [accId, rowId] of accountToRowId) {
+      byAccountPlanId.set(accId, rowId);
+    }
+  }
+
+  return { bySupplierId, byCanonicalKey, byAccountPlanId, byName };
 }
 
-/** Fila para un egreso por categoría/proveedor, con fallback "Otros egresos". */
+/**
+ * Fila para un egreso. Precedencia:
+ * supplierId → canonicalKey → accountPlanId → bandeja (UNMATCHED_EXPENSE_KEY).
+ */
 export function matchExpenseRow(
   idx: ExpenseIndexes,
-  opts: { supplierId?: string | null; categoryId?: string | null; categoryCode?: string | null },
+  opts: {
+    supplierId?: string | null;
+    canonicalKey?: string | null;
+    accountPlanId?: string | null;
+  },
 ): string {
   if (opts.supplierId) {
     const hit = idx.bySupplierId.get(opts.supplierId);
     if (hit) return hit;
   }
-  if (opts.categoryId) {
-    const hit = idx.byCategoryId.get(opts.categoryId);
+  if (opts.canonicalKey) {
+    const hit = idx.byCanonicalKey.get(opts.canonicalKey);
     if (hit) return hit;
   }
-  if (opts.categoryCode) {
-    const hit = idx.byCategoryCode.get(opts.categoryCode);
+  if (opts.accountPlanId) {
+    const hit = idx.byAccountPlanId.get(opts.accountPlanId);
     if (hit) return hit;
   }
   return UNMATCHED_EXPENSE_KEY;

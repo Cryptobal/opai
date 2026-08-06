@@ -36,14 +36,6 @@ const VIRTUAL_ROWS = {
   [UNMATCHED_EXPENSE_KEY]: { id: "virtual:otros-gastos", name: FALLBACK_EXPENSE_NAME, section: "GAV" },
 } as const;
 
-const FALLBACK_NAME_KEYS = new Set([
-  normalizeRowName(FALLBACK_INCOME_NAME),
-  normalizeRowName(FALLBACK_EXPENSE_NAME),
-  // Alias viejos por si el rename aún no corrió en este request.
-  normalizeRowName("Otros clientes"),
-  normalizeRowName("Otros gastos"),
-]);
-
 /** Re-mapea los buckets sentinel a la fila canónica real (si existe) o virtual. */
 function remapSentinels<T>(map: Map<string, T>, keyFor: (sentinel: string) => string): Map<string, T> {
   const out = new Map<string, T>();
@@ -85,7 +77,8 @@ export async function buildFlowMatrix(
       id: r.id, name: r.name, section: r.section, mapping: r.mapping,
       crmAccountId: r.crmAccountId, installationId: r.installationId,
       recurringTemplateId: r.recurringTemplateId,
-      categoryId: r.categoryId, supplierId: r.supplierId,
+      categoryId: r.categoryId, canonicalKey: r.canonicalKey,
+      supplierId: r.supplierId,
     }));
 
   const [plan, notes, cIncomeLoad, cExpense, real, opening, config, closedWeeks, seals] = await Promise.all([
@@ -113,11 +106,23 @@ export async function buildFlowMatrix(
       for (const cell of byWeek.values()) realNetAfterWindow += cell.total;
   }
 
-  // Sentinels → fila canónica por nombre (si existe) o fila virtual.
-  const byName = new Map(dbRows.filter((r) => !r.archivedAt).map((r) => [normalizeRowName(r.name), r.id]));
+  // Sentinels → fila bandeja por canonicalKey (si existe) o nombre / virtual.
+  const activeRows = dbRows.filter((r) => !r.archivedAt);
+  const bandejaIngresoId = activeRows.find((r) => r.canonicalKey === "BANDEJA_INGRESO")?.id;
+  const bandejaEgresoId = activeRows.find((r) => r.canonicalKey === "BANDEJA_EGRESO")?.id;
+  const byName = new Map(activeRows.map((r) => [normalizeRowName(r.name), r.id]));
   const keyFor = (sentinel: string) => {
-    const v = VIRTUAL_ROWS[sentinel as keyof typeof VIRTUAL_ROWS];
-    return byName.get(normalizeRowName(v.name)) ?? v.id;
+    if (sentinel === UNMATCHED_INCOME_KEY) {
+      return bandejaIngresoId
+        ?? byName.get(normalizeRowName(FALLBACK_INCOME_NAME))
+        ?? VIRTUAL_ROWS[UNMATCHED_INCOME_KEY].id;
+    }
+    if (sentinel === UNMATCHED_EXPENSE_KEY) {
+      return bandejaEgresoId
+        ?? byName.get(normalizeRowName(FALLBACK_EXPENSE_NAME))
+        ?? VIRTUAL_ROWS[UNMATCHED_EXPENSE_KEY].id;
+    }
+    return sentinel;
   };
   const committed: CommittedByRow = remapSentinels(cIncome, keyFor);
   for (const [k, byWeek] of remapSentinels(cExpense, keyFor)) {
@@ -160,9 +165,9 @@ export async function buildFlowMatrix(
   const accountIds = [...new Set(dbRows.map((r) => r.crmAccountId).filter(Boolean))] as string[];
   const installationIds = [...new Set(dbRows.map((r) => r.installationId).filter(Boolean))] as string[];
   const templateIds = [...new Set(dbRows.map((r) => r.recurringTemplateId).filter(Boolean))] as string[];
-  const categoryIds = [...new Set(dbRows.map((r) => r.categoryId).filter(Boolean))] as string[];
   const supplierIds = [...new Set(dbRows.map((r) => r.supplierId).filter(Boolean))] as string[];
-  const [accounts, installations, templatesMeta, categories, suppliers] = await Promise.all([
+  const rowIds = dbRows.map((r) => r.id);
+  const [accounts, installations, templatesMeta, suppliers, primaryAccounts] = await Promise.all([
     accountIds.length
       ? prisma.crmAccount.findMany({
           where: { tenantId, id: { in: accountIds } },
@@ -181,16 +186,19 @@ export async function buildFlowMatrix(
           select: { id: true, name: true, isActive: true, endDate: true },
         })
       : Promise.resolve([]),
-    categoryIds.length
-      ? prisma.financeCashflowCategory.findMany({
-          where: { tenantId, id: { in: categoryIds } },
-          select: { id: true, name: true },
-        })
-      : Promise.resolve([]),
     supplierIds.length
       ? prisma.financeSupplier.findMany({
           where: { tenantId, id: { in: supplierIds } },
           select: { id: true, name: true },
+        })
+      : Promise.resolve([]),
+    rowIds.length
+      ? prisma.financeFlowRowAccount.findMany({
+          where: { tenantId, rowId: { in: rowIds }, isPrimary: true },
+          select: {
+            rowId: true,
+            accountPlan: { select: { code: true, name: true } },
+          },
         })
       : Promise.resolve([]),
   ]);
@@ -207,8 +215,13 @@ export async function buildFlowMatrix(
       },
     ]),
   );
-  const categoryNameById = new Map(categories.map((c) => [c.id, c.name]));
   const supplierNameById = new Map(suppliers.map((s) => [s.id, s.name]));
+  const primaryAccountLabelByRow = new Map(
+    primaryAccounts.map((m) => [
+      m.rowId,
+      `${m.accountPlan.code} · ${m.accountPlan.name}`,
+    ]),
+  );
   const windowStartYmd = weeks[0]!;
 
   const sourceNameFor = (r: (typeof dbRows)[number]): string | null => {
@@ -223,8 +236,8 @@ export async function buildFlowMatrix(
       const inst = r.installationId ? installationNameById.get(r.installationId) : null;
       return inst ? `${acc} · ${inst}` : acc;
     }
-    if (r.mapping === "CATEGORY" && r.categoryId) {
-      return categoryNameById.get(r.categoryId) ?? null;
+    if ((r.mapping === "ACCOUNTS" || r.mapping === "CATEGORY") && primaryAccountLabelByRow.has(r.id)) {
+      return primaryAccountLabelByRow.get(r.id) ?? null;
     }
     if (r.mapping === "SUPPLIER" && r.supplierId) {
       return supplierNameById.get(r.supplierId) ?? null;
@@ -262,7 +275,10 @@ export async function buildFlowMatrix(
         mapping: r.mapping,
         archivedAt: r.archivedAt,
         recurringTemplateId: r.recurringTemplateId,
-        isCanonicalFallback: FALLBACK_NAME_KEYS.has(normalizeRowName(r.name)),
+        isCanonicalFallback:
+          r.canonicalKey === "BANDEJA_INGRESO" ||
+          r.canonicalKey === "BANDEJA_EGRESO" ||
+          isFallbackBandejaRow({ name: r.name, canonicalKey: r.canonicalKey }),
       },
       windowStartYmd,
       hasDataInWindow: hasAnyData(r.id, null),
@@ -278,7 +294,7 @@ export async function buildFlowMatrix(
       id: r.id, name: r.name, section: r.section, mapping: r.mapping,
       orderIndex: r.orderIndex, crmAccountId: r.crmAccountId, installationId: r.installationId,
       recurringTemplateId: r.recurringTemplateId,
-      categoryId: r.categoryId, supplierId: r.supplierId,
+      categoryId: r.categoryId, canonicalKey: r.canonicalKey, supplierId: r.supplierId,
       isArchived: !!r.archivedAt, archivedWeekCutoff: cutoff, isVirtual: false,
       sourceName, nameIsManual,
       ufCaption: ufCaptionByRow.get(r.id) ?? null,
@@ -289,7 +305,7 @@ export async function buildFlowMatrix(
       assembleRows.push({
         id: v.id, name: v.name, section: v.section, mapping: "MANUAL", orderIndex: 9999,
         crmAccountId: null, installationId: null, recurringTemplateId: null,
-        categoryId: null, supplierId: null,
+        categoryId: null, canonicalKey: null, supplierId: null,
         isArchived: false, archivedWeekCutoff: null, isVirtual: true,
         sourceName: null, nameIsManual: false,
       });

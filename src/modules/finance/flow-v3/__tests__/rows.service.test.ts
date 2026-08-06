@@ -184,7 +184,7 @@ describe("updateRow MANUAL → CATEGORY", () => {
       where: { id: "row-1" },
       data: expect.objectContaining({
         categoryId: "cat-retiro",
-        mapping: "CATEGORY",
+        mapping: "ACCOUNTS",
       }),
     });
   });

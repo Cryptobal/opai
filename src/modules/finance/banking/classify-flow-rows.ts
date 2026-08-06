@@ -1,11 +1,12 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
-import { resolveCategoryFromAccount } from "@/modules/finance/cashflow/categoryAccount.service";
+import type { FlowRowKey } from "@prisma/client";
+import { bulkAccountToRow } from "@/modules/finance/flow-v3/rowAccount.service";
 import type { FlowRowDest } from "./flow-classify.service";
 
 /**
  * Resuelve las filas canónicas de remuneraciones usadas por la cascada.
- * Preferencia: categoryCode de sistema; fallback por nombre.
+ * Preferencia: canonicalKey; sin fallback por nombre.
  */
 export async function resolvePayrollFlowRows(tenantId: string): Promise<{
   liquidacionRow: FlowRowDest | null;
@@ -13,77 +14,36 @@ export async function resolvePayrollFlowRows(tenantId: string): Promise<{
   finiquitoRow: FlowRowDest | null;
   teRow: FlowRowDest | null;
 }> {
-  const [rows, categories] = await Promise.all([
-    prisma.financeFlowRow.findMany({
-      where: {
-        tenantId,
-        archivedAt: null,
-        section: "REMUNERACIONES",
-      },
-      select: {
-        id: true,
-        name: true,
-        categoryId: true,
-      },
-    }),
-    prisma.financeCashflowCategory.findMany({
-      where: {
-        tenantId,
-        code: {
-          in: ["EGR_SUELDO", "EGR_QUINCENA", "EGR_FINIQUITO", "EGR_TURNO_EXTRA"],
-        },
-      },
-      select: { id: true, code: true },
-    }),
-  ]);
+  const keys: FlowRowKey[] = ["SUELDO", "QUINCENA", "FINIQUITO", "TURNO_EXTRA"];
+  const rows = await prisma.financeFlowRow.findMany({
+    where: {
+      tenantId,
+      archivedAt: null,
+      canonicalKey: { in: keys },
+    },
+    select: {
+      id: true,
+      name: true,
+      canonicalKey: true,
+    },
+  });
 
-  const catIdByCode = new Map(categories.map((c) => [c.code, c.id]));
-  const byCategoryId = new Map<string, FlowRowDest>();
-  const byName = new Map<string, FlowRowDest>();
+  const byKey = new Map<FlowRowKey, FlowRowDest>();
   for (const r of rows) {
-    const dest = { flowRowId: r.id, label: r.name };
-    if (r.categoryId && !byCategoryId.has(r.categoryId)) {
-      byCategoryId.set(r.categoryId, dest);
-    }
-    byName.set(r.name.trim().toLowerCase(), dest);
+    if (!r.canonicalKey || byKey.has(r.canonicalKey)) continue;
+    byKey.set(r.canonicalKey, { flowRowId: r.id, label: r.name });
   }
 
-  const pick = (code: string, names: string[]): FlowRowDest | null => {
-    const catId = catIdByCode.get(code);
-    if (catId) {
-      const byCat = byCategoryId.get(catId);
-      if (byCat) return byCat;
-    }
-    for (const n of names) {
-      const hit = byName.get(n);
-      if (hit) return hit;
-    }
-    return null;
-  };
-
   return {
-    liquidacionRow: pick("EGR_SUELDO", [
-      "sueldos líquidos",
-      "sueldos liquidos",
-      "sueldos",
-    ]),
-    anticipoRow: pick("EGR_QUINCENA", [
-      "quincena (anticipos)",
-      "quincenas / anticipos",
-      "quincena",
-      "anticipos",
-    ]),
-    finiquitoRow: pick("EGR_FINIQUITO", ["finiquitos", "finiquito"]),
-    teRow: pick("EGR_TURNO_EXTRA", [
-      "turnos extra",
-      "turno extra",
-      "pago turnos extra",
-    ]),
+    liquidacionRow: byKey.get("SUELDO") ?? null,
+    anticipoRow: byKey.get("QUINCENA") ?? null,
+    finiquitoRow: byKey.get("FINIQUITO") ?? null,
+    teRow: byKey.get("TURNO_EXTRA") ?? null,
   };
 }
 
 /**
- * Categoría habitual del proveedor vía accountExpenseId → categoría → fila.
+ * Proveedor → cuenta de gasto → renglón destino por defecto.
  */
 export async function resolveSupplierCategoryRow(
   tenantId: string,
@@ -91,29 +51,24 @@ export async function resolveSupplierCategoryRow(
 ): Promise<{ row: FlowRowDest; categoryName: string } | null> {
   const supplier = await prisma.financeSupplier.findFirst({
     where: { id: supplierId, tenantId },
-    select: { accountExpenseId: true },
+    select: { accountExpenseId: true, name: true },
   });
   if (!supplier?.accountExpenseId) return null;
 
-  const category = await resolveCategoryFromAccount(
-    tenantId,
+  const accountToRow = await bulkAccountToRow(tenantId, [
     supplier.accountExpenseId,
-  );
-  if (!category) return null;
+  ]);
+  const rowId = accountToRow.get(supplier.accountExpenseId);
+  if (!rowId) return null;
 
   const row = await prisma.financeFlowRow.findFirst({
-    where: {
-      tenantId,
-      archivedAt: null,
-      categoryId: category.id,
-    },
+    where: { id: rowId, tenantId, archivedAt: null },
     select: { id: true, name: true },
-    orderBy: { orderIndex: "asc" },
   });
   if (!row) return null;
 
   return {
     row: { flowRowId: row.id, label: row.name },
-    categoryName: category.name,
+    categoryName: row.name,
   };
 }

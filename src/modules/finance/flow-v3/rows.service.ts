@@ -1,11 +1,26 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
-import type { FinanceFlowRow, FlowRowMapping, FlowSection } from "@prisma/client";
+import type {
+  FinanceFlowRow,
+  FlowRowKey,
+  FlowRowMapping,
+  FlowSection,
+} from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import { addWeeksUTC, enumerateWeeks, startOfIsoWeekUTC, toYmd } from "./weeks";
 import { loadCommittedIncome } from "./load-committed-income";
 import { loadCommittedExpense } from "./load-committed-expense";
 import { loadReal } from "./load-real";
+import { setAccountsForRow } from "./rowAccount.service";
+import { EXPENSE_ROW_KEYS, isBandejaKey } from "./row-keys";
 import type { FlowRowRef } from "./types";
+
+export class FlowRowConflictError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "FlowRowConflictError";
+  }
+}
 
 export interface CreateRowInput {
   section: FlowSection;
@@ -14,26 +29,28 @@ export interface CreateRowInput {
   crmAccountId?: string | null;
   installationId?: string | null;
   recurringTemplateId?: string | null;
+  /** @deprecated Preferir accountPlanIds + canonicalKey. */
   categoryId?: string | null;
+  accountPlanIds?: string[];
+  canonicalKey?: FlowRowKey | null;
   supplierId?: string | null;
 }
 
 export interface UpdateRowInput {
   /**
    * Nombre visible en la planilla. Se puede fijar en cualquier mapping no
-   * virtual: es un alias de visualización (la fuente CRM/categoría/proveedor
+   * virtual: es un alias de visualización (la fuente CRM/cuenta/proveedor
    * no se toca). Para volver al nombre de origen, el cliente envía el
    * `sourceName` calculado por el matrix.
    */
   name?: string;
   section?: FlowSection;
-  /**
-   * Categoría de egreso. Permite asignar por primera vez en filas MANUAL
-   * (transición a CATEGORY) o cambiarla en filas ya CATEGORY.
-   */
+  accountPlanIds?: string[];
+  canonicalKey?: FlowRowKey | null;
+  /** @deprecated Preferir accountPlanIds. */
   categoryId?: string | null;
-  /** Transición explícita MANUAL → CATEGORY (o rechazo CATEGORY → MANUAL). */
-  mapping?: Extract<FlowRowMapping, "CATEGORY" | "MANUAL">;
+  /** Transición a ACCOUNTS/MANUAL. */
+  mapping?: Extract<FlowRowMapping, "ACCOUNTS" | "CATEGORY" | "MANUAL">;
 }
 
 export interface ArchiveRowResult {
@@ -70,6 +87,8 @@ async function assertMappingRefs(tenantId: string, input: CreateRowInput): Promi
       });
       if (!tpl) throw new Error("Programación no encontrada para esa cuenta");
     }
+  } else if (input.mapping === "ACCOUNTS") {
+    // Cuentas opcionales al crear; se validan en setAccountsForRow.
   } else if (input.mapping === "CATEGORY") {
     if (!input.categoryId) throw new Error("categoryId requerido para mapping CATEGORY");
     const cat = await prisma.financeCashflowCategory.findFirst({
@@ -94,32 +113,107 @@ export async function listRows(tenantId: string): Promise<FinanceFlowRow[]> {
   });
 }
 
+function assertExpenseKeyAllowed(
+  section: FlowSection,
+  canonicalKey: FlowRowKey | null | undefined,
+  accountPlanIds: string[] | undefined,
+  rowCanonicalKey?: FlowRowKey | null,
+): void {
+  const key = canonicalKey ?? undefined;
+  const isBandeja = isBandejaKey(rowCanonicalKey) || isBandejaKey(key);
+  if (
+    (section === "INGRESOS" || section === "OTROS" || isBandeja) &&
+    ((key && EXPENSE_ROW_KEYS.has(key) && key !== "BANDEJA_EGRESO" && key !== "BANDEJA_INGRESO") ||
+      (accountPlanIds && accountPlanIds.length > 0 && (section === "INGRESOS" || section === "OTROS" || isBandeja)))
+  ) {
+    if (section === "INGRESOS" || section === "OTROS") {
+      throw new Error(
+        "Las filas de ingresos no admiten cuentas ni llaves de egreso",
+      );
+    }
+    if (isBandeja && accountPlanIds && accountPlanIds.length > 0) {
+      throw new Error("Las bandejas no admiten cuentas contables propias");
+    }
+    if (isBandeja && key && EXPENSE_ROW_KEYS.has(key) && !isBandejaKey(key)) {
+      throw new Error("Las bandejas no admiten llaves de egreso adicionales");
+    }
+  }
+}
+
 export async function createRow(
   tenantId: string,
   input: CreateRowInput,
 ): Promise<FinanceFlowRow> {
   await assertMappingRefs(tenantId, input);
+  assertExpenseKeyAllowed(
+    input.section,
+    input.canonicalKey,
+    input.accountPlanIds,
+  );
+
+  if (input.canonicalKey) {
+    const clash = await prisma.financeFlowRow.findFirst({
+      where: {
+        tenantId,
+        canonicalKey: input.canonicalKey,
+        archivedAt: null,
+      },
+      select: { id: true, name: true },
+    });
+    if (clash) {
+      throw new FlowRowConflictError(
+        `«${clash.name}» ya usa esta llave; una llave alimenta un solo renglón`,
+      );
+    }
+  }
+
   const last = await prisma.financeFlowRow.findFirst({
     where: { tenantId, section: input.section },
     orderBy: { orderIndex: "desc" },
     select: { orderIndex: true },
   });
-  const created = await prisma.financeFlowRow.create({
-    data: {
-      tenantId,
-      section: input.section,
-      name: input.name.trim(),
-      mapping: input.mapping,
-      orderIndex: (last?.orderIndex ?? -1) + 1,
-      crmAccountId: input.mapping === "ACCOUNT_INSTALLATION" ? input.crmAccountId : null,
-      installationId: input.mapping === "ACCOUNT_INSTALLATION" ? (input.installationId ?? null) : null,
-      recurringTemplateId:
-        input.mapping === "ACCOUNT_INSTALLATION" ? (input.recurringTemplateId ?? null) : null,
-      categoryId: input.mapping === "CATEGORY" ? input.categoryId : null,
-      supplierId: input.mapping === "SUPPLIER" ? input.supplierId : null,
-    },
-  });
-  // Verdad Verificada: releer de DB.
+
+  const mapping: FlowRowMapping =
+    input.mapping === "CATEGORY"
+      ? "ACCOUNTS"
+      : input.accountPlanIds && input.accountPlanIds.length > 0
+        ? "ACCOUNTS"
+        : input.mapping;
+
+  let created: FinanceFlowRow;
+  try {
+    created = await prisma.financeFlowRow.create({
+      data: {
+        tenantId,
+        section: input.section,
+        name: input.name.trim(),
+        mapping,
+        orderIndex: (last?.orderIndex ?? -1) + 1,
+        crmAccountId: input.mapping === "ACCOUNT_INSTALLATION" ? input.crmAccountId : null,
+        installationId: input.mapping === "ACCOUNT_INSTALLATION" ? (input.installationId ?? null) : null,
+        recurringTemplateId:
+          input.mapping === "ACCOUNT_INSTALLATION" ? (input.recurringTemplateId ?? null) : null,
+        categoryId: input.mapping === "CATEGORY" ? input.categoryId : null,
+        canonicalKey: input.canonicalKey ?? null,
+        supplierId: input.mapping === "SUPPLIER" ? input.supplierId : null,
+      },
+    });
+  } catch (e) {
+    if (
+      e instanceof Prisma.PrismaClientKnownRequestError &&
+      e.code === "P2002"
+    ) {
+      throw new FlowRowConflictError(
+        "Esta llave ya está en uso por otro renglón activo",
+      );
+    }
+    throw e;
+  }
+
+  if (input.accountPlanIds && input.accountPlanIds.length > 0) {
+    await setAccountsForRow(tenantId, created.id, input.accountPlanIds);
+  }
+
   return prisma.financeFlowRow.findFirstOrThrow({ where: { id: created.id, tenantId } });
 }
 
@@ -135,11 +229,8 @@ export async function renameRow(
 }
 
 /**
- * Edita atributos LOCALES de la fila (nombre visible, sección, categoría).
- * El nombre es un alias de planilla: se puede fijar aunque el mapping venga de
- * cuenta/categoría/proveedor (no muta la fuente). La categoría solo en filas
- * CATEGORY. Cambiar de sección reubica la fila al final de la sección destino
- * (el signo de su plan cambia — la UI lo advierte). Read-after-write.
+ * Edita atributos LOCALES de la fila (nombre, sección, cuentas, llave).
+ * Read-after-write.
  */
 export async function updateRow(
   tenantId: string,
@@ -153,6 +244,7 @@ export async function updateRow(
     name?: string;
     section?: FlowSection;
     categoryId?: string | null;
+    canonicalKey?: FlowRowKey | null;
     mapping?: FlowRowMapping;
     orderIndex?: number;
   } = {};
@@ -163,27 +255,81 @@ export async function updateRow(
     data.name = trimmed;
   }
 
-  // Transición CATEGORY → MANUAL: solo si no hay actividad derivada (links reales).
-  if (input.mapping === "MANUAL" && row.mapping === "CATEGORY") {
+  const targetSection = input.section ?? row.section;
+  assertExpenseKeyAllowed(
+    targetSection,
+    input.canonicalKey,
+    input.accountPlanIds,
+    row.canonicalKey,
+  );
+
+  // Transición ACCOUNTS/CATEGORY → MANUAL: solo si no hay actividad derivada.
+  if (
+    input.mapping === "MANUAL" &&
+    (row.mapping === "CATEGORY" || row.mapping === "ACCOUNTS")
+  ) {
     if (await rowHasDerivedActivity(tenantId, row)) {
       throw new Error(
-        "No se puede quitar la categoría: la fila tiene movimientos reales asociados. Reasigná la categoría en vez de dejarla manual.",
+        "No se pueden quitar las cuentas: la fila tiene movimientos reales asociados. Reasigná las cuentas en vez de dejarla manual.",
       );
     }
     data.mapping = "MANUAL";
     data.categoryId = null;
   }
 
-  if (input.categoryId !== undefined && input.mapping !== "MANUAL") {
-    if (!input.categoryId) throw new Error("categoryId requerido para mapping CATEGORY");
-    if (row.mapping !== "CATEGORY" && row.mapping !== "MANUAL") {
-      throw new Error("Solo las filas MANUAL o CATEGORY pueden asignar categoría");
+  if (input.canonicalKey !== undefined) {
+    if (input.canonicalKey) {
+      const clash = await prisma.financeFlowRow.findFirst({
+        where: {
+          tenantId,
+          canonicalKey: input.canonicalKey,
+          archivedAt: null,
+          NOT: { id: rowId },
+        },
+        select: { id: true, name: true },
+      });
+      if (clash) {
+        throw new FlowRowConflictError(
+          `«${clash.name}» ya usa esta llave; una llave alimenta un solo renglón`,
+        );
+      }
+    }
+    data.canonicalKey = input.canonicalKey;
+  }
+
+  if (input.accountPlanIds !== undefined) {
+    if (
+      row.mapping === "ACCOUNT_INSTALLATION" &&
+      input.accountPlanIds.length === 0
+    ) {
+      // Explicit no-op refusal (antes era silencioso al elegir "sin categoría").
+      throw new Error(
+        "Las filas de ingreso por cuenta/programación no usan cuentas de egreso; no hay nada que guardar",
+      );
+    }
+    await setAccountsForRow(tenantId, rowId, input.accountPlanIds);
+    if (input.accountPlanIds.length > 0) {
+      data.mapping = "ACCOUNTS";
+    } else if (row.mapping === "ACCOUNTS" || row.mapping === "CATEGORY") {
+      data.mapping = "MANUAL";
+    }
+  }
+
+  // Legacy: categoryId aún aceptado para espejo hacia atrás.
+  if (input.categoryId !== undefined && input.mapping !== "MANUAL" && input.accountPlanIds === undefined) {
+    if (!input.categoryId) {
+      throw new Error(
+        "Para quitar cuentas usá accountPlanIds: []. Elegir vacío en una fila de ingreso no aplica.",
+      );
     }
     if (
       row.section === "INGRESOS" ||
-      row.section === "OTROS"
+      row.section === "OTROS" ||
+      isBandejaKey(row.canonicalKey)
     ) {
-      // Las secciones de ingreso no usan categorías de egreso.
+      throw new Error(
+        "No se pueden asignar cuentas de egreso a filas de ingresos ni a bandejas",
+      );
     }
     const cat = await prisma.financeCashflowCategory.findFirst({
       where: { id: input.categoryId, tenantId, kind: "EXPENSE" },
@@ -191,9 +337,7 @@ export async function updateRow(
     });
     if (!cat) throw new Error("Categoría de egreso no encontrada");
     data.categoryId = input.categoryId;
-    if (row.mapping === "MANUAL" || input.mapping === "CATEGORY") {
-      data.mapping = "CATEGORY";
-    }
+    data.mapping = "ACCOUNTS";
   }
 
   if (input.section != null && input.section !== row.section) {
@@ -206,8 +350,24 @@ export async function updateRow(
     data.orderIndex = (last?.orderIndex ?? -1) + 1;
   }
 
+  if (Object.keys(data).length === 0 && input.accountPlanIds === undefined) {
+    throw new Error("Nada que actualizar");
+  }
+
   if (Object.keys(data).length > 0) {
-    await prisma.financeFlowRow.update({ where: { id: row.id }, data });
+    try {
+      await prisma.financeFlowRow.update({ where: { id: row.id }, data });
+    } catch (e) {
+      if (
+        e instanceof Prisma.PrismaClientKnownRequestError &&
+        e.code === "P2002"
+      ) {
+        throw new FlowRowConflictError(
+          "Esta llave ya está en uso por otro renglón activo",
+        );
+      }
+      throw e;
+    }
   }
   return prisma.financeFlowRow.findFirstOrThrow({ where: { id: rowId, tenantId } });
 }

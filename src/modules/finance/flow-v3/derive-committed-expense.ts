@@ -2,16 +2,14 @@
  * Derivador COMPROMETIDO · egresos (función pura, cero writes).
  *
  * Fuentes:
- *  1. Hitos payroll/F29 pre-computados por el loader (líquido, quincena,
- *     Previred, IVA F29) → fila por MAPA FIJO: primero fila CATEGORY con el
- *     código canónico, si no fila MANUAL por nombre canónico, si no
- *     "Otros egresos".
- *  2. DTEs RECIBIDOS por pagar → semana de vencimiento (dueDate ?? emisión +
- *     término del proveedor), vencidos clampean a la semana actual. Fila:
- *     SUPPLIER del proveedor → CATEGORY de sus cuentas contables → fallback.
+ *  1. Hitos payroll/F29 → fila por FlowRowKey (canonicalKey), sin fallback
+ *     por nombre.
+ *  2. DTEs RECIBIDOS por pagar → semana de vencimiento. Fila:
+ *     supplierId → accountPlanId (destino por defecto) → bandeja.
  */
 import { weekStartYmd, ymdToDate } from "./weeks";
 import { buildExpenseIndexes, matchExpenseRow } from "./row-match";
+import { MILESTONE_ROW_KEY } from "./row-keys";
 import {
   pushCommitted,
   UNMATCHED_EXPENSE_KEY,
@@ -69,8 +67,10 @@ export interface ReceivedDteExpenseInput {
   paymentTermDays: number;
   pendingClp: number;
   supplierId: string | null;
-  /** Categoría resuelta por el loader (líneas → cuentas → categoría). */
-  categoryId: string | null;
+  /** Primera cuenta de líneas del DTE (loader). */
+  accountPlanId: string | null;
+  /** @deprecated Preferir accountPlanId. */
+  categoryId?: string | null;
   issuerName: string;
 }
 
@@ -80,8 +80,8 @@ export interface CommittedExpenseArgs {
   todayYmd: string;
   milestones: ExpenseMilestoneInput[];
   receivedDtes: ReceivedDteExpenseInput[];
-  /** categoryId → code (para el mapa fijo de hitos). */
-  categoryCodeById: Map<string, string>;
+  /** accountPlanId → rowId (destino por defecto). */
+  accountToRowId?: Map<string, string>;
   /** Proyección semanal TE (v5); semanas sin plan manual en fila TE. */
   teWeeklyProjections?: TeWeeklyProjectionInput[];
   /** rowId de la fila TE — si falta, se omite teWeeklyProjections. */
@@ -91,22 +91,6 @@ export interface CommittedExpenseArgs {
   /** v5.1: reglas PCT_SALES evaluate-on-read por fila. */
   pctSalesProjections?: PctSalesProjectionInput[];
 }
-
-/** Mapa fijo hito → fila canónica (documentado en AUDIT.md §2/B4). */
-const MILESTONE_ROW_MAP: Record<
-  ExpenseMilestoneKey,
-  { categoryCode: string; canonicalNames: string[] }
-> = {
-  liquido: { categoryCode: "EGR_SUELDO", canonicalNames: ["sueldos líquidos", "sueldos liquidos", "sueldos"] },
-  quincena: { categoryCode: "EGR_QUINCENA", canonicalNames: ["quincena (anticipos)", "quincena", "anticipos"] },
-  previred: { categoryCode: "EGR_PREVIRED", canonicalNames: ["imposiciones (previred)", "previred", "imposiciones"] },
-  impuesto_unico: { categoryCode: "EGR_IVA_F29", canonicalNames: ["iva f29", "f29 (iva + ppm)", "f29"] },
-  f29: { categoryCode: "EGR_IVA_F29", canonicalNames: ["iva f29", "f29 (iva + ppm)", "f29"] },
-  turnos_extra: { categoryCode: "EGR_TURNO_EXTRA", canonicalNames: ["turnos extra", "turno extra"] },
-  retiro_socio: { categoryCode: "EGR_RETIRO_SOCIO", canonicalNames: ["retiro socios", "retiro socio"] },
-  finiquitos: { categoryCode: "EGR_FINIQUITO", canonicalNames: ["finiquitos", "finiquito"] },
-  pct_sales: { categoryCode: "__NONE__", canonicalNames: [] },
-};
 
 /** Semana de pago; si venció, clampea a la semana actual (pagable ya). */
 function payWeek(fechaYmd: string, todayYmd: string): string {
@@ -121,7 +105,7 @@ export function deriveCommittedExpense(args: CommittedExpenseArgs): CommittedByR
   const firstWeek = args.weeks[0];
   const lastWeek = args.weeks[args.weeks.length - 1];
   const inRange = (w: string) => w >= firstWeek && w <= lastWeek;
-  const idx = buildExpenseIndexes(args.rows, args.categoryCodeById);
+  const idx = buildExpenseIndexes(args.rows, args.accountToRowId);
 
   for (const m of args.milestones) {
     if (m.amountClp === 0) continue;
@@ -130,12 +114,10 @@ export function deriveCommittedExpense(args: CommittedExpenseArgs): CommittedByR
     // no clampean para no duplicar visualmente contra la semana actual.
     const week = weekStartYmd(ymdToDate(m.dateYmd) ?? new Date());
     if (!inRange(week)) continue;
-    const map = MILESTONE_ROW_MAP[m.key];
+    const key = MILESTONE_ROW_KEY[m.key];
     const rowKey =
       m.targetRowId ??
-      idx.byCategoryCode.get(map.categoryCode) ??
-      map.canonicalNames.map((n) => idx.byName.get(n)).find(Boolean) ??
-      UNMATCHED_EXPENSE_KEY;
+      (key ? matchExpenseRow(idx, { canonicalKey: key }) : UNMATCHED_EXPENSE_KEY);
     const label = m.metaNote ? `${m.label} (${m.metaNote})` : m.label;
     pushCommitted(out, rowKey, week, {
       kind: "scheduled",
@@ -159,12 +141,9 @@ export function deriveCommittedExpense(args: CommittedExpenseArgs): CommittedByR
 
   if (args.teWeeklyProjections?.length && args.teRowId) {
     const blocked = args.tePlanBlockedWeeks ?? new Set<string>();
-    const map = MILESTONE_ROW_MAP.turnos_extra;
     const teRowKey =
       args.teRowId ??
-      idx.byCategoryCode.get(map.categoryCode) ??
-      map.canonicalNames.map((n) => idx.byName.get(n)).find(Boolean) ??
-      UNMATCHED_EXPENSE_KEY;
+      matchExpenseRow(idx, { canonicalKey: "TURNO_EXTRA" });
     for (const te of args.teWeeklyProjections) {
       if (te.amountClp <= 0 || !inRange(te.weekYmd) || blocked.has(te.weekYmd)) continue;
       pushCommitted(out, teRowKey, te.weekYmd, {
@@ -188,7 +167,7 @@ export function deriveCommittedExpense(args: CommittedExpenseArgs): CommittedByR
     if (!inRange(week)) continue;
     const rowKey = matchExpenseRow(idx, {
       supplierId: d.supplierId,
-      categoryId: d.categoryId,
+      accountPlanId: d.accountPlanId,
     });
     pushCommitted(out, rowKey, week, {
       kind: "dte",

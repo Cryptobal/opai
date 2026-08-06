@@ -2,11 +2,15 @@
  * Filas canónicas de la planilla (compartidas por el auto-bootstrap y el
  * reconcile). Archivo puro, sin prisma.
  */
+import type { FlowRowKey } from "@prisma/client";
+
 export interface CanonicalFlowRow {
   section: "INGRESOS" | "REMUNERACIONES" | "IMPUESTOS" | "GAV" | "FINANCIAMIENTO" | "OTROS";
   name: string;
-  /** Categoría del módulo viejo a la que se mapea si el tenant la tiene. */
+  /** @deprecated Preferir canonicalKey. Código legacy para espejo. */
   categoryCode: string | null;
+  /** Llave canónica del renglón (payroll/F29/bandejas). */
+  canonicalKey: FlowRowKey | null;
 }
 
 /** Nombres viejos de fallbacks → nuevos (migración idempotente en reconcile). */
@@ -45,20 +49,19 @@ export function resolveSectionMove(
 }
 
 export const CANONICAL_FLOW_ROWS: CanonicalFlowRow[] = [
-  { section: "INGRESOS", name: FALLBACK_INCOME_NAME, categoryCode: null },
-  { section: "REMUNERACIONES", name: "Sueldos líquidos", categoryCode: "EGR_SUELDO" },
-  { section: "REMUNERACIONES", name: "Quincena (anticipos)", categoryCode: "EGR_QUINCENA" },
-  { section: "REMUNERACIONES", name: "Imposiciones (Previred)", categoryCode: "EGR_PREVIRED" },
-  { section: "REMUNERACIONES", name: "Turnos extra", categoryCode: "EGR_TURNO_EXTRA" },
-  { section: "REMUNERACIONES", name: "Finiquitos", categoryCode: "EGR_FINIQUITO" },
-  { section: "IMPUESTOS", name: "IVA F29", categoryCode: "EGR_IVA_F29" },
-  { section: "GAV", name: FALLBACK_EXPENSE_NAME, categoryCode: null },
-  // Sin código de categoría equivalente aún — el panel Salud las lista.
-  { section: "FINANCIAMIENTO", name: "Créditos / financiamiento", categoryCode: null },
-  { section: "FINANCIAMIENTO", name: "Costo factoring", categoryCode: "EGR_FACTORING" },
-  { section: "FINANCIAMIENTO", name: "Aporte socios", categoryCode: null },
-  { section: "FINANCIAMIENTO", name: "Retiro socios", categoryCode: "EGR_RETIRO_SOCIO" },
-  { section: "FINANCIAMIENTO", name: "Devolución a socios", categoryCode: "EGR_DEVOL_PRESTAMO_SOCIO" },
+  { section: "INGRESOS", name: FALLBACK_INCOME_NAME, categoryCode: null, canonicalKey: "BANDEJA_INGRESO" },
+  { section: "REMUNERACIONES", name: "Sueldos líquidos", categoryCode: "EGR_SUELDO", canonicalKey: "SUELDO" },
+  { section: "REMUNERACIONES", name: "Quincena (anticipos)", categoryCode: "EGR_QUINCENA", canonicalKey: "QUINCENA" },
+  { section: "REMUNERACIONES", name: "Imposiciones (Previred)", categoryCode: "EGR_PREVIRED", canonicalKey: "PREVIRED" },
+  { section: "REMUNERACIONES", name: "Turnos extra", categoryCode: "EGR_TURNO_EXTRA", canonicalKey: "TURNO_EXTRA" },
+  { section: "REMUNERACIONES", name: "Finiquitos", categoryCode: "EGR_FINIQUITO", canonicalKey: "FINIQUITO" },
+  { section: "IMPUESTOS", name: "IVA F29", categoryCode: "EGR_IVA_F29", canonicalKey: "IVA_F29" },
+  { section: "GAV", name: FALLBACK_EXPENSE_NAME, categoryCode: null, canonicalKey: "BANDEJA_EGRESO" },
+  { section: "FINANCIAMIENTO", name: "Créditos / financiamiento", categoryCode: null, canonicalKey: "CREDITO" },
+  { section: "FINANCIAMIENTO", name: "Costo factoring", categoryCode: "EGR_FACTORING", canonicalKey: "FACTORING" },
+  { section: "FINANCIAMIENTO", name: "Aporte socios", categoryCode: null, canonicalKey: "APORTE_SOCIO" },
+  { section: "FINANCIAMIENTO", name: "Retiro socios", categoryCode: "EGR_RETIRO_SOCIO", canonicalKey: "RETIRO_SOCIO" },
+  { section: "FINANCIAMIENTO", name: "Devolución a socios", categoryCode: "EGR_DEVOL_PRESTAMO_SOCIO", canonicalKey: "DEVOL_PRESTAMO_SOCIO" },
 ];
 
 /** Nombre canónico de la fila de merma de cesión (shortfall al conciliar). */

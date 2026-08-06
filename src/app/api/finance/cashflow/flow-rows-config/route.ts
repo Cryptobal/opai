@@ -17,7 +17,19 @@ export const dynamic = "force-dynamic";
 const patchSchema = z.object({
   rowId: z.string().uuid(),
   name: z.string().min(1).max(200).optional(),
-  categoryId: z.string().uuid().nullable().optional(),
+  section: z
+    .enum([
+      "INGRESOS",
+      "REMUNERACIONES",
+      "IMPUESTOS",
+      "GAV",
+      "FINANCIAMIENTO",
+      "OTROS",
+    ])
+    .optional(),
+  accountPlanIds: z.array(z.string().uuid()).max(50).optional(),
+  defaultTargetAccountPlanId: z.string().uuid().nullable().optional(),
+  canonicalKey: z.string().nullable().optional(),
 });
 
 /**
@@ -48,7 +60,7 @@ export async function GET() {
 
 /**
  * PATCH /api/finance/cashflow/flow-rows-config
- * Actualiza nombre o categoría de un renglón.
+ * Actualiza nombre, sección, cuentas o llave canónica de un renglón.
  */
 export async function PATCH(request: NextRequest) {
   try {

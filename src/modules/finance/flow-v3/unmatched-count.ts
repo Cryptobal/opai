@@ -11,8 +11,16 @@ import { formatRut } from "@/lib/chile-rut";
 export function isFallbackBandejaRow(row: {
   isVirtual?: boolean;
   name: string;
+  canonicalKey?: string | null;
 }): boolean {
   if (row.isVirtual) return true;
+  if (
+    row.canonicalKey === "BANDEJA_INGRESO" ||
+    row.canonicalKey === "BANDEJA_EGRESO"
+  ) {
+    return true;
+  }
+  // Compat: filas aún sin backfill de llave (solo por nombre).
   return (
     row.name === FALLBACK_INCOME_NAME ||
     row.name === "Otros clientes" ||

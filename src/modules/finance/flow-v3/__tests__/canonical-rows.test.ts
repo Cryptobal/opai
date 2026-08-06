@@ -27,32 +27,45 @@ describe("SECTION_MOVES", () => {
     expect(RETIRED_CANONICAL_ROW_NAMES).toContain("Devolución préstamo socios");
   });
 
-  it("incluye fila Finiquitos en REMUNERACIONES con EGR_FINIQUITO", () => {
+  it("incluye fila Finiquitos en REMUNERACIONES con EGR_FINIQUITO + FINIQUITO", () => {
     expect(CANONICAL_FLOW_ROWS).toContainEqual({
       section: "REMUNERACIONES",
       name: "Finiquitos",
       categoryCode: "EGR_FINIQUITO",
+      canonicalKey: "FINIQUITO",
     });
   });
 
-  it("incluye Costo factoring en FINANCIAMIENTO con EGR_FACTORING", () => {
+  it("incluye Costo factoring en FINANCIAMIENTO con EGR_FACTORING + FACTORING", () => {
     expect(CANONICAL_FLOW_ROWS).toContainEqual({
       section: "FINANCIAMIENTO",
       name: "Costo factoring",
       categoryCode: "EGR_FACTORING",
+      canonicalKey: "FACTORING",
     });
   });
 
-  it("Retiro y Devolución a socios nacen con categoría", () => {
+  it("Retiro y Devolución a socios nacen con categoría y llave", () => {
     expect(CANONICAL_FLOW_ROWS).toContainEqual({
       section: "FINANCIAMIENTO",
       name: "Retiro socios",
       categoryCode: "EGR_RETIRO_SOCIO",
+      canonicalKey: "RETIRO_SOCIO",
     });
     expect(CANONICAL_FLOW_ROWS).toContainEqual({
       section: "FINANCIAMIENTO",
       name: "Devolución a socios",
       categoryCode: "EGR_DEVOL_PRESTAMO_SOCIO",
+      canonicalKey: "DEVOL_PRESTAMO_SOCIO",
     });
+  });
+
+  it("bandejas tienen canonicalKey propia", () => {
+    expect(CANONICAL_FLOW_ROWS.find((r) => r.name === "Otros ingresos")?.canonicalKey).toBe(
+      "BANDEJA_INGRESO",
+    );
+    expect(CANONICAL_FLOW_ROWS.find((r) => r.name === "Otros egresos")?.canonicalKey).toBe(
+      "BANDEJA_EGRESO",
+    );
   });
 });

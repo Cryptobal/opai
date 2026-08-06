@@ -64,7 +64,126 @@ export function ChangeSectionDialog({
   );
 }
 
-/** Asignar o cambiar la categoría de una fila MANUAL/CATEGORY de egreso. */
+/** Asignar o cambiar las cuentas contables de un renglón de egreso. */
+export function ChangeAccountsDialog({
+  row, busy, onConfirm, onClose,
+}: {
+  row: FlowMatrixRowDto | null;
+  busy: boolean;
+  onConfirm: (accountPlanIds: string[], defaultTargetId?: string | null) => void;
+  onClose: () => void;
+}) {
+  const [accountOptions, setAccountOptions] = useState<Array<{ id: string; code: string; name: string }>>([]);
+  const [selected, setSelected] = useState<string[]>([]);
+  const [defaultTarget, setDefaultTarget] = useState<string>("");
+
+  useEffect(() => {
+    if (!row) return;
+    setSelected([]);
+    setDefaultTarget("");
+    fetch("/api/finance/accounting/accounts", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((j) => {
+        const flat: Array<{ id: string; code: string; name: string }> = [];
+        const walk = (nodes: Array<{ id: string; code: string; name: string; acceptsEntries?: boolean; children?: unknown[] }>) => {
+          for (const n of nodes) {
+            if (n.acceptsEntries !== false) flat.push({ id: n.id, code: n.code, name: n.name });
+            if (Array.isArray(n.children)) walk(n.children as typeof nodes);
+          }
+        };
+        walk((j.data ?? []) as Parameters<typeof walk>[0]);
+        setAccountOptions(flat);
+      })
+      .catch(() => setAccountOptions([]));
+    fetch(`/api/finance/flow-v3/rows/${row.id}/accounts`, { cache: "no-store" })
+      .then((r) => r.json())
+      .then((j) => {
+        const list = (j.data ?? []) as Array<{ accountPlanId: string; isDefaultTarget: boolean }>;
+        const ids = list.map((m) => m.accountPlanId);
+        setSelected(ids);
+        setDefaultTarget(list.find((m) => m.isDefaultTarget)?.accountPlanId ?? ids[0] ?? "");
+      })
+      .catch(() => setSelected([]));
+  }, [row]);
+
+  if (!row) return null;
+
+  const toggle = (id: string) => {
+    setSelected((prev) => {
+      if (prev.includes(id)) {
+        const next = prev.filter((x) => x !== id);
+        if (defaultTarget === id) setDefaultTarget(next[0] ?? "");
+        return next;
+      }
+      const next = [...prev, id];
+      if (!defaultTarget) setDefaultTarget(id);
+      return next;
+    });
+  };
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Cuentas de «{row.name}»</DialogTitle>
+        </DialogHeader>
+        <p className="text-[13px] text-ds-text-3">
+          Sin cuentas contables el renglón no puede recibir movimientos de cartola.
+        </p>
+        <ul className="max-h-[280px] overflow-y-auto space-y-1 border border-ds-border-subtle rounded-ds-md p-2">
+          {accountOptions.map((a) => (
+            <li key={a.id}>
+              <label className="flex items-center gap-2 min-h-11 px-2 text-[13px] cursor-pointer hover:bg-ds-surface-2 rounded-ds-sm">
+                <input
+                  type="checkbox"
+                  checked={selected.includes(a.id)}
+                  onChange={() => toggle(a.id)}
+                />
+                <span className="font-mono text-[12px] text-ds-text-3">{a.code}</span>
+                <span className="truncate">{a.name}</span>
+              </label>
+            </li>
+          ))}
+        </ul>
+        {selected.length > 1 && (
+          <label className="block space-y-1 text-xs text-ds-text-3">
+            <span>Destino por defecto (cartola ambigua)</span>
+            <select
+              className={SELECT_CLASS}
+              value={defaultTarget}
+              onChange={(e) => setDefaultTarget(e.target.value)}
+            >
+              {selected.map((id) => {
+                const a = accountOptions.find((x) => x.id === id);
+                return (
+                  <option key={id} value={id}>
+                    {a ? `${a.code} · ${a.name}` : id}
+                  </option>
+                );
+              })}
+            </select>
+          </label>
+        )}
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Cancelar</Button>
+          <Button
+            disabled={busy || selected.length === 0}
+            onClick={() =>
+              onConfirm(
+                selected,
+                selected.length > 1 ? defaultTarget || selected[0] : null,
+              )
+            }
+          >
+            {busy ? "Guardando…" : "Guardar cuentas"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/** @deprecated Usar ChangeAccountsDialog. Conservado para compatibilidad temporal. */
 export function ChangeCategoryDialog({
   row, busy, onConfirm, onClose,
 }: {

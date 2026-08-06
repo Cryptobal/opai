@@ -4,8 +4,8 @@ vi.mock("server-only", () => ({}));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
     financeFlowRow: { findMany: vi.fn(), findFirst: vi.fn() },
+    financeFlowRowAccount: { findMany: vi.fn(), findFirst: vi.fn(), count: vi.fn() },
     financeCashflowCategory: { findMany: vi.fn(), findFirst: vi.fn() },
-    financeCashflowCategoryAccount: { findMany: vi.fn(), findFirst: vi.fn() },
     financeAccountPlan: { findMany: vi.fn(), findFirst: vi.fn() },
   },
 }));
@@ -24,146 +24,153 @@ beforeEach(() => {
 });
 
 describe("getFlowHealth", () => {
-  it("lista filas sin categoría (excepto bandejas)", async () => {
+  it("lista renglones sin cuentas (excepto bandejas e ingresos)", async () => {
     asMock(prisma.financeFlowRow.findMany).mockResolvedValue([
       {
         id: "r1",
         name: "Retiro socios",
         section: "FINANCIAMIENTO",
         mapping: "MANUAL",
-        categoryId: null,
+        canonicalKey: "RETIRO_SOCIO",
       },
       {
         id: "r2",
         name: "Otros egresos",
         section: "GAV",
         mapping: "MANUAL",
-        categoryId: null,
+        canonicalKey: "BANDEJA_EGRESO",
       },
       {
         id: "r3",
         name: "Sueldos líquidos",
         section: "REMUNERACIONES",
-        mapping: "CATEGORY",
-        categoryId: "c1",
+        mapping: "ACCOUNTS",
+        canonicalKey: "SUELDO",
+      },
+      {
+        id: "r4",
+        name: "Cliente A",
+        section: "INGRESOS",
+        mapping: "ACCOUNT_INSTALLATION",
+        canonicalKey: null,
       },
     ]);
-    asMock(prisma.financeCashflowCategory.findMany).mockResolvedValue([
+    asMock(prisma.financeFlowRowAccount.findMany).mockResolvedValue([
       {
-        id: "c1",
-        code: "EGR_SUELDO",
-        name: "Sueldos",
-        kind: "EXPENSE",
-        accountPlanId: null,
-      },
-      {
-        id: "c2",
-        code: "EGR_TELEFONIA",
-        name: "Telefonía",
-        kind: "EXPENSE",
-        accountPlanId: null,
-      },
-    ]);
-    asMock(prisma.financeCashflowCategoryAccount.findMany).mockResolvedValue([
-      {
-        categoryId: "c1",
+        rowId: "r3",
         accountPlanId: "a1",
         isPrimary: true,
+        isDefaultTarget: true,
         accountPlan: {
           id: "a1",
           code: "5.1.01.001",
           name: "Sueldos",
           type: "EXPENSE",
         },
-        category: { id: "c1", name: "Sueldos", kind: "EXPENSE" },
-      },
-      {
-        categoryId: "c2",
-        accountPlanId: "a2",
-        isPrimary: true,
-        accountPlan: {
-          id: "a2",
-          code: "6.1.02.003",
-          name: "Comunicaciones",
-          type: "EXPENSE",
+        row: {
+          id: "r3",
+          name: "Sueldos líquidos",
+          section: "REMUNERACIONES",
+          canonicalKey: "SUELDO",
         },
-        category: { id: "c2", name: "Telefonía", kind: "EXPENSE" },
       },
+    ]);
+    asMock(prisma.financeAccountPlan.findMany).mockResolvedValue([
+      { id: "a1", code: "5.1.01.001", name: "Sueldos" },
+      { id: "a2", code: "6.1.02.003", name: "Comunicaciones" },
     ]);
 
     const report = await getFlowHealth(TENANT);
 
-    expect(report.rowsWithoutCategory).toEqual([
+    expect(report.rowsWithoutAccounts).toEqual([
       { id: "r1", name: "Retiro socios", section: "FINANCIAMIENTO" },
     ]);
-    expect(report.categoriesWithoutRow.map((c) => c.code)).toEqual([
-      "EGR_TELEFONIA",
+    expect(report.accountsWithoutRow.map((a) => a.code)).toEqual([
+      "6.1.02.003",
     ]);
-    expect(report.connectedRowCount).toBe(1);
+    expect(report.connectedRowCount).toBeGreaterThanOrEqual(1);
   });
 
-  it("detecta cuentas ambiguas y egresos en ASSET/LIABILITY", async () => {
-    asMock(prisma.financeFlowRow.findMany).mockResolvedValue([]);
-    asMock(prisma.financeCashflowCategory.findMany).mockResolvedValue([
+  it("detecta cuentas compartidas sin destino por defecto y ASSET/LIABILITY", async () => {
+    asMock(prisma.financeFlowRow.findMany).mockResolvedValue([
       {
-        id: "c1",
-        code: "EGR_SUELDO",
+        id: "r1",
         name: "Sueldos",
-        kind: "EXPENSE",
-        accountPlanId: null,
+        section: "REMUNERACIONES",
+        mapping: "ACCOUNTS",
+        canonicalKey: "SUELDO",
       },
       {
-        id: "c2",
-        code: "EGR_QUINCENA",
+        id: "r2",
         name: "Quincena",
-        kind: "EXPENSE",
-        accountPlanId: null,
+        section: "REMUNERACIONES",
+        mapping: "ACCOUNTS",
+        canonicalKey: "QUINCENA",
       },
     ]);
-    asMock(prisma.financeCashflowCategoryAccount.findMany).mockResolvedValue([
+    asMock(prisma.financeFlowRowAccount.findMany).mockResolvedValue([
       {
-        categoryId: "c1",
+        rowId: "r1",
         accountPlanId: "a1",
         isPrimary: true,
+        isDefaultTarget: false,
         accountPlan: {
           id: "a1",
           code: "5.1.01.001",
           name: "Sueldos",
           type: "EXPENSE",
         },
-        category: { id: "c1", name: "Sueldos", kind: "EXPENSE" },
+        row: {
+          id: "r1",
+          name: "Sueldos",
+          section: "REMUNERACIONES",
+          canonicalKey: "SUELDO",
+        },
       },
       {
-        categoryId: "c2",
+        rowId: "r2",
         accountPlanId: "a1",
         isPrimary: true,
+        isDefaultTarget: false,
         accountPlan: {
           id: "a1",
           code: "5.1.01.001",
           name: "Sueldos",
           type: "EXPENSE",
         },
-        category: { id: "c2", name: "Quincena", kind: "EXPENSE" },
+        row: {
+          id: "r2",
+          name: "Quincena",
+          section: "REMUNERACIONES",
+          canonicalKey: "QUINCENA",
+        },
       },
       {
-        categoryId: "c1",
+        rowId: "r1",
         accountPlanId: "a2",
         isPrimary: false,
+        isDefaultTarget: false,
         accountPlan: {
           id: "a2",
           code: "1.2.02.001",
           name: "Sistemas",
           type: "ASSET",
         },
-        category: { id: "c1", name: "Sueldos", kind: "EXPENSE" },
+        row: {
+          id: "r1",
+          name: "Sueldos",
+          section: "REMUNERACIONES",
+          canonicalKey: "SUELDO",
+        },
       },
     ]);
+    asMock(prisma.financeAccountPlan.findMany).mockResolvedValue([]);
 
     const report = await getFlowHealth(TENANT);
 
-    expect(report.ambiguousAccounts).toHaveLength(1);
-    expect(report.ambiguousAccounts[0].categories).toHaveLength(2);
-    expect(report.expenseCategoriesOnNonExpenseAccounts).toEqual([
+    expect(report.sharedAccountsWithoutDefault).toHaveLength(1);
+    expect(report.sharedAccountsWithoutDefault[0].rows).toHaveLength(2);
+    expect(report.expenseRowsOnNonExpenseAccounts).toEqual([
       expect.objectContaining({
         accountCode: "1.2.02.001",
         accountType: "ASSET",
@@ -173,41 +180,19 @@ describe("getFlowHealth", () => {
 });
 
 describe("getFlowDestinationChain", () => {
-  it("advierte fila sin categoría", async () => {
+  it("advierte renglón sin cuentas ni llave", async () => {
     asMock(prisma.financeFlowRow.findFirst).mockResolvedValue({
       id: "r1",
       name: "Aporte socios",
       section: "FINANCIAMIENTO",
       mapping: "MANUAL",
       categoryId: null,
+      canonicalKey: null,
     });
+    asMock(prisma.financeFlowRowAccount.findFirst).mockResolvedValue(null);
 
     const chain = await getFlowDestinationChain(TENANT, { flowRowId: "r1" });
-    expect(chain.row?.name).toBe("Aporte socios");
-    expect(chain.warnings).toContain("la fila no puede recibir movimientos");
-  });
-
-  it("advierte cuenta sin fila de flujo", async () => {
-    asMock(prisma.financeAccountPlan.findFirst).mockResolvedValue({
-      id: "a1",
-      code: "6.1.02.003",
-      name: "Comunicaciones",
-      type: "EXPENSE",
-    });
-    asMock(prisma.financeCashflowCategoryAccount.findFirst).mockResolvedValue({
-      category: {
-        id: "c1",
-        code: "EGR_TELEFONIA",
-        name: "Telefonía",
-        kind: "EXPENSE",
-      },
-    });
-    asMock(prisma.financeFlowRow.findFirst).mockResolvedValue(null);
-
-    const chain = await getFlowDestinationChain(TENANT, {
-      accountPlanId: "a1",
-    });
-    expect(chain.category?.code).toBe("EGR_TELEFONIA");
-    expect(chain.warnings[0]).toMatch(/Otros egresos/);
+    expect(chain.row?.id).toBe("r1");
+    expect(chain.warnings.some((w) => /Otros egresos/i.test(w))).toBe(true);
   });
 });

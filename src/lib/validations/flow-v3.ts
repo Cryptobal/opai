@@ -17,14 +17,40 @@ export const flowMatrixQuerySchema = z.object({
   horizon: z.enum(["week", "month"]).default("week"),
 });
 
+export const flowRowKeySchema = z.enum([
+  "BANDEJA_INGRESO",
+  "BANDEJA_EGRESO",
+  "SUELDO",
+  "QUINCENA",
+  "PREVIRED",
+  "TURNO_EXTRA",
+  "FINIQUITO",
+  "IVA_F29",
+  "OTRO_IMPUESTO",
+  "FACTORING",
+  "RETIRO_SOCIO",
+  "DEVOL_PRESTAMO_SOCIO",
+  "APORTE_SOCIO",
+  "CREDITO",
+]);
+
 export const flowRowCreateSchema = z
   .object({
     section: flowSectionSchema,
     name: z.string().trim().min(1).max(120),
-    mapping: z.enum(["ACCOUNT_INSTALLATION", "CATEGORY", "SUPPLIER", "MANUAL"]),
+    mapping: z.enum([
+      "ACCOUNT_INSTALLATION",
+      "ACCOUNTS",
+      "CATEGORY",
+      "SUPPLIER",
+      "MANUAL",
+    ]),
     crmAccountId: z.string().uuid().nullish(),
     installationId: z.string().uuid().nullish(),
     recurringTemplateId: z.string().uuid().nullish(),
+    accountPlanIds: z.array(z.string().uuid()).max(50).optional(),
+    canonicalKey: flowRowKeySchema.nullish(),
+    /** @deprecated Preferir accountPlanIds. */
     categoryId: z.string().uuid().nullish(),
     supplierId: z.string().uuid().nullish(),
   })
@@ -33,9 +59,6 @@ export const flowRowCreateSchema = z
   })
   .refine((v) => !v.recurringTemplateId || v.mapping === "ACCOUNT_INSTALLATION", {
     message: "recurringTemplateId solo aplica a mapping ACCOUNT_INSTALLATION",
-  })
-  .refine((v) => v.mapping !== "CATEGORY" || !!v.categoryId, {
-    message: "categoryId requerido para mapping CATEGORY",
   })
   .refine((v) => v.mapping !== "SUPPLIER" || !!v.supplierId, {
     message: "supplierId requerido para mapping SUPPLIER",
@@ -49,20 +72,22 @@ export const flowRowUpdateSchema = z
   .object({
     name: z.string().trim().min(1).max(120).optional(),
     section: flowSectionSchema.optional(),
+    accountPlanIds: z.array(z.string().uuid()).max(50).optional(),
+    canonicalKey: flowRowKeySchema.nullish(),
+    /** @deprecated Preferir accountPlanIds. */
     categoryId: z.string().uuid().optional(),
-    mapping: z.enum(["CATEGORY", "MANUAL"]).optional(),
+    mapping: z.enum(["ACCOUNTS", "CATEGORY", "MANUAL"]).optional(),
   })
   .refine(
     (v) =>
       v.name != null ||
       v.section != null ||
+      v.accountPlanIds != null ||
+      v.canonicalKey !== undefined ||
       v.categoryId != null ||
       v.mapping != null,
     { message: "Nada que actualizar" },
-  )
-  .refine((v) => v.mapping !== "CATEGORY" || !!v.categoryId, {
-    message: "categoryId requerido al pasar a mapping CATEGORY",
-  });
+  );
 
 export const flowRowReorderSchema = z.object({
   section: flowSectionSchema,

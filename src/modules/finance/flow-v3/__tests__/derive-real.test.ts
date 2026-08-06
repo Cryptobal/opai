@@ -14,13 +14,18 @@ const WEEKS = enumerateWeeks(
 
 const ROWS: FlowRowRef[] = [
   { id: "row-cliA", name: "Cliente A", crmAccountId: "acc-A", installationId: null, categoryId: null, supplierId: null, mapping: "ACCOUNT_INSTALLATION", section: "INGRESOS" },
-  { id: "row-arriendo", name: "Arriendo", crmAccountId: null, installationId: null, categoryId: "cat-arr", supplierId: null, section: "GAV" },
-  { id: "row-sueldos", name: "Sueldos líquidos", crmAccountId: null, installationId: null, categoryId: "cat-sueldo", supplierId: null, section: "REMUNERACIONES" },
-  { id: "row-costo-fact", name: "Costo factoring", crmAccountId: null, installationId: null, categoryId: null, supplierId: null, mapping: "MANUAL", section: "FINANCIAMIENTO" },
+  { id: "row-arriendo", name: "Arriendo", crmAccountId: null, installationId: null, categoryId: null, canonicalKey: null, accountPlanIds: ["plan-arr"], supplierId: null, section: "GAV", mapping: "ACCOUNTS" },
+  { id: "row-sueldos", name: "Sueldos líquidos", crmAccountId: null, installationId: null, categoryId: null, canonicalKey: "SUELDO", accountPlanIds: ["plan-rem"], supplierId: null, section: "REMUNERACIONES", mapping: "ACCOUNTS" },
+  { id: "row-quincena", name: "Quincena", crmAccountId: null, installationId: null, categoryId: null, canonicalKey: "QUINCENA", accountPlanIds: ["plan-rem"], supplierId: null, section: "REMUNERACIONES", mapping: "ACCOUNTS" },
+  { id: "row-te", name: "Turnos extra", crmAccountId: null, installationId: null, categoryId: null, canonicalKey: "TURNO_EXTRA", accountPlanIds: ["plan-rem"], supplierId: null, section: "REMUNERACIONES", mapping: "ACCOUNTS" },
+  { id: "row-finiquito", name: "Finiquitos", crmAccountId: null, installationId: null, categoryId: null, canonicalKey: "FINIQUITO", accountPlanIds: ["plan-rem"], supplierId: null, section: "REMUNERACIONES", mapping: "ACCOUNTS" },
+  { id: "row-costo-fact", name: "Costo factoring", crmAccountId: null, installationId: null, categoryId: null, canonicalKey: "FACTORING", supplierId: null, mapping: "MANUAL", section: "FINANCIAMIENTO" },
 ];
-const CODES = new Map([
-  ["cat-arr", "EGR_ARRIENDO"],
-  ["cat-sueldo", "EGR_SUELDO"],
+
+/** Cuenta compartida: destino por defecto = sueldos (isDefaultTarget). */
+const ACCOUNT_TO_ROW = new Map([
+  ["plan-arr", "row-arriendo"],
+  ["plan-rem", "row-sueldos"],
 ]);
 
 function tx(over: Partial<RealTxInput>): RealTxInput {
@@ -31,21 +36,19 @@ const base = {
   rows: ROWS,
   weeks: WEEKS,
   dteById: new Map<string, DteRefInput>(),
-  categoryIdByAccountPlanId: new Map<string, string>(),
-  categoryCodeById: CODES,
+  accountToRowId: ACCOUNT_TO_ROW,
 };
 
 describe("deriveReal", () => {
   it("abono conciliado a DTE emitido cae en la fila de la cuenta, semana del movimiento", () => {
     const dteById = new Map<string, DteRefInput>([
-      ["dte-1", { folio: 321, direction: "ISSUED", crmAccountId: "acc-A", installationId: null, supplierId: null, categoryId: null, name: "Cliente A" }],
+      ["dte-1", { folio: 321, direction: "ISSUED", crmAccountId: "acc-A", installationId: null, supplierId: null, name: "Cliente A" }],
     ]);
     const out = deriveReal({
       ...base,
       dteById,
       txs: [tx({ links: [{ targetType: "DTE_ISSUED", targetId: "dte-1", amountClp: 1_000_000, accountPlanId: null }] })],
     });
-    // 15-jul-2026 (miércoles) → semana lunes 13-jul
     const cell = out.get("row-cliA")?.get("2026-07-13");
     expect(cell?.total).toBe(1_000_000);
     expect(cell?.items[0]).toMatchObject({ folio: 321, bankTransactionId: "tx-1" });
@@ -56,7 +59,7 @@ describe("deriveReal", () => {
     const dteById = new Map<string, DteRefInput>([
       ["dte-ced", {
         folio: 555, direction: "ISSUED", crmAccountId: "acc-A", installationId: null,
-        supplierId: null, categoryId: null, name: "Bienestar", ceded: true,
+        supplierId: null, name: "Bienestar", ceded: true,
       }],
     ]);
     const out = deriveReal({
@@ -72,10 +75,9 @@ describe("deriveReal", () => {
     });
   });
 
-  it("cargo con link EXPENSE rutea por cuenta contable → categoría → fila", () => {
+  it("cargo con link EXPENSE rutea por cuenta contable → renglón", () => {
     const out = deriveReal({
       ...base,
-      categoryIdByAccountPlanId: new Map([["plan-arr", "cat-arr"]]),
       txs: [tx({
         amountClp: -450_000,
         links: [{ targetType: "EXPENSE", targetId: null, amountClp: 450_000, accountPlanId: "plan-arr" }],
@@ -84,12 +86,26 @@ describe("deriveReal", () => {
     expect(out.get("row-arriendo")?.get("2026-07-13")?.total).toBe(-450_000);
   });
 
-  it("cargo PAYROLL_LIQUIDACION usa el atajo EGR_SUELDO", () => {
+  it("cuenta compartida por 4 renglones rutea al isDefaultTarget (sueldos)", () => {
+    const out = deriveReal({
+      ...base,
+      txs: [tx({
+        amountClp: -100_000,
+        links: [{ targetType: "EXPENSE", targetId: null, amountClp: 100_000, accountPlanId: "plan-rem" }],
+      })],
+    });
+    expect(out.get("row-sueldos")?.get("2026-07-13")?.total).toBe(-100_000);
+    expect(out.get("row-quincena")).toBeUndefined();
+    expect(out.get("row-te")).toBeUndefined();
+    expect(out.get("row-finiquito")).toBeUndefined();
+  });
+
+  it("cargo PAYROLL_LIQUIDACION usa canonicalKey SUELDO aunque comparta cuenta", () => {
     const out = deriveReal({
       ...base,
       txs: [tx({
         amountClp: -2_000_000,
-        links: [{ targetType: "PAYROLL_LIQUIDACION", targetId: "liq-1", amountClp: 2_000_000, accountPlanId: null }],
+        links: [{ targetType: "PAYROLL_LIQUIDACION", targetId: "liq-1", amountClp: 2_000_000, accountPlanId: "plan-rem" }],
       })],
     });
     expect(out.get("row-sueldos")?.get("2026-07-13")?.total).toBe(-2_000_000);
@@ -109,7 +125,7 @@ describe("deriveReal", () => {
 
   it("remanente de abono parcialmente conciliado NO va a Otros ingresos", () => {
     const dteById = new Map<string, DteRefInput>([
-      ["dte-2", { folio: 400, direction: "ISSUED", crmAccountId: "acc-A", installationId: null, supplierId: null, categoryId: null, name: "Cliente A" }],
+      ["dte-2", { folio: 400, direction: "ISSUED", crmAccountId: "acc-A", installationId: null, supplierId: null, name: "Cliente A" }],
     ]);
     const out = deriveReal({
       ...base,
@@ -133,7 +149,6 @@ describe("deriveReal", () => {
         links: [
           { targetType: "FACTORING_OPERATION", targetId: "op-1", amountClp: 4_000_000, accountPlanId: null },
           { targetType: "FACTORING_OPERATION", targetId: "op-2", amountClp: 5_000_000, accountPlanId: null },
-          // Merma contable (fuera del cupo bancario).
           { targetType: "EXPENSE", targetId: null, amountClp: 1_000_000, accountPlanId: "plan-factor" },
         ],
       })],
@@ -147,7 +162,7 @@ describe("deriveReal", () => {
 
   it("DTE_ISSUED sin fila de cuenta no cae en Otros ingresos", () => {
     const dteById = new Map<string, DteRefInput>([
-      ["dte-x", { folio: 1, direction: "ISSUED", crmAccountId: "acc-Z", installationId: null, supplierId: null, categoryId: null, name: "Desconocido" }],
+      ["dte-x", { folio: 1, direction: "ISSUED", crmAccountId: "acc-Z", installationId: null, supplierId: null, name: "Desconocido" }],
     ]);
     const out = deriveReal({
       ...base,
@@ -164,7 +179,7 @@ describe("deriveReal", () => {
     const dteById = new Map<string, DteRefInput>([
       ["dte-oi", {
         folio: 77, direction: "ISSUED", crmAccountId: "acc-Z", installationId: null,
-        supplierId: null, categoryId: null, name: "Esporádico",
+        supplierId: null, name: "Esporádico",
         flowRouting: "OTHER_INCOME",
       }],
     ]);
@@ -182,7 +197,7 @@ describe("deriveReal", () => {
     const dteById = new Map<string, DteRefInput>([
       ["dte-oi2", {
         folio: 78, direction: "ISSUED", crmAccountId: "acc-A", installationId: null,
-        supplierId: null, categoryId: null, name: "Cliente A",
+        supplierId: null, name: "Cliente A",
         flowRouting: "OTHER_INCOME",
       }],
     ]);
