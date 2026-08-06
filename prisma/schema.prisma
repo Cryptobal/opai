@@ -7979,12 +7979,31 @@ model FinanceBankTransactionLink {
   accountPlanId     String?                @map("account_plan_id") @db.Uuid
   accountPlan       FinanceAccountPlan?    @relation("BankTxLinkAccountPlan", fields: [accountPlanId], references: [id])
   note              String?
+  /// Regla que originó el link (referencia suelta, sin FK: la regla puede borrarse).
+  matchedByRuleId   String?                @map("matched_by_rule_id") @db.Uuid
+  /// Procedencia estructurada del vínculo (RULE, DTE, PAYROLL, etc.).
+  matchSource       FinanceLinkMatchSource? @map("match_source")
   createdById       String?                @map("created_by")
   createdAt         DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
 
   @@index([tenantId, bankTransactionId], map: "idx_finance_bank_link_tx")
   @@index([targetType, targetId], map: "idx_finance_bank_link_target")
+  @@index([tenantId, matchedByRuleId], map: "idx_finance_bank_link_matched_rule")
+  @@index([tenantId, matchSource], map: "idx_finance_bank_link_match_source")
   @@map("finance_bank_transaction_links")
+  @@schema("finance")
+}
+
+/// Origen de un vínculo bancario (quién/qué creó la conciliación).
+enum FinanceLinkMatchSource {
+  RULE
+  DTE
+  TURNO_EXTRA
+  PAYROLL
+  FINIQUITO
+  INFERRED
+  MANUAL
+
   @@schema("finance")
 }
 
