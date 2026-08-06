@@ -56,7 +56,12 @@ export function usePlanillaActions(refetch: () => void) {
 
   /** Edita sección/categoría (o nombre) de una fila. */
   const updateRow = useCallback(
-    (rowId: string, body: { name?: string; section?: string; categoryId?: string }) =>
+    (rowId: string, body: {
+      name?: string;
+      section?: string;
+      categoryId?: string;
+      mapping?: "CATEGORY" | "MANUAL";
+    }) =>
       run(
         () =>
           api(`/api/finance/flow-v3/rows/${rowId}`, {

@@ -44,13 +44,14 @@ const previewSchema = z.object({
     mode: z.enum(["ALL", "ANY"]),
     items: z.array(conditionItemSchema).min(1),
   }),
-  daysBack: z.number().int().min(1).max(180).optional(),
+  /** Ventanas soportadas por la UI de vista previa. */
+  daysBack: z.union([z.literal(30), z.literal(90), z.literal(180)]).optional(),
 });
 
 /**
  * POST /api/finance/banking/automatch-rules/preview
- * Cuenta cuántos movimientos en los últimos N días habría matcheado una
- * regla con las conditions dadas. No persiste nada.
+ * Cuenta cuántos movimientos en los últimos N días (30/90/180) habría
+ * matcheado una regla con las conditions dadas. No persiste nada.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -70,7 +71,7 @@ export async function POST(request: NextRequest) {
       parsed.data.bankAccountId ?? null,
       parsed.data.appliesTo,
       parsed.data.conditions as RuleConditions,
-      parsed.data.daysBack ?? 30
+      parsed.data.daysBack ?? 30,
     );
     return NextResponse.json({ success: true, data: result });
   } catch (error) {

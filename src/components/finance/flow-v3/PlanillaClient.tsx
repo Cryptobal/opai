@@ -27,6 +27,7 @@ import {
 import { fmtClp, parseSignedAmount } from "./format";
 import { PanelView } from "./PanelView";
 import { IssuedDteSlideOver } from "@/components/finance/dtes/IssuedDteSlideOver";
+import { summarizeBandejaRow } from "@/modules/finance/flow-v3/unmatched-count";
 
 const ZEROS_PREF_KEY = "opai-planilla-show-zeros";
 
@@ -141,8 +142,25 @@ export function PlanillaClient({
 
   const gridScrollRef = useRef<HTMLDivElement | null>(null);
   const collapseApiRef = useRef<{ expandAll: () => void; collapseAll: () => void } | null>(null);
+  const bandejaApiRef = useRef<{
+    openUnmatchedAssigner: (section: string) => void;
+  } | null>(null);
+  const [bandejaOpenReq, setBandejaOpenReq] = useState(0);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const pendingScrollToCurrent = useRef(false);
+
+  const egresosPendientesCount = useMemo(
+    () => (m.data ? summarizeBandejaRow(m.data.rows, "GAV").itemCount : 0),
+    [m.data],
+  );
+  const openClassifyEgresos = useCallback(() => {
+    setViewTab("planilla");
+    if (bandejaApiRef.current) {
+      bandejaApiRef.current.openUnmatchedAssigner("GAV");
+      return;
+    }
+    setBandejaOpenReq((n) => n + 1);
+  }, []);
 
   const nav = (dir: -1 | 1) => {
     const el = gridScrollRef.current;
@@ -510,6 +528,8 @@ export function PlanillaClient({
         onCollapse={() => collapseApiRef.current?.collapseAll()}
         onSortByAmount={cycleAmountSort}
         sortByAmountLabel={`Ordenar por montos de ${sortWeekLabel}`}
+        onClassifyEgresos={openClassifyEgresos}
+        egresosPendientesCount={egresosPendientesCount}
       />
 
       <PlanillaToolbar
@@ -555,6 +575,8 @@ export function PlanillaClient({
         onAdd={() => openAddDialog()}
         onCloseWeek={() => setCloseOpen(true)}
         onLegend={() => setLegendOpen(true)}
+        egresosPendientesCount={egresosPendientesCount}
+        onClassifyEgresos={openClassifyEgresos}
         sumMode={sumMode}
         onToggleSumMode={() => {
           setSumMode((v) => {
@@ -650,6 +672,8 @@ export function PlanillaClient({
               onSelectionChange={onSelectionChange}
               searchQuery={searchQuery}
               collapseApiRef={collapseApiRef}
+              bandejaApiRef={bandejaApiRef}
+              openBandejaRequest={bandejaOpenReq}
               openLayersRequest={layersReq}
               onCopyRange={(tsv) => void doCopyTsv(tsv)}
               nameW={view.prefs.nameW}

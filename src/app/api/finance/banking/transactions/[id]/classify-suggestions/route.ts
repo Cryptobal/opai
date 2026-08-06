@@ -21,9 +21,18 @@ import {
   type ClassifySuggestion,
 } from "@/modules/finance/banking/flow-classify.service";
 import { extractCanonicalRutFromBankText } from "@/modules/finance/banking/rut-extract";
+import { recognizeRutsForTransactions } from "@/modules/finance/banking/rut-recognition.service";
+import { loadPayrollCandidates } from "@/modules/finance/banking/payroll-candidates.service";
+import {
+  resolvePayrollFlowRows,
+  resolveSupplierCategoryRow,
+} from "@/modules/finance/banking/classify-flow-rows";
 import { resolveAccountPlanIdForFlowRow } from "@/modules/finance/banking/flow-row-account-plan.service";
 import { setTransactionLinks } from "@/modules/finance/banking/bank-tx-link.service";
 import { normalizeNameForDedupe } from "@/modules/finance/flow-v3/row-visibility";
+
+/** Ventana por defecto para liquidaciones/anticipos en la cascada. */
+const PAYROLL_WINDOW_DAYS = 120;
 
 const classifyBodySchema = z.object({
   kind: z.literal("FLOW_ROW"),
@@ -73,17 +82,42 @@ export async function GET(
 
     const amount = Number(tx.amount);
     const amountAbs = Math.abs(amount);
-    const rutFromText =
-      extractCanonicalRutFromBankText(tx.description ?? "") ??
-      extractCanonicalRutFromBankText(tx.reference ?? "");
-    const beneficiaryRut = normalizeClassifyRut(rutFromText);
 
-    const evaluation = await findMatchingRule(ctx.tenantId, {
-      amount,
-      description: tx.description ?? "",
-      reference: tx.reference,
-    });
-    let ruleHit: { flowRowId: string; label: string; requiresReview: boolean } | null = null;
+    const [identityMap, cfg, evaluation, payrollRows] = await Promise.all([
+      recognizeRutsForTransactions(ctx.tenantId, [
+        {
+          id: tx.id,
+          description: tx.description ?? null,
+          reference: tx.reference ?? null,
+        },
+      ]),
+      prisma.financeCashflowConfig.findUnique({
+        where: { tenantId: ctx.tenantId },
+        select: { matchAmountToleranceClp: true },
+      }),
+      findMatchingRule(ctx.tenantId, {
+        amount,
+        description: tx.description ?? "",
+        reference: tx.reference,
+      }),
+      resolvePayrollFlowRows(ctx.tenantId),
+    ]);
+
+    const identity = identityMap.get(tx.id);
+    const beneficiaryRut =
+      normalizeClassifyRut(identity?.rut) ??
+      normalizeClassifyRut(
+        extractCanonicalRutFromBankText(tx.description ?? "") ??
+          extractCanonicalRutFromBankText(tx.reference ?? ""),
+      );
+    const tol = cfg?.matchAmountToleranceClp ?? 5000;
+
+    let ruleHit: {
+      flowRowId: string;
+      label: string;
+      requiresReview: boolean;
+      ruleName?: string;
+    } | null = null;
     const flowSug = flowRowSuggestionFromEvaluation(evaluation);
     if (flowSug) {
       const row = await prisma.financeFlowRow.findFirst({
@@ -95,32 +129,40 @@ export async function GET(
           flowRowId: row.id,
           label: row.name,
           requiresReview: flowSug.requiresReview,
+          ruleName: flowSug.ruleName,
         };
       }
     } else if (evaluation && isFlowRowAction(evaluation.action)) {
       // already handled
     }
 
-    const teRow = await prisma.financeFlowRow.findFirst({
-      where: {
-        tenantId: ctx.tenantId,
-        archivedAt: null,
-        OR: [
-          { name: { equals: "Turnos extra", mode: "insensitive" } },
-          { name: { equals: "Turno extra", mode: "insensitive" } },
-        ],
-      },
-      select: { id: true, name: true },
-    });
+    const payrollCandidates =
+      identity?.kind === "guardia" && identity.entityId
+        ? (
+            await loadPayrollCandidates(
+              ctx.tenantId,
+              [identity.entityId],
+              PAYROLL_WINDOW_DAYS,
+            )
+          ).get(identity.entityId) ?? []
+        : [];
+
+    let supplierCategoryRow: { flowRowId: string; label: string } | null = null;
+    let supplierCategoryName: string | null = null;
+    if (identity?.kind === "supplier" && identity.entityId) {
+      const resolved = await resolveSupplierCategoryRow(
+        ctx.tenantId,
+        identity.entityId,
+      );
+      if (resolved) {
+        supplierCategoryRow = resolved.row;
+        supplierCategoryName = resolved.categoryName;
+      }
+    }
 
     // DTE recibido pendiente por RUT emisor + monto ± tolerancia.
     let dteReceived: { dteId: string; label: string } | null = null;
     if (beneficiaryRut && amount < 0) {
-      const cfg = await prisma.financeCashflowConfig.findUnique({
-        where: { tenantId: ctx.tenantId },
-        select: { matchAmountToleranceClp: true },
-      });
-      const tol = cfg?.matchAmountToleranceClp ?? 5000;
       const pending = await prisma.financeDte.findMany({
         where: {
           tenantId: ctx.tenantId,
@@ -152,10 +194,17 @@ export async function GET(
     const suggestions: ClassifySuggestion[] = rankClassifySuggestions({
       beneficiaryRut,
       amountAbs,
+      amountToleranceClp: tol,
       ruleHit,
-      teRowId: teRow?.id ?? null,
-      teRowLabel: teRow?.name,
-      payrollItem: null,
+      guardiaState: identity?.guardiaState ?? null,
+      payrollCandidates,
+      liquidacionRow: payrollRows.liquidacionRow,
+      anticipoRow: payrollRows.anticipoRow,
+      finiquitoRow: payrollRows.finiquitoRow,
+      teRowId: payrollRows.teRow?.flowRowId ?? null,
+      teRowLabel: payrollRows.teRow?.label,
+      supplierCategoryRow,
+      supplierCategoryName,
       dteReceived,
     });
 
@@ -165,6 +214,14 @@ export async function GET(
         transactionId: tx.id,
         beneficiaryRut,
         amountAbs,
+        identity: identity
+          ? {
+              kind: identity.kind,
+              name: identity.entityName,
+              guardiaState: identity.guardiaState ?? null,
+              alsoRegisteredAs: identity.alsoRegisteredAs,
+            }
+          : null,
         suggestions,
       },
     });

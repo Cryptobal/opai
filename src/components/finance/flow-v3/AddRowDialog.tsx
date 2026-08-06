@@ -27,6 +27,10 @@ interface Props {
    * queda bloqueado (no editable).
    */
   lockedSection?: string | null;
+  /** Precarga categoría (pestaña Salud → Crear fila). */
+  presetCategoryId?: string | null;
+  /** Precarga nombre de la fila. */
+  presetName?: string | null;
   /**
    * Tras crear con éxito: fila creada + si el usuario pidió encadenar
    * el diálogo de recurrencia.
@@ -46,6 +50,8 @@ export function AddRowDialog({
   busy,
   onCreate,
   lockedSection = null,
+  presetCategoryId = null,
+  presetName = null,
   onCreated,
 }: Props) {
   const [section, setSection] = useState("INGRESOS");
@@ -69,13 +75,13 @@ export function AddRowDialog({
         : "INGRESOS",
     );
     setConfigureRecurrence(false);
-    setName("");
+    setName(presetName ?? "");
     setAccountId("");
     setInstallationId("");
-    setCategoryId("");
+    setCategoryId(presetCategoryId ?? "");
     setManual(false);
-    setLinkAccount(true);
-  }, [open, lockedSection]);
+    setLinkAccount(!presetCategoryId);
+  }, [open, lockedSection, presetCategoryId, presetName]);
 
   useEffect(() => {
     if (!open) return;

@@ -17,8 +17,9 @@ export async function GET(request: NextRequest) {
     const kindParam = sp.get("kind");
     const kind = kindParam === "INCOME" || kindParam === "EXPENSE" ? kindParam : undefined;
 
-    const total = await prisma.financeCashflowCategory.count({ where: { tenantId: ctx.tenantId } });
-    if (total === 0) await seedSystemCategoriesForTenant(ctx.tenantId);
+    // Upsert idempotente: asegura códigos sistema nuevos (p.ej. EGR_FINIQUITO)
+    // también en tenants que ya tenían categorías sembradas.
+    await seedSystemCategoriesForTenant(ctx.tenantId);
 
     const cats = await prisma.financeCashflowCategory.findMany({
       where: { tenantId: ctx.tenantId, isActive: true, ...(kind && { kind }) },

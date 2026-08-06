@@ -21,6 +21,7 @@ export const SYSTEM_CATEGORIES: Array<{
   { code: "EGR_QUINCENA", name: "Quincenas / anticipos", kind: "EXPENSE", sortOrder: 115, color: "#F87171", isTaxExempt: true },
   { code: "EGR_PREVIRED", name: "Previred (cotizaciones)", kind: "EXPENSE", sortOrder: 120, color: "#DC2626", isTaxExempt: true },
   { code: "EGR_TURNO_EXTRA", name: "Pago turnos extra", kind: "EXPENSE", sortOrder: 130, color: "#F97316", isTaxExempt: true },
+  { code: "EGR_FINIQUITO", name: "Finiquitos", kind: "EXPENSE", sortOrder: 140, color: "#EA580C", isTaxExempt: true },
   // Egresos administrativos
   { code: "EGR_TELEFONIA", name: "Telefonía", kind: "EXPENSE", sortOrder: 200, color: "#8B5CF6", isTaxExempt: false },
   { code: "EGR_ARRIENDO", name: "Arriendos", kind: "EXPENSE", sortOrder: 210, color: "#A78BFA", isTaxExempt: false },
@@ -33,6 +34,7 @@ export const SYSTEM_CATEGORIES: Array<{
   { code: "EGR_RETIRO_SOCIO", name: "Retiros socios / dividendos", kind: "EXPENSE", sortOrder: 400, color: "#0EA5E9", isTaxExempt: true },
   // Devolución a un socio de un préstamo previo: movimiento de pasivo, exento de IVA.
   { code: "EGR_DEVOL_PRESTAMO_SOCIO", name: "Devolución préstamos socios", kind: "EXPENSE", sortOrder: 410, color: "#0284C7", isTaxExempt: true },
+  { code: "EGR_FACTORING", name: "Costo factoring", kind: "EXPENSE", sortOrder: 420, color: "#0369A1", isTaxExempt: true },
   { code: "EGR_OTRO", name: "Otros egresos", kind: "EXPENSE", sortOrder: 990, color: "#94A3B8", isTaxExempt: false },
 ];
 

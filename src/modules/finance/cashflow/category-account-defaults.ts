@@ -32,6 +32,7 @@ export const DEFAULT_CATEGORY_ACCOUNT_MAP: Record<string, string[]> = {
   EGR_QUINCENA:       ["5.1.01.001", "6.1.01.001"],             // Anticipo del mismo
   EGR_PREVIRED:       ["5.1.01.002", "6.1.01.002"],             // Leyes sociales guardias + admin
   EGR_TURNO_EXTRA:    ["5.1.01.001"],                           // Pago a guardias por TE
+  EGR_FINIQUITO:      ["5.1.01.001"],                           // Liquidación final a guardias
 
   // ─── Egresos: administrativos ───
   EGR_TELEFONIA:      ["6.1.02.003"],                           // Comunicaciones
@@ -52,6 +53,7 @@ export const DEFAULT_CATEGORY_ACCOUNT_MAP: Record<string, string[]> = {
   // "Acreedores Varios" que se acreditó al recibirlo. Igual que ING_PRESTAMO_SOCIO,
   // mapea a la cuenta general de acreedores no comerciales.
   EGR_DEVOL_PRESTAMO_SOCIO: ["2.1.01.003"],
+  EGR_FACTORING:      ["6.2.01.003"],                           // Costo Factoring
   // Otros egresos: gastos legales/notariales y rendiciones
   EGR_OTRO:           ["6.1.02.011", "6.1.02.012"],
 };

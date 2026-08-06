@@ -10,6 +10,7 @@
  */
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { toast } from "sonner";
@@ -54,6 +55,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AccountPlanCombobox } from "./AccountPlanCombobox";
+import { RuleDestinationChain } from "./RuleDestinationChain";
 import {
   Dialog,
   DialogContent,
@@ -1201,6 +1203,11 @@ function RuleEditorSheet({
                     ))}
                   </SelectContent>
                 </Select>
+                {draft.action.flowRowId ? (
+                  <RuleDestinationChain
+                    lookup={{ flowRowId: draft.action.flowRowId }}
+                  />
+                ) : null}
               </div>
             ) : (
               <>
@@ -1274,6 +1281,11 @@ function RuleEditorSheet({
                 placeholder="Buscar por código o nombre…"
                 emptyLabel="Seleccionar cuenta"
               />
+              {isLegacyAction(draft.action) && draft.action.accountPlanId ? (
+                <RuleDestinationChain
+                  lookup={{ accountPlanId: draft.action.accountPlanId }}
+                />
+              ) : null}
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="rule-rut">RUT contraparte (opcional)</Label>
@@ -1452,17 +1464,41 @@ interface LivePreviewProps {
   onPreviewMatchCount: (count: number, total: number) => void;
 }
 
+type PreviewDays = 30 | 90 | 180;
+
+interface PreviewMatchRow {
+  id: string;
+  dateYmd: string;
+  amount: number;
+  description: string;
+  reference: string | null;
+  reconciliationStatus: string;
+}
+
+interface PreviewResult {
+  totalScanned: number;
+  wouldMatch: number;
+  totalClp: number;
+  unmatchedCount: number;
+  alreadyMatchedCount: number;
+  sample: PreviewMatchRow[];
+}
+
+const STATUS_PREVIEW_LABEL: Record<string, string> = {
+  UNMATCHED: "Sin conciliar",
+  MATCHED: "Conciliado",
+  RECONCILED: "Reconciliado",
+  EXCLUDED: "Excluido",
+};
+
 /**
- * Cuenta matches en últimos 30 días con debounce de 800ms cada vez que el
- * draft cambia. Reemplaza al botón "Probar regla" — el feedback es continuo.
+ * Vista previa en vivo (debounce 800ms): lista con scroll, rango 30/90/180,
+ * KPIs separados y enlace a cada movimiento en Bancos.
  */
 function LivePreviewPanel({ draft, onPreviewMatchCount }: LivePreviewProps) {
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<{
-    totalScanned: number;
-    wouldMatch: number;
-    sample: { amount: number; description: string; reference: string | null }[];
-  } | null>(null);
+  const [daysBack, setDaysBack] = useState<PreviewDays>(30);
+  const [result, setResult] = useState<PreviewResult | null>(null);
 
   useEffect(() => {
     if (draft.conditions.items.length === 0) {
@@ -1492,13 +1528,13 @@ function LivePreviewPanel({ draft, onPreviewMatchCount }: LivePreviewProps) {
             body: JSON.stringify({
               appliesTo: draft.appliesTo,
               conditions: draft.conditions,
-              daysBack: 30,
+              daysBack,
             }),
           },
         );
         const json = await res.json();
         if (res.ok && json.success) {
-          setResult(json.data);
+          setResult(json.data as PreviewResult);
           onPreviewMatchCount(json.data.wouldMatch, json.data.totalScanned);
         }
       } catch {
@@ -1508,46 +1544,118 @@ function LivePreviewPanel({ draft, onPreviewMatchCount }: LivePreviewProps) {
       }
     }, 800);
     return () => clearTimeout(t);
-  }, [draft, onPreviewMatchCount]);
+  }, [draft, daysBack, onPreviewMatchCount]);
 
   return (
-    <div className="rounded-md border border-ds-border-subtle bg-ds-surface-2 p-3 text-[12.5px]">
-      <div className="flex items-center gap-2 mb-1.5">
-        <PlayCircle className="h-3.5 w-3.5 text-ds-text-3" />
-        <span className="font-medium text-ds-text-2">
-          Vista previa últimos 30 días
-        </span>
+    <div className="rounded-md border border-ds-border-subtle bg-ds-surface-2 p-3 text-[12.5px] space-y-2.5">
+      <div className="flex flex-wrap items-center gap-2">
+        <PlayCircle className="h-3.5 w-3.5 text-ds-text-3 shrink-0" />
+        <span className="font-medium text-ds-text-2">Vista previa</span>
+        <Select
+          value={String(daysBack)}
+          onValueChange={(v) => setDaysBack(Number(v) as PreviewDays)}
+        >
+          <SelectTrigger className="h-10 sm:h-8 w-[140px] ml-auto">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="30">Últimos 30 días</SelectItem>
+            <SelectItem value="90">Últimos 90 días</SelectItem>
+            <SelectItem value="180">Últimos 180 días</SelectItem>
+          </SelectContent>
+        </Select>
         {loading && (
-          <Loader2 className="h-3 w-3 animate-spin text-ds-text-3" />
+          <Loader2 className="h-3.5 w-3.5 animate-spin text-ds-text-3" />
         )}
       </div>
+
       {result ? (
         <>
-          <p className="text-ds-text-2">
-            Matchearía{" "}
-            <span className="font-semibold text-status-ok-fg font-mono tabular-nums">
-              {result.wouldMatch}
-            </span>{" "}
-            de{" "}
-            <span className="font-mono tabular-nums">
-              {result.totalScanned.toLocaleString("es-CL")}
-            </span>{" "}
-            movimientos.
-          </p>
-          {result.sample.length > 0 && (
-            <ul className="text-[12px] text-ds-text-3 space-y-0.5 mt-2">
-              {result.sample.slice(0, 3).map((s, i) => (
-                <li key={i} className="truncate font-mono">
-                  · {s.description} · $
-                  {Math.abs(s.amount).toLocaleString("es-CL")}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <div className="rounded-md border border-ds-border-subtle bg-ds-surface-1 px-2 py-1.5">
+              <p className="text-[12px] text-ds-text-4 uppercase tracking-wide">
+                Coincidencias
+              </p>
+              <p className="font-mono tabular-nums text-[14px] font-semibold text-status-ok-fg">
+                {result.wouldMatch.toLocaleString("es-CL")}
+              </p>
+              <p className="text-[12px] text-ds-text-4">
+                de {result.totalScanned.toLocaleString("es-CL")} escaneados
+              </p>
+            </div>
+            <div className="rounded-md border border-ds-border-subtle bg-ds-surface-1 px-2 py-1.5">
+              <p className="text-[12px] text-ds-text-4 uppercase tracking-wide">
+                Monto total
+              </p>
+              <p className="font-mono tabular-nums text-[14px] font-semibold text-ds-text-1">
+                ${Math.round(result.totalClp).toLocaleString("es-CL")}
+              </p>
+            </div>
+            <div className="rounded-md border border-ds-border-subtle bg-ds-surface-1 px-2 py-1.5">
+              <p className="text-[12px] text-ds-text-4 uppercase tracking-wide">
+                Sin conciliar
+              </p>
+              <p className="font-mono tabular-nums text-[14px] font-semibold text-status-warn-fg">
+                {result.unmatchedCount.toLocaleString("es-CL")}
+              </p>
+              <p className="text-[12px] text-ds-text-4">se van a re-rutear</p>
+            </div>
+            <div className="rounded-md border border-ds-border-subtle bg-ds-surface-1 px-2 py-1.5">
+              <p className="text-[12px] text-ds-text-4 uppercase tracking-wide">
+                Ya conciliados
+              </p>
+              <p className="font-mono tabular-nums text-[14px] font-semibold text-ds-text-2">
+                {result.alreadyMatchedCount.toLocaleString("es-CL")}
+              </p>
+              <p className="text-[12px] text-ds-text-4">no se tocan</p>
+            </div>
+          </div>
+
+          {result.sample.length > 0 ? (
+            <ul className="max-h-56 overflow-y-auto space-y-1 rounded-md border border-ds-border-subtle bg-ds-surface-1 p-1.5">
+              {result.sample.map((s) => (
+                <li key={s.id}>
+                  <Link
+                    href={`/finanzas/bancos?txId=${s.id}`}
+                    className="flex flex-col sm:flex-row sm:items-center gap-0.5 sm:gap-2 rounded-md px-2 py-1.5 min-h-11 hover:bg-ds-surface-2 text-[12px]"
+                  >
+                    <span className="font-mono tabular-nums text-ds-text-3 shrink-0">
+                      {s.dateYmd}
+                    </span>
+                    <span className="truncate text-ds-text-1 flex-1 min-w-0">
+                      {s.description}
+                    </span>
+                    <span
+                      className={cn(
+                        "font-mono tabular-nums shrink-0",
+                        s.amount >= 0
+                          ? "text-status-ok-fg"
+                          : "text-status-danger-fg",
+                      )}
+                    >
+                      ${Math.abs(s.amount).toLocaleString("es-CL")}
+                    </span>
+                    <span className="text-ds-text-4 shrink-0">
+                      {STATUS_PREVIEW_LABEL[s.reconciliationStatus] ??
+                        s.reconciliationStatus}
+                    </span>
+                  </Link>
                 </li>
               ))}
-              {result.sample.length > 3 && (
-                <li className="text-ds-text-4">
-                  … y {result.sample.length - 3} más
+              {result.wouldMatch > result.sample.length && (
+                <li className="px-2 py-1 text-[12px] text-ds-text-4">
+                  … y{" "}
+                  {(result.wouldMatch - result.sample.length).toLocaleString(
+                    "es-CL",
+                  )}{" "}
+                  más (cap 200)
                 </li>
               )}
             </ul>
+          ) : (
+            <p className="text-ds-text-3">
+              Ningún movimiento cumple los criterios en este rango.
+            </p>
           )}
         </>
       ) : (

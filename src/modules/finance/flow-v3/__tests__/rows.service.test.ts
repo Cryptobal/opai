@@ -28,7 +28,8 @@ vi.mock("@/lib/prisma", () => ({
 
 import { prisma } from "@/lib/prisma";
 import { loadCommittedIncome } from "../load-committed-income";
-import { createRow, archiveRow, deleteRow } from "../rows.service";
+import { loadReal } from "../load-real";
+import { createRow, archiveRow, deleteRow, updateRow } from "../rows.service";
 
 const TENANT = "t1";
 const asMock = (fn: unknown) => fn as ReturnType<typeof vi.fn>;
@@ -152,5 +153,60 @@ describe("deleteRow", () => {
     const res = await deleteRow(TENANT, "row-1");
     expect(res).toEqual({ deleted: true });
     expect(prisma.financeFlowRow.delete).toHaveBeenCalledWith({ where: { id: "row-1" } });
+  });
+});
+
+describe("updateRow MANUAL → CATEGORY", () => {
+  it("asigna categoría y pasa mapping a CATEGORY", async () => {
+    asMock(prisma.financeFlowRow.findFirst).mockResolvedValue({
+      id: "row-1",
+      mapping: "MANUAL",
+      section: "FINANCIAMIENTO",
+      categoryId: null,
+      name: "Retiro socios",
+    });
+    asMock(prisma.financeCashflowCategory.findFirst).mockResolvedValue({
+      id: "cat-retiro",
+    });
+    asMock(prisma.financeFlowRow.update).mockResolvedValue({});
+    asMock(prisma.financeFlowRow.findFirstOrThrow).mockResolvedValue({
+      id: "row-1",
+      mapping: "CATEGORY",
+      categoryId: "cat-retiro",
+    });
+
+    await updateRow(TENANT, "row-1", {
+      categoryId: "cat-retiro",
+      mapping: "CATEGORY",
+    });
+
+    expect(prisma.financeFlowRow.update).toHaveBeenCalledWith({
+      where: { id: "row-1" },
+      data: expect.objectContaining({
+        categoryId: "cat-retiro",
+        mapping: "CATEGORY",
+      }),
+    });
+  });
+
+  it("rechaza CATEGORY → MANUAL si hay actividad derivada", async () => {
+    asMock(prisma.financeFlowRow.findFirst).mockResolvedValue({
+      id: "row-1",
+      mapping: "CATEGORY",
+      section: "GAV",
+      categoryId: "cat-1",
+      name: "Telefonía",
+      crmAccountId: null,
+      installationId: null,
+      recurringTemplateId: null,
+      supplierId: null,
+    });
+    asMock(loadReal).mockResolvedValueOnce(
+      new Map([["row-1", new Map([["2026-07-20", { total: 5000 }]])]]),
+    );
+
+    await expect(
+      updateRow(TENANT, "row-1", { mapping: "MANUAL" }),
+    ).rejects.toThrow(/movimientos reales/);
   });
 });

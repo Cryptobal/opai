@@ -1,6 +1,6 @@
 "use client";
-import { useState } from "react";
-import { Surface } from "@/components/opai-ds";
+import { useEffect, useState } from "react";
+import { SegmentedControl, Surface } from "@/components/opai-ds";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,6 +17,9 @@ import { toast } from "sonner";
 import { confirmDialog } from "@/components/ui/confirm-service";
 import { CategoryAccountsEditor } from "./CategoryAccountsEditor";
 import { CategoryRowExpandable } from "./CategoryRowExpandable";
+import { FlowHealthPanel } from "./FlowHealthPanel";
+
+type ConfigTab = "parametros" | "categorias" | "salud";
 
 interface CashflowConfig {
   horizonWeeksDefault: number;
@@ -211,6 +214,16 @@ export function CashflowConfigClient({
   const [catError, setCatError] = useState<string | null>(null);
   const [backfillStatus, setBackfillStatus] = useState<string | null>(null);
   const [backfillRunning, setBackfillRunning] = useState(false);
+  const [tab, setTab] = useState<ConfigTab>("parametros");
+  const [highlightAccountId, setHighlightAccountId] = useState<string | null>(
+    null,
+  );
+
+  useEffect(() => {
+    if (!highlightAccountId || tab !== "categorias") return;
+    const el = document.getElementById(`cat-account-${highlightAccountId}`);
+    el?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [highlightAccountId, tab]);
 
   function setField<K extends keyof CashflowConfig>(key: K, value: CashflowConfig[K]) {
     setConfig((c) => ({ ...c, [key]: value }));
@@ -345,6 +358,29 @@ export function CashflowConfigClient({
 
   return (
     <div className="space-y-5">
+      <SegmentedControl<ConfigTab>
+        ariaLabel="Secciones de configuración de flujo de caja"
+        value={tab}
+        onChange={setTab}
+        size="md"
+        items={[
+          { id: "parametros", label: "Parámetros" },
+          { id: "categorias", label: "Categorías" },
+          { id: "salud", label: "Salud" },
+        ]}
+      />
+
+      {tab === "salud" && (
+        <FlowHealthPanel
+          onResolveAccount={(accountPlanId) => {
+            setHighlightAccountId(accountPlanId);
+            setTab("categorias");
+          }}
+        />
+      )}
+
+      {tab === "parametros" && (
+      <>
       {/* Sección 1: Parámetros generales */}
       <Surface elevation={1} padding="md">
         <h2 className="font-semibold mb-3">Parámetros generales</h2>
@@ -1028,7 +1064,33 @@ export function CashflowConfigClient({
           )}
         </div>
       </Surface>
+      </>
+      )}
 
+      {tab === "categorias" && (
+      <>
+      {highlightAccountId && (
+        <Surface
+          elevation={1}
+          padding="md"
+          className="border border-status-warn-border"
+          id={`cat-account-${highlightAccountId}`}
+        >
+          <p className="text-[13px] text-ds-text-1">
+            Revisá las categorías que comparten la misma cuenta contable
+            (conflicto resaltado desde Salud). Editá el mapeo en cada fila.
+          </p>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="mt-2 min-h-11 sm:min-h-9"
+            onClick={() => setHighlightAccountId(null)}
+          >
+            Ocultar aviso
+          </Button>
+        </Surface>
+      )}
       {/* Sección 3: Categorías */}
       <Surface elevation={1} padding="md">
         <h2 className="font-semibold mb-1">Categorías</h2>
@@ -1231,6 +1293,8 @@ export function CashflowConfigClient({
           </table>
         </div>
       </Surface>
+      </>
+      )}
     </div>
   );
 }
