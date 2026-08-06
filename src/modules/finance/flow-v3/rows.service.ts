@@ -27,8 +27,13 @@ export interface UpdateRowInput {
    */
   name?: string;
   section?: FlowSection;
-  /** Solo para filas mapping=CATEGORY. null volvería a "sin categoría" (no permitido). */
+  /**
+   * Categoría de egreso. Permite asignar por primera vez en filas MANUAL
+   * (transición a CATEGORY) o cambiarla en filas ya CATEGORY.
+   */
   categoryId?: string | null;
+  /** Transición explícita MANUAL → CATEGORY (o rechazo CATEGORY → MANUAL). */
+  mapping?: Extract<FlowRowMapping, "CATEGORY" | "MANUAL">;
 }
 
 export interface ArchiveRowResult {
@@ -148,6 +153,7 @@ export async function updateRow(
     name?: string;
     section?: FlowSection;
     categoryId?: string | null;
+    mapping?: FlowRowMapping;
     orderIndex?: number;
   } = {};
 
@@ -157,17 +163,37 @@ export async function updateRow(
     data.name = trimmed;
   }
 
-  if (input.categoryId !== undefined) {
-    if (row.mapping !== "CATEGORY") {
-      throw new Error("Solo las filas de categoría pueden cambiar de categoría");
+  // Transición CATEGORY → MANUAL: solo si no hay actividad derivada (links reales).
+  if (input.mapping === "MANUAL" && row.mapping === "CATEGORY") {
+    if (await rowHasDerivedActivity(tenantId, row)) {
+      throw new Error(
+        "No se puede quitar la categoría: la fila tiene movimientos reales asociados. Reasigná la categoría en vez de dejarla manual.",
+      );
     }
+    data.mapping = "MANUAL";
+    data.categoryId = null;
+  }
+
+  if (input.categoryId !== undefined && input.mapping !== "MANUAL") {
     if (!input.categoryId) throw new Error("categoryId requerido para mapping CATEGORY");
+    if (row.mapping !== "CATEGORY" && row.mapping !== "MANUAL") {
+      throw new Error("Solo las filas MANUAL o CATEGORY pueden asignar categoría");
+    }
+    if (
+      row.section === "INGRESOS" ||
+      row.section === "OTROS"
+    ) {
+      // Las secciones de ingreso no usan categorías de egreso.
+    }
     const cat = await prisma.financeCashflowCategory.findFirst({
-      where: { id: input.categoryId, tenantId },
+      where: { id: input.categoryId, tenantId, kind: "EXPENSE" },
       select: { id: true },
     });
-    if (!cat) throw new Error("Categoría no encontrada");
+    if (!cat) throw new Error("Categoría de egreso no encontrada");
     data.categoryId = input.categoryId;
+    if (row.mapping === "MANUAL" || input.mapping === "CATEGORY") {
+      data.mapping = "CATEGORY";
+    }
   }
 
   if (input.section != null && input.section !== row.section) {

@@ -104,7 +104,7 @@ const MILESTONE_ROW_MAP: Record<
   f29: { categoryCode: "EGR_IVA_F29", canonicalNames: ["iva f29", "f29 (iva + ppm)", "f29"] },
   turnos_extra: { categoryCode: "EGR_TURNO_EXTRA", canonicalNames: ["turnos extra", "turno extra"] },
   retiro_socio: { categoryCode: "EGR_RETIRO_SOCIO", canonicalNames: ["retiro socios", "retiro socio"] },
-  finiquitos: { categoryCode: "__NONE__", canonicalNames: ["finiquitos", "finiquito"] },
+  finiquitos: { categoryCode: "EGR_FINIQUITO", canonicalNames: ["finiquitos", "finiquito"] },
   pct_sales: { categoryCode: "__NONE__", canonicalNames: [] },
 };
 

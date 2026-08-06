@@ -35,6 +35,7 @@ const SYSTEM_CATEGORIES: Array<{
   { code: "EGR_QUINCENA", name: "Quincenas / anticipos", kind: "EXPENSE", sortOrder: 115, color: "#F87171" },
   { code: "EGR_PREVIRED", name: "Previred (cotizaciones)", kind: "EXPENSE", sortOrder: 120, color: "#DC2626" },
   { code: "EGR_TURNO_EXTRA", name: "Pago turnos extra", kind: "EXPENSE", sortOrder: 130, color: "#F97316" },
+  { code: "EGR_FINIQUITO", name: "Finiquitos", kind: "EXPENSE", sortOrder: 140, color: "#EA580C" },
   { code: "EGR_TELEFONIA", name: "Telefonía", kind: "EXPENSE", sortOrder: 200, color: "#8B5CF6" },
   { code: "EGR_ARRIENDO", name: "Arriendos", kind: "EXPENSE", sortOrder: 210, color: "#A78BFA" },
   { code: "EGR_SERVICIOS", name: "Servicios básicos", kind: "EXPENSE", sortOrder: 220, color: "#C4B5FD" },
@@ -43,6 +44,7 @@ const SYSTEM_CATEGORIES: Array<{
   { code: "EGR_IMPUESTO", name: "Otros impuestos", kind: "EXPENSE", sortOrder: 310, color: "#FBBF24" },
   { code: "EGR_RETIRO_SOCIO", name: "Retiros socios / dividendos", kind: "EXPENSE", sortOrder: 400, color: "#0EA5E9" },
   { code: "EGR_DEVOL_PRESTAMO_SOCIO", name: "Devolución préstamos socios", kind: "EXPENSE", sortOrder: 410, color: "#0284C7" },
+  { code: "EGR_FACTORING", name: "Costo factoring", kind: "EXPENSE", sortOrder: 420, color: "#0369A1" },
   { code: "EGR_OTRO", name: "Otros egresos", kind: "EXPENSE", sortOrder: 990, color: "#94A3B8" },
   // Ajustes de conciliación: se usan al cerrar drift entre saldo proyectado
   // y saldo real del banco. La UI muestra estas líneas en el flujo como

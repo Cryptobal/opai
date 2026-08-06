@@ -1541,9 +1541,12 @@ export function PlanillaGrid({
         row={rowDialog?.kind === "category" ? rowDialog.row : null}
         busy={busy}
         onClose={() => setRowDialog(null)}
-        onConfirm={async (categoryId) => {
+        onConfirm={async (categoryId, opts) => {
           if (rowDialog?.kind !== "category") return;
-          await actions.updateRow(rowDialog.row.id, { categoryId });
+          await actions.updateRow(rowDialog.row.id, {
+            categoryId,
+            ...(opts?.mapping ? { mapping: opts.mapping } : {}),
+          });
           setRowDialog(null);
         }}
       />

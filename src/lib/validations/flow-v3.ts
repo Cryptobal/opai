@@ -50,9 +50,18 @@ export const flowRowUpdateSchema = z
     name: z.string().trim().min(1).max(120).optional(),
     section: flowSectionSchema.optional(),
     categoryId: z.string().uuid().optional(),
+    mapping: z.enum(["CATEGORY", "MANUAL"]).optional(),
   })
-  .refine((v) => v.name != null || v.section != null || v.categoryId != null, {
-    message: "Nada que actualizar",
+  .refine(
+    (v) =>
+      v.name != null ||
+      v.section != null ||
+      v.categoryId != null ||
+      v.mapping != null,
+    { message: "Nada que actualizar" },
+  )
+  .refine((v) => v.mapping !== "CATEGORY" || !!v.categoryId, {
+    message: "categoryId requerido al pasar a mapping CATEGORY",
   });
 
 export const flowRowReorderSchema = z.object({

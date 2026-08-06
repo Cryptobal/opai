@@ -50,14 +50,15 @@ export const CANONICAL_FLOW_ROWS: CanonicalFlowRow[] = [
   { section: "REMUNERACIONES", name: "Quincena (anticipos)", categoryCode: "EGR_QUINCENA" },
   { section: "REMUNERACIONES", name: "Imposiciones (Previred)", categoryCode: "EGR_PREVIRED" },
   { section: "REMUNERACIONES", name: "Turnos extra", categoryCode: "EGR_TURNO_EXTRA" },
-  { section: "REMUNERACIONES", name: "Finiquitos", categoryCode: null },
+  { section: "REMUNERACIONES", name: "Finiquitos", categoryCode: "EGR_FINIQUITO" },
   { section: "IMPUESTOS", name: "IVA F29", categoryCode: "EGR_IVA_F29" },
   { section: "GAV", name: FALLBACK_EXPENSE_NAME, categoryCode: null },
+  // Sin código de categoría equivalente aún — el panel Salud las lista.
   { section: "FINANCIAMIENTO", name: "Créditos / financiamiento", categoryCode: null },
-  { section: "FINANCIAMIENTO", name: "Costo factoring", categoryCode: null },
+  { section: "FINANCIAMIENTO", name: "Costo factoring", categoryCode: "EGR_FACTORING" },
   { section: "FINANCIAMIENTO", name: "Aporte socios", categoryCode: null },
-  { section: "FINANCIAMIENTO", name: "Retiro socios", categoryCode: null },
-  { section: "FINANCIAMIENTO", name: "Devolución a socios", categoryCode: null },
+  { section: "FINANCIAMIENTO", name: "Retiro socios", categoryCode: "EGR_RETIRO_SOCIO" },
+  { section: "FINANCIAMIENTO", name: "Devolución a socios", categoryCode: "EGR_DEVOL_PRESTAMO_SOCIO" },
 ];
 
 /** Nombre canónico de la fila de merma de cesión (shortfall al conciliar). */

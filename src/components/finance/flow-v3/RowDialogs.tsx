@@ -64,13 +64,13 @@ export function ChangeSectionDialog({
   );
 }
 
-/** Cambiar la categoría de una fila mapping=CATEGORY. */
+/** Asignar o cambiar la categoría de una fila MANUAL/CATEGORY de egreso. */
 export function ChangeCategoryDialog({
   row, busy, onConfirm, onClose,
 }: {
   row: FlowMatrixRowDto | null;
   busy: boolean;
-  onConfirm: (categoryId: string) => void;
+  onConfirm: (categoryId: string, opts?: { mapping?: "CATEGORY" }) => void;
   onClose: () => void;
 }) {
   const [categories, setCategories] = useState<Array<{ id: string; name: string; kind: string }>>([]);
@@ -86,12 +86,24 @@ export function ChangeCategoryDialog({
   const expense = useMemo(() => categories.filter((c) => c.kind === "EXPENSE"), [categories]);
   if (!row) return null;
 
+  const isFirstAssign = !row.categoryId || row.mapping === "MANUAL";
+
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-sm">
         <DialogHeader>
-          <DialogTitle>Cambiar categoría de «{row.name}»</DialogTitle>
+          <DialogTitle>
+            {isFirstAssign
+              ? `Asignar categoría a «${row.name}»`
+              : `Cambiar categoría de «${row.name}»`}
+          </DialogTitle>
         </DialogHeader>
+        {isFirstAssign && (
+          <p className="text-[13px] text-ds-text-3">
+            Sin categoría esta fila no puede recibir movimientos de la cartola.
+            Elegí la categoría de egreso a la que se van a rutar.
+          </p>
+        )}
         <label className="block space-y-1 text-xs text-ds-text-3">
           <span>Categoría de egreso</span>
           <select className={SELECT_CLASS} value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
@@ -105,9 +117,14 @@ export function ChangeCategoryDialog({
           <Button variant="outline" onClick={onClose}>Cancelar</Button>
           <Button
             disabled={busy || !categoryId || categoryId === row.categoryId}
-            onClick={() => onConfirm(categoryId)}
+            onClick={() =>
+              onConfirm(
+                categoryId,
+                isFirstAssign ? { mapping: "CATEGORY" } : undefined,
+              )
+            }
           >
-            {busy ? "Guardando…" : "Cambiar categoría"}
+            {busy ? "Guardando…" : isFirstAssign ? "Asignar categoría" : "Cambiar categoría"}
           </Button>
         </DialogFooter>
       </DialogContent>

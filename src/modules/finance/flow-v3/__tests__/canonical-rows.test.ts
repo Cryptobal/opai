@@ -27,19 +27,32 @@ describe("SECTION_MOVES", () => {
     expect(RETIRED_CANONICAL_ROW_NAMES).toContain("Devolución préstamo socios");
   });
 
-  it("incluye fila Finiquitos en REMUNERACIONES", () => {
+  it("incluye fila Finiquitos en REMUNERACIONES con EGR_FINIQUITO", () => {
     expect(CANONICAL_FLOW_ROWS).toContainEqual({
       section: "REMUNERACIONES",
       name: "Finiquitos",
-      categoryCode: null,
+      categoryCode: "EGR_FINIQUITO",
     });
   });
 
-  it("incluye Costo factoring en FINANCIAMIENTO", () => {
+  it("incluye Costo factoring en FINANCIAMIENTO con EGR_FACTORING", () => {
     expect(CANONICAL_FLOW_ROWS).toContainEqual({
       section: "FINANCIAMIENTO",
       name: "Costo factoring",
-      categoryCode: null,
+      categoryCode: "EGR_FACTORING",
+    });
+  });
+
+  it("Retiro y Devolución a socios nacen con categoría", () => {
+    expect(CANONICAL_FLOW_ROWS).toContainEqual({
+      section: "FINANCIAMIENTO",
+      name: "Retiro socios",
+      categoryCode: "EGR_RETIRO_SOCIO",
+    });
+    expect(CANONICAL_FLOW_ROWS).toContainEqual({
+      section: "FINANCIAMIENTO",
+      name: "Devolución a socios",
+      categoryCode: "EGR_DEVOL_PRESTAMO_SOCIO",
     });
   });
 });

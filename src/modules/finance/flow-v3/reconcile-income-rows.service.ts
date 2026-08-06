@@ -31,11 +31,19 @@ type Tx = Prisma.TransactionClient;
  * Lock advisory por tenant. Dos ejecuciones seguidas = cero cambios.
  */
 export async function reconcileIncomeRows(tenantId: string): Promise<void> {
+  // Asegura categorías sistema nuevas (EGR_FINIQUITO, EGR_FACTORING, …)
+  // antes del backfill de filas canónicas. Upsert idempotente fuera del lock.
+  const { seedSystemCategoriesForTenant } = await import(
+    "@/modules/finance/cashflow/category.service"
+  );
+  await seedSystemCategoriesForTenant(tenantId);
+
   await prisma.$transaction(async (tx) => {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`flow-v3-income-rows:${tenantId}`})::int8)`;
     await renameFallbacks(tx, tenantId);
     await applySectionMoves(tx, tenantId);
     await ensureCanonicalRows(tx, tenantId);
+    await backfillCanonicalCategories(tx, tenantId);
     await adoptOrCreateTemplateRows(tx, tenantId);
     const ownRowAccounts = await createRowsForAccountsWithPendingDtes(tx, tenantId);
     await archiveSurplusRows(tx, tenantId, ownRowAccounts);
@@ -80,6 +88,51 @@ async function applySectionMoves(tx: Tx, tenantId: string): Promise<void> {
         data: { section: toSection as FlowSection },
       });
     }
+  }
+}
+
+/**
+ * Backfill idempotente: si una fila canónica tiene categoryId null y el
+ * código de categoría existe, la liga y pasa mapping a CATEGORY.
+ * Nunca pisa una categoría ya asignada por el usuario.
+ */
+async function backfillCanonicalCategories(
+  tx: Tx,
+  tenantId: string,
+): Promise<void> {
+  const categories = await tx.financeCashflowCategory.findMany({
+    where: { tenantId },
+    select: { id: true, code: true },
+  });
+  const catByCode = new Map(categories.map((c) => [c.code, c.id]));
+
+  const targets = CANONICAL_FLOW_ROWS.filter((c) => c.categoryCode != null);
+  if (targets.length === 0) return;
+
+  const rows = await tx.financeFlowRow.findMany({
+    where: {
+      tenantId,
+      archivedAt: null,
+      categoryId: null,
+      section: { in: targets.map((t) => t.section) },
+    },
+    select: { id: true, name: true, section: true, mapping: true },
+  });
+
+  for (const row of rows) {
+    const nameKey = normalizeNameForDedupe(row.name);
+    const canonical = targets.find(
+      (t) =>
+        t.section === row.section &&
+        normalizeNameForDedupe(t.name) === nameKey,
+    );
+    if (!canonical?.categoryCode) continue;
+    const categoryId = catByCode.get(canonical.categoryCode);
+    if (!categoryId) continue;
+    await tx.financeFlowRow.update({
+      where: { id: row.id },
+      data: { categoryId, mapping: "CATEGORY" },
+    });
   }
 }
 

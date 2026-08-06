@@ -5,6 +5,7 @@ import type { CommittedItem } from "@/modules/finance/flow-v3/types";
 import type { FlowMatrixCellDto, FlowMatrixRowDto } from "@/modules/finance/flow-v3/matrix-types";
 import type { MatrixColumn } from "@/modules/finance/flow-v3/matrix-types";
 import { normalizeNameForDedupe } from "@/modules/finance/flow-v3/row-visibility";
+import { isFallbackBandejaRow } from "@/modules/finance/flow-v3/unmatched-count";
 import { draftGroupLabel, terminoStatusLine } from "./cell-meta";
 import { fmtClp, fmtDayMonth, fmtShortDate } from "./format";
 import type { MenuItemDesc } from "./menu-render";
@@ -122,14 +123,30 @@ export function buildRowMenu(
 
   items.push({ key: "section", label: "Cambiar sección…", onSelect: () => cb.onChangeSection(row) });
 
+  const isBandeja = isFallbackBandejaRow(row);
+  const canAssignCategory =
+    !row.isVirtual &&
+    !isBandeja &&
+    (row.mapping === "CATEGORY" ||
+      (row.mapping === "MANUAL" &&
+        row.section !== "INGRESOS" &&
+        row.section !== "OTROS"));
   items.push(
-    row.mapping === "CATEGORY"
-      ? { key: "category", label: "Cambiar categoría…", onSelect: () => cb.onChangeCategory(row) }
+    canAssignCategory
+      ? {
+          key: "category",
+          label: row.categoryId ? "Cambiar categoría…" : "Asignar categoría…",
+          onSelect: () => cb.onChangeCategory(row),
+        }
       : {
           key: "category",
           label: "Cambiar categoría…",
           disabled: true,
-          reason: "Solo filas de categoría",
+          reason: isBandeja
+            ? "La bandeja no usa categoría"
+            : row.mapping === "ACCOUNT_INSTALLATION"
+              ? "Filas de cuenta/instalación"
+              : "Solo filas MANUAL o CATEGORY de egreso",
         },
   );
 
