@@ -77,6 +77,7 @@ function cbs(): CellMenuCallbacks {
     onViewDte: vi.fn(),
     onExcludeDte: vi.fn(),
     onRegisterPayment: vi.fn(),
+    onSendCobranza: vi.fn(),
   };
 }
 

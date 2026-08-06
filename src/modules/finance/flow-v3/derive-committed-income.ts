@@ -215,6 +215,7 @@ export function deriveCommittedIncome(args: CommittedIncomeArgs): DeriveCommitte
       emissionYmd: d.dateYmd,
       dueYmd,
       ceded: d.ceded === true,
+      crmAccountId: d.crmAccountId,
     });
   }
 

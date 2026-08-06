@@ -3,10 +3,13 @@
  * PlanillaFxBar y CellLayersPopover — una sola fuente de labels y tonos.
  */
 import type { CommittedItem, SentDocs } from "@/modules/finance/flow-v3/types";
-import type { FlowMatrixCellDto } from "@/modules/finance/flow-v3/matrix-types";
+import type { FlowMatrixCellDto, FlowMatrixRowDto } from "@/modules/finance/flow-v3/matrix-types";
 import { folioChip } from "./format";
 
 export type CornerKind = "real" | "dte" | "warn" | "plan" | null;
+
+/** Mora contractual en celdas con DTE emitido impago. */
+export type CellOverdueState = "none" | "overdue" | "overdue60";
 
 /** Marca secundaria inf-der: cedida / docs de cobro enviados. */
 export type SecondaryMark = "ceded" | "proforma" | "estadoPago";
@@ -42,6 +45,55 @@ export function draftGroupLabel(sent: SentDocs, clientName: string): string {
   if (sent.estadoPago) return `EP ${name}`;
   if (sent.proforma) return `Proforma ${name}`;
   return `Borrador ${name}`;
+}
+
+/** Estado de mora agregado de la celda (peor caso entre DTEs). */
+export function cellOverdueState(cell: FlowMatrixCellDto): CellOverdueState {
+  const dtes = (cell.committed?.items ?? []).filter((i) => i.kind === "dte");
+  if (dtes.length === 0) return "none";
+  if (dtes.some((i) => i.overdueOver60 === true)) return "overdue60";
+  if (dtes.some((i) => (i.overdueDays ?? 0) > 0)) return "overdue";
+  return "none";
+}
+
+/** Cantidad de DTEs con mora >0 en la celda. */
+export function countOverdueInCell(cell: FlowMatrixCellDto): number {
+  return (cell.committed?.items ?? []).filter(
+    (i) => i.kind === "dte" && (i.overdueDays ?? 0) > 0,
+  ).length;
+}
+
+/** ¿La fila tiene al menos un DTE vencido en alguna celda? */
+export function rowHasOverdue(row: Pick<FlowMatrixRowDto, "cells">): boolean {
+  return row.cells.some((c) => cellOverdueState(c) !== "none");
+}
+
+/** Total de DTEs vencidos en la fila (deduplicados por dteId). */
+export function countOverdueInRow(row: Pick<FlowMatrixRowDto, "cells">): number {
+  const ids = new Set<string>();
+  for (const cell of row.cells) {
+    for (const it of cell.committed?.items ?? []) {
+      if (it.kind === "dte" && (it.overdueDays ?? 0) > 0 && it.dteId) {
+        ids.add(it.dteId);
+      }
+    }
+  }
+  return ids.size;
+}
+
+/** Total de DTEs vencidos en la matriz (deduplicados por dteId). */
+export function countOverdueInMatrix(rows: Pick<FlowMatrixRowDto, "cells">[]): number {
+  const ids = new Set<string>();
+  for (const row of rows) {
+    for (const cell of row.cells) {
+      for (const it of cell.committed?.items ?? []) {
+        if (it.kind === "dte" && (it.overdueDays ?? 0) > 0 && it.dteId) {
+          ids.add(it.dteId);
+        }
+      }
+    }
+  }
+  return ids.size;
 }
 
 /** Prioridad de sub-capa comprometida alineada con PlanillaCell. */
@@ -187,6 +239,7 @@ export function primaryCellTag(
   const { hasDte, hasSentDoc, hasDraft, dteFolio } = committedPriority(cell);
   if (hasDte) {
     const n = dteCountInCell(cell);
+    const overdue = cellOverdueState(cell);
     const anyCeded = (cell.committed?.items ?? []).some(
       (i) => i.kind === "dte" && i.ceded === true,
     );
@@ -195,17 +248,29 @@ export function primaryCellTag(
       const folioTxt = folios.length
         ? folios.map((f) => `F°${f}`).join(", ")
         : `${n} facturas`;
+      const moraHint =
+        overdue === "overdue60"
+          ? " · mora +60d"
+          : overdue === "overdue"
+            ? " · en mora"
+            : "";
       return {
         tag: `×${n}`,
-        tone: "info",
-        title: anyCeded ? `${folioTxt} · Cedida` : folioTxt,
+        tone: overdue === "none" ? "info" : "warn",
+        title: (anyCeded ? `${folioTxt} · Cedida` : folioTxt) + moraHint,
       };
     }
     const f = dteFolio != null ? folioChip(dteFolio) : { text: "F°", title: "Factura emitida" };
+    const moraHint =
+      overdue === "overdue60"
+        ? " · mora +60d"
+        : overdue === "overdue"
+          ? " · en mora"
+          : "";
     return {
       tag: f.text,
-      tone: "info",
-      title: anyCeded ? `${f.title} · Cedida` : f.title,
+      tone: overdue === "none" ? "info" : "warn",
+      title: (anyCeded ? `${f.title} · Cedida` : f.title) + moraHint,
     };
   }
   if (hasSentDoc || hasDraft) {

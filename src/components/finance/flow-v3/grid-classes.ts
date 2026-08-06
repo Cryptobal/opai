@@ -106,6 +106,14 @@ export const SUB_CORNER_PROFORMA = `${SUB_CORNER_BASE} border-b-status-info`;
 /** EP usa primary (teal) para no chocar con ámbar (arriba) ni azul (proforma). */
 export const SUB_CORNER_EP = `${SUB_CORNER_BASE} border-b-primary`;
 
+/** Factura emitida con mora leve (1–60 d): borde inferior ámbar sutil. */
+export const OVERDUE_CELL =
+  "border-b-2 border-b-status-warn-border/80";
+
+/** Factura emitida con mora >60 d: fondo ámbar tenue + borde inferior sólido. */
+export const OVERDUE_OVER60_CELL =
+  "bg-status-warn-soft/35 border-b-2 border-b-status-warn-border";
+
 /** Selección Sheets: borde azul + handle (ver globals.css `.planilla-selected`). */
 export const SELECTED_CELL = "planilla-selected";
 

@@ -81,6 +81,10 @@ interface Props {
   /** Modo Σ: selección discontinua. */
   sumMode?: boolean;
   onToggleSumMode?: () => void;
+  /** Facturas en mora visibles en el horizonte cargado. */
+  moraCount?: number;
+  moraFilter?: boolean;
+  onToggleMoraFilter?: () => void;
   viewTab?: "planilla" | "panel";
   onViewTab?: (tab: "planilla" | "panel") => void;
 }
@@ -139,6 +143,7 @@ function Tip({
 export function PlanillaToolbar(p: Props) {
   const [moreOpen, setMoreOpen] = useState(false);
   const egresosPendientes = p.egresosPendientesCount ?? 0;
+  const moraCount = p.moraCount ?? 0;
   const classifyDisabled = egresosPendientes <= 0 || !p.onClassifyEgresos;
   const labels = p.showToolbarLabels;
 
@@ -266,6 +271,26 @@ export function PlanillaToolbar(p: Props) {
           )}
 
           <span className={sep} aria-hidden />
+
+          {p.onToggleMoraFilter && moraCount > 0 && (
+            <Button
+              variant={p.moraFilter ? "default" : "outline"}
+              size="sm"
+              className={`${btn} shrink-0 sm:px-2.5`}
+              onClick={p.onToggleMoraFilter}
+              aria-pressed={!!p.moraFilter}
+              aria-label={
+                p.moraFilter
+                  ? `Mostrando solo mora · ${moraCount} factura${moraCount === 1 ? "" : "s"}`
+                  : `Filtrar mora · ${moraCount} factura${moraCount === 1 ? "" : "s"}`
+              }
+            >
+              <span className="text-[12px] font-medium uppercase tracking-wide">Mora</span>
+              <span className="ml-1 inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-status-warn-soft px-1.5 text-[12px] font-medium tabular-nums text-status-warn-fg">
+                {moraCount}
+              </span>
+            </Button>
+          )}
 
           <div className="flex shrink-0 items-center gap-0.5">
             <Tip label="Expandir grupos">
@@ -402,6 +427,11 @@ export function PlanillaToolbar(p: Props) {
               {p.onToggleSumMode && (
                 <DropdownMenuItem onSelect={p.onToggleSumMode}>
                   {p.sumMode ? "Salir de modo Σ" : "Modo Σ (suma)"}
+                </DropdownMenuItem>
+              )}
+              {p.onToggleMoraFilter && moraCount > 0 && (
+                <DropdownMenuItem onSelect={p.onToggleMoraFilter}>
+                  {p.moraFilter ? "Mostrar todas las filas" : `Solo mora (${moraCount})`}
                 </DropdownMenuItem>
               )}
               <DropdownMenuSeparator />
@@ -620,6 +650,13 @@ export function PlanillaToolbar(p: Props) {
                     onClick={closeMore(p.onToggleSumMode)}
                     icon={<span className="text-sm font-display">Σ</span>}
                     active={!!p.sumMode}
+                  />
+                )}
+                {p.onToggleMoraFilter && moraCount > 0 && (
+                  <SheetAction
+                    label={p.moraFilter ? "Todas las filas" : `Solo mora (${moraCount})`}
+                    onClick={closeMore(p.onToggleMoraFilter)}
+                    active={!!p.moraFilter}
                   />
                 )}
               </div>

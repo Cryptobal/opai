@@ -21,7 +21,7 @@ import {
   CashflowItemDrawerBase,
 } from "./CashflowItemDrawerHeader";
 import { useCashflowItemActions } from "./use-cashflow-item-actions";
-import { CobranzaSendDialog } from "./CobranzaSendDialog";
+import { CobranzaSendDialog } from "@/components/finance/cobranza/CobranzaSendDialog";
 
 export interface DrawerItemTarget {
   itemId: string;

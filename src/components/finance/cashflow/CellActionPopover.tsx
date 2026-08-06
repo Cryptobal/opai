@@ -26,7 +26,7 @@ import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import type { CashflowCellStatus, CellDteSummary } from "@/modules/finance/cashflow/types";
 import { CellStatusPill, pillVariantFor } from "./CellStatusPill";
-import { CobranzaSendDialog } from "./CobranzaSendDialog";
+import { CobranzaSendDialog } from "@/components/finance/cobranza/CobranzaSendDialog";
 import { MoveConflictDialog } from "./MoveConflictDialog";
 
 const fmt = new Intl.NumberFormat("es-CL", { maximumFractionDigits: 0 });

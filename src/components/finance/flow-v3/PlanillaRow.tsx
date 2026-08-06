@@ -20,6 +20,7 @@ import {
   countAssignPendingInCell,
   isFallbackBandejaRow,
 } from "@/modules/finance/flow-v3/unmatched-count";
+import { countOverdueInRow, rowHasOverdue } from "./cell-meta";
 
 const DRAG_BLOCKED_MSG =
   "Las facturas no se arrastran: usa clic derecho → Mover factura a…";
@@ -132,6 +133,8 @@ export function PlanillaRow(p: Props) {
     });
   };
   const showMenu = p.canManage && !row.isVirtual && p.rowMenu.length > 0;
+  const overdueN = countOverdueInRow(row);
+  const hasOverdue = rowHasOverdue(row);
   const openRowSheet = p.onOpenRowSheet;
   const handleNameLongPress = useCallback(() => {
     openRowSheet?.();
@@ -200,6 +203,14 @@ export function PlanillaRow(p: Props) {
               {row.isArchived && (
                 <span className="mt-0.5 inline-block rounded border border-ds-border-subtle px-0.5 text-[12px] leading-tight text-ds-text-3">
                   cerrada
+                </span>
+              )}
+              {hasOverdue && (
+                <span
+                  className="mt-0.5 inline-block rounded border border-status-warn-border bg-status-warn-soft px-1 text-[10px] font-medium leading-tight text-status-warn-fg"
+                  title={`${overdueN} factura${overdueN === 1 ? "" : "s"} en mora`}
+                >
+                  mora{overdueN > 1 ? ` ×${overdueN}` : ""}
                 </span>
               )}
             </span>

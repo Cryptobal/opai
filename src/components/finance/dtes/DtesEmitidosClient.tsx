@@ -45,7 +45,7 @@ import { IssuedDtesMobileList } from "./IssuedDtesMobileList";
 import { BulkActionBar } from "./BulkActionBar";
 import { BillingDocSendModal } from "@/components/finance/billing-doc-send/BillingDocSendModal";
 import { IssuedDteSlideOver } from "./IssuedDteSlideOver";
-import { CobranzaSendDialog } from "@/components/finance/cashflow/CobranzaSendDialog";
+import { CobranzaSendDialog } from "@/components/finance/cobranza/CobranzaSendDialog";
 import { useDteFilters } from "./hooks/useDteFilters";
 import { fmtCLP, sortDteRows } from "./shared/constants";
 import { normalizeAdditionalRefs } from "./shared/references";

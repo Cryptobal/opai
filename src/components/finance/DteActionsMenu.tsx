@@ -355,8 +355,8 @@ export function DteActionsMenu({
             </>
           )}
 
-          {/* Cobranza por WhatsApp — no depende del email del receptor. Si
-              no hay sección "Comunicación" (sin email reenviable), la creamos. */}
+          {/* Enviar cobranza — multicanal (WA / email). Si no hay sección
+              "Comunicación" (sin email reenviable), la creamos. */}
           {canManage && onSendCobranza && (
             <>
               {!canResend && (
@@ -369,7 +369,7 @@ export function DteActionsMenu({
               )}
               <DropdownMenuItem onClick={onSendCobranza}>
                 <MessageCircle className="h-4 w-4 mr-2" />
-                Cobranza por WhatsApp
+                Enviar cobranza
               </DropdownMenuItem>
             </>
           )}

@@ -28,6 +28,7 @@ import { fmtClp, parseSignedAmount } from "./format";
 import { PanelView } from "./PanelView";
 import { IssuedDteSlideOver } from "@/components/finance/dtes/IssuedDteSlideOver";
 import { summarizeBandejaRow } from "@/modules/finance/flow-v3/unmatched-count";
+import { countOverdueInMatrix } from "./cell-meta";
 
 const ZEROS_PREF_KEY = "opai-planilla-show-zeros";
 
@@ -112,6 +113,7 @@ export function PlanillaClient({
   const [viewDteId, setViewDteId] = useState<string | null>(null);
 
   const [showZeros, setShowZeros] = useState(false);
+  const [moraFilter, setMoraFilter] = useState(false);
   useEffect(() => {
     try {
       setShowZeros(localStorage.getItem(ZEROS_PREF_KEY) === "true");
@@ -153,6 +155,11 @@ export function PlanillaClient({
     () => (m.data ? summarizeBandejaRow(m.data.rows, "GAV").itemCount : 0),
     [m.data],
   );
+  const moraCount = useMemo(
+    () => (m.data ? countOverdueInMatrix(m.data.rows) : 0),
+    [m.data],
+  );
+  const toggleMoraFilter = useCallback(() => setMoraFilter((v) => !v), []);
   const openClassifyEgresos = useCallback(() => {
     setViewTab("planilla");
     if (bandejaApiRef.current) {
@@ -591,6 +598,9 @@ export function PlanillaClient({
         }}
         viewTab={viewTab}
         onViewTab={setViewTab}
+        moraCount={moraCount}
+        moraFilter={moraFilter}
+        onToggleMoraFilter={moraCount > 0 ? toggleMoraFilter : undefined}
       />
 
       {searchOpen && (
@@ -671,6 +681,7 @@ export function PlanillaClient({
               onArchive={setArchiving}
               enableDrag={!isMobile}
               showZeros={showZeros}
+              moraFilter={moraFilter}
               alwaysVisibleRowIds={sessionRowIds.current}
               scrollerRef={gridScrollRef}
               showChips={view.prefs.showChips}

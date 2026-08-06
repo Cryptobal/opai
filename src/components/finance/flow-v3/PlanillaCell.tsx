@@ -5,15 +5,16 @@ import type { FlowMatrixCellDto } from "@/modules/finance/flow-v3/matrix-types";
 import { fmtCell, NUM_CLASS, numSizeClass, type NumberFormatMode } from "./format";
 import { ChevronDown } from "lucide-react";
 import {
-  CELL_BASE, CELL_CARET, COL_W, COMMITTED_DRAFT_CELL, COMMITTED_DTE_CELL,
+  CELL_BASE, CELL_CARET, COL_W,   COMMITTED_DRAFT_CELL, COMMITTED_DTE_CELL,
   COMMITTED_PROFORMA_CELL, COMMITTED_SCHEDULED_CELL, CORNER_DTE, CORNER_PLAN,
-  CORNER_REAL, CORNER_WARN, NOTE_DOT_EL, SUB_CORNER_CEDED, SUB_CORNER_EP,
+  CORNER_REAL, CORNER_WARN, NOTE_DOT_EL, OVERDUE_CELL, OVERDUE_OVER60_CELL,
+  SUB_CORNER_CEDED, SUB_CORNER_EP,
   SUB_CORNER_PROFORMA, displayValue, REAL_CELL, ROW_H, TODAY_COL,
 } from "./grid-classes";
 import {
-  committedPriority, cornerKind, dteCountInCell, executionMeta,
-  pastPendingDteMeta, primaryCellTag, secondaryMarkTitle, secondaryMarks,
-  toneClass, type SecondaryMark,
+  cellOverdueState, committedPriority, cornerKind, countOverdueInCell,
+  dteCountInCell, executionMeta, pastPendingDteMeta, primaryCellTag,
+  secondaryMarkTitle, secondaryMarks, toneClass, type SecondaryMark,
 } from "./cell-meta";
 import { ExecutionBar } from "./ExecutionBar";
 
@@ -113,6 +114,13 @@ export function PlanillaCell(p: Props) {
     pastPendOnly && pastPend.total !== 0 ? fmtCell(pastPend.total, mode) : "";
 
   const { hasDte, hasSentDoc, hasDraft } = committedPriority(cell);
+  const overdueState = cellOverdueState(cell);
+  const overdueClass =
+    overdueState === "overdue60"
+      ? OVERDUE_OVER60_CELL
+      : overdueState === "overdue"
+        ? OVERDUE_CELL
+        : "";
   const committedClass = hasDte
     ? COMMITTED_DTE_CELL
     : hasSentDoc
@@ -143,13 +151,13 @@ export function PlanillaCell(p: Props) {
     ? cell.layer === "real"
       ? REAL_CELL
       : cell.layer === "committed"
-        ? committedClass
+        ? `${committedClass} ${overdueClass}`.trim()
         : pastPendOnly
           ? `${COMMITTED_DTE_CELL} opacity-60`
           : ""
     : pastPendOnly
       ? "opacity-60"
-      : "";
+      : overdueClass;
 
   /** Negativos (p.ej. financiamiento con egreso) en rojo para leer egresos de un vistazo. */
   const negativeClass = !pastPendOnly && value < 0 ? "text-status-danger-fg" : "";
@@ -192,6 +200,14 @@ export function PlanillaCell(p: Props) {
   if (tag?.title) titleParts.push(tag.title);
   if (subTitle) titleParts.push(subTitle);
   if (pastPend && cell.layer === "real") titleParts.push(pastPend.title);
+  if (overdueState !== "none") {
+    const n = countOverdueInCell(cell);
+    titleParts.push(
+      overdueState === "overdue60"
+        ? `${n} factura${n === 1 ? "" : "s"} con mora +60 días`
+        : `${n} factura${n === 1 ? "" : "s"} en mora`,
+    );
+  }
   if (cell.note?.trim()) titleParts.push(`Nota: ${cell.note.trim()}`);
   if (p.dragBlockedTitle) titleParts.push(p.dragBlockedTitle);
   if (mode !== "clp" && (pastPendOnly ? pastPend!.total : value) !== 0) {

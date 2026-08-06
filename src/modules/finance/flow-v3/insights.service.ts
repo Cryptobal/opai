@@ -25,6 +25,7 @@ export interface CarteraPendienteItem {
   /** Semana (lunes YMD) donde está anclada (emisión u override). */
   anchoredWeek: string;
   anchoredWeekLabel: string;
+  crmAccountId: string | null;
 }
 
 export interface OpenMoveWeek {
@@ -166,6 +167,7 @@ export async function buildFlowInsights(tenantId: string): Promise<FlowInsightsD
         totalAmount: true,
         amountPaid: true,
         receiverName: true,
+        crmAccountId: true,
       },
       take: 2000,
     }),
@@ -226,6 +228,7 @@ export async function buildFlowInsights(tenantId: string): Promise<FlowInsightsD
       pendingClp: Math.round(pending),
       anchoredWeek,
       anchoredWeekLabel: weekLabel(anchoredWeek),
+      crmAccountId: d.crmAccountId,
     });
   }
 
