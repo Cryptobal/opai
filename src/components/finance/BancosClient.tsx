@@ -1098,6 +1098,11 @@ function TransactionsTab({
   );
   const [recalculatingBalance, setRecalculatingBalance] = useState(false);
   const [manualBalanceDigits, setManualBalanceDigits] = useState("");
+  /** Último cierre de cartola (IMPORT) — informativo; no pisa el saldo actual. */
+  const [lastCartolaClose, setLastCartolaClose] = useState<{
+    asOfDate: string;
+    balance: number;
+  } | null>(null);
   const [manualBalanceNote, setManualBalanceNote] = useState("");
   const [savingManualBalance, setSavingManualBalance] = useState(false);
   // Diálogo "Ocultar movimiento"
@@ -1400,6 +1405,39 @@ function TransactionsTab({
     setManualBalanceDigits(String(Math.round(selectedAccountRow.currentBalance)));
     setManualBalanceNote("");
   }, [selectedAccountRow?.id, selectedAccountRow?.currentBalance]);
+
+  useEffect(() => {
+    if (!selectedAccount) {
+      setLastCartolaClose(null);
+      return;
+    }
+    let cancelled = false;
+    fetch(`/api/finance/banking/accounts/${selectedAccount}/balance-history`)
+      .then((r) => r.json())
+      .then((json) => {
+        if (cancelled || !json?.success) return;
+        const rows = (json.data ?? []) as Array<{
+          asOfDate: string;
+          balance: string | number;
+          source: string;
+        }>;
+        const importSnap = rows.find((s) => s.source === "IMPORT");
+        if (!importSnap) {
+          setLastCartolaClose(null);
+          return;
+        }
+        setLastCartolaClose({
+          asOfDate: String(importSnap.asOfDate).slice(0, 10),
+          balance: Number(importSnap.balance),
+        });
+      })
+      .catch(() => {
+        if (!cancelled) setLastCartolaClose(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedAccount, selectedAccountRow?.currentBalance]);
 
   const saveManualAccountBalance = useCallback(async () => {
     if (!selectedAccount || !manualBalanceDigits) return;
@@ -2213,15 +2251,30 @@ function TransactionsTab({
           <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
             <div className="min-w-0">
               <p className="text-[12px] uppercase tracking-wide text-ds-text-3">
-                Saldo en banco (cuenta)
+                Saldo actual
               </p>
               <p className="font-display text-lg font-semibold tabular-nums">
                 {fmtCLP.format(selectedAccountRow.currentBalance)}
               </p>
-              <p className="text-[12px] text-ds-text-3 mt-0.5">
-                Fijá el saldo que ves hoy en el banco, o recalculá desde cartola
-                + movimientos
-              </p>
+              {lastCartolaClose ? (
+                <p className="text-[12px] text-ds-text-3 mt-0.5">
+                  Última cartola:{" "}
+                  {format(new Date(`${lastCartolaClose.asOfDate}T12:00:00`), "dd-MM-yyyy")}
+                  {" · "}
+                  Saldo cierre: {fmtCLP.format(lastCartolaClose.balance)}
+                  {Math.abs(lastCartolaClose.balance - selectedAccountRow.currentBalance) > 1 && (
+                    <span className="text-status-warn-fg">
+                      {" "}
+                      (informativo — no reemplaza el saldo actual)
+                    </span>
+                  )}
+                </p>
+              ) : (
+                <p className="text-[12px] text-ds-text-3 mt-0.5">
+                  Fijá el saldo que ves hoy en el banco. Una cartola nueva no
+                  pisa un saldo manual del mismo día o más reciente.
+                </p>
+              )}
             </div>
             {canManage && (
               <Button

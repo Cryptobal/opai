@@ -19,7 +19,7 @@ import {
 import {
   Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
 } from "@/components/ui/tooltip";
-import type { NumberFormatMode } from "./format";
+import { fmtClp, type NumberFormatMode } from "./format";
 import {
   COLOR_PALETTE, FILL_PALETTE, ZOOM_STEPS,
   type AlignH, type AlignV, type PlanillaTheme,
@@ -74,6 +74,10 @@ interface Props {
   egresosPendientesCount?: number;
   /** Abre la bandeja de egresos (GAV). */
   onClassifyEgresos?: () => void;
+  /** Saldo banco hoy (al lado de clasificar). */
+  saldoHoy?: number | null;
+  bankStale?: boolean;
+  onOpenBank?: () => void;
   /** Modo Σ: selección discontinua. */
   sumMode?: boolean;
   onToggleSumMode?: () => void;
@@ -302,6 +306,33 @@ export function PlanillaToolbar(p: Props) {
                 <span className="inline-flex shrink-0">{classifyButton}</span>
               </Tip>
             )
+          )}
+
+          {p.saldoHoy != null && p.onOpenBank && (
+            <Tip
+              label={
+                p.bankStale
+                  ? "Última cartola hace más de 7 días — el saldo puede estar desactualizado"
+                  : "Ver desglose por cuenta"
+              }
+            >
+              <Button
+                variant="ghost"
+                size="sm"
+                className={`${txt} shrink-0 text-ds-text-2`}
+                onClick={p.onOpenBank}
+                aria-label={`Banco hoy ${fmtClp(p.saldoHoy)}`}
+              >
+                <span className="hidden sm:inline">Banco hoy </span>
+                <span
+                  className={`tabular-nums ${
+                    p.bankStale ? "text-status-warn-fg" : "text-ds-text-1"
+                  }`}
+                >
+                  {fmtClp(p.saldoHoy)}
+                </span>
+              </Button>
+            </Tip>
           )}
 
           <Tip label={chipsLabel}>

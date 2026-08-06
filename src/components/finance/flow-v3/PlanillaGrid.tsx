@@ -2026,6 +2026,34 @@ export function PlanillaGrid({
         flowRows={bandejaFlowRows}
         onClassifyGroup={handleClassifyGroup}
         onApplySuggestions={handleApplySuggestions}
+        onDismiss={async (bankTransactionIds) => {
+          if (bankTransactionIds.length === 0) return;
+          const results = await Promise.allSettled(
+            bankTransactionIds.map((id) =>
+              fetch(`/api/finance/banking/transactions/${id}/mark-internal`, {
+                method: "POST",
+              }).then(async (res) => {
+                const j = await res.json().catch(() => ({}));
+                if (!res.ok || j?.success === false) {
+                  throw new Error(j?.error ?? "No se pudo descartar");
+                }
+              }),
+            ),
+          );
+          const ok = results.filter((r) => r.status === "fulfilled").length;
+          const fail = results.length - ok;
+          if (ok > 0) {
+            toast.success(
+              `${ok} movimiento${ok === 1 ? "" : "s"} descartado${ok === 1 ? "" : "s"} de la bandeja`,
+            );
+            onRefresh?.();
+          }
+          if (fail > 0) {
+            throw new Error(
+              `${fail} no se pudieron descartar (¿tenés permiso de flujo de caja?)`,
+            );
+          }
+        }}
         onAssignAccounts={(flowRowId) => {
           const row = rowById.get(flowRowId);
           if (!row) {
