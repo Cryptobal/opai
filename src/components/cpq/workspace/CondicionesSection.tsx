@@ -260,16 +260,6 @@ export function CondicionesSection({
           </div>
 
           <div className="space-y-1">
-            <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Monto póliza</Label>
-            <div className="flex items-center gap-1">
-              <Input type="number" min={0} step={0.01} value={form.insurancePolicyUF ?? 1500} placeholder="1500"
-                onChange={(e) => { setForm(prev => ({ ...prev, insurancePolicyUF: e.target.value ? Number(e.target.value) : 1500 })); setDirty(); }}
-                disabled={disabled} className="h-8 bg-card text-foreground border-border text-xs w-20" />
-              <span className="text-xs text-muted-foreground">UF</span>
-            </div>
-          </div>
-
-          <div className="space-y-1">
             <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Límite responsabilidad</Label>
             <div className="flex items-center gap-1">
               <Input type="number" min={1} max={24} value={form.liabilityMonths}

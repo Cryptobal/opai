@@ -252,29 +252,6 @@ export function CommercialConditionsSection({
           </div>
 
           <div className="space-y-1">
-            <Label className="text-sm text-muted-foreground">Monto póliza</Label>
-            <div className="flex items-center gap-1">
-              <Input
-                type="number"
-                min={0}
-                step={0.01}
-                // Default 1500 UF when missing — standard póliza for
-                // security-service contracts. User can override.
-                value={value.insurancePolicyUF ?? 1500}
-                onChange={(e) =>
-                  update({
-                    insurancePolicyUF: e.target.value ? Number(e.target.value) : 1500,
-                  })
-                }
-                disabled={isLocked}
-                className="h-8 bg-card text-foreground border-border text-xs w-20"
-                placeholder="1500"
-              />
-              <span className="text-xs text-muted-foreground">UF</span>
-            </div>
-          </div>
-
-          <div className="space-y-1">
             <Label className="text-sm text-muted-foreground">Límite responsabilidad</Label>
             <div className="flex items-center gap-1">
               <Input

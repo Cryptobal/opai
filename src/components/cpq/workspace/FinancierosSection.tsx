@@ -26,6 +26,8 @@ export function FinancierosSection({
   getDecimalValue,
   setDecimalValue,
   clearDecimalValue,
+  insurancePolicyUF = 1500,
+  onInsurancePolicyUFChange,
   proposalGoverned = false,
   onEditAtProposal,
 }: {
@@ -41,6 +43,9 @@ export function FinancierosSection({
   getDecimalValue: (key: string, value: number | null | undefined, decimals?: number, allowEmpty?: boolean) => string;
   setDecimalValue: (key: string, value: string) => void;
   clearDecimalValue: (key: string) => void;
+  /** Monto de póliza contractual (UF) — vive aquí, no en Condiciones comerciales. */
+  insurancePolicyUF?: number | null;
+  onInsurancePolicyUFChange?: (value: number) => void;
   /** Multi-instalación: tasa financiera gobernada por la propuesta. */
   proposalGoverned?: boolean;
   onEditAtProposal?: () => void;
@@ -53,7 +58,7 @@ export function FinancierosSection({
   return (
     <SectionCard
       id="sec-financieros"
-      title="Gastos financieros"
+      title="Gastos financieros y garantías"
       open={open}
       onToggle={onToggle}
       cardClassName="overflow-hidden scroll-mt-[calc(var(--app-island-bottom)+var(--cpq-sticky-h))] lg:scroll-mt-32"
@@ -172,7 +177,23 @@ export function FinancierosSection({
               {policyEnabled ? "On" : "Off"}
             </button>
           </div>
-          <div className="grid grid-cols-3 gap-1">
+          <div className="grid grid-cols-2 gap-1 sm:grid-cols-4">
+            <div>
+              <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Monto (UF)</Label>
+              <Input
+                type="number"
+                min={0}
+                step={0.01}
+                value={insurancePolicyUF ?? 1500}
+                placeholder="1500"
+                onChange={(e) => {
+                  const n = e.target.value ? Number(e.target.value) : 1500;
+                  onInsurancePolicyUFChange?.(Number.isFinite(n) && n >= 0 ? n : 1500);
+                }}
+                disabled={isLocked || proposalGoverned || !onInsurancePolicyUFChange}
+                className="h-7 text-xs bg-card text-foreground border-border"
+              />
+            </div>
             <div>
               <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Meses</Label>
               <Input

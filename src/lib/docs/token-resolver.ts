@@ -989,7 +989,7 @@ export async function buildQuoteEnrichedData(
     imoWeight: (quote as any).imoWeight ?? 0,
     // Default 1500 UF when the quote has no póliza set (null / 0). This
     // keeps the CUARTA / SÉPTIMA clauses from rendering as "0 UF" or an
-    // unresolved token. User can override from Condiciones Comerciales.
+    // unresolved token. User can override from Gastos financieros.
     insurancePolicyUF: (() => {
       const raw = (quote as any).insurancePolicyUF;
       const n = raw != null ? Number(raw) : NaN;

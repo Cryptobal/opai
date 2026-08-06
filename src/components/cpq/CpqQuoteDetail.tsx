@@ -2412,6 +2412,11 @@ export function CpqQuoteDetail({
         getDecimalValue={getDecimalValue}
         setDecimalValue={setDecimalValue}
         clearDecimalValue={clearDecimalValue}
+        insurancePolicyUF={quoteForm.insurancePolicyUF}
+        onInsurancePolicyUFChange={(value) => {
+          setQuoteForm((prev) => ({ ...prev, insurancePolicyUF: value }));
+          setQuoteDirty(true);
+        }}
         proposalGoverned={conditionsGovernedByProposal}
         onEditAtProposal={onEditConditionsAtProposal}
       />
