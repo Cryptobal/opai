@@ -206,6 +206,68 @@ export async function updateAccount(
 }
 
 /**
+ * Elimina una cuenta del plan. Hard-delete si no tiene dependencias;
+ * si tiene historial/vínculos, la desactiva (isActive=false) para que
+ * deje de aparecer en el plan operativo.
+ */
+export async function deleteAccount(tenantId: string, accountId: string) {
+  const account = await prisma.financeAccountPlan.findFirst({
+    where: { id: accountId, tenantId },
+    include: {
+      _count: {
+        select: {
+          children: true,
+          journalLines: true,
+          bankAccounts: true,
+          dteLines: true,
+          supplierPayable: true,
+          supplierExpense: true,
+          cashRegisters: true,
+          bankTxLinks: true,
+          cashflowCategories: true,
+          cashflowCategoryAccounts: true,
+          flowRowAccounts: true,
+        },
+      },
+    },
+  });
+  if (!account) throw new Error("Cuenta no encontrada");
+  if (account.isSystem) {
+    throw new Error("Las cuentas del plan base no se pueden eliminar");
+  }
+
+  const blockers = account._count;
+  const hasDeps =
+    blockers.children > 0 ||
+    blockers.journalLines > 0 ||
+    blockers.bankAccounts > 0 ||
+    blockers.dteLines > 0 ||
+    blockers.supplierPayable > 0 ||
+    blockers.supplierExpense > 0 ||
+    blockers.cashRegisters > 0 ||
+    blockers.bankTxLinks > 0 ||
+    blockers.cashflowCategories > 0 ||
+    blockers.cashflowCategoryAccounts > 0 ||
+    blockers.flowRowAccounts > 0;
+
+  if (hasDeps) {
+    if (!account.isActive) {
+      return { id: account.id, deleted: false, deactivated: true };
+    }
+    await prisma.financeAccountPlan.update({
+      where: { id: accountId },
+      data: { isActive: false },
+    });
+    return { id: account.id, deleted: false, deactivated: true };
+  }
+
+  await prisma.financeAccountPlan.delete({
+    where: { id: accountId },
+  });
+  return { id: account.id, deleted: true, deactivated: false };
+}
+
+/**
  * Seed the standard Chilean chart of accounts for a tenant
  */
 export async function seedAccountPlan(tenantId: string) {

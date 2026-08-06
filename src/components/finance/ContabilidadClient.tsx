@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState, type ComponentType } from "react";
+import { useCallback, useEffect, useMemo, useState, type ComponentType } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { format } from "date-fns";
@@ -254,6 +254,13 @@ function AccountsTab({
   const [saving, setSaving] = useState(false);
   const [seeding, setSeeding] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
+  /** Lista operativa: solo activas. Optimistic remove al eliminar. */
+  const [visibleAccounts, setVisibleAccounts] = useState(() =>
+    accounts.filter((a) => a.isActive),
+  );
+  useEffect(() => {
+    setVisibleAccounts(accounts.filter((a) => a.isActive));
+  }, [accounts]);
 
   const handleSeed = async () => {
     setSeeding(true);
@@ -282,14 +289,14 @@ function AccountsTab({
   const [form, setForm] = useState(EMPTY_FORM);
 
   const filtered = useMemo(() => {
-    if (!search.trim()) return accounts;
+    if (!search.trim()) return visibleAccounts;
     const q = search.toLowerCase();
-    return accounts.filter(
+    return visibleAccounts.filter(
       (a) =>
         a.code.toLowerCase().includes(q) ||
         a.name.toLowerCase().includes(q)
     );
-  }, [accounts, search]);
+  }, [visibleAccounts, search]);
 
   const setField = useCallback(
     (key: string, value: string | boolean) =>
@@ -359,7 +366,7 @@ function AccountsTab({
     if (
       !(await confirmDialog({
         title: "Eliminar cuenta",
-        description: `¿Eliminar la cuenta ${account.code} — ${account.name}? Quedará inactiva y no se podrá usar en nuevos asientos.`,
+        description: `¿Eliminar la cuenta ${account.code} — ${account.name}? Desaparecerá del plan de cuentas.`,
         variant: "destructive",
         confirmLabel: "Eliminar",
       }))
@@ -369,16 +376,16 @@ function AccountsTab({
     setDeleting(account.id);
     try {
       const res = await fetch(`/api/finance/accounting/accounts/${account.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ isActive: false }),
+        method: "DELETE",
       });
+      const payload = await res.json().catch(() => ({}));
       if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || "Error al eliminar cuenta");
+        throw new Error(payload.error || "Error al eliminar cuenta");
       }
+      setVisibleAccounts((prev) => prev.filter((a) => a.id !== account.id));
       toast.success("Cuenta eliminada");
       setDialogOpen(false);
+      setEditingId(null);
       router.refresh();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Error inesperado");
@@ -402,7 +409,7 @@ function AccountsTab({
         </div>
         {canManage && (
           <div className="flex gap-2">
-            {accounts.length === 0 && (
+            {visibleAccounts.length === 0 && (
               <Button size="sm" variant="outline" onClick={handleSeed} disabled={seeding}>
                 {seeding && <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />}
                 Inicializar Plan CL
@@ -625,7 +632,7 @@ function AccountsTab({
         <NewAccountWizard
           open={dialogOpen}
           onOpenChange={setDialogOpen}
-          accounts={accounts}
+          accounts={visibleAccounts}
           saving={saving}
           onCreated={() => {
             setDialogOpen(false);
