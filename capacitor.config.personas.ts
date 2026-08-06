@@ -23,6 +23,7 @@ const config: CapacitorConfig = {
   appId: "cl.opai.personas",
   appName: "Opai Personas",
   webDir: "out",
+  backgroundColor: "#060a13",
   server: {
     url: "https://www.opai.cl/portal/personas",
     allowNavigation: [
@@ -34,16 +35,22 @@ const config: CapacitorConfig = {
   },
   plugins: {
     SplashScreen: {
-      launchShowDuration: 2000,
-      backgroundColor: "#0a1628",
-      showSpinner: false,
+      launchShowDuration: 20000, // red de seguridad; el hide real lo hace el JS
+      launchAutoHide: true, // nunca dejar el splash pegado
+      backgroundColor: "#060a13",
+      showSpinner: true,
+      androidSpinnerStyle: "large",
+      iosSpinnerStyle: "small",
+      spinnerColor: "#14b8a6",
+      splashFullScreen: true,
+      splashImmersive: true,
     },
     PushNotifications: {
       presentationOptions: ["badge", "sound", "alert"],
     },
     StatusBar: {
       style: "DARK",
-      backgroundColor: "#0a1628",
+      backgroundColor: "#060a13",
     },
   },
 };

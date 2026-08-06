@@ -10,6 +10,7 @@ import { ConfirmHost } from "@/components/ui/confirm-service";
 import { CookieConsentBanner } from "@/components/CookieConsent";
 import { ConditionalAnalytics } from "@/components/ConditionalAnalytics";
 import { PlatformDataAttribute } from "@/components/opai/portal-shell";
+import { NativeSplashGate } from "@/components/pwa/NativeSplashGate";
 import "../styles/globals.css";
 
 export const viewport: Viewport = {
@@ -103,6 +104,7 @@ export default function RootLayout({
       </head>
       <body>
         <PlatformDataAttribute />
+        <NativeSplashGate />
         <ConditionalAnalytics />
         <ThemeProvider>
           <PWAProvider>

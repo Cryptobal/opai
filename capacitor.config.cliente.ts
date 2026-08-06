@@ -19,6 +19,7 @@ const config: CapacitorConfig = {
   appId: "cl.opai.cliente",
   appName: "Opai Clientes",
   webDir: "out",
+  backgroundColor: "#060a13",
   server: {
     url: "https://www.opai.cl/portal/cliente",
     allowNavigation: [
@@ -30,9 +31,15 @@ const config: CapacitorConfig = {
   },
   plugins: {
     SplashScreen: {
-      launchShowDuration: 2000,
+      launchShowDuration: 20000, // red de seguridad; el hide real lo hace el JS
+      launchAutoHide: true, // nunca dejar el splash pegado
       backgroundColor: "#060a13",
-      showSpinner: false,
+      showSpinner: true,
+      androidSpinnerStyle: "large",
+      iosSpinnerStyle: "small",
+      spinnerColor: "#14b8a6",
+      splashFullScreen: true,
+      splashImmersive: true,
     },
     PushNotifications: {
       presentationOptions: ["badge", "sound", "alert"],
