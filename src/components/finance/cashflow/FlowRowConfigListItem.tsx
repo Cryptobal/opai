@@ -18,6 +18,11 @@ interface Props {
   saving?: boolean;
   onOpenDrawer: (row: FlowRowConfigItem) => void;
   onRename: (rowId: string, name: string) => void;
+  onAccountsChanged?: () => void;
+}
+
+function isBandejaKey(key: string | null): boolean {
+  return key === "BANDEJA_EGRESO" || key === "BANDEJA_INGRESO";
 }
 
 export function FlowRowConfigListItem({
@@ -28,28 +33,34 @@ export function FlowRowConfigListItem({
   saving = false,
   onOpenDrawer,
   onRename,
+  onAccountsChanged,
 }: Props) {
   const problem = rowHasProblem(row, health);
+  const systemLocked = !!row.canonicalKey;
+  /** Sistema: cuentas visibles pero no editables. Custom: editables. */
+  const canEditAccounts = !systemLocked && !isBandejaKey(row.canonicalKey);
 
   if (readOnly) {
     return (
-      <li className="flex flex-wrap items-center justify-between gap-2 rounded-ds-md border border-ds-border-subtle bg-ds-surface-1 px-3 py-2.5 min-h-11">
-        <div className="min-w-0">
-          <p className="text-[13px] font-medium text-ds-text-1 truncate">{row.name}</p>
-          {row.crmAccountId && (
-            <p className="text-[12px] text-ds-text-3">Vinculado a cuenta CRM</p>
-          )}
+      <li className="rounded-ds-md border border-ds-border-subtle bg-ds-surface-1 px-3 py-2.5 min-h-11 space-y-1.5">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="min-w-0">
+            <p className="text-[13px] font-medium text-ds-text-1 truncate">{row.name}</p>
+            {row.crmAccountId && (
+              <p className="text-[12px] text-ds-text-3">Vinculado a cuenta CRM</p>
+            )}
+          </div>
+          <Tag variant="info" size="sm">
+            Automático
+          </Tag>
         </div>
-        <Tag variant="info" size="sm">
-          Automático
-        </Tag>
       </li>
     );
   }
 
   return (
     <li
-      className={`rounded-ds-md border bg-ds-surface-1 p-3 ${
+      className={`rounded-ds-md border bg-ds-surface-1 p-3 relative ${
         problem ? "border-status-warn-border" : "border-ds-border-default"
       }`}
     >
@@ -61,7 +72,7 @@ export function FlowRowConfigListItem({
                 Revisar
               </Tag>
             )}
-            {row.canonicalKey && (
+            {systemLocked && (
               <Tag variant="neutral" size="sm">
                 Sistema
               </Tag>
@@ -70,7 +81,7 @@ export function FlowRowConfigListItem({
           <Input
             className="h-10 sm:h-9 font-medium"
             defaultValue={row.name}
-            disabled={saving || !!row.canonicalKey}
+            disabled={saving || systemLocked}
             onBlur={(e) => {
               const next = e.target.value.trim();
               if (next && next !== row.name) onRename(row.id, next);
@@ -80,8 +91,9 @@ export function FlowRowConfigListItem({
             rowId={row.id}
             accountOptions={accountOptions}
             initialAccounts={row.accounts}
-            canEdit={!row.canonicalKey}
+            canEdit={canEditAccounts}
             compact
+            onSaved={() => onAccountsChanged?.()}
           />
         </div>
         <Button

@@ -21,6 +21,8 @@ interface Props {
   canEdit?: boolean;
   compact?: boolean;
   onChange?: (accounts: RowAccountMapping[]) => void;
+  /** Tras un PUT exitoso (no en el load inicial). */
+  onSaved?: () => void;
 }
 
 /**
@@ -33,6 +35,7 @@ export function RowAccountsEditor({
   canEdit = true,
   compact = false,
   onChange,
+  onSaved,
 }: Props) {
   const [mappings, setMappings] = useState<RowAccountMapping[]>(initialAccounts ?? []);
   const [query, setQuery] = useState("");
@@ -104,6 +107,7 @@ export function RowAccountsEditor({
         return;
       }
       await load();
+      onSaved?.();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Error de red");
     } finally {
@@ -132,9 +136,15 @@ export function RowAccountsEditor({
   );
 
   return (
-    <div className={`flex flex-wrap items-center gap-1.5 ${compact ? "" : "mt-1"}`}>
+    <div
+      className={`flex flex-wrap items-center gap-1.5 ${compact ? "" : "mt-1"} ${
+        open ? "relative z-40" : ""
+      }`}
+    >
       {mappings.length === 0 && (
-        <span className="text-[12px] text-status-warn-fg">Sin cuentas</span>
+        <span className="text-[12px] text-status-warn-fg">
+          {canEdit ? "Sin cuentas" : "Sin cuentas asociadas"}
+        </span>
       )}
       {mappings.map((m) => (
         <span
@@ -147,12 +157,8 @@ export function RowAccountsEditor({
           title={`${m.code} — ${m.name}`}
         >
           <span className="font-mono">{m.code}</span>
-          {!compact && (
-            <>
-              <span className="text-ds-text-3">·</span>
-              <span className="truncate max-w-[140px]">{m.name}</span>
-            </>
-          )}
+          <span className="text-ds-text-3">·</span>
+          <span className="truncate max-w-[160px]">{m.name}</span>
           {m.isDefaultTarget && (
             <Tag variant="ok" size="sm">
               destino
@@ -182,7 +188,7 @@ export function RowAccountsEditor({
         </span>
       ))}
       {canEdit && available.length > 0 && (
-        <div className="relative">
+        <div className={`relative ${open ? "z-50" : ""}`}>
           <div className="flex items-center gap-1.5 h-8 sm:h-7 min-w-[200px] rounded-ds-sm border border-ds-border-default bg-ds-surface-1 px-2">
             <Search className="h-3.5 w-3.5 text-ds-text-3 shrink-0" />
             <input
@@ -205,7 +211,7 @@ export function RowAccountsEditor({
                 )
               : available;
             return (
-              <ul className="absolute top-full left-0 mt-1 w-[260px] max-h-[240px] overflow-y-auto rounded-ds-sm border border-ds-border-default bg-popover shadow-lg z-20">
+              <ul className="absolute top-full left-0 mt-1 w-[280px] max-h-[240px] overflow-y-auto rounded-ds-sm border border-ds-border-default bg-popover text-popover-foreground shadow-lg z-[60]">
                 {filtered.slice(0, 80).map((a) => (
                   <li key={a.id}>
                     <button

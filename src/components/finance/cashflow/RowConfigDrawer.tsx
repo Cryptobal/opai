@@ -42,7 +42,11 @@ export function RowConfigDrawer({
   onSave,
 }: Props) {
   if (!row) return null;
-  const readOnly = row.section === "INGRESOS" || !!row.canonicalKey;
+  const isIncome = row.section === "INGRESOS";
+  const systemLocked = !!row.canonicalKey;
+  const metaLocked = isIncome || systemLocked;
+  /** Sistema: ver cuentas, no editar. Custom egreso: editable. */
+  const canEditAccounts = !isIncome && !systemLocked;
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -61,7 +65,7 @@ export function RowConfigDrawer({
             <Input
               className="h-10 sm:h-9 mt-1"
               defaultValue={row.name}
-              disabled={saving || readOnly}
+              disabled={saving || metaLocked}
               onBlur={(e) => {
                 const next = e.target.value.trim();
                 if (next && next !== row.name) void onSave({ name: next });
@@ -72,7 +76,7 @@ export function RowConfigDrawer({
             <Label className="text-[12px] text-ds-text-3">Sección</Label>
             <Select
               value={row.section}
-              disabled={saving || readOnly}
+              disabled={saving || metaLocked}
               onValueChange={(v) => {
                 if (v !== row.section) void onSave({ section: v });
               }}
@@ -96,11 +100,12 @@ export function RowConfigDrawer({
                 rowId={row.id}
                 accountOptions={accountOptions}
                 initialAccounts={row.accounts}
-                canEdit={!readOnly}
+                canEdit={canEditAccounts}
               />
               <p className="mt-2 text-[12px] text-ds-text-3">
-                La cuenta principal contabiliza el egreso. Marcá <strong>destino</strong> si
-                varios renglones comparten la misma cuenta.
+                {systemLocked
+                  ? "Renglón de sistema: la cuenta se muestra para referencia y no se edita aquí."
+                  : "La cuenta principal contabiliza el egreso. Marcá destino si varios renglones comparten la misma cuenta."}
               </p>
             </div>
           )}

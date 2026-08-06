@@ -28,6 +28,27 @@ const CATEGORY_CODE_TO_ROW_KEY: Record<string, FlowRowKey> = {
   EGR_DEVOL_PRESTAMO_SOCIO: "DEVOL_PRESTAMO_SOCIO",
 };
 
+/**
+ * Cuentas por defecto para llaves/nombres sin category mapping (o complemento).
+ * Códigos del plan estándar Gard/OPAI — se omiten si el código no existe.
+ */
+const DEFAULT_ACCOUNT_CODES_BY_KEY: Partial<Record<FlowRowKey, string[]>> = {
+  APORTE_SOCIO: ["2.1.01.003"], // Acreedores Varios (préstamos socios)
+  DEVOL_PRESTAMO_SOCIO: ["2.1.01.003"],
+  CREDITO: ["2.2.01.001"], // Prestamos Bancarios LP
+  FACTORING: ["6.2.01.003"],
+  RETIRO_SOCIO: ["3.2.01.001"],
+  IVA_F29: ["2.1.02.001"],
+};
+
+/** Por nombre normalizado (filas custom sin canonicalKey). */
+const DEFAULT_ACCOUNT_CODES_BY_NAME: Record<string, string[]> = {
+  provision: ["1.1.01.030"], // Fondos mutuos / liquidez (crear si falta)
+  "iva postergado": ["2.1.02.001"],
+  "t.g.r.": ["2.1.02.005"],
+  tgr: ["2.1.02.005"],
+};
+
 const FLOW_SECTION_ORDER: FlowSection[] = [
   "INGRESOS",
   "REMUNERACIONES",
@@ -218,6 +239,59 @@ async function backfillTenant(
         });
       }
       summary.mappingUpdated += 1;
+    }
+
+    // 3b) Cuentas por defecto (llave / nombre) si el renglón sigue sin cuentas
+    const refreshed = await prisma.financeFlowRowAccount.findMany({
+      where: { tenantId, rowId: row.id },
+      select: { accountPlanId: true },
+    });
+    if (refreshed.length === 0 && !row.archivedAt) {
+      const key =
+        row.canonicalKey ??
+        (row.categoryId
+          ? CATEGORY_CODE_TO_ROW_KEY[catById.get(row.categoryId)?.code ?? ""]
+          : null) ??
+        keyFromName(row.name, row.section);
+      const codes =
+        (key ? DEFAULT_ACCOUNT_CODES_BY_KEY[key] : null) ??
+        DEFAULT_ACCOUNT_CODES_BY_NAME[normalizeName(row.name)] ??
+        [];
+      if (codes.length > 0) {
+        const plans = await prisma.financeAccountPlan.findMany({
+          where: { tenantId, code: { in: codes }, isActive: true },
+          select: { id: true, code: true },
+        });
+        const byCode = new Map(plans.map((p) => [p.code, p.id]));
+        let i = 0;
+        for (const code of codes) {
+          const accountPlanId = byCode.get(code);
+          if (!accountPlanId) continue;
+          if (!dryRun) {
+            await prisma.financeFlowRowAccount.upsert({
+              where: {
+                rowId_accountPlanId: { rowId: row.id, accountPlanId },
+              },
+              create: {
+                tenantId,
+                rowId: row.id,
+                accountPlanId,
+                isPrimary: i === 0,
+                isDefaultTarget: false,
+              },
+              update: {},
+            });
+            if (i === 0 && row.mapping === "MANUAL") {
+              await prisma.financeFlowRow.update({
+                where: { id: row.id },
+                data: { mapping: "ACCOUNTS" },
+              });
+            }
+          }
+          summary.accountsCopied += 1;
+          i += 1;
+        }
+      }
     }
   }
 
