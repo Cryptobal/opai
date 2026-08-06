@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { ChevronDown, ChevronRight, Inbox, Plus } from "lucide-react";
 import type { FlowMatrixResponse, FlowMatrixRowDto } from "@/modules/finance/flow-v3/matrix-types";
 import { hasInvoicedIncome } from "@/modules/finance/flow-v3/cell-editability";
+import { addWeeksUTC, toYmd, ymdToDate } from "@/modules/finance/flow-v3/weeks";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
   ContextMenu, ContextMenuContent, ContextMenuTrigger,
@@ -71,6 +72,22 @@ interface PlanMutators {
     body: string | null,
     opts?: { silent?: boolean },
   ) => Promise<boolean>;
+  patchSettlement: (
+    rowId: string,
+    weekStart: string,
+    mode: "AUTO" | "CLOSED",
+    projectedClp?: number,
+    opts?: { skipHistory?: boolean },
+  ) => Promise<void>;
+  moveResidual: (
+    rowId: string,
+    fromWeek: string,
+    toWeek: string,
+    residualCash: number,
+    section: string,
+    projectedClp?: number,
+    opts?: { skipHistory?: boolean },
+  ) => Promise<void>;
   undo: () => Promise<HistoryEntry | null>;
   redo: () => Promise<HistoryEntry | null>;
 }
@@ -1178,6 +1195,47 @@ export function PlanillaGrid({
         void actions.excludeDte(dteId, "Excluida desde la planilla");
       },
       onRegisterPayment: (dteId: string) => onViewDte?.(dteId),
+      onSettleCell: () => {
+        const row = rowById.get(sel.rowId);
+        const cell = row?.cells[sel.colIdx];
+        if (!cell?.execution) return;
+        void matrix.patchSettlement(
+          sel.rowId,
+          week,
+          "CLOSED",
+          cell.execution.projected,
+        );
+      },
+      onReopenCell: () => {
+        void matrix.patchSettlement(sel.rowId, week, "AUTO");
+      },
+      onMatchPlanToReal: () => {
+        const row = rowById.get(sel.rowId);
+        const cell = row?.cells[sel.colIdx];
+        if (!row || !cell?.real) return;
+        const realSigned = cell.real.total;
+        const amount =
+          row.section === "FINANCIAMIENTO"
+            ? Math.round(realSigned)
+            : Math.round(Math.abs(realSigned));
+        void matrix.patchPlan(sel.rowId, week, amount);
+      },
+      onMoveResidual: () => {
+        const row = rowById.get(sel.rowId);
+        const cell = row?.cells[sel.colIdx];
+        if (!row || !cell?.execution || cell.execution.residual === 0) return;
+        const from = ymdToDate(week);
+        if (!from) return;
+        const toWeek = toYmd(addWeeksUTC(from, 1));
+        void matrix.moveResidual(
+          sel.rowId,
+          week,
+          toWeek,
+          cell.execution.residual,
+          row.section,
+          cell.execution.projected,
+        );
+      },
     }),
     [actions, canManage, kb, matrix, openPopover, requestFillRight, onViewDte, rowById],
   );
@@ -1715,6 +1773,21 @@ export function PlanillaGrid({
           setPopoverFocusNote(false);
         }}
         canManage={canManage}
+        editable={
+          popover
+            ? canEditCell(
+                popover.row.id,
+                data.columns.findIndex((c) => c.key === popover.cell.weekStart),
+              )
+            : false
+        }
+        editReason={
+          !canManage
+            ? "Sin permiso de edición"
+            : popover && hasInvoicedIncome(popover.row.section, popover.cell.committed)
+              ? "Ingreso facturado (la factura manda)"
+              : undefined
+        }
         focusNote={popoverFocusNote}
         excludedForRow={
           popover
@@ -1734,6 +1807,60 @@ export function PlanillaGrid({
           canManage
             ? async (rowId, weekStart, body) =>
                 matrix.patchCellNote(rowId, weekStart, body, { silent: true })
+            : undefined
+        }
+        onSettleClosed={
+          popover
+            ? () =>
+                void matrix.patchSettlement(
+                  popover.row.id,
+                  popover.cell.weekStart,
+                  "CLOSED",
+                  popover.cell.execution?.projected,
+                )
+            : undefined
+        }
+        onSettleReopen={
+          popover
+            ? () =>
+                void matrix.patchSettlement(
+                  popover.row.id,
+                  popover.cell.weekStart,
+                  "AUTO",
+                )
+            : undefined
+        }
+        onMatchPlanToReal={
+          popover?.cell.real
+            ? () => {
+                const realSigned = popover.cell.real!.total;
+                const amount =
+                  popover.row.section === "FINANCIAMIENTO"
+                    ? Math.round(realSigned)
+                    : Math.round(Math.abs(realSigned));
+                void matrix.patchPlan(
+                  popover.row.id,
+                  popover.cell.weekStart,
+                  amount,
+                );
+              }
+            : undefined
+        }
+        onMoveResidual={
+          popover?.cell.execution && popover.cell.execution.residual !== 0
+            ? () => {
+                const from = ymdToDate(popover.cell.weekStart);
+                if (!from) return;
+                const toWeek = toYmd(addWeeksUTC(from, 1));
+                void matrix.moveResidual(
+                  popover.row.id,
+                  popover.cell.weekStart,
+                  toWeek,
+                  popover.cell.execution!.residual,
+                  popover.row.section,
+                  popover.cell.execution!.projected,
+                );
+              }
             : undefined
         }
       />

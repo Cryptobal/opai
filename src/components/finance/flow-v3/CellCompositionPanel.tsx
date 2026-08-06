@@ -10,10 +10,17 @@ import { committedItemMeta, terminoStatusLine, toneClass } from "./cell-meta";
 interface Props {
   cell: FlowMatrixCellDto;
   canManage?: boolean;
+  /** Celda editable (plan) — habilita "Ajustar proyección al real". */
+  editable?: boolean;
+  editReason?: string;
   excluded?: FlowExcludedDte[];
   onViewDte?: (dteId: string) => void;
   onExcludeDte?: (dteId: string, reason: string) => Promise<void>;
   onRestoreDte?: (dteId: string) => Promise<void>;
+  onSettleClosed?: () => void;
+  onSettleReopen?: () => void;
+  onMatchPlanToReal?: () => void;
+  onMoveResidual?: () => void;
   onClose: () => void;
 }
 
@@ -31,7 +38,9 @@ function layerBlock(title: string, active: boolean, body: React.ReactNode) {
 
 /** Bloques de capas (Plan / Comprometido / Real / Excluidas). */
 export function CellCompositionPanel({
-  cell, canManage, excluded = [], onViewDte, onExcludeDte, onRestoreDte, onClose,
+  cell, canManage, editable, editReason, excluded = [],
+  onViewDte, onExcludeDte, onRestoreDte,
+  onSettleClosed, onSettleReopen, onMatchPlanToReal, onMoveResidual, onClose,
 }: Props) {
   const [excludingId, setExcludingId] = useState<string | null>(null);
   const [reason, setReason] = useState("");
@@ -46,6 +55,10 @@ export function CellCompositionPanel({
   const realItems = cell.real?.items ?? [];
   const hasReal = realItems.length > 0;
   const realTotal = cell.real?.total ?? 0;
+  const ex = cell.execution;
+  const showExecution = !!ex && ex.state !== "none";
+  const pctWidth = ex?.pct == null ? 0 : Math.min(100, Math.max(0, Math.round(ex.pct)));
+  const canAct = !!canManage;
 
   const openDteOrBank = (dteId?: string, bankTransactionId?: string) => {
     if (dteId && onViewDte) { onViewDte(dteId); onClose(); return; }
@@ -132,7 +145,89 @@ export function CellCompositionPanel({
         </ul>
       ))}
 
-      {(cell.layer === "real" || hasReal) && cell.drift != null && (
+      {showExecution && ex && (
+        <div className="space-y-1 rounded border border-ds-border-subtle px-2 py-1.5">
+          <div className="mb-0.5 flex items-center justify-between text-[12px] text-ds-text-3">
+            <span>Ejecución</span>
+            {ex.pct != null && (
+              <span className="tabular-nums text-ds-text-2">{Math.round(ex.pct)}% ejecutado</span>
+            )}
+          </div>
+          {(ex.state === "partial" || ex.state === "over") && (
+            <div className="h-[2.5px] overflow-hidden rounded-sm bg-ds-border-strong/50">
+              <div
+                className={`h-full rounded-sm ${ex.state === "over" ? "bg-status-warn" : "bg-status-ok"}`}
+                style={{ width: `${ex.state === "over" ? 100 : pctWidth}%` }}
+              />
+            </div>
+          )}
+          <div className="flex justify-between gap-2 text-ds-text-2">
+            <span>Proyectado</span>
+            <span className="tabular-nums">{fmtClp(ex.projected)}</span>
+          </div>
+          <div className="flex justify-between gap-2 text-ds-text-2">
+            <span>Real</span>
+            <span className="tabular-nums">{fmtClp(ex.real)}</span>
+          </div>
+          {ex.state === "over" ? (
+            <div className="flex justify-between gap-2 text-status-warn-fg">
+              <span>Sobre proyección</span>
+              <span className="tabular-nums">▲ +{fmtClp(ex.over)}</span>
+            </div>
+          ) : (
+            <div className="flex justify-between gap-2 text-status-info-fg">
+              <span>Por ejecutar</span>
+              <span className="tabular-nums">{fmtClp(Math.abs(ex.residual))}</span>
+            </div>
+          )}
+          {canAct && (ex.state === "partial" || ex.state === "closed" || ex.state === "over") && (
+            <div className="flex flex-col gap-1 border-t border-ds-border-subtle pt-1.5">
+              {ex.state === "partial" && onSettleClosed && (
+                <button
+                  type="button"
+                  className="min-h-11 rounded px-1 text-left text-[13px] text-ds-text-1 hover:bg-ds-surface-2 sm:min-h-9"
+                  onClick={() => { onSettleClosed(); onClose(); }}
+                >
+                  Dar por cumplido
+                </button>
+              )}
+              {ex.state === "closed" && onSettleReopen && (
+                <button
+                  type="button"
+                  className="min-h-11 rounded px-1 text-left text-[13px] text-ds-text-1 hover:bg-ds-surface-2 sm:min-h-9"
+                  onClick={() => { onSettleReopen(); onClose(); }}
+                >
+                  Reabrir proyección
+                </button>
+              )}
+              {onMatchPlanToReal && (
+                <button
+                  type="button"
+                  disabled={!editable}
+                  title={!editable ? (editReason || "No editable") : undefined}
+                  className="min-h-11 rounded px-1 text-left text-[13px] text-ds-text-1 hover:bg-ds-surface-2 disabled:opacity-40 sm:min-h-9"
+                  onClick={() => { if (editable) { onMatchPlanToReal(); onClose(); } }}
+                >
+                  Ajustar proyección al real
+                </button>
+              )}
+              {ex.state === "partial" && onMoveResidual && (
+                <button
+                  type="button"
+                  disabled={!editable}
+                  title={!editable ? (editReason || "No editable") : undefined}
+                  className="min-h-11 rounded px-1 text-left text-[13px] text-ds-text-1 hover:bg-ds-surface-2 disabled:opacity-40 sm:min-h-9"
+                  onClick={() => { if (editable) { onMoveResidual(); onClose(); } }}
+                >
+                  Mover pendiente a la próxima semana
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {!showExecution && (cell.layer === "real" || hasReal) && cell.drift != null && (
         <div className="space-y-0.5 rounded border border-ds-border-subtle px-2 py-1.5">
           <div className="mb-0.5 text-[12px] text-ds-text-3">Desviación</div>
           <div className="flex justify-between gap-2 text-ds-text-2"><span>Proyectado</span><span className="tabular-nums">{cell.projected != null ? fmtClp(cell.projected) : "—"}</span></div>
@@ -141,7 +236,7 @@ export function CellCompositionPanel({
             <span className="text-ds-text-2">Desviación</span>
             <span className={`tabular-nums ${cell.drift.delta === 0 ? "text-ds-text-2" : cell.drift.delta > 0 ? "text-status-ok-fg" : "text-status-danger-fg"}`}>
               {cell.drift.delta > 0 ? "▲" : cell.drift.delta < 0 ? "▼" : "·"} {fmtClp(Math.abs(cell.drift.delta))}
-              {cell.drift.pct != null && <span className="ml-1 text-[12px]">({cell.drift.pct > 0 ? "+" : ""}{cell.drift.pct.toFixed(1)}%)</span>}
+              {cell.drift.pct != null && <span className="ml-1 text-[12px]">({cell.drift.pct.toFixed(1)}%)</span>}
             </span>
           </div>
         </div>

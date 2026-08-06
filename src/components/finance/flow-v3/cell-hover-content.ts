@@ -32,6 +32,16 @@ export interface HoverDrift {
   positive: boolean;
 }
 
+export interface HoverExecution {
+  projected: string;
+  real: string;
+  /** "Por ejecutar X" o "Sobre proyección +X". */
+  pendingLabel: string;
+  pendingValue: string;
+  pctLabel: string | null;
+  state: "partial" | "complete" | "over" | "closed" | "none";
+}
+
 export interface HoverCardModel {
   concept: string;
   ref: string;
@@ -40,6 +50,8 @@ export interface HoverCardModel {
   badges: string[];
   lines: HoverLine[];
   items: HoverItemLine[];
+  /** Preferido sobre `drift` cuando la celda trae execution. */
+  execution: HoverExecution | null;
   drift: HoverDrift | null;
   pastPending: string | null;
   note: string | null;
@@ -117,16 +129,40 @@ export function buildHoverCardContent(args: {
         amount: fmtClp(it.monto),
       });
     }
-    if (cell.drift != null) {
+    // Drift legado solo si no hay bloque execution (fallback).
+    if (cell.drift != null && !cell.execution) {
       const d = cell.drift;
       drift = {
         projected: cell.projected != null ? fmtClp(cell.projected) : "—",
         real: fmtClp(Math.abs(total)),
         delta: `${d.delta > 0 ? "▲" : d.delta < 0 ? "▼" : "·"} ${fmtClp(Math.abs(d.delta))}`,
-        pct: d.pct != null ? `${d.pct > 0 ? "+" : ""}${d.pct.toFixed(1)}%` : null,
+        pct: d.pct != null ? `${d.pct.toFixed(1)}%` : null,
         positive: d.delta >= 0,
       };
     }
+  }
+
+  let execution: HoverExecution | null = null;
+  const ex = cell.execution;
+  if (ex && ex.state !== "none") {
+    const pendingLabel =
+      ex.state === "over"
+        ? "Sobre proyección"
+        : ex.state === "closed"
+          ? "Por ejecutar (cerrado)"
+          : "Por ejecutar";
+    const pendingValue =
+      ex.state === "over"
+        ? `▲ +${fmtClp(ex.over)}`
+        : fmtClp(Math.abs(ex.residual));
+    execution = {
+      projected: fmtClp(ex.projected),
+      real: fmtClp(ex.real),
+      pendingLabel,
+      pendingValue,
+      pctLabel: ex.pct != null ? `${Math.round(ex.pct)}% ejecutado` : null,
+      state: ex.state,
+    };
   }
 
   const past = pastPendingDteMeta(cell, args.isPast === true);
@@ -144,6 +180,7 @@ export function buildHoverCardContent(args: {
     badges,
     lines,
     items,
+    execution,
     drift,
     pastPending,
     note: cell.note?.trim() || null,

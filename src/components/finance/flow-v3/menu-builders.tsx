@@ -239,6 +239,14 @@ export interface CellMenuCallbacks {
   onLinkTemplate?: (dteId: string) => void;
   onExcludeDte?: (dteId: string) => void;
   onRegisterPayment?: (dteId: string) => void;
+  /** Dar por cumplida la proyección (residual → 0). */
+  onSettleCell?: () => void;
+  /** Reabrir proyección dada por cumplida. */
+  onReopenCell?: () => void;
+  /** Escribir plan = |real| (o signado en FINANCIAMIENTO). */
+  onMatchPlanToReal?: () => void;
+  /** Cerrar origen + sumar residual al plan de la próxima semana. */
+  onMoveResidual?: () => void;
 }
 
 export interface CellMenuContext {
@@ -557,6 +565,46 @@ function planCellItems(
         }))
       : undefined,
   });
+
+  const ex = cell.execution;
+  if (ex && (ex.state === "partial" || ex.state === "closed" || ex.state === "over")) {
+    if (ex.state === "partial" && cb.onSettleCell) {
+      items.push({
+        key: "settle-closed",
+        label: "Dar por cumplido",
+        disabled: !ctx.canManage,
+        reason: !ctx.canManage ? "Sin permiso de edición" : r,
+        onSelect: ctx.canManage ? cb.onSettleCell : undefined,
+      });
+    }
+    if (ex.state === "closed" && cb.onReopenCell) {
+      items.push({
+        key: "settle-reopen",
+        label: "Reabrir proyección",
+        disabled: !ctx.canManage,
+        reason: !ctx.canManage ? "Sin permiso de edición" : r,
+        onSelect: ctx.canManage ? cb.onReopenCell : undefined,
+      });
+    }
+    if (cb.onMatchPlanToReal) {
+      items.push({
+        key: "match-plan-real",
+        label: "Ajustar proyección al real",
+        disabled: !ed,
+        reason: r,
+        onSelect: ed ? cb.onMatchPlanToReal : undefined,
+      });
+    }
+    if (ex.state === "partial" && cb.onMoveResidual) {
+      items.push({
+        key: "move-residual",
+        label: "Mover pendiente a la próxima semana",
+        disabled: !ed,
+        reason: r,
+        onSelect: ed ? cb.onMoveResidual : undefined,
+      });
+    }
+  }
   return items;
 }
 

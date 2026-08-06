@@ -67,7 +67,37 @@ export function CellHoverCardBody(p: Props) {
           ))}
         </ul>
       )}
-      {model.drift && (
+      {model.execution && (
+        <div className="mb-1.5 space-y-0.5 border-t border-ds-border-subtle pt-1.5 text-[12px]">
+          <div className="flex items-center justify-between text-ds-text-3">
+            <span>Ejecución</span>
+            {model.execution.pctLabel && (
+              <span className="tabular-nums text-ds-text-2">{model.execution.pctLabel}</span>
+            )}
+          </div>
+          <div className="flex justify-between text-ds-text-2">
+            <span>Proyectado</span>
+            <span className="tabular-nums">{model.execution.projected}</span>
+          </div>
+          <div className="flex justify-between text-ds-text-2">
+            <span>Real</span>
+            <span className="tabular-nums">{model.execution.real}</span>
+          </div>
+          <div
+            className={`flex justify-between ${
+              model.execution.state === "over"
+                ? "text-status-warn-fg"
+                : model.execution.state === "partial"
+                  ? "text-status-info-fg"
+                  : "text-ds-text-2"
+            }`}
+          >
+            <span>{model.execution.pendingLabel}</span>
+            <span className="tabular-nums">{model.execution.pendingValue}</span>
+          </div>
+        </div>
+      )}
+      {!model.execution && model.drift && (
         <div className="mb-1.5 space-y-0.5 border-t border-ds-border-subtle pt-1.5 text-[12px]">
           <div className="text-ds-text-3">Desviación</div>
           <div className="flex justify-between text-ds-text-2">

@@ -403,6 +403,8 @@ export async function buildFlowMatrix(
       sealedBalances: seals.sealedBalances,
       priorSealed: seals.priorSealed,
       realNetAfterWindow,
+      residualCarryEnabled,
+      residualMinClp,
     });
     return {
       granularity: "month",
