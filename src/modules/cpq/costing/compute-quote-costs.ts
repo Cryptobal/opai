@@ -1,10 +1,17 @@
 import { prisma } from "@/lib/prisma";
 import { isDefaultUniform } from "@/lib/cpq-constants";
+import { getUfValue } from "@/lib/uf";
 import { syncContractItemForQuote } from "@/modules/finance/cashflow/generators/sales-contract-sync";
 import type {
   AdditionalLineDetail,
   CostByCategory,
 } from "@/types/cpq";
+import {
+  computeFinancialAndPolicy,
+  type FinancialBaseMode,
+  type LiabilityMode,
+  type PolicyAmountMode,
+} from "./financial-policy";
 
 interface QuoteCostSummary {
   totalGuards: number;
@@ -20,6 +27,14 @@ interface QuoteCostSummary {
   baseWithMargin: number;
   monthlyFinancial: number;
   monthlyPolicy: number;
+  monthlyPolicyAdmin: number;
+  monthlyLiability: number;
+  policyGuaranteedAmount: number;
+  grossUpApplied: boolean;
+  grossUpFactor: number;
+  effectiveMarginPct: number;
+  missingUf: boolean;
+  financialWarnings: string[];
   monthlyExtras: number;
   monthlyTotal: number;
   financialRatePct?: number;
@@ -32,6 +47,7 @@ interface QuoteCostSummary {
   costsByCategory: CostByCategory[];
   marginMode: string;
   laborCost: number;
+  salePriceMonthly: number;
 }
 
 const safeNumber = (value: unknown) => Number(value || 0);
@@ -149,6 +165,7 @@ export async function computeCpqQuoteCosts(quoteId: string): Promise<QuoteCostSu
       tenantId: true,
       createdFromLeadId: true,
       contractDuration: true,
+      insurancePolicyUF: true,
     },
   });
   const tenantId = quote?.tenantId ?? null;
@@ -488,36 +505,53 @@ export async function computeCpqQuoteCosts(quoteId: string): Promise<QuoteCostSu
       break;
   }
 
-  /* ── Financial & Policy ── */
-
-  const financialEnabled = parameters?.financialEnabled ?? false;
-  const policyEnabled = parameters?.policyEnabled ?? false;
-  const salePriceBase = safeNumber(parameters?.salePriceBase ?? 0);
-  const effectiveSalePriceBase = salePriceBase > 0 ? salePriceBase : baseWithMargin;
-
-  const financialRatePctRaw = safeNumber(parameters?.financialRatePct ?? 2.5);
-  const financialRatePct = normalizePct(financialRatePctRaw);
-  const policyRatePctRaw = safeNumber(parameters?.policyRatePct ?? 0);
-  const policyRatePct = normalizePct(policyRatePctRaw);
-
-  const policyContractMonths = parameters?.policyContractMonths ?? 12;
-  const policyContractPct = normalizePct(safeNumber(parameters?.policyContractPct ?? 20));
-
-  const monthlyFinancial =
-    financialEnabled && effectiveSalePriceBase > 0
-      ? effectiveSalePriceBase * financialRatePct
-      : 0;
-
-  const montoAnual = effectiveSalePriceBase * policyContractMonths;
-  const valorGarantia = montoAnual * policyContractPct;
-  const monthlyPolicy =
-    policyEnabled && effectiveSalePriceBase > 0
-      ? (valorGarantia * policyRatePct) / 12
-      : 0;
-
   /* ── §2.3 — Additional lines with margin & proration ── */
 
   const addlResult = calculateAdditionalLines(additionalLines);
+
+  /* ── Financial, garantía y RC (función pura) ── */
+
+  const financialRatePctRaw = safeNumber(parameters?.financialRatePct ?? 2.5);
+  const policyRatePctRaw = safeNumber(parameters?.policyRatePct ?? 2);
+  let ufValue: number | null = null;
+  try {
+    ufValue = await getUfValue();
+  } catch {
+    ufValue = null;
+  }
+
+  const finResult = computeFinancialAndPolicy({
+    baseWithMargin,
+    additionalLinesTotalWithMargin: addlResult.totalWithMargin,
+    costsBase,
+    additionalLinesTotalBase: addlResult.totalBase,
+    financialEnabled: parameters?.financialEnabled ?? false,
+    financialRatePct: financialRatePctRaw,
+    financialBaseMode: (parameters?.financialBaseMode as FinancialBaseMode) || "auto",
+    salePriceBase: safeNumber(parameters?.salePriceBase ?? 0),
+    policyEnabled: parameters?.policyEnabled ?? false,
+    policyAmountMode: (parameters?.policyAmountMode as PolicyAmountMode) || "pct",
+    policyContractMonths: parameters?.policyContractMonths ?? contractDuration,
+    policyContractPct: safeNumber(parameters?.policyContractPct ?? 10),
+    policyRatePct: policyRatePctRaw,
+    policyAdminRatePct: safeNumber(parameters?.policyAdminRatePct ?? 0),
+    policyFixedAmountUF: safeNumber(parameters?.policyFixedAmountUF ?? 0),
+    liabilityEnabled: parameters?.liabilityEnabled ?? false,
+    liabilityMode: (parameters?.liabilityMode as LiabilityMode) || "premium",
+    liabilityRatePct: safeNumber(parameters?.liabilityRatePct ?? 0.3),
+    liabilityAnnualPremiumUF: safeNumber(parameters?.liabilityAnnualPremiumUF ?? 0),
+    liabilityAllocationPct: safeNumber(parameters?.liabilityAllocationPct ?? 100),
+    insurancePolicyUF:
+      quote?.insurancePolicyUF != null ? safeNumber(quote.insurancePolicyUF) : null,
+    liabilityDeductibleUF: safeNumber(parameters?.liabilityDeductibleUF ?? 0),
+    ufValue,
+  });
+
+  const monthlyFinancial = finResult.monthlyFinancial;
+  const monthlyPolicy = finResult.monthlyPolicy;
+  const monthlyPolicyAdmin = finResult.monthlyPolicyAdmin;
+  const monthlyLiability = finResult.monthlyLiability;
+  const salePriceMonthly = finResult.salePriceMonthly;
 
   /* ── Monthly totals ── */
 
@@ -529,7 +563,8 @@ export async function computeCpqQuoteCosts(quoteId: string): Promise<QuoteCostSu
     monthlyVehicles +
     monthlyInfrastructure +
     monthlyCostItems;
-  const monthlyExtras = baseExtras + monthlyFinancial + monthlyPolicy;
+  const monthlyExtras =
+    baseExtras + monthlyFinancial + monthlyPolicy + monthlyPolicyAdmin + monthlyLiability;
   const monthlyTotal = monthlyPositions + monthlyExtras;
 
   /* ── §2.5 — Group costs by category ── */
@@ -607,6 +642,14 @@ export async function computeCpqQuoteCosts(quoteId: string): Promise<QuoteCostSu
     baseWithMargin,
     monthlyFinancial,
     monthlyPolicy,
+    monthlyPolicyAdmin,
+    monthlyLiability,
+    policyGuaranteedAmount: finResult.policyGuaranteedAmount,
+    grossUpApplied: finResult.grossUpApplied,
+    grossUpFactor: finResult.grossUpFactor,
+    effectiveMarginPct: finResult.effectiveMarginPct,
+    missingUf: finResult.missingUf,
+    financialWarnings: finResult.warnings,
     monthlyExtras,
     monthlyTotal,
     financialRatePct: financialRatePctRaw,
@@ -619,6 +662,7 @@ export async function computeCpqQuoteCosts(quoteId: string): Promise<QuoteCostSu
     costsByCategory,
     marginMode,
     laborCost,
+    salePriceMonthly,
   };
 }
 
@@ -642,11 +686,7 @@ export async function refreshQuoteTotals(quoteId: string) {
   );
   const costSummary = await computeCpqQuoteCosts(quoteId);
 
-  const salePriceMonthly =
-    costSummary.baseWithMargin +
-    (costSummary.monthlyFinancial ?? 0) +
-    (costSummary.monthlyPolicy ?? 0) +
-    costSummary.additionalLinesTotalWithMargin;
+  const salePriceMonthly = costSummary.salePriceMonthly;
 
   await prisma.cpqQuoteParameters.upsert({
     where: { quoteId },

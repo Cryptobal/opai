@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { SectionCard } from "./SectionCard";
+import { FieldTooltip } from "./financieros/FieldTooltip";
 import type { ProposalTemplateOption, QuoteFormState } from "./types";
 
 /** Fecha de término estimada (solo display): inicio contrato + N meses. */
@@ -260,7 +261,15 @@ export function CondicionesSection({
           </div>
 
           <div className="space-y-1">
-            <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Monto póliza</Label>
+            <div className="flex items-center gap-1">
+              <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                Póliza RC — monto asegurado
+              </Label>
+              <FieldTooltip
+                label="Póliza RC — monto asegurado"
+                text="Cobertura de responsabilidad civil exigida por el cliente. Aparece en la cláusula del contrato y, si activas el bloque de RC en Financieros, también en el costo."
+              />
+            </div>
             <div className="flex items-center gap-1">
               <Input type="number" min={0} step={0.01} value={form.insurancePolicyUF ?? 1500} placeholder="1500"
                 onChange={(e) => { setForm(prev => ({ ...prev, insurancePolicyUF: e.target.value ? Number(e.target.value) : 1500 })); setDirty(); }}

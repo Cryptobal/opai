@@ -3,6 +3,7 @@
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { FieldTooltip } from "@/components/cpq/workspace/financieros/FieldTooltip";
 
 /** Suma `months` meses a una fecha ISO (yyyy-mm-dd). Solo display; no persiste. */
 function estimatedEndDate(startIso: string | null | undefined, months: number): string | null {
@@ -252,7 +253,13 @@ export function CommercialConditionsSection({
           </div>
 
           <div className="space-y-1">
-            <Label className="text-sm text-muted-foreground">Monto póliza</Label>
+            <div className="flex items-center gap-1">
+              <Label className="text-sm text-muted-foreground">Póliza RC — monto asegurado</Label>
+              <FieldTooltip
+                label="Póliza RC — monto asegurado"
+                text="Cobertura de responsabilidad civil exigida por el cliente. Aparece en la cláusula del contrato y, si activas el bloque de RC en Financieros, también en el costo."
+              />
+            </div>
             <div className="flex items-center gap-1">
               <Input
                 type="number"

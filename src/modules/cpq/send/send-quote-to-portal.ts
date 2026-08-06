@@ -237,7 +237,16 @@ export async function sendQuoteToPortal(options: SendQuoteToPortalOptions): Prom
         const contractMonths = Number(quote.parameters?.contractMonths ?? 12);
         const policyFactor = contractMonths > 0 ? (policyContractMonths * (policyContractPct / 100)) / contractMonths : 0;
         const totalGuards = costSummary?.totalGuards ?? quote.positions.reduce((s, p) => s + p.numGuards * (p.numPuestos || 1), 0);
-        const baseAdditionalCosts = costSummary ? Math.max(0, (costSummary.monthlyExtras ?? 0) - (costSummary.monthlyFinancial ?? 0) - (costSummary.monthlyPolicy ?? 0)) : 0;
+        const baseAdditionalCosts = costSummary
+          ? Math.max(
+              0,
+              (costSummary.monthlyExtras ?? 0) -
+                (costSummary.monthlyFinancial ?? 0) -
+                (costSummary.monthlyPolicy ?? 0) -
+                (costSummary.monthlyPolicyAdmin ?? 0) -
+                (costSummary.monthlyLiability ?? 0),
+            )
+          : 0;
 
         const positionSalePrices = new Map<string, number>();
         for (const pos of quote.positions) {
@@ -253,8 +262,15 @@ export async function sendQuoteToPortal(options: SendQuoteToPortalOptions): Prom
         // feriado y daba un precio menor que el panel.
         let salePriceMonthly = 0;
         if (costSummary) {
+          const addl = costSummary.additionalLinesTotalWithMargin ?? 0;
           salePriceMonthly =
-            costSummary.baseWithMargin + (costSummary.monthlyFinancial ?? 0) + (costSummary.monthlyPolicy ?? 0);
+            (costSummary.salePriceMonthly ??
+              costSummary.baseWithMargin +
+                (costSummary.monthlyFinancial ?? 0) +
+                (costSummary.monthlyPolicy ?? 0) +
+                (costSummary.monthlyPolicyAdmin ?? 0) +
+                (costSummary.monthlyLiability ?? 0) +
+                addl) - addl;
         }
 
         const ufValue = quote.currency === "UF" ? await getUfValue() : undefined;

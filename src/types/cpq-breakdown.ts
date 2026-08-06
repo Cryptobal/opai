@@ -88,6 +88,10 @@ export interface QuoteBreakdownData {
   financialRatePct: number;
   policy: number;
   policyRatePct: number;
+  policyAdmin?: number;
+  liability?: number;
+  liabilityInsuredUF?: number | null;
+  effectiveMarginPct?: number;
 
   /** Sale price without additional lines */
   totalSalePrice: number;

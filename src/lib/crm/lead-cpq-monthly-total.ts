@@ -5,6 +5,7 @@
 
 import type { LeadCpqConfig } from "@/components/crm/LeadInstallationCpq";
 import type { MarginMode } from "@/types/cpq";
+import { computeFinancialAndPolicy } from "@/modules/cpq/costing/financial-policy";
 
 const COST_TYPE_CATEGORY: Record<string, { category: "direct" | "indirect"; group: string }> = {
   uniform: { category: "direct", group: "Uniformes" },
@@ -95,7 +96,8 @@ export type PayrollPreviewItem = { employerCostPerGuard: number };
  */
 export function computeLeadCpqMonthlySaleClp(
   config: LeadCpqConfig,
-  payrollPreview: PayrollPreviewItem[]
+  payrollPreview: PayrollPreviewItem[],
+  opts?: { ufValue?: number | null },
 ): number {
   const laborPayrollReady =
     payrollPreview.length === config.positions.length && config.positions.length > 0;
@@ -141,20 +143,32 @@ export function computeLeadCpqMonthlySaleClp(
     baseConMargen = marginPct < 1 ? costoBase / (1 - marginPct) : costoBase;
   }
 
-  const salePriceBaseManual = config.financialCosts.salePriceBase;
-  const effectiveBase = salePriceBaseManual > 0 ? salePriceBaseManual : baseConMargen;
-  const financiero = config.financialCosts.financialEnabled
-    ? effectiveBase * (config.financialCosts.financialRatePct / 100)
-    : 0;
+  const fc = config.financialCosts;
+  const fin = computeFinancialAndPolicy({
+    baseWithMargin: baseConMargen,
+    additionalLinesTotalWithMargin: totalLineas,
+    costsBase: costoBase,
+    additionalLinesTotalBase: totalLineas,
+    financialEnabled: fc.financialEnabled,
+    financialRatePct: fc.financialRatePct,
+    financialBaseMode: fc.financialBaseMode ?? (fc.salePriceBase > 0 ? "manual" : "auto"),
+    salePriceBase: fc.salePriceBase,
+    policyEnabled: fc.policyEnabled ?? false,
+    policyAmountMode: fc.policyAmountMode ?? "pct",
+    policyContractMonths: fc.policyContractMonths ?? 12,
+    policyContractPct: fc.policyContractPct ?? 10,
+    policyRatePct: fc.policyRatePct ?? 2,
+    policyAdminRatePct: fc.policyAdminRatePct ?? 0.2,
+    policyFixedAmountUF: fc.policyFixedAmountUF ?? 0,
+    liabilityEnabled: fc.liabilityEnabled ?? false,
+    liabilityMode: fc.liabilityMode ?? "premium",
+    liabilityRatePct: fc.liabilityRatePct ?? 0.3,
+    liabilityAnnualPremiumUF: fc.liabilityAnnualPremiumUF ?? 0,
+    liabilityAllocationPct: fc.liabilityAllocationPct ?? 100,
+    insurancePolicyUF: fc.insurancePolicyUF ?? null,
+    liabilityDeductibleUF: fc.liabilityDeductibleUF ?? 0,
+    ufValue: opts?.ufValue ?? null,
+  });
 
-  const policyEnabled = config.financialCosts.policyEnabled ?? false;
-  const policyRatePct = (config.financialCosts.policyRatePct ?? 0) / 100;
-  const policyContractMonths = config.financialCosts.policyContractMonths ?? 12;
-  const policyContractPct = (config.financialCosts.policyContractPct ?? 100) / 100;
-  const montoAnual = effectiveBase * policyContractMonths;
-  const valorGarantia = montoAnual * policyContractPct;
-  const poliza =
-    policyEnabled && effectiveBase > 0 ? (valorGarantia * policyRatePct) / 12 : 0;
-
-  return baseConMargen + financiero + poliza + totalLineas;
+  return fin.salePriceMonthly;
 }

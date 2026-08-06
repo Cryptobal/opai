@@ -402,21 +402,24 @@ function TotalView({ data, isDark }: TotalViewProps) {
         </div>
       </div>
 
-      {/* ── Financial / Policy ── */}
-      {(data.financial > 0 || data.policy > 0) && (
+      {/* ── Financial / garantías / RC ── */}
+      {(data.financial > 0 ||
+        data.policy > 0 ||
+        (data.policyAdmin ?? 0) > 0 ||
+        (data.liability ?? 0) > 0) && (
         <div
           className={cn(
             "rounded-lg border px-3 py-2 space-y-1",
-            isDark ? "border-status-warn-border bg-status-warn-soft/30" : "border-status-warn-border bg-status-warn-soft/30",
+            "border-status-warn-border bg-status-warn-soft/30",
           )}
         >
           <span className="text-sm font-semibold uppercase tracking-wide text-status-warn-fg/80">
-            Costo Financiero
+            Costos financieros y garantías
           </span>
           {data.financial > 0 && (
             <div className={cn(CPQ_BREAKDOWN_ROW, "text-xs")}>
               <span className={cn("min-w-0 break-words", isDark ? "text-zinc-400" : "text-muted-foreground")}>
-                Financiero ({data.financialRatePct}%)
+                Costo financiero ({data.financialRatePct}%)
               </span>
               <AmountCell
                 clp={data.financial}
@@ -429,7 +432,7 @@ function TotalView({ data, isDark }: TotalViewProps) {
           {data.policy > 0 && (
             <div className={cn(CPQ_BREAKDOWN_ROW, "text-xs")}>
               <span className={cn("min-w-0 break-words", isDark ? "text-zinc-400" : "text-muted-foreground")}>
-                Póliza ({data.policyRatePct}%)
+                Póliza de garantía ({data.policyRatePct}%)
               </span>
               <AmountCell
                 clp={data.policy}
@@ -437,6 +440,45 @@ function TotalView({ data, isDark }: TotalViewProps) {
                 isDark={isDark}
                 primaryClassName={isDark ? "text-zinc-300" : "text-foreground font-medium"}
               />
+            </div>
+          )}
+          {(data.policyAdmin ?? 0) > 0 && (
+            <div className={cn(CPQ_BREAKDOWN_ROW, "text-xs")}>
+              <span className={cn("min-w-0 break-words", isDark ? "text-zinc-400" : "text-muted-foreground")}>
+                Derechos de emisión
+              </span>
+              <AmountCell
+                clp={data.policyAdmin ?? 0}
+                data={data}
+                isDark={isDark}
+                primaryClassName={isDark ? "text-zinc-300" : "text-foreground font-medium"}
+              />
+            </div>
+          )}
+          {(data.liability ?? 0) > 0 && (
+            <div className={cn(CPQ_BREAKDOWN_ROW, "text-xs")}>
+              <span className={cn("min-w-0 break-words", isDark ? "text-zinc-400" : "text-muted-foreground")}>
+                Póliza de responsabilidad civil
+                {data.liabilityInsuredUF != null && data.liabilityInsuredUF > 0
+                  ? ` (${data.liabilityInsuredUF.toLocaleString("es-CL")} UF asegurados)`
+                  : ""}
+              </span>
+              <AmountCell
+                clp={data.liability ?? 0}
+                data={data}
+                isDark={isDark}
+                primaryClassName={isDark ? "text-zinc-300" : "text-foreground font-medium"}
+              />
+            </div>
+          )}
+          {data.effectiveMarginPct != null && (
+            <div className={cn(CPQ_BREAKDOWN_ROW, "text-xs pt-1 border-t border-status-warn-border/40")}>
+              <span className={cn("min-w-0 break-words", isDark ? "text-zinc-400" : "text-muted-foreground")}>
+                Margen efectivo sobre precio final
+              </span>
+              <span className="font-semibold text-status-warn-fg">
+                {data.effectiveMarginPct.toFixed(1)}%
+              </span>
             </div>
           )}
         </div>
