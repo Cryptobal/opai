@@ -36,6 +36,7 @@ import { Decimal } from "@prisma/client/runtime/library";
 import { findMatchingRule } from "./automatch-rule.service";
 import { resolveRuleAction } from "./rule-action-resolver";
 import { tryAutoMatchBankTransactionToTurnoExtra } from "./auto-match-turno-extra.service";
+import { tryPayrollCascade } from "./payroll-cascade.service";
 import { rutAppearsInText } from "./rut-normalize";
 
 /** Re-export para callers existentes (API server-side). */
@@ -368,12 +369,20 @@ export interface BulkAutoMatchSummary {
   ruleSuggested: number;
   /** Tx conciliadas como pago de turno extra contra OpsPagoTeItem. */
   turnoExtraMatched: number;
+  /** Sueldos / anticipos conciliados por cascada de identidad. */
+  payrollMatched: number;
+  /** Finiquitos conciliados por cascada de identidad. */
+  finiquitoMatched: number;
+  /** Inferencias (guardia sin calce → Turnos extra) dejadas por autorizar. */
+  inferredSuggested: number;
   errors: { bankTransactionId: string; message: string }[];
 }
 
 export interface BulkAutoMatchOptions {
   /** Evaluar únicamente esta regla al paso de reglas (tras DTE y TE). */
   onlyRuleId?: string;
+  /** Si true, omite la cascada de nómina (p. ej. corrida solo-regla). */
+  skipPayrollCascade?: boolean;
 }
 
 export async function bulkAutoMatchBankTransactions(
@@ -391,8 +400,13 @@ export async function bulkAutoMatchBankTransactions(
     ruleMatched: 0,
     ruleSuggested: 0,
     turnoExtraMatched: 0,
+    payrollMatched: 0,
+    finiquitoMatched: 0,
+    inferredSuggested: 0,
     errors: [],
   };
+
+  const unresolvedIds: string[] = [];
 
   for (const id of bankTransactionIds) {
     try {
@@ -438,6 +452,9 @@ export async function bulkAutoMatchBankTransactions(
         }
       }
 
+      // Candidatos a cascada de identidad (Fallback 3).
+      unresolvedIds.push(id);
+
       if (r.reason === "ambiguous") summary.ambiguous += 1;
       else if (r.reason === "no_candidate") summary.noCandidate += 1;
       else summary.skipped += 1;
@@ -447,6 +464,20 @@ export async function bulkAutoMatchBankTransactions(
         message: err instanceof Error ? err.message : "Error desconocido",
       });
     }
+  }
+
+  // Fallback 3: cascada nómina/finiquito/inferencia — una sola carga de
+  // candidatos por lote. Las reglas ya tuvieron precedencia absoluta.
+  if (!options?.skipPayrollCascade && unresolvedIds.length > 0) {
+    const cascade = await tryPayrollCascade(tenantId, unresolvedIds, userId);
+    summary.payrollMatched += cascade.payrollMatched;
+    summary.finiquitoMatched += cascade.finiquitoMatched;
+    summary.inferredSuggested += cascade.inferredSuggested;
+    summary.errors.push(...cascade.errors);
+    // Los que concilió la cascada dejan de contar como "sin candidato".
+    const resolved =
+      cascade.payrollMatched + cascade.finiquitoMatched;
+    summary.noCandidate = Math.max(0, summary.noCandidate - resolved);
   }
 
   return summary;

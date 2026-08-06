@@ -104,7 +104,27 @@ export async function POST(request: NextRequest) {
       ruleMatched: 0,
       ruleSuggested: 0,
       turnoExtraMatched: 0,
+      payrollMatched: 0,
+      finiquitoMatched: 0,
+      inferredSuggested: 0,
       errors: [] as { bankTransactionId: string; message: string }[],
+    };
+
+    const mergeSummary = (
+      summary: Awaited<ReturnType<typeof bulkAutoMatchBankTransactions>>,
+    ) => {
+      aggregated.total += summary.total;
+      aggregated.matched += summary.matched;
+      aggregated.ambiguous += summary.ambiguous;
+      aggregated.noCandidate += summary.noCandidate;
+      aggregated.skipped += summary.skipped;
+      aggregated.ruleMatched += summary.ruleMatched;
+      aggregated.ruleSuggested += summary.ruleSuggested;
+      aggregated.turnoExtraMatched += summary.turnoExtraMatched;
+      aggregated.payrollMatched += summary.payrollMatched;
+      aggregated.finiquitoMatched += summary.finiquitoMatched;
+      aggregated.inferredSuggested += summary.inferredSuggested;
+      aggregated.errors.push(...summary.errors);
     };
 
     for await (const page of iterateUnmatchedBankTransactions(where, {
@@ -119,41 +139,27 @@ export async function POST(request: NextRequest) {
         batchIds.length >= HISTORICAL_SCAN_BATCH ||
         page.reachedCap
       ) {
-        const summary = await bulkAutoMatchBankTransactions(
-          ctx.tenantId,
-          batchIds,
-          ctx.userId,
-          parsed.data.ruleId ? { onlyRuleId: parsed.data.ruleId } : undefined,
+        mergeSummary(
+          await bulkAutoMatchBankTransactions(
+            ctx.tenantId,
+            batchIds,
+            ctx.userId,
+            parsed.data.ruleId ? { onlyRuleId: parsed.data.ruleId } : undefined,
+          ),
         );
-        aggregated.total += summary.total;
-        aggregated.matched += summary.matched;
-        aggregated.ambiguous += summary.ambiguous;
-        aggregated.noCandidate += summary.noCandidate;
-        aggregated.skipped += summary.skipped;
-        aggregated.ruleMatched += summary.ruleMatched;
-        aggregated.ruleSuggested += summary.ruleSuggested;
-        aggregated.turnoExtraMatched += summary.turnoExtraMatched;
-        aggregated.errors.push(...summary.errors);
         batchIds.length = 0;
       }
     }
 
     if (batchIds.length > 0) {
-      const summary = await bulkAutoMatchBankTransactions(
-        ctx.tenantId,
-        batchIds,
-        ctx.userId,
-        parsed.data.ruleId ? { onlyRuleId: parsed.data.ruleId } : undefined,
+      mergeSummary(
+        await bulkAutoMatchBankTransactions(
+          ctx.tenantId,
+          batchIds,
+          ctx.userId,
+          parsed.data.ruleId ? { onlyRuleId: parsed.data.ruleId } : undefined,
+        ),
       );
-      aggregated.total += summary.total;
-      aggregated.matched += summary.matched;
-      aggregated.ambiguous += summary.ambiguous;
-      aggregated.noCandidate += summary.noCandidate;
-      aggregated.skipped += summary.skipped;
-      aggregated.ruleMatched += summary.ruleMatched;
-      aggregated.ruleSuggested += summary.ruleSuggested;
-      aggregated.turnoExtraMatched += summary.turnoExtraMatched;
-      aggregated.errors.push(...summary.errors);
     }
 
     return NextResponse.json({
