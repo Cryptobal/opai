@@ -1,10 +1,14 @@
+"use client";
+
+import { confirmDialog } from "@/components/ui/confirm-service";
 import type { EmitResult } from "./emit-toast";
 
 /**
  * Emite un borrador manejando guards de fecha (409 FUTURE_ISSUE_DATE /
- * ANCHORED_ISSUE_DATE). Si el servidor bloquea, pregunta al usuario:
- *   - OK / default → emitir con fecha de hoy
- *   - Cancel → mantener la fecha (confirmación explícita)
+ * ANCHORED_ISSUE_DATE). Si el servidor bloquea, pregunta al usuario con
+ * el diálogo del DS (no `window.confirm`):
+ *   - Primary → emitir con fecha de hoy
+ *   - Secondary → mantener la fecha (confirmación explícita)
  */
 export type IssueDateGuardResult =
   | { ok: true; data: EmitResult | undefined }
@@ -21,6 +25,66 @@ type IssueJson = {
   options?: unknown;
   data?: unknown;
 };
+
+export type IssueDateGuardConflict = {
+  code: "FUTURE_ISSUE_DATE" | "ANCHORED_ISSUE_DATE";
+  issueDate: string;
+  weekLabel?: string;
+  reason?: "sealed" | "past";
+};
+
+/** Extra body flags según la elección del usuario en el diálogo. */
+export function issueDateGuardPayload(
+  conflict: IssueDateGuardConflict,
+  useToday: boolean,
+): Record<string, unknown> {
+  if (useToday) return { forceIssueDateToToday: true };
+  return conflict.code === "ANCHORED_ISSUE_DATE"
+    ? { allowAnchoredDate: true }
+    : { allowFutureDate: true };
+}
+
+/**
+ * Diálogo DS: fecha futura o anclada en semana sellada/pasada del flujo.
+ * `true` = emitir con hoy; `false` = mantener la fecha del documento.
+ */
+export async function askIssueDateGuard(
+  conflict: IssueDateGuardConflict,
+): Promise<boolean> {
+  const weekBit =
+    conflict.code === "ANCHORED_ISSUE_DATE" && conflict.weekLabel
+      ? ` quedará anclada en ${conflict.weekLabel} (${
+          conflict.reason === "sealed" ? "sellada" : "pasada"
+        })`
+      : " (posterior a hoy)";
+
+  return confirmDialog({
+    title: "Fecha de emisión",
+    description:
+      `La fecha de emisión es ${conflict.issueDate}${weekBit}.\n\n` +
+      `Lo recomendado es emitir con la fecha de hoy. ` +
+      `Si mantenés ${conflict.issueDate}, el documento queda con esa fecha tributaria ` +
+      `y se ancla en el flujo de caja.`,
+    confirmLabel: "Emitir con fecha de hoy",
+    cancelLabel: `Mantener ${conflict.issueDate}`,
+    variant: "default",
+  });
+}
+
+function asDateGuardConflict(json: IssueJson): IssueDateGuardConflict | null {
+  if (
+    (json.code === "FUTURE_ISSUE_DATE" || json.code === "ANCHORED_ISSUE_DATE") &&
+    json.issueDate
+  ) {
+    return {
+      code: json.code,
+      issueDate: json.issueDate,
+      weekLabel: json.weekLabel,
+      reason: json.reason,
+    };
+  }
+  return null;
+}
 
 export async function issueDraftWithDateGuard(
   draftId: string,
@@ -41,29 +105,10 @@ export async function issueDraftWithDateGuard(
     return { ok: true, data: first.json.data as EmitResult | undefined };
   }
 
-  if (
-    (first.json.code === "FUTURE_ISSUE_DATE" || first.json.code === "ANCHORED_ISSUE_DATE") &&
-    first.json.issueDate
-  ) {
-    const issueDate = first.json.issueDate;
-    const weekBit =
-      first.json.code === "ANCHORED_ISSUE_DATE" && first.json.weekLabel
-        ? ` quedará anclada en ${first.json.weekLabel} (${
-            first.json.reason === "sealed" ? "sellada" : "pasada"
-          })`
-        : " (posterior a hoy)";
-    const useToday = window.confirm(
-      `La fecha de emisión es ${issueDate}${weekBit}.\n\n` +
-        `Aceptar = emitir con fecha de hoy.\n` +
-        `Cancelar = mantener ${issueDate}.`,
-    );
-    const second = await post(
-      useToday
-        ? { forceIssueDateToToday: true }
-        : first.json.code === "ANCHORED_ISSUE_DATE"
-          ? { allowAnchoredDate: true }
-          : { allowFutureDate: true },
-    );
+  const conflict = asDateGuardConflict(first.json);
+  if (conflict) {
+    const useToday = await askIssueDateGuard(conflict);
+    const second = await post(issueDateGuardPayload(conflict, useToday));
     if (second.json.success) {
       return { ok: true, data: second.json.data as EmitResult | undefined };
     }

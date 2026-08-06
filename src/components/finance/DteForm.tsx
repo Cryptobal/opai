@@ -39,7 +39,12 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { issueDraftWithDateGuard } from "@/components/finance/programacion/issue-with-date-guard";
+import {
+  askIssueDateGuard,
+  issueDateGuardPayload,
+  issueDraftWithDateGuard,
+  type IssueDateGuardConflict,
+} from "@/components/finance/programacion/issue-with-date-guard";
 import { notifyEmitResult } from "@/components/finance/programacion/emit-toast";
 import { EmisionConfirmDialog } from "./EmisionConfirmDialog";
 import { PdfPreviewDialog } from "./PdfPreviewDialog";
@@ -1255,23 +1260,15 @@ export function DteForm({
           (json?.code === "FUTURE_ISSUE_DATE" || json?.code === "ANCHORED_ISSUE_DATE") &&
           json?.issueDate
         ) {
-          const weekBit =
-            json.code === "ANCHORED_ISSUE_DATE" && json.weekLabel
-              ? ` quedará anclada en ${json.weekLabel} (${
-                  json.reason === "sealed" ? "sellada" : "pasada"
-                })`
-              : " (posterior a hoy)";
-          const useToday = window.confirm(
-            `La fecha de emisión es ${json.issueDate}${weekBit}.\n\n` +
-              `Aceptar = emitir con fecha de hoy.\n` +
-              `Cancelar = mantener ${json.issueDate}.`,
-          );
+          const conflict: IssueDateGuardConflict = {
+            code: json.code,
+            issueDate: json.issueDate,
+            weekLabel: json.weekLabel,
+            reason: json.reason,
+          };
+          const useToday = await askIssueDateGuard(conflict);
           ({ res, json } = await postIssued(
-            useToday
-              ? { forceIssueDateToToday: true }
-              : json.code === "ANCHORED_ISSUE_DATE"
-                ? { allowAnchoredDate: true }
-                : { allowFutureDate: true },
+            issueDateGuardPayload(conflict, useToday),
           ));
         }
         if (!res.ok) {
