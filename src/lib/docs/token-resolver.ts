@@ -995,6 +995,17 @@ export async function buildQuoteEnrichedData(
       const n = raw != null ? Number(raw) : NaN;
       return Number.isFinite(n) && n > 0 ? n : 1500;
     })(),
+    polizaGarantiaMonto: (() => {
+      const raw = (params as any)?.policyGuaranteedAmount;
+      // Valor calculado en runtime si el motor lo expuso en params; si no, 0.
+      const n = raw != null ? Number(raw) : NaN;
+      return Number.isFinite(n) && n > 0 ? n : 0;
+    })(),
+    polizaRcDeducibleUF: (() => {
+      const raw = (params as any)?.liabilityDeductibleUF;
+      const n = raw != null ? Number(raw) : NaN;
+      return Number.isFinite(n) && n > 0 ? n : 0;
+    })(),
     // Stored as YYYY-MM-DD string (canonical, TZ-independent). The resolver
     // renders {{quote.contractStartDate}} as dd/MM/yyyy via a dedicated case
     // (see `resolveTokenValue` above), and {{quote.contractEndDate}} uses

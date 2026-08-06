@@ -90,17 +90,24 @@ export async function cloneCpqQuote(opts: {
           uniformChangesPerYear: source.parameters.uniformChangesPerYear,
           financialEnabled: source.parameters.financialEnabled,
           financialRatePct: source.parameters.financialRatePct,
-          // salePriceBase NO se copia: es la base de venta manual de la
-          // cotización fuente y el motor la usa como base del gasto financiero
-          // y de la póliza. El clon tiene su propia dotación, así que debe
-          // recalcularla (salePriceBase = 0 → el motor usa baseWithMargin).
+          // Base siempre automática en el clon: su propia dotación dispara
+          // el gross-up. salePriceBase no se copia.
+          financialBaseMode: "auto",
           salePriceMonthly: source.parameters.salePriceMonthly,
           policyEnabled: source.parameters.policyEnabled,
+          policyAmountMode: source.parameters.policyAmountMode,
           marginMode: source.parameters.marginMode,
           policyRatePct: source.parameters.policyRatePct,
           policyAdminRatePct: source.parameters.policyAdminRatePct,
           policyContractMonths: source.parameters.policyContractMonths,
           policyContractPct: source.parameters.policyContractPct,
+          policyFixedAmountUF: source.parameters.policyFixedAmountUF,
+          liabilityEnabled: source.parameters.liabilityEnabled,
+          liabilityMode: source.parameters.liabilityMode,
+          liabilityRatePct: source.parameters.liabilityRatePct,
+          liabilityAnnualPremiumUF: source.parameters.liabilityAnnualPremiumUF,
+          liabilityAllocationPct: source.parameters.liabilityAllocationPct,
+          liabilityDeductibleUF: source.parameters.liabilityDeductibleUF,
           contractMonths: source.parameters.contractMonths,
           contractAmount: source.parameters.contractAmount,
           marginPct: source.parameters.marginPct,

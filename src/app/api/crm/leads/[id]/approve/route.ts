@@ -774,9 +774,18 @@ export async function POST(
             const financialEnabled = instFinancial.financialEnabled !== false;
             const financialRatePct = typeof instFinancial.financialRatePct === "number" ? instFinancial.financialRatePct : 2.5;
             const policyEnabled = instFinancial.policyEnabled === true;
-            const policyRatePct = typeof instFinancial.policyRatePct === "number" ? instFinancial.policyRatePct : 0;
+            const policyRatePct = typeof instFinancial.policyRatePct === "number" ? instFinancial.policyRatePct : 2;
+            const policyAdminRatePct = typeof instFinancial.policyAdminRatePct === "number" ? instFinancial.policyAdminRatePct : 0.2;
             const policyContractMonths = typeof instFinancial.policyContractMonths === "number" ? instFinancial.policyContractMonths : 12;
-            const policyContractPct = typeof instFinancial.policyContractPct === "number" ? instFinancial.policyContractPct : 100;
+            const policyContractPct = typeof instFinancial.policyContractPct === "number" ? instFinancial.policyContractPct : 10;
+            const policyAmountMode = instFinancial.policyAmountMode === "fija" ? "fija" : "pct";
+            const policyFixedAmountUF = typeof instFinancial.policyFixedAmountUF === "number" ? instFinancial.policyFixedAmountUF : 0;
+            const liabilityEnabled = instFinancial.liabilityEnabled === true;
+            const liabilityMode = instFinancial.liabilityMode === "rate" ? "rate" : "premium";
+            const liabilityRatePct = typeof instFinancial.liabilityRatePct === "number" ? instFinancial.liabilityRatePct : 0.3;
+            const liabilityAnnualPremiumUF = typeof instFinancial.liabilityAnnualPremiumUF === "number" ? instFinancial.liabilityAnnualPremiumUF : 0;
+            const liabilityAllocationPct = typeof instFinancial.liabilityAllocationPct === "number" ? instFinancial.liabilityAllocationPct : 100;
+            const liabilityDeductibleUF = typeof instFinancial.liabilityDeductibleUF === "number" ? instFinancial.liabilityDeductibleUF : 0;
             const instUniformChanges = typeof instCpq?.uniformChangesPerYear === "number" ? instCpq.uniformChangesPerYear : 3;
             const instAvgStay = typeof instCpq?.avgStayMonths === "number" ? instCpq.avgStayMonths : 4;
             await tx.cpqQuoteParameters.upsert({
@@ -786,10 +795,21 @@ export async function POST(
                 marginMode: instMarginMode,
                 financialEnabled,
                 financialRatePct,
+                financialBaseMode: "auto",
+                salePriceBase: 0,
                 policyEnabled,
+                policyAmountMode,
                 policyRatePct,
+                policyAdminRatePct,
                 policyContractMonths,
                 policyContractPct,
+                policyFixedAmountUF,
+                liabilityEnabled,
+                liabilityMode,
+                liabilityRatePct,
+                liabilityAnnualPremiumUF,
+                liabilityAllocationPct,
+                liabilityDeductibleUF,
                 uniformChangesPerYear: instUniformChanges,
                 avgStayMonths: instAvgStay,
                 contractMonths: instContractDuration,
@@ -801,12 +821,22 @@ export async function POST(
                 uniformChangesPerYear: instUniformChanges,
                 financialEnabled,
                 financialRatePct,
+                financialBaseMode: "auto",
+                salePriceBase: 0,
                 salePriceMonthly: 0,
                 policyEnabled,
+                policyAmountMode,
                 policyRatePct,
-                policyAdminRatePct: 0,
+                policyAdminRatePct,
                 policyContractMonths,
                 policyContractPct,
+                policyFixedAmountUF,
+                liabilityEnabled,
+                liabilityMode,
+                liabilityRatePct,
+                liabilityAnnualPremiumUF,
+                liabilityAllocationPct,
+                liabilityDeductibleUF,
                 contractMonths: instContractDuration,
                 contractAmount: 0,
                 marginPct: instMarginPct,

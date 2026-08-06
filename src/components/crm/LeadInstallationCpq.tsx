@@ -27,6 +27,7 @@ import {
   type CpqPdfPreviewMode,
   type CpqPdfTemplateSlug,
 } from "@/components/cpq/CpqPdfPreviewPanel";
+import { computeFinancialAndPolicy } from "@/modules/cpq/costing/financial-policy";
 import type { MarginMode } from "@/types/cpq";
 import { AiErrorDialog, type AiErrorPayload } from "@/components/ai/AiErrorDialog";
 import { PositionMatrix } from "@/components/cpq/position-matrix";
@@ -668,24 +669,37 @@ export function LeadInstallationCpq({
     } else {
       baseConMargen = marginPct < 1 ? costoBase / (1 - marginPct) : costoBase;
     }
-    const salePriceBaseManual = config.financialCosts.salePriceBase;
-    const effectiveBase = salePriceBaseManual > 0 ? salePriceBaseManual : baseConMargen;
-    const financiero = config.financialCosts.financialEnabled
-      ? effectiveBase * (config.financialCosts.financialRatePct / 100)
-      : 0;
-
-    // Policy (same as CPQ)
-    const policyEnabled = config.financialCosts.policyEnabled ?? false;
-    const policyRatePct = (config.financialCosts.policyRatePct ?? 0) / 100;
-    const policyContractMonths = config.financialCosts.policyContractMonths ?? 12;
-    const policyContractPct = (config.financialCosts.policyContractPct ?? 100) / 100;
-    const montoAnual = effectiveBase * policyContractMonths;
-    const valorGarantia = montoAnual * policyContractPct;
-    const poliza = policyEnabled && effectiveBase > 0
-      ? (valorGarantia * policyRatePct) / 12 : 0;
+    const fc = config.financialCosts;
+    const fin = computeFinancialAndPolicy({
+      baseWithMargin: baseConMargen,
+      additionalLinesTotalWithMargin: totalLineas,
+      costsBase: costoBase,
+      additionalLinesTotalBase: totalLineas,
+      financialEnabled: fc.financialEnabled,
+      financialRatePct: fc.financialRatePct,
+      financialBaseMode: fc.financialBaseMode ?? (fc.salePriceBase > 0 ? "manual" : "auto"),
+      salePriceBase: fc.salePriceBase,
+      policyEnabled: fc.policyEnabled ?? false,
+      policyAmountMode: fc.policyAmountMode ?? "pct",
+      policyContractMonths: fc.policyContractMonths ?? 12,
+      policyContractPct: fc.policyContractPct ?? 10,
+      policyRatePct: fc.policyRatePct ?? 2,
+      policyAdminRatePct: fc.policyAdminRatePct ?? 0.2,
+      policyFixedAmountUF: fc.policyFixedAmountUF ?? 0,
+      liabilityEnabled: fc.liabilityEnabled ?? false,
+      liabilityMode: fc.liabilityMode ?? "premium",
+      liabilityRatePct: fc.liabilityRatePct ?? 0.3,
+      liabilityAnnualPremiumUF: fc.liabilityAnnualPremiumUF ?? 0,
+      liabilityAllocationPct: fc.liabilityAllocationPct ?? 100,
+      insurancePolicyUF: fc.insurancePolicyUF ?? null,
+      liabilityDeductibleUF: fc.liabilityDeductibleUF ?? 0,
+      ufValue: ufValue ?? null,
+    });
+    const financiero = fin.monthlyFinancial;
+    const poliza = fin.monthlyPolicy + fin.monthlyPolicyAdmin + fin.monthlyLiability;
 
     const marginAmount = baseConMargen - costoBase;
-    const precioVenta = baseConMargen + financiero + poliza + totalLineas;
+    const precioVenta = fin.salePriceMonthly;
     const totalGuardias = config.positions.reduce((s, p) => s + (p.cantidad || 1) * (p.numPuestos || 1), 0);
     const totalPuestos = config.positions.reduce((s, p) => s + (p.numPuestos || 1), 0);
     return {
@@ -703,7 +717,7 @@ export function LeadInstallationCpq({
       totalPuestos,
       baseConMargen,
     };
-  }, [config.positions, config.additionalLines, config.marginPercentage, config.marginMode, config.conditions.contractDuration, config.financialCosts, costTotals, payrollPreview]);
+  }, [config.positions, config.additionalLines, config.marginPercentage, config.marginMode, config.conditions.contractDuration, config.financialCosts, costTotals, payrollPreview, ufValue]);
 
   return (
     <div className="space-y-2">
@@ -1072,6 +1086,7 @@ export function LeadInstallationCpq({
                 value={config.financialCosts}
                 onChange={(fc) => update({ financialCosts: fc })}
                 calculatedBase={estimate.baseConMargen}
+                contractDuration={config.conditions.contractDuration}
               />
             </div>
           )}
@@ -1527,11 +1542,22 @@ export function createDefaultLeadCpqConfig(): LeadCpqConfig {
     financialCosts: {
       financialEnabled: true,
       financialRatePct: 2.5,
+      financialBaseMode: "auto",
       salePriceBase: 0,
       policyEnabled: false,
-      policyRatePct: 2.5,
+      policyAmountMode: "pct",
+      policyRatePct: 2,
+      policyAdminRatePct: 0.2,
       policyContractMonths: 12,
-      policyContractPct: 100,
+      policyContractPct: 10,
+      policyFixedAmountUF: 0,
+      liabilityEnabled: false,
+      liabilityMode: "premium",
+      liabilityRatePct: 0.3,
+      liabilityAnnualPremiumUF: 0,
+      liabilityAllocationPct: 100,
+      liabilityDeductibleUF: 0,
+      insurancePolicyUF: null,
     },
     marginPercentage: 13,
     marginMode: "margin_on_sale",
