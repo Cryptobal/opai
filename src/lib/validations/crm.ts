@@ -4,6 +4,24 @@
 
 import { z } from "zod";
 import { toSiiRut } from "@/lib/chile-rut";
+import { normalizeWebsite } from "@/lib/validations/field-normalizers";
+
+/** Transform Zod que aplica normalizeWebsite y falla con URL inválida. */
+const websiteField = z
+  .string()
+  .trim()
+  .max(500)
+  .optional()
+  .nullable()
+  .transform((v, ctx) => {
+    if (v == null || v === "") return null;
+    const result = normalizeWebsite(v);
+    if (!result.ok) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: result.error });
+      return z.NEVER;
+    }
+    return result.value;
+  });
 
 /**
  * Normaliza un RUT al formato canónico SII (`11111111-1`, sin puntos) al
@@ -101,21 +119,7 @@ export const createAccountSchema = z.object({
     .enum(["prospect", "client_active", "client_inactive", "active", "inactive"])
     .default("prospect"),
   isActive: z.boolean().default(false),
-  website: z
-    .string()
-    .trim()
-    .max(500)
-    .optional()
-    .nullable()
-    .transform((v) => {
-      if (v == null || v === "") return null;
-      const s = v.trim();
-      if (!s) return null;
-      if (/^https?:\/\//i.test(s)) return s;
-      if (/^[a-z0-9][-a-z0-9.]*\.[a-z]{2,}/i.test(s)) return `https://${s}`;
-      return s;
-    })
-    .refine((v) => v == null || v === "" || /^https?:\/\/[^\s]+$/i.test(v), "URL inválida"),
+  website: websiteField,
   address: z.string().trim().max(500).optional().nullable(),
   commune: z.string().trim().max(200).optional().nullable(),
   // City: ciudad (distinto a comuna). El SII pide ambos en facturas.
@@ -125,7 +129,18 @@ export const createAccountSchema = z.object({
   notes: z.string().trim().max(20000).optional().nullable(),
 });
 
-/** Más permisivo para PATCH: website acepta cualquier string, notes más largo */
+/** YYYY-MM-DD o vacío → null. El endpoint convierte a Date a mediodía UTC. */
+const optionalDateYmd = z
+  .string()
+  .optional()
+  .nullable()
+  .transform((v) => {
+    if (v == null || v === "") return null;
+    return v;
+  })
+  .refine((v) => v == null || /^\d{4}-\d{2}-\d{2}$/.test(v), "Fecha inválida (YYYY-MM-DD)");
+
+/** Paridad con create: website normalizado; incluye vigencia y documento de cobro. */
 export const updateAccountSchema = z.object({
   name: z.string().trim().min(1, "Nombre es requerido").max(200).optional(),
   type: z.enum(["prospect", "client"]).optional(),
@@ -139,7 +154,7 @@ export const updateAccountSchema = z.object({
   segment: z.string().trim().max(100).optional().nullable(),
   status: z.enum(["prospect", "client_active", "client_inactive", "active", "inactive"]).optional(),
   isActive: z.boolean().optional(),
-  website: z.string().trim().max(500).optional().nullable(),
+  website: websiteField,
   address: z.string().trim().max(500).optional().nullable(),
   commune: z.string().trim().max(200).optional().nullable(),
   // Ciudad (distinto a comuna; SII pide ambos en facturas).
@@ -148,6 +163,8 @@ export const updateAccountSchema = z.object({
   notaryDate: z.string().trim().max(50).optional().nullable(),
   notes: z.string().trim().max(20000).optional().nullable(),
   logoUrl: z.string().trim().max(1000).optional().nullable(),
+  startDate: optionalDateYmd,
+  endDate: optionalDateYmd,
   // ── Documento de Cobro ──
   numeroOrdenContrato: z.string().trim().max(60).optional().nullable(),
   contactoEstadoPagoId: z.string().uuid("contactoEstadoPagoId inválido").optional().nullable(),
@@ -167,6 +184,10 @@ export const createContactSchema = z.object({
   isPrimary: z.boolean().default(false),
   /** Recibe el aviso de cesión al deudor cuando se cede un DTE del cliente. */
   recibeCesion: z.boolean().optional(),
+  recibeFacturacion: z.boolean().optional(),
+  recibeNotasCredito: z.boolean().optional(),
+  recibeCobranza: z.boolean().optional(),
+  recibeOperacional: z.boolean().optional(),
 });
 
 export const updateContactSchema = z.object({
@@ -178,6 +199,10 @@ export const updateContactSchema = z.object({
   roleTitle: z.string().trim().max(100).optional().nullable(),
   isPrimary: z.boolean().optional(),
   recibeCesion: z.boolean().optional(),
+  recibeFacturacion: z.boolean().optional(),
+  recibeNotasCredito: z.boolean().optional(),
+  recibeCobranza: z.boolean().optional(),
+  recibeOperacional: z.boolean().optional(),
 });
 
 // ── Installation ──

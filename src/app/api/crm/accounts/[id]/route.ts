@@ -148,6 +148,18 @@ export async function PATCH(
       status: legacy.status,
     };
 
+    // Fechas de vigencia: YYYY-MM-DD → Date a mediodía UTC (evita corrimiento de día).
+    if ("startDate" in parsed.data) {
+      const v = parsed.data.startDate;
+      updateData.startDate =
+        v == null || v === "" ? null : new Date(`${v}T12:00:00Z`);
+    }
+    if ("endDate" in parsed.data) {
+      const v = parsed.data.endDate;
+      updateData.endDate =
+        v == null || v === "" ? null : new Date(`${v}T12:00:00Z`);
+    }
+
     let deactivatedInstallationIds: string[] = [];
 
     const account = await prisma.$transaction(async (tx) => {
