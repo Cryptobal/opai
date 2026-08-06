@@ -11,10 +11,11 @@ import {
   SUB_CORNER_PROFORMA, displayValue, REAL_CELL, ROW_H, TODAY_COL,
 } from "./grid-classes";
 import {
-  committedPriority, cornerKind, dteCountInCell, pastPendingDteMeta,
-  primaryCellTag, secondaryMarkTitle, secondaryMarks, toneClass,
-  type SecondaryMark,
+  committedPriority, cornerKind, dteCountInCell, executionMeta,
+  pastPendingDteMeta, primaryCellTag, secondaryMarkTitle, secondaryMarks,
+  toneClass, type SecondaryMark,
 } from "./cell-meta";
+import { ExecutionBar } from "./ExecutionBar";
 
 const SUB_CORNER_CLASS: Record<SecondaryMark, string> = {
   ceded: SUB_CORNER_CEDED,
@@ -200,12 +201,21 @@ export function PlanillaCell(p: Props) {
   }
   if (p.caption) titleParts.push(p.caption);
 
+  const exec = executionMeta(cell);
+  if (exec?.title) titleParts.push(exec.title);
+
   const driftThreshold = p.driftAlertThresholdClp ?? 100_000;
   const showDriftChip =
     cell.drift != null && Math.abs(cell.drift.delta) >= driftThreshold;
   if (showDriftChip && cell.drift) {
+    const pctLabel =
+      exec?.pct != null
+        ? ` · ${Math.round(exec.pct)}% ejecutado`
+        : cell.drift.pct != null
+          ? ` (${cell.drift.pct.toFixed(1)}%)`
+          : "";
     titleParts.push(
-      `Desviación ${cell.drift.delta > 0 ? "▲" : "▼"} ${Math.abs(Math.round(cell.drift.delta)).toLocaleString("es-CL")}`,
+      `Desviación ${cell.drift.delta > 0 ? "▲" : "▼"} ${Math.abs(Math.round(cell.drift.delta)).toLocaleString("es-CL")}${pctLabel}`,
     );
   }
 
@@ -282,6 +292,14 @@ export function PlanillaCell(p: Props) {
           }}
         />
       )}
+      {exec?.showBar && (
+        <ExecutionBar
+          pctWidth={exec.pctWidth}
+          over={exec.state === "over"}
+          hasNote={hasNote}
+          title={exec.title}
+        />
+      )}
       {isSelected && !isEditing && p.onOpenCaretMenu && (
         <button
           type="button"
@@ -332,6 +350,7 @@ export function PlanillaCell(p: Props) {
               }`}
             >
               {cell.drift.delta > 0 ? "▲" : "▼"}
+              {exec?.pct != null ? ` ${Math.round(exec.pct)}%` : ""}
             </span>
           )}
         </span>
@@ -374,6 +393,7 @@ export function PlanillaCell(p: Props) {
               aria-label="Desviación vs proyectado"
             >
               {cell.drift.delta > 0 ? "▲" : "▼"}
+              {exec?.pct != null ? ` ${Math.round(exec.pct)}%` : ""}
             </span>
           )}
         </>

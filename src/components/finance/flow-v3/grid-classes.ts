@@ -78,6 +78,18 @@ export const CORNER_PLAN =
 export const NOTE_DOT_EL =
   "planilla-note-dot absolute bottom-0.5 left-0.5 z-[3] h-1.5 w-1.5 cursor-pointer rounded-full bg-status-info pointer-events-auto";
 
+/**
+ * Barra de ejecución (2,5 px al pie). Elemento real: ::after/::before ya
+ * ocupados por esquina y nota. z-[1] bajo el punto de nota (z-[3]).
+ */
+export const EXEC_BAR =
+  "pointer-events-none absolute bottom-0 left-0.5 right-0.5 z-[1] h-[2.5px] overflow-hidden rounded-sm bg-ds-border-strong/50";
+/** Con nota: acorta a left-3 para no tapar el punto inf-izq. */
+export const EXEC_BAR_WITH_NOTE =
+  "pointer-events-none absolute bottom-0 left-3 right-0.5 z-[1] h-[2.5px] overflow-hidden rounded-sm bg-ds-border-strong/50";
+export const EXEC_BAR_FILL = "block h-full rounded-sm bg-status-ok";
+export const EXEC_BAR_OVER = "block h-full rounded-sm bg-status-warn";
+
 /** Chevron de acciones (solo celda seleccionada) — elemento real, 14 px. */
 export const CELL_CARET =
   "planilla-cell-caret absolute right-0 top-1/2 z-[3] flex h-3.5 w-3.5 -translate-y-1/2 cursor-pointer items-center justify-center rounded-sm bg-ds-surface-3 text-ds-text-2 pointer-events-auto hover:bg-ds-surface-4 hover:text-ds-text-1";
