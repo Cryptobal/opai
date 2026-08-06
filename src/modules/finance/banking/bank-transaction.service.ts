@@ -145,6 +145,16 @@ function buildSearchOr(search: string) {
 type BankTxSortField = "transactionDate" | "description" | "amount";
 type BankTxSortDir = "asc" | "desc";
 
+export type MatchSourceFilter =
+  | "RULE"
+  | "DTE"
+  | "TURNO_EXTRA"
+  | "PAYROLL"
+  | "FINIQUITO"
+  | "INFERRED"
+  | "MANUAL"
+  | "PAYROLL_GROUP"; // PAYROLL | FINIQUITO
+
 interface ListBankTransactionsOpts {
   dateFrom?: string;
   dateTo?: string;
@@ -175,6 +185,10 @@ interface ListBankTransactionsOpts {
    *   - "all" (default): sin filtro
    */
   direction?: "inflow" | "outflow" | "all";
+  /** Procedencia del vínculo (combinable con tab). */
+  matchSource?: MatchSourceFilter;
+  /** Filtrar por regla concreta que originó el link. */
+  matchedByRuleId?: string;
 }
 
 export interface ImportTransactionInput {
@@ -274,6 +288,27 @@ export async function listBankTransactions(
     where.amount = { gt: 0 };
   } else if (direction === "outflow") {
     where.amount = { lt: 0 };
+  }
+
+  // Procedencia: filtra por links del tenant.
+  if (opts?.matchedByRuleId) {
+    where.links = {
+      some: {
+        tenantId,
+        matchedByRuleId: opts.matchedByRuleId,
+      },
+    };
+  } else if (opts?.matchSource) {
+    const sources =
+      opts.matchSource === "PAYROLL_GROUP"
+        ? (["PAYROLL", "FINIQUITO"] as const)
+        : [opts.matchSource];
+    where.links = {
+      some: {
+        tenantId,
+        matchSource: { in: [...sources] },
+      },
+    };
   }
 
   // Orden: por defecto fecha descendente, con id como tiebreaker estable.
@@ -398,16 +433,131 @@ export async function listBankTransactions(
     })),
   );
 
-  const enriched = transactions.map((t) => ({
-    ...t,
-    suggestedRuleName: t.suggestedRuleId
-      ? ruleMap.get(t.suggestedRuleId) ?? null
-      : null,
-    suggestedAccountLabel: t.suggestedAccountPlanId
-      ? accountMap.get(t.suggestedAccountPlanId) ?? null
-      : null,
-    rutRecognition: rutMap.get(t.id) ?? null,
-  }));
+  // Procedencia + destino (cuenta / fila flujo) desde el primer link.
+  const txIds = transactions.map((t) => t.id);
+  const links =
+    txIds.length > 0
+      ? await prisma.financeBankTransactionLink.findMany({
+          where: { tenantId, bankTransactionId: { in: txIds } },
+          select: {
+            bankTransactionId: true,
+            matchSource: true,
+            matchedByRuleId: true,
+            accountPlanId: true,
+            targetType: true,
+            note: true,
+            createdAt: true,
+            accountPlan: { select: { code: true, name: true } },
+          },
+          orderBy: { createdAt: "asc" },
+        })
+      : [];
+
+  const primaryLinkByTx = new Map<string, (typeof links)[number]>();
+  for (const l of links) {
+    if (!primaryLinkByTx.has(l.bankTransactionId)) {
+      primaryLinkByTx.set(l.bankTransactionId, l);
+    }
+  }
+
+  const linkRuleIds = [
+    ...new Set(
+      [...primaryLinkByTx.values()]
+        .map((l) => l.matchedByRuleId)
+        .filter((v): v is string => !!v),
+    ),
+  ];
+  const linkAccountIds = [
+    ...new Set(
+      [...primaryLinkByTx.values()]
+        .map((l) => l.accountPlanId)
+        .filter((v): v is string => !!v),
+    ),
+  ];
+
+  const [linkRules, catMappings] = await Promise.all([
+    linkRuleIds.length > 0
+      ? prisma.financeAutoMatchRule.findMany({
+          where: { tenantId, id: { in: linkRuleIds } },
+          select: { id: true, name: true },
+        })
+      : Promise.resolve([] as { id: string; name: string }[]),
+    linkAccountIds.length > 0
+      ? prisma.financeCashflowCategoryAccount.findMany({
+          where: { tenantId, accountPlanId: { in: linkAccountIds } },
+          select: {
+            accountPlanId: true,
+            isPrimary: true,
+            categoryId: true,
+          },
+          orderBy: [{ isPrimary: "desc" }],
+        })
+      : Promise.resolve(
+          [] as { accountPlanId: string; isPrimary: boolean; categoryId: string }[],
+        ),
+  ]);
+  const linkRuleMap = new Map(linkRules.map((r) => [r.id, r.name]));
+  const categoryIdByAccount = new Map<string, string>();
+  for (const m of catMappings) {
+    if (!categoryIdByAccount.has(m.accountPlanId)) {
+      categoryIdByAccount.set(m.accountPlanId, m.categoryId);
+    }
+  }
+  const categoryIds = [...new Set(categoryIdByAccount.values())];
+  const flowRows =
+    categoryIds.length > 0
+      ? await prisma.financeFlowRow.findMany({
+          where: {
+            tenantId,
+            categoryId: { in: categoryIds },
+            archivedAt: null,
+          },
+          select: { categoryId: true, name: true, orderIndex: true },
+          orderBy: { orderIndex: "asc" },
+        })
+      : [];
+  const flowRowNameByCategory = new Map<string, string>();
+  for (const r of flowRows) {
+    if (r.categoryId && !flowRowNameByCategory.has(r.categoryId)) {
+      flowRowNameByCategory.set(r.categoryId, r.name);
+    }
+  }
+  const flowRowNameByAccount = new Map<string, string>();
+  for (const [accountId, catId] of categoryIdByAccount) {
+    const name = flowRowNameByCategory.get(catId);
+    if (name) flowRowNameByAccount.set(accountId, name);
+  }
+
+  const enriched = transactions.map((t) => {
+    const link = primaryLinkByTx.get(t.id);
+    const matchSource = link?.matchSource ?? null;
+    const matchedByRuleId = link?.matchedByRuleId ?? null;
+    const linkAccountCode = link?.accountPlan?.code ?? null;
+    const linkAccountName = link?.accountPlan?.name ?? null;
+    const linkAccountLabel =
+      linkAccountCode && linkAccountName
+        ? `${linkAccountCode} · ${linkAccountName}`
+        : linkAccountCode ?? linkAccountName;
+    return {
+      ...t,
+      suggestedRuleName: t.suggestedRuleId
+        ? ruleMap.get(t.suggestedRuleId) ?? null
+        : null,
+      suggestedAccountLabel: t.suggestedAccountPlanId
+        ? accountMap.get(t.suggestedAccountPlanId) ?? null
+        : null,
+      rutRecognition: rutMap.get(t.id) ?? null,
+      matchSource,
+      matchedByRuleId,
+      matchedByRuleName: matchedByRuleId
+        ? linkRuleMap.get(matchedByRuleId) ?? null
+        : null,
+      linkAccountLabel: linkAccountLabel ?? null,
+      flowRowName: link?.accountPlanId
+        ? flowRowNameByAccount.get(link.accountPlanId) ?? null
+        : null,
+    };
+  });
 
   return {
     transactions: enriched,

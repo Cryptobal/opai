@@ -1,7 +1,10 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
 
-/** Resuelve accountPlanId desde la categoría de una fila de flujo (N:M primario). */
+/**
+ * Resuelve accountPlanId desde la categoría de una fila de flujo.
+ * Precedencia: mapeo primario (lo que ve el usuario) → escalar legacy.
+ */
 export async function resolveAccountPlanIdForFlowRow(
   tenantId: string,
   row: { categoryId: string | null },
@@ -20,5 +23,5 @@ export async function resolveAccountPlanIdForFlowRow(
       },
     },
   });
-  return cat?.accountPlanId ?? cat?.accountMappings[0]?.accountPlanId ?? null;
+  return cat?.accountMappings[0]?.accountPlanId ?? cat?.accountPlanId ?? null;
 }

@@ -227,6 +227,7 @@ export async function tryAutoMatchBankTransactionToTurnoExtra(
           amount: new Decimal(amountAbs),
           accountPlanId: null,
           note: "Auto-match turno extra por RUT + monto exacto (planilla TE)",
+          matchSource: "TURNO_EXTRA",
           createdById: userId,
         },
       });
@@ -338,6 +339,7 @@ export async function tryAutoMatchBankTransactionToTurnoExtra(
         amount: new Decimal(amountAbs),
         accountPlanId: null,
         note: "Auto-match turno extra (TE aprobado sin fila en planilla TE): RUT + monto",
+        matchSource: "TURNO_EXTRA",
         createdById: userId,
       },
     });

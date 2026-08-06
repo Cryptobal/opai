@@ -343,6 +343,8 @@ export function UnmatchedIncomeList({
         label?: string;
         flowRowId?: string;
         options?: string[];
+        source?: "rule" | "payroll" | "te" | "heuristic";
+        reason?: string;
       }>;
       const top = suggestions[0];
       if (!top || top.kind === "NONE") {
@@ -354,12 +356,24 @@ export function UnmatchedIncomeList({
         return;
       }
       if (top.kind === "FLOW_ROW" && top.flowRowId) {
+        const payrollKind =
+          top.source === "payroll" &&
+          /finiquito/i.test(top.reason ?? top.label ?? "")
+            ? "FINIQUITO"
+            : top.source === "payroll"
+              ? "LIQUIDACION"
+              : undefined;
         const conf = await fetch(
           `/api/finance/banking/transactions/${txId}/classify-suggestions`,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ kind: "FLOW_ROW", flowRowId: top.flowRowId }),
+            body: JSON.stringify({
+              kind: "FLOW_ROW",
+              flowRowId: top.flowRowId,
+              source: top.source ?? "heuristic",
+              payrollKind,
+            }),
           },
         );
         const cj = await conf.json();

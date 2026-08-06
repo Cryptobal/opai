@@ -77,12 +77,14 @@ export function BankBuiltinAutomatchRulesPanel() {
 
       <RuleBlock
         step={4}
-        title="Cascada por RUT de la contraparte"
+        title="Cascada por identidad de RUT (nómina / finiquito)"
         tone="info"
         bullets={[
-          "Se aplica cuando se clasifica un movimiento desde la bandeja de la planilla.",
-          "Orden fijo: (1) regla configurada para ese RUT — siempre gana; (2) RUT 61.808.000-5 (Tesorería General de la República) → pide elegir entre F29, finiquito o convenio, nunca se auto-aplica; (3) RUT con cuerpo menor a 50.000.000 = persona natural → ítem de nómina pendiente que calce por monto, o en su defecto la fila «Turnos extra»; (4) RUT con cuerpo igual o mayor a 50.000.000 = empresa → factura de proveedor pendiente que calce por RUT y monto dentro de la tolerancia del tenant; (5) sin coincidencia → el movimiento queda en la bandeja.",
-          "El corte en 50.000.000 corresponde a los rangos de RUT chilenos y no es configurable; para forzar un destino distinto, crear una regla de RUT, que tiene precedencia sobre toda la cascada.",
+          "Corre también al importar cartola, en «Auto-conciliar» y en «Conciliar histórico» — no solo en la bandeja de la planilla.",
+          "Solo egresos cuyo RUT se reconoce como guardia del tenant, y solo si los pasos 1–3 no conciliaron ni dejaron sugerencia de regla.",
+          "Calce exacto (tolerancia del tenant) contra liquidación APPROVED sin pagar, anticipo PENDING o finiquito aprobado → se concilia solo (origen Nómina / Finiquito).",
+          "Guardia sin nada que calce → queda «Por autorizar» con la cuenta de la fila Turnos extra. Esa inferencia NUNCA se auto-concilia.",
+          "RUT sin identidad de guardia: sin cambio. Para forzar otro destino, crear una regla de RUT (paso 3), que tiene precedencia absoluta.",
         ]}
       />
 
@@ -94,6 +96,10 @@ export function BankBuiltinAutomatchRulesPanel() {
         ,{" "}
         <code className="text-[12px] font-mono bg-muted px-1 rounded">
           auto-match-turno-extra.service.ts
+        </code>
+        ,{" "}
+        <code className="text-[12px] font-mono bg-muted px-1 rounded">
+          payroll-cascade.service.ts
         </code>{" "}
         y{" "}
         <code className="text-[12px] font-mono bg-muted px-1 rounded">

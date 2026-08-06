@@ -13,6 +13,7 @@
 
 import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@prisma/client";
+import { extractCanonicalRutFromBankText } from "./rut-extract";
 
 export type AnalysisGroupBy =
   | "counterparty"
@@ -58,17 +59,6 @@ export interface AnalysisResult {
 }
 
 const SCAN_CAP = 50000;
-
-/** Normaliza un RUT removiendo puntos y guion. */
-function normalizeRut(s: string): string {
-  return s.toUpperCase().replace(/[.\-\s]/g, "");
-}
-
-/** Extrae el primer RUT presente en un string. */
-function extractRut(text: string): string | null {
-  const match = text.match(/\d{1,2}\.?\d{3}\.?\d{3}-?[\dKk]/);
-  return match ? normalizeRut(match[0]) : null;
-}
 
 /**
  * Genera una "huella" de descripción para agrupar transacciones similares
@@ -189,11 +179,12 @@ export async function analyzeBankTransactions(
     switch (filters.groupBy) {
       case "counterparty": {
         const rut =
-          extractRut(tx.description) ?? extractRut(tx.reference ?? "");
+          extractCanonicalRutFromBankText(tx.description) ??
+          extractCanonicalRutFromBankText(tx.reference);
         if (rut) {
           // Formatear el RUT con puntos y guion para el label.
           const body = rut.slice(0, -1);
-          const dv = rut.slice(-1);
+          const dv = rut.slice(-1).toUpperCase();
           const dotted = body.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
           pushTo(`rut:${rut}`, `${dotted}-${dv}`, income, expense);
         } else {

@@ -69,6 +69,7 @@ export async function POST(request: NextRequest) {
             amount: amountAbs,
             accountPlanId,
             note: note ?? null,
+            matchSource: "MANUAL",
           },
         ]);
         assigned++;

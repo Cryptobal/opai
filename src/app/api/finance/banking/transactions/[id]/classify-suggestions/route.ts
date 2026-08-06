@@ -42,6 +42,17 @@ const classifyBodySchema = z.object({
   /** Ids adicionales a clasificar junto al de la ruta. Máx 200. */
   alsoBankTransactionIds: z.array(z.string().uuid()).max(200).optional(),
   /**
+   * Origen de la sugerencia confirmada (cascada de clasificación).
+   * Se mapea a FinanceLinkMatchSource en el link.
+   */
+  source: z
+    .enum(["rule", "payroll", "te", "heuristic", "finiquito"])
+    .optional(),
+  matchedByRuleId: z.string().uuid().nullable().optional(),
+  payrollKind: z
+    .enum(["LIQUIDACION", "ANTICIPO", "FINIQUITO"])
+    .optional(),
+  /**
    * RUT (default histórico), DESCRIPTION o NONE.
    * Compat: boolean true → RUT, false → NONE.
    */
@@ -52,6 +63,26 @@ const classifyBodySchema = z.object({
   }, z.enum(["RUT", "DESCRIPTION", "NONE"]).optional()),
   descriptionNeedle: z.string().trim().max(120).optional(),
 });
+
+function matchSourceFromClassify(body: {
+  source?: "rule" | "payroll" | "te" | "heuristic" | "finiquito";
+  payrollKind?: "LIQUIDACION" | "ANTICIPO" | "FINIQUITO";
+}): "RULE" | "PAYROLL" | "FINIQUITO" | "TURNO_EXTRA" | "INFERRED" | "MANUAL" {
+  switch (body.source) {
+    case "rule":
+      return "RULE";
+    case "te":
+      return "TURNO_EXTRA";
+    case "finiquito":
+      return "FINIQUITO";
+    case "payroll":
+      return body.payrollKind === "FINIQUITO" ? "FINIQUITO" : "PAYROLL";
+    case "heuristic":
+      return "INFERRED";
+    default:
+      return "MANUAL";
+  }
+}
 
 /**
  * GET /api/finance/banking/transactions/[id]/classify-suggestions
@@ -345,6 +376,8 @@ export async function POST(
             note:
               body.note ??
               `Clasificado a fila flujo: ${row.name} (${normalizeNameForDedupe(row.name)})`,
+            matchSource: matchSourceFromClassify(body),
+            matchedByRuleId: body.matchedByRuleId ?? null,
           },
         ]);
         classified++;

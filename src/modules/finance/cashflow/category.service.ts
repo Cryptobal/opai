@@ -126,6 +126,7 @@ export async function updateCategory(
   tenantId: string,
   id: string,
   patch: Partial<{
+    code: string;
     name: string;
     color: string;
     sortOrder: number;
@@ -136,14 +137,51 @@ export async function updateCategory(
 ): Promise<FinanceCashflowCategory> {
   const existing = await prisma.financeCashflowCategory.findFirst({ where: { id, tenantId } });
   if (!existing) throw new Error("Categoría no encontrada");
+
+  if (patch.code != null && patch.code !== existing.code) {
+    const code = patch.code.trim().toUpperCase();
+    if (!/^[A-Z0-9_]{2,50}$/.test(code)) {
+      throw new Error("Código inválido (solo MAYÚSCULAS, números y _)");
+    }
+    const clash = await prisma.financeCashflowCategory.findFirst({
+      where: { tenantId, code, NOT: { id } },
+      select: { id: true },
+    });
+    if (clash) throw new Error(`Ya existe una categoría con código ${code}`);
+    patch = { ...patch, code };
+  }
+
   return prisma.financeCashflowCategory.update({ where: { id }, data: patch });
 }
 
+/**
+ * Elimina una categoría inactiva sin movimientos (items) ni filas de flujo
+ * asociadas. Las de sistema también se pueden borrar bajo esas condiciones.
+ */
 export async function deleteCategory(tenantId: string, id: string): Promise<void> {
   const existing = await prisma.financeCashflowCategory.findFirst({ where: { id, tenantId } });
   if (!existing) throw new Error("Categoría no encontrada");
-  if (existing.isSystem) throw new Error("No se puede eliminar una categoría del sistema");
-  const inUse = await prisma.financeCashflowItem.count({ where: { tenantId, categoryId: id, isActive: true } });
-  if (inUse > 0) throw new Error(`Categoría tiene ${inUse} items activos. Desactiva los items primero.`);
+  if (existing.isActive) {
+    throw new Error("Desactivá la categoría antes de eliminarla");
+  }
+  const itemCount = await prisma.financeCashflowItem.count({
+    where: { tenantId, categoryId: id },
+  });
+  if (itemCount > 0) {
+    throw new Error(
+      `Categoría tiene ${itemCount} ítem(s) de flujo. No se puede eliminar mientras tenga movimientos.`,
+    );
+  }
+  const rowCount = await prisma.financeFlowRow.count({
+    where: { tenantId, categoryId: id },
+  });
+  if (rowCount > 0) {
+    throw new Error(
+      `Categoría está vinculada a ${rowCount} renglón(es) del flujo. Reasigná o archivá esos renglones primero.`,
+    );
+  }
+  await prisma.financeCashflowCategoryAccount.deleteMany({
+    where: { tenantId, categoryId: id },
+  });
   await prisma.financeCashflowCategory.delete({ where: { id } });
 }

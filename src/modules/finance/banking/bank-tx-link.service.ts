@@ -227,6 +227,18 @@ export interface BankTxLinkInput {
   amount: number;
   accountPlanId?: string | null;
   note?: string | null;
+  /** Procedencia del vínculo (RULE, DTE, MANUAL, …). */
+  matchSource?:
+    | "RULE"
+    | "DTE"
+    | "TURNO_EXTRA"
+    | "PAYROLL"
+    | "FINIQUITO"
+    | "INFERRED"
+    | "MANUAL"
+    | null;
+  /** Regla que originó el link (sin FK). */
+  matchedByRuleId?: string | null;
 }
 
 export interface CandidateDte {
@@ -2047,6 +2059,8 @@ export async function setTransactionLinks(
           amount: new Decimal(l.amount),
           accountPlanId: l.accountPlanId ?? null,
           note: l.note ?? null,
+          matchSource: l.matchSource ?? null,
+          matchedByRuleId: l.matchedByRuleId ?? null,
           createdById: userId ?? null,
         })),
       });
@@ -2352,6 +2366,7 @@ export async function bulkReconcileToDte(
           amount: new Decimal(amountAbs),
           accountPlanId: null,
           note: `Conciliación masiva N→1`,
+          matchSource: "DTE",
           createdById: userId ?? null,
         },
       });
@@ -2830,6 +2845,7 @@ export async function bulkReconcileToDtes(
               amount: new Decimal(linkPiece),
               accountPlanId: null,
               note: `Conciliación masiva N→N`,
+              matchSource: "DTE",
               createdById: userId ?? null,
             },
           });
@@ -2848,6 +2864,7 @@ export async function bulkReconcileToDtes(
               amount: new Decimal(linkPiece),
               accountPlanId: null,
               note: `Conciliación masiva N→N · cesión factoring`,
+              matchSource: "MANUAL",
               createdById: userId ?? null,
             },
           });
@@ -2879,6 +2896,7 @@ export async function bulkReconcileToDtes(
               note:
                 differenceAllocation.label?.trim() ||
                 `Diferencia conciliación (${isIncome ? "ingreso" : "gasto"})`,
+              matchSource: "MANUAL",
               createdById: userId ?? null,
             },
           });
@@ -3014,6 +3032,7 @@ export async function bulkReconcileToDtes(
               note:
                 differenceAllocation.label?.trim() ||
                 `Diferencia conciliación shortfall (${txs.length} mov${txs.length === 1 ? "" : "s"})`,
+              matchSource: "MANUAL",
               createdById: userId ?? null,
             },
           });
@@ -3340,6 +3359,8 @@ export async function confirmSuggestion(
         amount: new Decimal(amountAbs),
         accountPlanId: tx.suggestedAccountPlanId!,
         note: "Auto-match autorizado por regla",
+        matchSource: tx.suggestedRuleId ? "RULE" : "INFERRED",
+        matchedByRuleId: tx.suggestedRuleId ?? null,
         createdById: userId ?? null,
       },
     });

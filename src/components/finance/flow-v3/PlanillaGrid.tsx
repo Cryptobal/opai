@@ -423,7 +423,7 @@ export function PlanillaGrid({
           `${skippedLinked} con vínculos previos omitido${skippedLinked === 1 ? "" : "s"}`,
         );
       }
-      if (reachedCap) parts.push("límite alcanzado — volvé a aplicar la regla");
+      if (reachedCap) parts.push("tope de escaneo — volvé a aplicar la regla");
       toast.success(parts.join(" · "));
       setBandejaRutSection(null);
       onRefresh?.();
@@ -541,7 +541,7 @@ export function PlanillaGrid({
           `${skippedLinked} con vínculos previos omitido${skippedLinked === 1 ? "" : "s"}`,
         );
       }
-      if (reachedCap) parts.push("límite alcanzado — volvé a aplicar la regla");
+      if (reachedCap) parts.push("tope de escaneo — volvé a aplicar la regla");
       toast.success(parts.join(" · "));
       setBandejaRutSection(null);
       onRefresh?.();

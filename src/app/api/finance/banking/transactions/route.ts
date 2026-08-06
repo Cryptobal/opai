@@ -10,6 +10,7 @@ import { createBankTransactionSchema } from "@/lib/validations/finance";
 import {
   listBankTransactions,
   createBankTransaction,
+  type MatchSourceFilter,
 } from "@/modules/finance/banking/bank-transaction.service";
 
 /**
@@ -92,6 +93,25 @@ export async function GET(request: NextRequest) {
         ? Math.min(Math.max(1, requestedPageSize), 500)
         : undefined;
 
+    const matchSourceRaw = searchParams.get("matchSource");
+    const MATCH_SOURCES: MatchSourceFilter[] = [
+      "RULE",
+      "DTE",
+      "TURNO_EXTRA",
+      "PAYROLL",
+      "FINIQUITO",
+      "INFERRED",
+      "MANUAL",
+      "PAYROLL_GROUP",
+    ];
+    const matchSource: MatchSourceFilter | undefined = MATCH_SOURCES.includes(
+      matchSourceRaw as MatchSourceFilter,
+    )
+      ? (matchSourceRaw as MatchSourceFilter)
+      : undefined;
+    const matchedByRuleId =
+      searchParams.get("matchedByRuleId") || undefined;
+
     const opts = {
       dateFrom: searchParams.get("dateFrom") || undefined,
       dateTo: searchParams.get("dateTo") || undefined,
@@ -101,6 +121,8 @@ export async function GET(request: NextRequest) {
       visibility,
       tab,
       direction,
+      matchSource,
+      matchedByRuleId,
       page: searchParams.get("page")
         ? parseInt(searchParams.get("page")!)
         : undefined,

@@ -76,6 +76,12 @@ export const createCashflowCategorySchema = z.object({
 });
 
 export const updateCashflowCategorySchema = z.object({
+  code: z
+    .string()
+    .min(2)
+    .max(50)
+    .regex(/^[A-Z0-9_]+$/, "Solo MAYÚSCULAS, números y _")
+    .optional(),
   name: z.string().min(2).max(120).optional(),
   color: z.string().regex(/^#[0-9A-F]{6}$/i).optional(),
   sortOrder: z.number().int().min(0).max(9999).optional(),

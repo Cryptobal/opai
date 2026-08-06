@@ -18,7 +18,10 @@ import type {
   FinanceAutoMatchRule,
   FinanceAutoMatchScope,
 } from "@prisma/client";
-import { normalizeRutForMatch } from "./auto-match-payment.service";
+import { normalizeRutForMatch } from "./rut-normalize";
+import {
+  extractAllCanonicalRutsFromBankText,
+} from "./rut-extract";
 import {
   isForbiddenNeedle,
   MERCHANT_NEEDLE_MIN_LEN,
@@ -46,8 +49,11 @@ export type RuleOperator =
 export interface RuleCondition {
   field: RuleField;
   operator: RuleOperator;
-  /** Valor esperado. Para AMOUNT_BETWEEN se usa { min, max }. */
-  value?: string | number | { min?: number; max?: number } | null;
+  /**
+   * Valor esperado. Para AMOUNT_BETWEEN se usa { min, max }.
+   * Para RUT_MATCHES acepta un string (legacy) o una lista de RUT.
+   */
+  value?: string | number | string[] | { min?: number; max?: number } | null;
 }
 
 export interface RuleConditions {
@@ -118,21 +124,19 @@ export interface AutoMatchEvaluation {
 
 // ── Helpers ──
 
-/** Quita puntos y guion. "12.345.678-K" → "12345678K". */
-function normalizeRut(s: string): string {
-  return s.toUpperCase().replace(/[.\-\s]/g, "");
-}
-
-/** Detecta el primer RUT presente en un string libre. */
-function extractRutFromText(text: string): string | null {
-  const match = text.match(/\d{1,2}\.?\d{3}\.?\d{3}-?[\dKk]/);
-  return match ? normalizeRut(match[0]) : null;
+function toRutExpectedList(value: RuleCondition["value"]): string[] {
+  if (value == null) return [];
+  const raw = Array.isArray(value) ? value : [value];
+  return raw
+    .map((v) => normalizeRutForMatch(String(v ?? "")))
+    .filter((r) => r.length >= 8);
 }
 
 /**
  * Evalúa una condición individual contra una transacción.
+ * Exportada para tests del criterio RUT_MATCHES.
  */
-function evaluateCondition(
+export function evaluateCondition(
   cond: RuleCondition,
   tx: AutoMatchTx
 ): boolean {
@@ -142,7 +146,6 @@ function evaluateCondition(
   // Campo target
   let textTarget: string | null = null;
   let numTarget: number | null = null;
-  let rutTarget: string | null = null;
 
   switch (cond.field) {
     case "DESCRIPTION":
@@ -155,9 +158,7 @@ function evaluateCondition(
       numTarget = Math.abs(tx.amount);
       break;
     case "BENEFICIARY_RUT":
-      rutTarget =
-        extractRutFromText(tx.description ?? "") ??
-        extractRutFromText(tx.reference ?? "");
+      // RUT se resuelve en el case RUT_MATCHES con el extractor canónico.
       break;
   }
 
@@ -190,9 +191,13 @@ function evaluateCondition(
       return okMin && okMax;
     }
     case "RUT_MATCHES": {
-      if (!rutTarget) return false;
-      const expected = normalizeRut(String(cond.value ?? ""));
-      return rutTarget === expected;
+      const found = new Set([
+        ...extractAllCanonicalRutsFromBankText(tx.description),
+        ...extractAllCanonicalRutsFromBankText(tx.reference),
+      ]);
+      if (found.size === 0) return false;
+      const expected = toRutExpectedList(cond.value);
+      return expected.some((e) => found.has(e));
     }
     default:
       return false;
@@ -306,17 +311,24 @@ export async function previewRuleMatches(
   bankAccountId: string | null,
   scope: FinanceAutoMatchScope,
   conditions: RuleConditions,
-  daysBack: number = 30,
+  /** null/undefined = toda la cartola (cap 5000). 30/90/180 acotan por fecha. */
+  daysBack: number | null = null,
 ): Promise<PreviewRuleMatchesResult> {
-  const since = new Date();
-  since.setDate(since.getDate() - daysBack);
+  const since =
+    daysBack != null && daysBack > 0
+      ? (() => {
+          const d = new Date();
+          d.setDate(d.getDate() - daysBack);
+          return d;
+        })()
+      : null;
 
   const txs = await prisma.financeBankTransaction.findMany({
     where: {
       tenantId,
       ...(bankAccountId ? { bankAccountId } : {}),
       hiddenAt: null,
-      transactionDate: { gte: since },
+      ...(since ? { transactionDate: { gte: since } } : {}),
     },
     select: {
       id: true,
@@ -457,37 +469,129 @@ export async function updateRule(
   });
 }
 
+/** Lote de lectura al aplicar reglas al histórico. */
+export const HISTORICAL_SCAN_BATCH = 500;
+/** Tope duro por corrida (configurable vía opciones). */
+export const HISTORICAL_SCAN_DEFAULT_MAX = 20_000;
+
+export type HistoricalScanCursor = {
+  transactionDate: Date;
+  id: string;
+};
+
+export type UnmatchedTxScanRow = {
+  id: string;
+  amount: { toNumber(): number };
+  description: string;
+  reference: string | null;
+  transactionDate: Date;
+};
+
+/**
+ * Página el histórico UNMATCHED con orden estable
+ * (`transactionDate desc`, `id asc`) y cursor compuesto.
+ * Avanza aunque el lote no produzca matches (evita bucles infinitos).
+ */
+export async function* iterateUnmatchedBankTransactions(
+  where: Record<string, unknown>,
+  options?: { batchSize?: number; maxScan?: number },
+): AsyncGenerator<{
+  row: UnmatchedTxScanRow;
+  scanned: number;
+  reachedCap: boolean;
+}> {
+  const batchSize = options?.batchSize ?? HISTORICAL_SCAN_BATCH;
+  const maxScan = options?.maxScan ?? HISTORICAL_SCAN_DEFAULT_MAX;
+  let cursor: HistoricalScanCursor | null = null;
+  let scanned = 0;
+
+  while (scanned < maxScan) {
+    const take = Math.min(batchSize, maxScan - scanned);
+    const batch: UnmatchedTxScanRow[] =
+      await prisma.financeBankTransaction.findMany({
+        where: {
+          ...where,
+          ...(cursor
+            ? {
+                OR: [
+                  { transactionDate: { lt: cursor.transactionDate } },
+                  {
+                    AND: [
+                      { transactionDate: cursor.transactionDate },
+                      { id: { gt: cursor.id } },
+                    ],
+                  },
+                ],
+              }
+            : {}),
+        },
+        select: {
+          id: true,
+          amount: true,
+          description: true,
+          reference: true,
+          transactionDate: true,
+        },
+        orderBy: [{ transactionDate: "desc" }, { id: "asc" }],
+        take,
+      });
+    if (batch.length === 0) return;
+
+    for (const row of batch) {
+      scanned += 1;
+      yield {
+        row,
+        scanned,
+        reachedCap: scanned >= maxScan,
+      };
+    }
+
+    const last: UnmatchedTxScanRow = batch[batch.length - 1]!;
+    cursor = { transactionDate: last.transactionDate, id: last.id };
+    if (batch.length < take) return;
+  }
+}
+
+export type RunHistoricalForRuleResult = {
+  scanned: number;
+  suggested: number;
+  autoMatched: number;
+  reachedCap: boolean;
+};
+
 /**
  * Evalúa una regla específica contra el histórico UNMATCHED del tenant
- * (cap 500). Las tx que matchean reciben sugerencia (si requiresReview)
- * o quedan auto-conciliadas (link + MATCHED). Devuelve null si algo falla
- * para no romper el caller (creación/edición de la regla).
- *
- * Compartido por POST (crear regla) y PATCH (editar) — arregla el bug de
- * "regla creada pero histórico no se vuelve a evaluar".
+ * (paginado, orden estable, tope duro 20.000). Las tx que matchean reciben
+ * sugerencia (si requiresReview) o quedan auto-conciliadas (link + MATCHED).
+ * Devuelve null si algo falla para no romper el caller (creación/edición).
  */
 export async function runHistoricalForRule(
   tenantId: string,
   userId: string,
   ruleId: string,
-): Promise<{ suggested: number; autoMatched: number } | null> {
+  options?: { maxScan?: number },
+): Promise<RunHistoricalForRuleResult | null> {
   try {
     // Import dinámico: evita ciclo estático con rule-action-resolver
     // (resolver importa tipos/guards de este módulo).
     const { resolveRuleAction } = await import("./rule-action-resolver");
-    const txs = await prisma.financeBankTransaction.findMany({
-      where: {
+    let suggested = 0;
+    let autoMatched = 0;
+    let scanned = 0;
+    let reachedCap = false;
+
+    for await (const page of iterateUnmatchedBankTransactions(
+      {
         tenantId,
         reconciliationStatus: "UNMATCHED",
         hiddenAt: null,
         suggestedRuleId: null,
       },
-      select: { id: true, amount: true, description: true, reference: true },
-      take: 500,
-    });
-    let suggested = 0;
-    let autoMatched = 0;
-    for (const tx of txs) {
+      { maxScan: options?.maxScan },
+    )) {
+      scanned = page.scanned;
+      reachedCap = page.reachedCap;
+      const tx = page.row;
       const evaluation = await findMatchingRule(tenantId, {
         amount: tx.amount.toNumber(),
         description: tx.description,
@@ -518,6 +622,8 @@ export async function runHistoricalForRule(
               amount: new Decimal(amountAbs),
               accountPlanId: resolved.accountPlanId,
               note: `Auto-aplicado al crear/editar regla: ${evaluation.ruleName}`,
+              matchSource: "RULE",
+              matchedByRuleId: evaluation.ruleId,
               createdById: userId,
             },
           }),
@@ -536,7 +642,7 @@ export async function runHistoricalForRule(
         autoMatched++;
       }
     }
-    return { suggested, autoMatched };
+    return { scanned, suggested, autoMatched, reachedCap };
   } catch (e) {
     console.warn(
       "[Finance/Banking/Rules] auto-historical failed for rule",

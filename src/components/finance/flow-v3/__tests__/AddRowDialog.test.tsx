@@ -133,4 +133,26 @@ describe("AddRowDialog — sección prefijada y recurrencia", () => {
     });
     expect(screen.getByText("Sección")).toBeTruthy();
   });
+
+  it("initialSection + categoría precarga sección editable (no locked)", async () => {
+    render(
+      <AddRowDialog
+        open
+        onOpenChange={() => {}}
+        busy={false}
+        initialSection="IMPUESTOS"
+        presetCategoryId="cat-tgr"
+        presetName="T.G.R."
+        onCreate={async () => null}
+      />,
+    );
+    await waitFor(() => {
+      expect(screen.queryByTestId("add-row-section-locked")).toBeNull();
+    });
+    // Select editable (no input disabled) y recurrencia disponible en IMPUESTOS.
+    await waitFor(() => {
+      expect(screen.getByTestId("add-row-configure-recurrence")).toBeTruthy();
+    });
+    expect(screen.getByText(/Impuestos/i)).toBeTruthy();
+  });
 });

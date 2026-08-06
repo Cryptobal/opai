@@ -82,16 +82,17 @@ function collectAnchoredDenseRutHits(text: string): RutHit[] {
 }
 
 /**
- * Extrae el primer RUT canónico válido en texto de cartola (description/reference).
+ * Recolecta todos los hits de RUT válidos (formateados + densos anclados),
+ * dedupeados por canónico, ordenados por aparición (índice, luego longitud).
  */
-export function extractCanonicalRutFromBankText(
-  text: string | null | undefined,
-): string | null {
-  if (!text?.trim()) return null;
+function collectCanonicalRutHits(text: string): RutHit[] {
   const hits: RutHit[] = [];
 
   let fm: RegExpExecArray | null;
-  const formatted = new RegExp(RUT_FORMATTED_REGEX.source, RUT_FORMATTED_REGEX.flags);
+  const formatted = new RegExp(
+    RUT_FORMATTED_REGEX.source,
+    RUT_FORMATTED_REGEX.flags,
+  );
   while ((fm = formatted.exec(text)) !== null) {
     const raw = fm[0];
     const normalized = normalizeRutForMatch(raw);
@@ -112,7 +113,7 @@ export function extractCanonicalRutFromBankText(
     hits.push(h);
   }
 
-  if (hits.length === 0) return null;
+  if (hits.length === 0) return [];
 
   const byCanon = new Map<string, { index: number; length: number }>();
   for (const h of hits) {
@@ -125,11 +126,38 @@ export function extractCanonicalRutFromBankText(
       byCanon.set(h.canon, { index: h.index, length: h.length });
     }
   }
-  const sorted = [...byCanon.entries()].sort((a, b) => {
-    const ia = a[1].index;
-    const ib = b[1].index;
-    if (ia !== ib) return ia - ib;
-    return b[1].length - a[1].length;
-  });
-  return sorted[0]?.[0] ?? null;
+  return [...byCanon.entries()]
+    .sort((a, b) => {
+      const ia = a[1].index;
+      const ib = b[1].index;
+      if (ia !== ib) return ia - ib;
+      return b[1].length - a[1].length;
+    })
+    .map(([canon, meta]) => ({
+      canon,
+      index: meta.index,
+      length: meta.length,
+    }));
+}
+
+/**
+ * Extrae todos los RUT canónicos válidos en texto de cartola, en orden de
+ * aparición y sin duplicados. Una glosa con dos RUT distintos los devuelve
+ * ambos (puede producir falsos positivos en reglas; la vista previa lo expone).
+ */
+export function extractAllCanonicalRutsFromBankText(
+  text: string | null | undefined,
+): string[] {
+  if (!text?.trim()) return [];
+  return collectCanonicalRutHits(text).map((h) => h.canon);
+}
+
+/**
+ * Extrae el primer RUT canónico válido en texto de cartola (description/reference).
+ */
+export function extractCanonicalRutFromBankText(
+  text: string | null | undefined,
+): string | null {
+  if (!text?.trim()) return null;
+  return collectCanonicalRutHits(text)[0]?.canon ?? null;
 }

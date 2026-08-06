@@ -17,6 +17,7 @@ import type { FlowHealthReport } from "@/modules/finance/cashflow/flow-health.ty
 import { ChangeCategoryDialog } from "@/components/finance/flow-v3/RowDialogs";
 import { AddRowDialog } from "@/components/finance/flow-v3/AddRowDialog";
 import type { FlowMatrixRowDto } from "@/modules/finance/flow-v3/matrix-types";
+import { suggestFlowSectionForCategory } from "@/modules/finance/flow-v3/suggest-section";
 
 type HealthTabProps = {
   onResolveAccount?: (accountPlanId: string) => void;
@@ -244,7 +245,10 @@ export function FlowHealthPanel({ onResolveAccount }: HealthTabProps) {
                       setCreateFor({
                         categoryId: cat.id,
                         name: cat.name,
-                        section: suggestSection(cat.code),
+                        section: suggestFlowSectionForCategory(
+                          cat.code,
+                          cat.name,
+                        ),
                       })
                     }
                   >
@@ -344,7 +348,7 @@ export function FlowHealthPanel({ onResolveAccount }: HealthTabProps) {
           if (!o) setCreateFor(null);
         }}
         busy={busy}
-        lockedSection={createFor?.section ?? null}
+        initialSection={createFor?.section ?? null}
         presetCategoryId={createFor?.categoryId ?? null}
         presetName={createFor?.name ?? null}
         onCreate={async (body) => {
@@ -370,27 +374,4 @@ export function FlowHealthPanel({ onResolveAccount }: HealthTabProps) {
       />
     </div>
   );
-}
-
-function suggestSection(code: string): string {
-  if (
-    code.startsWith("EGR_SUELDO") ||
-    code.startsWith("EGR_QUINCENA") ||
-    code.startsWith("EGR_PREVIRED") ||
-    code.startsWith("EGR_TURNO") ||
-    code.startsWith("EGR_FINIQUITO")
-  ) {
-    return "REMUNERACIONES";
-  }
-  if (code.startsWith("EGR_IVA") || code.startsWith("EGR_IMPUESTO")) {
-    return "IMPUESTOS";
-  }
-  if (
-    code.includes("SOCIO") ||
-    code.includes("FACTORING") ||
-    code.includes("PRESTAMO")
-  ) {
-    return "FINANCIAMIENTO";
-  }
-  return "GAV";
 }
