@@ -69,6 +69,8 @@ export async function updateCashflowConfig(
     writeOffOverPaymentAccountId: string | null;
     collectionLagDays: number;
     flowWarnThresholdClp: number;
+    residualCarryEnabled: boolean;
+    residualMinClp: number;
     /** YYYY-MM-DD o null para quitar el corte. Validado ≤ hoy. */
     flowCutoffYmd: string | null;
     projectReceivedDtesAsExpense: boolean;

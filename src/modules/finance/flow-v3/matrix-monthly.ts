@@ -17,6 +17,7 @@
  * (esperado y correcto para la lectura calendario).
  */
 import { hasInvoicedIncome } from "./cell-editability";
+import { computeCellExecution, planCashSign } from "./residual";
 import { monthKeyOf, monthKeyOfDate, weekLabel } from "./weeks";
 import type {
   AssembledMatrix,
@@ -48,11 +49,14 @@ export interface ReduceMonthlyOpts {
    * (ventanas enteramente pasadas). Misma semántica que assembleMatrix.
    */
   realNetAfterWindow?: number;
+  residualCarryEnabled?: boolean;
+  residualMinClp?: number;
 }
 
 const MONTHS = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
 const BREAK_TOLERANCE = 1;
 const YMD_RE = /^\d{4}-\d{2}-\d{2}$/;
+const DEFAULT_RESIDUAL_MIN_CLP = 10_000;
 
 export function weeklyColumns(weeks: string[], currentWeek: string): MatrixColumn[] {
   return weeks.map((w) => ({
@@ -70,9 +74,6 @@ export function weeklyColumns(weeks: string[], currentWeek: string): MatrixColum
 function usableFecha(fecha: string | undefined | null): fecha is string {
   return typeof fecha === "string" && YMD_RE.test(fecha);
 }
-
-const planCashSign = (section: string, value: number): number =>
-  section === "INGRESOS" || section === "FINANCIAMIENTO" ? value : -value;
 
 interface MonthGroup {
   key: string;
@@ -196,6 +197,8 @@ function cellFromBucket(
   weekStart: string,
   section: string,
   isPast: boolean,
+  residualCarryEnabled: boolean,
+  residualMinClp: number,
 ): FlowMatrixCellDto {
   const committedTotal = bucket.committedItems.reduce((s, i) => s + i.monto, 0);
   const realTotal = bucket.realItems.reduce((s, i) => s + i.monto, 0);
@@ -210,21 +213,39 @@ function cellFromBucket(
     committed == null ? 0 : section === "INGRESOS" ? committed.total : -committed.total;
   const planCash = planCashSign(section, bucket.plan);
   const invoiced = hasInvoicedIncome(section, committed);
+  const committedNet = bucket.committedItems
+    .filter((it) => it.kind === "dte")
+    .reduce((s, it) => s + it.monto, 0);
 
   let layer: FlowMatrixCellDto["layer"] = "empty";
-  let effective = 0;
   if (real && real.total !== 0) {
     layer = "real";
-    effective = real.total;
   } else if (!isPast && invoiced && committed && committed.total !== 0) {
     layer = "committed";
-    effective = committedCash;
   } else if (!isPast && bucket.plan !== 0) {
     layer = "plan";
-    effective = planCash;
   } else if (!isPast && committed && committed.total !== 0) {
     layer = "committed";
-    effective = committedCash;
+  }
+
+  const realSigned = real?.total ?? 0;
+  let effective = 0;
+  // Mensual: sin barra de execution (agregado); sí aplica residual al monto.
+  if (isPast) {
+    effective = realSigned !== 0 ? realSigned : 0;
+  } else if (layer !== "empty") {
+    const computed = computeCellExecution({
+      section,
+      plan: bucket.plan,
+      committedTotal,
+      committedNet,
+      invoiced,
+      realSigned,
+      settlement: "AUTO",
+      residualCarryEnabled,
+      residualMinClp,
+    });
+    effective = realSigned + computed.committedNetCash + computed.residual;
   }
 
   let projected: number | null = null;
@@ -232,11 +253,11 @@ function cellFromBucket(
   if (real && real.total !== 0) {
     const projSigned =
       bucket.plan !== 0 ? planCash : committed && committed.total !== 0 ? committedCash : 0;
-    const projMag = bucket.plan !== 0 ? Math.abs(bucket.plan) : (committed?.total ?? 0);
+    const projMag = bucket.plan !== 0 ? Math.abs(bucket.plan) : Math.abs(committed?.total ?? 0);
     if (projMag > 0) projected = projMag;
     if (projSigned !== 0) {
       const delta = real.total - projSigned;
-      drift = { delta, pct: (delta / projSigned) * 100 };
+      drift = { delta, pct: (delta / Math.abs(projSigned)) * 100 };
     }
   }
 
@@ -250,6 +271,7 @@ function cellFromBucket(
     projected,
     drift,
     note: bucket.notes.length > 0 ? bucket.notes.join(" · ") : null,
+    execution: null,
   };
 }
 
@@ -409,18 +431,25 @@ export function reduceMonthly(
   const n = groups.length;
   const flows = new Array<number>(n).fill(0);
   const pendingNet = new Array<number>(n).fill(0);
+  const residualCarryEnabled = opts.residualCarryEnabled !== false;
+  const residualMinClp = opts.residualMinClp ?? DEFAULT_RESIDUAL_MIN_CLP;
 
   const rows: FlowMatrixRowDto[] = m.rows.map((r) => {
     const { buckets, fallbackFechaCount: fc } = attributeItemsToBuckets(r, weeks, groups);
     fallbackFechaCount += fc;
     const cells: FlowMatrixCellDto[] = groups.map((g, mi) => {
       const bucket = buckets.get(g.key) ?? emptyBucket();
-      const cell = cellFromBucket(bucket, columns[mi]!.weekStart, r.section, columns[mi]!.isPast);
+      const cell = cellFromBucket(
+        bucket,
+        columns[mi]!.weekStart,
+        r.section,
+        columns[mi]!.isPast,
+        residualCarryEnabled,
+        residualMinClp,
+      );
       flows[mi]! += cell.effective;
       if (!columns[mi]!.isPast) {
-        if (cell.layer === "plan" || cell.layer === "committed") {
-          pendingNet[mi]! += cell.effective;
-        }
+        pendingNet[mi]! += cell.effective - (cell.real?.total ?? 0);
       }
       return cell;
     });

@@ -328,6 +328,36 @@ export function CashflowConfigParamsPanel({
               colchón mínimo de caja.
             </p>
           </div>
+          <div className="flex items-start justify-between gap-4 rounded-lg border border-ds-border-subtle px-3 py-2.5">
+            <div className="min-w-0">
+              <p className="font-medium text-[13px]">Arrastrar el saldo por ejecutar</p>
+              <p className="text-[12px] text-ds-text-3">
+                Cuando una proyección se ejecuta sólo en parte, el remanente sigue
+                pesando en la semana. Apágalo para que el movimiento bancario
+                reemplace la proyección (comportamiento anterior).
+              </p>
+            </div>
+            <Switch
+              checked={config.residualCarryEnabled}
+              onCheckedChange={(v) => setField("residualCarryEnabled", v)}
+            />
+          </div>
+          <div>
+            <Label>Remanente mínimo (CLP) — Planilla v3</Label>
+            <Input
+              className="h-10 sm:h-9"
+              type="number"
+              min={0}
+              max={10_000_000}
+              step={1000}
+              value={config.residualMinClp}
+              onChange={(e) => setField("residualMinClp", Number(e.target.value))}
+            />
+            <p className="mt-1 text-[12px] text-ds-text-3">
+              Diferencias bajo este monto se dan por cumplidas solas. Recomendado{" "}
+              <strong>10.000</strong>.
+            </p>
+          </div>
           <div>
             <Label>Corte de cartera (flujo) — Planilla v4.6</Label>
             <Input

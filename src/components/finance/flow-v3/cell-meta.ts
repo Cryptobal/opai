@@ -225,6 +225,49 @@ export function toneClass(tone: "info" | "warn" | "ok" | "neutral"): string {
   return "text-ds-text-3";
 }
 
+export interface ExecutionMeta {
+  state: "partial" | "complete" | "over" | "closed" | "none";
+  /** Ancho de barra 0–100. */
+  pctWidth: number;
+  /** % de ejecución para chip/tooltip (null si no aplica). */
+  pct: number | null;
+  residual: number;
+  over: number;
+  title: string;
+  showBar: boolean;
+}
+
+/** Metadatos de barra / tooltip de ejecución parcial. */
+export function executionMeta(cell: FlowMatrixCellDto): ExecutionMeta | null {
+  const ex = cell.execution;
+  if (!ex || ex.state === "none") return null;
+  const pct = ex.pct;
+  const pctWidth =
+    pct == null ? 0 : Math.min(100, Math.max(0, Math.round(pct)));
+  const fmt = (n: number) =>
+    `$${Math.round(Math.abs(n)).toLocaleString("es-CL")}`;
+  let title = "";
+  if (ex.state === "partial") {
+    const pctTxt = pct == null ? "" : `${Math.round(pct)}% ejecutado`;
+    title = `${pctTxt} · faltan ${fmt(ex.residual)}`.replace(/^ · /, "");
+  } else if (ex.state === "over") {
+    title = `${fmt(ex.over)} sobre lo proyectado`;
+  } else if (ex.state === "closed") {
+    title = "Proyección dada por cumplida";
+  } else if (ex.state === "complete") {
+    title = "100% ejecutado";
+  }
+  return {
+    state: ex.state,
+    pctWidth,
+    pct,
+    residual: ex.residual,
+    over: ex.over,
+    title,
+    showBar: ex.state === "partial" || ex.state === "over",
+  };
+}
+
 /** Línea "Emite dd/mm · término N d → cobro est. dd/mm" solo si hay término > 0. */
 export function terminoStatusLine(
   it: Pick<CommittedItem, "issueYmd" | "fecha" | "terminoDias" | "cobroEstYmd">,

@@ -154,6 +154,43 @@ describe("buildHoverCardContent", () => {
     expect(model.lines[0]?.label).toBe("Real");
   });
 
+  it("real parcial con execution reemplaza drift", () => {
+    const model = buildHoverCardContent({
+      row: baseRow({ section: "FINANCIAMIENTO", name: "Retiro socios" }),
+      cell: cell({
+        layer: "real",
+        plan: -10_000_000,
+        real: {
+          total: -2_200_000,
+          items: [{
+            bankTransactionId: "bt1",
+            label: "Retiro",
+            monto: -2_200_000,
+            fecha: "2026-08-03",
+          }],
+        },
+        projected: 10_000_000,
+        drift: { delta: 7_800_000, pct: 78 },
+        execution: {
+          projected: 10_000_000,
+          real: 2_200_000,
+          residual: -7_800_000,
+          over: 0,
+          pct: 22,
+          state: "partial",
+          settlement: "AUTO",
+        },
+        effective: -10_000_000,
+      }),
+      colIdx: 0,
+      rowNumber: 8,
+    });
+    expect(model.execution).not.toBeNull();
+    expect(model.execution?.pctLabel).toBe("22% ejecutado");
+    expect(model.execution?.pendingLabel).toBe("Por ejecutar");
+    expect(model.drift).toBeNull();
+  });
+
   it("pendiente pasado", () => {
     const model = buildHoverCardContent({
       row: baseRow({ section: "INGRESOS" }),

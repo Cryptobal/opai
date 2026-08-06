@@ -18,6 +18,8 @@ interface Props {
   state: PopoverState | null;
   onClose: () => void;
   canManage?: boolean;
+  editable?: boolean;
+  editReason?: string;
   /** Si true, abre la pestaña Nota. */
   focusNote?: boolean;
   excludedForRow?: FlowExcludedDte[];
@@ -25,14 +27,19 @@ interface Props {
   onExcludeDte?: (dteId: string, reason: string) => Promise<void>;
   onRestoreDte?: (dteId: string) => Promise<void>;
   onSaveNote?: (rowId: string, weekStart: string, body: string | null) => Promise<boolean>;
+  onSettleClosed?: () => void;
+  onSettleReopen?: () => void;
+  onMatchPlanToReal?: () => void;
+  onMoveResidual?: () => void;
 }
 
 /**
  * Panel de detalle de celda con pestañas Composición · Nota · Historial.
  */
 export function CellLayersPopover({
-  state, onClose, canManage, focusNote, excludedForRow,
+  state, onClose, canManage, editable, editReason, focusNote, excludedForRow,
   onViewDte, onExcludeDte, onRestoreDte, onSaveNote,
+  onSettleClosed, onSettleReopen, onMatchPlanToReal, onMoveResidual,
 }: Props) {
   const panelRef = useRef<HTMLDivElement>(null);
   const [tab, setTab] = useState<CellDetailTab>("composicion");
@@ -88,10 +95,16 @@ export function CellLayersPopover({
           <CellCompositionPanel
             cell={cell}
             canManage={canManage}
+            editable={editable}
+            editReason={editReason}
             excluded={excludedForRow}
             onViewDte={onViewDte}
             onExcludeDte={onExcludeDte}
             onRestoreDte={onRestoreDte}
+            onSettleClosed={onSettleClosed}
+            onSettleReopen={onSettleReopen}
+            onMatchPlanToReal={onMatchPlanToReal}
+            onMoveResidual={onMoveResidual}
             onClose={onClose}
           />
         )}

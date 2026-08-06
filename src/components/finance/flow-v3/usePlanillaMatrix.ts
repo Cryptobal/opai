@@ -402,9 +402,152 @@ export function usePlanillaMatrix() {
     [],
   );
 
+  const applySettlement = useCallback(
+    async (
+      rowId: string,
+      weekStart: string,
+      mode: "AUTO" | "CLOSED",
+      projectedClp?: number,
+    ): Promise<void> => {
+      const res = await fetch("/api/finance/flow-v3/plan/settlement", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rowId, weekStart, mode, projectedClp }),
+      });
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error ?? "No se pudo actualizar la liquidación");
+      // Optimista: marcar settlement en execution; refetch reconcilia effective.
+      setData((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          rows: prev.rows.map((r) => {
+            if (r.id !== rowId) return r;
+            return {
+              ...r,
+              cells: r.cells.map((c) => {
+                if (c.weekStart !== weekStart || !c.execution) return c;
+                return {
+                  ...c,
+                  execution: {
+                    ...c.execution,
+                    settlement: mode,
+                    state: mode === "CLOSED" ? "closed" : c.execution.state === "closed" ? "partial" : c.execution.state,
+                    residual: mode === "CLOSED" ? 0 : c.execution.residual,
+                  },
+                };
+              }),
+            };
+          }),
+        };
+      });
+      await refetch();
+    },
+    [refetch],
+  );
+
+  const patchSettlement = useCallback(
+    async (
+      rowId: string,
+      weekStart: string,
+      mode: "AUTO" | "CLOSED",
+      projectedClp?: number,
+      opts?: MutateOpts,
+    ): Promise<void> => {
+      const focus = focusOf(rowId, weekStart);
+      const name = rowName(rowId);
+      const prevMode: "AUTO" | "CLOSED" = (() => {
+        const row = data?.rows.find((r) => r.id === rowId);
+        const cell = row?.cells.find((c) => c.weekStart === weekStart);
+        return cell?.execution?.settlement === "CLOSED" ? "CLOSED" : "AUTO";
+      })();
+      if (prevMode === mode) return;
+      try {
+        await applySettlement(rowId, weekStart, mode, projectedClp);
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "No se pudo actualizar la liquidación");
+        return;
+      }
+      if (!opts?.skipHistory) {
+        history.push({
+          label: `${mode === "CLOSED" ? "Dar por cumplido" : "Reabrir"} ${name} · ${fmtShortDate(weekStart)}`,
+          focus,
+          undo: () => applySettlement(rowId, weekStart, prevMode, projectedClp),
+          redo: () => applySettlement(rowId, weekStart, mode, projectedClp),
+        });
+      }
+      toast.success(mode === "CLOSED" ? "Proyección dada por cumplida" : "Proyección reabierta");
+    },
+    [applySettlement, data?.rows, focusOf, history, rowName],
+  );
+
+  /**
+   * Cierra la celda origen y suma el residual al plan de la semana destino.
+   * Una sola entrada de deshacer revierte ambas escrituras.
+   */
+  const moveResidual = useCallback(
+    async (
+      rowId: string,
+      fromWeek: string,
+      toWeek: string,
+      residualCash: number,
+      section: string,
+      projectedClp?: number,
+      opts?: MutateOpts,
+    ): Promise<void> => {
+      if (fromWeek === toWeek || residualCash === 0) return;
+      const prevFromPlan = readCellPlan(rowId, fromWeek);
+      const prevToPlan = readCellPlan(rowId, toWeek);
+      const prevMode: "AUTO" | "CLOSED" = (() => {
+        const row = data?.rows.find((r) => r.id === rowId);
+        const cell = row?.cells.find((c) => c.weekStart === fromWeek);
+        return cell?.execution?.settlement === "CLOSED" ? "CLOSED" : "AUTO";
+      })();
+      // Plan destino: FINANCIAMIENTO signado; INGRESOS +; egresos magnitud +.
+      const add =
+        section === "FINANCIAMIENTO" || section === "INGRESOS"
+          ? residualCash
+          : Math.abs(residualCash);
+      const nextToPlan = prevToPlan + add;
+      const focus = focusOf(rowId, toWeek);
+      const name = rowName(rowId);
+      try {
+        await applySettlement(rowId, fromWeek, "CLOSED", projectedClp);
+        await applyPlanCell(rowId, toWeek, nextToPlan);
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : "No se pudo mover el pendiente");
+        await refetch();
+        return;
+      }
+      if (!opts?.skipHistory) {
+        history.push({
+          label: `Mover pendiente ${name} → ${fmtShortDate(toWeek)}`,
+          focus,
+          undo: async () => {
+            await applySettlement(rowId, fromWeek, prevMode, projectedClp);
+            await restoreCells(rowId, [
+              { weekStart: fromWeek, amount: prevFromPlan },
+              { weekStart: toWeek, amount: prevToPlan },
+            ]);
+          },
+          redo: async () => {
+            await applySettlement(rowId, fromWeek, "CLOSED", projectedClp);
+            await applyPlanCell(rowId, toWeek, nextToPlan);
+          },
+        });
+      }
+      toast.success("Pendiente movido a la próxima semana");
+    },
+    [
+      applyPlanCell, applySettlement, data?.rows, focusOf, history,
+      readCellPlan, refetch, restoreCells, rowName,
+    ],
+  );
+
   return {
     data, loading, granularity, setGranularity,
     extendPast, extendFuture, resetWindow, refetch,
-    patchPlan, patchPlanBulk, movePlan, patchCellNote, undo, redo,
+    patchPlan, patchPlanBulk, movePlan, patchCellNote,
+    patchSettlement, moveResidual, undo, redo,
   };
 }

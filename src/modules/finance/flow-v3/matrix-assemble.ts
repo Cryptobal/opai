@@ -5,15 +5,20 @@
  * signado. La UI muestra magnitudes en secciones de egreso; flujo y saldo
  * suman `effective` directo.
  *
- * Capa efectiva por celda (semana actual/futura):
+ * Capa efectiva (etiqueta `layer`, semana actual/futura):
  *   real > ingreso facturado (DTE) > plan manual > comprometido > vacío.
- * El plan manual pisa proyecciones (sueldos, IVA, GAV, cuotas sin factura)
- * para que "Editar monto de plan" mueva el flujo. Excepción: ingreso con
- * DTE emitido — la factura manda. Semanas pasadas: SOLO real.
+ * Semanas pasadas: SOLO real.
+ *
+ * Monto efectivo (semana no pasada, con residualCarryEnabled):
+ *   effective = realSigned + committedNetCash + residual
+ * donde residual es el remanente bruto no ejecutado (plan o hitos) y
+ * committedNetCash es el pendiente neto de facturas (kind=dte). Con
+ * residualCarryEnabled=false + real ≠ 0 se reproduce el legado
+ * (effective = real). Ver residual.ts.
  *
  * Saldo acumulado (fin de semana):
- *  - semana actual = saldo banco hoy + pendiente de la semana (capa
- *    efectiva plan/comprometido de celdas sin real);
+ *  - semana actual = saldo banco hoy + (effective − real) de la semana
+ *    (= pendiente aún no salido del banco: plan/comprometido/residual);
  *  - futuras: acumula `effective`;
  *  - pasadas: des-acumula el real desde hoy hacia atrás;
  *  - ventana enteramente pasada: ancla = saldo hoy − real posterior a la
@@ -28,7 +33,15 @@
  *    no cuadran (no se inventan ajustes).
  */
 import { hasInvoicedIncome } from "./cell-editability";
+import {
+  computeCellExecution,
+  planCashSign,
+  type CellExecution,
+  type SettlementMode,
+} from "./residual";
 import type { CommittedByRow, CommittedCell, RealByRow, RealCell } from "./types";
+
+export type { CellExecution, SettlementMode };
 
 export interface AssembleRowInput {
   id: string;
@@ -63,15 +76,17 @@ export interface FlowMatrixCellDto {
   plan: number;
   committed: CommittedCell | null;
   real: RealCell | null;
-  /** Cash-signed (+ entra / − sale). */
+  /** Cash-signed (+ entra / − sale). Incluye residual cuando aplica. */
   effective: number;
   layer: "real" | "committed" | "plan" | "empty";
   /** Magnitud proyectada (plan≠0 ? plan : |committed|) cuando hay real — drift v5. */
   projected?: number | null;
-  /** Desviación real vs proyectado (solo si hay real). */
+  /** Desviación real vs proyectado (solo si hay real). pct sobre |proyectado|. */
   drift?: { delta: number; pct: number | null } | null;
   /** Nota libre del usuario (motivo de desvío / cambio). */
   note?: string | null;
+  /** Ejecución parcial / residual (null en semanas pasadas o sin proyección). */
+  execution?: CellExecution | null;
 }
 
 export interface FlowMatrixRowDto extends AssembleRowInput {
@@ -96,6 +111,12 @@ export interface AssembleArgs {
   real: RealByRow;
   /** Notas libres por fila → semana → texto. */
   notes?: Map<string, Map<string, string>>;
+  /** Liquidación por fila → semana → modo (ausencia = AUTO). */
+  settlements?: Map<string, Map<string, SettlementMode>>;
+  /** Si false, el real reemplaza la proyección (legado). Default true. */
+  residualCarryEnabled?: boolean;
+  /** Remanente bajo el cual se da por cumplida la proyección. Default 10_000. */
+  residualMinClp?: number;
   /** Σ real cash-signed de las semanas ENTRE el fin de ventana y hoy (solo
    *  ventanas enteramente pasadas). */
   realNetAfterWindow?: number;
@@ -114,14 +135,13 @@ export interface AssembledMatrix {
   kpis: { saldoHoy: number; minBalance: number; minWeek: string };
 }
 
-/** Plan cash-signed: INGRESOS +, FINANCIAMIENTO tal como se tipeó, resto −. */
-const planCashSign = (section: string, value: number): number =>
-  section === "INGRESOS" || section === "FINANCIAMIENTO" ? value : -value;
-
 const BREAK_TOLERANCE = 1;
+const DEFAULT_RESIDUAL_MIN_CLP = 10_000;
 
 export function assembleMatrix(args: AssembleArgs): AssembledMatrix {
   const { weeks, currentWeek, openingBalance } = args;
+  const residualCarryEnabled = args.residualCarryEnabled !== false;
+  const residualMinClp = args.residualMinClp ?? DEFAULT_RESIDUAL_MIN_CLP;
   const n = weeks.length;
   const flows = new Array<number>(n).fill(0);
   const realNet = new Array<number>(n).fill(0);
@@ -132,12 +152,15 @@ export function assembleMatrix(args: AssembleArgs): AssembledMatrix {
     const committedRow = args.committed.get(r.id);
     const realRow = args.real.get(r.id);
     const notesRow = args.notes?.get(r.id);
+    const settlementsRow = args.settlements?.get(r.id);
     const cells: FlowMatrixCellDto[] = weeks.map((w, i) => {
       const hidden = r.archivedWeekCutoff != null && w > r.archivedWeekCutoff;
       const plan = hidden ? 0 : (planRow?.get(w) ?? 0);
       const committed = hidden ? null : (committedRow?.get(w) ?? null);
       const real = hidden ? null : (realRow?.get(w) ?? null);
       const note = hidden ? null : (notesRow?.get(w) ?? null);
+      const settlement: SettlementMode =
+        hidden ? "AUTO" : (settlementsRow?.get(w) ?? "AUTO");
       // INGRESOS: total cash-signed (+). FINANCIAMIENTO/egresos: magnitud
       // positiva en committed ⇒ resta (legado hitos/retiro). PCT_SALES en
       // FINANCIAMIENTO usa +mag egreso / −mag ingreso para respetar signo.
@@ -145,32 +168,59 @@ export function assembleMatrix(args: AssembleArgs): AssembledMatrix {
         committed == null ? 0 : r.section === "INGRESOS" ? committed.total : -committed.total;
       const planCash = planCashSign(r.section, plan);
       const invoiced = hasInvoicedIncome(r.section, committed);
+      const committedNet = committed
+        ? committed.items
+            .filter((it) => it.kind === "dte")
+            .reduce((s, it) => s + it.monto, 0)
+        : 0;
 
       const isPast = w < currentWeek;
       let layer: FlowMatrixCellDto["layer"] = "empty";
       let effective = 0;
+      let execution: CellExecution | null = null;
+
+      // Etiqueta de capa (sin cambiar significado): real gana la marca.
       if (real && real.total !== 0) {
         layer = "real";
-        effective = real.total;
       } else if (!isPast && invoiced && committed && committed.total !== 0) {
-        // Ingreso facturado: la factura manda sobre el plan manual.
         layer = "committed";
-        effective = committedCash;
       } else if (!isPast && plan !== 0) {
-        // Plan manual pisa proyecciones (sueldos, impuestos, GAV, cuotas…).
         layer = "plan";
-        effective = planCash;
       } else if (!isPast && committed && committed.total !== 0) {
         layer = "committed";
-        effective = committedCash;
+      }
+
+      const realSigned = real?.total ?? 0;
+
+      if (isPast) {
+        // Semanas pasadas: SOLO real.
+        effective = realSigned !== 0 ? realSigned : 0;
+        execution = null;
+      } else {
+        const computed = computeCellExecution({
+          section: r.section,
+          plan,
+          committedTotal: committed?.total ?? 0,
+          committedNet,
+          invoiced,
+          realSigned,
+          settlement,
+          residualCarryEnabled,
+          residualMinClp,
+        });
+        execution = computed.execution;
+        if (layer === "empty") {
+          effective = 0;
+        } else {
+          effective =
+            realSigned + computed.committedNetCash + computed.residual;
+        }
       }
 
       flows[i] += effective;
       if (real) realNet[i] += real.total;
-      if (!isPast) {
-        if (layer === "plan") pendingNet[i] += planCash;
-        else if (layer === "committed") pendingNet[i] += committedCash;
-      }
+      // Pendiente aún no en banco = effective − real (cubre plan, committed y residual).
+      if (!isPast) pendingNet[i] += effective - realSigned;
 
       const committedMag = committed?.total ?? 0;
       let projected: number | null = null;
@@ -178,11 +228,12 @@ export function assembleMatrix(args: AssembleArgs): AssembledMatrix {
       if (real && real.total !== 0) {
         const projSigned =
           plan !== 0 ? planCash : committed && committed.total !== 0 ? committedCash : 0;
-        const projMag = plan !== 0 ? Math.abs(plan) : committedMag;
+        const projMag = plan !== 0 ? Math.abs(plan) : Math.abs(committedMag);
         if (projMag > 0) projected = projMag;
         if (projSigned !== 0) {
           const delta = real.total - projSigned;
-          drift = { delta, pct: (delta / projSigned) * 100 };
+          // pct sobre magnitud: evita signo invertido en egresos/FINANCIAMIENTO.
+          drift = { delta, pct: (delta / Math.abs(projSigned)) * 100 };
         }
       }
 
@@ -196,6 +247,7 @@ export function assembleMatrix(args: AssembleArgs): AssembledMatrix {
         projected,
         drift,
         note,
+        execution,
       };
     });
     return { ...r, cells };
