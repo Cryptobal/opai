@@ -163,6 +163,23 @@ export async function PATCH(
       );
     }
 
+    // "sent" solo vía flujos de envío (portal / presentación / PDF). Marcarlo
+    // por PATCH deja el negocio sin follow-ups ni cambio de etapa (caso San Mateo).
+    if (
+      body.status !== undefined &&
+      String(body.status) === "sent" &&
+      existing.status !== "sent"
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "Para marcar una cotización como enviada usa Enviar al portal o Enviar presentación.",
+        },
+        { status: 400 }
+      );
+    }
+
     if (body.dealId !== undefined) {
       const nextDealId = body.dealId ? String(body.dealId).trim() : null;
       if (nextDealId) {

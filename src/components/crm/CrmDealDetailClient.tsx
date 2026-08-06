@@ -4,6 +4,7 @@
 import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import { cn } from "@/lib/utils";
 import { getQuoteStatus } from "@/lib/quoteStatus";
+import { getFollowUpFlowStatus } from "@/lib/crm/followup-flow-status";
 import { useRegisterChatPageContext } from "@/components/opai/ChatPageContextProvider";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -293,13 +294,13 @@ function DealPipelineStepper({
   const wonStage = stages.find((s) => s.isClosedWon);
   const lostStage = stages.find((s) => s.isClosedLost);
   const currentIdx = openStages.findIndex((s) => s.id === currentStageId);
-  // El negocio se considera cerrado si dealStatus lo marca, o si la etapa seleccionada
-  // es la etapa "ganado"/"perdido" (esto cubre el caso en que recién se hizo click en
-  // Ganado y aún no se recargó el prop deal.status).
+  // Preferir la etapa real cuando status quedó desfasado (p.ej. status=lost pero
+  // stageId apunta a "Cotización enviada" tras reenviar una cotización).
+  const isOnOpenStage = currentIdx >= 0;
   const isWonByStage = !!wonStage && currentStageId === wonStage.id;
   const isLostByStage = !!lostStage && currentStageId === lostStage.id;
-  const isWon = dealStatus === "won" || isWonByStage;
-  const isLost = dealStatus === "lost" || isLostByStage;
+  const isWon = isWonByStage || (dealStatus === "won" && !isOnOpenStage && !isLostByStage);
+  const isLost = isLostByStage || (dealStatus === "lost" && !isOnOpenStage && !isWonByStage);
   const isClosed = isWon || isLost;
 
   const currentOpenStage = currentIdx >= 0 ? openStages[currentIdx] : undefined;
@@ -1061,18 +1062,20 @@ export function CrmDealDetailClient({
       getFollowUpFlowStatus({
         proposalSentAt: dealProposalSentAt,
         proposalLink: dealProposalLink,
-        config: followUpConfig,
+        configActive: followUpConfig?.isActive,
         totalLogs: localFollowUpLogs.length,
         pendingLogs: pendingFollowUps.length,
         overdueLogs: overdueFollowUpsCount,
+        failedLogs: failedFollowUpsCount,
       }),
     [
       dealProposalSentAt,
       dealProposalLink,
-      followUpConfig,
+      followUpConfig?.isActive,
       localFollowUpLogs.length,
       pendingFollowUps.length,
       overdueFollowUpsCount,
+      failedFollowUpsCount,
     ]
   );
   const localFollowUpLogsDesc = followUpLogsDesc;
@@ -1648,13 +1651,26 @@ export function CrmDealDetailClient({
     || pipelineStages.find((s) => s.id === currentStage?.id)?.color
     || "#94a3b8";
 
-  const statusBadge = dealStatus === "won"
-    ? { label: "Ganado", variant: "success" as const }
-    : dealStatus === "lost"
-      ? { label: "Perdido", variant: "destructive" as const }
-      : currentStage
-        ? { label: currentStage.name, color: currentStageColor }
-        : undefined;
+  // Badge alineado con la etapa: si status=lost pero la etapa es abierta (bug
+  // histórico de reenvío), mostrar el nombre de la etapa, no "Perdido".
+  const stageIsClosedWon = !!pipelineStages.find(
+    (s) => s.id === currentStage?.id && s.isClosedWon,
+  );
+  const stageIsClosedLost = !!pipelineStages.find(
+    (s) => s.id === currentStage?.id && s.isClosedLost,
+  );
+  const statusBadge =
+    stageIsClosedWon || (dealStatus === "won" && !currentStage)
+      ? { label: "Ganado", variant: "success" as const }
+      : stageIsClosedLost || (dealStatus === "lost" && !currentStage)
+        ? { label: "Perdido", variant: "destructive" as const }
+        : dealStatus === "lost" && !stageIsClosedLost && currentStage
+          ? { label: currentStage.name, color: currentStageColor }
+          : dealStatus === "won" && !stageIsClosedWon && currentStage
+            ? { label: currentStage.name, color: currentStageColor }
+            : currentStage
+              ? { label: currentStage.name, color: currentStageColor }
+              : undefined;
 
   // ── Sections ──
   // La identidad del negocio vive en header + highlights; cuenta/contacto,
@@ -3007,57 +3023,6 @@ function formatDealDate(value?: string | null): string {
     day: "2-digit",
     month: "short",
   });
-}
-
-function getFollowUpFlowStatus({
-  proposalSentAt,
-  proposalLink,
-  config,
-  totalLogs,
-  pendingLogs,
-  overdueLogs,
-}: {
-  proposalSentAt: string | null;
-  proposalLink: string | null;
-  config: FollowUpConfigState | null;
-  totalLogs: number;
-  pendingLogs: number;
-  overdueLogs: number;
-}) {
-  if (!proposalSentAt && !proposalLink && totalLogs === 0) {
-    return {
-      label: "Sin iniciar",
-      className: "text-[10px] border-muted text-muted-foreground",
-    };
-  }
-  if (config?.isActive === false) {
-    return {
-      label: "Automatización pausada",
-      className: "text-[10px] border-status-warn-border text-status-warn-fg",
-    };
-  }
-  if (overdueLogs > 0) {
-    return {
-      label: "Con atrasos",
-      className: "text-[10px] border-status-danger-border text-status-danger-fg",
-    };
-  }
-  if (pendingLogs > 0) {
-    return {
-      label: "Activo",
-      className: "text-[10px] border-status-ok-border text-status-ok-fg",
-    };
-  }
-  if (totalLogs > 0) {
-    return {
-      label: "Completado",
-      className: "text-[10px] border-status-info-border text-status-info-fg",
-    };
-  }
-  return {
-    label: "Sin eventos",
-    className: "text-[10px] border-muted text-muted-foreground",
-  };
 }
 
 function getFollowUpStatusMeta(status: string) {
