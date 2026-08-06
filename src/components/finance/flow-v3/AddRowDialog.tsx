@@ -9,6 +9,11 @@ import { Input } from "@/components/ui/input";
 import { SearchableSelect, type SearchableOption } from "@/components/ui/SearchableSelect";
 import { SimpleSelect } from "@/components/ui/simple-select";
 import { SECTION_LABELS, SECTION_ORDER } from "./grid-classes";
+import {
+  accountHintForSection,
+  filterAccountOptionsForSection,
+  type FlowAccountOption,
+} from "./account-options-for-section";
 
 /** Secciones que admiten egreso/recurrencia de plan (mismo set que RecurringExpenseDialog). */
 export const PLAN_RECURRENCE_SECTIONS = [
@@ -51,7 +56,7 @@ export function AddRowDialog({
   const [section, setSection] = useState("INGRESOS");
   const [crmAccounts, setCrmAccounts] = useState<SearchableOption[]>([]);
   const [installations, setInstallations] = useState<SearchableOption[]>([]);
-  const [accountPlans, setAccountPlans] = useState<SearchableOption[]>([]);
+  const [allAccountPlans, setAllAccountPlans] = useState<FlowAccountOption[]>([]);
   const [accountId, setAccountId] = useState("");
   const [installationId, setInstallationId] = useState("");
   const [expenseAccountId, setExpenseAccountId] = useState("");
@@ -92,21 +97,35 @@ export function AddRowDialog({
     fetch("/api/finance/accounting/accounts", { cache: "no-store" })
       .then((r) => r.json())
       .then((j) => {
-        const flat: SearchableOption[] = [];
-        const walk = (nodes: Array<{ id: string; code: string; name: string; acceptsEntries?: boolean; children?: unknown[] }>) => {
+        const flat: FlowAccountOption[] = [];
+        const walk = (
+          nodes: Array<{
+            id: string;
+            code: string;
+            name: string;
+            type?: string;
+            acceptsEntries?: boolean;
+            children?: unknown[];
+          }>,
+        ) => {
           for (const n of nodes) {
             if (n.acceptsEntries !== false) {
-              flat.push({ id: n.id, label: `${n.code} · ${n.name}` });
+              flat.push({
+                id: n.id,
+                code: n.code,
+                type: n.type ?? "",
+                label: `${n.code} · ${n.name}`,
+              });
             }
             if (Array.isArray(n.children) && n.children.length) {
               walk(n.children as typeof nodes);
             }
           }
         };
-        walk((j.data ?? []) as typeof flat extends never ? never : Parameters<typeof walk>[0]);
-        setAccountPlans(flat);
+        walk((j.data ?? []) as Parameters<typeof walk>[0]);
+        setAllAccountPlans(flat);
       })
-      .catch(() => setAccountPlans([]));
+      .catch(() => setAllAccountPlans([]));
   }, [open]);
 
   useEffect(() => {
@@ -126,6 +145,23 @@ export function AddRowDialog({
   const canConfigureRecurrence = (PLAN_RECURRENCE_SECTIONS as readonly string[]).includes(section);
   const incomeLinked = isIncome && linkAccount;
 
+  const filteredAccountPlans = useMemo(
+    () => filterAccountOptionsForSection(allAccountPlans, section),
+    [allAccountPlans, section],
+  );
+
+  const accountSelectOptions: SearchableOption[] = useMemo(
+    () => filteredAccountPlans.map((a) => ({ id: a.id, label: a.label })),
+    [filteredAccountPlans],
+  );
+
+  useEffect(() => {
+    if (!expenseAccountId) return;
+    if (!filteredAccountPlans.some((a) => a.id === expenseAccountId)) {
+      setExpenseAccountId("");
+    }
+  }, [filteredAccountPlans, expenseAccountId]);
+
   const autoName = useMemo(() => {
     if (incomeLinked && accountId) {
       const acc = crmAccounts.find((a) => a.id === accountId)?.label ?? "";
@@ -133,10 +169,19 @@ export function AddRowDialog({
       return inst ? `${acc} · ${inst}` : acc;
     }
     if (!isIncome && expenseAccountId) {
-      return accountPlans.find((a) => a.id === expenseAccountId)?.label ?? "";
+      return filteredAccountPlans.find((a) => a.id === expenseAccountId)?.label ?? "";
     }
     return "";
-  }, [incomeLinked, isIncome, accountId, installationId, crmAccounts, installations, expenseAccountId, accountPlans]);
+  }, [
+    incomeLinked,
+    isIncome,
+    accountId,
+    installationId,
+    crmAccounts,
+    installations,
+    expenseAccountId,
+    filteredAccountPlans,
+  ]);
 
   const finalName = name.trim() || autoName;
   const canSubmit =
@@ -232,10 +277,13 @@ export function AddRowDialog({
               <span>Cuenta contable (opcional)</span>
               <SearchableSelect
                 value={expenseAccountId}
-                options={accountPlans}
-                placeholder="Vincular ahora o después en configuración…"
+                options={accountSelectOptions}
+                placeholder="Opcional — o vincular después en Renglones"
                 onChange={setExpenseAccountId}
               />
+              <p className="text-[12px] text-ds-text-4 leading-snug">
+                {accountHintForSection(section)}
+              </p>
             </div>
           )}
 

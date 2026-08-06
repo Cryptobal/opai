@@ -9,6 +9,7 @@ import type { AccountOption } from "./cashflow-config-types";
 import { RowAccountsEditor } from "./RowAccountsEditor";
 import { rowHasProblem } from "./flow-row-config-helpers";
 import type { FlowHealthReportV2 } from "@/modules/finance/cashflow/flow-health.types";
+import { filterAccountOptionsForSection } from "@/components/finance/flow-v3/account-options-for-section";
 
 interface Props {
   row: FlowRowConfigItem;
@@ -39,6 +40,18 @@ export function FlowRowConfigListItem({
   const systemLocked = !!row.canonicalKey;
   /** Sistema: cuentas visibles pero no editables. Custom: editables. */
   const canEditAccounts = !systemLocked && !isBandejaKey(row.canonicalKey);
+  const scopedAccountOptions = filterAccountOptionsForSection(
+    accountOptions.map((a) => ({
+      id: a.id,
+      code: a.code,
+      type: a.type ?? "",
+      label: `${a.code} · ${a.name}`,
+    })),
+    row.section,
+  ).map((a) => {
+    const src = accountOptions.find((o) => o.id === a.id)!;
+    return { id: src.id, code: src.code, name: src.name, type: src.type };
+  });
 
   if (readOnly) {
     return (
@@ -89,7 +102,7 @@ export function FlowRowConfigListItem({
           />
           <RowAccountsEditor
             rowId={row.id}
-            accountOptions={accountOptions}
+            accountOptions={scopedAccountOptions}
             initialAccounts={row.accounts}
             canEdit={canEditAccounts}
             compact

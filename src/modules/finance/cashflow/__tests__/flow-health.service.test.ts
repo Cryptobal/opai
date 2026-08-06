@@ -91,7 +91,7 @@ describe("getFlowHealth", () => {
     expect(report.connectedRowCount).toBeGreaterThanOrEqual(1);
   });
 
-  it("detecta cuentas compartidas sin destino por defecto y ASSET/LIABILITY", async () => {
+  it("detecta cuentas compartidas sin destino; ASSET en GAV es aviso, no en impuestos", async () => {
     asMock(prisma.financeFlowRow.findMany).mockResolvedValue([
       {
         id: "r1",
@@ -106,6 +106,20 @@ describe("getFlowHealth", () => {
         section: "REMUNERACIONES",
         mapping: "ACCOUNTS",
         canonicalKey: "QUINCENA",
+      },
+      {
+        id: "r3",
+        name: "Sistemas",
+        section: "GAV",
+        mapping: "ACCOUNTS",
+        canonicalKey: null,
+      },
+      {
+        id: "r4",
+        name: "IVA F29",
+        section: "IMPUESTOS",
+        mapping: "ACCOUNTS",
+        canonicalKey: "IVA_F29",
       },
     ]);
     asMock(prisma.financeFlowRowAccount.findMany).mockResolvedValue([
@@ -146,21 +160,39 @@ describe("getFlowHealth", () => {
         },
       },
       {
-        rowId: "r1",
+        rowId: "r3",
         accountPlanId: "a2",
-        isPrimary: false,
-        isDefaultTarget: false,
+        isPrimary: true,
+        isDefaultTarget: true,
         accountPlan: {
           id: "a2",
           code: "1.2.02.001",
-          name: "Sistemas",
+          name: "Software",
           type: "ASSET",
         },
         row: {
-          id: "r1",
-          name: "Sueldos",
-          section: "REMUNERACIONES",
-          canonicalKey: "SUELDO",
+          id: "r3",
+          name: "Sistemas",
+          section: "GAV",
+          canonicalKey: null,
+        },
+      },
+      {
+        rowId: "r4",
+        accountPlanId: "a3",
+        isPrimary: true,
+        isDefaultTarget: true,
+        accountPlan: {
+          id: "a3",
+          code: "2.1.02.001",
+          name: "IVA Debito Fiscal",
+          type: "LIABILITY",
+        },
+        row: {
+          id: "r4",
+          name: "IVA F29",
+          section: "IMPUESTOS",
+          canonicalKey: "IVA_F29",
         },
       },
     ]);
@@ -174,8 +206,12 @@ describe("getFlowHealth", () => {
       expect.objectContaining({
         accountCode: "1.2.02.001",
         accountType: "ASSET",
+        rowName: "Sistemas",
       }),
     ]);
+    expect(
+      report.expenseRowsOnNonExpenseAccounts.some((x) => x.rowName === "IVA F29"),
+    ).toBe(false);
   });
 });
 

@@ -68,7 +68,10 @@ export function shouldIncludeFlowRow(opts: {
   if (
     row.mapping === "MANUAL" ||
     row.mapping === "CATEGORY" ||
-    row.mapping === "SUPPLIER"
+    row.mapping === "SUPPLIER" ||
+    // Filas con cuentas contables (IVA, socios, GAV, etc.): siempre en la
+    // planilla aunque no tengan monto aún — si no, “desaparecen” al vincular.
+    row.mapping === "ACCOUNTS"
   ) {
     return true;
   }

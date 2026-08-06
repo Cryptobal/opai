@@ -299,4 +299,14 @@ describe("shouldIncludeFlowRow — visibilidad universal", () => {
       }),
     ).toBe(true);
   });
+
+  it("ACCOUNTS vacía (aporte socios) siempre visible", () => {
+    expect(
+      shouldIncludeFlowRow({
+        ...base,
+        row: { id: "aporte", mapping: "ACCOUNTS", archivedAt: null },
+        hasDataInWindow: false,
+      }),
+    ).toBe(true);
+  });
 });

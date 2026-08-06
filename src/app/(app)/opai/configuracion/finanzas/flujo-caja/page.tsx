@@ -32,7 +32,7 @@ export default async function CashflowConfigPage() {
     }),
     prisma.financeAccountPlan.findMany({
       where: { tenantId, isActive: true, acceptsEntries: true },
-      select: { id: true, code: true, name: true },
+      select: { id: true, code: true, name: true, type: true },
       orderBy: { code: "asc" },
     }),
   ]);

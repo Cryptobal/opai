@@ -75,7 +75,13 @@ export type RawCashflowConfig = Omit<
   payrollAfpName?: string | null;
 };
 
-export type AccountOption = { id: string; code: string; name: string };
+export type AccountOption = {
+  id: string;
+  code: string;
+  name: string;
+  /** FinanceAccountType — para filtrar sugerencias por sección. */
+  type?: string;
+};
 
 export function coerceCashflowConfig(initial: RawCashflowConfig): CashflowConfig {
   return {

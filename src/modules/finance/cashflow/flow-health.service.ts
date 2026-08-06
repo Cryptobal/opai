@@ -134,11 +134,16 @@ export async function getFlowHealth(
       })),
     }));
 
+  /**
+   * Solo GAV/REMUNERACIONES: aviso suave si un gasto operativo apunta a
+   * activo/pasivo. Impuestos y financiamiento USAN pasivo/activo a propósito
+   * (IVA, TGR, socios, provisión, créditos) — no son “problemas”.
+   */
   const expenseRowsOnNonExpenseAccounts: FlowHealthReport["expenseRowsOnNonExpenseAccounts"] =
     [];
   for (const m of mappings) {
     const section = m.row.section;
-    if (section === "INGRESOS" || section === "OTROS") continue;
+    if (section !== "GAV" && section !== "REMUNERACIONES") continue;
     const t = m.accountPlan.type;
     if (t === "ASSET" || t === "LIABILITY") {
       expenseRowsOnNonExpenseAccounts.push({

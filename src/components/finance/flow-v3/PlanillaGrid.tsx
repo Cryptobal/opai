@@ -16,6 +16,7 @@ import {
   COL_W, displayValue, GUTTER_CELL, GUTTER_W, isZeroRow, NAME_LEFT, NAME_W, SECTION_H,
   SECTION_LABELS, SECTION_ORDER, TODAY_COL,
 } from "./grid-classes";
+import { keepZeroFlowRow } from "./keep-zero-row";
 import {
   fmtCell, formatThousands, numSizeClass, parseSignedAmount, type NumberFormatMode,
 } from "./format";
@@ -590,6 +591,7 @@ export function PlanillaGrid({
         : all.filter(
             (r) =>
               !isZeroRow(r) ||
+              keepZeroFlowRow(r) ||
               alwaysVisibleRowIds?.has(r.id) ||
               revealedZeroRowIds.has(r.id),
           );
@@ -617,7 +619,15 @@ export function PlanillaGrid({
       );
       const hiddenZeroIds = showZeros
         ? []
-        : all.filter((r) => isZeroRow(r) && !alwaysVisibleRowIds?.has(r.id) && !revealedZeroRowIds.has(r.id)).map((r) => r.id);
+        : all
+            .filter(
+              (r) =>
+                isZeroRow(r) &&
+                !keepZeroFlowRow(r) &&
+                !alwaysVisibleRowIds?.has(r.id) &&
+                !revealedZeroRowIds.has(r.id),
+            )
+            .map((r) => r.id);
       return { key: s, rows, total: all.length, matchCount: rows.length, subtotals, hiddenZeroIds };
     }).filter((s) => (normSearch ? s.matchCount > 0 : s.total > 0));
   }, [data.rows, data.columns, showZeros, alwaysVisibleRowIds, revealedZeroRowIds, normSearch, amountSort]);

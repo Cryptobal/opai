@@ -130,11 +130,11 @@ export function FlowHealthPanel({
 
   if (!report) return null;
 
+  /** Problemas accionables (sin el aviso suave de GAV en activo/pasivo). */
   const issues =
     report.rowsWithoutAccounts.length +
     report.accountsWithoutRow.length +
-    report.ambiguousAccounts.length +
-    report.expenseRowsOnNonExpenseAccounts.length;
+    report.ambiguousAccounts.length;
 
   return (
     <div className="ds-page-enter space-y-5">
@@ -171,12 +171,13 @@ export function FlowHealthPanel({
       )}
 
       {report.expenseRowsOnNonExpenseAccounts.length > 0 && (
-        <Surface elevation={1} padding="md" className="border border-status-warn-border">
+        <Surface elevation={1} padding="md" className="border border-ds-border-subtle">
           <h3 className="font-display text-[15px] text-ds-text-1 mb-2">
-            Egresos en cuentas de activo/pasivo
+            Nota: GAV/Remuneraciones en cuenta de balance
           </h3>
           <p className="text-[13px] text-ds-text-3 mb-3">
-            El gasto se contabiliza pero no llega al Estado de Resultados.
+            Aviso informativo (no bloquea el flujo). Impuestos y financiamiento con
+            pasivo/activo son normales y no aparecen acá.
           </p>
           <ul className="ds-list-cascade space-y-2">
             {report.expenseRowsOnNonExpenseAccounts.map((item) => (
