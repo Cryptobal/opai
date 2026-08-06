@@ -7,6 +7,14 @@ export function normalizeHealth(raw: unknown): FlowHealthReportV2 | null {
   return normalizeFlowHealthReport(raw as Parameters<typeof normalizeFlowHealthReport>[0]);
 }
 
+/**
+ * “Problema” accionable en config:
+ * - sin cuentas (excepto bandejas / ingresos)
+ * - cuenta compartida sin destino por defecto
+ *
+ * No incluye egresos en activo/pasivo de impuestos/financiamiento (normales)
+ * ni el aviso suave de GAV con cuenta de balance.
+ */
 export function rowHasProblem(
   row: FlowRowConfigItem,
   health: FlowHealthReportV2 | null,
@@ -21,15 +29,9 @@ export function rowHasProblem(
   }
   if (!health) return false;
   if (health.rowsWithoutAccounts.some((r) => r.id === row.id)) return true;
-  if (
-    health.expenseRowsOnNonExpenseAccounts.some((x) => x.rowId === row.id)
-  ) {
-    return true;
-  }
-  const ambiguous = health.ambiguousAccounts.some((a) =>
+  return health.ambiguousAccounts.some((a) =>
     a.rows.some((r) => r.id === row.id),
   );
-  return ambiguous;
 }
 
 export function countProblems(

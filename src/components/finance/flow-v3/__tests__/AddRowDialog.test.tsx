@@ -149,6 +149,7 @@ describe("AddRowDialog — sección prefijada y recurrencia", () => {
     await waitFor(() => {
       expect(screen.getByTestId("add-row-configure-recurrence")).toBeTruthy();
     });
-    expect(screen.getByText(/Impuestos/i)).toBeTruthy();
+    // Sección inicial IMPUESTOS (el hint también menciona la palabra; hay ≥1).
+    expect(screen.getAllByText(/Impuestos/i).length).toBeGreaterThanOrEqual(1);
   });
 });

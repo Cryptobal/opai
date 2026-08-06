@@ -60,8 +60,10 @@ export function FlowRowsConfigPanel({ accountOptions }: Props) {
   const [query, setQuery] = useState("");
   const [onlyProblems, setOnlyProblems] = useState(false);
   const [savingId, setSavingId] = useState<string | null>(null);
-  /** Vacío = todas expandidas por defecto. */
-  const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
+  /** Todas las secciones contraídas al abrir (más fácil de escanear). */
+  const [collapsed, setCollapsed] = useState<Set<string>>(
+    () => new Set(FLOW_SECTION_ORDER as readonly string[]),
+  );
   const [drawerRow, setDrawerRow] = useState<FlowRowConfigItem | null>(null);
   const [addSection, setAddSection] = useState<string | null>(null);
   const [addBusy, setAddBusy] = useState(false);
@@ -190,7 +192,8 @@ export function FlowRowsConfigPanel({ accountOptions }: Props) {
           <div className="min-w-0">
             <h2 className="font-semibold text-[15px]">Renglones del flujo</h2>
             <p className="text-[12px] text-ds-text-3 mt-0.5">
-              Cada renglón de egreso se vincula a cuentas contables para rutear cartola y comprometido.
+              Acá definís las líneas y su cuenta contable. En la planilla de Flujo de caja
+              cargás los montos. “Solo con problemas” = sin cuentas o cuenta compartida sin destino.
             </p>
           </div>
           {health && (
@@ -225,7 +228,10 @@ export function FlowRowsConfigPanel({ accountOptions }: Props) {
               onChange={(e) => setQuery(e.target.value)}
             />
           </div>
-          <label className="flex items-center gap-2 min-h-11 sm:min-h-9 px-1 text-[13px] text-ds-text-2 shrink-0">
+          <label
+            className="flex items-center gap-2 min-h-11 sm:min-h-9 px-1 text-[13px] text-ds-text-2 shrink-0"
+            title="Muestra renglones sin cuentas o con cuenta compartida sin destino por defecto"
+          >
             <Switch checked={onlyProblems} onCheckedChange={setOnlyProblems} />
             Solo con problemas
           </label>

@@ -105,7 +105,7 @@ export function RowConfigDrawer({
               <p className="mt-2 text-[12px] text-ds-text-3">
                 {systemLocked
                   ? "Renglón de sistema: la cuenta se muestra para referencia y no se edita aquí."
-                  : "La cuenta principal contabiliza el egreso. Marcá destino si varios renglones comparten la misma cuenta."}
+                  : "“Destino” = si un movimiento de cartola cae en esta cuenta y no hay otra regla, va a este renglón. Solo hace falta cuando dos renglones comparten la misma cuenta."}
               </p>
             </div>
           )}
