@@ -150,16 +150,22 @@ export function PlanillaCell(p: Props) {
       ? "opacity-60"
       : "";
 
+  /** Negativos (p.ej. financiamiento con egreso) en rojo para leer egresos de un vistazo. */
+  const negativeClass = !pastPendOnly && value < 0 ? "text-status-danger-fg" : "";
   const textClass =
     pastPendOnly
       ? "text-ds-text-3"
-      : cell.layer === "real" || cell.layer === "committed"
-        ? "text-ds-text-1"
-        : cell.layer === "plan"
-          ? "text-ds-text-2"
-          : "text-ds-text-4";
+      : negativeClass
+        ? negativeClass
+        : cell.layer === "real" || cell.layer === "committed"
+          ? "text-ds-text-1"
+          : cell.layer === "plan"
+            ? "text-ds-text-2"
+            : "text-ds-text-4";
   const projAttenuate =
-    !showChips && cell.layer === "committed" && corner === null ? "text-ds-text-3" : "";
+    !showChips && cell.layer === "committed" && corner === null && value >= 0
+      ? "text-ds-text-3"
+      : "";
 
   const displayFormatted = pastPendOnly ? pastPendFormatted : formatted;
   const longValue = displayFormatted ? numSizeClass(displayFormatted) : "";

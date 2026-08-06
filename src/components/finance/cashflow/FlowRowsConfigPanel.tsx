@@ -35,6 +35,23 @@ type Props = {
 
 type SectionGroup = { key: string; rows: FlowRowConfigItem[] };
 
+/** Secciones donde se puede crear renglón desde configuración. */
+const ADDABLE_SECTIONS = [
+  "INGRESOS",
+  "REMUNERACIONES",
+  "IMPUESTOS",
+  "GAV",
+  "FINANCIAMIENTO",
+] as const;
+
+const ADD_BUTTON_LABEL: Record<string, string> = {
+  INGRESOS: "Renglón de ingreso",
+  REMUNERACIONES: "Agregar renglón",
+  IMPUESTOS: "Agregar renglón",
+  GAV: "Agregar renglón",
+  FINANCIAMIENTO: "Agregar renglón",
+};
+
 export function FlowRowsConfigPanel({ accountOptions }: Props) {
   const [rows, setRows] = useState<FlowRowConfigItem[]>([]);
   const [health, setHealth] = useState<FlowHealthReportV2 | null>(null);
@@ -43,11 +60,10 @@ export function FlowRowsConfigPanel({ accountOptions }: Props) {
   const [query, setQuery] = useState("");
   const [onlyProblems, setOnlyProblems] = useState(false);
   const [savingId, setSavingId] = useState<string | null>(null);
-  const [collapsed, setCollapsed] = useState<Set<string>>(
-    () => new Set(["INGRESOS"]),
-  );
+  /** Vacío = todas expandidas por defecto. */
+  const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
   const [drawerRow, setDrawerRow] = useState<FlowRowConfigItem | null>(null);
-  const [addIncomeOpen, setAddIncomeOpen] = useState(false);
+  const [addSection, setAddSection] = useState<string | null>(null);
   const [addBusy, setAddBusy] = useState(false);
 
   const load = useCallback(async () => {
@@ -108,17 +124,26 @@ export function FlowRowsConfigPanel({ accountOptions }: Props) {
       if (list) list.push(row);
       else bySection.set(row.section, [row]);
     }
-    const known = new Set<string>(FLOW_SECTION_ORDER);
+    const filtering = Boolean(query.trim()) || onlyProblems;
     const ordered: SectionGroup[] = [];
     for (const key of FLOW_SECTION_ORDER) {
-      const sectionRows = bySection.get(key);
-      if (sectionRows?.length) ordered.push({ key, rows: sectionRows });
+      const sectionRows = bySection.get(key) ?? [];
+      const addable = (ADDABLE_SECTIONS as readonly string[]).includes(key);
+      // Sin filtro: mostrar secciones addables aunque estén vacías (botón agregar).
+      if (sectionRows.length || (!filtering && addable)) {
+        ordered.push({ key, rows: sectionRows });
+      }
     }
     for (const [key, sectionRows] of bySection) {
-      if (!known.has(key) && sectionRows.length) ordered.push({ key, rows: sectionRows });
+      if (
+        !(FLOW_SECTION_ORDER as readonly string[]).includes(key) &&
+        sectionRows.length
+      ) {
+        ordered.push({ key, rows: sectionRows });
+      }
     }
     return ordered;
-  }, [filtered]);
+  }, [filtered, query, onlyProblems]);
 
   const problemCount = useMemo(
     () => countProblems(rows, health),
@@ -218,7 +243,7 @@ export function FlowRowsConfigPanel({ accountOptions }: Props) {
             title="No se pudo cargar"
             description={error}
           />
-        ) : filtered.length === 0 ? (
+        ) : filtered.length === 0 && (query.trim() || onlyProblems) ? (
           <EmptyState
             icon={Inbox}
             title="Sin coincidencias"
@@ -228,13 +253,16 @@ export function FlowRowsConfigPanel({ accountOptions }: Props) {
           <div className="mt-4 space-y-3 ds-list-cascade">
             {groups.map((group) => {
               const isCollapsed = collapsed.has(group.key);
+              const canAdd = (ADDABLE_SECTIONS as readonly string[]).includes(
+                group.key,
+              );
               const isIncome = group.key === "INGRESOS";
               return (
                 <div
                   key={group.key}
-                  className="rounded-ds-md border border-ds-border-default overflow-hidden"
+                  className="rounded-ds-md border border-ds-border-default overflow-visible"
                 >
-                  <div className="flex items-center gap-2 bg-ds-surface-2 px-2 py-1">
+                  <div className="flex items-center gap-2 bg-ds-surface-2 px-2 py-1 rounded-t-ds-md">
                     <button
                       type="button"
                       onClick={() => toggleSection(group.key)}
@@ -253,33 +281,40 @@ export function FlowRowsConfigPanel({ accountOptions }: Props) {
                         {group.rows.length}
                       </Tag>
                     </button>
-                    {isIncome && (
+                    {canAdd && (
                       <Button
                         type="button"
                         size="sm"
                         variant="outline"
                         className="h-10 sm:h-9 shrink-0"
-                        onClick={() => setAddIncomeOpen(true)}
+                        onClick={() => setAddSection(group.key)}
                       >
                         <Plus className="h-4 w-4 mr-1" />
-                        Renglón de ingreso
+                        {ADD_BUTTON_LABEL[group.key] ?? "Agregar renglón"}
                       </Button>
                     )}
                   </div>
                   {!isCollapsed && (
-                    <ul className="space-y-2 p-2 sm:p-3 border-t border-ds-border-subtle">
-                      {group.rows.map((row) => (
-                        <FlowRowConfigListItem
-                          key={row.id}
-                          row={row}
-                          readOnly={isIncome}
-                          accountOptions={accountOptions}
-                          health={health}
-                          saving={savingId === row.id}
-                          onOpenDrawer={setDrawerRow}
-                          onRename={(id, name) => void patchRow(id, { name })}
-                        />
-                      ))}
+                    <ul className="space-y-2 p-2 sm:p-3 border-t border-ds-border-subtle overflow-visible">
+                      {group.rows.length === 0 ? (
+                        <li className="px-2 py-3 text-[13px] text-ds-text-3">
+                          Sin renglones. Usá el botón para agregar uno.
+                        </li>
+                      ) : (
+                        group.rows.map((row) => (
+                          <FlowRowConfigListItem
+                            key={row.id}
+                            row={row}
+                            readOnly={isIncome}
+                            accountOptions={accountOptions}
+                            health={health}
+                            saving={savingId === row.id}
+                            onOpenDrawer={setDrawerRow}
+                            onRename={(id, name) => void patchRow(id, { name })}
+                            onAccountsChanged={() => void load()}
+                          />
+                        ))
+                      )}
                     </ul>
                   )}
                 </div>
@@ -319,10 +354,12 @@ export function FlowRowsConfigPanel({ accountOptions }: Props) {
       />
 
       <AddRowDialog
-        open={addIncomeOpen}
-        onOpenChange={setAddIncomeOpen}
+        open={!!addSection}
+        onOpenChange={(o) => {
+          if (!o) setAddSection(null);
+        }}
         busy={addBusy}
-        lockedSection="INGRESOS"
+        lockedSection={addSection}
         onCreate={async (body) => {
           setAddBusy(true);
           try {
@@ -335,7 +372,11 @@ export function FlowRowsConfigPanel({ accountOptions }: Props) {
             if (!r.ok || !j?.success) {
               throw new Error(j?.error ?? "No se pudo crear");
             }
-            toast.success("Renglón de ingreso creado");
+            toast.success(
+              addSection === "INGRESOS"
+                ? "Renglón de ingreso creado"
+                : "Renglón creado",
+            );
             await load();
             return j.data;
           } finally {
