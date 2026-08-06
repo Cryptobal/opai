@@ -26,6 +26,7 @@ import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { toast } from "sonner";
 import { useUnreadNoteIds } from "@/lib/hooks";
 import { INSTALLATION_LIST_DEFAULT_PAGE_SIZE } from "@/lib/crm/list-page-sizes";
+import { validateGeoreferencedAddress } from "@/lib/crm/installation-address";
 
 export type InstallationRow = {
   id: string;
@@ -225,6 +226,15 @@ export function CrmInstallationsListClient({
     }
     if (!form.accountId) {
       toast.error("Selecciona una cuenta.");
+      return;
+    }
+    const geoError = validateGeoreferencedAddress({
+      address: form.address,
+      lat: form.lat,
+      lng: form.lng,
+    });
+    if (geoError) {
+      toast.error(geoError);
       return;
     }
     setCreating(true);

@@ -21,6 +21,7 @@ import { CrmSectionCreateButton } from "./CrmSectionCreateButton";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Tag } from "@/components/opai-ds";
+import { validateGeoreferencedAddress } from "@/lib/crm/installation-address";
 
 type InstallationRow = {
   id: string;
@@ -127,6 +128,15 @@ export function CrmInstallationsClient({
   const save = async () => {
     if (!form.name.trim()) {
       toast.error("El nombre es obligatorio.");
+      return;
+    }
+    const geoError = validateGeoreferencedAddress({
+      address: form.address,
+      lat: form.lat,
+      lng: form.lng,
+    });
+    if (geoError) {
+      toast.error(geoError);
       return;
     }
     setLoading(true);
