@@ -29,7 +29,9 @@ import { EmptyState, Tag, type TagVariant } from "@/components/opai-ds";
 import { EntityDetailLayout, useEntityTabs, type EntityTab, type EntityHeaderAction } from "./EntityDetailLayout";
 import { DetailField } from "./DetailField";
 import { InlineEditField } from "@/components/opai/InlineEditField";
+import { InlineAddressEditField } from "@/components/crm/InlineAddressEditField";
 import { patchCrmField } from "@/components/crm/patchCrmField";
+import { validateGeoreferencedAddress } from "@/lib/crm/installation-address";
 import {
   normalizeDateYmd,
   normalizeIntRange,
@@ -1983,6 +1985,35 @@ export function CrmInstallationDetailClient({
     return saved != null ? String(saved) : value;
   };
 
+  const commitInstallationAddress = async (payload: {
+    address: string;
+    city: string | null;
+    commune: string | null;
+    lat: number;
+    lng: number;
+  }) => {
+    const res = await fetch(`/api/crm/installations/${installation.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok || json?.success === false) {
+      throw new Error(
+        typeof json?.error === "string" ? json.error : "No se pudo guardar la dirección"
+      );
+    }
+    const data = (json?.data ?? {}) as Partial<InstallationDetail>;
+    setInstallation((prev) => ({
+      ...prev,
+      address: data.address ?? payload.address,
+      city: data.city ?? payload.city,
+      commune: data.commune ?? payload.commune,
+      lat: data.lat ?? payload.lat,
+      lng: data.lng ?? payload.lng,
+    }));
+  };
+
   const installationStatusLabel =
     installation.status === "active"
       ? "Activa"
@@ -2299,6 +2330,19 @@ export function CrmInstallationDetailClient({
       toast.error("El nombre es obligatorio.");
       return;
     }
+    const addressChanged =
+      (editForm.address || "").trim() !== (installation.address || "").trim();
+    if (addressChanged) {
+      const geoError = validateGeoreferencedAddress({
+        address: editForm.address,
+        lat: editForm.lat,
+        lng: editForm.lng,
+      });
+      if (geoError) {
+        toast.error(geoError);
+        return;
+      }
+    }
     setSaving(true);
     try {
       const res = await fetch(`/api/crm/installations/${installation.id}`, {
@@ -2470,13 +2514,11 @@ export function CrmInstallationDetailClient({
               required
               onCommit={commitInstallationField}
             />
-            <InlineEditField
+            <InlineAddressEditField
               label="Dirección"
-              fieldKey="address"
-              type="text"
               value={installation.address ?? null}
               canEdit={canEdit}
-              onCommit={commitInstallationField}
+              onCommit={commitInstallationAddress}
             />
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <InlineEditField

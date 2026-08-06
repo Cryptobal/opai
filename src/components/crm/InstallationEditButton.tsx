@@ -18,6 +18,7 @@ import { AddressAutocomplete, type AddressResult } from "@/components/ui/Address
 import { MapsUrlPasteInput } from "@/components/ui/MapsUrlPasteInput";
 import { Pencil, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { validateGeoreferencedAddress } from "@/lib/crm/installation-address";
 
 export type InstallationForEdit = {
   id: string;
@@ -92,6 +93,19 @@ export function InstallationEditButton({
     if (!form.name.trim()) {
       toast.error("El nombre es obligatorio.");
       return;
+    }
+    const addressChanged =
+      (form.address || "").trim() !== (installation.address || "").trim();
+    if (addressChanged) {
+      const geoError = validateGeoreferencedAddress({
+        address: form.address,
+        lat: form.lat,
+        lng: form.lng,
+      });
+      if (geoError) {
+        toast.error(geoError);
+        return;
+      }
     }
     setLoading(true);
     try {
