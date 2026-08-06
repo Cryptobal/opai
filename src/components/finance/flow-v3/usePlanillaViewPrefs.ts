@@ -47,6 +47,11 @@ export interface PlanillaViewPrefs {
   density: PlanillaDensity;
   zoom: number;
   showChips: boolean;
+  /**
+   * Si true, la barra de contexto muestra labels junto a los iconos.
+   * Default false (densidad tipo móvil).
+   */
+  showToolbarLabels: boolean;
   numberFormat: NumberFormatMode;
   freeze: boolean;
   cellStyles: CellStylesMap;
@@ -83,6 +88,7 @@ const DEFAULTS: PlanillaViewPrefs = {
   density: "standard",
   zoom: 1,
   showChips: false,
+  showToolbarLabels: false,
   numberFormat: "clp",
   freeze: true,
   cellStyles: {},
@@ -111,6 +117,7 @@ function sanitize(raw: unknown): PlanillaViewPrefs {
       ? o.zoom
       : 1;
   const showChips = o.showChips === true;
+  const showToolbarLabels = o.showToolbarLabels === true;
   const numberFormat: NumberFormatMode =
     o.numberFormat === "m" || o.numberFormat === "mm" ? o.numberFormat : "clp";
   const freeze = o.freeze !== false;
@@ -129,7 +136,10 @@ function sanitize(raw: unknown): PlanillaViewPrefs {
       if (Object.keys(style).length > 0) cellStyles[k] = style;
     }
   }
-  return { theme, density, zoom, showChips, numberFormat, freeze, cellStyles, nameW };
+  return {
+    theme, density, zoom, showChips, showToolbarLabels,
+    numberFormat, freeze, cellStyles, nameW,
+  };
 }
 
 export function cellStyleKey(rowId: string, weekStart: string): string {
@@ -197,6 +207,10 @@ export function usePlanillaViewPrefs(tenantId: string) {
     patch({ zoom: z });
   }, [patch]);
   const setShowChips = useCallback((showChips: boolean) => patch({ showChips }), [patch]);
+  const setShowToolbarLabels = useCallback(
+    (showToolbarLabels: boolean) => patch({ showToolbarLabels }),
+    [patch],
+  );
   const setNumberFormat = useCallback(
     (numberFormat: NumberFormatMode) => patch({ numberFormat }),
     [patch],
@@ -294,6 +308,7 @@ export function usePlanillaViewPrefs(tenantId: string) {
     setDensity,
     setZoom,
     setShowChips,
+    setShowToolbarLabels,
     setNumberFormat,
     setFreeze,
     setNameW,
