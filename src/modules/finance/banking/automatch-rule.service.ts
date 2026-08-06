@@ -277,6 +277,26 @@ export function flowRowSuggestionFromEvaluation(
   };
 }
 
+/** Ítem de vista previa de regla (salida enriquecida para la UI). */
+export interface PreviewMatch {
+  id: string;
+  dateYmd: string;
+  amount: number;
+  description: string;
+  reference: string | null;
+  reconciliationStatus: string;
+}
+
+export interface PreviewRuleMatchesResult {
+  totalScanned: number;
+  wouldMatch: number;
+  totalClp: number;
+  unmatchedCount: number;
+  alreadyMatchedCount: number;
+  /** Coincidencias (cap 200), ordenadas por fecha desc. */
+  sample: PreviewMatch[];
+}
+
 /**
  * Cuenta cuántos movimientos en una ventana habría matcheado una regla
  * dada (sin guardar nada). Sirve para el botón "Probar regla" de la UI.
@@ -286,8 +306,8 @@ export async function previewRuleMatches(
   bankAccountId: string | null,
   scope: FinanceAutoMatchScope,
   conditions: RuleConditions,
-  daysBack: number = 30
-): Promise<{ totalScanned: number; wouldMatch: number; sample: AutoMatchTx[] }> {
+  daysBack: number = 30,
+): Promise<PreviewRuleMatchesResult> {
   const since = new Date();
   since.setDate(since.getDate() - daysBack);
 
@@ -299,33 +319,65 @@ export async function previewRuleMatches(
       transactionDate: { gte: since },
     },
     select: {
+      id: true,
+      transactionDate: true,
       amount: true,
       description: true,
       reference: true,
+      reconciliationStatus: true,
     },
+    orderBy: { transactionDate: "desc" },
     take: 5000, // safety cap
   });
 
-  const matchingTxs: AutoMatchTx[] = [];
+  const matching: PreviewMatch[] = [];
+  let totalClp = 0;
+  let unmatchedCount = 0;
+  let alreadyMatchedCount = 0;
+
   for (const tx of txs) {
+    const amount = tx.amount.toNumber();
     const txData: AutoMatchTx = {
-      amount: tx.amount.toNumber(),
+      amount,
       description: tx.description,
       reference: tx.reference,
     };
-    if (!ruleScopeMatches(scope, txData.amount)) continue;
+    if (!ruleScopeMatches(scope, amount)) continue;
     const results = conditions.items.map((c) => evaluateCondition(c, txData));
     const matches =
       conditions.mode === "ALL"
         ? results.every((b) => b)
         : results.some((b) => b);
-    if (matches) matchingTxs.push(txData);
+    if (!matches) continue;
+
+    const dateYmd =
+      tx.transactionDate instanceof Date
+        ? tx.transactionDate.toISOString().slice(0, 10)
+        : String(tx.transactionDate).slice(0, 10);
+
+    matching.push({
+      id: tx.id,
+      dateYmd,
+      amount,
+      description: tx.description,
+      reference: tx.reference,
+      reconciliationStatus: tx.reconciliationStatus,
+    });
+    totalClp += Math.abs(amount);
+    if (tx.reconciliationStatus === "UNMATCHED") {
+      unmatchedCount++;
+    } else {
+      alreadyMatchedCount++;
+    }
   }
 
   return {
     totalScanned: txs.length,
-    wouldMatch: matchingTxs.length,
-    sample: matchingTxs.slice(0, 10),
+    wouldMatch: matching.length,
+    totalClp,
+    unmatchedCount,
+    alreadyMatchedCount,
+    sample: matching.slice(0, 200),
   };
 }
 
