@@ -1,3 +1,5 @@
+// v18 (2026-08-06): precache /app-boot.html (arranque nativo instantáneo).
+//   Excepción explícita en purgeCachedNavigations — es HTML estático sin auth.
 // v17 (2026-07-27): /productividad en ERP_APP_PREFIXES (HTML auth no cacheable).
 // v16 (2026-07-27): navigationPreload + clients.claim en waitUntil.
 // Acelera el arranque PWA: la petición de navegación arranca en paralelo
@@ -5,7 +7,7 @@
 //
 // v15 (2026-07-27): fix PWA iPhone ERP — pantalla negra→blanca al abrir.
 // v14–v6: ver historial git.
-const CACHE_NAME = 'opai-v17';
+const CACHE_NAME = 'opai-v18';
 
 // Prefijos de la app ERP autenticada. Cachear su HTML en el SW es peligroso:
 // tras un deploy, el shell apunta a chunks ya borrados y iOS PWA queda en
@@ -47,8 +49,12 @@ function purgeCachedNavigations(cache) {
           try {
             const u = new URL(r.url);
             if (u.origin !== self.location.origin) return false;
-            // Conservar offline.html y el contexto de push.
-            if (u.pathname === OFFLINE_URL || u.pathname === '/_push-context') {
+            // Conservar offline.html, app-boot (arranque estático) y push context.
+            if (
+              u.pathname === OFFLINE_URL ||
+              u.pathname === '/app-boot.html' ||
+              u.pathname === '/_push-context'
+            ) {
               return false;
             }
             const accept = r.headers.get('Accept') || '';
@@ -95,6 +101,7 @@ const AUTH_BYPASS_PATTERNS = [
 const OFFLINE_URL = '/offline.html';
 
 const PRECACHE_URLS = [
+  '/app-boot.html',
   '/portal/cliente',
   '/portal/guardia',
   '/portal/rondas',
