@@ -6825,6 +6825,7 @@ model FinanceAccountPlan {
   bankTxLinks              FinanceBankTransactionLink[]     @relation("BankTxLinkAccountPlan")
   cashflowCategories       FinanceCashflowCategory[]
   cashflowCategoryAccounts FinanceCashflowCategoryAccount[] @relation("CashflowCategoryAccountMap")
+  flowRowAccounts          FinanceFlowRowAccount[]          @relation("FlowRowAccountMap")
 
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
@@ -8990,12 +8991,36 @@ enum FlowSection {
 enum FlowRowMapping {
   /// Fila de ingreso mapeada a cuenta CRM + instalación (derivadores DTE/programación).
   ACCOUNT_INSTALLATION
-  /// Fila de egreso mapeada a FinanceCashflowCategory (real/comprometido por categoría).
+  /// @deprecated Preferir ACCOUNTS. Fila de egreso mapeada a FinanceCashflowCategory.
   CATEGORY
+  /// Fila de egreso con cuentas contables propias (FinanceFlowRowAccount).
+  ACCOUNTS
   /// Fila mapeada a FinanceSupplier.
   SUPPLIER
-  /// Fila manual: solo plan del usuario + hitos por nombre canónico (payroll/F29).
+  /// Fila manual: solo plan del usuario + hitos por llave canónica (payroll/F29).
   MANUAL
+
+  @@schema("finance")
+}
+
+/// Llave canónica del renglón para orígenes que no traen cuenta contable
+/// (payroll, F29, factoring, bandejas, retiros). Única por tenant entre
+/// renglones no archivados (índice parcial en SQL).
+enum FlowRowKey {
+  BANDEJA_INGRESO
+  BANDEJA_EGRESO
+  SUELDO
+  QUINCENA
+  PREVIRED
+  TURNO_EXTRA
+  FINIQUITO
+  IVA_F29
+  OTRO_IMPUESTO
+  FACTORING
+  RETIRO_SOCIO
+  DEVOL_PRESTAMO_SOCIO
+  APORTE_SOCIO
+  CREDITO
 
   @@schema("finance")
 }
@@ -9012,9 +9037,12 @@ model FinanceFlowRow {
   /// Programación de facturación (1 fila = 1 template). Null en filas
   /// genéricas de cuenta (facturas one-shot) o egresos.
   recurringTemplateId String?   @map("recurring_template_id") @db.Uuid
-  /// Reutiliza FinanceCashflowCategory para egresos (sin FK dura: la categoría
-  /// pertenece al módulo viejo que se retirará; validación a nivel servicio).
+  /// @deprecated Preferir accountMappings + canonicalKey. Conservada para
+  /// espejo hacia el módulo legacy (Hub / occurrences / proyección).
   categoryId     String?        @map("category_id") @db.Uuid
+  /// Llave semántica que rutea payroll/F29/factoring/bandejas. Única por
+  /// tenant entre filas activas (índice parcial uq_flow_row_canonical_key).
+  canonicalKey   FlowRowKey?    @map("canonical_key")
   supplierId     String?        @map("supplier_id") @db.Uuid
   /// Fila dada de baja (cuenta cerrada). No se borra: el histórico de plan
   /// queda y el matrix la incluye solo si tiene movimiento en la ventana.
@@ -9025,11 +9053,33 @@ model FinanceFlowRow {
   planCells       FinanceFlowPlanCell[]
   planRecurrences FinanceFlowPlanRecurrence[]
   cellNotes       FinanceFlowCellNote[]
+  accountMappings FinanceFlowRowAccount[]
 
   @@index([tenantId, section, orderIndex], map: "idx_finance_flow_row_tenant_section")
   @@index([tenantId, crmAccountId, installationId], map: "idx_finance_flow_row_account_inst")
   @@index([tenantId, recurringTemplateId], map: "idx_finance_flow_row_tenant_template")
   @@map("finance_flow_rows")
+  @@schema("finance")
+}
+
+/// N:M entre renglón de planilla y cuenta del plan de cuentas.
+/// isPrimary: cuenta usada al contabilizar desde el renglón (1 por renglón).
+/// isDefaultTarget: renglón que recibe un movimiento cuando la cuenta no tiene
+/// origen más específico (1 por tenant+accountPlanId).
+model FinanceFlowRowAccount {
+  id              String             @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  tenantId        String             @map("tenant_id")
+  rowId           String             @map("row_id") @db.Uuid
+  row             FinanceFlowRow     @relation(fields: [rowId], references: [id], onDelete: Cascade)
+  accountPlanId   String             @map("account_plan_id") @db.Uuid
+  accountPlan     FinanceAccountPlan @relation("FlowRowAccountMap", fields: [accountPlanId], references: [id], onDelete: Cascade)
+  isPrimary       Boolean            @default(false) @map("is_primary")
+  isDefaultTarget Boolean            @default(false) @map("is_default_target")
+  createdAt       DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@unique([rowId, accountPlanId], map: "uq_flow_row_account")
+  @@index([tenantId, accountPlanId], map: "idx_flow_row_account_tenant_account")
+  @@map("finance_flow_row_accounts")
   @@schema("finance")
 }
 
