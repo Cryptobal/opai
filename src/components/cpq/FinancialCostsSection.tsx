@@ -380,12 +380,12 @@ export function FinancialCostsSection({
         </div>
         <p className="text-[12px] leading-snug text-ds-text-3">
           Cubre <strong className="font-medium text-ds-text-2">daños a terceros</strong> por acción u
-          omisión del personal. El monto asegurado se toma de Condiciones y es el mismo que declara el
+          omisión del personal. El monto asegurado se edita aquí y es el mismo que declara el
           contrato.
         </p>
         <DraftField
           label="Monto asegurado"
-          tooltip="Cobertura máxima exigida por las bases. Se edita en Condiciones → Póliza RC y alimenta la cláusula del contrato. — Un solo dato, dos usos: costo aquí, texto en el contrato."
+          tooltip="Cobertura máxima exigida por las bases. Se edita aquí (no en Condiciones) y alimenta la cláusula del contrato. — Un solo dato, dos usos: costo y texto contractual."
           disabled={isLocked}
           draftKey="insurancePolicyUF"
           value={value.insurancePolicyUF ?? 0}
