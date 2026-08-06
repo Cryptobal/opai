@@ -822,42 +822,35 @@ export async function createCrmStructureFromProposal(params: {
     }
   }
 
-  // Banda all-day de licitación (idempotente; también en deals reutilizados).
-  if (proposal.deal.isLicitacion && dealId) {
-    const { todayInChile } = await import("@/lib/dates-cl");
-    const pastDeadline =
-      proposal.deal.fechaLimite && proposal.deal.fechaLimite < todayInChile();
-    if (pastDeadline) {
-      agendaSync = { attempted: false, ok: false, skippedReason: "fecha_pasada" };
-    } else if (!proposal.deal.fechaLimite) {
-      agendaSync = { attempted: false, ok: false, skippedReason: "sin_fecha" };
-    } else {
+  // Cleanup: cancelar banda all-day legacy si existía. Los hitos (entrega,
+  // consultas, visita) ya se sincronizan como Agenda del negocio arriba.
+  if (dealId) {
+    try {
       const { syncLicitacionToCalendar } = await import("@/modules/agenda/agenda-sync");
-      try {
-        const sync = await syncLicitacionToCalendar(tenantId, dealId, "upsert", {
-          actorUserId: userId,
-        });
-        const syncStatus = sync.syncStatus;
-        agendaSync = {
-          attempted: true,
-          ok: syncStatus === "SYNCED",
-          syncStatus,
-          skippedReason:
-            syncStatus === "SYNCED"
-              ? undefined
-              : syncStatus === "PENDING"
-                ? "pendiente"
-                : "error",
-        };
-      } catch (e) {
-        console.error("[email-to-crm-structure] sync licitación:", e);
-        agendaSync = {
-          attempted: true,
-          ok: false,
-          syncStatus: "ERROR",
-          skippedReason: "error",
-        };
-      }
+      await syncLicitacionToCalendar(tenantId, dealId, "delete", {
+        actorUserId: userId,
+      });
+    } catch (e) {
+      console.warn("[email-to-crm-structure] cancel banda licitación legacy:", e);
+    }
+    const syncedMilestone = milestoneResults.find((m) => m.syncStatus === "SYNCED");
+    const pendingMilestone = milestoneResults.find((m) => m.syncStatus === "PENDING");
+    if (syncedMilestone) {
+      agendaSync = { attempted: true, ok: true, syncStatus: "SYNCED" };
+    } else if (pendingMilestone) {
+      agendaSync = {
+        attempted: true,
+        ok: false,
+        syncStatus: "PENDING",
+        skippedReason: "pendiente",
+      };
+    } else if (milestoneResults.length > 0) {
+      agendaSync = {
+        attempted: true,
+        ok: false,
+        syncStatus: "ERROR",
+        skippedReason: "error",
+      };
     }
   }
 

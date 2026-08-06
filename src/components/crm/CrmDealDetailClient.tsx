@@ -2409,8 +2409,9 @@ export function CrmDealDetailClient({
             <DealLicitacionCard
               dealId={deal.id}
               isLicitacion={licitacion.isLicitacion}
-              fechaEntrega={licitacion.fechaEntrega}
-              onUpdated={setLicitacion}
+              onUpdated={(next) =>
+                setLicitacion((prev) => ({ ...prev, isLicitacion: next.isLicitacion }))
+              }
             />
             <DealVisitasCard
               dealId={deal.id}

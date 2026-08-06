@@ -288,8 +288,7 @@ export async function createLeadFromExtraction(params: {
       });
       dealId = deal.id;
       for (const f of files) await attach(tenantId, userId, f, "deal", deal.id);
-      const { syncLicitacionToCalendar } = await import("@/modules/agenda/agenda-sync");
-      await syncLicitacionToCalendar(tenantId, deal.id).catch((e) => console.error("[email-to-lead] sync licitación:", e));
+      // La entrega se agenda como hito en Agenda del negocio (no banda all-day).
     } else {
       note = "Asociá el hilo a una cuenta para crear el negocio de licitación.";
     }
