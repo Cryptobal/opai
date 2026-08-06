@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>OPAI</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      background: #060a13;
+      color: #e2e8f0;
+      font-family: system-ui, -apple-system, sans-serif;
+    }
+    body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100%;
+      padding:
+        env(safe-area-inset-top, 0)
+        env(safe-area-inset-right, 0)
+        env(safe-area-inset-bottom, 0)
+        env(safe-area-inset-left, 0);
+      box-sizing: border-box;
+    }
+    .logo {
+      width: 120px;
+      max-width: 32vw;
+      height: auto;
+      display: block;
+    }
+    .spinner {
+      width: 28px;
+      height: 28px;
+      margin-top: 28px;
+      border: 2px solid rgba(20, 184, 166, 0.25);
+      border-top-color: #14b8a6;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .spinner { animation: none; border-top-color: #14b8a6; opacity: 0.7; }
+    }
+    .offline {
+      display: none;
+      margin-top: 24px;
+      text-align: center;
+      max-width: 280px;
+      padding: 0 16px;
+    }
+    .offline.visible { display: block; }
+    .offline p {
+      margin: 0 0 16px;
+      font-size: 14px;
+      line-height: 1.4;
+      color: rgba(226, 232, 240, 0.75);
+    }
+    .offline button {
+      appearance: none;
+      border: 1px solid rgba(20, 184, 166, 0.45);
+      background: rgba(20, 184, 166, 0.12);
+      color: #14b8a6;
+      border-radius: 10px;
+      padding: 12px 20px;
+      font-size: 14px;
+      min-height: 44px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <!-- Isotipo Opai (inline; sin request de red) -->
+  <svg class="logo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" aria-hidden="true" focusable="false">
+    <g transform="translate(55.0,60.0)">
+      <path d="M12,0 L68,0 C74.6,0 80,5.4 80,12 L80,78 C80,84.6 74.6,90 68,90 L12,90 C5.4,90 0,84.6 0,78 L0,12 C0,5.4 5.4,0 12,0 Z M22,16 L58,16 C62.4,16 66,19.6 66,24 L66,66 C66,70.4 62.4,74 58,74 L22,74 C17.6,74 14,70.4 14,66 L14,24 C14,19.6 17.6,16 22,16 Z" fill="#FFFFFF" fill-rule="evenodd"/>
+      <circle cx="88" cy="8" r="7" fill="#14B8A6"/>
+    </g>
+  </svg>
+  <div class="spinner" id="spinner" aria-hidden="true"></div>
+  <div class="offline" id="offline" role="status">
+    <p>Sin conexión — reintentando</p>
+    <button type="button" id="retry">Reintentar</button>
+  </div>
+  <script>
+(function () {
+  if (window.__opaiBootNavigated) return;
+  window.__opaiBootNavigated = false;
+
+  // Nombres exactos de src/lib/surface.ts
+  var SURFACE_COOKIE = 'opai-surface';
+  var PRODUCTIVIDAD_LANDING_COOKIE = 'opai-prod-landing';
+  var PRODUCTIVIDAD_HOME = '/productividad/inicio';
+  var LANDING_HREFS = [
+    '/productividad/inicio',
+    '/crm/correos',
+    '/opai/tareas',
+    '/opai/agenda',
+  ];
+
+  // Allowlist estricta (brief §10 Bloque 2.2c)
+  var ALLOWED = /^\/(opai\/login|hub|productividad(\/|$)|portal\/(terreno|cliente|personas|guardia|rondas|acceso)(\/|$))/;
+
+  function readCookie(name) {
+    var parts = (';.cookie || '').split(';');
+    for (var i = 0; i < parts.length; i++) {
+      var p = parts[i].trim();
+      if (p.indexOf(name + '=') === 0) {
+        return decodeURIComponent(p.slice(name.length + 1));
+      }
+    }
+    return null;
+  }
+
+  function sanitizePath(raw) {
+    if (!raw || typeof raw !== 'string') return null;
+    var path = raw;
+    try {
+      path = decodeURIComponent(raw);
+    } catch (e) {
+      return null;
+    }
+    path = path.trim();
+    if (!path) return null;
+    var lower = path.toLowerCase();
+    if (lower.indexOf('javascript:') === 0) return null;
+    if (path.indexOf('://') !== -1) return null;
+    if (path.charAt(0) !== '/') return null;
+    if (path.indexOf('//') === 0) return null;
+    if (path.indexOf('/\\') === 0) return null;
+    if (path.indexOf('\\') !== -1) return null;
+    var pathname = path.split('?')[0].split('#')[0];
+    if (!pathname || !ALLOWED.test(pathname)) return null;
+    return pathname;
+  }
+
+  function resolveDestination() {
+    var landingRaw = readCookie(PRODUCTIVIDAD_LANDING_COOKIE);
+    if (landingRaw && LANDING_HREFS.indexOf(landingRaw) !== -1) {
+      return PRODUCTIVIDAD_HOME;
+    }
+    var landingAllowed = sanitizePath(landingRaw);
+    if (landingAllowed && landingAllowed.indexOf('/productividad') === 0) {
+      return landingAllowed;
+    }
+
+    var surface = readCookie(SURFACE_COOKIE);
+    if (surface === 'erp') {
+      return '/hub';
+    }
+    if (surface === 'productividad') {
+      return PRODUCTIVIDAD_HOME;
+    }
+
+    var params = new URLSearchParams(window.location.search);
+    var to = sanitizePath(params.get('to'));
+    if (to) return to;
+
+    return '/opai/login';
+  }
+
+  function go(dest) {
+    if (window.__opaiBootNavigated) return;
+    window.__opaiBootNavigated = true;
+    try {
+      location.replace(dest);
+    } catch (e) {
+      window.__opaiBootNavigated = false;
+    }
+  }
+
+  go(resolveDestination());
+
+  // Offline / navegación fallida: marcar y ofrecer reintento (no ocultar splash nativo).
+  setTimeout(function () {
+    if (window.__opaiBootNavigated && document.visibilityState === 'hidden') return;
+    var offline = document.getElementById('offline');
+    var spinner = document.getElementById('spinner');
+    if (offline) offline.classList.add('visible');
+    if (spinner) spinner.style.display = 'none';
+  }, 12000);
+
+  var retry = document.getElementById('retry');
+  if (retry) {
+    retry.addEventListener('click', function () {
+      window.__opaiBootNavigated = false;
+      go(resolveDestination());
+    });
+  }
+})();
+  </script>
+</body>
+</html>

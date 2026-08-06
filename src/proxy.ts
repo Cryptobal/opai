@@ -417,6 +417,6 @@ export default auth(async (req) => {
 
 export const config = {
   matcher: [
-    '/((?!_next/static|_next/image|favicon\\.ico|sw\\.js|workbox-.*\\.js|.*manifest.*\\.json|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)',
+    '/((?!_next/static|_next/image|favicon\\.ico|sw\\.js|app-boot\\.html|workbox-.*\\.js|.*manifest.*\\.json|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)',
   ],
 };

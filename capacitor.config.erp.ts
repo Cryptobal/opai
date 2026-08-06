@@ -25,7 +25,7 @@ const config: CapacitorConfig = {
   webDir: "out",
   backgroundColor: "#060a13",
   server: {
-    url: "https://www.opai.cl/opai/login",
+    url: "https://www.opai.cl/app-boot.html?to=/opai/login",
     allowNavigation: [
       "www.opai.cl",
       "opai.gard.cl",
