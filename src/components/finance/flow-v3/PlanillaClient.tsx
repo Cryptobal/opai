@@ -522,7 +522,6 @@ export function PlanillaClient({
         onAlignV={(a) => applyStyle({ valign: a })}
         onNumberFormat={view.setNumberFormat}
         onClearFormat={clearFormat}
-        onAdd={() => openAddDialog()}
         onCloseWeek={() => setCloseOpen(true)}
         onExpand={() => collapseApiRef.current?.expandAll()}
         onCollapse={() => collapseApiRef.current?.collapseAll()}
@@ -537,6 +536,10 @@ export function PlanillaClient({
         granularity={m.granularity}
         showZeros={showZeros}
         showChips={view.prefs.showChips}
+        showToolbarLabels={view.prefs.showToolbarLabels}
+        onToggleToolbarLabels={() =>
+          view.setShowToolbarLabels(!view.prefs.showToolbarLabels)
+        }
         theme={view.prefs.theme}
         zoom={view.prefs.zoom}
         numberFormat={view.prefs.numberFormat}
@@ -572,7 +575,6 @@ export function PlanillaClient({
         onExportXlsx={() => void doExportXlsx()}
         onExportCsv={doExportCsv}
         onPrint={printPlanilla}
-        onAdd={() => openAddDialog()}
         onCloseWeek={() => setCloseOpen(true)}
         onLegend={() => setLegendOpen(true)}
         egresosPendientesCount={egresosPendientesCount}

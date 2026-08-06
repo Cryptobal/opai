@@ -4,7 +4,7 @@ import { useState, type ReactNode } from "react";
 import {
   AlignCenter, AlignLeft, AlignRight, Bold, ChevronLeft, ChevronRight,
   ChevronsDownUp, ChevronsUpDown, Download, Inbox, Info, Lock, MoreHorizontal,
-  PaintBucket, Plus, Redo2, Search, Snowflake, Type, Undo2, ZoomIn,
+  PaintBucket, Redo2, Search, Snowflake, Tags, Type, Undo2, ZoomIn,
 } from "lucide-react";
 import { toast } from "sonner";
 import { SegmentedControl } from "@/components/opai-ds";
@@ -35,6 +35,9 @@ interface Props {
   granularity: "week" | "month";
   showZeros: boolean;
   showChips: boolean;
+  /** Preferencia: mostrar labels junto a iconos de la barra de contexto. */
+  showToolbarLabels: boolean;
+  onToggleToolbarLabels: () => void;
   theme: PlanillaTheme;
   zoom: number;
   numberFormat: NumberFormatMode;
@@ -65,7 +68,6 @@ interface Props {
   onExportXlsx: () => void;
   onExportCsv: () => void;
   onPrint: () => void;
-  onAdd: () => void;
   onCloseWeek: () => void;
   onLegend: () => void;
   /** Movimientos REAL pendientes en bandeja GAV. */
@@ -110,16 +112,31 @@ function ColorSwatch({
   );
 }
 
+function Tip({
+  label, children,
+}: {
+  label: string;
+  children: ReactNode;
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{children}</TooltipTrigger>
+      <TooltipContent side="bottom">{label}</TooltipContent>
+    </Tooltip>
+  );
+}
+
 /**
  * Chrome de planilla en 2 capas:
- * 1) Contexto (nav, granularidad, vista, CTA, overflow)
+ * 1) Contexto (nav, granularidad, vista, acciones frecuentes, overflow)
  * 2) Edición (solo desktop: formato / zoom / búsqueda)
- * En <lg el overflow va a un sheet táctil; no se satura la fila.
+ * Densidad por defecto tipo móvil (solo iconos); labels opcionales vía preferencia.
  */
 export function PlanillaToolbar(p: Props) {
   const [moreOpen, setMoreOpen] = useState(false);
   const egresosPendientes = p.egresosPendientesCount ?? 0;
   const classifyDisabled = egresosPendientes <= 0 || !p.onClassifyEgresos;
+  const labels = p.showToolbarLabels;
 
   const needSel = (fn: () => void) => {
     if (!p.hasSelection) {
@@ -134,21 +151,22 @@ export function PlanillaToolbar(p: Props) {
     setMoreOpen(false);
   };
 
+  const classifyLabel =
+    egresosPendientes > 0
+      ? `Clasificar egresos · ${egresosPendientes} sin clasificar`
+      : "Clasificar egresos · no hay pendientes";
+
   const classifyButton = (
     <Button
       variant="outline"
       size="sm"
-      className={`${btn} shrink-0 sm:px-2.5`}
+      className={`${btn} shrink-0 ${labels ? "sm:px-2.5" : ""}`}
       onClick={p.onClassifyEgresos}
       disabled={classifyDisabled}
-      aria-label={
-        egresosPendientes > 0
-          ? `Clasificar egresos · ${egresosPendientes} sin clasificar`
-          : "Clasificar egresos · no hay pendientes"
-      }
+      aria-label={classifyLabel}
     >
       <Inbox className={icon} />
-      <span className="ml-1 hidden sm:inline">Clasificar egresos</span>
+      {labels && <span className="ml-1">Clasificar</span>}
       {egresosPendientes > 0 && (
         <span className="ml-1 inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-status-warn-soft px-1.5 text-[12px] font-medium tabular-nums text-status-warn-fg">
           {egresosPendientes}
@@ -157,178 +175,232 @@ export function PlanillaToolbar(p: Props) {
     </Button>
   );
 
+  const chipsLabel = p.showChips ? "Ocultar chips" : "Mostrar chips";
+  const closeWeekLabel = "Cerrar semana";
+  const legendLabel = "Leyenda de colores";
+
   return (
     <div className="planilla-chrome-print-hide mb-1 flex flex-col gap-1 text-ds-text-1">
       {/* ── Fila contexto ── */}
-      <div
-        className="flex h-11 items-center gap-1 overflow-x-auto rounded-2xl border border-ds-border-default bg-ds-surface-2 px-1.5 scrollbar-none lg:h-9 lg:gap-1.5 lg:overflow-visible lg:rounded-full lg:px-2"
-        role="toolbar"
-        aria-label="Contexto de la planilla"
-      >
-        <div className="flex shrink-0 items-center gap-0.5">
-          <Button
-            variant="ghost"
-            size="sm"
-            className={btn}
-            onClick={() => p.onNav(-1)}
-            aria-label="Semanas anteriores"
-          >
-            <ChevronLeft className={icon} />
-          </Button>
-          <Button variant="outline" size="sm" className={txt} onClick={p.onToday}>
-            Hoy
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            className={btn}
-            onClick={() => p.onNav(1)}
-            aria-label="Semanas siguientes"
-          >
-            <ChevronRight className={icon} />
-          </Button>
-        </div>
+      <TooltipProvider delayDuration={200}>
+        <div
+          className="flex h-11 items-center gap-1 overflow-x-auto rounded-2xl border border-ds-border-default bg-ds-surface-2 px-1.5 scrollbar-none lg:h-9 lg:gap-1.5 lg:overflow-visible lg:rounded-full lg:px-2"
+          role="toolbar"
+          aria-label="Contexto de la planilla"
+        >
+          <div className="flex shrink-0 items-center gap-0.5">
+            <Tip label="Semanas anteriores">
+              <Button
+                variant="ghost"
+                size="sm"
+                className={btn}
+                onClick={() => p.onNav(-1)}
+                aria-label="Semanas anteriores"
+              >
+                <ChevronLeft className={icon} />
+              </Button>
+            </Tip>
+            <Button variant="outline" size="sm" className={txt} onClick={p.onToday}>
+              Hoy
+            </Button>
+            <Tip label="Semanas siguientes">
+              <Button
+                variant="ghost"
+                size="sm"
+                className={btn}
+                onClick={() => p.onNav(1)}
+                aria-label="Semanas siguientes"
+              >
+                <ChevronRight className={icon} />
+              </Button>
+            </Tip>
+          </div>
 
-        <span className={sep} aria-hidden />
+          <span className={sep} aria-hidden />
 
-        {/* Labels cortos en móvil para no saturar 375px */}
-        <div className="shrink-0 lg:hidden">
-          <SegmentedControl
-            size="xs"
-            ariaLabel="Granularidad"
-            value={p.granularity}
-            onChange={p.onGranularity}
-            items={[
-              { id: "week", label: "Sem" },
-              { id: "month", label: "Mes" },
-            ]}
-          />
-        </div>
-        <div className="hidden shrink-0 lg:block">
-          <SegmentedControl
-            size="xs"
-            ariaLabel="Granularidad"
-            value={p.granularity}
-            onChange={p.onGranularity}
-            items={[
-              { id: "week", label: "Semanas" },
-              { id: "month", label: "Meses" },
-            ]}
-          />
-        </div>
-
-        {p.onViewTab && (
-          <>
-            <span className={sep} aria-hidden />
+          {/* Labels cortos en móvil / densos; largos en desktop con labels on */}
+          <div className="shrink-0 lg:hidden">
             <SegmentedControl
               size="xs"
-              ariaLabel="Vista"
-              className="shrink-0"
-              value={p.viewTab ?? "planilla"}
-              onChange={p.onViewTab}
+              ariaLabel="Granularidad"
+              value={p.granularity}
+              onChange={p.onGranularity}
               items={[
-                { id: "planilla", label: "Planilla" },
-                { id: "panel", label: "Panel" },
+                { id: "week", label: "Sem" },
+                { id: "month", label: "Mes" },
               ]}
             />
-          </>
-        )}
+          </div>
+          <div className="hidden shrink-0 lg:block">
+            <SegmentedControl
+              size="xs"
+              ariaLabel="Granularidad"
+              value={p.granularity}
+              onChange={p.onGranularity}
+              items={[
+                { id: "week", label: labels ? "Semanas" : "Sem" },
+                { id: "month", label: labels ? "Meses" : "Mes" },
+              ]}
+            />
+          </div>
 
-        <div className="min-w-1 flex-1" />
+          {p.onViewTab && (
+            <>
+              <span className={sep} aria-hidden />
+              <SegmentedControl
+                size="xs"
+                ariaLabel="Vista"
+                className="shrink-0"
+                value={p.viewTab ?? "planilla"}
+                onChange={p.onViewTab}
+                items={[
+                  { id: "planilla", label: "Planilla" },
+                  { id: "panel", label: "Panel" },
+                ]}
+              />
+            </>
+          )}
 
-        {p.onClassifyEgresos && (
-          classifyDisabled ? (
-            <TooltipProvider delayDuration={200}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span className="inline-flex shrink-0">{classifyButton}</span>
-                </TooltipTrigger>
-                <TooltipContent side="bottom">
-                  No hay egresos sin clasificar
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          ) : (
-            classifyButton
-          )
-        )}
+          <span className={sep} aria-hidden />
 
-        {p.canManage && (
-          <Button
-            size="sm"
-            className={`${btn} shrink-0 lg:px-2.5`}
-            onClick={p.onAdd}
-            aria-label="Agregar concepto"
-          >
-            <Plus className={icon} />
-            <span className="ml-1 hidden md:inline">Agregar concepto</span>
-          </Button>
-        )}
+          <div className="flex shrink-0 items-center gap-0.5">
+            <Tip label="Expandir grupos">
+              <Button
+                variant="ghost"
+                size="sm"
+                className={btn}
+                onClick={p.onExpandGroups}
+                aria-label="Expandir grupos"
+              >
+                <ChevronsUpDown className={icon} />
+                {labels && <span className="ml-1 hidden sm:inline">Expandir</span>}
+              </Button>
+            </Tip>
+            <Tip label="Contraer grupos">
+              <Button
+                variant="ghost"
+                size="sm"
+                className={btn}
+                onClick={p.onCollapseGroups}
+                aria-label="Contraer grupos"
+              >
+                <ChevronsDownUp className={icon} />
+                {labels && <span className="ml-1 hidden sm:inline">Contraer</span>}
+              </Button>
+            </Tip>
+          </div>
 
-        {/* Desktop: menú overflow */}
-        <DropdownMenu modal={false}>
-          <DropdownMenuTrigger asChild>
+          <div className="min-w-1 flex-1" />
+
+          {p.onClassifyEgresos && (
+            classifyDisabled ? (
+              <Tip label="No hay egresos sin clasificar">
+                <span className="inline-flex shrink-0">{classifyButton}</span>
+              </Tip>
+            ) : (
+              <Tip label={classifyLabel}>
+                <span className="inline-flex shrink-0">{classifyButton}</span>
+              </Tip>
+            )
+          )}
+
+          <Tip label={chipsLabel}>
+            <Button
+              variant={p.showChips ? "default" : "outline"}
+              size="sm"
+              className={`${btn} shrink-0 ${labels ? "sm:px-2.5" : ""}`}
+              onClick={p.onToggleChips}
+              aria-label={chipsLabel}
+              aria-pressed={p.showChips}
+            >
+              <Tags className={icon} />
+              {labels && <span className="ml-1">Chips</span>}
+            </Button>
+          </Tip>
+
+          {p.canManage && (
+            <Tip label={closeWeekLabel}>
+              <Button
+                variant="outline"
+                size="sm"
+                className={`${btn} shrink-0 ${labels ? "sm:px-2.5" : ""}`}
+                onClick={p.onCloseWeek}
+                aria-label={closeWeekLabel}
+              >
+                <Lock className={icon} />
+                {labels && <span className="ml-1">Cerrar</span>}
+              </Button>
+            </Tip>
+          )}
+
+          <Tip label={legendLabel}>
             <Button
               variant="outline"
               size="sm"
-              className={`${btn} hidden lg:inline-flex`}
+              className={`${btn} shrink-0 ${labels ? "sm:px-2.5" : ""}`}
+              onClick={p.onLegend}
+              aria-label={legendLabel}
+            >
+              <Info className={icon} />
+              {labels && <span className="ml-1">Leyenda</span>}
+            </Button>
+          </Tip>
+
+          {/* Desktop: menú overflow */}
+          <DropdownMenu modal={false}>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                className={`${btn} hidden lg:inline-flex ${labels ? "lg:px-2.5" : ""}`}
+                aria-label="Más herramientas"
+                title="Más herramientas"
+              >
+                <MoreHorizontal className={icon} />
+                {labels && <span className="ml-1 text-xs">Más</span>}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="min-w-[220px]">
+              <DropdownMenuItem onSelect={p.onToggleToolbarLabels}>
+                {labels ? "Ocultar textos de barra" : "Mostrar textos de barra"}
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onSelect={p.onToggleZeros}>
+                {p.showZeros ? "Ocultar ceros" : "Mostrar ceros"}
+              </DropdownMenuItem>
+              {p.onToggleSumMode && (
+                <DropdownMenuItem onSelect={p.onToggleSumMode}>
+                  {p.sumMode ? "Salir de modo Σ" : "Modo Σ (suma)"}
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onSelect={p.onToggleTheme}>
+                {p.theme === "paper" ? "Hoja noche" : "Hoja papel"}
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={p.onToggleFreeze}>
+                {p.freeze ? "Desinmovilizar" : "Inmovilizar columnas"}
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onSelect={p.onExportXlsx}>Exportar Excel…</DropdownMenuItem>
+              <DropdownMenuItem onSelect={p.onExportCsv}>Exportar CSV…</DropdownMenuItem>
+              <DropdownMenuItem onSelect={p.onPrint}>Imprimir…</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {/* Móvil: sheet overflow */}
+          <Tip label="Más herramientas">
+            <Button
+              variant="outline"
+              size="sm"
+              className={`${btn} lg:hidden`}
+              onClick={() => setMoreOpen(true)}
               aria-label="Más herramientas"
-              title="Más herramientas"
             >
               <MoreHorizontal className={icon} />
-              <span className="ml-1 text-xs">Más</span>
             </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="min-w-[220px]">
-            <DropdownMenuItem onSelect={p.onToggleZeros}>
-              {p.showZeros ? "Ocultar ceros" : "Mostrar ceros"}
-            </DropdownMenuItem>
-            <DropdownMenuItem onSelect={p.onToggleChips}>
-              {p.showChips ? "Ocultar chips" : "Mostrar chips"}
-            </DropdownMenuItem>
-            {p.onToggleSumMode && (
-              <DropdownMenuItem onSelect={p.onToggleSumMode}>
-                {p.sumMode ? "Salir de modo Σ" : "Modo Σ (suma)"}
-              </DropdownMenuItem>
-            )}
-            <DropdownMenuSeparator />
-            {p.canManage && (
-              <DropdownMenuItem onSelect={p.onCloseWeek}>
-                <Lock className="mr-2 h-3.5 w-3.5" />
-                Cerrar semana…
-              </DropdownMenuItem>
-            )}
-            <DropdownMenuItem onSelect={p.onToggleTheme}>
-              {p.theme === "paper" ? "Hoja noche" : "Hoja papel"}
-            </DropdownMenuItem>
-            <DropdownMenuItem onSelect={p.onToggleFreeze}>
-              {p.freeze ? "Desinmovilizar" : "Inmovilizar columnas"}
-            </DropdownMenuItem>
-            <DropdownMenuItem onSelect={p.onExpandGroups}>Expandir grupos</DropdownMenuItem>
-            <DropdownMenuItem onSelect={p.onCollapseGroups}>Contraer grupos</DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onSelect={p.onExportXlsx}>Exportar Excel…</DropdownMenuItem>
-            <DropdownMenuItem onSelect={p.onExportCsv}>Exportar CSV…</DropdownMenuItem>
-            <DropdownMenuItem onSelect={p.onPrint}>Imprimir…</DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onSelect={p.onLegend}>
-              <Info className="mr-2 h-3.5 w-3.5" />
-              Leyenda de colores
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-
-        {/* Móvil: sheet overflow */}
-        <Button
-          variant="outline"
-          size="sm"
-          className={`${btn} lg:hidden`}
-          onClick={() => setMoreOpen(true)}
-          aria-label="Más herramientas"
-        >
-          <MoreHorizontal className={icon} />
-        </Button>
-      </div>
+          </Tip>
+        </div>
+      </TooltipProvider>
 
       {/* ── Fila edición (solo desktop) ── */}
       <div
@@ -455,12 +527,6 @@ export function PlanillaToolbar(p: Props) {
         >
           <Snowflake className={icon} />
         </Button>
-        <Button variant="ghost" size="sm" className={btn} onClick={p.onExpandGroups} aria-label="Expandir grupos" title="Expandir grupos">
-          <ChevronsUpDown className={icon} />
-        </Button>
-        <Button variant="ghost" size="sm" className={btn} onClick={p.onCollapseGroups} aria-label="Contraer grupos" title="Contraer grupos">
-          <ChevronsDownUp className={icon} />
-        </Button>
         <Button
           variant={p.searchOpen ? "default" : "ghost"}
           size="sm"
@@ -495,6 +561,17 @@ export function PlanillaToolbar(p: Props) {
 
           <div className="space-y-4">
             <section>
+              <p className="mb-2 text-ds-caption font-medium uppercase tracking-wide text-ds-text-3">Barra</p>
+              <div className="grid grid-cols-2 gap-2">
+                <SheetAction
+                  label={labels ? "Ocultar textos" : "Mostrar textos"}
+                  onClick={closeMore(p.onToggleToolbarLabels)}
+                  active={labels}
+                />
+              </div>
+            </section>
+
+            <section>
               <p className="mb-2 text-ds-caption font-medium uppercase tracking-wide text-ds-text-3">Edición</p>
               <div className="grid grid-cols-3 gap-2">
                 <SheetAction label="Deshacer" onClick={closeMore(p.onUndo)} icon={<Undo2 className="h-4 w-4" />} />
@@ -526,11 +603,6 @@ export function PlanillaToolbar(p: Props) {
                   active={p.showZeros}
                 />
                 <SheetAction
-                  label={p.showChips ? "Ocultar chips" : "Mostrar chips"}
-                  onClick={closeMore(p.onToggleChips)}
-                  active={p.showChips}
-                />
-                <SheetAction
                   label={p.theme === "paper" ? "Hoja noche" : "Hoja papel"}
                   onClick={closeMore(p.onToggleTheme)}
                 />
@@ -540,8 +612,6 @@ export function PlanillaToolbar(p: Props) {
                   icon={<Snowflake className="h-4 w-4" />}
                   active={p.freeze}
                 />
-                <SheetAction label="Expandir grupos" onClick={closeMore(p.onExpandGroups)} icon={<ChevronsUpDown className="h-4 w-4" />} />
-                <SheetAction label="Contraer grupos" onClick={closeMore(p.onCollapseGroups)} icon={<ChevronsDownUp className="h-4 w-4" />} />
               </div>
             </section>
 
@@ -562,16 +632,8 @@ export function PlanillaToolbar(p: Props) {
             <section>
               <p className="mb-2 text-ds-caption font-medium uppercase tracking-wide text-ds-text-3">Datos</p>
               <div className="grid grid-cols-2 gap-2">
-                {p.canManage && (
-                  <SheetAction
-                    label="Cerrar semana"
-                    onClick={closeMore(p.onCloseWeek)}
-                    icon={<Lock className="h-4 w-4" />}
-                  />
-                )}
                 <SheetAction label="Excel" onClick={closeMore(p.onExportXlsx)} icon={<Download className="h-4 w-4" />} />
                 <SheetAction label="CSV" onClick={closeMore(p.onExportCsv)} icon={<Download className="h-4 w-4" />} />
-                <SheetAction label="Leyenda" onClick={closeMore(p.onLegend)} icon={<Info className="h-4 w-4" />} />
               </div>
             </section>
           </div>
@@ -593,7 +655,7 @@ function SheetAction({
     <button
       type="button"
       onClick={onClick}
-        className={`flex min-h-11 items-center justify-center gap-1.5 rounded-xl border px-3 py-2 text-ds-body transition-colors ${
+      className={`flex min-h-11 items-center justify-center gap-1.5 rounded-xl border px-3 py-2 text-ds-body transition-colors ${
         active
           ? "border-primary bg-primary text-primary-foreground"
           : "border-ds-border-default bg-ds-surface-1 text-ds-text-1 hover:bg-ds-surface-2"

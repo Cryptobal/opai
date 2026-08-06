@@ -34,7 +34,6 @@ interface Props {
   onAlignV: (a: "top" | "middle" | "bottom") => void;
   onNumberFormat: (m: NumberFormatMode) => void;
   onClearFormat: () => void;
-  onAdd: () => void;
   onCloseWeek: () => void;
   onExpand: () => void;
   onCollapse: () => void;
@@ -192,7 +191,6 @@ export function PlanillaMenubar(p: Props) {
               )}
               {m.key === "datos" && (
                 <>
-                  <Item label="Agregar concepto…" onClick={close(p.onAdd)} disabled={!p.canManage} />
                   <Item label="Cerrar semana…" onClick={close(p.onCloseWeek)} disabled={!p.canManage} />
                   {p.onClassifyEgresos && (
                     <Item
