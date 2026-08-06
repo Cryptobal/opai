@@ -38,6 +38,12 @@ export interface InlineEditFieldProps {
   placeholder?: string;
   required?: boolean;
   options?: { value: string; label: string }[];
+  /**
+   * Etiqueta de la opción vacía en un `select`. Default "—". Sirve cuando el
+   * valor nulo significa algo concreto (ej. "usa el contacto principal") y no
+   * simplemente "sin dato".
+   */
+  emptyLabel?: string;
   normalize?: (raw: string) => NormalizeResult;
   /** Display formatter for read mode (e.g. money). */
   displayValue?: (value: string | null) => string | null;
@@ -81,6 +87,7 @@ export function InlineEditField({
   placeholder = "—",
   required = false,
   options,
+  emptyLabel = "—",
   normalize = defaultNormalize,
   displayValue,
   confirm,
@@ -290,7 +297,7 @@ export function InlineEditField({
               error && "border-status-danger"
             )}
           >
-            <option value="">—</option>
+            <option value="">{emptyLabel}</option>
             {(options ?? []).map((o) => (
               <option key={o.value} value={o.value}>
                 {o.label}
@@ -374,6 +381,7 @@ export function InlineEditField({
         type={type}
         value={draft}
         options={options}
+        emptyLabel={emptyLabel}
         mono={mono}
         error={error}
         saving={phase === "saving"}

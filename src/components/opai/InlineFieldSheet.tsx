@@ -23,6 +23,8 @@ interface InlineFieldSheetProps {
   type: InlineFieldType;
   value: string;
   options?: { value: string; label: string }[];
+  /** Etiqueta de la opción vacía en un `select`. Default "—". */
+  emptyLabel?: string;
   mono?: boolean;
   error?: string | null;
   saving?: boolean;
@@ -37,6 +39,7 @@ export function InlineFieldSheet({
   type,
   value,
   options,
+  emptyLabel = "—",
   mono,
   error,
   saving,
@@ -101,7 +104,7 @@ export function InlineFieldSheet({
                 error && "border-status-danger"
               )}
             >
-              <option value="">—</option>
+              <option value="">{emptyLabel}</option>
               {(options ?? []).map((o) => (
                 <option key={o.value} value={o.value}>
                   {o.label}

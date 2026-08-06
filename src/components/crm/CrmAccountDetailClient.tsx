@@ -85,6 +85,10 @@ import {
   rutForApi,
   normalizeDateYmd,
 } from "@/lib/validations/field-normalizers";
+import {
+  describeCobranzaSource,
+  pickCobranzaRecipients,
+} from "@/modules/finance/billing/cobranza-recipients";
 
 const ACCOUNT_LOGO_MARKER_PREFIX = "[[ACCOUNT_LOGO_URL:";
 const ACCOUNT_LOGO_MARKER_SUFFIX = "]]";
@@ -128,6 +132,7 @@ type ContactRow = {
   phone?: string | null;
   roleTitle?: string | null;
   isPrimary?: boolean;
+  recibeCobranza?: boolean;
   recibeCesion?: boolean;
   portalEnabled?: boolean;
   portalPinVisible?: string | null;
@@ -236,6 +241,8 @@ type AccountDetail = {
   numeroOrdenContrato?: string | null;
   contactoEstadoPagoId?: string | null;
   layoutDocumentoCobro?: "DTE_PREVIEW" | "PROFORMA" | "ESTADO_DE_PAGO";
+  // ── Cobranza ──
+  contactoCobranzaId?: string | null;
   contacts: ContactRow[];
   deals: DealRow[];
   installations: InstallationRow[];
@@ -1650,6 +1657,72 @@ export function CrmAccountDetailClient({
           }))
         }
       />
+
+      {/* ── Cobranza ──
+          Quién recibe los recordatorios de pago de este cliente. Va aparte del
+          "Documento de cobro" a propósito: ese contacto firma el estado de pago
+          ANTES de emitir, y no siempre es la misma persona a la que después hay
+          que perseguir para que pague. Sin definir, la cobranza cae a los
+          contactos marcados "recibe cobranza" y luego al principal. */}
+      {(() => {
+        const effective = pickCobranzaRecipients({
+          contactoCobranzaId: account.contactoCobranzaId ?? null,
+          contacts: account.contacts,
+        });
+        const effectiveNames = effective.contacts
+          .map((c) => `${c.firstName ?? ""} ${c.lastName ?? ""}`.trim())
+          .filter(Boolean)
+          .join(", ");
+
+        return (
+          <div className="rounded-xl border border-border bg-card">
+            <div className="border-b border-border/50 px-4 py-2">
+              <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">
+                Cobranza
+              </p>
+            </div>
+            <div className="grid grid-cols-1 gap-x-4 gap-y-2 p-4 sm:grid-cols-2">
+              <InlineEditField
+                label="Contacto de cobranza"
+                fieldKey="contactoCobranzaId"
+                type="select"
+                value={account.contactoCobranzaId ?? null}
+                canEdit={canEdit}
+                fullWidth
+                emptyLabel="Sin definir — usa el principal"
+                placeholder="Sin definir — usa el principal"
+                hint="Destinatario de los recordatorios de pago."
+                options={account.contacts.map((c) => ({
+                  value: c.id,
+                  label: [
+                    `${c.firstName} ${c.lastName}`.trim(),
+                    c.email ?? null,
+                    c.recibeCobranza
+                      ? "marcado cobranza"
+                      : c.isPrimary
+                        ? "principal"
+                        : null,
+                  ]
+                    .filter(Boolean)
+                    .join(" · "),
+                }))}
+                onCommit={commitAccountField}
+              />
+              <DetailField
+                label="A quién se le cobra hoy"
+                value={
+                  effective.source === "none"
+                    ? "Nadie — cargá un contacto en el cliente"
+                    : `${effectiveNames || "Contacto sin nombre"} — ${describeCobranzaSource(
+                        effective.source,
+                      ).toLowerCase()}`
+                }
+                fullWidth
+              />
+            </div>
+          </div>
+        );
+      })()}
 
       {/* ── Metadata (colapsable) ── */}
       <details className="group rounded-xl border border-border bg-card">
