@@ -1947,13 +1947,22 @@ model CpqQuoteParameters {
   uniformChangesPerYear Int      @default(3) @map("uniform_changes_per_year")
   financialEnabled      Boolean  @default(false) @map("financial_enabled")
   financialRatePct      Decimal  @default(2.5) @map("financial_rate_pct") @db.Decimal(6, 4)
+  financialBaseMode     String   @default("auto") @map("financial_base_mode") @db.VarChar(10)
   salePriceBase         Decimal  @default(0) @map("sale_price_base") @db.Decimal(14, 2)
   salePriceMonthly      Decimal  @default(0) @map("sale_price_monthly") @db.Decimal(12, 2)
   policyEnabled         Boolean  @default(false) @map("policy_enabled")
-  policyRatePct         Decimal  @default(0) @map("policy_rate_pct") @db.Decimal(6, 4)
-  policyAdminRatePct    Decimal  @default(0) @map("policy_admin_rate_pct") @db.Decimal(6, 4)
+  policyAmountMode      String   @default("pct") @map("policy_amount_mode") @db.VarChar(10)
+  policyRatePct         Decimal  @default(2) @map("policy_rate_pct") @db.Decimal(6, 4)
+  policyAdminRatePct    Decimal  @default(0.2) @map("policy_admin_rate_pct") @db.Decimal(6, 4)
   policyContractMonths  Int      @default(12) @map("policy_contract_months")
-  policyContractPct     Decimal  @default(100) @map("policy_contract_pct") @db.Decimal(6, 2)
+  policyContractPct     Decimal  @default(10) @map("policy_contract_pct") @db.Decimal(6, 2)
+  policyFixedAmountUF   Decimal  @default(0) @map("policy_fixed_amount_uf") @db.Decimal(14, 2)
+  liabilityEnabled      Boolean  @default(false) @map("liability_enabled")
+  liabilityMode         String   @default("premium") @map("liability_mode") @db.VarChar(10)
+  liabilityRatePct      Decimal  @default(0.3) @map("liability_rate_pct") @db.Decimal(6, 4)
+  liabilityAnnualPremiumUF Decimal @default(0) @map("liability_annual_premium_uf") @db.Decimal(14, 2)
+  liabilityAllocationPct Decimal @default(100) @map("liability_allocation_pct") @db.Decimal(6, 2)
+  liabilityDeductibleUF Decimal  @default(0) @map("liability_deductible_uf") @db.Decimal(14, 2)
   contractMonths        Int      @default(12) @map("contract_months")
   contractAmount        Decimal  @default(0) @map("contract_amount") @db.Decimal(14, 2)
   marginPct             Decimal  @default(13) @map("margin_pct") @db.Decimal(6, 2)
@@ -2354,6 +2363,13 @@ model CrmAccount {
   /// activo de la cuenta o el receiverEmail del DTE.
   contactoEstadoPagoId String?               @map("contacto_estado_pago_id") @db.Uuid
   contactoEstadoPago   CrmContact?           @relation("AccountEstadoPagoContact", fields: [contactoEstadoPagoId], references: [id], onDelete: SetNull)
+  /// Contacto del cliente al que se dirige la COBRANZA (recordatorios de
+  /// pago de facturas ya emitidas). Distinto de `contactoEstadoPagoId`: quien
+  /// firma/recibe el documento de cobro antes de emitir no siempre es quien
+  /// paga. Si null, se resuelve por cascada: contactos con `recibeCobranza`
+  /// → contacto principal (`isPrimary`) → ninguno.
+  contactoCobranzaId   String?               @map("contacto_cobranza_id") @db.Uuid
+  contactoCobranza     CrmContact?           @relation("AccountCobranzaContact", fields: [contactoCobranzaId], references: [id], onDelete: SetNull)
   /// Layout de PDF preferido por este cliente al enviar documento de cobro.
   layoutDocumentoCobro BillingDocumentLayout @default(DTE_PREVIEW) @map("layout_documento_cobro")
   /// Default por-cliente: ¿enviar el aviso de cesión al deudor cuando se
@@ -2382,6 +2398,7 @@ model CrmAccount {
   @@index([tenantId, type], map: "idx_crm_accounts_type")
   @@index([createdAt(sort: Desc)], map: "idx_crm_accounts_created_desc")
   @@index([tenantId, contactoEstadoPagoId], map: "idx_crm_accounts_contacto_estado_pago")
+  @@index([tenantId, contactoCobranzaId], map: "idx_crm_accounts_contacto_cobranza")
   @@map("accounts")
   @@schema("crm")
 }
@@ -2577,6 +2594,7 @@ model CrmContact {
 
   account                       CrmAccount                     @relation(fields: [accountId], references: [id], onDelete: Cascade)
   accountsEstadoPago            CrmAccount[]                   @relation("AccountEstadoPagoContact")
+  accountsCobranza              CrmAccount[]                   @relation("AccountCobranzaContact")
   deals                         CrmDeal[]                      @relation("crm_deal_primary_contact")
   dealContacts                  CrmDealContact[]
   companyPresentations          CrmCompanyPresentation[]
@@ -7016,11 +7034,13 @@ enum FinanceDteEmailKind {
   AUTO_BACKOFFICE
   AUTO_PROFORMA
   AUTO_ESTADO_PAGO
+  AUTO_COBRANZA
   MANUAL_RESEND
   MANUAL_OVERRIDE_RECIPIENT
   MANUAL_BACKOFFICE
   MANUAL_PROFORMA
   MANUAL_ESTADO_PAGO
+  MANUAL_COBRANZA
 
   @@schema("finance")
 }
@@ -7380,6 +7400,15 @@ model FinanceDte {
   /// Recordatorios de confirmación enviados (máx 3).
   cobroReminderCount   Int       @default(0) @map("cobro_reminder_count")
   cobroLastReminderAt  DateTime? @map("cobro_last_reminder_at") @db.Timestamptz(6)
+
+  // ── Cobranza multicanal (recordatorios de pago post-emisión) ──
+  /// Último envío de cobranza (email y/o WhatsApp) para este DTE.
+  cobranzaSentAt    DateTime? @map("cobranza_sent_at") @db.Timestamptz(6)
+  /// Cantidad acumulada de envíos de cobranza.
+  cobranzaSentCount Int       @default(0) @map("cobranza_sent_count")
+  /// Nivel del último envío: cobranza_amable | cobranza_firme |
+  /// cobranza_prejudicial (mismos slugs que los DocTemplate de cobranza).
+  cobranzaLastLevel String?   @map("cobranza_last_level")
 
   notes     String?
   createdBy String  @map("created_by")
@@ -8680,6 +8709,11 @@ model FinanceCashflowConfig {
   /// Tasa total de mutualidad (fracción, ej. 0.012 = 1,2%). Null ⇒
   /// `work_injury_risk: security_industry` de la versión activa de parámetros.
   payrollMutualRatePct           Decimal?               @map("payroll_mutual_rate_pct") @db.Decimal(6, 4)
+  /// ── Cobranza multicanal ──
+  /// Habilita el envío automático de cobranza por WhatsApp vía Twilio. Con
+  /// false (default) la cobranza por WhatsApp solo genera links `wa.me` que
+  /// el operador abre manualmente — no se despacha nada por API.
+  cobranzaWhatsappAutoEnabled    Boolean                @default(false) @map("cobranza_whatsapp_auto_enabled")
   createdAt                      DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt                      DateTime               @updatedAt @map("updated_at") @db.Timestamptz(6)
 

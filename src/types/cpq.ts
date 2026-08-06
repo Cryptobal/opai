@@ -210,6 +210,10 @@ export interface CpqCatalogItem {
   updatedAt: string;
 }
 
+export type FinancialBaseMode = "auto" | "manual";
+export type PolicyAmountMode = "pct" | "fija";
+export type LiabilityMode = "premium" | "rate";
+
 export interface CpqQuoteParameters {
   id?: string;
   quoteId?: string;
@@ -220,13 +224,22 @@ export interface CpqQuoteParameters {
   holidayCommercialBufferPct?: number;
   financialEnabled?: boolean;
   financialRatePct: number;
+  financialBaseMode?: FinancialBaseMode;
   salePriceBase?: number;
   salePriceMonthly: number;
   policyEnabled?: boolean;
+  policyAmountMode?: PolicyAmountMode;
   policyRatePct: number;
   policyAdminRatePct: number;
   policyContractMonths: number;
   policyContractPct: number;
+  policyFixedAmountUF?: number;
+  liabilityEnabled?: boolean;
+  liabilityMode?: LiabilityMode;
+  liabilityRatePct?: number;
+  liabilityAnnualPremiumUF?: number;
+  liabilityAllocationPct?: number;
+  liabilityDeductibleUF?: number;
   contractMonths: number;
   contractAmount: number;
   marginPct: number;
@@ -326,6 +339,14 @@ export interface CpqQuoteCostSummary {
   baseWithMargin: number;
   monthlyFinancial: number;
   monthlyPolicy: number;
+  monthlyPolicyAdmin?: number;
+  monthlyLiability?: number;
+  policyGuaranteedAmount?: number;
+  grossUpApplied?: boolean;
+  grossUpFactor?: number;
+  effectiveMarginPct?: number;
+  missingUf?: boolean;
+  financialWarnings?: string[];
   monthlyExtras: number;
   monthlyTotal: number;
   financialRatePct?: number;
@@ -340,6 +361,8 @@ export interface CpqQuoteCostSummary {
   costsByCategory: CostByCategory[];
   marginMode: string;
   laborCost: number;
+  /** Precio de venta mensual ya con instrumentos (gross-up o manual). */
+  salePriceMonthly?: number;
 }
 
 export interface CreateQuoteInput {

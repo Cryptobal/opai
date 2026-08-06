@@ -28,6 +28,7 @@ import {
   applyTemplateLinkInheritance,
   countActiveAccountTemplates,
 } from "./inherit-template-link";
+import { resolveIssuedDueDate } from "./dte-due-date";
 
 /** Resuelve YYYY-MM-DD de emisión: body explícito o hoy en Chile (no UTC servidor). */
 function resolveIssueDateYmd(input: IssueDteInput): string {
@@ -87,6 +88,14 @@ export class AnchoredIssueDateError extends Error {
 export type IssueDteInput = {
   /** Fecha de emisión tributaria YYYY-MM-DD (SII). Default: hoy en Chile. */
   issueDate?: string;
+  /**
+   * Vencimiento YYYY-MM-DD. Si no viene, se calcula con `resolveDueDate`
+   * (término del contrato → default del tenant → 30 días). El SII no lo
+   * lleva en el XML: es dato interno de cobranza.
+   */
+  dueDate?: string | null;
+  /** Término de pago en días — gana sobre el del contrato/tenant si `dueDate` no vino. */
+  dueDays?: number | null;
   dteType: number;
   receiverRut: string;
   receiverName: string;
@@ -349,7 +358,8 @@ export async function issueDte(
   const calculatedLines = calc.lines;
   const ufValueAtIssue = calc.ufValue;
   const ufDateAtIssue = calc.ufDate;
-  let emissionYmd = resolveIssueDateYmd(input);
+  const requestedIssueYmd = resolveIssueDateYmd(input);
+  let emissionYmd = requestedIssueYmd;
   const todayYmd = todayChileStr();
   if (emissionYmd > todayYmd) {
     if (opts?.forceIssueDateToToday) {
@@ -396,6 +406,20 @@ export async function issueDte(
     issueDateYmd: emissionYmd,
     recurringTemplateId: input.recurringTemplateId,
     billingPeriod: input.billingPeriod,
+  });
+
+  // Vencimiento: respeta el explícito del caller (borrador o form) y si no
+  // lo hay lo deriva del término de pago del contrato / tenant. Las NC (61)
+  // nacen PAID y no se cobran, así que quedan sin vencimiento.
+  // Si la fecha de emisión se reescribió (forceIssueDateToToday), el
+  // vencimiento pactado ya no corresponde: se recalcula sobre la nueva fecha.
+  const dueDbDate = await resolveIssuedDueDate({
+    tenantId,
+    dteType: input.dteType,
+    emissionYmd,
+    explicitDueDate: emissionYmd === requestedIssueYmd ? input.dueDate : null,
+    explicitDays: input.dueDays,
+    recurringTemplateId: templateLink.recurringTemplateId,
   });
 
   // 5–9. Folio reservation + provider call + DTE persistence inside one
@@ -504,6 +528,7 @@ export async function issueDte(
           folio,
           code,
           date: emissionDbDate,
+          dueDate: dueDbDate,
           issuerRut,
           issuerName,
           receiverRut: input.receiverRut,

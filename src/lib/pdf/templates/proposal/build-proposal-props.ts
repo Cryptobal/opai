@@ -74,6 +74,10 @@ export interface ProposalProps {
   currency: string;
   ufValue?: number;
   paymentTerms: string;
+  /** Monto asegurado RC en UF (condiciones / contrato). */
+  insurancePolicyUF?: number | null;
+  /** Deducible RC informativo en UF. */
+  liabilityDeductibleUF?: number | null;
   validUntil?: string;
 
   providerLogo: string;
@@ -224,10 +228,19 @@ export async function buildProposalProps(
     0
   );
 
-  const totalSalePrice = (costSummary?.baseWithMargin ?? 0)
-    + (costSummary?.monthlyFinancial ?? 0)
-    + (costSummary?.monthlyPolicy ?? 0);
-  const grandTotal = totalSalePrice + totalAdditionalLines;
+  const policyAdminAmt = costSummary?.monthlyPolicyAdmin ?? 0;
+  const liabilityAmt = costSummary?.monthlyLiability ?? 0;
+  const instrumentsTotal =
+    (costSummary?.monthlyFinancial ?? 0) +
+    (costSummary?.monthlyPolicy ?? 0) +
+    policyAdminAmt +
+    liabilityAmt;
+  const salePriceMonthly =
+    costSummary?.salePriceMonthly ??
+    (costSummary?.baseWithMargin ?? 0) + instrumentsTotal + totalAdditionalLines;
+  // Precio de venta sin líneas adicionales (para desglose / prorrateo de puestos)
+  const totalSalePrice = salePriceMonthly - totalAdditionalLines;
+  const grandTotal = salePriceMonthly;
 
   const positions = quote.positions;
   const totalPositionCosts = positions.reduce(
@@ -547,7 +560,13 @@ export async function buildProposalProps(
         costSummary.monthlyUniforms + costSummary.monthlyExams + costSummary.monthlyMeals +
         costSummary.monthlyVehicles + costSummary.monthlyInfrastructure + costSummary.monthlyCostItems
       );
-      const marginAmount = totalSalePrice - subtotalBase - costSummary.monthlyFinancial - costSummary.monthlyPolicy;
+      const marginAmount =
+        totalSalePrice -
+        subtotalBase -
+        costSummary.monthlyFinancial -
+        costSummary.monthlyPolicy -
+        (costSummary.monthlyPolicyAdmin ?? 0) -
+        (costSummary.monthlyLiability ?? 0);
       const fallback = positions.length > 0 ? 1 / positions.length : 0;
 
       const positionItems: PositionBreakdownItem[] = positions.map((pos) => {
@@ -596,6 +615,11 @@ export async function buildProposalProps(
         subtotalBase, marginPct, marginAmount,
         financial: costSummary.monthlyFinancial, financialRatePct: financialRatePctVal,
         policy: costSummary.monthlyPolicy, policyRatePct: policyRatePctVal,
+        policyAdmin: costSummary.monthlyPolicyAdmin ?? 0,
+        liability: costSummary.monthlyLiability ?? 0,
+        liabilityInsuredUF:
+          quote.insurancePolicyUF != null ? Number(quote.insurancePolicyUF) : null,
+        effectiveMarginPct: costSummary.effectiveMarginPct,
         totalSalePrice, additionalLines: totalAdditionalLines, grandTotal,
         monthlyHoursStandard, currency,
         ufValue: ufVal > 0 ? ufVal : undefined,
@@ -881,6 +905,12 @@ export async function buildProposalProps(
     currency: currency === 'UF' ? 'UF' : 'CLP',
     ufValue: ufVal > 0 ? ufVal : undefined,
     paymentTerms,
+    insurancePolicyUF:
+      quote.insurancePolicyUF != null ? Number(quote.insurancePolicyUF) : null,
+    liabilityDeductibleUF:
+      quote.parameters?.liabilityDeductibleUF != null
+        ? Number(quote.parameters.liabilityDeductibleUF)
+        : null,
     validUntil,
 
     providerLogo,

@@ -20,6 +20,38 @@ const normalizeDecimal = (value: unknown) => {
   return new Prisma.Decimal(Number(value));
 };
 
+function clampNumber(
+  value: unknown,
+  min: number,
+  max: number,
+  fallback: number,
+): number {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.min(max, Math.max(min, n));
+}
+
+function clampInt(
+  value: unknown,
+  min: number,
+  max: number,
+  fallback: number,
+): number {
+  return Math.round(clampNumber(value, min, max, fallback));
+}
+
+function normalizeFinancialBaseMode(value: unknown): "auto" | "manual" {
+  return value === "manual" ? "manual" : "auto";
+}
+
+function normalizePolicyAmountMode(value: unknown): "pct" | "fija" {
+  return value === "fija" ? "fija" : "pct";
+}
+
+function normalizeLiabilityMode(value: unknown): "premium" | "rate" {
+  return value === "rate" ? "rate" : "premium";
+}
+
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -288,6 +320,21 @@ export async function PUT(
       });
 
       if (parameters) {
+        const financialBaseMode = normalizeFinancialBaseMode(parameters.financialBaseMode);
+        const policyAmountMode = normalizePolicyAmountMode(parameters.policyAmountMode);
+        const liabilityMode = normalizeLiabilityMode(parameters.liabilityMode);
+        const financialRatePct = clampNumber(parameters.financialRatePct, 0, 20, 2.5);
+        const policyRatePct = clampNumber(parameters.policyRatePct, 0, 20, 2);
+        const policyAdminRatePct = clampNumber(parameters.policyAdminRatePct, 0, 5, 0.2);
+        const policyContractPct = clampNumber(parameters.policyContractPct, 0.1, 100, 10);
+        const policyContractMonths = clampInt(parameters.policyContractMonths, 1, 120, 12);
+        const policyFixedAmountUF = Math.max(0, Number(parameters.policyFixedAmountUF ?? 0) || 0);
+        const liabilityRatePct = clampNumber(parameters.liabilityRatePct, 0, 10, 0.3);
+        const liabilityAnnualPremiumUF = Math.max(0, Number(parameters.liabilityAnnualPremiumUF ?? 0) || 0);
+        const liabilityAllocationPct = clampNumber(parameters.liabilityAllocationPct, 0.1, 100, 100);
+        const liabilityDeductibleUF = Math.max(0, Number(parameters.liabilityDeductibleUF ?? 0) || 0);
+        const salePriceBase = Math.max(0, Number(parameters.salePriceBase ?? 0) || 0);
+
         await tx.cpqQuoteParameters.upsert({
           where: { quoteId: id },
           update: {
@@ -295,14 +342,23 @@ export async function PUT(
             avgStayMonths: parameters.avgStayMonths,
             uniformChangesPerYear: parameters.uniformChangesPerYear,
             financialEnabled: parameters.financialEnabled ?? false,
-            financialRatePct: parameters.financialRatePct,
-            salePriceBase: parameters.salePriceBase,
+            financialRatePct,
+            financialBaseMode,
+            salePriceBase,
             salePriceMonthly: parameters.salePriceMonthly,
             policyEnabled: parameters.policyEnabled,
-            policyRatePct: parameters.policyRatePct,
-            policyAdminRatePct: parameters.policyAdminRatePct,
-            policyContractMonths: parameters.policyContractMonths,
-            policyContractPct: parameters.policyContractPct,
+            policyAmountMode,
+            policyRatePct,
+            policyAdminRatePct,
+            policyContractMonths,
+            policyContractPct,
+            policyFixedAmountUF,
+            liabilityEnabled: parameters.liabilityEnabled ?? false,
+            liabilityMode,
+            liabilityRatePct,
+            liabilityAnnualPremiumUF,
+            liabilityAllocationPct,
+            liabilityDeductibleUF,
             contractMonths: parameters.contractMonths,
             contractAmount: parameters.contractAmount,
             marginPct: parameters.marginPct,
@@ -314,20 +370,40 @@ export async function PUT(
             avgStayMonths: parameters.avgStayMonths ?? 4,
             uniformChangesPerYear: parameters.uniformChangesPerYear ?? 3,
             financialEnabled: parameters.financialEnabled ?? false,
-            financialRatePct: parameters.financialRatePct ?? 2.5,
-            salePriceBase: parameters.salePriceBase ?? 0,
+            financialRatePct,
+            financialBaseMode,
+            salePriceBase,
             salePriceMonthly: parameters.salePriceMonthly ?? 0,
             policyEnabled: parameters.policyEnabled ?? false,
-            policyRatePct: parameters.policyRatePct ?? 0,
-            policyAdminRatePct: parameters.policyAdminRatePct ?? 0,
-            policyContractMonths: parameters.policyContractMonths ?? 12,
-            policyContractPct: parameters.policyContractPct ?? 20,
+            policyAmountMode,
+            policyRatePct,
+            policyAdminRatePct,
+            policyContractMonths,
+            policyContractPct,
+            policyFixedAmountUF,
+            liabilityEnabled: parameters.liabilityEnabled ?? false,
+            liabilityMode,
+            liabilityRatePct,
+            liabilityAnnualPremiumUF,
+            liabilityAllocationPct,
+            liabilityDeductibleUF,
             contractMonths: parameters.contractMonths ?? 12,
             contractAmount: parameters.contractAmount ?? 0,
             marginPct: parameters.marginPct ?? 13,
             marginMode: parameters.marginMode ?? "margin_on_sale",
           },
         });
+
+        // Monto asegurado RC: misma fuente que Condiciones (CpqQuote.insurancePolicyUF)
+        if (parameters.insurancePolicyUF !== undefined) {
+          const uf = Number(parameters.insurancePolicyUF);
+          if (Number.isFinite(uf) && uf >= 0) {
+            await tx.cpqQuote.update({
+              where: { id },
+              data: { insurancePolicyUF: uf },
+            });
+          }
+        }
       }
 
       const existingUniforms = await tx.cpqQuoteUniformItem.findMany({

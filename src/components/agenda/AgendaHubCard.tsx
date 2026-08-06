@@ -7,7 +7,7 @@ import { Surface, Tag, Spinner, EmptyState } from "@/components/opai-ds";
 import { Button } from "@/components/ui/button";
 import { addDaysChile, startOfDayChile, todayInChile } from "@/lib/dates-cl";
 import { cn } from "@/lib/utils";
-import { agendaItemDayKey } from "./agenda-calendar-utils";
+import { agendaItemCoversDay, agendaItemDayKey } from "./agenda-calendar-utils";
 import { AgendaHubDays } from "./AgendaHubDays";
 import { AgendaHubUpcomingList } from "./AgendaHubUpcomingList";
 import { AgendaHubCardDense } from "./AgendaHubCardDense";
@@ -78,8 +78,8 @@ export function AgendaHubCard({
   // Hoy + tareas pendientes vencidas (carry-forward): sin esto, una tarea de
   // día completo deja de verse en Agenda al pasar la fecha aunque siga abierta.
   const todayItems = items.filter((i) => {
+    if (agendaItemCoversDay(i, todayKey)) return true;
     const key = agendaItemDayKey(i);
-    if (key === todayKey) return true;
     return i.source === "tarea" && key < todayKey;
   });
   const days = Array.from({ length: expanded ? 7 : 4 }, (_, i) =>

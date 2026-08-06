@@ -129,18 +129,25 @@ export async function GET(
   let additionalLinesTotal: number;
 
   if (costSummary) {
-    salePriceClp = (costSummary.baseWithMargin ?? 0)
-      + (costSummary.monthlyFinancial ?? 0)
-      + (costSummary.monthlyPolicy ?? 0);
     additionalLinesTotal = costSummary.additionalLinesTotalWithMargin ?? 0;
+    const monthly =
+      costSummary.salePriceMonthly ??
+      (costSummary.baseWithMargin ?? 0) +
+        (costSummary.monthlyFinancial ?? 0) +
+        (costSummary.monthlyPolicy ?? 0) +
+        (costSummary.monthlyPolicyAdmin ?? 0) +
+        (costSummary.monthlyLiability ?? 0) +
+        additionalLinesTotal;
+    salePriceClp = monthly - additionalLinesTotal;
   } else {
-    salePriceClp = quote.parameters?.salePriceMonthly != null
+    const persisted = quote.parameters?.salePriceMonthly != null
       ? Number(quote.parameters.salePriceMonthly)
       : (quote.monthlyCost?.toNumber() ?? 0);
     additionalLinesTotal = quote.additionalLines.reduce(
       (s, l) => s + Number(l.precio || 0),
       0
     );
+    salePriceClp = Math.max(0, persisted - additionalLinesTotal);
   }
 
   const rawMonthly = salePriceClp + additionalLinesTotal;
@@ -180,7 +187,13 @@ export async function GET(
         costSummary.monthlyInfrastructure +
         costSummary.monthlyCostItems;
 
-      const marginAmount = salePriceClp - subtotalBase - costSummary.monthlyFinancial - costSummary.monthlyPolicy;
+      const marginAmount =
+        salePriceClp -
+        subtotalBase -
+        costSummary.monthlyFinancial -
+        costSummary.monthlyPolicy -
+        (costSummary.monthlyPolicyAdmin ?? 0) -
+        (costSummary.monthlyLiability ?? 0);
 
       /* ── Cost category breakdown (equipment / transport / systems) ── */
       const costItems = await prisma.cpqQuoteCostItem.findMany({
@@ -299,6 +312,11 @@ export async function GET(
         financialRatePct,
         policy: costSummary.monthlyPolicy,
         policyRatePct,
+        policyAdmin: costSummary.monthlyPolicyAdmin ?? 0,
+        liability: costSummary.monthlyLiability ?? 0,
+        liabilityInsuredUF:
+          quote.insurancePolicyUF != null ? Number(quote.insurancePolicyUF) : null,
+        effectiveMarginPct: costSummary.effectiveMarginPct,
         totalSalePrice: salePriceClp,
         additionalLines: additionalLinesTotal,
         grandTotal: rawMonthly,

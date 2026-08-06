@@ -391,13 +391,21 @@ export async function POST(
         where: { id: quote.dealId, tenantId: ctx.tenantId },
       });
       if (deal) {
-        await prisma.crmDeal.update({
-          where: { id: quote.dealId },
+        const {
+          markDealProposalSent,
+          advanceDealToQuoteSentStage,
+        } = await import("@/lib/crm/advance-deal-on-quote-sent");
+
+        await markDealProposalSent({
+          db: prisma,
+          tenantId: ctx.tenantId,
+          dealId: quote.dealId,
           data: {
             proposalLink: presentationUrl,
             proposalSentAt: new Date(),
             amount: salePriceMonthly + totalAdditionalLines,
             totalPuestos: totalGuards,
+            primaryContactId: quote.contactId,
           },
         });
 
@@ -411,30 +419,13 @@ export async function POST(
 
         // ── Mover deal a "Cotización enviada" automáticamente ──
         try {
-          const cotizacionStage = await prisma.crmPipelineStage.findFirst({
-            where: {
-              tenantId: ctx.tenantId,
-              name: "Cotización enviada",
-              isActive: true,
-            },
+          await advanceDealToQuoteSentStage({
+            db: prisma,
+            tenantId: ctx.tenantId,
+            dealId: deal.id,
+            fromStageId: deal.stageId,
+            changedBy: ctx.userId,
           });
-
-          if (cotizacionStage && deal.stageId !== cotizacionStage.id) {
-            await prisma.crmDeal.update({
-              where: { id: deal.id },
-              data: { stageId: cotizacionStage.id },
-            });
-
-            await prisma.crmDealStageHistory.create({
-              data: {
-                tenantId: ctx.tenantId,
-                dealId: deal.id,
-                fromStageId: deal.stageId,
-                toStageId: cotizacionStage.id,
-                changedBy: ctx.userId,
-              },
-            });
-          }
         } catch (stageError) {
           console.error("Error actualizando etapa del deal:", stageError);
         }

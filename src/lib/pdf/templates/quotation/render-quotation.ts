@@ -1275,6 +1275,18 @@ export async function renderQuotationToBuffer(
           breakdown.financial > 0
             ? e(View, { style: [s.tblRow, { backgroundColor: '#fff7ed' }] }, e(Text, { style: [s.tblCellBold, { flex: 3, color: '#9a3412' }] }, 'Costo financiero'), e(Text, { style: [s.tblCellBold, { flex: 2, textAlign: 'right' as const, color: '#9a3412' }] }, fmtMoney(breakdown.financial)))
             : null,
+          breakdown.policy > 0
+            ? e(View, { style: [s.tblRow, { backgroundColor: '#fff7ed' }] }, e(Text, { style: [s.tblCellBold, { flex: 3, color: '#9a3412' }] }, 'Póliza de garantía'), e(Text, { style: [s.tblCellBold, { flex: 2, textAlign: 'right' as const, color: '#9a3412' }] }, fmtMoney(breakdown.policy)))
+            : null,
+          (breakdown.policyAdmin ?? 0) > 0
+            ? e(View, { style: [s.tblRow, { backgroundColor: '#fff7ed' }] }, e(Text, { style: [s.tblCellBold, { flex: 3, color: '#9a3412' }] }, 'Derechos de emisión'), e(Text, { style: [s.tblCellBold, { flex: 2, textAlign: 'right' as const, color: '#9a3412' }] }, fmtMoney(breakdown.policyAdmin ?? 0)))
+            : null,
+          (breakdown.liability ?? 0) > 0
+            ? e(View, { style: [s.tblRow, { backgroundColor: '#fff7ed' }] }, e(Text, { style: [s.tblCellBold, { flex: 3, color: '#9a3412' }] }, breakdown.liabilityInsuredUF ? `Póliza RC (${Number(breakdown.liabilityInsuredUF).toLocaleString('es-CL')} UF)` : 'Póliza de responsabilidad civil'), e(Text, { style: [s.tblCellBold, { flex: 2, textAlign: 'right' as const, color: '#9a3412' }] }, fmtMoney(breakdown.liability ?? 0)))
+            : null,
+          (breakdown.additionalLines ?? 0) > 0
+            ? e(View, { style: [s.tblRow, { backgroundColor: C.slate100 }] }, e(Text, { style: [s.tblCellBold, { flex: 3 }] }, 'Líneas adicionales'), e(Text, { style: [s.tblCellBold, { flex: 2, textAlign: 'right' as const }] }, fmtMoney(breakdown.additionalLines)))
+            : null,
           e(
             View,
             { style: [s.grandTotal, { marginTop: 8 }] },

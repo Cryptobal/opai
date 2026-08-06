@@ -376,7 +376,8 @@ export async function renderProposalToBufferFromProps(
     companyName, companyLogo, quotationCode, proposalDate, contactName, contactPosition,
     ai, serviceType, installationName, installationCity, installationAddress, serviceDetail, coverageSchedule,
     staffingCount, staffingRegime, supervisionFrequency,
-    items, oneTimeItems, oneTimeTotalFormatted, totalNetoFormatted, paymentTerms, regimeExplanation,
+    items, oneTimeItems, oneTimeTotalFormatted, totalNetoFormatted, paymentTerms,
+    insurancePolicyUF, liabilityDeductibleUF, regimeExplanation,
     companyConfig, companyStats, proposalMetrics, clientLogosWithNames, providerLogo,
     breakdown, resourceBreakdown, includedItems,
     installations, consolidatedSummary,
@@ -1359,6 +1360,14 @@ export async function renderProposalToBufferFromProps(
       e(View, { style: [s.cardTeal, { marginTop: 8 }] },
         e(Text, { style: s.cardTitle }, 'Condiciones de pago'),
         e(Text, { style: s.cardText }, paymentTerms),
+        insurancePolicyUF
+          ? e(Text, { style: [s.cardText, { marginTop: 4 }] },
+              `Póliza RC — monto asegurado: ${Number(insurancePolicyUF).toLocaleString('es-CL')} UF` +
+              (liabilityDeductibleUF && Number(liabilityDeductibleUF) > 0
+                ? ` · Deducible: ${Number(liabilityDeductibleUF).toLocaleString('es-CL')} UF`
+                : ''),
+            )
+          : null,
       ),
       ...(() => {
         const includesList = includedItems && includedItems.length > 0
@@ -1461,6 +1470,33 @@ export async function renderProposalToBufferFromProps(
           ? e(View, { style: [s.bdRow, { backgroundColor: '#fff7ed' }] },
               e(Text, { style: [s.tblCellBold, { flex: 3, color: '#9a3412' }] }, 'Costo financiero'),
               e(Text, { style: [s.tblCellBold, { flex: 2, textAlign: 'right' as const, color: '#9a3412' }] }, fmtMoney(bd.financial)),
+            )
+          : null,
+        bd.policy > 0
+          ? e(View, { style: [s.bdRow, { backgroundColor: '#fff7ed' }] },
+              e(Text, { style: [s.tblCellBold, { flex: 3, color: '#9a3412' }] }, 'Póliza de garantía'),
+              e(Text, { style: [s.tblCellBold, { flex: 2, textAlign: 'right' as const, color: '#9a3412' }] }, fmtMoney(bd.policy)),
+            )
+          : null,
+        (bd.policyAdmin ?? 0) > 0
+          ? e(View, { style: [s.bdRow, { backgroundColor: '#fff7ed' }] },
+              e(Text, { style: [s.tblCellBold, { flex: 3, color: '#9a3412' }] }, 'Derechos de emisión'),
+              e(Text, { style: [s.tblCellBold, { flex: 2, textAlign: 'right' as const, color: '#9a3412' }] }, fmtMoney(bd.policyAdmin ?? 0)),
+            )
+          : null,
+        (bd.liability ?? 0) > 0
+          ? e(View, { style: [s.bdRow, { backgroundColor: '#fff7ed' }] },
+              e(Text, { style: [s.tblCellBold, { flex: 3, color: '#9a3412' }] },
+                bd.liabilityInsuredUF
+                  ? `Póliza RC (${Number(bd.liabilityInsuredUF).toLocaleString('es-CL')} UF)`
+                  : 'Póliza de responsabilidad civil'),
+              e(Text, { style: [s.tblCellBold, { flex: 2, textAlign: 'right' as const, color: '#9a3412' }] }, fmtMoney(bd.liability ?? 0)),
+            )
+          : null,
+        (bd.additionalLines ?? 0) > 0
+          ? e(View, { style: [s.bdRow, { backgroundColor: C.bgAlt }] },
+              e(Text, { style: [s.tblCellBold, { flex: 3 }] }, 'Líneas adicionales'),
+              e(Text, { style: [s.tblCellBold, { flex: 2, textAlign: 'right' as const }] }, fmtMoney(bd.additionalLines)),
             )
           : null,
         e(View, { style: [s.grandTotal, { marginTop: 6 }] },

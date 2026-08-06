@@ -226,23 +226,32 @@ export async function buildQuotationProps(
       ? formatUFSuffix(clpToUf(clp, ufVal))
       : formatCurrency(clp, 'CLP');
 
-  // Additional costs (without financial/policy)
+  // Additional costs (without financial/policy/RC)
   const baseAdditionalCostsTotal = summary
     ? Math.max(
         0,
         (summary.monthlyExtras ?? 0) -
           (summary.monthlyFinancial ?? 0) -
-          (summary.monthlyPolicy ?? 0),
+          (summary.monthlyPolicy ?? 0) -
+          (summary.monthlyPolicyAdmin ?? 0) -
+          (summary.monthlyLiability ?? 0),
       )
     : 0;
 
-  // Compute totalSalePrice FIRST from aggregate summary for consistency
+  // Precio de venta: fuente de verdad del motor (incluye gross-up e instrumentos)
   let totalSalePrice = 0;
+  let grandTotalMonthly = 0;
   if (summary) {
-    totalSalePrice =
+    const addlWithMargin = summary.additionalLinesTotalWithMargin ?? 0;
+    grandTotalMonthly =
+      summary.salePriceMonthly ??
       (summary.baseWithMargin ?? 0) +
-      (summary.monthlyFinancial ?? 0) +
-      (summary.monthlyPolicy ?? 0);
+        (summary.monthlyFinancial ?? 0) +
+        (summary.monthlyPolicy ?? 0) +
+        (summary.monthlyPolicyAdmin ?? 0) +
+        (summary.monthlyLiability ?? 0) +
+        addlWithMargin;
+    totalSalePrice = grandTotalMonthly - addlWithMargin;
   }
 
   // Position rows — allocate totalSalePrice proportionally to avoid rounding discrepancy
@@ -311,7 +320,7 @@ export async function buildQuotationProps(
     },
   );
 
-  const grandTotal = totalSalePrice + totalAdditionalLines;
+  const grandTotal = grandTotalMonthly || totalSalePrice + totalAdditionalLines;
 
   // Company config
   const companyConfig = await getTenantCompanyConfig(tenantId);
@@ -364,7 +373,13 @@ export async function buildQuotationProps(
         summary.monthlyInfrastructure +
         summary.monthlyCostItems
       );
-      const marginAmount = totalSalePrice - subtotalBase - summary.monthlyFinancial - summary.monthlyPolicy;
+      const marginAmount =
+        totalSalePrice -
+        subtotalBase -
+        summary.monthlyFinancial -
+        summary.monthlyPolicy -
+        (summary.monthlyPolicyAdmin ?? 0) -
+        (summary.monthlyLiability ?? 0);
 
       const totalPositionCosts = quote.positions.reduce(
         (s: number, p: { monthlyPositionCost: unknown }) => s + Number(p.monthlyPositionCost ?? 0),
@@ -467,6 +482,11 @@ export async function buildQuotationProps(
         financialRatePct: financialRatePctVal,
         policy: summary.monthlyPolicy,
         policyRatePct: policyRatePctVal,
+        policyAdmin: summary.monthlyPolicyAdmin ?? 0,
+        liability: summary.monthlyLiability ?? 0,
+        liabilityInsuredUF:
+          quote.insurancePolicyUF != null ? Number(quote.insurancePolicyUF) : null,
+        effectiveMarginPct: summary.effectiveMarginPct,
         totalSalePrice,
         additionalLines: totalAdditionalLines,
         grandTotal,

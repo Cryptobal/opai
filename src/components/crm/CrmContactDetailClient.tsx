@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-misused-promises */
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { getQuoteStatus } from "@/lib/quoteStatus";
@@ -35,6 +35,13 @@ import { ContractEditor } from "@/components/docs/ContractEditor";
 import { AssociatedRecordsPanel, type AssociatedSection } from "@/components/ui/AssociatedRecordsPanel";
 import { EntityDetailLayout, useEntityTabs, type EntityTab, type EntityHeaderAction } from "./EntityDetailLayout";
 import { DetailField } from "./DetailField";
+import { InlineEditField } from "@/components/opai/InlineEditField";
+import { patchCrmField } from "@/components/crm/patchCrmField";
+import { ContactNotificationMatrix } from "./ContactNotificationMatrix";
+import {
+  normalizeEmail,
+  normalizePhoneCl,
+} from "@/lib/validations/field-normalizers";
 import { CrmRelatedRecordCard, CrmRelatedRecordGrid } from "./CrmRelatedRecordCard";
 import { AssociatedTicketsSection } from "./AssociatedTicketsSection";
 import { CRM_MODULES } from "./CrmModuleIcons";
@@ -120,6 +127,11 @@ type ContactDetail = {
   portalEnabled?: boolean;
   portalPinVisible?: string | null;
   accountId?: string | null;
+  recibeCesion?: boolean;
+  recibeFacturacion?: boolean;
+  recibeNotasCredito?: boolean;
+  recibeCobranza?: boolean;
+  recibeOperacional?: boolean;
   createdAt?: string | null;
   updatedAt?: string | null;
   account?: {
@@ -179,6 +191,7 @@ export function CrmContactDetailClient({
   initialEmailCount = 0,
   activityEvents = [],
   currentUserId = "",
+  canEdit = false,
 }: {
   contact: ContactDetail;
   deals: DealRow[];
@@ -191,6 +204,7 @@ export function CrmContactDetailClient({
   initialEmailCount?: number;
   activityEvents?: ActivityEvent[];
   currentUserId?: string;
+  canEdit?: boolean;
 }) {
   const router = useRouter();
   const chatCtx = useChatSidePanelContext();
@@ -235,6 +249,73 @@ export function CrmContactDetailClient({
     accountId: contact.accountId ?? contact.account?.id ?? "",
   });
   const [accountOptions, setAccountOptions] = useState<Array<{ id: string; name: string }>>([]);
+
+  const [notificationFlags, setNotificationFlags] = useState({
+    recibeCesion: contact.recibeCesion ?? false,
+    recibeFacturacion: contact.recibeFacturacion ?? false,
+    recibeNotasCredito: contact.recibeNotasCredito ?? false,
+    recibeCobranza: contact.recibeCobranza ?? false,
+    recibeOperacional: contact.recibeOperacional ?? false,
+  });
+
+  useEffect(() => {
+    setNotificationFlags({
+      recibeCesion: contact.recibeCesion ?? false,
+      recibeFacturacion: contact.recibeFacturacion ?? false,
+      recibeNotasCredito: contact.recibeNotasCredito ?? false,
+      recibeCobranza: contact.recibeCobranza ?? false,
+      recibeOperacional: contact.recibeOperacional ?? false,
+    });
+  }, [
+    contact.recibeCesion,
+    contact.recibeFacturacion,
+    contact.recibeNotasCredito,
+    contact.recibeCobranza,
+    contact.recibeOperacional,
+  ]);
+
+  useEffect(() => {
+    if (!canEdit || accountOptions.length > 0) return;
+    fetch("/api/crm/accounts?limit=500")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.success && d.data) {
+          setAccountOptions(d.data.map((a: { id: string; name: string }) => ({ id: a.id, name: a.name })));
+        }
+      })
+      .catch(() => {});
+  }, [canEdit, accountOptions.length]);
+
+  const accountSelectOptions = useMemo(() => {
+    const opts = accountOptions.map((a) => ({ value: a.id, label: a.name }));
+    const currentId = contact.accountId ?? contact.account?.id;
+    if (contact.account?.name && currentId && !opts.find((o) => o.value === currentId)) {
+      opts.unshift({ value: currentId, label: contact.account.name });
+    }
+    return opts;
+  }, [accountOptions, contact.account, contact.accountId]);
+
+  const commitContactField = async (key: string, value: string | null): Promise<string | null> => {
+    const apiValue =
+      key === "isPrimary" ? value === "true" :
+      value;
+    const data = await patchCrmField<Record<string, unknown>>({
+      url: `/api/crm/contacts/${contact.id}`,
+      key,
+      value: apiValue,
+    });
+    if (key === "accountId" && data.accountId !== contact.accountId) {
+      router.refresh();
+    } else {
+      setContact((prev) => ({
+        ...prev,
+        [key]: key === "isPrimary" ? Boolean(data.isPrimary) : (data[key] ?? value),
+      }));
+    }
+    if (key === "isPrimary") return data.isPrimary ? "true" : "false";
+    const saved = data[key];
+    return saved != null ? String(saved) : value;
+  };
 
   const [deleteConfirm, setDeleteConfirm] = useState(false);
 
@@ -679,48 +760,91 @@ export function CrmContactDetailClient({
       </div>
 
       {/* ── Stats strip: contacto rápido ── */}
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
-        <div className="min-w-0 rounded-xl border border-border bg-card p-3 sm:p-4">
-          <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">Email</div>
-          <div className="truncate text-[13px] font-medium text-foreground">
-            {contact.email ? (
-              <a href={`mailto:${contact.email}`} className="text-primary hover:underline" title={contact.email}>
-                {contact.email}
-              </a>
-            ) : (
-              <span className="text-muted-foreground/70">—</span>
-            )}
-          </div>
-        </div>
-        <div className="min-w-0 rounded-xl border border-border bg-card p-3 sm:p-4">
-          <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">Teléfono</div>
-          <div className="truncate font-mono text-[13px] font-medium tabular-nums text-foreground">
-            {contact.phone ? (
-              <a href={`tel:${contact.phone}`} className="text-primary hover:underline">{contact.phone}</a>
-            ) : (
-              <span className="font-sans text-muted-foreground/70">—</span>
-            )}
-          </div>
-        </div>
-        <div className="min-w-0 rounded-xl border border-border bg-card p-3 sm:p-4">
-          <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">Cargo</div>
-          <div className="truncate text-[13px] font-medium text-foreground">
-            {contact.roleTitle || <span className="text-muted-foreground/70">—</span>}
-          </div>
-        </div>
-        <div className="min-w-0 rounded-xl border border-border bg-card p-3 sm:p-4">
-          <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">Cuenta</div>
-          <div className="truncate text-[13px] font-medium text-foreground">
-            {contact.account?.name ? (
-              <a href={`/crm/accounts/${contact.account.id}`} className="text-primary hover:underline">
-                {contact.account.name}
-              </a>
-            ) : (
-              <span className="text-muted-foreground/70">—</span>
-            )}
-          </div>
-        </div>
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+        <InlineEditField
+          label="Nombre"
+          fieldKey="firstName"
+          type="text"
+          value={contact.firstName}
+          canEdit={canEdit}
+          required
+          onCommit={commitContactField}
+        />
+        <InlineEditField
+          label="Apellido"
+          fieldKey="lastName"
+          type="text"
+          value={contact.lastName}
+          canEdit={canEdit}
+          required
+          onCommit={commitContactField}
+        />
+        <InlineEditField
+          label="Email"
+          fieldKey="email"
+          type="email"
+          value={contact.email ?? null}
+          canEdit={canEdit}
+          normalize={normalizeEmail}
+          onCommit={commitContactField}
+        />
+        <InlineEditField
+          label="Teléfono"
+          fieldKey="phone"
+          type="phone"
+          value={contact.phone ?? null}
+          canEdit={canEdit}
+          mono
+          normalize={normalizePhoneCl}
+          onCommit={commitContactField}
+        />
+        <InlineEditField
+          label="Cargo"
+          fieldKey="roleTitle"
+          type="text"
+          value={contact.roleTitle ?? null}
+          canEdit={canEdit}
+          onCommit={commitContactField}
+        />
+        <InlineEditField
+          label="Cuenta"
+          fieldKey="accountId"
+          type="select"
+          value={contact.accountId ?? contact.account?.id ?? null}
+          canEdit={canEdit}
+          options={accountSelectOptions}
+          confirm={{
+            title: "¿Mover el contacto a otra cuenta?",
+            description: (next) => {
+              const toName = accountSelectOptions.find((o) => o.value === next)?.label ?? "otra cuenta";
+              return `Vas a cambiar la cuenta de «${contact.account?.name ?? "sin cuenta"}» a «${toName}».`;
+            },
+          }}
+          onCommit={commitContactField}
+        />
+        <InlineEditField
+          label="Contacto principal"
+          fieldKey="isPrimary"
+          type="select"
+          value={contact.isPrimary ? "true" : "false"}
+          canEdit={canEdit}
+          options={[
+            { value: "true", label: "Sí" },
+            { value: "false", label: "No" },
+          ]}
+          onCommit={commitContactField}
+        />
       </div>
+
+      <ContactNotificationMatrix
+        contactId={contact.id}
+        values={notificationFlags}
+        canEdit={canEdit}
+        onChange={(key, value) => {
+          setNotificationFlags((prev) => ({ ...prev, [key]: value }));
+          setContact((prev) => ({ ...prev, [key]: value }));
+        }}
+      />
 
       {/* ── Portal del cliente (colapsable) ── */}
       <details className="group rounded-xl border border-border bg-card" open={!!contact.portalPinVisible?.trim()}>

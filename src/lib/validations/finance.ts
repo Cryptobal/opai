@@ -200,6 +200,14 @@ export const issueDteSchema = z.object({
   issueDate: optNull(
     z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha YYYY-MM-DD"),
   ),
+  /**
+   * Vencimiento del documento. No va al XML SII: es el término de pago que
+   * usa la cobranza (UNPAID→OVERDUE, tramos de recordatorio). Si no viene, el
+   * backend lo deriva del término del contrato / default del tenant.
+   */
+  dueDate: optNull(
+    z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha YYYY-MM-DD"),
+  ),
   dteType: z.number().int().refine((v) => [33, 34, 39, 52, 56, 61].includes(v), {
     message: "Tipo de DTE invalido",
   }),

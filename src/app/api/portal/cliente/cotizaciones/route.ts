@@ -99,7 +99,15 @@ export async function GET() {
           (costSummary.monthlyInfrastructure ?? 0) +
           (costSummary.monthlyCostItems ?? 0);
         const bwm = marginPct < 1 ? costsBase / (1 - marginPct) : costsBase;
-        const salePrice = bwm + (costSummary.monthlyFinancial ?? 0) + (costSummary.monthlyPolicy ?? 0);
+        const addl = costSummary.additionalLinesTotalWithMargin ?? 0;
+        const salePrice =
+          (costSummary.salePriceMonthly ??
+            bwm +
+              (costSummary.monthlyFinancial ?? 0) +
+              (costSummary.monthlyPolicy ?? 0) +
+              (costSummary.monthlyPolicyAdmin ?? 0) +
+              (costSummary.monthlyLiability ?? 0) +
+              addl) - addl;
         computedSalePrices.set(q.id, salePrice);
       } catch {
         // ignorar

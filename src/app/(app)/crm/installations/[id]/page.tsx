@@ -4,7 +4,7 @@
 
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
-import { resolvePagePerms, canView, canEdit, canViewInstallations } from "@/lib/permissions-server";
+import { resolvePagePerms, canView, canEdit, canViewInstallations, canEditInstallations } from "@/lib/permissions-server";
 import { prisma } from "@/lib/prisma";
 import { CrmInstallationDetailClient } from "@/components/crm";
 export default async function CrmInstallationDetailPage({
@@ -19,6 +19,7 @@ export default async function CrmInstallationDetailPage({
   }
   const perms = await resolvePagePerms(session.user);
   if (!canViewInstallations(perms)) redirect("/crm");
+  const canEditInstallation = canEditInstallations(perms);
   const tenantId = session.user.tenantId;
   const prismaAny = prisma as unknown as {
     opsRefuerzoSolicitud?: {
@@ -259,6 +260,7 @@ export default async function CrmInstallationDetailPage({
   return (
     <CrmInstallationDetailClient
       installation={data}
+      canEdit={canEditInstallation}
       canEditDotacion={canEditDotacion}
       canForceDeletePuesto={canForceDeletePuesto}
       canDeleteVisitasTecnicas={canDeleteVisitasTecnicas}

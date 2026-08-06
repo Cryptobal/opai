@@ -152,22 +152,26 @@ const DEFAULT_PARAMS: CpqQuoteParameters = {
   uniformChangesPerYear: 3,
   financialEnabled: true,
   financialRatePct: 2.5,
+  financialBaseMode: "auto",
   salePriceBase: 0,
   salePriceMonthly: 0,
   policyEnabled: false,
-  policyRatePct: 2.5,
-  policyAdminRatePct: 0,
+  policyAmountMode: "pct",
+  policyRatePct: 2,
+  policyAdminRatePct: 0.2,
   policyContractMonths: 12,
-  policyContractPct: 20,
+  policyContractPct: 10,
+  policyFixedAmountUF: 0,
+  liabilityEnabled: false,
+  liabilityMode: "premium",
+  liabilityRatePct: 0.3,
+  liabilityAnnualPremiumUF: 0,
+  liabilityAllocationPct: 100,
+  liabilityDeductibleUF: 0,
   contractMonths: 12,
   contractAmount: 0,
   marginPct: 13,
 };
-
-function roundUpToNice(value: number): number {
-  if (value <= 0) return 0;
-  return Math.ceil(value / 100000) * 100000;
-}
 
 export function CpqQuoteDetail({
   quoteId,
@@ -637,28 +641,6 @@ export function CpqQuoteDetail({
     return () => clearTimeout(quoteFormAutoSaveTimer.current);
   }, [quoteForm.name, quoteForm.validUntil, quoteForm.notes, quoteForm.paymentTerms, quoteForm.serviceStartDays, quoteForm.contractDuration, quoteForm.isOngoingService, quoteForm.adjustmentType, quoteForm.adjustmentFreq, quoteForm.ipcWeight, quoteForm.imoWeight, quoteForm.insurancePolicyUF, quoteForm.contractStartDate, quoteForm.liabilityMonths, quoteForm.hasCCTV, quoteForm.cctvRetentionDays, quoteForm.contractTemplateId, quoteForm.paymentDays, quoteForm.realAnnualIncrement]);
 
-  // Auto-calc salePriceBase when costSummary changes
-  useEffect(() => {
-    if (!costSummary || !costParams) return;
-    const base = Number(costParams.salePriceBase ?? 0);
-    if (base > 0) return;
-    const costsBase =
-      (costSummary.monthlyPositions ?? 0) +
-      (costSummary.monthlyHolidayAdjustment ?? 0) +
-      (costSummary.monthlyUniforms ?? 0) +
-      (costSummary.monthlyExams ?? 0) +
-      (costSummary.monthlyMeals ?? 0) +
-      (costSummary.monthlyVehicles ?? 0) +
-      (costSummary.monthlyInfrastructure ?? 0) +
-      (costSummary.monthlyCostItems ?? 0);
-    const margin = marginPct / 100;
-    const baseWithMargin = margin < 1 ? costsBase / (1 - margin) : costsBase;
-    const rounded = roundUpToNice(baseWithMargin);
-    if (rounded > 0) {
-      updateParams({ salePriceBase: rounded });
-    }
-  }, [costSummary, costParams, marginPct]);
-
   // Resolver el mensaje WhatsApp para el supervisor cuando se programa una
   // visita técnica. Combina el seed `cpq_visita_tecnica_supervisor` con
   // datos runtime que solo conoce el cliente (fecha programada, puestos,
@@ -1096,7 +1078,10 @@ export function CpqQuoteDetail({
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          parameters: costParams,
+          parameters: {
+            ...costParams,
+            insurancePolicyUF: quoteForm.insurancePolicyUF,
+          },
           uniforms,
           exams,
           costItems,
@@ -1556,22 +1541,20 @@ export function CpqQuoteDetail({
   const addlToInput = (clp: number) => (addlIsUf ? clp / addlUfNum : clp);
   const addlFromInput = (entered: number) => (addlIsUf ? entered * addlUfNum : entered);
 
-  // Sale price calculation (includes additional lines in margin)
+  // Sale price: fuente de verdad del motor (gross-up + instrumentos + líneas)
   const salePriceMonthly = useMemo(() => {
     if (!costSummary) return 0;
-    const margin = marginPct / 100;
-    const costsBase =
-      (costSummary.monthlyPositions ?? 0) +
-      (costSummary.monthlyHolidayAdjustment ?? 0) +
-      (costSummary.monthlyUniforms ?? 0) +
-      (costSummary.monthlyExams ?? 0) +
-      (costSummary.monthlyMeals ?? 0) +
-      (costSummary.monthlyVehicles ?? 0) +
-      (costSummary.monthlyInfrastructure ?? 0) +
-      (costSummary.monthlyCostItems ?? 0);
-    const baseWithMargin = margin < 1 ? costsBase / (1 - margin) : costsBase;
-    return baseWithMargin + (costSummary.monthlyFinancial ?? 0) + (costSummary.monthlyPolicy ?? 0);
-  }, [costSummary, marginPct]);
+    if (costSummary.salePriceMonthly != null && costSummary.salePriceMonthly > 0) {
+      return costSummary.salePriceMonthly - (costSummary.additionalLinesTotalWithMargin ?? 0);
+    }
+    return (
+      (costSummary.baseWithMargin ?? 0) +
+      (costSummary.monthlyFinancial ?? 0) +
+      (costSummary.monthlyPolicy ?? 0) +
+      (costSummary.monthlyPolicyAdmin ?? 0) +
+      (costSummary.monthlyLiability ?? 0)
+    );
+  }, [costSummary]);
 
   // Margin amount calculation (includes additional lines)
   const marginAmount = useMemo(() => {
@@ -1963,6 +1946,12 @@ export function CpqQuoteDetail({
               <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Margen</span>
               <span className={cn("text-sm font-bold leading-tight", marginPct >= 15 ? "text-status-ok-fg" : marginPct >= 10 ? "text-status-warn-fg" : "text-status-danger-fg")}>
                 {Number(marginPct || 0).toFixed(1)}%
+                {costSummary?.effectiveMarginPct != null &&
+                  Math.abs(costSummary.effectiveMarginPct - marginPct) > 0.05 && (
+                    <span className="ml-1 text-[12px] font-medium text-ds-text-3">
+                      (ef. {costSummary.effectiveMarginPct.toFixed(1)}%)
+                    </span>
+                  )}
               </span>
             </div>
             <div className="hidden xl:flex flex-col justify-center border-l border-border/50 px-3 py-1">
@@ -2412,13 +2401,16 @@ export function CpqQuoteDetail({
         getDecimalValue={getDecimalValue}
         setDecimalValue={setDecimalValue}
         clearDecimalValue={clearDecimalValue}
-        insurancePolicyUF={quoteForm.insurancePolicyUF}
-        onInsurancePolicyUFChange={(value) => {
-          setQuoteForm((prev) => ({ ...prev, insurancePolicyUF: value }));
-          setQuoteDirty(true);
-        }}
         proposalGoverned={conditionsGovernedByProposal}
         onEditAtProposal={onEditConditionsAtProposal}
+        currency={crmContext.currency || "CLP"}
+        ufValue={ufValue}
+        contractDuration={quoteForm.contractDuration ?? 12}
+        insurancePolicyUF={quoteForm.insurancePolicyUF}
+        onInsurancePolicyUFChange={(uf) => {
+          setQuoteForm((prev) => ({ ...prev, insurancePolicyUF: uf }));
+          setQuoteDirty(true);
+        }}
       />
 
       {/* -- Section: Margen -- */}

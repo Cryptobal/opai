@@ -4,6 +4,7 @@
 import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import { cn } from "@/lib/utils";
 import { getQuoteStatus } from "@/lib/quoteStatus";
+import { getFollowUpFlowStatus } from "@/lib/crm/followup-flow-status";
 import { useRegisterChatPageContext } from "@/components/opai/ChatPageContextProvider";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -80,6 +81,9 @@ import { DealNextStepBanner } from "./deal/DealNextStepBanner";
 import { DealUnifiedTimeline } from "./deal/DealUnifiedTimeline";
 import { SlackDealRoomCard } from "./deal/SlackDealRoomCard";
 import { useEmailAttachments } from "./correos/useEmailAttachments";
+import { InlineEditField } from "@/components/opai/InlineEditField";
+import { patchCrmField } from "@/components/crm/patchCrmField";
+import { normalizeWebsite, normalizeMoneyClp } from "@/lib/validations/field-normalizers";
 
 /** Convierte Tiptap JSON a HTML para email */
 function tiptapToEmailHtml(doc: any): string {
@@ -290,13 +294,13 @@ function DealPipelineStepper({
   const wonStage = stages.find((s) => s.isClosedWon);
   const lostStage = stages.find((s) => s.isClosedLost);
   const currentIdx = openStages.findIndex((s) => s.id === currentStageId);
-  // El negocio se considera cerrado si dealStatus lo marca, o si la etapa seleccionada
-  // es la etapa "ganado"/"perdido" (esto cubre el caso en que recién se hizo click en
-  // Ganado y aún no se recargó el prop deal.status).
+  // Preferir la etapa real cuando status quedó desfasado (p.ej. status=lost pero
+  // stageId apunta a "Cotización enviada" tras reenviar una cotización).
+  const isOnOpenStage = currentIdx >= 0;
   const isWonByStage = !!wonStage && currentStageId === wonStage.id;
   const isLostByStage = !!lostStage && currentStageId === lostStage.id;
-  const isWon = dealStatus === "won" || isWonByStage;
-  const isLost = dealStatus === "lost" || isLostByStage;
+  const isWon = isWonByStage || (dealStatus === "won" && !isOnOpenStage && !isLostByStage);
+  const isLost = isLostByStage || (dealStatus === "lost" && !isOnOpenStage && !isWonByStage);
   const isClosed = isWon || isLost;
 
   const currentOpenStage = currentIdx >= 0 ? openStages[currentIdx] : undefined;
@@ -537,7 +541,7 @@ function DealPipelineStepper({
 }
 
 export function CrmDealDetailClient({
-  deal, quotes, pipelineStages, dealContacts: initialDealContacts, accountContacts, accountInstallations = [], dealInstallation = null, gmailConnected, docTemplatesMail = [], docTemplatesWhatsApp = [], followUpConfig = null, followUpLogs = [], activityEvents = [], ufValue, canConfigureCrm = false, currentUserId = "",
+  deal, quotes, pipelineStages, dealContacts: initialDealContacts, accountContacts, accountInstallations = [], dealInstallation = null, gmailConnected, docTemplatesMail = [], docTemplatesWhatsApp = [], followUpConfig = null, followUpLogs = [], activityEvents = [], ufValue, canConfigureCrm = false, canEdit = false, currentUserId = "",
 }: {
   deal: DealDetail; quotes: QuoteOption[];
   pipelineStages: PipelineStageOption[];
@@ -550,6 +554,7 @@ export function CrmDealDetailClient({
   activityEvents?: ActivityEvent[];
   ufValue: number;
   canConfigureCrm?: boolean;
+  canEdit?: boolean;
   currentUserId?: string;
 }) {
   // Contexto de página para OPAI Intelligence (chat contextual tipo Notion)
@@ -718,6 +723,11 @@ export function CrmDealDetailClient({
     setDealStatus(deal.status);
   }, [deal.status]);
   const [dealTitle, setDealTitle] = useState(deal.title);
+  const [dealAccount, setDealAccount] = useState(deal.account ?? null);
+
+  useEffect(() => {
+    setDealAccount(deal.account ?? null);
+  }, [deal.account]);
   // Estado local de licitación (mismo patrón que dealStatus): se actualiza al
   // instante cuando DealLicitacionCard persiste, y re-sincroniza con el prop.
   const [licitacion, setLicitacion] = useState<{ isLicitacion: boolean; fechaEntrega: string | null }>({
@@ -905,6 +915,48 @@ export function CrmDealDetailClient({
     accountId: deal.account?.id ?? "",
   });
 
+  useEffect(() => {
+    if (!canEdit || accountOptions.length > 0) return;
+    fetch("/api/crm/accounts?limit=500")
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.success && d.data) {
+          setAccountOptions(d.data.map((a: { id: string; name: string }) => ({ id: a.id, name: a.name })));
+        }
+      })
+      .catch(() => {});
+  }, [canEdit, accountOptions.length]);
+
+  const accountSelectOptions = useMemo(() => {
+    const opts = accountOptions.map((a) => ({ value: a.id, label: a.name }));
+    if (dealAccount && !opts.find((o) => o.value === dealAccount.id)) {
+      opts.unshift({ value: dealAccount.id, label: dealAccount.name });
+    }
+    return opts;
+  }, [accountOptions, dealAccount]);
+
+  const commitDealField = async (key: string, value: string | null): Promise<string | null> => {
+    const apiValue = key === "amount" ? Number(value ?? 0) : value;
+    const data = await patchCrmField<Record<string, unknown>>({
+      url: `/api/crm/deals/${deal.id}`,
+      key,
+      value: apiValue,
+    });
+    if (key === "title" && typeof data.title === "string") setDealTitle(data.title);
+    if (key === "amount") setDealAmount(String(data.amount ?? value ?? "0"));
+    if (key === "proposalLink") setDealProposalLink((data.proposalLink as string | null) ?? value);
+    if (key === "accountId" && typeof data.accountId === "string") {
+      const nextAccount = accountOptions.find((a) => a.id === data.accountId)
+        ?? (dealAccount?.id === data.accountId ? dealAccount : null);
+      if (nextAccount) {
+        setDealAccount({ id: nextAccount.id, name: nextAccount.name });
+      }
+      router.refresh();
+    }
+    const saved = data[key];
+    return saved != null ? String(saved) : value;
+  };
+
   const openDealEdit = () => {
     setEditDealForm({
       title: dealTitle,
@@ -1010,18 +1062,20 @@ export function CrmDealDetailClient({
       getFollowUpFlowStatus({
         proposalSentAt: dealProposalSentAt,
         proposalLink: dealProposalLink,
-        config: followUpConfig,
+        configActive: followUpConfig?.isActive,
         totalLogs: localFollowUpLogs.length,
         pendingLogs: pendingFollowUps.length,
         overdueLogs: overdueFollowUpsCount,
+        failedLogs: failedFollowUpsCount,
       }),
     [
       dealProposalSentAt,
       dealProposalLink,
-      followUpConfig,
+      followUpConfig?.isActive,
       localFollowUpLogs.length,
       pendingFollowUps.length,
       overdueFollowUpsCount,
+      failedFollowUpsCount,
     ]
   );
   const localFollowUpLogsDesc = followUpLogsDesc;
@@ -1597,13 +1651,26 @@ export function CrmDealDetailClient({
     || pipelineStages.find((s) => s.id === currentStage?.id)?.color
     || "#94a3b8";
 
-  const statusBadge = dealStatus === "won"
-    ? { label: "Ganado", variant: "success" as const }
-    : dealStatus === "lost"
-      ? { label: "Perdido", variant: "destructive" as const }
-      : currentStage
-        ? { label: currentStage.name, color: currentStageColor }
-        : undefined;
+  // Badge alineado con la etapa: si status=lost pero la etapa es abierta (bug
+  // histórico de reenvío), mostrar el nombre de la etapa, no "Perdido".
+  const stageIsClosedWon = !!pipelineStages.find(
+    (s) => s.id === currentStage?.id && s.isClosedWon,
+  );
+  const stageIsClosedLost = !!pipelineStages.find(
+    (s) => s.id === currentStage?.id && s.isClosedLost,
+  );
+  const statusBadge =
+    stageIsClosedWon || (dealStatus === "won" && !currentStage)
+      ? { label: "Ganado", variant: "success" as const }
+      : stageIsClosedLost || (dealStatus === "lost" && !currentStage)
+        ? { label: "Perdido", variant: "destructive" as const }
+        : dealStatus === "lost" && !stageIsClosedLost && currentStage
+          ? { label: currentStage.name, color: currentStageColor }
+          : dealStatus === "won" && !stageIsClosedWon && currentStage
+            ? { label: currentStage.name, color: currentStageColor }
+            : currentStage
+              ? { label: currentStage.name, color: currentStageColor }
+              : undefined;
 
   // ── Sections ──
   // La identidad del negocio vive en header + highlights; cuenta/contacto,
@@ -2440,6 +2507,77 @@ export function CrmDealDetailClient({
       >
         {effectiveTab === "general" && (
           <div className="space-y-4">
+            <div className="rounded-xl border border-border bg-card p-4">
+              <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-ds-text-3">
+                Datos del negocio
+              </p>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <InlineEditField
+                  label="Título"
+                  fieldKey="title"
+                  type="text"
+                  value={dealTitle}
+                  canEdit={canEdit}
+                  required
+                  onCommit={async (key, value) => {
+                    const saved = await commitDealField(key, value);
+                    if (saved) setDealTitle(saved);
+                    return saved;
+                  }}
+                />
+                <InlineEditField
+                  label="Cliente (cuenta)"
+                  fieldKey="accountId"
+                  type="select"
+                  value={dealAccount?.id ?? null}
+                  canEdit={canEdit}
+                  options={accountSelectOptions}
+                  confirm={{
+                    title: "¿Mover el negocio a otro cliente?",
+                    description: (next) => {
+                      const toName = accountSelectOptions.find((o) => o.value === next)?.label ?? "otra cuenta";
+                      return `Vas a cambiar la cuenta de «${dealAccount?.name ?? "sin cuenta"}» a «${toName}». El negocio dejará de aparecer en el cliente actual.`;
+                    },
+                  }}
+                  onCommit={commitDealField}
+                />
+                <InlineEditField
+                  label="Monto"
+                  fieldKey="amount"
+                  type="money"
+                  value={dealAmount ? String(dealAmount) : null}
+                  canEdit={canEdit}
+                  normalize={normalizeMoneyClp}
+                  displayValue={(v) =>
+                    v ? `$${Number(v).toLocaleString("es-CL")}` : null
+                  }
+                  onCommit={async (key, value) => {
+                    const num = value ? Number(value) : 0;
+                    const data = await patchCrmField<Record<string, unknown>>({
+                      url: `/api/crm/deals/${deal.id}`,
+                      key,
+                      value: num,
+                    });
+                    const saved = String(data.amount ?? num);
+                    setDealAmount(saved);
+                    return saved;
+                  }}
+                />
+                <InlineEditField
+                  label="Link propuesta"
+                  fieldKey="proposalLink"
+                  type="url"
+                  value={dealProposalLink}
+                  canEdit={canEdit}
+                  normalize={normalizeWebsite}
+                  onCommit={async (key, value) => {
+                    const saved = await commitDealField(key, value);
+                    setDealProposalLink(saved);
+                    return saved;
+                  }}
+                />
+              </div>
+            </div>
             <DealNextStepBanner
               log={pendingLogsBySequence[0] ?? null}
               onSendNow={handleSendFollowUpNow}
@@ -2885,57 +3023,6 @@ function formatDealDate(value?: string | null): string {
     day: "2-digit",
     month: "short",
   });
-}
-
-function getFollowUpFlowStatus({
-  proposalSentAt,
-  proposalLink,
-  config,
-  totalLogs,
-  pendingLogs,
-  overdueLogs,
-}: {
-  proposalSentAt: string | null;
-  proposalLink: string | null;
-  config: FollowUpConfigState | null;
-  totalLogs: number;
-  pendingLogs: number;
-  overdueLogs: number;
-}) {
-  if (!proposalSentAt && !proposalLink && totalLogs === 0) {
-    return {
-      label: "Sin iniciar",
-      className: "text-[10px] border-muted text-muted-foreground",
-    };
-  }
-  if (config?.isActive === false) {
-    return {
-      label: "Automatización pausada",
-      className: "text-[10px] border-status-warn-border text-status-warn-fg",
-    };
-  }
-  if (overdueLogs > 0) {
-    return {
-      label: "Con atrasos",
-      className: "text-[10px] border-status-danger-border text-status-danger-fg",
-    };
-  }
-  if (pendingLogs > 0) {
-    return {
-      label: "Activo",
-      className: "text-[10px] border-status-ok-border text-status-ok-fg",
-    };
-  }
-  if (totalLogs > 0) {
-    return {
-      label: "Completado",
-      className: "text-[10px] border-status-info-border text-status-info-fg",
-    };
-  }
-  return {
-    label: "Sin eventos",
-    className: "text-[10px] border-muted text-muted-foreground",
-  };
 }
 
 function getFollowUpStatusMeta(status: string) {

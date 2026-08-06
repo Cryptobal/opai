@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { todayInChile, utcDateFromYmd } from "@/lib/dates-cl";
 import { sanitizeSyncReason } from "./agenda-sync-reason";
 import { isAgendaVisitaAllDay } from "./agenda-sync";
+import { allDaySpanFromBounds } from "./agenda-all-day-span";
 import { listAgendaTasks } from "./agenda-tasks";
 import type { AgendaListItem, LicitacionListItem } from "./agenda.types";
 import { opaiSourceKey } from "@/modules/calendar/calendar-sources";
@@ -102,6 +103,12 @@ export async function listAgenda(
       // Columna propia es fuente; si false y duración ≥23h, heurística legacy.
       v.allDay === true ? true : null,
     );
+    const span = allDaySpanFromBounds({
+      id: v.id,
+      startAt: v.startAt,
+      endAt: v.endAt,
+      allDay,
+    });
     items.push({
       id: v.id,
       source: "agenda_visita",
@@ -115,13 +122,15 @@ export async function listAgenda(
       assignedName: nameMap.get(v.assignedUserId) ?? null,
       accountName: v.account?.name ?? null,
       installationName: v.installation?.name ?? null,
-      address: v.installation?.address ?? v.customAddress ?? null,
+      // Preferir dirección libre del evento; instalación como fallback.
+      address: v.customAddress?.trim() || v.installation?.address || null,
       syncStatus: syncMap.get(`agenda_visita:${v.id}`) ?? null,
       syncReason: syncReasonMap.get(`agenda_visita:${v.id}`) ?? null,
       htmlLink: htmlLinkMap.get(`agenda_visita:${v.id}`) ?? null,
       dealId: v.dealId,
       status: v.status,
       sourceKey: opaiSourceKey("cliente"),
+      ...(span ?? {}),
     });
   }
 
