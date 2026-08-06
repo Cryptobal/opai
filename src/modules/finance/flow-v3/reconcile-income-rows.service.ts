@@ -44,6 +44,7 @@ export async function reconcileIncomeRows(tenantId: string): Promise<void> {
     await applySectionMoves(tx, tenantId);
     await ensureCanonicalRows(tx, tenantId);
     await backfillCanonicalCategories(tx, tenantId);
+    await backfillCanonicalKeys(tx, tenantId);
     await adoptOrCreateTemplateRows(tx, tenantId);
     const ownRowAccounts = await createRowsForAccountsWithPendingDtes(tx, tenantId);
     await archiveSurplusRows(tx, tenantId, ownRowAccounts);
@@ -93,8 +94,8 @@ async function applySectionMoves(tx: Tx, tenantId: string): Promise<void> {
 
 /**
  * Backfill idempotente: si una fila canónica tiene categoryId null y el
- * código de categoría existe, la liga y pasa mapping a CATEGORY.
- * Nunca pisa una categoría ya asignada por el usuario.
+ * código de categoría existe, la liga (espejo legacy). También asigna
+ * canonicalKey y mapping ACCOUNTS. Nunca pisa llave/categoría ya asignada.
  */
 async function backfillCanonicalCategories(
   tx: Tx,
@@ -106,17 +107,21 @@ async function backfillCanonicalCategories(
   });
   const catByCode = new Map(categories.map((c) => [c.code, c.id]));
 
-  const targets = CANONICAL_FLOW_ROWS.filter((c) => c.categoryCode != null);
+  const targets = CANONICAL_FLOW_ROWS.filter(
+    (c) => c.categoryCode != null || c.canonicalKey != null,
+  );
   if (targets.length === 0) return;
 
   const rows = await tx.financeFlowRow.findMany({
     where: {
       tenantId,
       archivedAt: null,
-      categoryId: null,
       section: { in: targets.map((t) => t.section) },
     },
-    select: { id: true, name: true, section: true, mapping: true },
+    select: {
+      id: true, name: true, section: true, mapping: true,
+      categoryId: true, canonicalKey: true,
+    },
   });
 
   for (const row of rows) {
@@ -126,13 +131,63 @@ async function backfillCanonicalCategories(
         t.section === row.section &&
         normalizeNameForDedupe(t.name) === nameKey,
     );
-    if (!canonical?.categoryCode) continue;
-    const categoryId = catByCode.get(canonical.categoryCode);
-    if (!categoryId) continue;
+    if (!canonical) continue;
+
+    const data: {
+      categoryId?: string;
+      canonicalKey?: typeof canonical.canonicalKey;
+      mapping?: "ACCOUNTS" | "CATEGORY";
+    } = {};
+
+    if (!row.categoryId && canonical.categoryCode) {
+      const categoryId = catByCode.get(canonical.categoryCode);
+      if (categoryId) data.categoryId = categoryId;
+    }
+    if (!row.canonicalKey && canonical.canonicalKey) {
+      data.canonicalKey = canonical.canonicalKey;
+    }
+    if (
+      (data.categoryId || data.canonicalKey || row.categoryId || row.canonicalKey) &&
+      (row.mapping === "MANUAL" || row.mapping === "CATEGORY")
+    ) {
+      data.mapping = "ACCOUNTS";
+    }
+    if (Object.keys(data).length === 0) continue;
+    await tx.financeFlowRow.update({ where: { id: row.id }, data });
+  }
+}
+
+/** Asigna canonicalKey a bandejas y canónicas por nombre si aún falta. */
+async function backfillCanonicalKeys(tx: Tx, tenantId: string): Promise<void> {
+  const rows = await tx.financeFlowRow.findMany({
+    where: { tenantId, archivedAt: null, canonicalKey: null },
+    select: { id: true, name: true, section: true, orderIndex: true },
+    orderBy: { orderIndex: "asc" },
+  });
+  const claimed = new Set(
+    (
+      await tx.financeFlowRow.findMany({
+        where: { tenantId, archivedAt: null, canonicalKey: { not: null } },
+        select: { canonicalKey: true },
+      })
+    ).map((r) => r.canonicalKey!),
+  );
+
+  for (const row of rows) {
+    const nameKey = normalizeNameForDedupe(row.name);
+    const canonical = CANONICAL_FLOW_ROWS.find(
+      (t) =>
+        t.section === row.section &&
+        normalizeNameForDedupe(t.name) === nameKey &&
+        t.canonicalKey,
+    );
+    if (!canonical?.canonicalKey) continue;
+    if (claimed.has(canonical.canonicalKey)) continue;
     await tx.financeFlowRow.update({
       where: { id: row.id },
-      data: { categoryId, mapping: "CATEGORY" },
+      data: { canonicalKey: canonical.canonicalKey },
     });
+    claimed.add(canonical.canonicalKey);
   }
 }
 
@@ -177,9 +232,10 @@ async function ensureCanonicalRows(tx: Tx, tenantId: string): Promise<void> {
         tenantId,
         section: c.section as FlowSection,
         name: c.name,
-        mapping: categoryId ? "CATEGORY" : "MANUAL",
+        mapping: c.canonicalKey || categoryId ? "ACCOUNTS" : "MANUAL",
         orderIndex: orderIndex++,
         categoryId,
+        canonicalKey: c.canonicalKey,
       },
     });
     bySectionName.add(key);

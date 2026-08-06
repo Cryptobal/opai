@@ -39,7 +39,9 @@ export interface AssembleRowInput {
   crmAccountId: string | null;
   installationId: string | null;
   recurringTemplateId?: string | null;
+  /** @deprecated Preferir canonicalKey / cuentas del renglón. */
   categoryId: string | null;
+  canonicalKey?: string | null;
   supplierId: string | null;
   isArchived: boolean;
   /** Última semana (lunes YMD) con datos visibles para filas archivadas. */
@@ -47,7 +49,7 @@ export interface AssembleRowInput {
   isVirtual: boolean;
   /**
    * Nombre canónico desde la fuente (template / cuenta·instalación /
-   * categoría / proveedor). null en filas MANUAL o virtuales.
+   * cuenta primaria / proveedor). null en filas MANUAL o virtuales.
    */
   sourceName?: string | null;
   /** true si `name` difiere del canónico (alias manual de visualización). */

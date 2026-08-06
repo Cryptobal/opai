@@ -113,7 +113,12 @@ export interface FlowRowRef {
   installationId: string | null;
   /** 1 fila = 1 programación; null en filas genéricas de cuenta/egreso. */
   recurringTemplateId?: string | null;
+  /** @deprecated Preferir canonicalKey + accountPlanIds. Espejo legacy. */
   categoryId: string | null;
+  /** Llave canónica (payroll/F29/bandejas). */
+  canonicalKey?: string | null;
+  /** Cuentas contables del renglón (para índices locales en tests). */
+  accountPlanIds?: string[];
   supplierId?: string | null;
 }
 

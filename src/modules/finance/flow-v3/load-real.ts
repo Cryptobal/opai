@@ -1,6 +1,6 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
-import { bulkResolveCategoriesFromAccounts } from "@/modules/finance/cashflow/categoryAccount.service";
+import { bulkAccountToRow } from "./rowAccount.service";
 import { ymdToDate } from "./weeks";
 import { deriveReal, type DteRefInput, type RealTxInput } from "./derive-real";
 import type { FlowRowRef, RealByRow } from "./types";
@@ -20,29 +20,23 @@ export async function loadReal(
   const lastMonday = ymdToDate(weeks[weeks.length - 1])!;
   const to = new Date(lastMonday.getTime() + 6 * 86_400_000); // domingo de la última semana
 
-  const [txs, categories] = await Promise.all([
-    prisma.financeBankTransaction.findMany({
-      where: {
-        tenantId,
-        transactionDate: { gte: from, lte: to },
-        hiddenAt: null,
-        excludedReason: null,
+  const txs = await prisma.financeBankTransaction.findMany({
+    where: {
+      tenantId,
+      transactionDate: { gte: from, lte: to },
+      hiddenAt: null,
+      excludedReason: null,
+    },
+    select: {
+      id: true,
+      transactionDate: true,
+      amount: true,
+      description: true,
+      links: {
+        select: { targetType: true, targetId: true, amount: true, accountPlanId: true },
       },
-      select: {
-        id: true,
-        transactionDate: true,
-        amount: true,
-        description: true,
-        links: {
-          select: { targetType: true, targetId: true, amount: true, accountPlanId: true },
-        },
-      },
-    }),
-    prisma.financeCashflowCategory.findMany({
-      where: { tenantId },
-      select: { id: true, code: true },
-    }),
-  ]);
+    },
+  });
 
   const dteIds = new Set<string>();
   const accountPlanIds = new Set<string>();
@@ -71,18 +65,24 @@ export async function loadReal(
   for (const d of dtes) {
     for (const l of d.lines) if (l.accountId) accountPlanIds.add(l.accountId);
   }
-  const accountToCategory = await bulkResolveCategoriesFromAccounts(tenantId, [
-    ...accountPlanIds,
-  ]);
+  const accountToRowId = await bulkAccountToRow(tenantId, [...accountPlanIds]);
 
   const dteById = new Map<string, DteRefInput>();
   for (const d of dtes) {
-    let categoryId: string | null = null;
+    let accountPlanId: string | null = null;
     if (d.direction === "RECEIVED") {
       for (const l of d.lines) {
-        if (l.accountId && accountToCategory.has(l.accountId)) {
-          categoryId = accountToCategory.get(l.accountId)!.id;
+        if (l.accountId && accountToRowId.has(l.accountId)) {
+          accountPlanId = l.accountId;
           break;
+        }
+      }
+      if (!accountPlanId) {
+        for (const l of d.lines) {
+          if (l.accountId) {
+            accountPlanId = l.accountId;
+            break;
+          }
         }
       }
     }
@@ -94,7 +94,7 @@ export async function loadReal(
       recurringTemplateId: d.direction === "ISSUED" ? d.recurringTemplateId : null,
       flowRouting: d.direction === "ISSUED" ? d.flowRouting : null,
       supplierId: d.supplierId,
-      categoryId,
+      accountPlanId,
       name: d.direction === "ISSUED" ? (d.receiverName ?? "") : (d.issuerName ?? ""),
       ceded: d.direction === "ISSUED" && d.paymentStatus === "CEDED",
     });
@@ -113,15 +113,11 @@ export async function loadReal(
     })),
   }));
 
-  const categoryIdByAccountPlanId = new Map<string, string>();
-  for (const [accId, cat] of accountToCategory) categoryIdByAccountPlanId.set(accId, cat.id);
-
   return deriveReal({
     rows,
     weeks,
     txs: txInputs,
     dteById,
-    categoryIdByAccountPlanId,
-    categoryCodeById: new Map(categories.map((c) => [c.id, c.code])),
+    accountToRowId,
   });
 }

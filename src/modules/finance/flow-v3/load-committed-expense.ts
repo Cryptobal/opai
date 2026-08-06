@@ -3,13 +3,13 @@ import { prisma } from "@/lib/prisma";
 import { computePayrollCashForTenant } from "@/modules/finance/cashflow/payroll-cash.service";
 import { computeFromFichas } from "@/modules/finance/cashflow/generators/quincena-sync";
 import { computeF29Period } from "@/modules/finance/billing/f29.service";
-import { bulkResolveCategoriesFromAccounts } from "@/modules/finance/cashflow/categoryAccount.service";
 import {
   deriveCommittedExpense,
   type ExpenseMilestoneInput,
   type ReceivedDteExpenseInput,
 } from "./derive-committed-expense";
 import { loadExpenseParametrics } from "./load-committed-expense-params";
+import { bulkAccountToRow } from "./rowAccount.service";
 import type { CommittedByRow, FlowRowRef } from "./types";
 
 function ymdOf(y: number, monthZeroIdx: number, day: number): string {
@@ -55,7 +55,7 @@ export async function loadCommittedExpense(
   const toYmd = weeks[weeks.length - 1];
   if (!fromYmd || !toYmd) return new Map();
 
-  const [config, categories, receivedRaw, exclusions, pendingTes, payrollCash] = await Promise.all([
+  const [config, receivedRaw, exclusions, pendingTes, payrollCash] = await Promise.all([
     prisma.financeCashflowConfig.findUnique({
       where: { tenantId },
       select: {
@@ -64,10 +64,6 @@ export async function loadCommittedExpense(
         collectionLagDays: true,
         projectReceivedDtesAsExpense: true,
       },
-    }),
-    prisma.financeCashflowCategory.findMany({
-      where: { tenantId },
-      select: { id: true, code: true },
     }),
     prisma.financeDte.findMany({
       where: {
@@ -225,6 +221,7 @@ export async function loadCommittedExpense(
   // encendido. Sin config o false ⇒ cartola-first (crédito IVA F29 intacto).
   const projectReceived = config?.projectReceivedDtesAsExpense === true;
   let receivedDtes: ReceivedDteExpenseInput[] = [];
+  let accountToRowId = new Map<string, string>();
   if (projectReceived) {
     const excluded = new Set(exclusions.map((e) => e.dteId));
     const allAccountIds = [
@@ -232,16 +229,24 @@ export async function loadCommittedExpense(
         receivedRaw.flatMap((d) => d.lines.map((l) => l.accountId).filter((x): x is string => !!x)),
       ),
     ];
-    const accountToCategory = await bulkResolveCategoriesFromAccounts(tenantId, allAccountIds);
+    accountToRowId = await bulkAccountToRow(tenantId, allAccountIds);
 
     receivedDtes = receivedRaw
       .filter((d) => !excluded.has(d.id))
       .map((d) => {
-        let categoryId: string | null = null;
+        let accountPlanId: string | null = null;
         for (const l of d.lines) {
-          if (l.accountId && accountToCategory.has(l.accountId)) {
-            categoryId = accountToCategory.get(l.accountId)!.id;
+          if (l.accountId && accountToRowId.has(l.accountId)) {
+            accountPlanId = l.accountId;
             break;
+          }
+        }
+        if (!accountPlanId) {
+          for (const l of d.lines) {
+            if (l.accountId) {
+              accountPlanId = l.accountId;
+              break;
+            }
           }
         }
         return {
@@ -252,7 +257,7 @@ export async function loadCommittedExpense(
           paymentTermDays: d.supplier?.paymentTermDays ?? config?.collectionLagDays ?? 30,
           pendingClp: Number(d.totalAmount) - Number(d.amountPaid),
           supplierId: d.supplierId,
-          categoryId,
+          accountPlanId,
           issuerName: d.issuerName ?? "",
         };
       });
@@ -264,7 +269,7 @@ export async function loadCommittedExpense(
     todayYmd,
     milestones,
     receivedDtes,
-    categoryCodeById: new Map(categories.map((c) => [c.id, c.code])),
+    accountToRowId,
     teWeeklyProjections: parametrics.teWeeklyProjections,
     teRowId: parametrics.teRowId,
     tePlanBlockedWeeks: parametrics.tePlanBlockedWeeks,

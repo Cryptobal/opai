@@ -13,7 +13,7 @@
  *    de conciliación) cae en la fila canónica "Costo factoring"
  *    (FINANCIAMIENTO), con monto negativo.
  *
- * Egresos (cargos): se rutean por links (DTE recibido, payroll, categoría);
+ * Egresos (cargos): se rutean por links (DTE recibido, payroll, cuenta);
  * el remanente sin conciliar sigue yendo a "Otros egresos".
  */
 import { weekStartYmd, ymdToDate } from "./weeks";
@@ -23,6 +23,7 @@ import {
   matchExpenseRow,
   normalizeRowName,
 } from "./row-match";
+import { PAYROLL_LINK_KEY } from "./row-keys";
 import { COST_FACTORING_ROW_NAME } from "./canonical-rows";
 import {
   pushReal,
@@ -58,8 +59,10 @@ export interface DteRefInput {
   /** Destino explícito elegido al emitir. null/undefined = ruteo automático. */
   flowRouting?: "OWN_ROW" | "OTHER_INCOME" | null;
   supplierId: string | null;
-  /** Categoría resuelta por el loader para RECEIVED (líneas → cuentas). */
-  categoryId: string | null;
+  /** Primera cuenta de líneas del DTE recibido (loader). */
+  accountPlanId?: string | null;
+  /** @deprecated Preferir accountPlanId. */
+  categoryId?: string | null;
   name: string;
   /** ISSUED con paymentStatus=CEDED — marca secundaria tras conciliar. */
   ceded?: boolean;
@@ -70,19 +73,9 @@ export interface RealArgs {
   weeks: string[];
   txs: RealTxInput[];
   dteById: Map<string, DteRefInput>;
-  /** accountPlanId → categoryId (mapeo FinanceCashflowCategoryAccount). */
-  categoryIdByAccountPlanId: Map<string, string>;
-  categoryCodeById: Map<string, string>;
+  /** accountPlanId → rowId (destino por defecto vía FinanceFlowRowAccount). */
+  accountToRowId: Map<string, string>;
 }
-
-/** Atajos payroll idénticos a category-resolver.ts (convención de producto). */
-const PAYROLL_LINK_CODE: Record<string, string> = {
-  PAYROLL_LIQUIDACION: "EGR_SUELDO",
-  PAYROLL_ANTICIPO: "EGR_QUINCENA",
-  TE_LOTE: "EGR_TURNO_EXTRA",
-  TE_ITEM: "EGR_TURNO_EXTRA",
-  TE_TURNO: "EGR_TURNO_EXTRA",
-};
 
 /**
  * Links de diferencia contable (shortfall/surplus) que NO consumen el cupo
@@ -98,6 +91,9 @@ function isAccountingDiffLink(isCredit: boolean, link: RealLinkInput): boolean {
 }
 
 function findCostoFactoringRowId(rows: FlowRowRef[]): string | null {
+  for (const r of rows) {
+    if (r.canonicalKey === "FACTORING") return r.id;
+  }
   const key = normalizeRowName(COST_FACTORING_ROW_NAME);
   for (const r of rows) {
     if (normalizeRowName(r.name) !== key) continue;
@@ -113,24 +109,23 @@ export function deriveReal(args: RealArgs): RealByRow {
   const firstWeek = args.weeks[0];
   const lastWeek = args.weeks[args.weeks.length - 1];
   const matchIncome = buildIncomeMatcher(args.rows);
-  const idx = buildExpenseIndexes(args.rows, args.categoryCodeById);
+  const idx = buildExpenseIndexes(args.rows, args.accountToRowId);
   const costoFactoringRowId = findCostoFactoringRowId(args.rows);
 
   const resolveExpenseLinkRow = (link: RealLinkInput): string => {
-    const payrollCode = PAYROLL_LINK_CODE[link.targetType];
-    if (payrollCode) return matchExpenseRow(idx, { categoryCode: payrollCode });
+    const payrollKey = PAYROLL_LINK_KEY[link.targetType];
+    if (payrollKey) return matchExpenseRow(idx, { canonicalKey: payrollKey });
     if (link.targetType === "DTE_RECEIVED" && link.targetId) {
       const dte = args.dteById.get(link.targetId);
       if (dte) {
         return matchExpenseRow(idx, {
           supplierId: dte.supplierId,
-          categoryId: dte.categoryId,
+          accountPlanId: dte.accountPlanId ?? null,
         });
       }
     }
     if (link.accountPlanId) {
-      const catId = args.categoryIdByAccountPlanId.get(link.accountPlanId);
-      if (catId) return matchExpenseRow(idx, { categoryId: catId });
+      return matchExpenseRow(idx, { accountPlanId: link.accountPlanId });
     }
     return UNMATCHED_EXPENSE_KEY;
   };

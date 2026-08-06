@@ -401,7 +401,15 @@ function fractionElapsedInPeriod(todayYmd: string, y: number, monthZeroIdx: numb
   return elapsed / total;
 }
 
-function findRowId(rows: FlowRowRef[], name: string): string | null {
+function findRowId(
+  rows: FlowRowRef[],
+  name: string,
+  canonicalKey?: string,
+): string | null {
+  if (canonicalKey) {
+    const byKey = rows.find((r) => r.canonicalKey === canonicalKey)?.id;
+    if (byKey) return byKey;
+  }
   const key = normalizeRowName(name);
   return rows.find((r) => normalizeRowName(r.name) === key)?.id ?? null;
 }
@@ -458,8 +466,8 @@ export async function loadExpenseParametrics(
   const finiquitosManual = config?.finiquitosManualMonthlyClp;
   const ppmRatePct = Number(config?.ppmRatePct ?? 0);
 
-  const teRowId = findRowId(rows, "Turnos extra");
-  const finRowId = findRowId(rows, "Finiquitos");
+  const teRowId = findRowId(rows, "Turnos extra", "TURNO_EXTRA");
+  const finRowId = findRowId(rows, "Finiquitos", "FINIQUITO");
 
   const horizonMonths = monthsBetween(fromYmd, toYmd);
   const fromDate = ymdToDate(fromYmd)!;
