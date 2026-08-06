@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ChevronDown, ChevronRight, Plus, Search } from "lucide-react";
+import { ChevronDown, ChevronRight, Plus, Search, AlertTriangle, Inbox } from "lucide-react";
 import {
   EmptyState,
   Spinner,
@@ -212,9 +212,15 @@ export function FlowRowsConfigPanel({ accountOptions }: Props) {
             <span className="text-[13px]">Cargando renglones…</span>
           </div>
         ) : error ? (
-          <EmptyState title="No se pudo cargar" description={error} />
+          <EmptyState
+            icon={AlertTriangle}
+            tone="warn"
+            title="No se pudo cargar"
+            description={error}
+          />
         ) : filtered.length === 0 ? (
           <EmptyState
+            icon={Inbox}
             title="Sin coincidencias"
             description="Probá otro término o desactivá el filtro de problemas."
           />
