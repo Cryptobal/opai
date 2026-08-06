@@ -194,27 +194,34 @@ export async function PATCH(
       if (repNameChanged || repRutChanged) {
         const nextName = (parsed.data.legalRepresentativeName ?? existing.legalRepresentativeName ?? "").trim();
         const nextRut = (parsed.data.legalRepresentativeRut ?? existing.legalRepresentativeRut ?? "").trim();
-        if (nextName && nextRut) {
-          const firstRep = await tx.accountRepresentanteLegal.findFirst({
-            where: { accountId: id },
-            orderBy: { createdAt: "asc" },
-            select: { id: true },
-          });
+        const firstRep = await tx.accountRepresentanteLegal.findFirst({
+          where: { accountId: id },
+          orderBy: { createdAt: "asc" },
+          select: { id: true, nombre: true, rut: true },
+        });
+        if (!nextName && !nextRut) {
+          // Ambos vacíos: quitar el primer rep canónico (portal se alinea vía sync inverso al leer flats).
           if (firstRep) {
-            await tx.accountRepresentanteLegal.update({
-              where: { id: firstRep.id },
-              data: { nombre: nextName, rut: nextRut },
-            });
-          } else {
-            await tx.accountRepresentanteLegal.create({
-              data: {
-                tenantId: ctx.tenantId,
-                accountId: id,
-                nombre: nextName,
-                rut: nextRut,
-              },
-            });
+            await tx.accountRepresentanteLegal.delete({ where: { id: firstRep.id } });
           }
+        } else if (firstRep) {
+          // Actualizar parcial: permite editar nombre y RUT en dos pasos (inline Enter).
+          await tx.accountRepresentanteLegal.update({
+            where: { id: firstRep.id },
+            data: {
+              nombre: nextName || firstRep.nombre,
+              rut: nextRut || firstRep.rut,
+            },
+          });
+        } else if (nextName && nextRut) {
+          await tx.accountRepresentanteLegal.create({
+            data: {
+              tenantId: ctx.tenantId,
+              accountId: id,
+              nombre: nextName,
+              rut: nextRut,
+            },
+          });
         }
       }
 

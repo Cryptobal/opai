@@ -314,7 +314,8 @@ export function CrmAccountDetailClient({
   const websiteFieldRef = useRef<HTMLDivElement>(null);
 
   const commitAccountField = async (key: string, value: string | null): Promise<string | null> => {
-    const apiValue = key === "rut" ? rutForApi(value) : value;
+    const apiValue =
+      key === "rut" || key === "legalRepresentativeRut" ? rutForApi(value) : value;
     const data = await patchCrmField<Record<string, unknown>>({
       url: `/api/crm/accounts/${account.id}`,
       key,
@@ -322,12 +323,77 @@ export function CrmAccountDetailClient({
     });
     setAccount((prev) => {
       const raw = data[key] ?? value;
-      if (key === "startDate" || key === "endDate") {
-        return { ...prev, [key]: raw ? String(raw).slice(0, 10) : null };
+      if (key === "startDate" || key === "endDate" || key === "notaryDate") {
+        const dateVal = raw ? String(raw).slice(0, 10) : null;
+        const next = { ...prev, [key]: dateVal };
+        if (key === "notaryDate") {
+          next.personeria = prev.personeria
+            ? { ...prev.personeria, fechaEscritura: dateVal }
+            : dateVal
+              ? {
+                  id: "__local__",
+                  fechaEscritura: dateVal,
+                  tipoEscritura: null,
+                  notaria: prev.notaryName ?? null,
+                }
+              : prev.personeria;
+        }
+        return next;
       }
-      return { ...prev, [key]: raw ?? value };
+
+      const next: AccountDetail = { ...prev, [key]: raw ?? value };
+
+      // Mantener espejo local de reps/personería para que Portal/contratos
+      // y esta ficha muestren lo mismo sin recargar.
+      if (key === "legalRepresentativeName" || key === "legalRepresentativeRut") {
+        const nextName =
+          key === "legalRepresentativeName"
+            ? (raw != null ? String(raw) : value) ?? ""
+            : prev.legalRepresentativeName || "";
+        const nextRut =
+          key === "legalRepresentativeRut"
+            ? (raw != null ? String(raw) : value) ?? ""
+            : prev.legalRepresentativeRut || "";
+        const reps = [...(prev.representantesLegales ?? [])];
+        if (!nextName.trim() && !nextRut.trim()) {
+          next.representantesLegales = reps.slice(1);
+        } else if (reps.length > 0) {
+          reps[0] = {
+            ...reps[0],
+            nombre: nextName.trim() || reps[0].nombre,
+            rut: nextRut.trim() || reps[0].rut,
+          };
+          next.representantesLegales = reps;
+        } else if (nextName.trim() && nextRut.trim()) {
+          next.representantesLegales = [
+            {
+              id: "__local__",
+              nombre: nextName.trim(),
+              rut: nextRut.trim(),
+              email: null,
+            },
+          ];
+        }
+      }
+      if (key === "notaryName") {
+        const notaria = raw != null ? String(raw) : value;
+        next.personeria = prev.personeria
+          ? { ...prev.personeria, notaria }
+          : notaria
+            ? {
+                id: "__local__",
+                fechaEscritura: prev.notaryDate
+                  ? String(prev.notaryDate).slice(0, 10)
+                  : null,
+                tipoEscritura: null,
+                notaria,
+              }
+            : prev.personeria;
+      }
+
+      return next;
     });
-    if (key === "startDate" || key === "endDate") {
+    if (key === "startDate" || key === "endDate" || key === "notaryDate") {
       const raw = data[key] ?? value;
       return raw ? String(raw).slice(0, 10) : null;
     }
@@ -1543,93 +1609,108 @@ export function CrmAccountDetailClient({
         />
       </div>
 
-      {/* ── Representación legal (colapsable) ── */}
+      {/* ── Representación legal — siempre visible (como datos de facturación).
+          El primer representante + personería se editan aquí (flats → sync a
+          AccountRepresentanteLegal / AccountPersoneria). Extra reps del Portal
+          se muestran en solo lectura. */}
       {(() => {
-        // Build the canonical list of representatives. Prefer relational rows
-        // (edited in Portal Cliente). Fall back to legacy flat columns only if
-        // no relational rows exist (back-compat with old accounts).
-        const relationalReps = account.representantesLegales ?? [];
-        const legacyRep =
-          relationalReps.length === 0 &&
-          (account.legalRepresentativeName || account.legalRepresentativeRut)
-            ? {
-                id: "__legacy__",
-                nombre: account.legalRepresentativeName || "",
-                rut: account.legalRepresentativeRut || "",
-                email: null as string | null,
-              }
+        const firstRep = account.representantesLegales?.[0];
+        const extraReps = (account.representantesLegales ?? []).slice(1);
+        const primaryName =
+          account.legalRepresentativeName || firstRep?.nombre || null;
+        const primaryRut =
+          account.legalRepresentativeRut || firstRep?.rut || null;
+        const primaryEmail = firstRep?.email || null;
+        const notaria =
+          account.notaryName || account.personeria?.notaria || null;
+        const fechaEscritura = account.notaryDate
+          ? String(account.notaryDate).slice(0, 10)
+          : account.personeria?.fechaEscritura
+            ? String(account.personeria.fechaEscritura).slice(0, 10)
             : null;
-        const legalReps = relationalReps.length > 0 ? relationalReps : legacyRep ? [legacyRep] : [];
-
-        const hasPersoneria = Boolean(
-          account.notaryName ||
-            account.personeria?.notaria ||
-            account.notaryDate ||
-            account.personeria?.fechaEscritura,
-        );
-
-        if (legalReps.length === 0 && !hasPersoneria) return null;
 
         return (
-          <details className="group rounded-xl border border-border bg-card">
-            <summary className="flex cursor-pointer list-none select-none items-center justify-between px-4 py-3 transition-colors hover:bg-muted/20">
-              <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+          <div className="rounded-xl border border-border bg-card">
+            <div className="flex items-center justify-between gap-2 border-b border-border/50 px-4 py-2">
+              <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">
                 Representación legal
-              </span>
-              <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-180" />
-            </summary>
-            <div className="space-y-4 px-4 pb-4 pt-1">
-              {hasPersoneria && (
-                <div className="space-y-2">
-                  <div className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">
-                    Personería
-                  </div>
-                  <div className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">
-                    <DetailField
-                      label="Notaría"
-                      value={account.notaryName || account.personeria?.notaria || null}
-                    />
-                    <DetailField
-                      label="Fecha escritura"
-                      value={
-                        account.notaryDate ||
-                        (account.personeria?.fechaEscritura
-                          ? account.personeria.fechaEscritura.slice(0, 10)
-                          : null)
-                      }
-                    />
-                  </div>
-                </div>
-              )}
+              </p>
+              <button
+                type="button"
+                onClick={openAccountEdit}
+                className="text-[12px] font-medium text-primary hover:underline"
+              >
+                Editar
+              </button>
+            </div>
+            <div className="space-y-4 p-4">
+              <div className="grid grid-cols-1 gap-x-4 gap-y-2 sm:grid-cols-2">
+                <InlineEditField
+                  label="Representante legal"
+                  fieldKey="legalRepresentativeName"
+                  type="text"
+                  value={primaryName}
+                  canEdit={canEdit}
+                  placeholder="Sin cargar — requerido en contratos"
+                  onCommit={commitAccountField}
+                />
+                <InlineEditField
+                  label="RUT representante"
+                  fieldKey="legalRepresentativeRut"
+                  type="rut"
+                  value={primaryRut}
+                  canEdit={canEdit}
+                  mono
+                  normalize={normalizeRut}
+                  placeholder="Sin cargar"
+                  onCommit={commitAccountField}
+                />
+                <InlineEditField
+                  label="Notaría"
+                  fieldKey="notaryName"
+                  type="text"
+                  value={notaria}
+                  canEdit={canEdit}
+                  onCommit={commitAccountField}
+                />
+                <InlineEditField
+                  label="Fecha escritura"
+                  fieldKey="notaryDate"
+                  type="date"
+                  value={fechaEscritura}
+                  canEdit={canEdit}
+                  normalize={normalizeDateYmd}
+                  onCommit={commitAccountField}
+                />
+                {primaryEmail && (
+                  <DetailField label="Email representante" value={primaryEmail} mono copyable />
+                )}
+              </div>
 
-              {legalReps.length > 0 && (
-                <div className="space-y-2">
-                  <div className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">
-                    {legalReps.length === 1 ? "Representante legal" : "Representantes legales"}
-                  </div>
-                  <div className="space-y-2">
-                    {legalReps.map((rep, idx) => (
-                      <div
-                        key={rep.id}
-                        className="rounded-lg border border-border/60 bg-muted/20 p-3 space-y-2"
-                      >
-                        {legalReps.length > 1 && (
-                          <div className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">
-                            Representante {idx + 1}
-                          </div>
-                        )}
-                        <div className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2 lg:grid-cols-3">
-                          <DetailField label="Nombre" value={rep.nombre || null} />
-                          <DetailField label="RUT" value={rep.rut || null} mono copyable />
-                          <DetailField label="Email" value={rep.email || null} mono copyable />
-                        </div>
+              {extraReps.length > 0 && (
+                <div className="space-y-2 border-t border-border/50 pt-3">
+                  <p className="text-[12px] text-muted-foreground">
+                    Representantes adicionales (Portal Cliente — solo lectura aquí)
+                  </p>
+                  {extraReps.map((rep, idx) => (
+                    <div
+                      key={rep.id}
+                      className="rounded-lg border border-border/60 bg-muted/20 p-3"
+                    >
+                      <div className="mb-2 text-[12px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">
+                        Representante {idx + 2}
                       </div>
-                    ))}
-                  </div>
+                      <div className="grid grid-cols-1 gap-x-4 gap-y-2 sm:grid-cols-3">
+                        <DetailField label="Nombre" value={rep.nombre || null} />
+                        <DetailField label="RUT" value={rep.rut || null} mono copyable />
+                        <DetailField label="Email" value={rep.email || null} mono copyable />
+                      </div>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
-          </details>
+          </div>
         );
       })()}
 

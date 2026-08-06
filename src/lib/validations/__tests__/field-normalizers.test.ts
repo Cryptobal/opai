@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   normalizeIntRange,
+  normalizeMobileCl9,
   normalizePhoneCl,
   normalizeWebsite,
 } from "@/lib/validations/field-normalizers";
@@ -55,6 +56,32 @@ describe("normalizePhoneCl", () => {
   it("rechaza corto", () => {
     const r = normalizePhoneCl("123");
     expect(r.ok).toBe(false);
+  });
+});
+
+describe("normalizeMobileCl9", () => {
+  it("deja 9 dígitos para Personas/API", () => {
+    expect(normalizeMobileCl9("912345678")).toEqual({
+      ok: true,
+      value: "912345678",
+    });
+  });
+
+  it("acepta prefijo +56 y nota el guardado", () => {
+    const r = normalizeMobileCl9("+56 9 1234 5678");
+    expect(r).toEqual({
+      ok: true,
+      value: "912345678",
+      note: "Se guardó como 912345678",
+    });
+  });
+
+  it("vacío → null", () => {
+    expect(normalizeMobileCl9("")).toEqual({ ok: true, value: null });
+  });
+
+  it("rechaza fijo u otros", () => {
+    expect(normalizeMobileCl9("22334455").ok).toBe(false);
   });
 });
 

@@ -122,6 +122,29 @@ export function normalizePhoneCl(raw: string): NormalizeResult {
   return { ok: true, value: formatted, note };
 }
 
+/**
+ * Celular Chile en formato Personas/API (`912345678`, 9 dígitos sin +56).
+ * Acepta `+56 9…` / `569…` / `9XXXXXXXX` y vacía → null.
+ */
+export function normalizeMobileCl9(raw: string): NormalizeResult {
+  const s = emptyToNull(raw);
+  if (s == null) return { ok: true, value: null };
+
+  const digits = s.replace(/\D/g, "");
+  let national: string | null = null;
+  if (digits.length === 9 && digits.startsWith("9")) {
+    national = digits;
+  } else if (digits.length === 11 && digits.startsWith("56") && digits[2] === "9") {
+    national = digits.slice(2);
+  } else {
+    return { ok: false, error: "Celular inválido (9 dígitos, ej: 912345678)" };
+  }
+
+  const note =
+    s.replace(/\D/g, "") !== national ? `Se guardó como ${national}` : undefined;
+  return { ok: true, value: national, note };
+}
+
 export function normalizeIntRange(min: number, max: number) {
   return (raw: string): NormalizeResult => {
     const s = emptyToNull(raw);

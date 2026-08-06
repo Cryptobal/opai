@@ -355,6 +355,129 @@ export function GuardiaDetailClient({
   const canChangeLifecycle = hasOpsCapability(userRole, "guardias_manage") || hasOpsCapability(userRole, "rrhh_events");
   const canManageDocs = hasOpsCapability(userRole, "guardias_documents");
 
+  // ── Inline field commit (mismo patrón CRM) ──
+  const BOOL_KEYS = new Set([
+    "hasMobilization",
+    "isJubilado",
+    "cotizaAFP",
+    "cotizaAFC",
+    "cotizaSalud",
+    "availableExtraShifts",
+    "isapreHasExtraPercent",
+  ]);
+  const NUM_KEYS = new Set(["heightCm", "weightKg", "isapreExtraPercent"]);
+  const GUARDIA_TOP_KEYS = new Set(["availableExtraShifts", "hiredAt", "personalEmail"]);
+
+  const commitPersonaField = async (
+    key: string,
+    value: string | null
+  ): Promise<string | null> => {
+    let apiValue: unknown = value;
+    if (BOOL_KEYS.has(key)) {
+      apiValue = value === "true" ? true : value === "false" ? false : null;
+    } else if (NUM_KEYS.has(key)) {
+      apiValue = value == null || value === "" ? null : Number(value);
+    }
+
+    const body: Record<string, unknown> = { [key]: apiValue };
+
+    // % ISAPRE implica flag de cotización adicional
+    if (key === "isapreExtraPercent") {
+      body.isapreHasExtraPercent = apiValue != null;
+      if (apiValue == null) body.isapreExtraPercent = null;
+    }
+
+    const res = await fetch(`/api/personas/guardias/${guardia.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok || json?.success === false) {
+      throw new Error(
+        typeof json?.error === "string" ? json.error : `Error ${res.status}`
+      );
+    }
+
+    const data = json?.data as {
+      availableExtraShifts?: boolean;
+      hiredAt?: string | null;
+      personalEmail?: string | null;
+      persona?: Record<string, unknown>;
+    } | null;
+
+    setGuardia((prev) => {
+      const next = { ...prev };
+      if (key === "availableExtraShifts" && data?.availableExtraShifts !== undefined) {
+        next.availableExtraShifts = !!data.availableExtraShifts;
+      }
+      if (key === "hiredAt") {
+        next.hiredAt = data?.hiredAt
+          ? String(data.hiredAt).slice(0, 10)
+          : value;
+      }
+      if (key === "personalEmail") {
+        next.personalEmail =
+          data?.personalEmail ?? (value as string | null);
+      }
+      if (data?.persona) {
+        const p = data.persona;
+        next.persona = {
+          ...prev.persona,
+          ...Object.fromEntries(
+            Object.entries(p).map(([k, v]) => {
+              if (k === "birthDate" || k === "hiredAt") {
+                return [k, v ? String(v).slice(0, 10) : null];
+              }
+              if (k === "heightCm" || k === "weightKg" || k === "isapreExtraPercent" || k === "lat" || k === "lng") {
+                return [k, v != null ? String(v) : null];
+              }
+              return [k, v];
+            })
+          ),
+        } as typeof prev.persona;
+      } else if (!GUARDIA_TOP_KEYS.has(key) || key === "personalEmail") {
+        // Fallback local si el shape no trae persona
+        if (key === "personalEmail") {
+          next.persona = { ...prev.persona, personalEmail: value };
+        } else if (!GUARDIA_TOP_KEYS.has(key)) {
+          let local: unknown = value;
+          if (BOOL_KEYS.has(key)) local = apiValue;
+          if (NUM_KEYS.has(key)) local = value;
+          next.persona = { ...prev.persona, [key]: local };
+        }
+      }
+      return next;
+    });
+
+    if (key === "availableExtraShifts") {
+      return data?.availableExtraShifts != null
+        ? String(data.availableExtraShifts)
+        : value;
+    }
+    if (key === "hiredAt") {
+      const raw = data?.hiredAt ?? value;
+      return raw ? String(raw).slice(0, 10) : null;
+    }
+    if (BOOL_KEYS.has(key)) {
+      const fromPersona = data?.persona?.[key];
+      if (typeof fromPersona === "boolean") return fromPersona ? "true" : "false";
+      if (typeof apiValue === "boolean") return apiValue ? "true" : "false";
+      return value;
+    }
+    if (NUM_KEYS.has(key)) {
+      const fromPersona = data?.persona?.[key];
+      if (fromPersona != null) return String(fromPersona);
+      return value;
+    }
+    const fromPersona = data?.persona?.[key];
+    if (fromPersona != null) return String(fromPersona);
+    if (key === "personalEmail") {
+      return data?.personalEmail != null ? String(data.personalEmail) : value;
+    }
+    return value;
+  };
+
   // ── Edit personal handlers ──
   const openEditPersonal = () => {
     setEditPersonalForm({
@@ -652,6 +775,7 @@ export function GuardiaDetailClient({
                 montoAnticipo={guardia.montoAnticipo} bankAccounts={guardia.bankAccounts}
                 asignaciones={asignaciones} canManageGuardias={canManageGuardias}
                 onBankAccountsChange={(bankAccounts) => setGuardia((prev) => ({ ...prev, bankAccounts }))}
+                onCommitField={commitPersonaField}
               />
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 mt-5">
                 <div className="rounded-xl border border-border/60 bg-card/40 p-3 sm:p-4">
