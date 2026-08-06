@@ -1,12 +1,24 @@
 /**
  * Configuración de renglones del flujo (vista de configuración).
- * Lista filas activas con su categoría y cuentas contables asociadas.
+ * Lista filas activas con cuentas contables asociadas (sin categorías).
  */
 import "server-only";
 import { prisma } from "@/lib/prisma";
-import { listMappingsForCategory } from "./categoryAccount.service";
+import type { FlowRowKey, FlowSection } from "@prisma/client";
+import {
+  setAccountsForRow,
+  type RowAccountRef,
+} from "@/modules/finance/flow-v3/rowAccount.service";
 import { getFlowHealth } from "./flow-health.service";
 import type { FlowHealthReport } from "./flow-health.types";
+
+export interface FlowRowConfigAccount {
+  accountPlanId: string;
+  code: string;
+  name: string;
+  isPrimary: boolean;
+  isDefaultTarget: boolean;
+}
 
 export interface FlowRowConfigItem {
   id: string;
@@ -15,14 +27,9 @@ export interface FlowRowConfigItem {
   mapping: string;
   orderIndex: number;
   archivedAt: string | null;
-  category: {
-    id: string;
-    code: string;
-    name: string;
-    kind: "INCOME" | "EXPENSE";
-    isActive: boolean;
-    accounts: Array<{ id: string; code: string; name: string; isPrimary: boolean }>;
-  } | null;
+  canonicalKey: string | null;
+  crmAccountId: string | null;
+  accounts: FlowRowConfigAccount[];
 }
 
 export interface FlowRowsConfigPayload {
@@ -30,10 +37,20 @@ export interface FlowRowsConfigPayload {
   health: FlowHealthReport;
 }
 
+function mapAccounts(refs: RowAccountRef[]): FlowRowConfigAccount[] {
+  return refs.map((m) => ({
+    accountPlanId: m.accountPlanId,
+    code: m.accountPlan.code,
+    name: m.accountPlan.name,
+    isPrimary: m.isPrimary,
+    isDefaultTarget: m.isDefaultTarget,
+  }));
+}
+
 export async function getFlowRowsConfig(
   tenantId: string,
 ): Promise<FlowRowsConfigPayload> {
-  const [rows, health] = await Promise.all([
+  const [rows, health, mappings] = await Promise.all([
     prisma.financeFlowRow.findMany({
       where: { tenantId, archivedAt: null },
       orderBy: [{ section: "asc" }, { orderIndex: "asc" }, { name: "asc" }],
@@ -44,89 +61,115 @@ export async function getFlowRowsConfig(
         mapping: true,
         orderIndex: true,
         archivedAt: true,
-        categoryId: true,
+        canonicalKey: true,
+        crmAccountId: true,
       },
     }),
     getFlowHealth(tenantId),
+    prisma.financeFlowRowAccount.findMany({
+      where: { tenantId },
+      include: {
+        accountPlan: { select: { code: true, name: true, type: true } },
+      },
+      orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }],
+    }),
   ]);
 
-  const categoryIds = [
-    ...new Set(rows.map((r) => r.categoryId).filter((id): id is string => !!id)),
-  ];
-  const categories =
-    categoryIds.length === 0
-      ? []
-      : await prisma.financeCashflowCategory.findMany({
-          where: { tenantId, id: { in: categoryIds } },
-          select: {
-            id: true,
-            code: true,
-            name: true,
-            kind: true,
-            isActive: true,
-          },
-        });
-  const catById = new Map(categories.map((c) => [c.id, c]));
+  const accountsByRow = new Map<string, FlowRowConfigAccount[]>();
+  for (const m of mappings) {
+    const list = accountsByRow.get(m.rowId) ?? [];
+    list.push({
+      accountPlanId: m.accountPlanId,
+      code: m.accountPlan.code,
+      name: m.accountPlan.name,
+      isPrimary: m.isPrimary,
+      isDefaultTarget: m.isDefaultTarget,
+    });
+    accountsByRow.set(m.rowId, list);
+  }
 
-  const mappingsByCat = new Map<
-    string,
-    Array<{ id: string; code: string; name: string; isPrimary: boolean }>
-  >();
-  await Promise.all(
-    categoryIds.map(async (catId) => {
-      const mappings = await listMappingsForCategory(tenantId, catId);
-      mappingsByCat.set(
-        catId,
-        mappings.map((m) => ({
-          id: m.accountPlanId,
-          code: m.accountPlan.code,
-          name: m.accountPlan.name,
-          isPrimary: m.isPrimary,
-        })),
-      );
-    }),
-  );
-
-  const items: FlowRowConfigItem[] = rows.map((r) => {
-    const cat = r.categoryId ? catById.get(r.categoryId) : null;
-    return {
-      id: r.id,
-      name: r.name,
-      section: r.section,
-      mapping: r.mapping,
-      orderIndex: r.orderIndex,
-      archivedAt: r.archivedAt ? r.archivedAt.toISOString() : null,
-      category: cat
-        ? {
-            id: cat.id,
-            code: cat.code,
-            name: cat.name,
-            kind: cat.kind as "INCOME" | "EXPENSE",
-            isActive: cat.isActive,
-            accounts: mappingsByCat.get(cat.id) ?? [],
-          }
-        : null,
-    };
-  });
+  const items: FlowRowConfigItem[] = rows.map((r) => ({
+    id: r.id,
+    name: r.name,
+    section: r.section,
+    mapping: r.mapping,
+    orderIndex: r.orderIndex,
+    archivedAt: r.archivedAt ? r.archivedAt.toISOString() : null,
+    canonicalKey: r.canonicalKey,
+    crmAccountId: r.crmAccountId,
+    accounts: accountsByRow.get(r.id) ?? [],
+  }));
 
   return { rows: items, health };
+}
+
+export interface PatchFlowRowConfigInput {
+  name?: string;
+  section?: string;
+  accountPlanIds?: string[];
+  defaultTargetAccountPlanId?: string | null;
+  canonicalKey?: string | null;
 }
 
 export async function patchFlowRowConfig(
   tenantId: string,
   rowId: string,
-  patch: { name?: string; categoryId?: string | null },
+  patch: PatchFlowRowConfigInput,
 ) {
+  const row = await prisma.financeFlowRow.findFirst({
+    where: { id: rowId, tenantId, archivedAt: null },
+    select: { id: true, mapping: true },
+  });
+  if (!row) throw new Error("Renglón no encontrado");
+
   const { updateRow } = await import("@/modules/finance/flow-v3/rows.service");
-  if (patch.categoryId === null) {
-    return updateRow(tenantId, rowId, {
+
+  if (patch.name !== undefined || patch.section !== undefined) {
+    await updateRow(tenantId, rowId, {
       name: patch.name,
-      mapping: "MANUAL",
+      section: patch.section as FlowSection | undefined,
     });
   }
-  return updateRow(tenantId, rowId, {
-    name: patch.name,
-    categoryId: patch.categoryId,
-    mapping: patch.categoryId ? "CATEGORY" : undefined,
+
+  if (patch.accountPlanIds !== undefined) {
+    await setAccountsForRow(tenantId, rowId, patch.accountPlanIds, {
+      defaultTargetAccountPlanId: patch.defaultTargetAccountPlanId,
+    });
+    await prisma.financeFlowRow.update({
+      where: { id: rowId },
+      data: {
+        mapping: patch.accountPlanIds.length > 0 ? "ACCOUNTS" : "MANUAL",
+      },
+    });
+  }
+
+  if (patch.canonicalKey !== undefined) {
+    await prisma.financeFlowRow.update({
+      where: { id: rowId },
+      data: { canonicalKey: patch.canonicalKey as FlowRowKey | null },
+    });
+  }
+
+  const { listAccountsForRow } = await import(
+    "@/modules/finance/flow-v3/rowAccount.service"
+  );
+  const updated = await prisma.financeFlowRow.findFirstOrThrow({
+    where: { id: rowId, tenantId },
+    select: {
+      id: true,
+      name: true,
+      section: true,
+      mapping: true,
+      orderIndex: true,
+      archivedAt: true,
+      canonicalKey: true,
+      crmAccountId: true,
+    },
   });
+  const accounts = mapAccounts(await listAccountsForRow(tenantId, rowId));
+  return {
+    ...updated,
+    archivedAt: updated.archivedAt?.toISOString() ?? null,
+    accounts,
+  };
 }

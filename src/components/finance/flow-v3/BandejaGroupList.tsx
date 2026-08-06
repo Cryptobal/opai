@@ -31,8 +31,7 @@ export interface BandejaFlowRowOption {
   id: string;
   name: string;
   section: string;
-  hasCategory: boolean;
-  categoryId: string | null;
+  hasAccounts: boolean;
 }
 
 export interface BandejaApplyItem {
@@ -59,8 +58,8 @@ interface Props {
   }) => Promise<void>;
   /** Aceptar sugerencias FLOW_ROW ya marcadas. */
   onApplySuggestions: (items: BandejaApplyItem[]) => Promise<void>;
-  /** Abrir diálogo de categoría para una fila destino. */
-  onAssignCategory?: (flowRowId: string) => void;
+  /** Abrir diálogo de cuentas para un renglón destino. */
+  onAssignAccounts?: (flowRowId: string) => void;
   /** Abrir alta de fila en la sección. */
   onCreateRow?: () => void;
 }
@@ -88,14 +87,6 @@ function GroupAssignPanel({
   onCancel: () => void;
 }) {
   const [needle, setNeedle] = useState(group.needle ?? "");
-  const categoryCounts = useMemo(() => {
-    const m = new Map<string, number>();
-    for (const r of flowRows) {
-      if (!r.categoryId) continue;
-      m.set(r.categoryId, (m.get(r.categoryId) ?? 0) + 1);
-    }
-    return m;
-  }, [flowRows]);
 
   const needleNorm = normalizeMerchantText(needle).trim();
   const needleOk =
@@ -146,11 +137,9 @@ function GroupAssignPanel({
         </p>
       )}
       {flowRows.map((row) => {
-        const shared =
-          row.categoryId != null && (categoryCounts.get(row.categoryId) ?? 0) > 1;
         const disabled =
           busy ||
-          !row.hasCategory ||
+          !row.hasAccounts ||
           (learnMode && group.kind === "MERCHANT" && !needleOk);
         return (
           <div key={row.id}>
@@ -170,15 +159,10 @@ function GroupAssignPanel({
               className="flex min-h-11 w-full flex-col items-start justify-center rounded-md px-2 text-left text-[13px] text-ds-text-1 hover:bg-ds-surface-2 disabled:opacity-50"
             >
               <span>{row.name}</span>
-              {!row.hasCategory && (
+              {!row.hasAccounts && (
                 <span className="text-[12px] text-status-warn-fg">sin cuenta contable</span>
               )}
             </button>
-            {shared && row.hasCategory && (
-              <p className="px-2 pb-1 text-[12px] text-status-warn-fg">
-                Otra fila comparte esta categoría; el movimiento puede aparecer en ella.
-              </p>
-            )}
           </div>
         );
       })}
@@ -196,19 +180,19 @@ function GroupAssignPanel({
 function SuggestionBlock({
   result,
   flowRow,
-  onAssignCategory,
+  onAssignAccounts,
   onCreateRow,
 }: {
   result: BandejaTxSuggestionResult | undefined;
   flowRow: BandejaFlowRowOption | undefined;
-  onAssignCategory?: (flowRowId: string) => void;
+  onAssignAccounts?: (flowRowId: string) => void;
   onCreateRow?: () => void;
 }) {
   const s = result?.suggestion;
   const destino = formatSuggestionDestino(s);
   const motivo = formatSuggestionMotivo(s);
   const hasDest = suggestionHasFlowDestination(s);
-  const rowSinCat = hasDest && flowRow != null && !flowRow.hasCategory;
+  const rowSinCuentas = hasDest && flowRow != null && !flowRow.hasAccounts;
   const conflict =
     (result?.identity.alsoRegisteredAs?.length ?? 0) > 1
       ? result!.identity.alsoRegisteredAs
@@ -226,18 +210,18 @@ function SuggestionBlock({
         {destino}
       </p>
       <p className="text-[12px] text-ds-text-3">{motivo}</p>
-      {rowSinCat && hasDest && (
+      {rowSinCuentas && hasDest && (
         <div className="flex flex-wrap items-center gap-2">
           <p className="text-[12px] text-status-warn-fg">
-            La fila destino no tiene categoría; no puede recibir el movimiento.
+            El renglón destino no tiene cuentas; no puede recibir el movimiento.
           </p>
-          {onAssignCategory && (
+          {onAssignAccounts && (
             <button
               type="button"
-              onClick={() => onAssignCategory(s.flowRowId)}
+              onClick={() => onAssignAccounts(s.flowRowId)}
               className="min-h-11 rounded-md px-2 text-[12px] font-medium text-status-warn-fg underline-offset-2 hover:underline sm:min-h-9"
             >
-              Asignar categoría
+              Asignar cuentas
             </button>
           )}
         </div>
@@ -279,7 +263,7 @@ function MovementRow({
   onToggle,
   result,
   flowRowById,
-  onAssignCategory,
+  onAssignAccounts,
   onCreateRow,
 }: {
   item: BandejaGroupItem;
@@ -287,7 +271,7 @@ function MovementRow({
   onToggle: () => void;
   result: BandejaTxSuggestionResult | undefined;
   flowRowById: Map<string, BandejaFlowRowOption>;
-  onAssignCategory?: (flowRowId: string) => void;
+  onAssignAccounts?: (flowRowId: string) => void;
   onCreateRow?: () => void;
 }) {
   const flowRowId = result?.suggestion?.kind === "FLOW_ROW"
@@ -320,7 +304,7 @@ function MovementRow({
             <SuggestionBlock
               result={result}
               flowRow={flowRow}
-              onAssignCategory={onAssignCategory}
+              onAssignAccounts={onAssignAccounts}
               onCreateRow={onCreateRow}
             />
           </div>
@@ -330,7 +314,7 @@ function MovementRow({
           <SuggestionBlock
             result={result}
             flowRow={flowRow}
-            onAssignCategory={onAssignCategory}
+            onAssignAccounts={onAssignAccounts}
             onCreateRow={onCreateRow}
           />
         </div>
@@ -401,7 +385,7 @@ export function BandejaGroupList({
   flowRows,
   onClassifyGroup,
   onApplySuggestions,
-  onAssignCategory,
+  onAssignAccounts,
   onCreateRow,
 }: Props) {
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
@@ -718,7 +702,7 @@ export function BandejaGroupList({
                               onToggle={() => toggleSelected(it.bankTransactionId)}
                               result={suggestions.get(it.bankTransactionId)}
                               flowRowById={flowRowById}
-                              onAssignCategory={onAssignCategory}
+                              onAssignAccounts={onAssignAccounts}
                               onCreateRow={onCreateRow}
                             />
                           ))}

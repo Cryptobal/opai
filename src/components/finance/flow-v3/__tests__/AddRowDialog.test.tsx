@@ -13,13 +13,10 @@ beforeEach(() => {
   vi.stubGlobal(
     "fetch",
     vi.fn(async (url: string) => {
-      if (String(url).includes("/categorias")) {
+      if (String(url).includes("/accounting/accounts")) {
         return {
           json: async () => ({
-            data: [
-              { id: "cat-tgr", name: "TGR", kind: "EXPENSE" },
-              { id: "cat-other", name: "Otro", kind: "INCOME" },
-            ],
+            data: [{ id: "ap-tgr", code: "2101", name: "TGR", acceptsEntries: true }],
           }),
         };
       }
@@ -103,8 +100,7 @@ describe("AddRowDialog — sección prefijada y recurrencia", () => {
       expect(screen.getByTestId("add-row-configure-recurrence")).toBeTruthy();
     });
 
-    // Concepto manual para no depender de categoría.
-    fireEvent.click(screen.getByLabelText(/Concepto manual/i));
+    // Nombre manual (cuenta contable opcional en egresos).
     const nameInput = screen.getByPlaceholderText(/Nombre visible/i);
     fireEvent.change(nameInput, { target: { value: "Crédito · TGR" } });
     fireEvent.click(screen.getByTestId("add-row-configure-recurrence"));
@@ -134,14 +130,14 @@ describe("AddRowDialog — sección prefijada y recurrencia", () => {
     expect(screen.getByText("Sección")).toBeTruthy();
   });
 
-  it("initialSection + categoría precarga sección editable (no locked)", async () => {
+  it("initialSection + cuenta precarga sección editable (no locked)", async () => {
     render(
       <AddRowDialog
         open
         onOpenChange={() => {}}
         busy={false}
         initialSection="IMPUESTOS"
-        presetCategoryId="cat-tgr"
+        presetAccountPlanIds={["ap-tgr"]}
         presetName="T.G.R."
         onCreate={async () => null}
       />,

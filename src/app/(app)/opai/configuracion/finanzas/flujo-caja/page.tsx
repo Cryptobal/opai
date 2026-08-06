@@ -4,7 +4,6 @@ import { resolvePagePerms, hasCapability } from "@/lib/permissions-server";
 import { ConfigPageLayout } from "@/components/configuracion/ConfigPageLayout";
 import { Wallet } from "lucide-react";
 import { getOrCreateCashflowConfig } from "@/modules/finance/cashflow/config.service";
-import { listCategories } from "@/modules/finance/cashflow/category.service";
 import { CashflowConfigClient } from "@/components/finance/cashflow/CashflowConfigClient";
 import { prisma } from "@/lib/prisma";
 
@@ -19,9 +18,8 @@ export default async function CashflowConfigPage() {
   }
 
   const tenantId = session.user.tenantId;
-  const [config, categories, unpaidReceivedDteCount, accountOptions] = await Promise.all([
+  const [config, unpaidReceivedDteCount, accountOptions] = await Promise.all([
     getOrCreateCashflowConfig(tenantId),
-    listCategories(tenantId),
     prisma.financeDte.count({
       where: {
         tenantId,
@@ -43,11 +41,10 @@ export default async function CashflowConfigPage() {
     <ConfigPageLayout
       icon={<Wallet className="h-[18px] w-[18px]" />}
       title="Flujo de Caja"
-      description="Renglones del flujo, horizontes de proyección, días de pago y categorías (avanzado)."
+      description="Renglones del flujo con cuentas contables, horizontes de proyección y días de pago."
     >
       <CashflowConfigClient
         initialConfig={JSON.parse(JSON.stringify(config))}
-        initialCategories={JSON.parse(JSON.stringify(categories))}
         accountOptions={accountOptions}
         unpaidReceivedDteCount={unpaidReceivedDteCount}
       />

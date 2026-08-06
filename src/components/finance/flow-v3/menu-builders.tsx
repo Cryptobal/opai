@@ -73,7 +73,7 @@ export interface RowMenuCallbacks {
   onRename: (row: FlowMatrixRowDto) => void;
   onRestoreName: (row: FlowMatrixRowDto) => void;
   onChangeSection: (row: FlowMatrixRowDto) => void;
-  onChangeCategory: (row: FlowMatrixRowDto) => void;
+  onChangeAccounts: (row: FlowMatrixRowDto) => void;
   onDeferTerm: (row: FlowMatrixRowDto, t: RowTemplate) => void;
   onSetDiasCobro: (row: FlowMatrixRowDto, t: RowTemplate) => void;
   onRecurring: (row: FlowMatrixRowDto) => void;
@@ -85,7 +85,7 @@ export interface RowMenuCallbacks {
 function mappingSourceLabel(mapping: string): string {
   if (mapping === "ACCOUNT_INSTALLATION") return "la cuenta";
   if (mapping === "SUPPLIER") return "el proveedor";
-  if (mapping === "CATEGORY") return "la categoría";
+  if (mapping === "ACCOUNTS" || mapping === "CATEGORY") return "las cuentas";
   return "la fuente";
 }
 
@@ -124,29 +124,29 @@ export function buildRowMenu(
   items.push({ key: "section", label: "Cambiar sección…", onSelect: () => cb.onChangeSection(row) });
 
   const isBandeja = isFallbackBandejaRow(row);
-  const canAssignCategory =
+  const canAssignAccounts =
     !row.isVirtual &&
     !isBandeja &&
-    (row.mapping === "CATEGORY" ||
-      (row.mapping === "MANUAL" &&
-        row.section !== "INGRESOS" &&
-        row.section !== "OTROS"));
+    row.section !== "INGRESOS" &&
+    (row.mapping === "ACCOUNTS" ||
+      row.mapping === "CATEGORY" ||
+      row.mapping === "MANUAL");
   items.push(
-    canAssignCategory
+    canAssignAccounts
       ? {
-          key: "category",
-          label: row.categoryId ? "Cambiar categoría…" : "Asignar categoría…",
-          onSelect: () => cb.onChangeCategory(row),
+          key: "accounts",
+          label: row.mapping === "ACCOUNTS" ? "Editar cuentas…" : "Asignar cuentas…",
+          onSelect: () => cb.onChangeAccounts(row),
         }
       : {
-          key: "category",
-          label: "Cambiar categoría…",
+          key: "accounts",
+          label: "Asignar cuentas…",
           disabled: true,
           reason: isBandeja
-            ? "La bandeja no usa categoría"
+            ? "La bandeja no usa cuentas propias"
             : row.mapping === "ACCOUNT_INSTALLATION"
               ? "Filas de cuenta/instalación"
-              : "Solo filas MANUAL o CATEGORY de egreso",
+              : "Solo renglones de egreso",
         },
   );
 

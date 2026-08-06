@@ -22,24 +22,12 @@ interface Props {
   onOpenChange: (open: boolean) => void;
   busy: boolean;
   onCreate: (body: Record<string, unknown>) => Promise<unknown>;
-  /**
-   * Sección prefijada desde el "+" del encabezado. Si se setea, el select
-   * queda bloqueado (no editable).
-   */
   lockedSection?: string | null;
-  /**
-   * Sección sugerida editable (p.ej. Salud → Crear fila). Se ignora si hay
-   * lockedSection. Si hay presetCategoryId y no se pasa, usa GAV (egreso).
-   */
   initialSection?: string | null;
-  /** Precarga categoría (pestaña Salud → Crear fila). */
-  presetCategoryId?: string | null;
-  /** Precarga nombre de la fila. */
+  /** Precarga nombre del renglón. */
   presetName?: string | null;
-  /**
-   * Tras crear con éxito: fila creada + si el usuario pidió encadenar
-   * el diálogo de recurrencia.
-   */
+  /** Cuentas a vincular tras crear (salud → crear renglón). */
+  presetAccountPlanIds?: string[] | null;
   onCreated?: (
     row: CreatedFlowRow,
     opts: { configureRecurrence: boolean },
@@ -56,19 +44,17 @@ export function AddRowDialog({
   onCreate,
   lockedSection = null,
   initialSection = null,
-  presetCategoryId = null,
   presetName = null,
+  presetAccountPlanIds = null,
   onCreated,
 }: Props) {
   const [section, setSection] = useState("INGRESOS");
-  const [accounts, setAccounts] = useState<SearchableOption[]>([]);
+  const [crmAccounts, setCrmAccounts] = useState<SearchableOption[]>([]);
   const [installations, setInstallations] = useState<SearchableOption[]>([]);
-  const [categories, setCategories] = useState<Array<{ id: string; name: string; kind: string }>>([]);
+  const [accountPlans, setAccountPlans] = useState<SearchableOption[]>([]);
   const [accountId, setAccountId] = useState("");
   const [installationId, setInstallationId] = useState("");
-  const [categoryId, setCategoryId] = useState("");
-  const [manual, setManual] = useState(false);
-  // Ingreso asociado a una cuenta CRM (default) o manual/libre (sin cuenta).
+  const [expenseAccountId, setExpenseAccountId] = useState("");
   const [linkAccount, setLinkAccount] = useState(true);
   const [name, setName] = useState("");
   const [configureRecurrence, setConfigureRecurrence] = useState(false);
@@ -85,17 +71,14 @@ export function AddRowDialog({
       (SECTION_ORDER as readonly string[]).includes(initialSection)
         ? initialSection
         : null;
-    // Crear desde categoría de egreso: nunca abrir en INGRESOS.
-    const fallback = presetCategoryId ? "GAV" : "INGRESOS";
-    setSection(lockedOk ?? initialOk ?? fallback);
+    setSection(lockedOk ?? initialOk ?? "GAV");
     setConfigureRecurrence(false);
     setName(presetName ?? "");
     setAccountId("");
     setInstallationId("");
-    setCategoryId(presetCategoryId ?? "");
-    setManual(false);
-    setLinkAccount(!presetCategoryId);
-  }, [open, lockedSection, initialSection, presetCategoryId, presetName]);
+    setExpenseAccountId(presetAccountPlanIds?.[0] ?? "");
+    setLinkAccount(true);
+  }, [open, lockedSection, initialSection, presetName, presetAccountPlanIds]);
 
   useEffect(() => {
     if (!open) return;
@@ -103,13 +86,27 @@ export function AddRowDialog({
       .then((r) => r.json())
       .then((j) => {
         const list = (j.data ?? j.accounts ?? []) as Array<{ id: string; name: string }>;
-        setAccounts(list.map((a) => ({ id: a.id, label: a.name })));
+        setCrmAccounts(list.map((a) => ({ id: a.id, label: a.name })));
       })
-      .catch(() => setAccounts([]));
-    fetch("/api/finance/cashflow/categorias", { cache: "no-store" })
+      .catch(() => setCrmAccounts([]));
+    fetch("/api/finance/accounting/accounts", { cache: "no-store" })
       .then((r) => r.json())
-      .then((j) => setCategories((j.data ?? []) as Array<{ id: string; name: string; kind: string }>))
-      .catch(() => setCategories([]));
+      .then((j) => {
+        const flat: SearchableOption[] = [];
+        const walk = (nodes: Array<{ id: string; code: string; name: string; acceptsEntries?: boolean; children?: unknown[] }>) => {
+          for (const n of nodes) {
+            if (n.acceptsEntries !== false) {
+              flat.push({ id: n.id, label: `${n.code} · ${n.name}` });
+            }
+            if (Array.isArray(n.children) && n.children.length) {
+              walk(n.children as typeof nodes);
+            }
+          }
+        };
+        walk((j.data ?? []) as typeof flat extends never ? never : Parameters<typeof walk>[0]);
+        setAccountPlans(flat);
+      })
+      .catch(() => setAccountPlans([]));
   }, [open]);
 
   useEffect(() => {
@@ -127,30 +124,24 @@ export function AddRowDialog({
   const sectionLocked = !!lockedSection;
   const isIncome = section === "INGRESOS";
   const canConfigureRecurrence = (PLAN_RECURRENCE_SECTIONS as readonly string[]).includes(section);
-  const expenseCategories = useMemo(
-    () => categories.filter((c) => c.kind === "EXPENSE"),
-    [categories],
-  );
-
-  // Ingreso: asociado a cuenta (default) o manual (libre, sin cuenta).
   const incomeLinked = isIncome && linkAccount;
 
   const autoName = useMemo(() => {
     if (incomeLinked && accountId) {
-      const acc = accounts.find((a) => a.id === accountId)?.label ?? "";
+      const acc = crmAccounts.find((a) => a.id === accountId)?.label ?? "";
       const inst = installations.find((i) => i.id === installationId)?.label;
       return inst ? `${acc} · ${inst}` : acc;
     }
-    if (!isIncome && !manual && categoryId) {
-      return categories.find((c) => c.id === categoryId)?.name ?? "";
+    if (!isIncome && expenseAccountId) {
+      return accountPlans.find((a) => a.id === expenseAccountId)?.label ?? "";
     }
     return "";
-  }, [incomeLinked, isIncome, accountId, installationId, accounts, installations, manual, categoryId, categories]);
+  }, [incomeLinked, isIncome, accountId, installationId, crmAccounts, installations, expenseAccountId, accountPlans]);
 
   const finalName = name.trim() || autoName;
   const canSubmit =
     finalName.length > 0 &&
-    (isIncome ? (linkAccount ? !!accountId : true) : manual ? true : !!categoryId) &&
+    (isIncome ? (linkAccount ? !!accountId : true) : true) &&
     !busy;
 
   const submit = async () => {
@@ -161,14 +152,20 @@ export function AddRowDialog({
             crmAccountId: accountId, installationId: installationId || null,
           }
         : { section, name: finalName, mapping: "MANUAL" }
-      : manual
-        ? { section, name: finalName, mapping: "MANUAL" }
-        : { section, name: finalName, mapping: "CATEGORY", categoryId };
+      : { section, name: finalName, mapping: "MANUAL" };
     const r = await onCreate(body);
     if (r != null && typeof r === "object" && "id" in r && typeof (r as { id: unknown }).id === "string") {
       const created = r as CreatedFlowRow;
+      const accountIds = !isIncome && expenseAccountId ? [expenseAccountId] : presetAccountPlanIds;
+      if (accountIds?.length) {
+        await fetch(`/api/finance/flow-v3/rows/${created.id}/accounts`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ accountPlanIds: accountIds }),
+        });
+      }
       onOpenChange(false);
-      setName(""); setAccountId(""); setInstallationId(""); setCategoryId("");
+      setName(""); setAccountId(""); setInstallationId(""); setExpenseAccountId("");
       onCreated?.(
         { id: created.id, section: created.section ?? section, name: created.name ?? finalName },
         { configureRecurrence: canConfigureRecurrence && configureRecurrence },
@@ -217,45 +214,33 @@ export function AddRowDialog({
                 <>
                   <div className="space-y-1 text-xs text-ds-text-3">
                     <span>Cuenta CRM</span>
-                    <SearchableSelect value={accountId} options={accounts} placeholder="Buscar cliente…" onChange={setAccountId} />
+                    <SearchableSelect value={accountId} options={crmAccounts} placeholder="Buscar cliente…" onChange={setAccountId} />
                   </div>
                   <div className="space-y-1 text-xs text-ds-text-3">
-                    <span>Instalación (opcional: sin instalación = fila genérica de la cuenta)</span>
+                    <span>Instalación (opcional)</span>
                     <SearchableSelect value={installationId} options={installations} placeholder="Todas las instalaciones" onChange={setInstallationId} disabled={!accountId} />
                   </div>
                 </>
               ) : (
                 <p className="text-xs text-ds-text-4">
-                  Ingreso manual sin cuenta: lo proyectas tú a mano en la planilla
-                  (no se cruza con facturas ni programaciones).
+                  Ingreso manual sin cuenta: lo proyectás tú a mano en la planilla.
                 </p>
               )}
             </>
           ) : (
-            <>
-              <label className="flex items-center gap-2 text-xs text-ds-text-2">
-                <input type="checkbox" checked={manual} onChange={(e) => setManual(e.target.checked)} />
-                Concepto manual (sin categoría)
-              </label>
-              {!manual && (
-                <label className="block space-y-1 text-xs text-ds-text-3">
-                  <span>Categoría</span>
-                  <SimpleSelect
-                    className={SELECT_CLASS}
-                    value={categoryId}
-                    onValueChange={(v) => setCategoryId(v)}
-                    options={[
-                      { value: "", label: "Seleccionar…" },
-                      ...expenseCategories.map((c) => ({ value: c.id, label: c.name })),
-                    ]}
-                  />
-                </label>
-              )}
-            </>
+            <div className="space-y-1 text-xs text-ds-text-3">
+              <span>Cuenta contable (opcional)</span>
+              <SearchableSelect
+                value={expenseAccountId}
+                options={accountPlans}
+                placeholder="Vincular ahora o después en configuración…"
+                onChange={setExpenseAccountId}
+              />
+            </div>
           )}
 
           <label className="block space-y-1 text-xs text-ds-text-3">
-            <span>Nombre de la fila</span>
+            <span>Nombre del renglón</span>
             <Input value={name} onChange={(e) => setName(e.target.value)} placeholder={autoName || "Nombre visible en la planilla"} />
           </label>
 

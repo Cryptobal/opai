@@ -37,7 +37,7 @@ import {
   type FolioSheetGroup, type RowTemplate,
 } from "./menu-builders";
 import {
-  ChangeCategoryDialog, ChangeSectionDialog, DeferTermDialog, DiasCobroDialog,
+  ChangeAccountsDialog, ChangeSectionDialog, DeferTermDialog, DiasCobroDialog,
 } from "./RowDialogs";
 import { RecurringExpenseDialog } from "./RecurringExpenseDialog";
 import { CellActionSheet } from "./CellActionSheet";
@@ -142,7 +142,7 @@ interface Props {
 
 type RowDialogState =
   | { kind: "section"; row: FlowMatrixRowDto }
-  | { kind: "category"; row: FlowMatrixRowDto }
+  | { kind: "accounts"; row: FlowMatrixRowDto }
   | { kind: "defer"; row: FlowMatrixRowDto; template: RowTemplate }
   | { kind: "dias"; row: FlowMatrixRowDto; template: RowTemplate }
   | { kind: "recurring"; row: FlowMatrixRowDto }
@@ -260,8 +260,10 @@ export function PlanillaGrid({
         id: r.id,
         name: r.name,
         section: r.section,
-        hasCategory: r.categoryId != null,
-        categoryId: r.categoryId,
+        hasAccounts:
+          r.mapping === "ACCOUNTS" ||
+          r.mapping === "CATEGORY" ||
+          r.categoryId != null,
       }));
   }, [data.rows, bandejaRutSection]);
   const recurringRows = useMemo(
@@ -337,9 +339,14 @@ export function PlanillaGrid({
       if (ids.length === 0) return;
 
       const destRow = rowById.get(flowRowId);
-      if (destRow && !destRow.categoryId) {
+      const destHasAccounts =
+        destRow &&
+        (destRow.mapping === "ACCOUNTS" ||
+          destRow.mapping === "CATEGORY" ||
+          destRow.categoryId != null);
+      if (destRow && !destHasAccounts) {
         throw new Error(
-          "La fila destino no tiene categoría; asigná una cuenta contable antes de clasificar.",
+          "El renglón destino no tiene cuentas; asigná cuentas contables antes de clasificar.",
         );
       }
 
@@ -435,25 +442,30 @@ export function PlanillaGrid({
     async (items: BandejaApplyItem[]) => {
       if (items.length === 0) return;
 
-      // Filtrar destinos hacia filas sin categoría.
+      // Filtrar destinos hacia renglones sin cuentas.
       const eligible: BandejaApplyItem[] = [];
-      let skippedNoCategory = 0;
+      let skippedNoAccounts = 0;
       for (const it of items) {
         const row = rowById.get(it.flowRowId);
-        if (!row || !row.categoryId) {
-          skippedNoCategory += 1;
+        const hasAccounts =
+          row &&
+          (row.mapping === "ACCOUNTS" ||
+            row.mapping === "CATEGORY" ||
+            row.categoryId != null);
+        if (!row || !hasAccounts) {
+          skippedNoAccounts += 1;
           continue;
         }
         eligible.push(it);
       }
-      if (skippedNoCategory > 0) {
+      if (skippedNoAccounts > 0) {
         toast.message(
-          `${skippedNoCategory} movimiento${skippedNoCategory === 1 ? "" : "s"} quedaron fuera: la fila destino no tiene categoría`,
+          `${skippedNoAccounts} movimiento${skippedNoAccounts === 1 ? "" : "s"} quedaron fuera: el renglón destino no tiene cuentas`,
         );
       }
       if (eligible.length === 0) {
         throw new Error(
-          "Ningún movimiento tiene una fila destino con categoría asignada",
+          "Ningún movimiento tiene un renglón destino con cuentas asignadas",
         );
       }
 
@@ -1097,7 +1109,7 @@ export function PlanillaGrid({
         void actions.renameRow(row.id, row.sourceName);
       },
       onChangeSection: (row: FlowMatrixRowDto) => setRowDialog({ kind: "section", row }),
-      onChangeCategory: (row: FlowMatrixRowDto) => setRowDialog({ kind: "category", row }),
+      onChangeAccounts: (row: FlowMatrixRowDto) => setRowDialog({ kind: "accounts", row }),
       onDeferTerm: (row: FlowMatrixRowDto, template: RowTemplate) => setRowDialog({ kind: "defer", row, template }),
       onSetDiasCobro: (row: FlowMatrixRowDto, template: RowTemplate) => setRowDialog({ kind: "dias", row, template }),
       onRecurring: (row: FlowMatrixRowDto) => setRowDialog({ kind: "recurring", row }),
@@ -1732,17 +1744,31 @@ export function PlanillaGrid({
           setRowDialog(null);
         }}
       />
-      <ChangeCategoryDialog
-        row={rowDialog?.kind === "category" ? rowDialog.row : null}
+      <ChangeAccountsDialog
+        row={rowDialog?.kind === "accounts" ? rowDialog.row : null}
         busy={busy}
         onClose={() => setRowDialog(null)}
-        onConfirm={async (categoryId, opts) => {
-          if (rowDialog?.kind !== "category") return;
-          await actions.updateRow(rowDialog.row.id, {
-            categoryId,
-            ...(opts?.mapping ? { mapping: opts.mapping } : {}),
-          });
+        onConfirm={async (accountPlanIds, defaultTargetId) => {
+          if (rowDialog?.kind !== "accounts") return;
+          const r = await fetch(
+            `/api/finance/flow-v3/rows/${rowDialog.row.id}/accounts`,
+            {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                accountPlanIds,
+                defaultTargetAccountPlanId: defaultTargetId,
+              }),
+            },
+          );
+          const j = await r.json();
+          if (!r.ok || !j?.success) {
+            toast.error(j?.error ?? "No se pudieron guardar las cuentas");
+            return;
+          }
+          toast.success("Cuentas actualizadas");
           setRowDialog(null);
+          onRefresh?.();
         }}
       />
       <DeferTermDialog
@@ -1863,14 +1889,14 @@ export function PlanillaGrid({
         flowRows={bandejaFlowRows}
         onClassifyGroup={handleClassifyGroup}
         onApplySuggestions={handleApplySuggestions}
-        onAssignCategory={(flowRowId) => {
+        onAssignAccounts={(flowRowId) => {
           const row = rowById.get(flowRowId);
           if (!row) {
-            toast.error("No se encontró la fila destino");
+            toast.error("No se encontró el renglón destino");
             return;
           }
           setBandejaRutSection(null);
-          setRowDialog({ kind: "category", row });
+          setRowDialog({ kind: "accounts", row });
         }}
         onCreateRow={() => {
           const sec = bandejaRutSection ?? "GAV";

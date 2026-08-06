@@ -13,21 +13,26 @@ import {
 } from "@/components/opai-ds";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import type { FlowHealthReport } from "@/modules/finance/cashflow/flow-health.types";
-import { ChangeCategoryDialog } from "@/components/finance/flow-v3/RowDialogs";
+import {
+  normalizeFlowHealthReport,
+  type FlowHealthReportV2,
+} from "@/modules/finance/cashflow/flow-health.types";
+import { ChangeAccountsDialog } from "@/components/finance/flow-v3/RowDialogs";
 import { AddRowDialog } from "@/components/finance/flow-v3/AddRowDialog";
 import type { FlowMatrixRowDto } from "@/modules/finance/flow-v3/matrix-types";
-import { suggestFlowSectionForCategory } from "@/modules/finance/flow-v3/suggest-section";
 
-type HealthTabProps = {
+type Props = {
+  embedded?: boolean;
+  /** Si el padre ya cargó salud (p.ej. flow-rows-config), evita refetch. */
+  health?: FlowHealthReportV2 | null;
   onResolveAccount?: (accountPlanId: string) => void;
+  onResolveRow?: (rowId: string) => void;
 };
 
 function stubRow(partial: {
   id: string;
   name: string;
   section: string;
-  categoryId?: string | null;
 }): FlowMatrixRowDto {
   return {
     id: partial.id,
@@ -38,7 +43,8 @@ function stubRow(partial: {
     crmAccountId: null,
     installationId: null,
     recurringTemplateId: null,
-    categoryId: partial.categoryId ?? null,
+    categoryId: null,
+    canonicalKey: null,
     supplierId: null,
     isArchived: false,
     archivedWeekCutoff: null,
@@ -47,19 +53,29 @@ function stubRow(partial: {
   };
 }
 
-export function FlowHealthPanel({ onResolveAccount }: HealthTabProps) {
-  const [report, setReport] = useState<FlowHealthReport | null>(null);
-  const [loading, setLoading] = useState(true);
+export function FlowHealthPanel({
+  embedded = false,
+  health: healthProp,
+  onResolveAccount,
+  onResolveRow,
+}: Props) {
+  const [report, setReport] = useState<FlowHealthReportV2 | null>(healthProp ?? null);
+  const [loading, setLoading] = useState(!embedded && healthProp === undefined);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [assignRow, setAssignRow] = useState<FlowMatrixRowDto | null>(null);
   const [createFor, setCreateFor] = useState<{
-    categoryId: string;
     name: string;
     section: string;
+    accountPlanIds?: string[];
   } | null>(null);
 
+  useEffect(() => {
+    if (healthProp !== undefined) setReport(healthProp);
+  }, [healthProp]);
+
   const load = useCallback(async () => {
+    if (embedded && healthProp !== undefined) return;
     setLoading(true);
     setError(null);
     try {
@@ -72,14 +88,14 @@ export function FlowHealthPanel({ onResolveAccount }: HealthTabProps) {
         setReport(null);
         return;
       }
-      setReport(j.data as FlowHealthReport);
+      setReport(normalizeFlowHealthReport(j.data));
     } catch {
       setError("Error de red al cargar el diagnóstico");
       setReport(null);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [embedded, healthProp]);
 
   useEffect(() => {
     void load();
@@ -115,35 +131,33 @@ export function FlowHealthPanel({ onResolveAccount }: HealthTabProps) {
   if (!report) return null;
 
   const issues =
-    report.rowsWithoutCategory.length +
-    report.categoriesWithoutRow.length +
+    report.rowsWithoutAccounts.length +
+    report.accountsWithoutRow.length +
     report.ambiguousAccounts.length +
-    report.expenseCategoriesOnNonExpenseAccounts.length;
+    report.expenseRowsOnNonExpenseAccounts.length;
 
   return (
     <div className="ds-page-enter space-y-5">
-      <StatGrid>
-        <Stat
-          label="Filas sin categoría"
-          value={report.rowsWithoutCategory.length}
-          animate
-        />
-        <Stat
-          label="Categorías sin fila"
-          value={report.categoriesWithoutRow.length}
-          animate
-        />
-        <Stat
-          label="Cuentas ambiguas"
-          value={report.ambiguousAccounts.length}
-          animate
-        />
-        <Stat
-          label="Filas conectadas"
-          value={report.connectedRowCount}
-          animate
-        />
-      </StatGrid>
+      {!embedded && (
+        <StatGrid>
+          <Stat
+            label="Renglones sin cuentas"
+            value={report.rowsWithoutAccounts.length}
+            animate
+          />
+          <Stat
+            label="Cuentas sin renglón"
+            value={report.accountsWithoutRow.length}
+            animate
+          />
+          <Stat
+            label="Cuentas ambiguas"
+            value={report.ambiguousAccounts.length}
+            animate
+          />
+          <Stat label="Renglones conectados" value={report.connectedRowCount} animate />
+        </StatGrid>
+      )}
 
       {issues === 0 && (
         <Surface elevation={1} padding="md">
@@ -151,36 +165,40 @@ export function FlowHealthPanel({ onResolveAccount }: HealthTabProps) {
             icon={CheckCircle2}
             tone="ok"
             title="Todo conectado"
-            description="Las filas de egreso tienen categoría y las categorías activas tienen fila en la planilla."
+            description="Los renglones de egreso tienen cuentas y el matching puede rutear la cartola."
           />
         </Surface>
       )}
 
-      {report.expenseCategoriesOnNonExpenseAccounts.length > 0 && (
+      {report.expenseRowsOnNonExpenseAccounts.length > 0 && (
         <Surface elevation={1} padding="md" className="border border-status-warn-border">
           <h3 className="font-display text-[15px] text-ds-text-1 mb-2">
-            Categorías de egreso en cuentas de activo/pasivo
+            Egresos en cuentas de activo/pasivo
           </h3>
           <p className="text-[13px] text-ds-text-3 mb-3">
             El gasto se contabiliza pero no llega al Estado de Resultados.
           </p>
           <ul className="ds-list-cascade space-y-2">
-            {report.expenseCategoriesOnNonExpenseAccounts.map((item) => (
+            {report.expenseRowsOnNonExpenseAccounts.map((item) => (
               <li
-                key={`${item.categoryId}-${item.accountCode}`}
+                key={`${item.rowId}-${item.accountCode}`}
                 className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-ds-surface-2 px-3 py-2 min-h-11"
               >
                 <div className="min-w-0">
-                  <p className="text-[13px] text-ds-text-1 truncate">
-                    {item.categoryName}
-                  </p>
+                  <p className="text-[13px] text-ds-text-1 truncate">{item.rowName}</p>
                   <p className="text-[12px] text-ds-text-3 font-mono">
                     {item.accountCode} · {item.accountName} · {item.accountType}
                   </p>
                 </div>
-                <Tag variant="warn" size="sm">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="min-h-11 sm:min-h-9"
+                  onClick={() => onResolveRow?.(item.rowId)}
+                >
                   Revisar
-                </Tag>
+                </Button>
               </li>
             ))}
           </ul>
@@ -190,13 +208,13 @@ export function FlowHealthPanel({ onResolveAccount }: HealthTabProps) {
       <div className="grid grid-cols-1 min-[820px]:grid-cols-2 gap-4">
         <Surface elevation={1} padding="md">
           <h3 className="font-display text-[15px] text-ds-text-1 mb-3">
-            Filas sin categoría
+            Renglones sin cuentas
           </h3>
-          {report.rowsWithoutCategory.length === 0 ? (
-            <p className="text-[13px] text-ds-text-3">Ninguna.</p>
+          {report.rowsWithoutAccounts.length === 0 ? (
+            <p className="text-[13px] text-ds-text-3">Ninguno.</p>
           ) : (
             <ul className="space-y-2">
-              {report.rowsWithoutCategory.map((row) => (
+              {report.rowsWithoutAccounts.map((row) => (
                 <li
                   key={row.id}
                   className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-ds-surface-2 px-3 py-2 min-h-11"
@@ -209,9 +227,12 @@ export function FlowHealthPanel({ onResolveAccount }: HealthTabProps) {
                     type="button"
                     size="sm"
                     className="min-h-11 sm:min-h-9"
-                    onClick={() => setAssignRow(stubRow(row))}
+                    onClick={() => {
+                      if (onResolveRow) onResolveRow(row.id);
+                      else setAssignRow(stubRow(row));
+                    }}
                   >
-                    Asignar categoría
+                    Asignar cuentas
                   </Button>
                 </li>
               ))}
@@ -221,20 +242,21 @@ export function FlowHealthPanel({ onResolveAccount }: HealthTabProps) {
 
         <Surface elevation={1} padding="md">
           <h3 className="font-display text-[15px] text-ds-text-1 mb-3">
-            Categorías sin fila
+            Cuentas sin renglón destino
           </h3>
-          {report.categoriesWithoutRow.length === 0 ? (
+          {report.accountsWithoutRow.length === 0 ? (
             <p className="text-[13px] text-ds-text-3">Ninguna.</p>
           ) : (
             <ul className="space-y-2">
-              {report.categoriesWithoutRow.map((cat) => (
+              {report.accountsWithoutRow.map((acc) => (
                 <li
-                  key={cat.id}
+                  key={acc.accountPlanId}
                   className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-ds-surface-2 px-3 py-2 min-h-11"
                 >
                   <div className="min-w-0">
-                    <p className="text-[13px] text-ds-text-1 truncate">{cat.name}</p>
-                    <p className="text-[12px] text-ds-text-3 font-mono">{cat.code}</p>
+                    <p className="text-[13px] text-ds-text-1 font-mono truncate">
+                      {acc.code} · {acc.name}
+                    </p>
                   </div>
                   <Button
                     type="button"
@@ -243,16 +265,13 @@ export function FlowHealthPanel({ onResolveAccount }: HealthTabProps) {
                     className="min-h-11 sm:min-h-9"
                     onClick={() =>
                       setCreateFor({
-                        categoryId: cat.id,
-                        name: cat.name,
-                        section: suggestFlowSectionForCategory(
-                          cat.code,
-                          cat.name,
-                        ),
+                        name: acc.name,
+                        section: "GAV",
+                        accountPlanIds: [acc.accountPlanId],
                       })
                     }
                   >
-                    Crear fila
+                    Crear renglón
                   </Button>
                 </li>
               ))}
@@ -279,7 +298,7 @@ export function FlowHealthPanel({ onResolveAccount }: HealthTabProps) {
                     {acc.code} · {acc.name}
                   </p>
                   <p className="text-[12px] text-ds-text-3">
-                    {acc.categories.map((c) => c.name).join(" · ")}
+                    {acc.rows.map((r) => r.name).join(" · ")}
                   </p>
                 </div>
                 <Button
@@ -307,31 +326,28 @@ export function FlowHealthPanel({ onResolveAccount }: HealthTabProps) {
         </p>
       </Surface>
 
-      <ChangeCategoryDialog
+      <ChangeAccountsDialog
         row={assignRow}
         busy={busy}
         onClose={() => setAssignRow(null)}
-        onConfirm={async (categoryId, opts) => {
+        onConfirm={async (accountPlanIds) => {
           if (!assignRow) return;
           setBusy(true);
           try {
             const r = await fetch(
-              `/api/finance/flow-v3/rows/${assignRow.id}`,
+              `/api/finance/flow-v3/rows/${assignRow.id}/accounts`,
               {
-                method: "PATCH",
+                method: "PUT",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  categoryId,
-                  ...(opts?.mapping ? { mapping: opts.mapping } : {}),
-                }),
+                body: JSON.stringify({ accountPlanIds }),
               },
             );
             const j = await r.json();
             if (!r.ok || !j?.success) {
-              toast.error(j?.error ?? "No se pudo asignar");
+              toast.error(j?.error ?? "No se pudieron asignar cuentas");
               return;
             }
-            toast.success("Categoría asignada");
+            toast.success("Cuentas asignadas");
             setAssignRow(null);
             await load();
           } catch {
@@ -349,8 +365,8 @@ export function FlowHealthPanel({ onResolveAccount }: HealthTabProps) {
         }}
         busy={busy}
         initialSection={createFor?.section ?? null}
-        presetCategoryId={createFor?.categoryId ?? null}
         presetName={createFor?.name ?? null}
+        presetAccountPlanIds={createFor?.accountPlanIds ?? null}
         onCreate={async (body) => {
           setBusy(true);
           try {
@@ -361,9 +377,17 @@ export function FlowHealthPanel({ onResolveAccount }: HealthTabProps) {
             });
             const j = await r.json();
             if (!r.ok || !j?.success) {
-              throw new Error(j?.error ?? "No se pudo crear la fila");
+              throw new Error(j?.error ?? "No se pudo crear el renglón");
             }
-            toast.success("Fila creada");
+            const created = j.data as { id: string };
+            if (createFor?.accountPlanIds?.length) {
+              await fetch(`/api/finance/flow-v3/rows/${created.id}/accounts`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ accountPlanIds: createFor.accountPlanIds }),
+              });
+            }
+            toast.success("Renglón creado");
             setCreateFor(null);
             await load();
             return j.data;
