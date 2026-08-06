@@ -133,7 +133,33 @@ interface TransactionRow {
     kind: "client" | "factoring" | "supplier" | "guardia" | "unknown";
     entityId: string | null;
     entityName: string | null;
+    guardiaState?: {
+      status: string;
+      lifecycleStatus: string;
+      terminatedAt: string | null;
+      installationName: string | null;
+      availableExtraShifts: boolean;
+    } | null;
+    alsoRegisteredAs?: Array<"client" | "guardia" | "supplier" | "factoring">;
   } | null;
+}
+
+/** Badge de estado laboral del guardia (lista de movimientos). */
+function formatGuardiaStateBadge(
+  state: NonNullable<NonNullable<BankTransaction["rutRecognition"]>["guardiaState"]>,
+): string {
+  if (state.terminatedAt || state.lifecycleStatus === "inactivo") {
+    if (state.terminatedAt) {
+      const [y, m, d] = state.terminatedAt.split("-");
+      const short = `${d}/${m}/${y?.slice(2) ?? ""}`;
+      return `Finiquitado ${short}`;
+    }
+    return "Finiquitado";
+  }
+  if (!state.installationName) {
+    return "Guardia sin puesto";
+  }
+  return `Guardia activo · ${state.installationName}`;
 }
 
 type TxSubTab = "all" | "recognized" | "unrecognized" | "matched";
@@ -1646,6 +1672,11 @@ function TransactionsTab({
                     : null;
           const recognizedVariant =
             rr?.kind === "factoring" ? ("brand" as const) : ("ok" as const);
+          const guardiaStateLabel =
+            rr?.kind === "guardia" && rr.guardiaState
+              ? formatGuardiaStateBadge(rr.guardiaState)
+              : null;
+          const hasRutConflict = (rr?.alsoRegisteredAs?.length ?? 0) > 1;
           return (
             <div className="flex flex-col gap-1 min-w-0">
               <span className="truncate">{row.description}</span>
@@ -1656,12 +1687,22 @@ function TransactionsTab({
                 >
                   <Tag variant={recognizedVariant} size="sm">
                     {kindLabel}: {rr.entityName}
+                    {guardiaStateLabel ? ` · ${guardiaStateLabel}` : ""}
                   </Tag>
                   {row.reconciliationStatus === "UNMATCHED" &&
                   rr.kind === "factoring" ? (
                     <Tag variant="info" size="sm">
                       Posible cesión
                     </Tag>
+                  ) : null}
+                  {hasRutConflict ? (
+                    <span
+                      title={`También registrado como: ${rr!.alsoRegisteredAs!.join(", ")}`}
+                    >
+                      <Tag variant="warn" size="sm">
+                        RUT en varios registros
+                      </Tag>
+                    </span>
                   ) : null}
                 </span>
               ) : rr?.rut && row.suggestedRuleId ? (

@@ -2,6 +2,7 @@ import "server-only";
 import { prisma } from "@/lib/prisma";
 import { normalizeRutForMatch } from "./auto-match-payment.service";
 import { extractCanonicalRutFromBankText } from "./rut-extract";
+import type { RutEntityKind } from "./rut-conflict-detector";
 
 export { extractCanonicalRutFromBankText } from "./rut-extract";
 
@@ -12,12 +13,34 @@ export type RutMatchKind =
   | "guardia"
   | "unknown";
 
+export interface GuardiaStateRecognition {
+  status: string;
+  lifecycleStatus: string;
+  /** ISO date (YYYY-MM-DD) o null. */
+  terminatedAt: string | null;
+  installationName: string | null;
+  availableExtraShifts: boolean;
+}
+
 export interface RutRecognition {
   /** RUT canónico detectado en el texto (dígitos + DV, lowercase, sin puntos/guion). */
   rut: string | null;
   kind: RutMatchKind;
   entityId: string | null;
   entityName: string | null;
+  /** Solo cuando kind === "guardia". */
+  guardiaState?: GuardiaStateRecognition | null;
+  /**
+   * Todos los tipos de entidad donde el RUT está registrado en el tenant
+   * (incluye el kind primario). length > 1 ⇒ conflicto cross-tabla.
+   */
+  alsoRegisteredAs: RutEntityKind[];
+}
+
+function toDateYmd(d: Date | null | undefined): string | null {
+  if (!d) return null;
+  // Dates @db.Date llegan como UTC midnight; usamos ISO date slice.
+  return d.toISOString().slice(0, 10);
 }
 
 /**
@@ -28,6 +51,7 @@ export interface RutRecognition {
  *  2. Queries batch por tipo (CrmAccount, FinanceFactoringCompany,
  *     FinanceSupplier, OpsGuardia) filtradas en memoria por los RUT detectados.
  *  3. Prioridad por tx: client > factoring > supplier > guardia > unknown.
+ *  4. alsoRegisteredAs se deriva de los mismos índices (sin queries extra).
  *
  * Sin queries por-fila — N+1 evitado. Si el batch es la página visible
  * (e.g. 50 movs), una pasada por cada tabla resuelve todo.
@@ -65,6 +89,8 @@ export async function recognizeRutsForTransactions(
       kind: "unknown",
       entityId: null,
       entityName: null,
+      guardiaState: null,
+      alsoRegisteredAs: [],
     });
   }
   if (allRuts.size === 0) return result;
@@ -91,6 +117,11 @@ export async function recognizeRutsForTransactions(
         },
         select: {
           id: true,
+          status: true,
+          lifecycleStatus: true,
+          terminatedAt: true,
+          currentInstallationId: true,
+          availableExtraShifts: true,
           persona: { select: { rut: true, firstName: true, lastName: true } },
         },
       }),
@@ -117,19 +148,65 @@ export async function recognizeRutsForTransactions(
     if (k && allRuts.has(k))
       supplierByRut.set(k, { id: s.id, name: s.name });
   }
-  const guardiaByRut = new Map<string, { id: string; name: string }>();
+
+  type GuardiaIdx = {
+    id: string;
+    name: string;
+    state: GuardiaStateRecognition;
+  };
+  const guardiaByRut = new Map<string, GuardiaIdx>();
+  const installationIds = new Set<string>();
   for (const g of guardias) {
     const k = normalizeRutForMatch(g.persona.rut);
     if (!k || !allRuts.has(k)) continue;
     const name = `${g.persona.firstName ?? ""} ${g.persona.lastName ?? ""}`
       .trim();
-    guardiaByRut.set(k, { id: g.id, name: name || "Guardia" });
+    if (g.currentInstallationId) installationIds.add(g.currentInstallationId);
+    guardiaByRut.set(k, {
+      id: g.id,
+      name: name || "Guardia",
+      state: {
+        status: g.status,
+        lifecycleStatus: g.lifecycleStatus,
+        terminatedAt: toDateYmd(g.terminatedAt),
+        installationName: null, // se completa abajo
+        availableExtraShifts: g.availableExtraShifts,
+      },
+    });
+  }
+
+  // Batch: nombres de instalación actual (una sola query).
+  if (installationIds.size > 0) {
+    const installations = await prisma.crmInstallation.findMany({
+      where: { tenantId, id: { in: Array.from(installationIds) } },
+      select: { id: true, name: true },
+    });
+    const nameById = new Map(installations.map((i) => [i.id, i.name]));
+    for (const g of guardias) {
+      const k = normalizeRutForMatch(g.persona.rut);
+      if (!k || !g.currentInstallationId) continue;
+      const entry = guardiaByRut.get(k);
+      if (!entry) continue;
+      entry.state.installationName = nameById.get(g.currentInstallationId) ?? null;
+    }
+  }
+
+  /** Occupants kinds for a RUT from in-memory indexes (no extra queries). */
+  function alsoRegisteredAsFor(rut: string): RutEntityKind[] {
+    const kinds: RutEntityKind[] = [];
+    if (accountByRut.has(rut)) kinds.push("client");
+    if (guardiaByRut.has(rut)) kinds.push("guardia");
+    if (supplierByRut.has(rut)) kinds.push("supplier");
+    if (factoringByRut.has(rut)) kinds.push("factoring");
+    return kinds;
   }
 
   // 3. Resolver cada tx: client > factoring > supplier > guardia.
   for (const tx of txs) {
     const rut = txToRut.get(tx.id);
     if (!rut) continue;
+    const also = alsoRegisteredAsFor(rut);
+
     const client = accountByRut.get(rut);
     if (client) {
       result.set(tx.id, {
@@ -137,6 +214,8 @@ export async function recognizeRutsForTransactions(
         kind: "client",
         entityId: client.id,
         entityName: client.name,
+        guardiaState: null,
+        alsoRegisteredAs: also,
       });
       continue;
     }
@@ -147,6 +226,8 @@ export async function recognizeRutsForTransactions(
         kind: "factoring",
         entityId: factoring.id,
         entityName: factoring.name,
+        guardiaState: null,
+        alsoRegisteredAs: also,
       });
       continue;
     }
@@ -157,6 +238,8 @@ export async function recognizeRutsForTransactions(
         kind: "supplier",
         entityId: supplier.id,
         entityName: supplier.name,
+        guardiaState: null,
+        alsoRegisteredAs: also,
       });
       continue;
     }
@@ -167,11 +250,20 @@ export async function recognizeRutsForTransactions(
         kind: "guardia",
         entityId: guardia.id,
         entityName: guardia.name,
+        guardiaState: guardia.state,
+        alsoRegisteredAs: also,
       });
       continue;
     }
-    // unknown: RUT detectado pero sin contraparte. result ya está seteado
-    // con kind=unknown desde el default.
+    // unknown: RUT detectado pero sin contraparte. Actualizamos also (vacío).
+    result.set(tx.id, {
+      rut,
+      kind: "unknown",
+      entityId: null,
+      entityName: null,
+      guardiaState: null,
+      alsoRegisteredAs: also,
+    });
   }
 
   return result;
