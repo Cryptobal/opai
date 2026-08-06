@@ -147,6 +147,22 @@ export async function createAccount(
     taxCode?: string;
   }
 ) {
+  // El wizard "categoría raíz" envía parentId=null con level=2 (código tipo
+  // `6.3`). Semánticamente es hijo de la raíz de nivel 1 del tipo; enlazarlo
+  // evita huérfanos visibles a la altura de Activos/Pasivos/…
+  let parentId = data.parentId ?? null;
+  let level = data.level;
+  if (!parentId && level > 1) {
+    const root = await prisma.financeAccountPlan.findFirst({
+      where: { tenantId, type: data.type as never, parentId: null, level: 1 },
+      select: { id: true, level: true },
+    });
+    if (root) {
+      parentId = root.id;
+      level = root.level + 1;
+    }
+  }
+
   return prisma.financeAccountPlan.create({
     data: {
       tenantId,
@@ -154,8 +170,8 @@ export async function createAccount(
       name: data.name,
       type: data.type as any,
       nature: data.nature as any,
-      parentId: data.parentId ?? null,
-      level: data.level,
+      parentId,
+      level,
       acceptsEntries: data.acceptsEntries,
       description: data.description ?? null,
       taxCode: data.taxCode ?? null,

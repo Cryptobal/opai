@@ -37,6 +37,9 @@ import {
   Trash2,
   ChevronRight,
   ChevronLeft,
+  ChevronDown,
+  ChevronsDownUp,
+  ChevronsUpDown,
   Loader2,
   Lock,
   ArrowLeft,
@@ -52,6 +55,14 @@ import {
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { confirmDialog } from "@/components/ui/confirm-service";
+import {
+  ancestorsOf,
+  buildAccountTree,
+  flattenVisible,
+  type FlatRow,
+} from "@/components/finance/accounting/account-tree";
+
+const COA_EXPANDED_KEY = "opai-coa-expanded";
 
 /* ── Types ── */
 
@@ -288,6 +299,46 @@ function AccountsTab({
   };
   const [form, setForm] = useState(EMPTY_FORM);
 
+  /** Expansión del árbol — vacío al montar (SSR-safe); rehidrata desde localStorage. */
+  const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
+  const [expandedHydrated, setExpandedHydrated] = useState(false);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(COA_EXPANDED_KEY);
+      if (raw) {
+        const parsed: unknown = JSON.parse(raw);
+        if (
+          Array.isArray(parsed) &&
+          parsed.every((x): x is string => typeof x === "string")
+        ) {
+          setExpanded(new Set(parsed));
+        }
+      }
+    } catch {
+      /* valor corrupto → partir contraído */
+    }
+    setExpandedHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    if (!expandedHydrated) return;
+    try {
+      localStorage.setItem(COA_EXPANDED_KEY, JSON.stringify([...expanded]));
+    } catch {
+      /* quota / private mode */
+    }
+  }, [expanded, expandedHydrated]);
+
+  const toggleExpanded = useCallback((id: string) => {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
   const filtered = useMemo(() => {
     if (!search.trim()) return visibleAccounts;
     const q = search.toLowerCase();
@@ -297,6 +348,70 @@ function AccountsTab({
         a.name.toLowerCase().includes(q)
     );
   }, [visibleAccounts, search]);
+
+  const treeIndex = useMemo(
+    () => buildAccountTree(visibleAccounts),
+    [visibleAccounts],
+  );
+
+  const searchState = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return null;
+    const matches = new Set(
+      visibleAccounts
+        .filter(
+          (a) =>
+            a.code.toLowerCase().includes(q) ||
+            a.name.toLowerCase().includes(q),
+        )
+        .map((a) => a.id),
+    );
+    const restrictTo = new Set(matches);
+    const force = new Set<string>();
+    for (const id of matches) {
+      for (const anc of ancestorsOf(id, treeIndex)) {
+        restrictTo.add(anc);
+        force.add(anc);
+      }
+    }
+    // Si el usuario expande un nodo visible durante la búsqueda, incluir
+    // sus hijos (aunque no matcheen) para poder navegar el subárbol.
+    let grew = true;
+    while (grew) {
+      grew = false;
+      for (const id of [...restrictTo]) {
+        if (!expanded.has(id)) continue;
+        for (const child of treeIndex.childrenOf.get(id) ?? []) {
+          if (!restrictTo.has(child)) {
+            restrictTo.add(child);
+            grew = true;
+          }
+        }
+      }
+    }
+    return { matches, restrictTo, force };
+  }, [search, visibleAccounts, treeIndex, expanded]);
+
+  const rows = useMemo(
+    () =>
+      flattenVisible(visibleAccounts, treeIndex, {
+        expanded,
+        forceExpanded: searchState?.force,
+        restrictTo: searchState?.restrictTo ?? null,
+      }),
+    [visibleAccounts, treeIndex, expanded, searchState],
+  );
+
+  const expandableIds = useMemo(
+    () =>
+      visibleAccounts
+        .filter((a) => (treeIndex.childrenOf.get(a.id)?.length ?? 0) > 0)
+        .map((a) => a.id),
+    [visibleAccounts, treeIndex],
+  );
+  const allExpanded =
+    expandableIds.length > 0 && expandableIds.every((id) => expanded.has(id));
+  const searchActive = Boolean(searchState);
 
   const setField = useCallback(
     (key: string, value: string | boolean) =>
@@ -394,6 +509,10 @@ function AccountsTab({
     }
   };
 
+  const accountCountLabel = searchState
+    ? `${filtered.length} cuenta(s) — ${rows.length} visible(s)`
+    : `${visibleAccounts.length} cuenta(s)`;
+
   return (
     <div className="space-y-4">
       {/* Action bar */}
@@ -407,25 +526,49 @@ function AccountsTab({
             className="pl-9 h-9"
           />
         </div>
-        {canManage && (
-          <div className="flex gap-2">
-            {visibleAccounts.length === 0 && (
-              <Button size="sm" variant="outline" onClick={handleSeed} disabled={seeding}>
-                {seeding && <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />}
-                Inicializar Plan CL
-              </Button>
-            )}
+        <div className="flex flex-wrap gap-2">
+          {visibleAccounts.length > 0 && (
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={searchActive || expandableIds.length === 0}
+              onClick={() =>
+                setExpanded(allExpanded ? new Set() : new Set(expandableIds))
+              }
+              title={
+                searchActive
+                  ? "Deshabilitado durante la búsqueda"
+                  : allExpanded
+                    ? "Contraer todo"
+                    : "Expandir todo"
+              }
+            >
+              {allExpanded ? (
+                <ChevronsDownUp className="h-4 w-4 mr-1.5" />
+              ) : (
+                <ChevronsUpDown className="h-4 w-4 mr-1.5" />
+              )}
+              {allExpanded ? "Contraer todo" : "Expandir todo"}
+            </Button>
+          )}
+          {canManage && visibleAccounts.length === 0 && (
+            <Button size="sm" variant="outline" onClick={handleSeed} disabled={seeding}>
+              {seeding && <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />}
+              Inicializar Plan CL
+            </Button>
+          )}
+          {canManage && (
             <Button size="sm" onClick={openCreate}>
               <Plus className="h-4 w-4 mr-1.5" />
               Nueva cuenta
             </Button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
-      <p className="text-xs text-muted-foreground">{filtered.length} cuenta(s)</p>
+      <p className="text-xs text-muted-foreground">{accountCountLabel}</p>
 
-      {filtered.length === 0 ? (
+      {visibleAccounts.length === 0 ? (
         <EmptyState
           icon={BookText}
           title="Sin cuentas"
@@ -445,27 +588,80 @@ function AccountsTab({
             ) : undefined
           }
         />
+      ) : rows.length === 0 ? (
+        <EmptyState
+          icon={Search}
+          title="Sin resultados"
+          description={`No hay cuentas que coincidan con “${search.trim()}”.`}
+        />
       ) : (
         <>
           {/* Desktop table */}
           <div className="hidden md:block">
-            <DataTable<AccountRow>
+            <DataTable<FlatRow<AccountRow>>
+              layout="fixed"
               columns={[
                 {
                   id: "code",
                   header: "Código",
-                  cell: (row) => (
-                    <span className="font-mono text-xs" style={{ paddingLeft: `${(row.level - 1) * 16}px` }}>
-                      {row.code}
-                    </span>
+                  width: "w-[300px]",
+                  cell: (r) => (
+                    <div
+                      className="flex items-center gap-1 min-w-0"
+                      style={{ paddingLeft: `${r.depth * 16}px` }}
+                    >
+                      {r.hasChildren ? (
+                        <button
+                          type="button"
+                          onClick={() => toggleExpanded(r.account.id)}
+                          aria-expanded={r.isExpanded}
+                          aria-label={r.isExpanded ? "Contraer" : "Expandir"}
+                          className="h-6 w-6 shrink-0 grid place-items-center rounded hover:bg-ds-surface-2 transition-colors"
+                        >
+                          {r.isExpanded ? (
+                            <ChevronDown className="h-3.5 w-3.5 text-ds-text-3" />
+                          ) : (
+                            <ChevronRight className="h-3.5 w-3.5 text-ds-text-3" />
+                          )}
+                        </button>
+                      ) : (
+                        <span className="h-6 w-6 shrink-0" aria-hidden />
+                      )}
+                      <span className="font-mono text-xs truncate">{r.account.code}</span>
+                    </div>
                   ),
                 },
-                { id: "name", header: "Nombre", cell: (row) => row.name },
+                {
+                  id: "name",
+                  header: "Nombre",
+                  width: "min-w-0 w-[36%]",
+                  cell: (r) => (
+                    <div className="flex items-center min-w-0">
+                      {r.hasChildren ? (
+                        <button
+                          type="button"
+                          onClick={() => toggleExpanded(r.account.id)}
+                          className="text-left w-full truncate min-w-0"
+                        >
+                          {r.account.name}
+                        </button>
+                      ) : (
+                        <span className="truncate min-w-0">{r.account.name}</span>
+                      )}
+                      {r.hasChildren && (
+                        <span className="ml-2 shrink-0 text-[11px] text-ds-text-3 font-mono">
+                          {r.childCount}
+                        </span>
+                      )}
+                    </div>
+                  ),
+                },
                 {
                   id: "type",
                   header: "Tipo",
-                  cell: (row) => {
-                    const typeCfg = ACCOUNT_TYPE_CONFIG[row.type] ?? { label: row.type, className: "bg-muted" };
+                  width: "w-[120px]",
+                  cell: (r) => {
+                    const typeCfg = ACCOUNT_TYPE_CONFIG[r.account.type] ?? { label: r.account.type, className: "bg-muted" };
                     return (
                       <Badge variant="outline" className={cn("text-xs", typeCfg.className)}>
                         {typeCfg.label}
@@ -476,15 +672,17 @@ function AccountsTab({
                 {
                   id: "level",
                   header: "Nivel",
+                  width: "w-[72px]",
                   align: "center",
-                  cell: (row) => <span className="text-muted-foreground">{row.level}</span>,
+                  cell: (r) => <span className="text-muted-foreground">{r.account.level}</span>,
                 },
                 {
                   id: "acceptsEntries",
                   header: "Movimientos",
+                  width: "w-[120px]",
                   align: "center",
-                  cell: (row) =>
-                    row.acceptsEntries ? (
+                  cell: (r) =>
+                    r.account.acceptsEntries ? (
                       <span className="text-status-ok-fg text-xs">Sí</span>
                     ) : (
                       <span className="text-muted-foreground text-xs">No</span>
@@ -493,17 +691,18 @@ function AccountsTab({
                 {
                   id: "isActive",
                   header: "Estado",
-                  cell: (row) => (
+                  width: "w-[104px]",
+                  cell: (r) => (
                     <Badge
                       variant="outline"
                       className={cn(
                         "text-xs",
-                        row.isActive
+                        r.account.isActive
                           ? "bg-status-ok-soft text-status-ok-fg border-status-ok-border"
                           : "bg-zinc-500/15 text-zinc-400 border-zinc-500/30"
                       )}
                     >
-                      {row.isActive ? "Activa" : "Inactiva"}
+                      {r.account.isActive ? "Activa" : "Inactiva"}
                     </Badge>
                   ),
                 },
@@ -511,28 +710,29 @@ function AccountsTab({
                   ? [{
                       id: "_actions",
                       header: "",
+                      width: "w-[96px]",
                       sticky: "right" as const,
-                      cell: (row: AccountRow) => (
+                      cell: (r: FlatRow<AccountRow>) => (
                         <div className="flex items-center gap-0.5">
                           <Button
                             variant="ghost"
                             size="sm"
                             className="h-9 w-9 p-0"
                             title="Editar"
-                            onClick={() => openEdit(row)}
+                            onClick={() => openEdit(r.account)}
                           >
                             <Pencil className="h-3.5 w-3.5" />
                           </Button>
-                          {!row.isSystem && row.isActive && (
+                          {!r.account.isSystem && r.account.isActive && (
                             <Button
                               variant="ghost"
                               size="sm"
                               className="h-9 w-9 p-0"
                               title="Eliminar"
-                              onClick={() => void handleDelete(row)}
-                              disabled={deleting === row.id}
+                              onClick={() => void handleDelete(r.account)}
+                              disabled={deleting === r.account.id}
                             >
-                              {deleting === row.id ? (
+                              {deleting === r.account.id ? (
                                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
                               ) : (
                                 <Trash2 className="h-3.5 w-3.5 text-status-danger-fg" />
@@ -541,33 +741,65 @@ function AccountsTab({
                           )}
                         </div>
                       ),
-                    } satisfies DataTableColumn<AccountRow>]
+                    } satisfies DataTableColumn<FlatRow<AccountRow>>]
                   : []),
               ]}
-              rows={filtered}
-              rowKey={(row) => row.id}
+              rows={rows}
+              rowKey={(r) => r.account.id}
               empty={<EmptyState icon={BookText} title="Sin cuentas" compact />}
             />
           </div>
 
           {/* Mobile cards */}
           <div className="md:hidden space-y-2">
-            {filtered.map((a) => {
+            {rows.map((r) => {
+              const a = r.account;
               const typeCfg = ACCOUNT_TYPE_CONFIG[a.type] ?? { label: a.type, className: "bg-muted" };
               return (
                 <Card key={a.id}>
                   <CardContent className="p-4">
-                    <div className="flex items-start justify-between gap-2">
+                    <div
+                      className="flex items-start justify-between gap-2"
+                      style={{ paddingLeft: `${r.depth * 12}px` }}
+                    >
                       <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2 mb-1">
+                        <div className="flex items-center gap-1 mb-1">
+                          {r.hasChildren ? (
+                            <button
+                              type="button"
+                              onClick={() => toggleExpanded(a.id)}
+                              aria-expanded={r.isExpanded}
+                              aria-label={r.isExpanded ? "Contraer" : "Expandir"}
+                              className="h-11 w-11 shrink-0 grid place-items-center rounded hover:bg-ds-surface-2 transition-colors"
+                            >
+                              {r.isExpanded ? (
+                                <ChevronDown className="h-4 w-4 text-ds-text-3" />
+                              ) : (
+                                <ChevronRight className="h-4 w-4 text-ds-text-3" />
+                              )}
+                            </button>
+                          ) : (
+                            <span className="h-11 w-11 shrink-0" aria-hidden />
+                          )}
                           <span className="font-mono text-xs text-muted-foreground">{a.code}</span>
                           <Badge variant="outline" className={cn("text-[10px]", typeCfg.className)}>
                             {typeCfg.label}
                           </Badge>
+                          {r.hasChildren && (
+                            <span className="text-[11px] text-ds-text-3 font-mono">{r.childCount}</span>
+                          )}
                         </div>
-                        <p className="font-medium text-sm" style={{ paddingLeft: `${(a.level - 1) * 8}px` }}>
-                          {a.name}
-                        </p>
+                        {r.hasChildren ? (
+                          <button
+                            type="button"
+                            onClick={() => toggleExpanded(a.id)}
+                            className="font-medium text-sm text-left w-full"
+                          >
+                            {a.name}
+                          </button>
+                        ) : (
+                          <p className="font-medium text-sm">{a.name}</p>
+                        )}
                         <div className="flex gap-3 mt-1 text-xs text-muted-foreground">
                           <span>Nivel {a.level}</span>
                           {a.acceptsEntries && <span className="text-status-ok-fg">Acepta movimientos</span>}
