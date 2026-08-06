@@ -25,6 +25,7 @@ import {
   todayChileStr,
 } from "@/lib/fx-date";
 import { applyTemplateLinkInheritance } from "./inherit-template-link";
+import { resolveIssuedDueDate } from "./dte-due-date";
 
 const DRAFT_REQUIRED_REFERENCE = [56, 61] as const;
 
@@ -110,6 +111,18 @@ export async function createDraftDte(
     billingPeriod: input.billingPeriod,
   });
 
+  // El borrador ya nace con vencimiento para que la planilla y la cobranza
+  // tengan término de pago desde el minuto cero (y `issueDraftDte` lo
+  // preserve al emitir en vez de recalcularlo).
+  const dueDate = await resolveIssuedDueDate({
+    tenantId,
+    dteType: input.dteType,
+    emissionYmd,
+    explicitDueDate: input.dueDate,
+    explicitDays: input.dueDays,
+    recurringTemplateId: templateLink.recurringTemplateId,
+  });
+
   const draft = await prisma.financeDte.create({
     data: {
       tenantId,
@@ -118,6 +131,7 @@ export async function createDraftDte(
       folio: 0,
       code: `DRAFT-${randomUUID().slice(0, 8)}`,
       date: emissionDate,
+      dueDate,
       issuerRut: "",
       issuerName: "",
       receiverRut: input.receiverRut ?? "",
@@ -231,6 +245,7 @@ export async function cloneDraftDte(
   const refCode = original.referenceCode;
   const input: DraftDteInput = {
     issueDate: formatDateOnlyUtcYmd(original.date),
+    dueDate: original.dueDate ? formatDateOnlyUtcYmd(original.dueDate) : undefined,
     dteType: original.dteType,
     receiverRut: original.receiverRut || undefined,
     receiverName: original.receiverName || undefined,
@@ -326,6 +341,18 @@ export async function updateDraftDte(
     billingPeriod: input.billingPeriod,
   });
 
+  // Mismo criterio que al crear: el vencimiento explícito del form manda y,
+  // si no vino, se recalcula sobre la fecha de emisión vigente (que el
+  // usuario pudo haber cambiado en esta misma edición).
+  const dueDate = await resolveIssuedDueDate({
+    tenantId,
+    dteType: input.dteType,
+    emissionYmd,
+    explicitDueDate: input.dueDate,
+    explicitDays: input.dueDays,
+    recurringTemplateId: templateLink.recurringTemplateId,
+  });
+
   return prisma.$transaction(async (tx) => {
     await tx.financeDteLine.deleteMany({ where: { dteId: draftId } });
     return tx.financeDte.update({
@@ -334,6 +361,7 @@ export async function updateDraftDte(
         ...(input.issueDate?.trim()
           ? { date: parseYmdToDbDate(input.issueDate.trim()) }
           : {}),
+        dueDate,
         dteType: input.dteType,
         receiverRut: input.receiverRut ?? "",
         receiverName: input.receiverName ?? "",
@@ -491,6 +519,9 @@ export async function issueDraftDte(
 
   const input: IssueDteInput = {
     issueDate: formatDateOnlyUtcYmd(draft.date),
+    // Preservar el vencimiento pactado en el borrador. Sin esto el issuer lo
+    // recalcularía desde cero y perdería un ajuste manual del operador.
+    dueDate: draft.dueDate ? formatDateOnlyUtcYmd(draft.dueDate) : undefined,
     dteType: draft.dteType,
     receiverRut: draft.receiverRut,
     receiverName: draft.receiverName,

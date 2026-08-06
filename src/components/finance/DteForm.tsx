@@ -191,6 +191,11 @@ export function DteForm({
   const [dteType, setDteType] = useState(String(availableTypes[0] ?? 33));
   /** YYYY-MM-DD — va al XML SII como fecha de emisión y se persiste en el borrador. */
   const [issueDate, setIssueDate] = useState<string>(() => todayChileStr());
+  /**
+   * YYYY-MM-DD — vencimiento del cobro. No va al XML SII. Vacío = el backend
+   * lo deriva del término de pago del contrato (o del default del tenant).
+   */
+  const [dueDate, setDueDate] = useState<string>("");
   // Período (cuota) que factura esta DTE en el flujo de caja: "YYYY-MM". Por
   // defecto el mes de emisión; si facturás el servicio del mes pasado, lo bajás
   // un mes. Independiente de la fecha SII. Es la base para que el flujo dedupee
@@ -447,6 +452,8 @@ export function DteForm({
         if (!d) return;
         const ds = String(d.date ?? "");
         if (ds.length >= 10) setIssueDate(ds.slice(0, 10));
+        const dd = String(d.dueDate ?? "");
+        setDueDate(dd.length >= 10 ? dd.slice(0, 10) : "");
         setDteType(String(d.dteType));
         setReceiverRut(d.receiverRut ?? "");
         setReceiverName(d.receiverName ?? "");
@@ -1120,6 +1127,7 @@ export function DteForm({
     return {
       dteType: parseInt(dteType),
       issueDate,
+      dueDate: dueDate || null,
       receiverRut: effRut || undefined,
       receiverName: effName || undefined,
       receiverEmail: effEmail || null,
@@ -1578,6 +1586,21 @@ export function DteForm({
               <p className="text-xs text-ds-text-3">
                 Esta fecha se registra como emisión tributaria ante el SII (incluye
                 borradores y emisión SimpleAPI).
+              </p>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="dte-due-date">Vencimiento del cobro</Label>
+              <Input
+                id="dte-due-date"
+                type="date"
+                value={dueDate}
+                min={issueDate}
+                onChange={(e) => setDueDate(e.target.value)}
+                className="h-10 sm:h-9"
+              />
+              <p className="text-xs text-ds-text-3">
+                No va al SII. Define desde cuándo la factura cuenta como vencida
+                para la cobranza. Vacío = término de pago del contrato.
               </p>
             </div>
             <div className="space-y-1.5">
