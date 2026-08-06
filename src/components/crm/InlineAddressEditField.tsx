@@ -14,13 +14,18 @@ import { hasValidInstallationCoords } from "@/lib/crm/installation-address";
 
 type Phase = "idle" | "editing" | "saving" | "saved" | "error";
 
-export type InstallationAddressPayload = {
+export type GeoreferencedAddressPayload = {
   address: string;
   city: string | null;
   commune: string | null;
+  region: string | null;
+  placeId: string | null;
   lat: number;
   lng: number;
 };
+
+/** @deprecated Usar GeoreferencedAddressPayload */
+export type InstallationAddressPayload = GeoreferencedAddressPayload;
 
 interface InlineAddressEditFieldProps {
   label?: string;
@@ -28,13 +33,13 @@ interface InlineAddressEditFieldProps {
   canEdit: boolean;
   placeholder?: string;
   className?: string;
-  /** Persiste dirección + comuna/ciudad + coordenadas desde Google Maps. */
-  onCommit: (payload: InstallationAddressPayload) => Promise<void>;
+  /** Persiste dirección + comuna/ciudad/región + coordenadas desde Google Maps. */
+  onCommit: (payload: GeoreferencedAddressPayload) => Promise<void>;
 }
 
 /**
- * Edición inline de dirección georreferenciada (Google Places),
- * alineada al patrón de personas / listado de instalaciones.
+ * Edición inline de dirección georreferenciada (Google Places).
+ * Misma UX en instalaciones CRM y ficha de personas.
  */
 export function InlineAddressEditField({
   label = "Dirección",
@@ -88,6 +93,8 @@ export function InlineAddressEditField({
           address: result.address.trim(),
           city: result.city?.trim() || null,
           commune: result.commune?.trim() || null,
+          region: result.region?.trim() || null,
+          placeId: result.placeId?.trim() || null,
           lat: result.lat,
           lng: result.lng,
         });

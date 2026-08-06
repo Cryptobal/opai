@@ -9,6 +9,10 @@ import { Input } from "@/components/ui/input";
 import { DetailField, DetailFieldGrid } from "@/components/opai/DetailField";
 import { InlineEditField } from "@/components/opai/InlineEditField";
 import {
+  InlineAddressEditField,
+  type GeoreferencedAddressPayload,
+} from "@/components/crm/InlineAddressEditField";
+import {
   AFP_CHILE,
   BANK_ACCOUNT_TYPES,
   CHILE_BANKS,
@@ -77,15 +81,6 @@ function boolToSelect(v?: boolean | null): string | null {
   if (v === true) return "true";
   if (v === false) return "false";
   return null;
-}
-
-function normalizeAddressFormatted(raw: string) {
-  const s = raw.trim();
-  if (!s) return { ok: true as const, value: null };
-  if (s.length < 5) {
-    return { ok: false as const, error: "Dirección demasiado corta (mín. 5 caracteres)" };
-  }
-  return { ok: true as const, value: s };
 }
 
 /** Format a date-only value using UTC to avoid timezone shift */
@@ -182,6 +177,8 @@ interface DatosPersonalesSectionProps {
   onBankAccountsChange: (bankAccounts: BankAccount[]) => void;
   /** PATCH de un solo campo (mismo patrón CRM InlineEditField). */
   onCommitField: (key: string, value: string | null) => Promise<string | null>;
+  /** PATCH de dirección georreferenciada (Google Maps), igual que instalaciones. */
+  onCommitAddress: (payload: GeoreferencedAddressPayload) => Promise<void>;
 }
 
 export default function DatosPersonalesSection({
@@ -196,6 +193,7 @@ export default function DatosPersonalesSection({
   canManageGuardias,
   onBankAccountsChange,
   onCommitField,
+  onCommitAddress,
 }: DatosPersonalesSectionProps) {
   const existingAccount = bankAccounts[0] ?? null;
   const personaRutNormalized = persona.rut ? normalizeRut(persona.rut) : "";
@@ -752,20 +750,15 @@ export default function DatosPersonalesSection({
         </DetailFieldGrid>
       </div>
 
-      {/* Domicilio */}
+      {/* Domicilio — misma UX que instalaciones: Google Maps + pegar URL */}
       <div>
         <p className="text-[12px] font-semibold text-muted-foreground uppercase tracking-[0.08em] mb-2.5">Domicilio</p>
         <div className="grid gap-2 sm:gap-3 md:grid-cols-[1fr_220px] md:items-stretch">
-          <InlineEditField
+          <InlineAddressEditField
             label="Dirección"
-            fieldKey="addressFormatted"
-            type="text"
             value={persona.addressFormatted ?? null}
             canEdit={canEdit}
-            fullWidth
-            normalize={normalizeAddressFormatted}
-            hint="Para geolocalización precisa usa «Editar datos personales» con Maps"
-            onCommit={onCommitField}
+            onCommit={onCommitAddress}
           />
           <div className="min-w-0 rounded-xl border border-border/60 bg-card/40 p-3 sm:p-4">
             <dt className="mb-1.5 text-[12px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">Ubicación</dt>
