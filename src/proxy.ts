@@ -249,9 +249,16 @@ export default auth(async (req) => {
     return;
   }
 
-  // Entrada al sitio (ERP): welcome (sin sesión) o Hub (con sesión)
+  // Entrada al sitio (ERP): welcome (sin sesión) o Hub (con sesión).
+  // Usuario recurrente (cookie de superficie): login, no marketing.
   if (pathname === '/' || pathname === '/opai' || (pathname === '/hub' && !req.auth)) {
     if (!req.auth) {
+      const hasSurface = Boolean(req.cookies.get(SURFACE_COOKIE)?.value);
+      if (hasSurface) {
+        const loginUrl = new URL('/opai/login', req.nextUrl.origin);
+        loginUrl.searchParams.set('callbackUrl', pathname);
+        return Response.redirect(loginUrl);
+      }
       return Response.redirect(new URL('/welcome', req.nextUrl.origin));
     }
     return Response.redirect(new URL('/hub', req.nextUrl.origin));
@@ -272,7 +279,7 @@ export default auth(async (req) => {
   }
 
   // PWA Productividad (H4): un solo viaje si ya conocemos la landing.
-  // Sin cookie → cae a la page (loading.tsx cubre el hop frío).
+  // Sin cookie → cae al route handler (siembra cookies en frío).
   if (pathname === '/productividad' && req.auth) {
     const landing = parseProductividadLandingCookie(
       req.cookies.get(PRODUCTIVIDAD_LANDING_COOKIE)?.value,
@@ -283,6 +290,35 @@ export default auth(async (req) => {
       res.cookies.set(SURFACE_COOKIE, 'productividad', opts);
       res.cookies.set(PRODUCTIVIDAD_LANDING_COOKIE, landing, opts);
       return res;
+    }
+  }
+
+  // Arranque en caliente: saltar RSC de /opai/login cuando ya hay sesión
+  // y cookie de destino. Sin cookies → /productividad (route handler)
+  // resuelve desde BD y siembra (la página de login ya no hace auth()+BD).
+  if (pathname === '/opai/login' && req.auth) {
+    const sp = req.nextUrl.searchParams;
+    const hasPortal = sp.has('portal');
+    const hasCallback = sp.has('callbackUrl');
+    const hasError = sp.has('error');
+    if (!hasPortal && !hasCallback && !hasError) {
+      const sessionPortal = (req.auth as { portal?: string } | null)?.portal;
+      if (sessionPortal === 'opai' || sessionPortal === undefined) {
+        const landing = parseProductividadLandingCookie(
+          req.cookies.get(PRODUCTIVIDAD_LANDING_COOKIE)?.value,
+        );
+        if (landing) {
+          return NextResponse.redirect(new URL(landing, req.nextUrl.origin), 307);
+        }
+        const surface = req.cookies.get(SURFACE_COOKIE)?.value;
+        if (surface === 'erp') {
+          return NextResponse.redirect(new URL('/hub', req.nextUrl.origin), 307);
+        }
+        // Sin cookie usable: el route handler de /productividad es la
+        // resolución autoritativa (BD + siembra). ERP-only cae a /hub.
+        return NextResponse.redirect(new URL('/productividad', req.nextUrl.origin), 307);
+      }
+      // portal !== 'opai': dejar pasar al formulario (aislación de portales).
     }
   }
 
