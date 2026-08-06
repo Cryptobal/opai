@@ -171,6 +171,10 @@ export const updateAccountSchema = z.object({
   layoutDocumentoCobro: z
     .enum(["DTE_PREVIEW", "PROFORMA", "ESTADO_DE_PAGO"])
     .optional(),
+  // ── Cobranza ──
+  // Contacto destinatario de los recordatorios de cobranza. null = cascada
+  // por `recibeCobranza` → contacto principal.
+  contactoCobranzaId: z.string().uuid("contactoCobranzaId inválido").optional().nullable(),
 });
 
 // ── Contact ──

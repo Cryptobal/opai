@@ -2354,6 +2354,13 @@ model CrmAccount {
   /// activo de la cuenta o el receiverEmail del DTE.
   contactoEstadoPagoId String?               @map("contacto_estado_pago_id") @db.Uuid
   contactoEstadoPago   CrmContact?           @relation("AccountEstadoPagoContact", fields: [contactoEstadoPagoId], references: [id], onDelete: SetNull)
+  /// Contacto del cliente al que se dirige la COBRANZA (recordatorios de
+  /// pago de facturas ya emitidas). Distinto de `contactoEstadoPagoId`: quien
+  /// firma/recibe el documento de cobro antes de emitir no siempre es quien
+  /// paga. Si null, se resuelve por cascada: contactos con `recibeCobranza`
+  /// → contacto principal (`isPrimary`) → ninguno.
+  contactoCobranzaId   String?               @map("contacto_cobranza_id") @db.Uuid
+  contactoCobranza     CrmContact?           @relation("AccountCobranzaContact", fields: [contactoCobranzaId], references: [id], onDelete: SetNull)
   /// Layout de PDF preferido por este cliente al enviar documento de cobro.
   layoutDocumentoCobro BillingDocumentLayout @default(DTE_PREVIEW) @map("layout_documento_cobro")
   /// Default por-cliente: ¿enviar el aviso de cesión al deudor cuando se
@@ -2382,6 +2389,7 @@ model CrmAccount {
   @@index([tenantId, type], map: "idx_crm_accounts_type")
   @@index([createdAt(sort: Desc)], map: "idx_crm_accounts_created_desc")
   @@index([tenantId, contactoEstadoPagoId], map: "idx_crm_accounts_contacto_estado_pago")
+  @@index([tenantId, contactoCobranzaId], map: "idx_crm_accounts_contacto_cobranza")
   @@map("accounts")
   @@schema("crm")
 }
@@ -2577,6 +2585,7 @@ model CrmContact {
 
   account                       CrmAccount                     @relation(fields: [accountId], references: [id], onDelete: Cascade)
   accountsEstadoPago            CrmAccount[]                   @relation("AccountEstadoPagoContact")
+  accountsCobranza              CrmAccount[]                   @relation("AccountCobranzaContact")
   deals                         CrmDeal[]                      @relation("crm_deal_primary_contact")
   dealContacts                  CrmDealContact[]
   companyPresentations          CrmCompanyPresentation[]
@@ -7016,11 +7025,13 @@ enum FinanceDteEmailKind {
   AUTO_BACKOFFICE
   AUTO_PROFORMA
   AUTO_ESTADO_PAGO
+  AUTO_COBRANZA
   MANUAL_RESEND
   MANUAL_OVERRIDE_RECIPIENT
   MANUAL_BACKOFFICE
   MANUAL_PROFORMA
   MANUAL_ESTADO_PAGO
+  MANUAL_COBRANZA
 
   @@schema("finance")
 }
@@ -7380,6 +7391,15 @@ model FinanceDte {
   /// Recordatorios de confirmación enviados (máx 3).
   cobroReminderCount   Int       @default(0) @map("cobro_reminder_count")
   cobroLastReminderAt  DateTime? @map("cobro_last_reminder_at") @db.Timestamptz(6)
+
+  // ── Cobranza multicanal (recordatorios de pago post-emisión) ──
+  /// Último envío de cobranza (email y/o WhatsApp) para este DTE.
+  cobranzaSentAt    DateTime? @map("cobranza_sent_at") @db.Timestamptz(6)
+  /// Cantidad acumulada de envíos de cobranza.
+  cobranzaSentCount Int       @default(0) @map("cobranza_sent_count")
+  /// Nivel del último envío: cobranza_amable | cobranza_firme |
+  /// cobranza_prejudicial (mismos slugs que los DocTemplate de cobranza).
+  cobranzaLastLevel String?   @map("cobranza_last_level")
 
   notes     String?
   createdBy String  @map("created_by")
@@ -8673,6 +8693,11 @@ model FinanceCashflowConfig {
   /// Tasa total de mutualidad (fracción, ej. 0.012 = 1,2%). Null ⇒
   /// `work_injury_risk: security_industry` de la versión activa de parámetros.
   payrollMutualRatePct           Decimal?               @map("payroll_mutual_rate_pct") @db.Decimal(6, 4)
+  /// ── Cobranza multicanal ──
+  /// Habilita el envío automático de cobranza por WhatsApp vía Twilio. Con
+  /// false (default) la cobranza por WhatsApp solo genera links `wa.me` que
+  /// el operador abre manualmente — no se despacha nada por API.
+  cobranzaWhatsappAutoEnabled    Boolean                @default(false) @map("cobranza_whatsapp_auto_enabled")
   createdAt                      DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt                      DateTime               @updatedAt @map("updated_at") @db.Timestamptz(6)
 
