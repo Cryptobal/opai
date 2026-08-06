@@ -52,6 +52,8 @@ export interface CommittedItem {
   dueYmd?: string;
   /** Solo kind=dte: factura cedida a factoring (paymentStatus=CEDED). */
   ceded?: boolean;
+  /** Solo kind=dte: cuenta CRM del receptor (para cobranza multicanal). */
+  crmAccountId?: string | null;
 }
 
 /** DTE excluido del flujo (solo capa planilla; ledger intacto). */

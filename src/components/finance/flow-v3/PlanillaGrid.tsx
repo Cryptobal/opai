@@ -60,6 +60,8 @@ import {
   type BandejaApplyItem,
 } from "./BandejaGroupList";
 import { learnRuleForSuggestionSource } from "./bandeja-suggestions";
+import { rowHasOverdue } from "./cell-meta";
+import { CobranzaSendDialog } from "@/components/finance/cobranza/CobranzaSendDialog";
 
 interface PlanMutators {
   patchPlan: (rowId: string, weekStart: string, amount: number, opts?: { skipHistory?: boolean }) => Promise<void>;
@@ -84,6 +86,8 @@ interface Props {
   onArchive: (row: FlowMatrixRowDto) => void;
   enableDrag: boolean;
   showZeros: boolean;
+  /** Solo filas con al menos un DTE en mora. */
+  moraFilter?: boolean;
   alwaysVisibleRowIds?: Set<string>;
   scrollerRef?: React.RefObject<HTMLDivElement | null>;
   showChips?: boolean;
@@ -172,7 +176,7 @@ export function scrollToWeek(el: HTMLElement, weekStart: string, smooth = true) 
 
 export function PlanillaGrid({
   data, canManage, matrix, actions, onArchive, enableDrag,
-  showZeros, alwaysVisibleRowIds, scrollerRef,
+  showZeros, moraFilter = false, alwaysVisibleRowIds, scrollerRef,
   showChips, numberFormat, getCellStyle, onSelectionChange,
   searchQuery, collapseApiRef, bandejaApiRef, openBandejaRequest, openLayersRequest,
   onCopyRange, nameW, onNameWChange, amountSort,
@@ -217,6 +221,11 @@ export function PlanillaGrid({
   const [caretMenu, setCaretMenu] = useState<{
     sel: CellSel;
     anchor: { x: number; y: number };
+  } | null>(null);
+  const [cobranzaTarget, setCobranzaTarget] = useState<{
+    dteId: string;
+    crmAccountId: string | null;
+    daysOverdue: number;
   } | null>(null);
 
   const rowById = useMemo(() => new Map(data.rows.map((r) => [r.id, r])), [data.rows]);
@@ -600,6 +609,9 @@ export function PlanillaGrid({
           r.name.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase().includes(normSearch),
         );
       }
+      if (moraFilter) {
+        rows = rows.filter((r) => rowHasOverdue(r));
+      }
       if (amountSort && weekIdx >= 0) {
         const dir = amountSort.dir === "desc" ? -1 : 1;
         rows = [...rows].sort((a, b) => {
@@ -630,7 +642,7 @@ export function PlanillaGrid({
             .map((r) => r.id);
       return { key: s, rows, total: all.length, matchCount: rows.length, subtotals, hiddenZeroIds };
     }).filter((s) => (normSearch ? s.matchCount > 0 : s.total > 0));
-  }, [data.rows, data.columns, showZeros, alwaysVisibleRowIds, revealedZeroRowIds, normSearch, amountSort]);
+  }, [data.rows, data.columns, showZeros, moraFilter, alwaysVisibleRowIds, revealedZeroRowIds, normSearch, amountSort]);
 
   const { numbered, footerStart } = useMemo(() => {
     let n = 1;
@@ -1178,6 +1190,10 @@ export function PlanillaGrid({
         void actions.excludeDte(dteId, "Excluida desde la planilla");
       },
       onRegisterPayment: (dteId: string) => onViewDte?.(dteId),
+      onSendCobranza: canManage
+        ? (args: { dteId: string; crmAccountId: string | null; daysOverdue: number }) =>
+            setCobranzaTarget(args)
+        : undefined,
     }),
     [actions, canManage, kb, matrix, openPopover, requestFillRight, onViewDte, rowById],
   );
@@ -1946,6 +1962,16 @@ export function PlanillaGrid({
           stats={discreteSelStats}
           numberFormat={numberFormat}
           onDone={clearDiscrete}
+        />
+      )}
+
+      {cobranzaTarget && (
+        <CobranzaSendDialog
+          open={cobranzaTarget !== null}
+          onClose={() => setCobranzaTarget(null)}
+          dteId={cobranzaTarget.dteId}
+          crmAccountId={cobranzaTarget.crmAccountId}
+          daysOverdue={cobranzaTarget.daysOverdue}
         />
       )}
     </>

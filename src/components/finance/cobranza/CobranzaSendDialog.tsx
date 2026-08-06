@@ -1,4 +1,5 @@
 "use client";
+
 import { useState, useEffect } from "react";
 import {
   Dialog,
@@ -10,15 +11,21 @@ import {
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  describeCobranzaSource,
+  pickCobranzaRecipients,
+  type CobranzaContactInput,
+} from "@/modules/finance/billing/cobranza-recipients";
+import {
+  cobranzaSlugLabel,
+  suggestCobranzaSlug,
+  type CobranzaChannel,
+  type CobranzaSlug,
+} from "@/modules/finance/billing/cobranza-shared";
 
-interface Contact {
-  id: string;
+interface Contact extends CobranzaContactInput {
   firstName: string;
   lastName: string;
-  email: string | null;
-  phone: string | null;
-  recibeCobranza: boolean; // ← contacto marcado para cobranza en CRM
-  isPrimary: boolean; // ← contacto principal de la cuenta
 }
 
 interface Props {
@@ -27,23 +34,8 @@ interface Props {
   dteId: string;
   crmAccountId: string | null;
   daysOverdue: number;
-}
-
-type CobranzaSlug = "cobranza_amable" | "cobranza_firme" | "cobranza_prejudicial";
-type Channel = "whatsapp" | "email" | "both";
-
-function suggestSlug(daysOverdue: number): CobranzaSlug {
-  if (daysOverdue <= 7) return "cobranza_amable";
-  if (daysOverdue <= 30) return "cobranza_firme";
-  return "cobranza_prejudicial";
-}
-
-function slugLabel(s: CobranzaSlug): string {
-  return s === "cobranza_amable"
-    ? "Amable"
-    : s === "cobranza_firme"
-      ? "Firme"
-      : "Pre-judicial";
+  /** Canal preseleccionado (ej. desde CarteraPendienteSheet). */
+  initialChannel?: CobranzaChannel;
 }
 
 export function CobranzaSendDialog({
@@ -52,81 +44,98 @@ export function CobranzaSendDialog({
   dteId,
   crmAccountId,
   daysOverdue,
+  initialChannel,
 }: Props) {
   const [contacts, setContacts] = useState<Contact[]>([]);
+  const [contactoCobranzaId, setContactoCobranzaId] = useState<string | null>(null);
+  const [recipientSource, setRecipientSource] = useState<string>("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [channel, setChannel] = useState<Channel>("whatsapp");
-  const [slug, setSlug] = useState<CobranzaSlug>(suggestSlug(daysOverdue));
+  const [channel, setChannel] = useState<CobranzaChannel>("whatsapp");
+  const [slug, setSlug] = useState<CobranzaSlug>(suggestCobranzaSlug(daysOverdue));
   const [customMessage, setCustomMessage] = useState("");
   const [previewMessage, setPreviewMessage] = useState("");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Reset state cuando se abre el diálogo.
   useEffect(() => {
     if (open) {
-      setSlug(suggestSlug(daysOverdue));
-      setChannel("whatsapp");
+      setSlug(suggestCobranzaSlug(daysOverdue));
+      setChannel(initialChannel ?? "whatsapp");
       setCustomMessage("");
       setSelected(new Set());
       setError(null);
     }
-  }, [open, daysOverdue]);
+  }, [open, daysOverdue, initialChannel]);
 
-  // Cargar contactos del cliente CRM.
   useEffect(() => {
-    if (!open || !crmAccountId) return;
-    fetch(`/api/crm/contacts?accountId=${crmAccountId}`)
+    if (!open || !crmAccountId) {
+      setContacts([]);
+      return;
+    }
+    fetch(`/api/crm/accounts/${crmAccountId}`)
       .then((r) => r.json())
-      .then((j) => {
-        if (j?.success && Array.isArray(j.data)) {
-          const mapped: Contact[] = j.data.map(
-            (c: {
-              id: string;
-              firstName: string;
-              lastName: string;
-              email: string | null;
-              phone: string | null;
-              recibeCobranza?: boolean;
-              isPrimary?: boolean;
-            }) => ({
-              id: c.id,
-              firstName: c.firstName,
-              lastName: c.lastName,
-              email: c.email ?? null,
-              phone: c.phone ?? null,
-              recibeCobranza: c.recibeCobranza === true,
-              isPrimary: c.isPrimary === true,
-            }),
-          );
-          // Orden: contactos de cobranza primero, luego principal, luego alfabético.
-          const sorted = mapped.sort((a, b) => {
-            if (a.recibeCobranza !== b.recibeCobranza)
-              return a.recibeCobranza ? -1 : 1;
-            if (a.isPrimary !== b.isPrimary) return a.isPrimary ? -1 : 1;
-            return `${a.firstName} ${a.lastName}`.localeCompare(
-              `${b.firstName} ${b.lastName}`,
-            );
-          });
-          setContacts(sorted);
-          // Default inteligente: pre-marcar al contacto de cobranza con teléfono.
-          const defaultContact =
-            sorted.find((c) => c.recibeCobranza && c.phone) ??
-            sorted.find((c) => c.isPrimary && c.phone) ??
-            sorted.find((c) => c.phone) ??
-            null;
-          if (defaultContact) {
-            setSelected(new Set([defaultContact.id]));
-          }
+      .then(async (accountJson) => {
+        const contactoId =
+          accountJson?.data?.contactoCobranzaId ??
+          accountJson?.data?.contacto_cobranza_id ??
+          null;
+        setContactoCobranzaId(contactoId);
+
+        const contactsRes = await fetch(`/api/crm/contacts?accountId=${crmAccountId}`);
+        const contactsJson = await contactsRes.json();
+        if (!contactsJson?.success || !Array.isArray(contactsJson.data)) {
+          setContacts([]);
+          return;
         }
+
+        const mapped: Contact[] = contactsJson.data.map(
+          (c: {
+            id: string;
+            firstName: string;
+            lastName: string;
+            email: string | null;
+            phone: string | null;
+            recibeCobranza?: boolean;
+            isPrimary?: boolean;
+          }) => ({
+            id: c.id,
+            firstName: c.firstName,
+            lastName: c.lastName,
+            email: c.email ?? null,
+            phone: c.phone ?? null,
+            recibeCobranza: c.recibeCobranza === true,
+            isPrimary: c.isPrimary === true,
+          }),
+        );
+
+        const sorted = mapped.sort((a, b) => {
+          if (a.recibeCobranza !== b.recibeCobranza) return a.recibeCobranza ? -1 : 1;
+          if (a.isPrimary !== b.isPrimary) return a.isPrimary ? -1 : 1;
+          return `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`);
+        });
+        setContacts(sorted);
+
+        const picked = pickCobranzaRecipients({
+          contactoCobranzaId: contactoId,
+          contacts: sorted,
+        });
+        setRecipientSource(describeCobranzaSource(picked.source));
+
+        const ch = initialChannel ?? "whatsapp";
+        const defaultIds = picked.contacts
+          .filter((c) => {
+            if (ch === "email") return !!c.email;
+            if (ch === "whatsapp") return !!c.phone;
+            return !!c.email || !!c.phone;
+          })
+          .map((c) => c.id);
+        setSelected(new Set(defaultIds));
       })
       .catch(() => {
-        // Sin contactos disponibles — el diálogo se mantiene utilizable con
-        // el preview, pero el botón Enviar queda deshabilitado.
+        setContacts([]);
       });
-  }, [open, crmAccountId]);
+  }, [open, crmAccountId, initialChannel]);
 
-  // Resolver preview del template cada vez que cambia el slug.
   useEffect(() => {
     if (!open) return;
     fetch("/api/whatsapp/resolve-template", {
@@ -138,14 +147,10 @@ export function CobranzaSendDialog({
       .then((j) => {
         if (j?.success && j.data) {
           setPreviewMessage(j.data.message ?? "");
-          // Si el usuario aún no editó, reseteamos el customMessage para que
-          // refleje el cambio de tono al elegir otro slug.
           setCustomMessage("");
         }
       })
-      .catch(() => {
-        setPreviewMessage("");
-      });
+      .catch(() => setPreviewMessage(""));
   }, [open, slug, dteId]);
 
   async function handleSend() {
@@ -161,9 +166,7 @@ export function CobranzaSendDialog({
           contactIds: Array.from(selected),
           slug,
           customMessage:
-            customMessage && customMessage.trim().length > 0
-              ? customMessage
-              : undefined,
+            customMessage.trim().length > 0 ? customMessage : undefined,
         }),
       });
       const j = await res.json();
@@ -172,7 +175,7 @@ export function CobranzaSendDialog({
         return;
       }
       const waUrls: string[] = (j.data?.results ?? [])
-        .filter((r: { waUrl?: string }) => r.waUrl)
+        .filter((r: { waUrl?: string; ok?: boolean }) => r.ok && r.waUrl)
         .map((r: { waUrl: string }) => r.waUrl);
       waUrls.forEach((url: string) => window.open(url, "_blank"));
       onClose();
@@ -193,7 +196,6 @@ export function CobranzaSendDialog({
         </DialogHeader>
 
         <div className="space-y-3">
-          {/* Tono del mensaje */}
           <label className="text-xs text-muted-foreground">Tono del mensaje</label>
           <div className="flex gap-1">
             {(
@@ -207,24 +209,23 @@ export function CobranzaSendDialog({
                 key={s}
                 type="button"
                 onClick={() => setSlug(s)}
-                className={`flex-1 text-xs px-2 py-1.5 rounded-full border ${
+                className={`flex-1 rounded-full border px-2 py-1.5 text-xs ${
                   slug === s
-                    ? "bg-primary/15 border-primary/30 text-primary"
+                    ? "border-primary/30 bg-primary/15 text-primary"
                     : "border-border text-muted-foreground"
                 }`}
               >
-                {slugLabel(s)}
+                {cobranzaSlugLabel(s)}
               </button>
             ))}
           </div>
           {daysOverdue > 0 && (
             <p className="text-[10px] text-muted-foreground">
-              Sugerido: {slugLabel(suggestSlug(daysOverdue)).toLowerCase()} (
+              Sugerido: {cobranzaSlugLabel(suggestCobranzaSlug(daysOverdue)).toLowerCase()} (
               {daysOverdue}d de mora)
             </p>
           )}
 
-          {/* Canal */}
           <label className="text-xs text-muted-foreground">Canal</label>
           <div className="flex gap-1">
             {(["whatsapp", "email", "both"] as const).map((c) => (
@@ -232,9 +233,9 @@ export function CobranzaSendDialog({
                 key={c}
                 type="button"
                 onClick={() => setChannel(c)}
-                className={`flex-1 text-xs px-2 py-1.5 rounded-full border ${
+                className={`flex-1 rounded-full border px-2 py-1.5 text-xs ${
                   channel === c
-                    ? "bg-primary/15 border-primary/30 text-primary"
+                    ? "border-primary/30 bg-primary/15 text-primary"
                     : "border-border text-muted-foreground"
                 }`}
               >
@@ -243,10 +244,17 @@ export function CobranzaSendDialog({
             ))}
           </div>
 
-          {/* Destinatarios */}
           <label className="text-xs text-muted-foreground">Destinatarios</label>
-          <div className="max-h-40 overflow-y-auto space-y-1 border rounded-md p-2">
-            {contacts.length === 0 && (
+          {recipientSource && (
+            <p className="text-[10px] text-muted-foreground">{recipientSource}</p>
+          )}
+          <div className="max-h-40 space-y-1 overflow-y-auto rounded-md border p-2">
+            {!crmAccountId && (
+              <p className="text-xs text-muted-foreground">
+                Sin cuenta CRM vinculada — no hay contactos para cobranza.
+              </p>
+            )}
+            {crmAccountId && contacts.length === 0 && (
               <p className="text-xs text-muted-foreground">
                 Sin contactos en el cliente CRM.
               </p>
@@ -256,13 +264,13 @@ export function CobranzaSendDialog({
               const hasEmail = !!c.email;
               const disabled =
                 (channel === "whatsapp" && !hasPhone) ||
-                (channel === "email" && !hasEmail);
+                (channel === "email" && !hasEmail) ||
+                (channel === "both" && !hasPhone && !hasEmail);
+              const isExplicit = contactoCobranzaId === c.id;
               return (
                 <label
                   key={c.id}
-                  className={`flex items-center gap-2 text-sm py-1 ${
-                    disabled ? "opacity-50" : ""
-                  }`}
+                  className={`flex items-center gap-2 py-1 text-sm ${disabled ? "opacity-50" : ""}`}
                 >
                   <Checkbox
                     checked={selected.has(c.id)}
@@ -276,23 +284,28 @@ export function CobranzaSendDialog({
                       });
                     }}
                   />
-                  <span className="flex-1 truncate flex items-center gap-1.5">
+                  <span className="flex flex-1 items-center gap-1.5 truncate">
                     <span className="truncate">
                       {c.firstName} {c.lastName}
                     </span>
-                    {c.recibeCobranza && (
-                      <span className="text-[9px] uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-primary/15 text-primary border border-primary/30 shrink-0">
+                    {isExplicit && (
+                      <span className="shrink-0 rounded-full border border-primary/30 bg-primary/15 px-1.5 py-0.5 text-[9px] uppercase tracking-wide text-primary">
                         Cobranza
                       </span>
                     )}
+                    {c.recibeCobranza && !isExplicit && (
+                      <span className="shrink-0 rounded-full border border-ds-border-subtle px-1.5 py-0.5 text-[9px] uppercase tracking-wide text-ds-text-3">
+                        Flag
+                      </span>
+                    )}
                   </span>
-                  <span className="text-[10px] text-muted-foreground shrink-0">
-                    {channel !== "email" && !hasPhone
-                      ? "sin teléfono"
-                      : channel !== "email" && hasPhone
-                        ? "WA"
-                        : channel !== "whatsapp" && hasEmail
-                          ? "Mail"
+                  <span className="shrink-0 text-[10px] text-muted-foreground">
+                    {channel !== "email" && hasPhone
+                      ? "WA"
+                      : channel !== "whatsapp" && hasEmail
+                        ? "Mail"
+                        : channel === "both" && hasPhone && hasEmail
+                          ? "WA+Mail"
                           : "·"}
                   </span>
                 </label>
@@ -300,10 +313,7 @@ export function CobranzaSendDialog({
             })}
           </div>
 
-          {/* Mensaje editable */}
-          <label className="text-xs text-muted-foreground">
-            Mensaje (editable)
-          </label>
+          <label className="text-xs text-muted-foreground">Mensaje (editable)</label>
           <Textarea
             value={messageValue}
             onChange={(e) => setCustomMessage(e.target.value)}
@@ -312,7 +322,7 @@ export function CobranzaSendDialog({
           />
 
           {error && (
-            <div className="text-xs text-status-error-fg bg-status-error-soft border border-status-error-fg/20 rounded-md px-3 py-2">
+            <div className="rounded-md border border-status-error-fg/20 bg-status-error-soft px-3 py-2 text-xs text-status-error-fg">
               {error}
             </div>
           )}
@@ -322,10 +332,7 @@ export function CobranzaSendDialog({
           <Button variant="ghost" onClick={onClose}>
             Cancelar
           </Button>
-          <Button
-            onClick={handleSend}
-            disabled={selected.size === 0 || sending}
-          >
+          <Button onClick={handleSend} disabled={selected.size === 0 || sending || !crmAccountId}>
             {sending ? "Enviando..." : `Enviar a ${selected.size}`}
           </Button>
         </DialogFooter>

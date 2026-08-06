@@ -239,6 +239,12 @@ export interface CellMenuCallbacks {
   onLinkTemplate?: (dteId: string) => void;
   onExcludeDte?: (dteId: string) => void;
   onRegisterPayment?: (dteId: string) => void;
+  /** Abre el diálogo de cobranza multicanal para un DTE impago. */
+  onSendCobranza?: (args: {
+    dteId: string;
+    crmAccountId: string | null;
+    daysOverdue: number;
+  }) => void;
 }
 
 export interface CellMenuContext {
@@ -263,6 +269,8 @@ type DteMenuItem = {
   overdueOver60?: boolean;
   emissionYmd?: string;
   dueYmd?: string;
+  crmAccountId?: string | null;
+  ceded?: boolean;
 };
 
 type DraftMenuItem = {
@@ -288,6 +296,8 @@ function cellDteItems(cell: FlowMatrixCellDto): DteMenuItem[] {
       overdueOver60: i.overdueOver60,
       emissionYmd: i.emissionYmd,
       dueYmd: i.dueYmd,
+      crmAccountId: i.crmAccountId,
+      ceded: i.ceded === true,
     }));
   return items.sort((a, b) => (b.overdueDays ?? 0) - (a.overdueDays ?? 0));
 }
@@ -466,6 +476,7 @@ function folioActions(
     row.isVirtual ||
     row.name === "Otros ingresos" ||
     row.name === "Otros clientes";
+  const canCobranza = ctx.canManage && cb.onSendCobranza && d.ceded !== true;
   const out: MenuItemDesc[] = [];
 
   out.push({
@@ -505,6 +516,18 @@ function folioActions(
       key: `pay-${d.dteId}`,
       label: "Registrar pago…",
       onSelect: () => cb.onRegisterPayment!(d.dteId),
+    });
+  }
+  if (canCobranza) {
+    out.push({
+      key: `cobranza-${d.dteId}`,
+      label: "Enviar cobranza…",
+      onSelect: () =>
+        cb.onSendCobranza!({
+          dteId: d.dteId,
+          crmAccountId: d.crmAccountId ?? row.crmAccountId ?? null,
+          daysOverdue: d.overdueDays ?? 0,
+        }),
     });
   }
   return out;
@@ -666,6 +689,37 @@ export function buildCellMenu(
           onSelect: () => cb.onRegisterPayment!(d.dteId),
         })),
       });
+    }
+    if (ctx.canManage && cb.onSendCobranza) {
+      const cobrables = dteItems.filter((d) => d.ceded !== true);
+      if (cobrables.length === 1) {
+        const d = cobrables[0]!;
+        items.push({
+          key: "cobranza-dte",
+          label: "Enviar cobranza…",
+          onSelect: () =>
+            cb.onSendCobranza!({
+              dteId: d.dteId,
+              crmAccountId: d.crmAccountId ?? row.crmAccountId ?? null,
+              daysOverdue: d.overdueDays ?? 0,
+            }),
+        });
+      } else if (cobrables.length > 1) {
+        items.push({
+          key: "cobranza-dte",
+          label: "Enviar cobranza…",
+          submenu: cobrables.map((d) => ({
+            key: `cobranza-${d.dteId}`,
+            label: folioLabel(d),
+            onSelect: () =>
+              cb.onSendCobranza!({
+                dteId: d.dteId,
+                crmAccountId: d.crmAccountId ?? row.crmAccountId ?? null,
+                daysOverdue: d.overdueDays ?? 0,
+              }),
+          })),
+        });
+      }
     }
     const isOtros =
       row.isVirtual ||

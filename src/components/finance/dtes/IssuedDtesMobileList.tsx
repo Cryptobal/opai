@@ -220,11 +220,11 @@ function buildActionItems(
     });
   }
 
-  // Cobranza por WhatsApp — no depende del email del receptor.
+  // Enviar cobranza — multicanal (WA / email).
   if (canManage) {
     items.push({
       key: "cobranza-wa",
-      label: "Cobranza por WhatsApp",
+      label: "Enviar cobranza",
       icon: <MessageCircle className="h-4 w-4" />,
       onSelect: handlers.onSendCobranza,
     });

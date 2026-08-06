@@ -5,12 +5,12 @@
  * cargar el route handler (lo que activa Next.js y rompe en jsdom). Esta
  * copia DEBE permanecer en sync con el route.ts.
  *
- * También verificamos la lógica de sugerencia de slug en función de
- * `daysOverdue` (replicada desde CobranzaSendDialog).
+ * También verificamos suggestCobranzaSlug desde cobranza-shared.
  */
 
 import { describe, it, expect } from "vitest";
 import { z } from "zod";
+import { suggestCobranzaSlug } from "@/modules/finance/billing/cobranza-shared";
 
 const sendSchema = z.object({
   dteId: z.string().uuid(),
@@ -22,12 +22,6 @@ const sendSchema = z.object({
 
 const UUID = "11111111-1111-4111-8111-111111111111";
 const UUID_2 = "22222222-2222-4222-8222-222222222222";
-
-function suggestSlug(daysOverdue: number) {
-  if (daysOverdue <= 7) return "cobranza_amable";
-  if (daysOverdue <= 30) return "cobranza_firme";
-  return "cobranza_prejudicial";
-}
 
 describe("cobranza/send schema", () => {
   it("acepta un body válido con canal whatsapp", () => {
@@ -116,27 +110,27 @@ describe("cobranza/send schema", () => {
 
 describe("cobranza slug suggestion", () => {
   it("0 días → amable (factura por vencer o al día)", () => {
-    expect(suggestSlug(0)).toBe("cobranza_amable");
+    expect(suggestCobranzaSlug(0)).toBe("cobranza_amable");
   });
 
   it("7 días de mora → amable (frontera)", () => {
-    expect(suggestSlug(7)).toBe("cobranza_amable");
+    expect(suggestCobranzaSlug(7)).toBe("cobranza_amable");
   });
 
   it("8 días → firme", () => {
-    expect(suggestSlug(8)).toBe("cobranza_firme");
+    expect(suggestCobranzaSlug(8)).toBe("cobranza_firme");
   });
 
   it("30 días → firme (frontera)", () => {
-    expect(suggestSlug(30)).toBe("cobranza_firme");
+    expect(suggestCobranzaSlug(30)).toBe("cobranza_firme");
   });
 
   it("31 días → prejudicial", () => {
-    expect(suggestSlug(31)).toBe("cobranza_prejudicial");
+    expect(suggestCobranzaSlug(31)).toBe("cobranza_prejudicial");
   });
 
   it("90 días → prejudicial", () => {
-    expect(suggestSlug(90)).toBe("cobranza_prejudicial");
+    expect(suggestCobranzaSlug(90)).toBe("cobranza_prejudicial");
   });
 });
 

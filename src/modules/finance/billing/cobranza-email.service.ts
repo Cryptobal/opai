@@ -1,18 +1,15 @@
 /**
- * Cobranza Email Service — Envío de recordatorios de cobranza por email.
+ * Cobranza Email Service — HTML branded + PDF adjunto + FinanceDteEmailLog.
  *
- * Reusa el DocTemplate del slug correspondiente (cobranza_amable/firme/prejudicial).
- * Si el tenant tiene una plantilla específica para email (module="mail",
- * usageSlug=<slug>) la usa; si no, hace fallback al cuerpo del WhatsApp y lo
- * envía como text plano vía Resend.
- *
- * Fire-and-throw: si Resend no está configurado o falla, lanza para que el
- * caller registre el error en `results` del endpoint.
+ * Usa DocTemplate (mail → whatsapp fallback) con tokens resueltos. Adjunta
+ * el PDF del DTE emitido cuando está disponible.
  */
 
 import "server-only";
-import { Resend } from "resend";
+import { createElement } from "react";
+import { render } from "@react-email/render";
 import { prisma } from "@/lib/prisma";
+import { sendTenantEmail } from "@/lib/email/send-tenant-email";
 import {
   resolveDocument,
   tiptapToPlainText,
@@ -20,14 +17,15 @@ import {
 } from "@/lib/docs/token-resolver";
 import { getTenantCompanyConfig } from "@/lib/tenant-config";
 import { getTenantEmailConfig } from "@/lib/resend";
+import { CobranzaEmail } from "@/emails/CobranzaEmail";
+import { getDtePdf } from "./dte-pdf.service";
+import { buildDteAttachmentBaseName } from "./dte-filename";
+import {
+  cobranzaSlugLabel,
+  type CobranzaSlug,
+} from "./cobranza-shared";
 
-const SUBJECT_BY_SLUG = {
-  cobranza_amable: "Recordatorio de pago — Factura {folio}",
-  cobranza_firme: "Pago pendiente — Factura {folio}",
-  cobranza_prejudicial: "Aviso pre-judicial — Factura {folio}",
-} as const;
-
-export type CobranzaSlug = keyof typeof SUBJECT_BY_SLUG;
+export type { CobranzaSlug };
 
 export interface SendCobranzaEmailInput {
   tenantId: string;
@@ -38,24 +36,61 @@ export interface SendCobranzaEmailInput {
   sentBy: string;
 }
 
-const resend = process.env.RESEND_API_KEY
-  ? new Resend(process.env.RESEND_API_KEY)
-  : null;
+export interface SendCobranzaEmailResult {
+  ok: boolean;
+  messageId?: string;
+  error?: string;
+}
 
-const FROM_COBRANZA =
-  process.env.RESEND_FROM_COBRANZA ||
-  process.env.EMAIL_FROM ||
-  "OPAI <noreply@opai.cl>";
+const SUBJECT_BY_SLUG: Record<CobranzaSlug, string> = {
+  cobranza_amable: "Recordatorio de pago — Factura {folio}",
+  cobranza_firme: "Pago pendiente — Factura {folio}",
+  cobranza_prejudicial: "Aviso pre-judicial — Factura {folio}",
+};
 
-export async function sendCobranzaEmail(input: SendCobranzaEmailInput): Promise<void> {
-  if (!resend) {
-    throw new Error("Resend no configurado (RESEND_API_KEY ausente)");
+async function logCobranzaEmail(
+  tenantId: string,
+  dteId: string,
+  data: {
+    to: string[];
+    bcc: string[];
+    subject: string;
+    status: "SENT" | "FAILED";
+    resendId?: string | null;
+    errorMessage?: string | null;
+    sentBy: string;
+  },
+) {
+  try {
+    await prisma.financeDteEmailLog.create({
+      data: {
+        tenantId,
+        dteId,
+        kind: "MANUAL_COBRANZA",
+        to: data.to,
+        cc: [],
+        bcc: data.bcc,
+        subject: data.subject,
+        attachments: "PDF_ONLY",
+        status: data.status,
+        resendId: data.resendId ?? null,
+        errorMessage: data.errorMessage ?? null,
+        sentBy: data.sentBy,
+      },
+    });
+  } catch (err) {
+    console.warn("[cobranza-email] log error:", err);
   }
+}
 
+export async function sendCobranzaEmail(
+  input: SendCobranzaEmailInput,
+): Promise<SendCobranzaEmailResult> {
   const dte = await prisma.financeDte.findFirst({
     where: { id: input.dteId, tenantId: input.tenantId },
     select: {
       id: true,
+      code: true,
       folio: true,
       dteType: true,
       date: true,
@@ -64,17 +99,17 @@ export async function sendCobranzaEmail(input: SendCobranzaEmailInput): Promise<
       receiverName: true,
       receiverRut: true,
       crmAccountId: true,
+      installationId: true,
     },
   });
-  if (!dte) throw new Error("DTE no encontrado");
+  if (!dte) return { ok: false, error: "DTE no encontrado" };
 
   const contact = await prisma.crmContact.findFirst({
     where: { id: input.contactId, tenantId: input.tenantId },
     select: { firstName: true, lastName: true, email: true },
   });
-  if (!contact?.email) throw new Error("Contacto sin email");
+  if (!contact?.email) return { ok: false, error: "Contacto sin email" };
 
-  // 1. Buscar template específica de email; si no existe, fallback al de WhatsApp.
   const tpl =
     (await prisma.docTemplate.findFirst({
       where: {
@@ -93,7 +128,6 @@ export async function sendCobranzaEmail(input: SendCobranzaEmailInput): Promise<
       },
     }));
 
-  // 2. Resolver tokens contra el DTE/contact/account/tenant/actor.
   const tenantCfg = await getTenantCompanyConfig(input.tenantId);
   const admin = await prisma.admin.findUnique({
     where: { id: input.sentBy },
@@ -109,6 +143,9 @@ export async function sendCobranzaEmail(input: SendCobranzaEmailInput): Promise<
   const daysOverdue = due
     ? Math.max(0, Math.floor((today.getTime() - due.getTime()) / 86400000))
     : 0;
+  const dueFmt = due
+    ? due.toLocaleDateString("es-CL", { day: "numeric", month: "short", year: "numeric" })
+    : "";
 
   const account = dte.crmAccountId
     ? await prisma.crmAccount.findFirst({
@@ -117,9 +154,6 @@ export async function sendCobranzaEmail(input: SendCobranzaEmailInput): Promise<
     : null;
 
   const parts = (admin?.name || "").trim().split(/\s+/);
-  const actorFirst = parts.length > 0 ? parts[0] : "";
-  const actorLast = parts.length > 1 ? parts.slice(1).join(" ") : "";
-
   const entities: EntityData = {
     tenant: {
       commercialName: tenantCfg.commercialName,
@@ -129,8 +163,8 @@ export async function sendCobranzaEmail(input: SendCobranzaEmailInput): Promise<
       whatsappLink: tenantCfg.whatsappLink,
     },
     actor: {
-      firstName: actorFirst,
-      lastName: actorLast,
+      firstName: parts[0] ?? "",
+      lastName: parts.length > 1 ? parts.slice(1).join(" ") : "",
       name: admin?.name ?? "",
       email: admin?.email ?? "",
       roleTitle: admin?.cargo ?? "",
@@ -155,31 +189,41 @@ export async function sendCobranzaEmail(input: SendCobranzaEmailInput): Promise<
     },
   };
 
-  // 3. Cuerpo del mail: customMessage > template resuelta > vacío.
-  let body = "";
-  if (input.customMessage && input.customMessage.trim().length > 0) {
-    body = input.customMessage;
+  let bodyText = "";
+  if (input.customMessage?.trim()) {
+    bodyText = input.customMessage.trim();
   } else if (tpl?.content) {
-    const { resolvedContent } = resolveDocument(
-      tpl.content as never,
-      entities,
-    );
-    body = tiptapToPlainText(resolvedContent).trim();
+    const { resolvedContent } = resolveDocument(tpl.content as never, entities);
+    bodyText = tiptapToPlainText(resolvedContent).trim();
+  }
+  if (!bodyText) {
+    return { ok: false, error: "Mensaje vacío — plantilla no encontrada" };
   }
 
-  if (!body) {
-    throw new Error("Mensaje vacío — plantilla no encontrada");
-  }
+  const subject = SUBJECT_BY_SLUG[input.slug].replace("{folio}", String(dte.folio));
+  const recipientName =
+    [contact.firstName, contact.lastName].filter(Boolean).join(" ").trim() || "Cliente";
 
-  const subject = SUBJECT_BY_SLUG[input.slug].replace(
-    "{folio}",
-    String(dte.folio),
+  const html = await render(
+    createElement(CobranzaEmail, {
+      recipientName,
+      bodyText,
+      folio: String(dte.folio),
+      receiverCompanyName: dte.receiverName ?? account?.name ?? "",
+      totalFormatted: totalFmt,
+      dueDate: dueFmt,
+      daysOverdue,
+      slugLabel: cobranzaSlugLabel(input.slug),
+      brandName: tenantCfg.commercialName ?? "OPAI",
+      logoUrl: tenantCfg.logoUrl ?? undefined,
+      brandPrimaryColor: tenantCfg.brandingPrimaryColor ?? undefined,
+      senderName: admin?.name ?? undefined,
+      senderEmail: admin?.email ?? tenantCfg.email ?? undefined,
+      website: tenantCfg.website ?? undefined,
+    }),
+    { pretty: true },
   );
 
-  // BCC: alwaysBcc del tenant + cascada de fallback. Si alwaysBcc está
-  // vacío, usa el primer email configurado del tenant (replyTo →
-  // emisorEmail → empresa.email). Garantiza copia oculta al equipo
-  // interno sin requerir config explícita.
   const tenantEmailCfg = await getTenantEmailConfig(input.tenantId);
   const primaryLower = contact.email.toLowerCase();
   const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -201,11 +245,56 @@ export async function sendCobranzaEmail(input: SendCobranzaEmailInput): Promise<
     .filter((e) => e.toLowerCase() !== primaryLower)
     .filter((e, idx, arr) => arr.findIndex((x) => x.toLowerCase() === e.toLowerCase()) === idx);
 
-  await resend.emails.send({
-    from: FROM_COBRANZA,
-    to: contact.email,
-    bcc: tenantBcc.length > 0 ? tenantBcc : undefined,
-    subject,
-    text: body,
-  });
+  const attachments: Array<{ filename: string; content: string }> = [];
+  try {
+    const pdfBuffer = await getDtePdf(input.tenantId, input.dteId);
+    const base = await buildDteAttachmentBaseName(input.tenantId, dte);
+    attachments.push({
+      filename: `${base}.pdf`,
+      content: pdfBuffer.toString("base64"),
+    });
+  } catch (err) {
+    console.warn("[cobranza-email] PDF adjunto omitido:", err);
+  }
+
+  try {
+    const result = await sendTenantEmail({
+      tenantId: input.tenantId,
+      module: "finance",
+      kind: "cobranza_manual",
+      to: contact.email,
+      bcc: tenantBcc.length > 0 ? tenantBcc : undefined,
+      subject,
+      html,
+      text: bodyText,
+      attachments: attachments.length > 0 ? attachments : undefined,
+    });
+
+    const ok = !!result.resendId;
+    await logCobranzaEmail(input.tenantId, input.dteId, {
+      to: result.effectiveTo.length > 0 ? result.effectiveTo : [contact.email],
+      bcc: result.effectiveBcc,
+      subject,
+      status: ok ? "SENT" : "FAILED",
+      resendId: result.resendId,
+      errorMessage: ok ? null : "Envío omitido o rechazado por configuración del tenant",
+      sentBy: input.sentBy,
+    });
+
+    if (!ok) {
+      return { ok: false, error: "No se pudo enviar el email de cobranza" };
+    }
+    return { ok: true, messageId: result.resendId ?? undefined };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    await logCobranzaEmail(input.tenantId, input.dteId, {
+      to: [contact.email],
+      bcc: tenantBcc,
+      subject,
+      status: "FAILED",
+      errorMessage: msg,
+      sentBy: input.sentBy,
+    });
+    return { ok: false, error: msg };
+  }
 }

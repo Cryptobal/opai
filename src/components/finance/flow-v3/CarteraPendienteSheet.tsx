@@ -6,6 +6,8 @@ import {
 } from "@/components/ui/sheet";
 import { Spinner } from "@/components/opai-ds";
 import { fmtClp, fmtShortDate } from "./format";
+import type { CobranzaChannel } from "@/modules/finance/billing/cobranza-shared";
+import { CobranzaSendDialog } from "@/components/finance/cobranza/CobranzaSendDialog";
 
 export interface CarteraItem {
   dteId: string;
@@ -17,6 +19,7 @@ export interface CarteraItem {
   pendingClp: number;
   anchoredWeek: string;
   anchoredWeekLabel: string;
+  crmAccountId?: string | null;
 }
 
 export interface OpenMoveWeek {
@@ -34,9 +37,16 @@ interface Props {
   onMoved?: () => void;
 }
 
+type CobranzaTarget = {
+  dteId: string;
+  crmAccountId: string | null;
+  daysOverdue: number;
+  initialChannel?: CobranzaChannel;
+};
+
 /**
  * Drill del KPI "Por cobrar": listado de cartera ordenado por atraso,
- * con Mover a… / Ver F°. Bottom-sheet móvil; desktop hereda el mismo sheet.
+ * con Mover a… / Ver F° / Enviar cobranza (Mail · WA · Ambos).
  */
 export function CarteraPendienteSheet({
   open, onOpenChange, items, openMoveWeeks, canManage, onViewDte, onMoved,
@@ -44,6 +54,7 @@ export function CarteraPendienteSheet({
   const [busyId, setBusyId] = useState<string | null>(null);
   const [movingId, setMovingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [cobranzaTarget, setCobranzaTarget] = useState<CobranzaTarget | null>(null);
 
   const moveTo = async (dteId: string, weekStart: string) => {
     setBusyId(dteId);
@@ -65,9 +76,19 @@ export function CarteraPendienteSheet({
     }
   };
 
+  const openCobranza = (item: CarteraItem, initialChannel?: CobranzaChannel) => {
+    setCobranzaTarget({
+      dteId: item.dteId,
+      crmAccountId: item.crmAccountId ?? null,
+      daysOverdue: item.overdueDays,
+      initialChannel,
+    });
+  };
+
   const moving = movingId ? items.find((i) => i.dteId === movingId) : null;
 
   return (
+    <>
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="bottom"
@@ -138,6 +159,31 @@ export function CarteraPendienteSheet({
                       )}
                     </button>
                   )}
+                  {canManage && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => openCobranza(d, "whatsapp")}
+                        className="min-h-10 rounded-full border border-ds-border-default bg-ds-surface-1 px-3 py-1.5 text-[12px] font-medium text-ds-text-1"
+                      >
+                        WA
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => openCobranza(d, "email")}
+                        className="min-h-10 rounded-full border border-ds-border-default bg-ds-surface-1 px-3 py-1.5 text-[12px] font-medium text-ds-text-1"
+                      >
+                        Mail
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => openCobranza(d, "both")}
+                        className="min-h-10 rounded-full border border-primary/30 bg-primary/10 px-3 py-1.5 text-[12px] font-medium text-primary"
+                      >
+                        Ambos
+                      </button>
+                    </>
+                  )}
                   {onViewDte ? (
                     <button
                       type="button"
@@ -154,12 +200,6 @@ export function CarteraPendienteSheet({
                       Ver F°
                     </a>
                   )}
-                  <a
-                    href={`/finanzas/facturacion/dtes?dte=${d.dteId}`}
-                    className="inline-flex min-h-10 items-center rounded-full border border-ds-border-default bg-ds-surface-1 px-3 py-1.5 text-[12px] font-medium text-ds-text-3"
-                  >
-                    Abrir en Facturación ↗
-                  </a>
                 </div>
               </li>
             ))}
@@ -217,5 +257,20 @@ export function CarteraPendienteSheet({
         )}
       </SheetContent>
     </Sheet>
+
+    {cobranzaTarget && (
+      <CobranzaSendDialog
+        open={cobranzaTarget !== null}
+        onClose={() => {
+          setCobranzaTarget(null);
+          onMoved?.();
+        }}
+        dteId={cobranzaTarget.dteId}
+        crmAccountId={cobranzaTarget.crmAccountId}
+        daysOverdue={cobranzaTarget.daysOverdue}
+        initialChannel={cobranzaTarget.initialChannel}
+      />
+    )}
+    </>
   );
 }
