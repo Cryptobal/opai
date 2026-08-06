@@ -1989,13 +1989,23 @@ export function CrmInstallationDetailClient({
     address: string;
     city: string | null;
     commune: string | null;
+    region: string | null;
+    placeId: string | null;
     lat: number;
     lng: number;
   }) => {
+    // CrmInstallation no tiene region/placeId; solo address/city/commune/coords.
+    const body = {
+      address: payload.address,
+      city: payload.city,
+      commune: payload.commune,
+      lat: payload.lat,
+      lng: payload.lng,
+    };
     const res = await fetch(`/api/crm/installations/${installation.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(body),
     });
     const json = await res.json().catch(() => ({}));
     if (!res.ok || json?.success === false) {
@@ -2455,8 +2465,8 @@ export function CrmInstallationDetailClient({
     { id: "activity", label: "Actividad", icon: History, count: activityEvents.length },
   ];
 
+  // Sin botón "Editar" en el header: la ficha se edita inline campo a campo.
   const headerActions: EntityHeaderAction[] = [
-    { label: "Editar instalación", icon: Pencil, onClick: openEdit, primary: true },
     {
       label: isActive ? "Desactivar instalación" : "Activar instalación",
       icon: Power,

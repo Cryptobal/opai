@@ -17,7 +17,6 @@ import {
   Loader2,
   MapPin,
   MessageCircle,
-  Pencil,
   Phone,
   Receipt,
   RefreshCw,
@@ -33,6 +32,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { AddressAutocomplete, type AddressResult } from "@/components/ui/AddressAutocomplete";
+import { MapsUrlPasteInput } from "@/components/ui/MapsUrlPasteInput";
+import type { GeoreferencedAddressPayload } from "@/components/crm/InlineAddressEditField";
+import { validateGeoreferencedAddress } from "@/lib/crm/installation-address";
 import {
   Dialog,
   DialogContent,
@@ -368,6 +370,49 @@ export function GuardiaDetailClient({
   const NUM_KEYS = new Set(["heightCm", "weightKg", "isapreExtraPercent"]);
   const GUARDIA_TOP_KEYS = new Set(["availableExtraShifts", "hiredAt", "personalEmail"]);
 
+  const commitPersonaAddress = async (payload: GeoreferencedAddressPayload) => {
+    const body = {
+      addressFormatted: payload.address,
+      commune: payload.commune,
+      city: payload.city,
+      region: payload.region,
+      lat: payload.lat,
+      lng: payload.lng,
+      googlePlaceId: payload.placeId,
+    };
+    const res = await fetch(`/api/personas/guardias/${guardia.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok || json?.success === false) {
+      throw new Error(
+        typeof json?.error === "string" ? json.error : "No se pudo guardar la dirección"
+      );
+    }
+    const personaData = (json?.data?.persona ?? {}) as Record<string, unknown>;
+    setGuardia((prev) => ({
+      ...prev,
+      persona: {
+        ...prev.persona,
+        addressFormatted:
+          (personaData.addressFormatted as string | null | undefined) ?? payload.address,
+        commune: (personaData.commune as string | null | undefined) ?? payload.commune,
+        city: (personaData.city as string | null | undefined) ?? payload.city,
+        region: (personaData.region as string | null | undefined) ?? payload.region,
+        lat:
+          personaData.lat != null
+            ? String(personaData.lat)
+            : String(payload.lat),
+        lng:
+          personaData.lng != null
+            ? String(personaData.lng)
+            : String(payload.lng),
+      },
+    }));
+  };
+
   const commitPersonaField = async (
     key: string,
     value: string | null
@@ -509,6 +554,20 @@ export function GuardiaDetailClient({
   };
 
   const saveEditPersonal = async () => {
+    const addressChanged =
+      (editPersonalForm.addressFormatted || "").trim() !==
+      (guardia.persona.addressFormatted || "").trim();
+    if (addressChanged) {
+      const geoError = validateGeoreferencedAddress({
+        address: editPersonalForm.addressFormatted,
+        lat: editPersonalForm.lat ? Number(editPersonalForm.lat) : null,
+        lng: editPersonalForm.lng ? Number(editPersonalForm.lng) : null,
+      });
+      if (geoError) {
+        toast.error(geoError);
+        return;
+      }
+    }
     setEditPersonalSaving(true);
     try {
       const res = await fetch(`/api/personas/guardias/${guardia.id}`, {
@@ -776,6 +835,7 @@ export function GuardiaDetailClient({
                 asignaciones={asignaciones} canManageGuardias={canManageGuardias}
                 onBankAccountsChange={(bankAccounts) => setGuardia((prev) => ({ ...prev, bankAccounts }))}
                 onCommitField={commitPersonaField}
+                onCommitAddress={commitPersonaAddress}
               />
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 mt-5">
                 <div className="rounded-xl border border-border/60 bg-card/40 p-3 sm:p-4">
@@ -1025,16 +1085,6 @@ export function GuardiaDetailClient({
           } as EntityHeaderAction,
         ]
       : []),
-    ...(canManageGuardias
-      ? [
-          {
-            label: "Editar datos personales",
-            icon: Pencil,
-            onClick: openEditPersonal,
-            primary: true,
-          } as EntityHeaderAction,
-        ]
-      : []),
     ...(puedeRecontratar
       ? [
           {
@@ -1280,6 +1330,7 @@ export function GuardiaDetailClient({
             </>)}
             <div className="space-y-1.5 sm:col-span-2"><Label className="text-sm">Dirección (Google Maps)</Label>
               <AddressAutocomplete value={editPersonalForm.addressFormatted} onChange={onEditAddressChange} placeholder="Buscar dirección..." showMap />
+              <MapsUrlPasteInput onResolve={onEditAddressChange} disabled={editPersonalSaving} className="mt-1.5" />
               {(editPersonalForm.commune || editPersonalForm.city || editPersonalForm.region) && (
                 <div className="grid gap-2 grid-cols-1 sm:grid-cols-3 mt-1">
                   <Input value={editPersonalForm.commune} readOnly placeholder="Comuna" className="text-xs h-8" />

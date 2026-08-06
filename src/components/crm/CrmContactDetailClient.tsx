@@ -50,7 +50,6 @@ import {
   Mailbox,
   Phone,
   Briefcase,
-  Pencil,
   Trash2,
   Loader2,
   FileText,
@@ -547,8 +546,8 @@ export function CrmContactDetailClient({
     { id: "activity", label: "Actividad", icon: History, count: activityEvents.length },
   ];
 
+  // Sin botón "Editar" en el header: la ficha se edita inline campo a campo.
   const headerActions: EntityHeaderAction[] = [
-    { label: "Editar contacto", icon: Pencil, onClick: openEdit, primary: true },
     {
       label: "Enviar correo",
       icon: Mail,

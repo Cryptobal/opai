@@ -1386,8 +1386,8 @@ export function CrmAccountDetailClient({
 
   const [duplicateModalOpen, setDuplicateModalOpen] = useState(false);
 
+  // Sin botón "Editar" en el header: la ficha se edita inline campo a campo.
   const headerActions: EntityHeaderAction[] = [
-    { label: "Editar cuenta", icon: Pencil, onClick: openAccountEdit, primary: true },
     {
       label: !hasPortalContacts ? "Chat (sin contactos con portal)" : "Iniciar chat externo",
       icon: MessageCircle,
@@ -1505,13 +1505,6 @@ export function CrmAccountDetailClient({
                 <Sparkles className="h-3 w-3" />
               )}
               {siiLookup.loading ? "Consultando SII…" : "Consultar SII"}
-            </button>
-            <button
-              type="button"
-              onClick={openAccountEdit}
-              className="text-[11px] font-medium text-primary hover:underline"
-            >
-              Editar
             </button>
           </div>
         </div>
@@ -1635,13 +1628,6 @@ export function CrmAccountDetailClient({
               <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-muted-foreground/80">
                 Representación legal
               </p>
-              <button
-                type="button"
-                onClick={openAccountEdit}
-                className="text-[12px] font-medium text-primary hover:underline"
-              >
-                Editar
-              </button>
             </div>
             <div className="space-y-4 p-4">
               <div className="grid grid-cols-1 gap-x-4 gap-y-2 sm:grid-cols-2">
