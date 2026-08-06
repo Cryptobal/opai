@@ -82,8 +82,8 @@ import {
 import { dotacionToPosition } from "@/lib/crm/lead-dotacion-to-position";
 import { SERVICE_TYPES } from "@/lib/constants";
 import { computeLeadCpqMonthlySaleClp } from "@/lib/crm/lead-cpq-monthly-total";
+import { websiteFromEmail } from "@/lib/company-enrich-guards";
 import { formatCurrency } from "@/components/cpq/utils";
-import { LeadPathStepper } from "./lead/LeadPathStepper";
 import { LeadHighlightsStrip } from "./lead/LeadHighlightsStrip";
 import { LeadQuickContact } from "./lead/LeadQuickContact";
 import { LeadSpecCard } from "./lead/LeadSpecCard";
@@ -383,19 +383,6 @@ function parseInstallationsDraftFromMetadata(
   }
 }
 
-const GENERIC_EMAIL_DOMAINS = new Set([
-  "gmail.com", "googlemail.com", "hotmail.com", "outlook.com", "outlook.es",
-  "yahoo.com", "yahoo.es", "live.com", "live.cl", "msn.com",
-  "icloud.com", "me.com", "mac.com", "protonmail.com", "proton.me",
-  "mail.com", "aol.com", "zoho.com", "yandex.com", "tutanota.com",
-]);
-
-function extractWebsiteFromEmail(email: string): string {
-  if (!email) return "";
-  const domain = email.split("@")[1]?.toLowerCase();
-  if (!domain || GENERIC_EMAIL_DOMAINS.has(domain)) return "";
-  return `https://${domain}`;
-}
 
 /* ─── Form types ─── */
 
@@ -1029,7 +1016,7 @@ export function CrmLeadDetailClient({ lead: initialLead, currentUserId = "" }: {
       industry: str(draft, "industry") || str(companyEnrichment, "industry") || lead.industry || "",
       segment: str(draft, "segment") || str(companyEnrichment, "segment") || "",
       roleTitle: str(draft, "roleTitle") || str(emailExtracted, "contactRole") || "",
-      website: (lead as any).website || str(companyEnrichment, "website") || extractWebsiteFromEmail(lead.email || ""),
+      website: (lead as any).website || str(companyEnrichment, "website") || websiteFromEmail(lead.email || ""),
       companyInfo: str(draft, "companyInfo") || str(companyEnrichment, "accountNotes") || "",
       notes: lead.notes || "",
     });
@@ -2209,7 +2196,9 @@ export function CrmLeadDetailClient({ lead: initialLead, currentUserId = "" }: {
           </Button>
         </div>
         <Input value={approveForm.website} onChange={(e) => updateApproveForm("website", e.target.value)} placeholder="https://www.empresa.cl" className={inputClassName} />
-        <p className="text-xs text-muted-foreground">Se detecta automáticamente desde el dominio del email. Se asocia a la cuenta.</p>
+        <p className="text-xs text-muted-foreground">
+          Solo se sugiere desde emails corporativos (no Gmail/Hotmail/etc.). Si está vacío, usa «Traer datos web» con el nombre real de la empresa.
+        </p>
       </div>
       <div className="mt-3 space-y-1.5">
         <Label>Información de la empresa</Label>
@@ -2230,7 +2219,6 @@ export function CrmLeadDetailClient({ lead: initialLead, currentUserId = "" }: {
 
   const singlePageContent = (
     <div className="flex flex-col gap-3 pb-40 lg:pb-6">
-      <LeadPathStepper status={lead.status} firstContactAt={lead.firstContactAt ?? null} />
       <LeadHighlightsStrip
         source={lead.source ?? null}
         installationCount={installations.length}
@@ -2364,10 +2352,10 @@ export function CrmLeadDetailClient({ lead: initialLead, currentUserId = "" }: {
                 <DropdownMenuTrigger asChild>
                   <Button
                     size="sm"
-                    variant={lead.firstContactAt ? "outline" : "default"}
-                    className="h-8 w-8 sm:w-auto px-0 sm:px-3 sm:gap-1.5"
+                    variant="outline"
+                    className="h-8 w-8 sm:w-auto px-0 sm:px-3 sm:gap-1.5 text-ds-text-2"
                     disabled={markingContact}
-                    title={lead.firstContactAt ? `Contactado · ${CONTACT_CHANNEL_LABELS[lead.firstContactChannel || ""] || lead.firstContactChannel || "—"}` : "Marcar contactado"}
+                    title={lead.firstContactAt ? `Contactado · ${CONTACT_CHANNEL_LABELS[lead.firstContactChannel || ""] || lead.firstContactChannel || "—"}` : "Marcar contactado (si ya hablaste fuera de estos botones)"}
                   >
                     {markingContact ? (
                       <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -2438,7 +2426,12 @@ export function CrmLeadDetailClient({ lead: initialLead, currentUserId = "" }: {
         tabs={[]}
         activeTab=""
         onTabChange={() => {}}
-        pipelineBar={<LeadPipelineStepper status={lead.status} />}
+        pipelineBar={
+          <LeadPipelineStepper
+            status={lead.status}
+            firstContactAt={lead.firstContactAt ?? null}
+          />
+        }
       >
         {singlePageContent}
         <details className="group mt-3 rounded-2xl border border-ds-border-subtle bg-card">

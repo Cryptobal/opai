@@ -16,6 +16,21 @@ import sharp from "sharp";
 import { uploadFile } from "@/lib/storage";
 import { openai } from "@/lib/openai";
 import { fetchCompanyWebHints, discoverCompanyWebsite } from "@/lib/company-web-hints";
+import {
+  GENERIC_EMAIL_DOMAINS,
+  isGenericEmailDomain,
+  isUsableCompanyNameForWebDiscovery,
+  looksLikeChileanRut,
+  websiteFromEmail,
+} from "@/lib/company-enrich-guards";
+
+export {
+  GENERIC_EMAIL_DOMAINS,
+  isGenericEmailDomain,
+  isUsableCompanyNameForWebDiscovery,
+  looksLikeChileanRut,
+  websiteFromEmail,
+};
 
 export type CompanyEnrichResult = {
   websiteNormalized: string;
@@ -61,21 +76,6 @@ export function isNotAvailable(value: string | null | undefined): boolean {
 
 const BROWSER_UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
-
-const GENERIC_EMAIL_DOMAINS = new Set([
-  "gmail.com", "googlemail.com", "hotmail.com", "hotmail.es", "outlook.com", "outlook.es",
-  "yahoo.com", "yahoo.es", "live.com", "live.cl", "msn.com",
-  "icloud.com", "me.com", "mac.com", "protonmail.com", "proton.me",
-  "mail.com", "aol.com", "zoho.com", "yandex.com", "tutanota.com",
-]);
-
-/** Deriva un sitio web (https) desde el dominio de un email corporativo. */
-export function websiteFromEmail(email: string | null | undefined): string {
-  if (!email) return "";
-  const domain = email.split("@")[1]?.toLowerCase()?.trim();
-  if (!domain || GENERIC_EMAIL_DOMAINS.has(domain)) return "";
-  return `https://${domain}`;
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Resolución de URL: candidatos www / no-www / https / http + descubrimiento
@@ -203,7 +203,9 @@ async function resolveWebsiteHtml(
   }
 
   // Fallback: descubrir dominio oficial por búsqueda web desde el nombre.
-  if (companyName.trim()) {
+  // No buscar si el "nombre" es un RUT u otro token no comercial (evita
+  // alucinaciones tipo sernac.cl cuando el cotizador mandó el RUT como empresa).
+  if (isUsableCompanyNameForWebDiscovery(companyName)) {
     let discovered: string | null = null;
     try {
       discovered = await discoverCompanyWebsite(companyName.trim());

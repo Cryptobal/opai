@@ -12,7 +12,11 @@
  */
 
 import { prisma } from "@/lib/prisma";
-import { enrichCompanyFromWebsite, isNotAvailable, websiteFromEmail } from "@/lib/company-enrich";
+import { enrichCompanyFromWebsite, isNotAvailable } from "@/lib/company-enrich";
+import {
+  isUsableCompanyNameForWebDiscovery,
+  websiteFromEmail,
+} from "@/lib/company-enrich-guards";
 
 export async function enrichLeadFromWebsite(leadId: string, tenantId: string): Promise<void> {
   try {
@@ -27,10 +31,15 @@ export async function enrichLeadFromWebsite(leadId: string, tenantId: string): P
     const prev = existingMeta.companyEnrichment;
     if (prev && typeof prev === "object") return;
 
-    const companyName = (lead.companyName || "").trim();
+    const rawCompanyName = (lead.companyName || "").trim();
+    // Solo usar el nombre para descubrir web si parece un nombre comercial real
+    // (no un RUT tipo "65192734k" pegado desde el cotizador).
+    const companyName = isUsableCompanyNameForWebDiscovery(rawCompanyName) ? rawCompanyName : "";
     let website = (lead.website || "").trim();
     if (!website) website = websiteFromEmail(lead.email);
-    // Sin sitio ni nombre no hay nada que resolver.
+
+    // Sin sitio ni nombre usable no hay nada que resolver de forma confiable.
+    // Con email personal (Gmail/etc.) y sin web/nombre, no inventamos dominio.
     if (!website && !companyName) return;
 
     const result = await enrichCompanyFromWebsite({ website, companyName, tenantId });
