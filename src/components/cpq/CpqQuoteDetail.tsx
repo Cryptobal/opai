@@ -2407,9 +2407,10 @@ export function CpqQuoteDetail({
         ufValue={ufValue}
         contractDuration={quoteForm.contractDuration ?? 12}
         insurancePolicyUF={quoteForm.insurancePolicyUF}
-        onInsurancePolicyUFChange={(uf) =>
-          setQuoteForm((prev) => ({ ...prev, insurancePolicyUF: uf }))
-        }
+        onInsurancePolicyUFChange={(uf) => {
+          setQuoteForm((prev) => ({ ...prev, insurancePolicyUF: uf }));
+          setQuoteDirty(true);
+        }}
       />
 
       {/* -- Section: Margen -- */}

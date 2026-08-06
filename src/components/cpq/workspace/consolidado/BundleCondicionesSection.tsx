@@ -338,21 +338,6 @@ export function BundleCondicionesSection({
           </div>
         </div>
         <div className="space-y-1">
-          <Label className={LABEL_CLASS}>Monto póliza</Label>
-          <div className="flex items-center gap-1">
-            <Input
-              type="number"
-              min={0}
-              step={0.01}
-              value={form.insurancePolicyUF}
-              onChange={(e) => editLocal({ insurancePolicyUF: toIntDraft(e.target.value) })}
-              onBlur={() => save({ insurancePolicyUF: Math.max(0, form.insurancePolicyUF || 0) })}
-              className={cn(INPUT_CLASS, "w-20")}
-            />
-            <span className="text-xs text-muted-foreground">UF</span>
-          </div>
-        </div>
-        <div className="space-y-1">
           <Label className={LABEL_CLASS}>Límite responsabilidad</Label>
           <div className="flex items-center gap-1">
             <Input
@@ -395,53 +380,70 @@ export function BundleCondicionesSection({
         </div>
       </div>
 
-      {/* Gasto financiero a nivel propuesta: stepper 0–6% en pasos de 0,5 */}
+      {/* Gasto financiero + póliza a nivel propuesta (no en Contrato de servicio) */}
       <div
-        className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border/60 bg-ds-surface-2/40 px-3 py-2.5"
+        className="space-y-3 rounded-lg border border-border/60 bg-ds-surface-2/40 px-3 py-2.5"
         inert={isLocked ? true : undefined}
       >
-        <div className="flex items-center gap-3">
-          <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              Gasto financiero
-            </p>
-            <p className="text-[12px] text-ds-text-3">
-              Tasa única para todas las instalaciones
-            </p>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div>
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                Gasto financiero y garantías
+              </p>
+              <p className="text-[12px] text-ds-text-3">
+                Tasa y póliza únicas para todas las instalaciones
+              </p>
+            </div>
+            <Switch
+              checked={form.financialEnabled}
+              onCheckedChange={(checked) => save({ financialEnabled: checked })}
+              aria-label="Activar gasto financiero"
+            />
           </div>
-          <Switch
-            checked={form.financialEnabled}
-            onCheckedChange={(checked) => save({ financialEnabled: checked })}
-            aria-label="Activar gasto financiero"
-          />
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => stepRate(-0.5)}
+              disabled={!form.financialEnabled || form.financialRatePct <= 0}
+              className="flex h-10 w-10 items-center justify-center rounded-md border border-border bg-card text-foreground transition-colors enabled:hover:bg-muted disabled:opacity-40"
+              aria-label="Bajar tasa financiera"
+            >
+              <Minus className="h-4 w-4" />
+            </button>
+            <span
+              className={cn(
+                "w-16 text-center font-mono text-[15px] font-bold tabular-nums",
+                form.financialEnabled ? "text-foreground" : "text-muted-foreground",
+              )}
+            >
+              {form.financialRatePct.toLocaleString("es-CL", { minimumFractionDigits: 1 })}%
+            </span>
+            <button
+              type="button"
+              onClick={() => stepRate(0.5)}
+              disabled={!form.financialEnabled || form.financialRatePct >= 6}
+              className="flex h-10 w-10 items-center justify-center rounded-md border border-border bg-card text-foreground transition-colors enabled:hover:bg-muted disabled:opacity-40"
+              aria-label="Subir tasa financiera"
+            >
+              <Plus className="h-4 w-4" />
+            </button>
+          </div>
         </div>
-        <div className="flex items-center gap-1.5">
-          <button
-            type="button"
-            onClick={() => stepRate(-0.5)}
-            disabled={!form.financialEnabled || form.financialRatePct <= 0}
-            className="flex h-10 w-10 items-center justify-center rounded-md border border-border bg-card text-foreground transition-colors enabled:hover:bg-muted disabled:opacity-40"
-            aria-label="Bajar tasa financiera"
-          >
-            <Minus className="h-4 w-4" />
-          </button>
-          <span
-            className={cn(
-              "w-16 text-center font-mono text-[15px] font-bold tabular-nums",
-              form.financialEnabled ? "text-foreground" : "text-muted-foreground",
-            )}
-          >
-            {form.financialRatePct.toLocaleString("es-CL", { minimumFractionDigits: 1 })}%
-          </span>
-          <button
-            type="button"
-            onClick={() => stepRate(0.5)}
-            disabled={!form.financialEnabled || form.financialRatePct >= 6}
-            className="flex h-10 w-10 items-center justify-center rounded-md border border-border bg-card text-foreground transition-colors enabled:hover:bg-muted disabled:opacity-40"
-            aria-label="Subir tasa financiera"
-          >
-            <Plus className="h-4 w-4" />
-          </button>
+        <div className="space-y-1 max-w-[12rem]">
+          <Label className={LABEL_CLASS}>Monto póliza</Label>
+          <div className="flex items-center gap-1">
+            <Input
+              type="number"
+              min={0}
+              step={0.01}
+              value={form.insurancePolicyUF}
+              onChange={(e) => editLocal({ insurancePolicyUF: toIntDraft(e.target.value) })}
+              onBlur={() => save({ insurancePolicyUF: Math.max(0, form.insurancePolicyUF || 0) })}
+              className={cn(INPUT_CLASS, "w-20")}
+            />
+            <span className="text-xs text-muted-foreground">UF</span>
+          </div>
         </div>
       </div>
     </Surface>

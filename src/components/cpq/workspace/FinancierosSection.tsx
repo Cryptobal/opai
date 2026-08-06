@@ -46,11 +46,13 @@ export function FinancierosSection({
   getDecimalValue: (key: string, value: number | null | undefined, decimals?: number, allowEmpty?: boolean) => string;
   setDecimalValue: (key: string, value: string) => void;
   clearDecimalValue: (key: string) => void;
+  /** Multi-instalación: tasa financiera gobernada por la propuesta. */
   proposalGoverned?: boolean;
   onEditAtProposal?: () => void;
   currency?: string;
   ufValue?: number | null;
   contractDuration?: number;
+  /** Monto asegurado RC (UF) — se edita aquí, no en Condiciones comerciales. */
   insurancePolicyUF?: number | null;
   onInsurancePolicyUFChange?: (uf: number | null) => void;
 }) {
