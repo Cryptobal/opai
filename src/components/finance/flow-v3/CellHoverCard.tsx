@@ -57,7 +57,8 @@ export const CellHoverCard = forwardRef<CellHoverCardHandle, Props>(function Cel
     const w = 288;
     // Lista scrollable ~max-h-56; estimar alto para no abrir fuera de viewport.
     const listH = itemCount > 0 ? Math.min(224, itemCount * 36) : 0;
-    const estH = 160 + listH;
+    // +~56px si hay tip contextual de colores.
+    const estH = 216 + listH;
     const left = Math.max(8, Math.min(rect.left, window.innerWidth - w - 8));
     let top = rect.bottom + 4;
     if (top + estH > window.innerHeight - 8) top = Math.max(8, rect.top - estH - 4);

@@ -35,6 +35,26 @@ export function CellHoverCardBody(p: Props) {
           <Tag key={b} size="sm" variant={b === "manual" ? "brand" : "neutral"}>{b}</Tag>
         ))}
       </div>
+      {model.colorMeaning && (
+        <div
+          className="mb-1.5 flex items-start gap-2 rounded-md border border-ds-border-subtle bg-ds-surface-2 px-1.5 py-1"
+          role="note"
+          aria-label={`Colores: ${model.colorMeaning.title}`}
+        >
+          <span
+            className={`mt-0.5 h-4 w-6 shrink-0 rounded-sm ${model.colorMeaning.swatch}`}
+            aria-hidden
+          />
+          <div className="min-w-0">
+            <p className="text-[12px] font-medium text-ds-text-1">
+              {model.colorMeaning.title}
+            </p>
+            <p className="text-[12px] leading-snug text-ds-text-3">
+              {model.colorMeaning.desc}
+            </p>
+          </div>
+        </div>
+      )}
       {model.lines.length > 0 && (
         <div className="mb-1.5 space-y-0.5 border-t border-ds-border-subtle pt-1.5">
           {model.lines.map((l) => (

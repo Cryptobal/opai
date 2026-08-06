@@ -7,6 +7,10 @@ import { fmtClp, fmtDayMonth, fmtShortDate } from "./format";
 import {
   committedItemMeta, LAYER_LABEL, pastPendingDteMeta, terminoStatusLine,
 } from "./cell-meta";
+import {
+  resolveCellColorMeaning,
+  type ColorMeaningItem,
+} from "./cell-color-meaning";
 import { columnLetter } from "./column-letter";
 import { displayValue } from "./grid-classes";
 
@@ -48,6 +52,8 @@ export interface HoverCardModel {
   weekLabel: string;
   layerLabel: string;
   badges: string[];
+  /** Significado de las marcas de color de esta celda (aprendizaje). */
+  colorMeaning: ColorMeaningItem | null;
   lines: HoverLine[];
   items: HoverItemLine[];
   /** Preferido sobre `drift` cuando la celda trae execution. */
@@ -178,6 +184,7 @@ export function buildHoverCardContent(args: {
     weekLabel: fmtDayMonth(cell.weekStart),
     layerLabel: LAYER_LABEL[cell.layer],
     badges,
+    colorMeaning: resolveCellColorMeaning(cell),
     lines,
     items,
     execution,

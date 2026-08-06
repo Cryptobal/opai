@@ -125,6 +125,7 @@ describe("buildHoverCardContent", () => {
       rowNumber: 2,
     });
     expect(model.items).toHaveLength(1);
+    expect(model.colorMeaning?.title).toBe("Factura emitida");
   });
 
   it("real con drift", () => {
