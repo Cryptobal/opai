@@ -20,7 +20,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const guard = await requireFlowV3("cashflow_configure");
+    const guard = await requireFlowV3("cashflow_manage");
     if (guard.error) return guard.error;
     const { id } = await params;
     const row = await prisma.financeFlowRow.findFirst({
@@ -47,7 +47,7 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const guard = await requireFlowV3("cashflow_configure");
+    const guard = await requireFlowV3("cashflow_manage");
     if (guard.error) return guard.error;
     const { id } = await params;
     const parsed = putSchema.safeParse(await request.json());

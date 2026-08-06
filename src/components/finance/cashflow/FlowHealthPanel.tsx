@@ -151,7 +151,7 @@ export function FlowHealthPanel({
             animate
           />
           <Stat
-            label="Cuentas ambiguas"
+            label="Sin destino por defecto"
             value={report.ambiguousAccounts.length}
             animate
           />

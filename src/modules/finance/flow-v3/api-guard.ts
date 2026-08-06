@@ -29,8 +29,14 @@ export async function requireFlowV3(
 
 export function flowV3Error(error: unknown, fallback = "Error interno"): NextResponse {
   const message = error instanceof Error ? error.message : fallback;
+  if (
+    error instanceof Error &&
+    (error.name === "FlowRowConflictError" || /ya usa esta llave|ya está en uso/i.test(message))
+  ) {
+    return NextResponse.json({ success: false, error: message }, { status: 409 });
+  }
   const known =
-    /no encontrada|no encontrado|requerido|inválid|archivada|no puede|no pertenece|no está vinculada|vinculad|programación|misma cuenta/i.test(
+    /no encontrada|no encontrado|requerido|inválid|archivada|no puede|no pertenecen|no pertenece|no está vinculada|vinculad|programación|misma cuenta|admiten|Nada que actualizar|no hay nada que guardar/i.test(
       message,
     );
   return NextResponse.json(

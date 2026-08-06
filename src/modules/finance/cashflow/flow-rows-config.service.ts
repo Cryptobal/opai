@@ -5,10 +5,7 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
 import type { FlowRowKey, FlowSection } from "@prisma/client";
-import {
-  setAccountsForRow,
-  type RowAccountRef,
-} from "@/modules/finance/flow-v3/rowAccount.service";
+import type { RowAccountRef } from "@/modules/finance/flow-v3/rowAccount.service";
 import { getFlowHealth } from "./flow-health.service";
 import type { FlowHealthReport } from "./flow-health.types";
 
@@ -124,30 +121,36 @@ export async function patchFlowRowConfig(
 
   const { updateRow } = await import("@/modules/finance/flow-v3/rows.service");
 
-  if (patch.name !== undefined || patch.section !== undefined) {
-    await updateRow(tenantId, rowId, {
-      name: patch.name,
-      section: patch.section as FlowSection | undefined,
-    });
+  const hasChange =
+    patch.name !== undefined ||
+    patch.section !== undefined ||
+    patch.accountPlanIds !== undefined ||
+    patch.canonicalKey !== undefined;
+  if (!hasChange) {
+    throw new Error("Nada que actualizar");
   }
 
-  if (patch.accountPlanIds !== undefined) {
-    await setAccountsForRow(tenantId, rowId, patch.accountPlanIds, {
-      defaultTargetAccountPlanId: patch.defaultTargetAccountPlanId,
-    });
-    await prisma.financeFlowRow.update({
-      where: { id: rowId },
-      data: {
-        mapping: patch.accountPlanIds.length > 0 ? "ACCOUNTS" : "MANUAL",
-      },
-    });
-  }
+  // Un solo pase por updateRow (guardas de sección + 409 de llave).
+  await updateRow(tenantId, rowId, {
+    name: patch.name,
+    section: patch.section as FlowSection | undefined,
+    accountPlanIds: patch.accountPlanIds,
+    canonicalKey: patch.canonicalKey as FlowRowKey | null | undefined,
+  });
 
-  if (patch.canonicalKey !== undefined) {
-    await prisma.financeFlowRow.update({
-      where: { id: rowId },
-      data: { canonicalKey: patch.canonicalKey as FlowRowKey | null },
-    });
+  if (
+    patch.accountPlanIds !== undefined &&
+    patch.defaultTargetAccountPlanId &&
+    patch.accountPlanIds.includes(patch.defaultTargetAccountPlanId)
+  ) {
+    const { setDefaultTarget } = await import(
+      "@/modules/finance/flow-v3/rowAccount.service"
+    );
+    await setDefaultTarget(
+      tenantId,
+      rowId,
+      patch.defaultTargetAccountPlanId,
+    );
   }
 
   const { listAccountsForRow } = await import(

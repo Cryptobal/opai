@@ -1,7 +1,9 @@
 /**
- * Sugiere sección de planilla a partir de código/nombre de categoría.
+ * Sugiere sección de planilla a partir de código/nombre de cuenta o
+ * categoría legacy / FlowRowKey.
  * Puro — usable en cliente y tests.
  */
+import type { FlowRowKey } from "@prisma/client";
 import { CANONICAL_FLOW_ROWS } from "./canonical-rows";
 
 export type SuggestableFlowSection =
@@ -20,8 +22,23 @@ function normalize(s: string): string {
     .replace(/[^A-Z0-9_]+/g, "_");
 }
 
+/** Sugiere sección desde FlowRowKey. */
+export function suggestFlowSectionForKey(
+  key: FlowRowKey,
+): SuggestableFlowSection {
+  const canonical = CANONICAL_FLOW_ROWS.find((r) => r.canonicalKey === key);
+  if (
+    canonical &&
+    canonical.section !== "INGRESOS" &&
+    canonical.section !== "OTROS"
+  ) {
+    return canonical.section;
+  }
+  return "GAV";
+}
+
 /**
- * Heurística para "Crear fila" desde categorías sin renglón.
+ * Heurística para "Crear renglón" desde cuenta sin renglón (o código legacy).
  * Usa primero el catálogo canónico; luego patrones de código/nombre.
  * Default GAV (gastos de administración/ventas), nunca INGRESOS.
  */
