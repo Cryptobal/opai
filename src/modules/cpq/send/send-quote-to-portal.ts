@@ -509,9 +509,24 @@ export async function sendQuoteToPortal(options: SendQuoteToPortalOptions): Prom
   // Follow-up handling
   if (quote.dealId) {
     try {
-      await prisma.crmDeal.updateMany({
-        where: { id: quote.dealId, tenantId },
-        data: { proposalSentAt: new Date(), amount: monthlyTotal, totalPuestos: quote.positions.reduce((s, p) => s + p.numGuards * (p.numPuestos || 1), 0) },
+      const {
+        markDealProposalSent,
+        advanceDealToQuoteSentStage,
+      } = await import("@/lib/crm/advance-deal-on-quote-sent");
+
+      await markDealProposalSent({
+        db: prisma,
+        tenantId,
+        dealId: quote.dealId,
+        data: {
+          proposalSentAt: new Date(),
+          amount: monthlyTotal,
+          totalPuestos: quote.positions.reduce(
+            (s, p) => s + p.numGuards * (p.numPuestos || 1),
+            0,
+          ),
+          primaryContactId: quote.contactId,
+        },
       });
 
       if (followUp?.skipAll) {
@@ -520,25 +535,36 @@ export async function sendQuoteToPortal(options: SendQuoteToPortalOptions): Prom
         const { cancelPendingFollowUps } = await import("@/lib/followup-scheduler");
         await cancelPendingFollowUps(quote.dealId, "Usuario eligió no incluir seguimiento");
         if (followUp.targetStageId) {
-          const targetStage = await prisma.crmPipelineStage.findFirst({ where: { id: followUp.targetStageId, tenantId, isActive: true } });
-          if (targetStage) {
-            const deal = await prisma.crmDeal.findFirst({ where: { id: quote.dealId, tenantId } });
-            if (deal && deal.stageId !== targetStage.id) {
-              await prisma.crmDeal.updateMany({ where: { id: deal.id, tenantId }, data: { stageId: targetStage.id } });
-              await prisma.crmDealStageHistory.create({ data: { tenantId, dealId: deal.id, fromStageId: deal.stageId, toStageId: targetStage.id, changedBy: userId } });
-            }
+          const deal = await prisma.crmDeal.findFirst({
+            where: { id: quote.dealId, tenantId },
+            select: { id: true, stageId: true },
+          });
+          if (deal) {
+            await advanceDealToQuoteSentStage({
+              db: prisma,
+              tenantId,
+              dealId: deal.id,
+              fromStageId: deal.stageId,
+              changedBy: userId,
+              targetStageId: followUp.targetStageId,
+            });
           }
         }
       } else {
         const { scheduleFollowUps } = await import("@/lib/followup-scheduler");
         await scheduleFollowUps({ tenantId, dealId: quote.dealId });
-        const cotizacionStage = await prisma.crmPipelineStage.findFirst({ where: { tenantId, name: "Cotización enviada", isActive: true } });
-        if (cotizacionStage) {
-          const deal = await prisma.crmDeal.findFirst({ where: { id: quote.dealId, tenantId } });
-          if (deal && deal.stageId !== cotizacionStage.id) {
-            await prisma.crmDeal.updateMany({ where: { id: deal.id, tenantId }, data: { stageId: cotizacionStage.id } });
-            await prisma.crmDealStageHistory.create({ data: { tenantId, dealId: deal.id, fromStageId: deal.stageId, toStageId: cotizacionStage.id, changedBy: userId } });
-          }
+        const deal = await prisma.crmDeal.findFirst({
+          where: { id: quote.dealId, tenantId },
+          select: { id: true, stageId: true },
+        });
+        if (deal) {
+          await advanceDealToQuoteSentStage({
+            db: prisma,
+            tenantId,
+            dealId: deal.id,
+            fromStageId: deal.stageId,
+            changedBy: userId,
+          });
         }
       }
     } catch (followUpError) {
