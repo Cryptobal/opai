@@ -88,7 +88,7 @@ export function ControlCenterPanel({
   pdfPreviewLoading: boolean;
   onPdfModeChange: (mode: CpqPdfPreviewMode) => void;
   onPdfTemplateSlugChange: (slug: CpqPdfTemplateSlug) => void;
-  onGeneratePdfPreview: () => void;
+  onGeneratePdfPreview: () => void | Promise<void | string | null>;
   showConversations?: boolean;
 }) {
   const sendDisabled =

@@ -1265,7 +1265,7 @@ function PdfPreviewSection({
     ...(ufValue != null && ufValue > 0 ? { ufValue } : {}),
   };
 
-  const generatePreview = async () => {
+  const generatePreview = async (): Promise<string | null> => {
     setPreviewLoading(true);
     try {
       const endpoint = mode === "presentacion"
@@ -1284,9 +1284,12 @@ function PdfPreviewSection({
       if (!res.ok) throw new Error(`Error ${res.status}`);
       const blob = await res.blob();
       if (previewUrl) URL.revokeObjectURL(previewUrl);
-      setPreviewUrl(URL.createObjectURL(blob));
+      const url = URL.createObjectURL(blob);
+      setPreviewUrl(url);
+      return url;
     } catch (err) {
       console.error("[Lead PDF Preview]", err);
+      return null;
     } finally {
       setPreviewLoading(false);
     }
