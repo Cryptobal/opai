@@ -20,6 +20,7 @@ import { useFocusTrap } from "./useFocusTrap";
 import { CorreoReaderDockContext } from "./CorreoReaderDockContext";
 import { CorreoReaderOverlayContext } from "./CorreoReaderOverlayContext";
 import { CorreoReaderScrollContext } from "./CorreoReaderScrollContext";
+import { useCorreoTouchUi } from "./correo-touch-ui";
 
 type Props = {
   open: boolean;
@@ -70,20 +71,22 @@ export function CorreoReaderShell({
   // focus-trap + Escape; en split desktop solo Escape. Con composer abierto
   // (portal a body) se pausa el trap para no ciclar Tab dentro del lector.
   const panelRef = useRef<HTMLDivElement | null>(null);
-  const [isMobile, setIsMobile] = useState(
+  const [isNarrowViewport, setIsNarrowViewport] = useState(
     () =>
       typeof window !== "undefined" &&
       window.matchMedia("(max-width: 1023px)").matches,
   );
+  const touchUi = useCorreoTouchUi();
+  const useMobileChrome = isNarrowViewport || touchUi;
   useEffect(() => {
     const media = window.matchMedia("(max-width: 1023px)");
-    const update = () => setIsMobile(media.matches);
+    const update = () => setIsNarrowViewport(media.matches);
     update();
     media.addEventListener("change", update);
     return () => media.removeEventListener("change", update);
   }, []);
   const isOverlay =
-    isMobile || desktopMode === "overlay" || desktopMode === "contained";
+    isNarrowViewport || desktopMode === "overlay" || desktopMode === "contained";
   useFocusTrap(panelRef, {
     active: open,
     trap: isOverlay && !trapPaused,
@@ -118,7 +121,7 @@ export function CorreoReaderShell({
 
   // Si la isla real supera el piso CSS, suma el remanente (undo más alto, etc.).
   useEffect(() => {
-    if (!open || !isMobile) {
+    if (!open || !useMobileChrome) {
       setIslandExtraPx(0);
       return;
     }
@@ -171,7 +174,7 @@ export function CorreoReaderShell({
       mo.disconnect();
       window.removeEventListener("resize", schedule);
     };
-  }, [open, isMobile, mobileActions]);
+  }, [open, useMobileChrome, mobileActions]);
 
   const scrollValue = useMemo(() => ({ scrolled }), [scrolled]);
 
@@ -244,7 +247,7 @@ export function CorreoReaderShell({
           desktopMode === "overlay" &&
             "lg:w-[var(--correo-panel-width)] lg:shrink-0",
           // Entrada suave en móvil: slide desde la derecha (estilo Gmail/iOS).
-          isMobile && "animate-in slide-in-from-right duration-200 ease-out",
+          isNarrowViewport && "animate-in slide-in-from-right duration-200 ease-out",
         )}
         onClick={(e: MouseEvent) => e.stopPropagation()}
       >
@@ -263,10 +266,10 @@ export function CorreoReaderShell({
                 "min-h-0 flex-1 overflow-auto bg-background [-webkit-overflow-scrolling:touch] [overscroll-behavior:contain] lg:bg-ds-surface-2",
                 // Máscara de scroll (móvil): fade inferior sobre la isla; el fade
                 // superior solo aparece al scrollear.
-                isMobile && scrolled && "mobile-scroll-fade",
+                useMobileChrome && scrolled && "mobile-scroll-fade",
               )}
               style={
-                isMobile && scrolled
+                useMobileChrome && scrolled
                   ? ({
                       "--fade-top": "40px",
                       // Piso 11.5rem + safe-area + extra medido.
@@ -277,6 +280,7 @@ export function CorreoReaderShell({
             >
               {/* Header opaco: solo desktop (lg+). En móvil lo reemplaza el
                   header adaptativo con glass. */}
+              {!useMobileChrome && (
               <header className="sticky top-0 z-10 hidden border-b border-ds-border-subtle bg-background px-2 py-2.5 pt-[calc(env(safe-area-inset-top)+0.625rem)] md:px-4 lg:block lg:bg-ds-surface-2">
                 <div className="flex items-center gap-1.5">
                   <button
@@ -302,9 +306,10 @@ export function CorreoReaderShell({
                   </button>
                 </div>
               </header>
+              )}
 
-              {/* Header adaptativo móvil (sticky en Y; en X viaja con el panel). */}
-              {isMobile && (
+              {/* Header táctil (iPad / móvil): archivar, eliminar, Copiloto… */}
+              {useMobileChrome && (
                 <div className="sticky top-0 z-10">
                   {mobileHeader}
                 </div>
@@ -316,18 +321,18 @@ export function CorreoReaderShell({
                   // Piso CSS: isla unificada (Sugerir respuestas + acciones) +
                   // safe-area. No depende de JS — evita cortar el cuerpo al
                   // montar o en mails cortos sin adjuntos.
-                  isMobile &&
+                  useMobileChrome &&
                     "pb-[calc(env(safe-area-inset-bottom,0px)+11.5rem)]",
                 )}
                 style={
-                  isMobile && islandExtraPx > 0
+                  useMobileChrome && islandExtraPx > 0
                     ? {
                         paddingBottom: `calc(env(safe-area-inset-bottom, 0px) + 11.5rem + ${islandExtraPx}px)`,
                       }
                     : undefined
                 }
-                data-correo-island-clearance={isMobile ? "floor" : undefined}
-                data-correo-island-extra={isMobile ? islandExtraPx : undefined}
+                data-correo-island-clearance={useMobileChrome ? "floor" : undefined}
+                data-correo-island-extra={useMobileChrome ? islandExtraPx : undefined}
               >
                 {children}
               </div>
@@ -338,7 +343,7 @@ export function CorreoReaderShell({
                 host no se monta y CorreoReplyBox no porta la barra (queda null
                 con el composer cerrado). empty:hidden — solo ocupa espacio
                 cuando el composer está cerrado y hay barra portada. */}
-            {!isMobile && (
+            {!useMobileChrome && (
               <div className="shrink-0">
                 {/* Chips de intención: fila superior del dock, sobre las
                     acciones. Vacía (y sin borde) mientras no haya chips. */}
@@ -356,7 +361,7 @@ export function CorreoReaderShell({
             {/* Isla de acciones móvil: se posiciona sola (fixed, flotante).
                 Solo se monta en móvil — en desktop reclamaría el host del undo
                 estando oculta (lg:hidden) y el snackbar global no se vería. */}
-            {isMobile && mobileActions}
+            {useMobileChrome && mobileActions}
 
             {/* Capa para sheets (guardar adjuntos): mismo ancho del visor. */}
             <div
@@ -374,7 +379,7 @@ export function CorreoReaderShell({
   // hijos animados de ds-page-enter / cards con overflow-hidden / transform
   // crean containing block + stacking context que rompen el `fixed`.
   // Split y contained siguen inline (anclados al workspace de Correos).
-  const shouldPortal = isMobile || desktopMode === "overlay";
+  const shouldPortal = isNarrowViewport || desktopMode === "overlay";
   if (shouldPortal && typeof document !== "undefined") {
     return createPortal(overlay, document.body);
   }

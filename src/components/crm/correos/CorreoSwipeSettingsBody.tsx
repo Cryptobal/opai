@@ -19,16 +19,23 @@ const ACTION_LABELS: Record<CorreoSwipeAction, string> = {
 
 function Selector({
   label,
+  hint,
   value,
   onChange,
 }: {
   label: string;
+  hint?: string;
   value: CorreoSwipeAction;
   onChange: (action: CorreoSwipeAction) => void;
 }) {
   return (
     <label className="flex min-h-11 items-center justify-between gap-3 rounded-xl border border-ds-border-subtle bg-ds-surface-1 pl-3 pr-2">
-      <span className="shrink-0 text-[13px] text-ds-text-2">{label}</span>
+      <span className="min-w-0 shrink-0 text-[13px] text-ds-text-2">
+        {label}
+        {hint ? (
+          <span className="mt-0.5 block text-[12px] font-normal text-ds-text-4">{hint}</span>
+        ) : null}
+      </span>
       <SimpleSelect
         value={value}
         onValueChange={(v) => onChange(v as CorreoSwipeAction)}
@@ -65,17 +72,39 @@ export function CorreoSwipeSettingsBody({
   return (
     <div className="space-y-3">
       <p className="text-[12px] text-ds-text-3">
-        Deslizá para ver los dos botones de cada lado. Tocá uno para ejecutarlo.
+        En iPad y móvil: deslizá un correo para ver dos botones por lado. Tocá el
+        botón (no al soltar). Mantené presionado un correo para ver todas las acciones.
+        Los atajos de teclado requieren teclado físico (⌘/Ctrl en Mac).
       </p>
       <div className="space-y-1.5">
         <p className="text-[12px] font-medium text-ds-text-2">Deslizar a la derecha →</p>
-        <Selector label="Acción 1" value={config.right[0]} onChange={set("right", 0)} />
-        <Selector label="Acción 2" value={config.right[1]} onChange={set("right", 1)} />
+        <Selector
+          label="Acción 1"
+          hint="Botón junto al correo"
+          value={config.right[0]}
+          onChange={set("right", 0)}
+        />
+        <Selector
+          label="Acción 2"
+          hint="Botón exterior"
+          value={config.right[1]}
+          onChange={set("right", 1)}
+        />
       </div>
       <div className="space-y-1.5">
         <p className="text-[12px] font-medium text-ds-text-2">← Deslizar a la izquierda</p>
-        <Selector label="Acción 1" value={config.left[0]} onChange={set("left", 0)} />
-        <Selector label="Acción 2" value={config.left[1]} onChange={set("left", 1)} />
+        <Selector
+          label="Acción 1"
+          hint="Botón junto al correo"
+          value={config.left[0]}
+          onChange={set("left", 0)}
+        />
+        <Selector
+          label="Acción 2"
+          hint="Botón exterior"
+          value={config.left[1]}
+          onChange={set("left", 1)}
+        />
       </div>
       {showUndo && undoSeconds != null && onUndoSeconds && (
         <>

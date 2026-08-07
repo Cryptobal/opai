@@ -17,6 +17,7 @@ import {
   SWIPE_OPEN_WIDTH,
   useRowSwipe,
 } from "./useRowSwipe";
+import { useCorreoTouchUi } from "./correo-touch-ui";
 
 /** Colores por acción — solo tokens de estado/categóricos del DS. */
 const ACTION_STYLE: Record<CorreoSwipeAction, { bg: string; fg: string }> = {
@@ -117,13 +118,9 @@ function CorreoRowSwipeInner({
   unified = false, mailboxColor = null, mailboxLabel = null,
   listMode = "full", rowMode = "default",
 }: Props) {
-  const [coarse, setCoarse] = useState(false);
+  const touchUi = useCorreoTouchUi();
   const [leaving, setLeaving] = useState(false);
   const leaveTimer = useRef<number | null>(null);
-
-  useEffect(() => {
-    setCoarse(typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches);
-  }, []);
 
   useEffect(() => () => {
     if (leaveTimer.current != null) window.clearTimeout(leaveTimer.current);
@@ -140,8 +137,8 @@ function CorreoRowSwipeInner({
     longPressHandlers,
     dragProps,
   } = useRowSwipe({
-    enabled: coarse && canModify && !leaving && !selectionMode,
-    onLongPress: coarse && onLongPress ? () => onLongPress(thread.id) : undefined,
+    enabled: touchUi && canModify && !leaving && !selectionMode,
+    onLongPress: touchUi && onLongPress ? () => onLongPress(thread.id) : undefined,
   });
 
   useEffect(() => {
@@ -149,7 +146,7 @@ function CorreoRowSwipeInner({
   }, [selectionMode, close]);
 
   useLayoutEffect(() => {
-    if (!coarse) return;
+    if (!touchUi) return;
     measureWidth();
     const node = rowRef.current;
     if (!node) return;
@@ -158,7 +155,7 @@ function CorreoRowSwipeInner({
     });
     ro.observe(node);
     return () => ro.disconnect();
-  }, [rowRef, coarse, measureWidth]);
+  }, [rowRef, touchUi, measureWidth]);
 
   const rightStripOpacity = useTransform(x, (value) => (value > 0 ? 1 : 0));
   const leftStripOpacity = useTransform(x, (value) => (value < 0 ? 1 : 0));
@@ -234,7 +231,7 @@ function CorreoRowSwipeInner({
     onOpen(thread.id);
   }
 
-  if (!coarse) {
+  if (!touchUi) {
     return (
       <CorreoRow
         thread={thread}
@@ -262,8 +259,9 @@ function CorreoRowSwipeInner({
 
   const rightActions = swipeConfig.right;
   const leftActions = swipeConfig.left;
-  // Lado izquierdo: visualmente [secundaria, primaria] anclado a la derecha.
-  const leftShown: CorreoSwipeAction[] = [leftActions[1], leftActions[0]];
+  // Acción 1 = botón junto al correo; Acción 2 = exterior (alineado con ajustes).
+  const rightShown: CorreoSwipeAction[] = [rightActions[1], rightActions[0]];
+  const leftShown: CorreoSwipeAction[] = leftActions;
   const revealed = openSide !== null;
 
   return (
@@ -282,7 +280,7 @@ function CorreoRowSwipeInner({
         style={{ width: SWIPE_OPEN_WIDTH, opacity: rightStripOpacity }}
       >
         <SwipeActionStrip
-          actions={rightActions}
+          actions={rightShown}
           thread={thread}
           revealed={revealed && openSide === "right"}
           onExecute={execute}

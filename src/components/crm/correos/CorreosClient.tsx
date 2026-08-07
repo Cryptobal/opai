@@ -39,13 +39,14 @@ import { CorreoSearchChips } from "./CorreoSearchChips";
 import { CorreoSearchScopeHint } from "./CorreoSearchScopeHint";
 import type { EmailIndexCoverage } from "@/modules/crm/email/email-index-coverage";
 import { chipsFromQuery, removeChipFromQuery } from "@/lib/search-tokens";
-import { useCorreoFocusScope } from "./useCorreoFocusScope";
+import { useCorreoTouchUi } from "./correo-touch-ui";
 import { CorreosMobileDrawer } from "./CorreosMobileDrawer";
 import { CorreosPullToRefresh } from "./CorreosPullToRefresh";
 import { CorreoSettingsModal, type CorreoSettingsSection } from "./CorreoSettingsModal";
 import { CorreoContextMenu, type CorreoMenuItem } from "./CorreoContextMenu";
 import { CorreoSelectionBar } from "./CorreoSelectionBar";
 import { CorreoRowSwipe } from "./CorreoRowSwipe";
+import { CorreoRowActionSheet } from "./CorreoRowActionSheet";
 import { CorreoDrawer } from "./CorreoDrawer";
 import { CorreoSnoozeSheet } from "./CorreoSnoozeSheet";
 import { parseSender } from "./correo-sender";
@@ -257,15 +258,13 @@ export function CorreosClient() {
   /** DTO del hilo del Plan cuando no está en la página actual de `items`. */
   const [aiPanelThreadCache, setAiPanelThreadCache] =
     useState<CorreoThreadDTO | null>(null);
-  /** Bottom-sheet de Acciones IA (móvil: long-press / chip del lector). */
+  /** Bottom-sheet de Acciones IA (móvil: chip del lector). */
   const [aiMenuSheet, setAiMenuSheet] = useState<CorreoThreadDTO | null>(null);
+  /** Long-press en fila: archivar, papelera, responder… (iPad / móvil). */
+  const [rowActionSheet, setRowActionSheet] = useState<CorreoThreadDTO | null>(null);
   const perms = useEffectivePermissions();
   const canUseCopiloto = hasCapability(perms, "copiloto_correos");
-  // v2: táctil (long-press/selección móvil); en desktop nada de esto aplica.
-  const [isCoarse, setIsCoarse] = useState(false);
-  useEffect(() => {
-    setIsCoarse(typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches);
-  }, []);
+  const isCoarse = useCorreoTouchUi();
   // C12: multi-select para acciones masivas. C20: fila enfocada por j/k.
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [focusIndex, setFocusIndex] = useState(-1);
@@ -1533,12 +1532,12 @@ export function CorreosClient() {
         if (canModify) toggleSelect(id);
         return;
       }
-      const aiItems = buildAiMenuItems(t, perms, { onCommand: handleAiCommand });
-      if (aiItems.length > 0) {
-        setAiMenuSheet(t);
+      if (canModify) {
+        setRowActionSheet(t);
         return;
       }
-      if (canModify) toggleSelect(id);
+      const aiItems = buildAiMenuItems(t, perms, { onCommand: handleAiCommand });
+      if (aiItems.length > 0) setAiMenuSheet(t);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [selectionMode, canModify, toggleSelect, perms],
@@ -1912,6 +1911,12 @@ export function CorreosClient() {
             : []
         }
         onClose={() => setAiMenuSheet(null)}
+      />
+      <CorreoRowActionSheet
+        open={rowActionSheet !== null}
+        title="Acciones del correo"
+        items={rowActionSheet ? contextItems(rowActionSheet) : []}
+        onClose={() => setRowActionSheet(null)}
       />
       {aiPanel && (
         <CorreoAiActionPanel

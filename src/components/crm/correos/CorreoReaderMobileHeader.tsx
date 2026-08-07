@@ -57,7 +57,7 @@ export function CorreoReaderMobileHeader({
   return (
     <header
       className={cn(
-        "sticky top-0 z-20 shrink-0 px-1.5 pt-[calc(env(safe-area-inset-top)+0.25rem)] lg:hidden",
+        "sticky top-0 z-20 shrink-0 px-1.5 pt-[calc(env(safe-area-inset-top)+0.25rem)]",
         "transition-[background-color,border-color,backdrop-filter] duration-200 [transition-timing-function:cubic-bezier(.22,1,.36,1)] motion-reduce:transition-none",
         scrolled
           ? "opai-glass-strong rounded-none border-0 border-b border-ds-border-subtle"

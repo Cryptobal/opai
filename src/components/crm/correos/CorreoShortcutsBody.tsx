@@ -92,7 +92,9 @@ export function CorreoShortcutsBody({ config, onConfig }: Props) {
     <div className="space-y-3">
       <p className="text-[12px] text-ds-text-3">
         Tocá un atajo y presioná la tecla (o combo ⌘/Ctrl) que quieras
-        asignarle. Las flechas ↑/↓ siempre navegan entre correos.
+        asignarle. Las flechas ↑/↓ siempre navegan entre correos. En iPad sin
+        teclado físico usá deslizar o mantener presionado un correo en la lista;
+        con el correo abierto, los íconos Archivar y Eliminar están arriba.
       </p>
       <div className="space-y-3">
         <div className="space-y-1">
