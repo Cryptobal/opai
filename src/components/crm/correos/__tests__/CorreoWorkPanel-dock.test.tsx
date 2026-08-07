@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, cleanup } from "@testing-library/react";
 import {
   CORREO_COPILOT_DOCK_WIDTH_VAR,
+  COPILOT_DOCK_DESKTOP_MQ,
   DOCK_CLAIM_PLAN,
   claimDockWidth,
   resetDockWidthClaims,
@@ -59,7 +60,7 @@ describe("CorreoWorkPanel dock", () => {
     Object.defineProperty(window, "matchMedia", {
       writable: true,
       value: (query: string) => ({
-        matches: query.includes("min-width: 1024px"),
+        matches: query === COPILOT_DOCK_DESKTOP_MQ,
         media: query,
         addEventListener: vi.fn(),
         removeEventListener: vi.fn(),
@@ -90,8 +91,7 @@ describe("CorreoWorkPanel dock", () => {
 
     const dialog = screen.getByRole("dialog", { name: "Copiloto" });
     expect(dialog.getAttribute("aria-modal")).toBe("false");
-    // Scrim mobile existe pero oculto en lg; no hay wrapper inset-0 con bg-black/40 desktop.
-    expect(dialog.className).toContain("lg:right-0");
+    expect(dialog.className).toContain("right-0");
     expect(
       document.documentElement.style.getPropertyValue(CORREO_COPILOT_DOCK_WIDTH_VAR),
     ).toBe("430px");
@@ -121,5 +121,40 @@ describe("CorreoWorkPanel dock", () => {
     expect(
       document.documentElement.style.getPropertyValue(CORREO_COPILOT_DOCK_WIDTH_VAR),
     ).toBe("520px");
+  });
+
+  it("en iPad (touch) abre como sheet con scrim y sin reservar ancho", () => {
+    Object.defineProperty(window, "matchMedia", {
+      writable: true,
+      value: (query: string) => ({
+        matches: false,
+        media: query,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+      }),
+    });
+
+    const { container: _container } = render(
+      <CorreoWorkPanel
+        open
+        initialTab="contexto"
+        detail={detail}
+        onClose={vi.fn()}
+        onOpenAiLead={vi.fn()}
+        onAssociate={vi.fn()}
+        onRefresh={vi.fn()}
+      />,
+    );
+
+    const dialog = screen.getByRole("dialog", { name: "Copiloto" });
+    expect(dialog.getAttribute("aria-modal")).toBe("true");
+    expect(dialog.className).toContain("rounded-t-2xl");
+    expect(document.body.querySelector(".bg-black\\/40")).toBeTruthy();
+    expect(
+      document.documentElement.style.getPropertyValue(CORREO_COPILOT_DOCK_WIDTH_VAR),
+    ).toBe("");
   });
 });

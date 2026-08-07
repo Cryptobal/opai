@@ -13,10 +13,14 @@ import { CorreoWorkSummary } from "./CorreoWorkSummary";
 import { CorreoAttachments } from "./CorreoAttachments";
 import {
   CORREO_DOCK_WIDTH,
+  COPILOT_DOCK_DESKTOP_MQ,
   DOCK_CLAIM_COPILOT,
   claimDockWidth,
+  isCopilotDockDesktop,
   releaseDockWidth,
+  useCopilotDockDesktop,
 } from "./correo-copilot-dock";
+import { cn } from "@/lib/utils";
 import { WORK_TABS, resolveWorkTab, type WorkTab } from "./work-panel-tabs";
 import type { CorreoDetail } from "@/modules/crm/email/correos.types";
 import type { CorreoAiCommandId } from "@/modules/crm/email/correo-ai-commands";
@@ -65,6 +69,7 @@ export function CorreoWorkPanel({
   const [closing, setClosing] = useState(false);
   const [attachmentsOpen, setAttachmentsOpen] = useState(false);
   const sheetRef = useRef<HTMLDivElement | null>(null);
+  const dockDesktop = useCopilotDockDesktop();
   const perms = useEffectivePermissions();
   const threadId = detail.thread.id;
 
@@ -89,12 +94,11 @@ export function CorreoWorkPanel({
       return;
     }
     const apply = () => {
-      const desktop = window.matchMedia("(min-width: 1024px)").matches;
-      if (desktop) claimDockWidth(DOCK_CLAIM_COPILOT, CORREO_DOCK_WIDTH);
+      if (isCopilotDockDesktop()) claimDockWidth(DOCK_CLAIM_COPILOT, CORREO_DOCK_WIDTH);
       else releaseDockWidth(DOCK_CLAIM_COPILOT);
     };
     apply();
-    const mq = window.matchMedia("(min-width: 1024px)");
+    const mq = window.matchMedia(COPILOT_DOCK_DESKTOP_MQ);
     mq.addEventListener("change", apply);
     return () => {
       mq.removeEventListener("change", apply);
@@ -106,7 +110,7 @@ export function CorreoWorkPanel({
     if (closing) return;
     setClosing(true);
     const el = sheetRef.current;
-    if (el && typeof window !== "undefined" && window.matchMedia("(max-width: 1023px)").matches) {
+    if (el && typeof window !== "undefined" && !dockDesktop) {
       el.style.transition = "transform 180ms ease-out";
       el.style.transform = "translate3d(0, 110%, 0)";
       window.setTimeout(() => onClose(), 180);
@@ -156,35 +160,44 @@ export function CorreoWorkPanel({
 
   return createPortal(
     <>
-      {/* Scrim solo mobile — en desktop el dock no oscurece ni bloquea la bandeja. */}
-      <div
-        className="fixed inset-0 z-[54] bg-black/40 lg:hidden"
-        onClick={requestClose}
-        aria-hidden
-      />
+      {/* Scrim en sheet (móvil / iPad). En desktop fino el dock no bloquea la bandeja. */}
+      {!dockDesktop ? (
+        <div
+          className="fixed inset-0 z-[54] bg-black/40"
+          onClick={requestClose}
+          aria-hidden
+        />
+      ) : null}
       <div
         ref={sheetRef}
         role="dialog"
-        aria-modal="false"
+        aria-modal={dockDesktop ? "false" : "true"}
         aria-label="Copiloto"
-        className="fixed z-[55] flex flex-col overflow-hidden border-ds-border-default bg-ds-surface-1 max-lg:inset-x-0 max-lg:bottom-0 max-lg:mt-auto max-lg:h-[90dvh] max-lg:max-h-[90dvh] max-lg:w-full max-lg:rounded-t-2xl max-lg:border-t max-lg:shadow-2xl lg:top-0 lg:right-0 lg:h-full lg:w-[430px] lg:border-l lg:shadow-[-8px_0_30px_-12px_rgba(0,0,0,0.25)]"
+        className={cn(
+          "fixed z-[55] flex flex-col overflow-hidden border-ds-border-default bg-ds-surface-1",
+          dockDesktop
+            ? "top-0 right-0 h-full w-[430px] border-l shadow-[-8px_0_30px_-12px_rgba(0,0,0,0.25)]"
+            : "inset-x-0 bottom-0 mt-auto h-[90dvh] max-h-[90dvh] w-full rounded-t-2xl border-t shadow-2xl",
+        )}
         style={
           closing
             ? { transition: "transform 180ms ease-out" }
             : undefined
         }
       >
-        <button
-          type="button"
-          className="mx-auto mt-2 flex h-11 w-16 shrink-0 items-center justify-center lg:hidden"
-          aria-label="Cerrar panel"
-          onClick={requestClose}
-          onTouchStart={swipe.onTouchStart}
-          onTouchMove={swipe.onTouchMove}
-          onTouchEnd={swipe.onTouchEnd}
-        >
-          <span className="h-1 w-10 rounded-full bg-ds-surface-3" aria-hidden />
-        </button>
+        {!dockDesktop ? (
+          <button
+            type="button"
+            className="mx-auto mt-2 flex h-11 w-16 shrink-0 items-center justify-center"
+            aria-label="Cerrar panel"
+            onClick={requestClose}
+            onTouchStart={swipe.onTouchStart}
+            onTouchMove={swipe.onTouchMove}
+            onTouchEnd={swipe.onTouchEnd}
+          >
+            <span className="h-1 w-10 rounded-full bg-ds-surface-3" aria-hidden />
+          </button>
+        ) : null}
         <header
           className="shrink-0 border-b border-ds-border-subtle px-3 py-2.5"
           onTouchStart={swipe.onTouchStart}

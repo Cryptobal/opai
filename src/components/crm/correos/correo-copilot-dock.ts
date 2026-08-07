@@ -1,5 +1,28 @@
+import { useEffect, useState } from "react";
+
 /** Ancho reservado a la derecha cuando Copiloto / Plan de acciones está abierto en desktop. */
 export const CORREO_COPILOT_DOCK_WIDTH_VAR = "--correo-copilot-dock-width";
+
+/** Media query: dock lateral solo en desktop fino (mouse). iPad/tablet → sheet cerrable. */
+export const COPILOT_DOCK_DESKTOP_MQ = "(min-width: 1280px) and (hover: hover) and (pointer: fine)";
+
+export function isCopilotDockDesktop(): boolean {
+  if (typeof window === "undefined") return false;
+  return window.matchMedia(COPILOT_DOCK_DESKTOP_MQ).matches;
+}
+
+/** true = dock lateral persistente; false = bottom-sheet con scrim (móvil / iPad). */
+export function useCopilotDockDesktop(): boolean {
+  const [dock, setDock] = useState(isCopilotDockDesktop);
+  useEffect(() => {
+    const mq = window.matchMedia(COPILOT_DOCK_DESKTOP_MQ);
+    const apply = () => setDock(mq.matches);
+    apply();
+    mq.addEventListener("change", apply);
+    return () => mq.removeEventListener("change", apply);
+  }, []);
+  return dock;
+}
 
 /** Ancho fijo del dock Copiloto en desktop (px). */
 export const CORREO_DOCK_WIDTH = 430;
