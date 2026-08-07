@@ -11,10 +11,10 @@
  *   4. Inserta en finance_bank_transactions con
  *      apiTransactionId = "web4leads:<externalId>" → idempotente.
  *   5. Actualiza saldo + apiLastSync de la cuenta.
- *   6. Notifica a admins (movimientos importados, o cuenta no reconocida).
- *
- * NO corre auto-match (consistente con /api/inbound/cartola): los movimientos
- * entran UNMATCHED y el usuario los concilia desde Bancos → Reglas.
+ *   6. Corre auto-match (DTE → turnos extra → reglas) sobre los
+ *      movimientos recién insertados — mismo comportamiento que el
+ *      import CSV desde la UI.
+ *   7. Notifica a admins (movimientos importados, o cuenta no reconocida).
  *
  * Env: WEB4LEADS_MASTER_SECRET (del que se derivan los secrets per-tenant).
  *
@@ -41,6 +41,8 @@ import { notify } from "@/lib/notifications/notify";
 import { buildBankMovementsBody } from "@/lib/finance/bank-movements-summary";
 import { buildBankMovementsSlackData } from "@/modules/finance/banking/slack-movements-payload";
 import { syncCurrentBalanceFromMovements } from "@/modules/finance/banking/bank-balance.service";
+import { bulkAutoMatchBankTransactions } from "@/modules/finance/banking/auto-match-payment.service";
+import { resolveInboundActorId } from "@/modules/finance/banking/inbound-actor";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -261,24 +263,53 @@ export async function POST(
     });
   }
 
-  // 8. Notificación (fire-and-forget; un fallo no debe romper el 200)
+  // 8. Auto-match + notificación (fire-and-forget; un fallo no debe romper el 200)
   if (imported > 0) {
     const summary = `${imported} movimiento(s) en cta. ${account.accountNumber}${duplicates > 0 ? ` · ${duplicates} duplicados ignorados` : ""}`;
 
-    // Blocks interactivos de conciliación (best-effort): tomamos las filas
-    // recién insertadas (las más nuevas por createdAt) para tener sus ids DB,
-    // computamos el match exacto y adjuntamos `__customBlocks`. Si algo falla,
+    // Filas recién insertadas: por apiTransactionId del lote + createdAt ≥
+    // startedAt (evita tomar filas viejas si hay race entre webhooks).
+    const inserted = await prisma.financeBankTransaction.findMany({
+      where: {
+        tenantId,
+        bankAccountId: account.id,
+        apiTransactionId: { in: data.map((d) => d.apiTransactionId) },
+        createdAt: { gte: new Date(startedAt) },
+      },
+      select: {
+        id: true,
+        transactionDate: true,
+        description: true,
+        amount: true,
+      },
+    });
+
+    // Mismo motor que el import CSV: DTE → turno extra → reglas.
+    // Soft-fail: el webhook ya persistió; no reintentar por un match fallido.
+    if (inserted.length > 0) {
+      try {
+        const actorId = await resolveInboundActorId(tenantId);
+        if (actorId) {
+          const am = await bulkAutoMatchBankTransactions(
+            tenantId,
+            inserted.map((t) => t.id),
+            actorId,
+          );
+          log(
+            `auto-match tenant=${tenantId} scanned=${am.total} dte=${am.matched} te=${am.turnoExtraMatched} rules=${am.ruleMatched} suggested=${am.ruleSuggested}`,
+          );
+        } else {
+          log(`auto-match omitido: sin admin activo tenant=${tenantId}`);
+        }
+      } catch (amErr) {
+        console.error("[inbound/web4leads] auto-match error:", amErr);
+      }
+    }
+
+    // Blocks interactivos de conciliación (best-effort). Si algo falla,
     // `notify` sigue con el texto plano de siempre — nunca rompemos el webhook.
-    // Nota: los blocks listan solo los movimientos NUEVOS (accionables); el
-    // cuerpo de texto de fallback sigue listando todo el lote.
     let slackData: Record<string, unknown> = {};
     try {
-      const inserted = await prisma.financeBankTransaction.findMany({
-        where: { tenantId, bankAccountId: account.id },
-        orderBy: { createdAt: "desc" },
-        take: imported,
-        select: { id: true, transactionDate: true, description: true, amount: true },
-      });
       slackData = await buildBankMovementsSlackData(
         tenantId,
         `${account.bankName} ${account.accountNumber}`,
