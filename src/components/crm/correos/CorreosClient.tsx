@@ -39,6 +39,7 @@ import { CorreoSearchChips } from "./CorreoSearchChips";
 import { CorreoSearchScopeHint } from "./CorreoSearchScopeHint";
 import type { EmailIndexCoverage } from "@/modules/crm/email/email-index-coverage";
 import { chipsFromQuery, removeChipFromQuery } from "@/lib/search-tokens";
+import { useCorreoFocusScope } from "./useCorreoFocusScope";
 import { useCorreoTouchUi } from "./correo-touch-ui";
 import { CorreosMobileDrawer } from "./CorreosMobileDrawer";
 import { CorreosPullToRefresh } from "./CorreosPullToRefresh";
