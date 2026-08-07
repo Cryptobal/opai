@@ -362,8 +362,8 @@ export function BankTxReconcileSheet({
     [],
   );
   const [detailOpen, setDetailOpen] = useState(false);
-  /** En móvil: contrae resumen del mov + asignación para liberar espacio de búsqueda. */
-  const [headerExpanded, setHeaderExpanded] = useState(true);
+  /** En móvil: contraído por defecto para liberar altura a la lista de facturas. */
+  const [headerExpanded, setHeaderExpanded] = useState(false);
   const searchAbortRef = useRef<AbortController | null>(null);
   const [filterMinAmount, setFilterMinAmount] = useState("");
   const [filterMaxAmount, setFilterMaxAmount] = useState("");
@@ -667,9 +667,12 @@ export function BankTxReconcileSheet({
     };
   }, [open, tx, loadCandidates]);
 
-  // Cabecera de movimientos: colapsada por defecto en móvil al abrir.
+  // Cabecera: colapsada por defecto en móvil al abrir (lista usa toda la altura).
   useEffect(() => {
-    if (open) setMovsOpen(!isMobile);
+    if (open) {
+      setMovsOpen(!isMobile);
+      setHeaderExpanded(!isMobile);
+    }
   }, [open, isMobile]);
 
   /** Carga los links existentes en `links` (state local) y entra a modo edit. */
@@ -1388,57 +1391,112 @@ export function BankTxReconcileSheet({
             </div>
           </div>
         )}
-        {/* En móvil: contraer resumen del mov + asignación para dar espacio
-            a la búsqueda de facturas. Desktop siempre expandido. */}
+        {/* En móvil: barra compacta sticky con monto + progreso. Expandir
+            revela resumen + AllocationRail. Desktop siempre expandido. */}
         {isMobile && (mode === "create" || mode === "edit") && (
           <button
             type="button"
             onClick={() => setHeaderExpanded((v) => !v)}
             aria-expanded={headerExpanded}
-            className="w-full flex items-center justify-between gap-2 min-h-11 rounded-lg border border-ds-border-default bg-ds-surface-1 px-3 py-2 text-left"
+            aria-label={
+              headerExpanded
+                ? "Contraer resumen del movimiento"
+                : "Expandir resumen del movimiento"
+            }
+            className="w-full rounded-lg border border-ds-border-default bg-ds-surface-1 px-3 py-2 text-left space-y-1.5"
           >
-            <span className="min-w-0 flex-1">
-              <span className="block text-[12px] font-mono uppercase tracking-[0.08em] text-ds-text-3">
-                {headerExpanded ? "Resumen del movimiento" : "Resumen"}
-              </span>
-              {!headerExpanded && (
-                <span className="block text-[13px] text-ds-text-1 truncate">
-                  <span
-                    className={cn(
-                      "font-mono font-semibold",
-                      isIncomeTx
-                        ? "text-status-ok-fg"
-                        : "text-status-danger-fg",
-                    )}
-                  >
-                    {fmtCLP.format(totalAmountSigned)}
+            <div className="flex items-center justify-between gap-2 min-h-11">
+              <span className="min-w-0 flex-1">
+                {headerExpanded ? (
+                  <span className="block text-[12px] font-mono uppercase tracking-[0.08em] text-ds-text-3">
+                    Resumen del movimiento
                   </span>
-                  {links.length > 0 && (
-                    <span className="text-ds-text-3">
-                      {" · "}
-                      {links.length} vínculo{links.length === 1 ? "" : "s"}
+                ) : (
+                  <>
+                    <span className="flex items-center gap-2 min-w-0">
+                      <span
+                        className={cn(
+                          "font-mono font-semibold text-[13px] tabular-nums shrink-0",
+                          isIncomeTx
+                            ? "text-status-ok-fg"
+                            : "text-status-danger-fg",
+                        )}
+                      >
+                        {fmtCLP.format(totalAmountSigned)}
+                      </span>
+                      <span
+                        className={cn(
+                          "inline-flex items-center rounded-full px-2 py-0.5 text-[12px] font-medium truncate",
+                          links.length === 0 &&
+                            "bg-ds-surface-2 text-ds-text-3 border border-ds-border-subtle",
+                          links.length > 0 &&
+                            overflow > 1 &&
+                            "bg-status-danger-soft text-status-danger-fg border border-status-danger-border",
+                          links.length > 0 &&
+                            overflow <= 1 &&
+                            remaining > 0.01 &&
+                            "bg-status-warn-soft text-status-warn-fg border border-status-warn-border",
+                          links.length > 0 &&
+                            overflow <= 1 &&
+                            remaining <= 0.01 &&
+                            "bg-status-ok-soft text-status-ok-fg border border-status-ok-border",
+                        )}
+                      >
+                        {links.length === 0
+                          ? "Sin asignar"
+                          : overflow > 1
+                            ? `Excede ${fmtCLP.format(overflow)}`
+                            : remaining > 0.01
+                              ? `Falta ${fmtCLP.format(remaining)}`
+                              : "Calza"}
+                      </span>
                     </span>
-                  )}
-                  {overflow > 1 && (
-                    <span className="text-status-danger-fg">
-                      {" · "}Excede {fmtCLP.format(overflow)}
+                    <span className="block text-[12px] text-ds-text-3 truncate mt-0.5">
+                      {fmtCLP.format(linksTotal)} / {fmtCLP.format(txAmountAbs)}
+                      {links.length > 0
+                        ? ` · ${links.length} vínculo${links.length === 1 ? "" : "s"}`
+                        : " · Tocá para ver detalle"}
                     </span>
-                  )}
-                  {remaining > 0.01 && overflow <= 1 && (
-                    <span className="text-status-warn-fg">
-                      {" · "}Falta {fmtCLP.format(remaining)}
-                    </span>
-                  )}
-                  {links.length > 0 && overflow <= 1 && remaining <= 0.01 && (
-                    <span className="text-status-ok-fg">{" · "}Calza</span>
-                  )}
-                </span>
+                  </>
+                )}
+              </span>
+              {headerExpanded ? (
+                <ChevronUp className="h-4 w-4 shrink-0 text-ds-text-3" />
+              ) : (
+                <ChevronDown className="h-4 w-4 shrink-0 text-ds-text-3" />
               )}
-            </span>
-            {headerExpanded ? (
-              <ChevronUp className="h-4 w-4 shrink-0 text-ds-text-3" />
-            ) : (
-              <ChevronDown className="h-4 w-4 shrink-0 text-ds-text-3" />
+            </div>
+            {!headerExpanded && (
+              <div
+                className="h-1.5 w-full overflow-hidden rounded-full bg-ds-surface-2 border border-ds-border-subtle"
+                aria-hidden
+              >
+                <div
+                  className={cn(
+                    "h-full transition-all",
+                    links.length === 0 && "bg-ds-surface-3",
+                    links.length > 0 && overflow > 1 && "bg-status-danger",
+                    links.length > 0 &&
+                      overflow <= 1 &&
+                      remaining > 0.01 &&
+                      "bg-status-warn",
+                    links.length > 0 &&
+                      overflow <= 1 &&
+                      remaining <= 0.01 &&
+                      "bg-status-ok",
+                  )}
+                  style={{
+                    width: `${
+                      txAmountAbs > 0
+                        ? Math.min(
+                            100,
+                            Math.round((linksTotal / txAmountAbs) * 100),
+                          )
+                        : 0
+                    }%`,
+                  }}
+                />
+              </div>
             )}
           </button>
         )}
