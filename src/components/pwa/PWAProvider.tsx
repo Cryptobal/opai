@@ -1,6 +1,6 @@
 'use client';
 import { useServiceWorker } from '@/lib/pwa/use-service-worker';
-import { useIsTouchLayout } from '@/lib/breakpoints';
+import { useIsTouchLayout } from '@/hooks/useIsTouchLayout';
 import { installChunkLoadRecovery } from '@/lib/pwa/chunk-load-recovery';
 import { InAppNotificationProvider } from './InAppNotificationProvider';
 import { toast } from 'sonner';

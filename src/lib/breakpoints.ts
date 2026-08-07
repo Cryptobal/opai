@@ -1,7 +1,3 @@
-"use client";
-
-import { useMediaQuery } from "@/hooks/useMediaQuery";
-
 /** Breakpoints Tailwind por defecto — fuente única de verdad. */
 export const BP = { sm: 640, md: 768, lg: 1024, xl: 1280 } as const;
 
@@ -15,14 +11,9 @@ export const TOUCH_LAYOUT_MAX = BP.lg - 1; // 1023
 /** Media query canónica para layout táctil (shell móvil). */
 export const TOUCH_LAYOUT_QUERY = `(max-width: ${TOUCH_LAYOUT_MAX}px)`;
 
-/**
- * True cuando el viewport está en el rango del shell táctil (`< lg`).
- * Usar para chrome, sheets, toasts y gestos que deben coincidir con
- * MobileIsland / BottomNav (visibles bajo `lg:hidden`).
- *
- * No usar User-Agent ni detección de iPad: en Split View / Stage Manager
- * el layout debe reaccionar al ancho de la ventana.
- */
-export function useIsTouchLayout(): boolean {
-  return useMediaQuery(TOUCH_LAYOUT_QUERY);
-}
+/** Umbrales de la isla móvil (ocultar chat / búsqueda en viewports estrechos). */
+export const ISLAND_HIDE_CHAT_MAX = 360;
+export const ISLAND_HIDE_SEARCH_MAX = 320;
+export const ISLAND_HIDE_CHAT_QUERY = `(max-width: ${ISLAND_HIDE_CHAT_MAX}px)`;
+export const ISLAND_HIDE_SEARCH_QUERY = `(max-width: ${ISLAND_HIDE_SEARCH_MAX}px)`;
+

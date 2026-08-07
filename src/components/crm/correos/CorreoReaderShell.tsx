@@ -11,6 +11,7 @@ import {
   type PointerEventHandler,
   type ReactNode,
 } from "react";
+import { TOUCH_LAYOUT_QUERY } from "@/lib/breakpoints";
 import { createPortal } from "react-dom";
 import { ChevronLeft } from "lucide-react";
 import { Surface } from "@/components/opai-ds";
@@ -74,12 +75,12 @@ export function CorreoReaderShell({
   const [isNarrowViewport, setIsNarrowViewport] = useState(
     () =>
       typeof window !== "undefined" &&
-      window.matchMedia("(max-width: 1023px)").matches,
+      window.matchMedia(TOUCH_LAYOUT_QUERY).matches,
   );
   const touchUi = useCorreoTouchUi();
   const useMobileChrome = isNarrowViewport || touchUi;
   useEffect(() => {
-    const media = window.matchMedia("(max-width: 1023px)");
+    const media = window.matchMedia(TOUCH_LAYOUT_QUERY);
     const update = () => setIsNarrowViewport(media.matches);
     update();
     media.addEventListener("change", update);

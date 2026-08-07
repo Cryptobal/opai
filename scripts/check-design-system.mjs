@@ -1365,6 +1365,21 @@ const MIGRATED_PATHS = [
   "src/app/(app)/opai/perfil/page.tsx",
   "src/app/(app)/portales/[portalId]/ranking/page.tsx",
   "src/app/(app)/portales/page.tsx",
+  // Baseline táctil — shell + portales + fuente de breakpoints (bloques 1–5).
+  // Solo paths limpios de drift tipográfico/color; el resto de call sites
+  // migrados al layout táctil siguen fuera hasta su pasada DS completa.
+  "src/lib/breakpoints.ts",
+  "src/hooks/useIsTouchLayout.ts",
+  "src/components/opai/AppShell.tsx",
+  "src/app/portal/terreno/layout.tsx",
+  "src/app/portal/guardia/layout.tsx",
+  "src/app/portal/cliente/layout.tsx",
+  "src/app/portal/supervisor/layout.tsx",
+  "src/app/portal/personas/layout.tsx",
+  "src/app/portal/marcacion/layout.tsx",
+  "src/app/portal/rondas/layout.tsx",
+  "src/app/portal/acceso/layout.tsx",
+  "src/app/global-error.tsx",
 ];
 
 // ───────────────────────────────────────────────────────────────────
@@ -1640,6 +1655,105 @@ const RULES = [
     fix: "Usar tintClasses(tint) de @/lib/entity-tint (mapa literal estático).",
     severity: "error",
     scope: "tsx",
+  },
+
+  // ─── Baseline táctil ─────────────────────────────────────────
+  {
+    id: "no-vh-height",
+    // 100vh se corta con la barra dinámica de iOS Safari; usar dvh.
+    // Patrón acotado a 100vh (el defecto sistémico); otros Nvh → warn vía
+    // migraciones graduales.
+    test: /100vh/g,
+    message: "Usar 100dvh (o Ndvh) en vez de 100vh — iOS Safari recorta con la barra dinámica.",
+    fix: "Reemplazar 100vh → 100dvh (o calc(100dvh - …)).",
+    severity: "error",
+    scope: "any",
+    pathExclude: /src\/(app\/\(marketing\)|components\/marketing)\//,
+  },
+  {
+    id: "no-hover-none-query",
+    test: /\(hover:\s*none\)\s*and\s*\(pointer:\s*coarse\)/g,
+    message: "Media query táctil incorrecta para iPadOS con trackpad.",
+    fix: "Usar (any-pointer: coarse) — cubre touch aunque el puntero primario sea fine.",
+    severity: "error",
+    scope: "css",
+  },
+  {
+    id: "no-hardcoded-mobile-mq",
+    test: /matchMedia\(\s*["'`]?\(max-width:/g,
+    message: "matchMedia con max-width hardcodeado — desalinea el shell táctil.",
+    fix: "Usar useIsTouchLayout() o TOUCH_LAYOUT_QUERY / BP.* de @/lib/breakpoints.",
+    severity: "warn",
+    scope: "tsx",
+    allowIfContext: (_match, content, index, filePath) => {
+      // Templates dinámicos con ${breakpoint} (hook canónico) OK.
+      const slice = content.slice(index, index + 80);
+      if (slice.includes("${")) return true;
+      if (filePath && /useIsMobileViewport\.ts$/.test(filePath)) return true;
+      return false;
+    },
+  },
+  {
+    id: "no-raw-mobile-breakpoint",
+    test: /useIsMobileViewport\(\s*76[78]\s*\)/g,
+    message: "Breakpoint móvil literal — preferir BP.md o useIsTouchLayout().",
+    fix: "useIsMobileViewport(BP.md) para planillas; useIsTouchLayout() para chrome del shell.",
+    severity: "warn",
+    scope: "tsx",
+    pathExclude: /__tests__|\.test\./,
+  },
+  {
+    id: "no-fixed-width-overflow",
+    // (?<![-\w]) evita falsos positivos en max-w-[Npx] / sm:max-w-[Npx].
+    test: /(?<![-\w])(?:min-w-|w-)\[(\d{3,4})px\]/g,
+    message: "Ancho fijo >343px sin variante responsive — desborda en 375px.",
+    fix: "Usar w-[min(Npx,calc(100vw-2rem))] o prefijo sm:/md:/lg:.",
+    severity: "warn",
+    scope: "tsx",
+    pathExclude: /src\/(components\/marketing|app\/\(marketing\)|components\/welcome|components\/auth)\//,
+    allowIfContext: (match, content, index) => {
+      const n = Number(match[1]);
+      if (!Number.isFinite(n) || n <= 343) return true;
+      // Prefijo responsive inmediatamente antes (sm:w-[…], lg:min-w-[…]).
+      const before = content.slice(Math.max(0, index - 8), index);
+      if (/(?:sm|md|lg|xl|2xl|max):$/.test(before)) return true;
+      const lineStart = content.lastIndexOf("\n", index) + 1;
+      const lineEnd = content.indexOf("\n", index);
+      const line = content.slice(lineStart, lineEnd === -1 ? undefined : lineEnd);
+      // Docks desktop (chat/notif / intelligence) — no montan bajo 375px.
+      if (/\bhidden\s+xl:flex\b/.test(line) || /\bxl:flex\b/.test(line)) return true;
+      if (/\bfixed\b/.test(line) && /\btop-0\b/.test(line) && /\bright-0\b/.test(line) && /\bh-full\b/.test(line)) {
+        return true;
+      }
+      if (/\bmax-w-\[/.test(line) && /(?:min-w-|w-)\[/.test(match[0]) === false) return true;
+      // Contenedores con techo viewport ya seguro.
+      if (/w-\[min\(/.test(line) || /max-w-\[min\(/.test(line) || /max-w-\[calc\(100vw/.test(line)) return true;
+      // Scroller horizontal intencional (cashflow).
+      if (match[0].startsWith("min-w-[720")) return true;
+      // max-w / sm:max-w en la misma utilidad compuesta (sm:max-w-[640px]).
+      if (/\b(?:sm:|md:|lg:)?max-w-\[/.test(line)) return true;
+      return false;
+    },
+  },
+  {
+    id: "require-safe-area-bottom-sheet",
+    test: /inset-x-0\s+bottom-0/g,
+    message: "Bottom sheet sin safe-area-inset-bottom — botones bajo el home indicator.",
+    fix: "Añadir pb-[max(env(safe-area-inset-bottom),1.5rem)] (o app-safe-b) en el mismo bloque de clases.",
+    severity: "warn",
+    scope: "tsx",
+    pathExclude: /__tests__|\.test\.|opai-ds-playground/,
+    allowIfContext: (match, content, index) => {
+      // Misma sentencia de className / template (~500 chars hacia adelante).
+      const window = content.slice(index, index + 500);
+      if (window.includes("safe-area-inset-bottom")) return true;
+      if (window.includes("app-safe-b")) return true;
+      // Barras de progreso / underlays de 2px no son sheets interactivos.
+      if (/h-\[2px\]/.test(window.slice(0, 120))) return true;
+      // Banners / toolbars fijos al fondo (no sheets con footer de acciones).
+      if (/border-t border-status-/.test(window.slice(0, 160))) return true;
+      return false;
+    },
   },
 
   // ─── OpaiSurface deprecated post-cleanup ─────────────────────

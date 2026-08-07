@@ -8,7 +8,7 @@ import { useNotificationSidePanelContext } from "./NotificationSidePanelContext"
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useIsIOS } from "@/hooks/usePlatform";
-import { useIsTouchLayout } from "@/lib/breakpoints";
+import { useIsTouchLayout } from "@/hooks/useIsTouchLayout";
 import { SwipeableNotificationItem } from "./SwipeableNotificationItem";
 import { PullToRefresh } from "./PullToRefresh";
 import {

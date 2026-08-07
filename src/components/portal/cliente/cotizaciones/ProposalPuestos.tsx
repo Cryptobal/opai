@@ -96,7 +96,7 @@ export function ProposalPuestos({
 
       {/* Desktop: table */}
       <div className="hidden md:block overflow-x-auto">
-        <table className="w-full text-xs min-w-[540px]">
+        <table className="w-full text-xs min-w-0 sm:min-w-[540px]">
           <thead>
             <tr className="text-muted-foreground uppercase text-[10px] tracking-wider border-b border-border">
               <th className="text-left py-2 pr-3 font-medium">Puesto</th>

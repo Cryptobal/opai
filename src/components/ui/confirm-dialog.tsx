@@ -51,7 +51,7 @@ export function ConfirmDialog({
             // z-[80] > modales de detalle (p. ej. TareaDetailSheet z-[70]) para
             // que "Eliminar" / confirmaciones no queden detrás del sheet abierto.
             "fixed z-[80] grid w-full max-w-md gap-4 border border-border bg-card p-6 shadow-xl duration-200",
-            "inset-x-0 bottom-0 rounded-t-2xl",
+            "inset-x-0 bottom-0 rounded-t-2xl pb-[max(env(safe-area-inset-bottom),1.5rem)] sm:pb-6",
             "sm:inset-auto sm:left-[50%] sm:top-[50%] sm:bottom-auto sm:translate-x-[-50%] sm:translate-y-[-50%] sm:rounded-lg",
             // Liquid Glass (mobile < lg): mismo material que DialogContent. Sin
             // efecto en desktop (conserva bg-card).

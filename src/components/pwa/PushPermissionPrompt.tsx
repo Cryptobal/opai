@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { useServiceWorker } from '@/lib/pwa/use-service-worker';
 import { subscribeToPush } from '@/lib/pwa/push-client';
 import { isIOS, isStandalone, isPushSupported } from '@/lib/pwa/ios-utils';
-import { useIsTouchLayout } from '@/lib/breakpoints';
+import { useIsTouchLayout } from '@/hooks/useIsTouchLayout';
 import { Bell, X, Share } from 'lucide-react';
 
 interface Props {

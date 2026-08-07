@@ -8,7 +8,7 @@ import { useIsMobileViewport } from "@/hooks/useIsMobileViewport";
  * Used by legacy PWA callers; prefer `useIsTouchLayout()` for chrome
  * aligned with the shell (`lg`).
  *
- * @deprecated Preferir `useIsTouchLayout` de `@/lib/breakpoints`.
+ * @deprecated Preferir `useIsTouchLayout` de `@/hooks/useIsTouchLayout`.
  */
 export function useIsMobile(): boolean {
   return useIsMobileViewport(BP.md);

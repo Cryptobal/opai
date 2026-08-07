@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowLeft, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useIsTouchLayout } from '@/lib/breakpoints';
+import { useIsTouchLayout } from '@/hooks/useIsTouchLayout';
 import { useSwipeGesture } from "./hooks/useSwipeGesture";
 import type { ChatMessageData, SendMessagePayload, ChatSenderType } from "@/lib/chat-types";
 import { usePusher } from "./hooks/usePusher";

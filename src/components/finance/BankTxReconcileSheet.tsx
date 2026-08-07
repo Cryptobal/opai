@@ -63,7 +63,7 @@ import {
   ChevronUp,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useIsTouchLayout } from "@/lib/breakpoints";
+import { useIsTouchLayout } from "@/hooks/useIsTouchLayout";
 import { CategoryMappingDialog } from "./cashflow/CategoryMappingDialog";
 import { SaveAsRuleModal } from "./SaveAsRuleModal";
 import { DTE_TYPE_SHORT_LABELS } from "@/components/finance/dtes/shared/constants";

@@ -87,7 +87,7 @@ export function CorreoAssociationsSheet({
         role="dialog"
         aria-modal="true"
         aria-label="Asociaciones"
-        className="fixed inset-x-0 bottom-0 z-[55] flex max-h-[85dvh] flex-col overflow-hidden rounded-t-2xl border-t border-ds-border-default bg-ds-surface-1 shadow-2xl lg:hidden"
+        className="fixed inset-x-0 bottom-0 z-[55] flex max-h-[85dvh] pb-[max(env(safe-area-inset-bottom),1.5rem)] flex-col overflow-hidden rounded-t-2xl border-t border-ds-border-default bg-ds-surface-1 shadow-2xl lg:hidden"
         style={closing ? { transition: "transform 180ms ease-out" } : undefined}
       >
         <button

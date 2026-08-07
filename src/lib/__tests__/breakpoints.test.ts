@@ -4,8 +4,8 @@ import {
   BP,
   TOUCH_LAYOUT_MAX,
   TOUCH_LAYOUT_QUERY,
-  useIsTouchLayout,
 } from "@/lib/breakpoints";
+import { useIsTouchLayout } from "@/hooks/useIsTouchLayout";
 
 describe("breakpoints", () => {
   it("expone los breakpoints Tailwind por defecto", () => {

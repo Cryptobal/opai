@@ -390,7 +390,7 @@ export function SearchableSelect({
                   // Liquid Glass (mobile): bottom sheet con blur fuerte.
                   "opai-ios-surface-sheet-bottom",
                   "animate-in slide-in-from-bottom duration-200",
-                  "max-h-[85dvh]",
+                  "max-h-[85dvh] pb-[max(env(safe-area-inset-bottom),1.5rem)]",
                 )}
                 style={
                   keyboardOffset > 0

@@ -10,6 +10,7 @@ import { useGeolocation } from "@/lib/patrullaje/use-geolocation";
 import { CheckpointTasksEditor, type TaskDraft } from "./checkpoint-tasks-editor";
 import { generateQrsPdf, generateQrsZip } from "@/lib/qr-export";
 import { toast } from "sonner";
+import { BP } from "@/lib/breakpoints";
 
 /* ------------------------------------------------------------------ */
 /* Types                                                               */
@@ -160,7 +161,7 @@ export function CheckpointMapCreator({
   const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
-    const m = window.matchMedia("(max-width: 767px)");
+    const m = window.matchMedia(`(max-width: ${BP.md - 1}px)`);
     setIsMobile(m.matches);
     const on = () => setIsMobile(m.matches);
     m.addEventListener("change", on);

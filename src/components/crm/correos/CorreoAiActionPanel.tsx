@@ -10,6 +10,7 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
 } from "react";
+import { TOUCH_LAYOUT_QUERY } from "@/lib/breakpoints";
 import { createPortal } from "react-dom";
 import { AlertTriangle, Loader2, Sparkles, X } from "lucide-react";
 import { toast } from "sonner";
@@ -556,7 +557,7 @@ export function CorreoAiActionPanel({
     if (closing) return;
     setClosing(true);
     const el = sheetRef.current;
-    if (el && typeof window !== "undefined" && window.matchMedia("(max-width: 1023px)").matches) {
+    if (el && typeof window !== "undefined" && window.matchMedia(TOUCH_LAYOUT_QUERY).matches) {
       el.style.transition = "transform 180ms ease-out";
       el.style.transform = "translate3d(0, 110%, 0)";
       window.setTimeout(() => onClose(), 180);

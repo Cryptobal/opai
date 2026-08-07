@@ -10,6 +10,7 @@ import { DetailFieldDisplay } from "./DetailField";
 import { InlineFieldSheet } from "./InlineFieldSheet";
 import { useInlineFieldSave } from "./useInlineFieldSave";
 import type { NormalizeResult } from "@/lib/validations/field-normalizers";
+import { BP } from "@/lib/breakpoints";
 
 export type InlineFieldType =
   | "text"
@@ -59,7 +60,7 @@ function useIsNarrow() {
   const [narrow, setNarrow] = useState(false);
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const mq = window.matchMedia("(max-width: 639px)");
+    const mq = window.matchMedia(`(max-width: ${BP.sm - 1}px)`);
     const update = () => setNarrow(mq.matches);
     update();
     mq.addEventListener("change", update);

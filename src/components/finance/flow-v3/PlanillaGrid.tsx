@@ -10,6 +10,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
   ContextMenu, ContextMenuContent, ContextMenuTrigger,
 } from "@/components/ui/context-menu";
+import { BP } from "@/lib/breakpoints";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -1402,7 +1403,7 @@ export function PlanillaGrid({
     const el = scroller.current;
     if (!el) return;
     anchoredRef.current = true;
-    if (window.matchMedia("(max-width: 767px)").matches) {
+    if (window.matchMedia(`(max-width: ${BP.md - 1}px)`).matches) {
       scrollToWeek(el, anchorTargetWeek(data), false);
     }
   }, [data, scroller]);

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { showUndo } from "@/components/opai-ds";
-import { useIsTouchLayout } from "@/lib/breakpoints";
+import { useIsTouchLayout } from "@/hooks/useIsTouchLayout";
 import { canDeleteTarea } from "@/lib/productividad-task-ownership";
 import { useTareas } from "./useTareas";
 import { useTareasKeyboard } from "./useTareasKeyboard";

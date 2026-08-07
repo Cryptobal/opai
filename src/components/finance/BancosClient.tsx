@@ -84,7 +84,7 @@ import {
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { confirmDialog } from "@/components/ui/confirm-service";
-import { useIsTouchLayout } from "@/lib/breakpoints";
+import { useIsTouchLayout } from "@/hooks/useIsTouchLayout";
 
 /* ── Types ── */
 

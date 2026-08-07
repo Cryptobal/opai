@@ -96,7 +96,7 @@ import { DteAgingBadge } from "@/components/finance/DteAgingBadge";
 import { MobileFAB } from "@/components/finance/mobile";
 import { PaginationControls } from "@/components/finance/PaginationControls";
 
-import { useIsTouchLayout } from "@/lib/breakpoints";
+import { useIsTouchLayout } from "@/hooks/useIsTouchLayout";
 import { cn } from "@/lib/utils";
 import { formatCalendarDateDisplay, formatDateOnlyUtcYmd } from "@/lib/fx-date";
 

@@ -23,7 +23,7 @@
  */
 
 import { useEffect, useMemo, useState } from "react";
-import { useIsTouchLayout } from "@/lib/breakpoints";
+import { useIsTouchLayout } from "@/hooks/useIsTouchLayout";
 import {
   TrendingUp,
   Banknote,

@@ -31,7 +31,7 @@ export function AnchorBanner({ anchor, currentOpening }: Props) {
   });
 
   return (
-    <div className="flex items-start gap-2 rounded-ds-md border border-status-info-border bg-status-info-soft/30 px-2.5 py-1.5 text-[11px] text-status-info-fg">
+    <div className="flex items-start gap-2 rounded-ds-md border border-status-info-border bg-status-info-soft/30 px-2.5 py-1.5 text-ds-caption text-status-info-fg">
       <Anchor className="h-3 w-3 shrink-0 mt-0.5" aria-hidden="true" />
       <div className="flex-1 min-w-0">
         <span>
@@ -40,7 +40,7 @@ export function AnchorBanner({ anchor, currentOpening }: Props) {
         </span>
         {anchor.isManual && (
           <span
-            className="ml-1.5 inline-flex items-center gap-1 rounded-ds-sm bg-status-warn-soft px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-status-warn-fg align-middle"
+            className="ml-1.5 inline-flex items-center gap-1 rounded-ds-sm bg-status-warn-soft px-1.5 py-0.5 text-ds-caption font-mono uppercase tracking-wider text-status-warn-fg align-middle"
             title={anchor.manualReason ?? undefined}
           >
             <Pencil className="h-2.5 w-2.5" />
@@ -48,7 +48,7 @@ export function AnchorBanner({ anchor, currentOpening }: Props) {
           </span>
         )}
         {anchor.isManual && anchor.manualReason && (
-          <div className="mt-0.5 text-[10px] italic opacity-80 truncate">
+          <div className="mt-0.5 text-ds-caption italic opacity-80 truncate">
             "{anchor.manualReason}"
           </div>
         )}

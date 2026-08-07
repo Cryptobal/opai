@@ -26,7 +26,7 @@ import { Plus, LayoutTemplate, GripVertical, LayoutList, Table2 } from "lucide-r
 import { cn } from "@/lib/utils";
 import { ServiceCard } from "./ServiceCard";
 import { PositionMatrixGrid } from "./PositionMatrixGrid";
-import { useIsTouchLayout } from "@/lib/breakpoints";
+import { useIsTouchLayout } from "@/hooks/useIsTouchLayout";
 import { COVERAGE_BUTTONS, templateSeedsFor } from "./shift-utils";
 import type { NormalizedGroup, NormalizedShift, PositionMatrixAdapter } from "./types";
 

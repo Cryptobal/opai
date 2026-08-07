@@ -9,7 +9,7 @@ import { BP } from "@/lib/breakpoints";
  * already has the correct value (avoids a false→true flip that remounts
  * Sheet side="right"→"bottom" and can leave a black overlay with no panel).
  *
- * @deprecated Preferir `useIsTouchLayout()` de `@/lib/breakpoints` para
+ * @deprecated Preferir `useIsTouchLayout()` de `@/hooks/useIsTouchLayout` para
  * decisiones alineadas con el shell (MobileIsland / BottomNav / sidebar en `lg`).
  * Este hook conserva el default `BP.md` para planillas densas y callers legacy
  * que aún necesitan el umbral `md`.

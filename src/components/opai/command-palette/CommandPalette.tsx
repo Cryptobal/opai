@@ -45,7 +45,7 @@ import { useIsIOS } from '@/hooks/usePlatform';
 import type { CommandItem, CommandCategory } from './types';
 import { useCommandPalette } from './use-command-palette';
 import { defaultCommands, ICON_MAP, CATEGORY_LABELS } from './commands';
-import { useIsTouchLayout } from '@/lib/breakpoints';
+import { useIsTouchLayout } from '@/hooks/useIsTouchLayout';
 import { normalizeForSearch } from '@/lib/search-normalize-pure';
 import { dispatchAiCommand } from '@/lib/ai/ai-command-event';
 import {

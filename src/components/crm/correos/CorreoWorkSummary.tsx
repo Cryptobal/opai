@@ -11,6 +11,7 @@ import {
   resolvePrimaryCorreoAiCommand,
   type CorreoAiCommandId,
 } from "@/modules/crm/email/correo-ai-commands";
+import { TOUCH_LAYOUT_QUERY } from "@/lib/breakpoints";
 import type { CorreoCascadeAiTarget } from "@/modules/crm/email/correo-cascade-ai";
 import { resolveContinueActions } from "@/modules/crm/email/correo-continue-actions";
 import { CorreoThreadSummaryCard } from "./CorreoThreadSummaryCard";
@@ -92,7 +93,7 @@ export function CorreoWorkSummary({
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const mq = window.matchMedia("(max-width: 1023px)");
+    const mq = window.matchMedia(TOUCH_LAYOUT_QUERY);
     const apply = () => setCompact(mq.matches);
     apply();
     mq.addEventListener("change", apply);
