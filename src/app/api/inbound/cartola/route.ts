@@ -48,6 +48,7 @@ import {
 } from "@/modules/finance/banking/santander-parser";
 import { importBankTransactions } from "@/modules/finance/banking/bank-transaction.service";
 import { buildBankMovementsSlackData } from "@/modules/finance/banking/slack-movements-payload";
+import { resolveInboundActorId } from "@/modules/finance/banking/inbound-actor";
 import { notify } from "@/lib/notifications/notify";
 import { buildBankMovementsBody } from "@/lib/finance/bank-movements-summary";
 
@@ -277,7 +278,10 @@ export async function POST(request: NextRequest) {
     });
   }
 
-  // 9. Descargar y procesar cada XLSX
+  // 9. Descargar y procesar cada XLSX.
+  // Actor de auditoría para auto-match (DTE / reglas) — mismo path que
+  // el import CSV de la UI. Soft: si no hay admin, importa sin match.
+  const actorId = (await resolveInboundActorId(tenantId)) ?? undefined;
   let totalImported = 0;
   let totalInFile = 0;
   const allMovements: ParsedBankTransaction[] = [];
@@ -321,9 +325,7 @@ export async function POST(request: NextRequest) {
       targetAccount.id,
       parsed.transactions,
       parsed.closingBalance,
-      // userId=undefined → no corre auto-match. Las reglas se evalúan luego
-      // si el usuario corre "Aplicar al histórico" desde Reglas.
-      undefined,
+      actorId,
       {
         fileName: att.filename ?? `cartola-${att.id}.xlsx`,
         fileSize: buf.byteLength,
