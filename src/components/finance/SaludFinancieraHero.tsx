@@ -23,7 +23,7 @@
  */
 
 import { useEffect, useMemo, useState } from "react";
-import { useIsMobileViewport } from "@/hooks/useIsMobileViewport";
+import { useIsTouchLayout } from "@/lib/breakpoints";
 import {
   TrendingUp,
   Banknote,
@@ -236,7 +236,7 @@ export function SaludFinancieraHero({
   // en la tabla de DTEs emitidos sin scroll. Persiste en localStorage
   // por usuario/dispositivo. En mobile siempre se muestra expandido:
   // el resumen ES la vista principal del módulo en el celular.
-  const isMobile = useIsMobileViewport();
+  const isMobile = useIsTouchLayout();
   const [collapsedRaw, setCollapsedRaw] = useState(false);
   const collapsed = isMobile ? false : collapsedRaw;
 

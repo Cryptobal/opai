@@ -5,6 +5,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { Check, ChevronDown, Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useKeyboardOffset } from "@/hooks/useKeyboardOffset";
+import { useIsMobileViewport } from "@/hooks/useIsMobileViewport";
 
 function normalizeText(s: string): string {
   return s
@@ -26,23 +27,6 @@ export type SearchableOption = {
 function isTouchLikeDevice() {
   if (typeof window === "undefined") return false;
   return window.matchMedia("(pointer: coarse)").matches || navigator.maxTouchPoints > 0;
-}
-
-/**
- * Hook que detecta el viewport mobile (<md = 768px). Usa matchMedia con
- * listener para mantener sincronía con resize. SSR-safe (default false).
- */
-function useIsMobileViewport(): boolean {
-  const [isMobile, setIsMobile] = useState(false);
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const mq = window.matchMedia("(max-width: 767.98px)");
-    const update = () => setIsMobile(mq.matches);
-    update();
-    mq.addEventListener("change", update);
-    return () => mq.removeEventListener("change", update);
-  }, []);
-  return isMobile;
 }
 
 interface SearchableSelectProps {

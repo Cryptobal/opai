@@ -26,7 +26,7 @@ import { Plus, LayoutTemplate, GripVertical, LayoutList, Table2 } from "lucide-r
 import { cn } from "@/lib/utils";
 import { ServiceCard } from "./ServiceCard";
 import { PositionMatrixGrid } from "./PositionMatrixGrid";
-import { useIsMobileViewport } from "@/hooks/useIsMobileViewport";
+import { useIsTouchLayout } from "@/lib/breakpoints";
 import { COVERAGE_BUTTONS, templateSeedsFor } from "./shift-utils";
 import type { NormalizedGroup, NormalizedShift, PositionMatrixAdapter } from "./types";
 
@@ -77,9 +77,9 @@ export function PositionMatrix({ adapter }: Props) {
   const [expandedRowId, setExpandedRowId] = useState<string | null>(null);
   const [view, setView] = useState<MatrixView>("grid");
   const readOnly = adapter.readOnly;
-  // La grilla es herramienta de desktop: bajo 768px forzamos la vista de tarjetas.
-  // No tocamos `view` ni su persistencia → la preferencia se conserva para desktop.
-  const isMobile = useIsMobileViewport();
+  // La grilla es herramienta de desktop: bajo el shell táctil (`lg`) forzamos
+  // tarjetas. No tocamos `view` ni su persistencia → se conserva para desktop.
+  const isMobile = useIsTouchLayout();
   const effectiveView: MatrixView = isMobile ? "cards" : view;
 
   useEffect(() => {

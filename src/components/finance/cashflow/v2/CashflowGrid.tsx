@@ -23,6 +23,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { BP } from "@/lib/breakpoints";
 import { useIsMobileViewport } from "@/hooks/useIsMobileViewport";
 import type {
   ProjectionMatrix,
@@ -109,7 +110,7 @@ export function CashflowGrid({
 }: CashflowGridProps) {
   const router = useRouter();
   // Móvil: 3 columnas, step 1. Desktop: horizonte configurable, step 1 (F3).
-  const isMobile = useIsMobileViewport(768);
+  const isMobile = useIsMobileViewport(BP.md);
   const { horizon, setHorizon } = useHorizon();
   const windowWeeks = isMobile ? MOBILE_WINDOW_WEEKS : horizon;
   const {

@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { useServiceWorker } from '@/lib/pwa/use-service-worker';
 import { subscribeToPush } from '@/lib/pwa/push-client';
 import { isIOS, isStandalone, isPushSupported } from '@/lib/pwa/ios-utils';
-import { useIsMobile } from '@/lib/pwa/use-is-mobile';
+import { useIsTouchLayout } from '@/lib/breakpoints';
 import { Bell, X, Share } from 'lucide-react';
 
 interface Props {
@@ -37,7 +37,7 @@ function persistDismiss(portalType: string) {
 
 export function PushPermissionPrompt({ portalType, userType, userId, tenantId, sessionHeaders }: Props) {
   const { registration } = useServiceWorker();
-  const isMobile = useIsMobile();
+  const isMobile = useIsTouchLayout();
   const [dismissed, setDismissedRaw] = useState(() => isDismissedInStorage(portalType));
   const [subscribed, setSubscribed] = useState(false);
   const [loading, setLoading] = useState(false);

@@ -8,7 +8,7 @@ import { useNotificationSidePanelContext } from "./NotificationSidePanelContext"
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useIsIOS } from "@/hooks/usePlatform";
-import { useIsMobileViewport } from "@/hooks/useIsMobileViewport";
+import { useIsTouchLayout } from "@/lib/breakpoints";
 import { SwipeableNotificationItem } from "./SwipeableNotificationItem";
 import { PullToRefresh } from "./PullToRefresh";
 import {
@@ -93,8 +93,8 @@ export function NotificationSidePanel() {
   const [filter, setFilter] = useState<NotificationFilter>("all");
   const [moduleFilter, setModuleFilter] = useState<string>("all");
 
-  // Mobile UX state
-  const isMobile = useIsMobileViewport();
+  // Mobile UX state — alineado con el shell táctil (`lg`)
+  const isMobile = useIsTouchLayout();
   const [openSwipeId, setOpenSwipeId] = useState<string | null>(null);
   const [pendingDeleteIds, setPendingDeleteIds] = useState<Set<string>>(new Set());
   const pendingDeleteTimeoutsRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());

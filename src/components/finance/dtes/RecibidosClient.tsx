@@ -96,7 +96,7 @@ import { DteAgingBadge } from "@/components/finance/DteAgingBadge";
 import { MobileFAB } from "@/components/finance/mobile";
 import { PaginationControls } from "@/components/finance/PaginationControls";
 
-import { useIsMobileViewport } from "@/hooks/useIsMobileViewport";
+import { useIsTouchLayout } from "@/lib/breakpoints";
 import { cn } from "@/lib/utils";
 import { formatCalendarDateDisplay, formatDateOnlyUtcYmd } from "@/lib/fx-date";
 
@@ -1342,7 +1342,7 @@ function ReceivedDteDetailDialog({
    */
   onDecided?: () => void;
 }) {
-  const isMobileViewport = useIsMobileViewport();
+  const isMobileViewport = useIsTouchLayout();
   const [pinOpen, setPinOpen] = useState(false);
   const [attachments, setAttachments] = useState<DteAttachment[]>([]);
   const [loadingAtt, setLoadingAtt] = useState(false);

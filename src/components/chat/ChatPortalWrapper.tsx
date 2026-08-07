@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowLeft, X } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useIsMobile } from "@/lib/pwa/use-is-mobile";
+import { useIsTouchLayout } from '@/lib/breakpoints';
 import { useSwipeGesture } from "./hooks/useSwipeGesture";
 import type { ChatMessageData, SendMessagePayload, ChatSenderType } from "@/lib/chat-types";
 import { usePusher } from "./hooks/usePusher";
@@ -285,7 +285,7 @@ export function ChatPortalWrapper({
   );
 
   const onlineCount = members.length;
-  const isMobile = useIsMobile();
+  const isMobile = useIsTouchLayout();
 
   const swipeDown = useSwipeGesture({
     onSwipeDown: () => onBack?.(),

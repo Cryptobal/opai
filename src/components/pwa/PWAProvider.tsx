@@ -1,6 +1,6 @@
 'use client';
 import { useServiceWorker } from '@/lib/pwa/use-service-worker';
-import { useIsMobile } from '@/lib/pwa/use-is-mobile';
+import { useIsTouchLayout } from '@/lib/breakpoints';
 import { installChunkLoadRecovery } from '@/lib/pwa/chunk-load-recovery';
 import { InAppNotificationProvider } from './InAppNotificationProvider';
 import { toast } from 'sonner';
@@ -8,7 +8,7 @@ import { useEffect } from 'react';
 
 export function PWAProvider({ children }: { children: React.ReactNode }) {
   const { updateAvailable, applyUpdate } = useServiceWorker();
-  const isMobile = useIsMobile();
+  const isMobile = useIsTouchLayout();
 
   // iOS PWA: HTML/caché viejo + chunks 404 → pantalla blanca. Auto-recupera.
   useEffect(() => installChunkLoadRecovery(), []);

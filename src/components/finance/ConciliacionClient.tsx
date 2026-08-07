@@ -43,7 +43,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { useIsMobileViewport } from "@/hooks/useIsMobileViewport";
+import { useIsTouchLayout } from "@/lib/breakpoints";
 
 /* ── Types ── */
 
@@ -600,7 +600,7 @@ function DetailView({
 
   // En mobile el form de match no cabe al lado del listado; se abre en
   // bottom sheet cuando el usuario tap un tx no conciliado.
-  const isMobile = useIsMobileViewport();
+  const isMobile = useIsTouchLayout();
 
   const loadDetail = useCallback(async () => {
     try {

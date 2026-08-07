@@ -5,10 +5,10 @@
 "use client";
 
 import { Toaster as SonnerToaster } from "sonner";
-import { useIsMobileViewport } from "@/hooks/useIsMobileViewport";
+import { useIsTouchLayout } from "@/lib/breakpoints";
 
 export function Toaster() {
-  const isMobile = useIsMobileViewport();
+  const isMobile = useIsTouchLayout();
 
   return (
     <SonnerToaster

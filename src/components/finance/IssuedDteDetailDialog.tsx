@@ -43,7 +43,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useIsMobileViewport } from "@/hooks/useIsMobileViewport";
+import { useIsTouchLayout } from "@/lib/breakpoints";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -252,7 +252,7 @@ export function IssuedDteDetailDialog({
   onEmitDebitNote,
   presentation = "dialog",
 }: Props) {
-  const isMobileViewport = useIsMobileViewport();
+  const isMobileViewport = useIsTouchLayout();
   const router = useRouter();
   const [dte, setDte] = useState<DteFull | null>(null);
   const [loading, setLoading] = useState(false);

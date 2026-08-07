@@ -1,25 +1,15 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-
-const MOBILE_BREAKPOINT = 768;
+import { BP } from "@/lib/breakpoints";
+import { useIsMobileViewport } from "@/hooks/useIsMobileViewport";
 
 /**
- * True when viewport width is below the mobile breakpoint (e.g. phone/tablet portrait).
- * Used to show PWA prompts (notifications, update toast) only on mobile, not on desktop.
- * Defaults to false (desktop) to avoid flashing prompts on desktop before hydration.
+ * True when viewport width is below `BP.md`.
+ * Used by legacy PWA callers; prefer `useIsTouchLayout()` for chrome
+ * aligned with the shell (`lg`).
+ *
+ * @deprecated Preferir `useIsTouchLayout` de `@/lib/breakpoints`.
  */
 export function useIsMobile(): boolean {
-  const [isMobile, setIsMobile] = useState(false);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const m = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT - 1}px)`);
-    const update = () => setIsMobile(m.matches);
-    update();
-    m.addEventListener('change', update);
-    return () => m.removeEventListener('change', update);
-  }, []);
-
-  return isMobile;
+  return useIsMobileViewport(BP.md);
 }
