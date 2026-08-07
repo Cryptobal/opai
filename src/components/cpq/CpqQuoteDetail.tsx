@@ -313,7 +313,8 @@ export function CpqQuoteDetail({
   const [crmAccounts, setCrmAccounts] = useState<{ id: string; name: string; type?: string }[]>([]);
   const [crmInstallations, setCrmInstallations] = useState<CrmInstallationOption[]>([]);
   const [crmContacts, setCrmContacts] = useState<{ id: string; firstName: string; lastName: string; email?: string | null }[]>([]);
-  const [crmDeals, setCrmDeals] = useState<{ id: string; title: string }[]>([]);
+  const [crmDeals, setCrmDeals] = useState<{ id: string; title: string; isLicitacion: boolean }[]>([]);
+  const [markingSentLicitacion, setMarkingSentLicitacion] = useState(false);
   const [crmContext, setCrmContext] = useState({
     accountId: "" as string,
     installationId: "" as string,
@@ -838,8 +839,12 @@ export function CpqQuoteDetail({
       if (dealData.success) {
         setCrmDeals(
           dealData.data
-            .filter((d: Record<string, string>) => d.accountId === crmContext.accountId)
-            .map((d: Record<string, string>) => ({ id: d.id, title: d.title }))
+            .filter((d: Record<string, unknown>) => d.accountId === crmContext.accountId)
+            .map((d: Record<string, unknown>) => ({
+              id: String(d.id ?? ""),
+              title: String(d.title ?? ""),
+              isLicitacion: Boolean(d.isLicitacion),
+            }))
         );
       }
     }).catch(() => {});
@@ -1107,13 +1112,63 @@ export function CpqQuoteDetail({
     }
   };
 
+  const handleMarkSentLicitacion = async () => {
+    if (!quote || quote.status === "sent") return;
+    const confirmed = await confirmDialog({
+      title: "Marcar enviada (licitación)",
+      description:
+        "La cotización quedará como enviada y el negocio pasará a Negociación. No se envía portal ni correo. ¿Continuar?",
+      confirmLabel: "Marcar enviada",
+    });
+    if (!confirmed) return;
+
+    setMarkingSentLicitacion(true);
+    setChangingStatus(true);
+    try {
+      await flushPendingSaves();
+      const res = await fetch(`/api/cpq/quotes/${quoteId}/mark-sent-licitacion`, {
+        method: "POST",
+      });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error || "Error");
+      const nextStatus = String(data.data?.quote?.status || "sent");
+      setQuote((prev) => (prev ? { ...prev, status: nextStatus } : prev));
+      setQuoteForm((prev) => ({ ...prev, status: nextStatus }));
+      const stageName = data.data?.stageName || "Negociación";
+      toast.success(
+        data.data?.stageMoved
+          ? `Cotización enviada. Negocio en «${stageName}».`
+          : `Cotización marcada como enviada (${stageName}).`,
+      );
+      onQuoteSaved?.();
+    } catch (error) {
+      console.error("Error mark-sent-licitacion:", error);
+      toast.error(
+        error instanceof Error ? error.message : "No se pudo marcar como enviada.",
+      );
+    } finally {
+      setMarkingSentLicitacion(false);
+      setChangingStatus(false);
+    }
+  };
+
   const handleStatusChange = async (newStatus: "draft" | "sent") => {
     if (!quote) return;
+    if (newStatus === "sent") {
+      const dealIsLicitacion = Boolean(
+        crmDeals.find((d) => d.id === crmContext.dealId)?.isLicitacion,
+      );
+      if (dealIsLicitacion) {
+        await handleMarkSentLicitacion();
+        return;
+      }
+      toast.error("Para marcar como enviada usá Enviar propuesta (portal o presentación).");
+      return;
+    }
     setChangingStatus(true);
     try {
       const payload: Record<string, unknown> = { status: newStatus };
       if (
-        newStatus === "draft" &&
         quote.status !== "draft" &&
         quote.visibleInClientPortal !== false
       ) {
@@ -1128,10 +1183,10 @@ export function CpqQuoteDetail({
       if (!data.success) throw new Error(data.error || "Error");
       setQuote(data.data);
       setQuoteForm((prev) => ({ ...prev, status: newStatus }));
-      toast.success(newStatus === "draft" ? "Cotizacion en borrador. Ya puedes editar." : "Cotizacion marcada como enviada.");
+      toast.success("Cotizacion en borrador. Ya puedes editar.");
     } catch (error) {
       console.error("Error updating status:", error);
-      toast.error("No se pudo actualizar el estado.");
+      toast.error(error instanceof Error ? error.message : "No se pudo actualizar el estado.");
     } finally {
       setChangingStatus(false);
     }
@@ -1671,9 +1726,9 @@ export function CpqQuoteDetail({
     const contact = crmContacts.find((item) => item.id === crmContext.contactId);
     return contact ? `${contact.firstName} ${contact.lastName}`.trim() : "Sin contacto";
   })();
-  const selectedDealTitle =
-    crmDeals.find((deal) => deal.id === crmContext.dealId)?.title ||
-    "Sin negocio";
+  const selectedDeal = crmDeals.find((deal) => deal.id === crmContext.dealId);
+  const selectedDealTitle = selectedDeal?.title || "Sin negocio";
+  const isLicitacionDeal = Boolean(selectedDeal?.isLicitacion);
   const contactForPortal = crmContext.contactId
     ? crmContacts.find((x) => x.id === crmContext.contactId) ?? null
     : null;
@@ -1683,6 +1738,12 @@ export function CpqQuoteDetail({
     (positions.length > 0 || (additionalLines?.length ?? 0) > 0) &&
     Boolean(crmContext.accountId && crmContext.contactId && crmContext.dealId) &&
     contactHasEmail;
+  const canMarkSentLicitacion =
+    Boolean(quote) &&
+    quote.status === "draft" &&
+    isLicitacionDeal &&
+    (positions.length > 0 || (additionalLines?.length ?? 0) > 0) &&
+    Boolean(crmContext.accountId && crmContext.dealId);
   const portalReadinessItems = [
     { label: "Cliente", ready: Boolean(crmContext.accountId) },
     { label: "Contacto", ready: Boolean(crmContext.contactId) },
@@ -1806,8 +1867,9 @@ export function CpqQuoteDetail({
           statusSlot={
             <CpqStatusBadge
               status={quote.status}
-              changing={changingStatus}
+              changing={changingStatus || markingSentLicitacion}
               size="sm"
+              isLicitacion={isLicitacionDeal}
               onToggle={() => void handleStatusChange(quote.status === "sent" ? "draft" : "sent")}
             />
           }
@@ -1917,8 +1979,9 @@ export function CpqQuoteDetail({
               )}
               <CpqStatusBadge
                 status={quote.status}
-                changing={changingStatus}
+                changing={changingStatus || markingSentLicitacion}
                 size="md"
+                isLicitacion={isLicitacionDeal}
                 onToggle={() => void handleStatusChange(quote.status === "sent" ? "draft" : "sent")}
               />
             </div>
@@ -2009,16 +2072,22 @@ export function CpqQuoteDetail({
                     >
                       <PencilLine className="h-3.5 w-3.5" /> Volver a borrador (editar)
                     </button>
-                  ) : (
+                  ) : isLicitacionDeal ? (
                     <button
                       className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-xs hover:bg-accent"
-                      onClick={() => { setOverflowMenuOpen(false); void handleStatusChange("sent"); }}
-                      disabled={changingStatus}
+                      onClick={() => {
+                        setOverflowMenuOpen(false);
+                        void handleMarkSentLicitacion();
+                      }}
+                      disabled={changingStatus || markingSentLicitacion || !canMarkSentLicitacion}
                     >
-                      <CheckCircle2 className="h-3.5 w-3.5" /> Marcar como enviada
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                      Marcar enviada (licitación)
                     </button>
+                  ) : null}
+                  {(quote.status === "sent" || isLicitacionDeal) && (
+                    <div className="my-1 h-px bg-border" />
                   )}
-                  <div className="my-1 h-px bg-border" />
                   {isLocked ? null : !bundleId && onConverted ? (
                     <div onClick={() => setOverflowMenuOpen(false)}>
                       <ConvertToBundleButton asMenuItem quoteId={quoteId} onConverted={onConverted} />
@@ -2634,6 +2703,10 @@ export function CpqQuoteDetail({
               portalReadinessItems={portalReadinessItems}
               contactHasEmail={contactHasEmail}
               onSendProposal={openPortalProposal}
+              isLicitacion={isLicitacionDeal}
+              canMarkSentLicitacion={canMarkSentLicitacion}
+              markingSentLicitacion={markingSentLicitacion}
+              onMarkSentLicitacion={() => void handleMarkSentLicitacion()}
               positionsCount={positions.length}
               additionalLinesCount={additionalLines?.length ?? 0}
               pdfPreviewMode={pdfPreviewMode}
@@ -2677,15 +2750,16 @@ export function CpqQuoteDetail({
               >
                 <PencilLine className="h-4 w-4" /> Volver a borrador (editar)
               </button>
-            ) : (
+            ) : isLicitacionDeal ? (
               <button
                 className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-accent"
-                onClick={() => void handleStatusChange("sent")}
-                disabled={changingStatus}
+                onClick={() => void handleMarkSentLicitacion()}
+                disabled={changingStatus || markingSentLicitacion || !canMarkSentLicitacion}
               >
-                <CheckCircle2 className="h-4 w-4" /> Marcar como enviada
+                <CheckCircle2 className="h-4 w-4" />
+                Marcar enviada (licitación)
               </button>
-            )}
+            ) : null}
             {isLocked ? null : !bundleId && onConverted ? (
               <ConvertToBundleButton asMenuItem quoteId={quoteId} onConverted={onConverted} />
             ) : onAddInstallation ? (
@@ -2940,6 +3014,13 @@ export function CpqQuoteDetail({
           portalReadinessItems,
           contactHasEmail,
           onSendProposal: () => { setControlSheetOpen(false); openPortalProposal(); },
+          isLicitacion: isLicitacionDeal,
+          canMarkSentLicitacion,
+          markingSentLicitacion,
+          onMarkSentLicitacion: () => {
+            setControlSheetOpen(false);
+            void handleMarkSentLicitacion();
+          },
           positionsCount: positions.length,
           additionalLinesCount: additionalLines?.length ?? 0,
           pdfPreviewMode,

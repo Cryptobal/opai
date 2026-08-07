@@ -26,6 +26,7 @@ export const ACTION_LABELS: Record<string, string> = {
   installation_deleted: "Instalación eliminada",
   quote_sent: "Cotización enviada",
   quote_sent_portal: "Cotización enviada por portal",
+  quote_sent_licitacion: "Cotización marcada enviada (licitación)",
   quote_pdf_sent: "PDF enviado por email",
   quote_created: "Cotización creada",
   quote_updated: "Cotización actualizada",

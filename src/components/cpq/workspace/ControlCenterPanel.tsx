@@ -8,8 +8,9 @@
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Check, Send, Users } from "lucide-react";
+import { Check, Gavel, Send, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Tag } from "@/components/opai-ds";
 import { CpqDualCurrencyAmount } from "@/components/cpq/CpqDualCurrency";
 import {
   CpqPdfPreviewPanel,
@@ -37,6 +38,10 @@ export function ControlCenterPanel({
   portalReadinessItems,
   contactHasEmail,
   onSendProposal,
+  isLicitacion = false,
+  canMarkSentLicitacion = false,
+  markingSentLicitacion = false,
+  onMarkSentLicitacion,
   positionsCount,
   additionalLinesCount,
   pdfPreviewMode,
@@ -63,6 +68,11 @@ export function ControlCenterPanel({
   portalReadinessItems: PortalReadinessItem[];
   contactHasEmail: boolean;
   onSendProposal: () => void;
+  /** Negocio marcado como licitación (CRM). */
+  isLicitacion?: boolean;
+  canMarkSentLicitacion?: boolean;
+  markingSentLicitacion?: boolean;
+  onMarkSentLicitacion?: () => void;
   positionsCount: number;
   additionalLinesCount: number;
   pdfPreviewMode: CpqPdfPreviewMode;
@@ -78,6 +88,14 @@ export function ControlCenterPanel({
     (positionsCount === 0 && additionalLinesCount === 0) ||
     !crmContext.accountId ||
     !crmContext.contactId ||
+    !crmContext.dealId;
+
+  const markLicitacionDisabled =
+    !canMarkSentLicitacion ||
+    markingSentLicitacion ||
+    quoteStatus === "sent" ||
+    (positionsCount === 0 && additionalLinesCount === 0) ||
+    !crmContext.accountId ||
     !crmContext.dealId;
 
   return (
@@ -211,6 +229,30 @@ export function ControlCenterPanel({
             ))}
           </div>
         </div>
+        {isLicitacion && (
+          <div className="space-y-2 rounded-lg border border-status-info-border bg-status-info-soft/40 p-3">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs font-medium uppercase tracking-wide text-status-info-fg">
+                Licitación
+              </p>
+              <Tag variant="info" size="sm">Sin portal</Tag>
+            </div>
+            <p className="text-sm text-ds-text-2">
+              Al marcar enviada, el negocio pasa a Negociación (no se envía portal ni correo).
+            </p>
+            {quoteStatus !== "sent" && onMarkSentLicitacion ? (
+              <Button
+                className="h-10 w-full gap-2 sm:h-9"
+                variant="outline"
+                disabled={markLicitacionDisabled}
+                onClick={onMarkSentLicitacion}
+              >
+                <Gavel className="h-4 w-4" />
+                {markingSentLicitacion ? "Marcando…" : "Marcar enviada (licitación)"}
+              </Button>
+            ) : null}
+          </div>
+        )}
         <Button
           className="h-9 w-full gap-2 bg-status-ok text-white hover:brightness-110"
           disabled={sendDisabled}

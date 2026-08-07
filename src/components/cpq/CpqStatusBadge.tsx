@@ -12,6 +12,8 @@ interface Props {
   changing: boolean;
   onToggle: () => void;
   size?: "sm" | "md";
+  /** Negocio licitación: el draft→sent va por acción dedicada, no por PATCH. */
+  isLicitacion?: boolean;
 }
 
 const LABELS: Record<string, string> = {
@@ -29,13 +31,21 @@ function statusTone(status: string): { dot: string; label: string } {
   return { dot: "bg-muted-foreground", label: "text-muted-foreground" };
 }
 
-export function CpqStatusBadge({ status, changing, onToggle, size = "md" }: Props) {
+export function CpqStatusBadge({
+  status,
+  changing,
+  onToggle,
+  size = "md",
+  isLicitacion = false,
+}: Props) {
   const tone = statusTone(status);
   const label = LABELS[status] ?? status;
   const interactive = status === "draft" || status === "sent";
   const title =
     status === "draft"
-      ? "Clic para marcar como enviada"
+      ? isLicitacion
+        ? "Usá «Marcar enviada (licitación)» en el centro de control"
+        : "Para marcar como enviada usá Enviar propuesta"
       : status === "sent"
         ? "Clic para marcar como borrador (editar)"
         : undefined;
