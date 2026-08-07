@@ -510,6 +510,24 @@ export function CpqQuoteDetail({
       return next;
     });
   }, []);
+  /** Rail izquierdo de secciones: contraíble a iconos para ganar ancho de edición. */
+  const [workspaceRailCollapsed, setWorkspaceRailCollapsed] = useState(false);
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("cpq-workspace-rail-collapsed");
+      if (saved === "1") setWorkspaceRailCollapsed(true);
+    } catch {
+      /* ignore */
+    }
+  }, []);
+  const handleWorkspaceRailCollapsedChange = useCallback((collapsed: boolean) => {
+    setWorkspaceRailCollapsed(collapsed);
+    try {
+      localStorage.setItem("cpq-workspace-rail-collapsed", collapsed ? "1" : "0");
+    } catch {
+      /* ignore */
+    }
+  }, []);
   const [controlSheetOpen, setControlSheetOpen] = useState(false);
   const [pdfPreviewMode, setPdfPreviewMode] = useState<CpqPdfPreviewMode>("presentacion");
   const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
@@ -1800,7 +1818,7 @@ export function CpqQuoteDetail({
     setPortalProposalOpen(true);
   }, [crmContext.contactId, crmContext.dealId, contactForPortal]);
 
-  const handleGeneratePdfPreview = async () => {
+  const handleGeneratePdfPreview = async (): Promise<string | null> => {
     setPdfPreviewLoading(true);
     try {
       const bust = Date.now();
@@ -1809,9 +1827,11 @@ export function CpqQuoteDetail({
         : `/api/cpq/quotes/${quoteId}/export-pdf?templateSlug=${encodeURIComponent(pdfTemplateSlug)}&t=${bust}`;
       if (pdfPreviewUrl && pdfPreviewUrl.startsWith("blob:")) URL.revokeObjectURL(pdfPreviewUrl);
       setPdfPreviewUrl(url);
+      return url;
     } catch (err) {
       console.error("[CPQ PDF Preview]", err);
       toast.error(err instanceof Error ? err.message : "Error al generar el PDF");
+      return null;
     } finally {
       setPdfPreviewLoading(false);
     }
@@ -2208,11 +2228,20 @@ export function CpqQuoteDetail({
 
       {/* -- Detail workspace --
            Layout 2 columnas (main + aside Centro de control) tanto en borrador
-           como en enviada. El aside se puede contraer para ensanchar Datos /
-           Condiciones / Desglose / Puestos. */}
-      <div className="xl:grid xl:grid-cols-[168px_minmax(0,1fr)] xl:gap-3 xl:items-start">
+           como en enviada. El rail izquierdo y el aside se pueden contraer
+           para ensanchar Datos / Condiciones / Desglose / Puestos. */}
+      <div
+        className={cn(
+          "xl:grid xl:gap-3 xl:items-start",
+          workspaceRailCollapsed
+            ? "xl:grid-cols-[48px_minmax(0,1fr)]"
+            : "xl:grid-cols-[168px_minmax(0,1fr)]",
+        )}
+      >
       <WorkspaceRail
         className="hidden xl:block"
+        collapsed={workspaceRailCollapsed}
+        onCollapsedChange={handleWorkspaceRailCollapsedChange}
         topOffsetClassName={embedded
           ? "top-[calc(var(--app-topbar-offset)+7.25rem)]"
           : "top-[calc(var(--app-topbar-offset)+4.75rem)]"}
