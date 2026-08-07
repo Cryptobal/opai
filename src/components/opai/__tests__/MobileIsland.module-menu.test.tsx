@@ -1,13 +1,14 @@
 /** @vitest-environment jsdom */
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import type { ReactNode } from "react";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { Menu } from "lucide-react";
 import type { RolePermissions } from "@/lib/permissions";
 import { getDefaultPermissions } from "@/lib/permissions";
 import {
   IslandModuleProvider,
   useSetIslandModuleMenu,
+  useSetIslandSearch,
   useSetIslandSuppressed,
   useSetBreadcrumbTrailing,
   BreadcrumbTrailingProvider,
@@ -64,19 +65,27 @@ function Shell({
   children,
   badge,
   suppress,
+  onSearch = vi.fn(),
+  publishMenu = true,
 }: {
   children?: ReactNode;
   badge?: number;
   suppress?: boolean;
+  onSearch?: () => void;
+  publishMenu?: boolean;
 }) {
   return (
     <BreadcrumbTrailingProvider>
       <IslandActionProvider>
         <IslandModuleProvider>
-          {suppress ? <SuppressPublisher /> : <MenuPublisher badge={badge} />}
+          {suppress ? (
+            <SuppressPublisher />
+          ) : publishMenu ? (
+            <MenuPublisher badge={badge} />
+          ) : null}
           {children}
           <MobileIsland
-            onSearch={vi.fn()}
+            onSearch={onSearch}
             onToggleChat={vi.fn()}
             onToggleNotifications={vi.fn()}
             chatUnread={0}
@@ -128,5 +137,37 @@ describe("MobileIsland — Zona C'", () => {
   it("devuelve null cuando suppressed", () => {
     const { container } = render(<Shell suppress />);
     expect(container.querySelector("header")).toBeNull();
+  });
+
+  it("Buscar global abre el Command Palette de inmediato (sin campo intermedio)", () => {
+    mockPathname = "/cpq/quotes";
+    const onSearch = vi.fn();
+    render(<Shell onSearch={onSearch} publishMenu={false} />);
+    fireEvent.click(screen.getByRole("button", { name: "Buscar" }));
+    expect(onSearch).toHaveBeenCalledTimes(1);
+    // No entra en modo campo inline de la isla
+    expect(screen.queryByRole("searchbox")).toBeNull();
+  });
+
+  it("con búsqueda de módulo, Buscar abre el campo inline (no el palette)", () => {
+    mockPathname = "/crm/correos";
+    const onSearch = vi.fn();
+    function SearchPublisher() {
+      useSetIslandSearch({
+        value: "",
+        onChange: () => {},
+        placeholder: "Buscar correos…",
+      });
+      return null;
+    }
+    render(
+      <Shell onSearch={onSearch} publishMenu={false}>
+        <SearchPublisher />
+      </Shell>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Buscar" }));
+    expect(onSearch).not.toHaveBeenCalled();
+    expect(screen.getByRole("searchbox")).toBeTruthy();
+    expect(screen.getByPlaceholderText("Buscar correos…")).toBeTruthy();
   });
 });

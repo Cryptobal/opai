@@ -648,8 +648,11 @@ export function CommandPalette({ userRole, onOpenChat }: CommandPaletteProps) {
     [close, router, addRecent],
   );
 
-  // Seed query on open (initialQuery from isla móvil / atajo sin args → vacío)
+  // Seed query on open (initialQuery opcional; atajo / móvil sin args → vacío).
   // Reintentos: el click del topbar a veces pierde el gesto antes del paint.
+  // En móvil NUNCA select(): iOS deja el texto marcado y obliga a borrar
+  // antes de seguir escribiendo. Cursor al final; en desktop sí se selecciona
+  // para reemplazar rápido con ⌘K + query.
   useEffect(() => {
     if (!isOpen) return;
     const seed = initialQuery ?? '';
@@ -662,7 +665,13 @@ export function CommandPalette({ userRole, onOpenChat }: CommandPaletteProps) {
       const el = inputRef.current;
       if (!el) return;
       el.focus({ preventScroll: true });
-      if (seed) el.select();
+      if (!seed) return;
+      if (isMobile) {
+        const len = el.value.length;
+        el.setSelectionRange(len, len);
+      } else {
+        el.select();
+      }
     };
     let cancelled = false;
     const timeouts: number[] = [];
@@ -686,7 +695,7 @@ export function CommandPalette({ userRole, onOpenChat }: CommandPaletteProps) {
       cancelAnimationFrame(raf);
       for (const id of timeouts) window.clearTimeout(id);
     };
-  }, [isOpen, initialQuery]);
+  }, [isOpen, initialQuery, isMobile]);
 
   // Lock body scroll while open (prevents background scroll on iOS)
   useEffect(() => {
@@ -800,6 +809,7 @@ export function CommandPalette({ userRole, onOpenChat }: CommandPaletteProps) {
                   'focus:outline-none focus:ring-0 focus:ring-offset-0 focus:shadow-none',
                   'focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:shadow-none',
                 )}
+                autoFocus
                 autoCapitalize="off"
                 autoCorrect="off"
                 spellCheck={false}

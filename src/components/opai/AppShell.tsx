@@ -135,6 +135,9 @@ function AppShellInner({
 
   const handleOpenCommandPalette = useCallback(
     (initialQuery?: string) => {
+      // Montar el chunk de inmediato (no esperar idle): en móvil el foco/teclado
+      // necesita el input en el mismo gesto del tap de Buscar.
+      setCommandPaletteReady(true);
       ensureCommandPalette();
       openCommandPalette(initialQuery);
     },

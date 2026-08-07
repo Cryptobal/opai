@@ -10,7 +10,10 @@
  * Modos:
  *  A. Normal: segmento + acciones globales (+ menú de módulo opcional)
  *  B. Detalle: chevron back + trailing (+ acción primaria); sin segmento ni C'
- *  C. Búsqueda: [←] [campo] [✕]; sin capas ni overlays
+ *  C. Búsqueda de módulo: [←] [campo] [✕] (solo si el módulo publica `search`)
+ *
+ * Buscar global (sin override de módulo) abre el Command Palette de inmediato
+ * — no hay campo intermedio en la isla (evita perder foco / selección en iOS).
  *
  * Un módulo puede publicar menú (Zona C'), override de búsqueda y supresión
  * vía IslandModuleContext. Ningún módulo inyecta controles a la izquierda
@@ -95,9 +98,7 @@ export function MobileIsland({
   }, []);
 
   const [searchOpen, setSearchOpen] = useState(false);
-  const [searchValue, setSearchValue] = useState("");
   const searchInputRef = useRef<HTMLInputElement>(null);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const ctx = mounted ? resolveNavContext(pathname) : null;
   const isHub = pathname === "/hub" || pathname.startsWith("/hub/");
@@ -128,21 +129,21 @@ export function MobileIsland({
   const title = isHub || !ctx ? "OPAI" : ctx.shortTitle;
 
   const exitSearch = () => {
-    if (debounceRef.current) clearTimeout(debounceRef.current);
     setSearchOpen(false);
-    setSearchValue("");
     if (moduleSearch) moduleSearch.onExit?.();
   };
 
-  const commitSearch = (value: string) => {
-    const q = value.trim();
-    if (!q) return;
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    onSearch(q);
-    exitSearch();
+  const openSearch = () => {
+    // Global: Command Palette directo (foco + teclado en el mismo gesto).
+    // Módulo con búsqueda propia: campo inline en la isla.
+    if (usingModuleSearch) {
+      setSearchOpen(true);
+      return;
+    }
+    onSearch();
   };
 
-  // Autofocus al entrar en modo búsqueda
+  // Autofocus al entrar en modo búsqueda de módulo
   useEffect(() => {
     if (!searchOpen) return;
     requestAnimationFrame(() => searchInputRef.current?.focus());
@@ -173,24 +174,10 @@ export function MobileIsland({
     if (moduleSearch) setSearchOpen(true);
   });
 
-  const onPaletteSearchChange = (value: string) => {
-    setSearchValue(value);
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    if (value.trim().length >= 2) {
-      debounceRef.current = setTimeout(() => {
-        commitSearch(value);
-      }, 200);
-    }
-  };
-
-  const fieldValue = usingModuleSearch ? (moduleSearch?.value ?? "") : searchValue;
+  const fieldValue = moduleSearch?.value ?? "";
   const fieldPlaceholder = moduleSearch?.placeholder ?? "Buscar…";
   const onFieldChange = (value: string) => {
-    if (usingModuleSearch) {
-      moduleSearch?.onChange(value);
-      return;
-    }
-    onPaletteSearchChange(value);
+    moduleSearch?.onChange(value);
   };
 
   if (suppressed) return null;
@@ -217,8 +204,8 @@ export function MobileIsland({
           "md:mx-auto md:w-full md:max-w-[860px]",
         )}
       >
-        {searchOpen ? (
-          /* ── Modo búsqueda: cambio de árbol, sin overlay ── */
+        {searchOpen && usingModuleSearch ? (
+          /* ── Modo búsqueda de módulo: campo inline, sin overlay ── */
           <>
             <button
               type="button"
@@ -230,19 +217,15 @@ export function MobileIsland({
             </button>
             <input
               ref={searchInputRef}
-              id={usingModuleSearch ? "correos-search-input-mobile" : undefined}
+              id="correos-search-input-mobile"
               type="search"
               value={fieldValue}
               onChange={(e) => onFieldChange(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
                   e.preventDefault();
-                  if (usingModuleSearch) {
-                    // Módulo: Enter solo confirma/blur; el filtro ya vive en onChange.
-                    searchInputRef.current?.blur();
-                    return;
-                  }
-                  commitSearch(searchValue);
+                  // Módulo: Enter solo confirma/blur; el filtro ya vive en onChange.
+                  searchInputRef.current?.blur();
                 }
               }}
               onBlur={() => {
@@ -257,7 +240,7 @@ export function MobileIsland({
                 "min-w-0 flex-1 bg-transparent text-[13px] text-ds-text-1 placeholder:text-ds-text-4",
                 "outline-none border-0 focus:ring-0",
               )}
-              aria-label={usingModuleSearch ? fieldPlaceholder : "Buscar en OPAI"}
+              aria-label={fieldPlaceholder}
             />
             {fieldValue.length > 0 && (
               <button
@@ -353,7 +336,7 @@ export function MobileIsland({
                 <button
                   type="button"
                   className={btnBase}
-                  onClick={() => setSearchOpen(true)}
+                  onClick={openSearch}
                   aria-label="Buscar"
                 >
                   <Search className="h-5 w-5" />
