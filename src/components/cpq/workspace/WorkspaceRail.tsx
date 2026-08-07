@@ -9,13 +9,13 @@
 import { useEffect, useState, type ReactNode } from "react";
 import {
   Bot,
-  ChevronLeft,
-  ChevronRight,
   ClipboardList,
   FileStack,
   Layers,
   LineChart,
   ListPlus,
+  PanelLeftClose,
+  PanelLeftOpen,
   Percent,
   ScrollText,
   Settings2,
@@ -23,6 +23,7 @@ import {
   Wallet,
   type LucideIcon,
 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { WORKSPACE_SECTIONS, type WorkspaceSectionId } from "./types";
 
@@ -84,28 +85,34 @@ export function WorkspaceRail({
       className={cn("sticky self-start space-y-0.5", topOffsetClassName, className)}
     >
       {onCollapsedChange ? (
-        <button
-          type="button"
-          onClick={() => onCollapsedChange(!collapsed)}
-          aria-expanded={!collapsed}
-          aria-label={collapsed ? "Expandir secciones" : "Contraer secciones"}
-          title={collapsed ? "Expandir secciones" : "Contraer secciones"}
+        <div
           className={cn(
-            "mb-1 flex h-10 w-full items-center rounded-md border border-border/60 bg-background/50 text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground sm:h-9",
-            collapsed ? "justify-center px-0" : "justify-between gap-2 px-2.5",
+            "mb-1 flex items-center border-b border-border/50 pb-1.5",
+            collapsed ? "justify-center" : "justify-between gap-2 px-0.5",
           )}
         >
           {!collapsed ? (
-            <span className="text-[12px] font-semibold uppercase tracking-wide">
+            <span className="truncate text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">
               Secciones
             </span>
           ) : null}
-          {collapsed ? (
-            <ChevronRight className="h-4 w-4" aria-hidden />
-          ) : (
-            <ChevronLeft className="h-4 w-4 shrink-0" aria-hidden />
-          )}
-        </button>
+          <Button
+            type="button"
+            size="icon"
+            variant="outline"
+            className="h-9 w-9 shrink-0"
+            aria-expanded={!collapsed}
+            aria-label={collapsed ? "Expandir secciones" : "Contraer secciones"}
+            title={collapsed ? "Expandir secciones" : "Contraer secciones"}
+            onClick={() => onCollapsedChange(!collapsed)}
+          >
+            {collapsed ? (
+              <PanelLeftOpen className="h-4 w-4" aria-hidden />
+            ) : (
+              <PanelLeftClose className="h-4 w-4" aria-hidden />
+            )}
+          </Button>
+        </div>
       ) : null}
 
       {WORKSPACE_SECTIONS.map((section) => {
