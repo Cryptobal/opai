@@ -35,7 +35,7 @@ export interface DatosSectionProps {
   crmAccounts: { id: string; name: string; type?: string }[];
   crmInstallations: CrmInstallationOption[];
   crmContacts: { id: string; firstName: string; lastName: string; email?: string | null }[];
-  crmDeals: { id: string; title: string }[];
+  crmDeals: { id: string; title: string; isLicitacion?: boolean }[];
 
   /** CRM context (selected IDs + currency) */
   crmContext: {
@@ -74,7 +74,7 @@ export interface DatosSectionProps {
   setCrmAccounts: React.Dispatch<React.SetStateAction<{ id: string; name: string; type?: string }[]>>;
   setCrmInstallations: React.Dispatch<React.SetStateAction<CrmInstallationOption[]>>;
   setCrmContacts: React.Dispatch<React.SetStateAction<{ id: string; firstName: string; lastName: string; email?: string | null }[]>>;
-  setCrmDeals: React.Dispatch<React.SetStateAction<{ id: string; title: string }[]>>;
+  setCrmDeals: React.Dispatch<React.SetStateAction<{ id: string; title: string; isLicitacion?: boolean }[]>>;
 }
 
 export function DatosSection({
@@ -202,7 +202,14 @@ export function DatosSection({
           saveCrmContext({ contactId: created.id });
           break;
         case "deal":
-          setCrmDeals((prev) => [...prev, { id: created.id, title: created.title }]);
+          setCrmDeals((prev) => [
+            ...prev,
+            {
+              id: created.id,
+              title: created.title,
+              isLicitacion: Boolean(created.isLicitacion),
+            },
+          ]);
           saveCrmContext({ dealId: created.id });
           break;
       }
