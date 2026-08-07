@@ -15,6 +15,7 @@ describe("WorkspaceRail", () => {
     expect(screen.getByRole("button", { name: "Datos" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Financieros" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Contraer secciones" })).toBeInTheDocument();
+    expect(screen.getByText("Secciones")).toBeInTheDocument();
   });
 
   it("contrae a iconos y notifica el cambio", () => {
