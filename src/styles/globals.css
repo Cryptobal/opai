@@ -792,13 +792,17 @@ html {
   }
 }
 
-/* Safe-area utilities (4 axes; tokens in :root) */
-.app-safe-x {
-  padding-left: max(env(safe-area-inset-left), 0px);
-  padding-right: max(env(safe-area-inset-right), 0px);
-}
-.app-safe-b {
-  padding-bottom: max(env(safe-area-inset-bottom), 0px);
+/* Safe-area utilities (4 axes; tokens in :root).
+   Solo bajo `lg`: en desktop el shell usa lg:px-* y esta clase
+   no debe anularlos (misma specificity de padding-left/right). */
+@media (max-width: 1023px) {
+  .app-safe-x {
+    padding-left: max(env(safe-area-inset-left), 0px);
+    padding-right: max(env(safe-area-inset-right), 0px);
+  }
+  .app-safe-b {
+    padding-bottom: max(env(safe-area-inset-bottom), 0px);
+  }
 }
 
 /* ============================================

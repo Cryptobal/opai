@@ -47,6 +47,8 @@ export default function PortalAccesoLayout({ children }: { children: React.React
         overflowY: 'visible',
         paddingTop: 'var(--safe-area-top)',
         paddingBottom: 'var(--safe-area-bottom)',
+        paddingLeft: 'var(--safe-area-left)',
+        paddingRight: 'var(--safe-area-right)',
       }}
     >
       <GlassAmbient />

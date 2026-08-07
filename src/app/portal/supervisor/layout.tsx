@@ -37,7 +37,11 @@ export default async function PortalSupervisorLayout({
     redirect("/opai/login?portal=supervisor&callbackUrl=/portal/supervisor");
   }
   return (
-    <div className="min-h-dvh text-white" style={{ paddingTop: 'var(--safe-area-top)' }}>
+    <div className="min-h-dvh text-white" style={{
+        paddingTop: 'var(--safe-area-top)',
+        paddingLeft: 'var(--safe-area-left)',
+        paddingRight: 'var(--safe-area-right)',
+      }}>
       <GlassAmbient />
       <ServiceWorkerRegistrar scope="/portal/supervisor" />
       <BadgeClear />
