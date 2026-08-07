@@ -181,6 +181,24 @@ describe("marcarCheckpoint — validación QR y geocerca", () => {
     });
   });
 
+  it("QR embebido en URL coincide con el código del checkpoint", async () => {
+    mocks.findFirstCheckpoint.mockResolvedValue(baseCheckpoint);
+    setupTransactionCreate("COMPLETED");
+
+    const result = await marcarCheckpoint({
+      ejecucionId: "ej-1",
+      checkpointId: "cp-1",
+      checkpointQrCode: "https://example.test/ronda/QR-ABC123",
+      lat: -33.5,
+      lng: -70.7,
+      gpsAccuracy: 800,
+      guardiaId: "guard-1",
+    });
+
+    expect(result.geoNoVerificada).toBe(false);
+    expect(mocks.transaction).toHaveBeenCalled();
+  });
+
   it("punto GEOFENCE fuera de radio → GEO_NO_VERIFICADA", async () => {
     mocks.findFirstCheckpoint.mockResolvedValue({
       ...baseCheckpoint,

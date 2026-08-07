@@ -1,61 +1,133 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { Html5Qrcode } from "html5-qrcode";
+import { useEffect, useId, useRef, useState } from "react";
 import { X, Keyboard } from "lucide-react";
+import { normalizeCheckpointQrCode } from "@/lib/rondas/normalize-qr-code";
 
 interface QrScannerProps {
   onScan: (code: string) => void;
   onClose: () => void;
 }
 
+/**
+ * Escáner QR del portal de rondas.
+ *
+ * Importante: html5-qrcode manipula el DOM del contenedor. Hay que:
+ * 1) esperar a que el nodo exista,
+ * 2) detener la cámara ANTES de notificar onScan (evita crash al desmontar),
+ * 3) atrapar errores síncronos del constructor (si no → global-error "Algo salió mal").
+ */
 export function QrScanner({ onScan, onClose }: QrScannerProps) {
+  const reactId = useId().replace(/:/g, "");
+  const containerId = `rondas-qr-reader-${reactId}`;
   const [error, setError] = useState<string | null>(null);
   const [showManual, setShowManual] = useState(false);
   const [manualCode, setManualCode] = useState("");
-  const scannerRef = useRef<Html5Qrcode | null>(null);
-  const containerIdRef = useRef("qr-reader-" + Date.now());
+  const [ready, setReady] = useState(false);
+
+  const scannerRef = useRef<InstanceType<typeof import("html5-qrcode").Html5Qrcode> | null>(null);
   const hasScannedRef = useRef(false);
+  const cancelledRef = useRef(false);
   const onScanRef = useRef(onScan);
   onScanRef.current = onScan;
 
   useEffect(() => {
-    let cancelled = false;
-    const scanner = new Html5Qrcode(containerIdRef.current);
-    scannerRef.current = scanner;
+    cancelledRef.current = false;
+    hasScannedRef.current = false;
 
-    scanner
-      .start(
-        { facingMode: "environment" },
-        {
-          fps: 10,
-          qrbox: { width: 250, height: 250 },
-          aspectRatio: 1,
-        },
-        (decodedText) => {
-          if (hasScannedRef.current || cancelled) return;
-          hasScannedRef.current = true;
-          scanner.stop().catch(() => {});
-          onScanRef.current(decodedText);
-        },
-        () => {} // ignore scan failures (no QR in frame yet)
-      )
-      .catch((err: Error) => {
-        if (cancelled) return;
+    async function startScanner() {
+      try {
+        // Asegura que el contenedor ya está en el DOM (evita throw síncrono).
+        await new Promise<void>((resolve) => {
+          requestAnimationFrame(() => resolve());
+        });
+        if (cancelledRef.current) return;
+
+        const el = document.getElementById(containerId);
+        if (!el) {
+          setError("No se pudo iniciar el escáner. Usa ingreso manual.");
+          setShowManual(true);
+          return;
+        }
+
+        const { Html5Qrcode, Html5QrcodeSupportedFormats } = await import("html5-qrcode");
+        if (cancelledRef.current) return;
+
+        const scanner = new Html5Qrcode(containerId, {
+          formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE],
+          experimentalFeatures: { useBarCodeDetectorIfSupported: true },
+          verbose: false,
+        } as import("html5-qrcode/esm/html5-qrcode").Html5QrcodeFullConfig);
+        scannerRef.current = scanner;
+
+        await scanner.start(
+          { facingMode: "environment" },
+          {
+            fps: 10,
+            qrbox: { width: 250, height: 250 },
+            aspectRatio: 1,
+          },
+          (decodedText) => {
+            if (hasScannedRef.current || cancelledRef.current) return;
+            hasScannedRef.current = true;
+            const normalized = normalizeCheckpointQrCode(decodedText);
+            if (!normalized) {
+              hasScannedRef.current = false;
+              return;
+            }
+
+            // Detener cámara antes de desmontar el componente (evita crash React).
+            const finish = () => {
+              if (cancelledRef.current) return;
+              onScanRef.current(normalized);
+            };
+
+            scanner
+              .stop()
+              .catch(() => {})
+              .finally(() => {
+                // Defer un tick para que html5-qrcode termine de soltar el DOM.
+                setTimeout(finish, 0);
+              });
+          },
+          () => {
+            // ignore frame-level scan failures
+          },
+        );
+
+        if (!cancelledRef.current) setReady(true);
+      } catch (err) {
+        if (cancelledRef.current) return;
+        console.error("QR scanner error:", err);
         setError("No se pudo acceder a la cámara. Verifica los permisos.");
         setShowManual(true);
-        console.error("QR scanner error:", err);
-      });
+      }
+    }
+
+    void startScanner();
 
     return () => {
-      cancelled = true;
-      scanner.stop().catch(() => {});
+      cancelledRef.current = true;
+      const scanner = scannerRef.current;
+      scannerRef.current = null;
+      // stop() es tolerante si la cámara aún no arrancó o ya se detuvo
+      scanner?.stop().catch(() => {});
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [containerId]);
+
+  const stopCamera = () => {
+    const scanner = scannerRef.current;
+    if (!scanner) return;
+    scanner.stop().catch(() => {});
+  };
+
+  const openManual = () => {
+    stopCamera();
+    setShowManual(true);
+  };
 
   const handleManualSubmit = () => {
-    const code = manualCode.trim();
+    const code = normalizeCheckpointQrCode(manualCode);
     if (code) onScan(code);
   };
 
@@ -90,12 +162,20 @@ export function QrScanner({ onScan, onClose }: QrScannerProps) {
         </button>
       </div>
 
-      {/* Scanner area */}
-      {!showManual && (
-        <div className="flex-1 flex items-center justify-center px-4">
-          <div id={containerIdRef.current} className="w-full max-w-sm" />
+      {/* Contenedor del scanner: permanece en el DOM (oculto en modo manual) para
+          que html5-qrcode no pierda el elementId a mitad del stop(). */}
+      <div
+        className={`flex-1 flex items-center justify-center px-4 ${showManual ? "hidden" : ""}`}
+      >
+        <div className="w-full max-w-sm relative">
+          <div id={containerId} className="w-full" />
+          {!ready && !error && (
+            <p className="absolute inset-x-0 top-1/2 -translate-y-1/2 text-center text-sm text-zinc-400">
+              Iniciando cámara…
+            </p>
+          )}
         </div>
-      )}
+      </div>
 
       {/* Error */}
       {error && (
@@ -108,7 +188,7 @@ export function QrScanner({ onScan, onClose }: QrScannerProps) {
       <div className="p-4 space-y-3">
         {!showManual ? (
           <button
-            onClick={() => setShowManual(true)}
+            onClick={openManual}
             className="w-full flex items-center justify-center gap-2 py-3 text-zinc-400 text-sm"
           >
             <Keyboard size={16} />
