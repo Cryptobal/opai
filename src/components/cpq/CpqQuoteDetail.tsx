@@ -1131,7 +1131,7 @@ export function CpqQuoteDetail({
       });
       const data = await res.json();
       if (!data.success) throw new Error(data.error || "Error");
-      const nextStatus = String(data.data?.quote?.status || "sent");
+      const nextStatus = "sent" as const;
       setQuote((prev) => (prev ? { ...prev, status: nextStatus } : prev));
       setQuoteForm((prev) => ({ ...prev, status: nextStatus }));
       const stageName = data.data?.stageName || "Negociación";
@@ -1739,7 +1739,7 @@ export function CpqQuoteDetail({
     Boolean(crmContext.accountId && crmContext.contactId && crmContext.dealId) &&
     contactHasEmail;
   const canMarkSentLicitacion =
-    Boolean(quote) &&
+    quote != null &&
     quote.status === "draft" &&
     isLicitacionDeal &&
     (positions.length > 0 || (additionalLines?.length ?? 0) > 0) &&
