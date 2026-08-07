@@ -577,7 +577,7 @@ function TicketsHeatmap({
   const hours = Array.from({ length: 24 }, (_, h) => h);
   return (
     <div className="overflow-x-auto -mx-2 px-2">
-      <table className="min-w-[640px] w-full border-separate border-spacing-y-0.5 border-spacing-x-0">
+      <table className="min-w-0 sm:min-w-[640px] w-full border-separate border-spacing-y-0.5 border-spacing-x-0">
         <thead>
           <tr>
             <th className="w-10" />

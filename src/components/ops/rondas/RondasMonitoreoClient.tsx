@@ -746,7 +746,7 @@ export function RondasMonitoreoClient({
   const canCloseTurno = isOperator || isAdmin;
 
   return (
-    <div className="flex flex-col min-w-0 h-[calc(100vh-64px)]">
+    <div className="flex flex-col min-w-0 h-[calc(100dvh-64px)]">
       {/* PanicAlertBanner removed — panic alerts now handled globally by PanicAlertProvider */}
       {/* Turno header */}
       <MonitoreoTurnoHeader

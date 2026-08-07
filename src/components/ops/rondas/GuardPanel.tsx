@@ -532,7 +532,7 @@ export function GuardPanel({
 
       {/* Panel */}
       <div
-        className={`relative w-[380px] h-full bg-slate-900 border-l border-slate-700 shadow-2xl flex flex-col transition-transform duration-200 ease-out ${
+        className={`relative w-[min(380px,calc(100vw-2rem))] h-full bg-slate-900 border-l border-slate-700 shadow-2xl flex flex-col transition-transform duration-200 ease-out ${
           visible ? "translate-x-0" : "translate-x-full"
         }`}
       >

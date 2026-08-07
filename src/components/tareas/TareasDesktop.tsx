@@ -126,7 +126,7 @@ export function TareasDesktop({
   return (
     <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_400px] lg:gap-4 lg:items-start">
       {list}
-      <div className="sticky top-4 hidden max-h-[calc(100vh-6rem)] lg:block">
+      <div className="sticky top-4 hidden max-h-[calc(100dvh-6rem)] lg:block">
         <TareaDetailPanel
           task={detailTask}
           users={users}

@@ -190,7 +190,7 @@ export function VraReportViewerClient({ report: initialReport }: { report: Repor
   };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-[260px_1fr] gap-6 min-h-[calc(100vh-100px)]">
+    <div className="grid grid-cols-1 lg:grid-cols-[260px_1fr] gap-6 min-h-[calc(100dvh-100px)]">
       {/* Sidebar — TOC */}
       <aside className="lg:sticky lg:top-4 lg:self-start space-y-3">
         <Link

@@ -176,7 +176,7 @@ export function CorreoWorkPanel({
         className={cn(
           "fixed z-[55] flex flex-col overflow-hidden border-ds-border-default bg-ds-surface-1",
           dockDesktop
-            ? "top-0 right-0 h-full w-[430px] border-l shadow-[-8px_0_30px_-12px_rgba(0,0,0,0.25)]"
+            ? "top-0 right-0 h-full w-[min(430px,calc(100vw-2rem))] border-l shadow-[-8px_0_30px_-12px_rgba(0,0,0,0.25)]"
             : "inset-x-0 bottom-0 mt-auto h-[90dvh] max-h-[90dvh] w-full rounded-t-2xl border-t shadow-2xl",
         )}
         style={

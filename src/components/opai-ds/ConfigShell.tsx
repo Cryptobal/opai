@@ -286,7 +286,7 @@ export function ConfigShell({ children }: ConfigShellProps) {
             collapsed ? "w-14" : "w-60",
           )}
         >
-          <div className="sticky top-16 max-h-[calc(100vh-5rem)] flex flex-col">
+          <div className="sticky top-16 max-h-[calc(100dvh-5rem)] flex flex-col">
             <div
               className={cn(
                 "flex mb-2 shrink-0",

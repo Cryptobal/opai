@@ -838,7 +838,7 @@ export function CheckpointMapCreator({
         <div className="flex-1 min-w-0 relative w-full">
           <div
             ref={mapContainerRef}
-            className="w-full rounded-lg border border-border min-h-[400px] h-[calc(100vh-280px)]"
+            className="w-full rounded-lg border border-border min-h-[400px] h-[calc(100dvh-280px)]"
           />
           {/* Zoom +/− (evita solaparse con controles nativos; Mi ubicación queda a la izquierda) */}
           <div className="pointer-events-none absolute inset-0 z-10">

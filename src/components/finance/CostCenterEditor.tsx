@@ -274,7 +274,7 @@ export function CostCenterEditor({
         </button>
       </PopoverTrigger>
       <PopoverContent
-        className="w-[360px] p-3"
+        className="w-[min(360px,calc(100vw-2rem))] p-3"
         align="start"
         onClick={(e) => e.stopPropagation()}
       >

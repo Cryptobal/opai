@@ -70,7 +70,7 @@ export function CoberturaSheet({ open, onClose, turnoFilter, instalaciones, onSe
 
   return (
     <Sheet open={open} onOpenChange={(v) => !v && onClose()}>
-      <SheetContent side="right" className="w-[380px] bg-[#0a0f1c] border-l border-[#1a1f2e] p-0 flex flex-col">
+      <SheetContent side="right" className="w-[min(380px,calc(100vw-2rem))] bg-[#0a0f1c] border-l border-[#1a1f2e] p-0 flex flex-col">
         <SheetHeader className="px-5 pt-5 pb-3 border-b border-[#1a1f2e]">
           <SheetTitle className="flex items-center gap-2 text-[#f1f5f9]">
             <Icon className={cn("h-4 w-4", isNocturno ? "text-status-info-fg" : "text-status-warn-fg")} />
