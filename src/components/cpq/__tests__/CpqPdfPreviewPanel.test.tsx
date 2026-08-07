@@ -1,26 +1,10 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
+import { describe, expect, it, vi, afterEach } from "vitest";
 import { CpqPdfPreviewPanel } from "../CpqPdfPreviewPanel";
 
 describe("CpqPdfPreviewPanel", () => {
-  beforeEach(() => {
-    vi.stubGlobal(
-      "matchMedia",
-      vi.fn().mockImplementation((query: string) => ({
-        matches: false,
-        media: query,
-        onchange: null,
-        addListener: vi.fn(),
-        removeListener: vi.fn(),
-        addEventListener: vi.fn(),
-        removeEventListener: vi.fn(),
-        dispatchEvent: vi.fn(),
-      })),
-    );
-  });
-
   afterEach(() => {
-    vi.unstubAllGlobals();
+    document.body.style.overflow = "";
   });
 
   it("separa tipo de PDF y formato de cotizacion", () => {
@@ -43,6 +27,7 @@ describe("CpqPdfPreviewPanel", () => {
     expect(screen.getByRole("button", { name: "Detallado" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Licitación" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Ver" })).toBeInTheDocument();
+    expect(screen.getByText("PDF y documentos")).toBeInTheDocument();
   });
 
   it("oculta formatos de cotizacion cuando se elige presentacion", () => {
@@ -64,7 +49,7 @@ describe("CpqPdfPreviewPanel", () => {
     expect(onModeChange).toHaveBeenCalledWith("presentacion");
   });
 
-  it("Ver genera y abre el visor cuando aún no hay preview", async () => {
+  it("Ver genera y abre el visor a pantalla completa con la URL generada", async () => {
     const onGenerate = vi.fn().mockResolvedValue("/api/cpq/quotes/q1/export-pdf?t=1");
     render(
       <CpqPdfPreviewPanel
@@ -83,25 +68,36 @@ describe("CpqPdfPreviewPanel", () => {
     await waitFor(() => {
       expect(onGenerate).toHaveBeenCalledTimes(1);
     });
-    expect(await screen.findByText("Vista previa · Cotización")).toBeInTheDocument();
+    expect(await screen.findByRole("dialog", { name: "Vista previa de la propuesta" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Agrandar" })).toBeInTheDocument();
   });
 
-  it("en pointer coarse Ver abre pestaña nativa sin forzar descarga", async () => {
-    vi.stubGlobal(
-      "matchMedia",
-      vi.fn().mockImplementation((query: string) => ({
-        matches: query.includes("pointer: coarse"),
-        media: query,
-        onchange: null,
-        addListener: vi.fn(),
-        removeListener: vi.fn(),
-        addEventListener: vi.fn(),
-        removeEventListener: vi.fn(),
-        dispatchEvent: vi.fn(),
-      })),
+  it("pantalla completa abre visor con zoom", async () => {
+    render(
+      <CpqPdfPreviewPanel
+        mode="presentacion"
+        templateSlug="standard"
+        previewUrl="/api/cpq/quotes/q1/proposal-pdf?t=1"
+        loading={false}
+        onModeChange={vi.fn()}
+        onTemplateSlugChange={vi.fn()}
+        onGenerate={vi.fn()}
+      />
     );
-    const openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
 
+    fireEvent.click(screen.getByRole("button", { name: "Ver pantalla completa" }));
+
+    expect(await screen.findByRole("dialog", { name: "Vista previa de la propuesta" })).toBeInTheDocument();
+    expect(screen.getByText("100%")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Agrandar" }));
+    expect(screen.getByText("120%")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Achicar" }));
+    expect(screen.getByText("100%")).toBeInTheDocument();
+  });
+
+  it("Ver con previewUrl abre el mismo visor fullscreen", async () => {
     render(
       <CpqPdfPreviewPanel
         mode="presentacion"
@@ -116,14 +112,8 @@ describe("CpqPdfPreviewPanel", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Ver" }));
 
-    await waitFor(() => {
-      expect(openSpy).toHaveBeenCalledWith(
-        "/api/cpq/quotes/q1/proposal-pdf?t=1",
-        "_blank",
-        "noopener,noreferrer",
-      );
-    });
-
-    openSpy.mockRestore();
+    expect(await screen.findByRole("dialog", { name: "Vista previa de la propuesta" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Agrandar" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Achicar" })).toBeInTheDocument();
   });
 });

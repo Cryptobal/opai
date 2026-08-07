@@ -1,15 +1,20 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
-import { Eye, ExternalLink, FileText, Loader2, Maximize2, RefreshCw, X } from "lucide-react";
+import { useEffect, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
+import {
+  Eye,
+  ExternalLink,
+  FileText,
+  Loader2,
+  Maximize2,
+  Minus,
+  Plus,
+  RefreshCw,
+  X,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 
 export const CPQ_PDF_TEMPLATE_OPTIONS = [
@@ -20,6 +25,10 @@ export const CPQ_PDF_TEMPLATE_OPTIONS = [
 
 export type CpqPdfTemplateSlug = (typeof CPQ_PDF_TEMPLATE_OPTIONS)[number]["slug"];
 export type CpqPdfPreviewMode = "cotizacion" | "presentacion";
+
+const ZOOM_MIN = 0.6;
+const ZOOM_MAX = 2;
+const ZOOM_STEP = 0.2;
 
 interface CpqPdfPreviewPanelProps {
   mode: CpqPdfPreviewMode;
@@ -39,11 +48,6 @@ interface CpqPdfPreviewPanelProps {
   footer?: ReactNode;
 }
 
-function isCoarsePointer(): boolean {
-  if (typeof window === "undefined") return false;
-  return window.matchMedia("(pointer: coarse)").matches;
-}
-
 export function CpqPdfPreviewPanel({
   mode,
   templateSlug,
@@ -60,20 +64,37 @@ export function CpqPdfPreviewPanel({
   emptyPresentacionText = "Click en Generar PDF para ver la vista previa de la propuesta técnica",
   footer,
 }: CpqPdfPreviewPanelProps) {
-  const [fullscreen, setFullscreen] = useState(false);
+  const [viewerOpen, setViewerOpen] = useState(false);
+  const [viewerUrl, setViewerUrl] = useState<string | null>(null);
   const [viewLoading, setViewLoading] = useState(false);
+  const [zoom, setZoom] = useState(1);
+  const [mounted, setMounted] = useState(false);
 
   const previewTitle =
     mode === "presentacion" ? "Preview presentación PDF" : "Preview cotización PDF";
 
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!viewerOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setViewerOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = prev;
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [viewerOpen]);
+
   const openViewer = (url: string) => {
-    // En iPad/iPhone el iframe PDF suele fallar o forzar descarga; el visor nativo
-    // (pestaña nueva) es la forma fiable de ver sin bajar el archivo.
-    if (isCoarsePointer()) {
-      window.open(url, "_blank", "noopener,noreferrer");
-      return;
-    }
-    setFullscreen(true);
+    setViewerUrl(url);
+    setZoom(1);
+    setViewerOpen(true);
   };
 
   const handleView = async () => {
@@ -91,48 +112,145 @@ export function CpqPdfPreviewPanel({
   };
 
   const busy = loading || viewLoading;
+  const activeUrl = previewUrl;
+  const dialogUrl = viewerUrl || previewUrl;
+
+  const zoomOut = () => setZoom((z) => Math.max(ZOOM_MIN, Number((z - ZOOM_STEP).toFixed(1))));
+  const zoomIn = () => setZoom((z) => Math.min(ZOOM_MAX, Number((z + ZOOM_STEP).toFixed(1))));
+
+  const viewer =
+    mounted && viewerOpen && dialogUrl
+      ? createPortal(
+          <div
+            className="fixed inset-0 z-[100] flex flex-col bg-background"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Vista previa de la propuesta"
+          >
+            <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-border/40 bg-muted/30 px-3 py-2">
+              <span className="text-[12px] font-semibold text-muted-foreground">
+                Vista previa · {mode === "presentacion" ? "Propuesta técnica" : "Cotización"}
+              </span>
+              <div className="flex flex-wrap items-center gap-1.5">
+                <div className="inline-flex items-center rounded-md border border-border/60 bg-background/70 p-0.5">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-9 w-9 sm:h-8 sm:w-8"
+                    aria-label="Achicar"
+                    title="Achicar"
+                    disabled={zoom <= ZOOM_MIN}
+                    onClick={zoomOut}
+                  >
+                    <Minus className="h-4 w-4" />
+                  </Button>
+                  <span className="min-w-[3.25rem] text-center text-[12px] font-semibold tabular-nums text-foreground">
+                    {Math.round(zoom * 100)}%
+                  </span>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-9 w-9 sm:h-8 sm:w-8"
+                    aria-label="Agrandar"
+                    title="Agrandar"
+                    disabled={zoom >= ZOOM_MAX}
+                    onClick={zoomIn}
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-9 gap-1.5 text-xs sm:h-8"
+                  onClick={() => window.open(dialogUrl, "_blank", "noopener,noreferrer")}
+                >
+                  <ExternalLink className="h-3.5 w-3.5" />
+                  Abrir
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-9 w-9 sm:h-8 sm:w-8"
+                  aria-label="Cerrar vista previa"
+                  onClick={() => setViewerOpen(false)}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+            <div className="min-h-0 flex-1 overflow-auto bg-ds-surface-2">
+              <div
+                className="origin-top-left transition-transform duration-150"
+                style={{
+                  width: `${100 * zoom}%`,
+                  height: `${100 * zoom}%`,
+                  minHeight: "100%",
+                }}
+              >
+                <iframe
+                  src={dialogUrl}
+                  title={previewTitle}
+                  className="h-full min-h-[100dvh] w-full border-0 bg-white"
+                  style={{
+                    width: `${100 / zoom}%`,
+                    height: `${100 / zoom}%`,
+                    minHeight: `calc(100dvh / ${zoom})`,
+                    transform: `scale(${zoom})`,
+                    transformOrigin: "top left",
+                  }}
+                />
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )
+      : null;
 
   return (
     <>
       <Card className={cn("overflow-hidden rounded-xl border-border/70 bg-card/85 shadow-sm", className)}>
         <div className="space-y-3 border-b border-border/50 bg-gradient-to-br from-primary/[0.10] via-muted/25 to-background p-3">
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex min-w-0 gap-2.5">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-primary/25 bg-primary/10 text-primary">
-                <FileText className="h-4 w-4" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  {title}
-                </p>
-                <p className="mt-0.5 text-sm leading-snug text-foreground/90">
-                  {description}
-                </p>
-              </div>
+          {/* Título y acciones en filas separadas: evita que "PDF y documentos"
+              se aplaste letra a letra en el aside estrecho (340px / iPad). */}
+          <div className="flex min-w-0 items-start gap-2.5">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-primary/25 bg-primary/10 text-primary">
+              <FileText className="h-4 w-4" />
             </div>
-            <div className="flex shrink-0 items-center gap-1.5">
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-10 gap-1.5 border-primary/30 bg-background/70 px-3 text-xs font-semibold text-primary hover:bg-primary/10 sm:h-9"
-                disabled={busy}
-                onClick={() => void onGenerate()}
-              >
-                {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
-                Generar PDF
-              </Button>
-              <Button
-                variant="default"
-                size="sm"
-                className="h-10 gap-1.5 px-3 text-xs font-semibold sm:h-9"
-                disabled={busy}
-                onClick={() => void handleView()}
-                title={previewUrl ? "Ver propuesta sin descargar" : "Generar y ver propuesta"}
-              >
-                {viewLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Eye className="h-3.5 w-3.5" />}
-                Ver
-              </Button>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                {title}
+              </p>
+              <p className="mt-0.5 line-clamp-2 text-[12px] leading-snug text-ds-text-2">
+                {description}
+              </p>
             </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-1.5">
+            <Button
+              variant="default"
+              size="sm"
+              className="h-10 w-full gap-1.5 px-2 text-xs font-semibold sm:h-9"
+              disabled={busy}
+              onClick={() => void handleView()}
+              title={previewUrl ? "Ver propuesta sin descargar" : "Generar y ver propuesta"}
+            >
+              {viewLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Eye className="h-3.5 w-3.5" />}
+              Ver
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-10 w-full gap-1.5 border-primary/30 bg-background/70 px-2 text-xs font-semibold text-primary hover:bg-primary/10 sm:h-9"
+              disabled={busy}
+              onClick={() => void onGenerate()}
+            >
+              {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+              Generar PDF
+            </Button>
           </div>
 
           <div className="grid grid-cols-2 gap-1.5 rounded-lg border border-border/60 bg-background/60 p-1">
@@ -189,46 +307,26 @@ export function CpqPdfPreviewPanel({
             </div>
           )}
 
-          {previewUrl ? (
-            <>
-              {/* Móvil/tablet: CTA de vista nativa (iframe PDF suele fallar en iOS). */}
-              <div className="flex flex-col items-center gap-3 rounded-lg border border-border/60 bg-background/45 px-4 py-6 text-center lg:hidden">
-                <FileText className="h-10 w-10 text-status-info-fg" aria-hidden />
-                <div className="space-y-1">
-                  <p className="text-sm font-medium text-foreground">
-                    Propuesta lista para ver
-                  </p>
-                  <p className="text-[12px] text-muted-foreground">
-                    Ábrela en el visor del dispositivo, sin descargar.
-                  </p>
-                </div>
-                <Button
-                  className="h-11 w-full max-w-xs gap-2"
-                  disabled={busy}
-                  onClick={() => openViewer(previewUrl)}
-                >
-                  <ExternalLink className="h-4 w-4" />
-                  Ver propuesta
-                </Button>
-              </div>
-
-              {/* Desktop: preview embebida + abrir a pantalla completa */}
-              <div className="relative hidden lg:block">
+          {activeUrl ? (
+            <div className="space-y-2">
+              <div className="relative overflow-hidden rounded-lg border border-border/60 bg-white">
                 <iframe
-                  src={previewUrl}
-                  className={cn("h-[280px] w-full rounded-lg border border-border/60 bg-white", previewClassName)}
+                  src={activeUrl}
+                  className={cn("h-[220px] w-full bg-white sm:h-[280px]", previewClassName)}
                   title={previewTitle}
                 />
-                <button
-                  type="button"
-                  onClick={() => setFullscreen(true)}
-                  className="absolute right-2 top-2 inline-flex h-9 items-center gap-1.5 rounded-md border border-border/60 bg-background/90 px-2.5 text-[12px] font-semibold text-status-info-fg shadow-sm backdrop-blur-sm hover:bg-background"
-                >
-                  <Maximize2 className="h-3.5 w-3.5" />
-                  Pantalla completa
-                </button>
               </div>
-            </>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-10 w-full gap-2 text-xs font-semibold sm:h-9"
+                disabled={busy}
+                onClick={() => openViewer(activeUrl)}
+              >
+                <Maximize2 className="h-3.5 w-3.5" />
+                Ver pantalla completa
+              </Button>
+            </div>
           ) : (
             <div className={cn("flex h-28 items-center justify-center rounded-lg border border-dashed border-border/70 bg-background/45 px-4 text-center text-sm leading-relaxed text-muted-foreground", previewClassName)}>
               <span>{mode === "presentacion" ? emptyPresentacionText : emptyCotizacionText}</span>
@@ -239,52 +337,7 @@ export function CpqPdfPreviewPanel({
         </div>
       </Card>
 
-      <Dialog open={fullscreen} onOpenChange={setFullscreen}>
-        <DialogContent className="!fixed !inset-0 !translate-x-0 !translate-y-0 !max-h-[100dvh] !w-screen !max-w-none !rounded-none !border-0 !p-0 bg-background [&>button]:hidden sm:!inset-3 sm:!max-h-none sm:!w-auto sm:!rounded-lg sm:!border">
-          <DialogTitle className="sr-only">Vista previa de la propuesta</DialogTitle>
-          <DialogDescription className="sr-only">
-            PDF de la propuesta a pantalla completa
-          </DialogDescription>
-          <div className="flex h-full min-h-0 flex-col">
-            <div className="flex shrink-0 items-center justify-between gap-2 border-b border-border/40 bg-muted/30 px-3 py-2">
-              <span className="text-[12px] font-semibold text-muted-foreground">
-                Vista previa · {mode === "presentacion" ? "Propuesta técnica" : "Cotización"}
-              </span>
-              <div className="flex items-center gap-1.5">
-                {previewUrl ? (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-9 gap-1.5 text-xs sm:h-8"
-                    onClick={() => window.open(previewUrl, "_blank", "noopener,noreferrer")}
-                  >
-                    <ExternalLink className="h-3.5 w-3.5" />
-                    Abrir
-                  </Button>
-                ) : null}
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-9 w-9 sm:h-8 sm:w-8"
-                  aria-label="Cerrar vista previa"
-                  onClick={() => setFullscreen(false)}
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-            <div className="min-h-0 flex-1">
-              {previewUrl ? (
-                <iframe
-                  src={previewUrl}
-                  title={previewTitle}
-                  className="h-full w-full border-0 bg-white"
-                />
-              ) : null}
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+      {viewer}
     </>
   );
 }

@@ -55,7 +55,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { ArrowLeft, ChevronDown, Copy, RefreshCw, Users, MoreVertical, Trash2, Loader2, Building2, Plus, MessageCircle, Send, CheckCircle2, Briefcase, Phone, PencilLine, CalendarDays, FileSignature, Eye, PanelRightClose, PanelRightOpen, Unlink } from "lucide-react";
+import { ArrowLeft, ChevronDown, Copy, RefreshCw, Users, MoreVertical, Trash2, Loader2, Building2, Plus, MessageCircle, Send, CheckCircle2, Briefcase, Phone, PencilLine, CalendarDays, FileSignature, Eye, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen, Unlink } from "lucide-react";
 import { DatosSection } from "@/components/cpq/DatosSection";
 import MarginSection from "@/components/cpq/MarginSection";
 import { QuoteAttachmentsSection } from "@/components/cpq/QuoteAttachmentsSection";
@@ -2129,17 +2129,31 @@ export function CpqQuoteDetail({
               {portalVisibilitySaving ? <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" aria-hidden /> : null}
             </div>
           ) : null}
-          <Button
-            type="button"
-            size="icon"
-            variant="outline"
-            className="h-9 w-9"
-            aria-label={controlCenterOpen ? "Contraer centro de control" : "Expandir centro de control"}
-            title={controlCenterOpen ? "Contraer centro de control" : "Expandir centro de control"}
-            onClick={toggleControlCenter}
-          >
-            {controlCenterOpen ? <PanelRightClose className="h-4 w-4" /> : <PanelRightOpen className="h-4 w-4" />}
-          </Button>
+          {/* Pareja homogénea: plegar rail izquierdo + centro de control derecho */}
+          <div className="hidden items-center gap-1 lg:flex">
+            <Button
+              type="button"
+              size="icon"
+              variant="outline"
+              className="hidden h-9 w-9 xl:inline-flex"
+              aria-label={workspaceRailCollapsed ? "Expandir secciones" : "Contraer secciones"}
+              title={workspaceRailCollapsed ? "Expandir secciones" : "Contraer secciones"}
+              onClick={() => handleWorkspaceRailCollapsedChange(!workspaceRailCollapsed)}
+            >
+              {workspaceRailCollapsed ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
+            </Button>
+            <Button
+              type="button"
+              size="icon"
+              variant="outline"
+              className="h-9 w-9"
+              aria-label={controlCenterOpen ? "Contraer centro de control" : "Expandir centro de control"}
+              title={controlCenterOpen ? "Contraer centro de control" : "Expandir centro de control"}
+              onClick={toggleControlCenter}
+            >
+              {controlCenterOpen ? <PanelRightClose className="h-4 w-4" /> : <PanelRightOpen className="h-4 w-4" />}
+            </Button>
+          </div>
           <div className="relative">
             <Button
               type="button"
@@ -2775,8 +2789,8 @@ export function CpqQuoteDetail({
                   <Button
                     type="button"
                     size="icon"
-                    variant="ghost"
-                    className="h-8 w-8"
+                    variant="outline"
+                    className="h-9 w-9"
                     aria-label="Contraer centro de control"
                     title="Contraer centro de control"
                     onClick={toggleControlCenter}
