@@ -20,11 +20,15 @@ import type { VisualBlock, VisualCardItem, VisualSuggestionItem } from "@/lib/ai
 import type { PendingConfirmationClient } from "./PendingConfirmCards";
 import { startNavProgress } from "../nav-progress-bus";
 import { pageContextFromCorreoUrl } from "@/lib/ai/help-chat-correo-url-context";
+import { isTransientNetworkError } from "@/lib/ai/help-chat-network-error";
 import type { ChatPageContextValue } from "../ChatPageContextProvider";
 
 const POLISH_KEY = "opai-dictado-pulido";
 const MOTOR_KEY = "opai-dictado-motor";
 const TRANSCRIBE_UNAVAILABLE_KEY = "opai-transcribe-unavailable";
+
+const BACKGROUND_WAIT_COPY =
+  "Sigo pensando en segundo plano… Al volver a la app traeré la respuesta.";
 
 function readSessionFlag(key: string): boolean {
   if (typeof window === "undefined") return false;
@@ -134,6 +138,11 @@ export function useHelpChatController(opts: {
   const reasoningTextRef = useRef("");
   const reasoningStepsRef = useRef(0);
   const reasoningStartRef = useRef<number | null>(null);
+  /** Polling tras corte de red (background iPad): espera el assistant persistido. */
+  const backgroundWaitRef = useRef<{
+    conversationId: string;
+    sinceIso: string;
+  } | null>(null);
 
   useEffect(() => {
     setPolishEnabled(readLocalFlag(POLISH_KEY, false));
@@ -330,6 +339,23 @@ export function useHelpChatController(opts: {
     }
   }, []);
 
+  const hydrateConversationMessages = useCallback(
+    async (conversationId: string): Promise<ChatMessage[] | null> => {
+      try {
+        const res = await fetch(`/api/ai/help-chat/conversations/${conversationId}`);
+        const json = (await res.json().catch(() => ({}))) as {
+          success?: boolean;
+          data?: { messages?: ChatMessage[] };
+        };
+        if (!json.success || !Array.isArray(json.data?.messages)) return null;
+        return json.data.messages as ChatMessage[];
+      } catch {
+        return null;
+      }
+    },
+    [],
+  );
+
   const clearReasoningLive = useCallback(() => {
     reasoningTextRef.current = "";
     reasoningStepsRef.current = 0;
@@ -339,7 +365,40 @@ export function useHelpChatController(opts: {
     setReasoningMs(undefined);
   }, []);
 
+  /**
+   * Si el SSE se cortó al ir a background, el servidor igual persiste el
+   * assistant. Relee el hilo y reemplaza el placeholder cuando aparece.
+   */
+  const tryRecoverBackgroundReply = useCallback(async (): Promise<boolean> => {
+    const wait = backgroundWaitRef.current;
+    if (!wait) return false;
+    const msgs = await hydrateConversationMessages(wait.conversationId);
+    if (!msgs) return false;
+    const since = Date.parse(wait.sinceIso);
+    const assistant = [...msgs]
+      .reverse()
+      .find(
+        (m) =>
+          m.role === "assistant" &&
+          !m.id.startsWith("tmp-") &&
+          Date.parse(m.createdAt) >= since - 2000,
+      );
+    if (!assistant) return false;
+    backgroundWaitRef.current = null;
+    skipMessageFetchRef.current = wait.conversationId;
+    setActiveConversationId(wait.conversationId);
+    setIsNewConversation(false);
+    setMessages(msgs.slice(-MAX_VISIBLE_MESSAGES));
+    setSending(false);
+    setStreamingStarted(false);
+    setActiveToolName(null);
+    clearReasoningLive();
+    void refreshConversations();
+    return true;
+  }, [hydrateConversationMessages, refreshConversations, clearReasoningLive]);
+
   const stopStreaming = useCallback(() => {
+    backgroundWaitRef.current = null;
     abortRef.current?.abort();
     abortRef.current = null;
     setSending(false);
@@ -348,6 +407,39 @@ export function useHelpChatController(opts: {
     serverTx.cancel();
     setVoiceMode(false);
   }, [webSpeech, serverTx]);
+
+  // Rehidratar respuesta si el SSE murió al ir a otra app (iPad/Safari).
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    let timer: ReturnType<typeof setInterval> | null = null;
+
+    const tick = () => {
+      if (cancelled || !backgroundWaitRef.current) return;
+      void tryRecoverBackgroundReply().then((ok) => {
+        if (ok && timer) {
+          clearInterval(timer);
+          timer = null;
+        }
+      });
+    };
+
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") tick();
+    };
+
+    timer = setInterval(tick, 2500);
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("pageshow", onVisibility);
+    tick();
+
+    return () => {
+      cancelled = true;
+      if (timer) clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("pageshow", onVisibility);
+    };
+  }, [open, tryRecoverBackgroundReply]);
 
   const addFiles = useCallback((list: FileList | null) => {
     if (!list?.length) return;
@@ -444,6 +536,9 @@ export function useHelpChatController(opts: {
 
       const controller = new AbortController();
       abortRef.current = controller;
+      backgroundWaitRef.current = null;
+      const turnStartedAt = new Date().toISOString();
+      let streamConversationId = activeConversationId;
 
       try {
         const res = await fetch("/api/ai/help-chat/stream", {
@@ -467,6 +562,16 @@ export function useHelpChatController(opts: {
           }),
         });
 
+        const headerConvId = res.headers.get("X-Opai-Conversation-Id");
+        if (headerConvId) {
+          streamConversationId = headerConvId;
+          if (headerConvId !== activeConversationId) {
+            skipMessageFetchRef.current = headerConvId;
+          }
+          setActiveConversationId(headerConvId);
+          setIsNewConversation(false);
+        }
+
         if (!res.ok) {
           const errText = await res.text();
           let errorJson: { error?: string };
@@ -483,6 +588,7 @@ export function useHelpChatController(opts: {
         const decoder = new TextDecoder();
         let buffer = "";
         let streamedText = "";
+        let completed = false;
 
         while (true) {
           const { done, value } = await reader.read();
@@ -503,6 +609,7 @@ export function useHelpChatController(opts: {
               if (eventType === "meta") {
                 if (data.conversationId) {
                   const newId = String(data.conversationId);
+                  streamConversationId = newId;
                   if (newId !== activeConversationId) skipMessageFetchRef.current = newId;
                   setActiveConversationId(newId);
                   setIsNewConversation(false);
@@ -520,6 +627,8 @@ export function useHelpChatController(opts: {
                   return updated;
                 });
               } else if (eventType === "done") {
+                completed = true;
+                backgroundWaitRef.current = null;
                 const finalText = (data.assistantText as string) || streamedText;
                 const visuals = (data.visuals as VisualBlock[] | undefined) ?? [];
                 const suggestions = (data.suggestions as VisualSuggestionItem[] | undefined) ?? [];
@@ -598,9 +707,32 @@ export function useHelpChatController(opts: {
             eventType = "";
           }
         }
-        await refreshConversations();
+        // Stream cerrado sin "done": típico al ir a background en iPad.
+        if (!completed && streamConversationId && persistenceEnabled) {
+          backgroundWaitRef.current = {
+            conversationId: streamConversationId,
+            sinceIso: turnStartedAt,
+          };
+          setMessages((prev) => {
+            const updated = [...prev];
+            const last = updated[updated.length - 1];
+            if (last?.role === "assistant" && last.id.startsWith("tmp-streaming-")) {
+              updated[updated.length - 1] = {
+                ...last,
+                content: last.content?.trim()
+                  ? `${last.content}\n\n_${BACKGROUND_WAIT_COPY}_`
+                  : `_${BACKGROUND_WAIT_COPY}_`,
+              };
+            }
+            return updated;
+          });
+          void tryRecoverBackgroundReply();
+        } else {
+          await refreshConversations();
+        }
       } catch (error) {
         if ((error as Error)?.name === "AbortError") {
+          backgroundWaitRef.current = null;
           const abortedReasoning = reasoningTextRef.current || undefined;
           const abortedMs =
             abortedReasoning && reasoningStartRef.current
@@ -622,7 +754,32 @@ export function useHelpChatController(opts: {
             }
             return updated;
           });
+        } else if (
+          isTransientNetworkError(error) &&
+          streamConversationId &&
+          persistenceEnabled
+        ) {
+          // Safari: "Load failed" al suspender la app. El servidor sigue y persiste.
+          backgroundWaitRef.current = {
+            conversationId: streamConversationId,
+            sinceIso: turnStartedAt,
+          };
+          setMessages((prev) => {
+            const updated = [...prev];
+            const last = updated[updated.length - 1];
+            if (last?.role === "assistant" && last.id.startsWith("tmp-streaming-")) {
+              updated[updated.length - 1] = {
+                ...last,
+                content: last.content?.trim()
+                  ? `${last.content}\n\n_${BACKGROUND_WAIT_COPY}_`
+                  : `_${BACKGROUND_WAIT_COPY}_`,
+              };
+            }
+            return updated;
+          });
+          void tryRecoverBackgroundReply();
         } else {
+          backgroundWaitRef.current = null;
           setMessages((prev) => {
             const filtered = prev.filter(
               (m) => !(m.role === "assistant" && m.id.startsWith("tmp-streaming-") && !m.content),
@@ -640,6 +797,8 @@ export function useHelpChatController(opts: {
         }
       } finally {
         abortRef.current = null;
+        // Si esperamos respuesta en background, mantenemos "sending" visual
+        // vía el placeholder; el flag sending se baja para no bloquear UI.
         setSending(false);
         setActiveToolName(null);
         clearReasoningLive();
@@ -656,8 +815,10 @@ export function useHelpChatController(opts: {
       pageContext,
       pathname,
       streamingStarted,
+      persistenceEnabled,
       refreshConversations,
       clearReasoningLive,
+      tryRecoverBackgroundReply,
     ],
   );
 
