@@ -695,7 +695,7 @@ export default function MonitoreoGrid({
   const instalaciones = controlNocturno.instalaciones ?? [];
 
   return (
-    <div className="flex flex-col h-full bg-[#080c16]">
+    <div className="flex flex-col h-full bg-[#080c16]" data-micro-type>
       <GridHeaderBar
         totalInstalaciones={instalaciones.length}
         totalSlots={timeSlots.length}

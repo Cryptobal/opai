@@ -806,6 +806,32 @@ html {
 }
 
 /* ============================================
+   Touch layout (< lg + any-pointer: coarse):
+   clamp tipográfico sub-12px → legible en terreno.
+   Opt-out: contenedores [data-micro-type] (grillas
+   densas cuya métrica dimensiona columnas).
+   ============================================ */
+@media (any-pointer: coarse) and (max-width: 1023px) {
+  .text-\[8px\],
+  .text-\[9px\],
+  .text-\[10px\] {
+    font-size: 11.5px;
+    line-height: 1.3;
+  }
+  .text-\[11px\] {
+    font-size: 12px;
+  }
+
+  [data-micro-type] .text-\[8px\],
+  [data-micro-type] .text-\[9px\],
+  [data-micro-type] .text-\[10px\],
+  [data-micro-type] .text-\[11px\] {
+    font-size: revert;
+    line-height: revert;
+  }
+}
+
+/* ============================================
    Monitor: Cell flash animation on update
    ============================================ */
 @keyframes cell-flash {
