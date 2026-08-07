@@ -20,6 +20,8 @@ export interface CarteraItem {
   anchoredWeek: string;
   anchoredWeekLabel: string;
   crmAccountId?: string | null;
+  ceded?: boolean;
+  cededPct?: number;
 }
 
 export interface OpenMoveWeek {
@@ -131,7 +133,11 @@ export function CarteraPendienteSheet({
                 <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-[12px] text-ds-text-3">
                   <span>Emisión {fmtShortDate(d.issueDate)}</span>
                   <span>Vence {fmtShortDate(d.dueDate)}</span>
-                  {d.overdueDays > 0 ? (
+                  {d.ceded ? (
+                    <span className="text-status-info-fg">
+                      Cedida{d.cededPct != null ? ` ${d.cededPct}%` : ""}
+                    </span>
+                  ) : d.overdueDays > 0 ? (
                     <span className="text-status-warn-fg">
                       {d.overdueDays}d atraso
                     </span>
@@ -159,7 +165,7 @@ export function CarteraPendienteSheet({
                       )}
                     </button>
                   )}
-                  {canManage && (
+                  {canManage && !d.ceded && (
                     <>
                       <button
                         type="button"

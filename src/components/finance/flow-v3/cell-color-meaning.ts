@@ -52,7 +52,7 @@ export const CORNER_LEGEND_ITEMS: ColorMeaningItem[] = [
     key: "ceded",
     swatch: SW.ceded,
     title: "Factura cedida",
-    desc: "Azul arriba + verde abajo — emitida y cedida a factoring. Al conciliar queda verde arriba y se mantiene el verde abajo.",
+    desc: "Azul arriba + verde abajo — emitida y cedida a factoring (total o parcial). Chip «cedida N%»; si el anticipo ya está en banco, «anticipo en banco». No genera mora ni cobranza al cliente.",
   },
   {
     key: "draft",

@@ -11,6 +11,29 @@ export type CornerKind = "real" | "dte" | "warn" | "plan" | null;
 /** Mora contractual en celdas con DTE emitido impago. */
 export type CellOverdueState = "none" | "overdue" | "overdue60";
 
+/** Estado de cesión agregado de la celda. */
+export type CellCededState = "none" | "ceded" | "funded";
+
+/** Chip de estado accionable / informativo en fila o ficha. */
+export type CellStateChipKind =
+  | "ceded"
+  | "funded"
+  | "retention"
+  | "overdue"
+  | "due";
+
+export type CellStateChipTone = "info" | "ok" | "warn" | "danger" | "neutral";
+
+export interface CellStateChip {
+  kind: CellStateChipKind;
+  label: string;
+  tone: CellStateChipTone;
+  dteId?: string;
+  /** Días de mora (solo kind=overdue). */
+  overdueDays?: number;
+  crmAccountId?: string | null;
+}
+
 /** Marca secundaria inf-der: cedida / docs de cobro enviados. */
 export type SecondaryMark = "ceded" | "proforma" | "estadoPago";
 
@@ -96,6 +119,156 @@ export function countOverdueInMatrix(rows: Pick<FlowMatrixRowDto, "cells">[]): n
   return ids.size;
 }
 
+function itemIsCeded(it: CommittedItem): boolean {
+  return it.kind === "dte" && ((it.cededPct ?? 0) > 0 || it.ceded === true);
+}
+
+/** Estado de cesión agregado de la celda (funded > ceded > none). */
+export function cellCededState(cell: FlowMatrixCellDto): CellCededState {
+  const dtes = (cell.committed?.items ?? []).filter((i) => i.kind === "dte");
+  if (dtes.some((i) => itemIsCeded(i) && i.factoringFunded === true)) {
+    return "funded";
+  }
+  if (dtes.some((i) => itemIsCeded(i))) return "ceded";
+  return "none";
+}
+
+/** ¿La fila tiene al menos un DTE cedido? */
+export function rowHasCeded(row: Pick<FlowMatrixRowDto, "cells">): boolean {
+  return row.cells.some((c) => cellCededState(c) !== "none");
+}
+
+/** Total de DTEs cedidos en la fila (deduplicados por dteId). */
+export function countCededInRow(row: Pick<FlowMatrixRowDto, "cells">): number {
+  const ids = new Set<string>();
+  for (const cell of row.cells) {
+    for (const it of cell.committed?.items ?? []) {
+      if (itemIsCeded(it) && it.dteId) ids.add(it.dteId);
+    }
+  }
+  return ids.size;
+}
+
+/** Total de DTEs cedidos en la matriz (deduplicados por dteId). */
+export function countCededInMatrix(rows: Pick<FlowMatrixRowDto, "cells">[]): number {
+  const ids = new Set<string>();
+  for (const row of rows) {
+    for (const cell of row.cells) {
+      for (const it of cell.committed?.items ?? []) {
+        if (itemIsCeded(it) && it.dteId) ids.add(it.dteId);
+      }
+    }
+  }
+  return ids.size;
+}
+
+function fmtChipDate(ymd: string | undefined | null): string {
+  if (!ymd || ymd.length < 10) return "—";
+  const [, m, d] = ymd.split("-");
+  return `${d}/${m}`;
+}
+
+/**
+ * Chips de estado por celda (tabla §5 del brief mora/cesión).
+ * Orden: cesión/retención/anticipo primero; mora o vence después.
+ */
+export function cellStateChips(cell: FlowMatrixCellDto): CellStateChip[] {
+  const chips: CellStateChip[] = [];
+  const seen = new Set<string>();
+  for (const it of cell.committed?.items ?? []) {
+    if (it.kind !== "dte") continue;
+    const key = it.dteId ?? `${it.folio}-${it.fecha}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+
+    if (it.isCededRetention) {
+      chips.push({
+        kind: "retention",
+        label: `retención · liquida ${fmtChipDate(it.cesionDueYmd)}`,
+        tone: "neutral",
+        dteId: it.dteId,
+      });
+      continue;
+    }
+    if (itemIsCeded(it)) {
+      if (it.factoringFunded) {
+        chips.push({
+          kind: "funded",
+          label: "anticipo en banco",
+          tone: "ok",
+          dteId: it.dteId,
+        });
+      } else {
+        const pct = it.cededPct && it.cededPct > 0 ? it.cededPct : 100;
+        chips.push({
+          kind: "ceded",
+          label: `cedida ${pct}%`,
+          tone: "info",
+          dteId: it.dteId,
+        });
+      }
+      continue;
+    }
+    const overdue = it.overdueDays ?? 0;
+    if (overdue > 0) {
+      chips.push({
+        kind: "overdue",
+        label: `mora ${overdue} d`,
+        tone: overdue > 60 ? "danger" : "warn",
+        dteId: it.dteId,
+        overdueDays: overdue,
+        crmAccountId: it.crmAccountId ?? null,
+      });
+    } else if (it.dueYmd) {
+      chips.push({
+        kind: "due",
+        label: `vence ${fmtChipDate(it.dueYmd)}`,
+        tone: "neutral",
+        dteId: it.dteId,
+      });
+    }
+  }
+  return chips;
+}
+
+/** Chips agregados de toda la fila (dedupe por dteId + kind). */
+export function rowStateChips(row: Pick<FlowMatrixRowDto, "cells" | "name" | "crmAccountId">): CellStateChip[] {
+  const byKey = new Map<string, CellStateChip>();
+  for (const cell of row.cells) {
+    for (const chip of cellStateChips(cell)) {
+      const key = `${chip.kind}:${chip.dteId ?? chip.label}`;
+      const prev = byKey.get(key);
+      if (!prev) {
+        byKey.set(key, {
+          ...chip,
+          crmAccountId: chip.crmAccountId ?? row.crmAccountId ?? null,
+        });
+        continue;
+      }
+      // Conservar la peor mora si hay duplicados.
+      if (
+        chip.kind === "overdue" &&
+        (chip.overdueDays ?? 0) > (prev.overdueDays ?? 0)
+      ) {
+        byKey.set(key, {
+          ...chip,
+          crmAccountId: chip.crmAccountId ?? row.crmAccountId ?? null,
+        });
+      }
+    }
+  }
+  const order: CellStateChipKind[] = [
+    "ceded",
+    "funded",
+    "retention",
+    "overdue",
+    "due",
+  ];
+  return [...byKey.values()].sort(
+    (a, b) => order.indexOf(a.kind) - order.indexOf(b.kind),
+  );
+}
+
 /** Prioridad de sub-capa comprometida alineada con PlanillaCell. */
 export function committedPriority(cell: FlowMatrixCellDto): {
   hasDte: boolean;
@@ -137,9 +310,7 @@ export function cornerKind(cell: FlowMatrixCellDto): CornerKind {
  * Cedida tiene prioridad sobre docs de borrador si coexisten.
  */
 export function secondaryMarks(cell: FlowMatrixCellDto): SecondaryMark[] {
-  const cededCommitted = (cell.committed?.items ?? []).some(
-    (i) => i.kind === "dte" && i.ceded === true,
-  );
+  const cededCommitted = (cell.committed?.items ?? []).some((i) => itemIsCeded(i));
   const cededReal = (cell.real?.items ?? []).some((i) => i.ceded === true);
   if (cededCommitted || cededReal) return ["ceded"];
 

@@ -2,14 +2,90 @@ import "server-only";
 import { prisma } from "@/lib/prisma";
 import { cleanRut } from "@/lib/chile-rut";
 import { getUfValue } from "@/lib/uf";
+import { pickDueDateDays } from "@/modules/finance/billing/dte-due-date";
 import {
   deriveCommittedIncome,
   type IssuedDteInput,
   type ScheduledDraftInput,
   type TemplateProjectionInput,
 } from "./derive-committed-income";
+import {
+  ACTIVE_CESSION_STATUSES,
+  cessionFromPaymentStatus,
+  isCededRetentionName,
+  resolveCession,
+  type DueDateSource,
+} from "./overdue";
 import { buildIncomeMatcher } from "./row-match";
-import type { CommittedByRow, FlowExcludedDte, FlowRowRef } from "./types";
+import {
+  addDaysYmd,
+  type CommittedByRow,
+  type FlowExcludedDte,
+  type FlowRowRef,
+} from "./types";
+
+/** pickDueDateDays usa "template"; la planilla muestra "contrato". */
+function toPlanillaTermSource(
+  source: "explicit" | "template" | "tenant" | "default",
+): DueDateSource {
+  return source === "template" ? "contrato" : source;
+}
+
+/**
+ * Origen del término cuando el DTE ya tiene dueDate persistido.
+ * Coincide emisión+template → contrato; emisión+tenant lag → tenant; else explícito.
+ */
+function inferTermFromDueDate(args: {
+  issueYmd: string;
+  dueYmd: string | null;
+  templateDays: number | null;
+  tenantLagDays: number | null;
+}): { termDays: number; termSource: DueDateSource } {
+  const picked = pickDueDateDays({
+    templateDays: args.templateDays,
+    tenantLagDays: args.tenantLagDays,
+  });
+  if (!args.dueYmd) {
+    return {
+      termDays: picked.days,
+      termSource: toPlanillaTermSource(picked.source),
+    };
+  }
+  if (
+    args.templateDays != null &&
+    addDaysYmd(args.issueYmd, args.templateDays) === args.dueYmd
+  ) {
+    return { termDays: args.templateDays, termSource: "contrato" };
+  }
+  if (
+    args.tenantLagDays != null &&
+    addDaysYmd(args.issueYmd, args.tenantLagDays) === args.dueYmd
+  ) {
+    return { termDays: args.tenantLagDays, termSource: "tenant" };
+  }
+  // Inferir días desde emisión→due; si no cuadra con cascada ⇒ explícito.
+  const inferred = Math.round(
+    (Date.parse(`${args.dueYmd}T00:00:00Z`) -
+      Date.parse(`${args.issueYmd}T00:00:00Z`)) /
+      86_400_000,
+  );
+  if (Number.isFinite(inferred) && inferred >= 0) {
+    if (
+      args.templateDays != null &&
+      inferred === args.templateDays
+    ) {
+      return { termDays: inferred, termSource: "contrato" };
+    }
+    if (args.tenantLagDays != null && inferred === args.tenantLagDays) {
+      return { termDays: inferred, termSource: "tenant" };
+    }
+    return { termDays: inferred, termSource: "explicit" };
+  }
+  return {
+    termDays: picked.days,
+    termSource: toPlanillaTermSource(picked.source),
+  };
+}
 
 const IVA = 1.19;
 
@@ -207,6 +283,9 @@ export async function loadCommittedIncome(
   const diasCobroByTemplate = new Map<string, number | null>(
     templates.map((t) => [t.id, t.diasCobroDesdeFactura]),
   );
+  const nameByTemplate = new Map<string, string>(
+    templates.map((t) => [t.id, t.name]),
+  );
 
   const referencedTemplateIds = new Set<string>();
   for (const d of dtes) if (d.recurringTemplateId) referencedTemplateIds.add(d.recurringTemplateId);
@@ -215,10 +294,52 @@ export async function loadCommittedIncome(
   if (missingTemplateIds.length > 0) {
     const extra = await prisma.financeDteRecurringTemplate.findMany({
       where: { tenantId, id: { in: missingTemplateIds } },
-      select: { id: true, diasCobroDesdeFactura: true },
+      select: { id: true, name: true, diasCobroDesdeFactura: true },
     });
-    for (const t of extra) diasCobroByTemplate.set(t.id, t.diasCobroDesdeFactura);
+    for (const t of extra) {
+      diasCobroByTemplate.set(t.id, t.diasCobroDesdeFactura);
+      nameByTemplate.set(t.id, t.name);
+    }
   }
+
+  // Cesiones activas acotadas a los DTEs ya cargados (mismo patrón que v2).
+  const factoringOps =
+    issuedIds.length > 0
+      ? await prisma.financeFactoringOperation.findMany({
+          where: {
+            tenantId,
+            dteId: { in: issuedIds },
+            status: { in: [...ACTIVE_CESSION_STATUSES] },
+          },
+          select: {
+            dteId: true,
+            status: true,
+            advanceRate: true,
+            factoringCompany: true,
+            fechaVencimiento: true,
+          },
+        })
+      : [];
+  const opsByDte = new Map<string, typeof factoringOps>();
+  for (const op of factoringOps) {
+    const list = opsByDte.get(op.dteId) ?? [];
+    list.push(op);
+    opsByDte.set(op.dteId, list);
+  }
+  const cessionByDte = new Map(
+    [...opsByDte.entries()].map(([dteId, ops]) => [
+      dteId,
+      resolveCession(
+        ops.map((o) => ({
+          status: o.status,
+          advanceRate: Number(o.advanceRate),
+          factoringCompany: o.factoringCompany,
+          fechaVencimiento: o.fechaVencimiento,
+        })),
+      ),
+    ]),
+  );
+  const tenantLagDays = config?.collectionLagDays ?? null;
 
   const drafts: ScheduledDraftInput[] = [];
   for (const d of recurringLinked) {
@@ -249,23 +370,44 @@ export async function loadCommittedIncome(
 
   const dteInputs: IssuedDteInput[] = dtes
     .filter((d) => !excludedIds.has(d.id) && afterCutoff(d))
-    .map((d) => ({
-      id: d.id,
-      folio: d.folio,
-      dateYmd: d.date.toISOString().slice(0, 10),
-      dueDateYmd: d.dueDate ? d.dueDate.toISOString().slice(0, 10) : null,
-      overrideDateYmd: overrideByDteId.get(d.id) ?? null,
-      pendingClp: Number(d.totalAmount) - Number(d.amountPaid),
-      crmAccountId: resolveAccount(d.crmAccountId, d.receiverRut),
-      installationId: d.installationId,
-      recurringTemplateId: d.recurringTemplateId,
-      flowRouting: d.flowRouting,
-      receiverName: d.receiverName ?? "",
-      templateDiasCobro: d.recurringTemplateId
+    .map((d) => {
+      const dateYmd = d.date.toISOString().slice(0, 10);
+      const dueDateYmd = d.dueDate ? d.dueDate.toISOString().slice(0, 10) : null;
+      const templateDiasCobro = d.recurringTemplateId
         ? (diasCobroByTemplate.get(d.recurringTemplateId) ?? null)
-        : null,
-      ceded: d.paymentStatus === "CEDED",
-    }));
+        : null;
+      const templateName = d.recurringTemplateId
+        ? (nameByTemplate.get(d.recurringTemplateId) ?? null)
+        : null;
+      const { termDays, termSource } = inferTermFromDueDate({
+        issueYmd: dateYmd,
+        dueYmd: dueDateYmd,
+        templateDays: templateDiasCobro,
+        tenantLagDays,
+      });
+      const cession =
+        cessionByDte.get(d.id) ?? cessionFromPaymentStatus(d.paymentStatus);
+      return {
+        id: d.id,
+        folio: d.folio,
+        dateYmd,
+        dueDateYmd,
+        overrideDateYmd: overrideByDteId.get(d.id) ?? null,
+        pendingClp: Number(d.totalAmount) - Number(d.amountPaid),
+        crmAccountId: resolveAccount(d.crmAccountId, d.receiverRut),
+        installationId: d.installationId,
+        recurringTemplateId: d.recurringTemplateId,
+        flowRouting: d.flowRouting,
+        receiverName: d.receiverName ?? "",
+        templateDiasCobro,
+        paymentStatus: d.paymentStatus,
+        cession,
+        ceded: cession?.active === true,
+        isCededRetention: isCededRetentionName(templateName),
+        termDays,
+        termSource,
+      };
+    });
 
   const templateInputs: TemplateProjectionInput[] = templates.map((t) => ({
     id: t.id,

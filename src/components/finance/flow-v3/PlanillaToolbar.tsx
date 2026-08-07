@@ -85,6 +85,10 @@ interface Props {
   moraCount?: number;
   moraFilter?: boolean;
   onToggleMoraFilter?: () => void;
+  /** Facturas cedidas (factoring) en el horizonte cargado. */
+  cededCount?: number;
+  cededFilter?: boolean;
+  onToggleCededFilter?: () => void;
   viewTab?: "planilla" | "panel";
   onViewTab?: (tab: "planilla" | "panel") => void;
 }
@@ -144,6 +148,7 @@ export function PlanillaToolbar(p: Props) {
   const [moreOpen, setMoreOpen] = useState(false);
   const egresosPendientes = p.egresosPendientesCount ?? 0;
   const moraCount = p.moraCount ?? 0;
+  const cededCount = p.cededCount ?? 0;
   const classifyDisabled = egresosPendientes <= 0 || !p.onClassifyEgresos;
   const labels = p.showToolbarLabels;
 
@@ -292,6 +297,26 @@ export function PlanillaToolbar(p: Props) {
             </Button>
           )}
 
+          {p.onToggleCededFilter && cededCount > 0 && (
+            <Button
+              variant={p.cededFilter ? "default" : "outline"}
+              size="sm"
+              className={`${btn} shrink-0 sm:px-2.5`}
+              onClick={p.onToggleCededFilter}
+              aria-pressed={!!p.cededFilter}
+              aria-label={
+                p.cededFilter
+                  ? `Mostrando solo cedidas · ${cededCount} factura${cededCount === 1 ? "" : "s"}`
+                  : `Filtrar cedidas · ${cededCount} factura${cededCount === 1 ? "" : "s"}`
+              }
+            >
+              <span className="text-[12px] font-medium uppercase tracking-wide">Cedidas</span>
+              <span className="ml-1 inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-status-info-soft px-1.5 text-[12px] font-medium tabular-nums text-status-info-fg">
+                {cededCount}
+              </span>
+            </Button>
+          )}
+
           <div className="flex shrink-0 items-center gap-0.5">
             <Tip label="Expandir grupos">
               <Button
@@ -432,6 +457,11 @@ export function PlanillaToolbar(p: Props) {
               {p.onToggleMoraFilter && moraCount > 0 && (
                 <DropdownMenuItem onSelect={p.onToggleMoraFilter}>
                   {p.moraFilter ? "Mostrar todas las filas" : `Solo mora (${moraCount})`}
+                </DropdownMenuItem>
+              )}
+              {p.onToggleCededFilter && cededCount > 0 && (
+                <DropdownMenuItem onSelect={p.onToggleCededFilter}>
+                  {p.cededFilter ? "Mostrar todas las filas" : `Solo cedidas (${cededCount})`}
                 </DropdownMenuItem>
               )}
               <DropdownMenuSeparator />
@@ -657,6 +687,13 @@ export function PlanillaToolbar(p: Props) {
                     label={p.moraFilter ? "Todas las filas" : `Solo mora (${moraCount})`}
                     onClick={closeMore(p.onToggleMoraFilter)}
                     active={!!p.moraFilter}
+                  />
+                )}
+                {p.onToggleCededFilter && cededCount > 0 && (
+                  <SheetAction
+                    label={p.cededFilter ? "Todas las filas" : `Solo cedidas (${cededCount})`}
+                    onClick={closeMore(p.onToggleCededFilter)}
+                    active={!!p.cededFilter}
                   />
                 )}
               </div>

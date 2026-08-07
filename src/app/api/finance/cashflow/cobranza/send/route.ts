@@ -87,6 +87,25 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // Cesión parcial / en trámite: paymentStatus puede seguir UNPAID.
+  const activeCession = await prisma.financeFactoringOperation.findFirst({
+    where: {
+      tenantId: ctx.tenantId,
+      dteId,
+      status: { in: ["SUBMITTED", "APPROVED", "FUNDED", "COLLECTED", "CLOSED"] },
+    },
+    select: { id: true },
+  });
+  if (activeCession) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: "El DTE tiene una cesión de factoring activa — no requiere cobranza al cliente",
+      },
+      { status: 400 },
+    );
+  }
+
   const admin = await prisma.admin.findUnique({
     where: { id: ctx.userId },
     select: { name: true },

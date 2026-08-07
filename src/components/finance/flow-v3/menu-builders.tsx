@@ -279,6 +279,7 @@ type DteMenuItem = {
   dueYmd?: string;
   crmAccountId?: string | null;
   ceded?: boolean;
+  cededPct?: number;
 };
 
 type DraftMenuItem = {
@@ -305,9 +306,14 @@ function cellDteItems(cell: FlowMatrixCellDto): DteMenuItem[] {
       emissionYmd: i.emissionYmd,
       dueYmd: i.dueYmd,
       crmAccountId: i.crmAccountId,
-      ceded: i.ceded === true,
+      ceded: i.ceded === true || (i.cededPct ?? 0) > 0,
+      cededPct: i.cededPct,
     }));
   return items.sort((a, b) => (b.overdueDays ?? 0) - (a.overdueDays ?? 0));
+}
+
+function isCededMenuItem(d: DteMenuItem): boolean {
+  return (d.cededPct ?? 0) > 0 || d.ceded === true;
 }
 
 function cellDraftItems(cell: FlowMatrixCellDto): DraftMenuItem[] {
@@ -484,7 +490,7 @@ function folioActions(
     row.isVirtual ||
     row.name === "Otros ingresos" ||
     row.name === "Otros clientes";
-  const canCobranza = ctx.canManage && cb.onSendCobranza && d.ceded !== true;
+  const canCobranza = ctx.canManage && cb.onSendCobranza && !isCededMenuItem(d);
   const out: MenuItemDesc[] = [];
 
   out.push({
@@ -739,7 +745,7 @@ export function buildCellMenu(
       });
     }
     if (ctx.canManage && cb.onSendCobranza) {
-      const cobrables = dteItems.filter((d) => d.ceded !== true);
+      const cobrables = dteItems.filter((d) => !isCededMenuItem(d));
       if (cobrables.length === 1) {
         const d = cobrables[0]!;
         items.push({

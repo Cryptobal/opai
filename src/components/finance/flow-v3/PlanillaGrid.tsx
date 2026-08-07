@@ -61,7 +61,7 @@ import {
   type BandejaApplyItem,
 } from "./BandejaGroupList";
 import { learnRuleForSuggestionSource } from "./bandeja-suggestions";
-import { rowHasOverdue } from "./cell-meta";
+import { rowHasCeded, rowHasOverdue } from "./cell-meta";
 import { CobranzaSendDialog } from "@/components/finance/cobranza/CobranzaSendDialog";
 
 interface PlanMutators {
@@ -105,6 +105,8 @@ interface Props {
   showZeros: boolean;
   /** Solo filas con al menos un DTE en mora. */
   moraFilter?: boolean;
+  /** Solo filas con al menos un DTE cedido. */
+  cededFilter?: boolean;
   alwaysVisibleRowIds?: Set<string>;
   scrollerRef?: React.RefObject<HTMLDivElement | null>;
   showChips?: boolean;
@@ -193,7 +195,7 @@ export function scrollToWeek(el: HTMLElement, weekStart: string, smooth = true) 
 
 export function PlanillaGrid({
   data, canManage, matrix, actions, onArchive, enableDrag,
-  showZeros, moraFilter = false, alwaysVisibleRowIds, scrollerRef,
+  showZeros, moraFilter = false, cededFilter = false, alwaysVisibleRowIds, scrollerRef,
   showChips, numberFormat, getCellStyle, onSelectionChange,
   searchQuery, collapseApiRef, bandejaApiRef, openBandejaRequest, openLayersRequest,
   onCopyRange, nameW, onNameWChange, amountSort,
@@ -629,6 +631,9 @@ export function PlanillaGrid({
       if (moraFilter) {
         rows = rows.filter((r) => rowHasOverdue(r));
       }
+      if (cededFilter) {
+        rows = rows.filter((r) => rowHasCeded(r));
+      }
       if (amountSort && weekIdx >= 0) {
         const dir = amountSort.dir === "desc" ? -1 : 1;
         rows = [...rows].sort((a, b) => {
@@ -659,7 +664,7 @@ export function PlanillaGrid({
             .map((r) => r.id);
       return { key: s, rows, total: all.length, matchCount: rows.length, subtotals, hiddenZeroIds };
     }).filter((s) => (normSearch ? s.matchCount > 0 : s.total > 0));
-  }, [data.rows, data.columns, showZeros, moraFilter, alwaysVisibleRowIds, revealedZeroRowIds, normSearch, amountSort]);
+  }, [data.rows, data.columns, showZeros, moraFilter, cededFilter, alwaysVisibleRowIds, revealedZeroRowIds, normSearch, amountSort]);
 
   const { numbered, footerStart } = useMemo(() => {
     let n = 1;
@@ -1718,6 +1723,11 @@ export function PlanillaGrid({
                       hoverCards
                       onOpenNote={openNoteEditor}
                       onOpenCaretMenu={openCaretMenu}
+                      onSendCobranza={
+                        canManage
+                          ? (args) => setCobranzaTarget(args)
+                          : undefined
+                      }
                     />
                   ))}
                 </tbody>
@@ -1749,6 +1759,17 @@ export function PlanillaGrid({
         onSaveNote={saveNoteSilent}
         onOpenActions={(ctx, anchor) => {
           openCaretMenu({ rowId: ctx.row.id, colIdx: ctx.colIdx }, anchor);
+        }}
+        onSendCobranza={
+          canManage
+            ? (args) => setCobranzaTarget(args)
+            : undefined
+        }
+        onEditTerm={(row) => {
+          const templates = extractRowTemplates(row);
+          const template = templates[0];
+          if (!template) return;
+          setRowDialog({ kind: "dias", row, template });
         }}
       />
 
