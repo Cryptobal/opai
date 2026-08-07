@@ -2823,6 +2823,35 @@ export function CpqQuoteDetail({
           </>
         }
         portalButton={(() => {
+          // Licitación: el CTA principal marca enviada → Negociación (sin portal/mail).
+          // Cotización normal: conserva Enviar propuesta (portal + correo).
+          if (isLicitacionDeal) {
+            const alreadySent = quote?.status === "sent";
+            return (
+              <Button
+                className="w-full h-11 gap-2 text-sm font-semibold bg-status-ok hover:brightness-110 text-white"
+                disabled={
+                  alreadySent ||
+                  changingStatus ||
+                  markingSentLicitacion ||
+                  !canMarkSentLicitacion
+                }
+                title={
+                  alreadySent
+                    ? "Ya marcada como enviada (licitación)"
+                    : "Marca como enviada y pasa el negocio a Negociación (sin portal ni correo)"
+                }
+                onClick={() => void handleMarkSentLicitacion()}
+              >
+                <Send className="h-4 w-4" />
+                {markingSentLicitacion
+                  ? "Marcando…"
+                  : alreadySent
+                    ? "Enviada"
+                    : "Enviar"}
+              </Button>
+            );
+          }
           const baseDisabled =
             !quote ||
             (positions.length === 0 && (additionalLines?.length ?? 0) === 0) ||
