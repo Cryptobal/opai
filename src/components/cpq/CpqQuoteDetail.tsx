@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { EmptyState, useSetBreadcrumbTrailing } from "@/components/opai-ds";
+import { EmptyState, Tag, useSetBreadcrumbTrailing } from "@/components/opai-ds";
 import { CreatePositionModal } from "@/components/cpq/CreatePositionModal";
 import { CpqServiceGroupCard } from "@/components/cpq/CpqServiceGroupCard";
 import { CreateServiceModal } from "@/components/cpq/CreateServiceModal";
@@ -313,7 +313,11 @@ export function CpqQuoteDetail({
   const [crmAccounts, setCrmAccounts] = useState<{ id: string; name: string; type?: string }[]>([]);
   const [crmInstallations, setCrmInstallations] = useState<CrmInstallationOption[]>([]);
   const [crmContacts, setCrmContacts] = useState<{ id: string; firstName: string; lastName: string; email?: string | null }[]>([]);
-  const [crmDeals, setCrmDeals] = useState<{ id: string; title: string; isLicitacion: boolean }[]>([]);
+  const [crmDeals, setCrmDeals] = useState<
+    { id: string; title: string; isLicitacion: boolean; stageId?: string | null; stageName?: string | null }[]
+  >([]);
+  /** Fuerza recarga de deals (etapa puede cambiar al enviar propuesta). */
+  const [crmDealsReloadKey, setCrmDealsReloadKey] = useState(0);
   const [markingSentLicitacion, setMarkingSentLicitacion] = useState(false);
   const [crmContext, setCrmContext] = useState({
     accountId: "" as string,
@@ -840,15 +844,23 @@ export function CpqQuoteDetail({
         setCrmDeals(
           dealData.data
             .filter((d: Record<string, unknown>) => d.accountId === crmContext.accountId)
-            .map((d: Record<string, unknown>) => ({
-              id: String(d.id ?? ""),
-              title: String(d.title ?? ""),
-              isLicitacion: Boolean(d.isLicitacion),
-            }))
+            .map((d: Record<string, unknown>) => {
+              const stage =
+                d.stage && typeof d.stage === "object"
+                  ? (d.stage as Record<string, unknown>)
+                  : null;
+              return {
+                id: String(d.id ?? ""),
+                title: String(d.title ?? ""),
+                isLicitacion: Boolean(d.isLicitacion),
+                stageId: stage?.id != null ? String(stage.id) : null,
+                stageName: stage?.name != null ? String(stage.name) : null,
+              };
+            })
         );
       }
     }).catch(() => {});
-  }, [crmContext.accountId]);
+  }, [crmContext.accountId, crmDealsReloadKey]);
 
   // Ensure selected installation details are available for address/map preview.
   useEffect(() => {
@@ -1135,6 +1147,17 @@ export function CpqQuoteDetail({
       setQuote((prev) => (prev ? { ...prev, status: nextStatus } : prev));
       setQuoteForm((prev) => ({ ...prev, status: nextStatus }));
       const stageName = data.data?.stageName || "Negociación";
+      const stageId =
+        data.data?.stageId != null ? String(data.data.stageId) : null;
+      if (crmContext.dealId) {
+        setCrmDeals((prev) =>
+          prev.map((d) =>
+            d.id === crmContext.dealId
+              ? { ...d, stageName, ...(stageId ? { stageId } : {}) }
+              : d,
+          ),
+        );
+      }
       toast.success(
         data.data?.stageMoved
           ? `Cotización enviada. Negocio en «${stageName}».`
@@ -1460,6 +1483,7 @@ export function CpqQuoteDetail({
       setWhatsappSentTo(result.sentTo);
       setWhatsappModalOpen(true);
     }
+    setCrmDealsReloadKey((n) => n + 1);
     void refresh();
   };
 
@@ -1728,6 +1752,7 @@ export function CpqQuoteDetail({
   })();
   const selectedDeal = crmDeals.find((deal) => deal.id === crmContext.dealId);
   const selectedDealTitle = selectedDeal?.title || "Sin negocio";
+  const selectedDealStageName = selectedDeal?.stageName?.trim() || null;
   const isLicitacionDeal = Boolean(selectedDeal?.isLicitacion);
   const contactForPortal = crmContext.contactId
     ? crmContacts.find((x) => x.id === crmContext.contactId) ?? null
@@ -1865,13 +1890,22 @@ export function CpqQuoteDetail({
           ufValue={ufValue}
           saving={!isLocked && (savingQuote || savingFinancials)}
           statusSlot={
-            <CpqStatusBadge
-              status={quote.status}
-              changing={changingStatus || markingSentLicitacion}
-              size="sm"
-              isLicitacion={isLicitacionDeal}
-              onToggle={() => void handleStatusChange(quote.status === "sent" ? "draft" : "sent")}
-            />
+            <div className="flex min-w-0 items-center gap-1.5">
+              <CpqStatusBadge
+                status={quote.status}
+                changing={changingStatus || markingSentLicitacion}
+                size="sm"
+                isLicitacion={isLicitacionDeal}
+                onToggle={() => void handleStatusChange(quote.status === "sent" ? "draft" : "sent")}
+              />
+              {selectedDealStageName ? (
+                <span title={`Etapa del negocio: ${selectedDealStageName}`}>
+                  <Tag variant="info" size="sm" className="max-w-[6.5rem] truncate">
+                    {selectedDealStageName}
+                  </Tag>
+                </span>
+              ) : null}
+            </div>
           }
           actionsSlot={
             !embedded ? (
@@ -1984,9 +2018,46 @@ export function CpqQuoteDetail({
                 isLicitacion={isLicitacionDeal}
                 onToggle={() => void handleStatusChange(quote.status === "sent" ? "draft" : "sent")}
               />
+              {selectedDealStageName ? (
+                <span
+                  className="shrink-0"
+                  title={`Etapa del negocio asociado: ${selectedDealStageName}`}
+                >
+                  <Tag variant="info" size="sm" className="max-w-[9rem] truncate">
+                    {selectedDealStageName}
+                  </Tag>
+                </span>
+              ) : null}
             </div>
             <div className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
-              <span className="truncate" title={`${selectedAccountName}${selectedContactName !== "Sin contacto" ? ` · ${selectedContactName}` : ""}`}>{selectedAccountName}{selectedContactName !== "Sin contacto" ? ` · ${selectedContactName}` : ""}</span>
+              <span
+                className="truncate"
+                title={[
+                  selectedAccountName,
+                  selectedDeal ? `Negocio: ${selectedDealTitle}` : "Sin negocio",
+                  selectedDealStageName ? `Etapa: ${selectedDealStageName}` : null,
+                  selectedContactName !== "Sin contacto" ? selectedContactName : null,
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
+              >
+                {selectedAccountName}
+                {selectedDeal ? (
+                  <>
+                    {" · "}
+                    <Link
+                      href={`/crm/deals/${selectedDeal.id}`}
+                      className="font-medium text-foreground/90 underline-offset-2 hover:underline"
+                      title="Abrir negocio asociado"
+                    >
+                      {selectedDealTitle}
+                    </Link>
+                  </>
+                ) : (
+                  <span className="text-status-warn-fg"> · Sin negocio</span>
+                )}
+                {selectedContactName !== "Sin contacto" ? ` · ${selectedContactName}` : ""}
+              </span>
               <span className="shrink-0">{headerPersistLabel}</span>
             </div>
           </div>
@@ -2707,6 +2778,8 @@ export function CpqQuoteDetail({
               canMarkSentLicitacion={canMarkSentLicitacion}
               markingSentLicitacion={markingSentLicitacion}
               onMarkSentLicitacion={() => void handleMarkSentLicitacion()}
+              dealTitle={selectedDeal ? selectedDealTitle : null}
+              dealStageName={selectedDealStageName}
               positionsCount={positions.length}
               additionalLinesCount={additionalLines?.length ?? 0}
               pdfPreviewMode={pdfPreviewMode}
@@ -3050,6 +3123,8 @@ export function CpqQuoteDetail({
             setControlSheetOpen(false);
             void handleMarkSentLicitacion();
           },
+          dealTitle: selectedDeal ? selectedDealTitle : null,
+          dealStageName: selectedDealStageName,
           positionsCount: positions.length,
           additionalLinesCount: additionalLines?.length ?? 0,
           pdfPreviewMode,

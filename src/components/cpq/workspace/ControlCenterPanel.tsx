@@ -6,9 +6,10 @@
  * desktop y en el bottom-sheet móvil del workspace.
  */
 
+import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Check, Gavel, Send, Users } from "lucide-react";
+import { Briefcase, Check, Gavel, Send, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Tag } from "@/components/opai-ds";
 import { CpqDualCurrencyAmount } from "@/components/cpq/CpqDualCurrency";
@@ -42,6 +43,8 @@ export function ControlCenterPanel({
   canMarkSentLicitacion = false,
   markingSentLicitacion = false,
   onMarkSentLicitacion,
+  dealTitle = null,
+  dealStageName = null,
   positionsCount,
   additionalLinesCount,
   pdfPreviewMode,
@@ -73,6 +76,10 @@ export function ControlCenterPanel({
   canMarkSentLicitacion?: boolean;
   markingSentLicitacion?: boolean;
   onMarkSentLicitacion?: () => void;
+  /** Título del negocio CRM asociado (barra / contexto). */
+  dealTitle?: string | null;
+  /** Etapa actual del pipeline del negocio asociado. */
+  dealStageName?: string | null;
   positionsCount: number;
   additionalLinesCount: number;
   pdfPreviewMode: CpqPdfPreviewMode;
@@ -180,6 +187,31 @@ export function ControlCenterPanel({
             {totalGuards}
           </p>
         </button>
+      </div>
+
+      <div className="rounded-lg border border-border/60 bg-background/45 p-3">
+        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          Negocio asociado
+        </p>
+        {crmContext.dealId && dealTitle ? (
+          <div className="mt-1.5 flex min-w-0 flex-wrap items-center gap-2">
+            <Briefcase className="h-3.5 w-3.5 shrink-0 text-ds-text-3" aria-hidden />
+            <Link
+              href={`/crm/deals/${crmContext.dealId}`}
+              className="min-w-0 truncate text-sm font-medium text-foreground underline-offset-2 hover:underline"
+              title="Abrir negocio en CRM"
+            >
+              {dealTitle}
+            </Link>
+            {dealStageName ? (
+              <Tag variant="info" size="sm">{dealStageName}</Tag>
+            ) : null}
+          </div>
+        ) : (
+          <p className="mt-1.5 text-sm text-status-warn-fg">
+            Sin negocio — asígnalo en Datos
+          </p>
+        )}
       </div>
 
       {roleSummary.length > 0 && (

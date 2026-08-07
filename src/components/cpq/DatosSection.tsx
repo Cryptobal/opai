@@ -35,7 +35,13 @@ export interface DatosSectionProps {
   crmAccounts: { id: string; name: string; type?: string }[];
   crmInstallations: CrmInstallationOption[];
   crmContacts: { id: string; firstName: string; lastName: string; email?: string | null }[];
-  crmDeals: { id: string; title: string; isLicitacion: boolean }[];
+  crmDeals: {
+    id: string;
+    title: string;
+    isLicitacion: boolean;
+    stageId?: string | null;
+    stageName?: string | null;
+  }[];
 
   /** CRM context (selected IDs + currency) */
   crmContext: {
@@ -74,7 +80,17 @@ export interface DatosSectionProps {
   setCrmAccounts: React.Dispatch<React.SetStateAction<{ id: string; name: string; type?: string }[]>>;
   setCrmInstallations: React.Dispatch<React.SetStateAction<CrmInstallationOption[]>>;
   setCrmContacts: React.Dispatch<React.SetStateAction<{ id: string; firstName: string; lastName: string; email?: string | null }[]>>;
-  setCrmDeals: React.Dispatch<React.SetStateAction<{ id: string; title: string; isLicitacion: boolean }[]>>;
+  setCrmDeals: React.Dispatch<
+    React.SetStateAction<
+      {
+        id: string;
+        title: string;
+        isLicitacion: boolean;
+        stageId?: string | null;
+        stageName?: string | null;
+      }[]
+    >
+  >;
 }
 
 export function DatosSection({
@@ -208,6 +224,8 @@ export function DatosSection({
               id: created.id,
               title: created.title,
               isLicitacion: Boolean(created.isLicitacion),
+              stageId: created.stage?.id != null ? String(created.stage.id) : null,
+              stageName: created.stage?.name != null ? String(created.stage.name) : null,
             },
           ]);
           saveCrmContext({ dealId: created.id });
@@ -268,7 +286,10 @@ export function DatosSection({
     label: `${c.firstName} ${c.lastName}`.trim(),
     description: c.email || undefined,
   }));
-  const dealOptions = crmDeals.map((d) => ({ id: d.id, label: d.title }));
+  const dealOptions = crmDeals.map((d) => ({
+    id: d.id,
+    label: d.stageName ? `${d.title} · ${d.stageName}` : d.title,
+  }));
 
   const onAccountChange = (val: string) => {
     const account = crmAccounts.find((a) => a.id === val);
