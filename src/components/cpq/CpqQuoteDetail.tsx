@@ -2333,7 +2333,7 @@ export function CpqQuoteDetail({
             {guardsBreakdownOpen && roleSummary.length > 0 && (
               <div
                 id="guards-breakdown-row"
-                className="mb-2 flex w-full items-center gap-1.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:hidden"
+                className="mb-2 flex w-full items-center gap-1.5 overflow-x-auto overflow-y-hidden touch-pan-x overscroll-x-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:hidden"
                 role="list"
                 aria-label="Desglose de guardias por rol"
               >
