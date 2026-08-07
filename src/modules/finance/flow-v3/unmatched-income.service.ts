@@ -1,6 +1,13 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
 import { cleanRut, formatRut } from "@/lib/chile-rut";
+import {
+  ACTIVE_CESSION_STATUSES,
+  cessionFromPaymentStatus,
+  computeOverdueDays,
+  isCededRetentionName,
+  resolveCession,
+} from "./overdue";
 import { buildIncomeMatcher } from "./row-match";
 import { UNMATCHED_INCOME_KEY, addDaysYmd, DEFAULT_COLLECTION_LAG_DAYS, type FlowRowRef } from "./types";
 import { weekStartYmd } from "./weeks";
@@ -89,6 +96,7 @@ export async function listUnmatchedIncomeForWeek(
       select: {
         id: true, folio: true, receiverName: true, receiverRut: true,
         totalAmount: true, amountPaid: true, date: true, dueDate: true,
+        paymentStatus: true,
         crmAccountId: true, installationId: true, recurringTemplateId: true,
         flowRouting: true,
       },
@@ -101,24 +109,75 @@ export async function listUnmatchedIncomeForWeek(
     }),
     prisma.financeCashflowConfig.findUnique({
       where: { tenantId },
-      select: { flowCutoffYmd: true },
+      select: { flowCutoffYmd: true, collectionLagDays: true },
     }),
   ]);
   const cutoffYmd = config?.flowCutoffYmd
     ? config.flowCutoffYmd.toISOString().slice(0, 10)
     : null;
+  const lagDays = config?.collectionLagDays ?? DEFAULT_COLLECTION_LAG_DAYS;
 
   const dteIds = dtes.map((d) => d.id);
-  const overrideRows =
+  const templateIds = [
+    ...new Set(
+      dtes
+        .map((d) => d.recurringTemplateId)
+        .filter((id): id is string => !!id),
+    ),
+  ];
+  const [overrideRows, factoringOps, templates] = await Promise.all([
     dteIds.length > 0
-      ? await prisma.financeCashflowDteDateOverride.findMany({
+      ? prisma.financeCashflowDteDateOverride.findMany({
           where: { tenantId, dteId: { in: dteIds } },
           select: { dteId: true, customDate: true },
         })
-      : [];
+      : Promise.resolve([] as Array<{ dteId: string; customDate: Date }>),
+    dteIds.length > 0
+      ? prisma.financeFactoringOperation.findMany({
+          where: {
+            tenantId,
+            dteId: { in: dteIds },
+            status: { in: [...ACTIVE_CESSION_STATUSES] },
+          },
+          select: {
+            dteId: true,
+            status: true,
+            advanceRate: true,
+            factoringCompany: true,
+            fechaVencimiento: true,
+          },
+        })
+      : Promise.resolve([] as Array<{
+          dteId: string;
+          status: string;
+          advanceRate: unknown;
+          factoringCompany: string;
+          fechaVencimiento: Date | null;
+        }>),
+    templateIds.length > 0
+      ? prisma.financeDteRecurringTemplate.findMany({
+          where: { tenantId, id: { in: templateIds } },
+          select: { id: true, name: true, diasCobroDesdeFactura: true },
+        })
+      : Promise.resolve([] as Array<{
+          id: string;
+          name: string;
+          diasCobroDesdeFactura: number | null;
+        }>),
+  ]);
   const overrideByDteId = new Map(
     overrideRows.map((o) => [o.dteId, o.customDate.toISOString().slice(0, 10)]),
   );
+  const opsByDte = new Map<string, typeof factoringOps>();
+  for (const op of factoringOps) {
+    const list = opsByDte.get(op.dteId) ?? [];
+    list.push(op);
+    opsByDte.set(op.dteId, list);
+  }
+  const diasByTemplate = new Map(
+    templates.map((t) => [t.id, t.diasCobroDesdeFactura]),
+  );
+  const nameByTemplate = new Map(templates.map((t) => [t.id, t.name]));
 
   const accountByRut = new Map<string, string>();
   for (const a of accounts) {
@@ -179,16 +238,35 @@ export async function listUnmatchedIncomeForWeek(
       continue;
     }
     const issueDate = d.date.toISOString().slice(0, 10);
+    const templateDias = d.recurringTemplateId
+      ? (diasByTemplate.get(d.recurringTemplateId) ?? null)
+      : null;
     const dueDate = d.dueDate
       ? d.dueDate.toISOString().slice(0, 10)
-      : addDaysYmd(issueDate, DEFAULT_COLLECTION_LAG_DAYS);
-    const overdueDays = Math.max(
-      0,
-      Math.floor(
-        (Date.parse(`${todayYmd}T00:00:00Z`) - Date.parse(`${dueDate}T00:00:00Z`)) /
-          86_400_000,
-      ),
-    );
+      : addDaysYmd(issueDate, templateDias ?? lagDays);
+    const ops = opsByDte.get(d.id) ?? [];
+    const cession =
+      resolveCession(
+        ops.map((o) => ({
+          status: o.status,
+          advanceRate: Number(o.advanceRate),
+          factoringCompany: o.factoringCompany,
+          fechaVencimiento: o.fechaVencimiento,
+        })),
+      ) ?? cessionFromPaymentStatus(d.paymentStatus);
+    const templateName = d.recurringTemplateId
+      ? (nameByTemplate.get(d.recurringTemplateId) ?? null)
+      : null;
+    const overdueDays = computeOverdueDays({
+      dueYmd: dueDate,
+      todayYmd,
+      pendingClp: pending,
+      paymentStatus: d.paymentStatus,
+      cession,
+      reconciled: false,
+      voided: false,
+      isCededRetention: isCededRetentionName(templateName),
+    });
     unmatched.push({
       dteId: d.id,
       folio: d.folio,

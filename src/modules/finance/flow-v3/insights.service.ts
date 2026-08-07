@@ -2,6 +2,12 @@ import "server-only";
 import { prisma } from "@/lib/prisma";
 import { buildFlowMatrix } from "./matrix.service";
 import {
+  ACTIVE_CESSION_STATUSES,
+  cessionFromPaymentStatus,
+  computeOverdueDays,
+  resolveCession,
+} from "./overdue";
+import {
   addDaysYmd,
   DEFAULT_COLLECTION_LAG_DAYS,
 } from "./types";
@@ -26,6 +32,9 @@ export interface CarteraPendienteItem {
   anchoredWeek: string;
   anchoredWeekLabel: string;
   crmAccountId: string | null;
+  /** Cesión vigente (total o parcial) — listada sin mora ni cobranza. */
+  ceded?: boolean;
+  cededPct?: number;
 }
 
 export interface OpenMoveWeek {
@@ -157,7 +166,8 @@ export async function buildFlowInsights(tenantId: string): Promise<FlowInsightsD
         dteType: { in: [33, 34] },
         siiStatus: { in: ["ACCEPTED", "PENDING", "SENT"] },
         voidedByCreditNoteId: null,
-        paymentStatus: { in: ["UNPAID", "PARTIAL", "OVERDUE"] },
+        // CEDED: listadas en cartera con chip, overdueDays=0.
+        paymentStatus: { in: ["UNPAID", "PARTIAL", "OVERDUE", "CEDED"] },
       },
       select: {
         id: true,
@@ -166,6 +176,7 @@ export async function buildFlowInsights(tenantId: string): Promise<FlowInsightsD
         dueDate: true,
         totalAmount: true,
         amountPaid: true,
+        paymentStatus: true,
         receiverName: true,
         crmAccountId: true,
       },
@@ -193,6 +204,31 @@ export async function buildFlowInsights(tenantId: string): Promise<FlowInsightsD
     ? config.flowCutoffYmd.toISOString().slice(0, 10)
     : null;
 
+  const dteIds = dtes.filter((d) => !excludedIds.has(d.id)).map((d) => d.id);
+  const factoringOps =
+    dteIds.length > 0
+      ? await prisma.financeFactoringOperation.findMany({
+          where: {
+            tenantId,
+            dteId: { in: dteIds },
+            status: { in: [...ACTIVE_CESSION_STATUSES] },
+          },
+          select: {
+            dteId: true,
+            status: true,
+            advanceRate: true,
+            factoringCompany: true,
+            fechaVencimiento: true,
+          },
+        })
+      : [];
+  const opsByDte = new Map<string, typeof factoringOps>();
+  for (const op of factoringOps) {
+    const list = opsByDte.get(op.dteId) ?? [];
+    list.push(op);
+    opsByDte.set(op.dteId, list);
+  }
+
   const aging = { alDia: 0, d1_15: 0, d16_30: 0, d30plus: 0 };
   let porCobrarTotal = 0;
   const cartera: CarteraPendienteItem[] = [];
@@ -203,18 +239,41 @@ export async function buildFlowInsights(tenantId: string): Promise<FlowInsightsD
     if (cutoffYmd && issue < cutoffYmd) continue;
     const pending = Number(d.totalAmount) - Number(d.amountPaid ?? 0);
     if (pending <= 0) continue;
-    porCobrarTotal += pending;
 
     const dueYmd = d.dueDate
       ? d.dueDate.toISOString().slice(0, 10)
       : addDaysYmd(issue, lagDays);
-    const overdueDays = daysBetween(dueYmd, todayYmd);
-    // Aging del panel: por días desde emisión (histórico del KPI).
-    const daysSinceIssue = daysBetween(issue, todayYmd);
-    if (daysSinceIssue <= 0) aging.alDia += pending;
-    else if (daysSinceIssue <= 15) aging.d1_15 += pending;
-    else if (daysSinceIssue <= 30) aging.d16_30 += pending;
-    else aging.d30plus += pending;
+    const ops = opsByDte.get(d.id) ?? [];
+    const cession =
+      resolveCession(
+        ops.map((o) => ({
+          status: o.status,
+          advanceRate: Number(o.advanceRate),
+          factoringCompany: o.factoringCompany,
+          fechaVencimiento: o.fechaVencimiento,
+        })),
+      ) ?? cessionFromPaymentStatus(d.paymentStatus);
+    const overdueDays = computeOverdueDays({
+      dueYmd,
+      todayYmd,
+      pendingClp: pending,
+      paymentStatus: d.paymentStatus,
+      cession,
+      reconciled: false,
+      voided: false,
+      isCededRetention: false,
+    });
+    const ceded = cession?.active === true;
+
+    // Aging / total "por cobrar": solo cobrables (sin cesión vigente).
+    if (!ceded) {
+      porCobrarTotal += pending;
+      const daysSinceIssue = daysBetween(issue, todayYmd);
+      if (daysSinceIssue <= 0) aging.alDia += pending;
+      else if (daysSinceIssue <= 15) aging.d1_15 += pending;
+      else if (daysSinceIssue <= 30) aging.d16_30 += pending;
+      else aging.d30plus += pending;
+    }
 
     const placementYmd = overrideByDteId.get(d.id) ?? issue;
     const anchoredWeek = weekStartYmd(ymdToDate(placementYmd) ?? d.date);
@@ -229,6 +288,8 @@ export async function buildFlowInsights(tenantId: string): Promise<FlowInsightsD
       anchoredWeek,
       anchoredWeekLabel: weekLabel(anchoredWeek),
       crmAccountId: d.crmAccountId,
+      ceded,
+      cededPct: ceded ? cession?.pct : undefined,
     });
   }
 

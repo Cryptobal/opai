@@ -17,6 +17,12 @@ interface Props {
   onNoteClose: () => void;
   onNoteDone: () => void;
   onOpenActions: (el: HTMLElement) => void;
+  onSendCobranza?: (args: {
+    dteId: string;
+    crmAccountId: string | null;
+    daysOverdue: number;
+  }) => void;
+  onEditTerm?: () => void;
 }
 
 /** Cuerpo presentacional de la ficha de detalle (clic en desktop). */
@@ -138,6 +144,38 @@ export function CellHoverCardBody(p: Props) {
       {model.pastPending && (
         <p className="mb-1.5 text-[12px] text-ds-text-4">{model.pastPending}</p>
       )}
+      {model.term && (
+        <div className="mb-1.5 space-y-0.5 border-t border-ds-border-subtle pt-1.5">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[12px] uppercase tracking-wide text-ds-text-3">
+              Término de pago
+            </span>
+            {p.canManage && model.term.editable && p.onEditTerm && (
+              <button
+                type="button"
+                className="text-[12px] text-primary hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/40"
+                onClick={p.onEditTerm}
+              >
+                Cambiar…
+              </button>
+            )}
+          </div>
+          <p className="text-[12px] leading-snug text-ds-text-2">{model.term.label}</p>
+          {model.cession && (
+            <p className="text-[12px] text-ds-text-3">
+              {model.cession.isRetention
+                ? model.cession.dueYmd
+                  ? `Retención · liquida ${model.cession.dueYmd.slice(8, 10)}/${model.cession.dueYmd.slice(5, 7)}`
+                  : "Retención de cesión"
+                : model.cession.funded
+                  ? "Anticipo en banco"
+                  : `Cedida ${model.cession.pct}%${
+                      model.cession.factorName ? ` · ${model.cession.factorName}` : ""
+                    }`}
+            </p>
+          )}
+        </div>
+      )}
       <div className="border-t border-ds-border-subtle pt-1.5">
         {p.editingNote ? (
           <CellNoteEditor
@@ -171,14 +209,26 @@ export function CellHoverCardBody(p: Props) {
       </div>
       {!p.editingNote && (
         <div className="mt-1.5 flex items-center justify-between gap-2 border-t border-ds-border-subtle pt-1.5">
-          <span className="truncate text-[12px] text-ds-text-4">{model.footerHint}</span>
-          <button
-            type="button"
-            className="inline-flex h-7 shrink-0 items-center gap-0.5 rounded border border-ds-border-default bg-ds-surface-2 px-1.5 text-[12px] text-ds-text-1 hover:bg-ds-surface-4 focus-visible:ring-1 focus-visible:ring-primary/40"
-            onClick={(e) => p.onOpenActions(e.currentTarget)}
-          >
-            Acciones <ChevronDown className="h-3 w-3" aria-hidden />
-          </button>
+          <span className="min-w-0 truncate text-[12px] text-ds-text-4">{model.footerHint}</span>
+          <span className="flex shrink-0 items-center gap-1">
+            {model.cobranza && p.onSendCobranza && p.canManage && (
+              <button
+                type="button"
+                className="inline-flex h-7 items-center rounded border border-status-warn-border bg-status-warn-soft px-1.5 text-[12px] font-medium text-status-warn-fg hover:opacity-90 focus-visible:ring-1 focus-visible:ring-primary/40"
+                aria-label={`Cobrar factura vencida · ${model.cobranza.daysOverdue} días de mora`}
+                onClick={() => p.onSendCobranza!(model.cobranza!)}
+              >
+                Cobrar…
+              </button>
+            )}
+            <button
+              type="button"
+              className="inline-flex h-7 shrink-0 items-center gap-0.5 rounded border border-ds-border-default bg-ds-surface-2 px-1.5 text-[12px] text-ds-text-1 hover:bg-ds-surface-4 focus-visible:ring-1 focus-visible:ring-primary/40"
+              onClick={(e) => p.onOpenActions(e.currentTarget)}
+            >
+              Acciones <ChevronDown className="h-3 w-3" aria-hidden />
+            </button>
+          </span>
         </div>
       )}
     </>

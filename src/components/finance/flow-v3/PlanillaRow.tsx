@@ -20,7 +20,22 @@ import {
   countAssignPendingInCell,
   isFallbackBandejaRow,
 } from "@/modules/finance/flow-v3/unmatched-count";
-import { countOverdueInRow, rowHasOverdue } from "./cell-meta";
+import {
+  rowStateChips,
+  type CellStateChip,
+  type CellStateChipTone,
+} from "./cell-meta";
+
+const CHIP_TONE: Record<CellStateChipTone, string> = {
+  info: "border-status-info-border bg-status-info-soft text-status-info-fg",
+  ok: "border-status-ok-border bg-status-ok-soft text-status-ok-fg",
+  warn: "border-status-warn-border bg-status-warn-soft text-status-warn-fg",
+  danger: "border-status-danger-border bg-status-danger-soft text-status-danger-fg",
+  neutral: "border-ds-border-default bg-ds-surface-3 text-ds-text-2",
+};
+
+const CHIP_BASE =
+  "mt-0.5 mr-0.5 inline-block rounded border px-1 text-[10px] font-medium leading-tight";
 
 const DRAG_BLOCKED_MSG =
   "Las facturas no se arrastran: usa clic derecho → Mover factura a…";
@@ -79,6 +94,12 @@ interface Props {
   hoverCards?: boolean;
   onOpenNote?: (sel: CellSel) => void;
   onOpenCaretMenu?: (sel: CellSel, anchor: DOMRect) => void;
+  /** Abrir diálogo de cobranza desde chip de mora. */
+  onSendCobranza?: (args: {
+    dteId: string;
+    crmAccountId: string | null;
+    daysOverdue: number;
+  }) => void;
 }
 
 function highlightName(name: string, query: string): ReactNode {
@@ -133,8 +154,8 @@ export function PlanillaRow(p: Props) {
     });
   };
   const showMenu = p.canManage && !row.isVirtual && p.rowMenu.length > 0;
-  const overdueN = countOverdueInRow(row);
-  const hasOverdue = rowHasOverdue(row);
+  // Fila: cesión / retención / mora (sin chips "vence …" para no saturar).
+  const chips = rowStateChips(row).filter((c) => c.kind !== "due");
   const openRowSheet = p.onOpenRowSheet;
   const handleNameLongPress = useCallback(() => {
     openRowSheet?.();
@@ -205,12 +226,16 @@ export function PlanillaRow(p: Props) {
                   cerrada
                 </span>
               )}
-              {hasOverdue && (
-                <span
-                  className="mt-0.5 inline-block rounded border border-status-warn-border bg-status-warn-soft px-1 text-[10px] font-medium leading-tight text-status-warn-fg"
-                  title={`${overdueN} factura${overdueN === 1 ? "" : "s"} en mora`}
-                >
-                  mora{overdueN > 1 ? ` ×${overdueN}` : ""}
+              {chips.length > 0 && (
+                <span className="mt-0.5 flex flex-wrap gap-0.5">
+                  {chips.map((chip) => (
+                    <RowStateChip
+                      key={`${chip.kind}:${chip.dteId ?? chip.label}`}
+                      chip={chip}
+                      rowName={row.name}
+                      onSendCobranza={p.onSendCobranza}
+                    />
+                  ))}
                 </span>
               )}
             </span>
@@ -302,5 +327,46 @@ export function PlanillaRow(p: Props) {
         );
       })}
     </tr>
+  );
+}
+
+function RowStateChip({
+  chip,
+  rowName,
+  onSendCobranza,
+}: {
+  chip: CellStateChip;
+  rowName: string;
+  onSendCobranza?: (args: {
+    dteId: string;
+    crmAccountId: string | null;
+    daysOverdue: number;
+  }) => void;
+}) {
+  const cls = `${CHIP_BASE} ${CHIP_TONE[chip.tone]}`;
+  if (chip.kind === "overdue" && chip.dteId && onSendCobranza) {
+    const days = chip.overdueDays ?? 0;
+    return (
+      <button
+        type="button"
+        className={`${cls} cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40`}
+        aria-label={`Cobrar factura vencida de ${rowName} · ${days} día${days === 1 ? "" : "s"} de mora`}
+        onClick={(e) => {
+          e.stopPropagation();
+          onSendCobranza({
+            dteId: chip.dteId!,
+            crmAccountId: chip.crmAccountId ?? null,
+            daysOverdue: days,
+          });
+        }}
+      >
+        {chip.label}
+      </button>
+    );
+  }
+  return (
+    <span className={cls} title={chip.label}>
+      {chip.label}
+    </span>
   );
 }

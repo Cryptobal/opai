@@ -46,6 +46,28 @@ export interface HoverExecution {
   state: "partial" | "complete" | "over" | "closed" | "none";
 }
 
+export interface HoverTermInfo {
+  dueYmd: string;
+  days: number | null;
+  source: "explicit" | "contrato" | "tenant" | "default";
+  label: string;
+  editable: boolean;
+}
+
+export interface HoverCessionInfo {
+  pct: number;
+  factorName: string | null;
+  funded: boolean;
+  dueYmd: string | null;
+  isRetention: boolean;
+}
+
+export interface HoverCobranzaTarget {
+  dteId: string;
+  crmAccountId: string | null;
+  daysOverdue: number;
+}
+
 export interface HoverCardModel {
   concept: string;
   ref: string;
@@ -62,6 +84,26 @@ export interface HoverCardModel {
   pastPending: string | null;
   note: string | null;
   footerHint: string;
+  /** Término de pago del primer DTE de la celda (ficha). */
+  term: HoverTermInfo | null;
+  cession: HoverCessionInfo | null;
+  /** Target de cobranza si hay mora accionable. */
+  cobranza: HoverCobranzaTarget | null;
+}
+
+function termSourceLabel(
+  source: "explicit" | "contrato" | "tenant" | "default" | undefined,
+): string {
+  switch (source) {
+    case "contrato":
+      return "contrato";
+    case "tenant":
+      return "default tenant";
+    case "explicit":
+      return "explícito";
+    default:
+      return "default";
+  }
 }
 
 function itemStatus(it: Parameters<typeof committedItemMeta>[0]): string {
@@ -70,6 +112,18 @@ function itemStatus(it: Parameters<typeof committedItemMeta>[0]): string {
     if (it.emissionYmd) parts.push(fmtShortDate(it.emissionYmd));
     else parts.push(fmtShortDate(it.fecha));
     if (it.dueYmd) parts.push(`vence ${fmtShortDate(it.dueYmd)}`);
+    if (it.isCededRetention) {
+      parts.push(
+        it.cesionDueYmd
+          ? `retención · liquida ${fmtShortDate(it.cesionDueYmd)}`
+          : "retención",
+      );
+    } else if ((it.cededPct ?? 0) > 0 || it.ceded) {
+      if (it.factoringFunded) parts.push("anticipo en banco");
+      else parts.push(`cedida ${it.cededPct && it.cededPct > 0 ? it.cededPct : 100}%`);
+    } else if ((it.overdueDays ?? 0) > 0) {
+      parts.push(`mora ${it.overdueDays} d`);
+    }
     return parts.join(" · ");
   }
   return terminoStatusLine(it, fmtShortDate) || fmtShortDate(it.fecha);
@@ -178,6 +232,50 @@ export function buildHoverCardContent(args: {
   const reason = args.reason?.trim();
   const rowNumber = args.rowNumber ?? 0;
 
+  const dteItems = (cell.committed?.items ?? []).filter((i) => i.kind === "dte");
+  const primaryDte = dteItems[0] ?? null;
+  let term: HoverTermInfo | null = null;
+  let cession: HoverCessionInfo | null = null;
+  let cobranza: HoverCobranzaTarget | null = null;
+  if (primaryDte) {
+    if (primaryDte.dueYmd) {
+      const source = primaryDte.termSource ?? "default";
+      const days = primaryDte.termDays ?? null;
+      const daysTxt =
+        days != null ? `${days} día${days === 1 ? "" : "s"} desde emisión` : null;
+      term = {
+        dueYmd: primaryDte.dueYmd,
+        days,
+        source,
+        label: [
+          `Vence ${fmtShortDate(primaryDte.dueYmd)}`,
+          daysTxt,
+          `[${termSourceLabel(source)}]`,
+        ]
+          .filter(Boolean)
+          .join(" · "),
+        editable: !!row.recurringTemplateId,
+      };
+    }
+    if (primaryDte.isCededRetention || (primaryDte.cededPct ?? 0) > 0 || primaryDte.ceded) {
+      cession = {
+        pct: primaryDte.cededPct && primaryDte.cededPct > 0 ? primaryDte.cededPct : 100,
+        factorName: primaryDte.factorName ?? null,
+        funded: primaryDte.factoringFunded === true,
+        dueYmd: primaryDte.cesionDueYmd ?? null,
+        isRetention: primaryDte.isCededRetention === true,
+      };
+    }
+  }
+  const overdueDte = dteItems.find((i) => (i.overdueDays ?? 0) > 0 && i.dteId);
+  if (overdueDte?.dteId) {
+    cobranza = {
+      dteId: overdueDte.dteId,
+      crmAccountId: overdueDte.crmAccountId ?? row.crmAccountId ?? null,
+      daysOverdue: overdueDte.overdueDays ?? 0,
+    };
+  }
+
   return {
     concept: row.name,
     ref: `${columnLetter(colIdx + 1)}${rowNumber || ""}`,
@@ -192,5 +290,8 @@ export function buildHoverCardContent(args: {
     pastPending,
     note: cell.note?.trim() || null,
     footerHint: reason || "Doble clic editar · N nota · Acciones ▾",
+    term,
+    cession,
+    cobranza,
   };
 }

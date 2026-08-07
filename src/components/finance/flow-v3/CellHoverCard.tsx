@@ -33,6 +33,12 @@ interface Props {
   canManage: boolean;
   onSaveNote: (rowId: string, weekStart: string, body: string | null) => Promise<boolean>;
   onOpenActions: (ctx: CellHoverShowCtx, anchor: DOMRect) => void;
+  onSendCobranza?: (args: {
+    dteId: string;
+    crmAccountId: string | null;
+    daysOverdue: number;
+  }) => void;
+  onEditTerm?: (row: FlowMatrixRowDto) => void;
 }
 
 /**
@@ -40,7 +46,7 @@ interface Props {
  * se cierra con Esc, clic fuera, scroll o al pasar a edición.
  */
 export const CellHoverCard = forwardRef<CellHoverCardHandle, Props>(function CellHoverCard(
-  { canManage, onSaveNote, onOpenActions },
+  { canManage, onSaveNote, onOpenActions, onSendCobranza, onEditTerm },
   ref,
 ) {
   const [ctx, setCtx] = useState<CellHoverShowCtx | null>(null);
@@ -139,6 +145,8 @@ export const CellHoverCard = forwardRef<CellHoverCardHandle, Props>(function Cel
           setPinned(true);
         }}
         onOpenActions={(el) => onOpenActions(ctx, el.getBoundingClientRect())}
+        onSendCobranza={onSendCobranza}
+        onEditTerm={onEditTerm ? () => onEditTerm(ctx.row) : undefined}
       />
     </div>
   );

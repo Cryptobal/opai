@@ -31,6 +31,11 @@ import {
   type FlowRowRef,
   type SentDocs,
 } from "./types";
+import {
+  computeOverdueDays,
+  type CessionInfo,
+  type DueDateSource,
+} from "./overdue";
 
 /** DTE emitido que no resolvió fila (panel "Facturas sin fila"). */
 export interface UnroutedIncomeDte {
@@ -65,8 +70,24 @@ export interface IssuedDteInput {
   receiverName: string;
   /** Término del contrato origen (template) si la factura viene de uno. */
   templateDiasCobro?: number | null;
-  /** paymentStatus=CEDED — sigue en planilla con marca secundaria. */
+  /**
+   * @deprecated Preferir `cession`. Conservado para tests legacy.
+   * paymentStatus=CEDED — sigue en planilla con marca secundaria.
+   */
   ceded?: boolean;
+  /** Estado de pago del DTE (UNPAID/PARTIAL/OVERDUE/CEDED/…). */
+  paymentStatus?: string;
+  /** Cesión vigente resuelta (operación activa o fallback CEDED). */
+  cession?: CessionInfo | null;
+  /** Retención comercial de cesión partida (fila "Cliente 20%"). */
+  isCededRetention?: boolean;
+  /** Días de término aplicados / mostrados en ficha. */
+  termDays?: number | null;
+  termSource?: DueDateSource;
+  /** Celda ya conciliada con banco (no genera mora). */
+  reconciled?: boolean;
+  /** Anulada por nota de crédito. */
+  voided?: boolean;
 }
 
 export interface ScheduledDraftInput {
@@ -153,14 +174,6 @@ function collectionWeek(
   return week < currentWeek ? { week: currentWeek, fecha: fechaYmd } : { week, fecha: fechaYmd };
 }
 
-/** Días calendarios UTC de `fromYmd` a `toYmd` (positivo si to > from). */
-function daysBetween(fromYmd: string, toYmd: string): number {
-  const a = ymdToDate(fromYmd);
-  const b = ymdToDate(toYmd);
-  if (!a || !b) return 0;
-  return Math.floor((b.getTime() - a.getTime()) / 86_400_000);
-}
-
 export function deriveCommittedIncome(args: CommittedIncomeArgs): DeriveCommittedIncomeResult {
   const out: CommittedByRow = new Map();
   const unrouted: UnroutedIncomeDte[] = [];
@@ -183,8 +196,33 @@ export function deriveCommittedIncome(args: CommittedIncomeArgs): DeriveCommitte
     if (!inRange(week) || d.pendingClp <= 0) continue;
     // Cartera zombie: vencimiento contractual (dueDate o emisión+lag), no la
     // celda de visibilidad — una factura recién emitida no es "vencida".
-    const dueYmd = d.dueDateYmd ?? addDaysYmd(d.dateYmd, d.templateDiasCobro ?? lagDays);
-    const overdueDays = Math.max(0, daysBetween(dueYmd, args.todayYmd));
+    const termDays = d.termDays ?? d.templateDiasCobro ?? lagDays;
+    const dueYmd = d.dueDateYmd ?? addDaysYmd(d.dateYmd, termDays);
+    const cession =
+      d.cession ??
+      (d.ceded === true
+        ? {
+            active: true,
+            pct: 100,
+            factorName: null,
+            funded: false,
+            dueYmd: null,
+          }
+        : null);
+    const paymentStatus =
+      d.paymentStatus ?? (d.ceded === true ? "CEDED" : "UNPAID");
+    const overdueDays = computeOverdueDays({
+      dueYmd,
+      todayYmd: args.todayYmd,
+      pendingClp: d.pendingClp,
+      paymentStatus,
+      cession,
+      reconciled: d.reconciled === true,
+      voided: d.voided === true,
+      isCededRetention: d.isCededRetention === true,
+    });
+    const cededPct = cession?.active ? cession.pct : 0;
+    const ceded = cededPct > 0 || d.ceded === true;
     // Destino explícito OTHER_INCOME prevalece sobre matcher y bandejaIncomeBankOnly.
     const forcedOther = d.flowRouting === "OTHER_INCOME";
     const rowKey = forcedOther
@@ -214,7 +252,14 @@ export function deriveCommittedIncome(args: CommittedIncomeArgs): DeriveCommitte
       overdueOver60: overdueDays > 60,
       emissionYmd: d.dateYmd,
       dueYmd,
-      ceded: d.ceded === true,
+      ceded,
+      cededPct: ceded ? cededPct || 100 : undefined,
+      factorName: cession?.factorName ?? null,
+      factoringFunded: cession?.funded === true,
+      cesionDueYmd: cession?.dueYmd ?? null,
+      termDays: d.termDays ?? d.templateDiasCobro ?? null,
+      termSource: d.termSource,
+      isCededRetention: d.isCededRetention === true,
       crmAccountId: d.crmAccountId,
     });
   }

@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  cellCededState,
+  cellStateChips,
   committedItemMeta,
+  countCededInMatrix,
   draftGroupLabel,
   draftTag,
   primaryCellTag,
@@ -144,6 +147,75 @@ describe("sentDocs — etiquetas EP vs Proforma", () => {
         }],
       })),
     ).toEqual([]);
+  });
+
+  it("cellCededState y cellStateChips — cesión / fondeo / retención / mora", () => {
+    expect(
+      cellCededState(cell({
+        total: 100,
+        items: [{
+          kind: "dte", label: "T", fecha: "2026-08-01", monto: 100,
+          dteId: "a", ceded: true, cededPct: 100,
+        }],
+      })),
+    ).toBe("ceded");
+    expect(
+      cellCededState(cell({
+        total: 100,
+        items: [{
+          kind: "dte", label: "T", fecha: "2026-08-01", monto: 100,
+          dteId: "a", ceded: true, cededPct: 100, factoringFunded: true,
+        }],
+      })),
+    ).toBe("funded");
+
+    const chips = cellStateChips(cell({
+      total: 100,
+      items: [{
+        kind: "dte", label: "Transmat", fecha: "2026-08-01", monto: 100,
+        dteId: "t80", ceded: true, cededPct: 80, overdueDays: 0,
+      }],
+    }));
+    expect(chips).toEqual([
+      expect.objectContaining({ kind: "ceded", label: "cedida 80%", tone: "info" }),
+    ]);
+
+    const retention = cellStateChips(cell({
+      total: 50,
+      items: [{
+        kind: "dte", label: "Transmat", fecha: "2026-08-06", monto: 50,
+        dteId: "t20", isCededRetention: true, cesionDueYmd: "2026-10-05",
+        ceded: true, cededPct: 100, overdueDays: 0,
+      }],
+    }));
+    expect(retention[0]).toMatchObject({
+      kind: "retention",
+      label: "retención · liquida 05/10",
+      tone: "neutral",
+    });
+
+    const mora = cellStateChips(cell({
+      total: 80,
+      items: [{
+        kind: "dte", label: "GL", fecha: "2026-05-01", monto: 80,
+        dteId: "g", overdueDays: 78, overdueOver60: true, dueYmd: "2026-05-20",
+      }],
+    }));
+    expect(mora[0]).toMatchObject({
+      kind: "overdue", label: "mora 78 d", tone: "danger",
+    });
+
+    expect(
+      countCededInMatrix([{
+        cells: [cell({
+          total: 100,
+          items: [{
+            kind: "dte", label: "T", fecha: "2026-08-01", monto: 100,
+            dteId: "a", cededPct: 100,
+          }],
+        })],
+      }]),
+    ).toBe(1);
   });
 
   it("terminoStatusLine solo con término > 0", () => {

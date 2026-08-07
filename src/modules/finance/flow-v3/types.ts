@@ -50,8 +50,24 @@ export interface CommittedItem {
   emissionYmd?: string;
   /** Solo kind=dte: fecha de vencimiento contractual (YYYY-MM-DD). */
   dueYmd?: string;
-  /** Solo kind=dte: factura cedida a factoring (paymentStatus=CEDED). */
+  /**
+   * Solo kind=dte: factura cedida a factoring (derivado: cededPct > 0).
+   * Conservado para secondaryMarks / menús legacy.
+   */
   ceded?: boolean;
+  /** Porcentaje cedido (0–100). Ausente o 0 = no cedida. */
+  cededPct?: number;
+  factorName?: string | null;
+  /** Anticipo conciliado (operación FUNDED/COLLECTED). */
+  factoringFunded?: boolean;
+  /** Fecha estimada de liquidación de cesión/retención (YYYY-MM-DD). */
+  cesionDueYmd?: string | null;
+  /** Término de pago en días (informativo en ficha). */
+  termDays?: number | null;
+  /** Origen del término: contrato / tenant / explícito / default. */
+  termSource?: "explicit" | "contrato" | "tenant" | "default";
+  /** Fila de retención comercial de una cesión partida (ej. "Cliente 20%"). */
+  isCededRetention?: boolean;
   /** Solo kind=dte: cuenta CRM del receptor (para cobranza multicanal). */
   crmAccountId?: string | null;
 }

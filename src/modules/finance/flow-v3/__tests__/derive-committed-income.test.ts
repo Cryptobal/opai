@@ -486,6 +486,95 @@ describe("deriveCommittedIncome — facturas cedidas", () => {
       ceded: true,
     });
   });
+
+  it("cesión total vencida no genera mora", () => {
+    const { committed: out } = deriveCommittedIncome({
+      ...base,
+      todayYmd: "2026-08-06",
+      dtes: [{
+        id: "dte-100", folio: 1776, dateYmd: "2026-08-01", dueDateYmd: "2026-08-04",
+        pendingClp: 5_000_000, crmAccountId: "acc-A", installationId: "inst-1",
+        receiverName: "Transmat", paymentStatus: "CEDED",
+        cession: {
+          active: true, pct: 100, factorName: "Amifactor", funded: false, dueYmd: "2026-10-03",
+        },
+      }],
+    });
+    const item = out.get("row-a-i1")?.get("2026-07-27")?.items[0];
+    expect(item).toMatchObject({
+      overdueDays: 0, ceded: true, cededPct: 100, factoringFunded: false,
+    });
+  });
+
+  it("cesión parcial (UNPAID) no genera mora y expone pct", () => {
+    const { committed: out } = deriveCommittedIncome({
+      ...base,
+      todayYmd: "2026-08-06",
+      dtes: [{
+        id: "dte-80", folio: 1, dateYmd: "2026-08-01", dueDateYmd: "2026-08-04",
+        pendingClp: 4_000_000, crmAccountId: "acc-A", installationId: "inst-1",
+        receiverName: "Cliente", paymentStatus: "UNPAID",
+        cession: {
+          active: true, pct: 80, factorName: "Factor", funded: false, dueYmd: "2026-10-01",
+        },
+      }],
+    });
+    expect(out.get("row-a-i1")?.get("2026-07-27")?.items[0]).toMatchObject({
+      overdueDays: 0, ceded: true, cededPct: 80,
+    });
+  });
+
+  it("cesión fondeada marca factoringFunded sin mora", () => {
+    const { committed: out } = deriveCommittedIncome({
+      ...base,
+      todayYmd: "2026-08-06",
+      dtes: [{
+        id: "dte-f", folio: 2, dateYmd: "2026-07-01", dueDateYmd: "2026-07-30",
+        pendingClp: 1_000_000, crmAccountId: "acc-A", installationId: "inst-1",
+        receiverName: "Peñañanca", paymentStatus: "UNPAID",
+        cession: {
+          active: true, pct: 100, factorName: "Amifactor", funded: true, dueYmd: "2026-09-01",
+        },
+      }],
+    });
+    expect(out.get("row-a-i1")?.get("2026-06-29")?.items[0]).toMatchObject({
+      overdueDays: 0, factoringFunded: true, cededPct: 100,
+    });
+  });
+
+  it("retención comercial no genera mora y conserva cesionDueYmd", () => {
+    const { committed: out } = deriveCommittedIncome({
+      ...base,
+      todayYmd: "2026-08-06",
+      dtes: [{
+        id: "dte-20", folio: 1793, dateYmd: "2026-08-06", dueDateYmd: "2026-08-09",
+        pendingClp: 1_300_000, crmAccountId: "acc-A", installationId: "inst-1",
+        receiverName: "Transmat", paymentStatus: "CEDED",
+        isCededRetention: true,
+        cession: {
+          active: true, pct: 100, factorName: "Amifactor", funded: false, dueYmd: "2026-10-05",
+        },
+      }],
+    });
+    expect(out.get("row-a-i1")?.get("2026-08-03")?.items[0]).toMatchObject({
+      overdueDays: 0, isCededRetention: true, cesionDueYmd: "2026-10-05",
+    });
+  });
+
+  it("vencida cobrable sin cesión sigue en mora", () => {
+    const { committed: out } = deriveCommittedIncome({
+      ...base,
+      todayYmd: "2026-08-06",
+      dtes: [{
+        // Emisión dentro del horizonte del fixture (desde 2026-06-22).
+        id: "dte-m", folio: 9, dateYmd: "2026-06-25", dueDateYmd: "2026-05-20",
+        pendingClp: 500_000, crmAccountId: "acc-A", installationId: "inst-1",
+        receiverName: "GL Events", paymentStatus: "UNPAID",
+      }],
+    });
+    // due 2026-05-20 → today 2026-08-06 = 78 días.
+    expect(out.get("row-a-i1")?.get("2026-06-22")?.items[0]?.overdueDays).toBe(78);
+  });
 });
 
 describe("grossPerRunFromLines", () => {
