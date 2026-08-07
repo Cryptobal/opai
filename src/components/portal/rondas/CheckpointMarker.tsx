@@ -5,6 +5,7 @@ import { QrScanner } from "./QrScanner";
 import { PhotoCapture } from "./PhotoCapture";
 import { savePendingMark, getPendingMarks, clearPendingMarks } from "@/lib/rondas-offline";
 import { evaluateGeofenceWithTolerance } from "@/lib/rondas/geo-fence-client";
+import { normalizeCheckpointQrCode } from "@/lib/rondas/normalize-qr-code";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -105,6 +106,9 @@ export function CheckpointMarker({
     checkpoint.verificationType === "QR" || checkpoint.verificationType === "BOTH";
   const [qrCode, setQrCode] = useState<string | null>(null);
   const [showQr, setShowQr] = useState(false);
+  // Solo auto-abrir una vez al montar. Si el usuario cancela, queda el botón
+  // "Escanear QR" — evita el loop mount/unmount que crasheaba html5-qrcode.
+  const autoOpenedQrRef = useRef(false);
 
   // ---- Photo State ----
   const [photo, setPhoto] = useState<Blob | null>(null);
@@ -202,13 +206,22 @@ export function CheckpointMarker({
   }, [requestGps, guardPos]);
 
   // ------------------------------------------------------------------
-  // Auto-open QR scanner if required
+  // Auto-open QR scanner if required (una sola vez)
   // ------------------------------------------------------------------
   useEffect(() => {
-    if (needsQr && !qrCode) {
+    if (needsQr && !qrCode && !autoOpenedQrRef.current) {
+      autoOpenedQrRef.current = true;
       setShowQr(true);
     }
   }, [needsQr, qrCode]);
+
+  const handleQrScanned = useCallback((raw: string) => {
+    const code = normalizeCheckpointQrCode(raw);
+    if (!code) return;
+    setQrCode(code);
+    setShowQr(false);
+    setSubmitError("");
+  }, []);
 
   // ------------------------------------------------------------------
   // Battery API
@@ -577,10 +590,7 @@ export function CheckpointMarker({
     const isAdHoc = checkpoint.id.startsWith("ad-hoc");
     return (
       <QrScanner
-        onScan={(code) => {
-          setQrCode(code);
-          setShowQr(false);
-        }}
+        onScan={handleQrScanned}
         onClose={isAdHoc ? onBack : () => setShowQr(false)}
       />
     );
@@ -792,10 +802,7 @@ export function CheckpointMarker({
       <>
         {showQr && (
           <QrScanner
-            onScan={(code) => {
-              setQrCode(code);
-              setShowQr(false);
-            }}
+            onScan={handleQrScanned}
             onClose={() => setShowQr(false)}
           />
         )}

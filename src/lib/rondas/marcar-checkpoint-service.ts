@@ -17,6 +17,10 @@ import { getFullAlertConfig } from "@/lib/rondas/alert-config-service";
 import { DEFAULT_SPEED_THRESHOLD_KMH } from "@/lib/rondas/ia-config";
 import { getPusherServer } from "@/lib/chat";
 import { broadcastToPortalCliente } from "@/lib/rondas/realtime-portal-cliente";
+import {
+  checkpointQrCodesMatch,
+  normalizeCheckpointQrCode,
+} from "@/lib/rondas/normalize-qr-code";
 
 // ── Input / Output types ──
 
@@ -152,13 +156,19 @@ export async function marcarCheckpoint(
     qrCode: string | null;
   } | null = null;
 
+  const normalizedScannedQr = normalizeCheckpointQrCode(checkpointQrCode);
+
   if (!isAdHocGps) {
     checkpoint = await prisma.opsCheckpoint.findFirst({
       where: {
         tenantId: execution.tenantId,
         installationId: cpInstallationId,
         isActive: true,
-        ...(checkpointId ? { id: checkpointId } : { qrCode: checkpointQrCode ?? undefined }),
+        ...(checkpointId
+          ? { id: checkpointId }
+          : normalizedScannedQr
+            ? { qrCode: normalizedScannedQr }
+            : { qrCode: checkpointQrCode ?? undefined }),
       },
       select: {
         id: true,
@@ -179,7 +189,7 @@ export async function marcarCheckpoint(
     const needsQrByTemplate = execution.rondaTemplate?.qrRequerido === true;
 
     if (needsQrByType || needsQrByTemplate) {
-      if (!checkpointQrCode) {
+      if (!normalizedScannedQr) {
         throw new MarcarCheckpointError(
           "Se requiere escaneo QR para este checkpoint",
           400,
@@ -189,9 +199,7 @@ export async function marcarCheckpoint(
     }
 
     if (needsQrByType && checkpoint.qrCode) {
-      const scanned = checkpointQrCode!.trim().toUpperCase();
-      const expected = checkpoint.qrCode.trim().toUpperCase();
-      if (scanned !== expected) {
+      if (!checkpointQrCodesMatch(normalizedScannedQr, checkpoint.qrCode)) {
         throw new MarcarCheckpointError(
           "El código QR no corresponde a este checkpoint",
           400,
@@ -202,11 +210,11 @@ export async function marcarCheckpoint(
   }
 
   const qrValidado = Boolean(
-    checkpointQrCode &&
+    normalizedScannedQr &&
       checkpoint &&
       (checkpoint.verificationType === "QR" || checkpoint.verificationType === "BOTH") &&
       checkpoint.qrCode &&
-      checkpointQrCode.trim().toUpperCase() === checkpoint.qrCode.trim().toUpperCase(),
+      checkpointQrCodesMatch(normalizedScannedQr, checkpoint.qrCode),
   );
 
   const effectiveAccuracy =
