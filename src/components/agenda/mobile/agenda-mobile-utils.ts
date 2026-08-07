@@ -5,6 +5,7 @@ import { CHILE_TZ, todayInChile } from "@/lib/dates-cl";
 import { paletteFgBg } from "@/lib/design/calendar-palette";
 import type { AgendaCalendarItem } from "../agenda-calendar.types";
 import { itemSourceKey } from "../desktop/agenda-desktop-prefs";
+import { TOUCH_LAYOUT_QUERY } from "@/lib/breakpoints";
 
 export type AgendaMobileView = "agenda" | "day" | "month";
 
@@ -43,10 +44,10 @@ export function useIsMobileAgenda(): boolean {
   const [isMobile, setIsMobile] = useState(
     () =>
       typeof window !== "undefined" &&
-      window.matchMedia("(max-width: 1023px)").matches,
+      window.matchMedia(TOUCH_LAYOUT_QUERY).matches,
   );
   useEffect(() => {
-    const mq = window.matchMedia("(max-width: 1023px)");
+    const mq = window.matchMedia(TOUCH_LAYOUT_QUERY);
     const update = () => setIsMobile(mq.matches);
     mq.addEventListener("change", update);
     return () => mq.removeEventListener("change", update);

@@ -70,7 +70,8 @@ const sheetVariants = cva(
       {
         side: "bottom",
         surface: "default",
-        class: "inset-x-0 bottom-0 border-t opai-ios-surface-sheet-bottom",
+        class:
+          "inset-x-0 bottom-0 border-t opai-ios-surface-sheet-bottom pb-[max(env(safe-area-inset-bottom),1.5rem)]",
       },
       {
         side: "left",
@@ -85,7 +86,8 @@ const sheetVariants = cva(
       {
         side: "bottom",
         surface: "opaque",
-        class: "inset-x-0 bottom-0 border-t bg-background",
+        class:
+          "inset-x-0 bottom-0 border-t bg-background pb-[max(env(safe-area-inset-bottom),1.5rem)]",
       },
       {
         side: "bottom",

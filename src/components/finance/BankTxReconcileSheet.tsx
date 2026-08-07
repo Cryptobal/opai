@@ -63,7 +63,7 @@ import {
   ChevronUp,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useIsMobileViewport } from "@/hooks/useIsMobileViewport";
+import { useIsTouchLayout } from "@/hooks/useIsTouchLayout";
 import { CategoryMappingDialog } from "./cashflow/CategoryMappingDialog";
 import { SaveAsRuleModal } from "./SaveAsRuleModal";
 import { DTE_TYPE_SHORT_LABELS } from "@/components/finance/dtes/shared/constants";
@@ -321,7 +321,7 @@ export function BankTxReconcileSheet({
   onSaved,
   queueInfo,
 }: BankTxReconcileSheetProps) {
-  const isMobile = useIsMobileViewport();
+  const isMobile = useIsTouchLayout();
   // Lote efectivo. Mantiene compatibilidad con call sites legacy que solo
   // pasan `tx`: si no viene `txs`, derivamos `[tx]` (o `[]` si null).
   const txs = useMemo<Tx[]>(() => {

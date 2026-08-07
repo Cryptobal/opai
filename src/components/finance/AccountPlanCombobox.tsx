@@ -28,7 +28,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { useIsMobileViewport } from "@/hooks/useIsMobileViewport";
+import { useIsTouchLayout } from "@/hooks/useIsTouchLayout";
 import { cn } from "@/lib/utils";
 
 export interface AccountPlanItem {
@@ -60,7 +60,7 @@ export function AccountPlanCombobox({
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
   const inputRef = useRef<HTMLInputElement | null>(null);
-  const isMobile = useIsMobileViewport();
+  const isMobile = useIsTouchLayout();
 
   // Reset query al cerrar (siguiente apertura empieza limpio).
   useEffect(() => {

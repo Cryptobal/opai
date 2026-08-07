@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { evaluateCondition } from "/workspace/src/modules/finance/banking/automatch-rule.service";
+import { evaluateCondition } from "../automatch-rule.service";
 
 describe("regla Sistemas · Google", () => {
   it("CONTAINS Google matchea Compra GOOGLE *ADS569701 (case-insensitive)", () => {

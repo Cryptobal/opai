@@ -45,7 +45,7 @@ import { useIsIOS } from '@/hooks/usePlatform';
 import type { CommandItem, CommandCategory } from './types';
 import { useCommandPalette } from './use-command-palette';
 import { defaultCommands, ICON_MAP, CATEGORY_LABELS } from './commands';
-import { useIsMobile } from '@/lib/pwa/use-is-mobile';
+import { useIsTouchLayout } from '@/hooks/useIsTouchLayout';
 import { normalizeForSearch } from '@/lib/search-normalize-pure';
 import { dispatchAiCommand } from '@/lib/ai/ai-command-event';
 import {
@@ -262,7 +262,7 @@ interface CommandPaletteProps {
 export function CommandPalette({ userRole, onOpenChat }: CommandPaletteProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const isMobile = useIsMobile();
+  const isMobile = useIsTouchLayout();
   const isIOS = useIsIOS();
   const { isOpen, close, addRecent, getRecents, externalCommands, initialQuery } = useCommandPalette();
   const [query, setQuery] = useState('');

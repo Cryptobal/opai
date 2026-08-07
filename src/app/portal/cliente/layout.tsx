@@ -28,7 +28,11 @@ export const metadata: Metadata = {
 
 export default function PortalClienteLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-dvh text-white" style={{ paddingTop: 'var(--safe-area-top)' }}>
+    <div className="min-h-dvh text-white" style={{
+        paddingTop: 'var(--safe-area-top)',
+        paddingLeft: 'var(--safe-area-left)',
+        paddingRight: 'var(--safe-area-right)',
+      }}>
       <GlassAmbient />
       <ServiceWorkerRegistrar scope="/portal/cliente" />
       <PlatformDataAttribute />

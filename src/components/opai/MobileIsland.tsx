@@ -34,6 +34,7 @@ import {
   useIslandModule,
   useIslandSearchOpenListener,
 } from "@/components/opai-ds";
+import { ISLAND_HIDE_CHAT_QUERY, ISLAND_HIDE_SEARCH_QUERY } from "@/lib/breakpoints";
 import { resolveNavContext } from "@/lib/nav/resolve-context";
 import { usePermissions } from "@/lib/permissions-context";
 import { useTenantModules } from "@/contexts/TenantModulesContext";
@@ -82,8 +83,8 @@ export function MobileIsland({
   const [hideSearchInIsland, setHideSearchInIsland] = useState(false);
   useEffect(() => {
     if (typeof window.matchMedia !== "function") return;
-    const mqChat = window.matchMedia("(max-width: 360px)");
-    const mqSearch = window.matchMedia("(max-width: 320px)");
+    const mqChat = window.matchMedia(ISLAND_HIDE_CHAT_QUERY);
+    const mqSearch = window.matchMedia(ISLAND_HIDE_SEARCH_QUERY);
     const apply = () => {
       setHideChatInIsland(mqChat.matches);
       setHideSearchInIsland(mqSearch.matches);

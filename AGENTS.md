@@ -332,17 +332,37 @@ import {
 - **Mínimo permitido:** `text-[12px]` (font-mono / metadata) y `text-[13px]` (body).
 - Para títulos usar `font-display` (Outfit Variable). NO usar `font-display` con Exo 2 directamente, esa variante es solo de marketing.
 
-### 4. Touch targets en mobile ≥ 44px
+### 4. Touch targets en mobile ≥ 44×44px
 
 ```tsx
 // ❌ NO
 <Input className="h-9" />
 <SelectTrigger className="h-8" />
+<button className="h-9 w-9">…</button>
 
-// ✅ Sí — 44px mobile, 36px desktop
+// ✅ Sí — 44px mobile, 36px desktop (alto y ancho en icon buttons)
 <Input className="h-10 sm:h-9" />
 <SelectTrigger className="h-10 sm:h-9" />
 ```
+
+En dispositivos con `any-pointer: coarse`, el CSS global fuerza
+`min-height: 44px` y `min-width: 44px` en icon buttons (`w-8`/`w-9`).
+Ver `docs/mobile/BASELINE_TACTIL.md`.
+
+### 4b. Breakpoints y safe-areas
+
+- **Fuente única:** `src/lib/breakpoints.ts` (`BP`, `TOUCH_LAYOUT_QUERY`).
+- **Layout táctil = `< lg` (1023px)** — alineado con el shell
+  (`MobileIsland`/`BottomNav` `lg:hidden`, sidebar `hidden lg:block`).
+  Usar `useIsTouchLayout()`; no hardcodear `768`/`1023` en `matchMedia`.
+- **Media query táctil:** `(any-pointer: coarse)` — nunca
+  `(hover: none) and (pointer: coarse)` (falla en iPad + trackpad).
+- **Safe-areas en 4 ejes:** tokens `--safe-area-*`; utilidades
+  `.app-safe-x` / `.app-safe-b`; bottom sheets con
+  `pb-[max(env(safe-area-inset-bottom),1.5rem)]`.
+- **Alturas:** `dvh` no `vh`.
+- Detalle, matriz de anchos iPad/iPhone y registro `data-micro-type`:
+  `docs/mobile/BASELINE_TACTIL.md`.
 
 ### 5. Light + Dark obligatorio
 

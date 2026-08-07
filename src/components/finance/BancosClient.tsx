@@ -84,7 +84,7 @@ import {
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { confirmDialog } from "@/components/ui/confirm-service";
-import { useIsMobileViewport } from "@/hooks/useIsMobileViewport";
+import { useIsTouchLayout } from "@/hooks/useIsTouchLayout";
 
 /* ── Types ── */
 
@@ -1081,7 +1081,7 @@ function TransactionsTab({
   const [total, setTotal] = useState(0);
   // Mobile: filtros colapsados por defecto para dejar más espacio a la
   // tabla de movimientos. En desktop siempre visibles inline.
-  const isMobile = useIsMobileViewport();
+  const isMobile = useIsTouchLayout();
   const [filtersOpenMobile, setFiltersOpenMobile] = useState(false);
   // La búsqueda ya es visible siempre (BankTxSearchBar); no cuenta como filtro oculto.
   const activeFiltersCount =

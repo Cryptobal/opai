@@ -246,7 +246,7 @@ export function ContractEditor({
     ? `flex flex-col bg-transparent ${
         internalScroll ? "min-h-0 overflow-hidden" : "min-h-[160px] overflow-visible"
       } ${className}`
-    : `flex max-h-[calc(100vh-160px)] min-h-[400px] flex-col overflow-hidden rounded-lg border border-border bg-card ${className}`;
+    : `flex max-h-[calc(100dvh-160px)] min-h-[400px] flex-col overflow-hidden rounded-lg border border-border bg-card ${className}`;
   const toolbarShellClass = compact
     ? "z-10 shrink-0"
     : "z-10 shrink-0 border-b border-border bg-card";

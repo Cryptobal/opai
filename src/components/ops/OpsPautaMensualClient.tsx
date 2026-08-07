@@ -1438,7 +1438,7 @@ export function OpsPautaMensualClient({
     };
 
     return (
-      <div className="space-y-3">
+      <div className="space-y-3" data-micro-type>
         {/* Month/Year selector + búsqueda por instalación/cliente */}
         <Card>
           <CardContent className="pt-3 pb-2.5">
@@ -1620,7 +1620,7 @@ export function OpsPautaMensualClient({
 
   // ── DETAIL VIEW ──
   return (
-    <div className="space-y-3">
+    <div className="space-y-3" data-micro-type>
       {/* Controls — filtros siempre visibles, layout compacto */}
       <Card>
         <CardContent className="pt-3 pb-2.5 space-y-2">

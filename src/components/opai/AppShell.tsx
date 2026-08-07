@@ -361,17 +361,14 @@ function AppShellInner({
                   isDesktopTight
                     ? 'lg:pl-3 lg:pr-6 lg:pb-3'
                     : 'lg:pb-6 lg:px-8 xl:px-10 2xl:px-12',
-                  // Inmersivo móvil (correos): full-bleed; la isla global
-                  // sigue montada y el módulo reserva su spacer.
-                  isImmersiveMobile && 'overflow-x-clip pt-0 pb-0 px-0',
-                  // Sheet focus (planilla flujo de caja): full-bleed móvil
-                  // entre topbar y bottom nav; sin overflow-x-clip en móvil
-                  // (el scroll horizontal vive DENTRO de la hoja).
-                  isSheetFocus && 'pt-1 pb-0 px-0 lg:overflow-x-clip',
-                  // Default: contenido pegado a la isla en móvil (padding-top
-                  // mínimo) y con un respiro moderado bajo la barra en desktop.
+                  // Inmersivo móvil (correos): full-bleed + safe-area lateral.
+                  isImmersiveMobile && 'overflow-x-clip pt-0 pb-0 px-0 app-safe-x',
+                  // Sheet focus (planilla): full-bleed + safe-area lateral.
+                  isSheetFocus && 'pt-1 pb-0 px-0 app-safe-x lg:overflow-x-clip',
+                  // Default: padding móvil = max(gutter, safe-area) para no
+                  // quedar bajo el notch en iPhone horizontal.
                   !isImmersiveMobile && !isSheetFocus &&
-                    'overflow-x-clip pt-2 pb-28 px-4 sm:px-6 lg:pt-4',
+                    'overflow-x-clip pt-2 pb-28 lg:pt-4 pl-[max(1rem,env(safe-area-inset-left,0px))] pr-[max(1rem,env(safe-area-inset-right,0px))] sm:pl-[max(1.5rem,env(safe-area-inset-left,0px))] sm:pr-[max(1.5rem,env(safe-area-inset-right,0px))]',
                 )}
                 role="region"
               >

@@ -292,6 +292,7 @@ Patrón de todo route handler protegido:
 
 - Supervisores y guardias operan en terreno: pantallas pequeñas, táctil, conectividad inestable.
 - Capacitor 8 provee 3 apps (Terreno, Personas, ERP) sobre el mismo web: camera, geolocation, push, biometría (`capacitor-native-biometric`), preferences. Helpers en `src/lib/capacitor/` y `src/lib/pwa/`.
+- **Breakpoint táctil único: 1024px (`lg`)** — iPad vertical = layout táctil; fuente `src/lib/breakpoints.ts` + `useIsTouchLayout()`. Detalle en `docs/mobile/BASELINE_TACTIL.md`.
 - Flujos de terreno deben tolerar offline/reintentos (patrón outbox; `rondas-offline.ts`), pedir permisos (cámara/GPS) con degradación elegante y mantener sesión por `device_token` de larga vida.
 - Toda fecha capturada en terreno se interpreta en TZ Chile en servidor.
 - Cambios en APIs consumidas por apps distribuidas deben ser retrocompatibles.

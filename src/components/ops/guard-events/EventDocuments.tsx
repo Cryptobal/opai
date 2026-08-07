@@ -346,7 +346,7 @@ export function EventDocuments({ event, onDocumentGenerated }: EventDocumentsPro
           <DialogPrimitive.Content
             className={cn(
               "fixed z-50 grid w-full max-w-md gap-4 border border-border bg-card p-6 shadow-xl duration-200",
-              "inset-x-0 bottom-0 rounded-t-2xl",
+              "inset-x-0 bottom-0 rounded-t-2xl pb-[max(env(safe-area-inset-bottom),1.5rem)] sm:pb-6",
               "sm:inset-auto sm:left-[50%] sm:top-[50%] sm:bottom-auto sm:translate-x-[-50%] sm:translate-y-[-50%] sm:rounded-lg",
               "data-[state=open]:animate-in data-[state=closed]:animate-out",
               "data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",

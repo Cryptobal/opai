@@ -10,6 +10,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import {
   ContextMenu, ContextMenuContent, ContextMenuTrigger,
 } from "@/components/ui/context-menu";
+import { BP } from "@/lib/breakpoints";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -1402,7 +1403,7 @@ export function PlanillaGrid({
     const el = scroller.current;
     if (!el) return;
     anchoredRef.current = true;
-    if (window.matchMedia("(max-width: 767px)").matches) {
+    if (window.matchMedia(`(max-width: ${BP.md - 1}px)`).matches) {
       scrollToWeek(el, anchorTargetWeek(data), false);
     }
   }, [data, scroller]);
@@ -1430,6 +1431,7 @@ export function PlanillaGrid({
           <div
             ref={scroller}
             tabIndex={0}
+            data-micro-type
             onKeyDown={kb.onGridKeyDown}
             onContextMenuCapture={() => setCtxTarget(null)}
             className="planilla-grid-scroll relative max-h-[var(--plnx-grid-h)] overflow-auto overscroll-contain [-webkit-overflow-scrolling:touch] rounded-lg border border-ds-border-default bg-ds-surface-1 outline-none focus-visible:ring-1 focus-visible:ring-primary/40 max-lg:rounded-none max-lg:border-x-0"

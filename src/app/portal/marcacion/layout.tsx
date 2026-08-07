@@ -51,6 +51,8 @@ export default function PortalMarcacionLayout({ children }: { children: React.Re
         overscrollBehaviorY: 'contain',
         paddingTop: 'var(--safe-area-top)',
         paddingBottom: 'var(--safe-area-bottom)',
+        paddingLeft: 'var(--safe-area-left)',
+        paddingRight: 'var(--safe-area-right)',
       }}
     >
       <GlassAmbient />

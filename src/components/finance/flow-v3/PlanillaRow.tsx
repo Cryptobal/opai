@@ -5,6 +5,7 @@ import { MoreHorizontal } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { BP } from "@/lib/breakpoints";
 import type { FlowMatrixRowDto } from "@/modules/finance/flow-v3/matrix-types";
 import { GUTTER_CELL, GUTTER_W, NAME_LEFT, NAME_W, ROW_H } from "./grid-classes";
 import { PlanillaCell } from "./PlanillaCell";
@@ -145,7 +146,7 @@ export function PlanillaRow(p: Props) {
   useEffect(() => () => { if (peekTimer.current) clearTimeout(peekTimer.current); }, []);
   const togglePeek = () => {
     if (p.isRenaming) return;
-    if (!window.matchMedia("(max-width: 767px)").matches) return;
+    if (!window.matchMedia(`(max-width: ${BP.md - 1}px)`).matches) return;
     if (peekTimer.current) clearTimeout(peekTimer.current);
     setPeek((v) => {
       const next = !v;

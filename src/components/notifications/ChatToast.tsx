@@ -61,7 +61,7 @@ export function ChatToast({
         toast.dismiss(toastId);
         router.push(chatUrl || `/chat?channel=${channelId}`);
       }}
-      className="flex items-start gap-3 p-3 cursor-pointer transition-colors hover:bg-white/[0.03] w-[360px] bg-[#0d1220] border border-white/[0.08] border-l-[3px] border-l-teal-400 rounded-xl shadow-[0_8px_24px_rgba(0,0,0,0.4)]"
+      className="flex items-start gap-3 p-3 cursor-pointer transition-colors hover:bg-white/[0.03] w-[min(360px,calc(100vw-2rem))] bg-[#0d1220] border border-white/[0.08] border-l-[3px] border-l-teal-400 rounded-xl shadow-[0_8px_24px_rgba(0,0,0,0.4)]"
     >
       {/* Avatar */}
       {hasSender && (

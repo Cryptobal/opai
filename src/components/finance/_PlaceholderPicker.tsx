@@ -135,7 +135,7 @@ export function PlaceholderPicker({
         // "Valor UF") quepan sin truncar y la preview a la derecha
         // muestre el valor completo (ej: "Mayo 2026" / "$ 40.290").
         // En viewports angostos cae a 100vw - 24px.
-        className="w-[440px] max-w-[calc(100vw-24px)] p-1 max-h-[60vh] overflow-y-auto"
+        className="w-[min(440px,calc(100vw-2rem))] p-1 max-h-[60vh] overflow-y-auto"
       >
         <div className="space-y-0.5">
           <div className="px-2 py-1.5 text-[12px] font-medium uppercase tracking-wide text-ds-text-3">

@@ -72,8 +72,8 @@ export function TareaDetailSheet({
         <Dialog.Content
           ref={contentRef}
           aria-label={`Detalle de tarea: ${task.title}`}
-          style={kb > 0 ? { bottom: kb, maxHeight: `calc(92vh - ${kb}px)` } : undefined}
-          className="opai-ios-surface-dialog fixed inset-x-0 bottom-0 z-[70] flex max-h-[92vh] flex-col rounded-t-3xl rounded-b-none border border-ds-border-default bg-card outline-none motion-safe:animate-in motion-safe:slide-in-from-bottom"
+          style={kb > 0 ? { bottom: kb, maxHeight: `calc(92dvh - ${kb}px)` } : undefined}
+          className="opai-ios-surface-dialog fixed inset-x-0 bottom-0 z-[70] flex max-h-[92dvh] flex-col rounded-t-3xl rounded-b-none border border-ds-border-default bg-card outline-none motion-safe:animate-in motion-safe:slide-in-from-bottom pb-[max(env(safe-area-inset-bottom),1.5rem)]"
         >
           <div className="mx-auto mt-2 h-1 w-[38px] shrink-0 rounded-full bg-ds-text-4/40" />
           <div className="flex shrink-0 items-center gap-3 px-4 pt-3 pb-2">

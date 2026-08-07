@@ -30,7 +30,11 @@ export default function PortalPersonasLayout({
   return (
     <div
       className="min-h-dvh text-foreground antialiased"
-      style={{ paddingTop: "var(--safe-area-top)" }}
+      style={{
+        paddingTop: "var(--safe-area-top)",
+        paddingLeft: "var(--safe-area-left)",
+        paddingRight: "var(--safe-area-right)",
+      }}
     >
       {children}
     </div>

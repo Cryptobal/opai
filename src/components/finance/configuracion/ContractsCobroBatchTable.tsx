@@ -295,7 +295,7 @@ export function ContractsCobroBatchTable() {
         </div>
       )}
 
-      <div className="overflow-auto max-h-[calc(100vh-280px)] rounded-lg border border-ds-border-default">
+      <div className="overflow-auto max-h-[calc(100dvh-280px)] rounded-lg border border-ds-border-default">
         <table className="w-full text-sm">
           <thead className="bg-ds-surface-2 text-ds-text-3 text-[12px] uppercase tracking-wide sticky top-0 z-30">
             <tr>

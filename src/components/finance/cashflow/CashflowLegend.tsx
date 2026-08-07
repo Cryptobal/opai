@@ -182,7 +182,7 @@ export function CashflowLegend({ className }: { className?: string }) {
       <PopoverContent
         align="end"
         sideOffset={6}
-        className="w-[420px] max-w-[min(420px,calc(100vw-24px))] max-h-[80vh] overflow-y-auto p-4 space-y-4"
+        className="w-[min(420px,calc(100vw-2rem))] max-h-[80vh] overflow-y-auto p-4 space-y-4"
       >
         <div>
           <h2 className="text-sm font-semibold text-ds-text-1 mb-1">

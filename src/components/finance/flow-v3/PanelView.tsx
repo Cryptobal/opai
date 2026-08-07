@@ -191,7 +191,7 @@ export function PanelView({
           </p>
           {/* Desktop table */}
           <div className="hidden sm:block overflow-x-auto">
-            <table className="w-full min-w-[520px] text-left text-[13px]">
+            <table className="w-full min-w-0 sm:min-w-[520px] text-left text-[13px]">
               <thead>
                 <tr className="border-b border-ds-border-subtle text-[12px] text-ds-text-4">
                   <th className="py-1.5 pr-2 font-medium">Fila</th>

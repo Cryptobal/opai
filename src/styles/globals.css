@@ -686,12 +686,12 @@ html {
 }
 
 /* ============================================
-   Mobile: Prevent iOS Safari auto-zoom on inputs
-   iOS Safari zooms in when an input has font-size < 16px.
-   This forces 16px on all interactive form elements on mobile
-   without affecting desktop layout.
+   Touch: Prevent iOS Safari auto-zoom on inputs
+   iOS Safari zooms when font-size < 16px. Use
+   any-pointer: coarse so iPad (incl. landscape)
+   and iPad + Magic Keyboard keep the guard.
    ============================================ */
-@media screen and (max-width: 768px) {
+@media (any-pointer: coarse) {
   input[type="text"],
   input[type="password"],
   input[type="email"],
@@ -709,20 +709,21 @@ html {
     font-size: 16px !important;
   }
 
-  /* Radix UI / shadcn selects and comboboxes */
+  /* Radix UI / shadcn / cmdk selects and comboboxes */
   [role="combobox"],
   [role="searchbox"],
-  [role="listbox"] {
+  [role="listbox"],
+  [cmdk-input] {
     font-size: 16px !important;
   }
 }
 
 /* ============================================
    Touch devices: Improve tap targets and feedback
-   Uses (hover: none) + (pointer: coarse) to target
-   phones/tablets without affecting desktop.
+   any-pointer: coarse covers iPadOS with trackpad
+   (primary pointer may be fine + hover).
    ============================================ */
-@media (hover: none) and (pointer: coarse) {
+@media (any-pointer: coarse) {
   /* Minimum touch target for standalone interactive elements.
      We scope to direct children of common containers so icon
      buttons inside toolbars keep their compact sizing. */
@@ -730,6 +731,14 @@ html {
   a:not([class*="text-\["]),
   [role="button"] {
     min-height: 44px;
+  }
+
+  /* Icon buttons sized w-8/w-9 also need min-width ≥44 (HIG). */
+  button[class*="w-9"],
+  button[class*="w-8"],
+  [role="button"][class*="w-9"],
+  [role="button"][class*="w-8"] {
+    min-width: 44px;
   }
 
   /* Checkboxes and radios get larger tap area via padding */
@@ -772,12 +781,53 @@ html {
    Touch devices: Make hover-revealed controls
    visible by default. On desktop, group-hover
    still works; on touch, opacity-0 is overridden.
+   Covers sm:group-hover and named groups.
    ============================================ */
-@media (hover: none) {
-  /* Buttons hidden with opacity-0 group-hover:opacity-100 */
+@media (any-pointer: coarse) {
   .group .opacity-0[class*="group-hover:opacity-100"],
-  .group\/img .opacity-0[class*="group-hover\/img:opacity-100"] {
+  .group .opacity-0[class*="sm:group-hover:opacity-100"],
+  .group\/img .opacity-0[class*="group-hover\/img:opacity-100"],
+  [class*="group/"] .opacity-0[class*="group-hover/"] {
     opacity: 1 !important;
+  }
+}
+
+/* Safe-area utilities (4 axes; tokens in :root).
+   Solo bajo `lg`: en desktop el shell usa lg:px-* y esta clase
+   no debe anularlos (misma specificity de padding-left/right). */
+@media (max-width: 1023px) {
+  .app-safe-x {
+    padding-left: max(env(safe-area-inset-left), 0px);
+    padding-right: max(env(safe-area-inset-right), 0px);
+  }
+  .app-safe-b {
+    padding-bottom: max(env(safe-area-inset-bottom), 0px);
+  }
+}
+
+/* ============================================
+   Touch layout (< lg + any-pointer: coarse):
+   clamp tipográfico sub-12px → legible en terreno.
+   Opt-out: contenedores [data-micro-type] (grillas
+   densas cuya métrica dimensiona columnas).
+   ============================================ */
+@media (any-pointer: coarse) and (max-width: 1023px) {
+  .text-\[8px\],
+  .text-\[9px\],
+  .text-\[10px\] {
+    font-size: 11.5px;
+    line-height: 1.3;
+  }
+  .text-\[11px\] {
+    font-size: 12px;
+  }
+
+  [data-micro-type] .text-\[8px\],
+  [data-micro-type] .text-\[9px\],
+  [data-micro-type] .text-\[10px\],
+  [data-micro-type] .text-\[11px\] {
+    font-size: revert;
+    line-height: revert;
   }
 }
 
@@ -2160,7 +2210,7 @@ html {
    ello cada fila. Las celdas densas no son botones; las acciones táctiles
    reales (toolbar, sheets, diálogos) mantienen ≥44px. !important porque la
    regla global usa una cadena :not() de especificidad (0,6,1). */
-@media (hover: none) and (pointer: coarse) {
+@media (any-pointer: coarse) {
   .planilla-sheet table button,
   .planilla-sheet table [role="button"] {
     min-height: 0 !important;
@@ -2176,14 +2226,12 @@ html {
 }
 
 /* ════════════════════════════════════════════════════════════
-   CPQ · Workspace de cotización — inputs táctiles (móvil)
+   CPQ · Workspace de cotización — inputs táctiles
    iOS hace zoom automático al enfocar un campo con font-size < 16px.
-   En el workspace se construye la cotización completa desde el teléfono,
-   así que bajo 768px los campos suben a 16px sin alterar el denso de
-   desktop. El scroll-margin evita que las barras sticky (total → pestañas
-   → chips) tapen el campo enfocado con el teclado abierto.
+   any-pointer: coarse cubre iPhone, iPad (horizontal) e iPad + trackpad.
+   El scroll-margin evita que las barras sticky tapen el campo enfocado.
    ════════════════════════════════════════════════════════════ */
-@media (max-width: 767px) {
+@media (any-pointer: coarse) {
   .cpq-touch-inputs input:not([type="checkbox"]):not([type="radio"]),
   .cpq-touch-inputs select,
   .cpq-touch-inputs textarea {

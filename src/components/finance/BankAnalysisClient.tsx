@@ -38,7 +38,7 @@ import {
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useIsMobileViewport } from "@/hooks/useIsMobileViewport";
+import { useIsTouchLayout } from "@/hooks/useIsTouchLayout";
 
 interface BankAccountOption {
   id: string;
@@ -109,7 +109,7 @@ export function BankAnalysisClient({ accounts }: BankAnalysisClientProps) {
   const [search, setSearch] = useState("");
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const [loading, setLoading] = useState(false);
-  const isMobile = useIsMobileViewport();
+  const isMobile = useIsTouchLayout();
   const [filtersOpenMobile, setFiltersOpenMobile] = useState(false);
   const selectedAccountLabel = useMemo(() => {
     if (bankAccountId === "__all__") return "Todas las cuentas";

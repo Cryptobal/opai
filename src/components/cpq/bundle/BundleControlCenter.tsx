@@ -85,7 +85,7 @@ export function BundleControlCenter({
         {collapsed ? "▸" : "Centro ▾"}
       </button>
       {!collapsed ? (
-        <div className="sticky top-4 space-y-3 max-h-[calc(100vh-6rem)] overflow-y-auto pb-4">
+        <div className="sticky top-4 space-y-3 max-h-[calc(100dvh-6rem)] overflow-y-auto pb-4">
           <Surface elevation={1} padding="md" className="space-y-2">
             <p className="text-[12px] uppercase tracking-wide text-ds-text-3">
               Totales

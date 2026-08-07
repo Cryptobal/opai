@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { showUndo } from "@/components/opai-ds";
-import { useIsMobileViewport } from "@/hooks/useIsMobileViewport";
+import { useIsTouchLayout } from "@/hooks/useIsTouchLayout";
 import { canDeleteTarea } from "@/lib/productividad-task-ownership";
 import { useTareas } from "./useTareas";
 import { useTareasKeyboard } from "./useTareasKeyboard";
@@ -22,8 +22,8 @@ export function TareasPageClient({
   currentUserId: string;
   userRole: string;
 }) {
-  const isMobile = useIsMobileViewport();
-  const isBelowLg = useIsMobileViewport(1024);
+  const isMobile = useIsTouchLayout();
+  const isBelowLg = isMobile;
   const search = useSearchParams();
   const {
     tasks, groups, groupsFecha, kpis, view, setView, users, nameById, loading,

@@ -23,6 +23,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { BP } from "@/lib/breakpoints";
 import { useIsMobileViewport } from "@/hooks/useIsMobileViewport";
 import type {
   ProjectionMatrix,
@@ -109,7 +110,7 @@ export function CashflowGrid({
 }: CashflowGridProps) {
   const router = useRouter();
   // Móvil: 3 columnas, step 1. Desktop: horizonte configurable, step 1 (F3).
-  const isMobile = useIsMobileViewport(768);
+  const isMobile = useIsMobileViewport(BP.md);
   const { horizon, setHorizon } = useHorizon();
   const windowWeeks = isMobile ? MOBILE_WINDOW_WEEKS : horizon;
   const {
@@ -584,7 +585,7 @@ export function CashflowGrid({
 
             Altura: desktop 70vh. En móvil se descuenta la topbar fija (3rem +
             safe-area-top) y el bottom nav fijo (`--bottom-nav-height`, que ya
-            incluye su safe-area-inset-bottom) usando `100dvh` (no 100vh, para no
+            incluye su safe-area-inset-bottom) usando `100dvh` (no el vh clásico, para no
             contar el alto de las barras del navegador móvil). Así el borde
             inferior del scroll queda por encima del bottom bar y la fila FC ·
             saldo (sticky-bottom) siempre es visible sin quedar tapada. */}
