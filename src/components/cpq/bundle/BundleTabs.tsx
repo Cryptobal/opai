@@ -26,7 +26,7 @@ export function BundleTabs({
 }) {
   return (
     <div
-      className="flex gap-1 overflow-x-auto pb-1 [-webkit-mask-image:linear-gradient(90deg,#000_85%,transparent)] [mask-image:linear-gradient(90deg,#000_85%,transparent)]"
+      className="flex gap-1 overflow-x-auto overflow-y-hidden touch-pan-x overscroll-x-contain pb-1 [-webkit-mask-image:linear-gradient(90deg,#000_85%,transparent)] [mask-image:linear-gradient(90deg,#000_85%,transparent)]"
       role="tablist"
     >
       <TabButton

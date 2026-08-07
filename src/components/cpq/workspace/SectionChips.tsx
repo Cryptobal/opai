@@ -40,7 +40,10 @@ export function SectionChips({
     <div
       ref={scrollerRef}
       className={cn(
-        "flex h-10 items-center gap-1.5 overflow-x-auto px-3 py-1.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+        "flex h-10 items-center gap-1.5 overflow-x-auto overflow-y-hidden px-3 py-1.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+        // Solo pan horizontal: evita que el gesto diagonal/vertical mueva la
+        // página o el stack sticky (mismo patrón que SwipeTabs).
+        "touch-pan-x overscroll-x-contain",
         "[-webkit-mask-image:linear-gradient(90deg,#000_92%,transparent)] [mask-image:linear-gradient(90deg,#000_92%,transparent)]",
         className,
       )}
