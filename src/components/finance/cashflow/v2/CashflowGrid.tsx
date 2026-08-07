@@ -585,7 +585,7 @@ export function CashflowGrid({
 
             Altura: desktop 70vh. En móvil se descuenta la topbar fija (3rem +
             safe-area-top) y el bottom nav fijo (`--bottom-nav-height`, que ya
-            incluye su safe-area-inset-bottom) usando `100dvh` (no 100vh, para no
+            incluye su safe-area-inset-bottom) usando `100dvh` (no el vh clásico, para no
             contar el alto de las barras del navegador móvil). Así el borde
             inferior del scroll queda por encima del bottom bar y la fila FC ·
             saldo (sticky-bottom) siempre es visible sin quedar tapada. */}
