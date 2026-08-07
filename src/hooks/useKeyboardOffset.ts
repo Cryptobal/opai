@@ -25,6 +25,11 @@ export type UseKeyboardOffsetOptions = {
  * Usar el valor devuelto para aplicar `bottom: ${offset}px` y/o reducir
  * `max-height` del contenedor fijo al fondo, igual que hace DialogContent.
  * No combinar reducción de height + paddingBottom con el mismo offset.
+ *
+ * Advertencia: el padding-bottom de safe-area (`env(safe-area-inset-bottom)`)
+ * en bottom sheets NO debe sumarse otra vez cuando `keyboardOffset > 0` —
+ * el sheet ya se ancla sobre el teclado con `bottom: offset`. Capacitor con
+ * `KeyboardResize.None` depende de este anclaje por visualViewport.
  */
 export function useKeyboardOffset(
   options: UseKeyboardOffsetOptions = {},
