@@ -1,4 +1,4 @@
-import { NextRequest } from "next/server";
+import { NextRequest, after } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, resolveApiPerms, unauthorized } from "@/lib/api-auth";
 import { hasCapability } from "@/lib/permissions";
@@ -451,14 +451,32 @@ REGLAS DE CONTEXTO DE MÓDULO:
   const allowWrites = cfg.allowWrites;
   const tools = getToolDefinitionsV2(cfg.allowDataQuestions, allowWrites);
 
-  /* SSE response */
+  /* SSE response.
+   * En iPad/iOS Safari, al salir de la app el fetch se corta ("Load failed").
+   * La generación NO debe morir con el cliente: send() se vuelve no-op si el
+   * socket cayó, after() mantiene viva la isolate en Vercel, y el mensaje
+   * assistant se persiste igual para que el cliente lo rehidrate al volver. */
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
     async start(controller) {
+      let clientGone = request.signal.aborted;
+      const markClientGone = () => {
+        clientGone = true;
+      };
+      request.signal.addEventListener("abort", markClientGone, { once: true });
+
       function send(event: string, data: unknown) {
-        controller.enqueue(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`));
+        if (clientGone) return;
+        try {
+          controller.enqueue(
+            encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`),
+          );
+        } catch {
+          clientGone = true;
+        }
       }
 
+      const work = (async () => {
       try {
         send("meta", {
           conversationId: conversation?.id ?? null,
@@ -786,8 +804,18 @@ REGLAS DE CONTEXTO DE MÓDULO:
         console.error("Error in AI Help Chat Stream:", errMsg, error);
         send("error", { error: `Error del asistente: ${errMsg.slice(0, 200)}` });
       } finally {
-        controller.close();
+        request.signal.removeEventListener("abort", markClientGone);
+        try {
+          controller.close();
+        } catch {
+          // ya cerrado por disconnect del cliente
+        }
       }
+      })();
+
+      // Mantiene la ejecución aunque el cliente (iPad/Safari) cierre el SSE.
+      after(() => work);
+      await work;
     },
   });
 
@@ -797,6 +825,10 @@ REGLAS DE CONTEXTO DE MÓDULO:
       "Cache-Control": "no-cache",
       Connection: "keep-alive",
       "X-Accel-Buffering": "no",
+      // El cliente lee esto si el body se corta antes del event: meta.
+      ...(conversation?.id
+        ? { "X-Opai-Conversation-Id": conversation.id }
+        : {}),
     },
   });
 }
