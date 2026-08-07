@@ -193,10 +193,14 @@ export function AiHelpChatWidgetV2() {
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className="hidden lg:flex items-center justify-center fixed right-6 z-[70] h-12 w-12 rounded-full bg-gradient-to-br from-primary via-primary to-primary/80 text-primary-foreground shadow-[0_10px_30px_hsl(var(--primary)/0.4)] transition-transform hover:scale-[1.05] lg:bottom-6"
           aria-label="Abrir OPAI Intelligence"
+          title="OPAI Intelligence"
+          // Desktop: FAB esquina. Móvil: orbe en BottomNav (OpaiOrb) para no
+          // tapar Responder/Reenviar ni los FAB de Agenda/Tareas.
+          className="opai-orb fixed right-6 z-[70] hidden h-12 w-12 items-center justify-center overflow-hidden rounded-full bottom-6 lg:flex active:scale-95 lg:hover:scale-[1.05] motion-safe:transition-transform"
         >
-          <Sparkles className="h-5 w-5" />
+          <span aria-hidden className="opai-orb-sweep absolute inset-0 rounded-full" />
+          <Sparkles className="relative h-5 w-5 text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.35)]" />
         </button>
       ) : null}
 

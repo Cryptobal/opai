@@ -93,4 +93,12 @@ describe("ChatSheetMobile — stacking", () => {
     expect(scrim).toBeTruthy();
     expect(sheet?.className).toContain("z-[71]");
   });
+
+  it("abre a pantalla completa (no sheet a media altura)", () => {
+    const { container } = render(<ChatSheetMobile {...baseProps()} />);
+    const sheet = container.querySelector("[data-opai-ai-sheet]");
+    expect(sheet?.hasAttribute("data-opai-ai-sheet-fullscreen")).toBe(true);
+    expect(sheet?.className).toContain("top-0");
+    expect(sheet?.className).not.toContain("bottom-0");
+  });
 });

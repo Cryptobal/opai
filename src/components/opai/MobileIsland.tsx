@@ -75,7 +75,7 @@ export function MobileIsland({
   useEffect(() => setMounted(true), []);
 
   // Plan B (H2): en viewports ≤360 px el título baja de ~90 px utilizables
-  // con segmento + 3 botones. El chat ya está en BottomNav (OpaiOrb).
+  // con segmento + 3 botones. Intelligence está en BottomNav (OpaiOrb).
   const [hideChatInIsland, setHideChatInIsland] = useState(false);
   // En ≤320 px con menú de módulo + búsqueda propia: ocultar también Search
   // (el módulo ya tiene acceso a búsqueda por el drawer / atajos).

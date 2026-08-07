@@ -15,7 +15,10 @@ export function ChatSheetMobile(props: ChatPanelSharedProps) {
   const [closing, setClosing] = useState(false);
   const [threadsOpen, setThreadsOpen] = useState(false);
   const [composerFocusToken, setComposerFocusToken] = useState(0);
-  const keyboardOffset = useKeyboardOffset();
+  // Offset del teclado: el sheet se ancla con `bottom` (patrón Dialog/Sheet).
+  // No reducir height Y sumar paddingBottom a la vez — eso dejaba el composer
+  // flotando a mitad de pantalla al escribir.
+  const keyboardOffset = useKeyboardOffset({ scrollFocusedIntoView: false });
 
   const closeThreads = () => {
     setThreadsOpen(false);
@@ -46,11 +49,6 @@ export function ChatSheetMobile(props: ChatPanelSharedProps) {
     directionLock: true,
   });
 
-  const sheetHeight =
-    keyboardOffset > 0
-      ? `min(88dvh, calc(100dvh - 56px - ${keyboardOffset}px))`
-      : "min(88dvh, calc(100dvh - 56px))";
-
   return (
     <>
       {/* z-[70]/[71]: por encima del lector de correos (z-50) y Copiloto (z-55). */}
@@ -61,17 +59,17 @@ export function ChatSheetMobile(props: ChatPanelSharedProps) {
       />
       <div
         ref={sheetRef}
-        className="fixed inset-x-0 bottom-0 z-[71] flex flex-col overflow-hidden text-ds-text-1 opai-glass-strong"
+        className="fixed inset-x-0 top-0 z-[71] flex flex-col overflow-hidden bg-ds-surface-1 text-ds-text-1 opai-glass-strong"
         style={{
-          height: sheetHeight,
-          borderTopLeftRadius: 26,
-          borderTopRightRadius: 26,
-          paddingBottom: keyboardOffset > 0 ? keyboardOffset : undefined,
+          // Pantalla completa; al abrir teclado sube el borde inferior.
+          bottom: keyboardOffset,
+          paddingTop: "env(safe-area-inset-top, 0px)",
           transition: closing ? "transform 180ms ease-out" : undefined,
         }}
         role="dialog"
         aria-label="OPAI Intelligence"
         data-opai-ai-sheet
+        data-opai-ai-sheet-fullscreen
       >
         <div className="relative flex min-h-0 flex-1 flex-col">
           <ChatHeader
@@ -127,7 +125,7 @@ export function ChatSheetMobile(props: ChatPanelSharedProps) {
               paddingBottom:
                 keyboardOffset > 0
                   ? 12
-                  : "calc(env(safe-area-inset-bottom) + 0.75rem)",
+                  : "calc(env(safe-area-inset-bottom, 0px) + 0.75rem)",
             }}
           >
             <ChatComposer

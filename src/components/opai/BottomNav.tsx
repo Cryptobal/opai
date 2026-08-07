@@ -313,9 +313,9 @@ const BOTTOM_NAV_INNER =
   "pointer-events-auto mx-auto flex w-full max-w-[640px] items-end gap-2";
 
 /* ════════════════════════════════════════════════════
-   ORBE OPAI — botón glass-teal integrado a la derecha de la isla.
-   Reemplaza el FAB del widget AI en mobile (desktop mantiene su panel).
-   Al tocarlo emite `opai-ai-open`; el widget lo escucha y se abre.
+   ORBE OPAI — botón glass-teal a la derecha de la isla (ERP + Productividad).
+   No va pegado al borde inferior del contenido: deja libres Responder/
+   Reenviar y los FAB de módulo. Emite `opai-ai-open`.
    ════════════════════════════════════════════════════ */
 
 function OpaiOrb() {
@@ -324,6 +324,7 @@ function OpaiOrb() {
       type="button"
       onClick={() => window.dispatchEvent(new CustomEvent("opai-ai-open"))}
       aria-label="Abrir OPAI Intelligence"
+      title="OPAI Intelligence"
       className="opai-orb relative h-14 w-14 shrink-0 overflow-hidden rounded-full active:scale-95"
     >
       <span aria-hidden className="opai-orb-sweep absolute inset-0 rounded-full" />
