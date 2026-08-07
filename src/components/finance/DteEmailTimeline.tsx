@@ -69,7 +69,9 @@ export function DteEmailTimeline({ dteId }: { dteId: string }) {
       <ul className="space-y-3">
         {logs.map((log) => {
           const meta = KIND_LABELS[log.kind] ?? { label: log.kind, auto: false };
-          const isOk = log.status === "SENT";
+          // SENT/DELIVERED/OPENED/QUEUED = ok. Tras el webhook de Resend el
+          // status pasa de SENT → DELIVERED/OPENED; no tratarlos como fallo.
+          const isOk = !["FAILED", "BOUNCED", "COMPLAINED"].includes(log.status);
           return (
             <li key={log.id} className="flex gap-2 text-sm">
               <div className="shrink-0 mt-0.5">
