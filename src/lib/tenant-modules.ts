@@ -64,6 +64,16 @@ export const ALL_MODULES = [
 
 export type TenantModuleKey = (typeof ALL_MODULES)[number];
 
+/** Sentinel JWT: el tenant tiene acceso a todos los módulos de ALL_MODULES. */
+export const TENANT_MODULES_ALL_SENTINEL = "*" as const;
+export type TenantModulesToken = TenantModuleKey[] | typeof TENANT_MODULES_ALL_SENTINEL;
+
+/** True si el set/lista contiene todos los módulos del catálogo. */
+export function hasAllTenantModules(modules: Iterable<string>): boolean {
+  const set = modules instanceof Set ? modules : new Set(modules);
+  return ALL_MODULES.every((m) => set.has(m));
+}
+
 export const PLAN_MODULES: Record<string, TenantModuleKey[]> = {
   free: [
     "hub", "config", "portal_guardia", "portal_marcacion",
