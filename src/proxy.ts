@@ -31,6 +31,16 @@ import {
   SURFACE_COOKIE,
   surfaceCookieOptions,
 } from '@/lib/surface';
+import { pathToTenantModule } from '@/lib/tenant-module-routes';
+import { TENANT_MODULES_ALL_SENTINEL } from '@/lib/tenant-modules';
+
+type TenantModuleEnforcementMode = 'off' | 'log' | 'on';
+
+function getTenantModuleEnforcementMode(): TenantModuleEnforcementMode {
+  const raw = (process.env.TENANT_MODULE_ENFORCEMENT ?? 'log').toLowerCase();
+  if (raw === 'off' || raw === 'on' || raw === 'log') return raw;
+  return 'log';
+}
 
 // Bots que arman link previews de OG (no son navegadores de usuarios reales).
 // Usado para el preview de cotizaciones privadas en WhatsApp y similares.
@@ -381,6 +391,52 @@ export default auth(async (req) => {
     const loginUrl = new URL('/opai/login', req.nextUrl.origin);
     loginUrl.searchParams.set('callbackUrl', pathname);
     return Response.redirect(loginUrl);
+  }
+
+  // Entitlement de plan (TenantModule): tras auth + isPublicPath, antes del RBAC.
+  // Modo off/log/on vía TENANT_MODULE_ENFORCEMENT (default seguro: log).
+  // Sin consultas a BD — lee modules del JWT materializado en auth.ts.
+  const moduleEnforcement = getTenantModuleEnforcementMode();
+  if (moduleEnforcement !== 'off') {
+    const requiredModule = pathToTenantModule(pathname);
+    if (requiredModule) {
+      const authSession = req.auth as {
+        modules?: string[] | typeof TENANT_MODULES_ALL_SENTINEL;
+        user?: { tenantId?: string };
+      } | null;
+      const modules = authSession?.modules;
+      // Tokens pre-despliegue (sin campo), sentinel "*", o valor no-array → pasan.
+      if (modules !== undefined && modules !== TENANT_MODULES_ALL_SENTINEL && Array.isArray(modules)) {
+        if (!modules.includes(requiredModule)) {
+          const tenantId = authSession?.user?.tenantId;
+          if (moduleEnforcement === 'log') {
+            console.warn('[MODULE_GATE]', {
+              tenantId,
+              path: pathname,
+              method: req.method,
+              module: requiredModule,
+            });
+          } else {
+            // mode === 'on'
+            if (pathname.startsWith('/api/')) {
+              return Response.json(
+                {
+                  success: false,
+                  error: `El módulo "${requiredModule}" no está incluido en el plan de tu empresa.`,
+                  code: 'MODULE_NOT_ENABLED',
+                  module: requiredModule,
+                },
+                { status: 403 },
+              );
+            }
+            const redirectUrl = new URL('/modulo-no-disponible', req.nextUrl.origin);
+            redirectUrl.searchParams.set('m', requiredModule);
+            redirectUrl.searchParams.set('from', pathname);
+            return Response.redirect(redirectUrl);
+          }
+        }
+      }
+    }
   }
 
   // Endurecimiento de APIs por módulo y submódulo con niveles de permiso
