@@ -15,6 +15,7 @@ import {
   rankSourcesForPrompt,
   type AiKnowledgeSource,
 } from "@/lib/protocols/ai-knowledge-sources";
+import { requireInstallationAccess } from "@/lib/tenant-scope";
 
 type Params = { id: string };
 
@@ -98,6 +99,9 @@ export async function POST(
     }
 
     const { id } = await params;
+    const access = await requireInstallationAccess(ctx, id);
+    if (!access.ok) return access.response;
+
     const { data, error } = await parseBody(request, generateSchema);
     if (error) return error;
 

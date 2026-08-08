@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
 import { canView } from "@/lib/permissions";
 import { formatPersonName } from "@/lib/personas";
+import { requireInstallationAccess } from "@/lib/tenant-scope";
 
 type Params = { id: string };
 
@@ -23,6 +24,8 @@ export async function GET(
     }
 
     const { id } = await params;
+    const access = await requireInstallationAccess(ctx, id);
+    if (!access.ok) return access.response;
 
     const guards = await prisma.opsGuardia.findMany({
       where: {

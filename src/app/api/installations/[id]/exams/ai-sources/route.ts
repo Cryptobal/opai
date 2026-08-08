@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
 import { canView } from "@/lib/permissions";
 import { getAiKnowledgeSources } from "@/lib/protocols/ai-knowledge-sources";
+import { requireInstallationAccess } from "@/lib/tenant-scope";
 
 type Params = { id: string };
 
@@ -21,6 +22,9 @@ export async function GET(
   }
 
   const { id } = await params;
+  const access = await requireInstallationAccess(ctx, id);
+  if (!access.ok) return access.response;
+
   const sources = await getAiKnowledgeSources({
     tenantId: ctx.tenantId,
     installationId: id,
