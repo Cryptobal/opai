@@ -9,6 +9,7 @@
 import { prisma } from "@/lib/prisma";
 import * as bcrypt from "bcryptjs";
 import { PLAN_MODULES, type TenantModuleKey } from "@/lib/tenant-modules";
+import { PLATFORM_DEFAULT_EMAIL_FROM_ADDRESS } from "@/lib/platform-email";
 
 export interface CreateTenantInput {
   // Empresa
@@ -192,6 +193,10 @@ export async function provisionTenant(
       { key: "empresa.branding.appName", value: "OPAI" },
       { key: "empresa.branding.primaryColor", value: "#0056E0" },
       { key: "empresa.branding.secondaryColor", value: "#1DB990" },
+      // Identidad de correo propia del tenant (no heredar dominio de otro tenant)
+      { key: "empresa.emailFrom", value: PLATFORM_DEFAULT_EMAIL_FROM_ADDRESS },
+      { key: "empresa.emailFromName", value: name },
+      { key: "empresa.emailReplyTo", value: ownerEmail.toLowerCase() },
     ];
 
     if (companyRut) settings.push({ key: "empresa.rut", value: companyRut });

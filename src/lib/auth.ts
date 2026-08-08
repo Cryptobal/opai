@@ -6,10 +6,16 @@
  * no se usa Prisma para evitar "Prisma Client on edge runtime".
  */
 
-import NextAuth from 'next-auth';
+import NextAuth, { CredentialsSignin } from 'next-auth';
 import Credentials from 'next-auth/providers/credentials';
 import Google from 'next-auth/providers/google';
 import * as bcrypt from 'bcryptjs';
+
+function throwTenantSuspended(): never {
+  const err = new CredentialsSignin();
+  err.code = 'tenant_suspended';
+  throw err;
+}
 
 declare module 'next-auth' {
   interface User {
@@ -94,6 +100,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             include: { tenant: true },
           });
           if (!admin) return null;
+          if (admin.tenant && admin.tenant.active === false) {
+            return null;
+          }
           return {
             id: admin.id,
             email: admin.email,
@@ -158,6 +167,20 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           return null;
         }
 
+        if (admin.tenant && admin.tenant.active === false) {
+          try {
+            const { logAudit } = await import('./audit');
+            await logAudit({
+              action: 'LOGIN_FAILED',
+              entity: 'Admin',
+              userEmail: email,
+              tenantId: admin.tenantId,
+              details: { reason: 'tenant_suspended' },
+            });
+          } catch {}
+          throwTenantSuspended();
+        }
+
         const valid = await bcrypt.compare(password, admin.password);
         if (!valid) {
           try {
@@ -202,9 +225,13 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             email: user.email!.toLowerCase(),
             status: 'active',
           },
+          include: { tenant: true },
         });
         if (!admin) {
           return '/opai/login?error=google_not_registered';
+        }
+        if (admin.tenant && admin.tenant.active === false) {
+          return '/opai/login?error=tenant_suspended';
         }
         // Link googleId if not already linked
         if (!admin.googleId) {
@@ -251,14 +278,19 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             const admin = await Promise.race([
               prisma.admin.findUnique({
                 where: { id: token.id },
-                select: { role: true, roleTemplateId: true, status: true },
+                select: {
+                  role: true,
+                  roleTemplateId: true,
+                  status: true,
+                  tenant: { select: { active: true } },
+                },
               }),
               new Promise<null>((_, reject) =>
                 setTimeout(() => reject(new Error('DB timeout')), DB_TIMEOUT_MS)
               ),
             ]);
-            if (!admin || admin.status !== 'active') {
-              // Usuario inactivo o eliminado: invalidar sesión
+            if (!admin || admin.status !== 'active' || admin.tenant?.active === false) {
+              // Usuario inactivo/eliminado o tenant suspendido: invalidar sesión
               return null as unknown as typeof token;
             }
             token.role = admin.role;

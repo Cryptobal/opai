@@ -7,7 +7,7 @@
 import { cookies } from 'next/headers';
 import { signIn, auth } from '@/lib/auth';
 import { redirect } from 'next/navigation';
-import { AuthError } from 'next-auth';
+import { AuthError, CredentialsSignin } from 'next-auth';
 import { resolvePostLoginPath } from '@/lib/landing-surface';
 import { SURFACE_COOKIE, surfaceCookieOptions } from '@/lib/surface';
 
@@ -25,6 +25,9 @@ export async function authenticate(formData: FormData) {
       redirect: false,
     });
   } catch (error) {
+    if (error instanceof CredentialsSignin && error.code === 'tenant_suspended') {
+      return redirect('/opai/login?error=tenant_suspended');
+    }
     if (error instanceof AuthError) {
       return redirect('/opai/login?error=CredentialsSignin');
     }

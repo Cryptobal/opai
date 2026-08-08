@@ -47,66 +47,98 @@ export async function PATCH(
     const newModules = (catalogPlan?.includedModules as string[]) ??
       PLAN_MODULES[data.plan as string] ?? [];
 
-    // Disable all existing plan modules
-    await prisma.tenantModule.updateMany({
-      where: { tenantId: id },
-      data: { enabled: false },
-    });
-
-    // Enable plan modules
-    for (const mod of newModules) {
-      await prisma.tenantModule.upsert({
-        where: { tenantId_module: { tenantId: id, module: mod } },
-        update: { enabled: true },
-        create: { tenantId: id, module: mod, enabled: true },
-      });
+    if (newModules.length === 0) {
+      return NextResponse.json(
+        {
+          error: `El plan "${data.plan}" no tiene módulos definidos en el catálogo. Créalo en Planes antes de asignarlo.`,
+        },
+        { status: 400 },
+      );
     }
 
-    // Re-enable any active add-on modules (don't disable add-ons on plan change)
-    const activeAddons = await prisma.tenantAddon.findMany({
-      where: { tenantId: id, enabled: true },
-      include: { addon: true },
-    });
-    for (const ta of activeAddons) {
-      if (ta.addon.moduleKey) {
-        await prisma.tenantModule.upsert({
-          where: { tenantId_module: { tenantId: id, module: ta.addon.moduleKey } },
-          update: { enabled: true },
-          create: { tenantId: id, module: ta.addon.moduleKey, enabled: true },
-        });
-      }
-    }
-
-    // Update limits from catalog
+    // Update limits from catalog (en memoria; se persiste dentro de la tx)
     if (catalogPlan) {
       data.maxGuards = catalogPlan.maxGuards;
       data.maxAdmins = catalogPlan.maxAdmins;
       data.maxStorageMb = catalogPlan.maxStorageMb;
       data.pricePerGuard = catalogPlan.pricePerGuard;
       data.basePrice = catalogPlan.baseMinimum;
-      // Clear custom prices on plan change
       data.customPricePerGuard = null;
       data.customBaseMinimum = null;
     }
 
-    // Log the plan change
-    await prisma.planChangeLog.create({
-      data: {
-        tenantId: id,
-        previousPlan: existingPlan.plan,
-        newPlan: data.plan as string,
-        previousPrice: existingPlan.pricePerGuard,
-        newPrice: catalogPlan?.pricePerGuard ?? 0,
-        changedBy: `platform:${ctx.email}`,
-        addonsSnapshot: activeAddons.map((a) => ({
-          slug: a.addon.slug,
-          name: a.addon.name,
-          price: Number(a.customPrice ?? a.addon.priceAmount),
-        })),
-      },
-    });
+    await prisma.$transaction(async (tx) => {
+      // Disable all existing plan modules
+      await tx.tenantModule.updateMany({
+        where: { tenantId: id },
+        data: { enabled: false },
+      });
+
+      // Enable plan modules
+      for (const mod of newModules) {
+        await tx.tenantModule.upsert({
+          where: { tenantId_module: { tenantId: id, module: mod } },
+          update: { enabled: true },
+          create: { tenantId: id, module: mod, enabled: true },
+        });
+      }
+
+      // Re-enable any active add-on modules (don't disable add-ons on plan change)
+      const activeAddons = await tx.tenantAddon.findMany({
+        where: { tenantId: id, enabled: true },
+        include: { addon: true },
+      });
+      for (const ta of activeAddons) {
+        if (ta.addon.moduleKey) {
+          await tx.tenantModule.upsert({
+            where: { tenantId_module: { tenantId: id, module: ta.addon.moduleKey } },
+            update: { enabled: true },
+            create: { tenantId: id, module: ta.addon.moduleKey, enabled: true },
+          });
+        }
+      }
+
+      // Log the plan change
+      await tx.planChangeLog.create({
+        data: {
+          tenantId: id,
+          previousPlan: existingPlan.plan,
+          newPlan: data.plan as string,
+          previousPrice: existingPlan.pricePerGuard,
+          newPrice: catalogPlan?.pricePerGuard ?? 0,
+          changedBy: `platform:${ctx.email}`,
+          addonsSnapshot: activeAddons.map((a) => ({
+            slug: a.addon.slug,
+            name: a.addon.name,
+            price: Number(a.customPrice ?? a.addon.priceAmount),
+          })),
+        },
+      });
+
+      await tx.tenantPlan.update({
+        where: { tenantId: id },
+        data,
+      });
+    }, { timeout: 30000 });
 
     clearTenantModuleCache(id);
+
+    const updated = await prisma.tenantPlan.findUniqueOrThrow({
+      where: { tenantId: id },
+    });
+
+    return NextResponse.json({
+      success: true,
+      plan: {
+        plan: updated.plan, maxGuards: updated.maxGuards,
+        maxAdmins: updated.maxAdmins, maxStorageMb: updated.maxStorageMb,
+        basePrice: Number(updated.basePrice), pricePerGuard: Number(updated.pricePerGuard),
+        customPricePerGuard: updated.customPricePerGuard ? Number(updated.customPricePerGuard) : null,
+        customBaseMinimum: updated.customBaseMinimum ? Number(updated.customBaseMinimum) : null,
+        currency: updated.currency, billingStatus: updated.billingStatus,
+        trialEndsAt: updated.trialEndsAt?.toISOString() || null,
+      },
+    });
   }
 
   const updated = await prisma.tenantPlan.update({

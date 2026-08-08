@@ -11,6 +11,12 @@
  *   cfg.email           // "comercial@miempresa.cl"
  */
 
+import {
+  PLATFORM_DEFAULT_EMAIL_FROM,
+  PLATFORM_DEFAULT_EMAIL_FROM_ADDRESS,
+  PLATFORM_DEFAULT_EMAIL_FROM_NAME,
+} from "@/lib/platform-email";
+
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
 /* ------------------------------------------------------------------ */
@@ -134,10 +140,10 @@ const DEFAULTS: TenantCompanyConfig = {
   phoneRaw: "",
   whatsappLink: "",
 
-  emailFromAddress: process.env.EMAIL_FROM_ADDRESS || "",
-  emailFromName: "OPAI",
-  emailFrom: process.env.EMAIL_FROM || "OPAI <noreply@opai.cl>",
-  emailReplyTo: process.env.EMAIL_REPLY_TO || "",
+  emailFromAddress: PLATFORM_DEFAULT_EMAIL_FROM_ADDRESS,
+  emailFromName: PLATFORM_DEFAULT_EMAIL_FROM_NAME,
+  emailFrom: PLATFORM_DEFAULT_EMAIL_FROM,
+  emailReplyTo: "",
 
   ccoCommercialEnabled: "",
   ccoCommercialEmails: "",

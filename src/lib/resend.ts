@@ -6,6 +6,7 @@
  */
 
 import { Resend } from 'resend';
+import { PLATFORM_DEFAULT_EMAIL_FROM } from '@/lib/platform-email';
 
 if (!process.env.RESEND_API_KEY) {
   throw new Error('RESEND_API_KEY no está configurada en variables de entorno');
@@ -38,8 +39,8 @@ export function buildDeliverabilityHeaders(unsubscribeMailto?: string | null): {
 
 /** @deprecated — Usar getTenantCompanyConfig(tenantId) de @/lib/tenant-config */
 export const EMAIL_CONFIG = {
-  from: process.env.EMAIL_FROM || 'OPAI <noreply@opai.cl>',
-  replyTo: process.env.EMAIL_REPLY_TO || '',
+  from: PLATFORM_DEFAULT_EMAIL_FROM,
+  replyTo: '',
   companyName: 'OPAI',
 };
 

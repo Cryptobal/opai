@@ -106,16 +106,25 @@ export function clearTenantModuleCache(tenantId?: string): void {
 
 /**
  * Obtiene los módulos habilitados para un tenant.
- * Si el tenant no tiene registros en TenantModule, retorna todos
- * los módulos (backward compatibility con tenants existentes).
+ *
+ * Regla:
+ * - Cero filas en TenantModule → ALL_MODULES (legado: tenant nunca configurado).
+ * - Filas existentes → solo las con enabled=true (puede ser conjunto vacío).
+ *   "Todas desactivadas" NO es fail-open.
  */
 async function fetchTenantEnabledModuleKeys(tenantId: string): Promise<string[]> {
-  const modules = await prisma.tenantModule.findMany({
-    where: { tenantId, enabled: true },
-    select: { module: true },
+  const rows = await prisma.tenantModule.findMany({
+    where: { tenantId },
+    select: { module: true, enabled: true },
   });
-  // Si no hay registros, asumir todos habilitados (backward compat para Gard)
-  return modules.length > 0 ? modules.map((m) => m.module) : [...ALL_MODULES];
+  if (rows.length === 0) {
+    console.warn(
+      "[TENANT_MODULES] tenant sin filas TenantModule, aplicando compat legado",
+      { tenantId },
+    );
+    return [...ALL_MODULES];
+  }
+  return rows.filter((r) => r.enabled).map((r) => r.module);
 }
 
 function getCachedTenantEnabledModuleKeys(tenantId: string): Promise<string[]> {
