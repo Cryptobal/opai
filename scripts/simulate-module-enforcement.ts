@@ -19,7 +19,7 @@
  */
 
 import { PrismaClient } from "@prisma/client";
-import { ALL_MODULES } from "../src/lib/tenant-modules";
+import { ALL_MODULES, hasAllTenantModules } from "../src/lib/tenant-modules";
 import { MODULE_ROUTE_PREFIXES } from "../src/lib/tenant-module-routes";
 
 const prisma = new PrismaClient();
@@ -92,13 +92,17 @@ async function main() {
     console.log("─".repeat(72));
     console.log(`Tenant: ${tenant.slug} (${tenant.name})`);
     console.log(`  id: ${tenant.id}`);
+    const usesSentinel =
+      resolved.mode === "all" || hasAllTenantModules(resolved.modules);
     console.log(
       `  módulos: ${
         resolved.mode === "all"
           ? "ALL_MODULES (legado / sin filas TenantModule → sentinel *)"
           : resolved.mode === "empty"
             ? "ninguno habilitado (filas presentes, todas disabled)"
-            : `${resolved.modules.size} habilitados`
+            : usesSentinel
+              ? `${resolved.modules.size} habilitados (cubre ALL_MODULES → JWT sentinel *)`
+              : `${resolved.modules.size} habilitados`
       }`,
     );
 
