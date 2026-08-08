@@ -5,6 +5,7 @@ import { updateGuardiaLifecycleSchema } from "@/lib/validations/ops";
 import { createOpsAuditLog, ensureOpsCapability, parseDateOnly, toISODate } from "@/lib/ops";
 import { prisma } from "@/lib/prisma";
 import { lifecycleToLegacyStatus, normalizeNullable } from "@/lib/personas";
+import { assertGuardLimit, planLimitErrorMessage } from "@/lib/plan-limits";
 
 type Params = { id: string };
 
@@ -43,6 +44,25 @@ export async function PATCH(
 
     const effectiveAt = body.effectiveAt ? parseDateOnly(body.effectiveAt) : new Date();
     const terminationReason = normalizeNullable(body.reason);
+
+    const becomingActive =
+      (body.lifecycleStatus === "contratado" || body.lifecycleStatus === "te") &&
+      lifecycleToLegacyStatus(existing.lifecycleStatus) !== "active";
+    if (becomingActive) {
+      const guardLimit = await assertGuardLimit(ctx.tenantId);
+      if (!guardLimit.ok) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: planLimitErrorMessage("guardias", guardLimit),
+            code: "PLAN_LIMIT_REACHED",
+            limit: guardLimit.limit,
+            current: guardLimit.current,
+          },
+          { status: 403 },
+        );
+      }
+    }
 
     const updated = await prisma.$transaction(async (tx) => {
       const isRecontratar = body.lifecycleStatus === "contratado" && existing.lifecycleStatus === "inactivo" && existing.terminatedAt;

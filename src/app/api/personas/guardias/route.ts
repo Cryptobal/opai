@@ -6,6 +6,7 @@ import { parseBody, requireAuth, unauthorized } from "@/lib/api-auth";
 import { createGuardiaSchema } from "@/lib/validations/ops";
 import { createOpsAuditLog, ensureOpsAccess, ensureOpsCapability } from "@/lib/ops";
 import { lifecycleToLegacyStatus, normalizeNullable } from "@/lib/personas";
+import { assertGuardLimit, planLimitErrorMessage } from "@/lib/plan-limits";
 
 function buildNextGuardiaCode(lastCode?: string | null): string {
   if (!lastCode) return "G-000001";
@@ -127,6 +128,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const lifecycleStatus = body.lifecycleStatus;
+    if (lifecycleToLegacyStatus(lifecycleStatus) === "active") {
+      const guardLimit = await assertGuardLimit(ctx.tenantId);
+      if (!guardLimit.ok) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: planLimitErrorMessage("guardias", guardLimit),
+            code: "PLAN_LIMIT_REACHED",
+            limit: guardLimit.limit,
+            current: guardLimit.current,
+          },
+          { status: 403 },
+        );
+      }
+    }
+
     let result: Awaited<ReturnType<typeof prisma.opsGuardia.findUnique>> | null = null;
     for (let attempt = 0; attempt < 4; attempt += 1) {
       try {
@@ -170,7 +188,6 @@ export async function POST(request: NextRequest) {
             },
           });
 
-          const lifecycleStatus = body.lifecycleStatus;
           const generatedCode = await generateUniqueGuardiaCode(tx, ctx.tenantId);
           const guardia = await tx.opsGuardia.create({
             data: {

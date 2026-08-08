@@ -36,11 +36,30 @@ interface CatalogPlan {
   featured: boolean;
 }
 
+interface PlanUsage {
+  guards: number;
+  admins: number;
+}
+
 interface PlanData {
   plan: PlanInfo | null;
   modules: string[];
   addons: AddonInfo[];
   planCatalog: CatalogPlan[];
+  usage?: PlanUsage;
+}
+
+function usageTone(current: number, limit: number): string {
+  if (limit <= 0) return 'text-ds-text-1';
+  const ratio = current / limit;
+  if (ratio >= 1) return 'text-status-danger-fg';
+  if (ratio >= 0.8) return 'text-status-warn-fg';
+  return 'text-ds-text-1';
+}
+
+function formatUsage(current: number, limit: number, label: string): string {
+  if (limit <= 0 || limit >= 9999) return `${current} ${label}`;
+  return `${current} de ${limit} ${label}`;
 }
 
 const planOrder = ['free', 'starter', 'profesional', 'enterprise'];
@@ -123,11 +142,13 @@ export function MiPlanClient() {
     );
   }
 
-  const { plan, modules, addons, planCatalog } = data;
+  const { plan, modules, addons, planCatalog, usage } = data;
   const currentPlanIdx = planOrder.indexOf(plan.plan);
   const effectivePrice = plan.customPricePerGuard ?? plan.pricePerGuard;
   const effectiveBase = plan.customBaseMinimum ?? plan.basePrice;
   const addonTotal = addons.reduce((sum, a) => sum + a.price, 0);
+  const guardsUsed = usage?.guards ?? 0;
+  const adminsUsed = usage?.admins ?? 0;
 
   return (
     <div className="space-y-8">
@@ -145,6 +166,15 @@ export function MiPlanClient() {
                 {plan.billingStatus}
               </span>
             </div>
+            <p className="mt-1 text-[13px] text-ds-text-3 sm:hidden">
+              <span className={usageTone(guardsUsed, plan.maxGuards)}>
+                {formatUsage(guardsUsed, plan.maxGuards, 'guardias')}
+              </span>
+              {' · '}
+              <span className={usageTone(adminsUsed, plan.maxAdmins)}>
+                {formatUsage(adminsUsed, plan.maxAdmins, 'usuarios')}
+              </span>
+            </p>
             {plan.trialEndsAt && (
               <p className="mt-1 text-sm text-status-warn-fg">
                 Trial hasta {new Date(plan.trialEndsAt).toLocaleDateString('es-CL')}
@@ -166,11 +196,25 @@ export function MiPlanClient() {
         <div className="mt-4 grid grid-cols-3 gap-4">
           <div className="rounded-lg bg-muted opai-glass-soft-m p-3 text-center">
             <p className="text-xs text-gray-500 dark:text-gray-400">Guardias</p>
-            <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">{plan.maxGuards === 9999 ? 'Sin limite' : plan.maxGuards}</p>
+            <p className={`text-lg font-semibold ${usageTone(guardsUsed, plan.maxGuards)}`}>
+              {plan.maxGuards === 9999 || plan.maxGuards <= 0
+                ? `${guardsUsed}`
+                : `${guardsUsed} / ${plan.maxGuards}`}
+            </p>
+            {(plan.maxGuards === 9999 || plan.maxGuards <= 0) && (
+              <p className="text-[12px] text-ds-text-4">Sin límite</p>
+            )}
           </div>
           <div className="rounded-lg bg-muted opai-glass-soft-m p-3 text-center">
-            <p className="text-xs text-gray-500 dark:text-gray-400">Admins</p>
-            <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">{plan.maxAdmins}</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">Usuarios</p>
+            <p className={`text-lg font-semibold ${usageTone(adminsUsed, plan.maxAdmins)}`}>
+              {plan.maxAdmins <= 0
+                ? `${adminsUsed}`
+                : `${adminsUsed} / ${plan.maxAdmins}`}
+            </p>
+            {plan.maxAdmins <= 0 && (
+              <p className="text-[12px] text-ds-text-4">Sin límite</p>
+            )}
           </div>
           <div className="rounded-lg bg-muted opai-glass-soft-m p-3 text-center">
             <p className="text-xs text-gray-500 dark:text-gray-400">Almacenamiento</p>
