@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requirePlatformAuth, platformUnauthorized } from '@/lib/platform-api-auth';
 import { prisma } from '@/lib/prisma';
-import { clearTenantModuleCache } from '@/lib/tenant-modules';
+import { clearTenantModuleCache, PLAN_MODULES } from '@/lib/tenant-modules';
 
 export async function GET(
   _request: NextRequest,
@@ -149,20 +149,37 @@ export async function DELETE(
     });
   }
 
-  // If addon has a moduleKey, disable the TenantModule
+  // If addon has a moduleKey, disable the TenantModule only when the
+  // current plan does NOT already include that module.
+  let moduleKept = false;
   if (addon.moduleKey) {
-    const tenantModule = await prisma.tenantModule.findUnique({
-      where: { tenantId_module: { tenantId: id, module: addon.moduleKey } },
+    const tenantPlan = await prisma.tenantPlan.findUnique({
+      where: { tenantId: id },
     });
-    if (tenantModule) {
-      await prisma.tenantModule.update({
-        where: { id: tenantModule.id },
-        data: { enabled: false },
+    const catalogPlan = tenantPlan
+      ? await prisma.planCatalog.findUnique({ where: { slug: tenantPlan.plan } })
+      : null;
+    const planModules =
+      (catalogPlan?.includedModules as string[] | null | undefined) ??
+      (tenantPlan ? PLAN_MODULES[tenantPlan.plan] : undefined) ??
+      [];
+
+    if (planModules.includes(addon.moduleKey)) {
+      moduleKept = true;
+    } else {
+      const tenantModule = await prisma.tenantModule.findUnique({
+        where: { tenantId_module: { tenantId: id, module: addon.moduleKey } },
       });
+      if (tenantModule) {
+        await prisma.tenantModule.update({
+          where: { id: tenantModule.id },
+          data: { enabled: false },
+        });
+      }
     }
   }
 
   clearTenantModuleCache(id);
 
-  return NextResponse.json({ success: true });
+  return NextResponse.json({ success: true, moduleKept });
 }
