@@ -2,9 +2,7 @@
  * API Route: /api/crm/industries/[id]
  * PUT    - Actualizar industria
  * DELETE - Desactivar industria
- */
-
-/**
+ *
  * CrmIndustry no tiene tenantId: es catálogo compartido de la plataforma.
  * PUT (renombre) queda restringido a PAYROLL_PARAMS_WRITE_TENANT_SLUGS.
  * POST de creación en /api/crm/industries permanece abierto (aditivo).
@@ -97,6 +95,24 @@ export async function DELETE(request: NextRequest, { params }: Params) {
     if (!ctx) return unauthorized();
     const forbidden = await requireCrmDelete(ctx);
     if (forbidden) return forbidden;
+
+    const tenant = await prisma.tenant.findUnique({
+      where: { id: ctx.tenantId },
+      select: { slug: true },
+    });
+    if (!tenant || !isGlobalCatalogWriter(tenant.slug)) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            code: "GLOBAL_CATALOG_FORBIDDEN",
+            message:
+              "Las industrias del catálogo compartido solo pueden desactivarse por el administrador designado. Configure PAYROLL_PARAMS_WRITE_TENANT_SLUGS.",
+          },
+        },
+        { status: 403 }
+      );
+    }
 
     const { id } = await params;
 
