@@ -231,7 +231,11 @@ export function cellStateChips(cell: FlowMatrixCellDto): CellStateChip[] {
   return chips;
 }
 
-/** Chips agregados de toda la fila (dedupe por dteId + kind). */
+/**
+ * Chips agregados de toda la fila (dedupe por dteId + kind).
+ * Incluye cesión/fondeo para consumidores que los filtren; la columna
+ * Concepto de la planilla no los muestra (marca secundaria en la celda).
+ */
 export function rowStateChips(row: Pick<FlowMatrixRowDto, "cells" | "name" | "crmAccountId">): CellStateChip[] {
   const byKey = new Map<string, CellStateChip>();
   for (const cell of row.cells) {

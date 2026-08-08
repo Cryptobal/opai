@@ -155,8 +155,12 @@ export function PlanillaRow(p: Props) {
     });
   };
   const showMenu = p.canManage && !row.isVirtual && p.rowMenu.length > 0;
-  // Fila: cesión / retención / mora (sin chips "vence …" para no saturar).
-  const chips = rowStateChips(row).filter((c) => c.kind !== "due");
+  // Fila: solo mora / retención. Cesión (cedida / anticipo) ya va como marca
+  // secundaria en la celda de la factura — no en la columna Concepto, porque
+  // una fila puede mezclar semanas cedidas y no cedidas.
+  const chips = rowStateChips(row).filter(
+    (c) => c.kind !== "due" && c.kind !== "ceded" && c.kind !== "funded",
+  );
   const openRowSheet = p.onOpenRowSheet;
   const handleNameLongPress = useCallback(() => {
     openRowSheet?.();
