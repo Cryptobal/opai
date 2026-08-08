@@ -129,6 +129,8 @@ export function LoginPageClient({ callbackUrl: callbackUrlProp, error: errorProp
                 ? 'Email o contrase\u00f1a incorrectos.'
                 : error === 'google_not_registered'
                 ? 'Tu cuenta de Google a\u00fan no est\u00e1 registrada en Opai.'
+                : error === 'tenant_suspended'
+                ? 'Tu empresa tiene el acceso suspendido. Contacta a soporte.'
                 : 'Error al iniciar sesi\u00f3n.'}
             </p>
             {error === 'google_not_registered' && (
