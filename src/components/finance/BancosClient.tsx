@@ -85,6 +85,8 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { confirmDialog } from "@/components/ui/confirm-service";
 import { useIsTouchLayout } from "@/hooks/useIsTouchLayout";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
+import { BP } from "@/lib/breakpoints";
 
 /* ── Types ── */
 
@@ -1966,8 +1968,9 @@ function TransactionsTab({
       {
         id: "transactionDate",
         header: sortableHeader("Fecha", "transactionDate"),
+        width: "w-[92px]",
         cell: (row) => (
-          <span className="text-xs text-muted-foreground">
+          <span className="text-xs text-muted-foreground whitespace-nowrap">
             {format(parseLocalDate(row.transactionDate), "dd MMM yyyy", { locale: es })}
           </span>
         ),
@@ -1996,7 +1999,9 @@ function TransactionsTab({
           const hasRutConflict = (rr?.alsoRegisteredAs?.length ?? 0) > 1;
           return (
             <div className="flex flex-col gap-1 min-w-0">
-              <span className="truncate">{row.description}</span>
+              <span className="truncate" title={row.description}>
+                {row.description}
+              </span>
               {rr?.kind && rr.kind !== "unknown" && rr.entityName ? (
                 <span
                   className="flex flex-wrap items-center gap-1"
@@ -2044,12 +2049,13 @@ function TransactionsTab({
       {
         id: "reference",
         header: "Referencia",
+        width: "w-[104px]",
         cell: (row) => {
           const ref = row.reference ?? "";
           if (!ref) return <span className="text-xs text-muted-foreground">—</span>;
           return (
             <span
-              className="text-xs text-muted-foreground font-mono truncate inline-block max-w-[140px] align-bottom"
+              className="text-xs text-muted-foreground font-mono truncate block"
               title={ref}
             >
               {ref}
@@ -2061,11 +2067,13 @@ function TransactionsTab({
         id: "amount",
         header: sortableHeader("Monto", "amount", "right"),
         align: "right",
+        width: "w-[104px]",
         cell: (row) => (
           <span
-            className={
-              row.amount >= 0 ? "text-status-ok-fg" : "text-status-danger-fg"
-            }
+            className={cn(
+              "whitespace-nowrap",
+              row.amount >= 0 ? "text-status-ok-fg" : "text-status-danger-fg",
+            )}
           >
             {fmtCLP.format(row.amount)}
           </span>
@@ -2075,11 +2083,17 @@ function TransactionsTab({
         id: "balance",
         header: "Saldo",
         align: "right",
-        cell: (row) => (row.balance != null ? fmtCLP.format(row.balance) : "—"),
+        width: "w-[104px]",
+        cell: (row) => (
+          <span className="whitespace-nowrap">
+            {row.balance != null ? fmtCLP.format(row.balance) : "—"}
+          </span>
+        ),
       },
       {
         id: "reconciliationStatus",
         header: "Estado",
+        width: "w-[128px]",
         cell: (row) => {
           if (row.hiddenAt) {
             return (
@@ -2102,12 +2116,18 @@ function TransactionsTab({
                   Por autorizar
                 </Tag>
                 {row.suggestedAccountLabel && (
-                  <span className="text-[12px] text-ds-text-3 font-mono truncate max-w-[220px]">
+                  <span
+                    className="text-[12px] text-ds-text-3 font-mono truncate"
+                    title={row.suggestedAccountLabel}
+                  >
                     → {row.suggestedAccountLabel}
                   </span>
                 )}
                 {row.suggestedRuleName && (
-                  <span className="text-[12px] text-ds-text-4 italic truncate max-w-[220px]">
+                  <span
+                    className="text-[12px] text-ds-text-4 italic truncate"
+                    title={row.suggestedRuleName}
+                  >
                     ({row.suggestedRuleName})
                   </span>
                 )}
@@ -2133,23 +2153,19 @@ function TransactionsTab({
                 </Badge>
                 {origin && (
                   <span
-                    className="text-[12px] text-ds-text-3 truncate max-w-[220px]"
+                    className="text-[12px] text-ds-text-3 truncate"
                     title={
                       origin.detail
                         ? `${origin.label} · ${origin.detail}`
                         : origin.label
                     }
                   >
-                    <span className="sm:hidden">{origin.label}</span>
-                    <span className="hidden sm:inline">
-                      {origin.label}
-                      {origin.detail ? ` · ${origin.detail}` : ""}
-                    </span>
+                    {origin.label}
                   </span>
                 )}
                 {(row.flowRowName || row.linkAccountLabel) && (
                   <span
-                    className="text-[12px] text-ds-text-4 truncate max-w-[220px]"
+                    className="text-[12px] text-ds-text-4 truncate"
                     title={[row.flowRowName, row.linkAccountLabel]
                       .filter(Boolean)
                       .join(" · ")}
@@ -2176,6 +2192,8 @@ function TransactionsTab({
         id: "_actions",
         header: "",
         align: "right",
+        width: "w-[88px]",
+        sticky: "right",
         cell: (row) =>
           canManage ? (
             row.hiddenAt ? (
@@ -2191,12 +2209,12 @@ function TransactionsTab({
                 <RotateCcw className="h-3.5 w-3.5" />
               </Button>
             ) : (
-              <div className="flex items-center justify-end gap-1">
+              <div className="flex items-center justify-end gap-0.5">
                 {row.suggestedRuleId && row.reconciliationStatus === "UNMATCHED" && (
                   <Button
                     variant="default"
                     size="sm"
-                    className="h-7 text-xs"
+                    className="h-8 w-8 p-0 xl:h-7 xl:w-auto xl:px-2 xl:text-xs"
                     title={`Autorizar: ${row.suggestedAccountLabel ?? ""}`}
                     onClick={(e) => {
                       e.stopPropagation();
@@ -2205,11 +2223,11 @@ function TransactionsTab({
                     disabled={authorizing === row.id}
                   >
                     {authorizing === row.id ? (
-                      <Loader2 className="h-3 w-3 animate-spin" />
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
                     ) : (
-                      <CheckCircle2 className="h-3 w-3 mr-1" />
+                      <CheckCircle2 className="h-3.5 w-3.5 xl:mr-1 xl:h-3 xl:w-3" />
                     )}
-                    Autorizar
+                    <span className="hidden xl:inline">Autorizar</span>
                   </Button>
                 )}
                 {(row.reconciliationStatus === "MATCHED" ||
@@ -2242,6 +2260,19 @@ function TransactionsTab({
       excludingTxId,
       flowRows,
     ]
+  );
+
+  // iPad / laptops angostas: ocultar Referencia y Saldo para que la tabla
+  // quepa sin scroll horizontal. En xl+ se muestran todas las columnas.
+  const isWideTxTable = useMediaQuery(`(min-width: ${BP.xl}px)`);
+  const visibleTxColumns = useMemo(
+    () =>
+      isWideTxTable
+        ? transactionColumns
+        : transactionColumns.filter(
+            (c) => c.id !== "reference" && c.id !== "balance",
+          ),
+    [transactionColumns, isWideTxTable],
   );
 
   return (
@@ -2796,10 +2827,12 @@ function TransactionsTab({
         />
       ) : (
         <>
-          {/* Desktop table */}
-          <div className="hidden md:block">
+          {/* Desktop table — layout fixed + columnas compactas (ver
+              visibleTxColumns) para evitar scroll horizontal en iPad. */}
+          <div className="hidden md:block min-w-0">
             <DataTable
-              columns={transactionColumns}
+              layout="fixed"
+              columns={visibleTxColumns}
               rows={transactions}
               rowKey={(row) => row.id}
               onRowClick={
