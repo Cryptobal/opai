@@ -1,6 +1,14 @@
 /**
  * GET/POST /api/payroll/parameters
  * Gestión de versiones de parámetros legales
+ *
+ * IMPORTANTE — PayrollParameterVersion NO tiene tenantId: es una tabla
+ * compartida por toda la plataforma (parámetros previsionales chilenos).
+ * La lectura está abierta a cualquier tenant autenticado con acceso a payroll.
+ * La escritura (POST) está restringida a los slugs listados en
+ * PAYROLL_PARAMS_WRITE_TENANT_SLUGS (falla cerrada si la variable no está
+ * definida). La solución definitiva (migrar a Platform Admin o agregar
+ * tenantId) está pendiente.
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -9,6 +17,7 @@ import { requireAuth, unauthorized, ensureModuleAccess } from "@/lib/api-auth";
 import type { PayrollParameters } from "@/modules/payroll/engine";
 import { requireTenantModule } from '@/lib/require-module';
 import { isAdminRole } from '@/lib/access';
+import { isGlobalCatalogWriter } from "@/lib/tenant-scope";
 
 // NUNCA cachear esta ruta - los parámetros legales deben ser siempre frescos
 export const dynamic = "force-dynamic";
@@ -171,6 +180,24 @@ export async function POST(req: NextRequest) {
           error: {
             code: "FORBIDDEN",
             message: "Solo administradores pueden crear versiones de parámetros legales",
+          },
+        },
+        { status: 403 }
+      );
+    }
+
+    const tenant = await prisma.tenant.findUnique({
+      where: { id: ctx.tenantId },
+      select: { slug: true },
+    });
+    if (!tenant || !isGlobalCatalogWriter(tenant.slug)) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            code: "GLOBAL_CATALOG_FORBIDDEN",
+            message:
+              "Los parámetros previsionales son globales de la plataforma y solo pueden ser actualizados por el administrador designado. Configure PAYROLL_PARAMS_WRITE_TENANT_SLUGS con el slug autorizado.",
           },
         },
         { status: 403 }

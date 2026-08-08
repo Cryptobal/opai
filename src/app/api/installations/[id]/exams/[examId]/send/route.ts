@@ -10,6 +10,7 @@ import {
 import { canEdit } from "@/lib/permissions";
 import { getKnowledgeConfig } from "@/lib/knowledge/config";
 import { createAssignmentAndNotify } from "@/lib/knowledge/dispatch-helpers";
+import { requireInstallationAccess } from "@/lib/tenant-scope";
 
 type Params = { id: string; examId: string };
 
@@ -33,12 +34,15 @@ export async function POST(
       );
     }
 
-    const { examId } = await params;
+    const { id, examId } = await params;
+    const access = await requireInstallationAccess(ctx, id);
+    if (!access.ok) return access.response;
+
     const { data, error } = await parseBody(request, sendSchema);
     if (error) return error;
 
-    const exam = await prisma.exam.findUnique({
-      where: { id: examId },
+    const exam = await prisma.exam.findFirst({
+      where: { id: examId, installationId: id },
       include: {
         _count: { select: { questions: true } },
         installation: { select: { tenantId: true } },
@@ -98,7 +102,7 @@ export async function POST(
     // Activar examen draft fuera del Promise.all (no necesita tx + es idempotente)
     if (exam.status === "draft") {
       await prisma.exam.update({
-        where: { id: examId },
+        where: { id: examId, installationId: id },
         data: { status: "active" },
       });
     }

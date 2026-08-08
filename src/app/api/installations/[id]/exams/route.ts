@@ -8,6 +8,7 @@ import {
   parseBody,
 } from "@/lib/api-auth";
 import { canView, canEdit } from "@/lib/permissions";
+import { requireInstallationAccess } from "@/lib/tenant-scope";
 
 type Params = { id: string };
 
@@ -54,6 +55,8 @@ export async function GET(
     }
 
     const { id } = await params;
+    const access = await requireInstallationAccess(ctx, id);
+    if (!access.ok) return access.response;
 
     const exams = await prisma.exam.findMany({
       where: { installationId: id },
@@ -115,6 +118,9 @@ export async function POST(
     }
 
     const { id } = await params;
+    const access = await requireInstallationAccess(ctx, id);
+    if (!access.ok) return access.response;
+
     const { data, error } = await parseBody(request, createExamSchema);
     if (error) return error;
 

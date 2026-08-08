@@ -8,6 +8,7 @@ import {
   parseBody,
 } from "@/lib/api-auth";
 import { canView, canEdit } from "@/lib/permissions";
+import { requireInstallationAccess } from "@/lib/tenant-scope";
 
 type Params = { id: string; examId: string };
 
@@ -36,10 +37,12 @@ export async function GET(
       );
     }
 
-    const { examId } = await params;
+    const { id, examId } = await params;
+    const access = await requireInstallationAccess(ctx, id);
+    if (!access.ok) return access.response;
 
-    const exam = await prisma.exam.findUnique({
-      where: { id: examId },
+    const exam = await prisma.exam.findFirst({
+      where: { id: examId, installationId: id },
       include: {
         questions: { orderBy: { order: "asc" } },
         assignments: {
@@ -102,11 +105,17 @@ export async function PUT(
       );
     }
 
-    const { examId } = await params;
+    const { id, examId } = await params;
+    const access = await requireInstallationAccess(ctx, id);
+    if (!access.ok) return access.response;
+
     const { data, error } = await parseBody(request, updateExamSchema);
     if (error) return error;
 
-    const existing = await prisma.exam.findUnique({ where: { id: examId } });
+    const existing = await prisma.exam.findFirst({
+      where: { id: examId, installationId: id },
+      select: { id: true },
+    });
     if (!existing) {
       return NextResponse.json(
         { success: false, error: "Examen no encontrado" },
@@ -115,7 +124,7 @@ export async function PUT(
     }
 
     const exam = await prisma.exam.update({
-      where: { id: examId },
+      where: { id: examId, installationId: id },
       data: {
         ...(data.title !== undefined && { title: data.title }),
         ...(data.status !== undefined && { status: data.status }),
@@ -156,9 +165,14 @@ export async function DELETE(
       );
     }
 
-    const { examId } = await params;
+    const { id, examId } = await params;
+    const access = await requireInstallationAccess(ctx, id);
+    if (!access.ok) return access.response;
 
-    const existing = await prisma.exam.findUnique({ where: { id: examId } });
+    const existing = await prisma.exam.findFirst({
+      where: { id: examId, installationId: id },
+      select: { id: true },
+    });
     if (!existing) {
       return NextResponse.json(
         { success: false, error: "Examen no encontrado" },
@@ -166,7 +180,7 @@ export async function DELETE(
       );
     }
 
-    await prisma.exam.delete({ where: { id: examId } });
+    await prisma.exam.delete({ where: { id: examId, installationId: id } });
 
     return NextResponse.json({ success: true, data: { deleted: true } });
   } catch (error) {

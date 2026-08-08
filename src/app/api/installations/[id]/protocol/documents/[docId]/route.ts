@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
 import { canEdit } from "@/lib/permissions";
 import { deleteFile } from "@/lib/storage";
+import { requireInstallationAccess } from "@/lib/tenant-scope";
 
 export async function DELETE(
   _request: NextRequest,
@@ -21,9 +22,17 @@ export async function DELETE(
     }
 
     const { id, docId } = await params;
+    const access = await requireInstallationAccess(ctx, id);
+    if (!access.ok) return access.response;
 
+    // ProtocolDocument tiene tenantId propio. Documentos globales del tenant
+    // (installationId: null) siguen accesibles verificando solo tenantId.
     const doc = await prisma.protocolDocument.findFirst({
-      where: { id: docId, installationId: id },
+      where: {
+        id: docId,
+        tenantId: ctx.tenantId,
+        OR: [{ installationId: id }, { installationId: null }],
+      },
     });
 
     if (!doc) {

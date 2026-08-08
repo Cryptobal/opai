@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized, resolveApiPerms, parseBody } from "@/lib/api-auth";
 import { canEdit } from "@/lib/permissions";
 import { clearKnowledgeCache } from "@/lib/protocols/knowledge-aggregator";
+import { requireInstallationAccess } from "@/lib/tenant-scope";
 
 type Params = { id: string; sectionId: string };
 
@@ -31,6 +32,9 @@ export async function PUT(
     }
 
     const { id, sectionId } = await params;
+    const access = await requireInstallationAccess(ctx, id);
+    if (!access.ok) return access.response;
+
     const { data, error } = await parseBody(request, updateSectionSchema);
     if (error) return error;
 
@@ -85,6 +89,9 @@ export async function DELETE(
     }
 
     const { id, sectionId } = await params;
+    const access = await requireInstallationAccess(ctx, id);
+    if (!access.ok) return access.response;
+
 
     const existing = await prisma.protocolSection.findFirst({
       where: { id: sectionId, installationId: id },

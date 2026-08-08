@@ -47,9 +47,9 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    // Validar presentación
-    const presentation = await prisma.presentation.findUnique({
-      where: { uniqueId },
+    // Validar presentación (scoped al tenant de la sesión)
+    const presentation = await prisma.presentation.findFirst({
+      where: { uniqueId, tenantId: ctx.tenantId },
     });
     
     if (!presentation) {

@@ -3,6 +3,10 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
 import { canView } from "@/lib/permissions";
 import { formatPersonName } from "@/lib/personas";
+import {
+  requireInstallationAccess,
+  requireGuardiaAccess,
+} from "@/lib/tenant-scope";
 
 type Params = { id: string; guardId: string };
 
@@ -23,6 +27,10 @@ export async function GET(
     }
 
     const { id, guardId } = await params;
+    const access = await requireInstallationAccess(ctx, id);
+    if (!access.ok) return access.response;
+    const guardAccess = await requireGuardiaAccess(ctx, guardId);
+    if (!guardAccess.ok) return guardAccess.response;
 
     const guard = await prisma.opsGuardia.findUnique({
       where: { id: guardId },

@@ -19,6 +19,7 @@
     "check-ds": "node scripts/check-design-system.mjs --all",
     "check-ds:warn": "node scripts/check-design-system.mjs --all --warn-only",
     "audit:portal-cliente": "node scripts/audit-portal-cliente-auth.mjs",
+    "audit:tenant": "npx tsx scripts/audit-tenant-isolation.ts",
     "generate-icons": "node scripts/generate-gard-icons.mjs",
     "migrate:soho": "ts-node --compiler-options '{\"module\":\"CommonJS\"}' scripts/migrate-soho-crm.ts",
     "db:migrate": "prisma migrate deploy",
