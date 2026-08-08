@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
 import { clearKnowledgeCache } from "@/lib/protocols/knowledge-aggregator";
 import { canViewInstallations, canEditInstallations } from "@/lib/permissions";
+import { requireInstallationAccess } from "@/lib/tenant-scope";
 
 type Params = { id: string };
 
@@ -23,6 +24,9 @@ export async function GET(
     }
 
     const { id } = await params;
+
+    const access = await requireInstallationAccess(ctx, id);
+    if (!access.ok) return access.response;
 
     const [sections, documents, latestVersion] = await Promise.all([
       prisma.protocolSection.findMany({
@@ -76,6 +80,9 @@ export async function POST(
     }
 
     const { id } = await params;
+
+    const access = await requireInstallationAccess(ctx, id);
+    if (!access.ok) return access.response;
     const body = (await request.json().catch(() => ({}))) as {
       sections?: Array<{
         title?: unknown;

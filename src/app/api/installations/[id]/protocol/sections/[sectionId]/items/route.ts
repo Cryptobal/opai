@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized, resolveApiPerms, parseBody } from "@/lib/api-auth";
 import { canEdit } from "@/lib/permissions";
+import { requireInstallationAccess } from "@/lib/tenant-scope";
 
 type Params = { id: string; sectionId: string };
 
@@ -30,6 +31,9 @@ export async function POST(
     }
 
     const { id, sectionId } = await params;
+    const access = await requireInstallationAccess(ctx, id);
+    if (!access.ok) return access.response;
+
     const { data, error } = await parseBody(request, createItemSchema);
     if (error) return error;
 

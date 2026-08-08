@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { uploadFile } from "@/lib/storage";
 import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
 import { canEdit } from "@/lib/permissions";
+import { requireInstallationAccess } from "@/lib/tenant-scope";
 
 type Params = { id: string };
 
@@ -26,6 +27,9 @@ export async function POST(
     }
 
     const { id } = await params;
+
+    const access = await requireInstallationAccess(ctx, id);
+    if (!access.ok) return access.response;
 
     const formData = await request.formData();
     const file = formData.get("file") as File | null;

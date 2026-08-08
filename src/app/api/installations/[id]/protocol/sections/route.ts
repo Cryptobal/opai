@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized, resolveApiPerms, parseBody } from "@/lib/api-auth";
 import { canEdit } from "@/lib/permissions";
 import { clearKnowledgeCache } from "@/lib/protocols/knowledge-aggregator";
+import { requireInstallationAccess } from "@/lib/tenant-scope";
 
 type Params = { id: string };
 
@@ -30,6 +31,9 @@ export async function POST(
     }
 
     const { id } = await params;
+
+    const access = await requireInstallationAccess(ctx, id);
+    if (!access.ok) return access.response;
     const { data, error } = await parseBody(request, createSectionSchema);
     if (error) return error;
 

@@ -5,6 +5,7 @@ import { AIError } from "@/lib/ai-errors";
 import { requireAuth, unauthorized, resolveApiPerms } from "@/lib/api-auth";
 import { clearKnowledgeCache } from "@/lib/protocols/knowledge-aggregator";
 import { canEdit } from "@/lib/permissions";
+import { requireInstallationAccess } from "@/lib/tenant-scope";
 
 type Params = { id: string };
 
@@ -36,6 +37,9 @@ export async function POST(
     }
 
     const { id } = await params;
+
+    const access = await requireInstallationAccess(ctx, id);
+    if (!access.ok) return access.response;
 
     const formData = await request.formData();
     const files = formData.getAll("files");

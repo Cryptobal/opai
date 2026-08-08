@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized, resolveApiPerms, parseBody } from "@/lib/api-auth";
 import { canEdit } from "@/lib/permissions";
+import { requireInstallationAccess } from "@/lib/tenant-scope";
 
 type Params = { id: string; itemId: string };
 
@@ -29,6 +30,9 @@ export async function PUT(
     }
 
     const { id, itemId } = await params;
+    const access = await requireInstallationAccess(ctx, id);
+    if (!access.ok) return access.response;
+
     const { data, error } = await parseBody(request, updateItemSchema);
     if (error) return error;
 
@@ -83,6 +87,9 @@ export async function DELETE(
     }
 
     const { id, itemId } = await params;
+    const access = await requireInstallationAccess(ctx, id);
+    if (!access.ok) return access.response;
+
 
     const existing = await prisma.protocolItem.findFirst({
       where: {

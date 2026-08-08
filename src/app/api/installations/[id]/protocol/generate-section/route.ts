@@ -5,6 +5,7 @@ import { AIError } from "@/lib/ai-errors";
 import { requireAuth, unauthorized, resolveApiPerms, parseBody } from "@/lib/api-auth";
 import { canEdit } from "@/lib/permissions";
 import { buildGenerateSectionPrompt } from "@/lib/protocols/prompts";
+import { requireInstallationAccess } from "@/lib/tenant-scope";
 
 type Params = { id: string };
 
@@ -28,7 +29,9 @@ export async function POST(
       );
     }
 
-    await params;
+    const { id } = await params;
+    const access = await requireInstallationAccess(ctx, id);
+    if (!access.ok) return access.response;
 
     const parsed = await parseBody(request, bodySchema);
     if (parsed.error) return parsed.error;
