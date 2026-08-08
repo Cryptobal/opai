@@ -4,6 +4,21 @@ import { requireAuth, unauthorized } from "@/lib/api-auth";
 
 type RouteParams = { params: Promise<{ installationId: string; deviceId: string }> };
 
+async function findScopedDevice(
+  ctx: { tenantId: string },
+  installationId: string,
+  deviceId: string,
+) {
+  return prisma.devicePairing.findFirst({
+    where: {
+      id: deviceId,
+      tenantId: ctx.tenantId,
+      installationId,
+    },
+    select: { id: true },
+  });
+}
+
 export async function DELETE(
   _request: NextRequest,
   { params }: RouteParams
@@ -12,10 +27,18 @@ export async function DELETE(
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
 
-    const { deviceId } = await params;
+    const { installationId, deviceId } = await params;
+
+    const device = await findScopedDevice(ctx, installationId, deviceId);
+    if (!device) {
+      return NextResponse.json(
+        { success: false, error: "Dispositivo no encontrado" },
+        { status: 404 }
+      );
+    }
 
     await prisma.devicePairing.update({
-      where: { id: deviceId },
+      where: { id: device.id, tenantId: ctx.tenantId, installationId },
       data: { status: "REVOKED" },
     });
 
@@ -37,7 +60,7 @@ export async function PATCH(
     const ctx = await requireAuth();
     if (!ctx) return unauthorized();
 
-    const { deviceId } = await params;
+    const { installationId, deviceId } = await params;
     const body = await request.json();
 
     const updateData: Record<string, unknown> = {};
@@ -57,8 +80,16 @@ export async function PATCH(
       );
     }
 
+    const device = await findScopedDevice(ctx, installationId, deviceId);
+    if (!device) {
+      return NextResponse.json(
+        { success: false, error: "Dispositivo no encontrado" },
+        { status: 404 }
+      );
+    }
+
     const updated = await prisma.devicePairing.update({
-      where: { id: deviceId },
+      where: { id: device.id, tenantId: ctx.tenantId, installationId },
       data: updateData,
     });
 

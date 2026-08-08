@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { ensureOpsAccess } from "@/lib/ops";
 import { prisma } from "@/lib/prisma";
+import { requireGuardiaAccess } from "@/lib/tenant-scope";
 
 export async function GET(request: NextRequest) {
   try {
@@ -18,12 +19,15 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    const access = await requireGuardiaAccess(ctx, guardiaId);
+    if (!access.ok) return access.response;
+
     const [status, logs] = await Promise.all([
-      prisma.opsOnboardingStatus.findUnique({
-        where: { guardiaId },
+      prisma.opsOnboardingStatus.findFirst({
+        where: { guardiaId, tenantId: ctx.tenantId },
       }),
       prisma.opsEmailLog.findMany({
-        where: { guardiaId },
+        where: { guardiaId, tenantId: ctx.tenantId },
         orderBy: { createdAt: "desc" },
         take: 20,
         select: {
