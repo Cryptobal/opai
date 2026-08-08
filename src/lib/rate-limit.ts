@@ -52,6 +52,11 @@ export function checkRateLimit(
   return { allowed: true, remaining: options.limit - entry.count, resetAt: entry.resetAt };
 }
 
+/** Limpia el contador in-memory (p. ej. tras login exitoso). */
+export function resetRateLimit(key: string): void {
+  rateLimitMap.delete(key);
+}
+
 /**
  * Extrae IP del request para usar como key de rate limit.
  * Funciona en Vercel (x-forwarded-for) y desarrollo local.
