@@ -10,11 +10,33 @@ import NextAuth, { CredentialsSignin } from 'next-auth';
 import Credentials from 'next-auth/providers/credentials';
 import Google from 'next-auth/providers/google';
 import * as bcrypt from 'bcryptjs';
+import {
+  hasAllTenantModules,
+  TENANT_MODULES_ALL_SENTINEL,
+  type TenantModuleKey,
+  type TenantModulesToken,
+} from '@/lib/tenant-modules';
 
 function throwTenantSuspended(): never {
   const err = new CredentialsSignin();
   err.code = 'tenant_suspended';
   throw err;
+}
+
+/**
+ * Materializa módulos del tenant para el JWT.
+ * Falla en abierto (`*`) ante error de BD: una caída no puede bloquear módulos.
+ */
+async function resolveTokenModules(tenantId: string): Promise<TenantModulesToken> {
+  try {
+    const { getTenantEnabledModules } = await import('@/lib/tenant-modules');
+    const enabled = await getTenantEnabledModules(tenantId);
+    if (hasAllTenantModules(enabled)) return TENANT_MODULES_ALL_SENTINEL;
+    return Array.from(enabled) as TenantModuleKey[];
+  } catch (error) {
+    console.error('[auth] resolveTokenModules failed (fail-open):', error);
+    return TENANT_MODULES_ALL_SENTINEL;
+  }
 }
 
 declare module 'next-auth' {
@@ -38,6 +60,8 @@ declare module 'next-auth' {
     };
     portal?: string;
     impersonating?: boolean;
+    /** Módulos de plan del tenant (`*` = todos). */
+    modules?: TenantModulesToken;
   }
 }
 
@@ -55,6 +79,8 @@ declare module '@auth/core/jwt' {
     impersonatingFrom?: string;
     /** Epoch ms — última vez que se refrescó role desde BD */
     roleRefreshedAt?: number;
+    /** Módulos de plan del tenant (`*` = todos). Ausente en tokens pre-despliegue. */
+    modules?: TenantModulesToken;
   }
 }
 
@@ -262,6 +288,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         token.roleRefreshedAt = Date.now();
         token.impersonating = (user as any).impersonating || false;
         token.impersonatingFrom = (user as any).impersonatingFrom || undefined;
+        token.modules = await resolveTokenModules(user.tenantId);
         return token;
       }
 
@@ -296,6 +323,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             token.role = admin.role;
             token.roleTemplateId = admin.roleTemplateId ?? null;
             token.roleRefreshedAt = now;
+            // Mismo viaje de refresco: materializar módulos de plan del tenant.
+            if (typeof token.tenantId === 'string' && token.tenantId) {
+              token.modules = await resolveTokenModules(token.tenantId);
+            }
           } catch (error) {
             console.error('[auth] Role refresh failed:', error);
             return token; // NO resetear roleRefreshedAt, reintentar en próximo request
@@ -316,6 +347,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       }
       session.portal = token.portal;
       session.impersonating = token.impersonating || false;
+      session.modules = token.modules;
       return session;
     },
   },

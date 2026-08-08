@@ -18,6 +18,7 @@ import { randomBytes } from 'crypto';
 import { Resend } from 'resend';
 import { getTenantCompanyConfig } from '@/lib/tenant-config';
 import { buildEmailUrl } from '@/lib/emails/site-url';
+import { assertAdminLimit, planLimitErrorMessage } from '@/lib/plan-limits';
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -36,6 +37,14 @@ export async function inviteUser(email: string, roleTemplateSlug: string) {
   });
   if (!hasCapability(perms, 'invite_users')) {
     return { success: false, error: 'Sin permisos para invitar usuarios' };
+  }
+
+  const adminLimit = await assertAdminLimit(session.user.tenantId);
+  if (!adminLimit.ok) {
+    return {
+      success: false,
+      error: planLimitErrorMessage('usuarios', adminLimit),
+    };
   }
 
   const template = await prisma.roleTemplate.findFirst({

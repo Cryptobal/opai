@@ -27,7 +27,12 @@ export async function requireTenantModule(module: TenantModuleKey): Promise<
     return {
       authorized: false,
       response: NextResponse.json(
-        { success: false, error: `Módulo "${module}" no está habilitado en tu plan. Contacta a tu administrador.` },
+        {
+          success: false,
+          error: `Módulo "${module}" no está habilitado en tu plan. Contacta a tu administrador.`,
+          code: 'MODULE_NOT_ENABLED',
+          module,
+        },
         { status: 403 },
       ),
     };

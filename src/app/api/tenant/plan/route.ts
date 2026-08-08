@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireAuth, unauthorized } from '@/lib/api-auth';
 import { prisma } from '@/lib/prisma';
+import { countActiveGuards, countAdminsTowardLimit } from '@/lib/plan-limits';
 
 export async function GET() {
   const ctx = await requireAuth();
@@ -8,7 +9,7 @@ export async function GET() {
 
   const { tenantId } = ctx;
 
-  const [plan, modules, addons, planCatalog] = await Promise.all([
+  const [plan, modules, addons, planCatalog, guardsUsage, adminsUsage] = await Promise.all([
     prisma.tenantPlan.findUnique({ where: { tenantId } }),
     prisma.tenantModule.findMany({ where: { tenantId, enabled: true }, select: { module: true } }),
     prisma.tenantAddon.findMany({
@@ -16,6 +17,8 @@ export async function GET() {
       include: { addon: true },
     }),
     prisma.planCatalog.findMany({ where: { active: true }, orderBy: { sortOrder: 'asc' } }),
+    countActiveGuards(tenantId),
+    countAdminsTowardLimit(tenantId),
   ]);
 
   return NextResponse.json({
@@ -51,5 +54,9 @@ export async function GET() {
       includedModules: p.includedModules,
       featured: p.featured,
     })),
+    usage: {
+      guards: guardsUsage,
+      admins: adminsUsage,
+    },
   });
 }

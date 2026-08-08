@@ -12,6 +12,7 @@ import { createGuardiaTeSchema } from "@/lib/validations/ops";
 import { createOpsAuditLog, ensureOpsAccess } from "@/lib/ops";
 import { hasOpsCapability } from "@/lib/ops-rbac";
 import { normalizeNullable } from "@/lib/personas";
+import { assertGuardLimit, planLimitErrorMessage } from "@/lib/plan-limits";
 
 function buildNextGuardiaCode(lastCode?: string | null): string {
   if (!lastCode) return "G-000001";
@@ -80,6 +81,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { success: false, error: "RUT ya ingresado. Comunicarse con recursos humanos." },
         { status: 400 }
+      );
+    }
+
+    const guardLimit = await assertGuardLimit(ctx.tenantId);
+    if (!guardLimit.ok) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: planLimitErrorMessage("guardias", guardLimit),
+          code: "PLAN_LIMIT_REACHED",
+          limit: guardLimit.limit,
+          current: guardLimit.current,
+        },
+        { status: 403 },
       );
     }
 
