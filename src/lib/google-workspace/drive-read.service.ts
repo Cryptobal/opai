@@ -1,4 +1,5 @@
 import { getDriveClientForTenant } from "./clients";
+import { sharedDriveParams, supportsAllDrivesFlag } from "./drive-params";
 
 export type DriveFileMeta = {
   id: string;
@@ -19,12 +20,14 @@ export async function listDriveFolderFiles(
   tenantId: string,
   folderId: string,
 ): Promise<DriveFileMeta[]> {
-  const drive = await getDriveClientForTenant(tenantId);
-  if (!drive) return [];
+  const client = await getDriveClientForTenant(tenantId);
+  if (!client) return [];
+  const { drive, driveId } = client;
   const res = await drive.files.list({
     q: `'${folderId}' in parents and trashed = false`,
     fields: "files(id,name,mimeType,size,modifiedTime)",
     pageSize: 100,
+    ...sharedDriveParams(driveId),
   });
   return (res.data.files ?? []).flatMap((f) =>
     f.id && f.name
@@ -49,8 +52,9 @@ export async function downloadDriveFile(
   tenantId: string,
   file: { id: string; name: string; mimeType: string },
 ): Promise<{ buffer: Buffer; fileName: string; mimeType: string } | null> {
-  const drive = await getDriveClientForTenant(tenantId);
-  if (!drive) return null;
+  const client = await getDriveClientForTenant(tenantId);
+  if (!client) return null;
+  const { drive } = client;
   if (NON_DOWNLOADABLE.has(file.mimeType)) return null;
 
   if (file.mimeType.startsWith(GOOGLE_APPS_PREFIX)) {
@@ -63,7 +67,7 @@ export async function downloadDriveFile(
   }
 
   const res = await drive.files.get(
-    { fileId: file.id, alt: "media" },
+    { fileId: file.id, alt: "media", ...supportsAllDrivesFlag() },
     { responseType: "arraybuffer" },
   );
   return { buffer: Buffer.from(res.data as ArrayBuffer), fileName: file.name, mimeType: file.mimeType };
