@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fmtCell } from "../format";
+import { fmtCell, fmtClpShort } from "../format";
 import {
   cornerKind,
   pastPendingDteMeta,
@@ -30,6 +30,15 @@ describe("fmtCell modes", () => {
     expect(fmtCell(1_234_567, "m")).toBe("1.235");
     expect(fmtCell(1_600_000, "mm")).toBe("2");
     expect(fmtCell(400, "m")).toBe("");
+  });
+});
+
+describe("fmtClpShort", () => {
+  it("millones con 1 decimal y miles con k", () => {
+    expect(fmtClpShort(41_900_000)).toBe("$41,9M");
+    expect(fmtClpShort(820_000)).toBe("$820k");
+    expect(fmtClpShort(0)).toBe("$0");
+    expect(fmtClpShort(-1_500_000)).toBe("-$1,5M");
   });
 });
 

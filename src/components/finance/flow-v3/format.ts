@@ -43,6 +43,32 @@ export function fmtClp(value: number): string {
   return `${value < 0 ? "-" : ""}$${abs}`;
 }
 
+/**
+ * Eje Y / chips densos: millones con 1 decimal (`$41,9M`), miles (`$820k`) o `$0`.
+ * es-CL (coma decimal). No acumula redondeos parciales.
+ */
+export function fmtClpShort(value: number): string {
+  if (!Number.isFinite(value) || value === 0) return "$0";
+  const sign = value < 0 ? "-" : "";
+  const abs = Math.abs(value);
+  if (abs >= 1_000_000) {
+    const m = abs / 1_000_000;
+    const text =
+      m >= 100
+        ? Math.round(m).toLocaleString("es-CL")
+        : m.toLocaleString("es-CL", {
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 1,
+          });
+    return `${sign}$${text}M`;
+  }
+  if (abs >= 1_000) {
+    const k = Math.round(abs / 1_000);
+    return `${sign}$${k.toLocaleString("es-CL")}k`;
+  }
+  return `${sign}$${Math.round(abs).toLocaleString("es-CL")}`;
+}
+
 /** "2026-07-20" → "20/07". */
 export function fmtDayMonth(ymd: string): string {
   return `${ymd.slice(8, 10)}/${ymd.slice(5, 7)}`;

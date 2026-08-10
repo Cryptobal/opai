@@ -42,6 +42,8 @@ interface Props {
   /** Abre bandeja GAV; deshabilitado si no hay pendientes. */
   onClassifyEgresos?: () => void;
   egresosPendientesCount?: number;
+  /** En modo panel el menubar de planilla no se renderiza. */
+  chromeMode?: "full" | "panel";
 }
 
 const MENUS: { key: Exclude<MenuKey, null>; label: string }[] = [
@@ -83,7 +85,7 @@ export function PlanillaMenubar(p: Props) {
   const root = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open || p.chromeMode === "panel") return;
     const onDoc = (e: MouseEvent) => {
       if (!root.current?.contains(e.target as Node)) setOpen(null);
     };
@@ -94,9 +96,11 @@ export function PlanillaMenubar(p: Props) {
       document.removeEventListener("mousedown", onDoc);
       document.removeEventListener("keydown", onKey);
     };
-  }, [open]);
+  }, [open, p.chromeMode]);
 
   const close = (fn?: () => void) => () => { fn?.(); setOpen(null); };
+
+  if (p.chromeMode === "panel") return null;
 
   return (
     <div

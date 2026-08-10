@@ -92,6 +92,12 @@ interface Props {
   onToggleCededFilter?: () => void;
   viewTab?: "planilla" | "panel";
   onViewTab?: (tab: "planilla" | "panel") => void;
+  /**
+   * `panel`: oculta navegación, granularidad, formato, zoom, congelar,
+   * exportar/imprimir y suma. Conserva tabs, banco, bandeja, cedidas,
+   * cerrar semana y leyenda.
+   */
+  chromeMode?: "full" | "panel";
 }
 
 function ColorSwatch({
@@ -152,6 +158,7 @@ export function PlanillaToolbar(p: Props) {
   const cededCount = p.cededCount ?? 0;
   const classifyDisabled = egresosPendientes <= 0 || !p.onClassifyEgresos;
   const labels = p.showToolbarLabels;
+  const panelChrome = p.chromeMode === "panel";
 
   const needSel = (fn: () => void) => {
     if (!p.hasSelection) {
@@ -204,65 +211,68 @@ export function PlanillaToolbar(p: Props) {
           role="toolbar"
           aria-label="Contexto de la planilla"
         >
-          <div className="flex shrink-0 items-center gap-0.5">
-            <Tip label="Semanas anteriores">
-              <Button
-                variant="ghost"
-                size="sm"
-                className={btn}
-                onClick={() => p.onNav(-1)}
-                aria-label="Semanas anteriores"
-              >
-                <ChevronLeft className={icon} />
-              </Button>
-            </Tip>
-            <Button variant="outline" size="sm" className={txt} onClick={p.onToday}>
-              Hoy
-            </Button>
-            <Tip label="Semanas siguientes">
-              <Button
-                variant="ghost"
-                size="sm"
-                className={btn}
-                onClick={() => p.onNav(1)}
-                aria-label="Semanas siguientes"
-              >
-                <ChevronRight className={icon} />
-              </Button>
-            </Tip>
-          </div>
+          {!panelChrome && (
+            <>
+              <div className="flex shrink-0 items-center gap-0.5">
+                <Tip label="Semanas anteriores">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className={btn}
+                    onClick={() => p.onNav(-1)}
+                    aria-label="Semanas anteriores"
+                  >
+                    <ChevronLeft className={icon} />
+                  </Button>
+                </Tip>
+                <Button variant="outline" size="sm" className={txt} onClick={p.onToday}>
+                  Hoy
+                </Button>
+                <Tip label="Semanas siguientes">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className={btn}
+                    onClick={() => p.onNav(1)}
+                    aria-label="Semanas siguientes"
+                  >
+                    <ChevronRight className={icon} />
+                  </Button>
+                </Tip>
+              </div>
 
-          <span className={sep} aria-hidden />
+              <span className={sep} aria-hidden />
 
-          {/* Labels cortos en móvil / densos; largos en desktop con labels on */}
-          <div className="shrink-0 lg:hidden">
-            <SegmentedControl
-              size="xs"
-              ariaLabel="Granularidad"
-              value={p.granularity}
-              onChange={p.onGranularity}
-              items={[
-                { id: "week", label: "Sem" },
-                { id: "month", label: "Mes" },
-              ]}
-            />
-          </div>
-          <div className="hidden shrink-0 lg:block">
-            <SegmentedControl
-              size="xs"
-              ariaLabel="Granularidad"
-              value={p.granularity}
-              onChange={p.onGranularity}
-              items={[
-                { id: "week", label: labels ? "Semanas" : "Sem" },
-                { id: "month", label: labels ? "Meses" : "Mes" },
-              ]}
-            />
-          </div>
+              <div className="shrink-0 lg:hidden">
+                <SegmentedControl
+                  size="xs"
+                  ariaLabel="Granularidad"
+                  value={p.granularity}
+                  onChange={p.onGranularity}
+                  items={[
+                    { id: "week", label: "Sem" },
+                    { id: "month", label: "Mes" },
+                  ]}
+                />
+              </div>
+              <div className="hidden shrink-0 lg:block">
+                <SegmentedControl
+                  size="xs"
+                  ariaLabel="Granularidad"
+                  value={p.granularity}
+                  onChange={p.onGranularity}
+                  items={[
+                    { id: "week", label: labels ? "Semanas" : "Sem" },
+                    { id: "month", label: labels ? "Meses" : "Mes" },
+                  ]}
+                />
+              </div>
+            </>
+          )}
 
           {p.onViewTab && (
             <>
-              <span className={sep} aria-hidden />
+              {!panelChrome && <span className={sep} aria-hidden />}
               <SegmentedControl
                 size="xs"
                 ariaLabel="Vista"
@@ -279,7 +289,7 @@ export function PlanillaToolbar(p: Props) {
 
           <span className={sep} aria-hidden />
 
-          {p.onToggleMoraFilter && moraCount > 0 && (
+          {!panelChrome && p.onToggleMoraFilter && moraCount > 0 && (
             <Button
               variant={p.moraFilter ? "default" : "outline"}
               size="sm"
@@ -319,32 +329,34 @@ export function PlanillaToolbar(p: Props) {
             </Button>
           )}
 
-          <div className="flex shrink-0 items-center gap-0.5">
-            <Tip label="Expandir grupos">
-              <Button
-                variant="ghost"
-                size="sm"
-                className={btn}
-                onClick={p.onExpandGroups}
-                aria-label="Expandir grupos"
-              >
-                <ChevronsUpDown className={icon} />
-                {labels && <span className="ml-1 hidden sm:inline">Expandir</span>}
-              </Button>
-            </Tip>
-            <Tip label="Contraer grupos">
-              <Button
-                variant="ghost"
-                size="sm"
-                className={btn}
-                onClick={p.onCollapseGroups}
-                aria-label="Contraer grupos"
-              >
-                <ChevronsDownUp className={icon} />
-                {labels && <span className="ml-1 hidden sm:inline">Contraer</span>}
-              </Button>
-            </Tip>
-          </div>
+          {!panelChrome && (
+            <div className="flex shrink-0 items-center gap-0.5">
+              <Tip label="Expandir grupos">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className={btn}
+                  onClick={p.onExpandGroups}
+                  aria-label="Expandir grupos"
+                >
+                  <ChevronsUpDown className={icon} />
+                  {labels && <span className="ml-1 hidden sm:inline">Expandir</span>}
+                </Button>
+              </Tip>
+              <Tip label="Contraer grupos">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className={btn}
+                  onClick={p.onCollapseGroups}
+                  aria-label="Contraer grupos"
+                >
+                  <ChevronsDownUp className={icon} />
+                  {labels && <span className="ml-1 hidden sm:inline">Contraer</span>}
+                </Button>
+              </Tip>
+            </div>
+          )}
 
           <div className="min-w-1 flex-1" />
 
@@ -387,26 +399,28 @@ export function PlanillaToolbar(p: Props) {
             </Tip>
           )}
 
-          <div className="shrink-0" title="Modo visual de celdas">
-            <SegmentedControl
-              size="xs"
-              ariaLabel="Modo visual de celdas"
-              value={p.showChips ? "color" : "cunas"}
-              onChange={(id) => p.onChips(id === "color")}
-              items={[
-                {
-                  id: "color",
-                  label: "Color",
-                  title: "Modo color: fondo de celda = etapa (pagada / facturada / cedida)",
-                },
-                {
-                  id: "cunas",
-                  label: "Cuñas",
-                  title: "Modo cuñas: triángulos de esquina sin pintar el fondo",
-                },
-              ]}
-            />
-          </div>
+          {!panelChrome && (
+            <div className="shrink-0" title="Modo visual de celdas">
+              <SegmentedControl
+                size="xs"
+                ariaLabel="Modo visual de celdas"
+                value={p.showChips ? "color" : "cunas"}
+                onChange={(id) => p.onChips(id === "color")}
+                items={[
+                  {
+                    id: "color",
+                    label: "Color",
+                    title: "Modo color: fondo de celda = etapa (pagada / facturada / cedida)",
+                  },
+                  {
+                    id: "cunas",
+                    label: "Cuñas",
+                    title: "Modo cuñas: triángulos de esquina sin pintar el fondo",
+                  },
+                ]}
+              />
+            </div>
+          )}
 
           {p.canManage && (
             <Tip label={closeWeekLabel}>
@@ -436,75 +450,81 @@ export function PlanillaToolbar(p: Props) {
             </Button>
           </Tip>
 
-          {/* Desktop: menú overflow */}
-          <DropdownMenu modal={false}>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="outline"
-                size="sm"
-                className={`${btn} hidden lg:inline-flex ${labels ? "lg:px-2.5" : ""}`}
-                aria-label="Más herramientas"
-                title="Más herramientas"
-              >
-                <MoreHorizontal className={icon} />
-                {labels && <span className="ml-1 text-xs">Más</span>}
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="min-w-[220px]">
-              <DropdownMenuItem onSelect={p.onToggleToolbarLabels}>
-                {labels ? "Ocultar textos de barra" : "Mostrar textos de barra"}
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onSelect={p.onToggleZeros}>
-                {p.showZeros ? "Ocultar ceros" : "Mostrar ceros"}
-              </DropdownMenuItem>
-              {p.onToggleSumMode && (
-                <DropdownMenuItem onSelect={p.onToggleSumMode}>
-                  {p.sumMode ? "Salir de modo Σ" : "Modo Σ (suma)"}
-                </DropdownMenuItem>
-              )}
-              {p.onToggleMoraFilter && moraCount > 0 && (
-                <DropdownMenuItem onSelect={p.onToggleMoraFilter}>
-                  {p.moraFilter ? "Mostrar todas las filas" : `Solo mora (${moraCount})`}
-                </DropdownMenuItem>
-              )}
-              {p.onToggleCededFilter && cededCount > 0 && (
-                <DropdownMenuItem onSelect={p.onToggleCededFilter}>
-                  {p.cededFilter ? "Mostrar todas las filas" : `Solo cedidas (${cededCount})`}
-                </DropdownMenuItem>
-              )}
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onSelect={p.onToggleTheme}>
-                {p.theme === "paper" ? "Hoja noche" : "Hoja papel"}
-              </DropdownMenuItem>
-              <DropdownMenuItem onSelect={p.onToggleFreeze}>
-                {p.freeze ? "Desinmovilizar" : "Inmovilizar columnas"}
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onSelect={p.onExportXlsx}>Exportar Excel…</DropdownMenuItem>
-              <DropdownMenuItem onSelect={p.onExportCsv}>Exportar CSV…</DropdownMenuItem>
-              <DropdownMenuItem onSelect={p.onPrint}>Imprimir…</DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          {!panelChrome && (
+            <>
+              {/* Desktop: menú overflow */}
+              <DropdownMenu modal={false}>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className={`${btn} hidden lg:inline-flex ${labels ? "lg:px-2.5" : ""}`}
+                    aria-label="Más herramientas"
+                    title="Más herramientas"
+                  >
+                    <MoreHorizontal className={icon} />
+                    {labels && <span className="ml-1 text-xs">Más</span>}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="min-w-[220px]">
+                  <DropdownMenuItem onSelect={p.onToggleToolbarLabels}>
+                    {labels ? "Ocultar textos de barra" : "Mostrar textos de barra"}
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onSelect={p.onToggleZeros}>
+                    {p.showZeros ? "Ocultar ceros" : "Mostrar ceros"}
+                  </DropdownMenuItem>
+                  {p.onToggleSumMode && (
+                    <DropdownMenuItem onSelect={p.onToggleSumMode}>
+                      {p.sumMode ? "Salir de modo Σ" : "Modo Σ (suma)"}
+                    </DropdownMenuItem>
+                  )}
+                  {p.onToggleMoraFilter && moraCount > 0 && (
+                    <DropdownMenuItem onSelect={p.onToggleMoraFilter}>
+                      {p.moraFilter ? "Mostrar todas las filas" : `Solo mora (${moraCount})`}
+                    </DropdownMenuItem>
+                  )}
+                  {p.onToggleCededFilter && cededCount > 0 && (
+                    <DropdownMenuItem onSelect={p.onToggleCededFilter}>
+                      {p.cededFilter ? "Mostrar todas las filas" : `Solo cedidas (${cededCount})`}
+                    </DropdownMenuItem>
+                  )}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onSelect={p.onToggleTheme}>
+                    {p.theme === "paper" ? "Hoja noche" : "Hoja papel"}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={p.onToggleFreeze}>
+                    {p.freeze ? "Desinmovilizar" : "Inmovilizar columnas"}
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onSelect={p.onExportXlsx}>Exportar Excel…</DropdownMenuItem>
+                  <DropdownMenuItem onSelect={p.onExportCsv}>Exportar CSV…</DropdownMenuItem>
+                  <DropdownMenuItem onSelect={p.onPrint}>Imprimir…</DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
 
-          {/* Móvil: sheet overflow */}
-          <Tip label="Más herramientas">
-            <Button
-              variant="outline"
-              size="sm"
-              className={`${btn} lg:hidden`}
-              onClick={() => setMoreOpen(true)}
-              aria-label="Más herramientas"
-            >
-              <MoreHorizontal className={icon} />
-            </Button>
-          </Tip>
+              {/* Móvil: sheet overflow */}
+              <Tip label="Más herramientas">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className={`${btn} lg:hidden`}
+                  onClick={() => setMoreOpen(true)}
+                  aria-label="Más herramientas"
+                >
+                  <MoreHorizontal className={icon} />
+                </Button>
+              </Tip>
+            </>
+          )}
         </div>
       </TooltipProvider>
 
-      {/* ── Fila edición (solo desktop) ── */}
+      {/* ── Fila edición (solo desktop, no en Panel) ── */}
       <div
-        className="hidden h-8 items-center gap-0.5 rounded-full border border-ds-border-subtle bg-ds-surface-1 px-2 lg:flex"
+        className={`hidden h-8 items-center gap-0.5 rounded-full border border-ds-border-subtle bg-ds-surface-1 px-2 ${
+          panelChrome ? "" : "lg:flex"
+        }`}
         role="toolbar"
         aria-label="Formato de celda"
       >
