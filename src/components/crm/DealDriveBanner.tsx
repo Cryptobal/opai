@@ -12,6 +12,7 @@ type DriveStatus = {
   hasFolder: boolean;
   folderUrl: string | null;
   fileCount: number;
+  mode?: "OAUTH" | "SHARED_DRIVE";
 };
 
 type Props = { dealId: string; onImported?: () => void };
@@ -117,8 +118,9 @@ export function DealDriveBanner({ dealId, onImported }: Props) {
             </Button>
           </div>
           <p className="max-w-md text-[12px] text-ds-text-4">
-            Los archivos subidos directamente en Drive no son visibles para OPAI
-            (permiso drive.file). Subilos desde OPAI o pedí ampliar el scope.
+            {status.mode === "SHARED_DRIVE"
+              ? "Sincronización automática activa: lo que dejes en esta carpeta de Drive aparece en OPAI."
+              : "Los archivos subidos directamente en Drive no son visibles para OPAI (permiso drive.file). Subilos desde OPAI o activá Unidad Compartida."}
           </p>
         </div>
       ) : (

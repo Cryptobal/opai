@@ -65,6 +65,9 @@ export async function getDealDriveFolderStatus(tenantId: string, dealId: string)
     folderUrl: folderId ? `https://drive.google.com/drive/folders/${folderId}` : null,
     path,
     fileCount,
+    mode: (ws?.mode === "SHARED_DRIVE" ? "SHARED_DRIVE" : "OAUTH") as
+      | "OAUTH"
+      | "SHARED_DRIVE",
   };
 }
 
