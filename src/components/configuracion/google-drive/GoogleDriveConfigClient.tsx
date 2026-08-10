@@ -8,11 +8,18 @@ import { DriveConnectionCard } from "./DriveConnectionCard";
 import { DriveMirrorToggles } from "./DriveMirrorToggles";
 import { DriveTreePreview } from "./DriveTreePreview";
 import { DriveActivityTable, type DriveOutboxRow } from "./DriveActivityTable";
+import { SharedDriveSetupCard } from "./SharedDriveSetupCard";
 import { DEFAULT_MIRROR_CONFIG } from "@/lib/google-workspace/drive-mirror-config";
 
 type ConfigResponse = {
   connected: boolean;
   googleEmail: string | null;
+  mode: "OAUTH" | "SHARED_DRIVE";
+  sharedDriveId: string | null;
+  sharedDriveName: string | null;
+  lastIngestAt: string | null;
+  lastIngestError: string | null;
+  ingestCounts: Record<string, number>;
   mirrorConfig: Record<string, boolean>;
   recent: DriveOutboxRow[];
   rootFolderUrl: string | null;
@@ -154,6 +161,15 @@ export function GoogleDriveConfigClient() {
         onDisconnect={() =>
           void fetch("/api/integrations/google-drive/disconnect", { method: "POST" }).then(load)
         }
+      />
+      <SharedDriveSetupCard
+        mode={data?.mode ?? "OAUTH"}
+        sharedDriveId={data?.sharedDriveId ?? null}
+        sharedDriveName={data?.sharedDriveName ?? null}
+        lastIngestAt={data?.lastIngestAt ?? null}
+        lastIngestError={data?.lastIngestError ?? null}
+        ingestCounts={data?.ingestCounts ?? {}}
+        onChanged={() => void load()}
       />
       <Surface elevation={1} padding="md" className="space-y-3">
         <SectionHeader
