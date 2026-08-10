@@ -4,7 +4,7 @@ import { useState, type ReactNode } from "react";
 import {
   AlignCenter, AlignLeft, AlignRight, Bold, ChevronLeft, ChevronRight,
   ChevronsDownUp, ChevronsUpDown, Download, Inbox, Info, Lock, MoreHorizontal,
-  PaintBucket, Redo2, Search, Snowflake, Tags, Type, Undo2, ZoomIn,
+  PaintBucket, Redo2, Search, Snowflake, Type, Undo2, ZoomIn,
 } from "lucide-react";
 import { toast } from "sonner";
 import { SegmentedControl } from "@/components/opai-ds";
@@ -50,7 +50,8 @@ interface Props {
   onToday: () => void;
   onGranularity: (g: "week" | "month") => void;
   onToggleZeros: () => void;
-  onToggleChips: () => void;
+  /** true = modo color; false = modo cuñas. */
+  onChips: (showChips: boolean) => void;
   onToggleTheme: () => void;
   onZoom: (z: number) => void;
   onNumberFormat: (m: NumberFormatMode) => void;
@@ -189,9 +190,10 @@ export function PlanillaToolbar(p: Props) {
     </Button>
   );
 
-  const chipsLabel = p.showChips ? "Modo cuñas" : "Modo colores";
   const closeWeekLabel = "Cerrar semana";
-  const legendLabel = "Leyenda de colores";
+  const legendLabel = p.showChips
+    ? "Leyenda · modo color"
+    : "Leyenda · modo cuñas";
 
   return (
     <div className="planilla-chrome-print-hide mb-1 flex flex-col gap-1 text-ds-text-1">
@@ -385,19 +387,26 @@ export function PlanillaToolbar(p: Props) {
             </Tip>
           )}
 
-          <Tip label={chipsLabel}>
-            <Button
-              variant={p.showChips ? "default" : "outline"}
-              size="sm"
-              className={`${btn} shrink-0 ${labels ? "sm:px-2.5" : ""}`}
-              onClick={p.onToggleChips}
-              aria-label={chipsLabel}
-              aria-pressed={p.showChips}
-            >
-              <Tags className={icon} />
-              {labels && <span className="ml-1">Chips</span>}
-            </Button>
-          </Tip>
+          <div className="shrink-0" title="Modo visual de celdas">
+            <SegmentedControl
+              size="xs"
+              ariaLabel="Modo visual de celdas"
+              value={p.showChips ? "color" : "cunas"}
+              onChange={(id) => p.onChips(id === "color")}
+              items={[
+                {
+                  id: "color",
+                  label: "Color",
+                  title: "Modo color: fondo de celda = etapa (pagada / facturada / cedida)",
+                },
+                {
+                  id: "cunas",
+                  label: "Cuñas",
+                  title: "Modo cuñas: triángulos de esquina sin pintar el fondo",
+                },
+              ]}
+            />
+          </div>
 
           {p.canManage && (
             <Tip label={closeWeekLabel}>
@@ -702,6 +711,16 @@ export function PlanillaToolbar(p: Props) {
             <section>
               <p className="mb-2 text-ds-caption font-medium uppercase tracking-wide text-ds-text-3">Vista</p>
               <div className="grid grid-cols-2 gap-2">
+                <SheetAction
+                  label="Modo color"
+                  onClick={closeMore(() => p.onChips(true))}
+                  active={p.showChips}
+                />
+                <SheetAction
+                  label="Modo cuñas"
+                  onClick={closeMore(() => p.onChips(false))}
+                  active={!p.showChips}
+                />
                 <SheetAction
                   label={p.showZeros ? "Ocultar ceros" : "Mostrar ceros"}
                   onClick={closeMore(p.onToggleZeros)}
