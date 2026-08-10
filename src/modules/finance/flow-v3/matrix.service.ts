@@ -350,6 +350,7 @@ export async function buildFlowMatrix(
     plan, notes, settlements, committed, real: realResolved, realNetAfterWindow,
     sealedBalances: seals.sealedBalances,
     priorSealed: seals.priorSealed,
+    closedWeeks,
     residualCarryEnabled,
     residualMinClp,
   });
@@ -405,6 +406,7 @@ export async function buildFlowMatrix(
       realNetAfterWindow,
       residualCarryEnabled,
       residualMinClp,
+      closedWeeks,
     });
     return {
       granularity: "month",
