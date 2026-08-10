@@ -152,7 +152,7 @@ export function PlanillaMenubar(p: Props) {
                     onClick={close(() => p.onFreeze(!p.freeze))}
                   />
                   <Item
-                    label={p.showChips ? "Ocultar chips" : "Mostrar chips"}
+                    label={p.showChips ? "Modo cuñas (marcas)" : "Modo colores (fondo)"}
                     onClick={close(() => p.onChips(!p.showChips))}
                   />
                   <Item label={p.showZeros ? "Ocultar ceros" : "Mostrar ceros"} onClick={close(p.onZeros)} />

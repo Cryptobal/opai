@@ -42,11 +42,19 @@ export type CellStylePatch = {
 
 export type CellStylesMap = Record<string, CellStyle>;
 
+/** Versión del lenguaje visual de etapas (fondo+chip). Subir al migrar defaults. */
+export const PLANILLA_VISUAL_STAGES = 1;
+
 export interface PlanillaViewPrefs {
   theme: PlanillaTheme;
   density: PlanillaDensity;
   zoom: number;
   showChips: boolean;
+  /**
+   * Versión de migración visual. Si el valor guardado es menor que
+   * PLANILLA_VISUAL_STAGES, se aplica el default nuevo (chips ON) una vez.
+   */
+  visualStages: number;
   /**
    * Si true, la barra de contexto muestra labels junto a los iconos.
    * Default false (densidad tipo móvil).
@@ -87,7 +95,8 @@ const DEFAULTS: PlanillaViewPrefs = {
   theme: "dark", // se rehidrata con themeFromDocument / sync del shell
   density: "standard",
   zoom: 1,
-  showChips: false,
+  showChips: true,
+  visualStages: PLANILLA_VISUAL_STAGES,
   showToolbarLabels: false,
   numberFormat: "clp",
   freeze: true,
@@ -116,7 +125,17 @@ function sanitize(raw: unknown): PlanillaViewPrefs {
     typeof o.zoom === "number" && (ZOOM_STEPS as readonly number[]).includes(o.zoom)
       ? o.zoom
       : 1;
-  const showChips = o.showChips === true;
+  const savedStages =
+    typeof o.visualStages === "number" && Number.isFinite(o.visualStages)
+      ? o.visualStages
+      : 0;
+  // Migración v1: default chips ON. Quienes ya eligieron tras migrar conservan
+  // su valor; prefs antiguas (sin visualStages) pasan a fondo+chip una vez.
+  const showChips =
+    savedStages >= PLANILLA_VISUAL_STAGES
+      ? o.showChips !== false
+      : true;
+  const visualStages = PLANILLA_VISUAL_STAGES;
   const showToolbarLabels = o.showToolbarLabels === true;
   const numberFormat: NumberFormatMode =
     o.numberFormat === "m" || o.numberFormat === "mm" ? o.numberFormat : "clp";
@@ -137,7 +156,7 @@ function sanitize(raw: unknown): PlanillaViewPrefs {
     }
   }
   return {
-    theme, density, zoom, showChips, showToolbarLabels,
+    theme, density, zoom, showChips, visualStages, showToolbarLabels,
     numberFormat, freeze, cellStyles, nameW,
   };
 }

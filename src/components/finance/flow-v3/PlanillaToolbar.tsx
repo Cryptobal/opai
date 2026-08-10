@@ -189,7 +189,7 @@ export function PlanillaToolbar(p: Props) {
     </Button>
   );
 
-  const chipsLabel = p.showChips ? "Ocultar chips" : "Mostrar chips";
+  const chipsLabel = p.showChips ? "Modo cuñas" : "Modo colores";
   const closeWeekLabel = "Cerrar semana";
   const legendLabel = "Leyenda de colores";
 

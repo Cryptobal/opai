@@ -457,6 +457,22 @@ export function pastPendingGhostMeta(
   return null;
 }
 
+/**
+ * Clase de fondo (modo chips) para capa committed.
+ * Cedida → violeta; facturada → azul; borrador (con/sin docs) → sin fondo;
+ * programada → sin fondo + borde punteado info.
+ */
+export function committedChipFillKey(input: {
+  hasDte: boolean;
+  hasDraft: boolean;
+  hasSentDoc: boolean;
+  ceded: boolean;
+}): "ceded" | "dte" | "draft" | "scheduled" {
+  if (input.hasDte) return input.ceded ? "ceded" : "dte";
+  if (input.hasDraft || input.hasSentDoc) return "draft";
+  return "scheduled";
+}
+
 /** Tag primario de la celda para fx bar / chip. */
 export function primaryCellTag(
   cell: FlowMatrixCellDto,
