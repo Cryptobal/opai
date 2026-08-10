@@ -19,105 +19,46 @@ import {
   weekStartYmd,
   ymdToDate,
 } from "./weeks";
+import { countAssignPendingInWindow } from "./unmatched-count";
+import { buildAging } from "./insights-aging";
+import { buildMonthlyDrifts } from "./insights-drift";
+import {
+  buildIntegrity,
+  buildPanelWeeks,
+  buildTopMovers,
+  derivePanelKpis,
+} from "./insights-series";
+import type {
+  CarteraPendienteItem,
+  FlowInsightsDto,
+  OpenMoveWeek,
+} from "./insights-types";
 
-export interface CarteraPendienteItem {
-  dteId: string;
-  folio: number | null;
-  receiverName: string | null;
-  issueDate: string;
-  dueDate: string;
-  overdueDays: number;
-  pendingClp: number;
-  /** Semana (lunes YMD) donde está anclada (emisión u override). */
-  anchoredWeek: string;
-  anchoredWeekLabel: string;
-  crmAccountId: string | null;
-  /** Cesión vigente (total o parcial) — listada sin mora ni cobranza. */
-  ceded?: boolean;
-  cededPct?: number;
-}
+export type {
+  CarteraPendienteItem,
+  FlowInsightsDto,
+  OpenMoveWeek,
+} from "./insights-types";
 
-export interface OpenMoveWeek {
-  weekStart: string;
-  label: string;
-}
-
-export interface FlowInsightsDto {
-  saldoHoy: number | null;
-  redWeek: { weekStart: string; balance: number } | null;
-  min12: { weekStart: string; balance: number } | null;
-  porCobrarTotal: number;
-  aging: { alDia: number; d1_15: number; d16_30: number; d30plus: number };
-  /** Cartera global post-exclusiones, ordenada por atraso desc. */
-  cartera: CarteraPendienteItem[];
-  /** Semanas abiertas (actual + futuras no selladas) para "Mover a…". */
-  openMoveWeeks: OpenMoveWeek[];
-  balanceSeries: Array<{ weekStart: string; label: string; balance: number }>;
-  recentSeals: Array<{
-    weekEnd: string;
-    closedBalance: number;
-    projectedBalance: number;
-    delta: number;
-  }>;
-  warnThresholdClp: number;
-  /** Desviaciones mensuales (proyectado vs real) para filas clave v5. */
-  monthlyDrifts: MonthlyDriftRow[];
-}
-
+/** @deprecated Usar MonthlyDriftRowV2. */
 export interface MonthlyDriftCell {
-  monthKey: string; // YYYY-MM
+  monthKey: string;
   projected: number;
   real: number;
   delta: number;
 }
 
+/** @deprecated */
 export interface MonthlyDriftRow {
   rowId: string;
   name: string;
   months: MonthlyDriftCell[];
 }
 
-const DRIFT_ROW_NAMES = [
-  "sueldos liquidos",
-  "sueldos líquidos",
-  "imposiciones (previred)",
-  "previred",
-  "imposiciones",
-  "turnos extra",
-  "finiquitos",
-  "iva f29",
-  "f29 (iva + ppm)",
-  "retiro socios",
-  "aporte socios",
-  "devolucion a socios",
-  "devolución a socios",
-];
-
-function normalizeInsightName(s: string): string {
-  return s
-    .trim()
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/\p{M}/gu, "");
-}
-
-function isDriftKeyRow(name: string): boolean {
-  const n = normalizeInsightName(name);
-  return DRIFT_ROW_NAMES.some((k) => n === k || n.includes(k));
-}
-
-function daysBetween(fromYmd: string, toYmd: string): number {
-  const a = Date.parse(`${fromYmd}T00:00:00Z`);
-  const b = Date.parse(`${toYmd}T00:00:00Z`);
-  if (!Number.isFinite(a) || !Number.isFinite(b)) return 0;
-  return Math.max(0, Math.round((b - a) / 86_400_000));
-}
-
-/** Panel read-only: 12 semanas desde hoy + aging DTEs + cartera drill + sellos. */
+/** Panel read-only: serie 26 sem + aging dual + cartera + sellos + drifts. */
 export async function buildFlowInsights(tenantId: string): Promise<FlowInsightsDto> {
   const today = new Date();
   const currentMonday = weekStartYmd(today);
-  // Horizonte para desviaciones: ~14 sem hacia atrás (3 meses) + 12 adelante.
   const fromMonday = toYmd(addWeeksUTC(ymdToDate(currentMonday)!, -14));
   const fromDate = ymdToDate(fromMonday)!;
   const toDate = addWeeksUTC(ymdToDate(currentMonday)!, 11);
@@ -129,23 +70,30 @@ export async function buildFlowInsights(tenantId: string): Promise<FlowInsightsD
   });
 
   const warn = matrix.warnThreshold ?? 0;
-  let redWeek: FlowInsightsDto["redWeek"] = null;
-  let min12: FlowInsightsDto["min12"] = null;
-
-  // KPIs de "próximas 12 sem" solo miran desde la semana actual.
-  for (let i = 0; i < matrix.balances.length; i++) {
-    const weekStart = matrix.columns[i]?.weekStart ?? matrix.columns[i]?.key ?? "";
-    if (!weekStart || weekStart < currentMonday) continue;
-    const balance = matrix.balances[i] ?? 0;
-    if (min12 == null || balance < min12.balance) {
-      min12 = { weekStart, balance };
-    }
-    if (redWeek == null && balance < 0 && balance < warn) {
-      redWeek = { weekStart, balance };
-    }
-  }
-
+  const bufferClp = Math.max(0, warn);
+  const todayYmd = toYmd(today);
   const saldoHoy = matrix.kpis?.saldoHoy ?? null;
+
+  const weeks = buildPanelWeeks({
+    columns: matrix.columns,
+    balances: matrix.balances,
+    rows: matrix.rows,
+    closedWeeks: matrix.closedWeeks,
+    balanceAnchors: matrix.balanceAnchors,
+    balanceBreaks: matrix.balanceBreaks,
+    currentWeek: currentMonday,
+  });
+
+  const kpis = derivePanelKpis(weeks, {
+    currentWeek: currentMonday,
+    buffer: bufferClp,
+    saldoHoy,
+  });
+
+  const topMovers = buildTopMovers(matrix.rows, weeks, {
+    fromWeek: currentMonday,
+    count: 4,
+  });
 
   // Candidatos de "Mover a…" (actual + 11 futuras) para filtrar selladas.
   const moveCandidates: string[] = [];
@@ -169,7 +117,6 @@ export async function buildFlowInsights(tenantId: string): Promise<FlowInsightsD
         dteType: { in: [33, 34] },
         siiStatus: { in: ["ACCEPTED", "PENDING", "SENT"] },
         voidedByCreditNoteId: null,
-        // CEDED: listadas en cartera con chip, overdueDays=0.
         paymentStatus: { in: ["UNPAID", "PARTIAL", "OVERDUE", "CEDED"] },
       },
       select: {
@@ -183,6 +130,7 @@ export async function buildFlowInsights(tenantId: string): Promise<FlowInsightsD
         receiverName: true,
         crmAccountId: true,
       },
+      orderBy: { date: "desc" },
       take: 2000,
     }),
     prisma.financeCashflowDteFlowExclusion.findMany({
@@ -201,7 +149,6 @@ export async function buildFlowInsights(tenantId: string): Promise<FlowInsightsD
     overrides.map((o) => [o.dteId, o.customDate.toISOString().slice(0, 10)]),
   );
   const lagDays = config?.collectionLagDays ?? DEFAULT_COLLECTION_LAG_DAYS;
-  const todayYmd = toYmd(today);
   const sealedMondays = new Set(closedMondays);
   const cutoffYmd = config?.flowCutoffYmd
     ? config.flowCutoffYmd.toISOString().slice(0, 10)
@@ -232,9 +179,13 @@ export async function buildFlowInsights(tenantId: string): Promise<FlowInsightsD
     opsByDte.set(op.dteId, list);
   }
 
-  const aging = { alDia: 0, d1_15: 0, d16_30: 0, d30plus: 0 };
-  let porCobrarTotal = 0;
   const cartera: CarteraPendienteItem[] = [];
+  const agingItems: Array<{
+    issueYmd: string;
+    dueYmd: string;
+    pendingClp: number;
+    ceded: boolean;
+  }> = [];
 
   for (const d of dtes) {
     if (excludedIds.has(d.id)) continue;
@@ -268,15 +219,12 @@ export async function buildFlowInsights(tenantId: string): Promise<FlowInsightsD
     });
     const ceded = cession?.active === true;
 
-    // Aging / total "por cobrar": solo cobrables (sin cesión vigente).
-    if (!ceded) {
-      porCobrarTotal += pending;
-      const daysSinceIssue = daysBetween(issue, todayYmd);
-      if (daysSinceIssue <= 0) aging.alDia += pending;
-      else if (daysSinceIssue <= 15) aging.d1_15 += pending;
-      else if (daysSinceIssue <= 30) aging.d16_30 += pending;
-      else aging.d30plus += pending;
-    }
+    agingItems.push({
+      issueYmd: issue,
+      dueYmd,
+      pendingClp: pending,
+      ceded,
+    });
 
     const placementYmd = overrideByDteId.get(d.id) ?? issue;
     const anchoredWeek = weekStartYmd(ymdToDate(placementYmd) ?? d.date);
@@ -297,6 +245,8 @@ export async function buildFlowInsights(tenantId: string): Promise<FlowInsightsD
   }
 
   cartera.sort((a, b) => b.overdueDays - a.overdueDays || b.pendingClp - a.pendingClp);
+
+  const agingResult = buildAging(agingItems, todayYmd);
 
   const openMoveWeeks: OpenMoveWeek[] = moveCandidates
     .filter((ws) => !sealedMondays.has(ws))
@@ -328,8 +278,6 @@ export async function buildFlowInsights(tenantId: string): Promise<FlowInsightsD
     };
   });
 
-  // Desviaciones mensuales: agrega celdas con real de filas clave
-  // (últimos 3 meses cerrados + mes actual del horizonte de matriz).
   const todayMonth = todayYmd.slice(0, 7);
   const monthKeys: string[] = [];
   {
@@ -345,61 +293,50 @@ export async function buildFlowInsights(tenantId: string): Promise<FlowInsightsD
     }
   }
 
-  const monthlyDrifts: MonthlyDriftRow[] = [];
-  for (const row of matrix.rows) {
-    if (!isDriftKeyRow(row.name)) continue;
-    const byMonth = new Map<string, { projected: number; real: number }>();
-    for (const mk of monthKeys) byMonth.set(mk, { projected: 0, real: 0 });
-    for (const cell of row.cells) {
-      const mk = cell.weekStart.slice(0, 7);
-      const bucket = byMonth.get(mk);
-      if (!bucket) continue;
-      const realMag = cell.real ? Math.abs(cell.real.total) : 0;
-      const projMag =
-        cell.projected != null
-          ? cell.projected
-          : cell.plan !== 0
-            ? Math.abs(cell.plan)
-            : Math.abs(cell.committed?.total ?? 0);
-      if (realMag > 0 || cell.drift) {
-        bucket.real += realMag;
-        bucket.projected += projMag;
-      } else if (projMag > 0 && mk === todayMonth && cell.weekStart >= currentMonday) {
-        bucket.projected += projMag;
-      }
-    }
-    monthlyDrifts.push({
-      rowId: row.id,
-      name: row.name,
-      months: monthKeys.map((mk) => {
-        const b = byMonth.get(mk)!;
-        return {
-          monthKey: mk,
-          projected: Math.round(b.projected),
-          real: Math.round(b.real),
-          delta: Math.round(b.real - b.projected),
-        };
-      }),
-    });
-  }
+  const monthlyDrifts = buildMonthlyDrifts(matrix.rows, {
+    monthKeys,
+    currentWeek: currentMonday,
+    todayYmd,
+  });
+
+  const detail = matrix.openingBalanceDetail;
+  const dataHealth = buildIntegrity({
+    todayYmd,
+    bankAsOfYmd: detail?.lastSnapshotYmd ?? null,
+    accounts: detail?.perAccount?.length ?? 0,
+    sealedWeeks: matrix.closedWeeks.length,
+    balanceBreaks: matrix.balanceBreaks.filter((b) => b != null).length,
+    unroutedIncome: matrix.unroutedIncome ?? { count: 0, totalClp: 0 },
+    assignPending: countAssignPendingInWindow(matrix.rows),
+    dteTruncated: dtes.length === 2000,
+  });
 
   return {
+    todayYmd,
+    currentWeek: currentMonday,
     saldoHoy,
-    redWeek,
-    min12,
-    porCobrarTotal,
-    aging,
+    bufferClp,
+    warnThresholdClp: warn,
+    weeks,
+    kpis,
+    dataHealth,
+    topMovers,
+    porCobrarTotal: agingResult.totalClp,
+    aging: agingResult.byIssue,
+    agingByDue: agingResult.byDue,
+    agingMeta: { collectionLagDays: lagDays },
     cartera,
     openMoveWeeks,
-    balanceSeries: matrix.columns
-      .map((c, i) => ({
-        weekStart: c.weekStart,
-        label: c.label,
-        balance: matrix.balances[i] ?? 0,
-      }))
-      .filter((c) => c.weekStart >= currentMonday),
     recentSeals,
-    warnThresholdClp: warn,
     monthlyDrifts,
+    balanceSeries: weeks
+      .filter((w) => w.weekStart >= currentMonday)
+      .map((w) => ({
+        weekStart: w.weekStart,
+        label: w.label,
+        balance: w.balance,
+      })),
+    redWeek: kpis.firstNegative,
+    min12: kpis.min12,
   };
 }
