@@ -11,6 +11,7 @@ import { savePendingMark } from "@/lib/rondas-offline";
 import { evaluateGeofenceWithTolerance } from "@/lib/rondas/geo-fence-client";
 import type { RondasSession } from "./RondasPortalClient";
 import type { MapCheckpoint } from "./RondaMap";
+import { useRondaTracking } from "./useRondaTracking";
 
 const RondaMap = dynamic(() => import("./RondaMap"), { ssr: false });
 
@@ -203,6 +204,7 @@ export function RondaActiva({
     lat: number;
     lng: number;
   } | null>(null);
+  const guardPosRef = useRef<{ lat: number; lng: number } | null>(null);
   const [gpsAccuracy, setGpsAccuracy] = useState<number | null>(null);
   /** Fix GPS con accuracy <= 75 m — habilita geocerca, banner y auto-marcado. */
   const [hasQualityFix, setHasQualityFix] = useState(false);
@@ -212,6 +214,7 @@ export function RondaActiva({
 
   // -- GPS trail for ad-hoc map display --
   const [trailPoints, setTrailPoints] = useState<{ lat: number; lng: number }[]>([]);
+  const trailPointsRef = useRef<{ lat: number; lng: number }[]>([]);
 
   // -- Follow mode state --
   const [isFollowing, setIsFollowing] = useState(true);
@@ -265,6 +268,7 @@ export function RondaActiva({
         // Primera lectura: aceptar solo para posición en mapa si accuracy <= umbral
         if (prevQ == null && newAcc > MAX_ACCEPTABLE_ACCURACY_M) {
           const pt = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+          guardPosRef.current = pt;
           setGuardPos(pt);
           setGpsAccuracy(newAcc);
           return;
@@ -277,6 +281,7 @@ export function RondaActiva({
 
         guardReadQualityRef.current = { accuracy: newAcc, ts: now };
         const pt = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        guardPosRef.current = pt;
         setGuardPos(pt);
         setGpsAccuracy(newAcc);
         if (newAcc <= MAX_ACCEPTABLE_ACCURACY_M) {
@@ -284,12 +289,17 @@ export function RondaActiva({
         }
         setTrailPoints((prev) => {
           // Only add if moved >3m from last point (avoid clutter)
-          if (prev.length === 0) return [pt];
+          if (prev.length === 0) {
+            trailPointsRef.current = [pt];
+            return [pt];
+          }
           const last = prev[prev.length - 1];
           const dx = (pt.lat - last.lat) * 111320;
           const dy = (pt.lng - last.lng) * 111320 * Math.cos(pt.lat * Math.PI / 180);
           if (Math.sqrt(dx * dx + dy * dy) < 3) return prev;
-          return [...prev, pt];
+          const next = [...prev, pt];
+          trailPointsRef.current = next;
+          return next;
         });
       },
       () => {},
@@ -318,59 +328,13 @@ export function RondaActiva({
   // Free-form (GPS-only) mode: ad-hoc AND no checkpoints from installation
   const isAdHocFreeForm = isAdHoc && checkpoints.length === 0;
 
-  // -- Server-side GPS tracking (every 30s mientras la ronda está en curso) --
-  const trackingPointsRef = useRef<Array<{ lat: number; lng: number; ts: number }>>([]);
-
-  useEffect(() => {
-    const sendTracking = async () => {
-      if (!guardPos) return;
-      try {
-        await fetch("/api/portal/rondas/tracking", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            ejecucionId: rondaData.ejecucionId,
-            guardiaId: session.guardiaId,
-            lat: guardPos.lat,
-            lng: guardPos.lng,
-          }),
-        });
-        trackingPointsRef.current = [
-          ...trackingPointsRef.current,
-          { lat: guardPos.lat, lng: guardPos.lng, ts: Date.now() },
-        ];
-      } catch {
-        // Silent fail — tracking is best-effort
-      }
-    };
-
-    sendTracking();
-    const id = setInterval(sendTracking, 30000);
-    return () => clearInterval(id);
-  }, [guardPos?.lat, guardPos?.lng, rondaData.ejecucionId, session?.guardiaId]);
-
-  // -- Flush accumulated GPS trail to server every 60 s (survives auto-close) --
-  useEffect(() => {
-    const flushWalkRoute = async () => {
-      if (trailPoints.length < 2) return;
-      try {
-        await fetch("/api/portal/rondas/walk-route-flush", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            ejecucionId: rondaData.ejecucionId,
-            guardiaId: session.guardiaId,
-            points: trailPoints,
-          }),
-        });
-      } catch {
-        // Silent fail — flush is best-effort
-      }
-    };
-
-    const id = setInterval(flushWalkRoute, 60000);
-    return () => clearInterval(id);
-  }, [trailPoints, rondaData.ejecucionId, session.guardiaId]);
+  // -- Server-side GPS tracking (30s) + walk-route flush (60s); stable deps --
+  useRondaTracking({
+    ejecucionId: rondaData.ejecucionId,
+    guardiaId: session.guardiaId,
+    getPosition: () => guardPosRef.current,
+    getTrail: () => trailPointsRef.current,
+  });
 
   // Timer interval
   useEffect(() => {
