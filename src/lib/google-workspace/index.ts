@@ -21,7 +21,12 @@ export {
   calendarRedirectUri,
   calendarWebhookUrl,
 } from "./env";
-export { ensureFolderPath, uploadR2ToDrive } from "./drive.service";
+export {
+  ensureFolderPath,
+  uploadR2ToDrive,
+  resolveRootFolder,
+  ensureRootFolder,
+} from "./drive.service";
 export {
   SUPPORTED_DOC_TYPES,
   DEFAULT_MIRROR_CONFIG,
