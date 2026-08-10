@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { formatThousands } from "./format";
+import { formatThousands, NUM_CLASS } from "./format";
 import { tryEvalArithmetic } from "./eval-arithmetic";
 
 /** Editor inline de celda: acepta montos CLP o expresiones `=…` con preview. */
@@ -14,13 +14,24 @@ export function InlineCellEditor({
   onCommit: (raw: string, move: "down" | "right" | "none") => void;
   onCancel: () => void;
 }) {
-  const [value, setValue] = useState(initial);
+  const format = (raw: string) => {
+    if (raw.trimStart().startsWith("=")) return raw;
+    const neg = raw.trim().startsWith("-") ? "-" : "";
+    return neg + formatThousands(raw);
+  };
+
+  const [value, setValue] = useState(() => format(initial));
   const [hint, setHint] = useState<string | null>(null);
   const ref = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    ref.current?.focus();
-    ref.current?.setSelectionRange(value.length, value.length);
+    const el = ref.current;
+    if (!el) return;
+    el.focus();
+    // Con valor precargado (Enter / doble clic): seleccionar todo para
+    // reemplazar de inmediato o Cmd+A / Backspace. Con tipeo de dígito: cursor al final.
+    if (initial) el.select();
+    else el.setSelectionRange(value.length, value.length);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -31,12 +42,6 @@ export function InlineCellEditor({
       : arith?.ok === false
         ? arith.reason
         : null;
-
-  const format = (raw: string) => {
-    if (raw.trimStart().startsWith("=")) return raw;
-    const neg = raw.trim().startsWith("-") ? "-" : "";
-    return neg + formatThousands(raw);
-  };
 
   const commit = (move: "down" | "right" | "none") => {
     const evaled = tryEvalArithmetic(value);
@@ -72,6 +77,12 @@ export function InlineCellEditor({
         }}
         onKeyDown={(e) => {
           e.stopPropagation();
+          const mod = e.metaKey || e.ctrlKey;
+          if (mod && (e.key === "a" || e.key === "A")) {
+            e.preventDefault();
+            e.currentTarget.select();
+            return;
+          }
           if (e.key === "Enter") {
             e.preventDefault();
             commit("down");
@@ -84,7 +95,8 @@ export function InlineCellEditor({
           }
         }}
         onBlur={() => commit("none")}
-        className="h-[calc(var(--plnx-row-h)-2px)] max-md:h-7 w-full rounded-none border border-primary bg-ds-surface-2 px-1 max-md:px-0.5 text-right text-ds-text-1 outline-none tabular-nums"
+        className={`h-full max-h-full w-full min-h-0 rounded-none border border-primary bg-ds-surface-2 px-1 max-md:px-0.5 text-right text-ds-text-1 outline-none ${NUM_CLASS}`}
+        style={{ fontSize: "inherit", fontWeight: 400, lineHeight: "inherit" }}
         aria-invalid={!!hint}
         title={hint ?? undefined}
       />

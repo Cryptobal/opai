@@ -1,9 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 import type { BalanceBreak, MatrixColumn } from "@/modules/finance/flow-v3/matrix-types";
 import { weekLabel } from "@/modules/finance/flow-v3/weeks";
-import { fmtCell, fmtClp, NUM_CLASS, numSizeClass, type NumberFormatMode } from "./format";
+import {
+  fmtCell, fmtClp, formatThousands, NUM_CLASS, numSizeClass, type NumberFormatMode,
+} from "./format";
 import { COL_W, GUTTER_CELL, GUTTER_W, NAME_LEFT, NAME_W, TODAY_COL } from "./grid-classes";
 
 interface Props {
@@ -35,11 +38,20 @@ function heatClass(balance: number, warnThreshold: number): string {
   return "bg-status-ok-soft/50 text-status-ok-fg";
 }
 
+function formatBalanceDraft(raw: string): string {
+  const neg = raw.trim().startsWith("-") ? "-" : "";
+  return neg + formatThousands(raw);
+}
+
 function parseClpInput(raw: string): number | null {
-  const cleaned = raw.replace(/[.\s]/g, "").replace(",", ".").trim();
-  if (cleaned === "") return null;
-  const n = Number(cleaned);
-  return Number.isFinite(n) ? Math.round(n) : null;
+  const trimmed = raw.trim();
+  if (trimmed === "" || trimmed === "-") return null;
+  const neg = trimmed.startsWith("-");
+  const digits = trimmed.replace(/\D/g, "");
+  if (!digits) return null;
+  const n = Number(digits);
+  if (!Number.isFinite(n)) return null;
+  return neg ? -Math.round(n) : Math.round(n);
 }
 
 export function BalanceRow({
@@ -54,7 +66,11 @@ export function BalanceRow({
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (editIdx != null) inputRef.current?.focus();
+    if (editIdx == null) return;
+    const el = inputRef.current;
+    if (!el) return;
+    el.focus();
+    el.select();
   }, [editIdx]);
 
   const nameTh = `planilla-name-col ${NAME_W} sticky ${NAME_LEFT} z-10 border-r border-t border-ds-border-default bg-ds-surface-2 px-1.5 max-md:px-1 text-left overflow-hidden whitespace-nowrap ${EYEBROW} text-ds-text-3`;
@@ -69,9 +85,20 @@ export function BalanceRow({
     (i: number) => {
       if (!canManage || !onBalanceAnchor) return;
       const col = columns[i];
-      if (!col || closedSet.has(col.key)) return;
+      if (!col) return;
+      if (closedSet.has(col.key)) {
+        toast.message("Semana cerrada", {
+          description: "El saldo acumulado queda fijo. Reabre el cierre para editarlo.",
+        });
+        return;
+      }
+      const bal = Math.round(balances[i] ?? 0);
+      const seeded =
+        bal === 0
+          ? ""
+          : (bal < 0 ? "-" : "") + formatThousands(String(Math.abs(bal)));
       setEditIdx(i);
-      setDraft(String(Math.round(balances[i] ?? 0)));
+      setDraft(seeded);
     },
     [canManage, onBalanceAnchor, columns, closedSet, balances],
   );
@@ -90,7 +117,6 @@ export function BalanceRow({
     }
     const parsed = parseClpInput(draft);
     if (parsed == null) {
-      // Vacío ⇒ borrar ancla si existía; si no, cancelar.
       if (balanceAnchors?.[col.key] != null) {
         setSaving(true);
         try {
@@ -140,8 +166,6 @@ export function BalanceRow({
           );
         })}
       </tr>
-      {/* bg opaco en el tr: las celdas heat usan tokens soft translúcidos y el
-          footer sticky flota sobre filas que scrollean por debajo. */}
       <tr className="h-[var(--plnx-row-h)] bg-ds-surface-1">
         <td aria-hidden className={`${gutterTh} border-t-0`}>
           {startNumber + 1}
@@ -162,8 +186,8 @@ export function BalanceRow({
             : undefined;
           const editHint = editable
             ? anchored
-              ? "Ancla manual · doble clic para editar · vaciar para quitar"
-              : "Doble clic para anclar saldo acumulado"
+              ? "Ancla manual · clic para editar · vaciar para quitar"
+              : "Clic para fijar saldo acumulado (recalcula hacia adelante)"
             : closed
               ? "Semana cerrada — saldo fijo"
               : undefined;
@@ -173,7 +197,7 @@ export function BalanceRow({
             return (
               <td
                 key={c.key}
-                className={`relative ${cellBase} border-t-0 font-semibold ${heatClass(balances[i], warnThreshold)} ${c.isCurrent ? TODAY_COL : ""} ${sel(i)}`}
+                className={`relative ${cellBase} border-t-0 font-semibold ${heatClass(balances[i], warnThreshold)} ${c.isCurrent ? TODAY_COL : ""} ${sel(i)} p-0`}
               >
                 <input
                   ref={inputRef}
@@ -181,9 +205,16 @@ export function BalanceRow({
                   inputMode="numeric"
                   disabled={saving}
                   value={draft}
-                  onChange={(e) => setDraft(e.target.value)}
+                  onChange={(e) => setDraft(formatBalanceDraft(e.target.value))}
                   onBlur={() => void commitEdit()}
                   onKeyDown={(e) => {
+                    e.stopPropagation();
+                    const mod = e.metaKey || e.ctrlKey;
+                    if (mod && (e.key === "a" || e.key === "A")) {
+                      e.preventDefault();
+                      e.currentTarget.select();
+                      return;
+                    }
                     if (e.key === "Enter") {
                       e.preventDefault();
                       void commitEdit();
@@ -192,7 +223,8 @@ export function BalanceRow({
                       cancelEdit();
                     }
                   }}
-                  className="h-10 w-full min-w-0 bg-transparent text-right text-[13px] font-semibold tabular-nums outline-none sm:h-9"
+                  className={`h-full w-full min-w-0 bg-transparent px-1.5 max-md:px-[3px] text-right text-ds-text-1 outline-none ${NUM_CLASS}`}
+                  style={{ fontSize: "inherit", fontWeight: 600, lineHeight: "inherit" }}
                   aria-label={`Saldo acumulado ${weekLabel(c.key)}`}
                 />
               </td>
@@ -203,9 +235,12 @@ export function BalanceRow({
             <td
               key={c.key}
               title={title}
-              onDoubleClick={() => startEdit(i)}
+              onClick={() => {
+                if (editable) startEdit(i);
+                else if (closed && canManage) startEdit(i); // toast
+              }}
               className={`relative ${cellBase} border-t-0 font-semibold ${numSizeClass(text)} ${heatClass(balances[i], warnThreshold)} ${c.isCurrent ? TODAY_COL : ""} ${sel(i)} ${
-                editable ? "cursor-text" : ""
+                editable ? "cursor-text" : closed ? "cursor-not-allowed" : ""
               }`}
             >
               {brk && (

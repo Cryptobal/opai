@@ -27,6 +27,8 @@ export function usePlanillaKeyboard(opts: {
   onCopy?: () => void;
   /** Escape: limpiar selección discontinua (modo Σ) u otros overlays. */
   onEscape?: () => void;
+  /** Enter / F2: texto inicial del editor (monto con miles). */
+  getEditSeed?: (sel: CellSel) => string;
 }) {
   const [range, setRange] = useState<RangeSel | null>(null);
   const [editing, setEditing] = useState<{ sel: CellSel; initial: string } | null>(null);
@@ -144,7 +146,10 @@ export function usePlanillaKeyboard(opts: {
       else if (k === "ArrowUp") { e.preventDefault(); move(-1, 0, e.shiftKey); }
       else if (k === "ArrowRight") { e.preventDefault(); move(0, 1, e.shiftKey); }
       else if (k === "ArrowLeft") { e.preventDefault(); move(0, -1, e.shiftKey); }
-      else if (k === "Enter") { e.preventDefault(); startEdit(sel, ""); }
+      else if (k === "Enter" || k === "F2") {
+        e.preventDefault();
+        startEdit(sel, opts.getEditSeed?.(sel) ?? "");
+      }
       else if (k === " ") { e.preventDefault(); opts.onOpenPopover(sel); }
       else if (k === "n" || k === "N") {
         if (mod) return;
