@@ -101,15 +101,16 @@ function val(obj: Record<string, any>, key: string): string {
 // Step 0 — Search with role assignment
 // ──────────────────────────────────────────────
 function AccountRoleCard({
-  acc, masterAccount, duplicateAccount, onSelect,
+  acc, masterAccount, duplicateAccounts, onSelect, onClearRole,
 }: {
   acc: AccountResult;
   masterAccount: AccountResult | null;
-  duplicateAccount: AccountResult | null;
+  duplicateAccounts: AccountResult[];
   onSelect: (acc: AccountResult, role: "master" | "duplicate") => void;
+  onClearRole: (acc: AccountResult) => void;
 }) {
   const isMaster = masterAccount?.id === acc.id;
-  const isDuplicate = duplicateAccount?.id === acc.id;
+  const isDuplicate = duplicateAccounts.some((d) => d.id === acc.id);
   const lc = lifecycleLabel(acc);
   return (
     <div className={`rounded-lg border p-3 transition-all ${isMaster ? "border-status-ok-border bg-status-ok-soft" : isDuplicate ? "border-status-danger-border bg-status-danger-soft/30" : "border-ds-border-default"}`}>
@@ -141,8 +142,12 @@ function AccountRoleCard({
           </Button>
         </div>
       ) : (
-        <Button size="sm" variant="ghost" className="mt-1 h-10 sm:h-8 text-xs text-ds-text-3 px-2"
-          onClick={() => onSelect(acc, isMaster ? "duplicate" : "master")}>Cambiar rol</Button>
+        <div className="flex gap-2 mt-2">
+          <Button size="sm" variant="ghost" className="h-10 sm:h-8 text-xs text-ds-text-3 px-2"
+            onClick={() => onSelect(acc, isMaster ? "duplicate" : "master")}>Cambiar rol</Button>
+          <Button size="sm" variant="ghost" className="h-10 sm:h-8 text-xs text-ds-text-3 px-2"
+            onClick={() => onClearRole(acc)}>Quitar</Button>
+        </div>
       )}
     </div>
   );
@@ -152,7 +157,7 @@ function SearchStep({
   scope, setScope, hasCurrentContext,
   query, setQuery, results, loading,
   clusters, scanLoading, selectedClusterId, onSelectCluster, onClearCluster,
-  masterAccount, duplicateAccount, onSelect,
+  masterAccount, duplicateAccounts, onSelect, onClearRole, onMarkRestAsDuplicates,
 }: {
   scope: SearchScope;
   setScope: (s: SearchScope) => void;
@@ -167,10 +172,39 @@ function SearchStep({
   onSelectCluster: (cluster: ClusterView) => void;
   onClearCluster: () => void;
   masterAccount: AccountResult | null;
-  duplicateAccount: AccountResult | null;
+  duplicateAccounts: AccountResult[];
   onSelect: (acc: AccountResult, role: "master" | "duplicate") => void;
+  onClearRole: (acc: AccountResult) => void;
+  onMarkRestAsDuplicates: (accounts: AccountResult[]) => void;
 }) {
   const selectedCluster = clusters.find((c) => c.id === selectedClusterId) ?? null;
+  const rolePool = scope === "current" ? results : (selectedCluster?.accounts ?? []);
+  const unmarkedCount = rolePool.filter(
+    (a) => a.id !== masterAccount?.id && !duplicateAccounts.some((d) => d.id === a.id)
+  ).length;
+  const canMarkRest = Boolean(masterAccount) && unmarkedCount > 0;
+
+  const roleListHeader = (count: number, hint: string) => (
+    <div className="flex items-start justify-between gap-2">
+      <p className="text-xs text-ds-text-3">
+        {count} cuenta{count !== 1 ? "s" : ""}. {hint}
+        {duplicateAccounts.length > 0 && (
+          <> · <span className="text-status-danger-fg font-medium">{duplicateAccounts.length} a eliminar</span></>
+        )}
+      </p>
+      {canMarkRest && (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="h-10 sm:h-8 shrink-0 text-xs border-status-danger-border text-status-danger-fg hover:bg-status-danger-soft"
+          onClick={() => onMarkRestAsDuplicates(rolePool)}
+        >
+          <Trash2 className="h-3 w-3 mr-1" /> Eliminar resto ({unmarkedCount})
+        </Button>
+      )}
+    </div>
+  );
 
   return (
     <div className="space-y-4">
@@ -220,16 +254,15 @@ function SearchStep({
           )}
           {results.length > 0 && (
             <div className="space-y-2">
-              <p className="text-xs text-ds-text-3">
-                {results.length} cuenta{results.length !== 1 ? "s" : ""} encontrada{results.length !== 1 ? "s" : ""}. Asigna un rol a cada cuenta.
-              </p>
+              {roleListHeader(results.length, "Conserva una y marca todas las que quieras eliminar.")}
               {results.map((acc) => (
                 <AccountRoleCard
                   key={acc.id}
                   acc={acc}
                   masterAccount={masterAccount}
-                  duplicateAccount={duplicateAccount}
+                  duplicateAccounts={duplicateAccounts}
                   onSelect={onSelect}
+                  onClearRole={onClearRole}
                 />
               ))}
             </div>
@@ -250,15 +283,16 @@ function SearchStep({
               <ChevronLeft className="h-4 w-4 mr-1" /> Ver todos
             </Button>
           </div>
-          <p className="text-xs text-ds-text-3">Asigna master y duplicado para fusionar este grupo.</p>
+          {roleListHeader(selectedCluster.accounts.length, "Conserva una y elimina el resto del grupo.")}
           <div className="space-y-2">
             {selectedCluster.accounts.map((acc) => (
               <AccountRoleCard
                 key={acc.id}
                 acc={acc}
                 masterAccount={masterAccount}
-                duplicateAccount={duplicateAccount}
+                duplicateAccounts={duplicateAccounts}
                 onSelect={onSelect}
+                onClearRole={onClearRole}
               />
             ))}
           </div>
@@ -571,7 +605,7 @@ export function DuplicateAccountModal({
   const [selectedClusterId, setSelectedClusterId] = useState<string | null>(null);
   const [step, setStep] = useState<WizardStep>("search");
   const [masterAccount, setMasterAccount] = useState<AccountResult | null>(null);
-  const [duplicateAccount, setDuplicateAccount] = useState<AccountResult | null>(null);
+  const [duplicateAccounts, setDuplicateAccounts] = useState<AccountResult[]>([]);
 
   // Preview state
   const [preview, setPreview] = useState<PreviewData | null>(null);
@@ -618,7 +652,7 @@ export function DuplicateAccountModal({
     setQuery(initialQuery);
     setSelectedClusterId(null);
     setMasterAccount(null);
-    setDuplicateAccount(null);
+    setDuplicateAccounts([]);
     setStep("search");
     if (nextScope === "current" && initialQuery) {
       void search(initialQuery);
@@ -641,7 +675,7 @@ export function DuplicateAccountModal({
     if (next === scope) return;
     setScope(next);
     setMasterAccount(null);
-    setDuplicateAccount(null);
+    setDuplicateAccounts([]);
     setSelectedClusterId(null);
     setPreview(null);
     if (next === "all") void loadScan();
@@ -673,56 +707,91 @@ export function DuplicateAccountModal({
   const handleSelect = (account: AccountResult, role: "master" | "duplicate") => {
     if (role === "master") {
       setMasterAccount(account);
-      if (duplicateAccount?.id === account.id) setDuplicateAccount(null);
+      setDuplicateAccounts((prev) => prev.filter((d) => d.id !== account.id));
     } else {
-      setDuplicateAccount(account);
       if (masterAccount?.id === account.id) setMasterAccount(null);
+      setDuplicateAccounts((prev) => {
+        if (prev.some((d) => d.id === account.id)) return prev;
+        return [...prev, account];
+      });
     }
+  };
+
+  const handleClearRole = (account: AccountResult) => {
+    if (masterAccount?.id === account.id) setMasterAccount(null);
+    setDuplicateAccounts((prev) => prev.filter((d) => d.id !== account.id));
+  };
+
+  const handleMarkRestAsDuplicates = (accounts: AccountResult[]) => {
+    if (!masterAccount) return;
+    const rest = accounts.filter((a) => a.id !== masterAccount.id);
+    setDuplicateAccounts(rest);
   };
 
   const handleSelectCluster = (cluster: ClusterView) => {
     setSelectedClusterId(cluster.id);
-    setMasterAccount(null);
-    setDuplicateAccount(null);
-    // Sugerencia: primera (más relaciones) = master, segunda = duplicado
+    // Sugerencia: primera (más relaciones) = master, el resto = duplicados
     if (cluster.accounts.length >= 2) {
       setMasterAccount(cluster.accounts[0]);
-      setDuplicateAccount(cluster.accounts[1]);
+      setDuplicateAccounts(cluster.accounts.slice(1));
+    } else {
+      setMasterAccount(null);
+      setDuplicateAccounts([]);
     }
   };
 
-  const canAdvance = masterAccount && duplicateAccount && masterAccount.id !== duplicateAccount.id;
+  const primaryDuplicate = duplicateAccounts[0] ?? null;
+  const extraDuplicates = duplicateAccounts.slice(1);
+  const canAdvance =
+    Boolean(masterAccount) &&
+    duplicateAccounts.length > 0 &&
+    !duplicateAccounts.some((d) => d.id === masterAccount?.id);
 
   const goToFields = async () => {
-    if (!canAdvance) return;
-    await loadPreview(masterAccount!.id, duplicateAccount!.id);
+    if (!canAdvance || !masterAccount || !primaryDuplicate) return;
+    await loadPreview(masterAccount.id, primaryDuplicate.id);
     setStep("fields");
   };
 
   const handleMerge = async () => {
-    if (!masterAccount || !duplicateAccount) return;
+    if (!masterAccount || duplicateAccounts.length === 0) return;
     setMerging(true);
+    let mergedCount = 0;
     try {
-      const res = await fetch("/api/crm/accounts/merge", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          masterId: masterAccount.id,
-          duplicateId: duplicateAccount.id,
-          fieldOverrides,
-          excludeContactIds,
-          excludeDealIds,
-          excludeInstallationIds,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Error al fusionar");
-      toast.success(data.message || "Cuentas fusionadas exitosamente");
+      for (let i = 0; i < duplicateAccounts.length; i++) {
+        const dup = duplicateAccounts[i];
+        const isPrimary = i === 0;
+        const res = await fetch("/api/crm/accounts/merge", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            masterId: masterAccount.id,
+            duplicateId: dup.id,
+            fieldOverrides: isPrimary ? fieldOverrides : {},
+            excludeContactIds: isPrimary ? excludeContactIds : [],
+            excludeDealIds: isPrimary ? excludeDealIds : [],
+            excludeInstallationIds: isPrimary ? excludeInstallationIds : [],
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || `Error al fusionar "${dup.name}"`);
+        mergedCount += 1;
+      }
+      toast.success(
+        mergedCount === 1
+          ? `Cuenta fusionada en "${masterAccount.name}"`
+          : `${mergedCount} cuentas fusionadas en "${masterAccount.name}"`
+      );
       onMerged?.();
       setClusters([]);
       handleClose();
     } catch (err: any) {
-      toast.error(err?.message || "No se pudo fusionar");
+      const suffix =
+        mergedCount > 0
+          ? ` (${mergedCount} de ${duplicateAccounts.length} ya fusionada${mergedCount !== 1 ? "s" : ""})`
+          : "";
+      toast.error((err?.message || "No se pudo fusionar") + suffix);
+      if (mergedCount > 0) onMerged?.();
     } finally { setMerging(false); }
   };
 
@@ -738,7 +807,7 @@ export function DuplicateAccountModal({
     setScope(resolvedDefaultScope);
     setSelectedClusterId(null);
     setMasterAccount(null);
-    setDuplicateAccount(null);
+    setDuplicateAccounts([]);
     setPreview(null);
     setFieldOverrides({});
     setExcludeContactIds([]);
@@ -790,11 +859,13 @@ export function DuplicateAccountModal({
               onClearCluster={() => {
                 setSelectedClusterId(null);
                 setMasterAccount(null);
-                setDuplicateAccount(null);
+                setDuplicateAccounts([]);
               }}
               masterAccount={masterAccount}
-              duplicateAccount={duplicateAccount}
+              duplicateAccounts={duplicateAccounts}
               onSelect={handleSelect}
+              onClearRole={handleClearRole}
+              onMarkRestAsDuplicates={handleMarkRestAsDuplicates}
             />
           )}
 
@@ -803,14 +874,30 @@ export function DuplicateAccountModal({
               <Loader2 className="h-5 w-5 animate-spin" /> Cargando comparación...
             </div>
           ) : preview ? (
-            <FieldsStep preview={preview} fieldOverrides={fieldOverrides} setFieldOverrides={setFieldOverrides} />
+            <div className="space-y-3">
+              {extraDuplicates.length > 0 && (
+                <p className="text-xs text-ds-text-3 rounded-lg border border-ds-border-default bg-ds-surface-2 px-3 py-2">
+                  Comparando campos con <strong>{preview.duplicate.name}</strong>.
+                  Las otras {extraDuplicates.length} cuenta{extraDuplicates.length !== 1 ? "s" : ""} se fusionarán después conservando los datos del master.
+                </p>
+              )}
+              <FieldsStep preview={preview} fieldOverrides={fieldOverrides} setFieldOverrides={setFieldOverrides} />
+            </div>
           ) : null)}
 
           {step === "records" && preview && (
-            <RecordsStep preview={preview}
-              excludeContactIds={excludeContactIds} setExcludeContactIds={setExcludeContactIds}
-              excludeDealIds={excludeDealIds} setExcludeDealIds={setExcludeDealIds}
-              excludeInstallationIds={excludeInstallationIds} setExcludeInstallationIds={setExcludeInstallationIds} />
+            <div className="space-y-3">
+              {extraDuplicates.length > 0 && (
+                <p className="text-xs text-ds-text-3 rounded-lg border border-ds-border-default bg-ds-surface-2 px-3 py-2">
+                  Revisando registros de <strong>{preview.duplicate.name}</strong>.
+                  Los registros de las otras {extraDuplicates.length} se moverán al master automáticamente.
+                </p>
+              )}
+              <RecordsStep preview={preview}
+                excludeContactIds={excludeContactIds} setExcludeContactIds={setExcludeContactIds}
+                excludeDealIds={excludeDealIds} setExcludeDealIds={setExcludeDealIds}
+                excludeInstallationIds={excludeInstallationIds} setExcludeInstallationIds={setExcludeInstallationIds} />
+            </div>
           )}
 
           {step === "confirm" && preview && (
@@ -824,9 +911,17 @@ export function DuplicateAccountModal({
                     {preview.master.rut && <p className="text-muted-foreground">{preview.master.rut}</p>}
                   </div>
                   <div className="space-y-1">
-                    <p className="text-muted-foreground font-medium">🗑️ Cuenta que se elimina</p>
-                    <p className="font-semibold">{preview.duplicate.name}</p>
-                    {preview.duplicate.rut && <p className="text-muted-foreground">{preview.duplicate.rut}</p>}
+                    <p className="text-muted-foreground font-medium">
+                      🗑️ Cuenta{duplicateAccounts.length !== 1 ? "s" : ""} que se elimina{duplicateAccounts.length !== 1 ? "n" : ""}
+                    </p>
+                    <ul className="space-y-1">
+                      {duplicateAccounts.map((d) => (
+                        <li key={d.id}>
+                          <p className="font-semibold">{d.name}</p>
+                          {d.rut && <p className="text-muted-foreground">{d.rut}</p>}
+                        </li>
+                      ))}
+                    </ul>
                   </div>
                 </div>
                 {fieldOverrideCount > 0 && (
@@ -846,11 +941,19 @@ export function DuplicateAccountModal({
                   {excludeContactIds.length + excludeDealIds.length + excludeInstallationIds.length > 0 && (
                     <p className="text-status-danger-fg">• {excludeContactIds.length + excludeDealIds.length + excludeInstallationIds.length} registros excluidos se eliminarán</p>
                   )}
+                  {extraDuplicates.length > 0 && (
+                    <p>
+                      • {extraDuplicates.length} cuenta{extraDuplicates.length !== 1 ? "s" : ""} adicional{extraDuplicates.length !== 1 ? "es" : ""} se fusionará{extraDuplicates.length !== 1 ? "n" : ""} conservando los datos del master
+                    </p>
+                  )}
                 </div>
               </div>
               <div className="rounded-lg border border-status-danger-border bg-status-danger-soft/30 p-3 text-xs text-status-danger-fg flex gap-2">
                 <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
-                Esta acción es irreversible. La cuenta &quot;{preview.duplicate.name}&quot; será eliminada permanentemente.
+                Esta acción es irreversible.{" "}
+                {duplicateAccounts.length === 1
+                  ? <>La cuenta &quot;{preview.duplicate.name}&quot; será eliminada permanentemente.</>
+                  : <>Se eliminarán permanentemente {duplicateAccounts.length} cuentas duplicadas.</>}
               </div>
             </div>
           )}
@@ -869,6 +972,7 @@ export function DuplicateAccountModal({
             <Button onClick={goToFields} disabled={!canAdvance || previewLoading}>
               {previewLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ChevronRight className="h-4 w-4 mr-1" />}
               Comparar campos
+              {duplicateAccounts.length > 1 ? ` (${duplicateAccounts.length})` : ""}
             </Button>
           )}
           {step === "fields" && (
@@ -884,7 +988,9 @@ export function DuplicateAccountModal({
           {step === "confirm" && (
             <Button onClick={handleMerge} disabled={merging} className="bg-primary hover:bg-primary/90">
               {merging ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <GitMerge className="h-4 w-4 mr-1.5" />}
-              Fusionar cuentas
+              {duplicateAccounts.length > 1
+                ? `Fusionar ${duplicateAccounts.length} cuentas`
+                : "Fusionar cuentas"}
             </Button>
           )}
         </DialogFooter>
