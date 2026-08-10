@@ -2020,7 +2020,7 @@ export function CorreosClient() {
           onOpenSettings={() => openSettings("general")}
         />
         <div
-          className="min-w-0 flex-1 space-y-4 max-lg:px-4 lg:space-y-3"
+          className="min-w-0 flex-1 space-y-4 max-lg:px-4 lg:sticky lg:top-[var(--correo-stick)] lg:z-10 lg:flex lg:h-[calc(100dvh-var(--correo-stick)-1rem)] lg:min-h-0 lg:flex-col lg:gap-3 lg:space-y-0"
           data-listmode={layout.listMode}
           data-tier={layout.tier}
           data-rowmode={layout.rowMode}
@@ -2040,9 +2040,10 @@ export function CorreosClient() {
               <Menu className="h-4 w-4" />
             </button>
           )}
-          {/* Cabecera + lista: space-y-0 para unir bordes. Cobertura/avisos
-              semánticos van debajo (fuera del bloque unido). */}
-          <div className="space-y-0">
+          {/* Cabecera + lista: space-y-0 para unir bordes. En lg+ la columna
+              llena el alto del rail/lector y scrollea dentro del Surface —
+              sin hueco vacío bajo pocos mails (iPad / desktop). */}
+          <div className="space-y-0 lg:flex lg:min-h-0 lg:flex-1 lg:flex-col">
             {layout.listMode !== "mini" && (
             <CorreosDesktopToolbar
               canModify={canModify}
@@ -2164,7 +2165,7 @@ export function CorreosClient() {
               <Surface
                 elevation={1}
                 padding="none"
-                className="relative overflow-hidden max-lg:-mx-4 max-lg:rounded-none max-lg:border-x-0 lg:rounded-t-none lg:border-t-0"
+                className="relative overflow-hidden max-lg:-mx-4 max-lg:rounded-none max-lg:border-x-0 lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:rounded-t-none lg:border-t-0 lg:rounded-b-xl [-webkit-overflow-scrolling:touch]"
                 onContextMenu={(e) => {
                   // Click derecho sobre una fila (desktop): menú contextual.
                   const rowEl = (e.target as HTMLElement).closest?.("[data-correo-row]");

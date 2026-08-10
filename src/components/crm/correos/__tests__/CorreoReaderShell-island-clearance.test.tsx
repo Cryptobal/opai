@@ -15,21 +15,35 @@ const shellProps = {
   onResizeReset: () => {},
 };
 
-describe("CorreoReaderShell island clearance", () => {
-  beforeEach(() => {
-    vi.stubGlobal(
-      "matchMedia",
-      vi.fn().mockImplementation((query: string) => ({
-        matches: String(query).includes("max-width"),
-        media: query,
+function stubMatchMedia(narrow: boolean) {
+  vi.stubGlobal(
+    "matchMedia",
+    vi.fn().mockImplementation((query: string) => {
+      const q = String(query);
+      const matches = narrow
+        ? q.includes("max-width") || q.includes("pointer: coarse")
+        : q.includes("pointer: coarse"); // iPad landscape: táctil pero ≥lg
+      return {
+        matches,
+        media: q,
         onchange: null,
         addListener: vi.fn(),
         removeListener: vi.fn(),
         addEventListener: vi.fn(),
         removeEventListener: vi.fn(),
         dispatchEvent: vi.fn(),
-      })),
-    );
+      };
+    }),
+  );
+}
+
+describe("CorreoReaderShell island clearance", () => {
+  beforeEach(() => {
+    stubMatchMedia(true);
+    Object.defineProperty(navigator, "maxTouchPoints", {
+      configurable: true,
+      value: 5,
+    });
     // Panel 700px; isla alta (200px) para forzar extra sobre el piso 184px.
     Element.prototype.getBoundingClientRect = function getBoundingClientRect() {
       const el = this as HTMLElement;
@@ -109,6 +123,81 @@ describe("CorreoReaderShell island clearance", () => {
       // needed = 700 - 500 + 24 = 224; floor 184 → extra 40
       expect(content?.getAttribute("data-correo-island-extra")).toBe("40");
       expect((content as HTMLElement).style.paddingBottom).toContain("40px");
+    });
+  });
+
+  it("en viewport lg+ (iPad landscape) no aplica clearance ni monta isla", () => {
+    stubMatchMedia(false);
+    render(
+      <CorreoReaderShell
+        {...shellProps}
+        desktopMode="split"
+        mobileActions={
+          <CorreoReaderIsland
+            primaryAction={{
+              mode: "reply",
+              label: "Responder",
+              canReply: true,
+              replyAllAvailable: false,
+            }}
+            composerOpen={false}
+            onCompose={() => {}}
+          />
+        }
+      >
+        <p>Cuerpo del correo</p>
+      </CorreoReaderShell>,
+    );
+
+    expect(document.querySelector("[data-correo-island-clearance]")).toBeNull();
+    expect(document.querySelector("[data-correo-reader-island]")).toBeNull();
+    // Dock desktop montado para Responder (la isla no está en lg+).
+    expect(document.querySelector("[data-correo-reader-scroller]")).toBeTruthy();
+  });
+
+  it("isla con rect 0 (oculta) no infla padding extra", async () => {
+    Element.prototype.getBoundingClientRect = function getBoundingClientRect() {
+      const el = this as HTMLElement;
+      if (el.hasAttribute("data-correo-reader-island")) {
+        return {
+          top: 0,
+          bottom: 0,
+          left: 0,
+          right: 0,
+          width: 0,
+          height: 0,
+          x: 0,
+          y: 0,
+          toJSON: () => ({}),
+        } as DOMRect;
+      }
+      return {
+        top: 0,
+        bottom: 700,
+        left: 0,
+        right: 390,
+        width: 390,
+        height: 700,
+        x: 0,
+        y: 0,
+        toJSON: () => ({}),
+      } as DOMRect;
+    };
+
+    render(
+      <CorreoReaderShell
+        {...shellProps}
+        mobileActions={
+          <div data-correo-reader-island="" />
+        }
+      >
+        <p>Cuerpo</p>
+      </CorreoReaderShell>,
+    );
+
+    await waitFor(() => {
+      const content = document.querySelector("[data-correo-island-clearance]");
+      expect(content?.getAttribute("data-correo-island-extra")).toBe("0");
     });
   });
 });

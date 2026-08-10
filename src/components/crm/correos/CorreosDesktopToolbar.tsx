@@ -57,7 +57,7 @@ const BTN_WARN =
   "flex h-7 w-7 items-center justify-center rounded-lg text-ds-text-3 transition-colors ds-tap hover:bg-status-warn-soft hover:text-status-warn-fg disabled:opacity-40";
 
 const SHELL =
-  "sticky top-[var(--correo-stick)] z-10 hidden h-[34px] items-center gap-1.5 rounded-t-xl border px-2 lg:flex";
+  "sticky top-[var(--correo-stick)] z-10 hidden h-[34px] shrink-0 items-center gap-1.5 rounded-t-xl border px-2 lg:flex";
 
 const QUICK_LABELS: Record<CorreoQuickView, string> = {
   todos: "Todos",
@@ -170,8 +170,8 @@ export function CorreosDesktopToolbar({
   );
 
   return (
-    <div className="hidden lg:block" data-tier={tier}>
-      <div className={`${SHELL} min-w-0 border-ds-border-default border-b-ds-border-subtle bg-ds-surface-1`}>
+    <div className="hidden shrink-0 lg:block" data-tier={tier}>
+      <div className={`${SHELL} relative min-w-0 border-ds-border-default border-b-ds-border-subtle bg-ds-surface-1`}>
         {showSelectInline && (
           <CorreoCheckbox
             checked={allChecked}

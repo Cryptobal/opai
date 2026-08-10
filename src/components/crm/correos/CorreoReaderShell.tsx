@@ -78,7 +78,11 @@ export function CorreoReaderShell({
       window.matchMedia(TOUCH_LAYOUT_QUERY).matches,
   );
   const touchUi = useCorreoTouchUi();
+  // Header táctil (acciones de hilo) en teléfono e iPad. La isla flotante y el
+  // fade/clearance SOLO en viewport <lg: en iPad landscape la isla es
+  // `lg:hidden` y medirla (rect 0) inflaba el fade hasta la mitad del visor.
   const useMobileChrome = isNarrowViewport || touchUi;
+  const useIslandChrome = isNarrowViewport;
   useEffect(() => {
     const media = window.matchMedia(TOUCH_LAYOUT_QUERY);
     const update = () => setIsNarrowViewport(media.matches);
@@ -122,7 +126,7 @@ export function CorreoReaderShell({
 
   // Si la isla real supera el piso CSS, suma el remanente (undo más alto, etc.).
   useEffect(() => {
-    if (!open || !useMobileChrome) {
+    if (!open || !useIslandChrome) {
       setIslandExtraPx(0);
       return;
     }
@@ -140,9 +144,14 @@ export function CorreoReaderShell({
         setIslandExtraPx((prev) => (prev === 0 ? prev : 0));
         return;
       }
+      const islandRect = island.getBoundingClientRect();
+      // Isla `lg:hidden` / aún no layout: rect 0 → no inflar padding/fade.
+      if (islandRect.width < 1 || islandRect.height < 1) {
+        setIslandExtraPx((prev) => (prev === 0 ? prev : 0));
+        return;
+      }
       const panelBottom = panel.getBoundingClientRect().bottom;
-      const islandTop = island.getBoundingClientRect().top;
-      const needed = Math.max(0, Math.ceil(panelBottom - islandTop + GAP_PX));
+      const needed = Math.max(0, Math.ceil(panelBottom - islandRect.top + GAP_PX));
       const extra = Math.max(0, needed - FLOOR_PX);
       setIslandExtraPx((prev) => (prev === extra ? prev : extra));
     };
@@ -175,7 +184,7 @@ export function CorreoReaderShell({
       mo.disconnect();
       window.removeEventListener("resize", schedule);
     };
-  }, [open, useMobileChrome, mobileActions]);
+  }, [open, useIslandChrome, mobileActions]);
 
   const scrollValue = useMemo(() => ({ scrolled }), [scrolled]);
 
@@ -265,16 +274,16 @@ export function CorreoReaderShell({
               data-correo-reader-scroller=""
               className={cn(
                 "min-h-0 flex-1 overflow-auto bg-background [-webkit-overflow-scrolling:touch] [overscroll-behavior:contain] lg:bg-ds-surface-2",
-                // Máscara de scroll (móvil): fade inferior sobre la isla; el fade
-                // superior solo aparece al scrollear.
-                useMobileChrome && scrolled && "mobile-scroll-fade",
+                // Máscara de scroll (<lg): borde suave sobre la isla. El fade-bot
+                // es solo el borde (~5rem), no el piso completo de clearance —
+                // si igualaba 11.5rem el cuerpo se veía difuminado desde la mitad.
+                useIslandChrome && scrolled && "mobile-scroll-fade",
               )}
               style={
-                useMobileChrome && scrolled
+                useIslandChrome && scrolled
                   ? ({
                       "--fade-top": "40px",
-                      // Piso 11.5rem + safe-area + extra medido.
-                      "--fade-bot": `calc(env(safe-area-inset-bottom, 0px) + 11.5rem + ${islandExtraPx}px)`,
+                      "--fade-bot": "5rem",
                     } as CSSProperties)
                   : undefined
               }
@@ -319,32 +328,30 @@ export function CorreoReaderShell({
               <div
                 className={cn(
                   "space-y-2 px-3 pt-1.5 md:space-y-4 md:px-4 md:pt-4 lg:pb-4",
-                  // Piso CSS: isla unificada (Sugerir respuestas + acciones) +
-                  // safe-area. No depende de JS — evita cortar el cuerpo al
-                  // montar o en mails cortos sin adjuntos.
-                  useMobileChrome &&
+                  // Piso CSS (<lg): isla unificada + safe-area. En lg+ (iPad
+                  // landscape incluido) el dock desktop cubre Responder.
+                  useIslandChrome &&
                     "pb-[calc(env(safe-area-inset-bottom,0px)+11.5rem)]",
                 )}
                 style={
-                  useMobileChrome && islandExtraPx > 0
+                  useIslandChrome && islandExtraPx > 0
                     ? {
                         paddingBottom: `calc(env(safe-area-inset-bottom, 0px) + 11.5rem + ${islandExtraPx}px)`,
                       }
                     : undefined
                 }
-                data-correo-island-clearance={useMobileChrome ? "floor" : undefined}
-                data-correo-island-extra={useMobileChrome ? islandExtraPx : undefined}
+                data-correo-island-clearance={useIslandChrome ? "floor" : undefined}
+                data-correo-island-extra={useIslandChrome ? islandExtraPx : undefined}
               >
                 {children}
               </div>
             </div>
 
-            {/* Dock Gmail: Responder / Reenviar fijos fuera del scroll. Solo
-                lg+: en móvil la isla flotante resuelve la respuesta, así que el
-                host no se monta y CorreoReplyBox no porta la barra (queda null
-                con el composer cerrado). empty:hidden — solo ocupa espacio
-                cuando el composer está cerrado y hay barra portada. */}
-            {!useMobileChrome && (
+            {/* Dock Gmail: Responder / Reenviar fijos fuera del scroll.
+                lg+ (incluye iPad landscape táctil): la isla es `lg:hidden`, así
+                que el dock debe montarse por viewport, no por touchUi.
+                empty:hidden — solo ocupa espacio con barra portada. */}
+            {!useIslandChrome && (
               <div className="shrink-0">
                 {/* Chips de intención: fila superior del dock, sobre las
                     acciones. Vacía (y sin borde) mientras no haya chips. */}
@@ -359,10 +366,10 @@ export function CorreoReaderShell({
               </div>
             )}
 
-            {/* Isla de acciones móvil: se posiciona sola (fixed, flotante).
-                Solo se monta en móvil — en desktop reclamaría el host del undo
-                estando oculta (lg:hidden) y el snackbar global no se vería. */}
-            {useMobileChrome && mobileActions}
+            {/* Isla de acciones móvil: fixed flotante. Solo <lg — en lg+ el
+                dock desktop la reemplaza; montarla oculta (`lg:hidden`) hacía
+                que la medición de holgura usara rect 0 e inflara el fade. */}
+            {useIslandChrome && mobileActions}
 
             {/* Capa para sheets (guardar adjuntos): mismo ancho del visor. */}
             <div
