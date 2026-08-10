@@ -5,8 +5,8 @@ import { googleClientId, googleClientSecret, tokenSecret } from "./env";
 
 export type TokenAccount = {
   id: string;
-  accessTokenEnc: string;
-  refreshTokenEnc: string;
+  accessTokenEnc: string | null;
+  refreshTokenEnc: string | null;
   tokenExpiresAt: Date | null;
 };
 
@@ -26,6 +26,10 @@ export async function withFreshToken(
   account: TokenAccount,
   kind: TokenKind,
 ): Promise<{ accessToken: string; refreshToken: string } | null> {
+  if (!account.refreshTokenEnc || !account.accessTokenEnc) {
+    console.warn("[google-workspace] withFreshToken sin tokens OAuth (¿modo SHARED_DRIVE?)");
+    return null;
+  }
   const refreshToken = decryptToken(account.refreshTokenEnc);
   const accessToken = decryptToken(account.accessTokenEnc);
   const expiresAt = account.tokenExpiresAt?.getTime() ?? 0;

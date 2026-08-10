@@ -12528,19 +12528,26 @@ model McpApiKey {
 model GoogleDriveWorkspace {
   id              String    @id @default(cuid())
   tenantId        String    @unique @map("tenant_id")
-  googleEmail     String    @map("google_email")
-  accessTokenEnc  String    @map("access_token_enc") @db.Text
-  refreshTokenEnc String    @map("refresh_token_enc") @db.Text
+  /// Nullable: modo SHARED_DRIVE no usa OAuth de usuario.
+  googleEmail     String?   @map("google_email")
+  accessTokenEnc  String?   @map("access_token_enc") @db.Text
+  refreshTokenEnc String?   @map("refresh_token_enc") @db.Text
   tokenExpiresAt  DateTime? @map("token_expires_at")
   rootFolderId    String?   @map("root_folder_id")
-  /// Nombre de la carpeta raíz en Drive (default aplicativo "Opai").
+  /// Nombre de la carpeta raíz en Drive (default aplicativo "Opai"). Solo OAUTH.
   rootFolderName  String?   @map("root_folder_name")
   /// 1 = árbol plano legacy; 2 = árbol por módulo (Comercial/Personas/Operaciones).
   structureVersion Int      @default(1) @map("structure_version")
   rootVerifiedAt  DateTime? @map("root_verified_at")
+  /// OAUTH | SHARED_DRIVE
+  mode            String    @default("OAUTH") @map("mode")
+  sharedDriveId   String?   @map("shared_drive_id")
+  changesPageToken String?  @map("changes_page_token")
+  lastIngestAt    DateTime? @map("last_ingest_at")
+  lastIngestError String?   @map("last_ingest_error") @db.Text
   mirrorConfig    Json      @default("{}") @map("mirror_config")
   status          String    @default("ACTIVE") // ACTIVE | REVOKED
-  connectedBy     String    @map("connected_by")
+  connectedBy     String?   @map("connected_by")
   createdAt       DateTime  @default(now()) @map("created_at")
   updatedAt       DateTime  @updatedAt @map("updated_at")
 
@@ -12564,6 +12571,34 @@ model DriveFolderCache {
   @@index([tenantId, entityType, entityId], map: "idx_drive_folder_cache_entity")
   @@index([tenantId, driveFolderId], map: "idx_drive_folder_cache_folder")
   @@map("drive_folder_cache")
+  @@schema("public")
+}
+
+/// Archivos ingeridos Drive → OPAI (dedupe anti-loop + auditoría).
+model DriveIngestedFile {
+  id             String    @id @default(cuid())
+  tenantId       String    @map("tenant_id")
+  driveFileId    String    @map("drive_file_id")
+  driveFolderId  String?   @map("drive_folder_id")
+  fileName       String    @map("file_name")
+  mimeType       String?   @map("mime_type")
+  sizeBytes      Int?      @map("size_bytes")
+  entityType     String?   @map("entity_type")
+  entityId       String?   @map("entity_id")
+  storageKey     String?   @map("storage_key")
+  targetTable    String?   @map("target_table")
+  targetId       String?   @map("target_id")
+  /// PENDING | INGESTED | IGNORED | ERROR
+  status         String    @default("PENDING")
+  reason         String?
+  attempts       Int       @default(0)
+  lastError      String?   @map("last_error") @db.Text
+  createdAt      DateTime  @default(now()) @map("created_at")
+  ingestedAt     DateTime? @map("ingested_at")
+
+  @@unique([tenantId, driveFileId], map: "uq_drive_ingested_tenant_file")
+  @@index([tenantId, status], map: "idx_drive_ingested_tenant_status")
+  @@map("drive_ingested_files")
   @@schema("public")
 }
 
