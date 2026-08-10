@@ -15,6 +15,11 @@ type ConfigResponse = {
   googleEmail: string | null;
   mirrorConfig: Record<string, boolean>;
   recent: DriveOutboxRow[];
+  rootFolderUrl: string | null;
+  rootFolderName: string | null;
+  structureVersion: number;
+  enabledModules: string[];
+  duplicateRoots: Array<{ id: string; createdTime?: string | null }>;
 };
 
 export function GoogleDriveConfigClient() {
@@ -22,6 +27,7 @@ export function GoogleDriveConfigClient() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [creatingStructure, setCreatingStructure] = useState(false);
+  const [repairing, setRepairing] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -58,14 +64,61 @@ export function GoogleDriveConfigClient() {
   async function createStructure() {
     setCreatingStructure(true);
     try {
-      const res = await fetch("/api/integrations/google-drive/ensure-structure", { method: "POST" });
-      if (!res.ok) throw new Error("fail");
-      toast.success("Estructura inicial creada en Drive");
+      const res = await fetch("/api/integrations/google-drive/ensure-structure", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "create" }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "fail");
+      const n = Array.isArray(json.paths) ? json.paths.length : 0;
+      toast.success(
+        n === 0
+          ? "Nada que crear: activá al menos un tipo en un módulo habilitado"
+          : `${n} carpeta(s) listas en Drive`,
+      );
       await load();
-    } catch {
-      toast.error("No se pudo crear la estructura en Drive");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "No se pudo crear la estructura");
     } finally {
       setCreatingStructure(false);
+    }
+  }
+
+  async function repairStructure(consolidateRoots: boolean) {
+    setRepairing(true);
+    try {
+      const res = await fetch("/api/integrations/google-drive/ensure-structure", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: consolidateRoots ? "repair" : "migrate" }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "fail");
+      const parts = [
+        json.foldersMoved ? `${json.foldersMoved} movidas` : null,
+        json.foldersRenamed ? `${json.foldersRenamed} renombradas` : null,
+        json.rootsTrashed ? `${json.rootsTrashed} raíces a papelera` : null,
+        json.cacheRewritten ? `${json.cacheRewritten} pathKeys` : null,
+      ].filter(Boolean);
+      toast.success(
+        parts.length
+          ? `Reparación: ${parts.join(", ")}`
+          : "Estructura ya estaba al día (0 cambios)",
+      );
+      if (json.hasMore) {
+        toast.message("Quedaron movimientos pendientes: volvé a pulsar Reparar");
+      }
+      if (Array.isArray(json.rootsSkipped) && json.rootsSkipped.length > 0) {
+        toast.message(
+          `${json.rootsSkipped.length} raíz(ces) con contenido no visible no se enviaron a papelera`,
+        );
+      }
+      await load();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "No se pudo reparar la estructura");
+    } finally {
+      setRepairing(false);
     }
   }
 
@@ -79,6 +132,7 @@ export function GoogleDriveConfigClient() {
 
   const connected = Boolean(data?.connected);
   const config = data?.mirrorConfig ?? DEFAULT_MIRROR_CONFIG;
+  const enabledModules = data?.enabledModules ?? [];
 
   return (
     <div className="ds-page-enter space-y-6">
@@ -90,19 +144,36 @@ export function GoogleDriveConfigClient() {
       <DriveConnectionCard
         connected={connected}
         googleEmail={data?.googleEmail ?? null}
+        rootFolderUrl={data?.rootFolderUrl ?? null}
+        structureVersion={data?.structureVersion ?? 1}
+        duplicateRoots={data?.duplicateRoots ?? []}
         creatingStructure={creatingStructure}
+        repairing={repairing}
         onCreateStructure={() => void createStructure()}
+        onRepair={(consolidate) => void repairStructure(consolidate)}
         onDisconnect={() =>
           void fetch("/api/integrations/google-drive/disconnect", { method: "POST" }).then(load)
         }
       />
       <Surface elevation={1} padding="md" className="space-y-3">
-        <SectionHeader title="Tipos a espejar" hint={saving ? "Guardando…" : "Solo tipos con PDF persistido"} />
-        <DriveMirrorToggles config={config} disabled={!connected} onChange={(k, v) => void patchConfig(k, v)} />
+        <SectionHeader
+          title="Tipos a espejar"
+          hint={saving ? "Guardando…" : "Agrupados por módulo · OFF no crea carpetas"}
+        />
+        <DriveMirrorToggles
+          config={config}
+          disabled={!connected}
+          enabledModules={enabledModules}
+          onChange={(k, v) => void patchConfig(k, v)}
+        />
       </Surface>
       <Surface elevation={1} padding="md" className="space-y-3">
-        <SectionHeader title="Árbol de carpetas" hint="Vista previa estática según toggles" />
-        <DriveTreePreview config={config} />
+        <SectionHeader title="Árbol de carpetas" hint="Vista previa según toggles y módulos" />
+        <DriveTreePreview
+          config={config}
+          enabledModules={enabledModules}
+          rootFolderName={data?.rootFolderName}
+        />
       </Surface>
       <Surface elevation={1} padding="md" className="space-y-3">
         <SectionHeader title="Actividad reciente" hint="Últimas 20 exportaciones" />
