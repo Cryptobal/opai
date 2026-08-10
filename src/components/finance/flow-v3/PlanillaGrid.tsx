@@ -968,7 +968,8 @@ export function PlanillaGrid({
    * Desktop (≥lg, puntero fino):
    *   - sin ficha → clic abre (con delay corto para no pelear con doble-clic);
    *   - con ficha → clic en cualquier celda solo cierra (hace falta otro clic para abrir).
-   * Móvil/touch: misma regla con el sheet; long-press también abre.
+   * Móvil/tablet/touch (iPad): el tap SOLO selecciona. El sheet se abre con
+   * long-press, chevron de acciones o doble-tap (celdas no editables).
    */
   const openDetailOnSelect = useCallback(
     (sel: CellSel) => {
@@ -997,10 +998,10 @@ export function PlanillaGrid({
         return;
       }
 
+      // Touch: seleccionar sin abrir el módulo inferior.
       hoverRef.current?.forceHide();
       setPopover(null);
-      // Sheet abierto → solo cerrar; cerrado → abrir el de esta celda.
-      setSheetTarget((prev) => (prev != null ? null : { kind: "cell", sel }));
+      setSheetTarget(null);
     },
     [resolveHover, cancelPendingDetail],
   );

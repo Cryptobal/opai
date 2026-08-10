@@ -365,13 +365,20 @@ export function dteFoliosInCell(cell: FlowMatrixCellDto): number[] {
     .map((i) => i.folio);
 }
 
-/** Pendiente de F° en semana pasada (no suma a effective; solo informativo). */
-export function pastPendingDteMeta(cell: FlowMatrixCellDto, isPast: boolean): {
+export type PastPendingMeta = {
   count: number;
   total: number;
   tag: string;
   title: string;
-} | null {
+  /** Origen del fantasma en semana pasada (no suma a effective). */
+  kind: "dte" | "committed" | "plan";
+};
+
+/** Pendiente de F° en semana pasada (no suma a effective; solo informativo). */
+export function pastPendingDteMeta(
+  cell: FlowMatrixCellDto,
+  isPast: boolean,
+): PastPendingMeta | null {
   if (!isPast) return null;
   const items = (cell.committed?.items ?? []).filter((i) => i.kind === "dte");
   if (items.length === 0) return null;
@@ -388,7 +395,66 @@ export function pastPendingDteMeta(cell: FlowMatrixCellDto, isPast: boolean): {
       : items[0]?.folio != null
         ? folioChip(items[0].folio).text
         : "F°";
-  return { count: items.length, total, tag, title };
+  return { count: items.length, total, tag, title, kind: "dte" };
+}
+
+/**
+ * Fantasma informativo en semana pasada cuando aún no hay real:
+ * F° pendiente, compromiso (sueldos/programado/borrador) o plan manual.
+ * Nunca suma a `effective` (el flujo pasado solo consolida conciliaciones).
+ */
+export function pastPendingGhostMeta(
+  cell: FlowMatrixCellDto,
+  isPast: boolean,
+): PastPendingMeta | null {
+  if (!isPast) return null;
+
+  // Con real: solo el badge mixto de F° pendientes (igual que antes).
+  if (cell.layer === "real") {
+    return pastPendingDteMeta(cell, true);
+  }
+  if (cell.layer !== "empty") return null;
+
+  const dtePend = pastPendingDteMeta(cell, true);
+  if (dtePend) return dtePend;
+
+  const committed = cell.committed;
+  if (committed && committed.total !== 0) {
+    const items = committed.items ?? [];
+    const first = items[0];
+    if (first?.kind === "draft") {
+      const meta = draftTag(draftSentDocs(first));
+      return {
+        count: Math.max(1, items.length),
+        total: committed.total,
+        tag: meta.tag,
+        title: `${meta.title} · pendiente (no suma al flujo)`,
+        kind: "committed",
+      };
+    }
+    const label = first?.label?.trim();
+    return {
+      count: Math.max(1, items.length),
+      total: committed.total,
+      tag: "P",
+      title: label
+        ? `${label} · pendiente (no suma al flujo)`
+        : "Programado pendiente (no suma al flujo)",
+      kind: "committed",
+    };
+  }
+
+  if (cell.plan !== 0) {
+    return {
+      count: 1,
+      total: Math.abs(cell.plan),
+      tag: "Plan",
+      title: "Plan manual pendiente (no suma al flujo)",
+      kind: "plan",
+    };
+  }
+
+  return null;
 }
 
 /** Tag primario de la celda para fx bar / chip. */
@@ -404,10 +470,16 @@ export function primaryCellTag(
   // Semana pasada con real: el tag REAL manda; el badge "+F° pend." va aparte.
   if (cell.layer === "real") return { tag: "REAL", tone: "ok", title: "Conciliado" };
   if (cell.layer === "plan") return { tag: "Plan", tone: "neutral", title: "Plan manual" };
-  // Pasado sin real pero con F° pendiente anclada → chip atenuado (informativo).
+  // Pasado sin real pero con pendiente (F° / programado / plan) → chip atenuado.
   if (isPast && cell.layer === "empty") {
-    const pend = pastPendingDteMeta(cell, true);
-    if (pend) return { tag: pend.tag, tone: "info", title: pend.title };
+    const pend = pastPendingGhostMeta(cell, true);
+    if (pend) {
+      return {
+        tag: pend.tag,
+        tone: pend.kind === "plan" ? "neutral" : "info",
+        title: pend.title,
+      };
+    }
     return null;
   }
   if (cell.layer !== "committed") return null;

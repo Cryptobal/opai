@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { fmtCell } from "../format";
-import { cornerKind, pastPendingDteMeta, primaryCellTag } from "../cell-meta";
+import {
+  cornerKind,
+  pastPendingDteMeta,
+  pastPendingGhostMeta,
+  primaryCellTag,
+} from "../cell-meta";
 import type { FlowMatrixCellDto } from "@/modules/finance/flow-v3/matrix-types";
 
 function cell(partial: Partial<FlowMatrixCellDto>): FlowMatrixCellDto {
@@ -90,5 +95,37 @@ describe("cornerKind / primaryCellTag", () => {
     expect(primaryCellTag(past, { isPast: true })?.tag).toBe("F°1582");
     expect(pastPendingDteMeta(past, true)?.total).toBe(200_000);
     expect(pastPendingDteMeta(past, false)).toBeNull();
+  });
+
+  it("semana pasada con sueldos/programado o plan → fantasma atenuado (no desaparece)", () => {
+    const sueldos = cell({
+      layer: "empty",
+      effective: 0,
+      committed: {
+        total: 537_838,
+        items: [
+          {
+            kind: "scheduled",
+            label: "Sueldos líquidos",
+            fecha: "2026-08-03",
+            monto: 537_838,
+          },
+        ],
+      },
+    });
+    expect(pastPendingGhostMeta(sueldos, true)).toMatchObject({
+      total: 537_838,
+      tag: "P",
+      kind: "committed",
+    });
+    expect(primaryCellTag(sueldos, { isPast: true })?.tag).toBe("P");
+    expect(pastPendingGhostMeta(sueldos, false)).toBeNull();
+
+    const plan = cell({ layer: "empty", effective: 0, plan: 1_352_000 });
+    expect(pastPendingGhostMeta(plan, true)).toMatchObject({
+      total: 1_352_000,
+      tag: "Plan",
+      kind: "plan",
+    });
   });
 });

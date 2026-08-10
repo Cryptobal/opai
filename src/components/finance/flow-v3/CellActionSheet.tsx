@@ -6,7 +6,7 @@ import {
 import type { FlowMatrixCellDto, FlowMatrixRowDto } from "@/modules/finance/flow-v3/matrix-types";
 import { fmtCell, fmtShortDate } from "./format";
 import { displayValue } from "./grid-classes";
-import { pastPendingDteMeta, primaryCellTag } from "./cell-meta";
+import { pastPendingGhostMeta, primaryCellTag } from "./cell-meta";
 import { MenuItems, type MenuItemDesc } from "./menu-render";
 import type { FolioSheetGroup } from "./menu-builders";
 
@@ -40,7 +40,7 @@ export function CellActionSheet({
     ? displayValue(row.section, cell.layer, cell.effective)
     : 0;
   const tag = cell ? primaryCellTag(cell, { isPast }) : null;
-  const pastPend = cell ? pastPendingDteMeta(cell, isPast === true) : null;
+  const pastPend = cell ? pastPendingGhostMeta(cell, isPast === true) : null;
   const border = BORDER_BY_LAYER[cell?.layer ?? "empty"] ?? BORDER_BY_LAYER.empty;
   const groups = folioGroups ?? [];
 
@@ -84,7 +84,11 @@ export function CellActionSheet({
               )}
               {pastPend && cell.layer === "empty" && (
                 <p className="mt-1 text-right text-[12px] text-ds-text-3">
-                  Pendiente (no suma al flujo)
+                  {pastPend.kind === "dte"
+                    ? "Factura pendiente · no suma al flujo (solo conciliado)"
+                    : pastPend.kind === "plan"
+                      ? "Plan pendiente · no suma al flujo (solo conciliado)"
+                      : "Pendiente · no suma al flujo (solo conciliado)"}
                 </p>
               )}
             </div>

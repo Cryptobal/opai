@@ -13,7 +13,7 @@ import {
 } from "./grid-classes";
 import {
   cellOverdueState, committedPriority, cornerKind, countOverdueInCell,
-  dteCountInCell, executionMeta, pastPendingDteMeta, primaryCellTag,
+  dteCountInCell, executionMeta, pastPendingGhostMeta, primaryCellTag,
   secondaryMarkTitle, secondaryMarks, toneClass, type SecondaryMark,
 } from "./cell-meta";
 import { ExecutionBar } from "./ExecutionBar";
@@ -107,11 +107,13 @@ export function PlanillaCell(p: Props) {
   const value = displayValue(p.section, cell.layer, cell.effective);
   const formatted = value !== 0 ? fmtCell(value, mode) : "";
   const showChips = p.showChips === true;
-  const pastPend = pastPendingDteMeta(cell, isPast);
+  const pastPend = pastPendingGhostMeta(cell, isPast);
   /** Pasado sin real: mostrar monto pendiente atenuado (no suma a effective). */
   const pastPendOnly = !!pastPend && cell.layer === "empty";
   const pastPendFormatted =
     pastPendOnly && pastPend.total !== 0 ? fmtCell(pastPend.total, mode) : "";
+  /** Conciliado (real): negrilla semántica — el resto queda en peso normal. */
+  const reconciledBold = cell.layer === "real" && !pastPendOnly;
 
   const { hasDte, hasSentDoc, hasDraft } = committedPriority(cell);
   const overdueState = cellOverdueState(cell);
@@ -191,7 +193,7 @@ export function PlanillaCell(p: Props) {
     if (style.valign === "top") styleInline.paddingTop = "1px";
     if (style.valign === "bottom") styleInline.paddingBottom = "1px";
   }
-  const styleClass = style?.bold ? "font-semibold" : "";
+  const styleClass = style?.bold || reconciledBold ? "font-semibold" : "";
 
   const chipItemsH = CHIP_ITEMS_H[style?.align ?? "right"] ?? "items-end";
   const chipJustifyV = CHIP_JUSTIFY_V[style?.valign ?? "middle"] ?? "justify-center";
@@ -282,7 +284,12 @@ export function PlanillaCell(p: Props) {
       }}
       onDoubleClick={() => {
         if (p.sumMode) return;
-        p.editable && p.onStartEdit();
+        if (p.editable) {
+          p.onStartEdit();
+          return;
+        }
+        // Touch / celdas no editables (p.ej. semana pasada): 2.º tap abre el sheet.
+        openSheet?.();
       }}
     >
       {subMarks.length > 0 && (

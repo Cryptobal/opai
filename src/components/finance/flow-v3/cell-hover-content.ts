@@ -5,7 +5,7 @@ import type { FlowMatrixCellDto, FlowMatrixRowDto } from "@/modules/finance/flow
 import { hasManualPlanOverride } from "@/modules/finance/flow-v3/cell-editability";
 import { fmtClp, fmtDayMonth, fmtShortDate } from "./format";
 import {
-  committedItemMeta, LAYER_LABEL, pastPendingDteMeta, terminoStatusLine,
+  committedItemMeta, LAYER_LABEL, pastPendingGhostMeta, terminoStatusLine,
 } from "./cell-meta";
 import {
   resolveCellColorMeaning,
@@ -225,7 +225,7 @@ export function buildHoverCardContent(args: {
     };
   }
 
-  const past = pastPendingDteMeta(cell, args.isPast === true);
+  const past = pastPendingGhostMeta(cell, args.isPast === true);
   const pastPending =
     past && (cell.layer === "real" || cell.layer === "empty") ? past.title : null;
 
