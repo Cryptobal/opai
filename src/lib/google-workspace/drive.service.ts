@@ -6,6 +6,9 @@ import { getDriveClientForTenant } from "./clients";
 
 const FOLDER_MIME = "application/vnd.google-apps.folder";
 const DEFAULT_ROOT_NAME = "Opai";
+const CACHE_VERIFY_TTL_MS = 24 * 60 * 60 * 1000;
+
+export type DriveEntityRef = { type: string; id: string };
 
 function pathKey(segments: string[]): string {
   return segments.map((s) => s.trim()).filter(Boolean).join("/");
@@ -52,7 +55,7 @@ export const resolveRootFolder = cache(async function resolveRootFolder(
   });
   if (!ws) return null;
 
-  const rootName = (ws.rootFolderName?.trim() || DEFAULT_ROOT_NAME);
+  const rootName = ws.rootFolderName?.trim() || DEFAULT_ROOT_NAME;
 
   if (ws.rootFolderId) {
     try {
@@ -71,13 +74,16 @@ export const resolveRootFolder = cache(async function resolveRootFolder(
       if (!isNotFoundError(err)) {
         console.warn("[drive] resolveRootFolder get falló:", tenantId, err);
       }
-      // ID inválido / papelera → buscar o crear abajo
+      await prisma.driveFolderCache.deleteMany({ where: { tenantId } });
+      await prisma.googleDriveWorkspace.update({
+        where: { id: ws.id },
+        data: { rootFolderId: null },
+      });
     }
   }
 
   const existing = await listRootFoldersByName(tenantId, rootName);
   if (existing.length > 0) {
-    // Más antigua = canónica
     const canonical = existing[0]!.id;
     await prisma.googleDriveWorkspace.update({
       where: { id: ws.id },
@@ -87,10 +93,7 @@ export const resolveRootFolder = cache(async function resolveRootFolder(
   }
 
   const created = await drive.files.create({
-    requestBody: {
-      name: rootName,
-      mimeType: FOLDER_MIME,
-    },
+    requestBody: { name: rootName, mimeType: FOLDER_MIME },
     fields: "id",
   });
   const rootFolderId = created.data.id;
@@ -126,36 +129,156 @@ async function createChildFolder(
   return created.data.id ?? null;
 }
 
-/** Resuelve/crea carpetas anidadas bajo la raíz usando DriveFolderCache. */
+export async function invalidateCacheSubtree(
+  tenantId: string,
+  key: string,
+): Promise<void> {
+  await prisma.driveFolderCache.deleteMany({
+    where: {
+      tenantId,
+      OR: [{ pathKey: key }, { pathKey: { startsWith: `${key}/` } }],
+    },
+  });
+}
+
+async function verifyCachedFolder(
+  tenantId: string,
+  driveFolderId: string,
+  key: string,
+  lastVerifiedAt: Date | null,
+): Promise<boolean> {
+  const stale =
+    !lastVerifiedAt || Date.now() - lastVerifiedAt.getTime() > CACHE_VERIFY_TTL_MS;
+  if (!stale) return true;
+
+  const drive = await getDriveClientForTenant(tenantId);
+  if (!drive) return false;
+
+  try {
+    const got = await drive.files.get({
+      fileId: driveFolderId,
+      fields: "id,trashed",
+    });
+    if (!got.data.id || got.data.trashed === true) {
+      await invalidateCacheSubtree(tenantId, key);
+      return false;
+    }
+    await prisma.driveFolderCache.updateMany({
+      where: { tenantId, pathKey: key },
+      data: { lastVerifiedAt: new Date() },
+    });
+    return true;
+  } catch (err) {
+    if (isNotFoundError(err)) {
+      await invalidateCacheSubtree(tenantId, key);
+      return false;
+    }
+    console.warn("[drive] verifyCachedFolder:", tenantId, key, err);
+    return true;
+  }
+}
+
+export type EnsureFolderOpts = {
+  entity?: DriveEntityRef;
+  leafName?: string;
+};
+
+/** Resuelve/crea carpetas anidadas; auto-repara ante 404 de padre cacheado. */
 export async function ensureFolderPath(
   tenantId: string,
   segments: string[],
+  opts?: EnsureFolderOpts,
+): Promise<string | null> {
+  return ensureFolderPathInner(tenantId, segments, opts, false);
+}
+
+async function ensureFolderPathInner(
+  tenantId: string,
+  segments: string[],
+  opts: EnsureFolderOpts | undefined,
+  isRetry: boolean,
 ): Promise<string | null> {
   const rootId = await resolveRootFolder(tenantId);
   if (!rootId) return null;
 
+  const clean = segments.map((s) => s.trim()).filter(Boolean);
+  if (clean.length === 0) return rootId;
+
   let parentId = rootId;
   const accum: string[] = [];
 
-  for (const segment of segments) {
-    const name = segment.trim();
-    if (!name) continue;
+  for (let i = 0; i < clean.length; i++) {
+    const name = clean[i]!;
+    const isLeaf = i === clean.length - 1;
     accum.push(name);
     const key = pathKey(accum);
+
+    if (isLeaf && opts?.entity) {
+      const byEntity = await findEntityFolder(tenantId, opts.entity);
+      if (byEntity) {
+        const alive = await verifyCachedFolder(
+          tenantId,
+          byEntity.driveFolderId,
+          byEntity.pathKey,
+          byEntity.lastVerifiedAt,
+        );
+        if (alive) {
+          const desired = (opts.leafName?.trim() || name);
+          if (desired !== nameFromPath(byEntity.pathKey) || byEntity.pathKey !== key) {
+            await renameCachedFolder(tenantId, byEntity.id, byEntity.driveFolderId, desired, key);
+          }
+          return byEntity.driveFolderId;
+        }
+      }
+    }
 
     const cached = await prisma.driveFolderCache.findUnique({
       where: { tenantId_pathKey: { tenantId, pathKey: key } },
     });
     if (cached) {
-      parentId = cached.driveFolderId;
-      continue;
+      const alive = await verifyCachedFolder(
+        tenantId,
+        cached.driveFolderId,
+        key,
+        cached.lastVerifiedAt,
+      );
+      if (alive) {
+        parentId = cached.driveFolderId;
+        continue;
+      }
     }
 
-    const folderId = await createChildFolder(tenantId, parentId, name);
+    let folderName = name;
+    if (isLeaf && opts?.entity) {
+      folderName = await disambiguateLeafName(tenantId, accum.slice(0, -1), name, opts.entity);
+    }
+
+    let folderId: string | null = null;
+    try {
+      folderId = await createChildFolder(tenantId, parentId, folderName);
+    } catch (err) {
+      if (!isRetry && isNotFoundError(err)) {
+        const parentKey = pathKey(accum.slice(0, -1));
+        if (parentKey) await invalidateCacheSubtree(tenantId, parentKey);
+        else await prisma.driveFolderCache.deleteMany({ where: { tenantId } });
+        return ensureFolderPathInner(tenantId, segments, opts, true);
+      }
+      throw err;
+    }
     if (!folderId) return null;
 
+    const finalKey =
+      folderName !== name ? pathKey([...accum.slice(0, -1), folderName]) : key;
+
     await prisma.driveFolderCache.create({
-      data: { tenantId, pathKey: key, driveFolderId: folderId },
+      data: {
+        tenantId,
+        pathKey: finalKey,
+        driveFolderId: folderId,
+        lastVerifiedAt: new Date(),
+        entityType: isLeaf && opts?.entity ? opts.entity.type : null,
+        entityId: isLeaf && opts?.entity ? opts.entity.id : null,
+      },
     });
     parentId = folderId;
   }
@@ -163,18 +286,83 @@ export async function ensureFolderPath(
   return parentId;
 }
 
+function nameFromPath(key: string): string {
+  const parts = key.split("/");
+  return parts[parts.length - 1] || key;
+}
+
+async function findEntityFolder(tenantId: string, entity: DriveEntityRef) {
+  return prisma.driveFolderCache.findFirst({
+    where: {
+      tenantId,
+      entityType: entity.type,
+      entityId: entity.id,
+    },
+    orderBy: { createdAt: "asc" },
+  });
+}
+
+async function renameCachedFolder(
+  tenantId: string,
+  cacheRowId: string,
+  folderId: string,
+  newName: string,
+  newPathKey: string,
+): Promise<void> {
+  const drive = await getDriveClientForTenant(tenantId);
+  if (!drive) return;
+  try {
+    await drive.files.update({
+      fileId: folderId,
+      requestBody: { name: newName },
+    });
+  } catch (err) {
+    console.warn("[drive] renameCachedFolder:", tenantId, folderId, err);
+    return;
+  }
+  const collision = await prisma.driveFolderCache.findUnique({
+    where: { tenantId_pathKey: { tenantId, pathKey: newPathKey } },
+  });
+  if (collision && collision.id !== cacheRowId) {
+    await prisma.driveFolderCache.delete({ where: { id: collision.id } });
+  }
+  await prisma.driveFolderCache.update({
+    where: { id: cacheRowId },
+    data: { pathKey: newPathKey, lastVerifiedAt: new Date() },
+  });
+}
+
+async function disambiguateLeafName(
+  tenantId: string,
+  parentSegs: string[],
+  name: string,
+  entity: DriveEntityRef,
+): Promise<string> {
+  const candidateKey = pathKey([...parentSegs, name]);
+  const taken = await prisma.driveFolderCache.findUnique({
+    where: { tenantId_pathKey: { tenantId, pathKey: candidateKey } },
+  });
+  if (!taken) return name;
+  if (taken.entityType === entity.type && taken.entityId === entity.id) return name;
+  return `${name} (${entity.id.slice(-6)})`;
+}
+
 export async function uploadR2ToDrive(params: {
   tenantId: string;
   r2Key: string;
   fileName: string;
   targetSegments: string[];
-  /** Content-Type original del archivo. Default pdf (compat con filas legacy). */
   mimeType?: string | null;
+  entity?: DriveEntityRef;
 }): Promise<string | null> {
   const drive = await getDriveClientForTenant(params.tenantId);
   if (!drive) return null;
 
-  const parentId = await ensureFolderPath(params.tenantId, params.targetSegments);
+  const leafName = params.targetSegments[params.targetSegments.length - 1];
+  const parentId = await ensureFolderPath(params.tenantId, params.targetSegments, {
+    entity: params.entity,
+    leafName,
+  });
   if (!parentId) return null;
 
   const buffer = await getFileBuffer(params.r2Key);
