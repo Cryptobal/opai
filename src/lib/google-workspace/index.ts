@@ -13,6 +13,8 @@ export {
   getCalendarClientForAccount,
   listCalendarAccounts,
   pickDefaultAccount,
+  type TenantDriveClient,
+  type DriveMode,
 } from "./clients";
 export {
   trimEnv,
@@ -20,7 +22,18 @@ export {
   driveRedirectUri,
   calendarRedirectUri,
   calendarWebhookUrl,
+  driveServiceAccountEmail,
+  driveServiceAccountKey,
 } from "./env";
+export { normalisePrivateKey } from "./private-key";
+export { getServiceAccountDriveClient } from "./service-account";
+export { sharedDriveParams, supportsAllDrivesFlag } from "./drive-params";
+export {
+  resolveEntityFromFolderId,
+  inferEntityHintFromPathKey,
+  type DriveFolderEntity,
+} from "./drive-tree";
+export { backfillDriveFolderEntities } from "./drive-cache-backfill";
 export {
   ensureFolderPath,
   uploadR2ToDrive,

@@ -1,6 +1,14 @@
 import type { TenantModuleKey } from "@/lib/tenant-modules";
+import { prisma } from "@/lib/prisma";
 
 export type DriveModuleKey = "comercial" | "personas" | "operaciones";
+
+export type DriveFolderEntity = {
+  entityType: string;
+  entityId: string;
+  pathKey: string;
+  driveFolderId: string;
+};
 
 export const MODULE_FOLDERS: Record<
   DriveModuleKey,
@@ -143,3 +151,111 @@ export const DrivePathsV1 = {
   licitacion: (year: string, name: string) => `Licitaciones/${year}/${name}`,
   lead: (year: string, name: string) => `Negocios/${year}/${name}`, // v1 no tenía leads
 } as const;
+
+/**
+ * Resolución inversa: driveFolderId → entidad OPAI.
+ * Única vía — no parsear nombres de carpeta (mutables/colisionables).
+ */
+export async function resolveEntityFromFolderId(
+  tenantId: string,
+  driveFolderId: string,
+): Promise<DriveFolderEntity | null> {
+  if (!driveFolderId) return null;
+  const row = await prisma.driveFolderCache.findFirst({
+    where: {
+      tenantId,
+      driveFolderId,
+      entityType: { not: null },
+      entityId: { not: null },
+    },
+    orderBy: { createdAt: "asc" },
+  });
+  if (!row?.entityType || !row.entityId) return null;
+  return {
+    entityType: row.entityType,
+    entityId: row.entityId,
+    pathKey: row.pathKey,
+    driveFolderId: row.driveFolderId,
+  };
+}
+
+/** Hint de entidad a partir del pathKey (solo para backfill de caché). */
+export type PathEntityHint = {
+  entityType: "deal" | "lead" | "account" | "contact" | "installation" | "trabajador";
+  leafName: string;
+  accountName?: string;
+  module?: DriveModuleKey;
+};
+
+export function inferEntityHintFromPathKey(pathKey: string): PathEntityHint | null {
+  const p = pathKey.split("/").map((s) => s.trim()).filter(Boolean);
+  // v2 CRM
+  if (p[0] === "Comercial" && p[1] === "Negocios" && p.length === 4) {
+    return { entityType: "deal", leafName: p[3]!, module: "comercial" };
+  }
+  if (p[0] === "Comercial" && p[1] === "Licitaciones" && p.length === 4) {
+    return { entityType: "deal", leafName: p[3]!, module: "comercial" };
+  }
+  if (p[0] === "Comercial" && p[1] === "Leads" && p.length === 4) {
+    return { entityType: "lead", leafName: p[3]!, module: "comercial" };
+  }
+  if (p[0] === "Comercial" && p[1] === "Cuentas" && p[3] === "General" && p.length === 4) {
+    return { entityType: "account", leafName: p[2]!, module: "comercial" };
+  }
+  if (
+    p[0] === "Comercial" &&
+    p[1] === "Cuentas" &&
+    p[3] === "Contactos" &&
+    p.length === 5
+  ) {
+    return {
+      entityType: "contact",
+      leafName: p[4]!,
+      accountName: p[2],
+      module: "comercial",
+    };
+  }
+  if (
+    p[0] === "Comercial" &&
+    p[1] === "Cuentas" &&
+    p.length === 5 &&
+    (p[4] === "Documentos" || p[4] === "Cotizaciones" || p[4] === "Facturas")
+  ) {
+    return {
+      entityType: "installation",
+      leafName: p[3]!,
+      accountName: p[2],
+      module: "comercial",
+    };
+  }
+  if (p[0] === "Personas" && p.length === 2) {
+    return { entityType: "trabajador", leafName: p[1]!, module: "personas" };
+  }
+  // v1
+  if (p[0] === "Negocios" && p.length === 3) {
+    return { entityType: "deal", leafName: p[2]!, module: "comercial" };
+  }
+  if (p[0] === "Licitaciones" && p.length === 3) {
+    return { entityType: "deal", leafName: p[2]!, module: "comercial" };
+  }
+  if (p[0] === "Clientes" && p[2] === "General" && p.length >= 3) {
+    return { entityType: "account", leafName: p[1]!, module: "comercial" };
+  }
+  if (p[0] === "Clientes" && p[2] === "Personas" && p.length === 4) {
+    return {
+      entityType: "contact",
+      leafName: p[3]!,
+      accountName: p[1],
+      module: "comercial",
+    };
+  }
+  if (p[0] === "Clientes" && p.length === 4 && p[3] === "Documentos") {
+    return {
+      entityType: "installation",
+      leafName: p[2]!,
+      accountName: p[1],
+      module: "comercial",
+    };
+  }
+  return null;
+}

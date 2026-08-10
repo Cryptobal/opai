@@ -1,11 +1,23 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi, beforeEach } from "vitest";
 import {
   buildTreePreview,
   isModuleFolderEnabled,
   safeSegment,
   DrivePathsV2,
+  inferEntityHintFromPathKey,
+  resolveEntityFromFolderId,
 } from "../drive-tree";
 import { DEFAULT_MIRROR_CONFIG } from "../drive-mirror-config";
+
+vi.mock("@/lib/prisma", () => ({
+  prisma: {
+    driveFolderCache: {
+      findFirst: vi.fn(),
+    },
+  },
+}));
+
+import { prisma } from "@/lib/prisma";
 
 describe("safeSegment", () => {
   it("reemplaza / y \\ y corta a 80", () => {
@@ -59,5 +71,49 @@ describe("isModuleFolderEnabled / buildTreePreview", () => {
     expect(lines.some((l) => l.includes("Personas/"))).toBe(true);
     expect(lines.some((l) => l.includes("Operaciones/"))).toBe(true);
     expect(lines.some((l) => l.includes("Clientes/"))).toBe(false);
+  });
+});
+
+describe("inferEntityHintFromPathKey", () => {
+  it("reconoce hojas CRM v2", () => {
+    expect(inferEntityHintFromPathKey("Comercial/Negocios/2026/Acme")).toEqual({
+      entityType: "deal",
+      leafName: "Acme",
+      module: "comercial",
+    });
+    expect(
+      inferEntityHintFromPathKey("Comercial/Cuentas/Foo/Contactos/Ana"),
+    ).toMatchObject({ entityType: "contact", leafName: "Ana", accountName: "Foo" });
+  });
+});
+
+describe("resolveEntityFromFolderId", () => {
+  beforeEach(() => {
+    vi.mocked(prisma.driveFolderCache.findFirst).mockReset();
+  });
+
+  it("devuelve entidad cuando el caché tiene entityType/entityId", async () => {
+    vi.mocked(prisma.driveFolderCache.findFirst).mockResolvedValue({
+      id: "c1",
+      tenantId: "t1",
+      pathKey: "Comercial/Negocios/2026/Acme",
+      driveFolderId: "folder-1",
+      entityType: "deal",
+      entityId: "deal-1",
+      lastVerifiedAt: null,
+      createdAt: new Date(),
+    } as never);
+    const got = await resolveEntityFromFolderId("t1", "folder-1");
+    expect(got).toEqual({
+      entityType: "deal",
+      entityId: "deal-1",
+      pathKey: "Comercial/Negocios/2026/Acme",
+      driveFolderId: "folder-1",
+    });
+  });
+
+  it("devuelve null si la carpeta no está mapeada", async () => {
+    vi.mocked(prisma.driveFolderCache.findFirst).mockResolvedValue(null);
+    expect(await resolveEntityFromFolderId("t1", "unknown")).toBeNull();
   });
 });

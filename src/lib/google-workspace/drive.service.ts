@@ -257,6 +257,19 @@ async function ensureFolderPathInner(
         cached.lastVerifiedAt,
       );
       if (alive) {
+        if (
+          isLeaf &&
+          opts?.entity &&
+          (!cached.entityType || !cached.entityId)
+        ) {
+          await prisma.driveFolderCache.update({
+            where: { id: cached.id },
+            data: {
+              entityType: opts.entity.type,
+              entityId: opts.entity.id,
+            },
+          });
+        }
         parentId = cached.driveFolderId;
         continue;
       }
