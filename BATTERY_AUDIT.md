@@ -23,12 +23,12 @@ cliente. Fuente de verdad: el repositorio.
 | 7 | Coalescer medición del bottom nav con rAF; quitar `visualViewport.scroll` |
 | 8 | Herramientas en `scripts/battery-audit/` |
 
-## Fase B (requiere aprobación humana)
+## Fase B (implementada tras aprobación)
 
 | Bloque | Cambio |
 |---|---|
-| 9 | Reducir radios de blur del glass + válvula `html[data-perf="low"]` |
-| 10 | Corregir cadencia de tracking GPS en `RondaActiva` (~60 POST/min → ~2) |
+| 9 | Radios de blur glass reducidos + válvula manual `html[data-perf="low"]` |
+| 10 | `useRondaTracking`: tracking cada 30s / flush cada 60s (traza completa); GPS updates ya no reinician timers |
 
 ## Herramientas
 

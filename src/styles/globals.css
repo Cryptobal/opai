@@ -342,9 +342,11 @@
     --portal-bottom-nav-height: 5.5rem;
 
     /* ── Liquid Glass v1 — blur tokens (agnósticos al tema) ── */
-    --glass-blur-1: blur(16px) saturate(160%);
-    --glass-blur-2: blur(24px) saturate(180%);
-    --glass-blur-3: blur(32px) saturate(200%);
+    /* Radios reducidos: el coste de composición en WebKit escala con
+       píxeles físicos (iPad Pro ≈4,7× iPhone). Válvula: html[data-perf="low"]. */
+    --glass-blur-1: blur(12px) saturate(140%);
+    --glass-blur-2: blur(18px) saturate(150%);
+    --glass-blur-3: blur(20px) saturate(160%);
 
     /* ── Shell móvil v3.1 — scroll edge effect ──────────────────
        Alto de los degradados de máscara del contenedor de scroll.
@@ -1616,6 +1618,35 @@ html {
       backdrop-filter: none !important;
       -webkit-backdrop-filter: none !important;
     }
+  }
+
+  /* Válvula manual de performance (consola: document.documentElement.dataset.perf = "low").
+     No se activa automáticamente. Sin blur + fondo opaco theme-aware. */
+  html[data-perf="low"] {
+    --glass-blur-1: none;
+    --glass-blur-2: none;
+    --glass-blur-3: none;
+  }
+  html[data-perf="low"] .opai-glass,
+  html[data-perf="low"] .opai-glass-strong,
+  html[data-perf="low"] .opai-glass-shell,
+  html[data-perf="low"] .opai-glass-soft,
+  html[data-perf="low"] .opai-glass-pill,
+  html[data-perf="low"] .opai-glass-sheet-island,
+  html[data-perf="low"] .opai-ios-surface-sheet-bottom,
+  html[data-perf="low"] .opai-ios-surface-sheet-top,
+  html[data-perf="low"] .opai-ios-surface-sheet-side,
+  html[data-perf="low"] .opai-ios-surface-dialog,
+  html[data-perf="low"] .opai-ios-surface-popover,
+  html[data-perf="low"] .opai-ios-command-palette,
+  html[data-perf="low"] .opai-liquid-glass,
+  html[data-perf="low"] .opai-liquid-glass-bar,
+  html[data-perf="low"] .opai-liquid-glass-bar-top,
+  html[data-perf="low"] .opai-m3e-nav,
+  html[data-perf="low"] .opai-m3e-card {
+    background: hsl(var(--card)) !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
   }
 
   @media (prefers-reduced-transparency: reduce) {
