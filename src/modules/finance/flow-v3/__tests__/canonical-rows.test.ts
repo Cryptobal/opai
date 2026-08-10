@@ -45,7 +45,13 @@ describe("SECTION_MOVES", () => {
     });
   });
 
-  it("Retiro y Devolución a socios nacen con categoría y llave", () => {
+  it("Aporte / Retiro / Devolución a socios nacen con categoría y llave", () => {
+    expect(CANONICAL_FLOW_ROWS).toContainEqual({
+      section: "FINANCIAMIENTO",
+      name: "Aporte socios",
+      categoryCode: "ING_PRESTAMO_SOCIO",
+      canonicalKey: "APORTE_SOCIO",
+    });
     expect(CANONICAL_FLOW_ROWS).toContainEqual({
       section: "FINANCIAMIENTO",
       name: "Retiro socios",

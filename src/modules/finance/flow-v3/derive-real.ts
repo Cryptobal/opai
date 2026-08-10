@@ -26,6 +26,11 @@ import {
 import { PAYROLL_LINK_KEY } from "./row-keys";
 import { COST_FACTORING_ROW_NAME } from "./canonical-rows";
 import {
+  hasPartnerSocioPair,
+  resolvePartnerSocioRow,
+  type PartnerRouteCandidate,
+} from "./partner-account-route";
+import {
   pushReal,
   UNMATCHED_EXPENSE_KEY,
   UNMATCHED_INCOME_KEY,
@@ -75,17 +80,36 @@ export interface RealArgs {
   dteById: Map<string, DteRefInput>;
   /** accountPlanId → rowId (destino por defecto vía FinanceFlowRowAccount). */
   accountToRowId: Map<string, string>;
+  /**
+   * accountPlanId → todos los renglones que la tienen. Permite polaridad
+   * aporte(+)/devolución(−) cuando comparten Acreedores Varios.
+   */
+  accountToRowCandidates?: Map<string, PartnerRouteCandidate[]>;
 }
 
 /**
  * Links de diferencia contable (shortfall/surplus) que NO consumen el cupo
- * del monto bancario. En abonos: EXPENSE/INCOME con cuenta. En cargos:
- * INCOME con cuenta (descuento recibido en shortfall de egreso).
+ * del monto bancario. En abonos: EXPENSE (merma factoring) sigue siendo diff;
+ * INCOME con cuenta de aporte socios SÍ consume cupo (inyección de caja).
+ * En cargos: INCOME con cuenta (descuento recibido en shortfall de egreso).
  */
-function isAccountingDiffLink(isCredit: boolean, link: RealLinkInput): boolean {
+function isAccountingDiffLink(
+  isCredit: boolean,
+  link: RealLinkInput,
+  accountToRowCandidates?: Map<string, PartnerRouteCandidate[]>,
+): boolean {
   if (!link.accountPlanId) return false;
   if (isCredit) {
-    return link.targetType === "EXPENSE" || link.targetType === "INCOME";
+    if (link.targetType === "EXPENSE") return true;
+    if (link.targetType === "INCOME") {
+      // Préstamo/aporte de socio: el abono debe aterrizar en la planilla.
+      const cands = accountToRowCandidates?.get(link.accountPlanId);
+      if (hasPartnerSocioPair(cands) && resolvePartnerSocioRow(cands, true)) {
+        return false;
+      }
+      return true;
+    }
+    return false;
   }
   return link.targetType === "INCOME";
 }
@@ -111,6 +135,12 @@ export function deriveReal(args: RealArgs): RealByRow {
   const matchIncome = buildIncomeMatcher(args.rows);
   const idx = buildExpenseIndexes(args.rows, args.accountToRowId);
   const costoFactoringRowId = findCostoFactoringRowId(args.rows);
+  const candidates = args.accountToRowCandidates;
+
+  const partnerRowFor = (accountPlanId: string | null | undefined, isCredit: boolean): string | null => {
+    if (!accountPlanId || !candidates) return null;
+    return resolvePartnerSocioRow(candidates.get(accountPlanId), isCredit);
+  };
 
   const resolveExpenseLinkRow = (link: RealLinkInput): string => {
     const payrollKey = PAYROLL_LINK_KEY[link.targetType];
@@ -125,6 +155,8 @@ export function deriveReal(args: RealArgs): RealByRow {
       }
     }
     if (link.accountPlanId) {
+      const partner = partnerRowFor(link.accountPlanId, false);
+      if (partner) return partner;
       return matchExpenseRow(idx, { accountPlanId: link.accountPlanId });
     }
     return UNMATCHED_EXPENSE_KEY;
@@ -138,7 +170,7 @@ export function deriveReal(args: RealArgs): RealByRow {
 
     let assigned = 0;
     for (const link of tx.links) {
-      if (isAccountingDiffLink(isCredit, link)) continue;
+      if (isAccountingDiffLink(isCredit, link, candidates)) continue;
 
       const monto = Math.min(Math.abs(link.amountClp), txMagnitude - assigned);
       if (monto <= 0) continue;
@@ -172,12 +204,27 @@ export function deriveReal(args: RealArgs): RealByRow {
             monto: Math.round(monto),
             ceded: dte.ceded === true,
           });
+          continue;
+        }
+
+        // Abono clasificado a cuenta de aporte socios → Aporte socios (+).
+        if (link.targetType === "INCOME" && link.accountPlanId) {
+          const partner = partnerRowFor(link.accountPlanId, true);
+          if (partner) {
+            pushReal(out, partner, week, {
+              bankTransactionId: tx.id,
+              label: tx.description,
+              fecha: tx.dateYmd,
+              monto: Math.round(monto),
+            });
+          }
         }
         // Cualquier otro link de abono: no auto-rutea a bandeja.
         continue;
       }
 
       // Cargos: ruteo clásico a fila de egreso / Otros egresos.
+      // Acreedores Varios en cargo → Devolución a socios (−).
       const dte = link.targetId ? args.dteById.get(link.targetId) : undefined;
       pushReal(out, resolveExpenseLinkRow(link), week, {
         bankTransactionId: tx.id,
@@ -191,7 +238,7 @@ export function deriveReal(args: RealArgs): RealByRow {
 
     // Merma de factoring (y diffs contables) — fuera del cupo bancario.
     for (const link of tx.links) {
-      if (!isAccountingDiffLink(isCredit, link)) continue;
+      if (!isAccountingDiffLink(isCredit, link, candidates)) continue;
       const monto = Math.round(Math.abs(link.amountClp));
       if (monto <= 0) continue;
 

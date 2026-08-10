@@ -23,6 +23,7 @@ import {
 import { assembleMatrix, type AssembleRowInput } from "./matrix-assemble";
 import { reduceMonthly, weeklyColumns } from "./matrix-monthly";
 import { listClosedV3Weeks, loadSealedBalancesForMatrix } from "./weekly-close.adapter";
+import { loadBalanceAnchors } from "./balance-anchor.service";
 import type { FlowMatrixResponse, OpeningBalanceDetail } from "./matrix-types";
 import { compareFlowRows } from "./row-sort";
 import { isFallbackBandejaRow } from "./unmatched-count";
@@ -82,26 +83,28 @@ export async function buildFlowMatrix(
       supplierId: r.supplierId,
     }));
 
-  const [plan, notes, settlements, cIncomeLoad, cExpense, real, opening, config, closedWeeks, seals] = await Promise.all([
-    loadPlanCells(tenantId, ymdToDate(weeks[0])!, ymdToDate(lastWeek)!),
-    loadCellNotes(tenantId, ymdToDate(weeks[0])!, ymdToDate(lastWeek)!),
-    loadCellSettlements(tenantId, ymdToDate(weeks[0])!, ymdToDate(lastWeek)!),
-    loadCommittedIncome(tenantId, activeRefs, weeks, todayYmd),
-    loadCommittedExpense(tenantId, activeRefs, weeks, todayYmd),
-    loadReal(tenantId, activeRefs, weeks),
-    resolveOpeningBalance(tenantId),
-    prisma.financeCashflowConfig.findUnique({
-      where: { tenantId },
-      select: {
-        flowWarnThresholdClp: true,
-        driftAlertThresholdClp: true,
-        residualCarryEnabled: true,
-        residualMinClp: true,
-      },
-    }),
-    listClosedV3Weeks(tenantId, weeks),
-    loadSealedBalancesForMatrix(tenantId, weeks),
-  ]);
+  const [plan, notes, settlements, cIncomeLoad, cExpense, real, opening, config, closedWeeks, seals, balanceAnchors] =
+    await Promise.all([
+      loadPlanCells(tenantId, ymdToDate(weeks[0])!, ymdToDate(lastWeek)!),
+      loadCellNotes(tenantId, ymdToDate(weeks[0])!, ymdToDate(lastWeek)!),
+      loadCellSettlements(tenantId, ymdToDate(weeks[0])!, ymdToDate(lastWeek)!),
+      loadCommittedIncome(tenantId, activeRefs, weeks, todayYmd),
+      loadCommittedExpense(tenantId, activeRefs, weeks, todayYmd),
+      loadReal(tenantId, activeRefs, weeks),
+      resolveOpeningBalance(tenantId),
+      prisma.financeCashflowConfig.findUnique({
+        where: { tenantId },
+        select: {
+          flowWarnThresholdClp: true,
+          driftAlertThresholdClp: true,
+          residualCarryEnabled: true,
+          residualMinClp: true,
+        },
+      }),
+      listClosedV3Weeks(tenantId, weeks),
+      loadSealedBalancesForMatrix(tenantId, weeks),
+      loadBalanceAnchors(tenantId),
+    ]);
   const cIncome = cIncomeLoad.committed;
 
   // Ventana enteramente pasada: real del gap (fin de ventana → hoy) para anclar el saldo.
@@ -351,6 +354,7 @@ export async function buildFlowMatrix(
     sealedBalances: seals.sealedBalances,
     priorSealed: seals.priorSealed,
     closedWeeks,
+    balanceAnchors,
     residualCarryEnabled,
     residualMinClp,
   });
@@ -386,11 +390,15 @@ export async function buildFlowMatrix(
         : e.rowId,
   }));
 
+  const balanceAnchorWeeks = [...balanceAnchors.keys()].filter((w) => weeks.includes(w));
   const base = {
     currentWeek, todayYmd,
     openingBalance: Math.round(opening.currentTotalClp),
     openingBalanceDetail,
     closedWeeks,
+    balanceAnchors: Object.fromEntries(
+      balanceAnchorWeeks.map((w) => [w, balanceAnchors.get(w)!]),
+    ),
     warnThreshold: config?.flowWarnThresholdClp ?? WARN_THRESHOLD_CLP,
     driftAlertThresholdClp: config?.driftAlertThresholdClp ?? 100_000,
     residualCarryEnabled,

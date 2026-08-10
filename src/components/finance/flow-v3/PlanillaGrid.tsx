@@ -91,6 +91,7 @@ interface PlanMutators {
     projectedClp?: number,
     opts?: { skipHistory?: boolean },
   ) => Promise<void>;
+  patchBalanceAnchor: (weekStart: string, balanceClp: number | null) => Promise<void>;
   undo: () => Promise<HistoryEntry | null>;
   redo: () => Promise<HistoryEntry | null>;
 }
@@ -1740,6 +1741,25 @@ export function PlanillaGrid({
                 numberFormat={numberFormat}
                 selectedColIdx={kb.sel?.colIdx ?? null}
                 selectedColIndices={selectedColIndices}
+                closedWeeks={data.closedWeeks}
+                balanceAnchors={data.balanceAnchors}
+                canManage={canManage && data.granularity === "week"}
+                onBalanceAnchor={
+                  canManage && data.granularity === "week"
+                    ? async (weekStart, balanceClp) => {
+                        try {
+                          await matrix.patchBalanceAnchor(weekStart, balanceClp);
+                        } catch (err) {
+                          toast.error(
+                            err instanceof Error
+                              ? err.message
+                              : "No se pudo guardar el saldo acumulado",
+                          );
+                          throw err;
+                        }
+                      }
+                    : undefined
+                }
               />
             </table>
           </div>

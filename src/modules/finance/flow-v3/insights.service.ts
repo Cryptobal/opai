@@ -88,6 +88,9 @@ const DRIFT_ROW_NAMES = [
   "iva f29",
   "f29 (iva + ppm)",
   "retiro socios",
+  "aporte socios",
+  "devolucion a socios",
+  "devolución a socios",
 ];
 
 function normalizeInsightName(s: string): string {

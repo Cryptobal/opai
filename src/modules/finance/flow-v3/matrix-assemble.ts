@@ -130,6 +130,12 @@ export interface AssembleArgs {
    * Si se omite, se infiere de las claves de `sealedBalances`.
    */
   closedWeeks?: Iterable<string>;
+  /**
+   * Anclas manuales de saldo acumulado (lunes ISO → CLP). No congelan la
+   * semana (a diferencia de `sealedBalances`): solo pisan el saldo de esa
+   * semana y re-encadenan hacia adelante hasta el próximo sello/ancla.
+   */
+  balanceAnchors?: Map<string, number>;
 }
 
 export interface AssembledMatrix {
@@ -345,6 +351,26 @@ export function assembleMatrix(args: AssembleArgs): AssembledMatrix {
     for (let i = ci - 1; i >= 0; i--) {
       const next = i === ci - 1 ? openingBalance : balances[i + 1];
       balances[i] = next - realNet[i + 1];
+    }
+  }
+
+  // Anclas manuales de saldo: pisan la semana (si no está cerrada) y
+  // re-encadenan SOLO hacia adelante hasta el próximo sello o ancla.
+  if (args.balanceAnchors && args.balanceAnchors.size > 0) {
+    const anchorIdx: number[] = [];
+    for (let i = 0; i < n; i++) {
+      if (!args.balanceAnchors.has(weeks[i])) continue;
+      if (closedSet.has(weeks[i])) continue; // sello manda; no editable
+      anchorIdx.push(i);
+    }
+    anchorIdx.sort((a, b) => a - b);
+    for (const k of anchorIdx) {
+      balances[k] = args.balanceAnchors.get(weeks[k])!;
+      for (let i = k + 1; i < n; i++) {
+        if (sealedAt.has(i)) break;
+        if (args.balanceAnchors.has(weeks[i]) && !closedSet.has(weeks[i])) break;
+        balances[i] = balances[i - 1] + weekFlow(i);
+      }
     }
   }
 

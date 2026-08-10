@@ -4,7 +4,12 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { ClipboardCheck, FileText } from "lucide-react";
-import { CHIP_LEGEND_ITEMS, CORNER_LEGEND_ITEMS } from "./cell-color-meaning";
+import {
+  CHIP_LEGEND_ITEMS,
+  CORNER_LEGEND_ITEMS,
+  type ChipLegendItem,
+  type ColorMeaningItem,
+} from "./cell-color-meaning";
 
 interface Props {
   open: boolean;
@@ -14,6 +19,10 @@ interface Props {
    * La leyenda describe el modo activo.
    */
   showChips?: boolean;
+}
+
+function showIcons(it: ColorMeaningItem | ChipLegendItem): boolean {
+  return "icons" in it && it.icons === true;
 }
 
 export function LegendPopover({ open, onOpenChange, showChips }: Props) {
@@ -40,12 +49,12 @@ export function LegendPopover({ open, onOpenChange, showChips }: Props) {
               <div className="min-w-0">
                 <p className="text-[13px] font-medium text-ds-text-1">
                   {it.title}
-                  {"icons" in it && it.icons && (
+                  {showIcons(it) ? (
                     <span className="ml-1.5 inline-flex items-center gap-0.5 align-middle text-ds-text-3">
                       <FileText className="h-3 w-3 text-status-info-fg" aria-hidden />
                       <ClipboardCheck className="h-3 w-3 text-primary" aria-hidden />
                     </span>
-                  )}
+                  ) : null}
                 </p>
                 <p className="text-[12px] leading-snug text-ds-text-3">{it.desc}</p>
               </div>

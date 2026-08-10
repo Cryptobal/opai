@@ -59,7 +59,7 @@ export const CANONICAL_FLOW_ROWS: CanonicalFlowRow[] = [
   { section: "GAV", name: FALLBACK_EXPENSE_NAME, categoryCode: null, canonicalKey: "BANDEJA_EGRESO" },
   { section: "FINANCIAMIENTO", name: "Créditos / financiamiento", categoryCode: null, canonicalKey: "CREDITO" },
   { section: "FINANCIAMIENTO", name: "Costo factoring", categoryCode: "EGR_FACTORING", canonicalKey: "FACTORING" },
-  { section: "FINANCIAMIENTO", name: "Aporte socios", categoryCode: null, canonicalKey: "APORTE_SOCIO" },
+  { section: "FINANCIAMIENTO", name: "Aporte socios", categoryCode: "ING_PRESTAMO_SOCIO", canonicalKey: "APORTE_SOCIO" },
   { section: "FINANCIAMIENTO", name: "Retiro socios", categoryCode: "EGR_RETIRO_SOCIO", canonicalKey: "RETIRO_SOCIO" },
   { section: "FINANCIAMIENTO", name: "Devolución a socios", categoryCode: "EGR_DEVOL_PRESTAMO_SOCIO", canonicalKey: "DEVOL_PRESTAMO_SOCIO" },
 ];

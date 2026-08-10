@@ -16,6 +16,7 @@ export const CATEGORY_CODE_TO_ROW_KEY: Readonly<Record<string, FlowRowKey>> = {
   EGR_FACTORING: "FACTORING",
   EGR_RETIRO_SOCIO: "RETIRO_SOCIO",
   EGR_DEVOL_PRESTAMO_SOCIO: "DEVOL_PRESTAMO_SOCIO",
+  ING_PRESTAMO_SOCIO: "APORTE_SOCIO",
 };
 
 /** FinanceLinkTarget payroll/TE → FlowRowKey. */
