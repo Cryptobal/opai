@@ -21,7 +21,7 @@ export function DriveTreePreview({
 
   return (
     <div className="space-y-2">
-      <pre className="overflow-x-auto rounded-xl border border-ds-border-subtle bg-ds-surface-1 p-3 font-mono text-[11px] leading-relaxed text-ds-text-3 sm:text-[12px]">
+      <pre className="overflow-x-auto rounded-xl border border-ds-border-subtle bg-ds-surface-1 p-3 font-mono text-[12px] leading-relaxed text-ds-text-3">
         {lines.join("\n")}
       </pre>
       <p className="text-[13px] text-ds-text-4">
