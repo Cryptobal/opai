@@ -145,7 +145,7 @@ export function DataTable<T>({
                   c.width,
                   c.hideOnMobile && "hidden sm:table-cell",
                   c.sticky === "right" &&
-                    "sticky right-0 z-10 bg-ds-surface-3 shadow-[-8px_0_8px_-8px_rgba(0,0,0,0.35)]",
+                    "sticky right-0 z-10 bg-ds-surface-3",
                 )}
               >
                 {c.header}
@@ -161,7 +161,7 @@ export function DataTable<T>({
                 key={rowKey(row, i)}
                 onClick={onRowClick ? () => onRowClick(row) : undefined}
                 className={cn(
-                  "border-b border-ds-border-subtle last:border-b-0 transition-colors",
+                  "group/row border-b border-ds-border-subtle last:border-b-0 transition-colors",
                   ROW_VARIANT_BG[variant],
                   onRowClick && "cursor-pointer hover:bg-ds-surface-2",
                 )}
@@ -172,14 +172,18 @@ export function DataTable<T>({
                     className={cn(
                       // table-fixed: max-w-0 + overflow-hidden evita que el
                       // contenido invada la columna vecina (ej. Receptor → Tipo).
-                      "px-3.5 py-3 text-ds-text-1 align-top min-w-0 overflow-hidden",
+                      // Sticky right: overflow visible + fondo sólido — si no,
+                      // botones (p.ej. Autorizar) se recortan y la sombra se
+                      // lee como una línea divisoria falsa.
+                      "px-3.5 py-3 text-ds-text-1 align-top min-w-0",
+                      c.sticky === "right" ? "overflow-visible" : "overflow-hidden",
                       layout === "fixed" && c.sticky !== "right" && "max-w-0",
                       c.align === "right" ? "text-right ds-num" :
                       c.align === "center" ? "text-center" :
                       "text-left",
                       c.hideOnMobile && "hidden sm:table-cell",
                       c.sticky === "right" &&
-                        "sticky right-0 z-[1] bg-inherit shadow-[-8px_0_8px_-8px_rgba(0,0,0,0.35)]",
+                        "sticky right-0 z-[1] bg-ds-surface-1 group-hover/row:bg-ds-surface-2",
                     )}
                   >
                     {c.cell(row, i)}
