@@ -7,16 +7,14 @@ import { CellNoteEditor } from "./CellNoteEditor";
 
 interface Props {
   model: HoverCardModel;
-  editingNote: boolean;
+  focusNote: boolean;
   canManage: boolean;
   rowId: string;
   weekStart: string;
   noteInitial: string;
   onSaveNote: (rowId: string, weekStart: string, body: string | null) => Promise<boolean>;
-  onStartNote: () => void;
-  onNoteClose: () => void;
-  onNoteDone: () => void;
   onOpenActions: (el: HTMLElement) => void;
+  onViewDte?: (dteId: string) => void;
   onSendCobranza?: (args: {
     dteId: string;
     crmAccountId: string | null;
@@ -33,7 +31,7 @@ export function CellHoverCardBody(p: Props) {
       <div className="mb-1.5 flex items-baseline justify-between gap-2">
         <span className="truncate font-medium text-ds-text-1">{model.concept}</span>
         <span className="shrink-0 text-[12px] tabular-nums text-ds-text-3">
-          {model.ref} · {model.weekLabel}
+          {model.subtitle}
         </span>
       </div>
       <div className="mb-1.5 flex flex-wrap gap-1">
@@ -80,17 +78,37 @@ export function CellHoverCardBody(p: Props) {
           onWheel={(e) => e.stopPropagation()}
           aria-label={`${model.items.length} movimientos`}
         >
-          {model.items.map((it, i) => (
-            <li key={i} className="text-[12px] text-ds-text-2">
-              <div className="flex justify-between gap-1">
-                <span className="min-w-0 truncate">
-                  <span className="font-medium text-status-info-fg">{it.tag}</span> {it.label}
-                </span>
-                <span className="shrink-0 tabular-nums">{it.amount}</span>
-              </div>
-              <div className="truncate text-ds-text-4">{it.status}</div>
-            </li>
-          ))}
+          {model.items.map((it, i) => {
+            const clickable = !!it.dteId && !!p.onViewDte;
+            const row = (
+              <>
+                <div className="flex justify-between gap-1">
+                  <span className="min-w-0 truncate">
+                    <span className="font-medium text-status-info-fg">{it.tag}</span>{" "}
+                    {it.label}
+                  </span>
+                  <span className="shrink-0 tabular-nums">{it.amount}</span>
+                </div>
+                <div className="truncate text-ds-text-4">{it.status}</div>
+              </>
+            );
+            return (
+              <li key={i} className="text-[12px] text-ds-text-2">
+                {clickable ? (
+                  <button
+                    type="button"
+                    className="w-full rounded px-0.5 text-left hover:bg-ds-surface-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary/40"
+                    aria-label={`Abrir factura ${it.tag}`}
+                    onClick={() => p.onViewDte!(it.dteId!)}
+                  >
+                    {row}
+                  </button>
+                ) : (
+                  row
+                )}
+              </li>
+            );
+          })}
         </ul>
       )}
       {model.execution && (
@@ -177,60 +195,39 @@ export function CellHoverCardBody(p: Props) {
         </div>
       )}
       <div className="border-t border-ds-border-subtle pt-1.5">
-        {p.editingNote ? (
-          <CellNoteEditor
-            rowId={p.rowId}
-            weekStart={p.weekStart}
-            initial={p.noteInitial}
-            canManage={p.canManage}
-            save={p.onSaveNote}
-            autoFocus
-            rows={3}
-            onClose={p.onNoteClose}
-            onEditorDone={p.onNoteDone}
-          />
-        ) : (
-          <button
-            type="button"
-            onClick={p.onStartNote}
-            className="w-full rounded px-0.5 text-left hover:bg-ds-surface-2 focus-visible:ring-1 focus-visible:ring-primary/40"
-          >
-            <div className="mb-0.5 flex items-center justify-between">
-              <span className="text-[12px] uppercase tracking-wide text-ds-text-3">Nota</span>
-              {p.canManage && (
-                <span className="text-[12px] text-ds-text-4">clic para editar</span>
-              )}
-            </div>
-            <p className="whitespace-pre-wrap text-[13px] text-ds-text-2">
-              {model.note || "Sin nota"}
-            </p>
-          </button>
-        )}
+        <CellNoteEditor
+          rowId={p.rowId}
+          weekStart={p.weekStart}
+          initial={p.noteInitial}
+          canManage={p.canManage}
+          save={p.onSaveNote}
+          autoFocus={p.focusNote}
+          rows={2}
+          placeholder="Escribe una nota…"
+        />
       </div>
-      {!p.editingNote && (
-        <div className="mt-1.5 flex items-center justify-between gap-2 border-t border-ds-border-subtle pt-1.5">
-          <span className="min-w-0 truncate text-[12px] text-ds-text-4">{model.footerHint}</span>
-          <span className="flex shrink-0 items-center gap-1">
-            {model.cobranza && p.onSendCobranza && p.canManage && (
-              <button
-                type="button"
-                className="inline-flex h-7 items-center rounded border border-status-warn-border bg-status-warn-soft px-1.5 text-[12px] font-medium text-status-warn-fg hover:opacity-90 focus-visible:ring-1 focus-visible:ring-primary/40"
-                aria-label={`Cobrar factura vencida · ${model.cobranza.daysOverdue} días de mora`}
-                onClick={() => p.onSendCobranza!(model.cobranza!)}
-              >
-                Cobrar…
-              </button>
-            )}
+      <div className="mt-1.5 flex items-center justify-between gap-2 border-t border-ds-border-subtle pt-1.5">
+        <span className="min-w-0 truncate text-[12px] text-ds-text-4">{model.footerHint}</span>
+        <span className="flex shrink-0 items-center gap-1">
+          {model.cobranza && p.onSendCobranza && p.canManage && (
             <button
               type="button"
-              className="inline-flex h-7 shrink-0 items-center gap-0.5 rounded border border-ds-border-default bg-ds-surface-2 px-1.5 text-[12px] text-ds-text-1 hover:bg-ds-surface-4 focus-visible:ring-1 focus-visible:ring-primary/40"
-              onClick={(e) => p.onOpenActions(e.currentTarget)}
+              className="inline-flex h-7 items-center rounded border border-status-warn-border bg-status-warn-soft px-1.5 text-[12px] font-medium text-status-warn-fg hover:opacity-90 focus-visible:ring-1 focus-visible:ring-primary/40"
+              aria-label={`Cobrar factura vencida · ${model.cobranza.daysOverdue} días de mora`}
+              onClick={() => p.onSendCobranza!(model.cobranza!)}
             >
-              Acciones <ChevronDown className="h-3 w-3" aria-hidden />
+              Cobrar…
             </button>
-          </span>
-        </div>
-      )}
+          )}
+          <button
+            type="button"
+            className="inline-flex h-7 shrink-0 items-center gap-0.5 rounded border border-ds-border-default bg-ds-surface-2 px-1.5 text-[12px] text-ds-text-1 hover:bg-ds-surface-4 focus-visible:ring-1 focus-visible:ring-primary/40"
+            onClick={(e) => p.onOpenActions(e.currentTarget)}
+          >
+            Más… <ChevronDown className="h-3 w-3" aria-hidden />
+          </button>
+        </span>
+      </div>
     </>
   );
 }

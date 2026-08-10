@@ -722,10 +722,10 @@ export function IssuedDteDetailDialog({
                     <div>
                       <p className="text-xs text-status-ok-fg/70 mb-0.5">Fecha</p>
                       <p className="font-mono font-medium text-status-ok-fg">
-                        {format(
-                          new Date(dte.lastReconciliation.bankTransactionDate),
+                        {formatCalendarDateDisplay(
+                          dte.lastReconciliation.bankTransactionDate,
                           "dd MMM yyyy",
-                          { locale: es },
+                          es,
                         )}
                       </p>
                     </div>

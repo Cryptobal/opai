@@ -11,6 +11,7 @@ interface Props {
   save: (rowId: string, weekStart: string, body: string | null) => Promise<boolean>;
   autoFocus?: boolean;
   rows?: number;
+  placeholder?: string;
   onClose?: () => void;
   /** Tras ⌘Enter: flush y cierra solo el editor (mantiene ficha). */
   onEditorDone?: () => void;
@@ -27,7 +28,8 @@ const STATE_LABEL: Record<string, string> = {
 /** Textarea de nota con autoguardado — compartido entre ficha y panel. */
 export function CellNoteEditor({
   rowId, weekStart, initial, canManage, save,
-  autoFocus, rows = 3, onClose, onEditorDone, className,
+  autoFocus, rows = 3, placeholder = "Escribe una nota…",
+  onClose, onEditorDone, className,
 }: Props) {
   const taRef = useRef<HTMLTextAreaElement>(null);
   const { draft, setDraft, state, flush, retry } = useCellNoteAutosave({
@@ -70,7 +72,7 @@ export function CellNoteEditor({
         value={draft}
         maxLength={2000}
         rows={rows}
-        placeholder="Motivo del cambio o desvío…"
+        placeholder={placeholder}
         onChange={(e) => setDraft(e.target.value)}
         onBlur={() => { void flush(); }}
         onKeyDown={(e) => {

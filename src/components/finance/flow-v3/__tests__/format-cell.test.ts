@@ -34,9 +34,28 @@ describe("fmtCell modes", () => {
 });
 
 describe("cornerKind / primaryCellTag", () => {
-  it("real → esquina verde", () => {
+  it("real → esquina verde; chip folio si hay DTE conciliado", () => {
     expect(cornerKind(cell({ layer: "real", effective: 100 }))).toBe("real");
     expect(primaryCellTag(cell({ layer: "real" }))?.tag).toBe("REAL");
+    expect(
+      primaryCellTag(
+        cell({
+          layer: "real",
+          real: {
+            total: 100,
+            items: [{
+              bankTransactionId: "bt1",
+              folio: 1777,
+              dteId: "d1",
+              label: "Santa Hilda",
+              fecha: "2026-08-10",
+              monto: 100,
+            }],
+          },
+          effective: 100,
+        }),
+      )?.tag,
+    ).toBe("F°1777");
   });
   it("programada sin marca; dte con marca azul; plan manual con marca primary", () => {
     const scheduled = cell({
