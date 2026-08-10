@@ -705,11 +705,11 @@ export function PlanillaGrid({
     [data, numbered],
   );
 
-  /** ¿La columna admite escritura de plan? (no pasada, no sellada, semanal). */
+  /** ¿La columna admite escritura de plan? (no cerrada, semanal). */
   const colWritable = useCallback(
     (colIdx: number) => {
       const col = data.columns[colIdx];
-      return !!col && data.granularity === "week" && !col.isPast && !closedSet.has(col.key);
+      return !!col && data.granularity === "week" && !closedSet.has(col.key);
     },
     [data.columns, data.granularity, closedSet],
   );
@@ -761,7 +761,7 @@ export function PlanillaGrid({
       if (!row || !cell || data.granularity !== "week") return;
       const weeksRight = data.columns
         .slice(sel.colIdx + 1)
-        .filter((c) => !c.isPast && !closedSet.has(c.key))
+        .filter((c) => !closedSet.has(c.key))
         .map((c) => c.key);
       if (weeksRight.length === 0) return;
       setFillRight({
@@ -859,7 +859,6 @@ export function PlanillaGrid({
       if (data.granularity !== "week") return "Cambia a vista semanal";
       if (row.isVirtual) return "Fila calculada";
       if (row.isArchived) return "Fila archivada";
-      if (col.isPast) return "Semana pasada (solo real)";
       if (closedSet.has(col.key)) return "Semana cerrada";
       if (hasInvoicedIncome(row.section, cell.committed)) {
         return "Ingreso facturado (la factura manda)";
@@ -1289,13 +1288,11 @@ export function PlanillaGrid({
             ? "Fila calculada"
             : row.isArchived
               ? "Fila archivada"
-              : col.isPast
-                ? "Semana pasada (solo real)"
-                : closedSet.has(col.key)
-                  ? "Semana cerrada"
-                  : hasInvoicedIncome(row.section, cell.committed)
-                    ? "Ingreso facturado (la factura manda)"
-                    : "";
+              : closedSet.has(col.key)
+                ? "Semana cerrada"
+                : hasInvoicedIncome(row.section, cell.committed)
+                  ? "Ingreso facturado (la factura manda)"
+                  : "";
       const openWeeks = data.columns.filter((_, i) => i !== colIdx && canEditCell(rowId, i));
       const dteMoveWeeks = data.columns.filter(
         (c, i) =>
@@ -1357,13 +1354,11 @@ export function PlanillaGrid({
           ? "Fila calculada"
           : row.isArchived
             ? "Fila archivada"
-            : col.isPast
-              ? "Semana pasada (solo real)"
-              : closedSet.has(col.key)
-                ? "Semana cerrada"
-                : hasInvoicedIncome(row.section, cell.committed)
-                  ? "Ingreso facturado (la factura manda)"
-                  : "";
+            : closedSet.has(col.key)
+              ? "Semana cerrada"
+              : hasInvoicedIncome(row.section, cell.committed)
+                ? "Ingreso facturado (la factura manda)"
+                : "";
     const openWeeks = data.columns.filter(
       (_, i) => i !== sheetTarget.sel.colIdx && canEditCell(row.id, i),
     );
