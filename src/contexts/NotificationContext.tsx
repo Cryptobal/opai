@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, useCallback, useRef, type ReactNode } from 'react';
 import { playNotificationSound } from '@/lib/notification-sounds';
+import { useVisibilityAwareInterval } from '@/hooks/useVisibilityAwareInterval';
 
 export interface NotificationItem {
   id: string;
@@ -53,11 +54,12 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(false);
-  const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   // Guard against concurrent loadMore calls (IntersectionObserver can fire
   // multiple times in rapid succession before state updates). Without this
   // guard the sentinel fires repeatedly and the spinner never stops.
   const loadMoreInFlightRef = useRef(false);
+  /** Skip sound on the catch-up tick after background (accumulated unread jump). */
+  const skipSoundOnceRef = useRef(false);
 
   const fetchNotifications = useCallback(async (limit = 50) => {
     try {
@@ -80,15 +82,18 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 
   const prevUnreadRef = useRef<number | null>(null);
 
-  const fetchUnreadCountOnly = useCallback(async () => {
+  const fetchUnreadCountOnly = useCallback(async (opts?: { isCatchUp?: boolean }) => {
     try {
       const res = await fetch('/api/notifications?limit=1');
       if (!res.ok) return;
       const data = await res.json();
       if (data.success && typeof data.meta?.unreadCount === 'number') {
         const newCount = data.meta.unreadCount;
-        // Play sound when new unread notifications arrive (not on first load)
-        if (prevUnreadRef.current !== null && newCount > prevUnreadRef.current) {
+        const skipSound = skipSoundOnceRef.current || opts?.isCatchUp === true;
+        if (skipSound) {
+          skipSoundOnceRef.current = false;
+        } else if (prevUnreadRef.current !== null && newCount > prevUnreadRef.current) {
+          // Play sound when new unread notifications arrive (not on first load / catch-up)
           playNotificationSound('system');
         }
         prevUnreadRef.current = newCount;
@@ -99,14 +104,18 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  // Initial full fetch + lightweight count-only polling every 30s
+  // Initial full list fetch (once); count-only polling every 30s via visibility-aware interval
   useEffect(() => {
     fetchNotifications();
-    pollIntervalRef.current = setInterval(fetchUnreadCountOnly, 30_000);
-    return () => {
-      if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
-    };
-  }, [fetchNotifications, fetchUnreadCountOnly]);
+  }, [fetchNotifications]);
+
+  useVisibilityAwareInterval(
+    (meta) => {
+      if (meta?.isCatchUp) skipSoundOnceRef.current = true;
+      return fetchUnreadCountOnly({ isCatchUp: meta?.isCatchUp });
+    },
+    30_000,
+  );
 
   const markAsRead = useCallback(async (ids: string[]) => {
     // Optimistic update

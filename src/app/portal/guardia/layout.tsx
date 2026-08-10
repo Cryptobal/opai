@@ -1,6 +1,5 @@
 import type { Metadata, Viewport } from "next";
 import { ServiceWorkerRegistrar } from "@/components/portal/rondas/ServiceWorkerRegistrar";
-import { BadgeClear } from "@/components/pwa/BadgeClear";
 import { PlatformDataAttribute } from "@/components/opai/portal-shell";
 import { GlassAmbient } from "@/components/opai-ds/GlassAmbient";
 
@@ -36,7 +35,6 @@ export default function PortalGuardiaLayout({ children }: { children: React.Reac
       <GlassAmbient />
       <ServiceWorkerRegistrar scope="/portal/guardia" />
       <PlatformDataAttribute />
-      <BadgeClear />
       {children}
     </div>
   );

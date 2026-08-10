@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useState } from "react";
 import type { UnreadCountsResponse } from "@/lib/chat-types";
+import { useVisibilityAwareInterval } from "@/hooks/useVisibilityAwareInterval";
 
 type UseChatUnreadCountsReturn = {
   total: number;
@@ -15,11 +16,11 @@ const POLL_INTERVAL_MS = 30_000; // 30 seconds
 /**
  * Hook that polls /api/chat/unread-counts every 30 seconds.
  * Returns the total unread count and per-channel counts.
+ * Suspends while the document is hidden.
  */
 export function useChatUnreadCounts(): UseChatUnreadCountsReturn {
   const [total, setTotal] = useState(0);
   const [channels, setChannels] = useState<Record<string, number>>({});
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const fetchCounts = useCallback(async () => {
     try {
@@ -36,13 +37,7 @@ export function useChatUnreadCounts(): UseChatUnreadCountsReturn {
     }
   }, []);
 
-  useEffect(() => {
-    fetchCounts();
-    intervalRef.current = setInterval(fetchCounts, POLL_INTERVAL_MS);
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
-  }, [fetchCounts]);
+  useVisibilityAwareInterval(fetchCounts, POLL_INTERVAL_MS);
 
   /** Optimistically set a channel's unread count to 0 */
   const markChannelAsRead = useCallback((channelId: string) => {

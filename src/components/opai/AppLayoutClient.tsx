@@ -12,6 +12,7 @@ import { useTenantModules } from '@/contexts/TenantModulesContext';
 import { buildNavItems } from '@/components/opai/role-nav-builder';
 import { LandingSurfacePrompt } from '@/components/opai/LandingSurfacePrompt';
 import { DEFAULT_SURFACE, type Surface } from '@/lib/surface';
+import { useVisibilityAwareInterval } from '@/hooks/useVisibilityAwareInterval';
 
 const DeferredHeavyProviders = dynamic(
   () => import('@/components/opai/DeferredHeavyProviders'),
@@ -123,12 +124,9 @@ function AppLayoutClientInner({
       .catch(() => { });
   }, []);
 
+  // Defer starting the poller until idle so first paint is not contended.
+  const [countersPollEnabled, setCountersPollEnabled] = useState(false);
   useEffect(() => {
-    let interval: ReturnType<typeof setInterval> | undefined;
-    const start = () => {
-      fetchOtherCounters();
-      interval = setInterval(fetchOtherCounters, 30000);
-    };
     const ric = (
       window as unknown as {
         requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number;
@@ -137,15 +135,15 @@ function AppLayoutClientInner({
     ).requestIdleCallback;
     let idleId: number | undefined;
     let timeoutId: ReturnType<typeof setTimeout> | undefined;
+    const enable = () => setCountersPollEnabled(true);
     if (ric) {
-      idleId = ric(start, { timeout: 1200 });
+      idleId = ric(enable, { timeout: 1200 });
     } else {
-      timeoutId = setTimeout(start, 1200);
+      timeoutId = setTimeout(enable, 1200);
     }
     const onRefresh = () => fetchOtherCounters();
     window.addEventListener('opai-note-seen', onRefresh as EventListener);
     return () => {
-      if (interval) clearInterval(interval);
       if (idleId != null) {
         (window as unknown as { cancelIdleCallback?: (id: number) => void }).cancelIdleCallback?.(idleId);
       }
@@ -153,6 +151,11 @@ function AppLayoutClientInner({
       window.removeEventListener('opai-note-seen', onRefresh as EventListener);
     };
   }, [fetchOtherCounters]);
+
+  useVisibilityAwareInterval(fetchOtherCounters, 30_000, {
+    enabled: countersPollEnabled,
+    runOnMount: true,
+  });
 
   const navItems = useMemo(
     () =>

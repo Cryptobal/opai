@@ -93,17 +93,22 @@ export function KnowledgeBaseManager() {
     fetchItems();
   }, [fetchItems]);
 
+  // Poll for processing items (stable key so the attempt cap is not reset)
+  const processingKey = items.map((i) => i.status).join(',');
   useEffect(() => {
-    const hasProcessing = items.some((i) => i.status === 'processing');
+    const hasProcessing = processingKey.split(',').includes('processing');
     if (!hasProcessing) return;
-    const interval = setInterval(fetchItems, 10000);
-    // Cap polling at 3 minutes to avoid infinite loops
-    const timeout = setTimeout(() => clearInterval(interval), 3 * 60 * 1000);
-    return () => {
-      clearInterval(interval);
-      clearTimeout(timeout);
-    };
-  }, [items, fetchItems]);
+    let attempts = 0;
+    const interval = setInterval(() => {
+      attempts += 1;
+      if (attempts > 36) {
+        clearInterval(interval);
+        return;
+      }
+      void fetchItems();
+    }, 10_000);
+    return () => clearInterval(interval);
+  }, [processingKey, fetchItems]);
 
   const handleUpload = async (e: React.FormEvent) => {
     e.preventDefault();

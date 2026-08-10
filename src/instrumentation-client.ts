@@ -6,9 +6,10 @@ if (dsn) {
       dsn,
       enabled: typeof window !== "undefined" && !!dsn,
       tracesSampleRate: process.env.NODE_ENV === "development" ? 1.0 : 0.1,
-      replaysSessionSampleRate: 0.1,
-      replaysOnErrorSampleRate: 1.0,
-      integrations: [Sentry.replayIntegration()],
+      // Session Replay desactivado: rrweb graba el DOM de forma continua en
+      // clientes iPad/iPhone. Puede rehabilitarse puntualmente para depuración.
+      replaysSessionSampleRate: 0,
+      replaysOnErrorSampleRate: 0,
       environment: process.env.NODE_ENV,
     });
   });

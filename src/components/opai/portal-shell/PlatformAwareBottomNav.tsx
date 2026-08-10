@@ -10,30 +10,40 @@ function usePortalBottomNavHeight(ref: React.RefObject<HTMLElement | null>) {
     const el = ref.current;
     if (!el) return;
 
-    const update = () => {
+    let rafId: number | null = null;
+    let lastClearance = "";
+
+    const measure = () => {
+      rafId = null;
       const rect = el.getBoundingClientRect();
       const vp = window.visualViewport;
       const viewportBottom = vp ? vp.offsetTop + vp.height : window.innerHeight;
       // +8px de colchón para evitar solapamiento por subpíxeles / blur del nav.
       const clearance = Math.max(0, Math.ceil(viewportBottom - rect.top) + 8);
-      document.documentElement.style.setProperty(
-        "--portal-bottom-nav-height",
-        `${clearance}px`,
-      );
+      const next = `${clearance}px`;
+      if (next === lastClearance) return;
+      lastClearance = next;
+      document.documentElement.style.setProperty("--portal-bottom-nav-height", next);
     };
 
-    update();
-    const ro = new ResizeObserver(update);
+    const scheduleUpdate = () => {
+      if (rafId != null) cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(measure);
+    };
+
+    scheduleUpdate();
+    const ro = new ResizeObserver(scheduleUpdate);
     ro.observe(el);
-    window.addEventListener("resize", update);
-    window.visualViewport?.addEventListener("resize", update);
-    window.visualViewport?.addEventListener("scroll", update);
+    window.addEventListener("resize", scheduleUpdate);
+    window.addEventListener("orientationchange", scheduleUpdate);
+    window.visualViewport?.addEventListener("resize", scheduleUpdate);
 
     return () => {
+      if (rafId != null) cancelAnimationFrame(rafId);
       ro.disconnect();
-      window.removeEventListener("resize", update);
-      window.visualViewport?.removeEventListener("resize", update);
-      window.visualViewport?.removeEventListener("scroll", update);
+      window.removeEventListener("resize", scheduleUpdate);
+      window.removeEventListener("orientationchange", scheduleUpdate);
+      window.visualViewport?.removeEventListener("resize", scheduleUpdate);
       document.documentElement.style.removeProperty("--portal-bottom-nav-height");
     };
   }, [ref]);
