@@ -222,11 +222,17 @@ export function PlanillaFxBar({
               onChange={(e) => { setHint(null); setValue(format(e.target.value)); }}
               onKeyDown={(e) => {
                 e.stopPropagation();
+                const mod = e.metaKey || e.ctrlKey;
+                if (mod && (e.key === "a" || e.key === "A")) {
+                  e.preventDefault();
+                  e.currentTarget.select();
+                  return;
+                }
                 if (e.key === "Enter") { e.preventDefault(); commit(); }
                 else if (e.key === "Escape") { e.preventDefault(); cancel(); }
               }}
               onBlur={() => commit()}
-              className="h-full min-w-0 flex-1 bg-transparent text-[12px] tabular-nums text-ds-text-1 outline-none"
+              className="h-full min-w-0 flex-1 bg-transparent text-[12px] font-normal tabular-nums text-ds-text-1 outline-none"
               aria-invalid={!!hint}
               title={hint ?? undefined}
             />

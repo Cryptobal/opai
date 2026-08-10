@@ -738,6 +738,21 @@ export function PlanillaGrid({
     [data.columns, canEditCell, matrix],
   );
 
+  /** Prefill del editor (Enter / F2 / doble clic) con plan o monto visible + miles. */
+  const getEditSeed = useCallback(
+    (sel: CellSel) => {
+      const row = rowById.get(sel.rowId);
+      const cell = row?.cells[sel.colIdx];
+      if (!row || !cell) return "";
+      const seed =
+        cell.plan !== 0
+          ? cell.plan
+          : displayValue(row.section, cell.layer, cell.effective);
+      return seed !== 0 ? formatThousands(String(Math.round(Math.abs(seed)))) : "";
+    },
+    [rowById],
+  );
+
   const openPopover = useCallback(
     (sel: CellSel, anchor?: DOMRect, opts?: { focusNote?: boolean }) => {
       const row = rowById.get(sel.rowId);
@@ -917,6 +932,7 @@ export function PlanillaGrid({
     onRedo: () => void handleRedo(),
     onCopy: copyRangeTsv,
     onEscape: handleEscape,
+    getEditSeed,
   });
   kbRef.current = kb;
 
@@ -1684,7 +1700,7 @@ export function PlanillaGrid({
                         hoverRef.current?.forceHide();
                         setSheetTarget(null);
                         kb.setSel(sel);
-                        kb.startEdit(sel, "");
+                        kb.startEdit(sel, getEditSeed(sel));
                       }}
                       onCommit={kb.commitEdit}
                       onCancelEdit={() => kb.setEditing(null)}
