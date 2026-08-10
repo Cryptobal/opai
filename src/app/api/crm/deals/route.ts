@@ -206,6 +206,13 @@ export async function POST(request: NextRequest) {
       console.error("[slack] auto-open deal room on create failed:", e);
     }
 
+    // Licitaciones: carpeta Drive anticipada (bases llegan por fuera de OPAI).
+    if (deal.isLicitacion) {
+      void import("@/lib/google-workspace/drive-deal-folder").then(({ ensureLicitacionDriveFolder }) =>
+        ensureLicitacionDriveFolder(ctx.tenantId, deal.id),
+      );
+    }
+
     return NextResponse.json({ success: true, data: deal }, { status: 201 });
   } catch (error) {
     console.error("Error creating CRM deal:", error);

@@ -40,7 +40,13 @@ export {
 export {
   getDealDriveFolderStatus,
   ensureDealDriveFolderAndBackfill,
+  ensureLicitacionDriveFolder,
 } from "./drive-deal-folder";
+export {
+  safeSegment,
+  buildTreePreview,
+  MODULE_FOLDERS,
+} from "./drive-tree";
 export {
   buildVisitaEventPayload,
   buildLicitacionEventPayload,

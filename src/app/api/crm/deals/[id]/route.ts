@@ -202,6 +202,13 @@ export async function PATCH(
       );
     }
 
+    // Si pasó a licitación (o ya lo es y se editó), asegurar carpeta Drive.
+    if (deal?.isLicitacion && ("isLicitacion" in raw || Boolean(existing.isLicitacion))) {
+      void import("@/lib/google-workspace/drive-deal-folder").then(({ ensureLicitacionDriveFolder }) =>
+        ensureLicitacionDriveFolder(ctx.tenantId, id),
+      );
+    }
+
     if ("serviceStartDate" in raw) {
       // Mantener alineadas la ficha CRM, el onboarding y el canvas Slack.
       // El update principal ya persistió el deal; este helper sincroniza las

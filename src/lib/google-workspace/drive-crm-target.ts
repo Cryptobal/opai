@@ -1,20 +1,31 @@
 import { prisma } from "@/lib/prisma";
+import {
+  DrivePathsV1,
+  DrivePathsV2,
+  safeSegment,
+} from "./drive-tree";
 
-function seg(name: string | null | undefined, fallback: string): string {
-  const raw = (name || fallback).trim() || fallback;
-  return raw.replace(/[\\/]/g, "-").slice(0, 80);
+export type CrmFileTarget = {
+  docType: string;
+  path: string;
+  entity?: { type: string; id: string };
+};
+
+async function structureVersion(tenantId: string): Promise<number> {
+  const ws = await prisma.googleDriveWorkspace.findFirst({
+    where: { tenantId, status: "ACTIVE" },
+    select: { structureVersion: true },
+  });
+  return ws?.structureVersion ?? 1;
 }
 
-export type CrmFileTarget = { docType: string; path: string };
+function pathsFor(version: number) {
+  return version >= 2 ? DrivePathsV2 : DrivePathsV1;
+}
 
 /**
- * Resuelve docType (gate del mirrorConfig) + carpeta Drive destino para un
- * archivo adjunto a una entidad CRM:
- *   deal         → Negocios/{Año}/{NombreDeal}/ o Licitaciones/{Año}/{NombreDeal} si isLicitacion
- *   contact      → Clientes/{Cuenta}/Personas/{Contacto}/ (docType "personas")
- *   account      → Clientes/{Cuenta}/General/Documentos/  (docType "documentos")
- *   installation → Clientes/{Cuenta}/{Instalación}/Documentos/
- * lead/guardia u otros → null (no se espejan).
+ * Resuelve docType + carpeta Drive destino para un archivo CRM.
+ * v1: árbol plano; v2: bajo Comercial/… (ver drive-tree.ts).
  */
 export async function resolveCrmFileTarget(
   tenantId: string,
@@ -22,6 +33,9 @@ export async function resolveCrmFileTarget(
   entityId: string,
 ): Promise<CrmFileTarget | null> {
   const year = String(new Date().getFullYear());
+  const v = await structureVersion(tenantId);
+  const P = pathsFor(v);
+
   switch (entityType) {
     case "deal": {
       const deal = await prisma.crmDeal.findFirst({
@@ -29,11 +43,36 @@ export async function resolveCrmFileTarget(
         select: { title: true, isLicitacion: true },
       });
       if (!deal) return null;
-      const name = seg(deal.title, entityId);
+      const name = safeSegment(deal.title, entityId);
       if (deal.isLicitacion) {
-        return { docType: "licitacion", path: `Licitaciones/${year}/${name}` };
+        return {
+          docType: "licitacion",
+          path: P.licitacion(year, name),
+          entity: { type: "deal", id: entityId },
+        };
       }
-      return { docType: "negocios", path: `Negocios/${year}/${name}` };
+      return {
+        docType: "negocios",
+        path: P.deal(year, name),
+        entity: { type: "deal", id: entityId },
+      };
+    }
+    case "lead": {
+      if (v < 2) return null;
+      const lead = await prisma.crmLead.findFirst({
+        where: { id: entityId, tenantId },
+        select: { companyName: true, firstName: true, lastName: true },
+      });
+      if (!lead) return null;
+      const label = safeSegment(
+        lead.companyName || `${lead.firstName ?? ""} ${lead.lastName ?? ""}`.trim(),
+        entityId,
+      );
+      return {
+        docType: "leads",
+        path: DrivePathsV2.lead(year, label),
+        entity: { type: "lead", id: entityId },
+      };
     }
     case "contact": {
       const c = await prisma.crmContact.findFirst({
@@ -41,10 +80,11 @@ export async function resolveCrmFileTarget(
         select: { firstName: true, lastName: true, account: { select: { name: true } } },
       });
       if (!c) return null;
-      const nombre = seg(`${c.firstName} ${c.lastName}`.trim(), entityId);
+      const nombre = safeSegment(`${c.firstName} ${c.lastName}`.trim(), entityId);
       return {
         docType: "personas",
-        path: `Clientes/${seg(c.account?.name, "Sin-cuenta")}/Personas/${nombre}`,
+        path: P.contact(safeSegment(c.account?.name, "Sin-cuenta"), nombre),
+        entity: { type: "contact", id: entityId },
       };
     }
     case "account": {
@@ -53,7 +93,11 @@ export async function resolveCrmFileTarget(
         select: { name: true },
       });
       if (!a) return null;
-      return { docType: "documentos", path: `Clientes/${seg(a.name, "Sin-cuenta")}/General/Documentos` };
+      return {
+        docType: "documentos",
+        path: P.accountGeneral(safeSegment(a.name, "Sin-cuenta")),
+        entity: { type: "account", id: entityId },
+      };
     }
     case "installation": {
       const inst = await prisma.crmInstallation.findFirst({
@@ -63,7 +107,11 @@ export async function resolveCrmFileTarget(
       if (!inst) return null;
       return {
         docType: "documentos",
-        path: `Clientes/${seg(inst.account?.name, "Sin-cuenta")}/${seg(inst.name, "General")}/Documentos`,
+        path: P.installationDocs(
+          safeSegment(inst.account?.name, "Sin-cuenta"),
+          safeSegment(inst.name, "General"),
+        ),
+        entity: { type: "installation", id: entityId },
       };
     }
     default:
