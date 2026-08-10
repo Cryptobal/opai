@@ -1,9 +1,35 @@
 /** Helpers de env con degradación elegante (patrón trimEnv). */
 
 import { getGmailTokenSecret } from "@/lib/crypto";
+import { normalisePrivateKey } from "./private-key";
 
 export function trimEnv(v: string | undefined): string | undefined {
   return v?.trim() || undefined;
+}
+
+let saKeyWarned = false;
+
+/** Email de la cuenta de servicio global de Drive (GOOGLE_DRIVE_SA_CLIENT_EMAIL). */
+export function driveServiceAccountEmail(): string | undefined {
+  return trimEnv(process.env.GOOGLE_DRIVE_SA_CLIENT_EMAIL);
+}
+
+/**
+ * Private key PEM de la cuenta de servicio (GOOGLE_DRIVE_SA_PRIVATE_KEY).
+ * Nunca loguear el valor.
+ */
+export function driveServiceAccountKey(): string | undefined {
+  const key = normalisePrivateKey(process.env.GOOGLE_DRIVE_SA_PRIVATE_KEY);
+  if (!key || !key.includes("-----BEGIN")) {
+    if (!saKeyWarned && process.env.GOOGLE_DRIVE_SA_PRIVATE_KEY) {
+      saKeyWarned = true;
+      console.warn(
+        "[google-workspace] GOOGLE_DRIVE_SA_PRIVATE_KEY presente pero no es un PEM válido tras normalización",
+      );
+    }
+    return undefined;
+  }
+  return key;
 }
 
 export function googleClientId(): string | undefined {

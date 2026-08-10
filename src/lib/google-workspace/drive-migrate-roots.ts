@@ -1,4 +1,5 @@
 import { getDriveClientForTenant } from "./clients";
+import { sharedDriveParams, supportsAllDrivesFlag } from "./drive-params";
 import {
   DEFAULT_ROOT_NAME,
   FOLDER_MIME,
@@ -35,14 +36,16 @@ export async function withDriveBackoff<T>(fn: () => Promise<T>): Promise<T> {
 }
 
 export async function listDriveChildren(tenantId: string, parentId: string) {
-  const drive = await getDriveClientForTenant(tenantId);
-  if (!drive) return [];
+  const client = await getDriveClientForTenant(tenantId);
+  if (!client) return [];
+  const { drive, driveId } = client;
   const res = await withDriveBackoff(() =>
     drive.files.list({
       q: `'${parentId}' in parents and trashed=false`,
       fields: "files(id,name,mimeType)",
       pageSize: 100,
       spaces: "drive",
+      ...sharedDriveParams(driveId),
     }),
   );
   return res.data.files ?? [];
@@ -54,23 +57,29 @@ export async function moveDriveFolder(
   fromParent: string,
   toParent: string,
 ) {
-  const drive = await getDriveClientForTenant(tenantId);
-  if (!drive) throw new Error("Sin cliente Drive");
+  const client = await getDriveClientForTenant(tenantId);
+  if (!client) throw new Error("Sin cliente Drive");
   await withDriveBackoff(() =>
-    drive.files.update({
+    client.drive.files.update({
       fileId,
       addParents: toParent,
       removeParents: fromParent,
       fields: "id,parents",
+      ...supportsAllDrivesFlag(),
     }),
   );
 }
 
 export async function renameDriveFolder(tenantId: string, fileId: string, name: string) {
-  const drive = await getDriveClientForTenant(tenantId);
-  if (!drive) throw new Error("Sin cliente Drive");
+  const client = await getDriveClientForTenant(tenantId);
+  if (!client) throw new Error("Sin cliente Drive");
   await withDriveBackoff(() =>
-    drive.files.update({ fileId, requestBody: { name }, fields: "id,name" }),
+    client.drive.files.update({
+      fileId,
+      requestBody: { name },
+      fields: "id,name",
+      ...supportsAllDrivesFlag(),
+    }),
   );
 }
 
@@ -80,8 +89,9 @@ export async function consolidateDuplicateRoots(
   canonicalId: string,
   result: MigrateResult,
 ): Promise<void> {
-  const drive = await getDriveClientForTenant(tenantId);
-  if (!drive) return;
+  const client = await getDriveClientForTenant(tenantId);
+  if (!client) return;
+  const { drive } = client;
   const roots = await listRootFoldersByName(tenantId, rootName);
   for (const r of roots) {
     if (r.id === canonicalId) continue;
@@ -99,7 +109,11 @@ export async function consolidateDuplicateRoots(
     const remaining = await listDriveChildren(tenantId, r.id);
     if (remaining.length === 0) {
       await withDriveBackoff(() =>
-        drive.files.update({ fileId: r.id, requestBody: { trashed: true } }),
+        drive.files.update({
+          fileId: r.id,
+          requestBody: { trashed: true },
+          ...supportsAllDrivesFlag(),
+        }),
       );
       result.rootsTrashed++;
     } else {

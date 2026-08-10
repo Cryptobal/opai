@@ -3,6 +3,7 @@ import { Readable } from "stream";
 import { prisma } from "@/lib/prisma";
 import { getFileBuffer } from "@/lib/storage";
 import { getDriveClientForTenant } from "./clients";
+import { sharedDriveParams, supportsAllDrivesFlag } from "./drive-params";
 
 const FOLDER_MIME = "application/vnd.google-apps.folder";
 const DEFAULT_ROOT_NAME = "Opai";
@@ -24,8 +25,9 @@ async function listRootFoldersByName(
   tenantId: string,
   name: string,
 ): Promise<Array<{ id: string; createdTime?: string | null }>> {
-  const drive = await getDriveClientForTenant(tenantId);
-  if (!drive) return [];
+  const client = await getDriveClientForTenant(tenantId);
+  if (!client) return [];
+  const { drive, driveId } = client;
   const safeName = name.replace(/'/g, "\\'");
   const res = await drive.files.list({
     q: `name='${safeName}' and mimeType='${FOLDER_MIME}' and trashed=false and 'root' in parents`,
@@ -33,6 +35,7 @@ async function listRootFoldersByName(
     orderBy: "createdTime",
     pageSize: 10,
     spaces: "drive",
+    ...sharedDriveParams(driveId),
   });
   return (res.data.files ?? [])
     .filter((f): f is { id: string; createdTime?: string | null } => Boolean(f.id))
@@ -47,13 +50,19 @@ async function listRootFoldersByName(
 export const resolveRootFolder = cache(async function resolveRootFolder(
   tenantId: string,
 ): Promise<string | null> {
-  const drive = await getDriveClientForTenant(tenantId);
-  if (!drive) return null;
+  const client = await getDriveClientForTenant(tenantId);
+  if (!client) return null;
+  const { drive, driveId, mode } = client;
 
   const ws = await prisma.googleDriveWorkspace.findFirst({
     where: { tenantId, status: "ACTIVE" },
   });
   if (!ws) return null;
+
+  // SHARED_DRIVE: la unidad es la raíz; no crear Opai.
+  if (mode === "SHARED_DRIVE" && driveId) {
+    return driveId;
+  }
 
   const rootName = ws.rootFolderName?.trim() || DEFAULT_ROOT_NAME;
 
@@ -62,6 +71,7 @@ export const resolveRootFolder = cache(async function resolveRootFolder(
       const got = await drive.files.get({
         fileId: ws.rootFolderId,
         fields: "id,trashed",
+        ...supportsAllDrivesFlag(),
       });
       if (got.data.id && got.data.trashed !== true) {
         await prisma.googleDriveWorkspace.update({
@@ -95,6 +105,7 @@ export const resolveRootFolder = cache(async function resolveRootFolder(
   const created = await drive.files.create({
     requestBody: { name: rootName, mimeType: FOLDER_MIME },
     fields: "id",
+    ...supportsAllDrivesFlag(),
   });
   const rootFolderId = created.data.id;
   if (!rootFolderId) return null;
@@ -116,15 +127,16 @@ async function createChildFolder(
   parentId: string,
   name: string,
 ): Promise<string | null> {
-  const drive = await getDriveClientForTenant(tenantId);
-  if (!drive) return null;
-  const created = await drive.files.create({
+  const client = await getDriveClientForTenant(tenantId);
+  if (!client) return null;
+  const created = await client.drive.files.create({
     requestBody: {
       name,
       mimeType: FOLDER_MIME,
       parents: [parentId],
     },
     fields: "id",
+    ...supportsAllDrivesFlag(),
   });
   return created.data.id ?? null;
 }
@@ -151,13 +163,15 @@ async function verifyCachedFolder(
     !lastVerifiedAt || Date.now() - lastVerifiedAt.getTime() > CACHE_VERIFY_TTL_MS;
   if (!stale) return true;
 
-  const drive = await getDriveClientForTenant(tenantId);
-  if (!drive) return false;
+  const client = await getDriveClientForTenant(tenantId);
+  if (!client) return false;
+  const { drive } = client;
 
   try {
     const got = await drive.files.get({
       fileId: driveFolderId,
       fields: "id,trashed",
+      ...supportsAllDrivesFlag(),
     });
     if (!got.data.id || got.data.trashed === true) {
       await invalidateCacheSubtree(tenantId, key);
@@ -243,6 +257,19 @@ async function ensureFolderPathInner(
         cached.lastVerifiedAt,
       );
       if (alive) {
+        if (
+          isLeaf &&
+          opts?.entity &&
+          (!cached.entityType || !cached.entityId)
+        ) {
+          await prisma.driveFolderCache.update({
+            where: { id: cached.id },
+            data: {
+              entityType: opts.entity.type,
+              entityId: opts.entity.id,
+            },
+          });
+        }
         parentId = cached.driveFolderId;
         continue;
       }
@@ -309,12 +336,13 @@ async function renameCachedFolder(
   newName: string,
   newPathKey: string,
 ): Promise<void> {
-  const drive = await getDriveClientForTenant(tenantId);
-  if (!drive) return;
+  const client = await getDriveClientForTenant(tenantId);
+  if (!client) return;
   try {
-    await drive.files.update({
+    await client.drive.files.update({
       fileId: folderId,
       requestBody: { name: newName },
+      ...supportsAllDrivesFlag(),
     });
   } catch (err) {
     console.warn("[drive] renameCachedFolder:", tenantId, folderId, err);
@@ -355,8 +383,8 @@ export async function uploadR2ToDrive(params: {
   mimeType?: string | null;
   entity?: DriveEntityRef;
 }): Promise<string | null> {
-  const drive = await getDriveClientForTenant(params.tenantId);
-  if (!drive) return null;
+  const client = await getDriveClientForTenant(params.tenantId);
+  if (!client) return null;
 
   const leafName = params.targetSegments[params.targetSegments.length - 1];
   const parentId = await ensureFolderPath(params.tenantId, params.targetSegments, {
@@ -366,7 +394,7 @@ export async function uploadR2ToDrive(params: {
   if (!parentId) return null;
 
   const buffer = await getFileBuffer(params.r2Key);
-  const created = await drive.files.create({
+  const created = await client.drive.files.create({
     requestBody: {
       name: params.fileName,
       parents: [parentId],
@@ -376,6 +404,7 @@ export async function uploadR2ToDrive(params: {
       body: Readable.from(buffer),
     },
     fields: "id",
+    ...supportsAllDrivesFlag(),
   });
   return created.data.id ?? null;
 }

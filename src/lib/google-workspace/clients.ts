@@ -3,20 +3,47 @@ import { prisma } from "@/lib/prisma";
 import { googleClientId, googleClientSecret } from "./env";
 import { getCalendarOAuthClient, getDriveOAuthClient } from "./oauth";
 import { withFreshToken } from "./tokens";
+import { getServiceAccountDriveClient } from "./service-account";
+
+export type DriveMode = "OAUTH" | "SHARED_DRIVE";
+
+export type TenantDriveClient = {
+  drive: drive_v3.Drive;
+  driveId: string | null;
+  mode: DriveMode;
+};
 
 export async function getDriveClientForTenant(
   tenantId: string,
-): Promise<drive_v3.Drive | null> {
-  if (!googleClientId() || !googleClientSecret()) {
-    console.warn("[google-workspace] Drive desactivado: faltan GOOGLE_CLIENT_ID/SECRET");
-    return null;
-  }
-
+): Promise<TenantDriveClient | null> {
   const ws = await prisma.googleDriveWorkspace.findFirst({
     where: { tenantId, status: "ACTIVE" },
   });
   if (!ws) {
     console.warn(`[google-workspace] Sin Drive workspace ACTIVE para tenant ${tenantId}`);
+    return null;
+  }
+
+  const mode: DriveMode = ws.mode === "SHARED_DRIVE" ? "SHARED_DRIVE" : "OAUTH";
+
+  if (mode === "SHARED_DRIVE") {
+    if (!ws.sharedDriveId) {
+      console.warn(
+        `[google-workspace] SHARED_DRIVE sin sharedDriveId (tenant ${tenantId})`,
+      );
+      return null;
+    }
+    const drive = getServiceAccountDriveClient();
+    if (!drive) return null;
+    return { drive, driveId: ws.sharedDriveId, mode };
+  }
+
+  if (!googleClientId() || !googleClientSecret()) {
+    console.warn("[google-workspace] Drive OAuth desactivado: faltan GOOGLE_CLIENT_ID/SECRET");
+    return null;
+  }
+  if (!ws.accessTokenEnc || !ws.refreshTokenEnc) {
+    console.warn(`[google-workspace] OAUTH sin tokens (tenant ${tenantId})`);
     return null;
   }
 
@@ -29,7 +56,11 @@ export async function getDriveClientForTenant(
     access_token: tokens.accessToken,
     refresh_token: tokens.refreshToken,
   });
-  return google.drive({ version: "v3", auth: oauth2 });
+  return {
+    drive: google.drive({ version: "v3", auth: oauth2 }),
+    driveId: null,
+    mode: "OAUTH",
+  };
 }
 
 export type CalendarAccountSummary = {

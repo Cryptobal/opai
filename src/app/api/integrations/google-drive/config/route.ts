@@ -27,7 +27,7 @@ export async function GET() {
   if ("error" in gate && gate.error) return gate.error;
   const tenantId = gate.tenantId!;
 
-  const [ws, recent, enabledModules] = await Promise.all([
+  const [ws, recent, enabledModules, ingestGroups] = await Promise.all([
     prisma.googleDriveWorkspace.findUnique({ where: { tenantId } }),
     prisma.driveExportOutbox.findMany({
       where: { tenantId },
@@ -35,7 +35,17 @@ export async function GET() {
       take: 20,
     }),
     getTenantModulesList(tenantId),
+    prisma.driveIngestedFile.groupBy({
+      by: ["status"],
+      where: { tenantId },
+      _count: { _all: true },
+    }),
   ]);
+
+  const ingestCounts: Record<string, number> = {};
+  for (const g of ingestGroups) {
+    ingestCounts[g.status] = g._count._all;
+  }
 
   const mirrorConfig = {
     ...DEFAULT_MIRROR_CONFIG,
@@ -44,11 +54,17 @@ export async function GET() {
       : {}),
   };
 
-  const rootFolderId = ws?.rootFolderId ?? null;
-  const rootFolderName = ws?.rootFolderName?.trim() || DEFAULT_ROOT_NAME;
+  const mode = ws?.mode === "SHARED_DRIVE" ? "SHARED_DRIVE" : "OAUTH";
+  const sharedDriveId = ws?.sharedDriveId ?? null;
+  const rootFolderId =
+    mode === "SHARED_DRIVE" ? sharedDriveId : (ws?.rootFolderId ?? null);
+  const rootFolderName =
+    mode === "SHARED_DRIVE"
+      ? "Unidad Compartida"
+      : ws?.rootFolderName?.trim() || DEFAULT_ROOT_NAME;
 
   let duplicateRoots: Awaited<ReturnType<typeof listDuplicateRoots>> | null = null;
-  if (ws?.status === "ACTIVE") {
+  if (ws?.status === "ACTIVE" && mode === "OAUTH") {
     try {
       duplicateRoots = await listDuplicateRoots(tenantId);
     } catch (err) {
@@ -60,13 +76,22 @@ export async function GET() {
     connected: ws?.status === "ACTIVE",
     googleEmail: ws?.googleEmail ?? null,
     status: ws?.status ?? null,
+    mode,
+    sharedDriveId,
+    sharedDriveName:
+      mode === "SHARED_DRIVE" ? (ws?.rootFolderName ?? null) : null,
+    lastIngestAt: ws?.lastIngestAt?.toISOString() ?? null,
+    lastIngestError: ws?.lastIngestError ?? null,
+    ingestCounts,
     mirrorConfig,
     supportedDocTypes: SUPPORTED_DOC_TYPES,
     recent,
     rootFolderId,
     rootFolderName,
     rootFolderUrl: rootFolderId
-      ? `https://drive.google.com/drive/folders/${rootFolderId}`
+      ? mode === "SHARED_DRIVE"
+        ? `https://drive.google.com/drive/folders/${rootFolderId}`
+        : `https://drive.google.com/drive/folders/${rootFolderId}`
       : null,
     structureVersion: ws?.structureVersion ?? 1,
     enabledModules,

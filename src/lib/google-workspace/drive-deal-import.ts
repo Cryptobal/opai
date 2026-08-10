@@ -2,9 +2,10 @@ import { prisma } from "@/lib/prisma";
 import { uploadFile, STORAGE_PROVIDER } from "@/lib/storage";
 import { resolveCrmFileTarget } from "./drive-crm-target";
 import { listDriveFolderFiles, downloadDriveFile } from "./drive-read.service";
+import { ingestDealFolderFromDrive } from "./drive-ingest.service";
+import { DRIVE_INGEST_MAX_BYTES } from "./drive-ingest-helpers";
 
 const IMPORT_CAP = 15;
-const MAX_SIZE_BYTES = 25 * 1024 * 1024;
 
 export type DriveImportResult = {
   imported: number;
@@ -14,23 +15,29 @@ export type DriveImportResult = {
 };
 
 /**
- * Import Drive → OPAI de los documentos de la carpeta Drive del negocio
- * (espejo inverso de `ensureDealDriveFolderAndBackfill`). Dedupe anti-loop:
- * excluye lo que OPAI ya exportó (DriveExportOutbox.driveFileId) y lo ya
- * importado (CrmFile.driveFileId).
- *
- * Con scope `drive.file`, los archivos subidos manualmente en la UI de Drive
- * no son visibles → reason `scope_limitado` cuando la carpeta existe pero
- * files.list no devuelve nada nuevo.
+ * Import Drive → OPAI. En SHARED_DRIVE delega en Changes API (ingesta).
+ * En OAUTH: listado local con limitación drive.file.
  */
 export async function importDealFilesFromDrive(
   tenantId: string,
   dealId: string,
 ): Promise<DriveImportResult> {
+  const ws = await prisma.googleDriveWorkspace.findFirst({
+    where: { tenantId, status: "ACTIVE" },
+    select: { mode: true },
+  });
+  if (ws?.mode === "SHARED_DRIVE") {
+    const r = await ingestDealFolderFromDrive(tenantId, dealId);
+    return {
+      imported: r.ingested,
+      skipped: r.ignored + r.errors,
+      total: r.processed,
+    };
+  }
+
   const target = await resolveCrmFileTarget(tenantId, "deal", dealId);
   if (!target) return { imported: 0, skipped: 0, total: 0, reason: "sin_carpeta" };
 
-  // Preferir resolución por entityId (sobrevive renombres de pathKey)
   const byEntity = await prisma.driveFolderCache.findFirst({
     where: { tenantId, entityType: "deal", entityId: dealId },
     orderBy: { createdAt: "asc" },
@@ -78,7 +85,7 @@ export async function importDealFilesFromDrive(
 
   for (const f of fresh.slice(0, IMPORT_CAP)) {
     try {
-      if (f.size != null && f.size > MAX_SIZE_BYTES) {
+      if (f.size != null && f.size > DRIVE_INGEST_MAX_BYTES) {
         skipped += 1;
         continue;
       }
@@ -101,7 +108,13 @@ export async function importDealFilesFromDrive(
         },
       });
       await prisma.crmFileLink.create({
-        data: { tenantId, fileId: crmFile.id, entityType: "deal", entityId: dealId, folderId: null },
+        data: {
+          tenantId,
+          fileId: crmFile.id,
+          entityType: "deal",
+          entityId: dealId,
+          folderId: null,
+        },
       });
       imported += 1;
     } catch (err) {
