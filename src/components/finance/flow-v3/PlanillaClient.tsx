@@ -565,7 +565,7 @@ export function PlanillaClient({
         onToday={goToday}
         onGranularity={m.setGranularity}
         onToggleZeros={toggleZeros}
-        onToggleChips={() => view.setShowChips(!view.prefs.showChips)}
+        onChips={view.setShowChips}
         onToggleTheme={() => view.setTheme(view.prefs.theme === "paper" ? "dark" : "paper")}
         onZoom={view.setZoom}
         onNumberFormat={view.setNumberFormat}

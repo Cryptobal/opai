@@ -34,7 +34,61 @@ const SW = {
     "relative bg-ds-surface-1 border border-ds-border-default before:absolute before:bottom-0.5 before:left-0.5 before:h-1.5 before:w-1.5 before:rounded-full before:bg-status-info before:content-['']",
 } as const;
 
-/** Ítems de la leyenda global (modo marcas de esquina). */
+export interface ChipLegendItem extends ColorMeaningItem {
+  /** Muestra iconos proforma/EP junto al título (modo color, borrador). */
+  icons?: boolean;
+}
+
+/** Ítems de la leyenda global (modo color: fondo + chip). */
+export const CHIP_LEGEND_ITEMS: ChipLegendItem[] = [
+  {
+    key: "real",
+    swatch: "bg-status-ok-soft border border-status-ok-border",
+    title: "Pagada / Real",
+    desc: "Fondo verde — la plata ya entró o salió (conciliado).",
+  },
+  {
+    key: "dte",
+    swatch: "bg-status-info-soft border border-status-info-border",
+    title: "Facturada no pagada",
+    desc: "Fondo azul + chip con folio (ej. F°1234).",
+  },
+  {
+    key: "ceded",
+    swatch: "bg-tint-violet/60 border border-tint-violet-fg/40",
+    title: "Cedida",
+    desc: "Fondo violeta — factura cedida a factoring (distinto de facturada).",
+  },
+  {
+    key: "draft",
+    swatch:
+      "border-y border-r border-ds-border-subtle border-l-2 border-l-status-warn-border [border-left-style:dotted]",
+    title: "Borrador",
+    desc: "Sin fondo (gris) + chip «B». Si enviaste proforma o EP, aparecen iconos a la derecha del monto.",
+    icons: true,
+  },
+  {
+    key: "scheduled",
+    swatch:
+      "border-y border-r border-ds-border-subtle border-l-2 border-l-status-info-border [border-left-style:dotted]",
+    title: "Programada",
+    desc: "Sin fondo + borde punteado — cuota proyectada, aún sin documento.",
+  },
+  {
+    key: "plan",
+    swatch: "border border-primary/40 bg-ds-surface-1",
+    title: "Plan manual",
+    desc: "Monto que escribiste tú a mano (pisa proyecciones).",
+  },
+  {
+    key: "note",
+    swatch: SW.note,
+    title: "Nota",
+    desc: "Punto azul abajo a la izquierda — hay una nota en la celda (clic → Nota).",
+  },
+];
+
+/** Ítems de la leyenda global (modo cuñas: marcas de esquina). */
 export const CORNER_LEGEND_ITEMS: ColorMeaningItem[] = [
   {
     key: "real",

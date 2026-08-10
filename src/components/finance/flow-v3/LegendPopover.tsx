@@ -4,67 +4,38 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { ClipboardCheck, FileText } from "lucide-react";
-import { CORNER_LEGEND_ITEMS } from "./cell-color-meaning";
+import { CHIP_LEGEND_ITEMS, CORNER_LEGEND_ITEMS } from "./cell-color-meaning";
 
 interface Props {
   open: boolean;
   onOpenChange: (v: boolean) => void;
-  /** Si true, describe chips de texto; si false, marcas de esquina. */
+  /**
+   * true = modo color (fondo + chip); false = modo cuñas (marcas de esquina).
+   * La leyenda describe el modo activo.
+   */
   showChips?: boolean;
 }
 
-const CHIP_ITEMS: Array<{ swatch: string; title: string; desc: string; icons?: boolean }> = [
-  {
-    swatch: "bg-status-ok-soft border border-status-ok-border",
-    title: "Pagada / Real",
-    desc: "Fondo verde — la plata ya entró o salió (conciliado).",
-  },
-  {
-    swatch: "bg-status-info-soft border border-status-info-border",
-    title: "Facturada no pagada",
-    desc: "Fondo azul + chip con folio (ej. F°1234).",
-  },
-  {
-    swatch: "bg-tint-violet/60 border border-tint-violet-fg/40",
-    title: "Cedida",
-    desc: "Fondo violeta — factura cedida a factoring (distinto de facturada).",
-  },
-  {
-    swatch:
-      "border-y border-r border-ds-border-subtle border-l-2 border-l-status-warn-border [border-left-style:dotted]",
-    title: "Borrador",
-    desc: "Sin fondo (gris) + chip «B». Si enviaste proforma o EP, aparecen iconos a la derecha del monto.",
-    icons: true,
-  },
-  {
-    swatch:
-      "border-y border-r border-ds-border-subtle border-l-2 border-l-status-info-border [border-left-style:dotted]",
-    title: "Programada",
-    desc: "Sin fondo + borde punteado — cuota proyectada, aún sin documento.",
-  },
-  {
-    swatch: "border border-primary/40 bg-ds-surface-1",
-    title: "Plan manual",
-    desc: "Monto que escribiste tú a mano (pisa proyecciones).",
-  },
-];
-
 export function LegendPopover({ open, onOpenChange, showChips }: Props) {
-  const items = showChips ? CHIP_ITEMS : CORNER_LEGEND_ITEMS;
+  const colorMode = showChips !== false;
+  const items = colorMode ? CHIP_LEGEND_ITEMS : CORNER_LEGEND_ITEMS;
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-sm">
         <DialogHeader>
           <DialogTitle>Qué significan los colores</DialogTitle>
         </DialogHeader>
+        <p className="text-[12px] font-medium text-ds-text-2">
+          {colorMode ? "Modo color (default)" : "Modo cuñas"}
+        </p>
         <p className="text-[12px] text-ds-text-3">
-          {showChips
+          {colorMode
             ? "Fondo de celda = etapa fuerte (pagada / facturada / cedida). Programada y borrador quedan grises; en borrador, iconos = proforma o estado de pago enviado."
-            : "Modo marcas: triángulo arriba a la derecha = estado principal; abajo a la derecha = cedida / EP / proforma."}
+            : "Triángulo arriba a la derecha = estado principal; abajo a la derecha = cedida / EP / proforma. La celda no se pinta de fondo."}
         </p>
         <ul className="space-y-2.5">
           {items.map((it) => (
-            <li key={it.title} className="flex items-start gap-2.5">
+            <li key={it.key} className="flex items-start gap-2.5">
               <span className={`mt-0.5 h-4 w-6 shrink-0 rounded-sm ${it.swatch}`} aria-hidden />
               <div className="min-w-0">
                 <p className="text-[13px] font-medium text-ds-text-1">

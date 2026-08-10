@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { FlowMatrixCellDto } from "@/modules/finance/flow-v3/matrix-types";
-import { resolveCellColorMeaning } from "../cell-color-meaning";
+import {
+  CHIP_LEGEND_ITEMS,
+  CORNER_LEGEND_ITEMS,
+  resolveCellColorMeaning,
+} from "../cell-color-meaning";
 
 function cell(partial: Partial<FlowMatrixCellDto>): FlowMatrixCellDto {
   return {
@@ -149,5 +153,34 @@ describe("resolveCellColorMeaning", () => {
       }),
     );
     expect(m?.title).toBe("Programada");
+  });
+});
+
+describe("leyendas modo color / modo cuñas", () => {
+  it("modo color cubre etapas fuertes + borrador/programada/plan/nota", () => {
+    expect(CHIP_LEGEND_ITEMS.map((i) => i.key)).toEqual([
+      "real",
+      "dte",
+      "ceded",
+      "draft",
+      "scheduled",
+      "plan",
+      "note",
+    ]);
+    expect(CHIP_LEGEND_ITEMS.find((i) => i.key === "draft")?.icons).toBe(true);
+  });
+
+  it("modo cuñas cubre marcas principales y secundarias", () => {
+    expect(CORNER_LEGEND_ITEMS.map((i) => i.key)).toEqual([
+      "real",
+      "dte",
+      "ceded",
+      "draft",
+      "ep",
+      "proforma",
+      "scheduled",
+      "plan",
+      "note",
+    ]);
   });
 });

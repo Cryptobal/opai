@@ -43,16 +43,20 @@ export type CellStylePatch = {
 export type CellStylesMap = Record<string, CellStyle>;
 
 /** Versión del lenguaje visual de etapas (fondo+chip). Subir al migrar defaults. */
-export const PLANILLA_VISUAL_STAGES = 1;
+export const PLANILLA_VISUAL_STAGES = 2;
 
 export interface PlanillaViewPrefs {
   theme: PlanillaTheme;
   density: PlanillaDensity;
   zoom: number;
+  /**
+   * true = modo color (fondo + chip de folio/B); false = modo cuñas
+   * (marcas de esquina). Default: modo color.
+   */
   showChips: boolean;
   /**
    * Versión de migración visual. Si el valor guardado es menor que
-   * PLANILLA_VISUAL_STAGES, se aplica el default nuevo (chips ON) una vez.
+   * PLANILLA_VISUAL_STAGES, se aplica el default nuevo (modo color ON) una vez.
    */
   visualStages: number;
   /**
@@ -129,8 +133,9 @@ function sanitize(raw: unknown): PlanillaViewPrefs {
     typeof o.visualStages === "number" && Number.isFinite(o.visualStages)
       ? o.visualStages
       : 0;
-  // Migración v1: default chips ON. Quienes ya eligieron tras migrar conservan
-  // su valor; prefs antiguas (sin visualStages) pasan a fondo+chip una vez.
+  // Migración v2: default = modo color (showChips ON). Quienes ya eligieron
+  // tras v2 conservan su valor; prefs con visualStages < 2 vuelven a color
+  // (corrige confusión por labels invertidos color/cuñas en v1).
   const showChips =
     savedStages >= PLANILLA_VISUAL_STAGES
       ? o.showChips !== false

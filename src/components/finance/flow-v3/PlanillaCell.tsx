@@ -118,7 +118,8 @@ export function PlanillaCell(p: Props) {
   const mode = p.numberFormat ?? "clp";
   const value = displayValue(p.section, cell.layer, cell.effective);
   const formatted = value !== 0 ? fmtCell(value, mode) : "";
-  const showChips = p.showChips === true;
+  /** Default modo color (fondo+chip); solo cuñas si se pasa false. */
+  const showChips = p.showChips !== false;
   const pastPend = pastPendingGhostMeta(cell, isPast);
   /** Pasado sin real: mostrar monto pendiente atenuado (no suma a effective). */
   const pastPendOnly = !!pastPend && cell.layer === "empty";
