@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import type { AccessRecordType } from "@/lib/access-control/types";
 import { RECORD_TYPE_CONFIG } from "@/lib/access-control/types";
 import { formatRut, formatDuration, elapsedMinutes, stayDurationColor } from "@/lib/access-control/utils";
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 
 interface InSiteRecord {
   id: string;
@@ -34,13 +35,14 @@ export function InSiteList({ installationId, guardId, maxStayHours, onExitRegist
   const [records, setRecords] = useState<InSiteRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebouncedValue(search, 300);
   const [exitingId, setExitingId] = useState<string | null>(null);
   const [counts, setCounts] = useState({ persons: 0, vehicles: 0 });
 
   const fetchRecords = useCallback(async () => {
     try {
       const url = `/api/access-control/records/${installationId}/in-site${
-        search ? `?search=${encodeURIComponent(search)}` : ""
+        debouncedSearch ? `?search=${encodeURIComponent(debouncedSearch)}` : ""
       }`;
       const res = await fetch(url);
       const json = await res.json();
@@ -56,7 +58,7 @@ export function InSiteList({ installationId, guardId, maxStayHours, onExitRegist
     } finally {
       setLoading(false);
     }
-  }, [installationId, search]);
+  }, [installationId, debouncedSearch]);
 
   useEffect(() => {
     fetchRecords();
