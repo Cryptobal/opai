@@ -21,7 +21,7 @@ const realOf = (rowId: string, week: string, total: number): RealByRow =>
   new Map([[rowId, new Map([[week, { total, items: [] }]])]]);
 
 describe("assembleMatrix — capa efectiva", () => {
-  it("real > plan manual > comprometido; semanas pasadas solo real", () => {
+  it("real > plan manual > comprometido; pasada abierta conserva plan", () => {
     const rows = [row({})];
     const m = assembleMatrix({
       rows, weeks: WEEKS, currentWeek: CURRENT, openingBalance: 10_000_000,
@@ -30,15 +30,15 @@ describe("assembleMatrix — capa efectiva", () => {
       real: realOf("r1", "2026-07-13", 700),
     });
     const cells = m.rows[0].cells;
-    // Semana pasada con plan pero sin real → efectivo 0 (no cae al plan).
-    expect(cells[0]).toMatchObject({ layer: "empty", effective: 0, plan: 500 });
+    // Semana pasada ABIERTA con plan → sigue visible/editable hasta cerrar.
+    expect(cells[0]).toMatchObject({ layer: "plan", effective: 500, plan: 500 });
     // Semana pasada con real.
     expect(cells[1]).toMatchObject({ layer: "real", effective: 700 });
     // Futura: plan manual pisa la proyección comprometida.
     expect(cells[3]).toMatchObject({ layer: "plan", effective: 800, plan: 800 });
   });
 
-  it("semana pasada conserva committed en DTO pero effective/flujo no lo suman", () => {
+  it("semana CERRADA congela a solo real; abierta conserva committed en flujo", () => {
     const rows = [row({ section: "INGRESOS" })];
     const committed: CommittedByRow = new Map([
       [
@@ -63,7 +63,7 @@ describe("assembleMatrix — capa efectiva", () => {
         ]),
       ],
     ]);
-    const m = assembleMatrix({
+    const open = assembleMatrix({
       rows,
       weeks: WEEKS,
       currentWeek: CURRENT,
@@ -72,16 +72,33 @@ describe("assembleMatrix — capa efectiva", () => {
       committed,
       real: new Map(),
     });
-    const past = m.rows[0].cells[0];
-    expect(past).toMatchObject({
+    const pastOpen = open.rows[0].cells[0];
+    expect(pastOpen).toMatchObject({
+      layer: "committed",
+      effective: 500_000,
+      weekStart: "2026-07-06",
+    });
+    expect(pastOpen.committed?.items[0]?.folio).toBe(1582);
+    expect(open.flows[0]).toBe(500_000);
+
+    const closed = assembleMatrix({
+      rows,
+      weeks: WEEKS,
+      currentWeek: CURRENT,
+      openingBalance: 1_000_000,
+      plan: new Map(),
+      committed,
+      real: new Map(),
+      closedWeeks: ["2026-07-06"],
+    });
+    const pastClosed = closed.rows[0].cells[0];
+    expect(pastClosed).toMatchObject({
       layer: "empty",
       effective: 0,
       weekStart: "2026-07-06",
     });
-    expect(past.committed?.total).toBe(500_000);
-    expect(past.committed?.items[0]?.folio).toBe(1582);
-    // Flujo de semana pasada = solo real (0) — no arrastra el pendiente.
-    expect(m.flows[0]).toBe(0);
+    expect(pastClosed.committed?.total).toBe(500_000);
+    expect(closed.flows[0]).toBe(0);
   });
 
   it("ingreso facturado (DTE) pisa al plan manual", () => {
@@ -311,9 +328,9 @@ describe("assembleMatrix — residual / saldo por ejecutar", () => {
     expect(m.balances[2]).toBe(85_000_000);
   });
 
-  it("semana pasada nunca suma residual", () => {
+  it("semana CERRADA nunca suma residual; abierta sí", () => {
     const rows = [row({ id: "fin", section: "FINANCIAMIENTO" })];
-    const m = assembleMatrix({
+    const open = assembleMatrix({
       rows,
       weeks: WEEKS,
       currentWeek: CURRENT,
@@ -322,10 +339,26 @@ describe("assembleMatrix — residual / saldo por ejecutar", () => {
       committed: new Map(),
       real: realOf("fin", "2026-07-13", -2_200_000),
     });
-    const past = m.rows[0]!.cells[1]!;
-    expect(past.effective).toBe(-2_200_000);
-    expect(past.execution).toBeNull();
-    expect(m.flows[1]).toBe(-2_200_000);
+    const pastOpen = open.rows[0]!.cells[1]!;
+    // Abierta: residual carry — effective = real + residual del plan.
+    expect(pastOpen.layer).toBe("real");
+    expect(pastOpen.execution).not.toBeNull();
+    expect(pastOpen.effective).toBe(-10_000_000);
+
+    const closed = assembleMatrix({
+      rows,
+      weeks: WEEKS,
+      currentWeek: CURRENT,
+      openingBalance: 10_000_000,
+      plan: new Map([["fin", new Map([["2026-07-13", -10_000_000]])]]),
+      committed: new Map(),
+      real: realOf("fin", "2026-07-13", -2_200_000),
+      closedWeeks: ["2026-07-13"],
+    });
+    const pastClosed = closed.rows[0]!.cells[1]!;
+    expect(pastClosed.effective).toBe(-2_200_000);
+    expect(pastClosed.execution).toBeNull();
+    expect(closed.flows[1]).toBe(-2_200_000);
   });
 
   it("factura parcial: real + committedNet sin doble conteo", () => {

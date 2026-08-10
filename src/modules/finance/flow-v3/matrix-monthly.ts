@@ -51,6 +51,8 @@ export interface ReduceMonthlyOpts {
   realNetAfterWindow?: number;
   residualCarryEnabled?: boolean;
   residualMinClp?: number;
+  /** Lunes ISO cerrados; el mes se congela solo si TODAS sus semanas lo están. */
+  closedWeeks?: Iterable<string>;
 }
 
 const MONTHS = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
@@ -196,7 +198,7 @@ function cellFromBucket(
   bucket: ItemBucket,
   weekStart: string,
   section: string,
-  isPast: boolean,
+  isFrozen: boolean,
   residualCarryEnabled: boolean,
   residualMinClp: number,
 ): FlowMatrixCellDto {
@@ -220,18 +222,18 @@ function cellFromBucket(
   let layer: FlowMatrixCellDto["layer"] = "empty";
   if (real && real.total !== 0) {
     layer = "real";
-  } else if (!isPast && invoiced && committed && committed.total !== 0) {
+  } else if (!isFrozen && invoiced && committed && committed.total !== 0) {
     layer = "committed";
-  } else if (!isPast && bucket.plan !== 0) {
+  } else if (!isFrozen && bucket.plan !== 0) {
     layer = "plan";
-  } else if (!isPast && committed && committed.total !== 0) {
+  } else if (!isFrozen && committed && committed.total !== 0) {
     layer = "committed";
   }
 
   const realSigned = real?.total ?? 0;
   let effective = 0;
   // Mensual: sin barra de execution (agregado); sí aplica residual al monto.
-  if (isPast) {
+  if (isFrozen) {
     effective = realSigned !== 0 ? realSigned : 0;
   } else if (layer !== "empty") {
     const computed = computeCellExecution({
@@ -433,17 +435,24 @@ export function reduceMonthly(
   const pendingNet = new Array<number>(n).fill(0);
   const residualCarryEnabled = opts.residualCarryEnabled !== false;
   const residualMinClp = opts.residualMinClp ?? DEFAULT_RESIDUAL_MIN_CLP;
+  const closedSet = new Set<string>(opts.closedWeeks ?? []);
+  if (opts.sealedBalances) {
+    for (const monday of opts.sealedBalances.keys()) closedSet.add(monday);
+  }
 
   const rows: FlowMatrixRowDto[] = m.rows.map((r) => {
     const { buckets, fallbackFechaCount: fc } = attributeItemsToBuckets(r, weeks, groups);
     fallbackFechaCount += fc;
     const cells: FlowMatrixCellDto[] = groups.map((g, mi) => {
       const bucket = buckets.get(g.key) ?? emptyBucket();
+      const inWeeks = g.idx.map((i) => weeks[i]!);
+      const isFrozen =
+        inWeeks.length > 0 && inWeeks.every((w) => closedSet.has(w));
       const cell = cellFromBucket(
         bucket,
         columns[mi]!.weekStart,
         r.section,
-        columns[mi]!.isPast,
+        isFrozen,
         residualCarryEnabled,
         residualMinClp,
       );

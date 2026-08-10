@@ -5,22 +5,23 @@
  * signado. La UI muestra magnitudes en secciones de egreso; flujo y saldo
  * suman `effective` directo.
  *
- * Capa efectiva (etiqueta `layer`, semana actual/futura):
+ * Capa efectiva (etiqueta `layer`, semana ABIERTA):
  *   real > ingreso facturado (DTE) > plan manual > comprometido > vacío.
- * Semanas pasadas: SOLO real.
+ * Semanas CERRADAS (cierre semanal): SOLO real — el usuario fija al cerrar.
+ * El rollover de calendario (isPast) NO congela montos ni quita plan/comprometido.
  *
- * Monto efectivo (semana no pasada, con residualCarryEnabled):
+ * Monto efectivo (semana abierta, con residualCarryEnabled):
  *   effective = realSigned + committedNetCash + residual
  * donde residual es el remanente bruto no ejecutado (plan o hitos) y
  * committedNetCash es el pendiente neto de facturas (kind=dte). Con
  * residualCarryEnabled=false + real ≠ 0 se reproduce el legado
  * (effective = real). Ver residual.ts.
  *
- * Saldo acumulado (fin de semana):
+ * Saldo acumulado (fin de semana) — anclado a banco, independiente del cierre:
  *  - semana actual = saldo banco hoy + (effective − real) de la semana
  *    (= pendiente aún no salido del banco: plan/comprometido/residual);
  *  - futuras: acumula `effective`;
- *  - pasadas: des-acumula el real desde hoy hacia atrás;
+ *  - pasadas (calendario): des-acumula el real desde hoy hacia atrás;
  *  - ventana enteramente pasada: ancla = saldo hoy − real posterior a la
  *    ventana (`realNetAfterWindow`, lo aporta el service);
  *  - ventana enteramente futura: ancla aproximada en saldo hoy (el gap sin
@@ -124,6 +125,11 @@ export interface AssembleArgs {
   sealedBalances?: Map<string, number>;
   /** Último sello previo al rango (ancla el tramo más antiguo visible). */
   priorSealed?: { mondayYmd: string; balance: number } | null;
+  /**
+   * Lunes ISO de semanas cerradas. Congela capa/effective a solo-real.
+   * Si se omite, se infiere de las claves de `sealedBalances`.
+   */
+  closedWeeks?: Iterable<string>;
 }
 
 export interface AssembledMatrix {
@@ -146,6 +152,10 @@ export function assembleMatrix(args: AssembleArgs): AssembledMatrix {
   const flows = new Array<number>(n).fill(0);
   const realNet = new Array<number>(n).fill(0);
   const pendingNet = new Array<number>(n).fill(0);
+  const closedSet = new Set<string>(args.closedWeeks ?? []);
+  if (args.sealedBalances) {
+    for (const monday of args.sealedBalances.keys()) closedSet.add(monday);
+  }
 
   const rows: FlowMatrixRowDto[] = args.rows.map((r) => {
     const planRow = args.plan.get(r.id);
@@ -175,6 +185,8 @@ export function assembleMatrix(args: AssembleArgs): AssembledMatrix {
         : 0;
 
       const isPast = w < currentWeek;
+      /** Congelada solo por cierre semanal — no por rollover de calendario. */
+      const isFrozen = closedSet.has(w);
       let layer: FlowMatrixCellDto["layer"] = "empty";
       let effective = 0;
       let execution: CellExecution | null = null;
@@ -182,18 +194,18 @@ export function assembleMatrix(args: AssembleArgs): AssembledMatrix {
       // Etiqueta de capa (sin cambiar significado): real gana la marca.
       if (real && real.total !== 0) {
         layer = "real";
-      } else if (!isPast && invoiced && committed && committed.total !== 0) {
+      } else if (!isFrozen && invoiced && committed && committed.total !== 0) {
         layer = "committed";
-      } else if (!isPast && plan !== 0) {
+      } else if (!isFrozen && plan !== 0) {
         layer = "plan";
-      } else if (!isPast && committed && committed.total !== 0) {
+      } else if (!isFrozen && committed && committed.total !== 0) {
         layer = "committed";
       }
 
       const realSigned = real?.total ?? 0;
 
-      if (isPast) {
-        // Semanas pasadas: SOLO real.
+      if (isFrozen) {
+        // Semana cerrada: el usuario ya fijó; solo real cuenta.
         effective = realSigned !== 0 ? realSigned : 0;
         execution = null;
       } else {
@@ -219,7 +231,8 @@ export function assembleMatrix(args: AssembleArgs): AssembledMatrix {
 
       flows[i] += effective;
       if (real) realNet[i] += real.total;
-      // Pendiente aún no en banco = effective − real (cubre plan, committed y residual).
+      // Ancla de saldo de la semana actual = banco hoy + pendingNet[ci].
+      // Solo semanas no pasadas (calendario); el saldo hacia atrás usa realNet.
       if (!isPast) pendingNet[i] += effective - realSigned;
 
       const committedMag = committed?.total ?? 0;
