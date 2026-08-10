@@ -37,9 +37,15 @@ export async function getDealDriveFolderStatus(tenantId: string, dealId: string)
   try {
     const target = await resolveDealTarget(tenantId, dealId);
     path = target.path;
-    const cached = await prisma.driveFolderCache.findUnique({
-      where: { tenantId_pathKey: { tenantId, pathKey: path } },
+    const byEntity = await prisma.driveFolderCache.findFirst({
+      where: { tenantId, entityType: "deal", entityId: dealId },
+      orderBy: { createdAt: "asc" },
     });
+    const cached =
+      byEntity ??
+      (await prisma.driveFolderCache.findUnique({
+        where: { tenantId_pathKey: { tenantId, pathKey: path } },
+      }));
     if (cached) {
       hasFolder = true;
       folderId = cached.driveFolderId;
