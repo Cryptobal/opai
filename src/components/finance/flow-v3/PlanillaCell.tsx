@@ -5,23 +5,35 @@ import type { FlowMatrixCellDto } from "@/modules/finance/flow-v3/matrix-types";
 import { fmtCell, NUM_CLASS, numSizeClass, type NumberFormatMode } from "./format";
 import { ChevronDown } from "lucide-react";
 import {
-  CELL_BASE, CELL_CARET, COL_W,   COMMITTED_DRAFT_CELL, COMMITTED_DTE_CELL,
-  COMMITTED_PROFORMA_CELL, COMMITTED_SCHEDULED_CELL, CORNER_DTE, CORNER_PLAN,
+  CELL_BASE, CELL_CARET, COL_W, COMMITTED_CEDED_CELL, COMMITTED_DRAFT_CELL,
+  COMMITTED_DTE_CELL, COMMITTED_SCHEDULED_CELL, CORNER_DTE, CORNER_PLAN,
   CORNER_REAL, CORNER_WARN, NOTE_DOT_EL, OVERDUE_CELL, OVERDUE_OVER60_CELL,
   SUB_CORNER_CEDED, SUB_CORNER_EP,
   SUB_CORNER_PROFORMA, displayValue, REAL_CELL, ROW_H, TODAY_COL,
 } from "./grid-classes";
 import {
-  cellOverdueState, committedPriority, cornerKind, countOverdueInCell,
-  dteCountInCell, executionMeta, pastPendingGhostMeta, primaryCellTag,
-  secondaryMarkTitle, secondaryMarks, toneClass, type SecondaryMark,
+  cellCededState, cellOverdueState, committedChipFillKey, committedPriority,
+  cornerKind, countOverdueInCell, dteCountInCell, executionMeta,
+  pastPendingGhostMeta, primaryCellTag, secondaryMarkTitle, secondaryMarks,
+  toneClass, type SecondaryMark,
 } from "./cell-meta";
+import { DraftSentIcons } from "./DraftSentIcons";
 import { ExecutionBar } from "./ExecutionBar";
 
 const SUB_CORNER_CLASS: Record<SecondaryMark, string> = {
   ceded: SUB_CORNER_CEDED,
   proforma: SUB_CORNER_PROFORMA,
   estadoPago: SUB_CORNER_EP,
+};
+
+const CHIP_FILL: Record<
+  ReturnType<typeof committedChipFillKey>,
+  string
+> = {
+  ceded: COMMITTED_CEDED_CELL,
+  dte: COMMITTED_DTE_CELL,
+  draft: COMMITTED_DRAFT_CELL,
+  scheduled: COMMITTED_SCHEDULED_CELL,
 };
 import type { CellStyle } from "./usePlanillaViewPrefs";
 import { InlineCellEditor } from "./InlineCellEditor";
@@ -116,6 +128,7 @@ export function PlanillaCell(p: Props) {
   const reconciledBold = cell.layer === "real" && !pastPendOnly;
 
   const { hasDte, hasSentDoc, hasDraft } = committedPriority(cell);
+  const cededState = cellCededState(cell);
   const overdueState = cellOverdueState(cell);
   const overdueClass =
     overdueState === "overdue60"
@@ -123,13 +136,15 @@ export function PlanillaCell(p: Props) {
       : overdueState === "overdue"
         ? OVERDUE_CELL
         : "";
-  const committedClass = hasDte
-    ? COMMITTED_DTE_CELL
-    : hasSentDoc
-      ? COMMITTED_PROFORMA_CELL
-      : hasDraft
-        ? COMMITTED_DRAFT_CELL
-        : COMMITTED_SCHEDULED_CELL;
+  /** Fondo solo en etapas fuertes; borrador (con/sin EP·proforma) queda gris. */
+  const committedClass = CHIP_FILL[
+    committedChipFillKey({
+      hasDte,
+      hasDraft,
+      hasSentDoc,
+      ceded: cededState !== "none",
+    })
+  ];
 
   const tag = primaryCellTag(cell, { isPast });
   const multiDteN = dteCountInCell(cell);
@@ -148,6 +163,29 @@ export function PlanillaCell(p: Props) {
   const isSelected = p.rangeClass.includes("planilla-selected");
   const subMarks = secondaryMarks(cell);
   const subTitle = secondaryMarkTitle(subMarks);
+  /** Modo chips: borrador siempre «B»; EP/proforma → iconos (no cuñas ni chip EP). */
+  const isDraftChip =
+    showChips &&
+    cell.layer === "committed" &&
+    !hasDte &&
+    (hasDraft || hasSentDoc);
+  const draftDocMarks = isDraftChip
+    ? subMarks.filter((m): m is "proforma" | "estadoPago" =>
+        m === "proforma" || m === "estadoPago",
+      )
+    : [];
+  const chipTag = isDraftChip
+    ? {
+        tag: "B",
+        tone: "warn" as const,
+        title: subTitle ? `Borrador · ${subTitle}` : "Borrador",
+      }
+    : tag;
+  const chipTagClass = showChips && hasDte && cededState !== "none"
+    ? "text-tint-violet-fg"
+    : chipTag
+      ? toneClass(chipTag.tone)
+      : "";
 
   const layerClass = showChips
     ? cell.layer === "real"
@@ -155,12 +193,20 @@ export function PlanillaCell(p: Props) {
       : cell.layer === "committed"
         ? `${committedClass} ${overdueClass}`.trim()
         : pastPendOnly
-          ? `${COMMITTED_DTE_CELL} opacity-60`
+          ? `${
+              // Pendiente pasado cedido: mismo violeta atenuado.
+              (cell.committed?.items ?? []).some(
+                (i) =>
+                  i.kind === "dte" &&
+                  ((i.cededPct ?? 0) > 0 || i.ceded === true),
+              )
+                ? COMMITTED_CEDED_CELL
+                : COMMITTED_DTE_CELL
+            } opacity-60`
           : ""
     : pastPendOnly
       ? "opacity-60"
       : overdueClass;
-
   /** Negativos (p.ej. financiamiento con egreso) en rojo para leer egresos de un vistazo. */
   const negativeClass = !pastPendOnly && value < 0 ? "text-status-danger-fg" : "";
   const textClass =
@@ -292,7 +338,8 @@ export function PlanillaCell(p: Props) {
         openSheet?.();
       }}
     >
-      {subMarks.length > 0 && (
+      {/* Cuñas secundarias solo en modo marcas; en chips van fondo/iconos. */}
+      {!showChips && subMarks.length > 0 && (
         <span
           className="pointer-events-none absolute bottom-0 right-0 z-[1] flex flex-col-reverse items-end"
           aria-hidden
@@ -344,21 +391,26 @@ export function PlanillaCell(p: Props) {
           onCommit={p.onCommit}
           onCancel={p.onCancel}
         />
-      ) : showChips && tag && (
+      ) : showChips && chipTag && (
         cell.layer === "committed" || cell.layer === "plan" || pastPendOnly
       ) ? (
         <span
           className={`pointer-events-none absolute inset-0 flex flex-col gap-px px-1.5 max-md:px-[3px] leading-none ${chipItemsH} ${chipJustifyV}`}
         >
           <span
-            className={`max-w-full truncate font-sans text-[length:inherit] leading-[10px] ${toneClass(tag.tone)}`}
-            title={tag.title}
+            className={`max-w-full truncate font-sans text-[length:inherit] leading-[10px] ${chipTagClass}`}
+            title={chipTag.title}
           >
-            {tag.tag}
+            {chipTag.tag}
           </span>
           {displayFormatted && (
-            <span className={`max-w-full truncate leading-[10px] ${pastPendOnly ? "text-ds-text-3" : ""}`}>
-              {displayFormatted}
+            <span
+              className={`inline-flex max-w-full items-center gap-0.5 leading-[10px] ${
+                pastPendOnly ? "text-ds-text-3" : ""
+              }`}
+            >
+              <span className="truncate">{displayFormatted}</span>
+              {isDraftChip && <DraftSentIcons marks={draftDocMarks} />}
             </span>
           )}
           {p.caption && (

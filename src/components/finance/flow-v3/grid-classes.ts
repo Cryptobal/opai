@@ -30,33 +30,41 @@ export const CELL_BASE =
 export const TODAY_COL = "border-l-2 border-l-primary";
 
 /**
- * Sistema de 5 estados de celda (§5F). Con chips OFF la lectura es por marca
- * de esquina; con chips ON se conservan fondos tintados + chip de texto.
- *   fondo relleno         = el documento EXISTE (real / factura / proforma-EP);
- *   sin fondo + borde izq. = PROYECCIÓN (programada / borrador).
+ * Sistema de etapas de celda (modo fondo+chip, default).
+ *   fondo relleno  = etapa fuerte (real / factura / cedida);
+ *   sin fondo      = proyección (programada / borrador). EP y proforma NO
+ *                    pintan la celda: van como iconos junto al monto.
+ * Con chips OFF se conserva la lectura por marcas de esquina (legacy).
  */
 
 /** REAL (conciliado): fondo teal + borde inferior sólido. */
 export const REAL_CELL =
   "bg-status-ok-soft/60 border-b-status-ok-border";
 
-/** FACTURA EMITIDA (folio): documento azul, fondo relleno + borde sólido. */
+/** FACTURA EMITIDA no pagada (folio): fondo azul + borde sólido. */
 export const COMMITTED_DTE_CELL =
   "bg-status-info-soft/60 border-b-status-info-border";
 
-/** PROGRAMADA (cuota aún sin documento): proyección azul, sin fondo + borde
+/** FACTURA CEDIDA a factoring: fondo violeta (distinto de facturada/pagada). */
+export const COMMITTED_CEDED_CELL =
+  "bg-tint-violet/60 border-b border-b-tint-violet-fg/40";
+
+/** PROGRAMADA (cuota aún sin documento): proyección, sin fondo + borde
  *  izquierdo punteado. */
 export const COMMITTED_SCHEDULED_CELL =
   "border-l-2 border-l-status-info-border [border-left-style:dotted]";
 
-/** PROFORMA / EP enviado: documento ámbar, fondo relleno + borde sólido. */
+/**
+ * @deprecated Solo modo cuñas / leyenda legacy. En modo chips, EP/proforma
+ * no rellenan la celda (usan iconos). Mantener export por tests/leyenda.
+ */
 export const COMMITTED_PROFORMA_CELL =
   "bg-status-warn-soft/60 border-b-status-warn-border";
 
-/** BORRADOR sin enviar: proyección ámbar, sin fondo + borde izquierdo punteado. */
+/** BORRADOR (con o sin EP/proforma): misma familia gris que programada —
+ *  sin fondo + borde izquierdo punteado ámbar sutil. */
 export const COMMITTED_DRAFT_CELL =
   "border-l-2 border-l-status-warn-border [border-left-style:dotted]";
-
 /**
  * Marca de esquina 6px (triángulo sup-der). Prioridad: real > dte/scheduled >
  * draft/proforma. Proyección P no lleva marca (monto atenuado).

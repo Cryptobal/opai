@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   cellCededState,
   cellStateChips,
+  committedChipFillKey,
   committedItemMeta,
   countCededInMatrix,
   draftGroupLabel,
@@ -72,6 +73,29 @@ describe("sentDocs — etiquetas EP vs Proforma", () => {
       }],
     });
     expect(primaryCellTag(pf)?.tag).toBe("Proforma");
+  });
+
+  it("committedChipFillKey: borrador con EP/proforma no pinta (draft), cedida sí", () => {
+    expect(
+      committedChipFillKey({
+        hasDte: false, hasDraft: true, hasSentDoc: true, ceded: false,
+      }),
+    ).toBe("draft");
+    expect(
+      committedChipFillKey({
+        hasDte: true, hasDraft: false, hasSentDoc: false, ceded: true,
+      }),
+    ).toBe("ceded");
+    expect(
+      committedChipFillKey({
+        hasDte: true, hasDraft: false, hasSentDoc: false, ceded: false,
+      }),
+    ).toBe("dte");
+    expect(
+      committedChipFillKey({
+        hasDte: false, hasDraft: false, hasSentDoc: false, ceded: false,
+      }),
+    ).toBe("scheduled");
   });
 
   it("secondaryMarks: EP y Proforma abajo a la derecha (ámbar arriba intacto)", () => {
