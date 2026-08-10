@@ -33,6 +33,7 @@ interface Props {
   canManage: boolean;
   onSaveNote: (rowId: string, weekStart: string, body: string | null) => Promise<boolean>;
   onOpenActions: (ctx: CellHoverShowCtx, anchor: DOMRect) => void;
+  onViewDte?: (dteId: string) => void;
   onSendCobranza?: (args: {
     dteId: string;
     crmAccountId: string | null;
@@ -44,16 +45,17 @@ interface Props {
 /**
  * Ficha de detalle de instancia única. Se abre con clic izquierdo (anclada);
  * se cierra con Esc, clic fuera, scroll o al pasar a edición.
+ * Nota siempre inline (sin paso extra). F° clickeable → modal factura.
  */
 export const CellHoverCard = forwardRef<CellHoverCardHandle, Props>(function CellHoverCard(
-  { canManage, onSaveNote, onOpenActions, onSendCobranza, onEditTerm },
+  { canManage, onSaveNote, onOpenActions, onViewDte, onSendCobranza, onEditTerm },
   ref,
 ) {
   const [ctx, setCtx] = useState<CellHoverShowCtx | null>(null);
   const [pos, setPos] = useState({ left: 0, top: 0 });
   const [visible, setVisible] = useState(false);
   const [pinned, setPinned] = useState(false);
-  const [editingNote, setEditingNote] = useState(false);
+  const [focusNote, setFocusNote] = useState(false);
   const pinnedRef = useRef(false);
   const visibleRef = useRef(false);
   pinnedRef.current = pinned;
@@ -63,7 +65,6 @@ export const CellHoverCard = forwardRef<CellHoverCardHandle, Props>(function Cel
     const w = 288;
     // Lista scrollable ~max-h-56; estimar alto para no abrir fuera de viewport.
     const listH = itemCount > 0 ? Math.min(224, itemCount * 36) : 0;
-    // +~56px si hay tip contextual de colores.
     const estH = 216 + listH;
     const left = Math.max(8, Math.min(rect.left, window.innerWidth - w - 8));
     let top = rect.bottom + 4;
@@ -73,7 +74,7 @@ export const CellHoverCard = forwardRef<CellHoverCardHandle, Props>(function Cel
 
   const hardHide = useCallback(() => {
     setPinned(false);
-    setEditingNote(false);
+    setFocusNote(false);
     setVisible(false);
     setCtx(null);
   }, []);
@@ -90,12 +91,12 @@ export const CellHoverCard = forwardRef<CellHoverCardHandle, Props>(function Cel
       place(rect, itemCount);
       setVisible(true);
       setPinned(true);
-      setEditingNote(false);
+      setFocusNote(false);
     },
     hide() {
       if (pinnedRef.current) return;
       setVisible(false);
-      setEditingNote(false);
+      setFocusNote(false);
       setCtx(null);
     },
     forceHide: hardHide,
@@ -104,7 +105,7 @@ export const CellHoverCard = forwardRef<CellHoverCardHandle, Props>(function Cel
     async flush() {},
     openNoteEditor() {
       setPinned(true);
-      setEditingNote(true);
+      setFocusNote(true);
       setVisible(true);
     },
     isPinned: () => pinnedRef.current,
@@ -123,28 +124,27 @@ export const CellHoverCard = forwardRef<CellHoverCardHandle, Props>(function Cel
       className="planilla-cell-hover fixed z-50 w-[288px] rounded-lg border border-ds-border-default bg-ds-surface-3 p-2 text-[13px] shadow-lg"
       data-visible="true"
       role="dialog"
-      aria-label={editingNote ? `Nota · ${model.concept}` : `Detalle · ${model.concept}`}
+      aria-label={`Detalle · ${model.concept}`}
       style={{ left: pos.left, top: pos.top }}
       onWheel={(e) => e.stopPropagation()}
     >
       <CellHoverCardBody
         model={model}
-        editingNote={editingNote}
+        focusNote={focusNote}
         canManage={canManage}
         rowId={ctx.row.id}
         weekStart={ctx.cell.weekStart}
         noteInitial={ctx.cell.note ?? ""}
         onSaveNote={onSaveNote}
-        onStartNote={() => { if (canManage) { setPinned(true); setEditingNote(true); } }}
-        onNoteClose={() => {
-          setEditingNote(false);
-          setPinned(true);
-        }}
-        onNoteDone={() => {
-          setEditingNote(false);
-          setPinned(true);
-        }}
         onOpenActions={(el) => onOpenActions(ctx, el.getBoundingClientRect())}
+        onViewDte={
+          onViewDte
+            ? (dteId) => {
+                hardHide();
+                onViewDte(dteId);
+              }
+            : undefined
+        }
         onSendCobranza={onSendCobranza}
         onEditTerm={onEditTerm ? () => onEditTerm(ctx.row) : undefined}
       />

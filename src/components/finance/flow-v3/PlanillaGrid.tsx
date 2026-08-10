@@ -1794,6 +1794,7 @@ export function PlanillaGrid({
         onOpenActions={(ctx, anchor) => {
           openCaretMenu({ rowId: ctx.row.id, colIdx: ctx.colIdx }, anchor);
         }}
+        onViewDte={onViewDte}
         onSendCobranza={
           canManage
             ? (args) => setCobranzaTarget(args)

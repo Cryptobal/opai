@@ -141,6 +141,7 @@ describe("buildHoverCardContent", () => {
             monto: 900_000,
             fecha: "2026-08-25",
             folio: 7,
+            dteId: "dte-7",
           }],
         },
         projected: 1_000_000,
@@ -153,6 +154,10 @@ describe("buildHoverCardContent", () => {
     expect(model.drift).not.toBeNull();
     expect(model.drift?.positive).toBe(false);
     expect(model.lines[0]?.label).toBe("Real");
+    expect(model.items[0]?.dteId).toBe("dte-7");
+    expect(model.subtitle).toMatch(/cobrado 25\/08/);
+    expect(model.colorMeaning).toBeNull();
+    expect(model.footerHint).toMatch(/factura/i);
   });
 
   it("real parcial con execution reemplaza drift", () => {
@@ -238,12 +243,39 @@ describe("buildHoverCardContent", () => {
     expect(model.footerHint).toBe("Semana cerrada");
   });
 
-  it("pie por defecto menciona doble clic para editar", () => {
+  it("pie por defecto menciona doble clic / Más", () => {
     const model = buildHoverCardContent({
       row: baseRow(),
       cell: cell({ layer: "plan", plan: 1000, effective: 1000 }),
       colIdx: 0,
     });
     expect(model.footerHint).toMatch(/Doble clic editar/i);
+    expect(model.footerHint).toMatch(/Más/i);
+  });
+
+  it("comprometido expone dteId clickeable en ítems", () => {
+    const model = buildHoverCardContent({
+      row: baseRow(),
+      cell: cell({
+        layer: "committed",
+        committed: {
+          total: 200_000,
+          items: [{
+            kind: "dte",
+            dteId: "d1",
+            folio: 42,
+            label: "Acme",
+            monto: 200_000,
+            fecha: "2026-08-20",
+            emissionYmd: "2026-08-20",
+          }],
+        },
+        effective: 200_000,
+      }),
+      colIdx: 0,
+      rowNumber: 2,
+    });
+    expect(model.items[0]?.dteId).toBe("d1");
+    expect(model.footerHint).toMatch(/factura/i);
   });
 });

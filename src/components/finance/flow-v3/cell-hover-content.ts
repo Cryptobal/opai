@@ -3,6 +3,7 @@
  */
 import type { FlowMatrixCellDto, FlowMatrixRowDto } from "@/modules/finance/flow-v3/matrix-types";
 import { hasManualPlanOverride } from "@/modules/finance/flow-v3/cell-editability";
+import { weekLabel } from "@/modules/finance/flow-v3/weeks";
 import { fmtClp, fmtDayMonth, fmtShortDate } from "./format";
 import {
   committedItemMeta, LAYER_LABEL, pastPendingGhostMeta, terminoStatusLine,
@@ -26,6 +27,8 @@ export interface HoverItemLine {
   label: string;
   status: string;
   amount: string;
+  /** Si hay DTE, la fila es clickeable → abre modal de factura. */
+  dteId?: string;
 }
 
 export interface HoverDrift {
@@ -72,6 +75,8 @@ export interface HoverCardModel {
   concept: string;
   ref: string;
   weekLabel: string;
+  /** Cabecera derecha: p.ej. "S33 · cobrado 10/08" (sin coordenada Excel). */
+  subtitle: string;
   layerLabel: string;
   badges: string[];
   /** Significado de las marcas de color de esta celda (aprendizaje). */
@@ -174,6 +179,7 @@ export function buildHoverCardContent(args: {
         label: it.label,
         status: itemStatus(it),
         amount: fmtClp(it.monto),
+        dteId: it.dteId,
       });
     }
   }
@@ -187,6 +193,7 @@ export function buildHoverCardContent(args: {
         label: it.label,
         status: fmtShortDate(it.fecha),
         amount: fmtClp(it.monto),
+        dteId: it.dteId,
       });
     }
     // Drift legado solo si no hay bloque execution (fallback).
@@ -276,20 +283,35 @@ export function buildHoverCardContent(args: {
     };
   }
 
+  const week = weekLabel(cell.weekStart);
+  const realFecha = cell.layer === "real" ? cell.real?.items?.[0]?.fecha : null;
+  const subtitle = realFecha
+    ? `${week} · cobrado ${fmtDayMonth(realFecha)}`
+    : `${week} · ${fmtDayMonth(cell.weekStart)}`;
+  const hasClickableDte = items.some((i) => !!i.dteId);
+  // En REAL el badge + fondo verde ya bastan; el tip de colores estorba.
+  const colorMeaning =
+    cell.layer === "real" ? null : resolveCellColorMeaning(cell);
+
   return {
     concept: row.name,
     ref: `${columnLetter(colIdx + 1)}${rowNumber || ""}`,
     weekLabel: fmtDayMonth(cell.weekStart),
+    subtitle,
     layerLabel: LAYER_LABEL[cell.layer],
     badges,
-    colorMeaning: resolveCellColorMeaning(cell),
+    colorMeaning,
     lines,
     items,
     execution,
     drift,
     pastPending,
     note: cell.note?.trim() || null,
-    footerHint: reason || "Doble clic editar · N nota · Acciones ▾",
+    footerHint:
+      reason ||
+      (hasClickableDte
+        ? "Clic en F° → factura"
+        : "Doble clic editar · Más…"),
     term,
     cession,
     cobranza,

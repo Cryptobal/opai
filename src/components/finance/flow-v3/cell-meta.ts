@@ -483,8 +483,29 @@ export function primaryCellTag(
   title: string;
 } | null {
   const isPast = opts?.isPast === true;
-  // Semana pasada con real: el tag REAL manda; el badge "+F° pend." va aparte.
-  if (cell.layer === "real") return { tag: "REAL", tone: "ok", title: "Conciliado" };
+  // Real conciliado: si hay folio(s) de DTE, mostrarlos (clickables vía ficha).
+  // Sin folio → chip REAL. El fondo verde ya marca "plata entró".
+  if (cell.layer === "real") {
+    const folios = [
+      ...new Set(
+        (cell.real?.items ?? [])
+          .map((i) => i.folio)
+          .filter((f): f is number => f != null && f > 0),
+      ),
+    ];
+    if (folios.length === 1) {
+      const f = folioChip(folios[0]!);
+      return { tag: f.text, tone: "info", title: `${f.title} · Conciliado` };
+    }
+    if (folios.length >= 2) {
+      return {
+        tag: `×${folios.length}`,
+        tone: "info",
+        title: `${folios.map((n) => `F°${n}`).join(", ")} · Conciliado`,
+      };
+    }
+    return { tag: "REAL", tone: "ok", title: "Conciliado" };
+  }
   if (cell.layer === "plan") return { tag: "Plan", tone: "neutral", title: "Plan manual" };
   // Pasado sin real pero con pendiente (F° / programado / plan) → chip atenuado.
   if (isPast && cell.layer === "empty") {
