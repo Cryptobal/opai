@@ -1,240 +1,291 @@
 "use client";
 
-import { useId, useMemo } from "react";
-import { fmtClp } from "./format";
+import { useEffect, useMemo, useState } from "react";
+import {
+  Bar,
+  CartesianGrid,
+  ComposedChart,
+  Label,
+  Line,
+  ReferenceLine,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
+import type { PanelWeekPoint } from "@/modules/finance/flow-v3/insights-series";
+import { fmtClp, fmtClpShort, fmtDayMonth } from "./format";
+import { PanelBalanceTooltip, type ChartPoint } from "./PanelBalanceTooltip";
 
-/** Gráfico de saldo acumulado semanal (proyección hacia adelante). */
-export function PanelBalanceChart({
-  series,
-  warn,
+const TOKEN = {
+  primary: "hsl(var(--primary))",
+  text3: "hsl(var(--ds-text-3))",
+  ok: "hsl(var(--ds-ok))",
+  danger: "hsl(var(--ds-danger))",
+  warn: "hsl(var(--ds-warn))",
+  info: "hsl(var(--ds-info))",
+  border: "hsl(var(--ds-border-default))",
+  muted: "hsl(var(--ds-text-4))",
+} as const;
+
+function usePrefersReducedMotion(): boolean {
+  const [reduced, setReduced] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    setReduced(mq.matches);
+    const onChange = () => setReduced(mq.matches);
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
+  return reduced;
+}
+
+function useIsSmUp(): boolean {
+  const [sm, setSm] = useState(true);
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 640px)");
+    setSm(mq.matches);
+    const onChange = () => setSm(mq.matches);
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
+  return sm;
+}
+
+function pointFill(p: PanelWeekPoint, buffer: number): string {
+  if (p.sealed) return TOKEN.info;
+  if (p.balance < 0) return TOKEN.danger;
+  if (buffer > 0 && p.balance < buffer) return TOKEN.warn;
+  return TOKEN.primary;
+}
+
+function Dot({
+  cx,
+  cy,
+  payload,
+  buffer,
 }: {
-  series: Array<{ weekStart: string; label: string; balance: number }>;
-  warn: number;
+  cx?: number;
+  cy?: number;
+  payload?: ChartPoint;
+  buffer: number;
 }) {
-  const gid = useId().replace(/:/g, "");
-  const gradId = `bal-fill-${gid}`;
-  const lineGradId = `bal-line-${gid}`;
-  const glowId = `bal-glow-${gid}`;
+  if (cx == null || cy == null || !payload) return null;
+  const fill = pointFill(payload, buffer);
+  return (
+    <g>
+      {payload.breakDelta != null && (
+        <circle
+          cx={cx}
+          cy={cy}
+          r={7}
+          fill="none"
+          stroke={TOKEN.warn}
+          strokeWidth={1.5}
+        />
+      )}
+      {payload.anchored && (
+        <circle
+          cx={cx}
+          cy={cy}
+          r={5.5}
+          fill="none"
+          stroke={TOKEN.text3}
+          strokeWidth={1}
+          strokeDasharray="2 2"
+        />
+      )}
+      <circle cx={cx} cy={cy} r={3.5} fill={fill} stroke="none" />
+    </g>
+  );
+}
 
-  const layout = useMemo(() => {
-    if (series.length === 0) return null;
-    const vals = series.map((s) => s.balance);
-    const min = Math.min(...vals, warn, 0);
-    const max = Math.max(...vals, 0);
-    const pad = (max - min) * 0.12 || 1_000_000;
-    const y0 = min - pad;
-    const y1 = max + pad;
-    const w = 640;
-    const h = 200;
-    const padL = 8;
-    const padR = 8;
-    const padT = 16;
-    const padB = 28;
-    const plotW = w - padL - padR;
-    const plotH = h - padT - padB;
-    const n = series.length;
-    const xAt = (i: number) =>
-      padL + (n <= 1 ? plotW / 2 : (i / (n - 1)) * plotW);
-    const yAt = (v: number) => padT + plotH - ((v - y0) / (y1 - y0)) * plotH;
+export function PanelBalanceChart({
+  weeks,
+  buffer,
+  currentWeek,
+  showFlow = true,
+  onSelectWeek,
+}: {
+  weeks: PanelWeekPoint[];
+  buffer: number;
+  currentWeek: string;
+  showFlow?: boolean;
+  onSelectWeek?: (weekStart: string) => void;
+}) {
+  const reducedMotion = usePrefersReducedMotion();
+  const smUp = useIsSmUp();
+  const height = smUp ? 320 : 240;
+  const yWidth = smUp ? 60 : 44;
 
-    const points = series.map((s, i) => ({
-      x: xAt(i),
-      y: yAt(s.balance),
-      ...s,
-    }));
+  const data: ChartPoint[] = useMemo(() => {
+    return weeks.map((w, i) => {
+      const opening = i === 0 ? w.balance - w.net : weeks[i - 1]!.balance;
+      const isHistOrCurrent = w.weekStart <= currentWeek;
+      const isProjOrCurrent = w.weekStart >= currentWeek;
+      return {
+        ...w,
+        opening: Math.round(opening),
+        balanceReal: isHistOrCurrent ? w.balance : null,
+        balanceProj: isProjOrCurrent ? w.balance : null,
+        // Barras de egreso como magnitud positiva para apilar visualmente
+        outflowBar: Math.abs(w.outflow),
+      };
+    });
+  }, [weeks, currentWeek]);
 
-    const linePath = points
-      .map((p, i) => `${i === 0 ? "M" : "L"} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`)
-      .join(" ");
+  const currentLabel = weeks.find((w) => w.weekStart === currentWeek)?.label;
+  const xInterval = weeks.length > 14 ? 1 : 0;
 
-    const areaPath =
-      points.length > 0
-        ? `${linePath} L ${points[points.length - 1]!.x.toFixed(1)} ${(padT + plotH).toFixed(1)} L ${points[0]!.x.toFixed(1)} ${(padT + plotH).toFixed(1)} Z`
-        : "";
+  const minPt = useMemo(
+    () =>
+      weeks.reduce(
+        (a, b) => (b.balance < a.balance ? b : a),
+        weeks[0] ?? { balance: 0, label: "", weekStart: "" },
+      ),
+    [weeks],
+  );
+  const last = weeks[weeks.length - 1];
+  const below = weeks.filter((w) =>
+    buffer > 0 ? w.balance < buffer : w.balance < 0,
+  ).length;
 
-    const zeroY = yAt(0);
-    const warnY = yAt(warn);
-    const labelStep = n > 10 ? 2 : 1;
-    const last = points[points.length - 1];
-    const first = points[0];
-    const minPt = points.reduce((a, b) => (b.balance < a.balance ? b : a), points[0]!);
-    const maxPt = points.reduce((a, b) => (b.balance > a.balance ? b : a), points[0]!);
-
-    return {
-      w, h, padT, padB, plotH, zeroY, warnY, linePath, areaPath, points,
-      labelStep, last, first, minPt, maxPt,
-    };
-  }, [series, warn]);
-
-  if (!layout) {
-    return <p className="text-[13px] text-ds-text-4">Sin series</p>;
+  if (weeks.length === 0) {
+    return (
+      <p className="text-[13px] text-ds-text-4">
+        Sin datos de flujo en el horizonte
+      </p>
+    );
   }
-
-  const {
-    w, h, zeroY, warnY, linePath, areaPath, points, labelStep, last, minPt,
-  } = layout;
 
   return (
     <div className="relative w-full">
-      <svg
-        viewBox={`0 0 ${w} ${h}`}
-        className="h-48 w-full sm:h-56"
-        role="img"
-        aria-label="Saldo acumulado proyectado por semana"
-      >
-        <defs>
-          <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity="0.28" />
-            <stop offset="55%" stopColor="hsl(var(--primary))" stopOpacity="0.08" />
-            <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity="0" />
-          </linearGradient>
-          <linearGradient id={lineGradId} x1="0" y1="0" x2="1" y2="0">
-            <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity="0.55" />
-            <stop offset="70%" stopColor="hsl(var(--primary))" stopOpacity="1" />
-            <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity="1" />
-          </linearGradient>
-          <filter id={glowId} x="-20%" y="-40%" width="140%" height="180%">
-            <feGaussianBlur stdDeviation="2.5" result="blur" />
-            <feMerge>
-              <feMergeNode in="blur" />
-              <feMergeNode in="SourceGraphic" />
-            </feMerge>
-          </filter>
-          <style>{`
-            @keyframes bal-draw-${gid} {
-              from { stroke-dashoffset: 1; }
-              to { stroke-dashoffset: 0; }
-            }
-            @keyframes bal-fade-${gid} {
-              from { opacity: 0; }
-              to { opacity: 1; }
-            }
-            @keyframes bal-pulse-${gid} {
-              0%, 100% { r: 4.5; }
-              50% { r: 6; }
-            }
-            .bal-line-${gid} {
-              stroke-dasharray: 1;
-              stroke-dashoffset: 1;
-              animation: bal-draw-${gid} 1.1s ease-out forwards;
-            }
-            .bal-area-${gid} {
-              opacity: 0;
-              animation: bal-fade-${gid} 0.7s ease-out 0.35s forwards;
-            }
-            .bal-head-${gid} {
-              animation: bal-pulse-${gid} 2.4s ease-in-out infinite;
-            }
-            @media (prefers-reduced-motion: reduce) {
-              .bal-line-${gid}, .bal-area-${gid}, .bal-head-${gid} {
-                animation: none !important;
-                stroke-dashoffset: 0;
-                opacity: 1;
+      <div className="w-full" style={{ height }}>
+        <ResponsiveContainer width="100%" height="100%">
+          <ComposedChart
+            data={data}
+            margin={{ top: 16, right: 12, left: 0, bottom: 4 }}
+            accessibilityLayer
+            onClick={(state) => {
+              const payload = (
+                state as { activePayload?: Array<{ payload?: ChartPoint }> }
+              )?.activePayload?.[0]?.payload;
+              if (payload?.weekStart && onSelectWeek) {
+                onSelectWeek(payload.weekStart);
               }
-            }
-          `}</style>
-        </defs>
-
-        {/* Cero */}
-        <line
-          x1={8}
-          y1={zeroY}
-          x2={w - 8}
-          y2={zeroY}
-          className="stroke-ds-border-default"
-          strokeWidth={1}
-          strokeDasharray="3 4"
-        />
-
-        {/* Umbral warn */}
-        {warn !== 0 && (
-          <line
-            x1={8}
-            y1={warnY}
-            x2={w - 8}
-            y2={warnY}
-            className="stroke-status-warn"
-            strokeWidth={1}
-            strokeDasharray="5 4"
-            opacity={0.7}
-          />
-        )}
-
-        {/* Área bajo la curva */}
-        <path
-          d={areaPath}
-          fill={`url(#${gradId})`}
-          className={`bal-area-${gid}`}
-        />
-
-        {/* Línea de saldo (trazo hacia adelante) */}
-        <path
-          d={linePath}
-          fill="none"
-          stroke={`url(#${lineGradId})`}
-          strokeWidth={2.5}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          pathLength={1}
-          filter={`url(#${glowId})`}
-          className={`bal-line-${gid}`}
-        />
-
-        {/* Puntos */}
-        {points.map((p, i) => {
-          const danger = p.balance < 0 && p.balance < warn;
-          const isLast = i === points.length - 1;
-          return (
-            <g key={p.weekStart}>
-              <circle
-                cx={p.x}
-                cy={p.y}
-                r={isLast ? 4.5 : 3}
-                className={
-                  danger
-                    ? "fill-status-danger"
-                    : isLast
-                      ? "fill-primary"
-                      : "fill-primary/80"
-                }
-                opacity={isLast ? 1 : 0.85}
+            }}
+          >
+            <CartesianGrid
+              stroke={TOKEN.border}
+              strokeDasharray="3 3"
+              vertical={false}
+              opacity={0.5}
+            />
+            <XAxis
+              dataKey="label"
+              tick={{ fill: TOKEN.muted, fontSize: 12 }}
+              tickLine={false}
+              axisLine={{ stroke: TOKEN.border }}
+              interval={xInterval}
+            />
+            <YAxis
+              tickFormatter={fmtClpShort}
+              width={yWidth}
+              tick={{ fill: TOKEN.muted, fontSize: 12 }}
+              tickLine={false}
+              axisLine={false}
+              domain={([dataMin, dataMax]: readonly [number, number]) => {
+                const lo = Math.min(dataMin, 0, buffer || 0);
+                const hi = Math.max(dataMax, 0);
+                const pad = Math.max((hi - lo) * 0.08, 100_000);
+                return [lo - pad, hi + pad] as [number, number];
+              }}
+            />
+            <Tooltip
+              content={<PanelBalanceTooltip buffer={buffer} />}
+              cursor={{ stroke: TOKEN.text3, strokeDasharray: "3 3" }}
+              wrapperStyle={{ outline: "none", zIndex: 20 }}
+            />
+            {showFlow && (
+              <Bar
+                dataKey="inflow"
+                name="Ingresos"
+                fill={TOKEN.ok}
+                fillOpacity={0.25}
+                radius={[2, 2, 0, 0]}
+                isAnimationActive={!reducedMotion}
+                maxBarSize={28}
+              />
+            )}
+            {showFlow && (
+              <Bar
+                dataKey="outflowBar"
+                name="Egresos"
+                fill={TOKEN.danger}
+                fillOpacity={0.25}
+                radius={[2, 2, 0, 0]}
+                isAnimationActive={!reducedMotion}
+                maxBarSize={28}
+              />
+            )}
+            <ReferenceLine y={0} stroke={TOKEN.border} strokeWidth={1} />
+            {buffer > 0 && (
+              <ReferenceLine
+                y={buffer}
+                stroke={TOKEN.warn}
+                strokeDasharray="5 4"
+                strokeWidth={1}
               >
-                <title>{`${p.label}: ${fmtClp(p.balance)}`}</title>
-              </circle>
-              {isLast && (
-                <circle
-                  cx={p.x}
-                  cy={p.y}
-                  r={4.5}
-                  className={`bal-head-${gid} fill-none stroke-primary`}
-                  strokeWidth={1.5}
-                  opacity={0.5}
+                <Label
+                  value={`Colchón ${fmtClp(buffer)}`}
+                  position="insideTopRight"
+                  fill={TOKEN.warn}
+                  fontSize={12}
                 />
-              )}
-            </g>
-          );
-        })}
+              </ReferenceLine>
+            )}
+            {currentLabel && (
+              <ReferenceLine
+                x={currentLabel}
+                stroke={TOKEN.text3}
+                strokeDasharray="4 4"
+                strokeWidth={1}
+              >
+                <Label
+                  value="HOY"
+                  position="insideTopLeft"
+                  fill={TOKEN.text3}
+                  fontSize={12}
+                />
+              </ReferenceLine>
+            )}
+            <Line
+              type="monotone"
+              dataKey="balanceReal"
+              name="Histórico"
+              stroke={TOKEN.text3}
+              strokeWidth={2}
+              connectNulls={false}
+              isAnimationActive={!reducedMotion}
+              dot={<Dot buffer={buffer} />}
+              activeDot={{ r: 5 }}
+            />
+            <Line
+              type="monotone"
+              dataKey="balanceProj"
+              name="Proyección"
+              stroke={TOKEN.primary}
+              strokeWidth={2.5}
+              connectNulls={false}
+              isAnimationActive={!reducedMotion}
+              dot={<Dot buffer={buffer} />}
+              activeDot={{ r: 5 }}
+            />
+          </ComposedChart>
+        </ResponsiveContainer>
+      </div>
 
-        {/* Etiquetas de semana (eje X) */}
-        {points.map((p, i) => {
-          if (i % labelStep !== 0 && i !== points.length - 1) return null;
-          return (
-            <text
-              key={`lbl-${p.weekStart}`}
-              x={p.x}
-              y={h - 8}
-              textAnchor="middle"
-              className="fill-ds-text-4"
-              style={{ fontSize: 12 }}
-            >
-              {p.label.replace(/^S/, "S")}
-            </text>
-          );
-        })}
-      </svg>
-
-      {/* Resumen bajo el gráfico */}
-      <div className="mt-1 flex flex-wrap items-center justify-between gap-2 text-[12px] text-ds-text-3">
+      <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-[12px] text-ds-text-3">
         <span>
           Mín.{" "}
           <span
@@ -244,7 +295,13 @@ export function PanelBalanceChart({
           >
             {fmtClp(minPt.balance)}
           </span>
-          <span className="text-ds-text-4"> · {minPt.label}</span>
+          <span className="text-ds-text-4">
+            {" "}
+            · {minPt.label}{" "}
+            {"weekStart" in minPt && minPt.weekStart
+              ? fmtDayMonth(String(minPt.weekStart))
+              : ""}
+          </span>
         </span>
         {last && (
           <span>
@@ -256,9 +313,75 @@ export function PanelBalanceChart({
             >
               {fmtClp(last.balance)}
             </span>
+            <span className="text-ds-text-4">
+              {" "}
+              · {last.label} {fmtDayMonth(last.weekStart)}
+            </span>
           </span>
         )}
+        <span className="text-ds-text-4">
+          Semanas bajo colchón {below} de {weeks.length}
+        </span>
       </div>
+
+      <div className="mt-1 flex flex-wrap gap-3 text-[12px] text-ds-text-4">
+        <span className="inline-flex items-center gap-1">
+          <span
+            className="inline-block h-0.5 w-3"
+            style={{ background: TOKEN.text3 }}
+          />
+          Histórico
+        </span>
+        <span className="inline-flex items-center gap-1">
+          <span
+            className="inline-block h-0.5 w-3"
+            style={{ background: TOKEN.primary }}
+          />
+          Proyección
+        </span>
+        {showFlow && (
+          <>
+            <span className="inline-flex items-center gap-1">
+              <span
+                className="inline-block h-2 w-2 rounded-sm opacity-40"
+                style={{ background: TOKEN.ok }}
+              />
+              Ingresos
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <span
+                className="inline-block h-2 w-2 rounded-sm opacity-40"
+                style={{ background: TOKEN.danger }}
+              />
+              Egresos
+            </span>
+          </>
+        )}
+      </div>
+
+      <table className="sr-only">
+        <caption>Serie de saldo proyectado por semana</caption>
+        <thead>
+          <tr>
+            <th>Semana</th>
+            <th>Saldo</th>
+            <th>Ingresos</th>
+            <th>Egresos</th>
+          </tr>
+        </thead>
+        <tbody>
+          {weeks.map((w) => (
+            <tr key={w.weekStart}>
+              <td>
+                {w.label} {fmtDayMonth(w.weekStart)}
+              </td>
+              <td>{fmtClp(w.balance)}</td>
+              <td>{fmtClp(w.inflow)}</td>
+              <td>{fmtClp(w.outflow)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }

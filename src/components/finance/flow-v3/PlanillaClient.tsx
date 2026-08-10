@@ -193,6 +193,48 @@ export function PlanillaClient({
       scrollToWeek(gridScrollRef.current, anchorTargetWeek(m.data));
     }
   };
+
+  const jumpToWeek = useCallback(
+    (weekStart: string) => {
+      setViewTab("planilla");
+      // Doble rAF: la grilla debe montarse tras el cambio de tab.
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          const el = gridScrollRef.current;
+          if (!el) return;
+          const th = el.querySelector<HTMLElement>(`[data-week="${weekStart}"]`);
+          if (th) {
+            scrollToWeek(el, weekStart);
+            return;
+          }
+          // Fallback: grilla en Mes u horizonte sin esa columna.
+          goToday();
+        });
+      });
+    },
+    // goToday cierra sobre m/refs estables en la práctica del componente.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [m.data, m.resetWindow],
+  );
+
+  const jumpToRow = useCallback(
+    (rowId: string) => {
+      setViewTab("planilla");
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          const el = gridScrollRef.current;
+          if (!el) return;
+          const row =
+            el.querySelector<HTMLElement>(`[data-gutter-row="${rowId}"]`) ??
+            el.querySelector<HTMLElement>(`[data-rc^="${rowId}:"]`);
+          if (row) {
+            row.scrollIntoView({ block: "nearest", behavior: "smooth" });
+          }
+        });
+      });
+    },
+    [],
+  );
   useEffect(() => {
     if (!pendingScrollToCurrent.current || !m.data || !gridScrollRef.current) return;
     pendingScrollToCurrent.current = false;
@@ -502,6 +544,7 @@ export function PlanillaClient({
       style={view.containerStyle}
     >
       <PlanillaMenubar
+        chromeMode={viewTab === "panel" ? "panel" : "full"}
         theme={view.prefs.theme}
         density={view.prefs.density}
         freeze={view.prefs.freeze}
@@ -545,6 +588,7 @@ export function PlanillaClient({
       />
 
       <PlanillaToolbar
+        chromeMode={viewTab === "panel" ? "panel" : "full"}
         canManage={canManage}
         granularity={m.granularity}
         showZeros={showZeros}
@@ -612,7 +656,7 @@ export function PlanillaClient({
         onToggleCededFilter={cededCount > 0 ? toggleCededFilter : undefined}
       />
 
-      {searchOpen && (
+      {viewTab === "planilla" && searchOpen && (
         <div className="planilla-chrome-print-hide mb-1 flex items-center gap-2 rounded-md border border-ds-border-default bg-ds-surface-2 px-2 py-1">
           <input
             ref={searchInputRef}
@@ -648,25 +692,36 @@ export function PlanillaClient({
       )}
 
       {/* Tema papel/dark solo en grilla + fx + status (toolbar/tabs = shell). */}
-      <div className="planilla-theme-scope" data-planilla-theme={view.prefs.theme}>
-        <PlanillaFxBar
-          selection={fxSel}
-          onOpenLayers={() => setLayersReq((n) => n + 1)}
-          editable={fxEditable}
-          editReason={fxEditReason}
-          onCommitPlan={(raw) => {
-            if (!cellSel || !m.data) return;
-            const col = m.data.columns[cellSel.colIdx];
-            if (!col) return;
-            void m.patchPlan(cellSel.rowId, col.key, parseSignedAmount(raw || "0"));
-          }}
-          onFxBlurFocusGrid={() => {
-            gridScrollRef.current?.focus({ preventScroll: true });
-          }}
-        />
+      <div
+        className={viewTab === "panel" ? undefined : "planilla-theme-scope"}
+        data-planilla-theme={viewTab === "panel" ? undefined : view.prefs.theme}
+      >
+        {viewTab === "planilla" && (
+          <PlanillaFxBar
+            selection={fxSel}
+            onOpenLayers={() => setLayersReq((n) => n + 1)}
+            editable={fxEditable}
+            editReason={fxEditReason}
+            onCommitPlan={(raw) => {
+              if (!cellSel || !m.data) return;
+              const col = m.data.columns[cellSel.colIdx];
+              if (!col) return;
+              void m.patchPlan(cellSel.rowId, col.key, parseSignedAmount(raw || "0"));
+            }}
+            onFxBlurFocusGrid={() => {
+              gridScrollRef.current?.focus({ preventScroll: true });
+            }}
+          />
+        )}
 
         {viewTab === "panel" ? (
-          <PanelView canManage={canManage} onViewDte={setViewDteId} />
+          <PanelView
+            canManage={canManage}
+            onViewDte={setViewDteId}
+            onJumpToWeek={jumpToWeek}
+            onOpenBank={() => setBankOpen(true)}
+            onJumpToRow={jumpToRow}
+          />
         ) : m.loading && !m.data ? (
           <div className="flex h-64 items-center justify-center rounded-lg border border-ds-border-subtle text-sm text-ds-text-3">
             Cargando planilla…
