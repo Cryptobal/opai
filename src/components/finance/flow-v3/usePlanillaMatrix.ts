@@ -544,10 +544,27 @@ export function usePlanillaMatrix() {
     ],
   );
 
+  /** Ancla manual de saldo acumulado; recalcula hacia adelante vía refetch. */
+  const patchBalanceAnchor = useCallback(
+    async (weekStart: string, balanceClp: number | null): Promise<void> => {
+      const res = await fetch("/api/finance/flow-v3/balance-anchor", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ weekStart, balanceClp }),
+      });
+      const json = await res.json();
+      if (!json.success) {
+        throw new Error(json.error ?? "No se pudo guardar el saldo acumulado");
+      }
+      await refetch();
+    },
+    [refetch],
+  );
+
   return {
     data, loading, granularity, setGranularity,
     extendPast, extendFuture, resetWindow, refetch,
     patchPlan, patchPlanBulk, movePlan, patchCellNote,
-    patchSettlement, moveResidual, undo, redo,
+    patchSettlement, moveResidual, patchBalanceAnchor, undo, redo,
   };
 }

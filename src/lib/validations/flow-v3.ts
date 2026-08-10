@@ -106,6 +106,17 @@ export const flowPlanUpsertSchema = z.object({
   amount: planAmount,
 });
 
+/** Ancla manual de saldo acumulado (null ⇒ borrar ancla). */
+export const flowBalanceAnchorSchema = z.object({
+  weekStart: ymd,
+  balanceClp: z
+    .number()
+    .finite()
+    .min(-99_999_999_999)
+    .max(99_999_999_999)
+    .nullable(),
+});
+
 /** Nota libre de celda (body vacío/null ⇒ borrar). */
 export const flowCellNoteUpsertSchema = z.object({
   rowId: z.string().uuid(),

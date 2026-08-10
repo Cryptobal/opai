@@ -426,6 +426,43 @@ describe("assembleMatrix — saldo acumulado", () => {
     expect(m.balanceBreaks.every((b) => b == null)).toBe(true);
   });
 
+  it("ancla manual de saldo pisa la semana y re-encadena hacia adelante", () => {
+    const rows = [row({ id: "ing" })];
+    const m = assembleMatrix({
+      rows,
+      weeks: WEEKS,
+      currentWeek: CURRENT,
+      openingBalance: 10_000_000,
+      plan: new Map([
+        ["ing", new Map([["2026-07-27", 1_000_000], ["2026-08-03", 500_000]])],
+      ]),
+      committed: new Map(),
+      real: new Map(),
+      balanceAnchors: new Map([["2026-07-20", 20_000_000]]),
+    });
+    // Semana actual anclada.
+    expect(m.balances[2]).toBe(20_000_000);
+    // Adelante: ancla + plan.
+    expect(m.balances[3]).toBe(21_000_000);
+    expect(m.balances[4]).toBe(21_500_000);
+  });
+
+  it("ancla no aplica en semana cerrada (sello manda)", () => {
+    const rows = [row({ id: "ing" })];
+    const m = assembleMatrix({
+      rows,
+      weeks: WEEKS,
+      currentWeek: CURRENT,
+      openingBalance: 10_000_000,
+      plan: new Map(),
+      committed: new Map(),
+      real: new Map(),
+      sealedBalances: new Map([["2026-07-20", 15_000_000]]),
+      balanceAnchors: new Map([["2026-07-20", 99_000_000]]),
+    });
+    expect(m.balances[2]).toBe(15_000_000);
+  });
+
   it("sin sellos: balances idénticos al comportamiento previo (byte a byte)", () => {
     const rows = [row({ id: "ing" })];
     const args = {

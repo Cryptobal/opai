@@ -1,6 +1,9 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
-import { bulkAccountToRow } from "./rowAccount.service";
+import {
+  bulkAccountToRow,
+  bulkAccountToRowCandidates,
+} from "./rowAccount.service";
 import { ymdToDate } from "./weeks";
 import { deriveReal, type DteRefInput, type RealTxInput } from "./derive-real";
 import type { FlowRowRef, RealByRow } from "./types";
@@ -65,7 +68,10 @@ export async function loadReal(
   for (const d of dtes) {
     for (const l of d.lines) if (l.accountId) accountPlanIds.add(l.accountId);
   }
-  const accountToRowId = await bulkAccountToRow(tenantId, [...accountPlanIds]);
+  const [accountToRowId, accountToRowCandidates] = await Promise.all([
+    bulkAccountToRow(tenantId, [...accountPlanIds]),
+    bulkAccountToRowCandidates(tenantId, [...accountPlanIds]),
+  ]);
 
   const dteById = new Map<string, DteRefInput>();
   for (const d of dtes) {
@@ -119,5 +125,6 @@ export async function loadReal(
     txs: txInputs,
     dteById,
     accountToRowId,
+    accountToRowCandidates,
   });
 }

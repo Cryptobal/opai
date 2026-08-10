@@ -175,9 +175,12 @@ export function PanelView({
       </Surface>
 
       <Surface elevation={1} padding="md">
-        <h3 className="mb-2 text-xs font-medium uppercase tracking-wide text-ds-text-3">
-          Saldo proyectado · 12 semanas
-        </h3>
+        <div className="mb-2 flex items-baseline justify-between gap-2">
+          <h3 className="text-xs font-medium uppercase tracking-wide text-ds-text-3">
+            Saldo acumulado · 12 semanas
+          </h3>
+          <p className="text-[12px] text-ds-text-4">Proyección hacia adelante</p>
+        </div>
         <PanelBalanceChart series={data.balanceSeries} warn={data.warnThresholdClp} />
       </Surface>
 

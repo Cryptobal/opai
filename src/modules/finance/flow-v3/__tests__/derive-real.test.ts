@@ -216,4 +216,74 @@ describe("deriveReal", () => {
     const out = deriveReal({ ...base, txs: [tx({ dateYmd: "2026-09-15" })] });
     expect(out.size).toBe(0);
   });
+
+  it("cargo Acreedores Varios compartido → Devolución a socios (−)", () => {
+    const rows: FlowRowRef[] = [
+      ...ROWS,
+      {
+        id: "row-aporte", name: "Aporte socios", section: "FINANCIAMIENTO",
+        mapping: "MANUAL", crmAccountId: null, installationId: null,
+        categoryId: null, canonicalKey: "APORTE_SOCIO", supplierId: null,
+      },
+      {
+        id: "row-devol", name: "Devolución a socios", section: "FINANCIAMIENTO",
+        mapping: "MANUAL", crmAccountId: null, installationId: null,
+        categoryId: null, canonicalKey: "DEVOL_PRESTAMO_SOCIO", supplierId: null,
+      },
+    ];
+    const accountToRowId = new Map([["plan-acre", "row-aporte"]]);
+    const accountToRowCandidates = new Map([
+      ["plan-acre", [
+        { rowId: "row-aporte", canonicalKey: "APORTE_SOCIO" },
+        { rowId: "row-devol", canonicalKey: "DEVOL_PRESTAMO_SOCIO" },
+      ]],
+    ]);
+    const out = deriveReal({
+      ...base,
+      rows,
+      accountToRowId,
+      accountToRowCandidates,
+      txs: [tx({
+        amountClp: -2_200_000,
+        links: [{ targetType: "EXPENSE", targetId: null, amountClp: 2_200_000, accountPlanId: "plan-acre" }],
+      })],
+    });
+    expect(out.get("row-devol")?.get("2026-07-13")?.total).toBe(-2_200_000);
+    expect(out.get("row-aporte")).toBeUndefined();
+  });
+
+  it("abono Acreedores Varios (préstamo socio) → Aporte socios (+)", () => {
+    const rows: FlowRowRef[] = [
+      ...ROWS,
+      {
+        id: "row-aporte", name: "Aporte socios", section: "FINANCIAMIENTO",
+        mapping: "MANUAL", crmAccountId: null, installationId: null,
+        categoryId: null, canonicalKey: "APORTE_SOCIO", supplierId: null,
+      },
+      {
+        id: "row-devol", name: "Devolución a socios", section: "FINANCIAMIENTO",
+        mapping: "MANUAL", crmAccountId: null, installationId: null,
+        categoryId: null, canonicalKey: "DEVOL_PRESTAMO_SOCIO", supplierId: null,
+      },
+    ];
+    const accountToRowId = new Map([["plan-acre", "row-aporte"]]);
+    const accountToRowCandidates = new Map([
+      ["plan-acre", [
+        { rowId: "row-aporte", canonicalKey: "APORTE_SOCIO" },
+        { rowId: "row-devol", canonicalKey: "DEVOL_PRESTAMO_SOCIO" },
+      ]],
+    ]);
+    const out = deriveReal({
+      ...base,
+      rows,
+      accountToRowId,
+      accountToRowCandidates,
+      txs: [tx({
+        amountClp: 5_000_000,
+        links: [{ targetType: "INCOME", targetId: null, amountClp: 5_000_000, accountPlanId: "plan-acre" }],
+      })],
+    });
+    expect(out.get("row-aporte")?.get("2026-07-13")?.total).toBe(5_000_000);
+    expect(out.get("row-devol")).toBeUndefined();
+  });
 });

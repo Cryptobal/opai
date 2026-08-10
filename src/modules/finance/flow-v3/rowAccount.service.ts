@@ -209,3 +209,53 @@ export async function bulkAccountToRow(
   }
   return result;
 }
+
+export interface AccountRowCandidate {
+  rowId: string;
+  canonicalKey: string | null;
+  isDefaultTarget: boolean;
+}
+
+/**
+ * Mapa accountPlanId → todos los renglones que la tienen (sin colapsar).
+ * Usado por deriveReal para polaridad aporte(+)/devolución(−) cuando
+ * Acreedores Varios está en ambos renglones de socios.
+ */
+export async function bulkAccountToRowCandidates(
+  tenantId: string,
+  accountPlanIds?: string[],
+): Promise<Map<string, AccountRowCandidate[]>> {
+  const where: {
+    tenantId: string;
+    accountPlanId?: { in: string[] };
+    row: { archivedAt: null };
+  } = {
+    tenantId,
+    row: { archivedAt: null },
+  };
+  if (accountPlanIds && accountPlanIds.length > 0) {
+    where.accountPlanId = { in: accountPlanIds };
+  }
+
+  const mappings = await prisma.financeFlowRowAccount.findMany({
+    where,
+    select: {
+      accountPlanId: true,
+      rowId: true,
+      isDefaultTarget: true,
+      row: { select: { canonicalKey: true } },
+    },
+  });
+
+  const result = new Map<string, AccountRowCandidate[]>();
+  for (const m of mappings) {
+    const list = result.get(m.accountPlanId) ?? [];
+    list.push({
+      rowId: m.rowId,
+      canonicalKey: m.row.canonicalKey,
+      isDefaultTarget: m.isDefaultTarget,
+    });
+    result.set(m.accountPlanId, list);
+  }
+  return result;
+}

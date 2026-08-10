@@ -33,6 +33,8 @@ export interface FlowMatrixResponse {
   openingBalanceDetail: OpeningBalanceDetail;
   /** Lunes ISO (YMD) de las semanas selladas por cierre (§5G). */
   closedWeeks: string[];
+  /** Anclas manuales de saldo acumulado (lunes ISO → CLP). */
+  balanceAnchors?: Record<string, number>;
   warnThreshold: number;
   /** Umbral |delta| CLP para alertar desviación real vs proyectado. */
   driftAlertThresholdClp?: number;
