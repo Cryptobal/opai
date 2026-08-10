@@ -12,7 +12,6 @@ import {
   getRule,
   updateRule,
   deleteRule,
-  runHistoricalForRule,
   type RuleAction,
   type RuleConditions,
 } from "@/modules/finance/banking/automatch-rule.service";
@@ -112,22 +111,13 @@ export async function PATCH(
       action: parsed.data.action as RuleAction | undefined,
     });
 
-    // Si la edición pudo afectar el matching (regla habilitada, cambio de
-    // condiciones o de acción), reevaluar contra histórico. Cambios no
-    // materiales (priority, name) no disparan re-evaluación.
-    const skipHistorical = request.headers.get("x-skip-historical") === "1";
-    const shouldReRun =
-      parsed.data.enabled === true ||
-      parsed.data.conditions !== undefined ||
-      parsed.data.action !== undefined;
-    const historicalResult =
-      !skipHistorical && shouldReRun
-        ? await runHistoricalForRule(ctx.tenantId, ctx.userId, rule.id)
-        : null;
-
+    // El histórico NO se corre acá: reevaluar contra cartola (hasta 20k tx)
+    // bloqueaba «Guardar cambios» varios segundos/minutos. La UI ofrece
+    // post-guardado «¿Aplicar a movimientos pasados?» y existe
+    // POST /automatch-rules/run-historical para corridas explícitas.
     return NextResponse.json({
       success: true,
-      data: { ...rule, historicalResult },
+      data: { ...rule, historicalResult: null },
     });
   } catch (error) {
     console.error("[Finance/Banking/Rules] PATCH error:", error);

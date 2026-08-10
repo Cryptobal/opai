@@ -793,19 +793,22 @@ function RuleEditorSheet({
   const [saving, setSaving] = useState(false);
   const [showPriorityHelp, setShowPriorityHelp] = useState(false);
   const readOnlyTgr = rule != null && isTgrPickAction(rule.action);
-  // Live preview result count + total (alimentado por LivePreviewPanel).
+  // Live preview (alimentado por LivePreviewPanel): matches + sin conciliar.
   const [livePreview, setLivePreview] = useState<{
     count: number;
     total: number;
+    unmatchedCount: number;
   } | null>(null);
-  // Post-creación: si la regla recién creada matchearía histórico, ofrecer
+  // Post-guardado: si la regla matchearía histórico sin conciliar, ofrecer
   // correrla con 3 opciones (solo futuros / sugerir / aplicar directo).
-  const [postCreatePrompt, setPostCreatePrompt] = useState<{
+  // Antes el API bloqueaba el save corriendo el histórico síncrono.
+  const [postSavePrompt, setPostSavePrompt] = useState<{
     ruleId: string;
     ruleName: string;
     matchCount: number;
+    savedRule: Rule;
   } | null>(null);
-  const [runningPostCreate, setRunningPostCreate] = useState(false);
+  const [runningPostSave, setRunningPostSave] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -822,7 +825,7 @@ function RuleEditorSheet({
         setDraft(EMPTY_RULE);
       }
       setLivePreview(null);
-      setPostCreatePrompt(null);
+      setPostSavePrompt(null);
     }
   }, [open, rule]);
 
@@ -906,31 +909,29 @@ function RuleEditorSheet({
       });
       const json = await res.json();
       if (!res.ok || !json.success) throw new Error(json.error);
-      const hr = json.data?.historicalResult as
-        | { suggested: number; autoMatched: number }
-        | null
-        | undefined;
-      if (hr && (hr.suggested > 0 || hr.autoMatched > 0)) {
-        const parts = [`${hr.suggested} en "Reconocidos"`];
-        if (hr.autoMatched > 0) parts.push(`${hr.autoMatched} auto-conciliadas`);
-        toast.success(
-          `${rule ? "Regla actualizada" : "Regla creada"} · ${parts.join(" · ")}`,
-        );
-      } else {
-        toast.success(rule ? "Regla actualizada" : "Regla creada");
-      }
+      const saved = json.data as Rule;
+      toast.success(rule ? "Regla actualizada" : "Regla creada");
 
-      // Post-creación: si era CREATE (no EDIT) y la regla matchearía algo
-      // en histórico, ofrecer ejecutarla.
-      if (!rule && livePreview && livePreview.count > 0) {
-        setPostCreatePrompt({
-          ruleId: json.data.id,
-          ruleName: json.data.name,
-          matchCount: livePreview.count,
+      // Si el cambio puede afectar matching y hay sin conciliar que
+      // matchearían, preguntar (antes el API bloqueaba el save
+      // corriendo el histórico síncrono). Renombrar/prioridad no pregunta.
+      const unmatched = livePreview?.unmatchedCount ?? 0;
+      const materialChange =
+        !rule ||
+        rule.enabled !== draft.enabled ||
+        rule.appliesTo !== draft.appliesTo ||
+        JSON.stringify(rule.conditions) !== JSON.stringify(draft.conditions) ||
+        JSON.stringify(rule.action) !== JSON.stringify(draft.action);
+      if (materialChange && unmatched > 0) {
+        setPostSavePrompt({
+          ruleId: saved.id,
+          ruleName: saved.name,
+          matchCount: unmatched,
+          savedRule: saved,
         });
         // No cerramos el sheet todavía.
       } else {
-        onSaved(json.data);
+        onSaved(saved);
       }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Error al guardar");
@@ -939,22 +940,41 @@ function RuleEditorSheet({
     }
   };
 
+  const finishPostSave = (saved: Rule) => {
+    setPostSavePrompt(null);
+    onSaved(saved);
+  };
+
   const runHistoricalFromPrompt = async (forceApply: boolean) => {
-    if (!postCreatePrompt) return;
-    setRunningPostCreate(true);
+    if (!postSavePrompt) return;
+    setRunningPostSave(true);
     try {
+      let nextSaved = postSavePrompt.savedRule;
       if (forceApply) {
         // Forzar requiresReview=false antes de correr histórico.
-        await fetch(
-          `/api/finance/banking/automatch-rules/${postCreatePrompt.ruleId}`,
+        const patchRes = await fetch(
+          `/api/finance/banking/automatch-rules/${postSavePrompt.ruleId}`,
           {
             method: "PATCH",
-            headers: { "Content-Type": "application/json" },
+            headers: {
+              "Content-Type": "application/json",
+              // Por si algún proxy aún dispara histórico en PATCH.
+              "x-skip-historical": "1",
+            },
             body: JSON.stringify({
               action: { ...draft.action, requiresReview: false },
             }),
           },
         );
+        const patchJson = await patchRes.json().catch(() => null);
+        if (patchRes.ok && patchJson?.success && patchJson.data) {
+          nextSaved = patchJson.data as Rule;
+        } else {
+          nextSaved = {
+            ...postSavePrompt.savedRule,
+            action: { ...draft.action, requiresReview: false },
+          };
+        }
       }
       const res = await fetch(
         "/api/finance/banking/automatch-rules/run-historical",
@@ -962,7 +982,7 @@ function RuleEditorSheet({
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            ruleId: postCreatePrompt.ruleId,
+            ruleId: postSavePrompt.ruleId,
             includeSuggested: false,
             monthsBack: RULE_HISTORICAL_MONTHS_DEFAULT,
           }),
@@ -975,28 +995,11 @@ function RuleEditorSheet({
           `${(d.ruleMatched ?? 0) + (d.matched ?? 0)} conciliaciones · ${d.ruleSuggested ?? 0} sugerencias.`,
         );
       }
-      // Cerrar prompt y avanzar — devolvemos un Rule-ish con id.
-      const ruleId = postCreatePrompt.ruleId;
-      setPostCreatePrompt(null);
-      onSaved({
-        id: ruleId,
-        name: draft.name,
-        enabled: draft.enabled,
-        priority: draft.priority,
-        appliesTo: draft.appliesTo,
-        conditions: draft.conditions,
-        action: forceApply
-          ? { ...draft.action, requiresReview: false }
-          : draft.action,
-        timesMatched: 0,
-        lastMatchedAt: null,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      });
+      finishPostSave(nextSaved);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Error al correr histórico");
     } finally {
-      setRunningPostCreate(false);
+      setRunningPostSave(false);
     }
   };
 
@@ -1366,8 +1369,8 @@ function RuleEditorSheet({
           {/* Bloque 4: Preview en vivo (debounce) */}
           <LivePreviewPanel
             draft={draft}
-            onPreviewMatchCount={(count, total) =>
-              setLivePreview({ count, total })
+            onPreviewMatchCount={(count, total, unmatchedCount) =>
+              setLivePreview({ count, total, unmatchedCount })
             }
           />
 
@@ -1393,20 +1396,22 @@ function RuleEditorSheet({
             Cancelar
           </Button>
         </div>
-        {postCreatePrompt && (
+        {postSavePrompt && (
           <Dialog
             open={true}
             onOpenChange={(v) => {
-              if (!v && !runningPostCreate) setPostCreatePrompt(null);
+              if (!v && !runningPostSave) {
+                finishPostSave(postSavePrompt.savedRule);
+              }
             }}
           >
             <DialogContent className="max-w-md">
               <DialogHeader>
                 <DialogTitle>¿Aplicar también a movimientos pasados?</DialogTitle>
                 <DialogDescription>
-                  La regla "{postCreatePrompt.ruleName}" matchearía aproximadamente{" "}
-                  <b>{postCreatePrompt.matchCount}</b> movimiento
-                  {postCreatePrompt.matchCount === 1 ? "" : "s"} de los últimos 30 días.
+                  La regla "{postSavePrompt.ruleName}" matchearía aproximadamente{" "}
+                  <b>{postSavePrompt.matchCount}</b> movimiento
+                  {postSavePrompt.matchCount === 1 ? "" : "s"} sin conciliar.
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-2 text-[13px]">
@@ -1426,24 +1431,8 @@ function RuleEditorSheet({
               <DialogFooter className="flex-col sm:flex-row gap-2">
                 <Button
                   variant="ghost"
-                  onClick={() => {
-                    const ruleId = postCreatePrompt.ruleId;
-                    setPostCreatePrompt(null);
-                    onSaved({
-                      id: ruleId,
-                      name: draft.name,
-                      enabled: draft.enabled,
-                      priority: draft.priority,
-                      appliesTo: draft.appliesTo,
-                      conditions: draft.conditions,
-                      action: draft.action,
-                      timesMatched: 0,
-                      lastMatchedAt: null,
-                      createdAt: new Date().toISOString(),
-                      updatedAt: new Date().toISOString(),
-                    });
-                  }}
-                  disabled={runningPostCreate}
+                  onClick={() => finishPostSave(postSavePrompt.savedRule)}
+                  disabled={runningPostSave}
                   className="h-10 sm:h-9 w-full sm:w-auto"
                 >
                   Solo futuros
@@ -1451,20 +1440,20 @@ function RuleEditorSheet({
                 <Button
                   variant="outline"
                   onClick={() => runHistoricalFromPrompt(false)}
-                  disabled={runningPostCreate}
+                  disabled={runningPostSave}
                   className="h-10 sm:h-9 w-full sm:w-auto"
                 >
-                  {runningPostCreate && (
+                  {runningPostSave && (
                     <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
                   )}
                   Sugerir
                 </Button>
                 <Button
                   onClick={() => runHistoricalFromPrompt(true)}
-                  disabled={runningPostCreate}
+                  disabled={runningPostSave}
                   className="h-10 sm:h-9 w-full sm:w-auto"
                 >
-                  {runningPostCreate && (
+                  {runningPostSave && (
                     <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
                   )}
                   Aplicar directo
@@ -1482,7 +1471,11 @@ function RuleEditorSheet({
 
 interface LivePreviewProps {
   draft: typeof EMPTY_RULE;
-  onPreviewMatchCount: (count: number, total: number) => void;
+  onPreviewMatchCount: (
+    count: number,
+    total: number,
+    unmatchedCount: number,
+  ) => void;
 }
 
 type PreviewDays = 30 | 90 | 180 | null;
@@ -1560,7 +1553,11 @@ function LivePreviewPanel({ draft, onPreviewMatchCount }: LivePreviewProps) {
         const json = await res.json();
         if (res.ok && json.success) {
           setResult(json.data as PreviewResult);
-          onPreviewMatchCount(json.data.wouldMatch, json.data.totalScanned);
+          onPreviewMatchCount(
+            json.data.wouldMatch,
+            json.data.totalScanned,
+            json.data.unmatchedCount ?? 0,
+          );
         }
       } catch {
         /* silencioso */

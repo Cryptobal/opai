@@ -11,7 +11,6 @@ import { prisma } from "@/lib/prisma";
 import {
   listRules,
   createRule,
-  runHistoricalForRule,
   type RuleAction,
   type RuleConditions,
 } from "@/modules/finance/banking/automatch-rule.service";
@@ -123,16 +122,12 @@ export async function POST(request: NextRequest) {
       action: parsed.data.action as RuleAction,
     });
 
-    // Auto-evaluar la regla recién creada contra el histórico. No bloqueante:
-    // si falla, la regla queda creada igual y el usuario puede correr a mano.
-    // El header `x-skip-historical: 1` desactiva el auto-run (tests/scripts).
-    const skipHistorical = request.headers.get("x-skip-historical") === "1";
-    const historicalResult = skipHistorical
-      ? null
-      : await runHistoricalForRule(ctx.tenantId, ctx.userId, rule.id);
-
+    // El histórico NO se corre acá: escanear hasta 20k movimientos bloqueaba
+    // el guardado varios segundos/minutos. La UI ofrece post-creación
+    // «¿Aplicar a movimientos pasados?» y existe
+    // POST /automatch-rules/run-historical para corridas explícitas.
     return NextResponse.json(
-      { success: true, data: { ...rule, historicalResult } },
+      { success: true, data: { ...rule, historicalResult: null } },
       { status: 201 },
     );
   } catch (error) {
