@@ -119,13 +119,22 @@ export default function PlatformKnowledgePage() {
     fetchItems();
   }, [fetchItems]);
 
-  // Poll for processing items
+  // Poll for processing items (stable key so the attempt cap is not reset)
+  const processingKey = items.map((i) => i.status).join(',');
   useEffect(() => {
-    const hasProcessing = items.some((i) => i.status === 'processing');
+    const hasProcessing = processingKey.split(',').includes('processing');
     if (!hasProcessing) return;
-    const interval = setInterval(fetchItems, 5000);
+    let attempts = 0;
+    const interval = setInterval(() => {
+      attempts += 1;
+      if (attempts > 36) {
+        clearInterval(interval);
+        return;
+      }
+      void fetchItems();
+    }, 10_000);
     return () => clearInterval(interval);
-  }, [items, fetchItems]);
+  }, [processingKey, fetchItems]);
 
   const handleUpload = async (e: React.FormEvent) => {
     e.preventDefault();
