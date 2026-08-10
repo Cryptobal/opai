@@ -31,12 +31,19 @@ export function useDealDriveImport(dealId: string, onImported?: () => void) {
         const json = await res.json();
         if (!res.ok || !json.success) throw new Error(json.error || "No se pudo importar");
         const imported = Number(json.data?.imported) || 0;
+        const reason = json.data?.reason as string | undefined;
         if (!silent) {
-          toast.success(
-            imported > 0
-              ? `${imported} documento(s) traído(s) desde Drive`
-              : "Sin documentos nuevos en Drive",
-          );
+          if (imported > 0) {
+            toast.success(`${imported} documento(s) traído(s) desde Drive`);
+          } else if (reason === "scope_limitado") {
+            toast.message(
+              "Los archivos subidos directamente en Drive no son visibles para OPAI con el permiso actual. Usá el selector de Drive o subilos desde OPAI.",
+            );
+          } else if (reason === "sin_carpeta") {
+            toast.message("Todavía no hay carpeta de este negocio en Drive");
+          } else {
+            toast.success("Sin documentos nuevos elegibles en Drive");
+          }
         }
         if (imported > 0) onImported?.();
       } catch (err) {

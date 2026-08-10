@@ -93,27 +93,33 @@ export function DealDriveBanner({ dealId, onImported }: Props) {
         )}
       </div>
       {status.hasFolder && status.folderUrl ? (
-        <div className="flex flex-wrap items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-10 sm:h-9"
-            disabled={importing}
-            onClick={() => void runImport(false)}
-          >
-            {importing ? (
-              <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
-            ) : (
-              <Download className="h-3.5 w-3.5 mr-1.5" />
-            )}
-            Traer desde Drive
-          </Button>
-          <Button variant="outline" size="sm" className="h-10 sm:h-9" asChild>
-            <a href={status.folderUrl} target="_blank" rel="noopener noreferrer">
-              <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
-              Abrir en Drive
-            </a>
-          </Button>
+        <div className="flex w-full flex-col gap-2 sm:w-auto sm:items-end">
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-10 sm:h-9"
+              disabled={importing}
+              onClick={() => void runImport(false)}
+            >
+              {importing ? (
+                <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+              ) : (
+                <Download className="h-3.5 w-3.5 mr-1.5" />
+              )}
+              Traer desde Drive
+            </Button>
+            <Button variant="outline" size="sm" className="h-10 sm:h-9" asChild>
+              <a href={status.folderUrl} target="_blank" rel="noopener noreferrer">
+                <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
+                Abrir en Drive
+              </a>
+            </Button>
+          </div>
+          <p className="max-w-md text-[12px] text-ds-text-4">
+            Los archivos subidos directamente en Drive no son visibles para OPAI
+            (permiso drive.file). Subilos desde OPAI o pedí ampliar el scope.
+          </p>
         </div>
       ) : (
         <Button

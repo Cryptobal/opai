@@ -64,21 +64,8 @@ export async function GET(request: NextRequest) {
     const refreshTokenEnc = encryptToken(tokens.refresh_token);
     const tokenExpiresAt = tokens.expiry_date ? new Date(tokens.expiry_date) : null;
 
-    let rootFolderId: string | null = null;
-    try {
-      const drive = google.drive({ version: "v3", auth: client });
-      const folder = await drive.files.create({
-        requestBody: {
-          name: "Opai",
-          mimeType: "application/vnd.google-apps.folder",
-        },
-        fields: "id",
-      });
-      rootFolderId = folder.data.id ?? null;
-    } catch (err) {
-      console.warn("[google-drive] no se pudo crear carpeta Opai:", err);
-    }
-
+    // La raíz se materializa en la primera escritura / "Crear estructura".
+    // No crear carpetas aquí: cada OAuth produciría un Opai duplicado.
     step = "db";
     await prisma.googleDriveWorkspace.upsert({
       where: { tenantId: decoded.tenantId },
@@ -88,7 +75,7 @@ export async function GET(request: NextRequest) {
         accessTokenEnc,
         refreshTokenEnc,
         tokenExpiresAt,
-        rootFolderId,
+        rootFolderId: null,
         mirrorConfig: DEFAULT_MIRROR_CONFIG,
         status: "ACTIVE",
         connectedBy: session.user.id,
@@ -98,9 +85,9 @@ export async function GET(request: NextRequest) {
         accessTokenEnc,
         refreshTokenEnc,
         tokenExpiresAt,
-        rootFolderId: rootFolderId ?? undefined,
         status: "ACTIVE",
         connectedBy: session.user.id,
+        // No tocar rootFolderId: se re-resuelve vía resolveRootFolder.
       },
     });
 

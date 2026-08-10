@@ -162,6 +162,14 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    void import("@/lib/google-workspace/drive-enqueue-hooks").then(
+      ({ enqueueDocOperacionalToDrive }) =>
+        enqueueDocOperacionalToDrive({
+          tenantId: ctx.tenantId,
+          documentoId: doc.id,
+        }),
+    );
+
     return NextResponse.json({
       success: true,
       data: {

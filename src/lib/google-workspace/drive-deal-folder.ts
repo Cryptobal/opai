@@ -1,12 +1,9 @@
 import { prisma } from "@/lib/prisma";
 import { ensureFolderPath, uploadR2ToDrive } from "./drive.service";
 import { resolveCrmFileTarget } from "./drive-crm-target";
+import { pathSegments } from "./drive-tree";
 
 const SOURCE_TYPE = "crm_file_deal";
-
-function pathSegments(path: string): string[] {
-  return path.split("/").map((s) => s.trim()).filter(Boolean);
-}
 
 async function assertDriveActive(tenantId: string) {
   const ws = await prisma.googleDriveWorkspace.findFirst({
@@ -40,9 +37,15 @@ export async function getDealDriveFolderStatus(tenantId: string, dealId: string)
   try {
     const target = await resolveDealTarget(tenantId, dealId);
     path = target.path;
-    const cached = await prisma.driveFolderCache.findUnique({
-      where: { tenantId_pathKey: { tenantId, pathKey: path } },
+    const byEntity = await prisma.driveFolderCache.findFirst({
+      where: { tenantId, entityType: "deal", entityId: dealId },
+      orderBy: { createdAt: "asc" },
     });
+    const cached =
+      byEntity ??
+      (await prisma.driveFolderCache.findUnique({
+        where: { tenantId_pathKey: { tenantId, pathKey: path } },
+      }));
     if (cached) {
       hasFolder = true;
       folderId = cached.driveFolderId;
@@ -65,12 +68,47 @@ export async function getDealDriveFolderStatus(tenantId: string, dealId: string)
   };
 }
 
+/**
+ * Crea de inmediato la carpeta Drive de una licitación (sin esperar documentos).
+ * Nunca lanza — el espejo no debe romper el CRUD del negocio.
+ */
+export async function ensureLicitacionDriveFolder(
+  tenantId: string,
+  dealId: string,
+): Promise<void> {
+  try {
+    const ws = await prisma.googleDriveWorkspace.findFirst({
+      where: { tenantId, status: "ACTIVE" },
+      select: { id: true },
+    });
+    if (!ws) return;
+    const deal = await prisma.crmDeal.findFirst({
+      where: { id: dealId, tenantId, isLicitacion: true },
+      select: { id: true },
+    });
+    if (!deal) return;
+    const target = await resolveCrmFileTarget(tenantId, "deal", dealId);
+    if (!target) return;
+    const segments = pathSegments(target.path);
+    await ensureFolderPath(tenantId, segments, {
+      entity: { type: "deal", id: dealId },
+      leafName: segments[segments.length - 1],
+    });
+  } catch (err) {
+    console.warn("[drive-deal-folder] ensureLicitacionDriveFolder:", dealId, err);
+  }
+}
+
 export async function ensureDealDriveFolderAndBackfill(tenantId: string, dealId: string) {
   await assertDriveActive(tenantId);
   const target = await resolveDealTarget(tenantId, dealId);
   const segments = pathSegments(target.path);
 
-  const folderId = await ensureFolderPath(tenantId, segments);
+  const entity = { type: "deal", id: dealId };
+  const folderId = await ensureFolderPath(tenantId, segments, {
+    entity,
+    leafName: segments[segments.length - 1],
+  });
   if (!folderId) throw new Error("No se pudo crear la carpeta en Google Drive");
 
   const links = await prisma.crmFileLink.findMany({
@@ -104,6 +142,7 @@ export async function ensureDealDriveFolderAndBackfill(tenantId: string, dealId:
         fileName: file.fileName,
         mimeType: file.mimeType,
         targetSegments: segments,
+        entity,
       });
       if (!driveFileId) {
         skipped++;

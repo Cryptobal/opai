@@ -21,7 +21,12 @@ export {
   calendarRedirectUri,
   calendarWebhookUrl,
 } from "./env";
-export { ensureFolderPath, uploadR2ToDrive } from "./drive.service";
+export {
+  ensureFolderPath,
+  uploadR2ToDrive,
+  resolveRootFolder,
+  ensureRootFolder,
+} from "./drive.service";
 export {
   SUPPORTED_DOC_TYPES,
   DEFAULT_MIRROR_CONFIG,
@@ -31,11 +36,19 @@ export { enqueueDriveExport, flushDriveOutbox } from "./drive-outbox";
 export {
   enqueueBillingPdfToDrive,
   enqueueQuotePdfToDrive,
+  enqueueDocumentoPersonaToDrive,
+  enqueueDocOperacionalToDrive,
 } from "./drive-enqueue-hooks";
 export {
   getDealDriveFolderStatus,
   ensureDealDriveFolderAndBackfill,
+  ensureLicitacionDriveFolder,
 } from "./drive-deal-folder";
+export {
+  safeSegment,
+  buildTreePreview,
+  MODULE_FOLDERS,
+} from "./drive-tree";
 export {
   buildVisitaEventPayload,
   buildLicitacionEventPayload,

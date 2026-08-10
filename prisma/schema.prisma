@@ -12533,6 +12533,11 @@ model GoogleDriveWorkspace {
   refreshTokenEnc String    @map("refresh_token_enc") @db.Text
   tokenExpiresAt  DateTime? @map("token_expires_at")
   rootFolderId    String?   @map("root_folder_id")
+  /// Nombre de la carpeta raíz en Drive (default aplicativo "Opai").
+  rootFolderName  String?   @map("root_folder_name")
+  /// 1 = árbol plano legacy; 2 = árbol por módulo (Comercial/Personas/Operaciones).
+  structureVersion Int      @default(1) @map("structure_version")
+  rootVerifiedAt  DateTime? @map("root_verified_at")
   mirrorConfig    Json      @default("{}") @map("mirror_config")
   status          String    @default("ACTIVE") // ACTIVE | REVOKED
   connectedBy     String    @map("connected_by")
@@ -12545,14 +12550,19 @@ model GoogleDriveWorkspace {
 
 /// Cache de carpetas Drive por path normalizado (evita listar en cada upload).
 model DriveFolderCache {
-  id            String   @id @default(cuid())
-  tenantId      String   @map("tenant_id")
-  pathKey       String   @map("path_key")
-  driveFolderId String   @map("drive_folder_id")
-  createdAt     DateTime @default(now()) @map("created_at")
+  id             String    @id @default(cuid())
+  tenantId       String    @map("tenant_id")
+  pathKey        String    @map("path_key")
+  driveFolderId  String    @map("drive_folder_id")
+  lastVerifiedAt DateTime? @map("last_verified_at")
+  entityType     String?   @map("entity_type")
+  entityId       String?   @map("entity_id")
+  createdAt      DateTime  @default(now()) @map("created_at")
 
   @@unique([tenantId, pathKey], map: "uq_drive_folder_cache_tenant_path")
   @@index([tenantId], map: "idx_drive_folder_cache_tenant")
+  @@index([tenantId, entityType, entityId], map: "idx_drive_folder_cache_entity")
+  @@index([tenantId, driveFolderId], map: "idx_drive_folder_cache_folder")
   @@map("drive_folder_cache")
   @@schema("public")
 }

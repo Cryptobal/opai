@@ -1,16 +1,25 @@
 import { uploadFile } from "@/lib/storage";
+import { prisma } from "@/lib/prisma";
 import { enqueueDriveExport } from "./drive-outbox";
 import { resolveCrmFileTarget } from "./drive-crm-target";
+import { DrivePathsV1, DrivePathsV2, safeSegment } from "./drive-tree";
 
-function safeSegment(name: string | null | undefined, fallback: string): string {
-  const raw = (name || fallback).trim() || fallback;
-  return raw.replace(/[\\/]/g, "-").slice(0, 80);
+export {
+  enqueueDocumentoPersonaToDrive,
+  enqueueDocOperacionalToDrive,
+} from "./drive-enqueue-ops";
+
+async function structureVersion(tenantId: string): Promise<number> {
+  const ws = await prisma.googleDriveWorkspace.findFirst({
+    where: { tenantId, status: "ACTIVE" },
+    select: { structureVersion: true },
+  });
+  return ws?.structureVersion ?? 1;
 }
 
 /**
  * Espeja a Drive un archivo YA subido a R2 (CrmFile) adjunto a una entidad CRM.
- * Solo hacia adelante (sin backfill). Nunca lanza — el mirror no debe romper la
- * subida del archivo.
+ * Solo hacia adelante (sin backfill). Nunca lanza.
  */
 export async function enqueueCrmFileToDrive(params: {
   tenantId: string;
@@ -19,8 +28,12 @@ export async function enqueueCrmFileToDrive(params: {
   file: { id: string; storageKey: string; fileName: string; mimeType: string };
 }): Promise<void> {
   try {
-    const target = await resolveCrmFileTarget(params.tenantId, params.entityType, params.entityId);
-    if (!target) return; // entidad no espejada (lead/guardia) o inexistente
+    const target = await resolveCrmFileTarget(
+      params.tenantId,
+      params.entityType,
+      params.entityId,
+    );
+    if (!target) return;
     await enqueueDriveExport({
       tenantId: params.tenantId,
       docType: target.docType,
@@ -55,6 +68,11 @@ export async function enqueueBillingPdfToDrive(params: {
     );
     const cuenta = safeSegment(params.accountName, "Sin-cuenta");
     const instalacion = safeSegment(params.installationName, "General");
+    const v = await structureVersion(params.tenantId);
+    const path =
+      v >= 2
+        ? DrivePathsV2.installationInvoices(cuenta, instalacion)
+        : DrivePathsV1.installationInvoices(cuenta, instalacion);
     await enqueueDriveExport({
       tenantId: params.tenantId,
       docType: "factura",
@@ -62,7 +80,7 @@ export async function enqueueBillingPdfToDrive(params: {
       sourceId: params.dteId,
       r2Key: uploaded.storageKey,
       fileName: params.fileName,
-      targetPath: `Clientes/${cuenta}/${instalacion}/Facturas`,
+      targetPath: path,
     });
   } catch (err) {
     console.warn("[drive-mirror] enqueueBillingPdfToDrive falló:", err);
@@ -91,6 +109,11 @@ export async function enqueueQuotePdfToDrive(params: {
     );
     const cuenta = safeSegment(params.accountName, "Sin-cuenta");
     const instalacion = safeSegment(params.installationName, "General");
+    const v = await structureVersion(params.tenantId);
+    const quotePath =
+      v >= 2
+        ? DrivePathsV2.installationQuotes(cuenta, instalacion)
+        : DrivePathsV1.installationQuotes(cuenta, instalacion);
     await enqueueDriveExport({
       tenantId: params.tenantId,
       docType: "cotizacion",
@@ -98,12 +121,16 @@ export async function enqueueQuotePdfToDrive(params: {
       sourceId: params.quoteId,
       r2Key: uploaded.storageKey,
       fileName: params.fileName,
-      targetPath: `Clientes/${cuenta}/${instalacion}/Cotizaciones`,
+      targetPath: quotePath,
     });
 
     if (params.isLicitacion) {
       const year = String(new Date().getFullYear());
       const dealName = safeSegment(params.dealTitle, params.quoteId);
+      const licPath =
+        v >= 2
+          ? DrivePathsV2.licitacion(year, dealName)
+          : DrivePathsV1.licitacion(year, dealName);
       await enqueueDriveExport({
         tenantId: params.tenantId,
         docType: "licitacion",
@@ -111,7 +138,7 @@ export async function enqueueQuotePdfToDrive(params: {
         sourceId: params.dealId || params.quoteId,
         r2Key: uploaded.storageKey,
         fileName: params.fileName,
-        targetPath: `Licitaciones/${year}/${dealName}`,
+        targetPath: licPath,
       });
     }
   } catch (err) {

@@ -10,7 +10,7 @@ export type DriveImportResult = {
   imported: number;
   skipped: number;
   total: number;
-  reason?: "sin_carpeta";
+  reason?: "sin_carpeta" | "sin_archivos_elegibles" | "scope_limitado";
 };
 
 /**
@@ -18,6 +18,10 @@ export type DriveImportResult = {
  * (espejo inverso de `ensureDealDriveFolderAndBackfill`). Dedupe anti-loop:
  * excluye lo que OPAI ya exportó (DriveExportOutbox.driveFileId) y lo ya
  * importado (CrmFile.driveFileId).
+ *
+ * Con scope `drive.file`, los archivos subidos manualmente en la UI de Drive
+ * no son visibles → reason `scope_limitado` cuando la carpeta existe pero
+ * files.list no devuelve nada nuevo.
  */
 export async function importDealFilesFromDrive(
   tenantId: string,
@@ -25,13 +29,23 @@ export async function importDealFilesFromDrive(
 ): Promise<DriveImportResult> {
   const target = await resolveCrmFileTarget(tenantId, "deal", dealId);
   if (!target) return { imported: 0, skipped: 0, total: 0, reason: "sin_carpeta" };
-  const cached = await prisma.driveFolderCache.findUnique({
-    where: { tenantId_pathKey: { tenantId, pathKey: target.path } },
+
+  // Preferir resolución por entityId (sobrevive renombres de pathKey)
+  const byEntity = await prisma.driveFolderCache.findFirst({
+    where: { tenantId, entityType: "deal", entityId: dealId },
+    orderBy: { createdAt: "asc" },
   });
+  const cached =
+    byEntity ??
+    (await prisma.driveFolderCache.findUnique({
+      where: { tenantId_pathKey: { tenantId, pathKey: target.path } },
+    }));
   if (!cached) return { imported: 0, skipped: 0, total: 0, reason: "sin_carpeta" };
 
   const files = await listDriveFolderFiles(tenantId, cached.driveFolderId);
-  if (files.length === 0) return { imported: 0, skipped: 0, total: 0 };
+  if (files.length === 0) {
+    return { imported: 0, skipped: 0, total: 0, reason: "scope_limitado" };
+  }
 
   const driveIds = files.map((f) => f.id);
   const [exported, importedRows] = await Promise.all([
@@ -50,6 +64,15 @@ export async function importDealFilesFromDrive(
   }
 
   const fresh = files.filter((f) => !known.has(f.id));
+  if (fresh.length === 0) {
+    return {
+      imported: 0,
+      skipped: files.length,
+      total: files.length,
+      reason: "sin_archivos_elegibles",
+    };
+  }
+
   let imported = 0;
   let skipped = fresh.length > IMPORT_CAP ? fresh.length - IMPORT_CAP : 0;
 
