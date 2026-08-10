@@ -102,6 +102,16 @@ export async function POST(
       type: created.type,
     });
 
+    // Espejo Drive (OFF por defecto). Nunca debe romper la subida.
+    void import("@/lib/google-workspace/drive-enqueue-hooks").then(
+      ({ enqueueDocumentoPersonaToDrive }) =>
+        enqueueDocumentoPersonaToDrive({
+          tenantId: ctx.tenantId,
+          guardiaId: id,
+          documentoId: created.id,
+        }),
+    );
+
     return NextResponse.json({ success: true, data: created }, { status: 201 });
   } catch (error) {
     console.error("[PERSONAS] Error creating document:", error);

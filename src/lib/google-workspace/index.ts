@@ -36,6 +36,8 @@ export { enqueueDriveExport, flushDriveOutbox } from "./drive-outbox";
 export {
   enqueueBillingPdfToDrive,
   enqueueQuotePdfToDrive,
+  enqueueDocumentoPersonaToDrive,
+  enqueueDocOperacionalToDrive,
 } from "./drive-enqueue-hooks";
 export {
   getDealDriveFolderStatus,
