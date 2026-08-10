@@ -2,7 +2,6 @@ import type { Metadata, Viewport } from "next";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { ServiceWorkerRegistrar } from "@/components/portal/rondas/ServiceWorkerRegistrar";
-import { BadgeClear } from "@/components/pwa/BadgeClear";
 import { GlassAmbient } from "@/components/opai-ds/GlassAmbient";
 
 export const viewport: Viewport = {
@@ -44,7 +43,6 @@ export default async function PortalSupervisorLayout({
       }}>
       <GlassAmbient />
       <ServiceWorkerRegistrar scope="/portal/supervisor" />
-      <BadgeClear />
       {children}
     </div>
   );

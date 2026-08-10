@@ -1,6 +1,5 @@
 import type { Metadata, Viewport } from "next";
 import { ServiceWorkerRegistrar } from "@/components/portal/rondas/ServiceWorkerRegistrar";
-import { BadgeClear } from "@/components/pwa/BadgeClear";
 import { TerrenoModeSwitcher } from "@/components/portal/TerrenoModeSwitcher";
 import { PlatformDataAttribute } from "@/components/opai/portal-shell";
 import { GlassAmbient } from "@/components/opai-ds/GlassAmbient";
@@ -54,7 +53,6 @@ export default function PortalAccesoLayout({ children }: { children: React.React
       <GlassAmbient />
       <ServiceWorkerRegistrar scope="/portal/acceso" />
       <PlatformDataAttribute />
-      <BadgeClear />
       <TerrenoModeSwitcher active="acceso" />
       {children}
     </div>
