@@ -2192,7 +2192,10 @@ function TransactionsTab({
         id: "_actions",
         header: "",
         align: "right",
-        width: "w-[88px]",
+        // min-w evita que table-fixed estruje Autorizar+menú.
+        // sticky right sin sombra (DataTable): acciones siempre visibles
+        // sin la línea divisoria falsa del shadow anterior.
+        width: "w-[11rem] min-w-[11rem]",
         sticky: "right",
         cell: (row) =>
           canManage ? (
@@ -2209,12 +2212,12 @@ function TransactionsTab({
                 <RotateCcw className="h-3.5 w-3.5" />
               </Button>
             ) : (
-              <div className="flex items-center justify-end gap-0.5">
+              <div className="flex items-center justify-end gap-1 whitespace-nowrap">
                 {row.suggestedRuleId && row.reconciliationStatus === "UNMATCHED" && (
                   <Button
                     variant="default"
                     size="sm"
-                    className="h-8 w-8 p-0 xl:h-7 xl:w-auto xl:px-2 xl:text-xs"
+                    className="h-8 px-2.5 text-xs"
                     title={`Autorizar: ${row.suggestedAccountLabel ?? ""}`}
                     onClick={(e) => {
                       e.stopPropagation();
@@ -2225,9 +2228,9 @@ function TransactionsTab({
                     {authorizing === row.id ? (
                       <Loader2 className="h-3.5 w-3.5 animate-spin" />
                     ) : (
-                      <CheckCircle2 className="h-3.5 w-3.5 xl:mr-1 xl:h-3 xl:w-3" />
+                      <CheckCircle2 className="mr-1 h-3.5 w-3.5" />
                     )}
-                    <span className="hidden xl:inline">Autorizar</span>
+                    Autorizar
                   </Button>
                 )}
                 {(row.reconciliationStatus === "MATCHED" ||
@@ -2235,6 +2238,7 @@ function TransactionsTab({
                   <Button
                     variant="ghost"
                     size="sm"
+                    className="h-8 w-8 p-0"
                     title="Deshacer conciliación"
                     onClick={(e) => {
                       e.stopPropagation();
