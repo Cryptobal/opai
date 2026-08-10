@@ -10,6 +10,7 @@ import {
   type ReactNode,
 } from "react";
 import { applyChannelSummaryPatch, type ChatChannelSummaryPatch } from "./lib/chat-state";
+import { useVisibilityAwareInterval } from "@/hooks/useVisibilityAwareInterval";
 
 /* ─── Types ─── */
 
@@ -272,12 +273,9 @@ export function ChatSidePanelProvider({
   }, [isPanelOpen, closePanel, openPanel]);
 
   // Fetch unread counts periodically for badge (only when logged in)
-  useEffect(() => {
-    if (!currentUserId) return;
-    fetchChannels();
-    const interval = setInterval(fetchChannels, 30_000);
-    return () => clearInterval(interval);
-  }, [currentUserId, fetchChannels]);
+  useVisibilityAwareInterval(fetchChannels, 30_000, {
+    enabled: !!currentUserId,
+  });
 
   // Only count unreads from channels set to ALL (exclude MUTED and MENTIONS_ONLY).
   // Used for the in-app chat header badge; PWA app badge is managed by useBadgeSync.
