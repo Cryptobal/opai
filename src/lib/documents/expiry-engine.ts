@@ -303,6 +303,14 @@ export async function collectOperacionalItems(
   tenantId: string,
   today: Date
 ): Promise<ExpiryDocItem[]> {
+  const { readsUnified } = await import("@/lib/docs/migration");
+  if (await readsUnified(tenantId)) {
+    const { collectUnifiedOperacional } = await import(
+      "@/lib/documents/collect-unified-expiry"
+    );
+    return collectUnifiedOperacional(tenantId, today);
+  }
+
   const docs = await prisma.docOperacional.findMany({
     where: {
       tenantId,
@@ -361,6 +369,14 @@ export async function collectGuardiaItems(
   today: Date,
   config?: GuardiaDocumentoConfigItem[]
 ): Promise<ExpiryDocItem[]> {
+  const { readsUnified } = await import("@/lib/docs/migration");
+  if (await readsUnified(tenantId)) {
+    const { collectUnifiedGuardia } = await import(
+      "@/lib/documents/collect-unified-expiry"
+    );
+    return collectUnifiedGuardia(tenantId, today);
+  }
+
   const cfg = config ?? (await getGuardiaDocumentosConfig(tenantId));
   const byType = new Map(cfg.filter((c) => c.hasExpiration).map((c) => [c.code, c]));
   if (byType.size === 0) return [];
