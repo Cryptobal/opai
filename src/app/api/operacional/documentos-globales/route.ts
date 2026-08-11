@@ -5,6 +5,10 @@ import { ensureOpsAccess } from "@/lib/ops";
 import { uploadFile } from "@/lib/storage";
 import { calcDocStatus } from "@/lib/docs-operacionales";
 import { parseDateOnly } from "@/lib/ops";
+import {
+  createOperacionalDoc,
+  listOperacionalDocs,
+} from "@/lib/docs/operacional-docs-service";
 
 const MAX_SIZE = 10 * 1024 * 1024; // 10 MB
 const ALLOWED_MIME = ["application/pdf"];
@@ -16,15 +20,7 @@ export async function GET() {
     const forbidden = await ensureOpsAccess(ctx);
     if (forbidden) return forbidden;
 
-    const docs = await prisma.docOperacional.findMany({
-      where: { tenantId: ctx.tenantId, capa: "global" },
-      include: {
-        tipo: {
-          select: { id: true, codigo: true, nombre: true, normativa: true, obligatorio: true, tieneVencimiento: true, diasAlerta: true, order: true },
-        },
-      },
-      orderBy: { tipo: { order: "asc" } },
-    });
+    const docs = await listOperacionalDocs(ctx.tenantId, { capa: "global" });
 
     const data = docs.map((d) => ({
       id: d.id,
@@ -42,6 +38,7 @@ export async function GET() {
       validatedBy: d.validatedBy,
       validatedAt: d.validatedAt?.toISOString() ?? null,
       createdAt: d.createdAt.toISOString(),
+      needsAttention: "needsAttention" in d ? d.needsAttention : false,
     }));
 
     return NextResponse.json({ success: true, data });
@@ -137,29 +134,21 @@ export async function POST(request: NextRequest) {
     const buffer = Buffer.from(await file.arrayBuffer());
     const uploaded = await uploadFile(buffer, file.name, file.type, "ops-docs", ctx.tenantId);
 
-    const doc = await prisma.docOperacional.create({
-      data: {
-        tenantId: ctx.tenantId,
-        tipoId: tipo.id,
-        capa: "global",
-        installationId: null,
-        fileName: uploaded.fileName,
-        fileUrl: uploaded.publicUrl,
-        storageKey: uploaded.storageKey,
-        fileSize: uploaded.size,
-        mimeType: file.type,
-        issuedAt,
-        expiresAt,
-        status,
-        notes: notes?.trim() || null,
-        portalClienteVisible: true,
-        createdBy: ctx.userId,
-      },
-      include: {
-        tipo: {
-          select: { id: true, codigo: true, nombre: true, normativa: true, obligatorio: true, tieneVencimiento: true, diasAlerta: true, order: true },
-        },
-      },
+    const doc = await createOperacionalDoc(ctx.tenantId, {
+      tipoId: tipo.id,
+      capa: "global",
+      installationId: null,
+      fileName: uploaded.fileName,
+      fileUrl: uploaded.publicUrl,
+      storageKey: uploaded.storageKey,
+      fileSize: uploaded.size,
+      mimeType: file.type,
+      issuedAt,
+      expiresAt,
+      status,
+      notes: notes?.trim() || null,
+      portalClienteVisible: true,
+      createdBy: ctx.userId,
     });
 
     void import("@/lib/google-workspace/drive-enqueue-hooks").then(

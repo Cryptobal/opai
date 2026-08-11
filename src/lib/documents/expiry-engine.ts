@@ -439,13 +439,19 @@ export async function collectAllExpiryItems(
 // ==========================================
 
 export async function markMilestoneNotified(
-  item: Pick<ExpiryDocItem, "kind" | "id">,
+  item: Pick<ExpiryDocItem, "kind" | "id" | "tenantId">,
   milestone: number | null
 ): Promise<void> {
   const data = {
     lastExpiryMilestone: milestone,
     lastExpiryMilestoneAt: milestone === null ? null : new Date(),
   };
+  const { readsUnified } = await import("@/lib/docs/migration");
+  const unified = item.tenantId ? await readsUnified(item.tenantId) : false;
+  if (unified) {
+    await prisma.documento.update({ where: { id: item.id }, data });
+    return;
+  }
   if (item.kind === "operacional") {
     await prisma.docOperacional.update({ where: { id: item.id }, data });
   } else {

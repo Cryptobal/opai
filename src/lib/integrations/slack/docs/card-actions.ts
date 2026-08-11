@@ -290,11 +290,13 @@ export const docTrackModal: ModalDef = {
           renewalMarkedBy: ctx.linked.adminId,
           renewalMarkedAt: new Date(),
         };
-        if (ref.kind === "operacional") {
-          await prisma.docOperacional.updateMany({ where: { id: ref.id, tenantId: ctx.tenantId }, data });
-        } else {
-          await prisma.opsDocumentoPersona.updateMany({ where: { id: ref.id, tenantId: ctx.tenantId }, data });
-        }
+        const { writeExpiryFields } = await import("@/lib/docs/write-expiry-fields");
+        await writeExpiryFields(
+          ctx.tenantId,
+          ref.kind === "operacional" ? "operacional" : "guardia",
+          ref.id,
+          data
+        );
         const info = await loadDocByRef(ctx.tenantId, ref);
         await logAudit({
           tenantId: ctx.tenantId,
@@ -334,11 +336,13 @@ export const docDismissModal: ModalDef = {
           expiryDismissedBy: ctx.linked.adminId,
           expiryDismissedReason: reason.slice(0, 500),
         };
-        if (ref.kind === "operacional") {
-          await prisma.docOperacional.updateMany({ where: { id: ref.id, tenantId: ctx.tenantId }, data });
-        } else {
-          await prisma.opsDocumentoPersona.updateMany({ where: { id: ref.id, tenantId: ctx.tenantId }, data });
-        }
+        const { writeExpiryFields } = await import("@/lib/docs/write-expiry-fields");
+        await writeExpiryFields(
+          ctx.tenantId,
+          ref.kind === "operacional" ? "operacional" : "guardia",
+          ref.id,
+          data
+        );
         const info = await loadDocByRef(ctx.tenantId, ref);
         await logAudit({
           tenantId: ctx.tenantId,

@@ -7,6 +7,13 @@ import {
 import { createOpsAuditLog, ensureOpsAccess, ensureOpsCapability, parseDateOnly } from "@/lib/ops";
 import { prisma } from "@/lib/prisma";
 import { normalizeNullable } from "@/lib/personas";
+import {
+  createPersonaDoc,
+  deletePersonaDoc,
+  getPersonaDoc,
+  listPersonaDocs,
+  updatePersonaDoc,
+} from "@/lib/docs/persona-docs-service";
 
 type Params = { id: string };
 
@@ -18,7 +25,7 @@ async function ensureGuardia(tenantId: string, guardiaId: string) {
 }
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<Params> }
 ) {
   try {
@@ -33,11 +40,9 @@ export async function GET(
       return NextResponse.json({ success: false, error: "Guardia no encontrado" }, { status: 404 });
     }
 
-    const docs = await prisma.opsDocumentoPersona.findMany({
-      where: { tenantId: ctx.tenantId, guardiaId: id },
-      include: { folder: true },
-      orderBy: [{ expiresAt: "asc" }, { createdAt: "desc" }],
-    });
+    const needsAttentionOnly =
+      request.nextUrl.searchParams.get("needsAttention") === "1";
+    const docs = await listPersonaDocs(ctx.tenantId, id, { needsAttentionOnly });
 
     return NextResponse.json({ success: true, data: docs });
   } catch (error) {
@@ -66,21 +71,18 @@ export async function POST(
     if (parsed.error) return parsed.error;
     const body = parsed.data;
 
-    const created = await prisma.opsDocumentoPersona.create({
-      data: {
-        tenantId: ctx.tenantId,
-        guardiaId: id,
-        type: body.type,
-        fileUrl: body.fileUrl,
-        fileName: normalizeNullable(body.fileName),
-        mimeType: normalizeNullable(body.mimeType),
-        status: body.status,
-        issuedAt: body.issuedAt ? parseDateOnly(body.issuedAt) : null,
-        expiresAt: body.expiresAt ? parseDateOnly(body.expiresAt) : null,
-        notes: normalizeNullable(body.notes),
-        folderId: body.folderId || null,
-        portalVisible: body.portalVisible ?? false,
-      },
+    const created = await createPersonaDoc(ctx.tenantId, {
+      guardiaId: id,
+      type: body.type,
+      fileUrl: body.fileUrl,
+      fileName: normalizeNullable(body.fileName),
+      mimeType: normalizeNullable(body.mimeType),
+      status: body.status,
+      issuedAt: body.issuedAt ? parseDateOnly(body.issuedAt) : null,
+      expiresAt: body.expiresAt ? parseDateOnly(body.expiresAt) : null,
+      notes: normalizeNullable(body.notes),
+      folderId: body.folderId || null,
+      portalVisible: body.portalVisible ?? false,
     });
 
     await prisma.opsGuardiaHistory.create({
@@ -102,7 +104,6 @@ export async function POST(
       type: created.type,
     });
 
-    // Espejo Drive (OFF por defecto). Nunca debe romper la subida.
     void import("@/lib/google-workspace/drive-enqueue-hooks").then(
       ({ enqueueDocumentoPersonaToDrive }) =>
         enqueueDocumentoPersonaToDrive({
@@ -134,9 +135,7 @@ export async function PATCH(
       return NextResponse.json({ success: false, error: "documentId es requerido" }, { status: 400 });
     }
 
-    const existing = await prisma.opsDocumentoPersona.findFirst({
-      where: { id: documentId, guardiaId: id, tenantId: ctx.tenantId },
-    });
+    const existing = await getPersonaDoc(ctx.tenantId, id, documentId);
     if (!existing) {
       return NextResponse.json({ success: false, error: "Documento no encontrado" }, { status: 404 });
     }
@@ -145,20 +144,17 @@ export async function PATCH(
     if (parsed.error) return parsed.error;
     const body = parsed.data;
 
-    const updated = await prisma.opsDocumentoPersona.update({
-      where: { id: documentId },
-      data: {
-        type: body.type ?? undefined,
-        fileUrl: body.fileUrl ?? undefined,
-        status: body.status ?? undefined,
-        issuedAt: body.issuedAt !== undefined ? (body.issuedAt ? parseDateOnly(body.issuedAt) : null) : undefined,
-        expiresAt: body.expiresAt !== undefined ? (body.expiresAt ? parseDateOnly(body.expiresAt) : null) : undefined,
-        notes: body.notes !== undefined ? normalizeNullable(body.notes) : undefined,
-        validatedBy: body.status && body.status !== "pendiente" ? ctx.userId : undefined,
-        validatedAt: body.status && body.status !== "pendiente" ? new Date() : undefined,
-        folderId: body.folderId !== undefined ? (body.folderId || null) : undefined,
-        portalVisible: body.portalVisible !== undefined ? body.portalVisible : undefined,
-      },
+    const updated = await updatePersonaDoc(ctx.tenantId, id, documentId, {
+      type: body.type ?? undefined,
+      fileUrl: body.fileUrl ?? undefined,
+      status: body.status ?? undefined,
+      issuedAt: body.issuedAt !== undefined ? (body.issuedAt ? parseDateOnly(body.issuedAt) : null) : undefined,
+      expiresAt: body.expiresAt !== undefined ? (body.expiresAt ? parseDateOnly(body.expiresAt) : null) : undefined,
+      notes: body.notes !== undefined ? normalizeNullable(body.notes) : undefined,
+      validatedBy: body.status && body.status !== "pendiente" ? ctx.userId : undefined,
+      validatedAt: body.status && body.status !== "pendiente" ? new Date() : undefined,
+      folderId: body.folderId !== undefined ? (body.folderId || null) : undefined,
+      portalVisible: body.portalVisible !== undefined ? body.portalVisible : undefined,
     });
 
     await prisma.opsGuardiaHistory.create({
@@ -167,7 +163,7 @@ export async function PATCH(
         guardiaId: id,
         eventType: "document_updated",
         previousValue: { type: existing.type, status: existing.status },
-        newValue: { type: updated.type, status: updated.status },
+        newValue: { type: updated?.type, status: updated?.status },
         createdBy: ctx.userId,
       },
     });
@@ -194,24 +190,23 @@ export async function DELETE(
       return NextResponse.json({ success: false, error: "documentId es requerido" }, { status: 400 });
     }
 
-    const existing = await prisma.opsDocumentoPersona.findFirst({
-      where: { id: documentId, guardiaId: id, tenantId: ctx.tenantId },
-    });
+    const existing = await getPersonaDoc(ctx.tenantId, id, documentId);
     if (!existing) {
       return NextResponse.json({ success: false, error: "Documento no encontrado" }, { status: 404 });
     }
 
-    await prisma.$transaction(async (tx) => {
-      await tx.opsDocumentoPersona.delete({ where: { id: documentId } });
-      await tx.opsGuardiaHistory.create({
-        data: {
-          tenantId: ctx.tenantId,
-          guardiaId: id,
-          eventType: "document_deleted",
-          previousValue: { type: existing.type, status: existing.status },
-          createdBy: ctx.userId,
-        },
-      });
+    const deleted = await deletePersonaDoc(ctx.tenantId, id, documentId);
+    if (!deleted) {
+      return NextResponse.json({ success: false, error: "Documento no encontrado" }, { status: 404 });
+    }
+    await prisma.opsGuardiaHistory.create({
+      data: {
+        tenantId: ctx.tenantId,
+        guardiaId: id,
+        eventType: "document_deleted",
+        previousValue: { type: existing.type, status: existing.status },
+        createdBy: ctx.userId,
+      },
     });
 
     return NextResponse.json({ success: true });
