@@ -1,6 +1,14 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import {
+  Component,
+  useCallback,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { X, Keyboard } from "lucide-react";
 import { normalizeCheckpointQrCode } from "@/lib/rondas/normalize-qr-code";
 
@@ -9,13 +17,67 @@ interface QrScannerProps {
   onClose: () => void;
 }
 
+type Html5QrcodeInstance = InstanceType<typeof import("html5-qrcode").Html5Qrcode>;
+
+type BarcodeDetectorLike = {
+  detect: (source: ImageBitmapSource) => Promise<Array<{ rawValue?: string }>>;
+};
+
+declare global {
+  interface Window {
+    BarcodeDetector?: new (options?: { formats?: string[] }) => BarcodeDetectorLike;
+  }
+}
+
+/**
+ * Atrapa NotFoundError / removeChild de html5-qrcode peleando con React.
+ * Sin esto, la carrera stop+unmount termina en global-error "Algo salió mal".
+ */
+class QrScannerErrorBoundary extends Component<
+  { children: ReactNode; onError: () => void },
+  { hasError: boolean }
+> {
+  state = { hasError: false };
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: Error) {
+    console.warn("[QrScanner] DOM race swallowed:", error?.message ?? error);
+    this.props.onError();
+  }
+
+  render() {
+    if (this.state.hasError) return null;
+    return this.props.children;
+  }
+}
+
+async function safeStopHtml5(scanner: Html5QrcodeInstance | null) {
+  if (!scanner) return;
+  try {
+    const scanning = typeof scanner.isScanning === "boolean" ? scanner.isScanning : true;
+    if (scanning) {
+      await scanner.stop();
+    }
+  } catch {
+    // ya detenido / elemento ausente
+  }
+  try {
+    await scanner.clear();
+  } catch {
+    // clear() también puede fallar si el nodo ya no existe
+  }
+}
+
 /**
  * Escáner QR del portal de rondas.
  *
- * Importante: html5-qrcode manipula el DOM del contenedor. Hay que:
- * 1) esperar a que el nodo exista,
- * 2) detener la cámara ANTES de notificar onScan (evita crash al desmontar),
- * 3) atrapar errores síncronos del constructor (si no → global-error "Algo salió mal").
+ * Estrategia:
+ * 1) Preferir BarcodeDetector nativo + <video> controlado por React (sin mutación DOM externa).
+ * 2) Fallback html5-qrcode sobre un host vacío; stop+clear+wipe ANTES de onScan/unmount.
+ * 3) ErrorBoundary local para que una carrera residual no tumbe toda la app.
  */
 export function QrScanner({ onScan, onClose }: QrScannerProps) {
   const reactId = useId().replace(/:/g, "");
@@ -24,137 +86,269 @@ export function QrScanner({ onScan, onClose }: QrScannerProps) {
   const [showManual, setShowManual] = useState(false);
   const [manualCode, setManualCode] = useState("");
   const [ready, setReady] = useState(false);
+  const [engine, setEngine] = useState<"native" | "html5" | null>(null);
+  const [boundaryFailed, setBoundaryFailed] = useState(false);
 
-  const scannerRef = useRef<InstanceType<typeof import("html5-qrcode").Html5Qrcode> | null>(null);
+  const hostRef = useRef<HTMLDivElement | null>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const scannerRef = useRef<Html5QrcodeInstance | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const rafRef = useRef<number | null>(null);
   const hasScannedRef = useRef(false);
   const cancelledRef = useRef(false);
+  const finishingRef = useRef(false);
   const onScanRef = useRef(onScan);
   onScanRef.current = onScan;
+
+  const wipeHost = useCallback(() => {
+    const host = hostRef.current;
+    if (host) {
+      try {
+        host.innerHTML = "";
+      } catch {
+        // ignore
+      }
+    }
+  }, []);
+
+  const stopNativeStream = useCallback(() => {
+    if (rafRef.current != null) {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+    }
+    const stream = streamRef.current;
+    streamRef.current = null;
+    if (stream) {
+      for (const track of stream.getTracks()) {
+        try {
+          track.stop();
+        } catch {
+          // ignore
+        }
+      }
+    }
+    const video = videoRef.current;
+    if (video) {
+      try {
+        video.srcObject = null;
+      } catch {
+        // ignore
+      }
+    }
+  }, []);
+
+  const teardown = useCallback(async () => {
+    cancelledRef.current = true;
+    stopNativeStream();
+    const scanner = scannerRef.current;
+    scannerRef.current = null;
+    await safeStopHtml5(scanner);
+    wipeHost();
+  }, [stopNativeStream, wipeHost]);
+
+  const teardownRef = useRef(teardown);
+  teardownRef.current = teardown;
+
+  const finishWithCode = useCallback(async (raw: string) => {
+    if (hasScannedRef.current || finishingRef.current) return;
+    const normalized = normalizeCheckpointQrCode(raw);
+    if (!normalized) return;
+    hasScannedRef.current = true;
+    finishingRef.current = true;
+
+    // Liberar cámara/DOM antes de que el padre desmonte este componente.
+    await teardownRef.current();
+
+    setTimeout(() => {
+      onScanRef.current(normalized);
+    }, 0);
+  }, []);
+
+  const finishWithCodeRef = useRef(finishWithCode);
+  finishWithCodeRef.current = finishWithCode;
 
   useEffect(() => {
     cancelledRef.current = false;
     hasScannedRef.current = false;
+    finishingRef.current = false;
+
+    async function startNativeBarcodeDetector(): Promise<boolean> {
+      if (typeof window === "undefined" || typeof window.BarcodeDetector !== "function") {
+        return false;
+      }
+      const video = videoRef.current;
+      if (!video) return false;
+
+      let detector: BarcodeDetectorLike;
+      try {
+        detector = new window.BarcodeDetector!({ formats: ["qr_code"] });
+      } catch {
+        return false;
+      }
+
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: false,
+        video: {
+          facingMode: { ideal: "environment" },
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+        },
+      });
+      if (cancelledRef.current) {
+        for (const track of stream.getTracks()) track.stop();
+        return true;
+      }
+
+      streamRef.current = stream;
+      video.srcObject = stream;
+      video.setAttribute("playsinline", "true");
+      video.muted = true;
+      await video.play();
+      setEngine("native");
+
+      const tick = async () => {
+        if (cancelledRef.current || hasScannedRef.current) return;
+        try {
+          if (video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
+            const codes = await detector.detect(video);
+            const raw = codes[0]?.rawValue;
+            if (raw) {
+              await finishWithCodeRef.current(raw);
+              return;
+            }
+          }
+        } catch {
+          // frame fallido — seguir
+        }
+        if (!cancelledRef.current && !hasScannedRef.current) {
+          rafRef.current = requestAnimationFrame(() => {
+            void tick();
+          });
+        }
+      };
+
+      rafRef.current = requestAnimationFrame(() => {
+        void tick();
+      });
+      return true;
+    }
+
+    async function startHtml5Fallback() {
+      await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+      if (cancelledRef.current) return;
+
+      const el = hostRef.current ?? document.getElementById(containerId);
+      if (!el) {
+        setError("No se pudo iniciar el escáner. Usa ingreso manual.");
+        setShowManual(true);
+        return;
+      }
+      el.id = containerId;
+
+      const { Html5Qrcode, Html5QrcodeSupportedFormats } = await import("html5-qrcode");
+      if (cancelledRef.current) return;
+
+      const scanner = new Html5Qrcode(containerId, {
+        formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE],
+        experimentalFeatures: { useBarCodeDetectorIfSupported: true },
+        verbose: false,
+      } as import("html5-qrcode/esm/html5-qrcode").Html5QrcodeFullConfig);
+      scannerRef.current = scanner;
+      setEngine("html5");
+
+      await scanner.start(
+        { facingMode: "environment" },
+        {
+          fps: 10,
+          qrbox: { width: 250, height: 250 },
+          aspectRatio: 1,
+        },
+        (decodedText) => {
+          void finishWithCodeRef.current(decodedText);
+        },
+        () => {
+          // ignore frame-level scan failures
+        },
+      );
+    }
 
     async function startScanner() {
       try {
-        // Asegura que el contenedor ya está en el DOM (evita throw síncrono).
-        await new Promise<void>((resolve) => {
-          requestAnimationFrame(() => resolve());
-        });
-        if (cancelledRef.current) return;
-
-        const el = document.getElementById(containerId);
-        if (!el) {
-          setError("No se pudo iniciar el escáner. Usa ingreso manual.");
-          setShowManual(true);
-          return;
+        let started = false;
+        try {
+          started = await startNativeBarcodeDetector();
+        } catch (nativeErr) {
+          console.warn("[QrScanner] native BarcodeDetector failed, fallback html5:", nativeErr);
+          stopNativeStream();
+          started = false;
         }
-
-        const { Html5Qrcode, Html5QrcodeSupportedFormats } = await import("html5-qrcode");
         if (cancelledRef.current) return;
-
-        const scanner = new Html5Qrcode(containerId, {
-          formatsToSupport: [Html5QrcodeSupportedFormats.QR_CODE],
-          experimentalFeatures: { useBarCodeDetectorIfSupported: true },
-          verbose: false,
-        } as import("html5-qrcode/esm/html5-qrcode").Html5QrcodeFullConfig);
-        scannerRef.current = scanner;
-
-        await scanner.start(
-          { facingMode: "environment" },
-          {
-            fps: 10,
-            qrbox: { width: 250, height: 250 },
-            aspectRatio: 1,
-          },
-          (decodedText) => {
-            if (hasScannedRef.current || cancelledRef.current) return;
-            hasScannedRef.current = true;
-            const normalized = normalizeCheckpointQrCode(decodedText);
-            if (!normalized) {
-              hasScannedRef.current = false;
-              return;
-            }
-
-            // Detener cámara antes de desmontar el componente (evita crash React).
-            const finish = () => {
-              if (cancelledRef.current) return;
-              onScanRef.current(normalized);
-            };
-
-            scanner
-              .stop()
-              .catch(() => {})
-              .finally(() => {
-                // Defer un tick para que html5-qrcode termine de soltar el DOM.
-                setTimeout(finish, 0);
-              });
-          },
-          () => {
-            // ignore frame-level scan failures
-          },
-        );
-
+        if (!started) {
+          await startHtml5Fallback();
+        }
         if (!cancelledRef.current) setReady(true);
       } catch (err) {
         if (cancelledRef.current) return;
         console.error("QR scanner error:", err);
         setError("No se pudo acceder a la cámara. Verifica los permisos.");
         setShowManual(true);
+        await teardownRef.current();
       }
     }
 
     void startScanner();
 
     return () => {
-      cancelledRef.current = true;
-      const scanner = scannerRef.current;
-      scannerRef.current = null;
-      // stop() es tolerante si la cámara aún no arrancó o ya se detuvo
-      scanner?.stop().catch(() => {});
+      void teardownRef.current();
     };
-  }, [containerId]);
-
-  const stopCamera = () => {
-    const scanner = scannerRef.current;
-    if (!scanner) return;
-    scanner.stop().catch(() => {});
-  };
+  }, [containerId, stopNativeStream]);
 
   const openManual = () => {
-    stopCamera();
-    setShowManual(true);
+    void teardown().finally(() => setShowManual(true));
+  };
+
+  const handleClose = () => {
+    void teardown().finally(() => onClose());
   };
 
   const handleManualSubmit = () => {
     const code = normalizeCheckpointQrCode(manualCode);
-    if (code) onScan(code);
+    if (code) {
+      void teardown().finally(() => onScan(code));
+    }
   };
+
+  const handleBoundaryError = () => {
+    setBoundaryFailed(true);
+    setShowManual(true);
+    setError("El escáner se cerró de forma inesperada. Ingresa el código manual.");
+    void teardown();
+  };
+
+  const hideCamera = showManual || boundaryFailed;
 
   return (
     <div className="fixed inset-0 z-[9999] bg-black flex flex-col">
-      {/* X flotante siempre visible (por si el header queda oculto en vista embebida) */}
       <button
-        onClick={onClose}
+        onClick={handleClose}
         className="absolute top-4 right-4 z-[10001] flex h-11 w-11 items-center justify-center rounded-full bg-white/90 text-zinc-900 shadow-lg transition-colors active:bg-white"
         aria-label="Cerrar"
       >
         <X size={24} />
       </button>
-      {/* Header — Cancelar + X */}
       <div
         className="flex items-center justify-between p-4 shrink-0"
         style={{ paddingTop: "max(1rem, env(safe-area-inset-top))" }}
       >
         <button
-          onClick={onClose}
+          onClick={handleClose}
           className="rounded-lg bg-zinc-800 px-4 py-2.5 text-sm font-medium text-gray-200 active:bg-zinc-700"
         >
           Cancelar
         </button>
         <span className="text-white text-lg font-semibold">Escanear QR</span>
         <button
-          onClick={onClose}
+          onClick={handleClose}
           className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-zinc-800 text-white transition-colors active:bg-zinc-700"
           aria-label="Cerrar"
         >
@@ -162,29 +356,38 @@ export function QrScanner({ onScan, onClose }: QrScannerProps) {
         </button>
       </div>
 
-      {/* Contenedor del scanner: permanece en el DOM (oculto en modo manual) para
-          que html5-qrcode no pierda el elementId a mitad del stop(). */}
-      <div
-        className={`flex-1 flex items-center justify-center px-4 ${showManual ? "hidden" : ""}`}
-      >
-        <div className="w-full max-w-sm relative">
-          <div id={containerId} className="w-full" />
-          {!ready && !error && (
-            <p className="absolute inset-x-0 top-1/2 -translate-y-1/2 text-center text-sm text-zinc-400">
-              Iniciando cámara…
-            </p>
-          )}
+      <QrScannerErrorBoundary onError={handleBoundaryError}>
+        <div className={`flex-1 flex items-center justify-center px-4 ${hideCamera ? "hidden" : ""}`}>
+          <div className="w-full max-w-sm relative aspect-square overflow-hidden rounded-lg bg-black">
+            <video
+              ref={videoRef}
+              className={`absolute inset-0 h-full w-full object-cover ${engine === "html5" ? "hidden" : ""}`}
+              playsInline
+              muted
+              autoPlay
+            />
+            <div
+              ref={hostRef}
+              id={containerId}
+              className={`absolute inset-0 [&_video]:h-full [&_video]:w-full [&_video]:object-cover ${
+                engine === "native" ? "hidden" : engine === "html5" ? "" : "pointer-events-none"
+              }`}
+            />
+            {!ready && !error && (
+              <p className="absolute inset-x-0 top-1/2 -translate-y-1/2 text-center text-sm text-zinc-400">
+                Iniciando cámara…
+              </p>
+            )}
+          </div>
         </div>
-      </div>
+      </QrScannerErrorBoundary>
 
-      {/* Error */}
       {error && (
         <div className="px-4 py-2">
           <p className="text-status-danger-fg text-sm text-center">{error}</p>
         </div>
       )}
 
-      {/* Manual fallback */}
       <div className="p-4 space-y-3">
         {!showManual ? (
           <button

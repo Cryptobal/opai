@@ -167,7 +167,8 @@ export async function marcarCheckpoint(
         ...(checkpointId
           ? { id: checkpointId }
           : normalizedScannedQr
-            ? { qrCode: normalizedScannedQr }
+            ? // Stickers/legacy pueden tener casing distinto al normalizado (UPPER).
+              { qrCode: { equals: normalizedScannedQr, mode: "insensitive" } }
             : { qrCode: checkpointQrCode ?? undefined }),
       },
       select: {

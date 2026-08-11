@@ -798,14 +798,9 @@ export function CheckpointMarker({
   // Render: Quick Mark — compact view for in-geofence GPS checkpoints
   // ------------------------------------------------------------------
   if (isInGeofence && tasks.length === 0 && !isAdHocGps) {
+    // showQr se maneja con early-return arriba (un solo QrScanner montado).
     return (
       <>
-        {showQr && (
-          <QrScanner
-            onScan={handleQrScanned}
-            onClose={() => setShowQr(false)}
-          />
-        )}
         {showCamera && (
           <PhotoCapture
             onCapture={handlePhotoCapture}
