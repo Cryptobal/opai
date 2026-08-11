@@ -46,7 +46,7 @@ export async function GET() {
     });
 
     // Count obligatory tipos without documents (global layer)
-    const tiposGlobalObligatorios = await prisma.tipoDocOperacional.findMany({
+    const tiposGlobalObligatorios = await prisma.tipoDocumento.findMany({
       where: { tenantId: ctx.tenantId, capa: "global", obligatorio: true, isActive: true },
       select: { id: true, nombre: true },
     });

@@ -18,16 +18,20 @@ async function structureVersion(tenantId: string): Promise<number> {
 }
 
 /**
- * Espeja a Drive un archivo YA subido a R2 (CrmFile) adjunto a una entidad CRM.
+ * Espeja a Drive un archivo YA subido a R2 (Documento) adjunto a una entidad CRM.
  * Solo hacia adelante (sin backfill). Nunca lanza.
  */
 export async function enqueueCrmFileToDrive(params: {
   tenantId: string;
   entityType: string;
   entityId: string;
-  file: { id: string; storageKey: string; fileName: string; mimeType: string };
+  file: { id: string; storageKey: string | null; fileName: string; mimeType: string };
 }): Promise<void> {
   try {
+    if (!params.file.storageKey) {
+      console.warn("[drive-mirror] enqueueCrmFileToDrive: sin storageKey, se omite espejo");
+      return;
+    }
     const target = await resolveCrmFileTarget(
       params.tenantId,
       params.entityType,

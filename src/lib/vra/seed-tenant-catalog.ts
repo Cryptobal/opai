@@ -2,13 +2,13 @@ import { prisma } from "@/lib/prisma";
 import { VRA_SYSTEM_CATALOG } from "./section-catalog-system";
 
 /**
- * Código estable del TipoDocOperacional al que se vinculan automáticamente
+ * Código estable del TipoDocumento al que se vinculan automáticamente
  * los informes VRA al ser generados. Capa: instalacion.
  */
 export const VRA_TIPO_DOC_CODIGO = "informe_vulnerabilidad";
 
 /**
- * Asegura que exista el TipoDocOperacional "informe_vulnerabilidad" capa instalacion
+ * Asegura que exista el TipoDocumento "informe_vulnerabilidad" capa instalacion
  * para el tenant. Idempotente. Si el tenant ya tiene un tipo con ese código (creado
  * manualmente en algún momento), respeta su nombre y configuración existente.
  *
@@ -18,20 +18,20 @@ export const VRA_TIPO_DOC_CODIGO = "informe_vulnerabilidad";
 export async function ensureVulnerabilityDocType(
   tenantId: string,
 ): Promise<{ id: string; created: boolean }> {
-  const existing = await prisma.tipoDocOperacional.findFirst({
+  const existing = await prisma.tipoDocumento.findFirst({
     where: { tenantId, codigo: VRA_TIPO_DOC_CODIGO },
   });
   if (existing) {
     return { id: existing.id, created: false };
   }
 
-  const maxOrder = await prisma.tipoDocOperacional.findFirst({
+  const maxOrder = await prisma.tipoDocumento.findFirst({
     where: { tenantId, capa: "instalacion" },
     orderBy: { order: "desc" },
     select: { order: true },
   });
 
-  const tipo = await prisma.tipoDocOperacional.create({
+  const tipo = await prisma.tipoDocumento.create({
     data: {
       tenantId,
       codigo: VRA_TIPO_DOC_CODIGO,
@@ -98,7 +98,7 @@ export async function ensureSystemCatalogSeeded(): Promise<void> {
 }
 
 /**
- * Clona el catálogo system en el tenant especificado y asegura el TipoDocOperacional.
+ * Clona el catálogo system en el tenant especificado y asegura el TipoDocumento.
  * Se llama la primera vez que el tenant entra a configuración VRA.
  * Idempotente: solo clona keys que aún no existan en el tenant.
  */

@@ -14,7 +14,7 @@ import {
 export type { OperationalGuardDocSlot } from "@/lib/operational-guard-doc-slots-shared";
 
 export async function getOperationalGuardDocSlots(tenantId: string): Promise<OperationalGuardDocSlot[]> {
-  const dbTipos = await prisma.tipoDocOperacional.findMany({
+  const dbTipos = await prisma.tipoDocumento.findMany({
     where: { tenantId, capa: "guardia", isActive: true },
     orderBy: { order: "asc" },
   });

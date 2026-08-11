@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
       tiposWhere.obligatorioEnVisita = true;
     }
 
-    const tipos = await prisma.tipoDocOperacional.findMany({
+    const tipos = await prisma.tipoDocumento.findMany({
       where: tiposWhere,
       orderBy: { order: "asc" },
       select: {

@@ -1,5 +1,6 @@
 import { extractStorageKeyFromPublicUrl } from "@/lib/storage";
 import { prisma } from "@/lib/prisma";
+import { readsUnified } from "@/lib/docs/migration";
 import { enqueueDriveExport } from "./drive-outbox";
 import { DrivePathsV2, safeSegment } from "./drive-tree";
 
@@ -11,13 +12,40 @@ async function structureVersion(tenantId: string): Promise<number> {
   return ws?.structureVersion ?? 1;
 }
 
-/** Espejo de OpsDocumentoPersona → Personas/{RUT} — {Apellido Nombre}/. Nunca lanza. */
+/** Carpeta canónica Drive según enlace owner. Nunca lanza. */
 export async function enqueueDocumentoPersonaToDrive(params: {
   tenantId: string;
   guardiaId: string;
   documentoId: string;
 }): Promise<void> {
   try {
+    if (await readsUnified(params.tenantId)) {
+      const link = await prisma.documentoEnlace.findFirst({
+        where: {
+          tenantId: params.tenantId,
+          fileId: params.documentoId,
+          role: "owner",
+          entityType: "guardia",
+          entityId: params.guardiaId,
+        },
+        include: { file: true },
+      });
+      if (!link?.file.storageKey && !link?.file.fileUrl) return;
+      const r2Key =
+        link.file.storageKey ||
+        (link.file.fileUrl
+          ? extractStorageKeyFromPublicUrl(link.file.fileUrl)
+          : null);
+      if (!r2Key) return;
+      await mirrorTrabajador(params.tenantId, params.guardiaId, {
+        id: params.documentoId,
+        r2Key,
+        fileName: link.file.fileName,
+        mimeType: link.file.mimeType,
+      });
+      return;
+    }
+
     const doc = await prisma.opsDocumentoPersona.findFirst({
       where: {
         id: params.documentoId,
@@ -28,45 +56,88 @@ export async function enqueueDocumentoPersonaToDrive(params: {
     });
     if (!doc?.fileUrl) return;
     const r2Key = extractStorageKeyFromPublicUrl(doc.fileUrl);
-    if (!r2Key) {
-      console.warn(
-        "[drive-mirror] OpsDocumentoPersona sin r2Key parseable:",
-        params.documentoId,
-      );
-      return;
-    }
-    const guardia = await prisma.opsGuardia.findFirst({
-      where: { id: params.guardiaId, tenantId: params.tenantId },
-      select: {
-        persona: { select: { rut: true, firstName: true, lastName: true } },
-      },
-    });
-    const rut = guardia?.persona?.rut?.trim() || "SIN-RUT";
-    const nombre =
-      `${guardia?.persona?.lastName ?? ""} ${guardia?.persona?.firstName ?? ""}`.trim();
-    const label = safeSegment(nombre ? `${rut} — ${nombre}` : rut, params.guardiaId);
-    if ((await structureVersion(params.tenantId)) < 2) return;
-    await enqueueDriveExport({
-      tenantId: params.tenantId,
-      docType: "trabajadores",
-      sourceType: "ops_documento_persona",
-      sourceId: params.documentoId,
+    if (!r2Key) return;
+    await mirrorTrabajador(params.tenantId, params.guardiaId, {
+      id: params.documentoId,
       r2Key,
       fileName: doc.fileName || "documento.pdf",
       mimeType: doc.mimeType,
-      targetPath: DrivePathsV2.trabajador(label),
     });
   } catch (err) {
     console.warn("[drive-mirror] enqueueDocumentoPersonaToDrive falló:", err);
   }
 }
 
-/** Espejo de DocOperacional → Operaciones/…. Nunca lanza. */
+async function mirrorTrabajador(
+  tenantId: string,
+  guardiaId: string,
+  file: { id: string; r2Key: string; fileName: string; mimeType: string | null }
+) {
+  if ((await structureVersion(tenantId)) < 2) return;
+  const guardia = await prisma.opsGuardia.findFirst({
+    where: { id: guardiaId, tenantId },
+    select: {
+      persona: { select: { rut: true, firstName: true, lastName: true } },
+    },
+  });
+  const rut = guardia?.persona?.rut?.trim() || "SIN-RUT";
+  const nombre =
+    `${guardia?.persona?.lastName ?? ""} ${guardia?.persona?.firstName ?? ""}`.trim();
+  const label = safeSegment(nombre ? `${rut} — ${nombre}` : rut, guardiaId);
+  await enqueueDriveExport({
+    tenantId,
+    docType: "trabajadores",
+    sourceType: "ops_documento_persona",
+    sourceId: file.id,
+    r2Key: file.r2Key,
+    fileName: file.fileName,
+    mimeType: file.mimeType,
+    targetPath: DrivePathsV2.trabajador(label),
+  });
+}
+
+/** Espejo operacional: carpeta canónica por owner. Nunca lanza. */
 export async function enqueueDocOperacionalToDrive(params: {
   tenantId: string;
   documentoId: string;
 }): Promise<void> {
   try {
+    if (await readsUnified(params.tenantId)) {
+      const link = await prisma.documentoEnlace.findFirst({
+        where: {
+          tenantId: params.tenantId,
+          fileId: params.documentoId,
+          role: "owner",
+        },
+        include: { file: true },
+      });
+      if (!link?.file.storageKey) return;
+      if ((await structureVersion(params.tenantId)) < 2) return;
+      let path = DrivePathsV2.opsGeneral();
+      if (link.entityType === "instalacion") {
+        const inst = await prisma.crmInstallation.findFirst({
+          where: { id: link.entityId, tenantId: params.tenantId },
+          select: { name: true },
+        });
+        if (inst) {
+          path = DrivePathsV2.opsInstallation(
+            safeSegment(inst.name, link.entityId)
+          );
+        }
+      }
+      await enqueueDriveExport({
+        tenantId: params.tenantId,
+        docType: "ops_documentos",
+        sourceType: "doc_operacional",
+        sourceId: params.documentoId,
+        r2Key: link.file.storageKey,
+        fileName: link.file.fileName,
+        mimeType: link.file.mimeType,
+        targetPath: path,
+      });
+      return;
+    }
+
     const doc = await prisma.docOperacional.findFirst({
       where: { id: params.documentoId, tenantId: params.tenantId },
       select: {
@@ -83,7 +154,7 @@ export async function enqueueDocOperacionalToDrive(params: {
     const path =
       doc.capa === "instalacion" && doc.installation
         ? DrivePathsV2.opsInstallation(
-            safeSegment(doc.installation.name, doc.installationId || "inst"),
+            safeSegment(doc.installation.name, doc.installationId || "inst")
           )
         : DrivePathsV2.opsGeneral();
     await enqueueDriveExport({

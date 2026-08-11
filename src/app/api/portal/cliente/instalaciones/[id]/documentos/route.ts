@@ -1,6 +1,6 @@
 /**
  * GET /api/portal/cliente/instalaciones/[id]/documentos
- * Documentos de la instalación visibles en el portal (CrmFile con portalVisible + cascada de carpeta)
+ * Documentos de la instalación visibles en el portal (Documento con portalVisible + cascada de carpeta)
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -28,7 +28,7 @@ export async function GET(
       return NextResponse.json({ error: "Acceso denegado" }, { status: 403 });
     }
 
-    const links = await prisma.crmFileLink.findMany({
+    const links = await prisma.documentoEnlace.findMany({
       where: {
         tenantId: session.tenantId,
         entityType: "installation",

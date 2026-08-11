@@ -90,7 +90,7 @@ export async function POST(request: NextRequest) {
     // Adjuntos vinculados al lead (pliegos / RFI) — antes se ignoraban.
     let linkedDocText = "";
     try {
-      const links = await prisma.crmFileLink.findMany({
+      const links = await prisma.documentoEnlace.findMany({
         where: { tenantId: ctx.tenantId, entityType: "lead", entityId: lead.id },
         take: 4,
         select: {

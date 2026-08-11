@@ -110,10 +110,19 @@ export function InstalacionDocumentosGuardiasTab({ installationId }: Instalacion
 
   return (
     <div className="space-y-6">
+      <div className="flex justify-end">
+        <a
+          href={`/api/crm/installations/${installationId}/dossier/pdf`}
+          className="inline-flex items-center gap-1.5 rounded-md px-3 py-2 text-[13px] font-medium text-primary hover:bg-primary/10 transition-colors min-h-10"
+        >
+          <Download className="h-4 w-4" />
+          Exportar dossier
+        </a>
+      </div>
       {data.map((group) => (
         <div
           key={group.guardiaId}
-          className="rounded-lg border border-border bg-card overflow-hidden"
+          className="rounded-lg border border-ds-border-default bg-ds-surface-1 overflow-hidden"
         >
           <div className="flex items-center gap-3 px-4 py-3 bg-muted/30 border-b border-border">
             {group.fotoUrl ? (

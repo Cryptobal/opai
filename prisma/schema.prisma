@@ -82,8 +82,9 @@ model Tenant {
   systemIncidents                SystemIncident[]
   configJornadas                 ConfigJornada[]
   opsAlertaLogs                  OpsAlertaLog[]
-  tiposDocOperacional            TipoDocOperacional[]
+  tiposDocumento                 TipoDocumento[]
   docsOperacionales              DocOperacional[]
+  docsMigrationStates            DocsMigrationState[]
   tenantAddons                   TenantAddon[]
   modules                        TenantModule[]
   plan                           TenantPlan?
@@ -3281,8 +3282,8 @@ model DocumentFolder {
   parent   DocumentFolder?  @relation("FolderHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
   children DocumentFolder[] @relation("FolderHierarchy")
 
-  opsDocumentos OpsDocumentoPersona[]
-  crmFileLinks  CrmFileLink[]
+  opsDocumentos    OpsDocumentoPersona[]
+  documentoEnlaces DocumentoEnlace[]
 
   @@index([tenantId], map: "idx_document_folders_tenant")
   @@index([entityType, entityId], map: "idx_document_folders_entity")
@@ -3291,54 +3292,104 @@ model DocumentFolder {
   @@schema("crm")
 }
 
-model CrmFile {
+/// Documento unificado de plataforma (binario + tipo + vigencia).
+/// Tabla física: crm.files (antes CrmFile).
+model Documento {
   id              String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   tenantId        String   @map("tenant_id")
   fileName        String   @map("file_name")
   mimeType        String   @map("mime_type")
   size            Int
   storageProvider String   @map("storage_provider")
-  storageKey      String   @map("storage_key")
+  storageKey      String?  @map("storage_key")
   portalVisible   Boolean  @default(false) @map("portal_visible")
   createdBy       String?  @map("created_by")
   driveFileId     String?  @map("drive_file_id") // origen Drive (import bilateral)
   // Procedencia (B5): de qué correo salió el archivo. Aditivo/nullable; los
-  // CrmFile previos quedan con procedencia nula y siguen funcionando.
+  // documentos previos quedan con procedencia nula y siguen funcionando.
   sourceType      String?  @map("source_type") // "email" | null
   sourceThreadId  String?  @map("source_thread_id") @db.Uuid
   sourceMessageId String?  @map("source_message_id")
   contentHash     String?  @map("content_hash") // sha256 hex del binario (dedupe por tenant)
   createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  links CrmFileLink[]
+  // Unificación documental — tipo, vigencia y escalera Fase 18
+  tipoId                 String?   @map("tipo_id") @db.Uuid
+  issuedAt               DateTime? @map("issued_at") @db.Date
+  expiresAt              DateTime? @map("expires_at") @db.Date
+  status                 String?
+  validatedBy            String?   @map("validated_by")
+  validatedAt            DateTime? @map("validated_at") @db.Timestamptz(6)
+  notes                  String?   @db.Text
+  lastExpiryMilestone    Int?      @map("last_expiry_milestone")
+  lastExpiryMilestoneAt  DateTime? @map("last_expiry_milestone_at") @db.Timestamptz(6)
+  renewalInProgressUntil DateTime? @map("renewal_in_progress_until") @db.Date
+  renewalMarkedBy        String?   @map("renewal_marked_by")
+  renewalMarkedAt        DateTime? @map("renewal_marked_at") @db.Timestamptz(6)
+  expiryDismissedAt      DateTime? @map("expiry_dismissed_at") @db.Timestamptz(6)
+  expiryDismissedBy      String?   @map("expiry_dismissed_by")
+  expiryDismissedReason  String?   @map("expiry_dismissed_reason")
+  fileUrl                String?   @map("file_url")
+  legacySource           String?   @map("legacy_source")
+  legacyId               String?   @map("legacy_id") @db.Uuid
+  needsClassification    Boolean   @default(false) @map("needs_classification")
+  needsAttention         Boolean   @default(false) @map("needs_attention")
+
+  links DocumentoEnlace[]
+  tipo  TipoDocumento?    @relation(fields: [tipoId], references: [id], onDelete: SetNull)
 
   @@index([tenantId], map: "idx_crm_files_tenant")
   @@index([createdAt(sort: Desc)], map: "idx_crm_files_created_desc")
   @@index([driveFileId], map: "idx_crm_files_drive_file")
   @@index([tenantId, sourceThreadId], map: "idx_crm_files_source_thread")
   @@index([tenantId, contentHash], map: "idx_crm_files_content_hash")
+  @@index([tenantId, tipoId], map: "idx_crm_files_tipo")
+  @@index([expiresAt], map: "idx_crm_files_expires")
+  @@unique([tenantId, legacySource, legacyId], map: "uq_crm_files_legacy")
   @@map("files")
   @@schema("crm")
 }
 
-model CrmFileLink {
+/// Enlace polimórfico documento → entidad. role: owner | reference.
+/// Tabla física: crm.file_links (antes CrmFileLink).
+model DocumentoEnlace {
   id         String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   tenantId   String   @map("tenant_id")
   fileId     String   @map("file_id") @db.Uuid
   entityType String   @map("entity_type")
   entityId   String   @map("entity_id")
   folderId   String?  @map("folder_id") @db.Uuid
+  role       String   @default("owner") // "owner" | "reference"
   createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  file   CrmFile         @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  file   Documento       @relation(fields: [fileId], references: [id], onDelete: Cascade)
   folder DocumentFolder? @relation(fields: [folderId], references: [id], onDelete: SetNull)
 
   @@index([tenantId], map: "idx_crm_file_links_tenant")
   @@index([fileId], map: "idx_crm_file_links_file")
   @@index([entityType, entityId], map: "idx_crm_file_links_entity")
   @@index([folderId], map: "idx_crm_file_links_folder")
+  @@index([role], map: "idx_crm_file_links_role")
   @@map("file_links")
   @@schema("crm")
+}
+
+/// Estado de la migración automática legado → modelo unificado (por tenant).
+model DocsMigrationState {
+  tenantId      String    @id @map("tenant_id")
+  status        String    @default("pending") // pending | running | verifying | completed | failed
+  cursorLegacy  String?   @map("cursor_legacy")
+  stats         Json?
+  parityReport  Json?     @map("parity_report")
+  failureReason String?   @map("failure_reason") @db.Text
+  startedAt     DateTime? @map("started_at")
+  completedAt   DateTime? @map("completed_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("docs_migration_state")
+  @@schema("public")
 }
 
 model CrmCustomField {
@@ -4660,7 +4711,7 @@ model OpsSupervisionFinding {
   ticket             OpsTicket?                      @relation("supervision_finding_ticket", fields: [ticketId], references: [id], onDelete: SetNull)
   verifiedInVisit    OpsVisitaSupervision?           @relation("supervision_finding_verified_visit", fields: [verifiedInVisitId], references: [id], onDelete: SetNull)
   lastDetectedVisit  OpsVisitaSupervision?           @relation("supervision_finding_last_detected_visit", fields: [lastDetectedVisitId], references: [id], onDelete: SetNull)
-  tipoDoc            TipoDocOperacional?             @relation("supervision_finding_tipo_doc", fields: [tipoDocId], references: [id], onDelete: SetNull)
+  tipoDoc            TipoDocumento?                  @relation("supervision_finding_tipo_doc", fields: [tipoDocId], references: [id], onDelete: SetNull)
   checklistResults   OpsSupervisionChecklistResult[]
   verificacionFisica DocVerificacionFisica?
 
@@ -10965,13 +11016,15 @@ model ConfigJornada {
 // ============================================
 
 /// Catálogo configurable de tipos de documentos operacionales
-model TipoDocOperacional {
+/// Catálogo unificado de tipos documentales (antes TipoDocOperacional).
+/// Tabla física: ops.tipos_doc_operacional.
+model TipoDocumento {
   id                  String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   tenantId            String   @map("tenant_id")
   codigo              String // "os10_empresa", "seguro_vida", "contrato_mandante", etc.
   nombre              String // Nombre legible
   descripcion         String?
-  capa                String // "global" | "instalacion" | "guardia"
+  capa                String // "global" | "instalacion" | "guardia" | "cuenta" | "negocio"
   obligatorio         Boolean  @default(true)
   tieneVencimiento    Boolean  @default(true) @map("tiene_vencimiento")
   diasAlerta          Int      @default(30) @map("dias_alerta")
@@ -10987,7 +11040,8 @@ model TipoDocOperacional {
   updatedAt           DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   tenant                Tenant                  @relation(fields: [tenantId], references: [id])
-  documentos            DocOperacional[]
+  documentosOps         DocOperacional[]
+  documentos            Documento[]
   verificacionesFisicas DocVerificacionFisica[]
   supervisionFindings   OpsSupervisionFinding[] @relation("supervision_finding_tipo_doc")
 
@@ -11041,9 +11095,9 @@ model DocOperacional {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  tenant       Tenant             @relation(fields: [tenantId], references: [id])
-  tipo         TipoDocOperacional @relation(fields: [tipoId], references: [id])
-  installation CrmInstallation?   @relation(fields: [installationId], references: [id], onDelete: Cascade)
+  tenant       Tenant         @relation(fields: [tenantId], references: [id])
+  tipo         TipoDocumento  @relation(fields: [tipoId], references: [id])
+  installation CrmInstallation? @relation(fields: [installationId], references: [id], onDelete: Cascade)
   vraReports   VraReport[]
 
   @@index([tenantId, capa], map: "idx_doc_operacional_tenant_capa")
@@ -11466,7 +11520,7 @@ model DocVerificacionFisica {
   installation CrmInstallation        @relation(fields: [installationId], references: [id])
   supervision  OpsVisitaSupervision   @relation(fields: [supervisionId], references: [id])
   supervisor   Admin                  @relation(fields: [supervisorId], references: [id])
-  tipoDoc      TipoDocOperacional?    @relation(fields: [tipoDocId], references: [id])
+  tipoDoc      TipoDocumento?         @relation(fields: [tipoDocId], references: [id])
   guardia      OpsGuardia?            @relation(fields: [guardiaId], references: [id])
   hallazgo     OpsSupervisionFinding? @relation(fields: [hallazgoId], references: [id])
 

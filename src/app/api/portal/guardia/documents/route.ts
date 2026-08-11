@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 import { requirePortalGuardiaAuth } from "@/lib/portal-guardia-auth";
 import type { GuardDocument } from "@/lib/guard-portal";
 
@@ -15,10 +14,8 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const documents = await prisma.opsDocumentoPersona.findMany({
-      where: { guardiaId: guardAuth.guardiaId, tenantId: guardAuth.tenantId },
-      orderBy: { createdAt: "desc" },
-    });
+    const { listPersonaDocs } = await import("@/lib/docs/persona-docs-service");
+    const documents = await listPersonaDocs(guardAuth.tenantId, guardAuth.guardiaId);
 
     const data: GuardDocument[] = documents.map((d) => ({
       id: d.id,

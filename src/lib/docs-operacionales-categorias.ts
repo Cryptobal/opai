@@ -3,7 +3,7 @@
  *
  * Se mantiene en código (no en DB) para no requerir migración. Si en el
  * futuro se quiere editable por el usuario, se puede mover a una columna
- * `categoria` en `TipoDocOperacional`. Por ahora basta el mapeo.
+ * `categoria` en `TipoDocumento`. Por ahora basta el mapeo.
  */
 
 export type DocCategoria =

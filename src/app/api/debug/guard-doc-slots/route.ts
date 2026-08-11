@@ -19,7 +19,7 @@ export async function GET() {
   const ctx = await requireAuth();
   if (!ctx) return unauthorized();
 
-  const dbTipos = await prisma.tipoDocOperacional.findMany({
+  const dbTipos = await prisma.tipoDocumento.findMany({
     where: { tenantId: ctx.tenantId, capa: "guardia" },
     orderBy: { order: "asc" },
   });

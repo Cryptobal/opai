@@ -1,6 +1,6 @@
 /**
  * Seed: Tipos de documentos operacionales (normativa OS10 / DT)
- * Crea el catálogo de tipos por defecto para las 3 capas.
+ * Crea el catálogo de tipos por defecto para las 3 capas + sin_clasificar.
  */
 
 import { PrismaClient } from "@prisma/client";
@@ -28,26 +28,41 @@ const TIPOS_DEFAULT = [
   { codigo: "examen_psicologico", nombre: "Examen Psicológico", capa: "guardia", obligatorio: true, tieneVencimiento: true, diasAlerta: 30, normativa: "D.S. 867 Art.5 N°3", order: 24 },
   { codigo: "registro_capacitacion", nombre: "Registro de Capacitación", capa: "guardia", obligatorio: true, tieneVencimiento: true, diasAlerta: 30, normativa: "Manual OS10", order: 25 },
   { codigo: "historial_penal", nombre: "Historial Penal", capa: "guardia", obligatorio: true, tieneVencimiento: true, diasAlerta: 30, normativa: "D.S. 867", order: 26 },
+
+  // Placeholders para ingesta Drive sin tipo (nunca usados para datos legados)
+  { codigo: "sin_clasificar", nombre: "Sin clasificar", capa: "global", obligatorio: false, tieneVencimiento: false, diasAlerta: 0, normativa: null, order: 90 },
+  { codigo: "sin_clasificar", nombre: "Sin clasificar", capa: "instalacion", obligatorio: false, tieneVencimiento: false, diasAlerta: 0, normativa: null, order: 91 },
+  { codigo: "sin_clasificar", nombre: "Sin clasificar", capa: "guardia", obligatorio: false, tieneVencimiento: false, diasAlerta: 0, normativa: null, order: 92 },
 ];
+
+/** Códigos únicos por capa: sin_clasificar se distingue con sufijo de capa en codigo. */
+const TIPOS_SEED = TIPOS_DEFAULT.map((t) =>
+  t.codigo === "sin_clasificar"
+    ? { ...t, codigo: `sin_clasificar_${t.capa}` }
+    : t
+);
 
 export async function seedTiposDocOperacional(
   prisma: PrismaClient,
   tenantId: string
 ) {
-  const existing = await prisma.tipoDocOperacional.findFirst({
-    where: { tenantId },
-  });
-  if (existing) {
-    console.log("  ⏭️  TiposDocOperacional ya existen, saltando");
+  let created = 0;
+  for (const t of TIPOS_SEED) {
+    const existing = await prisma.tipoDocumento.findUnique({
+      where: { tenantId_codigo: { tenantId, codigo: t.codigo } },
+      select: { id: true },
+    });
+    if (existing) continue;
+    await prisma.tipoDocumento.create({
+      data: { tenantId, ...t },
+    });
+    created++;
+  }
+
+  if (created === 0) {
+    console.log("  ⏭️  TiposDocumento ya existen, saltando");
     return;
   }
 
-  await prisma.tipoDocOperacional.createMany({
-    data: TIPOS_DEFAULT.map((t) => ({
-      tenantId,
-      ...t,
-    })),
-  });
-
-  console.log(`  ✅ ${TIPOS_DEFAULT.length} tipos de doc operacional creados`);
+  console.log(`  ✅ ${created} tipos de documento creados/asegurados`);
 }

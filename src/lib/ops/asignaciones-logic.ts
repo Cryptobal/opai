@@ -397,6 +397,9 @@ export async function executeAsignar(
     where: { id: body.guardiaId },
     data: { currentInstallationId: puesto.installationId },
   });
+  void import("@/lib/docs/sync-instalacion-refs").then(({ syncGuardiaInstallationRefs }) =>
+    syncGuardiaInstallationRefs(ctx.tenantId, body.guardiaId, puesto.installationId)
+  );
 
   // If the displaced guard has no other active assignments, clear their currentInstallationId
   if (existingSlotAssignment && existingSlotAssignment.guardiaId !== body.guardiaId) {
@@ -412,6 +415,9 @@ export async function executeAsignar(
         where: { id: existingSlotAssignment.guardiaId },
         data: { currentInstallationId: null },
       });
+      void import("@/lib/docs/sync-instalacion-refs").then(({ syncGuardiaInstallationRefs }) =>
+        syncGuardiaInstallationRefs(ctx.tenantId, existingSlotAssignment.guardiaId, null)
+      );
     }
   }
 

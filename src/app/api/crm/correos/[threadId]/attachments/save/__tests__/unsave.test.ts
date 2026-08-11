@@ -16,8 +16,8 @@ vi.mock("@/lib/audit-email", () => ({ auditEmailAction: vi.fn() }));
 vi.mock("@/lib/storage", () => ({ deleteFile: vi.fn().mockResolvedValue(undefined) }));
 vi.mock("@/lib/prisma", () => ({
   prisma: {
-    crmFile: { findFirst: vi.fn(), delete: vi.fn() },
-    crmFileLink: { deleteMany: vi.fn() },
+    documento: { findFirst: vi.fn(), delete: vi.fn() },
+    documentoEnlace: { deleteMany: vi.fn() },
   },
 }));
 
@@ -43,14 +43,14 @@ describe("DELETE attachments/save (unsave)", () => {
     expect(res.status).toBe(400);
   });
 
-  it("quita CrmFile de procedencia email del hilo", async () => {
-    vi.mocked(prisma.crmFile.findFirst).mockResolvedValue({
+  it("quita Documento de procedencia email del hilo", async () => {
+    vi.mocked(prisma.documento.findFirst).mockResolvedValue({
       id: "f1",
       storageKey: "crm/t1/f1",
       fileName: "Gard.pdf",
     } as never);
-    vi.mocked(prisma.crmFileLink.deleteMany).mockResolvedValue({ count: 1 } as never);
-    vi.mocked(prisma.crmFile.delete).mockResolvedValue({} as never);
+    vi.mocked(prisma.documentoEnlace.deleteMany).mockResolvedValue({ count: 1 } as never);
+    vi.mocked(prisma.documento.delete).mockResolvedValue({} as never);
 
     const req = new NextRequest(
       "http://localhost/api/crm/correos/th1/attachments/save?fileId=f1",
@@ -59,7 +59,7 @@ describe("DELETE attachments/save (unsave)", () => {
     const res = await DELETE(req, { params: Promise.resolve({ threadId: "th1" }) });
     expect(res.status).toBe(200);
     expect(requireCorreosAccess).toHaveBeenCalledWith("edit");
-    expect(prisma.crmFile.findFirst).toHaveBeenCalledWith({
+    expect(prisma.documento.findFirst).toHaveBeenCalledWith({
       where: {
         id: "f1",
         tenantId: "t1",
@@ -69,6 +69,6 @@ describe("DELETE attachments/save (unsave)", () => {
       select: { id: true, storageKey: true, fileName: true },
     });
     expect(deleteFile).toHaveBeenCalledWith("crm/t1/f1");
-    expect(prisma.crmFile.delete).toHaveBeenCalledWith({ where: { id: "f1" } });
+    expect(prisma.documento.delete).toHaveBeenCalledWith({ where: { id: "f1" } });
   });
 });

@@ -25,7 +25,7 @@ export async function GET() {
       );
     }
 
-    const tipos = await prisma.tipoDocOperacional.findMany({
+    const tipos = await prisma.tipoDocumento.findMany({
       where: {
         tenantId: ctx.tenantId,
         isActive: true,

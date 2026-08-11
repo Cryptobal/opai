@@ -45,7 +45,7 @@ export async function GET() {
     const docLabelMap = buildDocLabelMap(postulacionDocs);
 
     // Get tipos for reference
-    const tipos = await prisma.tipoDocOperacional.findMany({
+    const tipos = await prisma.tipoDocumento.findMany({
       where: { tenantId, isActive: true },
       orderBy: { order: "asc" },
     });

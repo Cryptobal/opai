@@ -303,6 +303,14 @@ export async function collectOperacionalItems(
   tenantId: string,
   today: Date
 ): Promise<ExpiryDocItem[]> {
+  const { readsUnified } = await import("@/lib/docs/migration");
+  if (await readsUnified(tenantId)) {
+    const { collectUnifiedOperacional } = await import(
+      "@/lib/documents/collect-unified-expiry"
+    );
+    return collectUnifiedOperacional(tenantId, today);
+  }
+
   const docs = await prisma.docOperacional.findMany({
     where: {
       tenantId,
@@ -361,6 +369,14 @@ export async function collectGuardiaItems(
   today: Date,
   config?: GuardiaDocumentoConfigItem[]
 ): Promise<ExpiryDocItem[]> {
+  const { readsUnified } = await import("@/lib/docs/migration");
+  if (await readsUnified(tenantId)) {
+    const { collectUnifiedGuardia } = await import(
+      "@/lib/documents/collect-unified-expiry"
+    );
+    return collectUnifiedGuardia(tenantId, today);
+  }
+
   const cfg = config ?? (await getGuardiaDocumentosConfig(tenantId));
   const byType = new Map(cfg.filter((c) => c.hasExpiration).map((c) => [c.code, c]));
   if (byType.size === 0) return [];
@@ -439,13 +455,19 @@ export async function collectAllExpiryItems(
 // ==========================================
 
 export async function markMilestoneNotified(
-  item: Pick<ExpiryDocItem, "kind" | "id">,
+  item: Pick<ExpiryDocItem, "kind" | "id" | "tenantId">,
   milestone: number | null
 ): Promise<void> {
   const data = {
     lastExpiryMilestone: milestone,
     lastExpiryMilestoneAt: milestone === null ? null : new Date(),
   };
+  const { readsUnified } = await import("@/lib/docs/migration");
+  const unified = item.tenantId ? await readsUnified(item.tenantId) : false;
+  if (unified) {
+    await prisma.documento.update({ where: { id: item.id }, data });
+    return;
+  }
   if (item.kind === "operacional") {
     await prisma.docOperacional.update({ where: { id: item.id }, data });
   } else {

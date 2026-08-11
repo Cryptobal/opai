@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const links = await prisma.crmFileLink.findMany({
+    const links = await prisma.documentoEnlace.findMany({
       where: {
         tenantId: ctx.tenantId,
         entityType,

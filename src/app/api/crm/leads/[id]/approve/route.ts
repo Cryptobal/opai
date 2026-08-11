@@ -510,12 +510,12 @@ export async function POST(
 
       // ── Transferir archivos del lead al negocio y cuenta (leads por email reenviado) ──
       if (lead.source === "email_forward") {
-        const leadFileLinks = await tx.crmFileLink.findMany({
+        const leadFileLinks = await tx.documentoEnlace.findMany({
           where: { tenantId: ctx.tenantId, entityType: "lead", entityId: lead.id },
           select: { fileId: true },
         });
         for (const link of leadFileLinks) {
-          await tx.crmFileLink.create({
+          await tx.documentoEnlace.create({
             data: {
               tenantId: ctx.tenantId,
               fileId: link.fileId,
@@ -523,7 +523,7 @@ export async function POST(
               entityId: deal.id,
             },
           });
-          await tx.crmFileLink.create({
+          await tx.documentoEnlace.create({
             data: {
               tenantId: ctx.tenantId,
               fileId: link.fileId,

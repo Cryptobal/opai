@@ -8,7 +8,7 @@ const MAX_FILES = 5; // por hilo
 
 /**
  * Materializa a R2 los adjuntos de un hilo recién compartido (Bloque 5, B7):
- * los persiste como CrmFile (`sourceType:"email"`, `sourceThreadId`) vinculados
+ * los persiste como Documento (`sourceType:"email"`, `sourceThreadId`) vinculados
  * a la cuenta, para que sigan disponibles desde la ficha aunque el dueño
  * desconecte Gmail o Google purgue el mensaje. Usa el token del DUEÑO (su
  * propia request). Dedupe por contentHash (omite los ya materializados). No

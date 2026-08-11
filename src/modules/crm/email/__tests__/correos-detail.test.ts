@@ -29,7 +29,7 @@ vi.mock("@/lib/prisma", () => ({
     },
     crmAccount: { findFirst: mocks.crmAccountFindFirst },
     crmDeal: { findFirst: mocks.crmDealFindFirst },
-    crmFile: { findMany: mocks.crmFileFindMany },
+    documento: { findMany: mocks.crmFileFindMany },
   },
 }));
 vi.mock("../gmail-account-client", () => ({

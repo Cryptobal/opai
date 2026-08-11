@@ -60,7 +60,7 @@ export async function importDealFilesFromDrive(
       where: { tenantId, driveFileId: { in: driveIds } },
       select: { driveFileId: true },
     }),
-    prisma.crmFile.findMany({
+    prisma.documento.findMany({
       where: { tenantId, driveFileId: { in: driveIds } },
       select: { driveFileId: true },
     }),
@@ -95,7 +95,7 @@ export async function importDealFilesFromDrive(
         continue;
       }
       const up = await uploadFile(dl.buffer, dl.fileName, dl.mimeType, "crm", tenantId);
-      const crmFile = await prisma.crmFile.create({
+      const documento = await prisma.documento.create({
         data: {
           tenantId,
           fileName: up.fileName,
@@ -107,10 +107,10 @@ export async function importDealFilesFromDrive(
           createdBy: null,
         },
       });
-      await prisma.crmFileLink.create({
+      await prisma.documentoEnlace.create({
         data: {
           tenantId,
-          fileId: crmFile.id,
+          fileId: documento.id,
           entityType: "deal",
           entityId: dealId,
           folderId: null,
