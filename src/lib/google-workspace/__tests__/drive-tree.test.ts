@@ -4,10 +4,14 @@ import {
   isModuleFolderEnabled,
   safeSegment,
   DrivePathsV2,
+  docTypeDestinationLabel,
   inferEntityHintFromPathKey,
   resolveEntityFromFolderId,
 } from "../drive-tree";
-import { DEFAULT_MIRROR_CONFIG } from "../drive-mirror-config";
+import {
+  DEFAULT_MIRROR_CONFIG,
+  SUPPORTED_DOC_TYPES,
+} from "../drive-mirror-config";
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
@@ -45,6 +49,21 @@ describe("DrivePathsV2", () => {
       "Personas/12.345.678-9 — Pérez Juan",
     );
     expect(DrivePathsV2.opsGeneral()).toBe("Operaciones/Documentos generales");
+  });
+});
+
+describe("docTypeDestinationLabel", () => {
+  it("cubre todos los tipos soportados con rutas del árbol v2", () => {
+    for (const dt of SUPPORTED_DOC_TYPES) {
+      const label = docTypeDestinationLabel(dt);
+      expect(label.length).toBeGreaterThan(3);
+      expect(label).not.toBe(dt);
+    }
+    expect(docTypeDestinationLabel("trabajadores")).toBe(
+      "Personas / {RUT} — {Apellido Nombre}",
+    );
+    expect(docTypeDestinationLabel("licitacion")).toContain("Licitaciones");
+    expect(docTypeDestinationLabel("cotizacion")).toContain("Cotizaciones");
   });
 });
 
