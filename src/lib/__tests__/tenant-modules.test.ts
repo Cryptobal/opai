@@ -1,7 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+const unstableCacheMock = vi.fn((fn: () => unknown) => () => fn());
+
 vi.mock("next/cache", () => ({
-  unstable_cache: (fn: () => unknown) => () => fn(),
+  unstable_cache: (fn: () => unknown, ...rest: unknown[]) =>
+    unstableCacheMock(fn, ...rest),
   revalidateTag: vi.fn(),
 }));
 
@@ -23,6 +26,8 @@ const findMany = prisma.tenantModule.findMany as unknown as ReturnType<
 describe("getTenantEnabledModules / fetchTenantEnabledModuleKeys", () => {
   beforeEach(() => {
     findMany.mockReset();
+    unstableCacheMock.mockReset();
+    unstableCacheMock.mockImplementation((fn: () => unknown) => () => fn());
     vi.spyOn(console, "warn").mockImplementation(() => {});
   });
 
@@ -62,5 +67,22 @@ describe("getTenantEnabledModules / fetchTenantEnabledModuleKeys", () => {
 
     expect(enabled.size).toBe(0);
     expect(enabled).toEqual(new Set());
+  });
+
+  it("sin Data Cache (Auth.js/API) → lee BD sin unstable_cache", async () => {
+    unstableCacheMock.mockImplementation(() => () => {
+      throw new Error(
+        "Invariant: incrementalCache missing in unstable_cache ()=>l(e)",
+      );
+    });
+    findMany.mockResolvedValue([
+      { module: "hub", enabled: true },
+      { module: "crm", enabled: false },
+    ]);
+
+    const enabled = await getTenantEnabledModules("tenant-api");
+
+    expect(enabled).toEqual(new Set(["hub"]));
+    expect(findMany).toHaveBeenCalledTimes(1);
   });
 });
