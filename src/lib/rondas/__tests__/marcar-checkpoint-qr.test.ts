@@ -199,6 +199,27 @@ describe("marcarCheckpoint — validación QR y geocerca", () => {
     expect(mocks.transaction).toHaveBeenCalled();
   });
 
+  it("lookup solo por QR usa comparación case-insensitive", async () => {
+    mocks.findFirstCheckpoint.mockResolvedValue(baseCheckpoint);
+    setupTransactionCreate("COMPLETED");
+
+    await marcarCheckpoint({
+      ejecucionId: "ej-1",
+      checkpointQrCode: "qr-abc123",
+      lat: -33.45,
+      lng: -70.66,
+      guardiaId: "guard-1",
+    });
+
+    expect(mocks.findFirstCheckpoint).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          qrCode: { equals: "QR-ABC123", mode: "insensitive" },
+        }),
+      }),
+    );
+  });
+
   it("punto GEOFENCE fuera de radio → GEO_NO_VERIFICADA", async () => {
     mocks.findFirstCheckpoint.mockResolvedValue({
       ...baseCheckpoint,
