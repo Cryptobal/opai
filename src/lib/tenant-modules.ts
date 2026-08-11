@@ -112,6 +112,33 @@ export function clearTenantModuleCache(tenantId?: string): void {
   }
 }
 
+/**
+ * `unstable_cache` requiere el Data Cache de Next (`incrementalCache`).
+ * En callbacks de Auth.js / algunos Route Handlers ese contexto no existe y
+ * Next lanza: "Invariant: incrementalCache missing in unstable_cache".
+ * En ese caso leemos la BD sin caché (mismo resultado, sin revalidateTag).
+ */
+function isIncrementalCacheMissing(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    error.message.includes("incrementalCache missing in unstable_cache")
+  );
+}
+
+async function withDataCacheFallback<T>(
+  cached: () => Promise<T>,
+  uncached: () => Promise<T>,
+): Promise<T> {
+  try {
+    return await cached();
+  } catch (error) {
+    if (isIncrementalCacheMissing(error)) {
+      return uncached();
+    }
+    throw error;
+  }
+}
+
 // ── Main functions ──
 
 /**
@@ -138,11 +165,15 @@ async function fetchTenantEnabledModuleKeys(tenantId: string): Promise<string[]>
 }
 
 function getCachedTenantEnabledModuleKeys(tenantId: string): Promise<string[]> {
-  return unstable_cache(
+  return withDataCacheFallback(
+    () =>
+      unstable_cache(
+        () => fetchTenantEnabledModuleKeys(tenantId),
+        ["tenant-enabled-modules", tenantId],
+        { revalidate: CACHE_REVALIDATE, tags: [tenantContextTag(tenantId)] },
+      )(),
     () => fetchTenantEnabledModuleKeys(tenantId),
-    ["tenant-enabled-modules", tenantId],
-    { revalidate: CACHE_REVALIDATE, tags: [tenantContextTag(tenantId)] },
-  )();
+  );
 }
 
 export async function getTenantEnabledModules(
@@ -195,11 +226,15 @@ async function fetchTenantFeatureFlagKeys(tenantId: string): Promise<string[]> {
 }
 
 function getCachedTenantFeatureFlagKeys(tenantId: string): Promise<string[]> {
-  return unstable_cache(
+  return withDataCacheFallback(
+    () =>
+      unstable_cache(
+        () => fetchTenantFeatureFlagKeys(tenantId),
+        ["tenant-feature-flags", tenantId],
+        { revalidate: CACHE_REVALIDATE, tags: [tenantContextTag(tenantId)] },
+      )(),
     () => fetchTenantFeatureFlagKeys(tenantId),
-    ["tenant-feature-flags", tenantId],
-    { revalidate: CACHE_REVALIDATE, tags: [tenantContextTag(tenantId)] },
-  )();
+  );
 }
 
 export async function getTenantFeatureFlags(tenantId: string): Promise<Set<string>> {
