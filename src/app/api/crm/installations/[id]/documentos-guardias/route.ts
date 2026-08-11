@@ -1,26 +1,23 @@
 /**
  * GET /api/crm/installations/[id]/documentos-guardias
- *
- * Documentos de guardias asignados a la instalación.
- * Query: OpsAsignacionGuardia (installationId, isActive) → guardias → OpsDocumentoPersona.
- * Agrupado por guardia (nombre + foto si tiene).
+ * Dossier de cumplimiento: docs de la dotación actual.
+ * Permisos: Personas (guardias_documents) + ver instalaciones.
  */
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { requireCrmView } from "@/lib/api-auth-crm";
 import { getPermissionsFromAuth } from "@/lib/permissions-server";
-import { canViewInstallations } from "@/lib/permissions";
-import { getPostulacionDocumentTypes } from "@/lib/postulacion-documentos";
-import { buildDocLabelMap } from "@/lib/personas";
-import { requireTenantModule } from '@/lib/require-module';
+import { canView, canViewInstallations } from "@/lib/permissions";
+import { requireTenantModule } from "@/lib/require-module";
+import { buildInstallationDossier } from "@/lib/docs/dossier-instalacion";
+import { ensureOpsCapability } from "@/lib/ops";
 
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const modCheck = await requireTenantModule('crm');
+    const modCheck = await requireTenantModule("crm");
     if (!modCheck.authorized) return modCheck.response;
 
     const ctx = await requireAuth();
@@ -35,63 +32,23 @@ export async function GET(
         { status: 403 }
       );
     }
+    // Dossier: datos laborales → permisos Personas / docs de guardia
+    const docsForbidden = await ensureOpsCapability(ctx, "guardias_documents");
+    if (docsForbidden && !canView(perms, "ops", "guardias")) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Sin permisos de Personas para ver documentos de trabajadores",
+        },
+        { status: 403 }
+      );
+    }
 
     const { id: installationId } = await params;
-
-    const postulacionDocs = await getPostulacionDocumentTypes(ctx.tenantId);
-    const docLabels = buildDocLabelMap(postulacionDocs);
-
-    const asignaciones = await prisma.opsAsignacionGuardia.findMany({
-      where: {
-        tenantId: ctx.tenantId,
-        installationId,
-        isActive: true,
-      },
-      select: {
-        guardiaId: true,
-        guardia: {
-          select: {
-            id: true,
-            faceIdPhotoUrl: true,
-            persona: {
-              select: { firstName: true, lastName: true },
-            },
-          },
-        },
-      },
-      distinct: ["guardiaId"],
-    });
-
-    const guardiaIds = asignaciones.map((a) => a.guardiaId);
-
-    const documentos = await prisma.opsDocumentoPersona.findMany({
-      where: {
-        tenantId: ctx.tenantId,
-        guardiaId: { in: guardiaIds },
-      },
-      orderBy: [{ guardiaId: "asc" }, { type: "asc" }],
-    });
-
-    const byGuardia = asignaciones.map((a) => {
-      const docs = documentos.filter((d) => d.guardiaId === a.guardiaId);
-      const nombre =
-        [a.guardia.persona.lastName, a.guardia.persona.firstName]
-          .filter(Boolean)
-          .join(" ") || "Sin nombre";
-      return {
-        guardiaId: a.guardiaId,
-        nombre,
-        fotoUrl: a.guardia.faceIdPhotoUrl ?? null,
-        documentos: docs.map((d) => ({
-          id: d.id,
-          type: d.type,
-          status: d.status,
-          fileUrl: d.fileUrl,
-          issuedAt: d.issuedAt?.toISOString().slice(0, 10) ?? null,
-          expiresAt: d.expiresAt?.toISOString().slice(0, 10) ?? null,
-        })),
-      };
-    });
+    const { byGuardia, docLabels } = await buildInstallationDossier(
+      ctx.tenantId,
+      installationId
+    );
 
     return NextResponse.json({ success: true, data: byGuardia, docLabels });
   } catch (error) {
