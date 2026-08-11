@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { ConfigPageLayout } from "@/components/configuracion/ConfigPageLayout";
 import { GlobalDocumentsClient } from "@/components/opai/GlobalDocumentsClient";
+import { DocsMigrationStatusCard } from "@/components/docs/DocsMigrationStatusCard";
 import { FileText } from "lucide-react";
 import { resolvePermissions } from "@/lib/permissions-server";
 import { canView } from "@/lib/permissions";
@@ -28,7 +29,10 @@ export default async function OperationalDocumentsPage() {
       description="Tipos de documentos operativos que se controlan a nivel empresa (Global), por instalación o para guardias."
       icon={<FileText className="h-[18px] w-[18px]" />}
     >
-      <GlobalDocumentsClient />
+      <div className="space-y-6">
+        <DocsMigrationStatusCard />
+        <GlobalDocumentsClient />
+      </div>
     </ConfigPageLayout>
   );
 }

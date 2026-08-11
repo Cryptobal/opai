@@ -51,6 +51,7 @@ type GuardiaDocument = {
   createdAt: string;
   folderId?: string | null;
   portalVisible?: boolean;
+  needsAttention?: boolean;
   folder?: { id: string; name: string; portalVisible: boolean } | null;
 };
 
@@ -120,6 +121,7 @@ export default function DocumentosSection({
   const [expiryDraftByDocId, setExpiryDraftByDocId] = useState<Record<string, string>>({});
   const [dragOverCode, setDragOverCode] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [attentionOnly, setAttentionOnly] = useState(false);
 
   // Nuevo: formulario para subir tipo arbitrario (fuera del checklist)
   const [extraUploadType, setExtraUploadType] = useState<string>(DOCUMENT_TYPES[0]);
@@ -253,10 +255,20 @@ export default function DocumentosSection({
     return slots;
   }, [operationalSlots, guardiaDocConfig, label]);
 
+  const attentionCount = useMemo(
+    () => documents.filter((d) => d.needsAttention).length,
+    [documents]
+  );
+
+  const visibleDocuments = useMemo(
+    () => (attentionOnly ? documents.filter((d) => d.needsAttention) : documents),
+    [documents, attentionOnly]
+  );
+
   const expiringDocs = useMemo(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    return documents.filter((doc) => {
+    return visibleDocuments.filter((doc) => {
       if (!doc.expiresAt || !hasExpirationByType.get(doc.type)) return false;
       const cfg = guardiaDocConfig.find((c) => c.code === doc.type);
       const daysBefore = cfg?.alertDaysBefore ?? 30;
@@ -265,7 +277,7 @@ export default function DocumentosSection({
       const exp = new Date(doc.expiresAt);
       return exp <= limit;
     });
-  }, [documents, guardiaDocConfig, hasExpirationByType]);
+  }, [visibleDocuments, guardiaDocConfig, hasExpirationByType]);
 
   // ── Handlers ──
 
@@ -567,7 +579,23 @@ export default function DocumentosSection({
       {/* ── Unified document checklist ── */}
       <div className="rounded-xl border border-border/60 bg-card/40 divide-y divide-border/40">
         <div className="px-4 py-3">
-          <p className="text-sm font-semibold text-foreground">Documentos del guardia</p>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-sm font-semibold text-foreground">Documentos del guardia</p>
+            {attentionCount > 0 && (
+              <button
+                type="button"
+                onClick={() => setAttentionOnly((v) => !v)}
+                className={cn(
+                  "rounded-md px-2.5 py-1.5 text-[12px] min-h-10",
+                  attentionOnly
+                    ? "bg-status-warn-soft text-status-warn-fg border border-status-warn-border"
+                    : "text-ds-text-3 hover:bg-ds-surface-2"
+                )}
+              >
+                Requiere atención ({attentionCount})
+              </button>
+            )}
+          </div>
           <p className="text-[11px] text-muted-foreground mt-0.5">
             Checklist unificado. Arrastra un archivo sobre cualquier fila para cargarlo.
           </p>
@@ -853,7 +881,7 @@ export default function DocumentosSection({
         for (const slot of unifiedSlots) {
           for (const t of slot.personaTypes) claimedTypes.add(t);
         }
-        const extraDocs = documents.filter((d) => !claimedTypes.has(d.type));
+        const extraDocs = visibleDocuments.filter((d) => !claimedTypes.has(d.type));
         if (extraDocs.length === 0 && folders.length === 0) return null;
 
         const docsByFolder = extraDocs.reduce((acc, d) => {
