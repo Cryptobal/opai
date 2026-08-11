@@ -12,7 +12,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Plus, Loader2 } from "lucide-react";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
+import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { CrmSectionCreateButton } from "./CrmSectionCreateButton";
 
@@ -24,6 +25,8 @@ interface CreateDealModalProps {
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
 }
+
+type InstallationOption = { id: string; name: string; city?: string | null };
 
 export function CreateDealModal({
   accountId,
@@ -38,15 +41,58 @@ export function CreateDealModal({
   const open = isControlled ? controlledOpen : internalOpen;
   const setOpen = isControlled ? controlledOnOpenChange : setInternalOpen;
   const [title, setTitle] = useState("");
+  const [installationId, setInstallationId] = useState("");
+  const [installations, setInstallations] = useState<InstallationOption[]>([]);
+  const [loadingLists, setLoadingLists] = useState(false);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (open) setTitle("");
+    if (open) {
+      setTitle("");
+      setInstallationId("");
+    }
   }, [open]);
+
+  useEffect(() => {
+    if (!open || !accountId) {
+      setInstallations([]);
+      return;
+    }
+    let cancelled = false;
+    setLoadingLists(true);
+    fetch(`/api/crm/installations?accountId=${accountId}`)
+      .then((r) => (r.ok ? r.json() : { success: false }))
+      .then((payload) => {
+        if (cancelled) return;
+        if (payload?.success && Array.isArray(payload.data)) {
+          setInstallations(
+            payload.data
+              .map((row: Record<string, unknown>) => ({
+                id: String(row.id ?? ""),
+                name: String(row.name ?? ""),
+                city: typeof row.city === "string" ? row.city : null,
+              }))
+              .filter((row: InstallationOption) => row.id),
+          );
+        } else {
+          setInstallations([]);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setInstallations([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingLists(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, accountId]);
 
   const createDeal = async () => {
     setLoading(true);
     try {
+      const selectedInstallation = installations.find((i) => i.id === installationId);
       const res = await fetch("/api/crm/deals", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -55,6 +101,9 @@ export function CreateDealModal({
           title: title.trim() || `Negocio ${accountName}`,
           amount: 0,
           probability: 0,
+          ...(selectedInstallation
+            ? { installationName: selectedInstallation.name }
+            : {}),
         }),
       });
       const payload = await res.json();
@@ -62,7 +111,15 @@ export function CreateDealModal({
       setOpen(false);
       toast.success("Negocio creado");
       onCreated?.(payload.data.id);
-      router.push(`/crm/deals/${payload.data.id}`);
+      if (installationId) {
+        const params = new URLSearchParams({
+          createQuote: "1",
+          installationId,
+        });
+        router.push(`/crm/deals/${payload.data.id}?${params.toString()}`);
+      } else {
+        router.push(`/crm/deals/${payload.data.id}`);
+      }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "No se pudo crear el negocio.");
     } finally {
@@ -84,7 +141,7 @@ export function CreateDealModal({
         <div className="space-y-3">
           <div className="space-y-1.5">
             <Label className="text-sm">Cliente</Label>
-            <Input value={accountName} readOnly disabled className="h-9 bg-muted text-sm" />
+            <Input value={accountName} readOnly disabled className="h-10 sm:h-9 bg-muted text-sm" />
           </div>
           <div className="space-y-1.5">
             <Label className="text-sm">Título del negocio</Label>
@@ -92,10 +149,29 @@ export function CreateDealModal({
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder={`Ej: Obra ${accountName}`}
-              className="h-9 bg-background text-sm"
+              className="h-10 sm:h-9 bg-background text-sm"
             />
           </div>
-          <Button onClick={createDeal} disabled={loading} className="w-full">
+          <div className="space-y-1.5">
+            <Label className="text-sm">Instalación</Label>
+            <SearchableSelect
+              value={installationId}
+              options={installations.map((i) => ({
+                id: i.id,
+                label: i.name,
+                description: i.city || undefined,
+              }))}
+              placeholder={loadingLists ? "Cargando…" : "Seleccionar instalación existente…"}
+              emptyText="Sin instalaciones — créala desde la ficha del negocio"
+              disabled={loadingLists}
+              dropdownInPortal
+              onChange={setInstallationId}
+            />
+            <p className="text-[12px] text-muted-foreground">
+              Opcional. Si eliges una, al crear se abre la cotización lista para vincularla.
+            </p>
+          </div>
+          <Button onClick={createDeal} disabled={loading} className="w-full h-10 sm:h-9">
             {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Crear
           </Button>

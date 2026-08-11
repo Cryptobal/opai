@@ -638,9 +638,6 @@ export function CrmContactDetailClient({
       onAdd: contact.account?.id ? () => setDealCreateOpen(true) : undefined,
       content: (
         <div className="space-y-3">
-          {contact.account?.id && (
-            <CreateDealModal accountId={contact.account.id} accountName={contact.account.name} open={dealCreateOpen} onOpenChange={setDealCreateOpen} />
-          )}
           {contactDeals.length === 0 ? (
             <EmptyState icon={<DealsIcon className="h-8 w-8" />} title="Sin negocios" description="No hay negocios vinculados a la cuenta de este contacto." compact />
           ) : (
@@ -679,9 +676,6 @@ export function CrmContactDetailClient({
       onAdd: contact.account?.id ? () => setQuoteCreateOpen(true) : undefined,
       content: (
         <div className="space-y-3">
-          {contact.account?.id && (
-            <CreateQuoteModal defaultClientName={contact.account.name} accountId={contact.account.id} open={quoteCreateOpen} onOpenChange={setQuoteCreateOpen} />
-          )}
           {quotes.length === 0 ? (
             <EmptyState icon={<DollarSign className="h-8 w-8" />} title="Sin cotizaciones" description="No hay cotizaciones vinculadas a la cuenta de este contacto." compact />
           ) : (
@@ -910,6 +904,23 @@ export function CrmContactDetailClient({
 
   return (
     <>
+      {contact.account?.id && (
+        <>
+          <CreateDealModal
+            accountId={contact.account.id}
+            accountName={contact.account.name}
+            open={dealCreateOpen}
+            onOpenChange={setDealCreateOpen}
+          />
+          <CreateQuoteModal
+            defaultClientName={contact.account.name}
+            accountId={contact.account.id}
+            contactId={contact.id}
+            open={quoteCreateOpen}
+            onOpenChange={setQuoteCreateOpen}
+          />
+        </>
+      )}
       <EntityDetailLayout
         breadcrumb={["CRM", "Contactos", fullName]}
         breadcrumbHrefs={["/crm", "/crm/contacts"]}

@@ -1225,7 +1225,6 @@ export function CrmAccountDetailClient({
       onAdd: () => setDealCreateOpen(true),
       content: (
         <div className="space-y-3">
-          <CreateDealModal accountId={account.id} accountName={account.name} open={dealCreateOpen} onOpenChange={setDealCreateOpen} />
           {account.deals.length === 0 ? (
             <EmptyState icon={<DealsIcon className="h-8 w-8" />} title="Sin negocios" description="No hay negocios vinculados a esta cuenta." compact />
           ) : (
@@ -1264,7 +1263,6 @@ export function CrmAccountDetailClient({
       onAdd: () => setQuoteCreateOpen(true),
       content: (
         <div className="space-y-3">
-          <CreateQuoteModal defaultClientName={account.name} accountId={account.id} open={quoteCreateOpen} onOpenChange={setQuoteCreateOpen} />
           {quotes.length === 0 ? (
             <EmptyState icon={<QuotesIcon className="h-8 w-8" />} title="Sin cotizaciones" description="No hay cotizaciones vinculadas a esta cuenta." compact />
           ) : (
@@ -2496,6 +2494,19 @@ export function CrmAccountDetailClient({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <CreateDealModal
+        accountId={account.id}
+        accountName={account.name}
+        open={dealCreateOpen}
+        onOpenChange={setDealCreateOpen}
+      />
+      <CreateQuoteModal
+        defaultClientName={account.name}
+        accountId={account.id}
+        open={quoteCreateOpen}
+        onOpenChange={setQuoteCreateOpen}
+      />
 
       {/* ── New Contact Modal ── */}
       <Dialog open={newContactOpen} onOpenChange={setNewContactOpen}>
