@@ -1,6 +1,6 @@
 "use client";
 
-import { type ReactNode, useEffect, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight, PanelLeftOpen, Plus, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -47,6 +47,15 @@ export function AssociatedRecordsPanel({
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
+      return next;
+    });
+  };
+
+  const expand = (id: string) => {
+    setExpanded((prev) => {
+      if (prev.has(id)) return prev;
+      const next = new Set(prev);
+      next.add(id);
       return next;
     });
   };
@@ -110,6 +119,7 @@ export function AssociatedRecordsPanel({
                   section={section}
                   isOpen={expanded.has(section.id)}
                   onToggle={() => toggle(section.id)}
+                  onExpand={() => expand(section.id)}
                 />
               ))}
             </div>
@@ -129,6 +139,7 @@ export function AssociatedRecordsPanel({
               section={section}
               isOpen={expanded.has(section.id)}
               onToggle={() => toggle(section.id)}
+              onExpand={() => expand(section.id)}
             />
           ))}
         </div>
@@ -141,13 +152,51 @@ function AccordionItem({
   section,
   isOpen,
   onToggle,
+  onExpand,
 }: {
   section: AssociatedSection;
   isOpen: boolean;
   onToggle: () => void;
+  onExpand: () => void;
 }) {
   const Icon = section.icon;
-  const hasAdd = section.onAdd || section.addHref;
+  const hasAdd = Boolean(section.onAdd || section.addHref);
+  // Modales / createRef viven dentro de `content`. Si desmontamos al colapsar,
+  // el "+" no abre nada (o hay que hacer click 2+ veces). Montamos al menos
+  // una vez y mantenemos el contenido oculto con CSS.
+  const [mounted, setMounted] = useState(isOpen || Boolean(section.defaultOpen));
+  const pendingAddRef = useRef(false);
+  const onAddRef = useRef(section.onAdd);
+  onAddRef.current = section.onAdd;
+
+  useEffect(() => {
+    if (isOpen) setMounted(true);
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen || !mounted || !pendingAddRef.current) return;
+    pendingAddRef.current = false;
+    // Hijos (p.ej. createRef de instalaciones) registran efectos antes que el padre.
+    const id = window.requestAnimationFrame(() => {
+      onAddRef.current?.();
+    });
+    return () => window.cancelAnimationFrame(id);
+  }, [isOpen, mounted]);
+
+  const handleAddClick = (event: React.MouseEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (!section.onAdd) return;
+
+    if (isOpen && mounted) {
+      section.onAdd();
+      return;
+    }
+
+    pendingAddRef.current = true;
+    setMounted(true);
+    onExpand();
+  };
 
   return (
     <div className={cn(
@@ -178,7 +227,8 @@ function AccordionItem({
           section.addHref ? (
             <Link
               href={section.addHref}
-              className="shrink-0 inline-flex h-6 w-6 items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors mr-1"
+              onClick={(event) => event.stopPropagation()}
+              className="shrink-0 inline-flex h-10 w-10 sm:h-8 sm:w-8 items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors mr-0.5"
               aria-label={`Agregar ${section.label}`}
             >
               <Plus className="h-3.5 w-3.5" />
@@ -186,8 +236,8 @@ function AccordionItem({
           ) : (
             <button
               type="button"
-              onClick={section.onAdd}
-              className="shrink-0 inline-flex h-6 w-6 items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors mr-1"
+              onClick={handleAddClick}
+              className="shrink-0 inline-flex h-10 w-10 sm:h-8 sm:w-8 items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors mr-0.5"
               aria-label={`Agregar ${section.label}`}
             >
               <Plus className="h-3.5 w-3.5" />
@@ -195,8 +245,14 @@ function AccordionItem({
           )
         )}
       </div>
-      {isOpen && (
-        <div className="px-2.5 pb-3 pt-1 animate-in slide-in-from-top-1 duration-200 max-h-[60vh] overflow-y-auto border-t border-border/30">
+      {mounted && (
+        <div
+          className={cn(
+            "px-2.5 pb-3 pt-1 animate-in slide-in-from-top-1 duration-200 max-h-[60vh] overflow-y-auto border-t border-border/30",
+            !isOpen && "hidden"
+          )}
+          aria-hidden={!isOpen}
+        >
           {section.content}
         </div>
       )}

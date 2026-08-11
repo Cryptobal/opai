@@ -568,6 +568,9 @@ export function CrmDealDetailClient({
   // ── Quote linking & creation state ──
   const [quoteDialogOpen, setQuoteDialogOpen] = useState(false);
   const [quoteCreateOpen, setQuoteCreateOpen] = useState(false);
+  const [quoteCreateInstallationId, setQuoteCreateInstallationId] = useState(
+    () => (dealInstallation && dealInstallation.source !== "none" ? dealInstallation.id : ""),
+  );
   const [selectedQuoteId, setSelectedQuoteId] = useState("");
   const [linkedQuotes, setLinkedQuotes] = useState<DealQuote[]>(deal.quotes || []);
   const [checklistOpenCount, setChecklistOpenCount] = useState(0);
@@ -589,6 +592,21 @@ export function CrmDealDetailClient({
   useEffect(() => {
     setLinkedQuotes(deal.quotes || []);
   }, [deal.quotes]);
+
+  // Tras crear un negocio con instalación elegida: abrir modal de cotización preseleccionada.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("createQuote") !== "1") return;
+    const installationFromQuery = params.get("installationId")?.trim() || "";
+    if (installationFromQuery) setQuoteCreateInstallationId(installationFromQuery);
+    setQuoteCreateOpen(true);
+    params.delete("createQuote");
+    params.delete("installationId");
+    const next = params.toString();
+    const cleanUrl = `${window.location.pathname}${next ? `?${next}` : ""}`;
+    window.history.replaceState({}, "", cleanUrl);
+  }, []);
 
   useEffect(() => {
     setActiveQuotationId(deal.activeQuotationId ?? null);
@@ -2043,7 +2061,12 @@ export function CrmDealDetailClient({
       label: "Cotizaciones",
       icon: QuotesIcon,
       count: linkedQuotes.length,
-      onAdd: () => setQuoteCreateOpen(true),
+      onAdd: () => {
+        setQuoteCreateInstallationId(
+          dealInstallation && dealInstallation.source !== "none" ? dealInstallation.id : "",
+        );
+        setQuoteCreateOpen(true);
+      },
       content: (
         <div className="space-y-3">
           <div className="flex flex-wrap items-center gap-1.5">
@@ -2088,20 +2111,6 @@ export function CrmDealDetailClient({
               ))}
             </div>
           ) : null}
-          <CreateQuoteModal
-            defaultClientName={deal.account?.name ?? undefined}
-            defaultDealName={deal.title}
-            accountId={deal.account?.id}
-            dealId={deal.id}
-            open={quoteCreateOpen}
-            onOpenChange={setQuoteCreateOpen}
-            onCreated={(_quoteId, dealQuote) => {
-              if (dealQuote) {
-                setLinkedQuotes((prev) => [...prev, dealQuote]);
-              }
-              router.refresh();
-            }}
-          />
           <Dialog open={quoteDialogOpen} onOpenChange={setQuoteDialogOpen}>
             <DialogContent className="sm:max-w-lg">
               <DialogHeader><DialogTitle>Vincular cotización</DialogTitle><DialogDescription>Selecciona una cotización desde CPQ.</DialogDescription></DialogHeader>
@@ -2770,6 +2779,22 @@ export function CrmDealDetailClient({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <CreateQuoteModal
+        defaultClientName={deal.account?.name ?? undefined}
+        defaultDealName={deal.title}
+        accountId={deal.account?.id}
+        dealId={deal.id}
+        installationId={quoteCreateInstallationId || undefined}
+        open={quoteCreateOpen}
+        onOpenChange={setQuoteCreateOpen}
+        onCreated={(_quoteId, dealQuote) => {
+          if (dealQuote) {
+            setLinkedQuotes((prev) => [...prev, dealQuote]);
+          }
+          router.refresh();
+        }}
+      />
 
       {/* ── New Contact Dialog (opened via panel onAdd) ── */}
       <Dialog open={newContactOpen} onOpenChange={setNewContactOpen}>

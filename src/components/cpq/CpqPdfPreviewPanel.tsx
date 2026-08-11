@@ -96,21 +96,23 @@ export function CpqPdfPreviewPanel({
     <>
       <Card className={cn("overflow-hidden rounded-xl border-border/70 bg-card/85 shadow-sm", className)}>
         <div className="space-y-3 border-b border-border/50 bg-gradient-to-br from-primary/[0.10] via-muted/25 to-background p-3">
-          <div className="flex items-start justify-between gap-3">
+          {/* Título y acciones en columna: en el rail (~340px) el flex horizontal
+              aplastaba el texto a 1 carácter de ancho (se leía hacia abajo). */}
+          <div className="flex flex-col gap-3">
             <div className="flex min-w-0 gap-2.5">
               <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-primary/25 bg-primary/10 text-primary">
                 <FileText className="h-4 w-4" />
               </div>
-              <div className="min-w-0">
+              <div className="min-w-0 flex-1">
                 <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   {title}
                 </p>
-                <p className="mt-0.5 text-sm leading-snug text-foreground/90">
+                <p className="mt-0.5 text-sm leading-snug text-foreground/90 break-words">
                   {description}
                 </p>
               </div>
             </div>
-            <div className="flex shrink-0 items-center gap-1.5">
+            <div className="flex flex-wrap items-center gap-1.5">
               <Button
                 variant="outline"
                 size="sm"

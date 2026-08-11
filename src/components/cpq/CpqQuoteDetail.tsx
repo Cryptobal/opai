@@ -835,7 +835,7 @@ export function CpqQuoteDetail({
     }
     Promise.all([
       fetch(`/api/crm/installations?accountId=${crmContext.accountId}`).then((r) => r.ok ? r.json() : { success: false }),
-      fetch("/api/crm/contacts").then((r) => r.ok ? r.json() : { success: false }),
+      fetch(`/api/crm/contacts?accountId=${crmContext.accountId}`).then((r) => r.ok ? r.json() : { success: false }),
       fetch("/api/crm/deals").then((r) => r.ok ? r.json() : { success: false }),
     ]).then(([instData, contactData, dealData]) => {
       if (instData.success) {
@@ -853,16 +853,27 @@ export function CpqQuoteDetail({
       }
       if (contactData.success) {
         setCrmContacts(
-          contactData.data
-            .filter((c: Record<string, string>) => c.accountId === crmContext.accountId)
-            .map((c: Record<string, string>) => ({ id: c.id, firstName: c.firstName, lastName: c.lastName, email: c.email }))
+          (contactData.data as Array<Record<string, string>>).map((c) => ({
+            id: c.id,
+            firstName: c.firstName,
+            lastName: c.lastName,
+            email: c.email,
+          }))
         );
       }
       if (dealData.success) {
         setCrmDeals(
-          dealData.data
-            .filter((d: Record<string, unknown>) => d.accountId === crmContext.accountId)
-            .map((d: Record<string, unknown>) => {
+          (dealData.data as Array<Record<string, unknown>>)
+            .filter((d) => {
+              const dealAccountId =
+                typeof d.accountId === "string"
+                  ? d.accountId
+                  : d.account && typeof d.account === "object"
+                    ? String((d.account as Record<string, unknown>).id ?? "")
+                    : "";
+              return dealAccountId === crmContext.accountId;
+            })
+            .map((d) => {
               const stage =
                 d.stage && typeof d.stage === "object"
                   ? (d.stage as Record<string, unknown>)

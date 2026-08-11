@@ -36,6 +36,10 @@ describe("CpqPdfPreviewPanel", () => {
       />
     );
 
+    expect(screen.getByText("PDF y documentos")).toBeInTheDocument();
+    expect(
+      screen.getByText("Genera la propuesta y adjunta respaldos para enviarla."),
+    ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Cotización" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Propuesta técnica" })).toBeInTheDocument();
     expect(screen.getByText("Formato de cotización")).toBeInTheDocument();

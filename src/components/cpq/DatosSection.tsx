@@ -18,7 +18,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import Link from "next/link";
 import type { CpqQuoteStatus } from "@/types/cpq";
-import { Plus, MapPin, ExternalLink, Loader2, ChevronDown } from "lucide-react";
+import { Plus, MapPin, ExternalLink, Loader2 } from "lucide-react";
 
 type CrmInstallationOption = {
   id: string;
@@ -357,9 +357,7 @@ export function DatosSection({
       <div className="space-y-2">
         {/* ── Móvil (<sm): filas compactas etiqueta | valor ── */}
         <div className="sm:hidden">
-          {mobileCrmRows.map((row) => {
-            const hasValue = Boolean(row.value);
-            return (
+          {mobileCrmRows.map((row) => (
               <div key={row.key} className={mobileRowClass}>
                 <span className={mobileLabelClass}>{row.label}</span>
                 <div className="flex min-w-0 flex-1 items-center justify-end gap-0.5">
@@ -369,27 +367,23 @@ export function DatosSection({
                       options={row.options}
                       placeholder="Elegir…"
                       disabled={row.disabled}
+                      dropdownInPortal
                       triggerClassName={mobileSelectTriggerClass}
                       onChange={row.onChange}
                     />
                   </div>
-                  {hasValue ? (
-                    <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground pointer-events-none" aria-hidden />
-                  ) : (
-                    <button
-                      type="button"
-                      disabled={row.createDisabled}
-                      onClick={row.onCreate}
-                      className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-primary disabled:opacity-40"
-                      aria-label={`Crear ${row.label}`}
-                    >
-                      <Plus className="h-4 w-4" />
-                    </button>
-                  )}
+                  <button
+                    type="button"
+                    disabled={row.createDisabled}
+                    onClick={row.onCreate}
+                    className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-primary disabled:opacity-40"
+                    aria-label={`Crear ${row.label}`}
+                  >
+                    <Plus className="h-4 w-4" />
+                  </button>
                 </div>
               </div>
-            );
-          })}
+          ))}
           <div className={mobileRowClass}>
             <span className={mobileLabelClass}>Nombre</span>
             <Input
@@ -456,6 +450,7 @@ export function DatosSection({
                 options={accountOptions}
                 placeholder="Seleccionar..."
                 disabled={isLocked}
+                dropdownInPortal
                 triggerClassName={searchableTriggerClassName}
                 onChange={onAccountChange}
               />
@@ -481,6 +476,7 @@ export function DatosSection({
                 options={installationOptions}
                 placeholder="Seleccionar..."
                 disabled={!crmContext.accountId || isLocked}
+                dropdownInPortal
                 triggerClassName={searchableTriggerClassName}
                 onChange={(val) => saveCrmContext({ installationId: val })}
               />
@@ -506,6 +502,7 @@ export function DatosSection({
                 options={contactOptions}
                 placeholder="Seleccionar..."
                 disabled={!crmContext.accountId || isLocked}
+                dropdownInPortal
                 triggerClassName={searchableTriggerClassName}
                 onChange={(val) => saveCrmContext({ contactId: val })}
               />
@@ -531,6 +528,7 @@ export function DatosSection({
                 options={dealOptions}
                 placeholder="Seleccionar..."
                 disabled={!crmContext.accountId || isLocked}
+                dropdownInPortal
                 triggerClassName={searchableTriggerClassName}
                 onChange={(val) => saveCrmContext({ dealId: val })}
               />

@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { SearchableSelect } from "@/components/ui/SearchableSelect";
 import { Plus } from "lucide-react";
 import { CrmSectionCreateButton } from "@/components/crm/CrmSectionCreateButton";
 import { toast } from "sonner";
@@ -27,12 +28,28 @@ interface CreateQuoteModalProps {
   dealId?: string;
   /** Instalación para vincular la cotización (cuando se crea desde vista de instalación). */
   installationId?: string;
+  /** Contacto para vincular la cotización. */
+  contactId?: string;
   /** Controlled mode: when provided, use these instead of internal state (no trigger rendered) */
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
 }
 
-export function CreateQuoteModal({ onCreated, variant = "modal", defaultClientName, defaultDealName, accountId, dealId, installationId, open: controlledOpen, onOpenChange: controlledOnOpenChange }: CreateQuoteModalProps) {
+type InstallationOption = { id: string; name: string; city?: string | null };
+type ContactOption = { id: string; firstName: string; lastName: string; email?: string | null };
+
+export function CreateQuoteModal({
+  onCreated,
+  variant = "modal",
+  defaultClientName,
+  defaultDealName,
+  accountId,
+  dealId,
+  installationId,
+  contactId,
+  open: controlledOpen,
+  onOpenChange: controlledOnOpenChange,
+}: CreateQuoteModalProps) {
   const router = useRouter();
   const [internalOpen, setInternalOpen] = useState(false);
   const isControlled = controlledOpen !== undefined && controlledOnOpenChange !== undefined;
@@ -43,9 +60,15 @@ export function CreateQuoteModal({ onCreated, variant = "modal", defaultClientNa
   const [dealName, setDealName] = useState("");
   const [validUntil, setValidUntil] = useState("");
   const [notes, setNotes] = useState("");
+  const [selectedInstallationId, setSelectedInstallationId] = useState(installationId ?? "");
+  const [selectedContactId, setSelectedContactId] = useState(contactId ?? "");
+  const [installations, setInstallations] = useState<InstallationOption[]>([]);
+  const [contacts, setContacts] = useState<ContactOption[]>([]);
+  const [loadingLists, setLoadingLists] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const hasContext = Boolean(defaultClientName);
+  const canPickCrmLinks = Boolean(accountId);
 
   function getDefaultValidUntil(): string {
     const d = new Date();
@@ -58,10 +81,73 @@ export function CreateQuoteModal({ onCreated, variant = "modal", defaultClientNa
       if (defaultClientName) setClientName(defaultClientName);
       setDealName(defaultDealName ?? "");
       setValidUntil(getDefaultValidUntil());
+      setSelectedInstallationId(installationId ?? "");
+      setSelectedContactId(contactId ?? "");
     }
-  }, [open, defaultClientName, defaultDealName]);
+  }, [open, defaultClientName, defaultDealName, installationId, contactId]);
 
-  const createQuote = async (payload: { name?: string; clientName?: string; validUntil?: string; notes?: string; accountId?: string; dealId?: string; installationId?: string }) => {
+  useEffect(() => {
+    if (!open || !accountId) {
+      setInstallations([]);
+      setContacts([]);
+      return;
+    }
+    let cancelled = false;
+    setLoadingLists(true);
+    Promise.all([
+      fetch(`/api/crm/installations?accountId=${accountId}`).then((r) => (r.ok ? r.json() : { success: false })),
+      fetch(`/api/crm/contacts?accountId=${accountId}`).then((r) => (r.ok ? r.json() : { success: false })),
+    ])
+      .then(([instData, contactData]) => {
+        if (cancelled) return;
+        if (instData?.success && Array.isArray(instData.data)) {
+          setInstallations(
+            instData.data.map((row: Record<string, unknown>) => ({
+              id: String(row.id ?? ""),
+              name: String(row.name ?? ""),
+              city: typeof row.city === "string" ? row.city : null,
+            })).filter((row: InstallationOption) => row.id),
+          );
+        } else {
+          setInstallations([]);
+        }
+        if (contactData?.success && Array.isArray(contactData.data)) {
+          setContacts(
+            contactData.data.map((row: Record<string, unknown>) => ({
+              id: String(row.id ?? ""),
+              firstName: String(row.firstName ?? ""),
+              lastName: String(row.lastName ?? ""),
+              email: typeof row.email === "string" ? row.email : null,
+            })).filter((row: ContactOption) => row.id),
+          );
+        } else {
+          setContacts([]);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setInstallations([]);
+          setContacts([]);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingLists(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, accountId]);
+
+  const createQuote = async (payload: {
+    name?: string;
+    clientName?: string;
+    validUntil?: string;
+    notes?: string;
+    accountId?: string;
+    dealId?: string;
+    installationId?: string;
+    contactId?: string;
+  }) => {
     setLoading(true);
     try {
       const res = await fetch("/api/cpq/quotes", {
@@ -86,13 +172,15 @@ export function CreateQuoteModal({ onCreated, variant = "modal", defaultClientNa
       setDealName("");
       setValidUntil("");
       setNotes("");
+      setSelectedInstallationId("");
+      setSelectedContactId("");
       onCreated?.(quoteId, dealQuote);
       if (quoteId && !dealId) {
         // Redirigir a la cotización creada (solo si no viene desde un negocio)
         router.push(`/crm/cotizaciones/${quoteId}`);
       } else if (quoteId && dealId) {
-        // Cuando se crea desde un negocio, refrescar la página del negocio
-        router.refresh();
+        // Cuando se crea desde un negocio, ir a la cotización para completar instalación/contacto
+        router.push(`/crm/cotizaciones/${quoteId}`);
         toast.success("Cotización creada y vinculada al negocio.");
       }
     } catch (err) {
@@ -108,7 +196,7 @@ export function CreateQuoteModal({ onCreated, variant = "modal", defaultClientNa
     e.preventDefault();
     const finalClient = hasContext ? defaultClientName : clientName;
     const finalNotes = hasContext ? (dealName.trim() || notes) : notes;
-    if (hasContext && !dealName.trim()) {
+    if (hasContext && !dealName.trim() && !dealId) {
       toast.error("El nombre del negocio es obligatorio.");
       return;
     }
@@ -116,7 +204,16 @@ export function CreateQuoteModal({ onCreated, variant = "modal", defaultClientNa
       toast.error("El cliente es obligatorio.");
       return;
     }
-    await createQuote({ name: quoteName.trim() || undefined, clientName: finalClient, validUntil, notes: finalNotes, accountId, dealId, installationId });
+    await createQuote({
+      name: quoteName.trim() || undefined,
+      clientName: finalClient,
+      validUntil,
+      notes: finalNotes,
+      accountId,
+      dealId,
+      installationId: selectedInstallationId || installationId,
+      contactId: selectedContactId || contactId,
+    });
   };
 
   if (variant === "quick") {
@@ -151,7 +248,7 @@ export function CreateQuoteModal({ onCreated, variant = "modal", defaultClientNa
               value={quoteName}
               onChange={(e) => setQuoteName(e.target.value)}
               placeholder="Ej: Propuesta guardias planta norte"
-              className="h-9 bg-background text-sm"
+              className="h-10 sm:h-9 bg-background text-sm"
             />
             <p className="text-sm text-muted-foreground">Opcional — para identificar fácilmente la cotización</p>
           </div>
@@ -162,7 +259,7 @@ export function CreateQuoteModal({ onCreated, variant = "modal", defaultClientNa
                 value={defaultClientName}
                 readOnly
                 disabled
-                className="h-9 bg-muted text-sm"
+                className="h-10 sm:h-9 bg-muted text-sm"
               />
             </div>
           ) : (
@@ -172,20 +269,56 @@ export function CreateQuoteModal({ onCreated, variant = "modal", defaultClientNa
                 value={clientName}
                 onChange={(e) => setClientName(e.target.value)}
                 placeholder="Nombre cliente"
-                className="h-9 bg-background text-sm"
+                className="h-10 sm:h-9 bg-background text-sm"
               />
             </div>
           )}
-          {hasContext && (
+          {hasContext && !dealId && (
             <div className="space-y-1.5">
               <Label className="text-sm">Nombre del negocio *</Label>
               <Input
                 value={dealName}
                 onChange={(e) => setDealName(e.target.value)}
                 placeholder="Ej: Obra Kennedy con Recreo"
-                className="h-9 bg-background text-sm"
+                className="h-10 sm:h-9 bg-background text-sm"
               />
             </div>
+          )}
+          {canPickCrmLinks && (
+            <>
+              <div className="space-y-1.5">
+                <Label className="text-sm">Instalación</Label>
+                <SearchableSelect
+                  value={selectedInstallationId}
+                  options={installations.map((i) => ({
+                    id: i.id,
+                    label: i.name,
+                    description: i.city || undefined,
+                  }))}
+                  placeholder={loadingLists ? "Cargando…" : "Seleccionar instalación…"}
+                  emptyText="Sin instalaciones en esta cuenta"
+                  disabled={loadingLists}
+                  dropdownInPortal
+                  onChange={setSelectedInstallationId}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-sm">Contacto</Label>
+                <SearchableSelect
+                  value={selectedContactId}
+                  options={contacts.map((c) => ({
+                    id: c.id,
+                    label: `${c.firstName} ${c.lastName}`.trim(),
+                    description: c.email || undefined,
+                  }))}
+                  placeholder={loadingLists ? "Cargando…" : "Seleccionar contacto…"}
+                  emptyText="Sin contactos en esta cuenta"
+                  disabled={loadingLists}
+                  dropdownInPortal
+                  onChange={setSelectedContactId}
+                />
+              </div>
+            </>
           )}
           <div className="space-y-1.5">
             <Label className="text-sm">Válida hasta</Label>
@@ -193,7 +326,7 @@ export function CreateQuoteModal({ onCreated, variant = "modal", defaultClientNa
               type="date"
               value={validUntil}
               onChange={(e) => setValidUntil(e.target.value)}
-              className="h-9 bg-background text-sm"
+              className="h-10 sm:h-9 bg-background text-sm"
             />
           </div>
           {!hasContext && (
@@ -203,11 +336,11 @@ export function CreateQuoteModal({ onCreated, variant = "modal", defaultClientNa
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 placeholder="Observaciones"
-                className="h-9 bg-background text-sm"
+                className="h-10 sm:h-9 bg-background text-sm"
               />
             </div>
           )}
-          <Button type="submit" size="sm" className="w-full bg-status-ok hover:brightness-110" disabled={loading}>
+          <Button type="submit" size="sm" className="w-full h-10 sm:h-9 bg-status-ok hover:brightness-110" disabled={loading}>
             {loading ? "Creando..." : "Crear y continuar"}
           </Button>
         </form>

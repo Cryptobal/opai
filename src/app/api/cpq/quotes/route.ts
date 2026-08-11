@@ -132,6 +132,7 @@ export async function POST(request: NextRequest) {
     const accountId = body?.accountId?.trim() || null;
     const dealId = body?.dealId?.trim() || null;
     const installationId = body?.installationId?.trim() || null;
+    const contactId = body?.contactId?.trim() || null;
 
     if (dealId) {
       const dealExists = await prisma.crmDeal.findFirst({
@@ -141,6 +142,40 @@ export async function POST(request: NextRequest) {
       if (!dealExists) {
         return NextResponse.json(
           { success: false, error: "Negocio no encontrado" },
+          { status: 400 }
+        );
+      }
+    }
+
+    if (installationId) {
+      const installationExists = await prisma.crmInstallation.findFirst({
+        where: {
+          id: installationId,
+          tenantId,
+          ...(accountId ? { accountId } : {}),
+        },
+        select: { id: true },
+      });
+      if (!installationExists) {
+        return NextResponse.json(
+          { success: false, error: "Instalación no encontrada" },
+          { status: 400 }
+        );
+      }
+    }
+
+    if (contactId) {
+      const contactExists = await prisma.crmContact.findFirst({
+        where: {
+          id: contactId,
+          tenantId,
+          ...(accountId ? { accountId } : {}),
+        },
+        select: { id: true },
+      });
+      if (!contactExists) {
+        return NextResponse.json(
+          { success: false, error: "Contacto no encontrado" },
           { status: 400 }
         );
       }
@@ -164,6 +199,7 @@ export async function POST(request: NextRequest) {
           ...(accountId ? { accountId } : {}),
           ...(dealId ? { dealId } : {}),
           ...(installationId ? { installationId } : {}),
+          ...(contactId ? { contactId } : {}),
         },
       });
     });
