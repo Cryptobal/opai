@@ -31,8 +31,23 @@ export async function POST() {
   const tenantId = session.user.tenantId;
   const ws = await prisma.googleDriveWorkspace.findUnique({
     where: { tenantId },
-    select: { id: true, refreshTokenEnc: true, status: true },
+    select: {
+      id: true,
+      refreshTokenEnc: true,
+      status: true,
+      mode: true,
+    },
   });
+
+  if (ws?.mode === "SHARED_DRIVE") {
+    return NextResponse.json(
+      {
+        error:
+          "En modo unidad compartida no se puede desconectar así. Usá «Cambiar unidad» o desactivá el modo unidad compartida desde soporte (DELETE /shared-drive).",
+      },
+      { status: 409 },
+    );
+  }
 
   if (ws?.refreshTokenEnc) {
     await revokeGoogleToken(ws.refreshTokenEnc);

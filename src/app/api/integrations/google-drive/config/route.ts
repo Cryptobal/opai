@@ -8,6 +8,9 @@ import {
 import { getTenantModulesList } from "@/lib/tenant-modules";
 import { DEFAULT_ROOT_NAME } from "@/lib/google-workspace/drive.service";
 import { listDuplicateRoots } from "@/lib/google-workspace/drive-migrate-structure";
+import { getPendingCounts } from "@/lib/google-workspace/drive-pending-counts";
+import { docTypeDestinationLabel } from "@/lib/google-workspace/drive-tree";
+import { driveServiceAccountEmail } from "@/lib/google-workspace/env";
 
 function requireAdmin(
   session: { user?: { tenantId?: string | null; role?: string | null } | null } | null,
@@ -27,24 +30,51 @@ export async function GET() {
   if ("error" in gate && gate.error) return gate.error;
   const tenantId = gate.tenantId!;
 
-  const [ws, recent, enabledModules, ingestGroups] = await Promise.all([
-    prisma.googleDriveWorkspace.findUnique({ where: { tenantId } }),
-    prisma.driveExportOutbox.findMany({
-      where: { tenantId },
-      orderBy: { createdAt: "desc" },
-      take: 20,
-    }),
-    getTenantModulesList(tenantId),
-    prisma.driveIngestedFile.groupBy({
-      by: ["status"],
-      where: { tenantId },
-      _count: { _all: true },
-    }),
-  ]);
+  const [ws, recent, enabledModules, ingestGroups, pendingByDocType, outboxStatus, lastSent] =
+    await Promise.all([
+      prisma.googleDriveWorkspace.findUnique({ where: { tenantId } }),
+      prisma.driveExportOutbox.findMany({
+        where: { tenantId },
+        orderBy: { createdAt: "desc" },
+        take: 20,
+      }),
+      getTenantModulesList(tenantId),
+      prisma.driveIngestedFile.groupBy({
+        by: ["status"],
+        where: { tenantId },
+        _count: { _all: true },
+      }),
+      getPendingCounts(tenantId),
+      prisma.driveExportOutbox.groupBy({
+        by: ["status"],
+        where: { tenantId },
+        _count: { _all: true },
+      }),
+      prisma.driveExportOutbox.findFirst({
+        where: { tenantId, status: "SENT", sentAt: { not: null } },
+        orderBy: { sentAt: "desc" },
+        select: { sentAt: true },
+      }),
+    ]);
 
   const ingestCounts: Record<string, number> = {};
   for (const g of ingestGroups) {
     ingestCounts[g.status] = g._count._all;
+  }
+
+  const outboxCounts: Record<string, number> = {};
+  for (const g of outboxStatus) {
+    outboxCounts[g.status] = g._count._all;
+  }
+  const inFlight = outboxCounts.PENDING ?? 0;
+  const errorCount = outboxCounts.ERROR ?? 0;
+  const totalInDrive = outboxCounts.SENT ?? 0;
+  const lastSyncAt =
+    lastSent?.sentAt?.toISOString() ?? ws?.lastIngestAt?.toISOString() ?? null;
+
+  const destinationByDocType: Record<string, string> = {};
+  for (const dt of SUPPORTED_DOC_TYPES) {
+    destinationByDocType[dt] = docTypeDestinationLabel(dt);
   }
 
   const mirrorConfig = {
@@ -82,16 +112,21 @@ export async function GET() {
       mode === "SHARED_DRIVE" ? (ws?.rootFolderName ?? null) : null,
     lastIngestAt: ws?.lastIngestAt?.toISOString() ?? null,
     lastIngestError: ws?.lastIngestError ?? null,
+    lastSyncAt,
     ingestCounts,
+    pendingByDocType,
+    destinationByDocType,
+    totalInDrive,
+    inFlight,
+    errorCount,
+    serviceAccountEmail: driveServiceAccountEmail() ?? null,
     mirrorConfig,
     supportedDocTypes: SUPPORTED_DOC_TYPES,
     recent,
     rootFolderId,
     rootFolderName,
     rootFolderUrl: rootFolderId
-      ? mode === "SHARED_DRIVE"
-        ? `https://drive.google.com/drive/folders/${rootFolderId}`
-        : `https://drive.google.com/drive/folders/${rootFolderId}`
+      ? `https://drive.google.com/drive/folders/${rootFolderId}`
       : null,
     structureVersion: ws?.structureVersion ?? 1,
     enabledModules,

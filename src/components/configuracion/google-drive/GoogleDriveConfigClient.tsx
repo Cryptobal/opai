@@ -1,15 +1,15 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { SectionHeader, Surface, Spinner } from "@/components/opai-ds";
+import { Spinner } from "@/components/opai-ds";
 import { OAuthResultBanner } from "@/components/configuracion/OAuthResultBanner";
-import { DriveConnectionCard } from "./DriveConnectionCard";
-import { DriveMirrorToggles } from "./DriveMirrorToggles";
-import { DriveTreePreview } from "./DriveTreePreview";
-import { DriveActivityTable, type DriveOutboxRow } from "./DriveActivityTable";
-import { SharedDriveSetupCard } from "./SharedDriveSetupCard";
 import { DEFAULT_MIRROR_CONFIG } from "@/lib/google-workspace/drive-mirror-config";
+import type { PendingCount } from "@/lib/google-workspace/drive-pending-counts";
+import { DriveStatusCard } from "./DriveStatusCard";
+import { DriveMirrorSection } from "./DriveMirrorSection";
+import { DriveAdvancedPanel } from "./DriveAdvancedPanel";
+import { DriveActivityTable, type DriveOutboxRow } from "./DriveActivityTable";
 
 type ConfigResponse = {
   connected: boolean;
@@ -17,24 +17,28 @@ type ConfigResponse = {
   mode: "OAUTH" | "SHARED_DRIVE";
   sharedDriveId: string | null;
   sharedDriveName: string | null;
-  lastIngestAt: string | null;
-  lastIngestError: string | null;
-  ingestCounts: Record<string, number>;
+  lastSyncAt: string | null;
   mirrorConfig: Record<string, boolean>;
+  pendingByDocType: Record<string, PendingCount>;
+  destinationByDocType: Record<string, string>;
+  totalInDrive: number;
+  inFlight: number;
+  errorCount: number;
+  serviceAccountEmail: string | null;
   recent: DriveOutboxRow[];
   rootFolderUrl: string | null;
   rootFolderName: string | null;
   structureVersion: number;
   enabledModules: string[];
-  duplicateRoots: Array<{ id: string; createdTime?: string | null }>;
 };
 
 export function GoogleDriveConfigClient() {
   const [data, setData] = useState<ConfigResponse | null>(null);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [creatingStructure, setCreatingStructure] = useState(false);
   const [repairing, setRepairing] = useState(false);
+  const [countingTypes, setCountingTypes] = useState<Set<string>>(new Set());
+  const [queuedByType, setQueuedByType] = useState<Record<string, number>>({});
+  const [backfillingType, setBackfillingType] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -53,81 +57,137 @@ export function GoogleDriveConfigClient() {
     void load();
   }, [load]);
 
+  async function refreshCounts(focusType?: string) {
+    if (focusType) {
+      setCountingTypes((prev) => new Set(prev).add(focusType));
+    }
+    try {
+      const res = await fetch("/api/integrations/google-drive/config");
+      if (!res.ok) throw new Error("refresh failed");
+      const json = (await res.json()) as ConfigResponse;
+      setData(json);
+    } finally {
+      if (focusType) {
+        setCountingTypes((prev) => {
+          const next = new Set(prev);
+          next.delete(focusType);
+          return next;
+        });
+      }
+    }
+  }
+
   async function patchConfig(key: string, value: boolean) {
     if (!data) return;
     setData({ ...data, mirrorConfig: { ...data.mirrorConfig, [key]: value } });
-    setSaving(true);
+    setQueuedByType((prev) => {
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
     try {
       await fetch("/api/integrations/google-drive/config", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ mirrorConfig: { [key]: value } }),
       });
-    } finally {
-      setSaving(false);
+      if (value) await refreshCounts(key);
+    } catch {
+      toast.error("No se pudo guardar el interruptor");
     }
   }
 
-  async function createStructure() {
-    setCreatingStructure(true);
+  async function backfill(docType: string) {
+    setBackfillingType(docType);
     try {
-      const res = await fetch("/api/integrations/google-drive/ensure-structure", {
+      const res = await fetch("/api/integrations/google-drive/backfill", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "create" }),
+        body: JSON.stringify({ docType }),
       });
       const json = await res.json();
-      if (!res.ok) throw new Error(json.error || "fail");
-      const n = Array.isArray(json.paths) ? json.paths.length : 0;
-      toast.success(
-        n === 0
-          ? "Nada que crear: activá al menos un tipo en un módulo habilitado"
-          : `${n} carpeta(s) listas en Drive`,
-      );
-      await load();
+      if (!res.ok) throw new Error(json.error || "Backfill falló");
+      const queued = Number(json.queued ?? 0);
+      const folders = Number(json.foldersCreated ?? 0);
+      const skipped = Number(json.skipped ?? 0);
+      if (queued > 0) {
+        setQueuedByType((prev) => ({ ...prev, [docType]: queued }));
+        toast.success(`${queued} documentos en cola`);
+      } else if (folders > 0) {
+        toast.success(`${folders} carpetas creadas`);
+      } else {
+        toast.message(
+          skipped > 0
+            ? `Nada nuevo en cola (${skipped} omitidos)`
+            : "Nada pendiente para subir",
+        );
+      }
+      if (json.remaining > 0) {
+        toast.message("Quedan documentos: podés volver a pulsar Subirlos");
+      }
+      await refreshCounts(docType);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "No se pudo crear la estructura");
+      toast.error(err instanceof Error ? err.message : "No se pudo encolar");
     } finally {
-      setCreatingStructure(false);
+      setBackfillingType(null);
     }
   }
 
-  async function repairStructure(consolidateRoots: boolean) {
+  async function repairStructure() {
     setRepairing(true);
     try {
       const res = await fetch("/api/integrations/google-drive/ensure-structure", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: consolidateRoots ? "repair" : "migrate" }),
+        body: JSON.stringify({ action: "migrate" }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "fail");
-      const parts = [
-        json.foldersMoved ? `${json.foldersMoved} movidas` : null,
-        json.foldersRenamed ? `${json.foldersRenamed} renombradas` : null,
-        json.rootsTrashed ? `${json.rootsTrashed} raíces a papelera` : null,
-        json.cacheRewritten ? `${json.cacheRewritten} pathKeys` : null,
-      ].filter(Boolean);
       toast.success(
-        parts.length
-          ? `Reparación: ${parts.join(", ")}`
-          : "Estructura ya estaba al día (0 cambios)",
+        json.foldersMoved || json.cacheRewritten
+          ? "Estructura revisada"
+          : "Estructura ya estaba al día",
       );
-      if (json.hasMore) {
-        toast.message("Quedaron movimientos pendientes: volvé a pulsar Reparar");
-      }
-      if (Array.isArray(json.rootsSkipped) && json.rootsSkipped.length > 0) {
-        toast.message(
-          `${json.rootsSkipped.length} raíz(ces) con contenido no visible no se enviaron a papelera`,
-        );
-      }
       await load();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "No se pudo reparar la estructura");
+      toast.error(err instanceof Error ? err.message : "No se pudo revisar");
     } finally {
       setRepairing(false);
     }
   }
+
+  async function changeUnit(sharedDriveId: string) {
+    const res = await fetch("/api/integrations/google-drive/shared-drive", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sharedDriveId }),
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || "Activación fallida");
+    toast.success("Unidad activada");
+    await load();
+  }
+
+  async function disconnect() {
+    const res = await fetch("/api/integrations/google-drive/disconnect", {
+      method: "POST",
+    });
+    if (!res.ok) {
+      const json = await res.json().catch(() => ({}));
+      toast.error(json.error || "No se pudo desconectar");
+      return;
+    }
+    toast.success("Drive desconectado");
+    await load();
+  }
+
+  const pendingTotal = useMemo(() => {
+    if (!data?.pendingByDocType) return 0;
+    return Object.values(data.pendingByDocType).reduce(
+      (acc, c) => acc + (c?.pending ?? 0) + (c?.pendingFolders ?? 0),
+      0,
+    );
+  }, [data?.pendingByDocType]);
 
   if (loading) {
     return (
@@ -139,7 +199,6 @@ export function GoogleDriveConfigClient() {
 
   const connected = Boolean(data?.connected);
   const config = data?.mirrorConfig ?? DEFAULT_MIRROR_CONFIG;
-  const enabledModules = data?.enabledModules ?? [];
 
   return (
     <div className="ds-page-enter space-y-6">
@@ -148,53 +207,51 @@ export function GoogleDriveConfigClient() {
         startHref="/api/integrations/google-drive/oauth/start"
         onConnected={load}
       />
-      <DriveConnectionCard
+      <DriveStatusCard
         connected={connected}
-        googleEmail={data?.googleEmail ?? null}
-        rootFolderUrl={data?.rootFolderUrl ?? null}
-        structureVersion={data?.structureVersion ?? 1}
-        duplicateRoots={data?.duplicateRoots ?? []}
-        creatingStructure={creatingStructure}
-        repairing={repairing}
-        onCreateStructure={() => void createStructure()}
-        onRepair={(consolidate) => void repairStructure(consolidate)}
-        onDisconnect={() =>
-          void fetch("/api/integrations/google-drive/disconnect", { method: "POST" }).then(load)
+        driveName={
+          data?.sharedDriveName ||
+          data?.rootFolderName ||
+          "Google Drive"
         }
-      />
-      <SharedDriveSetupCard
         mode={data?.mode ?? "OAUTH"}
-        sharedDriveId={data?.sharedDriveId ?? null}
-        sharedDriveName={data?.sharedDriveName ?? null}
-        lastIngestAt={data?.lastIngestAt ?? null}
-        lastIngestError={data?.lastIngestError ?? null}
-        ingestCounts={data?.ingestCounts ?? {}}
-        onChanged={() => void load()}
+        totalInDrive={data?.totalInDrive ?? 0}
+        inFlight={data?.inFlight ?? 0}
+        pendingTotal={pendingTotal}
+        lastSyncAt={data?.lastSyncAt ?? null}
+        rootFolderUrl={data?.rootFolderUrl ?? null}
       />
-      <Surface elevation={1} padding="md" className="space-y-3">
-        <SectionHeader
-          title="Tipos a espejar"
-          hint={saving ? "Guardando…" : "Agrupados por módulo · OFF no crea carpetas"}
+      <DriveMirrorSection
+        config={config}
+        destinations={data?.destinationByDocType ?? {}}
+        pendingByDocType={data?.pendingByDocType ?? {}}
+        enabledModules={data?.enabledModules ?? []}
+        workspaceActive={connected}
+        countingTypes={countingTypes}
+        queuedByType={queuedByType}
+        backfillingType={backfillingType}
+        onToggle={(k, v) => void patchConfig(k, v)}
+        onBackfill={(k) => void backfill(k)}
+      />
+      {connected && (
+        <DriveAdvancedPanel
+          mode={data?.mode ?? "OAUTH"}
+          sharedDriveId={data?.sharedDriveId ?? null}
+          sharedDriveName={data?.sharedDriveName ?? null}
+          serviceAccountEmail={data?.serviceAccountEmail ?? null}
+          googleEmail={data?.googleEmail ?? null}
+          structureVersion={data?.structureVersion ?? 1}
+          repairing={repairing}
+          onRepair={() => void repairStructure()}
+          onChangeUnit={changeUnit}
+          onDisconnect={disconnect}
         />
-        <DriveMirrorToggles
-          config={config}
-          disabled={!connected}
-          enabledModules={enabledModules}
-          onChange={(k, v) => void patchConfig(k, v)}
-        />
-      </Surface>
-      <Surface elevation={1} padding="md" className="space-y-3">
-        <SectionHeader title="Árbol de carpetas" hint="Vista previa según toggles y módulos" />
-        <DriveTreePreview
-          config={config}
-          enabledModules={enabledModules}
-          rootFolderName={data?.rootFolderName}
-        />
-      </Surface>
-      <Surface elevation={1} padding="md" className="space-y-3">
-        <SectionHeader title="Actividad reciente" hint="Últimas 20 exportaciones" />
-        <DriveActivityTable rows={data?.recent ?? []} />
-      </Surface>
+      )}
+      <DriveActivityTable
+        rows={data?.recent ?? []}
+        inFlight={data?.inFlight ?? 0}
+        errorCount={data?.errorCount ?? 0}
+      />
     </div>
   );
 }

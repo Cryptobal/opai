@@ -140,6 +140,41 @@ export const DrivePathsV2 = {
   opsGeneral: () => `Operaciones/Documentos generales`,
 } as const;
 
+/**
+ * Ruta legible de destino por tipo (placeholders del árbol v2).
+ * Derivada de DrivePathsV2 — no mantener constantes paralelas.
+ */
+export function docTypeDestinationLabel(docType: string): string {
+  switch (docType) {
+    case "cotizacion":
+      return DrivePathsV2.installationQuotes("{Cuenta}", "{Instalación}").replace(
+        /\//g,
+        " / ",
+      );
+    case "factura":
+      return DrivePathsV2.installationInvoices("{Cuenta}", "{Instalación}").replace(
+        /\//g,
+        " / ",
+      );
+    case "documentos":
+      return `${DrivePathsV2.accountGeneral("{Cuenta}").replace(/\//g, " / ")} · ${DrivePathsV2.installationDocs("{Cuenta}", "{Instalación}").replace(/\//g, " / ")}`;
+    case "personas":
+      return DrivePathsV2.contact("{Cuenta}", "{Contacto}").replace(/\//g, " / ");
+    case "negocios":
+      return DrivePathsV2.deal("{Año}", "{Negocio}").replace(/\//g, " / ");
+    case "licitacion":
+      return DrivePathsV2.licitacion("{Año}", "{Licitación}").replace(/\//g, " / ");
+    case "leads":
+      return DrivePathsV2.lead("{Año}", "{Lead}").replace(/\//g, " / ");
+    case "trabajadores":
+      return DrivePathsV2.trabajador("{RUT} — {Apellido Nombre}").replace(/\//g, " / ");
+    case "ops_documentos":
+      return `${DrivePathsV2.opsInstallation("{Instalación}").replace(/\//g, " / ")} · ${DrivePathsV2.opsGeneral().replace(/\//g, " / ")}`;
+    default:
+      return docType;
+  }
+}
+
 /** Paths v1 (árbol plano legacy, pre-migración). */
 export const DrivePathsV1 = {
   accountGeneral: (cuenta: string) => `Clientes/${cuenta}/General/Documentos`,
