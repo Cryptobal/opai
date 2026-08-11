@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Bell, ChevronUp, LogOut, Settings, User } from "lucide-react";
+import { Bell, ChevronUp, LogOut, User } from "lucide-react";
 import { Avatar, Tag } from "@/components/opai-ds";
 import {
   DropdownMenu,
@@ -11,7 +11,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useHasModuleAccess } from "@/lib/permissions-context";
 import { useNotifications } from "@/contexts/NotificationContext";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "./ThemeToggle";
@@ -41,7 +40,6 @@ export function SidebarUserMenu({
 }: SidebarUserMenuProps) {
   const [open, setOpen] = useState(false);
   const [showSignOut, setShowSignOut] = useState(false);
-  const hasConfigAccess = useHasModuleAccess("config");
   const { unreadCount } = useNotifications();
   const notifCount = notificationsCount ?? unreadCount;
 
@@ -149,21 +147,6 @@ export function SidebarUserMenu({
               )}
             </Link>
           </DropdownMenuItem>
-          {hasConfigAccess && (
-            <DropdownMenuItem asChild>
-              <Link
-                href="/opai/configuracion"
-                className="cursor-pointer"
-                onClick={() => {
-                  setOpen(false);
-                  onNavigate?.();
-                }}
-              >
-                <Settings className="mr-2 h-4 w-4" />
-                Configuración
-              </Link>
-            </DropdownMenuItem>
-          )}
           <DropdownMenuSeparator />
           <div
             className="flex items-center justify-between gap-2 px-2 py-1.5"

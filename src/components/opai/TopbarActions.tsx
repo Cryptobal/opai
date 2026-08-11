@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Bell, MessageCircle, Search } from "lucide-react";
+import { Bell, MessageCircle, Search, Settings } from "lucide-react";
 import { useChatSidePanelContext } from "@/components/chat/ChatFloatingProvider";
 import { useNotificationSidePanelContext } from "@/components/notifications/NotificationSidePanelContext";
 import { useNotifications } from "@/contexts/NotificationContext";
@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { TopbarIconButton } from "./TopbarIconButton";
 import { RoleSwitcher } from "@/components/navbar/RoleSwitcher";
 import { ModuleSearchOverlay } from "./ModuleSearchOverlay";
+import { useHasModuleAccess } from "@/lib/permissions-context";
 import { cn } from "@/lib/utils";
 import { FiscalizacionDTButton } from "./FiscalizacionDTButton";
 
@@ -24,8 +25,8 @@ interface TopbarActionsProps {
 }
 
 /**
- * Acciones globales del topbar: rol, fiscalización, buscar, chat y campana.
- * Identidad, tema y configuración viven en SidebarUserMenu.
+ * Acciones globales del topbar: rol, fiscalización, configuración, buscar, chat y campana.
+ * Identidad y tema viven en SidebarUserMenu.
  * La lupa se oculta cuando el campo inline del topbar está montado
  * (módulo con search y sin tabs N3).
  */
@@ -37,6 +38,7 @@ export function TopbarActions({
   const chatCtx = useChatSidePanelContext();
   const notifCtx = useNotificationSidePanelContext();
   const { unreadCount: notifUnreadCount } = useNotifications();
+  const hasConfigAccess = useHasModuleAccess("config");
   const { search } = useModuleSurface();
   const tabs = useTopbarSubNavTabs();
   const [moduleSearchOpen, setModuleSearchOpen] = useState(false);
@@ -105,6 +107,13 @@ export function TopbarActions({
         role="group"
         aria-label="Acciones rápidas"
       >
+        {hasConfigAccess && (
+          <TopbarIconButton
+            icon={Settings}
+            label="Configuración"
+            href="/opai/configuracion"
+          />
+        )}
         {showSearchButton && (
           <div ref={searchBtnWrapRef} className="contents">
             <TopbarIconButton
