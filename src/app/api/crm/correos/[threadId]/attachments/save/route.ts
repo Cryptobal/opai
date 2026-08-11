@@ -18,7 +18,7 @@ export const maxDuration = 60;
 type Ctx = { params: Promise<{ threadId: string }> };
 
 /**
- * DELETE — quita un adjunto ya guardado en OPAI (CrmFile con procedencia
+ * DELETE — quita un adjunto ya guardado en OPAI (Documento con procedencia
  * de este hilo). No borra el adjunto del correo Gmail; solo la copia en
  * Documentos CRM. Mismo gate de edición que el POST de guardado.
  */
@@ -32,7 +32,7 @@ export async function DELETE(req: NextRequest, ctx: Ctx) {
     return NextResponse.json({ error: "fileId requerido" }, { status: 400 });
   }
 
-  const file = await prisma.crmFile.findFirst({
+  const file = await prisma.documento.findFirst({
     where: {
       id: fileId,
       tenantId,
@@ -49,15 +49,17 @@ export async function DELETE(req: NextRequest, ctx: Ctx) {
   }
 
   // Quitar asociación CRM: links + objeto (procedencia email de este hilo).
-  await prisma.crmFileLink.deleteMany({
+  await prisma.documentoEnlace.deleteMany({
     where: { tenantId, fileId: file.id },
   });
-  try {
-    await deleteFile(file.storageKey);
-  } catch {
-    // El registro igual se elimina; basura en R2 la limpia el cron.
+  if (file.storageKey) {
+    try {
+      await deleteFile(file.storageKey);
+    } catch {
+      // El registro igual se elimina; basura en R2 la limpia el cron.
+    }
   }
-  await prisma.crmFile.delete({ where: { id: file.id } });
+  await prisma.documento.delete({ where: { id: file.id } });
 
   const session = await auth();
   void auditEmailAction({

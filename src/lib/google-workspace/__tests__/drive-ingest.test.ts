@@ -8,8 +8,8 @@ vi.mock("@/lib/prisma", () => ({
       upsert: vi.fn(),
       create: vi.fn(),
     },
-    crmFile: { create: vi.fn() },
-    crmFileLink: { create: vi.fn() },
+    documento: { create: vi.fn() },
+    documentoEnlace: { create: vi.fn() },
   },
 }));
 
@@ -72,7 +72,7 @@ describe("processDriveChange / anti-loop", () => {
         create: expect.objectContaining({ reason: "exportado_por_opai" }),
       }),
     );
-    expect(prisma.crmFile.create).not.toHaveBeenCalled();
+    expect(prisma.documento.create).not.toHaveBeenCalled();
   });
 
   it("ignora carpeta desconocida", async () => {

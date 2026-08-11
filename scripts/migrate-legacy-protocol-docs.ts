@@ -24,7 +24,7 @@ async function main() {
   let skipped = 0;
 
   for (const doc of legacy) {
-    const tipo = await prisma.tipoDocOperacional.findFirst({
+    const tipo = await prisma.tipoDocumento.findFirst({
       where: {
         tenantId: doc.tenantId,
         codigo: "protocolo_emergencias",

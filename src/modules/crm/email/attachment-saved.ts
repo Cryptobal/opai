@@ -3,7 +3,7 @@ import type { CorreoAttachmentDTO } from "./correos.types";
 
 /**
  * Enriquece los adjuntos de un hilo con `savedFileId` (chip "Guardado"):
- * consulta fresca de CrmFile por `sourceThreadId` y match por messageId +
+ * consulta fresca de Documento por `sourceThreadId` y match por messageId +
  * fileName (+ size cuando desempata). Se resuelve SIEMPRE en vivo, fuera de
  * `attachmentsMeta`, para que un guardado posterior al cacheo aparezca sin
  * invalidar el caché C18. Compartido por el lector de Correos y el de la ficha.
@@ -14,7 +14,7 @@ export async function attachSavedFileIds(
   attachments: CorreoAttachmentDTO[],
 ): Promise<CorreoAttachmentDTO[]> {
   if (attachments.length === 0) return [];
-  const savedFiles = await prisma.crmFile.findMany({
+  const savedFiles = await prisma.documento.findMany({
     where: { tenantId, sourceThreadId: threadId },
     select: { id: true, fileName: true, size: true, sourceMessageId: true },
   });

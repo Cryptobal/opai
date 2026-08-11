@@ -15,7 +15,7 @@ export async function PUT(
     if (forbidden) return forbidden;
 
     const { id } = await params;
-    const tipo = await prisma.tipoDocOperacional.findFirst({
+    const tipo = await prisma.tipoDocumento.findFirst({
       where: { id, tenantId: ctx.tenantId },
     });
     if (!tipo) {
@@ -62,7 +62,7 @@ export async function PUT(
       }
     }
 
-    const updated = await prisma.tipoDocOperacional.update({
+    const updated = await prisma.tipoDocumento.update({
       where: { id },
       data,
     });
@@ -107,22 +107,23 @@ export async function DELETE(
     if (forbidden) return forbidden;
 
     const { id } = await params;
-    const tipo = await prisma.tipoDocOperacional.findFirst({
+    const tipo = await prisma.tipoDocumento.findFirst({
       where: { id, tenantId: ctx.tenantId },
-      include: { _count: { select: { documentos: true } } },
+      include: { _count: { select: { documentosOps: true, documentos: true } } },
     });
     if (!tipo) {
       return NextResponse.json({ success: false, error: "Tipo no encontrado" }, { status: 404 });
     }
 
-    if (tipo._count.documentos > 0) {
+    const docsCount = tipo._count.documentosOps + tipo._count.documentos;
+    if (docsCount > 0) {
       return NextResponse.json(
-        { success: false, error: `No se puede eliminar: tiene ${tipo._count.documentos} documento(s) asociado(s). Elimina los documentos primero.` },
+        { success: false, error: `No se puede eliminar: tiene ${docsCount} documento(s) asociado(s). Elimina los documentos primero.` },
         { status: 400 }
       );
     }
 
-    await prisma.tipoDocOperacional.delete({ where: { id } });
+    await prisma.tipoDocumento.delete({ where: { id } });
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("[TIPOS-DOC-OP] Error deleting:", error);

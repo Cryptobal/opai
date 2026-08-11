@@ -331,7 +331,7 @@ export async function POST(
 
           if (tipoDocId) {
             try {
-              const tipoDoc = await prisma.tipoDocOperacional.findUnique({
+              const tipoDoc = await prisma.tipoDocumento.findUnique({
                 where: { id: tipoDocId },
                 select: { nombre: true },
               });

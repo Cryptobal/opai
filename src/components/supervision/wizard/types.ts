@@ -119,7 +119,7 @@ export type InstalacionDocumentType = {
   code: string;
   label: string;
   required: boolean;
-  /** UUID del TipoDocOperacional (para capa global/instalacion). Null para docs de guardia que usan solo `code`. */
+  /** UUID del TipoDocumento (para capa global/instalacion). Null para docs de guardia que usan solo `code`. */
   tipoDocId?: string | null;
   capa?: "global" | "instalacion" | "guardia";
 };

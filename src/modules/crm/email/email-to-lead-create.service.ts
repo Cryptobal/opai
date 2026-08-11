@@ -27,16 +27,16 @@ async function attach(
   entityType: "lead" | "deal",
   entityId: string,
 ) {
-  const crmFile = await prisma.crmFile.create({
+  const documento = await prisma.documento.create({
     data: {
       tenantId, fileName: file.fileName, mimeType: file.mimeType, size: file.size,
       storageProvider: STORAGE_PROVIDER, storageKey: file.storageKey, createdBy: userId,
     },
   });
-  await prisma.crmFileLink.create({ data: { tenantId, fileId: crmFile.id, entityType, entityId } });
+  await prisma.documentoEnlace.create({ data: { tenantId, fileId: documento.id, entityType, entityId } });
   void enqueueCrmFileToDrive({
     tenantId, entityType, entityId,
-    file: { id: crmFile.id, storageKey: file.storageKey, fileName: file.fileName, mimeType: file.mimeType },
+    file: { id: documento.id, storageKey: file.storageKey, fileName: file.fileName, mimeType: file.mimeType },
   });
 }
 

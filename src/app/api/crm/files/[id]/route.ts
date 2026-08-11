@@ -35,7 +35,7 @@ export async function PATCH(
       );
     }
 
-    const link = await prisma.crmFileLink.findFirst({
+    const link = await prisma.documentoEnlace.findFirst({
       where: {
         fileId,
         tenantId: ctx.tenantId,
@@ -56,7 +56,7 @@ export async function PATCH(
 
     if (typeof portalVisible === "boolean") {
       updates.push(
-        prisma.crmFile.updateMany({
+        prisma.documento.updateMany({
           where: { id: fileId, tenantId: ctx.tenantId },
           data: { portalVisible },
         })
@@ -65,7 +65,7 @@ export async function PATCH(
 
     if (folderId !== undefined) {
       updates.push(
-        prisma.crmFileLink.updateMany({
+        prisma.documentoEnlace.updateMany({
           where: { id: link.id, tenantId: ctx.tenantId },
           data: { folderId: folderId || null },
         })
@@ -76,7 +76,7 @@ export async function PATCH(
       await Promise.all(updates);
     }
 
-    const updated = await prisma.crmFile.findUnique({
+    const updated = await prisma.documento.findUnique({
       where: { id: fileId },
       include: {
         links: {
@@ -120,7 +120,7 @@ export async function DELETE(
 
     const { id: fileId } = await params;
 
-    const file = await prisma.crmFile.findFirst({
+    const file = await prisma.documento.findFirst({
       where: {
         id: fileId,
         tenantId: ctx.tenantId,
@@ -135,8 +135,10 @@ export async function DELETE(
       );
     }
 
-    await deleteFile(file.storageKey);
-    await prisma.crmFile.delete({
+    if (file.storageKey) {
+      await deleteFile(file.storageKey);
+    }
+    await prisma.documento.delete({
       where: { id: fileId },
     });
 

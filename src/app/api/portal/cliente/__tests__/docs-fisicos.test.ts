@@ -37,7 +37,7 @@ vi.mock("@/lib/prisma", () => ({
   prisma: {
     crmContact: { findUnique: contactFindUnique },
     crmInstallation: { findFirst: installationFindFirst },
-    tipoDocOperacional: { findMany: tipoFindMany },
+    tipoDocumento: { findMany: tipoFindMany },
     docVerificacionFisica: { findMany: verifFindMany },
   },
 }));

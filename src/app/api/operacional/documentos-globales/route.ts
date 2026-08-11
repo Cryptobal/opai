@@ -87,7 +87,7 @@ export async function POST(request: NextRequest) {
 
     if (tipoId) {
       // Use existing tipo
-      tipo = await prisma.tipoDocOperacional.findFirst({
+      tipo = await prisma.tipoDocumento.findFirst({
         where: { id: tipoId, tenantId: ctx.tenantId, capa: "global" },
       });
       if (!tipo) {
@@ -100,7 +100,7 @@ export async function POST(request: NextRequest) {
       const tieneVencimiento = tieneVencimientoStr === "true";
 
       // Check if custom tipo already exists
-      const existing = await prisma.tipoDocOperacional.findFirst({
+      const existing = await prisma.tipoDocumento.findFirst({
         where: { tenantId: ctx.tenantId, codigo },
       });
 
@@ -108,13 +108,13 @@ export async function POST(request: NextRequest) {
         tipo = existing;
       } else {
         // Get max order for positioning
-        const maxOrder = await prisma.tipoDocOperacional.findFirst({
+        const maxOrder = await prisma.tipoDocumento.findFirst({
           where: { tenantId: ctx.tenantId, capa: "global" },
           orderBy: { order: "desc" },
           select: { order: true },
         });
 
-        tipo = await prisma.tipoDocOperacional.create({
+        tipo = await prisma.tipoDocumento.create({
           data: {
             tenantId: ctx.tenantId,
             codigo,

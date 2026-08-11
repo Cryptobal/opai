@@ -1,6 +1,6 @@
 /**
  * API Route: GET /api/crm/files/[id]/download
- * Descarga el binario del CrmFile (usado por el chatbot / "Descargar documento").
+ * Descarga el binario del Documento (usado por el chatbot / "Descargar documento").
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -25,7 +25,7 @@ export async function GET(
 
     const { id } = await params;
 
-    const file = await prisma.crmFile.findFirst({
+    const file = await prisma.documento.findFirst({
       where: { id, tenantId: ctx.tenantId },
       select: { fileName: true, mimeType: true, storageKey: true },
     });
@@ -33,6 +33,13 @@ export async function GET(
     if (!file) {
       return NextResponse.json(
         { success: false, error: "Archivo no encontrado" },
+        { status: 404 }
+      );
+    }
+
+    if (!file.storageKey) {
+      return NextResponse.json(
+        { success: false, error: "Archivo sin binario disponible en almacenamiento" },
         { status: 404 }
       );
     }

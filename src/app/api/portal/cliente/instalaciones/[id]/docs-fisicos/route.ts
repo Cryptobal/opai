@@ -44,7 +44,7 @@ export async function GET(
     }
 
     // 1. Tipos de documento relevantes para esta instalación (global + instalacion).
-    const tipos = await prisma.tipoDocOperacional.findMany({
+    const tipos = await prisma.tipoDocumento.findMany({
       where: {
         tenantId: session.tenantId,
         isActive: true,

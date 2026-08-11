@@ -15,7 +15,7 @@ export async function reexportTenantDriveFromR2(
   tenantId: string,
   cursor?: string | null,
 ): Promise<{ queued: number; remaining: boolean; nextCursor: string | null }> {
-  const links = await prisma.crmFileLink.findMany({
+  const links = await prisma.documentoEnlace.findMany({
     where: {
       tenantId,
       entityType: { in: ["deal", "account", "installation", "contact", "lead"] },

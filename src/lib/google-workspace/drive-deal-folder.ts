@@ -54,7 +54,7 @@ export async function getDealDriveFolderStatus(tenantId: string, dealId: string)
     /* deal missing — status still returns connected + fileCount */
   }
 
-  const fileCount = await prisma.crmFileLink.count({
+  const fileCount = await prisma.documentoEnlace.count({
     where: { tenantId, entityType: "deal", entityId: dealId },
   });
 
@@ -114,7 +114,7 @@ export async function ensureDealDriveFolderAndBackfill(tenantId: string, dealId:
   });
   if (!folderId) throw new Error("No se pudo crear la carpeta en Google Drive");
 
-  const links = await prisma.crmFileLink.findMany({
+  const links = await prisma.documentoEnlace.findMany({
     where: { tenantId, entityType: "deal", entityId: dealId },
     include: { file: true },
   });
@@ -135,6 +135,11 @@ export async function ensureDealDriveFolderAndBackfill(tenantId: string, dealId:
         },
       });
       if (existing) {
+        skipped++;
+        continue;
+      }
+
+      if (!file.storageKey) {
         skipped++;
         continue;
       }

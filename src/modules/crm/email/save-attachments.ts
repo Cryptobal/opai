@@ -63,8 +63,8 @@ export function normalizeSaveItems(body: {
  * - Serial (no Promise.all): no satura la cuota de Gmail ni la memoria del
  *   runtime; respeta un deadline y devuelve resultado parcial si se corta.
  * - Dedupe por `contentHash` (sha256) SIEMPRE dentro del tenant: si el binario
- *   ya existe como CrmFile se reutiliza el objeto R2 y solo se crea el
- *   CrmFileLink faltante (mismo archivo en cuenta y negocio → 1 objeto, 2 links).
+ *   ya existe como Documento se reutiliza el objeto R2 y solo se crea el
+ *   DocumentoEnlace faltante (mismo archivo en cuenta y negocio → 1 objeto, 2 links).
  * - Persiste procedencia (`sourceType:"email"`, `sourceThreadId`,
  *   `sourceMessageId`) en los objetos nuevos.
  * - `enqueueDrive` (destino negocio): espeja a Drive por cada link nuevo.
@@ -110,19 +110,19 @@ export async function saveThreadAttachments(params: {
       const contentHash = createHash("sha256").update(att.buffer).digest("hex");
 
       // Dedupe: reutilizar el objeto si el binario ya existe en el tenant.
-      const existing = await prisma.crmFile.findFirst({
+      const existing = await prisma.documento.findFirst({
         where: { tenantId, contentHash },
         select: { id: true, storageKey: true, fileName: true, mimeType: true },
       });
 
       let fileId: string;
-      let file: { id: string; storageKey: string; fileName: string; mimeType: string };
+      let file: { id: string; storageKey: string | null; fileName: string; mimeType: string };
       if (existing) {
         fileId = existing.id;
         file = existing;
       } else {
         const uploaded = await uploadFile(att.buffer, att.filename, att.mimeType, "crm", tenantId);
-        const created = await prisma.crmFile.create({
+        const created = await prisma.documento.create({
           data: {
             tenantId,
             fileName: uploaded.fileName,
@@ -144,7 +144,7 @@ export async function saveThreadAttachments(params: {
       }
 
       // Idempotencia por entidad: si ya está vinculado, no duplicar el link.
-      const existingLink = await prisma.crmFileLink.findFirst({
+      const existingLink = await prisma.documentoEnlace.findFirst({
         where: { tenantId, entityType, entityId, fileId },
         select: { id: true },
       });
@@ -153,7 +153,7 @@ export async function saveThreadAttachments(params: {
         continue;
       }
 
-      await prisma.crmFileLink.create({
+      await prisma.documentoEnlace.create({
         data: { tenantId, fileId, entityType, entityId, folderId: folderId ?? null },
       });
 

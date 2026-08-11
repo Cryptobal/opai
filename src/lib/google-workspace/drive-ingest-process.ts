@@ -112,7 +112,7 @@ export async function processDriveChange(
     });
     if (!dl) throw new Error("download null");
     const up = await uploadFile(dl.buffer, dl.fileName, dl.mimeType, "crm", tenantId);
-    const crmFile = await prisma.crmFile.create({
+    const documento = await prisma.documento.create({
       data: {
         tenantId,
         fileName: up.fileName,
@@ -124,10 +124,10 @@ export async function processDriveChange(
         createdBy: null,
       },
     });
-    await prisma.crmFileLink.create({
+    await prisma.documentoEnlace.create({
       data: {
         tenantId,
-        fileId: crmFile.id,
+        fileId: documento.id,
         entityType: entity.entityType,
         entityId: entity.entityId,
         folderId: null,
@@ -145,7 +145,7 @@ export async function processDriveChange(
         entityId: entity.entityId,
         storageKey: up.storageKey,
         targetTable: "crm_file",
-        targetId: crmFile.id,
+        targetId: documento.id,
         status: "INGESTED",
         ingestedAt: new Date(),
       },

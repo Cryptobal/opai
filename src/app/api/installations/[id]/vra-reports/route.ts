@@ -41,7 +41,7 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
       },
     });
 
-    const tipoDoc = await prisma.tipoDocOperacional.findFirst({
+    const tipoDoc = await prisma.tipoDocumento.findFirst({
       where: { tenantId: ctx.tenantId, codigo: "informe_vulnerabilidad" },
       select: { id: true },
     });

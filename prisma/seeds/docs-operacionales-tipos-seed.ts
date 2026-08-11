@@ -34,7 +34,7 @@ export async function seedTiposDocOperacional(
   prisma: PrismaClient,
   tenantId: string
 ) {
-  const existing = await prisma.tipoDocOperacional.findFirst({
+  const existing = await prisma.tipoDocumento.findFirst({
     where: { tenantId },
   });
   if (existing) {
@@ -42,7 +42,7 @@ export async function seedTiposDocOperacional(
     return;
   }
 
-  await prisma.tipoDocOperacional.createMany({
+  await prisma.tipoDocumento.createMany({
     data: TIPOS_DEFAULT.map((t) => ({
       tenantId,
       ...t,

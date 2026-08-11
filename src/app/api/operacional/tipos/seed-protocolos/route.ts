@@ -7,7 +7,7 @@ import { DEFAULT_PROTOCOLOS_GLOBAL } from "@/lib/docs-operacionales-categorias";
 /**
  * POST /api/operacional/tipos/seed-protocolos
  *
- * Idempotente: crea los TipoDocOperacional default de la categoría
+ * Idempotente: crea los TipoDocumento default de la categoría
  * "Protocolos y Seguridad" (Plan de Evacuación, Protocolo de Emergencias,
  * etc.) sólo si no existen aún para el tenant. Devuelve cuántos creó.
  */
@@ -21,13 +21,13 @@ export async function POST() {
     let created = 0;
 
     for (const seed of DEFAULT_PROTOCOLOS_GLOBAL) {
-      const exists = await prisma.tipoDocOperacional.findFirst({
+      const exists = await prisma.tipoDocumento.findFirst({
         where: { tenantId: ctx.tenantId, codigo: seed.codigo },
         select: { id: true },
       });
       if (exists) continue;
 
-      await prisma.tipoDocOperacional.create({
+      await prisma.tipoDocumento.create({
         data: {
           tenantId: ctx.tenantId,
           codigo: seed.codigo,

@@ -39,7 +39,7 @@ async function main() {
 
   for (const tenant of tenants) {
     try {
-      const existing = await prisma.tipoDocOperacional.findUnique({
+      const existing = await prisma.tipoDocumento.findUnique({
         where: {
           tenantId_codigo: {
             tenantId: tenant.id,
@@ -49,7 +49,7 @@ async function main() {
       });
 
       if (!existing) {
-        await prisma.tipoDocOperacional.create({
+        await prisma.tipoDocumento.create({
           data: {
             tenantId: tenant.id,
             ...CERTIFICADO_OS10,
@@ -58,7 +58,7 @@ async function main() {
         console.log(`   ✓ ${tenant.slug}: creado certificado_os10`);
         created += 1;
       } else if (!existing.isActive) {
-        await prisma.tipoDocOperacional.update({
+        await prisma.tipoDocumento.update({
           where: { id: existing.id },
           data: { isActive: true },
         });

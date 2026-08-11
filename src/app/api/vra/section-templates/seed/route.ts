@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 /**
  * POST /api/vra/section-templates/seed
  * Siembra el catálogo de secciones del tenant clonando el system catalog
- * y asegura el TipoDocOperacional "informe_vulnerabilidad" para el linkaje futuro.
+ * y asegura el TipoDocumento "informe_vulnerabilidad" para el linkaje futuro.
  * Idempotente: solo clona keys que no existen.
  */
 export async function POST() {

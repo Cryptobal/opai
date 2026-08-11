@@ -354,7 +354,7 @@ export async function POST(request: NextRequest) {
         const buffer = Buffer.from(await res.arrayBuffer());
         if (buffer.length > MAX_ATTACHMENT_SIZE) continue;
         const result = await uploadFile(buffer, filename, contentType, "leads", tenantId);
-        const crmFile = await prisma.crmFile.create({
+        const documento = await prisma.documento.create({
           data: {
             tenantId,
             fileName: result.fileName,
@@ -365,10 +365,10 @@ export async function POST(request: NextRequest) {
             createdBy: null,
           },
         });
-        await prisma.crmFileLink.create({
+        await prisma.documentoEnlace.create({
           data: {
             tenantId,
-            fileId: crmFile.id,
+            fileId: documento.id,
             entityType: "lead",
             entityId: lead.id,
           },

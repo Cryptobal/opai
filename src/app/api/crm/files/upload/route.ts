@@ -82,7 +82,7 @@ export async function POST(request: NextRequest) {
     const buffer = Buffer.from(await file.arrayBuffer());
     const result = await uploadFile(buffer, file.name, mimeType, "crm", ctx.tenantId);
 
-    const crmFile = await prisma.crmFile.create({
+    const documento = await prisma.documento.create({
       data: {
         tenantId: ctx.tenantId,
         fileName: result.fileName,
@@ -95,10 +95,10 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    const link = await prisma.crmFileLink.create({
+    const link = await prisma.documentoEnlace.create({
       data: {
         tenantId: ctx.tenantId,
-        fileId: crmFile.id,
+        fileId: documento.id,
         entityType,
         entityId,
         folderId: folderId || null,
@@ -111,10 +111,10 @@ export async function POST(request: NextRequest) {
       entityType,
       entityId,
       file: {
-        id: crmFile.id,
-        storageKey: crmFile.storageKey,
-        fileName: crmFile.fileName,
-        mimeType: crmFile.mimeType,
+        id: documento.id,
+        storageKey: documento.storageKey,
+        fileName: documento.fileName,
+        mimeType: documento.mimeType,
       },
     });
 
@@ -125,14 +125,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       data: {
-        id: crmFile.id,
+        id: documento.id,
         linkId: link.id,
-        fileName: crmFile.fileName,
-        mimeType: crmFile.mimeType,
-        size: crmFile.size,
+        fileName: documento.fileName,
+        mimeType: documento.mimeType,
+        size: documento.size,
         publicUrl: result.publicUrl,
-        createdAt: crmFile.createdAt,
-        portalVisible: crmFile.portalVisible,
+        createdAt: documento.createdAt,
+        portalVisible: documento.portalVisible,
         folderId: folderId || null,
         folderName: folder?.name ?? null,
       },

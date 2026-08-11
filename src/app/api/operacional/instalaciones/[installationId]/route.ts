@@ -31,7 +31,7 @@ export async function GET(
     }
 
     // Get all active tipos
-    const tipos = await prisma.tipoDocOperacional.findMany({
+    const tipos = await prisma.tipoDocumento.findMany({
       where: { tenantId: ctx.tenantId, isActive: true },
       orderBy: { order: "asc" },
     });
@@ -282,7 +282,7 @@ export async function POST(
     if (!ALLOWED_MIME.includes(file.type)) return NextResponse.json({ success: false, error: "Solo se permiten archivos PDF" }, { status: 400 });
     if (file.size > MAX_SIZE) return NextResponse.json({ success: false, error: "El archivo excede 10 MB" }, { status: 400 });
 
-    const tipo = await prisma.tipoDocOperacional.findFirst({
+    const tipo = await prisma.tipoDocumento.findFirst({
       where: { id: tipoId, tenantId: ctx.tenantId, capa: "instalacion" },
     });
     if (!tipo) {

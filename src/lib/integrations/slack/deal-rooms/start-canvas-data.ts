@@ -174,11 +174,12 @@ export async function loadStartCanvasData(tenantId: string, dealId: string): Pro
   for (const cs of customSteps) steps.push({ title: cs.title, team: "ops", dueDate: serviceStartDate, isExtra: true });
 
   // Documentos del negocio (links, no binarios).
-  const links = await prisma.crmFileLink
+  const links = await prisma.documentoEnlace
     .findMany({ where: { tenantId, entityType: "deal", entityId: dealId }, include: { file: true }, orderBy: { createdAt: "desc" } })
     .catch(() => []);
   const files: StartCanvasData["files"] = [];
   for (const link of links) {
+    if (!link.file.storageKey) continue;
     const url = await resolveDownloadUrl(link.file.storageKey, link.file.fileName);
     if (url) files.push({ fileName: link.file.fileName, downloadUrl: url, portalVisible: link.file.portalVisible });
   }

@@ -17,8 +17,8 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("@/lib/prisma", () => ({
   prisma: {
-    crmFile: { findFirst: mocks.fileFindFirst, create: mocks.fileCreate },
-    crmFileLink: { findFirst: mocks.linkFindFirst, create: mocks.linkCreate },
+    documento: { findFirst: mocks.fileFindFirst, create: mocks.fileCreate },
+    documentoEnlace: { findFirst: mocks.linkFindFirst, create: mocks.linkCreate },
   },
 }));
 vi.mock("@/lib/storage", () => ({
@@ -93,7 +93,7 @@ describe("saveThreadAttachments — dedupe por contentHash", () => {
     mocks.linkCreate.mockResolvedValue({ id: "link-1" });
   });
 
-  it("archivo nuevo: sube a R2, crea CrmFile con procedencia+hash y link", async () => {
+  it("archivo nuevo: sube a R2, crea Documento con procedencia+hash y link", async () => {
     mocks.fileFindFirst.mockResolvedValue(null);
     mocks.linkFindFirst.mockResolvedValue(null);
 

@@ -3790,7 +3790,7 @@ function tiptapToPlainText(node: unknown): string {
 
 /**
  * Mapea entityType largo (DocAssociation: "crm_account", "crm_deal"...)
- * al short form usado por CrmFileLink ("account", "deal"...).
+ * al short form usado por DocumentoEnlace ("account", "deal"...).
  */
 function entityTypeToCrmFileLinkType(entityType: string): string | null {
   switch (entityType) {
@@ -3806,7 +3806,7 @@ function entityTypeToCrmFileLinkType(entityType: string): string | null {
 /**
  * Lista documentos asociados a una entidad. Hace UNION de tres fuentes:
  *  - DocAssociation → Document (Tiptap, contratos generados)
- *  - CrmFileLink → CrmFile (PDFs/DOCX subidos por usuarios: órdenes, facturas, anexos)
+ *  - DocumentoEnlace → Documento (PDFs/DOCX subidos por usuarios: órdenes, facturas, anexos)
  *  - CpqQuoteAttachment (cuando entityType === "cpq_quote")
  *
  * Cada item incluye un `documentId` con prefijo (`doc:`, `file:`, `att:`) para
@@ -3873,7 +3873,7 @@ async function toolGetEntityDocuments(
       },
     }),
     linkType
-      ? prisma.crmFileLink.findMany({
+      ? prisma.documentoEnlace.findMany({
           where: { entityType: linkType, entityId, tenantId },
           take,
           orderBy: { createdAt: "desc" },
@@ -3996,7 +3996,7 @@ async function toolReadDocument(
   }
 
   if (prefix === "file") {
-    const file = await prisma.crmFile.findFirst({
+    const file = await prisma.documento.findFirst({
       where: { id: realId, tenantId },
       select: {
         id: true,
@@ -4008,6 +4008,9 @@ async function toolReadDocument(
       },
     });
     if (!file) return { ok: false, error: "Archivo no encontrado o sin permiso." };
+    if (!file.storageKey) {
+      return { ok: false, error: "Archivo sin binario disponible en almacenamiento." };
+    }
     return await readBinaryFile({
       idLabel: `file:${file.id}`,
       title: file.fileName,
@@ -7798,7 +7801,7 @@ async function toolAttachFileToEntity(
     return { ok: false, error: `La entidad ${entityType} no existe en tu empresa.` };
   }
   try {
-    const file = await prisma.crmFile.create({
+    const file = await prisma.documento.create({
       data: {
         tenantId,
         fileName,
@@ -7809,7 +7812,7 @@ async function toolAttachFileToEntity(
         createdBy: userId,
       },
     });
-    await prisma.crmFileLink.create({
+    await prisma.documentoEnlace.create({
       data: { tenantId, fileId: file.id, entityType, entityId },
     });
     // Espejo Drive (negocios/personas/instalaciones) — no bloquea la respuesta.

@@ -19,11 +19,11 @@ export async function GET(request: NextRequest) {
     };
     if (capa) where.capa = capa;
 
-    const tipos = await prisma.tipoDocOperacional.findMany({
+    const tipos = await prisma.tipoDocumento.findMany({
       where,
       orderBy: { order: "asc" },
       include: {
-        documentos: {
+        documentosOps: {
           where: { tenantId: ctx.tenantId, capa: "global", installationId: null },
           select: { id: true, status: true, fileName: true, expiresAt: true },
           take: 1,
@@ -47,12 +47,12 @@ export async function GET(request: NextRequest) {
       criticoLegal: t.criticoLegal,
       milestones: (t.milestones as number[] | null) ?? null,
       // Para capa global, incluir info del documento actual
-      documentoActual: t.capa === "global" && t.documentos.length > 0
+      documentoActual: t.capa === "global" && t.documentosOps.length > 0
         ? {
-            id: t.documentos[0].id,
-            status: t.documentos[0].status,
-            fileName: t.documentos[0].fileName,
-            expiresAt: t.documentos[0].expiresAt?.toISOString().slice(0, 10) ?? null,
+            id: t.documentosOps[0].id,
+            status: t.documentosOps[0].status,
+            fileName: t.documentosOps[0].fileName,
+            expiresAt: t.documentosOps[0].expiresAt?.toISOString().slice(0, 10) ?? null,
           }
         : null,
     }));
@@ -88,20 +88,20 @@ export async function POST(request: NextRequest) {
     const codigo = "custom_" + nombre.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/_+$/, "");
 
     // Check duplicates
-    const existing = await prisma.tipoDocOperacional.findFirst({
+    const existing = await prisma.tipoDocumento.findFirst({
       where: { tenantId: ctx.tenantId, codigo },
     });
     if (existing) {
       return NextResponse.json({ success: false, error: "Ya existe un tipo con ese nombre" }, { status: 400 });
     }
 
-    const maxOrder = await prisma.tipoDocOperacional.findFirst({
+    const maxOrder = await prisma.tipoDocumento.findFirst({
       where: { tenantId: ctx.tenantId, capa },
       orderBy: { order: "desc" },
       select: { order: true },
     });
 
-    const tipo = await prisma.tipoDocOperacional.create({
+    const tipo = await prisma.tipoDocumento.create({
       data: {
         tenantId: ctx.tenantId,
         codigo,

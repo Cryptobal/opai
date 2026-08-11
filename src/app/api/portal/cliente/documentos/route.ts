@@ -35,7 +35,7 @@ export async function GET() {
     });
 
     // Archivos de cuenta visibles en portal (con carpeta visible o sin carpeta)
-    const links = await prisma.crmFileLink.findMany({
+    const links = await prisma.documentoEnlace.findMany({
       where: {
         tenantId,
         entityType: "account",

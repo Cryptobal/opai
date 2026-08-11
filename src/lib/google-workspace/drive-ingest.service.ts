@@ -13,7 +13,7 @@ export type IngestRunResult = {
   errors: number;
 };
 
-/** Ingesta Changes API → R2 + CrmFile (solo CRM). */
+/** Ingesta Changes API → R2 + Documento (solo CRM). */
 export async function ingestDriveChanges(tenantId: string): Promise<IngestRunResult> {
   const result: IngestRunResult = { processed: 0, ingested: 0, ignored: 0, errors: 0 };
   const ws = await prisma.googleDriveWorkspace.findFirst({

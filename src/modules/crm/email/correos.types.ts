@@ -105,7 +105,7 @@ export type CorreoAttachmentDTO = {
   size: number;
   /** Content-ID MIME (sin <>). Sirve para reescribir `src="cid:…"` en el HTML. */
   contentId?: string | null;
-  /** B5: id del CrmFile si el adjunto ya fue guardado a una ficha desde este
+  /** B5: id del Documento si el adjunto ya fue guardado a una ficha desde este
    *  hilo (chip "Guardado"). Se resuelve por consulta fresca en cada detalle,
    *  fuera de `attachmentsMeta`, para no invalidar el caché C18. */
   savedFileId?: string | null;
