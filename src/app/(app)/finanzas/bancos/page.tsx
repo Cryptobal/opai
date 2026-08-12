@@ -53,16 +53,26 @@ export default async function BancosPage({
     orderBy: { code: "asc" },
   });
 
+  // hasCategory = "puede resolver cuenta contable" (nombre legacy en el cliente).
+  // Fuente de verdad: FinanceFlowRowAccount. categoryId solo es fallback pre-backfill
+  // (ver resolveAccountPlanIdForFlowRow). Filas custom (ej. Provisión) tienen cuentas
+  // mapeadas sin categoryId — no deben aparecer como "(sin cuenta contable)".
   const flowRowsRaw = await prisma.financeFlowRow.findMany({
     where: { tenantId, archivedAt: null },
-    select: { id: true, name: true, section: true, categoryId: true },
+    select: {
+      id: true,
+      name: true,
+      section: true,
+      categoryId: true,
+      _count: { select: { accountMappings: true } },
+    },
     orderBy: [{ section: "asc" }, { orderIndex: "asc" }],
   });
   const flowRows = flowRowsRaw.map((r) => ({
     id: r.id,
     name: r.name,
     section: r.section,
-    hasCategory: r.categoryId != null,
+    hasCategory: r._count.accountMappings > 0 || r.categoryId != null,
   }));
 
   const data = bankAccounts.map((a) => ({
