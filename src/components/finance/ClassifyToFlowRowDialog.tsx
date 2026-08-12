@@ -79,10 +79,14 @@ export function ClassifyToFlowRowDialog({
   fmtAmount = defaultFmt,
 }: Props) {
   const [flowRowId, setFlowRowId] = useState("");
+  const [selectOpen, setSelectOpen] = useState(false);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (open) setFlowRowId("");
+    if (open) {
+      setFlowRowId("");
+      setSelectOpen(false);
+    }
   }, [open, tx?.id]);
 
   const groupedRows = useMemo(
@@ -127,7 +131,18 @@ export function ClassifyToFlowRowDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent
+        className="max-w-md"
+        onPointerDownOutside={(e) => {
+          if (selectOpen) e.preventDefault();
+        }}
+        onInteractOutside={(e) => {
+          if (selectOpen) e.preventDefault();
+        }}
+        onFocusOutside={(e) => {
+          if (selectOpen) e.preventDefault();
+        }}
+      >
         <DialogHeader>
           <DialogTitle>Clasificar a fila del flujo</DialogTitle>
           <DialogDescription>
@@ -146,6 +161,8 @@ export function ClassifyToFlowRowDialog({
           <Label htmlFor="classify-flow-row-select">Fila de flujo</Label>
           <Select
             key={tx?.id ?? "closed"}
+            open={selectOpen}
+            onOpenChange={setSelectOpen}
             value={flowRowId}
             onValueChange={setFlowRowId}
           >
@@ -156,7 +173,7 @@ export function ClassifyToFlowRowDialog({
             >
               <SelectValue placeholder="Elegir fila…" />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent position="popper" className="z-[110]">
               {groupedRows.map((group) => (
                 <SelectGroup key={group.section}>
                   <SelectLabel>{group.section}</SelectLabel>
