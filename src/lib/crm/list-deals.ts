@@ -24,7 +24,13 @@ export type DealsFocus =
   | "followup-open"
   | "followup-overdue";
 
-export type DealListSort = "az" | "za" | "newest" | "oldest";
+export type DealListSort =
+  | "az"
+  | "za"
+  | "newest"
+  | "oldest"
+  | "close-asc"
+  | "close-desc";
 
 const MAX_PAGE_SIZE = 500;
 
@@ -118,6 +124,10 @@ function orderBy(sort: DealListSort | undefined): Prisma.CrmDealOrderByWithRelat
       return { title: "asc" };
     case "za":
       return { title: "desc" };
+    case "close-asc":
+      return { expectedCloseDate: "asc" };
+    case "close-desc":
+      return { expectedCloseDate: "desc" };
     case "newest":
     default:
       return { createdAt: "desc" };

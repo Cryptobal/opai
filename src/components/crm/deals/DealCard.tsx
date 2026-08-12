@@ -10,14 +10,20 @@ import {
   Clock3,
   MessageSquare,
   Shield,
+  CalendarClock,
+  ListTodo,
 } from "lucide-react";
-import { Tag, StatusDot, Avatar } from "@/components/opai-ds";
+import { Tag, StatusDot } from "@/components/opai-ds";
 import { cn, formatCLP, formatUFSuffix } from "@/lib/utils";
 import { ageBucket, daysInStage, sanitizeStageColor } from "@/lib/crm/deal-metrics";
 import type { CrmDeal } from "@/types";
 import {
   getDealCommercialIndicators,
   getDealFollowUpIndicator,
+  formatDealCloseDate,
+  getDealCloseDateTone,
+  isOpenDeal,
+  truncateNextStep,
 } from "./deals-helpers";
 import type { DealsDensity } from "./types";
 
@@ -48,6 +54,10 @@ export function DealCard({
 
   const indicators = getDealCommercialIndicators(deal);
   const followUp = getDealFollowUpIndicator(deal);
+  const openDeal = isOpenDeal(deal);
+  const closeDateLabel = formatDealCloseDate(deal.expectedCloseDate);
+  const closeTone = getDealCloseDateTone(deal.expectedCloseDate);
+  const nextStepLabel = truncateNextStep(deal.nextStep);
   const { days, source } = daysInStage(deal);
   const bucket = ageBucket(days);
   const stageColor =
@@ -178,10 +188,47 @@ export function DealCard({
             ) : null}
           </div>
 
-          {detail ? (
-            <div className="mt-2 flex items-center justify-between border-t border-dashed border-ds-border-subtle pt-1.5">
-              <span className="truncate text-[12px] text-ds-text-4">Próxima acción</span>
-              <Avatar name={deal.account?.name ?? "?"} size="sm" />
+          {openDeal && (closeDateLabel || nextStepLabel) && !compact ? (
+            <div
+              className={cn(
+                "mt-1.5 space-y-0.5 border-t border-dashed border-ds-border-subtle pt-1.5",
+                detail && "mt-2 pt-2",
+              )}
+            >
+              {closeDateLabel ? (
+                <p
+                  className={cn(
+                    "inline-flex items-center gap-1 text-[12px]",
+                    closeTone === "danger"
+                      ? "text-status-danger-fg"
+                      : closeTone === "warn"
+                        ? "text-status-warn-fg"
+                        : "text-ds-text-2",
+                  )}
+                  title="Cierre estimado"
+                >
+                  <CalendarClock className="h-3 w-3 shrink-0" />
+                  <span className="text-ds-text-3">Cierre est.</span> {closeDateLabel}
+                </p>
+              ) : null}
+              {nextStepLabel ? (
+                <p
+                  className="inline-flex items-start gap-1 text-[12px] text-ds-text-2"
+                  title={deal.nextStep ?? undefined}
+                >
+                  <ListTodo className="mt-0.5 h-3 w-3 shrink-0 text-ds-text-3" />
+                  <span>
+                    <span className="text-ds-text-3">Próx. acción: </span>
+                    <span className="line-clamp-2">{nextStepLabel}</span>
+                  </span>
+                </p>
+              ) : null}
+            </div>
+          ) : null}
+
+          {detail && openDeal && !closeDateLabel && !nextStepLabel ? (
+            <div className="mt-2 border-t border-dashed border-ds-border-subtle pt-1.5">
+              <span className="text-[12px] text-ds-text-4">Sin cierre estimado ni próxima acción</span>
             </div>
           ) : null}
         </div>

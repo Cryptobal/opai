@@ -31,6 +31,7 @@ type Props = {
   onAddDeal: (stageId: string) => void;
   onMoveDeal: (dealId: string, stageId: string) => void;
   onClosedStage: (stageId: string) => void;
+  onCloseDateSort?: (sort: "close-asc" | "close-desc") => void;
 };
 
 export function DealsSurface({
@@ -53,6 +54,7 @@ export function DealsSurface({
   onAddDeal,
   onMoveDeal,
   onClosedStage,
+  onCloseDateSort,
 }: Props) {
   if (summary.open.count === 0 && allDeals.length === 0) {
     return (
@@ -133,6 +135,7 @@ export function DealsSurface({
             emptySearch={Boolean(debouncedSearch)}
             onRowClick={(d) => onOpenDeal(d.id)}
             localTotalClp={showClosedTotal ? tableLocalClp : undefined}
+            onCloseDateSort={onCloseDateSort}
           />
         </div>
       ) : null}

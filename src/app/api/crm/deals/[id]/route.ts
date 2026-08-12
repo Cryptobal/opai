@@ -100,8 +100,14 @@ export async function PATCH(
 
     const raw = parsed.data as Record<string, unknown>;
     const data = { ...raw };
-    if (data.expectedCloseDate)
-      data.expectedCloseDate = new Date(data.expectedCloseDate as string);
+    if ("expectedCloseDate" in raw) {
+      const v = raw.expectedCloseDate as string | null | undefined;
+      data.expectedCloseDate = v ? new Date(`${v.slice(0, 10)}T12:00:00Z`) : null;
+    }
+    if ("nextStep" in raw) {
+      const v = raw.nextStep as string | null | undefined;
+      data.nextStep = v?.trim() ? v.trim() : null;
+    }
     // Edición directa de la fecha de inicio del servicio (negocio adjudicado).
     // Se acepta null para limpiarla. Fecha-only → mediodía UTC para evitar corrimiento de día por zona horaria.
     if ("serviceStartDate" in raw) {

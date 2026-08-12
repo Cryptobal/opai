@@ -63,3 +63,47 @@ export function getDealFollowUpIndicator(deal: CrmDeal): {
   }
   return { label: `S${next.sequence}`, dateLabel, overdue: false };
 }
+
+export function isOpenDeal(deal: CrmDeal): boolean {
+  if (deal.status !== "open") return false;
+  if (deal.stage?.isClosedWon || deal.stage?.isClosedLost) return false;
+  return true;
+}
+
+/** YYYY-MM-DD desde ISO o date-only. */
+export function dealCloseDateYmd(iso: string | null | undefined): string | null {
+  if (!iso) return null;
+  return iso.slice(0, 10);
+}
+
+export function formatDealCloseDate(iso: string | null | undefined): string | null {
+  const ymd = dealCloseDateYmd(iso);
+  if (!ymd) return null;
+  const [y, m, d] = ymd.split("-").map(Number);
+  if (!y || !m || !d) return null;
+  const months = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+  return `${d} ${months[m - 1]} ${y}`;
+}
+
+export type DealCloseDateTone = "ok" | "warn" | "danger";
+
+export function getDealCloseDateTone(iso: string | null | undefined): DealCloseDateTone | null {
+  const ymd = dealCloseDateYmd(iso);
+  if (!ymd) return null;
+  const due = new Date(`${ymd}T12:00:00`).getTime();
+  const today = new Date();
+  today.setHours(12, 0, 0, 0);
+  const diffDays = Math.ceil((due - today.getTime()) / 86_400_000);
+  if (diffDays < 0) return "danger";
+  if (diffDays <= 7) return "warn";
+  return "ok";
+}
+
+export function truncateNextStep(text: string | null | undefined, max = 48): string | null {
+  if (!text?.trim()) return null;
+  const t = text.trim();
+  return t.length > max ? `${t.slice(0, max - 1)}…` : t;
+}
+
+/** @deprecated alias interno — usar truncateNextStep */
+export const truncateProximoPaso = truncateNextStep;

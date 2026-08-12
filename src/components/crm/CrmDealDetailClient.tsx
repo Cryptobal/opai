@@ -52,6 +52,7 @@ import { AssociatedTicketsSection } from "./AssociatedTicketsSection";
 import { DealChecklistSection } from "./deal/DealChecklistSection";
 import { NotesSection } from "./NotesSection";
 import { DealLicitacionCard } from "./DealLicitacionCard";
+import { DealPipelineFieldsCard } from "./deal/DealPipelineFieldsCard";
 import { DealVisitasCard } from "./DealVisitasCard";
 import { CrmInstallationsClient } from "./CrmInstallationsClient";
 import { CrmSectionCreateButton } from "./CrmSectionCreateButton";
@@ -261,6 +262,8 @@ export type DealDetail = {
   proposalLink?: string | null;
   proposalSentAt?: string | null;
   serviceStartDate?: string | null;
+  expectedCloseDate?: string | null;
+  nextStep?: string | null;
   isLicitacion?: boolean;
   fechaEntrega?: string | null;
   createdAt?: string | null;
@@ -732,6 +735,14 @@ export function CrmDealDetailClient({
   const [pendingAcceptedStageId, setPendingAcceptedStageId] = useState<string | null>(null);
   const [acceptedDate, setAcceptedDate] = useState("");
   const [dealServiceStartDate, setDealServiceStartDate] = useState(deal.serviceStartDate || null);
+  const [dealExpectedCloseDate, setDealExpectedCloseDate] = useState(deal.expectedCloseDate ?? null);
+  const [dealNextStep, setDealNextStep] = useState(deal.nextStep ?? null);
+  useEffect(() => {
+    setDealExpectedCloseDate(deal.expectedCloseDate ?? null);
+  }, [deal.expectedCloseDate]);
+  useEffect(() => {
+    setDealNextStep(deal.nextStep ?? null);
+  }, [deal.nextStep]);
   // Estado de cierre del negocio (open/won/lost). Se mantiene en estado local
   // para reflejar el cambio de etapa al instante (el prop `deal.status` solo se
   // refresca tras router.refresh()). El efecto lo re-sincroniza con la fuente
@@ -2482,6 +2493,16 @@ export function CrmDealDetailClient({
             installation={dealInstallation}
           />
           <div className="mt-4 space-y-4">
+            <DealPipelineFieldsCard
+              dealId={deal.id}
+              expectedCloseDate={dealExpectedCloseDate}
+              nextStep={dealNextStep}
+              canEdit={canEdit}
+              onUpdated={(next) => {
+                setDealExpectedCloseDate(next.expectedCloseDate);
+                setDealNextStep(next.nextStep);
+              }}
+            />
             <DealLicitacionCard
               dealId={deal.id}
               isLicitacion={licitacion.isLicitacion}
