@@ -38,6 +38,7 @@ import { BulkAssignCashflowDialog } from "./BulkAssignCashflowDialog";
 import { BankAnalysisClient } from "./BankAnalysisClient";
 import { SaveAsRuleModal } from "./SaveAsRuleModal";
 import { AddToExistingRuleModal } from "./AddToExistingRuleModal";
+import { ClassifyToFlowRowDialog } from "./ClassifyToFlowRowDialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -1134,8 +1135,6 @@ function TransactionsTab({
   const [classifyFlowTx, setClassifyFlowTx] = useState<TransactionRow | null>(
     null,
   );
-  const [classifyFlowRowId, setClassifyFlowRowId] = useState("");
-  const [classifyFlowSaving, setClassifyFlowSaving] = useState(false);
   const [excludingTxId, setExcludingTxId] = useState<string | null>(null);
 
   const markExcludedFromBalance = async (tx: TransactionRow) => {
@@ -1155,40 +1154,6 @@ function TransactionsTab({
       toast.error(e instanceof Error ? e.message : "Error al excluir");
     } finally {
       setExcludingTxId(null);
-    }
-  };
-
-  const classifyToFlowRow = async () => {
-    if (!classifyFlowTx || !classifyFlowRowId) {
-      toast.error("Elegí una fila de flujo");
-      return;
-    }
-    setClassifyFlowSaving(true);
-    try {
-      const res = await fetch(
-        `/api/finance/banking/transactions/${classifyFlowTx.id}/classify-suggestions`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            kind: "FLOW_ROW",
-            flowRowId: classifyFlowRowId,
-            learnRule: "NONE",
-          }),
-        },
-      );
-      const json = await res.json().catch(() => null);
-      if (!res.ok || !json?.success) {
-        throw new Error(json?.error ?? "No se pudo clasificar");
-      }
-      toast.success("Movimiento clasificado a la fila del flujo");
-      setClassifyFlowTx(null);
-      setClassifyFlowRowId("");
-      loadTransactions();
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Error al clasificar");
-    } finally {
-      setClassifyFlowSaving(false);
     }
   };
 
@@ -1220,14 +1185,7 @@ function TransactionsTab({
           <FileText className="h-3.5 w-3.5 mr-2" />
           Ver detalle y conciliar
         </DropdownMenuItem>
-        <DropdownMenuItem
-          onSelect={() => {
-            setClassifyFlowRowId(
-              flowRows.find((r) => r.hasCategory)?.id ?? "",
-            );
-            setClassifyFlowTx(row);
-          }}
-        >
+        <DropdownMenuItem onSelect={() => setClassifyFlowTx(row)}>
           <GitBranch className="h-3.5 w-3.5 mr-2" />
           Clasificar a fila del flujo…
         </DropdownMenuItem>
@@ -3209,77 +3167,24 @@ function TransactionsTab({
         }}
       />
 
-      <Dialog
+      <ClassifyToFlowRowDialog
         open={!!classifyFlowTx}
         onOpenChange={(o) => {
-          if (!o) {
-            setClassifyFlowTx(null);
-            setClassifyFlowRowId("");
-          }
+          if (!o) setClassifyFlowTx(null);
         }}
-      >
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Clasificar a fila del flujo</DialogTitle>
-            <DialogDescription>
-              El movimiento se vincula a la fila elegida (sin crear regla).
-            </DialogDescription>
-          </DialogHeader>
-          {classifyFlowTx && (
-            <div className="rounded-md border border-ds-border-subtle bg-ds-surface-2 p-3 text-[12px] space-y-1">
-              <p className="font-medium text-ds-text-1 truncate">
-                {classifyFlowTx.description}
-              </p>
-              <p className="font-mono tabular-nums text-ds-text-3">
-                {fmtCLP.format(classifyFlowTx.amount)}
-              </p>
-            </div>
-          )}
-          <div className="space-y-1.5">
-            <Label>Fila de flujo</Label>
-            <Select
-              value={classifyFlowRowId || undefined}
-              onValueChange={setClassifyFlowRowId}
-            >
-              <SelectTrigger className="h-10 sm:h-9">
-                <SelectValue placeholder="Elegir fila…" />
-              </SelectTrigger>
-              <SelectContent>
-                {flowRows.map((row) => (
-                  <SelectItem
-                    key={row.id}
-                    value={row.id}
-                    disabled={!row.hasCategory}
-                  >
-                    {row.section} · {row.name}
-                    {!row.hasCategory ? " (sin cuenta contable)" : ""}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <DialogFooter className="flex-col sm:flex-row gap-2">
-            <Button
-              variant="ghost"
-              className="h-10 sm:h-9 w-full sm:w-auto"
-              onClick={() => setClassifyFlowTx(null)}
-              disabled={classifyFlowSaving}
-            >
-              Cancelar
-            </Button>
-            <Button
-              className="h-10 sm:h-9 w-full sm:w-auto"
-              onClick={() => void classifyToFlowRow()}
-              disabled={classifyFlowSaving || !classifyFlowRowId}
-            >
-              {classifyFlowSaving && (
-                <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
-              )}
-              Clasificar
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        tx={
+          classifyFlowTx
+            ? {
+                id: classifyFlowTx.id,
+                description: classifyFlowTx.description,
+                amount: classifyFlowTx.amount,
+              }
+            : null
+        }
+        flowRows={flowRows}
+        onClassified={loadTransactions}
+        fmtAmount={(n) => fmtCLP.format(n)}
+      />
 
       {/* Barra de selección: dock inferior en móvil, chip horizontal en desktop.
           Se oculta si ya hay un sheet/dialog abierto para no pelear z-index. */}

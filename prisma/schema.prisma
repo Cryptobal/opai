@@ -8060,6 +8060,10 @@ model FinanceBankTransactionLink {
   amount            Decimal                @db.Decimal(14, 2)
   accountPlanId     String?                @map("account_plan_id") @db.Uuid
   accountPlan       FinanceAccountPlan?    @relation("BankTxLinkAccountPlan", fields: [accountPlanId], references: [id])
+  /// Fila de flujo elegida explícitamente (clasificación manual / regla FLOW_ROW).
+  /// Necesaria cuando varias filas comparten la misma cuenta contable (ej. Aporte vs Devolución a socios → Acreedores Varios).
+  flowRowId         String?                @map("flow_row_id") @db.Uuid
+  flowRow           FinanceFlowRow?        @relation(fields: [flowRowId], references: [id], onDelete: SetNull)
   note              String?
   /// Regla que originó el link (referencia suelta, sin FK: la regla puede borrarse).
   matchedByRuleId   String?                @map("matched_by_rule_id") @db.Uuid
@@ -8072,6 +8076,7 @@ model FinanceBankTransactionLink {
   @@index([targetType, targetId], map: "idx_finance_bank_link_target")
   @@index([tenantId, matchedByRuleId], map: "idx_finance_bank_link_matched_rule")
   @@index([tenantId, matchSource], map: "idx_finance_bank_link_match_source")
+  @@index([tenantId, flowRowId], map: "idx_finance_bank_link_flow_row")
   @@map("finance_bank_transaction_links")
   @@schema("finance")
 }
@@ -9148,6 +9153,7 @@ model FinanceFlowRow {
   cellNotes        FinanceFlowCellNote[]
   cellSettlements  FinanceFlowCellSettlement[]
   accountMappings  FinanceFlowRowAccount[]
+  bankTxLinks      FinanceBankTransactionLink[]
 
   @@index([tenantId, section, orderIndex], map: "idx_finance_flow_row_tenant_section")
   @@index([tenantId, crmAccountId, installationId], map: "idx_finance_flow_row_account_inst")

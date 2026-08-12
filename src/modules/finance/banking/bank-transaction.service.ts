@@ -11,6 +11,7 @@ import {
   bulkAutoMatchBankTransactions,
   type BulkAutoMatchSummary,
 } from "./auto-match-payment.service";
+import { resolveFlowRowDisplayName } from "./resolve-flow-row-display";
 import { recognizeRutsForTransactions } from "./rut-recognition.service";
 import {
   shouldApplyImportClosingBalance,
@@ -447,6 +448,7 @@ export async function listBankTransactions(
             matchSource: true,
             matchedByRuleId: true,
             accountPlanId: true,
+            flowRowId: true,
             targetType: true,
             note: true,
             createdAt: true,
@@ -477,8 +479,15 @@ export async function listBankTransactions(
         .filter((v): v is string => !!v),
     ),
   ];
+  const linkFlowRowIds = [
+    ...new Set(
+      [...primaryLinkByTx.values()]
+        .map((l) => l.flowRowId)
+        .filter((v): v is string => !!v),
+    ),
+  ];
 
-  const [linkRules, catMappings] = await Promise.all([
+  const [linkRules, catMappings, flowRowsByIdRows] = await Promise.all([
     linkRuleIds.length > 0
       ? prisma.financeAutoMatchRule.findMany({
           where: { tenantId, id: { in: linkRuleIds } },
@@ -498,8 +507,21 @@ export async function listBankTransactions(
       : Promise.resolve(
           [] as { accountPlanId: string; isPrimary: boolean; categoryId: string }[],
         ),
+    linkFlowRowIds.length > 0
+      ? prisma.financeFlowRow.findMany({
+          where: {
+            tenantId,
+            id: { in: linkFlowRowIds },
+            archivedAt: null,
+          },
+          select: { id: true, name: true },
+        })
+      : Promise.resolve([] as { id: string; name: string }[]),
   ]);
   const linkRuleMap = new Map(linkRules.map((r) => [r.id, r.name]));
+  const flowRowNamesById = new Map(
+    flowRowsByIdRows.map((r) => [r.id, r.name]),
+  );
   const categoryIdByAccount = new Map<string, string>();
   for (const m of catMappings) {
     if (!categoryIdByAccount.has(m.accountPlanId)) {
@@ -556,9 +578,14 @@ export async function listBankTransactions(
         ? linkRuleMap.get(matchedByRuleId) ?? null
         : null,
       linkAccountLabel: linkAccountLabel ?? null,
-      flowRowName: link?.accountPlanId
-        ? flowRowNameByAccount.get(link.accountPlanId) ?? null
-        : null,
+      flowRowName: resolveFlowRowDisplayName(
+        {
+          flowRowId: link?.flowRowId ?? null,
+          accountPlanId: link?.accountPlanId ?? null,
+        },
+        flowRowNamesById,
+        flowRowNameByAccount,
+      ),
     };
   });
 

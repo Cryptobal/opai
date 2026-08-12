@@ -230,6 +230,8 @@ export interface BankTxLinkInput {
   targetId?: string | null;
   amount: number;
   accountPlanId?: string | null;
+  /** Fila de flujo elegida (desambigua cuentas compartidas entre filas). */
+  flowRowId?: string | null;
   note?: string | null;
   /** Procedencia del vínculo (RULE, DTE, MANUAL, …). */
   matchSource?:
@@ -2062,6 +2064,7 @@ export async function setTransactionLinks(
           targetId: l.targetId ?? null,
           amount: new Decimal(l.amount),
           accountPlanId: l.accountPlanId ?? null,
+          flowRowId: l.flowRowId ?? null,
           note: l.note ?? null,
           matchSource: l.matchSource ?? null,
           matchedByRuleId: l.matchedByRuleId ?? null,
