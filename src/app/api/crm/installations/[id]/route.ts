@@ -230,32 +230,30 @@ export async function PATCH(
       );
     }
 
-    const chatShouldBeOff =
-      installation.status !== "active" ||
-      payload.chatEnabled === false ||
-      (payload.status !== undefined && payload.status !== "active");
+    const chatShouldBeOn =
+      installation.status === "active" && installation.chatEnabled === true;
 
     // Instalación no operativa: apagar rondas, chat y puentes Slack.
     if (installation.status !== "active") {
       await shutdownInstallationOperations(ctx.tenantId, id);
     }
 
-    // Auto-manage chat channels when chatEnabled changes (o al quedar inactiva)
-    if (payload.chatEnabled !== undefined || chatShouldBeOff) {
-      if (payload.chatEnabled && installation.status === "active") {
-        await ensureInstallationChannel({
-          client: prisma,
-          tenantId: ctx.tenantId,
-          installationId: id,
-          installationName: installation.name,
-          activate: true,
-        });
-      } else if (chatShouldBeOff) {
-        await prisma.chatChannel.updateMany({
-          where: { installationId: id, tenantId: ctx.tenantId },
-          data: { isActive: false },
-        });
-      }
+    // Auto-manage chat channels from the final installation state.
+    // Important: chatEnabled can become true via status→active sync without
+    // payload.chatEnabled being set; those paths must still provision the channel.
+    if (chatShouldBeOn) {
+      await ensureInstallationChannel({
+        client: prisma,
+        tenantId: ctx.tenantId,
+        installationId: id,
+        installationName: installation.name,
+        activate: true,
+      });
+    } else {
+      await prisma.chatChannel.updateMany({
+        where: { installationId: id, tenantId: ctx.tenantId },
+        data: { isActive: false },
+      });
     }
 
     // Sync finance cost center when installation status changes

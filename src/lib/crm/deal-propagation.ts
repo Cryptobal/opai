@@ -14,6 +14,7 @@
  */
 
 import type { Prisma } from "@prisma/client";
+import { ensureInstallationChannel } from "@/lib/chat-installation-channel";
 import {
   type Tx,
   pickWinningQuote,
@@ -88,7 +89,7 @@ export async function propagateDealWon(
   if (winning.installationId) {
     const inst = await tx.crmInstallation.findFirst({
       where: { id: winning.installationId, tenantId },
-      select: { id: true, status: true, activatedByDealId: true },
+      select: { id: true, name: true, status: true, activatedByDealId: true },
     });
 
     if (inst) {
@@ -106,6 +107,15 @@ export async function propagateDealWon(
       }
       if (Object.keys(updates).length > 0) {
         await tx.crmInstallation.update({ where: { id: inst.id }, data: updates });
+      }
+      if (result.activatedInstallationId) {
+        await ensureInstallationChannel({
+          client: tx,
+          tenantId,
+          installationId: inst.id,
+          installationName: inst.name,
+          activate: true,
+        });
       }
     }
   }

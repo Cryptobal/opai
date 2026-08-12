@@ -18,6 +18,7 @@ import {
   type InstallationStatusFilter,
   type InstallationListSort,
 } from "@/lib/crm/list-installations";
+import { ensureInstallationChannel } from "@/lib/chat-installation-channel";
 
 export async function GET(request: NextRequest) {
   try {
@@ -184,7 +185,7 @@ export async function POST(request: NextRequest) {
       createdBy: ctx.userId,
     });
 
-    // Auto-create finance cost center for active installations
+    // Auto-create finance cost center + chat channel for active installations
     if (installation.status === "active") {
       await prisma.financeCostCenter.create({
         data: {
@@ -194,6 +195,13 @@ export async function POST(request: NextRequest) {
           accountId: installation.accountId ?? null,
           active: true,
         },
+      });
+      await ensureInstallationChannel({
+        client: prisma,
+        tenantId: ctx.tenantId,
+        installationId: installation.id,
+        installationName: installation.name,
+        activate: true,
       });
     }
 
