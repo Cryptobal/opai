@@ -3,6 +3,7 @@
  *
  * HTML branded para envíos de cobranza multicanal. El cuerpo principal puede
  * venir de DocTemplate resuelto o de un mensaje editado por el operador.
+ * El saludo vive en el bodyText (plantilla); no se duplica aquí.
  */
 
 import {
@@ -20,15 +21,13 @@ import {
 import * as React from "react";
 
 export interface CobranzaEmailProps {
-  recipientName: string;
-  /** Texto plano o párrafos del recordatorio (ya resuelto). */
+  /** Texto plano o párrafos del recordatorio (ya resuelto, incluye saludo). */
   bodyText: string;
   folio: string;
   receiverCompanyName: string;
   totalFormatted: string;
   dueDate: string;
   daysOverdue: number;
-  slugLabel: string;
   brandName: string;
   logoUrl?: string;
   brandPrimaryColor?: string;
@@ -38,14 +37,12 @@ export interface CobranzaEmailProps {
 }
 
 export function CobranzaEmail({
-  recipientName = "Cliente",
   bodyText = "",
   folio = "—",
   receiverCompanyName = "",
   totalFormatted = "$0",
   dueDate = "",
   daysOverdue = 0,
-  slugLabel = "Recordatorio",
   brandName = "OPAI",
   logoUrl = "",
   brandPrimaryColor = "#0066FF",
@@ -76,12 +73,9 @@ export function CobranzaEmail({
           )}
 
           <Section style={hero}>
-            <Text style={badge}>{slugLabel}</Text>
             <Heading style={h1}>Factura F°{folio}</Heading>
             <Text style={subtitle}>{receiverCompanyName || "Estimado cliente"}</Text>
           </Section>
-
-          <Text style={greeting}>Hola {recipientName},</Text>
 
           {paragraphs.length > 0 ? (
             paragraphs.map((p, i) => (
@@ -152,16 +146,6 @@ const brandTitle = {
 
 const hero = { marginBottom: "16px" };
 
-const badge = {
-  display: "inline-block",
-  fontSize: "11px",
-  fontWeight: "600" as const,
-  letterSpacing: "0.04em",
-  textTransform: "uppercase" as const,
-  color: "#64748b",
-  margin: "0 0 8px",
-};
-
 const h1 = {
   color: "#0f172a",
   fontSize: "22px",
@@ -173,13 +157,6 @@ const subtitle = {
   color: "#64748b",
   fontSize: "14px",
   margin: "0",
-};
-
-const greeting = {
-  color: "#334155",
-  fontSize: "15px",
-  lineHeight: "24px",
-  margin: "0 0 12px",
 };
 
 const paragraph = {

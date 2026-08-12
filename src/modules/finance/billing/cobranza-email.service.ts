@@ -20,10 +20,7 @@ import { getTenantEmailConfig } from "@/lib/resend";
 import { CobranzaEmail } from "@/emails/CobranzaEmail";
 import { getDtePdf } from "./dte-pdf.service";
 import { buildDteAttachmentBaseName } from "./dte-filename";
-import {
-  cobranzaSlugLabel,
-  type CobranzaSlug,
-} from "./cobranza-shared";
+import { type CobranzaSlug } from "./cobranza-shared";
 
 export type { CobranzaSlug };
 
@@ -201,19 +198,15 @@ export async function sendCobranzaEmail(
   }
 
   const subject = SUBJECT_BY_SLUG[input.slug].replace("{folio}", String(dte.folio));
-  const recipientName =
-    [contact.firstName, contact.lastName].filter(Boolean).join(" ").trim() || "Cliente";
 
   const html = await render(
     createElement(CobranzaEmail, {
-      recipientName,
       bodyText,
       folio: String(dte.folio),
       receiverCompanyName: dte.receiverName ?? account?.name ?? "",
       totalFormatted: totalFmt,
       dueDate: dueFmt,
       daysOverdue,
-      slugLabel: cobranzaSlugLabel(input.slug),
       brandName: tenantCfg.commercialName ?? "OPAI",
       logoUrl: tenantCfg.logoUrl ?? undefined,
       brandPrimaryColor: tenantCfg.brandingPrimaryColor ?? undefined,
