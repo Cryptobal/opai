@@ -13,8 +13,15 @@ export async function resolvePayrollFlowRows(tenantId: string): Promise<{
   anticipoRow: FlowRowDest | null;
   finiquitoRow: FlowRowDest | null;
   teRow: FlowRowDest | null;
+  retiroSocioRow: FlowRowDest | null;
 }> {
-  const keys: FlowRowKey[] = ["SUELDO", "QUINCENA", "FINIQUITO", "TURNO_EXTRA"];
+  const keys: FlowRowKey[] = [
+    "SUELDO",
+    "QUINCENA",
+    "FINIQUITO",
+    "TURNO_EXTRA",
+    "RETIRO_SOCIO",
+  ];
   const rows = await prisma.financeFlowRow.findMany({
     where: {
       tenantId,
@@ -39,6 +46,7 @@ export async function resolvePayrollFlowRows(tenantId: string): Promise<{
     anticipoRow: byKey.get("QUINCENA") ?? null,
     finiquitoRow: byKey.get("FINIQUITO") ?? null,
     teRow: byKey.get("TURNO_EXTRA") ?? null,
+    retiroSocioRow: byKey.get("RETIRO_SOCIO") ?? null,
   };
 }
 

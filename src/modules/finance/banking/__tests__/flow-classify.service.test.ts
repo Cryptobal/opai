@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   TGR_RUT,
+  canSuggestTurnoExtra,
+  isGuardiaTerminated,
   isPersonaRut,
   isTgrRut,
   normalizeClassifyRut,
@@ -14,6 +16,11 @@ const GUARDIA_ACTIVO: GuardiaStateHit = {
   lifecycleStatus: "contratado",
   terminatedAt: null,
   installationName: "Polpaico — Coronel",
+  availableExtraShifts: true,
+};
+
+const GUARDIA_TE_DESHABILITADO: GuardiaStateHit = {
+  ...GUARDIA_ACTIVO,
   availableExtraShifts: false,
 };
 
@@ -30,6 +37,8 @@ const GUARDIA_FINIQUITADO: GuardiaStateHit = {
   availableExtraShifts: false,
 };
 
+const RETIRO_SOCIO_ROW = { flowRowId: "row-retiro", label: "Retiro socios" };
+
 describe("normalizeClassifyRut / isTgrRut / isPersonaRut", () => {
   it("normaliza TGR con puntos y guión", () => {
     expect(normalizeClassifyRut("61.808.000-5")).toBe(TGR_RUT);
@@ -42,6 +51,16 @@ describe("normalizeClassifyRut / isTgrRut / isPersonaRut", () => {
     expect(isPersonaRut("256609789")).toBe(true); // 25M persona
     expect(isPersonaRut("761234567")).toBe(false); // 76M empresa (placeholder)
     expect(isPersonaRut(TGR_RUT)).toBe(false);
+  });
+});
+
+describe("canSuggestTurnoExtra / isGuardiaTerminated", () => {
+  it("TE solo con ficha, activo y availableExtraShifts", () => {
+    expect(canSuggestTurnoExtra(GUARDIA_ACTIVO, true)).toBe(true);
+    expect(canSuggestTurnoExtra(GUARDIA_TE_DESHABILITADO, true)).toBe(false);
+    expect(canSuggestTurnoExtra(GUARDIA_FINIQUITADO, true)).toBe(false);
+    expect(canSuggestTurnoExtra(null, false)).toBe(false);
+    expect(isGuardiaTerminated(GUARDIA_FINIQUITADO)).toBe(true);
   });
 });
 
@@ -195,7 +214,7 @@ describe("rankClassifySuggestions", () => {
     });
   });
 
-  it("guardia activo sin ítem → Turnos extra con reason", () => {
+  it("guardia activo habilitado TE sin ítem → Turnos extra", () => {
     const s = rankClassifySuggestions({
       beneficiaryRut: "256609789",
       amountAbs: 80_000,
@@ -209,11 +228,27 @@ describe("rankClassifySuggestions", () => {
       flowRowId: "row-te",
       source: "te",
       label: "Turnos extra",
-      reason: "Guardia activo, sin liquidación que calce",
+      reason: "Guardia habilitado para TE, sin liquidación que calce",
     });
   });
 
-  it("guardia sin puesto → TE con reason específico", () => {
+  it("guardia TE deshabilitado → retiro socios, no TE", () => {
+    const s = rankClassifySuggestions({
+      beneficiaryRut: "130512461",
+      amountAbs: 2_500_000,
+      guardiaState: GUARDIA_TE_DESHABILITADO,
+      payrollCandidates: [],
+      teRowId: "row-te",
+      retiroSocioRow: RETIRO_SOCIO_ROW,
+    });
+    expect(s[0]).toMatchObject({
+      flowRowId: "row-retiro",
+      source: "heuristic",
+      reason: "Persona en nómina sin turnos extra; posible retiro de socios",
+    });
+  });
+
+  it("guardia habilitado TE sin puesto → TE con reason específico", () => {
     const s = rankClassifySuggestions({
       beneficiaryRut: "256609789",
       amountAbs: 80_000,
@@ -223,11 +258,11 @@ describe("rankClassifySuggestions", () => {
     });
     expect(s[0]).toMatchObject({
       source: "te",
-      reason: "Guardia sin puesto activo",
+      reason: "Guardia habilitado para TE, sin puesto activo",
     });
   });
 
-  it("finiquitado sin calce de finiquito → TE", () => {
+  it("finiquitado sin calce de monto → Finiquitos (no TE)", () => {
     const s = rankClassifySuggestions({
       beneficiaryRut: "256609789",
       amountAbs: 50_000,
@@ -245,22 +280,26 @@ describe("rankClassifySuggestions", () => {
       teRowId: "row-te",
     });
     expect(s[0]).toMatchObject({
-      source: "te",
-      reason: "Finiquitado; monto no calza con el finiquito",
+      source: "payroll",
+      flowRowId: "row-fin",
+      reason: expect.stringContaining("Finiquito registrado 31/07/26"),
     });
+    expect(s[0]?.reason).toContain("monto difiere");
   });
 
-  it("isPersonaRut fallback sin guardiaState → TE", () => {
+  it("persona natural sin ficha → retiro socios (no TE)", () => {
     const s = rankClassifySuggestions({
       beneficiaryRut: "256609789",
       amountAbs: 80_000,
       teRowId: "row-te",
       teRowLabel: "Turnos extra",
+      retiroSocioRow: RETIRO_SOCIO_ROW,
     });
     expect(s[0]).toMatchObject({
       kind: "FLOW_ROW",
-      source: "te",
-      reason: "Persona natural sin liquidación que calce",
+      flowRowId: "row-retiro",
+      source: "heuristic",
+      reason: "Persona natural; posible retiro de socios u otro egreso",
     });
   });
 
@@ -327,6 +366,7 @@ describe("rankClassifySuggestions", () => {
       ],
       liquidacionRow: { flowRowId: "row-sueldo", label: "Sueldos" },
       teRowId: "row-te",
+      retiroSocioRow: RETIRO_SOCIO_ROW,
     });
     expect(s[0]).toMatchObject({ source: "te" });
 

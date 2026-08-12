@@ -59,7 +59,7 @@ export async function loadPayrollCandidates(
   const minYear = windowStart.getUTCFullYear();
   const minMonth = windowStart.getUTCMonth() + 1;
 
-  const finiquitoFrom = addDays(now, -30);
+  const finiquitoFrom = addDays(now, -Math.max(0, windowDays));
   const finiquitoTo = addDays(now, 90);
   // Truncar a date-only UTC para @db.Date
   const finFromYmd = new Date(finiquitoFrom.toISOString().slice(0, 10) + "T00:00:00.000Z");

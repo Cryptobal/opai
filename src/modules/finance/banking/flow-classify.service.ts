@@ -91,9 +91,11 @@ export interface RankClassifyInput {
   finiquitoRow?: FlowRowDest | null;
   /** @deprecated Preferir payrollCandidates + *Row. Mantener para compat tests legacy. */
   payrollItem?: PayrollItemHit | null;
-  /** rowId canónico de Turnos extra (fallback persona sin ítem). */
+  /** rowId canónico de Turnos extra (solo guardias habilitados para TE). */
   teRowId?: string | null;
   teRowLabel?: string;
+  /** Fila Retiro socios (persona natural / guardia no habilitado para TE). */
+  retiroSocioRow?: FlowRowDest | null;
   /** Fila de flujo resuelta desde categoría habitual del proveedor. */
   supplierCategoryRow?: FlowRowDest | null;
   /** Nombre de categoría para el motivo (opcional). */
@@ -143,17 +145,75 @@ function pickCandidate(
   return hits[0]!;
 }
 
+function pickFirstCandidate(
+  candidates: PayrollCandidateHit[],
+  kind: PayrollCandidateHit["kind"],
+): PayrollCandidateHit | null {
+  return candidates.find((c) => c.kind === kind) ?? null;
+}
+
+/** Guardia con término de relación laboral registrado. */
+export function isGuardiaTerminated(
+  guardiaState: GuardiaStateHit | null | undefined,
+): boolean {
+  if (!guardiaState) return false;
+  return (
+    !!guardiaState.terminatedAt || guardiaState.lifecycleStatus === "inactivo"
+  );
+}
+
+/**
+ * Turnos extra solo si hay ficha guardia, está activo y marcado disponible
+ * para TE (`availableExtraShifts`). Socios/directores suelen tener ficha pero
+ * con TE deshabilitado; personas naturales sin ficha tampoco califican.
+ */
+export function canSuggestTurnoExtra(
+  guardiaState: GuardiaStateHit | null | undefined,
+  hasGuardiaRecord: boolean,
+): boolean {
+  if (!hasGuardiaRecord || !guardiaState) return false;
+  if (!guardiaState.availableExtraShifts) return false;
+  if (isGuardiaTerminated(guardiaState)) return false;
+  return true;
+}
+
+function formatClp(amount: number): string {
+  return `$${Math.round(amount).toLocaleString("es-CL")}`;
+}
+
+function finiquitoReason(
+  fin: PayrollCandidateHit,
+  amountAbs: number,
+  tol: number,
+): string {
+  const datePart = fin.label.replace(/^Finiquito\s+/i, "");
+  if (amountMatches(fin.amount, amountAbs, tol)) {
+    return `Finiquito registrado ${datePart}`;
+  }
+  return `Finiquito registrado ${datePart}; monto difiere (registrado ${formatClp(fin.amount)})`;
+}
+
 function teReason(guardiaState: GuardiaStateHit | null | undefined): string {
   if (!guardiaState) {
-    return "Persona natural sin liquidación que calce";
-  }
-  if (guardiaState.terminatedAt || guardiaState.lifecycleStatus === "inactivo") {
-    return "Finiquitado; monto no calza con el finiquito";
+    return "Guardia habilitado para TE, sin liquidación que calce";
   }
   if (!guardiaState.installationName) {
-    return "Guardia sin puesto activo";
+    return "Guardia habilitado para TE, sin puesto activo";
   }
-  return "Guardia activo, sin liquidación que calce";
+  return "Guardia habilitado para TE, sin liquidación que calce";
+}
+
+function retiroSocioReason(
+  guardiaState: GuardiaStateHit | null | undefined,
+  hasGuardiaRecord: boolean,
+): string {
+  if (hasGuardiaRecord && guardiaState && !guardiaState.availableExtraShifts) {
+    return "Persona en nómina sin turnos extra; posible retiro de socios";
+  }
+  if (hasGuardiaRecord && isGuardiaTerminated(guardiaState)) {
+    return "Guardia finiquitado; verificar retiro u otro egreso";
+  }
+  return "Persona natural; posible retiro de socios u otro egreso";
 }
 
 function noneReason(input: RankClassifyInput, rut: string | null): string {
@@ -169,8 +229,9 @@ function noneReason(input: RankClassifyInput, rut: string | null): string {
  * es la sugerencia principal. Nunca incluye auto-apply — el caller mira
  * requiresReview en FLOW_ROW de regla.
  *
- * Orden: regla → TGR → finiquito → liquidación → anticipo → turno extra
- * → proveedor category row → DTE → NONE.
+ * Orden: regla → TGR → finiquito → liquidación → anticipo → finiquito
+ * (sin calce) → turno extra (solo TE habilitado) → retiro socios → proveedor
+ * → DTE → NONE.
  */
 export function rankClassifySuggestions(input: RankClassifyInput): ClassifySuggestion[] {
   const out: ClassifySuggestion[] = [];
@@ -181,6 +242,7 @@ export function rankClassifySuggestions(input: RankClassifyInput): ClassifySugge
   // isPersonaRut solo como fallback cuando no hay identidad de guardia.
   const personaFallback = !hasGuardia && !!rut && isPersonaRut(rut);
   const isPersonaBranch = hasGuardia || personaFallback;
+  const teEligible = canSuggestTurnoExtra(input.guardiaState, hasGuardia);
 
   // 1. Regla RUT → FLOW_ROW
   if (input.ruleHit) {
@@ -214,15 +276,13 @@ export function rankClassifySuggestions(input: RankClassifyInput): ClassifySugge
     // 3. Finiquito aprobado que calza por monto
     const fin = pickCandidate(candidates, "FINIQUITO", input.amountAbs, tol);
     if (fin && input.finiquitoRow) {
-      // Motivo: "Finiquito registrado DD/MM/AA" — label ya trae la fecha.
-      const datePart = fin.label.replace(/^Finiquito\s+/i, "");
       out.push({
         kind: "FLOW_ROW",
         flowRowId: input.finiquitoRow.flowRowId,
         label: input.finiquitoRow.label,
         source: "payroll",
         requiresReview: true,
-        reason: `Finiquito registrado ${datePart}`,
+        reason: finiquitoReason(fin, input.amountAbs, tol),
       });
       return out;
     }
@@ -268,8 +328,24 @@ export function rankClassifySuggestions(input: RankClassifyInput): ClassifySugge
       return out;
     }
 
-    // 6. Turno extra (fallback persona/guardia)
-    if (input.teRowId) {
+    // 5b. Guardia finiquitado: preferir fila Finiquitos aunque el monto no calce
+    if (isGuardiaTerminated(input.guardiaState) && input.finiquitoRow) {
+      const finAny = pickFirstCandidate(candidates, "FINIQUITO");
+      out.push({
+        kind: "FLOW_ROW",
+        flowRowId: input.finiquitoRow.flowRowId,
+        label: input.finiquitoRow.label,
+        source: "payroll",
+        requiresReview: true,
+        reason: finAny
+          ? finiquitoReason(finAny, input.amountAbs, tol)
+          : "Guardia finiquitado; sin finiquito registrado que calce",
+      });
+      return out;
+    }
+
+    // 6. Turno extra — solo guardias activos con availableExtraShifts
+    if (teEligible && input.teRowId) {
       out.push({
         kind: "FLOW_ROW",
         flowRowId: input.teRowId,
@@ -277,6 +353,19 @@ export function rankClassifySuggestions(input: RankClassifyInput): ClassifySugge
         source: "te",
         requiresReview: true,
         reason: teReason(input.guardiaState),
+      });
+      return out;
+    }
+
+    // 6b. Persona natural / guardia no-TE → retiro socios (heurística)
+    if (input.retiroSocioRow) {
+      out.push({
+        kind: "FLOW_ROW",
+        flowRowId: input.retiroSocioRow.flowRowId,
+        label: input.retiroSocioRow.label,
+        source: "heuristic",
+        requiresReview: true,
+        reason: retiroSocioReason(input.guardiaState, hasGuardia),
       });
       return out;
     }

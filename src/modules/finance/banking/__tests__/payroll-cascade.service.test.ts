@@ -63,6 +63,7 @@ beforeEach(() => {
     anticipoRow: { flowRowId: "row-ant", label: "Quincena" },
     finiquitoRow: { flowRowId: "row-fin", label: "Finiquitos" },
     teRow: { flowRowId: "row-te", label: "Turnos extra" },
+    retiroSocioRow: { flowRowId: "row-retiro", label: "Retiro socios" },
   });
   asMock(prisma.financeFlowRow.findFirst).mockImplementation(
     async ({ where }: { where: { id: string } }) => ({
@@ -233,7 +234,7 @@ describe("tryPayrollCascade", () => {
     });
   });
 
-  it("guardia sin calce queda por autorizar (nunca auto-concilia)", async () => {
+  it("guardia habilitado TE sin calce queda por autorizar con cuenta TE", async () => {
     asMock(prisma.financeBankTransaction.findMany).mockResolvedValue([
       {
         id: "tx4",
@@ -251,7 +252,13 @@ describe("tryPayrollCascade", () => {
             kind: "guardia",
             entityId: "g1",
             entityName: "A",
-            guardiaState: null,
+            guardiaState: {
+              status: "active",
+              lifecycleStatus: "contratado",
+              terminatedAt: null,
+              installationName: "Site A",
+              availableExtraShifts: true,
+            },
             alsoRegisteredAs: [],
           },
         ],
@@ -266,6 +273,56 @@ describe("tryPayrollCascade", () => {
     expect(prisma.financeBankTransaction.update).toHaveBeenCalledWith({
       where: { id: "tx4" },
       data: { suggestedAccountPlanId: "ap-1" },
+    });
+  });
+
+  it("guardia TE deshabilitado sugiere retiro socios, no TE", async () => {
+    asMock(prisma.financeBankTransaction.findMany).mockResolvedValue([
+      {
+        id: "tx6",
+        amount: decimal(-2_500_000),
+        description: "Retiro",
+        reference: null,
+      },
+    ]);
+    asMock(recognizeRutsForTransactions).mockResolvedValue(
+      new Map([
+        [
+          "tx6",
+          {
+            rut: "130512461",
+            kind: "guardia",
+            entityId: "g-socio",
+            entityName: "Socio",
+            guardiaState: {
+              status: "active",
+              lifecycleStatus: "contratado",
+              terminatedAt: null,
+              installationName: null,
+              availableExtraShifts: false,
+            },
+            alsoRegisteredAs: [],
+          },
+        ],
+      ]),
+    );
+    asMock(loadPayrollCandidates).mockResolvedValue(new Map([["g-socio", []]]));
+    asMock(resolveAccountPlanIdForFlowRow).mockImplementation(
+      async (_tenantId, row: { id?: string }) =>
+        row.id === "row-retiro" ? "ap-retiro" : "ap-1",
+    );
+    asMock(prisma.financeFlowRow.findFirst).mockImplementation(
+      async ({ where }: { where: { id: string } }) => ({
+        id: where.id,
+        categoryId: `cat-${where.id}`,
+      }),
+    );
+
+    const r = await tryPayrollCascade(TENANT, ["tx6"], USER);
+    expect(r.inferredSuggested).toBe(1);
+    expect(prisma.financeBankTransaction.update).toHaveBeenCalledWith({
+      where: { id: "tx6" },
+      data: { suggestedAccountPlanId: "ap-retiro" },
     });
   });
 

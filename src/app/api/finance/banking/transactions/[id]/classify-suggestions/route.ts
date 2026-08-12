@@ -234,6 +234,7 @@ export async function GET(
       finiquitoRow: payrollRows.finiquitoRow,
       teRowId: payrollRows.teRow?.flowRowId ?? null,
       teRowLabel: payrollRows.teRow?.label,
+      retiroSocioRow: payrollRows.retiroSocioRow,
       supplierCategoryRow,
       supplierCategoryName,
       dteReceived,
