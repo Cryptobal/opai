@@ -376,8 +376,8 @@ export function PlanillaToolbar(p: Props) {
             <Tip
               label={
                 p.bankStale
-                  ? "Última cartola hace más de 7 días — el saldo puede estar desactualizado"
-                  : "Ver desglose por cuenta"
+                  ? "Cartola desactualizada — clic para anclar el saldo real a hoy"
+                  : "Actualizar saldo del banco a hoy (recalcula proyecciones)"
               }
             >
               <Button

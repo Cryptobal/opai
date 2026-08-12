@@ -815,6 +815,10 @@ export function PlanillaClient({
           onOpenChange={setBankOpen}
           detail={detail}
           todayYmd={m.data.todayYmd}
+          canManage={canManage}
+          onSaved={async () => {
+            await m.refetch();
+          }}
         />
       )}
 

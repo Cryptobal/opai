@@ -38,7 +38,7 @@ export function PlanillaStatusbar({
           type="button"
           onClick={onOpenBank}
           className="rounded px-1 hover:bg-ds-surface-3"
-          title="Ver desglose por cuenta"
+          title="Actualizar saldo del banco a hoy (recalcula proyecciones)"
         >
           Banco hoy{" "}
           <span className={`tabular-nums ${bankStale ? "text-status-warn-fg" : "text-ds-text-1"}`}>

@@ -3,6 +3,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireAuth, unauthorized, parseBody, resolveApiPerms } from "@/lib/api-auth";
 import { hasCapability } from "@/lib/permissions";
+import { todayInChile, utcDateFromYmd } from "@/lib/dates-cl";
 import { prisma } from "@/lib/prisma";
 
 const adjustSchema = z.object({
@@ -43,12 +44,9 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const today = new Date();
-  const asOfDate = new Date(
-    today.getUTCFullYear(),
-    today.getUTCMonth(),
-    today.getUTCDate(),
-  );
+  const now = new Date();
+  // Snapshot "as of" en calendario Chile (no UTC) — crítico mid-week.
+  const asOfDate = utcDateFromYmd(todayInChile(now));
 
   const snapshot = await prisma.financeBankAccountBalance.create({
     data: {
@@ -64,17 +62,16 @@ export async function POST(req: NextRequest) {
 
   await prisma.financeBankAccount.update({
     where: { id: bankAccountId },
-    data: { currentBalance: balance, balanceUpdatedAt: today },
+    data: { currentBalance: balance, balanceUpdatedAt: now },
   });
 
-  // Invalida el data cache del server component que sirve la projection,
-  // para que el siguiente render del cliente (router.refresh) reciba el
-  // saldo recién guardado y no la versión cacheada.
+  // Invalida caches de FC (legacy + planilla v3).
   revalidatePath("/finanzas/flujo-caja");
+  revalidatePath("/finanzas/flujo-caja/planilla");
   revalidatePath("/finanzas");
 
   return NextResponse.json({
     success: true,
-    data: { snapshotId: snapshot.id, balance, asOfDate },
+    data: { snapshotId: snapshot.id, balance, asOfDate: todayInChile(now) },
   });
 }

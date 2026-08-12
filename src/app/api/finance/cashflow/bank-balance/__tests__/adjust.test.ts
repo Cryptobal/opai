@@ -212,6 +212,7 @@ describe("POST /api/finance/cashflow/bank-balance/adjust", () => {
     expect(body.success).toBe(true);
     expect(body.data.snapshotId).toBe("snap-1");
     expect(body.data.balance).toBe(12_500_000);
+    expect(body.data.asOfDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
 
     expect(balanceCreate).toHaveBeenCalledWith({
       data: expect.objectContaining({
@@ -221,6 +222,7 @@ describe("POST /api/finance/cashflow/bank-balance/adjust", () => {
         source: "MANUAL",
         note: "saldo informado por el banco",
         createdById: "user-1",
+        asOfDate: expect.any(Date),
       }),
     });
     expect(bankAccountUpdate).toHaveBeenCalledWith({

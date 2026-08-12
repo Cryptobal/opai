@@ -88,7 +88,7 @@ export function PanelDataHealth({
           className="ml-auto min-h-10 rounded-full px-3 text-[12px] font-medium text-primary hover:bg-primary/10 sm:min-h-9"
           onClick={onOpenBank}
         >
-          Ver desglose
+          Actualizar saldo
         </button>
       )}
     </div>
