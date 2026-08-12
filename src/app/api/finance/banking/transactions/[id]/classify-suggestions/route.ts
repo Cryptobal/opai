@@ -375,6 +375,7 @@ export async function POST(
             targetId: null,
             amount: amountAbs,
             accountPlanId,
+            flowRowId: row.id,
             note:
               body.note ??
               `Clasificado a fila flujo: ${row.name} (${normalizeNameForDedupe(row.name)})`,
