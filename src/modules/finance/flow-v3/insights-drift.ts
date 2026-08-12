@@ -1,5 +1,7 @@
 /**
- * Desviaciones mensuales del Panel: totales de mes por canonicalKey.
+ * Desviaciones mensuales del Panel: totales de mes por fila.
+ * Incluye filas canónicas (canonicalKey / nombre) y filas manuales con
+ * actividad plan/real en la ventana mensual (ej. «Provisión»).
  * Puro — sin Prisma / server-only.
  *
  * Asignación de mes: por `weekStart.slice(0, 7)` (mes del lunes ISO).
@@ -93,6 +95,16 @@ export function isDriftRow(row: {
   return isDriftNameMatch(row.name);
 }
 
+/** Bandejas y filas virtuales no entran por actividad ad-hoc (solo por isDriftRow). */
+export function isExcludedFromActivityDrift(row: {
+  canonicalKey?: string | null;
+  isVirtual?: boolean;
+}): boolean {
+  if (row.isVirtual) return true;
+  const key = row.canonicalKey;
+  return key === "BANDEJA_INGRESO" || key === "BANDEJA_EGRESO";
+}
+
 export function projMag(cell: FlowMatrixCellDto): number {
   if (cell.projected != null) return Math.abs(cell.projected);
   if (cell.plan !== 0) return Math.abs(cell.plan);
@@ -137,7 +149,10 @@ export function buildMonthlyDrifts(
   const result: MonthlyDriftRowV2[] = [];
 
   for (const row of rows) {
-    if (!isDriftRow(row)) continue;
+    const canonicalDrift = isDriftRow(row);
+    const activityCandidate =
+      !canonicalDrift && !isExcludedFromActivityDrift(row);
+    if (!canonicalDrift && !activityCandidate) continue;
 
     const byMonth = new Map<string, { projected: number; real: number }>();
     for (const mk of monthKeys) byMonth.set(mk, { projected: 0, real: 0 });
@@ -179,6 +194,8 @@ export function buildMonthlyDrifts(
     });
 
     const allZero = months.every((m) => m.projected === 0 && m.real === 0);
+    if (!canonicalDrift && allZero) continue;
+
     result.push({
       rowId: row.id,
       name: row.name,

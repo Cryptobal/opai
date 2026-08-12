@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   buildMonthlyDrifts,
   isDriftRow,
+  isExcludedFromActivityDrift,
   projMag,
 } from "../insights-drift";
 import type { FlowMatrixCellDto, FlowMatrixRowDto } from "../matrix-assemble";
@@ -178,5 +179,62 @@ describe("buildMonthlyDrifts", () => {
       todayYmd: TODAY,
     });
     expect(drifts[0]!.allZero).toBe(true);
+  });
+
+  it("incluye fila manual sin canonicalKey con actividad real (Provisión)", () => {
+    const cells = weeks.map((w) =>
+      w === "2026-08-10"
+        ? makeCell(w, {
+            plan: -5_000_000,
+            real: -5_000_000,
+            projected: 5_000_000,
+          })
+        : makeCell(w),
+    );
+    const row = makeRow("prov", "Provisión", cells, null);
+    row.section = "FINANCIAMIENTO";
+    const drifts = buildMonthlyDrifts([row], {
+      monthKeys,
+      currentWeek: CURRENT,
+      todayYmd: TODAY,
+    });
+    expect(drifts).toHaveLength(1);
+    expect(drifts[0]!.name).toBe("Provisión");
+    expect(drifts[0]!.canonicalKey).toBeNull();
+    const ago = drifts[0]!.months.find((m) => m.monthKey === "2026-08")!;
+    expect(ago.real).toBe(5_000_000);
+    expect(ago.projected).toBe(5_000_000);
+    expect(ago.delta).toBe(0);
+    expect(drifts[0]!.allZero).toBe(false);
+  });
+
+  it("excluye fila manual sin actividad ni nombre canónico", () => {
+    const cells = weeks.map((w) => makeCell(w));
+    const row = makeRow("prov", "Provisión", cells, null);
+    row.section = "FINANCIAMIENTO";
+    const drifts = buildMonthlyDrifts([row], {
+      monthKeys,
+      currentWeek: CURRENT,
+      todayYmd: TODAY,
+    });
+    expect(drifts).toHaveLength(0);
+  });
+
+  it("excluye bandeja aunque tenga actividad", () => {
+    const cells = weeks.map((w) =>
+      w === "2026-08-10"
+        ? makeCell(w, { real: -3_000_000 })
+        : makeCell(w),
+    );
+    const rows = [makeRow("b", "Otros egresos", cells, "BANDEJA_EGRESO")];
+    const drifts = buildMonthlyDrifts(rows, {
+      monthKeys,
+      currentWeek: CURRENT,
+      todayYmd: TODAY,
+    });
+    expect(drifts).toHaveLength(0);
+    expect(isExcludedFromActivityDrift({ canonicalKey: "BANDEJA_EGRESO" })).toBe(
+      true,
+    );
   });
 });
