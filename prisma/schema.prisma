@@ -2690,6 +2690,7 @@ model CrmDeal {
   stageId             String    @map("stage_id") @db.Uuid
   probability         Int       @default(0)
   expectedCloseDate   DateTime? @map("expected_close_date") @db.Date
+  proximoPaso         String?   @map("proximo_paso")
   status              String    @default("open")
   lostReason          String?   @map("lost_reason")
   // Campos adicionales migración Soho CRM

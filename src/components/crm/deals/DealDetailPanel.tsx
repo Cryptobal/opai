@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { formatCLP, formatUFSuffix, cn } from "@/lib/utils";
 import { ageBucket, daysInStage, sanitizeStageColor } from "@/lib/crm/deal-metrics";
 import type { CrmDeal, CrmPipelineStage } from "@/types";
-import { getDealCommercialIndicators, shortStageName } from "./deals-helpers";
+import { getDealCommercialIndicators, shortStageName, formatDealCloseDate, truncateProximoPaso, isOpenDeal } from "./deals-helpers";
 
 type Props = {
   deal: CrmDeal | null;
@@ -85,6 +85,19 @@ export function DealDetailPanel({ deal, stages, onClose, onMoveStage }: Props) {
               tone={bucket}
             />
           </div>
+
+          {isOpenDeal(deal) ? (
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <Metric
+                label="Cierre est."
+                value={formatDealCloseDate(deal.expectedCloseDate) ?? "Sin fecha"}
+              />
+              <Metric
+                label="Próximo paso"
+                value={truncateProximoPaso(deal.proximoPaso, 64) ?? "—"}
+              />
+            </div>
+          ) : null}
 
           <div>
             <p className="mb-2 text-[12px] uppercase tracking-wide text-ds-text-3">
