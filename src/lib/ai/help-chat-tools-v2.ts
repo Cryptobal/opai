@@ -38,6 +38,7 @@ import {
 } from "@/lib/validations/crm";
 import { createCrmHistoryLog, computeChangedFields } from "@/lib/crm-history";
 import { shutdownInstallationOperations } from "@/lib/crm/installation-operational-shutdown";
+import { ensureInstallationChannel } from "@/lib/chat-installation-channel";
 import {
   resolveStageByName,
   resolveOrCreateInstallation,
@@ -4852,6 +4853,13 @@ async function toolCreateInstallation(
           active: true,
         },
       });
+      await ensureInstallationChannel({
+        client: prisma,
+        tenantId,
+        installationId: installation.id,
+        installationName: installation.name,
+        activate: true,
+      });
     }
 
     await logAiAction({
@@ -5408,6 +5416,20 @@ async function toolUpdateInstallation(
       where: { id, tenantId },
       include: { account: { select: { id: true, name: true } } },
     });
+    if (installation?.status === "active" && installation.chatEnabled) {
+      await ensureInstallationChannel({
+        client: prisma,
+        tenantId,
+        installationId: installation.id,
+        installationName: installation.name,
+        activate: true,
+      });
+    } else if (installation) {
+      await prisma.chatChannel.updateMany({
+        where: { installationId: id, tenantId },
+        data: { isActive: false },
+      });
+    }
     const diff = computeChangedFields(
       existing as unknown as Record<string, unknown>,
       patch as unknown as Record<string, unknown>,
