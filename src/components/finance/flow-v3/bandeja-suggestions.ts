@@ -8,8 +8,15 @@ export type ClassifySuggestionSource = "rule" | "payroll" | "te" | "heuristic";
 export type BandejaSuggestionKind =
   | "FLOW_ROW"
   | "TGR_PICK"
+  | "SOCIO_PICK"
   | "DTE_RECEIVED"
   | "NONE";
+
+export interface BandejaSocioPickOption {
+  key: "RETIRO_SOCIO" | "DEVOL_PRESTAMO_SOCIO";
+  flowRowId: string;
+  label: string;
+}
 
 export interface BandejaTxIdentity {
   kind: "client" | "factoring" | "supplier" | "guardia" | "unknown";
@@ -32,7 +39,7 @@ export interface BandejaTxSuggestion {
   reason: string;
   source: ClassifySuggestionSource | null;
   requiresReview?: boolean;
-  options?: Array<"F29" | "FINIQUITO" | "CONVENIO_TGR">;
+  options?: Array<"F29" | "FINIQUITO" | "CONVENIO_TGR"> | BandejaSocioPickOption[];
 }
 
 export interface BandejaTxSuggestionResult {
@@ -141,6 +148,7 @@ export function formatSuggestionDestino(s: BandejaTxSuggestion | undefined): str
   if (!s) return "Sin sugerencia";
   if (s.kind === "FLOW_ROW") return s.label?.trim() || "Fila de flujo";
   if (s.kind === "TGR_PICK") return s.label?.trim() || "Tesorería";
+  if (s.kind === "SOCIO_PICK") return s.label?.trim() || "Socio / persona";
   if (s.kind === "DTE_RECEIVED") return s.label?.trim() || "Factura recibida";
   return "Sin sugerencia";
 }

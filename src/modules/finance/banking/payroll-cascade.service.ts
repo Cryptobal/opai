@@ -12,6 +12,10 @@ import { recognizeRutsForTransactions } from "./rut-recognition.service";
 import { loadPayrollCandidates } from "./payroll-candidates.service";
 import { resolvePayrollFlowRows } from "./classify-flow-rows";
 import { resolveAccountPlanIdForFlowRow } from "./flow-row-account-plan.service";
+import {
+  canSuggestTurnoExtra,
+  isGuardiaTerminated,
+} from "./flow-classify.service";
 import type { PayrollCandidate } from "./payroll-candidates.service";
 
 const PAYROLL_WINDOW_DAYS = 120;
@@ -230,15 +234,32 @@ export async function tryPayrollCascade(
         continue;
       }
 
-      // Inferencia: guardia sin calce → Turnos extra, solo sugerencia
-      const teAccount = await accountForRow(flowRows.teRow);
-      if (teAccount) {
-        await prisma.financeBankTransaction.update({
-          where: { id: tx.id },
-          data: { suggestedAccountPlanId: teAccount },
-        });
-        summary.inferredSuggested += 1;
+      // Inferencia: guardia sin calce → sugerencia según elegibilidad TE
+      const guardiaState = rec.guardiaState ?? null;
+      if (isGuardiaTerminated(guardiaState)) {
+        const accountPlanId = await accountForRow(flowRows.finiquitoRow);
+        if (accountPlanId) {
+          await prisma.financeBankTransaction.update({
+            where: { id: tx.id },
+            data: { suggestedAccountPlanId: accountPlanId },
+          });
+          summary.inferredSuggested += 1;
+        }
+        continue;
       }
+
+      if (canSuggestTurnoExtra(guardiaState, true)) {
+        const teAccount = await accountForRow(flowRows.teRow);
+        if (teAccount) {
+          await prisma.financeBankTransaction.update({
+            where: { id: tx.id },
+            data: { suggestedAccountPlanId: teAccount },
+          });
+          summary.inferredSuggested += 1;
+        }
+      }
+      // Socio/director sin TE: no inferir cuenta (retiro vs devolución préstamo
+      // requiere elección manual; evita sugerir TE ni retiro socios por defecto).
     } catch (err) {
       summary.errors.push({
         bankTransactionId: tx.id,

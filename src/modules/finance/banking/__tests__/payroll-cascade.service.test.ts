@@ -63,6 +63,11 @@ beforeEach(() => {
     anticipoRow: { flowRowId: "row-ant", label: "Quincena" },
     finiquitoRow: { flowRowId: "row-fin", label: "Finiquitos" },
     teRow: { flowRowId: "row-te", label: "Turnos extra" },
+    retiroSocioRow: { flowRowId: "row-retiro", label: "Retiro socios" },
+    devolPrestamoSocioRow: {
+      flowRowId: "row-devol",
+      label: "Devolución a socios",
+    },
   });
   asMock(prisma.financeFlowRow.findFirst).mockImplementation(
     async ({ where }: { where: { id: string } }) => ({
@@ -233,7 +238,7 @@ describe("tryPayrollCascade", () => {
     });
   });
 
-  it("guardia sin calce queda por autorizar (nunca auto-concilia)", async () => {
+  it("guardia habilitado TE sin calce queda por autorizar con cuenta TE", async () => {
     asMock(prisma.financeBankTransaction.findMany).mockResolvedValue([
       {
         id: "tx4",
@@ -251,7 +256,13 @@ describe("tryPayrollCascade", () => {
             kind: "guardia",
             entityId: "g1",
             entityName: "A",
-            guardiaState: null,
+            guardiaState: {
+              status: "active",
+              lifecycleStatus: "contratado",
+              terminatedAt: null,
+              installationName: "Site A",
+              availableExtraShifts: true,
+            },
             alsoRegisteredAs: [],
           },
         ],
@@ -267,6 +278,43 @@ describe("tryPayrollCascade", () => {
       where: { id: "tx4" },
       data: { suggestedAccountPlanId: "ap-1" },
     });
+  });
+
+  it("guardia TE deshabilitado no infiere cuenta (sin TE ni retiro)", async () => {
+    asMock(prisma.financeBankTransaction.findMany).mockResolvedValue([
+      {
+        id: "tx6",
+        amount: decimal(-2_000_000),
+        description: "Retiro",
+        reference: null,
+      },
+    ]);
+    asMock(recognizeRutsForTransactions).mockResolvedValue(
+      new Map([
+        [
+          "tx6",
+          {
+            rut: "55294666",
+            kind: "guardia",
+            entityId: "g-socio",
+            entityName: "Socio",
+            guardiaState: {
+              status: "active",
+              lifecycleStatus: "contratado",
+              terminatedAt: null,
+              installationName: null,
+              availableExtraShifts: false,
+            },
+            alsoRegisteredAs: [],
+          },
+        ],
+      ]),
+    );
+    asMock(loadPayrollCandidates).mockResolvedValue(new Map([["g-socio", []]]));
+
+    const r = await tryPayrollCascade(TENANT, ["tx6"], USER);
+    expect(r.inferredSuggested).toBe(0);
+    expect(prisma.financeBankTransaction.update).not.toHaveBeenCalled();
   });
 
   it("RUT sin identidad de guardia: sin cambio", async () => {

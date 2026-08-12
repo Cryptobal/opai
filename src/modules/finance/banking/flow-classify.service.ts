@@ -14,6 +14,14 @@ export const PERSONA_RUT_BODY_MAX = 50_000_000;
 
 export type TgrPickOption = "F29" | "FINIQUITO" | "CONVENIO_TGR";
 
+export type SocioPickOptionKey = "RETIRO_SOCIO" | "DEVOL_PRESTAMO_SOCIO";
+
+export interface SocioPickOption {
+  key: SocioPickOptionKey;
+  flowRowId: string;
+  label: string;
+}
+
 export type ClassifySuggestion =
   | {
       kind: "FLOW_ROW";
@@ -24,6 +32,7 @@ export type ClassifySuggestion =
       reason: string;
     }
   | { kind: "TGR_PICK"; options: TgrPickOption[]; reason: string }
+  | { kind: "SOCIO_PICK"; options: SocioPickOption[]; reason: string }
   | { kind: "DTE_RECEIVED"; dteId: string; label: string; reason: string }
   | { kind: "NONE"; reason: string };
 
@@ -91,9 +100,13 @@ export interface RankClassifyInput {
   finiquitoRow?: FlowRowDest | null;
   /** @deprecated Preferir payrollCandidates + *Row. Mantener para compat tests legacy. */
   payrollItem?: PayrollItemHit | null;
-  /** rowId canónico de Turnos extra (fallback persona sin ítem). */
+  /** rowId canónico de Turnos extra (solo guardias habilitados para TE). */
   teRowId?: string | null;
   teRowLabel?: string;
+  /** Fila Retiro socios (opción SOCIO_PICK). */
+  retiroSocioRow?: FlowRowDest | null;
+  /** Fila Devolución préstamo socios (opción SOCIO_PICK). */
+  devolPrestamoSocioRow?: FlowRowDest | null;
   /** Fila de flujo resuelta desde categoría habitual del proveedor. */
   supplierCategoryRow?: FlowRowDest | null;
   /** Nombre de categoría para el motivo (opcional). */
@@ -143,23 +156,103 @@ function pickCandidate(
   return hits[0]!;
 }
 
+function pickFirstCandidate(
+  candidates: PayrollCandidateHit[],
+  kind: PayrollCandidateHit["kind"],
+): PayrollCandidateHit | null {
+  return candidates.find((c) => c.kind === kind) ?? null;
+}
+
+/** Guardia con término de relación laboral registrado. */
+export function isGuardiaTerminated(
+  guardiaState: GuardiaStateHit | null | undefined,
+): boolean {
+  if (!guardiaState) return false;
+  return (
+    !!guardiaState.terminatedAt || guardiaState.lifecycleStatus === "inactivo"
+  );
+}
+
+/**
+ * Turnos extra solo si hay ficha guardia, está activo y marcado disponible
+ * para TE (`availableExtraShifts`). Socios/directores suelen tener ficha pero
+ * con TE deshabilitado; personas naturales sin ficha tampoco califican.
+ */
+export function canSuggestTurnoExtra(
+  guardiaState: GuardiaStateHit | null | undefined,
+  hasGuardiaRecord: boolean,
+): boolean {
+  if (!hasGuardiaRecord || !guardiaState) return false;
+  if (!guardiaState.availableExtraShifts) return false;
+  if (isGuardiaTerminated(guardiaState)) return false;
+  return true;
+}
+
+function formatClp(amount: number): string {
+  return `$${Math.round(amount).toLocaleString("es-CL")}`;
+}
+
+function finiquitoReason(
+  fin: PayrollCandidateHit,
+  amountAbs: number,
+  tol: number,
+): string {
+  const datePart = fin.label.replace(/^Finiquito\s+/i, "");
+  if (amountMatches(fin.amount, amountAbs, tol)) {
+    return `Finiquito registrado ${datePart}`;
+  }
+  return `Finiquito registrado ${datePart}; monto difiere (registrado ${formatClp(fin.amount)})`;
+}
+
 function teReason(guardiaState: GuardiaStateHit | null | undefined): string {
   if (!guardiaState) {
-    return "Persona natural sin liquidación que calce";
-  }
-  if (guardiaState.terminatedAt || guardiaState.lifecycleStatus === "inactivo") {
-    return "Finiquitado; monto no calza con el finiquito";
+    return "Guardia habilitado para TE, sin liquidación que calce";
   }
   if (!guardiaState.installationName) {
-    return "Guardia sin puesto activo";
+    return "Guardia habilitado para TE, sin puesto activo";
   }
-  return "Guardia activo, sin liquidación que calce";
+  return "Guardia habilitado para TE, sin liquidación que calce";
+}
+
+function buildSocioPickOptions(input: RankClassifyInput): SocioPickOption[] {
+  const options: SocioPickOption[] = [];
+  if (input.retiroSocioRow) {
+    options.push({
+      key: "RETIRO_SOCIO",
+      flowRowId: input.retiroSocioRow.flowRowId,
+      label: input.retiroSocioRow.label,
+    });
+  }
+  if (input.devolPrestamoSocioRow) {
+    options.push({
+      key: "DEVOL_PRESTAMO_SOCIO",
+      flowRowId: input.devolPrestamoSocioRow.flowRowId,
+      label: input.devolPrestamoSocioRow.label,
+    });
+  }
+  return options;
+}
+
+function socioPickReason(
+  guardiaState: GuardiaStateHit | null | undefined,
+  hasGuardiaRecord: boolean,
+): string {
+  if (hasGuardiaRecord && guardiaState && !guardiaState.availableExtraShifts) {
+    return "Socio/director · no habilitado para turnos extra; elegir retiro o devolución préstamo";
+  }
+  return "Persona natural · elegir retiro de socios o devolución préstamo";
 }
 
 function noneReason(input: RankClassifyInput, rut: string | null): string {
   if (!rut) return "Sin identidad conocida para este RUT";
   if (input.supplierCategoryRow) {
     return "Primera vez que aparece este comerciante";
+  }
+  if (
+    input.guardiaState != null ||
+    (rut && isPersonaRut(rut) && !canSuggestTurnoExtra(input.guardiaState, input.guardiaState != null))
+  ) {
+    return "Socio/persona · no habilitado para TE; clasificar manualmente";
   }
   return "Sin identidad conocida para este RUT";
 }
@@ -169,8 +262,9 @@ function noneReason(input: RankClassifyInput, rut: string | null): string {
  * es la sugerencia principal. Nunca incluye auto-apply — el caller mira
  * requiresReview en FLOW_ROW de regla.
  *
- * Orden: regla → TGR → finiquito → liquidación → anticipo → turno extra
- * → proveedor category row → DTE → NONE.
+ * Orden: regla → TGR → finiquito → liquidación → anticipo → finiquito
+ * (sin calce) → turno extra (solo TE habilitado) → SOCIO_PICK → proveedor
+ * → DTE → NONE.
  */
 export function rankClassifySuggestions(input: RankClassifyInput): ClassifySuggestion[] {
   const out: ClassifySuggestion[] = [];
@@ -181,6 +275,7 @@ export function rankClassifySuggestions(input: RankClassifyInput): ClassifySugge
   // isPersonaRut solo como fallback cuando no hay identidad de guardia.
   const personaFallback = !hasGuardia && !!rut && isPersonaRut(rut);
   const isPersonaBranch = hasGuardia || personaFallback;
+  const teEligible = canSuggestTurnoExtra(input.guardiaState, hasGuardia);
 
   // 1. Regla RUT → FLOW_ROW
   if (input.ruleHit) {
@@ -214,15 +309,13 @@ export function rankClassifySuggestions(input: RankClassifyInput): ClassifySugge
     // 3. Finiquito aprobado que calza por monto
     const fin = pickCandidate(candidates, "FINIQUITO", input.amountAbs, tol);
     if (fin && input.finiquitoRow) {
-      // Motivo: "Finiquito registrado DD/MM/AA" — label ya trae la fecha.
-      const datePart = fin.label.replace(/^Finiquito\s+/i, "");
       out.push({
         kind: "FLOW_ROW",
         flowRowId: input.finiquitoRow.flowRowId,
         label: input.finiquitoRow.label,
         source: "payroll",
         requiresReview: true,
-        reason: `Finiquito registrado ${datePart}`,
+        reason: finiquitoReason(fin, input.amountAbs, tol),
       });
       return out;
     }
@@ -268,8 +361,24 @@ export function rankClassifySuggestions(input: RankClassifyInput): ClassifySugge
       return out;
     }
 
-    // 6. Turno extra (fallback persona/guardia)
-    if (input.teRowId) {
+    // 5b. Guardia finiquitado: preferir fila Finiquitos aunque el monto no calce
+    if (isGuardiaTerminated(input.guardiaState) && input.finiquitoRow) {
+      const finAny = pickFirstCandidate(candidates, "FINIQUITO");
+      out.push({
+        kind: "FLOW_ROW",
+        flowRowId: input.finiquitoRow.flowRowId,
+        label: input.finiquitoRow.label,
+        source: "payroll",
+        requiresReview: true,
+        reason: finAny
+          ? finiquitoReason(finAny, input.amountAbs, tol)
+          : "Guardia finiquitado; sin finiquito registrado que calce",
+      });
+      return out;
+    }
+
+    // 6. Turno extra — solo guardias activos con availableExtraShifts
+    if (teEligible && input.teRowId) {
       out.push({
         kind: "FLOW_ROW",
         flowRowId: input.teRowId,
@@ -277,6 +386,24 @@ export function rankClassifySuggestions(input: RankClassifyInput): ClassifySugge
         source: "te",
         requiresReview: true,
         reason: teReason(input.guardiaState),
+      });
+      return out;
+    }
+
+    // 6b. Socio/director o persona natural sin TE — elegir destino (no asumir retiro)
+    if (!teEligible) {
+      const socioOptions = buildSocioPickOptions(input);
+      if (socioOptions.length > 0) {
+        out.push({
+          kind: "SOCIO_PICK",
+          options: socioOptions,
+          reason: socioPickReason(input.guardiaState, hasGuardia),
+        });
+        return out;
+      }
+      out.push({
+        kind: "NONE",
+        reason: socioPickReason(input.guardiaState, hasGuardia),
       });
       return out;
     }
