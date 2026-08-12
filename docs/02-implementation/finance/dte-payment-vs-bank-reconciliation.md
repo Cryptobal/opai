@@ -131,3 +131,36 @@ Acciones sugeridas en producción (sin tocar código):
    anularse con NC al re-emitir
 3. Si el depósito debía ir a 1748: desconciliar movimiento y re-conciliar al
    folio correcto (o transferir allocation vía desconciliar + nueva conciliación)
+
+## Desconciliar desde facturación (`POST .../issued/[id]/unreconcile`)
+
+Inverso centrado-en-DTE de `clearTransactionLinks` (desde Banca). Implementado
+en `unreconcileIssuedDte` (`bank-tx-link.service.ts`).
+
+| Paso | Acción |
+|------|--------|
+| 1 | Borra `FinancePaymentAllocation` del DTE + `FinancePaymentRecord` huérfanos |
+| 2 | Elimina `FinanceBankTransactionLink` con `targetType=DTE_ISSUED` → `dteId` |
+| 3 | Recomputa `paymentStatus` / montos (salvo `keepPaymentStatus`) vía `recomputeDtePaymentAggregate`, **antes** de limpiar `reconciledAt` (mismo orden que banca) |
+| 4 | Limpia `reconciledAt` si ya no queda link DTE_* |
+| 5 | Movimientos sin links restantes → `reconciliationStatus=UNMATCHED` + reset cashflow occurrences |
+
+### Modo "mantener pagada" — `keepPaymentStatus: true`
+
+Body opcional en `POST .../unreconcile`. La UI de DTEs emitidos lo envía
+(`DtesEmitidosClient`) para honrar el diálogo "la factura sigue marcada como
+pagada".
+
+| `keepPaymentStatus` | Resultado tras unreconcile |
+|---------------------|----------------------------|
+| `false` (default API) | Recompute bank-aligned → `UNPAID`/`OVERDUE` si el cobro era solo cartola |
+| `true` (UI facturación) | Conserva `paymentStatus` / montos; limpia links + `reconciledAt` → badge "Sin conciliar" si era PAID |
+
+`mark-unpaid` sigue exigiendo cero allocations (desconciliar primero). Tras el
+fix, unreconcile deja el DTE limpio para ese flujo.
+
+### Anti-patrón corregido (bug pre-fix)
+
+Antes: unreconcile borraba allocations pero dejaba links bancarios +
+`reconciledAt` → `mark-unpaid` podía dejar `UNPAID` con rastro de conciliación.
+Ahora alineado con desconciliar desde Banca.

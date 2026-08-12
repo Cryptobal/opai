@@ -1,26 +1,26 @@
 /**
  * POST /api/finance/billing/issued/[id]/unreconcile
  *
- * Desconcilia un DTE: borra las FinancePaymentAllocation que linkean el
- * DTE a movimientos bancarios. Si el FinancePaymentRecord queda sin
- * allocations, también se borra (junto con el link al bankTransaction).
+ * Desconcilia un DTE emitido: allocations, links bancarios DTE_ISSUED,
+ * reconciledAt y (opcional) recomputo de paymentStatus — alineado con
+ * `clearTransactionLinks` desde Banca.
  *
- * NO toca `paymentStatus`. Caso típico: el usuario marcó la factura
- * como pagada manualmente y después la auto-concilió con el movimiento
- * equivocado; quiere romper ese link sin perder el "pagada".
+ * Body opcional: `{ "keepPaymentStatus": true }` — la UI de DTEs emitidos
+ * lo envía para conservar PAID tras romper el vínculo bancario.
  *
  * Auth: facturacion_configure.
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import {
   requireAuth,
   unauthorized,
   resolveApiPerms,
 } from "@/lib/api-auth";
 import { hasFacturacionCapability } from "@/lib/permissions";
-import { prisma } from "@/lib/prisma";
 import { logAudit } from "@/lib/audit";
+import { unreconcileIssuedDte } from "@/modules/finance/banking/bank-tx-link.service";
 
 export async function POST(
   request: NextRequest,
@@ -37,63 +37,52 @@ export async function POST(
   }
   const { id } = await params;
 
-  const dte = await prisma.financeDte.findFirst({
-    where: { id, tenantId: ctx.tenantId, direction: "ISSUED" },
-    select: { id: true },
-  });
-  if (!dte) {
-    return NextResponse.json(
-      { success: false, error: "DTE no encontrado" },
-      { status: 404 },
-    );
+  let keepPaymentStatus = false;
+  try {
+    const raw: unknown = await request.json();
+    const parsed = z
+      .object({ keepPaymentStatus: z.boolean().optional() })
+      .safeParse(raw);
+    if (parsed.success && parsed.data.keepPaymentStatus === true) {
+      keepPaymentStatus = true;
+    }
+  } catch {
+    // Body vacío → default keepPaymentStatus=false (recompute bank-aligned).
   }
 
-  const result = await prisma.$transaction(async (tx) => {
-    // FinancePaymentAllocation no tiene tenantId directo; ya verificamos
-    // que el DTE pertenece al tenant arriba.
-    const allocations = await tx.financePaymentAllocation.findMany({
-      where: { dteId: dte.id },
-      select: { id: true, paymentId: true, amount: true },
-    });
-    if (allocations.length === 0) {
-      return { removed: 0, paymentsDeleted: 0 };
-    }
-
-    await tx.financePaymentAllocation.deleteMany({
-      where: { id: { in: allocations.map((a) => a.id) } },
+  try {
+    const result = await unreconcileIssuedDte(ctx.tenantId, id, {
+      keepPaymentStatus,
     });
 
-    // Si quedó un FinancePaymentRecord huérfano (sin allocations), lo
-    // borramos para no dejar pagos fantasma. Cualquier bankTransaction
-    // sigue intacto — solo se rompe el link.
-    const paymentIds = Array.from(new Set(allocations.map((a) => a.paymentId)));
-    let paymentsDeleted = 0;
-    for (const pid of paymentIds) {
-      const remaining = await tx.financePaymentAllocation.count({
-        where: { paymentId: pid },
-      });
-      if (remaining === 0) {
-        await tx.financePaymentRecord.delete({ where: { id: pid } });
-        paymentsDeleted += 1;
-      }
-    }
+    await logAudit({
+      userId: ctx.userId,
+      tenantId: ctx.tenantId,
+      action: "UPDATE",
+      entity: "FinanceDte",
+      entityId: id,
+      details: {
+        operation: "unreconcile",
+        keepPaymentStatus,
+        ...result,
+      },
+      request,
+    });
 
-    return { removed: allocations.length, paymentsDeleted };
-  });
-
-  await logAudit({
-    userId: ctx.userId,
-    tenantId: ctx.tenantId,
-    action: "UPDATE",
-    entity: "FinanceDte",
-    entityId: dte.id,
-    details: {
-      operation: "unreconcile",
-      allocationsRemoved: result.removed,
-      paymentsDeleted: result.paymentsDeleted,
-    },
-    request,
-  });
-
-  return NextResponse.json({ success: true, data: result });
+    return NextResponse.json({
+      success: true,
+      data: {
+        removed: result.allocationsRemoved,
+        paymentsDeleted: result.paymentsDeleted,
+        bankLinksRemoved: result.bankLinksRemoved,
+        bankTransactionsReset: result.bankTransactionsReset,
+        keepPaymentStatus,
+      },
+    });
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Error al desconciliar";
+    const status = message === "DTE no encontrado" ? 404 : 500;
+    return NextResponse.json({ success: false, error: message }, { status });
+  }
 }
