@@ -11,7 +11,7 @@ import {
   bulkAutoMatchBankTransactions,
   type BulkAutoMatchSummary,
 } from "./auto-match-payment.service";
-import { resolveFlowRowDisplayName } from "./resolve-flow-row-display";
+import { buildBankTxLinkDisplayFields } from "./resolve-flow-row-display";
 import { recognizeRutsForTransactions } from "./rut-recognition.service";
 import {
   shouldApplyImportClosingBalance,
@@ -512,7 +512,6 @@ export async function listBankTransactions(
           where: {
             tenantId,
             id: { in: linkFlowRowIds },
-            archivedAt: null,
           },
           select: { id: true, name: true },
         })
@@ -557,12 +556,17 @@ export async function listBankTransactions(
     const link = primaryLinkByTx.get(t.id);
     const matchSource = link?.matchSource ?? null;
     const matchedByRuleId = link?.matchedByRuleId ?? null;
-    const linkAccountCode = link?.accountPlan?.code ?? null;
-    const linkAccountName = link?.accountPlan?.name ?? null;
-    const linkAccountLabel =
-      linkAccountCode && linkAccountName
-        ? `${linkAccountCode} · ${linkAccountName}`
-        : linkAccountCode ?? linkAccountName;
+    const { flowRowName, linkAccountLabel } = buildBankTxLinkDisplayFields(
+      link
+        ? {
+            flowRowId: link.flowRowId ?? null,
+            accountPlanId: link.accountPlanId ?? null,
+            note: link.note ?? null,
+            accountPlan: link.accountPlan ?? null,
+          }
+        : undefined,
+      { flowRowNamesById, flowRowNameByAccount },
+    );
     return {
       ...t,
       suggestedRuleName: t.suggestedRuleId
@@ -577,15 +581,8 @@ export async function listBankTransactions(
       matchedByRuleName: matchedByRuleId
         ? linkRuleMap.get(matchedByRuleId) ?? null
         : null,
-      linkAccountLabel: linkAccountLabel ?? null,
-      flowRowName: resolveFlowRowDisplayName(
-        {
-          flowRowId: link?.flowRowId ?? null,
-          accountPlanId: link?.accountPlanId ?? null,
-        },
-        flowRowNamesById,
-        flowRowNameByAccount,
-      ),
+      linkAccountLabel,
+      flowRowName,
     };
   });
 
