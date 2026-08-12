@@ -426,7 +426,29 @@ describe("assembleMatrix — saldo acumulado", () => {
     expect(m.balanceBreaks.every((b) => b == null)).toBe(true);
   });
 
-  it("ancla manual de saldo pisa la semana y re-encadena hacia adelante", () => {
+  it("ancla manual solo aplica a semanas pasadas; actual sigue banco-hoy", () => {
+    const rows = [row({ id: "ing" })];
+    const m = assembleMatrix({
+      rows,
+      weeks: WEEKS,
+      currentWeek: CURRENT,
+      openingBalance: 10_000_000,
+      plan: new Map([
+        ["ing", new Map([["2026-07-27", 1_000_000], ["2026-08-03", 500_000]])],
+      ]),
+      committed: new Map(),
+      real: new Map(),
+      // Ancla en semana PASADA (idx 1) — no contamina actual/futuro.
+      balanceAnchors: new Map([["2026-07-13", 20_000_000]]),
+    });
+    expect(m.balances[1]).toBe(20_000_000);
+    // Semana actual = banco hoy + pending (0) — espejo en vivo.
+    expect(m.balances[2]).toBe(10_000_000);
+    expect(m.balances[3]).toBe(11_000_000);
+    expect(m.balances[4]).toBe(11_500_000);
+  });
+
+  it("ancla en semana actual se ignora (espejo banco-hoy manda)", () => {
     const rows = [row({ id: "ing" })];
     const m = assembleMatrix({
       rows,
@@ -440,11 +462,9 @@ describe("assembleMatrix — saldo acumulado", () => {
       real: new Map(),
       balanceAnchors: new Map([["2026-07-20", 20_000_000]]),
     });
-    // Semana actual anclada.
-    expect(m.balances[2]).toBe(20_000_000);
-    // Adelante: ancla + plan.
-    expect(m.balances[3]).toBe(21_000_000);
-    expect(m.balances[4]).toBe(21_500_000);
+    expect(m.balances[2]).toBe(10_000_000);
+    expect(m.balances[3]).toBe(11_000_000);
+    expect(m.balances[4]).toBe(11_500_000);
   });
 
   it("ancla no aplica en semana cerrada (sello manda)", () => {
@@ -476,7 +496,7 @@ describe("assembleMatrix — saldo acumulado", () => {
     expect(mEmpty.balances).toEqual(m.balances);
   });
 
-  it("un sello manda: ancla su semana, atrás deriva, adelante encadena (no banco-hoy)", () => {
+  it("sello manda en pasado; semana actual abierta re-ancla en banco-hoy", () => {
     // WEEKS[0..4]; CURRENT = index 2. Sello en index 1 = 28_455_846.
     const rows = [row({ id: "ing" })];
     const sealed = new Map([["2026-07-13", 28_455_846]]);
@@ -490,14 +510,14 @@ describe("assembleMatrix — saldo acumulado", () => {
     expect(m.balances[1]).toBe(28_455_846);
     // Atrás: 28_455_846 − realNet[1].
     expect(m.balances[0]).toBe(28_450_846);
-    // Adelante: sello + flujo semana actual (comprometido 500), NO banco-hoy.
-    expect(m.balances[2]).toBe(28_455_846 + 500);
-    expect(m.balances[3]).toBe(28_455_846 + 500 + 2_000);
-    // Sin ⚠: la cadena desde el sello es continua.
-    expect(m.balanceBreaks.every((b) => b == null)).toBe(true);
+    // Actual abierta = banco hoy + pending (comprometido 500).
+    expect(m.balances[2]).toBe(10_000 + 500);
+    expect(m.balances[3]).toBe(10_000 + 500 + 2_000);
+    // ⚠: la cadena desde el sello divergía del espejo banco-hoy.
+    expect(m.balanceBreaks[2]).toMatchObject({ vsWeek: "2026-07-13" });
   });
 
-  it("dos sellos: cada uno manda; ⚠ solo si el segundo no cuadra con el primero+flujos", () => {
+  it("dos sellos: cada uno manda en pasado; actual abierta = banco-hoy + pending", () => {
     const rows = [row({ id: "ing" })];
     const sealed = new Map([
       ["2026-07-06", 1_000_000],
@@ -521,16 +541,16 @@ describe("assembleMatrix — saldo acumulado", () => {
     });
     expect(m.balances[0]).toBe(1_000_000);
     expect(m.balances[1]).toBe(28_455_846);
-    // Adelante desde el último sello (idx 1): actual = sello + 100.
-    expect(m.balances[2]).toBe(28_455_846 + 100);
+    // Actual abierta: espejo banco-hoy + pending.
+    expect(m.balances[2]).toBe(4_696_418 + 100);
     // Dos sellos que no cuadran → ⚠ en el segundo.
     expect(m.balanceBreaks[1]).toMatchObject({ vsWeek: "2026-07-06" });
     expect(Math.abs(m.balanceBreaks[1]!.delta)).toBeGreaterThan(1);
-    // La semana actual encadenada NO lleva ⚠.
-    expect(m.balanceBreaks[2]).toBeNull();
+    // Actual también ⚠ vs último sello (cadena histórica ≠ banco vivo).
+    expect(m.balanceBreaks[2]).toMatchObject({ vsWeek: "2026-07-13" });
   });
 
-  it("caso Carlos: S31 sellada 28.455.846 → S32 = sello + flujo (sin ⚠)", () => {
+  it("caso Carlos: S31 sellada; S32 abierta = banco hoy + pending (con ⚠ si diverge)", () => {
     // S31 = 2026-07-27 (idx 3), S32 = 2026-08-03 (idx 4) = current.
     const rows = [row({ id: "ing" }), row({ id: "gav", section: "GAV" })];
     const sealed = new Map([["2026-07-27", 28_455_846]]);
@@ -538,7 +558,7 @@ describe("assembleMatrix — saldo acumulado", () => {
       rows,
       weeks: WEEKS,
       currentWeek: "2026-08-03",
-      openingBalance: 4_696_418, // banco-hoy distinto; NO debe anclar Saldo
+      openingBalance: 4_696_418,
       plan: new Map(),
       committed: new Map([
         ["ing", new Map([["2026-08-03", { total: 1_000_000, items: [] }]])],
@@ -550,8 +570,9 @@ describe("assembleMatrix — saldo acumulado", () => {
     expect(m.balances[3]).toBe(28_455_846);
     // Flujo S32 = +1_000_000 − 200_000 = +800_000
     expect(m.flows[4]).toBe(800_000);
-    expect(m.balances[4]).toBe(28_455_846 + 800_000);
-    expect(m.balanceBreaks.every((b) => b == null)).toBe(true);
+    // Espejo vivo: banco hoy + pending (= flow, sin real aún).
+    expect(m.balances[4]).toBe(4_696_418 + 800_000);
+    expect(m.balanceBreaks[4]).toMatchObject({ vsWeek: "2026-07-27" });
   });
 
   it("fila archivada vacía sus celdas posteriores al cutoff", () => {

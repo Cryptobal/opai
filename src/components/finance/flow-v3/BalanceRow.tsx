@@ -92,6 +92,15 @@ export function BalanceRow({
         });
         return;
       }
+      // Espejo banco en vivo: actual/futuro siguen al saldo del banco + pendiente.
+      if (!col.isPast) {
+        toast.message("Saldo en vivo", {
+          description: col.isCurrent
+            ? "Esta semana sigue al banco de hoy más lo pendiente por conciliar."
+            : "Las semanas futuras se proyectan desde el banco de hoy.",
+        });
+        return;
+      }
       const bal = Math.round(balances[i] ?? 0);
       const seeded =
         bal === 0
@@ -179,7 +188,7 @@ export function BalanceRow({
           const brk = balanceBreaks?.[i] ?? null;
           const anchored = balanceAnchors?.[c.key] != null;
           const closed = closedSet.has(c.key);
-          const editable = !!canManage && !!onBalanceAnchor && !closed;
+          const editable = !!canManage && !!onBalanceAnchor && !closed && c.isPast;
           const exactTitle = numberFormat !== "clp" && balances[i] !== 0 ? fmtCell(balances[i], "clp") : undefined;
           const breakTitle = brk
             ? `Descuadre no conciliado vs cierre ${weekLabel(brk.vsWeek)}: ${fmtClp(brk.delta)}`
@@ -187,10 +196,14 @@ export function BalanceRow({
           const editHint = editable
             ? anchored
               ? "Ancla manual · clic para editar · vaciar para quitar"
-              : "Clic para fijar saldo acumulado (recalcula hacia adelante)"
+              : "Clic para fijar saldo acumulado histórico"
             : closed
               ? "Semana cerrada — saldo fijo"
-              : undefined;
+              : c.isCurrent
+                ? "Espejo banco hoy + pendiente por conciliar"
+                : !c.isPast
+                  ? "Proyección desde banco hoy"
+                  : undefined;
           const title = [breakTitle, exactTitle, editHint].filter(Boolean).join(" · ") || undefined;
 
           if (editIdx === i) {

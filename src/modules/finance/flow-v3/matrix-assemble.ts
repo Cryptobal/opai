@@ -17,21 +17,17 @@
  * residualCarryEnabled=false + real ≠ 0 se reproduce el legado
  * (effective = real). Ver residual.ts.
  *
- * Saldo acumulado (fin de semana) — anclado a banco, independiente del cierre:
- *  - semana actual = saldo banco hoy + (effective − real) de la semana
- *    (= pendiente aún no salido del banco: plan/comprometido/residual);
- *  - futuras: acumula `effective`;
- *  - pasadas (calendario): des-acumula el real desde hoy hacia atrás;
- *  - ventana enteramente pasada: ancla = saldo hoy − real posterior a la
- *    ventana (`realNetAfterWindow`, lo aporta el service);
- *  - ventana enteramente futura: ancla aproximada en saldo hoy (el gap sin
- *    cargar se documenta en QA).
- *  - sellos de cierre (`sealedBalances`): el sello MANDA. Su saldo es el fin
- *    de esa semana y el INICIO de la siguiente: hacia adelante se acumula
- *    `flows` desde el sello (no desde banco-hoy). Hacia atrás, el tramo
- *    anterior deriva con `realNet`. Banco-hoy solo ancla si no hay sello
- *    en/antes de la semana actual. Descuadre ⚠ solo entre dos sellos que
- *    no cuadran (no se inventan ajustes).
+ * Saldo acumulado (fin de semana) — espejo banco en vivo:
+ *  - semana actual ABIERTA = saldo banco hoy + (effective − real)
+ *    (= pendiente aún no movido en el banco: plan/comprometido/residual).
+ *    Sellos y anclas del pasado NO pisan esta proyección.
+ *  - futuras: acumulan `effective` desde esa ancla viva;
+ *  - pasadas: sellos de cierre / anclas manuales mandan en su semana;
+ *    el tramo sin sello deriva con `realNet`;
+ *  - semana actual CERRADA: manda el sello (ya fijada al cerrar);
+ *  - ventana enteramente pasada/futura: ancla en saldo hoy como antes.
+ *  - Descuadre ⚠ entre dos sellos que no cuadran; si el sello previo
+ *    diverge del espejo banco-hoy en la semana actual, también ⚠.
  */
 import { hasInvoicedIncome } from "./cell-editability";
 import {
@@ -354,22 +350,44 @@ export function assembleMatrix(args: AssembleArgs): AssembledMatrix {
     }
   }
 
-  // Anclas manuales de saldo: pisan la semana (si no está cerrada) y
-  // re-encadenan SOLO hacia adelante hasta el próximo sello o ancla.
+  // Anclas manuales: solo historia (semanas PASADAS abiertas). No re-encadenan
+  // hacia la semana actual ni el futuro — eso lo manda el espejo banco-hoy.
   if (args.balanceAnchors && args.balanceAnchors.size > 0) {
     const anchorIdx: number[] = [];
     for (let i = 0; i < n; i++) {
       if (!args.balanceAnchors.has(weeks[i])) continue;
       if (closedSet.has(weeks[i])) continue; // sello manda; no editable
+      if (!allPast && i >= ci) continue; // actual/futuro = espejo banco
       anchorIdx.push(i);
     }
     anchorIdx.sort((a, b) => a - b);
     for (const k of anchorIdx) {
       balances[k] = args.balanceAnchors.get(weeks[k])!;
       for (let i = k + 1; i < n; i++) {
+        if (!allPast && i >= ci) break;
         if (sealedAt.has(i)) break;
         if (args.balanceAnchors.has(weeks[i]) && !closedSet.has(weeks[i])) break;
         balances[i] = balances[i - 1] + weekFlow(i);
+      }
+    }
+  }
+
+  // Espejo en vivo: semana actual ABIERTA = banco hoy + pending.
+  // Cierres/anclas del pasado no contaminan la proyección actual/futura.
+  if (ci >= 0 && !allPast && !allFuture) {
+    const currentClosed = sealedAt.has(ci) || closedSet.has(weeks[ci]!);
+    if (!currentClosed) {
+      const fromChain = balances[ci]!;
+      balances[ci] = openingBalance + pendingNet[ci]!;
+      if (latestSealIdx != null) {
+        const delta = Math.round(fromChain - balances[ci]!);
+        if (Math.abs(delta) > BREAK_TOLERANCE) {
+          balanceBreaks[ci] = { vsWeek: weeks[latestSealIdx]!, delta };
+        }
+      }
+      for (let i = ci + 1; i < n; i++) {
+        if (sealedAt.has(i)) balances[i] = sealedAt.get(i)!;
+        else balances[i] = balances[i - 1]! + weekFlow(i);
       }
     }
   }
