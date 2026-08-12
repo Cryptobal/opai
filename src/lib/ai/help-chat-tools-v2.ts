@@ -107,6 +107,23 @@ import {
   toolUpdateRecurringInvoiceRefs,
 } from "@/lib/ai/help-chat-billing-draft-tools";
 import {
+  bankingReadToolDefinitions,
+  bankingWriteToolDefinitions,
+  toolAuthorizeBankSuggestions,
+  toolClassifyBankMovement,
+  toolFlowCashflowInsights,
+  toolGetBankClassifySuggestions,
+  toolGetBankMovementDetail,
+  toolGetBankMovementTriage,
+  toolGetBankReconcileCandidates,
+  toolListBankAccounts,
+  toolListBankMovements,
+  toolListBankStatementImports,
+  toolPreviewAuthorizeBankSuggestions,
+  toolPreviewClassifyBankMovement,
+  toolSearchFlowRows,
+} from "@/lib/ai/help-chat-banking-tools";
+import {
   aiTool_get_quote_share_link,
   aiTool_manage_quote_extras,
   aiTool_update_quote,
@@ -2293,6 +2310,14 @@ export const PREVIEW_TO_CONFIRM: Record<string, { confirmToolName: string; label
   preview_update_quote_position: { confirmToolName: "update_quote_position", label: "Actualizar puesto de la cotización" },
   preview_remove_quote_position: { confirmToolName: "remove_quote_position", label: "Eliminar puesto de la cotización" },
   preview_bulk_update_installations: { confirmToolName: "bulk_update_installations", label: "Actualizar instalaciones en lote" },
+  preview_classify_bank_movement: {
+    confirmToolName: "classify_bank_movement",
+    label: "Clasificar movimiento bancario a fila del flujo",
+  },
+  preview_authorize_bank_suggestions: {
+    confirmToolName: "authorize_bank_suggestions",
+    label: "Autorizar sugerencias bancarias pendientes",
+  },
 };
 
 /**
@@ -2334,6 +2359,8 @@ export const WRITE_TOOL_LABELS: Record<string, string> = {
   update_invoice_draft_refs: "Actualizar referencias HES/OC del borrador",
   update_recurring_invoice_refs: "Actualizar referencias HES/OC de la plantilla",
   create_factoring_company: "Crear empresa de factoring",
+  classify_bank_movement: "Clasificar movimiento bancario a fila del flujo",
+  authorize_bank_suggestions: "Autorizar sugerencias bancarias pendientes",
   create_ticket: "Crear ticket",
   create_reminder: "Crear recordatorio",
   complete_reminder: "Completar recordatorio",
@@ -2408,7 +2435,7 @@ const WRITE_SECTION_FORCE_WRITE: ReadonlySet<string> = new Set([]);
  * solo para el texto de la tarjeta.
  */
 export const WRITE_TOOL_NAMES: ReadonlySet<string> = new Set(
-  [...writeToolDefinitions(), ...billingDraftWriteToolDefinitions()]
+  [...writeToolDefinitions(), ...billingDraftWriteToolDefinitions(), ...bankingWriteToolDefinitions()]
     .map((d) => d.function.name)
     .filter(
       (n) =>
@@ -2423,9 +2450,15 @@ export function getToolDefinitionsV2(allowDataQuestions: boolean, allowWrites: b
     ...baseToolDefinitions(),
     ...v2ToolDefinitions(),
     ...billingDraftReadToolDefinitions(),
+    ...bankingReadToolDefinitions(),
   ];
   return allowWrites
-    ? [...reads, ...writeToolDefinitions(), ...billingDraftWriteToolDefinitions()]
+    ? [
+        ...reads,
+        ...writeToolDefinitions(),
+        ...billingDraftWriteToolDefinitions(),
+        ...bankingWriteToolDefinitions(),
+      ]
     : reads;
 }
 
@@ -8396,6 +8429,33 @@ export async function executeToolCallV2(
   }
   if (toolName === "update_recurring_invoice_refs") {
     return await toolUpdateRecurringInvoiceRefs(tenantId, userId, perms, args);
+  }
+  if (toolName === "list_bank_accounts") return await toolListBankAccounts(tenantId, perms);
+  if (toolName === "list_bank_movements") return await toolListBankMovements(tenantId, perms, args);
+  if (toolName === "get_bank_movement_detail") return await toolGetBankMovementDetail(tenantId, perms, args);
+  if (toolName === "get_bank_movement_triage") return await toolGetBankMovementTriage(tenantId, perms, args);
+  if (toolName === "get_bank_classify_suggestions") {
+    return await toolGetBankClassifySuggestions(tenantId, perms, args);
+  }
+  if (toolName === "get_bank_reconcile_candidates") {
+    return await toolGetBankReconcileCandidates(tenantId, perms, args);
+  }
+  if (toolName === "list_bank_statement_imports") {
+    return await toolListBankStatementImports(tenantId, perms, args);
+  }
+  if (toolName === "search_flow_rows") return await toolSearchFlowRows(tenantId, perms, args);
+  if (toolName === "flow_cashflow_insights") return await toolFlowCashflowInsights(tenantId, perms);
+  if (toolName === "preview_classify_bank_movement") {
+    return await toolPreviewClassifyBankMovement(tenantId, userId, perms, args);
+  }
+  if (toolName === "classify_bank_movement") {
+    return await toolClassifyBankMovement(tenantId, userId, perms, args);
+  }
+  if (toolName === "preview_authorize_bank_suggestions") {
+    return await toolPreviewAuthorizeBankSuggestions(tenantId, userId, perms, args);
+  }
+  if (toolName === "authorize_bank_suggestions") {
+    return await toolAuthorizeBankSuggestions(tenantId, userId, perms, args);
   }
   if (toolName === "search_emails" || toolName === "search_emails_semantic") {
     return await toolSearchEmails(tenantId, userId, args, perms);
