@@ -14,6 +14,7 @@ const participantUpdate = vi.fn();
 const externalUpdate = vi.fn();
 const eventsInsert = vi.fn();
 const eventsPatch = vi.fn();
+const eventsUpdate = vi.fn();
 const eventsDelete = vi.fn();
 const eventsGet = vi.fn();
 const getClientForUserMock = vi.fn();
@@ -109,6 +110,7 @@ function clientFor(accountId: string, calendarId = "primary") {
       events: {
         insert: eventsInsert,
         patch: eventsPatch,
+        update: eventsUpdate,
         delete: eventsDelete,
         get: eventsGet,
       },
@@ -312,6 +314,35 @@ describe("syncCalendarEventToGoogle", () => {
     });
     const synced = linkUpsert.mock.calls.find((c) => c[0].update?.syncStatus === "SYNCED");
     expect(synced).toBeTruthy();
+  });
+
+  it("si patch falla con Invalid start time, reintenta con events.update", async () => {
+    linkFindFirst.mockResolvedValue({
+      id: "l1",
+      providerAccountId: "acc-jorge",
+      providerEventId: "gev-1",
+      providerCalendarId: "primary",
+    });
+    eventsPatch.mockRejectedValue(Object.assign(new Error("Invalid start time."), { code: 400 }));
+    eventsUpdate.mockResolvedValue({
+      data: {
+        id: "gev-1",
+        htmlLink: "https://cal/x",
+        etag: "etag-3",
+        attendees: FULL_ATTENDEES,
+      },
+    });
+    const { syncCalendarEventToGoogle } = await import("../calendar-google-sync");
+    const res = await syncCalendarEventToGoogle("t1", "ev-1");
+    expect(res.syncStatus).toBe("SYNCED");
+    expect(eventsPatch).toHaveBeenCalledTimes(1);
+    expect(eventsUpdate).toHaveBeenCalledTimes(1);
+    expect(eventsInsert).not.toHaveBeenCalled();
+    expect(eventsUpdate.mock.calls[0][0]).toMatchObject({
+      calendarId: "primary",
+      eventId: "gev-1",
+    });
+    expect(eventsUpdate.mock.calls[0][0].requestBody.start.date).toBeNull();
   });
 
   it("marca ERROR si Google no devuelve los invitados enviados", async () => {

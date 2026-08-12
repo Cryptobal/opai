@@ -383,12 +383,32 @@ export async function syncCalendarEventToGoogle(
 
     let res;
     if (link?.providerEventId) {
-      res = await calendar.events.patch({
-        calendarId: link.providerCalendarId,
-        eventId: link.providerEventId,
-        requestBody: body,
-        sendUpdates,
-      });
+      try {
+        res = await calendar.events.patch({
+          calendarId: link.providerCalendarId,
+          eventId: link.providerEventId,
+          requestBody: body,
+          sendUpdates,
+        });
+      } catch (patchErr) {
+        // Cambio all-day ↔ timed: si el cliente omite nulls o el merge falla,
+        // update (reemplazo completo de start/end) recupera el evento.
+        const patchMsg = (
+          patchErr instanceof Error ? patchErr.message : String(patchErr)
+        ).toLowerCase();
+        if (!/invalid (start|end) time|mismatching start and end/.test(patchMsg)) {
+          throw patchErr;
+        }
+        console.warn(
+          `[calendar-v2] patch start/end rechazado (${patchMsg}); reintentando con events.update`,
+        );
+        res = await calendar.events.update({
+          calendarId: link.providerCalendarId,
+          eventId: link.providerEventId,
+          requestBody: body,
+          sendUpdates,
+        });
+      }
     } else {
       res = await calendar.events.insert({ calendarId, requestBody: body, sendUpdates });
     }

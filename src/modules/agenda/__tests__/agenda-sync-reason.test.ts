@@ -31,6 +31,12 @@ describe("sanitizeSyncReason", () => {
     expect(isGoogleConnectReason(raw)).toBe(false);
     expect(isGoogleConnectReason(sanitizeSyncReason(raw))).toBe(false);
   });
+
+  it("mapea Invalid start time a acción de reenvío", () => {
+    expect(sanitizeSyncReason("Invalid start time.")).toBe(
+      "Conflicto al actualizar la fecha en Google; usá Reenviar a Google",
+    );
+  });
 });
 
 describe("syncStatusMeta", () => {

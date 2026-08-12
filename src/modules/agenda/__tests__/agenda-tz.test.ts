@@ -101,6 +101,8 @@ describe("buildVisitaEventPayload — timeZone explícita (audit 1.6)", () => {
     expect(payload.start.timeZone).toBe("America/Santiago");
     expect(payload.end.timeZone).toBe("America/Santiago");
     expect(payload.start.dateTime).toBe("2026-07-22T13:00:00.000Z");
+    expect(payload.start.date).toBeNull();
+    expect(payload.end.date).toBeNull();
   });
 
   it("detecta hitos all-day Chile por duración", () => {
@@ -135,8 +137,16 @@ describe("buildVisitaEventPayload — timeZone explícita (audit 1.6)", () => {
       },
     );
     expect(payload.summary).toBe("Cierre de consultas");
-    expect(payload.start).toEqual({ date: "2026-08-17" });
-    expect(payload.end).toEqual({ date: "2026-08-18" });
-    expect(payload.start.dateTime).toBeUndefined();
+    expect(payload.start).toEqual({
+      date: "2026-08-17",
+      dateTime: null,
+      timeZone: null,
+    });
+    expect(payload.end).toEqual({
+      date: "2026-08-18",
+      dateTime: null,
+      timeZone: null,
+    });
+    expect(payload.start.dateTime).toBeNull();
   });
 });
