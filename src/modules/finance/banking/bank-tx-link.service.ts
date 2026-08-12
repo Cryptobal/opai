@@ -33,7 +33,10 @@ import {
   applyAutoWriteOff,
   resolveCounterpartyAccountId,
 } from "./write-off.service";
-import { resolveUnpaidPaymentStatus } from "../billing/dte-overdue.service";
+import {
+  deriveDtePaymentStatusFromAllocations,
+  isManualPaidWithoutReconciliation,
+} from "../billing/dte-payment-status";
 
 // ── Helpers internos ──
 
@@ -115,32 +118,27 @@ async function recomputeDtePaymentAggregate(
   // amountPaid==total y reconciledAt==null, ese estado representa el pago
   // manual y NO debe revertirse a UNPAID. Solo seguimos al cálculo derivado
   // cuando hay allocations vivas o cuando hay reconciliación bancaria.
-  const manualPaidStanding =
-    paid <= 0 &&
-    dte.paymentStatus === "PAID" &&
-    dte.reconciledAt === null &&
-    dte.amountPaid.toNumber() + 0.01 >= total;
-  if (manualPaidStanding) return;
+  if (
+    isManualPaidWithoutReconciliation({
+      allocatedPaid: paid,
+      paymentStatus: dte.paymentStatus,
+      reconciledAt: dte.reconciledAt,
+      amountPaid: dte.amountPaid.toNumber(),
+      totalAmount: total,
+    })
+  ) {
+    return;
+  }
 
-  let status: "PAID" | "PARTIAL" | "UNPAID" | "OVERDUE";
+  let status = deriveDtePaymentStatusFromAllocations({
+    totalAmount: total,
+    allocatedPaid: paid,
+    dueDate: dte.dueDate,
+    currentPaymentStatus: dte.paymentStatus,
+  });
   let writeOffApplied = false;
 
-  if (paid <= 0) {
-    // Mismo criterio que el cron /api/cron/dte-overdue: el corte es el día
-    // calendario en Chile, no el instante UTC. Comparar contra `Date.now()`
-    // marcaba vencida a una factura que vence HOY (la columna `@db.Date` llega
-    // como medianoche UTC), así que desconciliar adelantaba el OVERDUE ~un día
-    // respecto del cron. Sin `dueDate` se preserva un OVERDUE previo en vez de
-    // degradarlo a UNPAID.
-    status = resolveUnpaidPaymentStatus(dte.dueDate, dte.paymentStatus);
-  } else if (paid + 5 >= total) {
-    // Tolerancia mínima de $5 CLP para absorber residuos de redondeo cuando
-    // un pago se reparte entre N movimientos (bulk reconcile N→M). El
-    // redondeo a entero CLP por mov puede dejar al DTE por debajo de su
-    // totalAmount por algunos pesos sin que sea realmente un cobro parcial.
-    status = "PAID";
-  } else {
-    status = "PARTIAL";
+  if (status === "PARTIAL") {
 
     // El pago no cubre el total con la tolerancia mínima. Antes de marcar
     // PARTIAL, intentar write-off automático: si la diferencia cae dentro
