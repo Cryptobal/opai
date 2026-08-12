@@ -38,6 +38,14 @@ const GUARDIA_FINIQUITADO: GuardiaStateHit = {
 };
 
 const RETIRO_SOCIO_ROW = { flowRowId: "row-retiro", label: "Retiro socios" };
+const DEVOL_PRESTAMO_ROW = {
+  flowRowId: "row-devol",
+  label: "Devolución a socios",
+};
+const SOCIO_PICK_ROWS = {
+  retiroSocioRow: RETIRO_SOCIO_ROW,
+  devolPrestamoSocioRow: DEVOL_PRESTAMO_ROW,
+};
 
 describe("normalizeClassifyRut / isTgrRut / isPersonaRut", () => {
   it("normaliza TGR con puntos y guión", () => {
@@ -232,19 +240,28 @@ describe("rankClassifySuggestions", () => {
     });
   });
 
-  it("guardia TE deshabilitado → retiro socios, no TE", () => {
+  it("guardia TE deshabilitado → SOCIO_PICK (retiro o devolución préstamo), no TE", () => {
     const s = rankClassifySuggestions({
-      beneficiaryRut: "130512461",
-      amountAbs: 2_500_000,
+      beneficiaryRut: "55294666",
+      amountAbs: 2_000_000,
       guardiaState: GUARDIA_TE_DESHABILITADO,
       payrollCandidates: [],
       teRowId: "row-te",
-      retiroSocioRow: RETIRO_SOCIO_ROW,
+      ...SOCIO_PICK_ROWS,
     });
     expect(s[0]).toMatchObject({
-      flowRowId: "row-retiro",
-      source: "heuristic",
-      reason: "Persona en nómina sin turnos extra; posible retiro de socios",
+      kind: "SOCIO_PICK",
+      reason:
+        "Socio/director · no habilitado para turnos extra; elegir retiro o devolución préstamo",
+    });
+    expect(s[0]).toMatchObject({
+      options: expect.arrayContaining([
+        expect.objectContaining({ key: "RETIRO_SOCIO", label: "Retiro socios" }),
+        expect.objectContaining({
+          key: "DEVOL_PRESTAMO_SOCIO",
+          label: "Devolución a socios",
+        }),
+      ]),
     });
   });
 
@@ -287,19 +304,17 @@ describe("rankClassifySuggestions", () => {
     expect(s[0]?.reason).toContain("monto difiere");
   });
 
-  it("persona natural sin ficha → retiro socios (no TE)", () => {
+  it("persona natural sin ficha → SOCIO_PICK (no TE)", () => {
     const s = rankClassifySuggestions({
-      beneficiaryRut: "256609789",
-      amountAbs: 80_000,
+      beneficiaryRut: "130512461",
+      amountAbs: 2_500_000,
       teRowId: "row-te",
       teRowLabel: "Turnos extra",
-      retiroSocioRow: RETIRO_SOCIO_ROW,
+      ...SOCIO_PICK_ROWS,
     });
     expect(s[0]).toMatchObject({
-      kind: "FLOW_ROW",
-      flowRowId: "row-retiro",
-      source: "heuristic",
-      reason: "Persona natural; posible retiro de socios u otro egreso",
+      kind: "SOCIO_PICK",
+      reason: "Persona natural · elegir retiro de socios o devolución préstamo",
     });
   });
 
@@ -366,7 +381,7 @@ describe("rankClassifySuggestions", () => {
       ],
       liquidacionRow: { flowRowId: "row-sueldo", label: "Sueldos" },
       teRowId: "row-te",
-      retiroSocioRow: RETIRO_SOCIO_ROW,
+      ...SOCIO_PICK_ROWS,
     });
     expect(s[0]).toMatchObject({ source: "te" });
 

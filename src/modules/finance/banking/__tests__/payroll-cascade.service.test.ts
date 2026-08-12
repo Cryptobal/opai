@@ -64,6 +64,10 @@ beforeEach(() => {
     finiquitoRow: { flowRowId: "row-fin", label: "Finiquitos" },
     teRow: { flowRowId: "row-te", label: "Turnos extra" },
     retiroSocioRow: { flowRowId: "row-retiro", label: "Retiro socios" },
+    devolPrestamoSocioRow: {
+      flowRowId: "row-devol",
+      label: "Devolución a socios",
+    },
   });
   asMock(prisma.financeFlowRow.findFirst).mockImplementation(
     async ({ where }: { where: { id: string } }) => ({
@@ -276,11 +280,11 @@ describe("tryPayrollCascade", () => {
     });
   });
 
-  it("guardia TE deshabilitado sugiere retiro socios, no TE", async () => {
+  it("guardia TE deshabilitado no infiere cuenta (sin TE ni retiro)", async () => {
     asMock(prisma.financeBankTransaction.findMany).mockResolvedValue([
       {
         id: "tx6",
-        amount: decimal(-2_500_000),
+        amount: decimal(-2_000_000),
         description: "Retiro",
         reference: null,
       },
@@ -290,7 +294,7 @@ describe("tryPayrollCascade", () => {
         [
           "tx6",
           {
-            rut: "130512461",
+            rut: "55294666",
             kind: "guardia",
             entityId: "g-socio",
             entityName: "Socio",
@@ -307,23 +311,10 @@ describe("tryPayrollCascade", () => {
       ]),
     );
     asMock(loadPayrollCandidates).mockResolvedValue(new Map([["g-socio", []]]));
-    asMock(resolveAccountPlanIdForFlowRow).mockImplementation(
-      async (_tenantId, row: { id?: string }) =>
-        row.id === "row-retiro" ? "ap-retiro" : "ap-1",
-    );
-    asMock(prisma.financeFlowRow.findFirst).mockImplementation(
-      async ({ where }: { where: { id: string } }) => ({
-        id: where.id,
-        categoryId: `cat-${where.id}`,
-      }),
-    );
 
     const r = await tryPayrollCascade(TENANT, ["tx6"], USER);
-    expect(r.inferredSuggested).toBe(1);
-    expect(prisma.financeBankTransaction.update).toHaveBeenCalledWith({
-      where: { id: "tx6" },
-      data: { suggestedAccountPlanId: "ap-retiro" },
-    });
+    expect(r.inferredSuggested).toBe(0);
+    expect(prisma.financeBankTransaction.update).not.toHaveBeenCalled();
   });
 
   it("RUT sin identidad de guardia: sin cambio", async () => {

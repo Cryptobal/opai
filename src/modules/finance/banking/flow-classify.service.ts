@@ -14,6 +14,14 @@ export const PERSONA_RUT_BODY_MAX = 50_000_000;
 
 export type TgrPickOption = "F29" | "FINIQUITO" | "CONVENIO_TGR";
 
+export type SocioPickOptionKey = "RETIRO_SOCIO" | "DEVOL_PRESTAMO_SOCIO";
+
+export interface SocioPickOption {
+  key: SocioPickOptionKey;
+  flowRowId: string;
+  label: string;
+}
+
 export type ClassifySuggestion =
   | {
       kind: "FLOW_ROW";
@@ -24,6 +32,7 @@ export type ClassifySuggestion =
       reason: string;
     }
   | { kind: "TGR_PICK"; options: TgrPickOption[]; reason: string }
+  | { kind: "SOCIO_PICK"; options: SocioPickOption[]; reason: string }
   | { kind: "DTE_RECEIVED"; dteId: string; label: string; reason: string }
   | { kind: "NONE"; reason: string };
 
@@ -94,8 +103,10 @@ export interface RankClassifyInput {
   /** rowId canónico de Turnos extra (solo guardias habilitados para TE). */
   teRowId?: string | null;
   teRowLabel?: string;
-  /** Fila Retiro socios (persona natural / guardia no habilitado para TE). */
+  /** Fila Retiro socios (opción SOCIO_PICK). */
   retiroSocioRow?: FlowRowDest | null;
+  /** Fila Devolución préstamo socios (opción SOCIO_PICK). */
+  devolPrestamoSocioRow?: FlowRowDest | null;
   /** Fila de flujo resuelta desde categoría habitual del proveedor. */
   supplierCategoryRow?: FlowRowDest | null;
   /** Nombre de categoría para el motivo (opcional). */
@@ -203,23 +214,45 @@ function teReason(guardiaState: GuardiaStateHit | null | undefined): string {
   return "Guardia habilitado para TE, sin liquidación que calce";
 }
 
-function retiroSocioReason(
+function buildSocioPickOptions(input: RankClassifyInput): SocioPickOption[] {
+  const options: SocioPickOption[] = [];
+  if (input.retiroSocioRow) {
+    options.push({
+      key: "RETIRO_SOCIO",
+      flowRowId: input.retiroSocioRow.flowRowId,
+      label: input.retiroSocioRow.label,
+    });
+  }
+  if (input.devolPrestamoSocioRow) {
+    options.push({
+      key: "DEVOL_PRESTAMO_SOCIO",
+      flowRowId: input.devolPrestamoSocioRow.flowRowId,
+      label: input.devolPrestamoSocioRow.label,
+    });
+  }
+  return options;
+}
+
+function socioPickReason(
   guardiaState: GuardiaStateHit | null | undefined,
   hasGuardiaRecord: boolean,
 ): string {
   if (hasGuardiaRecord && guardiaState && !guardiaState.availableExtraShifts) {
-    return "Persona en nómina sin turnos extra; posible retiro de socios";
+    return "Socio/director · no habilitado para turnos extra; elegir retiro o devolución préstamo";
   }
-  if (hasGuardiaRecord && isGuardiaTerminated(guardiaState)) {
-    return "Guardia finiquitado; verificar retiro u otro egreso";
-  }
-  return "Persona natural; posible retiro de socios u otro egreso";
+  return "Persona natural · elegir retiro de socios o devolución préstamo";
 }
 
 function noneReason(input: RankClassifyInput, rut: string | null): string {
   if (!rut) return "Sin identidad conocida para este RUT";
   if (input.supplierCategoryRow) {
     return "Primera vez que aparece este comerciante";
+  }
+  if (
+    input.guardiaState != null ||
+    (rut && isPersonaRut(rut) && !canSuggestTurnoExtra(input.guardiaState, input.guardiaState != null))
+  ) {
+    return "Socio/persona · no habilitado para TE; clasificar manualmente";
   }
   return "Sin identidad conocida para este RUT";
 }
@@ -230,7 +263,7 @@ function noneReason(input: RankClassifyInput, rut: string | null): string {
  * requiresReview en FLOW_ROW de regla.
  *
  * Orden: regla → TGR → finiquito → liquidación → anticipo → finiquito
- * (sin calce) → turno extra (solo TE habilitado) → retiro socios → proveedor
+ * (sin calce) → turno extra (solo TE habilitado) → SOCIO_PICK → proveedor
  * → DTE → NONE.
  */
 export function rankClassifySuggestions(input: RankClassifyInput): ClassifySuggestion[] {
@@ -357,15 +390,20 @@ export function rankClassifySuggestions(input: RankClassifyInput): ClassifySugge
       return out;
     }
 
-    // 6b. Persona natural / guardia no-TE → retiro socios (heurística)
-    if (input.retiroSocioRow) {
+    // 6b. Socio/director o persona natural sin TE — elegir destino (no asumir retiro)
+    if (!teEligible) {
+      const socioOptions = buildSocioPickOptions(input);
+      if (socioOptions.length > 0) {
+        out.push({
+          kind: "SOCIO_PICK",
+          options: socioOptions,
+          reason: socioPickReason(input.guardiaState, hasGuardia),
+        });
+        return out;
+      }
       out.push({
-        kind: "FLOW_ROW",
-        flowRowId: input.retiroSocioRow.flowRowId,
-        label: input.retiroSocioRow.label,
-        source: "heuristic",
-        requiresReview: true,
-        reason: retiroSocioReason(input.guardiaState, hasGuardia),
+        kind: "NONE",
+        reason: socioPickReason(input.guardiaState, hasGuardia),
       });
       return out;
     }

@@ -257,17 +257,9 @@ export async function tryPayrollCascade(
           });
           summary.inferredSuggested += 1;
         }
-        continue;
       }
-
-      const retiroAccount = await accountForRow(flowRows.retiroSocioRow);
-      if (retiroAccount) {
-        await prisma.financeBankTransaction.update({
-          where: { id: tx.id },
-          data: { suggestedAccountPlanId: retiroAccount },
-        });
-        summary.inferredSuggested += 1;
-      }
+      // Socio/director sin TE: no inferir cuenta (retiro vs devolución préstamo
+      // requiere elección manual; evita sugerir TE ni retiro socios por defecto).
     } catch (err) {
       summary.errors.push({
         bankTransactionId: tx.id,

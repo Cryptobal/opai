@@ -53,6 +53,15 @@ function serializeSuggestion(s: ClassifySuggestion) {
       options: s.options,
     };
   }
+  if (s.kind === "SOCIO_PICK") {
+    return {
+      kind: s.kind,
+      label: "Socio / persona",
+      reason: s.reason,
+      source: "heuristic" as const,
+      options: s.options,
+    };
+  }
   if (s.kind === "DTE_RECEIVED") {
     return {
       kind: s.kind,
@@ -275,6 +284,7 @@ export async function POST(request: NextRequest) {
         teRowId: payrollRows.teRow?.flowRowId ?? null,
         teRowLabel: payrollRows.teRow?.label,
         retiroSocioRow: payrollRows.retiroSocioRow,
+        devolPrestamoSocioRow: payrollRows.devolPrestamoSocioRow,
         supplierCategoryRow,
         supplierCategoryName,
         dteReceived,
