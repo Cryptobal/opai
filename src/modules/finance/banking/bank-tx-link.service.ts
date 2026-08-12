@@ -33,7 +33,10 @@ import {
   applyAutoWriteOff,
   resolveCounterpartyAccountId,
 } from "./write-off.service";
-import { resolveUnpaidPaymentStatus } from "../billing/dte-overdue.service";
+import {
+  deriveDtePaymentStatusFromAllocations,
+  isManualPaidWithoutReconciliation,
+} from "../billing/dte-payment-status";
 
 // ── Helpers internos ──
 
@@ -115,32 +118,27 @@ async function recomputeDtePaymentAggregate(
   // amountPaid==total y reconciledAt==null, ese estado representa el pago
   // manual y NO debe revertirse a UNPAID. Solo seguimos al cálculo derivado
   // cuando hay allocations vivas o cuando hay reconciliación bancaria.
-  const manualPaidStanding =
-    paid <= 0 &&
-    dte.paymentStatus === "PAID" &&
-    dte.reconciledAt === null &&
-    dte.amountPaid.toNumber() + 0.01 >= total;
-  if (manualPaidStanding) return;
+  if (
+    isManualPaidWithoutReconciliation({
+      allocatedPaid: paid,
+      paymentStatus: dte.paymentStatus,
+      reconciledAt: dte.reconciledAt,
+      amountPaid: dte.amountPaid.toNumber(),
+      totalAmount: total,
+    })
+  ) {
+    return;
+  }
 
-  let status: "PAID" | "PARTIAL" | "UNPAID" | "OVERDUE";
+  let status = deriveDtePaymentStatusFromAllocations({
+    totalAmount: total,
+    allocatedPaid: paid,
+    dueDate: dte.dueDate,
+    currentPaymentStatus: dte.paymentStatus,
+  });
   let writeOffApplied = false;
 
-  if (paid <= 0) {
-    // Mismo criterio que el cron /api/cron/dte-overdue: el corte es el día
-    // calendario en Chile, no el instante UTC. Comparar contra `Date.now()`
-    // marcaba vencida a una factura que vence HOY (la columna `@db.Date` llega
-    // como medianoche UTC), así que desconciliar adelantaba el OVERDUE ~un día
-    // respecto del cron. Sin `dueDate` se preserva un OVERDUE previo en vez de
-    // degradarlo a UNPAID.
-    status = resolveUnpaidPaymentStatus(dte.dueDate, dte.paymentStatus);
-  } else if (paid + 5 >= total) {
-    // Tolerancia mínima de $5 CLP para absorber residuos de redondeo cuando
-    // un pago se reparte entre N movimientos (bulk reconcile N→M). El
-    // redondeo a entero CLP por mov puede dejar al DTE por debajo de su
-    // totalAmount por algunos pesos sin que sea realmente un cobro parcial.
-    status = "PAID";
-  } else {
-    status = "PARTIAL";
+  if (status === "PARTIAL") {
 
     // El pago no cubre el total con la tolerancia mínima. Antes de marcar
     // PARTIAL, intentar write-off automático: si la diferencia cae dentro
@@ -3693,5 +3691,150 @@ export async function clearTransactionLinks(
     // puede mostrar un aviso "queda asiento pendiente de reversar". En
     // una iteración futura se puede invocar reverseEntry acá.
   }
+}
+
+// ── Desconciliar DTE emitido (desde facturación) ──
+
+export interface UnreconcileIssuedDteResult {
+  allocationsRemoved: number;
+  paymentsDeleted: number;
+  bankLinksRemoved: number;
+  bankTransactionsReset: number;
+}
+
+export interface UnreconcileIssuedDteOptions {
+  /**
+   * Si true, limpia links/reconciledAt/allocations pero NO recomputa
+   * paymentStatus (contrato UI facturación: "sigue marcada como pagada").
+   * Default false → recompute bank-aligned (UNPAID si el cobro era solo cartola).
+   */
+  keepPaymentStatus?: boolean;
+}
+
+/**
+ * Desconcilia un DTE emitido desde facturación (`POST .../issued/[id]/unreconcile`).
+ *
+ * Es el inverso centrado-en-DTE de `clearTransactionLinks` (centrado-en-movimiento).
+ * Deja banco + DTE consistentes:
+ *   - Borra allocations y PaymentRecords huérfanos de esta conciliación.
+ *   - Elimina `FinanceBankTransactionLink` DTE_ISSUED → este dteId.
+ *   - Recomputa `paymentStatus` / montos (salvo `keepPaymentStatus`) vía
+ *     `recomputeDtePaymentAggregate`, con el mismo orden que banca: recompute
+ *     mientras `reconciledAt` aún está seteado, luego limpiar reconciledAt.
+ *   - Movimientos que quedan sin links → UNMATCHED + reset de cashflow occurrences.
+ *
+ * **Modo "mantener pagada":** `keepPaymentStatus: true` (lo envía la UI de
+ * DTEs emitidos). Preserva PAID/amountPaid; solo rompe vínculo bancario.
+ */
+export async function unreconcileIssuedDte(
+  tenantId: string,
+  dteId: string,
+  opts: UnreconcileIssuedDteOptions = {},
+): Promise<UnreconcileIssuedDteResult> {
+  const keepPaymentStatus = opts.keepPaymentStatus === true;
+  const dte = await prisma.financeDte.findFirst({
+    where: { id: dteId, tenantId, direction: "ISSUED" },
+    select: { id: true },
+  });
+  if (!dte) throw new Error("DTE no encontrado");
+
+  const bankLinks = await prisma.financeBankTransactionLink.findMany({
+    where: { tenantId, targetType: "DTE_ISSUED", targetId: dteId },
+    select: { bankTransactionId: true },
+  });
+  const allocationCount = await prisma.financePaymentAllocation.count({
+    where: { dteId },
+  });
+  if (bankLinks.length === 0 && allocationCount === 0) {
+    return {
+      allocationsRemoved: 0,
+      paymentsDeleted: 0,
+      bankLinksRemoved: 0,
+      bankTransactionsReset: 0,
+    };
+  }
+
+  const affectedBankTxIds = Array.from(
+    new Set(bankLinks.map((l) => l.bankTransactionId)),
+  );
+
+  return prisma.$transaction(async (tx2: Prisma.TransactionClient) => {
+    const allocations = await tx2.financePaymentAllocation.findMany({
+      where: { dteId },
+      select: { id: true, paymentId: true },
+    });
+
+    if (allocations.length > 0) {
+      await tx2.financePaymentAllocation.deleteMany({
+        where: { id: { in: allocations.map((a) => a.id) } },
+      });
+    }
+
+    const paymentIds = Array.from(new Set(allocations.map((a) => a.paymentId)));
+    let paymentsDeleted = 0;
+    for (const pid of paymentIds) {
+      const remaining = await tx2.financePaymentAllocation.count({
+        where: { paymentId: pid },
+      });
+      if (remaining === 0) {
+        await tx2.financePaymentRecord.delete({ where: { id: pid } });
+        paymentsDeleted += 1;
+      }
+    }
+
+    const deletedLinks = await tx2.financeBankTransactionLink.deleteMany({
+      where: { tenantId, targetType: "DTE_ISSUED", targetId: dteId },
+    });
+
+    if (!keepPaymentStatus) {
+      // Mismo orden que clearTransactionLinks: recompute con reconciledAt
+      // aún seteado evita el falso positivo de PAID-manual-sin-cartola.
+      await recomputeDtePaymentAggregate(tx2, dteId);
+    }
+
+    const stillLinked = await tx2.financeBankTransactionLink.count({
+      where: {
+        tenantId,
+        targetType: { in: ["DTE_ISSUED", "DTE_RECEIVED"] },
+        targetId: dteId,
+      },
+    });
+    if (stillLinked === 0) {
+      await tx2.financeDte.update({
+        where: { id: dteId },
+        data: { reconciledAt: null },
+      });
+    }
+
+    let bankTransactionsReset = 0;
+    for (const bankTxId of affectedBankTxIds) {
+      const remainingLinks = await tx2.financeBankTransactionLink.count({
+        where: { tenantId, bankTransactionId: bankTxId },
+      });
+      if (remainingLinks === 0) {
+        await tx2.financeBankTransaction.update({
+          where: { id: bankTxId },
+          data: { reconciliationStatus: "UNMATCHED" },
+        });
+        await tx2.financeCashflowOccurrence.updateMany({
+          where: { tenantId, bankTransactionId: bankTxId },
+          data: {
+            bankTransactionId: null,
+            matchedAt: null,
+            matchedBy: null,
+            status: "PROJECTED",
+          },
+        });
+        bankTransactionsReset += 1;
+      }
+    }
+
+    return {
+      allocationsRemoved: allocations.length,
+      paymentsDeleted,
+      bankLinksRemoved: deletedLinks.count,
+      bankTransactionsReset,
+    };
+  });
 }
 
