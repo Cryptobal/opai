@@ -2990,7 +2990,7 @@ export function CpqQuoteDetail({
       />
       )}
 
-      {crmContext.dealId && contactForPortal?.email ? (
+      {crmContext.dealId && crmContext.accountId && contactForPortal?.email ? (
             <SendPortalProposalModal
               key="portal-proposal"
               open={portalProposalOpen}
@@ -2999,6 +2999,7 @@ export function CpqQuoteDetail({
               quoteCode={quote?.code ?? ""}
               defaultEmailSubject={portalInviteSubjectDefault}
               dealId={crmContext.dealId}
+              accountId={crmContext.accountId}
               quoteContact={{
                 id: contactForPortal.id,
                 firstName: contactForPortal.firstName,

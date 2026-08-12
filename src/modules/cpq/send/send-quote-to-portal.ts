@@ -35,9 +35,15 @@ export interface SendQuoteToPortalOptions {
   followUp?: { include: boolean; targetStageId: string | null; skipAll?: boolean };
   ccEmails?: string[];
   bccEmails?: string[];
-  /** Contacto que recibe la invitación al portal (PIN y correo). Por defecto el de la cotización. */
+  /**
+   * Contacto que recibe la invitación al portal (PIN y correo).
+   * Compat: si también viene `recipientContactIds`, se unifican (sin duplicados).
+   * Por defecto el de la cotización.
+   */
   recipientContactId?: string;
-  /** IDs de contactos adicionales en copia (misma cuenta). */
+  /** Varios contactos de la cuenta; cada uno recibe su propio correo + PIN. */
+  recipientContactIds?: string[];
+  /** IDs de contactos adicionales en copia (misma cuenta). Solo en el primer correo. */
   ccContactIds?: string[];
   includeProposalPdf?: boolean;
   includeQuotationPdf?: boolean;
@@ -49,13 +55,98 @@ export interface SendQuoteToPortalOptions {
 
 export interface SendQuoteToPortalResult {
   emailId: string | null;
+  /** Emails unidos por coma (compat). */
   sentTo: string;
+  /** Lista de emails a los que se envió invitación. */
+  sentToList: string[];
   portalUrl: string;
   pinGenerated: boolean;
   proposalLink: string | null;
   whatsappPhone: string | null;
   whatsappMessage: string;
   contactName: string;
+}
+
+type PortalRecipientContact = {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string | null;
+  portalEnabled: boolean;
+  portalPin: string | null;
+  portalPinVisible: string | null;
+};
+
+async function ensureContactPortalPin(
+  contact: PortalRecipientContact,
+  tenantId: string,
+): Promise<{ pin: string; pinGenerated: boolean }> {
+  if (!contact.portalPin) {
+    const pin = String(Math.floor(1000 + Math.random() * 9000));
+    const pinHash = await bcrypt.hash(pin, 10);
+    await prisma.crmContact.updateMany({
+      where: { id: contact.id, tenantId },
+      data: { portalPin: pinHash, portalPinVisible: pin, portalEnabled: true },
+    });
+    return { pin, pinGenerated: true };
+  }
+  if (contact.portalPinVisible && contact.portalPinVisible.trim().length > 0) {
+    return { pin: contact.portalPinVisible, pinGenerated: false };
+  }
+  const pin = String(Math.floor(1000 + Math.random() * 9000));
+  const pinHash = await bcrypt.hash(pin, 10);
+  await prisma.crmContact.updateMany({
+    where: { id: contact.id, tenantId },
+    data: { portalPin: pinHash, portalPinVisible: pin },
+  });
+  return { pin, pinGenerated: true };
+}
+
+async function ensureExternalChatChannel(args: {
+  tenantId: string;
+  accountId: string;
+  accountName: string;
+  userId: string;
+  contact: PortalRecipientContact;
+}) {
+  const { tenantId, accountId, accountName, userId, contact } = args;
+  const existingExternal = await prisma.chatChannel.findFirst({
+    where: {
+      tenantId,
+      channelType: "EXTERNAL",
+      accountId,
+      isActive: true,
+      participants: { some: { participantType: "CONTACT", participantId: contact.id } },
+    },
+    include: { participants: true },
+  });
+  const hasEjecutivo =
+    existingExternal?.participants.some(
+      (p) => p.participantType === "ADMIN" && p.participantId === userId,
+    ) ?? false;
+  if (!existingExternal) {
+    const channelName = `${contact.firstName} ${contact.lastName} · ${accountName}`;
+    await prisma.chatChannel.create({
+      data: {
+        tenantId,
+        channelType: "EXTERNAL",
+        accountId,
+        name: channelName,
+        isActive: true,
+        participants: {
+          create: [
+            { participantType: "ADMIN", participantId: userId },
+            { participantType: "CONTACT", participantId: contact.id },
+          ],
+        },
+      },
+    });
+  } else if (!hasEjecutivo) {
+    await prisma.chatChannelParticipant.create({
+      data: { channelId: existingExternal.id, participantType: "ADMIN", participantId: userId },
+    });
+  }
 }
 
 export async function sendQuoteToPortal(options: SendQuoteToPortalOptions): Promise<SendQuoteToPortalResult> {
@@ -67,6 +158,7 @@ export async function sendQuoteToPortal(options: SendQuoteToPortalOptions): Prom
     ccEmails = [],
     bccEmails = [],
     recipientContactId,
+    recipientContactIds,
     ccContactIds = [],
     includeProposalPdf = false,
     includeQuotationPdf = false,
@@ -88,14 +180,62 @@ export async function sendQuoteToPortal(options: SendQuoteToPortalOptions): Prom
   if (!quote.contactId) throw new Error("La cotización debe tener un contacto asignado");
   if (!quote.accountId) throw new Error("La cotización debe tener una cuenta asignada");
 
-  const effectiveContactId = recipientContactId ?? quote.contactId;
+  // Unificar recipientContactIds + recipientContactId (compat). Sin duplicados, orden estable.
+  const requestedRecipientIds = [
+    ...new Set(
+      [
+        ...(Array.isArray(recipientContactIds) ? recipientContactIds : []),
+        ...(recipientContactId ? [recipientContactId] : []),
+      ].filter((id): id is string => typeof id === "string" && id.length > 0),
+    ),
+  ];
+  const effectiveRecipientIds =
+    requestedRecipientIds.length > 0 ? requestedRecipientIds : [quote.contactId];
 
-  const contact = await prisma.crmContact.findFirst({
-    where: { id: effectiveContactId, tenantId, accountId: quote.accountId },
-    select: { id: true, firstName: true, lastName: true, email: true, phone: true, portalEnabled: true, portalPin: true, portalPinVisible: true },
+  const recipientRows = await prisma.crmContact.findMany({
+    where: {
+      tenantId,
+      accountId: quote.accountId,
+      id: { in: effectiveRecipientIds },
+    },
+    select: {
+      id: true,
+      firstName: true,
+      lastName: true,
+      email: true,
+      phone: true,
+      portalEnabled: true,
+      portalPin: true,
+      portalPinVisible: true,
+    },
   });
 
-  if (!contact?.email) throw new Error("El contacto destinatario no tiene email o no pertenece a la cuenta");
+  if (recipientRows.length !== effectiveRecipientIds.length) {
+    throw new Error("Uno o más contactos destinatarios no pertenecen a la cuenta de la cotización");
+  }
+
+  const recipients: PortalRecipientContact[] = [];
+  const byId = new Map(recipientRows.map((r) => [r.id, r]));
+  for (const id of effectiveRecipientIds) {
+    const row = byId.get(id);
+    if (!row?.email) {
+      throw new Error("El contacto destinatario no tiene email o no pertenece a la cuenta");
+    }
+    recipients.push({
+      id: row.id,
+      firstName: row.firstName,
+      lastName: row.lastName,
+      email: row.email,
+      phone: row.phone,
+      portalEnabled: row.portalEnabled,
+      portalPin: row.portalPin,
+      portalPinVisible: row.portalPinVisible,
+    });
+  }
+
+  // Contacto primario para presentation / WhatsApp / retorno (primer destinatario).
+  const contact = recipients[0]!;
+  const recipientIdSet = new Set(recipients.map((r) => r.id));
 
   let mergedCcEmails = [...ccEmails.filter(Boolean)];
   if (ccContactIds.length > 0) {
@@ -103,7 +243,8 @@ export async function sendQuoteToPortal(options: SendQuoteToPortalOptions): Prom
       where: {
         tenantId,
         accountId: quote.accountId,
-        id: { in: ccContactIds.filter((id) => id !== contact.id) },
+        // No CC a quienes ya reciben invitación con PIN propio.
+        id: { in: ccContactIds.filter((id) => !recipientIdSet.has(id)) },
       },
       select: { email: true },
     });
@@ -111,7 +252,10 @@ export async function sendQuoteToPortal(options: SendQuoteToPortalOptions): Prom
       if (r.email && !mergedCcEmails.includes(r.email)) mergedCcEmails.push(r.email);
     }
   }
-  mergedCcEmails = [...new Set(mergedCcEmails)];
+  const portalEmails = new Set(recipients.map((r) => r.email.toLowerCase()));
+  mergedCcEmails = [...new Set(mergedCcEmails)].filter(
+    (email) => !portalEmails.has(email.toLowerCase()),
+  );
 
   const account = await prisma.crmAccount.findFirst({
     where: { id: quote.accountId, tenantId },
@@ -139,46 +283,28 @@ export async function sendQuoteToPortal(options: SendQuoteToPortalOptions): Prom
     roleTitle: ejecutivo?.cargo || "",
   };
 
-  // PIN management
-  let pin: string;
-  if (!contact.portalPin) {
-    pin = String(Math.floor(1000 + Math.random() * 9000));
-    const pinHash = await bcrypt.hash(pin, 10);
-    await prisma.crmContact.updateMany({
-      where: { id: contact.id, tenantId },
-      data: { portalPin: pinHash, portalPinVisible: pin, portalEnabled: true },
-    });
-  } else if (contact.portalPinVisible && contact.portalPinVisible.trim().length > 0) {
-    pin = contact.portalPinVisible;
-  } else {
-    pin = String(Math.floor(1000 + Math.random() * 9000));
-    const pinHash = await bcrypt.hash(pin, 10);
-    await prisma.crmContact.updateMany({
-      where: { id: contact.id, tenantId },
-      data: { portalPin: pinHash, portalPinVisible: pin },
+  // PIN + canal chat por cada destinatario (antes de side-effects globales).
+  const recipientPins = new Map<string, string>();
+  let anyPinGenerated = false;
+  for (const recipient of recipients) {
+    const { pin, pinGenerated } = await ensureContactPortalPin(recipient, tenantId);
+    recipientPins.set(recipient.id, pin);
+    if (pinGenerated) anyPinGenerated = true;
+    await ensureExternalChatChannel({
+      tenantId,
+      accountId: account.id,
+      accountName: account.name,
+      userId,
+      contact: recipient,
     });
   }
+  const pin = recipientPins.get(contact.id)!;
 
-  // Update account status
+  // Update account status (una sola vez)
   const accountUpdates: Record<string, unknown> = {};
   if (account.status !== "client_active") accountUpdates.status = "prospect";
   accountUpdates.portalEjecutivoId = userId;
   await prisma.crmAccount.updateMany({ where: { id: account.id, tenantId }, data: accountUpdates });
-
-  // Chat channel
-  const existingExternal = await prisma.chatChannel.findFirst({
-    where: { tenantId, channelType: "EXTERNAL", accountId: account.id, isActive: true, participants: { some: { participantType: "CONTACT", participantId: contact.id } } },
-    include: { participants: true },
-  });
-  const hasEjecutivo = existingExternal?.participants.some((p) => p.participantType === "ADMIN" && p.participantId === userId) ?? false;
-  if (!existingExternal) {
-    const channelName = `${contact.firstName} ${contact.lastName} · ${account.name}`;
-    await prisma.chatChannel.create({
-      data: { tenantId, channelType: "EXTERNAL", accountId: account.id, name: channelName, isActive: true, participants: { create: [{ participantType: "ADMIN", participantId: userId }, { participantType: "CONTACT", participantId: contact.id }] } },
-    });
-  } else if (!hasEjecutivo) {
-    await prisma.chatChannelParticipant.create({ data: { channelId: existingExternal.id, participantType: "ADMIN", participantId: userId } });
-  }
 
   // Compute costs
   let monthlyTotal = Number(quote.monthlyCost) || 0;
@@ -402,30 +528,12 @@ export async function sendQuoteToPortal(options: SendQuoteToPortalOptions): Prom
           tenantBrand,
         });
 
-  // Render del email: HTML + versión texto plano. La presencia de `text` mejora
-  // el score anti-spam (Gmail/Outlook prefieren multipart/alternative) y permite
-  // a clientes que no renderizan HTML (filtros corporativos, screen readers) ver
-  // el contenido. La versión plain se genera del mismo componente con
-  // `{ plainText: true }` — react-email se encarga de extraer el texto.
-  const portalInviteEmailComponent = PortalProspectoInviteEmail({
-    contactName,
-    companyName: account.name,
-    email: contact.email,
-    pin,
-    portalUrl,
-    ejecutivoName,
-    quoteName: quoteNameForEmail,
-    quoteCode: quote.code,
-    whatsappUrl,
-  });
-  const emailHtml = await render(portalInviteEmailComponent);
-  const emailText = await render(portalInviteEmailComponent, { plainText: true });
-
   const attachments: { filename: string; content: Buffer; contentType: string }[] = [];
   // La Propuesta Técnica es un dossier del servicio de guardias (dotación,
   // organigrama, SLA en sitio, OS-10, plan de contingencia por inasistencia).
   // En una cotización sin puestos nada de eso existe: el documento le hablaría
   // al cliente de un servicio que no le estamos vendiendo. No se adjunta.
+  // PDFs/adjuntos se generan UNA sola vez y se reutilizan en cada correo.
   const proposalPdfApplies = includeProposalPdf && quote.positions.length > 0;
   if (proposalPdfApplies) {
     try {
@@ -483,28 +591,68 @@ export async function sendQuoteToPortal(options: SendQuoteToPortalOptions): Prom
     }
   }
 
-  const sendResult = await sendTenantEmail({
-    tenantId,
-    module: "commercial",
-    kind: "cpq_portal_invite",
-    to: contact.email,
-    cc: [...new Set([tenantConfig.email, ...mergedCcEmails].filter(Boolean))],
-    bcc: bccEmails,
-    subject: emailSubject,
-    html: emailHtml,
-    text: emailText,
-    attachments: attachments.length > 0 ? attachments : undefined,
-    tags: [
-      { name: "type", value: "portal-prospecto-invite" },
-      { name: "quote", value: quote.code },
-    ],
-  });
-  const emailResult = { data: { id: sendResult.resendId } };
+  // Un correo por destinatario con su PIN/portalUrl. CC/BCC solo en el primero
+  // para no filtrar PINs ajenos a terceros en copia.
+  const firstCc = [...new Set([tenantConfig.email, ...mergedCcEmails].filter(Boolean))];
+  let firstEmailId: string | null = null;
+  const sentToList: string[] = [];
 
-  await prisma.crmContact.updateMany({
-    where: { id: contact.id, tenantId },
-    data: { portalInvitationSentAt: new Date() },
-  });
+  for (let i = 0; i < recipients.length; i++) {
+    const recipient = recipients[i]!;
+    const recipientPin = recipientPins.get(recipient.id)!;
+    const recipientName = `${recipient.firstName} ${recipient.lastName}`.trim();
+    const recipientPortalUrl = await buildPortalClienteInviteUrl({
+      email: recipient.email,
+      tenantId,
+    });
+
+    // Render del email: HTML + versión texto plano. La presencia de `text` mejora
+    // el score anti-spam (Gmail/Outlook prefieren multipart/alternative) y permite
+    // a clientes que no renderizan HTML (filtros corporativos, screen readers) ver
+    // el contenido. La versión plain se genera del mismo componente con
+    // `{ plainText: true }` — react-email se encarga de extraer el texto.
+    const portalInviteEmailComponent = PortalProspectoInviteEmail({
+      contactName: recipientName,
+      companyName: account.name,
+      email: recipient.email,
+      pin: recipientPin,
+      portalUrl: recipientPortalUrl,
+      ejecutivoName,
+      quoteName: quoteNameForEmail,
+      quoteCode: quote.code,
+      whatsappUrl,
+    });
+    const emailHtml = await render(portalInviteEmailComponent);
+    const emailText = await render(portalInviteEmailComponent, { plainText: true });
+
+    const sendResult = await sendTenantEmail({
+      tenantId,
+      module: "commercial",
+      kind: "cpq_portal_invite",
+      to: recipient.email,
+      cc: i === 0 ? firstCc : undefined,
+      bcc: i === 0 ? bccEmails : undefined,
+      subject: emailSubject,
+      html: emailHtml,
+      text: emailText,
+      attachments: attachments.length > 0 ? attachments : undefined,
+      tags: [
+        { name: "type", value: "portal-prospecto-invite" },
+        { name: "quote", value: quote.code },
+      ],
+    });
+
+    if (i === 0) firstEmailId = sendResult.resendId ?? null;
+    sentToList.push(recipient.email);
+
+    await prisma.crmContact.updateMany({
+      where: { id: recipient.id, tenantId },
+      data: { portalInvitationSentAt: new Date() },
+    });
+  }
+
+  const emailResult = { data: { id: firstEmailId } };
+  const sentTo = sentToList.join(", ");
 
   // Follow-up handling
   if (quote.dealId) {
@@ -602,7 +750,9 @@ export async function sendQuoteToPortal(options: SendQuoteToPortalOptions): Prom
       entityId: quoteId,
       action: "quote_sent_portal",
       details: {
-        to: contact.email,
+        to: sentTo,
+        toList: sentToList,
+        contactIds: recipients.map((r) => r.id),
         contactName,
         quoteCode: quote.code,
         subject: emailSubject,
@@ -683,9 +833,10 @@ export async function sendQuoteToPortal(options: SendQuoteToPortalOptions): Prom
 
   return {
     emailId: emailResult?.data?.id || null,
-    sentTo: contact.email,
+    sentTo,
+    sentToList,
     portalUrl,
-    pinGenerated: !contact.portalPin,
+    pinGenerated: anyPinGenerated,
     // El link de la propuesta hacia el cliente es siempre el Portal del Cliente.
     proposalLink: portalUrl,
     whatsappPhone: normalizePhone(contact.phone),

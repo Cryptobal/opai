@@ -33,6 +33,9 @@ export async function POST(
       typeof body?.recipientContactId === "string" && body.recipientContactId.length > 0
         ? body.recipientContactId
         : undefined;
+    const recipientContactIds: string[] = Array.isArray(body?.recipientContactIds)
+      ? body.recipientContactIds.filter((x: unknown) => typeof x === "string" && x.length > 0)
+      : [];
     const ccContactIds: string[] = Array.isArray(body?.ccContactIds)
       ? body.ccContactIds.filter((x: unknown) => typeof x === "string")
       : [];
@@ -50,6 +53,7 @@ export async function POST(
       ccEmails,
       bccEmails,
       recipientContactId,
+      recipientContactIds: recipientContactIds.length > 0 ? recipientContactIds : undefined,
       ccContactIds,
       includeProposalPdf,
       includeQuotationPdf,
@@ -62,6 +66,7 @@ export async function POST(
       data: {
         emailId: result.emailId,
         sentTo: result.sentTo,
+        sentToList: result.sentToList,
         portalUrl: result.portalUrl,
         pinGenerated: result.pinGenerated,
         proposalLink: result.proposalLink,
