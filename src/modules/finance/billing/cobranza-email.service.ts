@@ -18,6 +18,7 @@ import {
 import { getTenantCompanyConfig } from "@/lib/tenant-config";
 import { getTenantEmailConfig } from "@/lib/resend";
 import { CobranzaEmail } from "@/emails/CobranzaEmail";
+import { formatCalendarDateDisplay } from "@/lib/fx-date";
 import { getDtePdf } from "./dte-pdf.service";
 import { buildDteAttachmentBaseName } from "./dte-filename";
 import { type CobranzaSlug } from "./cobranza-shared";
@@ -140,8 +141,14 @@ export async function sendCobranzaEmail(
   const daysOverdue = due
     ? Math.max(0, Math.floor((today.getTime() - due.getTime()) / 86400000))
     : 0;
+  // Cobranza amable muestra fecha de emisión (dueDate suele venir null en DTEs
+  // históricos emitidos antes de estampar vencimiento). Formato legible es-CL.
+  const issueFmt = formatCalendarDateDisplay(
+    dte.date,
+    "d 'de' MMMM 'de' yyyy",
+  );
   const dueFmt = due
-    ? due.toLocaleDateString("es-CL", { day: "numeric", month: "short", year: "numeric" })
+    ? formatCalendarDateDisplay(due, "d 'de' MMMM 'de' yyyy")
     : "";
 
   const account = dte.crmAccountId
@@ -176,8 +183,9 @@ export async function sendCobranzaEmail(
       id: dte.id,
       folio: String(dte.folio),
       type: String(dte.dteType),
-      date: dte.date.toISOString().slice(0, 10),
-      dueDate: due ? due.toISOString().slice(0, 10) : "",
+      date: issueFmt,
+      // Compat: plantillas viejas con {{dte.dueDate}} reciben emisión si no hay vencimiento.
+      dueDate: dueFmt || issueFmt,
       totalAmount: Number(dte.totalAmount),
       totalAmountFormatted: totalFmt,
       receiverName: dte.receiverName,
@@ -205,7 +213,7 @@ export async function sendCobranzaEmail(
       folio: String(dte.folio),
       receiverCompanyName: dte.receiverName ?? account?.name ?? "",
       totalFormatted: totalFmt,
-      dueDate: dueFmt,
+      issueDate: issueFmt,
       daysOverdue,
       brandName: tenantCfg.commercialName ?? "OPAI",
       logoUrl: tenantCfg.logoUrl ?? undefined,

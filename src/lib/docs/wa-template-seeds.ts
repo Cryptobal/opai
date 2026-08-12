@@ -277,7 +277,7 @@ Revisa los detalles en tu portal de supervisor.`,
     name: "Cobranza — Recordatorio amable",
     body: `Hola {{contact.firstName}}, ¿cómo estás?
 
-Te escribo para recordarte que tenemos pendiente el pago de la factura {{dte.folio}} por {{dte.totalAmountFormatted}} con fecha de vencimiento {{dte.dueDate}}.
+Te escribo para recordarte que tenemos pendiente el pago de la factura {{dte.folio}} por {{dte.totalAmountFormatted}} con fecha de emisión {{dte.date}}.
 
 ¿Podrías ayudarme con la confirmación del pago? Cualquier cosa quedo atento.
 

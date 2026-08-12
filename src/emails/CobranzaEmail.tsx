@@ -26,7 +26,8 @@ export interface CobranzaEmailProps {
   folio: string;
   receiverCompanyName: string;
   totalFormatted: string;
-  dueDate: string;
+  /** Fecha de emisión del DTE (mostrar en el resumen). */
+  issueDate: string;
   daysOverdue: number;
   brandName: string;
   logoUrl?: string;
@@ -41,7 +42,7 @@ export function CobranzaEmail({
   folio = "—",
   receiverCompanyName = "",
   totalFormatted = "$0",
-  dueDate = "",
+  issueDate = "",
   daysOverdue = 0,
   brandName = "OPAI",
   logoUrl = "",
@@ -93,9 +94,9 @@ export function CobranzaEmail({
             <Text style={summaryRow}>
               <strong>Monto:</strong> {totalFormatted}
             </Text>
-            {dueDate && (
+            {issueDate && (
               <Text style={summaryRow}>
-                <strong>Vencimiento:</strong> {dueDate}
+                <strong>Emisión:</strong> {issueDate}
               </Text>
             )}
             {daysOverdue > 0 && (

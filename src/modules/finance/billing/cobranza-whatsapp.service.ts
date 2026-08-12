@@ -17,6 +17,7 @@ import {
   tiptapToPlainText,
   type EntityData,
 } from "@/lib/docs/token-resolver";
+import { formatCalendarDateDisplay } from "@/lib/fx-date";
 import type { CobranzaSlug } from "./cobranza-shared";
 
 function trimEnv(v: string | undefined): string | undefined {
@@ -134,6 +135,13 @@ async function buildEntities(
   const daysOverdue = due
     ? Math.max(0, Math.floor((today.getTime() - due.getTime()) / 86400000))
     : 0;
+  const issueFmt = formatCalendarDateDisplay(
+    dte.date,
+    "d 'de' MMMM 'de' yyyy",
+  );
+  const dueFmt = due
+    ? formatCalendarDateDisplay(due, "d 'de' MMMM 'de' yyyy")
+    : "";
   const parts = (admin?.name || "").trim().split(/\s+/);
 
   const entities: EntityData = {
@@ -160,8 +168,9 @@ async function buildEntities(
       id: dte.id,
       folio: String(dte.folio),
       type: String(dte.dteType),
-      date: dte.date.toISOString().slice(0, 10),
-      dueDate: due ? due.toISOString().slice(0, 10) : "",
+      date: issueFmt,
+      // Compat: plantillas viejas con {{dte.dueDate}} reciben emisión si no hay vencimiento.
+      dueDate: dueFmt || issueFmt,
       totalAmount: Number(dte.totalAmount),
       totalAmountFormatted: totalFmt,
       receiverName: dte.receiverName,
