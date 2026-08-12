@@ -7558,7 +7558,23 @@ async function toolGetDteDetail(tenantId: string, args: Record<string, unknown>)
       paymentAllocations: {
         select: {
           id: true, amount: true,
-          payment: { select: { id: true, amount: true, date: true } },
+          payment: {
+            select: {
+              id: true,
+              code: true,
+              amount: true,
+              date: true,
+              bankTransactionId: true,
+              bankTransaction: {
+                select: {
+                  id: true,
+                  transactionDate: true,
+                  reference: true,
+                  description: true,
+                },
+              },
+            },
+          },
         },
       },
       factoringOps: {
@@ -7588,6 +7604,29 @@ async function toolGetDteDetail(tenantId: string, args: Record<string, unknown>)
   const creditNotes = dte.referencedBy.filter((r) => r.dteType === 61);
   const debitNotes = dte.referencedBy.filter((r) => r.dteType === 56);
 
+  const bankLinks = await prisma.financeBankTransactionLink.findMany({
+    where: {
+      tenantId,
+      targetType: "DTE_ISSUED",
+      targetId: dte.id,
+    },
+    select: {
+      id: true,
+      amount: true,
+      matchSource: true,
+      bankTransaction: {
+        select: {
+          id: true,
+          transactionDate: true,
+          reference: true,
+          description: true,
+          reconciliationStatus: true,
+        },
+      },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
   return {
     ok: true,
     data: {
@@ -7608,6 +7647,11 @@ async function toolGetDteDetail(tenantId: string, args: Record<string, unknown>)
       paymentStatus: dte.paymentStatus,
       amountPaid: Number(dte.amountPaid),
       amountPending: Number(dte.amountPending),
+      reconciledAt: dte.reconciledAt,
+      billingPeriod: dte.billingPeriod,
+      recurringTemplateId: dte.recurringTemplateId,
+      /** true cuando hay movimiento bancario DTE_ISSUED linkeado a este folio. */
+      isBankReconciled: dte.reconciledAt != null || bankLinks.length > 0,
       account,
       installation,
       lines: dte.lines.map((l) => ({
@@ -7639,8 +7683,32 @@ async function toolGetDteDetail(tenantId: string, args: Record<string, unknown>)
       hasDebitNote: debitNotes.length > 0,
       payments: dte.paymentAllocations.map((pa) => ({
         id: pa.payment.id,
+        code: pa.payment.code,
         amount: Number(pa.amount),
         paymentDate: pa.payment.date,
+        bankTransactionId: pa.payment.bankTransactionId,
+        bankTransaction: pa.payment.bankTransaction
+          ? {
+              id: pa.payment.bankTransaction.id,
+              date: pa.payment.bankTransaction.transactionDate,
+              reference: pa.payment.bankTransaction.reference,
+              description: pa.payment.bankTransaction.description,
+            }
+          : null,
+      })),
+      bankLinks: bankLinks.map((l) => ({
+        id: l.id,
+        amount: Number(l.amount),
+        matchSource: l.matchSource,
+        bankTransaction: l.bankTransaction
+          ? {
+              id: l.bankTransaction.id,
+              date: l.bankTransaction.transactionDate,
+              reference: l.bankTransaction.reference,
+              description: l.bankTransaction.description,
+              reconciliationStatus: l.bankTransaction.reconciliationStatus,
+            }
+          : null,
       })),
       factoring: dte.factoringOps.map((f) => ({
         id: f.id,
