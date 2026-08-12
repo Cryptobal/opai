@@ -26,8 +26,16 @@ export type CalendarEventPayload = {
   summary: string;
   description?: string;
   location?: string;
-  start: { dateTime?: string; date?: string; timeZone?: string };
-  end: { dateTime?: string; date?: string; timeZone?: string };
+  start: {
+    dateTime?: string | null;
+    date?: string | null;
+    timeZone?: string | null;
+  };
+  end: {
+    dateTime?: string | null;
+    date?: string | null;
+    timeZone?: string | null;
+  };
   attendees?: Array<{ email: string }>;
   reminders: {
     useDefault: false;
@@ -77,14 +85,25 @@ export function buildVisitaEventPayload(
           endExclusive <= startYmd
             ? ymdInChile(addDaysChile(visita.startAt, 1))
             : endExclusive;
+        // null en dateTime/timeZone: events.patch debe limpiar un evento
+        // previo timed o Google responde "Invalid start time.".
         return {
-          start: { date: startYmd },
-          end: { date: endYmd },
+          start: { date: startYmd, dateTime: null, timeZone: null },
+          end: { date: endYmd, dateTime: null, timeZone: null },
         };
       })()
     : {
-        start: { dateTime: visita.startAt.toISOString(), timeZone: CHILE_TZ },
-        end: { dateTime: visita.endAt.toISOString(), timeZone: CHILE_TZ },
+        // null en date: limpia un evento previo all-day en events.patch.
+        start: {
+          dateTime: visita.startAt.toISOString(),
+          timeZone: CHILE_TZ,
+          date: null,
+        },
+        end: {
+          dateTime: visita.endAt.toISOString(),
+          timeZone: CHILE_TZ,
+          date: null,
+        },
       };
 
   return {

@@ -63,7 +63,12 @@ beforeEach(() => {
   eventsDelete.mockResolvedValue({});
   const client = {
     calendar: {
-      events: { patch: eventsPatch, insert: eventsInsert, delete: eventsDelete },
+      events: {
+        patch: eventsPatch,
+        update: vi.fn(),
+        insert: eventsInsert,
+        delete: eventsDelete,
+      },
     },
     accountId: "acc-1",
     calendarId: "primary",

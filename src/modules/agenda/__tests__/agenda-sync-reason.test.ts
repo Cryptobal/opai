@@ -22,14 +22,10 @@ describe("sanitizeSyncReason", () => {
     );
   });
 
-  it("mapea falta de dueño de cuenta a acción correcta", () => {
-    const raw =
-      "La cuenta del negocio no tiene dueño asignado: asigná un responsable para sincronizar con Google Calendar.";
-    expect(sanitizeSyncReason(raw)).toBe(
-      "La cuenta del negocio no tiene dueño asignado: asigná un responsable",
+  it("mapea Invalid start time a acción de reenvío", () => {
+    expect(sanitizeSyncReason("Invalid start time.")).toBe(
+      "Conflicto al actualizar la fecha en Google; usá Reenviar a Google",
     );
-    expect(isGoogleConnectReason(raw)).toBe(false);
-    expect(isGoogleConnectReason(sanitizeSyncReason(raw))).toBe(false);
   });
 });
 

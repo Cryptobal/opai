@@ -122,19 +122,39 @@ export async function syncEventLink(
 
     let googleEventId = link.googleEventId;
     let htmlLink = link.htmlLink;
+    const sendUpdates = payload.attendees?.length ? "all" : "none";
     if (googleEventId) {
-      const patched = await calendar.events.patch({
-        calendarId: link.googleCalendarId || calendarId,
-        eventId: googleEventId,
-        requestBody: body,
-        sendUpdates: payload.attendees?.length ? "all" : "none",
-      });
-      htmlLink = patched.data.htmlLink ?? htmlLink;
+      try {
+        const patched = await calendar.events.patch({
+          calendarId: link.googleCalendarId || calendarId,
+          eventId: googleEventId,
+          requestBody: body,
+          sendUpdates,
+        });
+        htmlLink = patched.data.htmlLink ?? htmlLink;
+      } catch (patchErr) {
+        const patchMsg = (
+          patchErr instanceof Error ? patchErr.message : String(patchErr)
+        ).toLowerCase();
+        if (!/invalid (start|end) time|mismatching start and end/.test(patchMsg)) {
+          throw patchErr;
+        }
+        console.warn(
+          `[google-workspace] patch start/end rechazado (${patchMsg}); reintentando con events.update`,
+        );
+        const updated = await calendar.events.update({
+          calendarId: link.googleCalendarId || calendarId,
+          eventId: googleEventId,
+          requestBody: body,
+          sendUpdates,
+        });
+        htmlLink = updated.data.htmlLink ?? htmlLink;
+      }
     } else {
       const created = await calendar.events.insert({
         calendarId,
         requestBody: body,
-        sendUpdates: payload.attendees?.length ? "all" : "none",
+        sendUpdates,
       });
       googleEventId = created.data.id ?? null;
       htmlLink = created.data.htmlLink ?? null;

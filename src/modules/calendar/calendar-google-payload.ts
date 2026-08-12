@@ -22,10 +22,14 @@ type EventLike = {
   externals: Array<{ email: string; optional: boolean }>;
 };
 
-/** All-day Google: end exclusivo, fechas en calendario Chile (no UTC). */
+/**
+ * All-day Google: end exclusivo, fechas en calendario Chile (no UTC).
+ * `dateTime`/`timeZone` van en null para que events.patch limpie un evento
+ * previo timed (si no, Google responde "Invalid start time.").
+ */
 export function chileAllDayStartEnd(startAt: Date, endAt: Date): {
-  start: { date: string };
-  end: { date: string };
+  start: { date: string; dateTime: null; timeZone: null };
+  end: { date: string; dateTime: null; timeZone: null };
 } {
   const startYmd = ymdInChile(startAt);
   // Google all-day usa end exclusivo. Si endAt cae después de las
@@ -38,16 +42,24 @@ export function chileAllDayStartEnd(startAt: Date, endAt: Date): {
   const endYmd =
     endExclusive <= startYmd ? ymdInChile(addDaysChile(startAt, 1)) : endExclusive;
   return {
-    start: { date: startYmd },
-    end: { date: endYmd },
+    start: { date: startYmd, dateTime: null, timeZone: null },
+    end: { date: endYmd, dateTime: null, timeZone: null },
   };
 }
 
-/** Timed event: offset Chile explícito + timeZone (inequívoco para la API). */
-export function chileDateTimePayload(d: Date): { dateTime: string; timeZone: string } {
+/**
+ * Timed event: offset Chile explícito + timeZone.
+ * `date: null` limpia un evento previo all-day en events.patch.
+ */
+export function chileDateTimePayload(d: Date): {
+  dateTime: string;
+  timeZone: string;
+  date: null;
+} {
   return {
     dateTime: formatInTimeZone(d, CHILE_TZ, "yyyy-MM-dd'T'HH:mm:ssXXX"),
     timeZone: CHILE_TZ,
+    date: null,
   };
 }
 

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Surface, Spinner, StatusDot } from "@/components/opai-ds";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { ExternalLink, Pencil, Trash2 } from "lucide-react";
+import { ExternalLink, Pencil, RefreshCw, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { NuevaVisitaModal } from "@/components/agenda/NuevaVisitaModal";
 import { syncStatusMeta } from "@/components/agenda/agenda-sync-status";
@@ -33,17 +33,28 @@ type Props = {
 
 function formatWhen(r: VisitRow): string {
   const start = new Date(r.start);
-  const date = start.toLocaleDateString("es-CL", {
+  const dateOpts: Intl.DateTimeFormatOptions = {
     day: "2-digit",
     month: "short",
     year: "numeric",
-  });
-  if (r.allDay) return `${date} · Todo el día`;
+  };
+  const startDate = start.toLocaleDateString("es-CL", dateOpts);
+  if (r.allDay) {
+    if (r.end) {
+      const end = new Date(r.end);
+      // endAt all-day suele ser 23:59 del último día inclusivo.
+      const endDate = end.toLocaleDateString("es-CL", dateOpts);
+      if (endDate !== startDate) {
+        return `${startDate} → ${endDate} · Todo el día`;
+      }
+    }
+    return `${startDate} · Todo el día`;
+  }
   const time = start.toLocaleTimeString("es-CL", {
     hour: "2-digit",
     minute: "2-digit",
   });
-  return `${date} · ${time}`;
+  return `${startDate} · ${time}`;
 }
 
 export function DealVisitasCard({ dealId, accountId, installationId }: Props) {
@@ -53,6 +64,7 @@ export function DealVisitasCard({ dealId, accountId, installationId }: Props) {
   const [editId, setEditId] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [resyncingId, setResyncingId] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
@@ -154,6 +166,9 @@ export function DealVisitasCard({ dealId, accountId, installationId }: Props) {
         <ul className="divide-y divide-ds-border-subtle rounded-xl border border-ds-border-subtle">
           {rows.map((r) => {
             const sync = syncStatusMeta(r.syncStatus, r.syncReason);
+            const canResync =
+              r.source === "agenda_visita" &&
+              (r.syncStatus === "ERROR" || r.syncStatus === "PENDING");
             return (
               <li
                 key={`${r.source}-${r.id}`}
@@ -171,6 +186,9 @@ export function DealVisitasCard({ dealId, accountId, installationId }: Props) {
                       {formatWhen(r)}
                       {r.assignedName ? ` · ${r.assignedName}` : ""}
                     </p>
+                    {r.syncStatus === "ERROR" && sync.label ? (
+                      <p className="text-[12px] text-status-danger-fg">{sync.label}</p>
+                    ) : null}
                   </div>
                   {r.syncStatus ? (
                     <span
@@ -204,6 +222,46 @@ export function DealVisitasCard({ dealId, accountId, installationId }: Props) {
                       <ExternalLink className="h-4 w-4" />
                       <span className="sm:hidden">Google</span>
                     </a>
+                  )}
+                  {canResync && (
+                    <button
+                      type="button"
+                      disabled={resyncingId === r.id}
+                      className="inline-flex h-11 min-w-11 items-center justify-center gap-1.5 rounded-lg px-2 text-[12px] text-ds-text-3 hover:bg-ds-surface-2 hover:text-ds-text-1 disabled:opacity-50 sm:h-10"
+                      title="Reenviar a Google Calendar"
+                      aria-label="Reenviar a Google Calendar"
+                      onClick={async () => {
+                        if (resyncingId) return;
+                        setResyncingId(r.id);
+                        try {
+                          const res = await fetch(
+                            `/api/calendar/events/${r.id}/resync`,
+                            { method: "POST" },
+                          );
+                          const json = await res.json().catch(() => ({}));
+                          if (!res.ok) {
+                            toast.error(json.error || "No se pudo reenviar a Google");
+                            return;
+                          }
+                          if (json.syncStatus === "SYNCED") {
+                            toast.success("Evento sincronizado con Google Calendar");
+                          } else {
+                            toast.error(
+                              json.syncReason ||
+                                "Google no aceptó el evento; revisá la conexión de Calendar",
+                            );
+                          }
+                          setRefreshKey((k) => k + 1);
+                        } finally {
+                          setResyncingId(null);
+                        }
+                      }}
+                    >
+                      <RefreshCw
+                        className={`h-4 w-4 ${resyncingId === r.id ? "animate-spin" : ""}`}
+                      />
+                      <span className="sm:hidden">Reenviar</span>
+                    </button>
                   )}
                   {r.source === "agenda_visita" && (
                     <>

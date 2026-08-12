@@ -38,5 +38,8 @@ export function sanitizeSyncReason(raw: string | null | undefined): string | nul
   if (/network|timeout|ECONN|ENOTFOUND/i.test(trimmed)) {
     return "Error de red al sincronizar; se reintentará";
   }
+  if (/invalid (start|end) time|mismatching start and end/i.test(trimmed)) {
+    return "Conflicto al actualizar la fecha en Google; usá Reenviar a Google";
+  }
   return "No se pudo sincronizar con Google Calendar";
 }
