@@ -53,6 +53,7 @@ export async function POST(request: NextRequest) {
           tenantId: tid,
           created: [],
           skipped: [],
+          updated: [],
           errors: [{ slug: "(all)", error: "Tenant sin admin activo" }],
         });
         continue;
