@@ -99,8 +99,11 @@ export function getDealCloseDateTone(iso: string | null | undefined): DealCloseD
   return "ok";
 }
 
-export function truncateProximoPaso(text: string | null | undefined, max = 48): string | null {
+export function truncateNextStep(text: string | null | undefined, max = 48): string | null {
   if (!text?.trim()) return null;
   const t = text.trim();
   return t.length > max ? `${t.slice(0, max - 1)}…` : t;
 }
+
+/** @deprecated alias interno — usar truncateNextStep */
+export const truncateProximoPaso = truncateNextStep;

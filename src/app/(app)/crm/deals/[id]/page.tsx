@@ -293,7 +293,7 @@ export default async function CrmDealDetailPage({
   initialDeal.proposalSentAt = deal.proposalSentAt ? deal.proposalSentAt.toISOString() : null;
   initialDeal.serviceStartDate = deal.serviceStartDate ? deal.serviceStartDate.toISOString() : null;
   initialDeal.expectedCloseDate = deal.expectedCloseDate ? deal.expectedCloseDate.toISOString() : null;
-  initialDeal.proximoPaso = deal.proximoPaso ?? null;
+  initialDeal.nextStep = deal.nextStep ?? null;
   initialDeal.isLicitacion = Boolean(deal.isLicitacion);
   initialDeal.fechaEntrega = deal.fechaEntrega ? deal.fechaEntrega.toISOString() : null;
   initialDeal.status = deal.status;

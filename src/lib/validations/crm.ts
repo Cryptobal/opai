@@ -256,7 +256,7 @@ export const createDealSchema = z.object({
   amount: z.number().min(0).default(0),
   probability: z.number().min(0).max(100).default(0),
   expectedCloseDate: z.string().optional().nullable(),
-  proximoPaso: z.string().trim().max(200).optional().nullable(),
+  nextStep: z.string().trim().max(200).optional().nullable(),
   serviceStartDate: z.string().optional().nullable(),
   isLicitacion: z.boolean().optional(),
   fechaEntrega: z.string().optional().nullable(),

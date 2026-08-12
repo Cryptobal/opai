@@ -4,7 +4,7 @@ import {
   formatDealCloseDate,
   getDealCloseDateTone,
   isOpenDeal,
-  truncateProximoPaso,
+  truncateNextStep,
 } from "@/components/crm/deals/deals-helpers";
 import type { CrmDeal } from "@/types";
 
@@ -55,9 +55,9 @@ describe("deals-helpers pipeline fields", () => {
     ).toBe(false);
   });
 
-  it("truncateProximoPaso recorta texto largo", () => {
+  it("truncateNextStep recorta texto largo", () => {
     const long = "a".repeat(60);
-    expect(truncateProximoPaso(long, 20)?.endsWith("…")).toBe(true);
-    expect(truncateProximoPaso("  Llamar cliente  ")).toBe("Llamar cliente");
+    expect(truncateNextStep(long, 20)?.endsWith("…")).toBe(true);
+    expect(truncateNextStep("  Llamar cliente  ")).toBe("Llamar cliente");
   });
 });

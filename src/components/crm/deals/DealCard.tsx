@@ -23,7 +23,7 @@ import {
   formatDealCloseDate,
   getDealCloseDateTone,
   isOpenDeal,
-  truncateProximoPaso,
+  truncateNextStep,
 } from "./deals-helpers";
 import type { DealsDensity } from "./types";
 
@@ -57,7 +57,7 @@ export function DealCard({
   const openDeal = isOpenDeal(deal);
   const closeDateLabel = formatDealCloseDate(deal.expectedCloseDate);
   const closeTone = getDealCloseDateTone(deal.expectedCloseDate);
-  const nextStepLabel = truncateProximoPaso(deal.proximoPaso);
+  const nextStepLabel = truncateNextStep(deal.nextStep);
   const { days, source } = daysInStage(deal);
   const bucket = ageBucket(days);
   const stageColor =
@@ -205,19 +205,22 @@ export function DealCard({
                         ? "text-status-warn-fg"
                         : "text-ds-text-2",
                   )}
-                  title="Fecha de cierre estimada"
+                  title="Cierre estimado"
                 >
                   <CalendarClock className="h-3 w-3 shrink-0" />
-                  Cierre {closeDateLabel}
+                  <span className="text-ds-text-3">Cierre est.</span> {closeDateLabel}
                 </p>
               ) : null}
               {nextStepLabel ? (
                 <p
                   className="inline-flex items-start gap-1 text-[12px] text-ds-text-2"
-                  title={deal.proximoPaso ?? undefined}
+                  title={deal.nextStep ?? undefined}
                 >
                   <ListTodo className="mt-0.5 h-3 w-3 shrink-0 text-ds-text-3" />
-                  <span className="line-clamp-2">{nextStepLabel}</span>
+                  <span>
+                    <span className="text-ds-text-3">Próx. acción: </span>
+                    <span className="line-clamp-2">{nextStepLabel}</span>
+                  </span>
                 </p>
               ) : null}
             </div>
@@ -225,7 +228,7 @@ export function DealCard({
 
           {detail && openDeal && !closeDateLabel && !nextStepLabel ? (
             <div className="mt-2 border-t border-dashed border-ds-border-subtle pt-1.5">
-              <span className="text-[12px] text-ds-text-4">Sin cierre ni próximo paso</span>
+              <span className="text-[12px] text-ds-text-4">Sin cierre estimado ni próxima acción</span>
             </div>
           ) : null}
         </div>

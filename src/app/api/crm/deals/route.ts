@@ -44,7 +44,12 @@ export async function GET(request: NextRequest) {
     ) as DealsFocus;
     const sortRaw = sp.get("sort");
     const sort = (
-      sortRaw === "az" || sortRaw === "za" || sortRaw === "newest" || sortRaw === "oldest"
+      sortRaw === "az"
+      || sortRaw === "za"
+      || sortRaw === "newest"
+      || sortRaw === "oldest"
+      || sortRaw === "close-asc"
+      || sortRaw === "close-desc"
         ? sortRaw
         : undefined
     ) as DealListSort | undefined;

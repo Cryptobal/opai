@@ -122,7 +122,7 @@ export interface CrmDeal {
   status: string;
   probability: number;
   expectedCloseDate?: string | null;
-  proximoPaso?: string | null;
+  nextStep?: string | null;
   createdAt: string;
   updatedAt?: string | null;
   proposalLink?: string | null;

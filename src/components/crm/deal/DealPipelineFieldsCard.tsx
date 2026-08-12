@@ -11,20 +11,20 @@ import { dealCloseDateYmd } from "@/components/crm/deals/deals-helpers";
 type Props = {
   dealId: string;
   expectedCloseDate: string | null;
-  proximoPaso: string | null;
+  nextStep: string | null;
   canEdit?: boolean;
-  onUpdated?: (next: { expectedCloseDate: string | null; proximoPaso: string | null }) => void;
+  onUpdated?: (next: { expectedCloseDate: string | null; nextStep: string | null }) => void;
 };
 
 export function DealPipelineFieldsCard({
   dealId,
   expectedCloseDate,
-  proximoPaso,
+  nextStep,
   canEdit = true,
   onUpdated,
 }: Props) {
   const [closeDate, setCloseDate] = useState(dealCloseDateYmd(expectedCloseDate) ?? "");
-  const [nextStep, setNextStep] = useState(proximoPaso ?? "");
+  const [nextStepDraft, setNextStepDraft] = useState(nextStep ?? "");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -32,10 +32,10 @@ export function DealPipelineFieldsCard({
   }, [expectedCloseDate]);
 
   useEffect(() => {
-    setNextStep(proximoPaso ?? "");
-  }, [proximoPaso]);
+    setNextStepDraft(nextStep ?? "");
+  }, [nextStep]);
 
-  async function persist(patch: { expectedCloseDate?: string | null; proximoPaso?: string | null }) {
+  async function persist(patch: { expectedCloseDate?: string | null; nextStep?: string | null }) {
     setSaving(true);
     try {
       const res = await fetch(`/api/crm/deals/${dealId}`, {
@@ -52,9 +52,9 @@ export function DealPipelineFieldsCard({
         json.data?.expectedCloseDate != null
           ? String(json.data.expectedCloseDate)
           : null;
-      const nextStepVal = json.data?.proximoPaso ?? null;
-      onUpdated?.({ expectedCloseDate: nextClose, proximoPaso: nextStepVal });
-      toast.success("Pipeline actualizado");
+      const nextStepVal = json.data?.nextStep ?? null;
+      onUpdated?.({ expectedCloseDate: nextClose, nextStep: nextStepVal });
+      toast.success("Negocio actualizado");
       return true;
     } catch {
       toast.error("No se pudo guardar");
@@ -74,21 +74,21 @@ export function DealPipelineFieldsCard({
 
   async function saveNextStep(value: string) {
     const trimmed = value.trim();
-    const current = (proximoPaso ?? "").trim();
+    const current = (nextStep ?? "").trim();
     if (trimmed === current) return;
-    const ok = await persist({ proximoPaso: trimmed || null });
-    if (!ok) setNextStep(proximoPaso ?? "");
+    const ok = await persist({ nextStep: trimmed || null });
+    if (!ok) setNextStepDraft(nextStep ?? "");
   }
 
   return (
     <Surface elevation={1} padding="md" className="space-y-3">
       <p className="text-xs font-medium uppercase tracking-wide text-ds-text-3">
-        Cierre y próximo paso
+        Pipeline comercial
       </p>
 
       <div className="space-y-1.5">
         <Label htmlFor={`deal-close-${dealId}`} className="text-[12px] text-ds-text-3">
-          Fecha de cierre estimada
+          Cierre estimado
         </Label>
         {canEdit ? (
           <Input
@@ -110,23 +110,23 @@ export function DealPipelineFieldsCard({
 
       <div className="space-y-1.5">
         <Label htmlFor={`deal-step-${dealId}`} className="text-[12px] text-ds-text-3">
-          Próximo paso
+          Próxima acción
         </Label>
         {canEdit ? (
           <Input
             id={`deal-step-${dealId}`}
-            value={nextStep}
+            value={nextStepDraft}
             disabled={saving}
             maxLength={200}
             placeholder="Ej. Enviar propuesta revisada"
-            onChange={(e) => setNextStep(e.target.value)}
-            onBlur={() => void saveNextStep(nextStep)}
+            onChange={(e) => setNextStepDraft(e.target.value)}
+            onBlur={() => void saveNextStep(nextStepDraft)}
             className="h-10 sm:h-9"
           />
         ) : (
           <p className="inline-flex items-start gap-1.5 text-[13px] text-ds-text-1">
             <ListTodo className="mt-0.5 h-3.5 w-3.5 shrink-0 text-ds-text-3" />
-            {nextStep.trim() || "Sin definir"}
+            {nextStepDraft.trim() || "Sin definir"}
           </p>
         )}
       </div>

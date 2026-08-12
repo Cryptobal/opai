@@ -263,7 +263,7 @@ export type DealDetail = {
   proposalSentAt?: string | null;
   serviceStartDate?: string | null;
   expectedCloseDate?: string | null;
-  proximoPaso?: string | null;
+  nextStep?: string | null;
   isLicitacion?: boolean;
   fechaEntrega?: string | null;
   createdAt?: string | null;
@@ -736,13 +736,13 @@ export function CrmDealDetailClient({
   const [acceptedDate, setAcceptedDate] = useState("");
   const [dealServiceStartDate, setDealServiceStartDate] = useState(deal.serviceStartDate || null);
   const [dealExpectedCloseDate, setDealExpectedCloseDate] = useState(deal.expectedCloseDate ?? null);
-  const [dealProximoPaso, setDealProximoPaso] = useState(deal.proximoPaso ?? null);
+  const [dealNextStep, setDealNextStep] = useState(deal.nextStep ?? null);
   useEffect(() => {
     setDealExpectedCloseDate(deal.expectedCloseDate ?? null);
   }, [deal.expectedCloseDate]);
   useEffect(() => {
-    setDealProximoPaso(deal.proximoPaso ?? null);
-  }, [deal.proximoPaso]);
+    setDealNextStep(deal.nextStep ?? null);
+  }, [deal.nextStep]);
   // Estado de cierre del negocio (open/won/lost). Se mantiene en estado local
   // para reflejar el cambio de etapa al instante (el prop `deal.status` solo se
   // refresca tras router.refresh()). El efecto lo re-sincroniza con la fuente
@@ -2496,11 +2496,11 @@ export function CrmDealDetailClient({
             <DealPipelineFieldsCard
               dealId={deal.id}
               expectedCloseDate={dealExpectedCloseDate}
-              proximoPaso={dealProximoPaso}
+              nextStep={dealNextStep}
               canEdit={canEdit}
               onUpdated={(next) => {
                 setDealExpectedCloseDate(next.expectedCloseDate);
-                setDealProximoPaso(next.proximoPaso);
+                setDealNextStep(next.nextStep);
               }}
             />
             <DealLicitacionCard

@@ -36,6 +36,7 @@ export function CrmDealsClient({
   );
   const [tableDeals, setTableDeals] = useState<CrmDeal[]>([]);
   const [tableLoading, setTableLoading] = useState(false);
+  const [tableSort, setTableSort] = useState<string>("newest");
 
   const board = useDealsBoardData({
     stages,
@@ -88,14 +89,14 @@ export function CrmDealsClient({
   );
 
   const loadTable = useCallback(
-    async (stageId?: string) => {
+    async (stageId?: string, sortOverride?: string) => {
       setTableLoading(true);
       try {
         const params = new URLSearchParams({
           page: "1",
           limit: String(DEAL_LIST_DEFAULT_PAGE_SIZE),
           focus: initialFocus,
-          sort: board.sort,
+          sort: sortOverride ?? tableSort,
         });
         if (board.debouncedSearch) params.set("search", board.debouncedSearch);
         if (stageId && stageId !== "all") params.set("stageId", stageId);
@@ -108,7 +109,7 @@ export function CrmDealsClient({
         setTableLoading(false);
       }
     },
-    [initialFocus, board.sort, board.debouncedSearch],
+    [initialFocus, tableSort, board.debouncedSearch],
   );
 
   const onLoadMore = (sid: string) => {
@@ -172,6 +173,10 @@ export function CrmDealsClient({
           board.setStageFilter(stageId);
           setView("table");
           void loadTable(stageId);
+        }}
+        onCloseDateSort={(sort) => {
+          setTableSort(sort);
+          void loadTable(board.stageFilter, sort);
         }}
       />
 

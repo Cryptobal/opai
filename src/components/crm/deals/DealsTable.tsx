@@ -12,7 +12,7 @@ import {
   getDealCloseDateTone,
   dealCloseDateYmd,
   isOpenDeal,
-  truncateProximoPaso,
+  truncateNextStep,
 } from "./deals-helpers";
 
 type SortKey = "title" | "amount" | "uf" | "guards" | "days" | "closeDate";
@@ -24,6 +24,8 @@ type Props = {
   emptySearch?: boolean;
   onRowClick: (deal: CrmDeal) => void;
   localTotalClp?: number;
+  /** Si se provee, orden por cierre dispara recarga server-side (close-asc / close-desc). */
+  onCloseDateSort?: (sort: "close-asc" | "close-desc") => void;
 };
 
 export function DealsTable({
@@ -32,16 +34,26 @@ export function DealsTable({
   emptySearch,
   onRowClick,
   localTotalClp,
+  onCloseDateSort,
 }: Props) {
   const [sortKey, setSortKey] = useState<SortKey>("amount");
   const [asc, setAsc] = useState(false);
   const [closeFilter, setCloseFilter] = useState<CloseDateFilter>("all");
 
   const toggle = (key: SortKey) => {
-    if (sortKey === key) setAsc((v) => !v);
-    else {
+    if (sortKey === key) {
+      const nextAsc = !asc;
+      setAsc(nextAsc);
+      if (key === "closeDate" && onCloseDateSort) {
+        onCloseDateSort(nextAsc ? "close-asc" : "close-desc");
+      }
+    } else {
       setSortKey(key);
-      setAsc(key === "closeDate" || key === "title");
+      const nextAsc = key === "closeDate" || key === "title";
+      setAsc(nextAsc);
+      if (key === "closeDate" && onCloseDateSort) {
+        onCloseDateSort(nextAsc ? "close-asc" : "close-desc");
+      }
     }
   };
 
@@ -207,6 +219,7 @@ export function DealsTable({
                   ? "text-status-warn-fg"
                   : "text-ds-text-2"
             }
+            title="Cierre estimado"
           >
             {label}
           </span>
@@ -215,13 +228,13 @@ export function DealsTable({
     },
     {
       id: "nextStep",
-      header: "Próximo paso",
+      header: "Próx. acción",
       width: "14%",
       cell: (d) => {
         if (!isOpenDeal(d)) return <span className="text-ds-text-4">—</span>;
-        const step = truncateProximoPaso(d.proximoPaso, 56);
+        const step = truncateNextStep(d.nextStep, 56);
         return step ? (
-          <span className="line-clamp-2 text-ds-text-2" title={d.proximoPaso ?? undefined}>
+          <span className="line-clamp-2 text-ds-text-2" title={d.nextStep ?? undefined}>
             {step}
           </span>
         ) : (
@@ -242,7 +255,7 @@ export function DealsTable({
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap items-center gap-2 px-1">
-        <span className="text-[12px] text-ds-text-3">Cierre:</span>
+        <span className="text-[12px] text-ds-text-3">Cierre estimado:</span>
         {(
           [
             ["all", "Todos"],
