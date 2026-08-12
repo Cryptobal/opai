@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildBankTxLinkDisplayFields,
   parseFlowRowNameFromClassifyNote,
+  pickBankTxDisplayLink,
   resolveFlowRowDisplayName,
 } from "../resolve-flow-row-display";
 
@@ -18,6 +19,20 @@ describe("parseFlowRowNameFromClassifyNote", () => {
     expect(
       parseFlowRowNameFromClassifyNote("Clasificado a fila: Aporte socios"),
     ).toBe("Aporte socios");
+  });
+});
+
+describe("pickBankTxDisplayLink", () => {
+  it("prioriza link con flowRowId aunque sea el segundo cronológicamente", () => {
+    const older = {
+      flowRowId: null,
+      createdAt: new Date("2026-08-01"),
+    };
+    const newer = {
+      flowRowId: "row-devol",
+      createdAt: new Date("2026-08-04"),
+    };
+    expect(pickBankTxDisplayLink([older, newer])).toBe(newer);
   });
 });
 
@@ -41,6 +56,37 @@ describe("resolveFlowRowDisplayName", () => {
         legacyByAccount,
       ),
     ).toBe("Devolución a socios");
+  });
+
+  it("reproduce bug main post-#1068: flowRowId set + mapa vacío caía en Aporte socios", () => {
+    const mainPost1068 = (
+      link: { flowRowId: string | null; accountPlanId: string | null },
+      map: Map<string, string>,
+      legacy: Map<string, string>,
+    ) => {
+      if (link.flowRowId) {
+        const byId = map.get(link.flowRowId);
+        if (byId) return byId;
+      }
+      if (link.accountPlanId) return legacy.get(link.accountPlanId) ?? null;
+      return null;
+    };
+
+    expect(
+      mainPost1068(
+        { flowRowId: "row-devol", accountPlanId: "plan-acreedores" },
+        new Map(),
+        legacyByAccount,
+      ),
+    ).toBe("Aporte socios");
+
+    expect(
+      resolveFlowRowDisplayName(
+        { flowRowId: "row-devol", accountPlanId: "plan-acreedores" },
+        new Map(),
+        legacyByAccount,
+      ),
+    ).toBeNull();
   });
 
   it("sin flowRowId usa fallback legacy por accountPlanId", () => {

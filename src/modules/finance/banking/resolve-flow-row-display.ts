@@ -11,6 +11,35 @@
 const CLASSIFY_NOTE_RE =
   /Clasificado a fila(?: flujo)?:\s*(.+?)(?:\s*\(|$)/i;
 
+export type BankTxLinkDisplayInput = {
+  flowRowId: string | null;
+  accountPlanId: string | null;
+  note: string | null;
+  accountPlan?: { code: string; name: string } | null;
+  createdAt?: Date;
+};
+
+/**
+ * Elige el link cuyos campos alimentan `flowRowName` / tooltip en la lista.
+ * Si hay varios vínculos, prioriza el que tiene `flowRowId` persistido.
+ */
+export function pickBankTxDisplayLink<
+  T extends { flowRowId: string | null; createdAt?: Date },
+>(links: T[]): T | undefined {
+  if (links.length === 0) return undefined;
+  const withFlowRow = links.filter((l) => l.flowRowId);
+  if (withFlowRow.length === 1) return withFlowRow[0];
+  if (withFlowRow.length > 1) {
+    return [...withFlowRow].sort(
+      (a, b) =>
+        (a.createdAt?.getTime() ?? 0) - (b.createdAt?.getTime() ?? 0),
+    )[0];
+  }
+  return [...links].sort(
+    (a, b) => (a.createdAt?.getTime() ?? 0) - (b.createdAt?.getTime() ?? 0),
+  )[0];
+}
+
 /** Extrae el nombre legible de fila desde la nota de clasificación manual. */
 export function parseFlowRowNameFromClassifyNote(
   note: string | null | undefined,
@@ -54,14 +83,7 @@ export function resolveFlowRowDisplayName(
  * tooltip). Centraliza la misma lógica que `listBankTransactions`.
  */
 export function buildBankTxLinkDisplayFields(
-  link:
-    | {
-        flowRowId: string | null;
-        accountPlanId: string | null;
-        note: string | null;
-        accountPlan?: { code: string; name: string } | null;
-      }
-    | undefined,
+  link: BankTxLinkDisplayInput | undefined,
   maps: {
     flowRowNamesById: Map<string, string>;
     flowRowNameByAccount: Map<string, string>;

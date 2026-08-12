@@ -11,7 +11,10 @@ import {
   bulkAutoMatchBankTransactions,
   type BulkAutoMatchSummary,
 } from "./auto-match-payment.service";
-import { buildBankTxLinkDisplayFields } from "./resolve-flow-row-display";
+import {
+  buildBankTxLinkDisplayFields,
+  pickBankTxDisplayLink,
+} from "./resolve-flow-row-display";
 import { recognizeRutsForTransactions } from "./rut-recognition.service";
 import {
   shouldApplyImportClosingBalance,
@@ -458,11 +461,19 @@ export async function listBankTransactions(
         })
       : [];
 
-  const primaryLinkByTx = new Map<string, (typeof links)[number]>();
+  const linksByTx = new Map<string, (typeof links)[number][]>();
   for (const l of links) {
-    if (!primaryLinkByTx.has(l.bankTransactionId)) {
-      primaryLinkByTx.set(l.bankTransactionId, l);
-    }
+    const list = linksByTx.get(l.bankTransactionId) ?? [];
+    list.push(l);
+    linksByTx.set(l.bankTransactionId, list);
+  }
+
+  const primaryLinkByTx = new Map<string, (typeof links)[number]>();
+  const displayLinkByTx = new Map<string, (typeof links)[number]>();
+  for (const [txId, txLinks] of linksByTx) {
+    primaryLinkByTx.set(txId, txLinks[0]!);
+    const displayLink = pickBankTxDisplayLink(txLinks);
+    if (displayLink) displayLinkByTx.set(txId, displayLink);
   }
 
   const linkRuleIds = [
@@ -481,9 +492,7 @@ export async function listBankTransactions(
   ];
   const linkFlowRowIds = [
     ...new Set(
-      [...primaryLinkByTx.values()]
-        .map((l) => l.flowRowId)
-        .filter((v): v is string => !!v),
+      links.map((l) => l.flowRowId).filter((v): v is string => !!v),
     ),
   ];
 
@@ -556,13 +565,14 @@ export async function listBankTransactions(
     const link = primaryLinkByTx.get(t.id);
     const matchSource = link?.matchSource ?? null;
     const matchedByRuleId = link?.matchedByRuleId ?? null;
+    const displayLink = displayLinkByTx.get(t.id);
     const { flowRowName, linkAccountLabel } = buildBankTxLinkDisplayFields(
-      link
+      displayLink
         ? {
-            flowRowId: link.flowRowId ?? null,
-            accountPlanId: link.accountPlanId ?? null,
-            note: link.note ?? null,
-            accountPlan: link.accountPlan ?? null,
+            flowRowId: displayLink.flowRowId ?? null,
+            accountPlanId: displayLink.accountPlanId ?? null,
+            note: displayLink.note ?? null,
+            accountPlan: displayLink.accountPlan ?? null,
           }
         : undefined,
       { flowRowNamesById, flowRowNameByAccount },
