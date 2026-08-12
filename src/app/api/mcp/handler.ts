@@ -20,6 +20,7 @@ import {
   rpcResult,
   rpcError,
   toMcpTools,
+  buildToolRejectionMessage,
   MCP_PROTOCOL_VERSION,
   SUPPORTED_PROTOCOL_VERSIONS,
   RPC_PARSE_ERROR,
@@ -30,6 +31,7 @@ import {
   type JsonRpcRequest,
   type JsonRpcId,
 } from "@/lib/integrations/mcp/protocol";
+import { MCP_KEY_PREFIX } from "@/lib/integrations/mcp/keys";
 
 const CORS_HEADERS: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
@@ -46,6 +48,29 @@ const WRITE_NAMES = new Set(
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: JSON_HEADERS });
+}
+
+type McpAuthFailureReason = "missing" | "invalid_format" | "invalid_or_revoked";
+
+function mcpAuthError(reason: McpAuthFailureReason, detail?: string): Response {
+  const messages: Record<McpAuthFailureReason, string> = {
+    missing:
+      "Falta autenticación. Envía header Authorization: Bearer opai_mcp_<40chars> " +
+      "o usa la URL /api/mcp/<KEY> (claude.ai).",
+    invalid_format:
+      "Formato de API key inválido. Debe comenzar con opai_mcp_ seguido de 40 caracteres.",
+    invalid_or_revoked:
+      "API key inválida o revocada. Crea una nueva en Configuración → Comunicación → " +
+      "Integraciones → Servidor MCP.",
+  };
+  return json(
+    {
+      error: "invalid_api_key",
+      message: detail ?? messages[reason],
+      hint: "docs/integrations/mcp.md",
+    },
+    401,
+  );
 }
 
 export function mcpOptions(): Response {
@@ -66,13 +91,20 @@ function auditAction(name: string): "CREATE" | "UPDATE" | "DELETE" {
 }
 
 export async function handleMcpRequest(req: Request, plainKey: string | null): Promise<Response> {
+  const trimmedKey = plainKey?.trim() ?? "";
+
   // 1. Rate limit por key (in-memory, tolerante a cold starts).
-  const rl = checkRateLimit(`mcp:${plainKey ?? "anon"}`, { limit: 120, windowSeconds: 60 });
-  if (!rl.allowed) return json({ error: "rate_limited" }, 429);
+  const rl = checkRateLimit(`mcp:${trimmedKey || "anon"}`, { limit: 120, windowSeconds: 60 });
+  if (!rl.allowed) {
+    return json({ error: "rate_limited", message: "Límite de 120 requests/min por API key." }, 429);
+  }
 
   // 2. Resolver la key → tenant/scope/admin.
-  const key = await resolveMcpKey(plainKey);
-  if (!key) return json({ error: "invalid_api_key" }, 401);
+  if (!trimmedKey) return mcpAuthError("missing");
+  if (!trimmedKey.startsWith(MCP_KEY_PREFIX)) return mcpAuthError("invalid_format");
+
+  const key = await resolveMcpKey(trimmedKey);
+  if (!key) return mcpAuthError("invalid_or_revoked");
 
   // 3. Parsear body JSON-RPC.
   let body: JsonRpcRequest;
@@ -112,7 +144,8 @@ export async function handleMcpRequest(req: Request, plainKey: string | null): P
     if (method === "tools/list") {
       const ctx = await buildMcpExecutionContext(key);
       after(() => touchLastUsed(key.keyId));
-      return json(rpcResult(id, { tools: toMcpTools(getToolDefinitionsV2(true, ctx.allowWrites)) }));
+      const defs = getToolDefinitionsV2(true, ctx.allowWrites);
+      return json(rpcResult(id, { tools: toMcpTools(defs, { writeToolNames: WRITE_NAMES }) }));
     }
 
     if (method === "tools/call") {
@@ -124,8 +157,15 @@ export async function handleMcpRequest(req: Request, plainKey: string | null): P
 
       // Lista blanca calculada según el scope efectivo — NO confiar en el nombre.
       const allowed = getToolDefinitionsV2(true, ctx.allowWrites);
-      if (!allowed.some((d) => d.function.name === name)) {
-        return json(rpcError(id, RPC_INVALID_PARAMS, `Tool "${name}" no disponible para este scope.`));
+      const isListed = allowed.some((d) => d.function.name === name);
+      if (!isListed) {
+        const message = buildToolRejectionMessage(name, {
+          keyScope: key.scope,
+          allowWrites: ctx.allowWrites,
+          isWriteTool: WRITE_NAMES.has(name),
+          isListed: false,
+        });
+        return json(rpcError(id, RPC_INVALID_PARAMS, message));
       }
 
       try {
@@ -140,7 +180,7 @@ export async function handleMcpRequest(req: Request, plainKey: string | null): P
               entityId: name,
               tenantId: ctx.tenantId,
               userId: ctx.adminId,
-              details: { source: "mcp", tool: name, keyPrefix: plainKey?.slice(0, 12) },
+              details: { source: "mcp", tool: name, keyPrefix: trimmedKey.slice(0, 12) },
               request: req,
             }),
           );
@@ -156,7 +196,9 @@ export async function handleMcpRequest(req: Request, plainKey: string | null): P
 
     return json(rpcError(id, RPC_METHOD_NOT_FOUND, `Método no soportado: ${method}`));
   } catch (err) {
-    if (err instanceof McpInvalidKeyError) return json({ error: "invalid_api_key" }, 401);
+    if (err instanceof McpInvalidKeyError) {
+      return mcpAuthError("invalid_or_revoked", err.message);
+    }
     console.error("[mcp] handler error", err);
     return json(rpcError(id, RPC_INTERNAL_ERROR, "Error interno del servidor MCP."));
   }

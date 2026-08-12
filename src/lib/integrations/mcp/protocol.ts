@@ -62,11 +62,27 @@ export function rpcError(
   };
 }
 
+export interface McpToolAnnotations {
+  /** true = la tool no persiste cambios (solo lectura). */
+  readOnlyHint: boolean;
+  /** true = puede eliminar o revertir datos de forma difícil de deshacer. */
+  destructiveHint: boolean;
+  /** false = opera solo sobre datos del tenant autenticado (no internet abierto). */
+  openWorldHint: boolean;
+}
+
 export interface McpTool {
   name: string;
   description: string;
   inputSchema: Record<string, unknown>;
+  annotations: McpToolAnnotations;
 }
+
+/** Tools cuyo nombre implica borrado masivo o eliminación de entidades. */
+export const MCP_DESTRUCTIVE_TOOL_NAMES = new Set([
+  "remove_quote_position",
+  "bulk_update_installations",
+]);
 
 /** Garantiza un JSON Schema de objeto válido para `inputSchema`. */
 function ensureObjectSchema(params: unknown): Record<string, unknown> {
@@ -82,11 +98,55 @@ function ensureObjectSchema(params: unknown): Record<string, unknown> {
 
 type ToolDefs = ReturnType<typeof getToolDefinitionsV2>;
 
-/** Mapea las definiciones OpenAI-style a tools MCP. */
-export function toMcpTools(defs: ToolDefs): McpTool[] {
-  return defs.map((d) => ({
-    name: d.function.name,
-    description: d.function.description,
-    inputSchema: ensureObjectSchema(d.function.parameters),
-  }));
+export interface ToMcpToolsOptions {
+  /** Nombres de tools de escritura (resto = solo lectura). */
+  writeToolNames?: ReadonlySet<string>;
+}
+
+/** Mapea las definiciones OpenAI-style a tools MCP con annotations para clientes. */
+export function toMcpTools(defs: ToolDefs, options: ToMcpToolsOptions = {}): McpTool[] {
+  const writes = options.writeToolNames;
+  return defs.map((d) => {
+    const name = d.function.name;
+    const isWrite = writes?.has(name) ?? false;
+    const isDestructive = MCP_DESTRUCTIVE_TOOL_NAMES.has(name);
+    return {
+      name,
+      description: d.function.description,
+      inputSchema: ensureObjectSchema(d.function.parameters),
+      annotations: {
+        readOnlyHint: !isWrite,
+        destructiveHint: isWrite && isDestructive,
+        openWorldHint: false,
+      },
+    };
+  });
+}
+
+/** Mensaje JSON-RPC -32602 cuando el cliente invoca una tool fuera de su lista blanca. */
+export function buildToolRejectionMessage(
+  toolName: string,
+  opts: {
+    keyScope: "READ" | "READ_WRITE";
+    allowWrites: boolean;
+    isWriteTool: boolean;
+    isListed: boolean;
+  },
+): string {
+  if (!opts.isListed) {
+    if (opts.isWriteTool && opts.keyScope === "READ") {
+      return (
+        `Tool "${toolName}" es de escritura y esta API key tiene scope READ. ` +
+        "Crea una key READ_WRITE o usa una tool de solo lectura."
+      );
+    }
+    if (opts.isWriteTool && opts.keyScope === "READ_WRITE" && !opts.allowWrites) {
+      return (
+        `Tool "${toolName}" es de escritura pero el tenant tiene deshabilitado ` +
+        "allowWrites en Configuración → Asistente IA. Actívalo o usa una key READ."
+      );
+    }
+    return `Tool "${toolName}" no está disponible para este scope o permisos del Admin creador.`;
+  }
+  return `Tool "${toolName}" no disponible.`;
 }
