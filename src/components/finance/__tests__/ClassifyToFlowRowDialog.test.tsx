@@ -48,6 +48,22 @@ describe("groupFlowRowsBySection", () => {
   });
 });
 
+describe("groupFlowRowsBySection — ids estables para Select value", () => {
+  it("conserva flowRowId UUID por fila (nunca label ni índice)", () => {
+    const groups = groupFlowRowsBySection(FLOW_ROWS);
+    const ids = groups.flatMap((g) => g.rows.map((r) => r.id));
+    expect(ids).toEqual([
+      "row-aporte",
+      "row-devol",
+      "row-retiro",
+      "row-finiquito",
+    ]);
+    expect(ids.every((id) => id.startsWith("row-"))).toBe(true);
+    expect(ids).not.toContain("Devolución a socios");
+    expect(ids).not.toContain("Aporte socios");
+  });
+});
+
 describe("ClassifyToFlowRowDialog", () => {
   const fetchMock = vi.fn();
 
