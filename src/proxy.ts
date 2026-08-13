@@ -310,7 +310,17 @@ export default auth(async (req) => {
     const sp = req.nextUrl.searchParams;
     const hasPortal = sp.has('portal');
     const hasCallback = sp.has('callbackUrl');
-    const hasError = sp.has('error');
+    // Errores de callback OAuth (p.ej. invalid_grant por GET duplicado)
+    // no deben retener a quien ya tiene sesión: el primer callback sí
+    // alcanzó a firmar la cookie.
+    const errorParam = sp.get('error');
+    const oauthCallbackNoise =
+      errorParam === 'Configuration' ||
+      errorParam === 'Callback' ||
+      errorParam === 'CallbackRouteError' ||
+      errorParam === 'OAuthCallback' ||
+      errorParam === 'OAuthSignin';
+    const hasError = sp.has('error') && !oauthCallbackNoise;
     if (!hasPortal && !hasCallback && !hasError) {
       const sessionPortal = (req.auth as { portal?: string } | null)?.portal;
       if (sessionPortal === 'opai' || sessionPortal === undefined) {
