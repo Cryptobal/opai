@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Slack } from "lucide-react";
 import { SlackConnectedPanel } from "./SlackConnectedPanel";
+import { SlackDigestsPanel } from "./SlackDigestsPanel";
 import { SlackRoutingTable } from "./SlackRoutingTable";
 import { SlackLinkedUsers } from "./SlackLinkedUsers";
 import type { SlackChannelOption, SlackConfig } from "./types";
@@ -86,6 +87,7 @@ export function SlackConfigClient() {
   return (
     <div className="space-y-5">
       <SlackConnectedPanel config={config} channels={channels} onChanged={load} />
+      <SlackDigestsPanel />
       <Card>
         <CardHeader>
           <CardTitle>Ruteo de notificaciones</CardTitle>
