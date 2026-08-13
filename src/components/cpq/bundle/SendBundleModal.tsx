@@ -18,6 +18,7 @@ import {
   type FollowUpDecision,
 } from "@/components/cpq/FollowUpDecisionModal";
 import { parseResponseJson } from "@/lib/parse-response-json";
+import { buildDefaultPortalInviteEmailSubject } from "@/lib/cpq-portal-email-subject";
 import type { BundleDetail } from "./useBundle";
 
 type ContactRow = {
@@ -34,13 +35,13 @@ export function SendBundleModal({
   open,
   onOpenChange,
   bundle,
-  defaultEmailSubject,
+  tenantBrandName,
   onSent,
 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
   bundle: BundleDetail;
-  defaultEmailSubject?: string;
+  tenantBrandName?: string;
   onSent: () => Promise<void>;
 }) {
   const quoteContact: ContactRow | null = bundle.contact
@@ -53,9 +54,11 @@ export function SendBundleModal({
     : null;
   const hasGuards = bundle.totals.totalGuards > 0;
   const included = bundle.totals.includedCount;
-  const suggestedSubject =
-    defaultEmailSubject?.trim() ||
-    `Propuesta · ${bundle.code}${bundle.name ? ` — ${bundle.name}` : ""}`;
+  const suggestedSubject = buildDefaultPortalInviteEmailSubject({
+    quoteCode: bundle.code,
+    quoteName: bundle.name || bundle.account?.name,
+    tenantBrand: tenantBrandName,
+  });
 
   const [step, setStep] = useState<Step>("compose");
   const [loadingContacts, setLoadingContacts] = useState(false);
@@ -68,7 +71,7 @@ export function SendBundleModal({
   const [bccManual, setBccManual] = useState("");
   const [emailSubject, setEmailSubject] = useState(suggestedSubject);
   const [includeQuotationPdf, setIncludeQuotationPdf] = useState(false);
-  const [includeProposalPdf, setIncludeProposalPdf] = useState(false);
+  const [includeProposalPdf, setIncludeProposalPdf] = useState(true);
   const [sending, setSending] = useState(false);
 
   const allContacts = useMemo(() => {
@@ -126,8 +129,8 @@ export function SendBundleModal({
     setBccManual("");
     setEmailSubject(suggestedSubject);
     setIncludeQuotationPdf(false);
-    setIncludeProposalPdf(false);
-  }, [open, quoteContact?.id, suggestedSubject]);
+    setIncludeProposalPdf(hasGuards);
+  }, [open, quoteContact?.id, suggestedSubject, hasGuards]);
 
   const togglePortalRecipient = useCallback((id: string) => {
     setPortalRecipientIds((prev) => {
@@ -242,8 +245,8 @@ export function SendBundleModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
+      <DialogContent className="flex max-h-[90dvh] min-w-0 w-full flex-col gap-0 overflow-hidden p-0 px-0 pt-0 pb-0 sm:max-w-xl sm:max-h-[85dvh]">
+        <DialogHeader className="shrink-0 space-y-1.5 px-5 pb-3 pt-6 pr-12">
           <DialogTitle>
             {step === "compose"
               ? "Enviar propuesta consolidada"
@@ -251,164 +254,184 @@ export function SendBundleModal({
           </DialogTitle>
           <DialogDescription>
             {step === "compose"
-              ? `${bundle.code}: ${included} instalación${included === 1 ? "" : "es"} incluidas. Cada destinatario recibe su correo con PIN propio; CC/CCO van en el primer envío.`
+              ? `${bundle.code} · ${included} instalación${included === 1 ? "" : "es"}. Cada destinatario recibe su PIN; CC y CCO van en el primer correo.`
               : "Define el seguimiento antes de enviar la invitación."}
           </DialogDescription>
         </DialogHeader>
 
         {step === "compose" ? (
-          <div className="space-y-4">
-            {loadingContacts ? (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground py-4">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Cargando contactos de la cuenta…
-              </div>
-            ) : (
-              <>
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold">Asunto del correo</Label>
-                  <Input
-                    value={emailSubject}
-                    onChange={(e) => setEmailSubject(e.target.value)}
-                    placeholder="Propuesta · PROP-… — …"
-                    className="bg-background text-sm h-10 sm:h-9"
-                    autoComplete="off"
-                  />
+          <>
+            <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden px-5">
+              {loadingContacts ? (
+                <div className="flex items-center gap-2 py-4 text-sm text-ds-text-3">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Cargando contactos de la cuenta…
                 </div>
-
-                <div className="space-y-2">
-                  <Label className="text-xs font-semibold">
-                    Destinatarios portal (correo + PIN individual)
-                  </Label>
-                  <p className="text-xs text-muted-foreground">
-                    Cada contacto seleccionado recibe su propio correo con su PIN de acceso.
-                  </p>
-                  <div className="space-y-2 rounded-md border border-border p-2 max-h-48 overflow-y-auto">
-                    {allContacts.map((c) => (
-                      <label
-                        key={c.id}
-                        className="flex items-center gap-2 cursor-pointer text-sm py-1 min-h-11"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={portalRecipientIds.has(c.id)}
-                          onChange={() => togglePortalRecipient(c.id)}
-                        />
-                        <span className="truncate">
-                          {c.firstName} {c.lastName}
-                          {c.roleTitle ? ` · ${c.roleTitle}` : ""}
-                          {quoteContact && c.id === quoteContact.id ? " (propuesta)" : ""}
-                        </span>
-                        <span className="text-muted-foreground text-xs truncate">{c.email}</span>
-                      </label>
-                    ))}
-                    {allContacts.length === 0 && (
-                      <p className="text-xs text-muted-foreground">
-                        No hay contactos con email en la cuenta.
-                      </p>
-                    )}
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label className="text-xs font-semibold">
-                    En copia (sin PIN propio)
-                  </Label>
-                  <div className="space-y-1 rounded-md border border-border p-2 max-h-32 overflow-y-auto">
-                    {ccCandidates.map((c) => (
-                      <label
-                        key={c.id}
-                        className="flex items-center gap-2 cursor-pointer text-sm py-0.5 min-h-11"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={ccIds.has(c.id)}
-                          onChange={() => toggleCc(c.id)}
-                        />
-                        <span className="truncate text-xs">
-                          {c.firstName} {c.lastName} — {c.email}
-                        </span>
-                      </label>
-                    ))}
-                    {ccCandidates.length === 0 && (
-                      <p className="text-xs text-muted-foreground">
-                        No hay otros contactos con email fuera de los destinatarios portal.
-                      </p>
-                    )}
-                  </div>
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label className="text-xs">CC adicional (emails separados por coma)</Label>
-                  <Input
-                    value={ccManual}
-                    onChange={(e) => setCcManual(e.target.value)}
-                    placeholder="otro@empresa.com"
-                    className="bg-background text-sm h-10 sm:h-9"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs">CCO (opcional)</Label>
-                  <Input
-                    value={bccManual}
-                    onChange={(e) => setBccManual(e.target.value)}
-                    placeholder="oculto@empresa.com"
-                    className="bg-background text-sm h-10 sm:h-9"
-                  />
-                </div>
-
-                <div className="space-y-2 rounded-md border border-border/60 p-3 bg-muted/20">
-                  <Label className="text-xs font-semibold">Adjuntos al correo</Label>
-                  <label className="flex items-center gap-2 cursor-pointer text-sm min-h-11">
-                    <input
-                      type="checkbox"
-                      checked={includeQuotationPdf}
-                      onChange={(e) => setIncludeQuotationPdf(e.target.checked)}
-                      className="rounded border-border"
+              ) : (
+                <div className="space-y-4 pb-4">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-semibold">Asunto del correo</Label>
+                    <Input
+                      value={emailSubject}
+                      onChange={(e) => setEmailSubject(e.target.value)}
+                      placeholder="Propuesta · PROP-… — …"
+                      className="h-10 bg-background text-sm sm:h-9"
+                      autoComplete="off"
                     />
-                    <Paperclip className="h-4 w-4 text-muted-foreground shrink-0" />
-                    PDF cotización (económica, una por instalación incluida)
-                  </label>
-                  {hasGuards ? (
-                    <label className="flex items-center gap-2 cursor-pointer text-sm min-h-11">
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-xs font-semibold">
+                      Destinatarios portal (correo + PIN individual)
+                    </Label>
+                    <p className="text-xs text-ds-text-3">
+                      Cada contacto seleccionado recibe su propio correo con su PIN.
+                    </p>
+                    <div className="max-h-48 space-y-1 overflow-y-auto rounded-md border border-ds-border-default p-2">
+                      {allContacts.map((c) => (
+                        <label
+                          key={c.id}
+                          className="flex min-h-11 min-w-0 cursor-pointer items-start gap-2 py-1 text-sm"
+                        >
+                          <input
+                            type="checkbox"
+                            className="mt-1 shrink-0"
+                            checked={portalRecipientIds.has(c.id)}
+                            onChange={() => togglePortalRecipient(c.id)}
+                          />
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-foreground">
+                              {c.firstName} {c.lastName}
+                              {c.roleTitle ? ` · ${c.roleTitle}` : ""}
+                              {quoteContact && c.id === quoteContact.id ? " (propuesta)" : ""}
+                            </span>
+                            <span className="block truncate text-xs text-ds-text-3">
+                              {c.email}
+                            </span>
+                          </span>
+                        </label>
+                      ))}
+                      {allContacts.length === 0 && (
+                        <p className="text-xs text-ds-text-3">
+                          No hay contactos con email en la cuenta.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-xs font-semibold">
+                      En copia (sin PIN propio)
+                    </Label>
+                    <div className="max-h-32 space-y-1 overflow-y-auto rounded-md border border-ds-border-default p-2">
+                      {ccCandidates.map((c) => (
+                        <label
+                          key={c.id}
+                          className="flex min-h-11 min-w-0 cursor-pointer items-start gap-2 py-1 text-sm"
+                        >
+                          <input
+                            type="checkbox"
+                            className="mt-1 shrink-0"
+                            checked={ccIds.has(c.id)}
+                            onChange={() => toggleCc(c.id)}
+                          />
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate">
+                              {c.firstName} {c.lastName}
+                            </span>
+                            <span className="block truncate text-xs text-ds-text-3">
+                              {c.email}
+                            </span>
+                          </span>
+                        </label>
+                      ))}
+                      {ccCandidates.length === 0 && (
+                        <p className="text-xs text-ds-text-3">
+                          No hay otros contactos con email fuera de los destinatarios portal.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">CC adicional (emails separados por coma)</Label>
+                    <Input
+                      value={ccManual}
+                      onChange={(e) => setCcManual(e.target.value)}
+                      placeholder="otro@empresa.com"
+                      className="h-10 bg-background text-sm sm:h-9"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">CCO (opcional)</Label>
+                    <Input
+                      value={bccManual}
+                      onChange={(e) => setBccManual(e.target.value)}
+                      placeholder="oculto@empresa.com"
+                      className="h-10 bg-background text-sm sm:h-9"
+                    />
+                  </div>
+
+                  <div className="space-y-2 rounded-md border border-ds-border-subtle bg-ds-surface-2/40 p-3">
+                    <Label className="text-xs font-semibold">Adjuntos al correo</Label>
+                    <label className="flex min-h-11 min-w-0 cursor-pointer items-start gap-2 text-sm">
                       <input
                         type="checkbox"
-                        checked={includeProposalPdf}
-                        onChange={(e) => setIncludeProposalPdf(e.target.checked)}
-                        className="rounded border-border"
+                        checked={includeQuotationPdf}
+                        onChange={(e) => setIncludeQuotationPdf(e.target.checked)}
+                        className="mt-1 shrink-0 rounded border-border"
                       />
-                      <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
-                      Propuesta técnica consolidada (PDF extendido)
+                      <Paperclip className="mt-0.5 h-4 w-4 shrink-0 text-ds-text-3" />
+                      <span className="min-w-0 leading-snug">
+                        PDF cotización (económica, una por instalación incluida)
+                      </span>
                     </label>
-                  ) : (
-                    <p className="text-xs text-muted-foreground">
-                      Esta propuesta no incluye dotación de guardias: la propuesta
-                      técnica no aplica y no se envía.
-                    </p>
-                  )}
+                    {hasGuards ? (
+                      <label className="flex min-h-11 min-w-0 cursor-pointer items-start gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          checked={includeProposalPdf}
+                          onChange={(e) => setIncludeProposalPdf(e.target.checked)}
+                          className="mt-1 shrink-0 rounded border-border"
+                        />
+                        <FileText className="mt-0.5 h-4 w-4 shrink-0 text-ds-text-3" />
+                        <span className="min-w-0 leading-snug">
+                          Propuesta técnica consolidada (PDF extendido)
+                        </span>
+                      </label>
+                    ) : (
+                      <p className="text-xs text-ds-text-3">
+                        Esta propuesta no incluye dotación de guardias: la propuesta
+                        técnica no aplica y no se envía.
+                      </p>
+                    )}
+                  </div>
                 </div>
-              </>
-            )}
-
-            <div className="flex gap-2 pt-2">
-              <Button variant="outline" className="flex-1 h-10 sm:h-9" onClick={() => onOpenChange(false)}>
+              )}
+            </div>
+            <div className="flex shrink-0 gap-2 border-t border-ds-border-subtle px-5 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+              <Button
+                variant="outline"
+                className="h-10 min-w-0 flex-1 sm:h-9"
+                onClick={() => onOpenChange(false)}
+              >
                 Cancelar
               </Button>
               <Button
-                className="flex-1 gap-2 h-10 sm:h-9 bg-status-ok hover:brightness-110 text-white"
+                className="h-10 min-w-0 flex-1 gap-2 bg-status-ok text-white hover:brightness-110 sm:h-9"
                 onClick={handleComposeNext}
                 disabled={loadingContacts || portalRecipients.length === 0 || included === 0}
               >
                 Continuar
               </Button>
             </div>
-          </div>
+          </>
         ) : (
-          <>
+          <div className="min-h-0 min-w-0 flex-1 overflow-y-auto px-5 pb-4">
             <Button
               variant="ghost"
               size="sm"
-              className="w-fit gap-1 -mt-2 mb-1 text-xs text-muted-foreground"
+              className="mb-1 -mt-1 w-fit gap-1 text-xs text-ds-text-3"
               onClick={() => setStep("compose")}
             >
               ← Volver
@@ -421,7 +444,7 @@ export function SendBundleModal({
               onCancel={() => onOpenChange(false)}
               loading={sending}
             />
-          </>
+          </div>
         )}
       </DialogContent>
     </Dialog>
