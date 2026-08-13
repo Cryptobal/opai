@@ -96,6 +96,25 @@ describe("ClassifyToFlowRowDialog", () => {
     ).toBe(true);
   });
 
+  it("no cierra el dialog al abrir el Select (onOpenChange no recibe false)", async () => {
+    const onOpenChange = vi.fn();
+    render(
+      <ClassifyToFlowRowDialog
+        open
+        onOpenChange={onOpenChange}
+        tx={{ id: "tx-1", description: "Pago socio", amount: -2_000_000 }}
+        flowRows={FLOW_ROWS}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId("classify-flow-row-select"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("flow-row-option-row-devol")).toBeTruthy();
+    });
+    expect(onOpenChange).not.toHaveBeenCalledWith(false);
+  });
+
   it("persiste el flowRowId elegido (Devolución) y no el de Aporte", async () => {
     render(
       <ClassifyToFlowRowDialog

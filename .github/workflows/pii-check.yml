@@ -22,8 +22,8 @@ jobs:
       - name: Get changed files
         id: changes
         run: |
-          git fetch origin ${{ github.base_ref }} --depth=1
-          CHANGED=$(git diff --name-only --diff-filter=ACM origin/${{ github.base_ref }}...HEAD)
+          BASE="${{ github.event.pull_request.base.sha }}"
+          CHANGED=$(git diff --name-only --diff-filter=ACM "${BASE}"...HEAD)
           echo "changed_files<<EOF" >> $GITHUB_OUTPUT
           echo "$CHANGED" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT

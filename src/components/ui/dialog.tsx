@@ -7,6 +7,18 @@ import { X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useKeyboardOffset } from "@/hooks/useKeyboardOffset"
 
+/** Select/Popover portaleados viven fuera del árbol del Dialog; sin esto el modal se cierra al abrirlos. */
+function isRadixSelectPortalTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false
+  return !!(
+    target.closest?.("[data-radix-select-content]") ||
+    target.closest?.("[data-radix-select-viewport]") ||
+    target.closest?.("[data-radix-select-item]") ||
+    target.closest?.("[role='listbox']") ||
+    target.closest?.("[role='option']")
+  )
+}
+
 const Dialog = DialogPrimitive.Root
 
 const DialogTrigger = DialogPrimitive.Trigger
@@ -36,7 +48,7 @@ const DialogContent = React.forwardRef<
     /** Clase extra para el overlay (ej. z-[60] al apilar sobre un Sheet). */
     overlayClassName?: string;
   }
->(({ className, children, onPointerDownOutside, onInteractOutside, overlayClassName, ...props }, ref) => {
+>(({ className, children, onPointerDownOutside, onInteractOutside, onFocusOutside, overlayClassName, ...props }, ref) => {
   const keyboardOffset = useKeyboardOffset();
 
   return (
@@ -49,7 +61,8 @@ const DialogContent = React.forwardRef<
           const target = e.target as HTMLElement;
           if (
             target?.closest?.(".pac-container") ||
-            target?.closest?.("gmp-place-autocomplete")
+            target?.closest?.("gmp-place-autocomplete") ||
+            isRadixSelectPortalTarget(target)
           ) {
             e.preventDefault();
             return;
@@ -60,12 +73,21 @@ const DialogContent = React.forwardRef<
           const target = e.target as HTMLElement;
           if (
             target?.closest?.(".pac-container") ||
-            target?.closest?.("gmp-place-autocomplete")
+            target?.closest?.("gmp-place-autocomplete") ||
+            isRadixSelectPortalTarget(target)
           ) {
             e.preventDefault();
             return;
           }
           onInteractOutside?.(e);
+        }}
+        onFocusOutside={(e) => {
+          const target = e.target as HTMLElement;
+          if (isRadixSelectPortalTarget(target)) {
+            e.preventDefault();
+            return;
+          }
+          onFocusOutside?.(e);
         }}
         style={
           keyboardOffset > 0
