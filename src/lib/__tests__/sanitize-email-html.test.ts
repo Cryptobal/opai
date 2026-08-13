@@ -4,7 +4,7 @@
  * Cubre:
  *  - Imagen http(s)/protocol-relative → placeholder + data-blocked-src.
  *  - cid: y data: no se tocan.
- *  - blockRemoteImages:false restaura el comportamiento original.
+ *  - blockRemoteImages:false proxifica http(s) por /api/crm/correos/remote-image.
  *  - data-blocked-src inyectado por el remitente se elimina (ALLOW_DATA_ATTR=false).
  *  - XSS: scripts y handlers siguen fuera.
  */
@@ -50,11 +50,13 @@ describe("sanitizeEmailHtml — bloqueo de imágenes remotas", () => {
     expect(data).not.toContain("data-blocked-src=");
   });
 
-  it("con blockRemoteImages:false el src remoto queda intacto (restaurar)", () => {
+  it("con blockRemoteImages:false proxifica el src remoto (no lo deja crudo)", () => {
     const out = sanitizeEmailHtml('<img src="https://a.cl/logo.png">', {
       blockRemoteImages: false,
     });
-    expect(out).toContain('src="https://a.cl/logo.png"');
+    expect(out).toContain("/api/crm/correos/remote-image?u=");
+    expect(out).toContain(encodeURIComponent("https://a.cl/logo.png"));
+    expect(out).not.toContain('src="https://a.cl/logo.png"');
     expect(out).not.toContain("data-blocked-src=");
     expect(hasBlockedImages(out)).toBe(false);
   });

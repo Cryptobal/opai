@@ -5,6 +5,10 @@
 // en el cliente (EmailHtmlBody/CorreoMessages son client components); en SSR se
 // devuelve vacío y el cliente rellena al hidratar.
 import DOMPurify from "dompurify";
+import {
+  escapeHtmlAttr,
+  rewriteEmailRemoteResources,
+} from "@/lib/email-remote-image";
 
 /** GIF 1x1 transparente: placeholder de imágenes remotas bloqueadas. */
 export const BLOCKED_IMG_PLACEHOLDER =
@@ -33,15 +37,16 @@ const ALLOWED_TAGS = [
 ];
 
 const ALLOWED_ATTR = [
-  "href", "target", "rel", "src", "alt", "title", "width", "height",
+  "href", "target", "rel", "src", "srcset", "alt", "title", "width", "height",
   "colspan", "rowspan", "align", "valign", "border", "cellpadding",
-  "cellspacing", "style", "class", "loading",
+  "cellspacing", "style", "class", "loading", "background", "bgcolor",
 ];
 
 /** Sanitiza HTML de correo: sin scripts; links externos seguros; imgs lazy.
  * Con `blockRemoteImages` (default según flag env) las imágenes externas se
  * reescriben a un placeholder guardando el original en `data-blocked-src`;
- * las inline `cid:` y `data:` no se tocan. */
+ * las inline `cid:` y `data:` no se tocan. Con imágenes visibles, los http(s)
+ * se proxifican por `/api/crm/correos/remote-image` (como el proxy de Gmail). */
 export function sanitizeEmailHtml(html: string, options?: SanitizeEmailOptions): string {
   if (!html.trim()) return "";
   // SSR (sin DOM): no sanitizamos ni emitimos HTML sin sanitizar — el cliente
@@ -61,42 +66,48 @@ export function sanitizeEmailHtml(html: string, options?: SanitizeEmailOptions):
   // ALLOW_DATA_ATTR=false, un data-blocked-src inyectado por el remitente ya
   // fue eliminado — el único que sobrevive es el que agregamos aquí, con un
   // src que ya pasó el filtro de esquemas de DOMPurify.
-  return clean
+  const withLinks = clean
     .replace(/<a\b([^>]*)>/gi, (_m, attrs: string) => {
       let a = attrs;
       if (!/\btarget\s*=/i.test(a)) a += ' target="_blank"';
       if (!/\brel\s*=/i.test(a)) a += ' rel="noopener noreferrer"';
       else a = a.replace(/\brel\s*=\s*(['"])(.*?)\1/i, 'rel="noopener noreferrer"');
       return `<a${a}>`;
-    })
-    .replace(/<img\b([^>]*?)(\/?)>/gi, (_m, attrs: string, selfClose: string) => {
-      let a = attrs;
-      const srcMatch = a.match(/\bsrc\s*=\s*(['"])(.*?)\1/i);
-      const src = srcMatch?.[2] ?? "";
-      if (blockImages) {
-        // Solo http(s) y protocol-relative son "remotas". Las raíz-relativas
-        // (/api/crm/correos/…/attachments/…) que produce rewriteCidImages NO
-        // se bloquean: son adjuntos del propio hilo servidos por un endpoint
-        // autenticado del tenant, no pixels de terceros.
-        if (src && /^(https?:)?\/\//i.test(src)) {
-          a = a.replace(
-            srcMatch![0],
-            `src="${BLOCKED_IMG_PLACEHOLDER}" data-blocked-src="${src}"`,
-          );
-        }
-      }
-      // Imágenes /api/ (cid reescritas) cargan en el primer paint para que el
-      // iframe pueda medir altura; el resto conserva lazy.
-      if (!/\bloading\s*=/i.test(a) && !src.startsWith("/api/")) {
-        a += ' loading="lazy"';
-      }
-      return `<img${a}${selfClose}>`;
     });
+  const rewritten = rewriteEmailRemoteResources(withLinks, {
+    blockRemoteImages: blockImages,
+  });
+  return rewritten.replace(/<img\b([^>]*?)(\/?)>/gi, (_m, attrs: string, selfClose: string) => {
+    let a = attrs;
+    const srcMatch = a.match(/\bsrc\s*=\s*(['"])(.*?)\1/i);
+    const src = srcMatch?.[2] ?? "";
+    if (blockImages) {
+      // Solo http(s) y protocol-relative son "remotas". Las raíz-relativas
+      // (/api/crm/correos/…/attachments/…) que produce rewriteCidImages NO
+      // se bloquean: son adjuntos del propio hilo servidos por un endpoint
+      // autenticado del tenant, no pixels de terceros.
+      if (src && /^(https?:)?\/\//i.test(src)) {
+        a = a.replace(
+          srcMatch![0],
+          `src="${BLOCKED_IMG_PLACEHOLDER}" data-blocked-src="${escapeHtmlAttr(src)}"`,
+        );
+      }
+    }
+    // Imágenes /api/ (cid reescritas y proxy) cargan en el primer paint para
+    // que el iframe pueda medir altura; el resto conserva lazy.
+    if (!/\bloading\s*=/i.test(a) && !src.startsWith("/api/")) {
+      a += ' loading="lazy"';
+    }
+    return `<img${a}${selfClose}>`;
+  });
 }
 
 /** true si el HTML sanitizado contiene imágenes remotas bloqueadas. */
 export function hasBlockedImages(sanitizedHtml: string): boolean {
-  return sanitizedHtml.includes("data-blocked-src=");
+  return (
+    sanitizedHtml.includes("data-blocked-src=") ||
+    sanitizedHtml.includes("data-blocked-bg=")
+  );
 }
 
 /** Plain legible desde HTML o texto (saltos de línea). */
