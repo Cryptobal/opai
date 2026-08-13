@@ -94,6 +94,13 @@ const nextConfig = {
     '/api/finance/billing/issued/\\[id\\]/send-as': ['./public/fonts/**/*', ...sharpTraceGlobs],
     '/api/finance/billing/preview-pdf/route': ['./public/fonts/**/*', ...sharpTraceGlobs],
     '/api/finance/billing/preview-pdf': ['./public/fonts/**/*', ...sharpTraceGlobs],
+    // Propuesta multi-instalación: PDF consolidado + envío al portal.
+    // Sin este glob Vercel omite public/fonts y el render tira ENOENT
+    // (PlusJakartaSans-Regular.ttf en /var/task/public/fonts).
+    '/api/cpq/bundles/\\[id\\]/proposal-pdf/route': ['./public/fonts/**/*', ...sharpTraceGlobs],
+    '/api/cpq/bundles/\\[id\\]/proposal-pdf': ['./public/fonts/**/*', ...sharpTraceGlobs],
+    '/api/cpq/bundles/\\[id\\]/send-presentation/route': ['./public/fonts/**/*', ...sharpTraceGlobs],
+    '/api/cpq/bundles/\\[id\\]/send-presentation': ['./public/fonts/**/*', ...sharpTraceGlobs],
   },
   turbopack: {
     root: __dirname,

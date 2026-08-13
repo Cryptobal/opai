@@ -398,7 +398,7 @@ export function QuoteWorkspace({
         open={sendOpen}
         onOpenChange={setSendOpen}
         bundle={bundle}
-        defaultEmailSubject={defaultPortalEmailSubject}
+        tenantBrandName={tenantBrandName}
         onSent={refreshBundle}
       />
     </div>
