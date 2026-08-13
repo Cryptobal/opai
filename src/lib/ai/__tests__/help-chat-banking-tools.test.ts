@@ -47,6 +47,8 @@ vi.mock("@/modules/finance/banking/bank-transaction.service", () => ({
   listBankTransactions: vi.fn(),
 }));
 
+const reclassifyTransactionToFlowRowMock = vi.hoisted(() => vi.fn());
+
 vi.mock("@/modules/finance/banking/bank-tx-link.service", async (importOriginal) => {
   const actual =
     await importOriginal<
@@ -57,6 +59,7 @@ vi.mock("@/modules/finance/banking/bank-tx-link.service", async (importOriginal)
     listTransactionLinks: vi.fn(),
     confirmAllSuggestions: vi.fn(),
     setTransactionLinks: vi.fn(),
+    reclassifyTransactionToFlowRow: reclassifyTransactionToFlowRowMock,
   };
 });
 
@@ -253,6 +256,7 @@ describe("preview + classify flow row", () => {
     vi.mocked(prisma.financeAccountPlan.findFirst).mockReset();
     vi.mocked(prisma.aiActionLog.create).mockResolvedValue({} as never);
     vi.mocked(resolveAccountPlanIdForFlowRow).mockReset();
+    vi.mocked(reclassifyTransactionToFlowRowMock).mockReset();
     vi.mocked(setTransactionLinks).mockReset();
   });
 
@@ -286,6 +290,10 @@ describe("preview + classify flow row", () => {
       code: "2.1.01.003",
       name: "Acreedores Varios",
     } as never);
+    vi.mocked(reclassifyTransactionToFlowRowMock).mockResolvedValue({
+      linkIds: ["link-1"],
+      mode: "created",
+    } as never);
     vi.mocked(setTransactionLinks).mockResolvedValue(undefined as never);
     vi.mocked(prisma.financeBankTransactionLink.findFirst).mockResolvedValue({
       id: "link-1",
@@ -313,18 +321,16 @@ describe("preview + classify flow row", () => {
 
     expect(applied.ok).toBe(true);
     expect(applied.data.persistedFlowRowId).toBe("row-retiro");
-    expect(setTransactionLinks).toHaveBeenCalledWith(
+    expect(reclassifyTransactionToFlowRowMock).toHaveBeenCalledWith(
       "t1",
       "tx-1",
       "u1",
-      expect.arrayContaining([
-        expect.objectContaining({
-          flowRowId: "row-retiro",
-          accountPlanId: "plan-shared",
-          targetType: "EXPENSE",
-          matchSource: "MANUAL",
-        }),
-      ]),
+      expect.objectContaining({
+        flowRowId: "row-retiro",
+        accountPlanId: "plan-shared",
+        targetType: "EXPENSE",
+        matchSource: "MANUAL",
+      }),
     );
   });
 
@@ -346,9 +352,12 @@ describe("preview + classify flow row", () => {
       { targetType: "EXPENSE" },
     ] as never);
     vi.mocked(resolveAccountPlanIdForFlowRow).mockResolvedValue("plan-shared");
-    vi.mocked(setTransactionLinks).mockResolvedValue(undefined as never);
+    vi.mocked(reclassifyTransactionToFlowRowMock).mockResolvedValueOnce({
+      linkIds: ["0aa1bdd8-2fa0-4dcb-80b6-0005faa4c33c"],
+      mode: "updated",
+    } as never);
     vi.mocked(prisma.financeBankTransactionLink.findFirst).mockResolvedValue({
-      id: "link-1",
+      id: "0aa1bdd8-2fa0-4dcb-80b6-0005faa4c33c",
       flowRowId: "row-devol",
       accountPlanId: "plan-shared",
     } as never);
@@ -359,22 +368,22 @@ describe("preview + classify flow row", () => {
       learnRule: "NONE",
     })) as {
       ok: true;
-      data: { persistedFlowRowId: string; flowRowId: string };
+      data: { persistedFlowRowId: string; flowRowId: string; linkId: string };
     };
 
     expect(applied.ok).toBe(true);
     expect(applied.data.flowRowId).toBe("row-devol");
-    expect(setTransactionLinks).toHaveBeenCalledWith(
+    expect(applied.data.persistedFlowRowId).toBe("row-devol");
+    expect(applied.data.linkId).toBe("0aa1bdd8-2fa0-4dcb-80b6-0005faa4c33c");
+    expect(reclassifyTransactionToFlowRowMock).toHaveBeenCalledWith(
       "t1",
       "tx-matched",
       "u1",
-      expect.arrayContaining([
-        expect.objectContaining({
-          flowRowId: "row-devol",
-          accountPlanId: "plan-shared",
-          targetType: "EXPENSE",
-        }),
-      ]),
+      expect.objectContaining({
+        flowRowId: "row-devol",
+        accountPlanId: "plan-shared",
+        targetType: "EXPENSE",
+      }),
     );
   });
 });

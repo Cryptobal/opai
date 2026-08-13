@@ -244,6 +244,123 @@ export function canReclassifyToFlowRow(
   );
 }
 
+export interface ClassifyToFlowRowLinkInput {
+  targetType: "EXPENSE" | "INCOME";
+  amount: number;
+  accountPlanId: string;
+  flowRowId: string;
+  note?: string | null;
+  matchSource?: BankTxLinkInput["matchSource"];
+  matchedByRuleId?: string | null;
+}
+
+export type ReclassifyToFlowRowResult = {
+  linkIds: string[];
+  mode: "created" | "updated";
+};
+
+/**
+ * Clasifica o re-clasifica un movimiento a fila de flujo.
+ *
+ * - Sin links previos: `setTransactionLinks` (create).
+ * - MATCHED con solo EXPENSE/INCOME: **update in-place** del link existente
+ *   (preserva `id`, no desconcilia). Persiste `flowRowId` junto con
+ *   `accountPlanId` y `note`.
+ */
+export async function reclassifyTransactionToFlowRow(
+  tenantId: string,
+  bankTxId: string,
+  userId: string | null,
+  input: ClassifyToFlowRowLinkInput,
+): Promise<ReclassifyToFlowRowResult> {
+  const existingLinks = await prisma.financeBankTransactionLink.findMany({
+    where: { tenantId, bankTransactionId: bankTxId },
+    select: { id: true, targetType: true, amount: true },
+  });
+
+  if (existingLinks.length > 0 && !canReclassifyToFlowRow(existingLinks)) {
+    throw new Error(
+      "La transacción ya tiene vínculos de conciliación; no se sobrescribe",
+    );
+  }
+
+  const note = input.note ?? null;
+
+  if (existingLinks.length === 0) {
+    await setTransactionLinks(tenantId, bankTxId, userId, [
+      {
+        targetType: input.targetType,
+        targetId: null,
+        amount: input.amount,
+        accountPlanId: input.accountPlanId,
+        flowRowId: input.flowRowId,
+        note,
+        matchSource: input.matchSource ?? "MANUAL",
+        matchedByRuleId: input.matchedByRuleId ?? null,
+      },
+    ]);
+    const created = await prisma.financeBankTransactionLink.findMany({
+      where: { tenantId, bankTransactionId: bankTxId },
+      select: { id: true },
+      orderBy: { createdAt: "asc" },
+    });
+    return {
+      linkIds: created.map((l) => l.id),
+      mode: "created",
+    };
+  }
+
+  const linkIds = existingLinks.map((l) => l.id);
+  await prisma.$transaction(async (tx2: Prisma.TransactionClient) => {
+    for (const link of existingLinks) {
+      await tx2.financeBankTransactionLink.update({
+        where: { id: link.id },
+        data: {
+          accountPlanId: input.accountPlanId,
+          flowRowId: input.flowRowId,
+          note,
+          matchSource: input.matchSource ?? "MANUAL",
+          matchedByRuleId: input.matchedByRuleId ?? null,
+        },
+      });
+    }
+    await tx2.financeBankTransaction.update({
+      where: { id: bankTxId },
+      data: { reconciliationStatus: "MATCHED" },
+    });
+  });
+
+  if (userId) {
+    const fullTx = await prisma.financeBankTransaction.findFirst({
+      where: { id: bankTxId, tenantId },
+      select: {
+        id: true,
+        bankAccountId: true,
+        transactionDate: true,
+        description: true,
+        reference: true,
+        amount: true,
+      },
+    });
+    if (fullTx) {
+      const manualLinks = existingLinks.map((l) => ({
+        targetType: l.targetType as FinanceLinkTarget,
+        amount: l.amount,
+        accountPlanId: input.accountPlanId,
+        note,
+      }));
+      await generateJournalEntryForLinks(
+        tenantId,
+        userId,
+        fullTx,
+        manualLinks,
+      );
+    }
+  }
+
+  return { linkIds, mode: "updated" };
+}
+
 export interface BankTxLinkInput {
   targetType: FinanceLinkTarget;
   targetId?: string | null;

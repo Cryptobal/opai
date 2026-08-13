@@ -16,6 +16,7 @@ import {
   listTransactionLinks,
   confirmAllSuggestions,
   canReclassifyToFlowRow,
+  reclassifyTransactionToFlowRow,
   setTransactionLinks,
 } from "@/modules/finance/banking/bank-tx-link.service";
 import { resolveAccountPlanIdForFlowRow } from "@/modules/finance/banking/flow-row-account-plan.service";
@@ -1184,10 +1185,12 @@ export async function toolClassifyBankToFlowRow(
   }
 
   const d = built.data;
-  await setTransactionLinks(tenantId, d.transactionId, userId, [
+  const result = await reclassifyTransactionToFlowRow(
+    tenantId,
+    d.transactionId,
+    userId,
     {
       targetType: d.isIncome ? "INCOME" : "EXPENSE",
-      targetId: null,
       amount: d.amountAbs,
       accountPlanId: d.accountPlanId,
       flowRowId: d.flowRowId,
@@ -1196,9 +1199,9 @@ export async function toolClassifyBankToFlowRow(
         `Clasificado a fila flujo: ${d.flowRowLabel} (${normalizeNameForDedupe(d.flowRowLabel)})`,
       matchSource: "MANUAL",
     },
-  ]);
+  );
 
-  // Verificación: flow_row_id quedó persistido.
+  // Verificación: flow_row_id quedó persistido (mismo link id si fue update).
   const link = await prisma.financeBankTransactionLink.findFirst({
     where: { tenantId, bankTransactionId: d.transactionId },
     select: { id: true, flowRowId: true, accountPlanId: true },

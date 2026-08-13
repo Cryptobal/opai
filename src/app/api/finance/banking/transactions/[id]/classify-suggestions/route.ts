@@ -30,7 +30,7 @@ import {
 import { resolveAccountPlanIdForFlowRow } from "@/modules/finance/banking/flow-row-account-plan.service";
 import {
   canReclassifyToFlowRow,
-  setTransactionLinks,
+  reclassifyTransactionToFlowRow,
 } from "@/modules/finance/banking/bank-tx-link.service";
 import { normalizeNameForDedupe } from "@/modules/finance/flow-v3/row-visibility";
 
@@ -381,20 +381,17 @@ export async function POST(
       try {
         const amountAbs = Math.abs(Number(tx.amount));
         const isIncome = Number(tx.amount) > 0;
-        await setTransactionLinks(ctx.tenantId, tx.id, ctx.userId, [
-          {
-            targetType: isIncome ? "INCOME" : "EXPENSE",
-            targetId: null,
-            amount: amountAbs,
-            accountPlanId,
-            flowRowId: row.id,
-            note:
-              body.note ??
-              `Clasificado a fila flujo: ${row.name} (${normalizeNameForDedupe(row.name)})`,
-            matchSource: matchSourceFromClassify(body),
-            matchedByRuleId: body.matchedByRuleId ?? null,
-          },
-        ]);
+        await reclassifyTransactionToFlowRow(ctx.tenantId, tx.id, ctx.userId, {
+          targetType: isIncome ? "INCOME" : "EXPENSE",
+          amount: amountAbs,
+          accountPlanId,
+          flowRowId: row.id,
+          note:
+            body.note ??
+            `Clasificado a fila flujo: ${row.name} (${normalizeNameForDedupe(row.name)})`,
+          matchSource: matchSourceFromClassify(body),
+          matchedByRuleId: body.matchedByRuleId ?? null,
+        });
         classified++;
       } catch (e) {
         errors.push({

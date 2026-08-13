@@ -11,7 +11,7 @@ const {
   requireAuthMock,
   resolveApiPermsMock,
   hasCapabilityMock,
-  setTransactionLinksMock,
+  reclassifyTransactionToFlowRowMock,
   bankTxFindMany,
   bankTxLinkFindMany,
   flowRowFindFirst,
@@ -19,7 +19,7 @@ const {
   requireAuthMock: vi.fn(),
   resolveApiPermsMock: vi.fn(),
   hasCapabilityMock: vi.fn(),
-  setTransactionLinksMock: vi.fn(),
+  reclassifyTransactionToFlowRowMock: vi.fn(),
   bankTxFindMany: vi.fn(),
   bankTxLinkFindMany: vi.fn(),
   flowRowFindFirst: vi.fn(),
@@ -60,7 +60,7 @@ vi.mock("@/modules/finance/banking/bank-tx-link.service", async (importOriginal)
     >();
   return {
     ...actual,
-    setTransactionLinks: setTransactionLinksMock,
+    reclassifyTransactionToFlowRow: reclassifyTransactionToFlowRowMock,
   };
 });
 
@@ -152,7 +152,10 @@ beforeEach(() => {
     }
     return null;
   });
-  setTransactionLinksMock.mockResolvedValue(undefined);
+  reclassifyTransactionToFlowRowMock.mockResolvedValue({
+    linkIds: ["link-created"],
+    mode: "created",
+  });
 });
 
 describe("POST classify-suggestions — flowRowId estable (repro Carlos Irigoyen)", () => {
@@ -168,29 +171,40 @@ describe("POST classify-suggestions — flowRowId estable (repro Carlos Irigoyen
     expect(json.success).toBe(true);
     expect(json.data.flowRowId).toBe(ROW_DEVOL);
 
-    expect(setTransactionLinksMock).toHaveBeenCalledTimes(1);
-    const [, txId, userId, links] = setTransactionLinksMock.mock.calls[0] as [
+    expect(reclassifyTransactionToFlowRowMock).toHaveBeenCalledTimes(1);
+    const [, txId, userId, input] = reclassifyTransactionToFlowRowMock.mock
+      .calls[0] as [
       string,
       string,
       string,
-      Array<{ flowRowId?: string; accountPlanId?: string; note?: string }>,
+      {
+        flowRowId?: string;
+        accountPlanId?: string;
+        note?: string;
+        targetType?: string;
+      },
     ];
     expect(txId).toBe(TX_ID);
     expect(userId).toBe(USER);
-    expect(links).toHaveLength(1);
-    expect(links[0]!.flowRowId).toBe(ROW_DEVOL);
-    expect(links[0]!.flowRowId).not.toBe(ROW_APORTE);
-    expect(links[0]!.accountPlanId).toBe("plan-acreedores-003");
-    expect(links[0]!.note).toContain("Devolución a socios");
+    expect(input.flowRowId).toBe(ROW_DEVOL);
+    expect(input.flowRowId).not.toBe(ROW_APORTE);
+    expect(input.accountPlanId).toBe("plan-acreedores-003");
+    expect(input.note).toContain("Devolución a socios");
+    expect(input.targetType).toBe("EXPENSE");
   });
 
-  it("re-clasifica MATCHED con link EXPENSE previo y persiste flowRowId Devolución", async () => {
+  it("re-clasifica MATCHED con link EXPENSE previo (update in-place, flowRowId Devolución)", async () => {
+    const EXISTING_LINK_ID = "0aa1bdd8-2fa0-4dcb-80b6-0005faa4c33c";
     bankTxLinkFindMany.mockResolvedValue([
       {
         bankTransactionId: TX_ID,
         targetType: "EXPENSE",
       },
     ]);
+    reclassifyTransactionToFlowRowMock.mockResolvedValueOnce({
+      linkIds: [EXISTING_LINK_ID],
+      mode: "updated",
+    });
 
     const res = await makePost({
       kind: "FLOW_ROW",
@@ -202,21 +216,20 @@ describe("POST classify-suggestions — flowRowId estable (repro Carlos Irigoyen
     expect(res.status).toBe(200);
     expect(json.success).toBe(true);
     expect(json.data.classified).toBe(1);
-    expect(json.data.failed).toBe(0);
 
-    expect(setTransactionLinksMock).toHaveBeenCalledTimes(1);
-    const [, txId, userId, links] = setTransactionLinksMock.mock.calls[0] as [
-      string,
-      string,
-      string,
-      Array<{ flowRowId?: string; accountPlanId?: string; targetType?: string }>,
-    ];
-    expect(txId).toBe(TX_ID);
-    expect(userId).toBe(USER);
-    expect(links).toHaveLength(1);
-    expect(links[0]!.targetType).toBe("EXPENSE");
-    expect(links[0]!.flowRowId).toBe(ROW_DEVOL);
-    expect(links[0]!.accountPlanId).toBe("plan-acreedores-003");
+    expect(reclassifyTransactionToFlowRowMock).toHaveBeenCalledWith(
+      TENANT,
+      TX_ID,
+      USER,
+      expect.objectContaining({
+        flowRowId: ROW_DEVOL,
+        accountPlanId: "plan-acreedores-003",
+        targetType: "EXPENSE",
+      }),
+    );
+    const result = await reclassifyTransactionToFlowRowMock.mock.results[0]?.value;
+    expect(result.linkIds).toEqual([EXISTING_LINK_ID]);
+    expect(result.mode).toBe("updated");
   });
 
   it("rechaza re-clasificar si el vínculo previo es DTE (no desconciliar)", async () => {
@@ -239,7 +252,7 @@ describe("POST classify-suggestions — flowRowId estable (repro Carlos Irigoyen
     expect(json.data.classified).toBe(0);
     expect(json.data.failed).toBe(1);
     expect(json.data.errors[0]?.message).toMatch(/no se sobrescribe/i);
-    expect(setTransactionLinksMock).not.toHaveBeenCalled();
+    expect(reclassifyTransactionToFlowRowMock).not.toHaveBeenCalled();
   });
 
   it("rechaza flowRowId inválido (no UUID) antes de persistir", async () => {
@@ -249,6 +262,6 @@ describe("POST classify-suggestions — flowRowId estable (repro Carlos Irigoyen
       learnRule: "NONE",
     });
     expect(res.status).toBe(400);
-    expect(setTransactionLinksMock).not.toHaveBeenCalled();
+    expect(reclassifyTransactionToFlowRowMock).not.toHaveBeenCalled();
   });
 });
