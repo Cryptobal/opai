@@ -1,3 +1,6 @@
+// v19 (2026-08-13): consumir navigationPreload en /api/auth/* (y bypass de
+//   portales). Si el SW hace `return` sin respondWith, el preload + el GET
+//   del navegador duplican el callback de Google → invalid_grant.
 // v18 (2026-08-06): precache /app-boot.html (arranque nativo instantáneo).
 //   Excepción explícita en purgeCachedNavigations — es HTML estático sin auth.
 // v17 (2026-07-27): /productividad en ERP_APP_PREFIXES (HTML auth no cacheable).
@@ -7,7 +10,7 @@
 //
 // v15 (2026-07-27): fix PWA iPhone ERP — pantalla negra→blanca al abrir.
 // v14–v6: ver historial git.
-const CACHE_NAME = 'opai-v18';
+const CACHE_NAME = 'opai-v19';
 
 // Prefijos de la app ERP autenticada. Cachear su HTML en el SW es peligroso:
 // tras un deploy, el shell apunta a chunks ya borrados y iOS PWA queda en
@@ -159,12 +162,23 @@ self.addEventListener('fetch', (event) => {
     return; // Let the browser handle these directly
   }
 
-  // Auth/session endpoints: bypass SW completely. La cookie de sesión la
-  // gestiona el navegador directamente; cualquier respuesta cacheada acá
-  // genera estados inconsistentes (ej. login que "se pierde" al reabrir
-  // el PWA en iOS).
+  // Auth/session endpoints: no cachear. La cookie de sesión la gestiona
+  // el navegador; una respuesta cacheada genera estados inconsistentes
+  // (login que "se pierde" al reabrir el PWA en iOS).
+  //
+  // Con navigationPreload activo, un `return` sin respondWith deja el
+  // preload en vuelo y el navegador dispara un segundo GET. El `code`
+  // de Google OAuth es de un solo uso: el duplicado termina en
+  // invalid_grant y /api/auth/error?error=Configuration.
   if (AUTH_BYPASS_PATTERNS.some((p) => url.pathname.startsWith(p))) {
-    return; // Let the browser handle directly (no SW intervention)
+    if (request.mode === 'navigate') {
+      event.respondWith(
+        Promise.resolve(event.preloadResponse).then(
+          (preload) => preload || fetch(request),
+        ),
+      );
+    }
+    return;
   }
 
   // API: network-first with cache fallback

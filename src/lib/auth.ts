@@ -388,6 +388,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   },
   pages: {
     signIn: '/opai/login',
+    // Evita la página genérica de Auth.js ("Server error / Configuration")
+    // cuando Google responde invalid_grant u otro fallo de callback.
+    error: '/opai/login',
   },
   session: {
     strategy: 'jwt',
