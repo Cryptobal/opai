@@ -14,6 +14,9 @@
  *   - rondaEnCurso — ronda actualmente en ejecución (status=en_curso) si
  *     existe. Se usa como hero dinámico en el dashboard del portal cliente
  *     (tiempo real). null si no hay ninguna activa.
+ *   - onDuty — guardia con entrada vigente (sin salida) en la instalación.
+ *   - nextRound — próxima ronda pendiente (scheduledAt > now).
+ *   - rounds24h — 12 slots de 2h de las últimas 24h (ok/warn/now/pending).
  *   - openTickets — cantidad de tickets del portal cliente abiertos o en curso.
  *   - team — tamaño del equipo activo + conteos de OS-10 (vigente/por_vencer/vencido).
  *
@@ -29,6 +32,7 @@ import {
   sanitizeGuardName,
 } from "@/lib/portal-cliente";
 import { computeOs10Estado } from "@/lib/portal-cliente-guardia-doc-estado";
+import { buildRounds24h, resolveOnDuty } from "@/lib/portal-cliente-pulse";
 
 export async function GET(request: NextRequest) {
   try {
@@ -52,6 +56,8 @@ export async function GET(request: NextRequest) {
     const now = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
     const prevMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const since26h = new Date(now.getTime() - 26 * 60 * 60 * 1000);
+    const since24h = new Date(now.getTime() - 24 * 60 * 60 * 1000);
 
     // Incluir ejecuciones programadas (cron) que linkean la instalación solo
     // a través del `rondaTemplate` (installationId directo en la ejecución
@@ -70,6 +76,9 @@ export async function GET(request: NextRequest) {
       rondaEnCurso,
       openTickets,
       teamGuardias,
+      nextRound,
+      rounds24hRows,
+      recentMarcaciones,
     ] = await Promise.all([
       prisma.opsRondaEjecucion.findMany({
         where: { tenantId, ...installationScope, scheduledAt: { gte: monthStart } },
@@ -140,6 +149,44 @@ export async function GET(request: NextRequest) {
           status: "active",
         },
         select: { os10: true, os10ExpiresAt: true },
+      }),
+      prisma.opsRondaEjecucion.findFirst({
+        where: {
+          tenantId,
+          ...installationScope,
+          status: "pendiente",
+          scheduledAt: { gt: now },
+        },
+        orderBy: { scheduledAt: "asc" },
+        select: { scheduledAt: true, checkpointsTotal: true },
+      }),
+      prisma.opsRondaEjecucion.findMany({
+        where: {
+          tenantId,
+          ...installationScope,
+          scheduledAt: { gte: since24h },
+        },
+        select: { status: true, scheduledAt: true, startedAt: true },
+      }),
+      prisma.opsMarcacion.findMany({
+        where: {
+          tenantId,
+          installationId,
+          deletedAt: null,
+          timestamp: { gte: since26h, lte: now },
+        },
+        orderBy: { timestamp: "desc" },
+        take: 80,
+        select: {
+          tipo: true,
+          timestamp: true,
+          guardiaId: true,
+          guardia: {
+            select: {
+              persona: { select: { firstName: true, lastName: true } },
+            },
+          },
+        },
       }),
     ]);
 
@@ -245,6 +292,31 @@ export async function GET(request: NextRequest) {
       };
     }
 
+    const onDuty = resolveOnDuty(
+      recentMarcaciones.map((m) => ({
+        tipo: m.tipo,
+        timestamp: m.timestamp,
+        guardiaId: m.guardiaId,
+        guardName: m.guardia?.persona
+          ? sanitizeGuardName(m.guardia.persona.firstName, m.guardia.persona.lastName)
+          : null,
+      })),
+      now,
+    );
+
+    const nextRoundPayload = nextRound?.scheduledAt
+      ? {
+          scheduledAt: nextRound.scheduledAt.toISOString(),
+          checkpoints: nextRound.checkpointsTotal ?? 0,
+        }
+      : null;
+
+    const rounds24h = buildRounds24h(
+      rounds24hRows,
+      now,
+      Boolean(rondaEnCurso),
+    );
+
     return NextResponse.json({
       success: true,
       data: {
@@ -265,6 +337,9 @@ export async function GET(request: NextRequest) {
         rondaEnCurso: rondaEnCursoPayload,
         openTickets,
         team,
+        onDuty,
+        nextRound: nextRoundPayload,
+        rounds24h,
       },
     });
   } catch (error) {

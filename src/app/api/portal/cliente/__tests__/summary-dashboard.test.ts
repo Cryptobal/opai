@@ -17,6 +17,7 @@ const rondaFindMany = vi.fn();
 const rondaFindFirst = vi.fn();
 const ticketCount = vi.fn();
 const guardiaFindMany = vi.fn();
+const marcacionFindMany = vi.fn();
 const contactFindUnique = vi.fn();
 
 vi.mock("server-only", () => ({}));
@@ -42,6 +43,7 @@ vi.mock("@/lib/prisma", () => ({
     opsRondaEjecucion: { findMany: rondaFindMany, findFirst: rondaFindFirst },
     opsTicket: { count: ticketCount },
     opsGuardia: { findMany: guardiaFindMany },
+    opsMarcacion: { findMany: marcacionFindMany },
   },
 }));
 
@@ -59,6 +61,7 @@ beforeEach(() => {
   rondaFindFirst.mockReset();
   ticketCount.mockReset();
   guardiaFindMany.mockReset();
+  marcacionFindMany.mockReset();
   contactFindUnique.mockReset();
   contactFindUnique.mockResolvedValue({
     id: "contact-1",
@@ -120,14 +123,20 @@ describe("GET /api/portal/cliente/summary", () => {
       Array.from({ length: 20 }, () => ({ status: "completada", trustScore: 80 })),
     );
 
-    rondaFindFirst.mockResolvedValue({
-      id: "r-last",
-      status: "completada",
-      completedAt: new Date("2026-04-22T10:00:00Z"),
-      scheduledAt: new Date("2026-04-22T09:30:00Z"),
-      porcentajeCompletado: 100,
-      guardia: { persona: { firstName: "Juan", lastName: "Pérez" } },
-    });
+    rondaFindFirst
+      .mockResolvedValueOnce({
+        id: "r-last",
+        status: "completada",
+        completedAt: new Date("2026-04-22T10:00:00Z"),
+        scheduledAt: new Date("2026-04-22T09:30:00Z"),
+        porcentajeCompletado: 100,
+        guardia: { persona: { firstName: "Juan", lastName: "Pérez" } },
+      })
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({
+        scheduledAt: new Date("2026-08-13T20:00:00Z"),
+        checkpointsTotal: 8,
+      });
     ticketCount.mockResolvedValue(3);
     guardiaFindMany.mockResolvedValue([
       { os10: true, os10ExpiresAt: futureDate }, // vigente
@@ -135,6 +144,15 @@ describe("GET /api/portal/cliente/summary", () => {
       { os10: true, os10ExpiresAt: soon }, // por_vencer
       { os10: false, os10ExpiresAt: null }, // vencido (vía os10=false)
       { os10: null, os10ExpiresAt: null }, // pendiente
+    ]);
+    rondaFindMany.mockResolvedValueOnce([]); // rounds24h
+    marcacionFindMany.mockResolvedValue([
+      {
+        tipo: "entrada",
+        timestamp: new Date(now.getTime() - 45 * 60 * 1000),
+        guardiaId: "g-1",
+        guardia: { persona: { firstName: "Juan", lastName: "Pérez" } },
+      },
     ]);
 
     const { GET } = await import("../summary/route");
@@ -170,6 +188,21 @@ describe("GET /api/portal/cliente/summary", () => {
       os10PorVencer: 1,
       os10Vencido: 2, // false + pendiente
     });
+
+    expect(d.onDuty).toMatchObject({
+      shiftEnd: null,
+    });
+    expect(d.onDuty.sinceMinutes).toBeGreaterThanOrEqual(45);
+    expect(d.onDuty.sinceMinutes).toBeLessThan(48);
+    expect(d.onDuty.guardName).toMatch(/Juan/);
+    expect(d.nextRound).toEqual({
+      scheduledAt: "2026-08-13T20:00:00.000Z",
+      checkpoints: 8,
+    });
+    expect(d.rounds24h).toHaveLength(12);
+    expect(d.rounds24h.every((s: { hour: number; status: string }) =>
+      ["ok", "warn", "now", "pending"].includes(s.status),
+    )).toBe(true);
   });
 
   it("queries Prisma filtran por tenantId + installationId", async () => {
@@ -177,6 +210,7 @@ describe("GET /api/portal/cliente/summary", () => {
     rondaFindFirst.mockResolvedValue(null);
     ticketCount.mockResolvedValue(0);
     guardiaFindMany.mockResolvedValue([]);
+    marcacionFindMany.mockResolvedValue([]);
 
     const { GET } = await import("../summary/route");
     await GET(
@@ -216,6 +250,15 @@ describe("GET /api/portal/cliente/summary", () => {
         }),
       }),
     );
+    expect(marcacionFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          tenantId: "tenant-A",
+          installationId: "inst-1",
+          deletedAt: null,
+        }),
+      }),
+    );
   });
 
   it("sin rondas: compliance y trust son 0, lastRound es null, team vacío", async () => {
@@ -223,6 +266,7 @@ describe("GET /api/portal/cliente/summary", () => {
     rondaFindFirst.mockResolvedValue(null);
     ticketCount.mockResolvedValue(0);
     guardiaFindMany.mockResolvedValue([]);
+    marcacionFindMany.mockResolvedValue([]);
 
     const { GET } = await import("../summary/route");
     const res = await GET(
@@ -241,7 +285,11 @@ describe("GET /api/portal/cliente/summary", () => {
       attentionCount: 0,
       openTickets: 0,
       lastRound: null,
+      onDuty: null,
+      nextRound: null,
       team: { size: 0, os10Vigente: 0, os10PorVencer: 0, os10Vencido: 0 },
     });
+    expect(body.data.rounds24h).toHaveLength(12);
+    expect(body.data.rounds24h.every((s: { status: string }) => s.status === "pending")).toBe(true);
   });
 });
