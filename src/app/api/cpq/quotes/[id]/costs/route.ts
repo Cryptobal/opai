@@ -11,6 +11,7 @@ import { requireAuth, unauthorized } from "@/lib/api-auth";
 import { requireCpqView, requireCpqEdit } from "@/lib/api-auth-cpq";
 import { createCrmHistoryLog } from "@/lib/crm-history";
 import { isDefaultUniform } from "@/lib/cpq-constants";
+import { hydrateQuoteCatalogLines } from "@/lib/cpq/resolve-active-catalog-item";
 import { computeCpqQuoteCosts } from "@/modules/cpq/costing/compute-quote-costs";
 import { requireTenantModule } from '@/lib/require-module';
 
@@ -68,7 +69,7 @@ export async function GET(
     const { id } = await params;
     const quote = await prisma.cpqQuote.findFirst({
       where: { id, tenantId: ctx.tenantId },
-      select: { tenantId: true, createdFromLeadId: true },
+      select: { tenantId: true, createdFromLeadId: true, status: true },
     });
     if (!quote) {
       return NextResponse.json(
@@ -81,9 +82,9 @@ export async function GET(
 
     const [
       parameters,
-      uniforms,
-      exams,
-      costItems,
+      uniformsRaw,
+      examsRaw,
+      costItemsRaw,
       meals,
       vehicles,
       infrastructure,
@@ -132,6 +133,19 @@ export async function GET(
       computeCpqQuoteCosts(id),
     ]);
 
+    const uniforms =
+      quote.status === "draft"
+        ? hydrateQuoteCatalogLines(uniformsRaw, catalogItems, tenantId)
+        : uniformsRaw;
+    const exams =
+      quote.status === "draft"
+        ? hydrateQuoteCatalogLines(examsRaw, catalogItems, tenantId)
+        : examsRaw;
+    const costItems =
+      quote.status === "draft"
+        ? hydrateQuoteCatalogLines(costItemsRaw, catalogItems, tenantId)
+        : costItemsRaw;
+
     // Merge defaults for UI display (the summary already accounts for them)
     const defaultCatalog = catalogItems.filter((item) => item.isDefault);
     const uniformCatalog = catalogItems.filter((item) => item.type === "uniform");
@@ -166,7 +180,7 @@ export async function GET(
             quoteId: id,
             catalogItemId: item.id,
             unitPriceOverride: null,
-            technicalSpecs: item.defaultTechnicalSpecs || null,
+            technicalSpecs: null,
             priceLogic: item.priceLogic ?? "uniform",
             active: true,
             catalogItem: item,
@@ -181,7 +195,7 @@ export async function GET(
             quoteId: id,
             catalogItemId: item.id,
             unitPriceOverride: null,
-            technicalSpecs: item.defaultTechnicalSpecs || null,
+            technicalSpecs: null,
             active: true,
             catalogItem: item,
           }));
@@ -196,7 +210,7 @@ export async function GET(
             mealsPerDay: 0,
             daysOfService: 0,
             priceOverride: null,
-            technicalSpecs: item.defaultTechnicalSpecs || null,
+            technicalSpecs: null,
             isEnabled: true,
             visibility: "visible",
           }));
@@ -215,7 +229,7 @@ export async function GET(
             isEnabled: true,
             visibility: item.defaultVisibility || "visible",
             notes: null,
-            technicalSpecs: item.defaultTechnicalSpecs || null,
+            technicalSpecs: null,
             catalogItem: item,
           }));
 
@@ -274,7 +288,7 @@ export async function PUT(
     const { id } = await params;
     const quote = await prisma.cpqQuote.findFirst({
       where: { id, tenantId: ctx.tenantId },
-      select: { tenantId: true, createdFromLeadId: true },
+      select: { tenantId: true, createdFromLeadId: true, status: true },
     });
     if (!quote) {
       return NextResponse.json(
@@ -408,18 +422,72 @@ export async function PUT(
 
       const existingUniforms = await tx.cpqQuoteUniformItem.findMany({
         where: { quoteId: id },
+        include: { catalogItem: true },
       });
-      const existingExams = await tx.cpqQuoteExamItem.findMany({ where: { quoteId: id } });
-      const existingCostItems = await tx.cpqQuoteCostItem.findMany({ where: { quoteId: id } });
+      const existingExams = await tx.cpqQuoteExamItem.findMany({
+        where: { quoteId: id },
+        include: { catalogItem: true },
+      });
+      const existingCostItems = await tx.cpqQuoteCostItem.findMany({
+        where: { quoteId: id },
+        include: { catalogItem: true },
+      });
       const existingMeals = await tx.cpqQuoteMeal.findMany({ where: { quoteId: id } });
 
-      const uniformCatalogForPut = await tx.cpqCatalogItem.findMany({
+      const activeCatalog = await tx.cpqCatalogItem.findMany({
         where: {
           OR: [{ tenantId }, { tenantId: null }],
           active: true,
-          type: "uniform",
         },
       });
+      const incomingCatalogIds = [
+        ...uniforms.map((item: { catalogItemId?: string }) => item.catalogItemId),
+        ...exams.map((item: { catalogItemId?: string }) => item.catalogItemId),
+        ...costItems.map((item: { catalogItemId?: string | null }) => item.catalogItemId),
+        ...existingUniforms.map((item) => item.catalogItemId),
+        ...existingExams.map((item) => item.catalogItemId),
+        ...existingCostItems.map((item) => item.catalogItemId),
+      ].filter((id): id is string => Boolean(id));
+      const missingCatalogIds = [...new Set(incomingCatalogIds)].filter(
+        (id) => !activeCatalog.some((item) => item.id === id),
+      );
+      const referencedInactive = missingCatalogIds.length
+        ? await tx.cpqCatalogItem.findMany({ where: { id: { in: missingCatalogIds } } })
+        : [];
+      const catalogById = new Map(
+        [...activeCatalog, ...referencedInactive].map((item) => [item.id, item]),
+      );
+      const attachCatalog = <T extends { catalogItemId?: string | null; catalogItem?: unknown }>(
+        item: T,
+      ) => ({
+        ...item,
+        catalogItem:
+          (item as { catalogItem?: { id: string } | null }).catalogItem ??
+          (item.catalogItemId ? catalogById.get(item.catalogItemId) : null) ??
+          null,
+      });
+
+      const remapDraftCatalog = quote.status === "draft";
+      const uniformsHydrated = remapDraftCatalog
+        ? hydrateQuoteCatalogLines(uniforms.map(attachCatalog), activeCatalog, tenantId)
+        : uniforms;
+      const examsHydrated = remapDraftCatalog
+        ? hydrateQuoteCatalogLines(exams.map(attachCatalog), activeCatalog, tenantId)
+        : exams;
+      const costItemsHydrated = remapDraftCatalog
+        ? hydrateQuoteCatalogLines(costItems.map(attachCatalog), activeCatalog, tenantId)
+        : costItems;
+      const existingUniformsHydrated = remapDraftCatalog
+        ? hydrateQuoteCatalogLines(existingUniforms.map(attachCatalog), activeCatalog, tenantId)
+        : existingUniforms;
+      const existingExamsHydrated = remapDraftCatalog
+        ? hydrateQuoteCatalogLines(existingExams.map(attachCatalog), activeCatalog, tenantId)
+        : existingExams;
+      const existingCostItemsHydrated = remapDraftCatalog
+        ? hydrateQuoteCatalogLines(existingCostItems.map(attachCatalog), activeCatalog, tenantId)
+        : existingCostItems;
+
+      const uniformCatalogForPut = activeCatalog.filter((item) => item.type === "uniform");
       const uniformDefaults = uniformCatalogForPut.filter((item) => isDefaultUniform(item.name, item.isDefault));
       const examDefaults = defaultCatalog.filter((item) => item.type === "exam");
       const mealDefaults = defaultCatalog.filter((item) => item.type === "meal");
@@ -430,7 +498,7 @@ export async function PUT(
     );
 
       const uniformMap = new Map(
-        existingUniforms.map((item) => [
+        existingUniformsHydrated.map((item) => [
           item.catalogItemId,
           {
             quoteId: id,
@@ -442,7 +510,7 @@ export async function PUT(
           },
         ])
       );
-      uniforms.forEach((item: any) => {
+      uniformsHydrated.forEach((item: any) => {
         uniformMap.set(item.catalogItemId, {
           ...item,
           quoteId: id,
@@ -458,7 +526,7 @@ export async function PUT(
             quoteId: id,
             catalogItemId: item.id,
             unitPriceOverride: null,
-            technicalSpecs: item.defaultTechnicalSpecs ?? null,
+            technicalSpecs: null,
             priceLogic: item.priceLogic ?? "uniform",
             active: true,
           });
@@ -476,7 +544,7 @@ export async function PUT(
       });
 
       const examMap = new Map(
-        existingExams.map((item) => [
+        existingExamsHydrated.map((item) => [
           item.catalogItemId,
           {
             quoteId: id,
@@ -487,7 +555,7 @@ export async function PUT(
           },
         ])
       );
-      exams.forEach((item: any) => {
+      examsHydrated.forEach((item: any) => {
         examMap.set(item.catalogItemId, {
           ...item,
           quoteId: id,
@@ -502,7 +570,7 @@ export async function PUT(
             quoteId: id,
             catalogItemId: item.id,
             unitPriceOverride: null,
-            technicalSpecs: item.defaultTechnicalSpecs ?? null,
+            technicalSpecs: null,
             active: true,
           });
         }
@@ -520,7 +588,7 @@ export async function PUT(
 
       const catalogCostItems: any[] = [];
       const inlineCostItems: any[] = [];
-      for (const item of costItems) {
+      for (const item of costItemsHydrated) {
         if (item.catalogItemId) {
           catalogCostItems.push(item);
         } else {
@@ -530,7 +598,7 @@ export async function PUT(
       }
 
       const costMap = new Map(
-        existingCostItems
+        existingCostItemsHydrated
           .filter((item) => item.catalogItemId)
           .map((item) => [
             item.catalogItemId,
@@ -583,7 +651,7 @@ export async function PUT(
             isEnabled: true,
             visibility: item.defaultVisibility || "visible",
             notes: null,
-            technicalSpecs: item.defaultTechnicalSpecs ?? null,
+            technicalSpecs: null,
             isAmortizable: false,
             investmentAmount: null,
             amortizationMonths: null,
@@ -680,7 +748,7 @@ export async function PUT(
             mealsPerDay: 0,
             daysOfService: 0,
             priceOverride: null,
-            technicalSpecs: item.defaultTechnicalSpecs ?? null,
+            technicalSpecs: null,
             isEnabled: true,
             visibility: "visible",
           });
