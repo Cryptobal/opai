@@ -37,6 +37,8 @@ interface CpqPdfPreviewPanelProps {
   emptyCotizacionText?: string;
   emptyPresentacionText?: string;
   footer?: ReactNode;
+  /** Si se omite, se muestran ambos modos. */
+  allowedModes?: CpqPdfPreviewMode[];
 }
 
 function isCoarsePointer(): boolean {
@@ -59,7 +61,10 @@ export function CpqPdfPreviewPanel({
   emptyCotizacionText = "Click en Generar PDF para ver la vista previa de la cotización",
   emptyPresentacionText = "Click en Generar PDF para ver la vista previa de la propuesta técnica",
   footer,
+  allowedModes,
 }: CpqPdfPreviewPanelProps) {
+  const modes = allowedModes && allowedModes.length > 0 ? allowedModes : (["cotizacion", "presentacion"] as CpqPdfPreviewMode[]);
+  const showModeToggle = modes.length > 1;
   const [fullscreen, setFullscreen] = useState(false);
   const [viewLoading, setViewLoading] = useState(false);
 
@@ -137,7 +142,9 @@ export function CpqPdfPreviewPanel({
             </div>
           </div>
 
+          {showModeToggle ? (
           <div className="grid grid-cols-2 gap-1.5 rounded-lg border border-border/60 bg-background/60 p-1">
+            {modes.includes("cotizacion") ? (
             <button
               type="button"
               onClick={() => onModeChange("cotizacion")}
@@ -150,6 +157,8 @@ export function CpqPdfPreviewPanel({
             >
               Cotización
             </button>
+            ) : null}
+            {modes.includes("presentacion") ? (
             <button
               type="button"
               onClick={() => onModeChange("presentacion")}
@@ -162,7 +171,9 @@ export function CpqPdfPreviewPanel({
             >
               Propuesta técnica
             </button>
+            ) : null}
           </div>
+          ) : null}
         </div>
 
         <div className="space-y-3 p-3">

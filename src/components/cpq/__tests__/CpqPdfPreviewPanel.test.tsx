@@ -130,4 +130,22 @@ describe("CpqPdfPreviewPanel", () => {
 
     openSpy.mockRestore();
   });
+
+  it("con allowedModes presentacion no muestra el toggle Cotización", () => {
+    render(
+      <CpqPdfPreviewPanel
+        mode="presentacion"
+        templateSlug="standard"
+        previewUrl={null}
+        loading={false}
+        onModeChange={vi.fn()}
+        onTemplateSlugChange={vi.fn()}
+        onGenerate={vi.fn()}
+        allowedModes={["presentacion"]}
+      />
+    );
+
+    expect(screen.queryByRole("button", { name: "Cotización" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Propuesta técnica" })).not.toBeInTheDocument();
+  });
 });

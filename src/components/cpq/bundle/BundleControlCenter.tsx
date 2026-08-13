@@ -8,6 +8,7 @@
 
 import { useState } from "react";
 import { FileDown, Send, CheckCircle2, Circle } from "lucide-react";
+import { toast } from "sonner";
 import { Surface } from "@/components/opai-ds";
 import { Button } from "@/components/ui/button";
 import { EntityConversations } from "@/components/crm/EntityConversations";
@@ -51,7 +52,8 @@ export function BundleControlCenter({
     setPdfLoading(true);
     try {
       const res = await fetch(`/api/cpq/bundles/${bundle.id}/proposal-pdf`);
-      if (!res.ok) {
+      const contentType = res.headers.get("content-type") || "";
+      if (!res.ok || !contentType.includes("pdf")) {
         const j = await res.json().catch(() => ({}));
         throw new Error(j.error || "Error al generar PDF");
       }
@@ -60,11 +62,13 @@ export function BundleControlCenter({
       const a = document.createElement("a");
       a.href = url;
       a.download = `${bundle.code}.pdf`;
+      document.body.appendChild(a);
       a.click();
-      URL.revokeObjectURL(url);
+      a.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
     } catch (e) {
       console.error(e);
-      alert(e instanceof Error ? e.message : "Error PDF");
+      toast.error(e instanceof Error ? e.message : "Error PDF");
     } finally {
       setPdfLoading(false);
     }

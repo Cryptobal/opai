@@ -10,6 +10,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, FileDown, MoreVertical, Send, Trash2, Unlink, Users } from "lucide-react";
+import { toast } from "sonner";
 import { Tag } from "@/components/opai-ds";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -48,7 +49,8 @@ export function BundleStickyBar({
     setPdfLoading(true);
     try {
       const res = await fetch(`/api/cpq/bundles/${bundle.id}/proposal-pdf`);
-      if (!res.ok) {
+      const contentType = res.headers.get("content-type") || "";
+      if (!res.ok || !contentType.includes("pdf")) {
         const j = await res.json().catch(() => ({}));
         throw new Error(j.error || "Error al generar PDF");
       }
@@ -56,11 +58,14 @@ export function BundleStickyBar({
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `${bundle.code}.pdf`;
+      a.download = `${bundle.code}-propuesta-tecnica.pdf`;
+      document.body.appendChild(a);
       a.click();
-      URL.revokeObjectURL(url);
+      a.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
     } catch (e) {
       console.error("[Bundle PDF]", e);
+      toast.error(e instanceof Error ? e.message : "Error al generar el PDF");
     } finally {
       setPdfLoading(false);
     }
@@ -149,16 +154,16 @@ export function BundleStickyBar({
           onClick={() => void downloadPdf()}
         >
           <FileDown className="h-4 w-4" />
-          {pdfLoading ? "Generando…" : "PDF"}
+          {pdfLoading ? "Generando…" : "PDF técnico"}
         </Button>
         <Button
           className="h-9 gap-1.5 bg-status-ok text-white hover:brightness-110"
-          disabled={t.includedCount === 0 || !bundle.contact?.email}
+          disabled={t.includedCount === 0 || !bundle.accountId}
           title={
             t.includedCount === 0
               ? "Incluye al menos una instalación en la propuesta"
-              : !bundle.contact?.email
-                ? "La propuesta no tiene contacto con email: asígnalo en el negocio"
+              : !bundle.accountId
+                ? "La propuesta no tiene cuenta: asígnala en el negocio"
                 : undefined
           }
           onClick={onSend}
