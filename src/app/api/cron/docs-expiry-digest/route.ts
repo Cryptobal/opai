@@ -19,6 +19,7 @@ import { notify } from "@/lib/notifications/notify";
 import { getExpiryPolicy, todayUtc } from "@/lib/documents/expiry-engine";
 import { buildExpiryDigestSummary, digestHeadline } from "@/lib/documents/expiry-digest";
 import { postDocsDigestToSlack } from "@/lib/integrations/slack/docs/digest";
+import { getSlackDigestConfig } from "@/lib/integrations/slack/digest-config";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -90,7 +91,10 @@ export async function GET(request: NextRequest) {
           link: "/opai/documentos-operativos",
           data: { skipSlack: true, dayKey, total: summary.total },
         });
-        await postDocsDigestToSlack(tenant.id, summary, dayKey);
+        // Canal Slack: opt-out por tenant en Configuración → Slack → Digests.
+        if ((await getSlackDigestConfig(tenant.id)).docs) {
+          await postDocsDigestToSlack(tenant.id, summary, dayKey);
+        }
         await markSentToday(tenant.id, dayKey);
         sent++;
       } catch (err) {

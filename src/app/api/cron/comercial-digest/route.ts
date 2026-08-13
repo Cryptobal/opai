@@ -7,6 +7,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { buildAndPostDigest } from "@/lib/integrations/slack/comercial/digest";
+import { getSlackDigestConfig } from "@/lib/integrations/slack/digest-config";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -35,11 +36,11 @@ export async function GET(request: NextRequest) {
     let posted = 0;
     for (const t of tenants) {
       try {
-        let run = isMonday;
-        if (!run) {
-          const daily = await prisma.setting.findFirst({ where: { tenantId: t.id, key: "crm.digestDaily" }, select: { value: true } });
-          run = daily?.value === "true";
-        }
+        const digests = await getSlackDigestConfig(t.id);
+        // Lunes: semanal O diario; resto de días: solo si diario está ON.
+        const run = isMonday
+          ? digests.comercialWeekly || digests.comercialDaily
+          : digests.comercialDaily;
         if (run && (await buildAndPostDigest(t.id, dayKey))) posted++;
       } catch (e) {
         console.error(`[comercial-digest] tenant ${t.id} failed:`, e);

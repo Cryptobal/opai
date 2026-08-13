@@ -21,6 +21,7 @@ import { getRondasNotifPolicy } from "@/lib/rondas/notification-policy";
 import { buildRondasDigestSummary, digestHeadline, installationLine } from "@/lib/rondas/daily-digest";
 import { startOfDayChile, endOfDayChile } from "@/lib/rondas/timezone";
 import { postRondasDigestToSlack } from "@/lib/integrations/slack/rondas-digest";
+import { getSlackDigestConfig } from "@/lib/integrations/slack/digest-config";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -103,7 +104,10 @@ export async function GET(request: NextRequest) {
           link: "/ops/rondas/reportes",
           data: { skipSlack: true, dayKey, pct: summary.pct, total: summary.total },
         });
-        await postRondasDigestToSlack(tenant.id, summary, policy, dayKey);
+        // Canal Slack: opt-out por tenant en Configuración → Slack → Digests.
+        if ((await getSlackDigestConfig(tenant.id)).rondas) {
+          await postRondasDigestToSlack(tenant.id, summary, policy, dayKey);
+        }
         await markSentToday(tenant.id, dayKey);
         sent++;
       } catch (err) {

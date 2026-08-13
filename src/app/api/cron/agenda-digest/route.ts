@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getWorkspaceForTenant } from "@/lib/integrations/slack/workspace";
 import { enqueueOutboxRow, trySendOutboxRow } from "@/lib/integrations/slack/outbox";
 import { decryptSlackToken } from "@/lib/integrations/slack/crypto";
+import { getSlackDigestConfig } from "@/lib/integrations/slack/digest-config";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -26,6 +27,7 @@ export async function GET(req: NextRequest) {
 
   let published = 0;
   for (const { tenantId } of tenants) {
+    if (!(await getSlackDigestConfig(tenantId)).agenda) continue;
     const ws = await getWorkspaceForTenant(tenantId);
     if (!ws?.defaultChannelId) continue;
 

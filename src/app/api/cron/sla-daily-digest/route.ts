@@ -19,6 +19,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { notify } from "@/lib/notifications/notify";
 import { TICKET_TEAM_CONFIG } from "@/lib/tickets";
+import { getSlackDigestConfig } from "@/lib/integrations/slack/digest-config";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
@@ -128,7 +129,9 @@ export async function GET(request: NextRequest) {
           `\n\nEste resumen se envía una vez al día. Para ver el detalle, abre OPAI.`;
 
         // Respeta preferencias del usuario (email/Slack/push). Las campanas en
-        // tiempo real las crea sla-monitor cada 15 min.
+        // tiempo real las crea sla-monitor cada 15 min. El canal compartido de
+        // Slack se puede silenciar en Configuración → Slack → Digests.
+        const skipSlack = !(await getSlackDigestConfig(tenantId)).sla;
         await notify({
           tenantId,
           type: "ticket_sla_breached_batch",
@@ -140,6 +143,7 @@ export async function GET(request: NextRequest) {
             ticketIds: tickets.map((t) => t.id),
             date: now.toISOString().slice(0, 10),
             digest: true,
+            ...(skipSlack ? { skipSlack: true } : {}),
           },
         });
         emailsSent++;

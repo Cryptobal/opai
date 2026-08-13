@@ -27,7 +27,7 @@ export default async function SlackIntegrationPage() {
   return (
     <ConfigPageLayout
       title="Slack"
-      description="Conecta tu workspace y rutea las notificaciones de OPAI a canales de Slack"
+      description="Conecta tu workspace, activa digests y rutea las notificaciones de OPAI a canales de Slack"
       icon={<Slack className="h-[18px] w-[18px]" />}
       backHref="/opai/configuracion/integraciones"
       backLabel="Integraciones"

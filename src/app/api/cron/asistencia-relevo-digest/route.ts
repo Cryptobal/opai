@@ -14,6 +14,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getWorkspaceForTenant } from "@/lib/integrations/slack/workspace";
+import { getSlackDigestConfig } from "@/lib/integrations/slack/digest-config";
 import { publishRelevoBoard } from "@/lib/ops/relevo-board";
 import { ensureAsistenciaDia } from "@/lib/ops/ensure-asistencia-dia";
 import { chileDayStart } from "@/lib/marcacion-jornada";
@@ -99,11 +100,13 @@ export async function GET(request: NextRequest) {
 
     for (const tenant of tenants) {
       try {
-        const config = await getRelevoConfig(tenant.id);
-        if (!config.enabled) {
+        // Toggle UI (Configuración → Slack → Digests) + legacy relevo_config.enabled.
+        const digests = await getSlackDigestConfig(tenant.id);
+        if (!digests.relevo) {
           skipped++;
           continue;
         }
+        const config = await getRelevoConfig(tenant.id);
         const workspace = await getWorkspaceForTenant(tenant.id);
         if (!workspace) {
           skipped++;
