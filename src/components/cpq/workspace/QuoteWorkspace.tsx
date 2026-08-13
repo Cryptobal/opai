@@ -373,10 +373,10 @@ export function QuoteWorkspace({
         </Button>
         <Button
           className="h-11 gap-1.5 bg-status-ok text-white hover:brightness-110"
-          disabled={bundle.totals.includedCount === 0 || !bundle.contact?.email}
+          disabled={bundle.totals.includedCount === 0 || !bundle.accountId}
           title={
-            !bundle.contact?.email
-              ? "La propuesta no tiene contacto con email"
+            !bundle.accountId
+              ? "La propuesta no tiene cuenta asignada"
               : undefined
           }
           onClick={() => setSendOpen(true)}
@@ -398,6 +398,7 @@ export function QuoteWorkspace({
         open={sendOpen}
         onOpenChange={setSendOpen}
         bundle={bundle}
+        defaultEmailSubject={defaultPortalEmailSubject}
         onSent={refreshBundle}
       />
     </div>

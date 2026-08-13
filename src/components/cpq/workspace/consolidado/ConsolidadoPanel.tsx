@@ -9,6 +9,7 @@
 
 import type { BundleDetail, BundleMember } from "@/components/cpq/bundle/useBundle";
 import { ResumenSection } from "./ResumenSection";
+import { BundleProposalPreview } from "./BundleProposalPreview";
 import { DatosPropuestaSection } from "./DatosPropuestaSection";
 import { BundleCondicionesSection } from "./BundleCondicionesSection";
 import { InstalacionesSection } from "./InstalacionesSection";
@@ -46,6 +47,7 @@ export function ConsolidadoPanel({
   return (
     <div className="space-y-3 ds-page-enter">
       <ResumenSection bundle={bundle} ufValue={ufValue} />
+      <BundleProposalPreview bundle={bundle} />
       <InstalacionesSection
         bundle={bundle}
         ufValue={ufValue}
