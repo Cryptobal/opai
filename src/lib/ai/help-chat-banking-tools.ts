@@ -15,6 +15,8 @@ import { listBankAccounts } from "@/modules/finance/banking/bank-account.service
 import {
   listTransactionLinks,
   confirmAllSuggestions,
+  canReclassifyToFlowRow,
+  reclassifyTransactionToFlowRow,
   setTransactionLinks,
 } from "@/modules/finance/banking/bank-tx-link.service";
 import { resolveAccountPlanIdForFlowRow } from "@/modules/finance/banking/flow-row-account-plan.service";
@@ -998,20 +1000,16 @@ async function buildClassifyPreview(
     },
   });
   if (!tx) return { ok: false, error: "Movimiento no encontrado o oculto." };
-  if (tx.reconciliationStatus !== "UNMATCHED") {
-    return {
-      ok: false,
-      error: `El movimiento no está UNMATCHED (status=${tx.reconciliationStatus}). No se puede clasificar sin limpiar vínculos.`,
-    };
-  }
 
-  const existing = await prisma.financeBankTransactionLink.count({
+  const existingLinks = await prisma.financeBankTransactionLink.findMany({
     where: { tenantId, bankTransactionId: tx.id },
+    select: { targetType: true },
   });
-  if (existing > 0) {
+  if (existingLinks.length > 0 && !canReclassifyToFlowRow(existingLinks)) {
     return {
       ok: false,
-      error: "La transacción ya tiene vínculos de conciliación; no se sobrescribe.",
+      error:
+        "La transacción ya tiene vínculos de conciliación (DTE/factoring/nómina); no se sobrescribe.",
     };
   }
 
@@ -1187,10 +1185,12 @@ export async function toolClassifyBankToFlowRow(
   }
 
   const d = built.data;
-  await setTransactionLinks(tenantId, d.transactionId, userId, [
+  const result = await reclassifyTransactionToFlowRow(
+    tenantId,
+    d.transactionId,
+    userId,
     {
       targetType: d.isIncome ? "INCOME" : "EXPENSE",
-      targetId: null,
       amount: d.amountAbs,
       accountPlanId: d.accountPlanId,
       flowRowId: d.flowRowId,
@@ -1199,9 +1199,9 @@ export async function toolClassifyBankToFlowRow(
         `Clasificado a fila flujo: ${d.flowRowLabel} (${normalizeNameForDedupe(d.flowRowLabel)})`,
       matchSource: "MANUAL",
     },
-  ]);
+  );
 
-  // Verificación: flow_row_id quedó persistido.
+  // Verificación: flow_row_id quedó persistido (mismo link id si fue update).
   const link = await prisma.financeBankTransactionLink.findFirst({
     where: { tenantId, bankTransactionId: d.transactionId },
     select: { id: true, flowRowId: true, accountPlanId: true },

@@ -28,7 +28,10 @@ import {
   resolveSupplierCategoryRow,
 } from "@/modules/finance/banking/classify-flow-rows";
 import { resolveAccountPlanIdForFlowRow } from "@/modules/finance/banking/flow-row-account-plan.service";
-import { setTransactionLinks } from "@/modules/finance/banking/bank-tx-link.service";
+import {
+  canReclassifyToFlowRow,
+  reclassifyTransactionToFlowRow,
+} from "@/modules/finance/banking/bank-tx-link.service";
 import { normalizeNameForDedupe } from "@/modules/finance/flow-v3/row-visibility";
 
 /** Ventana por defecto para liquidaciones/anticipos en la cascada. */
@@ -350,15 +353,24 @@ export async function POST(
 
     const existingLinks = await prisma.financeBankTransactionLink.findMany({
       where: { tenantId: ctx.tenantId, bankTransactionId: { in: allIds } },
-      select: { bankTransactionId: true },
+      select: { bankTransactionId: true, targetType: true },
     });
-    const withLinks = new Set(existingLinks.map((l) => l.bankTransactionId));
+    const linksByTxId = new Map<
+      string,
+      Array<{ targetType: typeof existingLinks[number]["targetType"] }>
+    >();
+    for (const link of existingLinks) {
+      const list = linksByTxId.get(link.bankTransactionId) ?? [];
+      list.push({ targetType: link.targetType });
+      linksByTxId.set(link.bankTransactionId, list);
+    }
 
     const errors: Array<{ id: string; message: string }> = [];
     let classified = 0;
 
     for (const tx of txs) {
-      if (withLinks.has(tx.id)) {
+      const prevLinks = linksByTxId.get(tx.id) ?? [];
+      if (prevLinks.length > 0 && !canReclassifyToFlowRow(prevLinks)) {
         errors.push({
           id: tx.id,
           message:
@@ -369,20 +381,17 @@ export async function POST(
       try {
         const amountAbs = Math.abs(Number(tx.amount));
         const isIncome = Number(tx.amount) > 0;
-        await setTransactionLinks(ctx.tenantId, tx.id, ctx.userId, [
-          {
-            targetType: isIncome ? "INCOME" : "EXPENSE",
-            targetId: null,
-            amount: amountAbs,
-            accountPlanId,
-            flowRowId: row.id,
-            note:
-              body.note ??
-              `Clasificado a fila flujo: ${row.name} (${normalizeNameForDedupe(row.name)})`,
-            matchSource: matchSourceFromClassify(body),
-            matchedByRuleId: body.matchedByRuleId ?? null,
-          },
-        ]);
+        await reclassifyTransactionToFlowRow(ctx.tenantId, tx.id, ctx.userId, {
+          targetType: isIncome ? "INCOME" : "EXPENSE",
+          amount: amountAbs,
+          accountPlanId,
+          flowRowId: row.id,
+          note:
+            body.note ??
+            `Clasificado a fila flujo: ${row.name} (${normalizeNameForDedupe(row.name)})`,
+          matchSource: matchSourceFromClassify(body),
+          matchedByRuleId: body.matchedByRuleId ?? null,
+        });
         classified++;
       } catch (e) {
         errors.push({
