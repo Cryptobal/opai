@@ -52,7 +52,8 @@ describe("EmailHtmlBody", () => {
     );
     fireEvent.click(screen.getByText("Mostrar imágenes"));
     const srcdoc = container.querySelector("iframe")?.getAttribute("srcdoc") ?? "";
-    expect(srcdoc).toContain('src="https://cdn.example.com/banner.png"');
+    expect(srcdoc).toContain("/api/crm/correos/remote-image?u=");
+    expect(srcdoc).toContain(encodeURIComponent("https://cdn.example.com/banner.png"));
     expect(srcdoc).not.toContain("data-blocked-src=");
     expect(screen.getByText("Ocultar imágenes")).toBeTruthy();
   });
@@ -152,26 +153,21 @@ describe("buildEmailSrcDoc", () => {
     expect(screen.getByText("Ancho original")).toBeTruthy();
   });
 
-  it("en modo noche fuerza texto claro (pisando color negro inline de correos)", () => {
+  it("en modo noche no pisa fondos de tablas ni fuerza texto en todos los nodos", () => {
     const doc = buildEmailSrcDoc('<p style="color:#000">Hola</p>', true);
     expect(doc).toContain("color-scheme:dark");
     expect(doc).toContain("hsl(210 40% 96%)");
-    expect(doc).toContain("color:hsl(210 40% 96%)!important");
+    expect(doc).toContain("body{background-color:hsl(218 32% 14%)!important");
     expect(doc).toContain("hsl(174 72% 55%)");
+    expect(doc).not.toContain("background-color:transparent!important");
+    expect(doc).toContain("img[data-blocked-src]{display:none");
   });
 
-  it("en modo noche reafirma el fondo del body tras el override transparente (anti negro UA)", () => {
+  it("en modo noche no deja el body transparente (anti negro UA)", () => {
     const doc = buildEmailSrcDoc("<p>Hola</p>", true);
-    const transparentIdx = doc.indexOf(
-      "background-color:transparent!important",
-    );
-    const bodyBgIdx = doc.indexOf(
-      "body{background-color:hsl(218 32% 14%)!important}",
-    );
-    expect(transparentIdx).toBeGreaterThan(-1);
-    expect(bodyBgIdx).toBeGreaterThan(transparentIdx);
+    expect(doc).toContain("body{background-color:hsl(218 32% 14%)!important");
+    expect(doc).not.toContain("background-color:transparent!important");
     expect(doc).toContain("color-scheme:dark");
-    expect(doc).toContain("hsl(218 24% 26%)");
   });
 
   it("en modo claro usa fondo blanco y no activa color-scheme dark", () => {

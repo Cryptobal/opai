@@ -71,9 +71,20 @@ export function resolveCidAttachment(
   return null;
 }
 
+function cidToAttachmentUrl(
+  cidRaw: string,
+  threadId: string,
+  attachments: CidAttachmentRef[],
+  messageId?: string,
+): string | null {
+  const att = resolveCidAttachment(cidRaw, attachments, messageId);
+  if (!att) return null;
+  return attachmentUrl(threadId, att);
+}
+
 /**
- * Sustituye cada `src="cid:…"` por la URL autenticada del adjunto.
- * Si no hay match, deja el cid (el navegador seguirá mostrando broken icon).
+ * Sustituye cada `src="cid:…"` / `url(cid:…)` / `background="cid:…"` por la
+ * URL autenticada del adjunto. Si no hay match, deja el cid.
  */
 export function rewriteCidImages(
   html: string,
@@ -82,12 +93,29 @@ export function rewriteCidImages(
   messageId?: string,
 ): string {
   if (!html || !threadId || attachments.length === 0) return html;
-  return html.replace(
+  let out = html.replace(
     /\bsrc\s*=\s*(["'])cid:([^"']+)\1/gi,
     (full, quote: string, cidRaw: string) => {
-      const att = resolveCidAttachment(cidRaw, attachments, messageId);
-      if (!att) return full;
-      return `src=${quote}${attachmentUrl(threadId, att)}${quote}`;
+      const url = cidToAttachmentUrl(cidRaw, threadId, attachments, messageId);
+      if (!url) return full;
+      return `src=${quote}${url}${quote}`;
     },
   );
+  out = out.replace(
+    /\bbackground\s*=\s*(["'])cid:([^"']+)\1/gi,
+    (full, quote: string, cidRaw: string) => {
+      const url = cidToAttachmentUrl(cidRaw, threadId, attachments, messageId);
+      if (!url) return full;
+      return `background=${quote}${url}${quote}`;
+    },
+  );
+  out = out.replace(
+    /url\(\s*(['"]?)cid:([^)'"]+)\1\s*\)/gi,
+    (full, quote: string, cidRaw: string) => {
+      const url = cidToAttachmentUrl(cidRaw, threadId, attachments, messageId);
+      if (!url) return full;
+      return `url(${quote}${url}${quote})`;
+    },
+  );
+  return out;
 }

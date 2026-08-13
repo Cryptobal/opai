@@ -41,20 +41,21 @@
 .root :global(img) {
   max-width: 100%;
   height: auto;
+  border: 0;
+}
+
+.root :global(img[data-blocked-src]) {
+  display: none !important;
 }
 
 .root :global(table) {
   border-collapse: collapse;
   max-width: 100%;
-  margin: 0.5rem 0;
 }
 
 .root :global(td),
 .root :global(th) {
-  border: 1px solid hsl(220 10% 85%);
-  padding: 0.35rem 0.5rem;
   vertical-align: top;
-  word-break: break-word;
 }
 
 .root :global(p),

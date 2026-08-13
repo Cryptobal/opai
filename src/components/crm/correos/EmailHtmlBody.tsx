@@ -78,17 +78,13 @@ export function buildEmailSrcDoc(safeHtml: string, night = false): string {
   const border = night ? "hsl(218 24% 26%)" : "hsl(220 10% 85%)";
   const quote = night ? "hsl(215 20% 70%)" : "hsl(220 10% 40%)";
   const link = night ? "hsl(174 72% 55%)" : "hsl(174 72% 32%)";
-  // Override agresivo solo en noche: el HTML de Outlook/Gmail pinta negros
-  // y fondos blancos que matan el contraste. Links conservan teal; media
-  // no se recolorea. Descendientes quedan transparentes (neutralizan blancos
-  // inline); el body se reafirma DESPUÉS — sin esa línea el body queda
-  // transparente, html no tiene fondo, y color-scheme:dark pinta el canvas
-  // con el negro opaco del UA (bug observado: caja negra en ambos temas).
+  // Noche: solo el canvas. No se pisan fondos/bordes de tablas — los
+  // newsletters (logos Abastible/Senegocia, firmas) asumen celdas blancas
+  // e <img> con width/height; forzar background:transparent + border en td
+  // dejaba un recuadro gris vacío donde Gmail muestra los logos.
   const nightCss = night
-    ? `body,body *:not(a):not(img):not(svg):not(video):not(source){color:${fg}!important;background-color:transparent!important}
-body{background-color:${bg}!important}
+    ? `body{background-color:${bg}!important;color:${fg}!important}
 body a,body a *{color:${link}!important}
-body table,body td,body th{border-color:${border}!important}
 body blockquote{color:${quote}!important;border-left-color:${border}!important}`
     : "";
   // Canvas a width:100%: el texto hace wrap al ancho del panel. Tablas/firmas
@@ -107,9 +103,10 @@ body{font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-se
   word-break:break-word;overflow-wrap:anywhere;overflow-x:hidden;box-sizing:border-box}
 .opai-mail-canvas{display:block;width:100%;max-width:100%;box-sizing:border-box;padding:16px 20px}
 a{color:${link};text-decoration:underline;text-underline-offset:2px}
-img{max-width:100%;height:auto}
-table{border-collapse:collapse;max-width:100%;margin:.5rem 0}
-td,th{border:1px solid ${border};padding:.35rem .5rem;vertical-align:top;word-break:break-word}
+img{max-width:100%;height:auto;border:0;outline:0}
+img[data-blocked-src]{display:none!important;width:0!important;height:0!important;max-height:0!important}
+table{border-collapse:collapse;max-width:100%}
+td,th{vertical-align:top}
 p,div,li{margin:.35em 0}
 blockquote{margin:.5rem 0;padding-left:.75rem;border-left:3px solid ${border};color:${quote}}
 ${nightCss}
@@ -117,8 +114,8 @@ ${nightCss}
 }
 
 /** Cuerpo de correo: HTML sanitizado en iframe sandbox; toggle a texto plano;
- * imágenes remotas bloqueadas por defecto con botón "Mostrar imágenes"
- * (estado de sesión por mensaje, sin persistencia). */
+ * imágenes remotas por proxy autenticado (Gmail-like). Si la preferencia no
+ * pide mostrarlas, van a placeholder colapsado + botón "Mostrar imágenes". */
 export function EmailHtmlBody({
   htmlBody,
   textBody,

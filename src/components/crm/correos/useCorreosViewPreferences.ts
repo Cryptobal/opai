@@ -325,6 +325,7 @@ function parseShortcuts(value: unknown): CorreoShortcuts | null {
 }
 
 const STORAGE_KEY = "opai.crm.correos.view.v1";
+const IMAGES_DEFAULT_MIGRATION_KEY = "opai.crm.correos.images-default.v2";
 const DEFAULT_RATIO = 0.46;
 export const MIN_PANEL_WIDTH = 420;
 /** Mínimo legible de la columna de lista en split (no ratio ciego). */
@@ -469,7 +470,7 @@ export function useCorreosViewPreferences(
   const [shortcuts, setShortcuts] = useState<CorreoShortcuts>(
     DEFAULT_CORREO_SHORTCUTS,
   );
-  const [alwaysShowImages, setAlwaysShowImages] = useState(false);
+  const [alwaysShowImages, setAlwaysShowImages] = useState(true);
   const [undoSeconds, setUndoSeconds] = useState<CorreoUndoSeconds>(
     DEFAULT_CORREO_UNDO_SECONDS,
   );
@@ -548,7 +549,21 @@ export function useCorreosViewPreferences(
     if (stored.shortcuts) {
       setShortcuts(stored.shortcuts);
     }
-    if (typeof stored.alwaysShowImages === "boolean") {
+    let imagesMigrated = false;
+    try {
+      imagesMigrated = localStorage.getItem(IMAGES_DEFAULT_MIGRATION_KEY) === "1";
+    } catch {
+      imagesMigrated = true;
+    }
+    if (!imagesMigrated) {
+      // Una vez: mostrar imágenes remotas por defecto (fidelidad Gmail).
+      setAlwaysShowImages(true);
+      try {
+        localStorage.setItem(IMAGES_DEFAULT_MIGRATION_KEY, "1");
+      } catch {
+        // Storage bloqueado: el default en memoria sigue en true.
+      }
+    } else if (typeof stored.alwaysShowImages === "boolean") {
       setAlwaysShowImages(stored.alwaysShowImages);
     }
     if (stored.undoSeconds) {

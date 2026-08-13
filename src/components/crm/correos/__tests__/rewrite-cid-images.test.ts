@@ -43,6 +43,14 @@ describe("rewriteCidImages", () => {
     expect(out).not.toContain("cid:");
   });
 
+  it("reescribe url(cid) y background=cid a la URL del adjunto", () => {
+    const html =
+      '<td background="cid:image001.jpg@01DABC" style="background-image:url(cid:image001.jpg@01DABC)"></td>';
+    const out = rewriteCidImages(html, "thread-1", [att], "msg-1");
+    expect(out).toContain("/api/crm/correos/thread-1/attachments/msg-1/att-1");
+    expect(out).not.toContain("cid:");
+  });
+
   it("deja cid sin match intacto", () => {
     const html = '<img src="cid:missing@x">';
     expect(rewriteCidImages(html, "t", [], "m")).toBe(html);
