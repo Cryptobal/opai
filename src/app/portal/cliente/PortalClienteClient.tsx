@@ -8,6 +8,8 @@ import { UnifiedLoginCard } from "@/components/auth/UnifiedLoginCard";
 import { ChatClientePortal } from "@/components/portal/cliente/ChatClientePortal";
 import { PortalDocumentos } from "@/components/portal/cliente/PortalDocumentos";
 import { PortalClienteNav, PortalSection } from "@/components/portal/cliente/PortalClienteNav";
+import { PortalSidebar } from "@/components/portal/cliente/PortalSidebar";
+import { PortalProtocolos } from "@/components/portal/cliente/PortalProtocolos";
 import { PortalDashboard } from "@/components/portal/cliente/PortalDashboard";
 import { PortalInstallations } from "@/components/portal/cliente/PortalInstallations";
 import { PortalRondas } from "@/components/portal/cliente/PortalRondas";
@@ -210,7 +212,7 @@ function PortalClienteShell() {
       case "cotizaciones":
       case "propuesta":
         return (
-          <div className="flex-1 max-w-6xl mx-auto w-full px-4 py-4 pb-24">
+          <div className="py-4">
             <PortalCotizaciones
               session={session}
               isProspect={session.isProspect}
@@ -221,6 +223,14 @@ function PortalClienteShell() {
       case "documentacion":
         return (
           <PortalDocumentos
+            session={session}
+            selectedInstallation={selectedInstallation}
+            isProspect={session.isProspect}
+          />
+        );
+      case "protocolos":
+        return (
+          <PortalProtocolos
             session={session}
             selectedInstallation={selectedInstallation}
             isProspect={session.isProspect}
@@ -273,7 +283,15 @@ function PortalClienteShell() {
   }
 
   return (
-    <div className={`flex flex-col ${activeSection === "chat" ? "h-dvh" : "min-h-dvh"}`}>
+    <div className={`flex ${activeSection === "chat" ? "h-dvh" : "min-h-dvh"}`}>
+      <PortalSidebar
+        portalConfig={portalConfig}
+        activeSection={activeSection}
+        onSection={setActiveSection}
+        isProspect={session.isProspect}
+        hasActivePresentation={session.hasActivePresentation}
+      />
+      <div className="flex flex-col flex-1 min-w-0">
       {activeSection !== "chat" && (
         <header className="flex items-center justify-between px-4 py-3 border-b border-border">
           <div className="flex items-center gap-3">
@@ -356,7 +374,7 @@ function PortalClienteShell() {
           <ChatClientePortal session={session} />
         </div>
       ) : (
-        <main className="flex-1 max-w-6xl mx-auto w-full pb-16 sm:pb-20">
+        <main className="flex-1 max-w-6xl mx-auto w-full px-4 md:px-6 pb-[var(--portal-bottom-nav-height,5rem)] md:pb-8">
           <PushPermissionPrompt
             portalType="cliente"
             userType="contact"
@@ -373,13 +391,15 @@ function PortalClienteShell() {
         </main>
       )}
 
-      <PortalClienteNav
-        portalConfig={portalConfig}
-        activeSection={activeSection}
-        onSection={setActiveSection}
-        isProspect={session.isProspect}
-        hasActivePresentation={session.hasActivePresentation}
-      />
+      <div className="md:hidden">
+        <PortalClienteNav
+          portalConfig={portalConfig}
+          activeSection={activeSection}
+          onSection={setActiveSection}
+          isProspect={session.isProspect}
+          hasActivePresentation={session.hasActivePresentation}
+        />
+      </div>
 
       <PortalNotificacionesSheet
         session={session}
@@ -395,6 +415,7 @@ function PortalClienteShell() {
       />
 
       {showTour && <TourOverlay onComplete={handleTourComplete} session={session} />}
+      </div>
     </div>
   );
 }

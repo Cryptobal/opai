@@ -20,14 +20,12 @@ export type PortalSection =
   | 'bitacora' | 'supervision'
   | 'propuesta'
 
-type NavGroup = 'operaciones' | 'mensajes' | 'analisis' | 'documentos' | 'proveedor'
+export type NavGroup = 'operacion' | 'servicio' | 'gard'
 
-const GROUP_LABELS: Record<NavGroup, string> = {
-  operaciones: 'Operaciones',
-  mensajes: 'Mensajes',
-  analisis: 'Análisis',
-  documentos: 'Documentos',
-  proveedor: 'Mi Proveedor',
+export const GROUP_LABELS: Record<NavGroup, string> = {
+  operacion: 'Operación',
+  servicio: 'Servicio',
+  gard: 'Gard',
 }
 
 const MAIN_TABS: PortalSection[] = [
@@ -38,12 +36,18 @@ const MAIN_TABS: PortalSection[] = [
   'chat',
 ]
 
-const GROUPED_ITEMS: Record<NavGroup, PortalSection[]> = {
-  operaciones: ['personal', 'instalaciones', 'marcaciones', 'posta', 'bitacora', 'supervision', 'equipamiento', 'desempeno'],
-  mensajes: ['alertas', 'encuestas'],
-  analisis: ['reportes', 'comparativa'],
-  documentos: ['documentacion', 'cotizaciones'],
-  proveedor: ['empresa', 'nosotros', 'presentacion'],
+/** Grupos del sidebar / Más. Incluye todas las secciones actuales. */
+export const GROUPED_ITEMS: Record<NavGroup, PortalSection[]> = {
+  operacion: [
+    'dashboard', 'rondas', 'marcaciones', 'posta', 'personal',
+    'instalaciones', 'control-acceso', 'equipamiento', 'desempeno',
+    'bitacora', 'supervision',
+  ],
+  servicio: [
+    'tickets', 'chat', 'cotizaciones', 'documentacion', 'protocolos',
+    'reportes', 'comparativa', 'encuestas', 'alertas', 'empresa',
+  ],
+  gard: ['nosotros', 'presentacion'],
 }
 
 type NavItem = {
@@ -53,8 +57,8 @@ type NavItem = {
   requiresPresentation?: boolean
 }
 
-const NAV_ITEMS: Record<PortalSection, NavItem> = {
-  'dashboard': { label: 'Dashboard', icon: LayoutDashboard, configKey: 'dashboard' },
+export const NAV_ITEMS: Record<PortalSection, NavItem> = {
+  'dashboard': { label: 'Inicio', icon: LayoutDashboard, configKey: 'dashboard' },
   'instalaciones': { label: 'Instalaciones', icon: Building2 },
   'instalacion-detalle': { label: 'Detalle', icon: Building2 },
   'rondas': { label: 'Rondas', icon: MapPin, configKey: 'rondas' },
@@ -79,6 +83,23 @@ const NAV_ITEMS: Record<PortalSection, NavItem> = {
   'bitacora': { label: 'Bitácora ejecutiva', icon: BookOpen, configKey: 'posta' },
   'supervision': { label: 'Supervisión', icon: Eye },
   'propuesta': { label: 'Propuesta', icon: FileCheck2 },
+}
+
+export function isItemVisible(
+  section: PortalSection,
+  portalConfig: PortalConfig,
+  hasActivePresentation?: boolean,
+): boolean {
+  const item = NAV_ITEMS[section]
+  if (!item) return false
+  if (item.configKey && !portalConfig[item.configKey]) return false
+  if (item.requiresPresentation && !hasActivePresentation) return false
+  return true
+}
+
+export function labelFor(s: PortalSection, isProspect?: boolean): string {
+  if (s === 'cotizaciones') return isProspect ? 'Propuesta' : 'Cotizaciones'
+  return NAV_ITEMS[s].label
 }
 
 interface Props {
@@ -112,25 +133,14 @@ export function PortalClienteNav({
     return () => document.removeEventListener('mousedown', handleClick)
   }, [moreOpen])
 
-  function isItemVisible(section: PortalSection): boolean {
-    const item = NAV_ITEMS[section]
-    if (!item) return false
-    if (item.configKey && !portalConfig[item.configKey]) return false
-    if (item.requiresPresentation && !hasActivePresentation) return false
-    return true
-  }
-
-  const visibleMain = MAIN_TABS.filter(isItemVisible)
-
-  function labelFor(s: PortalSection): string {
-    if (s === 'cotizaciones') return isProspect ? 'Propuesta' : 'Cotizaciones'
-    return NAV_ITEMS[s].label
-  }
+  const visibleMain = MAIN_TABS.filter((s) =>
+    isItemVisible(s, portalConfig, hasActivePresentation),
+  )
 
   const items: PlatformNavItem<NavId>[] = [
     ...visibleMain.map((id) => ({
       id: id as NavId,
-      label: labelFor(id),
+      label: labelFor(id, isProspect),
       icon: NAV_ITEMS[id].icon,
     })),
     { id: 'more', label: 'Más', icon: MoreHorizontal },
@@ -157,16 +167,22 @@ export function PortalClienteNav({
       {moreOpen && (
         <div
           ref={moreRef}
-          className="fixed right-3 bg-card opai-glass-strong-m border border-border rounded-xl shadow-xl py-2 min-w-[200px] max-w-[calc(100vw-2rem)] max-h-[70vh] overflow-y-auto z-[60]"
+          className="fixed right-3 bg-card opai-glass-strong-m border border-ds-border-default rounded-xl shadow-xl py-2 min-w-[200px] max-w-[calc(100vw-2rem)] max-h-[70vh] overflow-y-auto z-[60]"
           style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 88px)' }}
         >
           {(Object.keys(GROUPED_ITEMS) as NavGroup[]).map((group, gIdx) => {
-            const groupItems = GROUPED_ITEMS[group].filter(isItemVisible)
+            const groupItems = GROUPED_ITEMS[group].filter((s) =>
+              isItemVisible(s, portalConfig, hasActivePresentation),
+            )
             if (groupItems.length === 0) return null
+            const gard = group === 'gard'
             return (
               <div key={group}>
-                {gIdx > 0 && <div className="border-t border-border my-2" />}
-                <p className="px-4 py-1 text-[10px] text-muted-foreground uppercase tracking-wider font-medium">
+                {gIdx > 0 && <div className="border-t border-ds-border-subtle my-2" />}
+                <p className={cn(
+                  'px-4 py-1 text-[12px] uppercase tracking-wider font-medium',
+                  gard ? 'text-tint-orange-fg' : 'text-ds-text-3',
+                )}>
                   {GROUP_LABELS[group]}
                 </p>
                 {groupItems.map((id) => {
@@ -181,12 +197,16 @@ export function PortalClienteNav({
                         setMoreOpen(false)
                       }}
                       className={cn(
-                        'flex items-center gap-3 w-full px-4 py-2.5 text-sm transition-colors',
-                        active ? 'text-primary bg-primary/10' : 'text-muted-foreground hover:bg-muted',
+                        'flex items-center gap-3 w-full px-4 py-2.5 text-sm min-h-11 transition-colors',
+                        active
+                          ? gard
+                            ? 'text-tint-orange-fg bg-tint-orange'
+                            : 'text-primary bg-primary/10'
+                          : 'text-ds-text-3 hover:bg-ds-surface-2',
                       )}
                     >
                       <Icon className="h-4 w-4 flex-shrink-0" />
-                      {labelFor(id)}
+                      {labelFor(id, isProspect)}
                     </button>
                   )
                 })}
