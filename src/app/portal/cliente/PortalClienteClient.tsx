@@ -46,6 +46,7 @@ import {
   useSelectedInstallation,
 } from "@/contexts/selected-installation-context";
 import { NativePushRegistrar } from "@/lib/capacitor/NativePushRegistrar";
+import { Bell } from "lucide-react";
 
 const HEADER_LOGO_FALLBACK = "/tenants/gard/logo-blanco.svg";
 
@@ -293,46 +294,38 @@ function PortalClienteShell() {
       />
       <div className="flex flex-col flex-1 min-w-0">
       {activeSection !== "chat" && (
-        <header className="flex items-center justify-between px-4 py-3 border-b border-border">
-          <div className="flex items-center gap-3">
+        <header className="sticky top-0 z-40 flex items-center justify-between gap-3 px-4 py-2.5 border-b border-ds-border-subtle opai-glass-strong">
+          <div className="flex items-center gap-3 min-w-0">
             {session.accountLogoUrl && !headerLogoBroken ? (
               <img
                 src={session.accountLogoUrl}
                 alt=""
-                className="h-8 w-8 rounded-lg border border-white/10 bg-white/5 object-contain"
+                className="h-8 w-8 rounded-lg border border-ds-border-subtle bg-ds-surface-2 object-contain"
                 onError={() => setHeaderLogoBroken(true)}
               />
             ) : (
               <img src={headerGardLogo} alt="OPAI" className="h-8 object-contain" />
             )}
-            <div className="min-w-0">
-              <div className="flex items-center gap-1.5">
-                <h1 className="text-base font-semibold truncate">Portal OPAI</h1>
-                <span className="text-xs font-medium bg-status-info-soft text-status-info-fg px-1.5 py-0.5 rounded shrink-0">
-                  OPAI
-                </span>
-              </div>
-              <p className="text-sm text-muted-foreground truncate max-w-[200px] sm:max-w-none">
-                {session.accountName}
-              </p>
+            <div className="min-w-0 hidden sm:block">
+              <p className="text-ds-caption font-medium text-ds-text-1 truncate">{session.accountName}</p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 min-w-0">
             <InstallationSwitcher />
             <button
               type="button"
               onClick={() => setCommandOpen(true)}
               title="Buscar (⌘K)"
-              className="hidden sm:inline-flex items-center gap-1.5 text-[11px] text-muted-foreground border border-border rounded px-2 py-1 hover:bg-white/5"
+              className="hidden sm:inline-flex items-center gap-1.5 text-ds-caption text-ds-text-3 border border-ds-border-default rounded-full px-2.5 min-h-10 sm:min-h-9 hover:bg-ds-surface-2"
             >
               <span>Buscar</span>
-              <kbd className="text-[9px] bg-muted rounded px-1">⌘K</kbd>
+              <kbd className="text-ds-caption font-mono bg-ds-surface-2 rounded px-1">⌘K</kbd>
             </button>
             <button
               type="button"
               onClick={() => setCommandOpen(true)}
               aria-label="Buscar"
-              className="sm:hidden text-muted-foreground hover:text-white p-1"
+              className="sm:hidden min-h-11 min-w-11 inline-flex items-center justify-center text-ds-text-3 hover:text-ds-text-1"
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -348,10 +341,18 @@ function PortalClienteShell() {
                 <path d="m21 21-3.5-3.5" />
               </svg>
             </button>
+            <button
+              type="button"
+              onClick={() => setNotifSheetOpen(true)}
+              aria-label="Notificaciones"
+              className="relative min-h-11 min-w-11 inline-flex items-center justify-center rounded-full text-ds-text-2 hover:bg-ds-surface-2"
+            >
+              <Bell className="h-5 w-5" />
+            </button>
             {session.isProspect && (
               <button
                 onClick={() => setShowTour(true)}
-                className="text-xs text-status-info-fg border border-status-info-border rounded px-2 py-1 hover:bg-status-info-soft transition-colors"
+                className="text-ds-caption text-status-info-fg border border-status-info-border rounded-full px-2.5 min-h-10 hover:bg-status-info-soft transition-colors"
               >
                 Tour
               </button>
