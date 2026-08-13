@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { isDefaultUniform } from "@/lib/cpq-constants";
+import { hydrateQuoteCatalogLines } from "@/lib/cpq/resolve-active-catalog-item";
 import { getUfValue } from "@/lib/uf";
 import { syncContractItemForQuote } from "@/modules/finance/cashflow/generators/sales-contract-sync";
 import type {
@@ -166,6 +167,7 @@ export async function computeCpqQuoteCosts(quoteId: string): Promise<QuoteCostSu
       createdFromLeadId: true,
       contractDuration: true,
       insurancePolicyUF: true,
+      status: true,
     },
   });
   const tenantId = quote?.tenantId ?? null;
@@ -174,9 +176,9 @@ export async function computeCpqQuoteCosts(quoteId: string): Promise<QuoteCostSu
   const [
     positions,
     parameters,
-    uniformItems,
-    examItems,
-    costItems,
+    uniformItemsRaw,
+    examItemsRaw,
+    costItemsRaw,
     meals,
     vehicles,
     infrastructure,
@@ -220,6 +222,19 @@ export async function computeCpqQuoteCosts(quoteId: string): Promise<QuoteCostSu
       orderBy: { orden: "asc" },
     }),
   ]);
+
+  const uniformItems =
+    quote?.status === "draft"
+      ? hydrateQuoteCatalogLines(uniformItemsRaw, catalogItems, tenantId)
+      : uniformItemsRaw;
+  const examItems =
+    quote?.status === "draft"
+      ? hydrateQuoteCatalogLines(examItemsRaw, catalogItems, tenantId)
+      : examItemsRaw;
+  const costItems =
+    quote?.status === "draft"
+      ? hydrateQuoteCatalogLines(costItemsRaw, catalogItems, tenantId)
+      : costItemsRaw;
 
   const totalGuards = positions.reduce(
     (sum, p) => sum + Number(p.numGuards || 0) * Number(p.numPuestos || 1),

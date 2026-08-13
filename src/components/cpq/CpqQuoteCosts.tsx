@@ -262,17 +262,18 @@ export function CpqQuoteCosts({
     try {
       const [costsRes, catalogRes, settingsRes] = await Promise.all([
         fetch(`/api/cpq/quotes/${quoteId}/costs`),
-        fetch("/api/cpq/catalog?active=true"),
+        fetch(`/api/cpq/catalog?active=true&_=${Date.now()}`, { cache: "no-store" }),
         fetch("/api/cpq/settings"),
       ]);
       const costsData = await costsRes.json();
       const catalogData = await catalogRes.json();
       const settingsData = await settingsRes.json();
 
-      if (catalogData?.success) {
-        setCatalog(catalogData.data || []);
-      }
-      if (costsData?.success) {
+        const catalogList: CpqCatalogItem[] = catalogData?.success ? catalogData.data || [] : [];
+        if (catalogData?.success) {
+          setCatalog(catalogList);
+        }
+        if (costsData?.success) {
         const payload = costsData.data || {};
         setInternalSummary(payload.summary || null);
         setSkipDefaultCosts(Boolean(payload.skipDefaultCosts));
@@ -289,11 +290,8 @@ export function CpqQuoteCosts({
             mergedParams.uniformChangesPerYear ?? DEFAULT_PARAMS.uniformChangesPerYear,
           avgStayMonths: mergedParams.avgStayMonths ?? DEFAULT_PARAMS.avgStayMonths,
         });
-        const catalogById = new Map<string, { priceLogic?: string }>(
-          (catalogData?.data || []).map((c: { id: string; priceLogic?: string }) => [c.id, c])
-        );
         const uniformsWithCatalogLogic = (payload.uniforms || []).map((u: { catalogItemId: string; priceLogic?: string } & object) => {
-          const cat = catalogById.get(u.catalogItemId);
+          const cat = catalogList.find((c) => c.id === u.catalogItemId);
           const priceLogic = cat?.priceLogic ?? u.priceLogic ?? "uniform";
           return { ...u, priceLogic };
         });
@@ -510,6 +508,10 @@ export function CpqQuoteCosts({
   const catalogById = useMemo(() => {
     return new Map(catalog.map((item) => [item.id, item]));
   }, [catalog]);
+
+  const catalogItemFor = <T extends { catalogItemId?: string | null; catalogItem?: CpqCatalogItem }>(
+    line: T,
+  ) => (line.catalogItemId ? catalogById.get(line.catalogItemId) : undefined) ?? line.catalogItem;
 
   const applyDefaults = () => {
     if (defaultsApplied.current || skipDefaultCosts) return;
@@ -829,35 +831,37 @@ export function CpqQuoteCosts({
 
     for (const item of uniforms) {
       if (!item.active) continue;
-      const base = Number(item.catalogItem?.basePrice ?? 0);
+      const catalogItem = catalogItemFor(item);
+      const base = Number(catalogItem?.basePrice ?? 0);
       const override =
         item.unitPriceOverride !== null && item.unitPriceOverride !== undefined
           ? Number(item.unitPriceOverride)
           : null;
       const price = override ?? base;
-      const logic = item.priceLogic ?? item.catalogItem?.priceLogic ?? "uniform";
+      const logic = item.priceLogic ?? catalogItem?.priceLogic ?? "uniform";
 
       if (logic === "prorated") {
-        proratedCost += normalizeUnitPrice(price, item.catalogItem?.unit, cMonths);
+        proratedCost += normalizeUnitPrice(price, catalogItem?.unit, cMonths);
       } else {
-        rotatingCost += normalizeUnitPrice(price, item.catalogItem?.unit, cMonths);
+        rotatingCost += normalizeUnitPrice(price, catalogItem?.unit, cMonths);
       }
     }
 
     const changes = parameters.uniformChangesPerYear ?? DEFAULT_PARAMS.uniformChangesPerYear;
     const guards = summary?.totalGuards ?? 0;
     return guards > 0 ? (((rotatingCost * changes) / 12) + proratedCost) * guards : 0;
-  }, [uniforms, parameters.uniformChangesPerYear, parameters.contractMonths, summary?.totalGuards]);
+  }, [uniforms, parameters.uniformChangesPerYear, parameters.contractMonths, summary?.totalGuards, catalogById]);
 
   const examTotal = useMemo(() => {
     const total = exams.reduce((sum, item) => {
       if (!item.active) return sum;
-      const base = Number(item.catalogItem?.basePrice ?? 0);
+      const catalogItem = catalogItemFor(item);
+      const base = Number(catalogItem?.basePrice ?? 0);
       const override =
         item.unitPriceOverride !== null && item.unitPriceOverride !== undefined
           ? Number(item.unitPriceOverride)
           : null;
-      const unitPrice = normalizeUnitPrice(override ?? base, item.catalogItem?.unit);
+      const unitPrice = normalizeUnitPrice(override ?? base, catalogItem?.unit);
       return sum + unitPrice;
     }, 0);
     const avgStay = parameters.avgStayMonths ?? DEFAULT_PARAMS.avgStayMonths;
@@ -866,7 +870,7 @@ export function CpqQuoteCosts({
     const examFrequency = Math.max(entriesPerYear, uniformChanges);
     const guards = summary?.totalGuards ?? 0;
     return guards > 0 ? ((total * examFrequency) / 12) * guards : 0;
-  }, [exams, parameters.avgStayMonths, parameters.uniformChangesPerYear, summary?.totalGuards]);
+  }, [exams, parameters.avgStayMonths, parameters.uniformChangesPerYear, summary?.totalGuards, catalogById]);
 
   const mealTotal = useMemo(() => {
     return meals.reduce((sum, meal) => {
@@ -1292,12 +1296,13 @@ export function CpqQuoteCosts({
       {isOpen("uniforms") && (
         <div className="px-4 pb-3">
           <div className="grid grid-cols-[repeat(auto-fill,minmax(170px,1fr))] gap-2">
-            {(catalogByType.uniform || [])
-              .filter((item) => uniforms.find((u) => u.catalogItemId === item.id && u.active))
-              .map((item) => {
-                const sel = uniforms.find((u) => u.catalogItemId === item.id);
+            {uniforms
+              .filter((u) => u.active)
+              .map((sel) => {
+                const item = catalogItemFor(sel);
+                if (!item) return null;
                 return (
-                  <div key={item.id}>
+                  <div key={sel.catalogItemId ?? item.id}>
                     {renderSimpleItemCard(
                       item,
                       sel,
@@ -1333,12 +1338,13 @@ export function CpqQuoteCosts({
       {isOpen("exams") && (
         <div className="px-4 pb-3">
           <div className="grid grid-cols-[repeat(auto-fill,minmax(170px,1fr))] gap-2">
-            {(catalogByType.exam || [])
-              .filter((item) => exams.find((u) => u.catalogItemId === item.id && u.active))
-              .map((item) => {
-                const sel = exams.find((u) => u.catalogItemId === item.id);
+            {exams
+              .filter((e) => e.active)
+              .map((sel) => {
+                const item = catalogItemFor(sel);
+                if (!item) return null;
                 return (
-                  <div key={item.id}>
+                  <div key={sel.catalogItemId ?? item.id}>
                     {renderSimpleItemCard(
                       item,
                       sel,

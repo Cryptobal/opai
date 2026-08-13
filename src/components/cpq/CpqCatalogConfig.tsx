@@ -20,6 +20,7 @@ import {
 import { ArrowLeft, Save, Plus, Trash2, ChevronDown, Info } from "lucide-react";
 import { toast } from "sonner";
 import { formatNumber, parseLocalizedNumber, cn } from "@/lib/utils";
+import { catalogUnitOptions, defaultCatalogUnit } from "@/lib/cpq/catalog-units";
 
 type CatalogItem = {
   id: string;
@@ -79,12 +80,33 @@ type NewItemState = {
 const makeNewItemState = (type: string): NewItemState => ({
   type,
   name: "",
-  unit: "mes",
+  unit: defaultCatalogUnit(type),
   basePrice: "",
   isDefault: false,
   defaultTechnicalSpecs: "",
   priceLogic: "uniform",
 });
+
+function catalogUnitLabel(unit: string): string {
+  switch (unit) {
+    case "examen":
+      return "Examen";
+    case "unidad":
+      return "Unidad";
+    case "comida":
+      return "Comida";
+    case "mes":
+      return "Mes";
+    case "semestre":
+      return "Semestre";
+    case "año":
+      return "Año";
+    case "contrato":
+      return "Contrato";
+    default:
+      return unit;
+  }
+}
 
 export function CpqCatalogConfig({ showHeader = true }: { showHeader?: boolean }) {
   const [items, setItems] = useState<CatalogItem[]>([]);
@@ -615,18 +637,14 @@ export function CpqCatalogConfig({ showHeader = true }: { showHeader?: boolean }
                               <div className="flex items-center gap-2 text-xs">
                                 <select
                                   className="flex h-9 rounded-md border border-border bg-card px-2 text-xs text-foreground"
-                                  value={
-                                    item.unit === "año" ? "año"
-                                    : item.unit === "semestre" ? "semestre"
-                                    : item.unit === "contrato" ? "contrato"
-                                    : "mes"
-                                  }
+                                  value={item.unit || defaultCatalogUnit(item.type)}
                                   onChange={(e) => updateItemLocal(item.id, { unit: e.target.value })}
                                 >
-                                  <option value="mes">Mes</option>
-                                  <option value="semestre">Semestre</option>
-                                  <option value="año">Año</option>
-                                  <option value="contrato">Contrato</option>
+                                  {catalogUnitOptions(item.type, item.unit).map((unit) => (
+                                    <option key={unit} value={unit}>
+                                      {catalogUnitLabel(unit)}
+                                    </option>
+                                  ))}
                                 </select>
                                 <label className="flex items-center gap-2">
                                   <input
@@ -719,15 +737,7 @@ export function CpqCatalogConfig({ showHeader = true }: { showHeader?: boolean }
                     <div className="flex items-center gap-2 sm:justify-end">
                       <select
                         className="flex h-9 rounded-md border border-border bg-card px-2 text-xs text-foreground"
-                        value={
-                          newItems[group.id]?.unit === "año"
-                            ? "año"
-                            : newItems[group.id]?.unit === "semestre"
-                            ? "semestre"
-                            : newItems[group.id]?.unit === "contrato"
-                            ? "contrato"
-                            : "mes"
-                        }
+                        value={newItems[group.id]?.unit || defaultCatalogUnit(newItems[group.id]?.type || group.types[0])}
                         onChange={(e) =>
                           setNewItems((prev) => ({
                             ...prev,
@@ -735,10 +745,14 @@ export function CpqCatalogConfig({ showHeader = true }: { showHeader?: boolean }
                           }))
                         }
                       >
-                        <option value="mes">Mes</option>
-                        <option value="semestre">Semestre</option>
-                        <option value="año">Año</option>
-                        <option value="contrato">Contrato</option>
+                        {catalogUnitOptions(
+                          newItems[group.id]?.type || group.types[0],
+                          newItems[group.id]?.unit,
+                        ).map((unit) => (
+                          <option key={unit} value={unit}>
+                            {catalogUnitLabel(unit)}
+                          </option>
+                        ))}
                       </select>
                       <Button
                         size="sm"
