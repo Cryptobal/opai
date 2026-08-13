@@ -54,7 +54,7 @@ export function PortalSidebar({
             <div key={group}>
               <p
                 className={cn(
-                  'hidden min-[1240px]:block px-2 mb-1.5 text-[12px] font-semibold uppercase tracking-wider',
+                  'hidden min-[1240px]:block px-2 mb-1.5 text-ds-caption font-semibold uppercase tracking-wider',
                   gard ? 'text-tint-orange-fg' : 'text-ds-text-4',
                 )}
               >

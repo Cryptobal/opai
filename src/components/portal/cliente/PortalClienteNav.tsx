@@ -8,8 +8,9 @@ import {
 } from 'lucide-react'
 import { PortalConfig } from '@/lib/portal-cliente-types'
 import { cn } from '@/lib/utils'
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 import { PlatformAwareBottomNav, type NavItem as PlatformNavItem } from '@/components/opai/portal-shell'
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 
 export type PortalSection =
   | 'dashboard' | 'instalaciones' | 'instalacion-detalle' | 'rondas' | 'posta' | 'chat'
@@ -28,13 +29,52 @@ export const GROUP_LABELS: Record<NavGroup, string> = {
   gard: 'Gard',
 }
 
-const MAIN_TABS: PortalSection[] = [
+const SKIP_MAIN: ReadonlySet<PortalSection> = new Set(['instalacion-detalle', 'propuesta'])
+
+const MAIN_TAB_PREFERRED: PortalSection[] = [
   'dashboard',
   'rondas',
-  'control-acceso',
+  'personal',
   'tickets',
-  'chat',
 ]
+
+/** 4 tabs visibles: sustituye slots ocultos por el siguiente ítem visible. */
+export function resolveMainTabs(
+  portalConfig: PortalConfig,
+  isProspect?: boolean,
+  hasActivePresentation?: boolean,
+): PortalSection[] {
+  const preferred: PortalSection[] = [
+    'dashboard',
+    'rondas',
+    'personal',
+    isProspect ? 'cotizaciones' : 'tickets',
+  ]
+  const visible = (s: PortalSection) => isItemVisible(s, portalConfig, hasActivePresentation)
+  const result: PortalSection[] = []
+  const used = new Set<PortalSection>()
+  for (const s of preferred) {
+    if (visible(s) && !used.has(s)) {
+      result.push(s)
+      used.add(s)
+    }
+  }
+  if (result.length < 4) {
+    const fallback = [
+      ...MAIN_TAB_PREFERRED,
+      ...GROUPED_ITEMS.operacion,
+      ...GROUPED_ITEMS.servicio,
+      ...GROUPED_ITEMS.gard,
+    ]
+    for (const s of fallback) {
+      if (result.length >= 4) break
+      if (SKIP_MAIN.has(s) || !visible(s) || used.has(s)) continue
+      result.push(s)
+      used.add(s)
+    }
+  }
+  return result
+}
 
 /** Grupos del sidebar / Más. Incluye todas las secciones actuales. */
 export const GROUPED_ITEMS: Record<NavGroup, PortalSection[]> = {
@@ -120,22 +160,7 @@ export function PortalClienteNav({
   hasActivePresentation,
 }: Props) {
   const [moreOpen, setMoreOpen] = useState(false)
-  const moreRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    if (!moreOpen) return
-    function handleClick(e: MouseEvent) {
-      if (moreRef.current && !moreRef.current.contains(e.target as Node)) {
-        setMoreOpen(false)
-      }
-    }
-    document.addEventListener('mousedown', handleClick)
-    return () => document.removeEventListener('mousedown', handleClick)
-  }, [moreOpen])
-
-  const visibleMain = MAIN_TABS.filter((s) =>
-    isItemVisible(s, portalConfig, hasActivePresentation),
-  )
+  const visibleMain = resolveMainTabs(portalConfig, isProspect, hasActivePresentation)
 
   const items: PlatformNavItem<NavId>[] = [
     ...visibleMain.map((id) => ({
@@ -156,65 +181,71 @@ export function PortalClienteNav({
         items={items}
         activeId={activeId}
         onSelect={(id) => {
-          if (id === 'more') {
-            setMoreOpen((prev) => !prev)
-          } else {
+          if (id === 'more') setMoreOpen(true)
+          else {
             onSection(id)
             setMoreOpen(false)
           }
         }}
       />
-      {moreOpen && (
-        <div
-          ref={moreRef}
-          className="fixed right-3 bg-card opai-glass-strong-m border border-ds-border-default rounded-xl shadow-xl py-2 min-w-[200px] max-w-[calc(100vw-2rem)] max-h-[70vh] overflow-y-auto z-[60]"
-          style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 88px)' }}
+      <Sheet open={moreOpen} onOpenChange={setMoreOpen}>
+        <SheetContent
+          side="bottom"
+          surface="glass-island"
+          overlayClassName="bg-black/35"
+          className="max-h-[min(80dvh,640px)] overflow-y-auto px-4 pt-4"
         >
-          {(Object.keys(GROUPED_ITEMS) as NavGroup[]).map((group, gIdx) => {
-            const groupItems = GROUPED_ITEMS[group].filter((s) =>
-              isItemVisible(s, portalConfig, hasActivePresentation),
-            )
-            if (groupItems.length === 0) return null
-            const gard = group === 'gard'
-            return (
-              <div key={group}>
-                {gIdx > 0 && <div className="border-t border-ds-border-subtle my-2" />}
-                <p className={cn(
-                  'px-4 py-1 text-[12px] uppercase tracking-wider font-medium',
-                  gard ? 'text-tint-orange-fg' : 'text-ds-text-3',
-                )}>
-                  {GROUP_LABELS[group]}
-                </p>
-                {groupItems.map((id) => {
-                  const item = NAV_ITEMS[id]
-                  const Icon = item.icon
-                  const active = activeSection === id
-                  return (
-                    <button
-                      key={id}
-                      onClick={() => {
-                        onSection(id)
-                        setMoreOpen(false)
-                      }}
-                      className={cn(
-                        'flex items-center gap-3 w-full px-4 py-2.5 text-sm min-h-11 transition-colors',
-                        active
-                          ? gard
-                            ? 'text-tint-orange-fg bg-tint-orange'
-                            : 'text-primary bg-primary/10'
-                          : 'text-ds-text-3 hover:bg-ds-surface-2',
-                      )}
-                    >
-                      <Icon className="h-4 w-4 flex-shrink-0" />
-                      {labelFor(id, isProspect)}
-                    </button>
-                  )
-                })}
-              </div>
-            )
-          })}
-        </div>
-      )}
+          <SheetHeader className="text-left mb-3">
+            <SheetTitle className="font-display text-ds-title">Más secciones</SheetTitle>
+          </SheetHeader>
+          <div className="space-y-4 pb-[max(env(safe-area-inset-bottom),1.5rem)]">
+            {(Object.keys(GROUPED_ITEMS) as NavGroup[]).map((group) => {
+              const groupItems = GROUPED_ITEMS[group].filter((s) =>
+                isItemVisible(s, portalConfig, hasActivePresentation),
+              )
+              if (groupItems.length === 0) return null
+              const gard = group === 'gard'
+              return (
+                <div key={group}>
+                  <p className={cn(
+                    'px-1 mb-1.5 text-ds-caption font-semibold uppercase tracking-wider',
+                    gard ? 'text-tint-orange-fg' : 'text-ds-text-3',
+                  )}>
+                    {GROUP_LABELS[group]}
+                  </p>
+                  <div className="grid grid-cols-1 gap-0.5">
+                    {groupItems.map((id) => {
+                      const Icon = NAV_ITEMS[id].icon
+                      const active = activeSection === id
+                      return (
+                        <button
+                          key={id}
+                          type="button"
+                          onClick={() => {
+                            onSection(id)
+                            setMoreOpen(false)
+                          }}
+                          className={cn(
+                            'flex items-center gap-3 w-full px-3 min-h-11 rounded-xl text-sm transition-colors',
+                            active
+                              ? gard
+                                ? 'text-tint-orange-fg bg-tint-orange'
+                                : 'text-primary bg-primary/10'
+                              : 'text-ds-text-2 hover:bg-ds-surface-2',
+                          )}
+                        >
+                          <Icon className="h-4 w-4 shrink-0" />
+                          {labelFor(id, isProspect)}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </SheetContent>
+      </Sheet>
     </>
   )
 }
