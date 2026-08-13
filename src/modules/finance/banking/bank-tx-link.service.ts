@@ -3356,6 +3356,24 @@ export async function confirmSuggestion(
   const isIncome = tx.amount.toNumber() > 0;
   const amountAbs = Math.abs(tx.amount.toNumber());
 
+  // Si la sugerencia viene de una regla FLOW_ROW, persistir flow_row_id
+  // (misma semántica que clasificar a fila — evita ambigüedad por accountPlanId compartido).
+  let flowRowId: string | null = null;
+  if (tx.suggestedRuleId) {
+    const rule = await prisma.financeAutoMatchRule.findFirst({
+      where: { id: tx.suggestedRuleId, tenantId },
+      select: { action: true },
+    });
+    const action = rule?.action as { kind?: string; flowRowId?: string } | null;
+    if (action?.kind === "FLOW_ROW" && typeof action.flowRowId === "string") {
+      const row = await prisma.financeFlowRow.findFirst({
+        where: { id: action.flowRowId, tenantId, archivedAt: null },
+        select: { id: true },
+      });
+      flowRowId = row?.id ?? null;
+    }
+  }
+
   await prisma.$transaction(async (tx2: Prisma.TransactionClient) => {
     await tx2.financeBankTransactionLink.create({
       data: {
@@ -3365,6 +3383,7 @@ export async function confirmSuggestion(
         targetId: null,
         amount: new Decimal(amountAbs),
         accountPlanId: tx.suggestedAccountPlanId!,
+        flowRowId,
         note: "Auto-match autorizado por regla",
         matchSource: tx.suggestedRuleId ? "RULE" : "INFERRED",
         matchedByRuleId: tx.suggestedRuleId ?? null,
