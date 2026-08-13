@@ -53,9 +53,16 @@ vi.mock("@/modules/finance/banking/flow-row-account-plan.service", () => ({
   resolveAccountPlanIdForFlowRow: vi.fn(async () => "plan-acreedores-003"),
 }));
 
-vi.mock("@/modules/finance/banking/bank-tx-link.service", () => ({
-  setTransactionLinks: setTransactionLinksMock,
-}));
+vi.mock("@/modules/finance/banking/bank-tx-link.service", async (importOriginal) => {
+  const actual =
+    await importOriginal<
+      typeof import("@/modules/finance/banking/bank-tx-link.service")
+    >();
+  return {
+    ...actual,
+    setTransactionLinks: setTransactionLinksMock,
+  };
+});
 
 vi.mock("@/modules/finance/banking/automatch-rule.service", () => ({
   findMatchingRule: vi.fn(),
@@ -175,6 +182,64 @@ describe("POST classify-suggestions — flowRowId estable (repro Carlos Irigoyen
     expect(links[0]!.flowRowId).not.toBe(ROW_APORTE);
     expect(links[0]!.accountPlanId).toBe("plan-acreedores-003");
     expect(links[0]!.note).toContain("Devolución a socios");
+  });
+
+  it("re-clasifica MATCHED con link EXPENSE previo y persiste flowRowId Devolución", async () => {
+    bankTxLinkFindMany.mockResolvedValue([
+      {
+        bankTransactionId: TX_ID,
+        targetType: "EXPENSE",
+      },
+    ]);
+
+    const res = await makePost({
+      kind: "FLOW_ROW",
+      flowRowId: ROW_DEVOL,
+      learnRule: "NONE",
+    });
+    const json = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(json.success).toBe(true);
+    expect(json.data.classified).toBe(1);
+    expect(json.data.failed).toBe(0);
+
+    expect(setTransactionLinksMock).toHaveBeenCalledTimes(1);
+    const [, txId, userId, links] = setTransactionLinksMock.mock.calls[0] as [
+      string,
+      string,
+      string,
+      Array<{ flowRowId?: string; accountPlanId?: string; targetType?: string }>,
+    ];
+    expect(txId).toBe(TX_ID);
+    expect(userId).toBe(USER);
+    expect(links).toHaveLength(1);
+    expect(links[0]!.targetType).toBe("EXPENSE");
+    expect(links[0]!.flowRowId).toBe(ROW_DEVOL);
+    expect(links[0]!.accountPlanId).toBe("plan-acreedores-003");
+  });
+
+  it("rechaza re-clasificar si el vínculo previo es DTE (no desconciliar)", async () => {
+    bankTxLinkFindMany.mockResolvedValue([
+      {
+        bankTransactionId: TX_ID,
+        targetType: "DTE_RECEIVED",
+      },
+    ]);
+
+    const res = await makePost({
+      kind: "FLOW_ROW",
+      flowRowId: ROW_DEVOL,
+      learnRule: "NONE",
+    });
+    const json = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(json.success).toBe(true);
+    expect(json.data.classified).toBe(0);
+    expect(json.data.failed).toBe(1);
+    expect(json.data.errors[0]?.message).toMatch(/no se sobrescribe/i);
+    expect(setTransactionLinksMock).not.toHaveBeenCalled();
   });
 
   it("rechaza flowRowId inválido (no UUID) antes de persistir", async () => {

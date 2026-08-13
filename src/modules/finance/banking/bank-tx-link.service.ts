@@ -225,6 +225,25 @@ async function recomputeDtePaymentAggregate(
 
 // ── Tipos ──
 
+/** Tipos de link que representan clasificación a fila de flujo (sin DTE/factoring). */
+const FLOW_ROW_CLASSIFY_TARGET_TYPES: ReadonlySet<FinanceLinkTarget> = new Set([
+  "EXPENSE",
+  "INCOME",
+]);
+
+/**
+ * ¿Se puede (re)clasificar a fila de flujo sin desconciliar?
+ * Verdadero si no hay links o todos son EXPENSE/INCOME puros.
+ */
+export function canReclassifyToFlowRow(
+  links: Array<{ targetType: FinanceLinkTarget | string }>,
+): boolean {
+  if (links.length === 0) return true;
+  return links.every((l) =>
+    FLOW_ROW_CLASSIFY_TARGET_TYPES.has(l.targetType as FinanceLinkTarget),
+  );
+}
+
 export interface BankTxLinkInput {
   targetType: FinanceLinkTarget;
   targetId?: string | null;

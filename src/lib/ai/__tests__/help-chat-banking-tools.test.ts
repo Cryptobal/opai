@@ -47,11 +47,18 @@ vi.mock("@/modules/finance/banking/bank-transaction.service", () => ({
   listBankTransactions: vi.fn(),
 }));
 
-vi.mock("@/modules/finance/banking/bank-tx-link.service", () => ({
-  listTransactionLinks: vi.fn(),
-  confirmAllSuggestions: vi.fn(),
-  setTransactionLinks: vi.fn(),
-}));
+vi.mock("@/modules/finance/banking/bank-tx-link.service", async (importOriginal) => {
+  const actual =
+    await importOriginal<
+      typeof import("@/modules/finance/banking/bank-tx-link.service")
+    >();
+  return {
+    ...actual,
+    listTransactionLinks: vi.fn(),
+    confirmAllSuggestions: vi.fn(),
+    setTransactionLinks: vi.fn(),
+  };
+});
 
 vi.mock("@/modules/finance/banking/flow-row-account-plan.service", () => ({
   resolveAccountPlanIdForFlowRow: vi.fn(),
@@ -241,6 +248,7 @@ describe("preview + classify flow row", () => {
     vi.mocked(prisma.financeFlowRow.findMany).mockReset();
     vi.mocked(prisma.financeBankTransaction.findFirst).mockReset();
     vi.mocked(prisma.financeBankTransactionLink.count).mockReset();
+    vi.mocked(prisma.financeBankTransactionLink.findMany).mockReset();
     vi.mocked(prisma.financeBankTransactionLink.findFirst).mockReset();
     vi.mocked(prisma.financeAccountPlan.findFirst).mockReset();
     vi.mocked(prisma.aiActionLog.create).mockResolvedValue({} as never);
@@ -272,7 +280,7 @@ describe("preview + classify flow row", () => {
       reconciliationStatus: "UNMATCHED",
       bankAccountId: "acc-1",
     } as never);
-    vi.mocked(prisma.financeBankTransactionLink.count).mockResolvedValue(0);
+    vi.mocked(prisma.financeBankTransactionLink.findMany).mockResolvedValue([]);
     vi.mocked(resolveAccountPlanIdForFlowRow).mockResolvedValue("plan-shared");
     vi.mocked(prisma.financeAccountPlan.findFirst).mockResolvedValue({
       code: "2.1.01.003",
@@ -315,6 +323,56 @@ describe("preview + classify flow row", () => {
           accountPlanId: "plan-shared",
           targetType: "EXPENSE",
           matchSource: "MANUAL",
+        }),
+      ]),
+    );
+  });
+
+  it("re-clasifica MATCHED con link EXPENSE previo (MCP classify)", async () => {
+    vi.mocked(prisma.financeFlowRow.findFirst).mockResolvedValue({
+      id: "row-devol",
+      name: "Devolución a socios",
+      section: "FINANCIAMIENTO",
+      categoryId: "cat-devol",
+    } as never);
+    vi.mocked(prisma.financeBankTransaction.findFirst).mockResolvedValue({
+      id: "tx-matched",
+      amount: -2_000_000,
+      description: "TRF CARLOS IRIGOYEN",
+      reconciliationStatus: "MATCHED",
+      bankAccountId: "acc-1",
+    } as never);
+    vi.mocked(prisma.financeBankTransactionLink.findMany).mockResolvedValue([
+      { targetType: "EXPENSE" },
+    ] as never);
+    vi.mocked(resolveAccountPlanIdForFlowRow).mockResolvedValue("plan-shared");
+    vi.mocked(setTransactionLinks).mockResolvedValue(undefined as never);
+    vi.mocked(prisma.financeBankTransactionLink.findFirst).mockResolvedValue({
+      id: "link-1",
+      flowRowId: "row-devol",
+      accountPlanId: "plan-shared",
+    } as never);
+
+    const applied = (await toolClassifyBankToFlowRow("t1", "u1", permsFull, {
+      transactionId: "tx-matched",
+      flowRowId: "row-devol",
+      learnRule: "NONE",
+    })) as {
+      ok: true;
+      data: { persistedFlowRowId: string; flowRowId: string };
+    };
+
+    expect(applied.ok).toBe(true);
+    expect(applied.data.flowRowId).toBe("row-devol");
+    expect(setTransactionLinks).toHaveBeenCalledWith(
+      "t1",
+      "tx-matched",
+      "u1",
+      expect.arrayContaining([
+        expect.objectContaining({
+          flowRowId: "row-devol",
+          accountPlanId: "plan-shared",
+          targetType: "EXPENSE",
         }),
       ]),
     );
