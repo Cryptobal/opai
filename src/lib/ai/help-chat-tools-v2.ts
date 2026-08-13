@@ -109,19 +109,16 @@ import {
 import {
   bankingReadToolDefinitions,
   bankingWriteToolDefinitions,
-  toolAuthorizeBankSuggestions,
-  toolClassifyBankMovement,
-  toolFlowCashflowInsights,
-  toolGetBankClassifySuggestions,
-  toolGetBankMovementDetail,
-  toolGetBankMovementTriage,
-  toolGetBankReconcileCandidates,
-  toolListBankAccounts,
+  BANKING_PREVIEW_TO_CONFIRM,
+  BANKING_WRITE_TOOL_LABELS,
   toolListBankMovements,
-  toolListBankStatementImports,
-  toolPreviewAuthorizeBankSuggestions,
-  toolPreviewClassifyBankMovement,
-  toolSearchFlowRows,
+  toolGetBankMovement,
+  toolGetBankTriageSummary,
+  toolListFlowRows,
+  toolPreviewClassifyBankToFlowRow,
+  toolClassifyBankToFlowRow,
+  toolPreviewAuthorizeBankMovements,
+  toolAuthorizeBankMovements,
 } from "@/lib/ai/help-chat-banking-tools";
 import {
   aiTool_get_quote_share_link,
@@ -580,10 +577,22 @@ function v2ToolDefinitions() {
         description:
           "Planilla de flujo de caja (v3/v4): saldos proyectados, KPIs (saldo hoy, mínimo), " +
           "semanas selladas y montos por fila/semana (plan/comprometido/real) del tenant. " +
-          "Usar para preguntas como '¿cuándo quedo en rojo?', saldo proyectado, ingresos/egresos de la planilla. Solo lectura; sin IDs internos.",
+          "Opcional: includeBalanceBreaks (quiebres de saldo vs semana sellada) e includeRowAccounts " +
+          "(filas con cuenta contable primaria / FinanceFlowRowAccount). " +
+          "Usar para '¿cuándo quedo en rojo?', saldo proyectado, desviaciones. Solo lectura.",
         parameters: {
           type: "object",
-          properties: {},
+          properties: {
+            includeBalanceBreaks: {
+              type: "boolean",
+              description: "Si true, incluye quiebres de saldo (balanceBreaks) por columna.",
+            },
+            includeRowAccounts: {
+              type: "boolean",
+              description:
+                "Si true, lista filas activas con flowRowId y cuenta primaria (útil antes de clasificar bancos).",
+            },
+          },
           additionalProperties: false,
         },
       },
@@ -2310,14 +2319,7 @@ export const PREVIEW_TO_CONFIRM: Record<string, { confirmToolName: string; label
   preview_update_quote_position: { confirmToolName: "update_quote_position", label: "Actualizar puesto de la cotización" },
   preview_remove_quote_position: { confirmToolName: "remove_quote_position", label: "Eliminar puesto de la cotización" },
   preview_bulk_update_installations: { confirmToolName: "bulk_update_installations", label: "Actualizar instalaciones en lote" },
-  preview_classify_bank_movement: {
-    confirmToolName: "classify_bank_movement",
-    label: "Clasificar movimiento bancario a fila del flujo",
-  },
-  preview_authorize_bank_suggestions: {
-    confirmToolName: "authorize_bank_suggestions",
-    label: "Autorizar sugerencias bancarias pendientes",
-  },
+  ...BANKING_PREVIEW_TO_CONFIRM,
 };
 
 /**
@@ -2359,8 +2361,6 @@ export const WRITE_TOOL_LABELS: Record<string, string> = {
   update_invoice_draft_refs: "Actualizar referencias HES/OC del borrador",
   update_recurring_invoice_refs: "Actualizar referencias HES/OC de la plantilla",
   create_factoring_company: "Crear empresa de factoring",
-  classify_bank_movement: "Clasificar movimiento bancario a fila del flujo",
-  authorize_bank_suggestions: "Autorizar sugerencias bancarias pendientes",
   create_ticket: "Crear ticket",
   create_reminder: "Crear recordatorio",
   complete_reminder: "Completar recordatorio",
@@ -2370,6 +2370,7 @@ export const WRITE_TOOL_LABELS: Record<string, string> = {
   reassign_ticket: "Reasignar ticket",
   change_ticket_priority: "Cambiar prioridad de ticket",
   bulk_update_installations: "Actualizar instalaciones en lote",
+  ...BANKING_WRITE_TOOL_LABELS,
 };
 
 /** Descripción humana corta de una escritura diferida para la tarjeta de Slack. */
@@ -2435,7 +2436,11 @@ const WRITE_SECTION_FORCE_WRITE: ReadonlySet<string> = new Set([]);
  * solo para el texto de la tarjeta.
  */
 export const WRITE_TOOL_NAMES: ReadonlySet<string> = new Set(
-  [...writeToolDefinitions(), ...billingDraftWriteToolDefinitions(), ...bankingWriteToolDefinitions()]
+  [
+    ...writeToolDefinitions(),
+    ...billingDraftWriteToolDefinitions(),
+    ...bankingWriteToolDefinitions(),
+  ]
     .map((d) => d.function.name)
     .filter(
       (n) =>
@@ -8430,32 +8435,29 @@ export async function executeToolCallV2(
   if (toolName === "update_recurring_invoice_refs") {
     return await toolUpdateRecurringInvoiceRefs(tenantId, userId, perms, args);
   }
-  if (toolName === "list_bank_accounts") return await toolListBankAccounts(tenantId, perms);
-  if (toolName === "list_bank_movements") return await toolListBankMovements(tenantId, perms, args);
-  if (toolName === "get_bank_movement_detail") return await toolGetBankMovementDetail(tenantId, perms, args);
-  if (toolName === "get_bank_movement_triage") return await toolGetBankMovementTriage(tenantId, perms, args);
-  if (toolName === "get_bank_classify_suggestions") {
-    return await toolGetBankClassifySuggestions(tenantId, perms, args);
+  if (toolName === "list_bank_movements") {
+    return await toolListBankMovements(tenantId, perms, args);
   }
-  if (toolName === "get_bank_reconcile_candidates") {
-    return await toolGetBankReconcileCandidates(tenantId, perms, args);
+  if (toolName === "get_bank_movement") {
+    return await toolGetBankMovement(tenantId, perms, args);
   }
-  if (toolName === "list_bank_statement_imports") {
-    return await toolListBankStatementImports(tenantId, perms, args);
+  if (toolName === "get_bank_triage_summary") {
+    return await toolGetBankTriageSummary(tenantId, perms, args);
   }
-  if (toolName === "search_flow_rows") return await toolSearchFlowRows(tenantId, perms, args);
-  if (toolName === "flow_cashflow_insights") return await toolFlowCashflowInsights(tenantId, perms);
-  if (toolName === "preview_classify_bank_movement") {
-    return await toolPreviewClassifyBankMovement(tenantId, userId, perms, args);
+  if (toolName === "list_flow_rows") {
+    return await toolListFlowRows(tenantId, perms, args);
   }
-  if (toolName === "classify_bank_movement") {
-    return await toolClassifyBankMovement(tenantId, userId, perms, args);
+  if (toolName === "preview_classify_bank_to_flow_row") {
+    return await toolPreviewClassifyBankToFlowRow(tenantId, userId, perms, args);
   }
-  if (toolName === "preview_authorize_bank_suggestions") {
-    return await toolPreviewAuthorizeBankSuggestions(tenantId, userId, perms, args);
+  if (toolName === "classify_bank_to_flow_row") {
+    return await toolClassifyBankToFlowRow(tenantId, userId, perms, args);
   }
-  if (toolName === "authorize_bank_suggestions") {
-    return await toolAuthorizeBankSuggestions(tenantId, userId, perms, args);
+  if (toolName === "preview_authorize_bank_movements") {
+    return await toolPreviewAuthorizeBankMovements(tenantId, userId, perms, args);
+  }
+  if (toolName === "authorize_bank_movements") {
+    return await toolAuthorizeBankMovements(tenantId, userId, perms, args);
   }
   if (toolName === "search_emails" || toolName === "search_emails_semantic") {
     return await toolSearchEmails(tenantId, userId, args, perms);
@@ -8631,7 +8633,82 @@ export async function executeToolCallV2(
             "@/modules/finance/flow-v3/chat-context"
           );
           const overview = await buildFlowChatContext(tenantId);
-          return { ok: true, data: { overview } };
+          const data: Record<string, unknown> = { overview };
+
+          if (args.includeBalanceBreaks === true) {
+            const { buildFlowMatrix } = await import(
+              "@/modules/finance/flow-v3/matrix.service"
+            );
+            const { addWeeksUTC, weekStartYmd, ymdToDate } = await import(
+              "@/modules/finance/flow-v3/weeks"
+            );
+            const today = new Date();
+            const fromMonday = weekStartYmd(today);
+            const fromDate = ymdToDate(fromMonday)!;
+            const toDate = addWeeksUTC(fromDate, 11);
+            const m = await buildFlowMatrix(tenantId, {
+              from: fromDate,
+              to: toDate,
+              granularity: "week",
+            });
+            data.kpis = {
+              saldoHoy: Math.round(m.kpis.saldoHoy),
+              minBalance: Math.round(m.kpis.minBalance),
+              minWeek: m.kpis.minWeek,
+              openingBalance: Math.round(m.openingBalance),
+              warnThreshold: Math.round(m.warnThreshold),
+            };
+            data.balanceBreaks = m.columns.map((col, i) => {
+              const br = m.balanceBreaks[i];
+              if (!br) return { weekStart: col.weekStart, label: col.label, break: null };
+              return {
+                weekStart: col.weekStart,
+                label: col.label,
+                break: { vsWeek: br.vsWeek, delta: Math.round(br.delta) },
+              };
+            });
+          }
+
+          if (args.includeRowAccounts === true) {
+            const rows = await prisma.financeFlowRow.findMany({
+              where: { tenantId, archivedAt: null },
+              select: {
+                id: true,
+                name: true,
+                section: true,
+                canonicalKey: true,
+                accountMappings: {
+                  where: { isPrimary: true },
+                  take: 1,
+                  select: {
+                    accountPlanId: true,
+                    accountPlan: { select: { code: true, name: true } },
+                  },
+                },
+              },
+              orderBy: [{ section: "asc" }, { orderIndex: "asc" }],
+              take: 120,
+            });
+            data.flowRows = rows.map((r) => {
+              const p = r.accountMappings[0];
+              return {
+                flowRowId: r.id,
+                section: r.section,
+                name: r.name,
+                label: `${r.section} · ${r.name}`,
+                canonicalKey: r.canonicalKey,
+                primaryAccount: p
+                  ? {
+                      id: p.accountPlanId,
+                      code: p.accountPlan.code,
+                      name: p.accountPlan.name,
+                    }
+                  : null,
+              };
+            });
+          }
+
+          return { ok: true, data };
         } catch {
           return {
             ok: false,

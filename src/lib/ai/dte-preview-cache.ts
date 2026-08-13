@@ -19,14 +19,14 @@ export type CpqPersistToolName =
   | "remove_quote_position"
   | "send_quote_proposal";
 
-export type BankingPreviewToolName =
-  | "classify_bank_movement"
-  | "authorize_bank_suggestions";
+export type BankingPersistToolName =
+  | "classify_bank_to_flow_row"
+  | "authorize_bank_movements";
 
 export type PreviewBackedToolName =
   | DtePreviewToolName
   | CpqPersistToolName
-  | BankingPreviewToolName;
+  | BankingPersistToolName;
 
 export type PreviewPayload = {
   tenantId: string;

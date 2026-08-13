@@ -25,8 +25,8 @@ Cada tenant genera **API keys** desde el panel anterior. La key resuelve el **te
 
 | Scope efectivo | Tools en `tools/list` |
 | --- | --- |
-| `READ` | **62** (solo lectura) |
-| `READ_WRITE` + `allowWrites` | **119** (62 lectura + 57 escritura) |
+| `READ` | **57** (solo lectura; +4 banca) |
+| `READ_WRITE` + `allowWrites` | **114** (57 lectura + 57 escritura; +4 banca write) |
 
 ## Autenticación
 
@@ -55,8 +55,8 @@ Causas: key ausente, formato incorrecto, revocada, o Admin creador desactivado.
 
 | Capa | Qué controla |
 | --- | --- |
-| **Scope de la key** (`READ` default, `READ_WRITE` opcional) | Si las 53 tools de escritura existen en `tools/list` y pueden invocarse. |
-| **`allowWrites` del tenant** (Configuración → Asistente IA) | Gate adicional: aunque la key sea `READ_WRITE`, si `allowWrites=false` el servidor expone solo las 53 de lectura. |
+| **Scope de la key** (`READ` default, `READ_WRITE` opcional) | Si las tools de escritura existen en `tools/list` y pueden invocarse. |
+| **`allowWrites` del tenant** (Configuración → Asistente IA) | Gate adicional: aunque la key sea `READ_WRITE`, si `allowWrites=false` el servidor expone solo las de lectura. |
 | **Permisos RBAC del Admin creador** | Dentro de cada tool: `canView` / `canEdit` / `hasCapability` — respuesta `{ ok: false, error: "..." }` en el payload, no `-32602`. |
 
 ### Matriz de rechazo (`tools/call` → JSON-RPC **-32602**)
@@ -207,40 +207,29 @@ Leyenda: **R** = lectura (scope READ), **W** = escritura (requiere READ_WRITE + 
 | `add_quote_position`, `update_quote_position`, `remove_quote_position`, previews | W | CPQ edit; remove requiere nivel full CPQ |
 | `manage_quote_extras`, `manage_quote_includes`, `get_quote_proposal`, `preview_send_quote_proposal`, `send_quote_proposal` | W | CPQ + envío propuesta |
 
-### Finanzas — reportes y flujo (10 R)
+### Finanzas — reportes y flujo (8 R)
 
 | Tool | R/W | Guard |
 | --- | --- | --- |
 | `get_finance_summary` | R | Módulo finance |
-| `flow_cashflow_overview` | R | Flujo de caja (Tesorero) — matriz compacta en texto |
-| `flow_cashflow_insights` | R | Panel flujo: KPIs, desvíos mensuales, cartera, sellos |
+| `flow_cashflow_overview` | R | Flujo de caja; opc. `includeBalanceBreaks` / `includeRowAccounts` |
 | `get_sales_report`, `get_income_statement`, `get_balance_sheet`, `get_finance_dashboard_kpis`, `get_profitability` | R | Reportes finance + capabilities |
 | `search_dtes`, `get_dte_detail` | R | DTEs emitidos; incluye `paymentStatus`, `factoring[]` en detalle |
 
-### Finanzas — bancos y conciliación (8 R, 4 W)
+**Gap Cobranzas:** no existe filtro `non_ceded` / `sin_cesión` en `search_dtes`. El agente debe filtrar client-side con `factoring[]` vacío en `get_dte_detail` o post-procesar resultados.
+
+### Finanzas — banca / cartola (4 R, 4 W)
 
 | Tool | R/W | Guard |
 | --- | --- | --- |
-| `list_bank_accounts` | R | `banking_view` |
-| `list_bank_movements` | R | Movimientos con filtros fecha/estado (unmatched, pending_authorize, reconciled) |
-| `get_bank_movement_detail` | R | Detalle + links + `flow_row_id` + cuentas de fila |
-| `get_bank_movement_triage` | R | Conteos y muestras por rango de fechas |
-| `get_bank_classify_suggestions` | R | Cascada de clasificación a fila del flujo |
-| `get_bank_reconcile_candidates` | R | DTEs, factoring y lotes 1→N |
-| `list_bank_statement_imports` | R | Estado de cartolas importadas |
-| `search_flow_rows` | R | Buscar fila por nombre (ej. Retiro socios) |
-| `preview_classify_bank_movement` / `classify_bank_movement` | W | `banking_manage` + previewToken; persiste `flow_row_id` |
-| `preview_authorize_bank_suggestions` / `authorize_bank_suggestions` | W | Autorizar sugerencias TE/regla en lote |
+| `list_bank_movements` | R | `banking_view` — filtros cuenta/fechas/status/dirección/search + conteos |
+| `get_bank_movement` | R | `banking_view` — detalle + links (`flowRowId`, DTE, factoring) |
+| `get_bank_triage_summary` | R | `banking_view` — Sin reconocer / Por autorizar / top unmatched |
+| `list_flow_rows` | R | `banking_view` o `cashflow_view` — filas para clasificar |
+| `preview_classify_bank_to_flow_row` → `classify_bank_to_flow_row` | W | `banking_manage` — **persiste `flow_row_id`** (no solo accountPlanId) |
+| `preview_authorize_bank_movements` → `authorize_bank_movements` | W | `banking_manage` — dry-run obligatorio; Autorizar TE/bandeja |
 
-**Flujos agente (ejemplos):**
-
-1. **Triage agosto:** `list_bank_accounts` → `get_bank_movement_triage(bank_account_name=Santander, date_from=2026-08-01)`.
-2. **Clasificar Retiro socios:** `search_flow_rows(query=Retiro socios)` → `preview_classify_bank_movement` → confirmar con `classify_bank_movement(previewToken=…)`.
-3. **Por autorizar TE:** `list_bank_movements(status=pending_authorize)` → `preview_authorize_bank_suggestions` → `authorize_bank_suggestions`.
-
-Verificación: MCP Inspector o Cursor → `tools/list` debe incluir las tools anteriores con key `READ_WRITE` y Admin con `banking_view`/`banking_manage`.
-
-**Gap residual:** no hay tool MCP para importar cartola (archivo) ni conciliación DTE write (PUT links); lectura de candidatos sí existe.
+**Gap factoring 1 depósito→N facturas:** no hay endpoint dedicado MCP; existe link `FACTORING_OPERATION` vía UI/API de links y `bulk-reconcile-dte(s)` para DTEs. Cesión masiva sigue en UI Factoring. **Gap RCV / conciliación de período:** sin tools MCP.
 
 ### Finanzas — facturación / DTE borradores (2 R, 14 W)
 
@@ -297,7 +286,7 @@ Escritura desde correo va por tools CRM (`create_*_from_email`).
 
 | Agente | Tools útiles | Gaps principales |
 | --- | --- | --- |
-| **Tesorero** | `flow_cashflow_overview`, `flow_cashflow_insights`, `list_bank_movements`, `get_bank_movement_triage`, `classify_bank_movement`, bancos + reportes | Sin import cartola MCP, sin RCV, sin conciliación DTE write |
+| **Tesorero** | `flow_cashflow_overview`, banca (`list_bank_movements`, triage, classify, authorize), KPIs/balance/EERR | RCV, proyección multi-escenario, factoring 1→N deposit |
 | **Cobranzas** | `search_dtes`, `get_dte_detail` (`paymentStatus`, `factoring`) | Sin filtro server-side DTEs no cedidos; sin registrar cobros |
 | **Comercial** | Pipeline CRM + CPQ + email | Sin Apollo; CPQ write riesgoso en multi-agente |
 | **Ops** | Guardias, rondas, tickets, asistencia | Sin pautas, inventario, marcación |
