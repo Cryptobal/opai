@@ -83,7 +83,7 @@ export const SLACK_DIGEST_META: Array<{
   {
     key: "sla",
     label: "Resumen diario SLA",
-    description: "Tickets con SLA vencido · canal Operaciones - Tickets (campana/email siguen Mis notificaciones)",
+    description: "Tickets con SLA vencido · canal y DM (campana/email siguen Mis notificaciones)",
   },
 ];
 

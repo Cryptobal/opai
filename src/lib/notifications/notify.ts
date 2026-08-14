@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { resend, getTenantEmailConfig } from "@/lib/resend";
 import {
   dispatchSlackForNotification,
+  isSlackTypeMuted,
   willDispatchSlackToSharedChannel,
 } from "@/lib/integrations/slack/dispatch";
 import { render } from "@react-email/render";
@@ -80,13 +81,18 @@ export async function notify(params: NotifyParams): Promise<{ delivered: number 
     : await fetchAudienceRecipients(params.tenantId, subType, typeDef);
   if (recipients.length === 0) return { delivered: 0 };
 
-  // Si la notificación caerá en un canal compartido (ruteo explícito, default,
-  // sala de deal, hilo de ronda o puente de instalación), no duplicar en DM.
-  const skipPersonalSlackDmForRoute = await willDispatchSlackToSharedChannel(
-    params.tenantId,
-    typeDef,
-    params.data,
-  );
+  // DM personal se omite cuando:
+  // 1) el emisor marcó skipSlack (Slack de canal lo maneja aparte — digests —
+  //    o no debe ir a Slack en absoluto). Antes skipSlack solo apagaba el canal
+  //    compartido y, al devolver willDispatch=false, ABRÍA el DM personal:
+  //    digests "cancelados" en Configuración → Slack seguían llegando por DM.
+  // 2) el tipo está silenciado con una ruta enabled:false (sin fallthrough).
+  // 3) caerá en un canal compartido (evitar duplicar canal + DM).
+  const explicitSkipSlack = params.data?.skipSlack === true;
+  const skipPersonalSlackDmForRoute =
+    explicitSkipSlack ||
+    (await isSlackTypeMuted(params.tenantId, typeDef)) ||
+    (await willDispatchSlackToSharedChannel(params.tenantId, typeDef, params.data));
 
   const [tenant, slackWorkspace] = await Promise.all([
     prisma.tenant.findUnique({

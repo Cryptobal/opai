@@ -94,7 +94,9 @@ export function SlackRoutingTable({
         <div>
           <h3 className="text-sm font-semibold">Reglas por categoría y evento</h3>
           <p className="text-xs text-muted-foreground">
-            Rutea toda una categoría a un canal con un clic. Prioridad: evento &gt; categoría &gt; módulo &gt; canal por defecto.
+            Rutea toda una categoría a un canal con un clic. Prioridad: evento &gt; categoría &gt;
+            módulo &gt; canal por defecto. Apagar el switch <strong>silencia</strong> ese nivel
+            (no cae al canal default).
           </p>
         </div>
         {byCategory.map((group) => {
