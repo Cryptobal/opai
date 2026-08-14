@@ -88,6 +88,28 @@ export function SlackRouteRow({
     }
   }
 
+  async function muteWithoutChannel() {
+    // Permite silenciar sin haber elegido canal antes: crea regla enabled=false
+    // anclada al canal default (o un placeholder) para que el despacho no caiga
+    // al fallthrough.
+    const fallback =
+      channels.find((c) => c.id === route?.channelId) ??
+      channels[0];
+    if (!fallback && !route) {
+      toast.error("No hay canales disponibles para silenciar esta regla");
+      return;
+    }
+    await post({
+      kind: "route",
+      matchType,
+      matchValue,
+      channelId: route?.channelId ?? fallback!.id,
+      channelName: route?.channelName ?? fallback!.name,
+      enabled: false,
+    });
+    toast.success("Silenciado en Slack");
+  }
+
   return (
     <div
       className={`flex flex-col gap-2 rounded-xl border p-3 sm:flex-row sm:items-center sm:justify-between ${
@@ -98,7 +120,7 @@ export function SlackRouteRow({
         <p className={`truncate ${emphasis ? "text-sm font-semibold uppercase tracking-wide" : "text-sm font-medium"}`}>{label}</p>
         {sublabel && <p className="text-xs text-muted-foreground truncate">{sublabel}</p>}
       </div>
-      <div className="flex items-center gap-2 sm:w-[260px] sm:shrink-0">
+      <div className="flex items-center gap-2 sm:w-[320px] sm:shrink-0">
         <div className="min-w-0 flex-1">
           <SlackChannelPicker
             channels={channels}
@@ -108,9 +130,26 @@ export function SlackRouteRow({
             placeholder={route ? `#${route.channelName}` : "Sin ruta"}
           />
         </div>
+        {!route && (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-10 sm:h-9 shrink-0"
+            onClick={() => void muteWithoutChannel()}
+            disabled={busy}
+          >
+            Silenciar
+          </Button>
+        )}
         {route && (
           <>
-            <Switch checked={route.enabled} onCheckedChange={toggleEnabled} disabled={busy} aria-label="Activar regla" />
+            <Switch
+              checked={route.enabled}
+              onCheckedChange={toggleEnabled}
+              disabled={busy}
+              aria-label={route.enabled ? "Silenciar en Slack" : "Activar regla"}
+            />
             <Button
               type="button"
               variant="ghost"
@@ -125,6 +164,11 @@ export function SlackRouteRow({
           </>
         )}
       </div>
+      {route && !route.enabled && (
+        <p className="text-xs text-status-warn-fg sm:w-full">
+          Silenciado: este evento no se publica en Slack (ni en el canal por defecto).
+        </p>
+      )}
     </div>
   );
 }

@@ -76,8 +76,9 @@ export function SlackDigestsPanel() {
           <Newspaper className="h-5 w-5" /> Digests y reportes periódicos
         </CardTitle>
         <CardDescription>
-          Activa o silencia cada resumen que OPAI publica en canales de Slack. Las alarmas
-          en tiempo real (tickets, leads, etc.) se rutean más abajo; esto solo afecta digests.
+          Activa o silencia cada resumen que OPAI publica en Slack (canal y DM del
+          bot). Las alarmas en tiempo real (tickets, leads, etc.) se rutean más abajo;
+          esto solo afecta digests.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-2">

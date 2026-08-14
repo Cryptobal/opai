@@ -29,31 +29,75 @@ interface DispatchInput {
 /** TTL amplio: la aprobación de ticket puede tardar días (el estado real manda). */
 const TICKET_PENDING_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
-/** Resuelve el canal destino con precedencia KEY > CATEGORY > MODULE > default. */
-export async function resolveChannel(
+/**
+ * Resultado del ruteo evento→canal.
+ * - `channel`: publicar en ese canal compartido.
+ * - `muted`: hay regla explícita desactivada (KEY/CATEGORY/MODULE) → NO publicar
+ *   ni caer al canal default (ni al DM personal como bypass).
+ * - `none`: sin regla ni default configurado.
+ */
+export type SlackChannelResolution =
+  | { status: "channel"; channelId: string }
+  | { status: "muted" }
+  | { status: "none" };
+
+/**
+ * Resuelve el canal destino con precedencia KEY > CATEGORY > MODULE > default.
+ *
+ * Una regla `enabled: false` en el nivel más específico **silencia** el tipo:
+ * no hace fallthrough al padre ni al canal default. Antes, apagar el switch
+ * solo quitaba esa regla del query (`enabled: true`) y el evento reaparecía
+ * en `#opai-notificaciones` (default) — exactamente el bug de "cancelé X y
+ * sigue llegando".
+ */
+export async function resolveChannelResolution(
   tenantId: string,
   typeDef: UnifiedNotificationType,
   defaultChannelId: string | null,
-): Promise<string | null> {
+): Promise<SlackChannelResolution> {
   const routes = await prisma.slackChannelRoute.findMany({
     where: {
       tenantId,
-      enabled: true,
       OR: [
         { matchType: "KEY", matchValue: typeDef.key },
         { matchType: "CATEGORY", matchValue: typeDef.category },
         { matchType: "MODULE", matchValue: typeDef.module },
       ],
     },
-    select: { matchType: true, channelId: true },
+    select: { matchType: true, channelId: true, enabled: true },
   });
-  const byType = (t: string) => routes.find((r) => r.matchType === t)?.channelId;
-  // Más específico gana: un evento (KEY) sobre su categoría, y la categoría sobre
-  // todo el módulo. Sin regla → canal por defecto del workspace.
-  return byType("KEY") ?? byType("CATEGORY") ?? byType("MODULE") ?? defaultChannelId;
+  const byType = (t: string) => routes.find((r) => r.matchType === t);
+  // Más específico gana: evento (KEY) > categoría > módulo. Si la regla ganadora
+  // está apagada → silencio total (sin fallthrough).
+  const winner = byType("KEY") ?? byType("CATEGORY") ?? byType("MODULE");
+  if (winner) {
+    if (!winner.enabled) return { status: "muted" };
+    return { status: "channel", channelId: winner.channelId };
+  }
+  if (defaultChannelId) return { status: "channel", channelId: defaultChannelId };
+  return { status: "none" };
 }
 
-/** True si el tenant tiene ruteo explícito (evento, categoría o módulo) para este tipo. */
+/** Resuelve solo el channelId (null si muted/none). Compat para callers legacy. */
+export async function resolveChannel(
+  tenantId: string,
+  typeDef: UnifiedNotificationType,
+  defaultChannelId: string | null,
+): Promise<string | null> {
+  const res = await resolveChannelResolution(tenantId, typeDef, defaultChannelId);
+  return res.status === "channel" ? res.channelId : null;
+}
+
+/** True si el tenant silenció este tipo con una regla desactivada (sin fallthrough). */
+export async function isSlackTypeMuted(
+  tenantId: string,
+  typeDef: UnifiedNotificationType,
+): Promise<boolean> {
+  const res = await resolveChannelResolution(tenantId, typeDef, null);
+  return res.status === "muted";
+}
+
+/** True si el tenant tiene ruteo explícito habilitado (evento, categoría o módulo). */
 export async function hasExplicitSlackChannelRoute(
   tenantId: string,
   typeDef: UnifiedNotificationType,
@@ -107,9 +151,17 @@ export async function resolveSlackSharedChannelDestination(input: {
     };
   }
 
-  let channelId = dealRoom
-    ? dealRoom.slackChannelId
-    : await resolveChannel(input.tenantId, input.typeDef, workspace.defaultChannelId);
+  let channelId: string | null = dealRoom ? dealRoom.slackChannelId : null;
+  if (!channelId) {
+    const routed = await resolveChannelResolution(
+      input.tenantId,
+      input.typeDef,
+      workspace.defaultChannelId,
+    );
+    // Regla desactivada → silencio total (no default, no DM personal vía notify).
+    if (routed.status === "muted") return null;
+    channelId = routed.status === "channel" ? routed.channelId : null;
+  }
 
   const threadRondaId =
     input.typeDef.key.startsWith("ronda_") && typeof input.data?.rondaId === "string"
