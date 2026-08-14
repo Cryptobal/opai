@@ -21,6 +21,11 @@ import {
 } from "@/modules/finance/banking/bank-tx-link.service";
 import { resolveAccountPlanIdForFlowRow } from "@/modules/finance/banking/flow-row-account-plan.service";
 import { normalizeNameForDedupe } from "@/modules/finance/flow-v3/row-visibility";
+import {
+  costCenterAssignmentSchema,
+  type CostCenterAssignment,
+} from "@/modules/finance/banking/cost-allocation-math";
+import { previewCostCenterAssignment } from "@/modules/finance/banking/cost-allocation.service";
 
 type ToolDef = {
   type: "function";
@@ -436,6 +441,41 @@ export function bankingWriteToolDefinitions(): ToolDef[] {
               enum: ["NONE", "RUT", "DESCRIPTION"],
               description: "Default NONE (no crea regla automatch).",
             },
+            costCenter: {
+              type: "object",
+              description:
+                "Destino de centro de costo. Omitir = sin centro. mode NONE | SINGLE | SPLIT.",
+              properties: {
+                mode: { type: "string", enum: ["NONE", "SINGLE", "SPLIT"] },
+                installationId: {
+                  type: "string",
+                  description: "UUID de instalación (mode SINGLE).",
+                },
+                driver: {
+                  type: "string",
+                  enum: ["MANUAL", "EQUAL", "ACTIVE_GUARDS", "REQUIRED_GUARDS"],
+                  description: "Criterio de SPLIT. Default ACTIVE_GUARDS.",
+                },
+                installations: {
+                  type: "array",
+                  maxItems: 200,
+                  items: {
+                    type: "object",
+                    properties: {
+                      installationId: { type: "string" },
+                      amount: {
+                        type: "number",
+                        description: "Monto CLP entero. Obligatorio si driver=MANUAL.",
+                      },
+                    },
+                    required: ["installationId"],
+                    additionalProperties: false,
+                  },
+                },
+              },
+              required: ["mode"],
+              additionalProperties: false,
+            },
           },
           required: ["transactionId"],
           additionalProperties: false,
@@ -459,6 +499,32 @@ export function bankingWriteToolDefinitions(): ToolDef[] {
             learnRule: {
               type: "string",
               enum: ["NONE", "RUT", "DESCRIPTION"],
+            },
+            costCenter: {
+              type: "object",
+              properties: {
+                mode: { type: "string", enum: ["NONE", "SINGLE", "SPLIT"] },
+                installationId: { type: "string" },
+                driver: {
+                  type: "string",
+                  enum: ["MANUAL", "EQUAL", "ACTIVE_GUARDS", "REQUIRED_GUARDS"],
+                },
+                installations: {
+                  type: "array",
+                  maxItems: 200,
+                  items: {
+                    type: "object",
+                    properties: {
+                      installationId: { type: "string" },
+                      amount: { type: "number" },
+                    },
+                    required: ["installationId"],
+                    additionalProperties: false,
+                  },
+                },
+              },
+              required: ["mode"],
+              additionalProperties: false,
             },
           },
           additionalProperties: false,
@@ -727,6 +793,7 @@ export async function toolGetBankMovement(
       dte: l.dte,
       factoring: l.factoring,
       matchSource: raw?.matchSource ?? null,
+      allocations: l.allocations ?? [],
     };
   });
 
@@ -970,7 +1037,25 @@ type ClassifyPreviewArgs = {
   note: string | null;
   learnRule: "NONE" | "RUT" | "DESCRIPTION";
   description: string;
+  transactionDate: Date;
+  costCenter?: CostCenterAssignment;
 };
+
+function parseCostCenterArg(
+  args: Record<string, unknown>,
+):
+  | { ok: true; value: CostCenterAssignment | undefined }
+  | { ok: false; error: string } {
+  if (args.costCenter == null) return { ok: true, value: undefined };
+  const parsed = costCenterAssignmentSchema.safeParse(args.costCenter);
+  if (!parsed.success) {
+    return {
+      ok: false,
+      error: "costCenter inválido. Usá mode NONE | SINGLE | SPLIT.",
+    };
+  }
+  return { ok: true, value: parsed.data };
+}
 
 async function buildClassifyPreview(
   tenantId: string,
@@ -997,6 +1082,7 @@ async function buildClassifyPreview(
       description: true,
       reconciliationStatus: true,
       bankAccountId: true,
+      transactionDate: true,
     },
   });
   if (!tx) return { ok: false, error: "Movimiento no encontrado o oculto." };
@@ -1032,6 +1118,25 @@ async function buildClassifyPreview(
       ? args.learnRule
       : "NONE";
 
+  const cc = parseCostCenterArg(args);
+  if (!cc.ok) return { ok: false, error: cc.error };
+
+  if (
+    cc.value?.mode === "SPLIT" &&
+    cc.value.driver === "MANUAL"
+  ) {
+    const sum = cc.value.installations.reduce(
+      (s, i) => s + Math.round(i.amount ?? 0),
+      0,
+    );
+    if (sum !== Math.round(amountAbs)) {
+      return {
+        ok: false,
+        error: `El reparto manual ($${sum.toLocaleString("es-CL")}) no cuadra con el monto del movimiento ($${Math.round(amountAbs).toLocaleString("es-CL")})`,
+      };
+    }
+  }
+
   return {
     ok: true,
     data: {
@@ -1044,6 +1149,8 @@ async function buildClassifyPreview(
       note: typeof args.note === "string" ? args.note : null,
       learnRule,
       description: tx.description,
+      transactionDate: tx.transactionDate,
+      costCenter: cc.value,
     },
   };
 }
@@ -1096,9 +1203,20 @@ export async function toolPreviewClassifyBankToFlowRow(
       flowRowId: built.data.flowRowId,
       note: built.data.note,
       learnRule: built.data.learnRule,
+      costCenter: built.data.costCenter,
     },
     computed: { ...built.data },
   });
+
+  const allocationPreview =
+    built.data.costCenter && built.data.costCenter.mode !== "NONE"
+      ? await previewCostCenterAssignment({
+          tenantId,
+          amountAbs: built.data.amountAbs,
+          assignment: built.data.costCenter,
+          refDate: built.data.transactionDate,
+        })
+      : { rows: [], excluded: [], total: 0 };
 
   await logAiAction({
     tenantId,
@@ -1129,6 +1247,12 @@ export async function toolPreviewClassifyBankToFlowRow(
         willPersistFlowRowId: true,
         learnRule: built.data.learnRule,
         note: built.data.note,
+        costCenter: built.data.costCenter ?? { mode: "NONE" },
+        allocationPreview: {
+          rows: allocationPreview.rows,
+          excluded: allocationPreview.excluded,
+          total: allocationPreview.total,
+        },
       },
       nextStep:
         "Mostrá el resumen al usuario. Si confirma, llamá classify_bank_to_flow_row con el previewToken (o los mismos args).",
@@ -1198,6 +1322,7 @@ export async function toolClassifyBankToFlowRow(
         d.note ??
         `Clasificado a fila flujo: ${d.flowRowLabel} (${normalizeNameForDedupe(d.flowRowLabel)})`,
       matchSource: "MANUAL",
+      costCenter: d.costCenter,
     },
   );
 

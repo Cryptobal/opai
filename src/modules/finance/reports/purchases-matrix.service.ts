@@ -26,6 +26,7 @@ const TONE_PALETTE = [
 const toneFor = (i: number): string => TONE_PALETTE[i % TONE_PALETTE.length];
 
 const NO_SUPPLIER_ID = "__no_supplier__";
+const NO_CLIENT_ID = "__no_client__";
 const RUT_PREFIX = "rut:";
 
 interface RowAgg {
@@ -39,8 +40,10 @@ interface RowAgg {
 export async function getPurchasesMatrix(
   tenantId: string,
   period: FinanceReportPeriod,
-  filters: FinanceReportFilters = {}
+  filters: FinanceReportFilters = {},
+  options: { groupBy?: "supplier" | "client" } = {}
 ): Promise<FinanceMatrixResult> {
+  const groupBy = options.groupBy ?? "supplier";
   const months = splitMonths(period);
   const fromDate = parseISODate(period.from);
   const toDate = parseISODate(period.to);
@@ -72,17 +75,29 @@ export async function getPurchasesMatrix(
     orderBy: { date: "asc" },
   });
 
-  // Las compras se agrupan por proveedor (issuer). Cargamos suppliers con su RUT.
   const supplierIds = Array.from(
     new Set(dtes.map((d) => d.supplierId).filter((v): v is string => Boolean(v)))
   );
-  const suppliers = supplierIds.length
-    ? await prisma.financeSupplier.findMany({
-        where: { tenantId, id: { in: supplierIds } },
-        select: { id: true, name: true, rut: true },
-      })
-    : [];
+  const clientIds = Array.from(
+    new Set(dtes.map((d) => d.crmAccountId).filter((v): v is string => Boolean(v)))
+  );
+
+  const [suppliers, clients] = await Promise.all([
+    groupBy === "supplier" && supplierIds.length
+      ? prisma.financeSupplier.findMany({
+          where: { tenantId, id: { in: supplierIds } },
+          select: { id: true, name: true, rut: true },
+        })
+      : Promise.resolve([]),
+    groupBy === "client" && clientIds.length
+      ? prisma.crmAccount.findMany({
+          where: { tenantId, id: { in: clientIds } },
+          select: { id: true, name: true },
+        })
+      : Promise.resolve([]),
+  ]);
   const supplierMap = new Map(suppliers.map((s) => [s.id, s]));
+  const clientMap = new Map(clients.map((c) => [c.id, c]));
 
   const byRow = new Map<string, RowAgg>();
   const totalsByMonth = months.map(() => 0);
@@ -103,14 +118,17 @@ export async function getPurchasesMatrix(
     );
     if (monthIdx < 0) continue;
 
-    // Key priority:
-    //  1. supplierId (proveedor catalogado)
-    //  2. issuerRut (mismo RUT = mismo proveedor)
-    //  3. NO_SUPPLIER_ID
     let key: string;
     let name: string | undefined;
     let rut: string | undefined;
-    if (d.supplierId) {
+    if (groupBy === "client") {
+      if (d.crmAccountId) {
+        key = d.crmAccountId;
+        name = clientMap.get(d.crmAccountId)?.name ?? undefined;
+      } else {
+        key = NO_CLIENT_ID;
+      }
+    } else if (d.supplierId) {
       key = d.supplierId;
       const s = supplierMap.get(d.supplierId);
       name = s?.name ?? d.issuerName ?? undefined;
@@ -146,6 +164,18 @@ export async function getPurchasesMatrix(
 
   const rows: FinanceMatrixRow[] = [];
   rawRows.forEach((r, idx) => {
+    if (r.id === NO_CLIENT_ID) {
+      rows.push({
+        id: NO_CLIENT_ID,
+        label: "(Sin cliente)",
+        sublabel: `${r.count} DTE${r.count === 1 ? "" : "s"}`,
+        color: "#6B7585",
+        monthly: r.monthly,
+        total: r.total,
+        meta: { unassigned: true, groupBy: "client" },
+      });
+      return;
+    }
     if (r.id === NO_SUPPLIER_ID) {
       rows.push({
         id: NO_SUPPLIER_ID,
@@ -167,6 +197,18 @@ export async function getPurchasesMatrix(
         monthly: r.monthly,
         total: r.total,
         meta: { uncatalogued: true, rut: r.rut },
+      });
+      return;
+    }
+    if (groupBy === "client") {
+      rows.push({
+        id: r.id,
+        label: r.name ?? "Cliente",
+        sublabel: `${r.count} DTE${r.count === 1 ? "" : "s"}`,
+        color: toneFor(idx),
+        monthly: r.monthly,
+        total: r.total,
+        meta: { groupBy: "client" },
       });
       return;
     }
