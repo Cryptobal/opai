@@ -4,6 +4,7 @@
  */
 
 import { prisma } from "@/lib/prisma";
+import { rutSearchNeedles } from "@/lib/chile-rut";
 import { notifyReceivedDte } from "@/lib/integrations/slack/finance/dte-received";
 
 // ── Types ──
@@ -103,16 +104,19 @@ export async function listReceivedDtes(
   if (amountMax != null && Number.isFinite(amountMax)) {
     where.totalAmount = { ...(where.totalAmount as object | undefined), lte: amountMax };
   }
-  // Búsqueda libre: matchea folio (entero), RUT emisor y nombre emisor.
+  // Búsqueda libre: folio (entero), RUT emisor (con/sin puntos) y nombre.
   // Folio se interpreta como número solo si el input es numérico, para
   // no romper la búsqueda parcial de texto.
   if (search && search.trim()) {
     const q = search.trim();
     const folioNum = /^\d+$/.test(q) ? parseInt(q, 10) : null;
+    const rutNeedles = rutSearchNeedles(q);
     where.OR = [
       ...(folioNum !== null ? [{ folio: folioNum }] : []),
-      { issuerRut: { contains: q, mode: "insensitive" } },
       { issuerName: { contains: q, mode: "insensitive" } },
+      ...rutNeedles.map((n) => ({
+        issuerRut: { contains: n, mode: "insensitive" as const },
+      })),
     ];
   }
   if (accountId === "NONE") {

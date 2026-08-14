@@ -31,6 +31,24 @@ export function toSiiRut(rut: string): string {
   return `${clean.slice(0, -1)}-${clean.slice(-1)}`;
 }
 
+/**
+ * Variantes para `contains` de RUT en Prisma.
+ * En BD el RUT se guarda formato SII (`11111111-1`, sin puntos). Un agente
+ * suele pasar `11.111.111-1` o `111111111`; un `contains` del input crudo
+ * no matchea.
+ */
+export function rutSearchNeedles(raw: string): string[] {
+  const trimmed = (raw ?? "").trim();
+  if (!trimmed) return [];
+  const compact = cleanRut(trimmed);
+  const needles = new Set<string>([trimmed]);
+  if (compact.length >= 8 && compact.length <= 9) {
+    needles.add(compact);
+    needles.add(toSiiRut(trimmed));
+  }
+  return [...needles];
+}
+
 export function isValidRut(rut: string): boolean {
   const clean = cleanRut(rut);
   if (!/^\d{7,8}[\dK]$/.test(clean)) return false;
