@@ -50,6 +50,10 @@ export type ListReceivedDtesOpts = {
   receptionStatuses?: string[];
   amountMin?: number;
   amountMax?: number;
+  /** Solo DTEs sin instalación (centro de costo incompleto). */
+  onlyWithoutCostCenter?: boolean;
+  /** Incluye totales del universo filtrado (MCP / resumen). */
+  withSummary?: boolean;
 };
 
 // ── Service Functions ──
@@ -75,6 +79,8 @@ export async function listReceivedDtes(
     receptionStatuses,
     amountMin,
     amountMax,
+    onlyWithoutCostCenter,
+    withSummary,
   } = opts;
 
   const where: Record<string, unknown> = {
@@ -114,7 +120,9 @@ export async function listReceivedDtes(
   } else if (accountId && accountId !== "ALL") {
     where.crmAccountId = accountId;
   }
-  if (installationId === "NONE") {
+  if (onlyWithoutCostCenter) {
+    where.installationId = null;
+  } else if (installationId === "NONE") {
     where.installationId = null;
   } else if (installationId && installationId !== "ALL") {
     where.installationId = installationId;
@@ -134,7 +142,7 @@ export async function listReceivedDtes(
     where.date = { gte: from, lt: to };
   }
 
-  const [dtes, total] = await Promise.all([
+  const [dtes, total, sums, withoutCostCenter] = await Promise.all([
     prisma.financeDte.findMany({
       where,
       include: {
@@ -146,6 +154,17 @@ export async function listReceivedDtes(
       skip: (page - 1) * pageSize,
     }),
     prisma.financeDte.count({ where }),
+    withSummary
+      ? prisma.financeDte.aggregate({
+          where,
+          _sum: { netAmount: true, totalAmount: true },
+        })
+      : Promise.resolve(null),
+    withSummary
+      ? prisma.financeDte.count({
+          where: { ...where, installationId: null },
+        })
+      : Promise.resolve(null),
   ]);
 
   // Enriquecer con datos de centro de costo (cliente CRM + instalación).
@@ -249,6 +268,14 @@ export async function listReceivedDtes(
       total,
       totalPages: Math.ceil(total / pageSize),
     },
+    summary: withSummary
+      ? {
+          count: total,
+          totalNet: Number(sums?._sum.netAmount ?? 0),
+          totalGross: Number(sums?._sum.totalAmount ?? 0),
+          withoutCostCenter: withoutCostCenter ?? 0,
+        }
+      : undefined,
   };
 }
 
