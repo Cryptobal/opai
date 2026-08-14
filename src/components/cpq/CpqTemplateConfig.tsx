@@ -67,10 +67,13 @@ const TOGGLE_KEYS: (keyof ProposalTemplateSections)[] = [
 ];
 
 const HEADER_STYLE_OPTIONS = [
-  { value: "standard", label: "Estándar" },
-  { value: "detailed", label: "Detallado" },
-  { value: "formal", label: "Formal (Licitación)" },
+  { value: "standard", label: "Cotización PDF · formato único" },
 ];
+const HEADER_STYLE_LABELS: Record<string, string> = {
+  standard: "Cotización PDF · formato único",
+  detailed: "Detallado (deprecado)",
+  formal: "Formal (deprecado)",
+};
 
 export function CpqTemplateConfig() {
   const [templates, setTemplates] = useState<Template[]>([]);
@@ -308,7 +311,11 @@ export function CpqTemplateConfig() {
               <label className="text-xs text-muted-foreground">Estilo de encabezado</label>
               <SimpleSelect
                 className="flex h-9 w-full rounded-md border border-border bg-card px-3 text-sm"
-                value={editForm.sections.headerStyle ?? "standard"}
+                value={
+                  HEADER_STYLE_OPTIONS.some((o) => o.value === (editForm.sections.headerStyle ?? "standard"))
+                    ? (editForm.sections.headerStyle ?? "standard")
+                    : "standard"
+                }
                 onValueChange={(v) =>
                   setEditForm((p) => ({
                     ...p,
@@ -369,7 +376,7 @@ export function CpqTemplateConfig() {
                   </span>
                 ))}
                 <span className="inline-flex rounded-full bg-status-info-soft px-2 py-0.5 text-xs text-status-info-fg font-medium">
-                  Encabezado: {HEADER_STYLE_OPTIONS.find((o) => o.value === editForm.sections.headerStyle)?.label ?? "Estándar"}
+                  Encabezado: {HEADER_STYLE_LABELS[editForm.sections.headerStyle ?? "standard"] ?? "Cotización PDF · formato único"}
                 </span>
               </div>
             </div>

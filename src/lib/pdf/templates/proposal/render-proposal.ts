@@ -14,6 +14,14 @@
 import * as path from 'path';
 import type { ProposalProps } from './build-proposal-props';
 import type { QuoteBreakdownData } from '@/types/cpq-breakdown';
+import {
+  economicOpeningFromBreakdown,
+  formatOpeningClp,
+  formatOpeningPct,
+  formatOpeningUf,
+  openingAmountColumns,
+  ECONOMIC_OPENING_TITLE,
+} from '@/lib/cpq/economic-opening';
 
 export async function renderProposalToBuffer(
   quotationId: string,
@@ -1412,6 +1420,39 @@ export async function renderProposalToBufferFromProps(
     ),
   );
 
+  /* ── Oferta económica — apertura completa (auto, ambos modos) ── */
+  {
+    const opening = economicOpeningFromBreakdown(breakdown ?? null, ufValue);
+    const [primaryCol, secondaryCol] = openingAmountColumns(opening.currency);
+    const fmtAmt = (kind: 'uf' | 'clp', clp: number) =>
+      kind === 'uf' ? formatOpeningUf(clp, opening.ufValue) : formatOpeningClp(clp);
+    sections.push(
+      e(View, { key: 'secEcoOpen', break: true },
+        sectionTitle(ECONOMIC_OPENING_TITLE),
+        e(View, { style: s.tblRow },
+          e(Text, { style: [s.tblCellBold, { flex: 3 }] }, 'Concepto'),
+          e(Text, { style: [s.tblCellBold, { flex: 1.4, textAlign: 'right' as const }] }, primaryCol === 'uf' ? 'UF' : 'CLP'),
+          e(Text, { style: [s.tblCellBold, { flex: 1.4, textAlign: 'right' as const }] }, secondaryCol === 'uf' ? 'UF' : 'CLP'),
+          e(Text, { style: [s.tblCellBold, { flex: 0.9, textAlign: 'right' as const }] }, '%'),
+        ),
+        ...opening.rows.map((row) =>
+          e(View, {
+            key: row.key,
+            style: row.highlight
+              ? [s.grandTotal, { marginTop: 0 }]
+              : s.tblRow,
+          },
+            e(Text, { style: [row.highlight ? s.grandTotalLabel : s.tblCell, { flex: 3 }] }, row.label),
+            e(Text, { style: [row.highlight ? s.grandTotalAmount : s.tblCellBold, { flex: 1.4, textAlign: 'right' as const }] }, fmtAmt(primaryCol, row.amountClp)),
+            e(Text, { style: [s.tblCell, { flex: 1.4, textAlign: 'right' as const, color: C.textLighter }] }, fmtAmt(secondaryCol, row.amountClp)),
+            e(Text, { style: [s.tblCell, { flex: 0.9, textAlign: 'right' as const }] }, formatOpeningPct(row.pct)),
+          ),
+        ),
+        e(Text, { style: { fontFamily: F.sans, fontSize: 8, color: C.textLighter, marginTop: 8 } }, opening.note),
+      ),
+    );
+  }
+
   /* ── 20. Estructura de Costos (only if breakdown exists) ── */
   if (breakdown) {
     const bd: QuoteBreakdownData = breakdown;
@@ -1741,6 +1782,7 @@ export async function renderProposalToBufferFromProps(
     'sec1',         // Resumen Ejecutivo
     'sec18',        // Propuesta Personalizada (análisis de necesidades)
     'secIncluye',   // Qué incluye su servicio (detalle curado)
+    'secEcoOpen',   // Oferta económica — apertura completa
     'sec19',        // Inversión Mensual
     'sec20',        // Estructura de Costos
     'sec20b',       // Desglose de Equipamiento y Recursos

@@ -18,6 +18,8 @@ export interface LeadActionBarProps {
   onReject: () => void;
   onVerifyAndApprove: () => void;
   onOpenDeal?: () => void;
+  onReopen?: () => void;
+  reopening?: boolean;
 }
 
 export function LeadActionBar({
@@ -30,8 +32,20 @@ export function LeadActionBar({
   onReject,
   onVerifyAndApprove,
   onOpenDeal,
+  onReopen,
+  reopening,
 }: LeadActionBarProps) {
-  if (isRejected) return null;
+  if (isRejected) {
+    if (!onReopen) return null;
+    return (
+      <div className="fixed inset-x-0 bottom-0 z-40 flex gap-2.5 border-t border-ds-border-subtle bg-background/85 px-3.5 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] backdrop-blur lg:hidden">
+        <Button onClick={onReopen} disabled={reopening} className="min-h-11 w-full gap-1.5">
+          {reopening ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
+          {reopening ? "Reabriendo…" : "Reabrir"}
+        </Button>
+      </div>
+    );
+  }
 
   if (isApproved) {
     if (!onOpenDeal) return null;

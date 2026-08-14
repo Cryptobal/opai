@@ -3,6 +3,13 @@
  * Mismo contrato no-JSX / eval('require') que render-proposal.ts.
  */
 import type { ProposalProps } from './build-proposal-props';
+import {
+  economicOpeningFromBreakdown,
+  formatOpeningClp,
+  formatOpeningPct,
+  formatOpeningUf,
+  openingAmountColumns,
+} from '@/lib/cpq/economic-opening';
 
 export async function renderLicitacionProposalToBufferFromProps(
   props: ProposalProps,
@@ -76,6 +83,8 @@ export async function renderLicitacionProposalToBufferFromProps(
     tableHeader: { flexDirection: 'row', backgroundColor: '#0f766e', paddingVertical: 6, paddingHorizontal: 6 },
     tableHeaderTxt: { color: '#ffffff', fontSize: 8, fontWeight: 600 },
     tableRow: { flexDirection: 'row', paddingVertical: 5, paddingHorizontal: 6, borderBottomWidth: 0.4, borderBottomColor: '#e2e8f0' },
+    ecoNote: { fontSize: 8, color: '#64748b', marginTop: 8 },
+    ecoHighlight: { flexDirection: 'row', paddingVertical: 6, paddingHorizontal: 6, backgroundColor: '#ecfdf5' },
     watermark: {
       position: 'absolute',
       top: '42%',
@@ -133,13 +142,42 @@ export async function renderLicitacionProposalToBufferFromProps(
     Footer(),
   );
 
+  const opening = economicOpeningFromBreakdown(props.breakdown ?? null, props.ufValue ?? 0);
+  const [primaryCol, secondaryCol] = openingAmountColumns(opening.currency);
+  const fmtAmt = (kind: 'uf' | 'clp', clp: number) =>
+    kind === 'uf' ? formatOpeningUf(clp, opening.ufValue) : formatOpeningClp(clp);
+
+  function EconomicTable() {
+    return h(View, null,
+      h(View, { style: styles.tableHeader },
+        h(Text, { style: { ...styles.tableHeaderTxt, width: '40%' } }, 'Concepto'),
+        h(Text, { style: { ...styles.tableHeaderTxt, width: '20%', textAlign: 'right' } }, primaryCol === 'uf' ? 'UF' : 'CLP'),
+        h(Text, { style: { ...styles.tableHeaderTxt, width: '20%', textAlign: 'right' } }, secondaryCol === 'uf' ? 'UF' : 'CLP'),
+        h(Text, { style: { ...styles.tableHeaderTxt, width: '20%', textAlign: 'right' } }, '%'),
+      ),
+      ...opening.rows.map((row) =>
+        h(View, { key: row.key, style: row.highlight ? styles.ecoHighlight : styles.tableRow },
+          h(Text, { style: { fontSize: 9, width: '40%', fontWeight: row.highlight ? 700 : 400 } }, row.label),
+          h(Text, { style: { fontSize: 9, width: '20%', textAlign: 'right' } }, fmtAmt(primaryCol, row.amountClp)),
+          h(Text, { style: { fontSize: 9, width: '20%', textAlign: 'right', color: '#64748b' } }, fmtAmt(secondaryCol, row.amountClp)),
+          h(Text, { style: { fontSize: 9, width: '20%', textAlign: 'right' } }, formatOpeningPct(row.pct)),
+        ),
+      ),
+      h(Text, { style: styles.ecoNote }, opening.note),
+    );
+  }
+
   const bodyPages = sections.map((s, i) =>
     h(Page, { key: s.id, size: 'A4', style: styles.page },
       Header(),
       Watermark(),
       h(Text, { style: styles.h1 }, `${i + 1}.  ${s.title}`),
-      s.ref ? h(Text, { style: styles.ref }, `Referencia bases: ${s.ref}`) : null,
-      h(Text, { style: styles.body }, s.content?.trim() || '—'),
+      s.kind === 'oferta_economica'
+        ? EconomicTable()
+        : [
+            s.ref ? h(Text, { style: styles.ref }, `Referencia bases: ${s.ref}`) : null,
+            h(Text, { style: styles.body }, s.content?.trim() || '—'),
+          ],
       Footer(),
     ),
   );
