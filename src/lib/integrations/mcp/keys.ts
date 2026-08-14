@@ -8,9 +8,10 @@
 
 import { createHash, randomBytes } from "node:crypto";
 import { prisma } from "@/lib/prisma";
+import { MCP_KEY_PREFIX, MCP_KEY_RANDOM_LEN } from "./key-format";
 
-export const MCP_KEY_PREFIX = "opai_mcp_";
-const RANDOM_LEN = 40;
+export { MCP_KEY_PREFIX, MCP_KEY_RANDOM_LEN, isValidMcpKeyFormat } from "./key-format";
+
 const ALPHABET =
   "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"; // 62 chars
 
@@ -45,7 +46,7 @@ export function generateMcpKey(): {
   keyHash: string;
   keyPrefix: string;
 } {
-  const plainKey = MCP_KEY_PREFIX + base62(RANDOM_LEN);
+  const plainKey = MCP_KEY_PREFIX + base62(MCP_KEY_RANDOM_LEN);
   return {
     plainKey,
     keyHash: hashMcpKey(plainKey),
