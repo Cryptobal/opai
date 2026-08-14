@@ -1,5 +1,7 @@
 "use client";
 
+import { DatePickerField } from "@/components/ui/date-picker";
+
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { toZonedTime } from "date-fns-tz";
@@ -352,13 +354,7 @@ export function AgendaInspector({ item, users, onClose, onChanged }: Props) {
               <span className="text-[12px] font-medium text-ds-text-4">
                 {item.source === "licitacion" ? "Fecha de entrega" : "Fecha"}
               </span>
-              <input
-                type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                aria-label={item.source === "licitacion" ? "Fecha de entrega" : "Fecha"}
-                className={inputClass}
-              />
+              <DatePickerField value={date || null} onChange={(ymd) => setDate((ymd ?? ""))} aria-label={item.source === "licitacion" ? "Fecha de entrega" : "Fecha"} triggerClassName={inputClass} />
             </label>
             {item.source === "agenda_visita" && (
               <>

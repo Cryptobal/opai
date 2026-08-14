@@ -39,6 +39,7 @@ export interface ProposalProps {
       ref?: string | null;
       content: string;
       invariant?: string;
+      kind?: string;
     }>;
     matrix: Array<{
       ref: string;
@@ -996,6 +997,7 @@ export async function buildProposalProps(
           ref: s.ref,
           content: s.content,
           invariant: s.invariant,
+          kind: s.kind,
         })),
       matrix: matrix.map((r) => ({
         ref: r.ref,

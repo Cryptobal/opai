@@ -1,5 +1,7 @@
 "use client";
 
+import { DatePickerField } from "@/components/ui/date-picker";
+
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { AnimatePresence, motion } from "framer-motion";
@@ -524,12 +526,7 @@ export function OpsPpcClient({ initialClients }: OpsPpcClientProps) {
             </div>
             <div className="space-y-1">
               <Label className="text-[11px]">Fecha</Label>
-              <input
-                type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                className="h-8 w-full rounded-md border border-input bg-background px-2.5 text-xs"
-              />
+              <DatePickerField value={date || null} onChange={(ymd) => setDate((ymd ?? ""))} triggerClassName={"h-8 w-full rounded-md border border-input bg-background px-2.5 text-xs"} />
             </div>
             <div className="space-y-1">
               <Label className="text-[11px]">Rango</Label>

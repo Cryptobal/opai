@@ -1,9 +1,10 @@
 "use client";
 
-import { useRef, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { ChevronRight, MessageCircle, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Spinner, Surface, Tag } from "@/components/opai-ds";
+import { formatDealDateCountdown, formatDealDateShort } from "@/components/crm/deals/deals-helpers";
 import { openAnchoredChat } from "@/lib/ai/ai-command-event";
 import { cn } from "@/lib/utils";
 import { LICITACION_TIPO_CODIGOS, licitacionSlotState } from "@/modules/crm/documents/licitacion-corpus";
@@ -26,70 +27,6 @@ function slotState(types: LicitacionTypeRow[], codigo: string, filesUnclassified
   });
 }
 
-function countdownParts(fechaEntrega: string | null): {
-  days: number | null;
-  header: string | null;
-  variant: "danger" | "warn" | "neutral";
-} {
-  if (!fechaEntrega) return { days: null, header: null, variant: "neutral" };
-  const date = new Date(`${fechaEntrega.slice(0, 10)}T12:00:00`);
-  const days = Math.ceil((date.getTime() - Date.now()) / 86_400_000);
-  const when = date.toLocaleDateString("es-CL", { weekday: "short", day: "numeric" });
-  if (days < 0) {
-    return {
-      days,
-      header: `vencida hace ${Math.abs(days)} ${Math.abs(days) === 1 ? "día" : "días"}`,
-      variant: "danger",
-    };
-  }
-  if (days === 0) return { days, header: `hoy · ${when}`, variant: "danger" };
-  return {
-    days,
-    header: `${days} ${days === 1 ? "día" : "días"} · ${when}`,
-    variant: days <= 3 ? "danger" : days <= 7 ? "warn" : "neutral",
-  };
-}
-
-function DatePickerButton({
-  value,
-  onChange,
-  children,
-  className,
-}: {
-  value: string | null;
-  onChange?: (ymd: string) => void;
-  children: ReactNode;
-  className?: string;
-}) {
-  const ref = useRef<HTMLInputElement>(null);
-  return (
-    <>
-      <button
-        type="button"
-        onClick={() => {
-          const el = ref.current;
-          if (!el) return;
-          if (typeof el.showPicker === "function") el.showPicker();
-          else el.click();
-        }}
-        className={className}
-      >
-        {children}
-      </button>
-      <input
-        ref={ref}
-        type="date"
-        value={value?.slice(0, 10) ?? ""}
-        onChange={(e) => {
-          if (e.target.value) onChange?.(e.target.value);
-        }}
-        className="sr-only"
-        aria-label="Fecha de entrega de la licitación"
-      />
-    </>
-  );
-}
-
 const DOT: Record<"ok" | "warn" | "neutral", string> = {
   ok: "bg-status-ok",
   warn: "bg-status-warn",
@@ -106,7 +43,7 @@ export function DealLicitacionBand({
   hasUnclassified,
   gate,
   onOpenDocumentos,
-  onFechaChange,
+  milestones,
 }: {
   dealId: string;
   dealTitle: string;
@@ -117,9 +54,13 @@ export function DealLicitacionBand({
   hasUnclassified: boolean;
   gate: string | null;
   onOpenDocumentos: (tipoCodigo: string) => void;
-  onFechaChange?: (ymd: string) => void;
+  milestones?: ReactNode;
 }) {
-  const cd = countdownParts(fechaEntrega);
+  const cd = formatDealDateCountdown(fechaEntrega);
+  const short = formatDealDateShort(fechaEntrega);
+  const headerText = short
+    ? `⏱ entrega ${short}${cd ? ` · ${cd.text}` : ""}`
+    : "⏱ entrega sin fecha";
   const basesReady = types.some((t) => t.codigo === LICITACION_TIPO_CODIGOS.bases && t.extracted);
 
   return (
@@ -128,29 +69,10 @@ export function DealLicitacionBand({
         <p className="min-w-0 truncate text-[13px] font-semibold text-ds-text-1">
           Documentos de licitación
         </p>
-        {cd.header ? (
-          <DatePickerButton
-            value={fechaEntrega}
-            onChange={onFechaChange}
-            className="shrink-0"
-          >
-            <Tag variant={cd.variant} size="sm">
-              {cd.header}
-            </Tag>
-          </DatePickerButton>
-        ) : null}
+        <Tag variant={cd?.variant ?? "neutral"} size="sm">
+          {headerText}
+        </Tag>
       </div>
-
-      {!fechaEntrega ? (
-        <DatePickerButton
-          value={fechaEntrega}
-          onChange={onFechaChange}
-          className="flex min-h-10 w-full items-center justify-between gap-2 rounded-lg px-0 text-left text-[13px] text-ds-text-2 lg:min-h-9"
-        >
-          <span>Definir fecha de cierre</span>
-          <ChevronRight className="h-4 w-4 text-ds-text-3" />
-        </DatePickerButton>
-      ) : null}
 
       {loading ? (
         <div className="flex items-center gap-2 text-[13px] text-ds-text-3">
@@ -225,6 +147,8 @@ export function DealLicitacionBand({
           </div>
         </>
       )}
+
+      {milestones}
 
       <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
         <Button

@@ -1,5 +1,7 @@
 "use client";
 
+import { DatePickerField } from "@/components/ui/date-picker";
+
 /**
  * Sección Condiciones comerciales de la cotización (extraída de CpqQuoteDetail
  * sin cambio visual). En modo multi-instalación las condiciones se gobiernan a
@@ -291,9 +293,7 @@ export function CondicionesSection({
 
           <div className="space-y-1">
             <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Fecha inicio contrato</Label>
-            <Input type="date" value={form.contractStartDate ?? ""}
-              onChange={(e) => { setForm(prev => ({ ...prev, contractStartDate: e.target.value || null })); setDirty(); }}
-              disabled={isLocked} className="h-8 bg-card text-foreground border-border text-xs" />
+            <DatePickerField value={form.contractStartDate || null} onChange={(ymd) => { setForm(prev => ({ ...prev, contractStartDate: (ymd ?? "") || null })); setDirty(); }} disabled={isLocked} triggerClassName={"h-8 bg-card text-foreground border-border text-xs"} />
           </div>
 
           <div className="space-y-1 flex items-end gap-2 pb-0.5">

@@ -1,5 +1,7 @@
 "use client";
 
+import { DatePickerField } from "@/components/ui/date-picker";
+
 import { useEffect, useMemo, useState } from "react";
 import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
@@ -281,7 +283,7 @@ export function DeferTermDialog({
           </p>
           <label className="block space-y-1 text-xs text-ds-text-3">
             <span>Fecha de término</span>
-            <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+            <DatePickerField value={date || null} onChange={(ymd) => setDate((ymd ?? ""))} />
           </label>
         </div>
         <DialogFooter>

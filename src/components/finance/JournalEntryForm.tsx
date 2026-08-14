@@ -1,5 +1,7 @@
 "use client";
 
+import { DatePickerField } from "@/components/ui/date-picker";
+
 import { useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
@@ -160,13 +162,7 @@ export function JournalEntryForm({ accounts, periods }: Props) {
           <div className="grid gap-4 md:grid-cols-3">
             <div className="space-y-1.5">
               <Label htmlFor="je-date">Fecha *</Label>
-              <Input
-                id="je-date"
-                type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                className="h-9"
-              />
+              <DatePickerField value={date || null} onChange={(ymd) => setDate((ymd ?? ""))} id={"je-date"} triggerClassName={"h-9"} />
             </div>
             <div className="space-y-1.5 md:col-span-2">
               <Label htmlFor="je-desc">Descripción *</Label>

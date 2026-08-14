@@ -1,5 +1,7 @@
 "use client";
 
+import { DatePickerField } from "@/components/ui/date-picker";
+
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
@@ -289,23 +291,13 @@ export function RondasReporteInstalacion({
           <p className="text-[11px] uppercase tracking-wider font-semibold text-[#64748b] mb-1">
             Desde
           </p>
-          <input
-            type="date"
-            value={dateFrom}
-            onChange={(e) => setDateFrom(e.target.value)}
-            className="h-9 rounded-lg border border-[#1a1f2e] bg-[#0a0e1a] text-[13px] text-[#f1f5f9] px-3 w-36"
-          />
+          <DatePickerField value={dateFrom || null} onChange={(ymd) => setDateFrom((ymd ?? ""))} triggerClassName={"h-9 rounded-lg border border-[#1a1f2e] bg-[#0a0e1a] text-[13px] text-[#f1f5f9] px-3 w-36"} />
         </div>
         <div>
           <p className="text-[11px] uppercase tracking-wider font-semibold text-[#64748b] mb-1">
             Hasta
           </p>
-          <input
-            type="date"
-            value={dateTo}
-            onChange={(e) => setDateTo(e.target.value)}
-            className="h-9 rounded-lg border border-[#1a1f2e] bg-[#0a0e1a] text-[13px] text-[#f1f5f9] px-3 w-36"
-          />
+          <DatePickerField value={dateTo || null} onChange={(ymd) => setDateTo((ymd ?? ""))} triggerClassName={"h-9 rounded-lg border border-[#1a1f2e] bg-[#0a0e1a] text-[13px] text-[#f1f5f9] px-3 w-36"} />
         </div>
 
         {/* Quick range presets */}

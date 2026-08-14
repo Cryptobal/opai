@@ -1,5 +1,7 @@
 "use client";
 
+import { DatePickerField } from "@/components/ui/date-picker";
+
 import { useState } from "react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -89,13 +91,12 @@ export function CorreoTasksStripForm({
         </button>
         <label className={chipCls(Boolean(dueYmd && dueYmd !== today && dueYmd !== tomorrow))}>
           Fecha
-          <input
-            type="date"
-            className="sr-only"
-            value={dueYmd && dueYmd !== today && dueYmd !== tomorrow ? dueYmd : ""}
-            onChange={(e) => {
-              if (e.target.value) setDue(dueFromYmd(e.target.value, DEFAULT_MINUTE, true));
+          <DatePickerField
+            value={dueYmd && dueYmd !== today && dueYmd !== tomorrow ? dueYmd : null}
+            onChange={(ymd) => {
+              if (ymd) setDue(dueFromYmd(ymd, DEFAULT_MINUTE, true));
             }}
+            triggerClassName="sr-only"
           />
         </label>
         <button

@@ -1,5 +1,7 @@
 "use client";
 
+import { DatePickerField } from "@/components/ui/date-picker";
+
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -266,13 +268,7 @@ export function GuardiaTeIngresoForm({
         <div className={`grid gap-3 ${compact ? "grid-cols-2" : "md:grid-cols-2"}`}>
           <div className="space-y-1">
             <Label htmlFor="te-birthDate">Fecha de nacimiento * (edad 18-70)</Label>
-            <Input
-              id="te-birthDate"
-              type="date"
-              value={form.birthDate}
-              onChange={(e) => setForm((prev) => ({ ...prev, birthDate: e.target.value }))}
-              required
-            />
+            <DatePickerField value={form.birthDate || null} onChange={(ymd) => setForm((prev) => ({ ...prev, birthDate: (ymd ?? "") }))} id={"te-birthDate"} required />
           </div>
           <div className="space-y-1">
             <Label htmlFor="te-phoneMobile">Celular * (+56 9 XXXX XXXX)</Label>

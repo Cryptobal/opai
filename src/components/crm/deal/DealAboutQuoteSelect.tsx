@@ -1,7 +1,6 @@
 "use client";
 
 import { Loader2 } from "lucide-react";
-import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -10,16 +9,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-/**
- * Selector de cotización activa de la columna izquierda. Solo presentación:
- * el handler (updateActiveQuotation) y el estado llegan por props sin reescribir
- * la lógica; las etiquetas de las opciones se arman en el contenedor.
- */
 export interface DealQuoteSelectProps {
   selectValue: string;
   onChange: (value: string) => void;
   updating: boolean;
-  /** No hay cotizaciones enviadas → selector deshabilitado. */
   hasSent: boolean;
   autoLabel: string;
   options: Array<{ id: string; label: string }>;
@@ -33,35 +26,30 @@ export function DealAboutQuoteSelect({
   hasSent,
   autoLabel,
   options,
-  helperText,
 }: DealQuoteSelectProps) {
   return (
-    <div className="space-y-1.5">
-      <Label>Cotización activa</Label>
-      <Select value={selectValue} onValueChange={onChange} disabled={updating || !hasSent}>
-        <SelectTrigger className="h-auto min-h-9 text-xs">
-          <SelectValue
-            placeholder={hasSent ? "Selecciona cotización activa" : "Sin cotizaciones enviadas"}
-          />
-        </SelectTrigger>
-        <SelectContent className="max-w-[calc(100vw-24px)]">
-          <SelectItem value="__auto__" className="whitespace-normal break-words pr-2">
-            {autoLabel}
-          </SelectItem>
-          {options.map((opt) => (
-            <SelectItem key={opt.id} value={opt.id} className="whitespace-normal break-words pr-2">
-              {opt.label}
+    <div className="flex min-h-10 items-center justify-between gap-3 py-2">
+      <span className="shrink-0 text-[12px] font-medium uppercase tracking-wide text-ds-text-3">
+        Cotización activa
+      </span>
+      <div className="flex min-w-0 flex-1 items-center justify-end gap-1.5">
+        <Select value={selectValue} onValueChange={onChange} disabled={updating || !hasSent}>
+          <SelectTrigger className="h-10 max-w-[11rem] text-[13px] sm:h-9">
+            <SelectValue placeholder={hasSent ? "Seleccionar" : "Sin cotizaciones"} />
+          </SelectTrigger>
+          <SelectContent className="max-w-[calc(100vw-24px)]">
+            <SelectItem value="__auto__" className="whitespace-normal break-words pr-2">
+              {autoLabel}
             </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-      <p className="text-[12px] text-ds-text-3">{helperText}</p>
-      {updating && (
-        <div className="inline-flex items-center gap-1 text-[12px] text-ds-text-3">
-          <Loader2 className="h-3 w-3 animate-spin" />
-          Guardando selección…
-        </div>
-      )}
+            {options.map((opt) => (
+              <SelectItem key={opt.id} value={opt.id} className="whitespace-normal break-words pr-2">
+                {opt.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {updating ? <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-ds-text-3" /> : null}
+      </div>
     </div>
   );
 }

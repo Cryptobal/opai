@@ -118,6 +118,8 @@ export function ChatSheetMobile(props: ChatPanelSharedProps) {
             onFeedback={props.onFeedback}
             friendlyToolLabel={props.friendlyToolLabel}
             scrollRef={props.scrollRef}
+            activeConversationId={props.activeConversationId}
+            onSelectConversation={props.onSelectConversation}
           />
           <div
             className="shrink-0 border-t border-ds-border-subtle p-3"

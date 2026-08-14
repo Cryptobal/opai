@@ -8,6 +8,8 @@ import { openAnchoredChat } from "@/lib/ai/ai-command-event";
 import { toast } from "sonner";
 import type { ProposalContentV2 } from "@/lib/cpq/proposal-sections/schema";
 import type { ProposalValidation } from "@/lib/cpq/proposal-sections/validate";
+import { isAutoSection } from "@/lib/cpq/proposal-sections/oferta-economica";
+import type { EconomicOpening } from "@/lib/cpq/economic-opening";
 import { ProposalSectionList } from "./ProposalSectionList";
 import { ProposalSectionPanel } from "./ProposalSectionPanel";
 import { ProposalValidations } from "./ProposalValidations";
@@ -37,6 +39,8 @@ export function ProposalSectionsEditor({
   onMarkSentLicitacion,
   onSendPortal,
   markingSent,
+  economicOpening,
+  onProposalStatusChange,
 }: {
   quoteId: string;
   quoteLabel: string;
@@ -46,6 +50,8 @@ export function ProposalSectionsEditor({
   onMarkSentLicitacion?: () => void;
   onSendPortal?: () => void;
   markingSent?: boolean;
+  economicOpening?: EconomicOpening | null;
+  onProposalStatusChange?: (status: ProposalContentV2["status"], approved: boolean) => void;
 }) {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -127,12 +133,18 @@ export function ProposalSectionsEditor({
   }
 
   const section = data?.content.sections.find((s) => s.id === activeId) ?? data?.content.sections[0];
-  const approved = data?.content.sections.filter((s) => s.status === "aprobada").length ?? 0;
-  const total = data?.content.sections.length ?? 0;
+  const gated = data?.content.sections.filter((s) => !isAutoSection(s)) ?? [];
+  const approved = gated.filter((s) => s.status === "aprobada").length;
+  const total = gated.length;
   const mode = data?.content.mode ?? "comercial";
   const licitacionGate = mode === "licitacion" && Boolean(data?.gate);
   const proposalApproved = data?.content.status === "aprobada";
   const alreadySent = quoteStatus === "sent";
+
+  useEffect(() => {
+    if (!data) return;
+    onProposalStatusChange?.(data.content.status, proposalApproved);
+  }, [data, proposalApproved, onProposalStatusChange]);
 
   return (
     <Surface elevation={1} padding="md" className="space-y-4 ds-page-enter">
@@ -229,6 +241,7 @@ export function ProposalSectionsEditor({
               section={section}
               readOnly={Boolean(readOnly)}
               busy={busy}
+              opening={economicOpening}
               onSave={(content, title) => {
                 void patch({ action: "set_content", sectionId: section.id, content });
                 if (title !== section.title && !section.invariant) {
@@ -273,9 +286,10 @@ export function ProposalSectionsEditor({
         </div>
         <p className="text-[12px] text-ds-text-3">
           {mode === "licitacion"
-            ? "El PDF final de licitación exige el 100% de las secciones aprobadas. El borrador lleva marca de agua."
-            : "El PDF final comercial se arma desde estas secciones y exige el 100% aprobado. El borrador lleva marca de agua."}
+            ? "Licitación: se envía la propuesta técnica (con oferta económica) y se marca la cotización como enviada. No hay portal ni correo."
+            : "Comercial: se envía la cotización PDF y la propuesta técnica (con oferta económica) por portal o correo."}
         </p>
+        <div className="hidden lg:block space-y-2">
         {mode === "licitacion" && onMarkSentLicitacion ? (
           <Button
             type="button"
@@ -296,6 +310,7 @@ export function ProposalSectionsEditor({
             Enviar propuesta (portal)
           </Button>
         ) : null}
+        </div>
       </div>
     </Surface>
   );

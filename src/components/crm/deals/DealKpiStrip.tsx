@@ -2,7 +2,10 @@
 
 import type { ReactNode } from "react";
 import { CalendarClock, FileText } from "lucide-react";
+import { DatePickerField } from "@/components/ui/date-picker";
+import { formatDealDateCountdown, formatDealDateShort } from "@/components/crm/deals/deals-helpers";
 import { formatCLP, formatUFSuffix } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 
 type Props = {
   amountClp: number;
@@ -10,18 +13,14 @@ type Props = {
   totalGuards: number;
   activeQuote: { code: string | null; statusLabel: string } | null;
   expectedCloseDate: string | null;
+  fechaEntrega?: string | null;
+  isLicitacion?: boolean;
   nextStep: string | null;
   canEdit?: boolean;
   onCloseDateChange: (ymd: string) => void;
+  onFechaEntregaChange?: (ymd: string) => void;
   onNextStepChange: (value: string) => void;
 };
-
-function formatDate(value: string): string {
-  return new Date(`${value.slice(0, 10)}T12:00:00`).toLocaleDateString("es-CL", {
-    day: "2-digit",
-    month: "short",
-  });
-}
 
 function Item({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -42,12 +41,60 @@ export function DealKpiStrip({
   totalGuards,
   activeQuote,
   expectedCloseDate,
+  fechaEntrega,
+  isLicitacion = false,
   nextStep,
   canEdit = true,
   onCloseDateChange,
+  onFechaEntregaChange,
   onNextStepChange,
 }: Props) {
-  const closeYmd = expectedCloseDate?.slice(0, 10) ?? "";
+  const dateYmd = isLicitacion
+    ? (fechaEntrega?.slice(0, 10) ?? null)
+    : (expectedCloseDate?.slice(0, 10) ?? null);
+  const dateLabel = isLicitacion ? "Entrega de oferta" : "Cierre estimado";
+  const countdown = isLicitacion ? formatDealDateCountdown(dateYmd) : null;
+  const short = dateYmd ? formatDealDateShort(dateYmd) : null;
+
+  function handleDateChange(ymd: string | null) {
+    if (!ymd) return;
+    if (isLicitacion) onFechaEntregaChange?.(ymd);
+    else onCloseDateChange(ymd);
+  }
+
+  const countdownClass =
+    countdown?.variant === "danger"
+      ? "text-status-danger-fg"
+      : countdown?.variant === "warn"
+        ? "text-status-warn-fg"
+        : "text-ds-text-3";
+
+  const dateTrigger = (
+    <button
+      type="button"
+      disabled={!canEdit}
+      aria-label={dateLabel}
+      className={cn(
+        "inline-flex min-h-10 items-center gap-1.5 rounded-md text-left sm:min-h-8",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        !canEdit && "cursor-default",
+      )}
+    >
+      <CalendarClock className="h-3.5 w-3.5 shrink-0 text-ds-text-3" />
+      {short ? (
+        <span className="inline-flex items-baseline gap-1.5">
+          <span>{short}</span>
+          {countdown ? (
+            <span className={cn("text-[12px] font-medium", countdownClass)}>
+              {countdown.text}
+            </span>
+          ) : null}
+        </span>
+      ) : (
+        <span className="text-[13px] font-normal text-ds-text-3">Definir</span>
+      )}
+    </button>
+  );
 
   return (
     <div className="flex items-stretch gap-0 overflow-x-auto scrollbar-thin divide-x divide-ds-border-subtle px-1">
@@ -77,20 +124,23 @@ export function DealKpiStrip({
           <span className="text-[13px] font-normal text-ds-text-3">Sin cotización</span>
         )}
       </Item>
-      <Item label="Cierre estimado">
+      <Item label={dateLabel}>
         {canEdit ? (
-          <label className="inline-flex items-center gap-1.5">
-            <CalendarClock className="h-3.5 w-3.5 shrink-0 text-ds-text-3" />
-            <input
-              type="date"
-              value={closeYmd}
-              onChange={(e) => onCloseDateChange(e.target.value)}
-              className="h-10 min-w-[8.5rem] rounded-md border-0 bg-transparent text-[13px] font-semibold text-ds-text-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:h-8"
-              aria-label="Cierre estimado"
-            />
-          </label>
-        ) : closeYmd ? (
-          formatDate(closeYmd)
+          <DatePickerField
+            asChild
+            value={dateYmd}
+            onChange={handleDateChange}
+            aria-label={dateLabel}
+          >
+            {dateTrigger}
+          </DatePickerField>
+        ) : short ? (
+          <span className="inline-flex items-baseline gap-1.5">
+            {short}
+            {countdown ? (
+              <span className={cn("text-[12px] font-medium", countdownClass)}>{countdown.text}</span>
+            ) : null}
+          </span>
         ) : (
           <span className="text-[13px] font-normal text-ds-text-3">Sin fecha</span>
         )}

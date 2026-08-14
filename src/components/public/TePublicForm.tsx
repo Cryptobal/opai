@@ -1,5 +1,7 @@
 "use client";
 
+import { DatePickerField } from "@/components/ui/date-picker";
+
 import { useRef, useState, useEffect } from "react";
 import { useBranding } from "@/lib/branding/useBranding";
 import { toast } from "sonner";
@@ -329,13 +331,7 @@ export function TePublicForm({ tenantSlug = "gard" }: TePublicFormProps) {
               <label htmlFor="te-birthdate" className="text-sm text-muted-foreground">
                 Fecha de nacimiento *
               </label>
-              <Input
-                type="date"
-                id="te-birthdate"
-                className="[color-scheme:dark]"
-                value={form.birthDate}
-                onChange={(e) => setForm((prev) => ({ ...prev, birthDate: e.target.value }))}
-              />
+              <DatePickerField value={form.birthDate || null} onChange={(ymd) => setForm((prev) => ({ ...prev, birthDate: (ymd ?? "") }))} id={"te-birthdate"} triggerClassName={"[color-scheme:dark]"} />
             </div>
             <div className="md:col-span-2">
               <AddressAutocomplete

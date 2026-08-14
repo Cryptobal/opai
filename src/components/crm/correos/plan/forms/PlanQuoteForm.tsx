@@ -1,5 +1,6 @@
 "use client";
 
+import { DatePickerField } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -53,13 +54,18 @@ export function PlanQuoteForm({ quoteInput, onChange }: Props) {
           onChange={(v) => onChange({ contractDuration: v ? Number(v) : 12 })}
         />
       </div>
-      <FormField
-        id="q-valid"
-        label="Válida hasta"
-        type="date"
-        value={quoteInput.validUntil ?? ""}
-        onChange={(v) => onChange({ validUntil: v || null })}
-      />
+      <div className="space-y-1">
+        <Label htmlFor="q-valid" className="text-[12px] text-ds-text-3">
+          Válida hasta
+        </Label>
+        <DatePickerField
+          id="q-valid"
+          value={quoteInput.validUntil ?? null}
+          onChange={(ymd) => onChange({ validUntil: ymd })}
+          aria-label="Válida hasta"
+          clearable
+        />
+      </div>
       <div className="flex items-center gap-3">
         <Checkbox
           id="q-ongoing"

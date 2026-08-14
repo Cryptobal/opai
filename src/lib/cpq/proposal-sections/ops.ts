@@ -9,7 +9,8 @@ import type {
   ProposalSection,
   ProposalSectionStatus,
 } from "./schema";
-import { INVARIANT_TITLES, newSectionId } from "./schema";
+import { INVARIANT_TITLES, OFERTA_ECONOMICA_KIND, newSectionId } from "./schema";
+import { isAutoSection, gateSections, makeOfertaEconomicaSection } from "./oferta-economica";
 
 export class ProposalIndexError extends Error {
   constructor(message: string) {
@@ -37,6 +38,14 @@ function sorted(content: ProposalContentV2): ProposalSection[] {
 function requireSection(content: ProposalContentV2, id: string): ProposalSection {
   const s = content.sections.find((x) => x.id === id);
   if (!s) throw new ProposalIndexError("Sección no encontrada");
+  return s;
+}
+
+function requireManualSection(content: ProposalContentV2, id: string): ProposalSection {
+  const s = requireSection(content, id);
+  if (isAutoSection(s)) {
+    throw new ProposalIndexError("La oferta económica se genera sola desde el costeo y no se puede editar.");
+  }
   return s;
 }
 
@@ -114,8 +123,8 @@ export function mergeSections(
   title?: string,
 ): ProposalContentV2 {
   const next = clone(content);
-  const a = requireSection(next, idA);
-  const b = requireSection(next, idB);
+  const a = requireManualSection(next, idA);
+  const b = requireManualSection(next, idB);
   if (a.invariant || b.invariant) {
     throw new ProposalIndexError("No se pueden fusionar secciones invariantes");
   }
@@ -145,7 +154,7 @@ export function renameSection(
   title: string,
 ): ProposalContentV2 {
   const next = clone(content);
-  const s = requireSection(next, id);
+  const s = requireManualSection(next, id);
   const t = title.trim();
   if (!t) throw new ProposalIndexError("El título no puede estar vacío");
   if (s.invariant) {
@@ -177,7 +186,7 @@ export function reorderSections(content: ProposalContentV2, orderedIds: string[]
 
 export function removeSection(content: ProposalContentV2, id: string): ProposalContentV2 {
   const next = clone(content);
-  const s = requireSection(next, id);
+  const s = requireManualSection(next, id);
   if (s.invariant) {
     throw new ProposalIndexError(
       `No se puede eliminar la sección invariante «${INVARIANT_TITLES[s.invariant]}»`,
@@ -195,7 +204,7 @@ export function moveToExclusiones(
   note?: string,
 ): ProposalContentV2 {
   const next = clone(content);
-  const s = requireSection(next, id);
+  const s = requireManualSection(next, id);
   if (isInvariant(s, "exclusiones") || isInvariant(s, "identificacion") || isInvariant(s, "matriz")) {
     throw new ProposalIndexError("No se puede mover una invariante a Exclusiones");
   }
@@ -217,7 +226,7 @@ export function setSectionContent(
   opts?: { sources?: string[]; mark?: "ia" | "editada" },
 ): ProposalContentV2 {
   const next = clone(content);
-  const s = requireSection(next, id);
+  const s = requireManualSection(next, id);
   s.content = body;
   if (opts?.sources) s.sources = opts.sources;
   if (opts?.mark === "ia") {
@@ -231,7 +240,7 @@ export function setSectionContent(
 
 export function approveSection(content: ProposalContentV2, id: string): ProposalContentV2 {
   const next = clone(content);
-  const s = requireSection(next, id);
+  const s = requireManualSection(next, id);
   if (s.invariant === "exclusiones" && !s.content.trim()) {
     throw new ProposalIndexError("Exclusiones y supuestos no puede aprobarse vacía");
   }
@@ -241,7 +250,7 @@ export function approveSection(content: ProposalContentV2, id: string): Proposal
 
 export function unapproveSection(content: ProposalContentV2, id: string): ProposalContentV2 {
   const next = clone(content);
-  const s = requireSection(next, id);
+  const s = requireManualSection(next, id);
   if (s.status === "aprobada") s.status = "editada";
   if (next.status === "aprobada") {
     next.status = "en_revision";
@@ -259,16 +268,24 @@ export function replaceIndex(
     content?: string;
     sources?: string[];
     invariant?: InvariantKey;
+    kind?: typeof OFERTA_ECONOMICA_KIND;
   }>,
 ): ProposalContentV2 {
   const next = clone(content);
   const keepByInv = new Map(
     next.sections.filter((s) => s.invariant).map((s) => [s.invariant!, s]),
   );
+  const prevAuto = next.sections.find(isAutoSection);
   const built: ProposalSection[] = [];
   const seenInv = new Set<InvariantKey>();
+  let sawAuto = false;
 
   for (const row of incoming) {
+    if (row.kind === OFERTA_ECONOMICA_KIND) {
+      sawAuto = true;
+      built.push(prevAuto ? { ...prevAuto, sources: [...prevAuto.sources] } : makeOfertaEconomicaSection());
+      continue;
+    }
     const inv = row.invariant;
     if (inv) {
       seenInv.add(inv);
@@ -325,6 +342,13 @@ export function replaceIndex(
     }
   }
 
+  if (!sawAuto) {
+    const auto = prevAuto ? { ...prevAuto, sources: [...prevAuto.sources] } : makeOfertaEconomicaSection();
+    const matrizIdx = built.findIndex((s) => s.invariant === "matriz");
+    if (matrizIdx >= 0) built.splice(matrizIdx, 0, auto);
+    else built.push(auto);
+  }
+
   const identIdx = built.findIndex((s) => s.invariant === "identificacion");
   if (identIdx > 0) {
     const [ident] = built.splice(identIdx, 1);
@@ -339,7 +363,8 @@ export function replaceIndex(
 }
 
 export function allSectionsApproved(content: ProposalContentV2): boolean {
-  return content.sections.length > 0 && content.sections.every((s) => s.status === "aprobada");
+  const gated = gateSections(content.sections);
+  return gated.length > 0 && gated.every((s) => s.status === "aprobada");
 }
 
 export function setProposalDocStatus(
@@ -377,8 +402,9 @@ export function setProposalDocStatus(
 }
 
 export function approvedCount(content: ProposalContentV2): { approved: number; total: number } {
+  const gated = gateSections(content.sections);
   return {
-    approved: content.sections.filter((s) => s.status === "aprobada").length,
-    total: content.sections.length,
+    approved: gated.filter((s) => s.status === "aprobada").length,
+    total: gated.length,
   };
 }

@@ -1,5 +1,7 @@
 "use client";
 
+import { DatePickerField } from "@/components/ui/date-picker";
+
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
@@ -40,7 +42,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
 import { CountdownTimer } from "./CountdownTimer";
 import { CrearAlertaDialog } from "./CrearAlertaDialog";
 import { IndiceGeografico } from "./IndiceGeografico";
@@ -292,20 +293,8 @@ export function AlertasCoberturaClient({ userRole, tenantId }: Props) {
                 <SelectItem value="NO_CUBIERTA">No Cubierta</SelectItem>
               </SelectContent>
             </Select>
-            <Input
-              type="date"
-              value={filtroFechaDesde}
-              onChange={(e) => setFiltroFechaDesde(e.target.value)}
-              className="w-[160px]"
-              placeholder="Desde"
-            />
-            <Input
-              type="date"
-              value={filtroFechaHasta}
-              onChange={(e) => setFiltroFechaHasta(e.target.value)}
-              className="w-[160px]"
-              placeholder="Hasta"
-            />
+            <DatePickerField value={filtroFechaDesde || null} onChange={(ymd) => setFiltroFechaDesde((ymd ?? ""))} placeholder={"Desde"} triggerClassName={"w-[160px]"} />
+            <DatePickerField value={filtroFechaHasta || null} onChange={(ymd) => setFiltroFechaHasta((ymd ?? ""))} placeholder={"Hasta"} triggerClassName={"w-[160px]"} />
           </div>
           {loading ? (
             <div className="flex items-center justify-center py-12">

@@ -1,5 +1,7 @@
 "use client";
 
+import { DatePickerField } from "@/components/ui/date-picker";
+
 import { useEffect, useMemo, useState } from "react";
 import {
   Dialog,
@@ -9,7 +11,6 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Loader2, Calendar, Building2, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { ValidationsPanel } from "./ValidationsPanel";
@@ -321,12 +322,7 @@ export function OnboardingClientModal({
                   <Calendar className="h-3.5 w-3.5" />
                   Fecha de inicio del servicio
                 </label>
-                <Input
-                  type="date"
-                  value={serviceStartDate}
-                  onChange={(e) => setServiceStartDate(e.target.value)}
-                  className="h-9"
-                />
+                <DatePickerField value={serviceStartDate || null} onChange={(ymd) => setServiceStartDate((ymd ?? ""))} triggerClassName={"h-9"} />
               </div>
 
               <section className="space-y-2.5">

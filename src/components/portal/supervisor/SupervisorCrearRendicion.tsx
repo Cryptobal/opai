@@ -1,5 +1,7 @@
 "use client";
 
+import { DatePickerField } from "@/components/ui/date-picker";
+
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, Building2, Camera, Loader2, MapPin, Navigation, Send, X } from "lucide-react";
 import { toast } from "sonner";
@@ -572,12 +574,7 @@ export function SupervisorCrearRendicion({ installations, onBack, onCreated }: P
 
       {/* Fecha */}
       <Field label="Fecha *">
-        <input
-          type="date"
-          value={date}
-          onChange={(e) => setDate(e.target.value)}
-          className="w-full bg-muted opai-glass-soft-m border border-border rounded-lg px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-emerald-500"
-        />
+        <DatePickerField value={date || null} onChange={(ymd) => setDate((ymd ?? ""))} triggerClassName={"w-full bg-muted opai-glass-soft-m border border-border rounded-lg px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-emerald-500"} />
       </Field>
 
       {/* Descripción */}

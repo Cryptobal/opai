@@ -1,5 +1,6 @@
 "use client";
 
+import { DatePickerField } from "@/components/ui/date-picker";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
@@ -304,21 +305,9 @@ function PaymentsListTab({ canManage }: { canManage: boolean }) {
           </SelectContent>
         </Select>
         <div className="flex items-center gap-2">
-          <Input
-            type="date"
-            value={dateFrom}
-            onChange={(e) => setDateFrom(e.target.value)}
-            className="h-9 w-38"
-            placeholder="Desde"
-          />
+          <DatePickerField value={dateFrom || null} onChange={(ymd) => setDateFrom((ymd ?? ""))} placeholder={"Desde"} triggerClassName={"h-9 w-38"} />
           <span className="text-xs text-muted-foreground">a</span>
-          <Input
-            type="date"
-            value={dateTo}
-            onChange={(e) => setDateTo(e.target.value)}
-            className="h-9 w-38"
-            placeholder="Hasta"
-          />
+          <DatePickerField value={dateTo || null} onChange={(ymd) => setDateTo((ymd ?? ""))} placeholder={"Hasta"} triggerClassName={"h-9 w-38"} />
         </div>
       </div>
 
@@ -743,13 +732,7 @@ function NewPaymentTab({
             {/* Date */}
             <div className="space-y-1.5">
               <Label htmlFor="pay-date">Fecha *</Label>
-              <Input
-                id="pay-date"
-                type="date"
-                value={form.date}
-                onChange={(e) => setField("date", e.target.value)}
-                className="h-9"
-              />
+              <DatePickerField value={form.date || null} onChange={(ymd) => setField("date", (ymd ?? ""))} id={"pay-date"} triggerClassName={"h-9"} />
             </div>
 
             {/* Amount */}

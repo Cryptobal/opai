@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   dealCloseDateYmd,
   formatDealCloseDate,
+  formatDealDateCountdown,
   getDealCloseDateTone,
   isOpenDeal,
   truncateNextStep,
@@ -32,15 +33,26 @@ describe("deals-helpers pipeline fields", () => {
     expect(formatDealCloseDate("2026-08-15")).toBe("15 ago 2026");
   });
 
-  it("getDealCloseDateTone marca vencido y próximo", () => {
-    const past = new Date();
-    past.setDate(past.getDate() - 2);
-    const ymdPast = past.toISOString().slice(0, 10);
-    expect(getDealCloseDateTone(ymdPast)).toBe("danger");
+  it("formatDealDateCountdown cubre vencida / hoy / futuro", () => {
+    expect(formatDealDateCountdown("2026-08-10", "2026-08-14")).toEqual({
+      days: -4,
+      text: "vencida hace 4 días",
+      variant: "danger",
+    });
+    expect(formatDealDateCountdown("2026-08-14", "2026-08-14")?.text).toBe("hoy");
+    expect(formatDealDateCountdown("2026-08-16", "2026-08-14")).toMatchObject({
+      days: 2,
+      text: "en 2 días",
+      variant: "danger",
+    });
+    expect(formatDealDateCountdown("2026-08-21", "2026-08-14")?.variant).toBe("warn");
+    expect(formatDealDateCountdown("2026-09-01", "2026-08-14")?.variant).toBe("neutral");
+  });
 
-    const soon = new Date();
-    soon.setDate(soon.getDate() + 3);
-    expect(getDealCloseDateTone(soon.toISOString().slice(0, 10))).toBe("warn");
+  it("getDealCloseDateTone clasifica por cercanía", () => {
+    expect(getDealCloseDateTone("2026-08-12", "2026-08-14")).toBe("danger");
+    expect(getDealCloseDateTone("2026-08-17", "2026-08-14")).toBe("warn");
+    expect(getDealCloseDateTone("2026-09-01", "2026-08-14")).toBe("ok");
   });
 
   it("isOpenDeal respeta status y etapa", () => {

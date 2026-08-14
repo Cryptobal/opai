@@ -1,5 +1,6 @@
 "use client";
 
+import { DatePickerField } from "@/components/ui/date-picker";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { CalendarDays, Loader2 } from "lucide-react";
@@ -250,20 +251,14 @@ export function SeleccionadoDestinoFields({
             <CalendarDays className="h-3 w-3 shrink-0" aria-hidden />
             Fecha probable contratación
           </Label>
-          <input
-            type="date"
-            className={cn(
+          <DatePickerField value={dateVal || null} onChange={(ymd) => {
+              const v = (ymd ?? "");
+              void patch({ intendedContractDate: v || null });
+            }} disabled={disabled} triggerClassName={cn(
               "flex h-9 w-full rounded-md border border-input bg-background px-2 py-1 text-xs shadow-sm",
               "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
               disabled && "opacity-60 pointer-events-none"
-            )}
-            value={dateVal}
-            disabled={disabled}
-            onChange={(e) => {
-              const v = e.target.value;
-              void patch({ intendedContractDate: v || null });
-            }}
-          />
+            )} />
         </div>
       </div>
       {lifecycleStatus !== "seleccionado" && (intendedInstallationId || intendedContractDate) && (

@@ -1,5 +1,7 @@
 "use client";
 
+import { DatePickerField } from "@/components/ui/date-picker";
+
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { format } from "date-fns";
@@ -2389,23 +2391,11 @@ function TransactionsTab({
         </div>
         <div className="space-y-1.5 flex-1 sm:flex-initial">
           <Label htmlFor="tx-from">Desde</Label>
-          <Input
-            id="tx-from"
-            type="date"
-            className="h-11 sm:h-9 sm:w-40 w-full"
-            value={dateFrom}
-            onChange={(e) => setDateFrom(e.target.value)}
-          />
+          <DatePickerField value={dateFrom || null} onChange={(ymd) => setDateFrom((ymd ?? ""))} id={"tx-from"} triggerClassName={"h-11 sm:h-9 sm:w-40 w-full"} />
         </div>
         <div className="space-y-1.5 flex-1 sm:flex-initial">
           <Label htmlFor="tx-to">Hasta</Label>
-          <Input
-            id="tx-to"
-            type="date"
-            className="h-11 sm:h-9 sm:w-40 w-full"
-            value={dateTo}
-            onChange={(e) => setDateTo(e.target.value)}
-          />
+          <DatePickerField value={dateTo || null} onChange={(ymd) => setDateTo((ymd ?? ""))} id={"tx-to"} triggerClassName={"h-11 sm:h-9 sm:w-40 w-full"} />
         </div>
         <div className="space-y-1.5 sm:flex-initial">
           <Label>Tipo</Label>

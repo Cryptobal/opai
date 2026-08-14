@@ -1,5 +1,7 @@
 "use client";
 
+import { DatePickerField } from "@/components/ui/date-picker";
+
 import { useState } from "react";
 import { ChevronDown, Plus } from "lucide-react";
 import type { CoverageStageGroup as Group } from "./coverage-grouping";
@@ -61,27 +63,11 @@ export function CoverageStageGroup({
 
         {editable ? (
           <div className="flex flex-wrap items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
-            <input
-              type="date"
-              aria-label={`Vigencia desde ${group.label}`}
-              value={group.vigenciaDesde ?? ""}
-              onChange={(e) =>
-                onBulkVigencia(e.target.value || null, group.vigenciaHasta)
-              }
-              onClick={(e) => e.stopPropagation()}
-              className={DATE}
-            />
+            <DatePickerField value={group.vigenciaDesde || null} onChange={(ymd) =>
+                onBulkVigencia((ymd ?? "") || null, group.vigenciaHasta)} aria-label={`Vigencia desde ${group.label}`} triggerClassName={DATE} />
             <span className="text-[12px] text-ds-text-4">→</span>
-            <input
-              type="date"
-              aria-label={`Vigencia hasta ${group.label}`}
-              value={group.vigenciaHasta ?? ""}
-              onChange={(e) =>
-                onBulkVigencia(group.vigenciaDesde, e.target.value || null)
-              }
-              onClick={(e) => e.stopPropagation()}
-              className={DATE}
-            />
+            <DatePickerField value={group.vigenciaHasta || null} onChange={(ymd) =>
+                onBulkVigencia(group.vigenciaDesde, (ymd ?? "") || null)} aria-label={`Vigencia hasta ${group.label}`} triggerClassName={DATE} />
           </div>
         ) : (
           (group.vigenciaDesde || group.vigenciaHasta) && (

@@ -1,5 +1,7 @@
 "use client";
 
+import { DatePickerField } from "@/components/ui/date-picker";
+
 import { useState } from "react";
 import { Calendar, ChevronDown } from "lucide-react";
 import type {
@@ -96,18 +98,8 @@ export function ReportsPeriodPicker({
             </div>
             {value.type === "custom" && (
               <div className="space-y-2">
-                <input
-                  type="date"
-                  value={customFrom}
-                  onChange={(e) => setCustomFrom(e.target.value)}
-                  className="w-full h-8 rounded-ds-sm border border-ds-border-default px-2 text-xs bg-ds-surface text-ds-text-1"
-                />
-                <input
-                  type="date"
-                  value={customTo}
-                  onChange={(e) => setCustomTo(e.target.value)}
-                  className="w-full h-8 rounded-ds-sm border border-ds-border-default px-2 text-xs bg-ds-surface text-ds-text-1"
-                />
+                <DatePickerField value={customFrom || null} onChange={(ymd) => setCustomFrom((ymd ?? ""))} triggerClassName={"w-full h-8 rounded-ds-sm border border-ds-border-default px-2 text-xs bg-ds-surface text-ds-text-1"} />
+                <DatePickerField value={customTo || null} onChange={(ymd) => setCustomTo((ymd ?? ""))} triggerClassName={"w-full h-8 rounded-ds-sm border border-ds-border-default px-2 text-xs bg-ds-surface text-ds-text-1"} />
                 <button
                   onClick={() => handleType("custom")}
                   className="w-full h-8 rounded-ds-sm text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"

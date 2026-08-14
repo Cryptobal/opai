@@ -1,5 +1,7 @@
 "use client";
 
+import { DatePickerField } from "@/components/ui/date-picker";
+
 import { useEffect, useState } from "react";
 import { CalendarClock, ListTodo } from "lucide-react";
 import { toast } from "sonner";
@@ -91,15 +93,7 @@ export function DealPipelineFieldsCard({
           Cierre estimado
         </Label>
         {canEdit ? (
-          <Input
-            id={`deal-close-${dealId}`}
-            type="date"
-            value={closeDate}
-            disabled={saving}
-            onChange={(e) => setCloseDate(e.target.value)}
-            onBlur={() => void saveCloseDate(closeDate)}
-            className="h-10 sm:h-9"
-          />
+          <DatePickerField value={closeDate || null} onChange={(ymd) => setCloseDate((ymd ?? ""))} disabled={saving} id={`deal-close-${dealId}`} triggerClassName={"h-10 sm:h-9"} />
         ) : (
           <p className="inline-flex items-center gap-1.5 text-[13px] text-ds-text-1">
             <CalendarClock className="h-3.5 w-3.5 text-ds-text-3" />

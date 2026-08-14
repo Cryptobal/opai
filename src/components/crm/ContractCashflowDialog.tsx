@@ -1,5 +1,7 @@
 "use client";
 
+import { DatePickerField } from "@/components/ui/date-picker";
+
 import { useCallback, useEffect, useState } from "react";
 import {
   Dialog,
@@ -371,12 +373,7 @@ export function ContractCashflowDialog({
 
                 <div className="space-y-2">
                   <Label>Inicio</Label>
-                  <Input
-                    type="date"
-                    value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
-                    className="h-10 sm:h-9"
-                  />
+                  <DatePickerField value={startDate || null} onChange={(ymd) => setStartDate((ymd ?? ""))} triggerClassName={"h-10 sm:h-9"} />
                 </div>
 
                 <div className="space-y-2">
@@ -388,12 +385,7 @@ export function ContractCashflowDialog({
                     <span className="text-sm">Tiene fecha de fin</span>
                   </label>
                   {hasEndDate && (
-                    <Input
-                      type="date"
-                      value={endDate}
-                      onChange={(e) => setEndDate(e.target.value)}
-                      className="h-10 sm:h-9"
-                    />
+                    <DatePickerField value={endDate || null} onChange={(ymd) => setEndDate((ymd ?? ""))} triggerClassName={"h-10 sm:h-9"} />
                   )}
                   <p className="text-[11px] text-muted-foreground">
                     Sin fecha = recurrente perpetuo. Las cuotas dejan de

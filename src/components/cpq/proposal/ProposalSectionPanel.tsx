@@ -4,12 +4,18 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
+import { Spinner, Tag } from "@/components/opai-ds";
 import type { ProposalSection } from "@/lib/cpq/proposal-sections/schema";
+import { isAutoSection } from "@/lib/cpq/proposal-sections/oferta-economica";
+import type { EconomicOpening } from "@/lib/cpq/economic-opening";
+import { EconomicOpeningTable } from "./EconomicOpeningTable";
 
 export function ProposalSectionPanel({
   section,
   readOnly,
   busy,
+  opening,
+  openingLoading,
   onSave,
   onApprove,
   onUnapprove,
@@ -18,6 +24,8 @@ export function ProposalSectionPanel({
   section: ProposalSection;
   readOnly: boolean;
   busy: boolean;
+  opening?: EconomicOpening | null;
+  openingLoading?: boolean;
   onSave: (content: string, title: string) => void;
   onApprove: () => void;
   onUnapprove: () => void;
@@ -26,6 +34,30 @@ export function ProposalSectionPanel({
   const [title, setTitle] = useState(section.title);
   const [content, setContent] = useState(section.content);
   const [instruction, setInstruction] = useState("");
+  const auto = isAutoSection(section);
+
+  if (auto) {
+    return (
+      <div className="space-y-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <h3 className="font-display text-[15px] font-semibold text-ds-text-1">{section.title}</h3>
+          <Tag variant="info" size="sm">Auto · siempre al día</Tag>
+        </div>
+        <p className="text-[13px] text-ds-text-3">
+          Se resuelve en cada preview y PDF desde el costeo vigente. No se edita ni se aprueba a mano.
+        </p>
+        {openingLoading ? (
+          <div className="flex items-center gap-2 text-[13px] text-ds-text-3">
+            <Spinner size="sm" /> Cargando apertura…
+          </div>
+        ) : opening ? (
+          <EconomicOpeningTable opening={opening} />
+        ) : (
+          <p className="text-[13px] text-ds-text-3">Sin costeo aún. La tabla se llena al calcular la cotización.</p>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-3">

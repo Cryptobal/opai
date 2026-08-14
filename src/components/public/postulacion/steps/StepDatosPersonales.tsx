@@ -1,5 +1,7 @@
 "use client";
 
+import { DatePickerField } from "@/components/ui/date-picker";
+
 import type { Dispatch, SetStateAction } from "react";
 import { CalendarDays } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -68,14 +70,7 @@ export function StepDatosPersonales({ form, setForm, rutError, setRutError, erro
           className={`${CONTROL_H} flex w-full items-center gap-2 rounded-md border ${errors.birthDate ? "border-status-danger-border" : "border-input"} bg-background px-3 text-sm ring-offset-background focus-within:ring-1 focus-within:ring-ring`}
           role="group"
         >
-          <input
-            type="date"
-            className="min-w-0 flex-1 border-0 bg-transparent p-0 text-foreground outline-none [color-scheme:light]"
-            value={form.birthDate}
-            onChange={(e) => setForm((prev) => ({ ...prev, birthDate: e.target.value }))}
-            id="postulacion-birthdate"
-            aria-label="Fecha de nacimiento"
-          />
+          <DatePickerField value={form.birthDate || null} onChange={(ymd) => setForm((prev) => ({ ...prev, birthDate: (ymd ?? "") }))} id={"postulacion-birthdate"} aria-label={"Fecha de nacimiento"} triggerClassName={"min-w-0 flex-1 border-0 bg-transparent p-0 text-foreground outline-none [color-scheme:light]"} />
           <Button
             type="button"
             size="icon"

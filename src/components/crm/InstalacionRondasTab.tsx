@@ -1,5 +1,7 @@
 "use client";
 
+import { DatePickerField } from "@/components/ui/date-picker";
+
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { Loader2, ChevronDown, ChevronRight, Download, ExternalLink, MapPin, QrCode, Camera, Shield } from "lucide-react";
 import { SimpleSelect } from "@/components/ui/simple-select";
@@ -192,13 +194,11 @@ export function InstalacionRondasTab({ installationId }: { installationId: strin
       <div className="flex flex-wrap items-end gap-3">
         <div>
           <label className="mb-1 block text-xs text-muted-foreground">Desde</label>
-          <input type="date" value={dateFrom} onChange={(e) => { setDateFrom(e.target.value); setPage(0); }}
-            className="rounded-md border border-border bg-background px-3 py-1.5 text-sm" />
+          <DatePickerField value={dateFrom || null} onChange={(ymd) => { setDateFrom((ymd ?? "")); setPage(0); }} triggerClassName={"rounded-md border border-border bg-background px-3 py-1.5 text-sm"} />
         </div>
         <div>
           <label className="mb-1 block text-xs text-muted-foreground">Hasta</label>
-          <input type="date" value={dateTo} onChange={(e) => { setDateTo(e.target.value); setPage(0); }}
-            className="rounded-md border border-border bg-background px-3 py-1.5 text-sm" />
+          <DatePickerField value={dateTo || null} onChange={(ymd) => { setDateTo((ymd ?? "")); setPage(0); }} triggerClassName={"rounded-md border border-border bg-background px-3 py-1.5 text-sm"} />
         </div>
         <div>
           <label className="mb-1 block text-xs text-muted-foreground">Guardia</label>

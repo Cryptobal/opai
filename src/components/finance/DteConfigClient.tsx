@@ -1,5 +1,7 @@
 "use client";
 
+import { DatePickerField } from "@/components/ui/date-picker";
+
 /**
  * DteConfigClient — UI de configuración DTE (3 tabs).
  *
@@ -342,18 +344,15 @@ export function DteConfigClient({
               </div>
               <div className="space-y-1.5">
                 <Label>Fecha Resolución SII</Label>
-                <Input
-                  className="h-10 sm:h-9"
-                  type="date"
-                  value={
-                    config.resolFecha ? config.resolFecha.split("T")[0] : ""
-                  }
-                  onChange={(e) =>
+                <DatePickerField
+                  value={config.resolFecha?.split("T")[0] || null}
+                  onChange={(ymd) =>
                     setConfig((c) => ({
                       ...c,
-                      resolFecha: e.target.value || null,
+                      resolFecha: (ymd ?? "") || null,
                     }))
                   }
+                  triggerClassName="h-10 sm:h-9"
                 />
               </div>
             </div>

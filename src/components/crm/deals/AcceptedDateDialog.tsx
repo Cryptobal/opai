@@ -1,7 +1,8 @@
 "use client";
 
+import { DatePickerField } from "@/components/ui/date-picker";
+
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Dialog,
@@ -43,13 +44,7 @@ export function AcceptedDateDialog({
         </DialogHeader>
         <div className="py-2">
           <Label htmlFor="accepted-date">Fecha de inicio</Label>
-          <Input
-            id="accepted-date"
-            type="date"
-            value={date}
-            onChange={(e) => onDateChange(e.target.value)}
-            className="mt-1.5 h-10 sm:h-9"
-          />
+          <DatePickerField value={date || null} onChange={(ymd) => onDateChange((ymd ?? ""))} id={"accepted-date"} triggerClassName={"mt-1.5 h-10 sm:h-9"} />
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onCancel}>

@@ -1,5 +1,7 @@
 "use client";
 
+import { DatePickerField } from "@/components/ui/date-picker";
+
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -30,12 +32,11 @@ export function PlanTaskForm({ task, onChange }: Props) {
           <Label htmlFor="task-due" className="text-[12px] text-ds-text-3">
             Fecha límite
           </Label>
-          <Input
+          <DatePickerField
+            value={task.dueAt ? task.dueAt.slice(0, 10) : null}
+            onChange={(ymd) => onChange({ dueAt: ymd })}
             id="task-due"
-            type="date"
-            value={task.dueAt ? task.dueAt.slice(0, 10) : ""}
-            onChange={(e) => onChange({ dueAt: e.target.value || null })}
-            className="h-10 text-[13px] sm:h-9"
+            triggerClassName="h-10 text-[13px] sm:h-9"
           />
         </div>
         <div className="flex items-end pb-0.5">

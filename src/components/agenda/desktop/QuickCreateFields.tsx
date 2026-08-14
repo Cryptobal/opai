@@ -1,5 +1,7 @@
 "use client";
 
+import { DatePickerField } from "@/components/ui/date-picker";
+
 import { cn } from "@/lib/utils";
 import type { AgendaTeamMember } from "../agenda-calendar.types";
 import { AccountField } from "../nueva-visita/AccountField";
@@ -93,13 +95,7 @@ export function QuickCreateEventFields({
 
       <Row label="Cuándo">
         <div className="flex flex-wrap items-center gap-1.5">
-          <input
-            type="date"
-            value={form.date}
-            onChange={(e) => set.setDate(e.target.value)}
-            aria-label="Fecha"
-            className={cn(INPUT, "w-36")}
-          />
+          <DatePickerField value={form.date || null} onChange={(ymd) => set.setDate((ymd ?? ""))} aria-label={"Fecha"} triggerClassName={cn(INPUT, "w-36")} />
           <input
             type="time"
             value={form.time}

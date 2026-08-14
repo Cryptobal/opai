@@ -1,5 +1,7 @@
 "use client";
 
+import { DatePickerField } from "@/components/ui/date-picker";
+
 import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
@@ -428,8 +430,7 @@ export function SueldosRutListClient() {
           </DialogHeader>
           <div className="space-y-1.5 py-2">
             <Label className="text-sm">Fecha de término</Label>
-            <input type="date" value={deactivateDate} onChange={(e) => setDeactivateDate(e.target.value)}
-              className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" />
+            <DatePickerField value={deactivateDate || null} onChange={(ymd) => setDeactivateDate((ymd ?? ""))} triggerClassName={"h-9 w-full rounded-md border border-input bg-background px-3 text-sm"} />
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDeactivateConfirm(null)}>Cancelar</Button>
@@ -601,13 +602,11 @@ export function SueldosRutListClient() {
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="space-y-1">
                   <Label className="text-sm text-muted-foreground">Fecha inicio *</Label>
-                  <input type="date" value={formDateFrom} onChange={(e) => setFormDateFrom(e.target.value)}
-                    className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" />
+                  <DatePickerField value={formDateFrom || null} onChange={(ymd) => setFormDateFrom((ymd ?? ""))} triggerClassName={"h-9 w-full rounded-md border border-input bg-background px-3 text-sm"} />
                 </div>
                 <div className="space-y-1">
                   <Label className="text-sm text-muted-foreground">Fecha término (opcional)</Label>
-                  <input type="date" value={formDateUntil} onChange={(e) => setFormDateUntil(e.target.value)}
-                    className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" />
+                  <DatePickerField value={formDateUntil || null} onChange={(ymd) => setFormDateUntil((ymd ?? ""))} triggerClassName={"h-9 w-full rounded-md border border-input bg-background px-3 text-sm"} />
                   <p className="text-xs text-muted-foreground">Dejar vacío para vigencia indefinida</p>
                 </div>
               </div>

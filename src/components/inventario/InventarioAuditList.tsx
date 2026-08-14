@@ -1,5 +1,7 @@
 "use client";
 
+import { DatePickerField } from "@/components/ui/date-picker";
+
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Surface, Tag, IconBubble, Spinner, EmptyState, type IconBubbleVariant } from "@/components/opai-ds";
 import { Button } from "@/components/ui/button";
@@ -203,20 +205,8 @@ export function InventarioAuditList() {
           </SelectContent>
         </Select>
         <div className="flex items-center gap-2 sm:ml-auto">
-          <Input
-            type="date"
-            value={from}
-            onChange={(e) => { setFrom(e.target.value); setPage(1); }}
-            className="h-10 sm:h-9 w-[160px]"
-            aria-label="Desde"
-          />
-          <Input
-            type="date"
-            value={to}
-            onChange={(e) => { setTo(e.target.value); setPage(1); }}
-            className="h-10 sm:h-9 w-[160px]"
-            aria-label="Hasta"
-          />
+          <DatePickerField value={from || null} onChange={(ymd) => { setFrom((ymd ?? "")); setPage(1); }} aria-label={"Desde"} triggerClassName={"h-10 sm:h-9 w-[160px]"} />
+          <DatePickerField value={to || null} onChange={(ymd) => { setTo((ymd ?? "")); setPage(1); }} aria-label={"Hasta"} triggerClassName={"h-10 sm:h-9 w-[160px]"} />
           <Button size="sm" variant="outline" className="gap-2 h-10 sm:h-9" onClick={() => fetchData()}>
             <RefreshCcw className="h-3.5 w-3.5" />
             <span className="hidden sm:inline">Refrescar</span>

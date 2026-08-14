@@ -1,5 +1,7 @@
 "use client";
 
+import { DatePickerField } from "@/components/ui/date-picker";
+
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -114,12 +116,7 @@ export function CreateDealDialog({
           </div>
           <div className="space-y-2">
             <Label>Cierre estimado</Label>
-            <Input
-              className="h-10 sm:h-9"
-              type="date"
-              value={form.expectedCloseDate}
-              onChange={(e) => onChange("expectedCloseDate", e.target.value)}
-            />
+            <DatePickerField value={form.expectedCloseDate || null} onChange={(ymd) => onChange("expectedCloseDate", (ymd ?? ""))} triggerClassName={"h-10 sm:h-9"} />
           </div>
         </div>
         <DialogFooter>

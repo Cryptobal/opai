@@ -8,6 +8,7 @@ import { ExternalLink, Pencil, RefreshCw, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { NuevaVisitaModal } from "@/components/agenda/NuevaVisitaModal";
 import { syncStatusMeta } from "@/components/agenda/agenda-sync-status";
+import { DEAL_AGENDA_CHANGED_EVENT } from "@/components/crm/deals/deal-agenda-events";
 
 type VisitRow = {
   id: string;
@@ -19,6 +20,7 @@ type VisitRow = {
   end?: string;
   allDay?: boolean;
   assignedName: string | null;
+  inviteeCount?: number;
   status: string;
   syncStatus: string | null;
   syncReason?: string | null;
@@ -90,6 +92,16 @@ export function DealVisitasCard({ dealId, accountId, installationId }: Props) {
       cancelled = true;
     };
   }, [dealId, refreshKey]);
+
+  useEffect(() => {
+    const onChanged = (ev: Event) => {
+      const detail = (ev as CustomEvent<{ dealId?: string }>).detail;
+      if (detail?.dealId && detail.dealId !== dealId) return;
+      setRefreshKey((k) => k + 1);
+    };
+    window.addEventListener(DEAL_AGENDA_CHANGED_EVENT, onChanged);
+    return () => window.removeEventListener(DEAL_AGENDA_CHANGED_EVENT, onChanged);
+  }, [dealId]);
 
   return (
     <Surface elevation={1} padding="md" className="w-full min-w-0 space-y-3">
@@ -184,14 +196,32 @@ export function DealVisitasCard({ dealId, accountId, installationId }: Props) {
                       <span className="font-normal text-ds-text-3">
                         {" · "}
                         {formatWhen(r)}
-                        {r.assignedName ? ` · ${r.assignedName}` : ""}
                       </span>
+                    </p>
+                    <p className="truncate text-[12px] text-ds-text-3">
+                      {r.assignedName ?? "Sin responsable"}
+                      {(r.inviteeCount ?? 0) > 0 ? ` · +${r.inviteeCount} inv.` : ""}
                     </p>
                     {r.syncStatus === "ERROR" && sync.label ? (
                       <p className="truncate text-[12px] text-status-danger-fg">{sync.label}</p>
                     ) : null}
                   </div>
-                  {r.syncStatus ? (
+                  {r.syncStatus === "SYNCED" || r.htmlLink ? (
+                    <a
+                      href={r.htmlLink ?? undefined}
+                      target={r.htmlLink ? "_blank" : undefined}
+                      rel={r.htmlLink ? "noreferrer" : undefined}
+                      className="shrink-0 rounded-md px-1.5 py-0.5 text-[12px] font-medium text-status-ok-fg"
+                      title="Sincronizado con Google Calendar"
+                      aria-label="Sincronizado con Google Calendar"
+                    >
+                      G ↗
+                    </a>
+                  ) : r.syncStatus === "PENDING" ? (
+                    <span className="shrink-0 text-[12px] text-ds-text-4" title="Sync pendiente">
+                      pendiente
+                    </span>
+                  ) : r.syncStatus ? (
                     <span
                       className="shrink-0"
                       title={sync.label}
@@ -297,6 +327,9 @@ export function DealVisitasCard({ dealId, accountId, installationId }: Props) {
           })}
         </ul>
       )}
+      <p className="text-[12px] text-ds-text-4">
+        Creados por el copiloto o a mano — sincronizan al Google Calendar del responsable e invitados.
+      </p>
     </Surface>
   );
 }

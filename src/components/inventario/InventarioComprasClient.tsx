@@ -1,5 +1,7 @@
 "use client";
 
+import { DatePickerField } from "@/components/ui/date-picker";
+
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Surface, Tag, IconBubble, EmptyState, Spinner } from "@/components/opai-ds";
@@ -661,11 +663,7 @@ export function InventarioComprasClient() {
                     <div className="grid grid-cols-3 gap-4">
                       <div>
                         <Label>Fecha</Label>
-                        <Input
-                          type="date"
-                          value={importDate}
-                          onChange={(e) => setImportDate(e.target.value)}
-                        />
+                        <DatePickerField value={importDate || null} onChange={(ymd) => setImportDate((ymd ?? ""))} />
                       </div>
                       <div>
                         <Label>Notas</Label>
@@ -840,12 +838,7 @@ export function InventarioComprasClient() {
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <Label>Fecha</Label>
-                      <Input
-                        type="date"
-                        value={form.date}
-                        onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))}
-                        required
-                      />
+                      <DatePickerField value={form.date || null} onChange={(ymd) => setForm((f) => ({ ...f, date: (ymd ?? "") }))} required />
                     </div>
                     <div>
                       <Label>Notas</Label>
@@ -1067,12 +1060,7 @@ export function InventarioComprasClient() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label>Fecha</Label>
-                  <Input
-                    type="date"
-                    value={editForm.date}
-                    onChange={(e) => setEditForm((f) => ({ ...f, date: e.target.value }))}
-                    required
-                  />
+                  <DatePickerField value={editForm.date || null} onChange={(ymd) => setEditForm((f) => ({ ...f, date: (ymd ?? "") }))} required />
                 </div>
                 <div>
                   <Label>Notas</Label>

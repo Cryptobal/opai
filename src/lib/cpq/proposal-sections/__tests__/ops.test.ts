@@ -182,3 +182,56 @@ describe("validaciones pre-PDF", () => {
     expect(sent.sentBy).toBe("u1");
   });
 });
+
+describe("oferta económica automática", () => {
+  it("está en el índice comercial y de licitación", () => {
+    const lic = emptyProposalV2("licitacion");
+    const com = emptyProposalV2("comercial");
+    expect(lic.sections.some((s) => s.kind === "oferta_economica")).toBe(true);
+    expect(com.sections.some((s) => s.kind === "oferta_economica")).toBe(true);
+    const matrizIdx = lic.sections.findIndex((s) => s.invariant === "matriz");
+    const ofertaIdx = lic.sections.findIndex((s) => s.kind === "oferta_economica");
+    expect(ofertaIdx).toBeGreaterThan(-1);
+    expect(ofertaIdx).toBeLessThan(matrizIdx);
+  });
+
+  it("queda fuera del gate y del contador", () => {
+    let c = emptyProposalV2("licitacion");
+    const excl = c.sections.find((s) => s.invariant === "exclusiones")!;
+    c = setSectionContent(c, excl.id, "Fuera de alcance: obra civil.");
+    c = {
+      ...c,
+      sections: c.sections.map((s) =>
+        s.kind === "oferta_economica"
+          ? s
+          : {
+              ...s,
+              status: "aprobada" as const,
+              content: s.invariant === "exclusiones" ? excl.content : "ok",
+            },
+      ),
+    };
+    expect(c.sections.find((s) => s.kind === "oferta_economica")?.status).toBe("ia");
+    const approved = setProposalDocStatus(c, "aprobada", { userId: "u1" });
+    expect(approved.status).toBe("aprobada");
+    const v = validateProposalContent(approved, { hasDotacion: true });
+    expect(v.some((x) => x.code === "secciones_pendientes")).toBe(false);
+  });
+
+  it("rechaza editar / aprobar / eliminar la sección auto", () => {
+    const c = emptyProposalV2("comercial");
+    const auto = c.sections.find((s) => s.kind === "oferta_economica")!;
+    expect(() => setSectionContent(c, auto.id, "no")).toThrow(/costeo/);
+    expect(() => approveSection(c, auto.id)).toThrow(/costeo/);
+    expect(() => removeSection(c, auto.id)).toThrow(/costeo/);
+  });
+
+  it("replaceIndex conserva la oferta económica aunque el modelo la omita", () => {
+    const c = emptyProposalV2("licitacion");
+    const next = replaceIndex(c, [{ title: "CCTV nuevo", ref: "§4.1" }]);
+    expect(next.sections.some((s) => s.kind === "oferta_economica")).toBe(true);
+    const matrizIdx = next.sections.findIndex((s) => s.invariant === "matriz");
+    const ofertaIdx = next.sections.findIndex((s) => s.kind === "oferta_economica");
+    expect(ofertaIdx).toBeLessThan(matrizIdx);
+  });
+});

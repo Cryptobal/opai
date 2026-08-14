@@ -1,4 +1,6 @@
 "use client";
+
+import { DatePickerField } from "@/components/ui/date-picker";
 import { useEffect, useState } from "react";
 import {
   Dialog,
@@ -246,12 +248,7 @@ export function QuickItemModal({
             </div>
             <div>
               <Label>Fecha</Label>
-              <Input
-                className="h-10 sm:h-9"
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-              />
+              <DatePickerField value={startDate || null} onChange={(ymd) => setStartDate((ymd ?? ""))} triggerClassName={"h-10 sm:h-9"} />
             </div>
           </div>
           <div>
@@ -289,13 +286,7 @@ export function QuickItemModal({
           {repeatMode === "monthly_until" && (
             <div>
               <Label>Hasta el</Label>
-              <Input
-                className="h-10 sm:h-9"
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                min={startDate}
-              />
+              <DatePickerField value={endDate || null} onChange={(ymd) => setEndDate((ymd ?? ""))} min={startDate} triggerClassName={"h-10 sm:h-9"} />
               <p className="mt-1 text-[12px] text-ds-text-3">
                 Se repite mensualmente hasta esta fecha (inclusive).
               </p>

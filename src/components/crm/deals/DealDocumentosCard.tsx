@@ -87,7 +87,11 @@ export function DealDocumentosCard({
     <Surface elevation={1} padding="sm" className="space-y-2 lg:space-y-3 lg:p-4">
       <div className="flex min-h-10 items-center justify-between gap-2">
         <p className="text-[12px] font-semibold uppercase tracking-wide text-ds-text-3">Documentos</p>
-        <Tag variant="neutral" size="md">Sync Drive</Tag>
+        <div className="flex items-center gap-1">
+          <Tag variant={files.length ? "ok" : "neutral"} size="sm">
+            {files.length ? `${files.length}` : "0"}
+          </Tag>
+        </div>
       </div>
       {loading ? (
         <div className="flex items-center gap-2 text-[13px] text-ds-text-3">

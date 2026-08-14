@@ -1,5 +1,7 @@
 "use client";
 
+import { DatePickerField } from "@/components/ui/date-picker";
+
 /**
  * RecibidosClient — listado y gestión de DTEs recibidos.
  *
@@ -1078,21 +1080,11 @@ export function RecibidosClient({ suppliers, canManage }: Props) {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Fecha emisión</Label>
-                <Input
-                  type="date"
-                  value={form.date}
-                  onChange={(e) => updateFormField("date", e.target.value)}
-                  className="h-9"
-                />
+                <DatePickerField value={form.date || null} onChange={(ymd) => updateFormField("date", (ymd ?? ""))} triggerClassName={"h-9"} />
               </div>
               <div className="space-y-2">
                 <Label>Fecha vencimiento</Label>
-                <Input
-                  type="date"
-                  value={form.dueDate}
-                  onChange={(e) => updateFormField("dueDate", e.target.value)}
-                  className="h-9"
-                />
+                <DatePickerField value={form.dueDate || null} onChange={(ymd) => updateFormField("dueDate", (ymd ?? ""))} triggerClassName={"h-9"} />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">

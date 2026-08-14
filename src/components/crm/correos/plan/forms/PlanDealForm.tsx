@@ -1,5 +1,6 @@
 "use client";
 
+import { DatePickerField } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -41,13 +42,18 @@ export function PlanDealForm({ deal, onChange }: Props) {
           value={deal.mesesContrato != null ? String(deal.mesesContrato) : ""}
           onChange={(v) => onChange("mesesContrato", v ? Number(v) : null)}
         />
-        <FormField
-          id="deal-fecha"
-          label="Fecha límite"
-          type="date"
-          value={deal.fechaLimite ?? ""}
-          onChange={(v) => onChange("fechaLimite", v || null)}
-        />
+        <div className="space-y-1">
+          <Label htmlFor="deal-fecha" className="text-[12px] text-ds-text-3">
+            Fecha límite
+          </Label>
+          <DatePickerField
+            id="deal-fecha"
+            value={deal.fechaLimite ?? null}
+            onChange={(ymd) => onChange("fechaLimite", ymd)}
+            aria-label="Fecha límite"
+            clearable
+          />
+        </div>
       </div>
       <div className="space-y-1">
         <Label htmlFor="deal-notes" className="text-[12px] text-ds-text-3">

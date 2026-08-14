@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-misused-promises */
 "use client";
 
+import { DatePickerField } from "@/components/ui/date-picker";
 import { useState, useRef, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -2181,11 +2182,11 @@ export function CrmAccountDetailClient({
             </div>
             <div className="space-y-1.5">
               <Label>Fecha inicio</Label>
-              <Input type="date" value={accountForm.startDate} onChange={(e) => setAccountForm((p) => ({ ...p, startDate: e.target.value }))} className={inputCn} />
+              <DatePickerField value={accountForm.startDate || null} onChange={(ymd) => setAccountForm((p) => ({ ...p, startDate: (ymd ?? "") }))} triggerClassName={inputCn} />
             </div>
             <div className="space-y-1.5">
               <Label>Fecha término</Label>
-              <Input type="date" value={accountForm.endDate} onChange={(e) => setAccountForm((p) => ({ ...p, endDate: e.target.value }))} className={inputCn} />
+              <DatePickerField value={accountForm.endDate || null} onChange={(ymd) => setAccountForm((p) => ({ ...p, endDate: (ymd ?? "") }))} triggerClassName={inputCn} />
             </div>
             <div className="space-y-1.5 sm:col-span-2">
               <Label>Notas</Label>

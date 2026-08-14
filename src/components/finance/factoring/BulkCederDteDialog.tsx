@@ -1,5 +1,7 @@
 "use client";
 
+import { DatePickerField } from "@/components/ui/date-picker";
+
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -621,17 +623,11 @@ export function BulkCederDteDialog({
 
           <div>
             <Label htmlFor="fcBulk">Fecha cesión</Label>
-            <Input
-              id="fcBulk"
-              type="date"
-              value={fechaCesion}
-              onChange={(e) => {
-                const next = e.target.value;
+            <DatePickerField value={fechaCesion || null} onChange={(ymd) => {
+                const next = (ymd ?? "");
                 setFechaCesion(next);
                 setFechaVencimiento(addDaysToIso(next, diasFromDates));
-              }}
-              className="h-10 sm:h-9"
-            />
+              }} id={"fcBulk"} triggerClassName={"h-10 sm:h-9"} />
           </div>
           <div>
             <Label htmlFor="dcBulk">Días de cesión</Label>

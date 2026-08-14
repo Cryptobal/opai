@@ -34,6 +34,7 @@ import {
 } from "@/modules/crm/documents/licitacion-ingest.service";
 import type { ProposalContentV2, ProposalDocStatus } from "@/lib/cpq/proposal-sections/schema";
 import { emptyProposalV2, PROPOSAL_STATUSES } from "@/lib/cpq/proposal-sections/schema";
+import { isAutoSection } from "@/lib/cpq/proposal-sections/oferta-economica";
 import { needsManualConvertToLicitacion } from "@/lib/cpq/proposal-sections/mode";
 
 export const maxDuration = 60;
@@ -154,6 +155,7 @@ export async function PATCH(
       next = unapproveSection(next, sectionId);
     } else if (action === "approve_all") {
       for (const s of next.sections) {
+        if (isAutoSection(s)) continue;
         next = approveSection(next, s.id);
       }
     } else if (action === "set_status") {

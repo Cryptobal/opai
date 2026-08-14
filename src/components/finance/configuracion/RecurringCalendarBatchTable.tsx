@@ -1,5 +1,7 @@
 "use client";
 
+import { DatePickerField } from "@/components/ui/date-picker";
+
 import { useEffect, useState } from "react";
 import { Loader2, Save, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
@@ -689,24 +691,12 @@ export function RecurringCalendarBatchTable() {
                   </td>
 
                   <td className="px-2 py-1.5">
-                    <input
-                      type="date"
-                      value={r.startDate}
-                      onChange={(e) =>
-                        updateRow(r.id, "startDate", e.target.value)
-                      }
-                      className="h-10 sm:h-9 bg-ds-surface-1 border border-ds-border-default rounded px-1.5 py-1 text-xs"
-                    />
+                    <DatePickerField value={r.startDate || null} onChange={(ymd) =>
+                        updateRow(r.id, "startDate", (ymd ?? ""))} triggerClassName={"h-10 sm:h-9 bg-ds-surface-1 border border-ds-border-default rounded px-1.5 py-1 text-xs"} />
                   </td>
                   <td className="px-2 py-1.5">
-                    <input
-                      type="date"
-                      value={r.endDate ?? ""}
-                      onChange={(e) =>
-                        updateRow(r.id, "endDate", e.target.value || null)
-                      }
-                      className="h-10 sm:h-9 bg-ds-surface-1 border border-ds-border-default rounded px-1.5 py-1 text-xs"
-                    />
+                    <DatePickerField value={r.endDate || null} onChange={(ymd) =>
+                        updateRow(r.id, "endDate", (ymd ?? "") || null)} triggerClassName={"h-10 sm:h-9 bg-ds-surface-1 border border-ds-border-default rounded px-1.5 py-1 text-xs"} />
                   </td>
 
                   <td className="px-2 py-1.5 text-xs whitespace-nowrap">

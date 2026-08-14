@@ -1,5 +1,7 @@
 "use client";
 
+import { DatePickerField } from "@/components/ui/date-picker";
+
 import { useState, useEffect, useCallback, useRef } from "react";
 import { toast } from "sonner";
 import {
@@ -607,11 +609,7 @@ export function CrearAlertaDialog({ open, onOpenChange, onCreated }: Props) {
             {/* Fecha del turno */}
             <div className="space-y-1.5">
               <Label>Dia del turno *</Label>
-              <Input
-                type="date"
-                value={fechaTurno}
-                onChange={(e) => setFechaTurno(e.target.value)}
-              />
+              <DatePickerField value={fechaTurno || null} onChange={(ymd) => setFechaTurno((ymd ?? ""))} />
               {puestoId && fechaTurno && fechaInicio && fechaFin && (
                 <p className="text-xs text-muted-foreground">
                   Horario: {fechaInicio.slice(11, 16)} — {fechaFin.slice(11, 16)}

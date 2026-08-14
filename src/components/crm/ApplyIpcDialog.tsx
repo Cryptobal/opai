@@ -1,5 +1,7 @@
 "use client";
 
+import { DatePickerField } from "@/components/ui/date-picker";
+
 import { useEffect, useMemo, useState } from "react";
 import { Loader2, TrendingUp } from "lucide-react";
 import { toast } from "sonner";
@@ -265,12 +267,7 @@ export function ApplyIpcDialog({
 
           <div className="space-y-2">
             <Label htmlFor="ipcEffectiveDate">Vigente desde</Label>
-            <Input
-              id="ipcEffectiveDate"
-              type="date"
-              value={effectiveDate}
-              onChange={(e) => setEffectiveDate(e.target.value)}
-            />
+            <DatePickerField value={effectiveDate || null} onChange={(ymd) => setEffectiveDate((ymd ?? ""))} id={"ipcEffectiveDate"} />
             <p className="text-[11px] text-muted-foreground">
               Desde esta fecha el flujo de caja muestra el monto reajustado.
               Las cuotas anteriores quedan al monto previo. El próximo

@@ -23,7 +23,7 @@ export function DealAboutTechDetails({
 }) {
   return (
     <details className="group border-t border-border/50 pt-2">
-      <summary className="flex cursor-pointer list-none select-none items-center justify-between text-[11px] font-semibold uppercase tracking-[0.08em] text-ds-text-3">
+      <summary className="flex min-h-10 cursor-pointer list-none select-none items-center justify-between text-[12px] font-semibold uppercase tracking-[0.08em] text-ds-text-3">
         Detalles técnicos
         <ChevronDown className="h-3.5 w-3.5 transition-transform group-open:rotate-180" />
       </summary>

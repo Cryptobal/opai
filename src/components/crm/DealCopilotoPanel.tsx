@@ -13,10 +13,22 @@ type AnchoredConversation = {
 };
 
 /**
- * Pestaña Copiloto en la ficha del negocio: conversaciones ancladas al deal.
- * No expone el hilo de correo; solo el plan/análisis persistido.
+ * Conversaciones ancladas al negocio. Vive dentro del panel de chat
+ * (ya no como pestaña del detalle).
  */
-export function DealCopilotoPanel({ dealId, dealTitle }: { dealId: string; dealTitle: string }) {
+export function DealCopilotoPanel({
+  dealId,
+  dealTitle,
+  embedded = false,
+  activeId = null,
+  onSelect,
+}: {
+  dealId: string;
+  dealTitle: string;
+  embedded?: boolean;
+  activeId?: string | null;
+  onSelect?: (id: string) => void;
+}) {
   const [items, setItems] = useState<AnchoredConversation[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -48,13 +60,20 @@ export function DealCopilotoPanel({ dealId, dealTitle }: { dealId: string; dealT
 
   if (items === null) {
     return (
-      <div className="flex justify-center py-10">
+      <div className="flex justify-center py-4">
         <Spinner />
       </div>
     );
   }
 
   if (items.length === 0) {
+    if (embedded) {
+      return (
+        <p className="px-1 py-2 text-[12px] text-ds-text-4">
+          Aún no hay conversaciones ancladas a este negocio.
+        </p>
+      );
+    }
     return (
       <EmptyState
         icon={Sparkles}
@@ -85,13 +104,21 @@ export function DealCopilotoPanel({ dealId, dealTitle }: { dealId: string; dealT
         <li key={c.id}>
           <button
             type="button"
-            onClick={() =>
+            onClick={() => {
+              if (onSelect) {
+                onSelect(c.id);
+                return;
+              }
               dispatchAiCommand({
                 prompt: `Continuá la conversación anclada «${c.title}» del negocio «${dealTitle}» (id ${c.id}).`,
                 autoSend: true,
-              })
-            }
-            className="flex min-h-14 w-full items-start gap-3 rounded-xl border border-ds-border-subtle bg-ds-surface-1 px-3 py-3 text-left ds-tap hover:border-primary"
+              });
+            }}
+            className={`flex min-h-10 w-full items-start gap-3 rounded-xl border px-3 py-2.5 text-left ds-tap hover:border-primary ${
+              activeId === c.id
+                ? "border-primary bg-primary/5"
+                : "border-ds-border-subtle bg-ds-surface-1"
+            }`}
           >
             <MessageSquare className="mt-0.5 h-4 w-4 shrink-0 text-tint-violet-fg" />
             <span className="min-w-0 flex-1">

@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-misused-promises */
 "use client";
 
+import { DatePickerField } from "@/components/ui/date-picker";
 import { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import { cn } from "@/lib/utils";
 import { getQuoteStatus } from "@/lib/quoteStatus";
@@ -27,7 +28,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Loader2, ExternalLink, Trash2, FileText, Mail, ChevronRight, ChevronDown, Send, MessageSquare, Star, X, Clock3, MapPin, MoreHorizontal, Check, AlertCircle, Pause, Play, RotateCcw, XCircle, Settings2, Pencil, Users, Briefcase, Phone, Link2, History, Copy, Building2, ListChecks, Ticket as TicketIcon, Sparkles, Layers, MessageCircle, Hash } from "lucide-react";
+import { Loader2, ExternalLink, Trash2, FileText, Mail, ChevronRight, ChevronDown, Send, MessageSquare, Star, X, Clock3, MapPin, MoreHorizontal, Check, AlertCircle, Pause, Play, RotateCcw, XCircle, Settings2, Pencil, Users, Briefcase, Phone, Link2, History, Copy, Building2, ListChecks, Ticket as TicketIcon, Layers, MessageCircle, Hash } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -46,7 +47,6 @@ import {
 import { RecipientTypeaheadInput } from "@/components/crm/RecipientTypeaheadInput";
 import { ContractEditor } from "@/components/docs/ContractEditor";
 import { EntityDetailLayout, useEntityTabs, type EntityTab, type EntityHeaderAction } from "./EntityDetailLayout";
-import { DealCopilotoPanel } from "./DealCopilotoPanel";
 import { EntityConversations } from "./EntityConversations";
 import { CrmRelatedRecordCard, CrmRelatedRecordGrid } from "./CrmRelatedRecordCard";
 import { AssociatedTicketsSection } from "./AssociatedTicketsSection";
@@ -78,6 +78,7 @@ import { DealKpiStrip } from "./deals/DealKpiStrip";
 import { DealLicitacionBand } from "./deals/DealLicitacionBand";
 import { DealRail } from "./deals/DealRail";
 import { DealLicitacionFichaRows } from "./deals/DealLicitacionFichaRows";
+import { DealLicitacionMilestones } from "./deals/DealLicitacionMilestones";
 import { useDealLicitacionDocs } from "./deals/useDealLicitacionDocs";
 import { licitacionTipoLabel } from "@/modules/crm/documents/licitacion-corpus";
 import type { DealInstallationRef } from "@/lib/crm/deal-installation";
@@ -2209,19 +2210,35 @@ export function CrmDealDetailClient({
   // "Documentos". Notas y Actividad quedaron absorbidos por el centro del deal.
   const tabs: EntityTab[] = [
     { id: "general", label: "Actividad", icon: History, count: activityEvents.length },
-    { id: "conversaciones", label: "Conversaciones", icon: Mail },
-    { id: "copiloto", label: "Copiloto", icon: Sparkles },
+    { id: "conversaciones", label: "Correos", icon: Mail },
     { id: "files", label: "Documentos", icon: FileText, count: fileCount },
   ];
-  // Fallback silencioso: cualquier ?tab= antiguo (notes/activity) cae en general.
+  // Fallback silencioso: cualquier ?tab= antiguo (notes/activity/copiloto) cae en general.
   const effectiveTab =
     activeTab === "files"
       ? "files"
       : activeTab === "conversaciones"
         ? "conversaciones"
-        : activeTab === "copiloto"
-          ? "copiloto"
-          : "general";
+        : "general";
+
+  useEffect(() => {
+    if (activeTab !== "copiloto") return;
+    setActiveTab("general");
+    openAnchoredChat({
+      anchorType: "crm_deal",
+      anchorId: deal.id,
+      entityName: deal.title,
+    });
+    try {
+      const url = new URL(window.location.href);
+      if (url.searchParams.get("tab") === "copiloto") {
+        url.searchParams.delete("tab");
+        window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
+      }
+    } catch {
+      // noop
+    }
+  }, [activeTab, deal.id, deal.title, setActiveTab]);
 
   const handleOpenOnboarding = async () => {
     try {
@@ -2506,9 +2523,12 @@ export function CrmDealDetailClient({
                     : null
                 }
                 expectedCloseDate={dealExpectedCloseDate}
+                fechaEntrega={licitacion.fechaEntrega}
+                isLicitacion={licitacion.isLicitacion}
                 nextStep={dealNextStep}
                 canEdit={canEdit}
                 onCloseDateChange={(ymd) => void persistDealPipeline({ expectedCloseDate: ymd || null })}
+                onFechaEntregaChange={(ymd) => void persistDealPipeline({ fechaEntrega: ymd })}
                 onNextStepChange={(value) => void persistDealPipeline({ nextStep: value.trim() || null })}
               />
             </div>
@@ -2527,7 +2547,9 @@ export function CrmDealDetailClient({
                     setFilesHighlightTipo(tipoCodigo);
                     setActiveTab("files");
                   }}
-                  onFechaChange={(ymd) => void persistDealPipeline({ fechaEntrega: ymd })}
+                  milestones={
+                    <DealLicitacionMilestones dealId={deal.id} canEdit={canEdit} />
+                  }
                 />
               </div>
             ) : null}
@@ -2562,6 +2584,7 @@ export function CrmDealDetailClient({
               },
               installation: dealInstallation,
               montoManual: dealAmount ? String(dealAmount) : null,
+              hasActiveQuote: Boolean(deal.activeQuoteSummary),
               canEdit,
               onMontoCommit: async (_key, value) => {
                 const num = value ? Number(value) : 0;
@@ -2578,8 +2601,6 @@ export function CrmDealDetailClient({
                 <DealLicitacionFichaRows
                   dealId={deal.id}
                   isLicitacion={licitacion.isLicitacion}
-                  fechaEntrega={licitacion.fechaEntrega}
-                  onFechaChange={(ymd) => void persistDealPipeline({ fechaEntrega: ymd })}
                   onUpdated={(next) =>
                     setLicitacion((prev) => ({ ...prev, isLicitacion: next.isLicitacion }))
                   }
@@ -2655,9 +2676,6 @@ export function CrmDealDetailClient({
             dealId={deal.id}
             variant="tab"
           />
-        )}
-        {effectiveTab === "copiloto" && (
-          <DealCopilotoPanel dealId={deal.id} dealTitle={deal.title} />
         )}
         {effectiveTab === "files" && (
           <div className="rounded-lg border border-border bg-card p-4 sm:p-5">
@@ -2931,12 +2949,12 @@ export function CrmDealDetailClient({
           </DialogHeader>
           <div className="py-2">
             <Label htmlFor="accepted-start-date">Fecha de inicio</Label>
-            <Input
+            <DatePickerField
+              value={acceptedDate || null}
+              onChange={(ymd) => setAcceptedDate(ymd ?? "")}
               id="accepted-start-date"
-              type="date"
-              value={acceptedDate}
-              onChange={(e) => setAcceptedDate(e.target.value)}
-              className="mt-1.5"
+              aria-label="Fecha de inicio"
+              triggerClassName="mt-1.5"
             />
           </div>
           <DialogFooter>
@@ -2961,12 +2979,12 @@ export function CrmDealDetailClient({
           </DialogHeader>
           <div className="py-2">
             <Label htmlFor="edit-start-date">Fecha de inicio</Label>
-            <Input
+            <DatePickerField
+              value={acceptedDate || null}
+              onChange={(ymd) => setAcceptedDate(ymd ?? "")}
               id="edit-start-date"
-              type="date"
-              value={acceptedDate}
-              onChange={(e) => setAcceptedDate(e.target.value)}
-              className="mt-1.5"
+              aria-label="Fecha de inicio"
+              triggerClassName="mt-1.5"
             />
           </div>
           <DialogFooter>

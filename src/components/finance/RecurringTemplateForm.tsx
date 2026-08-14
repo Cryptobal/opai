@@ -1,5 +1,7 @@
 "use client";
 
+import { DatePickerField } from "@/components/ui/date-picker";
+
 /**
  * RecurringTemplateForm — formulario rico para crear y editar plantillas
  * de facturación recurrente. Espeja la estructura de DteForm (cliente
@@ -1318,16 +1320,10 @@ export function RecurringTemplateForm({
                           </div>
                           <div className="md:col-span-3">
                             <Label className="text-xs">Fecha</Label>
-                            <Input
-                              type="date"
-                              value={ref.fchRef}
-                              onChange={(e) =>
+                            <DatePickerField value={ref.fchRef || null} onChange={(ymd) =>
                                 setAdditionalRefs((prev) =>
-                                  prev.map((r, idx) => (idx === i ? { ...r, fchRef: e.target.value } : r)),
-                                )
-                              }
-                              className="h-10 sm:h-9 text-sm"
-                            />
+                                  prev.map((r, idx) => (idx === i ? { ...r, fchRef: (ymd ?? "") } : r)),
+                                )} triggerClassName={"h-10 sm:h-9 text-sm"} />
                           </div>
                           <div className="md:col-span-1 flex items-end justify-end h-full">
                             <Button
@@ -1456,23 +1452,11 @@ export function RecurringTemplateForm({
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-1.5">
                     <Label htmlFor="t-start">Empieza el *</Label>
-                    <Input
-                      id="t-start"
-                      type="date"
-                      value={startDate}
-                      onChange={(e) => setStartDate(e.target.value)}
-                      className="h-10 sm:h-9 bg-background"
-                    />
+                    <DatePickerField value={startDate || null} onChange={(ymd) => setStartDate((ymd ?? ""))} id={"t-start"} triggerClassName={"h-10 sm:h-9 bg-background"} />
                   </div>
                   <div className="space-y-1.5">
                     <Label htmlFor="t-end">Termina el (opcional)</Label>
-                    <Input
-                      id="t-end"
-                      type="date"
-                      value={endDate}
-                      onChange={(e) => setEndDate(e.target.value)}
-                      className="h-10 sm:h-9 bg-background"
-                    />
+                    <DatePickerField value={endDate || null} onChange={(ymd) => setEndDate((ymd ?? ""))} id={"t-end"} triggerClassName={"h-10 sm:h-9 bg-background"} />
                     <p className="text-[12px] text-muted-foreground">
                       Dejá vacío si la plantilla corre indefinidamente.
                     </p>
@@ -1636,13 +1620,7 @@ export function RecurringTemplateForm({
                         <Label htmlFor="t-ipc-start">
                           Fecha ancla del reajuste (opcional)
                         </Label>
-                        <Input
-                          id="t-ipc-start"
-                          type="date"
-                          value={ipcStartDate}
-                          onChange={(e) => setIpcStartDate(e.target.value)}
-                          className="h-10 sm:h-9 bg-background"
-                        />
+                        <DatePickerField value={ipcStartDate || null} onChange={(ymd) => setIpcStartDate((ymd ?? ""))} id={"t-ipc-start"} triggerClassName={"h-10 sm:h-9 bg-background"} />
                         <p className="text-[12px] text-muted-foreground">
                           Desde cuándo empieza a contar el calendario de avisos. Si
                           la dejás vacía, se usa la fecha de inicio de la plantilla.

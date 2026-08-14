@@ -1,5 +1,7 @@
 "use client";
 
+import { DatePickerField } from "@/components/ui/date-picker";
+
 import { useCallback, useEffect, useMemo, useState, type ComponentType } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -1668,21 +1670,11 @@ function LedgerTab({ accounts }: { accounts: AccountRow[] }) {
             </div>
             <div className="space-y-1.5">
               <Label>Desde</Label>
-              <Input
-                type="date"
-                value={dateFrom}
-                onChange={(e) => setDateFrom(e.target.value)}
-                className="h-9 w-full sm:w-40"
-              />
+              <DatePickerField value={dateFrom || null} onChange={(ymd) => setDateFrom((ymd ?? ""))} triggerClassName={"h-9 w-full sm:w-40"} />
             </div>
             <div className="space-y-1.5">
               <Label>Hasta</Label>
-              <Input
-                type="date"
-                value={dateTo}
-                onChange={(e) => setDateTo(e.target.value)}
-                className="h-9 w-full sm:w-40"
-              />
+              <DatePickerField value={dateTo || null} onChange={(ymd) => setDateTo((ymd ?? ""))} triggerClassName={"h-9 w-full sm:w-40"} />
             </div>
             <Button size="sm" onClick={handleSearch} disabled={loading}>
               {loading ? (

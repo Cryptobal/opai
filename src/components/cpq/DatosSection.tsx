@@ -1,5 +1,7 @@
 "use client";
 
+import { DatePickerField } from "@/components/ui/date-picker";
+
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -399,16 +401,10 @@ export function DatosSection({
           </div>
           <div className={mobileRowClass}>
             <span className={mobileLabelClass}>Válida</span>
-            <Input
-              type="date"
-              value={quoteForm.validUntil}
-              onChange={(e) => {
-                setQuoteForm((prev: any) => ({ ...prev, validUntil: e.target.value }));
+            <DatePickerField value={quoteForm.validUntil || null} onChange={(ymd) => {
+                setQuoteForm((prev: any) => ({ ...prev, validUntil: (ymd ?? "") }));
                 setQuoteDirty(true);
-              }}
-              className="h-11 min-h-11 flex-1 border-0 bg-transparent px-0 text-right text-sm shadow-none focus-visible:ring-0 [color-scheme:light] dark:[color-scheme:dark]"
-              disabled={isLocked}
-            />
+              }} disabled={isLocked} triggerClassName={"h-11 min-h-11 flex-1 border-0 bg-transparent px-0 text-right text-sm shadow-none focus-visible:ring-0 [color-scheme:light] dark:[color-scheme:dark]"} />
           </div>
           <div className={mobileRowClass}>
             <span className={mobileLabelClass}>Moneda</span>
@@ -675,16 +671,10 @@ export function DatosSection({
           </div>
           <div className="min-w-0">
             <Label className={labelClassName}>Válida hasta</Label>
-            <Input
-              type="date"
-              value={quoteForm.validUntil}
-              onChange={(e) => {
-                setQuoteForm((prev: any) => ({ ...prev, validUntil: e.target.value }));
+            <DatePickerField value={quoteForm.validUntil || null} onChange={(ymd) => {
+                setQuoteForm((prev: any) => ({ ...prev, validUntil: (ymd ?? "") }));
                 setQuoteDirty(true);
-              }}
-              className={cn("h-8 text-foreground [color-scheme:dark]", inputClassName)}
-              disabled={isLocked}
-            />
+              }} disabled={isLocked} triggerClassName={cn("h-8 text-foreground [color-scheme:dark]", inputClassName)} />
           </div>
           <div className="shrink-0">
             <Label className={labelClassName}>Moneda</Label>
