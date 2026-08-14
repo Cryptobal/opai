@@ -1,5 +1,7 @@
 "use client";
 
+import { DatePickerField } from "@/components/ui/date-picker";
+
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
@@ -1573,13 +1575,7 @@ export function DteForm({
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-1.5">
               <Label htmlFor="dte-issue-date">Fecha de emisión *</Label>
-              <Input
-                id="dte-issue-date"
-                type="date"
-                value={issueDate}
-                onChange={(e) => setIssueDate(e.target.value)}
-                className="h-10 sm:h-9"
-              />
+              <DatePickerField value={issueDate || null} onChange={(ymd) => setIssueDate((ymd ?? ""))} id={"dte-issue-date"} triggerClassName={"h-10 sm:h-9"} />
               <p className="text-xs text-ds-text-3">
                 Esta fecha se registra como emisión tributaria ante el SII (incluye
                 borradores y emisión SimpleAPI).
@@ -1587,14 +1583,7 @@ export function DteForm({
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="dte-due-date">Vencimiento del cobro</Label>
-              <Input
-                id="dte-due-date"
-                type="date"
-                value={dueDate}
-                min={issueDate}
-                onChange={(e) => setDueDate(e.target.value)}
-                className="h-10 sm:h-9"
-              />
+              <DatePickerField value={dueDate || null} onChange={(ymd) => setDueDate((ymd ?? ""))} min={issueDate} id={"dte-due-date"} triggerClassName={"h-10 sm:h-9"} />
               <p className="text-xs text-ds-text-3">
                 No va al SII. Define desde cuándo la factura cuenta como vencida
                 para la cobranza. Vacío = término de pago del contrato.
@@ -2157,16 +2146,10 @@ export function DteForm({
                   </div>
                   <div className="md:col-span-3">
                     <Label className="text-xs">Fecha *</Label>
-                    <Input
-                      type="date"
-                      value={ref.fchRef}
-                      onChange={(e) =>
+                    <DatePickerField value={ref.fchRef || null} onChange={(ymd) =>
                         setAdditionalRefs((prev) =>
-                          prev.map((r, idx) => (idx === i ? { ...r, fchRef: e.target.value } : r)),
-                        )
-                      }
-                      className="h-10 sm:h-9 text-sm"
-                    />
+                          prev.map((r, idx) => (idx === i ? { ...r, fchRef: (ymd ?? "") } : r)),
+                        )} triggerClassName={"h-10 sm:h-9 text-sm"} />
                   </div>
                   <div className="md:col-span-1 flex items-end justify-end h-full">
                     <Button

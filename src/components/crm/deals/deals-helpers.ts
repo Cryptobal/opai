@@ -1,3 +1,4 @@
+import { todayInChile, utcDateFromYmd } from "@/lib/dates-cl";
 import type { CrmDeal, CrmPipelineStage } from "@/types";
 
 export type DealsFocusLabel =
@@ -76,24 +77,70 @@ export function dealCloseDateYmd(iso: string | null | undefined): string | null 
   return iso.slice(0, 10);
 }
 
+const MONTHS_SHORT = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+
 export function formatDealCloseDate(iso: string | null | undefined): string | null {
   const ymd = dealCloseDateYmd(iso);
   if (!ymd) return null;
   const [y, m, d] = ymd.split("-").map(Number);
   if (!y || !m || !d) return null;
-  const months = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
-  return `${d} ${months[m - 1]} ${y}`;
+  return `${d} ${MONTHS_SHORT[m - 1]} ${y}`;
+}
+
+/** Fecha corta Chile: "14 ago". */
+export function formatDealDateShort(iso: string | null | undefined): string | null {
+  const ymd = dealCloseDateYmd(iso);
+  if (!ymd) return null;
+  const [y, m, d] = ymd.split("-").map(Number);
+  if (!y || !m || !d) return null;
+  return `${d} ${MONTHS_SHORT[m - 1]}`;
+}
+
+/** Días calendario Chile entre hoy y un YMD (positivo = futuro). */
+export function daysUntilYmd(ymd: string, today = todayInChile()): number {
+  return Math.round(
+    (utcDateFromYmd(ymd.slice(0, 10)).getTime() - utcDateFromYmd(today).getTime()) / 86_400_000,
+  );
+}
+
+export type DealDateCountdown = {
+  days: number;
+  text: string;
+  variant: "danger" | "warn" | "neutral";
+};
+
+export function formatDealDateCountdown(
+  iso: string | null | undefined,
+  today = todayInChile(),
+): DealDateCountdown | null {
+  const ymd = dealCloseDateYmd(iso);
+  if (!ymd) return null;
+  const days = daysUntilYmd(ymd, today);
+  if (days < 0) {
+    const n = Math.abs(days);
+    return {
+      days,
+      text: `vencida hace ${n} ${n === 1 ? "día" : "días"}`,
+      variant: "danger",
+    };
+  }
+  if (days === 0) return { days, text: "hoy", variant: "danger" };
+  return {
+    days,
+    text: `en ${days} ${days === 1 ? "día" : "días"}`,
+    variant: days <= 3 ? "danger" : days <= 7 ? "warn" : "neutral",
+  };
 }
 
 export type DealCloseDateTone = "ok" | "warn" | "danger";
 
-export function getDealCloseDateTone(iso: string | null | undefined): DealCloseDateTone | null {
+export function getDealCloseDateTone(
+  iso: string | null | undefined,
+  today = todayInChile(),
+): DealCloseDateTone | null {
   const ymd = dealCloseDateYmd(iso);
   if (!ymd) return null;
-  const due = new Date(`${ymd}T12:00:00`).getTime();
-  const today = new Date();
-  today.setHours(12, 0, 0, 0);
-  const diffDays = Math.ceil((due - today.getTime()) / 86_400_000);
+  const diffDays = daysUntilYmd(ymd, today);
   if (diffDays < 0) return "danger";
   if (diffDays <= 7) return "warn";
   return "ok";

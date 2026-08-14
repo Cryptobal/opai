@@ -1,5 +1,7 @@
 "use client";
 
+import { DatePickerField } from "@/components/ui/date-picker";
+
 import { useState, useEffect, useCallback } from "react";
 import { ChevronLeft, ChevronRight, CheckCircle, AlertCircle } from "lucide-react";
 import { MarcacionModificadaBadge } from "./MarcacionModificadaBadge";
@@ -87,12 +89,7 @@ export function InstalacionMarcacionesTab({ installationId }: { installationId: 
         </button>
         <div className="flex items-center gap-2">
           <h3 className="text-sm font-semibold capitalize">{dateLabel}</h3>
-          <input
-            type="date"
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-            className="text-xs border border-border rounded px-2 py-1 bg-background"
-          />
+          <DatePickerField value={date || null} onChange={(ymd) => setDate((ymd ?? ""))} triggerClassName={"text-xs border border-border rounded px-2 py-1 bg-background"} />
         </div>
         <button onClick={nextDay} className="p-1 rounded hover:bg-accent transition-colors"
           disabled={date >= today}>

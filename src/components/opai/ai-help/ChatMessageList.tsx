@@ -11,6 +11,7 @@ import { VisualsRenderer } from "./visuals";
 import { renderMessageContent } from "./message-render";
 import type { ChatMessage } from "./types";
 import type { VisualCardItem, VisualSuggestionItem } from "@/lib/ai/help-chat-visual-types";
+import { DealCopilotoPanel } from "@/components/crm/DealCopilotoPanel";
 
 type Props = {
   messages: ChatMessage[];
@@ -35,6 +36,8 @@ type Props = {
   onFeedback: (messageId: string, next: "up" | "down" | null) => void;
   friendlyToolLabel: (name: string) => string;
   scrollRef: React.RefObject<HTMLDivElement | null>;
+  activeConversationId?: string | null;
+  onSelectConversation?: (id: string | null) => void;
 };
 
 function ChatMessageListInner({
@@ -58,6 +61,8 @@ function ChatMessageListInner({
   onFeedback,
   friendlyToolLabel,
   scrollRef,
+  activeConversationId = null,
+  onSelectConversation,
 }: Props) {
   // Indicador live durante el turno (pensando / tools / razonamiento). El
   // colapso a "Pensó durante…" ocurre en el mensaje persistido al terminar.
@@ -91,6 +96,21 @@ function ChatMessageListInner({
               <X className="h-3 w-3" />
             </button>
           </div>
+        </div>
+      ) : null}
+
+      {pageContext?.entityType === "crm_deal" && pageContext.entityId ? (
+        <div className="border-b border-ds-border-subtle px-3 py-2">
+          <p className="mb-1 text-[12px] font-semibold uppercase tracking-wide text-ds-text-3">
+            Conversaciones ancladas
+          </p>
+          <DealCopilotoPanel
+            dealId={pageContext.entityId}
+            dealTitle={pageContext.entityName}
+            embedded
+            activeId={activeConversationId}
+            onSelect={onSelectConversation ? (id) => onSelectConversation(id) : undefined}
+          />
         </div>
       ) : null}
 

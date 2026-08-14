@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-misused-promises */
 "use client";
 
+import { DatePickerField } from "@/components/ui/date-picker";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -925,15 +926,10 @@ function DotacionSection({ installation, canEdit: canEditProp = false }: { insta
                   </span>
                 </span>
               </Label>
-              <input
-                type="date"
-                value={assignDate}
-                onChange={(e) => {
-                  setAssignDate(e.target.value);
-                  if (assignEndDateSameAsStart) setAssignEndDatePrevious(e.target.value);
-                }}
-                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
-              />
+              <DatePickerField value={assignDate || null} onChange={(ymd) => {
+                  setAssignDate((ymd ?? ""));
+                  if (assignEndDateSameAsStart) setAssignEndDatePrevious((ymd ?? ""));
+                }} triggerClassName={"h-9 w-full rounded-md border border-input bg-background px-3 text-sm"} />
             </div>
 
             {/* Buscador de guardias */}
@@ -1015,12 +1011,7 @@ function DotacionSection({ installation, canEdit: canEditProp = false }: { insta
                   {!assignEndDateSameAsStart && (
                     <div className="space-y-1">
                       <Label className="text-[10px] text-status-warn-fg">Fecha de término en la instalación anterior</Label>
-                      <input
-                        type="date"
-                        value={assignEndDatePrevious}
-                        onChange={(e) => setAssignEndDatePrevious(e.target.value)}
-                        className="h-8 w-full rounded-md border border-status-warn-border bg-status-warn-soft px-3 text-xs text-status-warn-fg"
-                      />
+                      <DatePickerField value={assignEndDatePrevious || null} onChange={(ymd) => setAssignEndDatePrevious((ymd ?? ""))} triggerClassName={"h-8 w-full rounded-md border border-status-warn-border bg-status-warn-soft px-3 text-xs text-status-warn-fg"} />
                     </div>
                   )}
                 </div>
@@ -1055,12 +1046,7 @@ function DotacionSection({ installation, canEdit: canEditProp = false }: { insta
           <div className="space-y-3 py-2">
             <div className="space-y-1.5">
               <Label>Fecha de término</Label>
-              <input
-                type="date"
-                value={unassignDate}
-                onChange={(e) => setUnassignDate(e.target.value)}
-                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
-              />
+              <DatePickerField value={unassignDate || null} onChange={(ymd) => setUnassignDate((ymd ?? ""))} triggerClassName={"h-9 w-full rounded-md border border-input bg-background px-3 text-sm"} />
             </div>
           </div>
           <DialogFooter>
@@ -1094,12 +1080,7 @@ function DotacionSection({ installation, canEdit: canEditProp = false }: { insta
                 <CalendarDays className="h-3.5 w-3.5 text-white" />
                 Fecha de inicio
               </Label>
-              <input
-                type="date"
-                value={editStartDate}
-                onChange={(e) => setEditStartDate(e.target.value)}
-                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
-              />
+              <DatePickerField value={editStartDate || null} onChange={(ymd) => setEditStartDate((ymd ?? ""))} triggerClassName={"h-9 w-full rounded-md border border-input bg-background px-3 text-sm"} />
             </div>
             <div className="space-y-1.5">
               <Label className="flex items-center gap-1.5">
@@ -1107,13 +1088,7 @@ function DotacionSection({ installation, canEdit: canEditProp = false }: { insta
                 Fecha de término
                 <span className="text-[10px] text-muted-foreground font-normal">(vacío = sigue activo)</span>
               </Label>
-              <input
-                type="date"
-                value={editEndDate}
-                min={editStartDate || undefined}
-                onChange={(e) => setEditEndDate(e.target.value)}
-                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
-              />
+              <DatePickerField value={editEndDate || null} onChange={(ymd) => setEditEndDate((ymd ?? ""))} min={editStartDate || undefined} triggerClassName={"h-9 w-full rounded-md border border-input bg-background px-3 text-sm"} />
             </div>
             <p className="text-[11px] text-muted-foreground">
               Ajustar las fechas re-sincroniza la pauta del puesto para este guardia dentro del nuevo rango.
@@ -1905,12 +1880,7 @@ function StaffingSection({
           <div className="space-y-3 py-2">
             <div className="space-y-1.5">
               <Label>Fecha de desactivación</Label>
-              <input
-                type="date"
-                value={deactivateDate}
-                onChange={(e) => setDeactivateDate(e.target.value)}
-                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
-              />
+              <DatePickerField value={deactivateDate || null} onChange={(ymd) => setDeactivateDate((ymd ?? ""))} triggerClassName={"h-9 w-full rounded-md border border-input bg-background px-3 text-sm"} />
             </div>
           </div>
           <DialogFooter>
@@ -3292,23 +3262,11 @@ export function CrmInstallationDetailClient({
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
                 <Label>Fecha inicio</Label>
-                <Input
-                  type="date"
-                  value={editForm.startDate}
-                  onChange={(e) => setEditForm((p) => ({ ...p, startDate: e.target.value }))}
-                  className="bg-background text-foreground border-input text-sm"
-                  disabled={saving}
-                />
+                <DatePickerField value={editForm.startDate || null} onChange={(ymd) => setEditForm((p) => ({ ...p, startDate: (ymd ?? "") }))} disabled={saving} triggerClassName={"bg-background text-foreground border-input text-sm"} />
               </div>
               <div className="space-y-2">
                 <Label>Fecha término</Label>
-                <Input
-                  type="date"
-                  value={editForm.endDate}
-                  onChange={(e) => setEditForm((p) => ({ ...p, endDate: e.target.value }))}
-                  className="bg-background text-foreground border-input text-sm"
-                  disabled={saving}
-                />
+                <DatePickerField value={editForm.endDate || null} onChange={(ymd) => setEditForm((p) => ({ ...p, endDate: (ymd ?? "") }))} disabled={saving} triggerClassName={"bg-background text-foreground border-input text-sm"} />
               </div>
             </div>
           </div>

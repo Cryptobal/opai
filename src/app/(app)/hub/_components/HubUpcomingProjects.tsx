@@ -1,5 +1,7 @@
 'use client';
 
+import { DatePickerField } from "@/components/ui/date-picker";
+
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -221,18 +223,11 @@ export function HubUpcomingProjects({ projects, canEdit = false }: Props) {
                     Fecha de inicio
                   </span>
                   {canEdit ? (
-                    <input
-                      type="date"
-                      value={selectedDate}
-                      onChange={(event) =>
+                    <DatePickerField value={selectedDate || null} onChange={(ymd) =>
                         setDates((current) => ({
                           ...current,
-                          [p.id]: event.target.value,
-                        }))
-                      }
-                      disabled={Boolean(busy)}
-                      className="min-h-11 w-full rounded-ds-md border border-ds-border-default bg-ds-surface-1 px-3 font-mono text-[13px] text-ds-text-1 outline-none transition-colors focus:border-primary focus:ring-1 focus:ring-primary sm:min-h-9"
-                    />
+                          [p.id]: (ymd ?? ""),
+                        }))} disabled={Boolean(busy)} triggerClassName={"min-h-11 w-full rounded-ds-md border border-ds-border-default bg-ds-surface-1 px-3 font-mono text-[13px] text-ds-text-1 outline-none transition-colors focus:border-primary focus:ring-1 focus:ring-primary sm:min-h-9"} />
                   ) : (
                     <span className="flex min-h-11 items-center font-mono text-[13px] text-ds-text-1 sm:min-h-9">
                       {formatStartDate(p.serviceStartDate)}

@@ -1,5 +1,7 @@
 "use client";
 
+import { DatePickerField } from "@/components/ui/date-picker";
+
 import { useCallback, useEffect, useState } from "react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
@@ -188,13 +190,7 @@ export function BankBalanceSheet({
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label htmlFor="bal-date">Fecha</Label>
-                <Input
-                  id="bal-date"
-                  type="date"
-                  className="h-9"
-                  value={asOfDate}
-                  onChange={(e) => setAsOfDate(e.target.value)}
-                />
+                <DatePickerField value={asOfDate || null} onChange={(ymd) => setAsOfDate((ymd ?? ""))} id={"bal-date"} triggerClassName={"h-9"} />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="bal-amount">Saldo (CLP)</Label>

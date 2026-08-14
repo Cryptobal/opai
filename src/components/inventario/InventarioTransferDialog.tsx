@@ -1,5 +1,7 @@
 "use client";
 
+import { DatePickerField } from "@/components/ui/date-picker";
+
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Dialog,
@@ -213,13 +215,7 @@ export function InventarioTransferDialog({ trigger, onCompleted }: Props) {
           <div className="grid gap-3 sm:grid-cols-3">
             <div className="space-y-1.5">
               <Label htmlFor="transfer-date">Fecha</Label>
-              <Input
-                id="transfer-date"
-                type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                className="h-10 sm:h-9"
-              />
+              <DatePickerField value={date || null} onChange={(ymd) => setDate((ymd ?? ""))} id={"transfer-date"} triggerClassName={"h-10 sm:h-9"} />
             </div>
             <div className="space-y-1.5">
               <Label>Origen</Label>

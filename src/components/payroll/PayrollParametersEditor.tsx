@@ -1,5 +1,7 @@
 "use client";
 
+import { DatePickerField } from "@/components/ui/date-picker";
+
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -539,11 +541,7 @@ function NewVersionForm({
           </div>
           <div>
             <Label>Vigente desde</Label>
-            <Input
-              type="date"
-              value={effectiveFrom}
-              onChange={(e) => setEffectiveFrom(e.target.value)}
-            />
+            <DatePickerField value={effectiveFrom || null} onChange={(ymd) => setEffectiveFrom((ymd ?? ""))} />
           </div>
         </div>
 

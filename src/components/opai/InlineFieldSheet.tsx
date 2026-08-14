@@ -10,6 +10,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { DatePickerField } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
@@ -60,13 +61,11 @@ export function InlineFieldSheet({
   const inputType =
     type === "email"
       ? "email"
-      : type === "date"
-        ? "date"
-        : type === "url"
-          ? "url"
-          : type === "number" || type === "money" || type === "int"
-            ? "text"
-            : "text";
+      : type === "url"
+        ? "url"
+        : type === "number" || type === "money" || type === "int"
+          ? "text"
+          : "text";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -111,6 +110,13 @@ export function InlineFieldSheet({
                 </option>
               ))}
             </select>
+          ) : type === "date" ? (
+            <DatePickerField
+              value={draft || null}
+              onChange={(ymd) => setDraft(ymd ?? "")}
+              aria-label={label}
+              clearable
+            />
           ) : (
             <Input
               ref={inputRef as React.RefObject<HTMLInputElement>}

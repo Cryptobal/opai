@@ -1,5 +1,6 @@
 "use client";
 
+import { DatePickerField } from "@/components/ui/date-picker";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
@@ -18,7 +19,6 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -547,12 +547,7 @@ export function GuardContractsTab({
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs">Fecha inicio contrato</Label>
-                <Input
-                  type="date"
-                  value={contractStartDate}
-                  onChange={(e) => setContractStartDate(e.target.value)}
-                  className="text-sm"
-                />
+                <DatePickerField value={contractStartDate || null} onChange={(ymd) => setContractStartDate(ymd ?? "")} triggerClassName="text-sm" />
               </div>
             </div>
 
@@ -564,13 +559,7 @@ export function GuardContractsTab({
                       <Label className="text-xs">
                         Fin período 1 (original) *
                       </Label>
-                      <Input
-                        type="date"
-                        value={period1End}
-                        min={contractStartDate}
-                        onChange={(e) => setPeriod1End(e.target.value)}
-                        className="text-sm"
-                      />
+                      <DatePickerField value={period1End || null} onChange={(ymd) => setPeriod1End(ymd ?? "")} min={contractStartDate} triggerClassName="text-sm" />
                       {period1End && contractStartDate && (
                         <p className="text-[10px] text-muted-foreground">
                           {Math.round((new Date(period1End).getTime() - new Date(contractStartDate).getTime()) / 86400000)} días
@@ -581,14 +570,7 @@ export function GuardContractsTab({
                       <Label className="text-xs text-muted-foreground">
                         Fin período 2 (1ra renovación)
                       </Label>
-                      <Input
-                        type="date"
-                        value={period2End}
-                        min={period1End || contractStartDate}
-                        onChange={(e) => setPeriod2End(e.target.value)}
-                        className="text-sm"
-                        placeholder="Sin renovación aún"
-                      />
+                      <DatePickerField value={period2End || null} onChange={(ymd) => setPeriod2End(ymd ?? "")} min={period1End || contractStartDate} placeholder="Sin renovación aún" triggerClassName="text-sm" />
                       {!period2End && (
                         <p className="text-[10px] text-muted-foreground italic">Opcional — se llena al renovar. Tras período 2 pasa a indefinido.</p>
                       )}

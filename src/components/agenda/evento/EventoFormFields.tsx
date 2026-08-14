@@ -1,5 +1,7 @@
 "use client";
 
+import { DatePickerField } from "@/components/ui/date-picker";
+
 import type { JSX } from "react";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
@@ -139,20 +141,14 @@ export function EventoFormFields({
           <Label htmlFor="evento-date" className="text-[12px] text-ds-text-3">
             {value.allDay ? "Fecha inicio" : "Fecha"}
           </Label>
-          <Input
-            id="evento-date"
-            type="date"
-            value={value.date}
-            onChange={(e) => {
-              const date = e.target.value;
+          <DatePickerField value={value.date || null} onChange={(ymd) => {
+              const date = (ymd ?? "");
               const patch: Partial<EventoFormValue> = { date };
               if (value.allDay && (!value.endDate || value.endDate < date)) {
                 patch.endDate = date;
               }
               onChange(patch);
-            }}
-            className="h-10 text-[13px] sm:h-9"
-          />
+            }} id={"evento-date"} triggerClassName={"h-10 text-[13px] sm:h-9"} />
         </div>
         <div className="flex items-end pb-0.5">
           <div className="flex min-h-11 items-center gap-2 sm:min-h-0">
@@ -185,14 +181,7 @@ export function EventoFormFields({
             <Label htmlFor="evento-end-date" className="text-[12px] text-ds-text-3">
               Fecha término
             </Label>
-            <Input
-              id="evento-end-date"
-              type="date"
-              value={value.endDate || value.date}
-              min={value.date || undefined}
-              onChange={(e) => onChange({ endDate: e.target.value })}
-              className="h-10 text-[13px] sm:h-9"
-            />
+            <DatePickerField value={value.endDate || value.date || null} onChange={(ymd) => onChange({ endDate: (ymd ?? "") })} min={value.date || undefined} id={"evento-end-date"} triggerClassName={"h-10 text-[13px] sm:h-9"} />
           </div>
         ) : (
           <>

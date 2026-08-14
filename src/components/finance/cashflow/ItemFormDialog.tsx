@@ -1,4 +1,6 @@
 "use client";
+
+import { DatePickerField } from "@/components/ui/date-picker";
 import { useEffect, useState } from "react";
 import {
   Dialog,
@@ -456,23 +458,11 @@ export function ItemFormDialog({ open, item, categories, onClose, onSaved }: Pro
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <Label>Inicio</Label>
-              <Input
-                className="h-10 sm:h-9"
-                type="date"
-                value={form.startDate}
-                onChange={(e) => set("startDate", e.target.value)}
-                disabled={isLocked}
-              />
+              <DatePickerField value={form.startDate || null} onChange={(ymd) => set("startDate", (ymd ?? ""))} disabled={isLocked} triggerClassName={"h-10 sm:h-9"} />
             </div>
             <div>
               <Label>Fin (opcional)</Label>
-              <Input
-                className="h-10 sm:h-9"
-                type="date"
-                value={form.endDate}
-                onChange={(e) => set("endDate", e.target.value)}
-                disabled={isLocked}
-              />
+              <DatePickerField value={form.endDate || null} onChange={(ymd) => set("endDate", (ymd ?? ""))} disabled={isLocked} triggerClassName={"h-10 sm:h-9"} />
             </div>
           </div>
 

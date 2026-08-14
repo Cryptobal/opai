@@ -1,5 +1,7 @@
 "use client";
 
+import { DatePickerField } from "@/components/ui/date-picker";
+
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -1186,7 +1188,7 @@ export function GuardiaDetailClient({
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-1.5"><Label className="text-sm font-medium">Fecha de inicio</Label>
-              <Input type="date" value={contractDate} onChange={(e) => setContractDate(e.target.value)} className="w-full" />
+              <DatePickerField value={contractDate || null} onChange={(ymd) => setContractDate((ymd ?? ""))} triggerClassName={"w-full"} />
             </div>
           </div>
           <DialogFooter>
@@ -1204,7 +1206,7 @@ export function GuardiaDetailClient({
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-1.5"><Label className="text-sm font-medium">Fecha de recontratación</Label>
-              <Input type="date" value={recontratarDate} onChange={(e) => setRecontratarDate(e.target.value)} className="w-full" />
+              <DatePickerField value={recontratarDate || null} onChange={(ymd) => setRecontratarDate((ymd ?? ""))} triggerClassName={"w-full"} />
             </div>
           </div>
           <DialogFooter>
@@ -1254,7 +1256,7 @@ export function GuardiaDetailClient({
                 onChange={(val) => setEditPersonalForm((p) => ({ ...p, nacionalidad: val }))}
               /></div>
             <div className="space-y-1.5"><Label className="text-sm">Fecha de nacimiento</Label>
-              <Input type="date" value={editPersonalForm.birthDate} onChange={(e) => setEditPersonalForm((p) => ({ ...p, birthDate: e.target.value }))} /></div>
+              <DatePickerField value={editPersonalForm.birthDate || null} onChange={(ymd) => setEditPersonalForm((p) => ({ ...p, birthDate: (ymd ?? "") }))} /></div>
             <div className="space-y-1.5"><Label className="text-sm">Calzado</Label>
               <SimpleSelect className="h-9 w-full" value={editPersonalForm.shoeSize} onValueChange={(v) => setEditPersonalForm((p) => ({ ...p, shoeSize: v }))} options={[
                 { value: "", label: "Sin especificar" }, ...SHOE_SIZES.map((s) => ({ value: s, label: s })),

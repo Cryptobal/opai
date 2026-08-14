@@ -1,5 +1,7 @@
 "use client";
 
+import { DatePickerField } from "@/components/ui/date-picker";
+
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import Link from "next/link";
@@ -678,12 +680,7 @@ export function OpsPuestosClient({
           <div className="space-y-3 py-2">
             <div className="space-y-1.5">
               <Label>Fecha efectiva</Label>
-              <input
-                type="date"
-                value={assignDate}
-                onChange={(e) => setAssignDate(e.target.value)}
-                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
-              />
+              <DatePickerField value={assignDate || null} onChange={(ymd) => setAssignDate((ymd ?? ""))} triggerClassName={"h-9 w-full rounded-md border border-input bg-background px-3 text-sm"} />
             </div>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -738,7 +735,7 @@ export function OpsPuestosClient({
           <div className="space-y-3 py-2">
             <div className="space-y-1.5">
               <Label>Fecha efectiva</Label>
-              <input type="date" value={unassignDate} onChange={(e) => setUnassignDate(e.target.value)} className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" />
+              <DatePickerField value={unassignDate || null} onChange={(ymd) => setUnassignDate((ymd ?? ""))} triggerClassName={"h-9 w-full rounded-md border border-input bg-background px-3 text-sm"} />
               <p className="text-[10px] text-muted-foreground">Se limpiará la pauta desde esta fecha.</p>
             </div>
           </div>

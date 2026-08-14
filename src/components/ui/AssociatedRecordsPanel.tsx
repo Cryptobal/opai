@@ -74,21 +74,53 @@ export function AssociatedRecordsPanel({
   if (sections.length === 0) return null;
 
   if (embedded) {
+    const withCount = sections.filter((s) => (s.count ?? 0) > 0);
+    const zeros = sections.filter((s) => (s.count ?? 0) === 0);
+    const visible = withCount.length ? withCount : sections;
     return (
-      <div className={cn("rounded-xl border border-ds-border-default bg-card p-3 lg:p-3", className)}>
+      <div className={cn("rounded-xl border border-ds-border-default bg-card p-3", className)}>
         <h3 className="mb-1 text-[12px] font-semibold uppercase tracking-wide text-ds-text-3">
           Registros asociados
         </h3>
-        <div className="space-y-1">
-          {sections.map((section) => (
+        <div className="divide-y divide-ds-border-subtle">
+          {visible.map((section) => (
             <AccordionItem
               key={section.id}
               section={section}
               isOpen={expanded.has(section.id)}
               onToggle={() => toggle(section.id)}
               onExpand={() => expand(section.id)}
+              dense
             />
           ))}
+          {zeros.length > 0 && withCount.length > 0 ? (
+            <AccordionItem
+              key="__zeros"
+              section={{
+                id: "__zeros",
+                label: `Sin registros · ${zeros.map((s) => s.label).join(", ")}`,
+                count: 0,
+                content: (
+                  <div className="space-y-1">
+                    {zeros.map((section) => (
+                      <AccordionItem
+                        key={section.id}
+                        section={section}
+                        isOpen={expanded.has(section.id)}
+                        onToggle={() => toggle(section.id)}
+                        onExpand={() => expand(section.id)}
+                        dense
+                      />
+                    ))}
+                  </div>
+                ),
+              }}
+              isOpen={expanded.has("__zeros")}
+              onToggle={() => toggle("__zeros")}
+              onExpand={() => expand("__zeros")}
+              dense
+            />
+          ) : null}
         </div>
       </div>
     );
@@ -177,11 +209,13 @@ function AccordionItem({
   isOpen,
   onToggle,
   onExpand,
+  dense = false,
 }: {
   section: AssociatedSection;
   isOpen: boolean;
   onToggle: () => void;
   onExpand: () => void;
+  dense?: boolean;
 }) {
   const Icon = section.icon;
   const hasAdd = Boolean(section.onAdd || section.addHref);
@@ -231,7 +265,10 @@ function AccordionItem({
         <button
           type="button"
           onClick={onToggle}
-          className="flex-1 flex items-center gap-2 px-2.5 py-2.5 text-sm rounded-lg transition-colors min-w-0 lg:py-2"
+          className={cn(
+            "flex-1 flex items-center gap-2 px-2.5 text-sm rounded-lg transition-colors min-w-0",
+            dense ? "min-h-10 py-2" : "py-2.5 lg:py-2",
+          )}
         >
           <ChevronRight
             className={cn(
@@ -239,11 +276,11 @@ function AccordionItem({
               isOpen && "rotate-90"
             )}
           />
-          {Icon && <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />}
+          {Icon && !dense && <Icon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />}
           <span className="truncate font-medium text-foreground text-[13px]">{section.label}</span>
           {section.count !== undefined && (
-            <span className="text-xs text-muted-foreground tabular-nums">
-              ({section.count})
+            <span className="ml-auto text-[13px] text-ds-text-3 tabular-nums">
+              {dense ? section.count : `(${section.count})`}
             </span>
           )}
         </button>

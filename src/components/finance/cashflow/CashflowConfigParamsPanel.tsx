@@ -1,5 +1,7 @@
 "use client";
 
+import { DatePickerField } from "@/components/ui/date-picker";
+
 import { useState } from "react";
 import { Surface } from "@/components/opai-ds";
 import { Button } from "@/components/ui/button";
@@ -360,16 +362,10 @@ export function CashflowConfigParamsPanel({
           </div>
           <div>
             <Label>Corte de cartera (flujo) — Planilla v4.6</Label>
-            <Input
-              className="h-10 sm:h-9"
-              type="date"
-              value={config.flowCutoffYmd?.slice(0, 10) ?? ""}
-              max={new Date().toISOString().slice(0, 10)}
-              onChange={(e) => {
-                const v = e.target.value.trim();
+            <DatePickerField value={config.flowCutoffYmd?.slice(0, 10) || null} onChange={(ymd) => {
+                const v = (ymd ?? "").trim();
                 setField("flowCutoffYmd", v === "" ? null : v);
-              }}
-            />
+              }} max={new Date().toISOString().slice(0, 10)} triggerClassName={"h-10 sm:h-9"} />
             <p className="mt-1 text-[12px] text-ds-text-3">
               Las facturas de ingreso emitidas <strong>antes</strong> de esta
               fecha quedan fuera del comprometido, la bandeja y el KPI de

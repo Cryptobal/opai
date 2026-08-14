@@ -1,5 +1,6 @@
 "use client";
 
+import { DatePickerField } from "@/components/ui/date-picker";
 import { Fragment, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import {
@@ -394,22 +395,12 @@ export function OpsMarcacionesClient({ initialClients }: OpsMarcacionesClientPro
 
         <div className="flex-1 sm:flex-none">
           <label className="text-[10px] text-muted-foreground block mb-0.5">Desde</label>
-          <Input
-            type="date"
-            value={desde}
-            onChange={(e) => setDesde(e.target.value)}
-            className="h-8 text-xs w-full sm:w-[130px]"
-          />
+          <DatePickerField value={desde || null} onChange={(ymd) => setDesde((ymd ?? ""))} triggerClassName={"h-8 text-xs w-full sm:w-[130px]"} />
         </div>
 
         <div className="flex-1 sm:flex-none">
           <label className="text-[10px] text-muted-foreground block mb-0.5">Hasta</label>
-          <Input
-            type="date"
-            value={hasta}
-            onChange={(e) => setHasta(e.target.value)}
-            className="h-8 text-xs w-full sm:w-[130px]"
-          />
+          <DatePickerField value={hasta || null} onChange={(ymd) => setHasta((ymd ?? ""))} triggerClassName={"h-8 text-xs w-full sm:w-[130px]"} />
         </div>
 
         <div className="flex-1 min-w-0 basis-full sm:basis-auto sm:min-w-[140px]">

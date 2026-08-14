@@ -1,5 +1,7 @@
 "use client";
 
+import { DatePickerField } from "@/components/ui/date-picker";
+
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -213,20 +215,8 @@ export function AiUsageClient() {
       <Surface elevation={1} padding="md" className="space-y-3">
         <p className="text-xs font-medium uppercase tracking-wide text-ds-text-3">Período</p>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <input
-            type="date"
-            aria-label="Desde"
-            className="h-10 sm:h-9 rounded-lg border border-ds-border-default bg-ds-surface-1 px-3 text-[13px] text-ds-text-1"
-            value={filters.from}
-            onChange={(e) => set({ from: e.target.value })}
-          />
-          <input
-            type="date"
-            aria-label="Hasta"
-            className="h-10 sm:h-9 rounded-lg border border-ds-border-default bg-ds-surface-1 px-3 text-[13px] text-ds-text-1"
-            value={filters.to}
-            onChange={(e) => set({ to: e.target.value })}
-          />
+          <DatePickerField value={filters.from || null} onChange={(ymd) => set({ from: (ymd ?? "") })} aria-label={"Desde"} triggerClassName={"h-10 sm:h-9 rounded-lg border border-ds-border-default bg-ds-surface-1 px-3 text-[13px] text-ds-text-1"} />
+          <DatePickerField value={filters.to || null} onChange={(ymd) => set({ to: (ymd ?? "") })} aria-label={"Hasta"} triggerClassName={"h-10 sm:h-9 rounded-lg border border-ds-border-default bg-ds-surface-1 px-3 text-[13px] text-ds-text-1"} />
           <input
             className="h-10 sm:h-9 rounded-lg border border-ds-border-default bg-ds-surface-1 px-3 text-[13px] text-ds-text-1"
             placeholder="Tenant ID (opcional)"

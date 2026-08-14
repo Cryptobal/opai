@@ -1,5 +1,7 @@
 "use client";
 
+import { DatePickerField } from "@/components/ui/date-picker";
+
 import { useState, useEffect, useCallback } from "react";
 import { toast } from "sonner";
 import {
@@ -700,19 +702,11 @@ function EmpresaTab({
                 <div className="grid grid-cols-2 gap-2">
                   <div className="space-y-1">
                     <Label className="text-[10px] text-muted-foreground">Fecha emisión</Label>
-                    <Input
-                      type="date"
-                      value={editForm.issuedAt}
-                      onChange={(e) => setEditForm((p) => ({ ...p, issuedAt: e.target.value }))}
-                    />
+                    <DatePickerField value={editForm.issuedAt || null} onChange={(ymd) => setEditForm((p) => ({ ...p, issuedAt: (ymd ?? "") }))} />
                   </div>
                   <div className="space-y-1">
                     <Label className="text-[10px] text-muted-foreground">Fecha vencimiento</Label>
-                    <Input
-                      type="date"
-                      value={editForm.expiresAt}
-                      onChange={(e) => setEditForm((p) => ({ ...p, expiresAt: e.target.value }))}
-                    />
+                    <DatePickerField value={editForm.expiresAt || null} onChange={(ymd) => setEditForm((p) => ({ ...p, expiresAt: (ymd ?? "") }))} />
                   </div>
                 </div>
               </div>
@@ -1216,11 +1210,11 @@ function UploadDocModal({
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label className="text-xs">Fecha emisión</Label>
-              <Input type="date" value={uploadForm.issuedAt} onChange={(e) => setUploadForm((p) => ({ ...p, issuedAt: e.target.value }))} />
+              <DatePickerField value={uploadForm.issuedAt || null} onChange={(ymd) => setUploadForm((p) => ({ ...p, issuedAt: (ymd ?? "") }))} />
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Fecha vencimiento</Label>
-              <Input type="date" value={uploadForm.expiresAt} onChange={(e) => setUploadForm((p) => ({ ...p, expiresAt: e.target.value }))} />
+              <DatePickerField value={uploadForm.expiresAt || null} onChange={(ymd) => setUploadForm((p) => ({ ...p, expiresAt: (ymd ?? "") }))} />
             </div>
           </div>
 

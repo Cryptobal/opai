@@ -1,5 +1,7 @@
 "use client";
 
+import { DatePickerField } from "@/components/ui/date-picker";
+
 import { DURATIONS } from "./types";
 
 const INPUT =
@@ -24,7 +26,7 @@ export function ScheduleFields({
     <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
       <div className="space-y-1">
         <label className="text-[12px] text-ds-text-3">Fecha</label>
-        <input type="date" className={INPUT} value={date} onChange={(e) => onDate(e.target.value)} />
+        <DatePickerField value={date || null} onChange={(ymd) => onDate((ymd ?? ""))} triggerClassName={INPUT} />
       </div>
       <div className="space-y-1">
         <label className="text-[12px] text-ds-text-3">Hora inicio</label>

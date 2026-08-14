@@ -1,5 +1,7 @@
 "use client";
 
+import { DatePickerField } from "@/components/ui/date-picker";
+
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { createPortal } from "react-dom";
@@ -463,13 +465,7 @@ export function OpsPautaDiariaClient({
               >
                 <ChevronLeft className="h-4 w-4" />
               </button>
-              <input
-                key={date}
-                type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                className="h-9 flex-1 min-w-0 rounded-md border border-input bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-              />
+              <DatePickerField value={date || null} onChange={(ymd) => setDate((ymd ?? ""))} triggerClassName={"h-9 flex-1 min-w-0 rounded-md border border-input bg-background px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"} />
               <button
                 type="button"
                 className="inline-flex items-center justify-center rounded-md border border-input bg-transparent h-9 w-10 sm:h-9 sm:w-9 shrink-0 text-foreground hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"

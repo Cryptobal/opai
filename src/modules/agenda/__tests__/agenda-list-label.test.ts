@@ -7,6 +7,8 @@ const mocks = vi.hoisted(() => ({
   linkFindMany: vi.fn(),
   adminFindMany: vi.fn(),
   providerFindMany: vi.fn(),
+  partFindMany: vi.fn(),
+  extFindMany: vi.fn(),
   listTasks: vi.fn(),
 }));
 
@@ -18,6 +20,8 @@ vi.mock("@/lib/prisma", () => ({
     agendaEventLink: { findMany: mocks.linkFindMany },
     admin: { findMany: mocks.adminFindMany },
     calendarProviderLink: { findMany: mocks.providerFindMany },
+    calendarEventParticipant: { findMany: mocks.partFindMany },
+    calendarExternalAttendee: { findMany: mocks.extFindMany },
   },
 }));
 
@@ -32,6 +36,8 @@ beforeEach(() => {
   mocks.linkFindMany.mockResolvedValue([]);
   mocks.adminFindMany.mockResolvedValue([{ id: "u1", name: "Ana" }]);
   mocks.providerFindMany.mockResolvedValue([]);
+  mocks.partFindMany.mockResolvedValue([]);
+  mocks.extFindMany.mockResolvedValue([]);
   mocks.dealFindMany.mockResolvedValue([]);
   mocks.listTasks.mockResolvedValue([]);
 });

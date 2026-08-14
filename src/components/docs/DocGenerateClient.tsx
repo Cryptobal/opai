@@ -1,5 +1,7 @@
 "use client";
 
+import { DatePickerField } from "@/components/ui/date-picker";
+
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
@@ -410,24 +412,14 @@ export function DocGenerateClient() {
                 <Calendar className="h-3 w-3" />
                 Fecha Inicio
               </label>
-              <Input
-                type="date"
-                value={effectiveDate}
-                onChange={(e) => setEffectiveDate(e.target.value)}
-                className="mt-1"
-              />
+              <DatePickerField value={effectiveDate || null} onChange={(ymd) => setEffectiveDate((ymd ?? ""))} triggerClassName={"mt-1"} />
             </div>
             <div>
               <label className="text-xs font-medium text-muted-foreground flex items-center gap-1">
                 <Calendar className="h-3 w-3" />
                 Fecha Vencimiento
               </label>
-              <Input
-                type="date"
-                value={expirationDate}
-                onChange={(e) => setExpirationDate(e.target.value)}
-                className="mt-1"
-              />
+              <DatePickerField value={expirationDate || null} onChange={(ymd) => setExpirationDate((ymd ?? ""))} triggerClassName={"mt-1"} />
             </div>
           </div>
         </div>

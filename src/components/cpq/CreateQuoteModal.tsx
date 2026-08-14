@@ -4,6 +4,7 @@
 
 "use client";
 
+import { DatePickerField } from "@/components/ui/date-picker";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -322,12 +323,7 @@ export function CreateQuoteModal({
           )}
           <div className="space-y-1.5">
             <Label className="text-sm">Válida hasta</Label>
-            <Input
-              type="date"
-              value={validUntil}
-              onChange={(e) => setValidUntil(e.target.value)}
-              className="h-10 sm:h-9 bg-background text-sm"
-            />
+            <DatePickerField value={validUntil || null} onChange={(ymd) => setValidUntil((ymd ?? ""))} triggerClassName={"h-10 sm:h-9 bg-background text-sm"} />
           </div>
           {!hasContext && (
             <div className="space-y-1.5">

@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { DatePickerField } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -133,11 +134,13 @@ export function DynamicFormRenderer({ fields, initialData, onSubmit }: Props) {
               {field.label}
               {field.required && <span className="text-status-danger-fg ml-0.5">*</span>}
             </Label>
-            <Input
-              type="date"
-              value={String(value || "")}
-              onChange={(e) => handleChange(field.field, e.target.value)}
-              className={`bg-zinc-800 border-zinc-600 ${error ? "border-status-danger-border" : ""}`}
+            <DatePickerField
+              value={value ? String(value) : null}
+              onChange={(ymd) => handleChange(field.field, ymd ?? "")}
+              aria-label={field.label}
+              required={field.required}
+              clearable={!field.required}
+              triggerClassName={error ? "border-status-danger-border" : undefined}
             />
             {error && <p className="text-xs text-status-danger-fg">{error}</p>}
           </div>

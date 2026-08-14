@@ -1,5 +1,7 @@
 "use client";
 
+import { DatePickerField } from "@/components/ui/date-picker";
+
 import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, Loader2, Send } from "lucide-react";
 import { toast } from "sonner";
@@ -146,12 +148,7 @@ export function SupervisorCrearTE({ installations, onBack, onCreated }: Props) {
 
       {/* Fecha */}
       <Field label="Fecha *">
-        <input
-          type="date"
-          value={date}
-          onChange={(e) => setDate(e.target.value)}
-          className="input-field"
-        />
+        <DatePickerField value={date || null} onChange={(ymd) => setDate((ymd ?? ""))} triggerClassName={"input-field"} />
       </Field>
 
       {/* Tipo */}

@@ -1,5 +1,7 @@
 "use client";
 
+import { DatePickerField } from "@/components/ui/date-picker";
+
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { confirmDialog } from "@/components/ui/confirm-service";
@@ -680,18 +682,16 @@ export default function DocumentosSection({
                 {/* Expiry date controls */}
                 {doc?.fileUrl && hasExpiration && canManageDocs && (
                   <div className="flex items-center gap-1 shrink-0">
-                    <Input
-                      type="date"
-                      className="h-7 w-[128px] text-[11px] bg-background"
-                      title="Fecha de vencimiento"
+                    <DatePickerField
                       value={
-                        doc.id && expiryDraftByDocId[doc.id] !== undefined
+                        (doc.id && expiryDraftByDocId[doc.id] !== undefined
                           ? expiryDraftByDocId[doc.id]
-                          : toDateInput(doc.expiresAt)
+                          : toDateInput(doc.expiresAt)) || null
                       }
-                      onChange={(e) =>
-                        setExpiryDraftByDocId((p) => ({ ...p, [doc.id]: e.target.value }))
+                      onChange={(ymd) =>
+                        setExpiryDraftByDocId((p) => ({ ...p, [doc.id]: ymd ?? "" }))
                       }
+                      triggerClassName="h-7 w-[128px] text-[12px] bg-background"
                     />
                     <Button
                       type="button"
@@ -818,13 +818,7 @@ export default function DocumentosSection({
             </select>
             {hasExpirationByType.get(extraUploadType) && (
               <div className="flex items-center gap-1">
-                <Input
-                  ref={extraExpiresAtRef}
-                  type="date"
-                  value={extraExpiresAt}
-                  onChange={(e) => setExtraExpiresAt(e.target.value)}
-                  className="h-8 text-xs w-[130px]"
-                />
+                <DatePickerField value={extraExpiresAt || null} onChange={(ymd) => setExtraExpiresAt((ymd ?? ""))} triggerClassName={"h-8 text-xs w-[130px]"} />
                 <Button type="button" size="icon" variant="outline" className="h-8 w-8 shrink-0"
                   onClick={() => extraExpiresAtRef.current?.showPicker?.()}>
                   <CalendarDays className="h-3.5 w-3.5" />
@@ -906,13 +900,7 @@ export default function DocumentosSection({
               <span className="text-sm text-foreground truncate flex-1 min-w-0">{docLabel}</span>
               {hasExpiration && canManageDocs && (
                 <div className="flex items-center gap-1 shrink-0">
-                  <Input
-                    type="date"
-                    className="h-7 w-[128px] text-[11px] bg-background"
-                    title="Fecha de vencimiento"
-                    value={expiryDraftByDocId[doc.id] !== undefined ? expiryDraftByDocId[doc.id] : toDateInput(doc.expiresAt)}
-                    onChange={(e) => setExpiryDraftByDocId((p) => ({ ...p, [doc.id]: e.target.value }))}
-                  />
+                  <DatePickerField value={expiryDraftByDocId[doc.id] !== undefined ? expiryDraftByDocId[doc.id] : toDateInput(doc.expiresAt) || null} onChange={(ymd) => setExpiryDraftByDocId((p) => ({ ...p, [doc.id]: (ymd ?? "") }))} triggerClassName={"h-7 w-[128px] text-[11px] bg-background"} />
                   <Button type="button" variant="secondary" size="sm" className="h-7 text-[10px] px-2"
                     disabled={savingDocId === doc.id} onClick={() => void handleSaveExpiry(doc)}>
                     {savingDocId === doc.id ? "…" : "Guardar venc."}

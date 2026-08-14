@@ -1,5 +1,7 @@
 "use client";
 
+import { DatePickerField } from "@/components/ui/date-picker";
+
 import { useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Download } from "lucide-react";
@@ -64,19 +66,9 @@ export function TePeriodSelector({
         </button>
       ))}
       <div className="flex items-center gap-1.5 ml-auto">
-        <input
-          type="date"
-          value={from}
-          onChange={(e) => onFromChange(e.target.value)}
-          className="h-7 rounded-md border border-input bg-background px-2 text-[11px]"
-        />
+        <DatePickerField value={from || null} onChange={(ymd) => onFromChange((ymd ?? ""))} triggerClassName={"h-7 rounded-md border border-input bg-background px-2 text-[11px]"} />
         <span className="text-[11px] text-muted-foreground">a</span>
-        <input
-          type="date"
-          value={to}
-          onChange={(e) => onToChange(e.target.value)}
-          className="h-7 rounded-md border border-input bg-background px-2 text-[11px]"
-        />
+        <DatePickerField value={to || null} onChange={(ymd) => onToChange((ymd ?? ""))} triggerClassName={"h-7 rounded-md border border-input bg-background px-2 text-[11px]"} />
         {onExport && (
           <Button
             size="sm"

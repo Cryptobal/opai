@@ -1,5 +1,7 @@
 "use client";
 
+import { DatePickerField } from "@/components/ui/date-picker";
+
 import { Surface } from "@/components/opai-ds";
 
 export type AiActionsFilterState = {
@@ -52,18 +54,8 @@ export function AiActionsFilters({ value, onChange, onApply }: Props) {
             <option key={o.value || "all"} value={o.value}>{o.label}</option>
           ))}
         </select>
-        <input
-          type="date"
-          className="h-10 sm:h-9 rounded-lg border border-ds-border-default bg-ds-surface-1 px-3 text-[13px] text-ds-text-1"
-          value={value.from}
-          onChange={(e) => set({ from: e.target.value })}
-        />
-        <input
-          type="date"
-          className="h-10 sm:h-9 rounded-lg border border-ds-border-default bg-ds-surface-1 px-3 text-[13px] text-ds-text-1"
-          value={value.to}
-          onChange={(e) => set({ to: e.target.value })}
-        />
+        <DatePickerField value={value.from || null} onChange={(ymd) => set({ from: (ymd ?? "") })} triggerClassName={"h-10 sm:h-9 rounded-lg border border-ds-border-default bg-ds-surface-1 px-3 text-[13px] text-ds-text-1"} />
+        <DatePickerField value={value.to || null} onChange={(ymd) => set({ to: (ymd ?? "") })} triggerClassName={"h-10 sm:h-9 rounded-lg border border-ds-border-default bg-ds-surface-1 px-3 text-[13px] text-ds-text-1"} />
       </div>
       <button
         type="button"

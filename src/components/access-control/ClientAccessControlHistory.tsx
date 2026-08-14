@@ -1,5 +1,7 @@
 "use client";
 
+import { DatePickerField } from "@/components/ui/date-picker";
+
 import React, { useState, useEffect, useCallback } from "react";
 import {
   Search, Download, Loader2, ChevronLeft, ChevronRight, Clock,
@@ -132,20 +134,8 @@ export function ClientAccessControlHistory({ installationId }: Props) {
             className="pl-9 bg-zinc-800 border-zinc-600"
           />
         </div>
-        <Input
-          type="date"
-          value={dateFrom}
-          onChange={(e) => { setDateFrom(e.target.value); setPage(1); }}
-          className="w-36 bg-zinc-800 border-zinc-600"
-          placeholder="Desde"
-        />
-        <Input
-          type="date"
-          value={dateTo}
-          onChange={(e) => { setDateTo(e.target.value); setPage(1); }}
-          className="w-36 bg-zinc-800 border-zinc-600"
-          placeholder="Hasta"
-        />
+        <DatePickerField value={dateFrom || null} onChange={(ymd) => { setDateFrom((ymd ?? "")); setPage(1); }} placeholder={"Desde"} triggerClassName={"w-36 bg-zinc-800 border-zinc-600"} />
+        <DatePickerField value={dateTo || null} onChange={(ymd) => { setDateTo((ymd ?? "")); setPage(1); }} placeholder={"Hasta"} triggerClassName={"w-36 bg-zinc-800 border-zinc-600"} />
         <select
           value={typeFilter}
           onChange={(e) => { setTypeFilter(e.target.value); setPage(1); }}

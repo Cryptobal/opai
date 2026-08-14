@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { Check, Lock, Pencil, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { DatePickerField } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { confirmDialog } from "@/components/ui/confirm-service";
@@ -240,7 +241,7 @@ export function InlineEditField({
 
   if (phase === "editing" || phase === "error") {
     const inputType =
-      type === "email" ? "email" : type === "date" ? "date" : type === "url" ? "url" : "text";
+      type === "email" ? "email" : type === "url" ? "url" : "text";
 
     const onKeyDown = (e: React.KeyboardEvent) => {
       if (e.key === "Escape") {
@@ -305,6 +306,16 @@ export function InlineEditField({
               </option>
             ))}
           </select>
+        ) : type === "date" ? (
+          <DatePickerField
+            value={draft || null}
+            onChange={(ymd) => {
+              setDraft(ymd ?? "");
+              void runSave(ymd ?? "", false);
+            }}
+            aria-label={label}
+            clearable={!required}
+          />
         ) : (
           <Input
             ref={inputRef as React.RefObject<HTMLInputElement>}
