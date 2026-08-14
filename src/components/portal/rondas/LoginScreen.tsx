@@ -1,3 +1,4 @@
+// @ds-allow-legacy AuthShell exige accent hex
 "use client";
 
 import { useState, useCallback } from "react";
@@ -110,7 +111,7 @@ export function LoginScreen({ onLogin }: Props) {
         />
 
         <label
-          className="block text-xs font-medium text-[#9ca3af] mb-[7px]"
+          className="block text-xs font-medium text-ds-text-3 mb-[7px]"
           style={{ letterSpacing: "0.02em", fontFamily: "'Plus Jakarta Sans', sans-serif" }}
         >
           Tu PIN (4 d&iacute;gitos)
@@ -118,7 +119,7 @@ export function LoginScreen({ onLogin }: Props) {
         <AuthPinInput length={4} accent={ACCENT} value={pin} onChange={setPin} />
 
         {error && (
-          <div className="rounded-xl px-4 py-3 mb-4" style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)" }}>
+          <div className="rounded-xl border border-status-danger-border bg-status-danger-soft px-4 py-3 mb-4">
             <p className="text-xs text-status-danger-fg text-center">{error}</p>
           </div>
         )}

@@ -96,26 +96,26 @@ export function GuardSelectorHeader({
   const noGuard = !currentGuardId;
 
   return (
-    <div className="sticky top-0 z-10 bg-card/95 backdrop-blur-sm border-b border-border px-4 py-2.5 opai-ios-surface-sheet-top">
-      <div className="flex items-center gap-2 mb-1">
-        <MapPin className="h-3.5 w-3.5 text-status-info-fg shrink-0" />
-        <span className="text-xs text-status-info-fg truncate font-medium">
+    <div className="z-10 border-b border-ds-border-subtle bg-ds-surface-1 px-4 py-2">
+      <div className="flex items-center gap-2">
+        <MapPin className="h-3.5 w-3.5 shrink-0 text-primary" />
+        <span className="min-w-0 truncate text-[12px] font-medium text-ds-text-3">
           {installationName}
         </span>
       </div>
 
-      <div ref={dropdownRef} className="relative">
+      <div ref={dropdownRef} className="relative mt-1.5">
         <button
           type="button"
           onClick={handleToggle}
           disabled={setting}
-          className={`w-full flex items-center justify-between gap-2 h-9 rounded-lg px-3 text-sm transition-colors ${
+          className={`flex h-11 w-full items-center justify-between gap-2 rounded-full px-3.5 text-sm font-medium transition-colors ${
             noGuard
               ? "border border-status-warn-border bg-status-warn-soft text-status-warn-fg"
-              : "border border-white/10 bg-white/5 text-white"
+              : "border border-ds-border-default bg-ds-surface-2 text-ds-text-1"
           }`}
         >
-          <span className="flex items-center gap-2 truncate">
+          <span className="flex min-w-0 items-center gap-2 truncate">
             <UserCircle className="h-4 w-4 shrink-0 opacity-60" />
             {setting ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -131,13 +131,13 @@ export function GuardSelectorHeader({
         </button>
 
         {open && (
-          <div className="absolute left-0 right-0 top-full mt-1 max-h-60 overflow-y-auto rounded-lg border border-border bg-card opai-glass-strong-m shadow-xl z-20">
+          <div className="absolute left-0 right-0 top-full z-20 mt-1 max-h-60 overflow-y-auto rounded-2xl border border-ds-border-default bg-ds-surface-2 shadow-lg">
             {loading && guards.length === 0 ? (
               <div className="flex items-center justify-center py-4">
-                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                <Loader2 className="h-5 w-5 animate-spin text-ds-text-3" />
               </div>
             ) : guards.length === 0 ? (
-              <p className="text-xs text-muted-foreground text-center py-3">
+              <p className="py-3 text-center text-[12px] text-ds-text-3">
                 No hay guardias asignados
               </p>
             ) : (
@@ -146,16 +146,16 @@ export function GuardSelectorHeader({
                   key={g.id}
                   type="button"
                   onClick={() => handleSelect(g)}
-                  className={`w-full text-left px-3 py-2.5 text-sm transition-colors hover:bg-white/5 ${
+                  className={`w-full px-3 py-2.5 text-left text-sm transition-colors hover:bg-ds-surface-3 ${
                     g.id === currentGuardId
-                      ? "text-status-info-fg bg-status-info-soft/30"
-                      : "text-foreground"
+                      ? "bg-status-info-soft/30 text-status-info-fg"
+                      : "text-ds-text-1"
                   }`}
                 >
                   <span className="flex flex-wrap items-center justify-between gap-2">
                     <span className="break-words">{g.name}</span>
                     {g.isTurnoExtra && (
-                      <span className="shrink-0 rounded-full bg-status-warn-soft px-1.5 py-0.5 text-[10px] font-medium text-status-warn-fg">
+                      <span className="shrink-0 rounded-full bg-status-warn-soft px-1.5 py-0.5 text-[12px] font-medium text-status-warn-fg">
                         turno extra
                       </span>
                     )}

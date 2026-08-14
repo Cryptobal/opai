@@ -13,7 +13,7 @@ interface PortalBottomNavProps {
 const tabs: NavItem<PortalTab>[] = [
   { id: "mis-rondas", label: "Rondas", icon: MapPin },
   { id: "chat", label: "Chat", icon: MessageCircle },
-  { id: "panico", label: "Pánico", icon: AlertTriangle, variant: "danger" },
+  { id: "panico", label: "Pánico", icon: AlertTriangle, variant: "danger", elevated: true },
   { id: "incidente", label: "Incidente", icon: FileWarning, variant: "warning" },
   { id: "perfil", label: "Perfil", icon: User },
 ];

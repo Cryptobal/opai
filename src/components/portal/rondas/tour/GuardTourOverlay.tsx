@@ -50,7 +50,7 @@ export function GuardTourOverlay({ onComplete }: Props) {
   const isLast = step === steps.length - 1;
 
   return (
-    <div className="fixed inset-0 z-[2000] flex flex-col items-center justify-center bg-[#0a0a0f]/95 backdrop-blur-sm px-6">
+    <div className="fixed inset-0 z-[2000] flex flex-col items-center justify-center bg-background/95 backdrop-blur-sm px-6">
       {/* Close button */}
       <button
         onClick={onComplete}

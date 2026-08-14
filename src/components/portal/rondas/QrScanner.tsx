@@ -331,7 +331,7 @@ export function QrScanner({ onScan, onClose }: QrScannerProps) {
     <div className="fixed inset-0 z-[9999] bg-black flex flex-col">
       <button
         onClick={handleClose}
-        className="absolute top-4 right-4 z-[10001] flex h-11 w-11 items-center justify-center rounded-full bg-white/90 text-zinc-900 shadow-lg transition-colors active:bg-white"
+          className="absolute top-4 right-4 z-[10001] flex h-11 w-11 items-center justify-center rounded-full bg-ds-surface-2 text-ds-text-1 shadow-lg transition-colors active:bg-ds-surface-3"
         aria-label="Cerrar"
       >
         <X size={24} />
@@ -342,14 +342,14 @@ export function QrScanner({ onScan, onClose }: QrScannerProps) {
       >
         <button
           onClick={handleClose}
-          className="rounded-lg bg-zinc-800 px-4 py-2.5 text-sm font-medium text-gray-200 active:bg-zinc-700"
+          className="rounded-lg bg-ds-surface-2 px-4 py-2.5 text-sm font-medium text-ds-text-2 active:bg-ds-surface-3"
         >
           Cancelar
         </button>
         <span className="text-white text-lg font-semibold">Escanear QR</span>
         <button
           onClick={handleClose}
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-zinc-800 text-white transition-colors active:bg-zinc-700"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-ds-surface-2 text-ds-text-1 transition-colors active:bg-ds-surface-3"
           aria-label="Cerrar"
         >
           <X size={22} />
@@ -374,7 +374,7 @@ export function QrScanner({ onScan, onClose }: QrScannerProps) {
               }`}
             />
             {!ready && !error && (
-              <p className="absolute inset-x-0 top-1/2 -translate-y-1/2 text-center text-sm text-zinc-400">
+              <p className="absolute inset-x-0 top-1/2 -translate-y-1/2 text-center text-sm text-ds-text-3">
                 Iniciando cámara…
               </p>
             )}
@@ -392,14 +392,14 @@ export function QrScanner({ onScan, onClose }: QrScannerProps) {
         {!showManual ? (
           <button
             onClick={openManual}
-            className="w-full flex items-center justify-center gap-2 py-3 text-zinc-400 text-sm"
+            className="w-full flex items-center justify-center gap-2 py-3 text-ds-text-3 text-sm"
           >
             <Keyboard size={16} />
             No puedes escanear? Ingresa el codigo manual
           </button>
         ) : (
           <div className="space-y-3">
-            <p className="text-zinc-400 text-sm text-center">
+            <p className="text-ds-text-3 text-sm text-center">
               Ingresa el codigo impreso debajo del QR
             </p>
             <input
@@ -407,7 +407,7 @@ export function QrScanner({ onScan, onClose }: QrScannerProps) {
               value={manualCode}
               onChange={(e) => setManualCode(e.target.value.toUpperCase())}
               placeholder="Ej: CP-NORTE-001"
-              className="w-full px-4 py-3 bg-zinc-800 border border-zinc-700 rounded-lg text-white text-center text-lg uppercase"
+              className="w-full px-4 py-3 bg-ds-surface-2 border border-ds-border-default rounded-lg text-ds-text-1 text-center text-lg uppercase"
               autoFocus
             />
             <button

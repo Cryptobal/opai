@@ -1,3 +1,4 @@
+// @ds-allow-legacy leaflet markers del historial requieren hex inline
 "use client";
 
 import { useEffect, useRef, useState } from "react";

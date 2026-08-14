@@ -75,7 +75,7 @@ export function PortalPerfil({ session, onLogout }: PortalPerfilProps) {
 
   return (
     <div
-      className="flex flex-1 min-h-0 flex-col overflow-y-auto bg-[#0a0a0f]"
+      className="flex flex-1 min-h-0 flex-col overflow-y-auto bg-background"
       style={{ WebkitOverflowScrolling: "touch", overscrollBehaviorY: "contain" }}
     >
       <div

@@ -1,3 +1,4 @@
+// @ds-allow-legacy leaflet DivIcon/path styles require inline hex
 "use client";
 
 import { Component, useState, useEffect, useRef, useMemo, useCallback, type ReactNode } from "react";

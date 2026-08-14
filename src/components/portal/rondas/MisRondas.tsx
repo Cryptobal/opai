@@ -6,6 +6,8 @@ import type { RondasSession } from "./RondasPortalClient";
 import type { CompletionData } from "./RondaActiva";
 import type { MapCheckpoint } from "./RondaMap";
 import { HistorialRondaModal } from "./HistorialRondaModal";
+import { ProgressRing } from "./ProgressRing";
+import { XlButton } from "@/components/opai/terreno";
 
 // Lazy-load RondaMap to avoid SSR issues with Leaflet
 const RondaMap = dynamic(() => import("./RondaMap"), {
@@ -228,9 +230,6 @@ export function MisRondas({
   const [rondas, setRondas] = useState<RondaItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [isOnline, setIsOnline] = useState(
-    typeof navigator !== "undefined" ? navigator.onLine : true,
-  );
   const [now, setNow] = useState(() => Date.now());
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({
     no_realizadas: true,
@@ -253,18 +252,6 @@ export function MisRondas({
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(id);
-  }, []);
-
-  // ---- Online/offline listeners ----
-  useEffect(() => {
-    const goOnline = () => setIsOnline(true);
-    const goOffline = () => setIsOnline(false);
-    window.addEventListener("online", goOnline);
-    window.addEventListener("offline", goOffline);
-    return () => {
-      window.removeEventListener("online", goOnline);
-      window.removeEventListener("offline", goOffline);
-    };
   }, []);
 
   // ---- Fetch rondas ----
@@ -445,22 +432,9 @@ export function MisRondas({
 
   // ---- Render ----
   return (
-    <div className="flex flex-1 min-h-0 flex-col overflow-y-auto" style={{ backgroundColor: "#0a0a0f" }}>
+    <div className="flex flex-1 min-h-0 flex-col overflow-y-auto bg-background">
       {/* ============ Content ============ */}
       <main className="flex-1 px-4 pt-3" style={{ paddingBottom: "calc(5rem + env(safe-area-inset-bottom, 0px))" }}>
-        {/* Status bar */}
-        <div className="flex items-center justify-between mb-3">
-          <span className="flex items-center gap-1.5 text-sm">
-            <span
-              className={`inline-block h-2.5 w-2.5 rounded-full ${
-                isOnline ? "bg-status-ok" : "bg-status-danger"
-              }`}
-            />
-            <span className={isOnline ? "text-status-ok-fg" : "text-status-danger-fg"}>
-              {isOnline ? "En l\u00EDnea" : "Sin conexi\u00F3n"}
-            </span>
-          </span>
-        </div>
 
         {/* Title row + refresh */}
         <div className="mb-1 flex items-center justify-between">
@@ -704,11 +678,11 @@ export function MisRondas({
         <div className="mt-6">
           {/* Section separator */}
           <div className="mb-3 flex items-center gap-3">
-            <div className="h-px flex-1 bg-white/5" />
-            <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+            <div className="h-px flex-1 bg-ds-border-subtle" />
+            <span className="text-[12px] font-bold uppercase tracking-wider text-ds-text-3">
               Mis rondas realizadas
             </span>
-            <div className="h-px flex-1 bg-white/5" />
+            <div className="h-px flex-1 bg-ds-border-subtle" />
           </div>
 
           {historialLoading && (
@@ -1012,12 +986,6 @@ function RondaCard({
     timeInfo = `Completada a las ${formatTime(ronda.startedAt)}`;
   }
 
-  // Progress for en_curso
-  const progress =
-    ronda.checkpointsTotal > 0
-      ? (ronda.checkpointsCompletados / ronda.checkpointsTotal) * 100
-      : 0;
-
   // Mini-map checkpoints
   const showMap = hasValidCoords(ronda.checkpoints) && !isNoRealizada;
   const mapCheckpoints = useMemo(
@@ -1036,78 +1004,99 @@ function RondaCard({
           ? "border-border bg-card opai-glass-soft-m"
           : "border-border bg-card opai-glass-soft-m";
 
+  const nextCheckpoint = ronda.checkpoints
+    .slice()
+    .sort((a, b) => a.orderIndex - b.orderIndex)
+    .find((cp) => !cp.completed);
+
   return (
     <div className={`rounded-2xl border p-4 transition-colors ${borderClass}`}>
       {/* Top row: name + scheduled time */}
       <div className="mb-2 flex items-start justify-between gap-2">
         <h3
           className={`text-lg font-semibold ${
-            isCompletada || isNoRealizada ? "text-muted-foreground" : "text-foreground"
+            isCompletada || isNoRealizada ? "text-ds-text-3" : "text-ds-text-1"
           }`}
         >
           {ronda.templateName}
         </h3>
         <div className="flex shrink-0 items-center gap-2">
           {isConRetraso && (
-            <span className="rounded-full bg-status-warn-soft px-2 py-0.5 text-xs font-medium text-status-warn-fg">
+            <span className="rounded-full bg-status-warn-soft px-2 py-0.5 text-[12px] font-medium text-status-warn-fg">
               Retraso
             </span>
           )}
           {isNoRealizada && (
-            <span className="rounded-full bg-status-danger-soft px-2 py-0.5 text-xs font-medium text-status-danger-fg">
+            <span className="rounded-full bg-status-danger-soft px-2 py-0.5 text-[12px] font-medium text-status-danger-fg">
               No realizada
             </span>
           )}
           {ronda.status === "cerrada_auto" && (
-            <span className="rounded-full bg-status-warn-soft px-2 py-0.5 text-xs font-medium text-status-warn-fg">
+            <span className="rounded-full bg-status-warn-soft px-2 py-0.5 text-[12px] font-medium text-status-warn-fg">
               Cerrada auto
             </span>
           )}
           {ronda.status === "cerrada_admin" && (
-            <span className="rounded-full bg-status-danger-soft px-2 py-0.5 text-xs font-medium text-status-danger-fg">
+            <span className="rounded-full bg-status-danger-soft px-2 py-0.5 text-[12px] font-medium text-status-danger-fg">
               Cerrada admin
             </span>
           )}
-          <span className={`text-sm ${isCompletada || isNoRealizada ? "text-muted-foreground/70" : "text-muted-foreground"}`}>
+          <span className={`font-mono text-sm tabular-nums ${isCompletada || isNoRealizada ? "text-ds-text-4" : "text-ds-text-3"}`}>
             {formatTime(ronda.scheduledAt)}
           </span>
         </div>
       </div>
 
-      {/* Time info */}
-      {timeInfo && (
+      {isEnCurso && startedMs && (
+        <div className="mb-3 flex items-center gap-3">
+          <ProgressRing
+            completed={ronda.checkpointsCompletados}
+            total={ronda.checkpointsTotal}
+            size={76}
+          />
+          <div className="min-w-0">
+            <span className="inline-flex items-center rounded-full bg-primary/15 px-2.5 py-1 font-mono text-[12px] font-semibold uppercase tracking-wide text-primary">
+              EN CURSO · {formatMMSS(now - startedMs)}
+            </span>
+            {timeInfo && (
+              <p className="mt-1 text-sm font-medium text-status-info-fg">{timeInfo}</p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {timeInfo && !isEnCurso && (
         <p
           className={`mb-2 text-sm font-medium ${
-            isEnCurso
-              ? "text-status-info-fg"
-              : isConRetraso
-                ? "text-status-warn-fg"
-                : isNoRealizada
-                  ? "text-status-danger-fg"
-                  : isProxima
-                    ? "text-muted-foreground"
-                    : "text-muted-foreground"
+            isConRetraso
+              ? "text-status-warn-fg"
+              : isNoRealizada
+                ? "text-status-danger-fg"
+                : isProxima
+                  ? "font-mono tabular-nums text-ds-text-3"
+                  : "text-ds-text-3"
           }`}
         >
           {timeInfo}
         </p>
       )}
 
-      {/* Progress bar for en_curso */}
-      {isEnCurso && (
-        <div className="mb-3">
-          <div className="mb-1 flex items-center justify-between text-xs text-muted-foreground">
-            <span>
-              {ronda.checkpointsCompletados}/{ronda.checkpointsTotal} checkpoints
-            </span>
-            <span>{Math.round(progress)}%</span>
-          </div>
-          <div className="h-2 overflow-hidden rounded-full bg-muted">
-            <div
-              className="h-full rounded-full bg-status-info transition-all"
-              style={{ width: `${progress}%` }}
-            />
-          </div>
+      {isEnCurso && nextCheckpoint && (
+        <div className="mb-3 rounded-2xl border border-primary/30 bg-primary/10 p-3">
+          <p className="font-mono text-[12px] font-semibold uppercase tracking-[0.08em] text-primary">
+            Siguiente checkpoint
+          </p>
+          <p className="mt-1 text-[19px] font-display font-semibold leading-tight text-ds-text-1">
+            {nextCheckpoint.name}
+          </p>
+          <XlButton
+            className="mt-3"
+            size="md"
+            variant="teal"
+            onClick={() => onIniciar(ronda.ejecucionId)}
+          >
+            ESCANEAR QR
+          </XlButton>
         </div>
       )}
 
@@ -1165,15 +1154,17 @@ function RondaCard({
 
       {/* Action buttons */}
       {isEnCurso && (
-        <div className="mt-1 grid grid-cols-2 gap-2">
-          <button
-            type="button"
-            onClick={() => onIniciar(ronda.ejecucionId)}
-            className="rounded-xl bg-status-info py-3.5 text-sm font-semibold leading-tight text-white transition-colors hover:brightness-110 active:brightness-95 sm:text-base"
-            style={{ minHeight: 52 }}
-          >
-            Continuar ronda
-          </button>
+        <div className={`mt-1 grid gap-2 ${nextCheckpoint ? "grid-cols-1" : "grid-cols-2"}`}>
+          {!nextCheckpoint && (
+            <button
+              type="button"
+              onClick={() => onIniciar(ronda.ejecucionId)}
+              className="rounded-xl bg-primary py-3.5 text-sm font-semibold leading-tight text-primary-foreground transition-colors hover:brightness-110 active:brightness-95 sm:text-base"
+              style={{ minHeight: 52 }}
+            >
+              Continuar ronda
+            </button>
+          )}
           <button
             type="button"
             onClick={() => onPedirCerrar(ronda.ejecucionId)}

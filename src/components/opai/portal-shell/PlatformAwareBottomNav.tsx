@@ -60,6 +60,8 @@ export interface NavItem<TId extends string = string> {
   icon: LucideIcon;
   /** Estilo especial opcional (ej. botón de pánico en rojo) */
   variant?: "default" | "danger" | "warning";
+  /** Disco elevado (pánico de terreno): sale −20px del nav con halo. */
+  elevated?: boolean;
   /** Número opcional que se muestra como badge sobre el icono (0 oculta). */
   badge?: number;
 }
@@ -104,6 +106,7 @@ export function PlatformAwareBottomNav<TId extends string = string>({
         const showBadge = typeof tab.badge === "number" && tab.badge > 0;
         const danger = tab.variant === "danger";
         const warning = tab.variant === "warning";
+        const elevated = tab.elevated === true;
         const activeColor = danger
           ? "text-status-danger-fg"
           : warning
@@ -113,11 +116,15 @@ export function PlatformAwareBottomNav<TId extends string = string>({
           <button
             key={tab.id}
             onClick={() => onSelect(tab.id)}
-            className="relative flex-1 flex flex-col items-center justify-center min-h-[52px] py-1 rounded-full transition-all active:scale-95"
+            className={cn(
+              "relative flex-1 flex flex-col items-center justify-center min-h-[52px] py-1 rounded-full transition-all active:scale-95",
+              elevated &&
+                "z-10 -mt-5 min-h-[64px] rounded-full bg-status-danger text-white shadow-[0_0_0_6px_hsl(var(--background)),0_8px_24px_-4px_hsl(var(--ds-danger)/0.55)]",
+            )}
             aria-label={tab.label}
             aria-current={isActive ? "page" : undefined}
           >
-            {isActive && (
+            {isActive && !elevated && (
               <span
                 aria-hidden
                 className={cn(
@@ -129,11 +136,15 @@ export function PlatformAwareBottomNav<TId extends string = string>({
             )}
             <div className="relative">
               <Icon
-                size={21}
-                strokeWidth={isActive ? 2.5 : 2}
+                size={elevated ? 26 : 21}
+                strokeWidth={isActive || elevated ? 2.5 : 2}
                 className={cn(
-                  isActive ? cn(activeColor, "opai-icon-bounce") : "text-white/60",
-                  danger && !isActive && "text-status-danger-fg",
+                  elevated
+                    ? "text-white"
+                    : isActive
+                      ? cn(activeColor, "opai-icon-bounce")
+                      : "text-ds-text-3",
+                  danger && !isActive && !elevated && "text-status-danger-fg",
                   warning && !isActive && "text-status-warn-fg",
                 )}
               />
@@ -145,8 +156,12 @@ export function PlatformAwareBottomNav<TId extends string = string>({
             </div>
             <span
               className={cn(
-                "relative font-display text-[10px] mt-0.5 font-semibold",
-                isActive ? activeColor : "text-white/55",
+                "relative font-display text-[12px] mt-0.5 font-semibold",
+                elevated
+                  ? "text-white"
+                  : isActive
+                    ? activeColor
+                    : "text-ds-text-3",
               )}
             >
               {tab.label}

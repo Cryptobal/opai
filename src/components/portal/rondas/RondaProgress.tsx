@@ -16,11 +16,8 @@ export function RondaProgress({ completed, total }: Props) {
       </div>
       <div className="h-2.5 w-full overflow-hidden rounded-full bg-muted">
         <div
-          className="h-full rounded-full transition-all duration-500"
-          style={{
-            width: `${pct}%`,
-            backgroundColor: pct >= 100 ? "#22c55e" : "#14b8a6",
-          }}
+          className={`h-full rounded-full transition-all duration-500 ${pct >= 100 ? "bg-status-ok" : "bg-primary"}`}
+          style={{ width: `${pct}%` }}
         />
       </div>
     </div>

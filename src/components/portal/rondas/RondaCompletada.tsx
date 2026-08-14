@@ -1,10 +1,6 @@
 "use client";
 
-import { useIsIOS } from "@/hooks/usePlatform";
-
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
+import { ResultScreen, ResultMetaChip, XlButton } from "@/components/opai/terreno";
 
 interface CheckpointDetail {
   name: string;
@@ -25,7 +21,6 @@ interface TrustBreakdownEntry {
 
 interface Props {
   trustScore: number;
-  /** Si es false (ronda libre), no se muestra el gauge de Trust */
   trustApplicable?: boolean;
   trustBreakdown?: Record<string, TrustBreakdownEntry> | null;
   porcentajeCompletado: number;
@@ -39,409 +34,58 @@ interface Props {
   onBackToRondas: () => void;
 }
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function trustColor(score: number): string {
-  if (score >= 80) return "#22c55e"; // green
-  if (score >= 60) return "#eab308"; // yellow
-  return "#ef4444"; // red
+function formatDurationStamp(minutes: number | null): string {
+  if (minutes == null) return "--:--";
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  if (h > 0) return `${h}h ${String(m).padStart(2, "0")}m`;
+  return `${String(m).padStart(2, "0")}:00`;
 }
-
-function trustLabel(score: number): string {
-  if (score >= 80) return "Excelente";
-  if (score >= 60) return "Buen trabajo";
-  return "Puedes mejorar";
-}
-
-function formatTime(isoString: string): string {
-  const d = new Date(isoString);
-  return d.toLocaleTimeString("es-CL", { hour: "2-digit", minute: "2-digit", hour12: false });
-}
-
-function getPunctuality(scheduledAt?: string, startedAt?: string): string {
-  if (!scheduledAt || !startedAt) return "—";
-  const scheduled = new Date(scheduledAt).getTime();
-  const started = new Date(startedAt).getTime();
-  const diffMin = Math.round((started - scheduled) / 60000);
-  if (diffMin <= 0) return "A tiempo";
-  return `${diffMin} min tarde`;
-}
-
-// ---------------------------------------------------------------------------
-// Component
-// ---------------------------------------------------------------------------
-
-const BREAKDOWN_LABELS: Record<string, string> = {
-  completion: "Completitud",
-  time: "Tiempo",
-  speed: "Velocidad",
-  sequence: "Secuencia",
-  punctuality: "Puntualidad",
-};
-
-const BREAKDOWN_BAR_COLORS: Record<string, string> = {
-  completion: "#22c55e",
-  time: "#3b82f6",
-  speed: "#a855f7",
-  sequence: "#f59e0b",
-  punctuality: "#14b8a6",
-};
 
 export function RondaCompletada({
   trustScore,
   trustApplicable = true,
-  trustBreakdown,
   porcentajeCompletado,
   durationMinutes,
   missed,
   notes,
   checkpoints,
-  scheduledAt,
-  startedAt,
   status,
   onBackToRondas,
 }: Props) {
-  const clampedScore = Math.min(100, Math.max(0, Math.round(trustScore)));
-  const color = trustColor(clampedScore);
-
-  // SVG circular gauge calculations
-  const radius = 54;
-  const circumference = 2 * Math.PI * radius;
-  const offset = circumference - (clampedScore / 100) * circumference;
-
-  // Derived counts
-  const completedCount = checkpoints
-    ? checkpoints.filter((c) => c.status === "COMPLETED").length
-    : null;
-  const totalCount = checkpoints ? checkpoints.length : null;
-
-  // Punctuality
-  const punctuality = getPunctuality(scheduledAt, startedAt);
-  const isLate = punctuality !== "A tiempo" && punctuality !== "—";
-  const isIOS = useIsIOS();
+  const gpsVerified = checkpoints?.some((c) => c.geoValidada) ?? false;
+  const photos = checkpoints?.filter((c) => c.hasPhoto).length ?? 0;
+  const novedades = notes?.trim() ? 1 : 0;
+  const closedEarly = status === "cerrada_auto" || status === "cerrada_admin";
 
   return (
-    <div className="flex flex-1 min-h-0 flex-col overflow-y-auto pb-24" style={{ backgroundColor: "#0a0a0f" }}>
-      {/* ============ Header ============ */}
-      <header
-        className={
-          "sticky top-0 z-10 border-b border-border px-4 py-3 " +
-          (isIOS ? "opai-ios-surface-sheet-top" : "")
-        }
-        style={isIOS ? undefined : { backgroundColor: "#0a0a0f" }}
-      >
-        <h1 className="text-center text-lg font-semibold text-white">Ronda Completada</h1>
-      </header>
-
-      {/* ============ Content ============ */}
-      <main className="flex flex-1 flex-col items-center space-y-6 px-4 pb-8 pt-6">
-        {/* ---- Status Banner ---- */}
-        {(status === "cerrada_auto" || status === "cerrada_admin") && (
-          <div className="mb-4 w-full max-w-sm rounded-xl border border-status-warn-border bg-status-warn-soft/30 p-4 text-center">
-            <p className="text-sm font-medium text-status-warn-fg">
-              {status === "cerrada_auto"
-                ? "Esta ronda fue cerrada automáticamente por exceder el tiempo máximo"
-                : "Esta ronda fue cerrada por un administrador"}
-            </p>
-          </div>
-        )}
-
-        {/* ---- Trust Score (solo rondas con plantilla) ---- */}
-        {trustApplicable ? (
-          <>
-            <div
-              className="relative flex items-center justify-center"
-              role="status"
-              aria-label={`Trust Score: ${clampedScore} de 100, ${trustLabel(clampedScore)}`}
-            >
-              <svg
-                width="140"
-                height="140"
-                viewBox="0 0 140 140"
-                className="-rotate-90"
-                aria-hidden="true"
-              >
-                <circle
-                  cx="70"
-                  cy="70"
-                  r={radius}
-                  fill="none"
-                  stroke="#1f2937"
-                  strokeWidth="10"
-                />
-                <circle
-                  cx="70"
-                  cy="70"
-                  r={radius}
-                  fill="none"
-                  stroke={color}
-                  strokeWidth="10"
-                  strokeLinecap="round"
-                  strokeDasharray={circumference}
-                  strokeDashoffset={offset}
-                  className="transition-all duration-1000"
-                />
-              </svg>
-              <div className="absolute flex flex-col items-center">
-                <span className="text-3xl font-bold text-white">{clampedScore}</span>
-                <span className="text-xs text-muted-foreground">Trust Score</span>
-              </div>
-            </div>
-
-            <p className="text-lg font-semibold" style={{ color }}>
-              {trustLabel(clampedScore)}
-            </p>
-          </>
-        ) : (
-          <div className="w-full max-w-sm rounded-2xl border border-border bg-card opai-glass-soft-m px-4 py-6 text-center">
-            <p className="text-sm font-medium text-foreground/80">Ronda libre</p>
-            <p className="mt-2 text-xs text-muted-foreground leading-relaxed">
-              El Trust Score solo aplica a rondas programadas con plantilla. Tu recorrido quedó registrado para
-              reportes y mapa.
-            </p>
-          </div>
-        )}
-
-        {/* ---- Trust Score Breakdown ---- */}
-        {trustApplicable && trustBreakdown && (() => {
-          const entries = Object.entries(trustBreakdown).filter(([k, v]) => {
-            if (["applicable", "reason", "closedBy", "closedAt", "adHoc"].includes(k)) return false;
-            return v && typeof v === "object" && "score" in v;
-          }) as [string, TrustBreakdownEntry][];
-          if (entries.length === 0) return null;
-          return (
-            <div className="w-full max-w-sm rounded-2xl border border-border bg-card opai-glass-soft-m p-4 space-y-2.5">
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                Desglose del Score
-              </p>
-              {entries.map(([key, val]) => (
-                <div key={key} className="space-y-1">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-muted-foreground">
-                      {BREAKDOWN_LABELS[key] ?? key}
-                    </span>
-                    <span className="text-xs font-medium text-white tabular-nums">{val.score}</span>
-                  </div>
-                  <div className="h-2 rounded-full bg-muted overflow-hidden">
-                    <div
-                      className="h-full rounded-full transition-all duration-700"
-                      style={{
-                        width: `${Math.max(val.score, 2)}%`,
-                        backgroundColor: BREAKDOWN_BAR_COLORS[key] ?? "#06b6d4",
-                      }}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-          );
-        })()}
-
-        {/* ---- Expanded Summary Card ---- */}
-        <div className="w-full max-w-sm rounded-2xl border border-border bg-card opai-glass-soft-m p-5">
-          <div className="space-y-3">
-            {/* Completado */}
-            <div className="flex items-center justify-between">
-              <span className="text-base text-muted-foreground">
-                {"\u2705"} Completado
-              </span>
-              <span className="text-base font-medium text-white">
-                {Math.round(porcentajeCompletado)}%
-              </span>
-            </div>
-
-            {/* Duracion */}
-            <div className="flex items-center justify-between">
-              <span className="text-base text-muted-foreground">
-                {"\u23F1\uFE0F"} Duraci&oacute;n
-              </span>
-              <span className="text-base font-medium text-white">
-                {durationMinutes !== null ? `${durationMinutes} min` : "—"}
-              </span>
-            </div>
-
-            {/* Puntos */}
-            {completedCount !== null && totalCount !== null && (
-              <div className="flex items-center justify-between">
-                <span className="text-base text-muted-foreground">
-                  {"\uD83D\uDCCD"} Puntos
-                </span>
-                <span className="text-base font-medium text-white">
-                  {completedCount}/{totalCount}
-                </span>
-              </div>
-            )}
-
-            {/* Puntualidad */}
-            <div className="flex items-center justify-between">
-              <span className="text-base text-muted-foreground">
-                {"\u23F0"} Puntualidad
-              </span>
-              <span
-                className={`text-base font-medium ${
-                  isLate ? "text-status-warn-fg" : "text-status-ok-fg"
-                }`}
-              >
-                {punctuality}
-              </span>
-            </div>
-
-            {/* Omitidos */}
-            <div className="flex items-center justify-between">
-              <span className="text-base text-muted-foreground">
-                {"\uD83D\uDEAB"} Omitidos
-              </span>
-              <span
-                className={`text-base font-medium ${
-                  missed > 0 ? "text-status-danger-fg" : "text-status-ok-fg"
-                }`}
-              >
-                {missed}
-              </span>
-            </div>
-
-            {/* Notas del guardia */}
-            {notes && (
-              <div className="border-t border-border pt-3 mt-1">
-                <span className="text-sm text-muted-foreground">Comentario:</span>
-                <p className="mt-1 text-sm text-foreground/80 italic">&ldquo;{notes}&rdquo;</p>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* ---- Per-Checkpoint Detail List ---- */}
-        {checkpoints && checkpoints.length > 0 && (
-          <div className="w-full max-w-sm">
-            <h2 className="mb-3 text-base font-semibold text-white">
-              Detalle por Checkpoint
-            </h2>
-            <div className="space-y-2">
-              {checkpoints.map((cp, idx) => {
-                const isCompleted = cp.status === "COMPLETED";
-                const isGeoNv = cp.status === "GEO_NO_VERIFICADA";
-                return (
-                  <div
-                    key={idx}
-                    className={`rounded-xl border p-3 ${
-                      isCompleted
-                        ? "border-border bg-card opai-glass-soft-m"
-                        : isGeoNv
-                          ? "border-status-warn-border bg-status-warn-soft/25"
-                          : "border-status-danger-border bg-status-danger-soft/30"
-                    }`}
-                  >
-                    <div className="flex items-start gap-2">
-                      <span className="mt-0.5 shrink-0 text-base">
-                        {isCompleted ? "\u2705" : isGeoNv ? "\u26A0\uFE0F" : "\u274C"}
-                      </span>
-
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center justify-between gap-2">
-                          <span
-                            className={`truncate text-sm font-medium ${
-                              isCompleted
-                                ? "text-gray-200"
-                                : isGeoNv
-                                  ? "text-status-warn-fg"
-                                  : "text-status-danger-fg"
-                            }`}
-                          >
-                            {cp.name}
-                          </span>
-                          <span className="shrink-0 text-xs text-muted-foreground">
-                            {isCompleted && cp.timestamp
-                              ? formatTime(cp.timestamp)
-                              : isGeoNv && cp.timestamp
-                                ? formatTime(cp.timestamp)
-                                : "No visitado"}
-                          </span>
-                        </div>
-
-                        {isGeoNv && (
-                          <p className="mt-1 text-xs text-status-warn-fg/90">
-                            Pendiente de validación — la marca quedó registrada; revisa la señal GPS o la foto si
-                            cargaste evidencia.
-                          </p>
-                        )}
-
-                        {(isCompleted || isGeoNv) && (
-                          <div className="mt-1.5 flex flex-wrap gap-1.5">
-                            {cp.geoValidada && (
-                              <span className="rounded-md bg-status-ok-soft px-1.5 py-0.5 text-xs text-status-ok-fg">
-                                GPS {"\u2713"}
-                              </span>
-                            )}
-                            {isGeoNv && !cp.geoValidada && (
-                              <span className="rounded-md bg-status-warn-soft px-1.5 py-0.5 text-xs text-status-warn-fg">
-                                GPS no validado
-                              </span>
-                            )}
-                            {cp.qrScanned && (
-                              <span className="rounded-md bg-tint-violet px-1.5 py-0.5 text-xs text-tint-violet-fg">
-                                QR {"\u2713"}
-                              </span>
-                            )}
-                            {cp.hasPhoto && (
-                              <span className="rounded-md bg-status-info-soft px-1.5 py-0.5 text-xs text-status-info-fg">
-                                Foto {"\u2713"}
-                              </span>
-                            )}
-                            {cp.distanceM != null && (
-                              <span className="rounded-md bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
-                                {Math.round(cp.distanceM)}m al punto
-                              </span>
-                            )}
-                            {cp.geoAccuracyM != null && (
-                              <span className="rounded-md bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
-                                precisión ±{Math.round(cp.geoAccuracyM)}m
-                              </span>
-                            )}
-                            {cp.geoConfidence && (
-                              <span className="rounded-md bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
-                                conf. {cp.geoConfidence}
-                              </span>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* ---- Success icon ---- */}
-        <div
-          className="flex h-16 w-16 items-center justify-center rounded-full"
-          style={{ backgroundColor: "rgba(34,197,94,0.15)" }}
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            className="h-8 w-8 text-status-ok-fg"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            strokeWidth={2.5}
-            aria-hidden="true"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-          </svg>
-        </div>
-
-        {/* ---- Back Button ---- */}
-        <button
-          onClick={onBackToRondas}
-          className="w-full max-w-sm rounded-xl bg-status-info py-4 text-lg font-semibold text-white transition-colors hover:brightness-110 active:brightness-95"
-          style={{ minHeight: 56 }}
-        >
+    <ResultScreen
+      tone={closedEarly ? "warn" : "ok"}
+      icon={
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+        </svg>
+      }
+      title={closedEarly ? "RONDA CERRADA" : "RONDA COMPLETADA"}
+      who={
+        trustApplicable
+          ? `Trust ${Math.round(trustScore)} · ${Math.round(porcentajeCompletado)}%`
+          : "Ronda libre"
+      }
+      stamp={formatDurationStamp(durationMinutes)}
+      meta={
+        <>
+          {gpsVerified && <ResultMetaChip tone="ok">GPS verificado</ResultMetaChip>}
+          {photos > 0 && <ResultMetaChip>{photos} foto{photos === 1 ? "" : "s"}</ResultMetaChip>}
+          {novedades > 0 && <ResultMetaChip tone="warn">Novedades</ResultMetaChip>}
+          {missed > 0 && <ResultMetaChip tone="warn">{missed} omitidos</ResultMetaChip>}
+        </>
+      }
+      footer={
+        <XlButton variant={closedEarly ? "dark" : "ok"} size="md" onClick={onBackToRondas}>
           Volver a Mis Rondas
-        </button>
-      </main>
-    </div>
+        </XlButton>
+      }
+    />
   );
 }
