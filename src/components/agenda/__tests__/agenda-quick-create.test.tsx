@@ -89,7 +89,13 @@ describe("AgendaQuickCreate", () => {
 
   it("prefija fecha y hora del slot clickeado en modo Evento", () => {
     renderPanel();
-    expect(screen.getByLabelText("Fecha")).toHaveValue("2026-07-23");
+    const fechaTrigger = screen.getByLabelText("Fecha");
+    const fechaVisible = new Date(2026, 6, 23).toLocaleDateString("es-CL", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    });
+    expect(fechaTrigger).toHaveTextContent(fechaVisible);
     expect(screen.getByLabelText("Hora")).toHaveValue("10:00");
   });
 
