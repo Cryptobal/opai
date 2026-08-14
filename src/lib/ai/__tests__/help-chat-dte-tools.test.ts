@@ -44,6 +44,8 @@ import { prisma } from "@/lib/prisma";
 import {
   buildSearchDtesDirectionWhere,
   getToolDefinitionsV2,
+  parseDteFolioArg,
+  resolveSearchDtesDirectionArg,
   toolGetDteDetail,
   toolGetFinanceSummary,
   toolSearchDtes,
@@ -76,6 +78,36 @@ describe("buildSearchDtesDirectionWhere", () => {
     const where = buildSearchDtesDirectionWhere("all");
     expect(where).toEqual({});
     expect("direction" in where).toBe(false);
+  });
+});
+
+describe("resolveSearchDtesDirectionArg", () => {
+  it("sin search y sin direction → issued (listado histórico)", () => {
+    expect(resolveSearchDtesDirectionArg(undefined, "")).toBe("issued");
+  });
+
+  it("con search y sin direction → all (folio/RUT de proveedor)", () => {
+    expect(resolveSearchDtesDirectionArg(undefined, "5144")).toBe("all");
+    expect(resolveSearchDtesDirectionArg(undefined, "11.111.111-1")).toBe("all");
+  });
+
+  it("direction explícito se respeta aunque haya search", () => {
+    expect(resolveSearchDtesDirectionArg("issued", "5144")).toBe("issued");
+    expect(resolveSearchDtesDirectionArg("received", "5144")).toBe("received");
+  });
+});
+
+describe("parseDteFolioArg", () => {
+  it("acepta número y string numérico", () => {
+    expect(parseDteFolioArg(5144)).toBe(5144);
+    expect(parseDteFolioArg("5144")).toBe(5144);
+    expect(parseDteFolioArg(" 5193 ")).toBe(5193);
+  });
+
+  it("rechaza no-folios", () => {
+    expect(parseDteFolioArg("11.111.111-1")).toBeNull();
+    expect(parseDteFolioArg(0)).toBeNull();
+    expect(parseDteFolioArg(null)).toBeNull();
   });
 });
 
@@ -149,13 +181,30 @@ describe("toolSearchDtes direction", () => {
     expect(where.direction).toBe("RECEIVED");
   });
 
-  it('direction:"all" omite la clave direction', async () => {
-    await toolSearchDtes("t1", permsView, { direction: "all" });
+  it('search sin direction omite la clave direction (all)', async () => {
+    vi.mocked(prisma.crmAccount.findMany).mockResolvedValue([] as never);
+    await toolSearchDtes("t1", permsView, { search: "5144" });
     const where = vi.mocked(prisma.financeDte.findMany).mock.calls[0]?.[0]?.where as {
       direction?: string;
+      OR?: Array<{ folio?: number; issuerRut?: { contains: string } }>;
     };
     expect(where.direction).toBeUndefined();
     expect("direction" in (where ?? {})).toBe(false);
+    expect(where.OR?.some((c) => c.folio === 5144)).toBe(true);
+  });
+
+  it("RUT con puntos busca formato SII en issuerRut cuando cubre received", async () => {
+    vi.mocked(prisma.crmAccount.findMany).mockResolvedValue([] as never);
+    await toolSearchDtes("t1", permsView, { search: "11.111.111-1", direction: "received" });
+    const where = vi.mocked(prisma.financeDte.findMany).mock.calls[0]?.[0]?.where as {
+      direction?: string;
+      OR?: Array<{ issuerRut?: { contains: string } }>;
+    };
+    expect(where.direction).toBe("RECEIVED");
+    const ruts = (where.OR ?? [])
+      .map((c) => c.issuerRut?.contains)
+      .filter((x): x is string => typeof x === "string");
+    expect(ruts).toContain("11111111-1");
   });
 });
 
@@ -290,6 +339,32 @@ describe("toolGetDteDetail folio ambiguo", () => {
       expect("candidates" in r && Array.isArray(r.candidates)).toBe(true);
     }
     expect(prisma.financeDte.findFirst).not.toHaveBeenCalled();
+  });
+
+  it("acepta folio como string (MCP/LLM)", async () => {
+    vi.mocked(prisma.financeDte.findMany).mockResolvedValue([
+      {
+        id: "rcv",
+        direction: "RECEIVED",
+        date: new Date("2026-07-02"),
+        dteType: 33,
+        totalAmount: 500,
+        receiverName: null,
+        receiverRut: null,
+        issuerName: "Proveedor SA",
+        issuerRut: "11111111-1",
+      },
+    ] as never);
+    vi.mocked(prisma.financeDte.findFirst)
+      .mockResolvedValueOnce({ id: "rcv" } as never)
+      .mockResolvedValueOnce(null as never);
+
+    const r = await toolGetDteDetail("t1", permsView, { folio: "5144" });
+    expect(vi.mocked(prisma.financeDte.findMany).mock.calls[0]?.[0]?.where).toEqual(
+      expect.objectContaining({ folio: 5144 }),
+    );
+    // El detalle completo puede faltar en el mock; lo importante es que no diga "Dame folio".
+    expect(r.ok === false && "error" in r && r.error === "Dame folio o dteId.").toBe(false);
   });
 });
 

@@ -142,6 +142,7 @@ import {
   aiTool_update_quote,
 } from "@/lib/ai/help-chat-cpq-extras-handlers";
 import { parseGoogleMapsUrl, buildDealMapsUrl } from "@/lib/google-maps-url";
+import { rutSearchNeedles } from "@/lib/chile-rut";
 export type { HelpChatPageContext } from "@/lib/ai/help-chat-page-context";
 
 function baseToolDefinitions() {
@@ -885,19 +886,25 @@ function v2ToolDefinitions() {
         name: "search_dtes",
         description:
           "Busca documentos tributarios (DTEs) por folio, RUT, nombre de contraparte/cuenta CRM, monto o período YYYY-MM. " +
-          "direction filtra el universo: issued (ventas, default, retrocompatible), received (compras/proveedor) o all. " +
-          "status filtra siiStatus (issued = no DRAFT, default). Para el libro de compras preferí search_received_dtes. " +
+          "direction: issued (ventas), received (compras/proveedor) o all. " +
+          "Sin direction: si hay search (folio/RUT/nombre) busca en emitidos Y recibidos; si no hay search lista solo emitidos (retrocompat). " +
+          "status filtra siiStatus (issued = no DRAFT, default). Para el libro de compras / facturas de proveedor / egresos preferí search_received_dtes. " +
           "Para BORRADORES pendientes de Programación preferí search_invoice_drafts.",
         parameters: {
           type: "object",
           properties: {
-            search: { type: "string", description: "Búsqueda fuzzy: folio, RUT, nombre o monto. En received/all también busca emisor (issuerName/issuerRut)." },
+            search: {
+              type: "string",
+              description:
+                "Folio, RUT (con o sin puntos: 11.111.111-1), nombre o monto. Con search y sin direction cubre también compras (issuerName/issuerRut).",
+            },
             periodo: { type: "string", description: "Formato YYYY-MM para filtrar por mes." },
             status: { type: "string", enum: ["all", "draft", "issued"], description: "Filtro siiStatus. Default issued (no DRAFT). Independiente de direction." },
             direction: {
               type: "string",
               enum: ["issued", "received", "all"],
-              description: "Universo: emitidos (default), recibidos o ambos. Sin este parámetro el resultado es idéntico al histórico (solo ISSUED).",
+              description:
+                "Universo: emitidos, recibidos o ambos. Omitido + search → all. Omitido sin search → issued (listado histórico).",
             },
             accountId: { type: "string" },
             installationId: { type: "string" },
@@ -912,13 +919,14 @@ function v2ToolDefinitions() {
       function: {
         name: "get_dte_detail",
         description:
-          "Obtiene el detalle completo de un DTE emitido o recibido por folio o por id. Incluye NC/ND asociadas (referencedBy). " +
+          "Obtiene el detalle completo de un DTE emitido o recibido por folio o por id (compras y ventas). " +
+          "Incluye NC/ND, paymentStatus, conciliación bancaria (bankLinks / isBankReconciled) y centro de costo. " +
           "Si el mismo folio existe como emitido y recibido, devuelve error pidiendo direction. " +
           "Útil para '¿la factura 1234 tiene NC?', '¿está pagada?', 'detalle de la factura de proveedor X'.",
         parameters: {
           type: "object",
           properties: {
-            folio: { type: "number" },
+            folio: { type: "number", description: "Folio SII. Acepta número o string numérico." },
             dteId: { type: "string", description: "UUID alternativo a folio." },
             direction: {
               type: "string",
@@ -942,7 +950,11 @@ function v2ToolDefinitions() {
         parameters: {
           type: "object",
           properties: {
-            search: { type: "string", description: "Folio, RUT emisor o nombre emisor." },
+            search: {
+              type: "string",
+              description:
+                "Folio, RUT emisor (con o sin puntos: 11.111.111-1 o 11111111-1) o nombre emisor/proveedor.",
+            },
             periodo: { type: "string", description: "YYYY-MM o CURRENT_MONTH." },
             supplierId: { type: "string", description: "UUID del proveedor catalogado." },
             crmAccountId: { type: "string", description: "UUID del cliente CRM (centro de costo)." },
@@ -7770,6 +7782,32 @@ export function buildSearchDtesDirectionWhere(
   return { direction: "ISSUED" };
 }
 
+/** Folio SII: número entero positivo, o string numérico (los LLMs suelen mandar "5144"). */
+export function parseDteFolioArg(raw: unknown): number | null {
+  if (typeof raw === "number" && Number.isInteger(raw) && raw > 0) return raw;
+  if (typeof raw === "string" && /^\d+$/.test(raw.trim())) {
+    const n = parseInt(raw.trim(), 10);
+    return Number.isFinite(n) && n > 0 ? n : null;
+  }
+  return null;
+}
+
+/**
+ * Default de direction para search_dtes:
+ * - direction explícito → se respeta
+ * - search no vacío y direction omitido → all (folio/RUT de proveedor no se pierde)
+ * - sin search → issued (listado histórico)
+ */
+export function resolveSearchDtesDirectionArg(
+  directionArg: unknown,
+  search: string,
+): DteSearchDirection {
+  if (directionArg === "received" || directionArg === "all" || directionArg === "issued") {
+    return directionArg;
+  }
+  return search ? "all" : "issued";
+}
+
 function dteListUrl(direction: string | null | undefined): string {
   return direction === "RECEIVED" ? "/finanzas/facturacion/recibidos" : "/finanzas/facturacion/emitidos";
 }
@@ -7802,7 +7840,9 @@ export async function toolSearchDtes(
   const installationId = typeof args.installationId === "string" ? args.installationId : "";
   const limitRaw = typeof args.limit === "number" ? args.limit : 15;
   const limit = Math.min(Math.max(1, limitRaw), 50);
-  const directionFilter = buildSearchDtesDirectionWhere(args.direction);
+  const directionFilter = buildSearchDtesDirectionWhere(
+    resolveSearchDtesDirectionArg(args.direction, search),
+  );
   const includeReceived = !("direction" in directionFilter) || directionFilter.direction === "RECEIVED";
 
   const where: Prisma.FinanceDteWhereInput = {
@@ -7818,7 +7858,7 @@ export async function toolSearchDtes(
     where.date = { gte: new Date(Date.UTC(y, m - 1, 1)), lt: new Date(Date.UTC(y, m, 1)) };
   }
   if (search) {
-    const rutNeedle = search.replace(/[.\-\s]/g, "");
+    const rutNeedles = rutSearchNeedles(search);
     // Match DTEs por nombre/razón social de la cuenta CRM enlazada. No hay
     // relación Prisma directa entre FinanceDte y CrmAccount (sólo el FK
     // crmAccountId como String), así que pre-buscamos los IDs y filtramos
@@ -7837,12 +7877,16 @@ export async function toolSearchDtes(
     });
     const orClauses: Prisma.FinanceDteWhereInput[] = [
       { receiverName: { contains: search, mode: "insensitive" } },
-      { receiverRut: { contains: rutNeedle, mode: "insensitive" } },
+      ...rutNeedles.map((n) => ({
+        receiverRut: { contains: n, mode: "insensitive" as const },
+      })),
     ];
     if (includeReceived) {
       orClauses.push(
         { issuerName: { contains: search, mode: "insensitive" } },
-        { issuerRut: { contains: rutNeedle, mode: "insensitive" } },
+        ...rutNeedles.map((n) => ({
+          issuerRut: { contains: n, mode: "insensitive" as const },
+        })),
       );
     }
     if (matchingAccounts.length > 0) {
@@ -7928,7 +7972,7 @@ export async function toolGetDteDetail(
     return { ok: false, error: FACTURACION_VIEW_DENIED };
   }
 
-  const folio = typeof args.folio === "number" ? args.folio : null;
+  const folio = parseDteFolioArg(args.folio);
   const dteId = typeof args.dteId === "string" ? args.dteId : null;
   if (!folio && !dteId) return { ok: false, error: "Dame folio o dteId." };
 

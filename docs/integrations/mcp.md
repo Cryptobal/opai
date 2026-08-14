@@ -289,7 +289,7 @@ Escritura desde correo va por tools CRM (`create_*_from_email`).
 
 | Agente | Tools útiles | Gaps principales |
 | --- | --- | --- |
-| **Tesorero** | `flow_cashflow_overview`, banca, `search_received_dtes` / `search_dtes` (`direction`), KPIs/balance/EERR | RCV período, proyección multi-escenario, factoring 1→N deposit |
+| **Tesorero** | `search_received_dtes({search:"5144"})` o `{search:"11.111.111-1"}`; `search_dtes({search:"5144"})` (con search cubre compras); `get_dte_detail({folio:5144})`; `flow_cashflow_overview`, banca, KPIs/balance/EERR | RCV período, proyección multi-escenario, factoring 1→N deposit |
 | **Cobranzas** | `search_dtes` (`direction`), `get_dte_detail` (`paymentStatus`, `factoring`) | Sin filtro server-side DTEs no cedidos; sin registrar cobros |
 | **Comercial** | Pipeline CRM + CPQ + email | Sin Apollo; CPQ write riesgoso en multi-agente |
 | **Ops** | Guardias, rondas, tickets, asistencia | Sin pautas, inventario, marcación |
