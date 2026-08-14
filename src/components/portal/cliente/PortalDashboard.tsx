@@ -46,6 +46,7 @@ import { EquipoGlobalCard } from "./dashboard/EquipoGlobalCard";
 import { DocComplianceAlertCard } from "./dashboard/DocComplianceAlertCard";
 import { WhatsAppButton } from "./cotizaciones/WhatsAppButton";
 import { PulsoServicioHero } from "./dashboard/PulsoServicioHero";
+import { AmpliarCoberturaCard } from "./dashboard/AmpliarCoberturaCard";
 import type { SummaryNextRound, SummaryOnDuty, SummaryRound24hSlot } from "@/lib/portal-cliente-types";
 
 interface Summary {
@@ -622,6 +623,8 @@ export function PortalDashboard({ selectedInstallation, onNavigate, onOpenLead }
           </div>
         </div>
       )}
+
+      {!isProspect && onOpenLead && <AmpliarCoberturaCard onOpen={onOpenLead} />}
 
       {/* Card del ejecutivo */}
       <div className="rounded-xl border border-white/10 bg-white/[0.02] p-4">

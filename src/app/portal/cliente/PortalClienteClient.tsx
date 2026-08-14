@@ -46,6 +46,7 @@ import {
   useSelectedInstallation,
 } from "@/contexts/selected-installation-context";
 import { NativePushRegistrar } from "@/lib/capacitor/NativePushRegistrar";
+import { SolicitarPropuestaSheet } from "@/components/portal/cliente/SolicitarPropuestaSheet";
 import { Bell } from "lucide-react";
 
 const HEADER_LOGO_FALLBACK = "/tenants/gard/logo-blanco.svg";
@@ -87,6 +88,7 @@ function PortalClienteShell() {
   const [showTour, setShowTour] = useState(false);
   const [headerLogoBroken, setHeaderLogoBroken] = useState(false);
   const [commandOpen, setCommandOpen] = useState(false);
+  const [leadSheetOpen, setLeadSheetOpen] = useState(false);
 
   useEffect(() => {
     function handleKey(e: KeyboardEvent) {
@@ -152,6 +154,7 @@ function PortalClienteShell() {
           <PortalDashboard
             selectedInstallation={selectedInstallation}
             onNavigate={(s) => setActiveSection(s as PortalSection)}
+            onOpenLead={() => setLeadSheetOpen(true)}
           />
         );
       case "instalaciones":
@@ -248,7 +251,12 @@ function PortalClienteShell() {
       case "presentacion":
         return <CompanyPresentationView contactId={session.contactId} />;
       case "nosotros":
-        return <PortalNosotros onNavigate={(s) => setActiveSection(s as PortalSection)} />;
+        return (
+          <PortalNosotros
+            onNavigate={(s) => setActiveSection(s as PortalSection)}
+            onOpenLead={() => setLeadSheetOpen(true)}
+          />
+        );
       case "empresa":
         return <PortalEmpresa session={session} />;
       case "desempeno":
@@ -416,6 +424,7 @@ function PortalClienteShell() {
       />
 
       {showTour && <TourOverlay onComplete={handleTourComplete} session={session} />}
+      <SolicitarPropuestaSheet open={leadSheetOpen} onClose={() => setLeadSheetOpen(false)} />
       </div>
     </div>
   );
