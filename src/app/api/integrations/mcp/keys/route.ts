@@ -82,8 +82,61 @@ export async function DELETE(req: Request) {
   if (auth.error) return auth.error;
   const { tenantId, userId } = auth.ctx;
 
-  const id = new URL(req.url).searchParams.get("id");
+  const url = new URL(req.url);
+  const id = url.searchParams.get("id");
+  const permanent = url.searchParams.get("permanent") === "true";
   if (!id) return NextResponse.json({ success: false, error: "Falta id" }, { status: 400 });
+
+  if (permanent) {
+    const existing = await prisma.mcpApiKey.findFirst({
+      where: { id, tenantId },
+      select: {
+        name: true,
+        keyPrefix: true,
+        scope: true,
+        createdAt: true,
+        lastUsedAt: true,
+        revokedAt: true,
+      },
+    });
+    if (!existing) {
+      return NextResponse.json({ success: false, error: "Key no encontrada" }, { status: 404 });
+    }
+    if (existing.revokedAt === null) {
+      return NextResponse.json(
+        { success: false, error: "Revoca la key antes de eliminarla." },
+        { status: 409 },
+      );
+    }
+
+    const purged = await prisma.mcpApiKey.deleteMany({
+      where: { id, tenantId, revokedAt: { not: null } },
+    });
+    if (purged.count === 0) {
+      return NextResponse.json({ success: false, error: "Key no encontrada" }, { status: 404 });
+    }
+
+    await logAudit({
+      action: "DELETE",
+      entity: "McpApiKey",
+      entityId: id,
+      tenantId,
+      userId,
+      details: {
+        source: "mcp_admin",
+        reason: "purged_by_admin",
+        name: existing.name,
+        keyPrefix: existing.keyPrefix,
+        scope: existing.scope,
+        createdAt: existing.createdAt,
+        lastUsedAt: existing.lastUsedAt,
+        revokedAt: existing.revokedAt,
+      },
+      request: req,
+    });
+
+    return NextResponse.json({ success: true });
+  }
 
   const res = await prisma.mcpApiKey.updateMany({
     where: { id, tenantId, revokedAt: null },
