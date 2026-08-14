@@ -58,7 +58,7 @@ export function AutoMarkToast({
 
   return (
     <div
-      className="fixed inset-x-4 z-[70] animate-in slide-in-from-top duration-300"
+      className="fixed inset-x-4 z-[70] motion-safe:animate-in motion-safe:slide-in-from-top duration-300 motion-reduce:animate-none"
       style={{ top: "calc(var(--safe-area-top, 0px) + 1rem)" }}
     >
       <div className={containerClass}>

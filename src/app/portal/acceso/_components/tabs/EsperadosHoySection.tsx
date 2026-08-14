@@ -22,11 +22,11 @@ import { authFetch } from "../../_lib/authFetch";
 // ── Status badge colors ─────────────────────────────────────────────────────
 
 const STATUS_COLORS: Record<PreregistrationStatus, string> = {
-  pending: "border-[#F59E0B]/30 bg-[#F59E0B]/10 text-[#F59E0B]",
-  checked_in: "border-[#10B981]/30 bg-[#10B981]/10 text-[#10B981]",
-  checked_out: "border-[#06B6D4]/30 bg-[#06B6D4]/10 text-[#06B6D4]",
-  no_show: "border-[#EF4444]/30 bg-[#EF4444]/10 text-[#EF4444]",
-  cancelled: "border-[#9CA3AF]/30 bg-[#9CA3AF]/10 text-[#9CA3AF]",
+  pending: "border-status-warn-border bg-status-warn-soft text-status-warn-fg",
+  checked_in: "border-status-ok-border bg-status-ok-soft text-status-ok-fg",
+  checked_out: "border-status-info-border bg-status-info-soft text-status-info-fg",
+  no_show: "border-status-danger-border bg-status-danger-soft text-status-danger-fg",
+  cancelled: "border-ds-border-default bg-ds-surface-2 text-ds-text-3",
 };
 
 const STATUS_ICONS: Record<PreregistrationStatus, React.ReactNode> = {
@@ -185,7 +185,7 @@ export default function EsperadosHoySection({
                     </span>
                   )}
                   {timeRange && (
-                    <span className="flex items-center gap-1">
+                    <span className="flex items-center gap-1 font-mono tabular-nums">
                       <Clock className="h-3 w-3" />
                       {timeRange}
                     </span>

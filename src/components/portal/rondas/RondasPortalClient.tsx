@@ -28,6 +28,8 @@ import { useDeviceHeartbeat } from "@/hooks/useDeviceHeartbeat";
 import { DEVICE_TOKEN_KEY, safeStorage } from "@/lib/device-constants";
 import { LogoutPinModal } from "@/components/portal/LogoutPinModal";
 import { GuardTourOverlay } from "./tour/GuardTourOverlay";
+import { TruthBar } from "@/components/opai/terreno";
+import { countPendingMarks } from "@/lib/rondas-offline";
 import Pusher from "pusher-js";
 
 export type RondasScreen = "login" | "mis-rondas" | "ronda-activa" | "completada" | "chat" | "perfil" | "incidente";
@@ -62,6 +64,7 @@ export function RondasPortalClient() {
   const [showTour, setShowTour] = useState(false);
   const [panicBanner, setPanicBanner] = useState<"off" | "active" | "acknowledged">("off");
   const [incidentToast, setIncidentToast] = useState(false);
+  const [queueCount, setQueueCount] = useState(0);
 
   const [deviceToken, setDeviceToken] = useState<string | null>(null);
   const [deviceInfo, setDeviceInfo] = useState<DeviceInfo | null>(null);
@@ -91,9 +94,40 @@ export function RondasPortalClient() {
     window.addEventListener("online", goOnline);
     // Also try on mount if already online
     if (navigator.onLine) retryPendingIncidents();
+    refreshQueueCount();
     return () => {
       window.removeEventListener("offline", goOffline);
       window.removeEventListener("online", goOnline);
+    };
+  }, []);
+
+  function countPendingIncidents(): number {
+    try {
+      const raw = localStorage.getItem("pending-incidents");
+      if (!raw) return 0;
+      const pending = JSON.parse(raw) as unknown;
+      return Array.isArray(pending) ? pending.length : 0;
+    } catch {
+      return 0;
+    }
+  }
+
+  function refreshQueueCount() {
+    countPendingMarks()
+      .then((marks) => setQueueCount(marks + countPendingIncidents()))
+      .catch(() => setQueueCount(countPendingIncidents()));
+  }
+
+  useEffect(() => {
+    refreshQueueCount();
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === "pending-incidents") refreshQueueCount();
+    };
+    window.addEventListener("storage", onStorage);
+    const interval = window.setInterval(refreshQueueCount, 8000);
+    return () => {
+      window.removeEventListener("storage", onStorage);
+      window.clearInterval(interval);
     };
   }, []);
 
@@ -560,16 +594,11 @@ export function RondasPortalClient() {
 
   return (
     <div className="flex flex-col overflow-hidden h-full min-h-0">
-      {isOffline && (
-        <div
-          className="fixed top-0 inset-x-0 z-50 bg-status-warn px-4 text-center text-sm font-medium text-white"
-          style={{ paddingTop: 'calc(var(--safe-area-top) + 0.5rem)', paddingBottom: '0.5rem' }}
-          role="status"
-        >
-          Sin conexion — modo offline
-        </div>
-      )}
-      {isOffline && <div className="h-10 shrink-0" aria-hidden="true" />}
+      <TruthBar
+        gpsStatus="off"
+        online={!isOffline}
+        queueCount={queueCount}
+      />
 
       {panicBanner !== "off" && (
         <div

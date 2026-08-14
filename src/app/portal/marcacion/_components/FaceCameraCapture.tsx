@@ -1,16 +1,31 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { XlButton } from "@/components/opai/terreno";
+import type { XlButtonVariant } from "@/components/opai/terreno";
 
 interface FaceCameraCaptureProps {
   onCapture: (imageBase64: string) => void;
   onCancel: () => void;
   captureLabel?: string;
+  /** @deprecated hex no longer used — kept so call sites compile */
   captureColor?: string;
   captureDisabled?: boolean;
+  captureVariant?: XlButtonVariant;
 }
 
-export function FaceCameraCapture({ onCapture, onCancel, captureLabel = "Capturar", captureColor = "rgba(16,185,129,0.4)", captureDisabled = false }: FaceCameraCaptureProps) {
+const RING_SIZE = 268;
+const RING_STROKE = 6;
+const RING_R = (RING_SIZE - RING_STROKE) / 2;
+const RING_C = 2 * Math.PI * RING_R;
+
+export function FaceCameraCapture({
+  onCapture,
+  onCancel,
+  captureLabel = "Capturar",
+  captureDisabled = false,
+  captureVariant = "teal",
+}: FaceCameraCaptureProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -103,84 +118,111 @@ export function FaceCameraCapture({ onCapture, onCancel, captureLabel = "Captura
     onCancel();
   }
 
+  const progress = countdown === null ? (cameraReady ? 0.1 : 0) : (4 - countdown) / 3;
+  const dashOffset = RING_C * (1 - progress);
+
   if (error) {
     return (
       <div className="flex flex-col items-center justify-center py-8">
-        <p className="text-status-danger-fg text-sm text-center mb-4">{error}</p>
-        <button
-          onClick={handleCancel}
-          className="rounded-xl px-6 py-2 text-sm text-white/70"
-          style={{ background: "rgba(255,255,255,0.1)" }}
-        >
+        <p className="mb-4 text-center text-sm text-status-danger-fg">{error}</p>
+        <XlButton variant="ghost" size="md" onClick={handleCancel}>
           Volver
-        </button>
+        </XlButton>
       </div>
     );
   }
 
   return (
     <div className="flex flex-col items-center">
-      {/* Camera view */}
-      <div className="relative w-full max-w-sm aspect-[4/3] rounded-2xl overflow-hidden" style={{ background: "#111" }}>
-        <video
-          ref={videoRef}
-          className="w-full h-full object-cover"
-          style={{ transform: "scaleX(-1)" }}
-          playsInline
-          muted
-        />
+      <div
+        className="relative flex items-center justify-center"
+        style={{ width: RING_SIZE, height: RING_SIZE }}
+      >
+        <svg
+          className="pointer-events-none absolute inset-0 -rotate-90"
+          width={RING_SIZE}
+          height={RING_SIZE}
+          aria-hidden
+        >
+          <circle
+            cx={RING_SIZE / 2}
+            cy={RING_SIZE / 2}
+            r={RING_R}
+            fill="none"
+            className="stroke-ds-border-default"
+            strokeWidth={RING_STROKE}
+          />
+          <circle
+            cx={RING_SIZE / 2}
+            cy={RING_SIZE / 2}
+            r={RING_R}
+            fill="none"
+            className="stroke-primary"
+            strokeWidth={RING_STROKE}
+            strokeLinecap="round"
+            strokeDasharray={RING_C}
+            strokeDashoffset={dashOffset}
+          />
+        </svg>
 
-        {/* Face guide overlay */}
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+        <div className="relative h-[232px] w-[232px] overflow-hidden rounded-full bg-ds-surface-2">
+          <video
+            ref={videoRef}
+            className="h-full w-full object-cover"
+            style={{ transform: "scaleX(-1)" }}
+            playsInline
+            muted
+          />
           <div
-            className="w-48 h-60 rounded-full"
+            className="pointer-events-none absolute inset-0"
             style={{
-              border: `2px solid ${captureColor}`,
-              boxShadow: "0 0 0 9999px rgba(0,0,0,0.3)",
+              background:
+                "radial-gradient(circle at center, transparent 42%, hsl(var(--background) / 0.72) 74%)",
             }}
           />
+          <div className="pointer-events-none absolute inset-[18%] rounded-full border border-dashed border-primary/40" />
+          {cameraReady && countdown === null && (
+            <div className="terreno-scanline pointer-events-none absolute inset-x-[16%] top-0 h-[55%] motion-reduce:hidden">
+              <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary" />
+            </div>
+          )}
+          {countdown !== null && (
+            <div className="absolute inset-0 flex items-center justify-center bg-background/40">
+              <span className="font-display text-6xl font-bold tabular-nums text-primary">
+                {countdown}
+              </span>
+            </div>
+          )}
+          {!cameraReady && (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="h-8 w-8 animate-spin rounded-full border-2 border-ds-border-default border-t-primary" />
+            </div>
+          )}
         </div>
-
-        {/* Countdown overlay */}
-        {countdown !== null && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black/40">
-            <span className="text-6xl font-bold" style={{ color: captureColor }}>{countdown}</span>
-          </div>
-        )}
-
-        {!cameraReady && (
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="h-8 w-8 animate-spin rounded-full border-2 border-white/20" style={{ borderTopColor: captureColor }} />
-          </div>
-        )}
       </div>
 
-      <p className="text-sm text-white/50 mt-3 text-center">
+      <p className="mt-3 text-center text-sm text-ds-text-2">
         {cameraReady && countdown === null
-          ? "Mira directamente a la camara"
+          ? "Mira a la cámara"
           : countdown !== null
             ? "Capturando..."
-            : "Iniciando camara..."}
+            : "Iniciando cámara..."}
       </p>
 
-      {/* Buttons */}
       {cameraReady && countdown === null && (
-        <div className="flex gap-3 mt-4 w-full max-w-sm">
-          <button
-            onClick={handleCancel}
-            className="flex-1 rounded-xl px-4 py-3 text-sm font-medium text-white/70"
-            style={{ background: "rgba(255,255,255,0.06)" }}
-          >
-            Cancelar
-          </button>
-          <button
+        <div className="mt-4 flex w-full max-w-sm flex-col gap-2">
+          <XlButton
+            variant={captureVariant}
+            size="xl"
             onClick={startAutoCapture}
             disabled={captureDisabled}
-            className="flex-1 rounded-xl px-4 py-3 text-sm font-bold text-white disabled:opacity-50 disabled:cursor-not-allowed transition-opacity"
-            style={{ background: captureDisabled ? "rgba(255,255,255,0.2)" : captureColor }}
+            className="min-h-[88px] sm:min-h-[96px]"
           >
             {captureLabel}
-          </button>
+          </XlButton>
+          <XlButton variant="ghost" size="md" onClick={handleCancel}>
+            Cancelar
+          </XlButton>
         </div>
       )}
 

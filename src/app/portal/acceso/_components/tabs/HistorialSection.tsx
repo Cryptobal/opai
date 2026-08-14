@@ -35,12 +35,12 @@ const TYPE_ICONS: Record<AccessRecordType, React.ReactNode> = {
   delivery: <Package className="h-3.5 w-3.5" />,
 };
 
-const TYPE_ICON_COLORS: Record<AccessRecordType, string> = {
-  visit: "#3B82F6",
-  provider: "#F97316",
-  vehicle: "#A855F7",
-  staff: "#10B981",
-  delivery: "#F59E0B",
+const TYPE_ICON_TONE: Record<AccessRecordType, string> = {
+  visit: "bg-status-info-soft text-status-info-fg",
+  provider: "bg-status-warn-soft text-status-warn-fg",
+  vehicle: "bg-tint-violet text-tint-violet-fg",
+  staff: "bg-status-ok-soft text-status-ok-fg",
+  delivery: "bg-status-warn-soft text-status-warn-fg",
 };
 
 // ── Props ───────────────────────────────────────────────────────────────────
@@ -181,21 +181,16 @@ export default function HistorialSection({
               >
                 {/* Type icon */}
                 <div
-                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full"
-                  style={{
-                    backgroundColor: `${TYPE_ICON_COLORS[record.recordType]}15`,
-                    color: TYPE_ICON_COLORS[record.recordType],
-                  }}
+                  className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${TYPE_ICON_TONE[record.recordType] ?? "bg-ds-surface-2 text-ds-text-2"}`}
                 >
                   {TYPE_ICONS[record.recordType]}
                 </div>
 
-                {/* Direction arrow */}
                 <div className="shrink-0">
                   {isEntry ? (
-                    <ArrowUpRight className="h-4 w-4 text-[#10B981]" />
+                    <ArrowUpRight className="h-4 w-4 text-status-ok-fg" />
                   ) : (
-                    <ArrowDownLeft className="h-4 w-4 text-[#F59E0B]" />
+                    <ArrowDownLeft className="h-4 w-4 text-status-warn-fg" />
                   )}
                 </div>
 
@@ -217,16 +212,16 @@ export default function HistorialSection({
 
                 {/* Time + status */}
                 <div className="shrink-0 text-right">
-                  <p className="text-xs text-muted-foreground">{dateStr}</p>
-                  <p className="text-xs font-medium text-muted-foreground">
+                  <p className="font-mono text-[12px] tabular-nums text-ds-text-3">{dateStr}</p>
+                  <p className="font-mono text-[12px] font-medium tabular-nums text-ds-text-2">
                     {timeStr}
                   </p>
                   <Badge
                     variant="outline"
                     className={`mt-0.5 text-xs px-1.5 py-0 ${
                       isEntry
-                        ? "border-[#10B981]/30 text-[#10B981]"
-                        : "border-[#F59E0B]/30 text-[#F59E0B]"
+                        ? "border-status-ok-border text-status-ok-fg"
+                        : "border-status-warn-border text-status-warn-fg"
                     }`}
                   >
                     {isEntry ? "Entrada" : "Salida"}

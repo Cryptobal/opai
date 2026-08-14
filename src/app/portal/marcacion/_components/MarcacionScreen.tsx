@@ -1,9 +1,17 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { MapPin } from "lucide-react";
 import { FaceCameraCapture } from "./FaceCameraCapture";
 import { FaceRegistrationFlow } from "./FaceRegistrationFlow";
 import { MarcacionOfflineQueue } from "./MarcacionOfflineQueue";
+import {
+  ResultMetaChip,
+  ResultScreen,
+  TruthBar,
+  XlButton,
+  type GpsChipStatus,
+} from "@/components/opai/terreno";
 
 interface MarcacionScreenProps {
   deviceToken: string;
@@ -81,6 +89,15 @@ function getGpsErrorMessage(code: number): string {
   }
 }
 
+function formatStamp(iso: string): string {
+  return new Date(iso).toLocaleTimeString("es-CL", {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  });
+}
+
 export function MarcacionScreen({
   deviceToken,
   installationId,
@@ -94,6 +111,7 @@ export function MarcacionScreen({
   const [error, setError] = useState<string | null>(null);
   const [lookupLoading, setLookupLoading] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [queueCount, setQueueCount] = useState(0);
 
   // PIN fallback state
   const [pin, setPin] = useState("");
@@ -102,6 +120,7 @@ export function MarcacionScreen({
 
   // GPS obligatorio — se solicita al entrar a face-verify o pin-fallback, no al montar
   const [geoPosition, setGeoPosition] = useState<{ lat: number; lng: number } | null>(null);
+  const [gpsAccuracyM, setGpsAccuracyM] = useState<number | null>(null);
   const [gpsStatus, setGpsStatus] = useState<GpsStatus>("idle");
   const [gpsError, setGpsError] = useState<string | null>(null);
   const [showGpsModal, setShowGpsModal] = useState(false);
@@ -112,6 +131,21 @@ export function MarcacionScreen({
   useEffect(() => {
     const interval = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+    const refresh = () => {
+      MarcacionOfflineQueue.count().then((n) => {
+        if (mounted) setQueueCount(n);
+      });
+    };
+    refresh();
+    const unsub = MarcacionOfflineQueue.subscribe(refresh);
+    return () => {
+      mounted = false;
+      unsub();
+    };
   }, []);
 
   // Solicitar GPS con reintentos automáticos (3 intentos, 2s entre cada uno)
@@ -131,6 +165,9 @@ export function MarcacionScreen({
           (pos) => {
             const coords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
             setGeoPosition(coords);
+            setGpsAccuracyM(
+              typeof pos.coords.accuracy === "number" ? pos.coords.accuracy : null,
+            );
             setGpsStatus("ok");
             setGpsError(null);
             resolve(coords);
@@ -172,6 +209,7 @@ export function MarcacionScreen({
         setShowGpsModal(false);
       } else {
         setGeoPosition(null);
+        setGpsAccuracyM(null);
         setGpsStatus("idle");
         setGpsError(null);
         setShowGpsModal(false);
@@ -417,233 +455,210 @@ export function MarcacionScreen({
     [pin, guardiaInfo, rutInput, deviceToken, installationId, geoPosition, isOnline, pinFallbackReason]
   );
 
-  const timeStr = currentTime.toLocaleTimeString("es-CL", {
+  const clockParts = new Intl.DateTimeFormat("es-CL", {
     hour: "2-digit",
     minute: "2-digit",
     second: "2-digit",
     hour12: false,
-  });
-  const dateStr = currentTime.toLocaleDateString("es-CL", {
-    weekday: "long",
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
+  }).formatToParts(currentTime);
+  const hour = clockParts.find((p) => p.type === "hour")?.value ?? "00";
+  const minute = clockParts.find((p) => p.type === "minute")?.value ?? "00";
+  const second = clockParts.find((p) => p.type === "second")?.value ?? "00";
+  const dateStr = currentTime
+    .toLocaleDateString("es-CL", { weekday: "long", day: "numeric", month: "long" })
+    .toUpperCase();
 
-  // Indicador visual permanente de GPS
-  const GpsIndicator = () => {
-    if (mode !== "face-verify" && mode !== "pin-fallback") return null;
-    return (
-      <div
-        className="absolute top-4 right-4 z-10 flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium"
-        style={{
-          background:
-            gpsStatus === "ok"
-              ? "rgba(16,185,129,0.2)"
-              : gpsStatus === "error"
-                ? "rgba(239,68,68,0.2)"
-                : "rgba(245,158,11,0.2)",
-          border:
-            gpsStatus === "ok"
-              ? "1px solid rgba(16,185,129,0.4)"
-              : gpsStatus === "error"
-                ? "1px solid rgba(239,68,68,0.4)"
-                : "1px solid rgba(245,158,11,0.4)",
-          color:
-            gpsStatus === "ok"
-              ? "#34d399"
-              : gpsStatus === "error"
-                ? "#f87171"
-                : "#fbbf24",
-        }}
-      >
-        <span>
-          {gpsStatus === "ok" ? "🟢" : gpsStatus === "error" ? "🔴" : "🟡"}
-        </span>
-        <span>
-          {gpsStatus === "ok"
-            ? "GPS OK"
-            : gpsStatus === "error"
-              ? "Sin GPS"
-              : "Obteniendo GPS..."}
-        </span>
-      </div>
-    );
-  };
+  const truthGps = ((): { status: GpsChipStatus; meters?: number | null } => {
+    if (mode !== "face-verify" && mode !== "pin-fallback") {
+      return { status: "off" };
+    }
+    if (gpsStatus === "ok") return { status: "ok", meters: gpsAccuracyM };
+    if (gpsStatus === "error") return { status: "off" };
+    return { status: "warn" };
+  })();
 
-  // Modal cuando falla GPS después de 3 reintentos
+  function resetToHome() {
+    setMode("rut-entry");
+    setRutInput("");
+    setGuardiaInfo(null);
+    setError(null);
+    setPin("");
+  }
+
   const GpsModal = () =>
     showGpsModal ? (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-        <div
-          className="max-w-sm rounded-2xl p-6 text-center"
-          style={{
-            background: "#0f172a",
-            border: "1px solid rgba(239,68,68,0.3)",
-          }}
-        >
-          <div className="text-4xl mb-3">📍</div>
-          <p className="text-white font-semibold mb-2">
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4">
+        <div className="max-w-sm rounded-2xl border border-status-danger-border bg-ds-surface-1 p-6 text-center">
+          <p className="mb-2 text-lg font-semibold text-ds-text-1">
             No se pudo obtener tu ubicación
           </p>
-          <p className="text-white/60 text-sm mb-6">
+          <p className="mb-6 text-sm text-ds-text-3">
             Verifica que la ubicación esté activada en tu dispositivo y que hayas
             dado permiso a la app.
           </p>
-          <button
+          {gpsError && <p className="mb-4 text-[12px] text-status-danger-fg">{gpsError}</p>}
+          <XlButton
+            variant="teal"
+            size="md"
             onClick={() => {
               setShowGpsModal(false);
               setGpsStatus("idle");
               requestGps();
             }}
-            className="w-full rounded-xl py-3 text-base font-bold text-white"
-            style={{
-              background: "rgba(16,185,129,0.4)",
-              border: "1px solid rgba(16,185,129,0.3)",
-            }}
           >
             Reintentar
-          </button>
+          </XlButton>
         </div>
       </div>
     ) : null;
 
-  // ── Shared header ───────────────────────────────────────────────────────
-  const Header = () => (
-    <div className="px-4 pt-4 pb-2">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-lg font-bold text-white">GARD SECURITY</h1>
-          <p className="text-sm text-white/60">{installationName}</p>
-        </div>
-        {!isOnline && (
-          <span className="rounded-full bg-status-warn-soft px-3 py-1 text-xs font-medium text-status-warn-fg">
-            Sin conexión
-          </span>
-        )}
+  function Shell({ children }: { children: React.ReactNode }) {
+    return (
+      <div className="flex min-h-dvh flex-col bg-background">
+        <TruthBar
+          gpsStatus={truthGps.status}
+          gpsAccuracyM={truthGps.meters}
+          online={isOnline}
+          queueCount={queueCount}
+        />
+        {children}
       </div>
-      <div className="mt-2 text-center">
-        <p className="text-3xl font-mono font-bold text-status-ok-fg tabular-nums">{timeStr}</p>
-        <p className="text-sm text-white/50 capitalize">{dateStr}</p>
-      </div>
-    </div>
-  );
+    );
+  }
 
   // ── Face registration flow ──────────────────────────────────────────────
   if (mode === "face-register" && guardiaInfo) {
     return (
-      <FaceRegistrationFlow
-        installationId={installationId}
-        prefillRut={rutInput}
-        onRegistered={() => {
-          // Mark face as registered so face-verify shows the camera immediately
-          setGuardiaInfo((prev) => prev ? { ...prev, faceIdRegistered: true } : prev);
-          setMode("face-verify");
-          setError(null);
-        }}
-        onCancel={() => setMode("face-verify")}
-      />
+      <Shell>
+        <FaceRegistrationFlow
+          installationId={installationId}
+          prefillRut={rutInput}
+          onRegistered={() => {
+            // Mark face as registered so face-verify shows the camera immediately
+            setGuardiaInfo((prev) => prev ? { ...prev, faceIdRegistered: true } : prev);
+            setMode("face-verify");
+            setError(null);
+          }}
+          onCancel={() => setMode("face-verify")}
+        />
+      </Shell>
     );
   }
 
   // ── Processing spinner ──────────────────────────────────────────────────
   if (mode === "processing") {
     return (
-      <div className="min-h-dvh flex flex-col" style={{ background: "#060a13" }}>
-        <Header />
-        <div className="flex-1 flex items-center justify-center">
+      <Shell>
+        <div className="flex flex-1 items-center justify-center">
           <div className="text-center">
-            <div className="h-12 w-12 mx-auto animate-spin rounded-full border-3 border-white/20 border-t-emerald-400" />
-            <p className="mt-4 text-white/70">Verificando identidad...</p>
+            <div className="mx-auto h-12 w-12 animate-spin rounded-full border-2 border-ds-border-default border-t-primary" />
+            <p className="mt-4 text-ds-text-2">Verificando identidad...</p>
           </div>
         </div>
-      </div>
+      </Shell>
     );
   }
 
   // ── Success screen ──────────────────────────────────────────────────────
   if (mode === "success" && lastMarca) {
+    const fuera = lastMarca.gpsStatus === "fuera_rango";
+    const dist =
+      lastMarca.geoDistanciaM != null && Number.isFinite(lastMarca.geoDistanciaM)
+        ? Math.round(lastMarca.geoDistanciaM)
+        : null;
+    const tone = fuera ? "warn" : "ok";
+    const gpsChip =
+      lastMarca.gpsStatus === "fuera_rango"
+        ? `GPS fuera de rango${dist != null ? ` · ${dist}m` : ""}`
+        : lastMarca.gpsStatus === "sin_gps"
+          ? "Sin GPS"
+          : `GPS dentro de rango${dist != null ? ` · ${dist}m` : ""}`;
+
     return (
-      <div className="min-h-dvh flex flex-col" style={{ background: "#060a13" }}>
-        <Header />
-        <div className="flex-1 flex items-center justify-center px-4">
-          <div
-            className="w-full max-w-sm rounded-2xl p-8 text-center"
-            style={{ background: "rgba(16,185,129,0.1)", border: "1px solid rgba(16,185,129,0.3)" }}
-          >
-            <div className="text-6xl mb-4">{lastMarca.tipo === "entrada" ? "✅" : "🚪"}</div>
-            <p className="text-2xl font-bold text-white">{lastMarca.guardiaName}</p>
-            <p className="text-status-ok-fg font-semibold mt-2 text-lg">
-              {lastMarca.tipo === "entrada" ? "ENTRADA" : "SALIDA"}{" "}
-              {new Date(lastMarca.timestamp).toLocaleTimeString("es-CL", {
-                hour: "2-digit",
-                minute: "2-digit",
-                second: "2-digit",
-                hour12: false,
-              })}
-            </p>
-            {lastMarca.gpsStatus === "fuera_rango" && (
-              <div
-                className="rounded-xl p-3 mt-4 text-left"
-                style={{ background: "rgba(245,158,11,0.15)", border: "1px solid rgba(245,158,11,0.4)" }}
-              >
-                <p className="text-status-warn-fg text-sm font-semibold">
-                  ⚠ Marcación fuera de rango{lastMarca.geoDistanciaM != null ? ` (${lastMarca.geoDistanciaM}m)` : ""}
-                </p>
-                <p className="text-status-warn-fg/70 text-xs mt-1">
-                  Tu supervisor será notificado. Esta marcación quedará registrada como fuera de rango.
-                </p>
-              </div>
-            )}
-            {lastMarca.faceConfidence && (
-              <p className="text-xs text-white/40 mt-2">
-                Face ID · {lastMarca.faceConfidence.toFixed(1)}% confianza
-              </p>
-            )}
-            {lastMarca.offline && (
-              <p className="text-xs text-status-warn-fg mt-3">
-                Registrada offline — se sincronizará al recuperar conexión
-              </p>
-            )}
-            <p className="text-sm text-white/25 mt-4">Vuelve a pantalla principal en 5s...</p>
-          </div>
-        </div>
-      </div>
+      <Shell>
+        <ResultScreen
+          tone={tone}
+          icon={
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+            </svg>
+          }
+          title={`${lastMarca.tipo === "entrada" ? "ENTRADA" : "SALIDA"} REGISTRADA`}
+          who={lastMarca.guardiaName}
+          stamp={formatStamp(lastMarca.timestamp)}
+          meta={
+            <>
+              {lastMarca.faceConfidence != null && (
+                <ResultMetaChip tone="ok">
+                  Identidad confirmada · {lastMarca.faceConfidence.toFixed(0)}%
+                </ResultMetaChip>
+              )}
+              {lastMarca.gpsStatus && (
+                <ResultMetaChip tone={fuera ? "warn" : "ok"}>{gpsChip}</ResultMetaChip>
+              )}
+              {lastMarca.offline && (
+                <ResultMetaChip tone="warn">GUARDADA SIN CONEXIÓN</ResultMetaChip>
+              )}
+            </>
+          }
+          footer={
+            fuera ? (
+              <p className="text-center text-sm font-medium text-white">Quedará observada</p>
+            ) : (
+              <p className="text-center text-xs text-white">Vuelve a pantalla principal en 5s</p>
+            )
+          }
+        />
+      </Shell>
     );
   }
 
   // ── Error screen ────────────────────────────────────────────────────────
   if (mode === "error") {
     return (
-      <div className="min-h-dvh flex flex-col" style={{ background: "#060a13" }}>
-        <Header />
-        <div className="flex-1 flex items-center justify-center px-4">
-          <div
-            className="w-full max-w-sm rounded-2xl p-6 text-center"
-            style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)" }}
-          >
-            <div className="text-5xl mb-3">❌</div>
-            <p className="text-status-danger-fg font-medium">{error}</p>
-            <p className="text-sm text-white/30 mt-3">Vuelve a pantalla principal en 4s...</p>
-          </div>
-        </div>
-      </div>
+      <Shell>
+        <ResultScreen
+          tone="bad"
+          icon={
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          }
+          title="MARCA NO REGISTRADA"
+          who={error}
+          footer={
+            <XlButton variant="ghost" size="md" onClick={resetToHome}>
+              Reintentar
+            </XlButton>
+          }
+        />
+      </Shell>
     );
   }
 
   // ── Step 1: RUT entry ───────────────────────────────────────────────────
   if (mode === "rut-entry") {
     return (
-      <div className="min-h-dvh flex flex-col" style={{ background: "#060a13" }}>
-        <Header />
-        <div className="flex-1 flex flex-col justify-center px-4 pb-8">
-          <div className="mb-8 text-center">
-            <p className="text-white/60 text-sm">Ingresa tu RUT para identificarte</p>
-          </div>
+      <Shell>
+        <div className="flex flex-1 flex-col justify-center px-4 pb-8">
+          <p className="text-center font-mono text-[12px] font-medium uppercase tracking-[0.18em] text-ds-text-3">
+            {dateStr}
+          </p>
+          <p
+            className="mt-1 text-center font-mono font-bold tabular-nums leading-none text-ds-text-1"
+            style={{ fontSize: "clamp(56px, 17vw, 72px)" }}
+          >
+            {hour}:{minute}
+            <span className="text-ds-text-3">:{second}</span>
+          </p>
+          <p className="mt-3 flex items-center justify-center gap-1.5 text-sm text-ds-text-2">
+            <MapPin className="h-4 w-4 shrink-0 text-primary" aria-hidden />
+            {installationName}
+          </p>
 
-          <form onSubmit={handleRutSubmit} className="space-y-4">
+          <form onSubmit={handleRutSubmit} className="mt-10 space-y-4">
             <div>
-              <label className="block text-sm text-white/40 mb-2 text-center tracking-widest uppercase">
+              <label className="mb-2 block text-center font-mono text-[12px] uppercase tracking-widest text-ds-text-3">
                 RUT
               </label>
               <input
@@ -654,8 +669,7 @@ export function MarcacionScreen({
                   setRutInput(formatRutInput(e.target.value));
                 }}
                 placeholder="12.345.678-K"
-                className="w-full rounded-2xl px-5 py-4 text-white text-xl text-center placeholder-white/15 outline-none tracking-widest"
-                style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", fontSize: "1.5rem" }}
+                className="h-12 w-full rounded-2xl border border-ds-border-default bg-ds-surface-2 px-5 text-center font-mono text-xl tracking-widest text-ds-text-1 outline-none placeholder:text-ds-text-4 focus-visible:ring-2 focus-visible:ring-primary"
                 inputMode="text"
                 pattern="[0-9kK.\-]*"
                 autoCapitalize="characters"
@@ -666,90 +680,72 @@ export function MarcacionScreen({
             </div>
 
             {error && (
-              <p className="text-status-danger-fg text-sm text-center">{error}</p>
+              <p className="text-center text-sm text-status-danger-fg">{error}</p>
             )}
 
-            <button
+            <XlButton
               type="submit"
+              variant="teal"
+              size="lg"
               disabled={!rutInput.trim() || lookupLoading}
-              className="w-full rounded-2xl py-4 text-base font-bold text-white transition-opacity disabled:opacity-40"
-              style={{ background: "rgba(16,185,129,0.4)", border: "1px solid rgba(16,185,129,0.3)" }}
+              className="min-h-[80px]"
             >
-              {lookupLoading ? "Buscando..." : "Continuar →"}
-            </button>
+              {lookupLoading ? "Buscando..." : "Continuar"}
+            </XlButton>
           </form>
 
           {lastMarca && (
-            <div className="mt-8 rounded-xl p-3 text-center" style={{ background: "rgba(255,255,255,0.03)" }}>
-              <p className="text-sm text-white/30">Última marca registrada</p>
-              <p className="text-sm text-white/60 mt-1">
+            <div className="mt-8 rounded-xl border border-ds-border-subtle bg-ds-surface-2 p-3 text-center">
+              <p className="text-[12px] uppercase tracking-wide text-ds-text-3">Última marca de esta sesión</p>
+              <p className="mt-1 text-sm text-ds-text-2">
                 {lastMarca.guardiaName} — {lastMarca.tipo === "entrada" ? "Entrada" : "Salida"}{" "}
-                {new Date(lastMarca.timestamp).toLocaleTimeString("es-CL", {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                  second: "2-digit",
-                  hour12: false,
-                })}
+                {formatStamp(lastMarca.timestamp)}
               </p>
             </div>
           )}
         </div>
-      </div>
+      </Shell>
     );
   }
 
   // ── Step 2: Face verify (or no face ID registered) ──────────────────────
   if (mode === "face-verify" && guardiaInfo) {
     const tipo = guardiaInfo.nextTipo;
-    const tipoColor = tipo === "entrada" ? "rgba(16,185,129,0.4)" : "rgba(239,68,68,0.4)";
-    const tipoBorder = tipo === "entrada" ? "rgba(16,185,129,0.3)" : "rgba(239,68,68,0.3)";
-    const tipoText = tipo === "entrada" ? "text-status-ok-fg" : "text-status-danger-fg";
     const gpsReady = gpsStatus === "ok" && geoPosition != null;
 
     return (
-      <div className="min-h-dvh flex flex-col relative" style={{ background: "#060a13" }}>
-        <GpsIndicator />
+      <Shell>
         <GpsModal />
-        <Header />
-        <div className="flex-1 flex flex-col px-4 pb-6">
-          {/* Guardia greeting */}
-          <div className="flex items-center gap-3 my-4">
+        <div className="flex flex-1 flex-col px-4 pb-6">
+          <div className="my-4 flex items-center gap-3">
             {guardiaInfo.photoUrl ? (
               <img
                 src={guardiaInfo.photoUrl}
                 alt={guardiaInfo.name}
-                className="h-14 w-14 rounded-full object-cover"
-                style={{ border: `2px solid ${tipoColor}` }}
+                className="h-14 w-14 rounded-full object-cover border-2 border-primary"
               />
             ) : (
-              <div
-                className="h-14 w-14 rounded-full flex items-center justify-center text-2xl font-bold text-white/60"
-                style={{ background: "rgba(255,255,255,0.08)", border: `2px solid ${tipoColor}` }}
-              >
+              <div className="flex h-14 w-14 items-center justify-center rounded-full border-2 border-primary bg-ds-surface-2 text-2xl font-bold text-ds-text-2">
                 {guardiaInfo.name.charAt(0).toUpperCase()}
               </div>
             )}
             <div>
-              <p className="text-sm text-white/40">Hola,</p>
-              <p className="text-lg font-bold text-white">{guardiaInfo.name}</p>
-              <p className={`text-sm font-semibold ${tipoText}`}>
+              <p className="text-sm text-ds-text-3">Hola,</p>
+              <p className="text-lg font-bold text-ds-text-1">{guardiaInfo.name}</p>
+              <p className={`text-sm font-semibold ${tipo === "entrada" ? "text-status-ok-fg" : "text-ds-text-2"}`}>
                 Tu siguiente marca: {tipo === "entrada" ? "ENTRADA" : "SALIDA"}
               </p>
             </div>
           </div>
 
           {error && (
-            <div
-              className="rounded-xl p-3 mb-3 text-sm text-status-danger-fg text-center"
-              style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)" }}
-            >
+            <div className="mb-3 rounded-xl border border-status-danger-border bg-status-danger-soft p-3 text-center text-sm text-status-danger-fg">
               {error}
             </div>
           )}
 
-          {/* Main face capture area */}
           {guardiaInfo.faceIdRegistered ? (
-            <div className="flex-1 flex flex-col">
+            <div className="flex flex-1 flex-col">
               <FaceCameraCapture
                 onCapture={handleFaceCapture}
                 onCancel={() => {
@@ -759,48 +755,41 @@ export function MarcacionScreen({
                 }}
                 captureLabel={
                   gpsReady
-                    ? `Marcar ${tipo === "entrada" ? "Entrada" : "Salida"}`
+                    ? tipo === "entrada"
+                      ? "ENTRADA"
+                      : "SALIDA"
                     : "Obteniendo ubicación..."
                 }
-                captureColor={tipoColor}
+                captureVariant={tipo === "entrada" ? "teal" : "dark"}
                 captureDisabled={!gpsReady}
               />
             </div>
           ) : (
-            // No face ID registered yet
-            <div
-              className="flex-1 flex flex-col items-center justify-center rounded-2xl p-6 text-center"
-              style={{ background: "rgba(255,255,255,0.03)", border: "1px dashed rgba(255,255,255,0.1)" }}
-            >
-              <div className="text-4xl mb-3">🤳</div>
-              <p className="text-white font-semibold mb-2">No tienes Face ID activado</p>
-              <p className="text-white/50 text-sm mb-6">
+            <div className="flex flex-1 flex-col items-center justify-center rounded-2xl border border-dashed border-ds-border-default bg-ds-surface-2 p-6 text-center">
+              <p className="mb-2 font-semibold text-ds-text-1">No tienes Face ID activado</p>
+              <p className="mb-6 text-sm text-ds-text-3">
                 Registra tu rostro para poder marcar con Face ID
               </p>
-              <button
-                onClick={() => setMode("face-register")}
-                className="w-full max-w-xs rounded-xl py-3 text-sm font-bold text-white mb-3"
-                style={{ background: "rgba(16,185,129,0.4)", border: "1px solid rgba(16,185,129,0.3)" }}
-              >
+              <XlButton variant="teal" size="md" onClick={() => setMode("face-register")}>
                 Registrar Face ID ahora
-              </button>
+              </XlButton>
             </div>
           )}
 
-          {/* PIN fallback link */}
           <div className="mt-4 text-center">
             <button
+              type="button"
               onClick={() => {
                 setPinFallbackReason("user_choice");
                 setMode("pin-fallback");
               }}
-              className="text-xs text-white/25 hover:text-white/50 transition-colors underline underline-offset-2"
+              className="inline-flex min-h-11 items-center px-3 text-sm text-ds-text-3 underline underline-offset-2"
             >
               ¿Problemas con la cámara? Usar PIN
             </button>
           </div>
         </div>
-      </div>
+      </Shell>
     );
   }
 
@@ -810,32 +799,25 @@ export function MarcacionScreen({
     const gpsReady = gpsStatus === "ok" && geoPosition != null;
 
     return (
-      <div className="min-h-dvh flex flex-col relative" style={{ background: "#060a13" }}>
-        <GpsIndicator />
+      <Shell>
         <GpsModal />
-        <Header />
-        <div className="flex-1 flex flex-col justify-center px-4 pb-8">
-          {/* Warning badge */}
-          <div
-            className="rounded-xl p-3 mb-6 text-center"
-            style={{ background: "rgba(245,158,11,0.1)", border: "1px solid rgba(245,158,11,0.3)" }}
-          >
-            <p className="text-status-warn-fg text-xs font-medium">
-              ⚠️ Marcación con PIN — requiere validación del supervisor
+        <div className="flex flex-1 flex-col justify-center px-4 pb-8">
+          <div className="mb-6 rounded-xl border border-status-warn-border bg-status-warn-soft p-3 text-center">
+            <p className="text-sm font-medium text-status-warn-fg">
+              Marcación con PIN — requiere validación del supervisor
             </p>
           </div>
 
-          {/* Guardia info */}
           <div className="mb-6 text-center">
-            <p className="text-white font-bold text-lg">{guardiaInfo.name}</p>
-            <p className={`text-sm font-semibold ${tipo === "entrada" ? "text-status-ok-fg" : "text-status-danger-fg"}`}>
+            <p className="text-lg font-bold text-ds-text-1">{guardiaInfo.name}</p>
+            <p className={`text-sm font-semibold ${tipo === "entrada" ? "text-status-ok-fg" : "text-ds-text-2"}`}>
               {tipo === "entrada" ? "ENTRADA" : "SALIDA"}
             </p>
           </div>
 
           <form onSubmit={handlePinSubmit} className="space-y-4">
             <div>
-              <label className="block text-sm text-white/40 mb-2 text-center tracking-widest uppercase">
+              <label className="mb-2 block text-center font-mono text-[12px] uppercase tracking-widest text-ds-text-3">
                 PIN
               </label>
               <input
@@ -844,8 +826,7 @@ export function MarcacionScreen({
                 onChange={(e) => setPin(e.target.value)}
                 placeholder="••••"
                 maxLength={6}
-                className="w-full rounded-2xl px-5 py-4 text-white text-xl text-center placeholder-white/15 outline-none tracking-widest"
-                style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", fontSize: "2rem", letterSpacing: "0.5rem" }}
+                className="h-12 w-full rounded-2xl border border-ds-border-default bg-ds-surface-2 px-5 text-center font-mono text-[2rem] tracking-[0.5rem] text-ds-text-1 outline-none placeholder:text-ds-text-4 focus-visible:ring-2 focus-visible:ring-primary"
                 inputMode="numeric"
                 autoComplete="off"
                 autoFocus
@@ -853,34 +834,35 @@ export function MarcacionScreen({
             </div>
 
             {error && (
-              <p className="text-status-danger-fg text-sm text-center">{error}</p>
+              <p className="text-center text-sm text-status-danger-fg">{error}</p>
             )}
 
-            <button
+            <XlButton
               type="submit"
+              variant={tipo === "entrada" ? "teal" : "dark"}
+              size="xl"
               disabled={!pin || pinLoading || !gpsReady}
-              className="w-full rounded-2xl py-4 text-base font-bold text-white transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
-              style={{
-                background: tipo === "entrada" ? "rgba(16,185,129,0.4)" : "rgba(239,68,68,0.4)",
-                border: `1px solid ${tipo === "entrada" ? "rgba(16,185,129,0.3)" : "rgba(239,68,68,0.3)"}`,
-              }}
+              className="min-h-[88px] sm:min-h-[96px]"
             >
               {pinLoading
                 ? "Registrando..."
                 : !gpsReady
                   ? "Obteniendo ubicación..."
-                  : `Marcar ${tipo === "entrada" ? "Entrada" : "Salida"} con PIN`}
-            </button>
+                  : tipo === "entrada"
+                    ? "ENTRADA"
+                    : "SALIDA"}
+            </XlButton>
           </form>
 
           <button
+            type="button"
             onClick={() => setMode("face-verify")}
-            className="mt-5 w-full text-xs text-white/30 hover:text-white/50 transition-colors"
+            className="mt-5 inline-flex min-h-11 w-full items-center justify-center text-sm text-ds-text-3"
           >
-            ← Volver a Face ID
+            Volver a Face ID
           </button>
         </div>
-      </div>
+      </Shell>
     );
   }
 

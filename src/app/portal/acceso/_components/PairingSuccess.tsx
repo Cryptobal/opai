@@ -1,6 +1,7 @@
 "use client";
 
 import { CheckCircle2, Building2 } from "lucide-react";
+import { XlButton } from "@/components/opai/terreno";
 
 interface PairingSuccessProps {
   installationName: string;
@@ -43,13 +44,9 @@ export function PairingSuccess({
         </div>
 
         {/* Continue button */}
-        <button
-          type="button"
-          onClick={onContinue}
-          className="flex w-full items-center justify-center rounded-xl bg-primary px-4 py-3.5 text-sm font-semibold text-primary-foreground transition-colors hover:brightness-110 active:brightness-95"
-        >
+        <XlButton variant="teal" size="md" onClick={onContinue}>
           COMENZAR
-        </button>
+        </XlButton>
       </div>
     </div>
   );

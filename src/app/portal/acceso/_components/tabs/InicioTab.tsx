@@ -13,10 +13,13 @@ import {
   Clock,
   AlertTriangle,
   Activity,
-  Timer,
   ChevronRight,
   X,
+  QrCode,
+  ScanLine,
+  Keyboard,
 } from "lucide-react";
+import EsperadosHoySection from "./EsperadosHoySection";
 import { Badge } from "@/components/ui/badge";
 import MetricCard from "../ui/MetricCard";
 import SkeletonCard from "../ui/SkeletonCard";
@@ -44,12 +47,12 @@ const TYPE_ICONS: Record<AccessRecordType, React.ReactNode> = {
   delivery: <Package className="h-4 w-4" />,
 };
 
-const TYPE_ICON_COLORS: Record<AccessRecordType, string> = {
-  visit: "#3B82F6",
-  provider: "#F97316",
-  vehicle: "#A855F7",
-  staff: "#10B981",
-  delivery: "#F59E0B",
+const TYPE_ICON_TONE: Record<AccessRecordType, string> = {
+  visit: "bg-status-info-soft text-status-info-fg",
+  provider: "bg-status-warn-soft text-status-warn-fg",
+  vehicle: "bg-tint-violet text-tint-violet-fg",
+  staff: "bg-status-ok-soft text-status-ok-fg",
+  delivery: "bg-status-warn-soft text-status-warn-fg",
 };
 
 // ── Props ───────────────────────────────────────────────────────────────────
@@ -59,6 +62,7 @@ interface InicioTabProps {
   installationName: string;
   guardName: string;
   deviceToken?: string;
+  onQuickEntry?: () => void;
 }
 
 // ── Component ───────────────────────────────────────────────────────────────
@@ -68,12 +72,15 @@ export default function InicioTab({
   installationName,
   guardName,
   deviceToken,
+  onQuickEntry,
 }: InicioTabProps) {
   const [stats, setStats] = useState<AccessControlStats | null>(null);
   const [recentRecords, setRecentRecords] = useState<AccessControlRecordData[]>([]);
   const [alerts, setAlerts] = useState<AccessControlRecordData[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedRecord, setSelectedRecord] = useState<AccessControlRecordData | null>(null);
+  const [search, setSearch] = useState("");
+  const [esperados, setEsperados] = useState({ pending: 0, total: 0 });
 
   const fetchData = useCallback(async () => {
     try {
@@ -108,6 +115,20 @@ export default function InicioTab({
           return elapsed > 480; // 8 hours default threshold
         });
         setAlerts(inSiteAlerts);
+      }
+
+      const preRes = await authFetch(
+        `/api/access-control/preregistrations/${installationId}/today`,
+        undefined,
+        deviceToken,
+      );
+      const preJson = preRes.ok ? await preRes.json() : { success: false };
+      if (preJson.success) {
+        const list = (preJson.data ?? []) as { status?: string }[];
+        setEsperados({
+          total: list.length,
+          pending: list.filter((p) => p.status === "pending").length,
+        });
       }
     } catch {
       // Silently fail - could be offline
@@ -157,47 +178,82 @@ export default function InicioTab({
     );
   }
 
+  const inSiteNow = recentRecords.filter((r) => !r.exitAt);
+  const q = search.trim().toLowerCase();
+  const filteredRecords = q
+    ? recentRecords.filter((r) =>
+        [r.fullName, r.vehiclePlate, r.rut, r.company]
+          .filter(Boolean)
+          .some((v) => String(v).toLowerCase().includes(q)),
+      )
+    : recentRecords;
+
+  const scanMethods = [
+    { id: "qr", label: "Cédula QR", icon: QrCode },
+    { id: "ocr", label: "OCR", icon: ScanLine },
+    { id: "plate", label: "Patente", icon: Car },
+    { id: "manual", label: "Manual", icon: Keyboard },
+  ] as const;
+
   return (
     <PullToRefresh onRefresh={handleRefresh}>
-      <div className="space-y-5">
-        {/* ── Greeting Banner ──────────────────────────────────────── */}
-        <div className="rounded-xl bg-status-info-soft border border-status-info-border p-5">
+      <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+        <div className="space-y-5">
+        <div className="rounded-xl border border-status-info-border bg-status-info-soft p-5">
           <p className="text-lg font-semibold text-status-info-fg">
             {greeting}, {guardName.split(" ")[0]}
           </p>
-          <p className="mt-1 text-sm text-muted-foreground">{installationName}</p>
+          <p className="mt-1 text-sm text-ds-text-3">{installationName}</p>
         </div>
 
-        {/* ── Metric Cards ─────────────────────────────────────────── */}
         <div className="grid grid-cols-3 gap-3">
           <MetricCard
             value={stats?.currentlyInSite ?? 0}
-            label="En Sitio ahora"
+            label="En sitio"
             icon={<Users className="h-5 w-5" />}
-            color="#06B6D4"
+            tone="info"
           />
           <MetricCard
             value={stats?.totalEntriesToday ?? 0}
-            label="Entradas Hoy"
+            label="Ingresos hoy"
             icon={<ArrowUpRight className="h-5 w-5" />}
-            color="#10B981"
+            tone="ok"
           />
           <MetricCard
-            value={
-              stats?.averageStayMinutes
-                ? formatDuration(stats.averageStayMinutes)
-                : "--"
-            }
-            label="Promedio registro"
-            icon={<Timer className="h-5 w-5" />}
-            color="#F59E0B"
+            value={`${esperados.pending}/${esperados.total}`}
+            label="Esperados"
+            icon={<Clock className="h-5 w-5" />}
+            tone="warn"
           />
         </div>
 
-        {/* ── Alerts ───────────────────────────────────────────────── */}
+        <div className="relative">
+          <input
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Buscar nombre, RUT o patente"
+            className="h-[52px] w-full rounded-xl border border-ds-border-default bg-ds-surface-2 px-4 text-sm text-ds-text-1 outline-none placeholder:text-ds-text-4 focus-visible:ring-2 focus-visible:ring-primary"
+          />
+        </div>
+
+        <div className="grid grid-cols-4 gap-2">
+          {scanMethods.map((m) => (
+            <button
+              key={m.id}
+              type="button"
+              onClick={onQuickEntry}
+              className="flex min-h-[84px] flex-col items-center justify-center gap-1 rounded-2xl border border-ds-border-default bg-ds-surface-1 text-[12px] font-medium text-ds-text-2 active:scale-[0.97]"
+            >
+              <m.icon className="h-6 w-6 text-primary" />
+              {m.label}
+            </button>
+          ))}
+        </div>
+
         {alerts.length > 0 && (
           <div className="space-y-2">
-            <h3 className="flex items-center gap-2 text-base font-semibold text-[#F59E0B]">
+            <h3 className="flex items-center gap-2 text-base font-semibold text-status-warn-fg">
               <AlertTriangle className="h-4 w-4" />
               Alertas de permanencia
             </h3>
@@ -206,20 +262,20 @@ export default function InicioTab({
               return (
                 <div
                   key={record.id}
-                  className="flex items-center gap-3 rounded-lg border border-[#F59E0B]/30 bg-[#F59E0B]/5 p-3"
+                  className="flex items-center gap-3 rounded-lg border border-status-warn-border bg-status-warn-soft p-3"
                 >
-                  <AlertTriangle className="h-4 w-4 shrink-0 text-[#F59E0B] mt-0.5" />
+                  <AlertTriangle className="h-4 w-4 shrink-0 text-status-warn-fg mt-0.5" />
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-foreground break-words">
+                    <p className="text-sm font-medium text-ds-text-1 break-words">
                       {record.fullName || record.vehiclePlate || "Sin identificar"}
                     </p>
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-sm text-ds-text-3">
                       Lleva {formatDuration(elapsed)} en sitio
                     </p>
                   </div>
                   <Badge
                     variant="outline"
-                    className="shrink-0 border-[#F59E0B]/30 bg-[#F59E0B]/10 text-[#F59E0B] text-xs"
+                    className="shrink-0 border-status-warn-border bg-status-warn-soft text-status-warn-fg text-xs"
                   >
                     {formatDuration(elapsed)}
                   </Badge>
@@ -229,23 +285,22 @@ export default function InicioTab({
           </div>
         )}
 
-        {/* ── Recent Activity Timeline ─────────────────────────────── */}
         <div className="space-y-3">
-          <h3 className="flex items-center gap-2 text-base font-semibold text-foreground">
-            <Activity className="h-4 w-4 text-[#06B6D4]" />
+          <h3 className="flex items-center gap-2 text-base font-semibold text-ds-text-1">
+            <Activity className="h-4 w-4 text-status-info-fg" />
             Actividad reciente
           </h3>
 
-          {recentRecords.length === 0 ? (
-            <div className="rounded-xl border border-border bg-card opai-glass-soft-m p-8 text-center">
-              <Clock className="mx-auto h-8 w-8 text-[#374151]" />
-              <p className="mt-2 text-sm text-muted-foreground">
-                No hay actividad reciente
+          {filteredRecords.length === 0 ? (
+            <div className="rounded-xl border border-ds-border-default bg-ds-surface-1 p-8 text-center opai-glass-soft-m">
+              <Clock className="mx-auto h-8 w-8 text-ds-text-4" />
+              <p className="mt-2 text-sm text-ds-text-3">
+                {q ? "Sin resultados" : "No hay actividad reciente"}
               </p>
             </div>
           ) : (
             <div className="space-y-1">
-              {recentRecords.map((record) => {
+              {filteredRecords.map((record) => {
                 const isEntry = !record.exitAt;
                 const tc = RECORD_TYPE_CONFIG[record.recordType] ?? { label: record.recordType, icon: "UserPlus", color: "blue" };
                 const timeStr = new Date(
@@ -260,61 +315,77 @@ export default function InicioTab({
                     key={record.id}
                     type="button"
                     onClick={() => setSelectedRecord(record)}
-                    className="flex w-full items-center gap-3 rounded-lg border border-border bg-card opai-glass-soft-m p-3 text-left transition-colors active:bg-muted"
+                    className="flex w-full items-center gap-3 rounded-lg border border-ds-border-default bg-ds-surface-1 p-3 text-left opai-glass-soft-m active:bg-ds-surface-2"
                   >
-                    {/* Type icon */}
                     <div
-                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full"
-                      style={{
-                        backgroundColor: `${TYPE_ICON_COLORS[record.recordType]}15`,
-                        color: TYPE_ICON_COLORS[record.recordType],
-                      }}
+                      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${TYPE_ICON_TONE[record.recordType] ?? "bg-ds-surface-2 text-ds-text-2"}`}
                     >
                       {TYPE_ICONS[record.recordType]}
                     </div>
-
-                    {/* Entry/Exit arrow */}
                     <div className="shrink-0">
                       {isEntry ? (
-                        <ArrowUpRight className="h-4 w-4 text-[#10B981]" />
+                        <ArrowUpRight className="h-4 w-4 text-status-ok-fg" />
                       ) : (
-                        <ArrowDownLeft className="h-4 w-4 text-[#F59E0B]" />
+                        <ArrowDownLeft className="h-4 w-4 text-status-warn-fg" />
                       )}
                     </div>
-
-                    {/* Name and details */}
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium text-foreground break-words">
+                      <p className="text-sm font-medium text-ds-text-1 break-words">
                         {record.fullName || record.vehiclePlate || "Sin identificar"}
                       </p>
-                      <p className="text-sm text-muted-foreground break-words">
+                      <p className="text-sm text-ds-text-3 break-words">
                         {record.company || tc.label}
                       </p>
                     </div>
-
-                    {/* Time */}
                     <div className="shrink-0 text-right">
-                      <p className="text-xs font-medium text-muted-foreground">
+                      <p className="font-mono text-[12px] font-medium tabular-nums text-ds-text-3">
                         {timeStr}
                       </p>
                       <Badge
                         variant="outline"
                         className={`mt-0.5 text-xs px-1.5 py-0 ${
                           isEntry
-                            ? "border-[#10B981]/30 text-[#10B981]"
-                            : "border-[#F59E0B]/30 text-[#F59E0B]"
+                            ? "border-status-ok-border text-status-ok-fg"
+                            : "border-status-warn-border text-status-warn-fg"
                         }`}
                       >
                         {isEntry ? "Entrada" : "Salida"}
                       </Badge>
                     </div>
-
-                    <ChevronRight className="h-4 w-4 shrink-0 text-[#374151]" />
+                    <ChevronRight className="h-4 w-4 shrink-0 text-ds-text-4" />
                   </button>
                 );
               })}
             </div>
           )}
+        </div>
+        </div>
+
+        <div className="space-y-5">
+          <EsperadosHoySection installationId={installationId} deviceToken={deviceToken} />
+          <div className="space-y-2">
+            <h3 className="text-lg font-semibold text-ds-text-1">En sitio ahora</h3>
+            {inSiteNow.length === 0 ? (
+              <p className="text-sm text-ds-text-3">Nadie en sitio</p>
+            ) : (
+              inSiteNow.slice(0, 8).map((record) => (
+                <div
+                  key={record.id}
+                  className="flex items-center justify-between rounded-lg border border-ds-border-default bg-ds-surface-1 p-3"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-ds-text-1">
+                      {record.fullName || record.vehiclePlate || "Sin identificar"}
+                    </p>
+                    <p className="text-[12px] text-ds-text-3">{record.company}</p>
+                  </div>
+                  <span className="font-mono text-sm tabular-nums text-ds-text-2">
+                    {formatDuration(elapsedMinutes(record.entryAt))}
+                  </span>
+                </div>
+              ))
+            )}
+          </div>
         </div>
       </div>
 
@@ -340,11 +411,7 @@ export default function InicioTab({
               {/* Type badge */}
               <div className="flex items-center gap-2">
                 <div
-                  className="flex h-8 w-8 items-center justify-center rounded-full"
-                  style={{
-                    backgroundColor: `${TYPE_ICON_COLORS[selectedRecord.recordType]}15`,
-                    color: TYPE_ICON_COLORS[selectedRecord.recordType],
-                  }}
+                  className={`flex h-8 w-8 items-center justify-center rounded-full ${TYPE_ICON_TONE[selectedRecord.recordType] ?? "bg-ds-surface-2 text-ds-text-2"}`}
                 >
                   {TYPE_ICONS[selectedRecord.recordType]}
                 </div>
@@ -358,8 +425,8 @@ export default function InicioTab({
                   variant="outline"
                   className={
                     selectedRecord.exitAt
-                      ? "border-[#F59E0B]/30 text-[#F59E0B]"
-                      : "border-[#10B981]/30 text-[#10B981]"
+                      ? "border-status-warn-border text-status-warn-fg"
+                      : "border-status-ok-border text-status-ok-fg"
                   }
                 >
                   {selectedRecord.exitAt ? "Salida registrada" : "En sitio"}

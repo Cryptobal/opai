@@ -121,22 +121,13 @@ export function MarcacionPortalApp() {
 
   if (appState === "loading") {
     return (
-      <div
-        className="min-h-dvh flex flex-col items-center justify-center"
-        style={{ background: "#0f172a" }}
-      >
-        <div
-          className="w-[56px] h-[56px] rounded-[16px] flex items-center justify-center mb-5"
-          style={{
-            background: "linear-gradient(135deg, #f43f5e, #e11d48, #be123c)",
-            boxShadow: "0 0 40px rgba(244,63,94,0.2)",
-          }}
-        >
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <div className="flex min-h-dvh flex-col items-center justify-center bg-background">
+        <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary text-primary-foreground">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
           </svg>
         </div>
-        <div className="w-6 h-6 border-2 border-white/10 border-t-white/40 rounded-full animate-spin" />
+        <div className="h-6 w-6 animate-spin rounded-full border-2 border-ds-border-default border-t-primary" />
       </div>
     );
   }

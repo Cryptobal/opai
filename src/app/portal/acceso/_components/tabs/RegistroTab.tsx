@@ -109,13 +109,13 @@ export default function RegistroTab({
         <button
           type="button"
           onClick={() => setActiveFlow("entry")}
-          className="group relative flex items-center gap-4 rounded-2xl border-2 border-[#10B981]/40 bg-[#10B981]/10 p-5 text-left transition-all active:scale-[0.98] active:bg-[#10B981]/20"
+          className="group relative flex items-center gap-4 rounded-2xl border-2 border-status-ok-border bg-status-ok-soft p-5 text-left transition-all active:scale-[0.98]"
         >
-          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-[#10B981]/20">
-            <ArrowUpRight className="h-7 w-7 text-[#10B981]" />
+          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-status-ok-soft">
+            <ArrowUpRight className="h-7 w-7 text-status-ok-fg" />
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-lg font-bold text-[#10B981] tracking-wide">REGISTRAR ENTRADA</p>
+            <p className="text-lg font-bold tracking-wide text-status-ok-fg">REGISTRAR ENTRADA</p>
             <p className="text-sm text-muted-foreground">Persona o vehiculo ingresa a la instalacion</p>
           </div>
         </button>
@@ -126,7 +126,7 @@ export default function RegistroTab({
           className="group relative flex items-center gap-4 rounded-2xl border-2 border-border bg-card opai-glass-soft-m p-5 text-left transition-all active:scale-[0.98] active:bg-muted"
         >
           <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-muted">
-            <ArrowDownLeft className="h-7 w-7 text-[#F59E0B]" />
+            <ArrowDownLeft className="h-7 w-7 text-status-warn-fg" />
           </div>
           <div className="min-w-0 flex-1">
             <p className="text-lg font-bold text-foreground tracking-wide">REGISTRAR SALIDA</p>

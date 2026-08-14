@@ -31,6 +31,14 @@ export async function savePendingMark(mark: Record<string, unknown>): Promise<vo
   });
 }
 
+export async function countPendingMarks(): Promise<number> {
+  try {
+    return (await getPendingMarks()).length;
+  } catch {
+    return 0;
+  }
+}
+
 export async function getPendingMarks(): Promise<Record<string, unknown>[]> {
   const db = await openDB();
   const tx = db.transaction(STORE_NAME, "readonly");

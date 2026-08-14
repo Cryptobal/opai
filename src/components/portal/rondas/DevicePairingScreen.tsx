@@ -1,3 +1,4 @@
+// @ds-allow-legacy AuthShell exige accent hex
 "use client";
 
 import { FormEvent, useState, useCallback } from "react";
@@ -79,10 +80,7 @@ export function DevicePairingScreen({ onPaired, onLegacyLogin }: Props) {
 
       <form onSubmit={handleSubmit}>
         {error && (
-          <div
-            className="rounded-xl px-4 py-3 mb-4 text-sm text-status-danger-fg"
-            style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)" }}
-          >
+          <div className="rounded-xl border border-status-danger-border bg-status-danger-soft px-4 py-3 mb-4 text-sm text-status-danger-fg">
             {error}
           </div>
         )}
@@ -116,7 +114,7 @@ export function DevicePairingScreen({ onPaired, onLegacyLogin }: Props) {
           <button
             type="button"
             onClick={onLegacyLogin}
-            className="text-xs text-[#6b7280] hover:text-[#9ca3af] transition-colors"
+            className="text-xs text-ds-text-3 hover:text-ds-text-2 transition-colors"
             style={{ textDecoration: "underline", textUnderlineOffset: "2px" }}
           >
             &iquest;Problemas? Ingresar con RUT + PIN

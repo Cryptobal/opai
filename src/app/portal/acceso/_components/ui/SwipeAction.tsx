@@ -14,7 +14,6 @@ const SWIPE_THRESHOLD = 80;
 export default function SwipeAction({
   children,
   actionLabel,
-  actionColor = "#EF4444",
   onAction,
 }: SwipeActionProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -33,7 +32,6 @@ export default function SwipeAction({
     if (!isSwiping) return;
 
     const deltaX = e.touches[0].clientX - startXRef.current;
-    // Only allow swiping left (negative direction)
     const clampedDelta = Math.min(0, Math.max(-SWIPE_THRESHOLD * 1.5, deltaX));
     currentXRef.current = clampedDelta;
     setTranslateX(clampedDelta);
@@ -43,10 +41,8 @@ export default function SwipeAction({
     setIsSwiping(false);
 
     if (currentXRef.current < -SWIPE_THRESHOLD) {
-      // Snap to reveal action
       setTranslateX(-SWIPE_THRESHOLD);
     } else {
-      // Snap back
       setTranslateX(0);
     }
   }, []);
@@ -64,25 +60,18 @@ export default function SwipeAction({
 
   return (
     <div className="relative overflow-hidden rounded-xl" ref={containerRef}>
-      {/* Action button behind */}
-      <div
-        className="absolute inset-y-0 right-0 flex items-center justify-center px-4"
-        style={{
-          backgroundColor: actionColor,
-          width: SWIPE_THRESHOLD,
-        }}
-      >
+      <div className="absolute inset-y-0 right-0 flex w-20 items-center justify-center bg-status-danger px-4">
         <button
+          type="button"
           onClick={handleAction}
-          className="text-white text-sm font-bold uppercase tracking-wide"
+          className="min-h-11 text-sm font-bold uppercase tracking-wide text-white"
         >
           {actionLabel}
         </button>
       </div>
 
-      {/* Content on top */}
       <div
-        className={`relative z-10 ${!isSwiping ? "transition-transform duration-200 ease-out" : ""}`}
+        className={`relative z-10 ${!isSwiping ? "transition-transform duration-200 ease-out motion-reduce:transition-none" : ""}`}
         style={{ transform: `translateX(${translateX}px)` }}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}

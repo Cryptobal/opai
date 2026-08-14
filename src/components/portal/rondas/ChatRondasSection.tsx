@@ -218,7 +218,7 @@ export function ChatRondasSection({ session, onBack }: ChatRondasSectionProps) {
   };
 
   return (
-    <div className="flex flex-1 overflow-hidden flex-col bg-[#0a0a0f]">
+    <div className="flex flex-1 overflow-hidden flex-col bg-background">
       {/* Header */}
       <header className="flex items-center gap-3 px-4 py-3 border-b border-border bg-card opai-glass-strong-m">
         <button onClick={onBack} className="text-muted-foreground hover:text-foreground transition-colors">
@@ -228,7 +228,7 @@ export function ChatRondasSection({ session, onBack }: ChatRondasSectionProps) {
           <h2 className="text-sm font-semibold text-foreground truncate">
             {channelName || "Chat"}
           </h2>
-          <p className="text-[10px] text-muted-foreground">Chat de instalación</p>
+          <p className="text-[12px] text-ds-text-3">Chat de instalación</p>
         </div>
       </header>
 
@@ -294,8 +294,8 @@ export function ChatRondasSection({ session, onBack }: ChatRondasSectionProps) {
           )}
 
           {/* Input */}
-          <div className="px-4 py-3 border-t border-[rgba(255,255,255,0.06)] bg-card opai-glass-soft-m pb-[env(safe-area-inset-bottom)]">
-            <div className="flex items-end gap-2 bg-muted rounded-xl border border-[rgba(255,255,255,0.06)] focus-within:border-[rgba(45,212,191,0.3)] px-3 py-2">
+          <div className="px-4 py-3 border-t border-ds-border-subtle bg-ds-surface-1 pb-[env(safe-area-inset-bottom)]">
+            <div className="flex items-end gap-2 bg-ds-surface-2 rounded-xl border border-ds-border-default focus-within:border-primary/40 px-3 py-2">
               <textarea
                 ref={inputRef}
                 value={inputText}
@@ -309,7 +309,7 @@ export function ChatRondasSection({ session, onBack }: ChatRondasSectionProps) {
               <button
                 onClick={handleSend}
                 disabled={!inputText.trim() || isSending}
-                className="h-[38px] w-[38px] rounded-lg bg-primary flex items-center justify-center text-primary-foreground disabled:opacity-40 hover:bg-teal-300 transition-colors shrink-0"
+                className="h-[38px] w-[38px] rounded-lg bg-primary flex items-center justify-center text-primary-foreground disabled:opacity-40 hover:brightness-110 transition-colors shrink-0"
               >
                 {isSending ? (
                   <Loader2 className="h-4 w-4 animate-spin" />

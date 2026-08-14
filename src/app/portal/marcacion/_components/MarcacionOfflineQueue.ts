@@ -35,7 +35,32 @@ function openDB(): Promise<IDBDatabase> {
   });
 }
 
+type QueueListener = () => void;
+const listeners = new Set<QueueListener>();
+
+function notifyQueue(): void {
+  for (const fn of listeners) {
+    try {
+      fn();
+    } catch {
+      /* ignore listener errors */
+    }
+  }
+}
+
 export const MarcacionOfflineQueue = {
+  subscribe(listener: QueueListener): () => void {
+    listeners.add(listener);
+    return () => {
+      listeners.delete(listener);
+    };
+  },
+
+  async count(): Promise<number> {
+    const pending = await this.getAll();
+    return pending.filter((m) => !m.synced).length;
+  },
+
   async add(marcacion: Omit<OfflineMarcacion, "id" | "synced">): Promise<void> {
     try {
       const db = await openDB();
@@ -46,6 +71,7 @@ export const MarcacionOfflineQueue = {
         tx.oncomplete = () => resolve();
         tx.onerror = () => reject(tx.error);
       });
+      notifyQueue();
     } catch (err) {
       console.error("[MarcacionOfflineQueue] Error adding:", err);
       // Fallback to localStorage
@@ -54,6 +80,7 @@ export const MarcacionOfflineQueue = {
         const existing = JSON.parse(localStorage.getItem(key) || "[]");
         existing.push({ ...marcacion, synced: false });
         localStorage.setItem(key, JSON.stringify(existing));
+        notifyQueue();
       } catch { /* storage full or unavailable */ }
     }
   },
@@ -88,6 +115,7 @@ export const MarcacionOfflineQueue = {
         tx.oncomplete = () => resolve();
         tx.onerror = () => reject(tx.error);
       });
+      notifyQueue();
     } catch {
       // Ignore
     }
@@ -154,6 +182,7 @@ export const MarcacionOfflineQueue = {
       } catch { /* ignore */ }
     }
 
+    notifyQueue();
     return { synced, failed };
   },
 };
